@@ -71,7 +71,7 @@ BOOL CCoolerMouseApp::InitInstance()
 	}
 	else
 	{
-		m_pvsg = new VSGHelper(false, dist);
+		m_pvsg = new VSGHelper(true, dist);
 	}
 
 	// Now get init string for stimulus and fixpt. 
