@@ -35,7 +35,8 @@ int init_vsg(int screenDistanceMM, COLOR_TYPE i_background);
 void clear_vsg();
 
 
-// this struct holds parameters for a fixation point
+// this struct holds parameters for a fixation point. The draw() method puts it on a 
+// single level with no vsg object stuff. 
 class AlertFixationPoint
 {
 public:
@@ -46,6 +47,21 @@ public:
 	COLOR_TYPE color;
 	void draw(PIXEL_LEVEL level);
 };
+
+
+class AlertFixationPointObj: public AlertFixationPoint
+{
+public:
+	AlertFixationPointObj() : m_handle(false), m_levels(false) {};
+	~AlertFixationPointObj() {};
+	void setLevels(PIXEL_LEVEL first, PIXEL_LEVEL last, COLOR_TYPE endpoint)
+	{
+	};
+private:
+	bool m_handle;
+	VSGOBJHANDLE handle;
+	
+
 
 
 class AlertGrating

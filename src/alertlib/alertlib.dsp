@@ -87,6 +87,10 @@ LIB32=link.exe -lib
 
 SOURCE=.\src\AlertLib.cpp
 # End Source File
+# Begin Source File
+
+SOURCE=.\src\getopt.c
+# End Source File
 # End Group
 # Begin Group "Header Files"
 
@@ -94,6 +98,10 @@ SOURCE=.\src\AlertLib.cpp
 # Begin Source File
 
 SOURCE=.\include\Alertlib.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\include\getopt.h
 # End Source File
 # End Group
 # End Target
