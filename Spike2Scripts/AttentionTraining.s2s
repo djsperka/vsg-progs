@@ -1,6 +1,12 @@
 ' $Log: not supported by cvs2svn $
+' Revision 1.2  2004/10/01 19:36:34  dan
+' From production
+'
 '
 
+var bin$, script$;
+bin$ := View(App(3)).FileName$(1) + View(App(3)).FileName$(2) + "..\\bin";	' Location of executables is ..\bin, relative to script dir
+script$ := View(App(3)).FileName$(1) + View(App(3)).FileName$(2);	' folder containing this script
 
 
 'Experiment specific variables
@@ -214,7 +220,7 @@ Toolbar("Go",12345);
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 func S0tart%()
 var CommandLine$;
-CommandLine$ :="C:\\AlertRig\\NewAttention "+str$(FixationX)+" "+str$(FixationY)+" "+BackgroundColor$+" "
+CommandLine$ :=bin$ + "NewAttention "+str$(FixationX)+" "+str$(FixationY)+" "+BackgroundColor$+" "
 					+str$(FixationPointDiameter)+" "+str$(BaseContrast)+" "+str$(ContrastUp)+" "+str$(ContrastDown)+" "
 					+str$(IncorrectBrightness)+" "
 					+GratingOrSpot$[GratingOrSpotIndex%]+" "+str$(TargetX)+" "+str$(TargetY)+" "+str$(TargetOrientation)+" "
@@ -241,7 +247,7 @@ SampleKey("L");
 Yield(.1);
 SampleStop();
 ProgKill(StimHandle);
-ProgRun("C:\\AlertRig\\ClearTrigger",0); 
+ProgRun(bin$ + "ClearTrigger",0); 
 Message("Press OK to end program");
 end;
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
@@ -679,7 +685,7 @@ SampleTitle$(XChannel%,"Eye X");
 SampleWaveform(YChannel%,15,1000);
 SampleTitle$(YChannel%,"Eye Y");
 
-SampleSequencer("c:\\alertrig\\Attention.pls");
+SampleSequencer(script$ + "Attention.pls");
 SampleOptimise(2,2,2,2,50);  'Set optimise mode (do this last)
 SampleMode(1); 'Continuous sampling
 end;

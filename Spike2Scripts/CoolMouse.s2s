@@ -1,5 +1,13 @@
-' $Log: not supported by cvs2svn $ 
+' $Log: not supported by cvs2svn $
+' Revision 1.2  2004/10/01 19:36:48  dan
+' From production
+' 
 '
+
+var bin$, script$;
+bin$ := View(App(3)).FileName$(1) + View(App(3)).FileName$(2) + "..\\bin";	' Location of executables is ..\bin, relative to script dir
+script$ := View(App(3)).FileName$(1) + View(App(3)).FileName$(2);	' folder containing this script
+
 
 'Idle Processing Variables
 var MasterTargetIndex[10000],TargetTable[8][2],Pause,ViewHandle,NumberRead,FilePathRoot$,DistanceToScreen,ExperimentHandle ;
@@ -129,7 +137,7 @@ ToolbarEnable(5,0);
 
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 func Start%()
-StimHandle := ProgRun("C:\\AlertRig\\mouse3 "+str$(FixationX)+" "+str$(FixationY)+" "+str$(FixationDiameter)+" "+str$(DistanceToScreen),1);
+StimHandle := ProgRun(bin$ + "mouse3 "+str$(FixationX)+" "+str$(FixationY)+" "+str$(FixationDiameter)+" "+str$(DistanceToScreen),1);
 if StimHandle <0 then Message("Could not start stimulus."); halt; endif
 Yield(3);
 SampleStart(0); 
@@ -150,7 +158,7 @@ SampleKey("L");
 Yield(.1);
 SampleStop();
 ProgKill(StimHandle);
-ProgRun("C:\\AlertRig\\ClearTrigger",0);
+ProgRun(bin$ + "ClearTrigger",0);
 end;
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 func Juice%()
@@ -295,7 +303,7 @@ SampleTitle$(XChannel%,"Eye X");
 SampleWaveform(YChannel%,15,28000);
 SampleTitle$(YChannel%,"Eye Y");
 
-SampleSequencer("c:\\alertrig\\Fixation.pls");
+SampleSequencer(script$ + "Fixation.pls");
 SampleOptimise(2,2,2,2,50);  'Set optimise mode (do this last)
 SampleMode(1); 'Continuous sampling
 end;

@@ -1,4 +1,11 @@
-' $Log: not supported by cvs2svn $ 
+' $Log: not supported by cvs2svn $
+' Revision 1.1  2004/10/01 19:41:01  dan
+' From production
+' 
+
+var bin$, script$;
+bin$ := View(App(3)).FileName$(1) + View(App(3)).FileName$(2) + "..\\bin";	' Location of executables is ..\bin, relative to script dir
+script$ := View(App(3)).FileName$(1) + View(App(3)).FileName$(2);	' folder containing this script
 
 
 var NumberOfChannels%,DataWindow%,FramesPerTerm%;
@@ -139,7 +146,7 @@ next
 	
 SampleStart(1);
 var CommandLine$,ProgReturn;
-CommandLine$ := "C:\\Henry\\Development\\RepeatedMSeqGratingCodeSF\\Release\\RepeatedMSeqGratingSF "+Str$(GratingDiameter)+" "+Str$(GratingContrast)+" "+Str$(SpatialFrequency)+" "+Str$(HighSpatialFrequency)+" ";
+CommandLine$ := bin$ + "RepeatedMSeqGratingSF "+Str$(GratingDiameter)+" "+Str$(GratingContrast)+" "+Str$(SpatialFrequency)+" "+Str$(HighSpatialFrequency)+" ";
 CommandLine$ := CommandLine$+Str$(Orientation)+" "+Str$(DistanceToScreen);
 CommandLine$ := CommandLine$+" "+Str$(FramesPerTerm%)+" "+Str$(XOrigin)+" "+Str$(YOrigin)+" "+Str$(Repeats%)+" "+Str$(SignalDuration)+" "+Str$(BlankDuration);
 StimulusHandle% := ProgRun(CommandLine$);
