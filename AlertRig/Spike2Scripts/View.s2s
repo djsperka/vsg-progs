@@ -1,4 +1,7 @@
-' $Log: not supported by cvs2svn $ 
+' $Log: not supported by cvs2svn $
+' Revision 1.1  2004/10/01 19:41:01  dan
+' From production
+' 
 
 
 'Determine which monkey we're currently running
@@ -101,7 +104,7 @@ SampleTitle$(XChannel%,"Eye X");
 SampleWaveform(YChannel%,15,28000);
 SampleTitle$(YChannel%,"Eye Y");
 
-SampleSequencer("c:\\alertrig\\Fixation.pls");
+SampleSequencer(script$ + "Fixation.pls");
 SampleOptimise(2,2,2,2,50);  'Set optimise mode (do this last)
 SampleMode(1); 'Continuous sampling
 
