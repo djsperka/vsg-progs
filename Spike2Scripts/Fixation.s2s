@@ -1,0 +1,596 @@
+' $Log: not supported by cvs2svn $
+' Revision 1.3  2004/10/01 21:07:51  dan
+' Fix bugs in prog command line.
+'
+' Revision 1.2  2004/10/01 20:06:10  dan
+' Modified directory locations for executables (../bin) and sequencer files (script dir)
+'
+' Revision 1.1  2004/10/01 19:41:01  dan
+' From production
+' 
+
+
+'========================================================================
+'
+' INPUTS
+'
+' Eye X, Y - ADC input 14, 15 respectively
+' VSG trigger - assumed on DIGIN byte 0.  *** THE 1401 SHOULD HAVE PREFERENCES 
+'               SET WITH THE "Event Ports 0 and 1 on read digital input connector" 
+'               BOX CHECKED!!!
+'
+'========================================================================
+
+' File system reference vars. Each var is a directory path, WITHOUT the trailing slash. 
+var bin$, script$, config$;
+script$ := View(App(3)).FileName$(1) + View(App(3)).FileName$(2);	' folder containing this script
+bin$ := View(App(3)).FileName$(1) + View(App(3)).FileName$(2) + "..\\bin";	' Location of executables is ..\bin, relative to script dir
+config$ := View(App(3)).FileName$(1) + View(App(3)).FileName$(2) + "..\\config";	' Location of executables is ..\bin, relative to script dir
+
+' Rig-specific variables
+var DegreesPerVoltX;	' Converts X eye coil volts to degrees
+var DegreesPerVoltY;	' Converts Y eye coil volts to degrees
+var DistanceToScreenMM$;	' Not used here, passed on to stimulus app
+var EyeCoilSamplingFrequency%;
+
+'Experiment specific variables
+var NumberOfRewards%;
+var WindowRadius;			' Fixation window radius, in degrees
+var FixationX, FixationY;		' Fixation point X,Y in degrees
+var FixationPointDiameter;		' Fixation point diam, in degrees
+var FixationDuration;			' Time required to maintain fixation, seconds
+var AcquisitionTime;			' Time allowed to acquire target before fail trial, seconds
+var BlankDuration;			' Blank time following a trial (both successful and failed), seconds
+var NumberOfTrials%;			' Number of trials to run
+var DistractorFlag%; 			' Tells stim to use distractors (1) or not (0)
+var BackgroundColor$;			' "Black", "Gray", "White"
+var FixationColor$;			' "Red", "Green", "Blue"
+
+' Window handles and channel numbers
+var NumberOfChannels%;			' Number of recording channels
+var XChannel%,YChannel%;		' Channel number assigned to eye x and y
+var TriggerChannel%;			' Channel number assigned to vsg trigger input (i.e. trigger sent by vsg)
+var DataWindow%;	' time view
+var XYWindow%;		' window with eye pos shown
+var iStimChannel%;	' channel number for stimulus in xy window
+var iStimWindowChannel%;' channel number for stimulus window in xy window
+var iMonitorChannel%;	' channel number for monitor position display in xy window
+
+' Experimental control
+var Pause%:=0;		' When 1, expt is paused - no idle processing done
+
+' Display stuff
+var FixWindowX[36],FixWindowY[36];	' points for displaying fixation window in xy view
+
+
+
+
+
+
+
+
+
+' Get number of recording channels, then assign channel numbers for eye X,Y and trigger. 
+NumberOfChannels%:=Input("Number of channels :",1,1,14);
+XChannel% := NumberOfChannels%+1;
+YChannel% := NumberOfChannels%+2;
+TriggerChannel% := NumberOfChannels%+3;
+CreateSampleConfiguration();
+
+
+' Get rig parameters
+GetRigParameters();
+
+' Now get experimental parameters for this run
+GetExperimentalParameters();
+
+' Get display windows ready
+InitializeWindows();
+
+' Prepare the toolbar buttons
+InitializeToolbar();
+
+
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func Start%()
+var CommandLine$;
+CommandLine$ :=bin$ + "\\Fixation "+str$(NumberOfTrials%) +" "
+					+str$(FixationDuration) +" "+ str$(BlankDuration)+	" "+str$(FixationX)+" "+str$(FixationY)+" "
+					+str$(DistractorFlag%)+" "+BackgroundColor$+" "+str$(FixationPointDiameter)+" "
+					+FixationColor$+" "+DistanceToScreen$;
+'Begin the stimulus program. It will take a few seconds for the VSG to initialize.
+'PrintLog(CommandLine$+"\n");
+StimHandle := ProgRun(CommandLine$,0);
+if StimHandle <0 then Message("Could not start stimulus."); halt; endif
+Yield(5);	'Wait a few seconds to make sure the VSG has time to initialize.
+SampleStart(0); 'Start sampling
+ToolbarSet(0,"",IdleProcessing%);	'Enable the IdleProcessing function
+ToolbarEnable(2,1);
+ToolbarEnable(1,0);
+View(DataWindow%);
+Yield(.1);
+return 1;
+end;
+
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func Stop%()
+SampleKey("L");
+Yield(.1);
+SampleStop();
+ProgKill(StimHandle);
+ProgRun(bin$ + "\\ClearTrigger",0);
+end;
+
+
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func PauseStimuli%();
+Pause :=1;
+ToolbarEnable(4,0);
+ToolbarEnable(5,1);
+return 1;
+end
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func ResumeStimuli%();
+Pause :=0;
+ToolbarEnable(4,1);
+ToolbarEnable(5,0);
+return 1;
+end
+
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func Looking%(EyePosX,EyePosY)
+	'Determine if the eye position is within the fixation window
+	if (Pow(EyePosX-FixationX,2) + Pow(EyePosY-FixationY,2)) <= Pow(WindowRadius,2) then return 1; else return 0; endif
+end;
+
+
+
+
+
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func Reward%()
+	var i;
+	TodaysRewards:=TodaysRewards+1;
+	ToolbarText("Trial Number: "+str$(TodaysTrials)+"     Number of Rewards: "+str$(TodaysRewards));
+	Profile("AlertRig\\"+Monkey$,"TotalRewards",TodaysRewards);
+	for i:=1 to NumberOfRewards% do Yield(.05); SampleKey("J"); next
+end;
+
+
+
+
+
+
+var tNow:=0;		' latest time for which there are values recorded. Used in IdleProcessing
+var tLast:=-1;		' last time we checked for a trigger. 
+var xEye, yEye;		' eye positions
+var tLastUpdate:=-1;	' last time view was updated
+var iState%:=0;		' present state
+var vTrigger;		' set by NextTime to indicate trigger transition
+var tStateStart:=-1;	' time that present state started. Used to measure wait time, fixation time, etc. 
+var tLastTrigger:=-1;	' last trigger time. New triggers have to be greater than this
+
+' Run real time analysis here. 
+func IdleProcessing%()
+
+	tNow := MaxTime();
+
+	xEye := ChanMeasure(XChannel%,2,tNow-.001,tNow-.006)*DegreesPerVoltX;
+	yEye := ChanMeasure(YChannel%,2,tNow-.001,tNow-.006)*DegreesPerVoltY;
+
+	' Don't update display every time....
+	if tNow-tLastUpdate > .005 then
+		View(XYWindow%).XYAddData(1,xEye,yEye);
+		tLastUpdate := tNow;
+	endif
+
+	' What state are we in? 
+	docase 
+		case iState% = 0 then
+
+			' initial state on startup. 
+			' DIGOUT to present stimulus
+			' Enter state 1
+
+			SampleKey("H");
+			iState% := 1;
+			PrintLog("State 0 - Start new trial - stimulus trigger sent\n");
+
+		case iState% = 1 then
+	
+			' Waiting for stimulus to be presented by vsg and trigger to return. 
+			' NextTime returns a non-negative value whenever there is a TRANSITION. In that case, the 
+			' value of 'vTrigger' returned is 1 (0) if the transition is high (low) to low (high). Maybe not
+			' intuitive, but that's the way it is. 
+			tTrigger := NextTime(TriggerChannel%,tLast,vTrigger);
+			if tTrigger > tLastTrigger then
+
+				if vTrigger = 0 then
+		
+					' Stimulus has been presented. Display stim location and window. Enter state 2
+					DrawStim(1);
+					iState% := 2;
+					tStateStart := tTrigger;
+					tLastTrigger := tTrigger;
+
+				endif
+
+			endif
+
+		case iState% = 2 then
+
+			if tNow-tStateStart < MaxAcquisitionTime then
+				
+				' Acquisition happens when the eye falls within the fixation window.
+				if InFixationWindow%(xEye, yEye) > 0 then
+
+					PrintLog("State 2 - acquired target. tNow=" + str$(tNow) + " Enter state 3\n");
+					iState% := 3;
+					tStateStart := tNow;
+	
+				endif
+
+			else
+
+				' Failed. Turn off stim and try again.
+				PrintLog("State 2 - acquisition failed. Enter state 4\n");
+				iState% := 4;
+				tStateStart := tNow;
+
+			endif
+
+		case iState% = 3 then
+
+			' Waiting for fixation....
+			if InFixationWindow%(xEye, yEye) <= 0 then
+
+				iState% := 4;
+				tStateStart := tNow;
+
+			else
+
+				if tNow - tStateStart >= MinFixationTime then
+
+					' Fixation. Reward. New trial.
+					Reward%();
+					iState% := 4;
+					tStateStart := tNow;
+
+				endif
+
+			endif
+
+		case iState% = 4 then
+
+			' Turn off stimulus, enter state 5 - wait for stimulus off msg
+			DrawStim(0);
+			PrintLog("State 4 - turning off stimulus....\n");
+			SampleKey("L");
+			iState% := 5;
+			tStateStart := tNow;
+
+		case iState% = 5 then
+
+			' Wait for stim to be off
+			tTrigger := NextTime(TriggerChannel%,tLast,vTrigger);
+			if tTrigger > tLast then
+
+				if vTrigger = 1 then
+		
+					' Stimulus has been turned off by vsg. Enter state 6
+					PrintLog("State 5 - Stim OFF trigger found. Enter state 6\n");
+					iState% := 6;
+					tStateStart := tTrigger;
+					tLastTrigger := tTrigger;
+	
+				endif
+
+			endif
+
+		case iState% = 6 then
+
+			' Inter-trial wait time
+			if tNow - tStateStart > InterTrialTime then
+	
+				' Back to state 0
+				PrintLog("State 6 - IT wait is done. Start new trial.\n");
+				iState% := 0;
+				tStateStart := tNow;
+	
+			endif
+
+		else 
+
+			' Unknown state!
+			Message("Unknown state=" + str$(iState%));
+			halt;
+
+	endcase;
+
+	tLast := tNow;
+	
+	return 1;
+
+end;
+
+
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func GetTodaysStats%();
+Profile("AlertRig\\"+Monkey$,"TotalRewards",0,TodaysRewards);
+Profile("AlertRig\\"+Monkey$,"TotalTrials",0,TodaysTrials);
+Profile("AlertRig\\"+Monkey$,"Date","",RecordedDate$);
+TodaysDate$ := Date$();
+if TodaysDate$ <> RecordedDate$ then 
+	Profile("AlertRig\\"+Monkey$,"TotalRewards",0);
+	TodaysRewards :=0;
+	Profile("AlertRig\\"+Monkey$,"TotalTrials",0);
+	TodaysTrials :=0;
+	Profile("AlertRig\\"+Monkey$,"Date",TodaysDate$);
+endif
+return 1;
+end
+
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func GetLastUsedExperimentalParameters%();
+
+	var WindowRadius$, FixationX$, FixationY$, FixationDuration$, AcquisitionTime$;
+	var BlankDuration$;
+	var FixationPointDiameter$;
+	var key$;
+
+	' AlertRig\Common params
+	key$ := "AlertRig\\Common";
+
+	Profile(key$, "WindowRadius", "1", WindowRadius$);	
+	Profile(key$, "FixationX", "0", FixationX$);
+	Profile(key$, "FixationY", "0", FixationY$);
+	Profile(key$, "FixationPointDiameter", ".1", FixationPointDiameter$);
+
+	WindowRadius := val(WindowRadius$);	
+	FixationX := val(FixationX$);
+	FixationY := val(FixationY$);
+	FixationPointDiameter := val(FixationPointDiameter$);
+
+	' AlertRig\Fixation
+	key$ := "AlertRig\\Fixation";
+
+	Profile(key$, "FixationDuration", "1", FixationDuration$);
+	Profile(key$, "AcquisitionTime", "1", AcquisitionTime$);
+	Profile(key$, "BlankDuration", "2", BlankDuration$);
+	Profile(key$, "NumberOfTrials%", 1000, NumberOfTrials%);
+	Profile(key$, "DistractorFlag", 0, DistractorFlag%);
+	Profile(key$, "BackgroundColor", "Gray", BackgroundColor$);
+
+	FixationDuration := val(FixationDuration$);
+	AcquisitionTime := val(AcquisitionTime$);
+	BlankDuration := val(BlankDuration$);
+
+return 1;
+end
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func SetLastUsedExperimentalParameters%();	'Updates the registry record of the last used experimental parameters
+
+	var key$;
+
+	' AlertRig\Common params
+	key$ := "AlertRig\\Common";
+	Profile(key$, "WindowRadius", str$(WindowRadius));
+	Profile(key$, "FixationX", str$(FixationX));
+	Profile(key$, "FixationY", str$(FixationY));
+	Profile(key$, "FixationPointDiameter", str$(FixationPointDiameter));
+
+	' AlertRig\Fixation
+	key$ := "AlertRig\\Fixation";
+	Profile(key$, "FixationDuration", str$(FixationDuration));
+	Profile(key$, "AcquisitionTime", str$(AcquisitionTime));
+	Profile(key$, "BlankDuration", str$(BlankDuration));
+	Profile(key$, "NumberOfTrials%", NumberOfTrials%);
+	Profile(key$, "DistractorFlag", DistractorFlag%);
+	Profile(key$, "BackgroundColor", BackgroundColor$);
+
+	return 1;
+
+end;
+
+
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+proc CreateSampleConfiguration()
+	var index;
+	SampleClear(); 'Set standard sampling state
+	SampleAutoFile(0); 'Enable automatic file naming
+	SampleAutoComment(0); 'Prompt for comment after sampling
+	SampleAutoCommit(60); 'Seconds between each file commit
+
+	'Channel recording definitions
+	SampleEvent(TriggerChannel%,0,2,3600); 'Trigger channel, level
+	SampleComment$(TriggerChannel%,"Trigger");
+	SampleTitle$(TriggerChannel%,"Trigger");
+
+	for index := 1 to NumberOfChannels% do
+		SampleWaveMark(index,index-1,2000,34,15,28000); ' chan, port, event rate, points, pre-trigger, rate
+		SampleTitle$(index,"Electrode_"+Str$(index)); 
+	next
+
+	'EYE COIL CHANNELS. Last # is sampling freq in Hz. 
+	SampleWaveform(XChannel%,14,1000);
+	SampleTitle$(XChannel%,"Eye X");
+	SampleWaveform(YChannel%,15,1000);
+	SampleTitle$(YChannel%,"Eye Y");
+
+	SampleSequencer(script$ + "Fixation.pls");
+	SampleOptimise(2,2,2,2,50);  'Set optimise mode (do this last)
+	SampleMode(1); 'Continuous sampling
+end;
+
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+' DrawStim
+' 
+' Draws stimulus in xy window (iDraw%==1) or blanks it (0). 
+proc DrawStim(iDraw%)
+
+	if iDraw% > 0 then
+		' Draw stimulus in xy window
+		View(XYWindow%).XYAddData(iStimChannel%, FixationX, FixationY);
+
+		' draw fixation window
+		View(XYWindow%).XYAddData(iStimWindowChannel%, FixWindowX[], FixWindowY[]);		
+
+	else 
+		' erase the stim and the window from xy view
+		View(XYWindow%).XYDelete(iStimChannel%);
+		View(XYWindow%).XYDelete(iStimWindowChannel%);
+	endif
+
+end;
+
+
+proc InitializeWindows()
+
+	'Open the data sampling window
+	DataWindow% := FileNew(0,4);
+	Window(-0.235849,52.746,97.2484,99.8856);
+	View(DataWindow%).WindowVisible(1);
+
+	'Open an XY view to display eye position
+	XYWindow% := FileNew(12);
+	XRange(-30,30);
+	YRange(-2,-30,30);
+	XYDrawMode(0,5,0);
+	WindowVisible(1);
+	Window(-0.550314,0.114416,41.5094,52.746);
+	XYColour(1,16);
+	XYSize(1,-1);
+
+	'Calcuate the fixation window
+	var index%;
+	var twopi;
+	twopi := 2.0*4.0*ATan(1.0);
+	
+	for index% := 0 to 35 do
+		FixWindowX[index%] := FixationX + WindowRadius * Cos(index% * twopi/36.0);
+		FixWindowY[index%] := FixationY + WindowRadius * Sin(index% * twopi/36.0);
+	next;
+
+	'Create a new channel in the XY view to display the fixation window
+	iStimWindowChannel% := XYSetChan(0);
+	XYColour(2,13);
+	XYDrawMode(2,2,1);
+	XYJoin(2,1);
+	'Draw the fixation window
+	XYAddData(2, FixWindowX[], FixWindowY[]);
+
+	'Create a new channel in the XY view to display the fixation point
+	iStimChannel% := XYSetChan(0);
+
+	'Create a new channel in the XY view to show the monitor's location
+	iMonitorChannel% := XYSetChan(0);
+	XYColour(4,13);
+	XYDrawMode(4,3,1);
+	XYJoin(4,2);
+	XYAddData(4,-9,-7);
+	XYAddData(4,9,-7);
+	XYAddData(4,9,7);
+	XYAddData(4,-9,7);
+
+end;
+
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+' InitilizeToolbar - prepare toolbar buttons. Note that the idle processing function (ToolbarSet(0, blah, blah)) is 
+' not set here. That's done when the user hits the start button.
+'
+proc InitializeToolbar()
+
+	View(App(8)).WindowVisible(0);	'Hide the standard sample bar
+	ToolbarVisible(1);
+	ToolbarSet(1,"Sample start",Start%);
+	ToolbarSet(2,"Sample stop", Stop%);
+	ToolbarSet(3,"Juice",Juice%);
+	ToolbarSet(4,"Pause stimuli",PauseStimuli%);
+	ToolbarSet(5,"Resume stimuli",ResumeStimuli%);
+	ToolbarEnable(2,0);
+	ToolbarEnable(4,0);
+	ToolbarEnable(5,0);
+	Toolbar("Go",12345);
+
+end;
+
+
+proc GetRigParameters()
+
+	var DegreesPerVoltX$, DegreesPerVoltY$;
+	var key$;
+
+	key$ := "AlertRig";
+	Profile(key$, "DistanceToScreenMM", "850", DistanceToScreenMM$);	' will just pass this to stimulus app
+	Profile(key$, "DegreesPerVoltX", "", DegreesPerVoltX$);
+	Profile(key$, "DegreesPerVoltY", "", DegreesPerVoltY$);
+	Profile(key$, "EyeCoilSamplingFrequency", 1000, EyeCoilSamplingFrequency%);
+	DegreesPerVoltX := val(DegreesPerVoltX$);
+	DegreesPerVoltY := val(DegreesPerVoltY$);
+
+end;
+
+
+
+proc GetExperimentalParameters()
+
+	'Read in the last used experimental parameters to use as defaults for the dialog
+	GetLastUsedExperimentalParameters%();
+
+	'Dialog specific variables
+	var BackgroundList$[3]; BackgroundList$[0]:="Black"; BackgroundList$[1]:="Gray"; BackgroundList$[2]:="White";
+	var BackgroundListIndex := 1;
+	var FixationColorList$[3]; FixationColorList$[0] := "Red"; FixationColorList$[1] := "Green"; FixationColorList$[2] := "Blue";
+	var FixationColorIndex;
+
+	var DlgResponse;
+	if BackgroundColor$="Black" then BackgroundListIndex := 0; endif
+	if BackgroundColor$="Gray" then BackgroundListIndex := 1; endif
+	if BackgroundColor$="White" then BackgroundListIndex := 2; endif
+
+	DlgCreate("Specify fixation parameters");
+	DlgReal(1, "Fixation window (deg): ", 0, 50);
+	DlgReal(2, "Fixation point X (deg): ", -50, 50);
+	DlgReal(3, "Fixation point Y (deg): ", -50, 50);
+	DlgReal(4, "Fixation point diameter:", .01, 5);
+	DlgList(5, "Fixation point color:", FixationColorList$[]);
+	DlgList(6, "Background color:", BackgroundList$[]);
+	DlgReal(7, "Fixation duration (s): ", 0, 20);
+	DlgReal(8, "Acquisition (s): ", 0, 20);
+	DlgReal(9, "Intertrial interval (s): ", 0, 20);
+	DlgInteger(10, "Number of trials : ", 0, 10000);
+	DlgInteger(11, "Number of juices per reward", 0, 10);
+	DlgCheck(12, "Include distractor?");
+	DlgResponse := DlgShow(	WindowRadius,
+				FixationX, 
+				FixationY, 
+				FixationPointDiameter,
+				FixationColorIndex,
+				BackgroundListIndex,
+				FixationDuration,
+				AcquisitionTime, 
+				BlankDuration,
+				NumberOfTrials%,
+				NumberOfRewards%,
+				DistractorFlag%);
+	if DlgResponse= 0 then halt; endif
+
+	BackgroundColor$ := BackgroundList$[BackgroundListIndex];
+	FixationColor$ := FixationColorList$[FixationColorIndex];
+
+	'Update the registry record of the last used parameters
+	SaveExperimentalParameters();
+
+end;
