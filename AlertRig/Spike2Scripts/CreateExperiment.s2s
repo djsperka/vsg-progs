@@ -1,0 +1,34 @@
+' $Log: not supported by cvs2svn $ 
+
+
+var ExperimentRoot$,ExperimentRootDOS$,ExperimentSettingsFileName$;
+var DistanceFromScreen;
+var ExperimentFile%, handle%;
+var FirstFileName$;
+
+' date call below was originally Date$(2,1,3,1)
+ExperimentRootDOS$:="C:\\AlertRig\\Experiments\\\""+Date$(2,2,3,3,"-")+"\"";
+ExperimentRoot$:="C:\\AlertRig\\Experiments\\"+Date$(2,2,3,3,"-");
+handle%:=ProgRun("command.com /C mkdir "+ExperimentRootDOS$);
+repeat until ProgStatus(handle%) <= 0;
+handle%:=handle%*ProgRun("cmd /C mkdir "+ExperimentRootDOS$+"\\DataFiles");
+repeat until ProgStatus(handle%) <= 0;
+handle%:=handle%*ProgRun("cmd /C mkdir "+ExperimentRootDOS$+"\\MSequenceResponses");
+repeat until ProgStatus(handle%) <= 0;
+handle%:=handle%*ProgRun("cmd /C mkdir "+ExperimentRootDOS$+"\\SDLFiles");
+repeat until ProgStatus(handle%) <= 0;
+if handle%<= 0 then Message("Failed to create initial directories.");
+else
+DistanceFromScreen:=Input("Please enter the distance from the screen in mm: ", 1,1,10000);
+FirstFileName$:=Input$("Please enter the name of the first cell: ","");
+ExperimentFile%:=FileOpen(ExperimentRoot$+"\\Experiment.par",8,1);
+Print("%d\n",DistanceFromScreen);
+Print("%s",FirstFileName$);
+FileClose();
+
+ExperimentFile%:=FileOpen("C:\\AlertRig\\Experiments\\CurrentExperiment.par",8,1);
+Print("%s\n",ExperimentRoot$);
+FileClose();
+Profile("AlertRig\\CurrentExperiment","DistanceToScreen",DistanceFromScreen);
+endif
+
