@@ -60,6 +60,21 @@ Package=<4>
 
 ###############################################################################
 
+Project: "CoolerMouse"=.\CoolerMouse\CoolerMouse.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name alertlib
+    End Project Dependency
+}}}
+
+###############################################################################
+
 Project: "Fixation"=.\Fixation\Fixation.dsp - Package Owner=<4>
 
 Package=<5>
