@@ -33,6 +33,7 @@ public:
 
 // Implementation
 protected:
+	CPoint m_next;
 	virtual ~CVSGView();
 #ifdef _DEBUG
 	virtual void AssertValid() const;

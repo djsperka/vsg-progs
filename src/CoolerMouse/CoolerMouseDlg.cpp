@@ -67,8 +67,6 @@ CCoolerMouseDlg::CCoolerMouseDlg(CWnd* pParent /*=NULL*/)
 	//{{AFX_DATA_INIT(CCoolerMouseDlg)
 	m_dStimX = 0.0;
 	m_dStimY = 0.0;
-	m_dStimWidth = 0.0;
-	m_dStimHeight = 0.0;
 	m_dStimOrientation = 0;
 	m_dStimSF = 0.0;
 	m_dStimTF = 0.0;
@@ -80,6 +78,7 @@ CCoolerMouseDlg::CCoolerMouseDlg(CWnd* pParent /*=NULL*/)
 	m_nAperture = -1;
 	m_nStimColorVector = -1;
 	m_nFixationColor = -1;
+	m_dStimDiameter = 0.0;
 	//}}AFX_DATA_INIT
 	// Note that LoadIcon does not require a subsequent DestroyIcon in Win32
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
@@ -91,8 +90,6 @@ void CCoolerMouseDlg::DoDataExchange(CDataExchange* pDX)
 	//{{AFX_DATA_MAP(CCoolerMouseDlg)
 	DDX_Text(pDX, IDC_X, m_dStimX);
 	DDX_Text(pDX, IDC_Y, m_dStimY);
-	DDX_Text(pDX, IDC_W, m_dStimWidth);
-	DDX_Text(pDX, IDC_H, m_dStimHeight);
 	DDX_Text(pDX, IDC_ORIENTATION, m_dStimOrientation);
 	DDV_MinMaxLong(pDX, m_dStimOrientation, 0, 360);
 	DDX_Text(pDX, IDC_SPATIAL, m_dStimSF);
@@ -106,6 +103,8 @@ void CCoolerMouseDlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Radio(pDX, IDC_CIRCLE, m_nAperture);
 	DDX_CBIndex(pDX, IDC_COLORVECTOR, m_nStimColorVector);
 	DDX_CBIndex(pDX, IDC_FIXATIONCOLOR, m_nFixationColor);
+	DDX_Text(pDX, IDC_W, m_dStimDiameter);
+	DDV_MinMaxDouble(pDX, m_dStimDiameter, 0.2, 50.);
 	//}}AFX_DATA_MAP
 }
 
@@ -115,7 +114,7 @@ BEGIN_MESSAGE_MAP(CCoolerMouseDlg, CDialog)
 	ON_WM_PAINT()
 	ON_WM_QUERYDRAGICON()
 	ON_BN_CLICKED(IDC_APPLY, OnApply)
-	ON_EN_CHANGE(IDC_CONTRAST, OnChangeContrast)
+	ON_EN_KILLFOCUS(IDC_CONTRAST, OnKillfocusContrast)
 	//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
@@ -170,8 +169,7 @@ void CCoolerMouseDlg::GetVSGParameters()
 
 	m_dStimX = vsg->stim().x;
 	m_dStimY = vsg->stim().y;
-	m_dStimWidth = vsg->stim().w;
-	m_dStimHeight = vsg->stim().h;
+	m_dStimDiameter = vsg->stim().w;
 	m_dStimOrientation = vsg->stim().orientation;
 	m_dStimSF = vsg->stim().sf;
 	m_dStimTF = vsg->stim().tf;
@@ -279,18 +277,21 @@ void CCoolerMouseDlg::OnApply()
 	
 }
 
-void CCoolerMouseDlg::OnChangeContrast() 
-{
-	// TODO: If this is a RICHEDIT control, the control will not
-	// send this notification unless you override the CDialog::OnInitDialog()
-	// function and call CRichEditCtrl().SetEventMask()
-	// with the ENM_CHANGE flag ORed into the mask.
-	
-	// TODO: Add your control notification handler code here
 
-	update();
+
+// Called when something in the aperture properties has changed - x, y, diam, aperture type
+void CCoolerMouseDlg::updateApertureProperties()
+{
+	VSGHelper* vsg = theApp.getVSG();
+	vsg->setApertureProperties(m_dStimX, m_dStimY, m_dStimDiameter, getDialogApertureType());
 }
 
+
+void CCoolerMouseDlg::updateStimProperties()
+{
+	VSGHelper* vsg = theApp.getVSG();
+	vsg->setStimProperties(m_dStimSF, m_dStimTF, m_iStimContrast, m_dStimOrientation, getDialogPatternType(), getDialogCV());
+}
 
 
 void CCoolerMouseDlg::update()
@@ -299,55 +300,92 @@ void CCoolerMouseDlg::update()
 
 	vsg->stim().x = m_dStimX;
 	vsg->stim().y = m_dStimY;
-	vsg->stim().w = m_dStimWidth;
-	vsg->stim().h = m_dStimHeight;
+	vsg->stim().w = m_dStimDiameter;
+	vsg->stim().h = m_dStimDiameter;
 	vsg->stim().orientation = m_dStimOrientation;
 	vsg->stim().sf = m_dStimSF;
 	vsg->stim().tf = m_dStimTF;
 	vsg->stim().contrast = m_iStimContrast;
 
-	if (m_nPattern == 0) vsg->stim().pattern = sinewave;
-	else vsg->stim().pattern = squarewave;
+	vsg->stim().pattern = getDialogPatternType();
+	vsg->stim().aperture = getDialogApertureType();
 
-	if (m_nAperture == 0) vsg->stim().aperture = ellipse;
-	else vsg->stim().aperture = rectangle;
-
-	switch (m_nStimColorVector)
-	{
-	case 0:
-		vsg->stim().cv = b_w;
-		break;
-	case 1:
-		vsg->stim().cv = l_cone;
-		break;
-	case 2:
-		vsg->stim().cv = m_cone;
-		break;
-	case 3:
-		vsg->stim().cv = s_cone;
-		break;
-	default:
-		vsg->stim().cv = b_w;
-		break;
-	}
+	vsg->stim().cv = getDialogCV();
 
 	vsg->fixpt().x = m_dFixationX;
 	vsg->fixpt().y = m_dFixationY;
 	vsg->fixpt().d = m_dFixationDiameter;
+	vsg->fixpt().color = getDialogFixationColor();
+
+}
+
+
+COLOR_VECTOR_TYPE CCoolerMouseDlg::getDialogCV()
+{
+	COLOR_VECTOR_TYPE cv;
+	switch (m_nStimColorVector)
+	{
+	case 0:
+		cv = b_w;
+		break;
+	case 1:
+		cv = l_cone;
+		break;
+	case 2:
+		cv = m_cone;
+		break;
+	case 3:
+		cv = s_cone;
+		break;
+	default:
+		cv = b_w;
+		break;
+	}
+	
+	return cv;
+}
+
+APERTURE_TYPE CCoolerMouseDlg::getDialogApertureType()
+{
+	APERTURE_TYPE a;
+	if (m_nAperture == 0) a = ellipse;
+	else a = rectangle;
+	return a;
+}
+
+PATTERN_TYPE CCoolerMouseDlg::getDialogPatternType()
+{
+	PATTERN_TYPE p;
+	if (m_nPattern == 0) p = sinewave;
+	else p = squarewave;
+	return p;
+}
+
+COLOR_TYPE CCoolerMouseDlg::getDialogFixationColor()
+{
+	COLOR_TYPE c;		
+
 	switch (m_nFixationColor)
 	{
 	case 0:
-		vsg->fixpt().color = red;
+		c = red;
 		break;
 	case 1:
-		vsg->fixpt().color = green;
+		c = green;
 		break;
 	case 2:
-		vsg->fixpt().color = blue;
+		c = blue;
 		break;
 	default:
-		vsg->fixpt().color = red;
+		c = red;
 		break;
 	}
+	return c;
+}
 
+
+void CCoolerMouseDlg::OnKillfocusContrast() 
+{
+	// TODO: Add your control notification handler code here
+	updateStimProperties();		
 }

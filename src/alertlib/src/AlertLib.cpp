@@ -233,6 +233,65 @@ int alert::ARGratingSpec::drawOverlay()
 	return 0;
 }
 
+
+
+
+
+
+int alert::ARApertureGratingSpec::draw()
+{
+	int status=0;
+	VSGTRIVAL from, to;
+
+	select();
+
+	// We assume that the handle is created and selected. In order to make this grating appear, you still must
+	// assign pixel levels (vsgObjSetPixels). Note also that the contrast is initially set to 100% by the call to 
+	// vsgObjSetDefaults().
+
+	vsgObjSetDefaults();
+	vsgObjSetPixelLevels(getFirstLevel(), getNumLevels());
+
+	// Set spatial waveform
+	if (this->pattern == sinewave)
+	{
+		vsgObjTableSinWave(vsgSWTABLE);
+	}
+	else
+	{	
+		// Set up standard 50:50 square wave
+		vsgObjTableSquareWave(vsgSWTABLE, vsgObjGetTableSize(vsgSWTABLE)*0.25, vsgObjGetTableSize(vsgSWTABLE)*0.75);
+	}
+
+	// set temporal freq
+	vsgObjSetDriftVelocity(tf);
+
+	// set color vector
+	if (get_colorvector(this->cv, from, to))
+	{
+		cerr << "Cannot get color vector for type " << this->cv << endl;
+	}
+	vsgObjSetColourVector(&from, &to, vsgBIPOLAR);
+
+
+	// 
+	double dWidth = vsgGetScreenWidthPixels();
+	double dHeight = vsgGetScreenHeightPixels();
+	vsgUnit2Unit(vsgPIXELUNIT,dWidth,vsgDEGREEUNIT,&dWidth);
+	vsgUnit2Unit(vsgPIXELUNIT,dHeight,vsgDEGREEUNIT,&dHeight);
+
+	// Now draw
+	vsgSetDrawMode(vsgCENTREXY);
+	vsgDrawGrating(0, 0, dWidth, dHeight, this->orientation, this->sf);
+
+	return 0;
+}
+
+
+
+
+
+
 int alert::LevelManager::request_single(PIXEL_LEVEL& level)
 {
 	int status=0;
@@ -315,6 +374,7 @@ int alert::ARvsg::init_overlay()
 		else
 		{
 			vsgPaletteWriteOverlayCols((VSGLUTBUFFER*)&background, 1, 1);
+			vsgSetDrawPage(vsgOVERLAYPAGE, 1, 1);
 			vsgSetDrawPage(vsgOVERLAYPAGE, 0, 1);
 		}
 	}
