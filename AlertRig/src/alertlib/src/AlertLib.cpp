@@ -218,12 +218,38 @@ int alert::ARFixationPointSpec::draw()
 }
 
 
-int alert::ARGratingSpec::draw()
+int alert::ARContrastFixationPointSpec::draw()
 {
 	int status=0;
 	VSGTRIVAL from, to;
 
-	vsgObjSetDefaults();
+	if (get_color(this->color, to))
+	{
+		cerr << "Cannot get color trival for point: " << this->color << endl;
+		status=1;
+	}
+	else if (get_color(this->background, from))
+	{
+		cerr << "Cannot get background color trival for point: " << this->background << endl;
+		status=1;
+	}
+	else 
+	{
+		vsgObjSetColourVector(&from, &to, vsgUNIPOLAR);
+	}
+
+	if (!status)
+	{
+		ARFixationPointSpec::draw();
+	}
+	return status;
+}
+
+
+int alert::ARGratingSpec::draw()
+{
+	int status=0;
+	VSGTRIVAL from, to;
 
 	// We assume that the handle is created and selected. In order to make this grating appear, you still must
 	// assign pixel levels (vsgObjSetPixels). Note also that the contrast is initially set to 100% by the call to 
@@ -590,6 +616,8 @@ int init_vsg(int screenDistanceMM, COLOR_TYPE i_background)
 {
 	int status=0;
 	VSGTRIVAL background;
+	PIXEL_LEVEL level;
+	VSGOBJHANDLE handle;
 	
 	if (vsgInit(""))
 	{
@@ -613,11 +641,18 @@ int init_vsg(int screenDistanceMM, COLOR_TYPE i_background)
 		clear_vsg();
 	}
 
+
+	
+	// Assign background color to palette level 0. 
+	alert::LevelManager::instance().request_single(level);
+	vsgPaletteWrite((VSGLUTBUFFER*)&background, 0, 1);
+
 	// allocate a single vsgs object so triggers will work. This is redundant in cases
 	// where you will be generating stuff like gratings, but just in case you don't you
 	// need this. 
-	vsgObjCreate();
-	vsgObjSetPixelLevels(0, 1);
+	alert::LevelManager::instance().request_single(level);
+	handle = vsgObjCreate();
+	vsgObjSetPixelLevels(level, 1);
 
 	return status;
 }
