@@ -42,7 +42,7 @@ RSC=rc.exe
 # PROP Ignore_Export_Lib 0
 # PROP Target_Dir ""
 # ADD BASE CPP /nologo /W3 /GX /O2 /D "WIN32" /D "NDEBUG" /D "_CONSOLE" /D "_MBCS" /YX /FD /c
-# ADD CPP /nologo /MD /W3 /GX /O2 /I "C:\Program Files\Cambridge Research Systems\VSGV6\Windows\Win32\Msc\INCLUDE" /D "WIN32" /D "NDEBUG" /D "_CONSOLE" /D "_MBCS" /YX /FD /c
+# ADD CPP /nologo /MD /W3 /GX /O2 /I "C:\Program Files\Cambridge Research Systems\VSGV6\Windows\Win32\Msc\INCLUDE" /I "..\alertlib\include" /D "WIN32" /D "NDEBUG" /D "_CONSOLE" /D "_MBCS" /YX /FD /c
 # ADD BASE RSC /l 0x409 /d "NDEBUG"
 # ADD RSC /l 0x409 /d "NDEBUG"
 BSC32=bscmake.exe
@@ -105,16 +105,7 @@ SOURCE=.\fixation.h
 # Begin Source File
 
 SOURCE=.\StaticFixation.cpp
-
-!IF  "$(CFG)" == "Fixation - Win32 Release"
-
-!ELSEIF  "$(CFG)" == "Fixation - Win32 Debug"
-
 # PROP Exclude_From_Build 1
-# ADD CPP /I "..\..\..\utilities\getopt\include"
-
-!ENDIF 
-
 # End Source File
 # Begin Source File
 

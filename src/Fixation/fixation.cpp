@@ -22,7 +22,7 @@ void init_triggers();
 using namespace std;
 using namespace alert;
 
-ARFixationPointSpec m_afp;
+ARContrastFixationPointSpec m_afp;
 COLOR_TYPE m_background;
 vector<ARGratingSpec*> m_distractors;
 int m_screenDistanceMM=0;
@@ -57,12 +57,21 @@ int main (int argc, char *argv[])
 	}
 
 
-	// prepare vsg
-	if (init_vsg(m_screenDistanceMM, m_background))
+	// INit vsg
+	if (ARvsg::instance().init(m_screenDistanceMM, m_background))
 	{
-		cerr << "VSG initialization failed!" << endl;
+		cerr << "VSG init failed!" << endl;
 		return 1;
 	}
+
+
+	// initialize video pages
+	if (ARvsg::instance().init_video())
+	{
+		cerr << "VSG video initialization failed!" << endl;
+		return 1;
+	}
+	vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgNOCLEAR);
 
 	// write video pages
 	init_pages();
@@ -95,7 +104,7 @@ int main (int argc, char *argv[])
 		}
 	}
 
-	clear_vsg();
+	ARvsg::instance().clear();
 
 	return 0;
 }
@@ -191,22 +200,6 @@ void init_triggers()
 int init_pages()
 {
 	int status=0;
-	VSGTRIVAL fixation;
-	status = init_vsg(m_screenDistanceMM, m_background);
-
-	// reserve first level for drawing gratings with TRANSONLOWER
-	PIXEL_LEVEL level_zero;
-	LevelManager::instance().request_single(level_zero);
-
-	// set fixation color
-	if (get_color(m_afp.color, fixation))
-	{
-		cerr << "Cannot get trival for fixation color " << m_afp.color << endl;
-		return 1;
-	}
-	vsgSetFixationColour(&fixation);
-
-
 
 	// prepare BACKGROUND_PAGE (and display it)
 	vsgSetDrawPage(vsgVIDEOPAGE, BACKGROUND_PAGE, vsgBACKGROUND);
@@ -214,36 +207,25 @@ int init_pages()
 	
 	// prepare STIMULUS_PAGE
 	vsgSetDrawPage(vsgVIDEOPAGE, STIMULUS_PAGE, vsgBACKGROUND);
-	vsgSetPen1(vsgFIXATION);
+	m_afp.init(2);
 	m_afp.draw();
 
 	// prepare DISTRACTOR_PAGE. Note that if there are no distractors, this page is 
 	// identical to the STIMULUS_PAGE. We have to draw the fixation point last so it
 	// isn't overwritten by any distractors. 
 	vsgSetDrawPage(vsgVIDEOPAGE, DISTRACTOR_PAGE, vsgBACKGROUND);
+	m_afp.draw();
 	if (m_distractors.size() > 0)
 	{
 		// determine the level slice for each
 		int islice = LevelManager::instance().remaining()/m_distractors.size();
 		if (islice > 50) islice=50;
-		PIXEL_LEVEL first;
 		for (int i=0; i<m_distractors.size(); i++)
 		{
-			if (LevelManager::instance().request_range(islice, first))
-			{
-				cout << "Cannot get levels for distractor!" << endl;
-				return 1;
-			}
-			else
-			{
-				vsgObjCreate();
-				vsgObjSetDefaults();
-				vsgObjSetPixelLevels(first, islice);
-				m_distractors[i]->draw();
-			}
+			m_distractors[i]->init(islice);
+			m_distractors[i]->drawOnce();
 		}
 	}
-	m_afp.draw();
 
 	// Set trigger mode
 	vsgObjSetTriggers(vsgTRIG_ONPRESENT+vsgTRIG_TOGGLEMODE,0,0);
