@@ -1,4 +1,4 @@
-// $Header: /opt/cvstmp/AlertRig/src/Calibration/Attic/c2.cpp,v 1.1 2004-09-29 20:13:35 dan Exp $
+// $Header: /opt/cvstmp/AlertRig/src/Calibration/Attic/c2.cpp,v 1.2 2004-09-29 21:01:50 dan Exp $
 //
 // Calibration program. This program places a fixation point at different locations
 // to facilitate calibrating the manual gains on the dni eye coil driver. 
@@ -7,7 +7,7 @@
 #include <iostream.h>
 #include <stdio.h>
 #include <limits.h>
-#include "C:\Program Files\Cambridge Research Systems\VSGV6\Windows\Win32\Msc\INCLUDE\VSGEX2.H"
+#include "VSGEX2.H"
 #include <math.h>
 #include "c2.h"
 
