@@ -5,6 +5,9 @@
 
 
 #include "VSGEX2.H"
+#define __GNU_LIBRARY__
+#include "getopt.h"
+#undef __GNU_LIBRARY__
 #include <iostream>
 #include <istream>
 #include <vector>
@@ -21,7 +24,7 @@ typedef int PIXEL_LEVEL;
 
 // useful helper functions
 int parse_color(std::string s, COLOR_TYPE& c);
-int get_color(COLOR_TYPE& c, VSGTRIVAL& trival);
+int get_color(COLOR_TYPE c, VSGTRIVAL& trival);
 int get_colorvector(COLOR_VECTOR_TYPE& cv, VSGTRIVAL& from, VSGTRIVAL& to);
 int parse_colorvector(std::string s, COLOR_VECTOR_TYPE& v);
 int parse_pattern(std::string s, PATTERN_TYPE& p);
@@ -54,10 +57,59 @@ void clear_vsg();
 namespace alert
 {
 
+	// Singleton class representing the VSG. 
+	class ARvsg
+	{
+	public:
+		~ARvsg() { clear(); };
 
-	// Base class for specs
+		int init(int screenDistanceMM, COLOR_TYPE i_bg);
+		int init_video();
+		int init_overlay();
 
-	class ARSpec
+		/* Clear any page and display it. */
+		void clear(int i);
+
+
+		/* Clear page 0 and display it. */
+		void clear();
+
+		static ARvsg& instance() 
+		{
+			static ARvsg vsg;
+			return vsg; 
+		};
+
+		COLOR_TYPE background_color() { return m_background_color; };
+
+	private:
+		ARvsg() : m_initialized(false) {};
+		bool m_initialized;
+		VSGOBJHANDLE m_handle;
+		PIXEL_LEVEL m_background_level;
+		COLOR_TYPE m_background_color;
+	};
+
+
+
+	// Base class that encapsulates VSG objects. All spec classes should inherit from this
+	class ARObject
+	{
+	public:
+		ARObject() : m_initialized(false) {};
+		virtual ~ARObject() {};
+		void init(PIXEL_LEVEL first, int numlevels);
+		void init(int numlevels);
+		int select();
+	bool initialized() { return m_initialized; };
+	private:
+		bool m_initialized;
+		VSGOBJHANDLE m_handle;
+	};
+
+	// Base class for specs. Objects drawn using overlay pages use AROverlaySpec
+
+	class ARSpec : public ARObject
 	{
 	public:
 		ARSpec() {};
@@ -72,6 +124,9 @@ namespace alert
 		 */
 		virtual int drawOverlay() = 0;
 	};
+
+
+
 
 	// Fixation Point Spec
 
@@ -92,9 +147,8 @@ namespace alert
 	class ARContrastFixationPointSpec: public ARFixationPointSpec
 	{
 	public:
-		ARContrastFixationPointSpec() : background(gray) {};
+		ARContrastFixationPointSpec() {};
 		~ARContrastFixationPointSpec() {};
-		COLOR_TYPE background;
 		int draw();
 		int drawOverlay();
 	};
@@ -114,8 +168,10 @@ namespace alert
 		PATTERN_TYPE pattern;
 		APERTURE_TYPE aperture;
 		COLOR_VECTOR_TYPE cv;
+		int draw(bool useTransOnLower);
 		int draw();
 		int drawOverlay();
+		int drawOnce();
 	};
 
 
@@ -266,7 +322,7 @@ namespace alert
 	{
 	public:
 		TriggerFunc(std::string key) : m_binary(false), m_skey(key), m_present(false), m_otrigger(0), m_page(-1), m_quit(false) {};
-		TriggerFunc(int itrigger) : m_binary(true), m_itrigger(itrigger), m_present(false), m_otrigger(0), m_page(-1), m_quit(false) {};
+		TriggerFunc(int itrigger) : m_binary(true), m_itrigger(itrigger), m_present(false), m_otrigger(0), m_page(-1), m_quit(false) { std::cerr << "trig " << itrigger << std::endl;};
 
 		int page() { return m_page; };
 		bool present() { return m_present; };
