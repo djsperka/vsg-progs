@@ -1,0 +1,90 @@
+var StimHandle;	' vsg application handle
+' Local file system variables. 
+var bin$, script$;
+bin$ := View(App(3)).FileName$(1) + View(App(3)).FileName$(2) + "..\\bin";	' Location of executables is ..\bin, relative to script dir
+script$ := View(App(3)).FileName$(1) + View(App(3)).FileName$(2);	' folder containing this script
+
+
+
+' Set up sampling. 
+CreateSampleConfiguration();
+
+
+var DataWindow%;
+DataWindow% := FileNew(0,4);
+Window(-0.235849,52.746,97.2484,99.8856);
+View(DataWindow%).WindowVisible(1);
+
+
+View(App(8)).WindowVisible(0);	'Hide the standard sample bar
+View(App(9)).WindowVisible(1);	'Open sequencer controls for this script
+ToolbarVisible(1);
+ToolbarSet(1,"Sample start",Start%);
+ToolbarSet(2,"Sample stop", Stop%);
+ToolbarEnable(2,0);
+Toolbar("Go",12345);
+
+
+
+
+
+
+
+
+
+
+
+
+
+func Start%()
+var CommandLine$;
+
+CommandLine$ := bin$ + "\\dCableTest.exe";
+
+'Begin the stimulus program. It will take a few seconds for the VSG to initialize.
+PrintLog(CommandLine$+"\n");
+SampleStart(0); 'Start sampling
+StimHandle := ProgRun(CommandLine$,1);
+if StimHandle <0 then Message("Could not start stimulus."); Stop%(); halt; endif
+'Yield(5);	'Wait a few seconds to make sure the VSG has time to initialize.
+
+'ToolbarSet(0,"",IdleProcessing%);	'Enable the IdleProcessing function
+ToolbarEnable(2,1);
+ToolbarEnable(1,0);
+View(DataWindow%);
+return 1;
+end; 
+
+func Stop%()
+SampleStop();
+ProgKill(StimHandle);
+ProgRun(bin$ + "\\ClearTrigger",0); 
+end;
+
+
+
+
+
+
+proc CreateSampleConfiguration()
+var index%;
+SampleClear(); 'Set standard sampling state
+SampleAutoFile(0); 'Disable automatic file naming
+SampleAutoComment(0); 'Prompt for comment after sampling
+SampleAutoCommit(60); 'Seconds between each file commit
+
+'Channel recording definitions
+for index% := 1 to 7 do
+	SampleEvent(index%,index%,2,3600); 'Trigger channel, level
+	SampleComment$(index%,"Port " + str$(index%));
+	SampleTitle$(index%,"");
+next
+
+if SampleSequencer(script$ + "\\CableTest.pls")<>0 then
+	Message("CableTest.pls not found!");
+endif
+SampleOptimise(2,2,2,2,50);  'Set optimise mode (do this last)
+SampleMode(1); 'Continuous sampling
+end;
+
+
