@@ -172,7 +172,7 @@ namespace alert
 	{
 	public:
 		ARGratingSpec() {};
-		~ARGratingSpec() {};
+		virtual ~ARGratingSpec() {};
 		double x,y,w,h;
 		double sf, tf;
 		double orientation;
@@ -181,12 +181,22 @@ namespace alert
 		APERTURE_TYPE aperture;
 		COLOR_VECTOR_TYPE cv;
 		int draw(bool useTransOnLower);
-		int draw();
-		int drawOverlay();
+		virtual int draw();
+		virtual int drawOverlay();
 		int drawOnce();
 	};
 
 
+	// Grating that is drawn full screen. Width, height and aperture are used to 
+	// draw a level 0 shape. Before calling drawOverlay(), be sure to switch drawing page
+	// to an overlay page. 
+	class ARApertureGratingSpec: public ARGratingSpec
+	{
+	public:
+		ARApertureGratingSpec() {};
+		virtual ~ARApertureGratingSpec() {};
+		virtual int draw();
+	};
 
 
 	class LevelManager

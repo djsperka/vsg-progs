@@ -20,13 +20,20 @@ public:
 	CCoolerMouseDlg(CWnd* pParent = NULL);	// standard constructor
 	void GetVSGParameters();
 	void update();
-// Dialog Data
+	void updateApertureProperties();
+	void updateStimProperties();
+	COLOR_VECTOR_TYPE CCoolerMouseDlg::getDialogCV();
+	APERTURE_TYPE getDialogApertureType();
+	PATTERN_TYPE getDialogPatternType();
+	COLOR_TYPE getDialogFixationColor();
+
+	
+	
+	// Dialog Data
 	//{{AFX_DATA(CCoolerMouseDlg)
 	enum { IDD = IDD_COOLERMOUSE_DIALOG };
 	double	m_dStimX;
 	double	m_dStimY;
-	double	m_dStimWidth;
-	double	m_dStimHeight;
 	long	m_dStimOrientation;
 	double	m_dStimSF;
 	double	m_dStimTF;
@@ -38,6 +45,7 @@ public:
 	int		m_nAperture;
 	int		m_nStimColorVector;
 	int		m_nFixationColor;
+	double	m_dStimDiameter;
 	//}}AFX_DATA
 
 	// ClassWizard generated virtual function overrides
@@ -60,7 +68,7 @@ protected:
 	afx_msg void OnPaint();
 	afx_msg HCURSOR OnQueryDragIcon();
 	afx_msg void OnApply();
-	afx_msg void OnChangeContrast();
+	afx_msg void OnKillfocusContrast();
 	//}}AFX_MSG
 	DECLARE_MESSAGE_MAP()
 };
