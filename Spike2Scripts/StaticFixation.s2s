@@ -1,4 +1,7 @@
 ' $Log: not supported by cvs2svn $
+' Revision 1.3  2004/10/01 21:07:51  dan
+' Fix bugs in prog command line.
+'
 ' Revision 1.2  2004/10/01 20:06:10  dan
 ' Modified directory locations for executables (../bin) and sequencer files (script dir)
 '
@@ -226,6 +229,7 @@ if Pause = 1 then return 1; endif
 
 NewTriggerTime := NextTime(TriggerChannel%,TriggerTime,NewTriggerState);
 if NewTriggerTime > TriggerTime then 
+	' NewTriggerState=0 means that the transition detected was from low->hi, i.e. stim is now ON. 
 	if NewTriggerState = 0 then
 		TriggerOnTime := NewTriggerTime;
 		Stim$:="On";
@@ -235,6 +239,7 @@ if NewTriggerTime > TriggerTime then
 		View(XYWindow%).XYAddData(3,FixationX,FixationY);
 	endif
 
+	' NewTriggerState=1 means that the transition detected was from hi->low, i.e. stim is now OFF. 
 	if NewTriggerState = 1 then
 		TriggerOffTime := NewTriggerTime;
 		Stim$:="Off";
