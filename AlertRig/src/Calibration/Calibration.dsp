@@ -96,15 +96,7 @@ SOURCE=.\c2.h
 # Begin Source File
 
 SOURCE=.\c2.cpp
-
-!IF  "$(CFG)" == "Calibration - Win32 Release"
-
-!ELSEIF  "$(CFG)" == "Calibration - Win32 Debug"
-
 # PROP Exclude_From_Build 1
-
-!ENDIF 
-
 # End Source File
 # Begin Source File
 
