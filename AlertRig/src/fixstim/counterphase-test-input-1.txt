@@ -1,6 +1,0 @@
-# Big red fixation point, gray background, etc
- -f 0,0,1.0,red  -b gray -d 813
-# stimulus
- -s 0.0,4.0,2.0,2.0,0.0,0.0,100,1.00,5.00,0.0,0.0,b,s,e 
-# counterphase
--P 2,q,0,45,90,135,180
