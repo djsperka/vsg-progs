@@ -1,4 +1,7 @@
 ' $Log: not supported by cvs2svn $
+' Revision 1.3  2004/10/01 20:47:03  dan
+' Fix bug in prog command line.
+'
 ' Revision 1.2  2004/10/01 20:06:10  dan
 ' Modified directory locations for executables (../bin) and sequencer files (script dir)
 '
@@ -419,9 +422,17 @@ var SizeFactor,Row,Column,index,MaxDuplicates;
 var PSTHhandle;
 'Find out how many duplicates of this channel there are. Users duplicate
 'channels to separate data from WaveMarks or groups of wavemarks.
+'
+' djs 12/15/04 first line of loop below originally looked like this - note how 1 is subtracted. 
+' This appears to have been a hack to workaround a spike2 bug where -1 was returned when no dups existed. 
+' The docs say 0 should be returned when there are no dups, and that is what happens in spike2 version 5 (and this
+' is why the bug was noticed). 
+'	DuplicateChannels%[index] := View(DataWindow%).DupChan(index,-1)-1;
+
+
 for index := 1 to NumberOfChannels% do
-	DuplicateChannels%[index] := View(DataWindow%).DupChan(index,-1)+1;
-	if DuplicateChannels%[index] <0 then DuplicateChannels%[index] := 0; endif
+	DuplicateChannels%[index] := View(DataWindow%).DupChan(index,-1);
+	if DuplicateChannels%[index] <=0 then DuplicateChannels%[index] := 0; endif
 next
 
 if ExperimentType$="[Temporal frequency tuning]" then CalculateF1%:=0; CalculateF2%:=0; endif
