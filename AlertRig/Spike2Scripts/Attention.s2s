@@ -1,16 +1,28 @@
 ' $Log: not supported by cvs2svn $
+' Revision 1.1  2005/03/01 00:30:02  dan
+' New version to use with new attention application.
+'
 '
 
 var ContrastState[10000];	' 0 (1) means contrast goes down (up) for a trial
 var RandomDelay[10000];		' Contrast change is delayed by a random amount (0 < delay < RandomFixationOffset)
 
 ' User-input timing vars
+var AcquisitionTime:=0;
 var FixationDuration:=0;
 var InterTrialTime:=0;
+var TimeToAnswer:=0;
 var GratingDelay:=0;
 var ContrastDelay:=0;
 var AnswerPointDelay:=0;
 var RandomFixationOffset := 0;	' Maximum delay time
+
+' Rig-specific variables
+var DegreesPerVoltX;	' Converts X eye coil volts to degrees
+var DegreesPerVoltY;	' Converts Y eye coil volts to degrees
+var DistanceToScreenMM$;	' Not used here, passed on to stimulus app
+var EyeCoilSamplingFrequency%;
+
 
 ' Common parameters
 var WindowRadius:=0;		' Fixation window radius (degrees)
@@ -23,17 +35,32 @@ var JuicePerReward%:=0;
 
 ' Attention params
 var NumberOfBlocks% := 1;	' Number of blocks to run. 1 block = 30 trials
-var CatchTrialPercentage%:=0;
+var CatchTrialPercentage:=0;
 var BaseContrast%:=50;
 var ContrastUp%:=80;
 var ContrastDown%:=20;
 var AnswerWindow:=1;		' Answer point window (degrees)
-
+var AnswerPointOffsetX:=0;	' Answer point X offset in degrees
+var AnswerPointOffsetY:=5;	' Answer point Y offset in degrees
 
 ' Local file system variables. 
 var bin$, script$;
 bin$ := View(App(3)).FileName$(1) + View(App(3)).FileName$(2) + "..\\bin";	' Location of executables is ..\bin, relative to script dir
 script$ := View(App(3)).FileName$(1) + View(App(3)).FileName$(2);	' folder containing this script
+
+' Overall script control vars
+var Pause% := 0;
+
+' Channel numbers and handles
+var TriggerChannel%;		' Channel for fixation point trigger
+var StimHandle;			' handle for stimulus application
+var DataWindow%;		' 
+var XYWindow%;			' 
+var XChannel%;
+var YChannel%;
+
+' Per-trial parameters
+var AnswerX, AnswerY;		' Each trial, this is the center of the CORRECT answer point. 
 
 'Create and display the Toolbar, not yet activating the IdleProcessing function
 
@@ -56,12 +83,13 @@ Toolbar("Go",12345);
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 func Start%()
 var CommandLine$;
-CommandLine$ :=bin$ + "\\NewAttention "+str$(FixationX)+" "+str$(FixationY)+" "+BackgroundColor$+" "
-					+str$(FixationPointDiameter)+" "+str$(BaseContrast)+" "+str$(ContrastUp)+" "+str$(ContrastDown)+" "
-					+str$(IncorrectBrightness)+" "
-					+GratingOrSpot$[GratingOrSpotIndex%]+" "+str$(TargetX)+" "+str$(TargetY)+" "+str$(TargetOrientation)+" "
-					+str$(TargetSF)+" "+str$(TargetTF)+" "+str$(TargetDiameter)+" "+str$(AnswerPointInitialBrightness)+" "
-					+str$(AnswerPointFullBrightness)+" "+GratingColorList$[GratingColorIndex];
+
+'CommandLine$ :=bin$ + "\\NewAttention "+str$(FixationX)+" "+str$(FixationY)+" "+BackgroundColor$+" "
+'					+str$(FixationPointDiameter)+" "+str$(BaseContrast)+" "+str$(ContrastUp)+" "+str$(ContrastDown)+" "
+'					+str$(IncorrectBrightness)+" "
+'					+GratingOrSpot$[GratingOrSpotIndex%]+" "+str$(TargetX)+" "+str$(TargetY)+" "+str$(TargetOrientation)+" "
+'					+str$(TargetSF)+" "+str$(TargetTF)+" "+str$(TargetDiameter)+" "+str$(AnswerPointInitialBrightness)+" "
+'					+str$(AnswerPointFullBrightness)+" "+GratingColorList$[GratingColorIndex];
 'Begin the stimulus program. It will take a few seconds for the VSG to initialize.
 'PrintLog(CommandLine$+"\n");
 'halt;
@@ -91,29 +119,44 @@ func Juice%()
 SampleKey("J");
 return 1;
 end;
+
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 func Looking%(EyePosX,EyePosY)
 	'Determine if the eye position is within the fixation window
 	if (Pow(EyePosX-FixationX,2) + Pow(EyePosY-FixationY,2)) <= Pow(WindowRadius,2) then return 1; else return 0; endif
 end;
+
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+' The answer windows are located 'AnswerPointOffsetY' from the fixation point's location. 
+' The direction of that offset is determined by ContrastChange[TrialNumber%] - if its +1 the 
+' correct answer is above, if its -1 the correct answer is below. 
+
 func Answer%(EyePosX,EyePosY)
 	'Determine if the eye position is within the fixation window
 	if (Pow(EyePosX-FixationX,2) + Pow(EyePosY-AnswerY,2)) <= Pow(AnswerWindow,2) then return 1; endif
 	if (Pow(EyePosX-FixationX,2) + Pow(EyePosY+AnswerY,2)) <= Pow(AnswerWindow,2) then return -1; endif
 	return 0;
 end;
-''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
-func Reward%()
-	for i:=1 to NumberOfRewards% do Yield(.05); SampleKey("J"); next
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+proc Reward()
+	var i%;
+	for i%:=1 to JuicePerReward% do Yield(.05); SampleKey("J"); next
 end;
 
-
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+' Determine two sets of random numbers to drive this expt. 
+' RandomDelay[] is an array of numbers, 0 <= RandomDelay[i] <= RandomFixationOffset. 
+' For each trial, this is a random delay added to each of the delay vars: GratingDelay, ContrastDelay, 
+' AnswerPointDelay. 
+' ContrastState[] is an array of numbers, each is either 1 or -1. Each number determines the contrast
+' change, up for +1, down for -1, on a given trial. 
+' The goofy loop ensures that each "block" of 30 trials is equally balanced between up and down contrast
+' changes. 
 
 func DetermineContrastChanges()
 var BlockIndex%,Block[30],RandomBlock[30],RandomNumber;
+var index;
 ArrConst(Block[:15],-1);
 ArrConst(Block[15:15],1);
 ArrConst(RandomDelay[],0);
@@ -152,7 +195,30 @@ var vTrigger;		' set by NextTime to indicate trigger transition
 var tStateStart:=-1;	' time that present state started. Used to measure wait time, fixation time, etc. 
 var tLastTrigger:=-1;	' last trigger time. New triggers have to be greater than this
 var tTrigger:=-1;	' temp var for newly discovered trigger times
+var tFixationDone:=-1;	' time that fixation duration was achieved. Used to measure time to answer
 
+' Constants for states
+const stateStartTrial%:=0;	' Start trial state
+const stateWaitForFixPt%:=1;	' Waiting for fixation point return trigger
+const stateAcquire%:=2;		' Waiting for subject to acquire fixation point
+const stateHoldFixation%:=3;	' Holding fixation point
+const stateBreakFixation%:=4;	' Waiting for subject to break fixation
+const stateAbort%:=5;		' Failed trial state
+const stateWaitForAnswer%:=6;	' Fixation held, now awaiting answer
+const stateCorrectAnswer%:=7;	' Right answer received
+const stateIncorrectAnswer%:=8;	' Wrong answer received
+const stateWaitForBlank%:=9;
+const stateInterTrialInterval%:=10;
+
+var AnswerPointsUp% :=0;	' Set to 1 after answer point key "A" is issued
+var StimulusUp% :=0;		' Set to 1 after grating key "S" is issued
+var ContrastChange% := 0;	' Set to 1 after ContrastChange key "C"/"D" is issued
+
+var TrialNumber% := -1;		' Tracks the trial number. Note that the first trial will be TrialNumber% := 0, 
+				' so this can be used unaltered as an index into an array.
+var countAbort% :=0;		' Number of trials aborted before any answer given
+var countCorrect% := 0;		' Number of correct answers
+var countIncorrect% := 0;	' Number of incorrect answers
 
 func IdleProcessing%()
 
@@ -169,18 +235,27 @@ func IdleProcessing%()
 
 
 	docase 
-		case iState% = 0 then
+		case iState% = stateStartTrial% then
 
-			' initial state on startup. 
+			'StartTrial -- issue "F" to turn on fixation points. 
 			' Enter state 1
 
 			SampleKey("F");
-			iState% := 1;
-			PrintLog("State 0 - Start new trial - stimulus trigger sent\n");
+			ChangeStateTo(stateWaitForFixPt%, tNow);
+			PrintLog("State stateStartTrial - fixation trigger F sent. Entering state stateWaitForFixPt \n");
 
-		case iState% = 1 then
+			' Initialize state loop vars
+			AnswerPointsUp% :=0;
+			StimulusUp% :=0;
+			ContrastChange% := 0;
+			tFixationDone := -1;
+
+			' Increment trial counter. 
+			TrialNumber% += 1;
+
+		case iState% = stateWaitForFixPt% then
 	
-			' Waiting for stimulus to be presented by vsg and trigger to return. 
+			' Waiting for fixation point return trigger from vsg. 
 			' NextTime returns a non-negative value whenever there is a TRANSITION. In that case, the 
 			' value of 'vTrigger' returned is 1 (0) if the transition is high (low) to low (high). Maybe not
 			' intuitive, but that's the way it is. 
@@ -189,94 +264,157 @@ func IdleProcessing%()
 
 				if vTrigger = 0 then
 		
-					' Stimulus has been presented. Display stim location and window. Enter state 2
-					DrawStim(1);
-					iState% := 2;
-					tStateStart := tTrigger;
+					' Stimulus has been presented. Display stim location and window. Enter stateAcquire
+'					DrawStim(1);
+					ChangeStateTo(stateAcquire%, tTrigger);
 					tLastTrigger := tTrigger;
 
 				endif
 
 			endif
 
-		case iState% = 2 then
+		case iState% = stateAcquire% then
 
 			if tNow-tStateStart < AcquisitionTime then
 				
 				' Acquisition happens when the eye falls within the fixation window.
-				if InFixationWindow%(xEye, yEye) > 0 then
+				if Looking%(xEye, yEye) = 1 then
 
-					PrintLog("State 2 - acquired target. tNow=" + str$(tNow) + " Enter state 3\n");
-					iState% := 3;
-					tStateStart := tNow;
+					PrintLog("stateAcquire - acquired target. tNow=" + str$(tNow) + " Enter stateHoldFixation\n");
+					ChangeStateTo(stateHoldFixation%, tNow);
 	
 				endif
 
 			else
 
 				' Failed. Turn off stim and try again.
-				PrintLog("State 2 - acquisition failed. Enter state 4\n");
-				iState% := 4;
-				tStateStart := tNow;
+				PrintLog("stateAcquire - acquisition failed. Enter stateAbort\n");
+				ChangeStateTo(stateAbort%, tNow);
 
 			endif
 
-		case iState% = 3 then
+		case iState% = stateHoldFixation% then
 
-			' Waiting for fixation....
-			if InFixationWindow%(xEye, yEye) <= 0 then
+			' keep looking at the dot...
+			if Looking%(xEye, yEye) = 1 then
 
-				iState% := 4;
-				tStateStart := tNow;
+				' In this state, we check the time and turn on the stimulus, answer points, contrast change when
+				' appropriate. Note that we do NOT check for the return triggers on these -- this is in keeping with
+				' the original version of this paradigm. I will change this eventually, but not in this first
+				' rewrite. 
+
+				if (tNow - tStateStart >= AnswerPointDelay) and (AnswerPointsUp% = 0) then 
+					SampleKey("A");
+					AnswerPointsUp% := 1;
+				endif
+
+				if (tNow - tStateStart >= GratingDelay) and (StimulusUp% = 0) then
+					SampleKey("S");
+					StimulusUp% := 1;
+				endif
+
+				if (tNow - tStateStart >= ContrastDelay) and (ContrastChange% = 0) then
+					if (rand() <= CatchTrialPercentage/100) then
+						SampleKey("D");
+					else
+						SampleKey("C");
+					endif
+					ContrastChange% := 1;
+					AnswerX := FixationX;
+					AnswerY := FixationY + AnswerPointOffsetY * ContrastState[TrialNumber%];
+
+				endif
+
+				' This is the only condition that forces an exit! 
+				' We use guard logic to ensure that the three changes above - contrast change, gratings up, answer points up, all 
+				' have occurred before exiting this state! 
+				' More logic should be employed to make certain that FixationDuration > AnswerPointDelay, ContrastDelay, GratingDelay! 
+
+				if (tNow - tStateStart >= FixationDuration and AnswerPointsUp% = 1 and StimulusUp% = 1 and ContrastChange% = 1) then
+					ChangeStateTo(stateBreakFixation%, tNow);
+					tFixationDone := tNow;
+				endif;
 
 			else
 
-				if tNow - tStateStart >= FixationDuration then
+				ChangeStateTo(stateAbort%, tNow);
 
-					' Fixation. Reward. New trial.
-					Reward%();
-					iState% := 4;
-					tStateStart := tNow;
+			endif;
 
+		case iState% = stateBreakFixation% then
+
+			' In this state, we just wait for the subject to break fixation. After that happens, turn off the stimuli. 
+			if Looking%(xEye, yEye) = 0 then
+				SampleKey("s");
+				ChangeStateTo(stateWaitForAnswer%, tNow);
+			else 
+				if (tNow - tFixationDone) > TimeToAnswer then
+					ChangeStateTo(stateAbort%, tNow);
 				endif
-
 			endif
 
-		case iState% = 4 then
+		case iState% = stateAbort% then
 
-			' Turn off stimulus, enter state 5 - wait for stimulus off msg
-			DrawStim(0);
-			PrintLog("State 4 - turning off stimulus....\n");
-			SampleKey("L");
-			iState% := 5;
-			tStateStart := tNow;
+			' Issue X, count, wait for blank
+			SampleKey("X");
+			countAbort% += 1;
+			ChangeStateTo(stateWaitForBlank%, tNow);
 
-		case iState% = 5 then
+		case iState% = stateWaitForAnswer% then
 
-			' Wait for stim to be off
+			if (tNow - tFixationDone) > TimeToAnswer then
+				ChangeStateTo(stateAbort%, tNow);
+			else
+				' Check if an answer is being given....
+				var iAnswer%;
+				iAnswer% := Answer%(xEye, yEye);
+				if iAnswer% = 1 then
+					' Right answer
+					ChangeStateTo(stateCorrectAnswer%, tNow);
+				else 
+					if iAnswer% = -1 then
+						' Wrong answer
+						ChangeStateTo(stateIncorrectAnswer%, tNow);
+					endif
+				endif
+			endif
+
+		case iState% = stateCorrectAnswer% then
+
+			SampleKey("X");
+			countCorrect% += 1;
+			Reward();
+			ChangeStateTo(stateWaitForBlank%, tNow);
+
+		case iState% = stateIncorrectAnswer% then
+
+			SampleKey("X");
+			countIncorrect% += 1;
+			ChangeStateTo(stateWaitForBlank%, tNow);
+
+
+		case iState% = stateWaitForBlank% then
+
 			tTrigger := NextTime(TriggerChannel%,tLast,vTrigger);
-			if tTrigger > tLast then
+			if tTrigger > tLastTrigger then
 
 				if vTrigger = 1 then
 		
-					' Stimulus has been turned off by vsg. Enter state 6
-					PrintLog("State 5 - Stim OFF trigger found. Enter state 6\n");
-					iState% := 6;
-					tStateStart := tTrigger;
+					ChangeStateTo(stateInterTrialInterval%, tTrigger);
 					tLastTrigger := tTrigger;
-	
+
 				endif
 
 			endif
 
-		case iState% = 6 then
+		case iState% = stateInterTrialInterval% then
 
 			' Inter-trial wait time
 			if tNow - tStateStart > InterTrialTime then
 	
 				' Back to state 0
-				PrintLog("State 6 - IT wait is done. Start new trial.\n");
-				iState% := 0;
+				PrintLog("stateInterTrialInterval - IT wait is done. Start new trial.\n");
+				iState% := stateStartTrial%;
 				tStateStart := tNow;
 	
 			endif
@@ -290,42 +428,45 @@ func IdleProcessing%()
 	endcase;
 
 	tLast := tNow;
-
-
-
-
-
-
-return 1;
+	return 1;
 end;
+
+
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+proc ChangeStateTo(stateTo%, tStart)
+	iState% := stateTo%;
+	tStateStart := tStart;
+end;
+
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 func PauseStimuli%();
-Pause :=1;
+Pause% :=1;
 ToolbarEnable(4,0);
 ToolbarEnable(5,1);
 return 1;
 end
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 func ResumeStimuli%();
-Pause :=0;
+Pause% :=0;
 ToolbarEnable(4,1);
 ToolbarEnable(5,0);
 return 1;
 end
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 func GetTodaysStats%();
-Profile("AlertRig\\"+Monkey$,"TotalRewards",0,TodaysRewards);
-Profile("AlertRig\\"+Monkey$,"TotalTrials",0,TodaysTrials);
-Profile("AlertRig\\"+Monkey$,"Date","",RecordedDate$);
-TodaysDate$ := Date$();
-if TodaysDate$ <> RecordedDate$ then 
-	Profile("AlertRig\\"+Monkey$,"TotalRewards",0);
-	TodaysRewards :=0;
-	Profile("AlertRig\\"+Monkey$,"TotalTrials",0);
-	TodaysTrials :=0;
-	Profile("AlertRig\\"+Monkey$,"Date",TodaysDate$);
-endif
+'Profile("AlertRig\\"+Monkey$,"TotalRewards",0,TodaysRewards);
+'Profile("AlertRig\\"+Monkey$,"TotalTrials",0,TodaysTrials);
+'Profile("AlertRig\\"+Monkey$,"Date","",RecordedDate$);
+'TodaysDate$ := Date$();
+'if TodaysDate$ <> RecordedDate$ then 
+'	Profile("AlertRig\\"+Monkey$,"TotalRewards",0);
+'	TodaysRewards :=0;
+'	Profile("AlertRig\\"+Monkey$,"TotalTrials",0);
+'	TodaysTrials :=0;
+'	Profile("AlertRig\\"+Monkey$,"Date",TodaysDate$);
+'endif
 return 1;
 end
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
@@ -482,33 +623,7 @@ Profile("AlertRig\\"+Monkey$,"TargetDiameter",str$(TargetDiameter));
 
 return 1;
 end
-''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-func DetermineContrastChanges()
-var BlockIndex%,Block[30],RandomBlock[30],RandomNumber;
-ArrConst(Block[:15],-1);
-ArrConst(Block[15:15],1);
-ArrConst(RandomDelay[],0);
 
-
-for index :=0 to (NumberOfBlocks% -1) do
-	BlockIndex%:=0;
-   ArrConst(RandomBlock[],0);
-	while BlockIndex% < 30 do
-		RandomNumber:=round(29*rand());
-		if RandomBlock[RandomNumber] = 0 then 
-			RandomBlock[RandomNumber] := Block[BlockIndex%];
-			BlockIndex% := BlockIndex%+1;
-		endif
-	wend
-	ArrConst(ContrastState[index*30:30],RandomBlock[]);
-next
-
-for index:=0 to (30*NumberOfBlocks% - 1) do
-	if RandomFixationOffset > 0 then RandomDelay[index] := RandomFixationOffset*rand(); endif
-next
-
-return 1;
-end
 
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 func ModifyDistractors()
