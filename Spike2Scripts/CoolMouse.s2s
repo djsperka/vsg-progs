@@ -1,10 +1,8 @@
-' $Header: /opt/cvstmp/AlertRig/Spike2Scripts/CoolMouse.s2s,v 1.1.1.1 2004-02-20 00:37:14 dan Exp $
+' $Log: not supported by cvs2svn $ 
 '
-'
-
 
 'Idle Processing Variables
-var MasterTargetIndex[10000],TargetTable[8][2],Pause;
+var MasterTargetIndex[10000],TargetTable[8][2],Pause,ViewHandle,NumberRead,FilePathRoot$,DistanceToScreen,ExperimentHandle ;
 var TodaysTrials, TodaysRewards,RecordedDate$,TodaysDate$;
 Profile("AlertRig","TotalRewards",0,TodaysRewards);
 Profile("AlertRig","TotalTrials",0,TodaysTrials);
@@ -25,6 +23,17 @@ YChannel% := NumberOfChannels%+2;
 TriggerChannel% := NumberOfChannels%+3;
 CreateSampleConfiguration();
 
+
+ViewHandle := FileOpen("C:\\AlertRig\\Experiments\\CurrentExperiment.par",8,0);
+NumberRead := Read(FilePathRoot$);
+FileClose();
+if NumberRead >0 then
+
+	ExperimentHandle := FileOpen(FilePathRoot$+"\\Experiment.par",8,0);
+	Read(DistanceToScreen);
+	FileClose();
+endif
+
 var OldX,OldY,Time,NewTriggerTime,NewTriggerState,MarkerValue%[1],Stim$;
 var StimIndex :=-1;
 'Ted-specific variables
@@ -40,7 +49,6 @@ Profile("AlertRig","DegreesPerVoltX","",DegreesPerVoltX$);
 DegreesPerVoltX := val(DegreesPerVoltX$);
 Profile("AlertRig","DegreesPerVoltY","",DegreesPerVoltY$);
 DegreesPerVoltY := val(DegreesPerVoltY$);
-PrintLog("Degrees per volt = " + str$(DegreesPerVoltX) + "," + str$(DegreesPerVoltY) + "\n");
 
 DataWindow% := FileNew(0,4);	'Open the data sampling window
 View(DataWindow%).ChanHide(XChannel%);
@@ -104,6 +112,8 @@ XYJoin(2,1);
 XYAddData(2,RadiusX[],RadiusY[]);
 
 XYSetChan(0);
+'XYAddData(3,FixationX,FixationY);
+'View(XYWindow%).XYDrawMode(-1,5,0);
 
 ToolbarVisible(1);
 
@@ -119,7 +129,7 @@ ToolbarEnable(5,0);
 
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 func Start%()
-StimHandle := ProgRun("C:\\AlertRig\\mouse3 "+str$(FixationX)+" "+str$(FixationY)+" "+str$(FixationDiameter),1);
+StimHandle := ProgRun("C:\\AlertRig\\mouse3 "+str$(FixationX)+" "+str$(FixationY)+" "+str$(FixationDiameter)+" "+str$(DistanceToScreen),1);
 if StimHandle <0 then Message("Could not start stimulus."); halt; endif
 Yield(3);
 SampleStart(0); 
@@ -128,6 +138,10 @@ ToolbarEnable(2,1);
 ToolbarEnable(1,0);
 View(App(8)).WindowVisible(0);
 View(DataWindow%);
+'EyePosX := ChanValue(1,MaxTime())*DegreesPerVoltX;
+'EyePosY := ChanValue(2,MaxTime())*DegreesPerVoltY;
+'View(XYWindow%).XYAddData(1,EyePosX,EyePosY);
+
 return 1;
 end;
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
@@ -141,6 +155,12 @@ end;
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 func Juice%()
 SampleKey("J");
+'var DigBits[64];
+'var DigIndex;
+'for DigIndex := 0 to 63 do
+'	DigBits[DigIndex]:=SampleSeqVar(DigIndex+1);
+'next
+'Message(DigBits[]);
 return 1;
 end;
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
@@ -176,8 +196,10 @@ if Pause = 1 then return 1; endif
 
 NewTriggerTime := NextTime(TriggerChannel%,TriggerTime,NewTriggerState);
 if NewTriggerTime > TriggerTime then 
+'	PrintLog("Trigger Changed at %f\n",NewTriggerTime);
 	if NewTriggerState = 0 then
 		TriggerOnTime := NewTriggerTime;
+	  	PrintLog("Stim on, TriggerOnTime "+str$(TriggerOnTime));
 		Stim$:="On";
 		StimIndex := StimIndex+1;
 		TodaysTrials:=TodaysTrials+1;
@@ -185,20 +207,23 @@ if NewTriggerTime > TriggerTime then
 		Profile("AlertRig","TotalTrials",TodaysTrials);
 		View(XYWindow%).XYAddData(3,FixationX,FixationY);
 
-		PrintLog("draw fix pt " + str$(FixationX) + " " + str$(FixationY) + "\n");
 	endif
 	if NewTriggerState = 1 then
 		TriggerOffTime := NewTriggerTime;
-		PrintLog("Stim off, TriggerOffTime "+str$(TriggerOffTime) + "\n");
+		PrintLog("Stim off, TriggerOffTime "+str$(TriggerOffTime));
 		Stim$:="Off";
+'		PrintLog("Stim off at %f\n",TriggerOffTime);
 		View(XYWindow%).XYDelete(3);
+		'PrintLog("Duration - tolerance = %f, MarkerValue = %d\n",(TriggerOffTime-LastTime(31,TriggerOffTime,MarkerValue%[])),MarkerValue%[0]);
+'		if (TriggerOffTime-LastTime(31,TriggerOffTime,MarkerValue%[]) > (FixationDuration-FixationTolerance)) and ((MarkerValue%[0]=72) or (MarkerValue%[0]=74)) then
+ ' 			SampleKey("J"); Yield(.1); SampleKey("J");Yield(.1); SampleKey("J");Yield(.1); SampleKey("J");
+'		endif
 	endif
 	TriggerTime := NewTriggerTime;
 endif
 
 if StartTrial = 1 then
 	SampleKey("H");
-	View(XYWindow%).XYAddData(3,FixationX,FixationY);
 	TrialStartTime := MaxTime();
 	StartTrial := 0;
 	AcquireTarget :=1;
@@ -214,19 +239,19 @@ if AcquireTarget = 1 then
 		TrialStartTime := TriggerOnTime;
 	endif
 	if Looking%(EyePosX,EyePosY)=1 then AcquireTarget := 0; HoldFixation := 1; TargetAcquiredTime:=MaxTime();return 1; endif
-   if MaxTime()-TrialStartTime > FixationTolerance then AcquireTarget :=0; WaitForBlank :=1; BlankStartTime := -1; PrintLog("Failed to acquire\n");SampleKey("L");View(XYWindow%).XYDelete(3); return 1; endif
+   if MaxTime()-TrialStartTime > FixationTolerance then AcquireTarget :=0; WaitForBlank :=1; BlankStartTime := -1; PrintLog("Failed to acquire");SampleKey("L"); return 1; endif
 endif
 
 if WaitForBlank=1 then
 	if Stim$ ="On" then WaitForStim :=1; return 1; endif
-	if (Stim$="Off" and BlankStartTime =-1) then WaitForStim :=0; BlankStartTime := TriggerOffTime; PrintLog(Stim$+" "+str$(TriggerOffTime)+"\n"); endif
+	if (Stim$="Off" and BlankStartTime =-1) then WaitForStim :=0; BlankStartTime := TriggerOffTime; PrintLog(Stim$+" "+str$(TriggerOffTime)); endif
 	if MaxTime()-BlankStartTime > BlankDuration then WaitForBlank :=0; StartTrial:=1; endif
 	return 1;
 endif
 
 if HoldFixation=1 then 
-	if Looking%(EyePosX,EyePosY)=0 then SampleKey("L"); View(XYWindow%).XYDelete(3); HoldFixation:=0; WaitForBlank:=1; BlankStartTime :=-1; return 1; endif
-	if (MaxTime()-TargetAcquiredTime > FixationDuration) then SampleKey("L"); View(XYWindow%).XYDelete(3); Yield(RewardDelay); Reward%(); HoldFixation:=0; WaitForBlank :=1; BlankStartTime :=-1; endif
+	if Looking%(EyePosX,EyePosY)=0 then SampleKey("L"); HoldFixation:=0; WaitForBlank:=1; BlankStartTime :=-1; return 1; endif
+	if (MaxTime()-TargetAcquiredTime > FixationDuration) then SampleKey("L"); Yield(RewardDelay); Reward%(); HoldFixation:=0; WaitForBlank :=1; BlankStartTime :=-1; endif
 endif
 
 return 1;
@@ -258,6 +283,7 @@ SampleAutoCommit(60); 'Seconds between each file commit
 SampleEvent(TriggerChannel%,2,2,3600); 'Trigger channel, level
 SampleComment$(TriggerChannel%,"Trigger");
 SampleTitle$(TriggerChannel%,"Trigger");
+'DrawMode(TriggerChannel%,2);	'Set the trigger channel to line mode.
 
 for index := 1 to NumberOfChannels% do
 	SampleWaveMark(index,index-1,2000,34,15,28000); ' chan, port, event rate, points, pre-trigger, rate

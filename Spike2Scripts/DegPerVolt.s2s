@@ -1,0 +1,30 @@
+' $Log: not supported by cvs2svn $ 
+
+
+'Determine which monkey we're currently running
+var Monkey$;
+Profile("AlertRig","CurrentMonkey","",Monkey$);
+
+'check to make sure we successfully determined which monkey is being run
+if Monkey$="" then Message("Could not determine current monkey."); halt; endif
+
+'Read in the calibration constant (software gain) for this monkey
+var DegreesPerVoltX$, DegreesPerVoltY$;
+var DegreesPerVoltX, DegreesPerVoltY;
+Profile("AlertRig\\"+Monkey$,"DegreesPerVoltX","5",DegreesPerVoltX$); '5 is a default value if the key value does not exist
+Profile("AlertRig\\"+Monkey$,"DegreesPerVoltY","10",DegreesPerVoltY$); '10 is a default value if the key value does not exist
+
+'Since registry values are either integers are strings, we store decimals as strings and convert them to decimals
+DegreesPerVoltX:=val(DegreesPerVoltX$);
+DegreesPerVoltY:=val(DegreesPerVoltY$);
+
+'Give the user a chance to modify these values if they desire
+DlgCreate("Specify calibration constants");
+DlgReal(1,"Degrees per volt X:",-20,20);
+DlgReal(2,"Degrees per Volt Y:",-20,20);
+DlgShow(DegreesPerVoltX,DegreesPerVoltY);
+
+'Save these values back in the registry
+Profile("AlertRig\\"+Monkey$,"DegreesPerVoltX",str$(DegreesPerVoltX));
+Profile("AlertRig\\"+Monkey$,"DegreesPerVoltY",str$(DegreesPerVoltY));
+
