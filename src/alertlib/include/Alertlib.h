@@ -72,8 +72,21 @@ namespace alert
 		double x, y;
 		double d;
 		COLOR_TYPE color;
+		virtual int draw();
+	};
+
+	// Fixation point for cases where its visibility is controlled by contrast setting 
+
+	class ARContrastFixationPointSpec: public ARFixationPointSpec
+	{
+	public:
+		ARContrastFixationPointSpec() : background(gray) {};
+		~ARContrastFixationPointSpec() {};
+		COLOR_TYPE background;
 		int draw();
 	};
+
+
 
 	// Grating spec
 	class ARGratingSpec: public ARSpec
@@ -90,36 +103,6 @@ namespace alert
 		COLOR_VECTOR_TYPE cv;
 		int draw();
 	};
-
-
-
-
-
-	// Base class used with vsg-type objects. Designed to be used in cases where you want
-	// to do contrast changes to objects to turn them on/off. In cases where you just want
-	// to draw the objects once to a page, then switch pages on triggers (instead of turning
-	// objects on/off via their contrast), don't use these objects. 
-	// The ARObj are used with ContrastTriggers (because those triggers need to be able to 
-	// get the VSGOBJHANDLE to set the contrast). 
-
-
-	class ARObj
-	{
-	public:
-		ARObj(VSGOBJHANDLE i_handle, ARSpec& i_spec) : m_handle(i_handle), m_spec(i_spec) {};
-		virtual ~ARObj() {};
-		VSGOBJHANDLE handle() { return m_handle; };
-		void draw(PIXEL_LEVEL first, int nlevels, COLOR_TYPE i_bg);
-		void setContrast(int contrast)
-		{
-			vsgObjSelect(m_handle);
-			vsgObjSetContrast(contrast);
-		};
-	private:
-		VSGOBJHANDLE m_handle;
-		ARSpec& m_spec;
-	};
-
 
 
 
@@ -226,22 +209,23 @@ namespace alert
 	};
 
 
-	class ContrastTrigger: public Trigger
+
+	class ContrastTrigger: public Trigger, public std::vector< std::pair< VSGOBJHANDLE, int > >
 	{
 	public:
-		ContrastTrigger(std::string i_key, int i_in_mask, int i_in_val, int i_out_mask, int i_out_val, int i_contrast, VSGOBJHANDLE i_handle) : 
-		  Trigger(i_key, i_in_mask, i_in_val, i_out_mask, i_out_val), m_contrast(i_contrast), m_handle(i_handle) {};
-		~ContrastTrigger() {};
+		ContrastTrigger(std::string i_key, int i_in_mask, int i_in_val, int i_out_mask, int i_out_val) : 
+		  Trigger(i_key, i_in_mask, i_in_val, i_out_mask, i_out_val) {};
+		  ~ContrastTrigger() { };
 		virtual int execute(int& output)
 		{
 			setMarker(output);
-			vsgObjSelect(m_handle);
-			vsgObjSetContrast(m_contrast);
+			for (int i=0; i<this->size(); i++)
+			{
+				vsgObjSelect((*this)[i].first);
+				vsgObjSetContrast((*this)[i].second);
+			}
 			return 1;
 		};
-	private:
-		VSGOBJHANDLE m_handle;
-		int m_contrast;
 	};
 
 
