@@ -1,577 +1,276 @@
-' $Id: CoolMouse.s2s,v 1.21 2015-05-12 17:15:18 devel Exp $
-' Update 11/8/11 Jeff, includes SafeSampleKey and multi-juicer updates
-
-#include "../../Spike2util\UsreyUtil.s2s"
-#include "UsreyGratings.s2s"
-#include "UsreyDAQ.s2s"
-#include "UsreyFixationPoint.s2s"
-
-' Cool Mouse specific parameters
-var cmAcquisitionTime := 1.0;
-var cmFixationDuration := 1.0;
-var cmMaintainFixation := 1.0;
-var cmTimeOutTime := 1.0;
-var cmAlwaysLooking% := 0;          ' testing only
-var cmRemoteGratingParametersFile$; ' initialized below
-var cmLocalGratingParametersFile$;  ' initialized below
-var cmUseGratingParametersFile% := 0;    ' only if remote is NOT 127.0.0.1
-
-' Window handles and channel numbers
-var XChannel%,YChannel%;		' Channel number assigned to eye x and y
-var TriggerChannel%;			' Channel number assigned to vsg trigger input (i.e. trigger sent by vsg)
-var ReadyChannel%;			' channel number for VSG ready pulse signal
-var DataWindow%;	' time view
-var XYWindow%;		' window with eye pos shown
-var iStimChannel%;	' channel number for stimulus in xy window
-var iStimWindowChannel%;' channel number for stimulus window in xy window
-var iMonitorChannel%;	' channel number for monitor position display in xy window
-var StimHandle%;	' handle for stimulus application
-
-' Display stuff
-var FixWindowX[36],FixWindowY[36];	' points for displaying fixation window in xy view
-var windowX[36], windowY[36];
-' Stimulus location stuff
-var iStimX%[8];
-var iStimY%[8];
-var iStimIndex%;
+' $Header: /opt/cvstmp/AlertRig/Spike2Scripts/CoolMouse.s2s,v 1.1.1.1 2004-02-20 00:37:14 dan Exp $
+'
+'
 
 
-' Initialized logging
-LogInit(1);
-
-' initialize filenames for remote case. The filenames must be coordinated so that the 'remote' 
-' name is the filename as viewed from the remote machine. The 'local' name is the same
-' file but viewed from the local machine.
-
-cmRemoteGratingParametersFile$ := "s:\\cmouse-grating-parameters.txt";
-cmLocalGratingParametersFile$ := GetStimDir$(1) + "cmouse-grating-parameters.txt";
-
-
-
-' Dialog
-if CoolMouseDialog%() <> 1 then
-    halt;
+'Idle Processing Variables
+var MasterTargetIndex[10000],TargetTable[8][2],Pause;
+var TodaysTrials, TodaysRewards,RecordedDate$,TodaysDate$;
+Profile("AlertRig","TotalRewards",0,TodaysRewards);
+Profile("AlertRig","TotalTrials",0,TodaysTrials);
+Profile("AlertRig","Date","",RecordedDate$);
+TodaysDate$ := Date$();
+if TodaysDate$ <> RecordedDate$ then 
+	Profile("AlertRig","TotalRewards",0);
+	TodaysRewards :=0;
+	Profile("AlertRig","TotalTrials",0);
+	TodaysTrials :=0;
+	Profile("AlertRig","Date",TodaysDate$);
 endif
-
-
-
-
-
-' Assign channel numbers for eye X,Y and trigger. 
-XChannel% := 21;
-YChannel% := 22;
-TriggerChannel% := 23;
-ReadyChannel% := 24;
+	
+var NumberOfChannels%,XChannel%,YChannel%,TriggerChannel%;
+NumberOfChannels%:=Input("Number of channels :",1,1,14);
+XChannel% := NumberOfChannels%+1;
+YChannel% := NumberOfChannels%+2;
+TriggerChannel% := NumberOfChannels%+3;
 CreateSampleConfiguration();
 
+var OldX,OldY,Time,NewTriggerTime,NewTriggerState,MarkerValue%[1],Stim$;
+var StimIndex :=-1;
+'Ted-specific variables
+var NumReward;
+var TrialCounter :=1, Delay :=.5,StartTrial :=1, AcquireTarget :=0, HoldFixation :=0, WaitForBlank :=0, WaitForStim:=0;
+var TrialStartTime, TargetAcquiredTime, BlankStartTime;
+var TargetAcquired :=0;
+var NumberOfRewards :=2;
+'Program startup
+var DataWindow%,XYWindow%,Juice;
+var DegreesPerVoltX, DegreesPerVoltY,DegreesPerVoltX$, DegreesPerVoltY$;
+Profile("AlertRig","DegreesPerVoltX","",DegreesPerVoltX$);
+DegreesPerVoltX := val(DegreesPerVoltX$);
+Profile("AlertRig","DegreesPerVoltY","",DegreesPerVoltY$);
+DegreesPerVoltY := val(DegreesPerVoltY$);
+PrintLog("Degrees per volt = " + str$(DegreesPerVoltX) + "," + str$(DegreesPerVoltY) + "\n");
 
-' Get display windows ready
-InitializeWindows();
+DataWindow% := FileNew(0,4);	'Open the data sampling window
+View(DataWindow%).ChanHide(XChannel%);
+View(DataWindow%).ChanHide(YChannel%);
+View(DataWindow%).Window(-0.235849,52.746,97.2484,99.8856);
+View(DataWindow%).WindowVisible(1);
 
-' Prepare the toolbar buttons
-InitializeToolbar();
+var TriggerState,TriggerTime,TriggerOnTime, TriggerOffTime;
+var StimHandle;
+var WindowRadius :=1, FixationX :=0, FixationY :=0, FixationDuration := 1, FixationTolerance :=1,FixationDiameter :=.2;
+var BlankDuration :=2, RewardDelay :=0, NumberOfRepeats := 1000;
+var EyePosX,EyePosY,RadiusX[1000],RadiusY[1000];
+var index,OldTime :=0,OldJuiceTime :=0;
+var Bit$ := "Low";
+var DistractorFlag%;
+var DlgCancel;
+DlgCreate("Specify fixation parameters");
+DlgReal(1,"Window (deg): ",0,50);
+DlgReal(2,"Fixation point X (deg): ",-50,50);
+DlgReal(3,"Fixation point Y (deg): ",-50,50);
+DlgReal(4,"Fixation point diameter (deg): ",.1,20);
+DlgReal(5,"Fixation duration (s): ",0,20);
+DlgReal(6,"Acquisition (s): ",0,20);
+DlgReal(7,"Reward delay (s): ",0,20);
+DlgReal(8,"Intertrial interval (s): ",0,20);
+DlgReal(9,"Number of trials : ",0,10000);
+DlgReal(10,"Delay before 1st trial (s):",0,10000);
+DlgReal(11,"Number of juices per reward",0,10);
+DlgCheck(12,"Include distractor?");
+DlgCancel:=DlgShow(WindowRadius,FixationX,FixationY,FixationDiameter,FixationDuration,FixationTolerance, RewardDelay, 
+						BlankDuration,NumberOfRepeats,Delay,NumberOfRewards,DistractorFlag%);
+if DlgCancel=0 then halt; endif
 
+XYWindow% := FileNew(12);
+XRange(-9,9);
+YRange(-2,-7.5,7.5);
+WindowVisible(1);
+Window(-0.550314,0.114416,41.5094,52.746);
+XYColour(1,16);
+XYSize(1,-1);
 
-'===============================================================================================
+for index := 0 to 499 do
+	RadiusX[index] := FixationX - WindowRadius + 2*WindowRadius*index/499;
+'	RadiusY[index] := sqrt(WindowRadius*WindowRadius - (RadiusX[index]-FixationX)*(RadiusX[index]-FixationX));
 
-
-
-var tNow:=0;		' latest time for which there are values recorded. Used in IdleProcessing
-var tLast:=-1;		' last time we checked for a trigger. 
-var xEye, yEye;		' eye positions
-var tLastUpdate:=-1;	' last time view was updated
-var vTrigger;		' set by NextTime to indicate trigger transition
-var tStateStart:=-1;	' time that present state started. Used to measure wait time, fixation time, etc. 
-var tLastTrigger:=-1;	' last trigger time. New triggers have to be greater than this
-var tTrigger:=-1;	' temp var for newly discovered trigger times
-var tStimOn:=-1;	' time that stim was turned on. Used to measure spike rates 
-
-
-' Constants for states
-const stateStartTrial%:=0;		' Start trial state
-const stateWaitForFixPtOn%:=1;		' Waiting for fixation point return trigger (on)
-const stateWaitForBlank%:=2;		' Waiting for fixation point return trigger (off)
-const stateWaitForStimOn%:=3;		' Wait for stimulus return trigger (on)
-const stateWaitForStimOff%:=4;		' Wait for stimulus return trigger (off)
-const stateWaitForAcquisition%:=5;	' Waiting for subject to acquire fixation point
-const stateHoldFixation%:=6;		' Holding fixation point
-const stateAbort%:=7;			' Failed trial state
-const stateMaintainFixation%:=8;	' Maintaining fixation (stim off period)
-const stateInterTrialInterval%:=9;	' time out after failed trial
-const stateVSGWait%:=10;		' wait for vsg to send ready signal #1
-const stateVSGWaitConfirm%:=11;		' waif for vsg to send ready signal #2
-const stateTrialCompleted%:=12;		' trial has been completed successfully
-const stateDone%:=13;	
-var iState% := stateVSGWait%;	' present state
-
-var nTrialsStarted%:=0;
-var nTrialsCompleted%:=0;
-var nTrialsAborted% :=0;		' 
-
-
-
-func IdleProcessing%()
-	var iStatus% := 1;	
-	tNow := MaxTime();
-
-	xEye := ChanMeasure(XChannel%,2,tNow-.001,tNow-.006)*DegreesPerVoltX;
-	yEye := ChanMeasure(YChannel%,2,tNow-.001,tNow-.006)*DegreesPerVoltY;
-
-	' Don't update display every time....
-	if tNow-tLastUpdate > .005 then
-		View(XYWindow%).XYAddData(1,xEye,yEye);
-		tLastUpdate := tNow;
+	RadiusY[index] := FixationY + sqrt(WindowRadius*WindowRadius - (RadiusX[index]-FixationX)*(RadiusX[index]-FixationX));
+	RadiusX[999-index] := RadiusX[index];
+	RadiusY[999-index] := 2*FixationY-1*RadiusY[index];
+	if RadiusX[index]=0 then
+		if RadiusY[index]=0 then
+			Message(index);
+		endif
 	endif
 
+next;
 
-	docase 
-		case iState% = stateVSGWait% then
-        
-        ' HACK skip wait state!!!!! djs 2/8/2012
-        
-        'ChangeStateTo(stateStartTrial%, tNow);
-        
-			' Waiting for VSG to indicate it is ready. The indication is a pulse (up, then down, 1 frame apart) on port 6.
-			tTrigger := NextTime(ReadyChannel%, tLast, vTrigger);
-			if tTrigger > tLastTrigger and vTrigger = 0 then
-				LogStatus("stateVSGWait", "Got leading edge of trigger at " + str$(tTrigger));
-				tLastTrigger := tTrigger;
-                ChangeStateTo(stateVSGWaitConfirm%, tTrigger);
-            else 
-                LogStatus("VSGWait", "no ready trig at " + str$(tNow));
-			endif;
+XYSetChan(0);
+XYColour(2,13);
+XYDrawMode(2,2,1);
+XYJoin(2,1);
+XYAddData(2,RadiusX[],RadiusY[]);
 
-		case iState% = stateVSGWaitConfirm% then
+XYSetChan(0);
 
-			' Waiting for VSG to confirm it is ready. The downward side of the pulse is expected...
-			tTrigger := NextTime(ReadyChannel%, tLastTrigger, vTrigger);
-			if tTrigger > tLastTrigger and vTrigger = 1 then
-				LogStatus("stateVSGWaitConfirm", "Got trailing edge of trigger");
-				tLastTrigger := tTrigger;
-				ChangeStateTo(stateStartTrial%, tTrigger);
-			endif;
+ToolbarVisible(1);
 
+ToolbarSet(1,"Sample start",Start%);
+ToolbarSet(2,"Sample stop", Stop%);
+ToolbarSet(3,"Juice",Juice%);
+ToolbarSet(4,"Pause stimuli",PauseStimuli%);
+ToolbarSet(5,"Resume stimuli",ResumeStimuli%);
+Toolbar("Go",12345);
+ToolbarEnable(2,0);
+ToolbarEnable(5,0);
 
-		case iState% = stateStartTrial% then
-
-			' Start trial. Put up fixation point.
-			LogStatus("stateStartTrial", "Send F key");
-			SafeSampleKey("F");
-			ChangeStateTo(stateWaitForFixPtOn%, tTrigger);
-		
-		case iState% = stateWaitForFixPtOn% then
-
-			tTrigger := NextTime(TriggerChannel%, tLast, vTrigger);
-			if tTrigger > tLast and vTrigger = 0 then
-				' Fixation point is up
-				LogStatus("stateWaitForFixPtOn", "Fixpt is on");
-				tLastTrigger := tTrigger;
-				ChangeStateTo(stateWaitForAcquisition%, tTrigger);
-				DrawStim(1);	' actually this draws the location of the fixpt.
-			endif
-
-		case iState% = stateWaitForAcquisition% then
-
-			' Waiting for eye to fall inside of fixation window
-			if InFixationWindow%(xEye, yEye) = 1 then
-				LogStatus("stateWaitForAcquisition", "eye in fixation window");
-				ChangeStateTo(stateHoldFixation%, tNow);
-			else 
-				if tNow - tStateStart > cmAcquisitionTime then
-					' failed to acquire target. 
-					LogStatus("stateWaitForAcquisition", "failed.");
-					ChangeStateTo(stateAbort%, tNow);
-				endif
-			endif
-
-		case iState% = stateAbort% then
-
-			' Signal "X" turns off fixpt and stimulus. The next state 'stateWaitForBlank' only checks for 
-			' fixpt off. 
-			LogStatus("stateAbort", "send f key.");
-			SafeSampleKey("f");
-			ChangeStateTo(stateWaitForBlank%, tNow);
-
-		case iState% = stateWaitForBlank% then
-
-			' we just wait for fix point off signal in this case. 
-			tTrigger := NextTime(TriggerChannel%, tLast, vTrigger);
-			if tTrigger > tLast and vTrigger = 1 then
-				' Fixation point is off
-				LogStatus("stateWaitForBlank", "Fix pt is off.");
-				tLastTrigger := tTrigger;
-				ChangeStateTo(stateInterTrialInterval%, tTrigger);
-				DrawStim(0);	' actually this draws the location of the fixpt.
-			endif
-
-		case iState% = stateInterTrialInterval% then
-
-			if tNow - tStateStart > cmTimeOutTime then
-
-				LogStatus("stateInterTrialInterval", "time out is done.");
-				ChangeStateTo(stateStartTrial%, tNow);
-
-			endif
-
-		case iState% = stateHoldFixation% then
-
-			if InFixationWindow%(xEye, yEye) = 0 then
-	       		
-				LogStatus("stateWaitForFixation", "outside fixation window, aborting trial.");
-				ChangeStateTo(stateAbort%, tNow);
-
-			else 
-
-				if tNow - tStateStart > cmFixationDuration then
-
-					' update tStateStart
-					ChangeStateTo(stateMaintainFixation%, tNow);
-					LogStatus("stateWaitForFixation", "successful trial.");
-	
-					' Reward
-					DefaultReward();
-	
-				endif
-
-			endif
-        
-  		case iState% = stateMaintainFixation% then
-
-			if InFixationWindow%(xEye, yEye) = 0 then
-	       		
-				LogStatus("stateWaitForFixation", "outside fixation window, aborting trial.");
-				ChangeStateTo(stateAbort%, tNow);
-
-			else 
-
-				if tNow - tStateStart > cmMaintainFixation then
-
-					' update tStateStart
-					ChangeStateTo(stateMaintainFixation%, tNow);
-					LogStatus("stateMaintainFixation", "again....");
-	
-					' Reward
-					DefaultReward();
-	
-				endif
-
-			endif
-
-		else
-			
-			' Unknown state!
-			Message("Unknown state=" + str$(iState%));
-			halt;
-
-	endcase;
-
-	tLast := tNow;
-	return iStatus%;
-end;
-
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-proc ChangeStateTo(stateTo%, tStart)
-	iState% := stateTo%;
-	if tStart > 0 then tStateStart := tStart; endif;
-end;
-
-
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-
-
-
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-proc CreateSampleConfiguration()
-	var index;
-	SampleClear(); 'Set standard sampling state
-	SampleAutoFile(0); 'Enable automatic file naming
-    
-	' Set path for new data files
-	FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 3, 1);
-	FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 1, 1);
-	SampleAutoName$(dataCellName$ + "_cm_000");
-	SampleAutoFile(1);
-    
-	'Channel recording definitions
-	SampleEvent(TriggerChannel%, 2, 2, 3600); 'Trigger channel, level
-	SampleComment$(TriggerChannel%, "Fixpt");
-	SampleTitle$(TriggerChannel%, "Fixpt");
-    
-	' channel to look for ready signal from vsg
-	SampleEvent(ReadyChannel%, 1, 2, 3600); 'Trigger channel, level
-	SampleComment$(ReadyChannel%,"VSG Ready");
-	SampleTitle$(ReadyChannel%,"VSG Ready");
-    
-	'EYE COIL CHANNELS. Last # is sampling freq in Hz. 
-	SampleWaveform(XChannel%, GetEyeXPort%(), 1000);
-	SampleTitle$(XChannel%,"Eye X");
-	SampleWaveform(YChannel%, GetEyeYPort%(), 1000);
-	SampleTitle$(YChannel%, "Eye Y");
-    
-	SampleSequencer(script$ + "CoolMouse.pls");
-	SampleOptimise(2, 2, 2, 2, 50);  'Set optimise mode (do this last)
-	SampleMode(1); 'Continuous sampling
-end;
-
-
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-'
-' DrawStim
-' 
-' Draws stimulus in xy window (iDraw%==1) or blanks it (0). 
-proc DrawStim(iDraw%)
-
-	if iDraw% > 0 then
-		var xstim, ystim;
-		xstim := GetStimX();
-		ystim := GetStimY();
-
-		' Draw stimulus in xy window
-		View(XYWindow%).XYAddData(iStimChannel%, xstim, ystim);
-	
-		' draw fixation window
-		ArrConst(windowX[], FixWindowX[]);
-		ArrAdd(windowX[], xstim);
-		ArrConst(windowY[], FixWindowY[]);
-		ArrAdd(windowY[], ystim);
-
-		View(XYWindow%).XYAddData(iStimWindowChannel%, windowX[], windowY[]);		
-	else 
-		' erase the stim and the window from xy view
-		View(XYWindow%).XYDelete(iStimChannel%);
-		View(XYWindow%).XYDelete(iStimWindowChannel%);
-	endif
-
-end;
-
-
-proc InitializeWindows()
-
-	'Open the data sampling window
-	DataWindow% := FileNew(0,4);
-	Window(-0.235849,52.746,97.2484,99.8856);
-    XRange(0, 30);
-	View(DataWindow%).WindowVisible(1);
-
-	'Open an XY view to display eye position
-	XYWindow% := FileNew(12);
-	XRange(-30,30);
-	YRange(-2,-30,30);
-	XYDrawMode(0,5,0);
-	WindowVisible(1);
-	Window(-0.550314,0.114416,41.5094,52.746);
-	XYColour(1,16);
-	XYSize(1,-1);
-
-	'Calcuate the fixation window
-	var index%;
-	var twopi;
-	twopi := 2.0*4.0*ATan(1.0);
-	
-	for index% := 0 to 35 do
-		FixWindowX[index%] := WindowRadius * Cos(index% * twopi/36.0);
-		FixWindowY[index%] := WindowRadius * Sin(index% * twopi/36.0);
-	next;
-
-	'Create a new channel in the XY view to display the fixation window
-	iStimWindowChannel% := XYSetChan(0);
-	XYColour(2,13);
-	XYDrawMode(2,2,1);
-	XYJoin(2,1);
-
-	'Draw the fixation window ON SECOND THOUGHT, DON'T
-	'XYAddData(2, FixWindowX[], FixWindowY[]);	
-
-	'Create a new channel in the XY view to display the fixation point
-	iStimChannel% := XYSetChan(0);
-
-	'Create a new channel in the XY view to show the monitor's location
-	iMonitorChannel% := XYSetChan(0);
-	XYColour(4,13);
-	XYDrawMode(4,3,1);
-	XYJoin(4,2);
-	XYAddData(4,-9,-7);
-	XYAddData(4,9,-7);
-	XYAddData(4,9,7);
-	XYAddData(4,-9,7);
-
-end;
-
-
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-'
-' InitilizeToolbar - prepare toolbar buttons. Note that the idle processing function (ToolbarSet(0, blah, blah)) is 
-' not set here. That's done when the user hits the start button.
-'
-proc InitializeToolbar()
-
-	View(App(8)).WindowVisible(0);	'Hide the standard sample bar
-	ToolbarVisible(1);
-	ToolbarSet(1,"Start",Start%);
-	ToolbarSet(2,"Stop", Stop%);
-	ToolbarSet(3,"Juice", Juice%);
-	ToolbarEnable(2,0);
-	Toolbar("Go", 0x3ff);
-
-end;
-
-
-' Used to hard-quit from toolbar. This will close data files without saving!!! 
-' It is important that this function be disabled once sampling is started!!!
-
-func Quit%()
-	FileClose(-1,-1);
-	return 0;
-end;
 
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 func Start%()
-	var CommandLine$;
-	var Extras$;
-    var RemoteArg$;
-    var remoteExtras$;
-    var i%;
-    
-	SampleStart(0); 'Start sampling
-    ' Set Sequencer Variable #3 based on juicer type 
-    SetJuicerSequencerVariable%();
-    ' Clear any trigger bits on digout lines.
-    SafeSampleKey("0");
-
-    Extras$ := " -b gray -p 2 -S 20 -A " + GetFixationArg$() + " -d " + GetDistanceToScreenMM$() + " -g " + GetGratingParameters$("Stimulus");
-    if GetUseRemoteStimulus%() = 1 then
-        
-        ' We only use remote parameters file if the remote is 192.168.x.x, not 127.0.0.1
-        if InStr(GetRemoteStimulusIP$(), "127.0.0.1") = 0 then
-            LogStatus("Start()", "Remote stimulus on a local port.");
-            cmUseGratingParametersFile% := 1;
-            RemoteExtras$ := " -r " + cmRemoteGratingParametersFile$;
-            
-            ' Clear remote grating parameters file before we start cmouse
-            i% := FileDelete(cmLocalGratingParametersFile$);
-            LogStatus("Start()", "delete " + cmLocalGratingParametersFile$ + " status " + str$(i%));
-        endif
-                
-        ' Command line in this case has remote ip and port...
-        RemoteArg$ := " " + GetRemoteStimulusIP$() + " " + GetRemoteStimulusPort$() + " cmouse ";
-       	CommandLine$ := "cmd /c " + bin$ + "\\remote " + RemoteArg$ + Extras$ + RemoteExtras$;
-    else
-       	CommandLine$ := "cmd /c " + bin$ + "\\cmouse" + Extras$;
-    endif;
-    
-	ToolbarSet(0,"",IdleProcessing%);	'Enable the IdleProcessing function
-	ToolbarEnable(2,1);
-	ToolbarEnable(1,0);
-	View(DataWindow%);
-	Yield(.1);
-    
-	'Begin the stimulus program.
-	LogStatus("Start()", CommandLine$);
-	StimHandle% := ProgRun(CommandLine$,1);
-	if StimHandle% <0 then 
-		Message("Could not start stimulus."); 
-		SampleStop();
-		halt; 
-	endif
-
-	return 1;	
+StimHandle := ProgRun("C:\\AlertRig\\mouse3 "+str$(FixationX)+" "+str$(FixationY)+" "+str$(FixationDiameter),1);
+if StimHandle <0 then Message("Could not start stimulus."); halt; endif
+Yield(3);
+SampleStart(0); 
+ToolbarSet(0,"",IdleProcessing%);
+ToolbarEnable(2,1);
+ToolbarEnable(1,0);
+View(App(8)).WindowVisible(0);
+View(DataWindow%);
+return 1;
 end;
-
-
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 func Stop%()
-    
-	' Disable idle process func
-	ToolbarSet(0,"");
-
-	' Tell stim app to shut down
-	SafeSampleKey("q");
-	Yield(.1);
-	SampleStop();
-    
-    ' if remote, check for updated stimulus
-    if GetUseRemoteStimulus%() = 1 then
-        if FileOpen(cmLocalGratingParametersFile$, 8, 0) < 0 then
-            LogError("Stop%()", "Cannot open registry parameters file. Saved grating parameters cannot be pushed to registry.");
-        else
-            var stmp$;
-            Read(stmp$);
-            LogStatus("Stop%()", "Got grating parameters from cmouse: " + stmp$);
-            FileClose();
-            SaveGratingParameters("Stimulus", stmp$);
-        endif
-    endif
-    return 0;
+SampleKey("L");
+Yield(.1);
+SampleStop();
+ProgKill(StimHandle);
+ProgRun("C:\\AlertRig\\ClearTrigger",0);
 end;
-
-
-
-''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-func GetStimX()
-	return FixationX;
-end;
-
-func GetStimY()
-	return FixationY;
-end;
-
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-func InFixationWindow%(EyePosX,EyePosY)
-	var i% := 0;
-	var xstim, ystim;
-    
-    if cmAlwaysLooking% = 1 then
-        return 1;
-    endif
-        
-	xstim := GetStimX();
-	ystim := GetStimY();
-	'Determine if the eye position is within the fixation window
-	if (Pow(EyePosX-xstim, 2) + Pow(EyePosY-ystim, 2)) <= Pow(WindowRadius,2) then 
-		i% := 1;
+func Juice%()
+SampleKey("J");
+return 1;
+end;
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func Looking%(EyePosX,EyePosY)
+	if (Pow(EyePosX-FixationX,2) + Pow(EyePosY-FixationY,2)) <= Pow(WindowRadius,2) then   return 1; else return 0; endif
+end;
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func Reward%()
+	var i;
+	TodaysRewards:=TodaysRewards+NumberOfRewards;
+	ToolbarText("Trial Number: "+str$(TodaysTrials)+"     Number of Rewards: "+str$(TodaysRewards));
+	Profile("AlertRig","TotalRewards",TodaysRewards);
+	Yield(RewardDelay);
+	for i:=1 to NumberOfRewards do SampleKey("J"); Yield(.05); next
+end;
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func IdleProcessing%()   		'This function will be run whenever an interrupt
+										'is available.
+
+if MaxTime() < Delay then return 1; endif
+
+Time := MaxTime()-.001;
+if Time > 0 then
+	EyePosX := ChanMeasure(XChannel%,2,Time,Time-.005)*DegreesPerVoltX;
+	EyePosY := ChanMeasure(YChannel%,2,Time,Time-.005)*DegreesPerVoltY;
+endif
+if Time > OldTime +.005 then
+	View(XYWindow%).XYAddData(1,EyePosX,EyePosY);
+	OldTime := Time;
+endif
+
+if Pause = 1 then return 1; endif
+
+NewTriggerTime := NextTime(TriggerChannel%,TriggerTime,NewTriggerState);
+if NewTriggerTime > TriggerTime then 
+	if NewTriggerState = 0 then
+		TriggerOnTime := NewTriggerTime;
+		Stim$:="On";
+		StimIndex := StimIndex+1;
+		TodaysTrials:=TodaysTrials+1;
+		ToolbarText("Trial Number: "+str$(TodaysTrials)+"     Number of Rewards: "+str$(TodaysRewards));
+		Profile("AlertRig","TotalTrials",TodaysTrials);
+		View(XYWindow%).XYAddData(3,FixationX,FixationY);
+
+		PrintLog("draw fix pt " + str$(FixationX) + " " + str$(FixationY) + "\n");
 	endif
-	return i%;
+	if NewTriggerState = 1 then
+		TriggerOffTime := NewTriggerTime;
+		PrintLog("Stim off, TriggerOffTime "+str$(TriggerOffTime) + "\n");
+		Stim$:="Off";
+		View(XYWindow%).XYDelete(3);
+	endif
+	TriggerTime := NewTriggerTime;
+endif
+
+if StartTrial = 1 then
+	SampleKey("H");
+	View(XYWindow%).XYAddData(3,FixationX,FixationY);
+	TrialStartTime := MaxTime();
+	StartTrial := 0;
+	AcquireTarget :=1;
+	WaitForStim :=1;
+	return 1;
+endif
+
+if AcquireTarget = 1 then 
+	if StartTrial = 1 then Message("Start and Acquire both 1"); halt; endif
+	if Stim$="Off" then WaitForStim :=1; return 1; endif
+	if ((Stim$="On") and (WaitForStim=1)) then
+		WaitForStim :=0;
+		TrialStartTime := TriggerOnTime;
+	endif
+	if Looking%(EyePosX,EyePosY)=1 then AcquireTarget := 0; HoldFixation := 1; TargetAcquiredTime:=MaxTime();return 1; endif
+   if MaxTime()-TrialStartTime > FixationTolerance then AcquireTarget :=0; WaitForBlank :=1; BlankStartTime := -1; PrintLog("Failed to acquire\n");SampleKey("L");View(XYWindow%).XYDelete(3); return 1; endif
+endif
+
+if WaitForBlank=1 then
+	if Stim$ ="On" then WaitForStim :=1; return 1; endif
+	if (Stim$="Off" and BlankStartTime =-1) then WaitForStim :=0; BlankStartTime := TriggerOffTime; PrintLog(Stim$+" "+str$(TriggerOffTime)+"\n"); endif
+	if MaxTime()-BlankStartTime > BlankDuration then WaitForBlank :=0; StartTrial:=1; endif
+	return 1;
+endif
+
+if HoldFixation=1 then 
+	if Looking%(EyePosX,EyePosY)=0 then SampleKey("L"); View(XYWindow%).XYDelete(3); HoldFixation:=0; WaitForBlank:=1; BlankStartTime :=-1; return 1; endif
+	if (MaxTime()-TargetAcquiredTime > FixationDuration) then SampleKey("L"); View(XYWindow%).XYDelete(3); Yield(RewardDelay); Reward%(); HoldFixation:=0; WaitForBlank :=1; BlankStartTime :=-1; endif
+endif
+
+return 1;
 end;
 
-
-
-func Juice%()
-    DefaultReward();
-    return 1;
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func PauseStimuli%();
+Pause :=1;
+ToolbarEnable(4,0);
+ToolbarEnable(5,1);
+return 1;
 end
-
-
-proc GetCoolMouseParameters()
-    var key$;
-    key$ := GetRegistryKey$(1) + "\\CoolMouse";
-    cmAcquisitionTime := GetFloatRegistryValue(key$, "AcquisitionTime", cmAcquisitionTime);
-    cmFixationDuration := GetFloatRegistryValue(key$, "FixationDuration", cmFixationDuration);
-    cmMaintainFixation := GetFloatRegistryValue(key$, "MaintainFixation", cmMaintainFixation);
-    cmTimeOutTime := GetFloatRegistryValue(key$, "TimeOutTime", cmTimeOutTime);
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func ResumeStimuli%();
+Pause :=0;
+ToolbarEnable(4,1);
+ToolbarEnable(5,0);
+return 1;
 end
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+proc CreateSampleConfiguration()
+var index;
+SampleClear(); 'Set standard sampling state
+SampleAutoFile(0); 'Enable automatic file naming
+SampleAutoComment(0); 'Prompt for comment after sampling
+SampleAutoCommit(60); 'Seconds between each file commit
 
-proc SaveCoolMouseParameters()
-    var key$;
-    key$ := GetRegistryKey$(1) + "\\CoolMouse";
-    SetFloatRegistryValue(key$, "AcquisitionTime", cmAcquisitionTime);
-    SetFloatRegistryValue(key$, "FixationDuration", cmFixationDuration);
-    SetFloatRegistryValue(key$, "MaintainFixation", cmMaintainFixation);
-    SetFloatRegistryValue(key$, "TimeOutTime", cmTimeOutTime);
-end
+'Channel recording definitions
+SampleEvent(TriggerChannel%,2,2,3600); 'Trigger channel, level
+SampleComment$(TriggerChannel%,"Trigger");
+SampleTitle$(TriggerChannel%,"Trigger");
 
+for index := 1 to NumberOfChannels% do
+	SampleWaveMark(index,index-1,2000,34,15,28000); ' chan, port, event rate, points, pre-trigger, rate
+	SampleTitle$(index,"Electrode_"+Str$(index)); 
+next
 
-func CoolMouseDialog%()
-    var status% := 0;
-    GetCoolMouseParameters();
-    DlgCreate("Alert Cool Mouse Parameters");
-    DlgReal(1, "Acquisition Time", 0.01, 100.0);
-    DlgReal(2, "Fixation Time", 0.01, 100.0);
-    DlgReal(3, "Maintain Fixation Time", 0.01, 100.0);
-    DlgReal(4, "Time Out Time", 0.01, 100.0);
-    status% := DlgShow(cmAcquisitionTime, cmFixationDuration, cmMaintainFixation, cmTimeOutTime);
-    if status% = 1 then
-        SaveCoolMouseParameters();
-    endif
-    return status%;
-end
+SampleWaveform(XChannel%,14,28000);
+SampleTitle$(XChannel%,"Eye X");
+SampleWaveform(YChannel%,15,28000);
+SampleTitle$(YChannel%,"Eye Y");
+
+SampleSequencer("c:\\alertrig\\Fixation.pls");
+SampleOptimise(2,2,2,2,50);  'Set optimise mode (do this last)
+SampleMode(1); 'Continuous sampling
+end;
 

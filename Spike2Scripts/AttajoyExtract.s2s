@@ -1,9 +1,0 @@
-' $Id: AttajoyExtract.s2s,v 1.2 2010-12-16 22:25:20 devel Exp $
-#include "../../Spike2Util/BatchUtilities.s2s"
-#include "AttaJoyExtractFunctions.s2s"
-
-var nProcessed%;
-
-
-nProcessed% := ProcessListFile%("", AttaX%);
-LogStatus("AttaJoyExtraction", "Processed " + str$(axNProcessed%) + " files.");
