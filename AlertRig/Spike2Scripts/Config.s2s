@@ -1,0 +1,689 @@
+var iState%:=0;
+
+var strtmp$;
+var itmp%;
+var tmp;
+
+var key$;			' used in fetching stuff from the registry
+var Configuration$;		' the name of the current configuration
+var newConfiguration$;		' candidate name for new configuration 
+var iConfiguration%;		' the index of the current config in the list of available configs
+var Configurations$[20];	' the list of available configs
+var nConfigurations%;		' the number of configs in Configurations$
+const stateStart% := 0;
+const stateQuit% := 9;
+const stateNew% := 1;
+const stateSaveList% := 2;
+const stateSelect% := 3;
+const stateRigConfigDialog% := 4;
+
+
+' Rig params
+var DistanceToScreenMM$;		' Distance to screen in MM
+var DegreesPerVoltX;			' Conversion factor from ADC to visual degrees
+var DegreesPerVoltY;			' Conversion factor from ADC to visual degrees
+var EyeCoilSamplingFrequency%;		' Frequency to sample eye coil at
+var NumberOfElectrodes%;		' Number of electrodes (i.e. wavemark inputs) in use
+
+
+key$ := "AlertRig";
+
+repeat
+	
+	docase 
+		case iState% = stateStart% then
+
+			' Get config list. 
+			key$ := "AlertRig";
+			Profile(key$, "CurrentConfiguration", 0, iConfiguration%);
+			Profile(key$, "Configurations", "", strtmp$);
+
+			' Extract list into an array
+			ReadSetup("", "", "", "", "|");
+			nConfigurations% := ReadStr(strtmp$, Configurations$);
+
+			' If the list was empty, jump to stateNew. 
+			' Otherwise jump to stateSelect
+			if nConfigurations% = 0 then
+				iState% := stateNew%;
+				iConfiguration% := 0;
+			else
+				iState% := stateSelect%;
+				if iConfiguration% >= nConfigurations% or iConfiguration% < 0 then
+					iConfiguration% := 0;
+				endif
+			endif;
+
+		case iState% = stateNew% then
+
+			itmp% := NewConfigDialog%();
+			PrintLog("New config=" + Configuration$ + "\n");
+			if (itmp% = 0) then
+				iState% := stateStart%;
+			else 
+				if itmp% = 1 then
+					' Check that this config isn't a duplicate
+					PrintLog("stateNew, itmp=" + str$(itmp%) + "\n");
+					if (CheckDup%(newConfiguration$) = 1) then
+						Message("Duplicates not allowed!");
+					else
+						' Append to current list and save it
+						Configurations$[nConfigurations%] := newConfiguration$;
+						nConfigurations% += 1;
+						iConfiguration% := nConfigurations% - 1;
+						SaveConfigurationList();
+						iState% := stateSelect%;
+					endif
+				endif
+			endif
+
+		case iState% = stateSelect% then
+
+			itmp% := SelectConfigDialog%(Configurations$, nConfigurations%);
+			docase
+				case itmp% = 0 then
+					iState% := stateQuit%;
+				case itmp% = 1 then
+					SaveCurrentConfiguration();
+					Configuration$ := Configurations$[iConfiguration%];
+					iState% := stateRigConfigDialog%;
+				case itmp% = 2 then
+					iState% := stateNew%;
+			endcase;
+
+	        case iState% = stateRigConfigDialog% then
+
+			itmp% := RigConfigDialog%(Configuration$);
+
+			iState% := stateQuit%;
+
+	endcase;
+
+
+until iState% = stateQuit%;
+
+' returns 1 (0) if the passed string matches (doesn't match) one of the config names in Configurations$[]. 
+' The comparison is a case-independent one (all strings are convered to upper case before comparison) because
+' that's the way the registry is. 
+func CheckDup%(configname$)
+	var i%;
+	var s1tmp$, s2tmp$;
+	s1tmp$ := UCase$(configname$);
+	for i% := 0 to nConfigurations%-1 do
+		s2tmp$ := UCase$(Configurations$[i%]);
+		if s1tmp$ = s2tmp$ then
+			return 1;
+		endif
+	next
+	return 0;
+end;
+		
+		
+
+' Save the configuration list in Configurations$
+proc SaveConfigurationList()
+	var s$;
+	var i%;
+	for i% := 0 to nConfigurations%-1 do
+
+		if i% > 0 then
+			s$ += "|";
+		endif
+		s$ += Configurations$[i%];
+
+	next;
+	key$ := "AlertRig";
+	Profile(key$, "Configurations", s$);
+	return;
+end;
+
+proc SaveCurrentConfiguration()
+	key$ := "AlertRig";
+	Profile(key$, "CurrentConfiguration", iConfiguration%);
+	return;
+end;
+
+' Get a new config name
+func NewConfigDialog%()
+
+	var i%;
+	DlgCreate("New Configuration");
+	DlgString(1, "Config name:", 10);
+	i% := DlgShow(newConfiguration$);
+	return i%;
+
+end;
+
+' Select an existing config from a list
+func SelectConfigDialog%(configs$[], nconfigs%)
+
+	var i%;
+	var iconfig%;
+	DlgCreate("Select Configuration");
+	DlgList(1, "Configuration:", configs$[], nconfigs%);
+	DlgButton(2, "New");
+	i% := DlgShow(iconfig%);
+	if i% = 1 then
+		iConfiguration% := iconfig%;
+	endif
+	return i%;
+
+end;
+
+
+func RigConfigDialog%(config$)
+
+	DlgCreate("Rig Configuration: " + config$, 0, 0, 40);
+	DlgGroup("Settings", 0, 1, 16, 9);
+	DlgButton(2, "DAQ", DAQParametersDialog%, 2, 2);
+	DlgButton(3, "Daily", DailyTotalsDialog%, 2, 3);
+	DlgButton(4, "Fixation", FixationPointDialog%, 2, 4);
+	DlgButton(5, "Stimulus", StimulusDialog%, 2, 5);
+	DlgButton(6, "Distractor 1", Distractor1Dialog%, 2, 6);
+	DlgButton(7, "Distractor 2", Distractor2Dialog%, 2, 7);
+	DlgButton(8, "Distractor 3", Distractor3Dialog%, 2, 8);
+	DlgButton(9, "Distractor 4", Distractor4Dialog%, 2, 9);
+
+	DlgGroup("Scripts", 18, 1, 16, 9);
+	DlgButton(10, "Fixation", FixationScriptDialog%, 20, 2);
+	DlgButton(11, "Attention", AttentionScriptDialog%, 20, 3);
+
+	DlgShow();
+
+end;
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+' Fixation script START
+'
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+' Fixation-script specific control vars.
+var fixFixationDuration;			' Time required to maintain fixation, seconds
+var fixAcquisitionTime;			' Time allowed to acquire target before fail trial, seconds
+var fixInterTrialTime;			' Blank time following a trial (both successful and failed), seconds
+var fixNumberOfTrials%;			' Number of trials to run
+var fixStimulusFlag%;			' Tells whether to use stimulus grating (used as a distractor) 
+var fixDistractor1Flag%; 			' Tells stim to use distractor1 (1) or not (0)
+var fixDistractor2Flag%; 			' Tells stim to use distractor1 (1) or not (0)
+var fixDistractor3Flag%; 			' Tells stim to use distractor1 (1) or not (0)
+var fixDistractor4Flag%; 			' Tells stim to use distractor1 (1) or not (0)
+
+
+proc GetFixationScriptParameters()
+	var stmp$;
+	key$:="AlertRig\\Scripts\\Fixation";
+
+	Profile(key$, "FixationDuration", "1.0", stmp$);
+	fixFixationDuration := val(stmp$);
+
+	Profile(key$, "AcquisitionTime", "1.0", stmp$);
+	fixAcquisitionTime := val(stmp$);
+
+	Profile(key$, "InterTrialTime", "1.0", stmp$);
+	fixInterTrialTime := val(stmp$);
+
+	Profile(key$, "NumberOfTrials", 1, fixNumberOfTrials%);
+
+	Profile(key$, "UseStimulusFlag", 0, fixStimulusFlag%);
+	Profile(key$, "UseDistractor1Flag", 0, fixDistractor1Flag%);
+	Profile(key$, "UseDistractor2Flag", 0, fixDistractor2Flag%);
+	Profile(key$, "UseDistractor3Flag", 0, fixDistractor3Flag%);
+	Profile(key$, "UseDistractor4Flag", 0, fixDistractor4Flag%);
+end;
+ 	
+proc SaveFixationScriptParameters()
+	var stmp$;
+	key$:="AlertRig\\Scripts\\Fixation";
+
+	Profile(key$, "FixationDuration", str$(fixFixationDuration));
+	Profile(key$, "AcquisitionTime", str$(fixAcquisitionTime));
+	Profile(key$, "InterTrialTime", str$(fixInterTrialTime));
+	Profile(key$, "NumberOfTrials", fixNumberOfTrials%);
+	Profile(key$, "UseStimulusFlag", fixStimulusFlag%);
+	Profile(key$, "UseDistractor1Flag", fixDistractor1Flag%);
+	Profile(key$, "UseDistractor2Flag", fixDistractor2Flag%);
+	Profile(key$, "UseDistractor3Flag", fixDistractor3Flag%);
+	Profile(key$, "UseDistractor4Flag", fixDistractor4Flag%);
+end;
+
+
+
+func FixationScriptDialog%()
+	var i%;
+	GetFixationScriptParameters();
+	DlgCreate("Fixation Training Parameters");
+	DlgReal(1, "Fixation duration(s):", .01, 10);
+	DlgReal(2, "Acquisition time(s):", .01, 10);
+	DlgReal(3, "Intertrial time(s):", .01, 10);
+	DlgInteger(4, "Number of Trials:", 1, 1000);
+	DlgCheck(5, "Use stimulus?");
+	DlgCheck(6, "Use distractor 1?");
+	DlgCheck(7, "Use distractor 2?");
+	DlgCheck(8, "Use distractor 3?");
+	DlgCheck(9, "Use distractor 4?");
+	i%:=DlgShow(fixFixationDuration, fixAcquisitionTime, fixInterTrialTime, fixNumberOfTrials%, fixStimulusFlag%, fixDistractor1Flag%, fixDistractor2Flag%, fixDistractor3Flag%, fixDistractor4Flag%);
+	if i% = 1 then
+		SaveFixationScriptParameters();
+	endif;
+	return 1;
+end;
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+' Fixation script END
+'
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+' Attention script START
+'
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+var attNumberOfBlocks%;
+var attCatchTrialPercentage;
+var attContrastBase%;
+var attContrastUp%;
+var attContrastDown%;
+var attFixationDuration;
+var attAcquisitionTime;
+var attInterTrialTime;
+var attGratingDelay;
+var attContrastDelay;
+var attAnswerPointDelay;
+var attRandomFixationOffset;
+var attStimulusFlag%;			' Tells whether to use stimulus grating (used as a distractor) 
+var attDistractor1Flag%; 			' Tells stim to use distractor1 (1) or not (0)
+var attDistractor2Flag%; 			' Tells stim to use distractor1 (1) or not (0)
+var attDistractor3Flag%; 			' Tells stim to use distractor1 (1) or not (0)
+var attDistractor4Flag%; 			' Tells stim to use distractor1 (1) or not (0)
+
+proc GetAttentionScriptParameters()
+	var stmp$;
+	key$:="AlertRig\\Scripts\\Attention";
+
+	Profile(key$, "NumberOfBlocks", 1, attNumberOfBlocks%);
+
+	Profile(key$, "CatchTrialPercentage", "0.0", stmp$);
+	attCatchTrialPercentage := val(stmp$);
+
+	Profile(key$, "ContrastBase", 50, attContrastBase%);
+	Profile(key$, "ContrastUp", 80, attContrastUp%);
+	Profile(key$, "ContrastDown", 20, attContrastDown%);
+
+	Profile(key$, "FixationDuration", "1.0", stmp$);
+	attFixationDuration := val(stmp$);
+
+	Profile(key$, "AcquisitionTime", "1.0", stmp$);
+	attAcquisitionTime := val(stmp$);
+
+	Profile(key$, "InterTrialTime", "1.0", stmp$);
+	attInterTrialTime := val(stmp$);
+
+	Profile(key$, "GratingDelay", "1.0", stmp$);
+	attGratingDelay := val(stmp$);
+
+	Profile(key$, "ContrastDelay", "1.0", stmp$);
+	attContrastDelay := val(stmp$);
+
+	Profile(key$, "AnswerPointDelay", "1.0", stmp$);
+	attAnswerPointDelay := val(stmp$);
+
+	Profile(key$, "RandomFixationOffset", "1.0", stmp$);
+	attRandomFixationOffset := val(stmp$);
+
+	Profile(key$, "UseStimulusFlag", 0, attStimulusFlag%);
+	Profile(key$, "UseDistractor1Flag", 0, attDistractor1Flag%);
+	Profile(key$, "UseDistractor2Flag", 0, attDistractor2Flag%);
+	Profile(key$, "UseDistractor3Flag", 0, attDistractor3Flag%);
+	Profile(key$, "UseDistractor4Flag", 0, attDistractor4Flag%);
+end;
+
+proc SaveAttentionScriptParameters()
+	var stmp$;
+	key$:="AlertRig\\Scripts\\Attention";
+
+	Profile(key$, "NumberOfBlocks", attNumberOfBlocks%);
+	Profile(key$, "CatchTrialPercentage", str$(attCatchTrialPercentage));
+	Profile(key$, "ContrastBase", attContrastBase%);
+	Profile(key$, "ContrastUp", attContrastUp%);
+	Profile(key$, "ContrastDown", attContrastDown%);
+	Profile(key$, "FixationDuration", str$(attFixationDuration));
+	Profile(key$, "AcquisitionTime", str$(attAcquisitionTime));
+	Profile(key$, "InterTrialTime", str$(attInterTrialTime));
+	Profile(key$, "GratingDelay", str$(attGratingDelay));
+	Profile(key$, "ContrastDelay", str$(attContrastDelay));
+	Profile(key$, "AnswerPointDelay", str$(attAnswerPointDelay));
+	Profile(key$, "RandomFixationOffset", str$(attRandomFixationOffset));
+	Profile(key$, "UseStimulusFlag", attStimulusFlag%);
+	Profile(key$, "UseDistractor1Flag", attDistractor1Flag%);
+	Profile(key$, "UseDistractor2Flag", attDistractor2Flag%);
+	Profile(key$, "UseDistractor3Flag", attDistractor3Flag%);
+	Profile(key$, "UseDistractor4Flag", attDistractor4Flag%);
+end;
+
+func AttentionScriptDialog%()
+	var i%;
+	GetAttentionScriptParameters();
+	DlgCreate("Attention Training Parameters");
+	DlgReal(1, "Fixation duration(s):", .01, 10);
+	DlgReal(2, "Acquisition time(s):", .01, 10);
+	DlgReal(3, "Intertrial time(s):", .01, 10);
+	DlgInteger(4, "Number of Blocks:", 1, 1000);
+	DlgReal(5, "Catch Trial fraction", 0, 1);
+	DlgInteger(6, "Base contrast(%)", 0, 100);
+	DlgInteger(7, "Up contrast(%)", 0, 100);
+	DlgInteger(8, "Down contrast(%)", 0, 100);
+	DlgCheck(9, "Use distractor 1?");
+	DlgCheck(10, "Use distractor 2?");
+	DlgCheck(11, "Use distractor 3?");
+	DlgCheck(12, "Use distractor 4?");
+	i%:=DlgShow(attFixationDuration, attAcquisitionTime, attInterTrialTime, attNumberOfBlocks%, attCatchTrialPercentage, 
+		attContrastBase%, attContrastUp%, attContrastDown%, 
+		attDistractor1Flag%, attDistractor2Flag%, attDistractor3Flag%, attDistractor4Flag%);
+	if i% = 1 then
+		SaveAttentionScriptParameters();
+	endif;
+	return 1;
+end;
+
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+' Attention script END
+'
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+
+func Distractor1Dialog%()
+	GratingDialog("Distractor1");
+	return 1;
+end;
+
+func Distractor2Dialog%()
+	GratingDialog("Distractor2");
+	return 1;
+end;
+
+func Distractor3Dialog%()
+	GratingDialog("Distractor3");
+	return 1;
+end;
+
+func Distractor4Dialog%()
+	GratingDialog("Distractor4");
+	return 1;
+end;
+
+func StimulusDialog%()
+	GratingDialog("Stimulus");
+	return 1;
+end;
+
+func GetGratingParameters$(type$)
+	var stmp$;
+	key$ := "AlertRig\\" + Configuration$ + "\\Gratings";
+	Profile(key$, type$, "", stmp$);
+	return stmp$;
+end;
+
+func SaveGratingParameters(type$, gr$)
+	key$ := "AlertRig\\" + Configuration$ + "\\Gratings";
+	Profile(key$, type$, gr$);
+end;
+
+proc GratingDialog(type$)
+
+	var gr$;
+	var i%;
+	var x:=0;
+	var y:=0;
+	var w:=1;
+	var h:=1;
+	var contrast%:=100;
+	var orientation:=0;
+	var sf:=1;
+	var tf:=1;
+	var cv$:="b";
+	var p$:="s";	' pattern
+	var ap$:="e";	' aperture 
+
+
+
+	var ColorVectorList$[4];
+	var cvl$[4];
+	var icvl%;
+	ColorVectorList$[0]:="Black/White";	cvl$[0]:="b";
+	ColorVectorList$[1]:="L cone";		cvl$[1]:="l";
+	ColorVectorList$[2]:="M cone";		cvl$[2]:="m";
+	ColorVectorList$[3]:="S cone";		cvl$[3]:="s";
+
+	var PatternList$[2];
+	var pl$[2];
+	var ipl%;
+	PatternList$[0]:="Sine";	pl$[0]:="s";
+	PatternList$[1]:="Square";	pl$[1]:="q";
+
+	var ApertureList$[2];
+	var al$[2];
+	var ial%;
+	ApertureList$[0]:="Ellipse";	al$[0]:="e";
+	ApertureList$[1]:="Rectangle";	al$[1]:="r";
+
+	' Get the params for this grating from registry, then parse for the list boxes. 
+	gr$ := GetGratingParameters$(type$);
+	if gr$ <> "" then
+		ReadSetup("", "", "", "", ",");
+		i% := ReadStr(gr$, x, y, w, h, contrast%, sf, tf, orientation, cv$, p$, ap$);
+
+		icvl%:=0;
+		for i%:=0 to 3 do
+			if cv$ = cvl$[i%] then icvl%:=i%; endif;
+		next;
+
+		ipl%:=0;
+		for i%:=0 to 1 do
+			if p$=pl$[i%] then ipl%:=i%; endif;
+		next;
+
+		ial%:=0;
+		for i%:=0 to 1 do
+			if ap$=al$[i%] then ial%:=i%; endif;
+		next;
+
+	endif
+
+	DlgCreate("Grating parameters: " + type$);
+	DlgReal(1, "X:", -10, 10);
+	DlgReal(2, "Y:", -10, 10);
+	DlgReal(3, "Width:", .1, 10);
+	DlgReal(4, "Height:", .1, 10);
+	DlgInteger(5, "Contrast(%):", 0, 100);
+	DlgReal(6, "Spatial Freq:", .1, 10);
+	DlgReal(7, "Temporal Freq:", 0, 10);
+	DlgReal(8, "Orientation (degrees):", 0, 360);
+	DlgList(9, "Color:", ColorVectorList$[]);
+	DlgList(10, "Pattern:", PatternList$[]);
+	DlgList(11, "Aperture:", ApertureList$[]);
+	i% := DlgShow(x, y, w, h, contrast%, sf, tf, orientation, icvl%, ipl%, ial%);
+	if i%=1 then
+		cv$ := cvl$[icvl%];
+		p$ := pl$[ipl%];
+		ap$ := al$[ial%];
+		' save parameters
+		gr$ := Print$("%.1f,%.1f,%.1f,%.1f,%d,%.2f,%.2f,%.1f,%s,%s,%s", x, y, w, h, contrast%, sf, tf, orientation, cv$, p$, ap$);
+		SaveGratingParameters(type$, gr$);
+	endif
+
+end;
+
+
+
+var WindowRadius;
+var FixationX, FixationY;
+var FixationColor$;
+var iFixationColor%;
+var FixationDiameter;
+var FixationColorList$[3]; 
+
+proc GetFixationParameters()
+	var stmp$;
+	key$ := "AlertRig\\" + Configuration$ + "\\Fixation";
+	Profile(key$, "WindowRadius", "1", stmp$);
+	WindowRadius := val(stmp$);
+
+	Profile(key$, "FixationX", "0", stmp$);
+	FixationX := val(stmp$);
+	Profile(key$, "FixationY", "0", stmp$);
+	FixationY := val(stmp$);
+
+	Profile(key$, "FixationColor", 0, iFixationColor%);
+
+	FixationColorList$[0]:="red"; 
+	FixationColorList$[1]:="green"; 
+	FixationColorList$[2]:="blue"; 
+	FixationColor$ := FixationColorList$[iFixationColor%];
+
+	Profile(key$, "FixationDiameter", "0.5", stmp$);
+	FixationDiameter := val(stmp$);
+end;
+
+proc SaveFixationParameters()
+	key$ := "AlertRig\\" + Configuration$ + "\\Fixation";
+	Profile(key$, "WindowRadius", str$(WindowRadius));
+	Profile(key$, "FixationX", str$(FixationX));
+	Profile(key$, "FixationY", str$(FixationY));
+	Profile(key$, "FixationColor", iFixationColor%);
+	Profile(key$, "FixationDiameter", str$(FixationDiameter));
+end;
+
+
+func FixationPointDialog%()
+
+	var i%;
+	GetFixationParameters();
+	DlgCreate("Fixation parameters: " + Configuration$);
+	DlgReal(1, "Fixation X:", -20, 20);
+	DlgReal(2, "Fixation Y:", -20, 20);
+	DlgReal(3, "Fixation diam:", .1, 5);
+	DlgReal(4, "Window radius:", .1, 10);
+	DlgList(5, "Color:", FixationColorList$[]);
+	i% := DlgShow(FixationX, FixationY, FixationDiameter, WindowRadius, iFixationColor%);	
+
+	' If user cancelled, reload params
+	if i% = 0 then
+		GetFixationParameters();
+	else
+		SaveFixationParameters();
+	endif
+
+	return 1;
+end;
+
+
+
+
+var TotalTrials%;
+var TotalRewards%;
+var TotalDate$;
+
+
+func DailyTotalsDialog%()
+	GetDailyTotals();
+	DlgCreate("Daily Totals");
+	DlgText("Date: " + TotalDate$, 0, 1);
+	DlgText("Trials: " + str$(TotalTrials%), 0, 2);
+	DlgText("Rewards: " + str$(TotalRewards%), 0, 3);
+	DlgButton(2, "Reset", ResetDailyTotals%);
+	DlgShow();
+	return 1;
+end;
+
+
+func GetDayString$()
+	return Date$(2, 1, 3, 2, "-");
+end;
+
+
+func ResetDailyTotals%()
+	GetDailyTotals();
+	TotalRewards%:=0;
+	TotalTrials%:=0;
+	TotalDate$:= GetDayString$();
+	SaveDailyTotals();
+        return 0;
+end;
+
+
+func DAQParametersDialog%()
+
+	var iReturn%;
+	var idist%;
+
+	GetRigParameters();
+
+	idist% := val(DistanceToScreenMM$);
+	DlgCreate("DAQ parameters: " + Configuration$);
+	DlgInteger(1, "Number of Electrodes:", 1, 7, 0, 0, 1);
+	DlgInteger(2, "Screen Distance (MM):", 1, 5000);
+	DlgReal(3, "Degrees/Volt (X):", 0, 100);
+	DlgReal(4, "Degrees/Volt (Y):", 0, 100);
+	DlgInteger(5, "Eye Coil Sampling Freq (Hz):", 1, 20000);
+	iReturn% := DlgShow(NumberOfElectrodes%, idist%, DegreesPerVoltX, DegreesPerVoltY, EyeCoilSamplingFrequency%);
+
+	if iReturn% = 1 then
+		DistanceToScreenMM$ := str$(idist%);
+		SaveRigParameters();
+	endif
+	return iReturn%;
+end;
+
+
+
+
+proc GetDailyTotals()
+	key$ := "AlertRig\\Daily";
+	Profile(key$, "TotalDate", "", TotalDate$);
+	Profile(key$, "TotalTrials", 0, TotalTrials%);
+	Profile(key$, "TotalRewards", 0, TotalRewards%);
+end;
+
+proc SaveDailyTotals()
+	key$ := "AlertRig\\Daily";
+	Profile(key$, "TotalDate", TotalDate$);
+	Profile(key$, "TotalTrials", TotalTrials%);
+	Profile(key$, "TotalRewards", TotalRewards%);
+end;
+	
+proc GetRigParameters()
+
+	var DegreesPerVoltX$, DegreesPerVoltY$;
+
+	key$ := "AlertRig\\" + Configuration$;
+	Profile(key$, "DistanceToScreenMM", "850", DistanceToScreenMM$);	' will just pass this to stimulus app
+	Profile(key$, "DegreesPerVoltX", "", DegreesPerVoltX$);
+	Profile(key$, "DegreesPerVoltY", "", DegreesPerVoltY$);
+	Profile(key$, "EyeCoilSamplingFrequency", 1000, EyeCoilSamplingFrequency%);
+	Profile(key$, "NumberOfElectrodes", 1, NumberOfElectrodes%);
+	DegreesPerVoltX := val(DegreesPerVoltX$);
+	DegreesPerVoltY := val(DegreesPerVoltY$);
+
+end;
+
+proc SaveRigParameters()
+
+	var DegreesPerVoltX$, DegreesPerVoltY$;
+	DegreesPerVoltX$ := str$(DegreesPerVoltX);
+	DegreesPerVoltY$ := str$(DegreesPerVoltY);
+	
+	key$ := "AlertRig\\" + Configuration$;
+	Profile(key$, "DistanceToScreenMM", DistanceToScreenMM$);
+	Profile(key$, "DegreesPerVoltX", DegreesPerVoltX$);
+	Profile(key$, "DegreesPerVoltY", DegreesPerVoltY$);
+	Profile(key$, "EyeCoilSamplingFrequency", EyeCoilSamplingFrequency%);
+	Profile(key$, "NumberOfElectrodes", NumberOfElectrodes%);
+
+end;
+
+
