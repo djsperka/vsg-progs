@@ -239,6 +239,8 @@ int init_pages()
 	m_afp.init(2);
 	m_afp.draw();
 
+
+
 	// Set trigger mode
 	vsgObjSetTriggers(vsgTRIG_ONPRESENT+vsgTRIG_TOGGLEMODE,0,0);
 
