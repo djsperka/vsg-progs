@@ -611,7 +611,6 @@ end;
 '	Vars that control the fixation script. 
 '
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-
 ' Fixation-script specific control vars.
 var fixFixationDuration;			' Time required to maintain fixation, seconds
 var fixAcquisitionTime;			' Time allowed to acquire target before fail trial, seconds
@@ -623,6 +622,8 @@ var fixDistractor2Flag%; 			' Tells stim to use distractor1 (1) or not (0)
 var fixDistractor3Flag%; 			' Tells stim to use distractor1 (1) or not (0)
 var fixDistractor4Flag%; 			' Tells stim to use distractor1 (1) or not (0)
 var fixBackgroundColor$;			' Background color for stim
+var fixCalibrationFlag%;			' 1 for calibration run
+var fixCalibrationOffset;			' degree offset for calibration dots
 proc GetFixationScriptParameters()
 	var stmp$;
 	var key$;
@@ -646,6 +647,9 @@ proc GetFixationScriptParameters()
 	Profile(key$, "UseDistractor2Flag", 0, fixDistractor2Flag%);
 	Profile(key$, "UseDistractor3Flag", 0, fixDistractor3Flag%);
 	Profile(key$, "UseDistractor4Flag", 0, fixDistractor4Flag%);
+	Profile(key$, "DoCalibrationFlag", 0, fixCalibrationFlag%);
+	Profile(key$, "CalibrationOffset", "5.0", stmp$);
+	fixCalibrationOffset := val(stmp$);
 end;
  	
 proc SaveFixationScriptParameters()
@@ -663,6 +667,8 @@ proc SaveFixationScriptParameters()
 	Profile(key$, "UseDistractor2Flag", fixDistractor2Flag%);
 	Profile(key$, "UseDistractor3Flag", fixDistractor3Flag%);
 	Profile(key$, "UseDistractor4Flag", fixDistractor4Flag%);
+	Profile(key$, "DoCalibrationFlag", fixCalibrationFlag%);
+	Profile(key$, "CalibrationOffset", str$(fixCalibrationOffset));
 end;
 
 
@@ -691,7 +697,9 @@ func FixationScriptDialog%()
 	DlgCheck(8, "Use distractor 2?");
 	DlgCheck(9, "Use distractor 3?");
 	DlgCheck(10, "Use distractor 4?");
-	i%:=DlgShow(fixFixationDuration, fixAcquisitionTime, fixInterTrialTime, fixNumberOfTrials%, ibcl%, fixStimulusFlag%, fixDistractor1Flag%, fixDistractor2Flag%, fixDistractor3Flag%, fixDistractor4Flag%);
+	DlgCheck(11, "Calibration run?");
+	DlgReal(12, "Calibration offset (deg):", 0, 10);
+	i%:=DlgShow(fixFixationDuration, fixAcquisitionTime, fixInterTrialTime, fixNumberOfTrials%, ibcl%, fixStimulusFlag%, fixDistractor1Flag%, fixDistractor2Flag%, fixDistractor3Flag%, fixDistractor4Flag%, fixCalibrationFlag%, fixCalibrationOffset);
 	if i% = 1 then
 		fixBackgroundColor$ := bcl$[ibcl%];
 		SaveFixationScriptParameters();
@@ -704,7 +712,6 @@ end;
 ' Fixation script END
 '
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 '
@@ -831,7 +838,7 @@ func AttentionScriptDialog%()
 	DlgReal(8, "Time to answer(s):", 0.01, 10.0);
 
 	DlgInteger(9, "Number of Blocks:", 1, 1000);
-	DlgReal(10, "Catch Trial fraction", 0, 1);
+	DlgReal(10, "Catch Trial pct (0-100)", 0, 100);
 	DlgList(11, "Background color:", bcl$);
 	DlgInteger(12, "Base contrast(%)", 0, 100);
 	DlgInteger(13, "Up contrast(%)", 0, 100);
