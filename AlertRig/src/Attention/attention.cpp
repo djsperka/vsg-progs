@@ -134,7 +134,8 @@ int main (int argc, char *argv[])
 		}
 	}
 
-	clear_vsg();
+	ARvsg::instance().clear();
+
 
 	return 0;
 }
