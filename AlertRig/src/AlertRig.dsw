@@ -27,6 +27,18 @@ Package=<4>
 
 ###############################################################################
 
+Project: "NewAttention"=.\NewAttention\NewAttention.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
 Project: "TuningCurve"=.\TuningCurve\TuningCurve.dsp - Package Owner=<4>
 
 Package=<5>
