@@ -1,4 +1,4 @@
-// $Header: /opt/cvstmp/AlertRig/src/Calibration/Attic/c2.cpp,v 1.2 2004-09-29 21:01:50 dan Exp $
+// $Header: /opt/cvstmp/AlertRig/src/Calibration/Attic/c2.cpp,v 1.3 2005-01-19 01:08:48 dan Exp $
 //
 // Calibration program. This program places a fixation point at different locations
 // to facilitate calibrating the manual gains on the dni eye coil driver. 
@@ -42,7 +42,7 @@ void main(int argc, char *argv[])
 		// [2] - Stimulus color "Red", "Green", "Blue" (case-insensitive)
 		// [3] - Stimulus diameter (degrees)
 		// [4] - Distance to Screen (MM)
-		// [5] - % of screen width to cover
+		// [5] - % of screen width to cover. If >1, this is degrees. 
 		
 		sBackgroundColor = argv[1];
 		sStimulusColor = argv[2];
@@ -108,6 +108,7 @@ int setStimulus(unsigned long i_ulState, int i_iVert, int i_iHoriz)
 		vsgSetDrawPage(vsgVIDEOPAGE,iPage,vsgNOCLEAR);
 		vsgObjSetTriggers(vsgTRIG_ONPRESENT|vsgTRIG_OUTPUTMARKER,STIMULUS_ON,0);
 		vsgPresent();		
+		printf("on page %d\n", iPage);
 	}
 	else if ((i_ulState&PRES_OFF) == i_ulState)
 	{
@@ -116,6 +117,7 @@ int setStimulus(unsigned long i_ulState, int i_iVert, int i_iHoriz)
 		vsgSetDrawPage(vsgVIDEOPAGE,iPage,vsgNOCLEAR);
 		vsgObjSetTriggers(vsgTRIG_ONPRESENT|vsgTRIG_OUTPUTMARKER,STIMULUS_OFF,0);
 		vsgPresent();		
+		printf("off page %d\n", iPage);
 	}
 	else
 	{
@@ -149,6 +151,7 @@ int init(double i_dDist, double i_dDiam, CString *i_psBackground, CString *i_psS
 	else 
 	{
 		Sleep(5000);
+		printf("Screen dist is %lf mm\n", i_dDist);
 		vsgSetViewDistMM((unsigned long)i_dDist);
 		vsgSetSpatialUnits(vsgDEGREEUNIT);
 
@@ -173,11 +176,13 @@ int init(double i_dDist, double i_dDiam, CString *i_psBackground, CString *i_psS
 		}
 		else if( strcmpi(*i_psStim,"green")==0 )
 		{
+			cout << "init - green\n";
 			buffer[0].b=1;
 			buffer[0].a = buffer[0].c = 0;
 		}
 		else if( strcmpi(*i_psStim,"blue")==0 )
 		{
+			cout << "init - blue\n";
 			buffer[0].c=1;
 			buffer[0].a = buffer[0].b = 0;
 		}
@@ -235,11 +240,12 @@ int drawPages(int i_iBackground, double i_dDiameter, double i_dPctCoverage)
 	VSGLUTBUFFER buffer;
 
 	vsgLUTBUFFERRead(0,&buffer);
+	cout << buffer[0].a << " " << buffer[0].b << " " << buffer[0].c << endl;
 	cout << buffer[1].a << " " << buffer[1].b << " " << buffer[1].c << endl;
 
 	if (!getPixelRange(&dXMax,&dYMax))
 	{
-
+		printf("Pixel limits x=%lf y=%lf\n", dXMax, dYMax);
 
 		// Draw page 0 as a blank. 
 		vsgSetDrawPage(vsgVIDEOPAGE,iPage,i_iBackground);
@@ -252,8 +258,21 @@ int drawPages(int i_iBackground, double i_dDiameter, double i_dPctCoverage)
 			{
 				iPage = 1 + i*3 + j;
 
-				dXLocation = (i-1)*dXMax*i_dPctCoverage;
-				dYLocation = (j-1)*dYMax*i_dPctCoverage;
+
+				// If dPctCoverage is less than 1 we take it to be the % coverage. 
+				// If its more than 1, take it to be an absolute degree value. The dots are to 
+				// be placed there. 
+
+				if (i_dPctCoverage <= 1.0)
+				{
+					dXLocation = (i-1)*dXMax*i_dPctCoverage;
+					dYLocation = (j-1)*dYMax*i_dPctCoverage;
+				}
+				else
+				{
+					dXLocation = (i-1)*i_dPctCoverage;
+					dYLocation = (j-1)*i_dPctCoverage;
+				}
 
 				//Clear the video page we're using to the background color
 				vsgSetDrawPage(vsgVIDEOPAGE,iPage,i_iBackground);
@@ -261,6 +280,7 @@ int drawPages(int i_iBackground, double i_dDiameter, double i_dPctCoverage)
 //				vsgSetDrawPage(vsgVIDEOPAGE,iPage,vsgNOCLEAR);
 				vsgSetPen1(0);
 				vsgDrawOval(dXLocation, dYLocation , i_dDiameter, i_dDiameter);
+				printf("Page %d x=%lf y=%lf d=%lf\n", iPage, dXLocation, dYLocation , i_dDiameter, i_dDiameter);
 			}
 		}
 	}
@@ -282,6 +302,7 @@ int getPixelRange(double *i_pXMax, double *i_pYMax)
 {
 	int iStatus=0;
 	double dPixelsPerDegree=0;
+//	if (!vsgUnit2Unit(vsgPIXELUNIT, 1, vsgDEGREEUNIT, &dPixelsPerDegree))
 	if (!vsgUnit2Unit(vsgDEGREEUNIT, 1, vsgPIXELUNIT, &dPixelsPerDegree))
 	{
 		// Convert pixels per degree to screen max. Lets allow a little room at the edge for the
@@ -289,9 +310,9 @@ int getPixelRange(double *i_pXMax, double *i_pYMax)
 		*i_pXMax = 400/dPixelsPerDegree;
 		*i_pYMax = 300/dPixelsPerDegree;
 
-//		printf("There are %f pixels per degree\n", dPixelsPerDegree);
-//		printf("XMax (375 pixels) is at %f degrees\n", *i_pXMax);
-//		printf("YMax (275 pixels) is at %f degrees\n", *i_pYMax);
+		printf("There are %f pixels per degree\n", dPixelsPerDegree);
+		printf("XMax (400 pixels) is at %f degrees\n", *i_pXMax);
+		printf("YMax (300 pixels) is at %f degrees\n", *i_pYMax);
 
 	}
 	else 
