@@ -1,4 +1,7 @@
 ' $Log: not supported by cvs2svn $
+' Revision 1.3  2005/03/11 01:13:12  dan
+' Almost there!
+'
 ' Revision 1.2  2005/03/09 01:06:48  dan
 ' Almost there!
 '
@@ -494,7 +497,7 @@ func AttentionScriptDialog%()
 	DlgReal(8, "Time to answer(s):", 0.01, 10.0);
 
 	DlgInteger(9, "Number of Blocks:", 1, 1000);
-	DlgReal(10, "Catch Trial fraction", 0, 1);
+	DlgReal(10, "Catch Trial pct(0-100)", 0, 100);
 	DlgList(11, "Background color:", bcl$);
 	DlgInteger(12, "Base contrast(%)", 0, 100);
 	DlgInteger(13, "Up contrast(%)", 0, 100);
@@ -556,6 +559,7 @@ var StimChannel%;
 var AnswerPointChannel%;
 var StimChangeChannel%;
 var ConfounderChangeChannel%;
+var ReadyChannel%;
 
 ' XY window stuff
 var XYWindow%;			' 
@@ -599,8 +603,9 @@ YChannel% := NumberOfElectrodes%+2;
 FixationPointChannel% := NumberOfElectrodes%+3;
 StimChannel% := NumberOfElectrodes%+4;
 StimChangeChannel% := NumberOfElectrodes%+5;
-AnswerPointChannel% := NumberOfElectrodes%+6;
-ConfounderChangeChannel% := NumberOfElectrodes%+7;
+ConfounderChangeChannel% := NumberOfElectrodes%+6;
+AnswerPointChannel% := NumberOfElectrodes%+7;
+ReadyChannel% := NumberOfElectrodes%+8;
 CreateSampleConfiguration();
 
 
@@ -712,7 +717,6 @@ var tNow:=0;		' latest time for which there are values recorded. Used in IdlePro
 var tLast:=-1;		' last time we checked for a trigger. 
 var xEye, yEye;		' eye positions
 var tLastUpdate:=-1;	' last time view was updated
-var iState%:=0;		' present state
 var vTrigger;		' set by NextTime to indicate trigger transition
 var tStateStart:=-1;	' time that present state started. Used to measure wait time, fixation time, etc. 
 var tLastTrigger:=-1;	' last trigger time. New triggers have to be greater than this
@@ -731,6 +735,9 @@ const stateCorrectAnswer%:=7;	' Right answer received
 const stateIncorrectAnswer%:=8;	' Wrong answer received
 const stateWaitForBlank%:=9;
 const stateInterTrialInterval%:=10;
+const stateVSGWait% := 11;
+const stateVSGWaitConfirm% := 12;
+var iState% := stateVSGWait%;	' present state
 
 var AnswerPointsUp% :=0;	' Set to 1 after answer point key "A" is issued
 var StimulusUp% :=0;		' Set to 1 after grating key "S" is issued
@@ -757,6 +764,26 @@ func IdleProcessing%()
 
 
 	docase 
+		case iState% = stateVSGWait% then
+
+			' Waiting for VSG to indicate it is ready. The indication is a pulse (up, then down, 1 frame apart) on port 6.
+			tTrigger := NextTime(ReadyChannel%, tLast, vTrigger);
+			if tTrigger > tLastTrigger and vTrigger = 0 then
+				PrintLog("state stateVSGWait: Got leading edge of trigger\n");
+				tLastTrigger := tTrigger;
+				ChangeStateTo(stateVSGWaitConfirm%, tTrigger);
+			endif;
+
+		case iState% = stateVSGWaitConfirm% then
+
+			' Waiting for VSG to confirm it is ready. The downward side of the pulse is expected...
+			tTrigger := NextTime(ReadyChannel%, tLast, vTrigger);
+			if tTrigger > tLastTrigger and vTrigger = 1 then
+				PrintLog("state stateVSGWaitConfirm: Got trailing edge of trigger\n");
+				tLastTrigger := tTrigger;
+				ChangeStateTo(stateStartTrial%, tTrigger);
+			endif;
+
 		case iState% = stateStartTrial% then
 
 			'StartTrial -- issue "F" to turn on fixation points. 
@@ -1060,6 +1087,11 @@ proc CreateSampleConfiguration()
 	SampleEvent(ConfounderChangeChannel%,5,2,3600); 'Trigger channel, level
 	SampleComment$(ConfounderChangeChannel%,"Catch trial");
 	SampleTitle$(ConfounderChangeChannel%,"Catch trial");
+
+	SampleEvent(ReadyChannel%,6,2,3600); 'Trigger channel, level
+	SampleComment$(ReadyChannel%,"VSG Ready");
+	SampleTitle$(ReadyChannel%,"VSG Ready");
+
 	
 	for index := 1 to NumberOfElectrodes% do
 		SampleWaveMark(index,index-1,2000,34,15,28000); ' chan, port, event rate, points, pre-trigger, rate
@@ -1104,7 +1136,7 @@ var Extras$;
 var Distractors$:="";
 
 SampleStart(0); 'Start sampling
-
+SampleKey("0");
 GetAttentionScriptParameters();
 
 ' Stimulus is always used
@@ -1149,7 +1181,8 @@ endif
 
 Extras$ := " -b " + attBackgroundColor$ + " -d " + DistanceToScreenMM$ + " -t " + str$(attContrastDown%) + "," + str$(attContrastBase%) + "," + str$(attContrastUp%);
 
-CommandLine$ := "cmd /k " + bin$ + "\\dAttention " + FixationArg$ + Extras$ + Distractors$;
+'CommandLine$ := "cmd /c " + bin$ + "\\dAttention " + FixationArg$ + Extras$ + Distractors$;
+CommandLine$ := bin$ + "\\dAttention " + FixationArg$ + Extras$ + Distractors$;
 
 'Begin the stimulus program. It will take a few seconds for the VSG to initialize.
 PrintLog(CommandLine$+"\n");
