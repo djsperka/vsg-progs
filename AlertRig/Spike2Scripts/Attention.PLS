@@ -1,4 +1,7 @@
 ; $Log: not supported by cvs2svn $
+; Revision 1.1  2004/10/01 20:06:10  dan
+; Modified directory locations for executables (../bin) and sequencer files (script dir)
+;
 ;
 
                 SET      1.000 1 0     ;Get rate & scaling OK
@@ -11,7 +14,7 @@
                 VAR    V50,Delay4=0    ;and another one
                 VAR    V51,Delay5=0    ;and another one
 
-0000 E0:        DIGOUT [00000001]
+0000 E0:     '0 DIGOUT [00000001]
 0001            DELAY  s(0.996)-1
 0002            HALT                   ;End of this sequence section
 
@@ -31,11 +34,13 @@
 0013            DELAY  s(0.996)-1
 0014            HALT   
 
-0015 EC:     'C DIGOUT [....i..1]      ;Signals the target contrast change
+;0015 EC:     'C DIGOUT [....i..1]      ;Signals the target contrast change
+0015 EC:     'C DIGOUT [....1..1]      ;Signals the target contrast change
 0016            DELAY  s(0.996)-1
 0017            HALT   
 
-0018 ED:     'D DIGOUT [...i...1]      ;Signals the distractor contrast change (catch trial)
+;0018 ED:     'D DIGOUT [...i...1]      ;Signals the distractor contrast change (catch trial)
+0018 ED:     'D DIGOUT [...1...1]      ;Signals the distractor contrast change (catch trial)
 0019            DELAY  s(0.996)-1
 0020            HALT   
 
