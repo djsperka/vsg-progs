@@ -1,4 +1,7 @@
 ' $Log: not supported by cvs2svn $
+' Revision 1.2  2004/10/01 20:06:10  dan
+' Modified directory locations for executables (../bin) and sequencer files (script dir)
+'
 ' Revision 1.1  2004/10/01 19:41:01  dan
 ' From production
 ' 
@@ -134,10 +137,10 @@ func Start%()
 AuxWindowLayout();
 
 var CommandLine$;
-CommandLine$ :=bin$ + "TuningCurve "+str$(FixationX)+" "+str$(FixationY)+" "
+CommandLine$ :=bin$ + "\\TuningCurve "+str$(FixationX)+" "+str$(FixationY)+" "
 					+str$(FixationPointDiameter);
 'Begin the stimulus program. It will take a few seconds for the VSG to initialize.
-'PrintLog(CommandLine$+"\n");
+PrintLog(CommandLine$+"\n");
 StimHandle := ProgRun(CommandLine$,1);
 if StimHandle <0 then Message("Could not start stimulus."); halt; endif
 Yield(5);	'Wait a few seconds to make sure the VSG has time to initialize.
