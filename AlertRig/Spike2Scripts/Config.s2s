@@ -1,16 +1,9 @@
-var iState%:=0;
-const stateStart% := 0;
-const stateQuit% := 9;
-const stateNew% := 1;
-const stateSaveList% := 2;
-const stateSelect% := 3;
-const stateRigConfigDialog% := 4;
-
-
 
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 '
-'	Get Current configuration END
+'	Get Current configuration START
+'	
+'	Fetch the current configuration from the registry and return it. 
 '
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
@@ -38,14 +31,15 @@ end;
 '
 '	Configuration Selection START
 '
+'	These functions and vars handle the current configuration and the list of possible
+'	configurations. SelectConfigurationDialog% prompts user to select current configuration.
+'
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
 
 
 var CurrentConfiguration$;
 var ConfigurationList$;
-func SelectConfigurationDialog()
-end;
 
 proc GetConfigurationParameters()
 	var rkey$;
@@ -68,7 +62,7 @@ func SelectConfigurationDialog%()
 	GetConfigurationParameters();
 	s$ := CurrentConfiguration$;
 
-	DlgCreate("Select configuration");
+	DlgCreate("Select configuration", 25, 10);
 	DlgString(1, "Configuration:", 20, "", 0, 0, ConfigurationList$);
 	i% := DlgShow(s$);
 
@@ -127,240 +121,93 @@ end;
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
 
-
-
-
-
-
-func RigConfigDialog%(config$)
-
-	DlgCreate("Rig Configuration: " + config$, 0, 0, 40);
-	DlgGroup("Settings", 0, 1, 16, 9);
-	DlgButton(2, "DAQ", DAQParametersDialog%, 2, 2);
-	DlgButton(3, "Daily", DailyTotalsDialog%, 2, 3);
-	DlgButton(4, "Fixation", FixationPointDialog%, 2, 4);
-	DlgButton(5, "Stimulus", StimulusDialog%, 2, 5);
-	DlgButton(6, "Distractor 1", Distractor1Dialog%, 2, 6);
-	DlgButton(7, "Distractor 2", Distractor2Dialog%, 2, 7);
-	DlgButton(8, "Distractor 3", Distractor3Dialog%, 2, 8);
-	DlgButton(9, "Distractor 4", Distractor4Dialog%, 2, 9);
-
-	DlgGroup("Scripts", 18, 1, 16, 9);
-	DlgButton(10, "Fixation", FixationScriptDialog%, 20, 2);
-	DlgButton(11, "Attention", AttentionScriptDialog%, 20, 3);
-
-	DlgShow();
-
-end;
-
-
-
-
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 '
-' Fixation script parameters START
+'	Data parameters START
+'
+'	Vars that control where data is stored. 
 '
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-' Fixation-script specific control vars.
-var fixFixationDuration;			' Time required to maintain fixation, seconds
-var fixAcquisitionTime;			' Time allowed to acquire target before fail trial, seconds
-var fixInterTrialTime;			' Blank time following a trial (both successful and failed), seconds
-var fixNumberOfTrials%;			' Number of trials to run
-var fixStimulusFlag%;			' Tells whether to use stimulus grating (used as a distractor) 
-var fixDistractor1Flag%; 			' Tells stim to use distractor1 (1) or not (0)
-var fixDistractor2Flag%; 			' Tells stim to use distractor1 (1) or not (0)
-var fixDistractor3Flag%; 			' Tells stim to use distractor1 (1) or not (0)
-var fixDistractor4Flag%; 			' Tells stim to use distractor1 (1) or not (0)
 
+var dataPathRoot$;		' base path for data storage
+var dataDataSet$;		' folder under data path where data files placed
+var dataCellName$;		' part of base name for all data files
+var dataDataSetTextItem%;	' 
 
-proc GetFixationScriptParameters()
+proc GetDataParameters()
 	var stmp$;
 	var key$;
 
-	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Fixation";
+	key$:="AlertRig\\Data";
 
-	Profile(key$, "FixationDuration", "1.0", stmp$);
-	fixFixationDuration := val(stmp$);
-
-	Profile(key$, "AcquisitionTime", "1.0", stmp$);
-	fixAcquisitionTime := val(stmp$);
-
-	Profile(key$, "InterTrialTime", "1.0", stmp$);
-	fixInterTrialTime := val(stmp$);
-
-	Profile(key$, "NumberOfTrials", 1, fixNumberOfTrials%);
-
-	Profile(key$, "UseStimulusFlag", 0, fixStimulusFlag%);
-	Profile(key$, "UseDistractor1Flag", 0, fixDistractor1Flag%);
-	Profile(key$, "UseDistractor2Flag", 0, fixDistractor2Flag%);
-	Profile(key$, "UseDistractor3Flag", 0, fixDistractor3Flag%);
-	Profile(key$, "UseDistractor4Flag", 0, fixDistractor4Flag%);
+	Profile(key$, "PathRoot", "C:\\Experiments", dataPathRoot$);
+	Profile(key$, "DataSet", "", dataDataSet$);
+	Profile(key$, "CellName", "", dataCellName$);
+	return;
 end;
- 	
-proc SaveFixationScriptParameters()
+
+proc SaveDataParameters()
 	var stmp$;
 	var key$;
-	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Fixation";
 
-	Profile(key$, "FixationDuration", str$(fixFixationDuration));
-	Profile(key$, "AcquisitionTime", str$(fixAcquisitionTime));
-	Profile(key$, "InterTrialTime", str$(fixInterTrialTime));
-	Profile(key$, "NumberOfTrials", fixNumberOfTrials%);
-	Profile(key$, "UseStimulusFlag", fixStimulusFlag%);
-	Profile(key$, "UseDistractor1Flag", fixDistractor1Flag%);
-	Profile(key$, "UseDistractor2Flag", fixDistractor2Flag%);
-	Profile(key$, "UseDistractor3Flag", fixDistractor3Flag%);
-	Profile(key$, "UseDistractor4Flag", fixDistractor4Flag%);
+	key$:="AlertRig\\Data";
+
+	Profile(key$, "PathRoot", dataPathRoot$);
+	Profile(key$, "DataSet", dataDataSet$);
+	Profile(key$, "CellName", dataCellName$);
+	return;
 end;
 
-
-
-func FixationScriptDialog%()
+func DataParametersDialog%()
 	var i%;
-	GetFixationScriptParameters();
-	DlgCreate("Fixation Training Parameters");
-	DlgReal(1, "Fixation duration(s):", .01, 10);
-	DlgReal(2, "Acquisition time(s):", .01, 10);
-	DlgReal(3, "Intertrial time(s):", .01, 10);
-	DlgInteger(4, "Number of Trials:", 1, 1000);
-	DlgCheck(5, "Use stimulus?");
-	DlgCheck(6, "Use distractor 1?");
-	DlgCheck(7, "Use distractor 2?");
-	DlgCheck(8, "Use distractor 3?");
-	DlgCheck(9, "Use distractor 4?");
-	i%:=DlgShow(fixFixationDuration, fixAcquisitionTime, fixInterTrialTime, fixNumberOfTrials%, fixStimulusFlag%, fixDistractor1Flag%, fixDistractor2Flag%, fixDistractor3Flag%, fixDistractor4Flag%);
-	if i% = 1 then
-		SaveFixationScriptParameters();
+	GetDataParameters();
+	DlgCreate("Data Storage Parameters", 25, 10, 50);
+	DlgText("Data root path: " + dataPathRoot$, 0, 1);
+	dataDataSetTextItem% := DlgText("Data set name: " + dataDataSet$, 0, 2);
+	DlgString(1, "Cell name:", 10, "", 0, 3);
+        DlgButton(2, "New Data Set", NewDataSet%);
+	i% := DlgShow(dataCellName$);
+	if (i% = 1) then
+		if Len(dataDataSet$) = 0 then
+			Message("Must specify a data set (try the button!)");
+		else
+			if Len(dataCellName$) = 0 then
+				Message("Must specify a cell name");
+			else
+				FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 0, 1);
+				SaveDataParameters();
+			endif;
+		endif;
 	endif;
-	return 1;
+	return i%;
 end;
 
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-'
-' Fixation script END
-'
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
-
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-'
-' Attention script START
-'
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-
-var attNumberOfBlocks%;
-var attCatchTrialPercentage;
-var attContrastBase%;
-var attContrastUp%;
-var attContrastDown%;
-var attFixationDuration;
-var attAcquisitionTime;
-var attInterTrialTime;
-var attGratingDelay;
-var attContrastDelay;
-var attAnswerPointDelay;
-var attRandomFixationOffset;
-var attStimulusFlag%;			' Tells whether to use stimulus grating (used as a distractor) 
-var attDistractor1Flag%; 			' Tells stim to use distractor1 (1) or not (0)
-var attDistractor2Flag%; 			' Tells stim to use distractor1 (1) or not (0)
-var attDistractor3Flag%; 			' Tells stim to use distractor1 (1) or not (0)
-var attDistractor4Flag%; 			' Tells stim to use distractor1 (1) or not (0)
-
-proc GetAttentionScriptParameters()
-	var stmp$;
-	var key$;
-	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Attention";
-
-	Profile(key$, "NumberOfBlocks", 1, attNumberOfBlocks%);
-
-	Profile(key$, "CatchTrialPercentage", "0.0", stmp$);
-	attCatchTrialPercentage := val(stmp$);
-
-	Profile(key$, "ContrastBase", 50, attContrastBase%);
-	Profile(key$, "ContrastUp", 80, attContrastUp%);
-	Profile(key$, "ContrastDown", 20, attContrastDown%);
-
-	Profile(key$, "FixationDuration", "1.0", stmp$);
-	attFixationDuration := val(stmp$);
-
-	Profile(key$, "AcquisitionTime", "1.0", stmp$);
-	attAcquisitionTime := val(stmp$);
-
-	Profile(key$, "InterTrialTime", "1.0", stmp$);
-	attInterTrialTime := val(stmp$);
-
-	Profile(key$, "GratingDelay", "1.0", stmp$);
-	attGratingDelay := val(stmp$);
-
-	Profile(key$, "ContrastDelay", "1.0", stmp$);
-	attContrastDelay := val(stmp$);
-
-	Profile(key$, "AnswerPointDelay", "1.0", stmp$);
-	attAnswerPointDelay := val(stmp$);
-
-	Profile(key$, "RandomFixationOffset", "1.0", stmp$);
-	attRandomFixationOffset := val(stmp$);
-
-	Profile(key$, "UseStimulusFlag", 0, attStimulusFlag%);
-	Profile(key$, "UseDistractor1Flag", 0, attDistractor1Flag%);
-	Profile(key$, "UseDistractor2Flag", 0, attDistractor2Flag%);
-	Profile(key$, "UseDistractor3Flag", 0, attDistractor3Flag%);
-	Profile(key$, "UseDistractor4Flag", 0, attDistractor4Flag%);
-end;
-
-proc SaveAttentionScriptParameters()
-	var key$;
-	var stmp$;
-	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Attention";
-
-	Profile(key$, "NumberOfBlocks", attNumberOfBlocks%);
-	Profile(key$, "CatchTrialPercentage", str$(attCatchTrialPercentage));
-	Profile(key$, "ContrastBase", attContrastBase%);
-	Profile(key$, "ContrastUp", attContrastUp%);
-	Profile(key$, "ContrastDown", attContrastDown%);
-	Profile(key$, "FixationDuration", str$(attFixationDuration));
-	Profile(key$, "AcquisitionTime", str$(attAcquisitionTime));
-	Profile(key$, "InterTrialTime", str$(attInterTrialTime));
-	Profile(key$, "GratingDelay", str$(attGratingDelay));
-	Profile(key$, "ContrastDelay", str$(attContrastDelay));
-	Profile(key$, "AnswerPointDelay", str$(attAnswerPointDelay));
-	Profile(key$, "RandomFixationOffset", str$(attRandomFixationOffset));
-	Profile(key$, "UseStimulusFlag", attStimulusFlag%);
-	Profile(key$, "UseDistractor1Flag", attDistractor1Flag%);
-	Profile(key$, "UseDistractor2Flag", attDistractor2Flag%);
-	Profile(key$, "UseDistractor3Flag", attDistractor3Flag%);
-	Profile(key$, "UseDistractor4Flag", attDistractor4Flag%);
-end;
-
-func AttentionScriptDialog%()
+func NewDataSet%()
+	var d$;
 	var i%;
-	GetAttentionScriptParameters();
-	DlgCreate("Attention Training Parameters");
-	DlgReal(1, "Fixation duration(s):", .01, 10);
-	DlgReal(2, "Acquisition time(s):", .01, 10);
-	DlgReal(3, "Intertrial time(s):", .01, 10);
-	DlgInteger(4, "Number of Blocks:", 1, 1000);
-	DlgReal(5, "Catch Trial fraction", 0, 1);
-	DlgInteger(6, "Base contrast(%)", 0, 100);
-	DlgInteger(7, "Up contrast(%)", 0, 100);
-	DlgInteger(8, "Down contrast(%)", 0, 100);
-	DlgCheck(9, "Use distractor 1?");
-	DlgCheck(10, "Use distractor 2?");
-	DlgCheck(11, "Use distractor 3?");
-	DlgCheck(12, "Use distractor 4?");
-	i%:=DlgShow(attFixationDuration, attAcquisitionTime, attInterTrialTime, attNumberOfBlocks%, attCatchTrialPercentage, 
-		attContrastBase%, attContrastUp%, attContrastDown%, 
-		attDistractor1Flag%, attDistractor2Flag%, attDistractor3Flag%, attDistractor4Flag%);
-	if i% = 1 then
-		SaveAttentionScriptParameters();
-	endif;
+	var dirs$[100];	' if there are ever more than 100 datasets in a single day there will be trouble
+	d$ := Date$(2, 2, 3, 3, "-");
+	PrintLog("NewDataSet: date string = " + d$ + "\n");
+
+	' Change current dir to data path root, then get list of subdirs with this date string
+	PrintLog("NewDataSet: dataPathRoot$=" + dataPathRoot$ + "\n");
+	FilePathSet(dataPathRoot$, 0, 1);
+	i% := FileList(dirs$, -2, d$ + "-??");
+        PrintLog("NewDataSet: found " + str$(i%) + " dirs\n");
+
+	' form new dataset name. The first will have "-01" appended, the second "-02", etc. 
+	dataDataSet$ := Print$("%s-%02d", d$, i%+1);
+	PrintLog("NewDataSet: dataset= " + dataDataSet$ + "\n");
+	DlgValue$(dataDataSetTextItem%, "Data set name: " + dataDataSet$);
 	return 1;
 end;
 
 
+
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 '
-' Attention script END
+' Data parameters END
 '
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
@@ -369,6 +216,8 @@ end;
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 '
 '	Grating Dialogs (Distractors, Stimulus) START
+'
+'	These are functions that control the grating parameters stored in the registry. 
 '
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
@@ -475,7 +324,7 @@ proc GratingDialog(type$)
 
 	endif
 
-	DlgCreate("Grating parameters: " + type$);
+	DlgCreate("Grating parameters: " + type$, 25, 10);
 	DlgReal(1, "X:", -10, 10);
 	DlgReal(2, "Y:", -10, 10);
 	DlgReal(3, "Width:", .1, 10);
@@ -502,7 +351,7 @@ end;
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 '
-'	Grating Dialogs (Distractors, Stimulus) START
+'	Grating Dialogs (Distractors, Stimulus) END
 '
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
@@ -514,6 +363,8 @@ end;
 '
 '	Fixation Point parameters START
 '
+'	These vars and funcs control the parameters for the fixation point stored in the registry. 
+'
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
 
@@ -524,6 +375,7 @@ var FixationColor$;
 var iFixationColor%;
 var FixationDiameter;
 var FixationColorList$[3]; 
+var FixationArg$;
 
 proc GetFixationPointParameters()
 	var stmp$;
@@ -546,6 +398,9 @@ proc GetFixationPointParameters()
 
 	Profile(key$, "FixationDiameter", "0.5", stmp$);
 	FixationDiameter := val(stmp$);
+
+	' Form the argument for applications. Convenience for passing args. 
+	FixationArg$ := " -f " + str$(FixationX) + "," + str$(FixationY) + "," + str$(FixationDiameter) + "," + FixationColor$;
 end;
 
 proc SaveFixationPointParameters()
@@ -563,7 +418,7 @@ func FixationPointDialog%()
 
 	var i%;
 	GetFixationPointParameters();
-	DlgCreate("Fixation parameters: " + GetCurrentConfiguration$());
+	DlgCreate("Fixation parameters: " + GetCurrentConfiguration$(), 25, 10);
 	DlgReal(1, "Fixation X:", -20, 20);
 	DlgReal(2, "Fixation Y:", -20, 20);
 	DlgReal(3, "Fixation diam:", .1, 5);
@@ -594,6 +449,7 @@ end;
 '
 '	Rig Daily Totals START
 '
+'	Control, display, reset daily totals for a rig.
 '
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
@@ -609,6 +465,12 @@ proc GetDailyTotals()
 	Profile(key$, "TotalDate", "", TotalDate$);
 	Profile(key$, "TotalTrials", 0, TotalTrials%);
 	Profile(key$, "TotalRewards", 0, TotalRewards%);
+
+	' Get date string if needed
+	if Len(TotalDate$) = 0 then
+		TotalDate$ := GetDayString$();
+		SaveDailyTotals();
+	endif
 end;
 
 proc SaveDailyTotals()
@@ -653,9 +515,12 @@ end;
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
 
+
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 '
 '	DAQ Parameters START
+'
+'	Control of data acquisition parameters.
 '
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
@@ -676,7 +541,7 @@ func DAQParametersDialog%()
 	GetDAQParameters();
 
 	idist% := val(DistanceToScreenMM$);
-	DlgCreate("DAQ parameters: " + GetCurrentConfiguration$());
+	DlgCreate("DAQ parameters: " + GetCurrentConfiguration$(), 25, 10);
 	DlgInteger(1, "Number of Electrodes:", 1, 7, 0, 0, 1);
 	DlgInteger(2, "Screen Distance (MM):", 1, 5000);
 	DlgReal(3, "Degrees/Volt (X):", 0, 100);
@@ -735,11 +600,326 @@ end;
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
 
+
+
+
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+'	Fixation script parameters START
+'
+'	Vars that control the fixation script. 
+'
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+' Fixation-script specific control vars.
+var fixFixationDuration;			' Time required to maintain fixation, seconds
+var fixAcquisitionTime;			' Time allowed to acquire target before fail trial, seconds
+var fixInterTrialTime;			' Blank time following a trial (both successful and failed), seconds
+var fixNumberOfTrials%;			' Number of trials to run
+var fixStimulusFlag%;			' Tells whether to use stimulus grating (used as a distractor) 
+var fixDistractor1Flag%; 			' Tells stim to use distractor1 (1) or not (0)
+var fixDistractor2Flag%; 			' Tells stim to use distractor1 (1) or not (0)
+var fixDistractor3Flag%; 			' Tells stim to use distractor1 (1) or not (0)
+var fixDistractor4Flag%; 			' Tells stim to use distractor1 (1) or not (0)
+var fixBackgroundColor$;			' Background color for stim
+proc GetFixationScriptParameters()
+	var stmp$;
+	var key$;
+
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Fixation";
+
+	Profile(key$, "FixationDuration", "1.0", stmp$);
+	fixFixationDuration := val(stmp$);
+
+	Profile(key$, "AcquisitionTime", "1.0", stmp$);
+	fixAcquisitionTime := val(stmp$);
+
+	Profile(key$, "InterTrialTime", "1.0", stmp$);
+	fixInterTrialTime := val(stmp$);
+
+	Profile(key$, "NumberOfTrials", 1, fixNumberOfTrials%);
+	Profile(key$, "BackgroundColor", "gray", fixBackgroundColor$);
+
+	Profile(key$, "UseStimulusFlag", 0, fixStimulusFlag%);
+	Profile(key$, "UseDistractor1Flag", 0, fixDistractor1Flag%);
+	Profile(key$, "UseDistractor2Flag", 0, fixDistractor2Flag%);
+	Profile(key$, "UseDistractor3Flag", 0, fixDistractor3Flag%);
+	Profile(key$, "UseDistractor4Flag", 0, fixDistractor4Flag%);
+end;
+ 	
+proc SaveFixationScriptParameters()
+	var stmp$;
+	var key$;
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Fixation";
+
+	Profile(key$, "FixationDuration", str$(fixFixationDuration));
+	Profile(key$, "AcquisitionTime", str$(fixAcquisitionTime));
+	Profile(key$, "InterTrialTime", str$(fixInterTrialTime));
+	Profile(key$, "NumberOfTrials", fixNumberOfTrials%);
+	Profile(key$, "BackgroundColor", fixBackgroundColor$);
+	Profile(key$, "UseStimulusFlag", fixStimulusFlag%);
+	Profile(key$, "UseDistractor1Flag", fixDistractor1Flag%);
+	Profile(key$, "UseDistractor2Flag", fixDistractor2Flag%);
+	Profile(key$, "UseDistractor3Flag", fixDistractor3Flag%);
+	Profile(key$, "UseDistractor4Flag", fixDistractor4Flag%);
+end;
+
+
+
+func FixationScriptDialog%()
+	var i%;
+	var bcl$[3];
+	var ibcl%:=0;
+	GetFixationScriptParameters();
+	bcl$[0] := "gray";
+	bcl$[1] := "black";
+	bcl$[2] := "white";
+	for i%:=0 to 2 do
+		if fixBackgroundColor$ = bcl$[i%] then
+			ibcl% := i%;
+		endif
+	next;
+	DlgCreate("Fixation Training Parameters", 25, 10);
+	DlgReal(1, "Fixation duration(s):", .01, 10);
+	DlgReal(2, "Acquisition time(s):", .01, 10);
+	DlgReal(3, "Intertrial time(s):", .01, 10);
+	DlgInteger(4, "Number of Trials:", 1, 1000);
+	DlgList(5, "Background color:", bcl$);
+	DlgCheck(6, "Use stimulus?");
+	DlgCheck(7, "Use distractor 1?");
+	DlgCheck(8, "Use distractor 2?");
+	DlgCheck(9, "Use distractor 3?");
+	DlgCheck(10, "Use distractor 4?");
+	i%:=DlgShow(fixFixationDuration, fixAcquisitionTime, fixInterTrialTime, fixNumberOfTrials%, ibcl%, fixStimulusFlag%, fixDistractor1Flag%, fixDistractor2Flag%, fixDistractor3Flag%, fixDistractor4Flag%);
+	if i% = 1 then
+		fixBackgroundColor$ := bcl$[ibcl%];
+		SaveFixationScriptParameters();
+	endif;
+	return 1;
+end;
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+' Fixation script END
+'
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+' 	Attention script START
+'
+'	Vars that control the Attention script. 
+'
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+var attNumberOfBlocks%;
+var attCatchTrialPercentage;
+var attBackgroundColor$;
+var attContrastBase%;
+var attContrastUp%;
+var attContrastDown%;
+var attFixationDuration;
+var attAcquisitionTime;
+var attInterTrialTime;
+var attGratingDelay;
+var attContrastDelay;
+var attAnswerPointDelay;
+var attRandomFixationOffset;
+var attTimeToAnswer;
+var attStimulusFlag%;			' Tells whether to use stimulus grating (used as a distractor) 
+var attDistractor1Flag%; 			' Tells stim to use distractor1 (1) or not (0)
+var attDistractor2Flag%; 			' Tells stim to use distractor1 (1) or not (0)
+var attDistractor3Flag%; 			' Tells stim to use distractor1 (1) or not (0)
+var attDistractor4Flag%; 			' Tells stim to use distractor1 (1) or not (0)
+
+proc GetAttentionScriptParameters()
+	var stmp$;
+	var key$;
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Attention";
+
+	Profile(key$, "NumberOfBlocks", 1, attNumberOfBlocks%);
+
+	Profile(key$, "CatchTrialPercentage", "0.0", stmp$);
+	attCatchTrialPercentage := val(stmp$);
+
+	Profile(key$, "BackgroundColor", "gray", attBackgroundColor$);
+	Profile(key$, "ContrastBase", 50, attContrastBase%);
+	Profile(key$, "ContrastUp", 80, attContrastUp%);
+	Profile(key$, "ContrastDown", 20, attContrastDown%);
+
+	Profile(key$, "FixationDuration", "1.0", stmp$);
+	attFixationDuration := val(stmp$);
+
+	Profile(key$, "AcquisitionTime", "1.0", stmp$);
+	attAcquisitionTime := val(stmp$);
+
+	Profile(key$, "InterTrialTime", "1.0", stmp$);
+	attInterTrialTime := val(stmp$);
+
+	Profile(key$, "GratingDelay", "1.0", stmp$);
+	attGratingDelay := val(stmp$);
+
+	Profile(key$, "ContrastDelay", "1.0", stmp$);
+	attContrastDelay := val(stmp$);
+
+	Profile(key$, "AnswerPointDelay", "1.0", stmp$);
+	attAnswerPointDelay := val(stmp$);
+
+	Profile(key$, "RandomFixationOffset", "1.0", stmp$);
+	attRandomFixationOffset := val(stmp$);
+
+	Profile(key$, "TimeToAnswer", "1.0", stmp$);
+	attTimeToAnswer := val(stmp$);
+
+	Profile(key$, "UseStimulusFlag", 0, attStimulusFlag%);
+	Profile(key$, "UseDistractor1Flag", 0, attDistractor1Flag%);
+	Profile(key$, "UseDistractor2Flag", 0, attDistractor2Flag%);
+	Profile(key$, "UseDistractor3Flag", 0, attDistractor3Flag%);
+	Profile(key$, "UseDistractor4Flag", 0, attDistractor4Flag%);
+end;
+
+proc SaveAttentionScriptParameters()
+	var key$;
+	var stmp$;
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Attention";
+
+	Profile(key$, "NumberOfBlocks", attNumberOfBlocks%);
+	Profile(key$, "CatchTrialPercentage", str$(attCatchTrialPercentage));
+	Profile(key$, "BackgroundColor", attBackgroundColor$);
+	Profile(key$, "ContrastBase", attContrastBase%);
+	Profile(key$, "ContrastUp", attContrastUp%);
+	Profile(key$, "ContrastDown", attContrastDown%);
+	Profile(key$, "FixationDuration", str$(attFixationDuration));
+	Profile(key$, "AcquisitionTime", str$(attAcquisitionTime));
+	Profile(key$, "InterTrialTime", str$(attInterTrialTime));
+	Profile(key$, "GratingDelay", str$(attGratingDelay));
+	Profile(key$, "ContrastDelay", str$(attContrastDelay));
+	Profile(key$, "AnswerPointDelay", str$(attAnswerPointDelay));
+	Profile(key$, "RandomFixationOffset", str$(attRandomFixationOffset));
+	Profile(key$, "TimeToAnswer", str$(attTimeToAnswer));
+	Profile(key$, "UseStimulusFlag", attStimulusFlag%);
+	Profile(key$, "UseDistractor1Flag", attDistractor1Flag%);
+	Profile(key$, "UseDistractor2Flag", attDistractor2Flag%);
+	Profile(key$, "UseDistractor3Flag", attDistractor3Flag%);
+	Profile(key$, "UseDistractor4Flag", attDistractor4Flag%);
+end;
+
+func AttentionScriptDialog%()
+	var i%;
+	var bcl$[3];
+	var ibcl%:=0;
+	GetAttentionScriptParameters();
+	bcl$[0] := "gray";
+	bcl$[1] := "black";
+	bcl$[2] := "white";
+	for i%:=0 to 2 do
+		if attBackgroundColor$ = bcl$[i%] then
+			ibcl% := i%;
+		endif
+	next;
+	DlgCreate("Attention Training Parameters", 25, 10);
+	DlgReal(1, "Fixation duration(s):", .01, 10);
+	DlgReal(2, "Acquisition time(s):", .01, 10);
+	DlgReal(3, "Intertrial time(s):", .01, 10);
+
+	DlgReal(4, "Grating delay(s):", .01, 10);
+	DlgReal(5, "Contrast delay(s):", .01, 10);
+	DlgReal(6, "Answer point delay(s):", .01, 10);
+	DlgReal(7, "Random fixation offset(s):", 0.0, 10.0);
+	DlgReal(8, "Time to answer(s):", 0.01, 10.0);
+
+	DlgInteger(9, "Number of Blocks:", 1, 1000);
+	DlgReal(10, "Catch Trial fraction", 0, 1);
+	DlgList(11, "Background color:", bcl$);
+	DlgInteger(12, "Base contrast(%)", 0, 100);
+	DlgInteger(13, "Up contrast(%)", 0, 100);
+	DlgInteger(14, "Down contrast(%)", 0, 100);
+	DlgCheck(15, "Use Confounder?");
+	DlgCheck(16, "Use distractor 2?");
+	DlgCheck(17, "Use distractor 3?");
+	DlgCheck(18, "Use distractor 4?");
+	i%:=DlgShow(attFixationDuration, attAcquisitionTime, attInterTrialTime, 
+		attGratingDelay, attContrastDelay, attAnswerPointDelay, attRandomFixationOffset, attTimeToAnswer,
+		attNumberOfBlocks%, attCatchTrialPercentage, ibcl%,
+		attContrastBase%, attContrastUp%, attContrastDown%, 
+		attDistractor1Flag%, attDistractor2Flag%, attDistractor3Flag%, attDistractor4Flag%);
+	if i% = 1 then
+		attBackgroundColor$ := bcl$[ibcl%];
+		SaveAttentionScriptParameters();
+	endif;
+	return 1;
+end;
+
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+' Attention script END
+'
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+
+
+
+
+
+
+
+
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+'	Functions specific to this script ONLY - START
+'
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+func RigConfigDialog%(config$)
+
+	DlgCreate("Rig Configuration: " + config$, 25, 10, 40);
+	DlgGroup("Settings", 0, 1, 16, 10);
+	DlgButton(2, "Data", DataParametersDialog%, 2, 2);
+	DlgButton(3, "DAQ", DAQParametersDialog%, 2, 3);
+	DlgButton(4, "Daily", DailyTotalsDialog%, 2, 4);
+	DlgButton(5, "Fixation", FixationPointDialog%, 2, 5);
+	DlgButton(6, "Stimulus", StimulusDialog%, 2, 6);
+	DlgButton(7, "Distractor 1", Distractor1Dialog%, 2, 7);
+	DlgButton(8, "Distractor 2", Distractor2Dialog%, 2, 8);
+	DlgButton(9, "Distractor 3", Distractor3Dialog%, 2, 9);
+	DlgButton(10, "Distractor 4", Distractor4Dialog%, 2, 10);
+
+	DlgGroup("Scripts", 18, 1, 16, 10);
+	DlgButton(11, "Fixation", FixationScriptDialog%, 20, 2);
+	DlgButton(12, "Attention", AttentionScriptDialog%, 20, 3);
+
+	DlgShow();
+
+end;
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+'	Functions specific to this script ONLY - END
+'
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+
+
+
+
+
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 '
 '	Start of script body...
 '
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+var iState%:=0;
+const stateStart% := 0;
+const stateQuit% := 9;
+const stateNew% := 1;
+const stateRigConfigDialog% := 4;
+
+
 
 
 

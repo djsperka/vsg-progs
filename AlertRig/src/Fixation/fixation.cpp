@@ -193,7 +193,6 @@ void init_triggers()
 {
 	triggers.addTrigger(new PageTrigger("0", 0x6, 0x0, 0xff, 0x0, 0));
 	triggers.addTrigger(new PageTrigger("1", 0x6, 0x2, 0xff, 0x1, 1));
-	triggers.addTrigger(new PageTrigger("2", 0x6, 0x6, 0xff, 0x3, 2));
 	triggers.addTrigger(new QuitTrigger("q", 0x8, 0x8, 0xff, 0x0, 0));
 }
 
@@ -207,14 +206,7 @@ int init_pages()
 	
 	// prepare STIMULUS_PAGE
 	vsgSetDrawPage(vsgVIDEOPAGE, STIMULUS_PAGE, vsgBACKGROUND);
-	m_afp.init(2);
-	m_afp.draw();
 
-	// prepare DISTRACTOR_PAGE. Note that if there are no distractors, this page is 
-	// identical to the STIMULUS_PAGE. We have to draw the fixation point last so it
-	// isn't overwritten by any distractors. 
-	vsgSetDrawPage(vsgVIDEOPAGE, DISTRACTOR_PAGE, vsgBACKGROUND);
-	m_afp.draw();
 	if (m_distractors.size() > 0)
 	{
 		// determine the level slice for each
@@ -226,6 +218,10 @@ int init_pages()
 			m_distractors[i]->drawOnce();
 		}
 	}
+
+	// draw fixpt last so it isn't overwritten by stimuli
+	m_afp.init(2);
+	m_afp.draw();
 
 	// Set trigger mode
 	vsgObjSetTriggers(vsgTRIG_ONPRESENT+vsgTRIG_TOGGLEMODE,0,0);
