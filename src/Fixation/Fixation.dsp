@@ -89,6 +89,10 @@ LINK32=link.exe
 
 SOURCE=.\fixation.cpp
 # End Source File
+# Begin Source File
+
+SOURCE=..\alertlib\src\getopt.c
+# End Source File
 # End Group
 # Begin Group "Header Files"
 
@@ -96,6 +100,10 @@ SOURCE=.\fixation.cpp
 # Begin Source File
 
 SOURCE=.\fixation.h
+# End Source File
+# Begin Source File
+
+SOURCE=..\alertlib\include\getopt.h
 # End Source File
 # End Group
 # Begin Group "Resource Files"
@@ -119,10 +127,6 @@ SOURCE=.\StaticFixation.cpp
 # Begin Source File
 
 SOURCE="..\..\..\..\Program Files\Cambridge Research Systems\VSGV6\Windows\Win32\Msc\LIB\VSGEX2.LIB"
-# End Source File
-# Begin Source File
-
-SOURCE=..\..\..\util\lib\util.lib
 # End Source File
 # End Target
 # End Project
