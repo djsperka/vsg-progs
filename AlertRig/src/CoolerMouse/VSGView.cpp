@@ -76,7 +76,10 @@ void CVSGView::OnPrepareDC(CDC* pDC, CPrintInfo* pInfo)
     CRect rect;
     GetClientRect (&rect); // rect.Width() and rect.Height() are the dimensions of the view area
 
-	oss << rect.Width() << "x" << rect.Height();
-	::MessageBox(NULL, oss.str().c_str(), "hello", MB_OK | MB_ICONHAND);
+	// Put origin in center of view
+	pDC->SetViewportOrg(rect.Width()/2, rect.Height()/2);
+
+	pDC->SetWindowExt(40, 30);
+
 	CView::OnPrepareDC(pDC, pInfo);
 }
