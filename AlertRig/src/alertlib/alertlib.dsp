@@ -91,6 +91,10 @@ SOURCE=.\src\AlertLib.cpp
 
 SOURCE=.\src\getopt.c
 # End Source File
+# Begin Source File
+
+SOURCE=.\helper.cpp
+# End Source File
 # End Group
 # Begin Group "Header Files"
 

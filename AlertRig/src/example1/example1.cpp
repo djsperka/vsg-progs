@@ -17,8 +17,12 @@ using namespace alert;
 void do_no_overlay();
 void do_overlay();
 void do_init_video_pages();
-void init_vp_before(int ipage);
-void init_vp_after(int ipage);
+void init_vp_before(int ipage, void *data);
+void init_vp_after(int ipage, void *data);
+void do_move_screen();
+void do_overlay_coolmouse_test();
+void init_coolmouse_test_after(int ipage);
+void init_coolmouse_test_before(int ipage);
 
 
 int main (int argc, char *argv[])
@@ -38,10 +42,19 @@ int main (int argc, char *argv[])
 	{
 		do_init_video_pages();
 	}
-	else
+	else if (s=="N" || s=="n")
 	{
 		do_no_overlay();
 	}
+	else if (s=="M" || s == "m")
+	{
+		do_move_screen();
+	}
+	else if (s=="C" || s=="c")
+	{
+		do_overlay_coolmouse_test();
+	}
+
 	return 0;
 }
 
@@ -328,7 +341,7 @@ void do_init_video_pages()
 	vsgPaletteWrite((VSGLUTBUFFER*)&color, 2, 1);
 
 	// initialize video pages
-	if (ARvsg::instance().init_video_pages(init_vp_before, init_vp_after))
+	if (ARvsg::instance().init_video_pages(init_vp_before, init_vp_after, NULL))
 	{
 		cerr << "VSG video initialization failed!" << endl;
 		return;
@@ -358,7 +371,7 @@ void do_init_video_pages()
 
 }
 
-void init_vp_before(int ipage)
+void init_vp_before(int ipage, void *data)
 {
 	cout << "Init before - page " << ipage << endl;
 	if (ipage < 10)
@@ -370,8 +383,193 @@ void init_vp_before(int ipage)
 	return;
 }
 
-void init_vp_after(int ipage)
+void init_vp_after(int ipage, void *data)
 {
 	cout << "Init after - page " << ipage << endl;
+	return;
+}
+
+
+
+void do_move_screen()
+{
+	COLOR_TYPE background = gray;
+	int screenDistanceMM = 555;
+	string stmp;
+
+
+	ARContrastFixationPointSpec fp;
+	string fpspec="0.0,0.0,1.0,r";
+	if (parse_fixation_point(fpspec, fp))
+	{
+		cerr << "Error parsing fp string: " << fpspec << endl;
+	}
+
+
+	ARGratingSpec gr;
+	string gspec="0,0,2,2,100,3,0,30,b,s,e";
+	if (parse_grating(gspec, gr))
+	{
+		cerr << "Error parsing gr string: " << gspec << endl;
+	}
+
+
+
+	// INit vsg
+	if (ARvsg::instance().init(screenDistanceMM, background))
+	{
+		cerr << "VSG init failed!" << endl;
+		return;
+	}
+
+
+	// initialize video pages
+	if (ARvsg::instance().init_video())
+	{
+		cerr << "VSG video initialization failed!" << endl;
+		return;
+	}
+	vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgNOCLEAR);
+
+	// Now put a simple fixation point on the screen. 
+	// The parse_fixation_point call parses a string that specifies (in order) x,y,diam,color. 
+	// The ARContrastFixationPointSpec object, derived from ARFixationPointSpec, gets the 
+	// specs from the string. 
+
+	fp.init(2);
+	fp.draw();
+	gr.init(40);
+	gr.drawOnce();
+	vsgPresent();
+	
+
+	string s;
+	cout << "Enter move coords: "; 
+	cin >> s;
+	while (s != "q" && s!= "Q")
+	{
+		double x, y;
+		if (!parse_xy(s, x, y))
+		{
+			cout << "Moving " << x << " " << y << endl;
+			if (vsgMoveScreen(x, y) < 0)
+			{
+				cerr << "Command failed" <<endl;
+			}
+//		vsgPresent();
+		}
+		cout << "Enter move dist or q: ";
+		cin >> s;
+	}
+
+	ARvsg::instance().clear(0);
+	
+
+	return;
+}
+
+
+
+
+
+void init_coolmouse_test_before(int ipage, void *pgrating)
+{
+	if (ipage == 0)
+	{
+		cout << "Init before - page " << ipage << endl;
+		((ARGratingSpec *)pgrating)->drawOverlay();
+	}
+	return;
+}
+
+void init_coolmouse_test_after(int ipage, void *pgrating)
+{
+	if (ipage == 0)
+	{
+		cout << "Init after - page " << ipage << endl;
+		((ARGratingSpec *)pgrating)->init(40);
+		((ARGratingSpec *)pgrating)->draw(true);
+	}
+	return;
+}
+
+
+
+
+void do_overlay_coolmouse_test()
+{
+	COLOR_TYPE background = gray;
+	int screenDistanceMM = 555;
+	string stmp;
+
+
+	ARGratingSpec gr;
+	string gspec="2,2,2,2,100,3,2,30,b,s,e";
+	if (parse_grating(gspec, gr))
+	{
+		cerr << "Error parsing gr string: " << gspec << endl;
+	}
+
+
+
+	// Init vsg
+	if (ARvsg::instance().init(screenDistanceMM, background))
+	{
+		cerr << "VSG init failed!" << endl;
+		return;
+	}
+
+	// Initialize and draw overlay page
+	if (ARvsg::instance().init_overlay())
+	{
+		cerr << "VSG overlay initialization failed!" << endl;
+		return;
+	}
+
+	// Set overlay page to all clear (level 0), then set level 1 to red, and draw a dot. 
+	vsgSetDrawPage(vsgOVERLAYPAGE, 0, 0);
+
+	VSGTRIVAL red;
+	red.a=1; red.b = red.c = 0;
+	vsgPaletteWriteOverlayCols((VSGLUTBUFFER*)&red, 1, 1);
+	vsgSetPen1(1);
+	vsgDrawOval(0, 0, 1, 1);
+
+
+
+	// initialize video pages
+	if (ARvsg::instance().init_video_pages(NULL, init_coolmouse_test_after, &gr))
+	{
+		cerr << "VSG video initialization failed!" << endl;
+		return;
+	}
+//	vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgNOCLEAR);
+//	gr.init(40);
+//	gr.drawOnce();
+	vsgPresent();
+	
+
+	string s;
+	cout << "Enter move coords: "; 
+	cin >> s;
+	while (s != "q" && s!= "Q")
+	{
+		double x, y;
+		if (!parse_xy(s, x, y))
+		{
+			cout << "Moving " << x << " " << y << endl;
+			if (vsgMoveScreen(x, y) < 0)
+			{
+				cerr << "Command failed" <<endl;
+			}
+//		vsgPresent();
+		}
+		cout << "Enter move dist or q: ";
+		cin >> s;
+	}
+
+	ARvsg::instance().clear(0);
+	
+
 	return;
 }

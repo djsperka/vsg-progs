@@ -34,6 +34,7 @@ int parse_distance(std::string s, int& dist);
 int parse_integer(std::string s, int& i);
 int parse_double(std::string s, double& d);
 int parse_contrast_triplet(std::string s, int& i_iContrastDown, int& i_iContrastBase, int& i_iContrastUp);
+int parse_xy(std::string s, double& x, double& y);
 void tokenize(const std::string& str, std::vector<std::string>& tokens, const std::string& delimiters);
 
 
@@ -55,7 +56,7 @@ int init_vsg(int screenDistanceMM, COLOR_TYPE i_background, bool use_overlay);
 /* Convenience */
 void clear_vsg();
 
-typedef void (*voidfunc)(int);
+typedef void (*voidfunc)(int, void *);
 
 namespace alert
 {
@@ -70,7 +71,7 @@ namespace alert
 		int init_video();
 		int init_overlay();
 
-		int init_video_pages(voidfunc func_before_objects, voidfunc func_after_objects);
+		int init_video_pages(voidfunc func_before_objects, voidfunc func_after_objects, void *data);
 
 		/* Clear any page and display it. */
 		void clear(int i);
@@ -109,9 +110,13 @@ namespace alert
 		void setContrast(int contrast) { select(); vsgObjSetContrast(contrast); };
 		VSGOBJHANDLE handle() { return m_handle; };
 		bool initialized() { return m_initialized; };
+		PIXEL_LEVEL getFirstLevel() { return m_first; };
+		int getNumLevels() { return m_numlevels; };
 	private:
 		bool m_initialized;
 		VSGOBJHANDLE m_handle;
+		PIXEL_LEVEL m_first;
+		int m_numlevels;
 	};
 
 	// Base class for specs. Objects drawn using overlay pages use AROverlaySpec
