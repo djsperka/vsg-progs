@@ -1,0 +1,71 @@
+// CoolerMouseDlg.h : header file
+//
+
+#if !defined(AFX_COOLERMOUSEDLG_H__2C3E5B03_D0C2_48E9_B57D_96235416EF65__INCLUDED_)
+#define AFX_COOLERMOUSEDLG_H__2C3E5B03_D0C2_48E9_B57D_96235416EF65__INCLUDED_
+
+#if _MSC_VER > 1000
+#pragma once
+#endif // _MSC_VER > 1000
+
+#include "VSGFrameCtrl.h"
+
+/////////////////////////////////////////////////////////////////////////////
+// CCoolerMouseDlg dialog
+
+class CCoolerMouseDlg : public CDialog
+{
+// Construction
+public:
+	CCoolerMouseDlg(CWnd* pParent = NULL);	// standard constructor
+	void GetVSGParameters();
+	void update();
+// Dialog Data
+	//{{AFX_DATA(CCoolerMouseDlg)
+	enum { IDD = IDD_COOLERMOUSE_DIALOG };
+	double	m_dStimX;
+	double	m_dStimY;
+	double	m_dStimWidth;
+	double	m_dStimHeight;
+	long	m_dStimOrientation;
+	double	m_dStimSF;
+	double	m_dStimTF;
+	double	m_dFixationX;
+	double	m_dFixationY;
+	double	m_dFixationDiameter;
+	int		m_iStimContrast;
+	int		m_nPattern;
+	int		m_nAperture;
+	int		m_nStimColorVector;
+	int		m_nFixationColor;
+	//}}AFX_DATA
+
+	// ClassWizard generated virtual function overrides
+	//{{AFX_VIRTUAL(CCoolerMouseDlg)
+	protected:
+	virtual void DoDataExchange(CDataExchange* pDX);	// DDX/DDV support
+	//}}AFX_VIRTUAL
+
+	CVSGFrameCtrl m_cFrame;	
+
+
+// Implementation
+protected:
+	HICON m_hIcon;
+
+	// Generated message map functions
+	//{{AFX_MSG(CCoolerMouseDlg)
+	virtual BOOL OnInitDialog();
+	afx_msg void OnSysCommand(UINT nID, LPARAM lParam);
+	afx_msg void OnPaint();
+	afx_msg HCURSOR OnQueryDragIcon();
+	afx_msg void OnApply();
+	afx_msg void OnChangeContrast();
+	//}}AFX_MSG
+	DECLARE_MESSAGE_MAP()
+};
+
+//{{AFX_INSERT_LOCATION}}
+// Microsoft Visual C++ will insert additional declarations immediately before the previous line.
+
+#endif // !defined(AFX_COOLERMOUSEDLG_H__2C3E5B03_D0C2_48E9_B57D_96235416EF65__INCLUDED_)
