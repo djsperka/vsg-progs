@@ -1,4 +1,7 @@
 ' $Log: not supported by cvs2svn $
+' Revision 1.1  2005/02/19 01:42:21  dan
+' Initial add.
+'
 ' Revision 1.3  2004/10/01 21:07:51  dan
 ' Fix bugs in prog command line.
 '
@@ -40,11 +43,11 @@ var FixationX, FixationY;		' Fixation point X,Y in degrees
 var FixationPointDiameter;		' Fixation point diam, in degrees
 var FixationDuration;			' Time required to maintain fixation, seconds
 var AcquisitionTime;			' Time allowed to acquire target before fail trial, seconds
-var BlankDuration;			' Blank time following a trial (both successful and failed), seconds
+var InterTrialTime;			' Blank time following a trial (both successful and failed), seconds
 var NumberOfTrials%;			' Number of trials to run
 var DistractorFlag%; 			' Tells stim to use distractors (1) or not (0)
-var BackgroundColor$;			' "Black", "Gray", "White"
-var FixationColor$;			' "Red", "Green", "Blue"
+var BackgroundColor$;			' "black", "gray", "white"
+var FixationColor$;			' "red", "green", "blue"
 
 ' Window handles and channel numbers
 var NumberOfChannels%;			' Number of recording channels
@@ -55,7 +58,7 @@ var XYWindow%;		' window with eye pos shown
 var iStimChannel%;	' channel number for stimulus in xy window
 var iStimWindowChannel%;' channel number for stimulus window in xy window
 var iMonitorChannel%;	' channel number for monitor position display in xy window
-
+var StimHandle%;	' handle for stimulus application
 ' Experimental control
 var Pause%:=0;		' When 1, expt is paused - no idle processing done
 
@@ -95,14 +98,24 @@ InitializeToolbar();
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 func Start%()
 var CommandLine$;
-CommandLine$ :=bin$ + "\\Fixation "+str$(NumberOfTrials%) +" "
-					+str$(FixationDuration) +" "+ str$(BlankDuration)+	" "+str$(FixationX)+" "+str$(FixationY)+" "
-					+str$(DistractorFlag%)+" "+BackgroundColor$+" "+str$(FixationPointDiameter)+" "
-					+FixationColor$+" "+DistanceToScreen$;
+var FixationPoint$;
+var Extras$;
+var Distractors$;
+
+' switches for Fixation point
+FixationPoint$ := " -f " + str$(FixationX) + "," + str$(FixationY) + "," + str$(FixationPointDiameter) + "," + FixationColor$;
+Extras$ := " -b " + BackgroundColor$ + " -d " + DistanceToScreenMM$;
+if (DistractorFlag% = 0) then
+	Distractors$ := "";
+else
+	Distractors$ := "Distractor info here!!!";
+endif;
+CommandLine$ :=bin$ + "\\dFixation " + FixationPoint$ + Distractors$ + Extras$;
+
 'Begin the stimulus program. It will take a few seconds for the VSG to initialize.
-'PrintLog(CommandLine$+"\n");
-StimHandle := ProgRun(CommandLine$,0);
-if StimHandle <0 then Message("Could not start stimulus."); halt; endif
+PrintLog(CommandLine$+"\n");
+StimHandle% := ProgRun(CommandLine$,1);
+if StimHandle% <0 then Message("Could not start stimulus."); halt; endif
 Yield(5);	'Wait a few seconds to make sure the VSG has time to initialize.
 SampleStart(0); 'Start sampling
 ToolbarSet(0,"",IdleProcessing%);	'Enable the IdleProcessing function
@@ -119,7 +132,7 @@ func Stop%()
 SampleKey("L");
 Yield(.1);
 SampleStop();
-ProgKill(StimHandle);
+ProgKill(StimHandle%);
 ProgRun(bin$ + "\\ClearTrigger",0);
 end;
 
@@ -127,14 +140,14 @@ end;
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 func PauseStimuli%();
-Pause :=1;
+Pause% :=1;
 ToolbarEnable(4,0);
 ToolbarEnable(5,1);
 return 1;
 end
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 func ResumeStimuli%();
-Pause :=0;
+Pause% :=0;
 ToolbarEnable(4,1);
 ToolbarEnable(5,0);
 return 1;
@@ -142,7 +155,7 @@ end
 
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-func Looking%(EyePosX,EyePosY)
+func InFixationWindow%(EyePosX,EyePosY)
 	'Determine if the eye position is within the fixation window
 	if (Pow(EyePosX-FixationX,2) + Pow(EyePosY-FixationY,2)) <= Pow(WindowRadius,2) then return 1; else return 0; endif
 end;
@@ -155,10 +168,8 @@ end;
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 func Reward%()
 	var i;
-	TodaysRewards:=TodaysRewards+1;
-	ToolbarText("Trial Number: "+str$(TodaysTrials)+"     Number of Rewards: "+str$(TodaysRewards));
-	Profile("AlertRig\\"+Monkey$,"TotalRewards",TodaysRewards);
 	for i:=1 to NumberOfRewards% do Yield(.05); SampleKey("J"); next
+	return 1;
 end;
 
 
@@ -174,6 +185,7 @@ var iState%:=0;		' present state
 var vTrigger;		' set by NextTime to indicate trigger transition
 var tStateStart:=-1;	' time that present state started. Used to measure wait time, fixation time, etc. 
 var tLastTrigger:=-1;	' last trigger time. New triggers have to be greater than this
+var tTrigger:=-1;	' temp var for newly discovered trigger times
 
 ' Run real time analysis here. 
 func IdleProcessing%()
@@ -224,7 +236,7 @@ func IdleProcessing%()
 
 		case iState% = 2 then
 
-			if tNow-tStateStart < MaxAcquisitionTime then
+			if tNow-tStateStart < AcquisitionTime then
 				
 				' Acquisition happens when the eye falls within the fixation window.
 				if InFixationWindow%(xEye, yEye) > 0 then
@@ -254,7 +266,7 @@ func IdleProcessing%()
 
 			else
 
-				if tNow - tStateStart >= MinFixationTime then
+				if tNow - tStateStart >= FixationDuration then
 
 					' Fixation. Reward. New trial.
 					Reward%();
@@ -318,30 +330,11 @@ func IdleProcessing%()
 
 end;
 
-
-
-''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-func GetTodaysStats%();
-Profile("AlertRig\\"+Monkey$,"TotalRewards",0,TodaysRewards);
-Profile("AlertRig\\"+Monkey$,"TotalTrials",0,TodaysTrials);
-Profile("AlertRig\\"+Monkey$,"Date","",RecordedDate$);
-TodaysDate$ := Date$();
-if TodaysDate$ <> RecordedDate$ then 
-	Profile("AlertRig\\"+Monkey$,"TotalRewards",0);
-	TodaysRewards :=0;
-	Profile("AlertRig\\"+Monkey$,"TotalTrials",0);
-	TodaysTrials :=0;
-	Profile("AlertRig\\"+Monkey$,"Date",TodaysDate$);
-endif
-return 1;
-end
-
-
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 func GetLastUsedExperimentalParameters%();
 
 	var WindowRadius$, FixationX$, FixationY$, FixationDuration$, AcquisitionTime$;
-	var BlankDuration$;
+	var InterTrialTime$;
 	var FixationPointDiameter$;
 	var key$;
 
@@ -352,6 +345,8 @@ func GetLastUsedExperimentalParameters%();
 	Profile(key$, "FixationX", "0", FixationX$);
 	Profile(key$, "FixationY", "0", FixationY$);
 	Profile(key$, "FixationPointDiameter", ".1", FixationPointDiameter$);
+	Profile(key$, "FixationColor", "gray", FixationColor$);
+	Profile(key$, "BackgroundColor", "gray", BackgroundColor$);
 
 	WindowRadius := val(WindowRadius$);	
 	FixationX := val(FixationX$);
@@ -363,14 +358,13 @@ func GetLastUsedExperimentalParameters%();
 
 	Profile(key$, "FixationDuration", "1", FixationDuration$);
 	Profile(key$, "AcquisitionTime", "1", AcquisitionTime$);
-	Profile(key$, "BlankDuration", "2", BlankDuration$);
+	Profile(key$, "InterTrialTime", "2", InterTrialTime$);
 	Profile(key$, "NumberOfTrials%", 1000, NumberOfTrials%);
 	Profile(key$, "DistractorFlag", 0, DistractorFlag%);
-	Profile(key$, "BackgroundColor", "Gray", BackgroundColor$);
 
 	FixationDuration := val(FixationDuration$);
 	AcquisitionTime := val(AcquisitionTime$);
-	BlankDuration := val(BlankDuration$);
+	InterTrialTime := val(InterTrialTime$);
 
 return 1;
 end
@@ -385,15 +379,16 @@ func SetLastUsedExperimentalParameters%();	'Updates the registry record of the l
 	Profile(key$, "FixationX", str$(FixationX));
 	Profile(key$, "FixationY", str$(FixationY));
 	Profile(key$, "FixationPointDiameter", str$(FixationPointDiameter));
+	Profile(key$, "FixationColor", FixationColor$);
+	Profile(key$, "BackgroundColor", BackgroundColor$);
 
 	' AlertRig\Fixation
 	key$ := "AlertRig\\Fixation";
 	Profile(key$, "FixationDuration", str$(FixationDuration));
 	Profile(key$, "AcquisitionTime", str$(AcquisitionTime));
-	Profile(key$, "BlankDuration", str$(BlankDuration));
+	Profile(key$, "InterTrialTime", str$(InterTrialTime));
 	Profile(key$, "NumberOfTrials%", NumberOfTrials%);
 	Profile(key$, "DistractorFlag", DistractorFlag%);
-	Profile(key$, "BackgroundColor", BackgroundColor$);
 
 	return 1;
 
@@ -410,23 +405,23 @@ proc CreateSampleConfiguration()
 	SampleAutoCommit(60); 'Seconds between each file commit
 
 	'Channel recording definitions
-	SampleEvent(TriggerChannel%,0,2,3600); 'Trigger channel, level
-	SampleComment$(TriggerChannel%,"Trigger");
-	SampleTitle$(TriggerChannel%,"Trigger");
+	SampleEvent(TriggerChannel%, 1, 2, 3600); 'Trigger channel, level
+	SampleComment$(TriggerChannel%, "Trigger");
+	SampleTitle$(TriggerChannel%, "Trigger");
 
 	for index := 1 to NumberOfChannels% do
 		SampleWaveMark(index,index-1,2000,34,15,28000); ' chan, port, event rate, points, pre-trigger, rate
-		SampleTitle$(index,"Electrode_"+Str$(index)); 
+		SampleTitle$(index, "Electrode_"+Str$(index)); 
 	next
 
 	'EYE COIL CHANNELS. Last # is sampling freq in Hz. 
-	SampleWaveform(XChannel%,14,1000);
+	SampleWaveform(XChannel%, 14, 1000);
 	SampleTitle$(XChannel%,"Eye X");
-	SampleWaveform(YChannel%,15,1000);
-	SampleTitle$(YChannel%,"Eye Y");
+	SampleWaveform(YChannel%, 15, 1000);
+	SampleTitle$(YChannel%, "Eye Y");
 
 	SampleSequencer(script$ + "Fixation.pls");
-	SampleOptimise(2,2,2,2,50);  'Set optimise mode (do this last)
+	SampleOptimise(2, 2, 2, 2, 50);  'Set optimise mode (do this last)
 	SampleMode(1); 'Continuous sampling
 end;
 
@@ -516,7 +511,7 @@ proc InitializeToolbar()
 	ToolbarVisible(1);
 	ToolbarSet(1,"Sample start",Start%);
 	ToolbarSet(2,"Sample stop", Stop%);
-	ToolbarSet(3,"Juice",Juice%);
+	ToolbarSet(3,"Juice",Reward%);
 	ToolbarSet(4,"Pause stimuli",PauseStimuli%);
 	ToolbarSet(5,"Resume stimuli",ResumeStimuli%);
 	ToolbarEnable(2,0);
@@ -550,15 +545,15 @@ proc GetExperimentalParameters()
 	GetLastUsedExperimentalParameters%();
 
 	'Dialog specific variables
-	var BackgroundList$[3]; BackgroundList$[0]:="Black"; BackgroundList$[1]:="Gray"; BackgroundList$[2]:="White";
+	var BackgroundList$[3]; BackgroundList$[0]:="black"; BackgroundList$[1]:="gray"; BackgroundList$[2]:="white";
 	var BackgroundListIndex := 1;
-	var FixationColorList$[3]; FixationColorList$[0] := "Red"; FixationColorList$[1] := "Green"; FixationColorList$[2] := "Blue";
+	var FixationColorList$[3]; FixationColorList$[0] := "red"; FixationColorList$[1] := "green"; FixationColorList$[2] := "blue";
 	var FixationColorIndex;
 
 	var DlgResponse;
-	if BackgroundColor$="Black" then BackgroundListIndex := 0; endif
-	if BackgroundColor$="Gray" then BackgroundListIndex := 1; endif
-	if BackgroundColor$="White" then BackgroundListIndex := 2; endif
+	if BackgroundColor$="black" then BackgroundListIndex := 0; endif
+	if BackgroundColor$="gray" then BackgroundListIndex := 1; endif
+	if BackgroundColor$="white" then BackgroundListIndex := 2; endif
 
 	DlgCreate("Specify fixation parameters");
 	DlgReal(1, "Fixation window (deg): ", 0, 50);
@@ -581,7 +576,7 @@ proc GetExperimentalParameters()
 				BackgroundListIndex,
 				FixationDuration,
 				AcquisitionTime, 
-				BlankDuration,
+				InterTrialTime,
 				NumberOfTrials%,
 				NumberOfRewards%,
 				DistractorFlag%);
@@ -591,6 +586,6 @@ proc GetExperimentalParameters()
 	FixationColor$ := FixationColorList$[FixationColorIndex];
 
 	'Update the registry record of the last used parameters
-	SaveExperimentalParameters();
+	SetLastUsedExperimentalParameters%();
 
 end;
