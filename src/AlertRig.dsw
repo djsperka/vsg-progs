@@ -18,7 +18,34 @@ Package=<4>
 
 ###############################################################################
 
+Project: "CableTest"=.\CableTest\CableTest.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name alertlib
+    End Project Dependency
+}}}
+
+###############################################################################
+
 Project: "Calibration"=.\Calibration\Calibration.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
+Project: "ClearTrigger"=.\ClearTrigger\ClearTrigger.dsp - Package Owner=<4>
 
 Package=<5>
 {{{
@@ -77,6 +104,21 @@ Package=<5>
 
 Package=<4>
 {{{
+}}}
+
+###############################################################################
+
+Project: "TimingTest"=.\TimingTest\TimingTest.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name alertlib
+    End Project Dependency
 }}}
 
 ###############################################################################
