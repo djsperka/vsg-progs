@@ -95,6 +95,19 @@ SOURCE=.\src\getopt.c
 
 SOURCE=.\src\helper.cpp
 # End Source File
+# Begin Source File
+
+SOURCE=.\src\Registry.cpp
+
+!IF  "$(CFG)" == "alertlib - Win32 Release"
+
+!ELSEIF  "$(CFG)" == "alertlib - Win32 Debug"
+
+# SUBTRACT CPP /YX
+
+!ENDIF 
+
+# End Source File
 # End Group
 # Begin Group "Header Files"
 
@@ -106,6 +119,14 @@ SOURCE=.\include\Alertlib.h
 # Begin Source File
 
 SOURCE=.\include\getopt.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\include\RegEntry.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\include\Registry.h
 # End Source File
 # End Group
 # End Target

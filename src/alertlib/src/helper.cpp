@@ -212,10 +212,10 @@ std::ostream& operator<<(std::ostream& out, const COLOR_VECTOR_TYPE& v)
 {
 	switch(v)
 	{
-	case b_w:	out << "black/white";	break;
-	case l_cone:out << "l-cone";		break;
-	case m_cone:out << "m-cone";		break;
-	case s_cone:out << "s-cone";		break;
+	case b_w:	out << "b";	break;
+	case l_cone:out << "l";		break;
+	case m_cone:out << "m";		break;
+	case s_cone:out << "s";		break;
 	default:	out << "unknown";		break;
 	}
 	return out;
@@ -225,8 +225,8 @@ std::ostream& operator<<(std::ostream& out, const APERTURE_TYPE& a)
 {
 	switch(a)
 	{
-	case rectangle:	out << "rectangle";	break;
-	case ellipse:	out << "ellipse";	break;
+	case rectangle:	out << "r";	break;
+	case ellipse:	out << "e";	break;
 	default:		out << "unknown";	break;
 	}
 	return out;
@@ -236,8 +236,8 @@ std::ostream& operator<<(std::ostream& out, const PATTERN_TYPE& p)
 {
 	switch(p)
 	{
-	case sinewave:		out << "sine";		break;
-	case squarewave:	out << "square";	break;
+	case sinewave:		out << "s";		break;
+	case squarewave:	out << "q";	break;
 	default:			out << "unknown";	break;
 	}
 	return out;
