@@ -1,4 +1,7 @@
 ' $Log: not supported by cvs2svn $
+' Revision 1.2  2004/10/01 20:06:10  dan
+' Modified directory locations for executables (../bin) and sequencer files (script dir)
+'
 ' Revision 1.1  2004/10/01 19:41:01  dan
 ' From production
 ' 
@@ -30,7 +33,7 @@ Profile("AlertRig\\CurrentExperiment","DistanceToScreen","850",DistanceToScreen$
 var Monkey$;
 Profile("AlertRig","CurrentMonkey","",Monkey$);
 if Monkey$="" then Message("Could not determine current monkey"); halt; endif
-message(DistanceToScreen$);
+'Message(DistanceToScreen$);
 'Get information on number of trials and rewards for today
 var TodaysTrials, TodaysRewards,RecordedDate$,TodaysDate$;
 GetTodaysStats%();
@@ -162,7 +165,7 @@ Toolbar("Go",12345);
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 func Start%()
 var CommandLine$;
-CommandLine$ :=bin$ + "StaticFixation "+str$(NumberOfTrials%) +" "
+CommandLine$ :=bin$ + "\\Fixation "+str$(NumberOfTrials%) +" "
 					+str$(FixationDuration) +" "+ str$(BlankDuration)+	" "+str$(FixationX)+" "+str$(FixationY)+" "
 					+str$(DistractorFlag%)+" "+BackgroundColor$+" "+str$(FixationPointDiameter)+" "
 					+FixationColor$+" "+DistanceToScreen$;
@@ -185,7 +188,7 @@ SampleKey("L");
 Yield(.1);
 SampleStop();
 ProgKill(StimHandle);
-ProgRun(bin$ + "ClearTrigger",0);
+ProgRun(bin$ + "\\ClearTrigger",0);
 end;
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 func Juice%()
