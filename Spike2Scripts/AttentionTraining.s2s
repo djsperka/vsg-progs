@@ -1,4 +1,7 @@
 ' $Log: not supported by cvs2svn $
+' Revision 1.3  2004/10/01 20:06:10  dan
+' Modified directory locations for executables (../bin) and sequencer files (script dir)
+'
 ' Revision 1.2  2004/10/01 19:36:34  dan
 ' From production
 '
@@ -218,9 +221,9 @@ Toolbar("Go",12345);
 
 
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-func S0tart%()
+func Start%()
 var CommandLine$;
-CommandLine$ :=bin$ + "NewAttention "+str$(FixationX)+" "+str$(FixationY)+" "+BackgroundColor$+" "
+CommandLine$ :=bin$ + "\\NewAttention "+str$(FixationX)+" "+str$(FixationY)+" "+BackgroundColor$+" "
 					+str$(FixationPointDiameter)+" "+str$(BaseContrast)+" "+str$(ContrastUp)+" "+str$(ContrastDown)+" "
 					+str$(IncorrectBrightness)+" "
 					+GratingOrSpot$[GratingOrSpotIndex%]+" "+str$(TargetX)+" "+str$(TargetY)+" "+str$(TargetOrientation)+" "
@@ -247,7 +250,7 @@ SampleKey("L");
 Yield(.1);
 SampleStop();
 ProgKill(StimHandle);
-ProgRun(bin$ + "ClearTrigger",0); 
+ProgRun(bin$ + "\\ClearTrigger",0); 
 Message("Press OK to end program");
 end;
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''

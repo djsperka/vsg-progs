@@ -1,4 +1,7 @@
 ' $Log: not supported by cvs2svn $
+' Revision 1.2  2004/10/01 20:06:10  dan
+' Modified directory locations for executables (../bin) and sequencer files (script dir)
+'
 ' Revision 1.1  2004/10/01 19:41:01  dan
 ' From production
 ' 
@@ -146,9 +149,10 @@ next
 	
 SampleStart(1);
 var CommandLine$,ProgReturn;
-CommandLine$ := bin$ + "RepeatedMSeqGratingSF "+Str$(GratingDiameter)+" "+Str$(GratingContrast)+" "+Str$(SpatialFrequency)+" "+Str$(HighSpatialFrequency)+" ";
+CommandLine$ := bin$ + "\\RepeatedMSeqGrating "+Str$(GratingDiameter)+" "+Str$(GratingContrast)+" "+Str$(SpatialFrequency)+" "+Str$(HighSpatialFrequency)+" ";
 CommandLine$ := CommandLine$+Str$(Orientation)+" "+Str$(DistanceToScreen);
 CommandLine$ := CommandLine$+" "+Str$(FramesPerTerm%)+" "+Str$(XOrigin)+" "+Str$(YOrigin)+" "+Str$(Repeats%)+" "+Str$(SignalDuration)+" "+Str$(BlankDuration);
+PrintLog(CommandLine$ + "\n");
 StimulusHandle% := ProgRun(CommandLine$);
 if StimulusHandle% < 0 then Message("Could not start stimulus"); Halt; endif
 
