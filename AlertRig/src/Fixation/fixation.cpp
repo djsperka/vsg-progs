@@ -20,10 +20,11 @@ int args(int argc, char **argv);
 void init_triggers();
 
 using namespace std;
+using namespace alert;
 
-AlertFixationPoint m_afp;
+ARFixationPointSpec m_afp;
 COLOR_TYPE m_background;
-vector<AlertGrating> m_distractors;
+vector<ARGratingSpec*> m_distractors;
 int m_screenDistanceMM=0;
 bool m_verbose=false;
 TriggerVector triggers;
@@ -90,7 +91,6 @@ int main (int argc, char *argv[])
 		else if (tf.present())
 		{	
 			vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, tf.output_trigger(), 0);
-			vsgSetDrawPage(vsgVIDEOPAGE, tf.page(), vsgNOCLEAR);
 			vsgPresent();
 		}
 	}
@@ -108,11 +108,10 @@ int args(int argc, char **argv)
 	bool have_d=false;
 	string s;
 	int c;
+	ARGratingSpec *pspec=NULL;
 	extern char *optarg;
 	extern int optind;
 	int errflg = 0;
-	AlertGrating agtemp;
-	AlertGrating* pag=NULL;
 	while ((c = getopt(argc, argv, "f:b:g:hd:va")) != -1)
 	{
 		switch (c) 
@@ -138,10 +137,11 @@ int args(int argc, char **argv)
 			else have_d=true;
 			break;
 		case 'g':
+			pspec = new ARGratingSpec();
 			s.assign(optarg);
-			if (!parse_grating(s, agtemp))
+			if (!parse_grating(s, *pspec))
 			{
-				m_distractors.push_back(agtemp);
+				m_distractors.push_back(pspec);
 			}
 			else errflg++;
 			break;
@@ -182,10 +182,10 @@ void usage()
 
 void init_triggers()
 {
-	triggers.addTrigger("0", 0x6, 0x0, 0xff, 0x0, 0);
-	triggers.addTrigger("1", 0x6, 0x2, 0xff, 0x1, 1);
-	triggers.addTrigger("2", 0x6, 0x6, 0xff, 0x3, 2);
-	triggers.addTrigger("q", 0x8, 0x8, 0xff, 0x0, -1);
+	triggers.addTrigger(new PageTrigger("0", 0x6, 0x0, 0xff, 0x0, 0));
+	triggers.addTrigger(new PageTrigger("1", 0x6, 0x2, 0xff, 0x1, 1));
+	triggers.addTrigger(new PageTrigger("2", 0x6, 0x6, 0xff, 0x3, 2));
+	triggers.addTrigger(new QuitTrigger("q", 0x8, 0x8, 0xff, 0x0, 0));
 }
 
 int init_pages()
@@ -214,7 +214,8 @@ int init_pages()
 	
 	// prepare STIMULUS_PAGE
 	vsgSetDrawPage(vsgVIDEOPAGE, STIMULUS_PAGE, vsgBACKGROUND);
-	m_afp.draw(vsgFIXATION);
+	vsgSetPen1(vsgFIXATION);
+	m_afp.draw();
 
 	// prepare DISTRACTOR_PAGE. Note that if there are no distractors, this page is 
 	// identical to the STIMULUS_PAGE. We have to draw the fixation point last so it
@@ -225,21 +226,24 @@ int init_pages()
 		// determine the level slice for each
 		int islice = LevelManager::instance().remaining()/m_distractors.size();
 		if (islice > 50) islice=50;
-		PIXEL_LEVEL first, last;
+		PIXEL_LEVEL first;
 		for (int i=0; i<m_distractors.size(); i++)
 		{
-			if (LevelManager::instance().request_range(islice, first, last))
+			if (LevelManager::instance().request_range(islice, first))
 			{
 				cout << "Cannot get levels for distractor!" << endl;
 				return 1;
 			}
 			else
 			{
-				m_distractors[i].draw(first, last);
+				vsgObjCreate();
+				vsgObjSetDefaults();
+				vsgObjSetPixelLevels(first, islice);
+				m_distractors[i]->draw();
 			}
 		}
 	}
-	m_afp.draw(vsgFIXATION);
+	m_afp.draw();
 
 	// Set trigger mode
 	vsgObjSetTriggers(vsgTRIG_ONPRESENT+vsgTRIG_TOGGLEMODE,0,0);
