@@ -27,7 +27,31 @@ Package=<4>
 
 ###############################################################################
 
+Project: "FixationWG"=.\FixationWG\FixationWG.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
 Project: "NewAttention"=.\NewAttention\NewAttention.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
+Project: "RepeatedMSeqGrating"=.\RepeatedMSeqGratingSF\RepeatedMSeqGrating.dsp - Package Owner=<4>
 
 Package=<5>
 {{{
