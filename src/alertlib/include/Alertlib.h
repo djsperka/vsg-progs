@@ -40,9 +40,12 @@ std::ostream& operator<<(std::ostream& out, const PATTERN_TYPE& p);
 
 
 /* Initialize vsg card. Leaves card with palette ramp, page 0 cleared to background color (use vsgBACKGROUND). 
- * Clears video page 0 and displays it. Suitable for initialization on startup of a stimulus app, or for cleanup on exit (or use clear_vsg()).
+ * Clears video page 0 and displays it. Suitable for initialization on startup of a stimulus app, 
+ * or for cleanup on exit (or use clear_vsg()). If use_overlay is true, sets OVERLAYMASKMODE, initializes
+ * the overlay palette to use bg color on level 1 (level 0 in overlay palette is reserved for "transparent".
  */
-int init_vsg(int screenDistanceMM, COLOR_TYPE i_background);
+int init_vsg(int screenDistanceMM, COLOR_TYPE i_background, bool use_overlay);
+
 
 /* Convenience */
 void clear_vsg();
@@ -59,7 +62,15 @@ namespace alert
 	public:
 		ARSpec() {};
 		virtual ~ARSpec() {};
+
+		
+		/* Draw object on currently selected page. */
 		virtual int draw() = 0;
+
+		/* Draw object on current page. Assume the page is an overlay page, draw an aperture for the 
+		 * object on level 0. 
+		 */
+		virtual int drawOverlay() = 0;
 	};
 
 	// Fixation Point Spec
@@ -73,6 +84,7 @@ namespace alert
 		double d;
 		COLOR_TYPE color;
 		virtual int draw();
+		virtual int drawOverlay();
 	};
 
 	// Fixation point for cases where its visibility is controlled by contrast setting 
@@ -84,6 +96,7 @@ namespace alert
 		~ARContrastFixationPointSpec() {};
 		COLOR_TYPE background;
 		int draw();
+		int drawOverlay();
 	};
 
 
@@ -102,6 +115,7 @@ namespace alert
 		APERTURE_TYPE aperture;
 		COLOR_VECTOR_TYPE cv;
 		int draw();
+		int drawOverlay();
 	};
 
 
@@ -298,85 +312,6 @@ std::ostream& operator<<(std::ostream& out, const alert::ARGratingSpec& args);
 // instead of input operators, methods
 int parse_fixation_point(const std::string& s, alert::ARFixationPointSpec& afp);
 int parse_grating(const std::string& s, alert::ARGratingSpec& ag);
-
-
-
-
-
-
-
-
-
-
-
-#if 0
-
-
-// this struct holds parameters for a fixation point. The draw() method puts it on a 
-// single level with no vsg object stuff. 
-class AlertFixationPoint
-{
-public:
-	AlertFixationPoint() {};
-	~AlertFixationPoint() {};
-	double x, y;
-	double d;
-	COLOR_TYPE color;
-	void draw(PIXEL_LEVEL level);
-};
-
-
-class AlertFixationPointObj: public AlertFixationPoint, AlertObj
-{
-public:
-	AlertFixationPointObj() : m_handle(false), m_levels(false), m_drawn(false) {};
-	~AlertFixationPointObj() {};
-	void setLevels(PIXEL_LEVEL first, PIXEL_LEVEL last, COLOR_TYPE endpoint);
-	void draw(int contrast);
-	void draw();
-private:
-	bool m_handle;
-	VSGOBJHANDLE handle;
-	bool m_levels;
-	bool m_drawn;
-};
-	
-
-
-
-class AlertGrating
-{
-public:
-	AlertGrating(): m_handle(false), m_drawn(false) {};
-	~AlertGrating() {};
-	double x,y,w,h;
-	double sf, tf;
-	double orientation;
-	int contrast;
-	PATTERN_TYPE pattern;
-	APERTURE_TYPE aperture;
-	COLOR_VECTOR_TYPE cv;
-	void draw(PIXEL_LEVEL first, PIXEL_LEVEL last);
-	void draw(PIXEL_LEVEL first, PIXEL_LEVEL last, int contrast);
-private:
-	VSGOBJHANDLE handle;
-	bool m_handle;
-	bool m_drawn;
-};
-
-
-
-
-
-std::ostream& operator<<(std::ostream& out, const AlertFixationPoint& afp);
-std::ostream& operator<<(std::ostream& out, const AlertGrating& ag);
-
-
-int parse_fixation_point(const std::string& s, AlertFixationPoint& afp);
-int parse_grating(const std::string& s, AlertGrating& ag);
-
-
-#endif
 
 
 
