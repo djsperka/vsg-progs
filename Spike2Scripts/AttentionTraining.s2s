@@ -1,0 +1,679 @@
+'Experiment specific variables
+var NumberOfRewards%;
+var WindowRadius, FixationX, FixationY, FixationDuration, AcquisitionTime;
+var BlankDuration, NumberOfBlocks%;
+var BackgroundColor$, FixationPointDiameter;
+var CatchTrialPercentage;
+
+var NumberOfChannels%,XChannel%,YChannel%,FixationPointChannel%,StimChannel%,AnswerPointChannel%,StimChangeChannel%,ConfounderChangeChannel%;
+NumberOfChannels%:=Input("Number of channels :",1,1,14);
+XChannel% := NumberOfChannels%+1;
+YChannel% := NumberOfChannels%+2;
+FixationPointChannel% := NumberOfChannels%+3;
+StimChannel% := NumberOfChannels%+4;
+AnswerPointChannel% := NumberOfChannels%+5;
+StimChangeChannel% := NumberOfChannels%+6;
+ConfounderChangeChannel% := NumberOfChannels%+7;
+CreateSampleConfiguration();
+
+'Determine which monkey we're currently running
+var Monkey$;
+Profile("AlertRig","CurrentMonkey","",Monkey$);
+if Monkey$="" then Message("Could not determine current monkey"); halt; endif
+
+'Get information on number of trials and rewards for today
+var TodaysTrials, TodaysRewards,RecordedDate$,TodaysDate$;
+GetTodaysStats%();
+
+'Read in the last used experimental parameters to use as defaults for the dialog
+GetLastUsedParameters%();
+
+'Bring up a dialog to populate experiment parameters
+	'Dialog specific variables
+	var BackgroundList$[3]; BackgroundList$[0]:="Black"; BackgroundList$[1]:="Gray"; BackgroundList$[2]:="White";
+	var BackgroundListIndex := 1;
+	var GratingColorList$[4],GratingColorIndex;
+	GratingColorList$[0]:="Grayscale"; GratingColorList$[1]:="S-cone isolating"; 
+	GratingColorList$[2]:="M-cone isolating"; GratingColorList$[3]:="L-cone isolating";
+	var DlgResponse;
+	if BackgroundColor$="Black" then BackgroundListIndex := 0; endif
+	if BackgroundColor$="Gray" then BackgroundListIndex := 1; endif
+	if BackgroundColor$="White" then BackgroundListIndex := 2; endif
+DlgCreate("Specify fixation parameters");
+DlgReal(1,"Window (deg): ",0,50);
+DlgReal(2,"Fixation point X (deg): ",-50,50);
+DlgReal(3,"Fixation point Y (deg): ",-50,50);
+DlgReal(4,"Acquisition (s): ",0,20);
+DlgReal(5,"Intertrial interval (s): ",0,20);
+DlgInteger(6,"Number of blocks : ",0,3000);
+DlgInteger(7,"Number of juices per reward",0,10);
+DlgList(8,"Background color:",BackgroundList$[]);
+DlgList(9,"Grating color:",GratingColorList$[]);
+DlgReal(10,"Fixation point diameter:",.01,5);
+DlgReal(11,"Catch trial percentage (%):",0,100);
+DlgResponse := DlgShow(WindowRadius,FixationX,FixationY,AcquisitionTime, BlankDuration,NumberOfBlocks%,NumberOfRewards%,BackgroundListIndex,GratingColorIndex,FixationPointDiameter,CatchTrialPercentage);
+if DlgResponse= 0 then halt; endif
+BackgroundColor$ := BackgroundList$[BackgroundListIndex];
+
+'Bring up a separate dialog to obtain attention parameter information
+var ContrastDelay, BaseContrast,ContrastUp,ContrastDown,TimeToAnswer,IncorrectBrightness;
+var GratingOrSpot$[2], GratingOrSpotIndex%:=0; GratingOrSpot$[0]:="Grating"; GratingOrSpot$[1]:="Spot"; 
+var TargetX,TargetY;
+var SpecifyGratingFlag%;
+var TargetOrientation, TargetSF, TargetTF, TargetDiameter;
+var GratingDelay,AnswerPointDelay,AnswerWindow;
+var RandomFixationOffset,AnswerPointInitialBrightness,AnswerPointFullBrightness;
+var NumberOfDistractors%,ModifyDistractors%;
+GetLastUsedFixationParameters%();
+GetLastUsedGratingParameters%();
+DlgCreate("Specify attention task parameters");
+DlgReal(1,"Answer point window (deg): ",.1, 10);
+DlgReal(2,"Initial object contrast (%): ",0,100);
+DlgReal(3,"Increase contrast to (%):",0,100);
+DlgReal(4,"Decrease contrast to (%):",0,100);
+DlgReal(5,"Fixation duration (s): ",0,20);
+DlgReal(6,"Answer point delay (s):",0,10);
+DlgReal(7,"Answer point initial brightness (%):",0,100);
+DlgReal(8,"Answer point full brightness (s):",0,10);
+DlgReal(9,"Grating appearance delay (s):",0,10);
+DlgReal(10,"Grating contrast delay (s):",0,10);
+DlgReal(11,"Time to answer (s): ",0,10);
+DlgReal(12,"Brightness of wrong answer point (%):",0,100);
+DlgList(13,"Grating or spot:",GratingOrSpot$[]);
+DlgReal(14,"Target location X:",-10,10);
+DlgReal(15,"Target location Y:",-10,10);
+DlgReal(16,"Max random fixation duration offset?",0,5);
+DlgCheck(17,"Specify grating properties?");
+DlgCheck(18,"Modify distractors?");
+DlgResponse := DlgShow(AnswerWindow,BaseContrast, ContrastUp, ContrastDown,FixationDuration,AnswerPointDelay,
+								AnswerPointInitialBrightness,AnswerPointFullBrightness,GratingDelay,ContrastDelay,TimeToAnswer,
+								IncorrectBrightness,GratingOrSpotIndex%,TargetX,TargetY,
+								RandomFixationOffset,SpecifyGratingFlag%,ModifyDistractors%);
+if DlgResponse=0 then halt; endif
+
+if SpecifyGratingFlag% = 1 then
+	DlgCreate("Specify grating properties");
+	DlgReal(1,"Orienation: ",-360,360);
+	DlgReal(2,"Spatial frequency: ",.01, 100);
+	DlgReal(3,"Temporal frequency: ",0,100);
+	DlgReal(4,"Diameter: (deg)",.1,10);
+	DlgResponse := DlgShow(TargetOrientation,TargetSF,TargetTF,TargetDiameter);
+	if DlgResponse=0 then halt; endif
+endif
+
+if ModifyDistractors% = 1 then
+	ModifyDistractors();
+endif
+
+'Update the registry record of the last used parameters
+SetLastUsedParameters%();
+SetLastUsedFixationParameters%();
+SetLastUsedGratingParameters%();
+
+'Get information on current calibration constants (software gains) for the eye coil from the registry
+var DegreesPerVoltX, DegreesPerVoltY,DegreesPerVoltX$, DegreesPerVoltY$;
+Profile("AlertRig\\"+Monkey$,"DegreesPerVoltX","",DegreesPerVoltX$);
+Profile("AlertRig\\"+Monkey$,"DegreesPerVoltY","",DegreesPerVoltY$);
+DegreesPerVoltX := val(DegreesPerVoltX$);		'Since registry values are either integers are strings, 
+DegreesPerVoltY := val(DegreesPerVoltY$);		'we store decimals as strings and convert them to decimals
+
+
+'Read in the alert rig configuration file
+'var ConfigFile;
+'ConfigFile := FileOpen("c:\\alertrig\\spike2scripts\\AlertRig.s2c",6);
+'if ConfigFile <> 0 then Message("Could not open configuration file"); halt; endif
+
+'Open the data sampling window
+var DataWindow%;
+DataWindow% := FileNew(0,4);
+Window(-0.235849,52.746,97.2484,99.8856);
+View(DataWindow%).WindowVisible(1);
+
+'Open an XY view to display eye position
+var XYWindow%;
+XYWindow% := FileNew(12);
+XRange(-30,30);
+YRange(-2,-30,30);
+XYDrawMode(0,5,0);
+WindowVisible(1);
+Window(-0.550314,0.114416,41.5094,52.746);
+XYColour(1,16);
+XYSize(1,-1);
+
+'Calcuate the fixation window
+var index,RadiusX[1000],RadiusY[1000],AnswerRadiusY[1000];
+for index := 0 to 499 do
+	RadiusX[index] := FixationX - WindowRadius + 2*WindowRadius*index/499;
+	RadiusY[index] := FixationY + sqrt(WindowRadius*WindowRadius - (RadiusX[index]-FixationX)*(RadiusX[index]-FixationX));
+	RadiusX[999-index] := RadiusX[index];
+	RadiusY[999-index] := 2*FixationY-1*RadiusY[index];
+next;
+
+'Create a new channel in the XY view to display the fixation window
+XYSetChan(0);
+XYColour(2,13);
+XYDrawMode(2,2,1);
+XYJoin(2,1);
+XYSize(2,-1000);
+'Draw the fixation window
+XYAddData(2,RadiusX[],RadiusY[]);
+
+'Create a new channel in the XY view to display the fixation point
+XYSetChan(0);
+XYSize(3,-1);
+
+'Create a new channel in the XY view to show the monitor's location
+XYSetChan(0);
+XYColour(4,13);
+XYDrawMode(4,3,1);
+XYJoin(4,2);
+XYAddData(4,-9,-7);
+XYAddData(4,9,-7);
+XYAddData(4,9,7);
+XYAddData(4,-9,7);
+
+'Determine the contrast changes we will present
+var ContrastState[10000],RandomDelay[10000];
+var ContrastIndex%;
+DetermineContrastChanges();
+
+'Create and display the Toolbar, not yet activating the IdleProcessing function
+
+'Toolbar and IdleProcessing variables
+var Pause,Stim$,StimHandle;
+var Time,OldTime:=0,NewTriggerTime,NewTriggerState;
+var StartTrial :=1, AcquireTarget :=0, HoldFixation :=0, WaitForBlank :=0, WaitForStim:=0, TargetAcquired :=0, ContrastChange :=0,AnswerPointsUp%:=0,GratingUp%:=0;
+var TrialCounter :=1,TrialStartTime, TargetAcquiredTime, BlankStartTime;
+var TriggerState,TriggerTime,TriggerOnTime, TriggerOffTime;
+var EyePosX,EyePosY;
+var TrialNumber% :=-1; 
+var AnswerPoint, AnswerY,AnswerPointTime,CorrectAnswer:=0;
+var AbortedTrials%:=0,CompletedTrials%:=1, CorrectTrials%:=0,FirstTrial%:=1;
+var BaseFixationDuration,BaseContrastDelay;
+BaseFixationDuration := FixationDuration;
+BaseContrastDelay := ContrastDelay;
+View(App(8)).WindowVisible(0);	'Hide the standard sample bar
+ToolbarVisible(1);
+ToolbarSet(1,"Sample start",Start%);
+ToolbarSet(2,"Sample stop", Stop%);
+ToolbarSet(3,"Juice",Juice%);
+ToolbarSet(4,"Pause stimuli",PauseStimuli%);
+ToolbarSet(5,"Resume stimuli",ResumeStimuli%);
+ToolbarEnable(2,0);
+ToolbarEnable(4,0);
+ToolbarEnable(5,0);
+Toolbar("Go",12345);
+
+
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func Start%()
+var CommandLine$;
+CommandLine$ :="C:\\AlertRig\\NewAttention "+str$(FixationX)+" "+str$(FixationY)+" "+BackgroundColor$+" "
+					+str$(FixationPointDiameter)+" "+str$(BaseContrast)+" "+str$(ContrastUp)+" "+str$(ContrastDown)+" "
+					+str$(IncorrectBrightness)+" "
+					+GratingOrSpot$[GratingOrSpotIndex%]+" "+str$(TargetX)+" "+str$(TargetY)+" "+str$(TargetOrientation)+" "
+					+str$(TargetSF)+" "+str$(TargetTF)+" "+str$(TargetDiameter)+" "+str$(AnswerPointInitialBrightness)+" "
+					+str$(AnswerPointFullBrightness)+" "+GratingColorList$[GratingColorIndex];
+'Begin the stimulus program. It will take a few seconds for the VSG to initialize.
+'PrintLog(CommandLine$+"\n");
+'halt;
+SampleStart(0); 'Start sampling
+StimHandle := ProgRun(CommandLine$,1);
+if StimHandle <0 then Message("Could not start stimulus."); halt; endif
+Yield(5);	'Wait a few seconds to make sure the VSG has time to initialize.
+
+ToolbarSet(0,"",IdleProcessing%);	'Enable the IdleProcessing function
+ToolbarEnable(2,1);
+ToolbarEnable(1,0);
+View(DataWindow%);
+return 1;
+end; 
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func Stop%()
+SampleKey("L");
+Yield(.1);
+SampleStop();
+ProgKill(StimHandle);
+ProgRun("C:\\AlertRig\\ClearTrigger",0); 
+Message("Press OK to end program");
+end;
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func Juice%()
+SampleKey("J");
+return 1;
+end;
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func Looking%(EyePosX,EyePosY)
+	'Determine if the eye position is within the fixation window
+	if (Pow(EyePosX-FixationX,2) + Pow(EyePosY-FixationY,2)) <= Pow(WindowRadius,2) then return 1; else return 0; endif
+end;
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func Answer%(EyePosX,EyePosY)
+	'Determine if the eye position is within the fixation window
+	if (Pow(EyePosX-FixationX,2) + Pow(EyePosY-AnswerY,2)) <= Pow(AnswerWindow,2) then return 1; endif
+	if (Pow(EyePosX-FixationX,2) + Pow(EyePosY+AnswerY,2)) <= Pow(AnswerWindow,2) then return -1; endif
+	return 0;
+end;
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+func Reward%()
+	var i;
+	if FirstTrial% = 0 then 
+		CompletedTrials%:=CompletedTrials%+1;
+	else
+		CompletedTrials%:=1; FirstTrial%:=0;
+	endif
+	CorrectTrials% := CorrectTrials%+1;
+	TodaysRewards:=TodaysRewards+1;
+	ToolbarText("Today's trials: "+str$(TodaysTrials)+"     Today's rewards: "+str$(TodaysRewards)
+					+"     This run's completed trials: "+str$(CompletedTrials%)+"     This run's % correct: "+str$(100*CorrectTrials%/CompletedTrials%)
+					+"     This run's aborted trials: "+str$(AbortedTrials%));
+	Profile("AlertRig\\"+Monkey$,"TotalRewards",TodaysRewards);
+	for i:=1 to NumberOfRewards% do Yield(.05); SampleKey("J"); next
+end;
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func IdleProcessing%()   		'This function will be run whenever an interrupt
+										'is available.
+
+Time := MaxTime();
+if Time > 0 then
+	EyePosX := ChanMeasure(XChannel%,2,Time,Time-.005)*DegreesPerVoltX;
+	EyePosY := ChanMeasure(YChannel%,2,Time,Time-.005)*DegreesPerVoltY;
+endif
+if Time > OldTime +.005 then
+	View(XYWindow%).XYAddData(1,EyePosX,EyePosY);
+	OldTime := Time;
+endif
+
+if Pause = 1 then return 1; endif
+
+NewTriggerTime := NextTime(FixationPointChannel%,TriggerTime,NewTriggerState);
+if NewTriggerTime > TriggerTime then 
+	if NewTriggerState = 0 then
+		TriggerOnTime := NewTriggerTime;
+		Stim$:="On";
+		TodaysTrials:=TodaysTrials+1;
+		ToolbarText("Today's trials: "+str$(TodaysTrials)+"     Today's rewards: "+str$(TodaysRewards)
+					+"     This run's completed trials: "+str$(CompletedTrials%)+"     This run's % correct: "+str$(100*CorrectTrials%/CompletedTrials%)
+					+"     This run's aborted trials: "+str$(AbortedTrials%));
+		Profile("AlertRig\\"+Monkey$,"TotalTrials",TodaysTrials);
+		View(XYWindow%).XYAddData(3,FixationX,FixationY);
+		View(XYWindow%).XYAddData(2,RadiusX[],RadiusY[]);
+	endif
+
+	if NewTriggerState = 1 then
+		TriggerOffTime := NewTriggerTime;
+		Stim$:="Off";
+		View(XYWindow%).XYDelete(3);
+	endif 
+	TriggerTime := NewTriggerTime;
+endif
+
+'Code to execute if a new trial is beginning
+if StartTrial = 1 then
+	if TrialNumber%=-1 then TrialNumber% :=0 else TrialNumber% := TrialNumber%+1; endif
+	FixationDuration:=BaseFixationDuration + RandomDelay[TrialNumber%]; 
+	ContrastDelay:=BaseContrastDelay + RandomDelay[TrialNumber%];
+	SampleKey("F");
+	Yield();
+	TrialStartTime := Time;
+	StartTrial := 0;
+	AcquireTarget :=1;
+	WaitForStim :=1;
+	ContrastChange :=0;
+	AnswerPointsUp% :=0;
+	GratingUp%:=0;
+	'Determine if this trial will be raising or lowering the grating contrast
+	if (ContrastState[TrialNumber%] = 1) then SampleKey("H"); endif
+	if (ContrastState[TrialNumber%] = 0) then SampleKey("L"); endif
+	return 1;
+endif
+
+'Code to execute if a new trial has begun, but he has not yet acquired fixation
+if AcquireTarget = 1 then 
+	if StartTrial = 1 then Message("Start and Acquire both 1"); halt; endif
+	if Stim$="Off" then WaitForStim :=1; return 1; endif
+	if ((Stim$="On") and (WaitForStim=1)) then
+		WaitForStim :=0;
+		TrialStartTime := TriggerOnTime;
+	endif
+	if Looking%(EyePosX,EyePosY)=1 then AcquireTarget := 0; HoldFixation := 1; TargetAcquiredTime:=Time;return 1; endif
+   if Time-TrialStartTime > AcquisitionTime then 
+		AcquireTarget :=0; WaitForBlank :=1; BlankStartTime := -1; SampleKey("X"); AbortedTrials% := AbortedTrials%+1; return 1; endif
+endif
+
+if WaitForBlank=1 then
+	if TrialNumber%=30*NumberOfBlocks%-1 then Stop%(); return 0; endif
+	if Stim$ ="On" then WaitForStim :=1; return 1; endif
+	if (Stim$="Off" and BlankStartTime =-1) then WaitForStim :=0; BlankStartTime := TriggerOffTime; endif
+	if MaxTime()-BlankStartTime > BlankDuration then WaitForBlank :=0; StartTrial:=1; endif
+	return 1;
+endif
+
+if HoldFixation=1 then 
+	if Looking%(EyePosX,EyePosY)=0 then SampleKey("X"); AbortedTrials%:=AbortedTrials%+1;HoldFixation:=0; WaitForBlank:=1; BlankStartTime :=-1; return 1; endif
+	if (Time-TargetAcquiredTime >= AnswerPointDelay) and (AnswerPointsUp%=0) then SampleKey("A"); AnswerPointsUp%:=1; endif
+	if (Time-TargetAcquiredTime >= GratingDelay) and (GratingUp%=0) then SampleKey("S"); GratingUp%:=1; endif
+	if (Time-TargetAcquiredTime >= FixationDuration) then
+  		AnswerPointTime := Time;
+		AnswerPoint:=1; HoldFixation:=0; 
+		AnswerY:=FixationY+(ContrastState[TrialNumber%]*4); 
+		View(XYWindow%).XYAddData(3,FixationX,AnswerY); 
+		ArrConst(AnswerRadiusY[],RadiusY[]); ArrAdd(AnswerRadiusY[],(ContrastState[TrialNumber%]*4)); View(XYWindow%).XYAddData(2,RadiusX[],AnswerRadiusY[]);
+	endif
+	if (Time-TargetAcquiredTime > ContrastDelay) and ContrastChange=0 then
+		if rand() <= CatchTrialPercentage/100 then
+ 	   	SampleKey("D");
+		else
+			SampleKey("C");
+		endif
+		ContrastChange:=1;
+	endif
+	return 1;
+endif
+
+'if WaitForAnswerPoint=1 then
+	
+if AnswerPoint=1 then 
+	if (Looking%(EyePosX,EyePosY)=0) and (GratingUp%=1) then SampleKey("s"); GratingUp%:=0; endif
+	CorrectAnswer:=Answer%(EyePosX,EyePosY);
+	if CorrectAnswer=1 then SampleKey("X"); Reward%(); AnswerPoint:=0; WaitForBlank:=1;  BlankStartTime :=-1; return 1; endif
+	if CorrectAnswer=-1 then SampleKey("X"); 
+		if FirstTrial% = 0 then 
+			CompletedTrials%:=CompletedTrials%+1;
+		else
+			CompletedTrials%:=1; FirstTrial%:=0;
+		endif
+		AnswerPoint:=0; WaitForBlank:=1;  BlankStartTime :=-1; return 1; endif
+	if (Time-AnswerPointTime) > TimeToAnswer then AbortedTrials%:=AbortedTrials%+1; SampleKey("X"); WaitForBlank :=1; AnswerPoint :=0; BlankStartTime :=-1; return 1; endif
+endif
+	
+return 1;
+end;
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func PauseStimuli%();
+Pause :=1;
+ToolbarEnable(4,0);
+ToolbarEnable(5,1);
+return 1;
+end
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func ResumeStimuli%();
+Pause :=0;
+ToolbarEnable(4,1);
+ToolbarEnable(5,0);
+return 1;
+end
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func GetTodaysStats%();
+Profile("AlertRig\\"+Monkey$,"TotalRewards",0,TodaysRewards);
+Profile("AlertRig\\"+Monkey$,"TotalTrials",0,TodaysTrials);
+Profile("AlertRig\\"+Monkey$,"Date","",RecordedDate$);
+TodaysDate$ := Date$();
+if TodaysDate$ <> RecordedDate$ then 
+	Profile("AlertRig\\"+Monkey$,"TotalRewards",0);
+	TodaysRewards :=0;
+	Profile("AlertRig\\"+Monkey$,"TotalTrials",0);
+	TodaysTrials :=0;
+	Profile("AlertRig\\"+Monkey$,"Date",TodaysDate$);
+endif
+return 1;
+end
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func GetLastUsedParameters%();
+
+'Read the Windows registry to determine last used values for the experiment parameters
+'Since registry values are either integers are strings, we store decimals as strings and convert them to decimals
+var NumberOfRewards$;
+var WindowRadius$, FixationX$, FixationY$, FixationDuration$, AcquisitionTime$;
+var BlankDuration$;
+var FixationPointDiameter$;
+
+Profile("AlertRig\\"+Monkey$,"WindowRadius","1",WindowRadius$);
+Profile("AlertRig\\"+Monkey$,"FixationX","0",FixationX$);
+Profile("AlertRig\\"+Monkey$,"FixationY","0",FixationY$);
+Profile("AlertRig\\"+Monkey$,"FixationDuration","1",FixationDuration$);
+Profile("AlertRig\\"+Monkey$,"AcquisitionTime","1",AcquisitionTime$);
+Profile("AlertRig\\"+Monkey$,"BlankDuration","2",BlankDuration$);
+Profile("AlertRig\\"+Monkey$,"NumberOfBlocks",300,NumberOfBlocks%);
+Profile("AlertRig\\"+Monkey$,"BackgroundColor","Grey",BackgroundColor$);
+Profile("AlertRig\\"+Monkey$,"FixationPointDIameter",".1",FixationPointDiameter$);
+Profile("AlertRig\\"+Monkey$,"NumberOfRewards",1,NumberOfRewards%);
+
+'Convert strings to decimenals
+WindowRadius := val(WindowRadius$);
+FixationX := val(FixationX$);
+FixationY := val(FixationY$);
+FixationDuration := val(FixationDuration$);
+AcquisitionTime := val(AcquisitionTime$);
+BlankDuration := val(BlankDuration$);
+FixationPointDiameter := val(FixationPointDiameter$);
+
+return 1;
+end
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func SetLastUsedParameters%();	'Updates the registry record of the last used experimental parameters
+
+'Since registry values are either integers are strings, we convert decimals to strings
+
+Profile("AlertRig\\"+Monkey$,"WindowRadius",str$(WindowRadius));
+Profile("AlertRig\\"+Monkey$,"FixationX",str$(FixationX));
+Profile("AlertRig\\"+Monkey$,"FixationY",str$(FixationY));
+Profile("AlertRig\\"+Monkey$,"FixationDuration",str$(FixationDuration));
+Profile("AlertRig\\"+Monkey$,"AcquisitionTime",str$(AcquisitionTime));
+Profile("AlertRig\\"+Monkey$,"BlankDuration",str$(BlankDuration));
+Profile("AlertRig\\"+Monkey$,"NumberOfBlocks",NumberOfBlocks%);
+Profile("AlertRig\\"+Monkey$,"BackgroundColor",BackgroundColor$);
+Profile("AlertRig\\"+Monkey$,"FixationPointDIameter",str$(FixationPointDiameter));
+Profile("AlertRig\\"+Monkey$,"NumberOfRewards",NumberOfRewards%);
+
+return 1;
+end
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func GetLastUsedFixationParameters%();
+
+'Read the Windows registry to determine last used values for the experiment parameters
+'Since registry values are either integers are strings, we store decimals as strings and convert them to decimals
+
+var ContrastDelay$, BaseContrast$,ContrastUp$,ContrastDown$,TimeToAnswer$,IncorrectBrightness$;
+var GratingOrSpotValue$,TargetX$,TargetY$;
+var GratingDelay$,AnswerPointDelay$,AnswerWindow$;
+var AnswerPointInitialBrightness$,AnswerPointFullBrightness$;
+var RandomFixationOffset$;
+Profile("AlertRig\\"+Monkey$,"ContrastDelay","1",ContrastDelay$);
+Profile("AlertRig\\"+Monkey$,"BaseContrast","50",BaseContrast$);
+Profile("AlertRig\\"+Monkey$,"ContrastUp","75",ContrastUp$);
+Profile("AlertRig\\"+Monkey$,"ContrastDown","25",ContrastDown$);
+Profile("AlertRig\\"+Monkey$,"TimeToAnswer","1",TimeToAnswer$);
+Profile("AlertRig\\"+Monkey$,"IncorrectBrightness","0",IncorrectBrightness$);
+Profile("AlertRig\\"+Monkey$,"GratingOrSpot","Grating",GratingOrSpotValue$);
+Profile("AlertRig\\"+Monkey$,"TargetX","3",TargetX$);
+Profile("AlertRig\\"+Monkey$,"TargetY","0",TargetY$);
+Profile("AlertRig\\"+Monkey$,"GratingDelay","1",GratingDelay$);
+Profile("AlertRig\\"+Monkey$,"AnswerPointDelay","1",AnswerPointDelay$);
+Profile("AlertRig\\"+Monkey$,"AnswerWindow","1",AnswerWindow$);
+Profile("AlertRig\\"+Monkey$,"RandomFixationOffset","0",RandomFixationOffset$);
+Profile("AlertRig\\"+Monkey$,"AnswerPointInitialBrightness","100",AnswerPointInitialBrightness$);
+Profile("AlertRig\\"+Monkey$,"AnswerPointFullBrightness","1",AnswerPointFullBrightness$);
+
+if GratingOrSpotValue$="Grating" then GratingOrSpotIndex%:=0; endif
+if GratingOrSpotValue$="Spot" then GratingOrSpotIndex%:=1; endif
+
+
+'Convert strings to decimenals
+ContrastDelay := val(ContrastDelay$);
+BaseContrast := val(BaseContrast$);
+ContrastUp := val(ContrastUp$);
+ContrastDown := val(ContrastDown$);
+TimeToAnswer := val(TimeToAnswer$);
+IncorrectBrightness := val(IncorrectBrightness$);
+TargetX := val(TargetX$);
+TargetY := val(TargetY$);
+GratingDelay := val(GratingDelay$);
+AnswerPointDelay := val(AnswerPointDelay$);
+AnswerWindow := val(AnswerWindow$);
+AnswerPointInitialBrightness := val(AnswerPointInitialBrightness$);
+AnswerPointFullBrightness := val(AnswerPointFullBrightness$);
+RandomFixationOffset := val(RandomFixationOffset$);
+return 1;
+end
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func SetLastUsedFixationParameters%();
+
+'Since registry values are either integers are strings, we convert decimals to strings
+
+Profile("AlertRig\\"+Monkey$,"ContrastDelay",str$(ContrastDelay));
+Profile("AlertRig\\"+Monkey$,"BaseContrast",str$(BaseContrast));
+Profile("AlertRig\\"+Monkey$,"ContrastUp",str$(ContrastUp));
+Profile("AlertRig\\"+Monkey$,"ContrastDown",str$(ContrastDown));
+Profile("AlertRig\\"+Monkey$,"TimeToAnswer",str$(TimeToAnswer));
+Profile("AlertRig\\"+Monkey$,"IncorrectBrightness",str$(IncorrectBrightness));
+Profile("AlertRig\\"+Monkey$,"GratingOrSpot",GratingOrSpot$[GratingOrSpotIndex%]);
+Profile("AlertRig\\"+Monkey$,"TargetX",str$(TargetX));
+Profile("AlertRig\\"+Monkey$,"TargetY",str$(TargetY));
+Profile("AlertRig\\"+Monkey$,"GratingDelay",str$(GratingDelay));
+Profile("AlertRig\\"+Monkey$,"AnswerPointDelay",str$(AnswerPointDelay));
+Profile("AlertRig\\"+Monkey$,"AnswerWindow",str$(AnswerWindow));
+Profile("AlertRig\\"+Monkey$,"RandomFixationOffset",str$(RandomFixationOffset));
+Profile("AlertRig\\"+Monkey$,"AnswerPointInitialBrightness",str$(AnswerPointInitialBrightness));
+Profile("AlertRig\\"+Monkey$,"AnswerPointFullBrightness",str$(AnswerPointFullBrightness));
+
+
+return 1;
+end
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func GetLastUsedGratingParameters%();
+
+'Read the Windows registry to determine last used values for the experiment parameters
+'Since registry values are either integers are strings, we store decimals as strings and convert them to decimals
+
+var TargetOrientation$, TargetSF$, TargetTF$, TargetDiameter$;
+Profile("AlertRig\\"+Monkey$,"TargetOrientation","0",TargetOrientation$);
+Profile("AlertRig\\"+Monkey$,"TargetSF","1",TargetSF$);
+Profile("AlertRig\\"+Monkey$,"TargetTF","2",TargetTF$);
+Profile("AlertRig\\"+Monkey$,"TargetDiameter","2",TargetDiameter$);
+
+'Convert strings to decimenals
+TargetOrientation := val(TargetOrientation$);
+TargetSF := val(TargetSF$);
+TargetTF := val(TargetTF$);
+TargetDiameter := val(TargetDiameter$);
+
+
+return 1;
+end
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func SetLastUsedGratingParameters%();
+'Since registry values are either integers are strings, we convert decimals to strings
+
+Profile("AlertRig\\"+Monkey$,"TargetOrientation",str$(TargetOrientation));
+Profile("AlertRig\\"+Monkey$,"TargetSF",str$(TargetSF));
+Profile("AlertRig\\"+Monkey$,"TargetTF",str$(TargetTF));
+Profile("AlertRig\\"+Monkey$,"TargetDiameter",str$(TargetDiameter));
+
+return 1;
+end
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func DetermineContrastChanges()
+var BlockIndex%,Block[30],RandomBlock[30],RandomNumber;
+ArrConst(Block[:15],-1);
+ArrConst(Block[15:15],1);
+ArrConst(RandomDelay[],0);
+
+
+for index :=0 to (NumberOfBlocks% -1) do
+	BlockIndex%:=0;
+   ArrConst(RandomBlock[],0);
+	while BlockIndex% < 30 do
+		RandomNumber:=round(29*rand());
+		if RandomBlock[RandomNumber] = 0 then 
+			RandomBlock[RandomNumber] := Block[BlockIndex%];
+			BlockIndex% := BlockIndex%+1;
+		endif
+	wend
+	ArrConst(ContrastState[index*30:30],RandomBlock[]);
+next
+
+for index:=0 to (30*NumberOfBlocks% - 1) do
+	if RandomFixationOffset > 0 then RandomDelay[index] := RandomFixationOffset*rand(); endif
+next
+
+return 1;
+end
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func ModifyDistractors()
+
+	var dindex%,DistractorFile%;
+	NumberOfDistractors% := Input("Display how many distractors?",5,0,5);
+	DistractorFile% := FileOpen("c:\\AlertRig\\DistractorList",8,1);
+	if DistractorFile% < 0 then Message("Could not create distractor file."); halt; endif
+	if NumberOfDistractors% > 0 then
+		var DistractorOrientation, DistractorSF, DistractorTF, DistractorDiameter, DistractorContrast,DistractorX,DistractorY;
+		for dindex% := 1 to NumberOfDistractors% do 
+			DlgCreate("Specify distractor "+str$(dindex%)+" properties");
+			DlgReal(1,"Orienation: ",-360,360);
+			DlgReal(2,"Spatial frequency: ",.01, 100);
+			DlgReal(3,"Temporal frequency: ",0,100);
+			DlgReal(4,"Diameter: (deg)",.1,10);
+			DlgReal(5,"Contrast: (%)",0, 100);
+			DlgReal(6,"X position: (deg)",-10,10);
+			DlgReal(7,"Y position: (deg)",-10,10);
+			DlgResponse := DlgShow(DistractorOrientation,DistractorSF,DistractorTF,DistractorDiameter,DistractorContrast,
+											DistractorX,DistractorY);
+			if DlgResponse < 0 then FileClose(DistractorFile%); halt; endif
+			Print("%f %f %f %f %f %f %f\n",DistractorOrientation,DistractorSF,DistractorTF,DistractorDiameter,DistractorContrast,
+					DistractorX,DistractorY);
+		next
+	endif
+	if NumberOfDistractors% = 0 then Print("-1000"); endif
+FileClose(DistractorFile%);
+
+return 1;
+end
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+proc CreateSampleConfiguration()
+var index;
+SampleClear(); 'Set standard sampling state
+SampleAutoFile(0); 'Enable automatic file naming
+SampleAutoComment(0); 'Prompt for comment after sampling
+SampleAutoCommit(60); 'Seconds between each file commit
+
+'Channel recording definitions
+SampleEvent(FixationPointChannel%,1,2,3600); 'Trigger channel, level
+SampleComment$(FixationPointChannel%,"Fixation");
+SampleTitle$(FixationPointChannel%,"Fixation");
+
+SampleEvent(StimChannel%,2,2,3600); 'Trigger channel, level
+SampleComment$(StimChannel%,"Stim");
+SampleTitle$(StimChannel%,"Stim");
+
+SampleEvent(AnswerPointChannel%,3,2,3600); 'Trigger channel, level
+SampleComment$(AnswerPointChannel%,"Ans. Pt.");
+SampleTitle$(AnswerPointChannel%,"Ans. Pt.");
+
+SampleEvent(StimChangeChannel%,4,2,3600); 'Trigger channel, level
+SampleComment$(StimChangeChannel%,"Stim Chg.");
+SampleTitle$(StimChangeChannel%,"Stim Chg.");
+
+SampleEvent(ConfounderChangeChannel%,5,2,3600); 'Trigger channel, level
+SampleComment$(ConfounderChangeChannel%,"Catch trial");
+SampleTitle$(ConfounderChangeChannel%,"Catch trial");
+
+for index := 1 to NumberOfChannels% do
+	SampleWaveMark(index,index-1,2000,34,15,28000); ' chan, port, event rate, points, pre-trigger, rate
+	SampleTitle$(index,"Electrode_"+Str$(index)); 
+next
+
+SampleWaveform(XChannel%,14,1000);
+SampleTitle$(XChannel%,"Eye X");
+SampleWaveform(YChannel%,15,1000);
+SampleTitle$(YChannel%,"Eye Y");
+
+SampleSequencer("c:\\alertrig\\Attention.pls");
+SampleOptimise(2,2,2,2,50);  'Set optimise mode (do this last)
+SampleMode(1); 'Continuous sampling
+end;
