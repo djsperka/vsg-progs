@@ -24,15 +24,8 @@
 #include <stdio.h>
 #include <conio.h>
 
-#define SCREEN_TO_WINDOW_DEGREES_X(x) (x-WidthOffset)
-#define SCREEN_TO_WINDOW_DEGREES_Y(y) (HeightOffset-y)
-#define SCREEN_TO_WINDOW_PIXELS_X(x) (x-WidthOffsetPixels)
-#define SCREEN_TO_WINDOW_PIXELS_Y(y) (HeightOffsetPixels-y)
-
-double WidthOffset, HeightOffset;
-double WidthOffsetPixels, HeightOffsetPixels;
 double ScrWidth, ScrHeight;
-double ScrWidthPixels, ScrHeightPixels;
+int counter;
 
 
 int UpdateGrating(int objHandle, double Orientation, double SpatialFrequency, double DriftVelocity);
@@ -41,16 +34,13 @@ void UpdateDriftVelocity(double DriftVelocity);
 void UpdateContrast(double Contrast);	
 void UpdateBackground(double BackgroundLuminance, double Aperture);
 
-
-
 int InitializeCard(void)
 {
-	int CheckCard,DistanceToScreen;
+	int CheckCard;
 	CheckCard = vsgInit("");
 	if (CheckCard < 0) {printf("VSG card failed to initialize\n"); return(-1);}
 	vsgSetVideoMode(vsgPANSCROLLMODE);
-	DistanceToScreen=1020;
-	vsgSetViewDistMM(DistanceToScreen);
+
 	vsgSetSpatialUnits(vsgDEGREEUNIT);
 
 
@@ -60,13 +50,18 @@ int InitializeCard(void)
 
 void main(int ArgumentCount, char *Arguments[])
 {	
+//	LoadIcon(NULL, IDI_ICON1);
+//	DrawIcon();
+	
 	int	x_val, y_val, i=0;
+	int DistanceToScreen;
 	int ReturnValue;
 	int key;
 	float Aperture=1;
 	int objHandle=0;
 	double DriftVelocity=4, SpatialFrequency=3, Orientation=45, Contrast=99;
 	double CurrentDriftVelocity=4, PreviousDriftVelocity=4;
+	double WidthOffset, HeightOffset;
 	double BackgroundLuminance;
 	int Page;
 
@@ -85,16 +80,13 @@ void main(int ArgumentCount, char *Arguments[])
 
 	if (ReturnValue == -1) _exit(0);
 
-	// ScrWidth and ScrHeight will be in degrees. 
-	ScrWidthPixels = vsgGetScreenWidthPixels();
-	ScrHeightPixels = vsgGetScreenHeightPixels();
-	vsgUnit2Unit(vsgPIXELUNIT,ScrWidthPixels,vsgDEGREEUNIT,&ScrWidth);
-	vsgUnit2Unit(vsgPIXELUNIT,ScrHeightPixels,vsgDEGREEUNIT,&ScrHeight);
+	ScrWidth = vsgGetScreenWidthPixels();
+	ScrHeight = vsgGetScreenHeightPixels();
+	vsgUnit2Unit(vsgPIXELUNIT,ScrWidth,vsgDEGREEUNIT,&ScrWidth);
+	vsgUnit2Unit(vsgPIXELUNIT,ScrHeight,vsgDEGREEUNIT,&ScrHeight);
 		
 	WidthOffset = ScrWidth/2;
 	HeightOffset = ScrHeight/2;
-	WidthOffsetPixels = ScrWidthPixels/2;
-	HeightOffsetPixels = ScrHeightPixels/2;
 
 	VSGLUTBUFFER  Buffer;
 
@@ -126,16 +118,21 @@ void main(int ArgumentCount, char *Arguments[])
 	
 	double FixationX,FixationY,FixationDiameter;
 	long StimulusState, PreviousState;
+	float Diameter;
 
-
-	// Must adjust y coordinate. Input args assumed to be in window coords, i.e. 
-	// 0,0 at center of screen and upper rh corner of screen is 
-	// (scrwidth/2, scrheight/2). We mult y*-1. 
 	FixationX=atof(Arguments[1]);
-	FixationY=-1*atof(Arguments[2]);
+	FixationY=atof(Arguments[2]);
 	FixationDiameter=atof(Arguments[3]);
+	DistanceToScreen=atof(Arguments[4]);
+	vsgSetViewDistMM(DistanceToScreen);
+
+	printf("Distance to Screen = %i\n",DistanceToScreen);
+	
+
+//	printf("%f %f %f \n", FixationX, FixationY, FixationDiameter);
 
 	PreviousState=0;
+//	Diameter=.1;
 	double MouseX,MouseY;
 	POINT Pos;
 	while(i < 1)
@@ -149,6 +146,7 @@ void main(int ArgumentCount, char *Arguments[])
 		vsgDrawOval(MouseX-ScrWidth/2, MouseY-ScrHeight/2, Aperture, Aperture);
 	
 		StimulusState=vsgIOReadDigitalIn();
+//		printf ("%x\n", StimulusState);
 
 		StimulusState=(StimulusState&vsgDIG1)/vsgDIG1;	
 		if (StimulusState==1) 
@@ -158,6 +156,7 @@ void main(int ArgumentCount, char *Arguments[])
 		}
 		PreviousState=StimulusState;
 		vsgSetZoneDisplayPage(vsgOVERLAYPAGE,Page);
+//		if (StimulusState != PreviousState) printf("%d\n",StimulusState);
 
 
 		vsgSetDrawPage(vsgOVERLAYPAGE,0,vsgNOCLEAR);		
@@ -166,11 +165,14 @@ void main(int ArgumentCount, char *Arguments[])
 		{
 
 			key = _getch();
+			//printf("The %d key was pressed.\n", key);
+			
 			
 			if(key==97)	// If m(menu) key is pressed look for next key press
 			{  
 				printf("Aperture Size = ");
 				scanf("%f", &Aperture);
+//				UpdateAperture(Aperture);
 			}
 
 			if(key==98)
@@ -178,6 +180,7 @@ void main(int ArgumentCount, char *Arguments[])
 				printf("Background = ");
 				int ReturnValue;
 				ReturnValue=scanf("%lf", &BackgroundLuminance);
+				//printf("\n%d\n%f\n\n",ReturnValue,BackgroundLuminance);
 				UpdateBackground(BackgroundLuminance, Aperture);
 				
 			}
@@ -228,6 +231,8 @@ void main(int ArgumentCount, char *Arguments[])
 
 			if(key==32)
 			{
+				//printf("PreviousDriftVelocity = %f\n",PreviousDriftVelocity);
+				//printf("CurrentDriftVelocity = %f\n", CurrentDriftVelocity);
 				if(CurrentDriftVelocity!=0)
 				{
 					PreviousDriftVelocity = DriftVelocity;
@@ -250,8 +255,10 @@ void main(int ArgumentCount, char *Arguments[])
 
 			if(key==112)
 			{
-				printf("pixels:X position = %f, Y position = %f .\n", SCREEN_TO_WINDOW_PIXELS_X(Pos.x), SCREEN_TO_WINDOW_PIXELS_Y(Pos.y));
-				printf("degrees:X position = %f, Y position = %f .\n\n", SCREEN_TO_WINDOW_DEGREES_X(MouseX), SCREEN_TO_WINDOW_DEGREES_Y(MouseY));
+				printf("pixels:X position = %d, Y position = %d .\n", Pos.x-400, -(Pos.y-300));
+				printf("degrees:X position = %f, Y position = %f .\n\n", MouseX-WidthOffset, -(MouseY-HeightOffset));
+				//printf("WidthOffset = %f, HeightOffset = %f.\n", WidthOffset, HeightOffset);
+
 			}
 
 			if(key==27)
@@ -297,6 +304,7 @@ void UpdateBackground(double BackgroundLuminance, double Aperture)
 	vsgSetDrawPage(vsgOVERLAYPAGE,1,1);
 	vsgSetDrawPage(vsgOVERLAYPAGE,2,1);
 	vsgSetDrawPage(vsgOVERLAYPAGE,3,1);
+	//vsgPresent();
 	vsgSetDrawPage(vsgOVERLAYPAGE, 0, 1);
 	vsgSetPen1(0);	
 	vsgDrawOval(0, 0, Aperture, Aperture);// <----------------- Surround Overlay
@@ -329,11 +337,17 @@ int UpdateGrating(int objHandle, double Orientation, double SpatialFrequency, do
 	vsgSetDrawPage(vsgVIDEOPAGE,0,vsgBACKGROUND);
 	objHandle = vsgObjCreate();
 
+	ScrWidth = vsgGetScreenWidthPixels();
+	ScrHeight = vsgGetScreenHeightPixels();
+	vsgUnit2Unit(vsgPIXELUNIT,ScrWidth,vsgDEGREEUNIT,&ScrWidth);
+	vsgUnit2Unit(vsgPIXELUNIT,ScrHeight,vsgDEGREEUNIT,&ScrHeight);
+
 	vsgSetBackgroundColour((VSGTRIVAL*)&Back);
 	vsgObjSetDefaults();
 	vsgObjSetPixelLevels(1, 120);
 	vsgObjTableSinWave(vsgSWTABLE);
 	vsgObjSetColourVector((VSGTRIVAL*)&From, (VSGTRIVAL*)&Too, vsgBIPOLAR);
+
 	
 	vsgSetPen1(1);
 	vsgSetPen2(120);
