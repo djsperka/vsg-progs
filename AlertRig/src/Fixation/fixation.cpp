@@ -30,7 +30,7 @@ TriggerVector triggers;
 bool m_binaryTriggers = true;
 
 static void usage();
-static int init_vsg();
+static int init_pages();
 
 int main (int argc, char *argv[])
 {
@@ -57,45 +57,45 @@ int main (int argc, char *argv[])
 
 
 	// prepare vsg
-	if (init_vsg())
+	if (init_vsg(m_screenDistanceMM, m_background))
 	{
 		cerr << "VSG initialization failed!" << endl;
 		return 1;
 	}
 
+	// write video pages
+	init_pages();
+
 	// init triggers
 	init_triggers();
 
 	// All right, start monitoring triggers........
-	TriggerFunc tf;
+	std::string s;
 	while (1)
 	{
-		if (m_binaryTriggers)
+		// If user-triggered, get a trigger entry. 
+		if (!m_binaryTriggers)
 		{
-			tf.reset(vsgIOReadDigitalIn());
-		}
-		else
-		{
-			std::string s;
 			// Get a new "trigger" from user
 			cout << "Enter trigger/key: ";
 			cin >> s;
-			tf.reset(s);
 		}
 
+		TriggerFunc	tf = std::for_each(triggers.begin(), triggers.end(), 
+			(m_binaryTriggers ? TriggerFunc(vsgIOReadDigitalIn()) : TriggerFunc(s)));
+
 		// Now analyze input trigger
-		std::for_each(triggers.begin(), triggers.end(), tf);
-		cerr << "for_each done present()=" << tf.present() << endl;
+	 	
 		if (tf.quit()) break;
 		else if (tf.present())
 		{	
-			cerr << "presenting page " << tf.page() << std::endl;
 			vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, tf.output_trigger(), 0);
 			vsgSetDrawPage(vsgVIDEOPAGE, tf.page(), vsgNOCLEAR);
 			vsgPresent();
 		}
 	}
 
+	clear_vsg();
 
 	return 0;
 }
@@ -188,34 +188,15 @@ void init_triggers()
 	triggers.addTrigger("q", 0x8, 0x8, 0xff, 0x0, -1);
 }
 
-int init_vsg()
+int init_pages()
 {
 	int status=0;
-	VSGTRIVAL background;
 	VSGTRIVAL fixation;
-
-	
-	if (vsgInit(""))
-	{
-		cerr << "Error in vsgInit()." << endl;
-	}
-
-	vsgSetViewDistMM(m_screenDistanceMM);
-	vsgSetSpatialUnits(vsgDEGREEUNIT);
-	vsgSetCommand(vsgPALETTERAMP);
-
+	status = init_vsg(m_screenDistanceMM, m_background);
 
 	// reserve first level for drawing gratings with TRANSONLOWER
 	PIXEL_LEVEL level_zero;
 	LevelManager::instance().request_single(level_zero);
-
-	// set background color, er colour. 
-	if (get_color(m_background, background))
-	{
-		cerr << "Cannot get trival for background color " << m_background << endl;
-		return 1;
-	}
-	vsgSetBackgroundColour(&background);
 
 	// set fixation color
 	if (get_color(m_afp.color, fixation))
