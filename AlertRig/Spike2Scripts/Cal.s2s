@@ -1,4 +1,7 @@
-' $Log: not supported by cvs2svn $ 
+' $Log: not supported by cvs2svn $
+' Revision 1.1  2004/10/01 19:41:01  dan
+' From production
+' 
 
 
 
@@ -461,7 +464,7 @@ func Stop%()
 	Yield(.1);
 	SampleStop();
 	ProgKill(StimHandle);
-	ProgRun("C:\\AlertRig\\ClearTrigger",0);
+	ProgRun(sRootDrive$ + sBinPath$ + "ClearTrigger",0);
 end;
 
 ' This function tied to Juice button

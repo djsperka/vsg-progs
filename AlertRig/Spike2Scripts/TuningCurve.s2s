@@ -1,5 +1,11 @@
-' $Log: not supported by cvs2svn $ 
+' $Log: not supported by cvs2svn $
+' Revision 1.1  2004/10/01 19:41:01  dan
+' From production
+' 
 
+var bin$, script$;
+bin$ := View(App(3)).FileName$(1) + View(App(3)).FileName$(2) + "..\\bin";	' Location of executables is ..\bin, relative to script dir
+script$ := View(App(3)).FileName$(1) + View(App(3)).FileName$(2);	' folder containing this script
 
 'Experiment specific variables
 var ViewHandle,FilePathRoot$,ExperimentHandle,LastFile$,NumberRead,ParameterFileHandle;
@@ -128,7 +134,7 @@ func Start%()
 AuxWindowLayout();
 
 var CommandLine$;
-CommandLine$ :="C:\\AlertRig\\Fixation\\TuningCurve\\Release\\TuningCurve "+str$(FixationX)+" "+str$(FixationY)+" "
+CommandLine$ :=bin$ + "TuningCurve "+str$(FixationX)+" "+str$(FixationY)+" "
 					+str$(FixationPointDiameter);
 'Begin the stimulus program. It will take a few seconds for the VSG to initialize.
 'PrintLog(CommandLine$+"\n");
@@ -149,7 +155,7 @@ SampleKey("L");
 Yield(.1);
 SampleStop();
 ProgKill(StimHandle);
-ProgRun("C:\\AlertRig\\ClearTrigger",0);
+ProgRun(bin$ + "ClearTrigger",0);
 View(SampleHandle(1)).WindowVisible(1);
 if CalculateF1%=1 then
 	for index := 1 to NumberOfChannels% do
@@ -314,7 +320,7 @@ SampleTitle$(XChannel%,"Eye X");
 SampleWaveform(YChannel%,15,1000);
 SampleTitle$(YChannel%,"Eye Y");
 
-SampleSequencer("c:\\alertrig\\Fixation.pls");
+SampleSequencer(script$ + "Fixation.pls");
 SampleOptimise(2,2,2,2,50);  'Set optimise mode (do this last)
 SampleMode(1); 'Continuous sampling
 end;

@@ -1,4 +1,11 @@
-' $Log: not supported by cvs2svn $ 
+' $Log: not supported by cvs2svn $
+' Revision 1.1  2004/10/01 19:41:01  dan
+' From production
+' 
+
+var bin$, script$;
+bin$ := View(App(3)).FileName$(1) + View(App(3)).FileName$(2) + "..\\bin";	' Location of executables is ..\bin, relative to script dir
+script$ := View(App(3)).FileName$(1) + View(App(3)).FileName$(2);	' folder containing this script
 
 
 'Experiment specific variables
@@ -155,7 +162,7 @@ Toolbar("Go",12345);
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 func Start%()
 var CommandLine$;
-CommandLine$ :="C:\\AlertRig\\Fixation\\StaticFixation\\Release\\StaticFixation "+str$(NumberOfTrials%) +" "
+CommandLine$ :=bin$ + "StaticFixation "+str$(NumberOfTrials%) +" "
 					+str$(FixationDuration) +" "+ str$(BlankDuration)+	" "+str$(FixationX)+" "+str$(FixationY)+" "
 					+str$(DistractorFlag%)+" "+BackgroundColor$+" "+str$(FixationPointDiameter)+" "
 					+FixationColor$+" "+DistanceToScreen$;
@@ -178,7 +185,7 @@ SampleKey("L");
 Yield(.1);
 SampleStop();
 ProgKill(StimHandle);
-ProgRun("C:\\AlertRig\\ClearTrigger",0);
+ProgRun(bin$ + "ClearTrigger",0);
 end;
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 func Juice%()
@@ -375,7 +382,7 @@ SampleTitle$(XChannel%,"Eye X");
 SampleWaveform(YChannel%,15,28000);
 SampleTitle$(YChannel%,"Eye Y");
 
-SampleSequencer("c:\\alertrig\\Fixation.pls");
+SampleSequencer(script$ + "Fixation.pls");
 SampleOptimise(2,2,2,2,50);  'Set optimise mode (do this last)
 SampleMode(1); 'Continuous sampling
 end;
