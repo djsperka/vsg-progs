@@ -17,7 +17,7 @@
 
 
 
-#include "C:\Program Files\Cambridge Research Systems\VSGV6\Windows\Win32\Msc\INCLUDE\VSGEX2.H"
+#include "VSGEX2.H"
 #include "math.h"
 #include "windows.h"
 #include "winuser.h"

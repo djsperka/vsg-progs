@@ -1,8 +1,10 @@
 #include <afxwin.h>
-#include <iostream.h>
-#include <stdio.h>
-#include "VSGEX2.H"
+#include <iostream>
+//#include <stdio>
+#include "C:\Program Files\Cambridge Research Systems\VSGV6\Windows\Win32\Msc\INCLUDE\VSGEX2.H"
 #include <math.h>
+
+using namespace std;
 
 float Distractors[5][7];
 
@@ -18,6 +20,8 @@ void main(int ArgumentCount, char *Arguments[])
 	double TargetOrientation, TargetSF, TargetTF, TargetDiameter;
 	double AnswerPointInitialBrightness, AnswerPointFullBrightness;
 	int NumberOfDistractors,PixelRange;
+
+	cout << "Starting..." << std::endl;
 
 	NumberOfDistractors=ReadDistractorFile();
 	PixelRange=79;
@@ -51,6 +55,9 @@ void main(int ArgumentCount, char *Arguments[])
 	}
 
 	//Initialize the vsg card then check that it initialized O.K.
+
+	cout << "Init card..." << std::endl;
+
 	int CheckCard;
 	CheckCard = vsgInit("");
 	if (CheckCard < 0)
@@ -58,14 +65,14 @@ void main(int ArgumentCount, char *Arguments[])
 		printf("VSG card failed to initialize\n");
 		_exit(0);
 	}
-	vsgSetViewDistMM(1020); //MAKE THIS VARIABLE!!
+	vsgSetViewDistMM(630); //MAKE THIS VARIABLE!!
 	vsgSetSpatialUnits(vsgDEGREEUNIT);
 	vsgSetVideoMode(vsgPANSCROLLMODE);
 	Sleep(2000);
 	
 	//Load the lut for our drawing pages
 
-	VSGTRIVAL Red, Black, White,Incorrect,Initial,Gray,BackgroundC,From,To;;
+	VSGTRIVAL Red, Black, White,Incorrect,Initial,Gray,BackgroundC,From,To;
 	VSGLUTBUFFER Buffer;
 	Red.a=1; Red.b=0; Red.c=0;
 	Black.a=0; Black.b=0; Black.c=0;
@@ -85,7 +92,6 @@ void main(int ArgumentCount, char *Arguments[])
 	if(strcmp(BackgroundColor,"Gray")==0) BackgroundC=Gray;
 	if(strcmp(BackgroundColor,"White")==0) BackgroundC=White;
 
-	cout << GratingColor << endl;
 	if(strcmp(GratingColor,"Grayscale")==0) {From=Black; To=White;}
 	if(strcmp(GratingColor,"S-cone")==0) {From=SOff; To=SOn;}
 	if(strcmp(GratingColor,"M-cone")==0) {From=MOff; To=MOn;}
@@ -125,6 +131,9 @@ void main(int ArgumentCount, char *Arguments[])
 	//We do this by setting a solid background overlay page, and drawing
 	//transparent circles around the location of our fixation point, answer points,
 	//and gratings
+
+	cout << "Set up overlay..." << std::endl;
+
 	VSGLUTBUFFER OverlayBuffer;
 	vsgSetCommand(vsgOVERLAYMASKMODE);
 
@@ -147,6 +156,9 @@ void main(int ArgumentCount, char *Arguments[])
 
 
 	//Set up our video drawing pages. Page 0 is solid background, and page 1 contains our drawing objects
+
+	cout << "Set up video pages..." << std::endl;
+
 	vsgSetDrawPage(vsgVIDEOPAGE,0,0);
 	vsgSetDrawPage(vsgVIDEOPAGE,1,0);
 
@@ -251,21 +263,28 @@ void main(int ArgumentCount, char *Arguments[])
 	//Digital input 0 is used by the juicer, so we ignore it
 	NonJuicePins=floor(StimulusState/2);
 	PreviousState=NonJuicePins;
-	
+
+	cout << "Starting loop, NJP=" << std::hex << NonJuicePins << std::endl;
+
 	DWORD TriggerState=0; //We use this to keep track of our output trigger states.
 	while (TRUE)
 	{
+		cout << "Read vsg digin" << std::endl;
 		StimulusState=vsgIOReadDigitalIn();
+		cout << "Done reading vsg digin" << std::endl;
 		NonJuicePins=floor(StimulusState/2);
+
+		cout << "NJP=" << std::hex << NonJuicePins << std::endl;
+		
 		if(NonJuicePins != PreviousState)
 		{
-			cout << " stim\n";
 			Fixation=((StimulusState&vsgDIG1)/vsgDIG1);
 			Stim=((StimulusState&vsgDIG2)/vsgDIG2);
 			TargetContrastChange=((StimulusState&vsgDIG3)/vsgDIG3);
 			ConfounderContrastChange=((StimulusState&vsgDIG4)/vsgDIG4);
 			ContrastChangeValue=((StimulusState&vsgDIG5)/vsgDIG5);
 			AnswerPoint=((StimulusState&vsgDIG6)/vsgDIG6);
+			cout << " fix=" << Fixation << " stim=" << Stim << " tgt_contrast=" << TargetContrastChange << " cfd_contrast=" << ConfounderContrastChange << " ans=" << AnswerPoint << std::endl;
 
 			//If the screen is supposed to be completely blank, we clear the screen by switching video pages.
 			//This avoids the potential problem of items disappearing one at a time, rather than simultaneously.
@@ -314,6 +333,8 @@ void main(int ArgumentCount, char *Arguments[])
 				vsgObjSetContrast(100*Fixation);
 				TriggerState=TriggerState+(2*Fixation-1)*vsgDIG0;
 				vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER + vsgTRIG_TOGGLEMODE,TriggerState,0);
+				// DJS DEBUG
+				cout << "TriggerState=" << std::hex << TriggerState << std::endl;
 				vsgPresent();
 				PreviousFixation=Fixation;
 			}
@@ -333,6 +354,8 @@ void main(int ArgumentCount, char *Arguments[])
 				TriggerState=TriggerState+(2*Stim-1)*vsgDIG1;
 				vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER + vsgTRIG_TOGGLEMODE,TriggerState,0);
 				vsgPresent();
+				// DJS DEBUG
+				cout << "TriggerState=" << std::hex << TriggerState << std::endl;
 				PreviousStim=Stim;
 			}
 
@@ -360,6 +383,8 @@ void main(int ArgumentCount, char *Arguments[])
 				TriggerState=TriggerState+(2*AnswerPoint-1)*vsgDIG2;
 				vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER + vsgTRIG_TOGGLEMODE,TriggerState,0);
 				vsgPresent();
+				// DJS DEBUG
+				cout << "TriggerState=" << std::hex << TriggerState << std::endl;
 				PreviousAnswerPoint=AnswerPoint;
 			}
 
@@ -389,6 +414,8 @@ void main(int ArgumentCount, char *Arguments[])
 				TriggerState=TriggerState+vsgDIG3;
 				vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER + vsgTRIG_TOGGLEMODE,TriggerState,0);
 				vsgPresent();
+				// DJS DEBUG
+				cout << "TriggerState=" << std::hex << TriggerState << std::endl;
 				PreviousTargetContrastChange=TargetContrastChange;
 			}
 
@@ -414,6 +441,8 @@ void main(int ArgumentCount, char *Arguments[])
 				TriggerState=TriggerState+vsgDIG4;
 				vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER + vsgTRIG_TOGGLEMODE,TriggerState,0);
 				vsgPresent();
+				// DJS DEBUG
+				cout << "TriggerState=" << std::hex << TriggerState << std::endl;
 				PreviousConfounderContrastChange=ConfounderContrastChange;
 			}
 
