@@ -90,9 +90,26 @@ int main (int argc, char *argv[])
 	// write video pages
 	init_pages();
 
+	// Dump triggers
+	{
+		int i;
+		for (i=0; i<triggers.size(); i++)
+		{
+			std::cout << "Trigger " << i << " " << *(triggers[i]) << std::endl;
+		}
+	}
+
+
+	vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, 0x20, 0);
+	vsgPresent();
+
+	vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, 0x00, 0);
+	vsgPresent();
+
 
 	// All right, start monitoring triggers........
 	std::string s;
+	int last_output_trigger=0;
 	while (1)
 	{
 		// If user-triggered, get a trigger entry. 
@@ -104,13 +121,14 @@ int main (int argc, char *argv[])
 		}
 
 		TriggerFunc	tf = std::for_each(triggers.begin(), triggers.end(), 
-			(m_binaryTriggers ? TriggerFunc(vsgIOReadDigitalIn()) : TriggerFunc(s)));
+			(m_binaryTriggers ? TriggerFunc(vsgIOReadDigitalIn(), last_output_trigger) : TriggerFunc(s, last_output_trigger)));
 
 		// Now analyze input trigger
 	 	
 		if (tf.quit()) break;
 		else if (tf.present())
 		{	
+			last_output_trigger = tf.output_trigger();
 			vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, tf.output_trigger(), 0);
 			vsgPresent();
 		}
@@ -353,17 +371,18 @@ int init_pages()
 			triggers.addTrigger(ptrigStimON);
 
 			// trigger to turn stim Off
-			ptrigStimOFF = new ContrastTrigger("s", 0x4, 0x0, 0x2, 0x0);
+			// stim off trigger also has to turn off the stim change output trigger. 
+			ptrigStimOFF = new ContrastTrigger("s", 0x4, 0x0, 0x2+0x18, 0x0);
 			ptrigStimOFF->push_back( std::pair<VSGOBJHANDLE, int>(m_spec_stimulus.handle(), 0) );
 			triggers.addTrigger(ptrigStimOFF);
 
 			// trigger to turn stim contrast UP
-			ptrigStimUP = new ContrastTrigger("C", 0x28, 0x28, 0x18, 0x10);
+			ptrigStimUP = new ContrastTrigger("C", 0x28, 0x28, 0x18, 0x08);
 			ptrigStimUP->push_back( std::pair<VSGOBJHANDLE, int>(m_spec_stimulus.handle(), m_iContrastUp) );
 			triggers.addTrigger(ptrigStimUP);
 	
 			// trigger to turn stim contrast DOWN
-			ptrigStimDOWN = new ContrastTrigger("c", 0x28, 0x08, 0x18, 0x10);
+			ptrigStimDOWN = new ContrastTrigger("c", 0x28, 0x08, 0x18, 0x08);
 			ptrigStimDOWN->push_back( std::pair<VSGOBJHANDLE, int>(m_spec_stimulus.handle(), m_iContrastDown) );
 			triggers.addTrigger(ptrigStimDOWN);
 
@@ -397,12 +416,12 @@ int init_pages()
 		ptrigStimOFF->push_back( std::pair<VSGOBJHANDLE, int>(m_spec_confounder.handle(), 0) );
 
 		// trigger to turn confounder contrast UP
-		ptrigConfounderUP = new ContrastTrigger("D", 0x30, 0x30, 0x18, 0x08);
+		ptrigConfounderUP = new ContrastTrigger("D", 0x30, 0x30, 0x18, 0x10);
 		ptrigConfounderUP->push_back( std::pair<VSGOBJHANDLE, int>(m_spec_confounder.handle(), m_iContrastUp) );
 		triggers.addTrigger(ptrigConfounderUP);
 
 		// trigger to turn confounder contrast DOWN
-		ptrigConfounderDOWN = new ContrastTrigger("d", 0x30, 0x10, 0x18, 0x08);
+		ptrigConfounderDOWN = new ContrastTrigger("d", 0x30, 0x10, 0x18, 0x10);
 		ptrigConfounderDOWN->push_back( std::pair<VSGOBJHANDLE, int>(m_spec_confounder.handle(), m_iContrastDown) );
 		triggers.addTrigger(ptrigConfounderDOWN);
 
