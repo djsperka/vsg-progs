@@ -1,0 +1,276 @@
+' $Header: /opt/cvstmp/AlertRig/Spike2Scripts/CoolMouse.s2s,v 1.1.1.1 2004-02-20 00:37:14 dan Exp $
+'
+'
+
+
+'Idle Processing Variables
+var MasterTargetIndex[10000],TargetTable[8][2],Pause;
+var TodaysTrials, TodaysRewards,RecordedDate$,TodaysDate$;
+Profile("AlertRig","TotalRewards",0,TodaysRewards);
+Profile("AlertRig","TotalTrials",0,TodaysTrials);
+Profile("AlertRig","Date","",RecordedDate$);
+TodaysDate$ := Date$();
+if TodaysDate$ <> RecordedDate$ then 
+	Profile("AlertRig","TotalRewards",0);
+	TodaysRewards :=0;
+	Profile("AlertRig","TotalTrials",0);
+	TodaysTrials :=0;
+	Profile("AlertRig","Date",TodaysDate$);
+endif
+	
+var NumberOfChannels%,XChannel%,YChannel%,TriggerChannel%;
+NumberOfChannels%:=Input("Number of channels :",1,1,14);
+XChannel% := NumberOfChannels%+1;
+YChannel% := NumberOfChannels%+2;
+TriggerChannel% := NumberOfChannels%+3;
+CreateSampleConfiguration();
+
+var OldX,OldY,Time,NewTriggerTime,NewTriggerState,MarkerValue%[1],Stim$;
+var StimIndex :=-1;
+'Ted-specific variables
+var NumReward;
+var TrialCounter :=1, Delay :=.5,StartTrial :=1, AcquireTarget :=0, HoldFixation :=0, WaitForBlank :=0, WaitForStim:=0;
+var TrialStartTime, TargetAcquiredTime, BlankStartTime;
+var TargetAcquired :=0;
+var NumberOfRewards :=2;
+'Program startup
+var DataWindow%,XYWindow%,Juice;
+var DegreesPerVoltX, DegreesPerVoltY,DegreesPerVoltX$, DegreesPerVoltY$;
+Profile("AlertRig","DegreesPerVoltX","",DegreesPerVoltX$);
+DegreesPerVoltX := val(DegreesPerVoltX$);
+Profile("AlertRig","DegreesPerVoltY","",DegreesPerVoltY$);
+DegreesPerVoltY := val(DegreesPerVoltY$);
+PrintLog("Degrees per volt = " + str$(DegreesPerVoltX) + "," + str$(DegreesPerVoltY) + "\n");
+
+DataWindow% := FileNew(0,4);	'Open the data sampling window
+View(DataWindow%).ChanHide(XChannel%);
+View(DataWindow%).ChanHide(YChannel%);
+View(DataWindow%).Window(-0.235849,52.746,97.2484,99.8856);
+View(DataWindow%).WindowVisible(1);
+
+var TriggerState,TriggerTime,TriggerOnTime, TriggerOffTime;
+var StimHandle;
+var WindowRadius :=1, FixationX :=0, FixationY :=0, FixationDuration := 1, FixationTolerance :=1,FixationDiameter :=.2;
+var BlankDuration :=2, RewardDelay :=0, NumberOfRepeats := 1000;
+var EyePosX,EyePosY,RadiusX[1000],RadiusY[1000];
+var index,OldTime :=0,OldJuiceTime :=0;
+var Bit$ := "Low";
+var DistractorFlag%;
+var DlgCancel;
+DlgCreate("Specify fixation parameters");
+DlgReal(1,"Window (deg): ",0,50);
+DlgReal(2,"Fixation point X (deg): ",-50,50);
+DlgReal(3,"Fixation point Y (deg): ",-50,50);
+DlgReal(4,"Fixation point diameter (deg): ",.1,20);
+DlgReal(5,"Fixation duration (s): ",0,20);
+DlgReal(6,"Acquisition (s): ",0,20);
+DlgReal(7,"Reward delay (s): ",0,20);
+DlgReal(8,"Intertrial interval (s): ",0,20);
+DlgReal(9,"Number of trials : ",0,10000);
+DlgReal(10,"Delay before 1st trial (s):",0,10000);
+DlgReal(11,"Number of juices per reward",0,10);
+DlgCheck(12,"Include distractor?");
+DlgCancel:=DlgShow(WindowRadius,FixationX,FixationY,FixationDiameter,FixationDuration,FixationTolerance, RewardDelay, 
+						BlankDuration,NumberOfRepeats,Delay,NumberOfRewards,DistractorFlag%);
+if DlgCancel=0 then halt; endif
+
+XYWindow% := FileNew(12);
+XRange(-9,9);
+YRange(-2,-7.5,7.5);
+WindowVisible(1);
+Window(-0.550314,0.114416,41.5094,52.746);
+XYColour(1,16);
+XYSize(1,-1);
+
+for index := 0 to 499 do
+	RadiusX[index] := FixationX - WindowRadius + 2*WindowRadius*index/499;
+'	RadiusY[index] := sqrt(WindowRadius*WindowRadius - (RadiusX[index]-FixationX)*(RadiusX[index]-FixationX));
+
+	RadiusY[index] := FixationY + sqrt(WindowRadius*WindowRadius - (RadiusX[index]-FixationX)*(RadiusX[index]-FixationX));
+	RadiusX[999-index] := RadiusX[index];
+	RadiusY[999-index] := 2*FixationY-1*RadiusY[index];
+	if RadiusX[index]=0 then
+		if RadiusY[index]=0 then
+			Message(index);
+		endif
+	endif
+
+next;
+
+XYSetChan(0);
+XYColour(2,13);
+XYDrawMode(2,2,1);
+XYJoin(2,1);
+XYAddData(2,RadiusX[],RadiusY[]);
+
+XYSetChan(0);
+
+ToolbarVisible(1);
+
+ToolbarSet(1,"Sample start",Start%);
+ToolbarSet(2,"Sample stop", Stop%);
+ToolbarSet(3,"Juice",Juice%);
+ToolbarSet(4,"Pause stimuli",PauseStimuli%);
+ToolbarSet(5,"Resume stimuli",ResumeStimuli%);
+Toolbar("Go",12345);
+ToolbarEnable(2,0);
+ToolbarEnable(5,0);
+
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func Start%()
+StimHandle := ProgRun("C:\\AlertRig\\mouse3 "+str$(FixationX)+" "+str$(FixationY)+" "+str$(FixationDiameter),1);
+if StimHandle <0 then Message("Could not start stimulus."); halt; endif
+Yield(3);
+SampleStart(0); 
+ToolbarSet(0,"",IdleProcessing%);
+ToolbarEnable(2,1);
+ToolbarEnable(1,0);
+View(App(8)).WindowVisible(0);
+View(DataWindow%);
+return 1;
+end;
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func Stop%()
+SampleKey("L");
+Yield(.1);
+SampleStop();
+ProgKill(StimHandle);
+ProgRun("C:\\AlertRig\\ClearTrigger",0);
+end;
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func Juice%()
+SampleKey("J");
+return 1;
+end;
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func Looking%(EyePosX,EyePosY)
+	if (Pow(EyePosX-FixationX,2) + Pow(EyePosY-FixationY,2)) <= Pow(WindowRadius,2) then   return 1; else return 0; endif
+end;
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func Reward%()
+	var i;
+	TodaysRewards:=TodaysRewards+NumberOfRewards;
+	ToolbarText("Trial Number: "+str$(TodaysTrials)+"     Number of Rewards: "+str$(TodaysRewards));
+	Profile("AlertRig","TotalRewards",TodaysRewards);
+	Yield(RewardDelay);
+	for i:=1 to NumberOfRewards do SampleKey("J"); Yield(.05); next
+end;
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func IdleProcessing%()   		'This function will be run whenever an interrupt
+										'is available.
+
+if MaxTime() < Delay then return 1; endif
+
+Time := MaxTime()-.001;
+if Time > 0 then
+	EyePosX := ChanMeasure(XChannel%,2,Time,Time-.005)*DegreesPerVoltX;
+	EyePosY := ChanMeasure(YChannel%,2,Time,Time-.005)*DegreesPerVoltY;
+endif
+if Time > OldTime +.005 then
+	View(XYWindow%).XYAddData(1,EyePosX,EyePosY);
+	OldTime := Time;
+endif
+
+if Pause = 1 then return 1; endif
+
+NewTriggerTime := NextTime(TriggerChannel%,TriggerTime,NewTriggerState);
+if NewTriggerTime > TriggerTime then 
+	if NewTriggerState = 0 then
+		TriggerOnTime := NewTriggerTime;
+		Stim$:="On";
+		StimIndex := StimIndex+1;
+		TodaysTrials:=TodaysTrials+1;
+		ToolbarText("Trial Number: "+str$(TodaysTrials)+"     Number of Rewards: "+str$(TodaysRewards));
+		Profile("AlertRig","TotalTrials",TodaysTrials);
+		View(XYWindow%).XYAddData(3,FixationX,FixationY);
+
+		PrintLog("draw fix pt " + str$(FixationX) + " " + str$(FixationY) + "\n");
+	endif
+	if NewTriggerState = 1 then
+		TriggerOffTime := NewTriggerTime;
+		PrintLog("Stim off, TriggerOffTime "+str$(TriggerOffTime) + "\n");
+		Stim$:="Off";
+		View(XYWindow%).XYDelete(3);
+	endif
+	TriggerTime := NewTriggerTime;
+endif
+
+if StartTrial = 1 then
+	SampleKey("H");
+	View(XYWindow%).XYAddData(3,FixationX,FixationY);
+	TrialStartTime := MaxTime();
+	StartTrial := 0;
+	AcquireTarget :=1;
+	WaitForStim :=1;
+	return 1;
+endif
+
+if AcquireTarget = 1 then 
+	if StartTrial = 1 then Message("Start and Acquire both 1"); halt; endif
+	if Stim$="Off" then WaitForStim :=1; return 1; endif
+	if ((Stim$="On") and (WaitForStim=1)) then
+		WaitForStim :=0;
+		TrialStartTime := TriggerOnTime;
+	endif
+	if Looking%(EyePosX,EyePosY)=1 then AcquireTarget := 0; HoldFixation := 1; TargetAcquiredTime:=MaxTime();return 1; endif
+   if MaxTime()-TrialStartTime > FixationTolerance then AcquireTarget :=0; WaitForBlank :=1; BlankStartTime := -1; PrintLog("Failed to acquire\n");SampleKey("L");View(XYWindow%).XYDelete(3); return 1; endif
+endif
+
+if WaitForBlank=1 then
+	if Stim$ ="On" then WaitForStim :=1; return 1; endif
+	if (Stim$="Off" and BlankStartTime =-1) then WaitForStim :=0; BlankStartTime := TriggerOffTime; PrintLog(Stim$+" "+str$(TriggerOffTime)+"\n"); endif
+	if MaxTime()-BlankStartTime > BlankDuration then WaitForBlank :=0; StartTrial:=1; endif
+	return 1;
+endif
+
+if HoldFixation=1 then 
+	if Looking%(EyePosX,EyePosY)=0 then SampleKey("L"); View(XYWindow%).XYDelete(3); HoldFixation:=0; WaitForBlank:=1; BlankStartTime :=-1; return 1; endif
+	if (MaxTime()-TargetAcquiredTime > FixationDuration) then SampleKey("L"); View(XYWindow%).XYDelete(3); Yield(RewardDelay); Reward%(); HoldFixation:=0; WaitForBlank :=1; BlankStartTime :=-1; endif
+endif
+
+return 1;
+end;
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func PauseStimuli%();
+Pause :=1;
+ToolbarEnable(4,0);
+ToolbarEnable(5,1);
+return 1;
+end
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func ResumeStimuli%();
+Pause :=0;
+ToolbarEnable(4,1);
+ToolbarEnable(5,0);
+return 1;
+end
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+proc CreateSampleConfiguration()
+var index;
+SampleClear(); 'Set standard sampling state
+SampleAutoFile(0); 'Enable automatic file naming
+SampleAutoComment(0); 'Prompt for comment after sampling
+SampleAutoCommit(60); 'Seconds between each file commit
+
+'Channel recording definitions
+SampleEvent(TriggerChannel%,2,2,3600); 'Trigger channel, level
+SampleComment$(TriggerChannel%,"Trigger");
+SampleTitle$(TriggerChannel%,"Trigger");
+
+for index := 1 to NumberOfChannels% do
+	SampleWaveMark(index,index-1,2000,34,15,28000); ' chan, port, event rate, points, pre-trigger, rate
+	SampleTitle$(index,"Electrode_"+Str$(index)); 
+next
+
+SampleWaveform(XChannel%,14,28000);
+SampleTitle$(XChannel%,"Eye X");
+SampleWaveform(YChannel%,15,28000);
+SampleTitle$(YChannel%,"Eye Y");
+
+SampleSequencer("c:\\alertrig\\Fixation.pls");
+SampleOptimise(2,2,2,2,50);  'Set optimise mode (do this last)
+SampleMode(1); 'Continuous sampling
+end;
+
