@@ -1,4 +1,7 @@
 ' $Log: not supported by cvs2svn $
+' Revision 1.2  2004/10/01 20:06:10  dan
+' Modified directory locations for executables (../bin) and sequencer files (script dir)
+'
 ' Revision 1.1  2004/10/01 19:41:01  dan
 ' From production
 ' 
@@ -321,7 +324,7 @@ proc ParametersDialog()
 	DlgReal(6,"Fixation point diameter (degrees):",.01,5);
 	DlgReal(7,"Fixation window diameter (degrees):",.01,5);
 	DlgList(8,"Fixation point color:",FixationColorList$[]);
-	DlgReal(9,"Pct screen coverage:", 0.1,1.0);
+	DlgReal(9,"Pct coverage(0-1)/degrees(>1):", 0.1,40.0);
 	DlgResponse := DlgShow(	MaxAcquisitionTime,
 									MinFixationTime,
 									InterTrialTime,
@@ -442,7 +445,7 @@ func Start%()
 	CommandLine$ := sRootDrive$ + sBinPath$ + "Calibration " + args$;
 	'Begin the stimulus program. It will take a few seconds for the VSG to initialize.
 	PrintLog(CommandLine$+"\n");
-	StimHandle := ProgRun(CommandLine$,0);
+	StimHandle := ProgRun(CommandLine$,1);
 	if StimHandle <0 then Message("Could not start stimulus."); halt; endif
 	Yield(3);	'Wait a few seconds to make sure the VSG has time to initialize.
 '	SampleKey("T");
@@ -542,8 +545,11 @@ proc InitParameters()
 	'Determine the current distance to the screen and screen dimensions
 	var Dist$;
 	var Dist%;
-	Profile("AlertRig\\CurrentExperiment","DistanceToScreen","850",Dist$);
-	DistanceToScreen := val(Dist$);
+'	Profile("AlertRig\\CurrentExperiment","DistanceToScreen","850",Dist$);
+'	DistanceToScreen := val(Dist$);
+	Profile("AlertRig\\CurrentExperiment","DistanceToScreen",850,Dist%);
+	DistanceToScreen := Dist%;
+	PrintLog("Screen dist is " + str$(DistanceToScreen) + "\n");
 
 	Profile("AlertRig", "ScreenWidthMM", 428, Dist%);
 	ScreenWidthMM := Dist%;
@@ -602,8 +608,13 @@ proc InitDrawingParameters()
 	yScreen[3] := ymax;
 
 	' These are the magnitudes of the stimulus locations on the screen. 
-	xStim := ATan(.5*ScreenWidthMM*PctCoverage/DistanceToScreen) * 180/pi;
-	yStim := ATan(.5*ScreenHeightMM*PctCoverage/DistanceToScreen) * 180/pi;
+	if (PctCoverage <= 1) then
+		xStim := ATan(.5*ScreenWidthMM*PctCoverage/DistanceToScreen) * 180/pi;
+		yStim := ATan(.5*ScreenHeightMM*PctCoverage/DistanceToScreen) * 180/pi;
+	else
+		xStim := PctCoverage;
+		yStim := PctCoverage;
+	endif
 
 
 end;
