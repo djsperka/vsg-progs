@@ -1,3 +1,4 @@
 #define BACKGROUND_PAGE 0
 #define STIMULUS_PAGE	1
 #define DISTRACTOR_PAGE	2
+#define OVERLAY_PAGE 0
