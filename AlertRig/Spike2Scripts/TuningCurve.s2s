@@ -1,0 +1,582 @@
+' $Log: not supported by cvs2svn $ 
+
+
+'Experiment specific variables
+var ViewHandle,FilePathRoot$,ExperimentHandle,LastFile$,NumberRead,ParameterFileHandle;
+var DataWindow%,DuplicateChannels%[64];
+var ProgHandle;
+
+'First, we open CurrentExperiment.par to find out what experiment is currently running.
+'If we cannot open the file, or the file is empty, we print an error message and quit.
+ViewHandle := FileOpen("C:\\AlertRig\\Experiments\\CurrentExperiment.par",8,0);
+if ViewHandle < 0 then Message("Could not determine current experiment."); Halt; endif;
+NumberRead := Read(FilePathRoot$);
+if NumberRead < 1 then Message("Could not determine current experiment."); Halt; endif;
+FileClose();
+
+'Find out what the last parameter file created was, so we know how to interpret the incoming spikes
+if NumberRead >0 then
+	PrintLog("Opening " + FilePathRoot$ + "\\LastFile\n");
+	ExperimentHandle := FileOpen(FilePathRoot$+"\\LastFile",8,0);
+	If ExperimentHandle < 0 then Message("Could not determine most recent parameter file"); Halt; endif;
+	NumberRead := Read(LastFile$);
+	if NumberRead < 1 then Message("Could not determine most recent parameter file"); Halt; endif;
+	FileClose();
+endif
+
+'Open that most recently created parameter file.
+ParameterFileHandle := FileOpen(FilePathRoot$+"\\DataFiles\\"+LastFile$+".par",8,0);
+if ParameterFileHandle <0 then Message("Parameter file not found"); Halt; endif
+
+
+'Read the parameter file for this experiment
+var ExperimentType$,NumberOfRepeats%,TemporalFrequency,SignalDuration,NumberOfSteps%;
+var ParameterType$,FreeParameter[500],Units$,MaxIndex%;
+var GratingProgression$;
+var ReversalFrequency;
+var ReturnValue,BlankDuration;
+ReturnValue := ReadParameterFile();
+if ReturnValue <0 then Halt; endif
+'Because this script is called automatically from the alert rig CreateParameterFile,
+'we know the fixation parameters stored in the registry (should) match the ones
+'in the parameter file we just read. It's easier to retrieve the values from the registry,
+'which we do now
+
+'Determine which monkey we're currently running
+var Monkey$;
+Profile("AlertRig","CurrentMonkey","",Monkey$);
+if Monkey$="" then Message("Could not determine current monkey"); halt; endif
+
+var ColorIndex%,Color$[4];
+var WindowRadius, FixationX, FixationY, FixationDuration, AcquisitionTime;
+var BackgroundColor$, FixationPointDiameter;
+var FixationColor$;
+var NumberOfRewards%;
+GetLastUsedParameters%();
+
+'Ask the user how many channels we're recording from, and then create a sample configuration
+'incorporating channels for eye position and appropriate triggers.
+var NumberOfChannels%,XChannel%,YChannel%,FixationPointChannel%,StimulusChannel%;
+var CalculateF1%,CalculateF2%,DlgCancel;
+DlgCreate("Describe your inputs");
+DlgInteger(1,"How many channels?",1,8);
+DlgCheck(2,"Calculate F1s?");
+DlgCheck(3,"Calculate F2s?");
+DlgCancel := DlgShow(NumberOfChannels%,CalculateF1%,CalculateF2%);
+if DlgCancel=0 then halt; endif;
+XChannel% := NumberOfChannels%+1;
+YChannel% := NumberOfChannels%+2;
+FixationPointChannel% := NumberOfChannels%+3;
+StimulusChannel% := NumberOfChannels%+4;
+CreateSampleConfiguration();
+
+'Get information on number of trials and rewards for today
+var TodaysTrials, TodaysRewards,RecordedDate$,TodaysDate$;
+GetTodaysStats%();
+
+
+'Get information on current calibration constants (software gains) for the eye coil from the registry
+var DegreesPerVoltX, DegreesPerVoltY,DegreesPerVoltX$, DegreesPerVoltY$;
+Profile("AlertRig\\"+Monkey$,"DegreesPerVoltX","",DegreesPerVoltX$);
+Profile("AlertRig\\"+Monkey$,"DegreesPerVoltY","",DegreesPerVoltY$);
+DegreesPerVoltX := val(DegreesPerVoltX$);		'Since registry values are either integers are strings, 
+DegreesPerVoltY := val(DegreesPerVoltY$);		'we store decimals as strings and convert them to decimals
+
+'Open the data sampling window
+View(App(0)).Window(0,0,100,100); 'Make use of our dual monitors
+DataWindow% := FileNew(0,4);
+View(DataWindow%).Window(0,60,50,100);
+View(DataWindow%).WindowTitle$("Incoming spikes");
+View(DataWindow%).WindowVisible(1);
+
+'Open an XY view to display eye position, and configure it
+'with different channels for eye position, fixaton target, and
+'fixation window
+var XYWindow%;
+var index,RadiusX[1000],RadiusY[1000];
+
+CreateEyePosWindow();
+
+'Create and display the Toolbar, not yet activating the IdleProcessing function
+
+'Toolbar and IdleProcessing variables
+var Pause,Stim$,StimHandle;
+var Time,OldTime:=0,NewTriggerTime,NewTriggerState;
+var StartTrial :=1, AcquireTarget :=0, HoldFixation :=0, WaitForBlank :=0, WaitForStim:=0, TargetAcquired :=0;
+var TrialCounter :=1,TrialStartTime, TargetAcquiredTime, BlankStartTime;
+var TriggerState,TriggerTime,TriggerOnTime, TriggerOffTime;
+var EyePosX,EyePosY;
+var GratingUp;
+var UpdateGraphs%:=0,StimulusCounter%:=0;
+var FFTData[16];
+
+View(App(8)).WindowVisible(0);	'Hide the standard sample bar
+ToolbarVisible(1);
+ToolbarSet(1,"Sample start",Start%);
+ToolbarSet(2,"Sample stop", Stop%);
+ToolbarSet(3,"Juice",Juice%);
+ToolbarSet(4,"Pause stimuli",PauseStimuli%);
+ToolbarSet(5,"Resume stimuli",ResumeStimuli%);
+ToolbarEnable(2,0);
+ToolbarEnable(4,0);
+ToolbarEnable(5,0);
+Toolbar("Go",12345);
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func Start%()
+'Set up additional windows for XY tuning curves, auto-correlograms, etc.
+AuxWindowLayout();
+
+var CommandLine$;
+CommandLine$ :="C:\\AlertRig\\Fixation\\TuningCurve\\Release\\TuningCurve "+str$(FixationX)+" "+str$(FixationY)+" "
+					+str$(FixationPointDiameter);
+'Begin the stimulus program. It will take a few seconds for the VSG to initialize.
+'PrintLog(CommandLine$+"\n");
+StimHandle := ProgRun(CommandLine$,1);
+if StimHandle <0 then Message("Could not start stimulus."); halt; endif
+Yield(5);	'Wait a few seconds to make sure the VSG has time to initialize.
+SampleStart(0); 'Start sampling
+ToolbarSet(0,"",IdleProcessing%);	'Enable the IdleProcessing function
+ToolbarEnable(2,1);
+ToolbarEnable(1,0);
+View(DataWindow%);
+Yield(.1);
+return 1;
+end;
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func Stop%()
+SampleKey("L");
+Yield(.1);
+SampleStop();
+ProgKill(StimHandle);
+ProgRun("C:\\AlertRig\\ClearTrigger",0);
+View(SampleHandle(1)).WindowVisible(1);
+if CalculateF1%=1 then
+	for index := 1 to NumberOfChannels% do
+		View(ViewFind("PSTH "+Str$(index))).FileClose(0,-1);
+	next
+endif
+
+View(App(8)).WindowVisible(1);
+
+end;
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func Juice%()
+SampleKey("J");
+return 1;
+end;
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func Looking%(EyePosX,EyePosY)
+	'Determine if the eye position is within the fixation window
+	if (Pow(EyePosX-FixationX,2) + Pow(EyePosY-FixationY,2)) <= Pow(WindowRadius,2) then return 1; else return 0; endif
+end;
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func Reward%()
+	var i;
+	TodaysRewards:=TodaysRewards+1;
+	ToolbarText("Trial Number: "+str$(TodaysTrials)+"     Number of Rewards: "+str$(TodaysRewards));
+	Profile("AlertRig\\"+Monkey$,"TotalRewards",TodaysRewards);
+	for i:=1 to NumberOfRewards% do Yield(.05); SampleKey("J"); next
+	SampleKey("N");
+	UpdateGraphs%:=1;
+end;
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func IdleProcessing%()   		'This function will be run whenever an interrupt
+										'is available.
+
+Time := View(DataWindow%).MaxTime()-.001;
+if Time > 0 then
+	EyePosX := ChanMeasure(XChannel%,2,Time,Time-.005)*DegreesPerVoltX;
+	EyePosY := ChanMeasure(YChannel%,2,Time,Time-.005)*DegreesPerVoltY;
+endif
+if Time > OldTime +.005 then
+	View(XYWindow%).XYAddData(1,EyePosX,EyePosY);
+	OldTime := Time;
+endif
+
+if Pause = 1 then return 1; endif
+
+NewTriggerTime := View(DataWindow%).NextTime(FixationPointChannel%,TriggerTime,NewTriggerState);
+if NewTriggerTime > TriggerTime then 
+	if NewTriggerState = 0 then
+		TriggerOnTime := NewTriggerTime;
+		Stim$:="On";
+		TodaysTrials:=TodaysTrials+1;
+		ToolbarText("Trial Number: "+str$(TodaysTrials)+"     Number of Rewards: "+str$(TodaysRewards));
+		Profile("AlertRig\\"+Monkey$,"TotalTrials",TodaysTrials);
+		View(XYWindow%).XYAddData(3,FixationX,FixationY);
+	endif
+
+	if NewTriggerState = 1 then
+		TriggerOffTime := NewTriggerTime;
+		Stim$:="Off";
+		View(XYWindow%).XYDelete(3);
+	endif
+
+	TriggerTime := NewTriggerTime;
+endif
+
+if StartTrial = 1 then
+	'if UpdateGraphs = 1, it means the previous trial was successfully completed. Thus, we update the
+	'graphs, and increment the StimulusCounter%. (Even though we've already told the stimulus program
+	'to draw the next stimulus into memory with SampleKey("N")! )
+	if UpdateGraphs%=1 then UpdateXYGraphs(); UpdateGraphs%:=0; StimulusCounter%:=StimulusCounter%+1; endif
+	SampleKey("H");
+	TrialStartTime := MaxTime();
+	StartTrial := 0;
+	AcquireTarget :=1;
+	WaitForStim :=1;
+	return 1;
+endif
+
+if AcquireTarget = 1 then 
+	if StartTrial = 1 then Message("Start and Acquire both 1"); halt; endif
+	if Stim$="Off" then WaitForStim :=1; return 1; endif
+	if ((Stim$="On") and (WaitForStim=1)) then
+		WaitForStim :=0;
+		TrialStartTime := TriggerOnTime;
+	endif
+	if Looking%(EyePosX,EyePosY)=1 then AcquireTarget := 0; HoldFixation := 1; TargetAcquiredTime:=MaxTime();return 1; endif
+   if MaxTime()-TrialStartTime > AcquisitionTime then AcquireTarget :=0; WaitForBlank :=1; BlankStartTime := -1; SampleKey("L"); return 1; endif
+endif
+
+if WaitForBlank=1 then
+	if Stim$ ="On" then WaitForStim :=1; return 1; endif
+	if (Stim$="Off" and BlankStartTime =-1) then WaitForStim :=0; BlankStartTime := TriggerOffTime; endif
+	if MaxTime()-BlankStartTime > BlankDuration then WaitForBlank :=0; StartTrial:=1; endif
+	return 1;
+endif
+
+if HoldFixation=1 then 
+	if Looking%(EyePosX,EyePosY)=0 then SampleKey("L"); GratingUp:=0;HoldFixation:=0; WaitForBlank:=1; BlankStartTime :=-1; return 1; endif
+	if (MaxTime()-TargetAcquiredTime) > .2 and GratingUp=0 then SampleKey("S"); GratingUp:=1; endif
+	if (MaxTime()-TargetAcquiredTime > FixationDuration) then SampleKey("L"); GratingUp:=0;Reward%(); HoldFixation:=0; WaitForBlank :=1; BlankStartTime :=-1; endif
+endif
+
+return 1;
+end;
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func PauseStimuli%();
+Pause :=1;
+ToolbarEnable(4,0);
+ToolbarEnable(5,1);
+return 1;
+end
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func ResumeStimuli%();
+Pause :=0;
+ToolbarEnable(4,1);
+ToolbarEnable(5,0);
+return 1;
+end
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func GetTodaysStats%();
+Profile("AlertRig\\"+Monkey$,"TotalRewards",0,TodaysRewards);
+Profile("AlertRig\\"+Monkey$,"TotalTrials",0,TodaysTrials);
+Profile("AlertRig\\"+Monkey$,"Date","",RecordedDate$);
+TodaysDate$ := Date$();
+if TodaysDate$ <> RecordedDate$ then 
+	Profile("AlertRig\\"+Monkey$,"TotalRewards",0);
+	TodaysRewards :=0;
+	Profile("AlertRig\\"+Monkey$,"TotalTrials",0);
+	TodaysTrials :=0;
+	Profile("AlertRig\\"+Monkey$,"Date",TodaysDate$);
+endif
+return 1;
+end
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+proc CreateSampleConfiguration()
+var index;
+SampleClear(); 'Set standard sampling state
+SampleAutoFile(0); 'Enable automatic file naming
+SampleAutoComment(0); 'Prompt for comment after sampling
+SampleAutoCommit(60); 'Seconds between each file commit
+
+'Channel recording definitions
+'Define one event channel to display when the fixation point is present
+SampleEvent(FixationPointChannel%,0,2,3600); 'Trigger channel, level
+SampleComment$(FixationPointChannel%,"Fix. Pt.");
+SampleTitle$(FixationPointChannel%,"Fix. Pt.");
+
+'Define another event channel to display when stimuli are on the screen
+SampleEvent(StimulusChannel%,1,2,3600); 'Trigger channel, level
+SampleComment$(StimulusChannel%,"Stim");
+SampleTitle$(StimulusChannel%,"Stim");
+
+for index := 1 to NumberOfChannels% do
+	SampleWaveMark(index,index-1,2000,34,15,28000); ' chan, port, event rate, points, pre-trigger, rate
+	SampleTitle$(index,"Electrode_"+Str$(index)); 
+next
+
+SampleWaveform(XChannel%,14,1000);
+SampleTitle$(XChannel%,"Eye X");
+SampleWaveform(YChannel%,15,1000);
+SampleTitle$(YChannel%,"Eye Y");
+
+SampleSequencer("c:\\alertrig\\Fixation.pls");
+SampleOptimise(2,2,2,2,50);  'Set optimise mode (do this last)
+SampleMode(1); 'Continuous sampling
+end;
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+proc UpdateXYGraphs()
+var DuplicateIndex,SweepIndex,ChannelIndex,Title$,ChannelNumber;
+var Signal,Background;
+View(DataWindow%).Optimise(-1,0,MaxTime()); 'Optimize the Y axes.
+var CurrentTime,StimOn,StimOff;
+CurrentTime := View(DataWindow%).MaxTime();
+StimOff:=View(DataWindow%).LastTime(StimulusChannel%,CurrentTime);
+StimOn:=View(DataWindow%).LastTime(StimulusChannel%,StimOff);
+for ChannelIndex := 1 to NumberOfChannels% do
+	for DuplicateIndex :=0 to DuplicateChannels%[ChannelIndex] do
+	View(DataWindow%); 
+		if DuplicateIndex = 0 then
+			ChannelNumber := ChannelIndex;
+			Title$ := "Elctrd "+Str$(ChannelIndex-1);
+		else
+			Title$ := "Elctrd "+str$(ChannelIndex)+" WaveMark "+str$(DuplicateIndex);
+			ChannelNumber := DupChan(ChannelIndex,DuplicateIndex);
+		endif
+
+		'calculate the response in spikes per second, and display it on the graph
+		if ChannelNumber <0 then Halt; endif
+		Signal := View(DataWindow%).count(ChannelNumber,StimOn,StimOff) / (StimOff - StimOn);
+		Background := View(DataWindow%).count(ChannelNumber,StimOff+.2,CurrentTime) / (CurrentTime - (StimOff+.2));
+		View(ViewFind(Title$)).XYAddData(1,FreeParameter[StimulusCounter%],Signal);
+		View(ViewFind(Title$)).XYAddData(2,FreeParameter[StimulusCounter%],Background);
+		'If the user chose to display F1s, update the PSTHs, find the F1s, and plot them on the XY graph.
+		if CalculateF1% = 1 or CalculateF2% = 1 then
+			View(ViewFind("PSTH "+Str$(ChannelIndex))).Process(StimOn,StimOff,1,1);
+			for SweepIndex :=1 to trunc(SignalDuration*TemporalFrequency) -1 do 
+				View(ViewFind("PSTH "+Str$(ChannelIndex))).Process(StimOn+SweepIndex*(1/TemporalFrequency),StimOff,0,1);
+			next
+			ArrConst(FFTData[],View(ViewFind("PSTH "+Str$(ChannelNumber))).[]);
+			ArrFFT(FFTData[],4); 
+			if CalculateF1% = 1 then View(ViewFind(Title$)).XYAddData(3,FreeParameter[StimulusCounter%],FFTData[1]); endif
+			if CalculateF2% = 1 then View(ViewFind(Title$)).XYAddData(4,FreeParameter[StimulusCounter%],FFTData[2]); endif
+		endif
+		'Update AutoCorrs
+		View(ViewFind("Elctrd "+str$(ChannelIndex)+" WaveMark "+str$(DuplicateIndex)+" AutoCorr")).Process(StimOn,StimOff,0,1);
+	next
+next
+
+end
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+proc CreateEyePosWindow()
+
+'Create the XY window
+XYWindow% := FileNew(12);
+XRange(-30,30);
+YRange(-2,-30,30);
+XYDrawMode(0,5,0);
+WindowVisible(1);
+Window(-0.550314,0.114416,41.5094,52.746);
+XYColour(1,16);
+XYSize(1,-1);
+
+'Calcuate the fixation window
+for index := 0 to 499 do
+	RadiusX[index] := FixationX - WindowRadius + 2*WindowRadius*index/499;
+	RadiusY[index] := FixationY + sqrt(WindowRadius*WindowRadius - (RadiusX[index]-FixationX)*(RadiusX[index]-FixationX));
+	RadiusX[999-index] := RadiusX[index];
+	RadiusY[999-index] := 2*FixationY-1*RadiusY[index];
+next;
+
+'Create a new channel in the XY view to display the fixation window
+XYSetChan(0);
+XYColour(2,13);
+XYDrawMode(2,2,1);
+XYJoin(2,1);
+'Draw the fixation window
+XYAddData(2,RadiusX[],RadiusY[]);
+
+'Create a new channel in the XY view to display the fixation point
+XYSetChan(0);
+
+'Create a new channel in the XY view to show the monitor's location
+XYSetChan(0);
+XYColour(4,13);
+XYDrawMode(4,3,1);
+XYJoin(4,2);
+XYAddData(4,-9,-7);
+XYAddData(4,9,-7);
+XYAddData(4,9,7);
+XYAddData(4,-9,7);
+
+end
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+proc AuxWindowLayout()
+var SizeFactor,Row,Column,index,MaxDuplicates;
+var PSTHhandle;
+'Find out how many duplicates of this channel there are. Users duplicate
+'channels to separate data from WaveMarks or groups of wavemarks.
+for index := 1 to NumberOfChannels% do
+	DuplicateChannels%[index] := View(DataWindow%).DupChan(index,-1)+1;
+	if DuplicateChannels%[index] <0 then DuplicateChannels%[index] := 0; endif
+next
+
+if ExperimentType$="[Temporal frequency tuning]" then CalculateF1%:=0; CalculateF2%:=0; endif
+'For Display purposes, figure out the largest number
+'of duplicates of a channel. Then, calculate what 
+'percentage of the second screen we want each window 
+'to take. Remember screen width is doubled due to the
+'second monitor.
+var Height, Width,DuplicateIndex,AutoCorr%,ChannelNumber;
+MaxDuplicates := DuplicateChannels%[Max(DuplicateChannels%[])];
+Height := 100/(MaxDuplicates+1);
+Width := 50/NumberOfChannels%;
+
+'Draw the various analysis windows. One window for each channel, all spikes. One auto-correllogram
+'per channel. One window for each duplicate of each channel, for WaveMark-specific plots.
+for index := 1 to NumberOfChannels% do
+'Create an XY-plot for each channel and its duplicates
+	for DuplicateIndex := 0 to DuplicateChannels%[index] do
+		View(DataWindow%);
+		if DuplicateIndex = 0 then ChannelNumber := index; else ChannelNumber := DupChan(index,DuplicateIndex); endif
+		 var xy%;
+		xy% := FileNew(12);		'Open XY view for this channel
+		Window(50+(index-1)*Width, DuplicateIndex*Height, 50+index*Width, (DuplicateIndex+1)*Height);
+		WindowVisible(1);
+		if DuplicateIndex =0 then
+			WindowTitle$("Elctrd "+Str$(index-1));
+		else
+			WindowTitle$("Elctrd "+str$(index)+" WaveMark "+str$(DuplicateIndex));
+		endif
+		XUnits$(Units$);
+		ChanTitle$(1,"Spikes/s");
+		XYColour(1,16);
+		if GratingProgression$="Monotonic" then XYJoin(1,1); endif
+'Create a channel in this XY-view to display background information
+		XYSetChan(0);
+		ChanTitle$(2,"Background");
+		XYColour(2,17);
+		if GratingProgression$="Monotonic" then XYJoin(2,1); endif	
+		if DuplicateIndex=0 then XYKey(1,1); endif ' display the XY-view key in the topmost window.
+
+'Set up auto-correllogram. We re-use the handle variable because we only
+'need it for one-time sizing and process operations.
+		AutoCorr% := View(DataWindow%).SetEvtCrl(index,60,.0005,.015,index);
+		View(AutoCorr%);
+		Window((index-1)*Width, DuplicateIndex*Height*.6, index*Width, (DuplicateIndex+1)*Height*.6);
+		WindowVisible(0);
+		WindowTitle$("Elctrd "+str$(index)+" WaveMark "+str$(DuplicateIndex)+" AutoCorr"); 		
+'If the user chose to display F1s, create that channel and a PSTH
+'from which to calculate the F1. The 'or' clause is there to make
+'sure we create the same PSTH in the case where the user wants F2s
+'but not F1s.
+
+	if CalculateF1% = 1 or CalculateF2% =1 then 
+	View(xy%);  'added
+			XYSetChan(0);
+			ChanTitle$(3,"F1");
+			XYColour(3,25);
+			if GratingProgression$="Monotonic" then XYJoin(3,1); endif
+			if ExperimentType$="[XY Test]" then 
+				PSTHhandle := View(DataWindow%).SetPSTH(ChannelNumber,16,1 /(ReversalFrequency*16),0,0,3);
+			else
+				PSTHhandle := View(DataWindow%).SetPSTH(ChannelNumber,16,1 /(TemporalFrequency*16),0,0,3);
+			endif
+			View(PSTHhandle).WindowVisible(0); 'We make the PSTHs invisible as they are used only for calculations
+			View(PSTHhandle).WindowTitle$("PSTH "+Str$(View(DataWindow%).DupChan(index,DuplicateIndex)));			
+'If the user chose to display F2s, create that channel
+			if CalculateF2% = 1 then 
+				XYSetChan(0);
+				ChanTitle$(4,"F2");  
+				XYColour(4,30);
+				if GratingProgression$="Monotonic" then XYJoin(4,1); endif  
+			endif			
+		endif
+	next
+next 
+
+View(DataWindow%); 'Since most functions want the time view, we bring that to the forefront.
+end;
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func ReadParameterFile()
+'Obtain the name of the parameter file for this experiment
+var ReturnValue:=0;
+View(ParameterFileHandle); 
+if ParameterFileHandle <0 then return(-1) endif
+'Read the values from the parameter file into the global variables defined in the main script body.
+Read(ExperimentType$);
+docase
+case ExperimentType$ = "[SurrOri]" then
+	  ExperimentType$ := "[Orientation tuning]"; 
+endcase
+docase 
+	case ExperimentType$="[Contrast tuning]" then 
+		ParameterType$:="Grating Contrast";
+		Units$:="percent";
+	case ExperimentType$="[Orientation tuning]" then
+		ParameterType$:="Orientation";  
+		Units$:="degrees"; 
+	case ExperimentType$="[Spatial frequency tuning]" then
+		ParameterType$:="Spatial Frequency";
+		Units$:="cyc/deg";  
+	case ExperimentType$="[Temporal frequency tuning]" then
+		ParameterType$:="Temporal Frequency";
+		Units$:="Hz";
+		CalculateF1%:=0;
+		CalculateF2%:=0;
+	case ExperimentType$="[Aperture area tuning]" then
+		ParameterType$:="Aperture";
+		Units$:="diameter";
+	case ExperimentType$="[XY Test]" then
+		ParameterType$:="Phase";
+endcase  
+var Parameter$,Value1$;
+while ReturnValue >=0 do
+	ReturnValue := Read(Parameter$,Value1$);
+	docase
+		case Parameter$ = ParameterType$ then
+			FreeParameter[val(Value1$)] := val(Mid$(Value1$,3));
+			MaxIndex% := val(Value1$);
+		case Parameter$ = "Number Of Repeats" then
+			NumberOfRepeats% := val(Value1$);
+		case Parameter$ = "Temporal Frequency" then
+			TemporalFrequency := val(Value1$);
+		case Parameter$ = "Signal Duration" then
+			SignalDuration := val(Value1$);
+		case Parameter$ = "Blank Duration" then
+			BlankDuration := val(Value1$);
+		case Parameter$ = "Number Of Steps" then
+			NumberOfSteps% := val(Value1$);
+		case Parameter$ = "Grating Progression" then
+			GratingProgression$ := Value1$;
+		case Parameter$ = "Reversal Frequency" then
+			ReversalFrequency := val(Value1$);
+	endcase
+wend
+return(1);
+end;
+
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func GetLastUsedParameters%();
+
+'Read the Windows registry to determine last used values for the experiment parameters
+'Since registry values are either integers are strings, we store decimals as strings and convert them to decimals
+var NumberOfRewards$;
+var WindowRadius$, FixationX$, FixationY$, FixationDuration$, AcquisitionTime$;
+var FixationPointDiameter$;
+
+Profile("AlertRig\\"+Monkey$,"WindowRadius","1",WindowRadius$);
+Profile("AlertRig\\"+Monkey$,"FixationX","0",FixationX$);
+Profile("AlertRig\\"+Monkey$,"FixationY","0",FixationY$);
+Profile("AlertRig\\"+Monkey$,"FixationDuration","1",FixationDuration$);
+Profile("AlertRig\\"+Monkey$,"AcquisitionTime","1",AcquisitionTime$);
+Profile("AlertRig\\"+Monkey$,"BackgroundColor","Grey",BackgroundColor$);
+Profile("AlertRig\\"+Monkey$,"FixationPointDiameter",".1",FixationPointDiameter$);
+Profile("AlertRig\\"+Monkey$,"NumberOfRewards",1,NumberOfRewards%);
+
+'Convert strings to decimenals
+WindowRadius := val(WindowRadius$);
+FixationX := val(FixationX$);
+FixationY := val(FixationY$);
+FixationDuration := val(FixationDuration$);
+AcquisitionTime := val(AcquisitionTime$);
+FixationPointDiameter := val(FixationPointDiameter$);
+return 1;
+end
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+

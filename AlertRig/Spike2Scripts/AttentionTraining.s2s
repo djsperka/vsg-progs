@@ -1,3 +1,8 @@
+' $Log: not supported by cvs2svn $
+'
+
+
+
 'Experiment specific variables
 var NumberOfRewards%;
 var WindowRadius, FixationX, FixationY, FixationDuration, AcquisitionTime;
@@ -207,7 +212,7 @@ Toolbar("Go",12345);
 
 
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-func Start%()
+func S0tart%()
 var CommandLine$;
 CommandLine$ :="C:\\AlertRig\\NewAttention "+str$(FixationX)+" "+str$(FixationY)+" "+BackgroundColor$+" "
 					+str$(FixationPointDiameter)+" "+str$(BaseContrast)+" "+str$(ContrastUp)+" "+str$(ContrastDown)+" "
@@ -219,6 +224,7 @@ CommandLine$ :="C:\\AlertRig\\NewAttention "+str$(FixationX)+" "+str$(FixationY)
 'PrintLog(CommandLine$+"\n");
 'halt;
 SampleStart(0); 'Start sampling
+PrintLog(CommandLine$);
 StimHandle := ProgRun(CommandLine$,1);
 if StimHandle <0 then Message("Could not start stimulus."); halt; endif
 Yield(5);	'Wait a few seconds to make sure the VSG has time to initialize.
@@ -288,7 +294,7 @@ endif
 
 if Pause = 1 then return 1; endif
 
-NewTriggerTime := NextTime(FixationPointChannel%,TriggerTime,NewTriggerState);
+NewTriggerTime := NextTime(FixationPointChannel%, TriggerTime, NewTriggerState);
 if NewTriggerTime > TriggerTime then 
 	if NewTriggerState = 0 then
 		TriggerOnTime := NewTriggerTime;
