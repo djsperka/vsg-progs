@@ -1,5 +1,4 @@
 #include "Alertlib.h"
-#include "helper.h"
 #include <iostream>
 #include <string>
 #include <vector>
