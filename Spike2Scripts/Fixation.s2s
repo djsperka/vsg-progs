@@ -1,4 +1,7 @@
 ' $Log: not supported by cvs2svn $
+' Revision 1.2  2005/02/22 22:21:21  dan
+' New fixation application added
+'
 ' Revision 1.1  2005/02/19 01:42:21  dan
 ' Initial add.
 '
@@ -30,27 +33,352 @@ script$ := View(App(3)).FileName$(1) + View(App(3)).FileName$(2);	' folder conta
 bin$ := View(App(3)).FileName$(1) + View(App(3)).FileName$(2) + "..\\bin";	' Location of executables is ..\bin, relative to script dir
 config$ := View(App(3)).FileName$(1) + View(App(3)).FileName$(2) + "..\\config";	' Location of executables is ..\bin, relative to script dir
 
-' Rig-specific variables
-var DegreesPerVoltX;	' Converts X eye coil volts to degrees
-var DegreesPerVoltY;	' Converts Y eye coil volts to degrees
-var DistanceToScreenMM$;	' Not used here, passed on to stimulus app
-var EyeCoilSamplingFrequency%;
 
-'Experiment specific variables
-var NumberOfRewards%;
-var WindowRadius;			' Fixation window radius, in degrees
-var FixationX, FixationY;		' Fixation point X,Y in degrees
-var FixationPointDiameter;		' Fixation point diam, in degrees
-var FixationDuration;			' Time required to maintain fixation, seconds
-var AcquisitionTime;			' Time allowed to acquire target before fail trial, seconds
-var InterTrialTime;			' Blank time following a trial (both successful and failed), seconds
-var NumberOfTrials%;			' Number of trials to run
-var DistractorFlag%; 			' Tells stim to use distractors (1) or not (0)
-var BackgroundColor$;			' "black", "gray", "white"
-var FixationColor$;			' "red", "green", "blue"
+
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+'	Get Current configuration START
+'
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+func GetCurrentConfiguration$()
+	var key$;
+	var s$;
+	key$:="AlertRig";
+	Profile(key$, "CurrentConfiguration", "default", s$);
+	return s$;
+end;
+
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+'	Get Current configuration END
+'
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+'	DAQ Parameters START
+'
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+
+var DistanceToScreenMM$;		' Distance to screen in MM
+var DegreesPerVoltX;			' Conversion factor from ADC to visual degrees
+var DegreesPerVoltY;			' Conversion factor from ADC to visual degrees
+var EyeCoilSamplingFrequency%;		' Frequency to sample eye coil at
+var NumberOfElectrodes%;		' Number of electrodes (i.e. wavemark inputs) in use
+var JuicePerReward%;			' Number of juice squirts per reward
+
+
+func DAQParametersDialog%()
+
+	var iReturn%;
+	var idist%;
+
+	GetDAQParameters();
+
+	idist% := val(DistanceToScreenMM$);
+	DlgCreate("DAQ parameters: " + GetCurrentConfiguration$());
+	DlgInteger(1, "Number of Electrodes:", 1, 7, 0, 0, 1);
+	DlgInteger(2, "Screen Distance (MM):", 1, 5000);
+	DlgReal(3, "Degrees/Volt (X):", 0, 100);
+	DlgReal(4, "Degrees/Volt (Y):", 0, 100);
+	DlgInteger(5, "Eye Coil Sampling Freq (Hz):", 1, 20000);
+	DlgInteger(6, "Juice per reward:", 0, 10, 0, 0, 1);
+	iReturn% := DlgShow(NumberOfElectrodes%, idist%, DegreesPerVoltX, DegreesPerVoltY, EyeCoilSamplingFrequency%, JuicePerReward%);
+
+	if iReturn% = 1 then
+		DistanceToScreenMM$ := str$(idist%);
+		SaveDAQParameters();
+	endif
+	return iReturn%;
+end;
+
+
+
+
+	
+proc GetDAQParameters()
+	var key$;
+	var DegreesPerVoltX$, DegreesPerVoltY$;
+
+	key$ := "AlertRig\\" + GetCurrentConfiguration$() + "\\DAQ";
+	Profile(key$, "DistanceToScreenMM", "850", DistanceToScreenMM$);	' will just pass this to stimulus app
+	Profile(key$, "DegreesPerVoltX", "", DegreesPerVoltX$);
+	Profile(key$, "DegreesPerVoltY", "", DegreesPerVoltY$);
+	Profile(key$, "EyeCoilSamplingFrequency", 1000, EyeCoilSamplingFrequency%);
+	Profile(key$, "NumberOfElectrodes", 1, NumberOfElectrodes%);
+	Profile(key$, "JuicePerReward", 1, JuicePerReward%);
+	DegreesPerVoltX := val(DegreesPerVoltX$);
+	DegreesPerVoltY := val(DegreesPerVoltY$);
+
+end;
+
+proc SaveDAQParameters()
+	var key$;
+	var DegreesPerVoltX$, DegreesPerVoltY$;
+	DegreesPerVoltX$ := str$(DegreesPerVoltX);
+	DegreesPerVoltY$ := str$(DegreesPerVoltY);
+	
+	key$ := "AlertRig\\" + GetCurrentConfiguration$() + "\\DAQ";
+	Profile(key$, "DistanceToScreenMM", DistanceToScreenMM$);
+	Profile(key$, "DegreesPerVoltX", DegreesPerVoltX$);
+	Profile(key$, "DegreesPerVoltY", DegreesPerVoltY$);
+	Profile(key$, "EyeCoilSamplingFrequency", EyeCoilSamplingFrequency%);
+	Profile(key$, "NumberOfElectrodes", NumberOfElectrodes%);
+	Profile(key$, "JuicePerReward", JuicePerReward%);
+
+end;
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+'	DAQ Parameters END
+'
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+'	Fixation Point parameters START
+'
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+
+
+var WindowRadius;
+var FixationX, FixationY;
+var FixationColor$;
+var iFixationColor%;
+var FixationDiameter;
+var FixationColorList$[3]; 
+
+proc GetFixationPointParameters()
+	var stmp$;
+	var key$;
+	key$ := "AlertRig\\" + GetCurrentConfiguration$() + "\\FixationPoint";
+	Profile(key$, "WindowRadius", "1", stmp$);
+	WindowRadius := val(stmp$);
+
+	Profile(key$, "FixationX", "0", stmp$);
+	FixationX := val(stmp$);
+	Profile(key$, "FixationY", "0", stmp$);
+	FixationY := val(stmp$);
+
+	Profile(key$, "FixationColor", 0, iFixationColor%);
+
+	FixationColorList$[0]:="red"; 
+	FixationColorList$[1]:="green"; 
+	FixationColorList$[2]:="blue"; 
+	FixationColor$ := FixationColorList$[iFixationColor%];
+
+	Profile(key$, "FixationDiameter", "0.5", stmp$);
+	FixationDiameter := val(stmp$);
+end;
+
+proc SaveFixationPointParameters()
+	var key$;
+	key$ := "AlertRig\\" + GetCurrentConfiguration$() + "\\FixationPoint";
+	Profile(key$, "WindowRadius", str$(WindowRadius));
+	Profile(key$, "FixationX", str$(FixationX));
+	Profile(key$, "FixationY", str$(FixationY));
+	Profile(key$, "FixationColor", iFixationColor%);
+	Profile(key$, "FixationDiameter", str$(FixationDiameter));
+end;
+
+
+func FixationPointDialog%()
+
+	var i%;
+	GetFixationPointParameters();
+	DlgCreate("Fixation parameters: " + GetCurrentConfiguration$());
+	DlgReal(1, "Fixation X:", -20, 20);
+	DlgReal(2, "Fixation Y:", -20, 20);
+	DlgReal(3, "Fixation diam:", .1, 5);
+	DlgReal(4, "Window radius:", .1, 10);
+	DlgList(5, "Color:", FixationColorList$[]);
+	i% := DlgShow(FixationX, FixationY, FixationDiameter, WindowRadius, iFixationColor%);	
+
+	' If user cancelled, reload params
+	if i% = 0 then
+		GetFixationPointParameters();
+	else
+		SaveFixationPointParameters();
+	endif
+
+	return 1;
+end;
+
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+'	Fixation Point parameters END
+'
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+
+
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+' Fixation script parameters START
+'
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+' Fixation-script specific control vars.
+var fixFixationDuration;			' Time required to maintain fixation, seconds
+var fixAcquisitionTime;			' Time allowed to acquire target before fail trial, seconds
+var fixInterTrialTime;			' Blank time following a trial (both successful and failed), seconds
+var fixNumberOfTrials%;			' Number of trials to run
+var fixStimulusFlag%;			' Tells whether to use stimulus grating (used as a distractor) 
+var fixDistractor1Flag%; 			' Tells stim to use distractor1 (1) or not (0)
+var fixDistractor2Flag%; 			' Tells stim to use distractor1 (1) or not (0)
+var fixDistractor3Flag%; 			' Tells stim to use distractor1 (1) or not (0)
+var fixDistractor4Flag%; 			' Tells stim to use distractor1 (1) or not (0)
+
+
+proc GetFixationScriptParameters()
+	var stmp$;
+	var key$;
+
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Fixation";
+
+	Profile(key$, "FixationDuration", "1.0", stmp$);
+	fixFixationDuration := val(stmp$);
+
+	Profile(key$, "AcquisitionTime", "1.0", stmp$);
+	fixAcquisitionTime := val(stmp$);
+
+	Profile(key$, "InterTrialTime", "1.0", stmp$);
+	fixInterTrialTime := val(stmp$);
+
+	Profile(key$, "NumberOfTrials", 1, fixNumberOfTrials%);
+
+	Profile(key$, "UseStimulusFlag", 0, fixStimulusFlag%);
+	Profile(key$, "UseDistractor1Flag", 0, fixDistractor1Flag%);
+	Profile(key$, "UseDistractor2Flag", 0, fixDistractor2Flag%);
+	Profile(key$, "UseDistractor3Flag", 0, fixDistractor3Flag%);
+	Profile(key$, "UseDistractor4Flag", 0, fixDistractor4Flag%);
+end;
+ 	
+proc SaveFixationScriptParameters()
+	var stmp$;
+	var key$;
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Fixation";
+
+	Profile(key$, "FixationDuration", str$(fixFixationDuration));
+	Profile(key$, "AcquisitionTime", str$(fixAcquisitionTime));
+	Profile(key$, "InterTrialTime", str$(fixInterTrialTime));
+	Profile(key$, "NumberOfTrials", fixNumberOfTrials%);
+	Profile(key$, "UseStimulusFlag", fixStimulusFlag%);
+	Profile(key$, "UseDistractor1Flag", fixDistractor1Flag%);
+	Profile(key$, "UseDistractor2Flag", fixDistractor2Flag%);
+	Profile(key$, "UseDistractor3Flag", fixDistractor3Flag%);
+	Profile(key$, "UseDistractor4Flag", fixDistractor4Flag%);
+end;
+
+
+
+func FixationScriptDialog%()
+	var i%;
+	GetFixationScriptParameters();
+	DlgCreate("Fixation Training Parameters");
+	DlgReal(1, "Fixation duration(s):", .01, 10);
+	DlgReal(2, "Acquisition time(s):", .01, 10);
+	DlgReal(3, "Intertrial time(s):", .01, 10);
+	DlgInteger(4, "Number of Trials:", 1, 1000);
+	DlgCheck(5, "Use stimulus?");
+	DlgCheck(6, "Use distractor 1?");
+	DlgCheck(7, "Use distractor 2?");
+	DlgCheck(8, "Use distractor 3?");
+	DlgCheck(9, "Use distractor 4?");
+	i%:=DlgShow(fixFixationDuration, fixAcquisitionTime, fixInterTrialTime, fixNumberOfTrials%, fixStimulusFlag%, fixDistractor1Flag%, fixDistractor2Flag%, fixDistractor3Flag%, fixDistractor4Flag%);
+	if i% = 1 then
+		SaveFixationScriptParameters();
+	endif;
+	return 1;
+end;
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+' Fixation script END
+'
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+
+
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+'	Rig Daily Totals START
+'
+'
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+
+var TotalTrials%;
+var TotalRewards%;
+var TotalDate$;
+
+
+proc GetDailyTotals()
+	var key$;
+	key$ := "AlertRig\\Daily";
+	Profile(key$, "TotalDate", "", TotalDate$);
+	Profile(key$, "TotalTrials", 0, TotalTrials%);
+	Profile(key$, "TotalRewards", 0, TotalRewards%);
+end;
+
+proc SaveDailyTotals()
+	var key$;
+	key$ := "AlertRig\\Daily";
+	Profile(key$, "TotalDate", TotalDate$);
+	Profile(key$, "TotalTrials", TotalTrials%);
+	Profile(key$, "TotalRewards", TotalRewards%);
+end;
+
+func DailyTotalsDialog%()
+	GetDailyTotals();
+	DlgCreate("Daily Totals");
+	DlgText("Date: " + TotalDate$, 0, 1);
+	DlgText("Trials: " + str$(TotalTrials%), 0, 2);
+	DlgText("Rewards: " + str$(TotalRewards%), 0, 3);
+	DlgButton(2, "Reset", ResetDailyTotals%);
+	DlgShow();
+	return 1;
+end;
+
+
+func GetDayString$()
+	return Date$(2, 1, 3, 2, "-");
+end;
+
+
+func ResetDailyTotals%()
+	GetDailyTotals();
+	TotalRewards%:=0;
+	TotalTrials%:=0;
+	TotalDate$:= GetDayString$();
+	SaveDailyTotals();
+        return 0;
+end;
+
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+'	Rig Daily Totals END
+'
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+
+
+
+
+
 
 ' Window handles and channel numbers
-var NumberOfChannels%;			' Number of recording channels
 var XChannel%,YChannel%;		' Channel number assigned to eye x and y
 var TriggerChannel%;			' Channel number assigned to vsg trigger input (i.e. trigger sent by vsg)
 var DataWindow%;	' time view
@@ -72,20 +400,23 @@ var FixWindowX[36],FixWindowY[36];	' points for displaying fixation window in xy
 
 
 
+' Fetch parameters
+GetDailyTotals();
+GetDAQParameters();
+GetFixationPointParameters();
+GetFixationScriptParameters();
 
-' Get number of recording channels, then assign channel numbers for eye X,Y and trigger. 
-NumberOfChannels%:=Input("Number of channels :",1,1,14);
-XChannel% := NumberOfChannels%+1;
-YChannel% := NumberOfChannels%+2;
-TriggerChannel% := NumberOfChannels%+3;
+
+
+
+
+
+' Assign channel numbers for eye X,Y and trigger. 
+XChannel% := NumberOfElectrodes%+1;
+YChannel% := NumberOfElectrodes%+2;
+TriggerChannel% := NumberOfElectrodes%+3;
 CreateSampleConfiguration();
 
-
-' Get rig parameters
-GetRigParameters();
-
-' Now get experimental parameters for this run
-GetExperimentalParameters();
 
 ' Get display windows ready
 InitializeWindows();
@@ -103,21 +434,24 @@ var Extras$;
 var Distractors$;
 
 ' switches for Fixation point
-FixationPoint$ := " -f " + str$(FixationX) + "," + str$(FixationY) + "," + str$(FixationPointDiameter) + "," + FixationColor$;
-Extras$ := " -b " + BackgroundColor$ + " -d " + DistanceToScreenMM$;
-if (DistractorFlag% = 0) then
-	Distractors$ := "";
-else
-	Distractors$ := "Distractor info here!!!";
-endif;
-CommandLine$ :=bin$ + "\\dFixation " + FixationPoint$ + Distractors$ + Extras$;
+'FixationPoint$ := " -f " + str$(FixationX) + "," + str$(FixationY) + "," + str$(FixationPointDiameter) + "," + FixationColor$;
+'Extras$ := " -b " + BackgroundColor$ + " -d " + DistanceToScreenMM$;
+'if (DistractorFlag% = 0) then
+'	Distractors$ := "";
+'else
+'	Distractors$ := "Distractor info here!!!";
+'endif;
+'CommandLine$ :=bin$ + "\\dFixation " + FixationPoint$ + Distractors$ + Extras$;
 
 'Begin the stimulus program. It will take a few seconds for the VSG to initialize.
-PrintLog(CommandLine$+"\n");
-StimHandle% := ProgRun(CommandLine$,1);
-if StimHandle% <0 then Message("Could not start stimulus."); halt; endif
-Yield(5);	'Wait a few seconds to make sure the VSG has time to initialize.
-SampleStart(0); 'Start sampling
+'PrintLog(CommandLine$+"\n");
+'StimHandle% := ProgRun(CommandLine$,1);
+'if StimHandle% <0 then Message("Could not start stimulus."); halt; endif
+'Yield(5);	'Wait a few seconds to make sure the VSG has time to initialize.
+'SampleStart(0); 'Start sampling
+
+Message("Start!");
+
 ToolbarSet(0,"",IdleProcessing%);	'Enable the IdleProcessing function
 ToolbarEnable(2,1);
 ToolbarEnable(1,0);
@@ -168,7 +502,7 @@ end;
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 func Reward%()
 	var i;
-	for i:=1 to NumberOfRewards% do Yield(.05); SampleKey("J"); next
+	for i:=1 to JuicePerReward% do Yield(.05); SampleKey("J"); next
 	return 1;
 end;
 
@@ -236,7 +570,7 @@ func IdleProcessing%()
 
 		case iState% = 2 then
 
-			if tNow-tStateStart < AcquisitionTime then
+			if tNow-tStateStart < fixAcquisitionTime then
 				
 				' Acquisition happens when the eye falls within the fixation window.
 				if InFixationWindow%(xEye, yEye) > 0 then
@@ -266,7 +600,7 @@ func IdleProcessing%()
 
 			else
 
-				if tNow - tStateStart >= FixationDuration then
+				if tNow - tStateStart >= fixFixationDuration then
 
 					' Fixation. Reward. New trial.
 					Reward%();
@@ -307,7 +641,7 @@ func IdleProcessing%()
 		case iState% = 6 then
 
 			' Inter-trial wait time
-			if tNow - tStateStart > InterTrialTime then
+			if tNow - tStateStart > fixInterTrialTime then
 	
 				' Back to state 0
 				PrintLog("State 6 - IT wait is done. Start new trial.\n");
@@ -330,71 +664,6 @@ func IdleProcessing%()
 
 end;
 
-''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-func GetLastUsedExperimentalParameters%();
-
-	var WindowRadius$, FixationX$, FixationY$, FixationDuration$, AcquisitionTime$;
-	var InterTrialTime$;
-	var FixationPointDiameter$;
-	var key$;
-
-	' AlertRig\Common params
-	key$ := "AlertRig\\Common";
-
-	Profile(key$, "WindowRadius", "1", WindowRadius$);	
-	Profile(key$, "FixationX", "0", FixationX$);
-	Profile(key$, "FixationY", "0", FixationY$);
-	Profile(key$, "FixationPointDiameter", ".1", FixationPointDiameter$);
-	Profile(key$, "FixationColor", "gray", FixationColor$);
-	Profile(key$, "BackgroundColor", "gray", BackgroundColor$);
-
-	WindowRadius := val(WindowRadius$);	
-	FixationX := val(FixationX$);
-	FixationY := val(FixationY$);
-	FixationPointDiameter := val(FixationPointDiameter$);
-
-	' AlertRig\Fixation
-	key$ := "AlertRig\\Fixation";
-
-	Profile(key$, "FixationDuration", "1", FixationDuration$);
-	Profile(key$, "AcquisitionTime", "1", AcquisitionTime$);
-	Profile(key$, "InterTrialTime", "2", InterTrialTime$);
-	Profile(key$, "NumberOfTrials%", 1000, NumberOfTrials%);
-	Profile(key$, "DistractorFlag", 0, DistractorFlag%);
-
-	FixationDuration := val(FixationDuration$);
-	AcquisitionTime := val(AcquisitionTime$);
-	InterTrialTime := val(InterTrialTime$);
-
-return 1;
-end
-''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-func SetLastUsedExperimentalParameters%();	'Updates the registry record of the last used experimental parameters
-
-	var key$;
-
-	' AlertRig\Common params
-	key$ := "AlertRig\\Common";
-	Profile(key$, "WindowRadius", str$(WindowRadius));
-	Profile(key$, "FixationX", str$(FixationX));
-	Profile(key$, "FixationY", str$(FixationY));
-	Profile(key$, "FixationPointDiameter", str$(FixationPointDiameter));
-	Profile(key$, "FixationColor", FixationColor$);
-	Profile(key$, "BackgroundColor", BackgroundColor$);
-
-	' AlertRig\Fixation
-	key$ := "AlertRig\\Fixation";
-	Profile(key$, "FixationDuration", str$(FixationDuration));
-	Profile(key$, "AcquisitionTime", str$(AcquisitionTime));
-	Profile(key$, "InterTrialTime", str$(InterTrialTime));
-	Profile(key$, "NumberOfTrials%", NumberOfTrials%);
-	Profile(key$, "DistractorFlag", DistractorFlag%);
-
-	return 1;
-
-end;
-
-
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 proc CreateSampleConfiguration()
@@ -409,7 +678,7 @@ proc CreateSampleConfiguration()
 	SampleComment$(TriggerChannel%, "Trigger");
 	SampleTitle$(TriggerChannel%, "Trigger");
 
-	for index := 1 to NumberOfChannels% do
+	for index := 1 to NumberOfElectrodes% do
 		SampleWaveMark(index,index-1,2000,34,15,28000); ' chan, port, event rate, points, pre-trigger, rate
 		SampleTitle$(index, "Electrode_"+Str$(index)); 
 	next
@@ -522,70 +791,3 @@ proc InitializeToolbar()
 end;
 
 
-proc GetRigParameters()
-
-	var DegreesPerVoltX$, DegreesPerVoltY$;
-	var key$;
-
-	key$ := "AlertRig";
-	Profile(key$, "DistanceToScreenMM", "850", DistanceToScreenMM$);	' will just pass this to stimulus app
-	Profile(key$, "DegreesPerVoltX", "", DegreesPerVoltX$);
-	Profile(key$, "DegreesPerVoltY", "", DegreesPerVoltY$);
-	Profile(key$, "EyeCoilSamplingFrequency", 1000, EyeCoilSamplingFrequency%);
-	DegreesPerVoltX := val(DegreesPerVoltX$);
-	DegreesPerVoltY := val(DegreesPerVoltY$);
-
-end;
-
-
-
-proc GetExperimentalParameters()
-
-	'Read in the last used experimental parameters to use as defaults for the dialog
-	GetLastUsedExperimentalParameters%();
-
-	'Dialog specific variables
-	var BackgroundList$[3]; BackgroundList$[0]:="black"; BackgroundList$[1]:="gray"; BackgroundList$[2]:="white";
-	var BackgroundListIndex := 1;
-	var FixationColorList$[3]; FixationColorList$[0] := "red"; FixationColorList$[1] := "green"; FixationColorList$[2] := "blue";
-	var FixationColorIndex;
-
-	var DlgResponse;
-	if BackgroundColor$="black" then BackgroundListIndex := 0; endif
-	if BackgroundColor$="gray" then BackgroundListIndex := 1; endif
-	if BackgroundColor$="white" then BackgroundListIndex := 2; endif
-
-	DlgCreate("Specify fixation parameters");
-	DlgReal(1, "Fixation window (deg): ", 0, 50);
-	DlgReal(2, "Fixation point X (deg): ", -50, 50);
-	DlgReal(3, "Fixation point Y (deg): ", -50, 50);
-	DlgReal(4, "Fixation point diameter:", .01, 5);
-	DlgList(5, "Fixation point color:", FixationColorList$[]);
-	DlgList(6, "Background color:", BackgroundList$[]);
-	DlgReal(7, "Fixation duration (s): ", 0, 20);
-	DlgReal(8, "Acquisition (s): ", 0, 20);
-	DlgReal(9, "Intertrial interval (s): ", 0, 20);
-	DlgInteger(10, "Number of trials : ", 0, 10000);
-	DlgInteger(11, "Number of juices per reward", 0, 10);
-	DlgCheck(12, "Include distractor?");
-	DlgResponse := DlgShow(	WindowRadius,
-				FixationX, 
-				FixationY, 
-				FixationPointDiameter,
-				FixationColorIndex,
-				BackgroundListIndex,
-				FixationDuration,
-				AcquisitionTime, 
-				InterTrialTime,
-				NumberOfTrials%,
-				NumberOfRewards%,
-				DistractorFlag%);
-	if DlgResponse= 0 then halt; endif
-
-	BackgroundColor$ := BackgroundList$[BackgroundListIndex];
-	FixationColor$ := FixationColorList$[FixationColorIndex];
-
-	'Update the registry record of the last used parameters
-	SetLastUsedExperimentalParameters%();
-
-end;
