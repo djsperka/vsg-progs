@@ -1,0 +1,246 @@
+var checks%[8];
+var keys$[8];
+var ntests%;
+var i%;
+var iquit% := 0;
+var DataWindow%;
+var handle%;
+
+var bin$, script$;
+bin$ := View(App(3)).FileName$(1) + View(App(3)).FileName$(2) + "..\\bin";	' Location of executables is ..\bin, relative to script dir
+script$ := View(App(3)).FileName$(1) + View(App(3)).FileName$(2);	' folder containing this script
+
+
+' Initialize keys
+for i% := 0 to 7 do
+	keys$[i%] := str$(i%+1);
+next;
+
+
+DlgCreate("Test parameters", 25, 10);
+DlgInteger(1, "Pulses", 1, 1000);
+
+for i%:=1 to 8 do
+	DlgCheck(i% + 1, str$(i%));
+next;
+
+i% := DlgShow(ntests%, checks%[0], checks%[1], checks%[2], checks%[3], checks%[4], checks%[5], checks%[6], checks%[7]);
+PrintLog("0=" + str$(checks%[0]) + "\n");
+if i% = 0 then
+	halt;
+else 
+	if ntests% <= 0 then
+		Message("# of tests must be > 0!");
+		halt;
+	else
+		if ArrSum(checks%[]) = 0 then
+			Message("No lines selected for testing!");
+			halt;
+		endif;
+	endif
+endif
+
+
+CreateSampleConfiguration();
+
+ToolbarSet(1, "Start", start%);
+ToolbarSet(2, "Quit", quit%);
+Toolbar("Go",0);
+
+
+
+var currentKey% := -1;
+var currentKeyCount% :=0;
+const stateQuit% := 99;
+const stateStart% := 0;
+const stateNewKey% := 1;
+const stateInitTest% := 2;
+const stateSend% := 3;
+const stateWait% := 4;
+const stateIncrementAndCheck% := 5;
+const stateCleanupTest% := 6;
+const stateSendSecond% := 7;
+const stateWaitSecond% := 8;
+const stateDone% := 98;
+var iState% := stateNewKey%;
+var tLast := -1;
+var tNow;
+var tTrigger;
+var vTrigger;
+var tLastTrigger := -1;
+
+func idle%()
+	tNow := MaxTime();
+
+	if iquit% = 1 then
+		iState% := stateQuit%;
+	endif
+	
+	docase 
+		case iState% = stateQuit% then
+			done%();
+			return 0;
+		case iState% = stateDone% then
+		 	done%();
+			return 0;
+		case iState% = stateNewKey% then
+			currentKey% := getNextKey%(currentKey%);
+			if currentKey% < 0 then
+				iState% := stateDone%;
+				PrintLog("stateNewKey - done\n");
+			else
+				PrintLog("stateNewKey - got key currentKey=" + str$(currentKey%) + "\n");
+				iState% := stateInitTest%;
+			endif
+		case iState% = stateInitTest% then
+			PrintLog("stateInitTest\n");
+			currentKeyCount% := 0;
+			iState% := stateSend%;
+		case iState% = stateSend% then
+			PrintLog("stateSend - send key " + keys$[currentKey%] + "\n");
+			SampleKey(keys$[currentKey%]);
+			iState% := stateWait%;
+		case iState% = stateWait% then
+			PrintLog("stateWait - check channel " + str$(currentKey%+2) + "\n");
+			tTrigger := NextTime(currentKey% + 2, tLast, vTrigger);
+			if tTrigger > tLastTrigger then
+				tLastTrigger := tTrigger;
+				iState% := stateSendSecond%;
+				if vTrigger = 1 then
+					PrintLog("Warning! Expecting up transition, found down!!!\n");
+				endif
+			endif
+		case iState% = stateSendSecond% then
+			PrintLog("stateSendSecond\n");
+			SampleKey("0");
+			iState% := stateWaitSecond%;
+		case iState% = stateWaitSecond% then
+			PrintLog("stateWaitSecond\n");
+			tTrigger := NextTime(currentKey% + 2, tLast, vTrigger);
+			if tTrigger > tLastTrigger then
+				tLastTrigger := tTrigger;
+				iState% := stateIncrementAndCheck%;
+				if vTrigger = 0 then
+					PrintLog("Warning! Expecting down transition, found up!!!\n");
+				endif
+			endif
+		case iState% = stateIncrementAndCheck% then
+			PrintLog("stateIncrementAndCheck\n");
+			currentKeyCount% += 1;
+			if currentKeyCount% = ntests% then
+				iState% := stateCleanupTest%;
+			else
+				iState% := stateSend%
+			endif
+		case iState% = stateCleanupTest% then
+			PrintLog("stateCleanupTest\n");
+			currentKeyCount% := 0;
+			iState% := stateNewKey%;
+		else
+			Message("Error! Unknownn state " + str$(iState%));
+			halt;
+	endcase;
+	tLast := tNow;
+
+		 	
+
+	return 1;
+end;
+
+
+
+func start%()
+	var CommandLine$;
+
+	SampleStart(0); 'Start sampling
+	SampleKey("0");
+
+	CommandLine$ := bin$ + "\\dTimingTest";
+
+	'Begin the stimulus program. It will take a few seconds for the VSG to initialize.
+	PrintLog(CommandLine$+"\n");
+	handle% := ProgRun(CommandLine$, 1);
+	if handle% <0 then Message("Could not start VSG app."); halt; endif
+	Yield(5);	'Wait a few seconds to make sure the VSG has time to initialize.
+
+	ToolbarSet(0, "", idle%);
+	ToolbarEnable(2,1);
+	ToolbarEnable(1,0);
+	View(DataWindow%);
+	return 1;
+end;
+
+func quit%()
+	iquit% := 1;
+	return 1;
+end;
+
+func done%()
+	ToolbarSet(0, "", idle%);
+	SampleStop();
+	ProgKill(handle%);
+	quit%();
+	return 1;
+end;
+
+
+
+
+func getNextKey%(istart%)
+	var k%;
+	var kdone%:=0;
+	var kreturn% := -1;
+	for k% := istart%+1 to 7 do
+		if kdone% <> 1 and checks%[k%]=1 then
+			kdone% := 1;
+			kreturn% := k%;
+		endif
+	next;
+	return kreturn%;
+end;
+		
+		
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+proc CreateSampleConfiguration()
+	var index;
+
+	'Open the data sampling window
+	DataWindow% := FileNew(0,4);
+	View(DataWindow%).WindowVisible(1);
+
+	SampleClear(); 'Set standard sampling state
+'	SampleAutoFile(0); 'Enable automatic file naming
+	SampleAutoComment(0); 'Prompt for comment after sampling
+	SampleAutoCommit(60); 'Seconds between each file commit
+
+	var k%;
+	for k% := 0 to 7 do
+		SampleEvent(k%+1, k%, 2, 3600);
+		SampleComment$(k%+1, "Port" + str$(k%));
+		SampleTitle$(k%+1, "Port" + str$(k%));
+	next;
+
+	if SampleSequencer(script$ + "TimingTest.pls") <> 0 then
+		Message("pls file not found!");
+	endif
+	SampleOptimise(2,2,2,2,50);  'Set optimise mode (do this last)
+	SampleMode(1); 'Continuous sampling
+
+end;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
