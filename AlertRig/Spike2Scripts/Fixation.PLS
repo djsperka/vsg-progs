@@ -1,11 +1,14 @@
 ; $Log: not supported by cvs2svn $
+; Revision 1.2  2005/02/19 01:42:45  dan
+; Changes for new Fixation script.
+;
 ; Revision 1.1  2004/10/01 20:06:10  dan
 ; Modified directory locations for executables (../bin) and sequencer files (script dir)
 ;
 
             SET    1,1,0           ; Get rate & scaling OK
 
-E0:         DIGOUT [00000001]
+E0:     '0  DIGOUT [00000001]
             DELAY  s(0.996)-1
             HALT                   ; End of this sequence section
 

@@ -52,16 +52,13 @@ int main (int argc, char *argv[])
 	}
 	else
 	{
-		// Set background color in fixation point and answer points
-		m_spec_fixpt.background = m_background;
-		m_spec_anspt_up.background = m_background;
-		m_spec_anspt_down.background = m_background;
-
 		if (m_verbose)
 		{
 			cout << "Screen distance " << m_screenDistanceMM << endl;
 			cout << "Fixation point " << m_spec_fixpt << endl;
 			cout << "Background color " << m_background << endl;
+			if (m_bstimulus) cout << "Stimulus : " << m_spec_stimulus << endl;
+			if (m_bconfounder) cout << "Confounder : " << m_spec_confounder << endl;
 			int i;
 			for (i=0; i<m_distractors.size(); i++)
 			{
@@ -71,18 +68,24 @@ int main (int argc, char *argv[])
 	}
 
 
-	// prepare vsg
-	if (init_vsg(m_screenDistanceMM, m_background, true))
+	// Init answer points - geometry only
+	init_answer_points();
+
+
+	// INit vsg
+	if (ARvsg::instance().init(m_screenDistanceMM, m_background))
 	{
-		cerr << "VSG initialization failed!" << endl;
+		cerr << "VSG init failed!" << endl;
 		return 1;
 	}
 
-	// Init answer points
-	init_answer_points();
 
 	// Init overlay pages
-	init_overlay();
+	if (init_overlay())
+	{
+		cerr << "Overlay page init failed!" << endl;
+		return 1;
+	}
 
 	// write video pages
 	init_pages();
@@ -248,7 +251,14 @@ int init_answer_points()
 
 int init_overlay()
 {
-	vsgSetDrawPage(vsgOVERLAYPAGE, OVERLAY_PAGE, 1);
+	// Initialize and draw overlay page
+	if (ARvsg::instance().init_overlay())
+	{
+		cerr << "VSG overlay initialization failed!" << endl;
+		return 1;
+	}
+	vsgSetDrawPage(vsgOVERLAYPAGE, 0, 1);
+
 	if (m_bstimulus) m_spec_stimulus.drawOverlay();
 	if (m_bconfounder) m_spec_confounder.drawOverlay();
 	for (int i=0; i<m_distractors.size(); i++) 
@@ -280,11 +290,6 @@ int init_pages()
 	int islice;
 	int ngratings=0;
 	PIXEL_LEVEL lvfirst;
-	VSGOBJHANDLE handleFixationPoint;
-	VSGOBJHANDLE handleAnswerPoint;
-	VSGOBJHANDLE handleStimulus;
-	VSGOBJHANDLE handleConfounder;
-	VSGOBJHANDLE handleDistractor;
 	ContrastTrigger *ptrig = NULL;
 	ContrastTrigger *ptrigStimON = NULL;
 	ContrastTrigger *ptrigStimOFF = NULL;
@@ -293,16 +298,25 @@ int init_pages()
 	ContrastTrigger *ptrigConfounderUP = NULL;
 	ContrastTrigger *ptrigConfounderDOWN = NULL;
 
+
+
+	// initialize video pages
+	if (ARvsg::instance().init_video())
+	{
+		cerr << "VSG video initialization failed!" << endl;
+		return 1;
+	}
+
 	// Set up quit trigger
-	triggers.addTrigger(new QuitTrigger("q", 0x8, 0x8, 0xff, 0x0, 0));
+//	triggers.addTrigger(new QuitTrigger("q", 0x8, 0x8, 0xff, 0x0, 0));
 
 
 	// prepare BACKGROUND_PAGE (and display it)
-	vsgSetDrawPage(vsgVIDEOPAGE, BACKGROUND_PAGE, vsgBACKGROUND);
+	vsgSetDrawPage(vsgVIDEOPAGE, BACKGROUND_PAGE, vsgNOCLEAR);
 	vsgPresent();
 	
 	// prepare STIMULUS_PAGE
-	vsgSetDrawPage(vsgVIDEOPAGE, STIMULUS_PAGE, vsgBACKGROUND);
+	vsgSetDrawPage(vsgVIDEOPAGE, STIMULUS_PAGE, vsgNOCLEAR);
 
 	// See how many gratings will be drawn, then determine the slice of levels
 	// that each may have.
@@ -311,7 +325,8 @@ int init_pages()
 	ngratings += m_distractors.size();
 	if (ngratings > 0)
 	{
-		islice = LevelManager::instance().remaining()/ngratings;
+		cerr << "remaining " << LevelManager::instance().remaining() << " ngratings " << ngratings << endl;
+		islice = (LevelManager::instance().remaining() - 10)/ngratings;
 		if (islice > 40) islice = 40;
 		else if (islice > 30) islice = 30;
 		else if (islice > 20) islice = 20;
@@ -328,33 +343,28 @@ int init_pages()
 		}
 		else
 		{
-			handleStimulus = vsgObjCreate();
-			vsgObjSetContrast(0);
-			vsgObjSetPixelLevels(lvfirst, islice);
-			cout << "Stim on levels " << lvfirst << "," << islice << endl;
-
-			vsgSetDrawPage(vsgVIDEOPAGE, STIMULUS_PAGE, vsgNOCLEAR);
+			m_spec_stimulus.init(islice);
 			m_spec_stimulus.draw();
-
+			m_spec_stimulus.setContrast(0);
 
 			// trigger to turn stim ON
 			ptrigStimON = new ContrastTrigger("S", 0x4, 0x4, 0x2, 0x2);
-			ptrigStimON->push_back( std::pair<VSGOBJHANDLE, int>(handleStimulus, m_iContrastBase) );
+			ptrigStimON->push_back( std::pair<VSGOBJHANDLE, int>(m_spec_stimulus.handle(), m_iContrastBase) );
 			triggers.addTrigger(ptrigStimON);
 
-			// trigger to turn stim ON
+			// trigger to turn stim Off
 			ptrigStimOFF = new ContrastTrigger("s", 0x4, 0x0, 0x2, 0x0);
-			ptrigStimOFF->push_back( std::pair<VSGOBJHANDLE, int>(handleStimulus, 0) );
+			ptrigStimOFF->push_back( std::pair<VSGOBJHANDLE, int>(m_spec_stimulus.handle(), 0) );
 			triggers.addTrigger(ptrigStimOFF);
 
 			// trigger to turn stim contrast UP
 			ptrigStimUP = new ContrastTrigger("C", 0x28, 0x28, 0x18, 0x10);
-			ptrigStimUP->push_back( std::pair<VSGOBJHANDLE, int>(handleStimulus, m_iContrastUp) );
+			ptrigStimUP->push_back( std::pair<VSGOBJHANDLE, int>(m_spec_stimulus.handle(), m_iContrastUp) );
 			triggers.addTrigger(ptrigStimUP);
 	
 			// trigger to turn stim contrast DOWN
 			ptrigStimDOWN = new ContrastTrigger("c", 0x28, 0x08, 0x18, 0x10);
-			ptrigStimDOWN->push_back( std::pair<VSGOBJHANDLE, int>(handleStimulus, m_iContrastDown) );
+			ptrigStimDOWN->push_back( std::pair<VSGOBJHANDLE, int>(m_spec_stimulus.handle(), m_iContrastDown) );
 			triggers.addTrigger(ptrigStimDOWN);
 
 
@@ -363,20 +373,13 @@ int init_pages()
 
 			if (m_distractors.size() > 0)
 			{
-				handleDistractor = vsgObjCreate();
-				if (LevelManager::instance().request_range(islice, lvfirst))
-				{
-					cout << "Cannot get levels for stimulus!" << endl;
-					return 1;
-				}
-				vsgObjSetContrast(0);
-				vsgObjSetPixelLevels(lvfirst, islice);
-				ptrigStimON->push_back( std::pair<VSGOBJHANDLE, int>(handleDistractor, 100) );
-				ptrigStimOFF->push_back( std::pair<VSGOBJHANDLE, int>(handleDistractor, 0) );
-
 				for (int i=0; i<m_distractors.size(); i++) 
 				{
+					m_distractors[i].init(islice);
 					m_distractors[i].draw();
+					m_distractors[i].setContrast(0);
+					ptrigStimON->push_back( std::pair<VSGOBJHANDLE, int>(m_distractors[i].handle(), m_iContrastBase) );
+					ptrigStimOFF->push_back( std::pair<VSGOBJHANDLE, int>(m_distractors[i].handle(), 0) );
 				}
 			}		
 		}
@@ -385,83 +388,59 @@ int init_pages()
 	// draw confounder grating
 	if (m_bconfounder) 
 	{
-		if (LevelManager::instance().request_range(islice, lvfirst))
-		{
-			cout << "Cannot get levels for confounder!" << endl;
-			return 1;
-		}
-		else
-		{
-			handleConfounder = vsgObjCreate();
-			vsgObjSetContrast(0);
-			vsgObjSetPixelLevels(lvfirst, islice);
+		m_spec_confounder.init(islice);
+		m_spec_confounder.draw();
+		m_spec_confounder.setContrast(0);
 
-			vsgSetDrawPage(vsgVIDEOPAGE, STIMULUS_PAGE, vsgNOCLEAR);
-			m_spec_confounder.draw();
+		// trigger.......
+		ptrigStimON->push_back( std::pair<VSGOBJHANDLE, int>(m_spec_confounder.handle(), m_iContrastBase) );
+		ptrigStimOFF->push_back( std::pair<VSGOBJHANDLE, int>(m_spec_confounder.handle(), 0) );
 
-			// trigger.......
-			ptrigStimON->push_back( std::pair<VSGOBJHANDLE, int>(handleConfounder, m_iContrastBase) );
-			ptrigStimOFF->push_back( std::pair<VSGOBJHANDLE, int>(handleConfounder, 0) );
+		// trigger to turn confounder contrast UP
+		ptrigConfounderUP = new ContrastTrigger("D", 0x30, 0x30, 0x18, 0x08);
+		ptrigConfounderUP->push_back( std::pair<VSGOBJHANDLE, int>(m_spec_confounder.handle(), m_iContrastUp) );
+		triggers.addTrigger(ptrigConfounderUP);
 
-			// trigger to turn confounder contrast UP
-			ptrigConfounderUP = new ContrastTrigger("D", 0x30, 0x30, 0x18, 0x08);
-			ptrigConfounderUP->push_back( std::pair<VSGOBJHANDLE, int>(handleConfounder, m_iContrastUp) );
-			triggers.addTrigger(ptrigConfounderUP);
-	
-			// trigger to turn stim contrast DOWN
-			ptrigConfounderDOWN = new ContrastTrigger("d", 0x30, 0x10, 0x18, 0x08);
-			ptrigConfounderDOWN->push_back( std::pair<VSGOBJHANDLE, int>(handleConfounder, m_iContrastDown) );
-			triggers.addTrigger(ptrigConfounderDOWN);
+		// trigger to turn confounder contrast DOWN
+		ptrigConfounderDOWN = new ContrastTrigger("d", 0x30, 0x10, 0x18, 0x08);
+		ptrigConfounderDOWN->push_back( std::pair<VSGOBJHANDLE, int>(m_spec_confounder.handle(), m_iContrastDown) );
+		triggers.addTrigger(ptrigConfounderDOWN);
 
-		}
 	}
 
 
 	// Now fixation point
-	if (LevelManager::instance().request_range(2, lvfirst))
-	{
-		cout << "Cannot get levels for fixation point!" << endl;
-		return 1;
-	}
-	handleFixationPoint = vsgObjCreate();
-	vsgObjSetDefaults();
-	vsgObjSetContrast(0);
-	vsgObjSetPixelLevels(lvfirst, 2);
-
-	vsgSetDrawPage(vsgVIDEOPAGE, STIMULUS_PAGE, vsgNOCLEAR);
+	m_spec_fixpt.init(2);
 	m_spec_fixpt.draw();
+	m_spec_fixpt.setContrast(0);
 
 	// trigger for fixation point
 	ptrig = new ContrastTrigger("F", 0x2, 0x2, 0x1, 0x1);
-	ptrig->push_back( std::pair<VSGOBJHANDLE, int>(handleFixationPoint, 100) );
+	ptrig->push_back( std::pair<VSGOBJHANDLE, int>(m_spec_fixpt.handle(), 100) );
 	triggers.addTrigger(ptrig);
 
 	ptrig = new ContrastTrigger("f", 0x2, 0x0, 0x1, 0x0);
-	ptrig->push_back( std::pair<VSGOBJHANDLE, int>(handleFixationPoint, 0) );
+	ptrig->push_back( std::pair<VSGOBJHANDLE, int>(m_spec_fixpt.handle(), 0) );
 	triggers.addTrigger(ptrig);
 
 
 	// Now answer point - upper
-	if (LevelManager::instance().request_range(2, lvfirst))
-	{
-		cout << "Cannot get levels for upper answer point!" << endl;
-		return 1;
-	}
-	handleAnswerPoint = vsgObjCreate();
-	vsgObjSetDefaults();
-	vsgObjSetContrast(0);
-	vsgObjSetPixelLevels(lvfirst, 2);
-	vsgSetDrawPage(vsgVIDEOPAGE, STIMULUS_PAGE, vsgNOCLEAR);
+	m_spec_anspt_up.init(2);
 	m_spec_anspt_up.draw();
+	m_spec_anspt_up.setContrast(0);
+	m_spec_anspt_down.init(2);
 	m_spec_anspt_down.draw();
+	m_spec_anspt_down.setContrast(0);
 
 	// trigger for answer points
 	ptrig = new ContrastTrigger("A", 0x40, 0x40, 0x4, 0x4);
-	ptrig->push_back( std::pair<VSGOBJHANDLE, int>(handleAnswerPoint, 100) );
+	ptrig->push_back( std::pair<VSGOBJHANDLE, int>(m_spec_anspt_up.handle(), 100) );
+	ptrig->push_back( std::pair<VSGOBJHANDLE, int>(m_spec_anspt_down.handle(), 100) );
 	triggers.addTrigger(ptrig);
 
 	ptrig = new ContrastTrigger("a", 0x40, 0x0, 0x4, 0x0);
-	ptrig->push_back( std::pair<VSGOBJHANDLE, int>(handleAnswerPoint, 0) );
+	ptrig->push_back( std::pair<VSGOBJHANDLE, int>(m_spec_anspt_up.handle(), 0) );
+	ptrig->push_back( std::pair<VSGOBJHANDLE, int>(m_spec_anspt_down.handle(), 0) );
 	triggers.addTrigger(ptrig);
 
 

@@ -101,7 +101,9 @@ namespace alert
 		void init(PIXEL_LEVEL first, int numlevels);
 		void init(int numlevels);
 		int select();
-	bool initialized() { return m_initialized; };
+		void setContrast(int contrast) { select(); vsgObjSetContrast(contrast); };
+		VSGOBJHANDLE handle() { return m_handle; };
+		bool initialized() { return m_initialized; };
 	private:
 		bool m_initialized;
 		VSGOBJHANDLE m_handle;
@@ -219,6 +221,7 @@ namespace alert
 				bValue = true;
 			}
 			m_in_last = current;
+			if (bValue) std::cerr << std::hex << "input " << input << " m_in_mask=" << m_in_mask << " current=" << current << " bval=" << bValue << std::endl;
 			return bValue;
 		};
 
@@ -322,7 +325,7 @@ namespace alert
 	{
 	public:
 		TriggerFunc(std::string key) : m_binary(false), m_skey(key), m_present(false), m_otrigger(0), m_page(-1), m_quit(false) {};
-		TriggerFunc(int itrigger) : m_binary(true), m_itrigger(itrigger), m_present(false), m_otrigger(0), m_page(-1), m_quit(false) { std::cerr << "trig " << itrigger << std::endl;};
+		TriggerFunc(int itrigger) : m_binary(true), m_itrigger(itrigger), m_present(false), m_otrigger(0), m_page(-1), m_quit(false) {};
 
 		int page() { return m_page; };
 		bool present() { return m_present; };
