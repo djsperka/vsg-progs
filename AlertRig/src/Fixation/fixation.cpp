@@ -29,6 +29,8 @@ int m_screenDistanceMM=0;
 bool m_verbose=false;
 TriggerVector triggers;
 bool m_binaryTriggers = true;
+bool m_bCalibration = false;
+double m_dCalibrationOffset = 0.0;
 
 static void usage();
 static int init_pages();
@@ -81,6 +83,7 @@ int main (int argc, char *argv[])
 
 	// All right, start monitoring triggers........
 	std::string s;
+	int last_output_trigger=0;
 	while (1)
 	{
 		// If user-triggered, get a trigger entry. 
@@ -92,13 +95,14 @@ int main (int argc, char *argv[])
 		}
 
 		TriggerFunc	tf = std::for_each(triggers.begin(), triggers.end(), 
-			(m_binaryTriggers ? TriggerFunc(vsgIOReadDigitalIn()) : TriggerFunc(s)));
+			(m_binaryTriggers ? TriggerFunc(vsgIOReadDigitalIn(), last_output_trigger) : TriggerFunc(s, last_output_trigger)));
 
 		// Now analyze input trigger
 	 	
 		if (tf.quit()) break;
 		else if (tf.present())
 		{	
+			last_output_trigger = tf.output_trigger();
 			vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, tf.output_trigger(), 0);
 			vsgPresent();
 		}
@@ -121,7 +125,7 @@ int args(int argc, char **argv)
 	extern char *optarg;
 	extern int optind;
 	int errflg = 0;
-	while ((c = getopt(argc, argv, "f:b:g:hd:va")) != -1)
+	while ((c = getopt(argc, argv, "f:b:g:hd:vaC:")) != -1)
 	{
 		switch (c) 
 		{
@@ -157,6 +161,18 @@ int args(int argc, char **argv)
 		case 'h':
 			errflg++;
 			break;
+		case 'C':
+			s.assign(optarg);
+			if (parse_double(s, m_dCalibrationOffset))
+			{
+				cerr << "Cannot parse calibration offset!" << endl;
+				errflg++;
+			}
+			else
+			{
+				m_bCalibration = true;
+			}
+			break;
 		case '?':
             errflg++;
 			break;
@@ -191,9 +207,9 @@ void usage()
 
 void init_triggers()
 {
-	triggers.addTrigger(new PageTrigger("0", 0x6, 0x0, 0xff, 0x0, 0));
-	triggers.addTrigger(new PageTrigger("1", 0x6, 0x2, 0xff, 0x1, 1));
-	triggers.addTrigger(new QuitTrigger("q", 0x8, 0x8, 0xff, 0x0, 0));
+	triggers.addTrigger(new PageTrigger("0", 0x2, 0x0, 0xff, 0x0, 0));
+	triggers.addTrigger(new PageTrigger("1", 0x2, 0x2, 0xff, 0x1, 1));
+	triggers.addTrigger(new QuitTrigger("q", 0x40, 0x40, 0xff, 0x0, 0));
 }
 
 int init_pages()

@@ -16,7 +16,9 @@ using namespace alert;
 
 void do_no_overlay();
 void do_overlay();
-
+void do_init_video_pages();
+void init_vp_before(int ipage);
+void init_vp_after(int ipage);
 
 
 int main (int argc, char *argv[])
@@ -31,6 +33,10 @@ int main (int argc, char *argv[])
 	{
 		cout << "Drawing using overlay...." << endl;
 		do_overlay();
+	}
+	else if (s=="O" || s=="o")
+	{
+		do_init_video_pages();
 	}
 	else
 	{
@@ -301,3 +307,71 @@ void do_no_overlay()
 	return;
 }
 
+
+void do_init_video_pages()
+{
+	COLOR_TYPE background = gray;
+	int screenDistanceMM = 555;
+
+	// INit vsg
+	if (ARvsg::instance().init(screenDistanceMM, background))
+	{
+		cerr << "VSG init failed!" << endl;
+		return;
+	}
+
+
+	VSGTRIVAL color;
+	color.a = 1;
+	color.b = 1;
+	color.c = 0;
+	vsgPaletteWrite((VSGLUTBUFFER*)&color, 2, 1);
+
+	// initialize video pages
+	if (ARvsg::instance().init_video_pages(init_vp_before, init_vp_after))
+	{
+		cerr << "VSG video initialization failed!" << endl;
+		return;
+	}
+
+	vsgSetFixationColour(&color);
+
+	string s;
+	cout << "Enter page: ";
+	cin >> s;
+	while (s != "q" && s!= "Q")
+	{
+		istringstream iss(s);
+		int i;
+		iss >> i;
+		if (i>=0 && i<=9) 
+		{
+			vsgSetDrawPage(vsgVIDEOPAGE, i, vsgNOCLEAR);
+			vsgPresent();
+		}
+		cout << "Enter page or q: ";
+		cin >> s;
+
+	}
+
+
+
+}
+
+void init_vp_before(int ipage)
+{
+	cout << "Init before - page " << ipage << endl;
+	if (ipage < 10)
+	{
+//		vsgSetPen1(ipage * 20 + 10);
+		vsgSetPen1(vsgFIXATION);
+		vsgDrawRect(0, 0, 5, 5);
+	}
+	return;
+}
+
+void init_vp_after(int ipage)
+{
+	cout << "Init after - page " << ipage << endl;
+	return;
+}

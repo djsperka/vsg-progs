@@ -22,6 +22,11 @@ std::ostream& operator<<(std::ostream& out, const alert::ARGratingSpec& args)
 	return out;
 }
 
+std::ostream& operator<<(std::ostream& out, const alert::Trigger& t)
+{
+	out << t.toString();
+	return out;
+}
 
 
 int parse_fixation_point(const std::string& s, alert::ARFixationPointSpec& afp)
@@ -666,6 +671,26 @@ int parse_distance(std::string s, int& dist)
 }
 
 
+int parse_integer(std::string s, int& i)
+{
+	return parse_distance(s, i);
+}
+
+int parse_double(std::string s, double& d)
+{
+	int status=0;
+	istringstream iss(s);
+	iss >> d;
+	if (!iss) 
+	{
+		cerr << "bad format for double: " << s << endl;
+		status=1;
+	}
+	return status;
+}
+
+
+
 void tokenize(const string& str, vector<string>& tokens, const string& delimiters = " ")
 {
     // Skip delimiters at beginning.
@@ -727,6 +752,8 @@ int alert::ARvsg::init(int screenDistanceMM, COLOR_TYPE i_bg)
 			vsgSetSpatialUnits(vsgDEGREEUNIT);
 			vsgSetCommand(vsgPALETTERAMP);
 			m_background_color = i_bg;
+			// this level gets used later, but we request it now to insure we get level 0
+			alert::LevelManager::instance().request_single(m_background_level);
 		}
 	}
 	return status;
@@ -762,11 +789,21 @@ int alert::ARvsg::init_overlay()
 }
 
 
+
 int alert::ARvsg::init_video()
+{
+	return init_video_pages(NULL, NULL);
+}
+
+
+
+
+int alert::ARvsg::init_video_pages(voidfunc func_before_objects, voidfunc func_after_objects)
 {
 	int i;
 	int status=0;
 	VSGTRIVAL background;
+	PIXEL_LEVEL dummy_level;
 
 	if (!m_initialized)
 	{
@@ -775,33 +812,52 @@ int alert::ARvsg::init_video()
 	}
 	else 
 	{		
-		// Create a single vsg object
-		m_handle = vsgObjCreate();
-		alert::LevelManager::instance().request_single(m_background_level);
-		vsgObjSetPixelLevels(m_background_level, 1);
-		
-		// set background color, er colour. 
+		// set background color, er colour, in palette
+		// We'll set the vsgBACKGROUND color later, after the vsgObject is created. 
+		// The background level was obtained in the init() call.
 		if (get_color(m_background_color, background))
 		{
 			cerr << "Cannot get trival for background color " << m_background_color << endl;
 			status = 2;
 		}
-		vsgSetBackgroundColour(&background);
-
-		// Assign background color to palette
 		vsgPaletteWrite((VSGLUTBUFFER*)&background, m_background_level, 1);
 
 
-		// Now clear all pages to background color
-		for (i=1; i<vsgGetSystemAttribute(vsgNUMVIDEOPAGES); i++)
-			vsgSetDrawPage(vsgVIDEOPAGE, i, vsgBACKGROUND);
-		vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgBACKGROUND);
+		// Now clear all pages to background level, then call the before_objects callback, 
+		// if it exists. 
+		for (i=0; i<vsgGetSystemAttribute(vsgNUMVIDEOPAGES); i++)
+		{
+			vsgSetDrawPage(vsgVIDEOPAGE, i, m_background_level);
+			if (func_before_objects)
+			{
+				func_before_objects(i);
+			}
+		}
+		
 
+		// Create a single vsg object and set vsgBACKGROUND color
+		m_handle = vsgObjCreate();
+		alert::LevelManager::instance().request_single(dummy_level);
+		vsgObjSetPixelLevels(dummy_level, 1);
+		vsgSetBackgroundColour(&background);
+
+
+		// Now call after_objects callback if not null
+		if (func_after_objects)
+		{
+			for (i=0; i<vsgGetSystemAttribute(vsgNUMVIDEOPAGES); i++)
+			{
+				vsgSetDrawPage(vsgVIDEOPAGE, i, vsgNOCLEAR);
+				func_after_objects(i);
+			}
+		}
+
+		// Finally, set page 0 as the current page and present. 
+		vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgNOCLEAR);
 		vsgPresent();
 	}
 	return status;
 };
-
 
 void alert::ARvsg::clear(int ipage)
 {
@@ -816,56 +872,3 @@ void alert::ARvsg::clear()
 
 
 
-
-int init_vsg(int screenDistanceMM, COLOR_TYPE i_background, bool use_overlay)
-{
-	int status=0;
-	VSGTRIVAL background;
-	PIXEL_LEVEL level;
-//	VSGOBJHANDLE handle;
-	
-	if (vsgInit(""))
-	{
-		cerr << "Error in vsgInit()." << endl;
-		status=1;
-	}
-	else 
-	{		
-		vsgSetViewDistMM(screenDistanceMM);
-		vsgSetSpatialUnits(vsgDEGREEUNIT);
-		vsgSetCommand(vsgPALETTERAMP);
-
-		// set background color, er colour. 
-		if (get_color(i_background, background))
-		{
-			cerr << "Cannot get trival for background color " << i_background << endl;
-			status = 2;
-		}
-		cerr << background.a << "," << background.b << "," << background.c << endl;
-		vsgSetBackgroundColour(&background);
-
-		// Assign background color to palette
-		alert::LevelManager::instance().request_single(level);
-		vsgPaletteWrite((VSGLUTBUFFER*)&background, level, 1);
-
-		clear_vsg();
-
-
-		if (use_overlay)
-		{
-			vsgSetCommand(vsgOVERLAYMASKMODE);
-			vsgPaletteWriteOverlayCols((VSGLUTBUFFER*)&background, 1, 1);
-			vsgSetDrawPage(vsgOVERLAYPAGE, 0, 1);
-		}
-	}
-
-
-	return status;
-}
-
-void clear_vsg()
-{
-	vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgBACKGROUND);
-//	vsgSetZoneDisplayPage(vsgVIDEOPAGE, 0);
-	vsgPresent();
-}

@@ -13,6 +13,7 @@
 #include <vector>
 #include <string>
 #include <ostream>
+#include <sstream>
 
 // These typedefs are used in all the specs. 
 typedef enum colorvectortype { unknown_color_vector=0, b_w, l_cone, m_cone, s_cone } COLOR_VECTOR_TYPE;
@@ -30,6 +31,8 @@ int parse_colorvector(std::string s, COLOR_VECTOR_TYPE& v);
 int parse_pattern(std::string s, PATTERN_TYPE& p);
 int parse_aperture(std::string s, APERTURE_TYPE& a);
 int parse_distance(std::string s, int& dist);
+int parse_integer(std::string s, int& i);
+int parse_double(std::string s, double& d);
 int parse_contrast_triplet(std::string s, int& i_iContrastDown, int& i_iContrastBase, int& i_iContrastUp);
 void tokenize(const std::string& str, std::vector<std::string>& tokens, const std::string& delimiters);
 
@@ -38,7 +41,6 @@ std::ostream& operator<<(std::ostream& out, const COLOR_TYPE& c);
 std::ostream& operator<<(std::ostream& out, const COLOR_VECTOR_TYPE& v);
 std::ostream& operator<<(std::ostream& out, const APERTURE_TYPE& a);
 std::ostream& operator<<(std::ostream& out, const PATTERN_TYPE& p);
-
 
 
 
@@ -53,6 +55,7 @@ int init_vsg(int screenDistanceMM, COLOR_TYPE i_background, bool use_overlay);
 /* Convenience */
 void clear_vsg();
 
+typedef void (*voidfunc)(int);
 
 namespace alert
 {
@@ -66,6 +69,8 @@ namespace alert
 		int init(int screenDistanceMM, COLOR_TYPE i_bg);
 		int init_video();
 		int init_overlay();
+
+		int init_video_pages(voidfunc func_before_objects, voidfunc func_after_objects);
 
 		/* Clear any page and display it. */
 		void clear(int i);
@@ -203,6 +208,7 @@ namespace alert
 			m_in_val = i_in_val;
 			m_out_mask = i_out_mask;
 			m_out_val = i_out_val;
+			m_binitial = false;
 		};
 
 		~Trigger() {};
@@ -216,23 +222,31 @@ namespace alert
 		{
 			bool bValue = false;
 			int current = input&m_in_mask;
+			initial(input);
 			if (current != m_in_last && current == m_in_val)
 			{
 				bValue = true;
 			}
 			m_in_last = current;
-			if (bValue) std::cerr << std::hex << "input " << input << " m_in_mask=" << m_in_mask << " current=" << current << " bval=" << bValue << std::endl;
+			if (bValue) std::cerr << "key: " << m_key << std::hex << " input " << input << " m_in_mask=" << m_in_mask << " m_in_val=" << m_in_val << " current=" << current << " bval=" << bValue << std::endl;
 			return bValue;
 		};
 
 		virtual void setMarker(int& output)
 		{
-			if (m_out_val > 0)
+			if (m_out_val >= 0)
 			{
 				output = m_out_val | (output&(~m_out_mask));
 			}
 		};
 
+
+		std::string toString() const
+		{
+			std::ostringstream oss;
+			oss << "Trigger " << m_key << " in mask/val: 0x" << std::hex << m_in_mask << "/0x" << m_in_val << " out mask/val: 0x" << m_out_mask << "/0x" << m_out_val;
+			return oss.str();
+		}
 
 		// Execute the triggers' action(s). Subclasses should return >0 if a vsgPresent() will be 
 		// needed, 0 if no present(), and <0 if this trigger means quit (a call to vsgPresent() is 
@@ -240,6 +254,16 @@ namespace alert
 		// or something similarly intelligent. 
 		virtual int execute(int& output) { return 0; };
 
+		bool initial(int input)
+		{
+			if (!m_binitial)
+			{
+				m_in_initial = input;
+				m_binitial = true;
+				std::cerr << "key " << m_key << " initial=" << std::hex << input << std::endl;
+			}
+			return m_binitial;
+		};
 	private:
 		std::string m_key;
 		int m_in_mask;
@@ -247,6 +271,8 @@ namespace alert
 		int m_in_last;	// last value of this trigger's input&m_in_mask (initial = 0) 
 		int m_out_mask;
 		int m_out_val;
+		bool m_binitial;
+		int m_in_initial;
 	};
 
 
@@ -258,6 +284,7 @@ namespace alert
 		~PageTrigger() {};
 		virtual int execute(int& output)
 		{
+			std::cerr << "Set page " << m_page << std::endl;
 			setMarker(output);
 			vsgSetDrawPage(vsgVIDEOPAGE, m_page, vsgNOCLEAR);
 			return 1;
@@ -303,7 +330,6 @@ namespace alert
 
 
 
-
 	class TriggerVector: public std::vector<Trigger*>
 	{
 	public:
@@ -324,8 +350,8 @@ namespace alert
 	class TriggerFunc
 	{
 	public:
-		TriggerFunc(std::string key) : m_binary(false), m_skey(key), m_present(false), m_otrigger(0), m_page(-1), m_quit(false) {};
-		TriggerFunc(int itrigger) : m_binary(true), m_itrigger(itrigger), m_present(false), m_otrigger(0), m_page(-1), m_quit(false) {};
+		TriggerFunc(std::string key, int otrigger) : m_binary(false), m_skey(key), m_present(false), m_otrigger(otrigger), m_page(-1), m_quit(false) {};
+		TriggerFunc(int itrigger, int otrigger) : m_binary(true), m_itrigger(itrigger), m_present(false), m_otrigger(otrigger), m_page(-1), m_quit(false) {};
 
 		int page() { return m_page; };
 		bool present() { return m_present; };
@@ -367,6 +393,7 @@ namespace alert
 // Operators for these
 std::ostream& operator<<(std::ostream& out, const alert::ARFixationPointSpec& arfps);
 std::ostream& operator<<(std::ostream& out, const alert::ARGratingSpec& args);
+std::ostream& operator<<(std::ostream& out, const alert::Trigger& t);
 
 // instead of input operators, methods
 int parse_fixation_point(const std::string& s, alert::ARFixationPointSpec& afp);
