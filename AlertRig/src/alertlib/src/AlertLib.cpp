@@ -12,13 +12,13 @@ using namespace alert;
 
 std::ostream& operator<<(std::ostream& out, const alert::ARFixationPointSpec& arfps)
 {
-	out << "(x,y): (" << arfps.x << ", " << arfps.y << ") diameter: " << arfps.d << " color: " << arfps.color;
+	out << arfps.x << ", " << arfps.y << "," << arfps.d << "," << arfps.color;
 	return out;
 }
 
 std::ostream& operator<<(std::ostream& out, const alert::ARGratingSpec& args)
 {
-	out << "(x,y): (" << args.x << ", " << args.y << ") (w,h): (" << args.w << ", " << args.h << ") con%: " << args.contrast << " sf: " << args.sf << " tf: " << args.tf << " orient: " << args.orientation << " cv: " << args.cv << " patt: " << args.pattern << " aper: " << args.aperture;
+	out << args.x << "," << args.y << "," << args.w << "," << args.h << "," << args.contrast << "," << args.sf << "," << args.tf << "," << args.orientation << "," << args.cv << "," << args.pattern << "," << args.aperture;
 	return out;
 }
 
