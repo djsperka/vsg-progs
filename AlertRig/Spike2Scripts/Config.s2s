@@ -8,6 +8,28 @@ const stateRigConfigDialog% := 4;
 
 
 
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+'	Get Current configuration END
+'
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+func GetCurrentConfiguration$()
+	var key$;
+	var s$;
+	key$:="AlertRig";
+	Profile(key$, "CurrentConfiguration", "default", s$);
+	return s$;
+end;
+
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+'	Get Current configuration END
+'
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+
 
 
 
@@ -154,7 +176,8 @@ var fixDistractor4Flag%; 			' Tells stim to use distractor1 (1) or not (0)
 proc GetFixationScriptParameters()
 	var stmp$;
 	var key$;
-	key$:="AlertRig\\" + CurrentConfiguration$ + "\\Scripts\\Fixation";
+
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Fixation";
 
 	Profile(key$, "FixationDuration", "1.0", stmp$);
 	fixFixationDuration := val(stmp$);
@@ -177,7 +200,7 @@ end;
 proc SaveFixationScriptParameters()
 	var stmp$;
 	var key$;
-	key$:="AlertRig\\" + CurrentConfiguration$ + "\\Scripts\\Fixation";
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Fixation";
 
 	Profile(key$, "FixationDuration", str$(fixFixationDuration));
 	Profile(key$, "AcquisitionTime", str$(fixAcquisitionTime));
@@ -246,7 +269,7 @@ var attDistractor4Flag%; 			' Tells stim to use distractor1 (1) or not (0)
 proc GetAttentionScriptParameters()
 	var stmp$;
 	var key$;
-	key$:="AlertRig\\" + CurrentConfiguration$ + "\\Scripts\\Attention";
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Attention";
 
 	Profile(key$, "NumberOfBlocks", 1, attNumberOfBlocks%);
 
@@ -288,7 +311,7 @@ end;
 proc SaveAttentionScriptParameters()
 	var key$;
 	var stmp$;
-	key$:="AlertRig\\" + CurrentConfiguration$ + "\\Scripts\\Attention";
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Attention";
 
 	Profile(key$, "NumberOfBlocks", attNumberOfBlocks%);
 	Profile(key$, "CatchTrialPercentage", str$(attCatchTrialPercentage));
@@ -380,14 +403,14 @@ end;
 func GetGratingParameters$(type$)
 	var key$;
 	var stmp$;
-	key$ := "AlertRig\\" + CurrentConfiguration$ + "\\Gratings";
+	key$ := "AlertRig\\" + GetCurrentConfiguration$() + "\\Gratings";
 	Profile(key$, type$, "", stmp$);
 	return stmp$;
 end;
 
 func SaveGratingParameters(type$, gr$)
 	var key$;
-	key$ := "AlertRig\\" + CurrentConfiguration$ + "\\Gratings";
+	key$ := "AlertRig\\" + GetCurrentConfiguration$() + "\\Gratings";
 	Profile(key$, type$, gr$);
 end;
 
@@ -505,7 +528,7 @@ var FixationColorList$[3];
 proc GetFixationPointParameters()
 	var stmp$;
 	var key$;
-	key$ := "AlertRig\\" + CurrentConfiguration$ + "\\FixationPoint";
+	key$ := "AlertRig\\" + GetCurrentConfiguration$() + "\\FixationPoint";
 	Profile(key$, "WindowRadius", "1", stmp$);
 	WindowRadius := val(stmp$);
 
@@ -527,7 +550,7 @@ end;
 
 proc SaveFixationPointParameters()
 	var key$;
-	key$ := "AlertRig\\" + CurrentConfiguration$ + "\\FixationPoint";
+	key$ := "AlertRig\\" + GetCurrentConfiguration$() + "\\FixationPoint";
 	Profile(key$, "WindowRadius", str$(WindowRadius));
 	Profile(key$, "FixationX", str$(FixationX));
 	Profile(key$, "FixationY", str$(FixationY));
@@ -540,7 +563,7 @@ func FixationPointDialog%()
 
 	var i%;
 	GetFixationPointParameters();
-	DlgCreate("Fixation parameters: " + CurrentConfiguration$);
+	DlgCreate("Fixation parameters: " + GetCurrentConfiguration$());
 	DlgReal(1, "Fixation X:", -20, 20);
 	DlgReal(2, "Fixation Y:", -20, 20);
 	DlgReal(3, "Fixation diam:", .1, 5);
@@ -642,7 +665,7 @@ var DegreesPerVoltX;			' Conversion factor from ADC to visual degrees
 var DegreesPerVoltY;			' Conversion factor from ADC to visual degrees
 var EyeCoilSamplingFrequency%;		' Frequency to sample eye coil at
 var NumberOfElectrodes%;		' Number of electrodes (i.e. wavemark inputs) in use
-
+var JuicePerReward%;			' Number of juice squirts per reward
 
 
 func DAQParametersDialog%()
@@ -653,13 +676,14 @@ func DAQParametersDialog%()
 	GetDAQParameters();
 
 	idist% := val(DistanceToScreenMM$);
-	DlgCreate("DAQ parameters: " + CurrentConfiguration$);
+	DlgCreate("DAQ parameters: " + GetCurrentConfiguration$());
 	DlgInteger(1, "Number of Electrodes:", 1, 7, 0, 0, 1);
 	DlgInteger(2, "Screen Distance (MM):", 1, 5000);
 	DlgReal(3, "Degrees/Volt (X):", 0, 100);
 	DlgReal(4, "Degrees/Volt (Y):", 0, 100);
 	DlgInteger(5, "Eye Coil Sampling Freq (Hz):", 1, 20000);
-	iReturn% := DlgShow(NumberOfElectrodes%, idist%, DegreesPerVoltX, DegreesPerVoltY, EyeCoilSamplingFrequency%);
+	DlgInteger(6, "Juice per reward:", 0, 10, 0, 0, 1);
+	iReturn% := DlgShow(NumberOfElectrodes%, idist%, DegreesPerVoltX, DegreesPerVoltY, EyeCoilSamplingFrequency%, JuicePerReward%);
 
 	if iReturn% = 1 then
 		DistanceToScreenMM$ := str$(idist%);
@@ -676,12 +700,13 @@ proc GetDAQParameters()
 	var key$;
 	var DegreesPerVoltX$, DegreesPerVoltY$;
 
-	key$ := "AlertRig\\" + CurrentConfiguration$ + "\\DAQ";
+	key$ := "AlertRig\\" + GetCurrentConfiguration$() + "\\DAQ";
 	Profile(key$, "DistanceToScreenMM", "850", DistanceToScreenMM$);	' will just pass this to stimulus app
 	Profile(key$, "DegreesPerVoltX", "", DegreesPerVoltX$);
 	Profile(key$, "DegreesPerVoltY", "", DegreesPerVoltY$);
 	Profile(key$, "EyeCoilSamplingFrequency", 1000, EyeCoilSamplingFrequency%);
 	Profile(key$, "NumberOfElectrodes", 1, NumberOfElectrodes%);
+	Profile(key$, "JuicePerReward", 1, JuicePerReward%);
 	DegreesPerVoltX := val(DegreesPerVoltX$);
 	DegreesPerVoltY := val(DegreesPerVoltY$);
 
@@ -693,12 +718,13 @@ proc SaveDAQParameters()
 	DegreesPerVoltX$ := str$(DegreesPerVoltX);
 	DegreesPerVoltY$ := str$(DegreesPerVoltY);
 	
-	key$ := "AlertRig\\" + CurrentConfiguration$ + "\\DAQ";
+	key$ := "AlertRig\\" + GetCurrentConfiguration$() + "\\DAQ";
 	Profile(key$, "DistanceToScreenMM", DistanceToScreenMM$);
 	Profile(key$, "DegreesPerVoltX", DegreesPerVoltX$);
 	Profile(key$, "DegreesPerVoltY", DegreesPerVoltY$);
 	Profile(key$, "EyeCoilSamplingFrequency", EyeCoilSamplingFrequency%);
 	Profile(key$, "NumberOfElectrodes", NumberOfElectrodes%);
+	Profile(key$, "JuicePerReward", JuicePerReward%);
 
 end;
 
@@ -732,7 +758,7 @@ repeat
 
 		case iState% = stateRigConfigDialog% then
 
-			RigConfigDialog%(CurrentConfiguration$);
+			RigConfigDialog%(GetCurrentConfiguration$());
 
 			iState% := stateQuit%;
 
