@@ -217,6 +217,13 @@ int alert::ARFixationPointSpec::draw()
 	return 0;
 }
 
+int alert::ARFixationPointSpec::drawOverlay()
+{
+	vsgSetPen1(0);	// overlay page transparent
+	this->draw();
+	return 0;
+}
+
 
 int alert::ARContrastFixationPointSpec::draw()
 {
@@ -245,6 +252,13 @@ int alert::ARContrastFixationPointSpec::draw()
 	return status;
 }
 
+int alert::ARContrastFixationPointSpec::drawOverlay()
+{
+	vsgSetPen1(0);
+	ARFixationPointSpec::draw();
+	return 0;
+}
+
 
 int alert::ARGratingSpec::draw()
 {
@@ -255,6 +269,8 @@ int alert::ARGratingSpec::draw()
 	// assign pixel levels (vsgObjSetPixels). Note also that the contrast is initially set to 100% by the call to 
 	// vsgObjSetDefaults().
 
+#if 0
+	// djs TRANSONLOWER seems to leave artifacts on the screen when we turn the contrast off. !!!
 	// if ellipse, draw an ellipse on level 0 for TRANSONLOWER
 	if (this->aperture == ellipse)
 	{
@@ -262,6 +278,7 @@ int alert::ARGratingSpec::draw()
 		vsgSetDrawMode(vsgCENTREXY);
 		vsgDrawOval(x, y, w, h);
 	}
+#endif
 
 	// Set spatial waveform
 	if (this->pattern == sinewave)
@@ -287,7 +304,7 @@ int alert::ARGratingSpec::draw()
 	// Now draw
 	if (this->aperture == ellipse)
 	{
-		vsgSetDrawMode(vsgTRANSONLOWER+vsgCENTREXY);
+		vsgSetDrawMode(vsgCENTREXY);
 		vsgDrawGrating(this->x, this->y, this->w, this->h, this->orientation, this->sf);
 	}
 	else
@@ -300,8 +317,20 @@ int alert::ARGratingSpec::draw()
 }
 
 
-
-
+int alert::ARGratingSpec::drawOverlay()
+{
+	vsgSetPen1(0);
+	vsgSetDrawMode(vsgCENTREXY);
+	if (this->aperture == ellipse)
+	{
+		vsgDrawOval(x, y, w, h);
+	}
+	else
+	{
+		vsgDrawRect(x, y, w, h);
+	}
+	return 0;
+}
 
 std::ostream& operator<<(std::ostream& out, const COLOR_TYPE& c)
 {
@@ -612,12 +641,12 @@ int alert::LevelManager::request_range(int num, PIXEL_LEVEL& first)
 
 
 
-int init_vsg(int screenDistanceMM, COLOR_TYPE i_background)
+int init_vsg(int screenDistanceMM, COLOR_TYPE i_background, bool use_overlay)
 {
 	int status=0;
 	VSGTRIVAL background;
 	PIXEL_LEVEL level;
-	VSGOBJHANDLE handle;
+//	VSGOBJHANDLE handle;
 	
 	if (vsgInit(""))
 	{
@@ -639,20 +668,20 @@ int init_vsg(int screenDistanceMM, COLOR_TYPE i_background)
 		vsgSetBackgroundColour(&background);
 
 		clear_vsg();
+
+
+		if (use_overlay)
+		{
+			vsgSetCommand(vsgOVERLAYMASKMODE);
+			vsgPaletteWriteOverlayCols((VSGLUTBUFFER*)&background, 1, 1);
+			vsgSetDrawPage(vsgOVERLAYPAGE, 0, 1);
+		}
 	}
 
 
-	
 	// Assign background color to palette level 0. 
 	alert::LevelManager::instance().request_single(level);
 	vsgPaletteWrite((VSGLUTBUFFER*)&background, 0, 1);
-
-	// allocate a single vsgs object so triggers will work. This is redundant in cases
-	// where you will be generating stuff like gratings, but just in case you don't you
-	// need this. 
-	alert::LevelManager::instance().request_single(level);
-	handle = vsgObjCreate();
-	vsgObjSetPixelLevels(level, 1);
 
 	return status;
 }
