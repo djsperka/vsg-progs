@@ -1,15 +1,4 @@
 var iState%:=0;
-
-var strtmp$;
-var itmp%;
-var tmp;
-
-var key$;			' used in fetching stuff from the registry
-var Configuration$;		' the name of the current configuration
-var newConfiguration$;		' candidate name for new configuration 
-var iConfiguration%;		' the index of the current config in the list of available configs
-var Configurations$[20];	' the list of available configs
-var nConfigurations%;		' the number of configs in Configurations$
 const stateStart% := 0;
 const stateQuit% := 9;
 const stateNew% := 1;
@@ -18,157 +7,107 @@ const stateSelect% := 3;
 const stateRigConfigDialog% := 4;
 
 
-' Rig params
-var DistanceToScreenMM$;		' Distance to screen in MM
-var DegreesPerVoltX;			' Conversion factor from ADC to visual degrees
-var DegreesPerVoltY;			' Conversion factor from ADC to visual degrees
-var EyeCoilSamplingFrequency%;		' Frequency to sample eye coil at
-var NumberOfElectrodes%;		' Number of electrodes (i.e. wavemark inputs) in use
 
 
-key$ := "AlertRig";
 
-repeat
+
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+'	Configuration Selection START
+'
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+
+
+var CurrentConfiguration$;
+var ConfigurationList$;
+func SelectConfigurationDialog()
+end;
+
+proc GetConfigurationParameters()
+	var rkey$;
+	rkey$:="AlertRig";
+	Profile(rkey$, "ConfigurationList", "", ConfigurationList$);
+	Profile(rkey$, "CurrentConfiguration", "default", CurrentConfiguration$);
+end;
+
+proc SaveConfigurationParameters()
+	var rkey$;
+	rkey$:="AlertRig";
+	Profile(rkey$, "ConfigurationList", ConfigurationList$);
+	Profile(rkey$, "CurrentConfiguration", CurrentConfiguration$);
+end;
 	
-	docase 
-		case iState% = stateStart% then
-
-			' Get config list. 
-			key$ := "AlertRig";
-			Profile(key$, "CurrentConfiguration", 0, iConfiguration%);
-			Profile(key$, "Configurations", "", strtmp$);
-
-			' Extract list into an array
-			ReadSetup("", "", "", "", "|");
-			nConfigurations% := ReadStr(strtmp$, Configurations$);
-
-			' If the list was empty, jump to stateNew. 
-			' Otherwise jump to stateSelect
-			if nConfigurations% = 0 then
-				iState% := stateNew%;
-				iConfiguration% := 0;
-			else
-				iState% := stateSelect%;
-				if iConfiguration% >= nConfigurations% or iConfiguration% < 0 then
-					iConfiguration% := 0;
-				endif
-			endif;
-
-		case iState% = stateNew% then
-
-			itmp% := NewConfigDialog%();
-			PrintLog("New config=" + Configuration$ + "\n");
-			if (itmp% = 0) then
-				iState% := stateStart%;
-			else 
-				if itmp% = 1 then
-					' Check that this config isn't a duplicate
-					PrintLog("stateNew, itmp=" + str$(itmp%) + "\n");
-					if (CheckDup%(newConfiguration$) = 1) then
-						Message("Duplicates not allowed!");
-					else
-						' Append to current list and save it
-						Configurations$[nConfigurations%] := newConfiguration$;
-						nConfigurations% += 1;
-						iConfiguration% := nConfigurations% - 1;
-						SaveConfigurationList();
-						iState% := stateSelect%;
-					endif
-				endif
-			endif
-
-		case iState% = stateSelect% then
-
-			itmp% := SelectConfigDialog%(Configurations$, nConfigurations%);
-			docase
-				case itmp% = 0 then
-					iState% := stateQuit%;
-				case itmp% = 1 then
-					SaveCurrentConfiguration();
-					Configuration$ := Configurations$[iConfiguration%];
-					iState% := stateRigConfigDialog%;
-				case itmp% = 2 then
-					iState% := stateNew%;
-			endcase;
-
-	        case iState% = stateRigConfigDialog% then
-
-			itmp% := RigConfigDialog%(Configuration$);
-
-			iState% := stateQuit%;
-
-	endcase;
-
-
-until iState% = stateQuit%;
-
-' returns 1 (0) if the passed string matches (doesn't match) one of the config names in Configurations$[]. 
-' The comparison is a case-independent one (all strings are convered to upper case before comparison) because
-' that's the way the registry is. 
-func CheckDup%(configname$)
+func SelectConfigurationDialog%()
+	var s$;
 	var i%;
+	var iReturn% := 0;
+	GetConfigurationParameters();
+	s$ := CurrentConfiguration$;
+
+	DlgCreate("Select configuration");
+	DlgString(1, "Configuration:", 20, "", 0, 0, ConfigurationList$);
+	i% := DlgShow(s$);
+
+
+	if i% = 1 then
+
+		i% := CheckDup(s$, ConfigurationList$);
+		if i% = 0 then
+			' New config, add to Config list, set it to current
+			if Len(ConfigurationList$)>0 then
+				ConfigurationList$ := ConfigurationList$ + "|" + s$;
+				CurrentConfiguration$ := s$;
+			else
+				ConfigurationList$ := s$;
+				CurrentConfiguration$ := s$;
+			endif;
+		else
+			CurrentConfiguration$ := s$;
+		endif
+		SaveConfigurationParameters();
+		iReturn% := 1;
+
+	else
+		iReturn% := 0;
+	endif
+
+	return iReturn%;
+end;
+
+func CheckDup(value$, list$)
+	var items$[20];
+	var nitems%:=0;
+	var i%;
+
+	' Extract list into an array
+	ReadSetup("", "", "", "", "|");
+	nitems% := ReadStr(list$, items$);
+
 	var s1tmp$, s2tmp$;
-	s1tmp$ := UCase$(configname$);
-	for i% := 0 to nConfigurations%-1 do
-		s2tmp$ := UCase$(Configurations$[i%]);
+	s1tmp$ := UCase$(value$);
+	for i% := 0 to nitems%-1 do
+		s2tmp$ := UCase$(items$[i%]);
 		if s1tmp$ = s2tmp$ then
 			return 1;
 		endif
 	next
+
 	return 0;
 end;
-		
-		
 
-' Save the configuration list in Configurations$
-proc SaveConfigurationList()
-	var s$;
-	var i%;
-	for i% := 0 to nConfigurations%-1 do
 
-		if i% > 0 then
-			s$ += "|";
-		endif
-		s$ += Configurations$[i%];
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+'	Configuration Selection END
+'
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
-	next;
-	key$ := "AlertRig";
-	Profile(key$, "Configurations", s$);
-	return;
-end;
 
-proc SaveCurrentConfiguration()
-	key$ := "AlertRig";
-	Profile(key$, "CurrentConfiguration", iConfiguration%);
-	return;
-end;
 
-' Get a new config name
-func NewConfigDialog%()
 
-	var i%;
-	DlgCreate("New Configuration");
-	DlgString(1, "Config name:", 10);
-	i% := DlgShow(newConfiguration$);
-	return i%;
 
-end;
-
-' Select an existing config from a list
-func SelectConfigDialog%(configs$[], nconfigs%)
-
-	var i%;
-	var iconfig%;
-	DlgCreate("Select Configuration");
-	DlgList(1, "Configuration:", configs$[], nconfigs%);
-	DlgButton(2, "New");
-	i% := DlgShow(iconfig%);
-	if i% = 1 then
-		iConfiguration% := iconfig%;
-	endif
-	return i%;
-
-end;
 
 
 func RigConfigDialog%(config$)
@@ -192,9 +131,12 @@ func RigConfigDialog%(config$)
 
 end;
 
+
+
+
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 '
-' Fixation script START
+' Fixation script parameters START
 '
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 ' Fixation-script specific control vars.
@@ -211,7 +153,8 @@ var fixDistractor4Flag%; 			' Tells stim to use distractor1 (1) or not (0)
 
 proc GetFixationScriptParameters()
 	var stmp$;
-	key$:="AlertRig\\Scripts\\Fixation";
+	var key$;
+	key$:="AlertRig\\" + CurrentConfiguration$ + "\\Scripts\\Fixation";
 
 	Profile(key$, "FixationDuration", "1.0", stmp$);
 	fixFixationDuration := val(stmp$);
@@ -233,7 +176,8 @@ end;
  	
 proc SaveFixationScriptParameters()
 	var stmp$;
-	key$:="AlertRig\\Scripts\\Fixation";
+	var key$;
+	key$:="AlertRig\\" + CurrentConfiguration$ + "\\Scripts\\Fixation";
 
 	Profile(key$, "FixationDuration", str$(fixFixationDuration));
 	Profile(key$, "AcquisitionTime", str$(fixAcquisitionTime));
@@ -301,7 +245,8 @@ var attDistractor4Flag%; 			' Tells stim to use distractor1 (1) or not (0)
 
 proc GetAttentionScriptParameters()
 	var stmp$;
-	key$:="AlertRig\\Scripts\\Attention";
+	var key$;
+	key$:="AlertRig\\" + CurrentConfiguration$ + "\\Scripts\\Attention";
 
 	Profile(key$, "NumberOfBlocks", 1, attNumberOfBlocks%);
 
@@ -341,8 +286,9 @@ proc GetAttentionScriptParameters()
 end;
 
 proc SaveAttentionScriptParameters()
+	var key$;
 	var stmp$;
-	key$:="AlertRig\\Scripts\\Attention";
+	key$:="AlertRig\\" + CurrentConfiguration$ + "\\Scripts\\Attention";
 
 	Profile(key$, "NumberOfBlocks", attNumberOfBlocks%);
 	Profile(key$, "CatchTrialPercentage", str$(attCatchTrialPercentage));
@@ -396,6 +342,16 @@ end;
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
 
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+'	Grating Dialogs (Distractors, Stimulus) START
+'
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+
+
+
 func Distractor1Dialog%()
 	GratingDialog("Distractor1");
 	return 1;
@@ -422,14 +378,16 @@ func StimulusDialog%()
 end;
 
 func GetGratingParameters$(type$)
+	var key$;
 	var stmp$;
-	key$ := "AlertRig\\" + Configuration$ + "\\Gratings";
+	key$ := "AlertRig\\" + CurrentConfiguration$ + "\\Gratings";
 	Profile(key$, type$, "", stmp$);
 	return stmp$;
 end;
 
 func SaveGratingParameters(type$, gr$)
-	key$ := "AlertRig\\" + Configuration$ + "\\Gratings";
+	var key$;
+	key$ := "AlertRig\\" + CurrentConfiguration$ + "\\Gratings";
 	Profile(key$, type$, gr$);
 end;
 
@@ -519,6 +477,23 @@ proc GratingDialog(type$)
 end;
 
 
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+'	Grating Dialogs (Distractors, Stimulus) START
+'
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+
+
+
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+'	Fixation Point parameters START
+'
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+
 
 var WindowRadius;
 var FixationX, FixationY;
@@ -527,9 +502,10 @@ var iFixationColor%;
 var FixationDiameter;
 var FixationColorList$[3]; 
 
-proc GetFixationParameters()
+proc GetFixationPointParameters()
 	var stmp$;
-	key$ := "AlertRig\\" + Configuration$ + "\\Fixation";
+	var key$;
+	key$ := "AlertRig\\" + CurrentConfiguration$ + "\\FixationPoint";
 	Profile(key$, "WindowRadius", "1", stmp$);
 	WindowRadius := val(stmp$);
 
@@ -549,8 +525,9 @@ proc GetFixationParameters()
 	FixationDiameter := val(stmp$);
 end;
 
-proc SaveFixationParameters()
-	key$ := "AlertRig\\" + Configuration$ + "\\Fixation";
+proc SaveFixationPointParameters()
+	var key$;
+	key$ := "AlertRig\\" + CurrentConfiguration$ + "\\FixationPoint";
 	Profile(key$, "WindowRadius", str$(WindowRadius));
 	Profile(key$, "FixationX", str$(FixationX));
 	Profile(key$, "FixationY", str$(FixationY));
@@ -562,8 +539,8 @@ end;
 func FixationPointDialog%()
 
 	var i%;
-	GetFixationParameters();
-	DlgCreate("Fixation parameters: " + Configuration$);
+	GetFixationPointParameters();
+	DlgCreate("Fixation parameters: " + CurrentConfiguration$);
 	DlgReal(1, "Fixation X:", -20, 20);
 	DlgReal(2, "Fixation Y:", -20, 20);
 	DlgReal(3, "Fixation diam:", .1, 5);
@@ -573,21 +550,51 @@ func FixationPointDialog%()
 
 	' If user cancelled, reload params
 	if i% = 0 then
-		GetFixationParameters();
+		GetFixationPointParameters();
 	else
-		SaveFixationParameters();
+		SaveFixationPointParameters();
 	endif
 
 	return 1;
 end;
 
 
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+'	Fixation Point parameters END
+'
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+'	Rig Daily Totals START
+'
+'
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
 
 var TotalTrials%;
 var TotalRewards%;
 var TotalDate$;
 
+
+proc GetDailyTotals()
+	var key$;
+	key$ := "AlertRig\\Daily";
+	Profile(key$, "TotalDate", "", TotalDate$);
+	Profile(key$, "TotalTrials", 0, TotalTrials%);
+	Profile(key$, "TotalRewards", 0, TotalRewards%);
+end;
+
+proc SaveDailyTotals()
+	var key$;
+	key$ := "AlertRig\\Daily";
+	Profile(key$, "TotalDate", TotalDate$);
+	Profile(key$, "TotalTrials", TotalTrials%);
+	Profile(key$, "TotalRewards", TotalRewards%);
+end;
 
 func DailyTotalsDialog%()
 	GetDailyTotals();
@@ -616,15 +623,37 @@ func ResetDailyTotals%()
 end;
 
 
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+'	Rig Daily Totals END
+'
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+'	DAQ Parameters START
+'
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+
+var DistanceToScreenMM$;		' Distance to screen in MM
+var DegreesPerVoltX;			' Conversion factor from ADC to visual degrees
+var DegreesPerVoltY;			' Conversion factor from ADC to visual degrees
+var EyeCoilSamplingFrequency%;		' Frequency to sample eye coil at
+var NumberOfElectrodes%;		' Number of electrodes (i.e. wavemark inputs) in use
+
+
+
 func DAQParametersDialog%()
 
 	var iReturn%;
 	var idist%;
 
-	GetRigParameters();
+	GetDAQParameters();
 
 	idist% := val(DistanceToScreenMM$);
-	DlgCreate("DAQ parameters: " + Configuration$);
+	DlgCreate("DAQ parameters: " + CurrentConfiguration$);
 	DlgInteger(1, "Number of Electrodes:", 1, 7, 0, 0, 1);
 	DlgInteger(2, "Screen Distance (MM):", 1, 5000);
 	DlgReal(3, "Degrees/Volt (X):", 0, 100);
@@ -634,7 +663,7 @@ func DAQParametersDialog%()
 
 	if iReturn% = 1 then
 		DistanceToScreenMM$ := str$(idist%);
-		SaveRigParameters();
+		SaveDAQParameters();
 	endif
 	return iReturn%;
 end;
@@ -642,25 +671,12 @@ end;
 
 
 
-proc GetDailyTotals()
-	key$ := "AlertRig\\Daily";
-	Profile(key$, "TotalDate", "", TotalDate$);
-	Profile(key$, "TotalTrials", 0, TotalTrials%);
-	Profile(key$, "TotalRewards", 0, TotalRewards%);
-end;
-
-proc SaveDailyTotals()
-	key$ := "AlertRig\\Daily";
-	Profile(key$, "TotalDate", TotalDate$);
-	Profile(key$, "TotalTrials", TotalTrials%);
-	Profile(key$, "TotalRewards", TotalRewards%);
-end;
 	
-proc GetRigParameters()
-
+proc GetDAQParameters()
+	var key$;
 	var DegreesPerVoltX$, DegreesPerVoltY$;
 
-	key$ := "AlertRig\\" + Configuration$;
+	key$ := "AlertRig\\" + CurrentConfiguration$ + "\\DAQ";
 	Profile(key$, "DistanceToScreenMM", "850", DistanceToScreenMM$);	' will just pass this to stimulus app
 	Profile(key$, "DegreesPerVoltX", "", DegreesPerVoltX$);
 	Profile(key$, "DegreesPerVoltY", "", DegreesPerVoltY$);
@@ -671,13 +687,13 @@ proc GetRigParameters()
 
 end;
 
-proc SaveRigParameters()
-
+proc SaveDAQParameters()
+	var key$;
 	var DegreesPerVoltX$, DegreesPerVoltY$;
 	DegreesPerVoltX$ := str$(DegreesPerVoltX);
 	DegreesPerVoltY$ := str$(DegreesPerVoltY);
 	
-	key$ := "AlertRig\\" + Configuration$;
+	key$ := "AlertRig\\" + CurrentConfiguration$ + "\\DAQ";
 	Profile(key$, "DistanceToScreenMM", DistanceToScreenMM$);
 	Profile(key$, "DegreesPerVoltX", DegreesPerVoltX$);
 	Profile(key$, "DegreesPerVoltY", DegreesPerVoltY$);
@@ -686,4 +702,50 @@ proc SaveRigParameters()
 
 end;
 
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+'	DAQ Parameters END
+'
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+'	Start of script body...
+'
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+
+
+iState% := stateStart%;
+
+repeat
+	
+	docase 
+		case iState% = stateStart% then
+
+			if SelectConfigurationDialog%() = 1 then
+				iState% := stateRigConfigDialog%;
+			else
+				iState% := stateQuit%;
+			endif;
+
+		case iState% = stateRigConfigDialog% then
+
+			RigConfigDialog%(CurrentConfiguration$);
+
+			iState% := stateQuit%;
+
+	endcase;
+
+
+until iState% = stateQuit%;
+
+
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+'	END of script body...
+'
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
