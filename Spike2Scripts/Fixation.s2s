@@ -1,4 +1,7 @@
 ' $Log: not supported by cvs2svn $
+' Revision 1.4  2005/03/09 01:06:48  dan
+' Almost there!
+'
 ' Revision 1.3  2005/03/05 01:08:54  dan
 ' Integrated cut-and-paste from Config.s2s.
 ' Still needs to be coupled to new Fixation app.
@@ -37,9 +40,6 @@ script$ := View(App(3)).FileName$(1) + View(App(3)).FileName$(2);	' folder conta
 bin$ := View(App(3)).FileName$(1) + View(App(3)).FileName$(2) + "..\\bin";	' Location of executables is ..\bin, relative to script dir
 config$ := View(App(3)).FileName$(1) + View(App(3)).FileName$(2) + "..\\config";	' Location of executables is ..\bin, relative to script dir
 
-
-
-
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 '
 '	Get Current configuration START
@@ -60,6 +60,97 @@ end;
 '	Get Current configuration END
 '
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+'	Data parameters START
+'
+'	Vars that control where data is stored. 
+'
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+var dataPathRoot$;		' base path for data storage
+var dataDataSet$;		' folder under data path where data files placed
+var dataCellName$;		' part of base name for all data files
+var dataDataSetTextItem%;	' 
+
+proc GetDataParameters()
+	var stmp$;
+	var key$;
+
+	key$:="AlertRig\\Data";
+
+	Profile(key$, "PathRoot", "C:\\Experiments", dataPathRoot$);
+	Profile(key$, "DataSet", "", dataDataSet$);
+	Profile(key$, "CellName", "", dataCellName$);
+	return;
+end;
+
+proc SaveDataParameters()
+	var stmp$;
+	var key$;
+
+	key$:="AlertRig\\Data";
+
+	Profile(key$, "PathRoot", dataPathRoot$);
+	Profile(key$, "DataSet", dataDataSet$);
+	Profile(key$, "CellName", dataCellName$);
+	return;
+end;
+
+func DataParametersDialog%()
+	var i%;
+	GetDataParameters();
+	DlgCreate("Data Storage Parameters", 25, 10, 50);
+	DlgText("Data root path: " + dataPathRoot$, 0, 1);
+	dataDataSetTextItem% := DlgText("Data set name: " + dataDataSet$, 0, 2);
+	DlgString(1, "Cell name:", 10, "", 0, 3);
+        DlgButton(2, "New Data Set", NewDataSet%);
+	i% := DlgShow(dataCellName$);
+	if (i% = 1) then
+		if Len(dataDataSet$) = 0 then
+			Message("Must specify a data set (try the button!)");
+		else
+			if Len(dataCellName$) = 0 then
+				Message("Must specify a cell name");
+			else
+				FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 0, 1);
+				SaveDataParameters();
+			endif;
+		endif;
+	endif;
+	return i%;
+end;
+
+
+func NewDataSet%()
+	var d$;
+	var i%;
+	var dirs$[100];	' if there are ever more than 100 datasets in a single day there will be trouble
+	d$ := Date$(2, 2, 3, 3, "-");
+	PrintLog("NewDataSet: date string = " + d$ + "\n");
+
+	' Change current dir to data path root, then get list of subdirs with this date string
+	PrintLog("NewDataSet: dataPathRoot$=" + dataPathRoot$ + "\n");
+	FilePathSet(dataPathRoot$, 0, 1);
+	i% := FileList(dirs$, -2, d$ + "-??");
+        PrintLog("NewDataSet: found " + str$(i%) + " dirs\n");
+
+	' form new dataset name. The first will have "-01" appended, the second "-02", etc. 
+	dataDataSet$ := Print$("%s-%02d", d$, i%+1);
+	PrintLog("NewDataSet: dataset= " + dataDataSet$ + "\n");
+	DlgValue$(dataDataSetTextItem%, "Data set name: " + dataDataSet$);
+	return 1;
+end;
+
+
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+' Data parameters END
+'
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
 
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
@@ -143,9 +234,12 @@ end;
 '
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
+
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 '
 '	Fixation Point parameters START
+'
+'	These vars and funcs control the parameters for the fixation point stored in the registry. 
 '
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
@@ -200,7 +294,7 @@ func FixationPointDialog%()
 
 	var i%;
 	GetFixationPointParameters();
-	DlgCreate("Fixation parameters: " + GetCurrentConfiguration$());
+	DlgCreate("Fixation parameters: " + GetCurrentConfiguration$(), 25, 10);
 	DlgReal(1, "Fixation X:", -20, 20);
 	DlgReal(2, "Fixation Y:", -20, 20);
 	DlgReal(3, "Fixation diam:", .1, 5);
@@ -224,6 +318,8 @@ end;
 '	Fixation Point parameters END
 '
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+
 
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
@@ -299,7 +395,7 @@ func FixationScriptDialog%()
 			ibcl% := i%;
 		endif
 	next;
-	DlgCreate("Fixation Training Parameters");
+	DlgCreate("Fixation Training Parameters", 25, 10);
 	DlgReal(1, "Fixation duration(s):", .01, 10);
 	DlgReal(2, "Acquisition time(s):", .01, 10);
 	DlgReal(3, "Intertrial time(s):", .01, 10);
@@ -343,6 +439,12 @@ proc GetDailyTotals()
 	Profile(key$, "TotalDate", "", TotalDate$);
 	Profile(key$, "TotalTrials", 0, TotalTrials%);
 	Profile(key$, "TotalRewards", 0, TotalRewards%);
+
+	' Get date string if needed
+	if Len(TotalDate$) = 0 then
+		TotalDate$ := GetDayString$();
+		SaveDailyTotals();
+	endif
 end;
 
 proc SaveDailyTotals()
@@ -419,7 +521,21 @@ GetDailyTotals();
 GetDAQParameters();
 GetFixationPointParameters();
 GetFixationScriptParameters();
+GetDataParameters();
 
+
+' Check for valid data file path
+if Len(dataDataSet$) = 0 then
+	Message("No data set is selected! Edit Data parameters...");
+	' Might be nice to open the dialog here....
+	halt;
+else 
+	' Set path for new data files
+	FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 1);
+	SampleAutoName$(dataCellName$ + "_fix_000");
+	SampleAutoFile(1);
+	PrintLog("AutoFile status " + str$(SampleAutoFile()) + "\n");
+endif
 
 
 
@@ -440,146 +556,38 @@ InitializeToolbar();
 
 
 
-''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-func Start%()
-var CommandLine$;
-var FixationPoint$;
-var Extras$;
-var Distractors$:="";
-
-GetFixationScriptParameters();
-
-' Use distractors? 
-if fixStimulusFlag% = 1 then
-	Extras$ := GetGratingParameters$("Stimulus");
-	if Len(Extras$) = 0 then
-		Message("Warning! Use stimulus flag is set, but stimulus grating is not configured!");
-	else
-		Distractors$ += " -g " + Extras$;
-	endif
-endif
-
-if fixDistractor1Flag% = 1 then
-	Extras$ := GetGratingParameters$("Distractor1");
-	if Len(Extras$) = 0 then
-		Message("Warning! Use distractor 1 flag is set, but distractor 1 grating is not configured!");
-	else
-		Distractors$ += " -g " + Extras$;
-	endif
-endif
-
-if fixDistractor2Flag% = 1 then
-	Extras$ := GetGratingParameters$("Distractor2");
-	if Len(Extras$) = 0 then
-		Message("Warning! Use distractor 2 flag is set, but distractor 2 grating is not configured!");
-	else
-		Distractors$ += " -g " + Extras$;
-	endif
-endif
-
-if fixDistractor3Flag% = 1 then
-	Extras$ := GetGratingParameters$("Distractor3");
-	if Len(Extras$) = 0 then
-		Message("Warning! Use distractor 3 flag is set, but distractor 3 grating is not configured!");
-	else
-		Distractors$ += " -g " + Extras$;
-	endif
-endif
-
-if fixDistractor4Flag% = 1 then
-	Extras$ := GetGratingParameters$("Distractor4");
-	if Len(Extras$) = 0 then
-		Message("Warning! Use distractor 4 flag is set, but distractor 4 grating is not configured!");
-	else
-		Distractors$ += " -g " + Extras$;
-	endif
-endif
-
-Extras$ := " -b " + fixBackgroundColor$ + " -d " + DistanceToScreenMM$;
-
-CommandLine$ := bin$ + "\\Fixation " + FixationArg$ + Extras$ + Distractors$;
-
-'CommandLine$ :=bin$ + "\\dFixation " + FixationPoint$ + Distractors$ + Extras$;
-
-'Begin the stimulus program. It will take a few seconds for the VSG to initialize.
-PrintLog(CommandLine$+"\n");
-StimHandle% := ProgRun(CommandLine$,1);
-if StimHandle% <0 then Message("Could not start stimulus."); halt; endif
-Yield(5);	'Wait a few seconds to make sure the VSG has time to initialize.
-SampleStart(0); 'Start sampling
-
-ToolbarSet(0,"",IdleProcessing%);	'Enable the IdleProcessing function
-ToolbarEnable(2,1);
-ToolbarEnable(1,0);
-View(DataWindow%);
-Yield(.1);
-return 1;
-end;
-
-
-''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-func Stop%()
-SampleKey("Q");
-Yield(.1);
-SampleStop();
-ProgKill(StimHandle%);
-ProgRun(bin$ + "\\ClearTrigger",0);
-end;
-
-
-
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-func PauseStimuli%();
-Pause% :=1;
-ToolbarEnable(4,0);
-ToolbarEnable(5,1);
-return 1;
-end
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-func ResumeStimuli%();
-Pause% :=0;
-ToolbarEnable(4,1);
-ToolbarEnable(5,0);
-return 1;
-end
-
-
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-func InFixationWindow%(EyePosX,EyePosY)
-	'Determine if the eye position is within the fixation window
-	if (Pow(EyePosX-FixationX,2) + Pow(EyePosY-FixationY,2)) <= Pow(WindowRadius,2) then return 1; else return 0; endif
-end;
 
 
 
 
-
-
-''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-func Reward%()
-	var i;
-	for i:=1 to JuicePerReward% do Yield(.05); SampleKey("J"); next
-	return 1;
-end;
-
-
-
-
-
+const stateStartTrial%		:= 0;
+const stateWaitForStim%		:= 1;
+const stateWaitForAcquisition%	:= 2;
+const stateHoldFixation%	:= 3;
+const stateSuccess%		:= 4;
+const stateFailure%		:= 5;
+const stateStimOff%		:= 6;
+const stateWaitForBlank%	:= 7;
+const stateCheckTrial%		:= 8;
+const stateInterval%		:= 9;
+const stateDone%		:= 10;
 
 var tNow:=0;		' latest time for which there are values recorded. Used in IdleProcessing
 var tLast:=-1;		' last time we checked for a trigger. 
 var xEye, yEye;		' eye positions
 var tLastUpdate:=-1;	' last time view was updated
-var iState%:=0;		' present state
+var iState%:=stateStartTrial%;		' present state
 var vTrigger;		' set by NextTime to indicate trigger transition
 var tStateStart:=-1;	' time that present state started. Used to measure wait time, fixation time, etc. 
 var tLastTrigger:=-1;	' last trigger time. New triggers have to be greater than this
 var tTrigger:=-1;	' temp var for newly discovered trigger times
+var nTrialsStarted%:=0;
+var nTrialsSuccess%:=0;
+var nTrialsFail%:=0;
 
 ' Run real time analysis here. 
 func IdleProcessing%()
-
+	var iStatus% := 1;	' this is return value. value of 1 (0) continues (stops) processing
 	tNow := MaxTime();
 
 	xEye := ChanMeasure(XChannel%,2,tNow-.001,tNow-.006)*DegreesPerVoltX;
@@ -593,17 +601,19 @@ func IdleProcessing%()
 
 	' What state are we in? 
 	docase 
-		case iState% = 0 then
+		case iState% = stateStartTrial% then
 
 			' initial state on startup. 
 			' DIGOUT to present stimulus
 			' Enter state 1
 
+			nTrialsStarted% += 1;
 			SampleKey("H");
-			iState% := 1;
+			iState% := stateWaitForStim%;
 '			PrintLog("State 0 - Start new trial - stimulus trigger sent\n");
+			UpdateToolbarText();
 
-		case iState% = 1 then
+		case iState% = stateWaitForStim% then
 	
 			' Waiting for stimulus to be presented by vsg and trigger to return. 
 			' NextTime returns a non-negative value whenever there is a TRANSITION. In that case, the 
@@ -616,7 +626,7 @@ func IdleProcessing%()
 		
 					' Stimulus has been presented. Display stim location and window. Enter state 2
 					DrawStim(1);
-					iState% := 2;
+					iState% := stateWaitForAcquisition%;
 					tStateStart := tTrigger;
 					tLastTrigger := tTrigger;
 
@@ -624,7 +634,7 @@ func IdleProcessing%()
 
 			endif
 
-		case iState% = 2 then
+		case iState% = stateWaitForAcquisition% then
 
 			if tNow-tStateStart < fixAcquisitionTime then
 				
@@ -632,7 +642,7 @@ func IdleProcessing%()
 				if InFixationWindow%(xEye, yEye) > 0 then
 
 '					PrintLog("State 2 - acquired target. tNow=" + str$(tNow) + " Enter state 3\n");
-					iState% := 3;
+					iState% := stateHoldFixation%;
 					tStateStart := tNow;
 	
 				endif
@@ -641,17 +651,17 @@ func IdleProcessing%()
 
 				' Failed. Turn off stim and try again.
 '				PrintLog("State 2 - acquisition failed. Enter state 4\n");
-				iState% := 4;
+				iState% := stateFailure%;
 				tStateStart := tNow;
 
 			endif
 
-		case iState% = 3 then
+		case iState% = stateHoldFixation% then
 
 			' Waiting for fixation....
 			if InFixationWindow%(xEye, yEye) <= 0 then
 
-				iState% := 4;
+				iState% := stateFailure%;
 				tStateStart := tNow;
 
 			else
@@ -659,24 +669,37 @@ func IdleProcessing%()
 				if tNow - tStateStart >= fixFixationDuration then
 
 					' Fixation. Reward. New trial.
-					Reward%();
-					iState% := 4;
+					iState% := stateSuccess%;
 					tStateStart := tNow;
 
 				endif
 
 			endif
 
-		case iState% = 4 then
+		case iState% = stateSuccess% then
+
+			nTrialsSuccess% += 1;
+			Reward%();
+			' tally successful trials
+			iState% := stateStimOff%;
+			tStateStart := tNow;
+
+		case iState% = stateFailure% then
+
+			nTrialsFail% += 1;
+			iState% := stateStimOff%;
+			tStateStart := tNow;
+
+		case iState% = stateStimOff% then
 
 			' Turn off stimulus, enter state 5 - wait for stimulus off msg
 			DrawStim(0);
 '			PrintLog("State 4 - turning off stimulus....\n");
 			SampleKey("L");
-			iState% := 5;
+			iState% := stateWaitForBlank%;
 			tStateStart := tNow;
 
-		case iState% = 5 then
+		case iState% = stateWaitForBlank% then
 
 			' Wait for stim to be off
 			tTrigger := NextTime(TriggerChannel%,tLast,vTrigger);
@@ -686,7 +709,7 @@ func IdleProcessing%()
 		
 					' Stimulus has been turned off by vsg. Enter state 6
 '					PrintLog("State 5 - Stim OFF trigger found. Enter state 6\n");
-					iState% := 6;
+					iState% := stateCheckTrial%;
 					tStateStart := tTrigger;
 					tLastTrigger := tTrigger;
 	
@@ -694,14 +717,27 @@ func IdleProcessing%()
 
 			endif
 
-		case iState% = 6 then
+		case iState% = stateCheckTrial% then
+
+			' Check trial count
+			if nTrialsStarted% = fixNumberOfTrials% then
+				Stop%();
+				iState% := stateDone%;
+				iStatus% := 0;
+			else
+				iState% := stateInterval%;
+				tStateStart := tNow;
+			endif
+
+
+		case iState% = stateInterval% then
 
 			' Inter-trial wait time
 			if tNow - tStateStart > fixInterTrialTime then
 	
 				' Back to state 0
 '				PrintLog("State 6 - IT wait is done. Start new trial.\n");
-				iState% := 0;
+				iState% := stateStartTrial%;
 				tStateStart := tNow;
 	
 			endif
@@ -716,7 +752,16 @@ func IdleProcessing%()
 
 	tLast := tNow;
 	
-	return 1;
+	return iStatus%;
+
+end;
+
+
+proc UpdateToolbarText()
+
+	var s$;
+	s$ := Print$("Trial#/Total %d/%d Success/Failure %d/%d", nTrialsStarted%, fixNumberOfTrials%, nTrialsSuccess%, nTrialsFail%);
+	ToolbarText(s$);
 
 end;
 
@@ -839,6 +884,8 @@ proc InitializeToolbar()
 	ToolbarSet(3,"Juice",Reward%);
 	ToolbarSet(4,"Pause stimuli",PauseStimuli%);
 	ToolbarSet(5,"Resume stimuli",ResumeStimuli%);
+	ToolbarSet(6,"Exp Parameters",FixationScriptDialog%);
+	ToolbarSet(7,"Quit",Quit%);
 	ToolbarEnable(2,0);
 	ToolbarEnable(4,0);
 	ToolbarEnable(5,0);
@@ -855,4 +902,157 @@ func GetGratingParameters$(type$)
 	Profile(key$, type$, "", stmp$);
 	return stmp$;
 end;
+
+
+' Used to hard-quit from toolbar. This will close data files without saving!!! 
+' It is important that this function be disabled once sampling is started!!!
+
+func Quit%()
+	FileClose(-1,-1);
+	return 0;
+end;
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func Start%()
+var CommandLine$;
+var FixationPoint$;
+var Extras$;
+var Distractors$:="";
+
+SampleStart(0); 'Start sampling
+
+GetFixationScriptParameters();
+
+' Use distractors? 
+if fixStimulusFlag% = 1 then
+	Extras$ := GetGratingParameters$("Stimulus");
+	if Len(Extras$) = 0 then
+		Message("Warning! Use stimulus flag is set, but stimulus grating is not configured!");
+	else
+		Distractors$ += " -g " + Extras$;
+	endif
+endif
+
+if fixDistractor1Flag% = 1 then
+	Extras$ := GetGratingParameters$("Distractor1");
+	if Len(Extras$) = 0 then
+		Message("Warning! Use distractor 1 flag is set, but distractor 1 grating is not configured!");
+	else
+		Distractors$ += " -g " + Extras$;
+	endif
+endif
+
+if fixDistractor2Flag% = 1 then
+	Extras$ := GetGratingParameters$("Distractor2");
+	if Len(Extras$) = 0 then
+		Message("Warning! Use distractor 2 flag is set, but distractor 2 grating is not configured!");
+	else
+		Distractors$ += " -g " + Extras$;
+	endif
+endif
+
+if fixDistractor3Flag% = 1 then
+	Extras$ := GetGratingParameters$("Distractor3");
+	if Len(Extras$) = 0 then
+		Message("Warning! Use distractor 3 flag is set, but distractor 3 grating is not configured!");
+	else
+		Distractors$ += " -g " + Extras$;
+	endif
+endif
+
+if fixDistractor4Flag% = 1 then
+	Extras$ := GetGratingParameters$("Distractor4");
+	if Len(Extras$) = 0 then
+		Message("Warning! Use distractor 4 flag is set, but distractor 4 grating is not configured!");
+	else
+		Distractors$ += " -g " + Extras$;
+	endif
+endif
+
+Extras$ := " -b " + fixBackgroundColor$ + " -d " + DistanceToScreenMM$;
+
+CommandLine$ := "cmd /k " + bin$ + "\\dFixation " + FixationArg$ + Extras$ + Distractors$;
+
+'CommandLine$ :=bin$ + "\\dFixation " + FixationPoint$ + Distractors$ + Extras$;
+
+'Begin the stimulus program. It will take a few seconds for the VSG to initialize.
+PrintLog(CommandLine$+"\n");
+StimHandle% := ProgRun(CommandLine$,1);
+if StimHandle% <0 then Message("Could not start stimulus."); halt; endif
+Yield(5);	'Wait a few seconds to make sure the VSG has time to initialize.
+
+ToolbarSet(0,"",IdleProcessing%);	'Enable the IdleProcessing function
+ToolbarEnable(2,1);
+ToolbarEnable(1,0);
+ToolbarEnable(6,0);
+ToolbarEnable(7,0);
+View(DataWindow%);
+Yield(.1);
+return 1;
+end;
+
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func Stop%()
+
+	' Disable idle process func
+	ToolbarSet(0,"");
+
+	' Tell stim app to shut down
+	SampleKey("Q");
+	Yield(.1);
+	SampleStop();
+	ProgKill(StimHandle%);
+	ProgRun(bin$ + "\\ClearTrigger",0);
+
+	' Increment daily totals and save then
+	TotalTrials% += nTrialsStarted%;
+	TotalRewards% += nTrialsSuccess%;
+	SaveDailyTotals();
+
+	' Save data file
+	View(DataWindow%);
+	if FileSave() <> 0 then
+		Message("WARNING! Data file not saved!!!");
+	endif
+
+end;
+
+
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func PauseStimuli%();
+Pause% :=1;
+ToolbarEnable(4,0);
+ToolbarEnable(5,1);
+return 1;
+end
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func ResumeStimuli%();
+Pause% :=0;
+ToolbarEnable(4,1);
+ToolbarEnable(5,0);
+return 1;
+end
+
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func InFixationWindow%(EyePosX,EyePosY)
+	'Determine if the eye position is within the fixation window
+	if (Pow(EyePosX-FixationX,2) + Pow(EyePosY-FixationY,2)) <= Pow(WindowRadius,2) then return 1; else return 0; endif
+end;
+
+
+
+
+
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func Reward%()
+	var i;
+	for i:=1 to JuicePerReward% do Yield(.05); SampleKey("J"); next
+	return 1;
+end;
+
+
 

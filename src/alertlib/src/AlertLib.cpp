@@ -226,7 +226,7 @@ void alert::ARObject::init(int numlevels)
 	PIXEL_LEVEL level;
 	if (numlevels>1)
 	{
-		LevelManager::instance().request_range(2, level);
+		LevelManager::instance().request_range(numlevels, level);
 		init(level, numlevels);
 	}
 	else if (numlevels==1)

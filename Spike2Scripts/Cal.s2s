@@ -1,4 +1,8 @@
 ' $Log: not supported by cvs2svn $
+' Revision 1.3  2005/01/05 02:51:21  dan
+' Add option to enter absolute degrees instead of percent coverage. Calibration
+' dots will be displaced a specified number of degrees in x and/or y.
+'
 ' Revision 1.2  2004/10/01 20:06:10  dan
 ' Modified directory locations for executables (../bin) and sequencer files (script dir)
 '
@@ -549,7 +553,7 @@ proc InitParameters()
 '	DistanceToScreen := val(Dist$);
 	Profile("AlertRig\\CurrentExperiment","DistanceToScreen",850,Dist%);
 	DistanceToScreen := Dist%;
-	PrintLog("Screen dist is " + str$(DistanceToScreen) + "\n");
+	PrintLog("Screen dist is " + str$(DistanceToScreen) + " (" + str$(Dist%) + ")\n");
 
 	Profile("AlertRig", "ScreenWidthMM", 428, Dist%);
 	ScreenWidthMM := Dist%;
