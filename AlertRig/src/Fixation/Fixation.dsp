@@ -66,7 +66,7 @@ LINK32=link.exe
 # PROP Ignore_Export_Lib 0
 # PROP Target_Dir ""
 # ADD BASE CPP /nologo /W3 /Gm /GX /ZI /Od /D "WIN32" /D "_DEBUG" /D "_CONSOLE" /D "_MBCS" /YX /FD /GZ /c
-# ADD CPP /nologo /MDd /W3 /Gm /GX /ZI /Od /I "C:\Program Files\Cambridge Research Systems\VSGV6\Windows\Win32\Msc\INCLUDE" /I "..\..\..\util\include" /I "..\alertlib\include" /D "WIN32" /D "_DEBUG" /D "_CONSOLE" /D "_MBCS" /YX /FD /GZ /c
+# ADD CPP /nologo /MDd /W3 /Gm /GX /ZI /Od /I "C:\Program Files\Cambridge Research Systems\VSGV6\Windows\Win32\Msc\INCLUDE" /I "..\alertlib\include" /D "WIN32" /D "_DEBUG" /D "_CONSOLE" /D "_MBCS" /YX /FD /GZ /c
 # ADD BASE RSC /l 0x409 /d "_DEBUG"
 # ADD RSC /l 0x409 /d "_DEBUG"
 BSC32=bscmake.exe
@@ -89,10 +89,6 @@ LINK32=link.exe
 
 SOURCE=.\fixation.cpp
 # End Source File
-# Begin Source File
-
-SOURCE=..\alertlib\src\getopt.c
-# End Source File
 # End Group
 # Begin Group "Header Files"
 
@@ -100,10 +96,6 @@ SOURCE=..\alertlib\src\getopt.c
 # Begin Source File
 
 SOURCE=.\fixation.h
-# End Source File
-# Begin Source File
-
-SOURCE=..\alertlib\include\getopt.h
 # End Source File
 # End Group
 # Begin Group "Resource Files"

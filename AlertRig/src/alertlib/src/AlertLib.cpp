@@ -9,76 +9,22 @@
 
 using namespace std;
 
-#pragma warning(disable:4786)
 
-
-std::ostream& operator<<(std::ostream& out, const AlertFixationPoint& afp)
+std::ostream& operator<<(std::ostream& out, const alert::ARFixationPointSpec& arfps)
 {
-	out << "(x,y): (" << afp.x << ", " << afp.y << ") diameter: " << afp.d << " color: " << afp.color;
+	out << "(x,y): (" << arfps.x << ", " << arfps.y << ") diameter: " << arfps.d << " color: " << arfps.color;
 	return out;
 }
 
-std::ostream& operator<<(std::ostream& out, const AlertGrating& ag)
+std::ostream& operator<<(std::ostream& out, const alert::ARGratingSpec& args)
 {
-	out << "(x,y): (" << ag.x << ", " << ag.y << ") (w,h): (" << ag.w << ", " << ag.h << ") con%: " << ag.contrast << " sf: " << ag.sf << " tf: " << ag.tf << " orient: " << ag.orientation << " cv: " << ag.cv << " patt: " << ag.pattern << " aper: " << ag.aperture;
-	return out;
-}
-
-std::ostream& operator<<(std::ostream& out, const COLOR_TYPE& c)
-{
-	switch(c)
-	{
-	case black: out << "black"; break;
-	case white: out << "white"; break;
-	case red:	out << "red";	break;
-	case green:	out << "green";	break;
-	case blue:	out << "blue";	break;
-	case gray:	out << "gray";	break;
-	default:	out << "unknown"; break;
-	}
-	return out;
-}
-
-
-std::ostream& operator<<(std::ostream& out, const COLOR_VECTOR_TYPE& v)
-{
-	switch(v)
-	{
-	case b_w:	out << "black/white";	break;
-	case l_cone:out << "l-cone";		break;
-	case m_cone:out << "m-cone";		break;
-	case s_cone:out << "s-cone";		break;
-	default:	out << "unknown";		break;
-	}
-	return out;
-}
-
-std::ostream& operator<<(std::ostream& out, const APERTURE_TYPE& a)
-{
-	switch(a)
-	{
-	case rectangle:	out << "rectangle";	break;
-	case ellipse:	out << "ellipse";	break;
-	default:		out << "unknown";	break;
-	}
-	return out;
-}
-
-std::ostream& operator<<(std::ostream& out, const PATTERN_TYPE& p)
-{
-	switch(p)
-	{
-	case sinewave:		out << "sine";		break;
-	case squarewave:	out << "square";	break;
-	default:			out << "unknown";	break;
-	}
+	out << "(x,y): (" << args.x << ", " << args.y << ") (w,h): (" << args.w << ", " << args.h << ") con%: " << args.contrast << " sf: " << args.sf << " tf: " << args.tf << " orient: " << args.orientation << " cv: " << args.cv << " patt: " << args.pattern << " aper: " << args.aperture;
 	return out;
 }
 
 
 
-
-int parse_fixation_point(const std::string& s, AlertFixationPoint& afp)
+int parse_fixation_point(const std::string& s, alert::ARFixationPointSpec& afp)
 {
 	int status=0;
 	vector<string> tokens;
@@ -109,9 +55,6 @@ int parse_fixation_point(const std::string& s, AlertFixationPoint& afp)
 		if (!iss) 
 		{
 			cerr << "bad y: " << tokens[1] << endl;
-			if (iss.fail()) cerr << "fail" << endl;
-			if (iss.eof()) cerr << "eof" << endl;
-			if (iss.bad()) cerr << "bad" << endl;
 			status=1;
 		}
 		iss.str(tokens[2]);
@@ -142,8 +85,7 @@ int parse_fixation_point(const std::string& s, AlertFixationPoint& afp)
 }
 
 
-
-int parse_grating(const std::string& s, AlertGrating& ag)
+int parse_grating(const std::string& s, alert::ARGratingSpec& ag)
 {
 	int status=0;
 	vector<string> tokens;
@@ -268,6 +210,124 @@ int parse_grating(const std::string& s, AlertGrating& ag)
 }
 
 
+
+int alert::ARFixationPointSpec::draw()
+{
+	vsgDrawOval(x, y, d, d);
+	return 0;
+}
+
+
+int alert::ARGratingSpec::draw()
+{
+	int status=0;
+	VSGTRIVAL from, to;
+
+	vsgObjSetDefaults();
+
+	// We assume that the handle is created and selected. In order to make this grating appear, you still must
+	// assign pixel levels (vsgObjSetPixels). Note also that the contrast is initially set to 100% by the call to 
+	// vsgObjSetDefaults().
+
+	// if ellipse, draw an ellipse on level 0 for TRANSONLOWER
+	if (this->aperture == ellipse)
+	{
+		vsgSetPen1(0);
+		vsgSetDrawMode(vsgCENTREXY);
+		vsgDrawOval(x, y, w, h);
+	}
+
+	// Set spatial waveform
+	if (this->pattern == sinewave)
+	{
+		vsgObjTableSinWave(vsgSWTABLE);
+	}
+	else
+	{	
+		// Set up standard 50:50 square wave
+		vsgObjTableSquareWave(vsgSWTABLE, vsgObjGetTableSize(vsgSWTABLE)*0.25, vsgObjGetTableSize(vsgSWTABLE)*0.75);
+	}
+
+	// set temporal freq
+	vsgObjSetDriftVelocity(tf);
+
+	// set color vector
+	if (get_colorvector(this->cv, from, to))
+	{
+		cerr << "Cannot get color vector for type " << this->cv << endl;
+	}
+	vsgObjSetColourVector(&from, &to, vsgBIPOLAR);
+
+	// Now draw
+	if (this->aperture == ellipse)
+	{
+		vsgSetDrawMode(vsgTRANSONLOWER+vsgCENTREXY);
+		vsgDrawGrating(this->x, this->y, this->w, this->h, this->orientation, this->sf);
+	}
+	else
+	{
+		vsgSetDrawMode(vsgCENTREXY);
+		vsgDrawGrating(this->x, this->y, this->w, this->h, this->orientation, this->sf);
+	}
+
+	return 0;
+}
+
+
+
+
+
+std::ostream& operator<<(std::ostream& out, const COLOR_TYPE& c)
+{
+	switch(c)
+	{
+	case black: out << "black"; break;
+	case white: out << "white"; break;
+	case red:	out << "red";	break;
+	case green:	out << "green";	break;
+	case blue:	out << "blue";	break;
+	case gray:	out << "gray";	break;
+	default:	out << "unknown"; break;
+	}
+	return out;
+}
+
+
+std::ostream& operator<<(std::ostream& out, const COLOR_VECTOR_TYPE& v)
+{
+	switch(v)
+	{
+	case b_w:	out << "black/white";	break;
+	case l_cone:out << "l-cone";		break;
+	case m_cone:out << "m-cone";		break;
+	case s_cone:out << "s-cone";		break;
+	default:	out << "unknown";		break;
+	}
+	return out;
+}
+
+std::ostream& operator<<(std::ostream& out, const APERTURE_TYPE& a)
+{
+	switch(a)
+	{
+	case rectangle:	out << "rectangle";	break;
+	case ellipse:	out << "ellipse";	break;
+	default:		out << "unknown";	break;
+	}
+	return out;
+}
+
+std::ostream& operator<<(std::ostream& out, const PATTERN_TYPE& p)
+{
+	switch(p)
+	{
+	case sinewave:		out << "sine";		break;
+	case squarewave:	out << "square";	break;
+	default:			out << "unknown";	break;
+	}
+	return out;
+}
+
 int parse_colorvector(std::string s, COLOR_VECTOR_TYPE& v)
 {
 	int status=0;
@@ -305,6 +365,52 @@ int parse_color(std::string s, COLOR_TYPE& c)
 	}
 	return status;
 }
+
+
+
+int parse_contrast_triplet(std::string s, int& i_iContrastDown, int& i_iContrastBase, int& i_iContrastUp)
+{
+	int status=0;
+	vector<string> tokens;
+	tokenize(s, tokens, ",");
+	if (tokens.size() != 3)
+	{
+		cerr << "Bad contrast triplet format: " << s << endl;
+		status=1;
+	}
+	else
+	{
+		istringstream iss;
+		iss.str(tokens[0]);
+		iss >> i_iContrastDown;
+		if (!iss) 
+		{
+			cerr << "bad ContrastDown: " << tokens[0] << endl;
+			status=1;
+		}
+		iss.str(tokens[1]);
+		iss.clear();
+		iss >> i_iContrastBase;
+		if (!iss) 
+		{
+			cerr << "bad ContrastBase: " << tokens[1] << endl;
+			status=1;
+		}
+		iss.str(tokens[2]);
+		iss.clear();
+		iss >> i_iContrastUp;
+		if (!iss)
+		{
+			cerr << "bad ContrastUp: " << tokens[2] << endl;
+			status=1;
+		}
+	}
+	return status;
+}
+
+
+
+
 
 int get_color(COLOR_TYPE& c, VSGTRIVAL& trival)
 {
@@ -453,7 +559,7 @@ void tokenize(const string& str, vector<string>& tokens, const string& delimiter
 }
 
 
-int LevelManager::request_single(PIXEL_LEVEL& level)
+int alert::LevelManager::request_single(PIXEL_LEVEL& level)
 {
 	int status=0;
 	if (m_next < 250)
@@ -464,124 +570,20 @@ int LevelManager::request_single(PIXEL_LEVEL& level)
 	return status;
 }
 
-int LevelManager::request_range(int num, PIXEL_LEVEL& first, PIXEL_LEVEL& last)
+int alert::LevelManager::request_range(int num, PIXEL_LEVEL& first)
 {
 	int status=0;
 	if (250-m_next >= num)
 	{
 		first = m_next;
-		last = m_next + num - 1;
-		m_next = last + 1;
+		m_next += num;
 	}
 	else status=1;
 	return status;
 }
 
 
-void AlertFixationPoint::draw(PIXEL_LEVEL level)
-{
-	vsgSetPen1(level);
-	vsgDrawOval(x, y, d, d);
-}
 
-void AlertGrating::draw(PIXEL_LEVEL first, PIXEL_LEVEL last)
-{
-	VSGTRIVAL from, to;
-
-
-	// create vsg object if necessary
-	if (m_handle)
-	{
-		vsgObjSelect(handle);
-	}
-	else
-	{
-		handle = vsgObjCreate();
-		m_handle = true;
-	}
-
-
-	// if ellipse, draw an ellipse on level 0 for TRANSONLOWER
-	if (this->aperture == ellipse)
-	{
-		vsgSetPen1(0);
-		vsgSetDrawMode(vsgCENTREXY);
-		vsgDrawOval(x, y, w, h);
-	}
-
-	vsgObjSetDefaults();
-	vsgObjSetPixelLevels(first, last);
-
-	// Set spatial waveform
-	if (this->pattern == sinewave)
-	{
-		vsgObjTableSinWave(vsgSWTABLE);
-	}
-	else
-	{	
-		// Set up standard 50:50 square wave
-		vsgObjTableSquareWave(vsgSWTABLE, vsgObjGetTableSize(vsgSWTABLE)*0.25, vsgObjGetTableSize(vsgSWTABLE)*0.75);
-	}
-
-	// set temporal freq
-	vsgObjSetDriftVelocity(tf);
-
-	// set color vector
-	if (get_colorvector(this->cv, from, to))
-	{
-		cerr << "Cannot get color vector for type " << this->cv << endl;
-	}
-	vsgObjSetColourVector(&from, &to, vsgBIPOLAR);
-
-	// Set contrast
-	vsgObjSetContrast(this->contrast);
-
-	// Now draw
-	if (this->aperture == ellipse)
-	{
-		vsgSetDrawMode(vsgTRANSONLOWER+vsgCENTREXY);
-		vsgSetPen1(first);
-		vsgSetPen2(last);
-		vsgDrawGrating(this->x, this->y, this->w, this->h, this->orientation, this->sf);
-	}
-	else
-	{
-		vsgSetDrawMode(vsgCENTREXY);
-		vsgSetPen1(first);
-		vsgSetPen2(last);
-		vsgDrawGrating(this->x, this->y, this->w, this->h, this->orientation, this->sf);
-	}
-	return;
-}
-
-
-bool Trigger::checkAscii(std::string input)
-{
-	return input == m_key;
-}
-
-bool Trigger::checkBinary(int input)
-{
-	bool bValue = false;
-	int current = input&m_in_mask;
-	if (current != m_in_last && current == m_in_val)
-	{
-		bValue = true;
-	}
-	m_in_last = current;
-	return bValue;
-}
-
-void Trigger::execute(int& output)
-{
-	// Set trigger marker if required
-	if (m_out_val > 0)
-	{
-		output = m_out_val | (output&(~m_out_mask));
-	}
-
-	return;
-}
 
 
 int init_vsg(int screenDistanceMM, COLOR_TYPE i_background)
