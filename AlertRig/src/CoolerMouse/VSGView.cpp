@@ -37,8 +37,10 @@ END_MESSAGE_MAP()
 
 void CVSGView::OnDraw(CDC* pDC)
 {
-	CDocument* pDoc = GetDocument();
-	// TODO: add draw code here
+	theApp.getVSG()->update();
+
+	// draw icon/position of stim and f.p.
+
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -61,10 +63,25 @@ void CVSGView::Dump(CDumpContext& dc) const
 
 void CVSGView::OnMouseMove(UINT nFlags, CPoint point) 
 {
-	// TODO: Add your message handler code here and/or call default
-	theApp.getVSG()->stim().x = point.x;
-	theApp.getVSG()->stim().y = point.y;
-	theApp.getDlg()->GetVSGParameters();
+	// save point for drawing
+	m_next = point;
+
+	// Convert 'point' to angular coords. 
+	// dx and dy are the position of the cursor, as a fraction of the total view width/height, in the
+	// view window. 
+
+	CRect rect;
+	GetClientRect(&rect);
+	double dx = (double)point.x/(double)rect.Width();
+	double dy = (double)point.y/(double)rect.Height();
+	
+	// Now Convert to degrees on the VSG	
+	double x, y;
+	x = (dx-0.5)*theApp.getVSG()->getVSGWidthDegrees();
+	y = (dy-0.5)*theApp.getVSG()->getVSGHeightDegrees();
+	theApp.getVSG()->setStimXY(x, y);
+
+	Invalidate();
 
 	CView::OnMouseMove(nFlags, point);
 }
