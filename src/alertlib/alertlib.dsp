@@ -87,34 +87,13 @@ LIB32=link.exe -lib
 
 SOURCE=.\src\AlertLib.cpp
 # End Source File
-# Begin Source File
-
-SOURCE=.\src\helper.cpp
-
-!IF  "$(CFG)" == "alertlib - Win32 Release"
-
-!ELSEIF  "$(CFG)" == "alertlib - Win32 Debug"
-
-# PROP Exclude_From_Build 1
-
-!ENDIF 
-
-# End Source File
 # End Group
 # Begin Group "Header Files"
 
 # PROP Default_Filter "h;hpp;hxx;hm;inl"
 # Begin Source File
 
-SOURCE=.\include\AlertColorSpec.h
-# End Source File
-# Begin Source File
-
 SOURCE=.\include\Alertlib.h
-# End Source File
-# Begin Source File
-
-SOURCE=.\include\helper.h
 # End Source File
 # End Group
 # End Target
