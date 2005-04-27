@@ -22,6 +22,8 @@ public:
 	void update();
 	void updateApertureProperties();
 	void updateStimProperties();
+	void setStimXY(double x, double y);	// new X,Y from view. Update dlg values and then update vsg. 
+	void setFixationXY(double x, double y);	// new X,Y from view. Update dlg values and then update vsg. 
 	COLOR_VECTOR_TYPE CCoolerMouseDlg::getDialogCV();
 	APERTURE_TYPE getDialogApertureType();
 	PATTERN_TYPE getDialogPatternType();
@@ -69,6 +71,21 @@ protected:
 	afx_msg HCURSOR OnQueryDragIcon();
 	afx_msg void OnApply();
 	afx_msg void OnKillfocusContrast();
+	afx_msg void OnKillfocusW();
+	afx_msg void OnKillfocusX();
+	afx_msg void OnKillfocusY();
+	afx_msg void OnKillfocusSpatial();
+	afx_msg void OnKillfocusTemporal();
+	afx_msg void OnKillfocusOrientation();
+	afx_msg void OnSelchangeColorvector();
+	afx_msg void OnSinewave();
+	afx_msg void OnSquarewave();
+	afx_msg void OnCircle();
+	afx_msg void OnSquare();
+	afx_msg void OnSelchangeFixationcolor();
+	afx_msg void OnKillfocusFixationdiameter();
+	afx_msg void OnKillfocusFixationx();
+	afx_msg void OnKillfocusFixationy();
 	//}}AFX_MSG
 	DECLARE_MESSAGE_MAP()
 };

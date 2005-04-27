@@ -117,6 +117,9 @@ BOOL CCoolerMouseApp::InitInstance()
 
 	// Since the dialog has been closed, return FALSE so that we exit the
 	//  application, rather than start the application's message pump.
+
+	delete m_pvsg;
+
 	return FALSE;
 }
 
@@ -153,7 +156,7 @@ bool CCoolerMouseApp::GetRegConfiguration()
 				m_bHaveConfig = true;
 
 				// Display the current start page value
-				::MessageBox(NULL, m_szConfig.c_str(), "CurrentConfiguration", MB_OK);
+				//::MessageBox(NULL, m_szConfig.c_str(), "CurrentConfiguration", MB_OK);
 
 				b = true;
 			}
@@ -297,9 +300,10 @@ bool CCoolerMouseApp::GetRegFixpt(std::string& s)
 
 			if (b)
 			{
-				// put it all together.
+				// put it all together. Note that the color index stored refers to that used
+				// in spike2. We add 3 to it to get the alertlib's index. 
 				std::ostringstream oss;
-				oss << szX << "," << szY << "," << szD << "," << (COLOR_TYPE)icolor;
+				oss << szX << "," << szY << "," << szD << "," << (COLOR_TYPE)(icolor+3);
 				s = oss.str();
 			}
 
@@ -314,6 +318,121 @@ bool CCoolerMouseApp::GetRegFixpt(std::string& s)
 	}
 	return b;
 }
+
+
+
+bool CCoolerMouseApp::SaveRegFixpt()
+{
+	bool b = true;			// turn false on error --diff't logic than other GetReg* funcs
+	std::string szKey;
+	std::string szX, szY, szD;
+	int icolor;
+	std::ostringstream oss;
+
+	oss.str("");
+	oss << getVSG()->fixpt().x;
+	szX = oss.str();
+	oss.str("");
+	oss << getVSG()->fixpt().y;
+	szY = oss.str();
+	oss.str("");
+	oss << getVSG()->fixpt().d;
+	szD = oss.str();
+	icolor = getVSG()->fixpt().color;
+
+	if (GetRegConfiguration())
+	{
+		CRegistry regMyReg( NULL );  // No special flags
+
+	    /* Now attempt to open the key Software/CED/Spike2/AlertRig/. */
+		szKey = "Software\\CED\\Spike2\\AlertRig\\" + m_szConfig + "\\FixationPoint";
+		if (!CRegistry::KeyExists(szKey.c_str(), HKEY_CURRENT_USER)) 
+		{
+			std::string sztemp = "AlertRig registry key " + szKey + " not found!!!!";
+			::MessageBox(NULL, sztemp.c_str(), "Error", MB_OK | MB_ICONHAND);
+			b = false;
+		}
+		else
+		{
+			// There are 4 values to get: FixationX,FixationY,FixationDiameter,color
+			regMyReg.Open(szKey.c_str(), HKEY_CURRENT_USER);
+			if (b)
+			{
+				if (!regMyReg["FixationX"].Exists())
+				{
+					std::string sztemp = "AlertRig registry value FixationX for key " + szKey + " not found!!!!";
+					::MessageBox(NULL, sztemp.c_str(), "Error", MB_OK | MB_ICONHAND);
+					b = false;
+				}
+				else
+				{
+					// save current fixpt x
+					regMyReg["FixationX"] = szX;
+				}
+			}
+
+			if (b)
+			{
+				if (!regMyReg["FixationY"].Exists())
+				{
+					std::string sztemp = "AlertRig registry value FixationY for key " + szKey + " not found!!!!";
+					::MessageBox(NULL, sztemp.c_str(), "Error", MB_OK | MB_ICONHAND);
+					b = false;
+				}
+				else
+				{
+					// save current fixpt y
+					regMyReg["FixationY"] = szY;
+				}
+			}
+			
+			if (b)
+			{
+				if (!regMyReg["FixationDiameter"].Exists())
+				{
+					std::string sztemp = "AlertRig registry value FixationDiameter for key " + szKey + " not found!!!!";
+					::MessageBox(NULL, sztemp.c_str(), "Error", MB_OK | MB_ICONHAND);
+					b = false;
+				}
+				else
+				{
+					// save current diam
+					regMyReg["FixationDiameter"] = szD;
+				}
+			}
+
+			if (b)
+			{
+				if (!regMyReg["FixationColor"].Exists())
+				{
+					std::string sztemp = "AlertRig registry value FixationColor for key " + szKey + " not found!!!!";
+					::MessageBox(NULL, sztemp.c_str(), "Error", MB_OK | MB_ICONHAND);
+					b = false;
+				}
+				else
+				{
+					// Get current configuration
+					regMyReg["FixationColor"] = (int)(icolor-3);
+				}
+			}
+			
+
+			// Close the open key
+			regMyReg.Close();
+		}
+	}
+	else 
+	{
+		::MessageBox(NULL, "GetRegFixpt - must call GetRegConfig first!", "Error", MB_OK | MB_ICONHAND);
+		b = false;
+	}
+	return b;
+}
+
+
+
+
+
 
 bool CCoolerMouseApp::GetRegStimulus(std::string& s)
 {
@@ -342,6 +461,47 @@ bool CCoolerMouseApp::GetRegStimulus(std::string& s)
 			{
 				// Get current configuration
 				s = (std::string)regMyReg["Stimulus"];
+				b = true;
+			}
+			// Close the open key
+			regMyReg.Close();
+		}
+	}
+	else 
+	{
+		::MessageBox(NULL, "GetRegStimulus - must call GetRegConfig first!", "Error", MB_OK | MB_ICONHAND);
+	}
+
+	return b;
+}
+
+bool CCoolerMouseApp::SaveRegStimulus(std::string s)
+{
+	bool b = false;
+	std::string szKey;
+	if (GetRegConfiguration())
+	{
+		CRegistry regMyReg( NULL );  // No special flags
+
+	    /* Now attempt to open the key Software/CED/Spike2/AlertRig/. */
+		szKey = "Software\\CED\\Spike2\\AlertRig\\" + m_szConfig + "\\Gratings";
+		if (!CRegistry::KeyExists(szKey.c_str(), HKEY_CURRENT_USER)) 
+		{
+			std::string sztemp = "AlertRig registry key " + szKey + " not found!!!!";
+			::MessageBox(NULL, sztemp.c_str(), "Error", MB_OK | MB_ICONHAND);
+		}
+		else
+		{
+			regMyReg.Open(szKey.c_str(), HKEY_CURRENT_USER);
+			if (!regMyReg["Stimulus"].Exists())
+			{
+				std::string sztemp = "AlertRig registry value Stimulus for key " + szKey + " not found!!!!";
+				::MessageBox(NULL, sztemp.c_str(), "Error", MB_OK | MB_ICONHAND);
+			}
+			else
+			{
+				// Get current configuration
+				regMyReg["Stimulus"] = s;
 				b = true;
 			}
 			// Close the open key

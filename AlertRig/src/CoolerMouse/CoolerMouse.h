@@ -31,6 +31,13 @@ public:
 	VSGHelper *getVSG() { return m_pvsg; };
 	CCoolerMouseDlg *getDlg() { return m_pdlg; };
 
+	bool GetRegConfiguration();
+	bool GetRegScreenDistance(int& dist);
+	bool GetRegFixpt(std::string& s);
+	bool SaveRegFixpt();
+	bool GetRegStimulus(std::string& s);
+	bool SaveRegStimulus(std::string s);
+
 // Overrides
 	// ClassWizard generated virtual function overrides
 	//{{AFX_VIRTUAL(CCoolerMouseApp)
@@ -51,11 +58,6 @@ private:
 	VSGHelper *m_pvsg;
 	std::string m_szConfig;
 	bool m_bHaveConfig;
-
-	bool GetRegConfiguration();
-	bool GetRegScreenDistance(int& dist);
-	bool GetRegFixpt(std::string& s);
-	bool GetRegStimulus(std::string& s);
 
 
 };
