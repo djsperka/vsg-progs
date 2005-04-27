@@ -115,6 +115,21 @@ BEGIN_MESSAGE_MAP(CCoolerMouseDlg, CDialog)
 	ON_WM_QUERYDRAGICON()
 	ON_BN_CLICKED(IDC_APPLY, OnApply)
 	ON_EN_KILLFOCUS(IDC_CONTRAST, OnKillfocusContrast)
+	ON_EN_KILLFOCUS(IDC_W, OnKillfocusW)
+	ON_EN_KILLFOCUS(IDC_X, OnKillfocusX)
+	ON_EN_KILLFOCUS(IDC_Y, OnKillfocusY)
+	ON_EN_KILLFOCUS(IDC_SPATIAL, OnKillfocusSpatial)
+	ON_EN_KILLFOCUS(IDC_TEMPORAL, OnKillfocusTemporal)
+	ON_EN_KILLFOCUS(IDC_ORIENTATION, OnKillfocusOrientation)
+	ON_CBN_SELCHANGE(IDC_COLORVECTOR, OnSelchangeColorvector)
+	ON_BN_CLICKED(IDC_SINEWAVE, OnSinewave)
+	ON_BN_CLICKED(IDC_SQUAREWAVE, OnSquarewave)
+	ON_BN_CLICKED(IDC_CIRCLE, OnCircle)
+	ON_BN_CLICKED(IDC_SQUARE, OnSquare)
+	ON_CBN_SELCHANGE(IDC_FIXATIONCOLOR, OnSelchangeFixationcolor)
+	ON_EN_KILLFOCUS(IDC_FIXATIONDIAMETER, OnKillfocusFixationdiameter)
+	ON_EN_KILLFOCUS(IDC_FIXATIONX, OnKillfocusFixationx)
+	ON_EN_KILLFOCUS(IDC_FIXATIONY, OnKillfocusFixationy)
 	//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
@@ -149,12 +164,13 @@ BOOL CCoolerMouseDlg::OnInitDialog()
 	SetIcon(m_hIcon, FALSE);		// Set small icon
 	
 	// TODO: Add extra initialization here
-	m_cFrame.Create(this, CRect(25, 5, 440, 330), 0);
-	m_cFrame.ShowWindow(SW_SHOW);
 
 
 	// Fetch dialog values from VSG helper. 
 	GetVSGParameters();
+
+	m_cFrame.Create(this, CRect(25, 5, 440, 330), 0);
+	m_cFrame.ShowWindow(SW_SHOW);
 
 
 	return TRUE;  // return TRUE  unless you set the focus to a control
@@ -274,11 +290,12 @@ HCURSOR CCoolerMouseDlg::OnQueryDragIcon()
 void CCoolerMouseDlg::OnApply() 
 {
 	// TODO: Add your control notification handler code here
-	
+	theApp.SaveRegStimulus(theApp.getVSG()->getStimString());	
+	theApp.SaveRegFixpt();
 }
 
 
-
+#if 0
 // Called when something in the aperture properties has changed - x, y, diam, aperture type
 void CCoolerMouseDlg::updateApertureProperties()
 {
@@ -292,7 +309,7 @@ void CCoolerMouseDlg::updateStimProperties()
 	VSGHelper* vsg = theApp.getVSG();
 	vsg->setStimProperties(m_dStimSF, m_dStimTF, m_iStimContrast, m_dStimOrientation, getDialogPatternType(), getDialogCV());
 }
-
+#endif
 
 void CCoolerMouseDlg::update()
 {
@@ -387,5 +404,154 @@ COLOR_TYPE CCoolerMouseDlg::getDialogFixationColor()
 void CCoolerMouseDlg::OnKillfocusContrast() 
 {
 	// TODO: Add your control notification handler code here
-	updateStimProperties();		
+//	updateStimProperties();		
+	VSGHelper* vsg = theApp.getVSG();
+	UpdateData(TRUE);
+	vsg->setStimContrast(m_iStimContrast);
+}
+
+void CCoolerMouseDlg::OnKillfocusW() 
+{
+	// TODO: Add your control notification handler code here
+	VSGHelper* vsg = theApp.getVSG();
+	UpdateData(TRUE);
+	vsg->setStimSize(m_dStimDiameter);
+}
+
+void CCoolerMouseDlg::setStimXY(double x, double y)
+{
+	m_dStimX = x;
+	m_dStimY = y;
+	UpdateData(FALSE);
+	theApp.getVSG()->setStimXY(x, y);
+}
+
+void CCoolerMouseDlg::setFixationXY(double x, double y)
+{
+	m_dFixationX = x;
+	m_dFixationY = y;
+	UpdateData(FALSE);
+	theApp.getVSG()->setFixationPointXY(x, y);
+}
+
+
+void CCoolerMouseDlg::OnKillfocusX() 
+{
+	// TODO: Add your control notification handler code here
+	VSGHelper* vsg = theApp.getVSG();
+	UpdateData(TRUE);
+	vsg->setStimXY(m_dStimX, m_dStimY);	
+}
+
+void CCoolerMouseDlg::OnKillfocusY() 
+{
+	// TODO: Add your control notification handler code here
+	VSGHelper* vsg = theApp.getVSG();
+	UpdateData(TRUE);
+	vsg->setStimXY(m_dStimX, m_dStimY);		
+}
+
+void CCoolerMouseDlg::OnKillfocusSpatial() 
+{
+	// TODO: Add your control notification handler code here
+	VSGHelper* vsg = theApp.getVSG();
+	UpdateData(TRUE);
+	vsg->setStimSF(m_dStimSF);		
+}
+
+void CCoolerMouseDlg::OnKillfocusTemporal() 
+{
+	// TODO: Add your control notification handler code here
+	VSGHelper* vsg = theApp.getVSG();
+	UpdateData(TRUE);
+	vsg->setStimTF(m_dStimTF);	
+	
+}
+
+void CCoolerMouseDlg::OnKillfocusOrientation() 
+{
+	// TODO: Add your control notification handler code here
+	VSGHelper* vsg = theApp.getVSG();
+	UpdateData(TRUE);
+	vsg->setStimOrientation(m_dStimOrientation);	
+
+}
+
+void CCoolerMouseDlg::OnSelchangeColorvector() 
+{
+	// TODO: Add your control notification handler code here
+	VSGHelper* vsg = theApp.getVSG();
+	UpdateData(TRUE);
+
+	// The "value" from the combo box is an integer. the vsg() func below
+	// knows the values. If the contents of the combo box changes, then the vsg
+	// helper needs to change also. 
+	vsg->setStimColorVector(m_nStimColorVector);		
+}
+
+
+void CCoolerMouseDlg::OnSinewave() 
+{
+	// TODO: Add your control notification handler code here
+	VSGHelper* vsg = theApp.getVSG();
+	UpdateData(TRUE);
+	vsg->setStimPattern(m_nPattern);
+}
+
+void CCoolerMouseDlg::OnSquarewave() 
+{
+	// TODO: Add your control notification handler code here
+	VSGHelper* vsg = theApp.getVSG();
+	UpdateData(TRUE);
+	vsg->setStimPattern(m_nPattern);	
+}
+
+void CCoolerMouseDlg::OnCircle() 
+{
+	// TODO: Add your control notification handler code here
+	VSGHelper* vsg = theApp.getVSG();
+	UpdateData(TRUE);
+	vsg->setStimAperture(m_nAperture);		
+}
+
+void CCoolerMouseDlg::OnSquare() 
+{
+	// TODO: Add your control notification handler code here
+	VSGHelper* vsg = theApp.getVSG();
+	UpdateData(TRUE);
+	vsg->setStimAperture(m_nAperture);	
+}
+
+void CCoolerMouseDlg::OnSelchangeFixationcolor() 
+{
+	// TODO: Add your control notification handler code here
+	VSGHelper* vsg = theApp.getVSG();
+	UpdateData(TRUE);
+
+	vsg->setFixationColor(m_nFixationColor);			
+}
+
+void CCoolerMouseDlg::OnKillfocusFixationdiameter() 
+{
+	// TODO: Add your control notification handler code here
+	VSGHelper* vsg = theApp.getVSG();
+	UpdateData(TRUE);
+
+	vsg->setFixationDiameter(m_dFixationDiameter);			
+}
+
+void CCoolerMouseDlg::OnKillfocusFixationx() 
+{
+	// TODO: Add your control notification handler code here
+	VSGHelper* vsg = theApp.getVSG();
+	UpdateData(TRUE);
+	vsg->setFixationPointXY(m_dFixationX, m_dFixationY);	
+}
+
+void CCoolerMouseDlg::OnKillfocusFixationy() 
+{
+	// TODO: Add your control notification handler code here
+	VSGHelper* vsg = theApp.getVSG();
+	UpdateData(TRUE);
+	vsg->setFixationPointXY(m_dFixationX, m_dFixationY);	
 }

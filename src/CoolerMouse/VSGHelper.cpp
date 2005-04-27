@@ -5,7 +5,7 @@
 using namespace std;
 using namespace alert;
 
-VSGHelper::VSGHelper(bool useVSG, int distToScreen, COLOR_TYPE bg) : m_bUsingVSG(false), m_bHaveFP(false), m_bHaveStim(false), m_bDirtyStim(false), m_bDirtyAperture(false), m_iOverlayPage(0), m_iPage(0)
+VSGHelper::VSGHelper(bool useVSG, int distToScreen, COLOR_TYPE bg) : m_bUsingVSG(false), m_bHaveFP(false), m_bHaveStim(false), m_bDirtyStim(false), m_bDirtyAperture(false), m_iOverlayPage(0), m_iPage(0), m_bStimFixed(true), m_bFPFixed(true)
 {
 	m_bUsingVSG = useVSG;
 	long lScreenWidthPixels=0;
@@ -71,6 +71,7 @@ void VSGHelper::start()
 	// Now draw overlay stuff BEFORE any of the vsg object system is in use. 
 	m_fp.drawOverlay();
 	m_stim.drawOverlay();
+	m_iOverlayPage = 0;
 
 	// initialize video pages
 	if (ARvsg::instance().init_video())
@@ -88,66 +89,154 @@ void VSGHelper::start()
 
 void VSGHelper::stop() {};
 
+void VSGHelper::drawOverlay(BOOL bpresent)
+{
+//	m_iOverlayPage = 1 - m_iOverlayPage;
+	vsgSetDrawPage(vsgOVERLAYPAGE, 0, 1);
+	m_fp.drawOverlay();
+	m_stim.drawOverlay();
+	if (bpresent) vsgPresent();
+}
+
+
 void VSGHelper::setStimXY(double x, double y)
 {
 	m_stim.x = x;
 	m_stim.y = y;
-	m_bDirtyAperture = true;
+	drawOverlay(FALSE);
 }
+
+
+void VSGHelper::setStimSF(double sf)
+{
+	m_stim.sf = sf;
+	vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgNOCLEAR);
+	m_stim.draw();
+	vsgPresent();
+}
+
+
+void VSGHelper::setStimTF(double tf)
+{
+	m_stim.tf = tf;
+	vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgNOCLEAR);
+	m_stim.draw();
+	vsgPresent();
+}
+
+void VSGHelper::setStimOrientation(long orientation)
+{
+	m_stim.orientation = orientation;
+	vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgNOCLEAR);
+	m_stim.draw();
+	vsgPresent();
+}
+
+void VSGHelper::setStimContrast(int contrast)
+{
+	m_stim.contrast = contrast;
+	m_stim.select();
+	m_stim.setContrast(contrast);
+	vsgPresent();
+}
+
+void VSGHelper::setStimColorVector(int cv)
+{
+	switch(cv)
+	{
+	case 0:
+		m_stim.cv = b_w;
+		break;
+	case 1:
+		m_stim.cv = l_cone;
+		break;
+	case 2:
+		m_stim.cv = m_cone;
+		break;
+	case 3:
+		m_stim.cv = s_cone;
+		break;
+	}
+	vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgNOCLEAR);
+	m_stim.draw();
+	vsgPresent();
+
+}
+
+void VSGHelper::setStimPattern(int pattern)
+{
+	switch(pattern)
+	{
+	case 0:
+		m_stim.pattern = sinewave;
+		break;
+	case 1:
+		m_stim.pattern = squarewave;
+		break;
+	}
+	vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgNOCLEAR);
+	m_stim.draw();
+	vsgPresent();
+}
+
+void VSGHelper::setStimAperture(int aperture)
+{
+	switch(aperture)
+	{
+	case 0:
+		m_stim.aperture = ellipse;
+		break;
+	case 1:
+		m_stim.aperture = rectangle;
+		break;
+	}
+	drawOverlay(FALSE);
+
+	vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgNOCLEAR);
+	m_stim.draw();
+	vsgPresent();
+}
+
+
+void VSGHelper::setStimSize(double diameter)
+{
+	m_stim.h = m_stim.w = diameter;
+	drawOverlay(FALSE);
+	vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgNOCLEAR);
+	m_stim.draw();
+	vsgPresent();
+}
+
 
 void VSGHelper::setFixationPointXY(double x, double y)
 {
 	m_fp.x = x;
 	m_fp.y = y;
+	drawOverlay(TRUE);
 }
 
-// Set values in stimulus, set dirty flag
-void VSGHelper::setApertureProperties(double x, double y, double diam, APERTURE_TYPE a)
+
+void VSGHelper::setFixationColor(int color)
 {
-	m_stim.x = x;
-	m_stim.y = y;
-	m_stim.w = m_stim.h = diam;
-	m_stim.aperture = a;
-	m_bDirtyAperture = true;
+	switch(color)
+	{
+	case 0:
+		m_fp.color = red;
+		break;
+	case 1:
+		m_fp.color = green;
+		break;
+	case 2:
+		m_fp.color = blue;
+		break;
+	}
+	drawOverlay(FALSE);
 }
 
-void VSGHelper::setStimProperties(double sf, double tf, int contrast, double orient, PATTERN_TYPE p, COLOR_VECTOR_TYPE cv)
+void VSGHelper::setFixationDiameter(double diameter)
 {
-	m_stim.sf = sf;
-	m_stim.tf = tf;
-	m_stim.contrast = contrast;
-	m_stim.orientation = orient;
-	m_stim.pattern = p;
-	m_stim.cv = cv;
-	m_bDirtyStim = true;
-	update();
+	m_fp.d = diameter;
+	drawOverlay(TRUE);
 }
 
 
-
-
-void VSGHelper::update()
-{
-	// m_dirty indicates the overlay must be redrawn. That means either the stim diameter
-	// changed, stim position changed, fixation point properties changed. 
-	if (m_bDirtyAperture)
-	{
-		m_iOverlayPage = 1-m_iOverlayPage;
-		vsgSetDrawPage(vsgOVERLAYPAGE, m_iOverlayPage, 1);
-		m_stim.drawOverlay();
-	}
-
-	if (m_bDirtyStim)
-	{
-		m_iPage = 1 - m_iPage;
-		vsgSetDrawPage(vsgVIDEOPAGE, m_iPage, vsgBACKGROUND);
-		m_stim.draw();
-	}
-
-	if (m_bDirtyStim || m_bDirtyAperture)
-	{
-		vsgPresent();
-		m_bDirtyStim = false;
-		m_bDirtyAperture = false;
-	}
-}
