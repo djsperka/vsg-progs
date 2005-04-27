@@ -85,11 +85,24 @@ int alert::ARFixationPointSpec::draw()
 	return 0;
 }
 
+
+// oh-oh! The fixpt will hijack overlay palette color level 2!
 int alert::ARFixationPointSpec::drawOverlay()
 {
-	vsgSetPen1(0);	// overlay page transparent
-	vsgDrawOval(x, y, d, d);
-	return 0;
+	int status=0;
+	VSGTRIVAL c;
+	if (get_color(this->color, c))
+	{
+		cerr << "Cannot get color for fix pt: " << this->color << endl;
+		status=1;
+	}
+	else
+	{
+		vsgPaletteWriteOverlayCols((VSGLUTBUFFER *)&c, 2, 1);
+		vsgSetPen1(2);	// overlay page transparent
+		vsgDrawOval(x, y, d, d);
+	}
+	return status;
 }
 
 

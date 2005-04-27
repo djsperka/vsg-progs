@@ -21,24 +21,35 @@ public:
 	void stop();
 
 	void setStimXY(double x, double y);
-	void setApertureProperties(double x, double y, double diam, APERTURE_TYPE a);
-	void setStimProperties(double sf, double tf, int contrast, double orient, PATTERN_TYPE p, COLOR_VECTOR_TYPE cv);
+	void setStimContrast(int contrast);
+	void setStimSize(double diameter);
+	void setStimSF(double sf);
+	void setStimTF(double tf);
+	void setStimOrientation(long orientation);
+	void setStimColorVector(int cv);
+	void setStimPattern(int pattern);
+	void setStimAperture(int aperture);
 	void setFixationPointXY(double x, double y);
-
-	alert::ARContrastFixationPointSpec& fixpt() { return m_fp; };
+	void setFixationColor(int color);
+	void setFixationDiameter(double diameter);
+	alert::ARFixationPointSpec& fixpt() { return m_fp; };
 	alert::ARApertureGratingSpec& stim() { return m_stim; };
 
 	inline double getVSGWidthDegrees() { return m_dScreenWidthDegrees; };
 	inline double getVSGHeightDegrees() { return m_dScreenHeightDegrees; };
 
-	// Update dirty stuff
-	void update(); 
+	void drawOverlay(BOOL bpresent);
 
-	void setDirtyAperture() { m_bDirtyAperture = true; };
-	void setDirtyStim() { m_bDirtyStim = true; };
+	bool stimFixed() { return m_bStimFixed; };
+	bool stimFixed(bool b) { m_bStimFixed = b; return b; };
+	bool fixptFixed() { return m_bFPFixed; };
+	bool fixptFixed(bool b) { m_bFPFixed = b; return b; };
+
 private:
+	bool m_bStimFixed;
+	bool m_bFPFixed;
 	bool m_bUsingVSG;
-	alert::ARContrastFixationPointSpec m_fp;
+	alert::ARFixationPointSpec m_fp;
 	alert::ARApertureGratingSpec m_stim;
 	bool m_bHaveFP;
 	bool m_bHaveStim;

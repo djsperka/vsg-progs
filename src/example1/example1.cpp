@@ -90,6 +90,7 @@ void do_overlay()
 	COLOR_TYPE background = gray;
 	int screenDistanceMM = 555;
 	string stmp;
+	int iPage;
 
 
 	ARContrastFixationPointSpec fp;
@@ -150,6 +151,7 @@ void do_overlay()
 	// which has nothing drawn on it (enter a number 0-4). You can also change the contrast
 	// of the spot to 0 (to make it disappear) or 100(to make it reappear), provided you are 
 	// on the same page on which it is drawn. 
+	iPage = 0;
 	string s;
 	cout << "Enter page/q/c/d/e/f: ";
 	cin >> s;
@@ -165,6 +167,73 @@ void do_overlay()
 		{
 			fp.select();
 			vsgObjSetContrast(0);
+			vsgPresent();
+		}
+		else if (s == "C")
+		{
+			int cc;
+			cout << "contrast: ";
+			cin >> cc;
+			gr.contrast = cc;
+			gr.setContrast(cc);
+			vsgPresent();
+		}
+		else if (s == "D")
+		{
+			double dd;
+			cout << "diam: ";
+			cin >> dd;
+			gr.h = gr.w = dd;
+			vsgSetDrawPage(vsgOVERLAYPAGE, 0, 1);
+			gr.drawOverlay();
+			vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgNOCLEAR);
+			gr.draw();
+			vsgPresent();
+		}
+		else if (s == "V")
+		{
+			double vv;
+			cout << "drift vel: ";
+			cin >> vv;
+			gr.tf = vv;
+			vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgNOCLEAR);
+			gr.draw();
+			vsgPresent();
+		}
+		else if (s == "O")
+		{
+			double vv;
+			cout << "orientation: ";
+			cin >> vv;
+			gr.orientation = vv;
+
+			// swap pages...
+//			iPage = 1 - iPage;
+//			vsgSetDrawPage(vsgVIDEOPAGE, 1, vsgBACKGROUND);
+			gr.draw();
+			vsgPresent();
+		}
+		else if (s == "L")
+		{
+			gr.cv = l_cone;
+
+			// swap pages...
+//			iPage = 1 - iPage;
+//			vsgSetDrawPage(vsgVIDEOPAGE, 1, vsgBACKGROUND);
+			gr.draw();
+			vsgPresent();
+		}
+		else if (s == "S")
+		{
+			double ss;
+			cout << "sf: ";
+			cin >> ss;
+			gr.sf = ss;
+
+			// swap pages...
+//			iPage = 1 - iPage;
+//			vsgSetDrawPage(vsgVIDEOPAGE, 1, vsgBACKGROUND);
+			gr.draw();
 			vsgPresent();
 		}
 		else if (s=="e")

@@ -22,6 +22,8 @@ public:
 // Operations
 public:
 
+	void setStimPoint(double x, double y);
+	void setFPPoint(double x, double y);
 // Overrides
 	// ClassWizard generated virtual function overrides
 	//{{AFX_VIRTUAL(CVSGView)
@@ -33,8 +35,9 @@ public:
 
 // Implementation
 protected:
-	CPoint m_next;
 	virtual ~CVSGView();
+	void CPointToDegrees(CPoint point, double *px, double *py);
+	void DegreesToCPoint(double x, double y, CPoint *ppoint);
 #ifdef _DEBUG
 	virtual void AssertValid() const;
 	virtual void Dump(CDumpContext& dc) const;
@@ -44,6 +47,7 @@ protected:
 protected:
 	//{{AFX_MSG(CVSGView)
 	afx_msg void OnMouseMove(UINT nFlags, CPoint point);
+	afx_msg void OnLButtonDown(UINT nFlags, CPoint point);
 	//}}AFX_MSG
 	DECLARE_MESSAGE_MAP()
 };
