@@ -1,4 +1,7 @@
 ' $Log: not supported by cvs2svn $
+' Revision 1.6  2005/03/18 19:38:51  dan
+' Merged calibration functionality in to this script.
+'
 ' Revision 1.5  2005/03/11 01:13:12  dan
 ' Almost there!
 '
@@ -267,8 +270,8 @@ proc GetFixationPointParameters()
 	FixationX := val(stmp$);
 	Profile(key$, "FixationY", "0", stmp$);
 	FixationY := val(stmp$);
-
-	Profile(key$, "FixationColor", 0, iFixationColor%);
+	Profile(key$, "FixationColor", "0", stmp$);
+	iFixationColor% := val(stmp$);
 
 	FixationColorList$[0]:="red"; 
 	FixationColorList$[1]:="green"; 
@@ -288,7 +291,7 @@ proc SaveFixationPointParameters()
 	Profile(key$, "WindowRadius", str$(WindowRadius));
 	Profile(key$, "FixationX", str$(FixationX));
 	Profile(key$, "FixationY", str$(FixationY));
-	Profile(key$, "FixationColor", iFixationColor%);
+	Profile(key$, "FixationColor", str$(iFixationColor%));
 	Profile(key$, "FixationDiameter", str$(FixationDiameter));
 end;
 
