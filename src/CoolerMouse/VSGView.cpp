@@ -139,7 +139,7 @@ void CVSGView::CPointToDegrees(CPoint point, double *px, double *py)
 	
 	// Now Convert to degrees on the VSG	
 	*px = (dx-0.5)*theApp.getVSG()->getVSGWidthDegrees();
-	*py = (dy-0.5)*theApp.getVSG()->getVSGHeightDegrees();
+	*py = -1*(dy-0.5)*theApp.getVSG()->getVSGHeightDegrees();
 
 }
 
@@ -153,7 +153,7 @@ void CVSGView::DegreesToCPoint(double x, double y, CPoint *point)
 	GetClientRect(&rect);
 
 	double dx = x/theApp.getVSG()->getVSGWidthDegrees()+0.5;
-	double dy = y/theApp.getVSG()->getVSGHeightDegrees()+0.5;
+	double dy = -1*y/theApp.getVSG()->getVSGHeightDegrees()+0.5;
 
 	point->x = dx*(double)rect.Width();
 	point->y = dy*(double)rect.Height();
