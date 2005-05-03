@@ -81,7 +81,7 @@ void alert::ARObject::init(PIXEL_LEVEL first, int numlevels)
 int alert::ARFixationPointSpec::draw()
 {
 	vsgSetDrawMode(vsgCENTREXY + vsgSOLIDFILL);
-	vsgDrawOval(x, y, d, d);
+	vsgDrawOval(x, -1*y, d, d);
 	return 0;
 }
 
@@ -100,7 +100,7 @@ int alert::ARFixationPointSpec::drawOverlay()
 	{
 		vsgPaletteWriteOverlayCols((VSGLUTBUFFER *)&c, 2, 1);
 		vsgSetPen1(2);	// overlay page transparent
-		vsgDrawOval(x, y, d, d);
+		vsgDrawOval(x, -1*y, d, d);
 	}
 	return status;
 }
@@ -139,7 +139,7 @@ int alert::ARContrastFixationPointSpec::draw()
 int alert::ARContrastFixationPointSpec::drawOverlay()
 {
 	vsgSetPen1(0);
-	vsgDrawOval(x, y, d, d);
+	vsgDrawOval(x, -1*y, d, d);
 	return 0;
 }
 
@@ -176,7 +176,7 @@ int alert::ARGratingSpec::draw(bool useTransOnLower)
 			vsgSetPen1(0);
 //			vsgSetPen2(0);
 			vsgSetDrawMode(vsgCENTREXY + vsgSOLIDFILL);
-			vsgDrawOval(x, y, w, h);
+			vsgDrawOval(x, -1*y, w, h);
 		}
 	}
 
@@ -212,19 +212,19 @@ int alert::ARGratingSpec::draw(bool useTransOnLower)
 			vsgSetDrawMode(vsgCENTREXY + vsgTRANSONLOWER);
 			vsgSetPen1(getFirstLevel());
 			vsgSetPen2(getFirstLevel() + getNumLevels());
-			vsgDrawGrating(this->x, this->y, this->w, this->h, this->orientation, this->sf);
+			vsgDrawGrating(this->x, -1*this->y, this->w, this->h, this->orientation, this->sf);
 //			vsgSetDrawMode(vsgCENTREXY);
 		}
 		else
 		{
 			vsgSetDrawMode(vsgCENTREXY);
-			vsgDrawGrating(this->x, this->y, this->w, this->h, this->orientation, this->sf);
+			vsgDrawGrating(this->x, -1*this->y, this->w, this->h, this->orientation, this->sf);
 		}
 	}
 	else
 	{
 		vsgSetDrawMode(vsgCENTREXY);
-		vsgDrawGrating(this->x, this->y, this->w, this->h, this->orientation, this->sf);
+		vsgDrawGrating(this->x, -1*this->y, this->w, this->h, this->orientation, this->sf);
 	}
 
 	return 0;
@@ -237,11 +237,11 @@ int alert::ARGratingSpec::drawOverlay()
 	vsgSetDrawMode(vsgCENTREXY);
 	if (this->aperture == ellipse)
 	{
-		vsgDrawOval(x, y, w, h);
+		vsgDrawOval(x, -1*y, w, h);
 	}
 	else
 	{
-		vsgDrawRect(x, y, w, h);
+		vsgDrawRect(x, -1*y, w, h);
 	}
 	return 0;
 }
@@ -285,7 +285,6 @@ int alert::ARApertureGratingSpec::draw()
 		cerr << "Cannot get color vector for type " << this->cv << endl;
 	}
 	vsgObjSetColourVector(&from, &to, vsgBIPOLAR);
-
 
 	// 
 	double dWidth = vsgGetScreenWidthPixels();
