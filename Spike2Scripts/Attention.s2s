@@ -1,4 +1,7 @@
 ' $Log: not supported by cvs2svn $
+' Revision 1.6  2005/04/27 21:23:18  dan
+' changed FixationColor to string in registry.
+'
 ' Revision 1.5  2005/03/23 00:56:44  dan
 ' *** empty log message ***
 '
@@ -95,7 +98,7 @@ func DataParametersDialog%()
 			if Len(dataCellName$) = 0 then
 				Message("Must specify a cell name");
 			else
-				FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 0, 1);
+				FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 3, 1);
 				SaveDataParameters();
 			endif;
 		endif;
@@ -596,7 +599,8 @@ if Len(dataDataSet$) = 0 then
 	' Might be nice to open the dialog here....
 	halt;
 else 
-	' Set path for new data files
+	' Set path for new data files, and for those saved automatically
+	FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 3);
 	FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 1);
 	SampleAutoName$(dataCellName$ + "_att_000");
 	SampleAutoFile(1);
@@ -620,9 +624,6 @@ InitializeWindows();
 
 ' Prepare the toolbar buttons
 InitializeToolbar();
-
-
-
 
 
 

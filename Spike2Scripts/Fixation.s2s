@@ -1,4 +1,7 @@
 ' $Log: not supported by cvs2svn $
+' Revision 1.7  2005/04/27 21:23:18  dan
+' changed FixationColor to string in registry.
+'
 ' Revision 1.6  2005/03/18 19:38:51  dan
 ' Merged calibration functionality in to this script.
 '
@@ -120,7 +123,7 @@ func DataParametersDialog%()
 			if Len(dataCellName$) = 0 then
 				Message("Must specify a cell name");
 			else
-				FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 0, 1);
+				FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 3, 1);
 				SaveDataParameters();
 			endif;
 		endif;
@@ -548,9 +551,12 @@ if Len(dataDataSet$) = 0 then
 	halt;
 else 
 	' Set path for new data files
-	FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 1);
+	FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 3, 1);
+	FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 1, 1);
 	SampleAutoName$(dataCellName$ + "_fix_000");
 	SampleAutoFile(1);
+	PrintLog("dataPathRoot=" + dataPathRoot$ + "\n");
+	PrintLog("dataDataSet=" + dataDataSet$ + "\n");
 	PrintLog("AutoFile status " + str$(SampleAutoFile()) + "\n");
 endif
 
@@ -796,7 +802,7 @@ end;
 proc CreateSampleConfiguration()
 	var index;
 	SampleClear(); 'Set standard sampling state
-	SampleAutoFile(0); 'Enable automatic file naming
+'	SampleAutoFile(0); 'Enable automatic file naming
 	SampleAutoComment(0); 'Prompt for comment after sampling
 	SampleAutoCommit(60); 'Seconds between each file commit
 
@@ -1069,10 +1075,13 @@ func Stop%()
 	SaveDailyTotals();
 
 	' Save data file
-	View(DataWindow%);
-	if FileSave() <> 0 then
-		Message("WARNING! Data file not saved!!!");
-	endif
+	' djs 5-2-2005
+	' When autonaming is used, this is not necessary. In fact, the call to FileSave fails!
+	' Leaving the call out altogether makes it work. .. . . 
+	'View(DataWindow%);
+	'if FileSave() <> 0 then
+	'	Message("WARNING! Data file not saved!!!");
+	'endif
 
 end;
 
