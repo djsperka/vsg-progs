@@ -865,6 +865,268 @@ end;
 '
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+' Tuning Curve script START
+'
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+var tunFixationDuration;	' Time required to hold fixation for reward (stim ON)
+var tunMaintainFixation;	' Time required to hold fixation for reward (stim OFF)
+var tunTimeOutTime;		' Time after break fixation
+var tunAcquisitionTime;		' Time allowed to acquire fixation
+
+' These will be set by the tuning curve choice
+var tunNAdvances%;		' Number of times stim will advance during one repeat
+var tunNRepeats%;		' Number of repeats
+
+' These are specific to the individual tuning curve types - orientation first
+var tunOriNSteps%;		' # steps in orientation tuning curve
+var tunOriNRepeats%;		' # repeats in ori tuning curve
+var tunOriMinOrientation;	' min orientation
+var tunOriMaxOrientation;	' max orientation
+var tunOriProgression%;
+
+' Contrast next
+var tunContrastNSteps%;			' # steps in contrast tuning curve
+var tunContrastNRepeats%;		' # repeats in contrast tuning curve
+var tunContrastMinContrast;		' min contrast
+var tunContrastMaxContrast;		' max contrast
+var tunContrastProgression%;
+
+' Spatial next
+var tunSpatialNSteps%;			' # steps in spatial freq tuning curve
+var tunSpatialNRepeats%;		' # repeats in spatial freq tuning curve
+var tunSpatialMinSF;			' min SF
+var tunSpatialMaxSF;			' max SF
+var tunSpatialProgression%;
+
+' Temporal next
+var tunTemporalNSteps%;			' # steps in temporal tuning curve
+var tunTemporalNRepeats%;		' # repeats in temporal tuning curve
+var tunTemporalMinTF;		' min TF
+var tunTemporalMaxTF;		' max TF
+var tunTemporalProgression%;
+
+
+
+proc GetTuningCurveScriptParameters()
+	var stmp$;
+	var key$;
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Tuning";
+
+	Profile(key$, "FixationDuration", "2.0", stmp$);
+	tunFixationDuration := val(stmp$);
+	Profile(key$, "MaintainFixation", "2.0", stmp$);
+	tunMaintainFixation := val(stmp$);
+	Profile(key$, "TimeOutTime", "2.0", stmp$);
+	tunTimeOutTime := val(stmp$);
+	Profile(key$, "AcquisitionTime", "2.0", stmp$);
+	tunAcquisitionTime := val(stmp$);
+end;
+
+proc SaveTuningCurveScriptParameters()
+	var key$;
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Tuning";
+	Profile(key$, "FixationDuration", str$(tunFixationDuration));
+	Profile(key$, "MaintainFixation", str$(tunMaintainFixation));
+	Profile(key$, "TimeOutTime", str$(tunTimeOutTime));
+	Profile(key$, "AcquisitionTime", str$(tunAcquisitionTime));
+end;
+
+proc GetTuningCurveOrientationParameters()
+	var stmp$;
+	var key$;
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Tuning\\Orientation";
+
+	Profile(key$, "NSteps", 2, tunOriNSteps%);
+	Profile(key$, "NRepeats", 1, tunOriNRepeats%);
+	Profile(key$, "MinOrientation", "0", stmp$);
+	tunOriMinOrientation := val(stmp$);
+	Profile(key$, "MaxOrientation", "360", stmp$);
+	tunOriMaxOrientation := val(stmp$);
+end;
+
+proc SaveTuningCurveOrientationParameters()
+	var key$;
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Tuning\\Orientation";
+	Profile(key$, "NSteps", tunOriNSteps%);
+	Profile(key$, "NRepeats", tunOriNRepeats%);
+	Profile(key$, "MinOrientation", str$(tunOriMinOrientation));
+	Profile(key$, "MaxOrientation", str$(tunOriMaxOrientation));
+end;
+
+proc GetTuningCurveContrastParameters()
+	var stmp$;
+	var key$;
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Tuning\\Contrast";
+
+	Profile(key$, "NSteps", 2, tunContrastNSteps%);
+	Profile(key$, "NRepeats", 1, tunContrastNRepeats%);
+	Profile(key$, "MinContrast", "0", stmp$);
+	tunContrastMinContrast := val(stmp$);
+	Profile(key$, "MaxContrast", "100", stmp$);
+	tunContrastMaxContrast := val(stmp$);
+end;
+
+proc SaveTuningCurveContrastParameters()
+	var key$;
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Tuning\\Contrast";
+	Profile(key$, "NSteps", tunContrastNSteps%);
+	Profile(key$, "NRepeats", tunContrastNRepeats%);
+	Profile(key$, "MinContrast", str$(tunContrastMinContrast));
+	Profile(key$, "MaxContrast", str$(tunContrastMaxContrast));
+end;
+
+proc GetTuningCurveSpatialParameters()
+	var stmp$;
+	var key$;
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Tuning\\Spatial";
+
+	Profile(key$, "NSteps", 2, tunSpatialNSteps%);
+	Profile(key$, "NRepeats", 1, tunSpatialNRepeats%);
+	Profile(key$, "MinSF", "0.2", stmp$);
+	tunSpatialMinSF := val(stmp$);
+	Profile(key$, "MaxSF", "10", stmp$);
+	tunSpatialMaxSF := val(stmp$);
+end;
+
+proc SaveTuningCurveSpatialParameters()
+	var key$;
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Tuning\\Spatial";
+
+	Profile(key$, "NSteps", tunSpatialNSteps%);
+	Profile(key$, "NRepeats", tunSpatialNRepeats%);
+	Profile(key$, "MinSF", str$(tunSpatialMinSF));
+	Profile(key$, "MaxSF", str$(tunSpatialMaxSF));
+end;
+
+proc GetTuningCurveTemporalParameters()
+	var stmp$;
+	var key$;
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Tuning\\Temporal";
+
+	Profile(key$, "NSteps", 2, tunTemporalNSteps%);
+	Profile(key$, "NRepeats", 1, tunTemporalNRepeats%);
+	Profile(key$, "MinTF", "0.1", stmp$);
+	tunTemporalMinTF := val(stmp$);
+	Profile(key$, "MaxTF", "10", stmp$);
+	tunTemporalMaxTF := val(stmp$);
+end;
+
+proc SaveTuningCurveTemporalParameters()
+	var key$;
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Tuning\\Temporal";
+
+	Profile(key$, "NSteps", tunSpatialNSteps%);
+	Profile(key$, "NRepeats", tunSpatialNRepeats%);
+	Profile(key$, "MinTF", str$(tunSpatialMinSF));
+	Profile(key$, "MaxTF", str$(tunSpatialMaxSF));
+end;
+
+
+func TuningCurveScriptDialog%()
+	var i%;
+	GetTuningCurveScriptParameters();
+
+	DlgCreate("Tuning Curve Parameters", 50, 10);
+	DlgGroup("Common Parameters", 0, 1, 40, 5);
+	DlgReal(1, "Acquisition time(s):", 1, 1000, 20, 2);
+	DlgReal(2, "Fixation duration(s):", .1, 10, 20, 3);
+	DlgReal(3, "Maintain fixation(s):", .1, 10, 20, 4);
+	DlgReal(4, "Time out time(s):", .01, 10, 20, 5);
+	DlgGroup("Individual Tuning Curve Types", 0, 6, 40, 5);
+	DlgButton(5, "Orientation", TuningCurveOrientationDialog%, 1, 7);
+	DlgButton(6, "Contrast", TuningCurveContrastDialog%, 1, 8);
+	DlgButton(7, "Spatial Freq", TuningCurveSpatialDialog%, 1, 9);
+	DlgButton(8, "Temporal Freq", TuningCurveTemporalDialog%, 1, 10);
+
+	i%:=DlgShow(tunAcquisitionTime, tunFixationDuration, tunMaintainFixation,
+		tunTimeOutTime);
+
+	if i% = 1 then
+		SaveTuningCurveScriptParameters();
+	endif;
+	return 1;
+end;
+
+
+func TuningCurveOrientationDialog%()
+
+	var i%;
+	DlgCreate("Orientation Tuning Curve Parameters");
+	DlgInteger(1, "Number of Steps", 2, 100);
+	DlgInteger(2, "Number of Repeats", 1, 10);
+	DlgReal(3, "Min Orientation (deg)", 0, 360);
+	DlgReal(4, "Max Orientation (deg)", 0, 360);
+	DlgCheck(5, "Random Progression");
+
+	i% := DlgShow(tunOriNSteps%, tunOriNRepeats%, tunOriMinOrientation, tunOriMaxOrientation, tunOriProgression%);
+	if i% = 1 then
+		SaveTuningCurveOrientationParameters();
+	endif;
+	return 1;
+end;
+
+func TuningCurveContrastDialog%()
+
+	var i%;
+	DlgCreate("Contrast Tuning Curve Parameters");
+	DlgInteger(1, "Number of Steps", 2, 100);
+	DlgInteger(2, "Number of Repeats", 1, 10);
+	DlgReal(3, "Min Contrast (%)", 0, 100);
+	DlgReal(4, "Max Contrast (%)", 0, 100);
+	DlgCheck(5, "Random Progression");
+
+	i% := DlgShow(tunContrastNSteps%, tunContrastNRepeats%, tunContrastMinContrast, tunContrastMaxContrast, tunContrastProgression%);
+	if i% = 1 then
+		SaveTuningCurveContrastParameters();
+	endif;
+
+	return 1;
+end;
+
+func TuningCurveSpatialDialog%()
+
+	var i%;
+	DlgCreate("Spatial Freq Tuning Curve Parameters");
+	DlgInteger(1, "Number of Steps", 2, 100);
+	DlgInteger(2, "Number of Repeats", 1, 10);
+	DlgReal(3, "Min SF", .1, 10);
+	DlgReal(4, "Max SF", .1, 10);
+	DlgCheck(5, "Random Progression");
+
+	i% := DlgShow(tunSpatialNSteps%, tunSpatialNRepeats%, tunSpatialMinSF, tunSpatialMaxSF, tunSpatialProgression%);
+	if i% = 1 then
+		SaveTuningCurveSpatialParameters();
+	endif;
+
+	return 1;
+end;
+
+func TuningCurveTemporalDialog%()
+
+	var i%;
+	DlgCreate("Temporal Freq Tuning Curve Parameters");
+	DlgInteger(1, "Number of Steps", 2, 100);
+	DlgInteger(2, "Number of Repeats", 1, 10);
+	DlgReal(3, "Min TF", 0, 10);
+	DlgReal(4, "Max TF", 0, 10);
+	DlgCheck(5, "Random Progression");
+
+	i% := DlgShow(tunTemporalNSteps%, tunTemporalNRepeats%, tunTemporalMinTF, tunTemporalMaxTF, tunTemporalProgression%);
+	if i% = 1 then
+		SaveTuningCurveTemporalParameters();
+	endif;
+
+	return 1;
+end;
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+' Tuning Curve script END
+'
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
 
 
@@ -897,6 +1159,7 @@ func RigConfigDialog%(config$)
 	DlgGroup("Scripts", 18, 1, 16, 10);
 	DlgButton(11, "Fixation", FixationScriptDialog%, 20, 2);
 	DlgButton(12, "Attention", AttentionScriptDialog%, 20, 3);
+	DlgButton(13, "Tuning", TuningCurveScriptDialog%, 20, 4);
 
 	DlgShow();
 
