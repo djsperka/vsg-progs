@@ -184,6 +184,7 @@ namespace alert
 		virtual int draw();
 		virtual int drawOverlay();
 		int drawOnce();
+		int setOrientation(double orientation);
 	};
 
 
@@ -212,6 +213,10 @@ namespace alert
 		int m_next;
 	};
 
+
+
+// The trigger class (and its derivatives) perform a specific action upon receipt of a
+// "trigger". Triggers can be ascii characters or bits (in a 32 bit integer).  
 
 	class Trigger
 	{
@@ -343,6 +348,175 @@ namespace alert
 		};
 	};
 
+/*
+	class TuningOnOffTrigger: public Trigger
+	{
+	public:
+		TuningOnOffTrigger(std::string i_key, int i_in_mask, int i_in_val, int i_out_mask, int i_out_val,
+								std::string i_keyON, int i_in_maskON, int i_in_valON, int i_out_maskON, int i_out_valON,
+								std::string i_keyOFF, int i_in_maskOFF, int i_in_valOFF, int i_out_maskOFF, int i_out_valOFF) :
+		Trigger(i_key, i_in_mask, i_in_val, i_out_mask, i_out_val)
+		{
+			m_iTriggered = -1;
+			m_ptrigON = new ContrastTrigger(i_keyON, i_in_maskON, i_in_valON, i_out_maskON, i_out_maskON);
+			m_ptrigOFF = new ContrastTrigger(i_keyOFF, i_in_maskOFF, i_in_valOFF, i_out_maskOFF, i_out_maskOFF);
+		};
+
+
+		~TuningOnOffTrigger() 
+		{
+			delete m_ptrigON;
+			delete m_ptrigOFF;
+		};
+
+		virtual bool checkAscii(std::string input)
+		{
+			bool bval=false;
+			if (Trigger::checkAscii(input))
+			{
+				bval = true;
+				m_iTriggered = 0;
+			}
+			else if (m_ptrigON->checkAscii(input))
+			{
+				bval = true;
+				m_iTriggered = 1;
+			}
+			else if (m_ptrigOFF->checkAscii(input))
+			{
+				bval = true;
+				m_iTriggered = 2;
+			}
+			return bval;
+		};
+
+		virtual bool checkBinary(int input)
+		{
+			bool bval = false;
+			bool bval0, bval1, bval2;
+
+			// check each class. This ensures that the current trigger value is stored. 
+			bval0 = Trigger::checkBinary(input);
+			bval1 = m_ptrigON->checkBinary(input);
+			bval2 = m_ptrigOFF->checkBinary(input);
+			if (bval0)
+			{
+				m_iTriggered = 0;
+				return true;
+			}
+			if (bval1)
+			{
+				m_iTriggered = 1;
+				return true;
+			}
+			if (bval2)
+			{
+				m_iTriggered = 2;
+				return true;
+			}
+			return false;
+		}
+
+
+		// Execute the triggers' action(s). Subclasses should return >0 if a vsgPresent() will be 
+		// needed, 0 if no present(), and <0 if this trigger means quit (a call to vsgPresent() is 
+		// is made in this case, too -- that way a quitting trigger can set the page to blank
+		// or something similarly intelligent. 
+		virtual int execute(int& output)
+		{
+			int ival=0;
+			switch (m_iTriggered)
+			{
+			case 0:
+				setMarker(output);
+				return executeTuning();
+				break;
+			case 1:
+				return m_ptrigON->execute(output);
+				break;
+			case 2:
+				return m_ptrigOFF->execute(output);
+				break;
+			default:
+				std::cerr << "Error: No execute method for internal trigger " << m_iTriggered << std::endl;
+			}
+			return ival;
+		}
+
+
+		virtual int executeTuning() = 0;
+
+	private:
+		int m_iTriggered;
+		ContrastTrigger *m_ptrigON;
+		ContrastTrigger *m_ptrigOFF;
+	};
+*/
+
+
+
+	class TuningTrigger: public Trigger
+	{
+	public:
+		TuningTrigger(std::string i_key, int i_in_mask, int i_in_val, int i_out_mask, int i_out_val) :
+		  Trigger(i_key, i_in_mask, i_in_val, i_out_mask, i_out_val) {};
+
+	    virtual ~TuningTrigger() {};
+
+		virtual int executeTuning() = 0;
+
+		// The trigger should set the initial value for its variable parameter in the grating here. 
+		virtual void initialize() = 0;
+
+		// Execute the triggers' action(s). Subclasses should return >0 if a vsgPresent() will be 
+		// needed, 0 if no present(), and <0 if this trigger means quit (a call to vsgPresent() is 
+		// is made in this case, too -- that way a quitting trigger can set the page to blank
+		// or something similarly intelligent. 
+		virtual int execute(int& output)
+		{
+			setMarker(output);
+			return executeTuning();
+		}
+	};
+
+
+	class OrientationTuningTrigger : public TuningTrigger
+	{
+	public:
+		OrientationTuningTrigger(std::string i_key, int i_in_mask, int i_in_val, int i_out_mask, int i_out_val, ARGratingSpec& i_gr, double i_minOri, double i_maxOri, int i_nsteps) :
+		TuningTrigger(i_key, i_in_mask, i_in_val, i_out_mask, i_out_val), m_gr(i_gr)
+		{
+			double step = (i_maxOri - i_minOri)/(double)i_nsteps;
+			for (int i=0; i<i_nsteps; i++)
+			{
+				m_vecOri.push_back(i_minOri + i*step);
+			}
+			m_vecOri.push_back(i_maxOri);
+			m_iCurrentOri = 0;
+		}
+
+		void initialize()
+		{
+			m_gr.orientation = m_vecOri[0];
+			m_gr.drawOnce();
+		}
+
+
+		int executeTuning()
+		{
+			m_iCurrentOri++;
+			if (m_iCurrentOri >= m_vecOri.size()) m_iCurrentOri = 0;
+			m_gr.orientation = m_vecOri[m_iCurrentOri];
+			m_gr.draw();
+			return 1;
+		}
+
+
+	  private:
+		  std::vector<double> m_vecOri;
+		  int m_iCurrentOri;
+		  ARGratingSpec& m_gr;
+	};
 
 
 	class TriggerVector: public std::vector<Trigger*>
