@@ -149,6 +149,54 @@ int alert::ARGratingSpec::draw()
 	return draw(false);
 }
 
+int alert::ARGratingSpec::redraw(bool useTransOnLower)
+{
+	int status=0;
+	select();
+	if (useTransOnLower)
+	{
+		// djs TRANSONLOWER seems to leave artifacts on the screen when we turn the contrast off. !!!
+		// if ellipse, draw an ellipse on level 0 for TRANSONLOWER
+		// djs. Specifically setting the level seems to lead to artifacts. I found that leaving the levels
+		// unassigned solves this. I suspect this may lead to trouble someday.....
+		if (this->aperture == ellipse)
+		{
+			vsgSetPen1(250);
+//			vsgSetPen2(0);
+			vsgSetDrawMode(vsgCENTREXY + vsgSOLIDFILL);
+			vsgDrawOval(x, -1*y, w, h);
+		}
+	}
+
+
+	// Now draw
+	if (this->aperture == ellipse)
+	{
+		if (useTransOnLower)
+		{
+			vsgSetDrawMode(vsgCENTREXY + vsgTRANSONHIGHER);
+			vsgSetPen1(getFirstLevel());
+			vsgSetPen2(getFirstLevel() + getNumLevels());
+			vsgDrawGrating(this->x, -1*this->y, this->w, this->h, this->orientation, this->sf);
+//			vsgSetDrawMode(vsgCENTREXY);
+		}
+		else
+		{
+			vsgSetDrawMode(vsgCENTREXY);
+			vsgDrawGrating(this->x, -1*this->y, this->w, this->h, this->orientation, this->sf);
+		}
+	}
+	else
+	{
+		vsgSetDrawMode(vsgCENTREXY);
+		vsgDrawGrating(this->x, -1*this->y, this->w, this->h, this->orientation, this->sf);
+	}
+
+
+	return 0;
+}
+
+
 int alert::ARGratingSpec::drawOnce()
 {
 	return draw(true);
@@ -173,7 +221,7 @@ int alert::ARGratingSpec::draw(bool useTransOnLower)
 		// unassigned solves this. I suspect this may lead to trouble someday.....
 		if (this->aperture == ellipse)
 		{
-			vsgSetPen1(0);
+			vsgSetPen1(250);
 //			vsgSetPen2(0);
 			vsgSetDrawMode(vsgCENTREXY + vsgSOLIDFILL);
 			vsgDrawOval(x, -1*y, w, h);
@@ -209,7 +257,7 @@ int alert::ARGratingSpec::draw(bool useTransOnLower)
 	{
 		if (useTransOnLower)
 		{
-			vsgSetDrawMode(vsgCENTREXY + vsgTRANSONLOWER);
+			vsgSetDrawMode(vsgCENTREXY + vsgTRANSONHIGHER);
 			vsgSetPen1(getFirstLevel());
 			vsgSetPen2(getFirstLevel() + getNumLevels());
 			vsgDrawGrating(this->x, -1*this->y, this->w, this->h, this->orientation, this->sf);
