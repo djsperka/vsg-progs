@@ -183,6 +183,7 @@ namespace alert
 		int draw(bool useTransOnLower);
 		virtual int draw();
 		virtual int drawOverlay();
+		int redraw(bool useTransOnLower);
 		int drawOnce();
 		int setOrientation(double orientation);
 	};
