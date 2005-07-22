@@ -216,13 +216,13 @@ int init_pages()
 {
 	int status=0;
 
-	// prepare BACKGROUND_PAGE (and display it)
-	vsgSetDrawPage(vsgVIDEOPAGE, BACKGROUND_PAGE, vsgBACKGROUND);
-	vsgPresent();
+	// initialize video pages
+	if (ARvsg::instance().init_video())
+	{
+		cerr << "VSG video initialization failed!" << endl;
+	}
+	vsgSetDrawPage(vsgVIDEOPAGE, STIMULUS_PAGE, vsgNOCLEAR);
 	
-	// prepare STIMULUS_PAGE
-	vsgSetDrawPage(vsgVIDEOPAGE, STIMULUS_PAGE, vsgBACKGROUND);
-
 	if (m_distractors.size() > 0)
 	{
 		// determine the level slice for each
@@ -238,7 +238,6 @@ int init_pages()
 	// draw fixpt last so it isn't overwritten by stimuli
 	m_afp.init(2);
 	m_afp.draw();
-
 
 
 	// Set trigger mode
