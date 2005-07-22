@@ -231,6 +231,14 @@ int alert::ARGratingSpec::draw(bool useTransOnLower)
 }
 
 
+int alert::ARGratingSpec::setOrientation(double orientation)
+{
+	int ival=0;
+
+	return ival;
+}
+
+
 int alert::ARGratingSpec::drawOverlay()
 {
 	vsgSetPen1(0);

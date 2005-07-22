@@ -143,7 +143,7 @@ int args(int argc, char **argv)
 			else have_d=true;
 			break;
 		case 'g':
-			pspec = new ARGratingSpec();
+//			pspec = new ARGratingSpec();
 			s.assign(optarg);
 			if (parse_grating(s, m_stim)) errflg++;
 			else have_g = true;
@@ -199,6 +199,17 @@ void init_triggers()
 	ptrig = new ContrastTrigger("f", 0x2, 0x0, 0xff, 0x0);
 	ptrig->push_back( std::pair<VSGOBJHANDLE, int>(m_afp.handle(), 0) );
 	m_triggers.addTrigger(ptrig);
+
+	// triggers for stim
+	ptrig = new ContrastTrigger("S", 0x4, 0x4, 0xff, 0x2);
+	ptrig->push_back( std::pair<VSGOBJHANDLE, int>(m_stim.handle(), 100) );
+	m_triggers.addTrigger(ptrig);
+	ptrig = new ContrastTrigger("s", 0x4, 0x0, 0xff, 0x0);
+	ptrig->push_back( std::pair<VSGOBJHANDLE, int>(m_stim.handle(), 0) );
+	m_triggers.addTrigger(ptrig);
+
+	OrientationTuningTrigger *potrig = new OrientationTuningTrigger("A", 0x8, 0x8, 0xff, 0x4, m_stim, 0, 360, 10);
+	m_triggers.addTrigger(potrig);
 
 	m_triggers.addTrigger(new QuitTrigger("q", 0x8, 0x8, 0xff, 0x0, 0));
 
