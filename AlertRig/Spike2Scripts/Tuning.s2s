@@ -1,4 +1,7 @@
 ' $Log: not supported by cvs2svn $
+' Revision 1.1  2005/07/26 01:03:52  dan
+' Mods to config.s2s for tuning script. Tuning script first add here.
+'
 
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 '
@@ -769,25 +772,19 @@ var tTrigger:=-1;	' temp var for newly discovered trigger times
 var tFixationDone:=-1;	' time that fixation duration was achieved. Used to measure time to answer
 
 ' Constants for states
-const stateStartTrial%:=0;	' Start trial state
-const stateWaitForFixPt%:=1;	' Waiting for fixation point return trigger
-const stateAcquire%:=2;		' Waiting for subject to acquire fixation point
-const stateHoldFixation%:=3;	' Holding fixation point
-const stateBreakFixation%:=4;	' Waiting for subject to break fixation
-const stateAbort%:=5;		' Failed trial state
-const stateWaitForAnswer%:=6;	' Fixation held, now awaiting answer
-const stateCorrectAnswer%:=7;	' Right answer received
-const stateIncorrectAnswer%:=8;	' Wrong answer received
-const stateWaitForBlank%:=9;
-const stateInterTrialInterval%:=10;
-const stateVSGWait% := 11;
-const stateVSGWaitConfirm% := 12;
+const stateStartTrial%:=0;		' Start trial state
+const stateWaitForFixPtOn%:=1;		' Waiting for fixation point return trigger (on)
+const stateWaitForBlank%:=2;		' Waiting for fixation point return trigger (off)
+const stateWaitForStimOn%:=3;		' Wait for stimulus return trigger (on)
+const stateWaitForStimOff%:=4;		' Wait for stimulus return trigger (off)
+const stateWaitForAcquisition%:=5;	' Waiting for subject to acquire fixation point
+const stateHoldFixation%:=6;		' Holding fixation point
+const stateAbort%:=7;			' Failed trial state
+const stateMaintainFixation%:=8;	' Maintaining fixation (stim off period)
+const stateInterTrialInterval%:=9;	' time out after failed trial
+const stateVSGWait%:=10;		' wait for vsg to send ready signal #1
+const stateVSGWaitConfirm%:=11;		' waif for vsg to send ready signal #2
 var iState% := stateVSGWait%;	' present state
-
-var AnswerPointsUp% :=0;	' Set to 1 after answer point key "A" is issued
-var StimulusUp% :=0;		' Set to 1 after grating key "S" is issued
-var ContrastChange% := 0;	' Set to 1 after ContrastChange key "C"/"D" is issued
-
 
 var nTrialsStarted%:=0;
 var nTrialsCorrect%:=0;
@@ -830,8 +827,135 @@ func IdleProcessing%()
 			endif;
 
 
-		else 
+		case iState% = stateStartTrial% then
 
+			' Start trial. Put up fixation point.
+			PrintLog("stateStartTrial: Send F key\n");
+			SampleKey("F");
+			ChangeStateTo(stateWaitForFixPtOn%, tTrigger);
+		
+		case iState% = stateWaitForFixPtOn% then
+
+			PrintLog("stateWaitForFixPtOn: waiting.......\n");
+			tTrigger := NextTime(FixationPointChannel%, tLast, vTrigger);
+			if tTrigger > tLast and vTrigger = 0 then
+				' Fixation point is up
+				PrintLog("stateWaitForFixPtOn: signal received.\n");
+				tLastTrigger := tTrigger;
+				ChangeStateTo(stateWaitForAcquisition%, tTrigger);
+			endif
+
+		case iState% = stateWaitForAcquisition% then
+
+			' Waiting for eye to fall inside of fixation window
+			if Looking%(xEye, yEye) = 1 then
+				PrintLog("stateWaitForAcquisition: eye in fixation window, send S key.\n");
+				SampleKey("S");
+				ChangeStateTo(stateWaitForStimOn%, tNow);
+			else 
+				if tNow - tStateStart > tunAcquisitionTime then
+					' failed to acquire target. 
+					PrintLog("stateWaitForAcquisition: failed.\n");
+					ChangeStateTo(stateAbort%, tNow);
+				endif
+			endif
+
+		case iState% = stateWaitForStimOn% then
+
+			tTrigger := NextTime(StimChannel%, tLast, vTrigger);
+			if tTrigger > tLast and vTrigger = 0 then
+				' Fixation point is up
+				PrintLog("stateWaitForStimOn: stim is up.\n");
+				tLastTrigger := tTrigger;
+				ChangeStateTo(stateHoldFixation%, tTrigger);
+			endif
+
+			
+		case iState% = stateAbort% then
+
+			' Signal "X" turns off fixpt and stimulus. The next state 'stateWaitForBlank' only checks for 
+			' fixpt off. 
+			PrintLog("stateAbort: send X key.\n");
+			SampleKey("X");
+			ChangeStateTo(stateWaitForBlank%, tNow);
+
+		case iState% = stateWaitForBlank% then
+
+			' we just wait for fix point off signal in this case. 
+			tTrigger := NextTime(FixationPointChannel%, tLast, vTrigger);
+			if tTrigger > tLast and vTrigger = 1 then
+				' Fixation point is off
+				PrintLog("stateWaitForBlank: Fix pt is off.\n");
+				tLastTrigger := tTrigger;
+				ChangeStateTo(stateInterTrialInterval%, tTrigger);
+			endif
+
+		case iState% = stateInterTrialInterval% then
+
+			if tNow - tStateStart > tunTimeOutTime then
+
+				PrintLog("stateInterTrialInterval: time out is done.\n");
+				ChangeStateTo(stateStartTrial%, tNow);
+
+			endif
+
+		case iState% = stateHoldFixation% then
+
+			if Looking%(xEye, yEye) = 0 then
+	       		
+				PrintLog("stateWaitForFixation: outside fixation window, aborting trial.\n");
+				ChangeStateTo(stateAbort%, tNow);
+
+			else 
+
+				if tNow - tStateStart > tunFixationDuration then
+
+					' turn off stimulus and advance it
+					PrintLog("stateWaitForFixation: successful trial. Turn off and advance stimulus.\n");
+					SampleKey("s");
+					Yield();
+					SampleKey("a");
+	
+					' Reward
+					Reward%();
+	
+					' Now wait until stim is off
+					ChangeStateTo(stateWaitForStimOff%, tNow);
+
+				endif
+
+			endif
+
+		case iState% = stateWaitForStimOff% then
+
+			tTrigger := NextTime(StimChannel%, tLast, vTrigger);
+			if tTrigger > tLast and vTrigger = 1 then
+				' Fixation point is up
+				PrintLog("stateWaitForStimOff: stimulus is off.\n");
+				tLastTrigger := tTrigger;
+				ChangeStateTo(stateMaintainFixation%, tTrigger);
+			endif
+
+		case iState% = stateMaintainFixation% then
+
+			if Looking%(xEye, yEye) = 0 then
+	       		
+				PrintLog("stateMaintainFixation: outside fixation window, aborting trial.\n");
+				ChangeStateTo(stateAbort%, tNow);
+
+			else 
+				if tNow - tStateStart > tunMaintainFixation then
+	
+					PrintLog("stateMaintainFixation: success.\n");
+					Reward%();
+					SampleKey("S");
+					ChangeStateTo(stateWaitForStimOn%, tNow);
+	
+				endif 
+			endif
+
+		else
+			
 			' Unknown state!
 			Message("Unknown state=" + str$(iState%));
 			halt;
@@ -1033,7 +1157,7 @@ CommandLine$ := bin$ + "\\dTuning " + FixationArg$ + Extras$ + Distractors$;
 PrintLog(CommandLine$+"\n");
 StimHandle% := ProgRun(CommandLine$,1);
 if StimHandle% <0 then Message("Could not start stimulus."); halt; endif
-Yield(5);	'Wait a few seconds to make sure the VSG has time to initialize.
+'Yield(5);	'Wait a few seconds to make sure the VSG has time to initialize.
 
 ToolbarSet(0,"",IdleProcessing%);	'Enable the IdleProcessing function
 ToolbarEnable(2,1);
