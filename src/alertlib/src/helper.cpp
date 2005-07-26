@@ -324,6 +324,46 @@ int parse_contrast_triplet(std::string s, int& i_iContrastDown, int& i_iContrast
 }
 
 
+int parse_tuning_triplet(std::string s, double& i_dMin, double& i_dMax, int& i_iSteps)
+{
+	int status=0;
+	vector<string> tokens;
+	tokenize(s, tokens, ",");
+	if (tokens.size() != 3)
+	{
+		cerr << "Bad tuning triplet format: " << s << endl;
+		status=1;
+	}
+	else
+	{
+		istringstream iss;
+		iss.str(tokens[0]);
+		iss >> i_dMin;
+		if (!iss) 
+		{
+			cerr << "bad tuning Min value: " << tokens[0] << endl;
+			status=1;
+		}
+		iss.str(tokens[1]);
+		iss.clear();
+		iss >> i_dMax;
+		if (!iss) 
+		{
+			cerr << "bad tuning Max value: " << tokens[1] << endl;
+			status=1;
+		}
+		iss.str(tokens[2]);
+		iss.clear();
+		iss >> i_iSteps;
+		if (!iss)
+		{
+			cerr << "bad tuning #steps value: " << tokens[2] << endl;
+			status=1;
+		}
+	}
+	return status;
+}
+
 
 
 

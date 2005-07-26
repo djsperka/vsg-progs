@@ -18,62 +18,66 @@ using namespace alert;
 #define FIXATION_PAGE 1
 #define STIMULUS_PAGE 2
 
-int args(int argc, char **argv);
-void init_triggers();
-int init_pages();
-void usage();
+typedef enum tuning_type { tt_orientation, tt_contrast, tt_spatial, tt_temporal, tt_none_specified } tuning_type_t;
 
-bool m_verbose = false;
-bool m_binaryTriggers = true;
-ARContrastFixationPointSpec m_afp;
+tuning_type_t m_tuning_type = tt_none_specified;
+double m_tuned_param_min = 0; 
+double m_tuned_param_max = 0;
+double m_tuned_param_current = 0;
+int m_nsteps = 0;
+int m_istep_current = 0;
+int m_iSavedContrast = 0;
+bool m_bStimIsOff = true;
+
+int m_screenDistanceMM = 0;
+COLOR_TYPE m_background = gray;
+VSGOBJHANDLE m_handle0;
+VSGOBJHANDLE m_handle1;
 ARGratingSpec m_stim;
-COLOR_TYPE m_background;
-int m_screenDistanceMM=0;
+ARContrastFixationPointSpec m_fp;
+double m_dCurrentOri = 0;
+int m_ipage=0;
+bool m_binaryTriggers = true;			// if false, will look at stdin for ascii triggers (for testing)
+bool m_verbose = false;					// words, words, words,....
 TriggerVector m_triggers;
 
-int main (int argc, char *argv[])
+void init_pages();
+void init_triggers();
+void initfunc(int ipage, void *data);
+int args(int argc, char **argv);
+void usage();
+int callback(int &output, const CallbackTrigger* ptrig);
+
+
+int main(int argc, char **argv)
 {
-	// Check input arguments
-	if (args(argc, argv))
-	{
-		return 1;
-	}
-	else
-	{
-		if (m_verbose)
-		{
-			cout << "Screen distance " << m_screenDistanceMM << endl;
-			cout << "Fixation point " << m_afp << endl;
-			cout << "Stimulus " << m_stim << endl;
-			cout << "Background color " << m_background << endl;
-		}
-	}
+	// parse command line args
+	if (args(argc, argv)) return 1;
 
-
-	// INit vsg
+	// Init vsg
 	if (ARvsg::instance().init(m_screenDistanceMM, m_background))
 	{
 		cerr << "VSG init failed!" << endl;
 		return 1;
 	}
 
-
-	// initialize video pages
-	if (ARvsg::instance().init_video())
-	{
-		cerr << "VSG video initialization failed!" << endl;
-		return 1;
-	}
-	vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgNOCLEAR);
-
-	// write video pages
+	// Initialize pages
 	init_pages();
 
-	// init triggers
+	// initialize triggers
 	init_triggers();
 
+	// Issue "ready" triggers to spike2.
+	// These commands pulse spike2 port 6. 
+	vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, 0x20, 0);
+	vsgPresent();
+
+	vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, 0x00, 0);
+	vsgPresent();
+
+
 	// All right, start monitoring triggers........
-	std::string s;
+	string s;
 	int last_output_trigger=0;
 	while (1)
 	{
@@ -106,19 +110,142 @@ int main (int argc, char *argv[])
 
 
 
+void init_pages()
+{
+	// Save contrast value, since stim will be initially drawn OFF (i.e. contrast set to 0)
+	m_iSavedContrast = m_stim.contrast;
+
+	// initialize video pages
+	if (ARvsg::instance().init_video())
+	{
+		cerr << "VSG video initialization failed!" << endl;
+	}
+
+	vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgNOCLEAR);
+
+	m_fp.init(2);
+	m_fp.setContrast(0);
+	m_fp.draw();
+
+	m_stim.init(50);
+	switch(m_tuning_type)
+	{
+	case tt_contrast:
+		// Save the min contrast value for this type
+		m_iSavedContrast = m_tuned_param_min;
+		break;
+	case tt_spatial:
+		m_stim.sf = m_tuned_param_min;
+		break;
+	case tt_temporal:
+		m_stim.tf = m_tuned_param_min;
+		break;
+	case tt_orientation:
+		m_stim.orientation = m_tuned_param_min;
+		break;
+	default:
+		cerr << "Error in init_pages: unknown tuning type!" << endl;
+	}
+	m_stim.setContrast(0);
+	m_stim.drawOnce();
+	m_bStimIsOff = true;
+	vsgPresent();
+
+}
+
+
+void init_triggers()
+{
+	// trigger for fixation point ON
+	ContrastTrigger *ptrigContrast;
+	ptrigContrast = new ContrastTrigger("F", 0x2, 0x2, 0x1, 0x1);
+	ptrigContrast->push_back( std::pair<VSGOBJHANDLE, int>(m_fp.handle(), 100) );
+	m_triggers.addTrigger(ptrigContrast);
+
+	// trigger for fixation point OFF
+	ptrigContrast = new ContrastTrigger("f", 0x2, 0x0, 0x1, 0x0);
+	ptrigContrast->push_back( std::pair<VSGOBJHANDLE, int>(m_fp.handle(), 0) );
+	m_triggers.addTrigger(ptrigContrast);
+
+	// triggers for stim will be CallbackTriggers, all using the same callback function
+	m_triggers.addTrigger(new CallbackTrigger("S", 0x4, 0x4, 0x2, 0x2, callback));
+	m_triggers.addTrigger(new CallbackTrigger("s", 0x4, 0x0, 0x2, 0x0, callback));
+	m_triggers.addTrigger(new CallbackTrigger("a", 0x8, 0x8, 0x4, 0x4, callback));
+	m_triggers.addTrigger(new QuitTrigger("q", 0x10, 0x10, 0xff, 0x0, 0));
+	
+}
+
+
+int callback(int &output, const CallbackTrigger* ptrig)
+{
+	int ival=1;
+	string key = ptrig->getKey();
+	if (key == "a")
+	{
+		if (m_istep_current < m_nsteps)
+		{
+			m_tuned_param_current += (m_tuned_param_max - m_tuned_param_min)/m_nsteps;
+			m_istep_current++;
+		}
+		else
+		{
+			m_tuned_param_current = m_tuned_param_min;
+			m_istep_current = 0;
+		}
+
+		switch (m_tuning_type)
+		{
+		case tt_contrast:
+			m_stim.setContrast((int)m_tuned_param_current);
+			break;
+		case tt_spatial:
+			m_stim.sf = m_tuned_param_current;
+			break;
+		case tt_temporal:
+			m_stim.tf = m_tuned_param_min;
+			break;
+		case tt_orientation:
+			m_stim.orientation = m_tuned_param_min;
+			break;
+		default:
+			cerr << "Error in trigger callback: unknown tuning type!" << endl;
+		}
+		m_stim.redraw(true);
+	}
+	else if (key == "s")
+	{
+		// Turn off stimulus by setting contrast to 0.
+		m_iSavedContrast = m_stim.contrast;
+		m_stim.setContrast(0);
+		m_bStimIsOff = true;
+		m_stim.redraw(true);
+	}
+	else if (key == "S")
+	{
+		// Turn on stimulus by setting contrast to m_iSavedContrast.
+		m_stim.setContrast(m_iSavedContrast);
+		m_iSavedContrast = m_stim.contrast;
+		m_bStimIsOff = false;
+		m_stim.redraw(true);
+	}
+
+	return ival;
+}
+
 
 int args(int argc, char **argv)
 {	
-	bool have_f=false;
-	bool have_d=false;
-	bool have_g=false;
+	bool have_f=false;		// have fixation spec
+	bool have_d=false;		// have screen dist
+	bool have_g=false;		// have stim (grating) spec
+	bool have_tt = false;	// have tuning type?
+
 	string s;
 	int c;
-	ARGratingSpec *pspec=NULL;
 	extern char *optarg;
 	extern int optind;
 	int errflg = 0;
-	while ((c = getopt(argc, argv, "f:b:g:hd:va")) != -1)
+	while ((c = getopt(argc, argv, "avf:b:d:g:hC:T:S:O:")) != -1)
 	{
 		switch (c) 
 		{
@@ -130,7 +257,7 @@ int args(int argc, char **argv)
 			break;
 		case 'f': 
 			s.assign(optarg);
-			if (parse_fixation_point(s, m_afp)) errflg++;
+			if (parse_fixation_point(s, m_fp)) errflg++;
 			else have_f = true;
 			break;
 		case 'b': 
@@ -143,13 +270,48 @@ int args(int argc, char **argv)
 			else have_d=true;
 			break;
 		case 'g':
-//			pspec = new ARGratingSpec();
 			s.assign(optarg);
 			if (parse_grating(s, m_stim)) errflg++;
-			else have_g = true;
+			else have_g = true;;
 			break;
 		case 'h':
 			errflg++;
+			break;
+		case 'C':
+			s.assign(optarg);
+			if (parse_tuning_triplet(s, m_tuned_param_min, m_tuned_param_max, m_nsteps)) errflg++;
+			else 
+			{
+				have_tt = true;
+				m_tuning_type = tt_contrast;
+			}
+			break;
+		case 'O':
+			s.assign(optarg);
+			if (parse_tuning_triplet(s, m_tuned_param_min, m_tuned_param_max, m_nsteps)) errflg++;
+			else 
+			{
+				have_tt = true;
+				m_tuning_type = tt_orientation;
+			}
+			break;
+		case 'S':
+			s.assign(optarg);
+			if (parse_tuning_triplet(s, m_tuned_param_min, m_tuned_param_max, m_nsteps)) errflg++;
+			else 
+			{
+				have_tt = true;
+				m_tuning_type = tt_spatial;
+			}
+			break;
+		case 'T':
+			s.assign(optarg);
+			if (parse_tuning_triplet(s, m_tuned_param_min, m_tuned_param_max, m_nsteps)) errflg++;
+			else 
+			{
+				have_tt = true;
+				m_tuning_type = tt_temporal;
+			}
 			break;
 		case '?':
             errflg++;
@@ -172,7 +334,12 @@ int args(int argc, char **argv)
 	}
 	if (!have_g)
 	{
-		cerr << "Grating not specified!" << endl;
+		cerr << "Stimulus grating not specified!" << endl; 
+		errflg++;
+	}
+	if (!have_tt)
+	{
+		cerr << "Tuning variable not specified!" << endl; 
 		errflg++;
 	}
 	if (errflg) 
@@ -182,61 +349,9 @@ int args(int argc, char **argv)
 	return errflg;
 }
 
+
 void usage()
 {
-	cerr << "usage: tuning -f x,y,d[,color] -d screen_distance_MM -b g|b|w -g x,y,w,h,contrast%,sf,tf,orientation,color_vector,s|q,r|e] [-C c1,c2...|-T t1,t2,...|-S s1,s2,...|-O o1,o2...]" << endl;
+	cerr << "usage: tuning -f x,y,d[,color] -d screen_distance_MM -b g|b|w -s x,y,w,h,contrast%,sf,tf,orientation,color_vector,s|q,r|e" << endl;
 }
-
-
-void init_triggers()
-{
-	ContrastTrigger *ptrig;
-
-	// triggers for fix pt
-	ptrig = new ContrastTrigger("F", 0x2, 0x2, 0xff, 0x1);
-	ptrig->push_back( std::pair<VSGOBJHANDLE, int>(m_afp.handle(), 100) );
-	m_triggers.addTrigger(ptrig);
-	ptrig = new ContrastTrigger("f", 0x2, 0x0, 0xff, 0x0);
-	ptrig->push_back( std::pair<VSGOBJHANDLE, int>(m_afp.handle(), 0) );
-	m_triggers.addTrigger(ptrig);
-
-	// triggers for stim
-	ptrig = new ContrastTrigger("S", 0x4, 0x4, 0xff, 0x2);
-	ptrig->push_back( std::pair<VSGOBJHANDLE, int>(m_stim.handle(), 100) );
-	m_triggers.addTrigger(ptrig);
-	ptrig = new ContrastTrigger("s", 0x4, 0x0, 0xff, 0x0);
-	ptrig->push_back( std::pair<VSGOBJHANDLE, int>(m_stim.handle(), 0) );
-	m_triggers.addTrigger(ptrig);
-
-	OrientationTuningTrigger *potrig = new OrientationTuningTrigger("A", 0x8, 0x8, 0xff, 0x4, m_stim, 0, 360, 10);
-	m_triggers.addTrigger(potrig);
-
-	m_triggers.addTrigger(new QuitTrigger("q", 0x8, 0x8, 0xff, 0x0, 0));
-
-}
-
-int init_pages()
-{
-	int status=0;
-
-	vsgSetDrawPage(vsgVIDEOPAGE, BACKGROUND_PAGE, vsgBACKGROUND);
-	vsgPresent();
-
-	// draw STIMULUS_PAGE, fp and stim here
-	vsgSetDrawPage(vsgVIDEOPAGE, STIMULUS_PAGE, vsgBACKGROUND);
-	m_stim.init(50);
-	m_stim.drawOnce();
-
-	// draw fixpt last so it isn't overwritten by stimuli
-	m_afp.init(2);
-	m_afp.draw();
-	m_afp.setContrast(0);
-
-	// Set trigger mode
-	vsgObjSetTriggers(vsgTRIG_ONPRESENT+vsgTRIG_TOGGLEMODE,0,0);
-
-	return status;
-}
-
-
 
