@@ -1,0 +1,1049 @@
+' $Log: not supported by cvs2svn $
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+'	Get Current configuration START
+'	
+'	Fetch the current configuration from the registry and return it. 
+'
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+func GetCurrentConfiguration$()
+	var key$;
+	var s$;
+	key$:="AlertRig";
+	Profile(key$, "CurrentConfiguration", "default", s$);
+	return s$;
+end;
+
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+'	Get Current configuration END
+'
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+'	Data parameters START
+'
+'	Vars that control where data is stored. 
+'
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+var dataPathRoot$;		' base path for data storage
+var dataDataSet$;		' folder under data path where data files placed
+var dataCellName$;		' part of base name for all data files
+var dataDataSetTextItem%;	' 
+
+proc GetDataParameters()
+	var stmp$;
+	var key$;
+
+	key$:="AlertRig\\Data";
+
+	Profile(key$, "PathRoot", "C:\\Experiments", dataPathRoot$);
+	Profile(key$, "DataSet", "", dataDataSet$);
+	Profile(key$, "CellName", "", dataCellName$);
+	return;
+end;
+
+proc SaveDataParameters()
+	var stmp$;
+	var key$;
+
+	key$:="AlertRig\\Data";
+
+	Profile(key$, "PathRoot", dataPathRoot$);
+	Profile(key$, "DataSet", dataDataSet$);
+	Profile(key$, "CellName", dataCellName$);
+	return;
+end;
+
+func DataParametersDialog%()
+	var i%;
+	GetDataParameters();
+	DlgCreate("Data Storage Parameters", 25, 10, 50);
+	DlgText("Data root path: " + dataPathRoot$, 0, 1);
+	dataDataSetTextItem% := DlgText("Data set name: " + dataDataSet$, 0, 2);
+	DlgString(1, "Cell name:", 10, "", 0, 3);
+        DlgButton(2, "New Data Set", NewDataSet%);
+	i% := DlgShow(dataCellName$);
+	if (i% = 1) then
+		if Len(dataDataSet$) = 0 then
+			Message("Must specify a data set (try the button!)");
+		else
+			if Len(dataCellName$) = 0 then
+				Message("Must specify a cell name");
+			else
+				FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 3, 1);
+				SaveDataParameters();
+			endif;
+		endif;
+	endif;
+	return i%;
+end;
+
+
+func NewDataSet%()
+	var d$;
+	var i%;
+	var dirs$[100];	' if there are ever more than 100 datasets in a single day there will be trouble
+	d$ := Date$(2, 2, 3, 3, "-");
+	PrintLog("NewDataSet: date string = " + d$ + "\n");
+
+	' Change current dir to data path root, then get list of subdirs with this date string
+	PrintLog("NewDataSet: dataPathRoot$=" + dataPathRoot$ + "\n");
+	FilePathSet(dataPathRoot$, 0, 1);
+	i% := FileList(dirs$, -2, d$ + "-??");
+        PrintLog("NewDataSet: found " + str$(i%) + " dirs\n");
+
+	' form new dataset name. The first will have "-01" appended, the second "-02", etc. 
+	dataDataSet$ := Print$("%s-%02d", d$, i%+1);
+	PrintLog("NewDataSet: dataset= " + dataDataSet$ + "\n");
+	DlgValue$(dataDataSetTextItem%, "Data set name: " + dataDataSet$);
+	return 1;
+end;
+
+
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+' Data parameters END
+'
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+' Tuning Curve script START
+'
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+var tunFixationDuration;	' Time required to hold fixation for reward (stim ON)
+var tunMaintainFixation;	' Time required to hold fixation for reward (stim OFF)
+var tunTimeOutTime;		' Time after break fixation
+var tunAcquisitionTime;		' Time allowed to acquire fixation
+var tunBackgroundColor$;	' background color for stim
+
+' These will be set by the tuning curve choice
+var tunNAdvances%;		' Number of times stim will advance during one repeat
+var tunNRepeats%;		' Number of repeats
+
+' These are specific to the individual tuning curve types - orientation first
+var tunOriNSteps%;		' # steps in orientation tuning curve
+var tunOriNRepeats%;		' # repeats in ori tuning curve
+var tunOriMinOrientation;	' min orientation
+var tunOriMaxOrientation;	' max orientation
+var tunOriProgression%;
+
+' Contrast next
+var tunContrastNSteps%;			' # steps in contrast tuning curve
+var tunContrastNRepeats%;		' # repeats in contrast tuning curve
+var tunContrastMinContrast;		' min contrast
+var tunContrastMaxContrast;		' max contrast
+var tunContrastProgression%;
+
+' Spatial next
+var tunSpatialNSteps%;			' # steps in spatial freq tuning curve
+var tunSpatialNRepeats%;		' # repeats in spatial freq tuning curve
+var tunSpatialMinSF;			' min SF
+var tunSpatialMaxSF;			' max SF
+var tunSpatialProgression%;
+
+' Temporal next
+var tunTemporalNSteps%;			' # steps in temporal tuning curve
+var tunTemporalNRepeats%;		' # repeats in temporal tuning curve
+var tunTemporalMinTF;		' min TF
+var tunTemporalMaxTF;		' max TF
+var tunTemporalProgression%;
+
+
+
+proc GetTuningCurveScriptParameters()
+	var stmp$;
+	var key$;
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Tuning";
+
+	Profile(key$, "FixationDuration", "2.0", stmp$);
+	tunFixationDuration := val(stmp$);
+	Profile(key$, "MaintainFixation", "2.0", stmp$);
+	tunMaintainFixation := val(stmp$);
+	Profile(key$, "TimeOutTime", "2.0", stmp$);
+	tunTimeOutTime := val(stmp$);
+	Profile(key$, "AcquisitionTime", "2.0", stmp$);
+	tunAcquisitionTime := val(stmp$);
+	Profile(key$, "BackgroundColor", "gray", tunBackgroundColor$);
+end;
+
+proc SaveTuningCurveScriptParameters()
+	var key$;
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Tuning";
+	Profile(key$, "FixationDuration", str$(tunFixationDuration));
+	Profile(key$, "MaintainFixation", str$(tunMaintainFixation));
+	Profile(key$, "TimeOutTime", str$(tunTimeOutTime));
+	Profile(key$, "AcquisitionTime", str$(tunAcquisitionTime));
+	Profile(key$, "BackgroundColor", tunBackgroundColor$);
+end;
+
+proc GetTuningCurveOrientationParameters()
+	var stmp$;
+	var key$;
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Tuning\\Orientation";
+
+	Profile(key$, "NSteps", 2, tunOriNSteps%);
+	Profile(key$, "NRepeats", 1, tunOriNRepeats%);
+	Profile(key$, "MinOrientation", "0", stmp$);
+	tunOriMinOrientation := val(stmp$);
+	Profile(key$, "MaxOrientation", "360", stmp$);
+	tunOriMaxOrientation := val(stmp$);
+end;
+
+proc SaveTuningCurveOrientationParameters()
+	var key$;
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Tuning\\Orientation";
+	Profile(key$, "NSteps", tunOriNSteps%);
+	Profile(key$, "NRepeats", tunOriNRepeats%);
+	Profile(key$, "MinOrientation", str$(tunOriMinOrientation));
+	Profile(key$, "MaxOrientation", str$(tunOriMaxOrientation));
+end;
+
+proc GetTuningCurveContrastParameters()
+	var stmp$;
+	var key$;
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Tuning\\Contrast";
+
+	Profile(key$, "NSteps", 2, tunContrastNSteps%);
+	Profile(key$, "NRepeats", 1, tunContrastNRepeats%);
+	Profile(key$, "MinContrast", "0", stmp$);
+	tunContrastMinContrast := val(stmp$);
+	Profile(key$, "MaxContrast", "100", stmp$);
+	tunContrastMaxContrast := val(stmp$);
+end;
+
+proc SaveTuningCurveContrastParameters()
+	var key$;
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Tuning\\Contrast";
+	Profile(key$, "NSteps", tunContrastNSteps%);
+	Profile(key$, "NRepeats", tunContrastNRepeats%);
+	Profile(key$, "MinContrast", str$(tunContrastMinContrast));
+	Profile(key$, "MaxContrast", str$(tunContrastMaxContrast));
+end;
+
+proc GetTuningCurveSpatialParameters()
+	var stmp$;
+	var key$;
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Tuning\\Spatial";
+
+	Profile(key$, "NSteps", 2, tunSpatialNSteps%);
+	Profile(key$, "NRepeats", 1, tunSpatialNRepeats%);
+	Profile(key$, "MinSF", "0.2", stmp$);
+	tunSpatialMinSF := val(stmp$);
+	Profile(key$, "MaxSF", "10", stmp$);
+	tunSpatialMaxSF := val(stmp$);
+end;
+
+proc SaveTuningCurveSpatialParameters()
+	var key$;
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Tuning\\Spatial";
+
+	Profile(key$, "NSteps", tunSpatialNSteps%);
+	Profile(key$, "NRepeats", tunSpatialNRepeats%);
+	Profile(key$, "MinSF", str$(tunSpatialMinSF));
+	Profile(key$, "MaxSF", str$(tunSpatialMaxSF));
+end;
+
+proc GetTuningCurveTemporalParameters()
+	var stmp$;
+	var key$;
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Tuning\\Temporal";
+
+	Profile(key$, "NSteps", 2, tunTemporalNSteps%);
+	Profile(key$, "NRepeats", 1, tunTemporalNRepeats%);
+	Profile(key$, "MinTF", "0.1", stmp$);
+	tunTemporalMinTF := val(stmp$);
+	Profile(key$, "MaxTF", "10", stmp$);
+	tunTemporalMaxTF := val(stmp$);
+end;
+
+proc SaveTuningCurveTemporalParameters()
+	var key$;
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Tuning\\Temporal";
+
+	Profile(key$, "NSteps", tunSpatialNSteps%);
+	Profile(key$, "NRepeats", tunSpatialNRepeats%);
+	Profile(key$, "MinTF", str$(tunSpatialMinSF));
+	Profile(key$, "MaxTF", str$(tunSpatialMaxSF));
+end;
+
+
+func TuningCurveScriptDialog%()
+	var i%;
+	GetTuningCurveScriptParameters();
+	var bcl$[3];
+	var ibcl%:=0;
+	bcl$[0] := "gray";
+	bcl$[1] := "black";
+	bcl$[2] := "white";
+	for i%:=0 to 2 do
+		if tunBackgroundColor$ = bcl$[i%] then
+			ibcl% := i%;
+		endif
+	next;
+
+	DlgCreate("Tuning Curve Parameters", 50, 10);
+	DlgGroup("Common Parameters", 0, 1, 40, 6);
+	DlgReal(1, "Acquisition time(s):", 1, 1000, 20, 2);
+	DlgReal(2, "Fixation duration(s):", .1, 10, 20, 3);
+	DlgReal(3, "Maintain fixation(s):", .1, 10, 20, 4);
+	DlgReal(4, "Time out time(s):", .01, 10, 20, 5);
+	DlgList(5, "Background color:", bcl$, 3, 20, 6);
+	DlgGroup("Individual Tuning Curve Types", 0, 7, 40, 5);
+	DlgButton(6, "Orientation", TuningCurveOrientationDialog%, 1, 8);
+	DlgButton(7, "Contrast", TuningCurveContrastDialog%, 1, 9);
+	DlgButton(8, "Spatial Freq", TuningCurveSpatialDialog%, 1, 10);
+	DlgButton(9, "Temporal Freq", TuningCurveTemporalDialog%, 1, 11);
+
+	i%:=DlgShow(tunAcquisitionTime, tunFixationDuration, tunMaintainFixation,
+		tunTimeOutTime, ibcl%);
+
+	if i% = 1 then
+		tunBackgroundColor$ := bcl$[ibcl%];
+		SaveTuningCurveScriptParameters();
+	endif;
+	return 1;
+end;
+
+
+func TuningCurveOrientationDialog%()
+
+	var i%;
+	DlgCreate("Orientation Tuning Curve Parameters");
+	DlgInteger(1, "Number of Steps", 2, 100);
+	DlgInteger(2, "Number of Repeats", 1, 10);
+	DlgReal(3, "Min Orientation (deg)", 0, 360);
+	DlgReal(4, "Max Orientation (deg)", 0, 360);
+	DlgCheck(5, "Random Progression");
+
+	i% := DlgShow(tunOriNSteps%, tunOriNRepeats%, tunOriMinOrientation, tunOriMaxOrientation, tunOriProgression%);
+	if i% = 1 then
+		SaveTuningCurveOrientationParameters();
+	endif;
+	return 1;
+end;
+
+func TuningCurveContrastDialog%()
+
+	var i%;
+	DlgCreate("Contrast Tuning Curve Parameters");
+	DlgInteger(1, "Number of Steps", 2, 100);
+	DlgInteger(2, "Number of Repeats", 1, 10);
+	DlgReal(3, "Min Contrast (%)", 0, 100);
+	DlgReal(4, "Max Contrast (%)", 0, 100);
+	DlgCheck(5, "Random Progression");
+
+	i% := DlgShow(tunContrastNSteps%, tunContrastNRepeats%, tunContrastMinContrast, tunContrastMaxContrast, tunContrastProgression%);
+	if i% = 1 then
+		SaveTuningCurveContrastParameters();
+	endif;
+
+	return 1;
+end;
+
+func TuningCurveSpatialDialog%()
+
+	var i%;
+	DlgCreate("Spatial Freq Tuning Curve Parameters");
+	DlgInteger(1, "Number of Steps", 2, 100);
+	DlgInteger(2, "Number of Repeats", 1, 10);
+	DlgReal(3, "Min SF", .1, 10);
+	DlgReal(4, "Max SF", .1, 10);
+	DlgCheck(5, "Random Progression");
+
+	i% := DlgShow(tunSpatialNSteps%, tunSpatialNRepeats%, tunSpatialMinSF, tunSpatialMaxSF, tunSpatialProgression%);
+	if i% = 1 then
+		SaveTuningCurveSpatialParameters();
+	endif;
+
+	return 1;
+end;
+
+func TuningCurveTemporalDialog%()
+
+	var i%;
+	DlgCreate("Temporal Freq Tuning Curve Parameters");
+	DlgInteger(1, "Number of Steps", 2, 100);
+	DlgInteger(2, "Number of Repeats", 1, 10);
+	DlgReal(3, "Min TF", 0, 10);
+	DlgReal(4, "Max TF", 0, 10);
+	DlgCheck(5, "Random Progression");
+
+	i% := DlgShow(tunTemporalNSteps%, tunTemporalNRepeats%, tunTemporalMinTF, tunTemporalMaxTF, tunTemporalProgression%);
+	if i% = 1 then
+		SaveTuningCurveTemporalParameters();
+	endif;
+
+	return 1;
+end;
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+' Tuning Curve script END
+'
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+
+
+
+
+
+
+
+
+
+
+
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+'	Fixation Point parameters START
+'
+'	These vars and funcs control the parameters for the fixation point stored in the registry. 
+'
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+
+
+var WindowRadius;
+var FixationX, FixationY;
+var FixationColor$;
+var iFixationColor%;
+var FixationDiameter;
+var FixationColorList$[3]; 
+var FixationArg$;
+
+proc GetFixationPointParameters()
+	var stmp$;
+	var key$;
+	key$ := "AlertRig\\" + GetCurrentConfiguration$() + "\\FixationPoint";
+	Profile(key$, "WindowRadius", "1", stmp$);
+	WindowRadius := val(stmp$);
+
+	Profile(key$, "FixationX", "0", stmp$);
+	FixationX := val(stmp$);
+	Profile(key$, "FixationY", "0", stmp$);
+	FixationY := val(stmp$);
+	Profile(key$, "FixationColor", "0", stmp$);
+	iFixationColor% := val(stmp$);
+
+	FixationColorList$[0]:="red"; 
+	FixationColorList$[1]:="green"; 
+	FixationColorList$[2]:="blue"; 
+	FixationColor$ := FixationColorList$[iFixationColor%];
+
+	Profile(key$, "FixationDiameter", "0.5", stmp$);
+	FixationDiameter := val(stmp$);
+
+	' Form the argument for applications. Convenience for passing args. 
+	FixationArg$ := " -f " + str$(FixationX) + "," + str$(FixationY) + "," + str$(FixationDiameter) + "," + FixationColor$;
+end;
+
+proc SaveFixationPointParameters()
+	var key$;
+	key$ := "AlertRig\\" + GetCurrentConfiguration$() + "\\FixationPoint";
+	Profile(key$, "WindowRadius", str$(WindowRadius));
+	Profile(key$, "FixationX", str$(FixationX));
+	Profile(key$, "FixationY", str$(FixationY));
+	Profile(key$, "FixationColor", str$(iFixationColor%));
+	Profile(key$, "FixationDiameter", str$(FixationDiameter));
+end;
+
+
+func FixationPointDialog%()
+
+	var i%;
+	GetFixationPointParameters();
+	DlgCreate("Fixation parameters: " + GetCurrentConfiguration$(), 25, 10);
+	DlgReal(1, "Fixation X:", -20, 20);
+	DlgReal(2, "Fixation Y:", -20, 20);
+	DlgReal(3, "Fixation diam:", .1, 5);
+	DlgReal(4, "Window radius:", .1, 10);
+	DlgList(5, "Color:", FixationColorList$[]);
+	i% := DlgShow(FixationX, FixationY, FixationDiameter, WindowRadius, iFixationColor%);	
+
+	' If user cancelled, reload params
+	if i% = 0 then
+		GetFixationPointParameters();
+	else
+		SaveFixationPointParameters();
+	endif
+
+	return 1;
+end;
+
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+'	Fixation Point parameters END
+'
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+'	Rig Daily Totals START
+'
+'	Control, display, reset daily totals for a rig.
+'
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+
+var TotalTrials%;
+var TotalRewards%;
+var TotalDate$;
+
+
+proc GetDailyTotals()
+	var key$;
+	key$ := "AlertRig\\Daily";
+	Profile(key$, "TotalDate", "", TotalDate$);
+	Profile(key$, "TotalTrials", 0, TotalTrials%);
+	Profile(key$, "TotalRewards", 0, TotalRewards%);
+
+	' Get date string if needed
+	if Len(TotalDate$) = 0 then
+		TotalDate$ := GetDayString$();
+		SaveDailyTotals();
+	endif
+end;
+
+proc SaveDailyTotals()
+	var key$;
+	key$ := "AlertRig\\Daily";
+	Profile(key$, "TotalDate", TotalDate$);
+	Profile(key$, "TotalTrials", TotalTrials%);
+	Profile(key$, "TotalRewards", TotalRewards%);
+end;
+
+func DailyTotalsDialog%()
+	GetDailyTotals();
+	DlgCreate("Daily Totals");
+	DlgText("Date: " + TotalDate$, 0, 1);
+	DlgText("Trials: " + str$(TotalTrials%), 0, 2);
+	DlgText("Rewards: " + str$(TotalRewards%), 0, 3);
+	DlgButton(2, "Reset", ResetDailyTotals%);
+	DlgShow();
+	return 1;
+end;
+
+
+func GetDayString$()
+	return Date$(2, 1, 3, 2, "-");
+end;
+
+
+func ResetDailyTotals%()
+	GetDailyTotals();
+	TotalRewards%:=0;
+	TotalTrials%:=0;
+	TotalDate$:= GetDayString$();
+	SaveDailyTotals();
+        return 0;
+end;
+
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+'	Rig Daily Totals END
+'
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+'	DAQ Parameters START
+'
+'	Control of data acquisition parameters.
+'
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+
+var DistanceToScreenMM$;		' Distance to screen in MM
+var DegreesPerVoltX;			' Conversion factor from ADC to visual degrees
+var DegreesPerVoltY;			' Conversion factor from ADC to visual degrees
+var EyeCoilSamplingFrequency%;		' Frequency to sample eye coil at
+var NumberOfElectrodes%;		' Number of electrodes (i.e. wavemark inputs) in use
+var JuicePerReward%;			' Number of juice squirts per reward
+
+
+func DAQParametersDialog%()
+
+	var iReturn%;
+	var idist%;
+
+	GetDAQParameters();
+
+	idist% := val(DistanceToScreenMM$);
+	DlgCreate("DAQ parameters: " + GetCurrentConfiguration$(), 25, 10);
+	DlgInteger(1, "Number of Electrodes:", 1, 7, 0, 0, 1);
+	DlgInteger(2, "Screen Distance (MM):", 1, 5000);
+	DlgReal(3, "Degrees/Volt (X):", 0, 100);
+	DlgReal(4, "Degrees/Volt (Y):", 0, 100);
+	DlgInteger(5, "Eye Coil Sampling Freq (Hz):", 1, 20000);
+	DlgInteger(6, "Juice per reward:", 0, 10, 0, 0, 1);
+	iReturn% := DlgShow(NumberOfElectrodes%, idist%, DegreesPerVoltX, DegreesPerVoltY, EyeCoilSamplingFrequency%, JuicePerReward%);
+
+	if iReturn% = 1 then
+		DistanceToScreenMM$ := str$(idist%);
+		SaveDAQParameters();
+	endif
+	return iReturn%;
+end;
+
+
+
+
+	
+proc GetDAQParameters()
+	var key$;
+	var DegreesPerVoltX$, DegreesPerVoltY$;
+
+	key$ := "AlertRig\\" + GetCurrentConfiguration$() + "\\DAQ";
+	Profile(key$, "DistanceToScreenMM", "850", DistanceToScreenMM$);	' will just pass this to stimulus app
+	Profile(key$, "DegreesPerVoltX", "", DegreesPerVoltX$);
+	Profile(key$, "DegreesPerVoltY", "", DegreesPerVoltY$);
+	Profile(key$, "EyeCoilSamplingFrequency", 1000, EyeCoilSamplingFrequency%);
+	Profile(key$, "NumberOfElectrodes", 1, NumberOfElectrodes%);
+	Profile(key$, "JuicePerReward", 1, JuicePerReward%);
+	DegreesPerVoltX := val(DegreesPerVoltX$);
+	DegreesPerVoltY := val(DegreesPerVoltY$);
+
+end;
+
+proc SaveDAQParameters()
+	var key$;
+	var DegreesPerVoltX$, DegreesPerVoltY$;
+	DegreesPerVoltX$ := str$(DegreesPerVoltX);
+	DegreesPerVoltY$ := str$(DegreesPerVoltY);
+	
+	key$ := "AlertRig\\" + GetCurrentConfiguration$() + "\\DAQ";
+	Profile(key$, "DistanceToScreenMM", DistanceToScreenMM$);
+	Profile(key$, "DegreesPerVoltX", DegreesPerVoltX$);
+	Profile(key$, "DegreesPerVoltY", DegreesPerVoltY$);
+	Profile(key$, "EyeCoilSamplingFrequency", EyeCoilSamplingFrequency%);
+	Profile(key$, "NumberOfElectrodes", NumberOfElectrodes%);
+	Profile(key$, "JuicePerReward", JuicePerReward%);
+
+end;
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+'	DAQ Parameters END
+'
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+
+
+
+' Local file system variables. 
+var bin$, script$;
+bin$ := View(App(3)).FileName$(1) + View(App(3)).FileName$(2) + "..\\bin";	' Location of executables is ..\bin, relative to script dir
+script$ := View(App(3)).FileName$(1) + View(App(3)).FileName$(2);	' folder containing this script
+
+' Overall script control vars
+var Pause% := 0;
+
+' Channel numbers and handles
+var StimHandle%;			' handle for stimulus application
+var DataWindow%;		' 
+var XChannel%;
+var YChannel%;
+
+var FixationPointChannel%;
+var StimChannel%;
+var StimChangeChannel%;
+var ReadyChannel%;
+
+' XY window stuff
+var XYWindow%;			' 
+var iStimChannel%;	' channel number for stimulus in xy window
+var iStimWindowChannel%;' channel number for stimulus window in xy window
+var iMonitorChannel%;	' channel number for monitor position display in xy window
+
+' Display stuff
+var FixWindowX[36],FixWindowY[36];	' points for displaying fixation window in xy view
+
+
+' Fetch parameters
+GetDailyTotals();
+GetDAQParameters();
+GetFixationPointParameters();
+GetTuningCurveScriptParameters();
+GetDataParameters();
+
+' Check for valid data file path
+if Len(dataDataSet$) = 0 then
+	Message("No data set is selected! Edit Data parameters...");
+	' Might be nice to open the dialog here....
+	halt;
+else 
+	' Set path for new data files, and for those saved automatically
+	FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 3);
+	FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 1);
+	SampleAutoName$(dataCellName$ + "_att_000");
+	SampleAutoFile(1);
+	PrintLog("AutoFile status " + str$(SampleAutoFile()) + "\n");
+endif
+
+' Assign channel numbers for eye X,Y and trigger. 
+XChannel% := NumberOfElectrodes%+1;
+YChannel% := NumberOfElectrodes%+2;
+FixationPointChannel% := NumberOfElectrodes%+3;
+StimChannel% := NumberOfElectrodes%+4;
+StimChangeChannel% := NumberOfElectrodes%+5;
+ReadyChannel% := NumberOfElectrodes%+6;
+CreateSampleConfiguration();
+
+
+' Get display windows ready
+InitializeWindows();
+
+' Prepare the toolbar buttons
+InitializeToolbar();
+
+
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+' InitilizeToolbar - prepare toolbar buttons. Note that the idle processing function (ToolbarSet(0, blah, blah)) is 
+' not set here. That's done when the user hits the start button.
+'
+proc InitializeToolbar()
+
+	View(App(8)).WindowVisible(0);	'Hide the standard sample bar
+	ToolbarVisible(1);
+	ToolbarSet(1,"Sample start",Start%);
+	ToolbarSet(2,"Sample stop", Stop%);
+	ToolbarSet(3,"Juice", Reward%);
+	ToolbarSet(4,"Pause stimuli",PauseStimuli%);
+	ToolbarSet(5,"Resume stimuli",ResumeStimuli%);
+'	ToolbarSet(6,"Exp Parameters",AttentionScriptDialog%);
+	ToolbarSet(7,"Quit",Quit%);
+	ToolbarEnable(2,0);
+	ToolbarEnable(4,0);
+	ToolbarEnable(5,0);
+	Toolbar("Go",12345);
+
+end;
+
+
+
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func Looking%(EyePosX,EyePosY)
+	'Determine if the eye position is within the fixation window
+	if (Pow(EyePosX-FixationX,2) + Pow(EyePosY-FixationY,2)) <= Pow(WindowRadius,2) then return 1; else return 0; endif
+end;
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func Reward%()
+	var i%;
+	for i%:=1 to JuicePerReward% do Yield(.05); SampleKey("J"); next
+	return 1;
+end;
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+
+
+var tNow:=0;		' latest time for which there are values recorded. Used in IdleProcessing
+var tLast:=-1;		' last time we checked for a trigger. 
+var xEye, yEye;		' eye positions
+var tLastUpdate:=-1;	' last time view was updated
+var vTrigger;		' set by NextTime to indicate trigger transition
+var tStateStart:=-1;	' time that present state started. Used to measure wait time, fixation time, etc. 
+var tLastTrigger:=-1;	' last trigger time. New triggers have to be greater than this
+var tTrigger:=-1;	' temp var for newly discovered trigger times
+var tFixationDone:=-1;	' time that fixation duration was achieved. Used to measure time to answer
+
+' Constants for states
+const stateStartTrial%:=0;	' Start trial state
+const stateWaitForFixPt%:=1;	' Waiting for fixation point return trigger
+const stateAcquire%:=2;		' Waiting for subject to acquire fixation point
+const stateHoldFixation%:=3;	' Holding fixation point
+const stateBreakFixation%:=4;	' Waiting for subject to break fixation
+const stateAbort%:=5;		' Failed trial state
+const stateWaitForAnswer%:=6;	' Fixation held, now awaiting answer
+const stateCorrectAnswer%:=7;	' Right answer received
+const stateIncorrectAnswer%:=8;	' Wrong answer received
+const stateWaitForBlank%:=9;
+const stateInterTrialInterval%:=10;
+const stateVSGWait% := 11;
+const stateVSGWaitConfirm% := 12;
+var iState% := stateVSGWait%;	' present state
+
+var AnswerPointsUp% :=0;	' Set to 1 after answer point key "A" is issued
+var StimulusUp% :=0;		' Set to 1 after grating key "S" is issued
+var ContrastChange% := 0;	' Set to 1 after ContrastChange key "C"/"D" is issued
+
+
+var nTrialsStarted%:=0;
+var nTrialsCorrect%:=0;
+var nTrialsIncorrect%:=0;
+var nTrialsAbort% :=0;		' Number of trials aborted before any answer given
+
+func IdleProcessing%()
+
+	tNow := MaxTime();
+
+	xEye := ChanMeasure(XChannel%,2,tNow-.001,tNow-.006)*DegreesPerVoltX;
+	yEye := ChanMeasure(YChannel%,2,tNow-.001,tNow-.006)*DegreesPerVoltY;
+
+	' Don't update display every time....
+	if tNow-tLastUpdate > .005 then
+		View(XYWindow%).XYAddData(1,xEye,yEye);
+		tLastUpdate := tNow;
+	endif
+
+
+	docase 
+		case iState% = stateVSGWait% then
+
+			' Waiting for VSG to indicate it is ready. The indication is a pulse (up, then down, 1 frame apart) on port 6.
+			tTrigger := NextTime(ReadyChannel%, tLast, vTrigger);
+			if tTrigger > tLastTrigger and vTrigger = 0 then
+				PrintLog("state stateVSGWait: Got leading edge of trigger\n");
+				tLastTrigger := tTrigger;
+				ChangeStateTo(stateVSGWaitConfirm%, tTrigger);
+			endif;
+
+		case iState% = stateVSGWaitConfirm% then
+
+			' Waiting for VSG to confirm it is ready. The downward side of the pulse is expected...
+			tTrigger := NextTime(ReadyChannel%, tLast, vTrigger);
+			if tTrigger > tLastTrigger and vTrigger = 1 then
+				PrintLog("state stateVSGWaitConfirm: Got trailing edge of trigger\n");
+				tLastTrigger := tTrigger;
+				ChangeStateTo(stateStartTrial%, tTrigger);
+			endif;
+
+
+		else 
+
+			' Unknown state!
+			Message("Unknown state=" + str$(iState%));
+			halt;
+
+	endcase;
+
+	tLast := tNow;
+	return 1;
+end;
+
+
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+proc ChangeStateTo(stateTo%, tStart)
+	iState% := stateTo%;
+	tStateStart := tStart;
+end;
+
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func PauseStimuli%();
+Pause% :=1;
+ToolbarEnable(4,0);
+ToolbarEnable(5,1);
+return 1;
+end
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func ResumeStimuli%();
+Pause% :=0;
+ToolbarEnable(4,1);
+ToolbarEnable(5,0);
+return 1;
+end
+
+
+
+
+
+proc InitializeWindows()
+
+	'Open the data sampling window
+	DataWindow% := FileNew(0,4);
+	Window(-0.235849,52.746,97.2484,99.8856);
+	View(DataWindow%).WindowVisible(1);
+
+	'Open an XY view to display eye position
+	XYWindow% := FileNew(12);
+	XRange(-30,30);
+	YRange(-2,-30,30);
+	XYDrawMode(0,5,0);
+	WindowVisible(1);
+	Window(-0.550314,0.114416,41.5094,52.746);
+	XYColour(1,16);
+	XYSize(1,-1);
+
+	'Calcuate the fixation window
+	var index%;
+	var twopi;
+	twopi := 2.0*4.0*ATan(1.0);
+	
+	for index% := 0 to 35 do
+		FixWindowX[index%] := FixationX + WindowRadius * Cos(index% * twopi/36.0);
+		FixWindowY[index%] := FixationY + WindowRadius * Sin(index% * twopi/36.0);
+	next;
+
+	'Create a new channel in the XY view to display the fixation window
+	iStimWindowChannel% := XYSetChan(0);
+	XYColour(2,13);
+	XYDrawMode(2,2,1);
+	XYJoin(2,1);
+	'Draw the fixation window
+	XYAddData(2, FixWindowX[], FixWindowY[]);
+
+	'Create a new channel in the XY view to display the fixation point
+	iStimChannel% := XYSetChan(0);
+
+	'Create a new channel in the XY view to show the monitor's location
+	iMonitorChannel% := XYSetChan(0);
+	XYColour(4,13);
+	XYDrawMode(4,3,1);
+	XYJoin(4,2);
+	XYAddData(4,-9,-7);
+	XYAddData(4,9,-7);
+	XYAddData(4,9,7);
+	XYAddData(4,-9,7);
+
+end;
+
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+proc CreateSampleConfiguration()
+	var index;
+	SampleClear(); 'Set standard sampling state
+'	SampleAutoFile(0); 'Enable automatic file naming
+	SampleAutoComment(0); 'Prompt for comment after sampling
+	SampleAutoCommit(60); 'Seconds between each file commit
+
+	'Channel recording definitions
+	SampleEvent(FixationPointChannel%,1,2,3600); 'Trigger channel, level
+	SampleComment$(FixationPointChannel%,"Fixation");
+	SampleTitle$(FixationPointChannel%,"Fixation");
+	
+	SampleEvent(StimChannel%,2,2,3600); 'Trigger channel, level
+	SampleComment$(StimChannel%,"Stim");
+	SampleTitle$(StimChannel%,"Stim");
+	
+	SampleEvent(StimChangeChannel%,3,2,3600); 'Trigger channel, level
+	SampleComment$(StimChangeChannel%,"Stim Chg.");
+	SampleTitle$(StimChangeChannel%,"Stim Chg.");
+	
+	SampleEvent(ReadyChannel%,6,2,3600); 'Trigger channel, level
+	SampleComment$(ReadyChannel%,"VSG Ready");
+	SampleTitle$(ReadyChannel%,"VSG Ready");
+
+	for index := 1 to NumberOfElectrodes% do
+		SampleWaveMark(index,index-1,2000,34,15,28000); ' chan, port, event rate, points, pre-trigger, rate
+		SampleTitle$(index,"Electrode_"+Str$(index)); 
+	next
+	
+	SampleWaveform(XChannel%,14,1000);
+	SampleTitle$(XChannel%,"Eye X");
+	SampleWaveform(YChannel%,15,1000);
+	SampleTitle$(YChannel%,"Eye Y");
+	
+	SampleSequencer(script$ + "Tuning.pls");
+	SampleOptimise(2,2,2,2,50);  'Set optimise mode (do this last)
+	SampleMode(1); 'Continuous sampling
+end;
+
+
+
+' Get grating p[arameters from registry AlertRig\\(config)\\Gratings\\type$
+func GetGratingParameters$(type$)
+	var key$;
+	var stmp$;
+	key$ := "AlertRig\\" + GetCurrentConfiguration$() + "\\Gratings";
+	Profile(key$, type$, "", stmp$);
+	return stmp$;
+end;
+
+
+' Used to hard-quit from toolbar. This will close data files without saving!!! 
+' It is important that this function be disabled once sampling is started!!!
+
+func Quit%()
+	FileClose(-1,-1);
+	return 0;
+end;
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func Stop%()
+
+	' Disable idle process func
+	ToolbarSet(0,"");
+
+	' Tell stim app to shut down
+	SampleKey("Q");
+	Yield(.1);
+	SampleStop();
+	ProgKill(StimHandle%);
+	ProgRun(bin$ + "\\ClearTrigger",0);
+
+	' Increment daily totals and save then
+	TotalTrials% += nTrialsStarted%;
+	TotalRewards% += nTrialsCorrect%;
+	SaveDailyTotals();
+
+	' Save data file
+'	View(DataWindow%);
+'	if FileSave() <> 0 then
+'		Message("WARNING! Data file not saved!!!");
+'	endif
+
+end;
+
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func Start%()
+var CommandLine$;
+var FixationPoint$;
+var Extras$;
+var Distractors$:="";
+
+SampleStart(0); 'Start sampling
+SampleKey("0");
+'GetAttentionScriptParameters();
+'DetermineContrastChanges();
+
+' Stimulus is always used
+Distractors$ := " -g " + GetGratingParameters$("Stimulus");
+
+Extras$ := " -b " + tunBackgroundColor$ + " -d " + DistanceToScreenMM$ + " -C 50,100,5";
+
+
+'CommandLine$ := "cmd /c " + bin$ + "\\dAttention " + FixationArg$ + Extras$ + Distractors$;
+CommandLine$ := bin$ + "\\dTuning " + FixationArg$ + Extras$ + Distractors$;
+
+'Begin the stimulus program. It will take a few seconds for the VSG to initialize.
+PrintLog(CommandLine$+"\n");
+StimHandle% := ProgRun(CommandLine$,1);
+if StimHandle% <0 then Message("Could not start stimulus."); halt; endif
+Yield(5);	'Wait a few seconds to make sure the VSG has time to initialize.
+
+ToolbarSet(0,"",IdleProcessing%);	'Enable the IdleProcessing function
+ToolbarEnable(2,1);
+ToolbarEnable(1,0);
+ToolbarEnable(6,0);
+ToolbarEnable(7,0);
+View(DataWindow%);
+Yield(.1);
+return 1;
+end;
+
+
+

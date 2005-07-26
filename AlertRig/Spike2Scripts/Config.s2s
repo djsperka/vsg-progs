@@ -875,6 +875,7 @@ var tunFixationDuration;	' Time required to hold fixation for reward (stim ON)
 var tunMaintainFixation;	' Time required to hold fixation for reward (stim OFF)
 var tunTimeOutTime;		' Time after break fixation
 var tunAcquisitionTime;		' Time allowed to acquire fixation
+var tunBackgroundColor$;	' background color for stim
 
 ' These will be set by the tuning curve choice
 var tunNAdvances%;		' Number of times stim will advance during one repeat
@@ -923,6 +924,7 @@ proc GetTuningCurveScriptParameters()
 	tunTimeOutTime := val(stmp$);
 	Profile(key$, "AcquisitionTime", "2.0", stmp$);
 	tunAcquisitionTime := val(stmp$);
+	Profile(key$, "BackgroundColor", "gray", tunBackgroundColor$);
 end;
 
 proc SaveTuningCurveScriptParameters()
@@ -932,6 +934,7 @@ proc SaveTuningCurveScriptParameters()
 	Profile(key$, "MaintainFixation", str$(tunMaintainFixation));
 	Profile(key$, "TimeOutTime", str$(tunTimeOutTime));
 	Profile(key$, "AcquisitionTime", str$(tunAcquisitionTime));
+	Profile(key$, "BackgroundColor", tunBackgroundColor$);
 end;
 
 proc GetTuningCurveOrientationParameters()
@@ -1028,23 +1031,36 @@ end;
 func TuningCurveScriptDialog%()
 	var i%;
 	GetTuningCurveScriptParameters();
+	var bcl$[3];
+	var ibcl%:=0;
+	GetAttentionScriptParameters();
+	bcl$[0] := "gray";
+	bcl$[1] := "black";
+	bcl$[2] := "white";
+	for i%:=0 to 2 do
+		if tunBackgroundColor$ = bcl$[i%] then
+			ibcl% := i%;
+		endif
+	next;
 
 	DlgCreate("Tuning Curve Parameters", 50, 10);
-	DlgGroup("Common Parameters", 0, 1, 40, 5);
+	DlgGroup("Common Parameters", 0, 1, 40, 6);
 	DlgReal(1, "Acquisition time(s):", 1, 1000, 20, 2);
 	DlgReal(2, "Fixation duration(s):", .1, 10, 20, 3);
 	DlgReal(3, "Maintain fixation(s):", .1, 10, 20, 4);
 	DlgReal(4, "Time out time(s):", .01, 10, 20, 5);
-	DlgGroup("Individual Tuning Curve Types", 0, 6, 40, 5);
-	DlgButton(5, "Orientation", TuningCurveOrientationDialog%, 1, 7);
-	DlgButton(6, "Contrast", TuningCurveContrastDialog%, 1, 8);
-	DlgButton(7, "Spatial Freq", TuningCurveSpatialDialog%, 1, 9);
-	DlgButton(8, "Temporal Freq", TuningCurveTemporalDialog%, 1, 10);
+	DlgList(5, "Background color:", bcl$, 3, 20, 6);
+	DlgGroup("Individual Tuning Curve Types", 0, 7, 40, 5);
+	DlgButton(6, "Orientation", TuningCurveOrientationDialog%, 1, 8);
+	DlgButton(7, "Contrast", TuningCurveContrastDialog%, 1, 9);
+	DlgButton(8, "Spatial Freq", TuningCurveSpatialDialog%, 1, 10);
+	DlgButton(9, "Temporal Freq", TuningCurveTemporalDialog%, 1, 11);
 
 	i%:=DlgShow(tunAcquisitionTime, tunFixationDuration, tunMaintainFixation,
-		tunTimeOutTime);
+		tunTimeOutTime, ibcl%);
 
 	if i% = 1 then
+		tunBackgroundColor$ := bcl$[ibcl%];
 		SaveTuningCurveScriptParameters();
 	endif;
 	return 1;
