@@ -228,7 +228,13 @@ int alert::ARGratingSpec::draw(bool useTransOnLower)
 		}
 	}
 
+	// Set object defauilts. setDefaults() sets contrast to 100% 
+	// -- this may not be what we want, so reset contrast to the 
+	// stim's current value
 	vsgObjSetDefaults();
+	vsgObjSetContrast(contrast);
+
+	// assign pixel levels for object
 	vsgObjSetPixelLevels(getFirstLevel(), getNumLevels());
 
 	// Set spatial waveform

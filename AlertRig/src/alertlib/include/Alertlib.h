@@ -34,10 +34,11 @@ int parse_distance(std::string s, int& dist);
 int parse_integer(std::string s, int& i);
 int parse_double(std::string s, double& d);
 int parse_contrast_triplet(std::string s, int& i_iContrastDown, int& i_iContrastBase, int& i_iContrastUp);
+int parse_tuning_triplet(std::string s, double& i_dMin, double& i_dMax, int& i_iSteps);
 int parse_xy(std::string s, double& x, double& y);
 void tokenize(const std::string& str, std::vector<std::string>& tokens, const std::string& delimiters);
 
-
+// convenient operators
 std::ostream& operator<<(std::ostream& out, const COLOR_TYPE& c);
 std::ostream& operator<<(std::ostream& out, const COLOR_VECTOR_TYPE& v);
 std::ostream& operator<<(std::ostream& out, const APERTURE_TYPE& a);
@@ -107,7 +108,7 @@ namespace alert
 		void init(PIXEL_LEVEL first, int numlevels);
 		void init(int numlevels);
 		int select();
-		void setContrast(int contrast) { select(); vsgObjSetContrast(contrast); };
+		virtual void setContrast(int contrast) { select(); vsgObjSetContrast(contrast); };
 		VSGOBJHANDLE handle() { return m_handle; };
 		bool initialized() { return m_initialized; };
 		PIXEL_LEVEL getFirstLevel() { return m_first; };
@@ -186,6 +187,7 @@ namespace alert
 		int redraw(bool useTransOnLower);
 		int drawOnce();
 		int setOrientation(double orientation);
+		virtual void setContrast(int contrast) { select(); this->contrast = contrast; vsgObjSetContrast(contrast); };
 	};
 
 
@@ -285,6 +287,9 @@ namespace alert
 			}
 			return m_binitial;
 		};
+
+		std::string getKey() const { return m_key; };
+
 	private:
 		std::string m_key;
 		int m_in_mask;
@@ -294,6 +299,26 @@ namespace alert
 		int m_out_val;
 		bool m_binitial;
 		int m_in_initial;
+	};
+
+
+	// callback function type for CallbackTrigger
+	class CallbackTrigger;
+	typedef int (*TriggerCallbackFunc)(int &output, const CallbackTrigger* ptrig);
+
+	class CallbackTrigger: public Trigger
+	{
+	public:
+		CallbackTrigger(std::string i_key, int i_in_mask, int i_in_val, int i_out_mask, int i_out_val, TriggerCallbackFunc tcf ) : 
+		  Trigger(i_key, i_in_mask, i_in_val, i_out_mask, i_out_val), m_callback(tcf)  {};
+		~CallbackTrigger() {};
+		virtual int execute(int& output)
+		{
+			setMarker(output);
+			return m_callback(output, this);
+		};
+	private:
+		TriggerCallbackFunc m_callback;
 	};
 
 
