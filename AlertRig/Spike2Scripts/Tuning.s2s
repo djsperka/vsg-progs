@@ -1,9 +1,12 @@
 ' $Log: not supported by cvs2svn $
+' Revision 1.2  2005/07/26 23:42:00  dan
+' First working beta version. States are implemented. Needs tallying, display.
+'
 ' Revision 1.1  2005/07/26 01:03:52  dan
 ' Mods to config.s2s for tuning script. Tuning script first add here.
 '
 
-''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 '
 '	Get Current configuration START
 '	
