@@ -14,6 +14,13 @@
 #include <string>
 #include <ostream>
 #include <sstream>
+#include <algorithm>
+
+
+// Set this bit in the out_val of a trigger to indicate it should be toggled.
+// The given out_val (without the toggle bit) will be the first value triggered.
+// After that the value will toggle.
+#define AR_TRIGGER_TOGGLE 0x8000
 
 // These typedefs are used in all the specs. 
 typedef enum colorvectortype { unknown_color_vector=0, b_w, l_cone, m_cone, s_cone } COLOR_VECTOR_TYPE;
@@ -228,10 +235,42 @@ namespace alert
 		{
 			m_key = i_key;
 			m_in_mask = i_in_mask;
-			m_in_val = i_in_val;
 			m_out_mask = i_out_mask;
-			m_out_val = i_out_val;
-			m_binitial = false;
+
+			// Check if the output value should be toggled
+			if (i_out_val & AR_TRIGGER_TOGGLE)
+			{
+				std::cout << "TOGGLE(output) " << m_key << " out_val " << i_out_val << std::endl;
+				m_btoggleOut = true;
+				m_out_val = i_out_val & ~(AR_TRIGGER_TOGGLE);
+				m_last_out_val = ~m_out_val & m_out_mask;
+			}
+			else
+			{
+				m_btoggleOut = false;
+				m_out_val = i_out_val;
+				m_last_out_val = m_out_val;
+			}
+
+			// Check if the input value will be toggled
+			if (i_in_val & AR_TRIGGER_TOGGLE)
+			{
+				std::cout << "TOGGLE(input) " << m_key << " in_val " << i_in_val << std::endl;
+				m_btoggleIn = true;
+				m_in_val = i_in_val & ~(AR_TRIGGER_TOGGLE);
+//				m_in_last = ~m_in_val & m_in_mask;
+//				m_in_last = 0;
+			}
+			else
+			{
+				m_btoggleIn = false;
+				m_in_val = i_in_val;
+//				m_in_last = m_in_val;
+//				m_in_last = 0;
+			}
+
+			reset();	// this gives the m_in_val a value.
+		
 		};
 
 		~Trigger() {};
@@ -245,21 +284,46 @@ namespace alert
 		{
 			bool bValue = false;
 			int current = input&m_in_mask;
-			initial(input);
-			if (current != m_in_last && current == m_in_val)
+
+			if (!m_btoggleIn)
 			{
-				bValue = true;
+				if (current != m_in_last && current == m_in_val)
+				{
+					bValue = true;
+				}
+				m_in_last = current;
 			}
-			m_in_last = current;
+			else
+			{
+				// We expect the trigger to be the last trigger toggled. If a trigger covers more than 
+				// one bit, then all must be inverted. Note that the FIRST trigger expected is the value
+				// given as i_in_val (without the AR_TRIGGER_TOGGLE bit). Subsequent triggers are expected
+				// to be toggled. 
+				if (((~current)&m_in_mask) == m_in_last)
+				{
+					bValue = true;
+					m_in_last = current;	// Note that the last value is saved only if a toggled trigger
+				}
+			}
 			if (bValue) std::cerr << "key: " << m_key << std::hex << " input " << input << " m_in_mask=" << m_in_mask << " m_in_val=" << m_in_val << " current=" << current << " bval=" << bValue << std::endl;
 			return bValue;
 		};
 
 		virtual void setMarker(int& output)
 		{
-			if (m_out_val >= 0)
+			if (!m_btoggleOut)
 			{
-				output = m_out_val | (output&(~m_out_mask));
+				if (m_out_val >= 0)
+				{
+					output = m_out_val | (output&(~m_out_mask));
+				}
+			}
+			else
+			{
+				int temp;
+				temp = ~m_last_out_val & m_out_mask;
+				output = temp | (output&(~m_out_mask));
+				m_last_out_val = temp;
 			}
 		};
 
@@ -267,7 +331,7 @@ namespace alert
 		std::string toString() const
 		{
 			std::ostringstream oss;
-			oss << "Trigger " << m_key << " in mask/val: 0x" << std::hex << m_in_mask << "/0x" << m_in_val << " out mask/val: 0x" << m_out_mask << "/0x" << m_out_val;
+			oss << "Trigger " << m_key << " in mask/val/toggle: 0x" << std::hex << m_in_mask << "/0x" << m_in_val << "/" << m_btoggleIn << " out mask/val/toggle: 0x" << m_out_mask << "/0x" << m_out_val << "/" << m_btoggleOut;
 			return oss.str();
 		}
 
@@ -277,16 +341,32 @@ namespace alert
 		// or something similarly intelligent. 
 		virtual int execute(int& output) { return 0; };
 
-		bool initial(int input)
+		void reset()
 		{
-			if (!m_binitial)
-			{
-				m_in_initial = input;
-				m_binitial = true;
-				std::cerr << "key " << m_key << " initial=" << std::hex << input << std::endl;
-			}
-			return m_binitial;
+			reset(0);
 		};
+
+
+		// reset the trigger's notion of what the last input value was. 
+		// This should be called in order to ensure that the first instance of the 
+		// trigger will in fact fire the trigger. Remember that in order for the trigger
+		// to fire the input must be DIFFERENT than the last time it was called, AND it
+		// must match the in_val. Its best to call TriggerVector::reset(), not this
+		// directly
+
+
+		void reset(int input)
+		{
+			if (!m_btoggleIn)
+			{
+				m_in_last = (~input) & m_in_mask;
+			}
+			else
+			{
+				m_in_last = input & m_in_mask;
+			}
+		};
+
 
 		std::string getKey() const { return m_key; };
 
@@ -297,8 +377,9 @@ namespace alert
 		int m_in_last;	// last value of this trigger's input&m_in_mask (initial = 0) 
 		int m_out_mask;
 		int m_out_val;
-		bool m_binitial;
-		int m_in_initial;
+		int m_last_out_val;
+		bool m_btoggleOut;
+		bool m_btoggleIn;
 	};
 
 
@@ -374,193 +455,20 @@ namespace alert
 		};
 	};
 
-/*
-	class TuningOnOffTrigger: public Trigger
+
+		class ResetTriggerFunc
 	{
 	public:
-		TuningOnOffTrigger(std::string i_key, int i_in_mask, int i_in_val, int i_out_mask, int i_out_val,
-								std::string i_keyON, int i_in_maskON, int i_in_valON, int i_out_maskON, int i_out_valON,
-								std::string i_keyOFF, int i_in_maskOFF, int i_in_valOFF, int i_out_maskOFF, int i_out_valOFF) :
-		Trigger(i_key, i_in_mask, i_in_val, i_out_mask, i_out_val)
+		ResetTriggerFunc(int val) : m_val(val) {};
+		~ResetTriggerFunc() {};
+		void operator()(Trigger* pitem)
 		{
-			m_iTriggered = -1;
-			m_ptrigON = new ContrastTrigger(i_keyON, i_in_maskON, i_in_valON, i_out_maskON, i_out_maskON);
-			m_ptrigOFF = new ContrastTrigger(i_keyOFF, i_in_maskOFF, i_in_valOFF, i_out_maskOFF, i_out_maskOFF);
-		};
-
-
-		~TuningOnOffTrigger() 
-		{
-			delete m_ptrigON;
-			delete m_ptrigOFF;
-		};
-
-		virtual bool checkAscii(std::string input)
-		{
-			bool bval=false;
-			if (Trigger::checkAscii(input))
-			{
-				bval = true;
-				m_iTriggered = 0;
-			}
-			else if (m_ptrigON->checkAscii(input))
-			{
-				bval = true;
-				m_iTriggered = 1;
-			}
-			else if (m_ptrigOFF->checkAscii(input))
-			{
-				bval = true;
-				m_iTriggered = 2;
-			}
-			return bval;
-		};
-
-		virtual bool checkBinary(int input)
-		{
-			bool bval = false;
-			bool bval0, bval1, bval2;
-
-			// check each class. This ensures that the current trigger value is stored. 
-			bval0 = Trigger::checkBinary(input);
-			bval1 = m_ptrigON->checkBinary(input);
-			bval2 = m_ptrigOFF->checkBinary(input);
-			if (bval0)
-			{
-				m_iTriggered = 0;
-				return true;
-			}
-			if (bval1)
-			{
-				m_iTriggered = 1;
-				return true;
-			}
-			if (bval2)
-			{
-				m_iTriggered = 2;
-				return true;
-			}
-			return false;
+			pitem->reset(m_val);
 		}
-
-
-		// Execute the triggers' action(s). Subclasses should return >0 if a vsgPresent() will be 
-		// needed, 0 if no present(), and <0 if this trigger means quit (a call to vsgPresent() is 
-		// is made in this case, too -- that way a quitting trigger can set the page to blank
-		// or something similarly intelligent. 
-		virtual int execute(int& output)
-		{
-			int ival=0;
-			switch (m_iTriggered)
-			{
-			case 0:
-				setMarker(output);
-				return executeTuning();
-				break;
-			case 1:
-				return m_ptrigON->execute(output);
-				break;
-			case 2:
-				return m_ptrigOFF->execute(output);
-				break;
-			default:
-				std::cerr << "Error: No execute method for internal trigger " << m_iTriggered << std::endl;
-			}
-			return ival;
-		}
-
-
-		virtual int executeTuning() = 0;
-
-	private:
-		int m_iTriggered;
-		ContrastTrigger *m_ptrigON;
-		ContrastTrigger *m_ptrigOFF;
-	};
-*/
-
-
-
-	class TuningTrigger: public Trigger
-	{
-	public:
-		TuningTrigger(std::string i_key, int i_in_mask, int i_in_val, int i_out_mask, int i_out_val) :
-		  Trigger(i_key, i_in_mask, i_in_val, i_out_mask, i_out_val) {};
-
-	    virtual ~TuningTrigger() {};
-
-		virtual int executeTuning() = 0;
-
-		// The trigger should set the initial value for its variable parameter in the grating here. 
-		virtual void initialize() = 0;
-
-		// Execute the triggers' action(s). Subclasses should return >0 if a vsgPresent() will be 
-		// needed, 0 if no present(), and <0 if this trigger means quit (a call to vsgPresent() is 
-		// is made in this case, too -- that way a quitting trigger can set the page to blank
-		// or something similarly intelligent. 
-		virtual int execute(int& output)
-		{
-			setMarker(output);
-			return executeTuning();
-		}
+		int m_val;
 	};
 
 
-	class OrientationTuningTrigger : public TuningTrigger
-	{
-	public:
-		OrientationTuningTrigger(std::string i_key, int i_in_mask, int i_in_val, int i_out_mask, int i_out_val, ARGratingSpec& i_gr, double i_minOri, double i_maxOri, int i_nsteps) :
-		TuningTrigger(i_key, i_in_mask, i_in_val, i_out_mask, i_out_val), m_gr(i_gr)
-		{
-			double step = (i_maxOri - i_minOri)/(double)i_nsteps;
-			for (int i=0; i<i_nsteps; i++)
-			{
-				m_vecOri.push_back(i_minOri + i*step);
-			}
-			m_vecOri.push_back(i_maxOri);
-			m_iCurrentOri = 0;
-		}
-
-		void initialize()
-		{
-			m_gr.orientation = m_vecOri[0];
-			m_gr.drawOnce();
-		}
-
-
-		int executeTuning()
-		{
-			m_iCurrentOri++;
-			if (m_iCurrentOri >= m_vecOri.size()) m_iCurrentOri = 0;
-			m_gr.orientation = m_vecOri[m_iCurrentOri];
-			m_gr.draw();
-			return 1;
-		}
-
-
-	  private:
-		  std::vector<double> m_vecOri;
-		  int m_iCurrentOri;
-		  ARGratingSpec& m_gr;
-	};
-
-
-	class TriggerVector: public std::vector<Trigger*>
-	{
-	public:
-		TriggerVector() {};
-		virtual ~TriggerVector() 
-		{
-			for (int i=0; i<size(); i++)
-			{
-				delete (*this)[i];
-			}
-		};
-		void addTrigger(Trigger* t)
-		{
-			push_back(t);
-		};
-	};
 
 	class TriggerFunc
 	{
@@ -600,6 +508,31 @@ namespace alert
 		int m_otrigger;	// if m_present is true, this is the output trigger value
 		int m_page;
 	};
+
+
+
+	class TriggerVector: public std::vector<Trigger*>
+	{
+	public:
+		TriggerVector() {};
+		virtual ~TriggerVector() 
+		{
+			for (int i=0; i<size(); i++)
+			{
+				delete (*this)[i];
+			}
+		};
+		void addTrigger(Trigger* t)
+		{
+			push_back(t);
+		};
+
+		void reset(int input)
+		{
+			std::for_each(this->begin(), this->end(), ResetTriggerFunc(input));
+		}
+	};
+
 
 
 };	// end namespace alert;

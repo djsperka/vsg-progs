@@ -407,7 +407,8 @@ int alert::ARvsg::init(int screenDistanceMM, COLOR_TYPE i_bg)
 			m_initialized = true;
 			vsgSetViewDistMM(screenDistanceMM);
 			vsgSetSpatialUnits(vsgDEGREEUNIT);
-			vsgSetCommand(vsgPALETTECLEAR);
+//			vsgSetCommand(vsgPALETTECLEAR);
+//			vsgSetCommand(vsgPALETTERAMP);
 			m_background_color = i_bg;
 			// this level gets used later, but we request it now to insure we get level 0
 			alert::LevelManager::instance().request_single(m_background_level);
@@ -487,8 +488,20 @@ int alert::ARvsg::init_video_pages(voidfunc func_before_objects, voidfunc func_a
 			cerr << "Cannot get trival for background color " << m_background_color << endl;
 			status = 2;
 		}
-		vsgPaletteWrite((VSGLUTBUFFER*)&background, m_background_level, 1);
 
+
+		VSGLUTBUFFER buffer;
+		for(i=0; i<256; i++) buffer[i] = background;
+		vsgLUTBUFFERWrite(0,&buffer);
+		vsgLUTBUFFERtoPalette(0);
+		
+		
+		
+		
+		
+//		vsgPaletteWrite((VSGLUTBUFFER*)&background, m_background_level, 1);
+//		vsgPaletteWrite((VSGLUTBUFFER*)&background, 250, 1);
+//		for (i = 0; i<252; i++) vsgPaletteWrite((VSGLUTBUFFER*)&background, i, 1);
 
 		// Now clear all pages to background level, then call the before_objects callback, 
 		// if it exists. 
