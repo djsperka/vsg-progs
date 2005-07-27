@@ -75,6 +75,8 @@ int main(int argc, char **argv)
 	vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, 0x00, 0);
 	vsgPresent();
 
+	m_triggers.reset(vsgIOReadDigitalIn());
+
 
 	// All right, start monitoring triggers........
 	string s;
@@ -132,16 +134,16 @@ void init_pages()
 	{
 	case tt_contrast:
 		// Save the min contrast value for this type
-		m_iSavedContrast = m_tuned_param_min;
+		m_tuned_param_current = m_iSavedContrast = m_tuned_param_min;
 		break;
 	case tt_spatial:
-		m_stim.sf = m_tuned_param_min;
+		m_tuned_param_current = m_stim.sf = m_tuned_param_min;
 		break;
 	case tt_temporal:
-		m_stim.tf = m_tuned_param_min;
+		m_tuned_param_current = m_stim.tf = m_tuned_param_min;
 		break;
 	case tt_orientation:
-		m_stim.orientation = m_tuned_param_min;
+		m_tuned_param_current = m_stim.orientation = m_tuned_param_min;
 		break;
 	default:
 		cerr << "Error in init_pages: unknown tuning type!" << endl;
@@ -170,7 +172,7 @@ void init_triggers()
 	// triggers for stim will be CallbackTriggers, all using the same callback function
 	m_triggers.addTrigger(new CallbackTrigger("S", 0x4, 0x4, 0x2, 0x2, callback));
 	m_triggers.addTrigger(new CallbackTrigger("s", 0x4, 0x0, 0x2, 0x0, callback));
-	m_triggers.addTrigger(new CallbackTrigger("a", 0x8, 0x8, 0x4, 0x4, callback));
+	m_triggers.addTrigger(new CallbackTrigger("a", 0x8, 0x8 | AR_TRIGGER_TOGGLE, 0x4, 0x4 | AR_TRIGGER_TOGGLE, callback));
 	m_triggers.addTrigger(new QuitTrigger("q", 0x10, 0x10, 0xff, 0x0, 0));
 	
 }
@@ -196,21 +198,25 @@ int callback(int &output, const CallbackTrigger* ptrig)
 		switch (m_tuning_type)
 		{
 		case tt_contrast:
+			m_iSavedContrast = (int)m_tuned_param_current;
 			m_stim.setContrast((int)m_tuned_param_current);
 			break;
 		case tt_spatial:
 			m_stim.sf = m_tuned_param_current;
 			break;
 		case tt_temporal:
-			m_stim.tf = m_tuned_param_min;
+			m_stim.tf = m_tuned_param_current;
 			break;
 		case tt_orientation:
-			m_stim.orientation = m_tuned_param_min;
+			m_stim.orientation = m_tuned_param_current;
 			break;
 		default:
 			cerr << "Error in trigger callback: unknown tuning type!" << endl;
 		}
 		m_stim.redraw(true);
+
+		// if the stim is off, make sure the vsgPresent is not issued!
+		if (m_bStimIsOff) ival = 0;	
 	}
 	else if (key == "s")
 	{
@@ -223,8 +229,8 @@ int callback(int &output, const CallbackTrigger* ptrig)
 	else if (key == "S")
 	{
 		// Turn on stimulus by setting contrast to m_iSavedContrast.
+		cout << "Set stim to " << m_iSavedContrast << endl;
 		m_stim.setContrast(m_iSavedContrast);
-		m_iSavedContrast = m_stim.contrast;
 		m_bStimIsOff = false;
 		m_stim.redraw(true);
 	}
