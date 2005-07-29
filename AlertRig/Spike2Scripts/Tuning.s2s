@@ -1,4 +1,7 @@
 ' $Log: not supported by cvs2svn $
+' Revision 1.3  2005/07/27 21:50:14  dan
+' Changed 'a' trigger to invert sense of the line it controls.
+'
 ' Revision 1.2  2005/07/26 23:42:00  dan
 ' First working beta version. States are implemented. Needs tallying, display.
 '
@@ -164,7 +167,16 @@ var tunTemporalMinTF;		' min TF
 var tunTemporalMaxTF;		' max TF
 var tunTemporalProgression%;
 
+const tunTypeNone$ := "None";
+const tunTypeOrientation$ := "O";
+const tunTypeContrast$ := "C";
+const tunTypeSpatial$ := "S";
+const tunTypeTemporal$ := "T";
+var tunType$:=tunTypeNone$;
 
+const tunContextDAQ$ := "DAQ";
+const tunContextConfig$ := "Config";
+var tunContext$ := tunContextConfig$;
 
 proc GetTuningCurveScriptParameters()
 	var stmp$;
@@ -283,8 +295,171 @@ proc SaveTuningCurveTemporalParameters()
 end;
 
 
+
+
+func TuningCurveOrientationDialog%()
+	var iReturn%;
+	var i%;
+	DlgCreate("Run Orientation Tuning Curve");
+	DlgInteger(1, "Number of Steps", 2, 100);
+	DlgInteger(2, "Number of Repeats", 1, 10);
+	DlgReal(3, "Min Orientation (deg)", 0, 360);
+	DlgReal(4, "Max Orientation (deg)", 0, 360);
+	DlgCheck(5, "Random Progression");
+	i% := DlgShow(tunOriNSteps%, tunOriNRepeats%, tunOriMinOrientation, tunOriMaxOrientation, tunOriProgression%);
+
+	' If i% is 1 the user hit "OK". If its 0, user hit "Cancel". 
+	' When user hits OK we alwaus save the parameters, and when user hit Cancel we don't.
+	if i% = 1 then
+		SaveTuningCurveOrientationParameters();
+'		PrintLog("TuningCurveOrientationDialog - user hit OK\n");
+		tunType$ := tunTypeOrientation$;
+		if tunContext$ = tunContextDAQ$ then
+			iReturn% := 0;
+		else
+			iReturn% := 1;
+		endif;
+	endif;
+	if i% = 0 then
+'		PrintLog("TuningCurveOrientationDialog - user hit Cancel\n");
+		tunType$ := tunTypeNone$;
+		if tunContext$ = tunContextDAQ$ then
+			iReturn% := 1;
+		else
+			iReturn% := 2;
+		endif;
+	endif;
+
+	return iReturn%;
+end;
+
+
+
+func TuningCurveContrastDialog%()
+	var iReturn% := 0;
+	var i%;
+	DlgCreate("Contrast Tuning Curve Parameters");
+	DlgInteger(1, "Number of Steps", 2, 100);
+	DlgInteger(2, "Number of Repeats", 1, 10);
+	DlgReal(3, "Min Contrast (%)", 0, 100);
+	DlgReal(4, "Max Contrast (%)", 0, 100);
+	DlgCheck(5, "Random Progression");
+
+	i% := DlgShow(tunContrastNSteps%, tunContrastNRepeats%, tunContrastMinContrast, tunContrastMaxContrast, tunContrastProgression%);
+	' If i% is 1 the user hit "OK". If its 0, user hit "Cancel". 
+	' When user hits OK we alwaus save the parameters, and when user hit Cancel we don't.
+	if i% = 1 then
+		SaveTuningCurveContrastParameters();
+'		PrintLog("TuningCurveContrastDialog - user hit OK\n");
+		tunType$ := tunTypeContrast$;
+		if tunContext$ = tunContextDAQ$ then
+			iReturn% := 0;
+		else
+			iReturn% := 1;
+		endif;
+	endif;
+	if i% = 0 then
+'		PrintLog("TuningCurveContrastDialog - user hit Cancel\n");
+		tunType$ := tunTypeNone$;
+		if tunContext$ = tunContextDAQ$ then
+			iReturn% := 1;
+		else
+			iReturn% := 2;
+		endif;
+	endif;
+
+	return iReturn%;
+end;
+
+func TuningCurveSpatialDialog%()
+	var iReturn% := 0;
+	var i%;
+	DlgCreate("Spatial Freq Tuning Curve Parameters");
+	DlgInteger(1, "Number of Steps", 2, 100);
+	DlgInteger(2, "Number of Repeats", 1, 10);
+	DlgReal(3, "Min SF", .1, 10);
+	DlgReal(4, "Max SF", .1, 10);
+	DlgCheck(5, "Random Progression");
+
+	i% := DlgShow(tunSpatialNSteps%, tunSpatialNRepeats%, tunSpatialMinSF, tunSpatialMaxSF, tunSpatialProgression%);
+	' If i% is 1 the user hit "OK". If its 0, user hit "Cancel". 
+	' When user hits OK we alwaus save the parameters, and when user hit Cancel we don't.
+	if i% = 1 then
+		SaveTuningCurveSpatialParameters();
+'		PrintLog("TuningCurveSpatialDialog - user hit OK\n");
+		tunType$ := tunTypeSpatial$;
+		if tunContext$ = tunContextDAQ$ then
+			iReturn% := 0;
+		else
+			iReturn% := 1;
+		endif;
+	endif;
+	if i% = 0 then
+'		PrintLog("TuningCurveSpatialDialog - user hit Cancel\n");
+		tunType$ := tunTypeNone$;
+		if tunContext$ = tunContextDAQ$ then
+			iReturn% := 1;
+		else
+			iReturn% := 2;
+		endif;
+	endif;
+
+	return iReturn%;
+end;
+
+func TuningCurveTemporalDialog%()
+	var iReturn% := 0;
+	var i%;
+	DlgCreate("Temporal Freq Tuning Curve Parameters");
+	DlgInteger(1, "Number of Steps", 2, 100);
+	DlgInteger(2, "Number of Repeats", 1, 10);
+	DlgReal(3, "Min TF", 0, 10);
+	DlgReal(4, "Max TF", 0, 10);
+	DlgCheck(5, "Random Progression");
+
+	i% := DlgShow(tunTemporalNSteps%, tunTemporalNRepeats%, tunTemporalMinTF, tunTemporalMaxTF, tunTemporalProgression%);
+	' If i% is 1 the user hit "OK". If its 0, user hit "Cancel". 
+	' When user hits OK we alwaus save the parameters, and when user hit Cancel we don't.
+	if i% = 1 then
+		SaveTuningCurveTemporalParameters();
+'		PrintLog("TuningCurveTemporalDialog - user hit OK\n");
+		tunType$ := tunTypeTemporal$;
+		if tunContext$ = tunContextDAQ$ then
+			iReturn% := 0;
+		else
+			iReturn% := 1;
+		endif;
+	endif;
+	if i% = 0 then
+'		PrintLog("TuningCurveTemporalDialog - user hit Cancel\n");
+		tunType$ := tunTypeNone$;
+		if tunContext$ = tunContextDAQ$ then
+			iReturn% := 1;
+		else
+			iReturn% := 2;
+		endif;
+	endif;
+
+	return iReturn%;
+end;
+
+
+
+' TuningCurveScriptDialog
+' This dialog uses two global variables, tunContext$ and tunType$. 
+' Set tunContext$ = tunContextConfig$ to run in the config scripts. The dialog and its children (TuningCurveOrientationDialog, etc)
+' will behave as expected, allowing the user to set parameters and saving them in the registry. 
+' Set tunContext$ = tunContextDAQ$ to run in a DAQ script. In this context you must check the return value of the dialog and (possibly)
+' the value of tunType$.
+' If the user hits Cancel in the main dialog, the return value is 0. If the user selects a subdialog and hits OK, the return value will be
+' 1 and the value of tunType$ will be one of (tunTypeOrientation$, tunTypeContrast$, tunTypeSpatial$, tunTypeTemporal$). Here, proceed directly
+' to DAQ. If the user Hits Cancel from the subdialog, then they return to the main dialog. If they hit OK from the main dialog, then the return 
+' value is 1, but tunType$ = tunTypeNone$. 
+
+
 func TuningCurveScriptDialog%()
 	var i%;
+	var iReturn%;
 	GetTuningCurveScriptParameters();
 	var bcl$[3];
 	var ibcl%:=0;
@@ -313,93 +488,34 @@ func TuningCurveScriptDialog%()
 	i%:=DlgShow(tunAcquisitionTime, tunFixationDuration, tunMaintainFixation,
 		tunTimeOutTime, ibcl%);
 
+	PrintLog("Return val is " + str$(i%) + "\n");
 	if i% = 1 then
 		tunBackgroundColor$ := bcl$[ibcl%];
 		SaveTuningCurveScriptParameters();
+'		PrintLog("Tuning Curve Parameters dialog - user hit OK, tunType=" + tunType$ + "\n");
+		if tunContext$ = tunContextDAQ$ then iReturn% := 0;
+		else iReturn% := 1;
+		endif;
 	endif;
-	return 1;
+	if i% = 0 then
+'		PrintLog("Tuning Curve Parameters dialog - user hit Cancel, tunType=" + tunType$ + "\n");
+		if tunContext$ = tunContextDAQ$ then 
+			if tunType$ <> tunTypeNone$ then iReturn% := 1;
+			else iReturn% := 0;
+		 	endif;
+		else
+			iReturn% := 2;		' The calling/main dialog would close if we returned 0
+		endif;
+	endif;
+	return iReturn%;
 end;
 
-
-func TuningCurveOrientationDialog%()
-
-	var i%;
-	DlgCreate("Orientation Tuning Curve Parameters");
-	DlgInteger(1, "Number of Steps", 2, 100);
-	DlgInteger(2, "Number of Repeats", 1, 10);
-	DlgReal(3, "Min Orientation (deg)", 0, 360);
-	DlgReal(4, "Max Orientation (deg)", 0, 360);
-	DlgCheck(5, "Random Progression");
-
-	i% := DlgShow(tunOriNSteps%, tunOriNRepeats%, tunOriMinOrientation, tunOriMaxOrientation, tunOriProgression%);
-	if i% = 1 then
-		SaveTuningCurveOrientationParameters();
-	endif;
-	return 1;
-end;
-
-func TuningCurveContrastDialog%()
-
-	var i%;
-	DlgCreate("Contrast Tuning Curve Parameters");
-	DlgInteger(1, "Number of Steps", 2, 100);
-	DlgInteger(2, "Number of Repeats", 1, 10);
-	DlgReal(3, "Min Contrast (%)", 0, 100);
-	DlgReal(4, "Max Contrast (%)", 0, 100);
-	DlgCheck(5, "Random Progression");
-
-	i% := DlgShow(tunContrastNSteps%, tunContrastNRepeats%, tunContrastMinContrast, tunContrastMaxContrast, tunContrastProgression%);
-	if i% = 1 then
-		SaveTuningCurveContrastParameters();
-	endif;
-
-	return 1;
-end;
-
-func TuningCurveSpatialDialog%()
-
-	var i%;
-	DlgCreate("Spatial Freq Tuning Curve Parameters");
-	DlgInteger(1, "Number of Steps", 2, 100);
-	DlgInteger(2, "Number of Repeats", 1, 10);
-	DlgReal(3, "Min SF", .1, 10);
-	DlgReal(4, "Max SF", .1, 10);
-	DlgCheck(5, "Random Progression");
-
-	i% := DlgShow(tunSpatialNSteps%, tunSpatialNRepeats%, tunSpatialMinSF, tunSpatialMaxSF, tunSpatialProgression%);
-	if i% = 1 then
-		SaveTuningCurveSpatialParameters();
-	endif;
-
-	return 1;
-end;
-
-func TuningCurveTemporalDialog%()
-
-	var i%;
-	DlgCreate("Temporal Freq Tuning Curve Parameters");
-	DlgInteger(1, "Number of Steps", 2, 100);
-	DlgInteger(2, "Number of Repeats", 1, 10);
-	DlgReal(3, "Min TF", 0, 10);
-	DlgReal(4, "Max TF", 0, 10);
-	DlgCheck(5, "Random Progression");
-
-	i% := DlgShow(tunTemporalNSteps%, tunTemporalNRepeats%, tunTemporalMinTF, tunTemporalMaxTF, tunTemporalProgression%);
-	if i% = 1 then
-		SaveTuningCurveTemporalParameters();
-	endif;
-
-	return 1;
-end;
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 '
 ' Tuning Curve script END
 '
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-
-
-
 
 
 
@@ -681,12 +797,13 @@ var iMonitorChannel%;	' channel number for monitor position display in xy window
 ' Display stuff
 var FixWindowX[36],FixWindowY[36];	' points for displaying fixation window in xy view
 
+' dummy vars
+var iScript%;
 
 ' Fetch parameters
 GetDailyTotals();
 GetDAQParameters();
 GetFixationPointParameters();
-GetTuningCurveScriptParameters();
 GetDataParameters();
 
 ' Check for valid data file path
@@ -702,6 +819,29 @@ else
 	SampleAutoFile(1);
 	PrintLog("AutoFile status " + str$(SampleAutoFile()) + "\n");
 endif
+
+
+' run parameters script....
+tunContext$ := tunContextDAQ$;
+tunType$ := tunTypeNone$;
+
+GetTuningCurveScriptParameters();
+iScript% := TuningCurveScriptDialog%();
+if iScript% = 1 then
+	if tunType$ = tunTypeNone$ then
+		PrintLog("No tuning type selected, exit gracefully\n");
+		Halt;
+	else
+		PrintLog("Tuning type \"" + tunType$ + "\" selected, proceed with DAQ\n");
+	endif;
+else
+	PrintLog("User cancel - exit gracefully\n");
+	Halt;
+endif;
+
+
+
+
 
 ' Assign channel numbers for eye X,Y and trigger. 
 XChannel% := NumberOfElectrodes%+1;
@@ -1137,38 +1277,59 @@ end;
 
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 func Start%()
-var CommandLine$;
-var FixationPoint$;
-var Extras$;
-var Distractors$:="";
+	var CommandLine$;
+	var FixationPoint$;
+	var Extras$;
+	var Tune$;
+	var Distractors$:="";
+	
+	SampleStart(0); 'Start sampling
+	SampleKey("0");
+	
+	' Stimulus is always used
+	Distractors$ := " -g " + GetGratingParameters$("Stimulus");
+	
+	Extras$ := " -b " + tunBackgroundColor$ + " -d " + DistanceToScreenMM$;
+	docase 
+		case tunType$ = tunTypeContrast$ then
 
-SampleStart(0); 'Start sampling
-SampleKey("0");
-'GetAttentionScriptParameters();
-'DetermineContrastChanges();
+			Tune$ := "-C " + str$(tunContrastMinContrast) + "," + str$(tunContrastMaxContrast) + "," + str$(tunContrastNSteps%);
 
-' Stimulus is always used
-Distractors$ := " -g " + GetGratingParameters$("Stimulus");
+		case tunType$ = tunTypeOrientation$ then
 
-Extras$ := " -b " + tunBackgroundColor$ + " -d " + DistanceToScreenMM$ + " -C 50,100,5";
+			Tune$ := "-O " + str$(tunOriMinOrientation) + "," + str$(tunOriMaxOrientation) + "," + str$(tunOriNSteps%);
 
+		case tunType$ = tunTypeSpatial$ then
 
-'CommandLine$ := "cmd /c " + bin$ + "\\dAttention " + FixationArg$ + Extras$ + Distractors$;
-CommandLine$ := bin$ + "\\dTuning " + FixationArg$ + Extras$ + Distractors$;
+			Tune$ := "-S " + str$(tunSpatialMinSF) + "," + str$(tunSpatialMaxSF) + "," + str$(tunSpatialNSteps%);
+	
+		case tunType$ = tunTypeTemporal$ then
 
-'Begin the stimulus program. It will take a few seconds for the VSG to initialize.
-PrintLog(CommandLine$+"\n");
-StimHandle% := ProgRun(CommandLine$,1);
-if StimHandle% <0 then Message("Could not start stimulus."); halt; endif
-'Yield(5);	'Wait a few seconds to make sure the VSG has time to initialize.
+			Tune$ := "-T " + str$(tunTemporalMinTF) + "," + str$(tunTemporalMaxTF) + "," + str$(tunTemporalNSteps%);
 
-ToolbarSet(0,"",IdleProcessing%);	'Enable the IdleProcessing function
-ToolbarEnable(2,1);
-ToolbarEnable(1,0);
-ToolbarEnable(6,0);
-ToolbarEnable(7,0);
-View(DataWindow%);
-Yield(.1);
+		else
+
+			Message("Error - unknown value for tunType$: " + tunType$);
+			Halt;
+
+	endcase;
+	
+	'CommandLine$ := "cmd /c " + bin$ + "\\dAttention " + FixationArg$ + Extras$ + Distractors$;
+	CommandLine$ := bin$ + "\\dTuning " + FixationArg$ + Extras$ + Distractors$ + Tune$;
+	
+	'Begin the stimulus program. It will take a few seconds for the VSG to initialize.
+	PrintLog(CommandLine$+"\n");
+	StimHandle% := ProgRun(CommandLine$,1);
+	if StimHandle% <0 then Message("Could not start stimulus."); halt; endif
+	'Yield(5);	'Wait a few seconds to make sure the VSG has time to initialize.
+	
+	ToolbarSet(0,"",IdleProcessing%);	'Enable the IdleProcessing function
+	ToolbarEnable(2,1);
+	ToolbarEnable(1,0);
+	ToolbarEnable(6,0);
+	ToolbarEnable(7,0);
+	View(DataWindow%);
+	Yield(.1);
 return 1;
 end;
 
