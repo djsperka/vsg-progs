@@ -178,6 +178,12 @@ void init_triggers()
 }
 
 
+
+// The return value from this trigger callback determines whether a vsgPresent() is issued. 
+// Care must be taken when the tuning type is "tt_contrast": do not call setContrast when the 
+// stim is OFF because the subsequent vsgPresent (which is necessary for the trigger to be issued)
+// will then make the stim visible again. 
+
 int callback(int &output, const CallbackTrigger* ptrig)
 {
 	int ival=1;
@@ -199,7 +205,9 @@ int callback(int &output, const CallbackTrigger* ptrig)
 		{
 		case tt_contrast:
 			m_iSavedContrast = (int)m_tuned_param_current;
-			m_stim.setContrast((int)m_tuned_param_current);
+			// If the stim is currently on, this will make the change to the contrast visible when the 
+			// vsgPresent is issued. 
+			if (!m_bStimIsOff) m_stim.setContrast((int)m_tuned_param_current);
 			break;
 		case tt_spatial:
 			m_stim.sf = m_tuned_param_current;
@@ -215,24 +223,36 @@ int callback(int &output, const CallbackTrigger* ptrig)
 		}
 		m_stim.redraw(true);
 
-		// if the stim is off, make sure the vsgPresent is not issued!
-		if (m_bStimIsOff) ival = 0;	
 	}
 	else if (key == "s")
 	{
 		// Turn off stimulus by setting contrast to 0.
-		m_iSavedContrast = m_stim.contrast;
-		m_stim.setContrast(0);
-		m_bStimIsOff = true;
-		m_stim.redraw(true);
+		if (!m_bStimIsOff)
+		{
+			m_iSavedContrast = m_stim.contrast;
+			m_stim.setContrast(0);
+			m_bStimIsOff = true;
+			m_stim.redraw(true);
+		}
+		else
+		{
+			cout << "Ignore \"s\" trigger: stim is already off." << endl;
+		}
 	}
 	else if (key == "S")
 	{
 		// Turn on stimulus by setting contrast to m_iSavedContrast.
-		cout << "Set stim to " << m_iSavedContrast << endl;
-		m_stim.setContrast(m_iSavedContrast);
-		m_bStimIsOff = false;
-		m_stim.redraw(true);
+		if (m_bStimIsOff)
+		{
+			cout << "Set stim to " << m_iSavedContrast << endl;
+			m_stim.setContrast(m_iSavedContrast);
+			m_bStimIsOff = false;
+			m_stim.redraw(true);
+		}
+		else
+		{
+			cout << "Ignore \"S\" trigger: stim is already on." << endl;
+		}
 	}
 
 	return ival;
