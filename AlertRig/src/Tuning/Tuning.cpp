@@ -213,7 +213,7 @@ int callback(int &output, const CallbackTrigger* ptrig)
 			m_stim.sf = m_tuned_param_current;
 			break;
 		case tt_temporal:
-			m_stim.tf = m_tuned_param_current;
+			m_stim.setTemporalFrequency(m_tuned_param_current);
 			break;
 		case tt_orientation:
 			m_stim.orientation = m_tuned_param_current;
