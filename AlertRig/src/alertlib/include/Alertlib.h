@@ -195,6 +195,7 @@ namespace alert
 		int drawOnce();
 		int setOrientation(double orientation);
 		virtual void setContrast(int contrast) { select(); this->contrast = contrast; vsgObjSetContrast(contrast); };
+		virtual void setTemporalFrequency(double tf) { select(); this->tf = tf; vsgObjSetDriftVelocity(tf); };
 	};
 
 
