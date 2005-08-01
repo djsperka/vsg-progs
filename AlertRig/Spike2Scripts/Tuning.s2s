@@ -1,4 +1,8 @@
 ' $Log: not supported by cvs2svn $
+' Revision 1.4  2005/07/29 23:29:33  dan
+' Nearly ready! SCripts ready for prime time, except tuning seems to have a bug in
+' start% - probably with args.
+'
 ' Revision 1.3  2005/07/27 21:50:14  dan
 ' Changed 'a' trigger to invert sense of the line it controls.
 '
@@ -288,10 +292,10 @@ proc SaveTuningCurveTemporalParameters()
 	var key$;
 	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Tuning\\Temporal";
 
-	Profile(key$, "NSteps", tunSpatialNSteps%);
-	Profile(key$, "NRepeats", tunSpatialNRepeats%);
-	Profile(key$, "MinTF", str$(tunSpatialMinSF));
-	Profile(key$, "MaxTF", str$(tunSpatialMaxSF));
+	Profile(key$, "NSteps", tunTemporalNSteps%);
+	Profile(key$, "NRepeats", tunTemporalNRepeats%);
+	Profile(key$, "MinTF", str$(tunTemporalMinTF));
+	Profile(key$, "MaxTF", str$(tunTemporalMaxTF));
 end;
 
 
@@ -300,6 +304,7 @@ end;
 func TuningCurveOrientationDialog%()
 	var iReturn%;
 	var i%;
+	GetTuningCurveOrientationParameters();
 	DlgCreate("Run Orientation Tuning Curve");
 	DlgInteger(1, "Number of Steps", 2, 100);
 	DlgInteger(2, "Number of Repeats", 1, 10);
@@ -338,6 +343,7 @@ end;
 func TuningCurveContrastDialog%()
 	var iReturn% := 0;
 	var i%;
+	GetTuningCurveContrastParameters();
 	DlgCreate("Contrast Tuning Curve Parameters");
 	DlgInteger(1, "Number of Steps", 2, 100);
 	DlgInteger(2, "Number of Repeats", 1, 10);
@@ -374,6 +380,7 @@ end;
 func TuningCurveSpatialDialog%()
 	var iReturn% := 0;
 	var i%;
+	GetTuningCurveSpatialParameters();
 	DlgCreate("Spatial Freq Tuning Curve Parameters");
 	DlgInteger(1, "Number of Steps", 2, 100);
 	DlgInteger(2, "Number of Repeats", 1, 10);
@@ -410,6 +417,7 @@ end;
 func TuningCurveTemporalDialog%()
 	var iReturn% := 0;
 	var i%;
+	GetTuningCurveTemporalParameters();
 	DlgCreate("Temporal Freq Tuning Curve Parameters");
 	DlgInteger(1, "Number of Steps", 2, 100);
 	DlgInteger(2, "Number of Repeats", 1, 10);
@@ -500,7 +508,9 @@ func TuningCurveScriptDialog%()
 	if i% = 0 then
 '		PrintLog("Tuning Curve Parameters dialog - user hit Cancel, tunType=" + tunType$ + "\n");
 		if tunContext$ = tunContextDAQ$ then 
-			if tunType$ <> tunTypeNone$ then iReturn% := 1;
+			if tunType$ <> tunTypeNone$ then 
+				iReturn% := 1;
+				SaveTuningCurveScriptParameters();
 			else iReturn% := 0;
 		 	endif;
 		else
@@ -811,15 +821,7 @@ if Len(dataDataSet$) = 0 then
 	Message("No data set is selected! Edit Data parameters...");
 	' Might be nice to open the dialog here....
 	halt;
-else 
-	' Set path for new data files, and for those saved automatically
-	FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 3);
-	FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 1);
-	SampleAutoName$(dataCellName$ + "_att_000");
-	SampleAutoFile(1);
-	PrintLog("AutoFile status " + str$(SampleAutoFile()) + "\n");
 endif
-
 
 ' run parameters script....
 tunContext$ := tunContextDAQ$;
@@ -833,6 +835,33 @@ if iScript% = 1 then
 		Halt;
 	else
 		PrintLog("Tuning type \"" + tunType$ + "\" selected, proceed with DAQ\n");
+
+		' Set path for new data files, and for those saved automatically
+		FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 3);
+		FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 1);
+		docase
+			case tunType$ = tunTypeContrast$ then 
+				SampleAutoName$(dataCellName$ + "_con_000");
+				tunNAdvances% := tunContrastNSteps%;
+				tunNRepeats% := tunContrastNRepeats%;
+			case tunType$ = tunTypeOrientation$ then 
+				SampleAutoName$(dataCellName$ + "_ori_000");
+				tunNAdvances% := tunOriNSteps%;
+				tunNRepeats% := tunOriNRepeats%;
+			case tunType$ = tunTypeSpatial$ then 
+				SampleAutoName$(dataCellName$ + "_spa_000");
+				tunNAdvances% := tunSpatialNSteps%;
+				tunNRepeats% := tunSpatialNRepeats%;
+			case tunType$ = tunTypeTemporal$ then 
+				SampleAutoName$(dataCellName$ + "_tem_000");
+				tunNAdvances% := tunTemporalNSteps%;
+				tunNRepeats% := tunTemporalNRepeats%;
+			else
+				SampleAutoName$(dataCellName$ + "_tun_000");
+		endcase;
+
+		SampleAutoFile(1);
+		PrintLog("AutoFile status " + str$(SampleAutoFile()) + "\n");
 	endif;
 else
 	PrintLog("User cancel - exit gracefully\n");
@@ -927,15 +956,16 @@ const stateMaintainFixation%:=8;	' Maintaining fixation (stim off period)
 const stateInterTrialInterval%:=9;	' time out after failed trial
 const stateVSGWait%:=10;		' wait for vsg to send ready signal #1
 const stateVSGWaitConfirm%:=11;		' waif for vsg to send ready signal #2
+const stateTrialCompleted%:=12;		' trial has been completed successfully
+const stateDone%:=13;	
 var iState% := stateVSGWait%;	' present state
 
 var nTrialsStarted%:=0;
-var nTrialsCorrect%:=0;
-var nTrialsIncorrect%:=0;
-var nTrialsAbort% :=0;		' Number of trials aborted before any answer given
+var nTrialsCompleted%:=0;
+var nTrialsAborted% :=0;		' 
 
 func IdleProcessing%()
-
+	var iStatus% := 1;	
 	tNow := MaxTime();
 
 	xEye := ChanMeasure(XChannel%,2,tNow-.001,tNow-.006)*DegreesPerVoltX;
@@ -1055,6 +1085,7 @@ func IdleProcessing%()
 
 					' turn off stimulus and advance it
 					PrintLog("stateWaitForFixation: successful trial. Turn off and advance stimulus.\n");
+					nTrialsCompleted% += 1;
 					SampleKey("s");
 					Yield();
 					SampleKey("a");
@@ -1076,9 +1107,20 @@ func IdleProcessing%()
 				' Fixation point is up
 				PrintLog("stateWaitForStimOff: stimulus is off.\n");
 				tLastTrigger := tTrigger;
-				ChangeStateTo(stateMaintainFixation%, tTrigger);
+				ChangeStateTo(stateTrialCompleted%, tNow);
 			endif
 
+		case iState% = stateTrialCompleted% then
+
+			if nTrialsCompleted% = (tunNAdvances%*tunNRepeats% + 1) then
+				' We're all done
+				ChangeStateTo(stateDone%, tNow);
+				Stop%();
+				iStatus% := 0;
+			else
+				ChangeStateTo(stateMaintainFixation%, tNow);
+			endif
+				
 		case iState% = stateMaintainFixation% then
 
 			if Looking%(xEye, yEye) = 0 then
@@ -1106,7 +1148,7 @@ func IdleProcessing%()
 	endcase;
 
 	tLast := tNow;
-	return 1;
+	return iStatus%;
 end;
 
 
@@ -1114,7 +1156,7 @@ end;
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 proc ChangeStateTo(stateTo%, tStart)
 	iState% := stateTo%;
-	tStateStart := tStart;
+	if tStart > 0 then tStateStart := tStart; endif;
 end;
 
 
@@ -1263,7 +1305,7 @@ func Stop%()
 
 	' Increment daily totals and save then
 	TotalTrials% += nTrialsStarted%;
-	TotalRewards% += nTrialsCorrect%;
+	TotalRewards% += nTrialsCompleted%;
 	SaveDailyTotals();
 
 	' Save data file
@@ -1293,19 +1335,19 @@ func Start%()
 	docase 
 		case tunType$ = tunTypeContrast$ then
 
-			Tune$ := "-C " + str$(tunContrastMinContrast) + "," + str$(tunContrastMaxContrast) + "," + str$(tunContrastNSteps%);
+			Tune$ := " -C " + str$(tunContrastMinContrast) + "," + str$(tunContrastMaxContrast) + "," + str$(tunContrastNSteps%);
 
 		case tunType$ = tunTypeOrientation$ then
 
-			Tune$ := "-O " + str$(tunOriMinOrientation) + "," + str$(tunOriMaxOrientation) + "," + str$(tunOriNSteps%);
+			Tune$ := " -O " + str$(tunOriMinOrientation) + "," + str$(tunOriMaxOrientation) + "," + str$(tunOriNSteps%);
 
 		case tunType$ = tunTypeSpatial$ then
 
-			Tune$ := "-S " + str$(tunSpatialMinSF) + "," + str$(tunSpatialMaxSF) + "," + str$(tunSpatialNSteps%);
+			Tune$ := " -S " + str$(tunSpatialMinSF) + "," + str$(tunSpatialMaxSF) + "," + str$(tunSpatialNSteps%);
 	
 		case tunType$ = tunTypeTemporal$ then
 
-			Tune$ := "-T " + str$(tunTemporalMinTF) + "," + str$(tunTemporalMaxTF) + "," + str$(tunTemporalNSteps%);
+			Tune$ := " -T " + str$(tunTemporalMinTF) + "," + str$(tunTemporalMaxTF) + "," + str$(tunTemporalNSteps%);
 
 		else
 

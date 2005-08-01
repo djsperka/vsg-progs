@@ -865,6 +865,7 @@ end;
 '
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
+
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 '
 ' Tuning Curve script START
@@ -1030,10 +1031,10 @@ proc SaveTuningCurveTemporalParameters()
 	var key$;
 	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Tuning\\Temporal";
 
-	Profile(key$, "NSteps", tunSpatialNSteps%);
-	Profile(key$, "NRepeats", tunSpatialNRepeats%);
-	Profile(key$, "MinTF", str$(tunSpatialMinSF));
-	Profile(key$, "MaxTF", str$(tunSpatialMaxSF));
+	Profile(key$, "NSteps", tunTemporalNSteps%);
+	Profile(key$, "NRepeats", tunTemporalNRepeats%);
+	Profile(key$, "MinTF", str$(tunTemporalMinTF));
+	Profile(key$, "MaxTF", str$(tunTemporalMaxTF));
 end;
 
 
@@ -1042,6 +1043,7 @@ end;
 func TuningCurveOrientationDialog%()
 	var iReturn%;
 	var i%;
+	GetTuningCurveOrientationParameters();
 	DlgCreate("Run Orientation Tuning Curve");
 	DlgInteger(1, "Number of Steps", 2, 100);
 	DlgInteger(2, "Number of Repeats", 1, 10);
@@ -1080,6 +1082,7 @@ end;
 func TuningCurveContrastDialog%()
 	var iReturn% := 0;
 	var i%;
+	GetTuningCurveContrastParameters();
 	DlgCreate("Contrast Tuning Curve Parameters");
 	DlgInteger(1, "Number of Steps", 2, 100);
 	DlgInteger(2, "Number of Repeats", 1, 10);
@@ -1116,6 +1119,7 @@ end;
 func TuningCurveSpatialDialog%()
 	var iReturn% := 0;
 	var i%;
+	GetTuningCurveSpatialParameters();
 	DlgCreate("Spatial Freq Tuning Curve Parameters");
 	DlgInteger(1, "Number of Steps", 2, 100);
 	DlgInteger(2, "Number of Repeats", 1, 10);
@@ -1152,6 +1156,7 @@ end;
 func TuningCurveTemporalDialog%()
 	var iReturn% := 0;
 	var i%;
+	GetTuningCurveTemporalParameters();
 	DlgCreate("Temporal Freq Tuning Curve Parameters");
 	DlgInteger(1, "Number of Steps", 2, 100);
 	DlgInteger(2, "Number of Repeats", 1, 10);
@@ -1242,7 +1247,9 @@ func TuningCurveScriptDialog%()
 	if i% = 0 then
 '		PrintLog("Tuning Curve Parameters dialog - user hit Cancel, tunType=" + tunType$ + "\n");
 		if tunContext$ = tunContextDAQ$ then 
-			if tunType$ <> tunTypeNone$ then iReturn% := 1;
+			if tunType$ <> tunTypeNone$ then 
+				iReturn% := 1;
+				SaveTuningCurveScriptParameters();
 			else iReturn% := 0;
 		 	endif;
 		else
@@ -1258,9 +1265,6 @@ end;
 ' Tuning Curve script END
 '
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-
-
-
 
 
 
