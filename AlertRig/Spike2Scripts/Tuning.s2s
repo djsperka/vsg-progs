@@ -1,4 +1,7 @@
 ' $Log: not supported by cvs2svn $
+' Revision 1.5  2005/08/01 23:01:14  dan
+' Mods to tuning curve config dialogs. Added file naming, trial counting to tuning.
+'
 ' Revision 1.4  2005/07/29 23:29:33  dan
 ' Nearly ready! SCripts ready for prime time, except tuning seems to have a bug in
 ' start% - probably with args.
@@ -798,6 +801,8 @@ var StimChannel%;
 var StimChangeChannel%;
 var ReadyChannel%;
 
+' tuning curves
+var TuningWindow%[8];	' one for each channel. There'd better not be more than 8 channels! 
 ' XY window stuff
 var XYWindow%;			' 
 var iStimChannel%;	' channel number for stimulus in xy window
@@ -1183,8 +1188,18 @@ proc InitializeWindows()
 
 	'Open the data sampling window
 	DataWindow% := FileNew(0,4);
-	Window(-0.235849,52.746,97.2484,99.8856);
+	Window(0,50,50,100);
 	View(DataWindow%).WindowVisible(1);
+
+	' open xy window to display tuning results
+	TuningWindow%[0] := FileNew(12);
+	Window(50, 0, 100, 100);
+	WindowVisible(1);
+	WindowTitle$("Window Title Here");
+	XUnits$("X Units");
+	ChanTitle$(0, "Y Units");
+	ChanTitle$(1, "Chan 1");
+
 
 	'Open an XY view to display eye position
 	XYWindow% := FileNew(12);
@@ -1192,9 +1207,10 @@ proc InitializeWindows()
 	YRange(-2,-30,30);
 	XYDrawMode(0,5,0);
 	WindowVisible(1);
-	Window(-0.550314,0.114416,41.5094,52.746);
+	Window(0, 0, 50, 50);
 	XYColour(1,16);
 	XYSize(1,-1);
+
 
 	'Calcuate the fixation window
 	var index%;
