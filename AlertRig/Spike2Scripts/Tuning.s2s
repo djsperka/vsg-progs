@@ -1,4 +1,7 @@
 ' $Log: not supported by cvs2svn $
+' Revision 1.6  2005/08/17 00:28:08  dan
+' Started work to add tuning curves to output.
+'
 ' Revision 1.5  2005/08/01 23:01:14  dan
 ' Mods to tuning curve config dialogs. Added file naming, trial counting to tuning.
 '
@@ -946,7 +949,8 @@ var vTrigger;		' set by NextTime to indicate trigger transition
 var tStateStart:=-1;	' time that present state started. Used to measure wait time, fixation time, etc. 
 var tLastTrigger:=-1;	' last trigger time. New triggers have to be greater than this
 var tTrigger:=-1;	' temp var for newly discovered trigger times
-var tFixationDone:=-1;	' time that fixation duration was achieved. Used to measure time to answer
+var tStimOn:=-1;	' time that stim was turned on. Used to measure spike rates 
+
 
 ' Constants for states
 const stateStartTrial%:=0;		' Start trial state
@@ -1098,6 +1102,9 @@ func IdleProcessing%()
 					' Reward
 					Reward%();
 	
+					' Process spikes
+					PlotSpikes(tStimOn, tNow, 1, nTrialsConpleted%);
+
 					' Now wait until stim is off
 					ChangeStateTo(stateWaitForStimOff%, tNow);
 
@@ -1157,6 +1164,24 @@ func IdleProcessing%()
 end;
 
 
+proc PlotSpikes(t1, t2, vOnOff%, nTrials%)
+	var count%;
+	var index%;
+	for index% := 1 to NumberOfElectrodes% do
+		count% := Count(index%, t1, t2);
+		if count% > -1 then
+			if vOnOff% = 1 then
+				' this is signal
+
+	next
+
+
+
+
+
+end;
+
+
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 proc ChangeStateTo(stateTo%, tStart)
@@ -1188,17 +1213,15 @@ proc InitializeWindows()
 
 	'Open the data sampling window
 	DataWindow% := FileNew(0,4);
-	Window(0,50,50,100);
+	Window(0,48,50,95);
 	View(DataWindow%).WindowVisible(1);
 
 	' open xy window to display tuning results
 	TuningWindow%[0] := FileNew(12);
-	Window(50, 0, 100, 100);
+	Window(50, 0, 100, 95);
+	ChanTitle$(0, "Spikes/s");
+	TuningCurveLabels();
 	WindowVisible(1);
-	WindowTitle$("Window Title Here");
-	XUnits$("X Units");
-	ChanTitle$(0, "Y Units");
-	ChanTitle$(1, "Chan 1");
 
 
 	'Open an XY view to display eye position
@@ -1207,7 +1230,7 @@ proc InitializeWindows()
 	YRange(-2,-30,30);
 	XYDrawMode(0,5,0);
 	WindowVisible(1);
-	Window(0, 0, 50, 50);
+	Window(0, 0, 50, 47);
 	XYColour(1,16);
 	XYSize(1,-1);
 
@@ -1245,7 +1268,45 @@ proc InitializeWindows()
 
 end;
 
+proc TuningCurveLabels()
 
+
+	docase 
+		case tunType$ = tunTypeContrast$ then
+
+			WindowTitle$("Contrast Tuning");
+			XUnits$("Contrast (%)");
+			ChanTitle$(1, "Chan 1");
+			XRange(tunContrastMinContrast, tunContrastMaxContrast);
+
+		case tunType$ = tunTypeOrientation$ then
+
+			WindowTitle$("Orientation Tuning");
+			XUnits$("Orientation (degrees)");
+			ChanTitle$(1, "Chan 1");
+			XRange(tunOriMinOrientation, tunOriMaxOrientation);
+
+		case tunType$ = tunTypeSpatial$ then
+
+			WindowTitle$("Spatial Frequency Tuning");
+			XUnits$("Spatial Frequency");
+			ChanTitle$(1, "Chan 1");
+			XRange(tunSpatialMinSF, tunSpatialMaxSF);
+	
+		case tunType$ = tunTypeTemporal$ then
+
+			WindowTitle$("Temporal Frequency Tuning");
+			XUnits$("Temporal Frequency");
+			ChanTitle$(1, "Chan 1");
+			XRange(tunTemporalMinTF, tunTemporalMaxTF);
+
+		else
+
+			Message("TuningCurveLabels Error - unknown value for tunType$: " + tunType$);
+
+	endcase;
+
+end;
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 proc CreateSampleConfiguration()
 	var index;
