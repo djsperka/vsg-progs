@@ -1,40 +1,7 @@
 ' $Log: not supported by cvs2svn $
-' Revision 1.8  2005/05/03 00:06:04  dan
-' Corrected bug in automatic file saving.
+' Revision 1.1  2005/08/24 18:17:30  dan
+' Initial add
 '
-' Revision 1.7  2005/04/27 21:23:18  dan
-' changed FixationColor to string in registry.
-'
-' Revision 1.6  2005/03/18 19:38:51  dan
-' Merged calibration functionality in to this script.
-'
-' Revision 1.5  2005/03/11 01:13:12  dan
-' Almost there!
-'
-' Revision 1.4  2005/03/09 01:06:48  dan
-' Almost there!
-'
-' Revision 1.3  2005/03/05 01:08:54  dan
-' Integrated cut-and-paste from Config.s2s.
-' Still needs to be coupled to new Fixation app.
-'
-' Revision 1.2  2005/02/22 22:21:21  dan
-' New fixation application added
-'
-' Revision 1.1  2005/02/19 01:42:21  dan
-' Initial add.
-'
-' Revision 1.3  2004/10/01 21:07:51  dan
-' Fix bugs in prog command line.
-'
-' Revision 1.2  2004/10/01 20:06:10  dan
-' Modified directory locations for executables (../bin) and sequencer files (script dir)
-'
-' Revision 1.1  2004/10/01 19:41:01  dan
-' From production
-' 
-
-
 '========================================================================
 '
 ' INPUTS
@@ -519,13 +486,12 @@ end;
 var XChannel%,YChannel%;		' Channel number assigned to eye x and y
 var TriggerChannel%;			' Channel number assigned to vsg trigger input (i.e. trigger sent by vsg)
 var DataWindow%;	' time view
+var ReadyChannel%;	' VSG Status channel
 var XYWindow%;		' window with eye pos shown
 var iStimChannel%;	' channel number for stimulus in xy window
 var iStimWindowChannel%;' channel number for stimulus window in xy window
 var iMonitorChannel%;	' channel number for monitor position display in xy window
 var StimHandle%;	' handle for stimulus application
-' Experimental control
-var Pause%:=0;		' When 1, expt is paused - no idle processing done
 
 ' Display stuff
 var FixWindowX[36],FixWindowY[36];	' points for displaying fixation window in xy view
@@ -571,6 +537,8 @@ endif
 XChannel% := NumberOfElectrodes%+1;
 YChannel% := NumberOfElectrodes%+2;
 TriggerChannel% := NumberOfElectrodes%+3;
+ReadyChannel% := NumberOfElectrodes%+4;
+
 CreateSampleConfiguration();
 
 
@@ -586,30 +554,24 @@ InitializeToolbar();
 
 
 
-const stateStartTrial%		:= 0;
-const stateWaitForStim%		:= 1;
-const stateWaitForAcquisition%	:= 2;
-const stateHoldFixation%	:= 3;
-const stateSuccess%		:= 4;
-const stateFailure%		:= 5;
-const stateStimOff%		:= 6;
-const stateWaitForBlank%	:= 7;
-const stateCheckTrial%		:= 8;
-const stateInterval%		:= 9;
-const stateDone%		:= 10;
+const stateStart%						:= 0;
+const stateVSGWait%					:= 1;
+const stateVSGWaitConfirm% 		:= 2;
+const stateWaitForAcquisition%	:= 3;
+const stateWaitForFixation%		:= 4;
+const stateDone%						:= 10;
 
 var tNow:=0;		' latest time for which there are values recorded. Used in IdleProcessing
 var tLast:=-1;		' last time we checked for a trigger. 
 var xEye, yEye;		' eye positions
 var tLastUpdate:=-1;	' last time view was updated
-var iState%:=stateStartTrial%;		' present state
+var iState%:=stateStart%;		' present state
 var vTrigger;		' set by NextTime to indicate trigger transition
 var tStateStart:=-1;	' time that present state started. Used to measure wait time, fixation time, etc. 
 var tLastTrigger:=-1;	' last trigger time. New triggers have to be greater than this
+var tAcquisition:= -1;
 var tTrigger:=-1;	' temp var for newly discovered trigger times
 var nTrialsStarted%:=0;
-var nTrialsSuccess%:=0;
-var nTrialsFail%:=0;
 
 ' Run real time analysis here. 
 func IdleProcessing%()
@@ -627,19 +589,47 @@ func IdleProcessing%()
 
 	' What state are we in? 
 	docase 
-		case iState% = stateStartTrial% then
+		case iState% = stateStart% then
 
 			' initial state on startup. 
 			' DIGOUT to present stimulus
 			' Enter state 1
 
-			nTrialsStarted% += 1;
-			iStimIndex% := (iStimIndex% + 1) mod 8;
-			DoSampleKey();	' will sample key "H" after setting seq var
-'			SampleKey("H");
-			iState% := stateWaitForStim%;
-'			PrintLog("State 0 - Start new trial - stimulus trigger sent\n");
-			UpdateToolbarText();
+			iState% := stateVSGWait%;
+
+		case iState% = stateVSGWait% then
+
+			' Waiting for VSG to indicate it is ready. The indication is a pulse (up, then down, 1 frame apart) on port 6.
+			tTrigger := NextTime(ReadyChannel%, tLast, vTrigger);
+			if tTrigger > tLastTrigger and vTrigger = 0 then
+				PrintLog("state stateVSGWait: Got leading edge of trigger\n");
+				tLastTrigger := tTrigger;
+				ChangeStateTo(stateVSGWaitConfirm%, tTrigger);
+			endif;
+
+		case iState% = stateVSGWaitConfirm% then
+
+			' Waiting for VSG to confirm it is ready. The downward side of the pulse is expected...
+			tTrigger := NextTime(ReadyChannel%, tLast, vTrigger);
+			if tTrigger > tLastTrigger and vTrigger = 1 then
+				PrintLog("state stateVSGWaitConfirm: Got trailing edge of trigger\n");
+				tLastTrigger := tTrigger;
+				ChangeStateTo(stateStartTrial%, tTrigger);
+			endif;
+
+		case iState% = stateStartTrial% then
+
+		case iState% = stateDone% then
+
+			if nTrialsCompleted% = (tunNAdvances%*tunNRepeats% + 1) then
+				' We're all done
+				ChangeStateTo(stateDone%, tNow);
+				Stop%();
+				iStatus% := 0;
+			else
+				ChangeStateTo(stateMaintainFixation%, tNow);
+			endif
+				
 
 		case iState% = stateWaitForStim% then
 	
@@ -817,6 +807,10 @@ proc CreateSampleConfiguration()
 	SampleWaveform(YChannel%, 15, 1000);
 	SampleTitle$(YChannel%, "Eye Y");
 
+	SampleEvent(ReadyChannel%,6,2,3600); 'Trigger channel, level
+	SampleComment$(ReadyChannel%,"VSG Ready");
+	SampleTitle$(ReadyChannel%,"VSG Ready");
+
 	SampleSequencer(script$ + "Fixation.pls");
 	SampleOptimise(2, 2, 2, 2, 50);  'Set optimise mode (do this last)
 	SampleMode(1); 'Continuous sampling
@@ -915,19 +909,11 @@ proc InitializeToolbar()
 
 	View(App(8)).WindowVisible(0);	'Hide the standard sample bar
 	ToolbarVisible(1);
-	ToolbarSet(1,"Sample start",Start%);
-	ToolbarSet(2,"Sample stop", Stop%);
-	ToolbarSet(3,"Juice",Reward%);
-	ToolbarSet(4,"Pause stimuli",PauseStimuli%);
-	ToolbarSet(5,"Resume stimuli",ResumeStimuli%);
-	ToolbarSet(6,"Exp Parameters",FixationScriptDialog%);
-	ToolbarSet(10,"Quit",Quit%);
+	ToolbarSet(1, "Sample start", Start%);
+	ToolbarSet(2, "Sample stop", Stop%);
+	ToolbarSet(3, "Juice", Reward%);
+	ToolbarSet(4, "Quit", Quit%);
 	ToolbarEnable(2,0);
-	ToolbarEnable(4,0);
-	ToolbarEnable(5,0);
-	ToolbarEnable(7,0);
-	ToolbarEnable(8,0);
-	ToolbarEnable(9,0);
 	Toolbar("Go",12345);
 
 end;
@@ -966,7 +952,7 @@ func Start%()
 
 	'Begin the stimulus program. It will take a few seconds for the VSG to initialize.
 	PrintLog(CommandLine$+"\n");
-	StimHandle% := ProgRun(CommandLine$,1);
+	StimHandle% := ProgRun(CommandLine$,0);
 	if StimHandle% <0 then Message("Could not start stimulus."); halt; endif
 	
 	ToolbarSet(0,"",IdleProcessing%);	'Enable the IdleProcessing function
@@ -1012,22 +998,6 @@ func Stop%()
 
 end;
 
-
-
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-func PauseStimuli%();
-Pause% :=1;
-ToolbarEnable(4,0);
-ToolbarEnable(5,1);
-return 1;
-end
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-func ResumeStimuli%();
-Pause% :=0;
-ToolbarEnable(4,1);
-ToolbarEnable(5,0);
-return 1;
-end
 
 
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''

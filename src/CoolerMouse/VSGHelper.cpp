@@ -96,7 +96,11 @@ void VSGHelper::start()
 
 };
 
-void VSGHelper::stop() {};
+void VSGHelper::stop() 
+{
+	vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, 0x20, 0);
+	vsgPresent();
+};
 
 void VSGHelper::drawOverlay(BOOL bpresent)
 {
