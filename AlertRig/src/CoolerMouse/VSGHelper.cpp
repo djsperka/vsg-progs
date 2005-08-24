@@ -85,6 +85,15 @@ void VSGHelper::start()
 	m_stim.draw();
 	vsgPresent();
 
+
+	// send ready signal on dig line 6
+	vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, 0x20, 0);
+	vsgPresent();
+
+	vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, 0x00, 0);
+	vsgPresent();
+
+
 };
 
 void VSGHelper::stop() {};
