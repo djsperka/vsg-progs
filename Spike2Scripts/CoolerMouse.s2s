@@ -1,4 +1,7 @@
 ' $Log: not supported by cvs2svn $
+' Revision 1.2  2005/08/24 22:11:21  dan
+' *** empty log message ***
+'
 ' Revision 1.1  2005/08/24 18:17:30  dan
 ' Initial add
 '
@@ -65,63 +68,6 @@ proc GetDataParameters()
 	return;
 end;
 
-proc SaveDataParameters()
-	var stmp$;
-	var key$;
-
-	key$:="AlertRig\\Data";
-
-	Profile(key$, "PathRoot", dataPathRoot$);
-	Profile(key$, "DataSet", dataDataSet$);
-	Profile(key$, "CellName", dataCellName$);
-	return;
-end;
-
-func DataParametersDialog%()
-	var i%;
-	GetDataParameters();
-	DlgCreate("Data Storage Parameters", 25, 10, 50);
-	DlgText("Data root path: " + dataPathRoot$, 0, 1);
-	dataDataSetTextItem% := DlgText("Data set name: " + dataDataSet$, 0, 2);
-	DlgString(1, "Cell name:", 10, "", 0, 3);
-        DlgButton(2, "New Data Set", NewDataSet%);
-	i% := DlgShow(dataCellName$);
-	if (i% = 1) then
-		if Len(dataDataSet$) = 0 then
-			Message("Must specify a data set (try the button!)");
-		else
-			if Len(dataCellName$) = 0 then
-				Message("Must specify a cell name");
-			else
-				FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 3, 1);
-				SaveDataParameters();
-			endif;
-		endif;
-	endif;
-	return i%;
-end;
-
-
-func NewDataSet%()
-	var d$;
-	var i%;
-	var dirs$[100];	' if there are ever more than 100 datasets in a single day there will be trouble
-	d$ := Date$(2, 2, 3, 3, "-");
-	PrintLog("NewDataSet: date string = " + d$ + "\n");
-
-	' Change current dir to data path root, then get list of subdirs with this date string
-	PrintLog("NewDataSet: dataPathRoot$=" + dataPathRoot$ + "\n");
-	FilePathSet(dataPathRoot$, 0, 1);
-	i% := FileList(dirs$, -2, d$ + "-??");
-        PrintLog("NewDataSet: found " + str$(i%) + " dirs\n");
-
-	' form new dataset name. The first will have "-01" appended, the second "-02", etc. 
-	dataDataSet$ := Print$("%s-%02d", d$, i%+1);
-	PrintLog("NewDataSet: dataset= " + dataDataSet$ + "\n");
-	DlgValue$(dataDataSetTextItem%, "Data set name: " + dataDataSet$);
-	return 1;
-end;
-
 
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
@@ -147,32 +93,6 @@ var NumberOfElectrodes%;		' Number of electrodes (i.e. wavemark inputs) in use
 var JuicePerReward%;			' Number of juice squirts per reward
 
 
-func DAQParametersDialog%()
-
-	var iReturn%;
-	var idist%;
-
-	GetDAQParameters();
-
-	idist% := val(DistanceToScreenMM$);
-	DlgCreate("DAQ parameters: " + GetCurrentConfiguration$());
-	DlgInteger(1, "Number of Electrodes:", 1, 7, 0, 0, 1);
-	DlgInteger(2, "Screen Distance (MM):", 1, 5000);
-	DlgReal(3, "Degrees/Volt (X):", 0, 100);
-	DlgReal(4, "Degrees/Volt (Y):", 0, 100);
-	DlgInteger(5, "Eye Coil Sampling Freq (Hz):", 1, 20000);
-	DlgInteger(6, "Juice per reward:", 0, 10, 0, 0, 1);
-	iReturn% := DlgShow(NumberOfElectrodes%, idist%, DegreesPerVoltX, DegreesPerVoltY, EyeCoilSamplingFrequency%, JuicePerReward%);
-
-	if iReturn% = 1 then
-		DistanceToScreenMM$ := str$(idist%);
-		SaveDAQParameters();
-	endif
-	return iReturn%;
-end;
-
-
-
 
 	
 proc GetDAQParameters()
@@ -191,28 +111,11 @@ proc GetDAQParameters()
 
 end;
 
-proc SaveDAQParameters()
-	var key$;
-	var DegreesPerVoltX$, DegreesPerVoltY$;
-	DegreesPerVoltX$ := str$(DegreesPerVoltX);
-	DegreesPerVoltY$ := str$(DegreesPerVoltY);
-	
-	key$ := "AlertRig\\" + GetCurrentConfiguration$() + "\\DAQ";
-	Profile(key$, "DistanceToScreenMM", DistanceToScreenMM$);
-	Profile(key$, "DegreesPerVoltX", DegreesPerVoltX$);
-	Profile(key$, "DegreesPerVoltY", DegreesPerVoltY$);
-	Profile(key$, "EyeCoilSamplingFrequency", EyeCoilSamplingFrequency%);
-	Profile(key$, "NumberOfElectrodes", NumberOfElectrodes%);
-	Profile(key$, "JuicePerReward", JuicePerReward%);
-
-end;
-
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 '
 '	DAQ Parameters END
 '
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-
 
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 '
@@ -245,7 +148,6 @@ proc GetFixationPointParameters()
 	FixationY := val(stmp$);
 	Profile(key$, "FixationColor", "0", stmp$);
 	iFixationColor% := val(stmp$);
-
 	FixationColorList$[0]:="red"; 
 	FixationColorList$[1]:="green"; 
 	FixationColorList$[2]:="blue"; 
@@ -299,186 +201,19 @@ end;
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
 
-
-
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 '
-' Fixation script parameters START
+'	CoolerMouse parameters START
 '
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-' Fixation-script specific control vars.
-var fixFixationDuration;			' Time required to maintain fixation, seconds
-var fixAcquisitionTime;			' Time allowed to acquire target before fail trial, seconds
-var fixInterTrialTime;			' Blank time following a trial (both successful and failed), seconds
-var fixNumberOfTrials%;			' Number of trials to run
-var fixStimulusFlag%;			' Tells whether to use stimulus grating (used as a distractor) 
-var fixDistractor1Flag%; 			' Tells stim to use distractor1 (1) or not (0)
-var fixDistractor2Flag%; 			' Tells stim to use distractor1 (1) or not (0)
-var fixDistractor3Flag%; 			' Tells stim to use distractor1 (1) or not (0)
-var fixDistractor4Flag%; 			' Tells stim to use distractor1 (1) or not (0)
-var fixBackgroundColor$;			' Background color for stim
-var fixCalibrationFlag%;			' 1 for calibration run
-var fixCalibrationOffset;			' degree offset for calibration dots
-proc GetFixationScriptParameters()
-	var stmp$;
-	var key$;
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
-	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Fixation";
+var cmFixationDuration := 1;
 
-	Profile(key$, "FixationDuration", "1.0", stmp$);
-	fixFixationDuration := val(stmp$);
-
-	Profile(key$, "AcquisitionTime", "1.0", stmp$);
-	fixAcquisitionTime := val(stmp$);
-
-	Profile(key$, "InterTrialTime", "1.0", stmp$);
-	fixInterTrialTime := val(stmp$);
-
-	Profile(key$, "NumberOfTrials", 1, fixNumberOfTrials%);
-	Profile(key$, "BackgroundColor", "gray", fixBackgroundColor$);
-
-	Profile(key$, "UseStimulusFlag", 0, fixStimulusFlag%);
-	Profile(key$, "UseDistractor1Flag", 0, fixDistractor1Flag%);
-	Profile(key$, "UseDistractor2Flag", 0, fixDistractor2Flag%);
-	Profile(key$, "UseDistractor3Flag", 0, fixDistractor3Flag%);
-	Profile(key$, "UseDistractor4Flag", 0, fixDistractor4Flag%);
-	Profile(key$, "DoCalibrationFlag", 0, fixCalibrationFlag%);
-	Profile(key$, "CalibrationOffset", "5.0", stmp$);
-	fixCalibrationOffset := val(stmp$);
-end;
- 	
-proc SaveFixationScriptParameters()
-	var stmp$;
-	var key$;
-	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Fixation";
-
-	Profile(key$, "FixationDuration", str$(fixFixationDuration));
-	Profile(key$, "AcquisitionTime", str$(fixAcquisitionTime));
-	Profile(key$, "InterTrialTime", str$(fixInterTrialTime));
-	Profile(key$, "NumberOfTrials", fixNumberOfTrials%);
-	Profile(key$, "BackgroundColor", fixBackgroundColor$);
-	Profile(key$, "UseStimulusFlag", fixStimulusFlag%);
-	Profile(key$, "UseDistractor1Flag", fixDistractor1Flag%);
-	Profile(key$, "UseDistractor2Flag", fixDistractor2Flag%);
-	Profile(key$, "UseDistractor3Flag", fixDistractor3Flag%);
-	Profile(key$, "UseDistractor4Flag", fixDistractor4Flag%);
-	Profile(key$, "DoCalibrationFlag", fixCalibrationFlag%);
-	Profile(key$, "CalibrationOffset", str$(fixCalibrationOffset));
-end;
-
-
-
-func FixationScriptDialog%()
-	var i%;
-	var bcl$[3];
-	var ibcl%:=0;
-	GetFixationScriptParameters();
-	bcl$[0] := "gray";
-	bcl$[1] := "black";
-	bcl$[2] := "white";
-	for i%:=0 to 2 do
-		if fixBackgroundColor$ = bcl$[i%] then
-			ibcl% := i%;
-		endif
-	next;
-	DlgCreate("Fixation Training Parameters", 25, 10);
-	DlgReal(1, "Fixation duration(s):", .01, 10);
-	DlgReal(2, "Acquisition time(s):", .01, 10);
-	DlgReal(3, "Intertrial time(s):", .01, 10);
-	DlgInteger(4, "Number of Trials:", 1, 1000);
-	DlgList(5, "Background color:", bcl$);
-	DlgCheck(6, "Use stimulus?");
-	DlgCheck(7, "Use distractor 1?");
-	DlgCheck(8, "Use distractor 2?");
-	DlgCheck(9, "Use distractor 3?");
-	DlgCheck(10, "Use distractor 4?");
-	DlgCheck(11, "Calibration run?");
-	DlgReal(12, "Calibration offset (deg):", 0, 10);
-	i%:=DlgShow(fixFixationDuration, fixAcquisitionTime, fixInterTrialTime, fixNumberOfTrials%, ibcl%, fixStimulusFlag%, fixDistractor1Flag%, fixDistractor2Flag%, fixDistractor3Flag%, fixDistractor4Flag%, fixCalibrationFlag%, fixCalibrationOffset);
-	if i% = 1 then
-		fixBackgroundColor$ := bcl$[ibcl%];
-		SaveFixationScriptParameters();
-	endif;
-	return 1;
-end;
-
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 '
-' Fixation script END
+'	CoolerMouse parameters END
 '
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-'
-'	Rig Daily Totals START
-'
-'
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-
-
-var TotalTrials%;
-var TotalRewards%;
-var TotalDate$;
-
-
-proc GetDailyTotals()
-	var key$;
-	key$ := "AlertRig\\Daily";
-	Profile(key$, "TotalDate", "", TotalDate$);
-	Profile(key$, "TotalTrials", 0, TotalTrials%);
-	Profile(key$, "TotalRewards", 0, TotalRewards%);
-
-	' Get date string if needed
-	if Len(TotalDate$) = 0 then
-		TotalDate$ := GetDayString$();
-		SaveDailyTotals();
-	endif
-end;
-
-proc SaveDailyTotals()
-	var key$;
-	key$ := "AlertRig\\Daily";
-	Profile(key$, "TotalDate", TotalDate$);
-	Profile(key$, "TotalTrials", TotalTrials%);
-	Profile(key$, "TotalRewards", TotalRewards%);
-end;
-
-func DailyTotalsDialog%()
-	GetDailyTotals();
-	DlgCreate("Daily Totals");
-	DlgText("Date: " + TotalDate$, 0, 1);
-	DlgText("Trials: " + str$(TotalTrials%), 0, 2);
-	DlgText("Rewards: " + str$(TotalRewards%), 0, 3);
-	DlgButton(2, "Reset", ResetDailyTotals%);
-	DlgShow();
-	return 1;
-end;
-
-
-func GetDayString$()
-	return Date$(2, 1, 3, 2, "-");
-end;
-
-
-func ResetDailyTotals%()
-	GetDailyTotals();
-	TotalRewards%:=0;
-	TotalTrials%:=0;
-	TotalDate$:= GetDayString$();
-	SaveDailyTotals();
-        return 0;
-end;
-
-
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-'
-'	Rig Daily Totals END
-'
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-
-
-
-
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
 
 
@@ -487,6 +222,7 @@ var XChannel%,YChannel%;		' Channel number assigned to eye x and y
 var TriggerChannel%;			' Channel number assigned to vsg trigger input (i.e. trigger sent by vsg)
 var DataWindow%;	' time view
 var ReadyChannel%;	' VSG Status channel
+var ChangedChannel%;	' Indicates fixation point location has changed
 var XYWindow%;		' window with eye pos shown
 var iStimChannel%;	' channel number for stimulus in xy window
 var iStimWindowChannel%;' channel number for stimulus window in xy window
@@ -506,10 +242,8 @@ var iStimIndex%;
 
 
 ' Fetch parameters
-GetDailyTotals();
 GetDAQParameters();
 GetFixationPointParameters();
-GetFixationScriptParameters();
 GetDataParameters();
 
 
@@ -538,6 +272,7 @@ XChannel% := NumberOfElectrodes%+1;
 YChannel% := NumberOfElectrodes%+2;
 TriggerChannel% := NumberOfElectrodes%+3;
 ReadyChannel% := NumberOfElectrodes%+4;
+ChangedChannel% := NumberOfElectrodes%+5;
 
 CreateSampleConfiguration();
 
@@ -554,13 +289,17 @@ InitializeToolbar();
 
 
 
-const stateStart%						:= 0;
-const stateVSGWait%					:= 1;
+const stateStart%			:= 0;
+const stateVSGWait%			:= 1;
 const stateVSGWaitConfirm% 		:= 2;
-const stateWaitForAcquisition%	:= 3;
+const stateWaitForAcquisition%		:= 3;
 const stateWaitForFixation%		:= 4;
-const stateDone%						:= 10;
+const stateStartTrial%			:= 5;
+const stateSuccess%			:= 6;
+const stateFailure%			:= 7;
+const stateDone%			:= 10;
 
+var VSGReady%	:= 0;	' set to 1 after vsg ready/confirm cycle
 var tNow:=0;		' latest time for which there are values recorded. Used in IdleProcessing
 var tLast:=-1;		' last time we checked for a trigger. 
 var xEye, yEye;		' eye positions
@@ -572,10 +311,15 @@ var tLastTrigger:=-1;	' last trigger time. New triggers have to be greater than 
 var tAcquisition:= -1;
 var tTrigger:=-1;	' temp var for newly discovered trigger times
 var nTrialsStarted%:=0;
+var nTrialsSuccess%:=0;
+var nTrialsFail%:=0;
 
 ' Run real time analysis here. 
 func IdleProcessing%()
 	var iStatus% := 1;	' this is return value. value of 1 (0) continues (stops) processing
+	var quitEvent% := 0;
+	var changedEvent% := 0;
+
 	tNow := MaxTime();
 
 	xEye := ChanMeasure(XChannel%,2,tNow-.001,tNow-.006)*DegreesPerVoltX;
@@ -586,6 +330,18 @@ func IdleProcessing%()
 		View(XYWindow%).XYAddData(1,xEye,yEye);
 		tLastUpdate := tNow;
 	endif
+
+	' Check for events on the Quit channel and the Changed channel
+	if VSGReady% = 1 then
+
+		if (NextTime(ReadyChannel%, tLast, vTrigger) > tLast) then 
+			iState% := stateDone%;
+		else
+			if (NextTime(ChangedChannel%, tLast, vTrigger) > tLast) then changedEvent% := 1; endif;
+		endif;
+
+
+	endif;
 
 	' What state are we in? 
 	docase 
@@ -614,67 +370,33 @@ func IdleProcessing%()
 			if tTrigger > tLastTrigger and vTrigger = 1 then
 				PrintLog("state stateVSGWaitConfirm: Got trailing edge of trigger\n");
 				tLastTrigger := tTrigger;
+				VSGReady% := 1;
 				ChangeStateTo(stateStartTrial%, tTrigger);
 			endif;
 
 		case iState% = stateStartTrial% then
 
+			ChangeStateTo(stateWaitForAcquisition%, tNow);
+
 		case iState% = stateDone% then
 
-			if nTrialsCompleted% = (tunNAdvances%*tunNRepeats% + 1) then
-				' We're all done
-				ChangeStateTo(stateDone%, tNow);
-				Stop%();
-				iStatus% := 0;
-			else
-				ChangeStateTo(stateMaintainFixation%, tNow);
-			endif
-				
-
-		case iState% = stateWaitForStim% then
-	
-			' Waiting for stimulus to be presented by vsg and trigger to return. 
-			' NextTime returns a non-negative value whenever there is a TRANSITION. In that case, the 
-			' value of 'vTrigger' returned is 1 (0) if the transition is high (low) to low (high). Maybe not
-			' intuitive, but that's the way it is. 
-			tTrigger := NextTime(TriggerChannel%,tLast,vTrigger);
-			if tTrigger > tLastTrigger then
-
-				if vTrigger = 0 then
-		
-					' Stimulus has been presented. Display stim location and window. Enter state 2
-					DrawStim(1);
-					iState% := stateWaitForAcquisition%;
-					tStateStart := tTrigger;
-					tLastTrigger := tTrigger;
-
-				endif
-
-			endif
+			' We're all done
+			Stop%();
+			iStatus% := 0;
 
 		case iState% = stateWaitForAcquisition% then
 
-			if tNow-tStateStart < fixAcquisitionTime then
-				
-				' Acquisition happens when the eye falls within the fixation window.
-				if InFixationWindow%(xEye, yEye) > 0 then
+			' Acquisition happens when the eye falls within the fixation window.
+			if InFixationWindow%(xEye, yEye) > 0 then
 
-'					PrintLog("State 2 - acquired target. tNow=" + str$(tNow) + " Enter state 3\n");
-					iState% := stateHoldFixation%;
-					tStateStart := tNow;
-	
-				endif
-
-			else
-
-				' Failed. Turn off stim and try again.
-'				PrintLog("State 2 - acquisition failed. Enter state 4\n");
-				iState% := stateFailure%;
+				PrintLog("State 2 - acquired target. tNow=" + str$(tNow) + " Enter state 3\n");
+				iState% := stateWaitForFixation%;
 				tStateStart := tNow;
-
+				tAcquisition := tNow;
+	
 			endif
 
-		case iState% = stateHoldFixation% then
+		case iState% = stateWaitForFixation% then
 
 			' Waiting for fixation....
 			if InFixationWindow%(xEye, yEye) <= 0 then
@@ -684,7 +406,7 @@ func IdleProcessing%()
 
 			else
 
-				if tNow - tStateStart >= fixFixationDuration then
+				if tNow - tAcquisition >= cmFixationDuration then
 
 					' Fixation. Reward. New trial.
 					iState% := stateSuccess%;
@@ -699,66 +421,14 @@ func IdleProcessing%()
 			nTrialsSuccess% += 1;
 			Reward%();
 			' tally successful trials
-			iState% := stateStimOff%;
+			iState% := stateStartTrial%;
 			tStateStart := tNow;
 
 		case iState% = stateFailure% then
 
 			nTrialsFail% += 1;
-			iState% := stateStimOff%;
+			iState% := stateStartTrial%;
 			tStateStart := tNow;
-
-		case iState% = stateStimOff% then
-
-			' Turn off stimulus, enter state 5 - wait for stimulus off msg
-			DrawStim(0);
-'			PrintLog("State 4 - turning off stimulus....\n");
-			SampleKey("L");
-			iState% := stateWaitForBlank%;
-			tStateStart := tNow;
-
-		case iState% = stateWaitForBlank% then
-
-			' Wait for stim to be off
-			tTrigger := NextTime(TriggerChannel%,tLast,vTrigger);
-			if tTrigger > tLast then
-
-				if vTrigger = 1 then
-		
-					' Stimulus has been turned off by vsg. Enter state 6
-'					PrintLog("State 5 - Stim OFF trigger found. Enter state 6\n");
-					iState% := stateCheckTrial%;
-					tStateStart := tTrigger;
-					tLastTrigger := tTrigger;
-	
-				endif
-
-			endif
-
-		case iState% = stateCheckTrial% then
-
-			' Check trial count
-			if nTrialsStarted% = fixNumberOfTrials%  and fixCalibrationFlag% = 0 then
-				Stop%();
-				iState% := stateDone%;
-				iStatus% := 0;
-			else
-				iState% := stateInterval%;
-				tStateStart := tNow;
-			endif
-
-
-		case iState% = stateInterval% then
-
-			' Inter-trial wait time
-			if tNow - tStateStart > fixInterTrialTime then
-	
-				' Back to state 0
-'				PrintLog("State 6 - IT wait is done. Start new trial.\n");
-				iState% := stateStartTrial%;
-				tStateStart := tNow;
-	
-			endif
 
 		else 
 
@@ -775,20 +445,13 @@ func IdleProcessing%()
 end;
 
 
-proc DoSampleKey()
-	var iSeqVar% := 0;
-	iSeqVar% := (3 + iStimY%[iStimIndex%]*16 + iStimX%[iStimIndex%]*4) * 256;
-	SampleSeqVar(1, iSeqVar%);
-	SampleKey("S");
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+proc ChangeStateTo(stateTo%, tStart)
+	iState% := stateTo%;
+	if tStart > 0 then tStateStart := tStart; endif;
 end;
 
-proc UpdateToolbarText()
 
-	var s$;
-	s$ := Print$("Trial#/Total %d/%d Success/Failure %d/%d", nTrialsStarted%, fixNumberOfTrials%, nTrialsSuccess%, nTrialsFail%);
-	ToolbarText(s$);
-
-end;
 
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
@@ -810,6 +473,10 @@ proc CreateSampleConfiguration()
 	SampleEvent(ReadyChannel%,6,2,3600); 'Trigger channel, level
 	SampleComment$(ReadyChannel%,"VSG Ready");
 	SampleTitle$(ReadyChannel%,"VSG Ready");
+
+	SampleEvent(ChangedChannel%,7,2,3600); 'Trigger channel, level
+	SampleComment$(ChangedChannel%,"FixPt Chgd");
+	SampleTitle$(ChangedChannel%,"FixPt Chgd");
 
 	SampleSequencer(script$ + "Fixation.pls");
 	SampleOptimise(2, 2, 2, 2, 50);  'Set optimise mode (do this last)
@@ -946,7 +613,7 @@ func Start%()
 	
 	SampleStart(0); 'Start sampling
 	
-	GetFixationScriptParameters();
+	GetFixationPointParameters();
 
 	CommandLine$ := "cmd /k " + bin$ + "\\dCoolerMouse";
 
@@ -982,11 +649,6 @@ func Stop%()
 	ProgKill(StimHandle%);
 	ProgRun(bin$ + "\\ClearTrigger",0);
 
-	' Increment daily totals and save then
-	TotalTrials% += nTrialsStarted%;
-	TotalRewards% += nTrialsSuccess%;
-	SaveDailyTotals();
-
 	' Save data file
 	' djs 5-2-2005
 	' When autonaming is used, this is not necessary. In fact, the call to FileSave fails!
@@ -1003,21 +665,13 @@ end;
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 func GetStimX()
 	var xstim;
-	if fixCalibrationFlag% = 0 then
-		xstim := FixationX;
-	else
-		xstim := fixCalibrationOffset * (iStimX%[iStimIndex%]-2);
-	endif
+	xstim := FixationX;
 	return xstim;
 end;
 
 func GetStimY()
 	var ystim;
-	if fixCalibrationFlag% = 0 then
-		ystim := FixationY;
-	else
-		ystim := fixCalibrationOffset * (iStimY%[iStimIndex%]-2);
-	endif
+	ystim := FixationY;
 	return ystim;
 end;
 
