@@ -96,6 +96,20 @@ void VSGHelper::start()
 
 };
 
+void VSGHelper::fixptChanged(bool changeIsDone)
+{
+	// send changed signal on dig line 7
+	if (!changeIsDone)
+	{
+		vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, 0x40, 0);
+	}
+	else
+	{
+		vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, 0x00, 0);
+	}
+	vsgPresent();
+}
+
 void VSGHelper::stop() 
 {
 	vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, 0x20, 0);
@@ -106,8 +120,8 @@ void VSGHelper::drawOverlay(BOOL bpresent)
 {
 //	m_iOverlayPage = 1 - m_iOverlayPage;
 	vsgSetDrawPage(vsgOVERLAYPAGE, 0, 1);
-	m_fp.drawOverlay();
 	m_stim.drawOverlay();
+	m_fp.drawOverlay();
 	if (bpresent) vsgPresent();
 }
 
