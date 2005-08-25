@@ -224,6 +224,8 @@ void CVSGView::OnLButtonDown(UINT nFlags, CPoint point)
 		pvsg->fixptFixed(true);
 		CPointToDegrees(point, &x, &y);
 		theApp.getDlg()->setFixationXY(x, y);
+		theApp.SaveRegFixpt();
+		pvsg->fixptChanged(true);	// this tells spike2 to update fixpt
 
 		Invalidate();
 	}
@@ -255,6 +257,7 @@ void CVSGView::OnLButtonDown(UINT nFlags, CPoint point)
 		{
 			pvsg->fixptFixed(false);
 			pvsg->stimFixed(true);
+			pvsg->fixptChanged(false);	// this tells spike2 that fixpt is moving
 		}
 	}
 
