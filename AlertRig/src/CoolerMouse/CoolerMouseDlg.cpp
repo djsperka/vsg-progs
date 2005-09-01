@@ -295,22 +295,6 @@ void CCoolerMouseDlg::OnApply()
 }
 
 
-#if 0
-// Called when something in the aperture properties has changed - x, y, diam, aperture type
-void CCoolerMouseDlg::updateApertureProperties()
-{
-	VSGHelper* vsg = theApp.getVSG();
-	vsg->setApertureProperties(m_dStimX, m_dStimY, m_dStimDiameter, getDialogApertureType());
-}
-
-
-void CCoolerMouseDlg::updateStimProperties()
-{
-	VSGHelper* vsg = theApp.getVSG();
-	vsg->setStimProperties(m_dStimSF, m_dStimTF, m_iStimContrast, m_dStimOrientation, getDialogPatternType(), getDialogCV());
-}
-#endif
-
 void CCoolerMouseDlg::update()
 {
 	VSGHelper* vsg = theApp.getVSG();
@@ -408,6 +392,7 @@ void CCoolerMouseDlg::OnKillfocusContrast()
 	VSGHelper* vsg = theApp.getVSG();
 	UpdateData(TRUE);
 	vsg->setStimContrast(m_iStimContrast);
+	theApp.SaveRegStimulus(vsg->getStimString());
 }
 
 void CCoolerMouseDlg::OnKillfocusW() 
@@ -416,7 +401,15 @@ void CCoolerMouseDlg::OnKillfocusW()
 	VSGHelper* vsg = theApp.getVSG();
 	UpdateData(TRUE);
 	vsg->setStimSize(m_dStimDiameter);
+	theApp.SaveRegStimulus(vsg->getStimString());
 }
+
+
+/// Set the stimulus location. This updates the vsg helper (and hence the actual display). 
+/// Note that the registry is NOT updated here -- that should be controlled by the calling
+/// routines. That's because this method is primarily used during mouse movement, and we don't
+/// want to update the registry that much. Other changes to stim properties -- those due to 
+/// changes in focus on dialog items (contrast, spatial freq, etc) DO update the registry. 
 
 void CCoolerMouseDlg::setStimXY(double x, double y)
 {
@@ -441,6 +434,7 @@ void CCoolerMouseDlg::OnKillfocusX()
 	VSGHelper* vsg = theApp.getVSG();
 	UpdateData(TRUE);
 	vsg->setStimXY(m_dStimX, m_dStimY);	
+	theApp.SaveRegStimulus(vsg->getStimString());
 }
 
 void CCoolerMouseDlg::OnKillfocusY() 
@@ -449,6 +443,7 @@ void CCoolerMouseDlg::OnKillfocusY()
 	VSGHelper* vsg = theApp.getVSG();
 	UpdateData(TRUE);
 	vsg->setStimXY(m_dStimX, m_dStimY);		
+	theApp.SaveRegStimulus(vsg->getStimString());
 }
 
 void CCoolerMouseDlg::OnKillfocusSpatial() 
@@ -457,6 +452,7 @@ void CCoolerMouseDlg::OnKillfocusSpatial()
 	VSGHelper* vsg = theApp.getVSG();
 	UpdateData(TRUE);
 	vsg->setStimSF(m_dStimSF);		
+	theApp.SaveRegStimulus(vsg->getStimString());
 }
 
 void CCoolerMouseDlg::OnKillfocusTemporal() 
@@ -465,7 +461,7 @@ void CCoolerMouseDlg::OnKillfocusTemporal()
 	VSGHelper* vsg = theApp.getVSG();
 	UpdateData(TRUE);
 	vsg->setStimTF(m_dStimTF);	
-	
+	theApp.SaveRegStimulus(vsg->getStimString());	
 }
 
 void CCoolerMouseDlg::OnKillfocusOrientation() 
@@ -474,7 +470,7 @@ void CCoolerMouseDlg::OnKillfocusOrientation()
 	VSGHelper* vsg = theApp.getVSG();
 	UpdateData(TRUE);
 	vsg->setStimOrientation(m_dStimOrientation);	
-
+	theApp.SaveRegStimulus(vsg->getStimString());
 }
 
 void CCoolerMouseDlg::OnSelchangeColorvector() 
@@ -487,6 +483,7 @@ void CCoolerMouseDlg::OnSelchangeColorvector()
 	// knows the values. If the contents of the combo box changes, then the vsg
 	// helper needs to change also. 
 	vsg->setStimColorVector(m_nStimColorVector);		
+	theApp.SaveRegStimulus(vsg->getStimString());
 }
 
 
@@ -496,6 +493,7 @@ void CCoolerMouseDlg::OnSinewave()
 	VSGHelper* vsg = theApp.getVSG();
 	UpdateData(TRUE);
 	vsg->setStimPattern(m_nPattern);
+	theApp.SaveRegStimulus(vsg->getStimString());
 }
 
 void CCoolerMouseDlg::OnSquarewave() 
@@ -504,6 +502,7 @@ void CCoolerMouseDlg::OnSquarewave()
 	VSGHelper* vsg = theApp.getVSG();
 	UpdateData(TRUE);
 	vsg->setStimPattern(m_nPattern);	
+	theApp.SaveRegStimulus(vsg->getStimString());
 }
 
 void CCoolerMouseDlg::OnCircle() 
@@ -512,6 +511,7 @@ void CCoolerMouseDlg::OnCircle()
 	VSGHelper* vsg = theApp.getVSG();
 	UpdateData(TRUE);
 	vsg->setStimAperture(m_nAperture);		
+	theApp.SaveRegStimulus(vsg->getStimString());
 }
 
 void CCoolerMouseDlg::OnSquare() 
@@ -520,6 +520,7 @@ void CCoolerMouseDlg::OnSquare()
 	VSGHelper* vsg = theApp.getVSG();
 	UpdateData(TRUE);
 	vsg->setStimAperture(m_nAperture);	
+	theApp.SaveRegStimulus(vsg->getStimString());
 }
 
 void CCoolerMouseDlg::OnSelchangeFixationcolor() 
@@ -546,6 +547,8 @@ void CCoolerMouseDlg::OnKillfocusFixationx()
 	VSGHelper* vsg = theApp.getVSG();
 	UpdateData(TRUE);
 	vsg->setFixationPointXY(m_dFixationX, m_dFixationY);	
+	theApp.SaveRegFixpt();
+	vsg->fixptChanged();	// this tells spike2 to update fixpt
 }
 
 void CCoolerMouseDlg::OnKillfocusFixationy() 
@@ -554,4 +557,6 @@ void CCoolerMouseDlg::OnKillfocusFixationy()
 	VSGHelper* vsg = theApp.getVSG();
 	UpdateData(TRUE);
 	vsg->setFixationPointXY(m_dFixationX, m_dFixationY);	
+	theApp.SaveRegFixpt();
+	vsg->fixptChanged();	// this tells spike2 to update fixpt
 }
