@@ -216,7 +216,7 @@ void CVSGView::OnLButtonDown(UINT nFlags, CPoint point)
 		pvsg->stimFixed(true);
 		CPointToDegrees(point, &x, &y);
 		theApp.getDlg()->setStimXY(x, y);
-
+		theApp.SaveRegStimulus(pvsg->getStimString());
 		Invalidate();
 	}
 	else if (!pvsg->fixptFixed())

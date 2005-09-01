@@ -96,6 +96,15 @@ void VSGHelper::start()
 
 };
 
+
+
+void VSGHelper::fixptChanged()
+{
+	fixptChanged(false);
+	fixptChanged(true);
+}
+
+
 void VSGHelper::fixptChanged(bool changeIsDone)
 {
 	// send changed signal on dig line 7
