@@ -45,6 +45,7 @@ public:
 	bool fixptFixed() { return m_bFPFixed; };
 	bool fixptFixed(bool b) { m_bFPFixed = b; return b; };
 	void fixptChanged(bool changeIsDone);
+	void fixptChanged();
 
 private:
 	bool m_bStimFixed;
