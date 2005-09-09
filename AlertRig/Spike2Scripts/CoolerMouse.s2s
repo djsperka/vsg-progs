@@ -1,4 +1,7 @@
 ' $Log: not supported by cvs2svn $
+' Revision 1.4  2005/08/25 23:20:39  dan
+' Handling for fixation point change.
+'
 ' Revision 1.3  2005/08/24 23:25:27  dan
 ' *** empty log message ***
 '
@@ -210,7 +213,7 @@ end;
 '
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
-var cmFixationDuration := 1;
+var cmFixationDuration := 1.5;
 
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 '
@@ -379,7 +382,7 @@ func IdleProcessing%()
 		case iState% = stateVSGWaitConfirm% then
 
 			' Waiting for VSG to confirm it is ready. The downward side of the pulse is expected...
-			tTrigger := NextTime(ReadyChannel%, tLast, vTrigger);
+			tTrigger := NextTime(ReadyChannel%, tLastTrigger, vTrigger);
 			if tTrigger > tLastTrigger and vTrigger = 1 then
 				PrintLog("state stateVSGWaitConfirm: Got trailing edge of trigger\n");
 				tLastTrigger := tTrigger;

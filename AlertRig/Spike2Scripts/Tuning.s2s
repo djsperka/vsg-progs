@@ -1,4 +1,7 @@
 ' $Log: not supported by cvs2svn $
+' Revision 1.8  2005/08/23 22:40:10  dan
+' Added plot of tuning curves. Not entirely tested yet, and there are holes esp if there are multiple electrodes, but it'll do for now.
+'
 ' Revision 1.7  2005/08/23 18:54:08  dan
 ' *** empty log message ***
 '
@@ -1004,7 +1007,7 @@ func IdleProcessing%()
 		case iState% = stateVSGWaitConfirm% then
 
 			' Waiting for VSG to confirm it is ready. The downward side of the pulse is expected...
-			tTrigger := NextTime(ReadyChannel%, tLast, vTrigger);
+			tTrigger := NextTime(ReadyChannel%, tLastTrigger, vTrigger);
 			if tTrigger > tLastTrigger and vTrigger = 1 then
 				PrintLog("state stateVSGWaitConfirm: Got trailing edge of trigger\n");
 				tLastTrigger := tTrigger;
