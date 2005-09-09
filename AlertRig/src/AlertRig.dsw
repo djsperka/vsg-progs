@@ -180,6 +180,18 @@ Package=<4>
 
 ###############################################################################
 
+Project: "alertmseq"=.\alertmseq\alertmseq.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
 Project: "example1"=.\example1\example1.dsp - Package Owner=<4>
 
 Package=<5>
