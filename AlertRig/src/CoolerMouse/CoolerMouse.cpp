@@ -1,6 +1,6 @@
 // CoolerMouse.cpp : Defines the class behaviors for the application.
 //
-
+////  ::PostMessage(hDlg, WM_COMMAND, IDCANCEL, 0);     // Close the dialog
 #include "stdafx.h"
 #include "CoolerMouse.h"
 #include "CoolerMouseDlg.h"
