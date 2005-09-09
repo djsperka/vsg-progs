@@ -1,4 +1,7 @@
 ' $Log: not supported by cvs2svn $
+' Revision 1.7  2005/05/03 00:06:04  dan
+' Corrected bug in automatic file saving.
+'
 ' Revision 1.6  2005/04/27 21:23:18  dan
 ' changed FixationColor to string in registry.
 '
@@ -784,7 +787,7 @@ func IdleProcessing%()
 		case iState% = stateVSGWaitConfirm% then
 
 			' Waiting for VSG to confirm it is ready. The downward side of the pulse is expected...
-			tTrigger := NextTime(ReadyChannel%, tLast, vTrigger);
+			tTrigger := NextTime(ReadyChannel%, tLastTrigger, vTrigger);
 			if tTrigger > tLastTrigger and vTrigger = 1 then
 				PrintLog("state stateVSGWaitConfirm: Got trailing edge of trigger\n");
 				tLastTrigger := tTrigger;
