@@ -306,7 +306,7 @@ namespace alert
 					m_in_last = current;	// Note that the last value is saved only if a toggled trigger
 				}
 			}
-			if (bValue) std::cerr << "key: " << m_key << std::hex << " input " << input << " m_in_mask=" << m_in_mask << " m_in_val=" << m_in_val << " current=" << current << " bval=" << bValue << std::endl;
+			if (bValue) std::cerr << "Trigger(" << m_key << ")" << std::hex << " input " << input << " m_in_mask=" << m_in_mask << " m_in_val=" << m_in_val << " current=" << current << " bval=" << bValue << std::endl;
 			return bValue;
 		};
 
@@ -316,7 +316,9 @@ namespace alert
 			{
 				if (m_out_val >= 0)
 				{
+//					std::cout << "setMarker: output(in)=" << output;
 					output = m_out_val | (output&(~m_out_mask));
+//					std::cout << "setMarker: output(out)=" << output << std::endl;
 				}
 			}
 			else
@@ -412,7 +414,6 @@ namespace alert
 		~PageTrigger() {};
 		virtual int execute(int& output)
 		{
-			std::cerr << "Set page " << m_page << std::endl;
 			setMarker(output);
 			vsgSetDrawPage(vsgVIDEOPAGE, m_page, vsgNOCLEAR);
 			return 1;
