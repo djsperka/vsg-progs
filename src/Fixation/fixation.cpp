@@ -104,6 +104,7 @@ int main (int argc, char *argv[])
 		{	
 			last_output_trigger = tf.output_trigger();
 			vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, tf.output_trigger(), 0);
+//			cout << "SetTriggers=" << tf.output_trigger() << endl;
 			vsgPresent();
 		}
 	}
@@ -210,6 +211,17 @@ void init_triggers()
 	triggers.addTrigger(new PageTrigger("0", 0x2, 0x0, 0xff, 0x0, 0));
 	triggers.addTrigger(new PageTrigger("1", 0x2, 0x2, 0xff, 0x1, 1));
 	triggers.addTrigger(new QuitTrigger("q", 0x40, 0x40, 0xff, 0x0, 0));
+
+
+		// Dump triggers
+	std::cout << "Triggers:" << std::endl;
+	int i;
+	for (i=0; i<triggers.size(); i++)
+	{
+		std::cout << "Trigger " << i << " " << *(triggers[i]) << std::endl;
+	}
+
+
 }
 
 int init_pages()
