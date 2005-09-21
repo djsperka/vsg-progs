@@ -23,14 +23,12 @@ int main (int argc, char *argv[])
 	COLOR_TYPE background = gray;
 	int dist = 555;
 
-	double uScreenWidth, uScreenHeight;
-
-	uScreenWidth = (double)GetSystemMetrics(SM_CXSCREEN);
-	uScreenHeight = (double)GetSystemMetrics(SM_CYSCREEN);
-
-
-
 	ARvsg::instance().init(dist, gray);
+
+	double dScrWidth = vsgGetScreenWidthPixels();
+	double dScrHeight = vsgGetScreenHeightPixels();
+	vsgUnit2Unit(vsgPIXELUNIT,dScrWidth,vsgDEGREEUNIT,&dScrWidth);
+	vsgUnit2Unit(vsgPIXELUNIT,dScrHeight,vsgDEGREEUNIT,&dScrHeight);
 
 	// Initialize and draw overlay page
 	if (ARvsg::instance().init_overlay())
@@ -42,31 +40,26 @@ int main (int argc, char *argv[])
 	// Set overlay page to all clear (level 0), then set level 1 to red, and draw a dot. 
 	vsgSetDrawPage(vsgOVERLAYPAGE, 0, 0);
 
+
 	VSGTRIVAL red;
 	red.a=1; red.b = red.c = 0;
 	vsgPaletteWriteOverlayCols((VSGLUTBUFFER*)&red, 1, 1);
 	vsgSetPen1(1);
 	vsgDrawOval(0, 0, 1, 1);
 
+	vsgSetPen1(0);
+	vsgDrawOval(2,3,4,4);
+
+
 	vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgBACKGROUND);
 	vsgSetDisplayPage(0);
 
-	ARContrastFixationPointSpec fp;
-	string fpspec="0.0,0.0,1.0,r";
-
-	if (parse_fixation_point(fpspec, fp))
-	{
-		cerr << "Error parsing fp string: " << fpspec << endl;
-	}
-
-
 	ARGratingSpec gr;
-//	string gspec="1024,600,50,50,100,3,3,30,b,s,e";
-//	string gspec="400,300,50,50,100,3,3,30,b,s,e";
-	string gspec="2,3,4,4,100,3,3,30,b,s,e";
-	if (parse_grating(gspec, gr))
+	ostringstream oss;
+	oss << "0,0," << dScrWidth << "," << dScrHeight << ",100,3,3,30,b,s,e";
+	if (parse_grating(oss.str(), gr))
 	{
-		cerr << "Error parsing gr string: " << gspec << endl;
+		cerr << "Error parsing gr string: " << oss.str() << endl;
 	}
 
 	// try draw page 1
