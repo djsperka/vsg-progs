@@ -1,4 +1,7 @@
 ' $Log: not supported by cvs2svn $
+' Revision 1.8  2005/05/03 00:06:04  dan
+' Corrected bug in automatic file saving.
+'
 ' Revision 1.7  2005/04/27 21:23:18  dan
 ' changed FixationColor to string in registry.
 '
@@ -632,8 +635,13 @@ func IdleProcessing%()
 
 			nTrialsStarted% += 1;
 			iStimIndex% := (iStimIndex% + 1) mod 8;
-			DoSampleKey();	' will sample key "H" after setting seq var
-'			SampleKey("H");
+
+			' calibration run does not require a separate trigger - the setting of the seqvar does the trick. 
+			if fixCalibrationFlag% = 1 then
+				DoSampleKey();
+			else
+				SampleKey("H");
+			endif
 			iState% := stateWaitForStim%;
 '			PrintLog("State 0 - Start new trial - stimulus trigger sent\n");
 			UpdateToolbarText();
