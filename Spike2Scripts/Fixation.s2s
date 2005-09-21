@@ -1,4 +1,7 @@
 ' $Log: not supported by cvs2svn $
+' Revision 1.9  2005/09/21 19:36:55  dan
+' DoSampleKey correctly sends for both Fixation and Calibration runs.
+'
 ' Revision 1.8  2005/05/03 00:06:04  dan
 ' Corrected bug in automatic file saving.
 '
@@ -518,6 +521,7 @@ end;
 ' Window handles and channel numbers
 var XChannel%,YChannel%;		' Channel number assigned to eye x and y
 var TriggerChannel%;			' Channel number assigned to vsg trigger input (i.e. trigger sent by vsg)
+var ReadyChannel%;			' channel number for VSG ready pulse signal
 var DataWindow%;	' time view
 var XYWindow%;		' window with eye pos shown
 var iStimChannel%;	' channel number for stimulus in xy window
@@ -571,6 +575,7 @@ endif
 XChannel% := NumberOfElectrodes%+1;
 YChannel% := NumberOfElectrodes%+2;
 TriggerChannel% := NumberOfElectrodes%+3;
+ReadyChannel% := NumberOfElectrodes% + 4;
 CreateSampleConfiguration();
 
 
@@ -597,12 +602,15 @@ const stateWaitForBlank%	:= 7;
 const stateCheckTrial%		:= 8;
 const stateInterval%		:= 9;
 const stateDone%		:= 10;
+const stateVSGWait%:=10;		' wait for vsg to send ready signal #1
+const stateVSGWaitConfirm%:=11;		' waif for vsg to send ready signal #2
+
 
 var tNow:=0;		' latest time for which there are values recorded. Used in IdleProcessing
 var tLast:=-1;		' last time we checked for a trigger. 
 var xEye, yEye;		' eye positions
 var tLastUpdate:=-1;	' last time view was updated
-var iState%:=stateStartTrial%;		' present state
+var iState%:=stateVSGWait%;		' present state
 var vTrigger;		' set by NextTime to indicate trigger transition
 var tStateStart:=-1;	' time that present state started. Used to measure wait time, fixation time, etc. 
 var tLastTrigger:=-1;	' last trigger time. New triggers have to be greater than this
@@ -627,6 +635,29 @@ func IdleProcessing%()
 
 	' What state are we in? 
 	docase 
+
+	
+		case iState% = stateVSGWait% then
+
+			' Waiting for VSG to indicate it is ready. The indication is a pulse (up, then down, 1 frame apart) on port 6.
+			tTrigger := NextTime(ReadyChannel%, tLast, vTrigger);
+			if tTrigger > tLastTrigger and vTrigger = 0 then
+				PrintLog("state stateVSGWait: Got leading edge of trigger\n");
+				tLastTrigger := tTrigger;
+				iState% := stateVSGWaitConfirm%;
+			endif;
+
+		case iState% = stateVSGWaitConfirm% then
+
+			' Waiting for VSG to confirm it is ready. The downward side of the pulse is expected...
+			tTrigger := NextTime(ReadyChannel%, tLastTrigger, vTrigger);
+			if tTrigger > tLastTrigger and vTrigger = 1 then
+				PrintLog("state stateVSGWaitConfirm: Got trailing edge of trigger\n");
+				tLastTrigger := tTrigger;
+				iState% := stateStartTrial%;
+			endif;
+
+	
 		case iState% = stateStartTrial% then
 
 			' initial state on startup. 
@@ -818,6 +849,12 @@ proc CreateSampleConfiguration()
 	SampleEvent(TriggerChannel%, 1, 2, 3600); 'Trigger channel, level
 	SampleComment$(TriggerChannel%, "Trigger");
 	SampleTitle$(TriggerChannel%, "Trigger");
+
+	' channel to look for ready signal from vsg
+	SampleEvent(ReadyChannel%,6,2,3600); 'Trigger channel, level
+	SampleComment$(ReadyChannel%,"VSG Ready");
+	SampleTitle$(ReadyChannel%,"VSG Ready");
+
 
 	for index := 1 to NumberOfElectrodes% do
 		SampleWaveMark(index,index-1,2000,34,15,28000); ' chan, port, event rate, points, pre-trigger, rate
@@ -1048,8 +1085,8 @@ func Start%()
 	PrintLog(CommandLine$+"\n");
 	StimHandle% := ProgRun(CommandLine$,1);
 	if StimHandle% <0 then Message("Could not start stimulus."); halt; endif
-	Yield(5);	'Wait a few seconds to make sure the VSG has time to initialize.
-	
+'	Yield(5);	'Wait a few seconds to make sure the VSG has time to initialize.
+
 	ToolbarSet(0,"",IdleProcessing%);	'Enable the IdleProcessing function
 	ToolbarEnable(2,1);
 	ToolbarEnable(1,0);
