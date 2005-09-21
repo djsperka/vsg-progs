@@ -81,6 +81,17 @@ int main (int argc, char *argv[])
 	// init triggers
 	init_triggers();
 
+	// Issue "ready" triggers to spike2.
+	// These commands pulse spike2 port 6. 
+	vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, 0x20, 0);
+	vsgPresent();
+
+	vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, 0x00, 0);
+	vsgPresent();
+
+	triggers.reset(vsgIOReadDigitalIn());
+
+
 	// All right, start monitoring triggers........
 	std::string s;
 	int last_output_trigger=0;
