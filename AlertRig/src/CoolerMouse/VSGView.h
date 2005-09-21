@@ -24,6 +24,7 @@ public:
 
 	void setStimPoint(double x, double y);
 	void setFPPoint(double x, double y);
+	int iCounter;
 // Overrides
 	// ClassWizard generated virtual function overrides
 	//{{AFX_VIRTUAL(CVSGView)

@@ -86,6 +86,8 @@ protected:
 	afx_msg void OnKillfocusFixationdiameter();
 	afx_msg void OnKillfocusFixationx();
 	afx_msg void OnKillfocusFixationy();
+	virtual void OnOK();
+	afx_msg void OnExitbtn();
 	//}}AFX_MSG
 	DECLARE_MESSAGE_MAP()
 };

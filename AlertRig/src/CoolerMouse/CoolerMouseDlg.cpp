@@ -130,6 +130,7 @@ BEGIN_MESSAGE_MAP(CCoolerMouseDlg, CDialog)
 	ON_EN_KILLFOCUS(IDC_FIXATIONDIAMETER, OnKillfocusFixationdiameter)
 	ON_EN_KILLFOCUS(IDC_FIXATIONX, OnKillfocusFixationx)
 	ON_EN_KILLFOCUS(IDC_FIXATIONY, OnKillfocusFixationy)
+	ON_BN_CLICKED(IDEXITBTN, OnExitbtn)
 	//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
@@ -173,7 +174,7 @@ BOOL CCoolerMouseDlg::OnInitDialog()
 	m_cFrame.ShowWindow(SW_SHOW);
 
 
-	return TRUE;  // return TRUE  unless you set the focus to a control
+	return FALSE;  // return TRUE  unless you set the focus to a control
 }
 
 
@@ -559,4 +560,17 @@ void CCoolerMouseDlg::OnKillfocusFixationy()
 	vsg->setFixationPointXY(m_dFixationX, m_dFixationY);	
 	theApp.SaveRegFixpt();
 	vsg->fixptChanged();	// this tells spike2 to update fixpt
+}
+
+void CCoolerMouseDlg::OnOK() 
+{
+	// TODO: Add extra validation here
+	
+}
+
+void CCoolerMouseDlg::OnExitbtn() 
+{
+	// TODO: Add your control notification handler code here
+	CDialog::OnOK();
+	
 }
