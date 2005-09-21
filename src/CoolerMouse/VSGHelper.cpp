@@ -127,11 +127,13 @@ void VSGHelper::stop()
 
 void VSGHelper::drawOverlay(BOOL bpresent)
 {
-//	m_iOverlayPage = 1 - m_iOverlayPage;
-	vsgSetDrawPage(vsgOVERLAYPAGE, 0, 1);
+	vsgSetDrawPage(vsgOVERLAYPAGE, m_iOverlayPage, 1);
 	m_stim.drawOverlay();
 	m_fp.drawOverlay();
+	vsgSetZoneDisplayPage(vsgOVERLAYPAGE, m_iOverlayPage);
 	if (bpresent) vsgPresent();
+	// toggle page value
+	m_iOverlayPage = 1 - m_iOverlayPage;
 }
 
 

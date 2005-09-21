@@ -19,6 +19,7 @@ IMPLEMENT_DYNCREATE(CVSGView, CView)
 
 CVSGView::CVSGView()
 {
+	iCounter = 0;
 }
 
 CVSGView::~CVSGView()
@@ -170,20 +171,30 @@ void CVSGView::OnMouseMove(UINT nFlags, CPoint point)
 	VSGHelper *pvsg = theApp.getVSG();
 	CCoolerMouseDlg *pdlg = theApp.getDlg();
 
+	iCounter++;
+
 	// Is there an active object?
 	if (!pvsg->stimFixed())
 	{
 		// Convert 'point' to angular coords. 
 		CPointToDegrees(point, &x, &y);
 		pdlg->setStimXY(x, y);
-		Invalidate();
+		if (iCounter>10)
+		{
+			iCounter = 0;
+			Invalidate();
+		}
 	}
 	else if (!pvsg->fixptFixed())
 	{
 		// Convert 'point' to angular coords. 
 		CPointToDegrees(point, &x, &y);
 		pdlg->setFixationXY(x, y);
-		Invalidate();
+		if (iCounter>10)
+		{
+			iCounter = 0;
+			Invalidate();
+		}
 	}
 
 //	CView::OnMouseMove(nFlags, point);
