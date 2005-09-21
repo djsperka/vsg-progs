@@ -131,6 +131,7 @@ int alert::ARContrastFixationPointSpec::draw()
 
 	if (!status)
 	{
+		vsgSetPen1(getFirstLevel());
 		ARFixationPointSpec::draw();
 	}
 	return status;
@@ -265,7 +266,7 @@ int alert::ARGratingSpec::draw(bool useTransOnLower)
 		{
 			vsgSetDrawMode(vsgCENTREXY + vsgTRANSONHIGHER);
 			vsgSetPen1(getFirstLevel());
-			vsgSetPen2(getFirstLevel() + getNumLevels());
+			vsgSetPen2(getFirstLevel() + getNumLevels() -1);
 			vsgDrawGrating(this->x, -1*this->y, this->w, this->h, this->orientation, this->sf);
 //			vsgSetDrawMode(vsgCENTREXY);
 		}
