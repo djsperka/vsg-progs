@@ -67,17 +67,18 @@ end;
 
 
 proc CreateSampleConfiguration()
-var index%;
+var chan%;
+var port%;
 SampleClear(); 'Set standard sampling state
 SampleAutoFile(0); 'Disable automatic file naming
 SampleAutoComment(0); 'Prompt for comment after sampling
 SampleAutoCommit(60); 'Seconds between each file commit
 
 'Channel recording definitions
-for index% := 1 to 7 do
-	SampleEvent(index%,index%,2,3600); 'Trigger channel, level
-	SampleComment$(index%,"Port " + str$(index%));
-	SampleTitle$(index%,"");
+for chan% := 1 to 8 do
+	port% := chan%-1;
+	SampleEvent(chan%, port%, 2, 3600); 'Trigger channel, port, type
+	SampleTitle$(chan%, "Port " + str$(port%));
 next
 
 if SampleSequencer(script$ + "\\CableTest.pls")<>0 then
