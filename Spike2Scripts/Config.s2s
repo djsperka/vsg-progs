@@ -530,7 +530,7 @@ var DegreesPerVoltY;			' Conversion factor from ADC to visual degrees
 var EyeCoilSamplingFrequency%;		' Frequency to sample eye coil at
 var NumberOfElectrodes%;		' Number of electrodes (i.e. wavemark inputs) in use
 var JuicePerReward%;			' Number of juice squirts per reward
-
+var DebugScripts%;			' Debug scripts and VSG apps (verbose messages)
 
 func DAQParametersDialog%()
 
@@ -547,7 +547,8 @@ func DAQParametersDialog%()
 	DlgReal(4, "Degrees/Volt (Y):", 0, 100);
 	DlgInteger(5, "Eye Coil Sampling Freq (Hz):", 1, 20000);
 	DlgInteger(6, "Juice per reward:", 0, 10, 0, 0, 1);
-	iReturn% := DlgShow(NumberOfElectrodes%, idist%, DegreesPerVoltX, DegreesPerVoltY, EyeCoilSamplingFrequency%, JuicePerReward%);
+	DlgCheck(7, "Verbose logging (debug)?");
+	iReturn% := DlgShow(NumberOfElectrodes%, idist%, DegreesPerVoltX, DegreesPerVoltY, EyeCoilSamplingFrequency%, JuicePerReward%, DebugScripts%);
 
 	if iReturn% = 1 then
 		DistanceToScreenMM$ := str$(idist%);
@@ -571,6 +572,7 @@ proc GetDAQParameters()
 	Profile(key$, "EyeCoilSamplingFrequency", 1000, EyeCoilSamplingFrequency%);
 	Profile(key$, "NumberOfElectrodes", 1, NumberOfElectrodes%);
 	Profile(key$, "JuicePerReward", 1, JuicePerReward%);
+	Profile(key$, "DebugScripts", 0, DebugScripts%);
 	DegreesPerVoltX := val(DegreesPerVoltX$);
 	DegreesPerVoltY := val(DegreesPerVoltY$);
 
@@ -589,6 +591,7 @@ proc SaveDAQParameters()
 	Profile(key$, "EyeCoilSamplingFrequency", EyeCoilSamplingFrequency%);
 	Profile(key$, "NumberOfElectrodes", NumberOfElectrodes%);
 	Profile(key$, "JuicePerReward", JuicePerReward%);
+	Profile(key$, "DebugScripts", DebugScripts%);
 
 end;
 
@@ -1267,8 +1270,57 @@ end;
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
 
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+'	CoolerMouse parameters START
+'
+'
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+var cmFixationDuration;			' fixation time for reward
+var cmUseDialog%;					' 1 to use dialog, 0 to use console "classic" mode
+
+proc GetCoolerMouseParameters()
+	var stmp$;
+	var key$;
+
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\CoolerMouse";
+
+	Profile(key$, "FixationDuration", "2", stmp$);
+	cmFixationDuration := val(stmp$);
+	Profile(key$, "UseDialog", 1, cmUseDialog%);
+	return;
+end;
+
+proc SaveCoolerMouseParameters()
+	var key$;
+
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\CoolerMouse";
+
+	Profile(key$, "FixationDuration", str$(cmFixationDuration));
+	Profile(key$, "UseDialog", cmUseDialog%);
+	return;
+end;
 
 
+func CoolerMouseScriptDialog%()
+	var i%;
+	GetCoolerMouseParameters();
+	DlgCreate("CoolerMouse Parameters", 25, 10, 50);
+	DlgReal(1, "Fixation Duration(s):", 0.1, 10);
+	DlgCheck(2, "Use Dialog?");
+	i% := DlgShow(cmFixationDuration, cmUseDialog%);
+	if (i% = 1) then
+		SaveCoolerMouseParameters();
+	endif;
+	return i%;
+end;
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+' CoolerMouse parameters END
+'
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 '
@@ -1294,6 +1346,7 @@ func RigConfigDialog%(config$)
 	DlgButton(11, "Fixation", FixationScriptDialog%, 20, 2);
 	DlgButton(12, "Attention", AttentionScriptDialog%, 20, 3);
 	DlgButton(13, "Tuning", TuningCurveScriptDialog%, 20, 4);
+	DlgButton(14, "CoolerMouse", CoolerMouseScriptDialog%, 20, 5);
 
 	DlgShow();
 
