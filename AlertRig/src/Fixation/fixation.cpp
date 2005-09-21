@@ -227,14 +227,8 @@ void init_triggers()
 int init_pages()
 {
 	int status=0;
-
-	// initialize video pages
-	if (ARvsg::instance().init_video())
-	{
-		cerr << "VSG video initialization failed!" << endl;
-	}
 	vsgSetDrawPage(vsgVIDEOPAGE, STIMULUS_PAGE, vsgNOCLEAR);
-	
+
 	if (m_distractors.size() > 0)
 	{
 		// determine the level slice for each
