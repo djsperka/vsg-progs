@@ -1,4 +1,7 @@
 ' $Log: not supported by cvs2svn $
+' Revision 1.9  2005/09/09 23:01:13  dan
+' Fixed bug in VSG ready/confirm cycle, where the confirm trigger could be missed, leading to a stuck script, no stimuli, etc.
+'
 ' Revision 1.8  2005/08/23 22:40:10  dan
 ' Added plot of tuning curves. Not entirely tested yet, and there are holes esp if there are multiple electrodes, but it'll do for now.
 '
@@ -820,6 +823,7 @@ var iMonitorChannel%;	' channel number for monitor position display in xy window
 
 ' Display stuff
 var FixWindowX[36],FixWindowY[36];	' points for displaying fixation window in xy view
+var windowX[36], windowY[36];
 
 ' dummy vars
 var iScript%;
@@ -1031,6 +1035,7 @@ func IdleProcessing%()
 				PrintLog("stateWaitForFixPtOn: signal received.\n");
 				tLastTrigger := tTrigger;
 				ChangeStateTo(stateWaitForAcquisition%, tTrigger);
+				DrawStim(1);	' actually this draws the location of the fixpt.
 			endif
 
 		case iState% = stateWaitForAcquisition% then
@@ -1077,6 +1082,7 @@ func IdleProcessing%()
 				PrintLog("stateWaitForBlank: Fix pt is off.\n");
 				tLastTrigger := tTrigger;
 				ChangeStateTo(stateInterTrialInterval%, tTrigger);
+				DrawStim(0);	' actually this draws the location of the fixpt.
 			endif
 
 		case iState% = stateInterTrialInterval% then
@@ -1421,11 +1427,6 @@ func Stop%()
 	TotalRewards% += nTrialsCompleted%;
 	SaveDailyTotals();
 
-	' Save data file
-'	View(DataWindow%);
-'	if FileSave() <> 0 then
-'		Message("WARNING! Data file not saved!!!");
-'	endif
 
 end;
 
@@ -1488,5 +1489,26 @@ func Start%()
 return 1;
 end;
 
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+' DrawStim
+' 
+' Draws stimulus in xy window (iDraw%==1) or blanks it (0). 
+proc DrawStim(iDraw%)
+
+	if iDraw% > 0 then
+		var xstim, ystim;
+		xstim := FixationX;
+		ystim := FixationY;
+
+		' Draw stimulus in xy window
+		View(XYWindow%).XYAddData(iStimChannel%, xstim, ystim);
+	else 
+		' erase the stim and the window from xy view
+		View(XYWindow%).XYDelete(iStimChannel%);
+	endif
+
+end;
 
 
