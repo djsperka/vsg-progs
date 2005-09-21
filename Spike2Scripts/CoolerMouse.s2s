@@ -1,4 +1,7 @@
 ' $Log: not supported by cvs2svn $
+' Revision 1.5  2005/09/09 23:01:13  dan
+' Fixed bug in VSG ready/confirm cycle, where the confirm trigger could be missed, leading to a stuck script, no stimuli, etc.
+'
 ' Revision 1.4  2005/08/25 23:20:39  dan
 ' Handling for fixation point change.
 '
@@ -207,19 +210,58 @@ end;
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
 
-''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 '
 '	CoolerMouse parameters START
 '
-''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-
-var cmFixationDuration := 1.5;
-
-''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 '
-'	CoolerMouse parameters END
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+var cmFixationDuration;			' fixation time for reward
+var cmUseDialog%;					' 1 to use dialog, 0 to use console "classic" mode
+
+proc GetCoolerMouseParameters()
+	var stmp$;
+	var key$;
+
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\CoolerMouse";
+
+	Profile(key$, "FixationDuration", "2", stmp$);
+	cmFixationDuration := val(stmp$);
+	Profile(key$, "UseDialog", 1, cmUseDialog%);
+	return;
+end;
+
+proc SaveCoolerMouseParameters()
+	var key$;
+
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\CoolerMouse";
+
+	Profile(key$, "FixationDuration", str$(cmFixationDuration));
+	Profile(key$, "UseDialog", cmUseDialog%);
+	return;
+end;
+
+
+func CoolerMouseScriptDialog%()
+	var i%;
+	GetCoolerMouseParameters();
+	DlgCreate("CoolerMouse Parameters", 25, 10, 50);
+	DlgReal(1, "Fixation Duration(s):", 0.1, 10);
+	DlgCheck(2, "Use Dialog?");
+	i% := DlgShow(cmFixationDuration, cmUseDialog%);
+	if (i% = 1) then
+		SaveCoolerMouseParameters();
+	endif;
+	return i%;
+end;
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 '
-''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+' CoolerMouse parameters END
+'
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
 
 
@@ -268,7 +310,7 @@ else
 	PrintLog("AutoFile status " + str$(SampleAutoFile()) + "\n");
 endif
 
-
+CoolerMouseScriptDialog%();
 
 
 
