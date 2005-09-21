@@ -40,57 +40,39 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-
-	parse_grating(string("-3,0,2,2,100,2,2,0,b,s,e"), m_stim);
-	parse_fixation_point(string("0,0,2,red"), m_fp);
+#if 0
+	if (ARvsg::instance().init_overlay())
+	{
+		cerr << "VSG overlay init failed!" << endl;
+	}
+#endif
+	if (ARvsg::instance().init_video())
+	{
+		cerr << "VSG video init failed!" << endl;
+	}
 
 	init_pages();
-
-//	m_fp1.init(1);
-//	m_fp1.drawOverlay();
-//	m_stim1.drawOverlay();
-
 //	vsgSetDrawPage(vsgOVERLAYPAGE, 0, vsgNOCLEAR);
-//	m_fp0.drawOverlay();
-//	m_stim0.drawOverlay();
-
+	vsgPresent();
 
 
 	string s;
-	cout << "Enter f/F/s/S/a/q: ";
+	cout << "Enter 0/1/q: ";
 	cin >> s;
 	while (s != "q" && s!= "Q")
 	{
-		if (s=="f")
+		if (s=="0")
 		{
-			m_fp.setContrast(0);
+//			vsgSetDrawPage(vsgOVERLAYPAGE, 0, vsgNOCLEAR);
 			vsgPresent();
 		}
-		else if (s=="F")
+		else if (s=="1")
 		{
-			m_fp.setContrast(100);
-			vsgPresent();
-		}
-		else if (s=="s")
-		{
-			m_stim.setContrast(0);
-			vsgPresent();
-		}
-		else if (s=="S")
-		{
-			m_stim.setContrast(100);
-			vsgPresent();
-		}
-		else if (s=="a")
-		{
-			m_dCurrentOri += 30;
-			m_stim.orientation = m_dCurrentOri;
-			m_stim.redraw(true);
+//			vsgSetDrawPage(vsgOVERLAYPAGE, 1, vsgNOCLEAR);
 			vsgPresent();
 		}
 
-
-		cout << "Enter f/F/s/S/a/q: ";
+		cout << "Enter 0/1/q: ";
 		cin >> s;
 	}
 
@@ -103,19 +85,13 @@ int main(int argc, char **argv)
 
 void init_pages()
 {
-	// initialize video pages
-	if (ARvsg::instance().init_video())
-	{
-		cerr << "VSG video initialization failed!" << endl;
-	}
+	vsgSetCommand(vsgPALETTERAMP);
+	vsgSetDrawPage(vsgVIDEOPAGE, 0, 1);
 
-	vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgNOCLEAR);
+//	VSGLUTBUFFER OverlayBuffer;
 
-	m_fp.init(2);
-	m_fp.draw();
-
-	m_stim.init(50);
-	m_stim.drawOnce();
-	vsgPresent();
+//	OverlayBuffer[0].a=1; OverlayBuffer[0].b=0; OverlayBuffer[0].c=0;
+//	vsgPaletteWriteOverlayCols((VSGLUTBUFFER*)&OverlayBuffer[0], 2, 1);
+//	vsgSetDrawPage(vsgOVERLAYPAGE, 1, 2);
 
 }
