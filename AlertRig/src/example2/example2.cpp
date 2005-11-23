@@ -12,6 +12,8 @@
 #pragma comment(lib, "alert.lib")
 #endif
 
+#pragma comment(lib, "vsgv8.lib")
+
 using namespace std;
 using namespace alert;
 

@@ -6,7 +6,7 @@
 #include "getopt.h"
 #undef __GNU_LIBRARY__
 
-#include "VSGEX2.H"
+#include "vsgv8.h"
 #include "Alertlib.h"
 
 #ifdef _DEBUG
@@ -14,6 +14,8 @@
 #else
 #pragma comment(lib, "alert.lib")
 #endif
+
+#pragma comment(lib, "vsgv8.lib")
 
 int args(int argc, char **argv);
 void init_triggers();

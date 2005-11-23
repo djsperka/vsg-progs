@@ -17,12 +17,15 @@
 
 
 
-#include "VSGEX2.H"
+#include "vsgv8.h"
 #include "math.h"
 #include "windows.h"
 #include "winuser.h"
 #include <stdio.h>
 #include <conio.h>
+
+
+#pragma comment (lib, "vsgv8.lib")
 
 double ScrWidth, ScrHeight;
 int counter;

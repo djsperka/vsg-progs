@@ -12,7 +12,7 @@
 
 #include <afxwin.h>
 //#include <iostream.h>
-#include "VSGEX2.H"
+#include "vsgv8.h"
 #include "ParameterFile.h"
 
 class Grating  

@@ -1,7 +1,7 @@
-// $Id: main.cpp,v 1.1 2005-09-20 00:45:51 dan Exp $
+// $Id: main.cpp,v 1.2 2005-11-23 02:05:48 dan Exp $
 //
 //
-#include "VSGEX2.H"
+#include "vsgv8.h"
 #include "Alertlib.h"
 
 #ifdef _DEBUG
@@ -9,6 +9,8 @@
 #else
 #pragma comment(lib, "alert.lib")
 #endif
+
+#pragma comment(lib, "vsgv8.lib")
 
 using namespace alert;
 using namespace std;
