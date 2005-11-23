@@ -1,6 +1,16 @@
-#include "VSGEX2.H"
+//#include "VSGEX2.H"
+#include "VSGV8.H"
 #include <stdio.h>
 #include <math.h>
+
+#ifdef _DEBUG
+#pragma comment(lib, "dalert.lib")
+#else
+#pragma comment(lib, "alert.lib")
+#endif
+
+#pragma comment(lib, "vsgv8.lib")
+
 
 #define DOT_INDEX 255
 #define TEXT_INDEX 1

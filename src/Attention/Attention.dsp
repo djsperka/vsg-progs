@@ -102,9 +102,5 @@ SOURCE=.\attention.h
 
 # PROP Default_Filter "ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe"
 # End Group
-# Begin Source File
-
-SOURCE="..\..\..\..\Program Files\Cambridge Research Systems\VSGV6\Windows\Win32\Msc\LIB\VSGEX2.LIB"
-# End Source File
 # End Target
 # End Project

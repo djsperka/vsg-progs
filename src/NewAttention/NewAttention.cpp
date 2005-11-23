@@ -24,31 +24,19 @@ void main(int ArgumentCount, char *Arguments[])
 
 	X=atof(Arguments[1]);
 	Y=atof(Arguments[2]);
-	BackgroundColor=Arguments[3];
-	FixationPointDiameter=atof(Arguments[4]);
-	BaseContrast=atof(Arguments[5]);
-	ContrastUp=atof(Arguments[6]);
-	ContrastDown=atof(Arguments[7]);
-	IncorrectBrightness=atof(Arguments[8]);
-	GratingOrSpot=Arguments[9];
-	TargetX=atof(Arguments[10]);
-	TargetY=atof(Arguments[11]);
-	TargetOrientation=atof(Arguments[12]);
-	TargetSF=atof(Arguments[13]);
-	TargetTF=atof(Arguments[14]);
-	TargetDiameter=atof(Arguments[15]);
-	if(ArgumentCount>16)
-	{
-		AnswerPointInitialBrightness=atof(Arguments[16]);
-		AnswerPointFullBrightness=atof(Arguments[17]);
-		GratingColor=Arguments[18];
-	}
-	else
-	{
-		AnswerPointInitialBrightness=100;
-		AnswerPointFullBrightness=0;
-		GratingColor="Grayscale";
-	}
+	FixationPointDiameter=atof(Arguments[3]);
+	BaseContrast=atof(Arguments[4]);
+	ContrastUp=atof(Arguments[5]);
+	ContrastDown=atof(Arguments[6]);
+	IncorrectBrightness=atof(Arguments[7]);
+	TargetX=atof(Arguments[8]);
+	TargetY=atof(Arguments[9]);
+	TargetOrientation=atof(Arguments[10]);
+	TargetSF=atof(Arguments[11]);
+	TargetTF=atof(Arguments[12]);
+	TargetDiameter=atof(Arguments[13]);
+	BackgroundColor="Gray";
+	
 
 	//Initialize the vsg card then check that it initialized O.K.
 	int CheckCard;
