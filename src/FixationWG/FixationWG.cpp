@@ -1,8 +1,17 @@
 #include <iostream.h>
 #include <stdio.h>
-#include "VSGEX2.H"
+#include "vsgv8.h"
 #include <math.h>
 #include <string>
+
+#ifdef _DEBUG
+#pragma comment(lib, "dalert.lib")
+#else
+#pragma comment(lib, "alert.lib")
+#endif
+
+#pragma comment (lib, "vsgv8.lib")
+
 
 using namespace std;
 

@@ -4,7 +4,8 @@
 #pragma warning(disable:4786)
 
 
-#include "VSGEX2.H"
+//#include "VSGEX2.H"
+#include "VSGV8.H"
 #define __GNU_LIBRARY__
 #include "getopt.h"
 #undef __GNU_LIBRARY__

@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include "VSGEX2.H"
+#include "vsgv8.h"
 #include <math.h>
 #include <STDLIB.H>
 #include <direct.h>
@@ -12,7 +12,7 @@
 //#define Rand_Max 4
 //#undef RAND_MAX
 
-
+#pragma comment(lib, "vsgv8.lib")
 
 
 //////////////////////////////////////
