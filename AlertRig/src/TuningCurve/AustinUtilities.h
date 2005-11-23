@@ -1,7 +1,7 @@
 #pragma once
 #include <afxwin.h>
 #include <iostream.h>
-#include "VSGEX2.H"
+#include "vsgv8.h"
 
 CString TrimLine(char input[100]);
 

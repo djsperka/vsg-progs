@@ -107,9 +107,5 @@ SOURCE=.\fixation.h
 SOURCE=.\StaticFixation.cpp
 # PROP Exclude_From_Build 1
 # End Source File
-# Begin Source File
-
-SOURCE="..\..\..\..\Program Files\Cambridge Research Systems\VSGV6\Windows\Win32\Msc\LIB\VSGEX2.LIB"
-# End Source File
 # End Target
 # End Project

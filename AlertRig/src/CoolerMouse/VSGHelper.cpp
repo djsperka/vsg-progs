@@ -5,6 +5,15 @@
 using namespace std;
 using namespace alert;
 
+#ifdef _DEBUG
+#pragma comment(lib, "dalert.lib")
+#else
+#pragma comment(lib, "alert.lib")
+#endif
+
+#pragma comment(lib, "vsgv8.lib")
+
+
 VSGHelper::VSGHelper(bool useVSG, int distToScreen, COLOR_TYPE bg) : m_bUsingVSG(false), m_bHaveFP(false), m_bHaveStim(false), m_bDirtyStim(false), m_bDirtyAperture(false), m_iOverlayPage(0), m_iPage(0), m_bStimFixed(true), m_bFPFixed(true)
 {
 	m_bUsingVSG = useVSG;
