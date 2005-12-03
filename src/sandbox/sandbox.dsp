@@ -88,6 +88,19 @@ LINK32=link.exe
 # Begin Source File
 
 SOURCE=.\main.cpp
+
+!IF  "$(CFG)" == "sandbox - Win32 Release"
+
+!ELSEIF  "$(CFG)" == "sandbox - Win32 Debug"
+
+# PROP Exclude_From_Build 1
+
+!ENDIF 
+
+# End Source File
+# Begin Source File
+
+SOURCE=.\NewMSequence.cpp
 # End Source File
 # End Group
 # Begin Group "Header Files"
