@@ -75,57 +75,23 @@ int draw_mseq2()
 			if (M.S[term]=='1') 
 			{
 				vsgDrawRect(V.d*(cindex+.5),V.d/V.z*(rindex+.5),V.d,V.d/V.z);
+			}
+
+			{
+				double a=V.d*(cindex+.5);
+				double b=V.d/V.z*(rindex+.5);
+				double c=V.d;
+				double d=V.d/V.z;
+				if (rindex==0 && cindex<5) 
+				{
+					printf("r,c=%d,%d xy=%lf, %lf\n", rindex, cindex, a, b);
+				}
 //				vsgDrawRect(PixelWidth*(cindex+.5),PixelHeight*(rindex+.5),PixelWidth,PixelHeight);
 			}
-			
 		}		
 	}
 	return 0;
 }
-
-
-void get_term_pos(int iterm, double *pxterm, double *pyterm)
-{
-	// The ULHC of each term lies somewhere in the first column of rxc terms. 
-	// Those terms are drawn in a column on the LHS of video memory -- p terms 
-	// in the column. Call each of these terms a "block" and determine which 
-	// block the starting pos of 'iterm' is.....
-	int block = iterm%M.p;
-
-	// This tells us the position (0-rc) of the terms start point within the 
-	// block specified by 'block'. The positions are numbered 0-c across the 
-	// first row, and so on. The lower right corner is position 'rc'.
-	int block_pos = (iterm-block)/M.p;
-	int block_row = block_pos/M.r;
-	int block_col = block_pos%M.c;
-
-	*pxterm = x_offset + block_col * V.d;
-	*pyterm = y_offset + (block*M.r + block_row)*V.d/V.z;
-}
-
-void get_dot_pos_relative(int icol, int irow, double x, double y, double *pxdot, double *pydot)
-{
-//	*pxdot = x + icol*V.d;
-//	*pydot = y + irow*V.d/V.z;
-	*pxdot = x + (icol+0.5)*V.d;
-	*pydot = y + (irow+0.5)*V.d/V.z;
-}
-
-void get_dot_pos(int iterm, int icol, int irow, double *pxdot, double *pydot)
-{
-	double xterm, yterm;
-	get_term_pos(iterm, &xterm, &yterm);
-	get_dot_pos_relative(icol, irow, xterm, yterm, pxdot, pydot);
-}
-
-void get_window_pos(int iterm, double *pxscreen, double *pyscreen)
-{
-	double pxterm, pyterm;
-	get_term_pos(iterm, &pxterm, &pyterm);
-	*pxscreen = pxterm - vsgGetScreenWidthPixels()/2 - V.x + V.w/2;
-	*pyscreen = pyterm - vsgGetScreenHeightPixels()/(2*V.z) + V.y/V.z +V.h/2;
-}
-
 
 
 
@@ -194,7 +160,7 @@ int init_vsg(void)
 	// Init vsg card
 	istatus = vsgInit("");
 	vsgSetDrawOrigin(0,0);
-	vsgSetDrawMode(vsgCOPYMODE);	// default after init is vsgCENTREXY - this turns 
+	vsgSetDrawMode(0);	// default after init is vsgCENTREXY - this turns 
 									// it off. 
 	vsgSetCommand(vsgVIDEODRIFT);
 	vsgSetVideoMode(vsgPANSCROLLMODE);
@@ -280,6 +246,270 @@ int init(int argc, char *argv[])
 	}
 
 	return istatus;
+}
+
+
+
+
+int draw_overlay(bool useOutline)
+{
+	int istatus=0;
+	double aperture_width, aperture_height;
+	double aperture_x, aperture_y;
+	double screen_width = vsgGetScreenWidthPixels();
+	double screen_height = vsgGetScreenHeightPixels();
+	short apx, apy;
+
+	aperture_width = V.w;
+	aperture_height = V.h*V.z;
+	aperture_x = screen_width/2 - aperture_width/2 + V.x;
+	aperture_y = screen_height/2 - aperture_height/2 - V.y;
+	apx = (short)screen_width/2 - (short)aperture_width/2 + (short)V.x;
+	apy = (short)screen_height/2 - (short)aperture_height/2 + (short)V.y;
+
+	printf("apx=%d aperture_x=%f\n", apx, aperture_x);
+	printf("apy=%d aperture_y=%f\n", apy, aperture_y);
+
+	// Set OVERLAYMASK mode
+	vsgSetCommand(vsgOVERLAYMASKMODE);
+
+	// overlay LUT buffer position 0 is "clear". Use position 1 for background color.
+	VSGLUTBUFFER overlayLUT;
+	overlayLUT[1].a=overlayLUT[1].b=overlayLUT[1].c=.5;
+	overlayLUT[2].a=overlayLUT[2].b=0; overlayLUT[2].c=1;
+	vsgPaletteWriteOverlayCols((VSGLUTBUFFER*)&overlayLUT, 0, 3);
+
+	if (!useOutline)
+	{
+
+		// Overlay page 1 will have no aperture. It will serve as a blank page before and after stimulus starts. 
+		vsgSetDrawPage(vsgOVERLAYPAGE, 1, 1);
+		vsgSetDrawPage(vsgOVERLAYPAGE, 0, 1 );
+
+		vsgSetPen1(0);	// that's clear on the overlay page!
+		vsgDrawRect(aperture_x, aperture_y, aperture_width, aperture_height);
+		printf("aperture %lf, %lf %lfx%lf\n", aperture_x, aperture_y, aperture_width, aperture_height);
+
+	}
+	else
+	{
+
+		// Overlay page 1 will have no aperture. It will serve as a blank page before and after stimulus starts. 
+		vsgSetDrawPage(vsgOVERLAYPAGE, 1, 1);
+		vsgSetDrawPage(vsgOVERLAYPAGE, 0, 0);
+
+		vsgSetDrawMode(vsgPIXELPEN);	// want outline only
+		vsgSetPen1(2);
+		vsgDrawRect(aperture_x, aperture_y, aperture_width, aperture_height);
+		vsgSetDrawMode(vsgSOLIDFILL);
+
+	}
+	return istatus;
+}
+
+
+void get_mpositions(int first, int last)
+{
+	int index;
+	double x,y;
+	for (index=first; index<last; index++)
+	{
+		get_window_pos(index, &x, &y);
+		MPositions[index].Page=0+vsgDUALPAGE+vsgTRIGGERPAGE ;
+		MPositions[index].Xpos=(short)x;
+		MPositions[index].Ypos=(short)y;
+		MPositions[index].Frames=FramesPerTerm;
+		MPositions[index].Stop=0;
+		MPositions[index].ovPage=0;
+		MPositions[index].ovXpos=0;
+		MPositions[index].ovYpos=0;
+		if (index%128 == 0) printf("Term %d (%d,%d)\n", index, (short)x, (short)y);
+	}
+	index=last;
+	MPositions[index].Page=0+vsgDUALPAGE;
+	MPositions[index].Xpos=0;
+	MPositions[index].Ypos=0;
+	MPositions[index].Frames=1;
+	MPositions[index].ovPage=1;
+	MPositions[index].ovXpos=0;
+	MPositions[index].ovYpos=0;
+	MPositions[index].Stop=1;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+int main(int argc, char* argv[])
+{
+	int istatus=0;
+	error[0]=0;
+
+
+	if (argc != 8)
+	{
+		istatus=1;
+		sprintf(error, "Args mseqfile n r c d x y");
+	}
+	else 
+	{
+		istatus = init(argc, argv);
+		printf("Using dot size %d.\nAperture center at %lf,%lf.\nZOOM=%d, w,h=%lf,%lf\n", V.d, V.x, V.y, V.z, V.w, V.h);
+		printf("Screen size %d,%d\n",vsgGetScreenWidthPixels(), vsgGetScreenHeightPixels());
+	}
+
+
+	// If no errors, prepare video memory -- first do overlay
+	if (!istatus) 
+	{
+		char buf[128];
+		printf("Overlay? ");
+		gets(buf);
+		if (!strcmpi(buf, "o"))
+		{
+			istatus = draw_overlay(true);
+		}
+		if (!strcmpi(buf, "y"))
+		{
+			istatus = draw_overlay(false);
+		}
+		else 
+		{
+			istatus=0;
+		}
+	}
+
+
+	// Now draw the mseq pattern
+	if (!istatus) 
+	{
+		istatus = draw_mseq2();
+	}
+
+
+	if (istatus)
+	{
+		printf("%s\n", error);
+	}
+	else
+	{
+		char buf[128];
+
+		vsgSetZoneDisplayPage(vsgOVERLAYPAGE,0);
+		vsgSetZoneDisplayPage(vsgVIDEOPAGE, 0);	
+
+		// Get term, then show it. 
+		printf("Enter term or coords: ");
+		while (gets(buf))
+		{
+			double xscreen=0, yscreen=0;
+			if (buf[0]=='c')
+			{
+				sscanf(buf+2, "%lf %lf", &xscreen, &yscreen);
+				printf("screen pos (%lf,%lf)\n", xscreen, yscreen);
+				vsgMoveScreen(xscreen, yscreen);
+			}
+			else if (isdigit(buf[0]))
+			{
+				int iterm = atoi(buf);
+				if (iterm >=0 && iterm <=M.nterms)
+				{
+					// Where to move window? 
+					// It appears that the zoom mode switches off when the origin for the 
+					// move screen is outside the valid video coords?
+					get_term_pos(iterm, &xscreen, &yscreen);
+					printf("Term pos for term %d is (%lf,%lf)\n", iterm, xscreen, yscreen);
+					vsgMoveScreen(xscreen, yscreen);
+					printf("Hit enter to position window for this term");
+					gets(buf);
+					get_window_pos(iterm, &xscreen, &yscreen);
+					printf("screen pos for term %d is (%lf,%lf)\n", iterm, xscreen, yscreen);
+					vsgMoveScreen(xscreen, yscreen);
+				}
+			}
+			else if (buf[0]=='t')
+			{
+				// read first-last term
+				int first, last;
+				sscanf(buf+1, " %d %d", &first, &last);
+				printf("First,last=%d,%d\n",first,last);
+				
+				get_mpositions(first, last);
+
+				// Set up page cycling
+				vsgSetCommand(vsgVIDEODRIFT);
+				vsgPageCyclingSetup(last-first+1,&MPositions[first]);
+				vsgSetCommand(vsgCYCLEPAGEENABLE);
+
+				printf("Hit enter to stop...");
+				gets(buf);
+				vsgSetCommand(vsgCYCLEPAGEDISABLE);
+			}
+			else break;
+
+			printf("Enter term or coords: ");
+		} 		
+	}
+
+	return istatus;
+}
+
+
+
+
+
+#if 0
+
+void get_term_pos(int iterm, double *pxterm, double *pyterm)
+{
+	// The ULHC of each term lies somewhere in the first column of rxc terms. 
+	// Those terms are drawn in a column on the LHS of video memory -- p terms 
+	// in the column. Call each of these terms a "block" and determine which 
+	// block the starting pos of 'iterm' is.....
+	int block = iterm%M.p;
+
+	// This tells us the position (0-rc) of the terms start point within the 
+	// block specified by 'block'. The positions are numbered 0-c across the 
+	// first row, and so on. The lower right corner is position 'rc'.
+	int block_pos = (iterm-block)/M.p;
+	int block_row = block_pos/M.r;
+	int block_col = block_pos%M.c;
+
+	*pxterm = x_offset + block_col * V.d;
+	*pyterm = y_offset + (block*M.r + block_row)*V.d/V.z;
+}
+
+void get_dot_pos_relative(int icol, int irow, double x, double y, double *pxdot, double *pydot)
+{
+//	*pxdot = x + icol*V.d;
+//	*pydot = y + irow*V.d/V.z;
+	*pxdot = x + (icol+0.5)*V.d;
+	*pydot = y + (irow+0.5)*V.d/V.z;
+}
+
+void get_dot_pos(int iterm, int icol, int irow, double *pxdot, double *pydot)
+{
+	double xterm, yterm;
+	get_term_pos(iterm, &xterm, &yterm);
+	get_dot_pos_relative(icol, irow, xterm, yterm, pxdot, pydot);
+}
+
+void get_window_pos(int iterm, double *pxscreen, double *pyscreen)
+{
+	double pxterm, pyterm;
+	get_term_pos(iterm, &pxterm, &pyterm);
+	*pxscreen = pxterm - vsgGetScreenWidthPixels()/2 - V.x + V.w/2;
+	*pyscreen = pyterm - vsgGetScreenHeightPixels()/(2*V.z) + V.y/V.z +V.h/2;
 }
 
 
@@ -467,211 +697,5 @@ int draw_mseq(void)
 
 
 
-int draw_overlay(bool useOutline)
-{
-	int istatus=0;
-	double aperture_width, aperture_height;
-	double aperture_x, aperture_y;
-	double screen_width = vsgGetScreenWidthPixels();
-	double screen_height = vsgGetScreenHeightPixels();
 
-	aperture_width = V.w;
-	aperture_height = V.h*V.z;
-	aperture_x = screen_width/2 - aperture_width/2 + V.x;
-	aperture_y = screen_height/2 - aperture_height/2 - V.y;
-
-
-	// Set OVERLAYMASK mode
-	vsgSetCommand(vsgOVERLAYMASKMODE);
-
-	// overlay LUT buffer position 0 is "clear". Use position 1 for background color.
-	VSGLUTBUFFER overlayLUT;
-	overlayLUT[1].a=overlayLUT[1].b=overlayLUT[1].c=.5;
-	overlayLUT[2].a=overlayLUT[2].b=0; overlayLUT[2].c=1;
-	vsgPaletteWriteOverlayCols((VSGLUTBUFFER*)&overlayLUT, 0, 3);
-
-	if (!useOutline)
-	{
-
-		// Overlay page 1 will have no aperture. It will serve as a blank page before and after stimulus starts. 
-		vsgSetDrawPage(vsgOVERLAYPAGE, 1, 1);
-		vsgSetDrawPage(vsgOVERLAYPAGE, 0, 1 );
-
-		vsgSetPen1(0);	// that's clear on the overlay page!
-		vsgDrawRect(aperture_x, aperture_y, aperture_width, aperture_height);
-		printf("aperture %lf, %lf %lfx%lf\n", aperture_x, aperture_y, aperture_width, aperture_height);
-
-	}
-	else
-	{
-
-		// Overlay page 1 will have no aperture. It will serve as a blank page before and after stimulus starts. 
-		vsgSetDrawPage(vsgOVERLAYPAGE, 1, 1);
-		vsgSetDrawPage(vsgOVERLAYPAGE, 0, 0);
-
-		vsgSetDrawMode(vsgPIXELPEN);	// want outline only
-		vsgSetPen1(2);
-		vsgDrawRect(aperture_x, aperture_y, aperture_width, aperture_height);
-		vsgSetDrawMode(vsgSOLIDFILL);
-
-	}
-	return istatus;
-}
-
-
-void get_mpositions(int first, int last)
-{
-	int index;
-	double x,y;
-	for (index=first; index<last; index++)
-	{
-		get_window_pos(index, &x, &y);
-		MPositions[index].Page=0+vsgDUALPAGE+vsgTRIGGERPAGE ;
-		MPositions[index].Xpos=(short)x;
-		MPositions[index].Ypos=(short)y;
-		MPositions[index].Frames=FramesPerTerm;
-		MPositions[index].Stop=0;
-		MPositions[index].ovPage=0;
-		MPositions[index].ovXpos=0;
-		MPositions[index].ovYpos=0;
-		if (index%128 == 0) printf("Term %d (%d,%d)\n", index, (short)x, (short)y);
-	}
-	index=last;
-	MPositions[index].Page=0+vsgDUALPAGE;
-	MPositions[index].Xpos=0;
-	MPositions[index].Ypos=0;
-	MPositions[index].Frames=1;
-	MPositions[index].ovPage=1;
-	MPositions[index].ovXpos=0;
-	MPositions[index].ovYpos=0;
-	MPositions[index].Stop=1;
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-int main(int argc, char* argv[])
-{
-	int istatus=0;
-	error[0]=0;
-
-
-	if (argc != 8)
-	{
-		istatus=1;
-		sprintf(error, "Args mseqfile n r c d x y");
-	}
-	else 
-	{
-		istatus = init(argc, argv);
-		printf("Using dot size %d.\nAperture center at %lf,%lf.\nZOOM=%d, w,h=%lf,%lf\n", V.d, V.x, V.y, V.z, V.w, V.h);
-		printf("Screen size %d,%d\n",vsgGetScreenWidthPixels(), vsgGetScreenHeightPixels());
-	}
-
-
-	// If no errors, prepare video memory -- first do overlay
-	if (!istatus) 
-	{
-		char buf[128];
-		printf("Overlay? ");
-		gets(buf);
-		if (!strcmpi(buf, "o"))
-		{
-			istatus = draw_overlay(true);
-		}
-		if (!strcmpi(buf, "y"))
-		{
-			istatus = draw_overlay(false);
-		}
-		else 
-		{
-			istatus=0;
-		}
-	}
-
-
-	// Now draw the mseq pattern
-	if (!istatus) 
-	{
-		istatus = draw_mseq();
-	}
-
-
-	if (istatus)
-	{
-		printf("%s\n", error);
-	}
-	else
-	{
-		char buf[128];
-
-		vsgSetZoneDisplayPage(vsgOVERLAYPAGE,0);
-		vsgSetZoneDisplayPage(vsgVIDEOPAGE, 0);	
-
-		// Get term, then show it. 
-		printf("Enter term or coords: ");
-		while (gets(buf))
-		{
-			double xscreen=0, yscreen=0;
-			if (buf[0]=='c')
-			{
-				sscanf(buf+2, "%lf %lf", &xscreen, &yscreen);
-				printf("screen pos (%lf,%lf)\n", xscreen, yscreen);
-				vsgMoveScreen(xscreen, yscreen);
-			}
-			else if (isdigit(buf[0]))
-			{
-				int iterm = atoi(buf);
-				if (iterm >=0 && iterm <=M.nterms)
-				{
-					// Where to move window? 
-					// It appears that the zoom mode switches off when the origin for the 
-					// move screen is outside the valid video coords?
-					get_term_pos(iterm, &xscreen, &yscreen);
-					printf("Term pos for term %d is (%lf,%lf)\n", iterm, xscreen, yscreen);
-					vsgMoveScreen(xscreen, yscreen);
-					printf("Hit enter to position window for this term");
-					gets(buf);
-					get_window_pos(iterm, &xscreen, &yscreen);
-					printf("screen pos for term %d is (%lf,%lf)\n", iterm, xscreen, yscreen);
-					vsgMoveScreen(xscreen, yscreen);
-				}
-			}
-			else if (buf[0]=='t')
-			{
-				// read first-last term
-				int first, last;
-				sscanf(buf+1, " %d %d", &first, &last);
-				printf("First,last=%d,%d\n",first,last);
-				
-				get_mpositions(first, last);
-
-				// Set up page cycling
-				vsgSetCommand(vsgVIDEODRIFT);
-				vsgPageCyclingSetup(last-first+1,&MPositions[first]);
-				vsgSetCommand(vsgCYCLEPAGEENABLE);
-
-				printf("Hit enter to stop...");
-				gets(buf);
-				vsgSetCommand(vsgCYCLEPAGEDISABLE);
-			}
-			else break;
-
-			printf("Enter term or coords: ");
-		} 		
-	}
-
-	return istatus;
-}
-
+#endif
