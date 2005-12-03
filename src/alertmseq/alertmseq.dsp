@@ -88,11 +88,41 @@ LINK32=link.exe
 # Begin Source File
 
 SOURCE=.\alertmseq.cpp
+
+!IF  "$(CFG)" == "alertmseq - Win32 Release"
+
+!ELSEIF  "$(CFG)" == "alertmseq - Win32 Debug"
+
+# PROP Exclude_From_Build 1
+
+!ENDIF 
+
+# End Source File
+# Begin Source File
+
+SOURCE=.\main.cpp
+
+!IF  "$(CFG)" == "alertmseq - Win32 Release"
+
+!ELSEIF  "$(CFG)" == "alertmseq - Win32 Debug"
+
+# PROP Exclude_From_Build 1
+
+!ENDIF 
+
+# End Source File
+# Begin Source File
+
+SOURCE=.\msequence.cpp
 # End Source File
 # End Group
 # Begin Group "Header Files"
 
 # PROP Default_Filter "h;hpp;hxx;hm;inl"
+# Begin Source File
+
+SOURCE=.\msequence.h
+# End Source File
 # End Group
 # Begin Group "Resource Files"
 
