@@ -1,4 +1,7 @@
 ' $Log: not supported by cvs2svn $
+' Revision 1.10  2005/09/21 19:38:21  dan
+' Correctly draws fixation window and fixpt location.
+'
 ' Revision 1.9  2005/09/09 23:01:13  dan
 ' Fixed bug in VSG ready/confirm cycle, where the confirm trigger could be missed, leading to a stuck script, no stimuli, etc.
 '
@@ -1422,11 +1425,148 @@ func Stop%()
 	ProgKill(StimHandle%);
 	ProgRun(bin$ + "\\ClearTrigger",0);
 
+	' Write parameter file
+	WriteParameterFile();
+
 	' Increment daily totals and save then
 	TotalTrials% += nTrialsStarted%;
 	TotalRewards% += nTrialsCompleted%;
 	SaveDailyTotals();
 
+
+end;
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+proc WriteParameterFile()
+	var parFileName$;
+	var parFileBase$;
+	var parHandle%;
+
+	' get filename for parfile (data file + "par" extension) and open it
+	View(DataWindow%);
+	parFileBase$ := FileName$(1) + FileName$(2) + FileName$(3) + FileName$(4);
+	parFileName$ := parFileBase$ + ".par";
+	PrintLog("par filename is " + parFileName$ + "\n");
+	parHandle% := FileOpen(parFileName$, 8, 1);
+
+	' write general info - eye coil gains, dist to screen
+	Print("Tuning parameters for %s\n\n", parFileBase$);
+
+	Print("General information\n");
+	Print("-------------------\n\n");
+	Print("Distance to screen (MM)    : %s\n", DistanceToScreenMM$);
+	Print("Eye coil software gain (X) : %f\n", DegreesPerVoltX);
+	Print("Eye coil software gain (Y) : %f\n", DegreesPerVoltY);
+	Print("Eye coil sampling freq (Hz): %d\n", EyeCoilSamplingFrequency%);
+	Print("Number of electrodes       : %d\n", NumberOfElectrodes%);
+	Print("Juices per reward          : %d\n", JuicePerReward%);
+	Print("Background color           : %s\n", tunBackgroundColor$);
+
+	' write fixpoint parameters
+	Print("\nFixation point\n");
+	Print("-------------------\n\n");
+	Print("Window radius              : %f\n", WindowRadius);
+	Print("Position (x, degrees)      : %f\n", FixationX);
+	Print("Position (y, degrees)      : %f\n", FixationY);
+	Print("Diameter (degrees)         : %f\n", FixationDiameter);
+	Print("Color                      : %s\n", FixationColor$);
+
+	' write stimulus parameters
+	Print("\nStimulus\n");
+	Print("-------------------\n\n");
+
+	var Tstimstr$;
+	var Tstimx$, Tstimy$, Tstimw$, Tstimh$, Tstimcontrast$, Tstimsf$, Tstimtf$, Tstimorientation$, Tstimcv$, Tstimp$, Tstimap$;
+	var i%;
+	var Tstepsize;
+	Tstimstr$ := GetGratingParameters$("Stimulus");
+	ReadSetup(",",",",",",",",",");
+	i% := ReadStr(Tstimstr$, Tstimx$, Tstimy$, Tstimw$, Tstimh$, Tstimcontrast$, Tstimsf$, Tstimtf$, Tstimorientation$, Tstimcv$, Tstimp$, Tstimap$);
+	Print("Position (x, degrees)           : %s\n", Tstimx$);
+	Print("Position (y, degrees)           : %s\n", Tstimy$);
+	Print("Width (degrees)                 : %s\n", Tstimw$);
+	Print("Height (degrees)                : %s\n", Tstimh$);
+	Print("Color: b/w(b),lms-cone(l,m,s)   : %s\n", Tstimcv$);
+   Print("Temporal frequency              : %s\n", Tstimtf$);
+	Print("Spatial frequency               : %s\n", Tstimsf$);
+	Print("Orientation (degrees)           : %s\n", Tstimorientation$);
+	Print("Contrast (%%)                    : %s\n", Tstimcontrast$);
+	Print("Aperture: ellipse(e)/square(q)  : %s\n", Tstimap$);
+	Print("Type: sine (s)/square (q)       : %s\n", Tstimp$);
+
+
+	Print("\nExperimental parameters\n");
+	Print("-------------------------\n\n");
+
+	Print("Fixation time(s)       : %f\n", tunFixationDuration);
+	Print("Maintain fixation (s)  : %f\n", tunMaintainFixation);
+	Print("Time out (s)           : %f\n", tunTimeOutTime);
+	Print("Acquisition time (s)   : %f\n", tunAcquisitionTime);
+
+	Print("\nTuning parameters\n");
+	Print("-------------------\n\n");
+	docase 
+		case tunType$ = tunTypeContrast$ then
+
+			Print("Type:                  : Contrast\n");
+			Print("Min,Max,#Steps         : %f,%f,%d\n", tunContrastMinContrast, tunContrastMaxContrast, tunContrastNSteps%);
+			Print("Values: ");
+			Tstepsize := (tunContrastMaxContrast - tunContrastMinContrast)/tunContrastNSteps%;
+			for i% := 0 to tunContrastNSteps% do
+				if i% > 0 then Print(", "); endif;
+				Print("%f", tunContrastMinContrast + i%*Tstepsize);
+			next;
+			Print("\n");
+
+
+		case tunType$ = tunTypeOrientation$ then
+
+			Print("Type:                  : Orientation\n");
+			Print("Min,Max,#Steps         : %f,%f,%d\n", tunOriMinOrientation, tunOriMaxOrientation, tunOriNSteps%);
+			Print("Values: ");
+			Tstepsize := (tunOriMaxOrientation - tunOriMinOrientation)/tunOriNSteps%;
+			for i% := 0 to tunOriNSteps% do
+				if i% > 0 then Print(", "); endif;
+				Print("%f", tunOriMinOrientation + i%*Tstepsize);
+			next;
+			Print("\n");
+
+		case tunType$ = tunTypeSpatial$ then
+
+			Print("Type:                  : Spatial Frequency\n");
+			Print("Min,Max,#Steps         : %f,%f,%d\n", tunSpatialMinSF, tunSpatialMaxSF, tunSpatialNSteps%);
+			Print("Values: ");
+			Tstepsize := (tunSpatialMaxSF - tunSpatialMinSF)/tunSpatialNSteps%;
+			for i% := 0 to tunSpatialNSteps% do
+				if i% > 0 then Print(", "); endif;
+				Print("%f", tunSpatialMinSF + i%*Tstepsize);
+			next;
+			Print("\n");
+	
+		case tunType$ = tunTypeTemporal$ then
+
+			Print("Type:                  : Temporal Frequency\n");
+			Print("Min,Max,#Steps         : %f,%f,%d\n", tunTemporalMinTF, tunTemporalMaxTF, tunTemporalNSteps%);
+			Print("Values: ");
+			Tstepsize := (tunTemporalMaxTF - tunTemporalMinTF)/tunTemporalNSteps%;
+			for i% := 0 to tunTemporalNSteps% do
+				if i% > 0 then Print(", "); endif;
+				Print("%f", tunTemporalMinTF + i%*Tstepsize);
+			next;
+			Print("\n");
+
+		else
+
+			Print("TuningCurve Error - unknown value for tunType$: %s\n", tunType$);
+
+	endcase;
+
+
+
+
+
+	' close parfile
+	FileClose(0);
 
 end;
 
