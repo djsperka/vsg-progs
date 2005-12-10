@@ -167,10 +167,28 @@ void run_mouse()
 	objHandle = UpdateGrating(objHandle, Orientation, SpatialFrequency, DriftVelocity);
 	InitializeOverlay(BackgroundLuminance, FixationColorTrival);
 
+
+
+
+
+	// Issue "ready" triggers to spike2.
+	// These commands pulse spike2 port 6. 
+	vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, 0x20, 0);
+	vsgPresent();
+
+	vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, 0x00, 0);
+	vsgPresent();
+
+
+
+
 	
 	double degMouseX, degMouseY;
 	POINT Pos;
 	bool bFixationOn=false;
+	bool bSendTrigger=false;
+	long lDigitalIO=0;
+	long lDigitalIOLast=0;
 	bool bMouseOn = true;
 	while(i < 1)
 	{
@@ -186,7 +204,10 @@ void run_mouse()
 		// read vsg io for fixation pt signal
 		if (!bUseManualTriggers)
 		{
-			bFixationOn = ((vsgIOReadDigitalIn() & vsgDIG1) != 0);
+			lDigitalIO = vsgIOReadDigitalIn() & vsgDIG1;
+			bFixationOn =  lDigitalIO != 0;
+			bSendTrigger = lDigitalIO!=lDigitalIOLast;
+			lDigitalIOLast = lDigitalIO;
 		}
 
 
@@ -198,7 +219,22 @@ void run_mouse()
 		UpdateOverlay(bFixationOn, FixationX, FixationY, FixationDiameter, degMouseX, degMouseY, ApertureDiameter);
 
 		// put fresh overlay page up
-		vsgSetZoneDisplayPage(vsgOVERLAYPAGE,Page);
+		if (!bSendTrigger)
+		{
+			vsgSetZoneDisplayPage(vsgOVERLAYPAGE, Page);
+		}
+		else
+		{
+			if (bFixationOn)
+			{
+				vsgIOWriteDigitalOut(0x2, 0x2);
+			}
+			else 
+			{
+				vsgIOWriteDigitalOut(0x0, 0x2);
+			}
+			vsgSetZoneDisplayPage(vsgOVERLAYPAGE, Page + vsgTRIGGERPAGE);
+		}
 
 		// check for keyboard hit
 		while(_kbhit())
