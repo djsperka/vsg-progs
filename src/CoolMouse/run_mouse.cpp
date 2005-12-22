@@ -190,6 +190,7 @@ void run_mouse()
 	long lDigitalIO=0;
 	long lDigitalIOLast=0;
 	bool bMouseOn = true;
+	bool bQuit = false;
 	while(i < 1)
 	{
 
@@ -204,16 +205,26 @@ void run_mouse()
 		// read vsg io for fixation pt signal
 		if (!bUseManualTriggers)
 		{
-			lDigitalIO = vsgIOReadDigitalIn() & vsgDIG1;
+			long ltemp = vsgIOReadDigitalIn();
+			lDigitalIO = ltemp & vsgDIG1;
 			bFixationOn =  lDigitalIO != 0;
 			bSendTrigger = lDigitalIO!=lDigitalIOLast;
 			lDigitalIOLast = lDigitalIO;
-		}
 
+			bQuit = ((ltemp & vsgDIG6) != 0);
+		}
 
 		// flip overlay page
 		Page=1-Page;
 		vsgSetDrawPage(vsgOVERLAYPAGE,Page,1);
+
+		// check for quit trigger
+		if (bQuit) 
+		{
+			vsgSetZoneDisplayPage(vsgOVERLAYPAGE, Page);
+			break;
+		}
+
 
 		// draw overlay page, fixation point if required, and aperture
 		UpdateOverlay(bFixationOn, FixationX, FixationY, FixationDiameter, degMouseX, degMouseY, ApertureDiameter);
@@ -301,14 +312,14 @@ void run_mouse()
 				double s;
 				cout << "Spatial Frequency = ";
 				cin >> s;
-				if (s>0.1 && s<100)
+				if (s>0.005 && s<100)
 				{
 					SpatialFrequency = s;
 					objHandle = UpdateGrating(objHandle, Orientation, SpatialFrequency, DriftVelocity);
 				}
 				else
 				{
-					cout << "Error in input: spatial freq must be a number between 0.1 and 100." << endl;
+					cout << "Error in input: spatial freq must be a number between 0.005 and 100." << endl;
 				}
 				break;
 			}
