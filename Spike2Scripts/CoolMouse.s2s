@@ -1,4 +1,7 @@
 ' $Log: not supported by cvs2svn $
+' Revision 1.6  2006/02/08 21:55:38  dan
+' Changed to use tuning curve fixation/reward state logic. The parameters are controlled by the tuning curve parameters.
+'
 ' Revision 1.5  2005/12/10 03:46:57  dan
 ' New version, using updated and improved CoolMouse application (a fixed version of mouse3.exe - new app is named CoolMouse.exe).
 '
@@ -687,7 +690,7 @@ proc InitializeToolbar()
 	ToolbarSet(2,"Stop", Stop%);
 	ToolbarSet(3,"Juice",Reward%);
 	ToolbarEnable(2,0);
-	Toolbar("Go",12345);
+	Toolbar("Go", 0x3ff);
 
 end;
 

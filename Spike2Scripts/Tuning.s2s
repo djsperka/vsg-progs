@@ -1,4 +1,7 @@
 ' $Log: not supported by cvs2svn $
+' Revision 1.12  2006/02/08 22:15:10  dan
+' Multiple repeats will now plot x coords correctly. Now does modulo division so subsequent repeats plot at same x coords as the first.
+'
 ' Revision 1.11  2005/12/07 22:16:14  dan
 ' *** empty log message ***
 '
@@ -933,7 +936,7 @@ proc InitializeToolbar()
 	ToolbarEnable(2,0);
 	ToolbarEnable(4,0);
 	ToolbarEnable(5,0);
-	Toolbar("Go",12345);
+	Toolbar("Go",0x3ff);
 
 end;
 
