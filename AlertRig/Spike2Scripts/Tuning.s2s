@@ -1,4 +1,7 @@
 ' $Log: not supported by cvs2svn $
+' Revision 1.13  2006/02/08 22:30:20  dan
+' Allow modification of xy axes during data aquisition
+'
 ' Revision 1.12  2006/02/08 22:15:10  dan
 ' Multiple repeats will now plot x coords correctly. Now does modulo division so subsequent repeats plot at same x coords as the first.
 '
@@ -1192,22 +1195,22 @@ func GetPlotXCoord(nTrials%)
 	docase 
 		case tunType$ = tunTypeContrast$ then
 
-			n% := nTrials% mod tunContrastNSteps%;
+			n% := nTrials% mod (tunContrastNSteps%+1);
 			x := n% * (tunContrastMaxContrast - tunContrastMinContrast) / tunContrastNSteps%;
 
 		case tunType$ = tunTypeOrientation$ then
 
-			n% := nTrials% mod tunOriNSteps%;
+			n% := nTrials% mod (tunOriNSteps%+1);
 			x := n% * (tunOriMaxOrientation - tunOriMinOrientation) / tunOriNSteps%;
 
 		case tunType$ = tunTypeSpatial$ then
 
-			n% := nTrials% mod tunSpatialNSteps%;
+			n% := nTrials% mod (tunSpatialNSteps%+1);
 			x := n% * (tunSpatialMaxSF - tunSpatialMinSF) / tunSpatialNSteps%;
 	
 		case tunType$ = tunTypeTemporal$ then
 
-			n% := nTrials% mod tunTemporalNSteps%;
+			n% := nTrials% mod (tunTemporalNSteps%+1);
 			x := n% * (tunTemporalMaxTF - tunTemporalMinTF) / tunTemporalNSteps%;
 
 		else
