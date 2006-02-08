@@ -325,10 +325,10 @@ proc GratingDialog(type$)
 	endif
 
 	DlgCreate("Grating parameters: " + type$, 25, 10);
-	DlgReal(1, "X:", -10, 10);
-	DlgReal(2, "Y:", -10, 10);
-	DlgReal(3, "Width:", .1, 10);
-	DlgReal(4, "Height:", .1, 10);
+	DlgReal(1, "X:", -40, 40);
+	DlgReal(2, "Y:", -40, 40);
+	DlgReal(3, "Width:", .1, 30);
+	DlgReal(4, "Height:", .1, 30);
 	DlgInteger(5, "Contrast(%):", 0, 100);
 	DlgReal(6, "Spatial Freq:", .1, 10);
 	DlgReal(7, "Temporal Freq:", 0, 10);
@@ -418,8 +418,8 @@ func FixationPointDialog%()
 	var i%;
 	GetFixationPointParameters();
 	DlgCreate("Fixation parameters: " + GetCurrentConfiguration$(), 25, 10);
-	DlgReal(1, "Fixation X:", -20, 20);
-	DlgReal(2, "Fixation Y:", -20, 20);
+	DlgReal(1, "Fixation X:", -40, 40);
+	DlgReal(2, "Fixation Y:", -40, 40);
 	DlgReal(3, "Fixation diam:", .1, 5);
 	DlgReal(4, "Window radius:", .1, 10);
 	DlgList(5, "Color:", FixationColorList$[]);
