@@ -1,4 +1,7 @@
 ' $Log: not supported by cvs2svn $
+' Revision 1.11  2005/12/07 22:16:14  dan
+' *** empty log message ***
+'
 ' Revision 1.10  2005/09/21 19:38:21  dan
 ' Correctly draws fixation window and fixpt location.
 '
@@ -1182,23 +1185,27 @@ end;
 
 func GetPlotXCoord(nTrials%)
 	var x;
-
+	var n%;
 	docase 
 		case tunType$ = tunTypeContrast$ then
 
-			x := nTrials% * (tunContrastMaxContrast - tunContrastMinContrast) / tunContrastNSteps%;
+			n% := nTrials% mod tunContrastNSteps%;
+			x := n% * (tunContrastMaxContrast - tunContrastMinContrast) / tunContrastNSteps%;
 
 		case tunType$ = tunTypeOrientation$ then
 
-			x := nTrials% * (tunOriMaxOrientation - tunOriMinOrientation) / tunOriNSteps%;
+			n% := nTrials% mod tunOriNSteps%;
+			x := n% * (tunOriMaxOrientation - tunOriMinOrientation) / tunOriNSteps%;
 
 		case tunType$ = tunTypeSpatial$ then
 
-			x := nTrials% * (tunSpatialMaxSF - tunSpatialMinSF) / tunSpatialNSteps%;
+			n% := nTrials% mod tunSpatialNSteps%;
+			x := n% * (tunSpatialMaxSF - tunSpatialMinSF) / tunSpatialNSteps%;
 	
 		case tunType$ = tunTypeTemporal$ then
 
-			x := nTrials% * (tunTemporalMaxTF - tunTemporalMinTF) / tunTemporalNSteps%;
+			n% := nTrials% mod tunTemporalNSteps%;
+			x := n% * (tunTemporalMaxTF - tunTemporalMinTF) / tunTemporalNSteps%;
 
 		else
 
@@ -1206,7 +1213,7 @@ func GetPlotXCoord(nTrials%)
 			Halt;
 
 	endcase;
-
+	PrintLog("Plot x " + str$(x) + "\n");
 
 	return x;
 end;
