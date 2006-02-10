@@ -93,8 +93,6 @@ SOURCE=.\alertmseq.cpp
 
 !ELSEIF  "$(CFG)" == "alertmseq - Win32 Debug"
 
-# PROP Exclude_From_Build 1
-
 !ENDIF 
 
 # End Source File
@@ -114,6 +112,15 @@ SOURCE=.\main.cpp
 # Begin Source File
 
 SOURCE=.\msequence.cpp
+
+!IF  "$(CFG)" == "alertmseq - Win32 Release"
+
+!ELSEIF  "$(CFG)" == "alertmseq - Win32 Debug"
+
+# PROP Exclude_From_Build 1
+
+!ENDIF 
+
 # End Source File
 # End Group
 # Begin Group "Header Files"
