@@ -9,6 +9,7 @@
 #include "alertlib.h"
 
 using namespace std;
+using namespace alert;
 
 #ifdef _DEBUG
 #pragma comment(lib, "dalert.lib")
@@ -34,177 +35,31 @@ int f_iDot = 4;
 int f_iZoom = 4;
 float f_apX=0;
 float f_apY=0;
+float f_W, f_H;
+float f_w, f_h;
 char *f_sequence=NULL;
+int _segFirstTerm;		// first term in current segment
+int _segLastTerm;		// last term in current segment
+int _segNTerms;			// number of terms in current segment
+TriggerVector triggers;
+bool f_binaryTriggers = true;
+ARContrastFixationPointSpec f_fixpt;
+int f_iDistanceToScreen = 0;
 
-
-
-void tokenize(const string& str, vector<string>& tokens, const string& delimiters = " ")
-{
-    // Skip delimiters at beginning.
-    string::size_type lastPos = str.find_first_not_of(delimiters, 0);
-    // Find first "non-delimiter".
-    string::size_type pos     = str.find_first_of(delimiters, lastPos);
-
-    while (string::npos != pos || string::npos != lastPos)
-    {
-        // Found a token, add it to the vector.
-        tokens.push_back(str.substr(lastPos, pos - lastPos));
-        // Skip delimiters.  Note the "not_of"
-        lastPos = str.find_first_not_of(delimiters, pos);
-        // Find next "non-delimiter"
-        pos = str.find_first_of(delimiters, lastPos);
-    }
-}
-
-
-int parse_xy(std::string s, double& x, double& y)
-{
-	int status=0;
-	vector<string> tokens;
-	tokenize(s, tokens, ",");
-	if (tokens.size() != 2)
-	{
-		cerr << "Bad x,y format: " << s << endl;
-		status=1;
-	}
-	else
-	{
-		istringstream iss;
-		iss.str(tokens[0]);
-		iss >> x;
-		if (!iss) 
-		{
-			cerr << "bad x: " << tokens[0] << endl;
-			status=1;
-		}
-		iss.str(tokens[1]);
-		iss.clear();
-		iss >> y;
-		if (!iss) 
-		{
-			cerr << "bad y: " << tokens[1] << endl;
-			status=1;
-		}
-	}
-	return status;
-}
-
-
-
-int parse_double(std::string s, double& d)
-{
-	int status=0;
-	istringstream iss(s);
-	iss >> d;
-	if (!iss) 
-	{
-		cerr << "bad format for double: " << s << endl;
-		status=1;
-	}
-	return status;
-}
+void segSetFirstSegment();
+void segAdvanceSegment();
+void segLoadSegment();
+void init_triggers();
+int callback(int &output, const CallbackTrigger* ptrig);
 
 
 
 
-int parse_integer(std::string s, int& dist)
-{
-	int status=0;
-	istringstream iss(s);
-	iss >> dist;
-	if (!iss) 
-	{
-		cerr << "bad integer: " << s << endl;
-		status=1;
-	}
-	return status;
-}
-
-int parse_repeating(string &s, RepeatingSpec &r)
-{
-	int status=0;
-	string szTemp;
-	vector<string> tokens;
-	tokenize(s, tokens, ",");
-	if (tokens.size() != 4)
-	{
-		cerr << "Bad repeating format: " << s << endl;
-		status=1;
-	}
-	else
-	{
-		istringstream iss;
-		iss.str(tokens[0]);
-		iss >> r._iFramesPerTerm;
-		if (!iss) 
-		{
-			cerr << "bad frames_per_term value: " << tokens[0] << endl;
-			status=1;
-		}
-		iss.clear();
-		iss.str(tokens[1]);
-		iss >> r._iRepeats;
-		if (!iss) 
-		{
-			cerr << "bad repeats value: " << tokens[1] << endl;
-			status=1;
-		}
-		iss.clear();
-		iss.str(tokens[2]);
-		iss >> r._iFirst;
-		if (!iss) 
-		{
-			cerr << "bad first frame value: " << tokens[2] << endl;
-			status=1;
-		}
-		iss.clear();
-		iss.str(tokens[3]);
-
-		// get last character
-		char c = tokens[3].c_str()[tokens[3].size()-1];
-		if (c == 'f')
-		{
-			int icount;
-			iss >> icount;
-			if (!iss)
-			{
-				cerr << "bad frame count value: " << tokens[3] << endl;
-				status=1;
-			}
-			else
-			{
-				r._iLast = r._iFirst + icount -1;
-			}
-		}
-		else if (c == 's')
-		{
-			float sec;
-			iss >> sec;
-			if (!iss)
-			{
-				cerr << "bad frame duration value: " << tokens[3] << endl;
-				status=1;
-			}
-			else
-			{
-				int nterms = (int)(1000000 / r._uspf / r._iFramesPerTerm * sec);
-				r._iLast = r._iFirst + nterms -1;
-			}
-		}
-		else if (c >= '0' && c<= '9')
-		{
-			iss >> r._iLast;
-			if (!iss)
-			{
-				cerr << "bad last frame value: " << tokens[3] << endl;
-				status=1;
-			}
-		}
-
-	}
-	return status;
-
-}
+#define STATE_UNDEFINED		-2
+#define STATE_QUIT			-1
+#define STATE_STOPPED		0
+#define STATE_RUNNING		1
+int f_iState = STATE_UNDEFINED;
 
 
 
@@ -270,6 +125,31 @@ int load_mseq(string& filename)
 
 
 
+void prepareOverlay()
+{
+	// prepare overlay
+	VSGTRIVAL colorTrival;
+	VSGLUTBUFFER overlayLUT;
+	overlayLUT[1].a=overlayLUT[1].b=overlayLUT[1].c=.5;
+	get_color(f_fixpt.color, colorTrival);
+	overlayLUT[2] = colorTrival;
+	vsgPaletteWriteOverlayCols((VSGLUTBUFFER*)&overlayLUT, 0, 3);
+
+
+//	vsgSetDrawPage(vsgOVERLAYPAGE, 2, 1);
+//	vsgDrawOval(f_fixpt.x, f_fixpt.y, f_fixpt.d, f_fixpt.d);
+
+	// Overlay page 1 will have no aperture. It will serve as a blank page before and after stimulus starts. 
+	vsgSetDrawPage(vsgOVERLAYPAGE, 1, 1);
+	vsgSetDrawPage(vsgOVERLAYPAGE, 0, 1);
+	vsgSetPen1(0);	// that's clear on the overlay page!
+	vsgDrawRect(f_W/2+f_apX, f_H/2-f_apY, f_w, f_h);
+	vsgSetPen1(2);
+	vsgDrawOval(f_fixpt.x, f_fixpt.y, f_fixpt.d, f_fixpt.d);
+	vsgSetZoneDisplayPage(vsgOVERLAYPAGE, 1);
+}
+
+
 int main(int argc, char **argv)
 {
 	int istatus=0;
@@ -284,6 +164,7 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
+
 	// setup vsg
 	vsgSetDrawOrigin(0,0);
 	vsgSetCommand(vsgPALETTERAMP);
@@ -293,57 +174,103 @@ int main(int argc, char **argv)
 
 
 	// aperture location
-	float W = vsgGetScreenWidthPixels();
-	float H = vsgGetScreenHeightPixels();
-	float w = f_iRows * f_iDot;		// the width of the entire grid, as it should appear on the screen
-	float h = f_iCols * f_iDot;		// the height of the entire grid, as it should appear on the screen
+	f_W = vsgGetScreenWidthPixels();
+	f_H = vsgGetScreenHeightPixels();
+	f_w = f_iRows * f_iDot;		// the width of the entire grid, as it should appear on the screen
+	f_h = f_iCols * f_iDot;		// the height of the entire grid, as it should appear on the screen
 
-	
-	// prepare overlay
-	VSGLUTBUFFER overlayLUT;
-	overlayLUT[1].a=overlayLUT[1].b=overlayLUT[1].c=.5;
-	overlayLUT[2].a=overlayLUT[2].b=0; overlayLUT[2].c=1;
-	vsgPaletteWriteOverlayCols((VSGLUTBUFFER*)&overlayLUT, 0, 3);
 
-	// Overlay page 1 will have no aperture. It will serve as a blank page before and after stimulus starts. 
-	vsgSetDrawPage(vsgOVERLAYPAGE, 1, 1);
-	vsgSetDrawPage(vsgOVERLAYPAGE, 0, 1);
-	vsgSetZoneDisplayPage(vsgOVERLAYPAGE, 1);
-	vsgSetPen1(0);	// that's clear on the overlay page!
-	vsgDrawRect(W/2+f_apX, H/2-f_apY, w, h);
+	prepareOverlay();
 
 
 	// draw the msequence into videomemory
 	draw_mseq();
+
+	vsgSetCommand(vsgVIDEODRIFT+vsgOVERLAYDRIFT);			// allows us to move the offset of video memory
+	segSetFirstSegment();
+	segLoadSegment();
+	f_iState = STATE_STOPPED;
 	
+	// init triggers
+	init_triggers();
 
-	// Page cycling setup. 
-	int index=0;
-	for (int iterm = f_pr->getFirst(); iterm <= f_pr->getLast(); iterm++)
+#if 0
+	// Issue "ready" triggers to spike2.
+	// These commands pulse spike2 port 6. 
+	vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, 0x20, 0);
+	vsgPresent();
+
+	vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, 0x00, 0);
+	vsgPresent();
+#endif
+
+	triggers.reset(vsgIOReadDigitalIn());
+
+
+
+	// All right, start monitoring triggers........
+	std::string s;
+	int last_output_trigger=0;
+	while (1)
 	{
-		// WARNING : rows and columns are hardcoded here. 
-		int irow = (index%128) * f_iRows + floor(index/(128*16));
-		int icol = (int)(floor(index/128))%f_iCols;
-
-		MPositions[index].Page = 0+vsgDUALPAGE+vsgTRIGGERPAGE;
-		MPositions[index].Xpos=-W/2 + w/2 - f_apX + icol*f_iDot;
-		MPositions[index].Ypos=-H/(2*f_iZoom) + h/(2*f_iZoom) + f_apY/f_iZoom + irow*f_iDot/f_iZoom;
-
-		if (index==0)
+		// If user-triggered, get a trigger entry. 
+		if (!f_binaryTriggers)
 		{
-			cout << "xy=" << MPositions[index].Xpos << "," << MPositions[index].Ypos << endl;
+			// Get a new "trigger" from user
+			cout << "Enter trigger/key: ";
+			cin >> s;
 		}
-		MPositions[index].Frames=f_pr->getFramesPerTerm();
-		MPositions[index].Stop=0;
-		MPositions[index].ovPage=0;
-		MPositions[index].ovXpos=0;
-		MPositions[index].ovYpos=0;
-		index++;
+
+		TriggerFunc	tf = std::for_each(triggers.begin(), triggers.end(), 
+			(f_binaryTriggers ? TriggerFunc(vsgIOReadDigitalIn(), last_output_trigger) : TriggerFunc(s, last_output_trigger)));
+
+		// Now analyze input trigger
+	 	
+		if (tf.quit()) break;
+		else if (tf.present())
+		{	
+			last_output_trigger = tf.output_trigger();
+			vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, tf.output_trigger(), 0);
+//			cout << "SetTriggers=" << tf.output_trigger() << endl;
+			vsgPresent();
+		}
 	}
 
-	// index is now the totalnumber of positions
-	vsgPageCyclingSetup(index, &MPositions[0]);
+	vsgSetCommand(vsgCYCLEPAGEDISABLE);
+	vsgSetZoneDisplayPage(vsgOVERLAYPAGE, 1);
 
+	ARvsg::instance().clear();
+
+	return 0;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#if 0
+
+
+
+	int iState = STATE_STOPPED;
+	while (iState != STATE_QUIT)
+	{
+	}
+	
 	// reset timer and start cycling
 
 	cout << "time us = " << f_pr->getTimeUS() << endl;
@@ -364,6 +291,155 @@ int main(int argc, char **argv)
 	return 0;
 }
 
+#endif
+
+
+
+void segSetFirstSegment()
+{
+	_segFirstTerm = 1;
+	_segLastTerm = f_iSegmentLength;
+}
+
+// TODO: this should take into account the number of repeats!
+void segAdvanceSegment()
+{
+	int nterms = pow(2, f_iOrder) - 1;
+	_segFirstTerm = _segLastTerm + 1;
+	_segLastTerm += f_iSegmentLength;
+	if (_segLastTerm > nterms)
+	{
+		_segLastTerm = nterms;
+	}
+	_segNTerms = _segLastTerm - _segFirstTerm + 1;
+}
+
+
+void segLoadSegment()
+{
+
+	// Page cycling setup. 
+	int index=0;
+	for (int iterm = _segFirstTerm; iterm <= _segLastTerm; iterm++)
+	{
+		// WARNING : rows and columns are hardcoded here. 
+		int irow = (index%128) * f_iRows + floor(index/(128*16));
+		int icol = (int)(floor(index/128))%f_iCols;
+
+		MPositions[index].Page = 0+vsgDUALPAGE+vsgTRIGGERPAGE;
+		MPositions[index].Xpos=-f_W/2 + f_w/2 - f_apX + icol*f_iDot;
+		MPositions[index].Ypos=-f_H/(2*f_iZoom) + f_h/(2*f_iZoom) + f_apY/f_iZoom + irow*f_iDot/f_iZoom;
+
+		if (index==0)
+		{
+			cout << "xy=" << MPositions[index].Xpos << "," << MPositions[index].Ypos << endl;
+		}
+		MPositions[index].Frames=f_iFramesPerTerm;
+		MPositions[index].Stop=0;
+		MPositions[index].ovPage=0;
+		MPositions[index].ovXpos=0;
+		MPositions[index].ovYpos=0;
+		index++;
+	}
+
+	
+	MPositions[index].Stop=1;
+	MPositions[index].Page = 0+vsgDUALPAGE;
+	MPositions[index].ovPage=1;
+	MPositions[index].ovXpos=0;
+	MPositions[index].ovYpos=0;
+	index++;
+
+	
+	// index is now the totalnumber of positions
+	vsgPageCyclingSetup(index, &MPositions[0]);
+
+}
+
+
+bool segStart()
+{
+	bool bvalue = true;
+	if (f_iState == STATE_STOPPED)
+	{
+		vsgSetCommand(vsgCYCLEPAGEENABLE);
+		f_iState = STATE_RUNNING;
+	}
+	else
+	{
+		cerr << "ERROR: Cannot start segment unless in STOPPED state." <<endl;
+		bvalue = false;
+	}
+	return bvalue;
+}
+
+
+
+bool segStop()
+{
+	bool bvalue = true;
+	if (f_iState == STATE_RUNNING)
+	{
+		vsgSetCommand(vsgCYCLEPAGEDISABLE);
+//		vsgSetZoneDisplayPage(vsgOVERLAYPAGE, 1);
+		f_iState = STATE_STOPPED;
+	}
+	else
+	{
+		cerr << "ERROR: Cannot stop segment unless in RUNNING state." <<endl;
+		bvalue = false;
+	}
+	return bvalue;
+}
+
+
+void init_triggers()
+{
+	triggers.addTrigger(new CallbackTrigger("S", 0x2, 0x2, 0x2, 0x2, callback));
+	triggers.addTrigger(new CallbackTrigger("s", 0x2, 0x0, 0x2, 0x0, callback));
+	triggers.addTrigger(new CallbackTrigger("a", 0x4, 0x4 | AR_TRIGGER_TOGGLE, 0x4, 0x4 | AR_TRIGGER_TOGGLE, callback));
+	triggers.addTrigger(new QuitTrigger("q", 0x8, 0x8, 0xff, 0x0, 0));
+
+
+		// Dump triggers
+	std::cout << "Triggers:" << std::endl;
+	int i;
+	for (i=0; i<triggers.size(); i++)
+	{
+		std::cout << "Trigger " << i << " " << *(triggers[i]) << std::endl;
+	}
+	
+}
+
+
+
+// The return value from this trigger callback determines whether a vsgPresent() is issued. 
+// Care must be taken when the tuning type is "tt_contrast": do not call setContrast when the 
+// stim is OFF because the subsequent vsgPresent (which is necessary for the trigger to be issued)
+// will then make the stim visible again. 
+
+int callback(int &output, const CallbackTrigger* ptrig)
+{
+	int ival=1;
+	string key = ptrig->getKey();
+	if (key == "S")
+	{
+		if (segStart())
+		{
+		}
+	}
+	else if (key == "s")
+	{
+		if (segStop())
+		{
+		}
+	}
+	else if (key == "a")
+	{
+		segAdvanceSegment();
+	}
+	return 0;
+}
 
 
 // msequence -f filename -o order -r rows -c columns -R repeats,startframe,#s/#f
@@ -377,19 +453,26 @@ int args(int argc, char **argv)
 	bool have_r=true;
 	bool have_c=true;
 	bool have_xy=false;
+	bool have_l=false;
 	bool have_F=false;
+
 	bool have_t=false;
 	bool have_d=false;
+	bool have_D=false;
+	bool have_fix=false;
 
 	string s;
 	int c;
 	extern char *optarg;
 	extern int optind;
 	int errflg = 0;
-	while ((c = getopt(argc, argv, "f:l:t:vp:d:")) != -1)
+	while ((c = getopt(argc, argv, "f:l:t:vp:d:aF:D:")) != -1)
 	{
 		switch (c) 
 		{
+		case 'a':
+			f_binaryTriggers = false;
+			break;
 		case 'p':
 			double x,y;
 			s.assign(optarg);
@@ -408,6 +491,12 @@ int args(int argc, char **argv)
 			f_sFilename.assign(optarg);
 			have_f = true;
 			break;
+		case 'F':
+			s.assign(optarg);
+			if (parse_fixation_point(s, f_fixpt)) errflg++;
+			else have_fix = true;
+			break;
+
 		case 'o':
 			s.assign(optarg);
 			if (parse_integer(s, f_iOrder))
@@ -471,6 +560,18 @@ int args(int argc, char **argv)
 				have_l = true;
 			}
 			break;
+		case 'D':
+			s.assign(optarg);
+			if (parse_integer(s, f_iDistanceToScreen))
+			{
+				cerr << "Cannot parse screen distance (" << s << "): must be an integer." << endl;
+				errflg++;
+			}
+			else
+			{
+				have_D = true;
+			}
+			break;
 		case 't':
 			s.assign(optarg);
 			if (parse_integer(s, f_iFramesPerTerm))
@@ -500,6 +601,16 @@ int args(int argc, char **argv)
 		cerr << "No sequence file specified!" << endl; 
 		errflg++;
 	}
+	if (!have_fix) 
+	{
+		cerr << "No fixation point specified!" << endl; 
+		errflg++;
+	}
+	if (!have_D) 
+	{
+		cerr << "No screen distance specified!" << endl; 
+		errflg++;
+	}
 	if (!have_o)
 	{
 		cerr << "Sequence order not specified!" << endl; 
@@ -510,9 +621,14 @@ int args(int argc, char **argv)
 		cerr << "Both rows and columns must be specified!" << endl; 
 		errflg++;
 	}
-	if (!have_mode)
+	if (!have_l)
 	{
-		cerr << "No mode specified!" << endl;
+		cerr << "No segment length specified!" << endl;
+		errflg++;
+	}
+	if (!have_t)
+	{
+		cerr << "No frames_per_term value specified!" << endl;
 		errflg++;
 	}
 	if (!have_xy)
