@@ -136,8 +136,8 @@ void prepareOverlay()
 	vsgPaletteWriteOverlayCols((VSGLUTBUFFER*)&overlayLUT, 0, 3);
 
 
-//	vsgSetDrawPage(vsgOVERLAYPAGE, 2, 1);
-//	vsgDrawOval(f_fixpt.x, f_fixpt.y, f_fixpt.d, f_fixpt.d);
+	vsgSetDrawPage(vsgOVERLAYPAGE, 2, 1);
+	vsgDrawOval(f_fixpt.x, f_fixpt.y, f_fixpt.d, f_fixpt.d);
 
 	// Overlay page 1 will have no aperture. It will serve as a blank page before and after stimulus starts. 
 	vsgSetDrawPage(vsgOVERLAYPAGE, 1, 1);
@@ -362,6 +362,7 @@ bool segStart()
 	bool bvalue = true;
 	if (f_iState == STATE_STOPPED)
 	{
+		vsgSetCommand(vsgVIDEODRIFT+vsgOVERLAYDRIFT);			// allows us to move the offset of video memory
 		vsgSetCommand(vsgCYCLEPAGEENABLE);
 		f_iState = STATE_RUNNING;
 	}
@@ -381,7 +382,7 @@ bool segStop()
 	if (f_iState == STATE_RUNNING)
 	{
 		vsgSetCommand(vsgCYCLEPAGEDISABLE);
-//		vsgSetZoneDisplayPage(vsgOVERLAYPAGE, 1);
+		vsgSetZoneDisplayPage(vsgOVERLAYPAGE, 1);
 		f_iState = STATE_STOPPED;
 	}
 	else
@@ -392,6 +393,19 @@ bool segStop()
 	return bvalue;
 }
 
+
+
+bool segNext()
+{
+	bool bvalue = true;
+	vsgSetCommand(vsgCYCLEPAGEDISABLE);
+	vsgSetZoneDisplayPage(vsgOVERLAYPAGE, 2);
+	segAdvanceSegment();
+	vsgSetCommand(vsgVIDEODRIFT+vsgOVERLAYDRIFT);			// allows us to move the offset of video memory
+	vsgSetCommand(vsgCYCLEPAGEENABLE);
+	f_iState = STATE_RUNNING;
+	return bvalue;
+}
 
 void init_triggers()
 {
@@ -436,7 +450,7 @@ int callback(int &output, const CallbackTrigger* ptrig)
 	}
 	else if (key == "a")
 	{
-		segAdvanceSegment();
+		segNext();
 	}
 	return 0;
 }
