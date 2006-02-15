@@ -715,6 +715,96 @@ end;
 '
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
+
+
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+'	Msequence script parameters START
+'
+'	Vars that control the alert msequence script. 
+'
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+var msqFixationDuration;			' Time required to maintain fixation, seconds
+var msqAcquisitionTime;			' Time allowed to acquire target before fail trial, seconds
+var msqInterTrialTime;			' Blank time following a trial (both successful and failed), seconds
+var msqDotSize%;					' dot size (pixels)
+var msqSegmentLength%;			' Terms in a segment of the msequence
+var msqFramesPerTerm%;			' frames that each msequence term is shown
+
+proc GetMSequenceScriptParameters()
+	var stmp$;
+	var key$;
+
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\MSequence";
+
+	Profile(key$, "FixationDuration", "1.0", stmp$);
+	msqFixationDuration := val(stmp$);
+
+	Profile(key$, "AcquisitionTime", "1.0", stmp$);
+	msqAcquisitionTime := val(stmp$);
+
+	Profile(key$, "InterTrialTime", "1.0", stmp$);
+	msqInterTrialTime := val(stmp$);
+
+	Profile(key$, "DotSize", 4, msqDotSize%);
+	Profile(key$, "SegmentLength", 100, msqSegmentLength%);
+	Profile(key$, "FramesPerTerm", 1, msqFramesPerTerm%);
+	
+end;
+ 	
+proc SaveMSequenceScriptParameters()
+	var stmp$;
+	var key$;
+
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\MSequence";
+
+	Profile(key$, "FixationDuration", str$(msqFixationDuration));
+	Profile(key$, "AcquisitionTime", str$(msqAcquisitionTime));
+	Profile(key$, "InterTrialTime", str$(msqInterTrialTime));
+	Profile(key$, "DotSize", msqDotSize%);
+	Profile(key$, "SegmentLength", msqSegmentLength%);
+	Profile(key$, "FramesPerTerm", msqFramesPerTerm%);
+end;
+
+
+
+func MSequenceScriptDialog%()
+	var i%;
+	GetMSequenceScriptParameters();
+	DlgCreate("MSequence Script Parameters", 25, 10);
+	DlgReal(1, "Fixation duration(s):", .01, 10);
+	DlgReal(2, "Acquisition time(s):", .01, 10);
+	DlgReal(3, "Intertrial time(s):", .01, 10);
+	DlgInteger(4, "Dot Size(pixels):", 4, 28);
+	DlgInteger(5, "Segment length (terms):", 1, 32767);
+	DlgInteger(5, "Frames per term:", 1, 100);
+	i%:=DlgShow(msqFixationDuration, msqAcquisitionTime, msqInterTrialTime, msqDotSize%, msqSegmentLength%, msqFramesPerTerm%);
+	if i% = 1 then
+		PrintLog("Saving params\n");
+		SaveMSequenceScriptParameters();
+	endif;
+	return 1;
+end;
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+' MSequence script END
+'
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+
+
+
+
+
+
+
+
+
+
+
+
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 '
 ' 	Attention script START
@@ -1347,6 +1437,7 @@ func RigConfigDialog%(config$)
 	DlgButton(12, "Attention", AttentionScriptDialog%, 20, 3);
 	DlgButton(13, "Tuning", TuningCurveScriptDialog%, 20, 4);
 	DlgButton(14, "CoolerMouse", CoolerMouseScriptDialog%, 20, 5);
+	DlgButton(15, "MSequence", MSequenceScriptDialog%, 20, 6);
 
 	DlgShow();
 
