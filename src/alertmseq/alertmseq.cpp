@@ -51,16 +51,13 @@ void segAdvanceSegment();
 void segLoadSegment();
 void init_triggers();
 int callback(int &output, const CallbackTrigger* ptrig);
+bool dotOnly();
+bool blankPage();
 
 
 
-
-#define STATE_UNDEFINED		-2
-#define STATE_QUIT			-1
-#define STATE_STOPPED		0
-#define STATE_RUNNING		1
-int f_iState = STATE_UNDEFINED;
-
+#define NO_APERTURE_PAGE 1
+#define DOT_WITH_APERTURE_PAGE 0
 
 
 // draw mseq, assuming that 
@@ -123,8 +120,6 @@ int load_mseq(string& filename)
 	return istatus;
 }
 
-
-
 void prepareOverlay()
 {
 	// prepare overlay
@@ -136,17 +131,12 @@ void prepareOverlay()
 	vsgPaletteWriteOverlayCols((VSGLUTBUFFER*)&overlayLUT, 0, 3);
 
 
-	vsgSetDrawPage(vsgOVERLAYPAGE, 2, 1);
-	vsgDrawOval(f_fixpt.x, f_fixpt.y, f_fixpt.d, f_fixpt.d);
-
-	// Overlay page 1 will have no aperture. It will serve as a blank page before and after stimulus starts. 
-	vsgSetDrawPage(vsgOVERLAYPAGE, 1, 1);
-	vsgSetDrawPage(vsgOVERLAYPAGE, 0, 1);
+	vsgSetDrawPage(vsgOVERLAYPAGE, NO_APERTURE_PAGE, 1);
+	vsgSetDrawPage(vsgOVERLAYPAGE, DOT_WITH_APERTURE_PAGE, 1);
 	vsgSetPen1(0);	// that's clear on the overlay page!
 	vsgDrawRect(f_W/2+f_apX, f_H/2-f_apY, f_w, f_h);
 	vsgSetPen1(2);
 	vsgDrawOval(f_fixpt.x, f_fixpt.y, f_fixpt.d, f_fixpt.d);
-	vsgSetZoneDisplayPage(vsgOVERLAYPAGE, 1);
 }
 
 
@@ -165,6 +155,18 @@ int main(int argc, char **argv)
 	}
 
 
+	// Issue "ready" triggers to spike2.
+	// These commands pulse spike2 port 6. 
+	vsgObjCreate();
+	vsgObjSetPixelLevels(200, 2);
+	vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, 0x20, 0);
+	vsgPresent();
+
+	vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, 0x00, 0);
+	vsgPresent();
+	vsgSetCommand(vsgDISABLELUTANIM);
+
+
 	// setup vsg
 	vsgSetDrawOrigin(0,0);
 	vsgSetCommand(vsgPALETTERAMP);
@@ -181,29 +183,17 @@ int main(int argc, char **argv)
 
 
 	prepareOverlay();
+	blankPage();
 
 
 	// draw the msequence into videomemory
 	draw_mseq();
 
-	vsgSetCommand(vsgVIDEODRIFT+vsgOVERLAYDRIFT);			// allows us to move the offset of video memory
 	segSetFirstSegment();
 	segLoadSegment();
-	f_iState = STATE_STOPPED;
 	
 	// init triggers
 	init_triggers();
-
-#if 0
-	// Issue "ready" triggers to spike2.
-	// These commands pulse spike2 port 6. 
-	vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, 0x20, 0);
-	vsgPresent();
-
-	vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, 0x00, 0);
-	vsgPresent();
-#endif
-
 	triggers.reset(vsgIOReadDigitalIn());
 
 
@@ -231,67 +221,18 @@ int main(int argc, char **argv)
 		{	
 			last_output_trigger = tf.output_trigger();
 			vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, tf.output_trigger(), 0);
-//			cout << "SetTriggers=" << tf.output_trigger() << endl;
 			vsgPresent();
 		}
 	}
 
 	vsgSetCommand(vsgCYCLEPAGEDISABLE);
-	vsgSetZoneDisplayPage(vsgOVERLAYPAGE, 1);
+	blankPage();
 
 	ARvsg::instance().clear();
 
 	return 0;
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-#if 0
-
-
-
-	int iState = STATE_STOPPED;
-	while (iState != STATE_QUIT)
-	{
-	}
-	
-	// reset timer and start cycling
-
-	cout << "time us = " << f_pr->getTimeUS() << endl;
-	cout << "uspf = " << vsgGetSystemAttribute(vsgFRAMETIME) << endl;
-	vsgResetTimer();
-	vsgSetCommand(vsgVIDEODRIFT+vsgOVERLAYDRIFT);			// allows us to move the offset of video memory
-	vsgSetCommand(vsgCYCLEPAGEENABLE);
-	while (vsgGetTimer() < f_pr->getTimeUS())
-	{
-//		cout << "sleeping, timer=" << vsgGetTimer() << " < " << f_pr->getTimeUS() << endl;
-		Sleep(1000);
-	}
-	vsgSetCommand(vsgCYCLEPAGEDISABLE);
-	vsgSetZoneDisplayPage(vsgOVERLAYPAGE, 1);
-
-	Sleep(5000);	// per Daniel request.
-
-	return 0;
-}
-
-#endif
 
 
 
@@ -326,7 +267,7 @@ void segLoadSegment()
 		int irow = (index%128) * f_iRows + floor(index/(128*16));
 		int icol = (int)(floor(index/128))%f_iCols;
 
-		MPositions[index].Page = 0+vsgDUALPAGE+vsgTRIGGERPAGE;
+		MPositions[index].Page = DOT_WITH_APERTURE_PAGE+vsgDUALPAGE+vsgTRIGGERPAGE;
 		MPositions[index].Xpos=-f_W/2 + f_w/2 - f_apX + icol*f_iDot;
 		MPositions[index].Ypos=-f_H/(2*f_iZoom) + f_h/(2*f_iZoom) + f_apY/f_iZoom + irow*f_iDot/f_iZoom;
 
@@ -344,7 +285,7 @@ void segLoadSegment()
 
 	
 	MPositions[index].Stop=1;
-	MPositions[index].Page = 0+vsgDUALPAGE;
+	MPositions[index].Page = NO_APERTURE_PAGE+vsgDUALPAGE;
 	MPositions[index].ovPage=1;
 	MPositions[index].ovXpos=0;
 	MPositions[index].ovYpos=0;
@@ -360,17 +301,13 @@ void segLoadSegment()
 bool segStart()
 {
 	bool bvalue = true;
-	if (f_iState == STATE_STOPPED)
-	{
-		vsgSetCommand(vsgVIDEODRIFT+vsgOVERLAYDRIFT);			// allows us to move the offset of video memory
-		vsgSetCommand(vsgCYCLEPAGEENABLE);
-		f_iState = STATE_RUNNING;
-	}
-	else
-	{
-		cerr << "ERROR: Cannot start segment unless in STOPPED state." <<endl;
-		bvalue = false;
-	}
+	// Set up the no aperture page - it will be shown when the segment ends
+	vsgSetDrawPage(vsgOVERLAYPAGE, NO_APERTURE_PAGE, 1);
+	vsgSetPen1(2);
+	vsgDrawOval(f_fixpt.x, f_fixpt.y, f_fixpt.d, f_fixpt.d);
+	// Now start cycling
+	vsgSetCommand(vsgVIDEODRIFT+vsgOVERLAYDRIFT);			// allows us to move the offset of video memory
+	vsgSetCommand(vsgCYCLEPAGEENABLE);
 	return bvalue;
 }
 
@@ -379,17 +316,8 @@ bool segStart()
 bool segStop()
 {
 	bool bvalue = true;
-	if (f_iState == STATE_RUNNING)
-	{
-		vsgSetCommand(vsgCYCLEPAGEDISABLE);
-		vsgSetZoneDisplayPage(vsgOVERLAYPAGE, 1);
-		f_iState = STATE_STOPPED;
-	}
-	else
-	{
-		cerr << "ERROR: Cannot stop segment unless in RUNNING state." <<endl;
-		bvalue = false;
-	}
+	vsgSetCommand(vsgCYCLEPAGEDISABLE);
+	blankPage();
 	return bvalue;
 }
 
@@ -399,20 +327,40 @@ bool segNext()
 {
 	bool bvalue = true;
 	vsgSetCommand(vsgCYCLEPAGEDISABLE);
-	vsgSetZoneDisplayPage(vsgOVERLAYPAGE, 2);
 	segAdvanceSegment();
-	vsgSetCommand(vsgVIDEODRIFT+vsgOVERLAYDRIFT);			// allows us to move the offset of video memory
-	vsgSetCommand(vsgCYCLEPAGEENABLE);
-	f_iState = STATE_RUNNING;
+	segStart();
+	return bvalue;
+}
+
+
+bool dotOnly()
+{
+	bool bvalue=true;
+	vsgSetCommand(vsgCYCLEPAGEDISABLE);
+	vsgSetDrawPage(vsgOVERLAYPAGE, NO_APERTURE_PAGE, 1);
+	vsgSetPen1(2);
+	vsgDrawOval(f_fixpt.x, f_fixpt.y, f_fixpt.d, f_fixpt.d);
+	vsgSetZoneDisplayPage(vsgOVERLAYPAGE, NO_APERTURE_PAGE);
+	return bvalue;
+}
+
+bool blankPage()
+{
+	bool bvalue=true;
+	vsgSetCommand(vsgCYCLEPAGEDISABLE);
+	vsgSetDrawPage(vsgOVERLAYPAGE, NO_APERTURE_PAGE, 1);
+	vsgSetZoneDisplayPage(vsgOVERLAYPAGE, NO_APERTURE_PAGE);
 	return bvalue;
 }
 
 void init_triggers()
 {
-	triggers.addTrigger(new CallbackTrigger("S", 0x2, 0x2, 0x2, 0x2, callback));
-	triggers.addTrigger(new CallbackTrigger("s", 0x2, 0x0, 0x2, 0x0, callback));
-	triggers.addTrigger(new CallbackTrigger("a", 0x4, 0x4 | AR_TRIGGER_TOGGLE, 0x4, 0x4 | AR_TRIGGER_TOGGLE, callback));
-	triggers.addTrigger(new QuitTrigger("q", 0x8, 0x8, 0xff, 0x0, 0));
+	triggers.addTrigger(new CallbackTrigger("S", 0x2, 0x2 | AR_TRIGGER_TOGGLE, 0x2, 0x2 | AR_TRIGGER_TOGGLE, callback));
+	triggers.addTrigger(new CallbackTrigger("s", 0x4, 0x4 | AR_TRIGGER_TOGGLE, 0x4, 0x4 | AR_TRIGGER_TOGGLE, callback));
+	triggers.addTrigger(new CallbackTrigger("a", 0x8, 0x8 | AR_TRIGGER_TOGGLE, 0x8, 0x8 | AR_TRIGGER_TOGGLE, callback));
+	triggers.addTrigger(new CallbackTrigger("D", 0x10, 0x10 | AR_TRIGGER_TOGGLE, 0x10, 0x10 | AR_TRIGGER_TOGGLE, callback));
+	triggers.addTrigger(new CallbackTrigger("d", 0x40, 0x40 | AR_TRIGGER_TOGGLE, 0x40, 0x40 | AR_TRIGGER_TOGGLE, callback));
+	triggers.addTrigger(new QuitTrigger("q", 0x80, 0x80, 0xff, 0x0, 0));
 
 
 		// Dump triggers
@@ -438,19 +386,27 @@ int callback(int &output, const CallbackTrigger* ptrig)
 	string key = ptrig->getKey();
 	if (key == "S")
 	{
-		if (segStart())
-		{
-		}
+		segStart();
 	}
 	else if (key == "s")
 	{
-		if (segStop())
-		{
-		}
+		segStop();
 	}
 	else if (key == "a")
 	{
 		segNext();
+	}
+	else if (key == "D")
+	{
+		dotOnly();
+	}
+	else if (key == "d")
+	{
+		blankPage();
+	}
+	else 
+	{
+		cerr << "ERROR: Unrecognized trigger!" << endl;
 	}
 	return 0;
 }
