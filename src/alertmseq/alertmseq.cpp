@@ -436,7 +436,7 @@ int args(int argc, char **argv)
 	extern char *optarg;
 	extern int optind;
 	int errflg = 0;
-	while ((c = getopt(argc, argv, "f:l:t:vp:d:aF:D:")) != -1)
+	while ((c = getopt(argc, argv, "f:l:t:vp:d:am:D:")) != -1)
 	{
 		switch (c) 
 		{
@@ -457,11 +457,11 @@ int args(int argc, char **argv)
 				f_apY = (float)y;
 			}
 			break;
-		case 'f':
+		case 'm':
 			f_sFilename.assign(optarg);
 			have_f = true;
 			break;
-		case 'F':
+		case 'f':
 			s.assign(optarg);
 			if (parse_fixation_point(s, f_fixpt)) errflg++;
 			else have_fix = true;
