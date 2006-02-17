@@ -1,4 +1,7 @@
 ' $Log: not supported by cvs2svn $
+' Revision 1.1  2006/02/15 00:58:28  dan
+' Initial add of this script
+'
 
 '========================================================================
 '
@@ -872,19 +875,31 @@ func Start%()
 	var FixationPoint$;
 	var Extras$;
 	var Distractors$:="";
+	var gr$;
+	var x, y, w, h;
+	var i%;
 	
 	SampleStart(0); 'Start sampling
 	
 	GetMSequenceScriptParameters();
 
-'	Extras$ := GetGratingParameters$("Stimulus");
-'	Extras$ := " -b " + fixBackgroundColor$ + " -d " + DistanceToScreenMM$ + " -C " + str$(fixCalibrationOffset);
-'		CommandLine$ := "cmd /k " + bin$ + "\\dCalibration " + FixationArg$ + Extras$;
+'	Get the grating stimulus parameters and skim off the xy position
+	gr$ := GetGratingParameters$("Stimulus");
+	if gr$ <> "" then
+		ReadSetup("", "", "", "", ",");
+		i% := ReadStr(gr$, x, y, w, h);
+		if (i% <> 4) then
+			Message("Cannot get stimulus settings from registry!");
+			return 1;
+		endif
+	endif
+	CommandLine$ := "cmd /k " + bin$ + "\\dalertmseq -m c:\\work\\acuterig\\msequenceterms";
+	CommandLine$ += " -p " + str$(x) + "," + str$(y) + " -d " + str$(msqDotSize%) + " -l " + str$(msqSegmentLength%) + " -t " + str$(msqFramesPerTerm%) + " -D " + DistanceToScreenMM$ + " " + FixationArg$;
 
 	'Begin the stimulus program. It will take a few seconds for the VSG to initialize.
-'	PrintLog(CommandLine$+"\n");
-'	StimHandle% := ProgRun(CommandLine$,1);
-'	if StimHandle% <0 then Message("Could not start stimulus."); halt; endif
+	PrintLog(CommandLine$+"\n");
+	StimHandle% := ProgRun(CommandLine$,1);
+	if StimHandle% <0 then Message("Could not start stimulus."); halt; endif
 '	Yield(5);	'Wait a few seconds to make sure the VSG has time to initialize.
 
 	ToolbarSet(0,"",IdleProcessing%);	'Enable the IdleProcessing function
