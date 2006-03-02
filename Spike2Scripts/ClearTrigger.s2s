@@ -1,0 +1,20 @@
+' ClearTrigger
+'
+' This script just runs ClearTrigger, a simple VSG app to reinitialize the vsg and clear trigger lines. 
+'
+' $Id: ClearTrigger.s2s,v 1.1 2006-03-02 23:02:46 dan Exp $
+'
+'
+' File system reference vars. Each var is a directory path, WITHOUT the trailing slash. 
+var bin$, script$, config$;
+script$ := View(App(3)).FileName$(1) + View(App(3)).FileName$(2);	' folder containing this script
+bin$ := View(App(3)).FileName$(1) + View(App(3)).FileName$(2) + "..\\bin";	' Location of executables is ..\bin, relative to script dir
+config$ := View(App(3)).FileName$(1) + View(App(3)).FileName$(2) + "..\\config";	' Location of executables is ..\bin, relative to script dir
+
+var handle%;
+handle% := ProgRun(bin$ + "\\dClearTrigger",0);
+
+' Wait until it completes
+while (ProgStatus(handle%) <> 0) do 
+	PrintLog("Clearing vsg trigs.....\n"); 
+wend;
