@@ -1,7 +1,17 @@
 ' $Log: not supported by cvs2svn $
+' Revision 1.2  2004/10/01 20:06:10  dan
+' Modified directory locations for executables (../bin) and sequencer files (script dir)
+'
 ' Revision 1.1  2004/10/01 19:41:01  dan
 ' From production
 ' 
+
+' File system reference vars. Each var is a directory path, WITHOUT the trailing slash. 
+var bin$, script$, config$;
+script$ := View(App(3)).FileName$(1) + View(App(3)).FileName$(2);	' folder containing this script
+bin$ := View(App(3)).FileName$(1) + View(App(3)).FileName$(2) + "..\\bin";	' Location of executables is ..\bin, relative to script dir
+config$ := View(App(3)).FileName$(1) + View(App(3)).FileName$(2) + "..\\config";	' Location of executables is ..\bin, relative to script dir
+
 
 
 'Determine which monkey we're currently running
