@@ -155,6 +155,13 @@ int main(int argc, char **argv)
 	}
 
 
+	// adjust/convert coordinates on fixation point to pixels, from degrees. 
+	vsgSetViewDistMM(f_iDistanceToScreen);
+	vsgUnitToUnit(vsgDEGREEUNIT, f_fixpt.x, vsgPIXELUNIT, &f_fixpt.x); 
+	vsgUnitToUnit(vsgDEGREEUNIT, f_fixpt.y, vsgPIXELUNIT, &f_fixpt.y); 
+	vsgUnitToUnit(vsgDEGREEUNIT, f_fixpt.d, vsgPIXELUNIT, &f_fixpt.d); 
+
+
 	// Issue "ready" triggers to spike2.
 	// These commands pulse spike2 port 6. 
 	vsgObjCreate();
