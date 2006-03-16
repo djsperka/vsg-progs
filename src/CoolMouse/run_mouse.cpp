@@ -587,7 +587,12 @@ void UpdateOverlay(bool bFixationOn, double fixX, double fixY, double fixD, doub
 	if (bFixationOn) 
 	{
 		vsgSetPen1(3);
-		vsgDrawOval(fixX, fixY, fixD, fixD);
+
+		// Draw the fixation point. Note that the y coord is reversed -- this is because the VSG draws everything with 
+		// the y axis positive-downward, whereas we always use y-axis positive upwards. Note that the aperture doesn't 
+		// require this change because its location is derived from the mouse position, which is already 
+		// positive-y-downward. 
+		vsgDrawOval(fixX, -fixY, fixD, fixD);
 	}
 }
 
