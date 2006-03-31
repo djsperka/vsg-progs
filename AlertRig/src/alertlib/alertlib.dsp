@@ -89,6 +89,10 @@ SOURCE=.\src\AlertLib.cpp
 # End Source File
 # Begin Source File
 
+SOURCE=.\coneiso.cpp
+# End Source File
+# Begin Source File
+
 SOURCE=.\src\getopt.c
 # End Source File
 # Begin Source File
@@ -115,6 +119,10 @@ SOURCE=.\src\Registry.cpp
 # Begin Source File
 
 SOURCE=.\include\Alertlib.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\coneiso.h
 # End Source File
 # Begin Source File
 
