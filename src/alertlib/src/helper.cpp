@@ -1,4 +1,5 @@
 #include "Alertlib.h"
+#include "coneiso.h"
 #include <vector>
 #include <string>
 
@@ -429,28 +430,13 @@ int get_colorvector(COLOR_VECTOR_TYPE& cv, VSGTRIVAL& from, VSGTRIVAL& to)
 		to.a = to.b = to.c=1;
 		break;
 	case l_cone:
-		from.a = 0;
-		from.b = .57926;
-		from.c=.5;
-		to.a = 1;
-		to.b = .42074;
-		to.c=.5;
+		if (!coneiso_l(from, to)) status = 1;
 		break;
 	case m_cone:
-		from.a = 1;
-		from.b = .27593;
-		from.c=.5137;
-		to.a = 0;
-		to.b = .72407;
-		to.c=.4863;
+		if (!coneiso_m(from, to)) status = 1;
 		break;
 	case s_cone:
-		from.a = .38356;
-		from.b = .63699;
-		from.c=0;
-		to.a = .61644;
-		to.b = .36301;
-		to.c=.1;
+		if (!coneiso_s(from, to)) status = 1;
 		break;
 	default:
 		status=1;
