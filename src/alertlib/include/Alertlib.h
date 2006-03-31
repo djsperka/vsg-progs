@@ -31,6 +31,7 @@ typedef enum aperturetype { unknown_aperture=0, ellipse, rectangle } APERTURE_TY
 typedef int PIXEL_LEVEL;
 
 
+
 // useful helper functions
 int parse_color(std::string s, COLOR_TYPE& c);
 int get_color(COLOR_TYPE c, VSGTRIVAL& trival);
