@@ -1,11 +1,4 @@
-' $Log: not supported by cvs2svn $
-' Revision 1.2  2006/02/17 20:59:29  dan
-' Added command line to start stim. Still needs work...
-'
-' Revision 1.1  2006/02/15 00:58:28  dan
-' Initial add of this script
-'
-
+' $Id: AlertBackfire.s2s,v 1.1 2006-04-11 01:29:25 dan Exp $
 '========================================================================
 '
 ' INPUTS
@@ -303,6 +296,115 @@ end;
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
 
+
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+' Fixation script parameters START
+'
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+' Fixation-script specific control vars.
+var fixFixationDuration;			' Time required to maintain fixation, seconds
+var fixAcquisitionTime;			' Time allowed to acquire target before fail trial, seconds
+var fixInterTrialTime;			' Blank time following a trial (both successful and failed), seconds
+var fixNumberOfTrials%;			' Number of trials to run
+var fixStimulusFlag%;			' Tells whether to use stimulus grating (used as a distractor) 
+var fixDistractor1Flag%; 			' Tells stim to use distractor1 (1) or not (0)
+var fixDistractor2Flag%; 			' Tells stim to use distractor1 (1) or not (0)
+var fixDistractor3Flag%; 			' Tells stim to use distractor1 (1) or not (0)
+var fixDistractor4Flag%; 			' Tells stim to use distractor1 (1) or not (0)
+var fixBackgroundColor$;			' Background color for stim
+var fixCalibrationFlag%;			' 1 for calibration run
+var fixCalibrationOffset;			' degree offset for calibration dots
+proc GetFixationScriptParameters()
+	var stmp$;
+	var key$;
+
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Fixation";
+
+	Profile(key$, "FixationDuration", "1.0", stmp$);
+	fixFixationDuration := val(stmp$);
+
+	Profile(key$, "AcquisitionTime", "1.0", stmp$);
+	fixAcquisitionTime := val(stmp$);
+
+	Profile(key$, "InterTrialTime", "1.0", stmp$);
+	fixInterTrialTime := val(stmp$);
+
+	Profile(key$, "NumberOfTrials", 1, fixNumberOfTrials%);
+	Profile(key$, "BackgroundColor", "gray", fixBackgroundColor$);
+
+	Profile(key$, "UseStimulusFlag", 0, fixStimulusFlag%);
+	Profile(key$, "UseDistractor1Flag", 0, fixDistractor1Flag%);
+	Profile(key$, "UseDistractor2Flag", 0, fixDistractor2Flag%);
+	Profile(key$, "UseDistractor3Flag", 0, fixDistractor3Flag%);
+	Profile(key$, "UseDistractor4Flag", 0, fixDistractor4Flag%);
+	Profile(key$, "DoCalibrationFlag", 0, fixCalibrationFlag%);
+	Profile(key$, "CalibrationOffset", "5.0", stmp$);
+	fixCalibrationOffset := val(stmp$);
+end;
+ 	
+proc SaveFixationScriptParameters()
+	var stmp$;
+	var key$;
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Fixation";
+
+	Profile(key$, "FixationDuration", str$(fixFixationDuration));
+	Profile(key$, "AcquisitionTime", str$(fixAcquisitionTime));
+	Profile(key$, "InterTrialTime", str$(fixInterTrialTime));
+	Profile(key$, "NumberOfTrials", fixNumberOfTrials%);
+	Profile(key$, "BackgroundColor", fixBackgroundColor$);
+	Profile(key$, "UseStimulusFlag", fixStimulusFlag%);
+	Profile(key$, "UseDistractor1Flag", fixDistractor1Flag%);
+	Profile(key$, "UseDistractor2Flag", fixDistractor2Flag%);
+	Profile(key$, "UseDistractor3Flag", fixDistractor3Flag%);
+	Profile(key$, "UseDistractor4Flag", fixDistractor4Flag%);
+	Profile(key$, "DoCalibrationFlag", fixCalibrationFlag%);
+	Profile(key$, "CalibrationOffset", str$(fixCalibrationOffset));
+end;
+
+
+
+func FixationScriptDialog%()
+	var i%;
+	var bcl$[3];
+	var ibcl%:=0;
+	GetFixationScriptParameters();
+	bcl$[0] := "gray";
+	bcl$[1] := "black";
+	bcl$[2] := "white";
+	for i%:=0 to 2 do
+		if fixBackgroundColor$ = bcl$[i%] then
+			ibcl% := i%;
+		endif
+	next;
+	DlgCreate("Fixation Training Parameters", 25, 10);
+	DlgReal(1, "Fixation duration(s):", .01, 10);
+	DlgReal(2, "Acquisition time(s):", .01, 10);
+	DlgReal(3, "Intertrial time(s):", .01, 10);
+	DlgInteger(4, "Number of Trials:", 1, 1000);
+	DlgList(5, "Background color:", bcl$);
+	DlgCheck(6, "Use stimulus?");
+	DlgCheck(7, "Use distractor 1?");
+	DlgCheck(8, "Use distractor 2?");
+	DlgCheck(9, "Use distractor 3?");
+	DlgCheck(10, "Use distractor 4?");
+	DlgCheck(11, "Calibration run?");
+	DlgReal(12, "Calibration offset (deg):", 0, 10);
+	i%:=DlgShow(fixFixationDuration, fixAcquisitionTime, fixInterTrialTime, fixNumberOfTrials%, ibcl%, fixStimulusFlag%, fixDistractor1Flag%, fixDistractor2Flag%, fixDistractor3Flag%, fixDistractor4Flag%, fixCalibrationFlag%, fixCalibrationOffset);
+	if i% = 1 then
+		fixBackgroundColor$ := bcl$[ibcl%];
+		SaveFixationScriptParameters();
+	endif;
+	return 1;
+end;
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+' Fixation script END
+'
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 '
 '	Rig Daily Totals START
@@ -372,85 +474,6 @@ end;
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
 
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-'
-'	Msequence script parameters START
-'
-'	Vars that control the alert msequence script. 
-'
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-var msqFixationDuration;			' Time required to maintain fixation, seconds
-var msqAcquisitionTime;			' Time allowed to acquire target before fail trial, seconds
-var msqInterTrialTime;			' Blank time following a trial (both successful and failed), seconds
-var msqDotSize%;					' dot size (pixels)
-var msqSegmentLength%;			' Terms in a segment of the msequence
-var msqFramesPerTerm%;			' frames that each msequence term is shown
-
-proc GetMSequenceScriptParameters()
-	var stmp$;
-	var key$;
-
-	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\MSequence";
-
-	Profile(key$, "FixationDuration", "1.0", stmp$);
-	msqFixationDuration := val(stmp$);
-
-	Profile(key$, "AcquisitionTime", "1.0", stmp$);
-	msqAcquisitionTime := val(stmp$);
-
-	Profile(key$, "InterTrialTime", "1.0", stmp$);
-	msqInterTrialTime := val(stmp$);
-
-	Profile(key$, "DotSize", 4, msqDotSize%);
-	Profile(key$, "SegmentLength", 100, msqSegmentLength%);
-	Profile(key$, "FramesPerTerm", 1, msqFramesPerTerm%);
-	
-end;
- 	
-proc SaveMSequenceScriptParameters()
-	var stmp$;
-	var key$;
-
-	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\MSequence";
-
-	Profile(key$, "FixationDuration", str$(msqFixationDuration));
-	Profile(key$, "AcquisitionTime", str$(msqAcquisitionTime));
-	Profile(key$, "InterTrialTime", str$(msqInterTrialTime));
-	Profile(key$, "DotSize", msqDotSize%);
-	Profile(key$, "SegmentLength", msqSegmentLength%);
-	Profile(key$, "FramesPerTerm", msqFramesPerTerm%);
-end;
-
-
-
-func MSequenceScriptDialog%()
-	var i%;
-	GetMSequenceScriptParameters();
-	DlgCreate("MSequence Script Parameters", 25, 10);
-	DlgReal(1, "Fixation duration(s):", .01, 10);
-	DlgReal(2, "Acquisition time(s):", .01, 10);
-	DlgReal(3, "Intertrial time(s):", .01, 10);
-	DlgInteger(4, "Dot Size(pixels):", 4, 28);
-	DlgInteger(5, "Segment length (terms):", 1, 32767);
-	DlgInteger(5, "Frames per term:", 1, 100);
-	i%:=DlgShow(msqFixationDuration, msqAcquisitionTime, msqInterTrialTime, msqDotSize%, msqSegmentLength%, msqFramesPerTerm%);
-	if i% = 1 then
-		PrintLog("Saving params\n");
-		SaveMSequenceScriptParameters();
-	endif;
-	return 1;
-end;
-
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-'
-' MSequence script END
-'
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-
-
-
-
-
 
 
 
@@ -485,7 +508,7 @@ var iStimIndex%;
 GetDailyTotals();
 GetDAQParameters();
 GetFixationPointParameters();
-GetMSequenceScriptParameters();
+GetFixationScriptParameters();
 GetDataParameters();
 
 
@@ -498,7 +521,7 @@ else
 	' Set path for new data files
 	FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 3, 1);
 	FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 1, 1);
-	SampleAutoName$(dataCellName$ + "_msq_000");
+	SampleAutoName$(dataCellName$ + "_fix_000");
 	SampleAutoFile(1);
 	PrintLog("dataPathRoot=" + dataPathRoot$ + "\n");
 	PrintLog("dataDataSet=" + dataDataSet$ + "\n");
@@ -530,7 +553,7 @@ InitializeToolbar();
 
 
 const stateStartTrial%		:= 0;
-const stateWaitForDot%		:= 1;
+const stateWaitForStim%		:= 1;
 const stateWaitForAcquisition%	:= 2;
 const stateHoldFixation%	:= 3;
 const stateSuccess%		:= 4;
@@ -603,41 +626,47 @@ func IdleProcessing%()
 			' Enter state 1
 
 			nTrialsStarted% += 1;
-			SampleKey("D");
-			iState% := stateWaitForDot%;
-			PrintLog("StateStartTrial - dot trigger sent\n");
+			iStimIndex% := (iStimIndex% + 1) mod 8;
 
-		case iState% = stateWaitForDot% then
+			' calibration run does not require a separate trigger - the setting of the seqvar does the trick. 
+			if fixCalibrationFlag% = 1 then
+				DoSampleKey();
+			else
+				SampleKey("H");
+			endif
+			iState% := stateWaitForStim%;
+'			PrintLog("State 0 - Start new trial - stimulus trigger sent\n");
+			UpdateToolbarText();
+
+		case iState% = stateWaitForStim% then
 	
 			' Waiting for stimulus to be presented by vsg and trigger to return. 
 			' NextTime returns a non-negative value whenever there is a TRANSITION. In that case, the 
 			' value of 'vTrigger' returned is 1 (0) if the transition is high (low) to low (high). Maybe not
 			' intuitive, but that's the way it is. 
-'			tTrigger := NextTime(TriggerChannel%,tLast,vTrigger);
-'			if tTrigger > tLastTrigger then
+			tTrigger := NextTime(TriggerChannel%,tLast,vTrigger);
+			if tTrigger > tLastTrigger then
 
-'				if vTrigger = 0 then
+				if vTrigger = 0 then
 		
 					' Stimulus has been presented. Display stim location and window. Enter state 2
 					DrawStim(1);
 					iState% := stateWaitForAcquisition%;
-					tStateStart := tNow;
-'					tStateStart := tTrigger;
-'					tLastTrigger := tTrigger;
+					tStateStart := tTrigger;
+					tLastTrigger := tTrigger;
 
-'				endif
+				endif
 
-'			endif
+			endif
 
 		case iState% = stateWaitForAcquisition% then
 
-			if tNow-tStateStart < msqAcquisitionTime then
+			if tNow-tStateStart < fixAcquisitionTime then
 				
 				' Acquisition happens when the eye falls within the fixation window.
 				if InFixationWindow%(xEye, yEye) > 0 then
 
-					PrintLog("StateWaitForAcquisition - acquired target.\n");
-					SampleKey("S");
+'					PrintLog("State 2 - acquired target. tNow=" + str$(tNow) + " Enter state 3\n");
 					iState% := stateHoldFixation%;
 					tStateStart := tNow;
 	
@@ -646,8 +675,7 @@ func IdleProcessing%()
 			else
 
 				' Failed. Turn off stim and try again.
-				PrintLog("StateWaitForAcquisition - failed.\n");
-				SampleKey("d");
+'				PrintLog("State 2 - acquisition failed. Enter state 4\n");
 				iState% := stateFailure%;
 				tStateStart := tNow;
 
@@ -658,17 +686,14 @@ func IdleProcessing%()
 			' Waiting for fixation....
 			if InFixationWindow%(xEye, yEye) <= 0 then
 
-				PrintLog("StateHoldFixation - broke fixation.\n");
-				SampleKey("s");
 				iState% := stateFailure%;
 				tStateStart := tNow;
 
 			else
 
-				if tNow - tStateStart >= msqFixationDuration then
+				if tNow - tStateStart >= fixFixationDuration then
 
 					' Fixation. Reward. New trial.
-					PrintLog("StateHoldFixation - success.\n");
 					iState% := stateSuccess%;
 					tStateStart := tNow;
 
@@ -678,27 +703,65 @@ func IdleProcessing%()
 
 		case iState% = stateSuccess% then
 
-			PrintLog("StateSuccess - advance sequence.\n");
 			nTrialsSuccess% += 1;
 			Reward%();
-			SampleKey("a");
-			iState% := stateHoldFixation%;
+			' tally successful trials
+			iState% := stateStimOff%;
 			tStateStart := tNow;
 
 		case iState% = stateFailure% then
 
-			PrintLog("StateFailure - wait interval starting.\n");
 			nTrialsFail% += 1;
-			iState% := stateInterval%;
+			iState% := stateStimOff%;
 			tStateStart := tNow;
+
+		case iState% = stateStimOff% then
+
+			' Turn off stimulus, enter state 5 - wait for stimulus off msg
+			DrawStim(0);
+'			PrintLog("State 4 - turning off stimulus....\n");
+			SampleKey("L");
+			iState% := stateWaitForBlank%;
+			tStateStart := tNow;
+
+		case iState% = stateWaitForBlank% then
+
+			' Wait for stim to be off
+			tTrigger := NextTime(TriggerChannel%,tLast,vTrigger);
+			if tTrigger > tLast then
+
+				if vTrigger = 1 then
+		
+					' Stimulus has been turned off by vsg. Enter state 6
+'					PrintLog("State 5 - Stim OFF trigger found. Enter state 6\n");
+					iState% := stateCheckTrial%;
+					tStateStart := tTrigger;
+					tLastTrigger := tTrigger;
+	
+				endif
+
+			endif
+
+		case iState% = stateCheckTrial% then
+
+			' Check trial count
+			if nTrialsStarted% = fixNumberOfTrials%  and fixCalibrationFlag% = 0 then
+				Stop%();
+				iState% := stateDone%;
+				iStatus% := 0;
+			else
+				iState% := stateInterval%;
+				tStateStart := tNow;
+			endif
+
 
 		case iState% = stateInterval% then
 
 			' Inter-trial wait time
-			if tNow - tStateStart > msqInterTrialTime then
+			if tNow - tStateStart > fixInterTrialTime then
 	
 				' Back to state 0
-				PrintLog("StateInterval - done, start new trial.\n");
+'				PrintLog("State 6 - IT wait is done. Start new trial.\n");
 				iState% := stateStartTrial%;
 				tStateStart := tNow;
 	
@@ -719,6 +782,22 @@ func IdleProcessing%()
 end;
 
 
+proc DoSampleKey()
+	var iSeqVar% := 0;
+	iSeqVar% := (3 + iStimY%[iStimIndex%]*16 + iStimX%[iStimIndex%]*4) * 256;
+	SampleSeqVar(1, iSeqVar%);
+	SampleKey("S");
+end;
+
+proc UpdateToolbarText()
+
+	var s$;
+	s$ := Print$("Trial#/Total %d/%d Success/Failure %d/%d", nTrialsStarted%, fixNumberOfTrials%, nTrialsSuccess%, nTrialsFail%);
+	ToolbarText(s$);
+
+end;
+
+
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 proc CreateSampleConfiguration()
 	var index;
@@ -727,10 +806,17 @@ proc CreateSampleConfiguration()
 	SampleAutoComment(0); 'Prompt for comment after sampling
 	SampleAutoCommit(60); 'Seconds between each file commit
 
-	'Channel recording definitions
-	SampleEvent(TriggerChannel%, 0, 2, 3600); 'Trigger channel, level
+	'triggers returned from vsg application. These are on event port 1.
+	SampleEvent(TriggerChannel%, 1, 2, 3600); 'Trigger channel, level
 	SampleComment$(TriggerChannel%, "Trigger");
 	SampleTitle$(TriggerChannel%, "Trigger");
+
+	'Channel with spike2's pulses indicating templates matched. These really need to be on event port 0!
+	'VSG 
+	SampleEvent(PulseChannel%, 2, 2, 3600); 'Trigger channel, level
+	SampleComment$(TriggerChannel%, "Trigger");
+	SampleTitle$(TriggerChannel%, "Trigger");
+
 
 	' channel to look for ready signal from vsg
 	SampleEvent(ReadyChannel%,6,2,3600); 'Trigger channel, level
@@ -749,7 +835,7 @@ proc CreateSampleConfiguration()
 	SampleWaveform(YChannel%, 15, 1000);
 	SampleTitle$(YChannel%, "Eye Y");
 
-	SampleSequencer(script$ + "AlertMSequence.pls");
+	SampleSequencer(script$ + "Fixation.pls");
 	SampleOptimise(2, 2, 2, 2, 50);  'Set optimise mode (do this last)
 	SampleMode(1); 'Continuous sampling
 end;
@@ -763,9 +849,9 @@ end;
 proc DrawStim(iDraw%)
 
 	if iDraw% > 0 then
-		var xstim:=0, ystim:=0;
-'		xstim := GetStimX();
-'		ystim := GetStimY();
+		var xstim, ystim;
+		xstim := GetStimX();
+		ystim := GetStimY();
 
 		' Draw stimulus in xy window
 		View(XYWindow%).XYAddData(iStimChannel%, xstim, ystim);
@@ -850,9 +936,19 @@ proc InitializeToolbar()
 	ToolbarSet(1,"Sample start",Start%);
 	ToolbarSet(2,"Sample stop", Stop%);
 	ToolbarSet(3,"Juice",Reward%);
-	ToolbarSet(4,"Quit",Quit%);
+	ToolbarSet(4,"Pause stimuli",PauseStimuli%);
+	ToolbarSet(5,"Resume stimuli",ResumeStimuli%);
+	ToolbarSet(6,"Exp Parameters",FixationScriptDialog%);
+	ToolbarSet(7,"Horizontal", Horizontal%);
+	ToolbarSet(8,"Vertical", Vertical%);
+	ToolbarSet(9,"Corners", Corners%);
+	ToolbarSet(10,"Quit",Quit%);
 	ToolbarEnable(2,0);
 	ToolbarEnable(4,0);
+	ToolbarEnable(5,0);
+	ToolbarEnable(7,0);
+	ToolbarEnable(8,0);
+	ToolbarEnable(9,0);
 	Toolbar("Go", 0x3ff);
 
 end;
@@ -882,26 +978,76 @@ func Start%()
 	var FixationPoint$;
 	var Extras$;
 	var Distractors$:="";
-	var gr$;
-	var x, y, w, h;
-	var i%;
 	
 	SampleStart(0); 'Start sampling
 	
-	GetMSequenceScriptParameters();
+	GetFixationScriptParameters();
 
-'	Get the grating stimulus parameters and skim off the xy position
-	gr$ := GetGratingParameters$("Stimulus");
-	if gr$ <> "" then
-		ReadSetup("", "", "", "", ",");
-		i% := ReadStr(gr$, x, y, w, h);
-		if (i% <> 4) then
-			Message("Cannot get stimulus settings from registry!");
-			return 1;
+
+	if fixCalibrationFlag% = 0 then
+
+		' Initialize the stimulus locator
+		Center%();
+
+		' Use distractors? 
+		if fixStimulusFlag% = 1 then
+			Extras$ := GetGratingParameters$("Stimulus");
+			if Len(Extras$) = 0 then
+				Message("Warning! Use stimulus flag is set, but stimulus grating is not configured!");
+			else
+				Distractors$ += " -g " + Extras$;
+			endif
 		endif
+		
+		if fixDistractor1Flag% = 1 then
+			Extras$ := GetGratingParameters$("Distractor1");
+			if Len(Extras$) = 0 then
+				Message("Warning! Use distractor 1 flag is set, but distractor 1 grating is not configured!");
+			else
+				Distractors$ += " -g " + Extras$;
+			endif
+		endif
+		
+		if fixDistractor2Flag% = 1 then
+			Extras$ := GetGratingParameters$("Distractor2");
+			if Len(Extras$) = 0 then
+				Message("Warning! Use distractor 2 flag is set, but distractor 2 grating is not configured!");
+			else
+				Distractors$ += " -g " + Extras$;
+			endif
+		endif
+		
+		if fixDistractor3Flag% = 1 then
+			Extras$ := GetGratingParameters$("Distractor3");
+			if Len(Extras$) = 0 then
+				Message("Warning! Use distractor 3 flag is set, but distractor 3 grating is not configured!");
+			else
+				Distractors$ += " -g " + Extras$;
+			endif
+		endif
+		
+		if fixDistractor4Flag% = 1 then
+			Extras$ := GetGratingParameters$("Distractor4");
+			if Len(Extras$) = 0 then
+				Message("Warning! Use distractor 4 flag is set, but distractor 4 grating is not configured!");
+			else
+				Distractors$ += " -g " + Extras$;
+			endif
+		endif
+		
+		Extras$ := " -b " + fixBackgroundColor$ + " -d " + DistanceToScreenMM$;
+		
+		CommandLine$ := "cmd /k " + bin$ + "\\Fixation " + FixationArg$ + Extras$ + Distractors$;
+		
+		'CommandLine$ :=bin$ + "\\dFixation " + FixationPoint$ + Distractors$ + Extras$;
+	else
+
+		Horizontal%();
+
+		Extras$ := " -b " + fixBackgroundColor$ + " -d " + DistanceToScreenMM$ + " -C " + str$(fixCalibrationOffset);
+		CommandLine$ := "cmd /k " + bin$ + "\\dCalibration " + FixationArg$ + Extras$;
+
 	endif
-	CommandLine$ := "cmd /k " + bin$ + "\\dalertmseq -m c:\\work\\acuterig\\msequenceterms";
-	CommandLine$ += " -p " + str$(x) + "," + str$(y) + " -d " + str$(msqDotSize%) + " -l " + str$(msqSegmentLength%) + " -t " + str$(msqFramesPerTerm%) + " -D " + DistanceToScreenMM$ + " " + FixationArg$;
 
 	'Begin the stimulus program. It will take a few seconds for the VSG to initialize.
 	PrintLog(CommandLine$+"\n");
@@ -912,8 +1058,11 @@ func Start%()
 	ToolbarSet(0,"",IdleProcessing%);	'Enable the IdleProcessing function
 	ToolbarEnable(2,1);
 	ToolbarEnable(1,0);
-	ToolbarEnable(4,1);
-
+	ToolbarEnable(6,0);
+	ToolbarEnable(7,1);
+	ToolbarEnable(8,1);
+	ToolbarEnable(9,1);
+	ToolbarEnable(10,1);
 	View(DataWindow%);
 	Yield(.1);
 	return 1;
@@ -927,7 +1076,7 @@ func Stop%()
 	ToolbarSet(0,"");
 
 	' Tell stim app to shut down
-	SampleKey("q");
+	SampleKey("Q");
 	Yield(.1);
 	SampleStop();
 	ProgKill(StimHandle%);
@@ -936,16 +1085,64 @@ func Stop%()
 	' Increment daily totals and save then
 	TotalTrials% += nTrialsStarted%;
 	TotalRewards% += nTrialsSuccess%;
+	SaveDailyTotals();
+
+	' Save data file
+	' djs 5-2-2005
+	' When autonaming is used, this is not necessary. In fact, the call to FileSave fails!
+	' Leaving the call out altogether makes it work. .. . . 
+	'View(DataWindow%);
+	'if FileSave() <> 0 then
+	'	Message("WARNING! Data file not saved!!!");
+	'endif
 
 end;
 
 
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func PauseStimuli%();
+Pause% :=1;
+ToolbarEnable(4,0);
+ToolbarEnable(5,1);
+return 1;
+end
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func ResumeStimuli%();
+Pause% :=0;
+ToolbarEnable(4,1);
+ToolbarEnable(5,0);
+return 1;
+end
+
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func GetStimX()
+	var xstim;
+	if fixCalibrationFlag% = 0 then
+		xstim := FixationX;
+	else
+		xstim := fixCalibrationOffset * (iStimX%[iStimIndex%]-2);
+	endif
+	return xstim;
+end;
+
+func GetStimY()
+	var ystim;
+	if fixCalibrationFlag% = 0 then
+		ystim := FixationY;
+	else
+		ystim := fixCalibrationOffset * (iStimY%[iStimIndex%]-2);
+	endif
+	return ystim;
+end;
+
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 func InFixationWindow%(EyePosX,EyePosY)
 	var i% := 0;
-	var xstim:=0, ystim:=0;
-'	xstim := GetStimX();
-'	ystim := GetStimY();
+	var xstim, ystim;
+	xstim := GetStimX();
+	ystim := GetStimY();
 	'Determine if the eye position is within the fixation window
 	if (Pow(EyePosX-xstim, 2) + Pow(EyePosY-ystim, 2)) <= Pow(WindowRadius,2) then 
 		i% := 1;
@@ -963,6 +1160,56 @@ end;
 
 
 
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+func Horizontal%()
+	iStimX%[0] := 1; iStimY%[0] := 2;
+	iStimX%[1] := 1; iStimY%[1] := 2;
+	iStimX%[2] := 2; iStimY%[2] := 2;
+	iStimX%[3] := 2; iStimY%[3] := 2;
+	iStimX%[4] := 3; iStimY%[4] := 2;
+	iStimX%[5] := 3; iStimY%[5] := 2;
+	iStimX%[6] := 2; iStimY%[6] := 2;
+	iStimX%[7] := 2; iStimY%[7] := 2;
+	return 1;
+end;
+
+func Vertical%()
+	iStimX%[0] := 2; iStimY%[0] := 1;
+	iStimX%[1] := 2; iStimY%[1] := 1;
+	iStimX%[2] := 2; iStimY%[2] := 2;
+	iStimX%[3] := 2; iStimY%[3] := 2;
+	iStimX%[4] := 2; iStimY%[4] := 3;
+	iStimX%[5] := 2; iStimY%[5] := 3;
+	iStimX%[6] := 2; iStimY%[6] := 2;
+	iStimX%[7] := 2; iStimY%[7] := 2;
+	return 1;
+end;
+
+func Corners%()
+	iStimX%[0] := 1; iStimY%[0] := 1;
+	iStimX%[1] := 1; iStimY%[1] := 1;
+	iStimX%[2] := 3; iStimY%[2] := 1;
+	iStimX%[3] := 3; iStimY%[3] := 1;
+	iStimX%[4] := 3; iStimY%[4] := 3;
+	iStimX%[5] := 3; iStimY%[5] := 3;
+	iStimX%[6] := 1; iStimY%[6] := 3;
+	iStimX%[7] := 1; iStimY%[7] := 3;
+	return 1;
+end;
+
+func Center%()
+	iStimX%[0] := 2; iStimY%[0] := 2;
+	iStimX%[1] := 2; iStimY%[1] := 2;
+	iStimX%[2] := 2; iStimY%[2] := 2;
+	iStimX%[3] := 2; iStimY%[3] := 2;
+	iStimX%[4] := 2; iStimY%[4] := 2;
+	iStimX%[5] := 2; iStimY%[5] := 2;
+	iStimX%[6] := 2; iStimY%[6] := 2;
+	iStimX%[7] := 2; iStimY%[7] := 2;
+	return 1;
+end;
 
 
 
