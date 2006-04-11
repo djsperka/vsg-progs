@@ -1,4 +1,7 @@
 ' $Log: not supported by cvs2svn $
+' Revision 1.11  2006/02/08 22:34:17  dan
+' Allow modification of xy axes during data aquisition
+'
 ' Revision 1.10  2005/09/21 22:51:21  dan
 ' Added handling for VSG ready pulse. Removed Yield(5) in Start function.
 '
@@ -1072,7 +1075,7 @@ func Start%()
 		
 		Extras$ := " -b " + fixBackgroundColor$ + " -d " + DistanceToScreenMM$;
 		
-		CommandLine$ := "cmd /k " + bin$ + "\\dFixation " + FixationArg$ + Extras$ + Distractors$;
+		CommandLine$ := "cmd /k " + bin$ + "\\Fixation " + FixationArg$ + Extras$ + Distractors$;
 		
 		'CommandLine$ :=bin$ + "\\dFixation " + FixationPoint$ + Distractors$ + Extras$;
 	else
