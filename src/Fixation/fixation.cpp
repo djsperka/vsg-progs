@@ -223,7 +223,7 @@ void usage()
 void init_triggers()
 {
 	triggers.addTrigger(new PageTrigger("0", 0x2, 0x0, 0xff, 0x0, 0));
-	triggers.addTrigger(new PageTrigger("1", 0x2, 0x2, 0xff, 0x1, 1));
+	triggers.addTrigger(new PageTrigger("1", 0x2, 0x2, 0xff, 0x2, 1));
 	triggers.addTrigger(new QuitTrigger("q", 0x40, 0x40, 0xff, 0x0, 0));
 
 
