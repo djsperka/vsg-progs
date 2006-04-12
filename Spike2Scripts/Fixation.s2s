@@ -1,4 +1,7 @@
 ' $Log: not supported by cvs2svn $
+' Revision 1.12  2006/04/11 00:22:11  dan
+' Changed to use release version of fixation program.
+'
 ' Revision 1.11  2006/02/08 22:34:17  dan
 ' Allow modification of xy axes during data aquisition
 '
@@ -852,7 +855,7 @@ proc CreateSampleConfiguration()
 	SampleAutoCommit(60); 'Seconds between each file commit
 
 	'Channel recording definitions
-	SampleEvent(TriggerChannel%, 1, 2, 3600); 'Trigger channel, level
+	SampleEvent(TriggerChannel%, 2, 2, 3600); 'Trigger channel, level
 	SampleComment$(TriggerChannel%, "Trigger");
 	SampleTitle$(TriggerChannel%, "Trigger");
 
@@ -1083,7 +1086,7 @@ func Start%()
 		Horizontal%();
 
 		Extras$ := " -b " + fixBackgroundColor$ + " -d " + DistanceToScreenMM$ + " -C " + str$(fixCalibrationOffset);
-		CommandLine$ := "cmd /k " + bin$ + "\\dCalibration " + FixationArg$ + Extras$;
+		CommandLine$ := "cmd /k " + bin$ + "\\Calibration " + FixationArg$ + Extras$;
 
 	endif
 
