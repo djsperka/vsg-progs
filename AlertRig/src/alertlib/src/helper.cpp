@@ -374,6 +374,34 @@ int parse_tuning_triplet(std::string s, double& i_dMin, double& i_dMax, int& i_i
 }
 
 
+int parse_tuning_list(std::string s, vector<double>& tuning_list, int& i_iSteps)
+{
+	int status=0;
+	int i;
+	istringstream iss;
+	double d;
+	vector<string> tokens;
+	tokenize(s, tokens, ",");
+	for (i=0; i<tokens.size(); i++)
+	{
+		iss.clear();
+		iss.str(tokens[i]);
+		iss >> d;
+		if (!iss) 
+		{
+			cerr << "bad tuning value: " << tokens[i] << endl;
+			status=1;
+		}
+		else
+		{
+			tuning_list.push_back(d);
+		}
+	}
+	// Number of steps is the size of the list MINUS 1!
+	i_iSteps = tuning_list.size() - 1;
+	return status;
+}
+
 
 
 int get_color(COLOR_TYPE c, VSGTRIVAL& trival)
