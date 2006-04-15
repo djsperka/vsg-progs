@@ -23,8 +23,9 @@ using namespace alert;
 typedef enum tuning_type { tt_orientation, tt_contrast, tt_spatial, tt_temporal, tt_none_specified } tuning_type_t;
 
 tuning_type_t m_tuning_type = tt_none_specified;
-double m_tuned_param_min = 0; 
-double m_tuned_param_max = 0;
+//double m_tuned_param_min = 0; 
+//double m_tuned_param_max = 0;
+vector<double> m_tuned_param_vec;
 double m_tuned_param_current = 0;
 int m_nsteps = 0;
 int m_istep_current = 0;
@@ -136,16 +137,16 @@ void init_pages()
 	{
 	case tt_contrast:
 		// Save the min contrast value for this type
-		m_tuned_param_current = m_iSavedContrast = m_tuned_param_min;
+		m_tuned_param_current = m_iSavedContrast = m_tuned_param_vec[0];
 		break;
 	case tt_spatial:
-		m_tuned_param_current = m_stim.sf = m_tuned_param_min;
+		m_tuned_param_current = m_stim.sf = m_tuned_param_vec[0];
 		break;
 	case tt_temporal:
-		m_tuned_param_current = m_stim.tf = m_tuned_param_min;
+		m_tuned_param_current = m_stim.tf = m_tuned_param_vec[0];
 		break;
 	case tt_orientation:
-		m_tuned_param_current = m_stim.orientation = m_tuned_param_min;
+		m_tuned_param_current = m_stim.orientation = m_tuned_param_vec[0];
 		break;
 	default:
 		cerr << "Error in init_pages: unknown tuning type!" << endl;
@@ -194,15 +195,17 @@ int callback(int &output, const CallbackTrigger* ptrig)
 	{
 		if (m_istep_current < m_nsteps)
 		{
-			m_tuned_param_current += (m_tuned_param_max - m_tuned_param_min)/m_nsteps;
-			m_istep_current++;
+			m_tuned_param_current = m_tuned_param_vec[++m_istep_current];
+//			m_tuned_param_current += (m_tuned_param_max - m_tuned_param_min)/m_nsteps;
+//			m_istep_current++;
 		}
 		else
 		{
-			m_tuned_param_current = m_tuned_param_min;
+			m_tuned_param_current = m_tuned_param_vec[0];
 			m_istep_current = 0;
 		}
 
+		std::cout << "Tuned param current(" << m_istep_current << ") = " << m_tuned_param_current << std::endl;
 		switch (m_tuning_type)
 		{
 		case tt_contrast:
@@ -307,7 +310,7 @@ int args(int argc, char **argv)
 			break;
 		case 'C':
 			s.assign(optarg);
-			if (parse_tuning_triplet(s, m_tuned_param_min, m_tuned_param_max, m_nsteps)) errflg++;
+			if (parse_tuning_list(s, m_tuned_param_vec, m_nsteps)) errflg++;
 			else 
 			{
 				have_tt = true;
@@ -316,7 +319,7 @@ int args(int argc, char **argv)
 			break;
 		case 'O':
 			s.assign(optarg);
-			if (parse_tuning_triplet(s, m_tuned_param_min, m_tuned_param_max, m_nsteps)) errflg++;
+			if (parse_tuning_list(s, m_tuned_param_vec, m_nsteps)) errflg++;
 			else 
 			{
 				have_tt = true;
@@ -325,7 +328,7 @@ int args(int argc, char **argv)
 			break;
 		case 'S':
 			s.assign(optarg);
-			if (parse_tuning_triplet(s, m_tuned_param_min, m_tuned_param_max, m_nsteps)) errflg++;
+			if (parse_tuning_list(s, m_tuned_param_vec, m_nsteps)) errflg++;
 			else 
 			{
 				have_tt = true;
@@ -334,7 +337,7 @@ int args(int argc, char **argv)
 			break;
 		case 'T':
 			s.assign(optarg);
-			if (parse_tuning_triplet(s, m_tuned_param_min, m_tuned_param_max, m_nsteps)) errflg++;
+			if (parse_tuning_list(s, m_tuned_param_vec, m_nsteps)) errflg++;
 			else 
 			{
 				have_tt = true;
