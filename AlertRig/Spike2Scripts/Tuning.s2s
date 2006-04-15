@@ -1,4 +1,7 @@
 ' $Log: not supported by cvs2svn $
+' Revision 1.14  2006/02/08 22:50:26  dan
+' Corrected plot x coord bug.
+'
 ' Revision 1.13  2006/02/08 22:30:20  dan
 ' Allow modification of xy axes during data aquisition
 '
@@ -169,6 +172,9 @@ var tunBackgroundColor$;	' background color for stim
 ' These will be set by the tuning curve choice
 var tunNAdvances%;		' Number of times stim will advance during one repeat
 var tunNRepeats%;		' Number of repeats
+
+' This vector will hold the actual values to step through. Some are log steps, some are not. 
+var tunValues[100];
 
 ' These are specific to the individual tuning curve types - orientation first
 var tunOriNSteps%;		' # steps in orientation tuning curve
@@ -374,8 +380,8 @@ func TuningCurveContrastDialog%()
 	DlgCreate("Contrast Tuning Curve Parameters");
 	DlgInteger(1, "Number of Steps", 2, 100);
 	DlgInteger(2, "Number of Repeats", 1, 10);
-	DlgReal(3, "Min Contrast (%)", 0, 100);
-	DlgReal(4, "Max Contrast (%)", 0, 100);
+	DlgReal(3, "Min Contrast (%)", 0.1, 100);
+	DlgReal(4, "Max Contrast (%)", 0.1, 100);
 	DlgCheck(5, "Random Progression");
 
 	i% := DlgShow(tunContrastNSteps%, tunContrastNRepeats%, tunContrastMinContrast, tunContrastMaxContrast, tunContrastProgression%);
@@ -411,8 +417,8 @@ func TuningCurveSpatialDialog%()
 	DlgCreate("Spatial Freq Tuning Curve Parameters");
 	DlgInteger(1, "Number of Steps", 2, 100);
 	DlgInteger(2, "Number of Repeats", 1, 10);
-	DlgReal(3, "Min SF", .1, 10);
-	DlgReal(4, "Max SF", .1, 10);
+	DlgReal(3, "Min SF", .01, 100);
+	DlgReal(4, "Max SF", .01, 100);
 	DlgCheck(5, "Random Progression");
 
 	i% := DlgShow(tunSpatialNSteps%, tunSpatialNRepeats%, tunSpatialMinSF, tunSpatialMaxSF, tunSpatialProgression%);
@@ -448,8 +454,8 @@ func TuningCurveTemporalDialog%()
 	DlgCreate("Temporal Freq Tuning Curve Parameters");
 	DlgInteger(1, "Number of Steps", 2, 100);
 	DlgInteger(2, "Number of Repeats", 1, 10);
-	DlgReal(3, "Min TF", 0, 10);
-	DlgReal(4, "Max TF", 0, 10);
+	DlgReal(3, "Min TF", 0, 100);
+	DlgReal(4, "Max TF", 0, 100);
 	DlgCheck(5, "Random Progression");
 
 	i% := DlgShow(tunTemporalNSteps%, tunTemporalNRepeats%, tunTemporalMinTF, tunTemporalMaxTF, tunTemporalProgression%);
@@ -874,18 +880,22 @@ if iScript% = 1 then
 				SampleAutoName$(dataCellName$ + "_con_000");
 				tunNAdvances% := tunContrastNSteps%;
 				tunNRepeats% := tunContrastNRepeats%;
+				GetLogProgression(tunContrastMinContrast, tunContrastMaxContrast, tunContrastNSteps%, tunValues);
 			case tunType$ = tunTypeOrientation$ then 
 				SampleAutoName$(dataCellName$ + "_ori_000");
 				tunNAdvances% := tunOriNSteps%;
 				tunNRepeats% := tunOriNRepeats%;
+				GetLinearProgression(tunOriMinOrientation, tunOriMaxOrientation, tunOriNSteps%, tunValues);
 			case tunType$ = tunTypeSpatial$ then 
 				SampleAutoName$(dataCellName$ + "_spa_000");
 				tunNAdvances% := tunSpatialNSteps%;
 				tunNRepeats% := tunSpatialNRepeats%;
+				GetLogProgression(tunSpatialMinSF, tunSpatialMaxSF, tunSpatialNSteps%, tunValues);
 			case tunType$ = tunTypeTemporal$ then 
 				SampleAutoName$(dataCellName$ + "_tem_000");
 				tunNAdvances% := tunTemporalNSteps%;
 				tunNRepeats% := tunTemporalNRepeats%;
+				GetLogProgression(tunTemporalMinTF, tunTemporalMaxTF, tunTemporalNSteps%, tunValues);
 			else
 				SampleAutoName$(dataCellName$ + "_tun_000");
 		endcase;
@@ -1119,7 +1129,6 @@ func IdleProcessing%()
 
 					' turn off stimulus and advance it
 					PrintLog("stateWaitForFixation: successful trial. Turn off and advance stimulus.\n");
-					nTrialsCompleted% += 1;
 					SampleKey("s");
 					Yield();
 					SampleKey("a");
@@ -1128,7 +1137,8 @@ func IdleProcessing%()
 					Reward%();
 	
 					' Process spikes
-					PlotSpikes(tStimOn, tNow, 1, GetPlotXCoord(nTrialsCompleted%-1));
+					PlotSpikes(tStimOn, tNow, 1, GetPlotXCoord(nTrialsCompleted%));
+					nTrialsCompleted% += 1;
 
 					' Now wait until stim is off
 					ChangeStateTo(stateWaitForStimOff%, tNow);
@@ -1149,7 +1159,7 @@ func IdleProcessing%()
 
 		case iState% = stateTrialCompleted% then
 
-			if nTrialsCompleted% = (tunNAdvances%*tunNRepeats% + 1) then
+			if nTrialsCompleted% = (tunNAdvances%+1)*tunNRepeats% then
 				' We're all done
 				ChangeStateTo(stateDone%, tNow);
 				Stop%();
@@ -1192,35 +1202,9 @@ end;
 func GetPlotXCoord(nTrials%)
 	var x;
 	var n%;
-	docase 
-		case tunType$ = tunTypeContrast$ then
-
-			n% := nTrials% mod (tunContrastNSteps%+1);
-			x := n% * (tunContrastMaxContrast - tunContrastMinContrast) / tunContrastNSteps%;
-
-		case tunType$ = tunTypeOrientation$ then
-
-			n% := nTrials% mod (tunOriNSteps%+1);
-			x := n% * (tunOriMaxOrientation - tunOriMinOrientation) / tunOriNSteps%;
-
-		case tunType$ = tunTypeSpatial$ then
-
-			n% := nTrials% mod (tunSpatialNSteps%+1);
-			x := n% * (tunSpatialMaxSF - tunSpatialMinSF) / tunSpatialNSteps%;
-	
-		case tunType$ = tunTypeTemporal$ then
-
-			n% := nTrials% mod (tunTemporalNSteps%+1);
-			x := n% * (tunTemporalMaxTF - tunTemporalMinTF) / tunTemporalNSteps%;
-
-		else
-
-			Message("Error - unknown value for tunType$: " + tunType$);
-			Halt;
-
-	endcase;
+	n% := nTrials% mod (tunNAdvances% + 1);
+	x := tunValues[n%];
 	PrintLog("Plot x " + str$(x) + "\n");
-
 	return x;
 end;
 
@@ -1436,7 +1420,7 @@ func Stop%()
 	Yield(.1);
 	SampleStop();
 	ProgKill(StimHandle%);
-	ProgRun(bin$ + "\\ClearTrigger",0);
+'	ProgRun(bin$ + "\\ClearTrigger",0);
 
 	' Write parameter file
 	WriteParameterFile();
@@ -1523,12 +1507,12 @@ proc WriteParameterFile()
 
 			Print("Type:                  : Contrast\n");
 			Print("Min,Max,#Steps         : %f,%f,%d\n", tunContrastMinContrast, tunContrastMaxContrast, tunContrastNSteps%);
-			Print("Values: ");
-			Tstepsize := (tunContrastMaxContrast - tunContrastMinContrast)/tunContrastNSteps%;
-			for i% := 0 to tunContrastNSteps% do
-				if i% > 0 then Print(", "); endif;
-				Print("%f", tunContrastMinContrast + i%*Tstepsize);
-			next;
+			Print("Values: " + StringifyProgression$(tunNAdvances%, tunValues) + "\n");
+'			Tstepsize := (tunContrastMaxContrast - tunContrastMinContrast)/tunContrastNSteps%;
+'			for i% := 0 to tunContrastNSteps% do
+'				if i% > 0 then Print(", "); endif;
+'				Print("%f", tunContrastMinContrast + i%*Tstepsize);
+'			next;
 			Print("\n");
 
 
@@ -1536,36 +1520,39 @@ proc WriteParameterFile()
 
 			Print("Type:                  : Orientation\n");
 			Print("Min,Max,#Steps         : %f,%f,%d\n", tunOriMinOrientation, tunOriMaxOrientation, tunOriNSteps%);
-			Print("Values: ");
-			Tstepsize := (tunOriMaxOrientation - tunOriMinOrientation)/tunOriNSteps%;
-			for i% := 0 to tunOriNSteps% do
-				if i% > 0 then Print(", "); endif;
-				Print("%f", tunOriMinOrientation + i%*Tstepsize);
-			next;
+			Print("Values: " + StringifyProgression$(tunNAdvances%, tunValues) + "\n");
+'			Print("Values: ");
+'			Tstepsize := (tunOriMaxOrientation - tunOriMinOrientation)/tunOriNSteps%;
+'			for i% := 0 to tunOriNSteps% do
+'				if i% > 0 then Print(", "); endif;
+'				Print("%f", tunOriMinOrientation + i%*Tstepsize);
+'			next;
 			Print("\n");
 
 		case tunType$ = tunTypeSpatial$ then
 
 			Print("Type:                  : Spatial Frequency\n");
 			Print("Min,Max,#Steps         : %f,%f,%d\n", tunSpatialMinSF, tunSpatialMaxSF, tunSpatialNSteps%);
-			Print("Values: ");
-			Tstepsize := (tunSpatialMaxSF - tunSpatialMinSF)/tunSpatialNSteps%;
-			for i% := 0 to tunSpatialNSteps% do
-				if i% > 0 then Print(", "); endif;
-				Print("%f", tunSpatialMinSF + i%*Tstepsize);
-			next;
+			Print("Values: " + StringifyProgression$(tunNAdvances%, tunValues) + "\n");
+'			Print("Values: ");
+'			Tstepsize := (tunSpatialMaxSF - tunSpatialMinSF)/tunSpatialNSteps%;
+'			for i% := 0 to tunSpatialNSteps% do
+'				if i% > 0 then Print(", "); endif;
+'				Print("%f", tunSpatialMinSF + i%*Tstepsize);
+'			next;
 			Print("\n");
 	
 		case tunType$ = tunTypeTemporal$ then
 
 			Print("Type:                  : Temporal Frequency\n");
 			Print("Min,Max,#Steps         : %f,%f,%d\n", tunTemporalMinTF, tunTemporalMaxTF, tunTemporalNSteps%);
-			Print("Values: ");
-			Tstepsize := (tunTemporalMaxTF - tunTemporalMinTF)/tunTemporalNSteps%;
-			for i% := 0 to tunTemporalNSteps% do
-				if i% > 0 then Print(", "); endif;
-				Print("%f", tunTemporalMinTF + i%*Tstepsize);
-			next;
+			Print("Values: " + StringifyProgression$(tunNAdvances%, tunValues) + "\n");
+'			Print("Values: ");
+'			Tstepsize := (tunTemporalMaxTF - tunTemporalMinTF)/tunTemporalNSteps%;
+'			for i% := 0 to tunTemporalNSteps% do
+'				if i% > 0 then Print(", "); endif;
+'				Print("%f", tunTemporalMinTF + i%*Tstepsize);
+'			next;
 			Print("\n");
 
 		else
@@ -1591,30 +1578,35 @@ func Start%()
 	var Extras$;
 	var Tune$;
 	var Distractors$:="";
+	var Values$;
 	
 	SampleStart(0); 'Start sampling
 	SampleKey("0");
 	
 	' Stimulus is always used
 	Distractors$ := " -g " + GetGratingParameters$("Stimulus");
-	
+	Values$ := StringifyProgression$(tunNAdvances%, tunValues);	
 	Extras$ := " -b " + tunBackgroundColor$ + " -d " + DistanceToScreenMM$;
 	docase 
 		case tunType$ = tunTypeContrast$ then
 
-			Tune$ := " -C " + str$(tunContrastMinContrast) + "," + str$(tunContrastMaxContrast) + "," + str$(tunContrastNSteps%);
+'			Tune$ := " -C " + str$(tunContrastMinContrast) + "," + str$(tunContrastMaxContrast) + "," + str$(tunContrastNSteps%);
+			Tune$ := " -C " + Values$;
 
 		case tunType$ = tunTypeOrientation$ then
 
-			Tune$ := " -O " + str$(tunOriMinOrientation) + "," + str$(tunOriMaxOrientation) + "," + str$(tunOriNSteps%);
+'			Tune$ := " -O " + str$(tunOriMinOrientation) + "," + str$(tunOriMaxOrientation) + "," + str$(tunOriNSteps%);
+			Tune$ := " -O " + Values$;
 
 		case tunType$ = tunTypeSpatial$ then
 
-			Tune$ := " -S " + str$(tunSpatialMinSF) + "," + str$(tunSpatialMaxSF) + "," + str$(tunSpatialNSteps%);
+'			Tune$ := " -S " + str$(tunSpatialMinSF) + "," + str$(tunSpatialMaxSF) + "," + str$(tunSpatialNSteps%);
+			Tune$ := " -S " + Values$;
 	
 		case tunType$ = tunTypeTemporal$ then
 
-			Tune$ := " -T " + str$(tunTemporalMinTF) + "," + str$(tunTemporalMaxTF) + "," + str$(tunTemporalNSteps%);
+'			Tune$ := " -T " + str$(tunTemporalMinTF) + "," + str$(tunTemporalMaxTF) + "," + str$(tunTemporalNSteps%);
+			Tune$ := " -T " + Values$;
 
 		else
 
@@ -1624,7 +1616,7 @@ func Start%()
 	endcase;
 	
 	'CommandLine$ := "cmd /c " + bin$ + "\\dAttention " + FixationArg$ + Extras$ + Distractors$;
-	CommandLine$ := bin$ + "\\dTuning " + FixationArg$ + Extras$ + Distractors$ + Tune$;
+	CommandLine$ := "cmd /k " + bin$ + "\\Tuning " + FixationArg$ + Extras$ + Distractors$ + Tune$;
 	
 	'Begin the stimulus program. It will take a few seconds for the VSG to initialize.
 	PrintLog(CommandLine$+"\n");
@@ -1662,6 +1654,50 @@ proc DrawStim(iDraw%)
 		View(XYWindow%).XYDelete(iStimChannel%);
 	endif
 
+end;
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+' Get a log progression from xmin to xmax, through nsteps%. Assumed that vec[] has enough room!
+Proc GetLogProgression(xmin, xmax, nsteps%, vec[])
+	var stepsize;
+	var v;
+	var i%:= 0;
+	stepsize := (Ln(xmax) - Ln(xmin))/nsteps%;
+	for v := Ln(xmin) to Ln(xmax)+stepsize/2 step stepsize do
+		PrintLog("Value[" + str$(i%) + "]=" + str$(Exp(v)) + "\n");
+		vec[i%] := Exp(v);
+		i% := i% + 1;
+	next;
+end;
+
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+' Get a linear progression from xmin to xmax, through nsteps%. Assumed that vec[] has enough room!
+Proc GetLinearProgression(xmin, xmax, nsteps%, vec[])
+	var stepsize;
+	var v;
+	var i%:= 0;
+	stepsize := (xmax -xmin)/nsteps%;
+	for v := xmin to xmax+stepsize/2 step stepsize do
+	'	PrintLog("Value=" + str$(v) + "\n");
+		vec[i%] := v;
+		i% := i% + 1;
+	next;
+end;
+
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+' Put a vector of numbers into a comma separated string
+Func StringifyProgression$(nsteps%, vec[])
+	var s$;
+	var i%;
+	for i% := 0 to nsteps% do
+		if i% > 0 then 
+			s$ += ",";
+		endif
+		s$ += str$(vec[i%]);
+	next
+	return s$;
 end;
 
 
