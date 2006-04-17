@@ -20,7 +20,7 @@ using namespace alert;
 #define FIXATION_PAGE 1
 #define STIMULUS_PAGE 2
 
-typedef enum tuning_type { tt_orientation, tt_contrast, tt_spatial, tt_temporal, tt_none_specified } tuning_type_t;
+typedef enum tuning_type { tt_orientation, tt_contrast, tt_spatial, tt_temporal, tt_area, tt_none_specified } tuning_type_t;
 
 tuning_type_t m_tuning_type = tt_none_specified;
 //double m_tuned_param_min = 0; 
@@ -148,6 +148,9 @@ void init_pages()
 	case tt_orientation:
 		m_tuned_param_current = m_stim.orientation = m_tuned_param_vec[0];
 		break;
+	case tt_area:
+		m_tuned_param_current = m_stim.w = m_stim.h = m_tuned_param_vec[0];
+		break;
 	default:
 		cerr << "Error in init_pages: unknown tuning type!" << endl;
 	}
@@ -223,6 +226,16 @@ int callback(int &output, const CallbackTrigger* ptrig)
 		case tt_orientation:
 			m_stim.orientation = m_tuned_param_current;
 			break;
+		case tt_area:
+			// If the area covered is smaller than the last time, we have to erase the last grating. 
+			if (m_stim.h > m_tuned_param_current)
+			{
+				std::cout << "Smaller!" << std::endl;
+				m_stim.drawBackground();
+				m_fp.draw();
+			}
+			m_stim.h = m_stim.w = m_tuned_param_current;
+			break;
 		default:
 			cerr << "Error in trigger callback: unknown tuning type!" << endl;
 		}
@@ -276,7 +289,7 @@ int args(int argc, char **argv)
 	extern char *optarg;
 	extern int optind;
 	int errflg = 0;
-	while ((c = getopt(argc, argv, "avf:b:d:g:hC:T:S:O:")) != -1)
+	while ((c = getopt(argc, argv, "avf:b:d:g:hC:T:S:O:A:")) != -1)
 	{
 		switch (c) 
 		{
@@ -342,6 +355,15 @@ int args(int argc, char **argv)
 			{
 				have_tt = true;
 				m_tuning_type = tt_temporal;
+			}
+			break;
+		case 'A':
+			s.assign(optarg);
+			if (parse_tuning_list(s, m_tuned_param_vec, m_nsteps)) errflg++;
+			else 
+			{
+				have_tt = true;
+				m_tuning_type = tt_area;
 			}
 			break;
 		case '?':

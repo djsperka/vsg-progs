@@ -293,6 +293,20 @@ int alert::ARGratingSpec::setOrientation(double orientation)
 	return ival;
 }
 
+int alert::ARGratingSpec::drawBackground()
+{
+	vsgSetPen1(ARvsg::instance().background_level());
+	vsgSetDrawMode(vsgCENTREXY);
+	if (this->aperture == ellipse)
+	{
+		vsgDrawOval(x, -1*y, w, h);
+	}
+	else
+	{
+		vsgDrawRect(x, -1*y, w, h);
+	}
+	return 0;
+}
 
 int alert::ARGratingSpec::drawOverlay()
 {

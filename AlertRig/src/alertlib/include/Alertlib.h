@@ -87,7 +87,6 @@ namespace alert
 		/* Clear any page and display it. */
 		void clear(int i);
 
-
 		/* Clear page 0 and display it. */
 		void clear();
 
@@ -98,6 +97,7 @@ namespace alert
 		};
 
 		COLOR_TYPE background_color() { return m_background_color; };
+		PIXEL_LEVEL background_level() { return m_background_level; };
 
 	private:
 		ARvsg() : m_initialized(false) {};
@@ -196,6 +196,7 @@ namespace alert
 		virtual int drawOverlay();
 		int redraw(bool useTransOnLower);
 		int drawOnce();
+		int drawBackground();
 		int setOrientation(double orientation);
 		virtual void setContrast(int contrast) { select(); this->contrast = contrast; vsgObjSetContrast(contrast); };
 		virtual void setTemporalFrequency(double tf) { select(); this->tf = tf; vsgObjSetDriftVelocity(tf); };
