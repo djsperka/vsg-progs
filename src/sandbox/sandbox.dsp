@@ -87,6 +87,26 @@ LINK32=link.exe
 # PROP Default_Filter "cpp;c;cxx;rc;def;r;odl;idl;hpj;bat"
 # Begin Source File
 
+SOURCE=.\AlertLib.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=.\AlertUtil.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=.\coneiso.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=.\getopt.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\helper.cpp
+# End Source File
+# Begin Source File
+
 SOURCE=.\main.cpp
 
 !IF  "$(CFG)" == "sandbox - Win32 Release"
@@ -101,11 +121,44 @@ SOURCE=.\main.cpp
 # Begin Source File
 
 SOURCE=.\NewMSequence.cpp
+
+!IF  "$(CFG)" == "sandbox - Win32 Release"
+
+!ELSEIF  "$(CFG)" == "sandbox - Win32 Debug"
+
+# PROP Exclude_From_Build 1
+
+!ENDIF 
+
+# End Source File
+# Begin Source File
+
+SOURCE=.\Tuning.cpp
 # End Source File
 # End Group
 # Begin Group "Header Files"
 
 # PROP Default_Filter "h;hpp;hxx;hm;inl"
+# Begin Source File
+
+SOURCE=.\Alertlib.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\AlertUtil.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\coneiso.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\getopt.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\helper.h
+# End Source File
 # End Group
 # Begin Group "Resource Files"
 
