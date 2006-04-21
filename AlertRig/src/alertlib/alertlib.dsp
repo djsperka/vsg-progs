@@ -89,7 +89,7 @@ SOURCE=.\src\AlertLib.cpp
 # End Source File
 # Begin Source File
 
-SOURCE=.\coneiso.cpp
+SOURCE=.\src\coneiso.cpp
 # End Source File
 # Begin Source File
 
