@@ -4,6 +4,7 @@
 #include <vector>
 #include <algorithm>
 #include "Alertlib.h"
+#include "AlertUtil.h"
 
 #ifdef _DEBUG
 #pragma comment(lib, "dalert.lib")
@@ -43,13 +44,33 @@ int m_ipage=0;
 bool m_binaryTriggers = true;			// if false, will look at stdin for ascii triggers (for testing)
 bool m_verbose = false;					// words, words, words,....
 TriggerVector m_triggers;
+int m_area_overlay_page_stim;			// toggles between 2 and 3 for area stim presentation
+int m_area_overlay_page_current;		//
+void (*tuning_init)(void) = NULL;
 
+// original init function - covers contrast, tf, sf, orientation tuning
+void tuning_init_original();
+
+// These are called from tuning_init_original (callback is specified as callback func in init_triggers)
 void init_pages();
 void init_triggers();
-void initfunc(int ipage, void *data);
-int args(int argc, char **argv);
-void usage();
 int callback(int &output, const CallbackTrigger* ptrig);
+
+
+// area tuning has separate init functions and callback
+void tuning_init_area();
+void init_pages_area();
+void init_triggers_area();
+int callback_area(int &output, const CallbackTrigger* ptrig);
+
+
+// parse args
+int args(int argc, char **argv);
+
+// errors? dump usage and exit. 
+void usage();
+
+
 
 
 int main(int argc, char **argv)
@@ -64,11 +85,17 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-	// Initialize pages
-	init_pages();
 
-	// initialize triggers
-	init_triggers();
+	// Call init functions
+	if (NULL == tuning_init)
+	{
+		cerr << "No tuning init func set. This should be set in args()!" << endl;
+		return 1;
+	}
+	else
+	{
+		tuning_init();
+	}
 
 	// Issue "ready" triggers to spike2.
 	// These commands pulse spike2 port 6. 
@@ -113,6 +140,13 @@ int main(int argc, char **argv)
 	return 0;
 }
 
+
+
+void tuning_init_original()
+{
+	init_pages();
+	init_triggers();
+}
 
 
 void init_pages()
@@ -277,6 +311,186 @@ int callback(int &output, const CallbackTrigger* ptrig)
 }
 
 
+
+void tuning_init_area()
+{
+	init_pages_area();
+	init_triggers_area();
+}
+
+void init_pages_area()
+{
+	// initialize video pages
+	if (ARvsg::instance().init_video())
+	{
+		cerr << "VSG video initialization failed!" << endl;
+	}
+
+
+	// initialize video pages
+	if (ARvsg::instance().init_overlay())
+	{
+		cerr << "VSG overlay initialization failed!" << endl;
+	}
+
+
+	// Issue "ready" triggers to spike2.
+	// These commands pulse spike2 port 6. 
+	vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, 0x20, 0);
+	vsgPresent();
+
+	vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, 0x00, 0);
+	vsgPresent();
+
+
+	// allocate some levels for the grating
+
+	PIXEL_LEVEL stimFirstLevel;
+	LevelManager::instance().request_range(50, stimFirstLevel);
+
+	// init the stim. This call creates a vsg object. Have to set draw page to a video page, otherwise vsg tells us
+	// that there's only pixel levels 0-3 available. 
+
+	vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgNOCLEAR);
+	m_stim.init(stimFirstLevel, 50);
+
+	// Next, draw full screen grating on video page 0
+
+	arutil_draw_grating_fullscreen(m_stim, 0);
+
+	// put color in overlay palette
+
+	if (arutil_color_to_overlay_palette(m_fp, 2))
+	{
+		cerr << "Cannot put fp color in overlay palette" << endl;
+	}
+
+	// prepare overlay page 0 - on second thought that's done already. Its just blank....
+
+	// prepare overlay page 1 - just a fixation point
+
+	arutil_draw_overlay(m_fp, 2, 1);
+
+	// prepare overlay page 2 - a fixation point and aperture
+
+	m_tuned_param_current = m_stim.w = m_stim.h = m_tuned_param_vec[0];
+	arutil_draw_aperture(m_stim, 2);
+	arutil_draw_overlay(m_fp, 2, 2);
+	m_area_overlay_page_stim = 2;
+}
+
+
+void init_triggers_area()
+{
+	// trigger for fixation point ON
+	m_triggers.addTrigger(new CallbackTrigger("F", 0x2, 0x2, 0x2, 0x2, callback_area));
+
+	// trigger for fixation point OFF
+	m_triggers.addTrigger(new CallbackTrigger("f", 0x2, 0x0, 0x2, 0x0, callback_area));
+
+	// triggers for stim will be CallbackTriggers, all using the same callback function
+	m_triggers.addTrigger(new CallbackTrigger("S", 0x4, 0x4, 0x4, 0x4, callback_area));
+	m_triggers.addTrigger(new CallbackTrigger("s", 0x4, 0x0, 0x4, 0x0, callback_area));
+	m_triggers.addTrigger(new CallbackTrigger("a", 0x8, 0x8 | AR_TRIGGER_TOGGLE, 0x8, 0x8 | AR_TRIGGER_TOGGLE, callback_area));
+	m_triggers.addTrigger(new QuitTrigger("q", 0x10, 0x10, 0xff, 0x0, 0));
+	
+}
+
+// The return value from this trigger callback determines whether a vsgPresent() is issued. 
+// Since the area tuning uses overlay zone pages for its transitions, no vsgPresent() is used. 
+// Instead, we use vsgIODigitalWrite() and vsgSetZoneDisplayPage(). 
+
+int callback_area(int &output, const CallbackTrigger* ptrig)
+{
+	int ival=0;
+	string key = ptrig->getKey();
+	if (key == "a")
+	{
+		if (m_istep_current < m_nsteps)
+		{
+
+			m_tuned_param_current = m_tuned_param_vec[++m_istep_current];
+
+//			m_tuned_param_current += (m_tuned_param_max - m_tuned_param_min)/m_nsteps;
+//			m_istep_current++;
+		}
+		else
+		{
+			m_tuned_param_current = m_tuned_param_vec[0];
+			m_istep_current = 0;
+		}
+
+		std::cout << "Tuned param current(" << m_istep_current << ") = " << m_tuned_param_current << std::endl;
+
+		cout << "Trigger a - advance stim" << endl;
+
+		if (m_area_overlay_page_stim == 2) m_area_overlay_page_stim = 3;
+		else m_area_overlay_page_stim = 2;
+
+		vsgSetDrawPage(vsgOVERLAYPAGE, m_area_overlay_page_stim, 1);
+
+		m_stim.w = m_stim.h = m_tuned_param_current;
+		arutil_draw_aperture(m_stim, m_area_overlay_page_stim);
+		arutil_draw_overlay(m_fp, 2, m_area_overlay_page_stim);
+
+		// trickery to get triggers out for advance
+		vsgIOWriteDigitalOut(output, ptrig->outMask());
+		vsgSetZoneDisplayPage(vsgOVERLAYPAGE, m_area_overlay_page_current);
+
+	}
+	else if (key == "s")
+	{
+		// Turn off stimulus by setting overlay page to 0
+		if (!m_bStimIsOff)
+		{
+			cout << "Trigger s - stim off" << endl;
+			vsgIOWriteDigitalOut(output, ptrig->outMask());
+			m_area_overlay_page_current = 1;
+			vsgSetZoneDisplayPage(vsgOVERLAYPAGE, m_area_overlay_page_current);
+			m_bStimIsOff = true;
+		}
+		else
+		{
+			cout << "Ignore \"s\" trigger: stim is already off." << endl;
+		}
+	}
+	else if (key == "S")
+	{
+		// Turn on stimulus by setting overlay page to 2
+		if (m_bStimIsOff)
+		{
+			cout << "Trigger S - stim on" << endl;
+			vsgIOWriteDigitalOut(output, ptrig->outMask());
+			vsgSetZoneDisplayPage(vsgOVERLAYPAGE, m_area_overlay_page_stim);
+			m_area_overlay_page_current = m_area_overlay_page_stim;
+			m_bStimIsOff = false;
+		}
+		else
+		{
+			cout << "Ignore \"S\" trigger: stim is already on." << endl;
+		}
+	}
+	else if (key == "F")
+	{
+		// Turn on fixpt by setting overlay page to 1
+		cout << "Trigger F - Fixpt on" << endl;
+		vsgIOWriteDigitalOut(output, ptrig->outMask());
+		vsgSetZoneDisplayPage(vsgOVERLAYPAGE, 1);
+	}
+	else if (key == "f")
+	{
+		// Turn off fixpt by setting overlay page to 0
+		cout << "Trigger f - Fixpt off" << endl;
+		vsgIOWriteDigitalOut(output, ptrig->outMask());
+		vsgSetZoneDisplayPage(vsgOVERLAYPAGE, 0);
+		m_bStimIsOff = true;	// overlay page 0 turns off stim also
+	}
+
+	return ival;
+}
+
+
+
 int args(int argc, char **argv)
 {	
 	bool have_f=false;		// have fixation spec
@@ -328,6 +542,7 @@ int args(int argc, char **argv)
 			{
 				have_tt = true;
 				m_tuning_type = tt_contrast;
+				tuning_init = tuning_init_original;
 			}
 			break;
 		case 'O':
@@ -337,6 +552,7 @@ int args(int argc, char **argv)
 			{
 				have_tt = true;
 				m_tuning_type = tt_orientation;
+				tuning_init = tuning_init_original;
 			}
 			break;
 		case 'S':
@@ -346,6 +562,7 @@ int args(int argc, char **argv)
 			{
 				have_tt = true;
 				m_tuning_type = tt_spatial;
+				tuning_init = tuning_init_original;
 			}
 			break;
 		case 'T':
@@ -355,6 +572,7 @@ int args(int argc, char **argv)
 			{
 				have_tt = true;
 				m_tuning_type = tt_temporal;
+				tuning_init = tuning_init_original;
 			}
 			break;
 		case 'A':
@@ -364,6 +582,7 @@ int args(int argc, char **argv)
 			{
 				have_tt = true;
 				m_tuning_type = tt_area;
+				tuning_init = tuning_init_area;
 			}
 			break;
 		case '?':
