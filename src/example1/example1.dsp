@@ -93,14 +93,8 @@ SOURCE=.\example1.cpp
 
 !ELSEIF  "$(CFG)" == "example1 - Win32 Debug"
 
-# PROP Exclude_From_Build 1
-
 !ENDIF 
 
-# End Source File
-# Begin Source File
-
-SOURCE=.\example1b.cpp
 # End Source File
 # End Group
 # Begin Group "Header Files"
@@ -111,9 +105,5 @@ SOURCE=.\example1b.cpp
 
 # PROP Default_Filter "ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe"
 # End Group
-# Begin Source File
-
-SOURCE="..\..\..\..\Program Files\Cambridge Research Systems\VSGV6\Windows\Win32\Msc\LIB\VSGEX2.LIB"
-# End Source File
 # End Target
 # End Project

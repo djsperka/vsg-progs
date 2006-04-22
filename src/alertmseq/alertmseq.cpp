@@ -432,6 +432,7 @@ int args(int argc, char **argv)
 	bool have_xy=false;
 	bool have_l=false;
 	bool have_F=false;
+	bool have_m = false;
 
 	bool have_t=false;
 	bool have_d=false;
@@ -466,7 +467,7 @@ int args(int argc, char **argv)
 			break;
 		case 'm':
 			f_sFilename.assign(optarg);
-			have_f = true;
+			have_m = true;
 			break;
 		case 'f':
 			s.assign(optarg);
@@ -573,7 +574,7 @@ int args(int argc, char **argv)
 		}
 	}
 
-	if (!have_f) 
+	if (!have_m) 
 	{
 		cerr << "No sequence file specified!" << endl; 
 		errflg++;

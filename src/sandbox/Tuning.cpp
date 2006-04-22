@@ -87,9 +87,13 @@ void init_pages2()
 	}
 
 
-	// clear overlay page 0 to clear. 
+	// Issue "ready" triggers to spike2.
+	// These commands pulse spike2 port 6. 
+	vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, 0x20, 0);
+	vsgPresent();
 
-//	vsgSetDrawPage(vsgOVERLAYPAGE, 0, 0);
+	vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, 0x00, 0);
+	vsgPresent();
 
 
 	// allocate some levels for the grating
@@ -106,10 +110,6 @@ void init_pages2()
 	// Next, draw full screen grating on video page 0
 
 	arutil_draw_grating_fullscreen(m_stim, 0);
-	vsgPresent();
-	// And an aperture on overlay
-
-	arutil_draw_aperture(m_stim, 0);
 
 	// put color in overlay palette
 
@@ -118,20 +118,39 @@ void init_pages2()
 		cerr << "Cannot put fp color in overlay palette" << endl;
 	}
 
-	// Now draw fp on overlay
+	// prepare overlay page 0 - on second thought that's done already. Its just blank....
 
-	arutil_draw_overlay(m_fp, 2, 0);
+	// prepare overlay page 1 - just a fixation point
 
+	arutil_draw_overlay(m_fp, 2, 1);
+
+	// prepare overlay page 2 - a fixation point and aperture
+
+	arutil_draw_aperture(m_stim, 2);
+	arutil_draw_overlay(m_fp, 2, 2);
+
+
+	vsgIOWriteDigitalOut(0x2, 0xffff);
+	vsgSetZoneDisplayPage(vsgOVERLAYPAGE, 0);
+//	vsgSetZoneDisplayPage(vsgOVERLAYPAGE, 0 + vsgTRIGGERPAGE);
+
+	vsgIOWriteDigitalOut(0x4, 0xffff);
+	vsgSetZoneDisplayPage(vsgOVERLAYPAGE, 1);
+//	vsgSetZoneDisplayPage(vsgOVERLAYPAGE, 1 + vsgTRIGGERPAGE);
+	
+	vsgIOWriteDigitalOut(0x8, 0xffff);
+	vsgSetZoneDisplayPage(vsgOVERLAYPAGE, 2);
+//	vsgSetZoneDisplayPage(vsgOVERLAYPAGE, 2 + vsgTRIGGERPAGE);
+
+
+	// Now draw overlay page 3, changing the aperture size
 
 	m_stim.w = m_stim.h = 1;
-	vsgSetDrawPage(vsgOVERLAYPAGE, 1, 1);
-	arutil_draw_aperture(m_stim, 1);
-	arutil_draw_overlay(m_fp, 2, 1);
-//	vsgSetZoneDisplayPage(vsgOVERLAYPAGE, 1);
+	vsgSetDrawPage(vsgOVERLAYPAGE, 3, 1);
+	arutil_draw_aperture(m_stim, 3);
+	arutil_draw_overlay(m_fp, 2, 3);
+	vsgSetZoneDisplayPage(vsgOVERLAYPAGE, 3 + vsgTRIGGERPAGE);
 	
-	vsgPresent();
-
-
 
 #if 0
 
