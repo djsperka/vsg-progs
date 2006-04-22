@@ -376,7 +376,7 @@ namespace alert
 
 
 		std::string getKey() const { return m_key; };
-
+		int outMask() const { return m_out_mask; };
 	private:
 		std::string m_key;
 		int m_in_mask;
