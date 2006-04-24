@@ -320,6 +320,7 @@ void tuning_init_area()
 
 void init_pages_area()
 {
+
 	// initialize video pages
 	if (ARvsg::instance().init_video())
 	{
@@ -332,15 +333,6 @@ void init_pages_area()
 	{
 		cerr << "VSG overlay initialization failed!" << endl;
 	}
-
-
-	// Issue "ready" triggers to spike2.
-	// These commands pulse spike2 port 6. 
-	vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, 0x20, 0);
-	vsgPresent();
-
-	vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, 0x00, 0);
-	vsgPresent();
 
 
 	// allocate some levels for the grating
@@ -420,10 +412,6 @@ int callback_area(int &output, const CallbackTrigger* ptrig)
 			m_istep_current = 0;
 		}
 
-		std::cout << "Tuned param current(" << m_istep_current << ") = " << m_tuned_param_current << std::endl;
-
-		cout << "Trigger a - advance stim" << endl;
-
 		if (m_area_overlay_page_stim == 2) m_area_overlay_page_stim = 3;
 		else m_area_overlay_page_stim = 2;
 
@@ -435,7 +423,7 @@ int callback_area(int &output, const CallbackTrigger* ptrig)
 
 		// trickery to get triggers out for advance
 		vsgIOWriteDigitalOut(output, ptrig->outMask());
-		vsgSetZoneDisplayPage(vsgOVERLAYPAGE, m_area_overlay_page_current);
+		vsgSetZoneDisplayPage(vsgOVERLAYPAGE, m_area_overlay_page_current + vsgTRIGGERPAGE);
 
 	}
 	else if (key == "s")
@@ -443,10 +431,9 @@ int callback_area(int &output, const CallbackTrigger* ptrig)
 		// Turn off stimulus by setting overlay page to 0
 		if (!m_bStimIsOff)
 		{
-			cout << "Trigger s - stim off" << endl;
 			vsgIOWriteDigitalOut(output, ptrig->outMask());
 			m_area_overlay_page_current = 1;
-			vsgSetZoneDisplayPage(vsgOVERLAYPAGE, m_area_overlay_page_current);
+			vsgSetZoneDisplayPage(vsgOVERLAYPAGE, m_area_overlay_page_current + vsgTRIGGERPAGE);
 			m_bStimIsOff = true;
 		}
 		else
@@ -459,9 +446,8 @@ int callback_area(int &output, const CallbackTrigger* ptrig)
 		// Turn on stimulus by setting overlay page to 2
 		if (m_bStimIsOff)
 		{
-			cout << "Trigger S - stim on" << endl;
 			vsgIOWriteDigitalOut(output, ptrig->outMask());
-			vsgSetZoneDisplayPage(vsgOVERLAYPAGE, m_area_overlay_page_stim);
+			vsgSetZoneDisplayPage(vsgOVERLAYPAGE, m_area_overlay_page_stim + vsgTRIGGERPAGE);
 			m_area_overlay_page_current = m_area_overlay_page_stim;
 			m_bStimIsOff = false;
 		}
@@ -473,16 +459,14 @@ int callback_area(int &output, const CallbackTrigger* ptrig)
 	else if (key == "F")
 	{
 		// Turn on fixpt by setting overlay page to 1
-		cout << "Trigger F - Fixpt on" << endl;
 		vsgIOWriteDigitalOut(output, ptrig->outMask());
-		vsgSetZoneDisplayPage(vsgOVERLAYPAGE, 1);
+		vsgSetZoneDisplayPage(vsgOVERLAYPAGE, 1 + vsgTRIGGERPAGE);
 	}
 	else if (key == "f")
 	{
 		// Turn off fixpt by setting overlay page to 0
-		cout << "Trigger f - Fixpt off" << endl;
 		vsgIOWriteDigitalOut(output, ptrig->outMask());
-		vsgSetZoneDisplayPage(vsgOVERLAYPAGE, 0);
+		vsgSetZoneDisplayPage(vsgOVERLAYPAGE, 0 + vsgTRIGGERPAGE);
 		m_bStimIsOff = true;	// overlay page 0 turns off stim also
 	}
 
