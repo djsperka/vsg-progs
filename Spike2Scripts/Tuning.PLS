@@ -1,4 +1,8 @@
 ; $Log: not supported by cvs2svn $
+; Revision 1.3  2006/04/15 03:32:19  dan
+; Log progression implemented for contrast, sf, tf.
+; Changed limits on sf, tf dialogs.
+;
 ; Revision 1.2  2005/07/27 21:50:14  dan
 ; Changed 'a' trigger to invert sense of the line it controls.
 ;
@@ -43,7 +47,7 @@ EJ:     'J  DIGOUT [.......1]      ;Administers juice
             DELAY  s(0.989)-1
             HALT   
 
-EX:     'X  DIGOUT [0000.001]      ;Clears all except for the toggled "advance" trigger
+EX:     'X  DIGOUT [.....001]      ;Clears all except for the toggled "advance" trigger
             DELAY  s(0.996)-1
             HALT                   ;End of this sequence section
 
