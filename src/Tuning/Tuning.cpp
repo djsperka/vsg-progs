@@ -101,7 +101,6 @@ int main(int argc, char **argv)
 	// These commands pulse spike2 port 6. 
 	vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, 0x20, 0);
 	vsgPresent();
-
 	vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, 0x00, 0);
 	vsgPresent();
 
@@ -467,7 +466,7 @@ int callback_area(int &output, const CallbackTrigger* ptrig)
 		// Turn off fixpt by setting overlay page to 0
 		vsgIOWriteDigitalOut(output, ptrig->outMask());
 		vsgSetZoneDisplayPage(vsgOVERLAYPAGE, 0 + vsgTRIGGERPAGE);
-		m_bStimIsOff = true;	// overlay page 0 turns off stim also
+//		m_bStimIsOff = true;	// overlay page 0 turns off stim also
 	}
 
 	return ival;
