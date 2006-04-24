@@ -1,13 +1,4 @@
-; $Log: not supported by cvs2svn $
-; Revision 1.3  2006/04/15 03:32:19  dan
-; Log progression implemented for contrast, sf, tf.
-; Changed limits on sf, tf dialogs.
-;
-; Revision 1.2  2005/07/27 21:50:14  dan
-; Changed 'a' trigger to invert sense of the line it controls.
-;
-; Revision 1.1  2005/07/26 01:03:52  dan
-; Mods to config.s2s for tuning script. Tuning script first add here.
+; $Id: Tuning.PLS,v 1.5 2006-04-24 22:19:40 dan Exp $
 ;
 
             SET      1.000 1 0     ;Get rate & scaling OK
