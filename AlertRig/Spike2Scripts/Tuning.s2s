@@ -1,4 +1,7 @@
 ' $Log: not supported by cvs2svn $
+' Revision 1.1  2006/04/22 01:57:32  dan
+' *** empty log message ***
+'
 ' Revision 1.15  2006/04/15 03:32:19  dan
 ' Log progression implemented for contrast, sf, tf.
 ' Changed limits on sf, tf dialogs.
@@ -350,7 +353,7 @@ proc GetTuningCurveAreaParameters()
 
 	Profile(key$, "NSteps", 2, tunAreaNSteps%);
 	Profile(key$, "NRepeats", 1, tunAreaNRepeats%);
-	Profile(key$, "MinDiam", "0.1", stmp$);
+	Profile(key$, "MinDiam", "1", stmp$);
 	tunAreaMinDiam := val(stmp$);
 	Profile(key$, "MaxDiam", "10", stmp$);
 	tunAreaMaxDiam := val(stmp$);
@@ -362,8 +365,8 @@ proc SaveTuningCurveAreaParameters()
 
 	Profile(key$, "NSteps", tunAreaNSteps%);
 	Profile(key$, "NRepeats", tunAreaNRepeats%);
-	Profile(key$, "MinTF", str$(tunAreaMinDiam));
-	Profile(key$, "MaxTF", str$(tunAreaMaxDiam));
+	Profile(key$, "MinDiam", str$(tunAreaMinDiam));
+	Profile(key$, "MaxDiam", str$(tunAreaMaxDiam));
 end;
 
 
@@ -592,7 +595,7 @@ func TuningCurveScriptDialog%()
 	DlgReal(3, "Maintain fixation(s):", .1, 10, 20, 4);
 	DlgReal(4, "Time out time(s):", .01, 10, 20, 5);
 	DlgList(5, "Background color:", bcl$, 3, 20, 6);
-	DlgGroup("Individual Tuning Curve Types", 0, 7, 40, 5);
+	DlgGroup("Individual Tuning Curve Types", 0, 7, 40, 6);
 	DlgButton(6, "Orientation", TuningCurveOrientationDialog%, 1, 8);
 	DlgButton(7, "Contrast", TuningCurveContrastDialog%, 1, 9);
 	DlgButton(8, "Spatial Freq", TuningCurveSpatialDialog%, 1, 10);
@@ -899,6 +902,7 @@ var DataWindow%;		'
 var XChannel%;
 var YChannel%;
 
+var FrameTriggerChannel%;
 var FixationPointChannel%;
 var StimChannel%;
 var StimChangeChannel%;
@@ -993,10 +997,11 @@ endif;
 ' Assign channel numbers for eye X,Y and trigger. 
 XChannel% := NumberOfElectrodes%+1;
 YChannel% := NumberOfElectrodes%+2;
-FixationPointChannel% := NumberOfElectrodes%+3;
-StimChannel% := NumberOfElectrodes%+4;
-StimChangeChannel% := NumberOfElectrodes%+5;
-ReadyChannel% := NumberOfElectrodes%+6;
+FrameTriggerChannel% := NumberOfElectrodes%+3;
+FixationPointChannel% := NumberOfElectrodes%+4;
+StimChannel% := NumberOfElectrodes%+5;
+StimChangeChannel% := NumberOfElectrodes%+6;
+ReadyChannel% := NumberOfElectrodes%+7;
 CreateSampleConfiguration();
 
 
@@ -1132,7 +1137,7 @@ func IdleProcessing%()
 			tTrigger := NextTime(FixationPointChannel%, tLast, vTrigger);
 			if tTrigger > tLast and vTrigger = 0 then
 				' Fixation point is up
-				PrintLog("stateWaitForFixPtOn: signal received.\n");
+				PrintLog("stateWaitForFixPtOn: signal received. " + str$(tNow) + "\n");
 				tLastTrigger := tTrigger;
 				ChangeStateTo(stateWaitForAcquisition%, tTrigger);
 				DrawStim(1);	' actually this draws the location of the fixpt.
@@ -1443,6 +1448,10 @@ proc CreateSampleConfiguration()
 	SampleAutoCommit(60); 'Seconds between each file commit
 
 	'Channel recording definitions
+	SampleEvent(FrameTriggerChannel%,0,2,3600); 'Trigger channel, level
+	SampleComment$(FrameTriggerChannel%,"Frame");
+	SampleTitle$(FrameTriggerChannel%,"Frame");
+
 	SampleEvent(FixationPointChannel%,1,2,3600); 'Trigger channel, level
 	SampleComment$(FixationPointChannel%,"Fixation");
 	SampleTitle$(FixationPointChannel%,"Fixation");
@@ -1718,7 +1727,7 @@ func Start%()
 	endcase;
 	
 	'CommandLine$ := "cmd /c " + bin$ + "\\dAttention " + FixationArg$ + Extras$ + Distractors$;
-	CommandLine$ := "cmd /k " + bin$ + "\\Tuning " + FixationArg$ + Extras$ + Distractors$ + Tune$;
+	CommandLine$ := "cmd /k " + bin$ + "\\dTuning " + FixationArg$ + Extras$ + Distractors$ + Tune$;
 	
 	'Begin the stimulus program. It will take a few seconds for the VSG to initialize.
 	PrintLog(CommandLine$+"\n");
