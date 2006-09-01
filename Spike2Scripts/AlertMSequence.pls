@@ -1,4 +1,7 @@
 ; $Log: not supported by cvs2svn $
+; Revision 1.1  2006/04/11 01:29:25  dan
+; *** empty log message ***
+;
 ;
 
                 SET      1.000 1 0     ;Get rate & scaling OK
@@ -7,24 +10,28 @@
 0001            DELAY  s(0.996)-1
 0002            HALT                   ;End of this sequence section
 
-0003 ES:     'S DIGOUT [00000011]      ;Signals the fixation point on
+0003 ES:     'S DIGOUT [...0..i1]      ;Signals the stimulus on
 0004            DELAY  s(0.996)-1
 0005            HALT   
 
-0006 ET:     's DIGOUT [00000101]      ;Signals the fixation point off
+0006 ET:     's DIGOUT [...0.i.1]      ;Signals the stimulus and fixation point off
 0007            DELAY  s(0.996)-1
 0008            HALT   
 
-0009 ED:     'D DIGOUT [00010001]      ;Signals the stimuli on
+0009 EA:     'a DIGOUT [....i..1]      ;advance stim to next segment
 0010            DELAY  s(0.996)-1
 0011            HALT   
 
-0012 EE:     'd DIGOUT [01000001]      ;Signals the stimuli off
+0012 ED:     'D DIGOUT [...1...1]      ;Signals the dot on
 0013            DELAY  s(0.996)-1
 0014            HALT   
 
-0015 EQ:     'q DIGOUT [10000001]      ;Signals the target contrast change
+0015 EE:     'd DIGOUT [.i.0...1]      ;Signals the dot off
 0016            DELAY  s(0.996)-1
 0017            HALT   
+
+0018 EQ:     'q DIGOUT [10000001]      ;Signals the target contrast change
+0019            DELAY  s(0.996)-1
+0020            HALT   
 
 
