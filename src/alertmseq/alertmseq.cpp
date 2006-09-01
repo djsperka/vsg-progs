@@ -33,8 +33,8 @@ int f_iSegmentLength=0;
 int f_iFramesPerTerm=1;
 int f_iDot = 4;
 int f_iZoom = 4;
-float f_apX=0;
-float f_apY=0;
+double f_apX=0;
+double f_apY=0;
 float f_W, f_H;
 float f_w, f_h;
 char *f_sequence=NULL;
@@ -58,6 +58,9 @@ bool blankPage();
 
 #define NO_APERTURE_PAGE 1
 #define DOT_WITH_APERTURE_PAGE 0
+
+#define TRIGGERLINE_DOT 0x2
+#define TRIGGERLINE_STIM 0x4
 
 
 // draw mseq, assuming that 
@@ -156,10 +159,18 @@ int main(int argc, char **argv)
 
 
 	// adjust/convert coordinates on fixation point to pixels, from degrees. 
+	//
+	// TODO: These conversions are incorrect. The incoming coords are in degrees, as measured with the origin in the center
+	// of the screen. These conversions merely convert the magnitude in x/y to the magnitude in pixels, but don't perform
+	// the coordinate transform! 
+
 	vsgSetViewDistMM(f_iDistanceToScreen);
 	vsgUnitToUnit(vsgDEGREEUNIT, f_fixpt.x, vsgPIXELUNIT, &f_fixpt.x); 
 	vsgUnitToUnit(vsgDEGREEUNIT, f_fixpt.y, vsgPIXELUNIT, &f_fixpt.y); 
 	vsgUnitToUnit(vsgDEGREEUNIT, f_fixpt.d, vsgPIXELUNIT, &f_fixpt.d); 
+
+	vsgUnitToUnit(vsgDEGREEUNIT, f_apX, vsgPIXELUNIT, &f_apX); 
+	vsgUnitToUnit(vsgDEGREEUNIT, f_apY, vsgPIXELUNIT, &f_apY); 
 
 
 	// Issue "ready" triggers to spike2.
@@ -208,6 +219,7 @@ int main(int argc, char **argv)
 	// All right, start monitoring triggers........
 	std::string s;
 	int last_output_trigger=0;
+	int input_trigger=0;
 	while (1)
 	{
 		// If user-triggered, get a trigger entry. 
@@ -217,9 +229,13 @@ int main(int argc, char **argv)
 			cout << "Enter trigger/key: ";
 			cin >> s;
 		}
+		else
+		{
+			input_trigger = vsgIOReadDigitalIn();
+		}
 
 		TriggerFunc	tf = std::for_each(triggers.begin(), triggers.end(), 
-			(f_binaryTriggers ? TriggerFunc(vsgIOReadDigitalIn(), last_output_trigger) : TriggerFunc(s, last_output_trigger)));
+			(f_binaryTriggers ? TriggerFunc(input_trigger, last_output_trigger) : TriggerFunc(s, last_output_trigger)));
 
 		// Now analyze input trigger
 	 	
@@ -312,9 +328,15 @@ bool segStart()
 	vsgSetDrawPage(vsgOVERLAYPAGE, NO_APERTURE_PAGE, 1);
 	vsgSetPen1(2);
 	vsgDrawOval(f_fixpt.x, f_fixpt.y, f_fixpt.d, f_fixpt.d);
+
+	// write trigger to indicate stim has started. Technically it hasn't started; this trigger should appear in the 
+	// data BEFORE the onset of the frame triggers on trigger line 0. 
+	vsgIOWriteDigitalOut(TRIGGERLINE_STIM, TRIGGERLINE_STIM);
+
 	// Now start cycling
 	vsgSetCommand(vsgVIDEODRIFT+vsgOVERLAYDRIFT);			// allows us to move the offset of video memory
 	vsgSetCommand(vsgCYCLEPAGEENABLE);
+
 	return bvalue;
 }
 
@@ -325,6 +347,9 @@ bool segStop()
 	bool bvalue = true;
 	vsgSetCommand(vsgCYCLEPAGEDISABLE);
 	blankPage();
+
+	// trigger is written in blankPage
+
 	return bvalue;
 }
 
@@ -348,6 +373,9 @@ bool dotOnly()
 	vsgSetPen1(2);
 	vsgDrawOval(f_fixpt.x, f_fixpt.y, f_fixpt.d, f_fixpt.d);
 	vsgSetZoneDisplayPage(vsgOVERLAYPAGE, NO_APERTURE_PAGE);
+
+	// write trigger line to indicate dot is on. 
+	vsgIOWriteDigitalOut(TRIGGERLINE_DOT, TRIGGERLINE_DOT | TRIGGERLINE_STIM);
 	return bvalue;
 }
 
@@ -357,6 +385,10 @@ bool blankPage()
 	vsgSetCommand(vsgCYCLEPAGEDISABLE);
 	vsgSetDrawPage(vsgOVERLAYPAGE, NO_APERTURE_PAGE, 1);
 	vsgSetZoneDisplayPage(vsgOVERLAYPAGE, NO_APERTURE_PAGE);
+
+	// write trigger to indicate stim and dot have stopped. 
+	vsgIOWriteDigitalOut(0, TRIGGERLINE_DOT | TRIGGERLINE_STIM);
+
 	return bvalue;
 }
 
@@ -365,7 +397,7 @@ void init_triggers()
 	triggers.addTrigger(new CallbackTrigger("S", 0x2, 0x2 | AR_TRIGGER_TOGGLE, 0x2, 0x2 | AR_TRIGGER_TOGGLE, callback));
 	triggers.addTrigger(new CallbackTrigger("s", 0x4, 0x4 | AR_TRIGGER_TOGGLE, 0x4, 0x4 | AR_TRIGGER_TOGGLE, callback));
 	triggers.addTrigger(new CallbackTrigger("a", 0x8, 0x8 | AR_TRIGGER_TOGGLE, 0x8, 0x8 | AR_TRIGGER_TOGGLE, callback));
-	triggers.addTrigger(new CallbackTrigger("D", 0x10, 0x10 | AR_TRIGGER_TOGGLE, 0x10, 0x10 | AR_TRIGGER_TOGGLE, callback));
+	triggers.addTrigger(new CallbackTrigger("D", 0x10, 0x10, 0x10, 0x10 | AR_TRIGGER_TOGGLE, callback));
 	triggers.addTrigger(new CallbackTrigger("d", 0x40, 0x40 | AR_TRIGGER_TOGGLE, 0x40, 0x40 | AR_TRIGGER_TOGGLE, callback));
 	triggers.addTrigger(new QuitTrigger("q", 0x80, 0x80, 0xff, 0x0, 0));
 
@@ -386,6 +418,20 @@ void init_triggers()
 // Care must be taken when the tuning type is "tt_contrast": do not call setContrast when the 
 // stim is OFF because the subsequent vsgPresent (which is necessary for the trigger to be issued)
 // will then make the stim visible again. 
+
+// triggers
+//
+// D - turn dot on (dot only - no mseq)
+// d - turn dot off. Blank page appears. If mseq active it is stopped, too. Use this when a "Break fixation" occurs. 
+// S - Start msequence segment. If dot not present it is shown too. Should use this after a D
+// s - turn off mseq segment. Dot removed also (blank page appears). 
+// a - advance to next mseq segment and start it. 
+//
+// The triggers are designed to be used like this:
+// At startup screen is blank. Fixation point turned on with "D", off with "d". When fixation is achieved, the stimulus
+// is turned on with "S". If fixation is broken turn the stim (and the dots) off with "s". Don't use "d" when the stim is 
+// on! If fixation is not broken before the stim runs its course, advance to the next msequence segment and begin display
+// with "a". Again, if fixation is broken turn it off (dot and stim) with "s". 
 
 int callback(int &output, const CallbackTrigger* ptrig)
 {
@@ -461,8 +507,8 @@ int args(int argc, char **argv)
 			else
 			{
 				have_xy = true;
-				f_apX = (float)x;
-				f_apY = (float)y;
+				f_apX = (double)x;
+				f_apY = (double)y;
 			}
 			break;
 		case 'm':
