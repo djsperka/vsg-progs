@@ -66,7 +66,7 @@ LINK32=link.exe
 # PROP Ignore_Export_Lib 0
 # PROP Target_Dir ""
 # ADD BASE CPP /nologo /W3 /Gm /GX /ZI /Od /D "WIN32" /D "_DEBUG" /D "_CONSOLE" /D "_MBCS" /YX /FD /GZ /c
-# ADD CPP /nologo /MDd /W3 /Gm /GX /ZI /Od /I "C:\Program Files\Cambridge Research Systems\VSGV6\Windows\Win32\Msc\INCLUDE" /I "..\alertlib\include" /D "WIN32" /D "_DEBUG" /D "_CONSOLE" /D "_MBCS" /YX /FD /GZ /c
+# ADD CPP /nologo /MDd /W3 /Gm /GX /ZI /Od /I "..\alertlib\include" /D "WIN32" /D "_DEBUG" /D "_CONSOLE" /D "_MBCS" /YX /FD /GZ /c
 # ADD BASE RSC /l 0x409 /d "_DEBUG"
 # ADD RSC /l 0x409 /d "_DEBUG"
 BSC32=bscmake.exe
@@ -87,78 +87,12 @@ LINK32=link.exe
 # PROP Default_Filter "cpp;c;cxx;rc;def;r;odl;idl;hpj;bat"
 # Begin Source File
 
-SOURCE=.\AlertLib.cpp
-# End Source File
-# Begin Source File
-
-SOURCE=.\AlertUtil.cpp
-# End Source File
-# Begin Source File
-
-SOURCE=.\coneiso.cpp
-# End Source File
-# Begin Source File
-
-SOURCE=.\getopt.c
-# End Source File
-# Begin Source File
-
-SOURCE=.\helper.cpp
-# End Source File
-# Begin Source File
-
 SOURCE=.\main.cpp
-
-!IF  "$(CFG)" == "sandbox - Win32 Release"
-
-!ELSEIF  "$(CFG)" == "sandbox - Win32 Debug"
-
-# PROP Exclude_From_Build 1
-
-!ENDIF 
-
-# End Source File
-# Begin Source File
-
-SOURCE=.\NewMSequence.cpp
-
-!IF  "$(CFG)" == "sandbox - Win32 Release"
-
-!ELSEIF  "$(CFG)" == "sandbox - Win32 Debug"
-
-# PROP Exclude_From_Build 1
-
-!ENDIF 
-
-# End Source File
-# Begin Source File
-
-SOURCE=.\Tuning.cpp
 # End Source File
 # End Group
 # Begin Group "Header Files"
 
 # PROP Default_Filter "h;hpp;hxx;hm;inl"
-# Begin Source File
-
-SOURCE=.\Alertlib.h
-# End Source File
-# Begin Source File
-
-SOURCE=.\AlertUtil.h
-# End Source File
-# Begin Source File
-
-SOURCE=.\coneiso.h
-# End Source File
-# Begin Source File
-
-SOURCE=.\getopt.h
-# End Source File
-# Begin Source File
-
-SOURCE=.\helper.h
-# End Source File
 # End Group
 # Begin Group "Resource Files"
 
