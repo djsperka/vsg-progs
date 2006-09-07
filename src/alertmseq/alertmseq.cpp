@@ -35,6 +35,8 @@ int f_iDot = 4;
 int f_iZoom = 4;
 double f_apX=0;
 double f_apY=0;
+double f_apXCorner=0;
+double f_apYCorner=0;
 float f_W, f_H;
 float f_w, f_h;
 char *f_sequence=NULL;
@@ -63,7 +65,18 @@ bool blankPage();
 #define TRIGGERLINE_STIM 0x4
 
 
-// draw mseq, assuming that 
+// draw mseq. See Reid, Victor, Shapley m-sequence paper, eq 14. 
+// We assume here that n=16, r=c=16. This makes p=128. 
+// Also, eq (14) assumes that terms are indexed starting at term 0 (not 1) 
+// and that the first row is row "0", first column is column "0". 
+//
+// The technique iterates across the video memory area to be used,
+// (p*r + (r-1)) rows and (c + (c-1)) columns. Each (cindex, rindex) pair
+// corresponds to the msequence term 'term', which is computed using the 
+// spatial offset term in eq 14. If a term is '1' in our msequence, we draw
+// a white rectangle at that grid location in memory. 
+//
+
 int draw_mseq()
 {
 	int rindex, cindex, term;
@@ -75,6 +88,7 @@ int draw_mseq()
 	vsgSetPen2(0);
 	vsgSetCommand(vsgVIDEOCLEAR);
 
+	// djs MODIFIED VERSION HERE. THE PAGE CYCLING ARRAY SETUP IS ALSO MODIFIED. 
 	for (rindex=0; rindex<128*16+15; rindex++)
 	{
 		for (cindex=0; cindex<31; cindex++)
@@ -82,10 +96,28 @@ int draw_mseq()
 			term=(16*128*rindex+128*cindex) % nterms;
 			if (f_sequence[term]=='1') 
 			{
-				vsgDrawRect(f_iDot*(cindex+.5), f_iDot/f_iZoom*(rindex+.5), f_iDot, f_iDot/f_iZoom);
+				int xrect, yrect;
+				xrect = f+iDot*cindex;
+				yrect = f_iDot/f_iZoom * rindex;
+				vsgDrawRect(xrect, yrect, f_iDot, f_iDot/f_iZoom);
 			}
 		}		
 	}
+
+	// djs original version
+//	for (rindex=0; rindex<128*16+15; rindex++)
+//	{
+//		for (cindex=0; cindex<31; cindex++)
+//		{
+//			term=(16*128*rindex+128*cindex) % nterms;
+//			if (f_sequence[term]=='1') 
+//			{
+//				vsgDrawRect(f_iDot*(cindex+.5), f_iDot/f_iZoom*(rindex+.5), f_iDot, f_iDot/f_iZoom);
+//			}
+//		}		
+//	}
+
+	
 	return 0;
 }
 
@@ -158,21 +190,6 @@ int main(int argc, char **argv)
 	}
 
 
-	// adjust/convert coordinates on fixation point to pixels, from degrees. 
-	//
-	// TODO: These conversions are incorrect. The incoming coords are in degrees, as measured with the origin in the center
-	// of the screen. These conversions merely convert the magnitude in x/y to the magnitude in pixels, but don't perform
-	// the coordinate transform! 
-
-	vsgSetViewDistMM(f_iDistanceToScreen);
-	vsgUnitToUnit(vsgDEGREEUNIT, f_fixpt.x, vsgPIXELUNIT, &f_fixpt.x); 
-	vsgUnitToUnit(vsgDEGREEUNIT, f_fixpt.y, vsgPIXELUNIT, &f_fixpt.y); 
-	vsgUnitToUnit(vsgDEGREEUNIT, f_fixpt.d, vsgPIXELUNIT, &f_fixpt.d); 
-
-	vsgUnitToUnit(vsgDEGREEUNIT, f_apX, vsgPIXELUNIT, &f_apX); 
-	vsgUnitToUnit(vsgDEGREEUNIT, f_apY, vsgPIXELUNIT, &f_apY); 
-
-
 	// Issue "ready" triggers to spike2.
 	// These commands pulse spike2 port 6. 
 	vsgObjCreate();
@@ -187,6 +204,9 @@ int main(int argc, char **argv)
 
 	// setup vsg
 	vsgSetDrawOrigin(0,0);
+
+	// djs  ADDED THIS IN TESTING. DRAWING ORIGINS OF RECT'S IS AT UPPER LEFT HAND CORNER!!!!
+	vsgSetDrawMode(vsgSOLIDFILL);			// default is vsgCENTREXY! This makes it top-left-hand-corner origin
 	vsgSetCommand(vsgPALETTERAMP);
 	vsgSetVideoMode(vsgPANSCROLLMODE);
 	getZoomFactor(f_iDot, f_iZoom);
@@ -199,7 +219,38 @@ int main(int argc, char **argv)
 	f_w = f_iRows * f_iDot;		// the width of the entire grid, as it should appear on the screen
 	f_h = f_iCols * f_iDot;		// the height of the entire grid, as it should appear on the screen
 
+	// adjust/convert coordinates on fixation point to pixels, from degrees. 
+	//
+	// TODO: These conversions are incorrect. The incoming coords are in degrees, as measured with the origin in the center
+	// of the screen. These conversions merely convert the magnitude in x/y to the magnitude in pixels, but don't perform
+	// the coordinate transform! 
 
+	double fx, fy;
+	vsgSetViewDistMM(f_iDistanceToScreen);
+	cout << "fixpt x,y=" << f_fixpt.x << "," << f_fixpt.y << endl;
+	vsgUnitToUnit(vsgDEGREEUNIT, f_fixpt.x, vsgPIXELUNIT, &fx); 
+	vsgUnitToUnit(vsgDEGREEUNIT, f_fixpt.y, vsgPIXELUNIT, &fy); 
+	f_fixpt.x = f_W/2 + fx;
+	f_fixpt.y = f_H/2 - fy;
+	cout << "fixpt x,y=" << f_fixpt.x << "," << f_fixpt.y << endl;
+
+	vsgUnitToUnit(vsgDEGREEUNIT, f_fixpt.d, vsgPIXELUNIT, &f_fixpt.d); 
+
+	cout << "aperture x,y=" << f_apX << "," << f_apY << endl;	
+	vsgUnitToUnit(vsgDEGREEUNIT, f_apX, vsgPIXELUNIT, &fx); 
+	vsgUnitToUnit(vsgDEGREEUNIT, f_apY, vsgPIXELUNIT, &fy); 
+	f_apX = f_W/2 + fx;
+	f_apY = f_H/2 - fy;
+	cout << "aperture x,y=" << f_apX << "," << f_apY << endl;	
+
+	// TODO. 
+	// Should aperture position be rounded to pixels..... 4 in x, 1 in y?
+	//f_apXCorner = f_apX - f_w/2;
+	//f_apYCorner = f_apY - f_h/(2*f_iZoom);
+
+
+
+	// Now draw pages.....
 	prepareOverlay();
 	blankPage();
 
@@ -279,6 +330,9 @@ void segAdvanceSegment()
 }
 
 
+
+// djs Correct bug in usage of index (used to index MPositions) and iterm (used to index the sequence). 
+
 void segLoadSegment()
 {
 
@@ -286,9 +340,65 @@ void segLoadSegment()
 	int index=0;
 	for (int iterm = _segFirstTerm; iterm <= _segLastTerm; iterm++)
 	{
-		// WARNING : rows and columns are hardcoded here. 
-		int irow = (index%128) * f_iRows + floor(index/(128*16));
-		int icol = (int)(floor(index/128))%f_iCols;
+		// WARNING : rows and columns are hardcoded here as f_iRows and f_iCols. 
+		// Given the row 'irow' and column 'icolumn', the pixel in the upper left hand corner
+		// of the term is at this position in video memory:
+		// x = icol * f_iDot
+		// y = irow * f_iDot/f_iZoom    (This takes the zoom factor in y into account)
+		//
+		// The offset of video memory must be such that the upper-left-hand pixel (x,y) is 
+		// positioned in the upper left hand corner of the overlay aperture. Thus we have to 
+		// compute the distance IN VIDEO MEMORY to offset the origin in order to make this happen. 
+		// This is a straighforward calculation, with two important complicating factors:
+		// 1) the y zoom factor f_iZoom. 
+		// 2) video memory shifts in the x direction should be by integer multiples of 4. 
+		// 
+		// The second factor isn't well documented in the vsg docs, but its been confirmed by direct testing
+		// and communication with the VSG folks at CRS.
+		// 
+		// The y zoom factor can be accounted for by doing the y-calculation and then dividing by f_iZoom. 
+		// The x "4" factor can be accounted for by ensuring that all numbers feeding the calculation are 
+		// integer multiples of 4. That's not as hard as it sounds. The only numbers that contribute are the 
+		// screen width (actually, half of it), the size of the 16x16 array of dots (er, half of that, too), 
+		// and the screen position of the aperture. That's the tricky part. 
+		// 
+		// In screen coordinates, where the origin is in the upper left hand corner of the screen and x (y) is
+		// positive going right (down), the center of the screen is at (f_W/2, f_H/2) where f_W and f_H are
+		// the screen width and height in pixels. The aperture center location is (f_apX, f_apY). The aperture
+		// is f_iRows*f_iDot pixels wide and f_iCols*f_iDot pixels high (I'm only talking about the aperture as
+		// seen on the screen, so I'm leaving out f_iZoom at the moment). 
+		// 
+		// Putting it all together, the x-coordinate (screen coords) of the left side of the aperture is 
+		// 
+		// f_W/2 + (f_apX - f_w/2)
+		//
+		// The y coordinate of the top of the aperture (in screen coords) is
+		//
+		// f_H/2 - (f_apY + f_h/2)
+		//
+		// Now some definitions.....
+		//
+		// f_W and f_H are the width and height of the screen in pixels
+		// f_w and f_h are the width and height of the msequence grid in pixels
+		// f_apX and f_apY are the coordinates of the aperture position in pixels, in a coordinate system with 
+		// the origin at the center of the screen, with y positive UP (this is the way the coords of the stimuli are 
+		// stored in the registry for spike2 scripts). 
+		//
+		// The correct offset for video memory requires some more calculation. 
+
+
+
+
+
+		// The aperture location on the screen is (f_apX, f_apY). This has been convered to pixels, and is 
+		// measured relative to the center of the screen (with Y positive up). 
+		// The aperture is f_iDot*f_iCols pixels wide and f_iDot*f_iRows pixels high AS VIEWED ON THE SCREEN. 
+		// In video memory, however, we have to account for the zoom factor. Hence, in video memory:
+		// 
+		// 
+		
+		int irow = (iterm%128) * f_iRows + floor(iterm/(128*16));
+		int icol = (int)(floor(iterm/128))%f_iCols;
 
 		MPositions[index].Page = DOT_WITH_APERTURE_PAGE+vsgDUALPAGE+vsgTRIGGERPAGE;
 		MPositions[index].Xpos=-f_W/2 + f_w/2 - f_apX + icol*f_iDot;
@@ -679,6 +789,11 @@ void usage()
 {
 	cerr << "usage: msequence -f filename -o order -r rows -c columns -R repeats,first_frame,last_frame|<seconds>s|<frames>f" << endl;
 }
+
+
+
+
+// Zoom factor is hard coded to be 4! 
 
 int getZoomFactor(int idot, int& zoom)
 {
