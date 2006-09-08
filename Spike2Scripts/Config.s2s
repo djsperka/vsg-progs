@@ -1116,7 +1116,7 @@ proc GetTuningCurveTemporalParameters()
 	Profile(key$, "NRepeats", 1, tunTemporalNRepeats%);
 	Profile(key$, "MinTF", "0.1", stmp$);
 	tunTemporalMinTF := val(stmp$);
-	Profile(key$, "MaxTF", "10", stmp$);
+	Profile(key$, "MaxTF", "100", stmp$);
 	tunTemporalMaxTF := val(stmp$);
 end;
 
@@ -1254,7 +1254,7 @@ func TuningCurveTemporalDialog%()
 	DlgInteger(1, "Number of Steps", 2, 100);
 	DlgInteger(2, "Number of Repeats", 1, 10);
 	DlgReal(3, "Min TF", 0, 10);
-	DlgReal(4, "Max TF", 0, 10);
+	DlgReal(4, "Max TF", 0, 100);
 	DlgCheck(5, "Random Progression");
 
 	i% := DlgShow(tunTemporalNSteps%, tunTemporalNRepeats%, tunTemporalMinTF, tunTemporalMaxTF, tunTemporalProgression%);
