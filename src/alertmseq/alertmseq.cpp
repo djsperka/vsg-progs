@@ -37,6 +37,8 @@ double f_apX=0;
 double f_apY=0;
 double f_apXCorner=0;
 double f_apYCorner=0;
+int f_iapXCorner;
+int f_iapYCorner;
 float f_W, f_H;
 float f_w, f_h;
 char *f_sequence=NULL;
@@ -97,7 +99,7 @@ int draw_mseq()
 			if (f_sequence[term]=='1') 
 			{
 				int xrect, yrect;
-				xrect = f+iDot*cindex;
+				xrect = f_iDot*cindex;
 				yrect = f_iDot/f_iZoom * rindex;
 				vsgDrawRect(xrect, yrect, f_iDot, f_iDot/f_iZoom);
 			}
@@ -169,7 +171,8 @@ void prepareOverlay()
 	vsgSetDrawPage(vsgOVERLAYPAGE, NO_APERTURE_PAGE, 1);
 	vsgSetDrawPage(vsgOVERLAYPAGE, DOT_WITH_APERTURE_PAGE, 1);
 	vsgSetPen1(0);	// that's clear on the overlay page!
-	vsgDrawRect(f_W/2+f_apX, f_H/2-f_apY, f_w, f_h);
+//	vsgDrawRect(f_W/2+f_apX, f_H/2-f_apY, f_w, f_h);
+	vsgDrawRect(f_iapXCorner, f_iapYCorner, f_w, f_h);
 	vsgSetPen1(2);
 	vsgDrawOval(f_fixpt.x, f_fixpt.y, f_fixpt.d, f_fixpt.d);
 }
@@ -236,19 +239,25 @@ int main(int argc, char **argv)
 
 	vsgUnitToUnit(vsgDEGREEUNIT, f_fixpt.d, vsgPIXELUNIT, &f_fixpt.d); 
 
-	cout << "aperture x,y=" << f_apX << "," << f_apY << endl;	
+	cout << "aperture x,y (degrees)=" << f_apX << "," << f_apY << endl;	
 	vsgUnitToUnit(vsgDEGREEUNIT, f_apX, vsgPIXELUNIT, &fx); 
 	vsgUnitToUnit(vsgDEGREEUNIT, f_apY, vsgPIXELUNIT, &fy); 
 	f_apX = f_W/2 + fx;
 	f_apY = f_H/2 - fy;
-	cout << "aperture x,y=" << f_apX << "," << f_apY << endl;	
+	cout << "aperture x,y (pixels) =" << f_apX << "," << f_apY << endl;	
 
-	// TODO. 
-	// Should aperture position be rounded to pixels..... 4 in x, 1 in y?
-	//f_apXCorner = f_apX - f_w/2;
-	//f_apYCorner = f_apY - f_h/(2*f_iZoom);
+	f_apXCorner = f_apX - f_w/2;
+	f_apYCorner = f_apY - f_h/2;
 
+	cout << "aperture x,y (corner, pixels) =" << f_apXCorner << "," << f_apYCorner << endl;	
 
+	// offset number in x must be a multiple of 4
+	f_iapXCorner = (int)(f_apXCorner/4 + .5) * (int)4;
+
+	// offset in y must be a multiple of f_iZoom
+	f_iapYCorner = (int)(f_apYCorner/f_iZoom + .5) * f_iZoom;
+
+	cout << "aperture x,y (corner, pixels, rounded) =" << f_iapXCorner << "," << f_iapYCorner << endl;	
 
 	// Now draw pages.....
 	prepareOverlay();
@@ -312,8 +321,8 @@ int main(int argc, char **argv)
 
 void segSetFirstSegment()
 {
-	_segFirstTerm = 1;
-	_segLastTerm = f_iSegmentLength;
+	_segFirstTerm = 0;
+	_segLastTerm = f_iSegmentLength-1;
 }
 
 // TODO: this should take into account the number of repeats!
@@ -321,10 +330,12 @@ void segAdvanceSegment()
 {
 	int nterms = pow(2, f_iOrder) - 1;
 	_segFirstTerm = _segLastTerm + 1;
-	_segLastTerm += f_iSegmentLength;
-	if (_segLastTerm > nterms)
+	if (_segFirstTerm == nterms) _segFirstTerm = 0;
+
+	_segLastTerm = _segFirstTerm + f_iSegmentLength-1;
+	if (_segLastTerm >= nterms)
 	{
-		_segLastTerm = nterms;
+		_segLastTerm = nterms-1;
 	}
 	_segNTerms = _segLastTerm - _segFirstTerm + 1;
 }
@@ -384,25 +395,46 @@ void segLoadSegment()
 		// the origin at the center of the screen, with y positive UP (this is the way the coords of the stimuli are 
 		// stored in the registry for spike2 scripts). 
 		//
-		// The correct offset for video memory requires some more calculation. 
-
-
-
-
-
-		// The aperture location on the screen is (f_apX, f_apY). This has been convered to pixels, and is 
-		// measured relative to the center of the screen (with Y positive up). 
-		// The aperture is f_iDot*f_iCols pixels wide and f_iDot*f_iRows pixels high AS VIEWED ON THE SCREEN. 
-		// In video memory, however, we have to account for the zoom factor. Hence, in video memory:
+		// The correct offset for video memory requires some more calculation. The offset itself 
+		// is given as two numbers, one for each dimension x/y. If we think of video memory as a
+		// two dimensional array of pixels starting at (0,0) and running through POSITIVE values only,
+		// the offset defines the pixel which should appear at the upper left hand corner of the 
+		// screen. 
+		//
+		// This is further complicated by the fact that pixels are described by integer values, not
+		// fractional values, so we should ensure that the offset is integer. Add in the y-zoom and
+		// the x-4 factors and .... 
+		//
+		// So, if we wanted to define the offset to make our msequence term appear in the upper LH 
+		// corner of the screen, we'd use the upper LH corner pixel definition above:
+		//
+		// x = icol * f_iDot			(f_iDot must be a multiple of 4, so this value is as well)
+		// y = irow * f_iDot/f_iZoom    (This takes the zoom factor in y into account)
 		// 
+		// We want to make this term appear at the location of the aperture, so instead we subtract 
+		// off the screen coords of the aperture's upper LH corner (this time accounting for zoom in
+		// y)
 		// 
+		// offset_x = icol*f_iDot - [ f_W/2 + (f_apX - f_w/2) ]
+		// offset_y = irow * f_iDot/f_iZoom - [ f_H/2 - (f_apY + f_h/2) ]/f_iZoom
+		//
+		// To make this offset work we have to make sure that the x coordinate of the aperture's 
+		// position is a multiple of 4. The first part of its value, icol*f_iDot is OK because f_iDot
+		// must be a multiple of 4. The second part must be rounded to the nearest factor of 4. 
+		// This will cause the aperture to be shifted slightly (at most 2 pixels) from the position 
+		// specified for the stimulus. Similarly, we have to round the aperture's y coord to a 
+		// multiple of f_iZoom to ensure that the offset_y value is an integer. 
+
+
 		
 		int irow = (iterm%128) * f_iRows + floor(iterm/(128*16));
 		int icol = (int)(floor(iterm/128))%f_iCols;
 
 		MPositions[index].Page = DOT_WITH_APERTURE_PAGE+vsgDUALPAGE+vsgTRIGGERPAGE;
-		MPositions[index].Xpos=-f_W/2 + f_w/2 - f_apX + icol*f_iDot;
-		MPositions[index].Ypos=-f_H/(2*f_iZoom) + f_h/(2*f_iZoom) + f_apY/f_iZoom + irow*f_iDot/f_iZoom;
+// djs original		MPositions[index].Xpos=-f_W/2 + f_w/2 - f_apX + icol*f_iDot;
+// djs original		MPositions[index].Ypos=-f_H/(2*f_iZoom) + f_h/(2*f_iZoom) + f_apY/f_iZoom + irow*f_iDot/f_iZoom;
+		MPositions[index].Xpos = icol*f_iDot - f_iapXCorner;
+		MPositions[index].Ypos = irow*f_iDot/f_iZoom - f_iapYCorner;
 
 		if (index==0)
 		{
@@ -470,6 +502,7 @@ bool segNext()
 	bool bvalue = true;
 	vsgSetCommand(vsgCYCLEPAGEDISABLE);
 	segAdvanceSegment();
+	segLoadSegment();
 	segStart();
 	return bvalue;
 }
