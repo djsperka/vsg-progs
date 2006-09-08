@@ -1,4 +1,7 @@
 ' $Log: not supported by cvs2svn $
+' Revision 1.5  2006/09/08 02:11:14  dan
+' *** empty log message ***
+'
 ' Revision 1.4  2006/09/01 21:57:25  dan
 ' *** empty log message ***
 '
@@ -526,7 +529,6 @@ StimChannel% := NumberOfElectrodes% + 5;
 ReadyChannel% := NumberOfElectrodes% + 6;
 CreateSampleConfiguration();
 
-
 ' Get display windows ready
 InitializeWindows();
 
@@ -567,13 +569,25 @@ var nTrialsStarted%:=0;
 var nTrialsSuccess%:=0;
 var nTrialsFail%:=0;
 
+' vars for keeping track of the msequence. 
 var tStartMsqSegment := 0;		' time when msequence segment was started (approx; this is guaranteed to be BEFORE the start of the segment)
 var iMsqTriggerCount% := 0;	' running count of triggers during an msequence segment. 
-var iMsqSegmentNumber% := 0;	' the segment of the msequence currently running
-var iMsqSegmentLength%;			' the length (#frames) of the msequence currently running. Note - this is the same as the segment length, except for the very last segment run!
 const iMsqLength% := 32767;	' hardcode the msequence length! 
 
-iMsqSegmentLength% := msqSegmentLength%;	' first segment length. 
+' The next two vars are managed in SegmentManage%
+var iMsqSegmentNumber% := 0;	' the segment of the msequence currently running
+var iMsqSegmentLength%;			' the length (#frames) of the msequence currently running. Note - this is the same as the segment length, except for the very last segment run!
+var iMsqTermsCompleted% := 0;				' running count of msequence terms completed (only counted after complete segments)
+var iMsqNumberOfFullSegments% := 0;		' Number of full segments in the msequence. 
+var iMsqPartialSegmentLength% := 0;		' If full segments do not complete the msequence, this is the length of the last partial segment
+
+' These are the actions used in calling SegmentManage%
+const iInitialize% := 100;
+const iCurrentSegmentStart% := 101;
+const iCurrentSegmentFail% := 102;
+const iCurrentSegmentSuccess% := 103;
+const iAdvanceSegmentStart% := 104;
+
 
 ' Run real time analysis here. 
 func IdleProcessing%()
@@ -594,6 +608,9 @@ func IdleProcessing%()
 
 	
 		case iState% = stateVSGWait% then
+
+			' Initialize msequence counters
+			SegmentManage%(iInitialize%);
 
 			' Waiting for VSG to indicate it is ready. The indication is a pulse (up, then down, 1 frame apart) on port 6.
 			tTrigger := NextTime(ReadyChannel%, tLast, vTrigger);
@@ -652,7 +669,14 @@ func IdleProcessing%()
 				' Acquisition happens when the eye falls within the fixation window.
 				if InFixationWindow%(xEye, yEye) > 0 then
 
-					PrintLog("StateWaitForAcquisition - acquired target.\n");
+					PrintLog("StateWaitForAcquisition - acquired target. Start stim.\n");
+
+
+					' Start the current segment. This function call sets vars relating to the segment (number of terms, segment number)
+					' and makes a mark in the data file indicating that this segment is starting
+					' SegmentManage(iCurrentSegmentStart%);
+
+					SegmentManage%(iCurrentSegmentStart%);
 					SampleKey("S");
 					iState% := stateHoldFixation%;
 					tStateStart := tNow;
@@ -672,10 +696,16 @@ func IdleProcessing%()
 
 		case iState% = stateHoldFixation% then
 
-			' Waiting for fixation....
+			' If fixation is broken stop the current segment. 
+			' SegmentManage(iCurrentSegmentFail%);
+			' Otherwise, count the number of frame triggers since tStartMsqSegment. If that count equals
+			' the number of terms in the segment, the function call will mark the data file accordingly.
+			' SegmentManage(iCurrentSegmentSuccess%);
+
 			if InFixationWindow%(xEye, yEye) <= 0 then
 
 				PrintLog("StateHoldFixation - broke fixation.\n");
+				SegmentManage%(iCurrentSegmentFail%);
 				SampleKey("s");
 				iState% := stateFailure%;
 				tStateStart := tNow;
@@ -688,10 +718,11 @@ func IdleProcessing%()
 
 					' Fixation. Reward. New trial.
 					PrintLog("StateHoldFixation - success.\n");
+					SegmentManage%(iCurrentSegmentSuccess%);
 					iState% := stateSuccess%;
 					tStateStart := tNow;
-				else
-					PrintLog("c/l=" + str$(iMsqTriggerCount%) + "," + str$(iMsqSegmentLength%) + "\n");
+'				else
+'					PrintLog("c/l=" + str$(iMsqTriggerCount%) + "," + str$(iMsqSegmentLength%) + "\n");
 				endif
 
 			endif
@@ -702,7 +733,9 @@ func IdleProcessing%()
 			nTrialsSuccess% += 1;
 			Reward%();
 
-			if AdvanceSegment%() = 1 then
+			' Advance segment. The func will return 0 if the entire msequence is completed. 
+			' SegmentManage(iAdvanceSegmentStart%)
+			if SegmentManage%(iAdvanceSegmentStart%) = 1 then
 			
 				tStartMsqSegment := tNow;
 				SampleKey("a");
@@ -752,6 +785,107 @@ func IdleProcessing%()
 end;
 
 
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+' SegmentManage
+'
+' This function manages the counters associated with the msequences. It also writes text marks in the data file for the start and end
+' of each segment, indicating which segment it is and whether (for the end text mark) the segment was successful or not. Note that this
+' function does NOT issue the SampleKey calls -- I decided to leave that call in the IdleProcessing function to keep it transparent
+' with respect to where the SampleKey's are issued. 
+'
+' Returns 1 on success, 0 if the msequence is done and cannot advance, or -1 on error. 
+'
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+func SegmentManage%(iAction%)
+var iStatus% := 1;
+var sToolbarText$;
+var sSegText$;
+var sLengthText$;
+docase
+
+' Initialize. This action should be taken once prior to the start of the msequence. Counters are initialized and msequence parameters are
+' written to the data file.
+case iAction%=iInitialize% then
+
+	iMsqTermsCompleted% := 0;
+	iMsqSegmentLength% := msqSegmentLength%;	' first segment length. 
+	iMsqSegmentNumber% := 1;
+	iMsqNumberOfFullSegments% := iMsqLength%/msqSegmentLength%;
+	iMsqPartialSegmentLength% := iMsqLength% - iMsqNumberOfFullSegments%*msqSegmentLength%;
+	PrintLog("SegmentManage Initialize: #full segments=" + str$(iMsqNumberOfFullSegments%) + " partial segment length=" + str$(iMsqPartialSegmentLength%) + "\n");
+	sToolbarText$ := str$(iMsqNumberOfFullSegments%) + " full segments of " + str$(msqSegmentLength%) + " terms, ";
+	sLengthText$ := "/" + str$(iMsqLength%) + " terms completed.";
+	if iMsqPartialSegmentLength% = 0 then
+		sToolbarText$ += "no partial segment.";
+		sSegText$ := "/" + str$(iMsqNumberOfFullSegments%) + "(+0) ";
+	else
+		sToolbarText$ += "1 partial segment of " + str$(iMsqPartialSegmentLength%) + " terms.";
+		sSegText$ := "/" + str$(iMsqNumberOfFullSegments%) + "(+1) ";
+	endif
+	SampleText("INIT");
+
+' Start current segment. The current segment counter is not advanced. Counters are initialized to reflect the current segment. Text mark written
+' to data file. 
+case iAction%=iCurrentSegmentStart% then
+
+	sToolbarText$ := "Segment " + str$(iMsqSegmentNumber%) + sSegText$ + ": " + str$(iMsqTermsCompleted%) + sLengthText$;
+	SampleText(str$(iMsqSegmentNumber%) + " A");
+
+' Current segment failed. Text mark written to data file.
+case iAction%=iCurrentSegmentFail% then
+
+	SampleText(str$(iMsqSegmentNumber%) + " F");
+
+' Current segment succeeded. Text mark written (segment is NOT advanced with this action!)
+case iAction%=iCurrentSegmentSuccess% then
+
+	iMsqTermsCompleted% += iMsqSegmentLength%;
+	SampleText(str$(iMsqSegmentNumber%) + " Z");
+
+' Advance to next segment. Counters re-initialized to reflect new segment (if there is one). Text mark written. If the previous segment was
+' the last in the msequence, return 0 to indicate msequence is complete. 
+case iAction%=iAdvanceSegmentStart% then
+
+	iMsqSegmentNumber% += 1;
+	docase 
+	case iMsqSegmentNumber% = iMsqNumberOfFullSegments%+1 then
+		if iMsqPartialSegmentLength% = 0 then
+			' We're done!
+			iStatus% := 0;
+			sToolbarText$ := "MSequence completed.";
+		else
+			iMsqSegmentLength% := iMsqPartialSegmentLength%;
+			sToolbarText$ := "Segment " + str$(iMsqSegmentNumber%) + sSegText$ + ": " + str$(iMsqTermsCompleted%) + sLengthText$;
+			SampleText(str$(iMsqSegmentNumber%) + " A");
+		endif
+	case iMsqSegmentNumber% = iMsqNumberOfFullSegments%+2 then
+		' the last segment was partial. Now we're really done.
+		iStatus% := 0;
+		sToolbarText$ := "MSequence completed.";
+	else
+		iMsqSegmentLength% := msqSegmentLength%;
+		sToolbarText$ := "Segment " + str$(iMsqSegmentNumber%) + sSegText$ + ": " + str$(iMsqTermsCompleted%) + sLengthText$;
+		SampleText(str$(iMsqSegmentNumber%) + " A");
+	endcase;
+
+
+' Unknown action. This is an error. 
+else
+	PrintLog("SegmentManage ERROR: Unknown action " + str$(iAction%) + "\n");
+	iStatus% := -1;
+endcase;
+
+
+ToolbarText(sToolbarText$);
+return iStatus%;
+end;
+
+
+
+
 ' Advance the segment number and update the segment length. All segments except for the last one will have the same length (msqSegmentLength%). 
 ' Returns 1, unless the entire sequence is completed, in which case it returns 0.
 
@@ -784,6 +918,9 @@ proc CreateSampleConfiguration()
 '	SampleAutoFile(0); 'Enable automatic file naming
 	SampleAutoComment(0); 'Prompt for comment after sampling
 	SampleAutoCommit(60); 'Seconds between each file commit
+
+	' Text mark channel for msequence indicators. The "10" is the max # of characters in a mark.
+	SampleTextMark(10);
 
 	'Channel recording definitions
 	SampleEvent(FrameChannel%, 0, 0, 3600); 'Trigger channel, level
