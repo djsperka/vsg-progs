@@ -1,4 +1,7 @@
 ' $Log: not supported by cvs2svn $
+' Revision 1.18  2006/04/24 22:09:41  dan
+' Modify sequencer "X" to only modify F/S bits. Change script to use release version of Tuning.exe app.
+'
 ' Revision 1.17  2006/04/24 21:13:28  dan
 ' Added aperture area tuning function.
 '
@@ -335,7 +338,7 @@ proc GetTuningCurveTemporalParameters()
 	Profile(key$, "NRepeats", 1, tunTemporalNRepeats%);
 	Profile(key$, "MinTF", "0.1", stmp$);
 	tunTemporalMinTF := val(stmp$);
-	Profile(key$, "MaxTF", "10", stmp$);
+	Profile(key$, "MaxTF", "64", stmp$);
 	tunTemporalMaxTF := val(stmp$);
 end;
 
