@@ -1,4 +1,7 @@
 ' $Log: not supported by cvs2svn $
+' Revision 1.4  2006/09/01 21:57:25  dan
+' *** empty log message ***
+'
 ' Revision 1.3  2006/04/11 01:29:25  dan
 ' *** empty log message ***
 '
@@ -435,7 +438,7 @@ func MSequenceScriptDialog%()
 	DlgReal(3, "Intertrial time(s):", .01, 10);
 	DlgInteger(4, "Dot Size(pixels):", 4, 28);
 	DlgInteger(5, "Segment length (terms):", 1, 32767);
-	DlgInteger(5, "Frames per term:", 1, 100);
+	DlgInteger(6, "Frames per term:", 1, 100);
 	i%:=DlgShow(msqFixationDuration, msqAcquisitionTime, msqInterTrialTime, msqDotSize%, msqSegmentLength%, msqFramesPerTerm%);
 	if i% = 1 then
 		PrintLog("Saving params\n");
@@ -461,6 +464,7 @@ end;
 
 ' Window handles and channel numbers
 var XChannel%,YChannel%;		' Channel number assigned to eye x and y
+var FrameChannel%;
 var DotChannel%;				' Channel number assigned to vsg trigger for dot
 var StimChannel%;				' Channel number assigned to vsg trigger for stim
 var ReadyChannel%;			' channel number for VSG ready pulse signal
@@ -516,9 +520,10 @@ endif
 ' Assign channel numbers for eye X,Y and trigger. 
 XChannel% := NumberOfElectrodes% + 1;
 YChannel% := NumberOfElectrodes% + 2;
-DotChannel% := NumberOfElectrodes% + 3;
-StimChannel% := NumberOfElectrodes% + 4;
-ReadyChannel% := NumberOfElectrodes% + 5;
+FrameChannel% := NumberOfElectrodes% + 3;
+DotChannel% := NumberOfElectrodes% + 4;
+StimChannel% := NumberOfElectrodes% + 5;
+ReadyChannel% := NumberOfElectrodes% + 6;
 CreateSampleConfiguration();
 
 
@@ -561,6 +566,14 @@ var tTrigger:=-1;	' temp var for newly discovered trigger times
 var nTrialsStarted%:=0;
 var nTrialsSuccess%:=0;
 var nTrialsFail%:=0;
+
+var tStartMsqSegment := 0;		' time when msequence segment was started (approx; this is guaranteed to be BEFORE the start of the segment)
+var iMsqTriggerCount% := 0;	' running count of triggers during an msequence segment. 
+var iMsqSegmentNumber% := 0;	' the segment of the msequence currently running
+var iMsqSegmentLength%;			' the length (#frames) of the msequence currently running. Note - this is the same as the segment length, except for the very last segment run!
+const iMsqLength% := 32767;	' hardcode the msequence length! 
+
+iMsqSegmentLength% := msqSegmentLength%;	' first segment length. 
 
 ' Run real time analysis here. 
 func IdleProcessing%()
@@ -643,6 +656,7 @@ func IdleProcessing%()
 					SampleKey("S");
 					iState% := stateHoldFixation%;
 					tStateStart := tNow;
+					tStartMsqSegment := tNow;
 	
 				endif
 
@@ -668,13 +682,16 @@ func IdleProcessing%()
 
 			else
 
-				if tNow - tStateStart >= msqFixationDuration then
+				iMsqTriggerCount% := View(DataWindow%).Count(FrameChannel%, tStartMsqSegment, tNow);
+				if iMsqTriggerCount% = iMsqSegmentLength% then
+'				if tNow - tStateStart >= msqFixationDuration then
 
 					' Fixation. Reward. New trial.
 					PrintLog("StateHoldFixation - success.\n");
 					iState% := stateSuccess%;
 					tStateStart := tNow;
-
+				else
+					PrintLog("c/l=" + str$(iMsqTriggerCount%) + "," + str$(iMsqSegmentLength%) + "\n");
 				endif
 
 			endif
@@ -684,9 +701,22 @@ func IdleProcessing%()
 			PrintLog("StateSuccess - advance sequence.\n");
 			nTrialsSuccess% += 1;
 			Reward%();
-			SampleKey("a");
-			iState% := stateHoldFixation%;
-			tStateStart := tNow;
+
+			if AdvanceSegment%() = 1 then
+			
+				tStartMsqSegment := tNow;
+				SampleKey("a");
+				iState% := stateHoldFixation%;
+				tStateStart := tNow;
+
+			else
+
+				' Done with msequence
+				iState% := stateDone%;
+				Stop%();
+				istatus% := 0;
+
+			endif
 
 		case iState% = stateFailure% then
 
@@ -722,6 +752,31 @@ func IdleProcessing%()
 end;
 
 
+' Advance the segment number and update the segment length. All segments except for the last one will have the same length (msqSegmentLength%). 
+' Returns 1, unless the entire sequence is completed, in which case it returns 0.
+
+func AdvanceSegment%()
+var ireturn% := 1;
+var iterms%;
+iterms% := iMsqSegmentNumber% * msqSegmentLength%;		' number of terms completed
+
+if iterms% >= iMsqLength% then
+	ireturn% := 0;
+else
+	iMsqSegmentNumber% += 1;
+	if iterms% + msqSegmentLength% > iMsqLength% then
+		' shoirten segment - last one in msequence
+		iMsqSegmentLength% := iMsqLength% - iterms%;
+	else
+		iMsqSegmentLength% := msqSegmentLength%;
+	endif
+	ToolbarText("Segment " + str$(iMsqSegmentNumber%) + ", completed " + str$(iterms%) + "/" + str$(iMsqLength%) + " terms.");
+endif
+
+return ireturn%;
+end
+
+
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 proc CreateSampleConfiguration()
 	var index;
@@ -731,6 +786,10 @@ proc CreateSampleConfiguration()
 	SampleAutoCommit(60); 'Seconds between each file commit
 
 	'Channel recording definitions
+	SampleEvent(FrameChannel%, 0, 0, 3600); 'Trigger channel, level
+	SampleComment$(FrameChannel%, "Frame");
+	SampleTitle$(FrameChannel%, "Frame");
+	
 	SampleEvent(DotChannel%, 1, 2, 3600); 'Trigger channel, level
 	SampleComment$(DotChannel%, "Dot");
 	SampleTitle$(DotChannel%, "Dot");
@@ -939,10 +998,6 @@ func Stop%()
 	SampleStop();
 	ProgKill(StimHandle%);
 	ProgRun(bin$ + "\\ClearTrigger",0);
-
-	' Increment daily totals and save then
-	TotalTrials% += nTrialsStarted%;
-	TotalRewards% += nTrialsSuccess%;
 
 end;
 
