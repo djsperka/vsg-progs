@@ -1,4 +1,7 @@
 ' $Log: not supported by cvs2svn $
+' Revision 1.6  2006/09/08 18:13:54  dan
+' Beta version - with text marks. Start developing extraction script.
+'
 ' Revision 1.5  2006/09/08 02:11:14  dan
 ' *** empty log message ***
 '
@@ -832,7 +835,7 @@ case iAction%=iInitialize% then
 case iAction%=iCurrentSegmentStart% then
 
 	sToolbarText$ := "Segment " + str$(iMsqSegmentNumber%) + sSegText$ + ": " + str$(iMsqTermsCompleted%) + sLengthText$;
-	SampleText(str$(iMsqSegmentNumber%) + " A");
+	SampleText(str$(iMsqSegmentNumber%) + " A " + str$(iMsqSegmentLength%));
 
 ' Current segment failed. Text mark written to data file.
 case iAction%=iCurrentSegmentFail% then
@@ -859,7 +862,7 @@ case iAction%=iAdvanceSegmentStart% then
 		else
 			iMsqSegmentLength% := iMsqPartialSegmentLength%;
 			sToolbarText$ := "Segment " + str$(iMsqSegmentNumber%) + sSegText$ + ": " + str$(iMsqTermsCompleted%) + sLengthText$;
-			SampleText(str$(iMsqSegmentNumber%) + " A");
+			SampleText(str$(iMsqSegmentNumber%) + " A " + str$(iMsqSegmentLength%));
 		endif
 	case iMsqSegmentNumber% = iMsqNumberOfFullSegments%+2 then
 		' the last segment was partial. Now we're really done.
@@ -920,7 +923,7 @@ proc CreateSampleConfiguration()
 	SampleAutoCommit(60); 'Seconds between each file commit
 
 	' Text mark channel for msequence indicators. The "10" is the max # of characters in a mark.
-	SampleTextMark(10);
+	SampleTextMark(15);
 
 	'Channel recording definitions
 	SampleEvent(FrameChannel%, 0, 0, 3600); 'Trigger channel, level

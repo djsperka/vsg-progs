@@ -434,7 +434,14 @@ void segLoadSegment()
 // djs original		MPositions[index].Xpos=-f_W/2 + f_w/2 - f_apX + icol*f_iDot;
 // djs original		MPositions[index].Ypos=-f_H/(2*f_iZoom) + f_h/(2*f_iZoom) + f_apY/f_iZoom + irow*f_iDot/f_iZoom;
 		MPositions[index].Xpos = icol*f_iDot - f_iapXCorner;
-		MPositions[index].Ypos = irow*f_iDot/f_iZoom - f_iapYCorner;
+		MPositions[index].Ypos = irow*f_iDot/f_iZoom - f_iapYCorner/f_iZoom;
+
+		// TEST	
+		if ((iterm % 128) == 0)
+		{
+			cout << "term " << iterm << " " << MPositions[index].Xpos << "," << MPositions[index].Ypos << endl;
+		}
+
 
 		if (index==0)
 		{
