@@ -1,4 +1,7 @@
 ' $Log: not supported by cvs2svn $
+' Revision 1.7  2006/09/09 00:32:28  dan
+' *** empty log message ***
+'
 ' Revision 1.6  2006/09/08 18:13:54  dan
 ' Beta version - with text marks. Start developing extraction script.
 '
@@ -577,6 +580,9 @@ var tStartMsqSegment := 0;		' time when msequence segment was started (approx; t
 var iMsqTriggerCount% := 0;	' running count of triggers during an msequence segment. 
 const iMsqLength% := 32767;	' hardcode the msequence length! 
 
+' OK this is to ensure we initialize just once
+var iMsqInitializeDone% := 1;
+
 ' The next two vars are managed in SegmentManage%
 var iMsqSegmentNumber% := 0;	' the segment of the msequence currently running
 var iMsqSegmentLength%;			' the length (#frames) of the msequence currently running. Note - this is the same as the segment length, except for the very last segment run!
@@ -613,7 +619,10 @@ func IdleProcessing%()
 		case iState% = stateVSGWait% then
 
 			' Initialize msequence counters
-			SegmentManage%(iInitialize%);
+			if iMsqInitializeDone% = 0 then
+				SegmentManage%(iInitialize%);
+				iMsqInitializeDone% := 1;
+			endif
 
 			' Waiting for VSG to indicate it is ready. The indication is a pulse (up, then down, 1 frame apart) on port 6.
 			tTrigger := NextTime(ReadyChannel%, tLast, vTrigger);
@@ -871,7 +880,7 @@ case iAction%=iAdvanceSegmentStart% then
 	else
 		iMsqSegmentLength% := msqSegmentLength%;
 		sToolbarText$ := "Segment " + str$(iMsqSegmentNumber%) + sSegText$ + ": " + str$(iMsqTermsCompleted%) + sLengthText$;
-		SampleText(str$(iMsqSegmentNumber%) + " A");
+		SampleText(str$(iMsqSegmentNumber%) + " A" + str$(iMsqSegmentLength%));
 	endcase;
 
 
