@@ -1,4 +1,7 @@
 ' $Log: not supported by cvs2svn $
+' Revision 1.8  2006/09/11 20:57:27  dan
+' Fixed up text marks so they all include # terms in sequence. Also corrected bug where INIT text mark is written every idle processing call.
+'
 ' Revision 1.7  2006/09/09 00:32:28  dan
 ' *** empty log message ***
 '
@@ -880,7 +883,7 @@ case iAction%=iAdvanceSegmentStart% then
 	else
 		iMsqSegmentLength% := msqSegmentLength%;
 		sToolbarText$ := "Segment " + str$(iMsqSegmentNumber%) + sSegText$ + ": " + str$(iMsqTermsCompleted%) + sLengthText$;
-		SampleText(str$(iMsqSegmentNumber%) + " A" + str$(iMsqSegmentLength%));
+		SampleText(str$(iMsqSegmentNumber%) + " A " + str$(iMsqSegmentLength%));
 	endcase;
 
 
