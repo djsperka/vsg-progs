@@ -1,4 +1,7 @@
 ' $Log: not supported by cvs2svn $
+' Revision 1.9  2006/09/12 00:36:04  dan
+' Added functionality, analysis of per-frame counts nearly complete.
+'
 ' Revision 1.8  2006/09/11 20:57:27  dan
 ' Fixed up text marks so they all include # terms in sequence. Also corrected bug where INIT text mark is written every idle processing call.
 '
@@ -584,7 +587,7 @@ var iMsqTriggerCount% := 0;	' running count of triggers during an msequence segm
 const iMsqLength% := 32767;	' hardcode the msequence length! 
 
 ' OK this is to ensure we initialize just once
-var iMsqInitializeDone% := 1;
+var iMsqInitializeDone% := 0;
 
 ' The next two vars are managed in SegmentManage%
 var iMsqSegmentNumber% := 0;	' the segment of the msequence currently running
@@ -728,7 +731,7 @@ func IdleProcessing%()
 			else
 
 				iMsqTriggerCount% := View(DataWindow%).Count(FrameChannel%, tStartMsqSegment, tNow);
-				if iMsqTriggerCount% = iMsqSegmentLength% then
+				if iMsqTriggerCount% = iMsqSegmentLength%+1 then
 '				if tNow - tStateStart >= msqFixationDuration then
 
 					' Fixation. Reward. New trial.
