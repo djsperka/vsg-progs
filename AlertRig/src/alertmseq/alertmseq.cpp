@@ -457,7 +457,7 @@ void segLoadSegment()
 
 	
 	MPositions[index].Stop=1;
-	MPositions[index].Page = NO_APERTURE_PAGE+vsgDUALPAGE;
+	MPositions[index].Page = NO_APERTURE_PAGE+vsgDUALPAGE+vsgTRIGGERPAGE;
 	MPositions[index].ovPage=1;
 	MPositions[index].ovXpos=0;
 	MPositions[index].ovYpos=0;
