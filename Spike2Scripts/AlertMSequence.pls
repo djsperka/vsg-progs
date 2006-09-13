@@ -1,4 +1,7 @@
 ; $Log: not supported by cvs2svn $
+; Revision 1.2  2006/09/01 21:57:25  dan
+; *** empty log message ***
+;
 ; Revision 1.1  2006/04/11 01:29:25  dan
 ; *** empty log message ***
 ;
@@ -30,8 +33,15 @@
 0016            DELAY  s(0.996)-1
 0017            HALT   
 
-0018 EQ:     'q DIGOUT [10000001]      ;Signals the target contrast change
-0019            DELAY  s(0.996)-1
-0020            HALT   
+0018 EJ:     'J DIGOUT [.......1]      ;Administers juice
+0019            DIGOUT [.......0]
+0020            DELAY  s(0.005)-1
+0021            DIGOUT [.......1]
+0022            DELAY  s(0.989)-1
+0023            HALT   
+
+0024 EQ:     'q DIGOUT [10000001]      ;Signals the target contrast change
+0025            DELAY  s(0.996)-1
+0026            HALT   
 
 
