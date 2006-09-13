@@ -1,0 +1,174 @@
+var tLast := -1;
+var tNext := 0;
+var TChannel% := 30;
+var DChannel%;
+var FChannel% := 4;
+var sText$;
+var iDone% := 0;
+var code%[4];
+var DataView%; 
+var vlist%[10];
+var chs%[10];
+var nchs%;
+var OutputHandle%;
+var spikes%[32767];
+var nspikes% := 0;
+
+const iSeekINIT% := 1;
+const iSeekA% := 2;
+const iSeekZF% := 3;
+var iSeekState% := iSeekINIT%;
+var iExpectingSegment% := 1;
+var iExpectingFrames% := 0;
+var iReadSegment%;
+var iReadFrames%;
+var iLocation%;
+var tSegmentStart;
+var tSegmentEnd;
+
+var outfile$;
+
+
+' Get time view....
+
+ViewList(vlist%[], 1);
+
+if (vlist%[0]=0) then
+	Message("Error - you must have a data file open before running script.");
+	halt;
+else 
+	if (vlist%[0] > 1 or vlist%[0] <0) then
+		Message("Error - please have (only) one data file open!");
+		halt;
+	else
+		DataView% := vlist%[1];
+		View(DataView%);
+	endif
+endif
+
+
+nchs% := ChanList(chs%[], 32);		' the '32' tells spike2 we want just text mark channels.
+if nchs% <> 1 then
+	Message("Hmmm. There seems to be " + str$(nchs%) + " textmark channels in this data file. Expecting just 1...");
+	halt;
+else
+	TChannel% := chs%[1];
+endif
+
+' Get filename 
+var f$, ext$, base$, add$;
+f$ := View(DataView%).FileName$(0);
+ext$ := View(DataView%).FileName$(5);
+base$ := Left$(f$, InStr(f$, ext$)-1);
+
+
+' Get data channel from user. If they hit Cancel, exit immediately.
+DlgCreate("Select spike channel");
+DlgChan(1, "Channel", 16);
+DlgString(2, "File label", 8);
+if DlgShow(DChannel%, add$) = 0 then
+	halt;
+endif
+
+' Form output filename and open it
+if (Len(add$)>0) then
+	outfile$ := base$ + "-" + add$ + ".txt";
+else
+	outfile$ := base$ + ".txt";
+endif
+PrintLog("Output filename is " + outfile$ + "\n");
+
+View(DataView%);
+while iDone% = 0 do
+
+	tNext := NextTime(TChannel%, tLast, code%, sText$);
+	if tNext >= 0 then
+		docase 
+		case iSeekState% = iSeekINIT% then
+			if InStr(sText$, "INIT") > 0 then
+				iSeekState% := iSeekA%;
+			endif
+		case iSeekState% = iSeekA% then
+			iLocation% := InStr(sText$, "A");
+			if (iLocation% > 0) then
+				tSegmentStart := tNext;
+				iSeekState% := iSeekZF%;
+				sText$ := DelStr$(sText$, iLocation%, 1);
+				' Read the segment number and the number of frames from what remains of the text mark
+				ReadStr(sText$, iReadSegment%, iReadFrames%);
+				if iReadSegment% = iExpectingSegment% then
+					iExpectingFrames% := iReadFrames%;
+				else
+					PrintLog("ERROR: Expecting segment " + str$(iExpectingSegment%) + " found segment " + str$(iReadSegment%) + "\n");
+				endif
+			endif
+		case iSeekState% = iSeekZF% then
+			iLocation% := InStr(sText$, "Z");
+			if (iLocation% > 0) then
+				tSegmentEnd := tNext;
+				PrintLog("Extracting segment " + str$(iExpectingSegment%) + " nspikes=" + str$(nspikes%) + "\n");
+				ExtractCounts%(tSegmentStart, tSegmentEnd, iExpectingFrames%, FChannel%, DChannel%);
+				iExpectingSegment% += 1;
+				iSeekState% := iSeekA%;
+			endif
+
+			iLocation% := InStr(sText$, "F");
+			if (iLocation% > 0) then
+				iSeekState% := iSeekA%;
+			endif
+		else
+			PrintLog("ERROR: Unknown text mark found in data: " + sText$ + "\n");
+		endcase;
+
+		tLast := tNext;
+	else
+		iDone% := 1;
+	endif
+wend;
+
+
+var i%;
+PrintLog("N=" + str$(nspikes%) + "\n");
+OutputHandle% := FileOpen(outfile$, 8, 1);
+for i% := 0 to nspikes%-1 do
+	Print("%d\n", spikes%[i%]);
+next;
+FileClose(OutputHandle%);
+
+
+' There should be inum% frame triggers between t1 and t2 on channel fchan%. 
+func ExtractCounts%(t1, t2, inum%, fchan%, dchan%)
+var ireturn% := 1;
+var icount%;
+var ispikes%;
+var tLastTrigger;
+var tNextTrigger;
+var tFirst;
+var savedView%;
+
+icount% := Count(fchan%, t1, t2);
+if icount% <> inum%+1 then
+	PrintLog("ERROR: Expecting " + str$(inum%+1) + " frames. Found " + str$(icount%) + "\n");
+	ireturn% := -1;
+else
+	' Extract frame-by-frame counts
+	tLastTrigger := t1;
+	tNextTrigger := NextTime(fchan%, tLastTrigger);
+	tLastTrigger := tNextTrigger;	' this is now the start of the first frame
+	tFirst := tNextTrigger;			' uh, this is too. 
+	for icount% := 1 to inum% do
+		tNextTrigger := NextTime(fchan%, tLastTrigger);
+		' Extract counts from dchan%. 
+		' Frame icount% lies between tLastTrigger and tNextTrigger.
+		spikes%[nspikes%] := Count(dchan%, tLastTrigger, tNextTrigger);
+		nspikes% += 1;
+		tLastTrigger := tNextTrigger;
+	next;
+
+endif
+
+View(savedView%);
+
+return ireturn%;
+end;
+
