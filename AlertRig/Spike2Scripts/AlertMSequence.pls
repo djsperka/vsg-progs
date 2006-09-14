@@ -1,9 +1,4 @@
-; $Log: not supported by cvs2svn $
-; Revision 1.2  2006/09/01 21:57:25  dan
-; *** empty log message ***
-;
-; Revision 1.1  2006/04/11 01:29:25  dan
-; *** empty log message ***
+; $Id: AlertMSequence.pls,v 1.4 2006-09-14 18:31:55 dan Exp $
 ;
 ;
 
