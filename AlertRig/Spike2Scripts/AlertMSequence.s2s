@@ -1,4 +1,7 @@
 ' $Log: not supported by cvs2svn $
+' Revision 1.10  2006/09/12 19:17:44  dan
+' alertmseq.exe added extra trigger at the STOP page, so I adjusted the trigger counting so the script will correctly identify the end of the segment.
+'
 ' Revision 1.9  2006/09/12 00:36:04  dan
 ' Added functionality, analysis of per-frame counts nearly complete.
 '
@@ -566,6 +569,7 @@ const stateInterval%		:= 9;
 const stateDone%		:= 10;
 const stateVSGWait%:=10;		' wait for vsg to send ready signal #1
 const stateVSGWaitConfirm%:=11;		' waif for vsg to send ready signal #2
+const stateAdvance% :=12;				' Extra state to advance stimulus
 
 
 var tNow:=0;		' latest time for which there are values recorded. Used in IdleProcessing
@@ -747,9 +751,17 @@ func IdleProcessing%()
 
 		case iState% = stateSuccess% then
 
-			PrintLog("StateSuccess - advance sequence.\n");
+			PrintLog("StateSuccess - reward.\n");
 			nTrialsSuccess% += 1;
 			Reward%();
+			iState% := stateAdvance%;
+
+		' djs Split stateSuccess into two states. The reward call takes a finite amount of time. Previously we took the start of the msequence
+		' segment to be the 'tNow' from this state. Well, since we're seeing crosstalk on the frame channel, and since the counting of frames
+		' uses the tNow as its start point, the crosstalk events are counted as frames. There's no clean way to get around this without 
+		' splitting the state in two. Now stateSuccess% is entirely devoted to reward, and stateAdvance% is devoted to advancing the stimulus. 
+
+		case iState% = stateAdvance% then
 
 			' Advance segment. The func will return 0 if the entire msequence is completed. 
 			' SegmentManage(iAdvanceSegmentStart%)
