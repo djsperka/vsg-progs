@@ -463,9 +463,13 @@ int alert::ARvsg::init_overlay()
 		}
 		else
 		{
+			int npages = vsgGetSystemAttribute(vsgNUMOVERLAYPAGES);
+			// Get the number of overlay pages, then clear them all. 
 			vsgPaletteWriteOverlayCols((VSGLUTBUFFER*)&background, 1, 1);
-			vsgSetDrawPage(vsgOVERLAYPAGE, 1, 1);
-			vsgSetDrawPage(vsgOVERLAYPAGE, 0, 1);
+			for (int i=npages-1; i>=0; i--)
+			{
+				vsgSetDrawPage(vsgOVERLAYPAGE, i, 1);
+			}
 		}
 	}
 	return status;
