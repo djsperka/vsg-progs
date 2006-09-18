@@ -1,4 +1,7 @@
 ' $Log: not supported by cvs2svn $
+' Revision 1.11  2006/09/14 21:40:15  dan
+' Split stateSuccess into two states. StateSuccess issues reward, and a second state called stateAdvance that deals with advancing the stimulus. This is needed on littleal were we're seeing juice signals on the frame trigger line. When these states were combined we used 'tNow' -- the time PRIOR to the start of the state -- as the start time for counting frame triggers. Since that time was prior to the reward, the reward crosstalk was getting counted, and consequently the frame counts were off.
+'
 ' Revision 1.10  2006/09/12 19:17:44  dan
 ' alertmseq.exe added extra trigger at the STOP page, so I adjusted the trigger counting so the script will correctly identify the end of the segment.
 '
@@ -996,18 +999,18 @@ end;
 proc DrawStim(iDraw%)
 
 	if iDraw% > 0 then
-		var xstim:=0, ystim:=0;
+'		var xstim:=0, ystim:=0;
 '		xstim := GetStimX();
 '		ystim := GetStimY();
 
 		' Draw stimulus in xy window
-		View(XYWindow%).XYAddData(iStimChannel%, xstim, ystim);
+		View(XYWindow%).XYAddData(iStimChannel%, FixationX, FixationY);
 	
 		' draw fixation window
 		ArrConst(windowX[], FixWindowX[]);
-		ArrAdd(windowX[], xstim);
+		ArrAdd(windowX[], FixationX);
 		ArrConst(windowY[], FixWindowY[]);
-		ArrAdd(windowY[], ystim);
+		ArrAdd(windowY[], FixationY);
 
 		View(XYWindow%).XYAddData(iStimWindowChannel%, windowX[], windowY[]);		
 	else 
@@ -1172,11 +1175,11 @@ end;
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 func InFixationWindow%(EyePosX,EyePosY)
 	var i% := 0;
-	var xstim:=0, ystim:=0;
+'	var xstim:=0, ystim:=0;
 '	xstim := GetStimX();
 '	ystim := GetStimY();
 	'Determine if the eye position is within the fixation window
-	if (Pow(EyePosX-xstim, 2) + Pow(EyePosY-ystim, 2)) <= Pow(WindowRadius,2) then 
+	if (Pow(EyePosX-FixationX, 2) + Pow(EyePosY-FixationY, 2)) <= Pow(WindowRadius,2) then 
 		i% := 1;
 	endif
 	return i%;
