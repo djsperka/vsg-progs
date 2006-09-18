@@ -66,6 +66,9 @@ int arutil_draw_grating_fullscreen(ARGratingSpec& gr, int videoPage)
 		// set temporal freq
 		vsgObjSetDriftVelocity(gr.tf);
 
+		// Set contrast
+		vsgObjSetContrast(gr.contrast);
+
 		// set color vector
 		if (get_colorvector(gr.cv, from, to))
 		{
