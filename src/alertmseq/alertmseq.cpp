@@ -184,6 +184,12 @@ int main(int argc, char **argv)
 
 	// Init vsg card
 	istatus = vsgInit("");
+	if (istatus)
+	{
+		cerr << "Error in vsgInit. Another VSG program may be running!" << endl;
+		return 1;
+	}
+
 
 
 	// check args
