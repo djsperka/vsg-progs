@@ -1,4 +1,4 @@
-' $Id: AlertMSequence.s2s,v 1.13 2006-09-18 18:53:50 dan Exp $
+' $Id: AlertMSequence.s2s,v 1.14 2006-09-18 19:13:30 dan Exp $
 
 '========================================================================
 '
@@ -1134,6 +1134,9 @@ func Stop%()
 	Yield(.1);
 	SampleStop();
 	ProgKill(StimHandle%);
+	while ProgStatus(StimHandle%) > 0 do
+		Yield();
+	wend
 	ProgRun(bin$ + "\\ClearTrigger",0);
 
 end;

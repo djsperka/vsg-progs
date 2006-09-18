@@ -1,4 +1,7 @@
 ' $Log: not supported by cvs2svn $
+' Revision 1.13  2006/04/12 00:23:31  dan
+' Moved vsg trigger to port 2
+'
 ' Revision 1.12  2006/04/11 00:22:11  dan
 ' Changed to use release version of fixation program.
 '
@@ -1121,6 +1124,9 @@ func Stop%()
 	Yield(.1);
 	SampleStop();
 	ProgKill(StimHandle%);
+	while ProgStatus(StimHandle%) > 0 do
+		Yield();
+	wend
 	ProgRun(bin$ + "\\ClearTrigger",0);
 
 	' Increment daily totals and save then
