@@ -327,7 +327,7 @@ void init_pages_area()
 	}
 
 
-	// initialize video pages
+	// initialize overlay pages
 	if (ARvsg::instance().init_overlay())
 	{
 		cerr << "VSG overlay initialization failed!" << endl;
