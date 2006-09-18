@@ -1,4 +1,7 @@
 ' $Log: not supported by cvs2svn $
+' Revision 1.19  2006/09/08 02:13:43  dan
+' Changed maxTF to 64.
+'
 ' Revision 1.18  2006/04/24 22:09:41  dan
 ' Modify sequencer "X" to only modify F/S bits. Change script to use release version of Tuning.exe app.
 '
@@ -1521,7 +1524,10 @@ func Stop%()
 	SampleStop();
 
 	ProgKill(StimHandle%);
-'	ProgRun(bin$ + "\\ClearTrigger",0);
+	while ProgStatus(StimHandle%) > 0 do
+		Yield();
+	wend
+	ProgRun(bin$ + "\\ClearTrigger",0);
 
 	' Write parameter file
 	WriteParameterFile();
