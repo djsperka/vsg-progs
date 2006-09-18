@@ -1,4 +1,7 @@
 ' $Log: not supported by cvs2svn $
+' Revision 1.7  2006/02/08 22:34:17  dan
+' Allow modification of xy axes during data aquisition
+'
 ' Revision 1.6  2006/02/08 21:55:38  dan
 ' Changed to use tuning curve fixation/reward state logic. The parameters are controlled by the tuning curve parameters.
 '
@@ -43,6 +46,96 @@ end;
 '	Get Current configuration END
 '
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+'	Data parameters START
+'
+'	Vars that control where data is stored. 
+'
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+var dataPathRoot$;		' base path for data storage
+var dataDataSet$;		' folder under data path where data files placed
+var dataCellName$;		' part of base name for all data files
+var dataDataSetTextItem%;	' 
+
+proc GetDataParameters()
+	var stmp$;
+	var key$;
+
+	key$:="AlertRig\\Data";
+
+	Profile(key$, "PathRoot", "C:\\Experiments", dataPathRoot$);
+	Profile(key$, "DataSet", "", dataDataSet$);
+	Profile(key$, "CellName", "", dataCellName$);
+	return;
+end;
+
+proc SaveDataParameters()
+	var stmp$;
+	var key$;
+
+	key$:="AlertRig\\Data";
+
+	Profile(key$, "PathRoot", dataPathRoot$);
+	Profile(key$, "DataSet", dataDataSet$);
+	Profile(key$, "CellName", dataCellName$);
+	return;
+end;
+
+func DataParametersDialog%()
+	var i%;
+	GetDataParameters();
+	DlgCreate("Data Storage Parameters", 25, 10, 50);
+	DlgText("Data root path: " + dataPathRoot$, 0, 1);
+	dataDataSetTextItem% := DlgText("Data set name: " + dataDataSet$, 0, 2);
+	DlgString(1, "Cell name:", 10, "", 0, 3);
+        DlgButton(2, "New Data Set", NewDataSet%);
+	i% := DlgShow(dataCellName$);
+	if (i% = 1) then
+		if Len(dataDataSet$) = 0 then
+			Message("Must specify a data set (try the button!)");
+		else
+			if Len(dataCellName$) = 0 then
+				Message("Must specify a cell name");
+			else
+				FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 3, 1);
+				SaveDataParameters();
+			endif;
+		endif;
+	endif;
+	return i%;
+end;
+
+
+func NewDataSet%()
+	var d$;
+	var i%;
+	var dirs$[100];	' if there are ever more than 100 datasets in a single day there will be trouble
+	d$ := Date$(2, 2, 3, 3, "-");
+	PrintLog("NewDataSet: date string = " + d$ + "\n");
+
+	' Change current dir to data path root, then get list of subdirs with this date string
+	PrintLog("NewDataSet: dataPathRoot$=" + dataPathRoot$ + "\n");
+	FilePathSet(dataPathRoot$, 0, 1);
+	i% := FileList(dirs$, -2, d$ + "-??");
+        PrintLog("NewDataSet: found " + str$(i%) + " dirs\n");
+
+	' form new dataset name. The first will have "-01" appended, the second "-02", etc. 
+	dataDataSet$ := Print$("%s-%02d", d$, i%+1);
+	PrintLog("NewDataSet: dataset= " + dataDataSet$ + "\n");
+	DlgValue$(dataDataSetTextItem%, "Data set name: " + dataDataSet$);
+	return 1;
+end;
+
+
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+' Data parameters END
+'
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
 
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
@@ -361,7 +454,24 @@ GetDailyTotals();
 GetDAQParameters();
 GetFixationPointParameters();
 GetTuningCurveScriptParameters();
-'GetDataParameters();
+GetDataParameters();
+
+' Check for valid data file path
+if Len(dataDataSet$) = 0 then
+	Message("No data set is selected! Edit Data parameters...");
+	' Might be nice to open the dialog here....
+	halt;
+else 
+	' Set path for new data files
+	FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 3, 1);
+	FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 1, 1);
+	SampleAutoName$(dataCellName$ + "_cm_000");
+	SampleAutoFile(1);
+	PrintLog("dataPathRoot=" + dataPathRoot$ + "\n");
+	PrintLog("dataDataSet=" + dataDataSet$ + "\n");
+	PrintLog("AutoFile status " + str$(SampleAutoFile()) + "\n");
+endif
+
 
 
 ' Assign channel numbers for eye X,Y and trigger. 
@@ -562,7 +672,7 @@ end;
 proc CreateSampleConfiguration()
 	var index;
 	SampleClear(); 'Set standard sampling state
-'	SampleAutoFile(0); 'Enable automatic file naming
+	SampleAutoFile(0); 'Enable automatic file naming
 '	SampleAutoComment(0); 'Prompt for comment after sampling
 '	SampleAutoCommit(60); 'Seconds between each file commit
 
