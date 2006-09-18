@@ -864,6 +864,9 @@ func Stop%()
 	Yield(.1);
 	SampleStop();
 	ProgKill(StimHandle%);
+	while ProgStatus(StimHandle%) > 0 do
+		Yield();
+	wend
 	ProgRun(bin$ + "\\ClearTrigger",0);
 
 end;

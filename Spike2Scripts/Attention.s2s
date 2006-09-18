@@ -1,4 +1,7 @@
 ' $Log: not supported by cvs2svn $
+' Revision 1.8  2005/09/09 23:06:25  dan
+' Fixed bug in VSG ready/confirm cycle, where the confirm trigger could be missed, leading to a stuck script, no stimuli, etc.
+'
 ' Revision 1.7  2005/05/03 00:06:04  dan
 ' Corrected bug in automatic file saving.
 '
@@ -1229,6 +1232,9 @@ func Stop%()
 	Yield(.1);
 	SampleStop();
 	ProgKill(StimHandle%);
+	while ProgStatus(StimHandle%) > 0 do
+		Yield();
+	wend
 	ProgRun(bin$ + "\\ClearTrigger",0);
 
 	' Increment daily totals and save then
