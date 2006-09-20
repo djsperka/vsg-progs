@@ -1,0 +1,108 @@
+' Look for rising events in channel 6 - that's the stim channel. "S" is issued once we
+' have acquisition. The rising event in channel 6 is the vsg trig when the stim appears. 
+
+' The stim is turned off when fixation is broken. At that point SampleKey "X" is issued. 
+' Look for that sample key in the keyboard channel. 
+
+
+var WChannel% := 9;
+var StimChannel% := 6;
+var tStimOnset := -1;
+var tLast := -1;
+var vTrigger := 0;
+var tStimOnsetCounter% := 0;
+var GoodTrialCounter% := 0;
+var BadTrialCounter% := 0;
+var nProcessed%;
+var cdata[2400];
+var tdone% := 0;
+var i%;
+
+var DataWindowHandle%;
+var AvgWindowHandle%;
+var HistViewHandle%;
+
+DataWindowHandle% := View();
+if ViewKind(DataWindowHandle%) <> 0 then
+	Message("Data window must be current view\n");
+	halt;
+endif
+
+AvgWindowHandle% := SetAverage(WChannel%, 2400, 0.2, 0, 0);	' last arg=1 for avg
+WindowVisible(1);
+PrintLog("Avghandle=" + str$(AvgWindowHandle%) + "\n");
+
+View(DataWindowHandle%);
+tStimOnset := NextTime(StimChannel%, tLast, vTrigger);
+while tStimOnset >= tLast do
+
+	if vtrigger = 0 then
+'		PrintLog("Found stim onset at " + str$(tStimOnset) + "\n");
+		tStimOnsetCounter% += 1;
+
+		' Now did the X appear within 1 second of the stim onset? 
+		if FindXMarker(tStimOnset-.2, tStimOnset+1) = 0 then
+'			PrintLog("No X found\n");
+			GoodTrialCounter% += 1;
+
+			if tdone% = 0 then
+				ChanData(WChannel%, cdata[], tStimOnset-.2, tStimOnset+1);
+				for i% := 0 to 2399 do
+					PrintLog(str$(cdata[i%]) + "\n");
+				next;
+				tdone% := 1;
+			endif
+
+
+			' now we have a good trial, at stim onset 'tStimOnset'. 
+			' Next we want to bin the waveform data for the period 200ms prior to the 
+			' onset and the 1 s after the onset
+			nProcessed% := Process(tStimOnset, tStimOnset+1);
+'			PrintLog("Processed " + str$(nProcessed%) + " items\n");
+		else
+'			PrintLog("X found!!!\n");
+			BadTrialCounter% += 1;
+		endif
+
+		
+		
+	endif
+
+	tLast := tStimOnset;
+	tStimOnset := NextTime(StimChannel%, tLast, vTrigger);
+
+wend
+
+PrintLog("Found " + str$(tStimOnsetCounter%) + " stim onsets\n");
+
+
+
+func FindXMarker(t1, t2)
+
+	var codes%[4];
+	var MarkerChannel% := 31;
+	var ifound% := 0;
+	var i% := 0;
+	var status%;
+	var tfound;
+	var tlast;
+	var code$;
+
+	tfound := NextTime(MarkerChannel%, t1, codes%[]);
+	while tfound <= t2 and ifound% = 0 do
+
+		code$ := chr$(codes%[0]);
+		if code$ = "X" then
+'			PrintLog("Sorry, found X at t=" + str$(tfound) + "\n");
+			ifound% := 1;
+		else
+'			PrintLog("codes[0]=" + code$ + "\n");
+		endif
+		tlast := tfound;
+		tfound := NextTime(MarkerChannel%, tlast, codes%[]);
+
+	wend
+	return ifound%;
+end
+
+
