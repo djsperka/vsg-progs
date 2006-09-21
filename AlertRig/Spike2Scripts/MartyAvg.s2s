@@ -28,7 +28,7 @@ if ViewKind(DataWindowHandle%) <> 0 then
 	halt;
 endif
 
-AvgWindowHandle% := SetAverage(WChannel%, 2400, 0.2, 0, 0);	' last arg=1 for avg
+AvgWindowHandle% := SetAverage(WChannel%, 2400, 0.2, 0, 1);	' last arg=1 for avg
 WindowVisible(1);
 PrintLog("Avghandle=" + str$(AvgWindowHandle%) + "\n");
 
@@ -45,20 +45,11 @@ while tStimOnset >= tLast do
 '			PrintLog("No X found\n");
 			GoodTrialCounter% += 1;
 
-			if tdone% = 0 then
-				ChanData(WChannel%, cdata[], tStimOnset-.2, tStimOnset+1);
-				for i% := 0 to 2399 do
-					PrintLog(str$(cdata[i%]) + "\n");
-				next;
-				tdone% := 1;
-			endif
-
-
 			' now we have a good trial, at stim onset 'tStimOnset'. 
 			' Next we want to bin the waveform data for the period 200ms prior to the 
 			' onset and the 1 s after the onset
-			nProcessed% := Process(tStimOnset, tStimOnset+1);
-'			PrintLog("Processed " + str$(nProcessed%) + " items\n");
+			nProcessed% := View(AvgWindowHandle%).Process(tStimOnset, tStimOnset+1);
+			PrintLog("Processed " + str$(nProcessed%) + " items\n");
 		else
 '			PrintLog("X found!!!\n");
 			BadTrialCounter% += 1;
@@ -74,7 +65,7 @@ while tStimOnset >= tLast do
 wend
 
 PrintLog("Found " + str$(tStimOnsetCounter%) + " stim onsets\n");
-
+PrintLog("Good/bad trials: " + str$(GoodTrialCounter%) + "/" + str$(BadTrialCounter%) + "\n");
 
 
 func FindXMarker(t1, t2)
