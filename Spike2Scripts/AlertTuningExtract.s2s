@@ -11,8 +11,13 @@ var ChgChannel%;
 var KeyboardChannel% := 31;
 var SpikeMarker%;
 
+'''''' CHANGE HERE '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
-BatchFile% := FileOpen("E:\\Documents and Settings\\dan\\Desktop\\spike2ana\\list.txt",8,0);
+' Change this line to reflect the location of your list file. 
+BatchFile% := FileOpen("c:\\dev\\data\\spike2ana\\list.txt",8,0);
+
+'''''' NO CHANGES BELOW THIS LINE! '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
 while iKeepGoing% do
 
 	View(BatchFile%);
@@ -28,12 +33,11 @@ while iKeepGoing% do
 			DataChannel% := val(ta3$);		' The channel where the data is is third on the line
 			StimChannel% := val(ta4$);		' channel where we see stim triggers from vsg
 			ChgChannel% := val(ta5$);		' Channel where "stim changed" triggers is seen
+			OutputFile% := FileOpen(ExpDir$ + "SpikeTimes\\" + BaseFileName$+ ".trt" +Str$(DataChannel%)+Str$(SpikeMarker%),8,1);
 			DataFile% := FileOpen(ExpDir$ + "DataFiles\\" + BaseFileName$ + ".smr",0,1);
 			PrintLog("datafile=" + str$(DataFile%) + "\n");
-		'	message(ExpDir$ + "DataFiles\\" + BaseFileName$ + ".smr");
 			View(DataFile%);
 
-			OutputFile% := FileOpen(ExpDir$ + "SpikeTimes\\" + BaseFileName$+ ".trt" +Str$(DataChannel%)+Str$(SpikeMarker%),8,1);
 
 			' Strategy is thus: Scan keyboard channel for "S". That is the request to bring up the stim. 
 			' A successful trial is one where we find the "s" before an "X" is found. The "X" indicates trial aborted 
@@ -43,6 +47,49 @@ while iKeepGoing% do
 			' Use the "a" key to count the advance of the stimulus - its not used in the output at all, however it might
 			' be useful to count it anyways....
 
+			var tStimUpRequest, tStimDownRequest;	' the times that the "S" and "s" sample keys are at for a given trial
+			var t1, t2;										' the corresponding times for the actual trigger responses from the vsg
+			var tStartSearch := -1;
+			var ival%;										' return value from funcs
+			var iContinue% := 1;							' When this is set to 0 we exit the loop. 
+
+			while iContinue% do
+
+				' Get an "S"
+				tStimUpRequest := NextSampleKey("S", tStartSearch);
+				if (tStimUpRequest >= 0) then
+
+					' Find a subsequent "s" (successful trial) or "X" (fail/abort)
+					ival% := NextSampleKeyOr%("s", "X", tStimUpRequest, tStimDownRequest);
+					docase 
+						case ival% = 1 then
+							' Successful trial, get trigger times and write to output file
+							t1 := NextTriggerTransition(StimChannel%, tStimUpRequest, 0);
+							t2 := NextTriggerTransition(StimChannel%, tStimDownRequest, 1);
+							if (t1 >=0 and t2>= 0) then
+								' t1 and t2 are the trigger times we need. Write to output file
+								View(OutputFile%).Print("%.4f\n%.4f\n", t1, t2);
+								View(DataFile%);
+								tStartSearch := t2;
+							else
+								' This shouldn't happen, but it did. The stim triggers _requests_ were found, but the corresponding 
+								' trigger responses were not found! 
+								PrintLog("Stim requests at " + str$(tStimUpRequest) + "/" + str$(tStimDownRequest) + " did not have corresponding triggers in StimChannel!\n");
+								iContinue% := 0;
+							endif
+						case ival% = 2 then
+							' failed trial. Set start search time to the X time
+							tStartSearch := tStimDownRequest;
+						else
+							' end of data reached
+							iContinue% := 0;
+					endcase;
+				else
+					' No "S" triggers found. End of data. 
+					iContinue% := 0;
+				endif
+			wend
+
 			' Close output file
 			View(OutputFile%);
 			FileClose(0, -1);
@@ -51,7 +98,6 @@ while iKeepGoing% do
 			View(DataFile%);
 			FileClose(0, -1);
 		endif
-
 	endif
 wend
 
@@ -102,17 +148,50 @@ func NextSampleKeyOr%(key1$, key2$, tstart, &tfound)
 	t := NextTime(31, tlast, code%[]);
 	while (t >= 0 and iBreak%=0) do
 		PrintLog("Found " + Chr$(code%[0]) + " at " + str$(t) + "\n");
-		if Chr$(code%[0]) = key1$ then
-			PrintLog("Found " + key$ + " at " + str$(t) + "\n");
+		docase
+			case Chr$(code%[0]) = key1$ then
+				PrintLog("Found key1: " + key1$ + " at " + str$(t) + "\n");
+				tfound := t;
+				iBreak% := 1;
+				ireturn% := 1;
+			case Chr$(code%[0]) = key2$ then
+				PrintLog("Found key2: " + key2$ + " at " + str$(t) + "\n");
+				tfound := t;
+				iBreak% := 1;
+				ireturn% := 2;
+			else
+				tlast := t;
+				t := NextTime(keychan%, tlast, code%[]);
+		endcase;
+	wend
+	return ireturn%;
+end
+
+
+
+' Given a channel (a trigger channel) and a start time, find the next trigger transition in that channel with the 
+' transition value 'transval'. The transval value should be 0 (1) for a positive-going (negative-going) transition. 
+' Returns the time of the trigger, or -1 if no such trigger found. 
+
+func NextTriggerTransition(chan%, tstart, transval)
+	var t, tlast;
+	var iBreak% := 0;
+	var transition;
+	var tfound := -1;
+
+	tlast := tstart;
+	t := NextTime(chan%, tlast, transition);
+	while (t >= 0 and iBreak%=0) do
+		PrintLog("Found trans " + str$(transition) + " at " + str$(t) + "\n");
+		if (transition = transval) then
 			tfound := t;
 			iBreak% := 1;
 		else
 			tlast := t;
-			t := NextTime(keychan%, tlast, code%[]);
+			t := NextTime(chan%, tlast, transition);
 	   endif
 	wend
 	return tfound;
 end
-
 
 
