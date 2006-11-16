@@ -32,7 +32,20 @@ int main(int argc, char **argv)
 
 	// Init vsg card
 	istatus = vsgInit("");
+	if (istatus < 0)
+	{
+		cerr << "Error in vsgInit: " << istatus << endl;
+		return 1;
+	}
 
+
+	cout << "Hit enter";
+	cin >> s;
+	return 0;
+}
+
+
+#if 0
 
 	// setup vsg
 	vsgSetDrawOrigin(0,0);
@@ -145,3 +158,5 @@ int main(int argc, char **argv)
 
 	return 0;
 }
+
+#endif
