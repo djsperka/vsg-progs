@@ -333,6 +333,40 @@ int parse_contrast_triplet(std::string s, int& i_iContrastDown, int& i_iContrast
 }
 
 
+int parse_int_pair(std::string s, int& i_i1, int& i_i2)
+{
+	int status=0;
+	vector<string> tokens;
+	tokenize(s, tokens, ",");
+	if (tokens.size() != 2)
+	{
+		cerr << "Bad format: " << s << endl;
+		status=1;
+	}
+	else
+	{
+		istringstream iss;
+		iss.str(tokens[0]);
+		iss >> i_i1;
+		if (!iss) 
+		{
+			cerr << "bad int: " << tokens[0] << endl;
+			status=1;
+		}
+		iss.str(tokens[1]);
+		iss.clear();
+		iss >> i_i2;
+		if (!iss) 
+		{
+			cerr << "bad int: " << tokens[1] << endl;
+			status=1;
+		}
+	}
+	return status;
+}
+
+
+
 int parse_tuning_triplet(std::string s, double& i_dMin, double& i_dMax, int& i_iSteps)
 {
 	int status=0;

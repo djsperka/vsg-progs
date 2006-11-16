@@ -43,6 +43,7 @@ int parse_distance(std::string s, int& dist);
 int parse_integer(std::string s, int& i);
 int parse_double(std::string s, double& d);
 int parse_contrast_triplet(std::string s, int& i_iContrastDown, int& i_iContrastBase, int& i_iContrastUp);
+int parse_int_pair(std::string s, int& i_i1, int& i_i2);
 int parse_tuning_triplet(std::string s, double& i_dMin, double& i_dMax, int& i_iSteps);
 int parse_tuning_list(std::string s, std::vector<double>& tuning_list, int& i_iSteps);
 int parse_xy(std::string s, double& x, double& y);

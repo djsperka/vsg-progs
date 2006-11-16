@@ -63,6 +63,21 @@ Package=<4>
 
 ###############################################################################
 
+Project: "ContrastReverse"=.\ContrastReverse\ContrastReverse.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name alertlib
+    End Project Dependency
+}}}
+
+###############################################################################
+
 Project: "CoolMouse"=.\CoolMouse\CoolMouse.dsp - Package Owner=<4>
 
 Package=<5>
