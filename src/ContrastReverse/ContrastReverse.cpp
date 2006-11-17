@@ -311,8 +311,6 @@ void prepareOverlay()
 
 void prepareVideo()
 {
-	vsgSetCommand(vsgVIDEOCLEAR);
-
 	// First video page has grating, second has grating with reversed contrast
 	arutil_draw_grating(f_grating0, 0);
 
@@ -324,9 +322,12 @@ void prepareCycling()
 {
 	int i;
 	int iPage;
+
+	cout << "prepareCycling, l=" << f_iSegmentLength << endl;
 	for (i=0; i<f_iSegmentLength; i++)
 	{
 		iPage = (f_sequence[i] == '1') ? 1 : 0;
+		cout << iPage << " ";
 		MPositions[i].Page = iPage + vsgDUALPAGE + vsgTRIGGERPAGE;
 		MPositions[i].Frames=f_iFramesPerTerm;
 		MPositions[i].Stop=0;
@@ -334,6 +335,7 @@ void prepareCycling()
 		MPositions[i].ovXpos=0;
 		MPositions[i].ovYpos=0;
 	}
+	cout << endl;
 
 	
 	MPositions[f_iSegmentLength].Stop=1;
@@ -356,6 +358,10 @@ void init_triggers()
 	triggers.addTrigger(new CallbackTrigger("D", 0x10, 0x10, 0x10, 0x10 | AR_TRIGGER_TOGGLE, callback));
 	triggers.addTrigger(new QuitTrigger("q", 0x80, 0x80, 0xff, 0x0, 0));
 
+	// these are for testing
+	triggers.addTrigger(new CallbackTrigger("0", 0x20, 0x20 | AR_TRIGGER_TOGGLE, 0x20, 0x20 | AR_TRIGGER_TOGGLE, callback));
+	triggers.addTrigger(new CallbackTrigger("1", 0x40, 0x40 | AR_TRIGGER_TOGGLE, 0x40, 0x40 | AR_TRIGGER_TOGGLE, callback));
+
 
 		// Dump triggers
 	std::cout << "Triggers:" << std::endl;
@@ -376,6 +382,7 @@ bool segStart()
 	bool bvalue = true;
 
 	cout << "Start segment!" << endl;
+	vsgSetCommand(vsgVIDEODRIFT + vsgOVERLAYDRIFT);
 	vsgSetCommand(vsgCYCLEPAGEENABLE);
 
 	return bvalue;
@@ -419,7 +426,12 @@ bool blankPage()
 	return bvalue;
 }
 
-
+bool showPage(int iPage)
+{
+	vsgSetZoneDisplayPage(vsgVIDEOPAGE, iPage);
+	vsgSetZoneDisplayPage(vsgOVERLAYPAGE, OVERLAY_DOT_APERTURE_PAGE);
+	return true;
+}
 
 // The return value from this trigger callback determines whether a vsgPresent() is issued. 
 // triggers
@@ -444,6 +456,14 @@ int callback(int &output, const CallbackTrigger* ptrig)
 	else if (key == "D")
 	{
 		dotOnly();
+	}
+	else if (key == "0")
+	{
+		showPage(0);
+	}
+	else if (key == "1")
+	{
+		showPage(1);
 	}
 	else 
 	{
@@ -476,11 +496,6 @@ int main(int argc, char **argv)
 	}
 
 
-	f_grating0.init(50);
-	f_grating1.init(50);
-
-
-
 	// Issue "ready" triggers to spike2.
 	// These commands pulse spike2 port 6. 
 	vsgObjCreate();
@@ -493,14 +508,10 @@ int main(int argc, char **argv)
 	vsgSetCommand(vsgDISABLELUTANIM);
 
 
-	
-	vsgSetCommand(vsgPALETTERAMP);
+	f_grating0.init(50);
+	f_grating1.init(50);
+
 	vsgSetCommand(vsgOVERLAYMASKMODE);		// makes overlay pages visible
-
-
-	cout << "There are " << vsgGetSystemAttribute(vsgNUMOVERLAYPAGES) << " overlay pages" << endl;
-	cout << "There are " << vsgGetSystemAttribute(vsgNUMVIDEOPAGES) << " video pages" << endl;
-
 
 	// Now draw pages.....
 	prepareOverlay();
