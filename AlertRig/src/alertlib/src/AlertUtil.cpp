@@ -85,7 +85,7 @@ int arutil_draw_grating_fullscreen(ARGratingSpec& gr, int videoPage)
 
 		// Now draw
 		vsgSetDrawMode(vsgCENTREXY);
-		vsgDrawGrating(gr.x, gr.y, 2*dWidth, 2*dHeight, gr.orientation, gr.sf);
+		vsgDrawGrating(gr.x, -gr.y, 2*dWidth, 2*dHeight, gr.orientation, gr.sf);
 	}
 	else status = -1;
 	return status;
@@ -135,7 +135,7 @@ int arutil_draw_grating(ARGratingSpec& gr, int videoPage)
 		vsgObjSetColourVector(&from, &to, vsgBIPOLAR);
 
 		// Now draw
-		vsgDrawGrating(gr.x, gr.y, gr.w, gr.h, gr.orientation, gr.sf);
+		vsgDrawGrating(gr.x, -gr.y, gr.w, gr.h, gr.orientation, gr.sf);
 	}
 	else status = -1;
 	return status;
