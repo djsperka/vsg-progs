@@ -795,6 +795,92 @@ end;
 
 
 
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+'	Contrast Reverse Grating script parameters START
+'
+'	Vars that control the contrast reverse grating script. 
+'
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+var crgFixationDuration;			' Time required to maintain fixation, seconds
+var crgAcquisitionTime;			' Time allowed to acquire target before fail trial, seconds
+var crgInterTrialTime;			' Blank time following a trial (both successful and failed), seconds
+var crgSegmentLength%;			' Terms in a segment of the msequence
+var crgFramesPerTerm%;			' frames that each msequence term is shown
+var crgContrast%;			' High contrast value
+var crgSF;							' spatial frequency (not necessarily same as that in stimulus)
+var crgDiameter;					' aperture diameter
+
+proc GetCRGScriptParameters()
+	var stmp$;
+	var key$;
+
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\ContrastReverse";
+
+	Profile(key$, "FixationDuration", "1.0", stmp$);
+	crgFixationDuration := val(stmp$);
+
+	Profile(key$, "AcquisitionTime", "1.0", stmp$);
+	crgAcquisitionTime := val(stmp$);
+
+	Profile(key$, "InterTrialTime", "1.0", stmp$);
+	crgInterTrialTime := val(stmp$);
+
+	Profile(key$, "SegmentLength", 100, crgSegmentLength%);
+	Profile(key$, "FramesPerTerm", 1, crgFramesPerTerm%);
+	Profile(key$, "Contrast", 100, crgContrast%);
+
+	Profile(key$, "SF", "1.0", stmp$);
+	crgSF := val(stmp$);
+	Profile(key$, "Diameter", "4.0", stmp$);
+	crgDiameter := val(stmp$);
+
+end;
+ 	
+proc SaveCRGScriptParameters()
+	var stmp$;
+	var key$;
+
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\ContrastReverse";
+
+	Profile(key$, "FixationDuration", str$(crgFixationDuration));
+	Profile(key$, "AcquisitionTime", str$(crgAcquisitionTime));
+	Profile(key$, "InterTrialTime", str$(crgInterTrialTime));
+	Profile(key$, "SegmentLength", crgSegmentLength%);
+	Profile(key$, "FramesPerTerm", crgFramesPerTerm%);
+	Profile(key$, "ContrastHigh", crgContrast%);
+	Profile(key$, "SF", str$(crgSF));
+	Profile(key$, "Diameter", str$(crgDiameter));
+end;
+
+
+
+func CRGScriptDialog%()
+	var i%;
+	GetCRGScriptParameters();
+	DlgCreate("CRG Script Parameters", 25, 10);
+	DlgReal(1, "Fixation duration(s):", .01, 10);
+	DlgReal(2, "Acquisition time(s):", .01, 10);
+	DlgReal(3, "Intertrial time(s):", .01, 10);
+	DlgInteger(4, "Segment length (terms):", 1, 32767);
+	DlgInteger(5, "Frames per term:", 1, 100);
+	DlgInteger(6, "Contrast (%):", -100, 100);
+	DlgReal(7, "Spatial frequency:", .01, 100);
+	DlgReal(8, "Diameter(deg):", .01, 100);
+	i%:=DlgShow(crgFixationDuration, crgAcquisitionTime, crgInterTrialTime, crgSegmentLength%, crgFramesPerTerm%, crgContrast%, crgSF, crgDiameter);
+	if i% = 1 then
+		PrintLog("Saving params\n");
+		SaveCRGScriptParameters();
+	endif;
+	return 1;
+end;
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+' CRG script END
+'
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
 
 
 
@@ -1438,6 +1524,7 @@ func RigConfigDialog%(config$)
 	DlgButton(13, "Tuning", TuningCurveScriptDialog%, 20, 4);
 	DlgButton(14, "CoolerMouse", CoolerMouseScriptDialog%, 20, 5);
 	DlgButton(15, "MSequence", MSequenceScriptDialog%, 20, 6);
+	DlgButton(16, "ContrastReverse", CRGScriptDialog%, 20, 7);
 
 	DlgShow();
 
