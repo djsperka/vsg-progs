@@ -22,6 +22,9 @@ using namespace alert;
 #define OVERLAY_DOT_PAGE 1
 #define OVERLAY_DOT_APERTURE_PAGE 2
 
+#define TRIGGERLINE_DOT 0x2
+#define TRIGGERLINE_STIM 0x4
+
 
 VSGCYCLEPAGEENTRY MPositions[32768];
 char *f_sequence = NULL;
@@ -293,6 +296,8 @@ void prepareOverlay()
 	overlayLUT[2] = colorTrival;
 	vsgPaletteWriteOverlayCols((VSGLUTBUFFER*)&overlayLUT, 0, 3);
 
+	vsgSetCommand(vsgOVERLAYMASKMODE);		// makes overlay pages visible
+
 	// blank page is just plain gray
 	vsgSetDrawPage(vsgOVERLAYPAGE, OVERLAY_BLANK_PAGE, 1);
 
@@ -313,9 +318,9 @@ void prepareVideo()
 {
 	// First video page has grating, second has grating with reversed contrast
 	arutil_draw_grating(f_grating0, 0);
-
+	vsgPresent();
 	arutil_draw_grating(f_grating1, 1);
-
+	vsgPresent();
 }
 
 void prepareCycling()
@@ -411,7 +416,7 @@ bool dotOnly()
 	vsgSetZoneDisplayPage(vsgOVERLAYPAGE, OVERLAY_DOT_PAGE);
 
 	// write trigger line to indicate dot is on. 
-//	vsgIOWriteDigitalOut(TRIGGERLINE_DOT, TRIGGERLINE_DOT | TRIGGERLINE_STIM);
+	vsgIOWriteDigitalOut(TRIGGERLINE_DOT, TRIGGERLINE_DOT | TRIGGERLINE_STIM);
 	return bvalue;
 }
 
@@ -421,7 +426,7 @@ bool blankPage()
 	vsgSetZoneDisplayPage(vsgOVERLAYPAGE, OVERLAY_BLANK_PAGE);
 
 	// write trigger to indicate stim and dot have stopped. 
-//	vsgIOWriteDigitalOut(0, TRIGGERLINE_DOT | TRIGGERLINE_STIM);
+	vsgIOWriteDigitalOut(0, TRIGGERLINE_DOT | TRIGGERLINE_STIM);
 
 	return bvalue;
 }
@@ -506,12 +511,11 @@ int main(int argc, char **argv)
 	vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, 0x00, 0);
 	vsgPresent();
 	vsgSetCommand(vsgDISABLELUTANIM);
+	vsgSetCommand(vsgPALETTERAMP);
 
+	f_grating0.init(75);
+	f_grating1.init(75);
 
-	f_grating0.init(50);
-	f_grating1.init(50);
-
-	vsgSetCommand(vsgOVERLAYMASKMODE);		// makes overlay pages visible
 
 	// Now draw pages.....
 	prepareOverlay();
@@ -520,6 +524,7 @@ int main(int argc, char **argv)
 
 	// init triggers
 	init_triggers();
+
 	triggers.reset(vsgIOReadDigitalIn());
 
 	// All right, start monitoring triggers........
@@ -557,7 +562,7 @@ int main(int argc, char **argv)
 	vsgSetCommand(vsgCYCLEPAGEDISABLE);
 	blankPage();
 
-	ARvsg::instance().clear();
+//	ARvsg::instance().clear();
 
 	return 0;
 }
