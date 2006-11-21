@@ -304,13 +304,13 @@ void prepareOverlay()
 	// next page has fixation point
 	vsgSetDrawPage(vsgOVERLAYPAGE, OVERLAY_DOT_PAGE, 1);
 	vsgSetPen1(2);
-	vsgDrawOval(f_fixpt.x, f_fixpt.y, f_fixpt.d, f_fixpt.d);
+	vsgDrawOval(f_fixpt.x, -f_fixpt.y, f_fixpt.d, f_fixpt.d);
 
 	// Now page with aperture and fixation point
 	vsgSetDrawPage(vsgOVERLAYPAGE, OVERLAY_DOT_APERTURE_PAGE, 1);
 	arutil_draw_aperture(f_grating0, OVERLAY_DOT_APERTURE_PAGE);
 	vsgSetPen1(2);
-	vsgDrawOval(f_fixpt.x, f_fixpt.y, f_fixpt.d, f_fixpt.d);
+	vsgDrawOval(f_fixpt.x, -f_fixpt.y, f_fixpt.d, f_fixpt.d);
 
 }
 
