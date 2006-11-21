@@ -1,4 +1,4 @@
-' $Id: ContrastReverse.s2s,v 1.1 2006-11-18 00:48:58 dan Exp $
+' $Id: ContrastReverse.s2s,v 1.2 2006-11-21 01:09:04 dan Exp $
 
 '========================================================================
 '
@@ -472,6 +472,8 @@ var StimChannel%;				' Channel number assigned to vsg trigger for stim
 var ReadyChannel%;			' channel number for VSG ready pulse signal
 var DataWindow%;	' time view
 var XYWindow%;		' window with eye pos shown
+var PhaseWindow%;		' Phase plot window
+var RasterWindow%;	' raster plot window
 var iStimChannel%;	' channel number for stimulus in xy window
 var iStimWindowChannel%;' channel number for stimulus window in xy window
 var iMonitorChannel%;	' channel number for monitor position display in xy window
@@ -846,7 +848,7 @@ proc InitializeWindows()
 
 	'Open the data sampling window
 	DataWindow% := FileNew(0,4);
-	Window(-0.235849,52.746,97.2484,99.8856);
+	Window(0, 50, 50, 100);
 	View(DataWindow%).WindowVisible(1);
 
 	'Open an XY view to display eye position
@@ -855,7 +857,7 @@ proc InitializeWindows()
 	YRange(-2,-30,30);
 	XYDrawMode(0,5,0);
 	WindowVisible(1);
-	Window(-0.550314,0.114416,41.5094,52.746);
+	Window(0, 0, 50, 50);
 	XYColour(1,16);
 	XYSize(1,-1);
 
@@ -890,6 +892,14 @@ proc InitializeWindows()
 	XYAddData(4,9,-7);
 	XYAddData(4,9,7);
 	XYAddData(4,-9,7);
+
+
+	' Raster plot
+'	var electrodeChannels$;
+'	electrodeChannels$ := "1.." + str$(NumberOfElectrodes%);
+'	PhaseWindow% := View(DataWindow%).SetPhase(electrodeChannels$, 
+'	RasterWindow% := 
+
 
 end;
 
