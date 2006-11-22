@@ -3,6 +3,7 @@
 #include "getopt.h"
 #undef __GNU_LIBRARY__
 #include <iostream>
+#include <fstream>
 #include <string>
 #include "alertlib.h"
 #include "AlertUtil.h"
@@ -35,7 +36,8 @@ TriggerVector triggers;
 double f_apX=0, f_apY=0;
 double f_sf = 0;
 string f_sFilename;
-int f_iSegmentLength=0;
+double f_dSegmentTime = 0;
+int f_iSegmentLength = 0;
 int f_iDistanceToScreen = 0;
 int f_iFramesPerTerm = 0;
 int f_iContrastLow = 0;
@@ -44,6 +46,7 @@ ARContrastFixationPointSpec f_fixpt;
 ARGratingSpec f_grating0;
 ARGratingSpec f_grating1;
 double f_diameter = 0;
+string f_sParfile;
 
 void usage();
 int args(int argc, char **argv);
@@ -79,13 +82,14 @@ int args(int argc, char **argv)
 	bool have_C = false;
 	bool have_d = false;
 	bool have_sf = false;
+	bool have_par = false;
 
 	string s;
 	int c;
 	extern char *optarg;
 	extern int optind;
 	int errflg = 0;
-	while ((c = getopt(argc, argv, "ap:m:f:l:D:t:d:C:s:")) != -1)
+	while ((c = getopt(argc, argv, "ap:m:f:l:D:t:d:C:s:F:")) != -1)
 	{
 		switch (c) 
 		{
@@ -110,6 +114,10 @@ int args(int argc, char **argv)
 			f_sFilename.assign(optarg);
 			have_m = true;
 			break;
+		case 'F':
+			f_sParfile.assign(optarg);
+			have_par = true;
+			break;
 		case 'f':
 			s.assign(optarg);
 			if (parse_fixation_point(s, f_fixpt)) errflg++;
@@ -117,9 +125,9 @@ int args(int argc, char **argv)
 			break;
 		case 'l':
 			s.assign(optarg);
-			if (parse_integer(s, f_iSegmentLength))
+			if (parse_double(s, f_dSegmentTime))
 			{
-				cerr << "Cannot parse segment length (" << s << "): must be an integer." << endl;
+				cerr << "Cannot parse segment time (" << s << "): must be a double." << endl;
 				errflg++;
 			}
 			else
@@ -202,6 +210,11 @@ int args(int argc, char **argv)
 	if (!have_m) 
 	{
 		cerr << "No sequence file (-m) specified!" << endl; 
+		errflg++;
+	}
+	if (!have_par)
+	{
+		cerr << "No parfile (-F) specified! Need this to tell spike2 how many terms in segment!" << endl;
 		errflg++;
 	}
 	if (!have_fix) 
@@ -479,6 +492,28 @@ int callback(int &output, const CallbackTrigger* ptrig)
 
 
 
+int writeTermsToParfile()
+{
+	int status = 0;
+	int frame_us = vsgGetSystemAttribute(vsgFRAMETIME);						// microseconds per frame
+	double dtmp = (double)frame_us / 1000000.0 * f_iFramesPerTerm;			// this is now seconds per term
+	double dtmp2 = f_dSegmentTime/dtmp;
+	f_iSegmentLength = (int)dtmp2 + 1;
+
+	// Now open parfile and write that number into it, then close it. 
+	ofstream out;
+	out.open(f_sParfile.c_str(), std::ios::out);
+	if (out.is_open())
+	{
+		out << f_iSegmentLength;
+		out.close();
+	}
+	else
+	{
+		status = 1;
+	}
+	return status;
+}
 
 
 int main(int argc, char **argv)
@@ -498,6 +533,19 @@ int main(int argc, char **argv)
 	{
 		cerr << "VSG init failed!" << endl;
 		return 1;
+	}
+
+
+	// Figure out number of terms in segment, then write that number into the parfile. 
+	// If that file cannot be opened or written, it is an error and we exit. 
+	if (writeTermsToParfile())
+	{
+		cerr << "Cannot write to parfile " << f_sParfile << endl;
+		return 1;
+	}
+	else
+	{
+		cout << "Segment terms = " << f_iSegmentLength << endl;
 	}
 
 
