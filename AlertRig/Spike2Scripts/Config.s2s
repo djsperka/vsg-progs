@@ -807,6 +807,7 @@ var crgFixationDuration;			' Time required to maintain fixation, seconds
 var crgAcquisitionTime;			' Time allowed to acquire target before fail trial, seconds
 var crgInterTrialTime;			' Blank time following a trial (both successful and failed), seconds
 var crgSegmentLength%;			' Terms in a segment of the msequence
+var crgSegmentTime;				' Time in a segment of the msequence - this is entered as a parameter - vsg app returns segment length!
 var crgFramesPerTerm%;			' frames that each msequence term is shown
 var crgContrast%;			' High contrast value
 var crgSF;							' spatial frequency (not necessarily same as that in stimulus)
@@ -827,7 +828,9 @@ proc GetCRGScriptParameters()
 	Profile(key$, "InterTrialTime", "1.0", stmp$);
 	crgInterTrialTime := val(stmp$);
 
-	Profile(key$, "SegmentLength", 100, crgSegmentLength%);
+	Profile(key$, "SegmentTime", "3.0", stmp$);
+	crgSegmentTime := val(stmp$);
+
 	Profile(key$, "FramesPerTerm", 1, crgFramesPerTerm%);
 	Profile(key$, "Contrast", 100, crgContrast%);
 
@@ -847,9 +850,9 @@ proc SaveCRGScriptParameters()
 	Profile(key$, "FixationDuration", str$(crgFixationDuration));
 	Profile(key$, "AcquisitionTime", str$(crgAcquisitionTime));
 	Profile(key$, "InterTrialTime", str$(crgInterTrialTime));
-	Profile(key$, "SegmentLength", crgSegmentLength%);
+	Profile(key$, "SegmentTime", str$(crgSegmentTime));
 	Profile(key$, "FramesPerTerm", crgFramesPerTerm%);
-	Profile(key$, "ContrastHigh", crgContrast%);
+	Profile(key$, "Contrast", crgContrast%);
 	Profile(key$, "SF", str$(crgSF));
 	Profile(key$, "Diameter", str$(crgDiameter));
 end;
@@ -863,12 +866,12 @@ func CRGScriptDialog%()
 	DlgReal(1, "Fixation duration(s):", .01, 10);
 	DlgReal(2, "Acquisition time(s):", .01, 10);
 	DlgReal(3, "Intertrial time(s):", .01, 10);
-	DlgInteger(4, "Segment length (terms):", 1, 32767);
+	DlgReal(4, "Segment time (s):", 0.1, 1000);
 	DlgInteger(5, "Frames per term:", 1, 100);
 	DlgInteger(6, "Contrast (%):", -100, 100);
 	DlgReal(7, "Spatial frequency:", .01, 100);
 	DlgReal(8, "Diameter(deg):", .01, 100);
-	i%:=DlgShow(crgFixationDuration, crgAcquisitionTime, crgInterTrialTime, crgSegmentLength%, crgFramesPerTerm%, crgContrast%, crgSF, crgDiameter);
+	i%:=DlgShow(crgFixationDuration, crgAcquisitionTime, crgInterTrialTime, crgSegmentTime, crgFramesPerTerm%, crgContrast%, crgSF, crgDiameter);
 	if i% = 1 then
 		PrintLog("Saving params\n");
 		SaveCRGScriptParameters();
@@ -881,8 +884,6 @@ end;
 ' CRG script END
 '
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-
-
 
 
 
