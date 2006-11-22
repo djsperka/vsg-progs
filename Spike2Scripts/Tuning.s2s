@@ -1,4 +1,7 @@
 ' $Log: not supported by cvs2svn $
+' Revision 1.20  2006/09/18 19:13:02  dan
+' Add logic in Stop function to check that stim app is done before running ClearTrigger.
+'
 ' Revision 1.19  2006/09/08 02:13:43  dan
 ' Changed maxTF to 64.
 '
@@ -364,7 +367,7 @@ proc GetTuningCurveAreaParameters()
 	Profile(key$, "NRepeats", 1, tunAreaNRepeats%);
 	Profile(key$, "MinDiam", "1", stmp$);
 	tunAreaMinDiam := val(stmp$);
-	Profile(key$, "MaxDiam", "10", stmp$);
+	Profile(key$, "MaxDiam", "1000", stmp$);
 	tunAreaMaxDiam := val(stmp$);
 end;
 
@@ -537,7 +540,7 @@ func TuningCurveAreaDialog%()
 	GetTuningCurveAreaParameters();
 	DlgCreate("Area Tuning Curve Parameters");
 	DlgInteger(1, "Number of Steps", 2, 100);
-	DlgInteger(2, "Number of Repeats", 1, 10);
+	DlgInteger(2, "Number of Repeats", 1, 1000);
 	DlgReal(3, "Min Diameter", 0.1, 100);
 	DlgReal(4, "Max Diameter", 0.1, 100);
 	DlgCheck(5, "Random Progression");

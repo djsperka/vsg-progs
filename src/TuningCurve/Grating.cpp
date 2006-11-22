@@ -199,6 +199,10 @@ void Grating::DrawGrating(double FixationX,double FixationY,double FixationDiame
 	vsgObjSetDriftVelocity(p->TemporalFrequency);
 
 	vsgDrawGrating(p->ApertureX,p->ApertureY,p->ApertureWidth,p->ApertureHeight,p->Orientation,p->SpatialFrequency);
+
+//	vsgDrawGrating(0,0,p->ApertureWidth,p->ApertureHeight,p->Orientation,p->SpatialFrequency);
+	//made change here, hja
+//	vsgObjSetSpatialPhase(90);
 	vsgSetDrawPage(vsgOVERLAYPAGE,2,1);
 	vsgSetPen1(0);
 	if(strcmp(p->ApertureType,"Ellipse")==0)
