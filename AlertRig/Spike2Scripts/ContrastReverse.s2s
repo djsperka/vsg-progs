@@ -1,4 +1,4 @@
-' $Id: ContrastReverse.s2s,v 1.2 2006-11-21 01:09:04 dan Exp $
+' $Id: ContrastReverse.s2s,v 1.3 2006-11-22 00:46:47 dan Exp $
 
 '========================================================================
 '
@@ -378,6 +378,7 @@ var crgFixationDuration;			' Time required to maintain fixation, seconds
 var crgAcquisitionTime;			' Time allowed to acquire target before fail trial, seconds
 var crgInterTrialTime;			' Blank time following a trial (both successful and failed), seconds
 var crgSegmentLength%;			' Terms in a segment of the msequence
+var crgSegmentTime;				' Time in a segment of the msequence - this is entered as a parameter - vsg app returns segment length!
 var crgFramesPerTerm%;			' frames that each msequence term is shown
 var crgContrast%;			' High contrast value
 var crgSF;							' spatial frequency (not necessarily same as that in stimulus)
@@ -398,7 +399,9 @@ proc GetCRGScriptParameters()
 	Profile(key$, "InterTrialTime", "1.0", stmp$);
 	crgInterTrialTime := val(stmp$);
 
-	Profile(key$, "SegmentLength", 100, crgSegmentLength%);
+	Profile(key$, "SegmentTime", "3.0", stmp$);
+	crgSegmentTime := val(stmp$);
+
 	Profile(key$, "FramesPerTerm", 1, crgFramesPerTerm%);
 	Profile(key$, "Contrast", 100, crgContrast%);
 
@@ -418,7 +421,7 @@ proc SaveCRGScriptParameters()
 	Profile(key$, "FixationDuration", str$(crgFixationDuration));
 	Profile(key$, "AcquisitionTime", str$(crgAcquisitionTime));
 	Profile(key$, "InterTrialTime", str$(crgInterTrialTime));
-	Profile(key$, "SegmentLength", crgSegmentLength%);
+	Profile(key$, "SegmentTime", str$(crgSegmentTime));
 	Profile(key$, "FramesPerTerm", crgFramesPerTerm%);
 	Profile(key$, "Contrast", crgContrast%);
 	Profile(key$, "SF", str$(crgSF));
@@ -434,12 +437,12 @@ func CRGScriptDialog%()
 	DlgReal(1, "Fixation duration(s):", .01, 10);
 	DlgReal(2, "Acquisition time(s):", .01, 10);
 	DlgReal(3, "Intertrial time(s):", .01, 10);
-	DlgInteger(4, "Segment length (terms):", 1, 32767);
+	DlgReal(4, "Segment time (s):", 0.1, 1000);
 	DlgInteger(5, "Frames per term:", 1, 100);
 	DlgInteger(6, "Contrast (%):", -100, 100);
 	DlgReal(7, "Spatial frequency:", .01, 100);
 	DlgReal(8, "Diameter(deg):", .01, 100);
-	i%:=DlgShow(crgFixationDuration, crgAcquisitionTime, crgInterTrialTime, crgSegmentLength%, crgFramesPerTerm%, crgContrast%, crgSF, crgDiameter);
+	i%:=DlgShow(crgFixationDuration, crgAcquisitionTime, crgInterTrialTime, crgSegmentTime, crgFramesPerTerm%, crgContrast%, crgSF, crgDiameter);
 	if i% = 1 then
 		PrintLog("Saving params\n");
 		SaveCRGScriptParameters();
@@ -478,6 +481,7 @@ var iStimChannel%;	' channel number for stimulus in xy window
 var iStimWindowChannel%;' channel number for stimulus window in xy window
 var iMonitorChannel%;	' channel number for monitor position display in xy window
 var StimHandle%;	' handle for stimulus application
+var baseFileName$;		' basefilename with dir - populated in Start%()
 ' Experimental control
 var Pause%:=0;		' When 1, expt is paused - no idle processing done
 
@@ -556,6 +560,7 @@ const stateDone%		:= 10;
 const stateVSGWait%:=10;		' wait for vsg to send ready signal #1
 const stateVSGWaitConfirm%:=11;		' waif for vsg to send ready signal #2
 const stateStimulus% := 12;		' stimulus is up
+const stateGetSegmentLength% := 13;		' check for segment length in par file
 
 var tNow:=0;		' latest time for which there are values recorded. Used in IdleProcessing
 var tLast:=-1;		' last time we checked for a trigger. 
@@ -566,6 +571,7 @@ var vTrigger;		' set by NextTime to indicate trigger transition
 var tStateStart:=-1;	' time that present state started. Used to measure wait time, fixation time, etc. 
 var tLastTrigger:=-1;	' last trigger time. New triggers have to be greater than this
 var tTrigger:=-1;	' temp var for newly discovered trigger times
+var tAcquisition:= -1;
 var nTrialsStarted%:=0;
 var nTrialsSuccess%:=0;
 var nTrialsFail%:=0;
@@ -610,9 +616,17 @@ func IdleProcessing%()
 			if tTrigger > tLastTrigger and vTrigger = 1 then
 				PrintLog("state stateVSGWaitConfirm: Got trailing edge of trigger\n");
 				tLastTrigger := tTrigger;
-				iState% := stateStartTrial%;
+				iState% := stateGetSegmentLength%;
 			endif;
 
+		case iState% = stateGetSegmentLength% then
+			if (GetSegmentLength%() = 0) then
+				PrintLog("GetSegmentLength() failed!\n");
+'				Stop%();
+				halt;
+			else 
+				iState% := stateStartTrial%;
+			endif;
 	
 		case iState% = stateStartTrial% then
 
@@ -655,7 +669,7 @@ func IdleProcessing%()
 					PrintLog("StateWaitForAcquisition - acquired target.\n");
 					iState% := stateHoldFixation%;
 					tStateStart := tNow;
-	
+					tAcquisition := tNow;	
 				endif
 
 			else
@@ -721,6 +735,13 @@ func IdleProcessing%()
 					iState% := stateSuccess%;
 					tStateStart := tNow;
 
+
+					' Process raster plot. First get time of first trigger. Use that as start time, and tNow as end time
+					var tmp%;
+					tmp% := View(RasterWindow%).Process(tAcquisition, tNow, 0, 1);
+'					PrintLog(str$(tmpFirst) + "-" + str$(tNow) + " " + "Process=" + str$(tmp%) + "\n");
+
+
 				endif
 
 			endif
@@ -743,7 +764,7 @@ func IdleProcessing%()
 
 			' Inter-trial wait time
 			if tNow - tStateStart > crgInterTrialTime then
-	
+
 				' Back to state 0
 				PrintLog("StateInterval - done, start new trial.\n");
 				iState% := stateStartTrial%;
@@ -895,11 +916,15 @@ proc InitializeWindows()
 
 
 	' Raster plot
-'	var electrodeChannels$;
-'	electrodeChannels$ := "1.." + str$(NumberOfElectrodes%);
-'	PhaseWindow% := View(DataWindow%).SetPhase(electrodeChannels$, 
-'	RasterWindow% := 
+	var electrodeChannels$;
+	electrodeChannels$ := "1.." + str$(NumberOfElectrodes%);
 
+'	RasterWindow% := View(DataWindow%).SetPSTH(electrodeChannels$, 1, crgSegmentTime + crgInterTrialTime, 0, 0, 2);
+	RasterWindow% := View(DataWindow%).SetPSTH(electrodeChannels$, 1, crgSegmentTime + crgFixationDuration, crgFixationDuration, 0, 2);
+	View(RasterWindow%);
+	WindowVisible(1);
+	Window(50, 0, 100, 50);
+	ChanHide(electrodeChannels$);
 
 end;
 
@@ -966,9 +991,11 @@ func Start%()
 			return 1;
 		endif
 	endif
+	baseFileName$ := GetBaseFileName$();
 	CommandLine$ := "cmd /k " + bin$ + "\\ContrastReverse -m c:\\work\\acuterig\\msequenceterms";
-	CommandLine$ += " -p " + str$(x) + "," + str$(y) + " -l " + str$(crgSegmentLength%) + " -t " + str$(crgFramesPerTerm%) + " -D " + DistanceToScreenMM$ + " " + FixationArg$;
+	CommandLine$ += " -p " + str$(x) + "," + str$(y) + " -l " + str$(crgSegmentTime) + " -t " + str$(crgFramesPerTerm%) + " -D " + DistanceToScreenMM$ + " " + FixationArg$;
 	CommandLine$ += " -d " + str$(crgDiameter) + " -s " + str$(crgSF) + " -C " + str$(crgContrast%) + "," + str$(-1*crgContrast%);
+	CommandLine$ += " -F " + baseFileName$ + ".par";
 
 	'Begin the stimulus program. It will take a few seconds for the VSG to initialize.
 	PrintLog(CommandLine$+"\n");
@@ -1029,8 +1056,28 @@ func Reward%()
 end;
 
 
+' Get base of data and parameter filename
+func GetBaseFileName$()
+	var parFileBase$;
+	View(DataWindow%);
+	parFileBase$ := FileName$(1) + FileName$(2) + FileName$(3) + FileName$(4);
+	return parFileBase$;
+end;
 
 
+func GetSegmentLength%()
+	var ival% := 0;
+	var tmpHandle%;
+	var oldHandle%;
+	tmpHandle% := FileOpen(baseFileName$ + ".par", 8, 0);
+	if (Read(crgSegmentLength%) = 1) then
+		ival% := crgSegmentLength%;
+		PrintLog("Segment length is " + str$(crgSegmentLength%) + "\n");
+	endif;
+	FileClose(tmpHandle%);
+	View(DataWindow%);
+	return ival%;
+end;
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 proc WriteParameterFile()
@@ -1040,9 +1087,9 @@ proc WriteParameterFile()
 
 	' get filename for parfile (data file + "par" extension) and open it
 	View(DataWindow%);
-	parFileBase$ := FileName$(1) + FileName$(2) + FileName$(3) + FileName$(4);
+	parFileBase$ := GetBaseFileName$();
 	parFileName$ := parFileBase$ + ".par";
-	PrintLog("par filename is " + parFileName$ + "\n");
+	PrintLog("par filename is " + parFileBase$ + "\n");
 	parHandle% := FileOpen(parFileName$, 8, 1);
 
 	' write general info - eye coil gains, dist to screen
