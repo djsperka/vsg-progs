@@ -422,6 +422,10 @@ int alert::ARvsg::init(int screenDistanceMM, COLOR_TYPE i_bg)
 			m_initialized = true;
 			vsgSetViewDistMM(screenDistanceMM);
 			vsgSetSpatialUnits(vsgDEGREEUNIT);
+			m_heightPixels = vsgGetScreenHeightPixels();
+			m_widthPixels = vsgGetScreenWidthPixels();
+			vsgUnitToUnit(vsgPIXELUNIT, m_heightPixels, vsgDEGREEUNIT, &m_heightDegrees);
+			vsgUnitToUnit(vsgPIXELUNIT, m_widthPixels, vsgDEGREEUNIT, &m_widthDegrees);
 //			vsgSetCommand(vsgPALETTECLEAR);
 //			vsgSetCommand(vsgPALETTERAMP);
 			m_background_color = i_bg;
