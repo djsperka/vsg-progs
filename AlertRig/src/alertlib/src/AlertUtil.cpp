@@ -7,10 +7,17 @@ using namespace std;
 int arutil_color_to_overlay_palette(ARFixationPointSpec& fp, PIXEL_LEVEL level)
 {
 	int status=0;
+	return arutil_color_to_overlay_palette(fp.color, level);
+}
+
+
+int arutil_color_to_overlay_palette(COLOR_TYPE ct, PIXEL_LEVEL level)
+{
+	int status=0;
 	VSGTRIVAL c;
-	if (get_color(fp.color, c))
+	if (get_color(ct, c))
 	{
-		cerr << "Cannot get trival for fp color " << fp.color << endl;
+		cerr << "Cannot get trival for fp color " << ct << endl;
 		status = 2;
 	}
 	else
@@ -19,6 +26,7 @@ int arutil_color_to_overlay_palette(ARFixationPointSpec& fp, PIXEL_LEVEL level)
 	}
 	return status;
 }
+
 
 int	arutil_draw_overlay(ARFixationPointSpec& fp, PIXEL_LEVEL level, int overlayPage)
 {
