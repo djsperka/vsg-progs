@@ -88,19 +88,16 @@ LINK32=link.exe
 # Begin Source File
 
 SOURCE=.\alertmseq.cpp
+# PROP Exclude_From_Build 1
 # End Source File
 # Begin Source File
 
 SOURCE=.\main.cpp
-
-!IF  "$(CFG)" == "sandbox - Win32 Release"
-
-!ELSEIF  "$(CFG)" == "sandbox - Win32 Debug"
-
 # PROP Exclude_From_Build 1
+# End Source File
+# Begin Source File
 
-!ENDIF 
-
+SOURCE=.\Tuning.cpp
 # End Source File
 # End Group
 # Begin Group "Header Files"
@@ -109,6 +106,7 @@ SOURCE=.\main.cpp
 # Begin Source File
 
 SOURCE=.\msequence.h
+# PROP Exclude_From_Build 1
 # End Source File
 # End Group
 # Begin Group "Resource Files"
