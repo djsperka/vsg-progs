@@ -100,12 +100,21 @@ namespace alert
 		COLOR_TYPE background_color() { return m_background_color; };
 		PIXEL_LEVEL background_level() { return m_background_level; };
 
+		long getScreenHeightPixels() { return m_heightPixels; };
+		long getScreenWidthPixels() { return m_widthPixels; };
+		double getScreenHeightDegrees() { return m_heightDegrees; };
+		double getScreenWidthDegrees() { return m_widthDegrees; };
+
 	private:
 		ARvsg() : m_initialized(false) {};
 		bool m_initialized;
 		VSGOBJHANDLE m_handle;
 		PIXEL_LEVEL m_background_level;
 		COLOR_TYPE m_background_color;
+		long m_heightPixels;
+		long m_widthPixels;
+		double m_heightDegrees;
+		double m_widthDegrees;
 	};
 
 
