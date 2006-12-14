@@ -1058,6 +1058,9 @@ var tunMaintainFixation;	' Time required to hold fixation for reward (stim OFF)
 var tunTimeOutTime;		' Time after break fixation
 var tunAcquisitionTime;		' Time allowed to acquire fixation
 var tunBackgroundColor$;	' background color for stim
+var tunUseBlackScreen%;		' check box - use black screen on failure to acquire
+var tunBlackScreenNFailure%;	' Number of acq failures before black screen kicks in
+var tunBlackScreenTime;			' time for black screen to be up
 
 ' These will be set by the tuning curve choice
 var tunNAdvances%;		' Number of times stim will advance during one repeat
@@ -1091,11 +1094,19 @@ var tunTemporalMinTF;		' min TF
 var tunTemporalMaxTF;		' max TF
 var tunTemporalProgression%;
 
+' Area next
+var tunAreaNSteps%;			' # steps in area tuning curve
+var tunAreaNRepeats%;		' # repeats in area tuning curve
+var tunAreaMinDiam;		' min diameter
+var tunAreaMaxDiam;		' max diameter
+var tunAreaProgression%;
+
 const tunTypeNone$ := "None";
 const tunTypeOrientation$ := "O";
 const tunTypeContrast$ := "C";
 const tunTypeSpatial$ := "S";
 const tunTypeTemporal$ := "T";
+const tunTypeArea$ := "A";
 var tunType$:=tunTypeNone$;
 
 const tunContextDAQ$ := "DAQ";
@@ -1116,6 +1127,11 @@ proc GetTuningCurveScriptParameters()
 	Profile(key$, "AcquisitionTime", "2.0", stmp$);
 	tunAcquisitionTime := val(stmp$);
 	Profile(key$, "BackgroundColor", "gray", tunBackgroundColor$);
+	Profile(key$, "UseBlackScreen", 0, tunUseBlackScreen%);
+	Profile(key$, "BlackScreenNFailure", 0, tunBlackScreenNFailure%);
+	Profile(key$, "BlackScreenTime", "15", stmp$);
+	tunBlackScreenTime := val(stmp$);
+
 end;
 
 proc SaveTuningCurveScriptParameters()
@@ -1126,6 +1142,9 @@ proc SaveTuningCurveScriptParameters()
 	Profile(key$, "TimeOutTime", str$(tunTimeOutTime));
 	Profile(key$, "AcquisitionTime", str$(tunAcquisitionTime));
 	Profile(key$, "BackgroundColor", tunBackgroundColor$);
+	Profile(key$, "UseBlackScreen", tunUseBlackScreen%);
+	Profile(key$, "BlackScreenNFailure", tunBlackScreenNFailure%);
+	Profile(key$, "BlackScreenTime", str$(tunBlackScreenTime));
 end;
 
 proc GetTuningCurveOrientationParameters()
@@ -1216,6 +1235,29 @@ proc SaveTuningCurveTemporalParameters()
 	Profile(key$, "NRepeats", tunTemporalNRepeats%);
 	Profile(key$, "MinTF", str$(tunTemporalMinTF));
 	Profile(key$, "MaxTF", str$(tunTemporalMaxTF));
+end;
+
+proc GetTuningCurveAreaParameters()
+	var stmp$;
+	var key$;
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Tuning\\Area";
+
+	Profile(key$, "NSteps", 2, tunAreaNSteps%);
+	Profile(key$, "NRepeats", 1, tunAreaNRepeats%);
+	Profile(key$, "MinDiam", "1", stmp$);
+	tunAreaMinDiam := val(stmp$);
+	Profile(key$, "MaxDiam", "1000", stmp$);
+	tunAreaMaxDiam := val(stmp$);
+end;
+
+proc SaveTuningCurveAreaParameters()
+	var key$;
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Tuning\\Area";
+
+	Profile(key$, "NSteps", tunAreaNSteps%);
+	Profile(key$, "NRepeats", tunAreaNRepeats%);
+	Profile(key$, "MinDiam", str$(tunAreaMinDiam));
+	Profile(key$, "MaxDiam", str$(tunAreaMaxDiam));
 end;
 
 
@@ -1371,6 +1413,43 @@ func TuningCurveTemporalDialog%()
 	return iReturn%;
 end;
 
+func TuningCurveAreaDialog%()
+	var iReturn% := 0;
+	var i%;
+	GetTuningCurveAreaParameters();
+	DlgCreate("Area Tuning Curve Parameters");
+	DlgInteger(1, "Number of Steps", 2, 100);
+	DlgInteger(2, "Number of Repeats", 1, 1000);
+	DlgReal(3, "Min Diameter", 0.1, 100);
+	DlgReal(4, "Max Diameter", 0.1, 100);
+	DlgCheck(5, "Random Progression");
+
+	i% := DlgShow(tunAreaNSteps%, tunAreaNRepeats%, tunAreaMinDiam, tunAreaMaxDiam, tunAreaProgression%);
+	' If i% is 1 the user hit "OK". If its 0, user hit "Cancel". 
+	' When user hits OK we alwaus save the parameters, and when user hit Cancel we don't.
+	if i% = 1 then
+		SaveTuningCurveAreaParameters();
+'		PrintLog("TuningCurveTemporalDialog - user hit OK\n");
+		tunType$ := tunTypeArea$;
+		if tunContext$ = tunContextDAQ$ then
+			iReturn% := 0;
+		else
+			iReturn% := 1;
+		endif;
+	endif;
+	if i% = 0 then
+'		PrintLog("TuningCurveTemporalDialog - user hit Cancel\n");
+		tunType$ := tunTypeNone$;
+		if tunContext$ = tunContextDAQ$ then
+			iReturn% := 1;
+		else
+			iReturn% := 2;
+		endif;
+	endif;
+
+	return iReturn%;
+end;
+
 
 
 ' TuningCurveScriptDialog
@@ -1401,22 +1480,25 @@ func TuningCurveScriptDialog%()
 	next;
 
 	DlgCreate("Tuning Curve Parameters", 50, 10);
-	DlgGroup("Common Parameters", 0, 1, 40, 6);
+	DlgGroup("Common Parameters", 0, 1, 40, 9);
 	DlgReal(1, "Acquisition time(s):", 1, 1000, 20, 2);
 	DlgReal(2, "Fixation duration(s):", .1, 10, 20, 3);
 	DlgReal(3, "Maintain fixation(s):", .1, 10, 20, 4);
 	DlgReal(4, "Time out time(s):", .01, 10, 20, 5);
 	DlgList(5, "Background color:", bcl$, 3, 20, 6);
-	DlgGroup("Individual Tuning Curve Types", 0, 7, 40, 5);
-	DlgButton(6, "Orientation", TuningCurveOrientationDialog%, 1, 8);
-	DlgButton(7, "Contrast", TuningCurveContrastDialog%, 1, 9);
-	DlgButton(8, "Spatial Freq", TuningCurveSpatialDialog%, 1, 10);
-	DlgButton(9, "Temporal Freq", TuningCurveTemporalDialog%, 1, 11);
+	DlgCheck(6, "Use Black Screen?", 10, 7);
+	DlgReal(7, "Black scr. time(s):", .01, 1000, 20, 8);
+	DlgInteger(8, "# Failures required:", 0, 10, 20, 9);
+	DlgGroup("Individual Tuning Curve Types", 0, 10, 40, 6);
+	DlgButton(9, "Orientation", TuningCurveOrientationDialog%, 1, 11);
+	DlgButton(10, "Contrast", TuningCurveContrastDialog%, 1, 12);
+	DlgButton(11, "Spatial Freq", TuningCurveSpatialDialog%, 1, 13);
+	DlgButton(12, "Temporal Freq", TuningCurveTemporalDialog%, 1, 14);
+	DlgButton(13, "Area", TuningCurveAreaDialog%, 1, 15);
 
 	i%:=DlgShow(tunAcquisitionTime, tunFixationDuration, tunMaintainFixation,
-		tunTimeOutTime, ibcl%);
+		tunTimeOutTime, ibcl%, tunUseBlackScreen%, tunBlackScreenTime, tunBlackScreenNFailure%);
 
-	PrintLog("Return val is " + str$(i%) + "\n");
 	if i% = 1 then
 		tunBackgroundColor$ := bcl$[ibcl%];
 		SaveTuningCurveScriptParameters();
