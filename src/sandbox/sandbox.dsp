@@ -92,17 +92,34 @@ SOURCE=.\alertmseq.cpp
 # End Source File
 # Begin Source File
 
+SOURCE=.\fixation.cpp
+# End Source File
+# Begin Source File
+
 SOURCE=.\main.cpp
 # PROP Exclude_From_Build 1
 # End Source File
 # Begin Source File
 
 SOURCE=.\Tuning.cpp
+
+!IF  "$(CFG)" == "sandbox - Win32 Release"
+
+!ELSEIF  "$(CFG)" == "sandbox - Win32 Debug"
+
+# PROP Exclude_From_Build 1
+
+!ENDIF 
+
 # End Source File
 # End Group
 # Begin Group "Header Files"
 
 # PROP Default_Filter "h;hpp;hxx;hm;inl"
+# Begin Source File
+
+SOURCE=.\fixation.h
+# End Source File
 # Begin Source File
 
 SOURCE=.\msequence.h
