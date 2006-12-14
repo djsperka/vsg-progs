@@ -162,6 +162,18 @@ Package=<4>
 
 ###############################################################################
 
+Project: "StarStim"=.\StarStim\StarStim.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
 Project: "TimingTest"=.\TimingTest\TimingTest.dsp - Package Owner=<4>
 
 Package=<5>
