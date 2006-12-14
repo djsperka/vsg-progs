@@ -59,7 +59,9 @@ int arutil_draw_grating_fullscreen(ARGratingSpec& gr, int videoPage)
 		// assign pixel levels (vsgObjSetPixels). Note also that the contrast is initially set to 100% by the call to 
 		// vsgObjSetDefaults().
 
-		vsgObjSetDefaults();
+		// In some circumstances this call turns off temporal frequency, and subsequent calls to vsgObjSetTemporal.. 
+		// don't change it.We probably don't need this call anyways.....
+//		vsgObjSetDefaults();
 		vsgObjSetPixelLevels(gr.getFirstLevel(), gr.getNumLevels());
 
 		// Set spatial waveform
