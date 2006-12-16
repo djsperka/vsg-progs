@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 #include <algorithm>
+#include <cmath>
 #include "Alertlib.h"
 #include "AlertUtil.h"
 
@@ -17,6 +18,7 @@
 using namespace std;
 using namespace alert;
 
+const double PI(4.0 * atan2(1.0, 1.0)); 
 
 // globals
 bool m_binaryTriggers = true;
@@ -26,7 +28,10 @@ int m_screenDistanceMM = 0;
 ARContrastFixationPointSpec m_fp;
 ARContrastFixationPointSpec m_target;
 vector<int> m_vecTargetOrder;
-int m_iTarget=0;
+vector<VSGOBJHANDLE> m_vecHandles;
+int m_nTargets=0;
+int m_iCurrentTarget = 0;
+TriggerVector m_triggers;
 
 // parse args
 int args(int argc, char **argv);
@@ -36,6 +41,10 @@ void usage();
 
 // Parse input target order file
 int parse_input_file(string filename, vector<int>& vec);
+
+void init_pages();
+void init_triggers();
+int callback(int &output, const CallbackTrigger* ptrig);
 
 
 
@@ -52,6 +61,8 @@ int main(int argc, char **argv)
 	}
 
 	init_pages();
+
+	init_triggers();
 
 	// Issue "ready" triggers to spike2.
 	// These commands pulse spike2 port 6. 
@@ -96,6 +107,35 @@ int main(int argc, char **argv)
 }
 
 
+// Generate target objects and draw them. 
+// Assumes m_target has been parsed, m_vecHandles exists, and m_nTargets has been parsed as well. 
+// Creates 'm_nTargets' fix points. Create the one for m_target, then rotate them around the center point. 
+
+void generate_targets()
+{
+	double angle;
+
+  	m_target.init(2);
+	m_target.setContrast(0);
+	m_target.draw();
+	m_vecHandles.push_back(m_target.handle());
+
+	// Now take m_target.x,y and rotate. 
+	angle = 2*PI/m_nTargets;
+	for (int i=1; i<m_nTargets; i++)
+	{
+		ARContrastFixationPointSpec t;
+		double theta = angle * i;
+		t.x = m_target.x * cos(theta) - m_target.y * sin(theta);
+		t.y = m_target.x * sin(theta) + m_target.y * cos(theta);
+		t.d = m_target.d;
+		t.color = m_target.color;
+		t.init(2);
+		t.setContrast(0);
+		t.draw();
+		m_vecHandles.push_back(t.handle());
+	}
+}
 
 void init_pages()
 {
@@ -112,9 +152,7 @@ void init_pages()
 	m_fp.setContrast(0);
 	m_fp.draw();
 
-
-
-
+	generate_targets();
 	
 	vsgPresent();
 
@@ -123,23 +161,13 @@ void init_pages()
 
 void init_triggers()
 {
-	// trigger for fixation point ON
-	ContrastTrigger *ptrigContrast;
-	ptrigContrast = new ContrastTrigger("F", 0x2, 0x2, 0x1, 0x1);
-	ptrigContrast->push_back( std::pair<VSGOBJHANDLE, int>(m_fp.handle(), 100) );
-	m_triggers.addTrigger(ptrigContrast);
-
-	// trigger for fixation point OFF
-	ptrigContrast = new ContrastTrigger("f", 0x2, 0x0, 0x1, 0x0);
-	ptrigContrast->push_back( std::pair<VSGOBJHANDLE, int>(m_fp.handle(), 0) );
-	m_triggers.addTrigger(ptrigContrast);
-
 	// triggers for stim will be CallbackTriggers, all using the same callback function
+	m_triggers.addTrigger(new CallbackTrigger("F", 0x2, 0x2, 0x1, 0x1, callback));
+	m_triggers.addTrigger(new CallbackTrigger("f", 0x2, 0x0, 0x1, 0x0, callback));
 	m_triggers.addTrigger(new CallbackTrigger("S", 0x4, 0x4, 0x2, 0x2, callback));
 	m_triggers.addTrigger(new CallbackTrigger("s", 0x4, 0x0, 0x2, 0x0, callback));
 	m_triggers.addTrigger(new CallbackTrigger("a", 0x8, 0x8 | AR_TRIGGER_TOGGLE, 0x4, 0x4 | AR_TRIGGER_TOGGLE, callback));
 	m_triggers.addTrigger(new QuitTrigger("q", 0x10, 0x10, 0xff, 0x0, 0));
-	
 }
 
 
@@ -155,81 +183,31 @@ int callback(int &output, const CallbackTrigger* ptrig)
 	string key = ptrig->getKey();
 	if (key == "a")
 	{
-		if (m_istep_current < m_nsteps)
-		{
-			m_tuned_param_current = m_tuned_param_vec[++m_istep_current];
-//			m_tuned_param_current += (m_tuned_param_max - m_tuned_param_min)/m_nsteps;
-//			m_istep_current++;
-		}
-		else
-		{
-			m_tuned_param_current = m_tuned_param_vec[0];
-			m_istep_current = 0;
-		}
-
-		std::cout << "Tuned param current(" << m_istep_current << ") = " << m_tuned_param_current << std::endl;
-		switch (m_tuning_type)
-		{
-		case tt_contrast:
-			m_iSavedContrast = (int)m_tuned_param_current;
-			// If the stim is currently on, this will make the change to the contrast visible when the 
-			// vsgPresent is issued. 
-			if (!m_bStimIsOff) m_stim.setContrast((int)m_tuned_param_current);
-			break;
-		case tt_spatial:
-			m_stim.sf = m_tuned_param_current;
-			break;
-		case tt_temporal:
-			m_stim.setTemporalFrequency(m_tuned_param_current);
-			break;
-		case tt_orientation:
-			m_stim.orientation = m_tuned_param_current;
-			break;
-		case tt_area:
-			// If the area covered is smaller than the last time, we have to erase the last grating. 
-			if (m_stim.h > m_tuned_param_current)
-			{
-				std::cout << "Smaller!" << std::endl;
-				m_stim.drawBackground();
-				m_fp.draw();
-			}
-			m_stim.h = m_stim.w = m_tuned_param_current;
-			break;
-		default:
-			cerr << "Error in trigger callback: unknown tuning type!" << endl;
-		}
-		m_stim.redraw(true);
-
+		cout << "a trig" << endl;
+		m_iCurrentTarget++;
+		if (m_iCurrentTarget == m_vecHandles.size()) m_iCurrentTarget = 0;
 	}
 	else if (key == "s")
 	{
-		// Turn off stimulus by setting contrast to 0.
-		if (!m_bStimIsOff)
-		{
-			m_iSavedContrast = m_stim.contrast;
-			m_stim.setContrast(0);
-			m_bStimIsOff = true;
-			m_stim.redraw(true);
-		}
-		else
-		{
-			cout << "Ignore \"s\" trigger: stim is already off." << endl;
-		}
+		cout << "s trig" << endl;
+		vsgObjSelect(m_vecHandles[m_iCurrentTarget]);
+		vsgObjSetContrast(0);
 	}
 	else if (key == "S")
 	{
-		// Turn on stimulus by setting contrast to m_iSavedContrast.
-		if (m_bStimIsOff)
-		{
-			cout << "Set stim to " << m_iSavedContrast << endl;
-			m_stim.setContrast(m_iSavedContrast);
-			m_bStimIsOff = false;
-			m_stim.redraw(true);
-		}
-		else
-		{
-			cout << "Ignore \"S\" trigger: stim is already on." << endl;
-		}
+		cout << "S trig" << endl;
+		vsgObjSelect(m_vecHandles[m_iCurrentTarget]);
+		vsgObjSetContrast(100);
+	}
+	else if (key == "F")
+	{
+		cout << "F trig" << endl;
+		m_fp.setContrast(100);
+	}
+	else if (key == "f")
+	{
+		cout << "f trig" << endl;
+		m_fp.setContrast(0);
 	}
 
 	return ival;
@@ -262,7 +240,7 @@ int parse_input_file(string filename, vector<int>& vec)
 int args(int argc, char **argv)
 {	
 	bool have_f=false;		// have fixation spec
-	bool have_f=false;		// have target spec
+	bool have_t=false;		// have target spec
 	bool have_d=false;		// have screen dist
 	bool have_n=false;		// have # of targets
 	bool have_r=false;		// set if randomized order file is provided (not required)
@@ -346,7 +324,6 @@ int args(int argc, char **argv)
 	// If no random order file specified, populate the target order vector with 1,2,...,n
 	if (!errflg && !have_r)
 	{
-		int i;
 		for (int i=1; i<= m_nTargets; i++) m_vecTargetOrder.push_back(i);
 	}
 
