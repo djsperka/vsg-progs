@@ -162,11 +162,11 @@ void init_pages()
 void init_triggers()
 {
 	// triggers for stim will be CallbackTriggers, all using the same callback function
-	m_triggers.addTrigger(new CallbackTrigger("F", 0x2, 0x2, 0x1, 0x1, callback));
-	m_triggers.addTrigger(new CallbackTrigger("f", 0x2, 0x0, 0x1, 0x0, callback));
-	m_triggers.addTrigger(new CallbackTrigger("S", 0x4, 0x4, 0x2, 0x2, callback));
-	m_triggers.addTrigger(new CallbackTrigger("s", 0x4, 0x0, 0x2, 0x0, callback));
-	m_triggers.addTrigger(new CallbackTrigger("a", 0x8, 0x8 | AR_TRIGGER_TOGGLE, 0x4, 0x4 | AR_TRIGGER_TOGGLE, callback));
+	m_triggers.addTrigger(new CallbackTrigger("F", 0x2, 0x2, 0x2, 0x2, callback));
+	m_triggers.addTrigger(new CallbackTrigger("f", 0x2, 0x0, 0x2, 0x0, callback));
+	m_triggers.addTrigger(new CallbackTrigger("S", 0x4, 0x4, 0x4, 0x4, callback));
+	m_triggers.addTrigger(new CallbackTrigger("s", 0x4, 0x0, 0x4, 0x0, callback));
+	m_triggers.addTrigger(new CallbackTrigger("a", 0x8, 0x8 | AR_TRIGGER_TOGGLE, 0x8, 0x8 | AR_TRIGGER_TOGGLE, callback));
 	m_triggers.addTrigger(new QuitTrigger("q", 0x10, 0x10, 0xff, 0x0, 0));
 }
 
@@ -185,18 +185,18 @@ int callback(int &output, const CallbackTrigger* ptrig)
 	{
 		cout << "a trig" << endl;
 		m_iCurrentTarget++;
-		if (m_iCurrentTarget == m_vecHandles.size()) m_iCurrentTarget = 0;
+		if (m_iCurrentTarget == m_vecTargetOrder.size()) m_iCurrentTarget = 0;
 	}
 	else if (key == "s")
 	{
 		cout << "s trig" << endl;
-		vsgObjSelect(m_vecHandles[m_iCurrentTarget]);
+		vsgObjSelect(m_vecHandles[m_vecTargetOrder[m_iCurrentTarget]]);
 		vsgObjSetContrast(0);
 	}
 	else if (key == "S")
 	{
 		cout << "S trig" << endl;
-		vsgObjSelect(m_vecHandles[m_iCurrentTarget]);
+		vsgObjSelect(m_vecHandles[m_vecTargetOrder[m_iCurrentTarget]]);
 		vsgObjSetContrast(100);
 	}
 	else if (key == "F")
