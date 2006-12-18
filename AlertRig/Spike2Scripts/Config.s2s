@@ -1529,6 +1529,93 @@ end;
 '
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+'	StarStim script parameters START
+'
+'	Vars that control the alert msequence script. 
+'
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+var starFixationDuration;			' Time required to maintain fixation, seconds
+var starAcquisitionTime;			' Time allowed to acquire target before fail trial, seconds
+var starInterTrialTime;				' Blank time following a trial (both successful and failed), seconds
+var starAnswerTime;					' time to move to answer window, seconds
+var starNumTargets%;					' number of targets to use
+var starRandomize%;					' generate random ordering file for stim
+var starOverlap%;						' allow fixpoint and stim to overlap for a short period
+
+proc GetStarStimScriptParameters()
+	var stmp$;
+	var key$;
+
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\StarStim";
+
+	Profile(key$, "FixationDuration", "1.0", stmp$);
+	starFixationDuration := val(stmp$);
+
+	Profile(key$, "AcquisitionTime", "1.0", stmp$);
+	starAcquisitionTime := val(stmp$);
+
+	Profile(key$, "InterTrialTime", "1.0", stmp$);
+	starInterTrialTime := val(stmp$);
+
+	Profile(key$, "AnswerTime", "1.0", stmp$);
+	starAnswerTime := val(stmp$);
+
+	Profile(key$, "NumTargets", 5, starNumTargets%);
+	Profile(key$, "Randomize", 0, starRandomize%);
+	Profile(key$, "Overlap", 0, starOverlap%);
+	
+end;
+ 	
+proc SaveStarStimScriptParameters()
+	var stmp$;
+	var key$;
+
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\StarStim";
+
+	Profile(key$, "FixationDuration", str$(starFixationDuration));
+	Profile(key$, "AcquisitionTime", str$(starAcquisitionTime));
+	Profile(key$, "InterTrialTime", str$(starInterTrialTime));
+	Profile(key$, "AnswerTime", str$(starAnswerTime));
+	Profile(key$, "NumTargets", starNumTargets%);
+	Profile(key$, "Randomize", starRandomize%);
+	Profile(key$, "Overlap", starOverlap%);
+end;
+
+
+
+func StarStimScriptDialog%()
+	var i%;
+	GetStarStimScriptParameters();
+	DlgCreate("StarStim Script Parameters", 25, 10);
+	DlgReal(1, "Fixation duration(s):", .01, 10);
+	DlgReal(2, "Acquisition time(s):", .01, 10);
+	DlgReal(3, "Intertrial time(s):", .01, 10);
+	DlgReal(4, "Answer time(s):", .01, 10);
+	DlgInteger(5, "Number of targets:", 1, 11);
+	DlgCheck(6, "Randomize target order?");
+	DlgCheck(7, "Overlap fixation/target?");
+	i%:=DlgShow(starFixationDuration, starAcquisitionTime, starInterTrialTime, starAnswerTime, starNumTargets%, starRandomize%, starOverlap%);
+	if i% = 1 then
+		PrintLog("Saving params\n");
+		SaveStarStimScriptParameters();
+	endif;
+	return 1;
+end;
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+' StarStim script END
+'
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+
+
+
+
+
+
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 '
@@ -1609,6 +1696,7 @@ func RigConfigDialog%(config$)
 	DlgButton(14, "CoolerMouse", CoolerMouseScriptDialog%, 20, 5);
 	DlgButton(15, "MSequence", MSequenceScriptDialog%, 20, 6);
 	DlgButton(16, "ContrastReverse", CRGScriptDialog%, 20, 7);
+	DlgButton(17, "StarStim", StarStimScriptDialog%, 20, 8);
 
 	DlgShow();
 
