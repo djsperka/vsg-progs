@@ -1,0 +1,1241 @@
+' $Id: StarStim.s2s,v 1.1 2006-12-18 22:38:02 dan Exp $
+'========================================================================
+'
+' INPUTS
+'
+' Eye X, Y - ADC input 14, 15 respectively
+' VSG trigger - assumed on DIGIN byte 0.  *** THE 1401 SHOULD HAVE PREFERENCES 
+'               SET WITH THE "Event Ports 0 and 1 on read digital input connector" 
+'               BOX CHECKED!!!
+'
+'========================================================================
+
+' File system reference vars. Each var is a directory path, WITHOUT the trailing slash. 
+var bin$, script$, config$;
+script$ := View(App(3)).FileName$(1) + View(App(3)).FileName$(2);	' folder containing this script
+bin$ := View(App(3)).FileName$(1) + View(App(3)).FileName$(2) + "..\\bin";	' Location of executables is ..\bin, relative to script dir
+config$ := View(App(3)).FileName$(1) + View(App(3)).FileName$(2) + "..\\config";	' Location of executables is ..\bin, relative to script dir
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+'	Get Current configuration START
+'
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+func GetCurrentConfiguration$()
+	var key$;
+	var s$;
+	key$:="AlertRig";
+	Profile(key$, "CurrentConfiguration", "default", s$);
+	return s$;
+end;
+
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+'	Get Current configuration END
+'
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+'	Data parameters START
+'
+'	Vars that control where data is stored. 
+'
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+var dataPathRoot$;		' base path for data storage
+var dataDataSet$;		' folder under data path where data files placed
+var dataCellName$;		' part of base name for all data files
+var dataDataSetTextItem%;	' 
+
+proc GetDataParameters()
+	var stmp$;
+	var key$;
+
+	key$:="AlertRig\\Data";
+
+	Profile(key$, "PathRoot", "C:\\Experiments", dataPathRoot$);
+	Profile(key$, "DataSet", "", dataDataSet$);
+	Profile(key$, "CellName", "", dataCellName$);
+	return;
+end;
+
+proc SaveDataParameters()
+	var stmp$;
+	var key$;
+
+	key$:="AlertRig\\Data";
+
+	Profile(key$, "PathRoot", dataPathRoot$);
+	Profile(key$, "DataSet", dataDataSet$);
+	Profile(key$, "CellName", dataCellName$);
+	return;
+end;
+
+func DataParametersDialog%()
+	var i%;
+	GetDataParameters();
+	DlgCreate("Data Storage Parameters", 25, 10, 50);
+	DlgText("Data root path: " + dataPathRoot$, 0, 1);
+	dataDataSetTextItem% := DlgText("Data set name: " + dataDataSet$, 0, 2);
+	DlgString(1, "Cell name:", 10, "", 0, 3);
+        DlgButton(2, "New Data Set", NewDataSet%);
+	i% := DlgShow(dataCellName$);
+	if (i% = 1) then
+		if Len(dataDataSet$) = 0 then
+			Message("Must specify a data set (try the button!)");
+		else
+			if Len(dataCellName$) = 0 then
+				Message("Must specify a cell name");
+			else
+				FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 3, 1);
+				SaveDataParameters();
+			endif;
+		endif;
+	endif;
+	return i%;
+end;
+
+
+func NewDataSet%()
+	var d$;
+	var i%;
+	var dirs$[100];	' if there are ever more than 100 datasets in a single day there will be trouble
+	d$ := Date$(2, 2, 3, 3, "-");
+	PrintLog("NewDataSet: date string = " + d$ + "\n");
+
+	' Change current dir to data path root, then get list of subdirs with this date string
+	PrintLog("NewDataSet: dataPathRoot$=" + dataPathRoot$ + "\n");
+	FilePathSet(dataPathRoot$, 0, 1);
+	i% := FileList(dirs$, -2, d$ + "-??");
+        PrintLog("NewDataSet: found " + str$(i%) + " dirs\n");
+
+	' form new dataset name. The first will have "-01" appended, the second "-02", etc. 
+	dataDataSet$ := Print$("%s-%02d", d$, i%+1);
+	PrintLog("NewDataSet: dataset= " + dataDataSet$ + "\n");
+	DlgValue$(dataDataSetTextItem%, "Data set name: " + dataDataSet$);
+	return 1;
+end;
+
+
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+' Data parameters END
+'
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+'	DAQ Parameters START
+'
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+
+var DistanceToScreenMM$;		' Distance to screen in MM
+var DegreesPerVoltX;			' Conversion factor from ADC to visual degrees
+var DegreesPerVoltY;			' Conversion factor from ADC to visual degrees
+var EyeCoilSamplingFrequency%;		' Frequency to sample eye coil at
+var NumberOfElectrodes%;		' Number of electrodes (i.e. wavemark inputs) in use
+var JuicePerReward%;			' Number of juice squirts per reward
+
+
+func DAQParametersDialog%()
+
+	var iReturn%;
+	var idist%;
+
+	GetDAQParameters();
+
+	idist% := val(DistanceToScreenMM$);
+	DlgCreate("DAQ parameters: " + GetCurrentConfiguration$());
+	DlgInteger(1, "Number of Electrodes:", 1, 7, 0, 0, 1);
+	DlgInteger(2, "Screen Distance (MM):", 1, 5000);
+	DlgReal(3, "Degrees/Volt (X):", 0, 100);
+	DlgReal(4, "Degrees/Volt (Y):", 0, 100);
+	DlgInteger(5, "Eye Coil Sampling Freq (Hz):", 1, 20000);
+	DlgInteger(6, "Juice per reward:", 0, 10, 0, 0, 1);
+	iReturn% := DlgShow(NumberOfElectrodes%, idist%, DegreesPerVoltX, DegreesPerVoltY, EyeCoilSamplingFrequency%, JuicePerReward%);
+
+	if iReturn% = 1 then
+		DistanceToScreenMM$ := str$(idist%);
+		SaveDAQParameters();
+	endif
+	return iReturn%;
+end;
+
+
+
+
+	
+proc GetDAQParameters()
+	var key$;
+	var DegreesPerVoltX$, DegreesPerVoltY$;
+
+	key$ := "AlertRig\\" + GetCurrentConfiguration$() + "\\DAQ";
+	Profile(key$, "DistanceToScreenMM", "850", DistanceToScreenMM$);	' will just pass this to stimulus app
+	Profile(key$, "DegreesPerVoltX", "", DegreesPerVoltX$);
+	Profile(key$, "DegreesPerVoltY", "", DegreesPerVoltY$);
+	Profile(key$, "EyeCoilSamplingFrequency", 1000, EyeCoilSamplingFrequency%);
+	Profile(key$, "NumberOfElectrodes", 1, NumberOfElectrodes%);
+	Profile(key$, "JuicePerReward", 1, JuicePerReward%);
+	DegreesPerVoltX := val(DegreesPerVoltX$);
+	DegreesPerVoltY := val(DegreesPerVoltY$);
+
+end;
+
+proc SaveDAQParameters()
+	var key$;
+	var DegreesPerVoltX$, DegreesPerVoltY$;
+	DegreesPerVoltX$ := str$(DegreesPerVoltX);
+	DegreesPerVoltY$ := str$(DegreesPerVoltY);
+	
+	key$ := "AlertRig\\" + GetCurrentConfiguration$() + "\\DAQ";
+	Profile(key$, "DistanceToScreenMM", DistanceToScreenMM$);
+	Profile(key$, "DegreesPerVoltX", DegreesPerVoltX$);
+	Profile(key$, "DegreesPerVoltY", DegreesPerVoltY$);
+	Profile(key$, "EyeCoilSamplingFrequency", EyeCoilSamplingFrequency%);
+	Profile(key$, "NumberOfElectrodes", NumberOfElectrodes%);
+	Profile(key$, "JuicePerReward", JuicePerReward%);
+
+end;
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+'	DAQ Parameters END
+'
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+'	Fixation Point parameters START
+'
+'	These vars and funcs control the parameters for the fixation point stored in the registry. 
+'
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+
+
+var WindowRadius;
+var FixationX, FixationY;
+var FixationColor$;
+var iFixationColor%;
+var FixationDiameter;
+var FixationColorList$[3]; 
+var FixationArg$;
+
+proc GetFixationPointParameters()
+	var stmp$;
+	var key$;
+	key$ := "AlertRig\\" + GetCurrentConfiguration$() + "\\FixationPoint";
+	Profile(key$, "WindowRadius", "1", stmp$);
+	WindowRadius := val(stmp$);
+
+	Profile(key$, "FixationX", "0", stmp$);
+	FixationX := val(stmp$);
+	Profile(key$, "FixationY", "0", stmp$);
+	FixationY := val(stmp$);
+	Profile(key$, "FixationColor", "0", stmp$);
+	iFixationColor% := val(stmp$);
+
+	FixationColorList$[0]:="red"; 
+	FixationColorList$[1]:="green"; 
+	FixationColorList$[2]:="blue"; 
+	FixationColor$ := FixationColorList$[iFixationColor%];
+
+	Profile(key$, "FixationDiameter", "0.5", stmp$);
+	FixationDiameter := val(stmp$);
+
+	' Form the argument for applications. Convenience for passing args. 
+	FixationArg$ := " -f " + str$(FixationX) + "," + str$(FixationY) + "," + str$(FixationDiameter) + "," + FixationColor$;
+end;
+
+proc SaveFixationPointParameters()
+	var key$;
+	key$ := "AlertRig\\" + GetCurrentConfiguration$() + "\\FixationPoint";
+	Profile(key$, "WindowRadius", str$(WindowRadius));
+	Profile(key$, "FixationX", str$(FixationX));
+	Profile(key$, "FixationY", str$(FixationY));
+	Profile(key$, "FixationColor", str$(iFixationColor%));
+	Profile(key$, "FixationDiameter", str$(FixationDiameter));
+end;
+
+
+func FixationPointDialog%()
+
+	var i%;
+	GetFixationPointParameters();
+	DlgCreate("Fixation parameters: " + GetCurrentConfiguration$(), 25, 10);
+	DlgReal(1, "Fixation X:", -20, 20);
+	DlgReal(2, "Fixation Y:", -20, 20);
+	DlgReal(3, "Fixation diam:", .1, 5);
+	DlgReal(4, "Window radius:", .1, 10);
+	DlgList(5, "Color:", FixationColorList$[]);
+	i% := DlgShow(FixationX, FixationY, FixationDiameter, WindowRadius, iFixationColor%);	
+
+	' If user cancelled, reload params
+	if i% = 0 then
+		GetFixationPointParameters();
+	else
+		SaveFixationPointParameters();
+	endif
+
+	return 1;
+end;
+
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+'	Fixation Point parameters END
+'
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+
+
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+'	Rig Daily Totals START
+'
+'
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+
+var TotalTrials%;
+var TotalRewards%;
+var TotalDate$;
+
+
+proc GetDailyTotals()
+	var key$;
+	key$ := "AlertRig\\Daily";
+	Profile(key$, "TotalDate", "", TotalDate$);
+	Profile(key$, "TotalTrials", 0, TotalTrials%);
+	Profile(key$, "TotalRewards", 0, TotalRewards%);
+
+	' Get date string if needed
+	if Len(TotalDate$) = 0 then
+		TotalDate$ := GetDayString$();
+		SaveDailyTotals();
+	endif
+end;
+
+proc SaveDailyTotals()
+	var key$;
+	key$ := "AlertRig\\Daily";
+	Profile(key$, "TotalDate", TotalDate$);
+	Profile(key$, "TotalTrials", TotalTrials%);
+	Profile(key$, "TotalRewards", TotalRewards%);
+end;
+
+func DailyTotalsDialog%()
+	GetDailyTotals();
+	DlgCreate("Daily Totals");
+	DlgText("Date: " + TotalDate$, 0, 1);
+	DlgText("Trials: " + str$(TotalTrials%), 0, 2);
+	DlgText("Rewards: " + str$(TotalRewards%), 0, 3);
+	DlgButton(2, "Reset", ResetDailyTotals%);
+	DlgShow();
+	return 1;
+end;
+
+
+func GetDayString$()
+	return Date$(2, 1, 3, 2, "-");
+end;
+
+
+func ResetDailyTotals%()
+	GetDailyTotals();
+	TotalRewards%:=0;
+	TotalTrials%:=0;
+	TotalDate$:= GetDayString$();
+	SaveDailyTotals();
+        return 0;
+end;
+
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+'	Rig Daily Totals END
+'
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+'	StarStim script parameters START
+'
+'	Vars that control the alert msequence script. 
+'
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+var starFixationDuration;			' Time required to maintain fixation, seconds
+var starAcquisitionTime;			' Time allowed to acquire target before fail trial, seconds
+var starInterTrialTime;				' Blank time following a trial (both successful and failed), seconds
+var starAnswerTime;					' time to move to answer window, seconds
+var starNumTargets%;					' number of targets to use
+var starRandomize%;					' generate random ordering file for stim
+var starOverlap%;						' allow fixpoint and stim to overlap for a short period
+
+proc GetStarStimScriptParameters()
+	var stmp$;
+	var key$;
+
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\StarStim";
+
+	Profile(key$, "FixationDuration", "1.0", stmp$);
+	starFixationDuration := val(stmp$);
+
+	Profile(key$, "AcquisitionTime", "1.0", stmp$);
+	starAcquisitionTime := val(stmp$);
+
+	Profile(key$, "InterTrialTime", "1.0", stmp$);
+	starInterTrialTime := val(stmp$);
+
+	Profile(key$, "AnswerTime", "1.0", stmp$);
+	starAnswerTime := val(stmp$);
+
+	Profile(key$, "NumTargets", 5, starNumTargets%);
+	Profile(key$, "Randomize", 0, starRandomize%);
+	Profile(key$, "Overlap", 0, starOverlap%);
+	
+end;
+ 	
+proc SaveStarStimScriptParameters()
+	var stmp$;
+	var key$;
+
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\StarStim";
+
+	Profile(key$, "FixationDuration", str$(starFixationDuration));
+	Profile(key$, "AcquisitionTime", str$(starAcquisitionTime));
+	Profile(key$, "InterTrialTime", str$(starInterTrialTime));
+	Profile(key$, "AnswerTime", str$(starAnswerTime));
+	Profile(key$, "NumTargets", starNumTargets%);
+	Profile(key$, "Randomize", starRandomize%);
+	Profile(key$, "Overlap", starOverlap%);
+end;
+
+
+
+func StarStimScriptDialog%()
+	var i%;
+	GetStarStimScriptParameters();
+	DlgCreate("StarStim Script Parameters", 25, 10);
+	DlgReal(1, "Fixation duration(s):", .01, 10);
+	DlgReal(2, "Acquisition time(s):", .01, 10);
+	DlgReal(3, "Intertrial time(s):", .01, 10);
+	DlgReal(4, "Answer time(s):", .01, 10);
+	DlgInteger(5, "Number of targets:", 1, 11);
+	DlgCheck(6, "Randomize target order?");
+	DlgCheck(7, "Overlap fixation/target?");
+	i%:=DlgShow(starFixationDuration, starAcquisitionTime, starInterTrialTime, starAnswerTime, starNumTargets%, starRandomize%, starOverlap%);
+	if i% = 1 then
+		PrintLog("Saving params\n");
+		SaveStarStimScriptParameters();
+	endif;
+	return 1;
+end;
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+' StarStim script END
+'
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+
+
+
+
+
+
+' Window handles and channel numbers
+var XChannel%,YChannel%;		' Channel number assigned to eye x and y
+var FixationChannel%;
+var StimChannel%;
+var ChangeChannel%;
+var ReadyChannel%;			' channel number for VSG ready pulse signal
+var DataWindow%;	' time view
+var XYWindow%;		' window with eye pos shown
+var iTargetChannel%;	' channel number for target in xy window
+var iTargetWindowChannel%;' channel number for target window in xy window
+var iFixChannel%;	' channel number for fixpt in xy window
+var iFixWindowChannel%;' channel number for fixpt window in xy window
+var iMonitorChannel%;	' channel number for monitor position display in xy window
+var StimHandle%;	' handle for stimulus application
+' Experimental control
+var Pause%:=0;		' When 1, expt is paused - no idle processing done
+
+' Display stuff
+var FixWindowX[36],FixWindowY[36];	' points for displaying fixation window in xy view
+var windowX[36], windowY[36];
+' Stimulus location stuff
+var iStimX%[8];
+var iStimY%[8];
+var iStimIndex%;
+
+
+
+
+
+' Fetch parameters
+GetDailyTotals();
+GetDAQParameters();
+GetFixationPointParameters();
+GetStarStimScriptParameters();
+GetDataParameters();
+
+
+' Check for valid data file path
+if Len(dataDataSet$) = 0 then
+	Message("No data set is selected! Edit Data parameters...");
+	' Might be nice to open the dialog here....
+	halt;
+else 
+	' Set path for new data files
+	FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 3, 1);
+	FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 1, 1);
+	SampleAutoName$(dataCellName$ + "_star_000");
+	SampleAutoFile(1);
+	PrintLog("dataPathRoot=" + dataPathRoot$ + "\n");
+	PrintLog("dataDataSet=" + dataDataSet$ + "\n");
+	PrintLog("AutoFile status " + str$(SampleAutoFile()) + "\n");
+endif
+
+
+
+
+
+' Assign channel numbers for eye X,Y and trigger. 
+XChannel% := NumberOfElectrodes%+1;
+YChannel% := NumberOfElectrodes%+2;
+ReadyChannel% := NumberOfElectrodes% + 3;
+FixationChannel% := NumberOfElectrodes%+4;
+StimChannel% := NumberOfElectrodes%+5;
+ChangeChannel% := NumberOfElectrodes%+6;
+CreateSampleConfiguration();
+
+
+' Get display windows ready
+InitializeWindows();
+
+' Prepare the toolbar buttons
+InitializeToolbar();
+
+
+
+
+
+
+
+const stateStartTrial%				:= 0;
+const stateWaitForFixPtOn%			:= 1;
+const stateWaitForAcquisition%	:= 2;
+const stateHoldFixation%			:= 3;
+const stateShowStim%					:= 4;
+const stateWaitForStimOn%			:= 5;
+const stateWaitForAnswer%			:= 6;
+const stateSuccess%					:= 7;
+const stateWaitForFixPtOff%		:= 8;
+const stateAbort%						:= 9;
+const stateWaitForStimOff%			:= 10;
+const stateFailure%					:= 11;
+const stateAbortTime%				:= 12;
+const stateInterTrial%		 		:= 13;
+
+const stateVSGWait%					:= 14;		' wait for vsg to send ready signal #1
+const stateVSGWaitConfirm%			:= 15;		' waif for vsg to send ready signal #2
+
+
+var tNow:=0;		' latest time for which there are values recorded. Used in IdleProcessing
+var tLast:=-1;		' last time we checked for a trigger. 
+var xEye, yEye;		' eye positions
+var tLastUpdate:=-1;	' last time view was updated
+var iState%:=stateVSGWait%;		' present state
+var vTrigger;		' set by NextTime to indicate trigger transition
+var tStateStart:=-1;	' time that present state started. Used to measure wait time, fixation time, etc. 
+var tLastTrigger:=-1;	' last trigger time. New triggers have to be greater than this
+var tTrigger:=-1;	' temp var for newly discovered trigger times
+var nTrialsStarted%:=0;
+var nTrialsSuccess%:=0;
+var nTrialsFail%:=0;
+var iTargetPoint% := 0;
+var TargetX, TargetY;		' location of stimulus grating - this is target position "0"
+
+' Run real time analysis here. 
+func IdleProcessing%()
+	var iStatus% := 1;	' this is return value. value of 1 (0) continues (stops) processing
+	tNow := MaxTime();
+
+	xEye := ChanMeasure(XChannel%,2,tNow-.001,tNow-.006)*DegreesPerVoltX;
+	yEye := ChanMeasure(YChannel%,2,tNow-.001,tNow-.006)*DegreesPerVoltY;
+
+	' Don't update display every time. 
+	' Note that this stim displays eye continuously, without erasing... 
+	if tNow-tLastUpdate > .005 then
+		View(XYWindow%).XYAddData(1,xEye,yEye);
+		tLastUpdate := tNow;
+	endif
+
+	' What state are we in? 
+	docase 
+
+	
+		case iState% = stateVSGWait% then
+
+			' Waiting for VSG to indicate it is ready. The indication is a pulse (up, then down, 1 frame apart) on port 6.
+			tTrigger := NextTime(ReadyChannel%, tLast, vTrigger);
+			if tTrigger > tLastTrigger and vTrigger = 0 then
+				PrintLog("state stateVSGWait: Got leading edge of trigger\n");
+				tLastTrigger := tTrigger;
+				iState% := stateVSGWaitConfirm%;
+			endif;
+
+		case iState% = stateVSGWaitConfirm% then
+
+			' Waiting for VSG to confirm it is ready. The downward side of the pulse is expected...
+			tTrigger := NextTime(ReadyChannel%, tLastTrigger, vTrigger);
+			if tTrigger > tLastTrigger and vTrigger = 1 then
+				PrintLog("state stateVSGWaitConfirm: Got trailing edge of trigger\n");
+				tLastTrigger := tTrigger;
+				iState% := stateStartTrial%;
+			endif;
+
+	
+		case iState% = stateStartTrial% then
+
+			' initial state on startup. 
+			' DIGOUT to present stimulus
+			' Enter state 1
+
+			nTrialsStarted% += 1;
+			SampleKey("F");
+			iState% := stateWaitForFixPtOn%;
+
+		case iState% = stateWaitForFixPtOn% then
+	
+			tTrigger := NextTime(FixationChannel%,tLast,vTrigger);
+			if tTrigger > tLastTrigger then
+
+				if vTrigger = 0 then
+		
+					' Stimulus has been presented. Display stim location and window. Enter state 2
+					DrawFix(1);
+					iState% := stateWaitForAcquisition%;
+					tStateStart := tTrigger;
+					tLastTrigger := tTrigger;
+
+				endif
+
+			endif
+
+		case iState% = stateWaitForAcquisition% then
+
+			if tNow-tStateStart < starAcquisitionTime then
+				
+				' Acquisition happens when the eye falls within the fixation window.
+				if InFixationWindow%(xEye, yEye) > 0 then
+
+					iState% := stateHoldFixation%;
+					tStateStart := tNow;
+	
+				endif
+
+			else
+
+				' Failed. Turn off stim and try again.
+'				PrintLog("State 2 - acquisition failed. Enter state 4\n");
+				iState% := stateAbort%;
+				tStateStart := tNow;
+
+			endif
+
+		case iState% = stateAbort% then
+
+			DrawFix(0);
+			DrawTarget(0);
+			SampleKey("f");
+			iState% := stateWaitForFixPtOff%;
+
+		case iState% = stateWaitForFixPtOff% then
+
+			tTrigger := NextTime(FixationChannel%, tLast, vTrigger);
+			if (tTrigger >= tLast) then
+				iState% := stateInterTrial%;
+				tStateStart := tNow;
+			endif
+			
+		case iState% = stateHoldFixation% then
+
+			if InFixationWindow%(xEye, yEye) <= 0 then
+
+				iState% := stateAbort%;
+				tStateStart := tNow;
+
+			else
+
+				if tNow - tStateStart >= starFixationDuration then
+
+					iState% := stateShowStim%;
+					tStateStart := tNow;
+
+				endif
+
+			endif
+
+		case iState% = stateShowStim% then
+
+			' Send stim signal, yield short time, then turn off fix pt.
+			SampleKey("S");
+			Yield(0.05);
+			SampleKey("f");
+			DrawFix(0);
+			DrawTarget(1);
+			iState% := stateWaitForStimOn%;
+
+		case iState% = stateWaitForStimOn% then
+
+			tTrigger := NextTime(StimChannel%, tLast, vTrigger);
+			if (tTrigger >= tLast) then
+				' Stim is on. Assume fixpt is off. 
+				iState% := stateWaitForAnswer%;
+				tStateStart := tNow;
+			endif
+
+		case iState% = stateWaitForAnswer% then
+
+			' TODO 
+			if InTargetWindow%(xEye, yEye) = 1 then
+
+				iState% := stateSuccess%;
+				tStateStart := tNow;
+
+			else
+
+				if tNow - tStateStart >= starAnswerTime then
+
+					iState% := stateFailure%;
+					tStateStart := tNow;
+
+				endif
+
+			endif
+
+		case iState% = stateSuccess% then
+
+			nTrialsSuccess% += 1;
+			Reward%();
+			SampleKey("X");
+			Yield(0.05);
+			AdvanceTarget();
+			iState% := stateWaitForStimOff%;
+			tStateStart := tNow;
+
+		case iState% = stateFailure% then
+
+			nTrialsFail% += 1;
+			SampleKey("X");
+			Yield(0.05);
+			AdvanceTarget();
+			iState% := stateWaitForStimOff%;
+			tStateStart := tNow;
+
+		case iState% = stateWaitForStimOff% then
+
+			' Wait for stim to be off
+			tTrigger := NextTime(StimChannel%, tLast, vTrigger);
+			if tTrigger > tLast then
+
+				if vTrigger = 1 then
+		
+					' Stimulus has been turned off by vsg.
+					DrawTarget(0);
+					DrawFix(0);
+					iState% := stateInterTrial%;
+					tStateStart := tNow;
+					tLastTrigger := tTrigger;
+	
+				endif
+
+			endif
+
+		case iState% = stateInterTrial% then
+
+			if (tNow - tStateStart >= starInterTrialTime) then
+				iState% := stateStartTrial%;
+				tStateStart := tNow;
+			endif;
+
+		else 
+
+			' Unknown state!
+			Message("Unknown state=" + str$(iState%));
+			halt;
+
+	endcase;
+
+	tLast := tNow;
+	
+	return iStatus%;
+
+end;
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+proc CreateSampleConfiguration()
+	var index;
+	SampleClear(); 'Set standard sampling state
+'	SampleAutoFile(0); 'Enable automatic file naming
+	SampleAutoComment(0); 'Prompt for comment after sampling
+	SampleAutoCommit(60); 'Seconds between each file commit
+
+	'Channel recording definitions
+	SampleEvent(FixationChannel%, 2, 2, 3600);
+	SampleComment$(FixationChannel%, "FixPt");
+	SampleTitle$(FixationChannel%, "FixPt");
+
+	SampleEvent(StimChannel%, 3, 2, 3600);
+	SampleComment$(StimChannel%, "Stim");
+	SampleTitle$(StimChannel%, "Stim");
+
+	SampleEvent(ChangeChannel%, 4, 2, 3600); 'Trigger channel, level
+	SampleComment$(ChangeChannel%, "Advance");
+	SampleTitle$(ChangeChannel%, "Advance");
+
+
+	' channel to look for ready signal from vsg
+	SampleEvent(ReadyChannel%,6,2,3600); 'Trigger channel, level
+	SampleComment$(ReadyChannel%,"VSG Ready");
+	SampleTitle$(ReadyChannel%,"VSG Ready");
+
+
+' djs No recording for this stim....
+'	for index := 1 to NumberOfElectrodes% do
+'		SampleWaveMark(index,index-1,2000,34,15,28000); ' chan, port, event rate, points, pre-trigger, rate
+'		SampleTitle$(index, "Electrode_"+Str$(index)); 
+'	next
+
+	'EYE COIL CHANNELS. Last # is sampling freq in Hz. 
+	SampleWaveform(XChannel%, 14, 1000);
+	SampleTitle$(XChannel%,"Eye X");
+	SampleWaveform(YChannel%, 15, 1000);
+	SampleTitle$(YChannel%, "Eye Y");
+
+	SampleSequencer(script$ + "StarStim.pls");
+	SampleOptimise(2, 2, 2, 2, 50);  'Set optimise mode (do this last)
+	SampleMode(1); 'Continuous sampling
+end;
+
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+' DrawTarget
+' 
+' Draws target in xy window (iDraw%==1) or blanks it (0). 
+proc DrawTarget(iDraw%)
+
+	if iDraw% > 0 then
+		var xstim, ystim;
+		xstim := GetTargetX();
+		ystim := GetTargetY();
+
+		' Draw stimulus in xy window
+		View(XYWindow%).XYAddData(iTargetChannel%, xstim, ystim);
+	
+		' draw fixation window
+		ArrConst(windowX[], FixWindowX[]);
+		ArrAdd(windowX[], xstim);
+		ArrConst(windowY[], FixWindowY[]);
+		ArrAdd(windowY[], ystim);
+
+		View(XYWindow%).XYAddData(iTargetWindowChannel%, windowX[], windowY[]);		
+	else 
+		' erase the stim and the window from xy view
+		View(XYWindow%).XYDelete(iTargetChannel%);
+		View(XYWindow%).XYDelete(iTargetWindowChannel%);
+	endif
+
+end;
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+' DrawFix
+' 
+' Draws fixpt in xy window (iDraw%==1) or blanks it (0). 
+proc DrawFix(iDraw%)
+
+	if iDraw% > 0 then
+
+		' Draw stimulus in xy window
+		View(XYWindow%).XYAddData(iFixChannel%, FixationX, FixationY);
+	
+		' draw fixation window
+		ArrConst(windowX[], FixWindowX[]);
+		ArrAdd(windowX[], FixationX);
+		ArrConst(windowY[], FixWindowY[]);
+		ArrAdd(windowY[], FixationY);
+
+		View(XYWindow%).XYAddData(iFixWindowChannel%, windowX[], windowY[]);		
+	else 
+		' erase the stim and the window from xy view
+		View(XYWindow%).XYDelete(iFixChannel%);
+		View(XYWindow%).XYDelete(iFixWindowChannel%);
+	endif
+
+end;
+
+
+proc InitializeWindows()
+
+	'Open the data sampling window
+	DataWindow% := FileNew(0,4);
+	Window(-0.235849,52.746,97.2484,99.8856);
+	View(DataWindow%).WindowVisible(1);
+
+	'Open an XY view to display eye position
+	XYWindow% := FileNew(12);
+	XRange(-30,30);
+	YRange(-2,-30,30);
+	XYDrawMode(0,5,0);
+	WindowVisible(1);
+	Window(-0.550314,0.114416,41.5094,52.746);
+	XYColour(1,16);
+
+	' Channel 1 is eye pos. Set size of this channel's data to 0 - expands as needed. Join points, too. 
+	XYSize(1,0);
+	XYJoin(1, 1);
+	XYDrawMode(1, 2, 1);	' dot size is 1
+
+	'Calcuate the fixation window
+	var index%;
+	var twopi;
+	twopi := 2.0*4.0*ATan(1.0);
+	
+	for index% := 0 to 35 do
+		FixWindowX[index%] := WindowRadius * Cos(index% * twopi/36.0);
+		FixWindowY[index%] := WindowRadius * Sin(index% * twopi/36.0);
+	next;
+
+	'Create a new channel in the XY view to display the fixation window
+	iFixWindowChannel% := XYSetChan(0);
+	XYColour(iFixWindowChannel%, 13);
+	XYDrawMode(iFixWindowChannel%, 2, 1);
+	XYJoin(iFixWindowChannel%, 1);
+
+	'Create a new channel in the XY view to display the fixation point
+	iFixChannel% := XYSetChan(0);
+
+	'Create a new channel in the XY view to display the target window
+	iTargetWindowChannel% := XYSetChan(0);
+	XYColour(iTargetWindowChannel%, 13);
+	XYDrawMode(iTargetWindowChannel%, 2, 1);
+	XYJoin(iTargetWindowChannel%, 1);
+
+	'Create a new channel in the XY view to display the target point
+	iTargetChannel% := XYSetChan(0);
+
+
+
+	'Create a new channel in the XY view to show the monitor's location
+	iMonitorChannel% := XYSetChan(0);
+	XYColour(iMonitorChannel%, 13);
+	XYDrawMode(iMonitorChannel%, 3, 1);
+	XYJoin(iMonitorChannel%, 2);
+	XYAddData(iMonitorChannel%, -9, -7);
+	XYAddData(iMonitorChannel%, 9, -7);
+	XYAddData(iMonitorChannel%, 9, 7);
+	XYAddData(iMonitorChannel%, -9, 7);
+
+end;
+
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+' InitilizeToolbar - prepare toolbar buttons. Note that the idle processing function (ToolbarSet(0, blah, blah)) is 
+' not set here. That's done when the user hits the start button.
+'
+proc InitializeToolbar()
+
+	View(App(8)).WindowVisible(0);	'Hide the standard sample bar
+	ToolbarVisible(1);
+	ToolbarSet(1,"Sample start",Start%);
+	ToolbarSet(2,"Sample stop", Stop%);
+	ToolbarSet(3,"Juice",Reward%);
+	ToolbarSet(4,"Quit",Quit%);
+	ToolbarEnable(2,0);
+	Toolbar("Go", 0x3ff);
+
+end;
+
+
+' Get grating p[arameters from registry AlertRig\\(config)\\Gratings\\type$
+func GetGratingParameters$(type$)
+	var key$;
+	var stmp$;
+	key$ := "AlertRig\\" + GetCurrentConfiguration$() + "\\Gratings";
+	Profile(key$, type$, "", stmp$);
+	return stmp$;
+end;
+
+
+' Used to hard-quit from toolbar. This will close data files without saving!!! 
+' It is important that this function be disabled once sampling is started!!!
+
+func Quit%()
+	FileClose(-1,-1);
+	return 0;
+end;
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func Start%()
+	var CommandLine$;
+	var FixationPoint$;
+	var Extras$;
+	var tmp$;
+	var TargetArg$;
+
+	GetStarStimScriptParameters();
+
+	SampleStart(0); 'Start sampling
+
+	' Generate randomized targets if requested. 
+	if starRandomize% = 1 then
+		var txtFileName$;
+		var txtFileBase$;
+		var txtHandle%;
+		var aTargets[1000];
+
+		' Generate random numbers
+		Rand(aTargets[], starNumTargets%);
+
+		' get filename for random target order file (data file + "txt" extension) and open it
+		View(DataWindow%);
+		txtFileBase$ := FileName$(1) + FileName$(2) + FileName$(3) + FileName$(4);
+		txtFileName$ := txtFileBase$ + ".txt";
+		txtHandle% := FileOpen(txtFileName$, 8, 1);
+		PrintLog("Randomized target filename is " + txtFileName$ + "\n");
+
+		var i%;
+		var itmp%;
+		for i% := 0 to 999 do
+			itmp% := Trunc(aTargets[i%]);
+			Print("%d\n", itmp%);
+		next;
+		FileClose();
+	
+		Extras$ := " -r " + txtFileName$;
+	else
+		Extras$ := "";
+	endif
+	Extras$ += " -b gray -d " + DistanceToScreenMM$ + " -n " + str$(starNumTargets%);
+
+	' Fetch stim parameters. We need the x,y position only to determine the base target pos.
+	tmp$ := GetGratingParameters$("Stimulus");
+	ReadSetup(",",",",",",",",",");
+	ReadStr(tmp$, TargetX, TargetY);
+	TargetArg$ := "-t " + str$(TargetX) + "," + str$(TargetY) + "," + str$(FixationDiameter) + "," + FixationColor$;
+	
+	' TODO  randomize
+		
+	CommandLine$ := "cmd /k " + bin$ + "\\StarStim " + FixationArg$ + " " + TargetArg$ + Extras$;
+
+	'Begin the stimulus program. It will take a few seconds for the VSG to initialize.
+	PrintLog(CommandLine$+"\n");
+	StimHandle% := ProgRun(CommandLine$,1);
+	if StimHandle% <0 then Message("Could not start stimulus."); halt; endif
+'	Yield(5);	'Wait a few seconds to make sure the VSG has time to initialize.
+
+	ToolbarSet(0,"",IdleProcessing%);	'Enable the IdleProcessing function
+	ToolbarEnable(2,1);
+	ToolbarEnable(1,0);
+	View(DataWindow%);
+	Yield(.1);
+	return 1;
+end;
+
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func Stop%()
+
+	' Disable idle process func
+	ToolbarSet(0,"");
+
+	' Tell stim app to shut down
+	SampleKey("Q");
+	Yield(.1);
+	SampleStop();
+	ProgKill(StimHandle%);
+	while ProgStatus(StimHandle%) > 0 do
+		Yield();
+	wend
+
+
+	WriteParameterFile();
+
+'	ProgRun(bin$ + "\\ClearTrigger",0);
+
+	' Increment daily totals and save then
+	TotalTrials% += nTrialsStarted%;
+	TotalRewards% += nTrialsSuccess%;
+	SaveDailyTotals();
+
+end;
+
+
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func PauseStimuli%();
+Pause% :=1;
+ToolbarEnable(4,0);
+ToolbarEnable(5,1);
+return 1;
+end
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func ResumeStimuli%();
+Pause% :=0;
+ToolbarEnable(4,1);
+ToolbarEnable(5,0);
+return 1;
+end
+
+
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func InFixationWindow%(EyePosX,EyePosY)
+	var i% := 0;
+	'Determine if the eye position is within the fixation window
+	if (Pow(EyePosX-FixationX, 2) + Pow(EyePosY-FixationY, 2)) <= Pow(WindowRadius,2) then 
+		i% := 1;
+	endif
+	return i%;
+end;
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func InTargetWindow%(EyePosX,EyePosY)
+	var i% := 0;
+	var x, y;
+	x := GetTargetX();
+	y := GetTargetY();
+	'Determine if the eye position is within the answer window
+	if (Pow(EyePosX-x, 2) + Pow(EyePosY-y, 2)) <= Pow(WindowRadius,2) then 
+		i% := 1;
+	endif
+	return i%;
+end;
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func GetTargetX()
+	var twopi;
+	var ang;
+	var x;
+	twopi := 2.0*4.0*ATan(1.0);
+	ang := twopi/starNumTargets% * iTargetPoint%;
+	
+	x := TargetX * Cos(ang) - TargetY * Sin(ang);
+	return x;
+end;
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func GetTargetY()
+	var twopi;
+	var ang;
+	var y;
+	twopi := 2.0*4.0*ATan(1.0);
+	ang := twopi/starNumTargets% * iTargetPoint%;
+	
+	y := TargetX * Sin(ang) + TargetY * Cos(ang);
+	return y;
+end;
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+proc AdvanceTarget()
+
+	SampleKey("a");
+	iTargetPoint%+=1;
+	if (iTargetPoint% = starNumTargets%) then
+		iTargetPoint% := 0;
+	endif
+
+end;
+
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func Reward%()
+	var i;
+	for i:=1 to JuicePerReward% do Yield(.05); SampleKey("J"); next
+	return 1;
+end;
+
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+proc WriteParameterFile()
+	var parFileName$;
+	var parFileBase$;
+	var parHandle%;
+
+	' get filename for parfile (data file + "par" extension) and open it
+	View(DataWindow%);
+	parFileBase$ := FileName$(1) + FileName$(2) + FileName$(3) + FileName$(4);
+	parFileName$ := parFileBase$ + ".par";
+	PrintLog("par filename is " + parFileName$ + "\n");
+	parHandle% := FileOpen(parFileName$, 8, 1);
+
+	' write general info - eye coil gains, dist to screen
+	Print("Stim parameters for %s\n\n", parFileBase$);
+
+	Print("General information\n");
+	Print("-------------------\n\n");
+	Print("Distance to screen (MM)    : %s\n", DistanceToScreenMM$);
+	Print("Eye coil software gain (X) : %f\n", DegreesPerVoltX);
+	Print("Eye coil software gain (Y) : %f\n", DegreesPerVoltY);
+	Print("Eye coil sampling freq (Hz): %d\n", EyeCoilSamplingFrequency%);
+	Print("Number of electrodes       : %d\n", NumberOfElectrodes%);
+	Print("Juices per reward          : %d\n", JuicePerReward%);
+
+	' write fixpoint parameters
+	Print("\nFixation point\n");
+	Print("-------------------\n\n");
+	Print("Window radius              : %f\n", WindowRadius);
+	Print("Position (x, degrees)      : %f\n", FixationX);
+	Print("Position (y, degrees)      : %f\n", FixationY);
+	Print("Diameter (degrees)         : %f\n", FixationDiameter);
+	Print("Color                      : %s\n", FixationColor$);
+
+	' write stimulus parameters
+	Print("\nTargets\n");
+	Print("-------------------\n\n");
+	Print("Number of Targets          : %d\n", starNumTargets%);
+
+	iTargetPoint% := 0;
+	var i%;
+	for i%:= 0 to starNumTargets%-1 do
+		Print("Position %d (%f, %f)\n", i%, GetTargetX(), GetTargetY());
+		iTargetPoint% += 1;
+	next;
+
+	Print("\nExperimental parameters\n");
+	Print("-------------------------\n\n");
+
+	Print("Acquisition time (s)   : %f\n", starAcquisitionTime);
+	Print("Fixation time(s)       : %f\n", starFixationDuration);
+	Print("Answer time (s)        : %f\n", starAnswerTime);
+	Print("Inter trial time (s)   : %f\n", starInterTrialTime);
+	Print("Randomized target order? ");
+	if (starRandomize% = 1) then
+		Print("YES\n");
+	else
+		Print("NO\n");
+	endif
+
+	' close parfile
+	FileClose(0);
+
+end;
+
+
+
+
