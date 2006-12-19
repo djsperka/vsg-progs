@@ -27,6 +27,23 @@ int arutil_color_to_overlay_palette(COLOR_TYPE ct, PIXEL_LEVEL level)
 	return status;
 }
 
+int arutil_color_to_palette(COLOR_TYPE ct, PIXEL_LEVEL level)
+{
+	int status=0;
+	VSGTRIVAL c;
+	if (get_color(ct, c))
+	{
+		cerr << "Cannot get trival for color " << ct << endl;
+		status = 2;
+	}
+	else
+	{
+		vsgPaletteWrite((VSGLUTBUFFER*)&c, level, 1);
+	}
+	return status;
+}
+
+
 
 int	arutil_draw_overlay(ARFixationPointSpec& fp, PIXEL_LEVEL level, int overlayPage)
 {
