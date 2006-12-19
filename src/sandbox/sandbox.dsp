@@ -93,6 +93,7 @@ SOURCE=.\alertmseq.cpp
 # Begin Source File
 
 SOURCE=.\fixation.cpp
+# PROP Exclude_From_Build 1
 # End Source File
 # Begin Source File
 
