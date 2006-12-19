@@ -324,7 +324,7 @@ int args(int argc, char **argv)
 	// If no random order file specified, populate the target order vector with 1,2,...,n
 	if (!errflg && !have_r)
 	{
-		for (int i=1; i<= m_nTargets; i++) m_vecTargetOrder.push_back(i);
+		for (int i=0; i < m_nTargets; i++) m_vecTargetOrder.push_back(i);
 	}
 
 	if (errflg) 
