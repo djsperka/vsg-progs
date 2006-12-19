@@ -174,15 +174,14 @@ void init_pages()
 	// that there's only pixel levels 0-3 available. 
 
 	vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgNOCLEAR);
-	m_stim.init(stimFirstLevel, 50);
+	m_stim.init(stimFirstLevel, 100);
 
-
-	m_stim.init(50);
 	switch(m_tuning_type)
 	{
 	case tt_contrast:
 		// Save the min contrast value for this type
 		m_tuned_param_current = m_iSavedContrast = m_tuned_param_vec[0];
+		m_stim.setContrast((int)m_tuned_param_current);
 		break;
 	case tt_spatial:
 		m_tuned_param_current = m_stim.sf = m_tuned_param_vec[0];
@@ -322,7 +321,7 @@ int callback(int &output, const CallbackTrigger* ptrig)
 		vsgIOWriteDigitalOut(output, ptrig->outMask());
 
 		// set ival to 0. The new grating will not be puton screen until a vsgPresent() or (?) ZoneDisplayPage
-		ival = 0;
+		//ival = 0;
 	}
 	else if (key == "s")
 	{
