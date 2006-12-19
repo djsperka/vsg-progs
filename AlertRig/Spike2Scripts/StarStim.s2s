@@ -1,4 +1,4 @@
-' $Id: StarStim.s2s,v 1.1 2006-12-18 22:38:02 dan Exp $
+' $Id: StarStim.s2s,v 1.2 2006-12-19 23:07:58 dan Exp $
 '========================================================================
 '
 ' INPUTS
@@ -566,6 +566,8 @@ var nTrialsSuccess%:=0;
 var nTrialsFail%:=0;
 var iTargetPoint% := 0;
 var TargetX, TargetY;		' location of stimulus grating - this is target position "0"
+const numRandomTargets% := 1000;
+var aTargets[numRandomTargets%];			' if randomized target locations, this array holds those random positions
 
 ' Run real time analysis here. 
 func IdleProcessing%()
@@ -658,7 +660,6 @@ func IdleProcessing%()
 		case iState% = stateAbort% then
 
 			DrawFix(0);
-			DrawTarget(0);
 			SampleKey("f");
 			iState% := stateWaitForFixPtOff%;
 
@@ -838,6 +839,8 @@ end;
 ' Draws target in xy window (iDraw%==1) or blanks it (0). 
 proc DrawTarget(iDraw%)
 
+	PrintLog("DrawTarget " + str$(iDraw%) + " iTargetPoint=" + str$(iTargetPoint%) + "\n");
+
 	if iDraw% > 0 then
 		var xstim, ystim;
 		xstim := GetTargetX();
@@ -1000,14 +1003,11 @@ func Start%()
 
 	GetStarStimScriptParameters();
 
-	SampleStart(0); 'Start sampling
-
 	' Generate randomized targets if requested. 
 	if starRandomize% = 1 then
 		var txtFileName$;
 		var txtFileBase$;
 		var txtHandle%;
-		var aTargets[1000];
 
 		' Generate random numbers
 		Rand(aTargets[], starNumTargets%);
@@ -1040,6 +1040,8 @@ func Start%()
 	TargetArg$ := "-t " + str$(TargetX) + "," + str$(TargetY) + "," + str$(FixationDiameter) + "," + FixationColor$;
 	
 	' TODO  randomize
+
+	SampleStart(0); 'Start sampling
 		
 	CommandLine$ := "cmd /k " + bin$ + "\\StarStim " + FixationArg$ + " " + TargetArg$ + Extras$;
 
@@ -1132,8 +1134,16 @@ func GetTargetX()
 	var twopi;
 	var ang;
 	var x;
+	var i%;
 	twopi := 2.0*4.0*ATan(1.0);
-	ang := twopi/starNumTargets% * iTargetPoint%;
+
+	if (starRandomize% = 0) then 
+		i% := iTargetPoint%;
+	else
+		i% := aTargets[iTargetPoint%];
+	endif
+
+	ang := twopi/starNumTargets% * i%;
 	
 	x := TargetX * Cos(ang) - TargetY * Sin(ang);
 	return x;
@@ -1144,8 +1154,16 @@ func GetTargetY()
 	var twopi;
 	var ang;
 	var y;
+	var i%;
 	twopi := 2.0*4.0*ATan(1.0);
-	ang := twopi/starNumTargets% * iTargetPoint%;
+
+	if (starRandomize% = 0) then 
+		i% := iTargetPoint%;
+	else
+		i% := aTargets[iTargetPoint%];
+	endif
+
+	ang := twopi/starNumTargets% * i%;
 	
 	y := TargetX * Sin(ang) + TargetY * Cos(ang);
 	return y;
@@ -1156,8 +1174,14 @@ proc AdvanceTarget()
 
 	SampleKey("a");
 	iTargetPoint%+=1;
-	if (iTargetPoint% = starNumTargets%) then
-		iTargetPoint% := 0;
+	if (starRandomize% = 0) then
+		if (iTargetPoint% = starNumTargets%) then
+			iTargetPoint% := 0;
+		endif
+	else
+		if (iTargetPoint% = numRandomTargets%) then
+			iTargetPoint% := 0;
+		endif
 	endif
 
 end;
