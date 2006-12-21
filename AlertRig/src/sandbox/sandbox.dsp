@@ -108,8 +108,6 @@ SOURCE=.\Tuning.cpp
 
 !ELSEIF  "$(CFG)" == "sandbox - Win32 Debug"
 
-# PROP Exclude_From_Build 1
-
 !ENDIF 
 
 # End Source File
