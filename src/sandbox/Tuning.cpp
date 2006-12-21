@@ -71,6 +71,66 @@ int args(int argc, char **argv);
 void usage();
 
 
+class MyTriggerFunc
+{
+public:
+	MyTriggerFunc(std::string key, int otrigger) : m_binary(false), m_skey(key), m_present(false), m_otrigger(otrigger), m_page(-1), m_quit(false), m_doZoneDisplayPage(false), m_zone(0) {};
+	MyTriggerFunc(int itrigger, int otrigger) : m_binary(true), m_itrigger(itrigger), m_present(false), m_otrigger(otrigger), m_page(-1), m_quit(false), m_doZoneDisplayPage(false), m_zone(0) {};
+
+	int page() { return m_page; };
+	bool present() { return m_present; };
+	bool zoneDisplayPage() { return m_doZoneDisplayPage; };
+	int output_trigger() { return m_otrigger; };
+	bool quit() { return m_quit; };
+	int zone() { return m_zone; };
+
+
+	void operator()(Trigger* pitem)
+	{
+		bool bTest=false;
+		if (m_binary) bTest = pitem->checkBinary(m_itrigger);
+		else bTest = pitem->checkAscii(m_skey);
+
+		if (bTest)
+		{
+			int i;
+			i = pitem->execute(m_otrigger);
+			if (i > 0) 
+			{
+				m_present = true;
+				// check if we have vsgVIDEOPAGE or vsgOVERLAYPAGE
+				if ((i & (vsgVIDEOPAGE|vsgOVERLAYPAGE)) == vsgVIDEOPAGE) 
+				{
+					m_doZoneDisplayPage = true;
+					m_zone = vsgVIDEOPAGE;
+					m_page = i & 0xf;
+				}
+				else if ((i & (vsgVIDEOPAGE|vsgOVERLAYPAGE)) == vsgOVERLAYPAGE) 
+				{
+					m_doZoneDisplayPage = true;
+					m_zone = vsgOVERLAYPAGE;
+					m_page = i & 0xf;
+				}
+			}
+			else if (i < 0) 
+			{
+				m_present = true;
+				m_quit = true;
+			}
+		}
+	};
+private:
+	bool m_quit;
+	bool m_binary;	// if true, do a binary trigger test. Otherwise do ascii
+	int m_itrigger;	// input trigger value to test against
+	std::string m_skey;
+	bool m_present;	// if true, at least one trigger requires vsgPresent()
+	int m_otrigger;	// if m_present is true, this is the output trigger value
+	bool m_doZoneDisplayPage;	// if true, use vsgZoneDisplayPage, using m_zone as the page zone, and m_page as the page. 
+	int m_zone;
+	int m_page;
+};
+
 
 
 int main(int argc, char **argv)
@@ -120,8 +180,8 @@ int main(int argc, char **argv)
 			cin >> s;
 		}
 
-		TriggerFunc	tf = std::for_each(m_triggers.begin(), m_triggers.end(), 
-			(m_binaryTriggers ? TriggerFunc(vsgIOReadDigitalIn(), last_output_trigger) : TriggerFunc(s, last_output_trigger)));
+		MyTriggerFunc	tf = std::for_each(m_triggers.begin(), m_triggers.end(), 
+			(m_binaryTriggers ? MyTriggerFunc(vsgIOReadDigitalIn(), last_output_trigger) : MyTriggerFunc(s, last_output_trigger)));
 
 		// Now analyze input trigger
 	 	
@@ -129,8 +189,17 @@ int main(int argc, char **argv)
 		else if (tf.present())
 		{	
 			last_output_trigger = tf.output_trigger();
-			vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, tf.output_trigger(), 0);
-			vsgPresent();
+			if (!tf.zoneDisplayPage())
+			{
+				vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, tf.output_trigger(), 0);
+				vsgPresent();
+			}
+			else
+			{
+				int i;
+				vsgIOWriteDigitalOut(tf.output_trigger(), 0x1ff);
+				i = vsgSetZoneDisplayPage(tf.zone(), tf.page() + vsgTRIGGERPAGE);
+			}
 		}
 	}
 
@@ -138,7 +207,6 @@ int main(int argc, char **argv)
 
 	return 0;
 }
-
 
 
 void tuning_init_original()
@@ -174,7 +242,7 @@ void init_pages()
 	// that there's only pixel levels 0-3 available. 
 
 	vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgNOCLEAR);
-	m_stim.init(stimFirstLevel, 100);
+	m_stim.init(stimFirstLevel, 50);
 
 	switch(m_tuning_type)
 	{
@@ -201,7 +269,8 @@ void init_pages()
 
 	// Next, draw full screen grating on video page 0
 
-	arutil_draw_grating_fullscreen(m_stim, 0);
+//	arutil_draw_grating_fullscreen(m_stim, 0);
+	arutil_draw_grating(m_stim, 0);
 
 	// put colors in overlay palette. Fixation point color and black. 
 	
@@ -252,14 +321,14 @@ void init_triggers()
 
 
 	// trigger for fixation point ON
-	m_triggers.addTrigger(new CallbackTrigger("F", 0x2, 0x2, 0x2, 0x2, callback));
+	m_triggers.addTrigger(new CallbackTrigger("F", 0x2, 0x2, 0x22, 0x2, callback));
 
 	// trigger for fixation point OFF
-	m_triggers.addTrigger(new CallbackTrigger("f", 0x2, 0x0, 0x2, 0x0, callback));
+	m_triggers.addTrigger(new CallbackTrigger("f", 0x2, 0x0, 0x22, 0x0, callback));
 
 	// triggers for stim will be CallbackTriggers, all using the same callback function
-	m_triggers.addTrigger(new CallbackTrigger("S", 0x4, 0x4, 0x4, 0x4, callback));
-	m_triggers.addTrigger(new CallbackTrigger("s", 0x4, 0x0, 0x4, 0x0, callback));
+	m_triggers.addTrigger(new CallbackTrigger("S", 0x4, 0x4, 0x24, 0x4, callback));
+	m_triggers.addTrigger(new CallbackTrigger("s", 0x4, 0x0, 0x24, 0x0, callback));
 	m_triggers.addTrigger(new CallbackTrigger("a", 0x8, 0x8 | AR_TRIGGER_TOGGLE, 0x8, 0x8 | AR_TRIGGER_TOGGLE, callback));
 	m_triggers.addTrigger(new QuitTrigger("q", 0x10, 0x10, 0xff, 0x0, 0));
 	// djs 12-7-06 Add trigger for black screen
@@ -317,7 +386,10 @@ int callback(int &output, const CallbackTrigger* ptrig)
 		default:
 			cerr << "Error in trigger callback: unknown tuning type!" << endl;
 		}
+		cout << "Draw grating...." << endl;
 		arutil_draw_grating_fullscreen(m_stim, 0);
+
+		cout << "done." << endl;
 		vsgIOWriteDigitalOut(output, ptrig->outMask());
 
 		// set ival to 0. The new grating will not be puton screen until a vsgPresent() or (?) ZoneDisplayPage
@@ -325,6 +397,7 @@ int callback(int &output, const CallbackTrigger* ptrig)
 	}
 	else if (key == "s")
 	{
+#ifdef ORIGINAL_IVAL
 		vsgIOWriteDigitalOut(output, ptrig->outMask());
 
 		if (vsgGetZoneDisplayPage(vsgOVERLAYPAGE) != 0)
@@ -332,31 +405,57 @@ int callback(int &output, const CallbackTrigger* ptrig)
 			vsgSetZoneDisplayPage(vsgOVERLAYPAGE, 1 + vsgTRIGGERPAGE);
 		}
 		ival = 0;
+#else
+		if (vsgGetZoneDisplayPage(vsgOVERLAYPAGE) != 0)
+		{
+			ival = vsgOVERLAYPAGE + 1;
+		}
+		else
+		{
+			ival = vsgOVERLAYPAGE + 0;
+		}
+#endif
 	}
 	else if (key == "S")
 	{
+#ifdef ORIGINAL_IVAL
 		vsgIOWriteDigitalOut(output, ptrig->outMask());
 		vsgSetZoneDisplayPage(vsgOVERLAYPAGE, 2 + vsgTRIGGERPAGE);
 		ival = 0;
+#else
+		ival = 2 + vsgOVERLAYPAGE;
+#endif
 	}
 	else if (key == "F")
 	{
+#ifdef ORIGINAL_IVAL
 		vsgIOWriteDigitalOut(output, ptrig->outMask());
 		vsgSetZoneDisplayPage(vsgOVERLAYPAGE, 1 + vsgTRIGGERPAGE);
 		ival = 0;
+#else
+		ival = 1 + vsgOVERLAYPAGE;
+#endif
 	}
 	else if (key == "f")
 	{
+#ifdef ORIGINAL_IVAL
 		vsgIOWriteDigitalOut(output, ptrig->outMask());
 		vsgSetZoneDisplayPage(vsgOVERLAYPAGE, 0 + vsgTRIGGERPAGE);
 		ival = 0;
+#else
+		ival = 0 + vsgOVERLAYPAGE;
+#endif
 	}
 	else if (key == "B")
 	{
+#ifdef ORIGINAL_IVAL
 		// Make screen black.
 		vsgIOWriteDigitalOut(output, ptrig->outMask());
 		vsgSetZoneDisplayPage(vsgOVERLAYPAGE, 3 + vsgTRIGGERPAGE);
 		ival = 0;
+#else
+		ival = 3 + vsgOVERLAYPAGE;
+#endif
 	}
 
 	return ival;
@@ -400,7 +499,8 @@ void init_pages_area()
 
 	// Next, draw full screen grating on video page 0
 
-	arutil_draw_grating_fullscreen(m_stim, 0);
+//	arutil_draw_grating_fullscreen(m_stim, 0);
+	arutil_draw_grating(m_stim, 0);
 
 	// put color in overlay palette
 
