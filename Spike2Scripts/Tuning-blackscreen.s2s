@@ -1,4 +1,7 @@
 ' $Log: not supported by cvs2svn $
+' Revision 1.1  2006/12/14 00:46:01  dan
+' Beta test version of tuning curve with black screen capabilities. This version uses executable sandbox.exe and sequencer file tuning-blackscreen.
+'
 ' Revision 1.21  2006/11/22 00:46:47  dan
 ' *** empty log message ***
 '
@@ -1664,6 +1667,9 @@ proc WriteParameterFile()
 	Print("Maintain fixation (s)  : %f\n", tunMaintainFixation);
 	Print("Time out (s)           : %f\n", tunTimeOutTime);
 	Print("Acquisition time (s)   : %f\n", tunAcquisitionTime);
+	Print("Use Black Screen?      : %d\n", tunUseBlackScreen%);
+	Print("Failures before        : %d\n", tunBlackScreenNFailure%);
+	Print("Black Screen time (s)  : %f\n", tunBlackScreenTime);
 
 	Print("\nTuning parameters\n");
 	Print("-------------------\n\n");
