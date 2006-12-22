@@ -38,7 +38,8 @@ int arutil_color_to_palette(COLOR_TYPE ct, PIXEL_LEVEL level)
 	}
 	else
 	{
-		vsgPaletteWrite((VSGLUTBUFFER*)&c, level, 1);
+//		vsgPaletteWrite((VSGLUTBUFFER*)&c, level, 1);
+		vsgPaletteSet(level, level, &c);
 	}
 	return status;
 }
