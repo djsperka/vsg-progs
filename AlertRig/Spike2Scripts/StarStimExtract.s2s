@@ -1,0 +1,133 @@
+' $Id: StarStimExtract.s2s,v 1.1 2007-02-01 23:03:58 dan Exp $
+'
+' StarStimExtract
+'
+' This script will generate a "tracking" xy plot of the eye position from a data file collected using "StarStim".
+' To use it, simply open the data file, then run this script. An xy plot is generated (it will take a few seconds, during 
+' which Spike2 will appear to have frozen).
+'
+' There must be exactly one data file open when this script is run. If there is not it will issue an error message and exit. 
+'
+' To save the xy plot, make sure that the plot is the "current" window (click on the plot), then select File > Save As. To get an 
+' "emf" image, select the type "Metafile", and enter the filename with an extension of ".emf", e.g. "MyFile.emf".
+' 
+' Note also that the plots are rather large, so Spike2 will be a little sluggish in switching views between them. Its probably best to 
+' NOT have more than a couple of these open on the screen at a time. 
+
+
+var DistanceToScreenMM$;		' Distance to screen in MM
+var DegreesPerVoltX;			' Conversion factor from ADC to visual degrees
+var DegreesPerVoltY;			' Conversion factor from ADC to visual degrees
+var EyeCoilSamplingFrequency%;		' Frequency to sample eye coil at
+var NumberOfElectrodes%;		' Number of electrodes (i.e. wavemark inputs) in use
+var JuicePerReward%;			' Number of juice squirts per reward
+
+
+func GetCurrentConfiguration$()
+	var key$;
+	var s$;
+	key$:="AlertRig";
+	Profile(key$, "CurrentConfiguration", "default", s$);
+	return s$;
+end;
+
+
+proc GetDAQParameters()
+	var key$;
+	var DegreesPerVoltX$, DegreesPerVoltY$;
+
+	key$ := "AlertRig\\" + GetCurrentConfiguration$() + "\\DAQ";
+	Profile(key$, "DistanceToScreenMM", "850", DistanceToScreenMM$);	' will just pass this to stimulus app
+	Profile(key$, "DegreesPerVoltX", "", DegreesPerVoltX$);
+	Profile(key$, "DegreesPerVoltY", "", DegreesPerVoltY$);
+	Profile(key$, "EyeCoilSamplingFrequency", 1000, EyeCoilSamplingFrequency%);
+	Profile(key$, "NumberOfElectrodes", 1, NumberOfElectrodes%);
+	Profile(key$, "JuicePerReward", 1, JuicePerReward%);
+	DegreesPerVoltX := val(DegreesPerVoltX$);
+	DegreesPerVoltY := val(DegreesPerVoltY$);
+
+end;
+
+var XYWindow%;
+var xEye, yEye;
+var tStart, tEnd;
+var XChannel% := 2;
+var YChannel% := 3;
+var xpoints[2000];
+var ypoints[2000];
+var num% := 1;
+var i%;
+var DataView%; 
+var vlist%[10];
+
+GetDAQParameters();
+
+' Get time view....
+
+ViewList(vlist%[], 1);
+
+if (vlist%[0]=0) then
+	Message("Error - you must have a data file open before running script.");
+	halt;
+else 
+	if (vlist%[0] > 1 or vlist%[0] <0) then
+		Message("Error - please have (only) one data file open!");
+		halt;
+	else
+		DataView% := vlist%[1];
+		View(DataView%);
+	endif
+endif
+
+
+
+'Open an XY view to display eye position
+XYWindow% := FileNew(12);
+XRange(-30,30);
+YRange(-2,-30,30);
+XYDrawMode(0,5,0);
+WindowVisible(1);
+Window(-0.550314,0.114416,41.5094,52.746);
+XYColour(1,16);
+
+' Channel 1 is eye pos. Set size of this channel's data to 0 - expands as needed. Join points, too. 
+XYSize(1,0);
+XYJoin(1, 1);
+XYDrawMode(1, 2, 1);	' dot size is 1
+
+
+' Get first time in xchannel
+tStart := View(DataView%).NextTime(XChannel%, -1);
+PrintLog("First time is " + str$(tStart) + "\n");
+
+num% := View(DataView%).ChanData(XChannel%, xpoints[], tStart, tStart+1);
+num% := View(DataView%).ChanData(YChannel%, ypoints[], tStart, tStart+1);
+PrintLog("tstart=" + str$(tStart) + " num=" + str$(num%) + "\n");
+
+while num% > 0 do
+
+	' plot values
+	for i% := 0 to num%-1 do
+		View(XYWindow%).XYAddData(1,xpoints[i%]*DegreesPerVoltX,ypoints[i%]*DegreesPerVoltY);
+	next
+
+	tStart += 1;
+	num% := View(DataView%).ChanData(XChannel%, xpoints[], tStart, tStart+1);
+	num% := View(DataView%).ChanData(YChannel%, ypoints[], tStart, tStart+1);
+	PrintLog("tstart=" + str$(tStart) + " num=" + str$(num%) + "\n");
+
+wend
+
+
+
+' plot eye measurement.
+'xEye := ChanMeasure(XChannel%,2,tNow-.001,tNow-.006)*DegreesPerVoltX;
+'yEye := ChanMeasure(YChannel%,2,tNow-.001,tNow-.006)*DegreesPerVoltY;
+
+' Don't update display every time. 
+' Note that this stim displays eye continuously, without erasing... 
+'	if tNow-tLastUpdate > .005 then
+'		View(XYWindow%).XYAddData(1,xEye,yEye);
+'		tLastUpdate := tNow;
+'	endif
+
