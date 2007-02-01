@@ -1,4 +1,4 @@
-' $Id: StarStimExtract.s2s,v 1.1 2007-02-01 23:03:58 dan Exp $
+' $Id: StarStimExtract.s2s,v 1.2 2007-02-01 23:53:28 dan Exp $
 '
 ' StarStimExtract
 '
@@ -51,6 +51,7 @@ end;
 var XYWindow%;
 var xEye, yEye;
 var tStart, tEnd;
+var tMax;
 var XChannel% := 2;
 var YChannel% := 3;
 var xpoints[2000];
@@ -98,27 +99,42 @@ XYDrawMode(1, 2, 1);	' dot size is 1
 
 ' Get first time in xchannel
 tStart := View(DataView%).NextTime(XChannel%, -1);
+
+' Get the last time
+tMax := View(DataView%).MaxTime(XChannel%);
 PrintLog("First time is " + str$(tStart) + "\n");
+PrintLog("Last time is " + str$(tMax) + "\n");
 
-num% := View(DataView%).ChanData(XChannel%, xpoints[], tStart, tStart+1);
-num% := View(DataView%).ChanData(YChannel%, ypoints[], tStart, tStart+1);
-PrintLog("tstart=" + str$(tStart) + " num=" + str$(num%) + "\n");
 
-while num% > 0 do
+' This section plots every eye position value
+'num% := View(DataView%).ChanData(XChannel%, xpoints[], tStart, tStart+1);
+'num% := View(DataView%).ChanData(YChannel%, ypoints[], tStart, tStart+1);
+'PrintLog("tstart=" + str$(tStart) + " num=" + str$(num%) + "\n");
+'
+'while num% > 0 do
+'
+'	' plot values
+'	for i% := 0 to num%-1 do
+'		View(XYWindow%).XYAddData(1,xpoints[i%]*DegreesPerVoltX,ypoints[i%]*DegreesPerVoltY);
+'	next
+'
+'	tStart += 1;
+'	num% := View(DataView%).ChanData(XChannel%, xpoints[], tStart, tStart+1);
+'	num% := View(DataView%).ChanData(YChannel%, ypoints[], tStart, tStart+1);
+'	PrintLog("tstart=" + str$(tStart) + " num=" + str$(num%) + "\n");
+'
+'wend
 
-	' plot values
-	for i% := 0 to num%-1 do
-		View(XYWindow%).XYAddData(1,xpoints[i%]*DegreesPerVoltX,ypoints[i%]*DegreesPerVoltY);
-	next
 
-	tStart += 1;
-	num% := View(DataView%).ChanData(XChannel%, xpoints[], tStart, tStart+1);
-	num% := View(DataView%).ChanData(YChannel%, ypoints[], tStart, tStart+1);
-	PrintLog("tstart=" + str$(tStart) + " num=" + str$(num%) + "\n");
+var width := 0.005;
+while tStart < tMax do 
 
+	xEye := View(DataView%).ChanMeasure(XChannel%, 2, tStart, tStart + width) * DegreesPerVoltX;
+	yEye := View(DataView%).ChanMeasure(YChannel%, 2, tStart, tStart + width) * DegreesPerVoltY;
+	View(XYWindow%).XYAddData(1, xEye, yEye);
+
+	tStart += width;
 wend
-
-
 
 ' plot eye measurement.
 'xEye := ChanMeasure(XChannel%,2,tNow-.001,tNow-.006)*DegreesPerVoltX;
