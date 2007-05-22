@@ -1,65 +1,4 @@
-' $Log: not supported by cvs2svn $
-' Revision 1.20  2006/09/18 19:13:02  dan
-' Add logic in Stop function to check that stim app is done before running ClearTrigger.
-'
-' Revision 1.19  2006/09/08 02:13:43  dan
-' Changed maxTF to 64.
-'
-' Revision 1.18  2006/04/24 22:09:41  dan
-' Modify sequencer "X" to only modify F/S bits. Change script to use release version of Tuning.exe app.
-'
-' Revision 1.17  2006/04/24 21:13:28  dan
-' Added aperture area tuning function.
-'
-' Revision 1.1  2006/04/22 01:57:32  dan
-' *** empty log message ***
-'
-' Revision 1.15  2006/04/15 03:32:19  dan
-' Log progression implemented for contrast, sf, tf.
-' Changed limits on sf, tf dialogs.
-'
-' Revision 1.14  2006/02/08 22:50:26  dan
-' Corrected plot x coord bug.
-'
-' Revision 1.13  2006/02/08 22:30:20  dan
-' Allow modification of xy axes during data aquisition
-'
-' Revision 1.12  2006/02/08 22:15:10  dan
-' Multiple repeats will now plot x coords correctly. Now does modulo division so subsequent repeats plot at same x coords as the first.
-'
-' Revision 1.11  2005/12/07 22:16:14  dan
-' *** empty log message ***
-'
-' Revision 1.10  2005/09/21 19:38:21  dan
-' Correctly draws fixation window and fixpt location.
-'
-' Revision 1.9  2005/09/09 23:01:13  dan
-' Fixed bug in VSG ready/confirm cycle, where the confirm trigger could be missed, leading to a stuck script, no stimuli, etc.
-'
-' Revision 1.8  2005/08/23 22:40:10  dan
-' Added plot of tuning curves. Not entirely tested yet, and there are holes esp if there are multiple electrodes, but it'll do for now.
-'
-' Revision 1.7  2005/08/23 18:54:08  dan
-' *** empty log message ***
-'
-' Revision 1.6  2005/08/17 00:28:08  dan
-' Started work to add tuning curves to output.
-'
-' Revision 1.5  2005/08/01 23:01:14  dan
-' Mods to tuning curve config dialogs. Added file naming, trial counting to tuning.
-'
-' Revision 1.4  2005/07/29 23:29:33  dan
-' Nearly ready! SCripts ready for prime time, except tuning seems to have a bug in
-' start% - probably with args.
-'
-' Revision 1.3  2005/07/27 21:50:14  dan
-' Changed 'a' trigger to invert sense of the line it controls.
-'
-' Revision 1.2  2005/07/26 23:42:00  dan
-' First working beta version. States are implemented. Needs tallying, display.
-'
-' Revision 1.1  2005/07/26 01:03:52  dan
-' Mods to config.s2s for tuning script. Tuning script first add here.
+' $Id: Tuning.s2s,v 1.22 2007-05-22 23:37:02 dan Exp $
 '
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
@@ -184,9 +123,12 @@ end;
 
 var tunFixationDuration;	' Time required to hold fixation for reward (stim ON)
 var tunMaintainFixation;	' Time required to hold fixation for reward (stim OFF)
-var tunTimeOutTime;		' Time after break fixation
 var tunAcquisitionTime;		' Time allowed to acquire fixation
 var tunBackgroundColor$;	' background color for stim
+var tunAcqFailTime;			' Wait time after acquisition failure
+var tunHoldFailTime;			' Wait time after failure to hold fixation (not on the first time after acquisition)
+var tunMaintainFailTime;	' Wait time after breaking fixation during maintain phase
+var tunTimeOutTime;			' Wait time after failure to hold fixation (first time after acquisition)
 
 ' These will be set by the tuning curve choice
 var tunNAdvances%;		' Number of times stim will advance during one repeat
@@ -251,11 +193,18 @@ proc GetTuningCurveScriptParameters()
 	tunFixationDuration := val(stmp$);
 	Profile(key$, "MaintainFixation", "2.0", stmp$);
 	tunMaintainFixation := val(stmp$);
-	Profile(key$, "TimeOutTime", "2.0", stmp$);
-	tunTimeOutTime := val(stmp$);
 	Profile(key$, "AcquisitionTime", "2.0", stmp$);
 	tunAcquisitionTime := val(stmp$);
+	Profile(key$, "AcqFailTime", "2.0", stmp$);
+	tunAcqFailTime := val(stmp$);
+	Profile(key$, "HoldFailTime", "2.0", stmp$);
+	tunHoldFailTime := val(stmp$);
+	Profile(key$, "MaintainFailTime", "2.0", stmp$);
+	tunMaintainFailTime := val(stmp$);
+	Profile(key$, "TimeOutTime", "2.0", stmp$);
+	tunTimeOutTime := val(stmp$);
 	Profile(key$, "BackgroundColor", "gray", tunBackgroundColor$);
+
 end;
 
 proc SaveTuningCurveScriptParameters()
@@ -263,8 +212,11 @@ proc SaveTuningCurveScriptParameters()
 	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Tuning";
 	Profile(key$, "FixationDuration", str$(tunFixationDuration));
 	Profile(key$, "MaintainFixation", str$(tunMaintainFixation));
-	Profile(key$, "TimeOutTime", str$(tunTimeOutTime));
 	Profile(key$, "AcquisitionTime", str$(tunAcquisitionTime));
+	Profile(key$, "AcqFailTime", str$(tunAcqFailTime));
+	Profile(key$, "HoldFailTime", str$(tunHoldFailTime));
+	Profile(key$, "MaintainFailTime", str$(tunMaintainFailTime));
+	Profile(key$, "TimeOutTime", str$(tunTimeOutTime));
 	Profile(key$, "BackgroundColor", tunBackgroundColor$);
 end;
 
@@ -601,23 +553,25 @@ func TuningCurveScriptDialog%()
 	next;
 
 	DlgCreate("Tuning Curve Parameters", 50, 10);
-	DlgGroup("Common Parameters", 0, 1, 40, 6);
+	DlgGroup("Common Parameters", 0, 1, 40, 9);
 	DlgReal(1, "Acquisition time(s):", 1, 1000, 20, 2);
 	DlgReal(2, "Fixation duration(s):", .1, 10, 20, 3);
 	DlgReal(3, "Maintain fixation(s):", .1, 10, 20, 4);
-	DlgReal(4, "Time out time(s):", .01, 10, 20, 5);
-	DlgList(5, "Background color:", bcl$, 3, 20, 6);
-	DlgGroup("Individual Tuning Curve Types", 0, 7, 40, 6);
-	DlgButton(6, "Orientation", TuningCurveOrientationDialog%, 1, 8);
-	DlgButton(7, "Contrast", TuningCurveContrastDialog%, 1, 9);
-	DlgButton(8, "Spatial Freq", TuningCurveSpatialDialog%, 1, 10);
-	DlgButton(9, "Temporal Freq", TuningCurveTemporalDialog%, 1, 11);
-	DlgButton(10, "Area", TuningCurveAreaDialog%, 1, 12);
+	DlgReal(4, "Acquisition fail time(s):", .01, 10, 20, 5);
+	DlgReal(5, "Hold fixation failure time(s):", .01, 10, 20, 6);
+	DlgReal(6, "Maintain fixation fail time(s):", .01, 10, 20, 7);
+	DlgReal(7, "Time out time(s):", .01, 10, 20, 8);
+	DlgList(8, "Background color:", bcl$, 3, 20, 9);
+	DlgGroup("Individual Tuning Curve Types", 0, 10, 40, 6);
+	DlgButton(9, "Orientation", TuningCurveOrientationDialog%, 1, 11);
+	DlgButton(10, "Contrast", TuningCurveContrastDialog%, 1, 12);
+	DlgButton(11, "Spatial Freq", TuningCurveSpatialDialog%, 1, 13);
+	DlgButton(12, "Temporal Freq", TuningCurveTemporalDialog%, 1, 14);
+	DlgButton(13, "Area", TuningCurveAreaDialog%, 1, 15);
 
 	i%:=DlgShow(tunAcquisitionTime, tunFixationDuration, tunMaintainFixation,
-		tunTimeOutTime, ibcl%);
+		tunAcqFailTime, tunHoldFailTime, tunMaintainFailTime, tunTimeOutTime, ibcl%);
 
-	PrintLog("Return val is " + str$(i%) + "\n");
 	if i% = 1 then
 		tunBackgroundColor$ := bcl$[ibcl%];
 		SaveTuningCurveScriptParameters();
@@ -1077,7 +1031,8 @@ var tStateStart:=-1;	' time that present state started. Used to measure wait tim
 var tLastTrigger:=-1;	' last trigger time. New triggers have to be greater than this
 var tTrigger:=-1;	' temp var for newly discovered trigger times
 var tStimOn:=-1;	' time that stim was turned on. Used to measure spike rates 
-
+var tInterTrialTime := 0;	' Time spent waiting between trials (i.e. after screen is blank, but before fix point is presented)
+var iHoldCount% := 0;	' Counter of how many times we progress through the hold fixation state in the maintainence loop. Used to decide if "time out" is required. 
 
 ' Constants for states
 const stateStartTrial%:=0;		' Start trial state
@@ -1141,6 +1096,7 @@ func IdleProcessing%()
 			' Start trial. Put up fixation point.
 			PrintLog("stateStartTrial: Send F key\n");
 			SampleKey("F");
+			Sound(60, .1, 1);
 			ChangeStateTo(stateWaitForFixPtOn%, tTrigger);
 		
 		case iState% = stateWaitForFixPtOn% then
@@ -1161,10 +1117,12 @@ func IdleProcessing%()
 			if Looking%(xEye, yEye) = 1 then
 				PrintLog("stateWaitForAcquisition: eye in fixation window, send S key.\n");
 				SampleKey("S");
+				iHoldCount% := 0;
 				ChangeStateTo(stateWaitForStimOn%, tNow);
 			else 
 				if tNow - tStateStart > tunAcquisitionTime then
 					' failed to acquire target. 
+					tInterTrialTime := tunAcqFailTime;
 					PrintLog("stateWaitForAcquisition: failed.\n");
 					ChangeStateTo(stateAbort%, tNow);
 				endif
@@ -1204,7 +1162,7 @@ func IdleProcessing%()
 
 		case iState% = stateInterTrialInterval% then
 
-			if tNow - tStateStart > tunTimeOutTime then
+			if tNow - tStateStart > tInterTrialTime then
 
 				PrintLog("stateInterTrialInterval: time out is done.\n");
 				ChangeStateTo(stateStartTrial%, tNow);
@@ -1216,11 +1174,18 @@ func IdleProcessing%()
 			if Looking%(xEye, yEye) = 0 then
 	       		
 				PrintLog("stateWaitForFixation: outside fixation window, aborting trial.\n");
+				if iHoldCount% = 0 then 
+					tInterTrialTime := tunTimeOutTime;
+				else
+					tInterTrialTime := tunHoldFailTime;
+				endif
 				ChangeStateTo(stateAbort%, tNow);
 
 			else 
 
 				if tNow - tStateStart > tunFixationDuration then
+
+					iHoldCount% += 1;
 
 					' turn off stimulus and advance it
 					PrintLog("stateWaitForFixation: successful trial. Turn off and advance stimulus.\n");
@@ -1266,7 +1231,9 @@ func IdleProcessing%()
 		case iState% = stateMaintainFixation% then
 
 			if Looking%(xEye, yEye) = 0 then
-	       		
+
+	      	tInterTrialTime := tunMaintainFailTime;
+ 		
 				PrintLog("stateMaintainFixation: outside fixation window, aborting trial.\n");
 				ChangeStateTo(stateAbort%, tNow);
 
