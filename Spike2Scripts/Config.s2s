@@ -1055,13 +1055,12 @@ end;
 
 var tunFixationDuration;	' Time required to hold fixation for reward (stim ON)
 var tunMaintainFixation;	' Time required to hold fixation for reward (stim OFF)
-var tunTimeOutTime;		' Time after break fixation
 var tunAcquisitionTime;		' Time allowed to acquire fixation
 var tunBackgroundColor$;	' background color for stim
-var tunUseBlackScreen%;		' check box - use black screen on failure to acquire
-var tunBlackScreenNFailure%;	' Number of acq failures before black screen kicks in
-var tunBlackScreenTime;			' time for black screen to be up
-
+var tunAcqFailTime;			' Wait time after acquisition failure
+var tunHoldFailTime;			' Wait time after failure to hold fixation (not on the first time after acquisition)
+var tunMaintainFailTime;	' Wait time after breaking fixation during maintain phase
+var tunTimeOutTime;			' Wait time after failure to hold fixation (first time after acquisition)
 ' These will be set by the tuning curve choice
 var tunNAdvances%;		' Number of times stim will advance during one repeat
 var tunNRepeats%;		' Number of repeats
@@ -1122,15 +1121,17 @@ proc GetTuningCurveScriptParameters()
 	tunFixationDuration := val(stmp$);
 	Profile(key$, "MaintainFixation", "2.0", stmp$);
 	tunMaintainFixation := val(stmp$);
-	Profile(key$, "TimeOutTime", "2.0", stmp$);
-	tunTimeOutTime := val(stmp$);
 	Profile(key$, "AcquisitionTime", "2.0", stmp$);
 	tunAcquisitionTime := val(stmp$);
+	Profile(key$, "AcqFailTime", "2.0", stmp$);
+	tunAcqFailTime := val(stmp$);
+	Profile(key$, "HoldFailTime", "2.0", stmp$);
+	tunHoldFailTime := val(stmp$);
+	Profile(key$, "MaintainFailTime", "2.0", stmp$);
+	tunMaintainFailTime := val(stmp$);
+	Profile(key$, "TimeOutTime", "2.0", stmp$);
+	tunTimeOutTime := val(stmp$);
 	Profile(key$, "BackgroundColor", "gray", tunBackgroundColor$);
-	Profile(key$, "UseBlackScreen", 0, tunUseBlackScreen%);
-	Profile(key$, "BlackScreenNFailure", 0, tunBlackScreenNFailure%);
-	Profile(key$, "BlackScreenTime", "15", stmp$);
-	tunBlackScreenTime := val(stmp$);
 
 end;
 
@@ -1139,12 +1140,12 @@ proc SaveTuningCurveScriptParameters()
 	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Tuning";
 	Profile(key$, "FixationDuration", str$(tunFixationDuration));
 	Profile(key$, "MaintainFixation", str$(tunMaintainFixation));
-	Profile(key$, "TimeOutTime", str$(tunTimeOutTime));
 	Profile(key$, "AcquisitionTime", str$(tunAcquisitionTime));
+	Profile(key$, "AcqFailTime", str$(tunAcqFailTime));
+	Profile(key$, "HoldFailTime", str$(tunHoldFailTime));
+	Profile(key$, "MaintainFailTime", str$(tunMaintainFailTime));
+	Profile(key$, "TimeOutTime", str$(tunTimeOutTime));
 	Profile(key$, "BackgroundColor", tunBackgroundColor$);
-	Profile(key$, "UseBlackScreen", tunUseBlackScreen%);
-	Profile(key$, "BlackScreenNFailure", tunBlackScreenNFailure%);
-	Profile(key$, "BlackScreenTime", str$(tunBlackScreenTime));
 end;
 
 proc GetTuningCurveOrientationParameters()
@@ -1484,11 +1485,11 @@ func TuningCurveScriptDialog%()
 	DlgReal(1, "Acquisition time(s):", 1, 1000, 20, 2);
 	DlgReal(2, "Fixation duration(s):", .1, 10, 20, 3);
 	DlgReal(3, "Maintain fixation(s):", .1, 10, 20, 4);
-	DlgReal(4, "Time out time(s):", .01, 10, 20, 5);
-	DlgList(5, "Background color:", bcl$, 3, 20, 6);
-	DlgCheck(6, "Use Black Screen?", 10, 7);
-	DlgReal(7, "Black scr. time(s):", .01, 1000, 20, 8);
-	DlgInteger(8, "# Failures required:", 0, 10, 20, 9);
+	DlgReal(4, "Acquisition fail time(s):", .01, 10, 20, 5);
+	DlgReal(5, "Hold fixation failure time(s):", .01, 10, 20, 6);
+	DlgReal(6, "Maintain fixation fail time(s):", .01, 10, 20, 7);
+	DlgReal(7, "Time out time(s):", .01, 10, 20, 8);
+	DlgList(8, "Background color:", bcl$, 3, 20, 9);
 	DlgGroup("Individual Tuning Curve Types", 0, 10, 40, 6);
 	DlgButton(9, "Orientation", TuningCurveOrientationDialog%, 1, 11);
 	DlgButton(10, "Contrast", TuningCurveContrastDialog%, 1, 12);
@@ -1497,7 +1498,7 @@ func TuningCurveScriptDialog%()
 	DlgButton(13, "Area", TuningCurveAreaDialog%, 1, 15);
 
 	i%:=DlgShow(tunAcquisitionTime, tunFixationDuration, tunMaintainFixation,
-		tunTimeOutTime, ibcl%, tunUseBlackScreen%, tunBlackScreenTime, tunBlackScreenNFailure%);
+		tunAcqFailTime, tunHoldFailTime, tunMaintainFailTime, tunTimeOutTime, ibcl%);
 
 	if i% = 1 then
 		tunBackgroundColor$ := bcl$[ibcl%];
