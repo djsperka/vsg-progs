@@ -29,9 +29,8 @@ ARContrastFixationPointSpec m_spec_anspt_up, m_spec_anspt_down;
 COLOR_TYPE m_background;
 ARGratingSpec m_spec_stimulus;
 bool m_bstimulus=false;
-ARGratingSpec m_spec_confounder;
-bool m_bconfounder=false;
-vector<ARGratingSpec> m_distractors;
+ARGratingSpec m_spec_distractor;
+bool m_bdistractor=false;
 int m_screenDistanceMM=0;
 bool m_verbose=false;
 TriggerVector triggers;
@@ -61,12 +60,7 @@ int main (int argc, char *argv[])
 			cout << "Fixation point " << m_spec_fixpt << endl;
 			cout << "Background color " << m_background << endl;
 			if (m_bstimulus) cout << "Stimulus : " << m_spec_stimulus << endl;
-			if (m_bconfounder) cout << "Confounder : " << m_spec_confounder << endl;
-			int i;
-			for (i=0; i<m_distractors.size(); i++)
-			{
-				cout << "Distractor " << (i+1) << ": " << m_distractors[i] << endl;
-			}
+			if (m_bdistractor) cout << "Distractor : " << m_spec_distractor << endl;
 		}
 	}
 
@@ -157,7 +151,7 @@ int args(int argc, char **argv)
 	extern int optind;
 	int errflg = 0;
 	ARGratingSpec agtemp;
-	while ((c = getopt(argc, argv, "f:b:g:c:hd:vas:t:")) != -1)
+	while ((c = getopt(argc, argv, "f:b:g:hd:vas:t:")) != -1)
 	{
 		switch (c) 
 		{
@@ -190,19 +184,11 @@ int args(int argc, char **argv)
 			}
 			else errflg++;
 			break;
-		case 'c':
-			s.assign(optarg);
-			if (!parse_grating(s, m_spec_confounder))
-			{
-				m_bconfounder = true;
-			}
-			else errflg++;
-			break;
 		case 'g':
 			s.assign(optarg);
-			if (!parse_grating(s, agtemp))
+			if (!parse_grating(s, m_spec_distractor))
 			{
-				m_distractors.push_back(agtemp);
+				m_bdistractor = true;
 			}
 			else errflg++;
 			break;
@@ -252,7 +238,7 @@ int args(int argc, char **argv)
 
 void usage()
 {
-	cerr << "usage: attention -f x,y,d[,color] -d screen_distance_MM -b g|b|w [-s x,y,w,h,contrast%,sf,tf,orientation,color_vector,s|q,r|e] -c confounder_settings -f distractor_settings" << endl;
+	cerr << "usage: attention -f x,y,d[,color] -d screen_distance_MM -b g|b|w [-s x,y,w,h,contrast%,sf,tf,orientation,color_vector,s|q,r|e] -g distractor_settings" << endl;
 }
 
 
@@ -282,13 +268,7 @@ int init_overlay()
 	vsgSetDrawPage(vsgOVERLAYPAGE, 0, 1);
 
 	if (m_bstimulus) m_spec_stimulus.drawOverlay();
-	if (m_bconfounder) m_spec_confounder.drawOverlay();
-	for (int i=0; i<m_distractors.size(); i++) 
-	{
-		m_distractors[i].drawOverlay();
-	}
-
-
+	if (m_bdistractor) m_spec_distractor.drawOverlay();
 
 	m_spec_fixpt.drawOverlay();
 	m_spec_anspt_up.drawOverlay();
@@ -297,8 +277,39 @@ int init_overlay()
 }
 
 
+
+
+// The return value from this trigger callback determines whether a vsgPresent() is issued. 
+
+int callback(int &output, const CallbackTrigger* ptrig)
+{
+	int ival=1;
+	string key = ptrig->getKey();
+	if (key == "S")
+	{
+		cout << "S trig" << endl;
+		m_spec_anspt_up.setContrast(100); 
+		m_spec_anspt_down.setContrast(100);
+		m_spec_stimulus.setContrast(m_iContrastBase);
+		m_spec_distractor.setContrast(m_iContrastBase);
+	}
+	else if (key == "X")
+	{
+		cout << "X trig" << endl;
+		m_spec_fixpt.setContrast(0);
+		m_spec_anspt_up.setContrast(0); 
+		m_spec_anspt_down.setContrast(0);
+		m_spec_stimulus.setContrast(0);
+		m_spec_distractor.setContrast(0);
+	}
+
+	return ival;
+}
+
+
+
 // There are just two pages. Page 0 is blank background. 
-// Page 1 has all the objects (fixation point, answer points, stimulus grating, distractors, confounder). 
+// Page 1 has all the objects (fixation point, answer points, stimulus grating, distractor). 
 // All triggers set (see init_triggers) are ContrastTriggers, meaning their action (see ContrastTrigger::execute)
 // is to change the contrast of one (or more) of the objects. For convenience we wrap the objects in an ARObj
 // and call ARObj::draw once (supplying pixel levels we have allocated, the background color). 
@@ -309,16 +320,15 @@ int init_overlay()
 int init_pages()
 {
 	int status=0;
-	int islice;
-	int ngratings=0;
+	int islice=50;
 	PIXEL_LEVEL lvfirst;
 	ContrastTrigger *ptrig = NULL;
 	ContrastTrigger *ptrigStimON = NULL;
 	ContrastTrigger *ptrigStimOFF = NULL;
 	ContrastTrigger *ptrigStimUP = NULL;
 	ContrastTrigger *ptrigStimDOWN = NULL;
-	ContrastTrigger *ptrigConfounderUP = NULL;
-	ContrastTrigger *ptrigConfounderDOWN = NULL;
+	ContrastTrigger *ptrigDistractorUP = NULL;
+	ContrastTrigger *ptrigDistractorDOWN = NULL;
 
 
 
@@ -329,10 +339,6 @@ int init_pages()
 		return 1;
 	}
 
-	// Set up quit trigger
-//	triggers.addTrigger(new QuitTrigger("q", 0x8, 0x8, 0xff, 0x0, 0));
-
-
 	// prepare BACKGROUND_PAGE (and display it)
 	vsgSetDrawPage(vsgVIDEOPAGE, BACKGROUND_PAGE, vsgNOCLEAR);
 	vsgPresent();
@@ -340,112 +346,20 @@ int init_pages()
 	// prepare STIMULUS_PAGE
 	vsgSetDrawPage(vsgVIDEOPAGE, STIMULUS_PAGE, vsgNOCLEAR);
 
-	// See how many gratings will be drawn, then determine the slice of levels
-	// that each may have.
-	if (m_bstimulus) ngratings++;
-	if (m_bconfounder) ngratings++;
-	ngratings += m_distractors.size();
-	if (ngratings > 0)
-	{
-		cerr << "remaining " << LevelManager::instance().remaining() << " ngratings " << ngratings << endl;
-		islice = (LevelManager::instance().remaining() - 10)/ngratings;
-		if (islice > 40) islice = 40;
-		else if (islice > 30) islice = 30;
-		else if (islice > 20) islice = 20;
-		else islice = 10;
-	}
 	
-	// draw stimulus grating
-	if (m_bstimulus) 
-	{
-		if (LevelManager::instance().request_range(islice, lvfirst))
-		{
-			cout << "Cannot get levels for stimulus!" << endl;
-			return 1;
-		}
-		else
-		{
-			m_spec_stimulus.init(islice);
-			m_spec_stimulus.draw();
-			m_spec_stimulus.setContrast(0);
-
-			// trigger to turn stim ON
-			ptrigStimON = new ContrastTrigger("S", 0x4, 0x4, 0x2, 0x2);
-			ptrigStimON->push_back( std::pair<VSGOBJHANDLE, int>(m_spec_stimulus.handle(), m_iContrastBase) );
-			triggers.addTrigger(ptrigStimON);
-
-			// trigger to turn stim Off
-			// stim off trigger also has to turn off the stim change output trigger. 
-			ptrigStimOFF = new ContrastTrigger("s", 0x4, 0x0, 0x2+0x18, 0x0);
-			ptrigStimOFF->push_back( std::pair<VSGOBJHANDLE, int>(m_spec_stimulus.handle(), 0) );
-			triggers.addTrigger(ptrigStimOFF);
-
-			// trigger to turn stim contrast UP
-			ptrigStimUP = new ContrastTrigger("C", 0x28, 0x28, 0x18, 0x08);
-			ptrigStimUP->push_back( std::pair<VSGOBJHANDLE, int>(m_spec_stimulus.handle(), m_iContrastUp) );
-			triggers.addTrigger(ptrigStimUP);
-	
-			// trigger to turn stim contrast DOWN
-			ptrigStimDOWN = new ContrastTrigger("c", 0x28, 0x08, 0x18, 0x08);
-			ptrigStimDOWN->push_back( std::pair<VSGOBJHANDLE, int>(m_spec_stimulus.handle(), m_iContrastDown) );
-			triggers.addTrigger(ptrigStimDOWN);
+	m_spec_stimulus.init(islice);
+	m_spec_stimulus.draw();
+	m_spec_stimulus.setContrast(0);
 
 
-
-			// Draw distractors if present
-
-			if (m_distractors.size() > 0)
-			{
-				for (int i=0; i<m_distractors.size(); i++) 
-				{
-					m_distractors[i].init(islice);
-					m_distractors[i].draw();
-					m_distractors[i].setContrast(0);
-					ptrigStimON->push_back( std::pair<VSGOBJHANDLE, int>(m_distractors[i].handle(), m_iContrastBase) );
-					ptrigStimOFF->push_back( std::pair<VSGOBJHANDLE, int>(m_distractors[i].handle(), 0) );
-				}
-			}		
-		}
-	}
-
-	// draw confounder grating
-	if (m_bconfounder) 
-	{
-		m_spec_confounder.init(islice);
-		m_spec_confounder.draw();
-		m_spec_confounder.setContrast(0);
-
-		// trigger.......
-		ptrigStimON->push_back( std::pair<VSGOBJHANDLE, int>(m_spec_confounder.handle(), m_iContrastBase) );
-		ptrigStimOFF->push_back( std::pair<VSGOBJHANDLE, int>(m_spec_confounder.handle(), 0) );
-
-		// trigger to turn confounder contrast UP
-		ptrigConfounderUP = new ContrastTrigger("D", 0x30, 0x30, 0x18, 0x10);
-		ptrigConfounderUP->push_back( std::pair<VSGOBJHANDLE, int>(m_spec_confounder.handle(), m_iContrastUp) );
-		triggers.addTrigger(ptrigConfounderUP);
-
-		// trigger to turn confounder contrast DOWN
-		ptrigConfounderDOWN = new ContrastTrigger("d", 0x30, 0x10, 0x18, 0x10);
-		ptrigConfounderDOWN->push_back( std::pair<VSGOBJHANDLE, int>(m_spec_confounder.handle(), m_iContrastDown) );
-		triggers.addTrigger(ptrigConfounderDOWN);
-
-	}
-
+	m_spec_distractor.init(islice);
+	m_spec_distractor.draw();
+	m_spec_distractor.setContrast(0);
 
 	// Now fixation point
 	m_spec_fixpt.init(2);
 	m_spec_fixpt.draw();
 	m_spec_fixpt.setContrast(0);
-
-	// trigger for fixation point
-	ptrig = new ContrastTrigger("F", 0x2, 0x2, 0x1, 0x1);
-	ptrig->push_back( std::pair<VSGOBJHANDLE, int>(m_spec_fixpt.handle(), 100) );
-	triggers.addTrigger(ptrig);
-
-	ptrig = new ContrastTrigger("f", 0x2, 0x0, 0x1, 0x0);
-	ptrig->push_back( std::pair<VSGOBJHANDLE, int>(m_spec_fixpt.handle(), 0) );
-	triggers.addTrigger(ptrig);
-
 
 	// Now answer point - upper
 	m_spec_anspt_up.init(2);
@@ -455,17 +369,46 @@ int init_pages()
 	m_spec_anspt_down.draw();
 	m_spec_anspt_down.setContrast(0);
 
-	// trigger for answer points
-	ptrig = new ContrastTrigger("A", 0x40, 0x40, 0x4, 0x4);
-	ptrig->push_back( std::pair<VSGOBJHANDLE, int>(m_spec_anspt_up.handle(), 100) );
-	ptrig->push_back( std::pair<VSGOBJHANDLE, int>(m_spec_anspt_down.handle(), 100) );
+
+	// triggers for fixation point
+	ptrig = new ContrastTrigger("F", 0x2, 0x2, 0x1, 0x1);
+	ptrig->push_back( std::pair<VSGOBJHANDLE, int>(m_spec_fixpt.handle(), 100) );
 	triggers.addTrigger(ptrig);
 
-	ptrig = new ContrastTrigger("a", 0x40, 0x0, 0x4, 0x0);
-	ptrig->push_back( std::pair<VSGOBJHANDLE, int>(m_spec_anspt_up.handle(), 0) );
-	ptrig->push_back( std::pair<VSGOBJHANDLE, int>(m_spec_anspt_down.handle(), 0) );
+	ptrig = new ContrastTrigger("f", 0x2, 0x0, 0x1, 0x0);
+	ptrig->push_back( std::pair<VSGOBJHANDLE, int>(m_spec_fixpt.handle(), 0) );
 	triggers.addTrigger(ptrig);
 
+
+		
+	// trigger to turn stim, distractor and answer points ON
+	triggers.addTrigger(new CallbackTrigger("S", 0x4, 0x4, 0x2, 0x2, callback));
+
+	// trigger to turn stim, distractor, answer points and fixation point OFF
+	triggers.addTrigger(new CallbackTrigger("X", 0x8, 0x8, 0xff, 0x0, callback));
+
+	// trigger to turn stim contrast UP
+	ptrigStimUP = new ContrastTrigger("C", 0xf0, 0x10, 0x8, 0x8);
+	ptrigStimUP->push_back( std::pair<VSGOBJHANDLE, int>(m_spec_stimulus.handle(), m_iContrastUp) );
+	triggers.addTrigger(ptrigStimUP);
+
+	// trigger to turn stim contrast DOWN
+	ptrigStimDOWN = new ContrastTrigger("c", 0xf0, 0x20, 0x8, 0x8);
+	ptrigStimDOWN->push_back( std::pair<VSGOBJHANDLE, int>(m_spec_stimulus.handle(), m_iContrastDown) );
+	triggers.addTrigger(ptrigStimDOWN);
+
+	// trigger to turn distractor contrast UP
+	ptrigDistractorUP = new ContrastTrigger("D", 0xf0, 0x40, 0x8, 0x8);
+	ptrigDistractorUP->push_back( std::pair<VSGOBJHANDLE, int>(m_spec_distractor.handle(), m_iContrastUp) );
+	triggers.addTrigger(ptrigDistractorUP);
+
+	// trigger to turn distractor contrast DOWN
+	ptrigDistractorDOWN = new ContrastTrigger("d", 0xf0, 0x80, 0x8, 0x8);
+	ptrigDistractorDOWN->push_back( std::pair<VSGOBJHANDLE, int>(m_spec_distractor.handle(), m_iContrastDown) );
+	triggers.addTrigger(ptrigDistractorDOWN);
+
+	// quit trigger
+	triggers.addTrigger(new QuitTrigger("q", 0x80, 0x80, 0xff, 0x0, 0));
 
 	// Set vsg trigger mode
 	vsgObjSetTriggers(vsgTRIG_ONPRESENT+vsgTRIG_TOGGLEMODE,0,0);
@@ -473,3 +416,4 @@ int init_pages()
 
 	return status;
 }
+
