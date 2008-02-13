@@ -1594,7 +1594,7 @@ func StarStimScriptDialog%()
 	DlgReal(2, "Acquisition time(s):", .01, 10);
 	DlgReal(3, "Intertrial time(s):", .01, 10);
 	DlgReal(4, "Answer time(s):", .01, 10);
-	DlgInteger(5, "Number of targets:", 1, 11);
+	DlgInteger(5, "Number of targets:", 1, 9);
 	DlgCheck(6, "Randomize target order?");
 	DlgCheck(7, "Overlap fixation/target?");
 	i%:=DlgShow(starFixationDuration, starAcquisitionTime, starInterTrialTime, starAnswerTime, starNumTargets%, starRandomize%, starOverlap%);
