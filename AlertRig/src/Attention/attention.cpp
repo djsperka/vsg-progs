@@ -26,6 +26,8 @@ using namespace alert;
 
 ARContrastFixationPointSpec m_spec_fixpt;
 ARContrastFixationPointSpec m_spec_anspt_up, m_spec_anspt_down;
+double m_anspt_offset_degrees = 5;
+double m_anspt_diameter_degrees = 0.5;
 COLOR_TYPE m_background;
 ARGratingSpec m_spec_stimulus;
 bool m_bstimulus=false;
@@ -57,7 +59,7 @@ int main (int argc, char *argv[])
 		if (m_verbose)
 		{
 			cout << "Screen distance " << m_screenDistanceMM << endl;
-			cout << "Fixation point " << m_spec_fixpt << endl;
+			cout << "Fixation point" << m_spec_fixpt << endl;
 			cout << "Background color " << m_background << endl;
 			if (m_bstimulus) cout << "Stimulus : " << m_spec_stimulus << endl;
 			if (m_bdistractor) cout << "Distractor : " << m_spec_distractor << endl;
@@ -125,6 +127,7 @@ int main (int argc, char *argv[])
 		if (tf.quit()) break;
 		else if (tf.present())
 		{	
+			cout << "OUT: " << tf.output_trigger() << endl;
 			last_output_trigger = tf.output_trigger();
 			vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, tf.output_trigger(), 0);
 			vsgPresent();
@@ -151,7 +154,7 @@ int args(int argc, char **argv)
 	extern int optind;
 	int errflg = 0;
 	ARGratingSpec agtemp;
-	while ((c = getopt(argc, argv, "f:b:g:hd:vas:t:")) != -1)
+	while ((c = getopt(argc, argv, "f:b:g:hd:vas:t:A:D:")) != -1)
 	{
 		switch (c) 
 		{
@@ -196,6 +199,12 @@ int args(int argc, char **argv)
 			s.assign(optarg);
 			if (parse_contrast_triplet(s, m_iContrastDown, m_iContrastBase, m_iContrastUp)) errflg++;
 			else have_t = true;
+			break;
+		case 'A':
+			if (parse_double(s, m_anspt_offset_degrees)) errflg++;
+			break;
+		case 'D':
+			if (parse_double(s, m_anspt_diameter_degrees)) errflg++;
 			break;
 		case 'h':
 			errflg++;
@@ -248,11 +257,11 @@ int init_answer_points()
 	m_spec_anspt_down = m_spec_fixpt;
 
 	m_spec_anspt_up.x = m_spec_fixpt.x;
-	m_spec_anspt_up.y = m_spec_fixpt.y + 5;
-	m_spec_anspt_up.d = 0.5;
+	m_spec_anspt_up.y = m_spec_fixpt.y + m_anspt_offset_degrees;
+	m_spec_anspt_up.d = m_anspt_diameter_degrees;
 	m_spec_anspt_down.x = m_spec_fixpt.x;
-	m_spec_anspt_down.y = m_spec_fixpt.y - 5;
-	m_spec_anspt_down.d = 0.5;
+	m_spec_anspt_down.y = m_spec_fixpt.y -  + m_anspt_offset_degrees;
+	m_spec_anspt_down.d = m_anspt_diameter_degrees;
 	return 0;
 }
 
@@ -287,7 +296,6 @@ int callback(int &output, const CallbackTrigger* ptrig)
 	string key = ptrig->getKey();
 	if (key == "S")
 	{
-		cout << "S trig" << endl;
 		m_spec_anspt_up.setContrast(100); 
 		m_spec_anspt_down.setContrast(100);
 		m_spec_stimulus.setContrast(m_iContrastBase);
@@ -295,12 +303,31 @@ int callback(int &output, const CallbackTrigger* ptrig)
 	}
 	else if (key == "X")
 	{
-		cout << "X trig" << endl;
 		m_spec_fixpt.setContrast(0);
 		m_spec_anspt_up.setContrast(0); 
 		m_spec_anspt_down.setContrast(0);
 		m_spec_stimulus.setContrast(0);
 		m_spec_distractor.setContrast(0);
+	}
+	else if (key == "F")
+	{
+		m_spec_fixpt.color = red;
+		m_spec_fixpt.draw();
+		m_spec_fixpt.setContrast(100);
+	}
+	else if (key == "f")
+	{
+		m_spec_fixpt.setContrast(0);
+	}
+	else if (key == "G")
+	{
+		m_spec_fixpt.color = green;
+		m_spec_fixpt.draw();
+		m_spec_fixpt.setContrast(100);
+	}
+	else if (key == "g")
+	{
+		m_spec_fixpt.setContrast(0);
 	}
 
 	return ival;
@@ -371,6 +398,7 @@ int init_pages()
 
 
 	// triggers for fixation point
+	/* DJS - move these triggers to callback
 	ptrig = new ContrastTrigger("F", 0x2, 0x2, 0x1, 0x1);
 	ptrig->push_back( std::pair<VSGOBJHANDLE, int>(m_spec_fixpt.handle(), 100) );
 	triggers.addTrigger(ptrig);
@@ -378,14 +406,19 @@ int init_pages()
 	ptrig = new ContrastTrigger("f", 0x2, 0x0, 0x1, 0x0);
 	ptrig->push_back( std::pair<VSGOBJHANDLE, int>(m_spec_fixpt.handle(), 0) );
 	triggers.addTrigger(ptrig);
+	*/
 
+	triggers.addTrigger(new CallbackTrigger("F", 0x2, 0x2, 0x1, 0x1, callback));
+	triggers.addTrigger(new CallbackTrigger("f", 0x2, 0x0, 0x1, 0x1, callback));
+	triggers.addTrigger(new CallbackTrigger("G", 0x4, 0x4, 0x1, 0x1, callback));
+	triggers.addTrigger(new CallbackTrigger("g", 0x4, 0x0, 0x1, 0x1, callback));
 
-		
+	
 	// trigger to turn stim, distractor and answer points ON
-	triggers.addTrigger(new CallbackTrigger("S", 0x4, 0x4, 0x2, 0x2, callback));
+	triggers.addTrigger(new CallbackTrigger("S", 0x8, 0x8, 0x2, 0x2, callback));
 
 	// trigger to turn stim, distractor, answer points and fixation point OFF
-	triggers.addTrigger(new CallbackTrigger("X", 0x8, 0x8, 0xff, 0x0, callback));
+	triggers.addTrigger(new CallbackTrigger("X", 0xE, 0x0, 0xb, 0x0, callback));
 
 	// trigger to turn stim contrast UP
 	ptrigStimUP = new ContrastTrigger("C", 0xf0, 0x10, 0x8, 0x8);
@@ -408,7 +441,7 @@ int init_pages()
 	triggers.addTrigger(ptrigDistractorDOWN);
 
 	// quit trigger
-	triggers.addTrigger(new QuitTrigger("q", 0x80, 0x80, 0xff, 0x0, 0));
+	triggers.addTrigger(new QuitTrigger("q", 0xf0, 0xf0, 0xff, 0x0, 0));
 
 	// Set vsg trigger mode
 	vsgObjSetTriggers(vsgTRIG_ONPRESENT+vsgTRIG_TOGGLEMODE,0,0);
