@@ -1,33 +1,7 @@
-' $Log: not supported by cvs2svn $
-' Revision 1.8  2005/09/09 23:06:25  dan
-' Fixed bug in VSG ready/confirm cycle, where the confirm trigger could be missed, leading to a stuck script, no stimuli, etc.
-'
-' Revision 1.7  2005/05/03 00:06:04  dan
-' Corrected bug in automatic file saving.
-'
-' Revision 1.6  2005/04/27 21:23:18  dan
-' changed FixationColor to string in registry.
-'
-' Revision 1.5  2005/03/23 00:56:44  dan
-' *** empty log message ***
-'
-' Revision 1.4  2005/03/18 19:37:14  dan
-' Almost there!
-'
-' Revision 1.3  2005/03/11 01:13:12  dan
-' Almost there!
-'
-' Revision 1.2  2005/03/09 01:06:48  dan
-' Almost there!
-'
-' Revision 1.1  2005/03/01 00:30:02  dan
-' New version to use with new attention application.
-'
+' $Id: Attention.s2s,v 1.10 2008-02-13 23:18:44 devel Exp $
 '
 
-
-
-''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 '
 '	Get Current configuration START
 '	
@@ -140,7 +114,6 @@ end;
 ' Data parameters END
 '
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-
 
 
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
@@ -383,10 +356,6 @@ end;
 '
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
-
-
-
-
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 '
 ' 	Attention script START
@@ -396,12 +365,13 @@ end;
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
 var attNumberOfBlocks%;
+var attTrialsPerBlock%;
 var attCatchTrialPercentage;
 var attBackgroundColor$;
 var attContrastBase%;
 var attContrastUp%;
 var attContrastDown%;
-var attFixationDuration;
+var attFixationTime;
 var attAcquisitionTime;
 var attInterTrialTime;
 var attGratingDelay;
@@ -409,11 +379,8 @@ var attContrastDelay;
 var attAnswerPointDelay;
 var attRandomFixationOffset;
 var attTimeToAnswer;
-var attStimulusFlag%;			' Tells whether to use stimulus grating (used as a distractor) 
-var attDistractor1Flag%; 			' Tells stim to use distractor1 (1) or not (0)
-var attDistractor2Flag%; 			' Tells stim to use distractor1 (1) or not (0)
-var attDistractor3Flag%; 			' Tells stim to use distractor1 (1) or not (0)
-var attDistractor4Flag%; 			' Tells stim to use distractor1 (1) or not (0)
+var attAnswerPointOffsetY := 5;
+var attAnswerPointDiameter := 0.5;
 
 proc GetAttentionScriptParameters()
 	var stmp$;
@@ -421,7 +388,7 @@ proc GetAttentionScriptParameters()
 	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Attention";
 
 	Profile(key$, "NumberOfBlocks", 1, attNumberOfBlocks%);
-
+	Profile(key$, "TrialsPerBlock", 1, attTrialsPerBlock%);
 	Profile(key$, "CatchTrialPercentage", "0.0", stmp$);
 	attCatchTrialPercentage := val(stmp$);
 
@@ -430,8 +397,8 @@ proc GetAttentionScriptParameters()
 	Profile(key$, "ContrastUp", 80, attContrastUp%);
 	Profile(key$, "ContrastDown", 20, attContrastDown%);
 
-	Profile(key$, "FixationDuration", "1.0", stmp$);
-	attFixationDuration := val(stmp$);
+	Profile(key$, "FixationTime", "1.0", stmp$);
+	attFixationTime := val(stmp$);
 
 	Profile(key$, "AcquisitionTime", "1.0", stmp$);
 	attAcquisitionTime := val(stmp$);
@@ -439,26 +406,9 @@ proc GetAttentionScriptParameters()
 	Profile(key$, "InterTrialTime", "1.0", stmp$);
 	attInterTrialTime := val(stmp$);
 
-	Profile(key$, "GratingDelay", "1.0", stmp$);
-	attGratingDelay := val(stmp$);
-
-	Profile(key$, "ContrastDelay", "1.0", stmp$);
-	attContrastDelay := val(stmp$);
-
-	Profile(key$, "AnswerPointDelay", "1.0", stmp$);
-	attAnswerPointDelay := val(stmp$);
-
-	Profile(key$, "RandomFixationOffset", "1.0", stmp$);
-	attRandomFixationOffset := val(stmp$);
-
 	Profile(key$, "TimeToAnswer", "1.0", stmp$);
 	attTimeToAnswer := val(stmp$);
 
-	Profile(key$, "UseStimulusFlag", 0, attStimulusFlag%);
-	Profile(key$, "UseDistractor1Flag", 0, attDistractor1Flag%);
-	Profile(key$, "UseDistractor2Flag", 0, attDistractor2Flag%);
-	Profile(key$, "UseDistractor3Flag", 0, attDistractor3Flag%);
-	Profile(key$, "UseDistractor4Flag", 0, attDistractor4Flag%);
 end;
 
 proc SaveAttentionScriptParameters()
@@ -467,24 +417,16 @@ proc SaveAttentionScriptParameters()
 	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Attention";
 
 	Profile(key$, "NumberOfBlocks", attNumberOfBlocks%);
+	Profile(key$, "TrialsPerBlock", attTrialsPerBlock%);
 	Profile(key$, "CatchTrialPercentage", str$(attCatchTrialPercentage));
 	Profile(key$, "BackgroundColor", attBackgroundColor$);
 	Profile(key$, "ContrastBase", attContrastBase%);
 	Profile(key$, "ContrastUp", attContrastUp%);
 	Profile(key$, "ContrastDown", attContrastDown%);
-	Profile(key$, "FixationDuration", str$(attFixationDuration));
+	Profile(key$, "FixationTime", str$(attFixationTime));
 	Profile(key$, "AcquisitionTime", str$(attAcquisitionTime));
 	Profile(key$, "InterTrialTime", str$(attInterTrialTime));
-	Profile(key$, "GratingDelay", str$(attGratingDelay));
-	Profile(key$, "ContrastDelay", str$(attContrastDelay));
-	Profile(key$, "AnswerPointDelay", str$(attAnswerPointDelay));
-	Profile(key$, "RandomFixationOffset", str$(attRandomFixationOffset));
 	Profile(key$, "TimeToAnswer", str$(attTimeToAnswer));
-	Profile(key$, "UseStimulusFlag", attStimulusFlag%);
-	Profile(key$, "UseDistractor1Flag", attDistractor1Flag%);
-	Profile(key$, "UseDistractor2Flag", attDistractor2Flag%);
-	Profile(key$, "UseDistractor3Flag", attDistractor3Flag%);
-	Profile(key$, "UseDistractor4Flag", attDistractor4Flag%);
 end;
 
 func AttentionScriptDialog%()
@@ -501,31 +443,22 @@ func AttentionScriptDialog%()
 		endif
 	next;
 	DlgCreate("Attention Training Parameters", 25, 10);
-	DlgReal(1, "Fixation duration(s):", .01, 10);
-	DlgReal(2, "Acquisition time(s):", .01, 10);
-	DlgReal(3, "Intertrial time(s):", .01, 10);
 
-	DlgReal(4, "Grating delay(s):", .01, 10);
-	DlgReal(5, "Contrast delay(s):", .01, 10);
-	DlgReal(6, "Answer point delay(s):", .01, 10);
-	DlgReal(7, "Random fixation offset(s):", 0.0, 10.0);
-	DlgReal(8, "Time to answer(s):", 0.01, 10.0);
+	DlgInteger(1, "Number of Blocks:", 1, 1000);
+	DlgInteger(2, "Trials per block:", 1, 1000);
+	DlgReal(3, "Catch Trial pct (0-100)", 0, 100);
 
-	DlgInteger(9, "Number of Blocks:", 1, 1000);
-	DlgReal(10, "Catch Trial pct(0-100)", 0, 100);
-	DlgList(11, "Background color:", bcl$);
-	DlgInteger(12, "Base contrast(%)", 0, 100);
-	DlgInteger(13, "Up contrast(%)", 0, 100);
-	DlgInteger(14, "Down contrast(%)", 0, 100);
-	DlgCheck(15, "Use Confounder?");
-	DlgCheck(16, "Use distractor 2?");
-	DlgCheck(17, "Use distractor 3?");
-	DlgCheck(18, "Use distractor 4?");
-	i%:=DlgShow(attFixationDuration, attAcquisitionTime, attInterTrialTime, 
-		attGratingDelay, attContrastDelay, attAnswerPointDelay, attRandomFixationOffset, attTimeToAnswer,
-		attNumberOfBlocks%, attCatchTrialPercentage, ibcl%,
-		attContrastBase%, attContrastUp%, attContrastDown%, 
-		attDistractor1Flag%, attDistractor2Flag%, attDistractor3Flag%, attDistractor4Flag%);
+	DlgReal(4, "Fixation time(s):", .01, 10);
+	DlgReal(5, "Acquisition time(s):", .01, 10);
+	DlgReal(6, "Intertrial time(s):", .01, 10);
+	DlgReal(7, "Time to answer(s):", 0.01, 10.0);
+	DlgList(8, "Background color:", bcl$);
+	DlgInteger(9, "Base contrast(%)", 0, 100);
+	DlgInteger(10, "Up contrast(%)", 0, 100);
+	DlgInteger(11, "Down contrast(%)", 0, 100);
+	i%:=DlgShow(attNumberOfBlocks%, attTrialsPerBlock%, attCatchTrialPercentage,
+		attFixationTime, attAcquisitionTime, attInterTrialTime, attTimeToAnswer,
+		 ibcl%, attContrastBase%, attContrastUp%, attContrastDown%);
 	if i% = 1 then
 		attBackgroundColor$ := bcl$[ibcl%];
 		SaveAttentionScriptParameters();
@@ -546,15 +479,6 @@ end;
 
 
 
-
-
-var ContrastState[10000];	' 0 (1) means contrast goes down (up) for a trial
-var RandomDelay[10000];		' Contrast change is delayed by a random amount (0 < delay < RandomFixationOffset)
-
-var AnswerWindow:=1;		' Answer point window (degrees)
-var AnswerPointOffsetX:=0;	' Answer point X offset in degrees
-var AnswerPointOffsetY:=5;	' Answer point Y offset in degrees
-
 ' Local file system variables. 
 var bin$, script$;
 bin$ := View(App(3)).FileName$(1) + View(App(3)).FileName$(2) + "..\\bin";	' Location of executables is ..\bin, relative to script dir
@@ -569,13 +493,14 @@ var DataWindow%;		'
 var XChannel%;
 var YChannel%;
 
+var FrameTriggerChannel%;
 var FixationPointChannel%;
 var StimChannel%;
-var AnswerPointChannel%;
 var StimChangeChannel%;
-var ConfounderChangeChannel%;
 var ReadyChannel%;
 
+' tuning curves
+var TuningWindow%[8];	' one for each channel. There'd better not be more than 8 channels! 
 ' XY window stuff
 var XYWindow%;			' 
 var iStimChannel%;	' channel number for stimulus in xy window
@@ -584,19 +509,15 @@ var iMonitorChannel%;	' channel number for monitor position display in xy window
 
 ' Display stuff
 var FixWindowX[36],FixWindowY[36];	' points for displaying fixation window in xy view
+var windowX[36], windowY[36];
 
-' Per-trial parameters
-var AnswerX, AnswerY;		' Each trial, this is the center of the CORRECT answer point. 
-
-
-
-
+' dummy vars
+var iScript%;
 
 ' Fetch parameters
 GetDailyTotals();
 GetDAQParameters();
 GetFixationPointParameters();
-GetAttentionScriptParameters();
 GetDataParameters();
 
 ' Check for valid data file path
@@ -604,24 +525,37 @@ if Len(dataDataSet$) = 0 then
 	Message("No data set is selected! Edit Data parameters...");
 	' Might be nice to open the dialog here....
 	halt;
-else 
-	' Set path for new data files, and for those saved automatically
-	FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 3);
-	FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 1);
-	SampleAutoName$(dataCellName$ + "_att_000");
-	SampleAutoFile(1);
-	PrintLog("AutoFile status " + str$(SampleAutoFile()) + "\n");
 endif
+
+
+
+
+
+' run parameters script....
+GetAttentionScriptParameters();
+iScript% := AttentionScriptDialog%();
+if iScript% = 1 then
+		FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 3);
+		FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 1);
+		SampleAutoName$(dataCellName$ + "_atn_000");
+		SampleAutoFile(1);
+else
+	PrintLog("User cancel - exit gracefully\n");
+	Halt;
+endif;
+
+
+
+
 
 ' Assign channel numbers for eye X,Y and trigger. 
 XChannel% := NumberOfElectrodes%+1;
 YChannel% := NumberOfElectrodes%+2;
-FixationPointChannel% := NumberOfElectrodes%+3;
-StimChannel% := NumberOfElectrodes%+4;
-StimChangeChannel% := NumberOfElectrodes%+5;
-ConfounderChangeChannel% := NumberOfElectrodes%+6;
-AnswerPointChannel% := NumberOfElectrodes%+7;
-ReadyChannel% := NumberOfElectrodes%+8;
+FrameTriggerChannel% := NumberOfElectrodes%+3;
+FixationPointChannel% := NumberOfElectrodes%+4;
+StimChannel% := NumberOfElectrodes%+5;
+StimChangeChannel% := NumberOfElectrodes%+6;
+ReadyChannel% := NumberOfElectrodes%+7;
 CreateSampleConfiguration();
 
 
@@ -647,12 +581,12 @@ proc InitializeToolbar()
 	ToolbarSet(3,"Juice", Reward%);
 	ToolbarSet(4,"Pause stimuli",PauseStimuli%);
 	ToolbarSet(5,"Resume stimuli",ResumeStimuli%);
-	ToolbarSet(6,"Exp Parameters",AttentionScriptDialog%);
+'	ToolbarSet(6,"Exp Parameters",AttentionScriptDialog%);
 	ToolbarSet(7,"Quit",Quit%);
 	ToolbarEnable(2,0);
 	ToolbarEnable(4,0);
 	ToolbarEnable(5,0);
-	Toolbar("Go",12345);
+	Toolbar("Go",0x3ff);
 
 end;
 
@@ -666,15 +600,11 @@ func Looking%(EyePosX,EyePosY)
 end;
 
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-' The answer windows are located 'AnswerPointOffsetY' from the fixation point's location. 
-' The direction of that offset is determined by ContrastChange[TrialNumber%] - if its +1 the 
-' correct answer is above, if its -1 the correct answer is below. 
-
-func Answer%(EyePosX,EyePosY)
-	'Determine if the eye position is within the fixation window
-	if (Pow(EyePosX-FixationX,2) + Pow(EyePosY-AnswerY,2)) <= Pow(AnswerWindow,2) then return 1; endif
-	if (Pow(EyePosX-FixationX,2) + Pow(EyePosY+AnswerY,2)) <= Pow(AnswerWindow,2) then return -1; endif
-	return 0;
+func Answer%(EyePosX, EyePosY)
+	var ans% := 0;
+	if (Pow(EyePosX-FixationX,2) + Pow(EyePosY-(FixationY+attAnswerPointOffsetY),2)) <= Pow(WindowRadius,2) then ans% := 1; endif
+	if (Pow(EyePosX-FixationX,2) + Pow(EyePosY-(FixationY-attAnswerPointOffsetY),2)) <= Pow(WindowRadius,2) then ans% := -1; endif
+	return ans%;
 end;
 
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
@@ -683,44 +613,6 @@ func Reward%()
 	for i%:=1 to JuicePerReward% do Yield(.05); SampleKey("J"); next
 	return 1;
 end;
-
-''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-' Determine two sets of random numbers to drive this expt. 
-' RandomDelay[] is an array of numbers, 0 <= RandomDelay[i] <= RandomFixationOffset. 
-' For each trial, this is a random delay added to each of the delay vars: GratingDelay, ContrastDelay, 
-' AnswerPointDelay. 
-' ContrastState[] is an array of numbers, each is either 1 or -1. Each number determines the contrast
-' change, up for +1, down for -1, on a given trial. 
-' The goofy loop ensures that each "block" of 30 trials is equally balanced between up and down contrast
-' changes. 
-
-func DetermineContrastChanges()
-var BlockIndex%,Block[30],RandomBlock[30],RandomNumber;
-var index;
-ArrConst(Block[:15],-1);
-ArrConst(Block[15:15],1);
-ArrConst(RandomDelay[],0);
-
-
-for index :=0 to (attNumberOfBlocks% -1) do
-	BlockIndex%:=0;
-	ArrConst(RandomBlock[],0);
-	while BlockIndex% < 30 do
-		RandomNumber:=round(29*rand());
-		if RandomBlock[RandomNumber] = 0 then 
-			RandomBlock[RandomNumber] := Block[BlockIndex%];
-			BlockIndex% := BlockIndex%+1;
-		endif
-	wend
-	ArrConst(ContrastState[index*30:30],RandomBlock[]);
-next
-
-for index:=0 to (30*attNumberOfBlocks% - 1) do
-	if attRandomFixationOffset > 0 then RandomDelay[index] := attRandomFixationOffset*rand(); endif
-next
-
-return 1;
-end
 
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
@@ -734,36 +626,43 @@ var vTrigger;		' set by NextTime to indicate trigger transition
 var tStateStart:=-1;	' time that present state started. Used to measure wait time, fixation time, etc. 
 var tLastTrigger:=-1;	' last trigger time. New triggers have to be greater than this
 var tTrigger:=-1;	' temp var for newly discovered trigger times
-var tFixationDone:=-1;	' time that fixation duration was achieved. Used to measure time to answer
+var tStimOn:=-1;	' time that stim was turned on. Used to measure spike rates 
 
 ' Constants for states
-const stateStartTrial%:=0;	' Start trial state
-const stateWaitForFixPt%:=1;	' Waiting for fixation point return trigger
-const stateAcquire%:=2;		' Waiting for subject to acquire fixation point
-const stateHoldFixation%:=3;	' Holding fixation point
-const stateBreakFixation%:=4;	' Waiting for subject to break fixation
-const stateAbort%:=5;		' Failed trial state
-const stateWaitForAnswer%:=6;	' Fixation held, now awaiting answer
-const stateCorrectAnswer%:=7;	' Right answer received
-const stateIncorrectAnswer%:=8;	' Wrong answer received
-const stateWaitForBlank%:=9;
-const stateInterTrialInterval%:=10;
-const stateVSGWait% := 11;
-const stateVSGWaitConfirm% := 12;
+const stateStartTrial%:=0;		' Start trial state
+const stateWaitForFixPtOn%:=1;		' Waiting for fixation point return trigger (on)
+const stateWaitForFixation%:=2;		' Waiting for subject to fixate
+const stateWaitForStimOn%:=3;		' Wait for stimulus return trigger (on)
+const stateWaitForContrastChange%:=4;		' Wait for indication that contrast change has happened
+const stateWaitForAcquisition%:=5;	' Waiting for subject to acquire fixation point
+const stateHoldFixation%:=6;		' Holding fixation point
+const stateAbort%:=7;			' Failed trial state
+const stateWaitForAnswer%:=8;			' waiting for answer
+const stateInterTrialInterval%:=9;	' time out after failed trial
+const stateVSGWait%:=10;		' wait for vsg to send ready signal #1
+const stateVSGWaitConfirm%:=11;		' waif for vsg to send ready signal #2
+const stateTrialCompleted%:=12;		' trial has been completed successfully
+const stateDone%:=13;	
+const stateWaitForBlank%:=14;
+const stateBlockCompleted%:=16;
+const stateStartBlock%:=17;
+const stateTrialCompletedWaitForBlank% := 18;
+const stateTrialCompletedPause% := 19;
 var iState% := stateVSGWait%;	' present state
 
-var AnswerPointsUp% :=0;	' Set to 1 after answer point key "A" is issued
-var StimulusUp% :=0;		' Set to 1 after grating key "S" is issued
-var ContrastChange% := 0;	' Set to 1 after ContrastChange key "C"/"D" is issued
-
-
+const blocktypeAttendToward% := 100;
+const blocktypeAttendAway% := 101;
+var blockType%;
 var nTrialsStarted%:=0;
-var nTrialsCorrect%:=0;
-var nTrialsIncorrect%:=0;
-var nTrialsAbort% :=0;		' Number of trials aborted before any answer given
+var nTrialsCompleted%:=0;
+var nTrialsAborted% :=0;		' 
+var nBlocksCompleted%:=0;
+var iAnswer%;
+var trialCatch%;
+var trialContrastUpDown%;
 
 func IdleProcessing%()
-
+	var iStatus% := 1;	
 	tNow := MaxTime();
 
 	xEye := ChanMeasure(XChannel%,2,tNow-.001,tNow-.006)*DegreesPerVoltX;
@@ -794,201 +693,241 @@ func IdleProcessing%()
 			if tTrigger > tLastTrigger and vTrigger = 1 then
 				PrintLog("state stateVSGWaitConfirm: Got trailing edge of trigger\n");
 				tLastTrigger := tTrigger;
-				ChangeStateTo(stateStartTrial%, tTrigger);
+				ChangeStateTo(stateStartBlock%, tTrigger);
 			endif;
+
+
+		case iState% = stateStartBlock% then
+
+			PrepareBlock();
+			ChangeStateTo(stateStartTrial%, tNow);
 
 		case iState% = stateStartTrial% then
 
-			'StartTrial -- issue "F" to turn on fixation points. 
-			' Enter state 1
-
-			SampleKey("F");
-			ChangeStateTo(stateWaitForFixPt%, tNow);
-			PrintLog("State stateStartTrial - fixation trigger F sent. Entering state stateWaitForFixPt \n");
-
-			' Initialize state loop vars
-			AnswerPointsUp% :=0;
-			StimulusUp% :=0;
-			ContrastChange% := 0;
-			tFixationDone := -1;
-
-			' Increment trial counter. 
-			nTrialsStarted% += 1;
-
-		case iState% = stateWaitForFixPt% then
-	
-			' Waiting for fixation point return trigger from vsg. 
-			' NextTime returns a non-negative value whenever there is a TRANSITION. In that case, the 
-			' value of 'vTrigger' returned is 1 (0) if the transition is high (low) to low (high). Maybe not
-			' intuitive, but that's the way it is. 
-			tTrigger := NextTime(FixationPointChannel%,tLast,vTrigger);
-			if tTrigger > tLastTrigger then
-
-				if vTrigger = 0 then
+			' Start trial. Put up fixation point.
+			PrepareTrial();
+			PrintLog("stateStartTrial: Send fixation key\n");
+			docase
+				case blockType% = blocktypeAttendToward% then
+					SampleKey("F");
+				case blockType% = blocktypeAttendAway% then
+					SampleKey("G");
+				else
+					PrintLog("ERROR: Unknown block type (" + str$(blockType%) + "\n");
+			endcase
+			ChangeStateTo(stateWaitForFixPtOn%, tTrigger);
 		
-					' Stimulus has been presented. Display stim location and window. Enter stateAcquire
-'					DrawStim(1);
-					ChangeStateTo(stateAcquire%, tTrigger);
-					tLastTrigger := tTrigger;
+		case iState% = stateWaitForFixPtOn% then
 
-				endif
-
+			PrintLog("stateWaitForFixPtOn: waiting.......\n");
+			tTrigger := NextTime(FixationPointChannel%, tLast, vTrigger);
+			if tTrigger > tLast and vTrigger = 0 then
+				' Fixation point is up
+				PrintLog("stateWaitForFixPtOn: signal received. " + str$(tNow) + "\n");
+				tLastTrigger := tTrigger;
+				ChangeStateTo(stateWaitForAcquisition%, tTrigger);
+				DrawStim(1);	' actually this draws the location of the fixpt.
 			endif
 
-		case iState% = stateAcquire% then
+		case iState% = stateWaitForAcquisition% then
 
-			if tNow-tStateStart < attAcquisitionTime then
-				
-				' Acquisition happens when the eye falls within the fixation window.
-				if Looking%(xEye, yEye) = 1 then
-
-					PrintLog("stateAcquire - acquired target. tNow=" + str$(tNow) + " Enter stateHoldFixation\n");
-					ChangeStateTo(stateHoldFixation%, tNow);
-
-					if (ContrastState[nTrialsStarted%-1]>0) then
-						SampleKey("H");
-					else
-						SampleKey("L");
-					endif
-	
+			' Waiting for eye to fall inside of fixation window
+			if Looking%(xEye, yEye) = 1 then
+				PrintLog("stateWaitForAcquisition: eye in fixation window.\n");
+				ChangeStateTo(stateWaitForFixation%, tNow);
+			else 
+				if tNow - tStateStart > attAcquisitionTime then
+					PrintLog("stateWaitForAcquisition: failed.\n");
+					ChangeStateTo(stateAbort%, tNow);
 				endif
+			endif
 
-			else
+		case iState% = stateWaitForFixation% then
 
-				' Failed. Turn off stim and try again.
-				PrintLog("stateAcquire - acquisition failed. Enter stateAbort\n");
+			' Eye must remain inside of fixation window
+			if Looking%(xEye, yEye) = 1 then
+				if tNow - tStateStart > attFixationTime then
+					PrintLog("stateWaitForFixation: Success. Gratings up...\n");
+					SampleKey("S");
+					ChangeStateTo(stateWaitForStimOn%, tNow);
+				endif
+			else 
+				PrintLog("stateWaitForFixation: failed.\n");
 				ChangeStateTo(stateAbort%, tNow);
+			endif
+
+		case iState% = stateWaitForStimOn% then
+
+			tTrigger := NextTime(StimChannel%, tLast, vTrigger);
+			if tTrigger > tLast and vTrigger = 0 then
+				' gratings et al are up
+				PrintLog("stateWaitForStimOn: stim is up.\n");
+				tStimOn := tTrigger;
+				tLastTrigger := tTrigger;
+				ChangeStateTo(stateHoldFixation%, tTrigger);
+			endif
+
+			
+		case iState% = stateAbort% then
+
+			' Signal "X" turns off fixpt and stimulus. The next state 'stateWaitForBlank' only checks for 
+			' fixpt off. 
+			PrintLog("stateAbort: send X key.\n");
+			SampleKey("X");
+			ChangeStateTo(stateWaitForBlank%, tNow);
+
+		case iState% = stateWaitForBlank% then
+
+			' we just wait for fix point off signal in this case. 
+			tTrigger := NextTime(FixationPointChannel%, tLast, vTrigger);
+			if tTrigger > tLast and vTrigger = 1 then
+				' Fixation point is off
+				PrintLog("stateWaitForBlank: Fix pt is off.\n");
+				tLastTrigger := tTrigger;
+				ChangeStateTo(stateInterTrialInterval%, tTrigger);
+				DrawStim(0);	' actually this draws the location of the fixpt.
+			endif
+
+		case iState% = stateInterTrialInterval% then
+
+			if tNow - tStateStart > attInterTrialTime then
+
+				PrintLog("stateInterTrialInterval: time out is done.\n");
+				ChangeStateTo(stateStartTrial%, tNow);
 
 			endif
 
 		case iState% = stateHoldFixation% then
 
-			' keep looking at the dot...
-			if Looking%(xEye, yEye) = 1 then
-
-				' In this state, we check the time and turn on the stimulus, answer points, contrast change when
-				' appropriate. Note that we do NOT check for the return triggers on these -- this is in keeping with
-				' the original version of this paradigm. I will change this eventually, but not in this first
-				' rewrite. 
-
-				if (tNow - tStateStart >= attAnswerPointDelay) and (AnswerPointsUp% = 0) then 
-					SampleKey("A");
-					AnswerPointsUp% := 1;
-				endif
-
-				if (tNow - tStateStart >= attGratingDelay) and (StimulusUp% = 0) then
-					SampleKey("S");
-					StimulusUp% := 1;
-				endif
-
-				if (tNow - tStateStart >= attContrastDelay) and (ContrastChange% = 0) then
-					if (rand() <= attCatchTrialPercentage/100) then
-						SampleKey("D");
-					else
-						SampleKey("C");
-					endif
-					ContrastChange% := 1;
-					AnswerX := FixationX;
-					AnswerY := FixationY + AnswerPointOffsetY * ContrastState[nTrialsStarted%-1];
-
-				endif
-
-				' This is the only condition that forces an exit! 
-				' We use guard logic to ensure that the three changes above - contrast change, gratings up, answer points up, all 
-				' have occurred before exiting this state! 
-				' More logic should be employed to make certain that FixationDuration > AnswerPointDelay, ContrastDelay, GratingDelay! 
-
-				if (tNow - tStateStart >= attFixationDuration and AnswerPointsUp% = 1 and StimulusUp% = 1 and ContrastChange% = 1) then
-					ChangeStateTo(stateBreakFixation%, tNow);
-					tFixationDone := tNow;
-				endif;
-
-			else
-
+			if Looking%(xEye, yEye) = 0 then
+	       		
+				PrintLog("stateWaitForFixation: outside fixation window, aborting trial.\n");
 				ChangeStateTo(stateAbort%, tNow);
 
-			endif;
-
-		case iState% = stateBreakFixation% then
-
-			' In this state, we just wait for the subject to break fixation. After that happens, turn off the stimuli. 
-			if Looking%(xEye, yEye) = 0 then
-				SampleKey("s");
-				ChangeStateTo(stateWaitForAnswer%, tNow);
 			else 
-				if (tNow - tFixationDone) > attTimeToAnswer then
-					ChangeStateTo(stateAbort%, tNow);
+
+				if tNow - tStateStart > attFixationTime then
+
+					' turn off stimulus and advance it
+					PrintLog("stateHoldFixation: signal contrast change\n");
+					docase
+						case blockType% = blocktypeAttendToward% then
+							if trialContrastUpDown% > 0 then
+								if trialCatch% = 0 then
+									SampleKey("C");
+								else
+									SampleKey("D");
+								endif
+							else
+								if trialCatch% = 0 then
+									SampleKey("c");
+								else
+									SampleKey("d");
+								endif
+							endif
+						case blockType% = blocktypeAttendAway% then
+							if trialContrastUpDown% > 0 then
+								if trialCatch% = 0 then
+									SampleKey("D");
+								else
+									SampleKey("C");
+								endif
+							else
+								if trialCatch% = 0 then
+									SampleKey("d");
+								else
+									SampleKey("c");
+								endif
+							endif
+						else
+							PrintLog("ERROR! Unknown blocktype!!!\n");
+					endcase;
+							
+
+					' Now wait until contrast change trigger is received
+					ChangeStateTo(stateWaitForContrastChange%, tNow);
+
 				endif
+
 			endif
 
-		case iState% = stateAbort% then
+		case iState% = stateWaitForContrastChange% then
 
-			' Issue X, count, wait for blank
-			SampleKey("X");
-			nTrialsAbort% += 1;
-			ChangeStateTo(stateWaitForBlank%, tNow);
+			tTrigger := NextTime(StimChangeChannel%, tLast, vTrigger);
+			if tTrigger > tLast and vTrigger = 0 then
+				PrintLog("stateWaitForContrastChange: got it.\n");
+				tLastTrigger := tTrigger;
+				ChangeStateTo(stateWaitForAnswer%, tNow);
+			endif
 
 		case iState% = stateWaitForAnswer% then
 
-			if (tNow - tFixationDone) > attTimeToAnswer then
+			if tNow - tStateStart > attTimeToAnswer then
+				PrintLog("stateWaitForAnswer: timed out\n");
 				ChangeStateTo(stateAbort%, tNow);
 			else
-				' Check if an answer is being given....
-				var iAnswer%;
 				iAnswer% := Answer%(xEye, yEye);
-				if iAnswer% = 1 then
-					' Right answer
-					ChangeStateTo(stateCorrectAnswer%, tNow);
-				else 
-					if iAnswer% = -1 then
-						' Wrong answer
-						ChangeStateTo(stateIncorrectAnswer%, tNow);
+				if iAnswer% = 1 or iAnswer% = -1 then
+					' Got an answer. Record marker for correct/incorrect answer
+					if iAnswer% = trialContrastUpDown% then
+						' Correct answer
+						SampleText("+");
+					else
+						SampleText("-");
 					endif
+	
+					SampleKey("X");
+					ChangeStateTo(stateTrialCompletedWaitForBlank%, tNow);
 				endif
 			endif
 
-		case iState% = stateCorrectAnswer% then
+		case iState% = stateTrialCompletedWaitForBlank% then
 
-			SampleKey("X");
-			nTrialsCorrect% += 1;
-			Reward%();
-			ChangeStateTo(stateWaitForBlank%, tNow);
-
-		case iState% = stateIncorrectAnswer% then
-
-			SampleKey("X");
-			nTrialsIncorrect% += 1;
-			ChangeStateTo(stateWaitForBlank%, tNow);
-
-
-		case iState% = stateWaitForBlank% then
-
-			tTrigger := NextTime(FixationPointChannel%,tLast,vTrigger);
-			if tTrigger > tLastTrigger then
-
-				if vTrigger = 1 then
-		
-					ChangeStateTo(stateInterTrialInterval%, tTrigger);
-					tLastTrigger := tTrigger;
-
-				endif
-
+			' we just wait for fix point off signal in this case. 
+			tTrigger := NextTime(FixationPointChannel%, tLast, vTrigger);
+			if tTrigger > tLast and vTrigger = 1 then
+				' Fixation point is off
+				PrintLog("stateTrialCompleteWaitForBlank: Fix pt is off.\n");
+				tLastTrigger := tTrigger;
+				ChangeStateTo(stateTrialCompletedPause%, tTrigger);
+				DrawStim(0);	' actually this draws the location of the fixpt.
 			endif
 
-		case iState% = stateInterTrialInterval% then
+		case iState% = stateTrialCompletedPause% then
 
-			' Inter-trial wait time
 			if tNow - tStateStart > attInterTrialTime then
-	
-				' Back to state 0
-				PrintLog("stateInterTrialInterval - IT wait is done. Start new trial.\n");
-				iState% := stateStartTrial%;
-				tStateStart := tNow;
-	
+
+				PrintLog("stateTrialCompletedPause: time out is done.\n");
+				ChangeStateTo(stateTrialCompleted%, tNow);
+
 			endif
 
-		else 
 
+
+		case iState% = stateTrialCompleted% then
+
+			PrintLog("Trial completed.\n");
+			nTrialsCompleted% := nTrialsCompleted% + 1;
+			if nTrialsCompleted% = attTrialsPerBlock% then
+				ChangeStateTo(stateBlockCompleted%, tNow);
+			else
+				ChangeStateTo(stateStartTrial%, tNow);
+			endif
+	
+		case iState% = stateBlockCompleted% then
+
+			PrintLog("Block completed.\n");
+			nBlocksCompleted% := nBlocksCompleted% + 1;
+			if nBlocksCompleted% = attNumberOfBlocks% then
+				ChangeStateTo(stateDone%, tNow);
+				Stop%();
+				iStatus% := 0;
+			else
+				ChangeStateTo(stateStartBlock%, tNow);
+			endif
+
+		else
+			
 			' Unknown state!
 			Message("Unknown state=" + str$(iState%));
 			halt;
@@ -996,17 +935,54 @@ func IdleProcessing%()
 	endcase;
 
 	tLast := tNow;
-	return 1;
+	return iStatus%;
 end;
-
 
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 proc ChangeStateTo(stateTo%, tStart)
 	iState% := stateTo%;
-	tStateStart := tStart;
+	if tStart > 0 then tStateStart := tStart; endif;
 end;
 
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+proc PrepareTrial()
+
+	PrintLog("Prepare trial: ");
+	' Catch trial?
+	if (Rand()*100 < attCatchTrialPercentage) then
+		trialCatch% := 1;
+		PrintLog("CATCH ");
+	endif
+
+	' Contrast up or down?
+	trialContrastUpDown% := 1;
+	if (Rand() < 0.5) then
+		trialContrastUpDown% := -1;
+		PrintLog(" Contrast UP\n");
+	else
+		PrintLog(" Contrast DOWN\n");
+	endif
+
+end
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+proc PrepareBlock()
+	PrintLog("Preparing block: ");
+	' when blocksCompleted% is even, this is attend-toward
+	if (nBlocksCompleted% mod 2) = 0 then
+		blockType% := blocktypeAttendToward%;
+		PrintLog("Attend-toward ");
+	else
+		blockType% := blocktypeAttendAway%;
+		PrintLog("Attend-away ");
+	endif
+	PrintLog("\n");
+	ntrialsCompleted% := 0;
+	nTrialsStarted% := 0;
+	nTrialsAborted% :=0;		' 
+end
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 func PauseStimuli%();
@@ -1031,7 +1007,7 @@ proc InitializeWindows()
 
 	'Open the data sampling window
 	DataWindow% := FileNew(0,4);
-	Window(-0.235849,52.746,97.2484,99.8856);
+	Window(0,48,100,95);
 	View(DataWindow%).WindowVisible(1);
 
 	'Open an XY view to display eye position
@@ -1040,9 +1016,10 @@ proc InitializeWindows()
 	YRange(-2,-30,30);
 	XYDrawMode(0,5,0);
 	WindowVisible(1);
-	Window(-0.550314,0.114416,41.5094,52.746);
+	Window(0, 0, 100, 47);
 	XYColour(1,16);
 	XYSize(1,-1);
+
 
 	'Calcuate the fixation window
 	var index%;
@@ -1077,7 +1054,6 @@ proc InitializeWindows()
 
 end;
 
-
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 proc CreateSampleConfiguration()
 	var index;
@@ -1087,6 +1063,10 @@ proc CreateSampleConfiguration()
 	SampleAutoCommit(60); 'Seconds between each file commit
 
 	'Channel recording definitions
+	SampleEvent(FrameTriggerChannel%,0,2,3600); 'Trigger channel, level
+	SampleComment$(FrameTriggerChannel%,"Frame");
+	SampleTitle$(FrameTriggerChannel%,"Frame");
+
 	SampleEvent(FixationPointChannel%,1,2,3600); 'Trigger channel, level
 	SampleComment$(FixationPointChannel%,"Fixation");
 	SampleTitle$(FixationPointChannel%,"Fixation");
@@ -1095,23 +1075,14 @@ proc CreateSampleConfiguration()
 	SampleComment$(StimChannel%,"Stim");
 	SampleTitle$(StimChannel%,"Stim");
 	
-	SampleEvent(AnswerPointChannel%,3,2,3600); 'Trigger channel, level
-	SampleComment$(AnswerPointChannel%,"Ans. Pt.");
-	SampleTitle$(AnswerPointChannel%,"Ans. Pt.");
-	
 	SampleEvent(StimChangeChannel%,4,2,3600); 'Trigger channel, level
 	SampleComment$(StimChangeChannel%,"Stim Chg.");
 	SampleTitle$(StimChangeChannel%,"Stim Chg.");
 	
-	SampleEvent(ConfounderChangeChannel%,5,2,3600); 'Trigger channel, level
-	SampleComment$(ConfounderChangeChannel%,"Catch trial");
-	SampleTitle$(ConfounderChangeChannel%,"Catch trial");
-
 	SampleEvent(ReadyChannel%,6,2,3600); 'Trigger channel, level
 	SampleComment$(ReadyChannel%,"VSG Ready");
 	SampleTitle$(ReadyChannel%,"VSG Ready");
 
-	
 	for index := 1 to NumberOfElectrodes% do
 		SampleWaveMark(index,index-1,2000,34,15,28000); ' chan, port, event rate, points, pre-trigger, rate
 		SampleTitle$(index,"Electrode_"+Str$(index)); 
@@ -1121,7 +1092,9 @@ proc CreateSampleConfiguration()
 	SampleTitle$(XChannel%,"Eye X");
 	SampleWaveform(YChannel%,15,1000);
 	SampleTitle$(YChannel%,"Eye Y");
-	
+
+	SampleTextMark(1);
+
 	SampleSequencer(script$ + "Attention.pls");
 	SampleOptimise(2,2,2,2,50);  'Set optimise mode (do this last)
 	SampleMode(1); 'Continuous sampling
@@ -1148,107 +1121,79 @@ func Quit%()
 end;
 
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-func Start%()
-var CommandLine$;
-var FixationPoint$;
-var Extras$;
-var Distractors$:="";
-
-SampleStart(0); 'Start sampling
-SampleKey("0");
-GetAttentionScriptParameters();
-DetermineContrastChanges();
-
-' Stimulus is always used
-Distractors$ := " -s " + GetGratingParameters$("Stimulus");
-
-' Distractor1 is used as the confounder. 
-if attDistractor1Flag% = 1 then
-	Extras$ := GetGratingParameters$("Distractor1");
-	if Len(Extras$) = 0 then
-		Message("Warning! Use distractor 1 flag is set, but distractor 1 grating is not configured!");
-	else
-		Distractors$ += " -c " + Extras$;
-	endif
-endif
-
-if attDistractor2Flag% = 1 then
-	Extras$ := GetGratingParameters$("Distractor2");
-	if Len(Extras$) = 0 then
-		Message("Warning! Use distractor 2 flag is set, but distractor 2 grating is not configured!");
-	else
-		Distractors$ += " -g " + Extras$;
-	endif
-endif
-
-if attDistractor3Flag% = 1 then
-	Extras$ := GetGratingParameters$("Distractor3");
-	if Len(Extras$) = 0 then
-		Message("Warning! Use distractor 3 flag is set, but distractor 3 grating is not configured!");
-	else
-		Distractors$ += " -g " + Extras$;
-	endif
-endif
-
-if attDistractor4Flag% = 1 then
-	Extras$ := GetGratingParameters$("Distractor4");
-	if Len(Extras$) = 0 then
-		Message("Warning! Use distractor 4 flag is set, but distractor 4 grating is not configured!");
-	else
-		Distractors$ += " -g " + Extras$;
-	endif
-endif
-
-Extras$ := " -b " + attBackgroundColor$ + " -d " + DistanceToScreenMM$ + " -t " + str$(attContrastDown%) + "," + str$(attContrastBase%) + "," + str$(attContrastUp%);
-
-'CommandLine$ := "cmd /c " + bin$ + "\\dAttention " + FixationArg$ + Extras$ + Distractors$;
-CommandLine$ := bin$ + "\\dAttention " + FixationArg$ + Extras$ + Distractors$;
-
-'Begin the stimulus program. It will take a few seconds for the VSG to initialize.
-PrintLog(CommandLine$+"\n");
-StimHandle% := ProgRun(CommandLine$,1);
-if StimHandle% <0 then Message("Could not start stimulus."); halt; endif
-Yield(5);	'Wait a few seconds to make sure the VSG has time to initialize.
-
-ToolbarSet(0,"",IdleProcessing%);	'Enable the IdleProcessing function
-ToolbarEnable(2,1);
-ToolbarEnable(1,0);
-ToolbarEnable(6,0);
-ToolbarEnable(7,0);
-View(DataWindow%);
-Yield(.1);
-return 1;
-end;
-
-
-''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 func Stop%()
 
 	' Disable idle process func
 	ToolbarSet(0,"");
 
 	' Tell stim app to shut down
-	SampleKey("Q");
+	SampleKey("q");
 	Yield(.1);
 	SampleStop();
+
 	ProgKill(StimHandle%);
 	while ProgStatus(StimHandle%) > 0 do
 		Yield();
 	wend
-	ProgRun(bin$ + "\\ClearTrigger",0);
-
-	' Increment daily totals and save then
-	TotalTrials% += nTrialsStarted%;
-	TotalRewards% += nTrialsCorrect%;
-	SaveDailyTotals();
-
-	' Save data file
-'	View(DataWindow%);
-'	if FileSave() <> 0 then
-'		Message("WARNING! Data file not saved!!!");
-'	endif
+	'ProgRun(bin$ + "\\ClearTrigger",0);
 
 end;
 
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func Start%()
+	var CommandLine$;
+	var Extras$;
+	var Tune$;
+	var Stim$:="";
+	var Contrast$;
+	
+	SampleStart(0); 'Start sampling
+	SampleKey("0");
+	
+	Stim$ := " -g " + GetGratingParameters$("Stimulus") + " -s" + GetGratingParameters$("Distractor1");
+	Contrast$ := " -t " + str$(attContrastDown%) + "," + str$(attContrastBase%) + "," + str$(attContrastUp%);
+	Extras$ := " -b " + attBackgroundColor$ + " -d " + DistanceToScreenMM$ + " -A " + str$(attAnswerPointOffsetY) + " -D " + str$(attAnswerPointDiameter);
+	
+	'CommandLine$ := "cmd /c " + bin$ + "\\dAttention " + FixationArg$ + Extras$ + Distractors$;
+	CommandLine$ := "cmd /k " + bin$ + "\\Attention " + FixationArg$ + Extras$ + Stim$ + Contrast$;
+	
+	'Begin the stimulus program. It will take a few seconds for the VSG to initialize.
+	PrintLog(CommandLine$+"\n");
+	StimHandle% := ProgRun(CommandLine$,1);
+	if StimHandle% <0 then Message("Could not start stimulus."); halt; endif
+	'Yield(5);	'Wait a few seconds to make sure the VSG has time to initialize.
+	
+	ToolbarSet(0,"",IdleProcessing%);	'Enable the IdleProcessing function
+	ToolbarEnable(2,1);
+	ToolbarEnable(1,0);
+	ToolbarEnable(6,0);
+	ToolbarEnable(7,0);
+	View(DataWindow%);
+	Yield(.1);
+return 1;
+end;
+
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+' DrawStim
+' 
+' Draws stimulus in xy window (iDraw%==1) or blanks it (0). 
+proc DrawStim(iDraw%)
+
+	if iDraw% > 0 then
+		var xstim, ystim;
+		xstim := FixationX;
+		ystim := FixationY;
+
+		' Draw stimulus in xy window
+		View(XYWindow%).XYAddData(iStimChannel%, xstim, ystim);
+	else 
+		' erase the stim and the window from xy view
+		View(XYWindow%).XYDelete(iStimChannel%);
+	endif
+
+end;
 
 
