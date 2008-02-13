@@ -1,73 +1,75 @@
 ; $Log: not supported by cvs2svn $
+; Revision 1.2  2005/03/18 19:37:14  dan
+; Almost there!
+;
 ; Revision 1.1  2004/10/01 20:06:10  dan
 ; Modified directory locations for executables (../bin) and sequencer files (script dir)
 ;
 ;
 
-                SET      1.000 1 0     ;Get rate & scaling OK
+            SET      1.000 1 0     ;Get rate & scaling OK
 
-                VAR    V45,LoopC=0     ;Define variable for section loops
-                VAR    V46,RampC=0     ;Define variable for ramp loops
-                VAR    V47,DelayC=0    ;Define variable for delay loops
-                VAR    V48,Delay2=0    ;and another one
-                VAR    V49,Delay3=0    ;and another one
-                VAR    V50,Delay4=0    ;and another one
-                VAR    V51,Delay5=0    ;and another one
+            VAR    V45,LoopC=0     ;Define variable for section loops
+            VAR    V46,RampC=0     ;Define variable for ramp loops
+            VAR    V47,DelayC=0    ;Define variable for delay loops
+            VAR    V48,Delay2=0    ;and another one
+            VAR    V49,Delay3=0    ;and another one
+            VAR    V50,Delay4=0    ;and another one
+            VAR    V51,Delay5=0    ;and another one
 
-0000 E0:     '0 DIGOUT [00000001]
-0001            DELAY  s(0.996)-1
-0002            HALT                   ;End of this sequence section
+E0:     '0  DIGOUT [00000001]
+            DELAY  s(0.996)-1
+            HALT                   ;End of this sequence section
 
-0003 EF:     'F DIGOUT [......11]      ;Signals the fixation point on
-0004            DELAY  s(0.996)-1
-0005            HALT   
+EQ:     'q  DIGOUT [1111...1]      ;exit program
+            DELAY  s(0.996)-1
+            HALT   
 
-0006 E1:     'f DIGOUT [......01]      ;Signals the fixation point off
-0007            DELAY  s(0.996)-1
-0008            HALT   
+EF:     'F  DIGOUT [......11]      ;Signals the fixation point on
+            DELAY  s(0.996)-1
+            HALT   
 
-0009 ES:     'S DIGOUT [.....1.1]      ;Signals the stimuli on
-0010            DELAY  s(0.996)-1
-0011            HALT   
+E1:     'f  DIGOUT [......01]      ;Signals the fixation point off
+            DELAY  s(0.996)-1
+            HALT   
 
-0012 E2:     's DIGOUT [.....0.1]      ;Signals the stimuli off
-0013            DELAY  s(0.996)-1
-0014            HALT   
+EG:     'G  DIGOUT [.....1.1]      ;Signals the fixation point on
+            DELAY  s(0.996)-1
+            HALT   
 
-;0015 EC:     'C DIGOUT [....i..1]      ;Signals the target contrast change
-0015 EC:     'C DIGOUT [....1..1]      ;Signals the target contrast change
-0016            DELAY  s(0.996)-1
-0017            HALT   
+EH:     'g  DIGOUT [.....0.1]      ;Signals the fixation point off
+            DELAY  s(0.996)-1
+            HALT   
 
-;0018 ED:     'D DIGOUT [...i...1]      ;Signals the distractor contrast change (catch trial)
-0018 ED:     'D DIGOUT [...1...1]      ;Signals the distractor contrast change (catch trial)
-0019            DELAY  s(0.996)-1
-0020            HALT   
+ES:     'S  DIGOUT [....1..1]      ;Signals the stimuli on
+            DELAY  s(0.996)-1
+            HALT   
 
-0021 EH:     'H DIGOUT [..1....1]      ;Signals that the contrast will increase
-0022            DELAY  s(0.996)-1
-0023            HALT   
+E2:     'X  DIGOUT [00000001]      ;Signals the stimuli off
+            DELAY  s(0.996)-1
+            HALT   
 
-0024 EL:     'L DIGOUT [..0....1]      ;Signals that the contrast will decrease
-0025            DELAY  s(0.996)-1
-0026            HALT   
+EC:     'C  DIGOUT [...1...1]      ;stimulus contrast UP
+            DELAY  s(0.996)-1
+            HALT   
 
-0027 EA:     'A DIGOUT [.1.....1]      ;Signals the answer points on
-0028            DELAY  s(0.996)-1
-0029            HALT   
+EN:     'c  DIGOUT [..1....1]      ;stimulus contrast DOWN
+            DELAY  s(0.996)-1
+            HALT   
 
-0030 E3:     'a DIGOUT [.0.....1]      ;Signals the answer points off
-0031            DELAY  s(0.996)-1
-0032            HALT   
+ED:     'D  DIGOUT [.1.....1]      ;distractor contrast UP
+            DELAY  s(0.996)-1
+            HALT   
 
-0033 EJ:     'J DIGOUT [.......1]      ;Administers juice
-0034            DIGOUT [.......0]
-0035            DELAY  s(0.005)-1
-0036            DIGOUT [.......1]
-0037            DELAY  s(0.989)-1
-0038            HALT   
+EP:     'd  DIGOUT [1......1]      ;distractor contrast DOWN
+            DELAY  s(0.996)-1
+            HALT   
 
-0039 EX:     'X DIGOUT [00000001]      ;Clears all
-0040            DELAY  s(0.996)-1
-0041            HALT                   ;End of this sequence section
+EJ:     'J  DIGOUT [.......1]      ;Administers juice
+            DIGOUT [.......0]
+            DELAY  s(0.005)-1
+            DIGOUT [.......1]
+            DELAY  s(0.989)-1
+            HALT   
+
 
