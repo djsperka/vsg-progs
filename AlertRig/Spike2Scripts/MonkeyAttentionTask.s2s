@@ -22,6 +22,7 @@ var n,StimOver,ContrastChangeTime;
 var iTrigger,iTrigger2,iLastTrigger,iLast;
 iLastTrigger:=-1;iLast:=-1;
 var NumberOfChannels%,XChannel%,YChannel%,FixationPointChannel%,StimChannel%,AnswerPointChannel%,StimChangeChannel%,ConfounderChangeChannel%,ReadyChannel%;
+var ContinuousChannel%;
 'NumberOfChannels%:=Input("Number of channels :",1,1,14);
 const stateVSGWait%:=10;		' wait for vsg to send ready signal #1
 const stateVSGWaitConfirm%:=11;		' waif for vsg to send ready signal #2
@@ -41,6 +42,7 @@ AnswerPointChannel% := NumberOfChannels%+5;
 StimChangeChannel% := NumberOfChannels%+6;
 ConfounderChangeChannel% := NumberOfChannels%+7;
 ReadyChannel%:=NumberOfChannels%+8;
+ContinuousChannel%:=NumberOfChannels%+9;
 CreateSampleConfiguration();
 TargetTrial:=0; CorrectionTrial:=0;
 'Determine which monkey we're currently running
@@ -754,6 +756,10 @@ SampleTitle$(StimChangeChannel%,"Stim Chg.");
 SampleEvent(ConfounderChangeChannel%,5,2,3600); 'Trigger channel, level
 SampleComment$(ConfounderChangeChannel%,"Catch trial");
 SampleTitle$(ConfounderChangeChannel%,"Catch trial");
+
+SampleWaveForm(ContinuousChannel%, 1, 2000); ' new channel for wave form
+SampleComment$(ContinuousChannel%, "Continuous waveform");
+SampleTitle$(ContinuousChannel%, "Cont. waveform");
 
 for index := 1 to NumberOfChannels% do
 	SampleWaveMark(index,index-1,2000,34,15,28000); ' chan, port, event rate, points, pre-trigger, rate
