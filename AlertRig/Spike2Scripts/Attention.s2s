@@ -1,4 +1,4 @@
-' $Id: Attention.s2s,v 1.10 2008-02-13 23:18:44 devel Exp $
+' $Id: Attention.s2s,v 1.11 2008-07-14 21:52:19 devel Exp $
 '
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
@@ -368,19 +368,17 @@ var attNumberOfBlocks%;
 var attTrialsPerBlock%;
 var attCatchTrialPercentage;
 var attBackgroundColor$;
+var attAnswerPointDiameter := 0.05;
+var attAnswerPointOffset := 5.0;
+var attAnswerPointWindowRadius := 2.0;
 var attContrastBase%;
 var attContrastUp%;
 var attContrastDown%;
 var attFixationTime;
+var attHazardUpperBound;
 var attAcquisitionTime;
 var attInterTrialTime;
-var attGratingDelay;
-var attContrastDelay;
-var attAnswerPointDelay;
-var attRandomFixationOffset;
 var attTimeToAnswer;
-var attAnswerPointOffsetY := 5;
-var attAnswerPointDiameter := 0.5;
 
 proc GetAttentionScriptParameters()
 	var stmp$;
@@ -396,6 +394,18 @@ proc GetAttentionScriptParameters()
 	Profile(key$, "ContrastBase", 50, attContrastBase%);
 	Profile(key$, "ContrastUp", 80, attContrastUp%);
 	Profile(key$, "ContrastDown", 20, attContrastDown%);
+
+	Profile(key$, "AnswerPointDiameter", "0.5", stmp$);
+	attAnswerPointDiameter := val(stmp$);
+
+	Profile(key$, "AnswerPointOffset", "5.0", stmp$);
+	attAnswerPointOffset := val(stmp$);
+
+	Profile(key$, "AnswerPointWindowRadius", "2.0", stmp$);
+	attAnswerPointWindowRadius := val(stmp$);
+
+	Profile(key$, "HazardUpperBound", "0.5", stmp$);
+	attHazardUpperBound := val(stmp$);
 
 	Profile(key$, "FixationTime", "1.0", stmp$);
 	attFixationTime := val(stmp$);
@@ -427,7 +437,12 @@ proc SaveAttentionScriptParameters()
 	Profile(key$, "AcquisitionTime", str$(attAcquisitionTime));
 	Profile(key$, "InterTrialTime", str$(attInterTrialTime));
 	Profile(key$, "TimeToAnswer", str$(attTimeToAnswer));
-end;
+	Profile(key$, "AnswerPointDiameter", str$(attAnswerPointDiameter));
+	Profile(key$, "AnswerPointOffset", str$(attAnswerPointOffset));
+	Profile(key$, "AnswerPointWindowRadius", str$(attAnswerPointWindowRadius));
+	Profile(key$, "HazardUpperBound", str$(attHazardUpperBound));
+
+	end;
 
 func AttentionScriptDialog%()
 	var i%;
@@ -448,17 +463,22 @@ func AttentionScriptDialog%()
 	DlgInteger(2, "Trials per block:", 1, 1000);
 	DlgReal(3, "Catch Trial pct (0-100)", 0, 100);
 
-	DlgReal(4, "Fixation time(s):", .01, 10);
-	DlgReal(5, "Acquisition time(s):", .01, 10);
-	DlgReal(6, "Intertrial time(s):", .01, 10);
+	DlgReal(4, "Acquisition time(s):", .01, 10);
+	DlgReal(5, "Fixation time(s):", .01, 10);
+	DlgReal(6, "Hazard Upper Bound(s):", 0.01, 10);
 	DlgReal(7, "Time to answer(s):", 0.01, 10.0);
-	DlgList(8, "Background color:", bcl$);
-	DlgInteger(9, "Base contrast(%)", 0, 100);
-	DlgInteger(10, "Up contrast(%)", 0, 100);
-	DlgInteger(11, "Down contrast(%)", 0, 100);
+	DlgReal(8, "Intertrial time(s):", .01, 10);
+	DlgList(9, "Background color:", bcl$);
+	DlgReal(10, "Answer Pt. Diam.(deg):", 0.1, 5.0);
+	DlgReal(11, "Answer Pt. Offset(deg):", 0.1, 10.0);
+	DlgReal(12, "Answer Pt. Window(deg):", 0.1, 10.0);
+	DlgInteger(13, "Base contrast(%)", 0, 100);
+	DlgInteger(14, "Up contrast(%)", 0, 100);
+	DlgInteger(15, "Down contrast(%)", 0, 100);
 	i%:=DlgShow(attNumberOfBlocks%, attTrialsPerBlock%, attCatchTrialPercentage,
-		attFixationTime, attAcquisitionTime, attInterTrialTime, attTimeToAnswer,
-		 ibcl%, attContrastBase%, attContrastUp%, attContrastDown%);
+		attAcquisitionTime, attFixationTime, attHazardUpperBound, attTimeToAnswer, attInterTrialTime, 
+		 ibcl%, attAnswerPointDiameter, attAnswerPointOffset, attAnswerPointWindowRadius, 
+		 attContrastBase%, attContrastUp%, attContrastDown%);
 	if i% = 1 then
 		attBackgroundColor$ := bcl$[ibcl%];
 		SaveAttentionScriptParameters();
@@ -602,8 +622,8 @@ end;
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 func Answer%(EyePosX, EyePosY)
 	var ans% := 0;
-	if (Pow(EyePosX-FixationX,2) + Pow(EyePosY-(FixationY+attAnswerPointOffsetY),2)) <= Pow(WindowRadius,2) then ans% := 1; endif
-	if (Pow(EyePosX-FixationX,2) + Pow(EyePosY-(FixationY-attAnswerPointOffsetY),2)) <= Pow(WindowRadius,2) then ans% := -1; endif
+	if (Pow(EyePosX-FixationX,2) + Pow(EyePosY-(FixationY+attAnswerPointOffset),2)) <= Pow(attAnswerPointWindowRadius,2) then ans% := 1; endif
+	if (Pow(EyePosX-FixationX,2) + Pow(EyePosY-(FixationY-attAnswerPointOffset),2)) <= Pow(attAnswerPointWindowRadius,2) then ans% := -1; endif
 	return ans%;
 end;
 
@@ -660,6 +680,7 @@ var nBlocksCompleted%:=0;
 var iAnswer%;
 var trialCatch%;
 var trialContrastUpDown%;
+var trialRandomFixationHazardFunction;
 
 func IdleProcessing%()
 	var iStatus% := 1;	
@@ -806,7 +827,7 @@ func IdleProcessing%()
 
 			else 
 
-				if tNow - tStateStart > attFixationTime then
+				if (tNow - tStateStart) > (attFixationTime + trialRandomFixationHazardFunction) then
 
 					' turn off stimulus and advance it
 					PrintLog("stateHoldFixation: signal contrast change\n");
@@ -950,6 +971,9 @@ end;
 proc PrepareTrial()
 
 	PrintLog("Prepare trial: ");
+
+	' hazard function ??? should this really be 1-RandExp???
+	trialRandomFixationHazardFunction := RandExp(attHazardUpperBound, 0);
 	' Catch trial?
 	if (Rand()*100 < attCatchTrialPercentage) then
 		trialCatch% := 1;
@@ -1093,6 +1117,9 @@ proc CreateSampleConfiguration()
 	SampleWaveform(YChannel%,15,1000);
 	SampleTitle$(YChannel%,"Eye Y");
 
+	SampleWaveform(NumberOfElectrodes%+10, 6, 1000);
+	SampleTitle$(NumberOfElectrodes%+10, "PD");
+
 	SampleTextMark(1);
 
 	SampleSequencer(script$ + "Attention.pls");
@@ -1153,7 +1180,7 @@ func Start%()
 	
 	Stim$ := " -g " + GetGratingParameters$("Stimulus") + " -s" + GetGratingParameters$("Distractor1");
 	Contrast$ := " -t " + str$(attContrastDown%) + "," + str$(attContrastBase%) + "," + str$(attContrastUp%);
-	Extras$ := " -b " + attBackgroundColor$ + " -d " + DistanceToScreenMM$ + " -A " + str$(attAnswerPointOffsetY) + " -D " + str$(attAnswerPointDiameter);
+	Extras$ := " -b " + attBackgroundColor$ + " -d " + DistanceToScreenMM$ + " -A " + str$(attAnswerPointOffset) + " -D " + str$(attAnswerPointDiameter);
 	
 	'CommandLine$ := "cmd /c " + bin$ + "\\dAttention " + FixationArg$ + Extras$ + Distractors$;
 	CommandLine$ := "cmd /k " + bin$ + "\\Attention " + FixationArg$ + Extras$ + Stim$ + Contrast$;
