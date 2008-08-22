@@ -1,4 +1,4 @@
-' $Id: Attention.s2s,v 1.11 2008-07-14 21:52:19 devel Exp $
+' $Id: Attention.s2s,v 1.12 2008-08-22 16:47:29 devel Exp $
 '
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
@@ -358,11 +358,11 @@ end;
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 '
-' 	Attention script START
-'
-'	Vars that control the Attention script. 
+' 	Attention script dialog START
 '
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+'	Vars that control the Attention script. 
 
 var attNumberOfBlocks%;
 var attTrialsPerBlock%;
@@ -375,10 +375,28 @@ var attContrastBase%;
 var attContrastUp%;
 var attContrastDown%;
 var attFixationTime;
-var attHazardUpperBound;
+var attHazardMinTime;
+var attHazardExpMeanTime;
 var attAcquisitionTime;
 var attInterTrialTime;
 var attTimeToAnswer;
+var attAbortWaitTime;
+var attBlockAlternate%;
+
+' Counter vars for attention script
+var attCountAllTrials% := 0;
+var attCountAllTrialsCorrect% := 0;
+var attCountAllTrialsIncorrect% := 0;
+var attCountAllTrialsAbort% := 0;
+var attCountTowardTrials% := 0;
+var attCountTowardTrialsCorrect% := 0;
+var attCountTowardTrialsIncorrect% := 0;
+var attCountTowardTrialsAbort% := 0;
+var attCountAwayTrials% := 0;
+var attCountAwayTrialsCorrect% := 0;
+var attCountAwayTrialsIncorrect% := 0;
+var attCountAwayTrialsAbort% := 0;
+
 
 proc GetAttentionScriptParameters()
 	var stmp$;
@@ -389,6 +407,7 @@ proc GetAttentionScriptParameters()
 	Profile(key$, "TrialsPerBlock", 1, attTrialsPerBlock%);
 	Profile(key$, "CatchTrialPercentage", "0.0", stmp$);
 	attCatchTrialPercentage := val(stmp$);
+	Profile(key$, "BlockAlternate", 1, attBlockAlternate%);
 
 	Profile(key$, "BackgroundColor", "gray", attBackgroundColor$);
 	Profile(key$, "ContrastBase", 50, attContrastBase%);
@@ -404,11 +423,11 @@ proc GetAttentionScriptParameters()
 	Profile(key$, "AnswerPointWindowRadius", "2.0", stmp$);
 	attAnswerPointWindowRadius := val(stmp$);
 
-	Profile(key$, "HazardUpperBound", "0.5", stmp$);
-	attHazardUpperBound := val(stmp$);
+	Profile(key$, "HazardMinTime", "0.5", stmp$);
+	attHazardMinTime := val(stmp$);
 
-	Profile(key$, "FixationTime", "1.0", stmp$);
-	attFixationTime := val(stmp$);
+	Profile(key$, "HazardExpMeanTime", "1.0", stmp$);
+	attHazardExpMeanTime := val(stmp$);
 
 	Profile(key$, "AcquisitionTime", "1.0", stmp$);
 	attAcquisitionTime := val(stmp$);
@@ -418,6 +437,10 @@ proc GetAttentionScriptParameters()
 
 	Profile(key$, "TimeToAnswer", "1.0", stmp$);
 	attTimeToAnswer := val(stmp$);
+
+	Profile(key$, "AbortWaitTime", "1.0", stmp$);
+	attAbortWaitTime := val(stmp$);
+
 
 end;
 
@@ -429,18 +452,21 @@ proc SaveAttentionScriptParameters()
 	Profile(key$, "NumberOfBlocks", attNumberOfBlocks%);
 	Profile(key$, "TrialsPerBlock", attTrialsPerBlock%);
 	Profile(key$, "CatchTrialPercentage", str$(attCatchTrialPercentage));
+	Profile(key$, "BlockAlternate", attBlockAlternate%);
 	Profile(key$, "BackgroundColor", attBackgroundColor$);
 	Profile(key$, "ContrastBase", attContrastBase%);
 	Profile(key$, "ContrastUp", attContrastUp%);
 	Profile(key$, "ContrastDown", attContrastDown%);
 	Profile(key$, "FixationTime", str$(attFixationTime));
+	Profile(key$, "HazardMinTime", str$(attHazardMinTime));
+	Profile(key$, "HazardExpMeanTime", str$(attHazardExpMeanTime));
 	Profile(key$, "AcquisitionTime", str$(attAcquisitionTime));
+	Profile(key$, "AbortWaitTime", str$(attAbortWaitTime));
 	Profile(key$, "InterTrialTime", str$(attInterTrialTime));
 	Profile(key$, "TimeToAnswer", str$(attTimeToAnswer));
 	Profile(key$, "AnswerPointDiameter", str$(attAnswerPointDiameter));
 	Profile(key$, "AnswerPointOffset", str$(attAnswerPointOffset));
 	Profile(key$, "AnswerPointWindowRadius", str$(attAnswerPointWindowRadius));
-	Profile(key$, "HazardUpperBound", str$(attHazardUpperBound));
 
 	end;
 
@@ -462,23 +488,26 @@ func AttentionScriptDialog%()
 	DlgInteger(1, "Number of Blocks:", 1, 1000);
 	DlgInteger(2, "Trials per block:", 1, 1000);
 	DlgReal(3, "Catch Trial pct (0-100)", 0, 100);
-
-	DlgReal(4, "Acquisition time(s):", .01, 10);
-	DlgReal(5, "Fixation time(s):", .01, 10);
-	DlgReal(6, "Hazard Upper Bound(s):", 0.01, 10);
-	DlgReal(7, "Time to answer(s):", 0.01, 10.0);
-	DlgReal(8, "Intertrial time(s):", .01, 10);
-	DlgList(9, "Background color:", bcl$);
-	DlgReal(10, "Answer Pt. Diam.(deg):", 0.1, 5.0);
-	DlgReal(11, "Answer Pt. Offset(deg):", 0.1, 10.0);
-	DlgReal(12, "Answer Pt. Window(deg):", 0.1, 10.0);
-	DlgInteger(13, "Base contrast(%)", 0, 100);
-	DlgInteger(14, "Up contrast(%)", 0, 100);
-	DlgInteger(15, "Down contrast(%)", 0, 100);
-	i%:=DlgShow(attNumberOfBlocks%, attTrialsPerBlock%, attCatchTrialPercentage,
-		attAcquisitionTime, attFixationTime, attHazardUpperBound, attTimeToAnswer, attInterTrialTime, 
-		 ibcl%, attAnswerPointDiameter, attAnswerPointOffset, attAnswerPointWindowRadius, 
-		 attContrastBase%, attContrastUp%, attContrastDown%);
+	DlgCheck(4, "Alternate cue type by block");
+	DlgReal(5, "Acquisition time(s):", .01, 10);
+	DlgReal(6, "Fixation time(s):", .01, 10);
+	DlgReal(7, "Hazard min time(s):", 0, 10);
+	DlgReal(8, "Hazard exp mean time(s):", 0, 10);
+	DlgReal(9, "Time to answer(s):", 0.01, 10.0);
+	DlgReal(10, "Intertrial time(s):", .01, 10);
+	DlgReal(11, "Abort wait time(s):", .01, 10);
+	DlgList(12, "Background color:", bcl$);
+	DlgReal(13, "Answer Pt. Diam.(deg):", 0.1, 5.0);
+	DlgReal(14, "Answer Pt. Offset(deg):", 0.1, 10.0);
+	DlgReal(15, "Answer Pt. Window(deg):", 0.1, 10.0);
+	DlgInteger(16, "Base contrast(%)", 0, 100);
+	DlgInteger(17, "Up contrast(%)", 0, 100);
+	DlgInteger(18, "Down contrast(%)", 0, 100);
+	i%:=DlgShow(attNumberOfBlocks%, attTrialsPerBlock%, attCatchTrialPercentage,attBlockAlternate%, 
+                attAcquisitionTime, attFixationTime, attHazardMinTime, attHazardExpMeanTime, attTimeToAnswer, 
+                attInterTrialTime, attAbortWaitTime,
+                ibcl%, attAnswerPointDiameter, attAnswerPointOffset, attAnswerPointWindowRadius, 
+                attContrastBase%, attContrastUp%, attContrastDown%);
 	if i% = 1 then
 		attBackgroundColor$ := bcl$[ibcl%];
 		SaveAttentionScriptParameters();
@@ -586,6 +615,46 @@ InitializeWindows();
 InitializeToolbar();
 
 
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+' UpdateToolbarText - Print tallies of trials in toolbar
+'
+
+proc UpdateToolbarText()
+
+	var s$;
+	var allpct$ := "--";
+	var towpct$ := "--";
+    var awapct$ := "--";
+    var num, den, pct;
+
+    if (attCountAllTrials% > 0) then
+        num := attCountAllTrialsCorrect%;
+        den := attCountAllTrials%;
+        pct := num/den*100;
+		allpct$ := print$("%2.0f", pct);
+	endif
+	if (attCountTowardTrials% > 0) then
+        num := attCountTowardTrialsCorrect%;
+        den := attCountTowardTrials%;
+        pct := num/den*100;
+		towpct$ := print$("%2.0f", pct);
+	endif
+	if (attCountAwayTrials% > 0) then
+        num := attCountAwayTrialsCorrect%;
+        den := attCountAwayTrials%;
+        pct := num/den*100;
+		awapct$ := print$("%2.0f", pct);
+	endif
+	s$ := Print$("Tallies count/correct/incorrect/aborted (correct%%): ALL %d/%d/%d/%d (%s%%) TOWARD %d/%d/%d/%d (%s%%) AWAY %d/%d/%d/%d (%s%%)", 
+						attCountAllTrials%, attCountAllTrialsCorrect%, attCountAllTrialsIncorrect%, attCountAllTrialsAbort%, allpct$,
+						attCountTowardTrials%, attCountTowardTrialsCorrect%, attCountTowardTrialsIncorrect%, attCountTowardTrialsAbort%, towpct$,
+						attCountAwayTrials%, attCountAwayTrialsCorrect%, attCountAwayTrialsIncorrect%, attCountAwayTrialsAbort%, awapct$);
+
+	ToolbarText(s$);
+
+end;
+
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 '
@@ -596,6 +665,7 @@ proc InitializeToolbar()
 
 	View(App(8)).WindowVisible(0);	'Hide the standard sample bar
 	ToolbarVisible(1);
+	UpdateToolbarText();
 	ToolbarSet(1,"Sample start",Start%);
 	ToolbarSet(2,"Sample stop", Stop%);
 	ToolbarSet(3,"Juice", Reward%);
@@ -624,6 +694,7 @@ func Answer%(EyePosX, EyePosY)
 	var ans% := 0;
 	if (Pow(EyePosX-FixationX,2) + Pow(EyePosY-(FixationY+attAnswerPointOffset),2)) <= Pow(attAnswerPointWindowRadius,2) then ans% := 1; endif
 	if (Pow(EyePosX-FixationX,2) + Pow(EyePosY-(FixationY-attAnswerPointOffset),2)) <= Pow(attAnswerPointWindowRadius,2) then ans% := -1; endif
+	if (ans% = 1 or ans% = -1) then PrintLog("Answer = " + str$(ans%) + "\n"); endif
 	return ans%;
 end;
 
@@ -670,9 +741,9 @@ const stateTrialCompletedWaitForBlank% := 18;
 const stateTrialCompletedPause% := 19;
 var iState% := stateVSGWait%;	' present state
 
-const blocktypeAttendToward% := 100;
-const blocktypeAttendAway% := 101;
-var blockType%;
+const trialtypeAttendToward% := 100;
+const trialtypeAttendAway% := 101;
+var trialType%;
 var nTrialsStarted%:=0;
 var nTrialsCompleted%:=0;
 var nTrialsAborted% :=0;		' 
@@ -680,7 +751,7 @@ var nBlocksCompleted%:=0;
 var iAnswer%;
 var trialCatch%;
 var trialContrastUpDown%;
-var trialRandomFixationHazardFunction;
+var trialHazardFunctionTime;
 
 func IdleProcessing%()
 	var iStatus% := 1;	
@@ -726,15 +797,20 @@ func IdleProcessing%()
 		case iState% = stateStartTrial% then
 
 			' Start trial. Put up fixation point.
+			UpdateToolbarText();
 			PrepareTrial();
-			PrintLog("stateStartTrial: Send fixation key\n");
+			attCountAllTrials% += 1;
 			docase
-				case blockType% = blocktypeAttendToward% then
+				case trialType% = trialtypeAttendToward% then
+					PrintLog("stateStartTrial: Send fixation key F - AttendToward\n");
 					SampleKey("F");
-				case blockType% = blocktypeAttendAway% then
+					attCountTowardTrials% += 1;
+				case trialType% = trialtypeAttendAway% then
+					PrintLog("stateStartTrial: Send fixation key G - AttendAway\n");
 					SampleKey("G");
+					attCountAwayTrials% += 1;
 				else
-					PrintLog("ERROR: Unknown block type (" + str$(blockType%) + "\n");
+					PrintLog("ERROR: Unknown trial type (" + str$(trialType%) + "\n");
 			endcase
 			ChangeStateTo(stateWaitForFixPtOn%, tTrigger);
 		
@@ -795,6 +871,19 @@ func IdleProcessing%()
 			' fixpt off. 
 			PrintLog("stateAbort: send X key.\n");
 			SampleKey("X");
+
+			' tally up aborted trials
+			attCountAllTrialsAbort% += 1;
+			docase
+				case trialType% = trialtypeAttendToward% then
+					attCountTowardTrialsAbort% += 1;
+				case trialType% = trialtypeAttendAway% then
+					attCountAwayTrialsAbort% += 1;
+				else
+					PrintLog("ERROR: Unknown trial type (" + str$(trialType%) + "\n");
+			endcase
+
+			' move on
 			ChangeStateTo(stateWaitForBlank%, tNow);
 
 		case iState% = stateWaitForBlank% then
@@ -827,12 +916,12 @@ func IdleProcessing%()
 
 			else 
 
-				if (tNow - tStateStart) > (attFixationTime + trialRandomFixationHazardFunction) then
+				if (tNow - tStateStart) > (trialHazardFunctionTime) then
 
 					' turn off stimulus and advance it
 					PrintLog("stateHoldFixation: signal contrast change\n");
 					docase
-						case blockType% = blocktypeAttendToward% then
+						case trialType% = trialtypeAttendToward% then
 							if trialContrastUpDown% > 0 then
 								if trialCatch% = 0 then
 									SampleKey("C");
@@ -846,7 +935,7 @@ func IdleProcessing%()
 									SampleKey("d");
 								endif
 							endif
-						case blockType% = blocktypeAttendAway% then
+						case trialType% = trialtypeAttendAway% then
 							if trialContrastUpDown% > 0 then
 								if trialCatch% = 0 then
 									SampleKey("D");
@@ -893,8 +982,27 @@ func IdleProcessing%()
 					if iAnswer% = trialContrastUpDown% then
 						' Correct answer
 						SampleText("+");
+						attCountAllTrialsCorrect% += 1;
+						docase
+							case trialType% = trialtypeAttendToward% then
+								attCountTowardTrialsCorrect% += 1;
+							case trialType% = trialtypeAttendAway% then
+								attCountAwayTrialsCorrect% += 1;
+							else
+								PrintLog("ERROR: Unknown trial type (" + str$(trialType%) + "\n");
+						endcase
+						Reward%();
 					else
 						SampleText("-");
+						attCountAllTrialsIncorrect% += 1;
+						docase
+							case trialType% = trialtypeAttendToward% then
+								attCountTowardTrialsIncorrect% += 1;
+							case trialType% = trialtypeAttendAway% then
+								attCountAwayTrialsIncorrect% += 1;
+							else
+								PrintLog("ERROR: Unknown trial type (" + str$(trialType%) + "\n");
+						endcase
 					endif
 	
 					SampleKey("X");
@@ -972,13 +1080,33 @@ proc PrepareTrial()
 
 	PrintLog("Prepare trial: ");
 
-	' hazard function ??? should this really be 1-RandExp???
-	trialRandomFixationHazardFunction := RandExp(attHazardUpperBound, 0);
+	if attBlockAlternate% = 0 then
+		if (Rand() < 0.5) then
+			trialType% := trialtypeAttendToward%;
+			PrintLog("Trial type: attend-toward\n");
+		else
+			trialType% := trialtypeAttendAway%;
+			PrintLog("Trial type: attend-away\n");
+		endif
+	else
+		if trialType% = trialtypeAttendToward% then
+			PrintLog("Trial type: attend-toward (for this entire block)\n");
+		else
+			PrintLog("Trial type: attend-away (for this entire block)\n");
+		endif
+	endif
+
+
+	
+	' hazard function - compute time from fixation to contrast change
+	trialHazardFunctionTime := RandExp(attHazardExpMeanTime, attHazardMinTime);
 	' Catch trial?
 	if (Rand()*100 < attCatchTrialPercentage) then
 		trialCatch% := 1;
 		PrintLog("CATCH ");
-	endif
+    else
+        trialCatch% := 0;
+    endif
 
 	' Contrast up or down?
 	trialContrastUpDown% := 1;
@@ -989,18 +1117,25 @@ proc PrepareTrial()
 		PrintLog(" Contrast DOWN\n");
 	endif
 
+
 end
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 proc PrepareBlock()
 	PrintLog("Preparing block: ");
 	' when blocksCompleted% is even, this is attend-toward
-	if (nBlocksCompleted% mod 2) = 0 then
-		blockType% := blocktypeAttendToward%;
-		PrintLog("Attend-toward ");
+	' Modified: The above is done only when attBlockAlternate% is non zero. Otherwise its random trial-by-trial 
+	' cue type. 
+	if attBlockAlternate% <>0 then
+		if (nBlocksCompleted% mod 2) = 0 then
+			trialType% := trialtypeAttendToward%;
+			PrintLog("Attend-toward ");
+		else
+			trialType% := trialtypeAttendAway%;
+			PrintLog("Attend-away ");
+		endif
 	else
-		blockType% := blocktypeAttendAway%;
-		PrintLog("Attend-away ");
+		PrintLog("Attend-toward/away done on a trial-by-trial basis.");
 	endif
 	PrintLog("\n");
 	ntrialsCompleted% := 0;
@@ -1178,7 +1313,7 @@ func Start%()
 	SampleStart(0); 'Start sampling
 	SampleKey("0");
 	
-	Stim$ := " -g " + GetGratingParameters$("Stimulus") + " -s" + GetGratingParameters$("Distractor1");
+	Stim$ := " -g " + GetGratingParameters$("Distractor1") + " -s " + GetGratingParameters$("Stimulus");
 	Contrast$ := " -t " + str$(attContrastDown%) + "," + str$(attContrastBase%) + "," + str$(attContrastUp%);
 	Extras$ := " -b " + attBackgroundColor$ + " -d " + DistanceToScreenMM$ + " -A " + str$(attAnswerPointOffset) + " -D " + str$(attAnswerPointDiameter);
 	
