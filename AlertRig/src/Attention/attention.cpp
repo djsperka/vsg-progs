@@ -66,9 +66,9 @@ int main (int argc, char *argv[])
 		}
 	}
 
-
 	// Init answer points - geometry only
 	init_answer_points();
+
 
 
 	// INit vsg
@@ -88,6 +88,7 @@ int main (int argc, char *argv[])
 
 	// write video pages
 	init_pages();
+
 
 	// Dump triggers
 	{
@@ -201,9 +202,11 @@ int args(int argc, char **argv)
 			else have_t = true;
 			break;
 		case 'A':
+			s.assign(optarg);
 			if (parse_double(s, m_anspt_offset_degrees)) errflg++;
 			break;
 		case 'D':
+			s.assign(optarg);
 			if (parse_double(s, m_anspt_diameter_degrees)) errflg++;
 			break;
 		case 'h':
@@ -262,6 +265,18 @@ int init_answer_points()
 	m_spec_anspt_down.x = m_spec_fixpt.x;
 	m_spec_anspt_down.y = m_spec_fixpt.y -  + m_anspt_offset_degrees;
 	m_spec_anspt_down.d = m_anspt_diameter_degrees;
+/*
+	m_spec_anspt_up.x = m_spec_fixpt.x;
+	m_spec_anspt_up.y = 5;
+	m_spec_anspt_up.d = .5;
+	m_spec_anspt_down.x = m_spec_fixpt.x;
+	m_spec_anspt_down.y = -5;
+	m_spec_anspt_down.d = .5;
+*/
+	cerr << "m_anspt_offset_degrees " << m_anspt_offset_degrees << endl;
+	cerr << "up " << m_spec_anspt_up << endl;
+	cerr << "dn " << m_spec_anspt_down << endl;
+	cerr << "fx " << m_spec_fixpt << endl;
 	return 0;
 }
 
@@ -389,6 +404,7 @@ int init_pages()
 	m_spec_fixpt.setContrast(0);
 
 	// Now answer point - upper
+
 	m_spec_anspt_up.init(2);
 	m_spec_anspt_up.draw();
 	m_spec_anspt_up.setContrast(0);
