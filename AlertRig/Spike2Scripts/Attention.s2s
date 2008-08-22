@@ -1,4 +1,4 @@
-' $Id: Attention.s2s,v 1.12 2008-08-22 16:47:29 devel Exp $
+' $Id: Attention.s2s,v 1.13 2008-08-22 21:02:17 devel Exp $
 '
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
@@ -422,6 +422,9 @@ proc GetAttentionScriptParameters()
 
 	Profile(key$, "AnswerPointWindowRadius", "2.0", stmp$);
 	attAnswerPointWindowRadius := val(stmp$);
+
+	Profile(key$, "FixationTime", "1.0", stmp$);
+	attFixationTime := val(stmp$);
 
 	Profile(key$, "HazardMinTime", "0.5", stmp$);
 	attHazardMinTime := val(stmp$);
