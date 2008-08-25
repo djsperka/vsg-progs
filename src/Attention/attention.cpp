@@ -293,7 +293,6 @@ int init_overlay()
 
 	if (m_bstimulus) m_spec_stimulus.drawOverlay();
 	if (m_bdistractor) m_spec_distractor.drawOverlay();
-
 	m_spec_fixpt.drawOverlay();
 	m_spec_anspt_up.drawOverlay();
 	m_spec_anspt_down.drawOverlay();
@@ -313,6 +312,12 @@ int callback(int &output, const CallbackTrigger* ptrig)
 	{
 		m_spec_anspt_up.setContrast(100); 
 		m_spec_anspt_down.setContrast(100);
+		m_spec_stimulus.draw();
+		m_spec_stimulus.select();
+		vsgObjSetSpatialPhase(0);
+		m_spec_distractor.draw();
+		m_spec_distractor.select();
+		vsgObjSetSpatialPhase(0);
 		m_spec_stimulus.setContrast(m_iContrastBase);
 		m_spec_distractor.setContrast(m_iContrastBase);
 	}
