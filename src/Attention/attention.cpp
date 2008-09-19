@@ -265,18 +265,7 @@ int init_answer_points()
 	m_spec_anspt_down.x = m_spec_fixpt.x;
 	m_spec_anspt_down.y = m_spec_fixpt.y -  + m_anspt_offset_degrees;
 	m_spec_anspt_down.d = m_anspt_diameter_degrees;
-/*
-	m_spec_anspt_up.x = m_spec_fixpt.x;
-	m_spec_anspt_up.y = 5;
-	m_spec_anspt_up.d = .5;
-	m_spec_anspt_down.x = m_spec_fixpt.x;
-	m_spec_anspt_down.y = -5;
-	m_spec_anspt_down.d = .5;
-*/
-	cerr << "m_anspt_offset_degrees " << m_anspt_offset_degrees << endl;
-	cerr << "up " << m_spec_anspt_up << endl;
-	cerr << "dn " << m_spec_anspt_down << endl;
-	cerr << "fx " << m_spec_fixpt << endl;
+
 	return 0;
 }
 
@@ -320,6 +309,11 @@ int callback(int &output, const CallbackTrigger* ptrig)
 		vsgObjSetSpatialPhase(0);
 		m_spec_stimulus.setContrast(m_iContrastBase);
 		m_spec_distractor.setContrast(m_iContrastBase);
+	}
+	else if (key == "s")
+	{
+		m_spec_stimulus.setContrast(0);
+		m_spec_distractor.setContrast(0);
 	}
 	else if (key == "X")
 	{
@@ -437,6 +431,9 @@ int init_pages()
 	
 	// trigger to turn stim, distractor and answer points ON
 	triggers.addTrigger(new CallbackTrigger("S", 0x8, 0x8, 0x2, 0x2, callback));
+
+	// trigger to turn stimand distractor OFF (answer points remain on)
+	triggers.addTrigger(new CallbackTrigger("s", 0x8, 0x0, 0x2, 0x2, callback));
 
 	// trigger to turn stim, distractor, answer points and fixation point OFF
 	triggers.addTrigger(new CallbackTrigger("X", 0xE, 0x0, 0xb, 0x0, callback));
