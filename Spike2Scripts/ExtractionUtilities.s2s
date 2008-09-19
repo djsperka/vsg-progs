@@ -1,0 +1,96 @@
+' NextKeyOrText
+'
+' Find the next occurrence of a sample key or sample text after a given starting point. 
+' Looks in channel 31 (where sample keys are recorded) and channel 30 (where sample text is 
+' recorded) starting at tstart (or the beginning of the file if tstart is less than zero)
+' and returns the first time (in either channel) where a key or mark is found. The time it 
+' occurred at is the return value (-1 if none are found) and the text found is returned in 
+' val$. If the found keys/text are found to occur in ignore$ they are ignored. This is useful
+' for skipping juice "J" sample keys, for example, and other extraneous keys. Note also that
+' this function makes no distinction between sample text which is a single character and 
+' sample text which is a longer string. The same search (using the function InStr) is performed
+' against ignore$ using the ENTIRE sample text string found, so it might be hard to ignore
+' longer sample text strings. 
+
+
+func NextKeyOrText(tstart, &val$, ignore$)
+    var status% := 0;   ' -1 on error or unknown case
+    var tfound := -1;
+    var ttemp;
+
+    ' vars for finding sample keys
+    var tKey := -1;
+    var sKey$;
+    var iKeyCode%[4];
+
+    ' vars for finding text markers
+    var tText := -1;
+    var sText$;
+    var iTextCode%[4];  ' not used, actually
+
+    ' First look in channel 31 - sample keys
+    tKey := NextTime(31, tstart, iKeyCode%[]);
+    while tKey>=0 and InStr(ignore$, Chr$(iKeyCode%[0]))>0 do
+        ttemp := tKey;
+        tKey := NextTime(31, ttemp, iKeyCode%[]);
+    wend
+
+    ' Next look in channel 30 - text markers
+    tText := NextTime(30, tstart, iTextCode%[], sText$);
+    while tText>=0 and InStr(ignore$, sText$) do
+        ttemp := tText;
+        tText := NextTime(30, ttemp, iTextCode%[], sText$);
+    wend
+    
+    ' four cases.
+    docase
+    case tKey < 0 and tText < 0 then
+        tfound := -1;
+    case tKey < 0 and tText > 0 then
+        tfound := tText;
+        val$ := sText$;
+    case tKey > 0 and tText < 0 then
+        tfound := tKey;
+        val$ := Chr$(iKeyCode%[0]);
+    else
+        if tKey < tText then
+            tfound := tKey;
+            val$ := Chr$(iKeyCode%[0]);
+        else
+            tfound := tText;
+            val$ := sText$;
+        endif
+    endcase
+
+    return tfound;
+end
+
+
+
+' NextTriggerTransition
+'
+' Find the first occurrence of a trigger transition in channel chan% after the time tstart with the 
+' transition value 'transval'. The transval value should be 0 (1) for a positive-going (negative-going) 
+' transition. Returns the time of the trigger, or -1 if no such trigger found. 
+
+func NextTriggerTransition(chan%, tstart, transval)
+	var t, tlast;
+	var iBreak% := 0;
+	var transition;
+	var tfound := -1;
+
+	tlast := tstart;
+	t := NextTime(chan%, tlast, transition);
+	while (t >= 0 and iBreak%=0) do
+		if (transition = transval) then
+			tfound := t;
+			iBreak% := 1;
+		else
+			tlast := t;
+			t := NextTime(chan%, tlast, transition);
+	   endif
+	wend
+	return tfound;
+end
+
+
