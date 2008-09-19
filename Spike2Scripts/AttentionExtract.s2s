@@ -1,0 +1,16 @@
+#include "AttentionExtractFunctions.s2s"
+
+var hData%;
+
+
+' Get data file....
+hData% := View(0);
+if (ViewKind(hData%) <> 0) then
+    Message("Current view must be a time view.");
+'        return;
+endif
+
+
+AttentionExtractInit(LogHandle());
+AttentionExtract%(-1);
+
