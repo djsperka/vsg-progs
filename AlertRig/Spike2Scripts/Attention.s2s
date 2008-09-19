@@ -1,4 +1,4 @@
-' $Id: Attention.s2s,v 1.13 2008-08-22 21:02:17 devel Exp $
+' $Id: Attention.s2s,v 1.14 2008-09-19 20:02:23 devel Exp $
 '
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
@@ -611,6 +611,9 @@ ReadyChannel% := NumberOfElectrodes%+7;
 CreateSampleConfiguration();
 
 
+' Initialize extraction
+AttentionExtractInit(-1);
+
 ' Get display windows ready
 InitializeWindows();
 
@@ -723,19 +726,19 @@ var tTrigger:=-1;	' temp var for newly discovered trigger times
 var tStimOn:=-1;	' time that stim was turned on. Used to measure spike rates 
 
 ' Constants for states
-const stateStartTrial%:=0;		' Start trial state
-const stateWaitForFixPtOn%:=1;		' Waiting for fixation point return trigger (on)
-const stateWaitForFixation%:=2;		' Waiting for subject to fixate
-const stateWaitForStimOn%:=3;		' Wait for stimulus return trigger (on)
-const stateWaitForContrastChange%:=4;		' Wait for indication that contrast change has happened
-const stateWaitForAcquisition%:=5;	' Waiting for subject to acquire fixation point
-const stateHoldFixation%:=6;		' Holding fixation point
-const stateAbort%:=7;			' Failed trial state
+const stateStartTrial%:=0;		        ' Start trial state
+const stateWaitForFixPtOn%:=1;		    ' Waiting for fixation point return trigger (on)
+const stateWaitForFixation%:=2;		    ' Waiting for subject to fixate
+const stateWaitForStimOn%:=3;		    ' Wait for stimulus return trigger (on)
+const stateWaitForContrastChange%:=4;	' Wait for indication that contrast change has happened
+const stateWaitForAcquisition%:=5;	    ' Waiting for subject to acquire fixation point
+const stateHoldFixation%:=6;		    ' Holding fixation point
+const stateAbort%:=7;			        ' Failed trial state
 const stateWaitForAnswer%:=8;			' waiting for answer
-const stateInterTrialInterval%:=9;	' time out after failed trial
-const stateVSGWait%:=10;		' wait for vsg to send ready signal #1
-const stateVSGWaitConfirm%:=11;		' waif for vsg to send ready signal #2
-const stateTrialCompleted%:=12;		' trial has been completed successfully
+const stateAbortWait%:=9;	            ' time out after failed trial
+const stateVSGWait%:=10;		        ' wait for vsg to send ready signal #1
+const stateVSGWaitConfirm%:=11;		    ' waif for vsg to send ready signal #2
+const stateTrialCompleted%:=12;		    ' trial has been completed successfully
 const stateDone%:=13;	
 const stateWaitForBlank%:=14;
 const stateBlockCompleted%:=16;
@@ -897,15 +900,15 @@ func IdleProcessing%()
 				' Fixation point is off
 				PrintLog("stateWaitForBlank: Fix pt is off.\n");
 				tLastTrigger := tTrigger;
-				ChangeStateTo(stateInterTrialInterval%, tTrigger);
+				ChangeStateTo(stateAbortWait%, tTrigger);
 				DrawStim(0);	' actually this draws the location of the fixpt.
 			endif
 
-		case iState% = stateInterTrialInterval% then
+		case iState% = stateAbortWait% then
 
-			if tNow - tStateStart > attInterTrialTime then
+			if tNow - tStateStart > attAbortWaitTime then
 
-				PrintLog("stateInterTrialInterval: time out is done.\n");
+				PrintLog("stateAbortWait: time out is done.\n");
 				ChangeStateTo(stateStartTrial%, tNow);
 
 			endif
@@ -1300,6 +1303,10 @@ func Stop%()
 	while ProgStatus(StimHandle%) > 0 do
 		Yield();
 	wend
+
+    ' update statistics
+    AttentionExtract(-1);
+    
 	'ProgRun(bin$ + "\\ClearTrigger",0);
 
 end;
