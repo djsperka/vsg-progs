@@ -1,0 +1,298 @@
+#include "ExtractionUtilities.s2s"
+
+' Initialization and state saving vars
+var attxIsInitialized% := 0;
+var attxOutputHandle := -1;
+var attxTLast := -1;
+
+' saved state vars
+var attxITrial% := 0;
+var attxICueType% := 0;
+const cuetypeTowards% := 1;
+const cuetypeAway% := 2;
+var attxIChangeType% := 0;
+const changetypeUpper% := 4;
+const changetypeLower% := 8;
+var attxIUpDown% := 0;
+const updownUp% := 16;
+const updownDown% := 32;
+var attxIResponse% := 0;
+const responseNone% := 0;
+const responseCorrect% := 1;
+const responseIncorrect% := -1;
+var attxFCueTime := -1;
+var attxFStimTime := -1;
+var attxFChangeTime := -1;
+var attxFRxTime := -1;
+
+' state related vars and consts
+const stateStart% := 1;
+const stateFixPt% := 2;
+const stateStim% := 3;
+const stateChange% := 4;
+const stateAbort% := 5;
+const stateError% := 6;
+const stateDone% := 7;
+var attxIState% := stateStart%;
+
+' Counters
+var attxNTrials := 0;
+var attxNTrialsCompleted := 0;
+var attxNTrialsCorrect := 0;
+var attxNTrialsTowards := 0;
+var attxNTrialsAway := 0;
+var attxNTrialsTowardsCorrect := 0;
+var attxNTrialsAwayCorrect := 0;
+var attxNTrialsCatch := 0;
+var attxNTrialsCatchCorrect := 0;
+const MaxTrials% := 1000;
+var attxRxTimeTowards[MaxTrials%];
+var attxRxTimeAway[MaxTrials%];
+var attxRxTimeCatch[MaxTrials%];
+
+
+' Initialization function. Should be called once with a handle to an output file, already opened. 
+' Running totals will be printed on log output. 
+
+proc AttentionExtractInit(hOutput)
+    attxIsInitialized% := 1;
+    attxOutputHandle := hOutput;
+    attxTLast := -1;
+    return;
+end
+
+
+func AttentionExtract%(tEnd)
+    var status% := 0;
+    var tFound := -1;
+    var sFound$;
+    var sIgnore$ := "0Jq";
+    var tTrigger;
+
+    tFound := NextKeyOrText(attxTLast, sFound$, sIgnore$);
+    while tFound >= 0 and (tEnd < 0 or (tEnd > 0 and tFound <= tEnd)) and attxIState% <> stateError% do
+'    while tFound >= 0 and attxIState% <> stateError% do
+
+        docase
+        case attxIState% = stateStart% then
+            attxIState% := stateFixPt%;
+            attxFCueTime := GetTriggerTimeFor(sFound$, tFound);
+            attxITrial% += 1;
+            docase
+            case sFound$ = "F" then
+                attxICueType% := cuetypeTowards%;
+            case sFound$ = "G" then
+                attxICueType% := cuetypeAway%;
+            else
+                ' Error
+                attxIState% := stateError%;
+            endcase
+        case attxIState% = stateFixPt% then
+            docase
+            case sFound$ = "S" then
+                attxFStimTime := GetTriggerTimeFor(sFound$, tFound);
+                attxIState% := stateStim%;
+            case sFound$ = "X" then
+                attxIState% := stateAbort%;
+            else
+                'TODO ERROR
+                attxIState% := stateError%;
+            endcase
+        case attxIState% = stateStim% then
+            docase
+            case sFound$ = "C" then
+                attxIChangeType% := changetypeUpper%;
+                attxIUpDown% := updownUp%;
+                attxIState% := stateChange%;
+                attxFChangeTime := GetTriggerTimeFor(sFound$, tFound);
+            case sFound$ = "D" then
+                attxIChangeType% := changetypeLower%;
+                attxIUpDown% := updownUp%;
+                attxIState% := stateChange%;
+                attxFChangeTime := GetTriggerTimeFor(sFound$, tFound);
+            case sFound$ = "c" then
+                attxIChangeType% := changetypeUpper%;
+                attxIUpDown% := updownDown%;
+                attxIState% := stateChange%;
+                attxFChangeTime := GetTriggerTimeFor(sFound$, tFound);
+            case sFound$ = "d" then
+                attxIChangeType% := changetypeLower%;
+                attxIUpDown% := updownDown%;
+                attxIState% := stateChange%;
+                attxFChangeTime := GetTriggerTimeFor(sFound$, tFound);
+            case sFound$ = "X" then
+                attxIState% := stateAbort%;
+            else
+                'TODO ERROR
+                attxIState% := stateError%;
+            endcase
+        case attxIState% = stateChange% then
+            docase
+            case sFound$ = "+" then
+                attxIResponse% := responseCorrect%;
+                attxIState% := stateDone%;
+                attxFRxTime := tFound - attxFChangeTime;
+            case sFound$ = "-" then
+                attxIResponse% := responseIncorrect%;
+                attxIState% := stateDone%;
+                attxFRxTime := tFound - attxFChangeTime;
+            case sFound$ = "X" then
+                attxIState% := stateAbort%;
+            else
+                'TODO ERROR
+                attxIState% := stateError%;
+            endcase
+        else
+            'TODO this shouldn't happen!
+            attxIState% := stateError%;
+        endcase
+
+        ' If we are in one of these states: stateDone%, stateAbort%, stateError%, we flush the state
+        ' and transition to stateStart%.
+        
+        if attxIState% = stateAbort% or attxIState% = stateError% or attxIState% = stateDone% then
+            FlushState();
+            attxIState% := stateStart%;
+        endif
+        
+        attxTLast := tFound;
+        tFound := NextKeyOrText(attxTLast, sFound$, sIgnore$);
+    wend
+
+    PrintResults();
+    
+    return status%;
+end
+
+
+' Get M/N as a percentage, returned as a string in %4.1%% format, e.g 12.4%
+' If N is zero, then return -----. 
+func PctStr$(N, M)
+    var s$ := "@@.@%";
+    if N>0 then
+        s$ := Print$("%4.1f%%", 100.0*M/N);
+    endif
+    return s$;
+end
+
+' Print current results to log window
+
+proc PrintResults()
+    var mean, std;
+    PrintLog("\n==============================================================================\n\n");
+    PrintLog("# Trials       : %5d\n", attxNTrials);
+    PrintLog("# Completed (%): %5d (%s)     Cue         #  %%correct   rxtime\n", attxNTrialsCompleted, PctStr$(attxNTrials, attxNTrialsCompleted));
+
+    mean := 0;
+    std := 0;
+    if attxNTrialsTowards > 0 then
+        ArrSum(attxRxTimeTowards[0:attxNTrialsTowards-1], mean, std);
+    endif
+    PrintLog("                                   Towards   %3d     %s    %.3f +- %.3f s\n", attxNTrialsTowards, PctStr$(attxNTrialsTowards, attxNTrialsTowardsCorrect), mean, std);
+
+    mean := 0;
+    std := 0;
+    if attxNTrialsAway > 0 then
+        ArrSum(attxRxTimeAway[0:attxNTrialsAway-1], mean, std);
+    endif
+    PrintLog("                                   Away      %3d     %s    %.3f +- %.3f s\n", attxNTrialsAway, PctStr$(attxNTrialsAway, attxNTrialsAwayCorrect), mean , std);
+
+    mean := 0;
+    std := 0;
+    if attxNTrialsCatch > 0 then
+        ArrSum(attxRxTimeCatch[0:attxNTrialsCatch-1], mean, std);
+    endif
+    PrintLog("                                   Catch     %3d     %s    %.3f +- %.3f s\n", attxNTrialsCatch, PctStr$(attxNTrialsCatch, attxNTrialsCatchCorrect), mean , std);
+    
+    return;
+end
+
+proc FlushState()
+    var s$;
+    var isum% := 0;
+    
+    ' Update tallies and counts.....
+    attxNTrials += 1;
+    if attxIResponse% <> responseNone% then
+        isum% := attxICueType% + attxIChangeType%;
+        attxNTrialsCompleted += 1;
+        if attxIResponse% = responseCorrect% then
+            attxNTrialsCorrect += 1;
+        endif
+        docase
+        case isum% = 5 then
+            attxRxTimeTowards[attxNTrialsTowards] := attxFRxTime;
+            attxNTrialsTowards += 1;
+            if attxIResponse% = responseCorrect% then
+                attxNTrialsTowardsCorrect += 1;
+            endif
+        case isum% = 10 then
+            attxRxTimeAway[attxNTrialsAway] := attxFRxTime;
+            attxNTrialsAway += 1;
+            if attxIResponse% = responseCorrect% then
+                attxNTrialsAwayCorrect += 1;
+            endif
+        case isum% = 9 or isum% = 6 then
+            attxRxTimeCatch[attxNTrialsCatch] := attxFRxTime;
+            attxNTrialsCatch += 1;
+            if attxIResponse% = responseCorrect% then
+                attxNTrialsCatchCorrect += 1;
+            endif
+        else
+            ' should not happen!
+            PrintLog("Error: isum has value %d!\n", isum%);
+        endcase
+    endif
+
+    
+    ' Dump this trial to the output handle
+    if attxOutputHandle >= 0 then
+        s$ := Print$("%d\t%d\t%.3f\t%.3f\t%d\t%d\t%.3f\t%d\t%.3f\n", attxITrial%, attxICueType%, attxFCueTime, attxFStimTime, attxIChangeType%, attxIUpDown%, attxFChangeTime, attxIResponse%, attxFRxTime);
+        View(attxOutputHandle).Print(s$);
+    endif
+    attxICueType% := 0;
+    attxFCueTime := -1;
+    attxFStimTime := -1;
+    attxIChangeType% := 0;
+    attxIUpDown% := 0;
+    attxFChangeTime := -1;
+    attxIResponse% := 0;
+    attxFRxTime := -1;
+    return;
+end
+
+
+func StateString$(state%)
+    var s$;
+    docase
+    case attxIState% = stateStart% then
+        s$ := "START";
+    case attxIState% = stateFixPt% then
+        s$ := "FIXPT";
+    case attxIState% = stateStim% then
+        s$ := "STIM";
+    case attxIState% = stateChange% then
+        s$ := "CHANGE";
+    case attxIState% = stateAbort% then
+        s$ := "ABORT";
+    else
+        s$ := "UNKNOWN";
+    endcase
+    return s$;
+end
+
+
+func GetTriggerTimeFor(key$, tKey)
+    var tFound := -99;
+    docase
+    case key$ = "F" or key$ = "G" then
+        tFound := NextTriggerTransition(5, tKey, 0);
+    case key$ = "S" then
+        tFound := NextTriggerTransition(6, tKey, 0);
+    case key$ = "C" or key$ = "D" or key$ = "c" or key$ = "d" then
+        tFound := NextTriggerTransition(7, tKey, 0);
+    else
+        tFound := -2;
+    endcase
+    return tFound;
+end
