@@ -1,5 +1,7 @@
-' $Id: Attention.s2s,v 1.14 2008-09-19 20:02:23 devel Exp $
+' $Id: Attention.s2s,v 1.15 2008-09-19 20:03:26 devel Exp $
 '
+
+#include "AttentionExtractFunctions.s2s"
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 '
