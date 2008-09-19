@@ -1,4 +1,7 @@
 ; $Log: not supported by cvs2svn $
+; Revision 1.3  2008-02-13 23:18:44  devel
+; Beta version for Farran's Attention Task.
+;
 ; Revision 1.2  2005/03/18 19:37:14  dan
 ; Almost there!
 ;
@@ -41,11 +44,15 @@ EH:     'g  DIGOUT [.....0.1]      ;Signals the fixation point off
             DELAY  s(0.996)-1
             HALT   
 
-ES:     'S  DIGOUT [....1..1]      ;Signals the stimuli on
+ES:     'S  DIGOUT [....1..1]      ;Signals the stimuli and answer pts on
             DELAY  s(0.996)-1
             HALT   
 
-E2:     'X  DIGOUT [00000001]      ;Signals the stimuli off
+ET:     's  DIGOUT [....0..1]      ;Signals the stimuli off (answer points remain on)
+            DELAY  s(0.996)-1
+            HALT   
+
+E2:     'X  DIGOUT [00000001]      ;Signals all off
             DELAY  s(0.996)-1
             HALT   
 
