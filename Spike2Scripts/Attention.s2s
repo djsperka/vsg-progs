@@ -1,4 +1,4 @@
-' $Id: Attention.s2s,v 1.15 2008-09-19 20:03:26 devel Exp $
+' $Id: Attention.s2s,v 1.16 2008-09-19 21:20:26 devel Exp $
 '
 
 #include "AttentionExtractFunctions.s2s"
@@ -583,7 +583,7 @@ endif
 
 
 
-
+var tmp$;
 
 ' run parameters script....
 GetAttentionScriptParameters();
@@ -591,7 +591,7 @@ iScript% := AttentionScriptDialog%();
 if iScript% = 1 then
 		FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 3);
 		FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 1);
-		SampleAutoName$(dataCellName$ + "_atn_000");
+        SampleAutoName$(dataCellName$ + "_atn_000");
 		SampleAutoFile(1);
 else
 	PrintLog("User cancel - exit gracefully\n");
@@ -1224,7 +1224,7 @@ end;
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 proc CreateSampleConfiguration()
 	var index;
-	SampleClear(); 'Set standard sampling state
+'	SampleClear(); 'Set standard sampling state
 '	SampleAutoFile(0); 'Enable automatic file naming
 	SampleAutoComment(0); 'Prompt for comment after sampling
 	SampleAutoCommit(60); 'Seconds between each file commit
@@ -1307,7 +1307,7 @@ func Stop%()
 	wend
 
     ' update statistics
-    AttentionExtract(-1);
+    AttentionExtract%(-1);
     
 	'ProgRun(bin$ + "\\ClearTrigger",0);
 
