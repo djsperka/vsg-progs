@@ -1,4 +1,4 @@
-' $Id: Attention.s2s,v 1.16 2008-09-19 21:20:26 devel Exp $
+' $Id: Attention.s2s,v 1.17 2008-09-22 18:21:14 devel Exp $
 '
 
 #include "AttentionExtractFunctions.s2s"
@@ -502,9 +502,9 @@ func AttentionScriptDialog%()
 	DlgReal(10, "Intertrial time(s):", .01, 10);
 	DlgReal(11, "Abort wait time(s):", .01, 10);
 	DlgList(12, "Background color:", bcl$);
-	DlgReal(13, "Answer Pt. Diam.(deg):", 0.1, 5.0);
-	DlgReal(14, "Answer Pt. Offset(deg):", 0.1, 10.0);
-	DlgReal(15, "Answer Pt. Window(deg):", 0.1, 10.0);
+	DlgReal(13, "AnsPt. Diam.(deg):", 0.1, 5.0);
+	DlgReal(14, "AnsPt. Center Offset(deg):", 0.1, 10.0);
+	DlgReal(15, "AnsPt. Window radius(deg):", 0.1, 10.0);
 	DlgInteger(16, "Base contrast(%)", 0, 100);
 	DlgInteger(17, "Up contrast(%)", 0, 100);
 	DlgInteger(18, "Down contrast(%)", 0, 100);
@@ -699,10 +699,11 @@ end;
 
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 func Answer%(EyePosX, EyePosY)
-	var ans% := 0;
-	if (Pow(EyePosX-FixationX,2) + Pow(EyePosY-(FixationY+attAnswerPointOffset),2)) <= Pow(attAnswerPointWindowRadius,2) then ans% := 1; endif
-	if (Pow(EyePosX-FixationX,2) + Pow(EyePosY-(FixationY-attAnswerPointOffset),2)) <= Pow(attAnswerPointWindowRadius,2) then ans% := -1; endif
-	if (ans% = 1 or ans% = -1) then PrintLog("Answer = " + str$(ans%) + "\n"); endif
+    var ans% := 0;
+    var ansptRadius;
+    ansptRadius := Pow(attAnswerPointWindowRadius,2);
+	if (Pow(EyePosX-FixationX,2) + Pow(EyePosY-(FixationY+attAnswerPointOffset),2)) <= ansptRadius then ans% := 1; endif
+	if (Pow(EyePosX-FixationX,2) + Pow(EyePosY-(FixationY-attAnswerPointOffset),2)) <= ansptRadius then ans% := -1; endif
 	return ans%;
 end;
 
@@ -757,6 +758,7 @@ var nTrialsCompleted%:=0;
 var nTrialsAborted% :=0;		' 
 var nBlocksCompleted%:=0;
 var iAnswer%;
+var isStimDistractorOff% := 0;
 var trialCatch%;
 var trialContrastUpDown%;
 var trialHazardFunctionTime;
@@ -824,7 +826,6 @@ func IdleProcessing%()
 		
 		case iState% = stateWaitForFixPtOn% then
 
-			PrintLog("stateWaitForFixPtOn: waiting.......\n");
 			tTrigger := NextTime(FixationPointChannel%, tLast, vTrigger);
 			if tTrigger > tLast and vTrigger = 0 then
 				' Fixation point is up
@@ -972,9 +973,10 @@ func IdleProcessing%()
 		case iState% = stateWaitForContrastChange% then
 
 			tTrigger := NextTime(StimChangeChannel%, tLast, vTrigger);
-			if tTrigger > tLast and vTrigger = 0 then
-				PrintLog("stateWaitForContrastChange: got it.\n");
-				tLastTrigger := tTrigger;
+            if tTrigger > tLast and vTrigger = 0 then
+                PrintLog("stateWaitForContrastChange: got it.\n");
+                tLastTrigger := tTrigger;
+                isStimDistractorOff% := 0;
 				ChangeStateTo(stateWaitForAnswer%, tNow);
 			endif
 
@@ -983,7 +985,18 @@ func IdleProcessing%()
 			if tNow - tStateStart > attTimeToAnswer then
 				PrintLog("stateWaitForAnswer: timed out\n");
 				ChangeStateTo(stateAbort%, tNow);
-			else
+            else
+            ' When fixation is first broken we turn off the stim and distractor. 
+            ' That test is done separately from the test for an answer. Also set up 
+            ' a var to tell us whether the stim has been turned off. 
+                if isStimDistractorOff% = 0 then
+                    if Looking%(xEye, yEye) = 0 then
+                        SampleKey("s");
+           				PrintLog("stateWaitForAnswer: fix broken - turn off stim\n");
+                        isStimDistractorOff% := 1;
+                    endif
+                endif
+
 				iAnswer% := Answer%(xEye, yEye);
 				if iAnswer% = 1 or iAnswer% = -1 then
 					' Got an answer. Record marker for correct/incorrect answer
