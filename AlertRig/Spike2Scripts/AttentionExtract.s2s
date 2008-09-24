@@ -1,7 +1,7 @@
 #include "AttentionExtractFunctions.s2s"
 
 var hData%;
-
+var hTxt;
 
 ' Get data file....
 hData% := View(0);
@@ -10,7 +10,8 @@ if (ViewKind(hData%) <> 0) then
 '        return;
 endif
 
-
-AttentionExtractInit(LogHandle());
+hTxt := FileOpen(FileName$(1)+FileName$(2)+FileName$(3)+FileName$(4)+".txt", 8, 1);
+View(hData%);
+AttentionExtractInit(hTxt);
 AttentionExtract%(-1);
-
+FileClose(hTxt);
