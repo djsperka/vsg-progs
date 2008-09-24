@@ -14,4 +14,4 @@ hTxt := FileOpen(FileName$(1)+FileName$(2)+FileName$(3)+FileName$(4)+".txt", 8, 
 View(hData%);
 AttentionExtractInit(hTxt);
 AttentionExtract%(-1);
-FileClose(hTxt);
+View(hTxt).FileClose();
