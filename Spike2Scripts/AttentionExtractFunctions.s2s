@@ -66,7 +66,7 @@ func AttentionExtract%(tEnd)
     var status% := 0;
     var tFound := -1;
     var sFound$;
-    var sIgnore$ := "0Jq";
+    var sIgnore$ := "0Jqs";
     var tTrigger;
 
     tFound := NextKeyOrText(attxTLast, sFound$, sIgnore$);
@@ -245,9 +245,10 @@ proc FlushState()
     endif
 
     
-    ' Dump this trial to the output handle
+    ' Dump this trial to the log and output file if it exists.
+    s$ := Print$("%d\t%d\t%.3f\t%.3f\t%d\t%d\t%.3f\t%d\t%.3f\n", attxITrial%, attxICueType%, attxFCueTime, attxFStimTime, attxIChangeType%, attxIUpDown%, attxFChangeTime, attxIResponse%, attxFRxTime);
+    View(LogHandle()).Print(s$);
     if attxOutputHandle >= 0 then
-        s$ := Print$("%d\t%d\t%.3f\t%.3f\t%d\t%d\t%.3f\t%d\t%.3f\n", attxITrial%, attxICueType%, attxFCueTime, attxFStimTime, attxIChangeType%, attxIUpDown%, attxFChangeTime, attxIResponse%, attxFRxTime);
         View(attxOutputHandle).Print(s$);
     endif
     attxICueType% := 0;
