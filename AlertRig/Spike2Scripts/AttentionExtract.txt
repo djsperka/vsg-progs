@@ -1,0 +1,62 @@
+Extracting attention data
+-------------------------
+
+Open the script file AttentionExtract.s2s. 
+
+Open the data file you want to extract from. Select it so it is the "current view". 
+
+Hit the run button on the script file. You will get the following:
+
+- For each trial STARTED (i.e. each time a fixation point is presented), a line is written 
+to the Spike2 log window and to a text file. See below for more details. 
+
+- A summary of trials completed, success %, etc is written to the Spike2 log window. The 
+summary is not written to the text file. 
+
+Text file
+---------
+
+The text file has the same base name as the data file, with a ".txt" extension. It is placed
+in the same directory as the data file. 
+
+The text file has one trial per line, where a "trial" is any trial which is 
+started. A portion of an extract file is shown below. 
+
+1	2	7.001	8.422	8	16	9.143	-1	0.221
+2	2	10.114	11.414	0	0	-1.000	0	-1.000
+3	1	13.870	-1.000	0	0	-1.000	0	-1.000
+4	1	16.104	17.097	0	0	-1.000	0	-1.000
+5	1	19.303	20.688	0	0	-1.000	0	-1.000
+6	1	22.916	23.994	4	16	24.800	-1	0.209
+
+Each line has 9 columns (tab separated). The values are
+
+column   value(s)
+------   --------
+1        trial number
+2        cue type: towards (1) or away (2)
+3        cue (fixation point) onset time (time of first frame when fix pt appears)
+4        stimulus time (time of first frame when stim/distractor appear) [ -1 = aborted trial]
+5        change type: stimulus (4) or distractor (8) will change contrast [0 = aborted trial]
+6        contrast up (16) or down (32) [0 = aborted trial]
+7        contrast change time [-1 = aborted trial]
+8        response correct (1) or incorrect (-1) [0 = aborted trial]
+9        response time [-1 = aborted trial]
+
+
+Analysis tips
+-------------
+
+The values chosen for the cue type, change type etc correspond to bits in an integer. These values
+mean that if you add the cue type and change type together for a single trial, then the values 
+tell you the trial type:
+
+cue + change  trial type
+------------  ----------
+ 1+4 = 5      towards
+ 1+8 = 9      towards-catch
+ 2+4 = 6      away-catch
+ 2+8 = 10     away
+
+For a given trial, a simple test of the response will tell you if the trial was completed. 
+Completed trials have response != 0. 
