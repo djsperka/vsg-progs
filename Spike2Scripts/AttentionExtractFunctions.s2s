@@ -85,6 +85,7 @@ func AttentionExtract%(tEnd)
                 attxICueType% := cuetypeAway%;
             else
                 ' Error
+                PrintLog("error expect FG got %s\n", sFound$);
                 attxIState% := attxstateError%;
             endcase
         case attxIState% = attxstateFixPt% then
