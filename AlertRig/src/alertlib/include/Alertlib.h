@@ -489,13 +489,14 @@ namespace alert
 	class TriggerFunc
 	{
 	public:
-		TriggerFunc(std::string key, int otrigger) : m_binary(false), m_skey(key), m_present(false), m_otrigger(otrigger), m_page(-1), m_quit(false) {};
-		TriggerFunc(int itrigger, int otrigger) : m_binary(true), m_itrigger(itrigger), m_present(false), m_otrigger(otrigger), m_page(-1), m_quit(false) {};
+		TriggerFunc(std::string key, int otrigger) : m_binary(false), m_skey(key), m_present(false), m_otrigger(otrigger), m_page(-1), m_quit(false), m_ideferred(0) {};
+		TriggerFunc(int itrigger, int otrigger) : m_binary(true), m_itrigger(itrigger), m_present(false), m_otrigger(otrigger), m_page(-1), m_quit(false), m_ideferred(0) {};
 
 		int page() { return m_page; };
 		bool present() { return m_present; };
 		int output_trigger() { return m_otrigger; };
 		bool quit() { return m_quit; };
+		int deferred() { return m_ideferred; };
 
 		void operator()(Trigger* pitem)
 		{
@@ -507,6 +508,7 @@ namespace alert
 			{
 				int i;
 				i = pitem->execute(m_otrigger);
+				m_ideferred = i;
 				if (i > 0) m_present = true;
 				else if (i < 0) 
 				{
@@ -523,6 +525,7 @@ namespace alert
 		bool m_present;	// if true, at least one trigger requires vsgPresent()
 		int m_otrigger;	// if m_present is true, this is the output trigger value
 		int m_page;
+		int m_ideferred;	// flag set to indicate deferred processing of some sort is needed.
 	};
 
 
