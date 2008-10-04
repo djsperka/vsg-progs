@@ -1,4 +1,4 @@
-' $Id: Attention.s2s,v 1.17 2008-09-22 18:21:14 devel Exp $
+' $Id: Attention.s2s,v 1.18 2008-10-04 23:42:12 devel Exp $
 '
 
 #include "AttentionExtractFunctions.s2s"
@@ -384,6 +384,9 @@ var attInterTrialTime;
 var attTimeToAnswer;
 var attAbortWaitTime;
 var attBlockAlternate%;
+var attRedGreen%;
+var attSingleGrating%;
+var attSecondGratingTrainingContrast%;
 
 ' Counter vars for attention script
 var attCountAllTrials% := 0;
@@ -410,7 +413,8 @@ proc GetAttentionScriptParameters()
 	Profile(key$, "CatchTrialPercentage", "0.0", stmp$);
 	attCatchTrialPercentage := val(stmp$);
 	Profile(key$, "BlockAlternate", 1, attBlockAlternate%);
-
+	Profile(key$, "RedGreen", 1, attRedGreen%);
+    Profile(key$, "SingleGrating", 1, attSingleGrating%);
 	Profile(key$, "BackgroundColor", "gray", attBackgroundColor$);
 	Profile(key$, "ContrastBase", 50, attContrastBase%);
 	Profile(key$, "ContrastUp", 80, attContrastUp%);
@@ -458,6 +462,8 @@ proc SaveAttentionScriptParameters()
 	Profile(key$, "TrialsPerBlock", attTrialsPerBlock%);
 	Profile(key$, "CatchTrialPercentage", str$(attCatchTrialPercentage));
 	Profile(key$, "BlockAlternate", attBlockAlternate%);
+	Profile(key$, "RedGreen", attRedGreen%);
+	Profile(key$, "SingleGrating", attSingleGrating%);
 	Profile(key$, "BackgroundColor", attBackgroundColor$);
 	Profile(key$, "ContrastBase", attContrastBase%);
 	Profile(key$, "ContrastUp", attContrastUp%);
@@ -494,21 +500,23 @@ func AttentionScriptDialog%()
 	DlgInteger(2, "Trials per block:", 1, 1000);
 	DlgReal(3, "Catch Trial pct (0-100)", 0, 100);
 	DlgCheck(4, "Alternate cue type by block");
-	DlgReal(5, "Acquisition time(s):", .01, 10);
-	DlgReal(6, "Fixation time(s):", .01, 10);
-	DlgReal(7, "Hazard min time(s):", 0, 10);
-	DlgReal(8, "Hazard exp mean time(s):", 0, 10);
-	DlgReal(9, "Time to answer(s):", 0.01, 10.0);
-	DlgReal(10, "Intertrial time(s):", .01, 10);
-	DlgReal(11, "Abort wait time(s):", .01, 10);
-	DlgList(12, "Background color:", bcl$);
-	DlgReal(13, "AnsPt. Diam.(deg):", 0.1, 5.0);
-	DlgReal(14, "AnsPt. Center Offset(deg):", 0.1, 10.0);
-	DlgReal(15, "AnsPt. Window radius(deg):", 0.1, 10.0);
-	DlgInteger(16, "Base contrast(%)", 0, 100);
-	DlgInteger(17, "Up contrast(%)", 0, 100);
-	DlgInteger(18, "Down contrast(%)", 0, 100);
-	i%:=DlgShow(attNumberOfBlocks%, attTrialsPerBlock%, attCatchTrialPercentage,attBlockAlternate%, 
+	DlgCheck(5, "Red/Green stim/distractor");
+	DlgCheck(6, "Show single grating");
+	DlgReal(7, "Acquisition time(s):", .01, 10);
+	DlgReal(8, "Fixation time(s):", .01, 10);
+	DlgReal(9, "Hazard min time(s):", 0, 10);
+	DlgReal(10, "Hazard exp mean time(s):", 0, 10);
+	DlgReal(11, "Time to answer(s):", 0.01, 10.0);
+	DlgReal(12, "Intertrial time(s):", .01, 10);
+	DlgReal(13, "Abort wait time(s):", .01, 10);
+	DlgList(14, "Background color:", bcl$);
+	DlgReal(15, "AnsPt. Diam.(deg):", 0.1, 5.0);
+	DlgReal(16, "AnsPt. Center Offset(deg):", 0.1, 10.0);
+	DlgReal(17, "AnsPt. Window radius(deg):", 0.1, 10.0);
+	DlgInteger(18, "Base contrast(%)", 0, 100);
+	DlgInteger(19, "Up contrast(%)", 0, 100);
+	DlgInteger(20, "Down contrast(%)", 0, 100);
+	i%:=DlgShow(attNumberOfBlocks%, attTrialsPerBlock%, attCatchTrialPercentage,attBlockAlternate%, attRedGreen%, attSingleGrating%,
                 attAcquisitionTime, attFixationTime, attHazardMinTime, attHazardExpMeanTime, attTimeToAnswer, 
                 attInterTrialTime, attAbortWaitTime,
                 ibcl%, attAnswerPointDiameter, attAnswerPointOffset, attAnswerPointWindowRadius, 
@@ -1294,6 +1302,25 @@ func GetGratingParameters$(type$)
 	return stmp$;
 end;
 
+' Replace the color vector spec in a grating with the specified value
+func ReplaceGratingColorVector$(gspec$, cvspec$)
+    var s$;
+    var i1%, i2%;
+    var index%:=0;
+    var i%;
+    ' i1% and i2% are the index positions of the 8th and 9th commas
+    PrintLog(gspec$ + "\n");
+    for i% := 1 to 7 do
+        index% := InStr(gspec$, ",", index%+1);
+        PrintLog("%d index %d\n", i%, index%);
+    next;
+    i1% := InStr(gspec$, ",", index%+1);
+    i2% := InStr(gspec$, ",", i1%+1);
+    s$ := Mid$(gspec$, 1, i1%) + cvspec$ + Mid$(gspec$, i2%);
+    PrintLog(s$ + "\n");
+    return s$;
+end
+    
 
 ' Used to hard-quit from toolbar. This will close data files without saving!!! 
 ' It is important that this function be disabled once sampling is started!!!
@@ -1334,11 +1361,24 @@ func Start%()
 	var Tune$;
 	var Stim$:="";
 	var Contrast$;
+    var ttemp;
+    var stimSpec$;
+    var distSpec$;
 	
 	SampleStart(0); 'Start sampling
 	SampleKey("0");
-	
-	Stim$ := " -g " + GetGratingParameters$("Distractor1") + " -s " + GetGratingParameters$("Stimulus");
+    ttemp := View(DataWindow%).MaxTime();
+    Yield();
+    tLast := View(DataWindow%).MaxTime();
+    PrintLog("ttemp " + str$(ttemp) + " tlast " + str$(tLast) + "\n");
+    
+    stimSpec$ := GetGratingParameters$("Stimulus");
+    distSpec$ := GetGratingParameters$("Distractor1");
+    if attRedGreen% <> 0 then
+        stimSpec$ := ReplaceGratingColorVector$(stimSpec$, "(0/0/0)-(255/0/0)");
+        distSpec$ := ReplaceGratingColorVector$(distSpec$, "(0/0/0)-(0/255/0)");
+    endif
+	Stim$ := " -g " + distSpec$ + " -s " + stimSpec$;
 	Contrast$ := " -t " + str$(attContrastDown%) + "," + str$(attContrastBase%) + "," + str$(attContrastUp%);
 	Extras$ := " -b " + attBackgroundColor$ + " -d " + DistanceToScreenMM$ + " -A " + str$(attAnswerPointOffset) + " -D " + str$(attAnswerPointDiameter);
 	
