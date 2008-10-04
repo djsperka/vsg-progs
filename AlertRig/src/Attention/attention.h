@@ -2,3 +2,14 @@
 #define STIMULUS_PAGE	1
 #define DISTRACTOR_PAGE	2
 #define OVERLAY_PAGE 0
+
+#define DEFER_F_STIMULUS 2
+#define DEFER_G_STIMULUS 3
+
+#define BLANK_PAGE 0
+#define F_PAGE 1
+#define G_PAGE 2
+#define F_STIM_ANSPT_PAGE 3
+#define G_STIM_ANSPT_PAGE 4
+#define F_ANSPT_PAGE 5
+#define G_ANSPT_PAGE 6
