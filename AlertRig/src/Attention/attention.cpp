@@ -80,11 +80,11 @@ int main (int argc, char *argv[])
 
 
 	// Init overlay pages
-	if (init_overlay())
-	{
-		cerr << "Overlay page init failed!" << endl;
-		return 1;
-	}
+//	if (init_overlay())
+//	{
+//		cerr << "Overlay page init failed!" << endl;
+//		return 1;
+//	}
 
 	// write video pages
 	init_pages();
@@ -296,37 +296,56 @@ int init_overlay()
 int callback(int &output, const CallbackTrigger* ptrig)
 {
 	int ival=1;
+	VSGTRIVAL from, to;
 	string key = ptrig->getKey();
 	if (key == "S")
 	{
 		m_spec_anspt_up.setContrast(100); 
 		m_spec_anspt_down.setContrast(100);
-		m_spec_stimulus.draw();
+
+		get_colorvector(m_spec_stimulus.cv, from, to);
 		m_spec_stimulus.select();
+		vsgObjSetColourVector(&from, &to, vsgBIPOLAR);
 		vsgObjSetSpatialPhase(0);
-		m_spec_distractor.draw();
+
+
+		get_colorvector(m_spec_distractor.cv, from, to);
 		m_spec_distractor.select();
+		vsgObjSetColourVector(&from, &to, vsgBIPOLAR);
 		vsgObjSetSpatialPhase(0);
+
 		m_spec_stimulus.setContrast(m_iContrastBase);
 		m_spec_distractor.setContrast(m_iContrastBase);
 	}
 	else if (key == "s")
 	{
-		m_spec_stimulus.setContrast(0);
-		m_spec_distractor.setContrast(0);
+		get_color(m_background, from);
+		m_spec_stimulus.select();
+		vsgObjSetColourVector(&from, &from, vsgBIPOLAR);
+		m_spec_distractor.select();
+		vsgObjSetColourVector(&from, &from, vsgBIPOLAR);
+
 	}
 	else if (key == "X")
 	{
 		m_spec_fixpt.setContrast(0);
 		m_spec_anspt_up.setContrast(0); 
 		m_spec_anspt_down.setContrast(0);
-		m_spec_stimulus.setContrast(0);
-		m_spec_distractor.setContrast(0);
+
+		get_color(m_background, from);
+		m_spec_stimulus.select();
+		vsgObjSetColourVector(&from, &from, vsgBIPOLAR);
+		m_spec_distractor.select();
+		vsgObjSetColourVector(&from, &from, vsgBIPOLAR);
 	}
 	else if (key == "F")
 	{
-		m_spec_fixpt.color = red;
-		m_spec_fixpt.draw();
+//		m_spec_fixpt.color.type = red;
+//		m_spec_fixpt.draw();
+		get_color(m_background, from);
+		to.a = 1; to.b = to.c = 0;
+		m_spec_fixpt.select();
+		vsgObjSetColourVector(&from, &to, vsgUNIPOLAR);
 		m_spec_fixpt.setContrast(100);
 	}
 	else if (key == "f")
@@ -335,8 +354,12 @@ int callback(int &output, const CallbackTrigger* ptrig)
 	}
 	else if (key == "G")
 	{
-		m_spec_fixpt.color = green;
-		m_spec_fixpt.draw();
+//		m_spec_fixpt.color.type = green;
+//		m_spec_fixpt.draw();
+		get_color(m_background, from);
+		to.b = 1; to.a = to.c = 0;
+		m_spec_fixpt.select();
+		vsgObjSetColourVector(&from, &to, vsgUNIPOLAR);
 		m_spec_fixpt.setContrast(100);
 	}
 	else if (key == "g")
@@ -362,7 +385,6 @@ int init_pages()
 {
 	int status=0;
 	int islice=50;
-	PIXEL_LEVEL lvfirst;
 	ContrastTrigger *ptrig = NULL;
 	ContrastTrigger *ptrigStimON = NULL;
 	ContrastTrigger *ptrigStimOFF = NULL;
@@ -370,7 +392,7 @@ int init_pages()
 	ContrastTrigger *ptrigStimDOWN = NULL;
 	ContrastTrigger *ptrigDistractorUP = NULL;
 	ContrastTrigger *ptrigDistractorDOWN = NULL;
-
+	VSGTRIVAL bg;
 
 
 	// initialize video pages
@@ -380,22 +402,19 @@ int init_pages()
 		return 1;
 	}
 
-	// prepare BACKGROUND_PAGE (and display it)
-	vsgSetDrawPage(vsgVIDEOPAGE, BACKGROUND_PAGE, vsgNOCLEAR);
-	vsgPresent();
-	
-	// prepare STIMULUS_PAGE
-	vsgSetDrawPage(vsgVIDEOPAGE, STIMULUS_PAGE, vsgNOCLEAR);
+	vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgNOCLEAR);
 
 	
+	get_color(m_background, bg);
 	m_spec_stimulus.init(islice);
-	m_spec_stimulus.draw();
-	m_spec_stimulus.setContrast(0);
-
+	m_spec_stimulus.draw(true);
+	vsgObjSetColourVector(&bg, &bg, vsgBIPOLAR);
+//	m_spec_stimulus.setContrast(0);
 
 	m_spec_distractor.init(islice);
-	m_spec_distractor.draw();
-	m_spec_distractor.setContrast(0);
+	m_spec_distractor.draw(true);
+//	m_spec_distractor.setContrast(0);
+	vsgObjSetColourVector(&bg, &bg, vsgBIPOLAR);
 
 	// Now fixation point
 	m_spec_fixpt.init(2);
