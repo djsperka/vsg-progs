@@ -37,9 +37,12 @@ int m_screenDistanceMM=0;
 bool m_verbose=false;
 TriggerVector triggers;
 bool m_binaryTriggers = true;
+bool m_bTrainingContrast = false;
+int m_iTrainingContrast = 0;
 int m_iContrastDown=0;
 int m_iContrastBase=50;
 int m_iContrastUp=100;
+bool m_bFStimulus;
 
 static void usage();
 static int init_pages();
@@ -155,7 +158,7 @@ int args(int argc, char **argv)
 	extern int optind;
 	int errflg = 0;
 	ARGratingSpec agtemp;
-	while ((c = getopt(argc, argv, "f:b:g:hd:vas:t:A:D:")) != -1)
+	while ((c = getopt(argc, argv, "f:b:g:hd:vas:t:A:D:T:")) != -1)
 	{
 		switch (c) 
 		{
@@ -200,6 +203,17 @@ int args(int argc, char **argv)
 			s.assign(optarg);
 			if (parse_contrast_triplet(s, m_iContrastDown, m_iContrastBase, m_iContrastUp)) errflg++;
 			else have_t = true;
+			break;
+		case 'T':
+			s.assign(optarg);
+			if (!parse_integer(s, m_iTrainingContrast))
+			{
+				m_bTrainingContrast = true;
+			}
+			else
+			{
+				errflg++;
+			}
 			break;
 		case 'A':
 			s.assign(optarg);
@@ -303,19 +317,64 @@ int callback(int &output, const CallbackTrigger* ptrig)
 		m_spec_anspt_up.setContrast(100); 
 		m_spec_anspt_down.setContrast(100);
 
-		get_colorvector(m_spec_stimulus.cv, from, to);
-		m_spec_stimulus.select();
-		vsgObjSetColourVector(&from, &to, vsgBIPOLAR);
-		vsgObjSetSpatialPhase(0);
+		if (!m_bTrainingContrast)
+		{
+			cout << "!Training contrast " << m_iTrainingContrast << endl;
+			get_colorvector(m_spec_stimulus.cv, from, to);
+			m_spec_stimulus.select();
+			vsgObjSetColourVector(&from, &to, vsgBIPOLAR);
+			vsgObjSetSpatialPhase(0);
+			m_spec_stimulus.setContrast(m_iContrastBase);
 
 
-		get_colorvector(m_spec_distractor.cv, from, to);
-		m_spec_distractor.select();
-		vsgObjSetColourVector(&from, &to, vsgBIPOLAR);
-		vsgObjSetSpatialPhase(0);
+			get_colorvector(m_spec_distractor.cv, from, to);
+			m_spec_distractor.select();
+			vsgObjSetColourVector(&from, &to, vsgBIPOLAR);
+			vsgObjSetSpatialPhase(0);
+			m_spec_distractor.setContrast(m_iContrastBase);
+		}
+		else
+		{
+			cout << "Training contrast " << m_iTrainingContrast << endl;
+			if (m_bFStimulus)
+			{
+				// distractor goes to training contrast. If training contrast is 0, then do not
+				// update color vector, because distractor may be visible at 0 contrast. 
 
-		m_spec_stimulus.setContrast(m_iContrastBase);
-		m_spec_distractor.setContrast(m_iContrastBase);
+				get_colorvector(m_spec_stimulus.cv, from, to);
+				m_spec_stimulus.select();
+				vsgObjSetColourVector(&from, &to, vsgBIPOLAR);
+				vsgObjSetSpatialPhase(0);
+				m_spec_stimulus.setContrast(m_iContrastBase);
+
+				if (m_iTrainingContrast != 0)
+				{
+					get_colorvector(m_spec_distractor.cv, from, to);
+					m_spec_distractor.select();
+					vsgObjSetColourVector(&from, &to, vsgBIPOLAR);
+					vsgObjSetSpatialPhase(0);
+					m_spec_distractor.setContrast(m_iTrainingContrast);
+				}
+			}
+			else
+			{
+				// stimulus goes to training contrast. 
+				get_colorvector(m_spec_distractor.cv, from, to);
+				m_spec_distractor.select();
+				vsgObjSetColourVector(&from, &to, vsgBIPOLAR);
+				vsgObjSetSpatialPhase(0);
+				m_spec_distractor.setContrast(m_iContrastBase);
+
+				if (m_iTrainingContrast != 0) 
+				{
+					get_colorvector(m_spec_stimulus.cv, from, to);
+					m_spec_stimulus.select();
+					vsgObjSetColourVector(&from, &to, vsgBIPOLAR);
+					vsgObjSetSpatialPhase(0);
+					m_spec_stimulus.setContrast(m_iTrainingContrast);
+				}
+			}
+		}
 	}
 	else if (key == "s")
 	{
@@ -347,6 +406,7 @@ int callback(int &output, const CallbackTrigger* ptrig)
 		m_spec_fixpt.select();
 		vsgObjSetColourVector(&from, &to, vsgUNIPOLAR);
 		m_spec_fixpt.setContrast(100);
+		m_bFStimulus = true;
 	}
 	else if (key == "f")
 	{
@@ -361,6 +421,7 @@ int callback(int &output, const CallbackTrigger* ptrig)
 		m_spec_fixpt.select();
 		vsgObjSetColourVector(&from, &to, vsgUNIPOLAR);
 		m_spec_fixpt.setContrast(100);
+		m_bFStimulus = false;
 	}
 	else if (key == "g")
 	{
