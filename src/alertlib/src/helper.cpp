@@ -67,7 +67,7 @@ int parse_fixation_point(const std::string& s, alert::ARFixationPointSpec& afp)
 		}
 		else
 		{
-			afp.color = red;
+			afp.color.type = red;
 		}
 	}
 
@@ -165,7 +165,7 @@ int parse_grating(const std::string& s, alert::ARGratingSpec& ag)
 		}
 
 		// set defaults for the remaining items, then read if present
-		ag.cv = b_w;
+		ag.cv.type = b_w;
 		ag.pattern = sinewave;
 		ag.aperture = ellipse;
 
@@ -203,7 +203,7 @@ int parse_grating(const std::string& s, alert::ARGratingSpec& ag)
 
 std::ostream& operator<<(std::ostream& out, const COLOR_TYPE& c)
 {
-	switch(c)
+	switch(c.type)
 	{
 	case black: out << "black"; break;
 	case white: out << "white"; break;
@@ -211,20 +211,29 @@ std::ostream& operator<<(std::ostream& out, const COLOR_TYPE& c)
 	case green:	out << "green";	break;
 	case blue:	out << "blue";	break;
 	case gray:	out << "gray";	break;
+	case custom: 
+		out << "(" << (int)(c.color.a * 255) << "/" << (int)(c.color.b * 255) << "/" 
+			<< (int)(c.color.c * 255) << ")";
+		break;
 	default:	out << "unknown"; break;
 	}
 	return out;
 }
 
 
-std::ostream& operator<<(std::ostream& out, const COLOR_VECTOR_TYPE& v)
+std::ostream& operator<<(std::ostream& out, const COLOR_VECTOR_TYPE& cv)
 {
-	switch(v)
+	switch(cv.type)
 	{
 	case b_w:	out << "b";	break;
 	case l_cone:out << "l";		break;
 	case m_cone:out << "m";		break;
 	case s_cone:out << "s";		break;
+	case custom_color_vector: 
+		out << "(" << (int)(cv.from.a * 255) << "/" << (int)(cv.from.b * 255) << "/" 
+			<< (int)(cv.from.c * 255) << ")-(" << (int)(cv.to.a * 255) << "/"
+			<< (int)(cv.to.b * 255) << "/" << (int)(cv.to.c * 255) << ")";
+		break;
 	default:	out << "unknown";		break;
 	}
 	return out;
@@ -260,14 +269,33 @@ int parse_colorvector(std::string s, COLOR_VECTOR_TYPE& v)
 		s=="white" || s=="WHITE" ||
 		s=="w" || s=="W" ||
 		s=="gray" || s=="GRAY" ||
-		s=="g" || s=="G") v = b_w;
-	else if (s=="l" || s=="L") v = l_cone;
-	else if (s=="m" || s=="M") v = m_cone;
-	else if (s=="s" || s=="S") v = s_cone;
+		s=="g" || s=="G") v.type = b_w;
+	else if (s=="l" || s=="L") v.type = l_cone;
+	else if (s=="m" || s=="M") v.type = m_cone;
+	else if (s=="s" || s=="S") v.type = s_cone;
 	else 
 	{
+		int n;
+		int fr, fg, fb, tr, tb, tg;
+		// try and parse a custom color vector
 		status=1;
-		v = unknown_color_vector;
+		v.type = unknown_color_vector;
+		n = sscanf(s.c_str(), "(%d/%d/%d)-(%d/%d/%d)", &fr, &fg, &fb, &tr, &tg, &tb);
+		if (n==6)
+		{
+			if (fr>=0 && fr<256 && fg>=0 && fg<256 && fb>=0 && fb<256 && 
+				tr>=0 && tr<256 && tg>=0 && tg<256 && tb>=0 && tb<256)
+			{
+				status = 0;
+				v.type = custom_color_vector;
+				v.from.a = (double)fr/255.0;
+				v.from.b = (double)fg/255.0;
+				v.from.c = (double)fb/255.0;
+				v.to.a = (double)tr/255.0;
+				v.to.b = (double)tg/255.0;
+				v.to.c = (double)tb/255.0;
+			}
+		}
 	}
 	return status;
 }
@@ -276,16 +304,31 @@ int parse_colorvector(std::string s, COLOR_VECTOR_TYPE& v)
 int parse_color(std::string s, COLOR_TYPE& c)
 {
 	int status=0;
-	if (s=="black" || s=="BLACK") c = black;
-	else if (s=="white" || s=="WHITE") c = white;
-	else if (s=="gray" || s=="GRAY") c = gray;
-	else if (s=="red" || s=="RED" || s=="r" || s=="R") c = red;
-	else if (s=="green" || s=="GREEN" || s=="g" || s=="G") c = green;
-	else if (s=="blue" || s=="BLUE" || s=="b" || s=="B") c = blue;
+	if (s=="black" || s=="BLACK") c.type = black;
+	else if (s=="white" || s=="WHITE") c.type = white;
+	else if (s=="gray" || s=="GRAY") c.type = gray;
+	else if (s=="red" || s=="RED" || s=="r" || s=="R") c.type = red;
+	else if (s=="green" || s=="GREEN" || s=="g" || s=="G") c.type = green;
+	else if (s=="blue" || s=="BLUE" || s=="b" || s=="B") c.type = blue;
 	else 
 	{
+		int n;
+		int r, g, b;
+		// try and parse a custom color vector
 		status=1;
-		c = unknown_color;
+		c.type = unknown_color;
+		n = sscanf(s.c_str(), "(%d/%d/%d)", &r, &g, &b);
+		if (n==3)
+		{
+			if (r>=0 && r<256 && g>=0 && g<256 && b>=0 && b<256)
+			{
+				status = 0;
+				c.type = custom;
+				c.color.a = (double)r/255.0;
+				c.color.b = (double)g/255.0;
+				c.color.c = (double)b/255.0;
+			}
+		}
 	}
 	return status;
 }
@@ -442,7 +485,7 @@ int get_color(COLOR_TYPE c, VSGTRIVAL& trival)
 {
 	int status=0;
 
-	switch(c)
+	switch(c.type)
 	{
 	case black:
 		trival.a=0;
@@ -474,6 +517,9 @@ int get_color(COLOR_TYPE c, VSGTRIVAL& trival)
 		trival.b=0;
 		trival.c=1;
 		break;
+	case custom:
+		trival = c.color;
+		break;
 	default:
 		status=1;
 	}
@@ -485,7 +531,7 @@ int get_color(COLOR_TYPE c, VSGTRIVAL& trival)
 int get_colorvector(COLOR_VECTOR_TYPE& cv, VSGTRIVAL& from, VSGTRIVAL& to)
 {
 	int status=0;
-	switch (cv)
+	switch (cv.type)
 	{
 	case b_w:
 		from.a = from.b = from.c=0;
@@ -499,6 +545,10 @@ int get_colorvector(COLOR_VECTOR_TYPE& cv, VSGTRIVAL& from, VSGTRIVAL& to)
 		break;
 	case s_cone:
 		if (!coneiso_s(from, to)) status = 1;
+		break;
+	case custom_color_vector:
+		from = cv.from;
+		to = cv.to;
 		break;
 	default:
 		status=1;

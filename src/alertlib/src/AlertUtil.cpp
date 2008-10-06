@@ -62,6 +62,22 @@ int	arutil_draw_overlay(ARFixationPointSpec& fp, PIXEL_LEVEL level, int overlayP
 	return status;
 }
 
+int	arutil_draw_video(ARFixationPointSpec& fp, PIXEL_LEVEL level, int videoPage)
+{
+	int status=0;
+	int numVideoPages = vsgGetSystemAttribute(vsgNUMVIDEOPAGES);
+	if (videoPage>=0 && videoPage < numVideoPages)
+	{
+		vsgSetDrawPage(vsgVIDEOPAGE, videoPage, vsgNOCLEAR);
+		vsgSetPen1(level);
+		vsgSetDrawMode(vsgCENTREXY + vsgSOLIDFILL);
+		vsgDrawOval(fp.x, -fp.y, fp.d, fp.d);
+	}
+	else status=-1;
+
+	return status;
+}
+
 int arutil_draw_grating_fullscreen(ARGratingSpec& gr, int videoPage)
 {
 	int status=0;
