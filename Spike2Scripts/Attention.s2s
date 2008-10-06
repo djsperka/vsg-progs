@@ -1,4 +1,4 @@
-' $Id: Attention.s2s,v 1.18 2008-10-04 23:42:12 devel Exp $
+' $Id: Attention.s2s,v 1.19 2008-10-06 21:06:10 devel Exp $
 '
 
 #include "AttentionExtractFunctions.s2s"
@@ -370,6 +370,15 @@ var attNumberOfBlocks%;
 var attTrialsPerBlock%;
 var attCatchTrialPercentage;
 var attBackgroundColor$;
+var attBackgroundRed% := 0;
+var attBackgroundGreen% := 0;
+var attBackgroundBlue% := 0;
+var attBackgroundFromRed% := 0;
+var attBackgroundFromGreen% := 0;
+var attBackgroundFromBlue% := 0;
+var attBackgroundToRed% := 0;
+var attBackgroundToGreen% := 0;
+var attBackgroundToBlue% := 0;
 var attAnswerPointDiameter := 0.05;
 var attAnswerPointOffset := 5.0;
 var attAnswerPointWindowRadius := 2.0;
@@ -384,9 +393,14 @@ var attInterTrialTime;
 var attTimeToAnswer;
 var attAbortWaitTime;
 var attBlockAlternate%;
-var attRedGreen%;
-var attSingleGrating%;
-var attSecondGratingTrainingContrast%;
+var attTrainingContrastCheck%:=0;
+var attTrainingContrastPct%:=0;
+
+var attCustomGratingColorCheck%;
+var attCustomGratingColorStimFrom%[3];
+var attCustomGratingColorStimTo%[3];
+var attCustomGratingColorDistractorFrom%[3];
+var attCustomGratingColorDistractorTo%[3];
 
 ' Counter vars for attention script
 var attCountAllTrials% := 0;
@@ -402,6 +416,32 @@ var attCountAwayTrialsCorrect% := 0;
 var attCountAwayTrialsIncorrect% := 0;
 var attCountAwayTrialsAbort% := 0;
 
+' constants for dialog and check functio
+var attdlgTrainingContrastCheck% := 8;
+var attdlgTrainingContrastPct% := 9;
+
+' constants for color dialog
+var attdlgColorIndexGray% := 0;
+var attdlgColorIndexBlack% := 1;
+var attdlgColorIndexWhite% := 2;
+var attdlgColorIndexCustom% := 3;
+var attcolorsdlgBackgroundColor% := 1;
+var attcolorsdlgBackgroundRed% := 2;
+var attcolorsdlgBackgroundGreen% := 3;
+var attcolorsdlgBackgroundBlue% := 4;
+var attcolorsdlgCustomGratingColorCheck% := 5;
+var attcolorsdlgCustomGratingColorStimFromRed% := 6;
+var attcolorsdlgCustomGratingColorStimFromGreen% := 7;
+var attcolorsdlgCustomGratingColorStimFromBlue% := 8;
+var attcolorsdlgCustomGratingColorStimToRed% := 9;
+var attcolorsdlgCustomGratingColorStimToGreen% := 10;
+var attcolorsdlgCustomGratingColorStimToBlue% := 11;
+var attcolorsdlgCustomGratingColorDistractorFromRed% := 12;
+var attcolorsdlgCustomGratingColorDistractorFromGreen% := 13;
+var attcolorsdlgCustomGratingColorDistractorFromBlue% := 14;
+var attcolorsdlgCustomGratingColorDistractorToRed% := 15;
+var attcolorsdlgCustomGratingColorDistractorToGreen% := 16;
+var attcolorsdlgCustomGratingColorDistractorToBlue% := 17;
 
 proc GetAttentionScriptParameters()
 	var stmp$;
@@ -413,10 +453,17 @@ proc GetAttentionScriptParameters()
 	Profile(key$, "CatchTrialPercentage", "0.0", stmp$);
 	attCatchTrialPercentage := val(stmp$);
 	Profile(key$, "BlockAlternate", 1, attBlockAlternate%);
-	Profile(key$, "RedGreen", 1, attRedGreen%);
-    Profile(key$, "SingleGrating", 1, attSingleGrating%);
+	Profile(key$, "TrainingContrastCheck", 0, attTrainingContrastCheck%);
+	Profile(key$, "TrainingContrastPct", 0, attTrainingContrastPct%);
 	Profile(key$, "BackgroundColor", "gray", attBackgroundColor$);
-	Profile(key$, "ContrastBase", 50, attContrastBase%);
+    
+    if InStr(attBackgroundColor$, "(") = 1 then
+        if ParseColor%(attBackgroundColor$, attBackgroundRed%, attBackgroundGreen%, attBackgroundBlue%) <> 0 then
+            attBackgroundColor$ := "gray";
+        endif
+    endif
+    
+    Profile(key$, "ContrastBase", 50, attContrastBase%);
 	Profile(key$, "ContrastUp", 80, attContrastUp%);
 	Profile(key$, "ContrastDown", 20, attContrastDown%);
 
@@ -450,7 +497,20 @@ proc GetAttentionScriptParameters()
 	Profile(key$, "AbortWaitTime", "1.0", stmp$);
 	attAbortWaitTime := val(stmp$);
 
-
+    Profile(key$, "CustomGratingColorsCheck", 0, attCustomGratingColorCheck%);
+    Profile(key$, "CustomGratingColorsStimFromRed", 0, attCustomGratingColorStimFrom%[0]);
+    Profile(key$, "CustomGratingColorsStimFromGreen", 0, attCustomGratingColorStimFrom%[1]);
+    Profile(key$, "CustomGratingColorsStimFromBlue", 0, attCustomGratingColorStimFrom%[2]);
+    Profile(key$, "CustomGratingColorsStimToRed", 255, attCustomGratingColorStimTo%[0]);
+    Profile(key$, "CustomGratingColorsStimToGreen", 255, attCustomGratingColorStimTo%[1]);
+    Profile(key$, "CustomGratingColorsStimToBlue", 255, attCustomGratingColorStimTo%[2]);
+    Profile(key$, "CustomGratingColorsDistractorFromRed", 0, attCustomGratingColorDistractorFrom%[0]);
+    Profile(key$, "CustomGratingColorsDistractorFromGreen", 0, attCustomGratingColorDistractorFrom%[1]);
+    Profile(key$, "CustomGratingColorsDistractorFromBlue", 0, attCustomGratingColorDistractorFrom%[2]);
+    Profile(key$, "CustomGratingColorsDistractorToRed", 255, attCustomGratingColorDistractorTo%[0]);
+    Profile(key$, "CustomGratingColorsDistractorToGreen", 255, attCustomGratingColorDistractorTo%[1]);
+    Profile(key$, "CustomGratingColorsDistractorToBlue", 255, attCustomGratingColorDistractorTo%[2]);
+    
 end;
 
 proc SaveAttentionScriptParameters()
@@ -462,8 +522,8 @@ proc SaveAttentionScriptParameters()
 	Profile(key$, "TrialsPerBlock", attTrialsPerBlock%);
 	Profile(key$, "CatchTrialPercentage", str$(attCatchTrialPercentage));
 	Profile(key$, "BlockAlternate", attBlockAlternate%);
-	Profile(key$, "RedGreen", attRedGreen%);
-	Profile(key$, "SingleGrating", attSingleGrating%);
+	Profile(key$, "TrainingContrastCheck", attTrainingContrastCheck%);
+	Profile(key$, "TrainingContrastPct", attTrainingContrastPct%);
 	Profile(key$, "BackgroundColor", attBackgroundColor$);
 	Profile(key$, "ContrastBase", attContrastBase%);
 	Profile(key$, "ContrastUp", attContrastUp%);
@@ -478,55 +538,189 @@ proc SaveAttentionScriptParameters()
 	Profile(key$, "AnswerPointDiameter", str$(attAnswerPointDiameter));
 	Profile(key$, "AnswerPointOffset", str$(attAnswerPointOffset));
 	Profile(key$, "AnswerPointWindowRadius", str$(attAnswerPointWindowRadius));
+    Profile(key$, "CustomGratingColorsCheck", attCustomGratingColorCheck%);
+    Profile(key$, "CustomGratingColorsStimFromRed", attCustomGratingColorStimFrom%[0]);
+    Profile(key$, "CustomGratingColorsStimFromGreen", attCustomGratingColorStimFrom%[1]);
+    Profile(key$, "CustomGratingColorsStimFromBlue", attCustomGratingColorStimFrom%[2]);
+    Profile(key$, "CustomGratingColorsStimToRed", attCustomGratingColorStimTo%[0]);
+    Profile(key$, "CustomGratingColorsStimToGreen", attCustomGratingColorStimTo%[1]);
+    Profile(key$, "CustomGratingColorsStimToBlue", attCustomGratingColorStimTo%[2]);
+    Profile(key$, "CustomGratingColorsDistractorFromRed", attCustomGratingColorDistractorFrom%[0]);
+    Profile(key$, "CustomGratingColorsDistractorFromGreen", attCustomGratingColorDistractorFrom%[1]);
+    Profile(key$, "CustomGratingColorsDistractorFromBlue", attCustomGratingColorDistractorFrom%[2]);
+    Profile(key$, "CustomGratingColorsDistractorToRed", attCustomGratingColorDistractorTo%[0]);
+    Profile(key$, "CustomGratingColorsDistractorToGreen", attCustomGratingColorDistractorTo%[1]);
+    Profile(key$, "CustomGratingColorsDistractorToBlue", attCustomGratingColorDistractorTo%[2]);
 
 	end;
 
 func AttentionScriptDialog%()
 	var i%;
-	var bcl$[3];
+	GetAttentionScriptParameters();
+
+	DlgCreate("Attention Training Parameters", 25, 10);
+    DlgGroup("Blocks, contrast", 1, 1, 35, 10);
+	DlgInteger(1, "Number of Blocks:", 1, 1000, 20, 2);
+	DlgInteger(2, "Trials per block:", 1, 1000, 20, 3);
+	DlgReal(3, "Catch Trial pct (0-100)", 0, 100, 20, 4);
+	DlgCheck(4, "Alternate cue type by block", 2, 5);
+	DlgInteger(5, "Base contrast(%)", 0, 100, 20, 6);
+	DlgInteger(6, "Up contrast(%)", 0, 100, 20, 7);
+	DlgInteger(7, "Down contrast(%)", 0, 100, 20, 8);
+	DlgCheck(attdlgTrainingContrastCheck%, "Training Contrast", 2, 9);
+	DlgInteger(attdlgTrainingContrastPct%, "Training Contrast(%)", 0, 100, 20, 10);
+    DlgButton(2, "Colors", ColorsDialog%, 1, 12);
+    DlgGroup("Timing", 1, 13, 35, 11);
+	DlgReal(10, "Acquisition time(s):", .01, 10, 20, 14);
+	DlgReal(11, "Fixation time(s):", .01, 10, 20, 15);
+	DlgReal(12, "Hazard min time(s):", 0, 10, 20, 16);
+	DlgReal(13, "Hazard exp mean time(s):", 0, 10, 20, 17);
+	DlgReal(14, "Time to answer(s):", 0.01, 10.0, 20, 18);
+	DlgReal(15, "Intertrial time(s):", .01, 10, 20, 19);
+	DlgReal(16, "Abort wait time(s):", .01, 10, 20, 20);
+'	DlgList(14, "Background color:", bcl$);
+	DlgReal(17, "AnsPt. Diam.(deg):", 0.1, 5.0, 20, 21);
+	DlgReal(18, "AnsPt. Center Offset(deg):", 0.1, 10.0, 20, 22);
+	DlgReal(19, "AnsPt. Window radius(deg):", 0.1, 10.0, 20, 23);
+    DlgAllow(0, 0, AttentionScriptDialogChanged%);
+	i%:=DlgShow(attNumberOfBlocks%, attTrialsPerBlock%, attCatchTrialPercentage,attBlockAlternate%, 
+                attContrastBase%, attContrastUp%, attContrastDown%,
+                attTrainingContrastCheck%, attTrainingContrastPct%, 
+                attAcquisitionTime, attFixationTime, attHazardMinTime, attHazardExpMeanTime, attTimeToAnswer, 
+                attInterTrialTime, attAbortWaitTime,
+                attAnswerPointDiameter, attAnswerPointOffset, attAnswerPointWindowRadius);
+	if i% = 1 then
+	'	attBackgroundColor$ := bcl$[ibcl%];
+		SaveAttentionScriptParameters();
+	endif;
+	return i%;
+end;
+
+
+func ParseColor%(s$, &r%, &g%, &b%)
+    var status% := -1;
+    var n;
+    ReadSetup("", "/(", "(", ")");
+    n := ReadStr(s$, r%, g%, b%);
+    ReadSetup();
+    if n = 3 then
+        status% := 0;
+    endif
+    return status%;
+end
+
+func EncodeColor$(r%, g%, b%)
+    var s$;
+    s$ := Print$("(%d/%d/%d)", r%, g%, b%);
+    return s$;
+end
+
+
+' Called when items in attention script dialog change. WARNING: The item #s are coded as constants
+' If format of dialog changes then those constants should be changed. 
+
+func AttentionScriptDialogChanged%(item%)
+    var status% := 1;
+    docase
+    case item% = attdlgTrainingContrastCheck% then
+        DlgEnable(DlgValue(attdlgTrainingContrastCheck%), attdlgTrainingContrastPct%);
+    case item% = 0 then
+        DlgEnable(attTrainingContrastCheck%, attdlgTrainingContrastPct%);
+    endcase
+    return status%;
+end
+
+func ColorsDialog%()
+	var i%;
+	var bcl$[4];
 	var ibcl%:=0;
 	GetAttentionScriptParameters();
 	bcl$[0] := "gray";
 	bcl$[1] := "black";
 	bcl$[2] := "white";
-	for i%:=0 to 2 do
-		if attBackgroundColor$ = bcl$[i%] then
-			ibcl% := i%;
-		endif
-	next;
-	DlgCreate("Attention Training Parameters", 25, 10);
+    bcl$[3] := "custom";
+    if InStr(attBackgroundColor$, "(") = 1 then
+        ibcl% := attdlgColorIndexCustom%;
+    else
+        ibcl% := 2;
+        for i%:=0 to 2 do
+            if attBackgroundColor$ = bcl$[i%] then
+                ibcl% := i%;
+            endif
+        next;
+    endif
+    
+	DlgCreate("Attention colors", 25, 10);
+    DlgAllow(0, 0, ColorsDialogChanged%);
+	DlgList(1, "Background color:", bcl$);
+    DlgInteger(2, "Background red (0-255)", 0, 255);
+    DlgInteger(3, "Background green (0-255)", 0, 255);
+    DlgInteger(4, "Background blue (0-255)", 0, 255);
+    DlgCheck(attcolorsdlgCustomGratingColorCheck%, "Custom grating colors");
+    DlgGroup("Stimulus", 1, 6, 35, 7);
+    DlgInteger(attcolorsdlgCustomGratingColorStimFromRed%, "From Red (0-255)", 0, 255, 20, 7);
+    DlgInteger(attcolorsdlgCustomGratingColorStimFromGreen%, "From Green (0-255)", 0, 255, 20, 8);
+    DlgInteger(attcolorsdlgCustomGratingColorStimFromBlue%, "From Blue (0-255)", 0, 255, 20, 9);
+    DlgInteger(attcolorsdlgCustomGratingColorStimToRed%, "To Red (0-255)", 0, 255, 20, 10);
+    DlgInteger(attcolorsdlgCustomGratingColorStimToGreen%, "To Green (0-255)", 0, 255, 20, 11);
+    DlgInteger(attcolorsdlgCustomGratingColorStimToBlue%, "To Blue (0-255)", 0, 255, 20, 12);
+    DlgGroup("Distractor", 1, 13, 35, 7);
+    DlgInteger(attcolorsdlgCustomGratingColorDistractorFromRed%, "From Red (0-255)", 0, 255, 20, 14);
+    DlgInteger(attcolorsdlgCustomGratingColorDistractorFromGreen%, "From Green (0-255)", 0, 255, 20, 15);
+    DlgInteger(attcolorsdlgCustomGratingColorDistractorFromBlue%, "From Blue (0-255)", 0, 255, 20, 16);
+    DlgInteger(attcolorsdlgCustomGratingColorDistractorToRed%, "To Red (0-255)", 0, 255, 20, 17);
+    DlgInteger(attcolorsdlgCustomGratingColorDistractorToGreen%, "To Green (0-255)", 0, 255, 20, 18);
+    DlgInteger(attcolorsdlgCustomGratingColorDistractorToBlue%, "To Blue (0-255)", 0, 255, 20, 19);
+	i% := DlgShow(ibcl%, attBackgroundRed%, attBackgroundGreen%, attBackgroundBlue%, 
+    attCustomGratingColorCheck%, 
+    attCustomGratingColorStimFrom%[0], attCustomGratingColorStimFrom%[1], attCustomGratingColorStimFrom%[2], 
+    attCustomGratingColorStimTo%[0], attCustomGratingColorStimTo%[1], attCustomGratingColorStimTo%[2], 
+    attCustomGratingColorDistractorFrom%[0], attCustomGratingColorDistractorFrom%[1], attCustomGratingColorDistractorFrom%[2], 
+    attCustomGratingColorDistractorTo%[0], attCustomGratingColorDistractorTo%[1], attCustomGratingColorDistractorTo%[2]);
 
-	DlgInteger(1, "Number of Blocks:", 1, 1000);
-	DlgInteger(2, "Trials per block:", 1, 1000);
-	DlgReal(3, "Catch Trial pct (0-100)", 0, 100);
-	DlgCheck(4, "Alternate cue type by block");
-	DlgCheck(5, "Red/Green stim/distractor");
-	DlgCheck(6, "Show single grating");
-	DlgReal(7, "Acquisition time(s):", .01, 10);
-	DlgReal(8, "Fixation time(s):", .01, 10);
-	DlgReal(9, "Hazard min time(s):", 0, 10);
-	DlgReal(10, "Hazard exp mean time(s):", 0, 10);
-	DlgReal(11, "Time to answer(s):", 0.01, 10.0);
-	DlgReal(12, "Intertrial time(s):", .01, 10);
-	DlgReal(13, "Abort wait time(s):", .01, 10);
-	DlgList(14, "Background color:", bcl$);
-	DlgReal(15, "AnsPt. Diam.(deg):", 0.1, 5.0);
-	DlgReal(16, "AnsPt. Center Offset(deg):", 0.1, 10.0);
-	DlgReal(17, "AnsPt. Window radius(deg):", 0.1, 10.0);
-	DlgInteger(18, "Base contrast(%)", 0, 100);
-	DlgInteger(19, "Up contrast(%)", 0, 100);
-	DlgInteger(20, "Down contrast(%)", 0, 100);
-	i%:=DlgShow(attNumberOfBlocks%, attTrialsPerBlock%, attCatchTrialPercentage,attBlockAlternate%, attRedGreen%, attSingleGrating%,
-                attAcquisitionTime, attFixationTime, attHazardMinTime, attHazardExpMeanTime, attTimeToAnswer, 
-                attInterTrialTime, attAbortWaitTime,
-                ibcl%, attAnswerPointDiameter, attAnswerPointOffset, attAnswerPointWindowRadius, 
-                attContrastBase%, attContrastUp%, attContrastDown%);
+	' If user cancelled, reload params
 	if i% = 1 then
-		attBackgroundColor$ := bcl$[ibcl%];
-		SaveAttentionScriptParameters();
-	endif;
+        if ibcl% = attdlgColorIndexCustom% then
+            attBackgroundColor$ := EncodeColor$(attBackgroundRed%, attBackgroundGreen%, attBackgroundBlue%);
+        else
+            attBackgroundColor$ := bcl$[ibcl%];
+        endif
+	endif
+    
 	return 1;
 end;
+
+func ColorsDialogChanged%(item%)
+    var status% := 1;
+    if item% = 0 or item% = attcolorsdlgBackgroundColor% then
+        if DlgValue(attcolorsdlgBackgroundColor%) = 3 then
+            DlgEnable(1, attcolorsdlgBackgroundRed%);
+            DlgEnable(1, attcolorsdlgBackgroundGreen%);
+            DlgEnable(1, attcolorsdlgBackgroundBlue%);
+        else
+            DlgEnable(0, attcolorsdlgBackgroundRed%);
+            DlgEnable(0, attcolorsdlgBackgroundGreen%);
+            DlgEnable(0, attcolorsdlgBackgroundBlue%);
+        endif
+    endif
+    
+    if item% = 0 or item% = attcolorsdlgCustomGratingColorCheck% then
+        DlgEnable(DlgValue(attcolorsdlgCustomGratingColorCheck%), attcolorsdlgCustomGratingColorStimFromRed%);
+        DlgEnable(DlgValue(attcolorsdlgCustomGratingColorCheck%), attcolorsdlgCustomGratingColorStimFromGreen%);
+        DlgEnable(DlgValue(attcolorsdlgCustomGratingColorCheck%), attcolorsdlgCustomGratingColorStimFromBlue%);
+        DlgEnable(DlgValue(attcolorsdlgCustomGratingColorCheck%), attcolorsdlgCustomGratingColorStimToRed%);
+        DlgEnable(DlgValue(attcolorsdlgCustomGratingColorCheck%), attcolorsdlgCustomGratingColorStimToGreen%);
+        DlgEnable(DlgValue(attcolorsdlgCustomGratingColorCheck%), attcolorsdlgCustomGratingColorStimToBlue%);
+        DlgEnable(DlgValue(attcolorsdlgCustomGratingColorCheck%), attcolorsdlgCustomGratingColorDistractorFromRed%);
+        DlgEnable(DlgValue(attcolorsdlgCustomGratingColorCheck%), attcolorsdlgCustomGratingColorDistractorFromGreen%);
+        DlgEnable(DlgValue(attcolorsdlgCustomGratingColorCheck%), attcolorsdlgCustomGratingColorDistractorFromBlue%);
+        DlgEnable(DlgValue(attcolorsdlgCustomGratingColorCheck%), attcolorsdlgCustomGratingColorDistractorToRed%);
+        DlgEnable(DlgValue(attcolorsdlgCustomGratingColorCheck%), attcolorsdlgCustomGratingColorDistractorToGreen%);
+        DlgEnable(DlgValue(attcolorsdlgCustomGratingColorCheck%), attcolorsdlgCustomGratingColorDistractorToBlue%);
+    endif
+    
+    return status%;
+end
 
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
@@ -1374,13 +1568,21 @@ func Start%()
     
     stimSpec$ := GetGratingParameters$("Stimulus");
     distSpec$ := GetGratingParameters$("Distractor1");
-    if attRedGreen% <> 0 then
-        stimSpec$ := ReplaceGratingColorVector$(stimSpec$, "(0/0/0)-(255/0/0)");
-        distSpec$ := ReplaceGratingColorVector$(distSpec$, "(0/0/0)-(0/255/0)");
+    if attCustomGratingColorCheck% = 1 then
+        var f$, t$;
+        f$ := EncodeColor$(attCustomGratingColorStimFrom%[0], attCustomGratingColorStimFrom%[1], attCustomGratingColorStimFrom%[2]);
+        t$ := EncodeColor$(attCustomGratingColorStimTo%[0], attCustomGratingColorStimTo%[1], attCustomGratingColorStimTo%[2]);
+        stimSpec$ := ReplaceGratingColorVector$(stimSpec$, f$ + "-" + t$);
+        f$ := EncodeColor$(attCustomGratingColorDistractorFrom%[0], attCustomGratingColorDistractorFrom%[1], attCustomGratingColorDistractorFrom%[2]);
+        t$ := EncodeColor$(attCustomGratingColorDistractorTo%[0], attCustomGratingColorDistractorTo%[1], attCustomGratingColorDistractorTo%[2]);
+        distSpec$ := ReplaceGratingColorVector$(distSpec$, f$ + "-" + t$);
     endif
 	Stim$ := " -g " + distSpec$ + " -s " + stimSpec$;
 	Contrast$ := " -t " + str$(attContrastDown%) + "," + str$(attContrastBase%) + "," + str$(attContrastUp%);
 	Extras$ := " -b " + attBackgroundColor$ + " -d " + DistanceToScreenMM$ + " -A " + str$(attAnswerPointOffset) + " -D " + str$(attAnswerPointDiameter);
+    if attTrainingContrastCheck% = 1 then
+        Extras$ := Extras$ + " -T " + str$(attTrainingContrastPct%);
+    endif
 	
 	'CommandLine$ := "cmd /c " + bin$ + "\\dAttention " + FixationArg$ + Extras$ + Distractors$;
 	CommandLine$ := "cmd /k " + bin$ + "\\Attention " + FixationArg$ + Extras$ + Stim$ + Contrast$;
