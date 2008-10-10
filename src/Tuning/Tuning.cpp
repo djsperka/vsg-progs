@@ -34,7 +34,7 @@ int m_iSavedContrast = 0;
 bool m_bStimIsOff = true;
 
 int m_screenDistanceMM = 0;
-COLOR_TYPE m_background = gray;
+COLOR_TYPE m_background = {gray, {0,0,0}};
 VSGOBJHANDLE m_handle0;
 VSGOBJHANDLE m_handle1;
 ARGratingSpec m_stim;
