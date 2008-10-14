@@ -87,7 +87,7 @@ int main (int argc, char *argv[])
 
 void do_overlay()
 {
-	COLOR_TYPE background = gray;
+	COLOR_TYPE background = { gray, {0,0,0}};
 	int screenDistanceMM = 555;
 	string stmp;
 	int iPage;
@@ -215,7 +215,7 @@ void do_overlay()
 		}
 		else if (s == "L")
 		{
-			gr.cv = l_cone;
+			gr.cv.type =  l_cone;
 
 			// swap pages...
 //			iPage = 1 - iPage;
@@ -284,7 +284,7 @@ void do_overlay()
 
 void do_no_overlay()
 {
-	COLOR_TYPE background = gray;
+	COLOR_TYPE background = { gray, {0,0,0}};
 	int screenDistanceMM = 555;
 	string stmp;
 
@@ -392,7 +392,7 @@ void do_no_overlay()
 
 void do_init_video_pages()
 {
-	COLOR_TYPE background = gray;
+	COLOR_TYPE background = { gray, {0,0,0}};
 	int screenDistanceMM = 555;
 
 	// INit vsg
@@ -462,7 +462,7 @@ void init_vp_after(int ipage, void *data)
 
 void do_move_screen()
 {
-	COLOR_TYPE background = gray;
+	COLOR_TYPE background = { gray, {0,0,0}};
 	int screenDistanceMM = 555;
 	string stmp;
 
@@ -567,7 +567,7 @@ void init_coolmouse_test_after(int ipage, void *pgrating)
 
 void do_overlay_coolmouse_test()
 {
-	COLOR_TYPE background = gray;
+	COLOR_TYPE background = { gray, {0,0,0}};
 	int screenDistanceMM = 555;
 	string stmp;
 
