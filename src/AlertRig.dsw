@@ -138,7 +138,22 @@ Package=<4>
 
 ###############################################################################
 
-Project: "Measure"=.\Measure\Measure.dsp - Package Owner=<4>
+Project: "Measure"=.\MultiGrating\Measure\Measure.dsp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name alertlib
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "MultiGrating"=.\MultiGrating\MultiGrating.dsp - Package Owner=<4>
 
 Package=<5>
 {{{
