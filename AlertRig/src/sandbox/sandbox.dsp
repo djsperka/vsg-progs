@@ -92,6 +92,10 @@ SOURCE=.\alertmseq.cpp
 # End Source File
 # Begin Source File
 
+SOURCE=.\attention.cpp
+# End Source File
+# Begin Source File
+
 SOURCE=.\fixation.cpp
 # PROP Exclude_From_Build 1
 # End Source File
@@ -102,9 +106,15 @@ SOURCE=.\main.cpp
 # End Source File
 # Begin Source File
 
+SOURCE=.\sandbox.bat
+# End Source File
+# Begin Source File
+
 SOURCE=.\Tuning.cpp
 
 !IF  "$(CFG)" == "sandbox - Win32 Release"
+
+# PROP Exclude_From_Build 1
 
 !ELSEIF  "$(CFG)" == "sandbox - Win32 Debug"
 
@@ -115,6 +125,10 @@ SOURCE=.\Tuning.cpp
 # Begin Group "Header Files"
 
 # PROP Default_Filter "h;hpp;hxx;hm;inl"
+# Begin Source File
+
+SOURCE=.\attention.h
+# End Source File
 # Begin Source File
 
 SOURCE=.\fixation.h

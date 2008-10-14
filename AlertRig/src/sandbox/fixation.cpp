@@ -9,6 +9,7 @@
 
 #include "vsgv8.h"
 #include "Alertlib.h"
+#include "AlertUtil.h"
 
 #ifdef _DEBUG
 #pragma comment(lib, "dalert.lib")
@@ -224,6 +225,7 @@ void init_triggers()
 {
 	triggers.addTrigger(new PageTrigger("0", 0x2, 0x0, 0xff, 0x0, 0));
 	triggers.addTrigger(new PageTrigger("1", 0x2, 0x2, 0xff, 0x2, 1));
+	triggers.addTrigger(new PageTrigger("2", 0x4, 0x4, 0xff, 0x4, 2));
 	triggers.addTrigger(new QuitTrigger("q", 0x40, 0x40, 0xff, 0x0, 0));
 
 
@@ -241,6 +243,12 @@ void init_triggers()
 int init_pages()
 {
 	int status=0;
+	PIXEL_LEVEL black_level;
+
+	alert::LevelManager::instance().request_single(black_level);
+	arutil_color_to_palette(black, black_level);
+
+	vsgSetDrawPage(vsgVIDEOPAGE, BLACK_PAGE, black_level);
 	vsgSetDrawPage(vsgVIDEOPAGE, STIMULUS_PAGE, vsgNOCLEAR);
 
 	if (m_distractors.size() > 0)
