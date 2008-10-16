@@ -1,4 +1,4 @@
-// $Id: main.cpp,v 1.2 2005-11-23 02:05:48 dan Exp $
+// $Id: main.cpp,v 1.3 2008-10-16 23:42:39 devel Exp $
 //
 //
 #include "vsgv8.h"
@@ -17,7 +17,7 @@ using namespace std;
 
 int main(int argc, char **argv)
 {
-	COLOR_TYPE background = gray;
+	COLOR_TYPE background = {gray, {0, 0, 0}};
 	double dist=999;
 
 	// INit vsg
