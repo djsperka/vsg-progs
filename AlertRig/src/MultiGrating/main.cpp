@@ -79,7 +79,8 @@ int main (int argc, char *argv[])
 
 
 	// init and draw gratings
-	islice = 240/f_nGratings;
+//	islice = 240/f_nGratings;
+	islice = 120/f_nGratings;
 
 	for (i=0; i<f_nGratings; i++)
 	{
@@ -123,6 +124,8 @@ int main (int argc, char *argv[])
 			vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, tf.output_trigger(), 0);
 			vsgPresent();
 		}
+
+		Sleep(500);
 	}
 
 	ARvsg::instance().clear();
