@@ -53,6 +53,7 @@ func NextKeyOrText(tstart, &val$, ignore$)
         tfound := tKey;
         val$ := Chr$(iKeyCode%[0]);
     else
+        'PrintLog("Found both tstart=" + str$(tstart) + " tText=" + str$(tText) + " tKey=" + str$(tKey) + "\n");
         if tKey < tText then
             tfound := tKey;
             val$ := Chr$(iKeyCode%[0]);
@@ -72,6 +73,7 @@ end
 ' Find the first occurrence of a trigger transition in channel chan% after the time tstart with the 
 ' transition value 'transval'. The transval value should be 0 (1) for a positive-going (negative-going) 
 ' transition. Returns the time of the trigger, or -1 if no such trigger found. 
+' Modified 11-05-08 djs. transval value of 2 means to accept any transition (regardless of transition type). 
 
 func NextTriggerTransition(chan%, tstart, transval)
 	var t, tlast;
@@ -82,7 +84,7 @@ func NextTriggerTransition(chan%, tstart, transval)
 	tlast := tstart;
 	t := NextTime(chan%, tlast, transition);
 	while (t >= 0 and iBreak%=0) do
-		if (transition = transval) then
+		if (transval = 2 or transition = transval) then
 			tfound := t;
 			iBreak% := 1;
 		else
