@@ -22,26 +22,31 @@ in the same directory as the data file.
 The text file has one trial per line, where a "trial" is any trial which is 
 started. A portion of an extract file is shown below. 
 
-1	2	7.001	8.422	8	16	9.143	-1	0.221
-2	2	10.114	11.414	0	0	-1.000	0	-1.000
-3	1	13.870	-1.000	0	0	-1.000	0	-1.000
-4	1	16.104	17.097	0	0	-1.000	0	-1.000
-5	1	19.303	20.688	0	0	-1.000	0	-1.000
-6	1	22.916	23.994	4	16	24.800	-1	0.209
+1	10.1804	2	11.451	12.701	8	32	13.672	0	-1.000
+2	18.1839	1	19.433	20.704	4	32	23.074	0	-1.000
+3	27.8080	2	29.086	30.350	8	16	31.057	0	-1.000
+4	35.7758	1	37.068	38.332	4	32	41.345	1	1.386
+5	44.9145	2	46.228	47.506	8	32	48.056	0	-1.000
+6	52.7324	1	54.003	55.274	4	32	55.967	0	-1.000
+7	60.7001	2	62.007	63.278	8	32	64.527	1	1.678
+8	68.3181	2	69.568	70.824	8	16	72.216	1	1.321
+9	75.8004	1	77.121	78.363	4	32	79.220	-1	1.421
+10	82.8115	1	84.082	85.346	4	16	86.296	1	1.573
 
-Each line has 9 columns (tab separated). The values are
+Each line has 10 columns (tab separated). The values are
 
 column   value(s)
 ------   --------
 1        trial number
-2        cue type: towards (1) or away (2)
-3        cue (fixation point) onset time (time of first frame when fix pt appears)
-4        stimulus time (time of first frame when stim/distractor appear) [ -1 = aborted trial]
-5        change type: stimulus (4) or distractor (8) will change contrast [0 = aborted trial]
-6        contrast up (16) or down (32) [0 = aborted trial]
-7        contrast change time [-1 = aborted trial]
-8        response correct (1) or incorrect (-1) [0 = aborted trial]
-9        response time [-1 = aborted trial]
+2        cue (white point) onset time (time of first frame when white pt appears)
+3        cue type: towards (1) or away (2)
+4        cue (fixation point) onset time (time of first frame when fix pt appears)
+5        stimulus time (time of first frame when stim/distractor appear) [ -1 = aborted trial]
+6        change type: stimulus (4) or distractor (8) will change contrast [0 = aborted trial]
+7        contrast up (16) or down (32) [0 = aborted trial]
+8        contrast change time [-1 = aborted trial]
+9        response correct (1) or incorrect (-1) [0 = aborted trial]
+10       response time [-1 = aborted trial]
 
 
 Analysis tips
