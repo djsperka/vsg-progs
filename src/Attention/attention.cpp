@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 #include <algorithm>
+#include <cmath>
 #define __GNU_LIBRARY__
 #include "getopt.h"
 #undef __GNU_LIBRARY__
@@ -26,6 +27,13 @@ using namespace alert;
 
 ARContrastFixationPointSpec m_spec_fixpt;
 ARContrastFixationPointSpec m_spec_anspt_up, m_spec_anspt_down;
+ARContrastCircleSpec m_spec_stim_circle, m_spec_dist_circle;
+ARContrastLineSpec m_spec_stim_line;
+ARContrastLineSpec m_spec_dist_line;
+double m_circle_diameter_differential = 0.1;
+double m_cue_line_fraction = 0.75;
+int m_iLollipopContrast = 100;
+bool m_bLollipops = false;
 double m_anspt_offset_degrees = 5;
 double m_anspt_diameter_degrees = 0.5;
 COLOR_TYPE m_background;
@@ -43,6 +51,14 @@ int m_iContrastDown=0;
 int m_iContrastBase=50;
 int m_iContrastUp=100;
 bool m_bFStimulus;
+
+
+
+
+
+
+
+
 
 static void usage();
 static int init_pages();
@@ -158,7 +174,7 @@ int args(int argc, char **argv)
 	extern int optind;
 	int errflg = 0;
 	ARGratingSpec agtemp;
-	while ((c = getopt(argc, argv, "f:b:g:hd:vas:t:A:D:T:")) != -1)
+	while ((c = getopt(argc, argv, "f:b:g:hd:vas:t:A:D:T:c:l:p:L")) != -1)
 	{
 		switch (c) 
 		{
@@ -222,6 +238,33 @@ int args(int argc, char **argv)
 		case 'D':
 			s.assign(optarg);
 			if (parse_double(s, m_anspt_diameter_degrees)) errflg++;
+			break;
+		case 'c':
+			s.assign(optarg);
+			if (parse_double(s, m_circle_diameter_differential)) 
+			{
+				cerr << "Bad circle diameter differential: " << s << endl;
+				errflg++;
+			}
+			break;
+		case 'l':
+			s.assign(optarg);
+			if (parse_double(s, m_cue_line_fraction)) 
+			{
+				cerr << "Bad cue line fraction: " << s << endl;
+				errflg++;
+			}
+			break;
+		case 'p':
+			s.assign(optarg);
+			if (parse_integer(s, m_iLollipopContrast)) 
+			{
+				cerr << "Bad lollipop contrast value: " << s << endl;
+				errflg++;
+			}
+			break;
+		case 'L':
+			m_bLollipops = true;
 			break;
 		case 'h':
 			errflg++;
@@ -312,6 +355,10 @@ int callback(int &output, const CallbackTrigger* ptrig)
 	int ival=1;
 	VSGTRIVAL from, to;
 	string key = ptrig->getKey();
+
+
+	cout << "callback: key " << ptrig->getKey() << endl;
+
 	if (key == "S")
 	{
 		m_spec_anspt_up.setContrast(100); 
@@ -383,7 +430,13 @@ int callback(int &output, const CallbackTrigger* ptrig)
 		vsgObjSetColourVector(&from, &from, vsgBIPOLAR);
 		m_spec_distractor.select();
 		vsgObjSetColourVector(&from, &from, vsgBIPOLAR);
-
+		if (m_bLollipops)
+		{
+			m_spec_stim_circle.setContrast(0);
+			m_spec_dist_circle.setContrast(0);
+			m_spec_stim_line.setContrast(0);
+			m_spec_dist_line.setContrast(0);
+		}
 	}
 	else if (key == "X")
 	{
@@ -396,34 +449,77 @@ int callback(int &output, const CallbackTrigger* ptrig)
 		vsgObjSetColourVector(&from, &from, vsgBIPOLAR);
 		m_spec_distractor.select();
 		vsgObjSetColourVector(&from, &from, vsgBIPOLAR);
+		if (m_bLollipops)
+		{
+			m_spec_stim_circle.setContrast(0);
+			m_spec_dist_circle.setContrast(0);
+			m_spec_stim_line.setContrast(0);
+			m_spec_dist_line.setContrast(0);
+		}
 	}
 	else if (key == "F")
 	{
-//		m_spec_fixpt.color.type = red;
-//		m_spec_fixpt.draw();
 		get_color(m_background, from);
 		to.a = 1; to.b = to.c = 0;
 		m_spec_fixpt.select();
 		vsgObjSetColourVector(&from, &to, vsgUNIPOLAR);
 		m_spec_fixpt.setContrast(100);
 		m_bFStimulus = true;
+
+		if (m_bLollipops)
+		{
+			m_spec_stim_circle.setContrast(m_iLollipopContrast);
+			m_spec_dist_circle.setContrast(m_iLollipopContrast);
+			m_spec_stim_line.setContrast(m_iLollipopContrast);
+		}
 	}
 	else if (key == "f")
 	{
 		m_spec_fixpt.setContrast(0);
+		if (m_bLollipops)
+		{
+			m_spec_stim_circle.setContrast(0);
+			m_spec_dist_circle.setContrast(0);
+			m_spec_stim_line.setContrast(0);
+			m_spec_dist_line.setContrast(0);
+		}
 	}
 	else if (key == "G")
 	{
-//		m_spec_fixpt.color.type = green;
-//		m_spec_fixpt.draw();
 		get_color(m_background, from);
 		to.b = 1; to.a = to.c = 0;
 		m_spec_fixpt.select();
 		vsgObjSetColourVector(&from, &to, vsgUNIPOLAR);
 		m_spec_fixpt.setContrast(100);
+		if (m_bLollipops)
+		{
+			m_spec_stim_circle.setContrast(m_iLollipopContrast);
+			m_spec_dist_circle.setContrast(m_iLollipopContrast);
+			m_spec_dist_line.setContrast(m_iLollipopContrast);
+		}
 		m_bFStimulus = false;
 	}
 	else if (key == "g")
+	{
+		m_spec_fixpt.setContrast(0);
+		if (m_bLollipops)
+		{
+			m_spec_stim_circle.setContrast(0);
+			m_spec_dist_circle.setContrast(0);
+			m_spec_stim_line.setContrast(0);
+			m_spec_dist_line.setContrast(0);
+		}
+	}
+	else if (key == "W")
+	{
+		get_color(m_background, from);
+		to.a = to.b = to.c = 1;
+		m_spec_fixpt.select();
+		vsgObjSetColourVector(&from, &to, vsgUNIPOLAR);
+		m_spec_fixpt.setContrast(100);
+		//m_bFStimulus = false;
+	}
+	else if (key == "w")
 	{
 		m_spec_fixpt.setContrast(0);
 	}
@@ -454,7 +550,9 @@ int init_pages()
 	ContrastTrigger *ptrigDistractorUP = NULL;
 	ContrastTrigger *ptrigDistractorDOWN = NULL;
 	VSGTRIVAL bg;
-
+	COLOR_TYPE r = { red, {0,0,0} };
+	COLOR_TYPE g = { green, {0,0,0} };
+	std::vector<std::pair<std::string, int> >vecInputs;
 
 	// initialize video pages
 	if (ARvsg::instance().init_video())
@@ -492,49 +590,129 @@ int init_pages()
 	m_spec_anspt_down.setContrast(0);
 
 
-	// triggers for fixation point
-	/* DJS - move these triggers to callback
-	ptrig = new ContrastTrigger("F", 0x2, 0x2, 0x1, 0x1);
-	ptrig->push_back( std::pair<VSGOBJHANDLE, int>(m_spec_fixpt.handle(), 100) );
-	triggers.addTrigger(ptrig);
+	// Lollipops if necessary
+	if (m_bLollipops)
+	{
+		m_spec_stim_circle.x = m_spec_stimulus.x;
+		m_spec_stim_circle.y = m_spec_stimulus.y;
+		m_spec_stim_circle.d = m_spec_stimulus.w + m_circle_diameter_differential;	// assuming circular stim....
+		m_spec_stim_circle.color = r;
+		m_spec_stim_circle.init(2);
+		m_spec_stim_circle.draw();
+		m_spec_stim_circle.setContrast(0);
 
-	ptrig = new ContrastTrigger("f", 0x2, 0x0, 0x1, 0x0);
-	ptrig->push_back( std::pair<VSGOBJHANDLE, int>(m_spec_fixpt.handle(), 0) );
-	triggers.addTrigger(ptrig);
+		m_spec_dist_circle.x = m_spec_distractor.x;
+		m_spec_dist_circle.y = m_spec_distractor.y;
+		m_spec_dist_circle.d = m_spec_distractor.w + m_circle_diameter_differential;	// assuming circular stim....
+		m_spec_dist_circle.color = g;
+		m_spec_dist_circle.init(2);
+		m_spec_dist_circle.draw();
+		m_spec_dist_circle.setContrast(0);
+
+		// Stimulus line
+		double v[2];
+		double dtotal;
+
+		m_spec_stim_line.x0 = 0;
+		m_spec_stim_line.y0 = 0;
+		m_spec_stim_line.x1 = 0;
+		m_spec_stim_line.y1 = 0;
+		m_spec_stim_line.color = r;
+
+		v[0] = m_spec_fixpt.x - m_spec_stimulus.x;
+		v[1] = -1*(m_spec_fixpt.y - m_spec_stimulus.y);
+		dtotal = sqrt(v[0]*v[0] + v[1]*v[1]);
+		if (dtotal > 0)
+		{
+			v[0] = v[0]/dtotal;
+			v[1] = v[1]/dtotal;
+			m_spec_stim_line.x0 = m_spec_stimulus.x + v[0] * (m_spec_stimulus.w + m_circle_diameter_differential)/2;
+			m_spec_stim_line.y0 = -m_spec_stimulus.y + v[1] * (m_spec_stimulus.w + m_circle_diameter_differential)/2;
+			m_spec_stim_line.x1 = m_spec_stim_line.x0 + v[0] * (dtotal - m_spec_stimulus.w/2 - m_spec_fixpt.d/2 - m_circle_diameter_differential/2) * m_cue_line_fraction;
+			m_spec_stim_line.y1 = m_spec_stim_line.y0 + v[1] * (dtotal - m_spec_stimulus.w/2 - m_spec_fixpt.d/2 - m_circle_diameter_differential/2) * m_cue_line_fraction;
+		}
+		m_spec_stim_line.init(2);
+		m_spec_stim_line.draw();
+		m_spec_stim_line.setContrast(0);
+
+		m_spec_dist_line.x0 = 0;
+		m_spec_dist_line.y0 = 0;
+		m_spec_dist_line.x1 = 0;
+		m_spec_dist_line.y1 = 0;
+		m_spec_dist_line.color = g;
+
+		v[0] = m_spec_fixpt.x - m_spec_distractor.x;
+		v[1] = -1*(m_spec_fixpt.y - m_spec_distractor.y);
+		dtotal = sqrt(v[0]*v[0] + v[1]*v[1]);
+		if (dtotal > 0)
+		{
+			v[0] = v[0]/dtotal;
+			v[1] = v[1]/dtotal;
+			m_spec_dist_line.x0 = m_spec_distractor.x + v[0] * (m_spec_distractor.w + m_circle_diameter_differential)/2;
+			m_spec_dist_line.y0 = -m_spec_distractor.y + v[1] * (m_spec_distractor.w + m_circle_diameter_differential)/2;
+			m_spec_dist_line.x1 = m_spec_dist_line.x0 + v[0] * (dtotal - m_spec_distractor.w/2 - m_spec_fixpt.d/2 - m_circle_diameter_differential/2) * m_cue_line_fraction;
+			m_spec_dist_line.y1 = m_spec_dist_line.y0 + v[1] * (dtotal - m_spec_distractor.w/2 - m_spec_fixpt.d/2 - m_circle_diameter_differential/2) * m_cue_line_fraction;
+		}
+		m_spec_dist_line.init(2);
+		m_spec_dist_line.draw();
+		m_spec_dist_line.setContrast(0);
+
+	}
+
+
+	// triggers for fixation point
+	/*
+	triggers.addTrigger(new CallbackTrigger("F", 0x2, 0x2, 0x1, 0x1, callback));
+	triggers.addTrigger(new CallbackTrigger("f", 0x2, 0x0, 0x1, 0x0, callback));
+	triggers.addTrigger(new CallbackTrigger("G", 0x4, 0x4, 0x1, 0x1, callback));
+	triggers.addTrigger(new CallbackTrigger("g", 0x4, 0x0, 0x1, 0x0, callback));
+	triggers.addTrigger(new CallbackTrigger("W", 0x10, 0x10, 0x4, 0x4, callback));
+	triggers.addTrigger(new CallbackTrigger("w", 0x10, 0x0, 0x4, 0x0, callback));
 	*/
 
-	triggers.addTrigger(new CallbackTrigger("F", 0x2, 0x2, 0x1, 0x1, callback));
-	triggers.addTrigger(new CallbackTrigger("f", 0x2, 0x0, 0x1, 0x1, callback));
-	triggers.addTrigger(new CallbackTrigger("G", 0x4, 0x4, 0x1, 0x1, callback));
-	triggers.addTrigger(new CallbackTrigger("g", 0x4, 0x0, 0x1, 0x1, callback));
+	vecInputs.push_back(std::pair< string, int>("F", 0x2));
+	//vecInputs.push_back(std::pair< string, int>("f", 0x16));
+	vecInputs.push_back(std::pair< string, int>("X", 0x16));
+	vecInputs.push_back(std::pair< string, int>("G", 0x4));
+	//vecInputs.push_back(std::pair< string, int>("g", 0x0));	// this will likely get ignored
+	vecInputs.push_back(std::pair< string, int>("W", 0x10));
+	//vecInputs.push_back(std::pair< string, int>("w", 0x0));	// this too
+	triggers.push_back(new MultiInputSingleOutputCallbackTrigger(vecInputs, 0x16, 0x1, 0x1 | AR_TRIGGER_TOGGLE, callback));
 
 	
+
+
 	// trigger to turn stim, distractor and answer points ON
 	triggers.addTrigger(new CallbackTrigger("S", 0x8, 0x8, 0x2, 0x2, callback));
 
 	// trigger to turn stimand distractor OFF (answer points remain on)
-	triggers.addTrigger(new CallbackTrigger("s", 0x8, 0x0, 0x2, 0x2, callback));
+	triggers.addTrigger(new CallbackTrigger("s", 0x8, 0x0, 0x2, 0x0, callback));
 
 	// trigger to turn stim, distractor, answer points and fixation point OFF
-	triggers.addTrigger(new CallbackTrigger("X", 0xE, 0x0, 0xb, 0x0, callback));
+	//triggers.addTrigger(new CallbackTrigger("X", 0xE, 0x0, 0xb, 0x0, callback));
+	triggers.addTrigger(new CallbackTrigger("X", 0x16, 0x16, 0xa, 0x0, callback));
 
 	// trigger to turn stim contrast UP
-	ptrigStimUP = new ContrastTrigger("C", 0xf0, 0x10, 0x8, 0x8);
+	//ptrigStimUP = new ContrastTrigger("C", 0xf0, 0x10, 0x8, 0x8);
+	ptrigStimUP = new ContrastTrigger("C", 0xe0, 0x20, 0x8, 0x8);
 	ptrigStimUP->push_back( std::pair<VSGOBJHANDLE, int>(m_spec_stimulus.handle(), m_iContrastUp) );
 	triggers.addTrigger(ptrigStimUP);
 
 	// trigger to turn stim contrast DOWN
-	ptrigStimDOWN = new ContrastTrigger("c", 0xf0, 0x20, 0x8, 0x8);
+	//ptrigStimDOWN = new ContrastTrigger("c", 0xf0, 0x20, 0x8, 0x8);
+	ptrigStimDOWN = new ContrastTrigger("c", 0xe0, 0x40, 0x8, 0x8);
 	ptrigStimDOWN->push_back( std::pair<VSGOBJHANDLE, int>(m_spec_stimulus.handle(), m_iContrastDown) );
 	triggers.addTrigger(ptrigStimDOWN);
 
 	// trigger to turn distractor contrast UP
-	ptrigDistractorUP = new ContrastTrigger("D", 0xf0, 0x40, 0x8, 0x8);
+	//ptrigDistractorUP = new ContrastTrigger("D", 0xf0, 0x40, 0x8, 0x8);
+	ptrigDistractorUP = new ContrastTrigger("D", 0xe0, 0x60, 0x8, 0x8);
 	ptrigDistractorUP->push_back( std::pair<VSGOBJHANDLE, int>(m_spec_distractor.handle(), m_iContrastUp) );
 	triggers.addTrigger(ptrigDistractorUP);
 
 	// trigger to turn distractor contrast DOWN
-	ptrigDistractorDOWN = new ContrastTrigger("d", 0xf0, 0x80, 0x8, 0x8);
+	//ptrigDistractorDOWN = new ContrastTrigger("d", 0xf0, 0x80, 0x8, 0x8);
+	ptrigDistractorDOWN = new ContrastTrigger("d", 0xe0, 0x80, 0x8, 0x8);
 	ptrigDistractorDOWN->push_back( std::pair<VSGOBJHANDLE, int>(m_spec_distractor.handle(), m_iContrastDown) );
 	triggers.addTrigger(ptrigDistractorDOWN);
 
