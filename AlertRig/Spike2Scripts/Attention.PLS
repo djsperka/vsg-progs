@@ -1,17 +1,4 @@
-; $Log: not supported by cvs2svn $
-; Revision 1.4  2008-09-19 21:57:31  devel
-; Add key for turning stim off "s"
-;
-; Revision 1.3  2008-02-13 23:18:44  devel
-; Beta version for Farran's Attention Task.
-;
-; Revision 1.2  2005/03/18 19:37:14  dan
-; Almost there!
-;
-; Revision 1.1  2004/10/01 20:06:10  dan
-; Modified directory locations for executables (../bin) and sequencer files (script dir)
-;
-;
+; $Id: Attention.PLS,v 1.6 2008-11-06 02:08:47 devel Exp $
 
             SET      1.000 1 0     ;Get rate & scaling OK
 
