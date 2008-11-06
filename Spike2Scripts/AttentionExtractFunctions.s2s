@@ -20,6 +20,7 @@ var attxIResponse% := 0;
 const responseNone% := 0;
 const responseCorrect% := 1;
 const responseIncorrect% := -1;
+var attxWCueTime := -1;
 var attxFCueTime := -1;
 var attxFStimTime := -1;
 var attxFChangeTime := -1;
@@ -27,12 +28,14 @@ var attxFRxTime := -1;
 
 ' state related vars and consts
 const attxstateStart% := 1;
+const attxstateWhtPt% := 9;
 const attxstateFixPt% := 2;
 const attxstateStim% := 3;
 const attxstateChange% := 4;
 const attxstateAbort% := 5;
 const attxstateError% := 6;
 const attxstateDone% := 7;
+const attxstateAnswer% := 8;
 var attxIState% := attxstateStart%;
 
 ' Counters
@@ -71,18 +74,29 @@ func AttentionExtract%(tEnd)
 
     tFound := NextKeyOrText(attxTLast, sFound$, sIgnore$);
     while tFound >= 0 and (tEnd < 0 or (tEnd > 0 and tFound <= tEnd)) and attxIState% <> attxstateError% do
-'    while tFound >= 0 and attxIState% <> attxstateError% do
 
         docase
         case attxIState% = attxstateStart% then
-            attxIState% := attxstateFixPt%;
-            attxFCueTime := GetTriggerTimeFor(sFound$, tFound);
             attxITrial% += 1;
+            if sFound$ = "W" then
+                attxWCueTime := GetTriggerTimeFor(sFound$, tFound);
+                attxIState% := attxstateWhtPt%;
+            else
+                ' Error
+                PrintLog("error expect W got %s\n", sFound$);
+                attxIState% := attxstateError%;
+            endif
+            
+        case attxIState% = attxstateWhtPt% then
             docase
             case sFound$ = "F" then
                 attxICueType% := cuetypeTowards%;
+                attxIState% := attxstateFixPt%;
+                attxFCueTime := GetTriggerTimeFor(sFound$, tFound);
             case sFound$ = "G" then
                 attxICueType% := cuetypeAway%;
+                attxIState% := attxstateFixPt%;
+                attxFCueTime := GetTriggerTimeFor(sFound$, tFound);
             else
                 ' Error
                 PrintLog("error expect FG got %s\n", sFound$);
@@ -131,12 +145,20 @@ func AttentionExtract%(tEnd)
             docase
             case sFound$ = "+" then
                 attxIResponse% := responseCorrect%;
-                attxIState% := attxstateDone%;
+                attxIState% := attxstateAnswer%;
                 attxFRxTime := tFound - attxFChangeTime;
             case sFound$ = "-" then
                 attxIResponse% := responseIncorrect%;
-                attxIState% := attxstateDone%;
+                attxIState% := attxstateAnswer%;
                 attxFRxTime := tFound - attxFChangeTime;
+            case sFound$ = "X" then
+                attxIState% := attxstateAbort%;
+            else
+                'TODO ERROR
+                attxIState% := attxstateError%;
+            endcase
+        case attxIState% = attxstateAnswer% then
+            docase
             case sFound$ = "X" then
                 attxIState% := attxstateAbort%;
             else
@@ -247,12 +269,13 @@ proc FlushState()
 
     
     ' Dump this trial to the log and output file if it exists.
-    s$ := Print$("%d\t%d\t%.3f\t%.3f\t%d\t%d\t%.3f\t%d\t%.3f\n", attxITrial%, attxICueType%, attxFCueTime, attxFStimTime, attxIChangeType%, attxIUpDown%, attxFChangeTime, attxIResponse%, attxFRxTime);
+    s$ := Print$("%d\t%.4f\t%d\t%.3f\t%.3f\t%d\t%d\t%.3f\t%d\t%.3f\n", attxITrial%, attxWCueTime, attxICueType%, attxFCueTime, attxFStimTime, attxIChangeType%, attxIUpDown%, attxFChangeTime, attxIResponse%, attxFRxTime);
     View(LogHandle()).Print(s$);
     if attxOutputHandle >= 0 then
         View(attxOutputHandle).Print(s$);
     endif
     attxICueType% := 0;
+    attxWCueTime := -1;
     attxFCueTime := -1;
     attxFStimTime := -1;
     attxIChangeType% := 0;
@@ -287,8 +310,8 @@ end
 func GetTriggerTimeFor(key$, tKey)
     var tFound := -99;
     docase
-    case key$ = "F" or key$ = "G" then
-        tFound := NextTriggerTransition(5, tKey, 0);
+    case key$ = "F" or key$ = "G" or key$ = "W" then
+        tFound := NextTriggerTransition(5, tKey, 2);
     case key$ = "S" then
         tFound := NextTriggerTransition(6, tKey, 0);
     case key$ = "C" or key$ = "D" or key$ = "c" or key$ = "d" then
