@@ -1,4 +1,4 @@
-' $Id: Attention.s2s,v 1.19 2008-10-06 21:06:10 devel Exp $
+' $Id: Attention.s2s,v 1.20 2008-11-06 02:02:06 devel Exp $
 '
 
 #include "AttentionExtractFunctions.s2s"
@@ -386,8 +386,12 @@ var attContrastBase%;
 var attContrastUp%;
 var attContrastDown%;
 var attFixationTime;
+var attWhitePointTime;          ' xxxxx
+var attFixationCueMinTime;      ' xxxxx
+var attFixationCueMaxTime;      ' xxxxx
 var attHazardMinTime;
 var attHazardExpMeanTime;
+var attHazardCutoffTime;
 var attAcquisitionTime;
 var attInterTrialTime;
 var attTimeToAnswer;
@@ -401,6 +405,11 @@ var attCustomGratingColorStimFrom%[3];
 var attCustomGratingColorStimTo%[3];
 var attCustomGratingColorDistractorFrom%[3];
 var attCustomGratingColorDistractorTo%[3];
+
+var attLollipopCheck%;
+var attCueLinePct;
+var attCircleDiameterDiff;
+var attLollipopContrast%;
 
 ' Counter vars for attention script
 var attCountAllTrials% := 0;
@@ -417,8 +426,19 @@ var attCountAwayTrialsIncorrect% := 0;
 var attCountAwayTrialsAbort% := 0;
 
 ' constants for dialog and check functio
-var attdlgTrainingContrastCheck% := 8;
-var attdlgTrainingContrastPct% := 9;
+const attdlgTrainingContrastCheck% := 8;
+const attdlgTrainingContrastPct% := 9;
+const attdlgLollipopCheck% := 10;
+const attdlgCueLinePct% := 11;
+const attdlgCircleDiameterDiff% := 12;
+const attdlgLollipopContrast% := 13;
+
+' constants for timing dialog
+const atttimingdlgFixationCueMinTime% := 3;
+const atttimingdlgFixationCueMaxTime% := 4;
+const atttimingdlgHazardMinTime% := 5;
+const atttimingdlgHazardExpMeanTime% := 6;
+const atttimingdlgHazardCutoffTime% := 7;
 
 ' constants for color dialog
 var attdlgColorIndexGray% := 0;
@@ -476,14 +496,23 @@ proc GetAttentionScriptParameters()
 	Profile(key$, "AnswerPointWindowRadius", "2.0", stmp$);
 	attAnswerPointWindowRadius := val(stmp$);
 
-	Profile(key$, "FixationTime", "1.0", stmp$);
-	attFixationTime := val(stmp$);
-
+	Profile(key$, "FixationCueMinTime", "1.0", stmp$);
+	attFixationCueMinTime := val(stmp$);
+    
+	Profile(key$, "FixationCueMaxTime", "1.0", stmp$);
+	attFixationCueMaxTime := val(stmp$);
+    
+	Profile(key$, "WhitePointTime", "1.0", stmp$);
+	attWhitePointTime := val(stmp$);
+    
 	Profile(key$, "HazardMinTime", "0.5", stmp$);
 	attHazardMinTime := val(stmp$);
 
 	Profile(key$, "HazardExpMeanTime", "1.0", stmp$);
 	attHazardExpMeanTime := val(stmp$);
+    
+   	Profile(key$, "HazardCutoffTime", "5.0", stmp$);
+	attHazardCutoffTime := val(stmp$);
 
 	Profile(key$, "AcquisitionTime", "1.0", stmp$);
 	attAcquisitionTime := val(stmp$);
@@ -511,6 +540,13 @@ proc GetAttentionScriptParameters()
     Profile(key$, "CustomGratingColorsDistractorToGreen", 255, attCustomGratingColorDistractorTo%[1]);
     Profile(key$, "CustomGratingColorsDistractorToBlue", 255, attCustomGratingColorDistractorTo%[2]);
     
+	Profile(key$, "LollipopCheck", 0, attLollipopCheck%);
+	Profile(key$, "CueLinePct", "100.0", stmp$);
+    attCueLinePct := val(stmp$);
+    Profile(key$, "CircleDiameterDiff", "0.1", stmp$);
+    attCircleDiameterDiff := val(stmp$);
+    Profile(key$, "LollipopContrast", 100, attLollipopContrast%);
+    
 end;
 
 proc SaveAttentionScriptParameters()
@@ -528,9 +564,12 @@ proc SaveAttentionScriptParameters()
 	Profile(key$, "ContrastBase", attContrastBase%);
 	Profile(key$, "ContrastUp", attContrastUp%);
 	Profile(key$, "ContrastDown", attContrastDown%);
-	Profile(key$, "FixationTime", str$(attFixationTime));
+	Profile(key$, "FixationCueMinTime", str$(attFixationCueMinTime));
+	Profile(key$, "FixationCueMaxTime", str$(attFixationCueMaxTime));
+	Profile(key$, "WhitePointTime", str$(attWhitePointTime));
 	Profile(key$, "HazardMinTime", str$(attHazardMinTime));
 	Profile(key$, "HazardExpMeanTime", str$(attHazardExpMeanTime));
+    Profile(key$, "HazardCutoffTime", str$(attHazardCutoffTime));
 	Profile(key$, "AcquisitionTime", str$(attAcquisitionTime));
 	Profile(key$, "AbortWaitTime", str$(attAbortWaitTime));
 	Profile(key$, "InterTrialTime", str$(attInterTrialTime));
@@ -551,7 +590,12 @@ proc SaveAttentionScriptParameters()
     Profile(key$, "CustomGratingColorsDistractorToRed", attCustomGratingColorDistractorTo%[0]);
     Profile(key$, "CustomGratingColorsDistractorToGreen", attCustomGratingColorDistractorTo%[1]);
     Profile(key$, "CustomGratingColorsDistractorToBlue", attCustomGratingColorDistractorTo%[2]);
-
+    
+	Profile(key$, "LollipopCheck", attLollipopCheck%);
+	Profile(key$, "CueLinePct", str$(attCueLinePct));
+    Profile(key$, "CircleDiameterDiff", str$(attCircleDiameterDiff));
+    Profile(key$, "LollipopContrast", attLollipopContrast%);
+    
 	end;
 
 func AttentionScriptDialog%()
@@ -570,25 +614,17 @@ func AttentionScriptDialog%()
 	DlgCheck(attdlgTrainingContrastCheck%, "Training Contrast", 2, 9);
 	DlgInteger(attdlgTrainingContrastPct%, "Training Contrast(%)", 0, 100, 20, 10);
     DlgButton(2, "Colors", ColorsDialog%, 1, 12);
-    DlgGroup("Timing", 1, 13, 35, 11);
-	DlgReal(10, "Acquisition time(s):", .01, 10, 20, 14);
-	DlgReal(11, "Fixation time(s):", .01, 10, 20, 15);
-	DlgReal(12, "Hazard min time(s):", 0, 10, 20, 16);
-	DlgReal(13, "Hazard exp mean time(s):", 0, 10, 20, 17);
-	DlgReal(14, "Time to answer(s):", 0.01, 10.0, 20, 18);
-	DlgReal(15, "Intertrial time(s):", .01, 10, 20, 19);
-	DlgReal(16, "Abort wait time(s):", .01, 10, 20, 20);
-'	DlgList(14, "Background color:", bcl$);
-	DlgReal(17, "AnsPt. Diam.(deg):", 0.1, 5.0, 20, 21);
-	DlgReal(18, "AnsPt. Center Offset(deg):", 0.1, 10.0, 20, 22);
-	DlgReal(19, "AnsPt. Window radius(deg):", 0.1, 10.0, 20, 23);
+    DlgButton(3, "Timing", TimingDialog%, 1, 13);
+    DlgGroup("Lollipops", 1, 14, 35, 5);
+    DlgCheck(attdlgLollipopCheck%, "Use lollipop cues", 2, 15);
+    DlgReal(attdlgCueLinePct%, "Cue line %", 0, 100, 20, 16);
+    DlgReal(attdlgCircleDiameterDiff%, "Circle diameter diff", 0, 10, 20, 17);
+    DlgInteger(attdlgLollipopContrast%, "Lollipop contrast", 0, 100, 20, 18);
     DlgAllow(0, 0, AttentionScriptDialogChanged%);
 	i%:=DlgShow(attNumberOfBlocks%, attTrialsPerBlock%, attCatchTrialPercentage,attBlockAlternate%, 
                 attContrastBase%, attContrastUp%, attContrastDown%,
                 attTrainingContrastCheck%, attTrainingContrastPct%, 
-                attAcquisitionTime, attFixationTime, attHazardMinTime, attHazardExpMeanTime, attTimeToAnswer, 
-                attInterTrialTime, attAbortWaitTime,
-                attAnswerPointDiameter, attAnswerPointOffset, attAnswerPointWindowRadius);
+                attLollipopCheck%, attCueLinePct, attCircleDiameterDiff, attLollipopContrast%);
 	if i% = 1 then
 	'	attBackgroundColor$ := bcl$[ibcl%];
 		SaveAttentionScriptParameters();
@@ -624,11 +660,62 @@ func AttentionScriptDialogChanged%(item%)
     docase
     case item% = attdlgTrainingContrastCheck% then
         DlgEnable(DlgValue(attdlgTrainingContrastCheck%), attdlgTrainingContrastPct%);
+    case item% = attdlgLollipopCheck% then
+        DlgEnable(DlgValue(attdlgLollipopCheck%), attdlgCircleDiameterDiff%);
+        DlgEnable(DlgValue(attdlgLollipopCheck%), attdlgCueLinePct%);
+        DlgEnable(DlgValue(attdlgLollipopCheck%), attdlgLollipopContrast%);
     case item% = 0 then
         DlgEnable(attTrainingContrastCheck%, attdlgTrainingContrastPct%);
+        DlgEnable(attLollipopCheck%, attdlgCircleDiameterDiff%);
+        DlgEnable(attLollipopCheck%, attdlgCueLinePct%);
+        DlgEnable(attLollipopCheck%, attdlgLollipopContrast%);
     endcase
     return status%;
 end
+
+
+func TimingDialog%()
+    var i%;
+    
+	DlgCreate("Attention timing", 25, 10);
+	DlgReal(1, "Acquisition time(s):", .01, 10);
+	DlgReal(2, "White point time(s):", .01, 10);
+	DlgReal(atttimingdlgFixationCueMinTime%, "Fixation cue min time(s):", .01, 10);
+	DlgReal(atttimingdlgFixationCueMaxTime%, "Fixation cue max time(s):", .01, 10);
+	DlgReal(atttimingdlgHazardMinTime%, "Hazard min time(s):", 0, 10);
+	DlgReal(atttimingdlgHazardExpMeanTime%, "Hazard exp mean time(s):", 0, 10);
+	DlgReal(atttimingdlgHazardCutoffTime%, "Hazard cutoff time(s):", 0, 10);
+	DlgReal(8, "Time to answer(s):", 0.01, 10.0);
+	DlgReal(9, "Intertrial time(s):", .01, 10);
+	DlgReal(10, "Abort wait time(s):", .01, 10);
+    
+    DlgAllow(0, 0, TimingDialogChanged%);
+	i%:=DlgShow(attAcquisitionTime, attWhitePointTime, attFixationCueMinTime, attFixationCueMaxTime, 
+                attHazardMinTime, attHazardExpMeanTime, attHazardCutoffTime, attTimeToAnswer, 
+                attInterTrialTime, attAbortWaitTime);
+    return 1;
+end
+
+
+func TimingDialogChanged%(item%)
+    var status% := 1;
+    docase
+    case item% = atttimingdlgFixationCueMinTime% or item% = atttimingdlgFixationCueMaxTime% then
+        ' max >= min
+        if DlgValue(atttimingdlgFixationCueMinTime%) > DlgValue(atttimingdlgFixationCueMaxTime%) then
+            status% := 0;
+            Message("Fixation cue min time cannot be greater than max time!");
+        endif
+    case item% = atttimingdlgHazardMinTime% or item% = atttimingdlgHazardExpMeanTime% or item% = atttimingdlgHazardCutoffTime% then
+        ' max >= min
+        if DlgValue(atttimingdlgHazardMinTime%) > DlgValue(atttimingdlgHazardExpMeanTime%)  or DlgValue(atttimingdlgHazardExpMeanTime%) > DlgValue(atttimingdlgHazardCutoffTime%) then
+            status% := 0;
+            Message("Hazard min time <= Hazard mean time <= Hazard cutoff time");
+        endif
+    endcase
+    return status%;
+end
+
 
 func ColorsDialog%()
 	var i%;
@@ -881,7 +968,7 @@ proc InitializeToolbar()
 	ToolbarSet(3,"Juice", Reward%);
 	ToolbarSet(4,"Pause stimuli",PauseStimuli%);
 	ToolbarSet(5,"Resume stimuli",ResumeStimuli%);
-'	ToolbarSet(6,"Exp Parameters",AttentionScriptDialog%);
+'	ToolbarSet(6,"Exp Parameters",%);
 	ToolbarSet(7,"Quit",Quit%);
 	ToolbarEnable(2,0);
 	ToolbarEnable(4,0);
@@ -932,8 +1019,10 @@ var tStimOn:=-1;	' time that stim was turned on. Used to measure spike rates
 
 ' Constants for states
 const stateStartTrial%:=0;		        ' Start trial state
-const stateWaitForFixPtOn%:=1;		    ' Waiting for fixation point return trigger (on)
-const stateWaitForFixation%:=2;		    ' Waiting for subject to fixate
+const stateWaitForWhitePointOn%:=20;    ' Waiting for fixation white point
+const stateWhitePointFixation%:=21;     ' white point up, remain fixation
+const stateWaitForFixPtOn%:=1;		    ' Waiting for fixation/cue point return trigger (on)
+const stateWaitForFixation%:=2;		    ' Maintaining fixation with cue color point and lollipops up
 const stateWaitForStimOn%:=3;		    ' Wait for stimulus return trigger (on)
 const stateWaitForContrastChange%:=4;	' Wait for indication that contrast change has happened
 const stateWaitForAcquisition%:=5;	    ' Waiting for subject to acquire fixation point
@@ -1011,43 +1100,66 @@ func IdleProcessing%()
 			' Start trial. Put up fixation point.
 			UpdateToolbarText();
 			PrepareTrial();
-			attCountAllTrials% += 1;
-			docase
-				case trialType% = trialtypeAttendToward% then
-					PrintLog("stateStartTrial: Send fixation key F - AttendToward\n");
-					SampleKey("F");
-					attCountTowardTrials% += 1;
-				case trialType% = trialtypeAttendAway% then
-					PrintLog("stateStartTrial: Send fixation key G - AttendAway\n");
-					SampleKey("G");
-					attCountAwayTrials% += 1;
-				else
-					PrintLog("ERROR: Unknown trial type (" + str$(trialType%) + "\n");
-			endcase
-			ChangeStateTo(stateWaitForFixPtOn%, tTrigger);
-		
-		case iState% = stateWaitForFixPtOn% then
-
+            attCountAllTrials% += 1;
+            SampleKey("W");
+            ChangeStateTo(stateWaitForWhitePointOn%, tNow);
+        case iState% = stateWaitForWhitePointOn% then
 			tTrigger := NextTime(FixationPointChannel%, tLast, vTrigger);
-			if tTrigger > tLast and vTrigger = 0 then
-				' Fixation point is up
-				PrintLog("stateWaitForFixPtOn: signal received. " + str$(tNow) + "\n");
-				tLastTrigger := tTrigger;
+			if tTrigger > tLast then
+				' white point is up
+				PrintLog("stateWaitForWhitePointOn: signal received. " + str$(tTrigger) + "\n");
+                tLastTrigger := tTrigger;
 				ChangeStateTo(stateWaitForAcquisition%, tTrigger);
 				DrawStim(1);	' actually this draws the location of the fixpt.
 			endif
-
+            
 		case iState% = stateWaitForAcquisition% then
 
 			' Waiting for eye to fall inside of fixation window
 			if Looking%(xEye, yEye) = 1 then
 				PrintLog("stateWaitForAcquisition: eye in fixation window.\n");
-				ChangeStateTo(stateWaitForFixation%, tNow);
+				ChangeStateTo(stateWhitePointFixation%, tNow);
 			else 
 				if tNow - tStateStart > attAcquisitionTime then
 					PrintLog("stateWaitForAcquisition: failed.\n");
 					ChangeStateTo(stateAbort%, tNow);
 				endif
+			endif
+        
+        case iState% = stateWhitePointFixation% then
+        
+			' Eye must remain inside of fixation window
+			if Looking%(xEye, yEye) = 1 then
+				if tNow - tStateStart > attWhitePointTime then
+					PrintLog("stateWhitePointFixation: Success. Cue up...\n");
+        			docase
+                        case trialType% = trialtypeAttendToward% then
+                            PrintLog("stateWhitePointFixation: Request cue F - AttendToward\n");
+                            SampleKey("F");
+                            attCountTowardTrials% += 1;
+                        case trialType% = trialtypeAttendAway% then
+                            PrintLog("stateWhitePointFixation: Request cue G - AttendAway\n");
+                            SampleKey("G");
+                            attCountAwayTrials% += 1;
+                        else
+                            PrintLog("ERROR: Unknown trial type (" + str$(trialType%) + "\n");
+                    endcase
+                    ChangeStateTo(stateWaitForFixPtOn%, tTrigger);
+                endif
+            else
+				PrintLog("stateWhitePointFixation: failed.\n");
+				ChangeStateTo(stateAbort%, tNow);
+			endif
+                
+        case iState% = stateWaitForFixPtOn% then
+
+			tTrigger := NextTime(FixationPointChannel%, tLast, vTrigger);
+			if tTrigger > tLast then
+				' Fixation point is up
+				PrintLog("stateWaitForFixPtOn: signal received. " + str$(tNow) + "\n");
+				tLastTrigger := tTrigger;
+				ChangeStateTo(stateWaitForFixation%, tTrigger);
+				DrawStim(1);	' actually this draws the location of the fixpt.
 			endif
 
 		case iState% = stateWaitForFixation% then
@@ -1101,7 +1213,8 @@ func IdleProcessing%()
 
 			' we just wait for fix point off signal in this case. 
 			tTrigger := NextTime(FixationPointChannel%, tLast, vTrigger);
-			if tTrigger > tLast and vTrigger = 1 then
+			'if tTrigger > tLast and vTrigger = 1 then
+			if tTrigger > tLast then
 				' Fixation point is off
 				PrintLog("stateWaitForBlank: Fix pt is off.\n");
 				tLastTrigger := tTrigger;
@@ -1216,7 +1329,7 @@ func IdleProcessing%()
 						endcase
 						Reward%();
 					else
-						SampleText("-");
+                        SampleText("-");
 						attCountAllTrialsIncorrect% += 1;
 						docase
 							case trialType% = trialtypeAttendToward% then
@@ -1226,6 +1339,7 @@ func IdleProcessing%()
 							else
 								PrintLog("ERROR: Unknown trial type (" + str$(trialType%) + "\n");
 						endcase
+                        Yield(.01);    ' necessary so that the SampleText and SampleKey below don't land on the same time (makes extraction difficult)
 					endif
 	
 					SampleKey("X");
@@ -1237,7 +1351,8 @@ func IdleProcessing%()
 
 			' we just wait for fix point off signal in this case. 
 			tTrigger := NextTime(FixationPointChannel%, tLast, vTrigger);
-			if tTrigger > tLast and vTrigger = 1 then
+			'if tTrigger > tLast and vTrigger = 1 then
+			if tTrigger > tLast then
 				' Fixation point is off
 				PrintLog("stateTrialCompleteWaitForBlank: Fix pt is off.\n");
 				tLastTrigger := tTrigger;
@@ -1319,10 +1434,18 @@ proc PrepareTrial()
 		endif
 	endif
 
-
+    
+    ' Fixation time consists of "white point time" + "fixation time". Fixation time is a random number between 
+    ' attFixationMinTime and attFixationMaxTime. 
+    attFixationTime := Rand(attFixationCueMaxTime - attFixationCueMinTime, attFixationCueMinTime);
+    PrintLog("Fixation time " + str$(attFixationTime) + "\n");
 	
-	' hazard function - compute time from fixation to contrast change
+	' hazard function - compute time from fixation to contrast change. Make sure hazard time is not greater than cutoff time.
 	trialHazardFunctionTime := RandExp(attHazardExpMeanTime, attHazardMinTime);
+    if trialHazardFunctionTime > attHazardCutoffTime then
+        trialHazardFunctionTime := attHazardCutoffTime;
+    endif
+    
 	' Catch trial?
 	if (Rand()*100 < attCatchTrialPercentage) then
 		trialCatch% := 1;
@@ -1448,8 +1571,8 @@ proc CreateSampleConfiguration()
 	SampleEvent(FrameTriggerChannel%,0,2,3600); 'Trigger channel, level
 	SampleComment$(FrameTriggerChannel%,"Frame");
 	SampleTitle$(FrameTriggerChannel%,"Frame");
-
-	SampleEvent(FixationPointChannel%,1,2,3600); 'Trigger channel, level
+    
+ 	SampleEvent(FixationPointChannel%,1,2,3600); 'Trigger channel, level
 	SampleComment$(FixationPointChannel%,"Fixation");
 	SampleTitle$(FixationPointChannel%,"Fixation");
 	
@@ -1558,6 +1681,8 @@ func Start%()
     var ttemp;
     var stimSpec$;
     var distSpec$;
+    var lolSpec$;
+    var x;
 	
 	SampleStart(0); 'Start sampling
 	SampleKey("0");
@@ -1577,9 +1702,15 @@ func Start%()
         t$ := EncodeColor$(attCustomGratingColorDistractorTo%[0], attCustomGratingColorDistractorTo%[1], attCustomGratingColorDistractorTo%[2]);
         distSpec$ := ReplaceGratingColorVector$(distSpec$, f$ + "-" + t$);
     endif
+    if attLollipopCheck% = 1 then
+        lolSpec$ := " -L -c " + str$(attCircleDiameterDiff) + " -p " + str$(attLollipopContrast%) + " -l " + str$(attCueLinePct/100);
+    else
+        lolSpec$ := "";
+    endif
+        
 	Stim$ := " -g " + distSpec$ + " -s " + stimSpec$;
 	Contrast$ := " -t " + str$(attContrastDown%) + "," + str$(attContrastBase%) + "," + str$(attContrastUp%);
-	Extras$ := " -b " + attBackgroundColor$ + " -d " + DistanceToScreenMM$ + " -A " + str$(attAnswerPointOffset) + " -D " + str$(attAnswerPointDiameter);
+	Extras$ := " -b " + attBackgroundColor$ + " -d " + DistanceToScreenMM$ + " -A " + str$(attAnswerPointOffset) + " -D " + str$(attAnswerPointDiameter) + lolSpec$;
     if attTrainingContrastCheck% = 1 then
         Extras$ := Extras$ + " -T " + str$(attTrainingContrastPct%);
     endif
