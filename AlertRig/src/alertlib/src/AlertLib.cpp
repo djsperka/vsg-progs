@@ -145,6 +145,89 @@ int alert::ARContrastFixationPointSpec::drawOverlay()
 }
 
 
+int alert::ARContrastCircleSpec::draw()
+{
+	int status=0;
+	VSGTRIVAL from, to;
+
+	select();
+
+	if (get_color(this->color, to))
+	{
+		cerr << "Cannot get color trival for point: " << this->color << endl;
+		status=1;
+	}
+	else if (get_color(alert::ARvsg::instance().background_color(), from))
+	{
+		cerr << "Cannot get background color trival for point: " << alert::ARvsg::instance().background_color() << endl;
+		status=1;
+	}
+	else 
+	{
+		vsgObjSetColourVector(&from, &to, vsgUNIPOLAR);
+		cerr << "from=" << from.a << "," << from.b << "," << from.c << " to=" << to.a << "," << to.b << "," << to.c << endl;
+	}
+
+	if (!status)
+	{
+		vsgSetPen1(getFirstLevel());
+		vsgSetDrawMode(vsgCENTREXY + vsgPIXELPEN);
+		vsgDrawOval(x, -1*y, d, d);
+	}
+	return status;
+}
+
+// this function doesn't make sense. Should actually draw on the overlay, not draw clear. 
+int alert::ARContrastCircleSpec::drawOverlay()
+{
+	vsgSetPen1(0);
+	vsgDrawOval(x, -1*y, d, d);
+	return 0;
+}
+
+
+int alert::ARContrastLineSpec::draw()
+{
+	int status=0;
+	VSGTRIVAL from, to;
+
+	select();
+
+	if (get_color(this->color, to))
+	{
+		cerr << "Cannot get color trival for point: " << this->color << endl;
+		status=1;
+	}
+	else if (get_color(alert::ARvsg::instance().background_color(), from))
+	{
+		cerr << "Cannot get background color trival for point: " << alert::ARvsg::instance().background_color() << endl;
+		status=1;
+	}
+	else 
+	{
+		vsgObjSetColourVector(&from, &to, vsgUNIPOLAR);
+		cerr << "from=" << from.a << "," << from.b << "," << from.c << " to=" << to.a << "," << to.b << "," << to.c << endl;
+	}
+
+	if (!status)
+	{
+		vsgSetPen1(getFirstLevel());
+		vsgSetDrawMode(vsgPIXELPEN);
+		vsgDrawLine(x0, y0, x1, y1);
+	}
+	return status;
+}
+
+// this function doesn't make sense. Should actually draw on the overlay, not draw clear. 
+int alert::ARContrastLineSpec::drawOverlay()
+{
+	vsgSetPen1(0);
+	vsgDrawLine(x0, y0, x1, y1);
+	return 0;
+}
+
+
+
 int alert::ARGratingSpec::draw()
 {
 	return draw(false);

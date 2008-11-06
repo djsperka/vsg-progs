@@ -198,6 +198,32 @@ namespace alert
 	};
 
 
+	// Circle, single pixel wide, visibility controlled by contrast. 
+
+	class ARContrastCircleSpec: public ARContrastFixationPointSpec
+	{
+	public:
+		ARContrastCircleSpec() {};
+		~ARContrastCircleSpec() {};
+		int draw();
+		int drawOverlay();
+	};
+
+
+	// Circle, single pixel wide, visibility controlled by contrast. 
+
+	class ARContrastLineSpec: public ARSpec
+	{
+	public:
+		double x0, y0, x1, y1;
+		COLOR_TYPE color;
+		ARContrastLineSpec() {};
+		~ARContrastLineSpec() {};
+		int draw();
+		int drawOverlay();
+	};
+
+
 
 	// Grating spec
 	class ARGratingSpec: public ARSpec
@@ -398,7 +424,7 @@ namespace alert
 
 		std::string getKey() const { return m_key; };
 		int outMask() const { return m_out_mask; };
-	private:
+	protected:
 		std::string m_key;
 		int m_in_mask;
 		int m_in_val;
@@ -426,9 +452,107 @@ namespace alert
 			setMarker(output);
 			return m_callback(output, this);
 		};
-	private:
+	protected:
 		TriggerCallbackFunc m_callback;
 	};
+
+
+
+	class MultiInputSingleOutputCallbackTrigger : public CallbackTrigger, public std::vector< std::pair< std::string, int > >
+	{
+	private:
+		int m_input_matched;	// index of input key/value matched in a call to checkAscii/checkBinary
+
+	public:
+		MultiInputSingleOutputCallbackTrigger(std::vector<std::pair<std::string, int> >& v, int i_in_mask, int i_out_mask, int i_out_val, TriggerCallbackFunc tcf) :
+		  std::vector< std::pair < std::string, int> >(v), CallbackTrigger("", i_in_mask, 0, i_out_mask, i_out_val, tcf), m_input_matched(-1)
+		  {};
+
+		~MultiInputSingleOutputCallbackTrigger() {};
+
+		virtual bool checkAscii(std::string input)
+		{
+			int i;
+			m_input_matched = -1;
+			m_key = "NO MATCH";
+			for (i=0; i<this->size(); i++)
+			{
+				if (input == (*this)[i].first)
+				{
+					m_input_matched = i;
+					m_key = (*this)[i].first;
+					break;
+				}
+			}
+			return (m_input_matched >= 0);
+		};
+
+		virtual bool checkBinary(int input)
+		{
+			int i;
+			bool bValue = false;
+			int current = input&m_in_mask;
+
+			m_input_matched = -1;
+			m_key = "NO MATCH";
+			if (!m_btoggleIn)
+			{
+				if (current != m_in_last)
+				{
+					for (i=0; i<this->size(); i++)
+					{
+						if (current == (*this)[i].second)
+						{
+							m_input_matched = i;
+							m_key = (*this)[i].first;
+							break;
+						}
+					}
+					std::cout << "current " << std::hex << current << " matched " << m_input_matched << std::endl;
+				}
+				m_in_last = current;
+				bValue = (m_input_matched >= 0);
+			}
+			else
+			{
+				// Toggling inputs is a bit ill-defined for this type of trigger. 
+				// I'll just not try and define it now and call it an error. Always false. 
+				std::cerr << "Cannot use toggled input trigger for MultiInputSingleOutputCallbackTrigger" << std::endl;
+				bValue = false;
+			}
+
+			return bValue;
+		};
+
+		std::string toString() const
+		{
+			int i;
+			std::ostringstream oss;
+			oss << "Trigger with multiple inputs" << std::endl;
+			for (i=0; i<this->size(); i++)
+			{
+				oss << "   " << i << ": " << (*this)[i].first << " in mask/val/toggle: 0x" << std::hex << m_in_mask << "/0x" << (*this)[i].second << "/" << m_btoggleIn << " out mask/val/toggle: 0x" << m_out_mask << "/0x" << m_out_val << "/" << m_btoggleOut;
+			}
+			return oss.str();
+		};
+
+		virtual int execute(int& output)
+		{
+			setMarker(output);
+			return m_callback(output, this);
+		};
+
+		std::string getKey() const 
+		{ 
+			std::cout << "getKey(): m_input_matched = " << m_input_matched << std::endl;
+			if (m_input_matched < 0 || m_input_matched > this->size()) return "ERROR";
+			else return (*this)[m_input_matched].first;
+		};
+
+	};
+
+
+
 
 
 	class PageTrigger: public Trigger
