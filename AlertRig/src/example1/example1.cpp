@@ -305,6 +305,14 @@ void do_no_overlay()
 	}
 
 
+	// circle object
+	ARContrastCircleSpec circle;
+	string cspec="2.0,2.0,2.1,r";
+	if (parse_fixation_point(cspec, circle))
+	{
+		cerr << "Error parsing circle string: " << cspec << endl;
+	}
+
 
 	// INit vsg
 	if (ARvsg::instance().init(screenDistanceMM, background))
@@ -331,6 +339,20 @@ void do_no_overlay()
 	fp.draw();
 	gr.init(40);
 	gr.drawOnce();
+
+
+	circle.init(2);
+	circle.draw();
+/*
+	get_color(background, from);
+	to.a = 1; to.b = to.c = 0;
+	circle.select();
+	vsgObjSetColourVector(&from, &to, vsgUNIPOLAR);
+	vsgSetDrawMode(vsgCENTREXY | vsgPIXELPEN);
+	vsgDrawOval(gr.x, -gr.y, gr.w+.5, gr.h+.5);
+	circle.setContrast(100);
+*/
+
 	vsgPresent();
 	
 	// Now a demo of how to turn the spot on/off. There's two ways. You can change to a page
@@ -347,11 +369,15 @@ void do_no_overlay()
 		{
 			fp.select();
 			vsgObjSetContrast(100);
+			circle.select();
+			vsgObjSetContrast(100);
 			vsgPresent();
 		}
 		else if (s == "d")
 		{
 			fp.select();
+			vsgObjSetContrast(0);
+			circle.select();
 			vsgObjSetContrast(0);
 			vsgPresent();
 		}
@@ -387,6 +413,12 @@ void do_no_overlay()
 	
 
 	return;
+}
+
+
+void drawCircle(const ARGratingSpec& gr)
+{
+	
 }
 
 
