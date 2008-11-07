@@ -32,7 +32,9 @@ ARContrastLineSpec m_spec_stim_line;
 ARContrastLineSpec m_spec_dist_line;
 double m_circle_diameter_differential = 0.1;
 double m_cue_line_fraction = 0.75;
+double m_cue_line_gap = .5;
 int m_iLollipopContrast = 100;
+int m_iLollipopStickContrast = 100;
 bool m_bLollipops = false;
 double m_anspt_offset_degrees = 5;
 double m_anspt_diameter_degrees = 0.5;
@@ -174,7 +176,7 @@ int args(int argc, char **argv)
 	extern int optind;
 	int errflg = 0;
 	ARGratingSpec agtemp;
-	while ((c = getopt(argc, argv, "f:b:g:hd:vas:t:A:D:T:c:l:p:L")) != -1)
+	while ((c = getopt(argc, argv, "f:b:g:hd:vas:t:A:D:T:c:l:p:P:LG:")) != -1)
 	{
 		switch (c) 
 		{
@@ -255,11 +257,27 @@ int args(int argc, char **argv)
 				errflg++;
 			}
 			break;
+		case 'G':
+			s.assign(optarg);
+			if (parse_double(s, m_cue_line_gap)) 
+			{
+				cerr << "Bad cue line gap: " << s << endl;
+				errflg++;
+			}
+			break;
 		case 'p':
 			s.assign(optarg);
 			if (parse_integer(s, m_iLollipopContrast)) 
 			{
 				cerr << "Bad lollipop contrast value: " << s << endl;
+				errflg++;
+			}
+			break;
+		case 'P':
+			s.assign(optarg);
+			if (parse_integer(s, m_iLollipopStickContrast)) 
+			{
+				cerr << "Bad lollipop stick contrast value: " << s << endl;
 				errflg++;
 			}
 			break;
@@ -470,7 +488,7 @@ int callback(int &output, const CallbackTrigger* ptrig)
 		{
 			m_spec_stim_circle.setContrast(m_iLollipopContrast);
 			m_spec_dist_circle.setContrast(m_iLollipopContrast);
-			m_spec_stim_line.setContrast(m_iLollipopContrast);
+			m_spec_stim_line.setContrast(m_iLollipopStickContrast);
 		}
 	}
 	else if (key == "f")
@@ -495,7 +513,7 @@ int callback(int &output, const CallbackTrigger* ptrig)
 		{
 			m_spec_stim_circle.setContrast(m_iLollipopContrast);
 			m_spec_dist_circle.setContrast(m_iLollipopContrast);
-			m_spec_dist_line.setContrast(m_iLollipopContrast);
+			m_spec_dist_line.setContrast(m_iLollipopStickContrast);
 		}
 		m_bFStimulus = false;
 	}
@@ -611,7 +629,8 @@ int init_pages()
 
 		// Stimulus line
 		double v[2];
-		double dtotal;
+		double dtotal;		// center-to-center
+		double dmax;		// edge of stim circle to gap distance
 
 		m_spec_stim_line.x0 = 0;
 		m_spec_stim_line.y0 = 0;
@@ -622,14 +641,18 @@ int init_pages()
 		v[0] = m_spec_fixpt.x - m_spec_stimulus.x;
 		v[1] = -1*(m_spec_fixpt.y - m_spec_stimulus.y);
 		dtotal = sqrt(v[0]*v[0] + v[1]*v[1]);
+		
 		if (dtotal > 0)
 		{
 			v[0] = v[0]/dtotal;
 			v[1] = v[1]/dtotal;
-			m_spec_stim_line.x0 = m_spec_stimulus.x + v[0] * (m_spec_stimulus.w + m_circle_diameter_differential)/2;
-			m_spec_stim_line.y0 = -m_spec_stimulus.y + v[1] * (m_spec_stimulus.w + m_circle_diameter_differential)/2;
-			m_spec_stim_line.x1 = m_spec_stim_line.x0 + v[0] * (dtotal - m_spec_stimulus.w/2 - m_spec_fixpt.d/2 - m_circle_diameter_differential/2) * m_cue_line_fraction;
-			m_spec_stim_line.y1 = m_spec_stim_line.y0 + v[1] * (dtotal - m_spec_stimulus.w/2 - m_spec_fixpt.d/2 - m_circle_diameter_differential/2) * m_cue_line_fraction;
+			dmax = dtotal - m_spec_stimulus.w/2 - m_spec_fixpt.d/2 - m_circle_diameter_differential/2 - m_cue_line_gap;
+			m_spec_stim_line.x0 = m_spec_stimulus.x + 
+				v[0] * ((m_spec_stimulus.w + m_circle_diameter_differential)/2 + dmax * (1 - m_cue_line_fraction));
+			m_spec_stim_line.y0 = -m_spec_stimulus.y + 
+				v[1] * ((m_spec_stimulus.w + m_circle_diameter_differential)/2 + dmax * (1 - m_cue_line_fraction));
+			m_spec_stim_line.x1 = m_spec_stim_line.x0 + v[0] * dmax * m_cue_line_fraction;
+			m_spec_stim_line.y1 = m_spec_stim_line.y0 + v[1] * dmax * m_cue_line_fraction;
 		}
 		m_spec_stim_line.init(2);
 		m_spec_stim_line.draw();
@@ -648,10 +671,13 @@ int init_pages()
 		{
 			v[0] = v[0]/dtotal;
 			v[1] = v[1]/dtotal;
-			m_spec_dist_line.x0 = m_spec_distractor.x + v[0] * (m_spec_distractor.w + m_circle_diameter_differential)/2;
-			m_spec_dist_line.y0 = -m_spec_distractor.y + v[1] * (m_spec_distractor.w + m_circle_diameter_differential)/2;
-			m_spec_dist_line.x1 = m_spec_dist_line.x0 + v[0] * (dtotal - m_spec_distractor.w/2 - m_spec_fixpt.d/2 - m_circle_diameter_differential/2) * m_cue_line_fraction;
-			m_spec_dist_line.y1 = m_spec_dist_line.y0 + v[1] * (dtotal - m_spec_distractor.w/2 - m_spec_fixpt.d/2 - m_circle_diameter_differential/2) * m_cue_line_fraction;
+			dmax = dtotal - m_spec_distractor.w/2 - m_spec_fixpt.d/2 - m_circle_diameter_differential/2 - m_cue_line_gap;
+			m_spec_dist_line.x0 = m_spec_distractor.x + 
+				v[0] * ((m_spec_distractor.w + m_circle_diameter_differential)/2 + dmax * (1 - m_cue_line_fraction));
+			m_spec_dist_line.y0 = -m_spec_distractor.y + 
+				v[1] * ((m_spec_distractor.w + m_circle_diameter_differential)/2 + dmax * (1 - m_cue_line_fraction));
+			m_spec_dist_line.x1 = m_spec_dist_line.x0 + v[0] * dmax * m_cue_line_fraction;
+			m_spec_dist_line.y1 = m_spec_dist_line.y0 + v[1] * dmax * m_cue_line_fraction;
 		}
 		m_spec_dist_line.init(2);
 		m_spec_dist_line.draw();
