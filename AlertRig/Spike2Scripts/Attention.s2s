@@ -1,4 +1,4 @@
-' $Id: Attention.s2s,v 1.20 2008-11-06 02:02:06 devel Exp $
+' $Id: Attention.s2s,v 1.21 2008-11-07 01:09:25 devel Exp $
 '
 
 #include "AttentionExtractFunctions.s2s"
@@ -410,6 +410,8 @@ var attLollipopCheck%;
 var attCueLinePct;
 var attCircleDiameterDiff;
 var attLollipopContrast%;
+var attLollipopStickContrast%;
+var attCueLineGap;
 
 ' Counter vars for attention script
 var attCountAllTrials% := 0;
@@ -432,6 +434,8 @@ const attdlgLollipopCheck% := 10;
 const attdlgCueLinePct% := 11;
 const attdlgCircleDiameterDiff% := 12;
 const attdlgLollipopContrast% := 13;
+const attdlgLollipopStickContrast% := 14;
+const attdlgLollipopStickGap := 15;
 
 ' constants for timing dialog
 const atttimingdlgFixationCueMinTime% := 3;
@@ -546,6 +550,9 @@ proc GetAttentionScriptParameters()
     Profile(key$, "CircleDiameterDiff", "0.1", stmp$);
     attCircleDiameterDiff := val(stmp$);
     Profile(key$, "LollipopContrast", 100, attLollipopContrast%);
+    Profile(key$, "LollipopStickContrast", 100, attLollipopStickContrast%);
+	Profile(key$, "CueLineGap", "0.5", stmp$);
+    attCueLineGap := val(stmp$);
     
 end;
 
@@ -595,6 +602,9 @@ proc SaveAttentionScriptParameters()
 	Profile(key$, "CueLinePct", str$(attCueLinePct));
     Profile(key$, "CircleDiameterDiff", str$(attCircleDiameterDiff));
     Profile(key$, "LollipopContrast", attLollipopContrast%);
+    Profile(key$, "LollipopContrast", attLollipopContrast%);
+    Profile(key$, "LollipopStickContrast", attLollipopStickContrast%);
+	Profile(key$, "CueLineGap", str$(attCueLineGap));
     
 	end;
 
@@ -615,16 +625,19 @@ func AttentionScriptDialog%()
 	DlgInteger(attdlgTrainingContrastPct%, "Training Contrast(%)", 0, 100, 20, 10);
     DlgButton(2, "Colors", ColorsDialog%, 1, 12);
     DlgButton(3, "Timing", TimingDialog%, 1, 13);
-    DlgGroup("Lollipops", 1, 14, 35, 5);
+    DlgGroup("Lollipops", 1, 14, 35, 7);
     DlgCheck(attdlgLollipopCheck%, "Use lollipop cues", 2, 15);
     DlgReal(attdlgCueLinePct%, "Cue line %", 0, 100, 20, 16);
     DlgReal(attdlgCircleDiameterDiff%, "Circle diameter diff", 0, 10, 20, 17);
     DlgInteger(attdlgLollipopContrast%, "Lollipop contrast", 0, 100, 20, 18);
+    DlgInteger(attdlgLollipopStickContrast%, "Lollipop stick contrast", 0, 100, 20, 19);
+    DlgReal(attdlgLollipopStickGap, "Lollipop stick gap", 0, 10, 20, 20);
     DlgAllow(0, 0, AttentionScriptDialogChanged%);
 	i%:=DlgShow(attNumberOfBlocks%, attTrialsPerBlock%, attCatchTrialPercentage,attBlockAlternate%, 
                 attContrastBase%, attContrastUp%, attContrastDown%,
                 attTrainingContrastCheck%, attTrainingContrastPct%, 
-                attLollipopCheck%, attCueLinePct, attCircleDiameterDiff, attLollipopContrast%);
+                attLollipopCheck%, attCueLinePct, attCircleDiameterDiff, 
+                attLollipopContrast%, attLollipopStickContrast%, attCueLineGap);
 	if i% = 1 then
 	'	attBackgroundColor$ := bcl$[ibcl%];
 		SaveAttentionScriptParameters();
@@ -1703,7 +1716,7 @@ func Start%()
         distSpec$ := ReplaceGratingColorVector$(distSpec$, f$ + "-" + t$);
     endif
     if attLollipopCheck% = 1 then
-        lolSpec$ := " -L -c " + str$(attCircleDiameterDiff) + " -p " + str$(attLollipopContrast%) + " -l " + str$(attCueLinePct/100);
+        lolSpec$ := " -L -c " + str$(attCircleDiameterDiff) + " -p " + str$(attLollipopContrast%) + " -l " + str$(attCueLinePct/100) + " -G " + str$(attCueLineGap) + " -P " + str$(attLollipopStickContrast%);
     else
         lolSpec$ := "";
     endif
