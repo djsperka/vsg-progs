@@ -185,6 +185,65 @@ int arutil_draw_grating(ARGratingSpec& gr, int videoPage)
 	return status;
 }
 
+int arutil_draw_grating_noaperture(ARGratingSpec& gr, int videoPage)
+{
+	int status=0;
+	VSGTRIVAL from, to;
+	int numVideoPages = vsgGetSystemAttribute(vsgNUMVIDEOPAGES);
+
+	if (videoPage>=0 && videoPage < numVideoPages)
+	{
+		vsgSetDrawPage(vsgVIDEOPAGE, videoPage, vsgNOCLEAR);
+		gr.select();
+
+		// We assume that the handle is created and selected. In order to make this grating appear, you still must
+		// assign pixel levels (vsgObjSetPixels). Note also that the contrast is initially set to 100% by the call to 
+		// vsgObjSetDefaults().
+
+		vsgObjSetDefaults();
+		vsgObjSetPixelLevels(gr.getFirstLevel(), gr.getNumLevels());
+
+		// Set spatial waveform
+		if (gr.pattern == sinewave)
+		{
+			vsgObjTableSinWave(vsgSWTABLE);
+		}
+		else
+		{	
+			// Set up standard 50:50 square wave
+			vsgObjTableSquareWave(vsgSWTABLE, vsgObjGetTableSize(vsgSWTABLE)*0.25, vsgObjGetTableSize(vsgSWTABLE)*0.75);
+		}
+
+		// set temporal freq
+		vsgObjSetDriftVelocity(gr.tf);
+
+		// Set contrast
+		vsgObjSetContrast(gr.contrast);
+
+		// set color vector
+		if (get_colorvector(gr.cv, from, to))
+		{
+			cerr << "Cannot get color vector for type " << gr.cv << endl;
+		}
+		vsgObjSetColourVector(&from, &to, vsgBIPOLAR);
+
+		if (gr.aperture == ellipse)
+		{
+			vsgSetPen1(250);
+			vsgSetPen2(251);
+			vsgSetDrawMode(vsgCENTREXY + vsgSOLIDFILL);
+			vsgDrawOval(gr.x, -1*gr.y, gr.w, gr.h);
+			vsgSetDrawMode(vsgCENTREXY + vsgTRANSONHIGHER);
+		}
+
+		// Now draw grating
+		vsgSetPen1(gr.getFirstLevel());
+		vsgSetPen2(gr.getFirstLevel() + gr.getNumLevels());
+		vsgDrawGrating(gr.x, -gr.y, gr.w, gr.h, gr.orientation, gr.sf);
+	}
+	else status = -1;
+	return status;
+}
 
 
 
