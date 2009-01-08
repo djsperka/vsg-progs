@@ -35,7 +35,8 @@ double f_blankSeconds = 0;
 double f_lengthSeconds = 0;
 int f_iFramesPerTerm = 0;
 int f_contrast = 100;
-ARGratingSpec f_grating;
+ARGratingSpec f_grating0;
+ARGratingSpec f_grating1;
 bool f_bUseGrating = false;
 int f_nTermsOffset = 0;
 bool f_bNoSplit = false;
@@ -44,12 +45,19 @@ COLOR_VECTOR_TYPE f_colorVector = { b_w, {0,0,0}, {1,1,1}};
 string f_sFilename;
 char *f_mseq = NULL;
 
+#define OVERLAY_BLANK_PAGE 1
+#define OVERLAY_APERTURE_PAGE 0
+#define MSEQ_ON_PAGE 1
+#define MSEQ_OFF_PAGE 0
+
 int main (int argc, char *argv[])
 {
 	int nTerms = 0;
 	int nFramesBlank = 0;
 	double split_factor = 0.5;
 	VSGCYCLEPAGEENTRY cyclepage[32768];
+	int timeUS;
+	int ipage=0;
 
 	// Check input arguments
 	if (args(argc, argv))
@@ -70,7 +78,7 @@ int main (int argc, char *argv[])
 		cout << "Using Grating? " << (f_bUseGrating ? "YES" : "NO") << endl;
 		if (f_bUseGrating) 
 		{
-			cout << "Grating specs: " << f_grating << endl;
+			cout << "Grating specs: " << f_grating1 << endl;
 			cout << "Screen distance (mm): " << f_screenDistanceMM << endl;
 		}
 	}
@@ -82,14 +90,6 @@ int main (int argc, char *argv[])
 		cerr << "VSG init failed!" << endl;
 		return 1;
 	}
-
-	// initialize video pages
-	if (ARvsg::instance().init_video())
-	{
-		cerr << "VSG video initialization failed!" << endl;
-		return 1;
-	}
-
 
 	// Basic parameters for the stimulus. 
 	split_factor = 0.5;
@@ -104,11 +104,12 @@ int main (int argc, char *argv[])
 	}
 
 
-	// Prepare for full field flash
+	// Prepare pages. Page 0 and 1 will be "off" and "on" terms from the msequence. 
+	// Page 2 will be the background (for the "blank" period). 
 	if (!f_bUseGrating)
 	{
 		COLOR_TYPE cton, ctoff;
-		PIXEL_LEVEL plon, ploff;\
+		PIXEL_LEVEL plon, ploff, plbck;
 		int ipage=0;
 		getOnOffColors(f_colorVector, f_contrast, cton, ctoff);
 
@@ -116,74 +117,144 @@ int main (int argc, char *argv[])
 		{
 			cout << "ON: " << cton << " OFF: " << ctoff << endl; 
 		}
-		// Three pages are used. Page 0 is "off", page 1 is "on", page 2 is background. 
+
+		// Two pages are used. Page 0 is "off", page 1 is "on".
 		LevelManager::instance().request_single(ploff);
 		LevelManager::instance().request_single(plon);
 		arutil_color_to_palette(ctoff, ploff);
 		arutil_color_to_palette(cton, plon);
-		vsgSetDrawPage(vsgVIDEOPAGE, 0, ploff);
-		vsgSetDrawPage(vsgVIDEOPAGE, 1, plon);
-		// all pages already initialized to bg - so page 2 is cool.
+		vsgSetDrawPage(vsgVIDEOPAGE, MSEQ_OFF_PAGE, ploff);
+		vsgSetDrawPage(vsgVIDEOPAGE, MSEQ_ON_PAGE, plon);
 
-		// Set up page cycling
-		for (int i=0; i<nTerms; i++)
-		{
-			ipage = (f_mseq[i]=='1' ? 1 : 0);
-			cout << i << " " << ipage << endl;
-			cyclepage[i].Xpos = 0;
-			cyclepage[i].Ypos = 0;
-			cyclepage[i].Frames = f_iFramesPerTerm;
-			cyclepage[i].Stop=0;
-			cyclepage[i].Page = ipage + vsgTRIGGERPAGE;
-		}
-		if (!f_bNoSplit)
-		{
-			for (int i=0; i<nTerms; i++)
-			{
-				ipage = (f_mseq[i]=='1' ? 0 : 1);
-				cout << i+nTerms << " " << ipage << endl;
-				cyclepage[i+nTerms].Xpos = 0;
-				cyclepage[i+nTerms].Ypos = 0;
-				cyclepage[i+nTerms].Frames = f_iFramesPerTerm;
-				cyclepage[i+nTerms].Stop=0;
-				cyclepage[i+nTerms].Page = ipage + vsgTRIGGERPAGE;
-			}
-			cyclepage[2*nTerms].Xpos = 0;
-			cyclepage[2*nTerms].Ypos = 0;
-			cyclepage[2*nTerms].Frames = nFramesBlank;
-			cyclepage[2*nTerms].Stop=0;
-			cyclepage[2*nTerms].Page = 2;
-			vsgPageCyclingSetup(2*nTerms+1, &cyclepage[0]);
-		}
-		else
-		{
-			cyclepage[nTerms].Xpos = 0;
-			cyclepage[nTerms].Ypos = 0;
-			cyclepage[nTerms].Frames = nFramesBlank;
-			cyclepage[nTerms].Stop=0;
-			cyclepage[nTerms].Page = 2;
-			vsgPageCyclingSetup(nTerms+1, &cyclepage[0]);
-		}
-
+		// overlay pages
+		arutil_color_to_overlay_palette(f_colorBackground, 1);
+		vsgSetCommand(vsgOVERLAYMASKMODE);		// makes overlay pages visible
+		vsgSetDrawPage(vsgOVERLAYPAGE, OVERLAY_APERTURE_PAGE, 0);	// clear
+		vsgSetDrawPage(vsgOVERLAYPAGE, OVERLAY_BLANK_PAGE, 1);		// background
+		vsgSetZoneDisplayPage(vsgOVERLAYPAGE, OVERLAY_BLANK_PAGE);
 	}
 	else
 	{
-		cerr << "Grating reverse N.I." << endl;
+		f_grating0.init(75);
+		f_grating1.init(75);
+		
+		arutil_color_to_overlay_palette(f_colorBackground, 1);
+		vsgSetCommand(vsgOVERLAYMASKMODE);		// makes overlay pages visible
+		vsgSetDrawPage(vsgOVERLAYPAGE, OVERLAY_APERTURE_PAGE, 1);
+		arutil_draw_aperture(f_grating0, 0);
+		vsgSetDrawPage(vsgOVERLAYPAGE, OVERLAY_BLANK_PAGE, 1);
+
+		arutil_draw_grating(f_grating0, MSEQ_OFF_PAGE);
+		vsgPresent();
+		arutil_draw_grating(f_grating1, MSEQ_ON_PAGE);
+		vsgPresent();
+		vsgSetZoneDisplayPage(vsgOVERLAYPAGE, OVERLAY_BLANK_PAGE);
+//		vsgSetCommand(vsgDISABLELUTANIM);
+//		vsgSetCommand(vsgPALETTERAMP);
+
+	
+#if 0	
+	
+		{
+			int iquit=0;
+
+			cout << "Page: ";
+			cin >> ipage;
+			while (ipage>=0 && ipage<=2)
+			{
+				switch(ipage)
+				{
+				case 0:
+					vsgSetZoneDisplayPage(vsgOVERLAYPAGE, 0);
+					vsgSetZoneDisplayPage(vsgVIDEOPAGE, 0);
+					break;
+				case 1:
+					vsgSetZoneDisplayPage(vsgOVERLAYPAGE, 0);
+					vsgSetZoneDisplayPage(vsgVIDEOPAGE, 1);
+					break;
+				case 2:
+					vsgSetZoneDisplayPage(vsgOVERLAYPAGE, 1);
+//					vsgSetZoneDisplayPage(vsgVIDEOPAGE, 2);
+					break;
+				}
+				cout << "Page: ";
+				cin >> ipage;
+			}
+		}
+
+#endif
+	
 	}
 
+	// Set up page cycling
+	for (int i=0; i<nTerms; i++)
+	{
+		ipage = (f_mseq[i]=='1' ? MSEQ_ON_PAGE : MSEQ_OFF_PAGE);
+		cyclepage[i].Xpos = 0;
+		cyclepage[i].Ypos = 0;
+		cyclepage[i].Frames = f_iFramesPerTerm;
+		cyclepage[i].Stop=0;
+		cyclepage[i].Page = ipage + vsgTRIGGERPAGE;
+		cyclepage[i].ovPage = OVERLAY_APERTURE_PAGE;
+	}
+	if (!f_bNoSplit)
+	{
+		for (int i=0; i<nTerms; i++)
+		{
+			ipage = (f_mseq[i]=='1' ? MSEQ_OFF_PAGE : MSEQ_ON_PAGE);
+			cyclepage[i+nTerms].Xpos = 0;
+			cyclepage[i+nTerms].Ypos = 0;
+			cyclepage[i+nTerms].Frames = f_iFramesPerTerm;
+			cyclepage[i+nTerms].Stop=0;
+			cyclepage[i+nTerms].Page = ipage + vsgTRIGGERPAGE;
+			cyclepage[i+nTerms].ovPage = OVERLAY_APERTURE_PAGE;
+		}
+		cyclepage[2*nTerms].Xpos = 0;
+		cyclepage[2*nTerms].Ypos = 0;
+		cyclepage[2*nTerms].Frames = nFramesBlank;
+		cyclepage[2*nTerms].Stop=0;
+		cyclepage[2*nTerms].Page = vsgTRIGGERPAGE;	// WHICH PAGE DOESN'T MATTER HERE. Overlay covers it. 
+		cyclepage[2*nTerms].ovPage = OVERLAY_BLANK_PAGE;
+
+		vsgPageCyclingSetup(2*nTerms+1, &cyclepage[0]);
+	}
+	else
+	{
+		cyclepage[nTerms].Xpos = 0;
+		cyclepage[nTerms].Ypos = 0;
+		cyclepage[nTerms].Frames = nFramesBlank;
+		cyclepage[nTerms].Stop=0;
+		cyclepage[nTerms].Page = vsgTRIGGERPAGE;;
+		cyclepage[nTerms].ovPage = OVERLAY_BLANK_PAGE;
+		vsgPageCyclingSetup(nTerms+1, &cyclepage[0]);
+	}
+
+
+	// sleep a couple of seconds
+	Sleep(2000);
+
+	// reset timer and start cycling
+	timeUS = (f_lengthSeconds + f_blankSeconds) * f_nRepeats * 1.0e6;
+	if (f_verbose)
+	{
+		cout << "Total stimulus length (us): " << timeUS << endl;
+	}
+	vsgResetTimer();
+	vsgSetCommand(vsgOVERLAYMASKMODE);		// makes overlay pages visible
 	vsgSetCommand(vsgCYCLEPAGEENABLE);
-	cout << "Hit enter to stop." << endl;
-
-	string s;
-	cin >> s;
-
+	while (vsgGetTimer() < timeUS)
+	{
+		Sleep(1000);
+	}
 	vsgSetCommand(vsgCYCLEPAGEDISABLE);
+	vsgSetZoneDisplayPage(vsgOVERLAYPAGE, OVERLAY_BLANK_PAGE);
 
 	if (f_mseq) free(&f_mseq);
-	ARvsg::instance().clear();
 
 	return 0;
 }
+
+
 
 
 void getOnOffColors(COLOR_VECTOR_TYPE& cv, int contrast, COLOR_TYPE& cton, COLOR_TYPE& ctoff)
@@ -264,9 +335,11 @@ int args(int argc, char **argv)
 			break;
 		case 'g':
 			s.assign(optarg);
-			if (!parse_grating(s, f_grating))
+			if (!parse_grating(s, f_grating1))
 			{
 				f_bUseGrating = true;
+				f_grating0 = f_grating1;
+				f_grating0.contrast *= -1;
 			}
 			else 
 			{
@@ -301,6 +374,9 @@ int args(int argc, char **argv)
 				have_t = true;
 			}
 			break;
+		case 'V':
+			cerr << "Color vector input not implemented." << endl;
+			errflg++;
 		case 'm':
 			f_sFilename.assign(optarg);
 			have_m = true;
