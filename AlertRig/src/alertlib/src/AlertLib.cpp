@@ -258,7 +258,7 @@ int alert::ARGratingSpec::redraw(bool useTransOnLower)
 	{
 		if (useTransOnLower)
 		{
-			vsgSetDrawMode(vsgCENTREXY + vsgTRANSONHIGHER);
+			vsgSetDrawMode(vsgCENTREXY + vsgTRANSONLOWER);
 			vsgSetPen1(getFirstLevel());
 			vsgSetPen2(getFirstLevel() + getNumLevels());
 			vsgDrawGrating(this->x, -1*this->y, this->w, this->h, this->orientation, this->sf);
