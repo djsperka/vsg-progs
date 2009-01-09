@@ -13,11 +13,11 @@ Class2=CCoolerMouseDlg
 Class3=CAboutDlg
 
 ResourceCount=3
-Resource1=IDD_ABOUTBOX
+Resource1=IDD_COOLERMOUSE_DIALOG
 Resource2=IDR_MAINFRAME
 Class4=CVSGFrameCtrl
 Class5=CVSGView
-Resource3=IDD_COOLERMOUSE_DIALOG
+Resource3=IDD_ABOUTBOX
 
 [CLS:CCoolerMouseApp]
 Type=0
