@@ -276,7 +276,9 @@ int args(int argc, char **argv)
 		f_grating0.h = f_diameter;
 		f_grating0.aperture = ellipse;
 		f_grating0.contrast = f_iContrastLow;
-		f_grating0.cv = b_w;
+		f_grating0.cv.type = b_w;
+		f_grating0.cv.from.a = f_grating0.cv.from.b = f_grating0.cv.from.c = 0.0;
+		f_grating0.cv.to.a = f_grating0.cv.to.b = f_grating0.cv.to.c = 1.0;
 		f_grating0.orientation = 90;
 		f_grating0.pattern = sinewave;
 		f_grating0.sf = f_sf;
@@ -288,7 +290,9 @@ int args(int argc, char **argv)
 		f_grating1.h = f_diameter;
 		f_grating1.aperture = ellipse;
 		f_grating1.contrast = f_iContrastHigh;
-		f_grating1.cv = b_w;
+		f_grating1.cv.type = b_w;
+		f_grating1.cv.from.a = f_grating1.cv.from.b = f_grating1.cv.from.c = 0.0;
+		f_grating1.cv.to.a = f_grating1.cv.to.b = f_grating1.cv.to.c = 1.0;
 		f_grating1.orientation = 90;
 		f_grating1.pattern = sinewave;
 		f_grating1.sf = f_sf;
@@ -519,7 +523,7 @@ int writeTermsToParfile()
 int main(int argc, char **argv)
 {
 	int istatus=0;
-
+	COLOR_TYPE background = { gray, { 0.5, 0.5, 0.5 }};
 
 	// check args
 	if (args(argc, argv))
@@ -529,7 +533,7 @@ int main(int argc, char **argv)
 
 
 	// Init vsg card
-	if (ARvsg::instance().init(f_iDistanceToScreen, gray))
+	if (ARvsg::instance().init(f_iDistanceToScreen, background))
 	{
 		cerr << "VSG init failed!" << endl;
 		return 1;
