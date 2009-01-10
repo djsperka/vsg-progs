@@ -427,10 +427,13 @@ int main(int argc, char **argv)
 	vsgResetTimer();
 	vsgSetCommand(vsgVIDEODRIFT + vsgOVERLAYDRIFT);
 	vsgSetCommand(vsgCYCLEPAGEENABLE);
+	
+	// Break out of the loop when timer expires. 
 	while (vsgGetTimer() < timeUS)
 	{
-		Sleep(1000);
+		Sleep(500);
 	}
+
 	vsgSetCommand(vsgCYCLEPAGEDISABLE);
 	vsgSetZoneDisplayPage(vsgOVERLAYPAGE, OVERLAY_BLANK_PAGE);
 
