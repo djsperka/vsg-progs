@@ -248,16 +248,6 @@ void usage()
 	cerr << "usage: AcuteFFFlash -r #repeat -l mseq_seconds [-n] -B blank_seconds -t frames_per_term -m mseq_filename -c contrast -d screen_distance_MM [-V color_vector] [-g x,y,w,h,contrast%,sf,tf,orientation,color_vector,s|q,r|e]" << endl;
 }
 
-
-
-
-
-
-
-
-
-
-
 void prepareOverlay()
 {
 	vsgSetCommand(vsgOVERLAYMASKMODE);		// makes overlay pages visible
@@ -403,20 +393,18 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-
 	// init gratings
 	f_grating0.init(75);
 	f_grating1.init(75);
-
 
 	// Now draw pages.....
 	prepareOverlay();
 	prepareVideo();
 	prepareCycling();
-
+	vsgSetZoneDisplayPage(vsgOVERLAYPAGE, OVERLAY_BLANK_PAGE);
 
 	// sleep a couple of seconds
-	Sleep(2000);
+	Sleep(10000);
 
 	// reset timer and start cycling
 	timeUS = (f_lengthSeconds + f_blankSeconds) * f_nRepeats * 1.0e6;
