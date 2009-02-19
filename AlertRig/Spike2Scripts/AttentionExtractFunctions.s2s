@@ -97,6 +97,8 @@ func AttentionExtract%(tEnd)
                 attxICueType% := cuetypeAway%;
                 attxIState% := attxstateFixPt%;
                 attxFCueTime := GetTriggerTimeFor(sFound$, tFound);
+            case sFound$ = "X" then
+                attxIState% := attxstateAbort%;
             else
                 ' Error
                 PrintLog("error expect FG got %s\n", sFound$);
