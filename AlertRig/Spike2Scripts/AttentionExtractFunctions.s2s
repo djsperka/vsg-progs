@@ -210,22 +210,22 @@ proc PrintResults()
 
     mean := 0;
     std := 0;
-    if attxNTrialsTowards > 1 then
-        ArrSum(attxRxTimeTowards[0:attxNTrialsTowards-1], mean, std);
+    if attxNTrialsTowards > 0 then
+        ArrSum(attxRxTimeTowards[0:attxNTrialsTowards], mean, std);
     endif
     PrintLog("                                   Towards   %3d     %s    %.3f +- %.3f s\n", attxNTrialsTowards, PctStr$(attxNTrialsTowards, attxNTrialsTowardsCorrect), mean, std);
 
     mean := 0;
     std := 0;
-    if attxNTrialsAway > 1 then
-        ArrSum(attxRxTimeAway[0:attxNTrialsAway-1], mean, std);
+    if attxNTrialsAway > 0 then
+        ArrSum(attxRxTimeAway[0:attxNTrialsAway], mean, std);
     endif
     PrintLog("                                   Away      %3d     %s    %.3f +- %.3f s\n", attxNTrialsAway, PctStr$(attxNTrialsAway, attxNTrialsAwayCorrect), mean , std);
 
     mean := 0;
     std := 0;
-    if attxNTrialsCatch > 1 then
-        ArrSum(attxRxTimeCatch[0:attxNTrialsCatch-1], mean, std);
+    if attxNTrialsCatch > 0 then
+        ArrSum(attxRxTimeCatch[0:attxNTrialsCatch], mean, std);
     endif
     PrintLog("                                   Catch     %3d     %s    %.3f +- %.3f s\n", attxNTrialsCatch, PctStr$(attxNTrialsCatch, attxNTrialsCatchCorrect), mean , std);
     
@@ -259,6 +259,7 @@ proc FlushState()
             endif
         case isum% = 9 or isum% = 6 then
             attxRxTimeCatch[attxNTrialsCatch] := attxFRxTime;
+            PrintLog("Catch rx time " + str$(attxFRxTime) + "\n");
             attxNTrialsCatch += 1;
             if attxIResponse% = responseCorrect% then
                 attxNTrialsCatchCorrect += 1;
