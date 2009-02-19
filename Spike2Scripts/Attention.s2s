@@ -1,4 +1,4 @@
-' $Id: Attention.s2s,v 1.21 2008-11-07 01:09:25 devel Exp $
+' $Id: Attention.s2s,v 1.22 2009-02-19 00:06:28 devel Exp $
 '
 
 #include "AttentionExtractFunctions.s2s"
@@ -630,7 +630,7 @@ func AttentionScriptDialog%()
     DlgReal(attdlgCueLinePct%, "Cue line %", 0, 100, 20, 16);
     DlgReal(attdlgCircleDiameterDiff%, "Circle diameter diff", 0, 10, 20, 17);
     DlgInteger(attdlgLollipopContrast%, "Lollipop contrast", 0, 100, 20, 18);
-    DlgInteger(attdlgLollipopStickContrast%, "Lollipop stick contrast", 0, 100, 20, 19);
+    DlgInteger(attdlgLollipopStickContrast%, "Stick contrast", 0, 100, 20, 19);
     DlgReal(attdlgLollipopStickGap, "Lollipop stick gap", 0, 10, 20, 20);
     DlgAllow(0, 0, AttentionScriptDialogChanged%);
 	i%:=DlgShow(attNumberOfBlocks%, attTrialsPerBlock%, attCatchTrialPercentage,attBlockAlternate%, 
