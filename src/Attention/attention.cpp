@@ -53,7 +53,7 @@ int m_iContrastDown=0;
 int m_iContrastBase=50;
 int m_iContrastUp=100;
 bool m_bFStimulus;
-
+bool m_bNoAnswerPoints = false;
 
 
 
@@ -88,8 +88,10 @@ int main (int argc, char *argv[])
 	}
 
 	// Init answer points - geometry only
-	init_answer_points();
-
+	if (!m_bNoAnswerPoints)
+	{
+		init_answer_points();
+	}
 
 
 	// INit vsg
@@ -176,7 +178,7 @@ int args(int argc, char **argv)
 	extern int optind;
 	int errflg = 0;
 	ARGratingSpec agtemp;
-	while ((c = getopt(argc, argv, "f:b:g:hd:vas:t:A:D:T:c:l:p:P:LG:")) != -1)
+	while ((c = getopt(argc, argv, "f:b:g:hd:vas:t:A:D:T:c:l:p:P:LG:N")) != -1)
 	{
 		switch (c) 
 		{
@@ -284,6 +286,9 @@ int args(int argc, char **argv)
 		case 'L':
 			m_bLollipops = true;
 			break;
+		case 'N':
+			m_bNoAnswerPoints = true;
+			break;
 		case 'h':
 			errflg++;
 			break;
@@ -358,8 +363,11 @@ int init_overlay()
 	if (m_bstimulus) m_spec_stimulus.drawOverlay();
 	if (m_bdistractor) m_spec_distractor.drawOverlay();
 	m_spec_fixpt.drawOverlay();
-	m_spec_anspt_up.drawOverlay();
-	m_spec_anspt_down.drawOverlay();
+	if (!m_bNoAnswerPoints)
+	{
+		m_spec_anspt_up.drawOverlay();
+		m_spec_anspt_down.drawOverlay();
+	}
 	return 0;
 }
 
@@ -379,8 +387,11 @@ int callback(int &output, const CallbackTrigger* ptrig)
 
 	if (key == "S")
 	{
-		m_spec_anspt_up.setContrast(100); 
-		m_spec_anspt_down.setContrast(100);
+		if (!m_bNoAnswerPoints)
+		{
+			m_spec_anspt_up.setContrast(100); 
+			m_spec_anspt_down.setContrast(100);
+		}
 
 		if (!m_bTrainingContrast)
 		{
@@ -459,8 +470,11 @@ int callback(int &output, const CallbackTrigger* ptrig)
 	else if (key == "X")
 	{
 		m_spec_fixpt.setContrast(0);
-		m_spec_anspt_up.setContrast(0); 
-		m_spec_anspt_down.setContrast(0);
+		if (!m_bNoAnswerPoints)
+		{
+			m_spec_anspt_up.setContrast(0); 
+			m_spec_anspt_down.setContrast(0);
+		}
 
 		get_color(m_background, from);
 		m_spec_stimulus.select();
@@ -600,13 +614,15 @@ int init_pages()
 
 	// Now answer point - upper
 
-	m_spec_anspt_up.init(2);
-	m_spec_anspt_up.draw();
-	m_spec_anspt_up.setContrast(0);
-	m_spec_anspt_down.init(2);
-	m_spec_anspt_down.draw();
-	m_spec_anspt_down.setContrast(0);
-
+	if (!m_bNoAnswerPoints)
+	{
+		m_spec_anspt_up.init(2);
+		m_spec_anspt_up.draw();
+		m_spec_anspt_up.setContrast(0);
+		m_spec_anspt_down.init(2);
+		m_spec_anspt_down.draw();
+		m_spec_anspt_down.setContrast(0);
+	}
 
 	// Lollipops if necessary
 	if (m_bLollipops)
