@@ -7,6 +7,7 @@ var attxTLast := -1;
 
 ' saved state vars
 var attxITrial% := 0;
+var attxIsCorrectionTrial% := 0;
 var attxICueType% := 0;
 const cuetypeTowards% := 1;
 const cuetypeAway% := 2;
@@ -48,6 +49,10 @@ var attxNTrialsTowardsCorrect := 0;
 var attxNTrialsAwayCorrect := 0;
 var attxNTrialsCatch := 0;
 var attxNTrialsCatchCorrect := 0;
+var attxNCorrectionTrials := 0;
+var attxNCorrectionTrialsCompleted := 0;
+var attxNCorrectionTrialsCorrect := 0;
+
 const MaxTrials% := 1000;
 var attxRxTimeTowards[MaxTrials%];
 var attxRxTimeAway[MaxTrials%];
@@ -77,15 +82,18 @@ func AttentionExtract%(tEnd)
 
         docase
         case attxIState% = attxstateStart% then
-            attxITrial% += 1;
-            if sFound$ = "W" then
+            docase
+            case sFound$ = "*" then
+                attxIsCorrectionTrial% := 1;
+            case sFound$ = "W" then
+                attxITrial% += 1;
                 attxWCueTime := GetTriggerTimeFor(sFound$, tFound);
                 attxIState% := attxstateWhtPt%;
             else
                 ' Error
-                PrintLog("error expect W got %s\n", sFound$);
+                PrintLog("error expect W/* got %s\n", sFound$);
                 attxIState% := attxstateError%;
-            endif
+            endcase
             
         case attxIState% = attxstateWhtPt% then
             docase
@@ -207,7 +215,6 @@ proc PrintResults()
     PrintLog("\n==============================================================================\n\n");
     PrintLog("# Trials       : %5d\n", attxNTrials);
     PrintLog("# Completed (%): %5d (%s)     Cue         #  %%correct   rxtime\n", attxNTrialsCompleted, PctStr$(attxNTrials, attxNTrialsCompleted));
-
     mean := 0;
     std := 0;
     if attxNTrialsTowards > 0 then
@@ -228,6 +235,11 @@ proc PrintResults()
         ArrSum(attxRxTimeCatch[0:attxNTrialsCatch], mean, std);
     endif
     PrintLog("                                   Catch     %3d     %s    %.3f +- %.3f s\n", attxNTrialsCatch, PctStr$(attxNTrialsCatch, attxNTrialsCatchCorrect), mean , std);
+    PrintLog("\n");
+    PrintLog("# Correction tr: %5d\n", attxNCorrectionTrials);
+    PrintLog("# Completed (%): %5d (%s)                    %%correct: %s         \n", attxNCorrectionTrialsCompleted, 
+                                                        PctStr$(attxNCorrectionTrials, attxNCorrectionTrialsCompleted),
+                                                        PctStr$(attxNCorrectionTrials, attxNCorrectionTrialsCorrect));
     
     return;
 end
@@ -235,49 +247,63 @@ end
 proc FlushState()
     var s$;
     var isum% := 0;
+    var itrial%;
     
     ' Update tallies and counts.....
-    attxNTrials += 1;
-    if attxIResponse% <> responseNone% then
-        isum% := attxICueType% + attxIChangeType%;
-        attxNTrialsCompleted += 1;
-        if attxIResponse% = responseCorrect% then
-            attxNTrialsCorrect += 1;
+    if attxIsCorrectionTrial% = 0 then
+        attxNTrials += 1;
+        if attxIResponse% <> responseNone% then
+            isum% := attxICueType% + attxIChangeType%;
+            attxNTrialsCompleted += 1;
+            if attxIResponse% = responseCorrect% then
+                attxNTrialsCorrect += 1;
+            endif
+            docase
+            case isum% = 5 then
+                attxRxTimeTowards[attxNTrialsTowards] := attxFRxTime;
+                attxNTrialsTowards += 1;
+                if attxIResponse% = responseCorrect% then
+                    attxNTrialsTowardsCorrect += 1;
+                endif
+            case isum% = 10 then
+                attxRxTimeAway[attxNTrialsAway] := attxFRxTime;
+                attxNTrialsAway += 1;
+                if attxIResponse% = responseCorrect% then
+                    attxNTrialsAwayCorrect += 1;
+                endif
+            case isum% = 9 or isum% = 6 then
+                attxRxTimeCatch[attxNTrialsCatch] := attxFRxTime;
+                attxNTrialsCatch += 1;
+                if attxIResponse% = responseCorrect% then
+                    attxNTrialsCatchCorrect += 1;
+                endif
+            else
+                ' should not happen!
+                PrintLog("Error: isum has value %d!\n", isum%);
+            endcase
         endif
-        docase
-        case isum% = 5 then
-            attxRxTimeTowards[attxNTrialsTowards] := attxFRxTime;
-            attxNTrialsTowards += 1;
+    else
+        attxNCorrectionTrials += 1;
+        if attxIResponse% <> responseNone% then
+            isum% := attxICueType% + attxIChangeType%;
+            attxNCorrectionTrialsCompleted += 1;
             if attxIResponse% = responseCorrect% then
-                attxNTrialsTowardsCorrect += 1;
+                attxNCorrectionTrialsCorrect += 1;
             endif
-        case isum% = 10 then
-            attxRxTimeAway[attxNTrialsAway] := attxFRxTime;
-            attxNTrialsAway += 1;
-            if attxIResponse% = responseCorrect% then
-                attxNTrialsAwayCorrect += 1;
-            endif
-        case isum% = 9 or isum% = 6 then
-            attxRxTimeCatch[attxNTrialsCatch] := attxFRxTime;
-            PrintLog("Catch rx time " + str$(attxFRxTime) + "\n");
-            attxNTrialsCatch += 1;
-            if attxIResponse% = responseCorrect% then
-                attxNTrialsCatchCorrect += 1;
-            endif
-        else
-            ' should not happen!
-            PrintLog("Error: isum has value %d!\n", isum%);
-        endcase
+        endif
     endif
 
     
     ' Dump this trial to the log and output file if it exists.
-    s$ := Print$("%d\t%.4f\t%d\t%.3f\t%.3f\t%d\t%d\t%.3f\t%d\t%.3f\n", attxITrial%, attxWCueTime, attxICueType%, attxFCueTime, attxFStimTime, attxIChangeType%, attxIUpDown%, attxFChangeTime, attxIResponse%, attxFRxTime);
+    itrial% := attxITrial%;
+    if attxIsCorrectionTrial% = 1 then itrial% *= -1; endif;
+    s$ := Print$("%d\t%.4f\t%d\t%.3f\t%.3f\t%d\t%d\t%.3f\t%d\t%.3f\n", itrial%, attxWCueTime, attxICueType%, attxFCueTime, attxFStimTime, attxIChangeType%, attxIUpDown%, attxFChangeTime, attxIResponse%, attxFRxTime);
     View(LogHandle()).Print(s$);
     if attxOutputHandle >= 0 then
         View(attxOutputHandle).Print(s$);
     endif
     attxICueType% := 0;
+    attxIsCorrectionTrial% := 0;
     attxWCueTime := -1;
     attxFCueTime := -1;
     attxFStimTime := -1;
