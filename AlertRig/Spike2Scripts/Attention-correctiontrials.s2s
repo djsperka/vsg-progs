@@ -1,4 +1,4 @@
-' $Id: Attention-correctiontrials.s2s,v 1.1 2009-04-24 18:20:22 devel Exp $
+' $Id: Attention-correctiontrials.s2s,v 1.2 2009-04-24 19:37:13 devel Exp $
 '
 
 #include "AttentionExtractFunctions.s2s"
@@ -401,7 +401,8 @@ var attUseCorrectionTrials%;
 var attCorrectionTrialPct%;
 var attTrainingContrastCheck%:=0;
 var attTrainingContrastPct%:=0;
-
+var attEegSamplingFreq%;
+var attEegSamplingCheck%;
 var attCustomGratingColorCheck%;
 var attCustomGratingColorStimFrom%[3];
 var attCustomGratingColorStimTo%[3];
@@ -438,12 +439,15 @@ const attdlgUseCorrectionTrialsCheck% := 5;
 const attdlgCorrectionTrialPct% := 6;
 const attdlgTrainingContrastCheck% := 10;
 const attdlgTrainingContrastPct% := 11;
-const attdlgLollipopCheck% := 12;
-const attdlgCueLinePct% := 13;
-const attdlgCircleDiameterDiff% := 14;
-const attdlgLollipopContrast% := 15;
-const attdlgLollipopStickContrast% := 16;
-const attdlgLollipopStickGap := 17;
+const attdlgEegSamplingCheck% := 12;
+const attdlgEegSamplingFreq% := 13;
+
+const attlpopdlgLollipopCheck% := 1;
+const attlpopdlgCueLinePct% := 2;
+const attlpopdlgCircleDiameterDiff% := 3;
+const attlpopdlgLollipopContrast% := 4;
+const attlpopdlgLollipopStickContrast% := 5;
+const attlpopdlgLollipopStickGap% := 6;
 
 ' constants for timing dialog
 const atttimingdlgFixationCueMinTime% := 3;
@@ -489,6 +493,8 @@ proc GetAttentionScriptParameters()
 	Profile(key$, "CorrectionTrialPct", 0, attCorrectionTrialPct%);
 	Profile(key$, "TrainingContrastCheck", 0, attTrainingContrastCheck%);
 	Profile(key$, "TrainingContrastPct", 0, attTrainingContrastPct%);
+	Profile(key$, "EegSamplingFreq", 1000, attEegSamplingFreq%);
+	Profile(key$, "EegSamplingCheck", 0, attEegSamplingCheck%);
 	Profile(key$, "BackgroundColor", "gray", attBackgroundColor$);
     
     if InStr(attBackgroundColor$, "(") = 1 then
@@ -579,6 +585,8 @@ proc SaveAttentionScriptParameters()
 	Profile(key$, "CorrectionTrialPct", attCorrectionTrialPct%);
 	Profile(key$, "TrainingContrastCheck", attTrainingContrastCheck%);
 	Profile(key$, "TrainingContrastPct", attTrainingContrastPct%);
+	Profile(key$, "EegSamplingCheck", attEegSamplingCheck%);
+	Profile(key$, "EegSamplingFreq", attEegSamplingFreq%);
 	Profile(key$, "BackgroundColor", attBackgroundColor$);
 	Profile(key$, "ContrastBase", attContrastBase%);
 	Profile(key$, "ContrastUp", attContrastUp%);
@@ -625,7 +633,7 @@ func AttentionScriptDialog%()
 	GetAttentionScriptParameters();
 
 	DlgCreate("Attention Training Parameters", 25, 10);
-    DlgGroup("Blocks, contrast", 1, 1, 35, 12);
+    DlgGroup("Blocks, contrast", 1, 1, 35, 14);
 	DlgInteger(1, "Number of Blocks:", 1, 1000, 20, 2);
 	DlgInteger(2, "Trials per block:", 1, 1000, 20, 3);
 	DlgReal(3, "Catch Trial pct (0-100)", 0, 100, 20, 4);
@@ -637,22 +645,17 @@ func AttentionScriptDialog%()
 	DlgInteger(9, "Down contrast(%)", 0, 100, 20, 10);
 	DlgCheck(attdlgTrainingContrastCheck%, "Training Contrast", 2, 11);
 	DlgInteger(attdlgTrainingContrastPct%, "Training Contrast(%)", 0, 100, 20, 12);
-    DlgButton(2, "Colors", ColorsDialog%, 1, 14);
-    DlgButton(3, "Timing", TimingDialog%, 1, 15);
-    DlgGroup("Lollipops", 1, 16, 35, 7);
-    DlgCheck(attdlgLollipopCheck%, "Use lollipop cues", 2, 17);
-    DlgReal(attdlgCueLinePct%, "Cue line %", 0, 100, 20, 18);
-    DlgReal(attdlgCircleDiameterDiff%, "Circle diameter diff", 0, 10, 20, 19);
-    DlgInteger(attdlgLollipopContrast%, "Lollipop contrast", 0, 100, 20, 20);
-    DlgInteger(attdlgLollipopStickContrast%, "Stick contrast", 0, 100, 20, 21);
-    DlgReal(attdlgLollipopStickGap, "Lollipop stick gap", 0, 10, 20, 22);
+    DlgCheck(attdlgEegSamplingCheck%, "EEG Sampling", 2, 13);
+	DlgInteger(attdlgEegSamplingFreq%, "EEG Sampling Freq(Hz)", 1000, 50000, 20, 14);
+    DlgButton(2, "Colors", ColorsDialog%, 1, 15);
+    DlgButton(3, "Timing", TimingDialog%, 1, 16);
+    DlgButton(4, "Lollipops", LollipopsDialog%, 1, 17);
     DlgAllow(0, 0, AttentionScriptDialogChanged%);
 	i%:=DlgShow(attNumberOfBlocks%, attTrialsPerBlock%, attCatchTrialPercentage,attBlockAlternate%, 
                 attUseCorrectionTrials%, attCorrectionTrialPct%, 
                 attContrastBase%, attContrastUp%, attContrastDown%,
                 attTrainingContrastCheck%, attTrainingContrastPct%, 
-                attLollipopCheck%, attCueLinePct, attCircleDiameterDiff, 
-                attLollipopContrast%, attLollipopStickContrast%, attCueLineGap);
+                attEegSamplingCheck%, attEegSamplingFreq%);
 	if i% = 1 then
 	'	attBackgroundColor$ := bcl$[ibcl%];
 		SaveAttentionScriptParameters();
@@ -688,18 +691,14 @@ func AttentionScriptDialogChanged%(item%)
     docase
     case item% = attdlgTrainingContrastCheck% then
         DlgEnable(DlgValue(attdlgTrainingContrastCheck%), attdlgTrainingContrastPct%);
-    case item% = attdlgLollipopCheck% then
-        DlgEnable(DlgValue(attdlgLollipopCheck%), attdlgCircleDiameterDiff%);
-        DlgEnable(DlgValue(attdlgLollipopCheck%), attdlgCueLinePct%);
-        DlgEnable(DlgValue(attdlgLollipopCheck%), attdlgLollipopContrast%);
+    case item% = attdlgEegSamplingCheck% then
+        DlgEnable(DlgValue(attdlgEegSamplingCheck%), attdlgEegSamplingFreq%);
     case item% = attdlgUseCorrectionTrialsCheck% then
         DlgEnable(DlgValue(attdlgUseCorrectionTrialsCheck%), attdlgCorrectionTrialPct%);
     case item% = 0 then
         DlgEnable(attTrainingContrastCheck%, attdlgTrainingContrastPct%);
         DlgEnable(attUseCorrectionTrials%, attdlgCorrectionTrialPct%);
-        DlgEnable(attLollipopCheck%, attdlgCircleDiameterDiff%);
-        DlgEnable(attLollipopCheck%, attdlgCueLinePct%);
-        DlgEnable(attLollipopCheck%, attdlgLollipopContrast%);
+        DlgEnable(attEegSamplingCheck%, attdlgEegSamplingFreq%);
     endcase
     return status%;
 end
@@ -841,6 +840,44 @@ func ColorsDialogChanged%(item%)
 end
 
 
+
+func LollipopsDialog%()
+    var i%;
+	DlgCreate("Lollipops", 25, 10);
+    DlgAllow(0, 0, LollipopsDialogChanged%);
+    DlgCheck(attlpopdlgLollipopCheck%, "Use lollipop cues");
+    DlgReal(attlpopdlgCueLinePct%, "Cue line %", 0, 100);
+    DlgReal(attlpopdlgCircleDiameterDiff%, "Circle diameter diff", 0, 10);
+    DlgInteger(attlpopdlgLollipopContrast%, "Lollipop contrast", 0, 100);
+    DlgInteger(attlpopdlgLollipopStickContrast%, "Stick contrast", 0, 100);
+    DlgReal(attlpopdlgLollipopStickGap%, "Lollipop stick gap", 0, 10);
+    i% := DlgShow(attLollipopCheck%, attCueLinePct, attCircleDiameterDiff, 
+                  attLollipopContrast%, attLollipopStickContrast%, attCueLineGap);
+
+    return 1;
+end;
+
+
+func LollipopsDialogChanged%(item%)
+    var status% := 1;
+    docase
+    case item% = attlpopdlgLollipopCheck% then
+        DlgEnable(DlgValue(attlpopdlgLollipopCheck%), attlpopdlgCircleDiameterDiff%);
+        DlgEnable(DlgValue(attlpopdlgLollipopCheck%), attlpopdlgCueLinePct%);
+        DlgEnable(DlgValue(attlpopdlgLollipopCheck%), attlpopdlgLollipopContrast%);
+        DlgEnable(DlgValue(attlpopdlgLollipopCheck%), attlpopdlgLollipopStickContrast%);
+        DlgEnable(DlgValue(attlpopdlgLollipopCheck%), attlpopdlgLollipopStickGap%);
+    case item% = 0 then
+        DlgEnable(attLollipopCheck%, attlpopdlgCircleDiameterDiff%);
+        DlgEnable(attLollipopCheck%, attlpopdlgCueLinePct%);
+        DlgEnable(attLollipopCheck%, attlpopdlgLollipopContrast%);
+        DlgEnable(attLollipopCheck%, attlpopdlgLollipopStickContrast%);
+        DlgEnable(attLollipopCheck%, attlpopdlgLollipopStickGap%);
+    endcase
+    return status%;
+end
+
+
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 '
 ' Attention script END
@@ -866,6 +903,7 @@ var StimHandle%;			' handle for stimulus application
 var DataWindow%;		' 
 var XChannel%;
 var YChannel%;
+var EEGChannel%;
 
 var FrameTriggerChannel%;
 var FixationPointChannel%;
@@ -908,12 +946,7 @@ var tmp$;
 ' run parameters script....
 GetAttentionScriptParameters();
 iScript% := AttentionScriptDialog%();
-if iScript% = 1 then
-		FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 3);
-		FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 1);
-        SampleAutoName$(dataCellName$ + "_atn_000");
-		SampleAutoFile(1);
-else
+if iScript% = 0 then
 	PrintLog("User cancel - exit gracefully\n");
 	Halt;
 endif;
@@ -930,6 +963,7 @@ FixationPointChannel% := NumberOfElectrodes%+4;
 StimChannel% := NumberOfElectrodes%+5;
 StimChangeChannel% := NumberOfElectrodes%+6;
 ReadyChannel% := NumberOfElectrodes%+7;
+EEGChannel% := NumberOfElectrodes%+8;
 CreateSampleConfiguration();
 
 
@@ -1599,11 +1633,17 @@ end;
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 proc CreateSampleConfiguration()
 	var index;
-'	SampleClear(); 'Set standard sampling state
+	SampleClear(); 'Set standard sampling state
 '	SampleAutoFile(0); 'Enable automatic file naming
 	SampleAutoComment(0); 'Prompt for comment after sampling
 	SampleAutoCommit(60); 'Seconds between each file commit
-
+    
+    FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 3);
+	FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 1);
+    SampleAutoName$(dataCellName$ + "_atn_000");
+	SampleAutoFile(1);
+    
+    
 	'Channel recording definitions
 	SampleEvent(FrameTriggerChannel%,0,2,3600); 'Trigger channel, level
 	SampleComment$(FrameTriggerChannel%,"Frame");
@@ -1624,19 +1664,26 @@ proc CreateSampleConfiguration()
 	SampleEvent(ReadyChannel%,6,2,3600); 'Trigger channel, level
 	SampleComment$(ReadyChannel%,"VSG Ready");
 	SampleTitle$(ReadyChannel%,"VSG Ready");
-
-	for index := 1 to NumberOfElectrodes% do
-		SampleWaveMark(index,index-1,2000,34,15,28000); ' chan, port, event rate, points, pre-trigger, rate
-		SampleTitle$(index,"Electrode_"+Str$(index)); 
-	next
-	
+    
+    
+    
+PrintLog("Sampling check %d\n", attEegSamplingCheck%);
+    
+    
+    if attEegSamplingCheck% = 0 then
+        for index := 1 to NumberOfElectrodes% do
+            SampleWaveMark(index,index-1,2000,34,15,28000); ' chan, port, event rate, points, pre-trigger, rate
+            SampleTitle$(index,"Electrode_"+Str$(index)); 
+        next
+    else
+        SampleWaveform(EEGChannel%, 1, attEegSamplingFreq%);
+        SampleTitle$(EEGChannel%,"EEG");
+	endif
+    
 	SampleWaveform(XChannel%,14,1000);
 	SampleTitle$(XChannel%,"Eye X");
 	SampleWaveform(YChannel%,15,1000);
 	SampleTitle$(YChannel%,"Eye Y");
-
-	SampleWaveform(NumberOfElectrodes%+10, 6, 1000);
-	SampleTitle$(NumberOfElectrodes%+10, "PD");
 
 	SampleTextMark(1);
 
