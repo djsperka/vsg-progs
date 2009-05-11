@@ -1,4 +1,4 @@
-' $Id: Attention-correctiontrials.s2s,v 1.2 2009-04-24 19:37:13 devel Exp $
+' $Id: Attention-correctiontrials.s2s,v 1.3 2009-05-11 16:13:11 devel Exp $
 '
 
 #include "AttentionExtractFunctions.s2s"
@@ -1472,41 +1472,30 @@ end;
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 proc PrepareTrial()
 
-	PrintLog("Prepare trial:\n");
-    
-    ' Fixation time consists of "white point time" + "fixation time". Fixation time is a random number between 
-    ' attFixationMinTime and attFixationMaxTime. 
-    attFixationTime := Rand(attFixationCueMaxTime - attFixationCueMinTime, attFixationCueMinTime);
-    PrintLog("Fixation time " + str$(attFixationTime) + "\n");
-	
-	' hazard function - compute time from fixation to contrast change. Make sure hazard time is not greater than cutoff time.
-	trialHazardFunctionTime := RandExp(attHazardExpMeanTime, attHazardMinTime);
-    if trialHazardFunctionTime > attHazardCutoffTime then
-        trialHazardFunctionTime := attHazardCutoffTime;
-    endif
+	PrintLog("Prepare trial:\n");    
     
     if attUseCorrectionTrials% = 0 or iDoCorrectionTrial% = 0 then
     
         if attBlockAlternate% = 0 then
             if (Rand() < 0.5) then
                 trialType% := trialtypeAttendToward%;
-                PrintLog("Trial type: attend-toward\n");
+                PrintLog("\tTrial type: attend-toward\n");
             else
                 trialType% := trialtypeAttendAway%;
-                PrintLog("Trial type: attend-away\n");
+                PrintLog("\tTrial type: attend-away\n");
             endif
         else
             if trialType% = trialtypeAttendToward% then
-                PrintLog("Trial type: attend-toward (for this entire block)\n");
+                PrintLog("\tTrial type: attend-toward (for this entire block)\n");
             else
-                PrintLog("Trial type: attend-away (for this entire block)\n");
+                PrintLog("\tTrial type: attend-away (for this entire block)\n");
             endif
         endif
 
         ' Catch trial?
         if (Rand()*100 < attCatchTrialPercentage) then
             trialCatch% := 1;
-            PrintLog("Catch Trial\n");
+            PrintLog("\tCatch Trial\n");
         else
             trialCatch% := 0;
         endif
@@ -1515,13 +1504,25 @@ proc PrepareTrial()
         trialContrastUpDown% := 1;
         if (Rand() < 0.5) then
             trialContrastUpDown% := -1;
-            PrintLog(" Contrast UP\n");
+            PrintLog("\tContrast UP\n");
         else
-            PrintLog(" Contrast DOWN\n");
+            PrintLog("\tContrast DOWN\n");
         endif
 
+        ' Fixation time consists of "white point time" + "fixation time". Fixation time is a random number between 
+        ' attFixationMinTime and attFixationMaxTime. 
+        attFixationTime := Rand(attFixationCueMaxTime - attFixationCueMinTime, attFixationCueMinTime);
+        PrintLog("\tFixation time " + str$(attFixationTime) + "\n");
+        
+        ' hazard function - compute time from fixation to contrast change. Make sure hazard time is not greater than cutoff time.
+        trialHazardFunctionTime := RandExp(attHazardExpMeanTime, attHazardMinTime);
+        if trialHazardFunctionTime > attHazardCutoffTime then
+            trialHazardFunctionTime := attHazardCutoffTime;
+        endif
+        PrintLog("\tHazard function time " + str$(trialHazardFunctionTime) + "\n");
+
     else
-        PrintLog("Correction trial\n");
+        PrintLog("\tCorrection trial - retain conditions from failed trial\n");
     endif
     
 end
