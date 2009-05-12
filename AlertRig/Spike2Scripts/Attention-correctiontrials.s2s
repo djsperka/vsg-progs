@@ -1,4 +1,4 @@
-' $Id: Attention-correctiontrials.s2s,v 1.3 2009-05-11 16:13:11 devel Exp $
+' $Id: Attention-correctiontrials.s2s,v 1.4 2009-05-12 16:40:46 devel Exp $
 '
 
 #include "AttentionExtractFunctions.s2s"
@@ -1666,17 +1666,16 @@ proc CreateSampleConfiguration()
 	SampleComment$(ReadyChannel%,"VSG Ready");
 	SampleTitle$(ReadyChannel%,"VSG Ready");
     
-    
-    
-PrintLog("Sampling check %d\n", attEegSamplingCheck%);
-    
-    
-    if attEegSamplingCheck% = 0 then
-        for index := 1 to NumberOfElectrodes% do
-            SampleWaveMark(index,index-1,2000,34,15,28000); ' chan, port, event rate, points, pre-trigger, rate
-            SampleTitle$(index,"Electrode_"+Str$(index)); 
-        next
-    else
+
+    ' djs 5-12-09
+    ' Always use a wavemark channel. Turn on waveform channel for ergs only if EEG sampling check box marked. 
+    ' Will clean this up to have either/or on both channels. 
+    for index := 1 to NumberOfElectrodes% do
+        SampleWaveMark(index,index-1,2000,34,15,28000); ' chan, port, event rate, points, pre-trigger, rate
+        SampleTitle$(index,"Electrode_"+Str$(index)); 
+    next
+
+    if attEegSamplingCheck% = 1 then
         SampleWaveform(EEGChannel%, 1, attEegSamplingFreq%);
         SampleTitle$(EEGChannel%,"EEG");
 	endif
