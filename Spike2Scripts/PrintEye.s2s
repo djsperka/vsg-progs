@@ -1,0 +1,23 @@
+ToolbarVisible(1);
+ToolbarSet(2,"Sample stop", Stop%);
+ToolbarSet(0,"",IdleProcessing%);	'Enable the IdleProcessing function
+Toolbar("Go", 0xfff);
+
+func IdleProcessing%()
+	var iStatus% := 1;	' this is return value. value of 1 (0) continues (stops) processing
+    var vx, vy, dx, dy, tNow;
+	tNow := MaxTime();
+
+	vx := ChanMeasure(1,2,tNow-.001,tNow-.006);
+	vy := ChanMeasure(2,2,tNow-.001,tNow-.006);
+    
+    PrintLog("%f, %f\n", vx, vy);
+    return 1;
+end
+
+func Stop%()
+	' Disable idle process func
+	ToolbarSet(0,"");
+	SampleStop();
+    
+end;
