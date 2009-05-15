@@ -1,4 +1,4 @@
-' $Id: StarStim.s2s,v 1.3 2008-02-13 23:23:02 devel Exp $
+' $Id: StarStim.s2s,v 1.4 2009-05-15 17:21:10 devel Exp $
 '========================================================================
 '
 ' INPUTS
@@ -496,15 +496,6 @@ if Len(dataDataSet$) = 0 then
 	Message("No data set is selected! Edit Data parameters...");
 	' Might be nice to open the dialog here....
 	halt;
-else 
-	' Set path for new data files
-	FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 3, 1);
-	FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 1, 1);
-	SampleAutoName$(dataCellName$ + "_star_000");
-	SampleAutoFile(1);
-	PrintLog("dataPathRoot=" + dataPathRoot$ + "\n");
-	PrintLog("dataDataSet=" + dataDataSet$ + "\n");
-	PrintLog("AutoFile status " + str$(SampleAutoFile()) + "\n");
 endif
 
 
@@ -793,7 +784,19 @@ proc CreateSampleConfiguration()
 '	SampleAutoFile(0); 'Enable automatic file naming
 	SampleAutoComment(0); 'Prompt for comment after sampling
 	SampleAutoCommit(60); 'Seconds between each file commit
-
+    
+	' Set path for new data files
+	FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 3, 1);
+	FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 1, 1);
+	SampleAutoName$(dataCellName$ + "_star_000");
+	SampleAutoFile(1);
+	PrintLog("dataPathRoot=" + dataPathRoot$ + "\n");
+	PrintLog("dataDataSet=" + dataDataSet$ + "\n");
+	PrintLog("AutoFile status " + str$(SampleAutoFile()) + "\n");
+    
+    
+    
+    
 	'Channel recording definitions
 	SampleEvent(FixationChannel%, 2, 2, 3600);
 	SampleComment$(FixationChannel%, "FixPt");
