@@ -422,7 +422,7 @@ func FixationPointDialog%()
 	DlgReal(1, "Fixation X:", -40, 40);
 	DlgReal(2, "Fixation Y:", -40, 40);
 	DlgReal(3, "Fixation diam:", .1, 5);
-	DlgReal(4, "Window radius:", .1, 10);
+	DlgReal(4, "Window radius:", .1, 30);
 	DlgList(5, "Color:", FixationColorList$[]);
 	i% := DlgShow(FixationX, FixationY, FixationDiameter, WindowRadius, iFixationColor%);	
 
