@@ -1,4 +1,7 @@
 ' $Log: not supported by cvs2svn $
+' Revision 1.14  2006/09/18 19:13:30  dan
+' Add logic in Stop function to check that stim app is done before running ClearTrigger.
+'
 ' Revision 1.13  2006/04/12 00:23:31  dan
 ' Moved vsg trigger to port 2
 '
@@ -325,7 +328,7 @@ func FixationPointDialog%()
 	DlgReal(1, "Fixation X:", -20, 20);
 	DlgReal(2, "Fixation Y:", -20, 20);
 	DlgReal(3, "Fixation diam:", .1, 5);
-	DlgReal(4, "Window radius:", .1, 10);
+	DlgReal(4, "Window radius:", .1, 30);
 	DlgList(5, "Color:", FixationColorList$[]);
 	i% := DlgShow(FixationX, FixationY, FixationDiameter, WindowRadius, iFixationColor%);	
 
@@ -568,15 +571,6 @@ if Len(dataDataSet$) = 0 then
 	Message("No data set is selected! Edit Data parameters...");
 	' Might be nice to open the dialog here....
 	halt;
-else 
-	' Set path for new data files
-	FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 3, 1);
-	FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 1, 1);
-	SampleAutoName$(dataCellName$ + "_fix_000");
-	SampleAutoFile(1);
-	PrintLog("dataPathRoot=" + dataPathRoot$ + "\n");
-	PrintLog("dataDataSet=" + dataDataSet$ + "\n");
-	PrintLog("AutoFile status " + str$(SampleAutoFile()) + "\n");
 endif
 
 
@@ -856,6 +850,16 @@ proc CreateSampleConfiguration()
 '	SampleAutoFile(0); 'Enable automatic file naming
 	SampleAutoComment(0); 'Prompt for comment after sampling
 	SampleAutoCommit(60); 'Seconds between each file commit
+    
+	' Set path for new data files
+	FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 3, 1);
+	FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 1, 1);
+	SampleAutoName$(dataCellName$ + "_fix_000");
+	SampleAutoFile(1);
+	PrintLog("dataPathRoot=" + dataPathRoot$ + "\n");
+	PrintLog("dataDataSet=" + dataDataSet$ + "\n");
+	PrintLog("AutoFile status " + str$(SampleAutoFile()) + "\n");
+
 
 	'Channel recording definitions
 	SampleEvent(TriggerChannel%, 2, 2, 3600); 'Trigger channel, level
@@ -1115,7 +1119,8 @@ end;
 
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 func Stop%()
-
+    var s$;
+    
 	' Disable idle process func
 	ToolbarSet(0,"");
 
@@ -1142,7 +1147,12 @@ func Stop%()
 	'if FileSave() <> 0 then
 	'	Message("WARNING! Data file not saved!!!");
 	'endif
-
+    
+    
+	s$ := Print$("Trial#/Total %d/%d Success/Failure %d/%d", nTrialsStarted%, fixNumberOfTrials%, nTrialsSuccess%, nTrialsFail%);
+	PrintLog(s$);
+    
+    
 end;
 
 
