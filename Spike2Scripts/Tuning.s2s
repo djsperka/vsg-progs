@@ -1,4 +1,4 @@
-' $Id: Tuning.s2s,v 1.22 2007-05-22 23:37:02 dan Exp $
+' $Id: Tuning.s2s,v 1.23 2009-05-15 17:18:46 devel Exp $
 '
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
@@ -183,6 +183,12 @@ var tunType$:=tunTypeNone$;
 const tunContextDAQ$ := "DAQ";
 const tunContextConfig$ := "Config";
 var tunContext$ := tunContextConfig$;
+const tundlgOrientationButton% := 9;
+const tundlgContrastButton% := 10;
+const tundlgSpatialButton% := 11;
+const tundlgTemporalButton% := 12;
+const tundlgAreaButton% := 13;
+
 
 proc GetTuningCurveScriptParameters()
 	var stmp$;
@@ -352,7 +358,7 @@ func TuningCurveOrientationDialog%()
 	' When user hits OK we alwaus save the parameters, and when user hit Cancel we don't.
 	if i% = 1 then
 		SaveTuningCurveOrientationParameters();
-'		PrintLog("TuningCurveOrientationDialog - user hit OK\n");
+		PrintLog("TuningCurveOrientationDialog - user hit OK\n");
 		tunType$ := tunTypeOrientation$;
 		if tunContext$ = tunContextDAQ$ then
 			iReturn% := 0;
@@ -361,7 +367,7 @@ func TuningCurveOrientationDialog%()
 		endif;
 	endif;
 	if i% = 0 then
-'		PrintLog("TuningCurveOrientationDialog - user hit Cancel\n");
+		PrintLog("TuningCurveOrientationDialog - user hit Cancel\n");
 		tunType$ := tunTypeNone$;
 		if tunContext$ = tunContextDAQ$ then
 			iReturn% := 1;
@@ -369,7 +375,7 @@ func TuningCurveOrientationDialog%()
 			iReturn% := 2;
 		endif;
 	endif;
-
+    PrintLog("Return value is %d\n", iReturn%);
 	return iReturn%;
 end;
 
@@ -563,25 +569,33 @@ func TuningCurveScriptDialog%()
 	DlgReal(7, "Time out time(s):", .01, 10, 20, 8);
 	DlgList(8, "Background color:", bcl$, 3, 20, 9);
 	DlgGroup("Individual Tuning Curve Types", 0, 10, 40, 6);
-	DlgButton(9, "Orientation", TuningCurveOrientationDialog%, 1, 11);
-	DlgButton(10, "Contrast", TuningCurveContrastDialog%, 1, 12);
-	DlgButton(11, "Spatial Freq", TuningCurveSpatialDialog%, 1, 13);
-	DlgButton(12, "Temporal Freq", TuningCurveTemporalDialog%, 1, 14);
-	DlgButton(13, "Area", TuningCurveAreaDialog%, 1, 15);
-
+	DlgButton(tundlgOrientationButton%, "Orientation", TuningCurveOrientationDialog%, 1, 11);
+	DlgButton(tundlgContrastButton%, "Contrast", TuningCurveContrastDialog%, 1, 12);
+	DlgButton(tundlgSpatialButton%, "Spatial Freq", TuningCurveSpatialDialog%, 1, 13);
+	DlgButton(tundlgTemporalButton%, "Temporal Freq", TuningCurveTemporalDialog%, 1, 14);
+	DlgButton(tundlgAreaButton%, "Area", TuningCurveAreaDialog%, 1, 15);
+    
 	i%:=DlgShow(tunAcquisitionTime, tunFixationDuration, tunMaintainFixation,
 		tunAcqFailTime, tunHoldFailTime, tunMaintainFailTime, tunTimeOutTime, ibcl%);
-
-	if i% = 1 then
+    
+    ' djs 4-1-09
+    ' Spike2 v6 change. DlgShow will return the button number when a button on the dialog is hit and the corresponding
+    ' function returns 0. In this case those buttons open the various tuning type sub dialogs (orientation, area, etc). 
+    ' In the last version, DlgShow would return the same value that the subdialog's function returned, and the code here
+    ' was set up to behave accordingly. When the user hits the Cancel button in the subdialog everything still remains
+    ' the same. 
+    
+    PrintLog("Tuning Curve Parameters Dialog - return from DlgShow is %d\n", i%);
+	if i%=tundlgOrientationButton% or i%=tundlgContrastButton% or i%=tundlgSpatialButton% or i%=tundlgTemporalButton% or i%=tundlgAreaButton% then
 		tunBackgroundColor$ := bcl$[ibcl%];
 		SaveTuningCurveScriptParameters();
-'		PrintLog("Tuning Curve Parameters dialog - user hit OK, tunType=" + tunType$ + "\n");
-		if tunContext$ = tunContextDAQ$ then iReturn% := 0;
+		PrintLog("Tuning Curve Parameters dialog - user hit OK, tunType=" + tunType$ + "\n");
+		if tunContext$ = tunContextDAQ$ then iReturn% := 1;
 		else iReturn% := 1;
 		endif;
 	endif;
 	if i% = 0 then
-'		PrintLog("Tuning Curve Parameters dialog - user hit Cancel, tunType=" + tunType$ + "\n");
+		PrintLog("Tuning Curve Parameters dialog - user hit Cancel, tunType=" + tunType$ + "\n");
 		if tunContext$ = tunContextDAQ$ then 
 			if tunType$ <> tunTypeNone$ then 
 				iReturn% := 1;
@@ -914,42 +928,6 @@ if iScript% = 1 then
 		Halt;
 	else
 		PrintLog("Tuning type \"" + tunType$ + "\" selected, proceed with DAQ\n");
-
-		' Set path for new data files, and for those saved automatically
-		FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 3);
-		FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 1);
-		docase
-			case tunType$ = tunTypeContrast$ then 
-				SampleAutoName$(dataCellName$ + "_con_000");
-				tunNAdvances% := tunContrastNSteps%;
-				tunNRepeats% := tunContrastNRepeats%;
-				GetLogProgression(tunContrastMinContrast, tunContrastMaxContrast, tunContrastNSteps%, tunValues);
-			case tunType$ = tunTypeOrientation$ then 
-				SampleAutoName$(dataCellName$ + "_ori_000");
-				tunNAdvances% := tunOriNSteps%;
-				tunNRepeats% := tunOriNRepeats%;
-				GetLinearProgression(tunOriMinOrientation, tunOriMaxOrientation, tunOriNSteps%, tunValues);
-			case tunType$ = tunTypeSpatial$ then 
-				SampleAutoName$(dataCellName$ + "_spa_000");
-				tunNAdvances% := tunSpatialNSteps%;
-				tunNRepeats% := tunSpatialNRepeats%;
-				GetLogProgression(tunSpatialMinSF, tunSpatialMaxSF, tunSpatialNSteps%, tunValues);
-			case tunType$ = tunTypeTemporal$ then 
-				SampleAutoName$(dataCellName$ + "_tem_000");
-				tunNAdvances% := tunTemporalNSteps%;
-				tunNRepeats% := tunTemporalNRepeats%;
-				GetLogProgression(tunTemporalMinTF, tunTemporalMaxTF, tunTemporalNSteps%, tunValues);
-			case tunType$ = tunTypeArea$ then 
-				SampleAutoName$(dataCellName$ + "_area_000");
-				tunNAdvances% := tunAreaNSteps%;
-				tunNRepeats% := tunAreaNRepeats%;
-				GetLogProgression(tunAreaMinDiam, tunAreaMaxDiam, tunAreaNSteps%, tunValues);
-			else
-				SampleAutoName$(dataCellName$ + "_tun_000");
-		endcase;
-
-		SampleAutoFile(1);
-		PrintLog("AutoFile status " + str$(SampleAutoFile()) + "\n");
 	endif;
 else
 	PrintLog("User cancel - exit gracefully\n");
@@ -1425,7 +1403,43 @@ proc CreateSampleConfiguration()
 '	SampleAutoFile(0); 'Enable automatic file naming
 	SampleAutoComment(0); 'Prompt for comment after sampling
 	SampleAutoCommit(60); 'Seconds between each file commit
+    
+    ' Set path for new data files, and for those saved automatically
+    FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 3);
+    FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 1);
+    docase
+        case tunType$ = tunTypeContrast$ then 
+            SampleAutoName$(dataCellName$ + "_con_000");
+            tunNAdvances% := tunContrastNSteps%;
+            tunNRepeats% := tunContrastNRepeats%;
+            GetLogProgression(tunContrastMinContrast, tunContrastMaxContrast, tunContrastNSteps%, tunValues);
+        case tunType$ = tunTypeOrientation$ then 
+            SampleAutoName$(dataCellName$ + "_ori_000");
+            tunNAdvances% := tunOriNSteps%;
+            tunNRepeats% := tunOriNRepeats%;
+            GetLinearProgression(tunOriMinOrientation, tunOriMaxOrientation, tunOriNSteps%, tunValues);
+        case tunType$ = tunTypeSpatial$ then 
+            SampleAutoName$(dataCellName$ + "_spa_000");
+            tunNAdvances% := tunSpatialNSteps%;
+            tunNRepeats% := tunSpatialNRepeats%;
+            GetLogProgression(tunSpatialMinSF, tunSpatialMaxSF, tunSpatialNSteps%, tunValues);
+        case tunType$ = tunTypeTemporal$ then 
+            SampleAutoName$(dataCellName$ + "_tem_000");
+            tunNAdvances% := tunTemporalNSteps%;
+            tunNRepeats% := tunTemporalNRepeats%;
+            GetLogProgression(tunTemporalMinTF, tunTemporalMaxTF, tunTemporalNSteps%, tunValues);
+        case tunType$ = tunTypeArea$ then 
+            SampleAutoName$(dataCellName$ + "_area_000");
+            tunNAdvances% := tunAreaNSteps%;
+            tunNRepeats% := tunAreaNRepeats%;
+            GetLogProgression(tunAreaMinDiam, tunAreaMaxDiam, tunAreaNSteps%, tunValues);
+        else
+            SampleAutoName$(dataCellName$ + "_tun_000");
+    endcase;
 
+    SampleAutoFile(1);
+    PrintLog("AutoFile status " + str$(SampleAutoFile()) + "\n");
+    
 	'Channel recording definitions
 	SampleEvent(FrameTriggerChannel%,0,2,3600); 'Trigger channel, level
 	SampleComment$(FrameTriggerChannel%,"Frame");
