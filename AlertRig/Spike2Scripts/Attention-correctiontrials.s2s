@@ -1,4 +1,4 @@
-' $Id: Attention-correctiontrials.s2s,v 1.5 2009-05-13 23:49:24 devel Exp $
+' $Id: Attention-correctiontrials.s2s,v 1.6 2009-06-23 21:11:59 devel Exp $
 '
 
 #include "AttentionExtractFunctions.s2s"
@@ -403,6 +403,8 @@ var attTrainingContrastCheck%:=0;
 var attTrainingContrastPct%:=0;
 var attEegSamplingFreq%;
 var attEegSamplingCheck%;
+var attNewEegSamplingFreq%;
+var attNewEegSamplingCheck%:=1;
 var attCustomGratingColorCheck%;
 var attCustomGratingColorStimFrom%[3];
 var attCustomGratingColorStimTo%[3];
@@ -904,6 +906,7 @@ var DataWindow%;		'
 var XChannel%;
 var YChannel%;
 var EEGChannel%;
+var NewEEGChannel%;
 var WaveMarkChannel%;
 var FrameTriggerChannel%;
 var FixationPointChannel%;
@@ -965,6 +968,7 @@ StimChangeChannel% := NumberOfElectrodes%+6;
 ReadyChannel% := NumberOfElectrodes%+7;
 EEGChannel% := NumberOfElectrodes%+8;
 WaveMarkChannel% := NumberOfElectrodes%+9;
+NewEEGChannel% := NumberOfElectrodes%+10;
 CreateSampleConfiguration();
 
 
@@ -1677,7 +1681,16 @@ proc CreateSampleConfiguration()
     if attEegSamplingCheck% = 1 then
         SampleWaveform(EEGChannel%, 1, attEegSamplingFreq%);
         SampleTitle$(EEGChannel%,"EEG");
-	endif
+    endif
+
+    ' djs 6-23-09 Add a new EEG Channel, waveform, 1kHz. Corey says this will actually be an EEG, and the old EEG Channel 
+    ' is more properly called "LFP"..... for now we're going with "NewEEG". 
+    ' Will also want to make this an option, just like the Sampling check above, but I cannot modify the dialog today....
+    if attNewEegSamplingCheck% = 1 then
+        SampleWaveform(NewEEGChannel%, 2, 1000);
+        SampleTitle$(NewEEGChannel%,"NewEEG");
+    endif
+
     
 	SampleWaveform(XChannel%,14,1000);
 	SampleTitle$(XChannel%,"Eye X");
