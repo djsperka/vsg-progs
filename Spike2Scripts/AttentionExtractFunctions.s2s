@@ -26,6 +26,16 @@ var attxFCueTime := -1;
 var attxFStimTime := -1;
 var attxFChangeTime := -1;
 var attxFRxTime := -1;
+var attxFXTime := -1;               ' time of trigger following X
+var attxBreakFixTime := -1;         ' time eye first breaks fix pt window
+var attxAnsPtTime := -1;            ' time eye first enters an answer window
+
+' big data chunk for eye data
+var attxEyeX[10000];
+var attxEyeY[10000];
+var attxNEye%;
+var attxEyeStartTime;
+var attxEyeEndTime;
 
 ' state related vars and consts
 const attxstateStart% := 1;
@@ -180,10 +190,31 @@ func AttentionExtract%(tEnd)
             attxIState% := attxstateError%;
         endcase
 
-        ' If we are in one of these states: attxstateDone%, attxstateAbort%, attxstateError%, we flush the state
+
+        ' If we are in attxstateAbort%, then fetch the corresponding trigger.... lets use
+        ' the trigger on the fixation channel.
+        
+        if attxIState% = attxstateAbort% then
+            attxFXTime := GetTriggerTimeFor(sFound$, tFound);
+            if attxFStimTime > 0 then
+                attxEyeStartTime := LastTime(, attxFStimTime);
+                attxEyeEndTime := NextTime(, attxFXTime);
+                
+            
+            
+            PrintLog("X %f %f\n", tFound, attxFXTime);
+            if attxFStimTime > 0 then
+                tdiff := attxFXTime - attxFStimTime;
+                if tdiff > tdiffMax then
+                    tdiffMax := tdiff;
+                endif
+            endif   
+        endif
+
+        ' If we are state attxstateAbort% or attxstateError% then we flush the state
         ' and transition to attxstateStart%.
         
-        if attxIState% = attxstateAbort% or attxIState% = attxstateError% or attxIState% = attxstateDone% then
+        if attxIState% = attxstateAbort% or attxIState% = attxstateError% then
             FlushState();
             attxIState% := attxstateStart%;
         endif
@@ -312,6 +343,8 @@ proc FlushState()
     attxFChangeTime := -1;
     attxIResponse% := 0;
     attxFRxTime := -1;
+    attxBreakFixTime := -1;
+    attxAnsPtTime := -1;
     return;
 end
 
@@ -339,7 +372,7 @@ end
 func GetTriggerTimeFor(key$, tKey)
     var tFound := -99;
     docase
-    case key$ = "F" or key$ = "G" or key$ = "W" then
+    case key$ = "F" or key$ = "G" or key$ = "W"  or key$ = "X" then
         tFound := NextTriggerTransition(5, tKey, 2);
     case key$ = "S" then
         tFound := NextTriggerTransition(6, tKey, 0);
