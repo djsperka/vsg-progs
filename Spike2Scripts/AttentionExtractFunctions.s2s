@@ -1,9 +1,11 @@
 #include "ExtractionUtilities.s2s"
+#include "../../Spike2Util/MiscUtilities.s2s"
 
 ' Initialization and state saving vars
 var attxIsInitialized% := 0;
 var attxOutputHandle := -1;
-var attxTLast := -1;
+var attxTLast := -1;            ' last time processed
+var attxTStop := -1;            ' Time to process to
 
 ' saved state vars
 var attxITrial% := 0;
@@ -33,9 +35,12 @@ var attxAnsPtTime := -1;            ' time eye first enters an answer window
 ' big data chunk for eye data
 var attxEyeX[10000];
 var attxEyeY[10000];
-var attxNEye%;
-var attxEyeStartTime;
-var attxEyeEndTime;
+var attxNEyeX%;
+var attxNEyeY%;
+var attxEyeXStartTime;
+var attxEyeXBinSize;
+var attxEyeYStartTime;
+var attxEyeYBinSize;
 
 ' state related vars and consts
 const attxstateStart% := 1;
@@ -75,20 +80,22 @@ var attxRxTimeCatch[MaxTrials%];
 proc AttentionExtractInit(hOutput)
     attxIsInitialized% := 1;
     attxOutputHandle := hOutput;
-    attxTLast := -1;
     return;
 end
 
 
-func AttentionExtract%(tEnd)
+func AttentionExtract%(tStart, tStop)
     var status% := 0;
     var tFound := -1;
     var sFound$;
     var sIgnore$ := "0Jqs";
     var tTrigger;
+    
+    attxTLast := tStart;
+    attxTStop := tStop;
 
     tFound := NextKeyOrText(attxTLast, sFound$, sIgnore$);
-    while tFound >= 0 and (tEnd < 0 or (tEnd > 0 and tFound <= tEnd)) and attxIState% <> attxstateError% do
+    while tFound >= 0 and (attxTStop < 0 or (attxTStop > 0 and tFound <= attxTStop)) and attxIState% <> attxstateError% do
 
         docase
         case attxIState% = attxstateStart% then
@@ -197,19 +204,19 @@ func AttentionExtract%(tEnd)
         if attxIState% = attxstateAbort% then
             attxFXTime := GetTriggerTimeFor(sFound$, tFound);
             if attxFStimTime > 0 then
-                attxEyeStartTime := LastTime(, attxFStimTime);
-                attxEyeEndTime := NextTime(, attxFXTime);
-                
-            
-            
-            PrintLog("X %f %f\n", tFound, attxFXTime);
-            if attxFStimTime > 0 then
-                tdiff := attxFXTime - attxFStimTime;
-                if tdiff > tdiffMax then
-                    tdiffMax := tdiff;
-                endif
-            endif   
+                GetEyeSignalIntervals(attxFStimTime, attxFXTime, attxEyeXStartTime, attxEyeX[], attxNEyeX%, attxEyeXBinSize, attxEyeYStartTime, attxEyeY[], attxNEyeY%, attxEyeYBinSize);
+                var eAnswer%;
+                var tBroke, tAnswer;
+                var fxC := 0;
+                var fyC := 0;
+                var fRad := 1.5;
+                var aOffset := 5;
+                var aRad := 2.0;
+                eAnswer% := GetEyePositionMilestones%(attxEyeX[], attxNEyeX%, attxEyeY[], attxNEyeY%, attxEyeXStartTime, attxEyeXBinSize, tBroke, tAnswer, fxC, fyC, fRad, aOffset, aRad);
+                PrintLog("Got %d %d eye values between %f,%f, ans %d tBroke %f tAnswer %f\n", attxNEyeX%, attxNEyeY%, attxFStimTime, attxFXTime, eAnswer%, tBroke, tAnswer);
+            endif
         endif
+        
 
         ' If we are state attxstateAbort% or attxstateError% then we flush the state
         ' and transition to attxstateStart%.
@@ -383,3 +390,111 @@ func GetTriggerTimeFor(key$, tKey)
     endcase
     return tFound;
 end
+
+
+' Get the enclosing interval of measurement times given trigger times
+' at the start and end of the desired interval. The trigger times are
+' likely measured at times slightly different than the measurement times
+' of the eye signal channels (which themselves may not be measured at 
+' the same times), so we return the closes measurement times before 
+' the start trigger time, tStart, and after the end trigger time, tEnd.
+'
+' Be aware that the start and end times for x and y channels will NOT be 
+' the same. They should be close (within 1/sampling rate) of each other.
+' Nevertheless, you might find that the number of samples returned is 
+' different for the x and y channels. 
+
+func GetEyeSignalIntervals(tStart, tEnd, &txFirstTime, exValues[], &nexValues%, &exBinSize, &tyFirstTime, eyValues[], &neyValues%, &eyBinSize)
+    var tyStart, tyEnd;
+    var iStatus% := 0;
+    
+    ' Get bin sizes
+    exBinSize := BinSize(2);
+    eyBinSize := BinSize(3);
+    
+    ' Get the data
+    nexValues% := ChanData(2, exValues[], tStart, tEnd, txFirstTime);
+    neyValues% := ChanData(3, eyValues[], tStart, tEnd, tyFirstTime);
+    
+    return iStatus%;
+end
+
+        
+' Find the times at which fixation is broken and when the eye 
+' first enters an answer window. The arrays xEye[] and yEye[]
+' hold nxEye% and nyEye% values; the fixation point center
+' is at (fxC, fyC), its window has radius fRad; the answer
+' point offset is aOffset, answer point window radius is aRad.
+'
+' We require that the first data point be INSIDE the fixation 
+' window. If it isn't, then we assume that fixation was broken
+' and there's really not much to do. 
+'
+' If the first data point is inside the fixation window, then 
+' we will loop over the points until we find the first point
+' when fixation was broken. After that, we look for the first 
+' point where one of the answer point windows was entered. 
+'
+' The values tBreak and tAnswer are the times when fixation 
+' is broken and the answer point window entered, respectively. 
+' If the data runs out before one or both of those points is 
+' reached (i.e. if the trial ended) then those times will be
+' returned as -1. 
+'
+' The return value will be +1(-1) if the 
+' upper (lower) answer window was entered. If neither then 
+' iAnswer% will be 0. 
+
+func GetEyePositionMilestones%(xEye[], nxEye%, yEye[], nyEye%, tStart, binSize, &tBroke, &tAnswer, fxC, fyC, fRad, aOffset, aRad)
+    var iAnswer% := 0;
+    const stateInit% := 1;
+    const stateFix% := 2;
+    const stateBroke% := 3;
+    const stateDone% := 4;
+    var i%;
+    var iState% := stateInit%;
+    
+    'for i% := 0 to (Min(nxEye%, nyEye%)-1) do
+    
+    tBroke := -1;
+    tAnswer := -1;
+    i% := 0;
+    repeat
+        
+        docase
+        case iState% = stateInit% then
+            
+            if IsInsideCircle%(xEye[i%], yEye[i%], fxC, fyC, fRad) = 1 then
+                iState% := stateFix%;
+            else
+                ' This is bad, because we expect that we are initially fixated. 
+                iState% := stateDone%;
+            endif
+            
+        case iState% = stateFix% then
+            
+            if IsOutsideCircle%(xEye[i%], yEye[i%], fxC, fyC, fRad) = 1 then
+                iState% := stateBroke%;
+                tBroke := tStart + i% * binSize;
+            endif
+            
+        case iState% = stateBroke% then
+            
+            docase
+            case IsInsideCircle%(xEye[i%], yEye[i%], fxC, fyC + aOffset, aRad) = 1 then
+                iState% := stateDone%;
+                iAnswer% := 1;
+                tAnswer := tStart + i% * binSize;
+            case IsInsideCircle%(xEye[i%], yEye[i%], fxC, fyC - aOffset, aRad) = 1 then
+                iState% := stateDone%;
+                iAnswer% := -1;
+                tAnswer := tStart + i% * binSize;
+            endcase
+            
+        endcase
+       
+        i% += 1;
+    until i% = Min(nxEye%, nyEye%) or iState% = stateDone%;
+    return iAnswer%;
+end
+
