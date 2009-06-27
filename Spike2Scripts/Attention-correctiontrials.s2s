@@ -1,4 +1,4 @@
-' $Id: Attention-correctiontrials.s2s,v 1.6 2009-06-23 21:11:59 devel Exp $
+' $Id: Attention-correctiontrials.s2s,v 1.7 2009-06-27 00:48:46 devel Exp $
 '
 
 #include "AttentionExtractFunctions.s2s"
@@ -1760,7 +1760,7 @@ func Stop%()
 	wend
 
     ' update statistics
-    AttentionExtract%(-1);
+    AttentionExtract%(-1, -1);
     
 	'ProgRun(bin$ + "\\ClearTrigger",0);
 
