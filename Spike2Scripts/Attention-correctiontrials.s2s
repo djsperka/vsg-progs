@@ -1,7 +1,18 @@
-' $Id: Attention-correctiontrials.s2s,v 1.7 2009-06-27 00:48:46 devel Exp $
+' $Id: Attention-correctiontrials.s2s,v 1.8 2009-07-01 16:45:30 devel Exp $
 '
 
 #include "AttentionExtractFunctions.s2s"
+
+' Version var. This var is used in data extraction. Each version number will require
+' different handling. All data collected up to this point do NOT have a version number
+' saved in the data file's Comments - these data are assigned version 0. Subsequent 
+' revisions will have versions 1, 2, .... These version numbers are NOT the same as 
+' the CVS version numbers (e.g. 1.7 - see the $Id line at the top of this file). 
+'
+' Each version change will require corresponding changes to the analysis/extraction 
+' scripts. 
+
+var attVersionNumber% := 1;
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 '
@@ -652,6 +663,7 @@ func AttentionScriptDialog%()
     DlgButton(2, "Colors", ColorsDialog%, 1, 15);
     DlgButton(3, "Timing", TimingDialog%, 1, 16);
     DlgButton(4, "Lollipops", LollipopsDialog%, 1, 17);
+    DlgButton(5, "Answer Pts", AnsptDialog%, 1, 18);
     DlgAllow(0, 0, AttentionScriptDialogChanged%);
 	i%:=DlgShow(attNumberOfBlocks%, attTrialsPerBlock%, attCatchTrialPercentage,attBlockAlternate%, 
                 attUseCorrectionTrials%, attCorrectionTrialPct%, 
@@ -880,6 +892,20 @@ func LollipopsDialogChanged%(item%)
 end
 
 
+
+func AnsptDialog%()
+    var i%;
+    
+	DlgCreate("Answer Points", 25, 10);
+	DlgReal(1, "Anspt offset (deg):", .01, 20);
+	DlgReal(2, "Anspt window radius (deg):", .01, 20);
+    
+	i%:=DlgShow(attAcquisitionTime, attWhitePointTime, attFixationCueMinTime, attFixationCueMaxTime, 
+                attHazardMinTime, attHazardExpMeanTime, attHazardCutoffTime, attTimeToAnswer, 
+                attInterTrialTime, attAbortWaitTime);
+    return 1;
+end
+
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 '
 ' Attention script END
@@ -971,6 +997,13 @@ WaveMarkChannel% := NumberOfElectrodes%+9;
 NewEEGChannel% := NumberOfElectrodes%+10;
 CreateSampleConfiguration();
 
+' Write SampleText into data file. This text holds the following information...
+' fixationx, fixationy, fixwindowradius, anspt offset, anspt window, degrees per volt x, degrees per volt y
+tmp$ := Print$("%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f", 
+    attVersionNumber%, NumberOfElectrodes%, XChannel%, YChannel%, FrameTriggerChannel%, FixationPointChannel%, 
+    StimChannel%, StimChangeChannel%, ReadyChannel%, EEGChannel%, WaveMarkChannel%, NewEEGChannel%,
+    FixationX, FixationY, WindowRadius, attAnswerPointOffset, attAnswerPointWindowRadius, DegreesPerVoltX, DegreesPerVoltY);
+SampleText(tmp$);
 
 ' Initialize extraction
 AttentionExtractInit(-1);
@@ -1192,13 +1225,18 @@ func IdleProcessing%()
                 
         case iState% = stateWaitForFixPtOn% then
 
-			tTrigger := NextTime(FixationPointChannel%, tLast, vTrigger);
-			if tTrigger > tLast then
-				' Fixation point is up
-				PrintLog("stateWaitForFixPtOn: signal received. " + str$(tNow) + "\n");
-				tLastTrigger := tTrigger;
-				ChangeStateTo(stateWaitForFixation%, tTrigger);
-				DrawStim(1);	' actually this draws the location of the fixpt.
+			if Looking%(xEye, yEye) = 1 then
+                tTrigger := NextTime(FixationPointChannel%, tLast, vTrigger);
+                if tTrigger > tLast then
+                    ' Fixation point is up
+                    PrintLog("stateWaitForFixPtOn: signal received. " + str$(tNow) + "\n");
+                    tLastTrigger := tTrigger;
+                    ChangeStateTo(stateWaitForFixation%, tTrigger);
+                    DrawStim(1);	' actually this draws the location of the fixpt.
+                endif
+            else
+				PrintLog("stateWaitForFixPtOn: broke fixation.\n");
+				ChangeStateTo(stateAbort%, tNow);
 			endif
 
 		case iState% = stateWaitForFixation% then
@@ -1217,17 +1255,21 @@ func IdleProcessing%()
 
 		case iState% = stateWaitForStimOn% then
 
-			tTrigger := NextTime(StimChannel%, tLast, vTrigger);
-			if tTrigger > tLast and vTrigger = 0 then
-				' gratings et al are up
-				PrintLog("stateWaitForStimOn: stim is up.\n");
-				tStimOn := tTrigger;
-				tLastTrigger := tTrigger;
-				ChangeStateTo(stateHoldFixation%, tTrigger);
+			if Looking%(xEye, yEye) = 1 then        
+                tTrigger := NextTime(StimChannel%, tLast, vTrigger);
+                if tTrigger > tLast and vTrigger = 0 then
+                    ' gratings et al are up
+                    PrintLog("stateWaitForStimOn: stim is up.\n");
+                    tStimOn := tTrigger;
+                    tLastTrigger := tTrigger;
+                    ChangeStateTo(stateHoldFixation%, tTrigger);
+                endif
+			else 
+				PrintLog("stateWaitForStimOn: fixation broken.\n");
+				ChangeStateTo(stateAbort%, tNow);
 			endif
-
-			
-		case iState% = stateAbort% then
+        
+        case iState% = stateAbort% then
 
 			' Signal "X" turns off fixpt and stimulus. The next state 'stateWaitForBlank' only checks for 
 			' fixpt off. 
@@ -1330,12 +1372,17 @@ func IdleProcessing%()
 
 		case iState% = stateWaitForContrastChange% then
 
-			tTrigger := NextTime(StimChangeChannel%, tLast, vTrigger);
-            if tTrigger > tLast and vTrigger = 0 then
-                PrintLog("stateWaitForContrastChange: got it.\n");
-                tLastTrigger := tTrigger;
-                isStimDistractorOff% := 0;
-				ChangeStateTo(stateWaitForAnswer%, tNow);
+			if Looking%(xEye, yEye) = 1 then
+                tTrigger := NextTime(StimChangeChannel%, tLast, vTrigger);
+                if tTrigger > tLast and vTrigger = 0 then
+                    PrintLog("stateWaitForContrastChange: got it.\n");
+                    tLastTrigger := tTrigger;
+                    isStimDistractorOff% := 0;
+                    ChangeStateTo(stateWaitForAnswer%, tNow);
+                endif
+            else
+				PrintLog("stateWaitForContrastChange: fixation broken.\n");
+				ChangeStateTo(stateAbort%, tNow);
 			endif
 
 		case iState% = stateWaitForAnswer% then
@@ -1702,6 +1749,12 @@ proc CreateSampleConfiguration()
 	SampleSequencer(script$ + "Attention.pls");
 	SampleOptimise(2,2,2,2,50);  'Set optimise mode (do this last)
 	SampleMode(1); 'Continuous sampling
+
+
+
+    
+
+
 end;
 
 
