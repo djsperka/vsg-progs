@@ -1,4 +1,4 @@
-' $Id: Attention-correctiontrials.s2s,v 1.8 2009-07-01 16:45:30 devel Exp $
+' $Id: Attention-correctiontrials.s2s,v 1.9 2009-07-01 20:51:08 devel Exp $
 '
 
 #include "AttentionExtractFunctions.s2s"
@@ -900,9 +900,7 @@ func AnsptDialog%()
 	DlgReal(1, "Anspt offset (deg):", .01, 20);
 	DlgReal(2, "Anspt window radius (deg):", .01, 20);
     
-	i%:=DlgShow(attAcquisitionTime, attWhitePointTime, attFixationCueMinTime, attFixationCueMaxTime, 
-                attHazardMinTime, attHazardExpMeanTime, attHazardCutoffTime, attTimeToAnswer, 
-                attInterTrialTime, attAbortWaitTime);
+	i%:=DlgShow(attAnswerPointOffset, attAnswerPointWindowRadius);
     return 1;
 end
 
@@ -996,14 +994,6 @@ EEGChannel% := NumberOfElectrodes%+8;
 WaveMarkChannel% := NumberOfElectrodes%+9;
 NewEEGChannel% := NumberOfElectrodes%+10;
 CreateSampleConfiguration();
-
-' Write SampleText into data file. This text holds the following information...
-' fixationx, fixationy, fixwindowradius, anspt offset, anspt window, degrees per volt x, degrees per volt y
-tmp$ := Print$("%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f", 
-    attVersionNumber%, NumberOfElectrodes%, XChannel%, YChannel%, FrameTriggerChannel%, FixationPointChannel%, 
-    StimChannel%, StimChangeChannel%, ReadyChannel%, EEGChannel%, WaveMarkChannel%, NewEEGChannel%,
-    FixationX, FixationY, WindowRadius, attAnswerPointOffset, attAnswerPointWindowRadius, DegreesPerVoltX, DegreesPerVoltY);
-SampleText(tmp$);
 
 ' Initialize extraction
 AttentionExtractInit(-1);
@@ -1744,7 +1734,7 @@ proc CreateSampleConfiguration()
 	SampleWaveform(YChannel%,15,1000);
 	SampleTitle$(YChannel%,"Eye Y");
 
-	SampleTextMark(1);
+	SampleTextMark(200);
 
 	SampleSequencer(script$ + "Attention.pls");
 	SampleOptimise(2,2,2,2,50);  'Set optimise mode (do this last)
@@ -1832,8 +1822,19 @@ func Start%()
     var distSpec$;
     var lolSpec$;
     var x;
+    var tmp$;
 	
 	SampleStart(0); 'Start sampling
+
+    ' Write SampleText into data file. This text holds the following information...
+    ' fixationx, fixationy, fixwindowradius, anspt offset, anspt window, degrees per volt x, degrees per volt y
+    tmp$ := Print$("%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%.2f,%.2f,%.2f,%.2f,%.2f,%.3f,%.3f", 
+        attVersionNumber%, NumberOfElectrodes%, XChannel%, YChannel%, FrameTriggerChannel%, FixationPointChannel%, 
+        StimChannel%, StimChangeChannel%, ReadyChannel%, EEGChannel%, WaveMarkChannel%, NewEEGChannel%,
+        FixationX, FixationY, WindowRadius, attAnswerPointOffset, attAnswerPointWindowRadius, DegreesPerVoltX, DegreesPerVoltY);
+    SampleText(tmp$);
+
+
 	SampleKey("0");
     ttemp := View(DataWindow%).MaxTime();
     Yield();
