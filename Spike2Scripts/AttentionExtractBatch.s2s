@@ -1,0 +1,122 @@
+#include "AttentionExtractFunctions.s2s"
+#include "../../Spike2Util/FileUtilities.s2s"
+
+var hData%;
+var sInitArg$;
+var hTxt%;
+var iCode%[4];
+var hList%;
+var iFileCounter% := 0;
+var sFilename$;
+var sTxtFilename$;
+
+' Open list file 
+hList% := FileOpen("", 8, 0, "Select list file");
+if hList% < 0 then
+    Message("Error opening file. Is it open in another application?\n");
+    halt;
+endif
+
+' The list file should contain filenames to be processed. 
+' The format of the file is as follows:
+' blank lines and lines beginning with "#" are ignored.
+' Non-blank, non-comment lines must begin with a filename. 
+' It must be either a full pathname to a data file (.smr)
+' or a pathname relative to the current dir (best go with full pathnames). 
+' The filename CAN be followed by an "init string", which contains all the 
+' relevant parameters for the extraction analysis. When a filename and an init
+' string are present on a line, both must be enclosed in quotes. If no init
+' string is present, the quotes are not required on the filename. 
+' 
+' If no init string is on the line, then the data file version is determined by 
+' checking channel 30 (text marks) for a text mark at time 0. That marker 
+' must be a comma-delimited string with 19 parameters (see below). If that 
+' text mark is not found, then the file is assumed to be version "0", where 
+' we assume a certain set of parameters. 
+' 
+' Most data files collected prior to 6/30/09 will be version "0" type. 
+' Files collected after that will have the text marker present. There 
+' is a small set of files collected where the answer point offset was 
+' changed -- these files will need to have an init string like this:
+'
+' 0,1,2,3,4,5,6,7,8,9,10,11,0.00,0.00,1.50,7.00,2.00,4.000,4.000
+'
+' For any other special cases, here is the format of that init string. 
+' There are 19 values. The first 12 are integer values (these cannot have 
+' decimal points) and the final 7 are floating point (they can have decimal 
+' points). There are NO SPACES in the text!
+'
+' 1     version number          Should be 0 for any files whose init string is placed in the list file
+' 2     number of electrodes    Taken from DAQ config. This is NOT necessarily the same as the number of waveform channels
+'                               It is "1" for all attention data to date. 
+' 3     "Eye X" channel         Channel number for eye x signal
+' 4     "Eye Y" channel         Channel number for eye y signal
+' 5     "Frame" channel
+' 6     "Fixation" channel
+' 7     "Stim" channel
+' 8     "Stim Chg" channel
+' 9     "VSG Read" channel
+' 10    "EEG Volt" channel
+' 11    "Electrode Volt" channel
+' 12    "New EEG" channel
+' 13    Fixpt X position
+' 14    Fixpt Y position
+' 15    Fixpt window radius
+' 16    Anspt offset
+' 17    Anspt window radius
+' 18    Degrees per volt in X
+' 19    Degrees per volt in Y
+
+
+' Now that list file is opened, fetch one line at a time (ignoring blank and comment lines). 
+' For each file found, we open it and a text file for output, make the data file the current view, 
+' initialize the extraction and then extract. 
+
+while GetNextDataFile%(hList%, sFilename$, sInitArg$) > 0 do
+    
+    ' Open data file
+    iFileCounter% += 1;
+    PrintLog("File %d: %s, init string \"%s\"\n", iFileCounter%, sFilename$, sInitArg$);
+    hData% := FileOpen(sFilename$, 0, 0);
+    if hData% < 0 then
+        PrintLog("Error (%d): Cannot open file %s\n", hData%, sFilename$);
+    else
+        ' Open output text file
+        sTxtFilename$ := ReplaceFileExtension$(hData%, ".txt");
+        hTxt% := FileOpen(sTxtFilename$, 8, 1);
+        if hTxt% < 0 then
+            PrintLog("Error (%d): Cannot open output file %s\n", hTxt%, sTxtFilename$);
+            View(hData%).FileClose();
+        else
+            ' Initialize processing
+            if AttentionExtractInit%(hTxt%, sInitArg$) = 0 then
+                View(hData%);
+                AttentionExtract%(-1, -1);
+            else
+                PrintLog("Error : AttentionExtractInit failed.\n");
+            endif
+            View(hData%); 
+            FileClose();
+            View(hTxt%);
+            FileClose();
+        endif
+    endif    
+wend
+
+FileClose(hList%);
+
+
+func GetNextDataFile%(h%, &sFile$, &sInit$)
+    var i% := 0;
+    var ok% := 0;
+    var saveView%;
+    saveView% := View(h%);
+    View(h%);
+    while i% = 0 do
+        i% := Read(sFile$, sInit$);
+        if i% > 0 and InStr(sFile$, "#") = 1 then
+                i% := 0;    ' Comment line
+        endif        
+    wend
+    return i%;
+end
