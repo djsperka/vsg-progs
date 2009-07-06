@@ -23,6 +23,8 @@ var attxIResponse% := 0;
 const responseNone% := 0;
 const responseCorrect% := 1;
 const responseIncorrect% := -1;
+const responseFalseAlarmUp% := 2;
+const responseFalseAlarmDn% := -2;
 var attxWCueTime := -1;
 var attxFCueTime := -1;
 var attxFStimTime := -1;
@@ -41,6 +43,27 @@ var attxEyeXStartTime;
 var attxEyeXBinSize;
 var attxEyeYStartTime;
 var attxEyeYBinSize;
+
+' File-specific vars with parameters that may change from data file to data file.
+var attxVersionNumber% := 0;
+var attxNumberOfElectrodes% := 0;
+var attxXChannel% := 0;
+var attxYChannel% := 0;
+var attxFrameTriggerChannel% := 0;
+var attxFixationPointChannel% := 0;
+var attxStimChannel% := 0;
+var attxStimChangeChannel% := 0;
+var attxReadyChannel% := 0;
+var attxEEGChannel% := 0;
+var attxWaveMarkChannel% := 0;
+var attxNewEEGChannel% := 0;
+var attxFixationX := 0;
+var attxFixationY := 0;
+var attxWindowRadius := 0;
+var attxAnswerPointOffset := 0;
+var attxAnswerPointWindowRadius := 0;
+var attxDegreesPerVoltX := 0;
+var attxDegreesPerVoltY := 0;
 
 ' state related vars and consts
 const attxstateStart% := 1;
@@ -77,12 +100,23 @@ var attxRxTimeCatch[MaxTrials%];
 ' Initialization function. Should be called once with a handle to an output file, already opened. 
 ' Running totals will be printed on log output. 
 
-proc AttentionExtractInit(hOutput)
+func AttentionExtractInit%(hOutput, initStr$)
+    if InitFileVars%(initStr$) < 0 then
+        return -1;
+    endif    
     attxIsInitialized% := 1;
     attxOutputHandle := hOutput;
+    InitTrialVars();
     return;
 end
 
+    
+' AttentionExtract%(tStart, tStop)
+' 
+' Extract attention data betwen tStart and tStop. If tStart<0, start at beginning of file. 
+' If tStop<0, extract to the end of the file. 
+'
+' When called the current view must be the data file/time view to be analyzed. 
 
 func AttentionExtract%(tStart, tStop)
     var status% := 0;
@@ -204,16 +238,42 @@ func AttentionExtract%(tStart, tStop)
         if attxIState% = attxstateAbort% then
             attxFXTime := GetTriggerTimeFor(sFound$, tFound);
             if attxFStimTime > 0 then
-                GetEyeSignalIntervals(attxFStimTime, attxFXTime, attxEyeXStartTime, attxEyeX[], attxNEyeX%, attxEyeXBinSize, attxEyeYStartTime, attxEyeY[], attxNEyeY%, attxEyeYBinSize);
                 var eAnswer%;
-                var tBroke, tAnswer;
-                var fxC := 0;
-                var fyC := 0;
-                var fRad := 1.5;
-                var aOffset := 5;
-                var aRad := 2.0;
-                eAnswer% := GetEyePositionMilestones%(attxEyeX[], attxNEyeX%, attxEyeY[], attxNEyeY%, attxEyeXStartTime, attxEyeXBinSize, tBroke, tAnswer, fxC, fyC, fRad, aOffset, aRad);
-                PrintLog("Got %d %d eye values between %f,%f, ans %d tBroke %f tAnswer %f\n", attxNEyeX%, attxNEyeY%, attxFStimTime, attxFXTime, eAnswer%, tBroke, tAnswer);
+                GetEyeSignalIntervals(attxFStimTime, attxFXTime, attxEyeXStartTime, attxEyeX[], attxNEyeX%, attxEyeXBinSize, attxEyeYStartTime, attxEyeY[], attxNEyeY%, attxEyeYBinSize);
+                ArrMul(attxEyeX[], attxDegreesPerVoltX);
+                ArrMul(attxEyeY[], attxDegreesPerVoltY);
+                eAnswer% := GetEyePositionMilestones%(attxEyeX[], attxNEyeX%, attxEyeY[], attxNEyeY%, 
+                    attxEyeXStartTime, attxEyeXBinSize, attxBreakFixTime, 
+                    attxAnsPtTime, attxFixationX, attxFixationY, attxWindowRadius, 
+                    attxAnswerPointOffset, attxAnswerPointWindowRadius);
+                
+                ' See if we ought to correct the reaction time. That's only in the case where there was an answer - in which case
+                ' attxIResponse% is not 0.....
+                if attxIResponse% <> 0 then
+                    if attxAnsPtTime > 0 then
+                        attxFRxTime := attxAnsPtTime - attxFChangeTime;
+                    else
+                        PrintLog("ERROR: No answer time found from eye data, but answer was found online!!!\n");
+                    endif
+                endif
+
+                ' Look for cheated-but-got-away-with-it. That'd be where fixation was broken before the contrast change
+                ' but we didn't detect it. This is NOT a false alarm trial - because a contrast change happened. Its also
+                ' not a valid trial - because fixation was broken prior to the contrast change. Here we force the response
+                ' to be zero to make sure the trial is ignored in downstream analysis. 
+                
+                if attxIChangeType% <> 0 and attxIUpDown% <> 0 and attxBreakFixTime < attxFChangeTime then
+                    attxIResponse% := responseNone%;
+                endif
+
+                ' Look for false alarms. That'd be when there is no change type/updown specified (i.e. the contrast change
+                ' signal never went out), but the eye entered an answer window before the X trigger was received.
+                if attxIChangeType% = 0 and attxIUpDown% = 0 and attxAnsPtTime > 0 then
+                    ' false alarm
+                    attxIResponse% := eAnswer% * 2;
+                    attxFRxTime := attxAnsPtTime - attxFStimTime;
+                endif
+                
             endif
         endif
         
@@ -236,8 +296,11 @@ func AttentionExtract%(tStart, tStop)
 end
 
 
+' PctString()
+'
 ' Get M/N as a percentage, returned as a string in %4.1%% format, e.g 12.4%
 ' If N is zero, then return -----. 
+
 func PctStr$(N, M)
     var s$ := "@@.@%";
     if N>0 then
@@ -246,7 +309,12 @@ func PctStr$(N, M)
     return s$;
 end
 
-' Print current results to log window
+
+' PrintResults()
+'
+' Print tallies of trials, success, failure, catch trials, reaction times, etc to the log window. 
+' This is intended as a summary and is not as complete as the full results printed by FlushState()
+' at the end of each trial. 
 
 proc PrintResults()
     var mean, std;
@@ -282,6 +350,12 @@ proc PrintResults()
     return;
 end
 
+
+' FlushState()
+'
+' Prints the results of a trial to the log window and the output file (if it exists - see
+' AttentionExtractInit()). Re-initializes trial variables when finished. 
+
 proc FlushState()
     var s$;
     var isum% := 0;
@@ -290,7 +364,7 @@ proc FlushState()
     ' Update tallies and counts.....
     if attxIsCorrectionTrial% = 0 then
         attxNTrials += 1;
-        if attxIResponse% <> responseNone% then
+        if attxIResponse% = responseCorrect% or attxIResponse% = responseIncorrect% then
             isum% := attxICueType% + attxIChangeType%;
             attxNTrialsCompleted += 1;
             if attxIResponse% = responseCorrect% then
@@ -335,11 +409,100 @@ proc FlushState()
     ' Dump this trial to the log and output file if it exists.
     itrial% := attxITrial%;
     if attxIsCorrectionTrial% = 1 then itrial% *= -1; endif;
-    s$ := Print$("%d\t%.4f\t%d\t%.3f\t%.3f\t%d\t%d\t%.3f\t%d\t%.3f\n", itrial%, attxWCueTime, attxICueType%, attxFCueTime, attxFStimTime, attxIChangeType%, attxIUpDown%, attxFChangeTime, attxIResponse%, attxFRxTime);
+    s$ := Print$("%d\t%.4f\t%d\t%.3f\t%.3f\t%d\t%d\t%.3f\t%d\t%.3f\t%.3f\t%.3f\n", 
+        itrial%, attxWCueTime, attxICueType%, attxFCueTime, attxFStimTime, 
+        attxIChangeType%, attxIUpDown%, attxFChangeTime, attxIResponse%, attxFRxTime, 
+        attxBreakFixTime, attxAnsPtTime);
     View(LogHandle()).Print(s$);
     if attxOutputHandle >= 0 then
         View(attxOutputHandle).Print(s$);
     endif
+    
+    InitTrialVars();
+    return;
+end
+
+
+
+' InitFileVars()
+'
+' Initialize vars used for file-wide totals and analysis. Warning: the output handle and 
+' initialization flag are CLEARED here - do not call after those values have been initialized
+' for a given file!
+
+func InitFileVars%(initStr$)
+    var status% := 0;
+    attxIsInitialized% := 0;
+    attxOutputHandle := 0;
+    ArrConst(attxRxTimeTowards[], 0);
+    ArrConst(attxRxTimeAway[], 0);
+    ArrConst(attxRxTimeCatch[], 0);
+    attxNTrials := 0;
+    attxNTrialsCompleted := 0;
+    attxNTrialsCorrect := 0;
+    attxNTrialsTowards := 0;
+    attxNTrialsAway := 0;
+    attxNTrialsTowardsCorrect := 0;
+    attxNTrialsAwayCorrect := 0;
+    attxNTrialsCatch := 0;
+    attxNTrialsCatchCorrect := 0;
+    attxNCorrectionTrials := 0;
+    attxNCorrectionTrialsCompleted := 0;
+    attxNCorrectionTrialsCorrect := 0;
+
+    if Len(initStr$) = 0 then
+        attxVersionNumber% := 0;
+        attxNumberOfElectrodes% := 1;
+        attxXChannel% := 2;
+        attxYChannel% := 3;
+        attxFrameTriggerChannel% := 4;
+        attxFixationPointChannel% := 5;
+        attxStimChannel% := 6;
+        attxStimChangeChannel% := 7;
+        attxReadyChannel% := 8;
+        attxEEGChannel% := 9;
+        attxWaveMarkChannel% := 10;
+        attxNewEEGChannel% := 11;
+        attxFixationX := 0;
+        attxFixationY := 0;
+        attxWindowRadius := 1.5;
+        attxAnswerPointOffset := 5;
+        attxAnswerPointWindowRadius := 2;
+        attxDegreesPerVoltX := 4;
+        attxDegreesPerVoltY := 4;
+    else
+        ' Read first value from string - this is the version number and it will tell us the format of the string.
+        if ReadStr(initStr$, attxVersionNumber%) = 1 then
+            docase 
+            case attxVersionNumber% = 1 then
+                if ReadStr(initStr$, attxVersionNumber%, attxNumberOfElectrodes%, attxXChannel%, attxYChannel%, attxFrameTriggerChannel%, 
+                            attxFixationPointChannel%, attxStimChannel%, attxStimChangeChannel%, attxReadyChannel%, attxEEGChannel%, 
+                            attxWaveMarkChannel%, attxNewEEGChannel%, attxFixationX, attxFixationY, attxWindowRadius, 
+                            attxAnswerPointOffset, attxAnswerPointWindowRadius, attxDegreesPerVoltX, attxDegreesPerVoltY) <> 19 then
+                    PrintLog("ERROR in init str for this file. Version number = %d. For this version, the first text mark should have 19 values (comma-separated). This file will not be processed!\n", attxVersionNumber%);
+                    status% := -1;
+                endif
+            else
+                PrintLog("ERROR: Version number %d not handled.\n", attxVersionNumber%);
+                status% := -1;
+            endcase
+        else
+            PrintLog("ERROR: Parameter string format error. Cannot read version number from beginning of string.\n");
+            status% := -1;
+        endif
+    endif
+    return status%;
+end
+
+
+
+' InitTrialVars
+'
+' Initialize the vars used to track the progress of a trial. As a trial is analyzed these
+' vars are set. After analysis of a trial is done these values are dumped to the output file
+' and reinitialized here. 
+
+proc InitTrialVars()
     attxICueType% := 0;
     attxIsCorrectionTrial% := 0;
     attxWCueTime := -1;
@@ -348,13 +511,17 @@ proc FlushState()
     attxIChangeType% := 0;
     attxIUpDown% := 0;
     attxFChangeTime := -1;
-    attxIResponse% := 0;
+    attxIResponse% := responseNone%;
     attxFRxTime := -1;
     attxBreakFixTime := -1;
     attxAnsPtTime := -1;
     return;
 end
-
+    
+    
+' StateString$(state%)
+' 
+' Convenience func to return string representation for a state's integer value. 
 
 func StateString$(state%)
     var s$;
@@ -375,6 +542,16 @@ func StateString$(state%)
     return s$;
 end
 
+
+' GetTriggerTimeFor(key$, tKey)
+'
+' Given a particular SampleKey character and the time it was found, searches for the 
+' corresponding trigger for that key. This func ASSUMES CERTAIN CHANNELS FOR TRIGGER 
+' DATA! These channels are assigned in the online script. This is a somewhat dangerous
+' situation, because those values could change (PROGRAMMER ATTENTION! DON'T CHANGE 
+' THOSE CHANNEL VALUES! TODO: Record channel assignments in SampleText marker at 
+' daq onset). 
+' 
 
 func GetTriggerTimeFor(key$, tKey)
     var tFound := -99;
