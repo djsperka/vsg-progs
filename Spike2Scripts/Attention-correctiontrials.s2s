@@ -1,4 +1,4 @@
-' $Id: Attention-correctiontrials.s2s,v 1.9 2009-07-01 20:51:08 devel Exp $
+' $Id: Attention-correctiontrials.s2s,v 1.10 2009-07-07 01:27:21 devel Exp $
 '
 
 #include "AttentionExtractFunctions.s2s"
@@ -446,6 +446,10 @@ var attCountCorrectionTrials% := 0;
 var attCountCorrectionTrialsCorrect% := 0;
 var attCountCorrectionTrialsIncorrect% := 0;
 var attCountCorrectionTrialsAbort% := 0;
+
+' Initialization string for text mark in data file and for initializing
+' extraction
+var attInitString$;
 
 ' constants for dialog and check functio
 const attdlgUseCorrectionTrialsCheck% := 5;
@@ -996,7 +1000,11 @@ NewEEGChannel% := NumberOfElectrodes%+10;
 CreateSampleConfiguration();
 
 ' Initialize extraction
-AttentionExtractInit(-1);
+attInitString$ := Print$("%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%.2f,%.2f,%.2f,%.2f,%.2f,%.3f,%.3f", 
+    attVersionNumber%, NumberOfElectrodes%, XChannel%, YChannel%, FrameTriggerChannel%, FixationPointChannel%, 
+    StimChannel%, StimChangeChannel%, ReadyChannel%, EEGChannel%, WaveMarkChannel%, NewEEGChannel%,
+    FixationX, FixationY, WindowRadius, attAnswerPointOffset, attAnswerPointWindowRadius, DegreesPerVoltX, DegreesPerVoltY);
+AttentionExtractInit%(-1, attInitString$);
 
 ' Get display windows ready
 InitializeWindows();
@@ -1826,13 +1834,8 @@ func Start%()
 	
 	SampleStart(0); 'Start sampling
 
-    ' Write SampleText into data file. This text holds the following information...
-    ' fixationx, fixationy, fixwindowradius, anspt offset, anspt window, degrees per volt x, degrees per volt y
-    tmp$ := Print$("%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%.2f,%.2f,%.2f,%.2f,%.2f,%.3f,%.3f", 
-        attVersionNumber%, NumberOfElectrodes%, XChannel%, YChannel%, FrameTriggerChannel%, FixationPointChannel%, 
-        StimChannel%, StimChangeChannel%, ReadyChannel%, EEGChannel%, WaveMarkChannel%, NewEEGChannel%,
-        FixationX, FixationY, WindowRadius, attAnswerPointOffset, attAnswerPointWindowRadius, DegreesPerVoltX, DegreesPerVoltY);
-    SampleText(tmp$);
+    ' Write SampleText into data file. This text has info necessary for offline analysis.
+    SampleText(attInitString$);
 
 
 	SampleKey("0");
