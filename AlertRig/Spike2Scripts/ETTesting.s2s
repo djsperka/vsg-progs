@@ -1,0 +1,350 @@
+' $Id: ETTesting.s2s,v 1.1 2009-07-09 21:15:40 devel Exp $
+
+#include "../../Spike2Util/RigName.s2s"
+#include "Usrey.s2s"
+#include "UsreyDAQ.s2s"
+#include "UsreyFixationPoint.s2s"
+
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+' et script parameters START
+'
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+' Parameters saved in registry
+var etFixationTime; 			' Time required to maintain fixation, seconds
+var etAcquisitionTime;			' Time allowed to acquire target before fail trial, seconds
+var etInterTrialTime;			' Blank time following a trial (both successful and failed), seconds
+var etTrialsPerBlock%;			' Number of trials to run
+var etBackgroundColor$;	    	' Background color for stim
+var etEyeposAvgWindow%;         ' MS to average over for eye pos
+
+
+
+' vars for realtime state handling
+const stateStart% := 1;
+const stateVSGWait% := 2;
+const stateVSGWaitConfirm% := 3;
+const stateNewCondition% := 4;
+const stateAddMarker% := 5;
+const stateTrialInit% := 6;
+const stateFixptOn% := 7;
+const stateWaitForFixpt% := 8;
+const stateWaitForAcq% := 9;
+const stateWaitForFixation% := 10;
+const stateSuccess% := 11;
+const stateAcqFail% := 12;
+const stateWaitForBlank% := 13;
+const stateInterTrialPause% := 14;
+const stateBrokeFixation% := 15;
+const stateDone% := 16;
+var fiState% := stateStart%;
+var fiTesting% := 0;
+var ftNow := -1;
+var ftLast := -1;
+var ftLastUpdate := -1;
+var ftStateStart := -1;
+var fsConditionString$;
+
+' running parameters, channel numbers, etc. 
+var fiPauseFlag% := 0;           ' If set to 1 script pauses
+var fiNewCondFlag% := 0;
+var fiTrialCounter% := 0;
+var fiSuccessfulTrialCounter% := 0;
+var fiBlockCounter% := 0;
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+' ET Script parameters -- saving, fetching and dialog.
+'
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+proc GetETScriptParameters()
+    PrintLog("TODO: GetETScriptParameters N.I.\n");
+    return;
+end
+
+proc SaveETScriptParameters()
+    PrintLog("TODO: SaveETScriptParameters N.I.\n");
+    return;
+end
+
+func ETScriptDialog%()
+	var i%;
+	var bcl$[3];
+	var ibcl%:=0;
+	GetETScriptParameters();
+	bcl$[0] := "gray";
+	bcl$[1] := "black";
+	bcl$[2] := "white";
+	for i%:=0 to 2 do
+		if etBackgroundColor$ = bcl$[i%] then
+			ibcl% := i%;
+		endif
+	next;
+	DlgCreate("EyeTracker Testing Parameters", 25, 10);
+	DlgReal(1, "Acquisition time(s):", .01, 10);
+	DlgReal(2, "Fixation duration(s):", .01, 10);
+	DlgInteger(3, "Trials per block:", 1, 1000);
+    DlgInteger(4, "Window for eyepos avg (ms):", 1, 100);
+	DlgReal(5, "Intertrial time(s):", .01, 10);
+	DlgList(6, "Background color:", bcl$);
+    DlgButton(7, "FixationPoint", FixationPointDialog%);
+	i%:=DlgShow(etAcquisitionTime, etFixationTime, etTrialsPerBlock%, etEyeposAvgWindow%, etInterTrialTime, ibcl%);
+	if i% = 1 then
+		etBackgroundColor$ := bcl$[ibcl%];
+		SaveETScriptParameters();
+	endif;
+	return 1;
+end;
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+' ET Script parameters -- saving, fetching and dialog -- DONE. 
+'
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+
+' start%()
+'
+' Toolbar function called when "Start" button is hit.
+'
+' returns 1
+
+func start%()
+    ToolbarEnable(2, 1);
+    ToolbarEnable(1, 0);
+    ToolbarSet(0, "", idle%);
+    return 1;
+end
+
+' pause%()
+'
+' Toolbar function called when "Pause" button is hit.
+'
+' returns 1
+
+func pause%()
+    fiPauseFlag% := 1;
+    ToolbarEnable(2, 0);
+    ToolbarEnable(3, 1);
+    return 1;
+end
+
+' resume%()
+'
+' Toolbar function called when "Resume" button is hit.
+'
+' returns 1
+
+func resume%()
+    fiPauseFlag% := 0;
+    ToolbarEnable(2, 1);
+    ToolbarEnable(3, 0);
+    return 1;
+end
+
+' quit%()
+'
+' Toolbar function called when "Quit" button is hit.
+'
+' returns 0 - this causes a return from the Toolbar() function. 
+
+func quit%()
+    ToolbarSet(0, "");
+    if fiTesting% = 0 then
+        SampleKey("X");
+        SampleKey("Q");
+        Yield(.1);
+        SampleStop();
+        ProgKill(fStimHandle%);
+        while ProgStatus(StimHandle%) > 0 do
+            Yield();
+        wend
+    endif
+    return 0;
+end
+
+' newcond%()
+'
+' Toolbar function called when "New Condition" button is hit.
+'
+' returns 1
+
+func newcond%()
+    return 1;
+end
+
+' ChangeState(stateTo%, tStart)
+'
+' Change state variable fiState% to stateTo%, and save tStart as the ftStateStart time
+
+proc ChangeState(stateTo%, tStart)
+    fiState% := stateTo%;
+    ftStateStart := tStart;
+    return;
+end
+
+
+
+' NewCondDialogOK%()
+' NewCondDialog%()
+'
+' NewCondDialog%() opens a dialog allowing user to key in a text string
+' to be placed as SampleText - it will mark off a new condition for the 
+' eye tracker (e.g. mirror position, stage position, etc). The dialog 
+' has three possible actions: 
+' User hits OK - a test is done that the user has keyed in a condition. 
+'                If not, a warning is issued and the dialog remains. If
+'                there is a condition string, then the dialog closes and
+'                returns 1; the value of the string is in fsConditionString$. 
+' User hits Cancel - no new condition, user is saying she wants the same 
+'                    condition as before. Returns 0. 
+' User hits Quit Expt - user is saying they're done, let's quit. Returns 2. 
+
+func NewCondDialogOK%()
+    var iStatus% := 0;
+    if Len(DlgValue$(1)) = 0 then
+        Message("You must enter a string for the condition!");
+        iStatus% := 1;
+    endif
+    return iStatus%;
+end
+
+func NewCondDialog%()
+    
+    var i%;
+    DlgCreate("Enter new condition");
+    DlgString(1, "Condition:", 50);
+    DlgButton(0, "");
+    DlgButton(1, "OK", NewCondDialogOK%);
+    DlgButton(2, "Quit Expt");
+    DlgAllow(0xffff, 0);
+    fsConditionString$ := "";
+    return DlgShow(fsConditionString$);
+    
+end
+
+' idle%()
+'
+' Idle processing function. This function handles "realtime" processing, or as close as we 
+' can actually get in this environment. 
+'
+' returns 1
+
+func idle%()
+	var iStatus% := 1;	' this is return value. value of 1 (0) continues (stops) processing
+    var iYield% := 1;   ' states can set this to 0 if they don't want to yield - allows for multi-state processing in single pass
+    var xEye, yEye;
+    var tNow;
+    var tTrigger, vTrigger;
+    
+    
+    if fiTesting% = 0 then
+        tNow := MaxTime();
+        if ftNow-ftLastUpdate > .005 then
+            xEye := ChanMeasure(fXChannel%, 2, tNow, tNow-etEyeposAvgWindow%/1000.0) * DegreesPerVoltX;
+            yEye := ChanMeasure(fYChannel%, 2, tNow, tNow-etEyeposAvgWindow%/1000.0) * DegreesPerVoltY;
+            View(fXYWindow%).XYAddData(1, xEye, yEye);
+            ftLastUpdate := ftNow;
+        endif
+    endif
+    
+    repeat
+    
+        docase 
+        case fiState% = stateStart% then
+            
+            if fiTesting% = 0 then
+                iYield% := 0;
+                ChangeState(stateVSGWait%, tNow);
+            else
+                iYield% := 0;
+                ChangeState(stateNewCondition%, tNow);
+            endif
+                
+        case fiState% = stateVSGWait% then
+
+            ' Waiting for VSG to indicate it is ready. The indication is a pulse (up, then down, 1 frame apart) on port 6.
+            if fiTesting% = 0 then
+                tTrigger := NextTime(fReadyChannel%, ftLast, vTrigger);
+                if tTrigger > ftLastTrigger and vTrigger = 0 then
+                    PrintLog("state stateVSGWait: Got leading edge of trigger\n");
+                    iYield% := 0;   ' These triggers come close together, so both may be present.
+                    ftLastTrigger := tTrigger;
+                    ChangeState(stateVSGWaitConfirm%, tNow);
+                endif
+            endif
+            
+		case fiState% = stateVSGWaitConfirm% then
+
+            ' Waiting for VSG to confirm it is ready. The downward side of the pulse is expected...
+            if fiTesting% = 0 then
+                iYield% := 1;       ' make sure we just check once per pass
+                tTrigger := NextTime(ReadyChannel%, ftLastTrigger, vTrigger);
+                if tTrigger > ftLastTrigger and vTrigger = 1 then
+                    PrintLog("state stateVSGWaitConfirm: Got trailing edge of trigger\n");
+                    ftLastTrigger := tTrigger;
+                    ChangeState(stateNewCondition%, tNow);
+                endif
+            endif
+            
+        case fiState% = stateNewCondition% then
+            
+            var i%;
+            i% := NewConditionDialog%();
+            if i% = 2 then
+                return quit%();
+            endif
+            ChangeState(stateAddMarker%, tNow);
+            iYield% := 0;
+            
+        case fiState% = stateAddMarker% then
+            
+            SampleText(fsConditionString$);
+            ChangeStateTo(stateTrialInit%, tNow);
+            iYield% := 0;
+            
+        case fiState% = stateTrialInit% then
+            
+            ToolbarText("Condition: " + fsConditionString$ + " Block " + str$(fiBlockCounter%) + " Trial " + str$(fiTrialCounter%));
+            iYield% := 0;
+            ChangeStateTo(stateFixptOn%, tNow);
+            
+        case fiState% = stateFixptOn% then
+            
+            SampleKey("H");
+            
+        endcase
+        
+    until iYield% = 1;    
+    
+    ftLast := tNow;
+end
+
+
+GetDataParameters();
+GetDAQParameters();
+GetFixationPointParameters();
+ETScriptDialog%();
+
+PrintLog("Fixation time %f\nAcq Time %f\nIT Time %f\nTrials/block %d\nBkgd %s\n", etFixationTime, etAcquisitionTime, etInterTrialTime, etTrialsPerBlock%, etBackgroundColor$);
+PrintLog("Fixation point (%f,%f) Radius %f Window %f color %s\n", FixationX, FixationY, FixationDiameter, WindowRadius, FixationColor$);
+PrintLog("Eyepos avg ms %d s %f\n", etEyeposAvgWindow%, etEyeposAvgWindow%/1000.0);
+
+' Prepare toolbar....
+ToolbarSet(1, "Start", start%);
+ToolbarSet(2, "Pause", pause%);
+ToolbarSet(3, "Resume", resume%);
+ToolbarSet(4, "New Cond", newcond%);
+ToolbarSet(5, "Quit", quit%);
+
+ToolbarEnable(2, 0);
+ToolbarEnable(3, 0);
+ToolbarEnable(4, 0);
+Toolbar("Hit Start...", 0xffff);
+
+
+
+
