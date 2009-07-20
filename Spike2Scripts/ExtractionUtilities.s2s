@@ -11,6 +11,15 @@
 ' sample text which is a longer string. The same search (using the function InStr) is performed
 ' against ignore$ using the ENTIRE sample text string found, so it might be hard to ignore
 ' longer sample text strings. 
+' 
+' Modified 7-20-09 djs Search on channel 30 (sample text) strings is done using the first
+' character of those strings, not the entire string. Some care should be taken when generating
+' sample text in a data file if you will be using this function: If your text string begins with
+' a character in the sIgnore$ list, the text will be ignored. If it SHOULD be ignored, but it 
+' doesn't begin with such a character, then you'll get an extra piece of text to deal with. Its
+' probably best to begin each sample text string with a characteristic (and unique, for the data
+' file) character. 
+'
 
 
 func NextKeyOrText(tstart, &val$, ignore$)
@@ -37,7 +46,7 @@ func NextKeyOrText(tstart, &val$, ignore$)
 
     ' Next look in channel 30 - text markers
     tText := NextTime(30, tstart, iTextCode%[], sText$);
-    while tText>=0 and InStr(ignore$, sText$) do
+    while tText>=0 and InStr(ignore$, Left$(sText$, 1)) do
         ttemp := tText;
         tText := NextTime(30, ttemp, iTextCode%[], sText$);
     wend
