@@ -1,6 +1,7 @@
-' $Id: ETTesting.s2s,v 1.1 2009-07-09 21:15:40 devel Exp $
+' $Id: ETTesting.s2s,v 1.2 2009-07-20 20:33:34 devel Exp $
 
 #include "../../Spike2Util/RigName.s2s"
+#include "../../Spike2Util/MiscUtilities.s2s"
 #include "Usrey.s2s"
 #include "UsreyDAQ.s2s"
 #include "UsreyFixationPoint.s2s"
@@ -19,7 +20,7 @@ var etInterTrialTime;			' Blank time following a trial (both successful and fail
 var etTrialsPerBlock%;			' Number of trials to run
 var etBackgroundColor$;	    	' Background color for stim
 var etEyeposAvgWindow%;         ' MS to average over for eye pos
-
+var etFixptOffset;              ' offset of fixpt from center when using random fixpt position
 
 
 ' vars for realtime state handling
@@ -39,11 +40,11 @@ const stateWaitForBlank% := 13;
 const stateInterTrialPause% := 14;
 const stateBrokeFixation% := 15;
 const stateDone% := 16;
+const statePaused% := 17;
 var fiState% := stateStart%;
-var fiTesting% := 0;
-var ftNow := -1;
 var ftLast := -1;
 var ftLastUpdate := -1;
+var ftLastTrigger:= -1;
 var ftStateStart := -1;
 var fsConditionString$;
 
@@ -53,6 +54,23 @@ var fiNewCondFlag% := 0;
 var fiTrialCounter% := 0;
 var fiSuccessfulTrialCounter% := 0;
 var fiBlockCounter% := 0;
+var fStimHandle%;               ' handle for stimulus application
+var fReadyChannel% := 1;
+var fTriggerChannel% := 2;
+var fXChannel% := 3;
+var fYChannel% := 4;
+var fXYWindow%;
+var fDataWindow%;
+var fiStimXMultiplier%[9];
+var fiStimYMultiplier%[9];
+var fiStimIndex%;
+var fiEyePositionChannel%;
+var fiFixptWindowChannel%;
+var fiFixptChannel%;
+var fCenterFixWindowX[36];
+var fCenterFixWindowY[36];
+var fActualFixWindowX[36];
+var fActualFixWindowY[36];
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 '
@@ -61,14 +79,43 @@ var fiBlockCounter% := 0;
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
 proc GetETScriptParameters()
-    PrintLog("TODO: GetETScriptParameters N.I.\n");
+	var stmp$;
+	var key$;
+
+	key$:= thisRigName$ + "\\" + GetCurrentConfiguration$() + "\\Scripts\\ETTesting";
+
+	Profile(key$, "FixationTime", "1.0", stmp$);
+	etFixationTime := val(stmp$);
+
+	Profile(key$, "AcquisitionTime", "1.0", stmp$);
+	etAcquisitionTime := val(stmp$);
+
+	Profile(key$, "InterTrialTime", "1.0", stmp$);
+	etInterTrialTime := val(stmp$);
+
+	Profile(key$, "TrialsPerBlock", 1, etTrialsPerBlock%);
+	Profile(key$, "BackgroundColor", "gray", etBackgroundColor$);
+	Profile(key$, "EyeposAvgWindow", 500, etEyeposAvgWindow%);
+	Profile(key$, "FixptOffset", "8.0", stmp$);
+	etFixptOffset := val(stmp$);
+    
     return;
 end
 
 proc SaveETScriptParameters()
-    PrintLog("TODO: SaveETScriptParameters N.I.\n");
-    return;
-end
+	var stmp$;
+	var key$;
+
+	key$:= thisRigName$ + "\\" + GetCurrentConfiguration$() + "\\Scripts\\ETTesting";
+	Profile(key$, "FixationTime", str$(etFixationTime));
+	Profile(key$, "AcquisitionTime", str$(etAcquisitionTime));
+	Profile(key$, "InterTrialTime", str$(etInterTrialTime));
+	Profile(key$, "TrialsPerBlock", etTrialsPerBlock%);
+	Profile(key$, "BackgroundColor", etBackgroundColor$);
+	Profile(key$, "EyeposAvgWindow", str$(etEyeposAvgWindow%));
+	Profile(key$, "FixptOffset", str$(etFixptOffset));
+end;
+
 
 func ETScriptDialog%()
 	var i%;
@@ -105,6 +152,154 @@ end;
 '
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
+' CreateSampleConfiguration()
+'
+' Set up channels for triggers, etc. 
+
+proc CreateSampleConfiguration()
+	var index;
+	SampleClear(); 'Set standard sampling state
+	SampleAutoComment(0); 'Prompt for comment after sampling
+	SampleAutoCommit(60); 'Seconds between each file commit
+    
+	' Set path for new data files
+	FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 3, 1);
+	FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 1, 1);
+	SampleAutoName$(dataCellName$ + "_ett_000");
+	SampleAutoFile(1);
+
+	'Channel recording definitions
+	SampleEvent(fTriggerChannel%, 2, 2, 3600); 'Trigger channel, level
+	SampleComment$(fTriggerChannel%, "Trigger");
+	SampleTitle$(fTriggerChannel%, "Trigger");
+
+	' channel to look for ready signal from vsg
+	SampleEvent(fReadyChannel%, 6, 2, 3600); 'Trigger channel, level
+	SampleComment$(fReadyChannel%,"VSG Ready");
+	SampleTitle$(fReadyChannel%,"VSG Ready");
+
+	'EYE COIL CHANNELS. Last # is sampling freq in Hz. 
+	SampleWaveform(fXChannel%, 14, 1000);
+	SampleTitle$(fXChannel%,"Eye X");
+	SampleWaveform(fYChannel%, 15, 1000);
+	SampleTitle$(fYChannel%, "Eye Y");
+    
+    ' Text mark channel
+   	SampleTextMark(60);
+
+	SampleSequencer(script$ + "Fixation.pls");
+	SampleOptimise(2, 2, 2, 2, 50);  'Set optimise mode (do this last)
+	SampleMode(1); 'Continuous sampling
+end;
+
+
+' DrawStim
+' 
+' Draws fixpt and fixpt window xy window (iDraw%==1) or blanks it (0). 
+
+proc DrawStim(iDraw%)
+
+	if iDraw% > 0 then
+		var xstim, ystim;
+        GetFixationXY(fiStimIndex%, xstim, ystim);
+
+		' Draw stimulus in xy window
+		View(fXYWindow%).XYAddData(fiFixptChannel%, xstim, ystim);
+	
+		' draw fixation window
+		ArrConst(fActualFixWindowX[], fCenterFixWindowX[]);
+		ArrAdd(fActualFixWindowX[], xstim);
+		ArrConst(fActualFixWindowY[], fCenterFixWindowY[]);
+		ArrAdd(fActualFixWindowY[], ystim);
+
+		View(fXYWindow%).XYAddData(fiFixptWindowChannel%, fActualFixWindowX[], fActualFixWindowY[]);		
+	else 
+		' erase the stim and the window from xy view
+		View(fXYWindow%).XYDelete(fiFixptChannel%);
+		View(fXYWindow%).XYDelete(fiFixptWindowChannel%);
+	endif
+
+end;
+
+
+proc InitializeWindows()
+
+	'Open the data sampling window
+	fDataWindow% := FileNew(0, 4);
+	Window(0, 50, 100, 100);
+	View(fDataWindow%).WindowVisible(1);
+    
+    ' Log window
+    View(LogHandle()).Window(50, 0, 100, 50);
+    View(LogHandle()).WindowVisible(1);
+    
+	'Open an XY view to display eye position
+	fXYWindow% := FileNew(12);
+	XRange(-15,15);
+	YRange(-2, -15,15);
+	XYDrawMode(0, 5, 0);
+	WindowVisible(1);
+	Window(0, 0, 50, 50);
+	XYColour(1, 16);
+	XYSize(1, -1);
+    fiEyePositionChannel% := 1;
+    
+    ' fixation point window
+	fiFixptWindowChannel% := XYSetChan(0);
+	XYColour(2,13);
+	XYDrawMode(2,2,1);
+	XYJoin(2,1);
+    
+    ' Fixation point 
+	fiFixptChannel% := XYSetChan(0);
+	XYSize(1, -1);
+
+end;
+
+
+proc InitializeStuff()
+    var i%;
+	var twopi;
+	twopi := 2.0*4.0*ATan(1.0);
+	
+	for i% := 0 to 35 do
+		fCenterFixWindowX[i%] := WindowRadius * Cos(i% * twopi/36.0);
+		fCenterFixWindowY[i%] := WindowRadius * Sin(i% * twopi/36.0);
+	next;
+    
+    fiStimXMultiplier%[0] := -1;
+    fiStimXMultiplier%[1] := 0;
+    fiStimXMultiplier%[2] := 1;
+    fiStimXMultiplier%[3] := -1;
+    fiStimXMultiplier%[4] := 0;
+    fiStimXMultiplier%[5] := 1;
+    fiStimXMultiplier%[6] := -1;
+    fiStimXMultiplier%[7] := 0;
+    fiStimXMultiplier%[8] := 1;
+    fiStimYMultiplier%[0] := -1;
+    fiStimYMultiplier%[1] := -1;
+    fiStimYMultiplier%[2] := -1;
+    fiStimYMultiplier%[3] := 0;
+    fiStimYMultiplier%[4] := 0;
+    fiStimYMultiplier%[5] := 0;
+    fiStimYMultiplier%[6] := 1;
+    fiStimYMultiplier%[7] := 1;
+    fiStimYMultiplier%[8] := 1;
+    return;
+end
+
+proc GetFixationXY(index%, &x, &y)
+    x := etFixptOffset * fiStimXMultiplier%[index%];
+    y := etFixptOffset * fiStimYMultiplier%[index%];
+end
+
+
+proc DoSampleKey(index%)
+	var iSeqVar% := 0;
+	iSeqVar% := (3 + (fiStimYMultiplier%[index%]+2)*16 + (fiStimXMultiplier%[index%]+2)*4) * 256;
+	SampleSeqVar(1, iSeqVar%);
+	SampleKey("S");
+end;
 
 ' start%()
 '
@@ -113,9 +308,27 @@ end;
 ' returns 1
 
 func start%()
+	var sCommandLine$;
+    var sExtras$;
+    
+	SampleStart(0); 'Start sampling
+    Yield(0.5);
+    
     ToolbarEnable(2, 1);
     ToolbarEnable(1, 0);
     ToolbarSet(0, "", idle%);
+    
+    
+	sExtras$ := " -b " + etBackgroundColor$ + " -d " + DistanceToScreenMM$ + " -C " + str$(etFixptOffset);
+	sCommandLine$ := "cmd /k " + bin$ + "\\Calibration " + FixationArg$ + sExtras$;
+    PrintLog("Command line: %s\n", sCommandLine$);
+   	fStimHandle% := ProgRun(sCommandLine$, 1);
+	if fStimHandle% <0 then 
+        Message("Could not start stimulus."); 
+        halt; 
+    endif
+
+    
     return 1;
 end
 
@@ -126,9 +339,11 @@ end
 ' returns 1
 
 func pause%()
+    ToolbarText("Pause requested...");
     fiPauseFlag% := 1;
     ToolbarEnable(2, 0);
     ToolbarEnable(3, 1);
+    ToolbarEnable(4, 1);
     return 1;
 end
 
@@ -140,8 +355,10 @@ end
 
 func resume%()
     fiPauseFlag% := 0;
+    fiNewCondFlag% := 0;
     ToolbarEnable(2, 1);
     ToolbarEnable(3, 0);
+    ToolbarEnable(4, 0);
     return 1;
 end
 
@@ -153,16 +370,15 @@ end
 
 func quit%()
     ToolbarSet(0, "");
-    if fiTesting% = 0 then
-        SampleKey("X");
-        SampleKey("Q");
-        Yield(.1);
-        SampleStop();
-        ProgKill(fStimHandle%);
-        while ProgStatus(StimHandle%) > 0 do
-            Yield();
-        wend
-    endif
+    SampleKey("L");
+    Yield(.1);
+    SampleKey("Q");
+    Yield(.1);
+    SampleStop();
+    ProgKill(fStimHandle%);
+    while ProgStatus(fStimHandle%) > 0 do
+        Yield();
+    wend
     return 0;
 end
 
@@ -173,6 +389,12 @@ end
 ' returns 1
 
 func newcond%()
+    ToolbarText("NewCond requested...");
+    fiPauseFlag% := 0;
+    fiNewCondFlag% := 1;
+    ToolbarEnable(2, 1);
+    ToolbarEnable(3, 0);
+    ToolbarEnable(4, 0);
     return 1;
 end
 
@@ -226,6 +448,17 @@ func NewCondDialog%()
     
 end
 
+
+
+func InFixationWindow%(index%, x, y)
+    var fixx, fixy;
+    GetFixationXY(index%, fixx, fixy);
+    return IsInsideCircle%(x, y, fixx, fixy, WindowRadius);
+end
+
+
+
+
 ' idle%()
 '
 ' Idle processing function. This function handles "realtime" processing, or as close as we 
@@ -240,15 +473,15 @@ func idle%()
     var tNow;
     var tTrigger, vTrigger;
     
-    
-    if fiTesting% = 0 then
-        tNow := MaxTime();
-        if ftNow-ftLastUpdate > .005 then
-            xEye := ChanMeasure(fXChannel%, 2, tNow, tNow-etEyeposAvgWindow%/1000.0) * DegreesPerVoltX;
-            yEye := ChanMeasure(fYChannel%, 2, tNow, tNow-etEyeposAvgWindow%/1000.0) * DegreesPerVoltY;
-            View(fXYWindow%).XYAddData(1, xEye, yEye);
-            ftLastUpdate := ftNow;
-        endif
+    View(fDataWindow%);
+    tNow := MaxTime();
+'    xEye := ChanMeasure(fXChannel%, 2, tNow, tNow-0.005) * DegreesPerVoltX;
+'    yEye := ChanMeasure(fYChannel%, 2, tNow, tNow-0.005) * DegreesPerVoltY;
+    xEye := ChanMeasure(fXChannel%, 2, tNow, tNow-etEyeposAvgWindow%/1000.0) * DegreesPerVoltX;
+    yEye := ChanMeasure(fYChannel%, 2, tNow, tNow-etEyeposAvgWindow%/1000.0) * DegreesPerVoltY;
+    if tNow-ftLastUpdate > .005 then
+        View(fXYWindow%).XYAddData(1, xEye, yEye);
+        ftLastUpdate := tNow;
     endif
     
     repeat
@@ -256,71 +489,207 @@ func idle%()
         docase 
         case fiState% = stateStart% then
             
-            if fiTesting% = 0 then
-                iYield% := 0;
-                ChangeState(stateVSGWait%, tNow);
-            else
-                iYield% := 0;
-                ChangeState(stateNewCondition%, tNow);
-            endif
-                
+            PrintLog("stateStart:\n");
+            iYield% := 0;
+            ChangeState(stateVSGWait%, tNow);
+            
         case fiState% = stateVSGWait% then
 
             ' Waiting for VSG to indicate it is ready. The indication is a pulse (up, then down, 1 frame apart) on port 6.
-            if fiTesting% = 0 then
-                tTrigger := NextTime(fReadyChannel%, ftLast, vTrigger);
-                if tTrigger > ftLastTrigger and vTrigger = 0 then
-                    PrintLog("state stateVSGWait: Got leading edge of trigger\n");
-                    iYield% := 0;   ' These triggers come close together, so both may be present.
-                    ftLastTrigger := tTrigger;
-                    ChangeState(stateVSGWaitConfirm%, tNow);
-                endif
+            tTrigger := NextTime(fReadyChannel%, ftLast, vTrigger);
+            if tTrigger > ftLastTrigger and vTrigger = 0 then
+                PrintLog("stateVSGWait: Got leading edge of trigger\n");
+                iYield% := 0;   ' These triggers come close together, so both may be present.
+                ftLastTrigger := tTrigger;
+                ChangeState(stateVSGWaitConfirm%, tNow);
             endif
             
 		case fiState% = stateVSGWaitConfirm% then
 
             ' Waiting for VSG to confirm it is ready. The downward side of the pulse is expected...
-            if fiTesting% = 0 then
-                iYield% := 1;       ' make sure we just check once per pass
-                tTrigger := NextTime(ReadyChannel%, ftLastTrigger, vTrigger);
-                if tTrigger > ftLastTrigger and vTrigger = 1 then
-                    PrintLog("state stateVSGWaitConfirm: Got trailing edge of trigger\n");
-                    ftLastTrigger := tTrigger;
-                    ChangeState(stateNewCondition%, tNow);
-                endif
+            iYield% := 1;       ' make sure we just check once per pass
+            tTrigger := NextTime(fReadyChannel%, ftLastTrigger, vTrigger);
+            if tTrigger > ftLastTrigger and vTrigger = 1 then
+                PrintLog("stateVSGWaitConfirm: Got trailing edge of trigger\n");
+                ftLastTrigger := tTrigger;
+                ChangeState(stateNewCondition%, tNow);
             endif
             
         case fiState% = stateNewCondition% then
             
             var i%;
-            i% := NewConditionDialog%();
+            PrintLog("stateNewCondition: Get new condition.\n");
+            i% := NewCondDialog%();
             if i% = 2 then
+                PrintLog("stateNewCondition: quitting.\n");
                 return quit%();
             endif
             ChangeState(stateAddMarker%, tNow);
+            fiBlockCounter% += 1;
+            fiTrialCounter% := 0;
             iYield% := 0;
             
         case fiState% = stateAddMarker% then
             
-            SampleText(fsConditionString$);
-            ChangeStateTo(stateTrialInit%, tNow);
+            var sMarker$;
+            sMarker$ := ":" + fsConditionString$;
+            PrintLog("stateAddMarker: Add marker \"" + sMarker$ + "\".\n");
+            SampleText(sMarker$);
+            ChangeState(stateTrialInit%, tNow);
             iYield% := 0;
             
         case fiState% = stateTrialInit% then
             
+            PrintLog("stateTrialInit: Block %d Trial %d.\n", fiBlockCounter%, fiTrialCounter%);
             ToolbarText("Condition: " + fsConditionString$ + " Block " + str$(fiBlockCounter%) + " Trial " + str$(fiTrialCounter%));
             iYield% := 0;
-            ChangeStateTo(stateFixptOn%, tNow);
+            ChangeState(stateFixptOn%, tNow);
             
         case fiState% = stateFixptOn% then
             
-            SampleKey("H");
+            fiStimIndex% := 4;              ' Can use fancier method to choose position; this is center position
+            PrintLog("stateFixptOn: Fixpt index %d.\n", fiStimIndex%);
+            DoSampleKey(fiStimIndex%);
+            ChangeState(stateWaitForFixpt%, tNow);
+            iYield% := 1;
+            
+        case fiState% = stateWaitForFixpt% then
+            
+            iYield% := 1;
+   			tTrigger := NextTime(fTriggerChannel%, ftLast, vTrigger);
+			if tTrigger > ftLastTrigger then
+
+                PrintLog("stateWaitForFixpt: Got trigger at t=%f, vtrigger=%f (s/b 0)\n", tTrigger, vTrigger);
+				if vTrigger = 0 then
+                    DrawStim(1);
+                    ChangeState(stateWaitForAcq%, tTrigger);
+					ftLastTrigger := tTrigger;
+				endif
+
+			endif
+            
+        case fiState% = stateWaitForAcq% then
+            
+            iYield% := 1;
+			if tNow-ftStateStart < etAcquisitionTime then
+				
+				if InFixationWindow%(fiStimIndex%, xEye, yEye) > 0 then
+                    PrintLog("stateWaitForAcq: Eye in window\n");
+                    ChangeState(stateWaitForFixation%, tNow);
+				endif
+
+			else
+                
+                iYield% := 0;
+                PrintLog("stateWaitForAcq: Timed out.\n");
+                ChangeState(stateAcqFail%, tNow);
+
+			endif
+            
+        case fiState% = stateAcqFail% then
+            
+            iYield% := 1;
+            PrintLog("stateAcqFail: Request fixpt off.\n");
+            SampleKey("L");
+            ChangeState(stateWaitForBlank%, tNow);
+            
+        case fiState% = stateBrokeFixation% then
+            
+            iYield% := 1;
+            PrintLog("stateBrokeFixation: Request fixpt off.\n");
+            SampleKey("L");
+            ChangeState(stateWaitForBlank%, tNow);
+            
+        case fiState% = stateWaitForFixation% then
+            
+            iYield% := 1;
+			if InFixationWindow%(fiStimIndex%, xEye, yEye) = 0 then
+
+                PrintLog("stateWaitForFixation: Broke fixation.\n");
+				ChangeState(stateBrokeFixation%, tNow);
+
+			else
+
+				if tNow - ftStateStart >= etFixationTime then
+
+                    PrintLog("stateWaitForFixation: Fixated!\n");
+                    iYield% := 0;
+                    ChangeState(stateSuccess%, tNow);
+
+				endif
+
+			endif
+            
+        case fiState% = stateSuccess% then
+            
+            PrintLog("stateSuccess: Reward. Yay.\n");
+            fiTrialCounter% += 1;
+            iYield% := 1;
+            SampleKey("L");
+            Yield(0.05);
+            SampleText("+");
+            Yield(0.05);
+            Reward();
+            ChangeState(stateWaitForBlank%, tNow);
+            
+        case fiState% = stateWaitForBlank% then
+            
+			tTrigger := NextTime(fTriggerChannel%, ftLast, vTrigger);
+			if tTrigger > ftLast then
+
+                PrintLog("stateWaitForBlank: Got trigger at t=%f vtrigger=%f (s/b 1).\n", tTrigger, vTrigger);
+				if vTrigger = 1 then
+                    
+                    DrawStim(0);
+                    ChangeState(stateInterTrialPause%, tNow);
+					ftLastTrigger := tTrigger;
+	
+				endif
+                
+            endif
+            
+        case fiState% = stateInterTrialPause% then
+            
+            iYield% := 1;
+			if tNow - ftStateStart > etInterTrialTime then
+                
+                if fiPauseFlag% = 1 then
+                    PrintLog("stateInterTrialPause: Pause detected.\n");
+                    ChangeState(statePaused%, tNow);
+                else
+                    PrintLog("stateInterTrialPause: To TrialInit.\n");
+                    ChangeState(stateTrialInit%, tNow);
+                endif
+                
+			endif
+            
+        case fiState% = statePaused% then
+            
+            iYield% := 1;
+            ToolbarText("Paused. Hit Resume or NewCond.");
+            if fiPauseFlag% = 0 then
+                if fiNewCondFlag% = 0 then
+                    PrintLog("statePaused: Resume.\n");
+                    ChangeState(stateTrialInit%, tNow);
+                else
+                    PrintLog("statePaused: NewCond.\n");
+                    ChangeState(stateNewCondition%, tNow);
+                endif
+                
+            endif
+            
+        else
+            
+            PrintLog("Unhandled state %d\n", fiState%);
+            quit%();
             
         endcase
         
     until iYield% = 1;    
     
     ftLast := tNow;
+    
+    return iStatus%;
 end
 
 
@@ -332,6 +701,17 @@ ETScriptDialog%();
 PrintLog("Fixation time %f\nAcq Time %f\nIT Time %f\nTrials/block %d\nBkgd %s\n", etFixationTime, etAcquisitionTime, etInterTrialTime, etTrialsPerBlock%, etBackgroundColor$);
 PrintLog("Fixation point (%f,%f) Radius %f Window %f color %s\n", FixationX, FixationY, FixationDiameter, WindowRadius, FixationColor$);
 PrintLog("Eyepos avg ms %d s %f\n", etEyeposAvgWindow%, etEyeposAvgWindow%/1000.0);
+
+' Initialize stuff
+InitializeStuff();
+
+' Create sample config - this assigns daq channels
+CreateSampleConfiguration();
+
+' Open windows
+InitializeWindows();
+
+
 
 ' Prepare toolbar....
 ToolbarSet(1, "Start", start%);
