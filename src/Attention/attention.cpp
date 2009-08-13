@@ -54,7 +54,7 @@ int m_iContrastBase=50;
 int m_iContrastUp=100;
 bool m_bFStimulus;
 bool m_bNoAnswerPoints = false;
-
+int m_imageCount = 0;
 
 
 
@@ -555,6 +555,20 @@ int callback(int &output, const CallbackTrigger* ptrig)
 	{
 		m_spec_fixpt.setContrast(0);
 	}
+	else if (key == "i")
+	{
+		char filename[256];
+		int ii;
+		int w, h;
+		w = vsgGetScreenWidthPixels();
+		h = vsgGetScreenHeightPixels();
+		vsgSetSpatialUnits(vsgPIXELUNIT);
+		sprintf(filename, "attention-%d.bmp", m_imageCount);
+		ii = vsgImageExport(vsgBMPPICTURE, 0, 0, w, h, filename);
+		vsgSetSpatialUnits(vsgDEGREEUNIT);
+		cout << "Image trigger: wrote " << w << "x" << h << " image " << m_imageCount << " status " << ii << endl;
+		m_imageCount++;
+	}
 
 	return ival;
 }
@@ -757,6 +771,9 @@ int init_pages()
 	ptrigDistractorDOWN = new ContrastTrigger("d", 0xe0, 0x80, 0x8, 0x8);
 	ptrigDistractorDOWN->push_back( std::pair<VSGOBJHANDLE, int>(m_spec_distractor.handle(), m_iContrastDown) );
 	triggers.addTrigger(ptrigDistractorDOWN);
+
+	// Image trigger. Will only work with ascii triggers (i.e. keyboard). 
+	triggers.addTrigger(new CallbackTrigger("i", 0x0, 0x0, 0x0, 0x0, callback));
 
 	// quit trigger
 	triggers.addTrigger(new QuitTrigger("q", 0xf0, 0xf0, 0xff, 0x0, 0));
