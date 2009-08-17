@@ -95,17 +95,5 @@ SOURCE=.\mouse3.cpp
 !ENDIF 
 
 # End Source File
-# Begin Source File
-
-SOURCE=.\mouse4.cpp
-# End Source File
-# Begin Source File
-
-SOURCE=.\reghelper.cpp
-# End Source File
-# Begin Source File
-
-SOURCE=.\reghelper.h
-# End Source File
 # End Target
 # End Project

@@ -8,8 +8,10 @@ using namespace alert;
 
 int main(int argc, char **argv)
 {
+	COLOR_TYPE bkgd = { gray, {0, 0, 0}};
+
 	// Init vsg
-	if (ARvsg::instance().init(500, gray))
+	if (ARvsg::instance().init(500, bkgd))
 	{
 		cerr << "VSG init failed!" << endl;
 		return 1;
