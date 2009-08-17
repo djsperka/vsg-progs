@@ -126,7 +126,7 @@ void main(int ArgumentCount, char *Arguments[])
 	FixationX=atof(Arguments[1]);
 	FixationY=atof(Arguments[2]);
 	FixationDiameter=atof(Arguments[3]);
-	DistanceToScreen=atof(Arguments[4]);
+	DistanceToScreen=atoi(Arguments[4]);
 	vsgSetViewDistMM(DistanceToScreen);
 
 	printf("Distance to Screen = %i\n",DistanceToScreen);

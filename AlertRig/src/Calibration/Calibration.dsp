@@ -102,6 +102,10 @@ SOURCE=.\c2.cpp
 
 SOURCE=.\Calibration.cpp
 # End Source File
+# Begin Source File
+
+SOURCE=.\run.bat
+# End Source File
 # End Group
 # Begin Group "Resource Files"
 
