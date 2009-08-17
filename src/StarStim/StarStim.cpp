@@ -23,7 +23,7 @@ const double PI(4.0 * atan2(1.0, 1.0));
 // globals
 bool m_binaryTriggers = true;
 bool m_verbose = false;
-COLOR_TYPE m_background = gray;
+COLOR_TYPE m_background = { gray, {0, 0, 0}};
 int m_screenDistanceMM = 0;
 ARContrastFixationPointSpec m_fp;
 ARContrastFixationPointSpec m_target;
