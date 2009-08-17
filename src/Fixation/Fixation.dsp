@@ -89,6 +89,10 @@ LINK32=link.exe
 
 SOURCE=.\fixation.cpp
 # End Source File
+# Begin Source File
+
+SOURCE=.\run.bat
+# End Source File
 # End Group
 # Begin Group "Header Files"
 
