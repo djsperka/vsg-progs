@@ -292,7 +292,7 @@ namespace alert
 			// Check if the output value should be toggled
 			if (i_out_val & AR_TRIGGER_TOGGLE)
 			{
-				std::cout << "TOGGLE(output) " << m_key << " out_val " << i_out_val << std::endl;
+//				std::cout << "TOGGLE(output) " << m_key << " out_val " << i_out_val << std::endl;
 				m_btoggleOut = true;
 				m_out_val = i_out_val & ~(AR_TRIGGER_TOGGLE);
 				m_last_out_val = ~m_out_val & m_out_mask;
@@ -307,7 +307,7 @@ namespace alert
 			// Check if the input value will be toggled
 			if (i_in_val & AR_TRIGGER_TOGGLE)
 			{
-				std::cout << "TOGGLE(input) " << m_key << " in_val " << i_in_val << std::endl;
+//				std::cout << "TOGGLE(input) " << m_key << " in_val " << i_in_val << std::endl;
 				m_btoggleIn = true;
 				m_in_val = i_in_val & ~(AR_TRIGGER_TOGGLE);
 //				m_in_last = ~m_in_val & m_in_mask;
@@ -357,7 +357,7 @@ namespace alert
 					m_in_last = current;	// Note that the last value is saved only if a toggled trigger
 				}
 			}
-			if (bValue) std::cerr << "Trigger(" << m_key << ")" << std::hex << " input " << input << " m_in_mask=" << m_in_mask << " m_in_val=" << m_in_val << " current=" << current << " bval=" << bValue << std::endl;
+//			if (bValue) std::cerr << "Trigger(" << m_key << ")" << std::hex << " input " << input << " m_in_mask=" << m_in_mask << " m_in_val=" << m_in_val << " current=" << current << " bval=" << bValue << std::endl;
 			return bValue;
 		};
 
@@ -508,7 +508,7 @@ namespace alert
 							break;
 						}
 					}
-					std::cout << "current " << std::hex << current << " matched " << m_input_matched << std::endl;
+//					std::cout << "current " << std::hex << current << " matched " << m_input_matched << std::endl;
 				}
 				m_in_last = current;
 				bValue = (m_input_matched >= 0);
@@ -544,7 +544,7 @@ namespace alert
 
 		std::string getKey() const 
 		{ 
-			std::cout << "getKey(): m_input_matched = " << m_input_matched << std::endl;
+//			std::cout << "getKey(): m_input_matched = " << m_input_matched << std::endl;
 			if (m_input_matched < 0 || m_input_matched > this->size()) return "ERROR";
 			else return (*this)[m_input_matched].first;
 		};
