@@ -11,6 +11,8 @@
 #include "vsgv8.h"
 #include "Alertlib.h"
 
+#define DONT_USE_CV_CODE 1
+
 #ifdef _DEBUG
 #pragma comment(lib, "dalert.lib")
 #else
@@ -69,6 +71,14 @@ static int init_overlay();
 
 int main (int argc, char *argv[])
 {
+
+
+#if DONT_USE_CV_CODE
+	cout << "NOT USING COLORVECTOR CODE!" << endl;
+	cout << "NOT USING COLORVECTOR CODE!" << endl;
+	cout << "NOT USING COLORVECTOR CODE!" << endl;
+	cout << "NOT USING COLORVECTOR CODE!" << endl;
+#endif
 
 	// Check input arguments
 	if (args(argc, argv))
@@ -151,11 +161,12 @@ int main (int argc, char *argv[])
 		if (tf.quit()) break;
 		else if (tf.present())
 		{	
-			cout << "OUT: " << tf.output_trigger() << endl;
+//			cout << "OUT: " << tf.output_trigger() << endl;
 			last_output_trigger = tf.output_trigger();
 			vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, tf.output_trigger(), 0);
 			vsgPresent();
 		}
+		Sleep(10);
 	}
 
 	ARvsg::instance().clear();
@@ -383,7 +394,7 @@ int callback(int &output, const CallbackTrigger* ptrig)
 	string key = ptrig->getKey();
 
 
-	cout << "callback: key " << ptrig->getKey() << endl;
+//	cout << "callback: key " << ptrig->getKey() << endl;
 
 	if (key == "S")
 	{
@@ -393,9 +404,24 @@ int callback(int &output, const CallbackTrigger* ptrig)
 			m_spec_anspt_down.setContrast(100);
 		}
 
+#if DONT_USE_CV_CODE
+
+		// ignoring training contrast for now. 
+		m_spec_stimulus.draw(true);
+		m_spec_stimulus.setContrast(m_iContrastBase);
+//		m_spec_stimulus.select();
+//		vsgObjSetSpatialPhase(0);
+		m_spec_distractor.draw(true);
+		m_spec_distractor.setContrast(m_iContrastBase);
+//		m_spec_distractor.select();
+//		vsgObjSetSpatialPhase(0);
+
+
+
+#else
 		if (!m_bTrainingContrast)
 		{
-			cout << "!Training contrast " << m_iTrainingContrast << endl;
+//			cout << "!Training contrast " << m_iTrainingContrast << endl;
 			get_colorvector(m_spec_stimulus.cv, from, to);
 			m_spec_stimulus.select();
 			vsgObjSetColourVector(&from, &to, vsgBIPOLAR);
@@ -411,7 +437,7 @@ int callback(int &output, const CallbackTrigger* ptrig)
 		}
 		else
 		{
-			cout << "Training contrast " << m_iTrainingContrast << endl;
+//			cout << "Training contrast " << m_iTrainingContrast << endl;
 			if (m_bFStimulus)
 			{
 				// distractor goes to training contrast. If training contrast is 0, then do not
@@ -451,14 +477,21 @@ int callback(int &output, const CallbackTrigger* ptrig)
 				}
 			}
 		}
+#endif
 	}
 	else if (key == "s")
 	{
+
+#if DONT_USE_CV_CODE
+		m_spec_stimulus.setContrast(0);
+		m_spec_distractor.setContrast(0);
+#else
 		get_color(m_background, from);
 		m_spec_stimulus.select();
 		vsgObjSetColourVector(&from, &from, vsgBIPOLAR);
 		m_spec_distractor.select();
 		vsgObjSetColourVector(&from, &from, vsgBIPOLAR);
+#endif
 		if (m_bLollipops)
 		{
 			m_spec_stim_circle.setContrast(0);
@@ -476,11 +509,17 @@ int callback(int &output, const CallbackTrigger* ptrig)
 			m_spec_anspt_down.setContrast(0);
 		}
 
+#if DONT_USE_CV_CODE
+		m_spec_stimulus.setContrast(0);
+		m_spec_distractor.setContrast(0);
+#else
 		get_color(m_background, from);
 		m_spec_stimulus.select();
 		vsgObjSetColourVector(&from, &from, vsgBIPOLAR);
 		m_spec_distractor.select();
 		vsgObjSetColourVector(&from, &from, vsgBIPOLAR);
+#endif
+
 		if (m_bLollipops)
 		{
 			m_spec_stim_circle.setContrast(0);
@@ -613,13 +652,13 @@ int init_pages()
 	get_color(m_background, bg);
 	m_spec_stimulus.init(islice);
 	m_spec_stimulus.draw(true);
-	vsgObjSetColourVector(&bg, &bg, vsgBIPOLAR);
-//	m_spec_stimulus.setContrast(0);
+//	vsgObjSetColourVector(&bg, &bg, vsgBIPOLAR);
+	m_spec_stimulus.setContrast(0);
 
 	m_spec_distractor.init(islice);
 	m_spec_distractor.draw(true);
-//	m_spec_distractor.setContrast(0);
-	vsgObjSetColourVector(&bg, &bg, vsgBIPOLAR);
+	m_spec_distractor.setContrast(0);
+//	vsgObjSetColourVector(&bg, &bg, vsgBIPOLAR);
 
 	// Now fixation point
 	m_spec_fixpt.init(2);
