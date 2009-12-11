@@ -9,6 +9,7 @@
 #pragma once
 #endif // _MSC_VER > 1000
 
+
 class CRegistry;
 
 class CRegEntry
@@ -52,7 +53,6 @@ public:
 
 	REGENTRY_CONV_STORAGETYPE(tstring, _R_BUF(_MAX_REG_VALUE); _tcscpy(buffer, Value.c_str());,
 	lpszStr, _ultot(dwDWORD, lpszStr, NULL), _T(""))
-		
 
 	/* -----------------------------------------*
 	 *	Member Variables and Functions			*
@@ -82,21 +82,21 @@ public:
 	size_t		GetBinaryLength();
 	bool		Convertible() { return __bConvertable; }
 
-	__inline	SetOwner(CRegistry* Owner) { __cregOwner = Owner; }
+	__inline	int SetOwner(CRegistry* Owner) { __cregOwner = Owner; }
 	
 	template <class T>void SetStruct(T &type) { SetBinary((LPBYTE) &type, sizeof(T)); }
 	template <class T>void GetStruct(T &type) { GetBinary((LPBYTE) &type, sizeof(T)); }
 	
-	__inline	IsString()		{ return (iType == REG_SZ); }
-	__inline	IsDWORD()		{ return (iType == REG_DWORD); }
-	__inline	IsBinary()		{ return (iType == REG_BINARY); }	
-	__inline	IsMultiString() { return (iType == REG_MULTI_SZ); }
+	__inline	int IsString()		{ return (iType == REG_SZ); }
+	__inline	int IsDWORD()		{ return (iType == REG_DWORD); }
+	__inline	int IsBinary()		{ return (iType == REG_BINARY); }	
+	__inline	int IsMultiString() { return (iType == REG_MULTI_SZ); }
 	
-	__inline	IsStored()		{ return __bStored; }
-	__inline	Exists()		{ return __bStored; }
+	__inline	int IsStored()		{ return __bStored; }
+	__inline	int Exists()		{ return __bStored; }
 
-	__inline	MultiClear()	{ SetMulti(_T("\0"), 2); }
-	__inline	MultiAdd(LPCTSTR lpszVal) { MultiSetAt(MultiCount(), lpszVal); }
+	__inline	void MultiClear()	{ SetMulti(_T("\0"), 2); }
+	__inline	void MultiAdd(LPCTSTR lpszVal) { MultiSetAt(MultiCount(), lpszVal); }
 
 protected:
 
