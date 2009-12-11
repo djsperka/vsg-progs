@@ -82,7 +82,7 @@ bool blankPage();
 int draw_mseq()
 {
 	int rindex, cindex, term;
-	int nterms = pow(2, f_iOrder) - 1;
+	int nterms = (int)pow(2.0f, f_iOrder) - 1;
 
 	vsgSetDrawPage(vsgVIDEOPAGE,0,0);
 	vsgSetCommand(vsgPALETTERAMP);
@@ -127,11 +127,12 @@ int draw_mseq()
 
 int load_mseq(string& filename)
 {
+	FILE *fp = (FILE *)NULL;
 	int istatus=0;
-	int nterms = pow(2, f_iOrder) -1;
+	int nterms = (int)pow(2.0f, f_iOrder) -1;
 
 	// Open mseq file
-	FILE* fp=fopen(filename.c_str(), "r");
+	fopen_s(&fp, filename.c_str(), "r");
 	if (!fp) 
 	{
 		istatus=1;
@@ -223,10 +224,10 @@ int main(int argc, char **argv)
 
 
 	// aperture location
-	f_W = vsgGetScreenWidthPixels();
-	f_H = vsgGetScreenHeightPixels();
-	f_w = f_iRows * f_iDot;		// the width of the entire grid, as it should appear on the screen
-	f_h = f_iCols * f_iDot;		// the height of the entire grid, as it should appear on the screen
+	f_W = (float)vsgGetScreenWidthPixels();
+	f_H = (float)vsgGetScreenHeightPixels();
+	f_w = (float)(f_iRows * f_iDot);		// the width of the entire grid, as it should appear on the screen
+	f_h = (float)(f_iCols * f_iDot);		// the height of the entire grid, as it should appear on the screen
 
 	// adjust/convert coordinates on fixation point to pixels, from degrees. 
 	//
@@ -334,7 +335,7 @@ void segSetFirstSegment()
 // TODO: this should take into account the number of repeats!
 void segAdvanceSegment()
 {
-	int nterms = pow(2, f_iOrder) - 1;
+	int nterms = (int)pow(2.0f, f_iOrder) - 1;
 	_segFirstTerm = _segLastTerm + 1;
 	if (_segFirstTerm == nterms) _segFirstTerm = 0;
 
@@ -432,9 +433,13 @@ void segLoadSegment()
 		// multiple of f_iZoom to ensure that the offset_y value is an integer. 
 
 
-		
+/* 
+ * djs remove floor() calls - integer division should take care of this?
 		int irow = (iterm%128) * f_iRows + floor(iterm/(128*16));
 		int icol = (int)(floor(iterm/128))%f_iCols;
+*/
+		int irow = (iterm%128) * f_iRows + iterm/(128*16);
+		int icol = (int)(iterm/128)%f_iCols;
 
 		MPositions[index].Page = DOT_WITH_APERTURE_PAGE+vsgDUALPAGE+vsgTRIGGERPAGE;
 // djs original		MPositions[index].Xpos=-f_W/2 + f_w/2 - f_apX + icol*f_iDot;
@@ -560,8 +565,7 @@ void init_triggers()
 
 		// Dump triggers
 	std::cout << "Triggers:" << std::endl;
-	int i;
-	for (i=0; i<triggers.size(); i++)
+	for (unsigned int i=0; i<triggers.size(); i++)
 	{
 		std::cout << "Trigger " << i << " " << *(triggers[i]) << std::endl;
 	}

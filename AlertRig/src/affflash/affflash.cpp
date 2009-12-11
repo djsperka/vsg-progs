@@ -78,8 +78,8 @@ int main (int argc, char *argv[])
 	// Compute basic parameters for the stimulus. 
 	split_factor = 0.5;
 	if (f_bNoSplit) split_factor = 1.0;
-	nTerms = split_factor * f_lengthSeconds * 1.0e6 / vsgGetSystemAttribute(vsgFRAMETIME) / f_iFramesPerTerm;
-	nFramesBlank = f_blankSeconds * 1.0e6 / vsgGetSystemAttribute(vsgFRAMETIME);
+	nTerms = (int)(split_factor * f_lengthSeconds * 1.0e6 / vsgGetSystemAttribute(vsgFRAMETIME) / f_iFramesPerTerm);
+	nFramesBlank = (int)(f_blankSeconds * 1.0e6 / vsgGetSystemAttribute(vsgFRAMETIME));
 
 
 	if (f_verbose)
@@ -115,7 +115,7 @@ int main (int argc, char *argv[])
 	if (!f_bUseGrating)
 	{
 		COLOR_TYPE cton, ctoff;
-		PIXEL_LEVEL plon, ploff, plbck;
+		PIXEL_LEVEL plon, ploff;
 		int ipage=0;
 		getOnOffColors(f_colorVector, f_contrast, cton, ctoff);
 
@@ -253,7 +253,7 @@ int main (int argc, char *argv[])
 	Sleep(2000);
 
 	// reset timer and start cycling
-	timeUS = (f_lengthSeconds + f_blankSeconds) * f_nRepeats * 1.0e6;
+	timeUS = (int)((f_lengthSeconds + f_blankSeconds) * f_nRepeats * 1.0e6);
 	if (f_verbose)
 	{
 		cout << "Total stimulus length (us): " << timeUS << endl;

@@ -15,27 +15,31 @@ bool read_coneiso_data()
 {
 	char *cf=NULL;
 	FILE *fp=NULL;
+	size_t len;
+	errno_t err;
 
 	if (_b_coneiso_read_done) return true;
 
 	// check if the env var CONEISO is defined. If it is, use its value as the coneiso file. 
 	// Otherwise, use the default.
-	cf = getenv("CONEISO");
-	if (!cf) 
+	err = _dupenv_s(&cf, &len, "CONEISO");
+	if (err || !cf) 
 	{
-		cf = coneisoFileDefault;
-		printf("CONEISO env var not defined. Using this file for coneiso values: %s\n", cf);
+		// try to open default file, then read values
+		fopen_s(&fp, coneisoFileDefault, "r");
+		printf("CONEISO env var not defined. Using this file for coneiso values: %s\n", coneisoFileDefault);
 	}
 	else
 	{
+		// try to open default file, then read values
+		fopen_s(&fp, cf, "r");
 		printf("CONEISO env var defined. Using this file for coneiso values: %s\n", cf);
+		free(cf);
 	}
 
-	// try to open file, then read values
-	fp = fopen(cf, "r");
 	if (!fp)
 	{
-		printf("Cannot open coneiso data file %s\n", cf);
+		printf("Cannot open coneiso data file.\n");
 	}
 	else
 	{
@@ -54,7 +58,7 @@ bool read_coneiso_data()
 			if (line[0] != '#')
 			{
 				// attempt to read values.
-				if (7 == sscanf(line, "%c %lf %lf %lf %lf %lf %lf", &ctyp, &r, &g, &b, &rr, &gg, &bb))
+				if (7 == sscanf_s(line, "%c %lf %lf %lf %lf %lf %lf", &ctyp, sizeof(char), &r, &g, &b, &rr, &gg, &bb))
 				{
 					switch(ctyp)
 					{

@@ -472,7 +472,7 @@ namespace alert
 
 		virtual bool checkAscii(std::string input)
 		{
-			int i;
+			unsigned int i;
 			m_input_matched = -1;
 			m_key = "NO MATCH";
 			for (i=0; i<this->size(); i++)
@@ -489,7 +489,7 @@ namespace alert
 
 		virtual bool checkBinary(int input)
 		{
-			int i;
+			unsigned int i;
 			bool bValue = false;
 			int current = input&m_in_mask;
 
@@ -526,7 +526,7 @@ namespace alert
 
 		std::string toString() const
 		{
-			int i;
+			unsigned int i;
 			std::ostringstream oss;
 			oss << "Trigger with multiple inputs" << std::endl;
 			for (i=0; i<this->size(); i++)
@@ -545,7 +545,7 @@ namespace alert
 		std::string getKey() const 
 		{ 
 //			std::cout << "getKey(): m_input_matched = " << m_input_matched << std::endl;
-			if (m_input_matched < 0 || m_input_matched > this->size()) return "ERROR";
+			if (m_input_matched < 0 || m_input_matched > (int)this->size()) return "ERROR";
 			else return (*this)[m_input_matched].first;
 		};
 
@@ -597,7 +597,7 @@ namespace alert
 		virtual int execute(int& output)
 		{
 			setMarker(output);
-			for (int i=0; i<this->size(); i++)
+			for (unsigned int i=0; i<this->size(); i++)
 			{
 				vsgObjSelect((*this)[i].first);
 				vsgObjSetContrast((*this)[i].second);
@@ -671,7 +671,7 @@ namespace alert
 		TriggerVector() {};
 		virtual ~TriggerVector() 
 		{
-			for (int i=0; i<size(); i++)
+			for (unsigned int i=0; i<size(); i++)
 			{
 				delete (*this)[i];
 			}

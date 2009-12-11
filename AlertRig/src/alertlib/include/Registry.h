@@ -96,8 +96,13 @@ typedef	std::string tstring;
 	CRegEntry& operator=( type Value ) { to_sz return (*this = (LPCTSTR)(buffer)); } \
 	operator type(){ REGENTRY_BINARYTOSTRING return (REGENTRY_SZ_SAFE ? from_sz :(iType == REG_DWORD ? from_dw : no_result)); }
 
+#if 0
+/* djs - MSVC 2008 compiler doesn't like sprintf type functions. */
 #define REGENTRY_CONV_NUMERIC_STORAGETYPE(type, maxlen, form, from_sz, from_dw) \
 	REGENTRY_CONV_STORAGETYPE(type, _R_BUF(maxlen); _stprintf(buffer, _T(#form), Value);, from_sz, from_dw, 0)
+#endif
+#define REGENTRY_CONV_NUMERIC_STORAGETYPE(type, maxlen, form, from_sz, from_dw) \
+	REGENTRY_CONV_STORAGETYPE(type, _R_BUF(maxlen); sprintf_s(buffer, maxlen, _T(#form), Value);, from_sz, from_dw, 0)
 
 
 /* ====================================
@@ -117,7 +122,7 @@ class CRegistry {
 public:
 	
 	CRegistry	(DWORD flags = CREG_CREATE);	
-	virtual		~CRegistry() { Close(); for (int i=0; i < _reEntries.size(); ++i) delete _reEntries[i]; delete [] _lpszSubKey; }
+	virtual		~CRegistry() { Close(); for (unsigned int i=0; i < _reEntries.size(); ++i) delete _reEntries[i]; delete [] _lpszSubKey; }
 
 	CRegEntry&	operator[](LPCTSTR lpszVName);
 	CRegEntry*	GetAt(size_t n) { assert(n < Count());  return _reEntries.at(n); }
@@ -135,8 +140,8 @@ public:
 	
 	void		DeleteKey();	
 
-	__inline	GetFlags()	{	return __dwFlags; }
-	__inline	Count()		{	return _reEntries.size(); }
+	__inline	DWORD GetFlags()	{	return __dwFlags; }
+	__inline	size_t Count()		{	return _reEntries.size(); }
 	
 	HKEY		hKey;		/* Registry key handle */
 
