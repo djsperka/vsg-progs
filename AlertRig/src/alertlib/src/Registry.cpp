@@ -18,9 +18,13 @@
 
 *///----------------------------------------------------
 
+/* djs - this disables deprecated warnings on non-string-safe functions */
+#define _CRT_SECURE_NO_WARNINGS
+
 #include "Registry.h"
 
 #pragma warning (disable : 4706)
+
 
 
 /* ===================================================
@@ -346,10 +350,12 @@ void CRegEntry::SetMulti(LPCTSTR lpszValue, size_t nLen, bool bInternal) {
 
 size_t CRegEntry::MultiLength(bool bInternal /*false*/) {
 
+	size_t nLen=0;
+	unsigned int nIndex;
 	//Ensure correct values with no cache
 	if (!bInternal) REGENTRY_REFRESH_IF_NOCACHE
 
-	for (size_t nLen = 0, nIndex = 0; nIndex < vMultiString.size(); nIndex++)
+	for (nLen = 0, nIndex = 0; nIndex < vMultiString.size(); nIndex++)
 		nLen += vMultiString[nIndex].length() + 1;
 
 	return nLen ? nLen+1 : 0;
