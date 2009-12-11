@@ -278,7 +278,7 @@ void prepareVideo()
 	else
 	{
 		COLOR_TYPE cton, ctoff;
-		PIXEL_LEVEL plon, ploff, plbck;
+		PIXEL_LEVEL plon, ploff;
 		int ipage=0;
 		getOnOffColors(f_colorVector, f_contrast, cton, ctoff);
 
@@ -304,13 +304,13 @@ void prepareCycling()
 	int nFramesBlank;
 	int i, iterm, ipage;
 
-	nFramesBlank = f_blankSeconds * 1.0e6 / vsgGetSystemAttribute(vsgFRAMETIME);
+	nFramesBlank = (int)(f_blankSeconds * 1.0e6 / vsgGetSystemAttribute(vsgFRAMETIME));
 
 	// by default f_bNoSplit=false. That means take half the segment time and repeat that
 	// sequence, the second time reversing 0 and 1. 
 	if (!f_bNoSplit)
 	{
-		nTerms = 0.5 * f_lengthSeconds * 1.0e6 / vsgGetSystemAttribute(vsgFRAMETIME) / f_iFramesPerTerm;
+		nTerms = (int)(0.5 * f_lengthSeconds * 1.0e6 / vsgGetSystemAttribute(vsgFRAMETIME) / f_iFramesPerTerm);
 		
 		for (i=0; i<nTerms; i++)
 		{
@@ -347,7 +347,7 @@ void prepareCycling()
 	}
 	else
 	{
-		nTerms = f_lengthSeconds * 1.0e6 / vsgGetSystemAttribute(vsgFRAMETIME) / f_iFramesPerTerm;
+		nTerms = (int)(f_lengthSeconds * 1.0e6 / vsgGetSystemAttribute(vsgFRAMETIME) / f_iFramesPerTerm);
 		for (i=0; i<nTerms; i++)
 		{
 			iterm = i + f_nTermsOffset;
@@ -407,7 +407,7 @@ int main(int argc, char **argv)
 	Sleep(10000);
 
 	// reset timer and start cycling
-	timeUS = (f_lengthSeconds + f_blankSeconds) * f_nRepeats * 1.0e6;
+	timeUS = (int)((f_lengthSeconds + f_blankSeconds) * f_nRepeats * 1.0e6);
 	if (f_verbose)
 	{
 		cout << "Total stimulus length (us): " << timeUS << endl;

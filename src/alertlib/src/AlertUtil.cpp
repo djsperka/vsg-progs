@@ -106,7 +106,7 @@ int arutil_draw_grating_fullscreen(ARGratingSpec& gr, int videoPage)
 		else
 		{	
 			// Set up standard 50:50 square wave
-			vsgObjTableSquareWave(vsgSWTABLE, vsgObjGetTableSize(vsgSWTABLE)*0.25, vsgObjGetTableSize(vsgSWTABLE)*0.75);
+			vsgObjTableSquareWave(vsgSWTABLE, (DWORD)(vsgObjGetTableSize(vsgSWTABLE)*0.25), (DWORD)(vsgObjGetTableSize(vsgSWTABLE)*0.75));
 		}
 
 		// set temporal freq
@@ -162,7 +162,7 @@ int arutil_draw_grating(ARGratingSpec& gr, int videoPage)
 		else
 		{	
 			// Set up standard 50:50 square wave
-			vsgObjTableSquareWave(vsgSWTABLE, vsgObjGetTableSize(vsgSWTABLE)*0.25, vsgObjGetTableSize(vsgSWTABLE)*0.75);
+			vsgObjTableSquareWave(vsgSWTABLE, (DWORD)(vsgObjGetTableSize(vsgSWTABLE)*0.25), (DWORD)(vsgObjGetTableSize(vsgSWTABLE)*0.75));
 		}
 
 		// set temporal freq
@@ -211,7 +211,7 @@ int arutil_draw_grating_noaperture(ARGratingSpec& gr, int videoPage)
 		else
 		{	
 			// Set up standard 50:50 square wave
-			vsgObjTableSquareWave(vsgSWTABLE, vsgObjGetTableSize(vsgSWTABLE)*0.25, vsgObjGetTableSize(vsgSWTABLE)*0.75);
+			vsgObjTableSquareWave(vsgSWTABLE, (DWORD)(vsgObjGetTableSize(vsgSWTABLE)*0.25), (DWORD)(vsgObjGetTableSize(vsgSWTABLE)*0.75));
 		}
 
 		// set temporal freq
@@ -274,10 +274,11 @@ int arutil_draw_aperture(ARGratingSpec& gr, int overlayPage)
 int arutil_load_mseq(char **ppseq, string& filename, int iOrder)
 {
 	int istatus=0;
-	int nterms = pow(2, iOrder) -1;
+	FILE *fp=(FILE *)NULL;
+	int nterms = (int)pow(2.0f, iOrder) -1;
 
 	// Open mseq file
-	FILE* fp=fopen(filename.c_str(), "r");
+	fopen_s(&fp, filename.c_str(), "r");
 	if (!fp) 
 	{
 		istatus=1;

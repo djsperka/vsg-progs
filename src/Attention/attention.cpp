@@ -125,8 +125,7 @@ int main (int argc, char *argv[])
 
 	// Dump triggers
 	{
-		int i;
-		for (i=0; i<triggers.size(); i++)
+		for (unsigned int i=0; i<triggers.size(); i++)
 		{
 			std::cout << "Trigger " << i << " " << *(triggers[i]) << std::endl;
 		}
@@ -602,7 +601,7 @@ int callback(int &output, const CallbackTrigger* ptrig)
 		w = vsgGetScreenWidthPixels();
 		h = vsgGetScreenHeightPixels();
 		vsgSetSpatialUnits(vsgPIXELUNIT);
-		sprintf(filename, "attention-%d.bmp", m_imageCount);
+		sprintf_s(filename, "attention-%d.bmp", m_imageCount);
 		ii = vsgImageExport(vsgBMPPICTURE, 0, 0, w, h, filename);
 		vsgSetSpatialUnits(vsgDEGREEUNIT);
 		cout << "Image trigger: wrote " << w << "x" << h << " image " << m_imageCount << " status " << ii << endl;

@@ -46,7 +46,7 @@ int main (int argc, char *argv[])
 		if (m_verbose)
 		{
 			cout << "colorflash - " << cfVecPages.size() << " flash pages." << endl;
-			for (int i=0; i<cfVecPages.size(); i++)
+			for (unsigned int i=0; i<cfVecPages.size(); i++)
 			{
 				cout << "Page " << i+1 << " (r,g,b) = (" << cfVecPages[i].r << "," << cfVecPages[i].g << "," << cfVecPages[i].b << ") seconds=" << cfVecPages[i].secs << endl;
 			}
@@ -89,14 +89,14 @@ int init()
 	VSGTRIVAL *c;
 	int npages;
 	int nframerate;
-	int i;
+	unsigned int i;
 
 	if (0 != (istatus = vsgInit(""))) return istatus;
 
 	npages = vsgGetSystemAttribute(vsgNUMVIDEOPAGES);
 	nframerate = vsgGetSystemAttribute(vsgFRAMERATE);
 
-	if (npages < cfVecPages.size())
+	if (npages < (int)cfVecPages.size())
 	{
 		cerr << "Error - vsg has only " << npages << " video pages, but you requested " << cfVecPages.size() << " pages." << endl;
 		return 1;
@@ -128,7 +128,7 @@ int init()
 	for (i=0; i<cfVecPages.size(); i++)
 	{
 		pe[i].Page = (i + 1) + vsgTRIGGERPAGE;
-		pe[i].Frames = nframerate*cfVecPages[i].secs;
+		pe[i].Frames = (WORD)(nframerate*cfVecPages[i].secs);
 		pe[i].Xpos=0;
 		pe[i].Ypos=0;
 		pe[i].Stop = 0;
@@ -165,7 +165,7 @@ int args(int argc, char **argv)
 			}
 			else
 			{
-				for (int i=0; i<tokens.size()/4; i++)
+				for (unsigned int i=0; i<tokens.size()/4; i++)
 				{
 					CFStruct cfs;
 					if (parse_double(tokens[i*4], cfs.r) != 0)
