@@ -52,8 +52,7 @@ int main (int argc, char *argv[])
 			cout << "Screen distance " << m_screenDistanceMM << endl;
 			cout << "Fixation point " << m_afp << endl;
 			cout << "Background color " << m_background << endl;
-			int i;
-			for (i=0; i<m_distractors.size(); i++)
+			for (unsigned int i=0; i<m_distractors.size(); i++)
 			{
 				cout << "Distractor " << (i+1) << ": " << m_distractors[i] << endl;
 			}
@@ -229,8 +228,7 @@ void init_triggers()
 
 		// Dump triggers
 	std::cout << "Triggers:" << std::endl;
-	int i;
-	for (i=0; i<triggers.size(); i++)
+	for (unsigned int i=0; i<triggers.size(); i++)
 	{
 		std::cout << "Trigger " << i << " " << *(triggers[i]) << std::endl;
 	}
@@ -248,7 +246,7 @@ int init_pages()
 		// determine the level slice for each
 		int islice = LevelManager::instance().remaining()/m_distractors.size();
 		if (islice > 50) islice=50;
-		for (int i=0; i<m_distractors.size(); i++)
+		for (unsigned int i=0; i<m_distractors.size(); i++)
 		{
 			m_distractors[i]->init(islice);
 			m_distractors[i]->drawOnce();

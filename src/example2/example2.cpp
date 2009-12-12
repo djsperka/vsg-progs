@@ -22,10 +22,10 @@ using namespace alert;
 int main (int argc, char *argv[])
 {
 	string s;
-	COLOR_TYPE background = gray;
+	COLOR_TYPE background = { gray, {0.5, 0.5, 0.5}};
 	int dist = 555;
 
-	ARvsg::instance().init(dist, gray);
+	ARvsg::instance().init(dist, background);
 
 	double dScrWidth = vsgGetScreenWidthPixels();
 	double dScrHeight = vsgGetScreenHeightPixels();
@@ -88,8 +88,8 @@ int main (int argc, char *argv[])
 				double mx, my;
 				POINT pos;
 				GetCursorPos(&pos);
-				ax = pos.x / uScreenWidth;
-				ay = pos.y / uScreenHeight;
+				ax = pos.x / dScrWidth;
+				ay = pos.y / dScrHeight;
 //				mx = floor(1024 - ax*800);
 //				my = floor(600 - ay*600);
 				mx = floor(400 - ax*800);

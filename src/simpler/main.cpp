@@ -9,8 +9,6 @@ int main(int argc, char **argv)
 	int nOverlay;
 	int Width, Height;
 	double Buff[6];
-	int Ypos, Offset;
-	int Shift;
 	int page;
 
 	if (vsgInit("")<0) exit(0);

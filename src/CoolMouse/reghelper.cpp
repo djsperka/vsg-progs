@@ -1,5 +1,6 @@
-#include "stdafx.h"
+/*#include "stdafx.h"*/
 
+#define _CRT_SECURE_NO_WARNINGS
 #include "reghelper.h"
 #include "Registry.h"
 #include "alertlib.h"
@@ -191,7 +192,7 @@ bool GetRegFixpt(double& fixX, double& fixY, double &fixD, COLOR_TYPE& fixC)
 			{
 				// Note that the color index stored refers to that used
 				// in spike2. We add 3 to it to get the alertlib's index. 
-				fixC = (COLOR_TYPE)(icolor+3);
+				fixC.type = (COLOR_ENUM)(icolor+3);
 			}
 
 			// Close the open key

@@ -280,7 +280,7 @@ int parse_colorvector(std::string s, COLOR_VECTOR_TYPE& v)
 		// try and parse a custom color vector
 		status=1;
 		v.type = unknown_color_vector;
-		n = sscanf(s.c_str(), "(%d/%d/%d)-(%d/%d/%d)", &fr, &fg, &fb, &tr, &tg, &tb);
+		n = sscanf_s(s.c_str(), "(%d/%d/%d)-(%d/%d/%d)", &fr, &fg, &fb, &tr, &tg, &tb);
 		if (n==6)
 		{
 			if (fr>=0 && fr<256 && fg>=0 && fg<256 && fb>=0 && fb<256 && 
@@ -317,7 +317,7 @@ int parse_color(std::string s, COLOR_TYPE& c)
 		// try and parse a custom color vector
 		status=1;
 		c.type = unknown_color;
-		n = sscanf(s.c_str(), "(%d/%d/%d)", &r, &g, &b);
+		n = sscanf_s(s.c_str(), "(%d/%d/%d)", &r, &g, &b);
 		if (n==3)
 		{
 			if (r>=0 && r<256 && g>=0 && g<256 && b>=0 && b<256)
@@ -454,7 +454,7 @@ int parse_tuning_triplet(std::string s, double& i_dMin, double& i_dMax, int& i_i
 int parse_tuning_list(std::string s, vector<double>& tuning_list, int& i_iSteps)
 {
 	int status=0;
-	int i;
+	unsigned int i;
 	istringstream iss;
 	double d;
 	vector<string> tokens;
