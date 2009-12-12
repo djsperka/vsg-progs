@@ -329,7 +329,7 @@ int alert::ARGratingSpec::draw(bool useTransOnLower)
 	else
 	{	
 		// Set up standard 50:50 square wave
-		vsgObjTableSquareWave(vsgSWTABLE, vsgObjGetTableSize(vsgSWTABLE)*0.25, vsgObjGetTableSize(vsgSWTABLE)*0.75);
+		vsgObjTableSquareWave(vsgSWTABLE, (DWORD)(vsgObjGetTableSize(vsgSWTABLE)*0.25), (DWORD)(vsgObjGetTableSize(vsgSWTABLE)*0.75));
 	}
 
 	// set temporal freq
@@ -433,7 +433,7 @@ int alert::ARApertureGratingSpec::draw()
 	else
 	{	
 		// Set up standard 50:50 square wave
-		vsgObjTableSquareWave(vsgSWTABLE, vsgObjGetTableSize(vsgSWTABLE)*0.25, vsgObjGetTableSize(vsgSWTABLE)*0.75);
+		vsgObjTableSquareWave(vsgSWTABLE, (DWORD)(vsgObjGetTableSize(vsgSWTABLE)*0.25), (DWORD)(vsgObjGetTableSize(vsgSWTABLE)*0.75));
 	}
 
 	// set temporal freq

@@ -1,4 +1,4 @@
 #include <afxwin.h>
-#include <iostream.h>
+#include <iostream>
 
 CString TrimLine(char input[100]);

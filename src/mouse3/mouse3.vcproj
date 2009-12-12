@@ -46,7 +46,7 @@
 				Name="VCCLCompilerTool"
 				Optimization="2"
 				InlineFunctionExpansion="1"
-				AdditionalIncludeDirectories="..\alertlib\include"
+				AdditionalIncludeDirectories="&quot;C:\Program Files\Cambridge Research Systems\VSGV8\Windows\Win32\MSVC\INCLUDE&quot;;..\alertlib\include"
 				PreprocessorDefinitions="WIN32;NDEBUG;_CONSOLE"
 				StringPooling="true"
 				RuntimeLibrary="2"
@@ -71,9 +71,11 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
+				AdditionalDependencies="user32.lib"
 				OutputFile="..\..\bin\mouse3.exe"
 				LinkIncremental="1"
 				SuppressStartupBanner="true"
+				AdditionalLibraryDirectories="&quot;C:\Program Files\Cambridge Research Systems\VSGV8\Windows\Win32\MSVC\LIB&quot;;../../alertlib/lib"
 				ProgramDatabaseFile=".\Release/mouse3.pdb"
 				SubSystem="1"
 				RandomizedBaseAddress="1"
@@ -134,7 +136,7 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
-				AdditionalIncludeDirectories="..\alertlib\include"
+				AdditionalIncludeDirectories="&quot;C:\Program Files\Cambridge Research Systems\VSGV8\Windows\Win32\MSVC\INCLUDE&quot;;..\alertlib\include"
 				PreprocessorDefinitions="WIN32;_DEBUG;_CONSOLE"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
@@ -160,9 +162,11 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
+				AdditionalDependencies="user32.lib"
 				OutputFile="..\..\bin\dmouse3.exe"
 				LinkIncremental="2"
 				SuppressStartupBanner="true"
+				AdditionalLibraryDirectories="&quot;C:\Program Files\Cambridge Research Systems\VSGV8\Windows\Win32\MSVC\LIB&quot;;../../alertlib/lib"
 				GenerateDebugInformation="true"
 				ProgramDatabaseFile=".\Debug/dmouse3.pdb"
 				SubSystem="1"
@@ -212,7 +216,6 @@
 			</FileConfiguration>
 			<FileConfiguration
 				Name="Debug|Win32"
-				ExcludedFromBuild="true"
 				>
 				<Tool
 					Name="VCCLCompilerTool"

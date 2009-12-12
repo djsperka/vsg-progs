@@ -140,7 +140,7 @@ void run_mouse()
 		DriftVelocity = stim.tf;
 		Contrast = stim.contrast;
 		SpatialFrequency = stim.sf;
-		ApertureDiameter = stim.w;
+		ApertureDiameter = (float)stim.w;
 		Orientation = stim.orientation;
 	}
 
@@ -436,7 +436,7 @@ void run_mouse()
 						DriftVelocity = stim.tf;
 						Contrast = stim.contrast;
 						SpatialFrequency = stim.sf;
-						ApertureDiameter = stim.w;
+						ApertureDiameter = (float)stim.w;
 						Orientation = stim.orientation;
 						vsgDrawDegreesToMousePos(stim.x, stim.y, &Pos.x, &Pos.y);
 					}
@@ -530,8 +530,10 @@ void run_mouse()
 			{
 				alert::ARApertureGratingSpec stim;
 				stim.aperture = ellipse;
-				stim.contrast = Contrast;
-				stim.cv = b_w;
+				stim.contrast = (int)Contrast;
+				stim.cv.type = b_w;
+				stim.cv.from.a = stim.cv.from.b = stim.cv.from.c = 0;
+				stim.cv.to.a = stim.cv.to.b = stim.cv.to.c = 1.0;
 				stim.h = stim.w = ApertureDiameter;
 				stim.orientation = Orientation;
 				stim.pattern = sinewave;
@@ -608,8 +610,8 @@ void vsgDrawDegreesToMousePos(double vsgDegX, double vsgDegY, long* pixMouseX, l
 	double x, y;
 	vsgUnit2Unit(vsgDEGREEUNIT, vsgDegX, vsgPIXELUNIT, &x);
 	vsgUnit2Unit(vsgDEGREEUNIT, vsgDegY, vsgPIXELUNIT, &y);
-	*pixMouseX = (x + vsgWidthPixels/2) * monWidthPixels/vsgWidthPixels;
-	*pixMouseY = (y + vsgHeightPixels/2) * monHeightPixels/vsgHeightPixels;
+	*pixMouseX = (long)((x + vsgWidthPixels/2) * monWidthPixels/vsgWidthPixels);
+	*pixMouseY = (long)((y + vsgHeightPixels/2) * monHeightPixels/vsgHeightPixels);
 }
 
 

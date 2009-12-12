@@ -5,7 +5,7 @@
 #include "Grating.h"
 #include "trimline.h"
 #include "AustinUtilities.h"
-
+using namespace std;
 //////////////////////////////////////////////////////////////////////
 // Construction/Destruction
 //////////////////////////////////////////////////////////////////////
@@ -269,7 +269,7 @@ void Grating::InitGrating()
 	if(strcmp(p->Pattern,"Sine")==0)
 		vsgObjTableSinWave(vsgSWTABLE);
 	if(strcmp(p->Pattern,"Square Wave")==0)
-		vsgObjTableSquareWave(vsgSWTABLE,vsgObjGetTableSize(vsgSWTABLE)*.25,vsgObjGetTableSize(vsgSWTABLE)*.75);
+		vsgObjTableSquareWave(vsgSWTABLE,(DWORD)(vsgObjGetTableSize(vsgSWTABLE)*.25),(DWORD)(vsgObjGetTableSize(vsgSWTABLE)*.75));
 	vsgObjSetDriftVelocity(p->TemporalFrequency);
 	vsgObjSetColourVector((VSGTRIVAL*)&From,(VSGTRIVAL*)&To,vsgBIPOLAR);
 	vsgObjSetContrast(p->Contrast);

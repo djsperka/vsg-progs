@@ -15,7 +15,7 @@
 //*****************************************************************
 
 
-
+#define _CRT_SECURE_NO_WARNINGS
 
 #include "vsgv8.h"
 #include "math.h"
@@ -121,7 +121,6 @@ void main(int ArgumentCount, char *Arguments[])
 	
 	double FixationX,FixationY,FixationDiameter;
 	long StimulusState, PreviousState;
-	float Diameter;
 
 	FixationX=atof(Arguments[1]);
 	FixationY=atof(Arguments[2]);
