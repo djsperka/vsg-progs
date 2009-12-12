@@ -1,7 +1,7 @@
-
+#pragma comment(lib, "vsgv8.lib")
 #include "TuningCurve.h"
 #include "ParameterFile.h"
-
+using namespace std;
 
 ParameterFile *pf=NULL;
 

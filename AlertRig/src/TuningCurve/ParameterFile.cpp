@@ -1,7 +1,7 @@
 // ParameterFile.cpp
 //
 //////////////////////////////////////////////////////////////////////
-
+#define _CRT_SECURE_NO_WARNINGS
 #include "ParameterFile.h"
 #include "AustinUtilities.h"
 

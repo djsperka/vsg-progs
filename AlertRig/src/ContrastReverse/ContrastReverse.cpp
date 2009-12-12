@@ -387,8 +387,7 @@ void init_triggers()
 
 		// Dump triggers
 	std::cout << "Triggers:" << std::endl;
-	int i;
-	for (i=0; i<triggers.size(); i++)
+	for (unsigned int i=0; i<triggers.size(); i++)
 	{
 		std::cout << "Trigger " << i << " " << *(triggers[i]) << std::endl;
 	}

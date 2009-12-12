@@ -1,3 +1,4 @@
+#define _CRT_SECURE_NO_WARNINGS
 #include <stdio.h>
 #include "vsgv8.h"
 #include <math.h>
@@ -76,16 +77,14 @@ void main(int ArgumentCount, char *Arguments[])
 
 int DrawGrating(int FPT, double SFd[2], double Ori, double Con, double Size, double X, double Y, double Signal, double Blank, int DistancetoMonitor,int Repeats)
 {
-	int i, j,k,z, dx,dy, OD, OD2,index2, index4;
+	int i, j,k,z, dx,dy;
 	double Diameter[12], NumTerms,BlankTerms,x,y,RN[200];
-	double phase,xphase,yphase, index, xcor, ycor, phase1, phase2, temp,tempPC[2], NewBuffer[8][256], SX[2],SY[2];
-	double SFr[2],SquareSize[2], MaxVal, Distance, r, r2, r3,r4[2];
-	double temp_degrees, MMpCYCLE[2],PIXELSpCYCLE[2],PIXELSpDegree[2],step;
+	double phase,xphase,yphase, index, xcor, ycor, SX[2],SY[2];
+	double SFr[2], Distance, r3,r4[2];
+	double MMpCYCLE[2],PIXELSpCYCLE[2],PIXELSpDegree[2],step;
 	const double Pi = 3.1416;
 	const double MMpPIXEL = .445;
 	int temp_int;
-	temp_int=1.23;
-	printf("Int is %i\n",temp_int);
 			
 	Y=-Y;
 			
@@ -130,7 +129,6 @@ int DrawGrating(int FPT, double SFd[2], double Ori, double Con, double Size, dou
 		VSGLUTBUFFER Buffer;
 	};
 	struct MyBuffer TempBuffer2[64];
-	struct MyBufer *TempPointer;
 
 	TempBuffer2[0].Buffer[0].a =.5;
 	TempBuffer2[0].Buffer[0].b =.5;
@@ -240,9 +238,9 @@ int DrawGrating(int FPT, double SFd[2], double Ori, double Con, double Size, dou
 				}
 			//	
 			//	Sleep(100);
-				dx = abs(x);
-				dy = abs(y);
-				Distance = sqrt( pow(dx,2) +  pow(dy,2) );
+				dx = (int)abs(x);
+				dy = (int)abs(y);
+				Distance = sqrt( pow((float)dx,2) +  pow((float)dy,2) );
 				
 			//	printf("phase %f\n",phase);
 			//	Sleep(100);
@@ -250,7 +248,7 @@ int DrawGrating(int FPT, double SFd[2], double Ori, double Con, double Size, dou
 			
 				if (Distance<= (.5*Diameter[0]))
 				{
-					vsgSetPen1(phase);
+					vsgSetPen1((DWORD)phase);
 					vsgDrawRect(x+X,y+Y,1,1);
 				//	printf("%f\n%f\n%f\n %f\n ",x+X,y+Y,phase,(PIXELSpCYCLE/SquareSize)+1);
 				//	Sleep(1000);
@@ -268,8 +266,6 @@ r4[0]=0;
 r4[1]=1;
 FILE *RandFile;
 
-char FileName[46];
-//FileName = "C:\AcuteRig\Area White Noise\CurrentRandData.txt"
 printf("hgere");
 RandFile = fopen("C:\\CurrentRandDataSF.txt","w");
 
@@ -303,24 +299,24 @@ for (k=1; k<=Repeats*2; k++)
 				{	
 					if (RN[i]==1)
 					{
-						vsgLUTBUFFERtoPalette(r4[0]);
+						vsgLUTBUFFERtoPalette((DWORD)r4[0]);
 						//vsgPaletteWrite((VSGLUTBUFFER*)&TempBuffer2[0].Buffer,0,ceil(PIXELSpCYCLE/SquareSize)+1);
-						vsgSetDisplayPage(r3+vsgTRIGGERPAGE);
+						vsgSetDisplayPage((DWORD)r3+vsgTRIGGERPAGE);
 					
 						
 					
 					}
 					else
 					{
-						vsgLUTBUFFERtoPalette(r4[1]);
+						vsgLUTBUFFERtoPalette((DWORD)r4[1]);
 					//	vsgPaletteWrite((VSGLUTBUFFER*)&TempBuffer2[1].Buffer,0,ceil(PIXELSpCYCLE/SquareSize)+1);		
-						vsgSetDisplayPage(r3+vsgTRIGGERPAGE);
+						vsgSetDisplayPage((DWORD)r3+vsgTRIGGERPAGE);
 					
 					}
 				}	
 				else
 				{
-					vsgSetZoneDisplayPage(vsgVIDEOPAGE,r3);
+					vsgSetZoneDisplayPage(vsgVIDEOPAGE,(DWORD)r3);
 					
 				
 				}
@@ -331,13 +327,13 @@ for (k=1; k<=Repeats*2; k++)
 				{	
 						vsgLUTBUFFERtoPalette(4);
 						//vsgPaletteWrite((VSGLUTBUFFER*)&TempBuffer2[2].Buffer,0,ceil(PIXELSpCYCLE/SquareSize)+1);
-						vsgSetDisplayPage(r3+vsgTRIGGERPAGE);
+						vsgSetDisplayPage((DWORD)r3+vsgTRIGGERPAGE);
 					
 				
 				}	
 				else
 				{
-					vsgSetZoneDisplayPage(vsgVIDEOPAGE,r3);
+					vsgSetZoneDisplayPage(vsgVIDEOPAGE,(DWORD)r3);
 				
 				
 				}
