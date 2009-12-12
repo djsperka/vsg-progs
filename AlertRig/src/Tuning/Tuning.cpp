@@ -170,7 +170,7 @@ void init_pages()
 	{
 	case tt_contrast:
 		// Save the min contrast value for this type
-		m_tuned_param_current = m_iSavedContrast = m_tuned_param_vec[0];
+		m_tuned_param_current = m_iSavedContrast = (int)m_tuned_param_vec[0];
 		break;
 	case tt_spatial:
 		m_tuned_param_current = m_stim.sf = m_tuned_param_vec[0];

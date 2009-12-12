@@ -1,5 +1,7 @@
+#define _CRT_SECURE_NO_WARNINGS
 #include "AustinUtilities.h"
 
+using namespace std;
 
 CString TrimLine(char input[100])
 {

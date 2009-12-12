@@ -283,6 +283,10 @@
 				</FileConfiguration>
 			</File>
 			<File
+				RelativePath="..\CoolMouse\reghelper.cpp"
+				>
+			</File>
+			<File
 				RelativePath="src\Registry.cpp"
 				>
 				<FileConfiguration
@@ -327,6 +331,10 @@
 			</File>
 			<File
 				RelativePath="include\RegEntry.h"
+				>
+			</File>
+			<File
+				RelativePath="..\CoolMouse\reghelper.h"
 				>
 			</File>
 			<File

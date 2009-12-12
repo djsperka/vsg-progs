@@ -45,7 +45,8 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
-				PreprocessorDefinitions="WIN32;_DEBUG;_CONSOLE"
+				AdditionalIncludeDirectories="&quot;C:\Program Files\Cambridge Research Systems\VSGV8\Windows\Win32\MSVC\INCLUDE&quot;"
+				PreprocessorDefinitions="WIN32;_DEBUG;_CONSOLE;_AFXDLL"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="3"
@@ -73,6 +74,7 @@
 				OutputFile="../../bin/dTuningCurve.exe"
 				LinkIncremental="2"
 				SuppressStartupBanner="true"
+				AdditionalLibraryDirectories="&quot;C:\Program Files\Cambridge Research Systems\VSGV8\Windows\Win32\MSVC\LIB&quot;"
 				GenerateDebugInformation="true"
 				ProgramDatabaseFile=".\Debug/dTuningCurve.pdb"
 				SubSystem="1"
@@ -135,7 +137,8 @@
 				Name="VCCLCompilerTool"
 				Optimization="2"
 				InlineFunctionExpansion="1"
-				PreprocessorDefinitions="WIN32;NDEBUG;_CONSOLE"
+				AdditionalIncludeDirectories="&quot;C:\Program Files\Cambridge Research Systems\VSGV8\Windows\Win32\MSVC\INCLUDE&quot;"
+				PreprocessorDefinitions="WIN32;NDEBUG;_CONSOLE;_AFXDLL"
 				StringPooling="true"
 				RuntimeLibrary="2"
 				EnableFunctionLevelLinking="true"
@@ -162,6 +165,7 @@
 				OutputFile="../../bin/TuningCurve.exe"
 				LinkIncremental="1"
 				SuppressStartupBanner="true"
+				AdditionalLibraryDirectories="&quot;C:\Program Files\Cambridge Research Systems\VSGV8\Windows\Win32\MSVC\LIB&quot;"
 				ProgramDatabaseFile=".\Release/TuningCurve.pdb"
 				SubSystem="1"
 				RandomizedBaseAddress="1"
@@ -307,10 +311,6 @@
 			Filter="ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe"
 			>
 		</Filter>
-		<File
-			RelativePath="..\..\..\..\Program Files\Cambridge Research Systems\VSGV8\Windows\Win32\MSVC\LIB\VSGV8.LIB"
-			>
-		</File>
 	</Files>
 	<Globals>
 	</Globals>
