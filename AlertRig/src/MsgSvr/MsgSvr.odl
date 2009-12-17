@@ -1,0 +1,44 @@
+// MsgSvr.odl : type library source for MsgSvr.exe
+
+// This file will be processed by the MIDL compiler to produce the
+// type library (MsgSvr.tlb).
+
+[ uuid(DDD3C457-F357-4222-93F2-5D64154F5745), version(1.0) ]
+library MsgSvr
+{
+	importlib("stdole32.tlb");
+	importlib("stdole2.tlb");
+
+
+	//  Primary dispatch interface for CMsgSvrDoc
+	
+	[ uuid(CF8D4371-359D-424B-A37C-FC7E20D404E1) ]
+	dispinterface IMsgSvr
+	{
+		properties:
+			// NOTE - ClassWizard will maintain property information here.
+			//    Use extreme caution when editing this section.
+			//{{AFX_ODL_PROP(CMsgSvrDoc)
+			//}}AFX_ODL_PROP
+			
+		methods:
+			// NOTE - ClassWizard will maintain method information here.
+			//    Use extreme caution when editing this section.
+			//{{AFX_ODL_METHOD(CMsgSvrDoc)
+			[id(1)] void addMessage(BSTR strMessage);
+			[id(2)] BSTR getNextMessage();
+			//}}AFX_ODL_METHOD
+
+	};
+
+	//  Class information for CMsgSvrDoc
+	
+	[ uuid(F84AB9BD-52EB-4260-9E0C-4ED069BB06DF) ]
+	coclass msg
+	{
+		[default] dispinterface IMsgSvr;
+	};
+
+	//{{AFX_APPEND_ODL}}
+	//}}AFX_APPEND_ODL}}
+};
