@@ -1,4 +1,4 @@
-' $Id: Usrey.s2s,v 1.1 2009-07-09 21:16:28 devel Exp $
+' $Id: Usrey.s2s,v 1.2 2010-01-05 20:56:01 devel Exp $
 
 
 ' File system reference vars. Each var is a directory path, WITHOUT the trailing slash. 
@@ -6,6 +6,40 @@ var bin$, script$, config$;
 script$ := View(App(3)).FileName$(1) + View(App(3)).FileName$(2);	' folder containing this script
 bin$ := View(App(3)).FileName$(1) + View(App(3)).FileName$(2) + "..\\bin";	' Location of executables is ..\bin, relative to script dir
 config$ := View(App(3)).FileName$(1) + View(App(3)).FileName$(2) + "..\\config";	' Location of executables is ..\bin, relative to script dir
+GetDataParameters();
+
+
+' Use these functions to get directory names. The values returned do NOT have (have) trailing slashes if the 
+' parameter iSlashes% is 0 (1). 
+'
+' GetScriptDir$() - return folder containing rig scripts
+' GetBinDir$() - returns folder containing VSG executables
+' GetConfigDir$() - return config dir (unused)
+
+
+func GetScriptDir$(iSlashes%)
+    if iSlashes% = 0 then
+        return script$;
+    else
+        return script$ + "\\";
+    endif
+end
+
+func GetBinDir$(iSlashes%)
+    if iSlashes% = 0 then
+        return bin$;
+    else
+        return bin$ + "\\";
+    end
+end
+
+func GetConfigDir$(iSlashes%)
+    if iSlashes% = 0 then
+        return config$;
+    else
+        return config$ + "\\";
+    endif
+end
 
 
 
@@ -45,7 +79,7 @@ proc GetDataParameters()
 	var key$;
 
 '	key$:="AlertRig\\Data";
-	key$ := thisRigName$ + "\\Data";
+	key$ := GetRigName$() + "\\Data";
 
 	Profile(key$, "PathRoot", "C:\\Experiments", dataPathRoot$);
 	Profile(key$, "DataSet", "", dataDataSet$);
@@ -57,8 +91,7 @@ proc SaveDataParameters()
 	var stmp$;
 	var key$;
 
-'	key$:="AlertRig\\Data";
-	key$ := thisRigName$ + "\\Data";
+	key$ := GetRigName$() + "\\Data";
 
 	Profile(key$, "PathRoot", dataPathRoot$);
 	Profile(key$, "DataSet", dataDataSet$);
@@ -134,13 +167,13 @@ var CurrentConfiguration$;
 var ConfigurationList$;
 
 proc GetConfigurationParameters()
-	Profile(thisRigName$, "ConfigurationList", "", ConfigurationList$);
-	Profile(thisRigName$, "CurrentConfiguration", "default", CurrentConfiguration$);
+	Profile(GetRigName$(), "ConfigurationList", "", ConfigurationList$);
+	Profile(GetRigName$(), "CurrentConfiguration", "default", CurrentConfiguration$);
 end;
 
 proc SaveConfigurationParameters()
-	Profile(thisRigName$, "ConfigurationList", ConfigurationList$);
-	Profile(thisRigName$, "CurrentConfiguration", CurrentConfiguration$);
+	Profile(GetRigName$(), "ConfigurationList", ConfigurationList$);
+	Profile(GetRigName$(), "CurrentConfiguration", CurrentConfiguration$);
 end;
 	
 func SelectConfigurationDialog%()
@@ -216,7 +249,7 @@ end;
 
 func GetCurrentConfiguration$()
 	var s$;
-	Profile(thisRigName$, "CurrentConfiguration", "default", s$);
+	Profile(GetRigName$(), "CurrentConfiguration", "default", s$);
 	return s$;
 end;
 
