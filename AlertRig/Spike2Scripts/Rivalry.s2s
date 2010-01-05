@@ -1,0 +1,479 @@
+#include "../../Spike2Util/RigName.s2s"
+#include "Usrey.s2s"
+
+
+' Local config variables
+
+const rivMaxTargets% := 8;
+var rivNTargets% := 0;
+var rivTargetSpecs$[rivMaxTargets%];
+var rivMaxWaitForReadyTime := 1.0;
+var rivReadFailWaitTime := 1.0;
+var rivMaxResponseTime := 1.0;
+var rivResponseFailWaitTime := 1.0;
+var rivResponseIncorrectWaitTime := 1.0;
+var rivMaxStimTime := 1.0;
+var rivResponseCorrectRewardSize% := 2;
+var rivMaintainResponseCorrectRewardSize% := 1;
+var rivIntertrialTime := 1.0;
+var rivUseBeep% := 0;
+var rivBeepLengthMS% := 100;
+
+
+' Counters
+
+var rivCtrNTrials% := 0;
+var rivCtrReadyFail% := 0;
+var rivCtrNoResponse% := 0;
+var rivCtrIncorrect% := 0;
+var rivCtrCorrect% := 0;
+var rivCtrNRewards% := 0;
+
+' Channel numbers for DAQ inputs
+
+var rivChanXEye%    := 1;
+var rivChanYEye%    := 2;
+
+' VSG trigger input channels
+
+var rivChanVSGReady%    :=  20;
+var rivChanVSGStim%     :=  21;
+
+' Controls
+
+var rivIsPaused% := 0;
+var rivStimHandle := 0;
+
+' States - these constants define a particular state
+
+const rivStateStartup%              :=  1;
+const rivStatePaused%               :=  2;
+const rivStateTrialStart%           :=  3;
+const rivStateBeep%                 :=  4;
+const rivStateWaitForReady%         :=  5;
+const rivStateWaitForStimUp%        :=  6;
+const rivStateWaitForResponse%      :=  7;
+const rivStateReward%               :=  8;
+const rivStateMaintainResponse%     :=  9;
+const rivStateMaxResponse%          :=  10;
+const rivStateBreakResponse%        :=  11;
+const rivStateWaitForStimOff%       :=  12;
+const rivStateIntertrialWait%       :=  13;
+const rivStateReadyFail%            :=  14;
+const rivStateIncorrectResponse%    :=  15;
+const rivStateNoResponse%           :=  16;
+const rivStateQuit%                 :=  17;
+const rivStateDone%                 :=  18;
+const rivStateVSGWait%              :=  19;
+const rivStateVSGConfirm%           :=  20;
+
+var iState% := rivStateStartup%;              ' This holds the current state
+
+var tNow:=0;		    ' latest time for which there are values recorded. Used in IdleProcessing
+var tLast:=-1;		    ' last time we checked for a trigger. 
+var xEye, yEye;		    ' eye positions
+var tLastUpdate:=-1;	' last time view was updated
+var vTrigger;		    ' set by NextTime to indicate trigger transition
+var tStateStart:=-1;	' time that present state started. Used to measure wait time, fixation time, etc. 
+var tLastTrigger:=-1;	' last trigger time. New triggers have to be greater than this
+var tTrigger:=-1;	    ' temp var for newly discovered trigger times
+
+func IdleProcessing%()
+	var iStatus% := 1;	
+    var iExitLoop% := 1;        ' States can set this to 0 if we should loop to subsequent state
+	tNow := MaxTime();
+
+'	xEye := ChanMeasure(XChannel%,2,tNow-.001,tNow-.006)*DegreesPerVoltX;
+'	yEye := ChanMeasure(YChannel%,2,tNow-.001,tNow-.006)*DegreesPerVoltY;
+'	View(XYWindow%).XYAddData(1,xEye,yEye);
+    
+    ' This state loop will continue forever unless some state sets the 
+    ' var iExitLoop% to a nonzero value!!! 
+    
+    while iExitLoop = 0 do
+        docase 
+            case iState% = rivStateVSGWait% then
+                ' Waiting for VSG to indicate it is ready. The indication is a pulse (up, then down, 1 frame apart) on port 6.
+                tTrigger := NextTime(ReadyChannel%, tLast, vTrigger);
+                if tTrigger > tLastTrigger and vTrigger = 0 then
+                    PrintLog("rivStateVSGWait: Got leading edge of trigger\n");
+                    tLastTrigger := tTrigger;
+                    ChangeStateTo(rivStateVSGConfirm%, tTrigger);                
+                    zzzzzzzzzzzzzzzzzzz
+                else
+                
+                endif;
+            case iState% = stateVSGWaitConfirm% then
+
+			' Waiting for VSG to confirm it is ready. The downward side of the pulse is expected...
+			tTrigger := NextTime(ReadyChannel%, tLastTrigger, vTrigger);
+			if tTrigger > tLastTrigger and vTrigger = 1 then
+				PrintLog("state stateVSGWaitConfirm: Got trailing edge of trigger\n");
+				tLastTrigger := tTrigger;
+				ChangeStateTo(stateStartBlock%, tTrigger);
+			endif;
+
+
+		case iState% = stateStartBlock% then
+
+			PrepareBlock();
+			ChangeStateTo(stateStartTrial%, tNow);
+
+		case iState% = stateStartTrial% then
+
+			' Start trial. Put up fixation point.
+			UpdateToolbarText();
+			PrepareTrial();
+            
+            if iDoCorrectionTrial% = 0 then
+                attCountAllTrials% += 1;
+            else
+                attCountCorrectionTrials% += 1;
+                SampleText("*");    ' Indicator that this is a correction trial
+                Yield(.01);         ' necessary so that the SampleText and SampleKey below don't land on the same time (makes extraction difficult)
+            endif
+            SampleKey("W");
+            ChangeStateTo(stateWaitForWhitePointOn%, tNow);
+        case iState% = stateWaitForWhitePointOn% then
+			tTrigger := NextTime(FixationPointChannel%, tLast, vTrigger);
+			if tTrigger > tLast then
+				' white point is up
+				PrintLog("stateWaitForWhitePointOn: signal received. " + str$(tTrigger) + "\n");
+                tLastTrigger := tTrigger;
+				ChangeStateTo(stateWaitForAcquisition%, tTrigger);
+				DrawStim(1);	' actually this draws the location of the fixpt.
+			endif
+            
+		case iState% = stateWaitForAcquisition% then
+
+			' Waiting for eye to fall inside of fixation window
+			if Looking%(xEye, yEye) = 1 then
+				PrintLog("stateWaitForAcquisition: eye in fixation window.\n");
+				ChangeStateTo(stateWhitePointFixation%, tNow);
+			else 
+				if tNow - tStateStart > attAcquisitionTime then
+					PrintLog("stateWaitForAcquisition: failed.\n");
+					ChangeStateTo(stateAbort%, tNow);
+				endif
+			endif
+        
+        case iState% = stateWhitePointFixation% then
+        
+			' Eye must remain inside of fixation window
+			if Looking%(xEye, yEye) = 1 then
+				if tNow - tStateStart > attWhitePointTime then
+					PrintLog("stateWhitePointFixation: Success. Cue up...\n");
+        			docase
+                        case trialType% = trialtypeAttendToward% then
+                            PrintLog("stateWhitePointFixation: Request cue F - AttendToward\n");
+                            SampleKey("F");
+                            if iDoCorrectionTrial% = 1 then attCountTowardTrials% += 1; endif;
+                        case trialType% = trialtypeAttendAway% then
+                            PrintLog("stateWhitePointFixation: Request cue G - AttendAway\n");
+                            SampleKey("G");
+                            if iDoCorrectionTrial% = 0 then attCountAwayTrials% += 1; endif;
+                        else
+                            PrintLog("ERROR: Unknown trial type (" + str$(trialType%) + "\n");
+                    endcase
+                    ChangeStateTo(stateWaitForFixPtOn%, tTrigger);
+                endif
+            else
+				PrintLog("stateWhitePointFixation: failed.\n");
+				ChangeStateTo(stateAbort%, tNow);
+			endif
+                
+        case iState% = stateWaitForFixPtOn% then
+
+			if Looking%(xEye, yEye) = 1 then
+                tTrigger := NextTime(FixationPointChannel%, tLast, vTrigger);
+                if tTrigger > tLast then
+                    ' Fixation point is up
+                    PrintLog("stateWaitForFixPtOn: signal received. " + str$(tNow) + "\n");
+                    tLastTrigger := tTrigger;
+                    ChangeStateTo(stateWaitForFixation%, tTrigger);
+                    DrawStim(1);	' actually this draws the location of the fixpt.
+                endif
+            else
+				PrintLog("stateWaitForFixPtOn: broke fixation.\n");
+				ChangeStateTo(stateAbort%, tNow);
+			endif
+
+		case iState% = stateWaitForFixation% then
+
+			' Eye must remain inside of fixation window
+			if Looking%(xEye, yEye) = 1 then
+				if tNow - tStateStart > attFixationTime then
+					PrintLog("stateWaitForFixation: Success. Gratings up...\n");
+					SampleKey("S");
+					ChangeStateTo(stateWaitForStimOn%, tNow);
+				endif
+			else 
+				PrintLog("stateWaitForFixation: failed.\n");
+				ChangeStateTo(stateAbort%, tNow);
+			endif
+
+		case iState% = stateWaitForStimOn% then
+
+			if Looking%(xEye, yEye) = 1 then        
+                tTrigger := NextTime(StimChannel%, tLast, vTrigger);
+                if tTrigger > tLast and vTrigger = 0 then
+                    ' gratings et al are up
+                    PrintLog("stateWaitForStimOn: stim is up.\n");
+                    tStimOn := tTrigger;
+                    tLastTrigger := tTrigger;
+                    ChangeStateTo(stateHoldFixation%, tTrigger);
+                endif
+			else 
+				PrintLog("stateWaitForStimOn: fixation broken.\n");
+				ChangeStateTo(stateAbort%, tNow);
+			endif
+        
+        case iState% = stateAbort% then
+
+			' Signal "X" turns off fixpt and stimulus. The next state 'stateWaitForBlank' only checks for 
+			' fixpt off. 
+			PrintLog("stateAbort: send X key.\n");
+			SampleKey("X");
+
+			' tally up aborted trials
+            if iDoCorrectionTrial% = 0 then
+                attCountAllTrialsAbort% += 1;
+                docase
+                    case trialType% = trialtypeAttendToward% then
+                        attCountTowardTrialsAbort% += 1;
+                    case trialType% = trialtypeAttendAway% then
+                        attCountAwayTrialsAbort% += 1;
+                    else
+                        PrintLog("ERROR: Unknown trial type (" + str$(trialType%) + "\n");
+                endcase
+            else
+                attCountCorrectionTrialsAbort% += 1;
+            endif
+
+			' move on
+			ChangeStateTo(stateWaitForBlank%, tNow);
+
+		case iState% = stateWaitForBlank% then
+
+			' we just wait for fix point off signal in this case. 
+			tTrigger := NextTime(FixationPointChannel%, tLast, vTrigger);
+			'if tTrigger > tLast and vTrigger = 1 then
+			if tTrigger > tLast then
+				' Fixation point is off
+				PrintLog("stateWaitForBlank: Fix pt is off.\n");
+				tLastTrigger := tTrigger;
+				ChangeStateTo(stateAbortWait%, tTrigger);
+				DrawStim(0);	' actually this draws the location of the fixpt.
+			endif
+
+		case iState% = stateAbortWait% then
+
+			if tNow - tStateStart > attAbortWaitTime then
+
+				PrintLog("stateAbortWait: time out is done.\n");
+				ChangeStateTo(stateStartTrial%, tNow);
+
+			endif
+
+		case iState% = stateHoldFixation% then
+
+			if Looking%(xEye, yEye) = 0 then
+	       		
+				PrintLog("stateWaitForFixation: outside fixation window, aborting trial.\n");
+				ChangeStateTo(stateAbort%, tNow);
+
+			else 
+
+				if (tNow - tStateStart) > (trialHazardFunctionTime) then
+
+					' turn off stimulus and advance it
+					PrintLog("stateHoldFixation: signal contrast change\n");
+					docase
+						case trialType% = trialtypeAttendToward% then
+							if trialContrastUpDown% > 0 then
+								if trialCatch% = 0 then
+									SampleKey("C");
+								else
+									SampleKey("D");
+								endif
+							else
+								if trialCatch% = 0 then
+									SampleKey("c");
+								else
+									SampleKey("d");
+								endif
+							endif
+						case trialType% = trialtypeAttendAway% then
+							if trialContrastUpDown% > 0 then
+								if trialCatch% = 0 then
+									SampleKey("D");
+								else
+									SampleKey("C");
+								endif
+							else
+								if trialCatch% = 0 then
+									SampleKey("d");
+								else
+									SampleKey("c");
+								endif
+							endif
+						else
+							PrintLog("ERROR! Unknown blocktype!!!\n");
+					endcase;
+							
+
+					' Now wait until contrast change trigger is received
+					ChangeStateTo(stateWaitForContrastChange%, tNow);
+
+				endif
+
+			endif
+
+		case iState% = stateWaitForContrastChange% then
+
+			if Looking%(xEye, yEye) = 1 then
+                tTrigger := NextTime(StimChangeChannel%, tLast, vTrigger);
+                if tTrigger > tLast and vTrigger = 0 then
+                    PrintLog("stateWaitForContrastChange: got it.\n");
+                    tLastTrigger := tTrigger;
+                    isStimDistractorOff% := 0;
+                    ChangeStateTo(stateWaitForAnswer%, tNow);
+                endif
+            else
+				PrintLog("stateWaitForContrastChange: fixation broken.\n");
+				ChangeStateTo(stateAbort%, tNow);
+			endif
+
+		case iState% = stateWaitForAnswer% then
+
+			if tNow - tStateStart > attTimeToAnswer then
+				PrintLog("stateWaitForAnswer: timed out\n");
+				ChangeStateTo(stateAbort%, tNow);
+            else
+            ' When fixation is first broken we turn off the stim and distractor. 
+            ' That test is done separately from the test for an answer. Also set up 
+            ' a var to tell us whether the stim has been turned off. 
+                if isStimDistractorOff% = 0 then
+                    if Looking%(xEye, yEye) = 0 then
+                        SampleKey("s");
+           				PrintLog("stateWaitForAnswer: fix broken - turn off stim\n");
+                        isStimDistractorOff% := 1;
+                    endif
+                endif
+
+				iAnswer% := Answer%(xEye, yEye);
+				if iAnswer% = 1 or iAnswer% = -1 then
+
+					' Got an answer. Record marker for correct/incorrect answer
+                    if iDoCorrectionTrial% = 0 then nTrialsCompleted% += 1; endif;
+					if iAnswer% = trialContrastUpDown% then
+						' Correct answer
+                        SampleText("+");
+
+                        if iDoCorrectionTrial% = 0 then
+                            attCountAllTrialsCorrect% += 1;
+                            docase
+                                case trialType% = trialtypeAttendToward% then
+                                    attCountTowardTrialsCorrect% += 1;
+                                case trialType% = trialtypeAttendAway% then
+                                    attCountAwayTrialsCorrect% += 1;
+                                else
+                                    PrintLog("ERROR: Unknown trial type (" + str$(trialType%) + "\n");
+                            endcase
+                        else
+                            attCountCorrectionTrialsCorrect% += 1;
+                            'Turn the correction trial flag off.
+                            iDoCorrectionTrial% := 0;
+                        endif
+               
+						Reward%();
+					else
+                        SampleText("-");
+                        Yield(.01);    ' necessary so that the SampleText and SampleKey below don't land on the same time (makes extraction difficult)
+                        if iDoCorrectionTrial% = 0 then
+                            attCountAllTrialsIncorrect% += 1;
+                            docase
+                                case trialType% = trialtypeAttendToward% then
+                                    attCountTowardTrialsIncorrect% += 1;
+                                case trialType% = trialtypeAttendAway% then
+                                    attCountAwayTrialsIncorrect% += 1;
+                                else
+                                    PrintLog("ERROR: Unknown trial type (" + str$(trialType%) + "\n");
+                            endcase
+                            
+                            ' Will we need a correction trial?
+                            if attUseCorrectionTrials% = 1 and trialCatch% = 0 and RandomCorrectionIndication%() = 1 then
+                                iDoCorrectionTrial% := 1;
+                            endif
+                        else
+                            attCountCorrectionTrialsIncorrect% += 1;
+                        endif
+					endif
+					SampleKey("X");
+					ChangeStateTo(stateTrialCompletedWaitForBlank%, tNow);
+				endif
+			endif
+
+		case iState% = stateTrialCompletedWaitForBlank% then
+
+			' we just wait for fix point off signal in this case. 
+			tTrigger := NextTime(FixationPointChannel%, tLast, vTrigger);
+			'if tTrigger > tLast and vTrigger = 1 then
+			if tTrigger > tLast then
+				' Fixation point is off
+				PrintLog("stateTrialCompleteWaitForBlank: Fix pt is off.\n");
+				tLastTrigger := tTrigger;
+				ChangeStateTo(stateTrialCompletedPause%, tTrigger);
+				DrawStim(0);	' actually this draws the location of the fixpt.
+			endif
+
+		case iState% = stateTrialCompletedPause% then
+
+			if tNow - tStateStart > attInterTrialTime then
+
+				PrintLog("stateTrialCompletedPause: time out is done.\n");
+				ChangeStateTo(stateTrialCompleted%, tNow);
+
+			endif
+
+		case iState% = stateTrialCompleted% then
+
+            PrintLog("Trial completed.\n");
+            ' When doing this test, make sure that we don't need a correction trial. If we don't 
+            ' do this, then an incorrect answer on the LAST trial of a block will NEVER lead to 
+            ' a correction trial. 
+			if nTrialsCompleted% = attTrialsPerBlock% and iDoCorrectionTrial% = 0 then
+				ChangeStateTo(stateBlockCompleted%, tNow);
+			else
+				ChangeStateTo(stateStartTrial%, tNow);
+			endif
+	
+		case iState% = stateBlockCompleted% then
+
+			PrintLog("Block completed.\n");
+			nBlocksCompleted% := nBlocksCompleted% + 1;
+			if nBlocksCompleted% = attNumberOfBlocks% then
+				ChangeStateTo(stateDone%, tNow);
+				Stop%();
+				iStatus% := 0;
+			else
+				ChangeStateTo(stateStartBlock%, tNow);
+			endif
+
+		else
+			
+			' Unknown state!
+			Message("Unknown state=" + str$(iState%));
+			halt;
+
+	endcase;
+
+	tLast := tNow;
+	return iStatus%;
+end;
+
+
+proc ChangeStateTo(stateTo%, tStart)
+	iState% := stateTo%;
+	if tStart > 0 then tStateStart := tStart; endif;
+end;
