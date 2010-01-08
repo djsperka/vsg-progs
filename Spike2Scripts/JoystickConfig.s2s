@@ -1,0 +1,5 @@
+' $Id: JoystickConfig.s2s,v 1.1 2010-01-08 02:33:12 devel Exp $
+
+#include "Joystick.s2s"
+
+JoystickConfigDialog();
