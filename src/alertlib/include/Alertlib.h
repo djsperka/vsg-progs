@@ -571,6 +571,23 @@ namespace alert
 		int m_page;
 	};
 
+	class OverlayPageTrigger: public Trigger
+	{
+	public:
+		OverlayPageTrigger(std::string i_key, int i_in_mask, int i_in_val, int i_out_mask, int i_out_val, int i_page) : 
+		  Trigger(i_key, i_in_mask, i_in_val, i_out_mask, i_out_val), m_page(i_page) {};
+		~OverlayPageTrigger() {};
+		virtual int execute(int& output)
+		{
+			setMarker(output);
+			vsgSetDrawPage(vsgOVERLAYPAGE, m_page, vsgNOCLEAR);
+			return 1;
+		};
+	protected:
+		int m_page;
+	};
+
+
 	class QuitTrigger: public PageTrigger
 	{
 	public:
