@@ -1,7 +1,6 @@
-#include "../../Spike2Util/RigName.s2s"
-#include "../../Spike2Util/LogUtilities.s2s"
+#include "../../Spike2Util/TrialBlockGen.s2s"
 #include "Usrey.s2s"
-#include "JoystickUtilities.s2s"
+#include "Joystick.s2s"
 
 
 ' Local config variables
@@ -14,13 +13,16 @@ var rivReadFailWaitTime := 1.0;
 var rivMaxResponseTime := 1.0;
 var rivResponseFailWaitTime := 1.0;
 var rivResponseIncorrectWaitTime := 1.0;
+var rivResponseBrokenWaitTime := 1.0;
+var rivMaxStimWaitTime := 0.5;
 var rivMaxStimTime := 1.0;
 var rivResponseCorrectRewardSize% := 2;
-var rivMaintainResponseCorrectRewardSize% := 1;
-var rivIntertrialTime := 1.0;
+var rivMaintainResponseRewardSize% := 1;
+var rivMaintainResponseRewardWait := .5;
 var rivUseBeep% := 0;
 var rivBeepLengthMS% := 100;
-
+var rivNBlocks% := 10;
+var rivNTrialsEachTypePerBlock% := 4;     ' Number of trials/block = this * 2
 
 ' Counters
 
@@ -33,18 +35,28 @@ var rivCtrNRewards% := 0;
 
 ' Channel numbers for DAQ inputs
 
-var rivChanXEye%    := 1;
-var rivChanYEye%    := 2;
+var rivChanEyeX%    := 11;
+var rivChanEyeY%    := 12;
 
 ' VSG trigger input channels
 
 var rivChanVSGReady%    :=  20;
 var rivChanVSGStim%     :=  21;
 
+' windows
+
+var rivWindowData%;
+var rivWindowXY%;
+
 ' Controls
 
 var rivIsPaused% := 0;
-var rivStimHandle := 0;
+var rivStimHandle% := 0;
+var rivCorrectResponse%;
+var rivIncorrectResponse%;
+var rivTStartStim;                  ' time at which stim is presented
+var rivTLastReward;                 ' time at which last reward was delivered - for maintainence rewards
+var rivUniversalIntertrialTime;     ' time to wait between trials
 
 ' States - these constants define a particular state
 
@@ -55,7 +67,7 @@ const stateBeep%                :=  4;
 const stateWaitForReady%        :=  5;
 const stateWaitForStimUp%       :=  6;
 const stateWaitForResponse%     :=  7;
-const stateReward%              :=  8;
+const stateCorrectResponse%     :=  8;
 const stateMaintainResponse%    :=  9;
 const stateMaxResponse%         :=  10;
 const stateBreakResponse%       :=  11;
@@ -68,7 +80,7 @@ const stateQuit%                :=  17;
 const stateDone%                :=  18;
 const stateVSGWait%             :=  19;
 const stateVSGConfirm%          :=  20;
-const stateStartBlock%          :=  21;
+const stateTrialCompleted%      :=  21;
 
 var iState% := stateStartup%;              ' This holds the current state
 
@@ -81,9 +93,136 @@ var tStateStart:=-1;	' time that present state started. Used to measure wait tim
 var tLastTrigger:=-1;	' last trigger time. New triggers have to be greater than this
 var tTrigger:=-1;	    ' temp var for newly discovered trigger times
 
+
+
+
+'===========================================================================================
+'
+' Script execution starts here. 
+'
+'===========================================================================================
+
+if RivalryDialog%() = 0 then
+    halt;
+endif
+
+' Sampling config
+CreateSampleConfiguration();
+
+' Prepare display windows, input channels, etc. 
+InitializeWindows();
+
+' Set up toolbar and launch
+InitializeToolbar();
+
+
+func RivalryDialog%()
+    return 1;
+end
+
+
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+' CreateSampleConfiguration - Set up recording channels, dig input channels for VSG communication
+'
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+proc CreateSampleConfiguration()
+	var index;
+    
+	SampleClear(); 'Set standard sampling state
+	SampleAutoComment(0); 'Prompt for comment after sampling
+	SampleAutoCommit(60); 'Seconds between each file commit
+    
+    FilePathSet(GetDataPathRoot$() + "\\" + GetDataSetName$(), 3);
+    FilePathSet(GetDataPathRoot$() + "\\" + GetDataSetName$(), 1);
+    SampleAutoName$(dataCellName$ + "_riv_000");
+	SampleAutoFile(1);
+    
+	'Channel recording definitions
+	SampleEvent(rivChanVSGStim%, 2, 2, 3600); 'Trigger channel, level
+	SampleComment$(rivChanVSGStim%, "Stim");
+	SampleTitle$(rivChanVSGStim%, "Stim");
+	
+	SampleEvent(rivChanVSGReady%, 6, 2, 3600); 'Trigger channel, level
+	SampleComment$(rivChanVSGReady%, "VSG Ready");
+	SampleTitle$(rivChanVSGReady%, "VSG Ready");
+    
+	SampleWaveform(rivChanEyeX%, 14, 1000);
+	SampleTitle$(rivChanEyeX%, "Eye X");
+	SampleWaveform(rivChanEyeY%, 15, 1000);
+	SampleTitle$(rivChanEyeY%, "Eye Y");
+
+    
+	SampleSequencer(script$ + "Rivalry.pls");
+	SampleOptimise(2, 2, 2, 2, 50);  'Set optimise mode (do this last)
+	SampleMode(1); 'Continuous sampling
+
+end;
+
+
+
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+' InitilizeToolbar - prepare toolbar buttons. Note that the idle processing function (ToolbarSet(0, blah, blah)) is 
+' not set here. That's done when the user hits the start button.
+'
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+proc InitializeToolbar()
+
+	View(App(8)).WindowVisible(0);	'Hide the standard sample bar
+	ToolbarVisible(1);
+'	UpdateToolbarText();
+	ToolbarSet(1,"Sample start",Start%);
+	ToolbarSet(2,"Sample stop", Stop%);
+	ToolbarSet(3,"Juice", Reward%);
+	ToolbarSet(4,"Pause stimuli",Pause%);
+	ToolbarSet(5,"Resume stimuli",Resume%);
+	ToolbarSet(6,"Quit",Quit%);
+	ToolbarEnable(2,0);
+	ToolbarEnable(4,0);
+	ToolbarEnable(5,0);
+	Toolbar("Go",0x3ff);
+
+end;
+
+
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+' InitilizeWindows - Open data file, set up windows for online display.
+'
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+proc InitializeWindows()
+
+	'Open the data sampling window
+	rivWindowData% := FileNew(0,4);
+	Window(0,48,100,95);
+	View(rivWindowData%).WindowVisible(1);
+
+	'Open an XY view to display eye position
+	rivWindowXY% := FileNew(12);
+	XRange(-30,30);
+	YRange(-2,-30,30);
+	XYDrawMode(0,5,0);
+	WindowVisible(1);
+	Window(0, 0, 100, 47);
+	XYColour(1,16);
+	XYSize(1,-1);
+
+end;
+
+
+
 func IdleProcessing%()
 	var iStatus% := 1;	
     var iLoop% := 0;        ' States can set this to 1 if we stay in state loop
+    var iResponse%;
+    
 	tNow := MaxTime();
 
 '	xEye := ChanMeasure(XChannel%,2,tNow-.001,tNow-.006)*DegreesPerVoltX;
@@ -96,7 +235,7 @@ func IdleProcessing%()
         case iState% = stateVSGWait% then
             
             ' Waiting for VSG to indicate it is ready. The indication is a pulse (up, then down, 1 frame apart) on port 6.
-            tTrigger := NextTime(ReadyChannel%, tLast, vTrigger);
+            tTrigger := NextTime(rivChanVSGReady%, tLast, vTrigger);
             if tTrigger > tLastTrigger and vTrigger = 0 then
                 LogStatus("stateVSGWait", "Got leading edge of trigger.");
                 tLastTrigger := tTrigger;
@@ -107,24 +246,23 @@ func IdleProcessing%()
         case iState% = stateVSGConfirm% then
             
             ' Waiting for VSG to confirm it is ready. The downward side of the pulse is expected...
-            tTrigger := NextTime(ReadyChannel%, tLastTrigger, vTrigger);
+            tTrigger := NextTime(rivChanVSGReady%, tLastTrigger, vTrigger);
             if tTrigger > tLastTrigger and vTrigger = 1 then                
                 LogStatus("stateVSGConfirm", "Got trailing edge of trigger.");
                 tLastTrigger := tTrigger;
-                ChangeStateTo(stateStartBlock%, tTrigger);
+                ChangeStateTo(stateTrialStart%, tTrigger);
                 iLoop% := 1;
             endif;
             
-        case iState% = stateStartBlock% then
+        case iState% = stateTrialStart% then
             
-            PrepareBlock();
-            ChangeStateTo(stateStartTrial%, tNow);
-            iLoop% := 1;
-            
-        case iState% = stateStartTrial% then
-            
-            PrepareTrial();
-            ChangeStateTo(stateBeep%, tNow);
+            var s%;
+            s% := PrepareTrial%();
+            if s% = 1 then
+                ChangeStateTo(stateBeep%, tNow);
+            else
+                ChangeStateTo(stateDone%, tNow);
+            endif
             iLoop% := 1;
             
         case iState% = stateBeep% then
@@ -133,33 +271,139 @@ func IdleProcessing%()
                 LogError("stateBeep", "TODO - implement beep!");
             endif
             ChangeStateTo(stateWaitForReady%, tNow);
+            iLoop% := 1;
             
         case iState% = stateWaitForReady% then
             
             ' Wait for joystick to be positioned in the center. 
+            if GetJoystickPosition%() = JSCenter% then
+                LogStatus("WaitForReady", "Joystick ready.");
+                ChangeStateTo(stateWaitForStimUp%, tNow);
+                SampleKey("S");
+            endif
+            iLoop% := 0;
+            
+        case iState% = stateWaitForStimUp% then
+            
+            ' Waiting for stim signal on channel StimChannel%
+			tTrigger := NextTime(rivChanVSGStim%, tLastTrigger, vTrigger);
+			if tTrigger > tLastTrigger and vTrigger = 0 then
+				LogStatus("stateVSGWaitForStimUp", "Stimulus is up.\n");
+				tLastTrigger := tTrigger;
+                rivTStartStim := tTrigger;
+				ChangeStateTo(stateWaitForResponse%, tTrigger);
+			endif;
+            iLoop% := 0;
+            
+        case iState% = stateWaitForResponse% then
+            
+            ' Waiting for response. PrepareTrial() sets the global var rivCorrectResponse% (and rivIncorrectResponse%) 
+            ' to either JSLeft% or JSRight%.
+            iResponse% := GetJoystickPosition%();
+            iLoop% := 1;
+            docase
+            case iResponse% = rivCorrectResponse% then
+                LogStatus("stateWaitForResponse", "Correct response!");
+                ChangeStateTo(stateCorrectResponse%, tNow);
+                iLoop% := 1;
+            case iResponse% = rivIncorrectResponse% then
+                LogStatus("stateWaitForResponse", "Incorrect response!");
+                ChangeStateTo(stateIncorrectResponse%, tNow);
+                iLoop% := 1;
+            case tNow - tStateStart > rivMaxResponseTime then
+                LogStatus("stateWaitForResponse", "No response!");
+                ChangeStateTo(stateNoResponse%, tNow);
+                iLoop% := 1;
+            else
+                iLoop% := 0;
+            endcase
+            
+        case iState% = stateNoResponse% then
+            
+            rivCtrNoResponse% += 1;
+            SampleKey("X");
+            rivUniversalIntertrialTime := rivResponseFailWaitTime;
+            ChangeStateTo(stateWaitForStimOff%, tNow);
+            iLoop% := 0;
+            
+        case iState% = stateCorrectResponse% then
+            
+            rivCtrCorrect% += 1;
+            DeliverReward(rivResponseCorrectRewardSize%);
+            ChangeStateTo(stateMaintainResponse%, tNow);
+            iLoop% := 0;
+            
+        case iState% = stateIncorrectResponse% then
+            
+            rivCtrIncorrect% += 1;
+            SampleKey("X");
+            rivUniversalIntertrialTime := rivResponseIncorrectWaitTime;
+            ChangeStateTo(stateWaitForStimOff%, tNow);
+            iLoop% := 0;
+            
+        case iState% = stateMaintainResponse% then
+            
+            ' If subject maintains correct response for specified amount of time, deliver another
+            ' reward, loop again. Upper time limit on this loop applies. 
+            
+            iResponse% := GetJoystickPosition%();
+            iLoop% := 1;
+            docase
+            case iResponse% = rivIncorrectResponse% then
+                LogStatus("stateMaintainResponse", "Correct response broken!");
+                ' TODO Set universal intertrail time
+                rivUniversalIntertrialTime := rivResponseBrokenWaitTime;
+                SampleKey("X");
+                ChangeStateTo(stateWaitForStimOff%, tNow);
+                iLoop% := 0;
+            case tNow - rivTStartStim > rivMaxStimTime then
+                LogStatus("stateMaintainResponse", "Max response time reached. Moving on...");
+                ' TODO Set universal intertrail time
+                SampleKey("X");
+                ChangeStateTo(stateWaitForStimOff%, tNow);
+                iLoop% := 0;
+            case iResponse% = rivCorrectResponse% and tNow - tStateStart > rivMaintainResponseRewardWait then
+                LogStatus("stateMaintainResponse", "Maintainence reward!");
+                ChangeStateTo(stateMaintainResponse%, tNow);
+                iLoop% := 0;
+            else
+                LogError("stateMaintainResponse", "Unknown condition!!!");
+                iLoop% := 0;
+            endcase
+            
+        case iState% = stateWaitForStimOff% then
+            
+            ' Waiting for stim signal off channel StimChannel%
+            iLoop% := 0;
+			tTrigger := NextTime(rivChanVSGStim%, tLastTrigger, vTrigger);
+			if tTrigger > tLastTrigger and vTrigger = 1 then
+				LogStatus("stateVSGWaitForStimUp", "Stimulus is off.\n");
+				tLastTrigger := tTrigger;
+				ChangeStateTo(stateIntertrialWait%, tTrigger);
+                iLoop% := 1;
+			endif;
+            
+        case iState% = stateIntertrialWait% then
+            
+            ' Any states that exit to here should have set the universal intertrial wait time!
+            iLoop% := 0;
+            if tNow - tStateStart > rivUniversalIntertrialTime then
+                ChangeStateTo(stateTrialCompleted%, tNow);
+                iLoop% := 1;
+            endif
+            
         case iState% = stateTrialCompleted% then
             
-            PrintLog("Trial completed.\n");
-            ' When doing this test, make sure that we don't need a correction trial. If we don't 
-            ' do this, then an incorrect answer on the LAST trial of a block will NEVER lead to 
-            ' a correction trial. 
-            if nTrialsCompleted% = attTrialsPerBlock% and iDoCorrectionTrial% = 0 then
-                ChangeStateTo(stateBlockCompleted%, tNow);
-            else
-                ChangeStateTo(stateStartTrial%, tNow);
-            endif
+            LogStatus("stateTrialCompleted", "Trial completed.");
+            ' If correction trials are required, deal with that now....
+            ChangeStateTo(stateTrialStart%, tNow);
+            iLoop% := 1;
             
-        case iState% = stateBlockCompleted% then
+        case iState% = stateDone% then
             
-            PrintLog("Block completed.\n");
-            nBlocksCompleted% := nBlocksCompleted% + 1;
-            if nBlocksCompleted% = attNumberOfBlocks% then
-                ChangeStateTo(stateDone%, tNow);
-                Stop%();
-                iStatus% := 0;
-            else
-                ChangeStateTo(stateStartBlock%, tNow);
-            endif
+            LogStatus("stateDone", "Reached done state. Calling Stop%()...\n");
+            iLoop% := 0;
+            iStatus% := 0;
             
         else
             
@@ -180,6 +424,87 @@ proc ChangeStateTo(stateTo%, tStart)
 	if tStart > 0 then tStateStart := tStart; endif;
 end;
 
+proc DeliverReward(iNumRewards%)
+    SampleSeqVar(1, iNumRewards%);
+    SampleKey("R");
+    return;
+end
+
+func Reward%()
+    DeliverReward(1);
+    return 1;
+end
+
+
+' Used to hard-quit from toolbar. This will close data files without saving!!! 
+' It is important that this function be disabled once sampling is started!!!
+
+func Quit%()
+	if rivStimHandle% > 0 then
+        ProgKill(rivStimHandle%);
+        while ProgStatus(rivStimHandle%) > 0 do
+            Yield();
+        wend
+        rivStimHandle% := 0;
+    endif
+	FileClose(-1,-1);
+	return 0;
+end;
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func Stop%()
+
+	' Disable idle process func
+	ToolbarSet(0, "");
+
+	' Tell stim app to shut down
+	SampleKey("q");
+	Yield(.1);
+	SampleStop();
+
+	if rivStimHandle% > 0 then
+        ProgKill(rivStimHandle%);
+        while ProgStatus(rivStimHandle%) > 0 do
+            Yield();
+        wend
+        rivStimHandle% := 0;
+    endif
+    return 0;
+
+end;
+
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func Start%()
+    var cmdLine$;
+    ' Hack to just run the darned thing. 
+    cmdLine$ := "cmd /k " + GetBinDir$(1) + "gratings -d 555 -b gray -s 3,-4,3,3,100,.2,1,90,b,s,e -s 3,4,3,3,100,.2,1,90,b,s,e";
+    
+	'Begin the stimulus program. It will take a few seconds for the VSG to initialize.
+	LogInfo(cmdLine$+"\n");
+	rivStimHandle% := ProgRun(cmdLine$, 1);
+	if rivStimHandle% < 0 then Message("Could not start stimulus."); halt; endif
+	
+	ToolbarSet(0,"",IdleProcessing%);	'Enable the IdleProcessing function
+	ToolbarEnable(1,0);
+	ToolbarEnable(2,1);
+	ToolbarEnable(4,1);
+	View(rivWindowData%);
+    return 1;
+end;
+
+func Pause%()
+    LogInfo("Pause requested.");
+    rivIsPaused% := 1;
+    return 1;
+end
+
+func Resume%()
+    LogInfo("Resume requested.");
+    rivIsPaused% := 0;
+    return 1;
+end
+
 
 ' PrepareBlock
 '
@@ -188,17 +513,32 @@ end;
 
 proc PrepareBlock()
     LogInfo("Preparing block...");
+    tbgInit(2, rivNTrialsEachTypePerBlock%, rivNBlocks%);
     return
 end
-
 
 ' PrepareTrial
 '
 ' Prepares variables etc used for driving a single trial
-' TODO 
 
-proc PrepareTrial()
-    LogInfo("Preparing trial...");
-    return
+func PrepareTrial%()
+    var index%;
+    var s%;
+    s% := tbgGetTrialIndex%(index%);
+    if s% = 1 then
+        docase
+        case index% = 0 then
+            LogInfo("Preparing trial... LEFT");
+            rivCorrectResponse% := JSLeft%;
+            rivIncorrectResponse% := JSRight%;
+        case index% = 1 then
+            LogInfo("Preparing trial... RIGHT");
+            rivCorrectResponse% := JSRight%;
+            rivIncorrectResponse% := JSLeft%;
+        else
+            LogError("", "Unknown index returned from tbgGetTrialIndex%.\n");
+        endcase
+    endif
+    return s%;
 end
 
