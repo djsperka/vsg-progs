@@ -1,45 +1,11 @@
-' $Id: Usrey.s2s,v 1.2 2010-01-05 20:56:01 devel Exp $
+' $Id: Usrey.s2s,v 1.3 2010-01-12 21:37:27 devel Exp $
+
+#include "../../Spike2Util/Directories.s2s"
+#include "../../Spike2Util/RigName.s2s"
+#include "../../Spike2Util/LogUtilities.s2s"
 
 
-' File system reference vars. Each var is a directory path, WITHOUT the trailing slash. 
-var bin$, script$, config$;
-script$ := View(App(3)).FileName$(1) + View(App(3)).FileName$(2);	' folder containing this script
-bin$ := View(App(3)).FileName$(1) + View(App(3)).FileName$(2) + "..\\bin";	' Location of executables is ..\bin, relative to script dir
-config$ := View(App(3)).FileName$(1) + View(App(3)).FileName$(2) + "..\\config";	' Location of executables is ..\bin, relative to script dir
 GetDataParameters();
-
-
-' Use these functions to get directory names. The values returned do NOT have (have) trailing slashes if the 
-' parameter iSlashes% is 0 (1). 
-'
-' GetScriptDir$() - return folder containing rig scripts
-' GetBinDir$() - returns folder containing VSG executables
-' GetConfigDir$() - return config dir (unused)
-
-
-func GetScriptDir$(iSlashes%)
-    if iSlashes% = 0 then
-        return script$;
-    else
-        return script$ + "\\";
-    endif
-end
-
-func GetBinDir$(iSlashes%)
-    if iSlashes% = 0 then
-        return bin$;
-    else
-        return bin$ + "\\";
-    end
-end
-
-func GetConfigDir$(iSlashes%)
-    if iSlashes% = 0 then
-        return config$;
-    else
-        return config$ + "\\";
-    endif
-end
 
 
 
@@ -73,6 +39,18 @@ var dataPathRoot$;		' base path for data storage
 var dataDataSet$;		' folder under data path where data files placed
 var dataCellName$;		' part of base name for all data files
 var dataDataSetTextItem%;	' 
+
+func GetDataPathRoot$()
+    return dataPathRoot$;
+end
+
+func GetDataSetName$()
+    return dataDataSet$;
+end
+
+func GetDataCellName$()
+    return dataCellName$;
+end
 
 proc GetDataParameters()
 	var stmp$;
@@ -329,3 +307,96 @@ end;
 '	Rig Daily Totals END
 '
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+' GetRegistryKey$
+'
+' returns the registry key used to store and fetch parameters. The first key name is the rig name
+' (e.g. "AlertRig"). If iWithCurrentConfiguration% is nonzero then the current configuration is 
+' appended (e.g. "AlertRig\\default").
+'
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+
+func GetRegistryKey$(iWithCurrentConfiguration%)
+    var key$;
+    if iWithCurrentConfiguration% = 0 then
+        key$ := GetRigName$();
+    else
+        key$ := GetRigName$() + "\\" + GetCurrentConfiguration$();
+    endif
+    return key$;
+end
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+' Set(Float, Int, String)RegistryValue
+'
+' Sets values in registry for given key/name pairs. These functions are just
+' simple wrappers around calls to Spike2's Profile function, and as such don't 
+' make things must simpler. I made them as companions to the corresponding 
+' Get(Float, Int, String)RegistryValue functions. 
+'
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+
+proc SetFloatRegistryValue(key$, name$, value)
+    Profile(key$, name$, str$(value));
+    return;
+end;
+
+proc SetIntRegistryValue(key$, name$, value%)
+    Profile(key$, name$, value%);
+    return;
+end
+
+proc SetStringRegistryValue(key$, name$, value$)
+    Profile(key$, name$, value$);
+    return;
+end
+
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+' Get(Float, Int, String)RegistryValue
+'
+' Gets registry values for the key/name pairs. If the key/name pair do not 
+' exist, an error message is printed to the log window and a dummy value is 
+' returned. 
+'
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+func GetFloatRegistryValue(key$, name$)
+    var stmp$;
+    var f;
+    var dummy$ := "-999999.999";
+    Profile(key$, name$, stmp$, dummy$);
+    if stmp$ = dummy$ then
+        LogError("", "Registry key/name \"" + key$ + "\"/\"" + name$ + "\" not found!");
+    endif
+    f := val(stmp$);
+    return f;
+end
+
+func GetIntRegistryValue%(key$, name$)
+    var i%;
+    var idummy% := -999999;
+    Profile(key$, name$, i%, idummy%);
+    if i% = idummy% then
+        LogError("", "Registry key/name \"" + key$ + "\"/\"" + name$ + "\" not found!");
+    endif
+    return i%;
+end
+
+func GetStringRegistryValue$(key$, name$)
+    var stmp$;
+    var dummy$ := "NO_VALUE";
+    Profile(key$, name$, stmp$, dummy$);
+    if stmp$ = dummy$ then
+        LogError("", "Registry key/name \"" + key$ + "\"/\"" + name$ + "\" not found!");
+    endif
+    return stmp$;
+end
