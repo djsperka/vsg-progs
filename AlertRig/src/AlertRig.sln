@@ -110,6 +110,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "MsgSvr", "MsgSvr\MsgSvr.vcp
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "SendMessage", "SendMessage\SendMessage.vcproj", "{C4589EF8-8A34-4BCA-9E3C-A72C5C2877D8}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "gratings", "gratings\gratings.vcproj", "{9F3C589F-BB77-4D9E-8437-40B245AAA277}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -326,6 +328,14 @@ Global
 		{C4589EF8-8A34-4BCA-9E3C-A72C5C2877D8}.Unicode Debug|Win32.Build.0 = Debug|Win32
 		{C4589EF8-8A34-4BCA-9E3C-A72C5C2877D8}.Unicode Release|Win32.ActiveCfg = Release|Win32
 		{C4589EF8-8A34-4BCA-9E3C-A72C5C2877D8}.Unicode Release|Win32.Build.0 = Release|Win32
+		{9F3C589F-BB77-4D9E-8437-40B245AAA277}.Debug|Win32.ActiveCfg = Debug|Win32
+		{9F3C589F-BB77-4D9E-8437-40B245AAA277}.Debug|Win32.Build.0 = Debug|Win32
+		{9F3C589F-BB77-4D9E-8437-40B245AAA277}.Release|Win32.ActiveCfg = Release|Win32
+		{9F3C589F-BB77-4D9E-8437-40B245AAA277}.Release|Win32.Build.0 = Release|Win32
+		{9F3C589F-BB77-4D9E-8437-40B245AAA277}.Unicode Debug|Win32.ActiveCfg = Debug|Win32
+		{9F3C589F-BB77-4D9E-8437-40B245AAA277}.Unicode Debug|Win32.Build.0 = Debug|Win32
+		{9F3C589F-BB77-4D9E-8437-40B245AAA277}.Unicode Release|Win32.ActiveCfg = Release|Win32
+		{9F3C589F-BB77-4D9E-8437-40B245AAA277}.Unicode Release|Win32.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
