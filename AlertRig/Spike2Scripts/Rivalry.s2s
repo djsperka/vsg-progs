@@ -5,18 +5,18 @@
 
 ' Local config variables
 
-const rivMaxTargets% := 8;
+const rivMaxTargets% := 2;
 var rivNTargets% := 0;
 var rivTargetSpecs$[rivMaxTargets%];
 var rivMaxWaitForReadyTime := 1.0;
-var rivReadFailWaitTime := 1.0;
+var rivReadyFailWaitTime := 1.0;
 var rivMaxResponseTime := 1.0;
-var rivResponseFailWaitTime := 1.0;
-var rivResponseIncorrectWaitTime := 1.0;
-var rivResponseBrokenWaitTime := 1.0;
-var rivMaxStimWaitTime := 0.5;
-var rivMaxStimTime := 1.0;
-var rivResponseCorrectRewardSize% := 2;
+var rivResponseFailWaitTime := 3.0;
+var rivResponseIncorrectWaitTime := 3.0;
+var rivResponseBrokenWaitTime := 3.0;
+var rivMaxStimWaitTime := 1.5;
+var rivMaxStimTime := 3.0;
+var rivResponseCorrectRewardSize% := 3;
 var rivMaintainResponseRewardSize% := 1;
 var rivMaintainResponseRewardWait := .5;
 var rivUseBeep% := 0;
@@ -101,6 +101,11 @@ var tTrigger:=-1;	    ' temp var for newly discovered trigger times
 ' Script execution starts here. 
 '
 '===========================================================================================
+
+LogInit(1);
+InitJoystick(-1);
+tbgInit(2, rivNTrialsEachTypePerBlock%, rivNBlocks%);
+
 
 if RivalryDialog%() = 0 then
     halt;
@@ -232,6 +237,12 @@ func IdleProcessing%()
     repeat
         iLoop% := 0;
         docase 
+        case iState% = stateStartup% then
+            
+            LogStatus("stateStartup", "Starting up.");
+            ChangeStateTo(stateVSGWait%, tNow);
+            iLoop% := 1;
+            
         case iState% = stateVSGWait% then
             
             ' Waiting for VSG to indicate it is ready. The indication is a pulse (up, then down, 1 frame apart) on port 6.
@@ -279,7 +290,15 @@ func IdleProcessing%()
             if GetJoystickPosition%() = JSCenter% then
                 LogStatus("WaitForReady", "Joystick ready.");
                 ChangeStateTo(stateWaitForStimUp%, tNow);
-                SampleKey("S");
+                docase 
+                case rivCorrectResponse% = JSLeft% then
+                    SampleKey("l");
+                case rivCorrectResponse% = JSRight% then
+                    SampleKey("r");
+                else
+                    LogError("stateWaitForReady", "Correct response unknown");
+                    Stop%();
+                endcase
             endif
             iLoop% := 0;
             
@@ -364,6 +383,7 @@ func IdleProcessing%()
                 iLoop% := 0;
             case iResponse% = rivCorrectResponse% and tNow - tStateStart > rivMaintainResponseRewardWait then
                 LogStatus("stateMaintainResponse", "Maintainence reward!");
+                DeliverReward(rivMaintainResponseRewardSize%);
                 ChangeStateTo(stateMaintainResponse%, tNow);
                 iLoop% := 0;
             else
@@ -477,6 +497,10 @@ end;
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 func Start%()
     var cmdLine$;
+    
+    ' Start sampling
+   	SampleStart(0);
+
     ' Hack to just run the darned thing. 
     cmdLine$ := "cmd /k " + GetBinDir$(1) + "gratings -d 555 -b gray -s 3,-4,3,3,100,.2,1,90,b,s,e -s 3,4,3,3,100,.2,1,90,b,s,e";
     
