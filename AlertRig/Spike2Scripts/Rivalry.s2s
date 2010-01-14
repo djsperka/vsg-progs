@@ -502,7 +502,7 @@ func Start%()
    	SampleStart(0);
 
     ' Hack to just run the darned thing. 
-    cmdLine$ := "cmd /k " + GetBinDir$(1) + "gratings -d 555 -b gray -s 3,-4,3,3,100,.2,1,90,b,s,e -s 3,4,3,3,100,.2,1,90,b,s,e";
+    cmdLine$ := "cmd /k " + GetBinDir$(1) + "gratings -d 555 -b gray -s " + rivLeftGrating$ + " -s " + rivRightGrating$;
     
 	'Begin the stimulus program. It will take a few seconds for the VSG to initialize.
 	LogInfo(cmdLine$+"\n");
