@@ -1,4 +1,4 @@
-'$Id: Joystick.s2s,v 1.2 2010-01-13 00:23:40 devel Exp $
+'$Id: Joystick.s2s,v 1.3 2010-01-15 02:30:12 devel Exp $
 '
 ' This file contains utilities for using the joystick on the alert2 rig. 
 
@@ -77,6 +77,23 @@ proc DisplayJoystickParameters()
 end
 
 
+func GetJoystickLeftHigh()
+    return jsLeftHigh;
+end
+
+func GetJoystickCenterLow()
+    return jsCenterLow;
+end
+
+func GetJoystickCenterHigh()
+    return jsCenterHigh;
+end
+
+func GetJoystickRightLow()
+    return jsRightLow;
+end
+
+
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 '
 ' GetJoystickVoltage%
@@ -114,9 +131,9 @@ end
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
 
-func GetJoystickPosition%()
-    var v;
+func GetJoystickPosition%(&v)
     var pos% := JSError%;
+    var s%;
     
     ' Check if debugging (initialized with channel < 0). If so, present a dialog to get 
     ' joystick position
@@ -126,8 +143,9 @@ func GetJoystickPosition%()
         pos% := JoystickPositionDialog%();
         
     else
-            
-        if GetJoystickVoltage%(v) = 0 then
+        
+        s% := GetJoystickVoltage%(v);
+        if s% = 0 then
             
             docase
             case v <= jsLeftHigh then
@@ -210,6 +228,9 @@ func JoystickDialogCheck%(item%)
     case item% = 2 then
         PrintLog("value of use joystick check %d\n", DlgValue(2));
         DlgEnable(1-DlgValue(2), 1);
+    case item% = 3 then
+        PrintLog("js init %d\n", DlgValue(3));
+        InitJoystick(DlgValue(3));
     case item% = 4 then
         PrintLog("value of no gaps check %d\n", DlgValue(4));        
         DlgEnable(1-DlgValue(4), -101, -103);
