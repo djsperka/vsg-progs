@@ -437,7 +437,9 @@ func IdleProcessing%()
             
         case iState% = stateReadyHold% then
             
-            if tNow - tStateStart > rivReadyHoldTime then
+            iLoop% := 0;
+            docase
+            case tNow - tStateStart > rivReadyHoldTime then
                 LogStatus("stateReadyHold", "Ready hold time met.");
                 if rivReadyHoldRewardSize% > 0 then
                     DeliverReward(rivReadyHoldRewardSize%);
@@ -453,8 +455,11 @@ func IdleProcessing%()
                     LogError("stateWaitForReady", "Correct response unknown");
                     Stop%();
                 endcase
-            endif
-            iLoop% := 0;
+            case joystickPosition% <> JSCenter% then
+                LogStatus("stateReadyHold", "Joystick not in ready position.");
+                ChangeStateTo(stateReadyFail%, tNow);
+                iLoop% := 1;
+            endcase
             
         case iState% = stateReadyFail% then
             
