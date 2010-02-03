@@ -22,6 +22,7 @@ var rivResponseCorrectRewardSize% := 3;
 var rivMaintainResponseRewardSize% := 1;
 var rivMaintainResponseRewardWait := .5;
 var rivUseBeep% := 1;
+var rivCorrectionTrials% := 0;
 var rivBeepLengthMS% := 100;
 var rivNBlocks% := 10;
 var rivNTrialsEachTypePerBlock% := 4;     ' Number of trials/block = this * 2
@@ -118,9 +119,8 @@ var vTrigger;		    ' set by NextTime to indicate trigger transition
 var tStateStart:=-1;	' time that present state started. Used to measure wait time, fixation time, etc. 
 var tLastTrigger:=-1;	' last trigger time. New triggers have to be greater than this
 var tTrigger:=-1;	    ' temp var for newly discovered trigger times
-
-
-
+var doCorrectionTrial% := 0;    ' this is set to 1 when a trial fails and correction trials were requested
+var isCorrectionTrial% := 0;    ' this is set to 1 when we are in a trial that is a correction trial
 
 '===========================================================================================
 '
@@ -505,6 +505,7 @@ func IdleProcessing%()
             
         case iState% = stateNoResponse% then
             
+            doCorrectionTrial% := 1;
             rivCtrNoResponse% += 1;
             SampleKey("X");
             rivUniversalIntertrialTime := rivResponseFailWaitTime;
@@ -513,6 +514,7 @@ func IdleProcessing%()
             
         case iState% = stateCorrectResponse% then
             
+            doCorrectionTrial% := 0;
             rivCtrCorrect% += 1;
             PrintLog("Deliver reward %d\n", rivResponseCorrectRewardSize%);
             DeliverReward(rivResponseCorrectRewardSize%);
@@ -521,6 +523,7 @@ func IdleProcessing%()
             
         case iState% = stateIncorrectResponse% then
             
+            doCorrectionTrial% := 1;
             rivCtrIncorrect% += 1;
             SampleKey("X");
             rivUniversalIntertrialTime := rivResponseIncorrectWaitTime;
@@ -722,21 +725,36 @@ end
 func PrepareTrial%()
     var index%;
     var s%;
-    s% := tbgGetTrialIndex%(index%);
-    if s% = 1 then
+    if rivCorrectionTrials% = 1 and doCorrectionTrial% = 1 then
         docase
-        case index% = 0 then
-            LogInfo("Preparing trial... LEFT");
-            rivCorrectResponse% := JSLeft%;
-            rivIncorrectResponse% := JSRight%;
-        case index% = 1 then
-            LogInfo("Preparing trial... RIGHT");
-            rivCorrectResponse% := JSRight%;
-            rivIncorrectResponse% := JSLeft%;
+        case rivCorrectResponse% = JSLeft% then
+            LogInfo("Correction trial... LEFT");
+            s% := 1;
+        case rivCorrectResponse% = JSRight% then
+            LogInfo("Correction trial... RIGHT");
+            s% := 1;
         else
-            LogError("", "Unknown index returned from tbgGetTrialIndex%.\n");
+            LogError("", "Unknown correct response value!!!\n");
+            s% := 0;
         endcase
+    else
+        s% := tbgGetTrialIndex%(index%);
+        if s% = 1 then
+            docase
+            case index% = 0 then
+                LogInfo("Preparing trial... LEFT");
+                rivCorrectResponse% := JSLeft%;
+                rivIncorrectResponse% := JSRight%;
+            case index% = 1 then
+                LogInfo("Preparing trial... RIGHT");
+                rivCorrectResponse% := JSRight%;
+                rivIncorrectResponse% := JSLeft%;
+            else
+                LogError("", "Unknown index returned from tbgGetTrialIndex%.\n");
+            endcase
+        endif
     endif
+    
     return s%;
 end
 
@@ -749,21 +767,22 @@ func RivalryDialog%()
     DlgInteger(1, "# of blocks", 1, 100, 25, 2);
     DlgInteger(2, "Trials per block", 1, 100, 25, 3);
     DlgCheck(3, "Use beep?", 1, 4);
-    DlgInteger(4, "Beep length (ms)", 1, 1000, 25, 5);
-    DlgButton(101, "Timing", RivalryTimingDialog%, 1, 6);
-    DlgGroup("Reward", 1, 7, 40, 7);
-    DlgReal(5, "Ready hold time (s)", .1, 10, 25, 8);
-    DlgInteger(6, "Ready hold reward", 0, 10, 25, 9);
-    DlgInteger(7, "Reward (correct resp)", 1, 10, 25, 10);
-    DlgInteger(8, "Reward (maintain)", 1, 10, 25, 11);
-    DlgReal(9, "Time between rewards (s)", 1, 20000, 25, 12);
-    DlgReal(10, "Max stim time (s)", .01, 20, 25, 13);
-    DlgGroup("Gratings", 1, 14, 40, 3);
-    DlgButton(102, "Left Grating", RivalryLGratingDialog%, 1, 15);
-    rivLeftGratingTextItem% := DlgText(rivLeftGrating$, 15, 15);
-    DlgButton(103, "Right Grating", RivalryRGratingDialog%, 1, 16);
-    rivRightGratingTextItem% := DlgText(rivRightGrating$, 15, 16);
-    i% := DlgShow(rivNBlocks%, rivNTrialsEachTypePerBlock%, rivUseBeep%, rivBeepLengthMS%, rivReadyHoldTime, rivReadyHoldRewardSize%, 
+    DlgCheck(4, "Correction trials?", 1, 5);
+    DlgInteger(5, "Beep length (ms)", 1, 1000, 25, 6);
+    DlgButton(101, "Timing", RivalryTimingDialog%, 1, 7);
+    DlgGroup("Reward", 1, 8, 40, 7);
+    DlgReal(6, "Ready hold time (s)", .1, 10, 25, 9);
+    DlgInteger(7, "Ready hold reward", 0, 10, 25, 10);
+    DlgInteger(8, "Reward (correct resp)", 1, 10, 25, 11);
+    DlgInteger(9, "Reward (maintain)", 1, 10, 25, 12);
+    DlgReal(10, "Time between rewards (s)", 1, 20000, 25, 13);
+    DlgReal(11, "Max stim time (s)", .01, 20, 25, 14);
+    DlgGroup("Gratings", 1, 15, 40, 3);
+    DlgButton(102, "Left Grating", RivalryLGratingDialog%, 1, 16);
+    rivLeftGratingTextItem% := DlgText(rivLeftGrating$, 15, 16);
+    DlgButton(103, "Right Grating", RivalryRGratingDialog%, 1, 17);
+    rivRightGratingTextItem% := DlgText(rivRightGrating$, 15, 17);
+    i% := DlgShow(rivNBlocks%, rivNTrialsEachTypePerBlock%, rivUseBeep%, rivCorrectionTrials%, rivBeepLengthMS%, rivReadyHoldTime, rivReadyHoldRewardSize%, 
                     rivResponseCorrectRewardSize%, rivMaintainResponseRewardSize%, rivMaintainResponseRewardWait, rivMaxStimTime);
     if i% = 1 then
         SaveRivalryParameters();
@@ -780,6 +799,7 @@ proc GetRivalryParameters()
     Profile(key$, "NBlocks", rivNBlocks%, rivNBlocks%);
     Profile(key$, "NTrialsEachTypePerBlock", rivNTrialsEachTypePerBlock%, rivNTrialsEachTypePerBlock%);
     Profile(key$, "UseBeep", rivUseBeep%, rivUseBeep%);
+    Profile(key$, "CorrectionTrials", rivCorrectionTrials%, rivCorrectionTrials%);
     Profile(key$, "BeepLengthMS", rivBeepLengthMS%, rivBeepLengthMS%);
     Profile(key$, "ResponseCorrectRewardSize", rivResponseCorrectRewardSize%, rivResponseCorrectRewardSize%);
     Profile(key$, "MaintainResponseRewardSize", rivMaintainResponseRewardSize%, rivMaintainResponseRewardSize%);
@@ -815,6 +835,7 @@ proc SaveRivalryParameters()
     Profile(key$, "NBlocks", rivNBlocks%);
     Profile(key$, "NTrialsEachTypePerBlock", rivNTrialsEachTypePerBlock%);
     Profile(key$, "UseBeep", rivUseBeep%);
+    Profile(key$, "CorrectionTrials", rivCorrectionTrials%);
     Profile(key$, "BeepLengthMS", rivBeepLengthMS%);
     Profile(key$, "ResponseCorrectRewardSize", rivResponseCorrectRewardSize%);
     Profile(key$, "MaintainResponseRewardSize", rivMaintainResponseRewardSize%);
