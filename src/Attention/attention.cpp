@@ -57,6 +57,7 @@ int m_iContrastUp=100;
 bool m_bFStimulus;
 bool m_bNoAnswerPoints = false;
 int m_imageCount = 0;
+bool m_bCueCircles = false;
 
 
 
@@ -188,7 +189,7 @@ int args(int argc, char **argv)
 	extern int optind;
 	int errflg = 0;
 	ARGratingSpec agtemp;
-	while ((c = getopt(argc, argv, "f:b:g:hd:vas:t:A:D:T:c:l:p:P:LG:N")) != -1)
+	while ((c = getopt(argc, argv, "f:b:g:hd:vas:t:A:D:T:c:l:p:P:LG:NQ")) != -1)
 	{
 		switch (c) 
 		{
@@ -298,6 +299,9 @@ int args(int argc, char **argv)
 			break;
 		case 'N':
 			m_bNoAnswerPoints = true;
+			break;
+		case 'Q':
+			m_bCueCircles = true;
 			break;
 		case 'h':
 			errflg++;
@@ -526,6 +530,14 @@ int callback(int &output, const CallbackTrigger* ptrig)
 			m_spec_stim_line.setContrast(0);
 			m_spec_dist_line.setContrast(0);
 		}
+
+		if (m_bCueCircles)
+		{
+			// If the cue circle pointer is non-null, then turn it off 
+			if (m_bFStimulus) m_spec_stim_circle.setContrast(0);
+			else m_spec_dist_circle.setContrast(0);
+		}
+
 	}
 	else if (key == "F")
 	{
@@ -582,16 +594,28 @@ int callback(int &output, const CallbackTrigger* ptrig)
 	}
 	else if (key == "W")
 	{
-		get_color(m_background, from);
-		to.a = to.b = to.c = 1;
-		m_spec_fixpt.select();
-		vsgObjSetColourVector(&from, &to, vsgUNIPOLAR);
-		m_spec_fixpt.setContrast(100);
-		//m_bFStimulus = false;
+		if (!m_bCueCircles)
+		{
+			get_color(m_background, from);
+			to.a = to.b = to.c = 1;
+			m_spec_fixpt.select();
+			vsgObjSetColourVector(&from, &to, vsgUNIPOLAR);
+			m_spec_fixpt.setContrast(100);
+		}
+		else
+		{
+			// Which cue circle we turn on depends on which fixation point was used. 
+			if (m_bFStimulus) m_spec_stim_circle.setContrast(100);
+			else m_spec_dist_circle.setContrast(100);
+		}
 	}
 	else if (key == "w")
 	{
-		m_spec_fixpt.setContrast(0);
+		if (m_bCueCircles)
+		{
+			if (m_bFStimulus) m_spec_stim_circle.setContrast(0);
+			else m_spec_dist_circle.setContrast(0);
+		}
 	}
 	else if (key == "i")
 	{
@@ -651,13 +675,11 @@ int init_pages()
 	get_color(m_background, bg);
 	m_spec_stimulus.init(islice);
 	m_spec_stimulus.draw(true);
-//	vsgObjSetColourVector(&bg, &bg, vsgBIPOLAR);
 	m_spec_stimulus.setContrast(0);
 
 	m_spec_distractor.init(islice);
 	m_spec_distractor.draw(true);
 	m_spec_distractor.setContrast(0);
-//	vsgObjSetColourVector(&bg, &bg, vsgBIPOLAR);
 
 	// Now fixation point
 	m_spec_fixpt.init(2);
@@ -752,28 +774,49 @@ int init_pages()
 		m_spec_dist_line.setContrast(0);
 
 	}
+	else if (m_bCueCircles)
+	{
+		m_spec_stim_circle.x = m_spec_stimulus.x;
+		m_spec_stim_circle.y = m_spec_stimulus.y;
+		m_spec_stim_circle.d = m_spec_stimulus.w * sqrt(2.0f) + m_circle_diameter_differential;
+		m_spec_stim_circle.color = r;
+		m_spec_stim_circle.init(2);
+		m_spec_stim_circle.draw();
+		m_spec_stim_circle.setContrast(0);
+
+		m_spec_dist_circle.x = m_spec_distractor.x;
+		m_spec_dist_circle.y = m_spec_distractor.y;
+		m_spec_dist_circle.d = m_spec_distractor.w * sqrt(2.0f) + m_circle_diameter_differential;
+		m_spec_dist_circle.color = g;
+		m_spec_dist_circle.init(2);
+		m_spec_dist_circle.draw();
+		m_spec_dist_circle.setContrast(0);
+	}
 
 
-	// triggers for fixation point
-	/*
-	triggers.addTrigger(new CallbackTrigger("F", 0x2, 0x2, 0x1, 0x1, callback));
-	triggers.addTrigger(new CallbackTrigger("f", 0x2, 0x0, 0x1, 0x0, callback));
-	triggers.addTrigger(new CallbackTrigger("G", 0x4, 0x4, 0x1, 0x1, callback));
-	triggers.addTrigger(new CallbackTrigger("g", 0x4, 0x0, 0x1, 0x0, callback));
-	triggers.addTrigger(new CallbackTrigger("W", 0x10, 0x10, 0x4, 0x4, callback));
-	triggers.addTrigger(new CallbackTrigger("w", 0x10, 0x0, 0x4, 0x0, callback));
-	*/
 
-	vecInputs.push_back(std::pair< string, int>("F", 0x2));
-	//vecInputs.push_back(std::pair< string, int>("f", 0x16));
-	vecInputs.push_back(std::pair< string, int>("X", 0x16));
-	vecInputs.push_back(std::pair< string, int>("G", 0x4));
-	//vecInputs.push_back(std::pair< string, int>("g", 0x0));	// this will likely get ignored
-	vecInputs.push_back(std::pair< string, int>("W", 0x10));
-	//vecInputs.push_back(std::pair< string, int>("w", 0x0));	// this too
-	triggers.push_back(new MultiInputSingleOutputCallbackTrigger(vecInputs, 0x16, 0x1, 0x1 | AR_TRIGGER_TOGGLE, callback));
+	// Triggers are slightly different if using the cue circles - that's because we need a separate 
+	// trigger (and response bit) for the cue circles. I'm using the W trigger for cue circles - that
+	// means that when using cue circles you don't get to use the white spot. 
 
-	
+	if (!m_bCueCircles)
+	{
+		vecInputs.push_back(std::pair< string, int>("F", 0x2));
+		vecInputs.push_back(std::pair< string, int>("X", 0x16));
+		vecInputs.push_back(std::pair< string, int>("G", 0x4));
+		vecInputs.push_back(std::pair< string, int>("W", 0x10));
+		triggers.push_back(new MultiInputSingleOutputCallbackTrigger(vecInputs, 0x16, 0x1, 0x1 | AR_TRIGGER_TOGGLE, callback));
+	}
+	else
+	{
+		vecInputs.push_back(std::pair< string, int>("F", 0x2));
+		vecInputs.push_back(std::pair< string, int>("G", 0x4));
+		vecInputs.push_back(std::pair< string, int>("X", 0x6));
+		triggers.push_back(new MultiInputSingleOutputCallbackTrigger(vecInputs, 0x6, 0x1, 0x1 | AR_TRIGGER_TOGGLE, callback));
+
+		triggers.addTrigger(new CallbackTrigger("W", 0x10, 0x10, 0x6, 0x6, callback));
+		triggers.addTrigger(new CallbackTrigger("w", 0x10, 0x0, 0x6, 0x0, callback));
+	}	
 
 
 	// trigger to turn stim, distractor and answer points ON
@@ -783,29 +826,24 @@ int init_pages()
 	triggers.addTrigger(new CallbackTrigger("s", 0x8, 0x0, 0x2, 0x0, callback));
 
 	// trigger to turn stim, distractor, answer points and fixation point OFF
-	//triggers.addTrigger(new CallbackTrigger("X", 0xE, 0x0, 0xb, 0x0, callback));
-	triggers.addTrigger(new CallbackTrigger("X", 0x16, 0x16, 0xa, 0x0, callback));
+//	triggers.addTrigger(new CallbackTrigger("X", 0x16, 0x16, 0xa, 0x0, callback));
 
 	// trigger to turn stim contrast UP
-	//ptrigStimUP = new ContrastTrigger("C", 0xf0, 0x10, 0x8, 0x8);
 	ptrigStimUP = new ContrastTrigger("C", 0xe0, 0x20, 0x8, 0x8);
 	ptrigStimUP->push_back( std::pair<VSGOBJHANDLE, int>(m_spec_stimulus.handle(), m_iContrastUp) );
 	triggers.addTrigger(ptrigStimUP);
 
 	// trigger to turn stim contrast DOWN
-	//ptrigStimDOWN = new ContrastTrigger("c", 0xf0, 0x20, 0x8, 0x8);
 	ptrigStimDOWN = new ContrastTrigger("c", 0xe0, 0x40, 0x8, 0x8);
 	ptrigStimDOWN->push_back( std::pair<VSGOBJHANDLE, int>(m_spec_stimulus.handle(), m_iContrastDown) );
 	triggers.addTrigger(ptrigStimDOWN);
 
 	// trigger to turn distractor contrast UP
-	//ptrigDistractorUP = new ContrastTrigger("D", 0xf0, 0x40, 0x8, 0x8);
 	ptrigDistractorUP = new ContrastTrigger("D", 0xe0, 0x60, 0x8, 0x8);
 	ptrigDistractorUP->push_back( std::pair<VSGOBJHANDLE, int>(m_spec_distractor.handle(), m_iContrastUp) );
 	triggers.addTrigger(ptrigDistractorUP);
 
 	// trigger to turn distractor contrast DOWN
-	//ptrigDistractorDOWN = new ContrastTrigger("d", 0xf0, 0x80, 0x8, 0x8);
 	ptrigDistractorDOWN = new ContrastTrigger("d", 0xe0, 0x80, 0x8, 0x8);
 	ptrigDistractorDOWN->push_back( std::pair<VSGOBJHANDLE, int>(m_spec_distractor.handle(), m_iContrastDown) );
 	triggers.addTrigger(ptrigDistractorDOWN);
