@@ -1,0 +1,865 @@
+
+#include "../../Spike2Util/TrialBlockGen.s2s"
+#include "../../Spike2Util/GratingUtilities.s2s"
+#include "../../Spike2Util/ChannelUtilities.s2s"
+#include "Usrey.s2s"
+#include "UsreyFixationPoint.s2s"
+#include "Joystick.s2s"
+
+' Local config variables
+
+var ajMaxWaitForReadyTime := 1.0;
+var ajReadyFailPauseTime := 1.0;
+var ajReadyBreakPauseTime := 1.0;
+var ajMaxAcquisitionTime := 1.0;
+var ajUseCueCircles% := 1;
+var ajHoleFixationTime := 1.0;
+var ajHoldFixation1Time := 1.0;
+var ajHoldFixation2Time := 1.0;
+var ajHoldFixation3Time := 1.0;
+var ajAcquisitionFailPauseTime := 1.0;
+var ajT1SuccessRewardSize% := 1;
+var ajT2SuccessRewardSize% := 1;
+var ajT1SuccessPauseTime := 1.0;
+var ajT2SuccessPauseTime := 1.0;
+var ajHazardTimeMin := 1.0;
+var ajHazardTimeMean := 1.5;
+var ajHazardTimeMax := 2.0;
+var ajMaxResponseTime := 2.0;
+var ajCorrectResponsePauseTime := 1.0;
+var ajIncorrectResponsePauseTime := 1.0;
+var ajCorrectResponseRewardSize% := 1;
+var ajUseBeep% := 1;
+
+' Counters
+
+var ajCtrNTrials% := 0;
+var ajCtrReadyFail% := 0;
+var ajCtrIncorrect% := 0;
+var ajCtrCorrect% := 0;
+var ajCtrNRewards% := 0;
+
+' Channel numbers for DAQ inputs
+
+var ajChanEyeX%    := 11;
+var ajChanEyeY%    := 12;
+var ajChanJoy%     := 13;
+
+' VSG trigger input channels
+
+var ajChanVSGReady%    :=  20;
+var ajChanVSGStim%     :=  21;
+var ajChanFixpt%       :=  22;
+var ajChanStimulus%    :=  23;
+var ajChanCircle%      :=  24;
+var ajChanContrastChg% :=  25;
+
+' windows
+
+var ajWindowData%;
+var ajWindowXY%;
+
+' display channels
+
+var ajChanMonitor%;
+var ajChanJoystickPos%;
+var ajChanJoystickRangeL%;
+var ajChanJoystickRangeC%;
+var ajChanJoystickRangeR%;
+var ajChanStimDisplay%;
+var ajVCoeff;
+var ajVConst;
+var ajJoystickDisplayY;
+var ajUnitCircleX[36];
+var ajUnitCircleY[36];
+var ajStimCircleX[36];
+var ajStimCircleY[36];
+
+' Controls
+
+var ajIsPaused% := 0;
+var ajStimHandle% := 0;
+var ajTrialFixptKey$;
+var ajTrialContrastChangeKey$;
+var ajTrialHazardTime := 1.0;
+var ajReadyResponse% := JSRight%;
+var ajCorrectResponse%;
+var ajIncorrectResponse%;
+var ajUniversalIntertrialTime;     ' time to wait between trials
+
+' States - these constants define a particular state
+
+const stateStartup%             :=  1;
+const statePaused%              :=  2;
+const stateTrialStart%          :=  3;
+const stateBeep%                :=  4;
+const stateWaitForReady%        :=  5;
+const stateReadyFail%           :=  6;
+const stateIntertrialWait%      :=  7;
+const stateTrialCompleted%      :=  8;
+const stateWaitForFixpt%        :=  9;
+const stateReadyBreak%          :=  10;
+const stateWaitForFixptOff%     :=  11;
+const stateWaitForAcquisition%  :=  12;
+const stateAcquisitionFail%     :=  13;
+const stateHoldFixation%        :=  14;
+const stateHoldFixation1%       :=  15;
+const stateHoldFixation2%       :=  16;
+const stateHoldFixation3%       :=  17;
+const stateFixationBreak%       :=  18;
+const stateWaitForCircle%       :=  19;
+const stateWaitForCircleOff%    :=  20;
+const stateWaitForStimOn%       :=  21;
+const stateWaitHazardTime%      :=  22;
+const stateWaitForContrastChange% :=  23;
+const stateWaitForResponse%     :=  24;
+const stateCorrectResponse%     :=  25;
+const stateIncorrectResponse%   :=  26;
+const stateQuit%                :=  27;
+const stateDone%                :=  28;
+const stateVSGWait%             :=  29;
+const stateVSGConfirm%          :=  30;
+const stateT1Success%           :=  31;
+const stateT2Success%           :=  32;
+
+var iState% := stateStartup%;              ' This holds the current state
+
+var tNow:=0;		    ' latest time for which there are values recorded. Used in IdleProcessing
+var tLast:=-1;		    ' last time we checked for a trigger. 
+var xEye, yEye;		    ' eye positions
+var tLastUpdate:=-1;	' last time view was updated
+var vTrigger;		    ' set by NextTime to indicate trigger transition
+var tStateStart:=-1;	' time that present state started. Used to measure wait time, fixation time, etc. 
+var tLastTrigger:=-1;	' last trigger time. New triggers have to be greater than this
+var tTrigger:=-1;	    ' temp var for newly discovered trigger times
+var doCorrectionTrial% := 0;    ' this is set to 1 when a trial fails and correction trials were requested
+var isCorrectionTrial% := 0;    ' this is set to 1 when we are in a trial that is a correction trial
+var tCircleOn := -1;
+
+'===========================================================================================
+'
+' Script execution starts here. 
+'
+'===========================================================================================
+
+LogInit(1);
+InitJoystick(13);
+
+if AttaJoyDialog%() = 0 then
+    halt;
+endif
+
+' Init trial generator
+'TODO tbgInit(2, rivNTrialsEachTypePerBlock%, rivNBlocks%);
+
+' Get fixation point parameters
+GetFixationPointParameters();
+
+
+' Sampling config
+' TODO CreateSampleConfiguration();
+
+' Prepare display windows, input channels, etc. 
+' TODO InitializeWindows();
+
+' Set up toolbar and launch
+'TODO InitializeToolbar();
+
+
+
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+' CreateSampleConfiguration - Set up recording channels, dig input channels for VSG communication
+'
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+proc CreateSampleConfiguration()
+	var index;
+    
+	SampleClear(); 'Set standard sampling state
+	SampleAutoComment(0); 'Prompt for comment after sampling
+	SampleAutoCommit(60); 'Seconds between each file commit
+    
+    FilePathSet(GetDataPathRoot$() + "\\" + GetDataSetName$(), 3);
+    FilePathSet(GetDataPathRoot$() + "\\" + GetDataSetName$(), 1);
+    SampleAutoName$(dataCellName$ + "_aj_000");
+	SampleAutoFile(1);
+    
+	'Channel recording definitions
+	SampleEvent(ajChanVSGStim%, 2, 2, 3600); 'Trigger channel, level
+	SampleComment$(ajChanVSGStim%, "Stim");
+	SampleTitle$(ajChanVSGStim%, "Stim");
+	
+	SampleEvent(ajChanVSGReady%, 6, 2, 3600); 'Trigger channel, level
+	SampleComment$(ajChanVSGReady%, "VSG Ready");
+	SampleTitle$(ajChanVSGReady%, "VSG Ready");
+    
+	SampleWaveform(ajChanJoy%, 13, 1000);
+	SampleTitle$(ajChanJoy%, "Joy");
+    
+    
+	SampleWaveform(ajChanEyeX%, 14, 1000);
+	SampleTitle$(ajChanEyeX%, "Eye X");
+	SampleWaveform(ajChanEyeY%, 15, 1000);
+	SampleTitle$(ajChanEyeY%, "Eye Y");
+
+    
+	SampleSequencer(script$ + "AttaJoy.pls");
+	SampleOptimise(2, 2, 2, 2, 50);  'Set optimise mode (do this last)
+	SampleMode(1); 'Continuous sampling
+
+end;
+
+
+
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+' InitilizeToolbar - prepare toolbar buttons. Note that the idle processing function (ToolbarSet(0, blah, blah)) is 
+' not set here. That's done when the user hits the start button.
+'
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+proc InitializeToolbar()
+
+	View(App(8)).WindowVisible(0);	'Hide the standard sample bar
+	ToolbarVisible(1);
+'	UpdateToolbarText();
+	ToolbarSet(1,"Sample start",Start%);
+	ToolbarSet(2,"Sample stop", Stop%);
+	ToolbarSet(3,"Juice", Reward%);
+	ToolbarSet(4,"Pause stimuli",Pause%);
+	ToolbarSet(5,"Resume stimuli",Resume%);
+	ToolbarSet(6,"Quit",Quit%);
+	ToolbarEnable(2,0);
+	ToolbarEnable(4,0);
+	ToolbarEnable(5,0);
+	Toolbar("Go",0x3ff);
+
+end;
+
+
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+' InitilizeWindows - Open data file, set up windows for online display.
+'
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+proc InitializeWindows()
+    var i%;
+	var twopi;
+    ' These set the max and min window dimensions. They are also used to scale the joystick 
+    ' position to the xy display, so if you change the size of the window, do it by changing
+    ' these vars!
+    var xyXMin := -20;
+    var xyXMax := 20;
+    var xyYMin := -15;
+    var xyYMax := 15;
+    var lh, cl, ch, rl;
+    ajJoystickDisplayY := -12;     ' y coord in xy window where joystick position is shown. 
+    
+	'Open the data sampling window
+	ajWindowData% := FileNew(0,4);
+	Window(0,48,100,95);
+	View(ajWindowData%).WindowVisible(1);
+
+	'Open an XY view to display eye position
+	ajWindowXY% := FileNew(12);
+	XRange(xyXMin, xyXMax);
+	YRange(-2, xyYMin, xyYMax);
+	XYDrawMode(0,5,0);
+	WindowVisible(1);
+	Window(0, 0, 100, 47);
+	XYColour(1,16);
+	XYSize(1,-1);
+    
+	'Create a new channel in the XY view to show the monitor's location
+	ajChanMonitor% := XYSetChan(0);
+	XYColour(ajChanMonitor%, 13);
+	XYDrawMode(ajChanMonitor%, 3, 1);
+	XYJoin(ajChanMonitor%, 2);
+	XYAddData(ajChanMonitor%, -9, -7);
+	XYAddData(ajChanMonitor%, 9, -7);
+	XYAddData(ajChanMonitor%, 9, 7);
+	XYAddData(ajChanMonitor%, -9, 7);
+    
+    ' Set up joystick range numbers
+    lh := GetJoystickLeftHigh();
+    cl := GetJoystickCenterLow();
+    ch := GetJoystickCenterHigh();
+    rl := GetJoystickRightLow();
+    
+    ' We'll take the joystick voltage 'v' (which should be between 1 and 4volts) and 
+    ' convert it for display in the xy window like this:
+    ' x coord = v * rivVCoeff + rivVConst;
+    
+    ajVCoeff := (xyXMax - xyXMin)/3;
+    ajVConst := -2.5 * ajVCoeff;
+    
+    ajChanJoystickRangeL% := XYSetChan(0);
+    XYColour(ajChanJoystickRangeL%, 13);
+    XYSize(ajChanJoystickRangeL%, 2);
+    XYJoin(ajChanJoystickRangeL%, 1);
+    XYDrawMode(ajChanJoystickRangeL%, 4, 3);
+    XYAddData(ajChanJoystickRangeL%, xyXMin, ajJoystickDisplayY+1);
+    XYAddData(ajChanJoystickRangeL%, lh * ajVCoeff + ajVConst, ajJoystickDisplayY+1);
+    
+    ajChanJoystickRangeC% := XYSetChan(0);
+    XYColour(ajChanJoystickRangeC%, 13);
+    XYSize(ajChanJoystickRangeC%, 2);
+    XYJoin(ajChanJoystickRangeC%, 1);
+    XYDrawMode(ajChanJoystickRangeC%, 4, 3);
+    XYAddData(ajChanJoystickRangeC%, cl * ajVCoeff + ajVConst, ajJoystickDisplayY+1);
+    XYAddData(ajChanJoystickRangeC%, ch * ajVCoeff + ajVConst, ajJoystickDisplayY+1);
+    
+    ajChanJoystickRangeR% := XYSetChan(0);
+    XYColour(ajChanJoystickRangeR%, 13);
+    XYSize(ajChanJoystickRangeR%, 2);
+    XYJoin(ajChanJoystickRangeR%, 1);
+    XYDrawMode(ajChanJoystickRangeR%, 4, 3);
+    XYAddData(ajChanJoystickRangeR%, rl * ajVCoeff + ajVConst, ajJoystickDisplayY+1);
+    XYAddData(ajChanJoystickRangeR%, xyXMax, ajJoystickDisplayY+1);
+    
+    
+    ' this channel is for a symbol representing the actual joystick position
+    ajChanJoystickPos% := XYSetChan(0);
+    XYColour(ajChanJoystickPos%, 11);
+    XYDrawMode(ajChanJoystickPos%, 1, 8);
+    XYDrawMode(ajChanJoystickPos%, 2, 10);
+    XYSize(ajChanJoystickPos%, -1);
+    
+    ' this channel is for displaying the stimulus
+    ajChanStimDisplay% := XYSetChan(0);
+    XYColour(ajChanStimDisplay%, 8);
+    XYDrawMode(ajChanStimDisplay%, 2, 0);
+    XYDrawMode(ajChanStimDisplay%, 3, 0);
+    XYJoin(ajChanStimDisplay%, 2);
+    XYSize(ajChanStimDisplay%, 36);
+    
+	twopi := 2.0*4.0*ATan(1.0);
+	for i% := 0 to 35 do
+		ajUnitCircleX[i%] := Cos(i% * twopi/36.0);
+		ajUnitCircleY[i%] := Sin(i% * twopi/36.0);
+	next;
+
+    
+end;
+
+proc DisplayStim(iOn%)
+    ' TODO
+    
+    return;
+end
+
+func IdleProcessing%()
+	var iStatus% := 1;	
+    var iLoop% := 0;        ' States can set this to 1 if we stay in state loop
+    var joystickPosition%;
+    var joystickVoltage;
+    
+	tNow := MaxTime();
+    
+    ' Get and display joystick voltage and position
+    joystickPosition% := GetJoystickPosition%(joystickVoltage);
+    View(ajWindowXY%).XYAddData(ajChanJoystickPos%, joystickVoltage * ajVCoeff + ajVConst, ajJoystickDisplayY);
+    
+	xEye := ChanMeasure(ajChanEyeX%, 2, tNow-.001, tNow-.006) * DegreesPerVoltX;
+	yEye := ChanMeasure(ajChanEyeY%, 2, tNow-.001, tNow-.006) * DegreesPerVoltY;
+	View(ajWindowXY%).XYAddData(1, xEye, yEye);
+    
+    repeat
+        iLoop% := 0;
+        docase 
+        case iState% = stateStartup% then
+            
+            LogStatus("stateStartup", "Starting up.");
+            ChangeStateTo(stateVSGWait%, tNow);
+            iLoop% := 1;
+            
+        case iState% = stateVSGWait% then
+            
+            ' Waiting for VSG to indicate it is ready. The indication is a pulse (up, then down, 1 frame apart) on port 6.
+            tTrigger := NextTime(ajChanVSGReady%, tLast, vTrigger);
+            if tTrigger > tLastTrigger and vTrigger = 0 then
+                LogStatus("stateVSGWait", "Got leading edge of trigger.");
+                tLastTrigger := tTrigger;
+                ChangeStateTo(stateVSGConfirm%, tTrigger);                
+                iLoop% := 1;
+            endif;
+            
+        case iState% = stateVSGConfirm% then
+            
+            ' Waiting for VSG to confirm it is ready. The downward side of the pulse is expected...
+            tTrigger := NextTime(ajChanVSGReady%, tLastTrigger, vTrigger);
+            if tTrigger > tLastTrigger and vTrigger = 1 then                
+                LogStatus("stateVSGConfirm", "Got trailing edge of trigger.");
+                tLastTrigger := tTrigger;
+                ChangeStateTo(stateTrialStart%, tTrigger);
+                iLoop% := 1;
+            endif;
+            
+        case iState% = stateTrialStart% then
+            
+            var s%;
+            s% := PrepareTrial%();
+            if s% = 1 then
+                ChangeStateTo(stateBeep%, tNow);
+            else
+                ChangeStateTo(stateDone%, tNow);
+            endif
+            iLoop% := 1;
+            
+        case iState% = stateBeep% then
+            
+            if ajUseBeep% <> 0 then
+                Sound("ding", 1);
+            endif
+            Yield(.5);
+            ChangeStateTo(stateWaitForReady%, tNow);
+            iLoop% := 1;
+            
+        case iState% = stateWaitForReady% then
+            
+            ' Wait for joystick to be positioned in the center. 
+            docase
+            case joystickPosition% = ajReadyResponse% then
+                LogStatus("WaitForReady", "Joystick ready.");
+                SampleText(ajTrialFixptKey$);                   ' this is determined in PrepareTrial, depends on trial type
+                ChangeStateTo(stateWaitForFixpt%, tNow);
+            case tNow - tStateStart > ajMaxWaitForReadyTime then
+                LogStatus("WaitForReady", "Ready wait time expired.");
+                ChangeStateTo(stateReadyFail%, tNow);
+            endcase
+            iLoop% := 0;
+            
+        case iState% = stateWaitForFixpt% then
+            
+            ' Waiting for fixpt signal on channel ajChanFixpt%
+            if FindRisingEdge%(ajChanFixpt%, tStateStart, tNow) = 0 then
+				LogStatus("stateWaitForFixpt", "Fixpt is up.\n");
+                DisplayStim(1); ' display fixpt and fixation window in xy view
+				ChangeStateTo(stateWaitForAcquisition%, tTrigger);
+			endif;
+            iLoop% := 0;
+            
+        case iState% = stateWaitForAcquisition% then
+            
+            ' Waiting for eye to fall in fixation window. Joystick must remain in ready position.
+            docase
+            case joystickPosition% <> ajReadyResponse% then
+                LogStatus("stateWaitForAcquisition", "Joystick not in ready position.");
+                ChangeStateTo(stateReadyBreak%, tNow);
+            case Looking%(xEye, yEye) = 1 then
+                LogStatus("stateWaitForAcquisition", "Eye in fixation window.");
+                if ajUseCueCircles% then
+                    ChangeStateTo(stateHoldFixation1%, tNow);
+                else
+                    ChangeStateTo(stateHoldFixation%, tNow);
+                endif
+            case tNow - tStateStart > ajMaxAcquisitionTime then
+                LogStatus("stateWaitForAcquisition", "Acquisition time is up!");
+                ChangeStateTo(stateAcquisitionFail%, tNow);
+            else
+                iLoop% := 0;
+            endcase
+            
+        case iState% = stateHoldFixation% then
+            
+            iLoop% := 0;
+            docase
+            case joystickPosition% <> ajReadyResponse% then
+                LogStatus("stateHoldFixation", "Joystick not in ready position.");
+                ChangeStateTo(stateReadyBreak%, tNow);
+            case Looking%(xEye, yEye) <> 1 then
+                LogStatus("stateHoldFixation", "Eye not in fixation window.");
+                ChangeStateTo(stateFixationBreak%, tNow);
+            case tNow - tStateStart > ajHoleFixationTime then
+                LogStatus("stateHoldFixation", "Fixation held. Request stim up.");
+                SampleKey("S");
+                ChangeStateTo(stateWaitForStimOn%, tNow);
+            else
+                iLoop% := 0;
+            endcase
+            
+        case iState% = stateHoldFixation1% then
+            
+            iLoop% := 0;
+            docase
+            case joystickPosition% <> ajReadyResponse% then
+                LogStatus("stateHoldFixation1", "Joystick not in ready position.");
+                ChangeStateTo(stateReadyBreak%, tNow);
+            case Looking%(xEye, yEye) <> 1 then
+                LogStatus("stateHoldFixation1", "Eye not in fixation window.");
+                ChangeStateTo(stateFixationBreak%, tNow);
+            case tNow - tStateStart > ajHoldFixation1Time then
+                LogStatus("stateHoldFixation1", "Fixation held. Request circle up.");
+                SampleKey("W");
+                ChangeStateTo(stateWaitForCircle%, tNow);
+            else
+                iLoop% := 0;
+            endcase
+            
+        case iState% = stateWaitForCircle% then
+            
+            iLoop% := 0;
+            docase
+            case joystickPosition% <> ajReadyResponse% then
+                LogStatus("stateWaitForCircle", "Joystick not in ready position.");
+                ChangeStateTo(stateReadyBreak%, tNow);
+            case Looking%(xEye, yEye) <> 1 then
+                LogStatus("stateWaitForCircle", "Eye not in fixation window.");
+                ChangeStateTo(stateFixationBreak%, tNow);
+            case FindRisingEdge%(ajChanCircle%, tStateStart, tCircleOn) = 0 then
+                LogStatus("stateWaitForCircle", "Circle up.");
+                ChangeStateTo(stateHoldFixation2%, tNow);
+            else
+                iLoop% := 0;
+            endcase
+            
+        case iState% = stateHoldFixation2% then
+            
+            iLoop% := 0;
+            docase
+            case joystickPosition% <> ajReadyResponse% then
+                LogStatus("stateHoldFixation2", "Joystick not in ready position.");
+                ChangeStateTo(stateReadyBreak%, tNow);
+            case Looking%(xEye, yEye) <> 1 then
+                LogStatus("stateHoldFixation2", "Eye not in fixation window.");
+                ChangeStateTo(stateFixationBreak%, tNow);
+            case tNow - tStateStart > ajHoldFixation2Time then
+                LogStatus("stateHoldFixation2", "Fixation held. Request circle off.");
+                SampleKey("w");
+                ChangeStateTo(stateWaitForCircleOff%, tNow);
+            else
+                iLoop% := 0;
+            endcase
+            
+        case iState% = stateWaitForCircleOff% then
+            
+            iLoop% := 0;
+            docase
+            case joystickPosition% <> ajReadyResponse% then
+                LogStatus("stateWaitForCircleOff", "Joystick not in ready position.");
+                ChangeStateTo(stateReadyBreak%, tNow);
+            case Looking%(xEye, yEye) <> 1 then
+                LogStatus("stateWaitForCircleOff", "Eye not in fixation window.");
+                ChangeStateTo(stateFixationBreak%, tNow);
+            case FindFallingEdge%(ajChanCircle%, tStateStart, tTrigger) = 1 then
+                LogStatus("stateWaitForCircleOff", "Circle off.");
+                ChangeStateTo(stateHoldFixation3%, tNow);
+            else
+                iLoop% := 0;
+            endcase
+            
+        case iState% = stateHoldFixation3% then
+            
+            iLoop% := 0;
+            docase
+            case joystickPosition% <> ajReadyResponse% then
+                LogStatus("stateHoldFixation3", "Joystick not in ready position.");
+                ChangeStateTo(stateReadyBreak%, tNow);
+            case Looking%(xEye, yEye) <> 1 then
+                LogStatus("stateHoldFixation3", "Eye not in fixation window.");
+                ChangeStateTo(stateFixationBreak%, tNow);
+            case tNow - tStateStart > ajHoldFixation3Time then
+                LogStatus("stateHoldFixation3", "Fixation held. Request stim up.");
+                SampleKey("S");
+                ChangeStateTo(stateWaitForStimOn%, tNow);
+            else
+                iLoop% := 0;
+            endcase
+            
+        case iState% = stateWaitForStimOn% then
+            
+            iLoop% := 0;
+            docase
+            case joystickPosition% <> ajReadyResponse% then
+                LogStatus("stateWaitForStimOn", "Joystick not in ready position.");
+                ChangeStateTo(stateReadyBreak%, tNow);
+            case Looking%(xEye, yEye) <> 1 then
+                LogStatus("stateWaitForStimOn", "Eye not in fixation window.");
+                ChangeStateTo(stateFixationBreak%, tNow);
+            case FindRisingEdge%(ajChanStimulus%, tStateStart, tTrigger) = 0 then
+                LogStatus("stateWaitForStimOn", "Stim up.");
+                ChangeStateTo(stateWaitHazardTime%, tNow);
+            else
+                iLoop% := 0;
+            endcase
+            
+        case iState% = stateWaitHazardTime% then
+            
+            iLoop% := 0;
+            docase
+            case joystickPosition% <> ajReadyResponse% then
+                LogStatus("stateWaitHazardTime", "Joystick not in ready position.");
+                ChangeStateTo(stateReadyBreak%, tNow);
+            case Looking%(xEye, yEye) <> 1 then
+                LogStatus("stateWaitHazardTime", "Eye not in fixation window.");
+                ChangeStateTo(stateFixationBreak%, tNow);
+            case tNow - tStateStart > ajTrialHazardTime then
+                LogStatus("stateWaitHazardTime", "Request stim contrast change.");
+                SampleKey(ajTrialContrastChangeKey$);
+                ChangeStateTo(stateWaitForContrastChange%, tNow);
+            else
+                iLoop% := 0;
+            endcase
+            
+        case iState% = stateWaitForContrastChange% then
+            
+            iLoop% := 0;
+            docase
+            case joystickPosition% <> ajReadyResponse% then
+                LogStatus("stateWaitForContrastChange", "Joystick not in ready position.");
+                ChangeStateTo(stateReadyBreak%, tNow);
+            case Looking%(xEye, yEye) <> 1 then
+                LogStatus("stateWaitForContrastChange", "Eye not in fixation window.");
+                ChangeStateTo(stateFixationBreak%, tNow);
+            case FindRisingEdge%(ajChanContrastChg%, tStateStart, tTrigger) = 0 then
+                LogStatus("stateWaitForContrastChange", "Got contrast change.");
+                ChangeStateTo(stateWaitForResponse%, tNow);
+            else
+                iLoop% := 0;
+            endcase
+            
+        case iState% = stateWaitForResponse% then
+            
+            iLoop% := 0;
+            docase
+            case Looking%(xEye, yEye) <> 1 then
+                LogStatus("stateWaitForResponse", "Eye not in fixation window.");
+                ChangeStateTo(stateFixationBreak%, tNow);
+            case joystickPosition% = ajCorrectResponse% then
+                LogStatus("stateWaitForResponse", "Got response.");
+                ChangeStateTo(stateCorrectResponse%, tNow);
+            case tNow - tStateStart > ajMaxResponseTime then
+                LogStatus("stateWaitForResponse", "Time's up!");
+                ChangeStateTo(stateIncorrectResponse%, tNow);
+            else
+                iLoop% := 0;
+            endcase
+            
+        case iState% = stateCorrectResponse% then
+            
+            iLoop% := 0;
+            ajCtrCorrect% += 1;
+            DeliverReward(ajCorrectResponseRewardSize%);
+            ajUniversalIntertrialTime := ajCorrectResponsePauseTime;
+            SampleKey("X");
+            ChangeStateTo(stateWaitForFixptOff%, tNow);
+            
+        case iState% = stateIncorrectResponse% then
+            
+            iLoop% := 0;
+            ajCtrIncorrect% += 1;
+            ajUniversalIntertrialTime := ajIncorrectResponsePauseTime;
+            SampleKey("X");
+            ChangeStateTo(stateWaitForFixptOff%, tNow);
+            
+        case iState% = stateWaitForFixptOff% then
+            
+            iLoop% := 0;
+            if FindFallingEdge%(ajChanFixpt%, tStateStart, tTrigger) = 1 then
+                LogStatus("stateIntertrialWait", "Fixpt off.");
+                ChangeStateTo(stateIntertrialWait%, tNow);
+            else
+                iLoop% := 0;
+            endif
+            
+        case iState% = stateIntertrialWait% then
+            
+            ' Any states that exit to here should have set the universal intertrial wait time!
+            iLoop% := 0;
+            if tNow - tStateStart > ajUniversalIntertrialTime then
+                ChangeStateTo(stateTrialCompleted%, tNow);
+                iLoop% := 1;
+            endif
+            
+        case iState% = stateTrialCompleted% then
+            
+            LogStatus("stateTrialCompleted", "Trial completed.");
+            ' If correction trials are required, deal with that now....
+            ChangeStateTo(stateTrialStart%, tNow);
+            iLoop% := 1;
+            
+        case iState% = stateDone% then
+            
+            LogStatus("stateDone", "Reached done state. Calling Stop%()...\n");
+            Stop%();
+            iLoop% := 0;
+            iStatus% := 0;
+            
+        else
+            
+            ' Unknown state!
+            Message("Unknown state=" + str$(iState%));
+            halt;
+            
+        endcase;
+    until iLoop% = 0;
+    
+	tLast := tNow;
+	return iStatus%;
+end;
+
+
+proc ChangeStateTo(stateTo%, tStart)
+	iState% := stateTo%;
+	if tStart > 0 then tStateStart := tStart; endif;
+end;
+
+proc DeliverReward(iNumRewards%)
+    SampleSeqVar(1, iNumRewards%);
+    SampleKey("R");
+    return;
+end
+
+func Reward%()
+    DeliverReward(1);
+    return 1;
+end
+
+
+' Used to hard-quit from toolbar. This will close data files without saving!!! 
+' It is important that this function be disabled once sampling is started!!!
+
+func Quit%()
+	if ajStimHandle% > 0 then
+        ProgKill(ajStimHandle%);
+        while ProgStatus(ajStimHandle%) > 0 do
+            Yield();
+        wend
+        ajStimHandle% := 0;
+    endif
+	FileClose(-1,-1);
+	return 0;
+end;
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func Stop%()
+
+	' Disable idle process func
+	ToolbarSet(0, "");
+
+	' Tell stim app to shut down
+	SampleKey("q");
+	Yield(.1);
+	SampleStop();
+
+	if ajStimHandle% > 0 then
+        ProgKill(ajStimHandle%);
+        while ProgStatus(ajStimHandle%) > 0 do
+            Yield();
+        wend
+        ajStimHandle% := 0;
+    endif
+    return 0;
+
+end;
+
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func Start%()
+    var cmdLine$;
+    var h, contrast%, sf, tf, ori, cv$, pattern$, aperture$;
+    
+' TODO    
+    
+    ' Parse the grating coordinates for display in the xy window
+'    ParseGratingParameters%(rivLeftGrating$, rivLeftGratingX, rivLeftGratingY, rivLeftGratingD, h, contrast%, sf, tf, ori, cv$, pattern$, aperture$);
+'    ParseGratingParameters%(rivRightGrating$, rivRightGratingX, rivRightGratingY, rivRightGratingD, h, contrast%, sf, tf, ori, cv$, pattern$, aperture$);
+
+    ' Start sampling
+   	SampleStart(0);
+
+    ' Hack to just run the darned thing. 
+'    cmdLine$ := "cmd /k " + GetBinDir$(1) + "gratings -d 555 -b gray -s " + rivLeftGrating$ + " -s " + rivRightGrating$;
+    
+	'Begin the stimulus program. It will take a few seconds for the VSG to initialize.
+'	LogInfo(cmdLine$+"\n");
+'	rivStimHandle% := ProgRun(cmdLine$, 1);
+'	if rivStimHandle% < 0 then Message("Could not start stimulus."); halt; endif
+	
+	ToolbarSet(0,"",IdleProcessing%);	'Enable the IdleProcessing function
+	ToolbarEnable(1,0);
+	ToolbarEnable(2,1);
+	ToolbarEnable(4,1);
+	View(ajWindowData%);
+    return 1;
+end;
+
+func Pause%()
+    LogInfo("Pause requested.");
+    ajIsPaused% := 1;
+    return 1;
+end
+
+func Resume%()
+    LogInfo("Resume requested.");
+    ajIsPaused% := 0;
+    return 1;
+end
+
+
+' PrepareBlock
+'
+' Prepares variables etc used for driving a block of trials for this expt. 
+' TODO 
+
+proc PrepareBlock()
+    LogInfo("Preparing block...");
+' TODO     tbgInit(2, rivNTrialsEachTypePerBlock%, rivNBlocks%);
+    return
+end
+
+' PrepareTrial
+'
+' Prepares variables etc used for driving a single trial
+
+' TODO
+
+func PrepareTrial%()
+    var index%;
+    ' TODO
+    ajTrialFixptKey$ := "F";
+    ajTrialContrastChangeKey$ := "C";
+    ajTrialHazardTime := 1;
+    
+    var s% := 1;
+    return s%;
+end
+
+
+func AttaJoyDialog%()
+    var i% := 0;
+    GetAttaJoyParameters();
+    if i% = 1 then
+        SaveAttaJoyParameters();
+    endif
+    return i%;
+end
+
+proc GetAttaJoyParameters()
+    var key$;
+    var stmp$;
+    key$ := GetRegistryKey$(1) + "\\AttaJoy";
+    
+    ' TODO
+end
+
+proc SaveAttaJoyParameters()
+    var key$;
+    var stmp$;
+    key$ := GetRegistryKey$(1) + "\\AttaJoy";
+end
+
+
+func Looking%(x, y)
+	'Determine if the eye position is within the fixation window
+	if (Pow(x-FixationX, 2) + Pow(y-FixationY, 2)) <= Pow(WindowRadius, 2) then 
+        return 1; 
+    else 
+        return 0; 
+    endif
+end;
