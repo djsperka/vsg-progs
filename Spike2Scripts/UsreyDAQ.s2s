@@ -78,22 +78,3 @@ end;
 '	DAQ Parameters END
 '
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-
-
-
-' Reward()
-'
-' Simple proc to provide reward - using DAQ parameter JuicePerReward. 
-' Bear in mind that there is a Yield() after each reward - this allows the reward itself to be
-' delivered before another reward comes (the juice reward system takes a TTL pulse, but if we 
-' pulse it too soon after one reward, then the second reward is effectively lost). The Yield()
-' calls will cause a significant delay in this method (as much as 100s of ms), so make sure 
-' it is NOT called in a time-critical situation. 
-
-proc Reward()
-	var i;
-	for i:=1 to JuicePerReward% do 
-        SampleKey("J"); 
-        Yield(0.05);
-    next
-end;
