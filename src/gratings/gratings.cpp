@@ -20,6 +20,7 @@
 
 int args(int argc, char **argv);
 void init_triggers();
+int callback(int &output, const CallbackTrigger* ptrig);
 
 using namespace std;
 using namespace alert;
@@ -210,23 +211,19 @@ int init_pages()
 	m_gratings[1]->setContrast(0);
 
 
+	// trigger to turn stim, distractor and answer points ON
+	triggers.addTrigger(new CallbackTrigger("S", 0x8, 0x8, 0x2, 0x2, callback));
 
 
-	// trigger to turn stim 0 on
-	ptrig = new ContrastTrigger("0", 0x6, 0x2, 0x2, 0x2);
-	ptrig->push_back( std::pair<VSGOBJHANDLE, int>(m_gratings[0]->handle(), 100) );
-	triggers.addTrigger(ptrig);
+	// trigger to turn stim 0/1 on
+	triggers.addTrigger(new CallbackTrigger("0", 0x6, 0x2, 0x2, 0x2, callback));
+	triggers.addTrigger(new CallbackTrigger("1", 0x6, 0x4, 0x2, 0x2, callback));
 
-	// trigger to turn stim 1 on
-	ptrig = new ContrastTrigger("1", 0x6, 0x4, 0x2, 0x2);
-	ptrig->push_back( std::pair<VSGOBJHANDLE, int>(m_gratings[1]->handle(), 100) );
-	triggers.addTrigger(ptrig);
+	// trigger to toggle 0/1 contrast
+	triggers.addTrigger(new CallbackTrigger("z", 0x8, 0x8 & AR_TRIGGER_TOGGLE, 0x4, 0x4 & AR_TRIGGER_TOGGLE, callback));
 
 	// trigger to turn stim OFF
-	ptrig = new ContrastTrigger("X", 0x6, 0x0, 0x2, 0x0);
-	ptrig->push_back( std::pair<VSGOBJHANDLE, int>(m_gratings[0]->handle(), 0) );
-	ptrig->push_back( std::pair<VSGOBJHANDLE, int>(m_gratings[1]->handle(), 0) );
-	triggers.addTrigger(ptrig);
+	triggers.addTrigger(new CallbackTrigger("X", 0x6, 0x0, 0x2, 0x0, callback));
 
 	// quit trigger
 	triggers.addTrigger(new QuitTrigger("q", 0x80, 0x80, 0xff, 0x0, 0));
@@ -246,3 +243,38 @@ int init_pages()
 	return status;
 }
 
+
+
+// The return value from this trigger callback determines whether a vsgPresent() is issued. 
+
+int callback(int &output, const CallbackTrigger* ptrig)
+{
+	int ival=1;
+	string key = ptrig->getKey();
+
+
+//	cout << "callback: key " << ptrig->getKey() << endl;
+
+	if (key == "0")
+	{
+		m_gratings[0]->setContrast(100);
+	}
+	else if (key == "1")
+	{
+		m_gratings[1]->setContrast(100);
+	}
+	else if (key == "z")
+	{
+		if (m_gratings[1]->contrast == 0) m_gratings[1]->setContrast(100);
+		else m_gratings[1]->setContrast(0);
+		if (m_gratings[0]->contrast == 0) m_gratings[0]->setContrast(100);
+		else m_gratings[0]->setContrast(0);
+	}
+	else if (key == "X")
+	{
+		m_gratings[0]->setContrast(0);
+		m_gratings[1]->setContrast(0);
+	}
+
+	return ival;
+}
