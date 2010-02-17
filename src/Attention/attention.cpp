@@ -814,8 +814,8 @@ int init_pages()
 		vecInputs.push_back(std::pair< string, int>("X", 0x6));
 		triggers.push_back(new MultiInputSingleOutputCallbackTrigger(vecInputs, 0x6, 0x1, 0x1 | AR_TRIGGER_TOGGLE, callback));
 
-		triggers.addTrigger(new CallbackTrigger("W", 0x10, 0x10, 0x6, 0x6, callback));
-		triggers.addTrigger(new CallbackTrigger("w", 0x10, 0x0, 0x6, 0x0, callback));
+		triggers.addTrigger(new CallbackTrigger("W", 0x10, 0x10, 0x4, 0x4, callback));
+		triggers.addTrigger(new CallbackTrigger("w", 0x10, 0x0, 0x4, 0x0, callback));
 	}	
 
 
