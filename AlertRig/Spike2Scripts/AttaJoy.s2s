@@ -1,8 +1,8 @@
 
 #include "../../Spike2Util/TrialBlockGen.s2s"
-#include "../../Spike2Util/GratingUtilities.s2s"
 #include "../../Spike2Util/ChannelUtilities.s2s"
 #include "Usrey.s2s"
+#include "UsreyGratings.s2s"
 #include "UsreyFixationPoint.s2s"
 #include "Joystick.s2s"
 
@@ -13,7 +13,9 @@ var ajReadyFailPauseTime := 1.0;
 var ajReadyBreakPauseTime := 1.0;
 var ajMaxAcquisitionTime := 1.0;
 var ajUseCueCircles% := 1;
-var ajHoleFixationTime := 1.0;
+var ajDoReadyTraining% := 0;
+var ajDoReadyFixTraining% := 0;
+var ajHoldFixationTime := 1.0;
 var ajHoldFixation1Time := 1.0;
 var ajHoldFixation2Time := 1.0;
 var ajHoldFixation3Time := 1.0;
@@ -30,6 +32,9 @@ var ajCorrectResponsePauseTime := 1.0;
 var ajIncorrectResponsePauseTime := 1.0;
 var ajCorrectResponseRewardSize% := 1;
 var ajUseBeep% := 1;
+var ajContrastBase% := 75;
+var ajContrastUp% := 100;
+var ajContrastDown% := 50;
 
 ' Counters
 
@@ -157,13 +162,13 @@ GetFixationPointParameters();
 
 
 ' Sampling config
-' TODO CreateSampleConfiguration();
+CreateSampleConfiguration();
 
 ' Prepare display windows, input channels, etc. 
-' TODO InitializeWindows();
+InitializeWindows();
 
 ' Set up toolbar and launch
-'TODO InitializeToolbar();
+InitializeToolbar();
 
 
 
@@ -187,9 +192,21 @@ proc CreateSampleConfiguration()
 	SampleAutoFile(1);
     
 	'Channel recording definitions
-	SampleEvent(ajChanVSGStim%, 2, 2, 3600); 'Trigger channel, level
+	SampleEvent(ajChanFixpt%, 1, 2, 3600);
+	SampleComment$(ajChanFixpt%, "Fixpt");
+	SampleTitle$(ajChanFixpt%, "Fixpt");
+    
+	SampleEvent(ajChanVSGStim%, 2, 2, 3600);
 	SampleComment$(ajChanVSGStim%, "Stim");
 	SampleTitle$(ajChanVSGStim%, "Stim");
+    
+	SampleEvent(ajChanCircle%, 3, 2, 3600);
+	SampleComment$(ajChanCircle%, "Cue");
+	SampleTitle$(ajChanCircle%, "Cue");
+    
+	SampleEvent(ajChanContrastChg%, 4, 2, 3600);
+	SampleComment$(ajChanContrastChg%, "Chg");
+	SampleTitle$(ajChanContrastChg%, "Chg");
 	
 	SampleEvent(ajChanVSGReady%, 6, 2, 3600); 'Trigger channel, level
 	SampleComment$(ajChanVSGReady%, "VSG Ready");
@@ -197,7 +214,6 @@ proc CreateSampleConfiguration()
     
 	SampleWaveform(ajChanJoy%, 13, 1000);
 	SampleTitle$(ajChanJoy%, "Joy");
-    
     
 	SampleWaveform(ajChanEyeX%, 14, 1000);
 	SampleTitle$(ajChanEyeX%, "Eye X");
@@ -250,6 +266,7 @@ end;
 proc InitializeWindows()
     var i%;
 	var twopi;
+    
     ' These set the max and min window dimensions. They are also used to scale the joystick 
     ' position to the xy display, so if you change the size of the window, do it by changing
     ' these vars!
@@ -763,23 +780,35 @@ end;
 func Start%()
     var cmdLine$;
     var h, contrast%, sf, tf, ori, cv$, pattern$, aperture$;
+    var stimSpec$;
+    var distSpec$;
+    var fixSpec$;
+    var extra$;
     
-' TODO    
+    ' Get stimulus, distractor and fixpt specs
+    stimSpec$ := GetGratingParameters$("Stimulus");
+    distSpec$ := GetGratingParameters$("Distractor1");
+    fixSpec$ := GetFixationArg$();
     
-    ' Parse the grating coordinates for display in the xy window
-'    ParseGratingParameters%(rivLeftGrating$, rivLeftGratingX, rivLeftGratingY, rivLeftGratingD, h, contrast%, sf, tf, ori, cv$, pattern$, aperture$);
-'    ParseGratingParameters%(rivRightGrating$, rivRightGratingX, rivRightGratingY, rivRightGratingD, h, contrast%, sf, tf, ori, cv$, pattern$, aperture$);
+    ' extra parameters
+    extra$ := "-d " + GetDistanceToScreenMM$() + " -b gray -N -t " + str$(ajContrastDown%) + "," + str$(ajContrastBase%) + "," + str$(ajContrastUp%);
+    if ajUseCueCircles% = 1 then
+        extra$ += " -Q -c 0.5";
+    endif
+    
+    ' Generate command line
+    cmdLine$ := "cmd /c Attention " + extra$ + " -s " + stimSpec$ + " -g " + distSpec$;
 
     ' Start sampling
    	SampleStart(0);
-
-    ' Hack to just run the darned thing. 
-'    cmdLine$ := "cmd /k " + GetBinDir$(1) + "gratings -d 555 -b gray -s " + rivLeftGrating$ + " -s " + rivRightGrating$;
     
 	'Begin the stimulus program. It will take a few seconds for the VSG to initialize.
-'	LogInfo(cmdLine$+"\n");
-'	rivStimHandle% := ProgRun(cmdLine$, 1);
-'	if rivStimHandle% < 0 then Message("Could not start stimulus."); halt; endif
+	LogInfo(cmdLine$+"\n");
+	ajStimHandle% := ProgRun(cmdLine$, 1);
+	if ajStimHandle% < 0 then 
+        Message("Could not start stimulus."); 
+        halt; 
+    endif
 	
 	ToolbarSet(0,"",IdleProcessing%);	'Enable the IdleProcessing function
 	ToolbarEnable(1,0);
