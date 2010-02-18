@@ -8,13 +8,17 @@
 
 ' Local config variables
 
+var ajNBlocks% := 1;
+var ajNTrialsEachTypePerBlock% := 10;
+var ajDoReadyTraining% := 0;
+var ajDoReadyFixTraining% := 0;
+var ajCatchTrialPct := 0;
+var ajAlternateCueTypeByBlock% := 0;
 var ajMaxWaitForReadyTime := 1.0;
 var ajReadyFailPauseTime := 1.0;
 var ajReadyBreakPauseTime := 1.0;
 var ajMaxAcquisitionTime := 1.0;
 var ajUseCueCircles% := 1;
-var ajDoReadyTraining% := 0;
-var ajDoReadyFixTraining% := 0;
 var ajHoldFixationTime := 1.0;
 var ajHoldFixation1Time := 1.0;
 var ajHoldFixation2Time := 1.0;
@@ -35,14 +39,22 @@ var ajUseBeep% := 1;
 var ajContrastBase% := 75;
 var ajContrastUp% := 100;
 var ajContrastDown% := 50;
+var ajAlwaysLooking% := 0;      ' Set to 1 in timing dialog. Will cause Looking% to always return 1. 
 
 ' Counters
 
 var ajCtrNTrials% := 0;
 var ajCtrReadyFail% := 0;
+var ajCtrReadyBreak% := 0;
 var ajCtrIncorrect% := 0;
 var ajCtrCorrect% := 0;
 var ajCtrNRewards% := 0;
+var ajCtrNTrialsReady% := 0;
+var ajCtrNTrialsAcq% := 0;
+var ajCtrNTrialsAcqFail% := 0;
+var ajCtrNTrialsFix% := 0;
+var ajCtrNTrialsStim% := 0;
+var ajCtrNTrialsChg% := 0;
 
 ' Channel numbers for DAQ inputs
 
@@ -53,11 +65,10 @@ var ajChanJoy%     := 13;
 ' VSG trigger input channels
 
 var ajChanVSGReady%    :=  20;
-var ajChanVSGStim%     :=  21;
-var ajChanFixpt%       :=  22;
+var ajChanFixpt%       :=  21;
+var ajChanCircle%      :=  22;
 var ajChanStimulus%    :=  23;
-var ajChanCircle%      :=  24;
-var ajChanContrastChg% :=  25;
+var ajChanContrastChg% :=  24;
 
 ' windows
 
@@ -84,8 +95,12 @@ var ajStimCircleY[36];
 
 var ajIsPaused% := 0;
 var ajStimHandle% := 0;
-var ajTrialFixptKey$;
-var ajTrialContrastChangeKey$;
+var ajTrialTypeIndex%;
+var ajTrialFixptTypeKeys$[2];
+var ajTrialChangeTypeKeys$[2];
+var ajTrialFixptSampleKey$;
+var ajTrialChangeSampleKey$;
+var ajIsCatchTrial% := 0;
 var ajTrialHazardTime := 1.0;
 var ajReadyResponse% := JSRight%;
 var ajCorrectResponse%;
@@ -126,6 +141,7 @@ const stateVSGWait%             :=  29;
 const stateVSGConfirm%          :=  30;
 const stateT1Success%           :=  31;
 const stateT2Success%           :=  32;
+const stateWaitForNeutral%      :=  33;
 
 var iState% := stateStartup%;              ' This holds the current state
 
@@ -149,13 +165,19 @@ var tCircleOn := -1;
 
 LogInit(1);
 InitJoystick(13);
+ajTrialFixptTypeKeys$[0] := "F";
+ajTrialFixptTypeKeys$[1] := "G";
+ajTrialChangeTypeKeys$[0] := "C";
+ajTrialChangeTypeKeys$[1] := "D";
 
 if AttaJoyDialog%() = 0 then
     halt;
 endif
 
 ' Init trial generator
-'TODO tbgInit(2, rivNTrialsEachTypePerBlock%, rivNBlocks%);
+if ajDoReadyTraining% = 0 then
+    tbgInit(2, ajNTrialsEachTypePerBlock%, ajNBlocks%);
+endif
 
 ' Get fixation point parameters
 GetFixationPointParameters();
@@ -192,26 +214,26 @@ proc CreateSampleConfiguration()
 	SampleAutoFile(1);
     
 	'Channel recording definitions
+	SampleEvent(ajChanVSGReady%, 6, 2, 3600); 'Trigger channel, level
+	SampleComment$(ajChanVSGReady%, "VSG Ready");
+	SampleTitle$(ajChanVSGReady%, "VSG Ready");
+    
 	SampleEvent(ajChanFixpt%, 1, 2, 3600);
 	SampleComment$(ajChanFixpt%, "Fixpt");
 	SampleTitle$(ajChanFixpt%, "Fixpt");
-    
-	SampleEvent(ajChanVSGStim%, 2, 2, 3600);
-	SampleComment$(ajChanVSGStim%, "Stim");
-	SampleTitle$(ajChanVSGStim%, "Stim");
     
 	SampleEvent(ajChanCircle%, 3, 2, 3600);
 	SampleComment$(ajChanCircle%, "Cue");
 	SampleTitle$(ajChanCircle%, "Cue");
     
+	SampleEvent(ajChanStimulus%, 2, 2, 3600);
+	SampleComment$(ajChanStimulus%, "Stim");
+	SampleTitle$(ajChanStimulus%, "Stim");    
+    
 	SampleEvent(ajChanContrastChg%, 4, 2, 3600);
 	SampleComment$(ajChanContrastChg%, "Chg");
 	SampleTitle$(ajChanContrastChg%, "Chg");
 	
-	SampleEvent(ajChanVSGReady%, 6, 2, 3600); 'Trigger channel, level
-	SampleComment$(ajChanVSGReady%, "VSG Ready");
-	SampleTitle$(ajChanVSGReady%, "VSG Ready");
-    
 	SampleWaveform(ajChanJoy%, 13, 1000);
 	SampleTitle$(ajChanJoy%, "Joy");
     
@@ -382,9 +404,12 @@ func IdleProcessing%()
     joystickPosition% := GetJoystickPosition%(joystickVoltage);
     View(ajWindowXY%).XYAddData(ajChanJoystickPos%, joystickVoltage * ajVCoeff + ajVConst, ajJoystickDisplayY);
     
-	xEye := ChanMeasure(ajChanEyeX%, 2, tNow-.001, tNow-.006) * DegreesPerVoltX;
-	yEye := ChanMeasure(ajChanEyeY%, 2, tNow-.001, tNow-.006) * DegreesPerVoltY;
-	View(ajWindowXY%).XYAddData(1, xEye, yEye);
+    if tNow > 0.005 then
+        xEye := ChanMeasure(ajChanEyeX%, 2, tNow, tNow-.005) * DegreesPerVoltX;
+        yEye := ChanMeasure(ajChanEyeY%, 2, tNow-.001, tNow-.006) * DegreesPerVoltY;
+        View(ajWindowXY%).XYAddData(1, xEye, yEye);
+    endif
+    
     
     repeat
         iLoop% := 0;
@@ -398,6 +423,7 @@ func IdleProcessing%()
         case iState% = stateVSGWait% then
             
             ' Waiting for VSG to indicate it is ready. The indication is a pulse (up, then down, 1 frame apart) on port 6.
+
             tTrigger := NextTime(ajChanVSGReady%, tLast, vTrigger);
             if tTrigger > tLastTrigger and vTrigger = 0 then
                 LogStatus("stateVSGWait", "Got leading edge of trigger.");
@@ -422,11 +448,20 @@ func IdleProcessing%()
             var s%;
             s% := PrepareTrial%();
             if s% = 1 then
-                ChangeStateTo(stateBeep%, tNow);
+                ajCtrNTrials% += 1;
+                ChangeStateTo(stateWaitForNeutral%, tNow);
             else
                 ChangeStateTo(stateDone%, tNow);
             endif
             iLoop% := 1;
+            
+        case iState% = stateWaitForNeutral% then
+            
+            if joystickPosition% = JSCenter% then
+                LogStatus("stateWaitForNeutral", "Joystick in neutral. Proceed.");
+                ChangeStateTo(stateBeep%, tNow);
+                iLoop% := 0;
+            endif
             
         case iState% = stateBeep% then
             
@@ -443,19 +478,39 @@ func IdleProcessing%()
             docase
             case joystickPosition% = ajReadyResponse% then
                 LogStatus("WaitForReady", "Joystick ready.");
-                SampleText(ajTrialFixptKey$);                   ' this is determined in PrepareTrial, depends on trial type
-                ChangeStateTo(stateWaitForFixpt%, tNow);
+                ajCtrNTrialsReady% += 1;
+                if ajDoReadyTraining% = 0 then
+                    SampleKey(ajTrialFixptSampleKey$);                   ' this is determined in PrepareTrial, depends on trial type
+                    ChangeStateTo(stateWaitForFixpt%, tNow);
+                else
+                    ChangeStateTo(stateT1Success%, tNow);
+                    iLoop% := 1;
+                endif
             case tNow - tStateStart > ajMaxWaitForReadyTime then
                 LogStatus("WaitForReady", "Ready wait time expired.");
                 ChangeStateTo(stateReadyFail%, tNow);
             endcase
             iLoop% := 0;
             
+        case iState% = stateT1Success% then
+            
+            DeliverReward(ajT1SuccessRewardSize%);
+            ajUniversalIntertrialTime := ajT1SuccessPauseTime;
+            ChangeStateTo(stateIntertrialWait%, tNow);
+            iLoop% := 0;
+            
+        case iState% = stateReadyFail% then
+            
+            ajCtrReadyFail% += 1;
+            ajUniversalIntertrialTime := ajReadyFailPauseTime;
+            ChangeStateTo(stateIntertrialWait%, tNow);
+            iLoop% := 0;
+            
         case iState% = stateWaitForFixpt% then
             
             ' Waiting for fixpt signal on channel ajChanFixpt%
-            if FindRisingEdge%(ajChanFixpt%, tStateStart, tNow) = 0 then
-				LogStatus("stateWaitForFixpt", "Fixpt is up.\n");
+            if FindRisingEdge%(ajChanFixpt%, tStateStart, tTrigger) = 0 then
+				LogStatus("stateWaitForFixpt", "Fixpt is up.");
                 DisplayStim(1); ' display fixpt and fixation window in xy view
 				ChangeStateTo(stateWaitForAcquisition%, tTrigger);
 			endif;
@@ -470,6 +525,7 @@ func IdleProcessing%()
                 ChangeStateTo(stateReadyBreak%, tNow);
             case Looking%(xEye, yEye) = 1 then
                 LogStatus("stateWaitForAcquisition", "Eye in fixation window.");
+                ajCtrNTrialsAcq% += 1;
                 if ajUseCueCircles% then
                     ChangeStateTo(stateHoldFixation1%, tNow);
                 else
@@ -477,10 +533,27 @@ func IdleProcessing%()
                 endif
             case tNow - tStateStart > ajMaxAcquisitionTime then
                 LogStatus("stateWaitForAcquisition", "Acquisition time is up!");
+                ajCtrNTrialsAcqFail% += 1;
                 ChangeStateTo(stateAcquisitionFail%, tNow);
             else
                 iLoop% := 0;
             endcase
+            
+        case iState% = stateReadyBreak% then
+            
+            ajCtrReadyBreak% += 1;
+            SampleKey("X");
+            ajUniversalIntertrialTime := ajReadyBreakPauseTime;
+            ChangeStateTo(stateWaitForFixptOff%, tNow);
+            iLoop% := 0;
+            
+        case iState% = stateAcquisitionFail% then
+            
+            ajCtrNTrialsAcqFail% += 1;
+            ajUniversalIntertrialTime := ajAcquisitionFailPauseTime;
+            SampleKey("X");
+            ChangeStateTo(stateWaitForFixptOff%, tNow);
+            iLoop% := 0;
             
         case iState% = stateHoldFixation% then
             
@@ -492,13 +565,27 @@ func IdleProcessing%()
             case Looking%(xEye, yEye) <> 1 then
                 LogStatus("stateHoldFixation", "Eye not in fixation window.");
                 ChangeStateTo(stateFixationBreak%, tNow);
-            case tNow - tStateStart > ajHoleFixationTime then
-                LogStatus("stateHoldFixation", "Fixation held. Request stim up.");
-                SampleKey("S");
-                ChangeStateTo(stateWaitForStimOn%, tNow);
+            case tNow - tStateStart > ajHoldFixationTime then
+                ajCtrNTrialsFix% += 1;
+                if ajDoReadyFixTraining% = 0 then
+                    LogStatus("stateHoldFixation", "Fixation held. Request stim up.");
+                    SampleKey("S");
+                    ChangeStateTo(stateWaitForStimOn%, tNow);
+                else
+                    LogStatus("stateHoldFixation", "Fixation held, trial complete.");
+                    SampleKey("X");
+                    ChangeStateTo(stateWaitForFixptOff%, tNow);
+                endif
             else
                 iLoop% := 0;
             endcase
+            
+        case iState% = stateT2Success% then
+            
+            DeliverReward(ajT2SuccessRewardSize%);
+            ajUniversalIntertrialTime := ajT2SuccessPauseTime;
+            ChangeStateTo(stateIntertrialWait%, tNow);
+            iLoop% := 0;
             
         case iState% = stateHoldFixation1% then
             
@@ -545,7 +632,7 @@ func IdleProcessing%()
             case Looking%(xEye, yEye) <> 1 then
                 LogStatus("stateHoldFixation2", "Eye not in fixation window.");
                 ChangeStateTo(stateFixationBreak%, tNow);
-            case tNow - tStateStart > ajHoldFixation2Time then
+            case tNow - tCircleOn > ajHoldFixation2Time then
                 LogStatus("stateHoldFixation2", "Fixation held. Request circle off.");
                 SampleKey("w");
                 ChangeStateTo(stateWaitForCircleOff%, tNow);
@@ -565,7 +652,7 @@ func IdleProcessing%()
                 ChangeStateTo(stateFixationBreak%, tNow);
             case FindFallingEdge%(ajChanCircle%, tStateStart, tTrigger) = 1 then
                 LogStatus("stateWaitForCircleOff", "Circle off.");
-                ChangeStateTo(stateHoldFixation3%, tNow);
+                ChangeStateTo(stateHoldFixation3%, tTrigger);
             else
                 iLoop% := 0;
             endcase
@@ -582,6 +669,7 @@ func IdleProcessing%()
                 ChangeStateTo(stateFixationBreak%, tNow);
             case tNow - tStateStart > ajHoldFixation3Time then
                 LogStatus("stateHoldFixation3", "Fixation held. Request stim up.");
+                ajCtrNTrialsFix% += 1;
                 SampleKey("S");
                 ChangeStateTo(stateWaitForStimOn%, tNow);
             else
@@ -617,7 +705,8 @@ func IdleProcessing%()
                 ChangeStateTo(stateFixationBreak%, tNow);
             case tNow - tStateStart > ajTrialHazardTime then
                 LogStatus("stateWaitHazardTime", "Request stim contrast change.");
-                SampleKey(ajTrialContrastChangeKey$);
+                ajCtrNTrialsChg% += 1;
+                SampleKey(ajTrialChangeSampleKey$);
                 ChangeStateTo(stateWaitForContrastChange%, tNow);
             else
                 iLoop% := 0;
@@ -643,11 +732,16 @@ func IdleProcessing%()
         case iState% = stateWaitForResponse% then
             
             iLoop% := 0;
+            tbgTrialIndexCompleted(ajTrialTypeIndex%);
             docase
-            case Looking%(xEye, yEye) <> 1 then
-                LogStatus("stateWaitForResponse", "Eye not in fixation window.");
-                ChangeStateTo(stateFixationBreak%, tNow);
-            case joystickPosition% = ajCorrectResponse% then
+                
+                ' TODO Check with Marty!
+                ' We allow fixation break once contrast change has occurred. 
+                ' Note that tbgTrialCompleted is called above - not after response. 
+'            case Looking%(xEye, yEye) <> 1 then
+'                LogStatus("stateWaitForResponse", "Eye not in fixation window.");
+'                ChangeStateTo(stateFixationBreak%, tNow);
+            case joystickPosition% = JSLeft% then
                 LogStatus("stateWaitForResponse", "Got response.");
                 ChangeStateTo(stateCorrectResponse%, tNow);
             case tNow - tStateStart > ajMaxResponseTime then
@@ -678,7 +772,7 @@ func IdleProcessing%()
             
             iLoop% := 0;
             if FindFallingEdge%(ajChanFixpt%, tStateStart, tTrigger) = 1 then
-                LogStatus("stateIntertrialWait", "Fixpt off.");
+                LogStatus("stateWaitForFixptOff", "Fixpt off.");
                 ChangeStateTo(stateIntertrialWait%, tNow);
             else
                 iLoop% := 0;
@@ -696,9 +790,9 @@ func IdleProcessing%()
         case iState% = stateTrialCompleted% then
             
             LogStatus("stateTrialCompleted", "Trial completed.");
-            ' If correction trials are required, deal with that now....
             ChangeStateTo(stateTrialStart%, tNow);
             iLoop% := 1;
+            UpdateToolbarText();
             
         case iState% = stateDone% then
             
@@ -711,6 +805,7 @@ func IdleProcessing%()
             
             ' Unknown state!
             Message("Unknown state=" + str$(iState%));
+            Stop%();
             halt;
             
         endcase;
@@ -791,13 +886,13 @@ func Start%()
     fixSpec$ := GetFixationArg$();
     
     ' extra parameters
-    extra$ := "-d " + GetDistanceToScreenMM$() + " -b gray -N -t " + str$(ajContrastDown%) + "," + str$(ajContrastBase%) + "," + str$(ajContrastUp%);
+    extra$ := " -d " + GetDistanceToScreenMM$() + " -b gray -N -Q -t " + str$(ajContrastDown%) + "," + str$(ajContrastBase%) + "," + str$(ajContrastUp%);
     if ajUseCueCircles% = 1 then
         extra$ += " -Q -c 0.5";
     endif
     
     ' Generate command line
-    cmdLine$ := "cmd /c Attention " + extra$ + " -s " + stimSpec$ + " -g " + distSpec$;
+    cmdLine$ := "cmd /k " + GetBinDir$(1) + "Attention " + fixSpec$ + extra$ + " -s " + stimSpec$ + " -g " + distSpec$;
 
     ' Start sampling
    	SampleStart(0);
@@ -850,45 +945,243 @@ end
 
 func PrepareTrial%()
     var index%;
-    ' TODO
-    ajTrialFixptKey$ := "F";
-    ajTrialContrastChangeKey$ := "C";
-    ajTrialHazardTime := 1;
-    
     var s% := 1;
+    
+    ' TODO
+    LogInfo("Preparing trial...");
+    if ajDoReadyTraining% = 1 then
+        if ajCtrNTrialsReady% = ajNTrialsEachTypePerBlock% then
+            LogInfo("Ready training block completed.");
+            s% := 0;
+        endif
+    else
+        s% := tbgGetTrialIndex%(ajTrialTypeIndex%);
+        ajIsCatchTrial% := 0;
+        if s% = 1 and ajDoReadyFixTraining% = 0 then
+            
+            ' Generate hazard time
+            repeat
+                ajTrialHazardTime := RandExp(ajHazardTimeMean, ajHazardTimeMin);
+            until ajTrialHazardTime <= ajHazardTimeMax;
+            
+            
+            ' Catch trial?
+            if ajCatchTrialPct > 0 and Rand()*100 < ajCatchTrialPct then
+                ajIsCatchTrial% := 1;
+                LogInfo("Catch trial!");
+            else
+                ajIsCatchTrial% := 0;
+            endif
+            
+        endif
+        
+        if ajIsCatchTrial% = 0 then
+            ajTrialFixptSampleKey$ := ajTrialFixptTypeKeys$[ajTrialTypeIndex%];
+            ajTrialChangeSampleKey$ := ajTrialChangeTypeKeys$[ajTrialTypeIndex%];
+        else
+            ajTrialFixptSampleKey$ := ajTrialFixptTypeKeys$[ajTrialTypeIndex%];
+            ajTrialChangeSampleKey$ := ajTrialChangeTypeKeys$[1-ajTrialTypeIndex%];
+        endif
+    endif    
+
     return s%;
 end
 
 
 func AttaJoyDialog%()
-    var i% := 0;
+    var status% := 1;
     GetAttaJoyParameters();
-    if i% = 1 then
+    DlgCreate("AttaJoy Parameters");
+    DlgGroup("Blocks, contrast", 1, 1, 35, 11);
+	DlgInteger(1, "Number of Blocks:", 1, 1000, 20, 2);
+	DlgInteger(2, "Trials per block:", 1, 1000, 20, 3);
+    DlgCheck(3, "Ready training", 2, 4);
+	DlgInteger(4, "Rdy trng reward:", 1, 1000, 20, 5);
+    DlgCheck(5, "Rdy/fix training", 2, 6);
+	DlgInteger(6, "Rdy/fix trng reward:", 1, 1000, 20, 7);
+	DlgReal(7, "Catch Trial pct (0-100)", 0, 100, 20, 8);
+	DlgCheck(8, "Alternate cue type by block", 2, 9);
+	DlgInteger(9, "Base contrast(%)", 0, 100, 20, 10);
+	DlgInteger(10, "Chg contrast(%)", 0, 100, 20, 11);
+    
+    DlgGroup("Fixation/Hazard", 1, 12, 35, 9);
+    DlgCheck(11, "Use Cue Circles", 2, 13);
+    DlgReal(12, "HoldFix time #1", 0.0, 100.0, 20, 14);
+    DlgReal(13, "HoldFix time #2", 0.0, 100.0, 20, 15);
+    DlgReal(14, "HoldFix time #3", 0.0, 100.0, 20, 16);
+    DlgReal(15, "HoldFix time", 0.0, 100.0, 20, 17);
+    DlgReal(16, "Hazard time (min)", 0.0, 100.0, 20, 18);
+    DlgReal(17, "Hazard time (mean)", 0.0, 100.0, 20, 19);
+    DlgReal(18, "Hazard time (max)", 0.0, 100.0, 20, 20);
+    DlgButton(101, "Timing", AttaJoyTimingDialog%, 1, 21);
+    
+    DlgAllow(0, 0, AttaJoyDialogChanged%);
+
+    status% := DlgShow(ajNBlocks%, ajNTrialsEachTypePerBlock%, ajDoReadyTraining%, ajT1SuccessRewardSize%,
+                       ajDoReadyFixTraining%, ajT2SuccessRewardSize%,
+                       ajCatchTrialPct, ajAlternateCueTypeByBlock%, ajContrastBase%, ajContrastUp%,
+                       ajUseCueCircles%, ajHoldFixation1Time, ajHoldFixation2Time, ajHoldFixation3Time,
+                       ajHoldFixationTime, ajHazardTimeMin, ajHazardTimeMean, ajHazardTimeMax);
+    
+    if status% = 1 then
         SaveAttaJoyParameters();
     endif
-    return i%;
+    return status%;
 end
+
+
+
+' Called when items in attention script dialog change. WARNING: The item #s are coded as constants
+' If format of dialog changes then those constants should be changed. 
+
+func AttaJoyDialogChanged%(item%)
+    var status% := 1;
+    docase
+    case item% = 3 then
+        DlgEnable(DlgValue(3), 4);
+        if DlgValue(3) = 1 then
+            DlgValue(5, 0);
+            DlgEnable(0, 6);
+        endif
+    case item% = 5 then
+        DlgEnable(DlgValue(5), 6);
+        if DlgValue(3) = 1 then
+            DlgValue(3, 0);
+            DlgEnable(0, 4);
+        endif
+    case item% = 11 then
+        DlgEnable(DlgValue(11), 12);
+        DlgEnable(DlgValue(11), 13);
+        DlgEnable(DlgValue(11), 14);
+        DlgEnable(1-DlgValue(11), 15);
+    case item% = 0 then
+        DlgEnable(ajDoReadyTraining%, 4);
+        DlgEnable(ajDoReadyFixTraining%, 6);
+        DlgEnable(ajUseCueCircles%, 12);
+        DlgEnable(ajUseCueCircles%, 13);
+        DlgEnable(ajUseCueCircles%, 14);
+        DlgEnable(1-ajUseCueCircles%, 15);
+    endcase
+    return status%;
+end
+
+
+func AttaJoyTimingDialog%()
+	DlgCreate("AttaJoy timing", 25, 10);
+	DlgReal(1, "Max rdy time(s):", .01, 10);
+	DlgReal(2, "Rdy FAIL pause time(s):", .01, 10);
+	DlgReal(3, "Rdy BREAK pause time(s):", .01, 10);
+    DlgReal(4, "T1 Success pause time(s):",  .01, 10);
+    DlgReal(5, "T2 Success pause time(s):",  .01, 10);
+    DlgReal(6, "Max acq time(s):", .01, 10);
+	DlgReal(7, "Acq FAIL pause time(s):", .01, 10);
+    DlgReal(8, "Max resp time(s):", .01, 10);
+    DlgReal(9, "Correct resp pause time(s):",  .01, 10);
+    DlgReal(10, "Incorrect resp pause time(s):",  .01, 10);
+    DlgCheck(11, "Always looking (TESTING ONLY)");
+	DlgShow(ajMaxWaitForReadyTime, ajReadyFailPauseTime, ajReadyBreakPauseTime,
+    ajT1SuccessPauseTime, ajT2SuccessPauseTime, 
+    ajMaxAcquisitionTime, ajAcquisitionFailPauseTime, ajMaxResponseTime, 
+    ajCorrectResponsePauseTime, ajIncorrectResponsePauseTime, ajAlwaysLooking%);
+    return 1;
+end
+
 
 proc GetAttaJoyParameters()
     var key$;
     var stmp$;
     key$ := GetRegistryKey$(1) + "\\AttaJoy";
-    
-    ' TODO
+    ajNBlocks% := GetIntRegistryValue%(key$, "NBlocks", ajNBlocks%);
+    ajNTrialsEachTypePerBlock% := GetIntRegistryValue%(key$, "NTrialsEachTypePerBlock", ajNTrialsEachTypePerBlock%);
+    ajDoReadyTraining% := GetIntRegistryValue%(key$, "DoReadyTraining", ajDoReadyTraining%);
+    ajT1SuccessRewardSize% := GetIntRegistryValue%(key$, "T1SuccessRewardSize", ajT1SuccessRewardSize%);
+    ajDoReadyFixTraining% := GetIntRegistryValue%(key$, "DoReadyFixTraining", ajDoReadyFixTraining%);
+    ajT2SuccessRewardSize% := GetIntRegistryValue%(key$, "T2SuccessRewardSize", ajT2SuccessRewardSize%);
+    ajCatchTrialPct := GetFloatRegistryValue(key$, "CatchTrialPct", ajCatchTrialPct);
+    ajAlternateCueTypeByBlock% := GetIntRegistryValue%(key$, "AlternateCueTypeByBlock", ajAlternateCueTypeByBlock%);
+    ajContrastBase% := GetIntRegistryValue%(key$, "BaseContrast", ajContrastBase%);
+    ajContrastUp% := GetIntRegistryValue%(key$, "UpContrast", ajContrastUp%);
+    ajUseCueCircles% := GetIntRegistryValue%(key$, "UseCueCircles", ajUseCueCircles%);
+    ajHoldFixation1Time := GetFloatRegistryValue(key$, "HoldFixation1Time", ajHoldFixation1Time);
+    ajHoldFixation2Time := GetFloatRegistryValue(key$, "HoldFixation2Time", ajHoldFixation2Time);
+    ajHoldFixation3Time := GetFloatRegistryValue(key$, "HoldFixation3Time", ajHoldFixation3Time);
+    ajHoldFixationTime := GetFloatRegistryValue(key$, "HoldFixationTime", ajHoldFixationTime);
+    ajHazardTimeMin := GetFloatRegistryValue(key$, "HazardTimeMin", ajHazardTimeMin);
+    ajHazardTimeMean := GetFloatRegistryValue(key$, "HazardTimeMean", ajHazardTimeMean);
+    ajHazardTimeMax := GetFloatRegistryValue(key$, "HazardTimeMax", ajHazardTimeMax);
+	ajMaxWaitForReadyTime := GetFloatRegistryValue(key$, "MaxWaitForReadyTime", ajMaxWaitForReadyTime);
+    ajReadyFailPauseTime := GetFloatRegistryValue(key$, "ReadyFailPauseTime", ajReadyFailPauseTime);
+    ajReadyBreakPauseTime := GetFloatRegistryValue(key$, "ReadyBreakPauseTime", ajReadyBreakPauseTime);
+    ajT1SuccessPauseTime := GetFloatRegistryValue(key$, "T1SuccessPauseTime", ajT1SuccessPauseTime);
+    ajT2SuccessPauseTime :=  GetFloatRegistryValue(key$, "T2SuccessPauseTime", ajT2SuccessPauseTime);
+    ajMaxAcquisitionTime := GetFloatRegistryValue(key$, "MaxAcquisitionTime", ajMaxAcquisitionTime);
+    ajAcquisitionFailPauseTime := GetFloatRegistryValue(key$, "AcquisitionFailPauseTime", ajAcquisitionFailPauseTime);
+    ajMaxResponseTime := GetFloatRegistryValue(key$, "MaxResponseTime", ajMaxResponseTime);
+    ajCorrectResponsePauseTime := GetFloatRegistryValue(key$, "CorrectResponsePauseTime", ajCorrectResponsePauseTime);
+    ajIncorrectResponsePauseTime := GetFloatRegistryValue(key$, "IncorrectResponsePauseTime", ajIncorrectResponsePauseTime);
 end
 
 proc SaveAttaJoyParameters()
     var key$;
     var stmp$;
     key$ := GetRegistryKey$(1) + "\\AttaJoy";
+    SetIntRegistryValue(key$, "NBlocks", ajNBlocks%);
+    SetIntRegistryValue(key$, "NTrialsEachTypePerBlock", ajNTrialsEachTypePerBlock%);
+    SetIntRegistryValue(key$, "DoReadyTraining", ajDoReadyTraining%);
+    SetIntRegistryValue(key$, "T1SuccessRewardSize", ajT1SuccessRewardSize%);
+    SetIntRegistryValue(key$, "DoReadyFixTraining", ajDoReadyFixTraining%);
+    SetIntRegistryValue(key$, "T2SuccessRewardSize", ajT2SuccessRewardSize%);
+    SetFloatRegistryValue(key$, "CatchTrialPct", ajCatchTrialPct);
+    SetIntRegistryValue(key$, "AlternateCueTypeByBlock", ajAlternateCueTypeByBlock%);
+    SetIntRegistryValue(key$, "BaseContrast", ajContrastBase%);
+    SetIntRegistryValue(key$, "UpContrast", ajContrastUp%);
+    SetIntRegistryValue(key$, "UseCueCircles", ajUseCueCircles%);
+    SetFloatRegistryValue(key$, "HoldFixation1Time", ajHoldFixation1Time);
+    SetFloatRegistryValue(key$, "HoldFixation2Time", ajHoldFixation2Time);
+    SetFloatRegistryValue(key$, "HoldFixation3Time", ajHoldFixation3Time);
+    SetFloatRegistryValue(key$, "HoldFixationTime", ajHoldFixationTime);
+    SetFloatRegistryValue(key$, "HazardTimeMin", ajHazardTimeMin);
+    SetFloatRegistryValue(key$, "HazardTimeMean", ajHazardTimeMean);
+    SetFloatRegistryValue(key$, "HazardTimeMax", ajHazardTimeMax);
+	SetFloatRegistryValue(key$, "MaxWaitForReadyTime", ajMaxWaitForReadyTime);
+    SetFloatRegistryValue(key$, "ReadyFailPauseTime", ajReadyFailPauseTime);
+    SetFloatRegistryValue(key$, "ReadyBreakPauseTime", ajReadyBreakPauseTime);
+    SetFloatRegistryValue(key$, "T1SuccessPauseTime", ajT1SuccessPauseTime);
+    SetFloatRegistryValue(key$, "T2SuccessPauseTime", ajT2SuccessPauseTime);
+    SetFloatRegistryValue(key$, "MaxAcquisitionTime", ajMaxAcquisitionTime);
+    SetFloatRegistryValue(key$, "AcquisitionFailPauseTime", ajAcquisitionFailPauseTime);
+    SetFloatRegistryValue(key$, "MaxResponseTime", ajMaxResponseTime);
+    SetFloatRegistryValue(key$, "CorrectResponsePauseTime", ajCorrectResponsePauseTime);
+    SetFloatRegistryValue(key$, "IncorrectResponsePauseTime", ajIncorrectResponsePauseTime);
 end
 
 
 func Looking%(x, y)
 	'Determine if the eye position is within the fixation window
-	if (Pow(x-FixationX, 2) + Pow(y-FixationY, 2)) <= Pow(WindowRadius, 2) then 
-        return 1; 
+    var s% := 0;
+    docase
+    case ajAlwaysLooking% = 1 then
+        s% := 1;
+    case (Pow(x-FixationX, 2) + Pow(y-FixationY, 2)) <= Pow(WindowRadius, 2) then 
+        s% := 1; 
     else 
-        return 0; 
-    endif
+        s% := 0; 
+    endcase
+    return s%;
+end;
+
+proc UpdateToolbarText()
+
+	var s$;
+    docase 
+    case ajDoReadyTraining% = 1 then
+        s$ := Print$("Ready training: Ready/Total = %d/%d", ajCtrNTrialsReady%, ajCtrNTrials%);
+    case ajDoReadyFixTraining% = 1 then
+        s$ := Print$("Rdy/Fix training: Fix/Total = %d/%d", ajCtrNTrialsFix%, ajCtrNTrials%);        
+    else
+        s$ := "UpdateToolbarText N.I.";
+    endcase
+
+	ToolbarText(s$);
+
 end;
