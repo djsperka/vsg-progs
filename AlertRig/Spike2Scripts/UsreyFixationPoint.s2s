@@ -6,7 +6,7 @@
 '
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
-
+#include "../../Spike2Util/RigName.s2s"
 
 var WindowRadius;
 var FixationX, FixationY;
@@ -16,10 +16,18 @@ var FixationDiameter;
 var FixationColorList$[3]; 
 var FixationArg$;
 
+
+GetFixationPointParameters();
+
+
+func GetFixationArg$()
+    return FixationArg$;
+end
+
 proc GetFixationPointParameters()
 	var stmp$;
 	var key$;
-	key$ := thisRigName$ + "\\" + GetCurrentConfiguration$() + "\\FixationPoint";
+	key$ := GetRigName$() + "\\" + GetCurrentConfiguration$() + "\\FixationPoint";
 	Profile(key$, "WindowRadius", "1", stmp$);
 	WindowRadius := val(stmp$);
 
@@ -44,7 +52,7 @@ end;
 
 proc SaveFixationPointParameters()
 	var key$;
-	key$ := thisRigName$ + "\\" + GetCurrentConfiguration$() + "\\FixationPoint";
+	key$ := GetRigName$() + "\\" + GetCurrentConfiguration$() + "\\FixationPoint";
 	Profile(key$, "WindowRadius", str$(WindowRadius));
 	Profile(key$, "FixationX", str$(FixationX));
 	Profile(key$, "FixationY", str$(FixationY));
