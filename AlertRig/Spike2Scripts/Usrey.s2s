@@ -1,4 +1,4 @@
-' $Id: Usrey.s2s,v 1.4 2010-02-12 22:25:19 devel Exp $
+' $Id: Usrey.s2s,v 1.5 2010-02-18 00:16:05 devel Exp $
 
 #include "../../Spike2Util/Directories.s2s"
 #include "../../Spike2Util/RigName.s2s"
@@ -369,35 +369,25 @@ end
 '
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
-func GetFloatRegistryValue(key$, name$)
+func GetFloatRegistryValue(key$, name$, defaultValue)
     var stmp$;
     var f;
-    var dummy$ := "-999999.999";
-    Profile(key$, name$, stmp$, dummy$);
-    if stmp$ = dummy$ then
-        LogError("", "Registry key/name \"" + key$ + "\"/\"" + name$ + "\" not found!");
-    endif
+    var dummy$;
+    dummy$ := str$(defaultValue);
+    Profile(key$, name$, dummy$, stmp$);
     f := val(stmp$);
     return f;
 end
 
-func GetIntRegistryValue%(key$, name$)
+func GetIntRegistryValue%(key$, name$, defaultValue%)
     var i%;
-    var idummy% := -999999;
-    Profile(key$, name$, i%, idummy%);
-    if i% = idummy% then
-        LogError("", "Registry key/name \"" + key$ + "\"/\"" + name$ + "\" not found!");
-    endif
+    Profile(key$, name$, defaultValue%, i%);
     return i%;
 end
 
-func GetStringRegistryValue$(key$, name$)
+func GetStringRegistryValue$(key$, name$, defaultValue$)
     var stmp$;
-    var dummy$ := "NO_VALUE";
-    Profile(key$, name$, stmp$, dummy$);
-    if stmp$ = dummy$ then
-        LogError("", "Registry key/name \"" + key$ + "\"/\"" + name$ + "\" not found!");
-    endif
+    Profile(key$, name$, defaultValue$, stmp$);
     return stmp$;
 end
 
