@@ -35,7 +35,7 @@ var ajMaxResponseTime := 2.0;
 var ajCorrectResponsePauseTime := 1.0;
 var ajIncorrectResponsePauseTime := 1.0;
 var ajCorrectResponseRewardSize% := 1;
-var ajUseBeep% := 1;
+var ajUseBeep% := 0;
 var ajContrastBase% := 75;
 var ajContrastUp% := 100;
 var ajContrastDown% := 50;
@@ -801,7 +801,6 @@ func IdleProcessing%()
         case iState% = stateWaitForResponse% then
             
             iLoop% := 0;
-            tbgTrialIndexCompleted(ajTrialTypeIndex%);
             docase
                 
                 ' TODO Check with Marty!
@@ -824,15 +823,18 @@ func IdleProcessing%()
             
             iLoop% := 0;
             ajCtrCorrect% += 1;
+            tbgTrialIndexCompleted(ajTrialTypeIndex%);
+            SampleKey("X");
+            Yield();
             DeliverReward(ajCorrectResponseRewardSize%);
             ajUniversalIntertrialTime := ajCorrectResponsePauseTime;
-            SampleKey("X");
             ChangeStateTo(stateWaitForFixptOff%, tNow);
             
         case iState% = stateIncorrectResponse% then
             
             iLoop% := 0;
             ajCtrIncorrect% += 1;
+            tbgTrialIndexCompleted(ajTrialTypeIndex%);
             ajUniversalIntertrialTime := ajIncorrectResponsePauseTime;
             SampleKey("X");
             ChangeStateTo(stateWaitForFixptOff%, tNow);
@@ -959,6 +961,9 @@ func Start%()
     if ajUseCueCircles% = 1 then
         extra$ += " -Q -c 0.5";
     endif
+    if ajShowSingleStim% = 1 then
+        extra$ += " -S";
+    endif
     
     ' Generate command line
     cmdLine$ := "cmd /k " + GetBinDir$(1) + "Attention " + fixSpec$ + extra$ + " -s " + stimSpec$ + " -g " + distSpec$;
@@ -1016,9 +1021,8 @@ func PrepareTrial%()
     var index%;
     var s% := 1;
     
-    ' TODO
-    LogInfo("Preparing trial...");
     s% := tbgGetTrialIndex%(ajTrialTypeIndex%);
+    LogInfo("Preparing trial... index " + str$(ajTrialTypeIndex%) + " s=" + str$(s%));
     ajIsCatchTrial% := 0;
     if s% = 1 and ajDoReadyTraining% = 0 and ajDoReadyFixTraining% = 0 then
             
@@ -1029,7 +1033,7 @@ func PrepareTrial%()
         
         
         ' Catch trial?
-        if ajCatchTrialPct > 0 and Rand()*100 < ajCatchTrialPct then
+        if ajShowSingleStim% = 0 and ajCatchTrialPct > 0 and Rand()*100 < ajCatchTrialPct then
             ajIsCatchTrial% := 1;
             LogInfo("Catch trial!");
         else
