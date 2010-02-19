@@ -1,0 +1,50 @@
+#include "GratingUtilities.s2s"
+
+var x, y, w, h, sf, tf, ori;
+var contrast%;
+var label$, param$, cv$, pattern$, aperture$;
+var i%;
+var disable%[11];
+var ndisable%;
+
+' Test with empty param$, nothing disabled. 
+ArrConst(disable%[], 0);
+ndisable% := 0;
+param$ := "";
+label$ := "FIRST TEST";
+i% := GratingParametersDialog%(label$, param$, disable%[], ndisable%, x, y, w, h, contrast%, sf, tf, ori, cv$, pattern$, aperture$);
+
+if i% = 1 then
+    PrintLog("Param string: %s\n", param$);
+    PrintLog("(x, y) = (%.1f, %.1f)\n", x, y);
+    PrintLog("(w, h) = (%.1f, %.1f)\n", w, h);
+    PrintLog("Contrast = %d%%\n", contrast%);
+    PrintLog("Spatial Freq = %.2f\n", sf);
+    PrintLog("Temporal Freq = %.2f\n", tf);
+    PrintLog("Orientation = %.1f\n", ori);
+    PrintLog("Color Vector = %s\n", cv$);
+    PrintLog("Pattern = %s\n", pattern$);
+    PrintLog("Aperture = %s\n", aperture$);
+    
+    ' Now try again, this time using the last result as the input string. The dialog should show with 
+    ' those values already selected, but with x, y, contrast disabled. 
+    ndisable% := 3;
+    disable%[0] := 1;
+    disable%[1] := 2;
+    disable%[2] := 5;
+    
+    label$ := "SECOND TEST";
+    i% := GratingParametersDialog%(label$, param$, disable%[], ndisable%, x, y, w, h, contrast%, sf, tf, ori, cv$, pattern$, aperture$);
+    if i% = 1 then
+        PrintLog("Param string: %s\n", param$);
+        PrintLog("(x, y) = (%.1f, %.1f)\n", x, y);
+        PrintLog("(w, h) = (%.1f, %.1f)\n", w, h);
+        PrintLog("Contrast = %d%%\n", contrast%);
+        PrintLog("Spatial Freq = %.2f\n", sf);
+        PrintLog("Temporal Freq = %.2f\n", tf);
+        PrintLog("Orientation = %.1f\n", ori);
+        PrintLog("Color Vector = %s\n", cv$);
+        PrintLog("Pattern = %s\n", pattern$);
+        PrintLog("Aperture = %s\n", aperture$);
+    endif
+endif
