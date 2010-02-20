@@ -26,7 +26,6 @@ var ajHoldFixation2Time := 1.0;
 var ajHoldFixation3Time := 1.0;
 var ajFixationBreakPauseTime := 1.0;
 var ajAcquisitionFailPauseTime := 1.0;
-var ajTrainingRewardSize% := 1;
 var ajTrainingSuccessPauseTime := 1.0;
 var ajHazardTimeMin := 1.0;
 var ajHazardTimeMean := 1.5;
@@ -34,8 +33,8 @@ var ajHazardTimeMax := 2.0;
 var ajMaxResponseTime := 2.0;
 var ajCorrectResponsePauseTime := 1.0;
 var ajIncorrectResponsePauseTime := 1.0;
-var ajCorrectResponseRewardSize% := 1;
-var ajUseBeep% := 0;
+var ajRewardSize% := 1;
+var ajUseBeep% := 1;
 var ajContrastBase% := 75;
 var ajContrastUp% := 100;
 var ajContrastDown% := 50;
@@ -531,7 +530,7 @@ func IdleProcessing%()
             
         case iState% = stateT1Success% then
             
-            DeliverReward(ajTrainingRewardSize%);
+            DeliverReward(ajRewardSize%);
             ajUniversalIntertrialTime := ajTrainingSuccessPauseTime;
             tbgTrialIndexCompleted(ajTrialTypeIndex%);
             ChangeStateTo(stateIntertrialWait%, tNow);
@@ -622,7 +621,7 @@ func IdleProcessing%()
             SampleKey("X");
             Yield();
             tbgTrialIndexCompleted(ajTrialTypeIndex%);
-            DeliverReward(ajTrainingRewardSize%);
+            DeliverReward(ajRewardSize%);
             ajUniversalIntertrialTime := ajTrainingSuccessPauseTime;
             ChangeStateTo(stateWaitForFixptOff%, tNow);
             iLoop% := 0;
@@ -776,7 +775,7 @@ func IdleProcessing%()
             SampleKey("X");
             Yield();
             tbgTrialIndexCompleted(ajTrialTypeIndex%);
-            DeliverReward(ajTrainingRewardSize%);
+            DeliverReward(ajRewardSize%);
             ajUniversalIntertrialTime := ajTrainingSuccessPauseTime;
             ChangeStateTo(stateWaitForFixptOff%, tNow);
             iLoop% := 0;
@@ -826,7 +825,7 @@ func IdleProcessing%()
             tbgTrialIndexCompleted(ajTrialTypeIndex%);
             SampleKey("X");
             Yield();
-            DeliverReward(ajCorrectResponseRewardSize%);
+            DeliverReward(ajRewardSize%);
             ajUniversalIntertrialTime := ajCorrectResponsePauseTime;
             ChangeStateTo(stateWaitForFixptOff%, tNow);
             
@@ -1065,7 +1064,7 @@ func AttaJoyDialog%()
     DlgCheck(4, "Ready training", 2, 5);
     DlgCheck(5, "Rdy/fix training", 2, 6);
     DlgCheck(6, "Rdy/fix/stim training", 2, 7);
-	DlgInteger(7, "Training reward:", 1, 1000, 20, 8);
+	DlgInteger(7, "Reward size:", 1, 1000, 20, 8);
 	DlgReal(8, "Catch Trial pct (0-100)", 0, 100, 20, 9);
 	DlgCheck(9, "Show Single Stim", 2, 10);
 	DlgCheck(10, "Alternate cue type by block", 2, 11);
@@ -1087,7 +1086,7 @@ func AttaJoyDialog%()
 
     status% := DlgShow(ajNBlocks%, ajNTrialsEachTypePerBlock%, ajTrialTypesListIndex%, 
                        ajDoReadyTraining%, ajDoReadyFixTraining%,
-                       ajDoReadyFixStimTraining%, ajTrainingRewardSize%,
+                       ajDoReadyFixStimTraining%, ajRewardSize%,
                        ajCatchTrialPct, ajShowSingleStim%, ajAlternateCueTypeByBlock%, 
                        ajContrastBase%, ajContrastUp%,
                        ajUseCueCircles%, ajHoldFixation1Time, ajHoldFixation2Time, ajHoldFixation3Time,
@@ -1111,19 +1110,16 @@ func AttaJoyDialogChanged%(item%)
         if DlgValue(4) = 1 then
             DlgValue(5, 0);
             DlgValue(6, 0);
-            DlgEnable(1, 7);
         endif
     case item% = 5 then
         if DlgValue(5) = 1 then
             DlgValue(4, 0);
             DlgValue(6, 0);
-            DlgEnable(1, 7);
         endif
     case item% = 6 then
         if DlgValue(6) = 1 then
             DlgValue(4, 0);
             DlgValue(5, 0);
-            DlgEnable(1, 7);
         endif
     case item% = 13 then
         DlgEnable(DlgValue(13), 14);
@@ -1131,11 +1127,6 @@ func AttaJoyDialogChanged%(item%)
         DlgEnable(DlgValue(13), 16);
         DlgEnable(1-DlgValue(13), 17);
     case item% = 0 then
-        if ajDoReadyTraining% = 1 or ajDoReadyFixTraining% = 1 or ajDoReadyFixStimTraining% = 1 then
-            DlgEnable(1, 7);
-        else
-            DlgEnable(0, 7);
-        endif
         DlgEnable(ajUseCueCircles%, 14);
         DlgEnable(ajUseCueCircles%, 15);
         DlgEnable(ajUseCueCircles%, 16);
@@ -1176,7 +1167,7 @@ proc GetAttaJoyParameters()
     ajDoReadyTraining% := GetIntRegistryValue%(key$, "DoReadyTraining", ajDoReadyTraining%);
     ajDoReadyFixTraining% := GetIntRegistryValue%(key$, "DoReadyFixTraining", ajDoReadyFixTraining%);
     ajDoReadyFixStimTraining% := GetIntRegistryValue%(key$, "DoReadyFixStimTraining", ajDoReadyFixStimTraining%);
-    ajTrainingRewardSize% := GetIntRegistryValue%(key$, "TrainingRewardSize", ajTrainingRewardSize%);
+    ajRewardSize% := GetIntRegistryValue%(key$, "RewardSize", ajRewardSize%);
     ajCatchTrialPct := GetFloatRegistryValue(key$, "CatchTrialPct", ajCatchTrialPct);
     ajShowSingleStim% := GetIntRegistryValue%(key$, "ShowSingleStim", ajShowSingleStim%);
     ajAlternateCueTypeByBlock% := GetIntRegistryValue%(key$, "AlternateCueTypeByBlock", ajAlternateCueTypeByBlock%);
@@ -1212,7 +1203,7 @@ proc SaveAttaJoyParameters()
     SetIntRegistryValue(key$, "DoReadyTraining", ajDoReadyTraining%);
     SetIntRegistryValue(key$, "DoReadyFixTraining", ajDoReadyFixTraining%);
     SetIntRegistryValue(key$, "DoReadyFixStimTraining", ajDoReadyFixStimTraining%);
-    SetIntRegistryValue(key$, "TrainingRewardSize", ajTrainingRewardSize%);
+    SetIntRegistryValue(key$, "RewardSize", ajRewardSize%);
     SetFloatRegistryValue(key$, "CatchTrialPct", ajCatchTrialPct);
     SetIntRegistryValue(key$, "ShowSingleStim", ajShowSingleStim%);
     SetIntRegistryValue(key$, "AlternateCueTypeByBlock", ajAlternateCueTypeByBlock%);
