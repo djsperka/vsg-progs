@@ -193,6 +193,7 @@ int init_pages()
 	int status=0;
 	int islice=50;
 	ContrastTrigger *ptrig = NULL;
+	CallbackTrigger *pcall = NULL;
 
 	// initialize video pages
 	if (ARvsg::instance().init_video())
@@ -210,17 +211,12 @@ int init_pages()
 	m_gratings[1]->draw(true);
 	m_gratings[1]->setContrast(0);
 
-
-	// trigger to turn stim, distractor and answer points ON
-	triggers.addTrigger(new CallbackTrigger("S", 0x8, 0x8, 0x2, 0x2, callback));
-
-
 	// trigger to turn stim 0/1 on
 	triggers.addTrigger(new CallbackTrigger("0", 0x6, 0x2, 0x2, 0x2, callback));
 	triggers.addTrigger(new CallbackTrigger("1", 0x6, 0x4, 0x2, 0x2, callback));
 
 	// trigger to toggle 0/1 contrast
-	triggers.addTrigger(new CallbackTrigger("z", 0x8, 0x8 & AR_TRIGGER_TOGGLE, 0x4, 0x4 & AR_TRIGGER_TOGGLE, callback));
+	triggers.addTrigger(new CallbackTrigger("z", 0x8, 0x8|AR_TRIGGER_TOGGLE, 0x4, 0x4|AR_TRIGGER_TOGGLE, callback));
 
 	// trigger to turn stim OFF
 	triggers.addTrigger(new CallbackTrigger("X", 0x6, 0x0, 0x2, 0x0, callback));

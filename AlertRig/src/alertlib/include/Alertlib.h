@@ -283,7 +283,7 @@ namespace alert
 	class Trigger
 	{
 	public:
-		Trigger(std::string i_key, int i_in_mask, int i_in_val, int i_out_mask, int i_out_val) 
+		Trigger(std::string i_key, int i_in_mask, int i_in_val, int i_out_mask, int i_out_val)
 		{
 			m_key = i_key;
 			m_in_mask = i_in_mask;
@@ -307,7 +307,7 @@ namespace alert
 			// Check if the input value will be toggled
 			if (i_in_val & AR_TRIGGER_TOGGLE)
 			{
-//				std::cout << "TOGGLE(input) " << m_key << " in_val " << i_in_val << std::endl;
+//				std::cout << "Trigger(" << m_key << ")" << " TOGGLE(input) " << m_key << " in_val " << i_in_val << std::endl;
 				m_btoggleIn = true;
 				m_in_val = i_in_val & ~(AR_TRIGGER_TOGGLE);
 //				m_in_last = ~m_in_val & m_in_mask;
@@ -356,6 +356,7 @@ namespace alert
 					bValue = true;
 					m_in_last = current;	// Note that the last value is saved only if a toggled trigger
 				}
+//				std::cout << "Trigger(" << m_key << ")" <<  std::hex << " input " << input << " m_in_mask=" << m_in_mask << " m_in_val=" << m_in_val << " current=" << current << " last=" << m_in_last << " bval=" << bValue << std::endl;
 			}
 //			if (bValue) std::cerr << "Trigger(" << m_key << ")" << std::hex << " input " << input << " m_in_mask=" << m_in_mask << " m_in_val=" << m_in_val << " current=" << current << " bval=" << bValue << std::endl;
 			return bValue;
