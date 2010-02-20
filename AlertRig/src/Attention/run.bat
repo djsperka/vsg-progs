@@ -9,4 +9,7 @@ rem ..\..\bin\Attention -a -f 0,0,.5,red -d 555 -b gray -s 3,-4,3,3,100,.2,1,90,
 rem ..\..\bin\Attention -a -f 0,0,0.25,red -b gray -d 850 -A 5 -D 0.5 -g 3.5,2.3,1.0,1.0,20,0.50,4.00,180.0,b,s,e -s -3.5,-2.3,1.0,1.0,50,0.50,4.00,180.0,b,s,e -t 50,100,12
 
 rem this uses cue circles
-..\..\bin\Attention -a -f 0,0,.5,red -d 555 -b gray -s 3,-4,3,3,100,.2,1,90,b,s,e -g 3,4,3,3,100,.2,1,90,b,s,e -t 20,50,100 -N -Q -c 0.5
+rem ..\..\bin\Attention -a -f 0,0,.5,red -d 555 -b gray -s 3,-4,3,3,100,.2,1,90,b,s,e -g 3,4,3,3,100,.2,1,90,b,s,e -t 20,50,100 -N -Q -c 0.5
+
+rem this uses cue circles and single stim
+..\..\bin\Attention -a -f 0,0,.5,red -d 555 -b gray -s 3,-4,3,3,100,.2,1,90,b,s,e -g 3,4,3,3,100,.2,1,90,b,s,e -t 20,50,100 -S -N -Q -c 0.5

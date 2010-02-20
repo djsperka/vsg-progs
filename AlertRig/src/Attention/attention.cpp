@@ -58,7 +58,7 @@ bool m_bFStimulus;
 bool m_bNoAnswerPoints = false;
 int m_imageCount = 0;
 bool m_bCueCircles = false;
-
+bool m_bSingleStim = false;
 
 
 
@@ -189,7 +189,7 @@ int args(int argc, char **argv)
 	extern int optind;
 	int errflg = 0;
 	ARGratingSpec agtemp;
-	while ((c = getopt(argc, argv, "f:b:g:hd:vas:t:A:D:T:c:l:p:P:LG:NQ")) != -1)
+	while ((c = getopt(argc, argv, "f:b:g:hd:vas:t:A:D:T:c:l:p:P:LG:NQS")) != -1)
 	{
 		switch (c) 
 		{
@@ -303,6 +303,9 @@ int args(int argc, char **argv)
 		case 'Q':
 			m_bCueCircles = true;
 			break;
+		case 'S':
+			m_bSingleStim = true;
+			break;
 		case 'h':
 			errflg++;
 			break;
@@ -410,12 +413,20 @@ int callback(int &output, const CallbackTrigger* ptrig)
 #if DONT_USE_CV_CODE
 
 		// ignoring training contrast for now. 
-		m_spec_stimulus.draw(true);
-		m_spec_stimulus.setContrast(m_iContrastBase);
+
+		if ((m_bFStimulus && m_bSingleStim) || !m_bSingleStim)
+		{
+			m_spec_stimulus.draw(true);
+			m_spec_stimulus.setContrast(m_iContrastBase);
+		}
 //		m_spec_stimulus.select();
 //		vsgObjSetSpatialPhase(0);
-		m_spec_distractor.draw(true);
-		m_spec_distractor.setContrast(m_iContrastBase);
+
+		if ((!m_bFStimulus && m_bSingleStim) || !m_bSingleStim)
+		{
+			m_spec_distractor.draw(true);
+			m_spec_distractor.setContrast(m_iContrastBase);
+		}
 //		m_spec_distractor.select();
 //		vsgObjSetSpatialPhase(0);
 
@@ -617,6 +628,54 @@ int callback(int &output, const CallbackTrigger* ptrig)
 			else m_spec_dist_circle.setContrast(0);
 		}
 	}
+	else if (key == "C")
+	{
+		if (!m_bSingleStim || (m_bSingleStim && m_bFStimulus))
+		{
+			m_spec_stimulus.setContrast(m_iContrastUp);
+		}
+
+		if (m_bSingleStim && !m_bFStimulus)
+		{
+			cerr << endl << "Warning! In single stim mode (-S), cannot change contrast of non-cued stimulus!" << endl << endl;
+		}
+	}
+	else if (key == "c")
+	{
+		if (!m_bSingleStim || (m_bSingleStim && m_bFStimulus))
+		{
+			m_spec_stimulus.setContrast(m_iContrastDown);
+		}
+
+		if (m_bSingleStim && !m_bFStimulus)
+		{
+			cerr << endl << "Warning! In single stim mode (-S), cannot change contrast of non-cued stimulus!" << endl << endl;
+		}
+	}
+	else if (key == "D")
+	{
+		if (!m_bSingleStim || (m_bSingleStim && !m_bFStimulus))
+		{
+			m_spec_distractor.setContrast(m_iContrastUp);
+		}
+
+		if (m_bSingleStim && m_bFStimulus)
+		{
+			cerr << endl << "Warning! In single stim mode (-S), cannot change contrast of non-cued stimulus!" << endl << endl;
+		}
+	}
+	else if (key == "d")
+	{
+		if (!m_bSingleStim || (m_bSingleStim && !m_bFStimulus))
+		{
+			m_spec_distractor.setContrast(m_iContrastDown);
+		}
+
+		if (m_bSingleStim && m_bFStimulus)
+		{
+			cerr << endl << "Warning! In single stim mode (-S), cannot change contrast of non-cued stimulus!" << endl << endl;
+		}
+	}
 	else if (key == "i")
 	{
 		char filename[256];
@@ -802,20 +861,23 @@ int init_pages()
 	if (!m_bCueCircles)
 	{
 		vecInputs.push_back(std::pair< string, int>("F", 0x2));
-		vecInputs.push_back(std::pair< string, int>("X", 0x16));
+		//vecInputs.push_back(std::pair< string, int>("X", 0x16));
 		vecInputs.push_back(std::pair< string, int>("G", 0x4));
 		vecInputs.push_back(std::pair< string, int>("W", 0x10));
 		triggers.push_back(new MultiInputSingleOutputCallbackTrigger(vecInputs, 0x16, 0x1, 0x1 | AR_TRIGGER_TOGGLE, callback));
+		// trigger to turn stim, distractor, answer points and fixation point OFF
+		triggers.addTrigger(new CallbackTrigger("X", 0x16, 0x16, 0xa, 0x0, callback));
 	}
 	else
 	{
 		vecInputs.push_back(std::pair< string, int>("F", 0x2));
 		vecInputs.push_back(std::pair< string, int>("G", 0x4));
-		vecInputs.push_back(std::pair< string, int>("X", 0x6));
-		triggers.push_back(new MultiInputSingleOutputCallbackTrigger(vecInputs, 0x6, 0x1, 0x1 | AR_TRIGGER_TOGGLE, callback));
+		//vecInputs.push_back(std::pair< string, int>("X", 0x6));
+		triggers.push_back(new MultiInputSingleOutputCallbackTrigger(vecInputs, 0x6, 0x1, 0x1, callback));
 
 		triggers.addTrigger(new CallbackTrigger("W", 0x10, 0x10, 0x4, 0x4, callback));
 		triggers.addTrigger(new CallbackTrigger("w", 0x10, 0x0, 0x4, 0x0, callback));
+		triggers.addTrigger(new CallbackTrigger("X", 0x6, 0x6, 0xf, 0x0, callback));
 	}	
 
 
@@ -826,7 +888,9 @@ int init_pages()
 	triggers.addTrigger(new CallbackTrigger("s", 0x8, 0x0, 0x2, 0x0, callback));
 
 	// trigger to turn stim, distractor, answer points and fixation point OFF
-//	triggers.addTrigger(new CallbackTrigger("X", 0x16, 0x16, 0xa, 0x0, callback));
+	//triggers.addTrigger(new CallbackTrigger("X", 0x16, 0x16, 0xa, 0x0, callback));
+
+#if 0
 
 	// trigger to turn stim contrast UP
 	ptrigStimUP = new ContrastTrigger("C", 0xe0, 0x20, 0x8, 0x8);
@@ -847,6 +911,16 @@ int init_pages()
 	ptrigDistractorDOWN = new ContrastTrigger("d", 0xe0, 0x80, 0x8, 0x8);
 	ptrigDistractorDOWN->push_back( std::pair<VSGOBJHANDLE, int>(m_spec_distractor.handle(), m_iContrastDown) );
 	triggers.addTrigger(ptrigDistractorDOWN);
+#endif
+
+	// Triggers for contrast change. These were ContrastTriggers, but changed them to callback triggers when 
+	// adding "SingleStim" option. When using SingleStim I want to be able to guard against the WRONG contrast
+	// change trigger being issued - that would cause the non-displayed stim to suddenly appear when its 
+	// contrast is changed. 
+	triggers.addTrigger(new CallbackTrigger("C", 0xe0, 0x20, 0x8, 0x8, callback));
+	triggers.addTrigger(new CallbackTrigger("c", 0xe0, 0x40, 0x8, 0x8, callback));
+	triggers.addTrigger(new CallbackTrigger("D", 0xe0, 0x60, 0x8, 0x8, callback));
+	triggers.addTrigger(new CallbackTrigger("d", 0xe0, 0x80, 0x8, 0x8, callback));
 
 	// Image trigger. Will only work with ascii triggers (i.e. keyboard). 
 	triggers.addTrigger(new CallbackTrigger("i", 0x0, 0x0, 0x0, 0x0, callback));
