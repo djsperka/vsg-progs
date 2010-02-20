@@ -1,4 +1,5 @@
 #include "../../Spike2Util/TrialBlockGen.s2s"
+#include "../../Spike2Util/ChannelUtilities.s2s"
 #include "Usrey.s2s"
 #include "UsreyGratings.s2s"
 #include "Joystick.s2s"
@@ -20,6 +21,9 @@ var rivMaxStimWaitTime := 1.5;
 var rivMaxStimTime := 3.0;
 var rivResponseCorrectRewardSize% := 3;
 var rivMaintainResponseRewardSize% := 1;
+var rivSwapMinTime := 2;
+var rivSwapMaxTime := 4;
+var rivSwapMaxResponseTime := 2.0;
 var rivMaintainResponseRewardWait := .5;
 var rivUseBeep% := 1;
 var rivCorrectionTrials% := 0;
@@ -52,6 +56,7 @@ var rivChanJoy%     := 13;
 
 var rivChanVSGReady%    :=  20;
 var rivChanVSGStim%     :=  21;
+var rivChanVSGSwap%     :=  22;
 
 ' windows
 
@@ -83,6 +88,7 @@ var rivIncorrectResponse%;
 var rivTStartStim;                  ' time at which stim is presented
 var rivTLastReward;                 ' time at which last reward was delivered - for maintainence rewards
 var rivUniversalIntertrialTime;     ' time to wait between trials
+var rivSwapTime;                    ' time to hold between stim swaps
 
 ' States - these constants define a particular state
 
@@ -108,6 +114,10 @@ const stateVSGWait%             :=  19;
 const stateVSGConfirm%          :=  20;
 const stateTrialCompleted%      :=  21;
 const stateReadyHold%           :=  22;
+const stateWaitForSwap%         :=  23;
+const stateWaitForSwapResponse% :=  24;
+const stateCorrectSwapResponse% :=  25;
+const stateNoSwapResponse%      :=  26;
 
 var iState% := stateStartup%;              ' This holds the current state
 
@@ -134,6 +144,12 @@ tbgInit(2, rivNTrialsEachTypePerBlock%, rivNBlocks%);
 
 
 if RivalryDialog%() = 0 then
+    halt;
+endif
+
+' Stupid checks
+if rivSwapMaxTime < rivSwapMinTime then
+    Message("Duh! Swap max time must be greater than swap min time!");
     halt;
 endif
 
@@ -171,6 +187,10 @@ proc CreateSampleConfiguration()
 	SampleEvent(rivChanVSGStim%, 2, 2, 3600); 'Trigger channel, level
 	SampleComment$(rivChanVSGStim%, "Stim");
 	SampleTitle$(rivChanVSGStim%, "Stim");
+    
+	SampleEvent(rivChanVSGSwap%, 3, 2, 3600); 'Trigger channel, level
+	SampleComment$(rivChanVSGSwap%, "Swap");
+	SampleTitle$(rivChanVSGSwap%, "Swap");
 	
 	SampleEvent(rivChanVSGReady%, 6, 2, 3600); 'Trigger channel, level
 	SampleComment$(rivChanVSGReady%, "VSG Ready");
@@ -516,8 +536,8 @@ func IdleProcessing%()
             
             doCorrectionTrial% := 0;
             rivCtrCorrect% += 1;
-            PrintLog("Deliver reward %d\n", rivResponseCorrectRewardSize%);
             DeliverReward(rivResponseCorrectRewardSize%);
+            UpdateSwapValues(0);
             ChangeStateTo(stateMaintainResponse%, tNow);
             iLoop% := 0;
             
@@ -550,10 +570,12 @@ func IdleProcessing%()
                 ChangeStateTo(stateWaitForStimOff%, tNow);
                 iLoop% := 0;
             case joystickPosition% = rivCorrectResponse% then
-                if  tNow - tStateStart > rivMaintainResponseRewardWait then
-                    LogStatus("stateMaintainResponse", "Maintainence reward!");
-                    DeliverReward(rivMaintainResponseRewardSize%);
-                    ChangeStateTo(stateMaintainResponse%, tNow);
+                if  tNow - tStateStart > rivSwapTime then
+                    LogStatus("stateMaintainResponse", "Request stim swap.");
+                    SampleKey("z");
+                    UpdateSwapValues(1);
+'                    DeliverReward(rivMaintainResponseRewardSize%);
+                    ChangeStateTo(stateWaitForSwap%, tNow);
                 endif
                 
                 iLoop% := 0;
@@ -562,6 +584,46 @@ func IdleProcessing%()
                 iLoop% := 0;
             endcase
             
+        case iState% = stateWaitForSwap% then
+            
+            if FindEdge%(rivChanVSGSwap%, tStateStart, tTrigger) > -1 then
+                LogStatus("stateWaitForSwap", "Swap detected.");
+                ChangeStateTo(stateWaitForSwapResponse%, tNow);
+                iLoop% := 0;
+            endif
+            
+        case iState% = stateWaitForSwapResponse% then
+            
+            ' The stim has been swapped, and the value of rivCorrectResponse has been set to the 
+            ' new stim position. We anxiously await a response.
+            
+            iLoop% := 1;
+            docase
+            case joystickPosition% = rivCorrectResponse% then
+                LogStatus("stateWaitForSwapResponse", "Correct response!");
+                ChangeStateTo(stateCorrectSwapResponse%, tNow);
+                iLoop% := 1;
+            case tNow - tStateStart > rivSwapMaxResponseTime then
+                LogStatus("stateWaitForSwapResponse", "No response!");
+                ChangeStateTo(stateNoSwapResponse%, tNow);
+                iLoop% := 1;
+            else
+                iLoop% := 0;
+            endcase
+            
+        case iState% = stateCorrectSwapResponse% then
+            
+            DeliverReward(rivMaintainResponseRewardSize%);
+            ChangeStateTo(stateMaintainResponse%, tNow);
+            iLoop% := 0;
+            
+        case iState% = stateNoSwapResponse% then
+            
+            SampleKey("X");
+            rivUniversalIntertrialTime := rivResponseBrokenWaitTime;
+            ChangeStateTo(stateWaitForStimOff%, tNow);
+            iLoop% := 0;
+
         case iState% = stateWaitForStimOff% then
             
             ' Waiting for stim signal off channel StimChannel%
@@ -704,6 +766,30 @@ func Resume%()
     LogInfo("Resume requested.");
     rivIsPaused% := 0;
     return 1;
+end
+
+' UpdateSwapValues(iUpdateCorrectResponse)
+'
+' Compute the (random) time before another stim swap. If 'UpdateCorrectResponse
+' is nonzero, also resets the correct js position. 
+
+proc UpdateSwapValues(iJS%)
+    
+    rivSwapTime := Rand(rivSwapMaxTime - rivSwapMinTime, rivSwapMinTime);
+    
+    if iJS% <> 0 then
+        docase
+        case rivCorrectResponse% = JSLeft% then
+            rivCorrectResponse% := JSRight%;
+        case rivCorrectResponse% = JSRight% then
+            rivCorrectResponse% := JSLeft%;
+        else
+            LogError("UpdateSwapValues", "ERROR! Unknown value for rivCorrectResponse (" + str$(rivCorrectResponse%) + ")");
+            rivCorrectResponse% := JSUndefined%;
+        endcase
+    endif
+    
+    return;
 end
 
 
