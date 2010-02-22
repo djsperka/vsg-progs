@@ -21,6 +21,7 @@ var rivMaxStimWaitTime := 1.5;
 var rivMaxStimTime := 3.0;
 var rivResponseCorrectRewardSize% := 3;
 var rivMaintainResponseRewardSize% := 1;
+var rivSwapRewardSize% := 2;
 var rivSwapMinTime := 2;
 var rivSwapMaxTime := 4;
 var rivSwapMaxResponseTime := 2.0;
@@ -128,6 +129,7 @@ var tLastUpdate:=-1;	' last time view was updated
 var vTrigger;		    ' set by NextTime to indicate trigger transition
 var tStateStart:=-1;	' time that present state started. Used to measure wait time, fixation time, etc. 
 var tLastTrigger:=-1;	' last trigger time. New triggers have to be greater than this
+var tLastReward := -1;
 var tTrigger:=-1;	    ' temp var for newly discovered trigger times
 var doCorrectionTrial% := 0;    ' this is set to 1 when a trial fails and correction trials were requested
 var isCorrectionTrial% := 0;    ' this is set to 1 when we are in a trial that is a correction trial
@@ -462,7 +464,7 @@ func IdleProcessing%()
             case tNow - tStateStart > rivReadyHoldTime then
                 LogStatus("stateReadyHold", "Ready hold time met.");
                 if rivReadyHoldRewardSize% > 0 then
-                    DeliverReward(rivReadyHoldRewardSize%);
+                    DeliverReward(rivReadyHoldRewardSize%, tNow);
                     Yield(.1);
                 endif
                 ChangeStateTo(stateWaitForStimUp%, tNow);
@@ -536,7 +538,7 @@ func IdleProcessing%()
             
             doCorrectionTrial% := 0;
             rivCtrCorrect% += 1;
-            DeliverReward(rivResponseCorrectRewardSize%);
+            DeliverReward(rivResponseCorrectRewardSize%, tNow);
             UpdateSwapValues(0);
             ChangeStateTo(stateMaintainResponse%, tNow);
             iLoop% := 0;
@@ -570,6 +572,12 @@ func IdleProcessing%()
                 ChangeStateTo(stateWaitForStimOff%, tNow);
                 iLoop% := 0;
             case joystickPosition% = rivCorrectResponse% then
+                
+                ' Check for maintenance reward
+                if tLastReward > 0 and tNow - tLastReward > rivMaintainResponseRewardWait then
+                    DeliverReward(rivMaintainResponseRewardSize%, tNow);
+                endif
+                
                 if  tNow - tStateStart > rivSwapTime then
                     LogStatus("stateMaintainResponse", "Request stim swap.");
                     SampleKey("z");
@@ -588,6 +596,7 @@ func IdleProcessing%()
             
             if FindEdge%(rivChanVSGSwap%, tStateStart, tTrigger) > -1 then
                 LogStatus("stateWaitForSwap", "Swap detected.");
+                DisplayStim(1);
                 ChangeStateTo(stateWaitForSwapResponse%, tNow);
                 iLoop% := 0;
             endif
@@ -613,7 +622,7 @@ func IdleProcessing%()
             
         case iState% = stateCorrectSwapResponse% then
             
-            DeliverReward(rivMaintainResponseRewardSize%);
+            DeliverReward(rivSwapRewardSize%, tNow);
             ChangeStateTo(stateMaintainResponse%, tNow);
             iLoop% := 0;
             
@@ -678,14 +687,15 @@ proc ChangeStateTo(stateTo%, tStart)
 	if tStart > 0 then tStateStart := tStart; endif;
 end;
 
-proc DeliverReward(iNumRewards%)
+proc DeliverReward(iNumRewards%, t)
+    tLastReward := t;
     SampleSeqVar(1, iNumRewards%);
     SampleKey("R");
     return;
 end
 
 func Reward%()
-    DeliverReward(1);
+    DeliverReward(1, -1);
     return 1;
 end
 
@@ -849,27 +859,31 @@ func RivalryDialog%()
     var i%;
     GetRivalryParameters();
     DlgCreate("Rivalry Parameters");
-    DlgGroup("General", 1, 1, 40, 6);
+    DlgGroup("General", 1, 1, 50, 6);
     DlgInteger(1, "# of blocks", 1, 100, 25, 2);
     DlgInteger(2, "Trials per block", 1, 100, 25, 3);
     DlgCheck(3, "Use beep?", 1, 4);
     DlgCheck(4, "Correction trials?", 1, 5);
     DlgInteger(5, "Beep length (ms)", 1, 1000, 25, 6);
     DlgButton(101, "Timing", RivalryTimingDialog%, 1, 7);
-    DlgGroup("Reward", 1, 8, 40, 7);
+    DlgGroup("Reward/Swap", 1, 8, 50, 10);
     DlgReal(6, "Ready hold time (s)", .1, 10, 25, 9);
     DlgInteger(7, "Ready hold reward", 0, 10, 25, 10);
     DlgInteger(8, "Reward (correct resp)", 1, 10, 25, 11);
     DlgInteger(9, "Reward (maintain)", 1, 10, 25, 12);
-    DlgReal(10, "Time between rewards (s)", 1, 20000, 25, 13);
-    DlgReal(11, "Max stim time (s)", .01, 20, 25, 14);
-    DlgGroup("Gratings", 1, 15, 40, 3);
-    DlgButton(102, "Left Grating", RivalryLGratingDialog%, 1, 16);
-    rivLeftGratingTextItem% := DlgText(rivLeftGrating$, 15, 16);
-    DlgButton(103, "Right Grating", RivalryRGratingDialog%, 1, 17);
-    rivRightGratingTextItem% := DlgText(rivRightGrating$, 15, 17);
-    i% := DlgShow(rivNBlocks%, rivNTrialsEachTypePerBlock%, rivUseBeep%, rivCorrectionTrials%, rivBeepLengthMS%, rivReadyHoldTime, rivReadyHoldRewardSize%, 
-                    rivResponseCorrectRewardSize%, rivMaintainResponseRewardSize%, rivMaintainResponseRewardWait, rivMaxStimTime);
+    DlgReal(10, "Reward wait (maintain)", 0.01, 10, 25, 13);
+    DlgInteger(11, "Reward (swap)", 1, 10, 25, 14);
+    DlgReal(12, "Swap time - min", 0.01, 20, 25, 15);
+    DlgReal(13, "Swap time - max", 0.01, 20, 25, 16);
+    DlgReal(14, "Max stim time (s)", .01, 20, 25, 17);
+    DlgGroup("Gratings", 1, 18, 50, 3);
+    DlgButton(102, "Left Grating", RivalryLGratingDialog%, 1, 19);
+    rivLeftGratingTextItem% := DlgText(rivLeftGrating$, 15, 19);
+    DlgButton(103, "Right Grating", RivalryRGratingDialog%, 1, 20);
+    rivRightGratingTextItem% := DlgText(rivRightGrating$, 15, 20);
+    i% := DlgShow(rivNBlocks%, rivNTrialsEachTypePerBlock%, rivUseBeep%, rivCorrectionTrials%, rivBeepLengthMS%, rivReadyHoldTime, 
+                  rivReadyHoldRewardSize%, rivResponseCorrectRewardSize%, rivMaintainResponseRewardSize%, rivMaintainResponseRewardWait, 
+                  rivSwapRewardSize%, rivSwapMinTime, rivSwapMaxTime, rivMaxStimTime);
     if i% = 1 then
         SaveRivalryParameters();
     endif
@@ -891,12 +905,19 @@ proc GetRivalryParameters()
     Profile(key$, "MaintainResponseRewardSize", rivMaintainResponseRewardSize%, rivMaintainResponseRewardSize%);
     Profile(key$, "MaintainResponseRewardWait", str$(rivMaintainResponseRewardWait), stmp$);
     rivMaintainResponseRewardWait := val(stmp$);
+    Profile(key$, "SwapRewardSize", rivSwapRewardSize%, rivSwapRewardSize%);
+    Profile(key$, "SwapMinTime", str$(rivSwapMinTime), stmp$);
+    rivSwapMinTime := val(stmp$);
+    Profile(key$, "SwapMaxTime", str$(rivSwapMaxTime), stmp$);
+    rivSwapMaxTime := val(stmp$);
     Profile(key$, "MaxStimTime", str$(rivMaxStimTime), stmp$);
     rivMaxStimTime := val(stmp$);
     Profile(key$, "MaxWaitForReadyTime", str$(rivMaxWaitForReadyTime), stmp$);
     rivMaxWaitForReadyTime := val(stmp$);
     Profile(key$, "ReadyFailWaitTime", str$(rivReadyFailWaitTime), stmp$);
     rivReadyFailWaitTime := val(stmp$);
+    Profile(key$, "SwapMaxResponseTime", str$(rivSwapMaxResponseTime), stmp$);
+    rivSwapMaxResponseTime := val(stmp$);
     Profile(key$, "MaxResponseTime", str$(rivMaxResponseTime), stmp$);
     rivMaxResponseTime := val(stmp$);
     Profile(key$, "ResponseFailWaitTime", str$(rivResponseFailWaitTime), stmp$);
@@ -926,10 +947,14 @@ proc SaveRivalryParameters()
     Profile(key$, "ResponseCorrectRewardSize", rivResponseCorrectRewardSize%);
     Profile(key$, "MaintainResponseRewardSize", rivMaintainResponseRewardSize%);
     Profile(key$, "MaintainResponseRewardWait", str$(rivMaintainResponseRewardWait));
+    Profile(key$, "SwapRewardSize", rivSwapRewardSize%);
+    Profile(key$, "SwapMinTime", str$(rivSwapMinTime));
+    Profile(key$, "SwapMaxTime", str$(rivSwapMaxTime));
     Profile(key$, "MaxStimTime", str$(rivMaxStimTime));
     Profile(key$, "MaxWaitForReadyTime", str$(rivMaxWaitForReadyTime));
     Profile(key$, "ReadyFailWaitTime", str$(rivReadyFailWaitTime));
     Profile(key$, "MaxResponseTime", str$(rivMaxResponseTime));
+    Profile(key$, "SwapMaxResponseTime", str$(rivSwapMaxResponseTime));
     Profile(key$, "ResponseFailWaitTime", str$(rivResponseFailWaitTime));
     Profile(key$, "ResponseIncorrectWaitTime", str$(rivResponseIncorrectWaitTime));
     Profile(key$, "ResponseBrokenWaitTime", str$(rivResponseBrokenWaitTime));
@@ -944,11 +969,12 @@ func RivalryTimingDialog%()
 	DlgReal(1, "Max rdy time(s):", .01, 10);
 	DlgReal(2, "Rdy FAIL wait time(s):", .01, 10);
     DlgReal(3, "Max resp time(s):", .01, 10);
-    DlgReal(4, "Resp FAIL wait time(s):", .01, 10);
-    DlgReal(5, "Resp INCORRECT wait time(s):", .01, 10);
-    DlgReal(6, "Resp BROKEN wait time(s):", .01, 10);
-    DlgReal(7, "Max stim wait time(s):", .01, 10);
-	DlgShow(rivMaxWaitForReadyTime, rivReadyFailWaitTime, rivMaxResponseTime, rivResponseFailWaitTime, 
+    DlgReal(4, "Swap resp time(s):", .01, 10);
+    DlgReal(5, "Resp FAIL wait time(s):", .01, 10);
+    DlgReal(6, "Resp INCORRECT wait time(s):", .01, 10);
+    DlgReal(7, "Resp BROKEN wait time(s):", .01, 10);
+    DlgReal(8, "Max stim wait time(s):", .01, 10);
+	DlgShow(rivMaxWaitForReadyTime, rivReadyFailWaitTime, rivMaxResponseTime, rivSwapMaxResponseTime, rivResponseFailWaitTime, 
             rivResponseIncorrectWaitTime, rivResponseBrokenWaitTime, rivMaxStimWaitTime);
     return 1;
 end
