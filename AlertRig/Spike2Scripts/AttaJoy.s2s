@@ -862,7 +862,7 @@ func IdleProcessing%()
             LogStatus("stateTrialCompleted", "Trial completed.");
             ChangeStateTo(stateTrialStart%, tNow);
             iLoop% := 1;
-            UpdateToolbarText();
+            UpdateToolbarText(0);
             
         case iState% = stateDone% then
             
@@ -920,7 +920,10 @@ end;
 
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 func Stop%()
-
+    
+    ' Dump results to log window
+    UpdateToolbarText(1);
+    
 	' Disable idle process func
 	ToolbarSet(0, "");
 
@@ -1244,18 +1247,14 @@ func Looking%(x, y)
     return s%;
 end;
 
-proc UpdateToolbarText()
+proc UpdateToolbarText(iLogWindowAlso%)
 
 	var s$;
-    docase 
-    case ajDoReadyTraining% = 1 then
-        s$ := Print$("Ready training: Ready/Total = %d/%d", ajCtrNTrialsReady%, ajCtrNTrials%);
-    case ajDoReadyFixTraining% = 1 then
-        s$ := Print$("Rdy/Fix training: Fix/Total = %d/%d", ajCtrNTrialsFix%, ajCtrNTrials%);        
-    else
-        s$ := "UpdateToolbarText N.I.";
-    endcase
-
+    s$ := Print$("N/Rdy/Acq/Fix/Haz/+(%)/-(%) = %d/%d/%d/%d/%d/%d/%d", ajCtrNTrials%, ajCtrNTrialsReady%, ajCtrNTrialsAcq%, ajCtrNTrialsFix%, ajCtrNTrialsChg%, ajCtrCorrect%, ajCtrIncorrect%);
 	ToolbarText(s$);
+    
+    if iLogWindowAlso% <> 0 then
+        PrintLog(s$);
+    endif
 
 end;
