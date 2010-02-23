@@ -24,6 +24,15 @@ func GetFixationArg$()
     return FixationArg$;
 end
 
+proc GetFixationPointParameterValues(&x, &y, &d, &wr)
+    x := FixationX;
+    y := FixationY;
+    d := FixationDiameter;
+    wr := WindowRadius;
+    return;
+end
+
+
 proc GetFixationPointParameters()
 	var stmp$;
 	var key$;
