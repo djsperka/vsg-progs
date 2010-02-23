@@ -352,6 +352,7 @@ end;
 
 proc DisplayStim(iOn%)
     
+    View(rivWindowXY%).XYDelete(rivChanStimDisplay%);
     if iOn% <> 0 then
         if rivCorrectResponse% = JSLeft% then
             ArrConst(rivStimCircleX[], rivUnitCircleX[]);
@@ -369,8 +370,6 @@ proc DisplayStim(iOn%)
             ArrAdd(rivStimCircleY[], rivRightGratingY);
         endif
         View(rivWindowXY%).XYAddData(rivChanStimDisplay%, rivStimCircleX[], rivStimCircleY[]);
-    else
-        View(rivWindowXY%).XYDelete(rivChanStimDisplay%);
     endif
     return;
 end
