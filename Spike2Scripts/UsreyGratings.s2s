@@ -146,6 +146,25 @@ end
 
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 '
+' ParseGratingParametersBrief%(gr$, &x, &y, &w, &h);
+' 
+' Given a grating parameter list, parse the individual values in to the given variable list. 
+' Simpler version than the full-blown one, as it doesn't return all values. 
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+func ParseGratingParametersBrief%(gr$, &x, &y, &w, &h)
+    var status% := 0;
+    var n%;
+	ReadSetup("", "", "", "", ",");
+	n% := ReadStr(gr$, x, y, w, h);
+    ReadSetup();
+    if n% <> 4 then status% := -1; endif;
+    return n%;
+end
+
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
 ' EncodeGratingParameters$(x, y, w, h, contrast%, sf, tf, ori, cv$, pattern$, aperture$)
 '
 ' Form a parameter string for a grating with the given parameters. The resulting string
