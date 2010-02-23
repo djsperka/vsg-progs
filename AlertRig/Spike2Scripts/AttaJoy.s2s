@@ -84,14 +84,20 @@ var ajChanJoystickPos%;
 var ajChanJoystickRangeL%;
 var ajChanJoystickRangeC%;
 var ajChanJoystickRangeR%;
-var ajChanStimDisplay%;
+var ajChanStimDisplay0%;
+var ajChanStimDisplay1%;
+var ajChanFixptDisplay%;
+var ajChanFixptWindowDisplay%;
 var ajVCoeff;
 var ajVConst;
 var ajJoystickDisplayY;
 var ajUnitCircleX[36];
 var ajUnitCircleY[36];
-var ajStimCircleX[36];
-var ajStimCircleY[36];
+var ajCircleX[36];
+var ajCircleY[36];
+var ajStim0X, ajStim0Y, ajStim1X, ajStim1Y;
+var ajStim0D, ajStim1D;
+var ajFixationX, ajFixationY, ajFixationD, ajFixationWindowRadius;
 
 ' Controls
 
@@ -406,13 +412,35 @@ proc InitializeWindows()
     XYSize(ajChanJoystickPos%, -1);
     
     ' this channel is for displaying the stimulus
-    ajChanStimDisplay% := XYSetChan(0);
-    XYColour(ajChanStimDisplay%, 8);
-    XYDrawMode(ajChanStimDisplay%, 2, 0);
-    XYDrawMode(ajChanStimDisplay%, 3, 0);
-    XYJoin(ajChanStimDisplay%, 2);
-    XYSize(ajChanStimDisplay%, 36);
+    ajChanStimDisplay0% := XYSetChan(0);
+    XYColour(ajChanStimDisplay0%, 8);
+    XYDrawMode(ajChanStimDisplay0%, 2, 0);
+    XYDrawMode(ajChanStimDisplay0%, 3, 0);
+    XYJoin(ajChanStimDisplay0%, 2);
+    XYSize(ajChanStimDisplay0%, 36);
     
+    ajChanStimDisplay1% := XYSetChan(0);
+    XYColour(ajChanStimDisplay1%, 8);
+    XYDrawMode(ajChanStimDisplay1%, 2, 0);
+    XYDrawMode(ajChanStimDisplay1%, 3, 0);
+    XYJoin(ajChanStimDisplay1%, 2);
+    XYSize(ajChanStimDisplay1%, 36);
+    
+    ajChanFixptDisplay% := XYSetChan(0);
+    XYColour(ajChanFixptDisplay%, 8);
+    XYDrawMode(ajChanFixptDisplay%, 2, 0);
+    XYDrawMode(ajChanFixptDisplay%, 3, 0);
+    XYJoin(ajChanFixptDisplay%, 2);
+    XYSize(ajChanFixptDisplay%, 36);
+    
+    ajChanFixptWindowDisplay% := XYSetChan(0);
+    XYColour(ajChanFixptWindowDisplay%, 8);
+    XYDrawMode(ajChanFixptWindowDisplay%, 2, 0);
+    XYDrawMode(ajChanFixptWindowDisplay%, 3, 0);
+    XYJoin(ajChanFixptWindowDisplay%, 2);
+    XYSize(ajChanFixptWindowDisplay%, 36);
+
+    ' prepare unit circles for drawing 
 	twopi := 2.0*4.0*ATan(1.0);
 	for i% := 0 to 35 do
 		ajUnitCircleX[i%] := Cos(i% * twopi/36.0);
@@ -423,10 +451,56 @@ proc InitializeWindows()
 end;
 
 proc DisplayStim(iOn%)
-    ' TODO
+    var x, y, d, wr;
+    
+    docase
+    case iOn% = 0 then
+        ' erase all
+        View(ajWindowXY%).XYDelete(ajChanFixptDisplay%);
+        View(ajWindowXY%).XYDelete(ajChanFixptWindowDisplay%);
+        View(ajWindowXY%).XYDelete(ajChanStimDisplay0%);
+        View(ajWindowXY%).XYDelete(ajChanStimDisplay1%);
+    case iOn% = 1 then
+        ' fixpt and fixation window
+		View(ajWindowXY%).XYAddData(ajChanFixptDisplay%, ajFixationX, ajFixationY);
+        MakeCircle(ajFixationWindowRadius, ajFixationX, ajFixationY);
+        View(ajWindowXY%).XYAddData(ajChanFixptWindowDisplay%, ajCircleX[], ajCircleY[]);
+    case iOn% = 2 then
+        if ajShowSingleStim% = 1 then
+            ' single stim only
+            if ajTrialFixptSampleKey$ = "F" then
+                MakeCircle(ajStim0D/2, ajStim0X, ajStim0Y);
+                View(ajWindowXY%).XYAddData(ajChanStimDisplay0%, ajCircleX[], ajCircleY[]);
+            else
+                MakeCircle(ajStim1D/2, ajStim1X, ajStim1Y);
+                View(ajWindowXY%).XYAddData(ajChanStimDisplay1%, ajCircleX[], ajCircleY[]);        
+            endif
+        else
+            ' both stim
+            MakeCircle(ajStim0D/2, ajStim0X, ajStim0Y);
+            View(ajWindowXY%).XYAddData(ajChanStimDisplay0%, ajCircleX[], ajCircleY[]);
+            MakeCircle(ajStim1D/2, ajStim1X, ajStim1Y);
+            View(ajWindowXY%).XYAddData(ajChanStimDisplay1%, ajCircleX[], ajCircleY[]);        
+        endif
+    else
+        ' do nothing
+    endcase
     
     return;
 end
+
+' Helper function - makes a circle of radius 'r' centered at (x, y). 
+' The results are in ajCircleX[] and ajCircleY[]. 
+proc MakeCircle(r, x, y)
+    ArrConst(ajCircleX[], ajUnitCircleX[]);
+    ArrMul(ajCircleX[], r);
+    ArrAdd(ajCircleX[], x);
+    ArrConst(ajCircleY[], ajUnitCircleY[]);
+    ArrMul(ajCircleY[], r);
+    ArrAdd(ajCircleY[], y);
+    return;
+end
+
 
 func IdleProcessing%()
 	var iStatus% := 1;	
@@ -742,6 +816,7 @@ func IdleProcessing%()
             case FindRisingEdge%(ajChanStimulus%, tStateStart, tTrigger) = 0 then
                 LogStatus("stateWaitForStimOn", "Stim up.");
                 ChangeStateTo(stateWaitHazardTime%, tNow);
+                DisplayStim(2);
             else
                 iLoop% := 0;
             endcase
@@ -842,6 +917,7 @@ func IdleProcessing%()
             
             iLoop% := 0;
             if FindFallingEdge%(ajChanFixpt%, tStateStart, tTrigger) = 1 then
+                DisplayStim(0);
                 LogStatus("stateWaitForFixptOff", "Fixpt off.");
                 ChangeStateTo(stateIntertrialWait%, tNow);
             else
@@ -897,7 +973,7 @@ proc DeliverReward(iNumRewards%)
     return;
 end
 
-func Reward%()
+func ajChanFixptWindowDisplay()
     DeliverReward(1);
     return 1;
 end
@@ -955,8 +1031,11 @@ func Start%()
     
     ' Get stimulus, distractor and fixpt specs
     stimSpec$ := GetGratingParameters$("Stimulus");
+    ParseGratingParametersBrief%(stimSpec$, ajStim0X, ajStim0Y, ajStim0D, ajStim0D);
     distSpec$ := GetGratingParameters$("Distractor1");
+    ParseGratingParametersBrief%(distSpec$, ajStim1X, ajStim1Y, ajStim1D, ajStim1D);
     fixSpec$ := GetFixationArg$();
+    GetFixationPointParameterValues(ajFixationX, ajFixationY, ajFixationD, ajFixationWindowRadius);
     
     ' extra parameters
     extra$ := " -d " + GetDistanceToScreenMM$() + " -b gray -N -Q -t " + str$(ajContrastDown%) + "," + str$(ajContrastBase%) + "," + str$(ajContrastUp%);
@@ -999,6 +1078,11 @@ func Resume%()
     LogInfo("Resume requested.");
     ajIsPaused% := 0;
     return 1;
+end
+
+func Reward%()
+    DeliverReward(1);
+    return 0;
 end
 
 
