@@ -1,11 +1,13 @@
 #include "Alertlib.h"
+#include "RegHelper.h"
 #include <iostream>
 #include <string>
 #include <vector>
 #include <algorithm>
 #include <sstream>
-
-
+#include <io.h>
+#include <fcntl.h>
+#include <sys/stat.h>
 
 using namespace std;
 using namespace alert;
@@ -488,42 +490,102 @@ int alert::LevelManager::request_range(int num, PIXEL_LEVEL& first)
 }
 
 
+alert::ARvsg::~ARvsg()
+{ 
+	if (m_bHaveLock) 
+	{
+		clear(); 
+		release_lock();
+	} 
+};
+
+bool alert::ARvsg::acquire_lock()
+{
+	string name;
+	int fd;
+	int status;
+
+	m_bHaveLock = false;
+
+	// Get lock file name
+	if (!GetRegLockFile(name))
+	{
+		cerr << "acquire_lock(): Cannot get lock file name from registry!" << endl;
+		return false;
+	}
+
+	status = _sopen_s(&fd, name.c_str(), O_WRONLY | O_CREAT | O_EXCL, _SH_DENYRW, _S_IREAD | _S_IWRITE);
+
+	if (fd < 0)
+	{
+		cerr << "acquire_lock(): Cannot get lock." << endl;
+		return false;
+	}
+	else
+	{
+		cerr << "acquire_lock(): got vsg lock." << endl;
+		m_bHaveLock = true;
+		_close(fd);
+	}
+	return true;
+}
+
+
+void alert::ARvsg::release_lock()
+{
+	string name;
+
+	// Get lock file name
+	if (!GetRegLockFile(name))
+	{
+		cerr << "release_lock(): Cannot get lock file name from registry!" << endl;
+		return;
+	}
+	remove(name.c_str());
+	m_bHaveLock = false;
+	return;
+}
+
+
+
 int alert::ARvsg::init(int screenDistanceMM, COLOR_TYPE i_bg)
 {
 	VSGTRIVAL background;
 	int status=0;
 	if (!m_initialized)
 	{
+		if (!acquire_lock())
+		{
+			cerr << "ARvsg::init(): cannot acquire VSG lock!" << endl;
+			return 1;
+		}
+		
 		if (vsgInit(""))
 		{
 			cerr << "Error in vsgInit()." << endl;
-			status=1;
+			return 1;
 		}
-		else
-		{
-			Sleep(2000);
-			m_initialized = true;
-			vsgSetViewDistMM(screenDistanceMM);
-			vsgSetSpatialUnits(vsgDEGREEUNIT);
-			m_heightPixels = vsgGetScreenHeightPixels();
-			m_widthPixels = vsgGetScreenWidthPixels();
-			vsgUnitToUnit(vsgPIXELUNIT, m_heightPixels, vsgDEGREEUNIT, &m_heightDegrees);
-			vsgUnitToUnit(vsgPIXELUNIT, m_widthPixels, vsgDEGREEUNIT, &m_widthDegrees);
-//			vsgSetCommand(vsgPALETTECLEAR);
-//			vsgSetCommand(vsgPALETTERAMP);
-			m_background_color = i_bg;
-			// this level gets used later, but we request it now to insure we get level 0
-			alert::LevelManager::instance().request_single(m_background_level);
 
+		Sleep(2000);
+		m_initialized = true;
+		vsgSetViewDistMM(screenDistanceMM);
+		vsgSetSpatialUnits(vsgDEGREEUNIT);
+		m_heightPixels = vsgGetScreenHeightPixels();
+		m_widthPixels = vsgGetScreenWidthPixels();
+		vsgUnitToUnit(vsgPIXELUNIT, m_heightPixels, vsgDEGREEUNIT, &m_heightDegrees);
+		vsgUnitToUnit(vsgPIXELUNIT, m_widthPixels, vsgDEGREEUNIT, &m_widthDegrees);
+		m_background_color = i_bg;
+
+		// this level gets used later, but we request it now to insure we get level 0
+		alert::LevelManager::instance().request_single(m_background_level);
 		
-			// The background level was obtained in the init() call.
-			if (get_color(m_background_color, background))
-			{
-				cerr << "Cannot get trival for background color " << m_background_color << endl;
-				status = 2;
-			}
-			vsgSetBackgroundColour(&background);
+		// The background level was obtained in the init() call.
+		if (get_color(m_background_color, background))
+		{
+			cerr << "Cannot get trival for background color " << m_background_color << endl;
+			status = 2;
 		}
+		vsgSetBackgroundColour(&background);
 	}
 	return status;
 }

@@ -3,7 +3,6 @@
 
 #pragma warning(disable:4786)
 
-
 //#include "VSGEX2.H"
 #include "VSGV8.H"
 #define __GNU_LIBRARY__
@@ -15,6 +14,7 @@
 #include <string>
 #include <ostream>
 #include <sstream>
+#include <fstream>
 #include <algorithm>
 
 
@@ -88,13 +88,16 @@ namespace alert
 	class ARvsg
 	{
 	public:
-		~ARvsg() { clear(); };
-
+		~ARvsg();
 		int init(int screenDistanceMM, COLOR_TYPE i_bg);
 		int init_video();
 		int init_overlay();
 
 		int init_video_pages(voidfunc func_before_objects, voidfunc func_after_objects, void *data);
+
+		/* lock/unlock */
+		bool acquire_lock();
+		void release_lock();
 
 		/* Clear any page and display it. */
 		void clear(int i);
@@ -117,7 +120,7 @@ namespace alert
 		double getScreenWidthDegrees() { return m_widthDegrees; };
 
 	private:
-		ARvsg() : m_initialized(false) {};
+		ARvsg() : m_initialized(false), m_bHaveLock(true) {};
 		bool m_initialized;
 		VSGOBJHANDLE m_handle;
 		PIXEL_LEVEL m_background_level;
@@ -126,6 +129,7 @@ namespace alert
 		long m_widthPixels;
 		double m_heightDegrees;
 		double m_widthDegrees;
+		bool m_bHaveLock;
 	};
 
 
@@ -158,7 +162,6 @@ namespace alert
 	public:
 		ARSpec() {};
 		virtual ~ARSpec() {};
-
 		
 		/* Draw object on currently selected page. */
 		virtual int draw() = 0;
