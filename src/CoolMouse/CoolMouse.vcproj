@@ -253,30 +253,6 @@
 				</FileConfiguration>
 			</File>
 			<File
-				RelativePath="reghelper.cpp"
-				>
-				<FileConfiguration
-					Name="Debug|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						AdditionalIncludeDirectories=""
-						PreprocessorDefinitions=""
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Release|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						AdditionalIncludeDirectories=""
-						PreprocessorDefinitions=""
-					/>
-				</FileConfiguration>
-			</File>
-			<File
 				RelativePath="run_mouse.cpp"
 				>
 				<FileConfiguration
@@ -329,10 +305,6 @@
 			>
 			<File
 				RelativePath="CoolMouse.h"
-				>
-			</File>
-			<File
-				RelativePath="reghelper.h"
 				>
 			</File>
 			<File

@@ -41,7 +41,7 @@ int aslserial_connect()
 
 		// Create temporary configuration file that defines standard message format
 		GetCurrentDirectory(175, path);
-		strcat(path, "\\ETSerialPortViewer.cfg");
+		strcat_s(path, 200, "\\ETSerialPortViewer.cfg");
 		filename = path;
 		bstrFile = filename;
 		cout << "Temp cfg file " << filename << endl;
