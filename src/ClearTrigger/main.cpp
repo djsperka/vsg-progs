@@ -1,4 +1,4 @@
-// $Id: main.cpp,v 1.3 2008-10-16 23:42:39 devel Exp $
+// $Id: main.cpp,v 1.4 2010-02-27 01:54:16 devel Exp $
 //
 //
 #include "vsgv8.h"
@@ -18,7 +18,7 @@ using namespace std;
 int main(int argc, char **argv)
 {
 	COLOR_TYPE background = {gray, {0, 0, 0}};
-	double dist=999;
+	int dist=999;
 
 	// INit vsg
 	if (ARvsg::instance().init(dist, background))
