@@ -58,7 +58,6 @@ int main (int argc, char *argv[])
 		}
 	}
 
-
 	// INit vsg
 	if (ARvsg::instance().init(m_screenDistanceMM, m_background))
 	{
@@ -111,6 +110,7 @@ int main (int argc, char *argv[])
 	}
 
 	ARvsg::instance().clear();
+	ARvsg::instance().release_lock();
 
 	return 0;
 }
