@@ -183,6 +183,13 @@ int main(int argc, char **argv)
 {
 	int istatus=0;
 
+	// get the vsg lock
+	if (!alert::ARvsg::instance().acquire_lock())
+	{
+		cerr << "Cannot acquire vsg lock. Check if another vsg program is running." << endl;
+		return 1;
+	}
+
 	// Init vsg card
 	istatus = vsgInit("");
 	if (istatus)
@@ -319,6 +326,7 @@ int main(int argc, char **argv)
 	blankPage();
 
 	ARvsg::instance().clear();
+	ARvsg::instance().release_lock();
 
 	return 0;
 }
