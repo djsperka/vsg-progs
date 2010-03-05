@@ -370,14 +370,6 @@ int alert::ARGratingSpec::draw(bool useTransOnLower)
 	return 0;
 }
 
-
-int alert::ARGratingSpec::setOrientation(double orientation)
-{
-	int ival=0;
-
-	return ival;
-}
-
 int alert::ARGratingSpec::drawBackground()
 {
 	vsgSetPen1(ARvsg::instance().background_level());
