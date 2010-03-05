@@ -67,9 +67,8 @@ int main(int argc, char **argv)
 	// initialize screen parameters
 	init_screen_params();
 
-	// Set up pages (and triggers if this is on an alert rig)
+	// Set up pages
 	init_pages();
-	if (f_alert) init_triggers();
 
 
 	bool bUseManualTriggers = false;
@@ -82,6 +81,8 @@ int main(int argc, char **argv)
 	POINT mousePos;
 	double degMouseX, degMouseY;
 	int iPage = 1;
+	long lDigitalIO=0;
+	long lDigitalIOLast=0;
 
 	// loop forever until 'q' is hit on keyboard
 	while(!bQuit)
@@ -94,6 +95,20 @@ int main(int argc, char **argv)
 		}
 		if (mousePos.x > f_monWidthPixels) mousePos.x = (long)f_monWidthPixels;
 		mousePosToVSGDrawDegrees(mousePos.x, mousePos.y, &degMouseX, &degMouseY);
+
+		// read vsg io for fixation pt signal
+		if (f_alert && !bUseManualTriggers)
+		{
+			long ltemp = vsgIOReadDigitalIn();
+			lDigitalIO = ltemp & vsgDIG1;
+			bFixationOn =  lDigitalIO != 0;
+			bSendTrigger = lDigitalIO!=lDigitalIOLast;
+			lDigitalIOLast = lDigitalIO;
+
+			bQuit = ((ltemp & vsgDIG6) != 0);
+		}
+
+
 
 		// flip overlay page, then draw aperture (and fixpt if needed).
 		iPage = 1 - iPage;
@@ -117,7 +132,6 @@ int main(int argc, char **argv)
 			}
 			vsgSetZoneDisplayPage(vsgOVERLAYPAGE, iPage + vsgTRIGGERPAGE);
 		}
-
 
 		while (_kbhit() && !bQuit)
 		{
@@ -234,20 +248,36 @@ int main(int argc, char **argv)
 					break;
 				}
 			case 'p':
-				{
-					cout << "pixels:  X, Y      = " << mousePos.x << ", " << mousePos.y << endl;
-					cout << "degrees: X, Y      = " << degMouseX << ", " << -degMouseY << endl;
-					break;
-				}
 			case 'v':
 				{
-					cout << "Orientation        = " << f_grating.orientation << endl;
-					cout << "Spatial Frequency  = " << f_grating.sf << endl;
-					cout << "Temporal Frequency = " << f_grating.tf << endl;
+					cout << "X, Y (pixels)             = " << mousePos.x << ", " << mousePos.y << endl;
+					cout << "X, Y (degrees)            = " << degMouseX << ", " << -degMouseY << endl;
+					cout << "Diameter (deg)            = " << f_grating.w << endl;
+					cout << "Orientation(deg)          = " << f_grating.orientation << endl;
+					cout << "Spatial Freq(cycles/deg)  = " << f_grating.sf << endl;
+					cout << "Temporal Freq(cycles/sec) = " << f_grating.tf << endl;
+					cout << "Contrast(%)               = " << f_grating.contrast << endl;
 					break;
 				}
 			case 27:
 			case 'q':
+				{
+					if (!f_alert)
+					{
+						COLOR_TYPE c;
+						bQuit = true;
+
+						// in case background luminance was changed, set it back to mean gray.
+						c.type = gray;
+						arutil_color_to_overlay_palette(c, 1);
+					}
+					else
+					{
+						cerr << "Stop the Spike2 script to stop this application." << endl;
+					}
+					break;
+				}
+			case 'Q':
 				{
 					COLOR_TYPE c;
 					bQuit = true;
@@ -496,12 +526,6 @@ int init_pages()
 
 	return 0;
 }
-
-int init_triggers()
-{
-	return 0;
-}
-
 
 int args(int argc, char **argv)
 {	
