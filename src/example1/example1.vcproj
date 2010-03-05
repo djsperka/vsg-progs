@@ -208,6 +208,7 @@
 				>
 				<FileConfiguration
 					Name="Release|Win32"
+					ExcludedFromBuild="true"
 					>
 					<Tool
 						Name="VCCLCompilerTool"
@@ -217,6 +218,7 @@
 				</FileConfiguration>
 				<FileConfiguration
 					Name="Debug|Win32"
+					ExcludedFromBuild="true"
 					>
 					<Tool
 						Name="VCCLCompilerTool"
@@ -224,6 +226,10 @@
 						PreprocessorDefinitions=""
 					/>
 				</FileConfiguration>
+			</File>
+			<File
+				RelativePath=".\gratings.cpp"
+				>
 			</File>
 		</Filter>
 		<Filter
