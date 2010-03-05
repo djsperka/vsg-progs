@@ -574,6 +574,27 @@ namespace alert
 		int m_page;
 	};
 
+	class TogglePageTrigger: public Trigger
+	{
+	public:
+		TogglePageTrigger(std::string i_key, int i_in_mask, int i_in_val, int i_out_mask, int i_out_val, int i_pageA, int i_pageB) : 
+		  Trigger(i_key, i_in_mask, i_in_val, i_out_mask, i_out_val), m_pageA(i_pageA), m_pageB(i_pageB) {};
+		~TogglePageTrigger() {};
+		virtual int execute(int& output)
+		{
+			int iPage = vsgGetZoneDisplayPage(vsgVIDEOPAGE);
+			if (iPage == m_pageA) iPage = m_pageB;
+			else if (iPage == m_pageB) iPage = m_pageA;
+			vsgSetDrawPage(vsgVIDEOPAGE, iPage, vsgNOCLEAR);
+			setMarker(output);
+			return 1;
+		};
+	protected:
+		int m_pageA;
+		int m_pageB;
+	};
+
+
 	class OverlayPageTrigger: public Trigger
 	{
 	public:
