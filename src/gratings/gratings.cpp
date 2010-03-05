@@ -33,9 +33,14 @@ bool m_verbose=false;
 TriggerVector triggers;
 bool m_binaryTriggers = true;
 bool m_bCalibration = false;
+const int f_iPage0 = 0;
+const int f_iPage1 = 1;
+const int f_iPageBlank = 2;
+
 
 static void usage();
 static int init_pages();
+
 
 int main (int argc, char *argv[])
 {
@@ -202,24 +207,28 @@ int init_pages()
 		return 1;
 	}
 
-	vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgNOCLEAR);
-
+	// draw first grating on page 0
+	vsgSetDrawPage(vsgVIDEOPAGE, f_iPage0, vsgNOCLEAR);
 	m_gratings[0]->init(islice);
 	m_gratings[0]->draw(true);
-	m_gratings[0]->setContrast(0);
+
+	// draw second grating on page 1
+	vsgSetDrawPage(vsgVIDEOPAGE, f_iPage1, vsgNOCLEAR);
 	m_gratings[1]->init(islice);
 	m_gratings[1]->draw(true);
-	m_gratings[1]->setContrast(0);
+
+	// set draw page to page 2 - the blank page - so it is displayed initially.
+	vsgSetDrawPage(vsgVIDEOPAGE, f_iPageBlank, vsgNOCLEAR);
 
 	// trigger to turn stim 0/1 on
-	triggers.addTrigger(new CallbackTrigger("0", 0x6, 0x2, 0x2, 0x2, callback));
-	triggers.addTrigger(new CallbackTrigger("1", 0x6, 0x4, 0x2, 0x2, callback));
+	triggers.addTrigger(new PageTrigger("0", 0x6, 0x2, 0x2, 0x2, 0));
+	triggers.addTrigger(new PageTrigger("1", 0x6, 0x4, 0x2, 0x2, 1));
 
 	// trigger to toggle 0/1 contrast
-	triggers.addTrigger(new CallbackTrigger("z", 0x8, 0x8|AR_TRIGGER_TOGGLE, 0x4, 0x4|AR_TRIGGER_TOGGLE, callback));
+	triggers.addTrigger(new TogglePageTrigger("z", 0x8, 0x8|AR_TRIGGER_TOGGLE, 0x4, 0x4|AR_TRIGGER_TOGGLE, 0, 1));
 
 	// trigger to turn stim OFF
-	triggers.addTrigger(new CallbackTrigger("X", 0x6, 0x0, 0x2, 0x0, callback));
+	triggers.addTrigger(new PageTrigger("X", 0x6, 0x0, 0x2, 0x0, 2));
 
 	// quit trigger
 	triggers.addTrigger(new QuitTrigger("q", 0x80, 0x80, 0xff, 0x0, 0));
@@ -241,36 +250,3 @@ int init_pages()
 
 
 
-// The return value from this trigger callback determines whether a vsgPresent() is issued. 
-
-int callback(int &output, const CallbackTrigger* ptrig)
-{
-	int ival=1;
-	string key = ptrig->getKey();
-
-
-//	cout << "callback: key " << ptrig->getKey() << endl;
-
-	if (key == "0")
-	{
-		m_gratings[0]->setContrast(100);
-	}
-	else if (key == "1")
-	{
-		m_gratings[1]->setContrast(100);
-	}
-	else if (key == "z")
-	{
-		if (m_gratings[1]->contrast == 0) m_gratings[1]->setContrast(100);
-		else m_gratings[1]->setContrast(0);
-		if (m_gratings[0]->contrast == 0) m_gratings[0]->setContrast(100);
-		else m_gratings[0]->setContrast(0);
-	}
-	else if (key == "X")
-	{
-		m_gratings[0]->setContrast(0);
-		m_gratings[1]->setContrast(0);
-	}
-
-	return ival;
-}
