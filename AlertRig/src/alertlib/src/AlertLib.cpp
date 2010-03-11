@@ -560,12 +560,25 @@ int alert::ARvsg::init(int screenDistanceMM, COLOR_TYPE i_bg)
 
 		Sleep(2000);
 		m_initialized = true;
-		vsgSetViewDistMM(screenDistanceMM);
-		vsgSetSpatialUnits(vsgDEGREEUNIT);
-		m_heightPixels = vsgGetScreenHeightPixels();
-		m_widthPixels = vsgGetScreenWidthPixels();
-		vsgUnitToUnit(vsgPIXELUNIT, m_heightPixels, vsgDEGREEUNIT, &m_heightDegrees);
-		vsgUnitToUnit(vsgPIXELUNIT, m_widthPixels, vsgDEGREEUNIT, &m_widthDegrees);
+
+		/*
+		 * If screen distance is negative, then set spatial units to PIXEL units. 
+		 */
+		if (screenDistanceMM <= 0) 
+		{
+			vsgSetSpatialUnits(vsgPIXELUNIT);
+			m_heightPixels = vsgGetScreenHeightPixels();
+			m_widthPixels = vsgGetScreenWidthPixels();
+		}
+		else
+		{
+			vsgSetViewDistMM(screenDistanceMM);
+			vsgSetSpatialUnits(vsgDEGREEUNIT);
+			m_heightPixels = vsgGetScreenHeightPixels();
+			m_widthPixels = vsgGetScreenWidthPixels();
+			vsgUnitToUnit(vsgPIXELUNIT, m_heightPixels, vsgDEGREEUNIT, &m_heightDegrees);
+			vsgUnitToUnit(vsgPIXELUNIT, m_widthPixels, vsgDEGREEUNIT, &m_widthDegrees);
+		}
 		m_background_color = i_bg;
 
 		// this level gets used later, but we request it now to insure we get level 0
