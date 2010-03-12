@@ -29,6 +29,8 @@ int init_screen_params();
 void UpdateOverlay(bool bFixationOn, double fixX, double fixY, double fixD, double apertureX, double apertureY, double apertureDiameter);
 void mousePosToVSGDrawDegrees(int pixMouseX, int pixMouseY, double* pvsgDegX, double* pvsgDegY);
 void vsgDrawDegreesToMousePos(double vsgDegX, double vsgDegY, long* pixMouseX, long* pixMouseY);
+void vsgPixelsToVSGDrawDegrees(int vsgPixX, int vsgPixY, double *pvsgDegX, double *pvsgDegY);
+void mousePixelsToVSGPixels(int pixMouseX, int pixMouseY, double* pvsgPixelsX, double* pvsgPixelsY);
 
 
 int f_screenDistanceMM = -1;
@@ -79,7 +81,8 @@ int main(int argc, char **argv)
 	int key;
 	int iStepSize = 10;
 	POINT mousePos;
-	double degMouseX, degMouseY;
+	double degVSGMouseX, degVSGMouseY;
+	double pixVSGMouseX, pixVSGMouseY;
 	int iPage = 1;
 	long lDigitalIO=0;
 	long lDigitalIOLast=0;
@@ -92,9 +95,11 @@ int main(int argc, char **argv)
 		if (bMouseOn)
 		{
 			GetCursorPos(&mousePos);
+			// With dual screens the x coord can be wider than the screen itself. 
+			if (mousePos.x > f_monWidthPixels) mousePos.x = (long)f_monWidthPixels;
+			mousePixelsToVSGPixels(mousePos.x, mousePos.y, &pixVSGMouseX, &pixVSGMouseY);
 		}
-		if (mousePos.x > f_monWidthPixels) mousePos.x = (long)f_monWidthPixels;
-		mousePosToVSGDrawDegrees(mousePos.x, mousePos.y, &degMouseX, &degMouseY);
+		vsgPixelsToVSGDrawDegrees((int)pixVSGMouseX, (int)pixVSGMouseY, &degVSGMouseX, &degVSGMouseY);
 
 		// read vsg io for fixation pt signal
 		if (f_alert && !bUseManualTriggers)
@@ -113,7 +118,7 @@ int main(int argc, char **argv)
 		// flip overlay page, then draw aperture (and fixpt if needed).
 		iPage = 1 - iPage;
 		vsgSetDrawPage(vsgOVERLAYPAGE, iPage, 1);
-		UpdateOverlay(bFixationOn, f_fixpt.x, f_fixpt.y, f_fixpt.d, degMouseX, degMouseY, f_grating.w);
+		UpdateOverlay(bFixationOn, f_fixpt.x, f_fixpt.y, f_fixpt.d, degVSGMouseX, degVSGMouseY, f_grating.w);
 
 		// put freshly drawn overlay page up
 		if (!bSendTrigger)
@@ -250,8 +255,8 @@ int main(int argc, char **argv)
 			case 'p':
 			case 'v':
 				{
-					cout << "X, Y (pixels)             = " << mousePos.x << ", " << mousePos.y << endl;
-					cout << "X, Y (degrees)            = " << degMouseX << ", " << -degMouseY << endl;
+					cout << "X, Y (pixels)             = " << pixVSGMouseX << ", " << -pixVSGMouseY << endl;
+					cout << "X, Y (degrees)            = " << degVSGMouseX << ", " << -degVSGMouseY << endl;
 					cout << "Diameter (deg)            = " << f_grating.w << endl;
 					cout << "Orientation(deg)          = " << f_grating.orientation << endl;
 					cout << "Spatial Freq(cycles/deg)  = " << f_grating.sf << endl;
@@ -320,7 +325,7 @@ int main(int argc, char **argv)
 				{
 					if (!bMouseOn)
 					{
-						mousePos.y -= iStepSize;
+						pixVSGMouseY -= iStepSize;
 					}
 					else
 					{
@@ -332,7 +337,7 @@ int main(int argc, char **argv)
 				{
 					if (!bMouseOn)
 					{
-						mousePos.y += iStepSize;
+						pixVSGMouseY += iStepSize;
 					}
 					else
 					{
@@ -344,7 +349,7 @@ int main(int argc, char **argv)
 				{
 					if (!bMouseOn)
 					{
-						mousePos.x -= iStepSize;
+						pixVSGMouseX -= iStepSize;
 					}
 					else
 					{
@@ -356,7 +361,7 @@ int main(int argc, char **argv)
 				{
 					if (!bMouseOn)
 					{
-						mousePos.x += iStepSize;
+						pixVSGMouseX += iStepSize;
 					}
 					else
 					{
@@ -467,11 +472,27 @@ void UpdateOverlay(bool bFixationOn, double fixX, double fixY, double fixD, doub
 	}
 }
 
+void mousePixelsToVSGPixels(int pixMouseX, int pixMouseY, double* pvsgPixelsX, double* pvsgPixelsY)
+{
+	*pvsgPixelsX = pixMouseX * f_vsgWidthPixels/f_monWidthPixels - f_vsgWidthPixels/2;
+	*pvsgPixelsY = pixMouseY * f_vsgHeightPixels/f_monHeightPixels - f_vsgHeightPixels/2;
+}
+
+void vsgPixelsToVSGDrawDegrees(int vsgPixX, int vsgPixY, double *pvsgDegX, double *pvsgDegY)
+{
+	vsgUnit2Unit(vsgPIXELUNIT, vsgPixX, vsgDEGREEUNIT, pvsgDegX);
+	vsgUnit2Unit(vsgPIXELUNIT, vsgPixY, vsgDEGREEUNIT, pvsgDegY);
+}
+
 
 void mousePosToVSGDrawDegrees(int pixMouseX, int pixMouseY, double* pvsgDegX, double* pvsgDegY)
 {
-	vsgUnit2Unit(vsgPIXELUNIT, pixMouseX * f_vsgWidthPixels/f_monWidthPixels - f_vsgWidthPixels/2, vsgDEGREEUNIT, pvsgDegX);
-	vsgUnit2Unit(vsgPIXELUNIT, pixMouseY * f_vsgHeightPixels/f_monHeightPixels - f_vsgHeightPixels/2, vsgDEGREEUNIT, pvsgDegY);
+	double vsgPixelsX, vsgPixelsY;
+	mousePixelsToVSGPixels(pixMouseX, pixMouseY, &vsgPixelsX, &vsgPixelsY);
+	vsgUnit2Unit(vsgPIXELUNIT, vsgPixelsX, vsgDEGREEUNIT, pvsgDegX);
+	vsgUnit2Unit(vsgPIXELUNIT, vsgPixelsY, vsgDEGREEUNIT, pvsgDegY);
+//djs	vsgUnit2Unit(vsgPIXELUNIT, pixMouseX * f_vsgWidthPixels/f_monWidthPixels - f_vsgWidthPixels/2, vsgDEGREEUNIT, pvsgDegX);
+//djs	vsgUnit2Unit(vsgPIXELUNIT, pixMouseY * f_vsgHeightPixels/f_monHeightPixels - f_vsgHeightPixels/2, vsgDEGREEUNIT, pvsgDegY);
 }
 
 void vsgDrawDegreesToMousePos(double vsgDegX, double vsgDegY, long* pixMouseX, long* pixMouseY)
