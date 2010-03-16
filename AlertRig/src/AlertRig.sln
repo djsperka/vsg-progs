@@ -121,6 +121,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "sparse", "sparse\sparse.vcp
 		{E7D13D4D-A7AD-46B3-A513-BC9B6297E6D3} = {E7D13D4D-A7AD-46B3-A513-BC9B6297E6D3}
 	EndProjectSection
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "repeatmseq", "repeatmseq\repeatmseq.vcproj", "{C898D39A-A818-48F7-8FF4-58A1879C82AF}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -369,6 +371,14 @@ Global
 		{F211F7D3-EA85-446C-A43C-0F8939F2997E}.Unicode Debug|Win32.Build.0 = Debug|Win32
 		{F211F7D3-EA85-446C-A43C-0F8939F2997E}.Unicode Release|Win32.ActiveCfg = Release|Win32
 		{F211F7D3-EA85-446C-A43C-0F8939F2997E}.Unicode Release|Win32.Build.0 = Release|Win32
+		{C898D39A-A818-48F7-8FF4-58A1879C82AF}.Debug|Win32.ActiveCfg = Debug|Win32
+		{C898D39A-A818-48F7-8FF4-58A1879C82AF}.Debug|Win32.Build.0 = Debug|Win32
+		{C898D39A-A818-48F7-8FF4-58A1879C82AF}.Release|Win32.ActiveCfg = Release|Win32
+		{C898D39A-A818-48F7-8FF4-58A1879C82AF}.Release|Win32.Build.0 = Release|Win32
+		{C898D39A-A818-48F7-8FF4-58A1879C82AF}.Unicode Debug|Win32.ActiveCfg = Debug|Win32
+		{C898D39A-A818-48F7-8FF4-58A1879C82AF}.Unicode Debug|Win32.Build.0 = Debug|Win32
+		{C898D39A-A818-48F7-8FF4-58A1879C82AF}.Unicode Release|Win32.ActiveCfg = Release|Win32
+		{C898D39A-A818-48F7-8FF4-58A1879C82AF}.Unicode Release|Win32.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
