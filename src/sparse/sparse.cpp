@@ -2,6 +2,9 @@
 #include "VSGV8.H"
 #include <stdio.h>
 #include <math.h>
+using namespace alert;
+using namespace std;
+
 
 #ifdef _DEBUG
 #pragma comment(lib, "dalert.lib")
@@ -21,20 +24,25 @@ int f_scrGridCenterX;
 int f_scrGridCenterY;
 int f_scrGridX, f_scrGridY;		// screen coord of origin (upper left corner) of grid
 int f_scxGridX, f_scxGridY;		// screen pixel coord (measured from upper left corner, positive down and right) of grid origin.
+int f_scrBoxX, f_scrBoxY;
 int f_iFramesPerTerm;
 bool f_verbose = false;
+bool f_really_verbose = false;
+bool f_bTesting = false;
+int f_nrepeats=1;
+short *f_pterms = NULL;
+int f_nterms = 0;
+double f_tbefore = 1.0;
+double f_tafter = 1.0;
 
 void usage();
 int args(int argc, char **argv);
+int load_stimulus(const string& sfilename);
+void do_testing();
 
-using namespace alert;
-using namespace std;
 
 int main(int argc, char **argv)
 {
-	string s;
-	int scrBoxX, scrBoxY;
-	bool bQuit = false;
 
 	// Check input args
 	if (args(argc, argv))
@@ -68,21 +76,21 @@ int main(int argc, char **argv)
 	// Determine where to draw the boxes. 
 	f_pixBoxX = vsgGetSystemAttribute(vsgPAGEWIDTH)/2;
 	f_pixBoxY = vsgGetSystemAttribute(vsgPAGEHEIGHT);
-	scrBoxX = f_pixBoxX - vsgGetScreenWidthPixels()/2;
-	scrBoxY = f_pixBoxY - vsgGetScreenHeightPixels()/2;
+	f_scrBoxX = f_pixBoxX - vsgGetScreenWidthPixels()/2;
+	f_scrBoxY = f_pixBoxY - vsgGetScreenHeightPixels()/2;
 
 	// Now draw the boxes
 	vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgNOCLEAR);
 	vsgSetPen1(255);
-	vsgDrawRect(scrBoxX, scrBoxY, f_iDotSize, f_iDotSize);
+	vsgDrawRect(f_scrBoxX, f_scrBoxY, f_iDotSize, f_iDotSize);
 	vsgSetDrawPage(vsgVIDEOPAGE, 2, vsgNOCLEAR);
 	vsgSetPen1(0);
-	vsgDrawRect(scrBoxX, scrBoxY, f_iDotSize, f_iDotSize);
+	vsgDrawRect(f_scrBoxX, f_scrBoxY, f_iDotSize, f_iDotSize);
 	if (f_verbose)
 	{
 		cerr << "Page dim wxh = " << vsgGetSystemAttribute(vsgPAGEWIDTH) << " x " << vsgGetSystemAttribute(vsgPAGEHEIGHT) << endl;
 		cerr << "screen dim wxh = " << vsgGetScreenWidthPixels() << " x " << vsgGetScreenHeightPixels() << endl;
-		cerr << "Box drawn at " << scrBoxX << ", " << scrBoxY << endl;
+		cerr << "Box drawn at " << f_scrBoxX << ", " << f_scrBoxY << endl;
 	}
 
 	// compute other important numbers
@@ -91,6 +99,272 @@ int main(int argc, char **argv)
 	f_scxGridX = vsgGetScreenWidthPixels()/2 + f_scrGridX;
 	f_scxGridY = vsgGetScreenHeightPixels()/2 - f_scrGridY;
 
+
+	if (f_bTesting) do_testing();
+	else
+	{
+		int i, iterm;
+		int term;
+		int ix, iy;
+		int x, y;
+		int count=0;
+		int ipage=0;
+		int iStimLengthUS;
+		string stmp;
+		VSGCYCLEPAGEENTRY *pcycle;
+
+		iStimLengthUS = (f_nrepeats * f_nterms * f_iFramesPerTerm) * vsgGetSystemAttribute(vsgFRAMETIME);
+		if (f_verbose)
+		{
+			cerr << "Stimulus has " << f_nterms << " terms, with " << f_nrepeats << "repeat(s)." << endl;
+			cerr << "Total stim run time approx " << (double)iStimLengthUS/1000000.0 << " sec." << endl;
+		}
+
+		pcycle = new VSGCYCLEPAGEENTRY[f_nterms];
+		for (i=0; i<f_nterms; i++)
+		{
+			iterm = i+1;
+			term = f_pterms[iterm]%(2*16*16);
+			if (term % 2) 
+				ipage=0;				// white dot
+			else 
+				ipage=2;				// black dot
+
+			iy = term/(2*16);							// TODO hard coded for 16 x 16
+			ix = (term %(2*16))/2;
+
+			x = f_pixBoxX - f_scxGridX - ix*f_iDotSize;
+			y = f_pixBoxY - f_scxGridY - iy*f_iDotSize;
+			pcycle[count].Frames = f_iFramesPerTerm;
+			pcycle[count].Page = ipage + vsgTRIGGERPAGE;
+			pcycle[count].Xpos = x;
+			pcycle[count].Ypos = y;
+			count++;
+		}
+
+		vsgPageCyclingSetup(count, &pcycle[0]);
+
+		vsgResetTimer();
+		vsgSetCommand(vsgCYCLEPAGEENABLE);
+		while (vsgGetTimer() < iStimLengthUS)
+		{
+			Sleep(1000);
+		}
+		vsgSetCommand(vsgCYCLEPAGEDISABLE);
+	}
+
+
+
+	ARvsg::instance().release_lock();
+	return 0;
+}
+
+
+int load_stimulus(const string& sfilename)
+{
+	int status = 0;
+	short norder;
+	int basepoly;
+	ifstream ifs;
+
+	ifs.open(sfilename.c_str(), ios::binary);
+	if (!ifs.is_open())
+	{
+		cerr << "Cannot open stimulus file (" << sfilename << ")" << endl;
+		status = -1;
+	}
+	else
+	{
+		if (!ifs.read(reinterpret_cast<char *>(&norder), sizeof(short)) ||
+			!ifs.read(reinterpret_cast<char *>(&basepoly), sizeof(int)))
+		{
+			cerr << "Error reading order/basepoly from stimulus file (" << sfilename << ")" << endl;
+			status = -1;
+		}
+		else
+		{
+			f_nterms = (int)pow(2.0f, norder);
+			cout << "Order is " << norder << ", expecting " << f_nterms << " terms." <<endl;
+			f_pterms = new short[f_nterms];
+			if (!ifs.read(reinterpret_cast<char *>(f_pterms), f_nterms * sizeof(short)))
+			{
+				cerr << "Error reading terms from stimulus file (" << sfilename << ")" << endl;
+				status = -1;
+				delete[] f_pterms;
+			}
+			else if (f_really_verbose)
+			{
+				int i;
+				for (i=0; i<f_nterms; i++) cerr << i << ": " << f_pterms[i] << endl;
+			}
+		}
+		ifs.close();
+	}
+	return status;
+}
+
+
+int args(int argc, char **argv)
+{	
+	string s;
+	int c;
+	extern char *optarg;
+	extern int optind;
+	int errflg = 0;
+	bool have_p = false;
+	bool have_d = false;
+	bool have_r = false;
+	bool have_c = false;
+	bool have_t = false;
+	bool have_f = false;
+
+	while ((c = getopt(argc, argv, "d:p:r:c:t:hvVf:TR:")) != -1)
+	{
+		switch (c) 
+		{
+		case 'T':
+			f_bTesting = true;
+			break;
+		case 'f':
+			s.assign(optarg);
+			if (load_stimulus(s))
+			{
+				cerr << "Error loading stimulus file (" << s << ")." << endl;
+				errflg++;
+			}
+			else
+			{
+				have_f = true;
+			}
+			break;
+		case 'p':
+			s.assign(optarg);
+			if (parse_int_pair(s, f_scrGridCenterX, f_scrGridCenterY))
+			{
+				cerr << "Cannot parse grid center position (" << s << "): expecting integer positions, no spaces." <<endl;
+			}
+			else
+			{
+				have_p = true;
+			}
+			break;
+		case 'd':
+			s.assign(optarg);
+			if (parse_integer(s, f_iDotSize))
+			{
+				cerr << "Cannot parse dot size (" << s << "): must be an integer." << endl;
+				errflg++;
+			}
+			else
+			{
+				have_d = true;
+			}
+			break;
+		case 'R':
+			s.assign(optarg);
+			if (parse_integer(s, f_nrepeats))
+			{
+				cerr << "Cannot parse repeats (" << s << "): must be an integer." << endl;
+				errflg++;
+			}
+			break;
+		case 'r':
+			s.assign(optarg);
+			if (parse_integer(s, f_nRows))
+			{
+				cerr << "Cannot parse rows (" << s << "): must be an integer." << endl;
+				errflg++;
+			}
+			else
+			{
+				have_r = true;
+			}
+			break;
+		case 'c':
+			s.assign(optarg);
+			if (parse_integer(s, f_nCols))
+			{
+				cerr << "Cannot parse columns (" << s << "): must be an integer." << endl;
+				errflg++;
+			}
+			else
+			{
+				have_c = true;
+			}
+			break;
+		case 'v':
+			f_verbose = true;
+			break;
+		case 'V':
+			f_verbose = true;
+			f_really_verbose = true;
+			break;
+		case 't':
+			s.assign(optarg);
+			if (parse_integer(s, f_iFramesPerTerm))
+			{
+				cerr << "Cannot parse frames per term (" << s << "): must be an integer." << endl;
+				errflg++;
+			}
+			else
+			{
+				have_t = true;
+			}
+			break;
+		case 'h':
+			errflg++;
+			break;
+		case '?':
+            errflg++;
+			break;
+		default:
+			errflg++;
+			break;
+		}
+	}
+
+	if (!f_bTesting && !have_f)
+	{
+		cerr << "No stim file specified (-f), and not testing (-T). Need either a stim file or the -T flag." << endl;
+		errflg++;
+	}
+	if (!have_d) 
+	{
+		cerr << "No dot size specified!" << endl; 
+		errflg++;
+	}
+	if (!have_r || !have_c)
+	{
+		cerr << "Both rows and columns must be specified!" << endl; 
+		errflg++;
+	}
+	if (!have_t)
+	{
+		cerr << "No frames_per_term value specified!" << endl;
+		errflg++;
+	}
+	if (!have_p)
+	{
+		cerr << "No position (-p) specified!" << endl;
+		errflg++;
+	}
+	if (errflg) 
+	{
+		usage();
+	}
+	return errflg;
+}
+
+void usage()
+{
+	cerr << "Usage: sparse -d dotsize -p gridCenterX,gridCenterY -r nrows -c ncolumns -t frames_per_term" << endl;
+}
+
+void do_testing()
+{
+	bool bQuit = false;
+	string s;
+	
 	cout << "Enter command(qpm): ";
 	cin >> s;
 	while (!bQuit)
@@ -240,95 +514,6 @@ int main(int argc, char **argv)
 			cin >> stmp;
 			vsgSetCommand(vsgCYCLEPAGEDISABLE);
 		}
-
-#if 0
-		else if (s=="o")
-		{
-			int ix, iy;
-
-			cout << "Enter rows, columns: ";
-			cin >> s;
-			if (!parse_int_pair(s, f_nrows, f_ncols))
-			{
-				cout << "Enter grid center, in screen coord: ";
-				cin >> s;
-				if (!parse_int_pair(s, ix, iy))
-				{
-					double x0, y0;
-
-					// Figure out where the grid upper left corner is. Round it down to multiples of 4.
-					x0 = ix - f_ncols/2*f_dotsize;
-					y0 = iy - f_nrows/2*f_dotsize;
-
-					f_scrOriginGridX = (int)(x0/4)*4;
-					f_scrOriginGridY = (int)(y0/4)*4;
-					cout << "Grid origin, screen coords: " << f_scrOriginGridX << ", " << f_scrOriginGridY << endl;
-
-					f_pixOriginGridX = f_scrOriginGridX + 400;
-					f_pixOriginGridY = 300 - f_scrOriginGridY;
-					cout << "Grid origin, pixel coords: " << f_pixOriginGridX << ", " << f_pixOriginGridY << endl;
-				}
-			}
-		}
-		else if (s=="t")
-		{
-			int ix, iy;
-			int x, y;
-			cout << "Enter grid coord: ";
-			cin >> s;
-			if (!parse_int_pair(s, ix, iy))
-			{
-				x = ix*f_dotsize;
-				y = iy*f_dotsize;
-
-				// Now move window
-				vsgMoveScreen(
-			}
-		}
-		else if (s=="c")
-		{
-			int i, j;
-			int x, y;
-			int count=0;
-			int F = 10;
-			VSGCYCLEPAGEENTRY cycle[32768];
-			string stmp;
-
-			for (i=0; i<100; i++)
-			{
-				x = 1019 - i*f_dotsize;
-				for (j=0; j<75; j++)
-				{
-					y = 1019 - j*f_dotsize;
-					cycle[count].Frames = F;
-					cycle[count].Page = 0;
-					cycle[count].Xpos = x;
-					cycle[count].Ypos = y;
-					count++;
-				}
-			}
-			for (i=0; i<100; i++)
-			{
-				x = 1019 - i*f_dotsize;
-				for (j=0; j<75; j++)
-				{
-					y = 1019 - j*f_dotsize;
-					cycle[count].Frames = F;
-					cycle[count].Page = 2;
-					cycle[count].Xpos = x;
-					cycle[count].Ypos = y;
-					count++;
-				}
-			}
-			vsgPageCyclingSetup(count, &cycle[0]);
-			cout << "Hit any key to start." << endl;
-			cin >> stmp;
-			vsgSetCommand(vsgCYCLEPAGEENABLE);
-			cout << "Hit any key to stop." << endl;
-			cin >> stmp;
-			vsgSetCommand(vsgCYCLEPAGEDISABLE);
-		}
-#endif
 		else
 		{
 			printf("Unknown input.\n");
@@ -339,133 +524,4 @@ int main(int argc, char **argv)
 		cin >> s;
 	}
 
-
-
-
-
-	ARvsg::instance().release_lock();
-	return 0;
-}
-
-int args(int argc, char **argv)
-{	
-	string s;
-	int c;
-	extern char *optarg;
-	extern int optind;
-	int errflg = 0;
-	bool have_p = false;
-	bool have_d = false;
-	bool have_r = false;
-	bool have_c = false;
-	bool have_t = false;
-
-	while ((c = getopt(argc, argv, "d:p:r:c:t:hv")) != -1)
-	{
-		switch (c) 
-		{
-		case 'p':
-			s.assign(optarg);
-			if (parse_int_pair(s, f_scrGridCenterX, f_scrGridCenterY))
-			{
-				cerr << "Cannot parse grid center position (" << s << "): expecting integer positions, no spaces." <<endl;
-			}
-			else
-			{
-				have_p = true;
-			}
-			break;
-		case 'd':
-			s.assign(optarg);
-			if (parse_integer(s, f_iDotSize))
-			{
-				cerr << "Cannot parse dot size (" << s << "): must be an integer." << endl;
-				errflg++;
-			}
-			else
-			{
-				have_d = true;
-			}
-			break;
-		case 'r':
-			s.assign(optarg);
-			if (parse_integer(s, f_nRows))
-			{
-				cerr << "Cannot parse rows (" << s << "): must be an integer." << endl;
-				errflg++;
-			}
-			else
-			{
-				have_r = true;
-			}
-			break;
-		case 'c':
-			s.assign(optarg);
-			if (parse_integer(s, f_nCols))
-			{
-				cerr << "Cannot parse columns (" << s << "): must be an integer." << endl;
-				errflg++;
-			}
-			else
-			{
-				have_c = true;
-			}
-			break;
-		case 'v':
-			f_verbose = true;
-			break;
-		case 't':
-			s.assign(optarg);
-			if (parse_integer(s, f_iFramesPerTerm))
-			{
-				cerr << "Cannot parse frames per term (" << s << "): must be an integer." << endl;
-				errflg++;
-			}
-			else
-			{
-				have_t = true;
-			}
-			break;
-		case 'h':
-			errflg++;
-			break;
-		case '?':
-            errflg++;
-			break;
-		default:
-			errflg++;
-			break;
-		}
-	}
-
-	if (!have_d) 
-	{
-		cerr << "No dot size specified!" << endl; 
-		errflg++;
-	}
-	if (!have_r || !have_c)
-	{
-		cerr << "Both rows and columns must be specified!" << endl; 
-		errflg++;
-	}
-	if (!have_t)
-	{
-		cerr << "No frames_per_term value specified!" << endl;
-		errflg++;
-	}
-	if (!have_p)
-	{
-		cerr << "No position (-p) specified!" << endl;
-		errflg++;
-	}
-	if (errflg) 
-	{
-		usage();
-	}
-	return errflg;
-}
-
-void usage()
-{
-	cerr << "Usage: sparse -d dotsize -p gridCenterX,gridCenterY -r nrows -c ncolumns -t frames_per_term" << endl;
 }
