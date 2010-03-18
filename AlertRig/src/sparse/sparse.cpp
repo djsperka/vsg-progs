@@ -34,11 +34,16 @@ short *f_pterms = NULL;
 int f_nterms = 0;
 double f_tbefore = 1.0;
 double f_tafter = 1.0;
+bool f_binaryTriggers = true;
+TriggerVector triggers;
 
 void usage();
 int args(int argc, char **argv);
 int load_stimulus(const string& sfilename);
 void do_testing();
+void prepare_page_cycling();
+void init_triggers();
+int callback(int &output, const CallbackTrigger* ptrig);
 
 
 int main(int argc, char **argv)
@@ -56,6 +61,7 @@ int main(int argc, char **argv)
 		cerr << "VSG init failed!" << endl;
 		return 1;
 	}
+
 
 	// Pan/scroll mode makes video pages twice as wide as usual.
 	vsgSetVideoMode(vsgPANSCROLLMODE);
@@ -99,59 +105,54 @@ int main(int argc, char **argv)
 	f_scxGridX = vsgGetScreenWidthPixels()/2 + f_scrGridX;
 	f_scxGridY = vsgGetScreenHeightPixels()/2 - f_scrGridY;
 
+	// get page cycling ready
+	prepare_page_cycling();
 
-	if (f_bTesting) do_testing();
-	else
+	// prepare triggers
+	init_triggers();
+
+	// Issue "ready" triggers to spike2.
+	// These commands pulse spike2 port 6. 
+	Sleep(500);
+	vsgIOWriteDigitalOut(0xff, vsgDIG6);
+	Sleep(10);
+	vsgIOWriteDigitalOut(0, vsgDIG6);
+
+
+	// All right, start monitoring triggers........
+	std::string s;
+	int last_output_trigger=0;
+	int input_trigger=0;
+	while (1)
 	{
-		int i, iterm;
-		int term;
-		int ix, iy;
-		int x, y;
-		int count=0;
-		int ipage=0;
-		int iStimLengthUS;
-		string stmp;
-		VSGCYCLEPAGEENTRY *pcycle;
-
-		iStimLengthUS = (f_nrepeats * f_nterms * f_iFramesPerTerm) * vsgGetSystemAttribute(vsgFRAMETIME);
-		if (f_verbose)
+		// If user-triggered, get a trigger entry. 
+		if (!f_binaryTriggers)
 		{
-			cerr << "Stimulus has " << f_nterms << " terms, with " << f_nrepeats << "repeat(s)." << endl;
-			cerr << "Total stim run time approx " << (double)iStimLengthUS/1000000.0 << " sec." << endl;
+			// Get a new "trigger" from user
+			cout << "Enter trigger/key: ";
+			cin >> s;
+		}
+		else
+		{
+			input_trigger = vsgIOReadDigitalIn();
 		}
 
-		pcycle = new VSGCYCLEPAGEENTRY[f_nterms];
-		for (i=0; i<f_nterms; i++)
-		{
-			iterm = i+1;
-			term = f_pterms[iterm]%(2*16*16);
-			if (term % 2) 
-				ipage=0;				// white dot
-			else 
-				ipage=2;				// black dot
+		TriggerFunc	tf = std::for_each(triggers.begin(), triggers.end(), 
+			(f_binaryTriggers ? TriggerFunc(input_trigger, last_output_trigger) : TriggerFunc(s, last_output_trigger)));
 
-			iy = term/(2*16);							// TODO hard coded for 16 x 16
-			ix = (term %(2*16))/2;
-
-			x = f_pixBoxX - f_scxGridX - ix*f_iDotSize;
-			y = f_pixBoxY - f_scxGridY - iy*f_iDotSize;
-			pcycle[count].Frames = f_iFramesPerTerm;
-			pcycle[count].Page = ipage + vsgTRIGGERPAGE;
-			pcycle[count].Xpos = x;
-			pcycle[count].Ypos = y;
-			count++;
+		// Now analyze input trigger
+	 	
+		if (tf.quit()) break;
+		else if (tf.present())
+		{	
+			last_output_trigger = tf.output_trigger();
+			vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, tf.output_trigger(), 0);
+			vsgPresent();
 		}
-
-		vsgPageCyclingSetup(count, &pcycle[0]);
-
-		vsgResetTimer();
-		vsgSetCommand(vsgCYCLEPAGEENABLE);
-		while (vsgGetTimer() < iStimLengthUS)
-		{
-			Sleep(1000);
-		}
-		vsgSetCommand(vsgCYCLEPAGEDISABLE);
 	}
+
+
+
 
 
 
@@ -159,6 +160,89 @@ int main(int argc, char **argv)
 	return 0;
 }
 
+
+void init_triggers()
+{
+	triggers.addTrigger(new CallbackTrigger("s", 0x2, 0x2, 0x2, 0x2, callback));
+	triggers.addTrigger(new CallbackTrigger("X", 0x2, 0x0, 0x2, 0x0, callback));
+	triggers.addTrigger(new QuitTrigger("q", 0x80, 0x80, 0xff, 0x0, 0));
+
+		// Dump triggers
+	std::cout << "Triggers:" << std::endl;
+	for (unsigned int i=0; i<triggers.size(); i++)
+	{
+		std::cout << "Trigger " << i << " " << *(triggers[i]) << std::endl;
+	}
+	
+}
+
+
+
+int callback(int &output, const CallbackTrigger* ptrig)
+{
+	int ival=0;
+	string key = ptrig->getKey();
+	if (key == "s")
+	{
+		vsgResetTimer();
+		vsgSetCommand(vsgVIDEODRIFT);			// allows us to move the offset of video memory
+		vsgSetCommand(vsgCYCLEPAGEENABLE);
+	}
+	else if (key == "X")
+	{
+		vsgSetCommand(vsgCYCLEPAGEDISABLE);
+		vsgSetZoneDisplayPage(vsgVIDEOPAGE, 0);
+	}
+
+	return 0;		// this ensures that no vsgPresent is called (which would insert an extra trigger)
+}
+
+
+void prepare_page_cycling()
+{
+	int i, iterm;
+	int term;
+	int ix, iy;
+	int x, y;
+	int count=0;
+	int ipage=0;
+	int iStimLengthUS;
+	string stmp;
+	VSGCYCLEPAGEENTRY *pcycle;
+
+	iStimLengthUS = (f_nrepeats * f_nterms * f_iFramesPerTerm) * vsgGetSystemAttribute(vsgFRAMETIME);
+	if (f_verbose)
+	{
+		cerr << "Stimulus has " << f_nterms << " terms, with " << f_nrepeats << "repeat(s)." << endl;
+		cerr << "Total stim run time approx " << (double)iStimLengthUS/1000000.0 << " sec." << endl;
+	}
+
+	pcycle = new VSGCYCLEPAGEENTRY[f_nterms];
+	for (i=0; i<f_nterms; i++)
+	{
+		iterm = i+1;
+		term = f_pterms[iterm]%(2*16*16);
+		if (term % 2) 
+			ipage=0;				// white dot
+		else 
+			ipage=2;				// black dot
+
+		iy = term/(2*16);							// TODO hard coded for 16 x 16
+		ix = (term %(2*16))/2;
+
+		x = f_pixBoxX - f_scxGridX - ix*f_iDotSize;
+		y = f_pixBoxY - f_scxGridY - iy*f_iDotSize;
+		pcycle[count].Frames = f_iFramesPerTerm;
+		pcycle[count].Page = ipage + vsgTRIGGERPAGE;
+		pcycle[count].Xpos = x;
+		pcycle[count].Ypos = y;
+		count++;
+	}
+
+	vsgPageCyclingSetup(count, &pcycle[0]);
+
+	return;
+}
 
 int load_stimulus(const string& sfilename)
 {
@@ -218,10 +302,13 @@ int args(int argc, char **argv)
 	bool have_t = false;
 	bool have_f = false;
 
-	while ((c = getopt(argc, argv, "d:p:r:c:t:hvVf:TR:")) != -1)
+	while ((c = getopt(argc, argv, "d:p:r:c:t:hvVf:TR:a")) != -1)
 	{
 		switch (c) 
 		{
+		case 'a':
+			f_binaryTriggers = false;
+			break;
 		case 'T':
 			f_bTesting = true;
 			break;
