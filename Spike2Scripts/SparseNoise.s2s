@@ -1,0 +1,316 @@
+' $Id: SparseNoise.s2s,v 1.1 2010-03-18 23:58:29 devel Exp $
+'
+' SparseNoise.s2s
+'
+' This script shows a sparse noise stimulus and (TODO) computes a running revcorr in Matlab. 
+
+#include "../../Spike2Util/UsreyUtil.s2s"
+
+var spnNChannels% := 1;
+var spnFramesPerTerm% := 1;
+var spnDotSize% := 4;
+var spnCenterX% := 0;
+var spnCenterY% := 0;
+var spnNRepeats% := 1;
+var spnKeepCmdWindow% := 0;
+
+' Channel numbers
+var spnChanTrigger% := 11;
+var spnChanVSGReady% := 12;
+
+' Windows
+var spnDataWindow%;
+
+' Handle
+var spnStimHandle;
+
+' trigger counting
+const spnMaxTriggers% := 2000;
+var spnNTriggersCounted% := 0;
+var spnTriggerTimes[spnMaxTriggers%];
+var spnNTriggerTimes% := 0;          ' the number of trigger times held in spnTriggerTimes[]
+var spnLastTriggerTime := -1;
+var spnTriggerTimesHighWaterCount% := 1000;
+
+' states
+const stateStartup%             :=  1;
+const stateVSGWait%             :=  2;
+const stateVSGConfirm%          :=  3;
+const stateStartStim%           :=  4;
+const stateStim%                :=  5;
+const stateDone%                :=  6;
+
+var iState% := stateStartup%;              ' This holds the current state
+
+'~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+' Script starts here
+
+LogInit(1);
+
+if SparseNoiseDialog%() = 0 then
+    halt;
+endif
+
+' Sampling config
+CreateSampleConfiguration();
+
+' Prepare display windows, input channels, etc. 
+InitializeWindows();
+
+' Establish matlab connection
+'if MatlabOpen() < 0 then
+'    LogError("", "MatlabOpen failed.");
+'else
+'    MatlabShow(1);
+'endif
+
+ 
+' Set up toolbar and launch
+InitializeToolbar();
+
+
+
+func SparseNoiseDialog%()
+    var s%;
+    var tempDotSizeAdjusted%;
+
+    ' dialog fer collectin' parameters and such
+    DlgCreate("Sparse Noise Parameters");
+    DlgInteger(1, "Number of channels: ", 1, 8);
+    DlgInteger(2, "Frames per term: ", 1, 1000);
+    DlgInteger(3, "Dot size (pixels): ", 1, 100);
+    DlgInteger(4, "Center X coord: ", -400, 400);
+    DlgInteger(5, "Center Y coord: ", -300, 300);
+    DlgInteger(6, "Number of repeats: ", 1, 100);
+    DlgCheck(7, "Keep cmd window up");
+
+    s% := DlgShow(spnNChannels%, spnFramesPerTerm%, spnDotSize%, spnCenterX%, spnCenterY%, spnNRepeats%, spnKeepCmdWindow%);
+    
+    
+    ' Check inputs and adjust as needed. Dot size must be multiple of 4, not too large for screen. Note that
+    ' screen size is hard coded here at 800x600! 
+
+    tempDotSizeAdjusted%:=round(spnDotSize%/4)*4;
+    if tempDotSizeAdjusted% < 4 then 
+        tempDotSizeAdjusted% := 4; 
+    endif
+    if tempDotSizeAdjusted% <> spnDotSize% then 
+        LogWarn("", "Dot size must be multple of 4: using " + str$(tempDotSizeAdjusted%) + " instead."); 
+        spnDotSize% := tempDotSizeAdjusted%;
+    endif
+     
+    ' TODO save parameters
+    SaveSparseNoiseParameters();
+    
+    return s%
+    
+end
+
+proc SaveSparseNoiseParameters()
+    LogInfo("TODO: SaveSparseNoiseParameters");
+    return;
+end
+
+proc GetSparseNoiseParameters()
+    LogInfo("TODO: GetSparseNoiseParameters");
+    return;
+end
+
+
+proc CreateSampleConfiguration()
+    
+    var i%;
+    
+	SampleClear(); 'Set standard sampling state
+	SampleAutoComment(0); 'Prompt for comment after sampling
+	SampleAutoCommit(60); 'Seconds between each file commit
+    
+    FilePathSet(GetDataPathRoot$() + "\\" + GetDataSetName$(), 3);
+    FilePathSet(GetDataPathRoot$() + "\\" + GetDataSetName$(), 1);
+    SampleAutoName$(dataCellName$ + "_spn_000");
+	SampleAutoFile(1);
+
+    'Channel recording definitions
+
+    for i% := 1 to spnNChannels% do
+        SampleWaveMark(i%, i%-1, 2000, 34, 15, 28000); ' chan, port, event rate, points, pre-trigger, rate
+        SampleTitle$(i%, "Trode " + Str$(i%-1));
+    next
+
+    SampleEvent(spnChanTrigger%, 1, 1, 1000); 
+    SampleTitle$(spnChanTrigger%, "Terms");
+    
+   	SampleEvent(spnChanVSGReady%, 6, 2, 200); 'Trigger channel, level
+	SampleComment$(spnChanVSGReady%, "VSG Rdy");
+	SampleTitle$(spnChanVSGReady%, "VSG Rdy");
+    
+	SampleSequencer(script$ + "SparseNoise.pls");
+    SampleOptimise(2, 2, 2, 2, 50);  'Set optimise mode (do this last)
+    SampleMode(1); 'Continuous sampling
+    
+end;
+
+
+proc InitializeWindows()
+    var i%;
+    var AutoCorr%;
+    spnDataWindow%:=FileNew(0,4);
+    View(spnDataWindow%).WindowVisible(1);
+    View(spnDataWindow%).Window(0,33,100,100);
+
+    for i% :=1 to spnNChannels% do
+        AutoCorr% :=View(spnDataWindow%).SetEvtCrl(i%, 60, .0005, .015, i%);
+        View(AutoCorr%).ProcessAuto(5, 0, 1, 5);
+        View(AutoCorr%).Window((i%-1)*(100/spnNChannels%), 0, i%*(100/spnNChannels%), 33);
+        View(AutoCorr%).WindowVisible(1);
+        View(AutoCorr%).WindowTitle$("Channel "+str$(i%)+" AutoCorr");
+    next
+
+end
+
+
+proc InitializeToolbar()
+	
+    ToolbarSet(1,"Quit",Quit%);
+    ToolbarSet(2,"Sample start",Start%);
+    ToolbarSet(3,"Sample stop", Stop%);
+    ToolbarEnable(1, 1);
+    ToolbarEnable(2, 1);
+    ToolbarEnable(3, 0);
+    Toolbar("Go",1234);
+    
+end
+
+func Start%()
+    var cmd$;
+    if spnKeepCmdWindow% = 0 then
+        cmd$ := "cmd /c ";
+    else
+        cmd$ := "cmd /k ";
+    endif
+    
+    cmd$ += GetBinDir$(1) + "sparse.exe -r 16 -c 16 -v -f " + GetStimDir$(1) + "d27.snf -p " + str$(spnCenterX%) + "," + str$(spnCenterY%) + " -d " + str$(spnDotSize%) + " -t " + str$(spnFramesPerTerm%) + " -R " + str$(spnNRepeats%);
+    LogInfo(cmd$);
+    spnStimHandle := ProgRun(cmd$);
+    
+    SampleStart(0);
+    ToolbarEnable(1,0); 
+    ToolbarEnable(2,0);
+    ToolbarEnable(3,1);
+    ToolbarSet(0, "", Idle%);
+    return 1;
+end
+
+func Stop%()
+    
+    SampleKey("q");
+    Yield();
+    SampleStop();
+    ToolbarSet(0, "", Idle%);
+    'MatlabClose();
+    return 0;
+    
+end
+
+func Quit%()
+    Stop%();
+    return 0;
+end
+
+
+var tTrigger := -1;
+var tLast := -1;
+var tNow := -1;
+var tLastTrigger := -1;
+var vTrigger;
+var tStateStart := -1;
+
+func Idle%()
+    var status% := 1;
+    
+	tNow := MaxTime();
+    
+    docase 
+    case iState% = stateStartup% then
+        
+        LogStatus("stateStartup", "Starting up.");
+        ChangeStateTo(stateVSGWait%, tNow);
+        
+    case iState% = stateVSGWait% then
+        
+        ' Waiting for VSG to indicate it is ready. The indication is a pulse (up, then down, 1 frame apart) on port 6.
+        tTrigger := NextTime(spnChanVSGReady%, tLast, vTrigger);
+        if tTrigger > tLastTrigger and vTrigger = 0 then
+            LogStatus("stateVSGWait", "Got leading edge of trigger.");
+            tLastTrigger := tTrigger;
+            ChangeStateTo(stateVSGConfirm%, tTrigger);                
+        endif;
+            
+    case iState% = stateVSGConfirm% then
+            
+        ' Waiting for VSG to confirm it is ready. The downward side of the pulse is expected...
+        tTrigger := NextTime(spnChanVSGReady%, tLastTrigger, vTrigger);
+        if tTrigger > tLastTrigger and vTrigger = 1 then                
+            LogStatus("stateVSGConfirm", "Got trailing edge of trigger.");
+            tLastTrigger := tTrigger;
+            ChangeStateTo(stateStartStim%, tTrigger);
+        endif;
+            
+    case iState% = stateStartStim% then
+        
+        ' Issue sample key to start stim, then switch to looking for triggers
+        LogStatus("stateStartStim", "Starting stimulus.");
+        Yield(1.0);
+        SampleKey("s");
+        ChangeStateTo(stateStim%, tNow);
+        
+    case iState% = stateStim% then
+        
+        ' Count triggers here. 
+        var ntrig% := 0;
+        ntrig% := ChanData(spnChanTrigger%, spnTriggerTimes[spnNTriggersCounted%:], spnLastTriggerTime, tNow);
+        if ntrig% > 0 then
+            spnLastTriggerTime := spnTriggerTimes[spnNTriggersCounted% + ntrig%-1];
+            spnNTriggersCounted% += ntrig%;
+            
+            if spnNTriggersCounted% >= spnTriggerTimesHighWaterCount% then
+                LogInfo("Reached high water level. " + str$(spnNTriggersCounted%));
+                FlushTriggers();
+            endif
+            
+        endif
+        
+        
+'var spnNTriggersCounted% := 0;
+'var spnTriggerTimes[1000];
+'var spnNTriggerTimes% := 0          ' the number of trigger times held in spnTriggerTimes[]
+'var spnLastTriggerTime := -1;
+'var spnTriggerTimesHighWaterCount% := 100;
+        
+        
+    case iState% = stateDone% then
+        
+        Stop%();
+        status% := 0;
+        
+    else
+        
+        LogError("", "Unknown state " + str$(iState%));
+        Stop%();
+        status% := 0;
+        
+    endcase
+    
+    return status%;
+end
+
+proc ChangeStateTo(stateTo%, tStart)
+	iState% := stateTo%;
+	if tStart > 0 then tStateStart := tStart; endif;
+end;
+
+proc FlushTriggers()
+    LogInfo("TODO: FlushTriggers!");
+    spnNTriggersCounted% := 0;
+    return;
+end
