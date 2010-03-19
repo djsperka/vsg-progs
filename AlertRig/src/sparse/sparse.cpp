@@ -44,7 +44,7 @@ void do_testing();
 void prepare_page_cycling();
 void init_triggers();
 int callback(int &output, const CallbackTrigger* ptrig);
-
+bool is_term_onscreen(int ix, int iy);
 
 int main(int argc, char **argv)
 {
@@ -113,7 +113,7 @@ int main(int argc, char **argv)
 
 	// Issue "ready" triggers to spike2.
 	// These commands pulse spike2 port 6. 
-	Sleep(500);
+	Sleep(2000);
 	vsgIOWriteDigitalOut(0xff, vsgDIG6);
 	Sleep(10);
 	vsgIOWriteDigitalOut(0, vsgDIG6);
@@ -152,12 +152,35 @@ int main(int argc, char **argv)
 	}
 
 
-
-
-
-
 	ARvsg::instance().release_lock();
 	return 0;
+}
+
+
+bool is_term_onscreen(int ix, int iy)
+{
+	bool b = false;
+	int x0, y0;
+	int x1, y1;
+
+	x0 = f_scrGridX + ix*f_iDotSize;
+	y0 = f_scrGridY - iy*f_iDotSize;
+	x1 = x0 + f_iDotSize;
+	y1 = y0 - f_iDotSize;
+
+	if (x1 > -vsgGetScreenWidthPixels()/2 && y1 < vsgGetScreenHeightPixels()/2 && 
+		x0 < vsgGetScreenWidthPixels()/2 && y0 > -vsgGetScreenHeightPixels()/2)
+	{
+		b = true;
+	}
+
+	if (f_really_verbose)
+	{
+		cerr << "f_scrGrid " << f_scrGridX << "," << f_scrGridY << endl;
+		cerr << "(x0,y0) = (" << x0 << "," << y0 << ") (x1,y1)=(" << x1 << "," << y1 << ")" << (b ? "ONSCREEN" : "NOT") << endl;
+	}
+
+	return b;
 }
 
 
@@ -213,8 +236,20 @@ void prepare_page_cycling()
 	iStimLengthUS = (f_nrepeats * f_nterms * f_iFramesPerTerm) * vsgGetSystemAttribute(vsgFRAMETIME);
 	if (f_verbose)
 	{
+		int i, j;
 		cerr << "Stimulus has " << f_nterms << " terms, with " << f_nrepeats << "repeat(s)." << endl;
-		cerr << "Total stim run time approx " << (double)iStimLengthUS/1000000.0 << " sec." << endl;
+		cerr << "Total stim run time approx " << (double)iStimLengthUS/1000000.0 << " sec." << endl << endl;
+		cerr << "================" << endl;
+		for (j=0; j<16; j++)
+		{
+			for (i=0; i<16; i++)
+			{
+				if (is_term_onscreen(i, j)) cerr << "+";
+				else cerr << "-";
+			}
+			cerr << endl;
+		}
+		cerr << "================" << endl;
 	}
 
 	pcycle = new VSGCYCLEPAGEENTRY[f_nterms];
@@ -232,6 +267,14 @@ void prepare_page_cycling()
 
 		x = f_pixBoxX - f_scxGridX - ix*f_iDotSize;
 		y = f_pixBoxY - f_scxGridY - iy*f_iDotSize;
+
+		// If the term is off-screen lets not bother to show it and move window to 0,0
+		if (!is_term_onscreen(ix, iy))
+		{
+			x = 0;
+			y = 0;
+		}
+
 		pcycle[count].Frames = f_iFramesPerTerm;
 		pcycle[count].Page = ipage + vsgTRIGGERPAGE;
 		pcycle[count].Xpos = x;
