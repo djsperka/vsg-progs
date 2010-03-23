@@ -134,7 +134,10 @@ namespace alert
 
 
 
-	// Base class that encapsulates VSG objects. All spec classes should inherit from this
+	// Base class that encapsulates VSG objects. All spec classes should inherit from this. 
+	// djs 3-23-10 Add init special case. If using numlevels = vsgFIXATION, that particular level is 
+	// used for this object. This special level can be used in conjunction with the object animation
+	// system. 
 	class ARObject
 	{
 	public:
@@ -142,6 +145,7 @@ namespace alert
 		virtual ~ARObject() {};
 		void init(PIXEL_LEVEL first, int numlevels);
 		void init(int numlevels);
+		void destroy() { vsgObjDestroy(m_handle); m_handle = 0; };
 		int select();
 		virtual void setContrast(int contrast) { select(); vsgObjSetContrast(contrast); };
 		VSGOBJHANDLE handle() { return m_handle; };

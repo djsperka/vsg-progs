@@ -47,7 +47,12 @@ int alert::ARObject::select()
 void alert::ARObject::init(int numlevels)
 {
 	PIXEL_LEVEL level;
-	if (numlevels>1)
+	if (numlevels == vsgFIXATION)
+	{
+		level = vsgFIXATION;
+		init(level, 1);
+	}
+	else if (numlevels>1)
 	{
 		LevelManager::instance().request_range(numlevels, level);
 		init(level, numlevels);
@@ -70,7 +75,6 @@ void alert::ARObject::init(PIXEL_LEVEL first, int numlevels)
 	m_handle = vsgObjCreate();
 	m_first = first;
 	m_numlevels = numlevels;
-
 	vsgObjSetDefaults();
 	vsgObjSetContrast(100);
 	vsgObjSetPixelLevels(first, numlevels);
