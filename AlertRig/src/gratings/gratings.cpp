@@ -25,7 +25,9 @@ int callback(int &output, const CallbackTrigger* ptrig);
 using namespace std;
 using namespace alert;
 
-ARContrastFixationPointSpec m_afp;
+//ARContrastFixationPointSpec m_afp;
+ARFixationPointSpec m_fixpt;
+bool m_bHaveFixpt = false;
 COLOR_TYPE m_background;
 vector<ARGratingSpec*> m_gratings;
 int m_screenDistanceMM=0;
@@ -36,10 +38,12 @@ bool m_bCalibration = false;
 const int f_iPage0 = 0;
 const int f_iPage1 = 1;
 const int f_iPageBlank = 2;
+const int f_iPageFixpt = 3;
 
 
 static void usage();
 static int init_pages();
+int callback(int &output, const CallbackTrigger* ptrig);
 
 
 int main (int argc, char *argv[])
@@ -131,7 +135,7 @@ int args(int argc, char **argv)
 	extern char *optarg;
 	extern int optind;
 	int errflg = 0;
-	while ((c = getopt(argc, argv, "s:b:hd:va")) != -1)
+	while ((c = getopt(argc, argv, "s:b:hd:vaf:")) != -1)
 	{
 		switch (c) 
 		{
@@ -158,6 +162,11 @@ int args(int argc, char **argv)
 				m_gratings.push_back(pspec);
 			}
 			else errflg++;
+			break;
+		case 'f':
+			s.assign(optarg);
+			if (parse_fixation_point(s, m_fixpt)) errflg++;
+			else m_bHaveFixpt = true;
 			break;
 		case 'h':
 			errflg++;
@@ -197,8 +206,6 @@ int init_pages()
 {
 	int status=0;
 	int islice=50;
-	ContrastTrigger *ptrig = NULL;
-	CallbackTrigger *pcall = NULL;
 
 	// initialize video pages
 	if (ARvsg::instance().init_video())
@@ -207,31 +214,82 @@ int init_pages()
 		return 1;
 	}
 
+	if (m_bHaveFixpt)
+	{
+		VSGTRIVAL c;
+		//m_fixpt.init(vsgFIXATION);
+		get_color(m_fixpt.color, c);
+		vsgSetFixationColour(&c);
+	}
+
+
 	// draw first grating on page 0
 	vsgSetDrawPage(vsgVIDEOPAGE, f_iPage0, vsgNOCLEAR);
 	m_gratings[0]->init(islice);
 	m_gratings[0]->draw(true);
+
+	// If needed, draw fixpt on same page. Must init fixpt first. 
+	if (m_bHaveFixpt)
+	{
+		vsgSetPen1(vsgFIXATION);
+		m_fixpt.draw();
+	}
 
 	// draw second grating on page 1
 	vsgSetDrawPage(vsgVIDEOPAGE, f_iPage1, vsgNOCLEAR);
 	m_gratings[1]->init(islice);
 	m_gratings[1]->draw(true);
 
-	// set draw page to page 2 - the blank page - so it is displayed initially.
-	vsgSetDrawPage(vsgVIDEOPAGE, f_iPageBlank, vsgNOCLEAR);
+	// If needed, draw fixpt on same page. No need to init fixpt - that was done above. 
+	if (m_bHaveFixpt)
+	{
+		vsgSetPen1(vsgFIXATION);
+		m_fixpt.draw();
+	}
+
+	// Page 2 is blank. Page 3 will have fixpt alone, if needed. 
+	vsgSetDrawPage(vsgVIDEOPAGE, f_iPageFixpt, vsgNOCLEAR);
+	if (m_bHaveFixpt)
+	{
+		vsgSetPen1(vsgFIXATION);
+		m_fixpt.draw();
+	}
+
+
+#if 0
+	// initialize overlay pages. Overlay page 0 and 1 will be used. Init them to CLEAR. 
+	if (ARvsg::instance().init_overlay())
+	{
+		cerr << "VSG overlay initialization failed!" << endl;
+		return 1;
+	}
+	vsgSetDrawPage(vsgOVERLAYPAGE, 1, 0);
+	if (m_bHaveFixpt)
+	{
+		arutil_color_to_overlay_palette(m_afp, 3);
+		arutil_draw_overlay(m_afp, 3, 1);
+	}
+	vsgSetDrawPage(vsgOVERLAYPAGE, 0, 0);
+#endif
 
 	// trigger to turn stim 0/1 on
 	triggers.addTrigger(new PageTrigger("0", 0x6, 0x2, 0x2, 0x2, 0));
 	triggers.addTrigger(new PageTrigger("1", 0x6, 0x4, 0x2, 0x2, 1));
+	//triggers.addTrigger(new CallbackTrigger("0", 0x6, 0x2, 0x2, 0x2, callback));
+	//triggers.addTrigger(new CallbackTrigger("1", 0x6, 0x4, 0x2, 0x2, callback));
 
 	// trigger to toggle 0/1 contrast
 	triggers.addTrigger(new TogglePageTrigger("z", 0x8, 0x8|AR_TRIGGER_TOGGLE, 0x4, 0x4|AR_TRIGGER_TOGGLE, 0, 1));
 
 	// trigger to turn stim OFF
-	triggers.addTrigger(new PageTrigger("X", 0x6, 0x0, 0x2, 0x0, 2));
+	triggers.addTrigger(new PageTrigger("X", 0x6, 0x0, 0xa, 0x0, 4));
 
 	// quit trigger
 	triggers.addTrigger(new QuitTrigger("q", 0x80, 0x80, 0xff, 0x0, 0));
+
+	// Fixation point trigger
+	triggers.addTrigger(new PageTrigger("F", 0x10, 0x10, 0x8, 0x8, 3));
+	triggers.addTrigger(new PageTrigger("f", 0x10, 0x0, 0x8, 0x0, 4));
 
 	// Set vsg trigger mode
 	vsgObjSetTriggers(vsgTRIG_ONPRESENT+vsgTRIG_TOGGLEMODE,0,0);
@@ -250,3 +308,57 @@ int init_pages()
 
 
 
+// The return value from this trigger callback determines whether a vsgPresent() is issued. 
+// Since we are using overlay zone pages for the fixation point transitions, no vsgPresent() is used. 
+// Instead, we use vsgIODigitalWrite() and vsgSetZoneDisplayPage(). 
+
+int callback(int &output, const CallbackTrigger* ptrig)
+{
+	int ival=0;
+	string key = ptrig->getKey();
+	if (key == "F")
+	{
+		vsgSetDrawPage(vsgOVERLAYPAGE, 1, vsgNOCLEAR);
+
+		// trickery to get triggers out for advance
+		vsgIOWriteDigitalOut(output, ptrig->outMask());
+		vsgSetZoneDisplayPage(vsgOVERLAYPAGE, 1);
+	}
+	else if (key == "f")
+	{
+		vsgSetDrawPage(vsgOVERLAYPAGE, 0, vsgNOCLEAR);
+
+		// trickery to get triggers out for advance
+		vsgIOWriteDigitalOut(output, ptrig->outMask());
+		vsgSetZoneDisplayPage(vsgOVERLAYPAGE, 0);
+	}
+	else if (key=="0")
+	{
+		vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgNOCLEAR);
+
+		// trickery to get triggers out for advance
+		vsgIOWriteDigitalOut(output, ptrig->outMask());
+		//vsgSetZoneDisplayPage(vsgVIDEOPAGE, 0 + vsgTRIGGERPAGE);
+		vsgSetZoneDisplayPage(vsgVIDEOPAGE, 0);
+	}
+	else if (key=="1")
+	{
+		vsgSetDrawPage(vsgVIDEOPAGE, 1, vsgNOCLEAR);
+
+		// trickery to get triggers out for advance
+		vsgIOWriteDigitalOut(output, ptrig->outMask());
+		//vsgSetZoneDisplayPage(vsgVIDEOPAGE, 1 + vsgTRIGGERPAGE);
+		vsgSetZoneDisplayPage(vsgVIDEOPAGE, 1);
+	}
+	else if (key=="X")
+	{
+		vsgSetDrawPage(vsgVIDEOPAGE, 2, vsgNOCLEAR);
+		vsgSetDrawPage(vsgOVERLAYPAGE, 0, vsgNOCLEAR);
+
+		// trickery to get triggers out for advance
+		vsgIOWriteDigitalOut(output, ptrig->outMask());
+		vsgSetDrawPage(vsgOVERLAYPAGE, 0, vsgNOCLEAR);
+		vsgSetZoneDisplayPage(vsgVIDEOPAGE, 2 + vsgTRIGGERPAGE);
+	}
+	return ival;
+}
