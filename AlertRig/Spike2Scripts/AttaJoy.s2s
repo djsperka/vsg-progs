@@ -1,9 +1,10 @@
 
 #include "../../Spike2Util/TrialBlockGen.s2s"
 #include "../../Spike2Util/ChannelUtilities.s2s"
-#include "Usrey.s2s"
+#include "../../Spike2Util/UsreyUtil.s2s"
 #include "UsreyGratings.s2s"
 #include "UsreyFixationPoint.s2s"
+#include "UsreyDAQ.s2s"
 #include "Joystick.s2s"
 
 ' Local config variables
