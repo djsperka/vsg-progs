@@ -12,6 +12,17 @@ var EyeCoilSamplingFrequency%;		' Frequency to sample eye coil at
 var NumberOfElectrodes%;		' Number of electrodes (i.e. wavemark inputs) in use
 var JuicePerReward%;			' Number of juice squirts per reward
 
+func GetDistanceToScreenMM$()
+    return DistanceToScreenMM$;
+end
+
+func GetDegreesPerVoltX()
+    return DegreesPerVoltX;
+end
+
+func GetDegreesPerVoltY()
+    return DegreesPerVoltY;
+end
 
 func DAQParametersDialog%()
 
