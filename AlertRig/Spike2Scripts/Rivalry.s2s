@@ -1,8 +1,10 @@
 #include "../../Spike2Util/TrialBlockGen.s2s"
 #include "../../Spike2Util/ChannelUtilities.s2s"
-#include "Usrey.s2s"
+#include "../../Spike2Util/UsreyUtil.s2s"
 #include "UsreyGratings.s2s"
 #include "Joystick.s2s"
+#include "UsreyFixationPoint.s2s"
+#include "UsreyDAQ.s2s"
 
 ' Local config variables
 
@@ -26,6 +28,12 @@ var rivSwapMinTime := 2;
 var rivSwapMaxTime := 4;
 var rivSwapMaxResponseTime := 2.0;
 var rivMaintainResponseRewardWait := .5;
+var rivUseFixation% := 0;
+var rivMaxAcquisitionTime := 4;
+var rivAcquisitionFailWaitTime := 1;
+var rivFixationHoldTime := 0.5;
+var rivFixationFailWaitTime := 1;
+var rivAlwaysLooking% := 0;
 var rivUseBeep% := 1;
 var rivCorrectionTrials% := 0;
 var rivBeepLengthMS% := 100;
@@ -37,6 +45,7 @@ var rivLeftGratingX, rivLeftGratingY, rivLeftGratingD;
 var rivRightGratingX, rivRightGratingY, rivRightGratingD;
 var rivLeftGratingTextItem%;
 var rivRightGratingTextItem%;
+var rivFixationTextItem%;
 
 ' Counters
 
@@ -58,6 +67,7 @@ var rivChanJoy%     := 13;
 var rivChanVSGReady%    :=  20;
 var rivChanVSGStim%     :=  21;
 var rivChanVSGSwap%     :=  22;
+var rivChanFixpt%       :=  23;
 
 ' windows
 
@@ -119,6 +129,11 @@ const stateWaitForSwap%         :=  23;
 const stateWaitForSwapResponse% :=  24;
 const stateCorrectSwapResponse% :=  25;
 const stateNoSwapResponse%      :=  26;
+const stateWaitForFixpt%        :=  27;
+const stateWaitForAcquisition%  :=  28;
+const stateFixationHold%        :=  29;
+const stateAcquisitionFail%     :=  30;
+const stateFixationFail%        :=  31;
 
 var iState% := stateStartup%;              ' This holds the current state
 
@@ -193,6 +208,10 @@ proc CreateSampleConfiguration()
 	SampleEvent(rivChanVSGSwap%, 3, 2, 3600); 'Trigger channel, level
 	SampleComment$(rivChanVSGSwap%, "Swap");
 	SampleTitle$(rivChanVSGSwap%, "Swap");
+    
+	SampleEvent(rivChanFixpt%, 4, 2, 3600); 'Trigger channel, level
+	SampleComment$(rivChanFixpt%, "Fixpt");
+	SampleTitle$(rivChanFixpt%, "Fixpt");
 	
 	SampleEvent(rivChanVSGReady%, 6, 2, 3600); 'Trigger channel, level
 	SampleComment$(rivChanVSGReady%, "VSG Ready");
@@ -386,11 +405,11 @@ func IdleProcessing%()
     joystickPosition% := GetJoystickPosition%(joystickVoltage);
     View(rivWindowXY%).XYAddData(rivChanJoystickPos%, joystickVoltage * rivVCoeff + rivVConst, rivJoystickDisplayY);
     
-    
-    
-'	xEye := ChanMeasure(XChannel%,2,tNow-.001,tNow-.006)*DegreesPerVoltX;
-'	yEye := ChanMeasure(YChannel%,2,tNow-.001,tNow-.006)*DegreesPerVoltY;
-'	View(XYWindow%).XYAddData(1,xEye,yEye);
+    if tNow > 0.005 then
+        xEye := ChanMeasure(rivChanEyeX%, 2, tNow, tNow-.005) * DegreesPerVoltX;
+        yEye := ChanMeasure(rivChanEyeY%, 2, tNow-.001, tNow-.006) * DegreesPerVoltY;
+        View(rivWindowXY%).XYAddData(1, xEye, yEye);
+    endif
     
     repeat
         iLoop% := 0;
@@ -466,6 +485,54 @@ func IdleProcessing%()
                     DeliverReward(rivReadyHoldRewardSize%, tNow);
                     Yield(.1);
                 endif
+                SampleKey("F");
+                ChangeStateTo(stateWaitForFixpt%, tNow);
+            case joystickPosition% <> JSCenter% then
+                LogStatus("stateReadyHold", "Joystick not in ready position.");
+                ChangeStateTo(stateReadyFail%, tNow);
+                iLoop% := 1;
+            endcase
+            
+        case iState% = stateWaitForFixpt% then
+            
+                ' TODO: Check for js ready here? Exit to what state?
+            iLoop% := 0;
+            docase
+            case FindRisingEdge%(rivChanFixpt%, tStateStart, tTrigger) = 0 then
+                ' Fixpt is up
+                LogStatus("stateWaitForFixpt", "Fixpt is up.");
+                ChangeStateTo(stateWaitForAcquisition%, tNow);
+                iLoop% := 1;
+            endcase
+                
+        case iState% = stateWaitForAcquisition% then
+            
+            ' Waiting for eye to fall in fixation window. Joystick must remain in ready position.
+            docase
+            case joystickPosition% <> JSCenter% then
+                LogStatus("stateWaitForAcquisition", "Joystick not in ready position.");
+                ChangeStateTo(stateAcquisitionFail%, tNow);
+            case Looking%(xEye, yEye) = 1 then
+                LogStatus("stateWaitForAcquisition", "Eye in fixation window.");
+                ChangeStateTo(stateFixationHold%, tNow);
+            case tNow - tStateStart > rivMaxAcquisitionTime then
+                LogStatus("stateWaitForAcquisition", "Acquisition time is up!");
+                ChangeStateTo(stateAcquisitionFail%, tNow);
+            else
+                iLoop% := 0;
+            endcase
+            
+        case iState% = stateFixationHold% then
+            
+            iLoop% := 0;
+            docase
+            case joystickPosition% <> JSCenter% then
+                LogStatus("stateFixationHold", "Joystick not in ready position.");
+                ChangeStateTo(stateFixationFail%, tNow);
+            case Looking%(xEye, yEye) <> 1 then
+                LogStatus("stateFixationHold", "Eye not in fixation window.");
+                ChangeStateTo(stateFixationFail%, tNow);
+            case tNow - tStateStart > rivFixationHoldTime then
                 ChangeStateTo(stateWaitForStimUp%, tNow);
                 docase 
                 case rivCorrectResponse% = JSLeft% then
@@ -476,11 +543,23 @@ func IdleProcessing%()
                     LogError("stateWaitForReady", "Correct response unknown");
                     Stop%();
                 endcase
-            case joystickPosition% <> JSCenter% then
-                LogStatus("stateReadyHold", "Joystick not in ready position.");
-                ChangeStateTo(stateReadyFail%, tNow);
-                iLoop% := 1;
+            else
+                iLoop% := 0;
             endcase
+            
+        case iState% = stateAcquisitionFail% then
+            
+            rivUniversalIntertrialTime := rivAcquisitionFailWaitTime;
+            SampleKey("X");
+            ChangeStateTo(stateWaitForStimOff%, tNow);
+            iLoop% := 0;
+            
+        case iState% = stateFixationFail% then
+            
+            rivUniversalIntertrialTime := rivFixationFailWaitTime;
+            SampleKey("X");
+            ChangeStateTo(stateWaitForStimOff%, tNow);
+            iLoop% := 0;
             
         case iState% = stateReadyFail% then
             
@@ -875,14 +954,17 @@ func RivalryDialog%()
     DlgReal(12, "Swap time - min", 0.01, 20, 25, 15);
     DlgReal(13, "Swap time - max", 0.01, 20, 25, 16);
     DlgReal(14, "Max stim time (s)", .01, 20, 25, 17);
-    DlgGroup("Gratings", 1, 18, 50, 3);
-    DlgButton(102, "Left Grating", RivalryLGratingDialog%, 1, 19);
-    rivLeftGratingTextItem% := DlgText(rivLeftGrating$, 15, 19);
-    DlgButton(103, "Right Grating", RivalryRGratingDialog%, 1, 20);
-    rivRightGratingTextItem% := DlgText(rivRightGrating$, 15, 20);
+    DlgGroup("Fixation", 1, 18, 50, 3);
+    DlgCheck(15, "Use Fixation?", 1, 19);
+    DlgButton(104, "Fixation Settings", RivalryFixationDialog%, 1, 20);
+    DlgGroup("Gratings", 1, 21, 50, 3);
+    DlgButton(102, "Left Grating", RivalryLGratingDialog%, 1, 22);
+    rivLeftGratingTextItem% := DlgText(rivLeftGrating$, 15, 22);
+    DlgButton(103, "Right Grating", RivalryRGratingDialog%, 1, 23);
+    rivRightGratingTextItem% := DlgText(rivRightGrating$, 15, 23);
     i% := DlgShow(rivNBlocks%, rivNTrialsEachTypePerBlock%, rivUseBeep%, rivCorrectionTrials%, rivBeepLengthMS%, rivReadyHoldTime, 
                   rivReadyHoldRewardSize%, rivResponseCorrectRewardSize%, rivMaintainResponseRewardSize%, rivMaintainResponseRewardWait, 
-                  rivSwapRewardSize%, rivSwapMinTime, rivSwapMaxTime, rivMaxStimTime);
+                  rivSwapRewardSize%, rivSwapMinTime, rivSwapMaxTime, rivMaxStimTime, rivUseFixation%);
     if i% = 1 then
         SaveRivalryParameters();
     endif
@@ -893,73 +975,82 @@ proc GetRivalryParameters()
     var key$;
     var stmp$;
     key$ := GetRegistryKey$(1) + "\\Rivalry";
-    Profile(key$, "LeftGrating", rivLeftGrating$, rivLeftGrating$);
-    Profile(key$, "RightGrating", rivRightGrating$, rivRightGrating$);
-    Profile(key$, "NBlocks", rivNBlocks%, rivNBlocks%);
-    Profile(key$, "NTrialsEachTypePerBlock", rivNTrialsEachTypePerBlock%, rivNTrialsEachTypePerBlock%);
-    Profile(key$, "UseBeep", rivUseBeep%, rivUseBeep%);
-    Profile(key$, "CorrectionTrials", rivCorrectionTrials%, rivCorrectionTrials%);
-    Profile(key$, "BeepLengthMS", rivBeepLengthMS%, rivBeepLengthMS%);
-    Profile(key$, "ResponseCorrectRewardSize", rivResponseCorrectRewardSize%, rivResponseCorrectRewardSize%);
-    Profile(key$, "MaintainResponseRewardSize", rivMaintainResponseRewardSize%, rivMaintainResponseRewardSize%);
-    Profile(key$, "MaintainResponseRewardWait", str$(rivMaintainResponseRewardWait), stmp$);
-    rivMaintainResponseRewardWait := val(stmp$);
-    Profile(key$, "SwapRewardSize", rivSwapRewardSize%, rivSwapRewardSize%);
-    Profile(key$, "SwapMinTime", str$(rivSwapMinTime), stmp$);
-    rivSwapMinTime := val(stmp$);
-    Profile(key$, "SwapMaxTime", str$(rivSwapMaxTime), stmp$);
-    rivSwapMaxTime := val(stmp$);
-    Profile(key$, "MaxStimTime", str$(rivMaxStimTime), stmp$);
-    rivMaxStimTime := val(stmp$);
-    Profile(key$, "MaxWaitForReadyTime", str$(rivMaxWaitForReadyTime), stmp$);
-    rivMaxWaitForReadyTime := val(stmp$);
-    Profile(key$, "ReadyFailWaitTime", str$(rivReadyFailWaitTime), stmp$);
-    rivReadyFailWaitTime := val(stmp$);
-    Profile(key$, "SwapMaxResponseTime", str$(rivSwapMaxResponseTime), stmp$);
-    rivSwapMaxResponseTime := val(stmp$);
-    Profile(key$, "MaxResponseTime", str$(rivMaxResponseTime), stmp$);
-    rivMaxResponseTime := val(stmp$);
-    Profile(key$, "ResponseFailWaitTime", str$(rivResponseFailWaitTime), stmp$);
-    rivResponseFailWaitTime := val(stmp$);
-    Profile(key$, "ResponseIncorrectWaitTime", str$(rivResponseIncorrectWaitTime), stmp$);
-    rivResponseIncorrectWaitTime := val(stmp$);
-    Profile(key$, "ResponseBrokenWaitTime", str$(rivResponseBrokenWaitTime), stmp$);
-    rivResponseBrokenWaitTime := val(stmp$);
-    Profile(key$, "MaxStimWaitTime", str$(rivMaxStimWaitTime), stmp$);
-    rivMaxStimWaitTime := val(stmp$);
-    Profile(key$, "ReadyHoldRewardSize", rivReadyHoldRewardSize%, rivReadyHoldRewardSize%);
-    Profile(key$, "ReadyHoldTime", str$(rivReadyHoldTime), stmp$);
-    rivReadyHoldTime := val(stmp$);
+    rivLeftGrating$ := GetStringRegistryValue$(key$, "LeftGrating", rivLeftGrating$);
+    rivRightGrating$ := GetStringRegistryValue$(key$, "RightGrating", rivRightGrating$);
+    rivNBlocks% := GetIntRegistryValue%(key$, "NBlocks", rivNBlocks%);
+    rivNTrialsEachTypePerBlock% := GetIntRegistryValue%(key$, "NTrialsEachTypePerBlock", rivNTrialsEachTypePerBlock%);
+    rivUseBeep% := GetIntRegistryValue%(key$, "UseBeep", rivUseBeep%);
+    rivCorrectionTrials% := GetIntRegistryValue%(key$, "CorrectionTrials", rivCorrectionTrials%);
+    rivBeepLengthMS% := GetIntRegistryValue%(key$, "BeepLengthMS", rivBeepLengthMS%);
+    rivResponseCorrectRewardSize% := GetIntRegistryValue%(key$, "ResponseCorrectRewardSize", rivResponseCorrectRewardSize%);
+    rivMaintainResponseRewardSize% := GetIntRegistryValue%(key$, "MaintainResponseRewardSize", rivMaintainResponseRewardSize%);
+    rivMaintainResponseRewardWait := GetFloatRegistryValue(key$, "MaintainResponseRewardWait", rivMaintainResponseRewardWait);
+    rivSwapRewardSize% := GetIntRegistryValue%(key$, "SwapRewardSize", rivSwapRewardSize%);
+    rivSwapMinTime := GetFloatRegistryValue(key$, "SwapMinTime", rivSwapMinTime);
+    rivSwapMaxTime := GetFloatRegistryValue(key$, "SwapMaxTime", rivSwapMaxTime);
+    rivMaxStimTime := GetFloatRegistryValue(key$, "MaxStimTime", rivMaxStimTime);
+    rivMaxWaitForReadyTime := GetFloatRegistryValue(key$, "MaxWaitForReadyTime", rivMaxWaitForReadyTime);
+    rivReadyFailWaitTime := GetFloatRegistryValue(key$, "ReadyFailWaitTime", rivReadyFailWaitTime);
+    rivSwapMaxResponseTime := GetFloatRegistryValue(key$, "SwapMaxResponseTime", rivSwapMaxResponseTime);
+    rivMaxResponseTime := GetFloatRegistryValue(key$, "MaxResponseTime", rivMaxResponseTime);
+    rivResponseFailWaitTime := GetFloatRegistryValue(key$, "ResponseFailWaitTime", rivResponseFailWaitTime);
+    rivResponseIncorrectWaitTime := GetFloatRegistryValue(key$, "ResponseIncorrectWaitTime", rivResponseIncorrectWaitTime);
+    rivResponseBrokenWaitTime := GetFloatRegistryValue(key$, "ResponseBrokenWaitTime", rivResponseBrokenWaitTime);
+    rivMaxStimWaitTime := GetFloatRegistryValue(key$, "MaxStimWaitTime", rivMaxStimWaitTime);
+    rivReadyHoldRewardSize% := GetIntRegistryValue%(key$, "ReadyHoldRewardSize", rivReadyHoldRewardSize%);
+    rivReadyHoldTime := GetFloatRegistryValue(key$, "ReadyHoldTime", rivReadyHoldTime);
+    
+    rivUseFixation% := GetIntRegistryValue%(key$, "UseFixation", rivUseFixation%);
+    rivMaxAcquisitionTime := GetFloatRegistryValue(key$, "MaxAcquisitionTime", rivMaxAcquisitionTime);
+    rivAcquisitionFailWaitTime := GetFloatRegistryValue(key$, "AcquisitionFailWaitTime", rivAcquisitionFailWaitTime);
+    rivFixationHoldTime := GetFloatRegistryValue(key$, "FixationHoldTime", rivFixationHoldTime);
+    rivFixationFailWaitTime := GetFloatRegistryValue(key$, "FixationFailWaitTime", rivFixationFailWaitTime);
 end
 
 proc SaveRivalryParameters()
     var key$;
     var stmp$;
     key$ := GetRegistryKey$(1) + "\\Rivalry";
-    Profile(key$, "LeftGrating", rivLeftGrating$);
-    Profile(key$, "RightGrating", rivRightGrating$);
-    Profile(key$, "NBlocks", rivNBlocks%);
-    Profile(key$, "NTrialsEachTypePerBlock", rivNTrialsEachTypePerBlock%);
-    Profile(key$, "UseBeep", rivUseBeep%);
-    Profile(key$, "CorrectionTrials", rivCorrectionTrials%);
-    Profile(key$, "BeepLengthMS", rivBeepLengthMS%);
-    Profile(key$, "ResponseCorrectRewardSize", rivResponseCorrectRewardSize%);
-    Profile(key$, "MaintainResponseRewardSize", rivMaintainResponseRewardSize%);
-    Profile(key$, "MaintainResponseRewardWait", str$(rivMaintainResponseRewardWait));
-    Profile(key$, "SwapRewardSize", rivSwapRewardSize%);
-    Profile(key$, "SwapMinTime", str$(rivSwapMinTime));
-    Profile(key$, "SwapMaxTime", str$(rivSwapMaxTime));
-    Profile(key$, "MaxStimTime", str$(rivMaxStimTime));
-    Profile(key$, "MaxWaitForReadyTime", str$(rivMaxWaitForReadyTime));
-    Profile(key$, "ReadyFailWaitTime", str$(rivReadyFailWaitTime));
-    Profile(key$, "MaxResponseTime", str$(rivMaxResponseTime));
-    Profile(key$, "SwapMaxResponseTime", str$(rivSwapMaxResponseTime));
-    Profile(key$, "ResponseFailWaitTime", str$(rivResponseFailWaitTime));
-    Profile(key$, "ResponseIncorrectWaitTime", str$(rivResponseIncorrectWaitTime));
-    Profile(key$, "ResponseBrokenWaitTime", str$(rivResponseBrokenWaitTime));
-    Profile(key$, "MaxStimWaitTime", str$(rivMaxStimWaitTime));
-    Profile(key$, "ReadyHoldRewardSize", rivReadyHoldRewardSize%);
-    Profile(key$, "ReadyHoldTime", str$(rivReadyHoldTime));
+    SetStringRegistryValue(key$, "LeftGrating", rivLeftGrating$);
+    SetStringRegistryValue(key$, "RightGrating", rivRightGrating$);
+    SetIntRegistryValue(key$, "NBlocks", rivNBlocks%);
+    SetIntRegistryValue(key$, "NTrialsEachTypePerBlock", rivNTrialsEachTypePerBlock%);
+    SetIntRegistryValue(key$, "UseBeep", rivUseBeep%);
+    SetIntRegistryValue(key$, "CorrectionTrials", rivCorrectionTrials%);
+    SetIntRegistryValue(key$, "BeepLengthMS", rivBeepLengthMS%);
+    SetIntRegistryValue(key$, "ResponseCorrectRewardSize", rivResponseCorrectRewardSize%);
+    SetIntRegistryValue(key$, "MaintainResponseRewardSize", rivMaintainResponseRewardSize%);
+    SetFloatRegistryValue(key$, "MaintainResponseRewardWait", rivMaintainResponseRewardWait);
+    SetIntRegistryValue(key$, "SwapRewardSize", rivSwapRewardSize%);
+    SetFloatRegistryValue(key$, "SwapMinTime", rivSwapMinTime);
+    SetFloatRegistryValue(key$, "SwapMaxTime", rivSwapMaxTime);
+    SetFloatRegistryValue(key$, "MaxStimTime", rivMaxStimTime);
+    SetFloatRegistryValue(key$, "MaxWaitForReadyTime", rivMaxWaitForReadyTime);
+    SetFloatRegistryValue(key$, "ReadyFailWaitTime", rivReadyFailWaitTime);
+    SetFloatRegistryValue(key$, "MaxResponseTime", rivMaxResponseTime);
+    SetFloatRegistryValue(key$, "SwapMaxResponseTime", rivSwapMaxResponseTime);
+    SetFloatRegistryValue(key$, "ResponseFailWaitTime", rivResponseFailWaitTime);
+    SetFloatRegistryValue(key$, "ResponseIncorrectWaitTime", rivResponseIncorrectWaitTime);
+    SetFloatRegistryValue(key$, "ResponseBrokenWaitTime", rivResponseBrokenWaitTime);
+    SetFloatRegistryValue(key$, "MaxStimWaitTime", rivMaxStimWaitTime);
+    SetIntRegistryValue(key$, "ReadyHoldRewardSize", rivReadyHoldRewardSize%);
+    SetFloatRegistryValue(key$, "ReadyHoldTime", rivReadyHoldTime);
+    SetIntRegistryValue(key$, "UseFixation", rivUseFixation%);
+    SetFloatRegistryValue(key$, "MaxAcquisitionTime", rivMaxAcquisitionTime);
+    SetFloatRegistryValue(key$, "AcquisitionFailWaitTime", rivAcquisitionFailWaitTime);
+    SetFloatRegistryValue(key$, "FixationHoldTime", rivFixationHoldTime);
+    SetFloatRegistryValue(key$, "FixationFailWaitTime", rivFixationFailWaitTime);
+end
+
+func RivalryFixationDialog%()
+    DlgCreate("Rivarly Fixation parameters");
+    DlgReal(1, "Max acq. time(s):", .01, 100);
+    DlgReal(2, "Acq. FAIL wait time(s):", .01, 10);
+    DlgReal(3, "Fixation hold time(s):", 0.01, 10);
+    DlgReal(4, "Fix. BREAK wait time(s):", 0.01, 10);
+    DlgCheck(5, "Always Looking (TESTING)");
+    DlgShow(rivMaxAcquisitionTime, rivAcquisitionFailWaitTime, rivFixationHoldTime, rivFixationFailWaitTime, rivAlwaysLooking%);
+    return 1;
 end
 
 
@@ -1010,3 +1101,17 @@ func RivalryRGratingDialog%()
     endif
     return 1;
 end
+
+func Looking%(x, y)
+	'Determine if the eye position is within the fixation window
+    var s% := 0;
+    docase
+    case rivAlwaysLooking% = 1 then
+        s% := 1;
+    case (Pow(x-FixationX, 2) + Pow(y-FixationY, 2)) <= Pow(WindowRadius, 2) then 
+        s% := 1; 
+    else 
+        s% := 0; 
+    endcase
+    return s%;
+end;
