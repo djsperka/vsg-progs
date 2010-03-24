@@ -46,6 +46,7 @@ var rivRightGratingX, rivRightGratingY, rivRightGratingD;
 var rivLeftGratingTextItem%;
 var rivRightGratingTextItem%;
 var rivFixationTextItem%;
+var rivFixationArg$;
 
 ' Counters
 
@@ -134,6 +135,8 @@ const stateWaitForAcquisition%  :=  28;
 const stateFixationHold%        :=  29;
 const stateAcquisitionFail%     :=  30;
 const stateFixationFail%        :=  31;
+const stateRequestStim%         :=  32;
+const stateRequestFixpt%        :=  33;
 
 var iState% := stateStartup%;              ' This holds the current state
 
@@ -485,18 +488,30 @@ func IdleProcessing%()
                     DeliverReward(rivReadyHoldRewardSize%, tNow);
                     Yield(.1);
                 endif
-                SampleKey("F");
-                ChangeStateTo(stateWaitForFixpt%, tNow);
+                if rivUseFixation% = 1 then
+                    ChangeStateTo(stateRequestFixpt%, tNow);
+                    iLoop% := 1;
+                else
+                    ChangeStateTo(stateRequestStim%, tNow);
+                    iLoop% := 1;
+                endif
             case joystickPosition% <> JSCenter% then
                 LogStatus("stateReadyHold", "Joystick not in ready position.");
                 ChangeStateTo(stateReadyFail%, tNow);
                 iLoop% := 1;
             endcase
             
+        case iState% = stateRequestFixpt% then
+            
+            LogStatus("stateRequestFixpt", "Request fixpt.");
+            SampleKey("F");
+            ChangeStateTo(stateWaitForFixpt%, tNow);
+
         case iState% = stateWaitForFixpt% then
             
                 ' TODO: Check for js ready here? Exit to what state?
             iLoop% := 0;
+            LogInfo("state start " + str$(tStateStart) + " tNow " + str$(tNow));
             docase
             case FindRisingEdge%(rivChanFixpt%, tStateStart, tTrigger) = 0 then
                 ' Fixpt is up
@@ -533,20 +548,28 @@ func IdleProcessing%()
                 LogStatus("stateFixationHold", "Eye not in fixation window.");
                 ChangeStateTo(stateFixationFail%, tNow);
             case tNow - tStateStart > rivFixationHoldTime then
-                ChangeStateTo(stateWaitForStimUp%, tNow);
-                docase 
-                case rivCorrectResponse% = JSLeft% then
-                    SampleKey("l");
-                case rivCorrectResponse% = JSRight% then
-                    SampleKey("r");
-                else
-                    LogError("stateWaitForReady", "Correct response unknown");
-                    Stop%();
-                endcase
+                LogStatus("stateFixationHold", "Done.");
+                ChangeStateTo(stateRequestStim%, tNow);
             else
                 iLoop% := 0;
             endcase
+                
+        case iState% = stateRequestStim% then
             
+            docase 
+            case rivCorrectResponse% = JSLeft% then
+                LogStatus("stateRequestStim", "Request l stim");
+                SampleKey("l");
+            case rivCorrectResponse% = JSRight% then
+                LogStatus("stateRequestStim", "Request r stim");
+                SampleKey("r");
+            else
+                LogError("stateRequestStim", "Correct response unknown");
+                Stop%();
+            endcase
+            ChangeStateTo(stateWaitForStimUp%, tNow);
+            iLoop% := 0;
+                
         case iState% = stateAcquisitionFail% then
             
             rivUniversalIntertrialTime := rivAcquisitionFailWaitTime;
@@ -828,8 +851,11 @@ func Start%()
     ' Start sampling
    	SampleStart(0);
 
-    ' Hack to just run the darned thing. 
-    cmdLine$ := "cmd /k " + GetBinDir$(1) + "gratings -d 555 -b gray -s " + rivLeftGrating$ + " -s " + rivRightGrating$;
+    ' Generate command line
+    cmdLine$ := "cmd /k " + GetBinDir$(1) + "gratings -d " + GetDistanceToScreenMM$() + " -b gray -s " + rivLeftGrating$ + " -s " + rivRightGrating$;
+    if rivUseFixation% then
+        cmdLine$ += " " + rivFixationArg$;
+    endif
     
 	'Begin the stimulus program. It will take a few seconds for the VSG to initialize.
 	LogInfo(cmdLine$+"\n");
@@ -977,6 +1003,7 @@ proc GetRivalryParameters()
     key$ := GetRegistryKey$(1) + "\\Rivalry";
     rivLeftGrating$ := GetStringRegistryValue$(key$, "LeftGrating", rivLeftGrating$);
     rivRightGrating$ := GetStringRegistryValue$(key$, "RightGrating", rivRightGrating$);
+    rivFixationArg$ := GetFixationArg$();   ' Note: this is NOT saved in SaveRivarlyParameters!
     rivNBlocks% := GetIntRegistryValue%(key$, "NBlocks", rivNBlocks%);
     rivNTrialsEachTypePerBlock% := GetIntRegistryValue%(key$, "NTrialsEachTypePerBlock", rivNTrialsEachTypePerBlock%);
     rivUseBeep% := GetIntRegistryValue%(key$, "UseBeep", rivUseBeep%);
