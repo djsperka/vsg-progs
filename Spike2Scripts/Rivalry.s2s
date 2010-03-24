@@ -610,6 +610,9 @@ func IdleProcessing%()
             ' to either JSLeft% or JSRight%.
             iLoop% := 1;
             docase
+            case Looking%(xEye, yEye) <> 1 then
+                LogStatus("stateWaitForResponse", "Eye not in fixation window.");
+                ChangeStateTo(stateFixationFail%, tNow);
             case joystickPosition% = rivCorrectResponse% then
                 LogStatus("stateWaitForResponse", "Correct response!");
                 ChangeStateTo(stateCorrectResponse%, tNow);
@@ -660,6 +663,9 @@ func IdleProcessing%()
             
             iLoop% := 1;
             docase
+            case Looking%(xEye, yEye) <> 1 then
+                LogStatus("stateMaintainResponse", "Eye not in fixation window.");
+                ChangeStateTo(stateFixationFail%, tNow);
             case joystickPosition% <> rivCorrectResponse% then
                 LogStatus("stateMaintainResponse", "Correct response broken!");
                 rivUniversalIntertrialTime := rivResponseBrokenWaitTime;
@@ -709,6 +715,9 @@ func IdleProcessing%()
             
             iLoop% := 1;
             docase
+            case Looking%(xEye, yEye) <> 1 then
+                LogStatus("stateWaitForSwapResponse", "Eye not in fixation window.");
+                ChangeStateTo(stateFixationFail%, tNow);
             case joystickPosition% = rivCorrectResponse% then
                 LogStatus("stateWaitForSwapResponse", "Correct response!");
                 ChangeStateTo(stateCorrectSwapResponse%, tNow);
