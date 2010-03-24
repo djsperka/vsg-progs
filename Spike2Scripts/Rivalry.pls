@@ -1,4 +1,4 @@
-; $Id: Rivalry.pls,v 1.4 2010-03-23 23:50:46 devel Exp $
+; $Id: Rivalry.pls,v 1.5 2010-03-24 17:55:36 devel Exp $
 
             SET      1.000 1 0     ;1ms per seq step, DAC scale=1, DAC offset=0
             DIGOUT [00000001]
@@ -30,7 +30,7 @@ EZ:     'z  DIGOUT [....i..1]
             HALT   
 
 ; Stimulus off request
-EX:     'X  DIGOUT [.....001]
+EX:     'X  DIGOUT [...0.001]
             DELAY  10
             HALT   
 
