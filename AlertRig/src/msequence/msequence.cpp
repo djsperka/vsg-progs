@@ -89,7 +89,13 @@ int main(int argc, char *argv[])
 		// Now analyze input trigger
 		// the callback function should return 0 ALWAYS in this program -- no vsgPresent() should get called. 
 	 	
-		if (tf.quit()) break;
+		if (tf.quit()) 
+		{
+			// quitting in the middle of page cycling requires special handling
+			vsgSetCommand(vsgCYCLEPAGEDISABLE);
+			vsgSetZoneDisplayPage(vsgOVERLAYPAGE, 1);
+			break;
+		}
 		else if (tf.present())
 		{	
 			last_output_trigger = tf.output_trigger();
