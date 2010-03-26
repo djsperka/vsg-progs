@@ -86,8 +86,9 @@ int main (int argc, char *argv[])
 	vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, 0x00, 0);
 	vsgPresent();
 
-	triggers.reset(vsgIOReadDigitalIn());
+	//triggers.reset(vsgIOReadDigitalIn());
 
+	cerr << "Initial triggers..." << vsgIOReadDigitalIn() << endl;
 
 
 	// All right, start monitoring triggers........
@@ -282,14 +283,15 @@ int init_pages()
 	triggers.addTrigger(new TogglePageTrigger("z", 0x8, 0x8|AR_TRIGGER_TOGGLE, 0x4, 0x4|AR_TRIGGER_TOGGLE, 0, 1));
 
 	// trigger to turn stim OFF
-	triggers.addTrigger(new PageTrigger("X", 0x6, 0x0, 0xa, 0x0, 4));
+	triggers.addTrigger(new PageTrigger("X", 0x16, 0x0, 0xa, 0x0, 4));
+
+	// Fixation point trigger
+	triggers.addTrigger(new PageTrigger("F", 0x10, 0x10, 0x8, 0x8, 3));
+	//triggers.addTrigger(new PageTrigger("f", 0x10, 0x0, 0x8, 0x0, 4));
 
 	// quit trigger
 	triggers.addTrigger(new QuitTrigger("q", 0x80, 0x80, 0xff, 0x0, 0));
 
-	// Fixation point trigger
-	triggers.addTrigger(new PageTrigger("F", 0x10, 0x10, 0x8, 0x8, 3));
-	triggers.addTrigger(new PageTrigger("f", 0x10, 0x0, 0x8, 0x0, 4));
 
 	// Set vsg trigger mode
 	vsgObjSetTriggers(vsgTRIG_ONPRESENT+vsgTRIG_TOGGLEMODE,0,0);
