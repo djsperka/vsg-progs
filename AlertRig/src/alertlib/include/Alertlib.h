@@ -55,6 +55,7 @@ int parse_integer(std::string s, int& i);
 int parse_double(std::string s, double& d);
 int parse_contrast_triplet(std::string s, int& i_iContrastDown, int& i_iContrastBase, int& i_iContrastUp);
 int parse_int_pair(std::string s, int& i_i1, int& i_i2);
+int parse_sequence_pair(std::string s, int& i_i1, int& i_i2);
 int parse_tuning_triplet(std::string s, double& i_dMin, double& i_dMax, int& i_iSteps);
 int parse_tuning_list(std::string s, std::vector<double>& tuning_list, int& i_iSteps);
 int parse_xy(std::string s, double& x, double& y);
@@ -652,7 +653,66 @@ namespace alert
 	};
 
 
-		class ResetTriggerFunc
+	class PageCyclingTrigger: public Trigger
+	{
+	public:
+		PageCyclingTrigger(std::string i_key, int n_repeats) : 
+		  Trigger(i_key, 0, 0, 0, 0), m_nrepeats(n_repeats), m_repeat_count(0), m_is_started(false) {};
+		~PageCyclingTrigger() {};
+
+		virtual bool checkAscii(std::string input)
+		{
+			return checkBinary(0);
+		};
+
+		virtual bool checkBinary(int input)
+		{
+			bool bValue = false;
+			if (m_is_started)
+			{
+				// check if cycling is still running. If not, then set bValue = true.
+				if (vsgGetSystemAttribute(vsgPAGECYCLINGSTATE) < 0)
+				{
+					m_repeat_count++;
+					bValue = true;
+				}
+			}
+			return bValue;
+		};
+
+		void started()
+		{
+			m_is_started = true;
+		}
+
+		void stopped()
+		{
+			m_is_started = false;
+		}
+
+		virtual int execute(int& output)
+		{
+			if (m_repeat_count < m_nrepeats)
+			{
+				setMarker(output);
+				vsgSetCommand(vsgCYCLEPAGEENABLE);
+			}
+			else
+			{
+				m_is_started = false;
+			}
+			return 0;
+		};
+	protected:
+		int m_nrepeats;
+		int m_repeat_count;
+		bool m_is_started;
+	};
+
+
+
+
+	class ResetTriggerFunc
 	{
 	public:
 		ResetTriggerFunc(int val) : m_val(val) {};
@@ -731,8 +791,6 @@ namespace alert
 			std::for_each(this->begin(), this->end(), ResetTriggerFunc(input));
 		}
 	};
-
-
 
 };	// end namespace alert;
 
