@@ -129,6 +129,11 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "meamseq", "meamseq\meamseq.
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "meatuning", "meatuning\meatuning.vcproj", "{E42B0BC7-ED74-4484-B465-F6B1F88F5E47}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "msequence", "msequence\msequence.vcproj", "{FB2421D8-2C30-4D21-BBF2-2F7ED6C0ACA7}"
+	ProjectSection(ProjectDependencies) = postProject
+		{E7D13D4D-A7AD-46B3-A513-BC9B6297E6D3} = {E7D13D4D-A7AD-46B3-A513-BC9B6297E6D3}
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -409,6 +414,14 @@ Global
 		{E42B0BC7-ED74-4484-B465-F6B1F88F5E47}.Unicode Debug|Win32.Build.0 = Debug|Win32
 		{E42B0BC7-ED74-4484-B465-F6B1F88F5E47}.Unicode Release|Win32.ActiveCfg = Release|Win32
 		{E42B0BC7-ED74-4484-B465-F6B1F88F5E47}.Unicode Release|Win32.Build.0 = Release|Win32
+		{FB2421D8-2C30-4D21-BBF2-2F7ED6C0ACA7}.Debug|Win32.ActiveCfg = Debug|Win32
+		{FB2421D8-2C30-4D21-BBF2-2F7ED6C0ACA7}.Debug|Win32.Build.0 = Debug|Win32
+		{FB2421D8-2C30-4D21-BBF2-2F7ED6C0ACA7}.Release|Win32.ActiveCfg = Release|Win32
+		{FB2421D8-2C30-4D21-BBF2-2F7ED6C0ACA7}.Release|Win32.Build.0 = Release|Win32
+		{FB2421D8-2C30-4D21-BBF2-2F7ED6C0ACA7}.Unicode Debug|Win32.ActiveCfg = Debug|Win32
+		{FB2421D8-2C30-4D21-BBF2-2F7ED6C0ACA7}.Unicode Debug|Win32.Build.0 = Debug|Win32
+		{FB2421D8-2C30-4D21-BBF2-2F7ED6C0ACA7}.Unicode Release|Win32.ActiveCfg = Release|Win32
+		{FB2421D8-2C30-4D21-BBF2-2F7ED6C0ACA7}.Unicode Release|Win32.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
