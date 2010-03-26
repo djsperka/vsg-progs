@@ -10,8 +10,8 @@
 			>
 			<DebugSettings
 				Command="$(TargetPath)"
-				WorkingDirectory=""
-				CommandArguments=""
+				WorkingDirectory="D:\work\AlertRig\src\sparse"
+				CommandArguments="-d 100 -p 0,0 -r 16 -c 16 -t 1 -R 1 -a -v -f stim/d27.snf"
 				Attach="false"
 				DebuggerType="3"
 				Remote="1"
@@ -22,7 +22,7 @@
 				SQLDebugging=""
 				Environment=""
 				EnvironmentMerge="true"
-				DebuggerFlavor=""
+				DebuggerFlavor="0"
 				MPIRunCommand=""
 				MPIRunArguments=""
 				MPIRunWorkingDirectory=""
