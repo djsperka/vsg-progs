@@ -1,0 +1,447 @@
+' $Id: AcuteMSequence.s2s,v 1.1 2010-03-26 03:46:03 devel Exp $
+'
+' AcuteMSequence.s2s
+'
+' This is based on the original m-sequence script NewMSequence.s2s. It has been 
+' updated to eliminate hard-coded path names and other slicker more portable
+' features of Spike2. To the user there is very little difference. 
+
+#include "../../Spike2Util/UsreyUtil.s2s"
+#include "../../Spike2Util/FileUtilities.s2s"
+
+var amsNChannels%;
+var amsFramesPerTerm%;
+var amsDotSize%;
+var amsXOrigin%, amsYOrigin%;
+var amsRepeats% := 1;
+var amsColorIndex%;
+var amsColor$[4];
+
+' daq channels for triggers from vsg
+var amsChanTrigger% := 11;
+var amsChanVSGReady% := 12;
+
+' prog handles
+var amsHandleMsgSvr := -1;
+var amsHandleStim := -1;
+
+' window handles
+var amsWindowData%;
+
+' states
+const stateStartup%             :=  1;
+const stateVSGWait%             :=  2;
+const stateVSGConfirm%          :=  3;
+const stateStartStim%           :=  4;
+const stateStim%                :=  5;
+const stateDone%                :=  6;
+
+var iState% := stateStartup%;              ' This holds the current state
+
+' stuff left over from original script. 
+var index;
+var TriggerTime:=-1,NextTriggerTime, BlockData$[8],BlockIndex;
+var SpikeCount;
+var TriggerNumber:=0;
+var TimeLeft,PercentComplete;
+
+
+
+
+
+
+
+for index := 1 to 8 do 
+	BlockData$[index-1]:=str$(index);
+next
+
+amsColor$[0] := "Black and white";
+amsColor$[1] := "S cone isolating";
+amsColor$[2] := "M cone isolating";
+amsColor$[3] := "L cone isolating";
+
+View(App(0)).Window(0,0,50,100);
+
+
+
+
+'~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+' Script starts here
+
+LogInit(1);
+
+if AcuteMSequenceDialog%() = 0 then
+    halt;
+endif
+
+' Sampling config
+CreateSampleConfiguration();
+
+' Prepare display windows, input channels, etc. 
+InitializeWindows();
+
+
+	
+ToolbarSet(1,"Quit",Quit%);
+ToolbarSet(2,"Sample start",Start%);
+ToolbarSet(3,"Sample stop", Stop%);
+ToolbarEnable(3,0);
+Toolbar("Go",1234);
+
+
+
+func AcuteMSequenceDialog%()
+    var status%;
+    var tmp%,AdjustedY%;
+    
+    GetAcuteMSequenceParameters();
+    
+    DlgCreate("M Sequence Parameters");
+    DlgInteger(1, "Number of channels: ", 1, 8);
+    DlgInteger(2, "Frames per term: ", 1, 1000000);
+    DlgInteger(3, "Dot size: ", 1, 1000);
+    DlgInteger(4, "Center X coord: ", -400, 400);
+    DlgInteger(5, "Center Y coord: ", -300, 300);
+    DlgInteger(6, "Number of repeats: ", 1, 100);
+    DlgList(7, "Color properties: ", amsColor$[]);
+    status% := DlgShow(amsNChannels%, amsFramesPerTerm%, amsDotSize%, amsXOrigin%, amsYOrigin%, amsRepeats%, amsColorIndex%);
+    
+    if status% = 1 then
+        
+        ' dot size and y coord must be multiples of 4.
+        tmp% := ((amsDotSize% + 2)/4)*4;
+        if tmp% <> amsDotSize% then
+            Message("Dot size must be multple of 4: using "+str$(tmp%)+" instead.");
+            amsDotSize% := tmp%;
+        endif
+        
+        tmp% := ((amsYOrigin% + 2)/4)*4;
+        if tmp% <> amsYOrigin% then
+            Message("Center Y coordinate must be multple of 4: using "+str$(tmp%)+" instead."); 
+            amsYOrigin% := tmp%;
+        endif
+        
+        SaveAcuteMSequenceParameters();
+        
+    endif
+        
+    return status%;
+end
+
+
+proc GetAcuteMSequenceParameters()
+    LogInfo("TODO: GetAcuteMSequenceParameters()");
+    return;
+end
+
+proc SaveAcuteMSequenceParameters()
+    LogInfo("TODO: SaveAcuteMSequenceParameters()");
+    return;
+end
+
+proc CreateSampleConfiguration()
+    
+    var i%;
+    
+	SampleClear(); 'Set standard sampling state
+	SampleAutoComment(0); 'Prompt for comment after sampling
+	SampleAutoCommit(60); 'Seconds between each file commit
+    
+    FilePathSet(GetDataPathRoot$() + "\\" + GetDataSetName$(), 3);
+    FilePathSet(GetDataPathRoot$() + "\\" + GetDataSetName$(), 1);
+    SampleAutoName$(dataCellName$ + "_mseq_000");
+	SampleAutoFile(1);
+
+    'Channel recording definitions
+
+    for i% := 1 to amsNChannels% do
+        SampleWaveMark(i%, i%-1, 2000, 34, 15, 28000); ' chan, port, event rate, points, pre-trigger, rate
+        SampleTitle$(i%, "Trode " + Str$(i%-1));
+    next
+
+    SampleEvent(amsChanTrigger%, 1, 1, 1000); 
+    SampleTitle$(amsChanTrigger%, "Terms");
+    
+   	SampleEvent(amsChanVSGReady%, 6, 2, 200); 'Trigger channel, level
+	SampleComment$(amsChanVSGReady%, "VSG Rdy");
+	SampleTitle$(amsChanVSGReady%, "VSG Rdy");
+    
+	SampleSequencer(script$ + "AcuteMSequence.pls");
+    SampleOptimise(2, 2, 2, 2, 50);  'Set optimise mode (do this last)
+    SampleMode(1); 'Continuous sampling
+    
+end;
+
+
+proc InitializeWindows()
+    var i%;
+    var AutoCorr%;
+    
+	View(App(8)).WindowVisible(0);	'Hide the standard sample bar
+    
+    amsWindowData% := FileNew(0,4);
+    View(amsWindowData%).WindowVisible(1);
+    View(amsWindowData%).Window(0,33,100,100);
+
+    for i% :=1 to amsNChannels% do
+        AutoCorr% :=View(amsWindowData%).SetEvtCrl(i%, 60, .0005, .015, i%);
+        View(AutoCorr%).ProcessAuto(5, 0, 1, 5);
+        View(AutoCorr%).Window((i%-1)*(100/amsNChannels%), 0, i%*(100/amsNChannels%), 33);
+        View(AutoCorr%).WindowVisible(1);
+        View(AutoCorr%).WindowTitle$("Channel "+str$(i%)+" AutoCorr");
+    next
+    
+    SaveParameterFile();
+end
+
+proc SaveParameterFile()
+    var handle;
+    var filename$;
+    
+    filename$ := ReplaceFileExtension$(-1, "par");
+    handle := FileOpen(filename$, 8, 1);
+    if handle <0 then 
+        Message("Could not create parameter file " + filename$);
+    else
+        LogInfo("Writing parameters to file " + filename$);
+        Print("[M Sequence]\n");
+        Print("\"Number Of Channels\" %d\n",amsNChannels%);
+        Print("\"Frames Per Term\" %d\n",amsFramesPerTerm%);
+        Print("\"Dot Size\" %f\n",amsDotSize%);
+        Print("\"X Origin\" %f\n",amsXOrigin%);
+        Print("\"Y Origin\" %f\n",amsYOrigin%);
+        Print("\"Number of Repeats\" %d\n",amsRepeats%);
+        FileClose();
+    endif
+    
+    return;
+end
+
+
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func Quit%()
+    ProgKill(amsHandleMsgSvr); 
+    return 0;
+end;
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+func Start%()
+    var cmd$;
+    
+    ' Start message server
+    amsHandleMsgSvr:=ProgRun("D:\\work\\AlertRig\\bin\\MsgSvr.exe",0);
+    Message("Start RealTimeM and press OK to start");
+    
+    ' Start sampling
+    SampleStart(0);
+    View(amsWindowData%);    
+    
+    cmd$ := GetBinDir$(1) + "msequence.exe -t " + str$(amsFramesPerTerm%) + " -d " + str$(amsDotSize%) + " -p " + str$(amsXOrigin%) + "," + str$(-amsYOrigin%) + " -R " + str$(amsRepeats%) + " -f " + GetStimDir$(1) + "MSequenceTerms";
+    LogInfo(cmd$);
+    amsHandleStim := ProgRun("cmd /c " + cmd$);
+    
+    ToolbarEnable(3,1);
+    ToolbarEnable(2,0);
+    ToolbarEnable(1,0); 
+    ToolbarSet(0, "", Idle%);
+    
+    ProgRun(GetBinDir$(1) + "SendMessage StartM");
+    
+    'wait 5 seconds for some spikes to come in, and then optimize the display for them.
+    Yield(5);
+    View(amsWindowData%).Optimise(-1, 0, MaxTime());
+    return 1;
+end;
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func Stop%()
+    
+    ' remove the idle process. 
+    ToolbarSet(0, "");
+    ToolbarEnable(1, 1);
+    ToolbarEnable(3, 0);
+    
+    ' send the quit command before stopping sampling
+    SampleKey("q");
+    while ProgStatus(amsHandleStim) > 0 do
+        Yield(1);
+    wend
+    SampleStop();
+    
+    ' better let matlab know we've stopped
+    ProgRun(GetBinDir$(1) + "SendMessage StopM");
+    Yield(1);
+    
+    ' clear the screen, just in case
+    ProgRun(GetBinDir$(1) + "ClearTrigger");
+    
+
+    return 1;
+end; 
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+
+var tTrigger := -1;
+var tLast := -1;
+var tNow := -1;
+var tLastTrigger := -1;
+var vTrigger;
+var tStateStart := -1;
+
+func Idle%()
+    var status% := 1;
+    
+	tNow := MaxTime();
+    
+    docase 
+    case iState% = stateStartup% then
+        
+        LogStatus("stateStartup", "Starting up.");
+        ChangeStateTo(stateVSGWait%, tNow);
+        
+    case iState% = stateVSGWait% then
+        
+        ' Waiting for VSG to indicate it is ready. The indication is a pulse (up, then down, 1 frame apart) on port 6.
+        tTrigger := NextTime(amsChanVSGReady%, tLast, vTrigger);
+        if tTrigger > tLastTrigger and vTrigger = 0 then
+            LogStatus("stateVSGWait", "Got leading edge of trigger.");
+            tLastTrigger := tTrigger;
+            ChangeStateTo(stateVSGConfirm%, tTrigger);                
+        endif;
+            
+    case iState% = stateVSGConfirm% then
+            
+        ' Waiting for VSG to confirm it is ready. The downward side of the pulse is expected...
+        tTrigger := NextTime(amsChanVSGReady%, tLastTrigger, vTrigger);
+        if tTrigger > tLastTrigger and vTrigger = 1 then                
+            LogStatus("stateVSGConfirm", "Got trailing edge of trigger.");
+            tLastTrigger := tTrigger;
+            ChangeStateTo(stateStartStim%, tTrigger);
+        endif;
+            
+    case iState% = stateStartStim% then
+        
+        ' Issue sample key to start stim, then switch to looking for triggers
+        LogStatus("stateStartStim", "Starting stimulus.");
+        Yield(1.0);
+        SampleKey("s");
+        ChangeStateTo(stateStim%, tNow);
+        
+    case iState% = stateStim% then
+        
+        if CountSpikes%() < 0 then
+            ChangeStateTo(stateDone%, tNow);
+        endif
+        
+    case iState% = stateDone% then
+        
+        Stop%();
+        
+    else
+        
+        LogError("", "Unknown state " + str$(iState%));
+        Stop%();
+        status% := 0;
+        
+    endcase
+    
+    return status%;
+end
+
+proc ChangeStateTo(stateTo%, tStart)
+	iState% := stateTo%;
+	if tStart > 0 then tStateStart := tStart; endif;
+end;
+
+
+
+
+func CountSpikes%()
+
+    var status% := 1;   ' will be set to -1 when all triggers have been counted
+    
+    ' TriggerTime is the last trigger found. On starting the msequence TriggerTime is initialized to -1.
+    ' NextTriggerTime is the first trigger found after TriggerTime. When both NextTriggerTime and TriggerTime
+    ' are valid (neither is <0) they consitute the full period of a single term of the m-sequence.
+    ' 
+    ' Note that the line below was from the original msequence code -- in that script sampling started on the first 
+    ' trigger, and that trigger is NOT in the data file. The first term of the m-sequence starts at time 0, however, 
+    ' so the value of TriggerTime is set to 0 before starting. This script starts sampling prior to the onset of the
+    ' first term of the msequence, so the first trigger found in the file must be saved; we do not count spikes until
+    ' we find the second trigger. When multiple repeats are run there is further confusion. The modulo division 
+    ' takes care of all: Whenever the number of triggers counted (TriggerNumber) is a multiple of 32768 we have to 
+    ' save one trigger before counting spikes in trigger intervals. 
+'    if TriggerTime=-1 then TriggerTime:=0; endif    
+    
+    NextTriggerTime:=View(amsWindowData%).NextTime(amsChanTrigger%,TriggerTime);
+    if NextTriggerTime > 0 then
+        '        if TriggerTime < 0 then
+        if TriggerNumber mod 32768 = 0 then
+            TriggerTime := NextTriggerTime;
+            TriggerNumber := TriggerNumber + 1;
+        else
+            ' TriggerTime is valid, so the interval [TriggerTime, NextTriggerTime] is a term in the sequence. 
+            ' Count spikes for each data channel and save it in BlockData$[]
+            for index := 1 to amsNChannels% do 
+                SpikeCount:=View(amsWindowData%).count(index,TriggerTime,NextTriggerTime);
+                BlockData$[index-1]:=BlockData$[index-1]+" "+str$(SpikeCount);
+            next 
+            TriggerTime:=NextTriggerTime;
+            BlockIndex:=BlockIndex+1;
+            TriggerNumber:=TriggerNumber+1;
+            
+            ' Was that the last trigger? 
+            if TriggerNumber = 32768 * amsRepeats% then
+                status% := -1;
+            endif
+            
+            ' BlockIndex counts the number of terms we've collected and stored in BlockData$[] for each channel. 
+            ' The test below seems to be a rough way of balancing computing time against the rate at which terms
+            ' pile up. Not too sure about that, though. Regardless, the test determines when we push the BlockData$[]
+            ' up to the MsgSvr.
+            
+            if BlockIndex*amsFramesPerTerm%>=(40*amsNChannels%) or status% < 0 then 
+                for index := 1 to amsNChannels% do 
+                    SendMessage(BlockData$[index-1]);
+                    BlockData$[index-1]:=str$(index);
+                    PercentComplete:=TriggerNumber/(32768*amsRepeats%);
+                    TimeLeft:=(TriggerTime/PercentComplete)-TriggerTime;
+                next
+                ToolbarText("M Sequence "+str$(100*PercentComplete)+"% complete. Estimated "+str$(TimeLeft)+" seconds left");
+                BlockIndex:=0;
+            endif
+            
+        endif
+    endif
+    
+    return status%;
+end
+
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+' djs Modified version of SendMessage which waits in a loop until the 'SendMessage' app
+' has completed. 
+
+proc SendMessage(Message$)
+var hSend%;
+'PrintLog(Message$+"\n");
+hSend% := ProgRun(GetBinDir$(1) + "\\sendmessage "+Message$);
+'hSend% := ProgRun("D:\\work\\AlertRig\\bin\\SendMessage "+Message$);
+
+
+' NOTE: THIS 'while' STOPS PROCESSING UNTIL THE ACTIVEX SERVER HAS RECEIVED THE DATA. 
+' TO REVERT TO THE OLD WAY (DON'T STOP PROCESSING) JUST COMMENT OUT THE LINES FROM 'while' TO 'wend'
+' BELOW.
+'
+' COMMENT LINES BY PUTTING AN APOSTROPHE AT THE BEGINNING OF THE LINE. 
+'
+' Now we pause and wait until this app finishes....
+while ProgStatus(hSend%) = 1 do
+	Yield(.1);
+wend
+
+end
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
