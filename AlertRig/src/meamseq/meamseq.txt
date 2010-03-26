@@ -1,0 +1,32 @@
+meamseq
+-------
+
+Usage:
+
+meamseq -p x,y -m msequence-file-name -o order -d dotsize -r rows -c columns \
+        -t frames-per-term [-v] [-K]
+
+x,y : screen position, in pixels, of the center of the grid pattern. 
+      The center of the screen is (0,0), and x is positive-going-right, 
+      y is positive-going-up.
+msequence-file-name : the path to a text file containing the m-sequence. 
+                      The file should contain only '0' and '1', and no extraneous 
+                      spaces or newlines. There should be EXACTLY (2**order - 1) 
+                      characters in the file
+order : the order of the msequence. There are 2**order - 1 terms in the sequence. 
+        Our "standard" m-sequence has order 15.
+dotsize : the size in pixels of each square in the grid pattern
+rows : the number of rows in the grid pattern
+columns : the number of columns in the grid pattern
+frames-per-term : the number of video frames for each term in the sequence 
+
+
+The "-K" option runs the program in a testing mode - normally not useful in the lab. 
+The following options are available:
+
+'a' : show aperture
+'n' : no aperture
+'m' : run the msequence in its entirety
+<number> : place this term in the sequence in the aperture window on screen. Use this to display
+           a particular term or terms in the sequence. 
+'q' : quit
