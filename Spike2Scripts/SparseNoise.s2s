@@ -1,4 +1,4 @@
-' $Id: SparseNoise.s2s,v 1.1 2010-03-18 23:58:29 devel Exp $
+' $Id: SparseNoise.s2s,v 1.2 2010-03-26 03:44:39 devel Exp $
 '
 ' SparseNoise.s2s
 '
@@ -206,7 +206,7 @@ func Stop%()
     SampleKey("q");
     Yield();
     SampleStop();
-    ToolbarSet(0, "", Idle%);
+    ToolbarSet(0, "");
     'MatlabClose();
     return 0;
     
