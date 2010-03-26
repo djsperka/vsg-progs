@@ -36,6 +36,8 @@ double f_tbefore = 1.0;
 double f_tafter = 1.0;
 bool f_binaryTriggers = true;
 TriggerVector triggers;
+PageCyclingTrigger *f_ptrigCycling = NULL;
+VSGCYCLEPAGEENTRY f_MPositions[32768];
 
 void usage();
 int args(int argc, char **argv);
@@ -142,17 +144,28 @@ int main(int argc, char **argv)
 
 		// Now analyze input trigger
 	 	
-		if (tf.quit()) break;
+		if (tf.quit()) 
+		{
+			// quitting in the middle of page cycling requires special handling
+			vsgSetCommand(vsgCYCLEPAGEDISABLE);
+			vsgMoveScreen(0, 0);
+			break;
+		}
 		else if (tf.present())
 		{	
 			last_output_trigger = tf.output_trigger();
 			vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, tf.output_trigger(), 0);
 			vsgPresent();
 		}
+
+		// Throttle cpu usage a little. No need to be in hyperspeed checking for triggers here. 
+		Sleep(100);
 	}
 
 
-	ARvsg::instance().release_lock();
+//	cout << "Releasing lock" << endl;
+//	ARvsg::instance().release_lock();
+//	cout << "Releasing lock done" << endl;
 	return 0;
 }
 
@@ -188,6 +201,8 @@ void init_triggers()
 {
 	triggers.addTrigger(new CallbackTrigger("s", 0x2, 0x2, 0x2, 0x2, callback));
 	triggers.addTrigger(new CallbackTrigger("X", 0x2, 0x0, 0x2, 0x0, callback));
+	f_ptrigCycling = new PageCyclingTrigger("C", f_nrepeats);
+	triggers.addTrigger(f_ptrigCycling);
 	triggers.addTrigger(new QuitTrigger("q", 0x80, 0x80, 0xff, 0x0, 0));
 
 		// Dump triggers
@@ -210,10 +225,12 @@ int callback(int &output, const CallbackTrigger* ptrig)
 		vsgResetTimer();
 		vsgSetCommand(vsgVIDEODRIFT);			// allows us to move the offset of video memory
 		vsgSetCommand(vsgCYCLEPAGEENABLE);
+		f_ptrigCycling->started();
 	}
 	else if (key == "X")
 	{
 		vsgSetCommand(vsgCYCLEPAGEDISABLE);
+		f_ptrigCycling->stopped();
 		vsgSetZoneDisplayPage(vsgVIDEOPAGE, 0);
 	}
 
@@ -231,7 +248,6 @@ void prepare_page_cycling()
 	int ipage=0;
 	int iStimLengthUS;
 	string stmp;
-	VSGCYCLEPAGEENTRY *pcycle;
 
 	iStimLengthUS = (f_nrepeats * f_nterms * f_iFramesPerTerm) * vsgGetSystemAttribute(vsgFRAMETIME);
 	if (f_verbose)
@@ -252,7 +268,6 @@ void prepare_page_cycling()
 		cerr << "================" << endl;
 	}
 
-	pcycle = new VSGCYCLEPAGEENTRY[f_nterms];
 	for (i=0; i<f_nterms; i++)
 	{
 		iterm = i+1;
@@ -275,14 +290,21 @@ void prepare_page_cycling()
 			y = 0;
 		}
 
-		pcycle[count].Frames = f_iFramesPerTerm;
-		pcycle[count].Page = ipage + vsgTRIGGERPAGE;
-		pcycle[count].Xpos = x;
-		pcycle[count].Ypos = y;
+		f_MPositions[count].Frames = f_iFramesPerTerm;
+		f_MPositions[count].Page = ipage + vsgTRIGGERPAGE;
+		f_MPositions[count].Xpos = x;
+		f_MPositions[count].Ypos = y;
 		count++;
 	}
+	f_MPositions[count].Frames = f_iFramesPerTerm;
+	f_MPositions[count].Page = 0 + vsgTRIGGERPAGE;
+	f_MPositions[count].Xpos = 0;
+	f_MPositions[count].Ypos = 0;
+	f_MPositions[count].Stop = 1;
+	count++;
 
-	vsgPageCyclingSetup(count, &pcycle[0]);
+	cout << "page cycling buffer has " << count << " terms." << endl;
+	vsgPageCyclingSetup(count, &f_MPositions[0]);
 
 	return;
 }
