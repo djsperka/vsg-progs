@@ -1,4 +1,4 @@
-' $Id: SparseNoise.s2s,v 1.2 2010-03-26 03:44:39 devel Exp $
+' $Id: SparseNoise.s2s,v 1.3 2010-03-26 23:23:22 devel Exp $
 '
 ' SparseNoise.s2s
 '
@@ -27,9 +27,12 @@ var spnStimHandle;
 ' trigger counting
 const spnMaxTriggers% := 2000;
 var spnNTriggersCounted% := 0;
+var spnNTriggersHeld% := 0;
+var spnNTriggersExpected% := 0;
 var spnTriggerTimes[spnMaxTriggers%];
 var spnNTriggerTimes% := 0;          ' the number of trigger times held in spnTriggerTimes[]
 var spnLastTriggerTime := -1;
+var spnFirstTriggerTime := -1;
 var spnTriggerTimesHighWaterCount% := 1000;
 
 ' states
@@ -154,6 +157,9 @@ end;
 proc InitializeWindows()
     var i%;
     var AutoCorr%;
+	
+    View(App(8)).WindowVisible(0);	'Hide the standard sample bar
+    
     spnDataWindow%:=FileNew(0,4);
     View(spnDataWindow%).WindowVisible(1);
     View(spnDataWindow%).Window(0,33,100,100);
@@ -193,6 +199,10 @@ func Start%()
     LogInfo(cmd$);
     spnStimHandle := ProgRun(cmd$);
     
+    ' number of triggers expected is used to stop sampling automatically
+    spnNTriggersExpected% := 8193 * spnNRepeats%;
+    LogInfo("Expecting " + str$(spnNTriggersExpected%) + " triggers.");
+    
     SampleStart(0);
     ToolbarEnable(1,0); 
     ToolbarEnable(2,0);
@@ -203,17 +213,19 @@ end
 
 func Stop%()
     
+    LogInfo("Counted " + str$(spnNTriggersCounted%) + " triggers.");
     SampleKey("q");
     Yield();
     SampleStop();
     ToolbarSet(0, "");
-    'MatlabClose();
-    return 0;
+    ToolbarEnable(1,1); 
+    ToolbarEnable(3,0);
+    return 1;
     
 end
 
 func Quit%()
-    Stop%();
+    ' this would have means to stop MSgSvr, like msequence. 
     return 0;
 end
 
@@ -224,6 +236,10 @@ var tNow := -1;
 var tLastTrigger := -1;
 var vTrigger;
 var tStateStart := -1;
+var pctComplete;
+var timeLeft;
+var nc, ne; ' spike2 doesn't have a cast operator? 
+var tLastUpdate := -1;
 
 func Idle%()
     var status% := 1;
@@ -267,31 +283,50 @@ func Idle%()
     case iState% = stateStim% then
         
         ' Count triggers here. 
-        var ntrig% := 0;
-        ntrig% := ChanData(spnChanTrigger%, spnTriggerTimes[spnNTriggersCounted%:], spnLastTriggerTime, tNow);
-        if ntrig% > 0 then
-            spnLastTriggerTime := spnTriggerTimes[spnNTriggersCounted% + ntrig%-1];
-            spnNTriggersCounted% += ntrig%;
+        tTrigger := NextTime(spnChanTrigger%, spnLastTriggerTime);
+        while tTrigger > -1 do
+            spnTriggerTimes[spnNTriggersHeld%] := tTrigger;
+            spnLastTriggerTime := tTrigger;
+            spnNTriggersHeld% += 1;
+            spnNTriggersCounted% += 1;
             
-            if spnNTriggersCounted% >= spnTriggerTimesHighWaterCount% then
-                LogInfo("Reached high water level. " + str$(spnNTriggersCounted%));
-                FlushTriggers();
+            if spnNTriggersCounted% = 1 then
+                spnFirstTriggerTime := tTrigger;
             endif
             
+            tTrigger := NextTime(spnChanTrigger%, spnLastTriggerTime);
+        wend
+        
+        ' Compute pct completed and display it. Only do this once every second or so. 
+        if (tLastUpdate < 0 and spnNTriggersCounted%>0) or tNow-tLastUpdate > 1 then
+            nc := spnNTriggersCounted%;
+            ne := spnNTriggersExpected%;
+            pctComplete := nc/ne;
+            if pctComplete > 0 then
+                timeLeft := (spnLastTriggerTime - spnFirstTriggerTime) * (1/pctComplete-1);
+            else
+                timeLeft := 999999.999;
+            endif        
+            ToolbarText("SparseNoise "+str$(100*pctComplete)+"% complete. Estimated "+str$(timeLeft)+" seconds left");
+            tLastUpdate := tNow;
         endif
         
-        
-'var spnNTriggersCounted% := 0;
-'var spnTriggerTimes[1000];
-'var spnNTriggerTimes% := 0          ' the number of trigger times held in spnTriggerTimes[]
-'var spnLastTriggerTime := -1;
-'var spnTriggerTimesHighWaterCount% := 100;
-        
+        ' see if we are done, or if triggers need flushing
+        docase
+        case spnNTriggersCounted% >= spnNTriggersExpected% then
+            LogInfo("Got expected number of triggers. Stopping...");
+            ToolbarText("SparseNoise completed");
+            FlushTriggers();
+            ChangeStateTo(stateDone%, tNow);
+        case spnNTriggersHeld% >= spnTriggerTimesHighWaterCount% then
+            LogInfo("Reached high water level. " + str$(spnNTriggersHeld%) + " total count " + str$(spnNTriggersCounted%));
+            FlushTriggers();
+        endcase
         
     case iState% = stateDone% then
         
         Stop%();
-        status% := 0;
+        status% := 1;
         
     else
         
@@ -311,6 +346,6 @@ end;
 
 proc FlushTriggers()
     LogInfo("TODO: FlushTriggers!");
-    spnNTriggersCounted% := 0;
+    spnNTriggersHeld% := 0;
     return;
 end
