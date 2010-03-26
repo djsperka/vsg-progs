@@ -1,0 +1,130 @@
+meatuning
+-------
+
+Usage:
+
+meatuning [-K] [-v] -t stimtime -b bgcolor -g grating-spec -d screen-dist \
+          -C|O|A|S|T|X tuning-parameter-list [-x xy-contrast-frequency]
+
+meatuning [-K] [-v] -b bgcolor -d screen-dist -u seconds-between-curves -f curve-list-file
+
+The first method above allows you to specify a single tuning curve. The second allows you to 
+specify a series of tuning curves, where the file 'curve-list-file' contains the parameters
+for each tuning curve. 
+
+
+stimtime : stimulus time. Each stimulus is presented for this many seconds. 
+    Intervening blank screen is presented for this many seconds also 
+    (plus a short period for reloading stim). 
+bgcolor : background color. Value may be one of 'black', 'gray', 'white', 
+          'red', 'green', blue'.
+grating-spec : grating specification. See below for format and details.
+screen-dist : distance from subject to screen, in MM. This is used for 
+              grating spatial frequency values
+tuning-parameter-list : list of tuned parameters, comma separated, no spaces.
+                        The flag values indicate which grating spec parameter
+                        is varied:
+                        C - contrast, [-100, 100]
+                        O - orientation, [0, 360]
+                        A - area [NOT IMPLEMENTED!]
+                        S - spatial frequency (0, 100]. Can't specify 0!
+                        T - temporal frequency [0, 100].
+                        X - XY test. Parameters specify spatial phase [0,360]
+xy-contrast-frequency : freq (Hz) for contrast frequency in XY tuning. One 
+                        complete cycle starts at contrast=100, then runs down
+                        to contrast=-100 and back up to contrast=100. This value
+                        is REQUIRED for xy tuning, it is ignored for all 
+                        other types (and may be omitted). 
+seconds-between-curves : When a curve-list-file is used, this is the time between the stimuli 
+                         for the different tuning curves. See below for more explanation. 
+curve-list-file : text file containing specifications for any number of tuning curves. The format is described
+                  below.  
+
+
+The "-K" option runs the program in a testing mode - normally not useful in the lab. 
+DOES NOT WORK RIGHT NOW 12-4-07 DJS
+The following options are available:
+
+'0' : switch to page 0 - background color
+'1' : switch to page 1 - this page has the stimuli
+'c' : cycle through all stimuli (this is how an experiment will display stimuli)
+'s' : step to next stim. Useful if you first say '1', then you can step through 
+      each stim. 
+'q' : quit
+
+
+Grating specification
+
+The grating specification gives the parameters for a grating. The format of the spec is
+
+x,y,w,h,contrast%,sf,tf,orientation,color_vector,s|q,r|e
+
+x,y,w,h in degrees
+contrast should be an integer from 0-100. 
+sf - spatial frequency in cycles per degree
+tf - temporal drift frequency in cycles/sec
+0 <= orientation < 360
+color_vector should be b|w|black|white|gray|... for black/white
+s|q indicates pattern type, s for sine wave, q for square wave
+r|e indicates aperture type, r for rectangular (height h, width w), e for elliptical
+
+The last three args (color_vector, pattern, aperture) can be omitted. The 
+default values are black/white color vector, sine wave, elliptical aperture. 
+
+For the meatuning application, the aperture is NOT IMPLEMENTED! All gratings are drawn
+FULL SCREEN. The x,y,w,h parameters should all be zero!
+
+
+Tuning Parameters
+
+The grating parameter for a tuned value is ignored and the values from the 
+tuning-parameter-list are used instead. For example, if you specify a contrast
+tuning stimulus (-C), the contrast value in the grating spec is ignored. You 
+still must give a value in the spec (otherwise the grating spec will be parsed
+incorrectly!). 
+
+
+Examples (SINGLE TUNING CURVE)
+
+meatuning -t 4.0 -b gray -g 0,0,0,0,100,.3,0.00,90.0,b,s,e -d 500 -X 0,90,180,270 -x 0.25
+
+XY tuning. Grating sf is 0.3 cycles/degree, where degrees are measured for a subject
+distance of 500mm. Temporal freq is 0. Orientation is 90 degrees. Grating is b/w. 
+Gratings will be presented for 4 seconds, followed by a 4 second blank page (background
+color is gray). There are 4 gratings presented in this way. The second, third and fourth
+are presented with a spatial phase offset of 90, 180 and 270 degrees with respect to the 
+first. The contrast for each stimuli starts at 100, then cycles with a frequency of 
+0.25 Hz. 
+
+
+
+Example (MULTIPLE TUNING CURVES)
+
+meatuning -b gray -d 500 -u 4.0 -f mylist.txt
+
+This will run a series of tuning curves specified in 'mylist.txt'. This file contains specifications
+for tuning curves, one per line. No blank lines or comments are allowed. Here is a sample of such 
+a file:
+
+-------begin below this line -------------------
+-t 1.0 -g 0,0,0,0,100,.3,3.00,90.0,b,s,e -O 0,60,120,180,240,300
+-t 1.0 -g 0,0,0,0,100,.3,3.00,90.0,b,s,e -S 0.1,.5,1,4,8
+-t 1.0 -g 0,0,0,0,100,.3,3.00,90.0,b,s,e -C 11,28,44,75,100
+-------end above this line----------------------
+
+This file specifies three tuning curves. In between the curves there is a 4.0 second blank page. 
+The first is an orientation curve (0, 60, 120, 180, 240, 300 degrees), with stimuli 
+(and intervening blank page) displayed for 1.0s each. 
+The second curve is Spatial frequency, again with stimuli and blanks displayed for 1.0s each. 
+The third curve is contrast, again with stimuli and blanks displayed for 1.0s each.
+
+
+
+Triggers
+
+Triggers are output at the onset of each stimuli, and the onset of the blank page following each stimuli, 
+and at the end of the blank period. Thus, for the orientation curve above, there will be 3 triggers for each
+orientation listed. 
+
+At the end of each curve there are two additional triggers, separated by one frame length, to denote the 
+transition from one tuning curve to the next. 
