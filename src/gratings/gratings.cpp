@@ -35,6 +35,8 @@ bool m_verbose=false;
 TriggerVector triggers;
 bool m_binaryTriggers = true;
 bool m_bCalibration = false;
+bool m_driftvelTriggers = false;
+
 const int f_iPage0 = 0;
 const int f_iPage1 = 1;
 const int f_iPageBlank = 2;
@@ -136,7 +138,7 @@ int args(int argc, char **argv)
 	extern char *optarg;
 	extern int optind;
 	int errflg = 0;
-	while ((c = getopt(argc, argv, "s:b:hd:vaf:")) != -1)
+	while ((c = getopt(argc, argv, "s:b:hd:vaf:T")) != -1)
 	{
 		switch (c) 
 		{
@@ -145,6 +147,9 @@ int args(int argc, char **argv)
 			break;
 		case 'v':
 			m_verbose = true;
+			break;
+		case 'T':
+			m_driftvelTriggers = true;
 			break;
 		case 'b': 
 			s.assign(optarg);
@@ -289,6 +294,11 @@ int init_pages()
 	triggers.addTrigger(new PageTrigger("F", 0x10, 0x10, 0x8, 0x8, 3));
 	//triggers.addTrigger(new PageTrigger("f", 0x10, 0x0, 0x8, 0x0, 4));
 
+	if (m_driftvelTriggers)
+	{
+		triggers.addTrigger(new CallbackTrigger("T", 0x0, 0x0, 0x0, 0x0, callback));
+	}
+
 	// quit trigger
 	triggers.addTrigger(new QuitTrigger("q", 0x80, 0x80, 0xff, 0x0, 0));
 
@@ -361,6 +371,13 @@ int callback(int &output, const CallbackTrigger* ptrig)
 		vsgIOWriteDigitalOut(output, ptrig->outMask());
 		vsgSetDrawPage(vsgOVERLAYPAGE, 0, vsgNOCLEAR);
 		vsgSetZoneDisplayPage(vsgVIDEOPAGE, 2 + vsgTRIGGERPAGE);
+	}
+	else if (key=="T")
+	{
+		m_gratings[0]->select();
+		vsgObjSetTriggers(vsgTRIG_DRIFTVEL, 0, 0);
+		vsgSetZoneDisplayPage(vsgVIDEOPAGE, 0);
+		vsgPresent();
 	}
 	return ival;
 }
