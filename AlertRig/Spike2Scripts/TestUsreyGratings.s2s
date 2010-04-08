@@ -1,4 +1,4 @@
-#include "GratingUtilities.s2s"
+#include "UsreyGratings.s2s"
 
 var x, y, w, h, sf, tf, ori;
 var contrast%;
