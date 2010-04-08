@@ -1,3 +1,5 @@
+#include "../../Spike2Util/UsreyUtil.s2s"
+
 var grutilDisable%[11];
 var grutilNDisable% := 0;
 
