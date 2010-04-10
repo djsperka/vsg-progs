@@ -1,4 +1,4 @@
-' $Id: AcuteTuning.s2s,v 1.1 2010-04-08 21:18:12 devel Exp $
+' $Id: AcuteTuning.s2s,v 1.2 2010-04-10 22:24:01 devel Exp $
 '
 ' AcuteTuning.s2s
 '
@@ -28,15 +28,6 @@ var tunHandleStim := -1;
 ' window handles
 var tunWindowData%;
 
-' states
-const stateStartup%             :=  1;
-const stateVSGWait%             :=  2;
-const stateVSGConfirm%          :=  3;
-const stateStartStim%           :=  4;
-const stateStim%                :=  5;
-const stateDone%                :=  6;
-
-var iState% := stateStartup%;              ' This holds the current state
 
 ' Tuning curve types
 
@@ -56,6 +47,7 @@ var tunExptTypeArgs$;
 ' Colors
 var tunBGColor$[3];
 var tunBGColorIndex% := 0;
+var tunBGColorCurrent$;
 
 ' Tuning curve parameters
 
@@ -84,29 +76,14 @@ tunBGColor$[0] := "gray";
 tunBGColor$[1] := "black";
 tunBGColor$[2] := "white";
 
-
-
-
-
-
-
-
-
-' stuff left over from original script. 
-var index;
-var TriggerTime:=-1,NextTriggerTime, BlockData$[8],BlockIndex;
-var SpikeCount;
-var TriggerNumber:=0;
-var TimeLeft,PercentComplete;
-
-
-
 tunColor$[0] := "Black and white";
 tunColor$[1] := "S cone isolating";
 tunColor$[2] := "M cone isolating";
 tunColor$[3] := "L cone isolating";
 
-View(App(0)).Window(0,0,75,95);
+
+' TODO: Resize window?
+'View(App(0)).Window(0,0,75,95);
 
 
 
@@ -132,14 +109,18 @@ InitializeWindows();
 
 
 	
-'ToolbarSet(1,"Quit",Quit%);
-'ToolbarSet(2,"Sample start",Start%);
-'ToolbarSet(3,"Sample stop", Stop%);
-'ToolbarEnable(3,0);
-'Toolbar("Go",1234);
+ToolbarSet(1,"Quit",Quit%);
+ToolbarSet(2,"Sample start",Start%);
+ToolbarSet(3,"Sample stop", Stop%);
+ToolbarEnable(3,0);
+Toolbar("Go",1234);
 
-
-
+' Oh no! Make sure sampling has stopped!
+if SampleStatus() <> -1 then
+    LogWarn("AcuteTuning", "Toolbar exited and sampling status is " + str$(SampleStatus()) + ". Stopping sampling...");
+    SampleStop();
+    LogWarn("AcuteTuning", "Sampling stopped.");
+endif
 
 
 proc CreateSampleConfiguration()
@@ -209,6 +190,8 @@ end
 func AcuteTuningDialog%()
     var status%;
     
+    LogWarn("AcuteTuningDialog()", "TODO: Get Acute Tuning Parameters");
+    
     DlgCreate("Select Tuning Curve Type");
     DlgButton(101, "Orientation", TunDlgOrientation%, 1, 1);
     DlgButton(102, "Contrast", TunDlgContrast%, 1, 2);
@@ -217,6 +200,12 @@ func AcuteTuningDialog%()
     DlgButton(105, "Area", TunDlgArea%, 1, 5);
     DlgButton(106, "XY", TunDlgXY%, 1, 6);
     status% := DlgShow();    
+    if status% <> 0 then
+        tunBGColorCurrent$ := tunBGColor$[tunBGColorIndex%];
+    endif
+    
+    LogWarn("AcuteTuningDialog()", "TODO: Save Acute Tuning Parameters");
+    
     return status%;
 end
 
@@ -274,6 +263,8 @@ func TunDlgOrientationGrating%()
     ndisable% := 1;
     disable%[0] := 8;
     i% := GratingParametersDialog%(label$, param$, disable%[], ndisable%, x, y, w, h, contrast%, sf, tf, ori, cv$, pattern$, aperture$);
+    LogInfo("TunDlg Orientation: grating label=>" + label$ + "<");
+    LogInfo("TunDlg Orientation: params=>" + param$ + "<");
     return 1;
 end
 
@@ -473,5 +464,116 @@ func TunDlgXY%()
         tunExptTypeFileLabel$ := "xy";
         tunExptTypeLabel$ := "XY";
     endcase
+    return status%;
+end
+
+
+' Quit is used to exit the script entirely. 
+' If there are any VSG apps running they should be stopped now. 
+' All VSG apps should be triggered off if possible - that allows for clean
+' handling of the lock. 
+' Could check if app is running, display error message. 
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func Quit%()
+'   TODO: Check for running vsg app.
+    return 0;
+end;
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+' Start is used to start sampling. Start must take things from post-dialog (i.e. all parameters can 
+' be assumed to be expt-ready, but live, daq-related values (updated in Idle%() ) - tStateStart, 
+' iState%, etc.) have only been initialized, not used.
+' Start should start sampling, and immediately issue a SampleKey("0"); to lower all output lines. 
+' THEN launch vsg application (so it sees the cleared triggers. 
+' Finally, take care of the toolbar. 
+
+func Start%()
+    var cmd$;
+    
+    ' Start sampling
+    SampleStart(0);
+    View(tunWindowData%);    
+    
+    ' Send sample key. 
+    SampleKey("0");
+    
+    ' Set idle here - before vsg launches so we cannot miss the ready signal. 
+    ToolbarEnable(3,1); ' stop
+    ToolbarEnable(2,0); ' start
+    ToolbarEnable(1,0); ' quit
+    ToolbarSet(0, "", Idle%);
+    
+    ' Build command line and launch vsg app.     
+    cmd$ := GetBinDir$(1) + "meatuning.exe " + "-v -b " + tunBGColorCurrent$ + " -t " + str$(tunStimTime) + tunExptTypeArgs$;
+    LogInfo(cmd$);
+    tunHandleStim := ProgRun("cmd /c " + cmd$);
+    
+    
+    'wait 5 seconds for some spikes to come in, and then optimize the display for them.
+    Yield(5);
+    View(tunWindowData%).Optimise(-1, 0, MaxTime());
+    return 1;
+end;
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+
+' Stop must stop applications and sampling nicely. Adjust toolbar to wait for "quit", stop Idle%(). 
+' Send SampleKey to kill the VSG app and wait for it to exit. 
+' TODO: Can this be done with a timeout?
+' VSG apps should return to gray screen, clear triggers, all off - at same time that lock is freed?
+
+func Stop%()
+    
+    ' remove the idle process. 
+    ToolbarSet(0, "");
+    ToolbarEnable(1, 1);
+    ToolbarEnable(3, 0);
+    
+    ' send the quit command before stopping sampling
+    SampleKey("q");
+    while ProgStatus(tunHandleStim) > 0 do
+        Yield(1);
+    wend
+    SampleStop();
+    
+    ' clear screen/trigger, just in case
+    'ProgRun(GetBinDir$(1) + "ClearTrigger");
+
+    return 1;
+end; 
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+var tNow;               ' Set on entering this func. For this invocation it is the latest time sampled. 
+var tLast;              ' This is tNow from the last time Idle%() was called. 
+var tStateStart := -1;  ' Start time of current state
+var tStimStart := -1;   ' Time of stim ON trig
+var tBlankStart := -1;  ' Time of blankON trig
+var tBlankEnd := -1;    ' time of blankOFF trig
+var iStimCounter% := 0;
+var iBlankCounter% := 0;
+
+' states
+const stateStartup%             :=  1;
+const stateVSGWait%             :=  2;
+const stateVSGConfirm%          :=  3;
+const stateStartTuning%         :=  4;
+const stateNoStim%              :=  5;
+const stateStimON%              :=  6;
+const stateBlankON%             :=  7;
+const stateDone%                := 99;
+var iState% := stateStartup%;              ' This holds the current state
+var iDummy% := 0;
+
+func Idle%()
+    var status% := 0;       ' return this var. 1=continue, 0 = stop.
+    iDummy% += 1;
+    if iDummy% < 100 then
+        status% := 1;
+    else
+        LogInfo("Idle% is returning 0 now.");
+    endif
     return status%;
 end
