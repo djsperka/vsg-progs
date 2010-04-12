@@ -86,7 +86,7 @@ int args(int argc, char **argv);
 void usage();
 
 // draw grating
-void draw_grating(ARGratingSpec& gr, int videoPage);
+//void draw_grating(ARGratingSpec& gr, int videoPage);
 
 int parse_tuning_specfile(string filename);
 void make_argv(vector<string>tokens, int& argc, char** argv);
@@ -105,11 +105,15 @@ int main(int argc, char **argv)
 
 	if (f_verbose) dump_all_tuning_curve_specs();
 
-	if (init_vsg()) return -1;
+//	if (init_vsg()) return -1;
+	if (ARvsg::instance().init(f_screenDistanceMM, f_background))
+	{
+		cerr << "Error: Cannot init vsg card." << endl;
+		return -1;
+	}
 	init_pages();
 
 
-//	init_stim();
 	vsgPresent();
 	vsgSetZoneDisplayPage(vsgVIDEOPAGE, 1);
 
@@ -344,6 +348,7 @@ void run_cycling()
 #endif
 }
 
+#if 0
 int init_vsg()
 {
 	int istatus;
@@ -405,6 +410,7 @@ void draw_grating(ARGratingSpec& gr, int videoPage)
 		vsgDrawGrating(gr.x, -gr.y, lWidth, lHeight, gr.orientation, gr.sf);
 	}
 }
+#endif
 
 // clear page 0 and 1. Display page 1. 
 // Page 0 is for stim, page 1 is background. 
@@ -419,6 +425,11 @@ void init_pages()
 		return;
 	}
 	vsgSetBackgroundColour(&background);
+
+	// Overlay page 0 will be used for all stimuli. Set overlay palette color 1 to have bg color. 
+	vsgSetCommand(vsgOVERLAYMASKMODE);
+	arutil_color_to_overlay_palette(f_background, 1);
+	vsgSetZoneDisplayPage(vsgOVERLAYPAGE, 0);
 
 	vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgBACKGROUND);
 	vsgSetDrawPage(vsgVIDEOPAGE, 1, vsgBACKGROUND);
@@ -458,7 +469,10 @@ void update_stim(int stimindex, int step)
 		cerr << "Error in update_stim: unknown tuning type for tcurve=" << stimindex << " step=" << step << "!" << endl;
 	}
 
-	draw_grating(tcurve.grating, 0);
+	arutil_draw_grating(tcurve.grating, 0);
+
+	vsgSetDrawPage(vsgOVERLAYPAGE, 0, 1);
+	arutil_draw_aperture(tcurve.grating, 0);
 }
 
 
