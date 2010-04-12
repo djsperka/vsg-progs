@@ -13,11 +13,16 @@ using namespace alert;
 
 string f_szConfig;
 bool f_bHaveConfig = false;
-
+string f_szRigName;
+string f_szRegistryKey;
 
 bool GetRegConfiguration()
 {
 	bool b = false;
+	size_t iGetenvReturnValue;
+	char buffer[256];
+	string key;
+
 	if (f_bHaveConfig)
 	{
 		b = true;
@@ -27,23 +32,48 @@ bool GetRegConfiguration()
 
 		CRegistry regMyReg( NULL );  // No special flags
 
-	    /* Now attempt to open the key Software/CED/Spike2/AlertRig/. */
+		/* Get rig name. Following the convention of the scripts, if an environment var 
+		 * RIG is defined, it is used in the registry path to config vars. If RIG is not
+		 * found then "AlertRig" is used. For example, if RIG is "AcuteRig", then the 
+		 * following path is used: Software\\CED\\Spike2\\AcuteRig
+		 */
 
-		if (!CRegistry::KeyExists("Software\\CED\\Spike2\\AlertRig", HKEY_CURRENT_USER)) 
+		if (!getenv_s(&iGetenvReturnValue, buffer, 256, "RIG"))
 		{
-			cout << "AlertRig registry key not found!!!!" << endl;
+			f_szRigName.assign(buffer);
+			cout << "Env var RIG found: rig name is " << f_szRigName << endl;
 		}
 		else
 		{
-			regMyReg.Open("Software\\CED\\Spike2\\AlertRig", HKEY_CURRENT_USER);
+			f_szRigName.assign("AlertRig");
+			cout << "Env var RIG not found. using \"AlertRig\" as rig name." << endl;
+		}
+
+
+	    /* Now attempt to open the key Software/CED/Spike2/AlertRig/. */
+
+		key = "Software\\CED\\Spike2\\" + f_szRigName;
+		if (!CRegistry::KeyExists(key.c_str(), HKEY_CURRENT_USER)) 
+		{
+			cout << "Registry key \"" + key + "\" not found!!!!" << endl;
+		}
+		else
+		{
+			cout << "Opening key " << key << endl;
+			regMyReg.Open(key.c_str(), HKEY_CURRENT_USER);
 			if (!regMyReg["CurrentConfiguration"].Exists())
 			{
-				cout << "AlertRig registry value for CurrentConfiguration not found!!!!" << endl;
+				cout << "Registry value for CurrentConfiguration not found!!!!" << endl;
 			}
 			else
 			{
 				// Get current configuration
 				f_szConfig = (std::string)regMyReg["CurrentConfiguration"];
+				f_szRegistryKey.assign("Software\\CED\\Spike2\\");
+				f_szRegistryKey.append(f_szRigName);
+				f_szRegistryKey.append("\\");
+				f_szRegistryKey.append(f_szConfig);
+				cout << "Registry key is " << f_szRegistryKey << endl;
 				f_bHaveConfig = true;
 				b = true;
 			}
@@ -68,11 +98,19 @@ bool GetRegScreenDistance(int& dist)
 	{
 		CRegistry regMyReg( NULL );  // No special flags
 
-	    /* Now attempt to open the key Software/CED/Spike2/AlertRig/. */
-		szKey = "Software\\CED\\Spike2\\AlertRig\\" + f_szConfig + "\\DAQ";
+		/* On the AcuteRig there is no DAQ key - the screen distance is stored with Data parameters. */
+		if (f_szRigName == "AcuteRig")
+		{
+			szKey.assign("Software\\CED\\Spike2\\AcuteRig\\Data");
+		}
+		else
+		{
+			szKey = f_szRegistryKey + "\\DAQ";
+		}
+
 		if (!CRegistry::KeyExists(szKey.c_str(), HKEY_CURRENT_USER)) 
 		{
-			std::string sztemp = "AlertRig registry key " + szKey + " not found!!!!";
+			std::string sztemp = "Registry key " + szKey + " not found!!!!";
 			std::cout << sztemp << std::endl;
 		}
 		else
@@ -80,7 +118,7 @@ bool GetRegScreenDistance(int& dist)
 			regMyReg.Open(szKey.c_str(), HKEY_CURRENT_USER);
 			if (!regMyReg["DistanceToScreenMM"].Exists())
 			{
-				std::string sztemp = "AlertRig registry value DistanceToScreenMM for key " + szKey + " not found!!!!";
+				std::string sztemp = "Registry value DistanceToScreenMM for key " + szKey + " not found!!!!";
 				std::cout << sztemp << std::endl;
 			}
 			else
@@ -113,10 +151,10 @@ bool GetRegFixpt(double& fixX, double& fixY, double &fixD, COLOR_TYPE& fixC)
 		CRegistry regMyReg( NULL );  // No special flags
 
 	    /* Now attempt to open the key Software/CED/Spike2/AlertRig/. */
-		szKey = "Software\\CED\\Spike2\\AlertRig\\" + f_szConfig + "\\FixationPoint";
+		szKey = f_szRegistryKey + "\\FixationPoint";
 		if (!CRegistry::KeyExists(szKey.c_str(), HKEY_CURRENT_USER)) 
 		{
-			std::string sztemp = "AlertRig registry key " + szKey + " not found!!!!";
+			std::string sztemp = "Registry key " + szKey + " not found!!!!";
 			std::cout << sztemp << std::endl;
 			b = false;
 		}
@@ -128,7 +166,7 @@ bool GetRegFixpt(double& fixX, double& fixY, double &fixD, COLOR_TYPE& fixC)
 			{
 				if (!regMyReg["FixationX"].Exists())
 				{
-					std::string sztemp = "AlertRig registry value FixationX for key " + szKey + " not found!!!!";
+					std::string sztemp = "Registry value FixationX for key " + szKey + " not found!!!!";
 					std::cout << sztemp << std::endl;
 					b = false;
 				}
@@ -144,7 +182,7 @@ bool GetRegFixpt(double& fixX, double& fixY, double &fixD, COLOR_TYPE& fixC)
 			{
 				if (!regMyReg["FixationY"].Exists())
 				{
-					std::string sztemp = "AlertRig registry value FixationY for key " + szKey + " not found!!!!";
+					std::string sztemp = "Registry value FixationY for key " + szKey + " not found!!!!";
 					std::cout << sztemp << std::endl;
 					b = false;
 				}
@@ -160,7 +198,7 @@ bool GetRegFixpt(double& fixX, double& fixY, double &fixD, COLOR_TYPE& fixC)
 			{
 				if (!regMyReg["FixationDiameter"].Exists())
 				{
-					std::string sztemp = "AlertRig registry value FixationDiameter for key " + szKey + " not found!!!!";
+					std::string sztemp = "Registry value FixationDiameter for key " + szKey + " not found!!!!";
 					std::cout << sztemp << std::endl;
 					b = false;
 				}
@@ -176,7 +214,7 @@ bool GetRegFixpt(double& fixX, double& fixY, double &fixD, COLOR_TYPE& fixC)
 			{
 				if (!regMyReg["FixationColor"].Exists())
 				{
-					std::string sztemp = "AlertRig registry value FixationColor for key " + szKey + " not found!!!!";
+					std::string sztemp = "Registry value FixationColor for key " + szKey + " not found!!!!";
 					std::cout << sztemp << std::endl;
 					b = false;
 				}
@@ -216,10 +254,10 @@ bool GetRegStimulus(ARApertureGratingSpec &stim)
 		CRegistry regMyReg( NULL );  // No special flags
 
 	    /* Now attempt to open the key Software/CED/Spike2/AlertRig/. */
-		szKey = "Software\\CED\\Spike2\\AlertRig\\" + f_szConfig + "\\Gratings";
+		szKey = f_szRegistryKey + "\\Gratings";
 		if (!CRegistry::KeyExists(szKey.c_str(), HKEY_CURRENT_USER)) 
 		{
-			std::string sztemp = "AlertRig registry key " + szKey + " not found!!!!";
+			std::string sztemp = "Registry key " + szKey + " not found!!!!";
 			cout << sztemp << endl;
 		}
 		else
@@ -227,7 +265,7 @@ bool GetRegStimulus(ARApertureGratingSpec &stim)
 			regMyReg.Open(szKey.c_str(), HKEY_CURRENT_USER);
 			if (!regMyReg["Stimulus"].Exists())
 			{
-				std::string sztemp = "AlertRig registry value Stimulus for key " + szKey + " not found!!!!";
+				std::string sztemp = "Registry value Stimulus for key " + szKey + " not found!!!!";
 				cout << sztemp << endl;
 			}
 			else
@@ -258,10 +296,10 @@ bool SaveRegStimulus(std::string s)
 		CRegistry regMyReg( NULL );  // No special flags
 
 	    /* Now attempt to open the key Software/CED/Spike2/AlertRig/. */
-		szKey = "Software\\CED\\Spike2\\AlertRig\\" + f_szConfig + "\\Gratings";
+		szKey = f_szRegistryKey + "\\Gratings";
 		if (!CRegistry::KeyExists(szKey.c_str(), HKEY_CURRENT_USER)) 
 		{
-			std::string sztemp = "AlertRig registry key " + szKey + " not found!!!!";
+			std::string sztemp = "Registry key " + szKey + " not found!!!!";
 			cout << sztemp << endl;
 		}
 		else
@@ -269,7 +307,7 @@ bool SaveRegStimulus(std::string s)
 			regMyReg.Open(szKey.c_str(), HKEY_CURRENT_USER);
 			if (!regMyReg["Stimulus"].Exists())
 			{
-				std::string sztemp = "AlertRig registry value Stimulus for key " + szKey + " not found!!!!";
+				std::string sztemp = "Registry value Stimulus for key " + szKey + " not found!!!!";
 				cout << sztemp << endl;
 			}
 			else
