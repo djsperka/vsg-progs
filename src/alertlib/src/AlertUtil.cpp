@@ -179,7 +179,28 @@ int arutil_draw_grating(ARGratingSpec& gr, int videoPage)
 		vsgObjSetColourVector(&from, &to, vsgBIPOLAR);
 
 		// Now draw
-		vsgDrawGrating(gr.x, -gr.y, gr.w, gr.h, gr.orientation, gr.sf);
+		if (gr.w > 0 && gr.h > 0)
+		{
+			vsgDrawGrating(gr.x, -gr.y, gr.w, gr.h, gr.orientation, gr.sf);
+		}
+		else
+		{
+			if (vsgGetSystemAttribute(vsgSPATIALUNITS) == vsgPIXELUNIT)
+			{
+				long lWidth = vsgGetScreenWidthPixels();
+				long lHeight = vsgGetScreenHeightPixels();
+				vsgDrawGrating(0, 0, lWidth, lHeight, gr.orientation, gr.sf);
+			}
+			else
+			{
+				long lWidth = vsgGetScreenWidthPixels();
+				long lHeight = vsgGetScreenHeightPixels();
+				double degWidth, degHeight;
+				vsgUnitToUnit(vsgPIXELUNIT, (double)lWidth, vsgDEGREEUNIT, &degWidth);
+				vsgUnitToUnit(vsgPIXELUNIT, (double)lHeight, vsgDEGREEUNIT, &degHeight);
+				vsgDrawGrating(0, 0, degWidth, degHeight, gr.orientation, gr.sf);
+			}
+		}
 	}
 	else status = -1;
 	return status;
@@ -256,13 +277,23 @@ int arutil_draw_aperture(ARGratingSpec& gr, int overlayPage)
 		vsgSetDrawPage(vsgOVERLAYPAGE, overlayPage, vsgNOCLEAR);
 		vsgSetPen1(0);
 		vsgSetDrawMode(vsgCENTREXY);
-		if (gr.aperture == ellipse)
+
+		if (gr.w<=0 || gr.h <= 0)
 		{
-			vsgDrawOval(gr.x, -gr.y, gr.w, gr.h);
+			// clear the whole page
+			vsgSetDrawPage(vsgOVERLAYPAGE, overlayPage, 0);
+			cout << "Cleared page" << endl;
 		}
 		else
 		{
-			vsgDrawRect(gr.x, -gr.y, gr.w, gr.h);
+			if (gr.aperture == ellipse)
+			{
+				vsgDrawOval(gr.x, -gr.y, gr.w, gr.h);
+			}
+			else
+			{
+				vsgDrawRect(gr.x, -gr.y, gr.w, gr.h);
+			}
 		}
 	}
 	else status = -1;
