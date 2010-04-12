@@ -17,11 +17,11 @@ rem xy test full screen
 rem C:\work\AlertRig\bin\meatuning -t 4.0 -b gray -d 500 -g 0,0,0,0,100,.3,0.00,90.0,b,s,e -X 0,90,180,270 -x 0.25
 
 rem orientation, with square aperture
-d:\work\AlertRig\bin\meatuning -t 1.0 -b gray -d 500 -g 0,0,200.0,200.0,100,.3,3.00,90.0,b,s,e -O 0,60,120,180,240,300,360
+rem d:\work\AlertRig\bin\meatuning -t 1.0 -b gray -d 500 -g 0,0,200.0,200.0,100,.3,3.00,90.0,b,s,e -O 0,60,120,180,240,300,360
 
 rem try two in a row
 rem C:\work\AlertRig\bin\meatuning -t 1.0 -b gray -d 500 -g 0,0,0,0,100,.3,0.00,90.0,b,s,e -X 0,90,180,270 -x 0.25
 rem C:\work\AlertRig\bin\meatuning -t 1.0 -b gray -d 500 -g 0,0,0,0,100,.3,3.00,90.0,b,s,e -T 0.1,.5,1,2,3
 
 rem use an input spedc file
-rem C:\work\AlertRig\bin\meatuning -v -t 1.0 -b gray -d 500 -u 4.0 -f meatlist.txt
+..\..\bin\meatuning -v -t 1.0 -b gray -d 500 -u 4.0 -f meatlist.txt
