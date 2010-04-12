@@ -412,7 +412,14 @@ int main(int argc, char **argv)
 			case 13:
 				{
 					std::ostringstream oss;
+					double xtemp, ytemp;
+					xtemp = f_grating.x;
+					ytemp = f_grating.y;
+					f_grating.x = degVSGMouseX;
+					f_grating.y = -degVSGMouseY;
 					oss << f_grating;
+					f_grating.x = xtemp;
+					f_grating.y = ytemp;
 					cout << "reg string=" <<  oss.str() << endl;
 					SaveRegStimulus(oss.str());
 					break;
@@ -608,8 +615,16 @@ int args(int argc, char **argv)
 
 	if (!have_d)
 	{
-		cerr << "No screen distance supplied!" << endl;
-		errflg++;
+		cerr << "No screen distance supplied - checking registry..." << endl;
+		if (GetRegScreenDistance(f_screenDistanceMM))
+		{
+			cerr << "Got registry value for screen distance = " << f_screenDistanceMM << endl;
+		}
+		else
+		{
+			cerr << "Screen distance not supplied (-d) and registry value not found." << endl;
+			errflg++;
+		}
 	}
 
 	if (f_alert && !have_fixpt)
