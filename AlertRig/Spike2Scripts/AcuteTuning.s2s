@@ -1,4 +1,4 @@
-' $Id: AcuteTuning.s2s,v 1.2 2010-04-10 22:24:01 devel Exp $
+' $Id: AcuteTuning.s2s,v 1.3 2010-04-12 23:26:53 devel Exp $
 '
 ' AcuteTuning.s2s
 '
@@ -17,6 +17,9 @@ var tunFileLabel$ := "zzz";
 var tunNChannels%;
 var tunColorIndex%;
 var tunColor$[4];
+
+' Grating parameters
+var tunGratingParams$;
 
 ' daq channels for triggers from vsg
 var tunChanTrigger% := 11;
@@ -51,6 +54,7 @@ var tunBGColorCurrent$;
 
 ' Tuning curve parameters
 
+var tunNRepeats% := 1;
 var tunStimTime := 2;
 var tunBlankTime := 2;
 var tunNSteps% := 15;
@@ -81,6 +85,7 @@ tunColor$[1] := "S cone isolating";
 tunColor$[2] := "M cone isolating";
 tunColor$[3] := "L cone isolating";
 
+tunGratingParams$ := GetGratingParameters$("Stimulus");
 
 ' TODO: Resize window?
 'View(App(0)).Window(0,0,75,95);
@@ -216,12 +221,13 @@ func TunDlgOrientation%()
     DlgReal(1, "Stimulus time(s)", 0.1, 100.0);
     DlgReal(2, "Blank time(s)", 0.1, 100.0);
     DlgInteger(3, "Number of steps", 2, 100);
-    DlgReal(4, "Min Orientation", 0, 360);
-    DlgReal(5, "Max Orientation", 0, 360);
-    DlgCheck(6, "Random Progression?");
-	DlgList(7, "Background color:", tunBGColor$);
+    DlgInteger(4, "Number of repeats", 1, 100);
+    DlgReal(5, "Min Orientation", 0, 360);
+    DlgReal(6, "Max Orientation", 0, 360);
+    DlgCheck(7, "Random Progression?");
+	DlgList(8, "Background color:", tunBGColor$);
     DlgButton(151, "Grating Properties", TunDlgOrientationGrating%);
-    status% := DlgShow(tunStimTime, tunBlankTime, tunNSteps%, tunOriMin, tunOriMax, tunRandomProgression%, tunBGColorIndex%);
+    status% := DlgShow(tunStimTime, tunBlankTime, tunNSteps%, tunNRepeats%, tunOriMin, tunOriMax, tunRandomProgression%, tunBGColorIndex%);
     
     ' Check return value from DlgShow. If user hit OK, the return value is 1, but we must
     ' change it to 0 here.... that's so the calling dialog exits. 
@@ -262,9 +268,9 @@ func TunDlgOrientationGrating%()
     ArrConst(disable%[], 0);
     ndisable% := 1;
     disable%[0] := 8;
-    i% := GratingParametersDialog%(label$, param$, disable%[], ndisable%, x, y, w, h, contrast%, sf, tf, ori, cv$, pattern$, aperture$);
+    i% := GratingParametersDialog%(label$, tunGratingParams$, disable%[], ndisable%, x, y, w, h, contrast%, sf, tf, ori, cv$, pattern$, aperture$);
     LogInfo("TunDlg Orientation: grating label=>" + label$ + "<");
-    LogInfo("TunDlg Orientation: params=>" + param$ + "<");
+    LogInfo("TunDlg Orientation: params=>" + tunGratingParams$ + "<");
     return 1;
 end
 
@@ -276,12 +282,13 @@ func TunDlgContrast%()
     DlgReal(1, "Stimulus time(s)", 0.1, 100.0);
     DlgReal(2, "Blank time(s)", 0.1, 100.0);
     DlgInteger(3, "Number of steps", 2, 100);
-    DlgReal(4, "Min Contrast%", 1, 100);
-    DlgReal(5, "Max Contrast%", 1, 100);
-    DlgCheck(6, "Random Progression?");
-	DlgList(7, "Background color:", tunBGColor$);
+    DlgInteger(4, "Number of repeats", 1, 100);
+    DlgReal(5, "Min Contrast%", 1, 100);
+    DlgReal(6, "Max Contrast%", 1, 100);
+    DlgCheck(7, "Random Progression?");
+	DlgList(8, "Background color:", tunBGColor$);
     DlgButton(151, "Grating Properties", TunDlgContrastGrating%);
-    status% := DlgShow(tunStimTime, tunBlankTime, tunNSteps%, tunContrastMin, tunContrastMax, tunRandomProgression%, tunBGColorIndex%);
+    status% := DlgShow(tunStimTime, tunBlankTime, tunNSteps%, tunNRepeats%, tunContrastMin, tunContrastMax, tunRandomProgression%, tunBGColorIndex%);
     
     ' Check return value from DlgShow. If user hit OK, the return value is 1, but we must
     ' change it to 0 here.... that's so the calling dialog exits. 
@@ -331,12 +338,13 @@ func TunDlgSF%()
     DlgReal(1, "Stimulus time(s)", 0.1, 100.0);
     DlgReal(2, "Blank time(s)", 0.1, 100.0);
     DlgInteger(3, "Number of steps", 2, 100);
-    DlgReal(4, "Min SF", .01, 100);
-    DlgReal(5, "Max SF", .01, 100);
-    DlgCheck(6, "Random Progression?");
-	DlgList(7, "Background color:", tunBGColor$);
+    DlgInteger(4, "Number of repeats", 1, 100);
+    DlgReal(5, "Min SF", .01, 100);
+    DlgReal(6, "Max SF", .01, 100);
+    DlgCheck(7, "Random Progression?");
+	DlgList(8, "Background color:", tunBGColor$);
     DlgButton(151, "Grating Properties", TunDlgSFGrating%);
-    status% := DlgShow(tunStimTime, tunBlankTime, tunNSteps%, tunSFMin, tunSFMax, tunRandomProgression%, tunBGColorIndex%);
+    status% := DlgShow(tunStimTime, tunBlankTime, tunNSteps%, tunNRepeats%, tunSFMin, tunSFMax, tunRandomProgression%, tunBGColorIndex%);
     
     ' Check return value from DlgShow. If user hit OK, the return value is 1, but we must
     ' change it to 0 here.... that's so the calling dialog exits. 
@@ -386,12 +394,13 @@ func TunDlgTF%()
     DlgReal(1, "Stimulus time(s)", 0.1, 100.0);
     DlgReal(2, "Blank time(s)", 0.1, 100.0);
     DlgInteger(3, "Number of steps", 2, 100);
-    DlgReal(4, "Min TF", .01, 100);
-    DlgReal(5, "Max TF", .01, 100);
-    DlgCheck(6, "Random Progression?");
-	DlgList(7, "Background color:", tunBGColor$);
+    DlgInteger(4, "Number of repeats", 1, 100);
+    DlgReal(5, "Min TF", .01, 100);
+    DlgReal(6, "Max TF", .01, 100);
+    DlgCheck(7, "Random Progression?");
+	DlgList(8, "Background color:", tunBGColor$);
     DlgButton(151, "Grating Properties", TunDlgTFGrating%);
-    status% := DlgShow(tunStimTime, tunBlankTime, tunNSteps%, tunTFMin, tunTFMax, tunRandomProgression%, tunBGColorIndex%);
+    status% := DlgShow(tunStimTime, tunBlankTime, tunNSteps%, tunNRepeats%, tunTFMin, tunTFMax, tunRandomProgression%, tunBGColorIndex%);
     
     ' Check return value from DlgShow. If user hit OK, the return value is 1, but we must
     ' change it to 0 here.... that's so the calling dialog exits. 
@@ -506,7 +515,7 @@ func Start%()
     ToolbarSet(0, "", Idle%);
     
     ' Build command line and launch vsg app.     
-    cmd$ := GetBinDir$(1) + "meatuning.exe " + "-v -b " + tunBGColorCurrent$ + " -t " + str$(tunStimTime) + tunExptTypeArgs$;
+    cmd$ := GetBinDir$(1) + "meatuning.exe " + "-v -b " + tunBGColorCurrent$ + " -g " + tunGratingParams$ + " -t " + str$(tunStimTime) + " -d " + GetAcuteDistanceToScreenMM$() + tunExptTypeArgs$;
     LogInfo(cmd$);
     tunHandleStim := ProgRun("cmd /c " + cmd$);
     
