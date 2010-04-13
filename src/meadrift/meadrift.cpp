@@ -51,7 +51,7 @@ int main (int argc, char *argv[])
 	}
 
 	// INit vsg
-	if (ARvsg::instance().init(m_screenDistanceMM, m_background))
+	if (ARvsg::instance().init(m_screenDistanceMM, m_background,false))
 	{
 		cerr << "VSG init failed!" << endl;
 		return 1;
