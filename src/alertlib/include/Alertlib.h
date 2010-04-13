@@ -90,7 +90,7 @@ namespace alert
 	{
 	public:
 		~ARvsg();
-		int init(int screenDistanceMM, COLOR_TYPE i_bg);
+		int init(int screenDistanceMM, COLOR_TYPE i_bg, bool bUseLockFile=true);
 		int init_video();
 		int init_overlay();
 
