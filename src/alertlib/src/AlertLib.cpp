@@ -544,16 +544,23 @@ void alert::ARvsg::release_lock()
 
 
 
-int alert::ARvsg::init(int screenDistanceMM, COLOR_TYPE i_bg)
+int alert::ARvsg::init(int screenDistanceMM, COLOR_TYPE i_bg,  bool bUseLockFile)
 {
 	VSGTRIVAL background;
 	int status=0;
 	if (!m_initialized)
 	{
-		if (!acquire_lock())
+		if (bUseLockFile)
 		{
-			cerr << "ARvsg::init(): cannot acquire VSG lock!" << endl;
-			return 1;
+			if (!acquire_lock())
+			{
+				cerr << "ARvsg::init(): cannot acquire VSG lock!" << endl;
+				return 1;
+			}
+		}
+		else
+		{
+			cerr << "ARvsg::init(): ignoring lock file!" << endl;
 		}
 		
 		if (vsgInit(""))
