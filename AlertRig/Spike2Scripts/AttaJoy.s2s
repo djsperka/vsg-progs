@@ -884,7 +884,7 @@ func IdleProcessing%()
 '            case Looking%(xEye, yEye) <> 1 then
 '                LogStatus("stateWaitForResponse", "Eye not in fixation window.");
 '                ChangeStateTo(stateFixationBreak%, tNow);
-            case joystickPosition% = JSLeft% then
+            case joystickPosition% = JSCenter% then
                 LogStatus("stateWaitForResponse", "Got response.");
                 ChangeStateTo(stateCorrectResponse%, tNow);
             case tNow - tStateStart > ajMaxResponseTime then
