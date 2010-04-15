@@ -39,7 +39,7 @@ Toolbar("Go",12345);
 func Start%()
 var CommandLine$;
 
-CommandLine$ := bin$ + "\\dCableTest.exe";
+CommandLine$ := bin$ + "\\CableTest.exe";
 
 'Begin the stimulus program. It will take a few seconds for the VSG to initialize.
 PrintLog(CommandLine$+"\n");
