@@ -1,4 +1,4 @@
-' $Id: AlertMSequence.s2s,v 1.14 2006-09-18 19:13:30 dan Exp $
+' $Id: AlertMSequence.s2s,v 1.15 2010-04-15 16:57:19 devel Exp $
 
 '========================================================================
 '
@@ -490,15 +490,6 @@ if Len(dataDataSet$) = 0 then
 	Message("No data set is selected! Edit Data parameters...");
 	' Might be nice to open the dialog here....
 	halt;
-else 
-	' Set path for new data files
-	FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 3, 1);
-	FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 1, 1);
-	SampleAutoName$(dataCellName$ + "_msq_000");
-	SampleAutoFile(1);
-	PrintLog("dataPathRoot=" + dataPathRoot$ + "\n");
-	PrintLog("dataDataSet=" + dataDataSet$ + "\n");
-	PrintLog("AutoFile status " + str$(SampleAutoFile()) + "\n");
 endif
 
 
@@ -918,6 +909,15 @@ proc CreateSampleConfiguration()
 '	SampleAutoFile(0); 'Enable automatic file naming
 	SampleAutoComment(0); 'Prompt for comment after sampling
 	SampleAutoCommit(60); 'Seconds between each file commit
+    
+	' Set path for new data files
+	FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 3, 1);
+	FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 1, 1);
+	SampleAutoName$(dataCellName$ + "_msq_000");
+	SampleAutoFile(1);
+	PrintLog("dataPathRoot=" + dataPathRoot$ + "\n");
+	PrintLog("dataDataSet=" + dataDataSet$ + "\n");
+	PrintLog("AutoFile status " + str$(SampleAutoFile()) + "\n");
 
 	' Text mark channel for msequence indicators. The "10" is the max # of characters in a mark.
 	SampleTextMark(15);
@@ -1103,7 +1103,7 @@ func Start%()
 			return 1;
 		endif
 	endif
-	CommandLine$ := "cmd /k " + bin$ + "\\dalertmseq -m c:\\work\\acuterig\\msequenceterms";
+	CommandLine$ := "cmd /k " + bin$ + "\\alertmseq -m d:\\work\\acuterig\\msequenceterms";
 	CommandLine$ += " -p " + str$(x) + "," + str$(y) + " -d " + str$(msqDotSize%) + " -l " + str$(msqSegmentLength%) + " -t " + str$(msqFramesPerTerm%) + " -D " + DistanceToScreenMM$ + " " + FixationArg$;
 
 	'Begin the stimulus program. It will take a few seconds for the VSG to initialize.
