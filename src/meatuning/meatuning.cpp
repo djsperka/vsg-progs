@@ -42,18 +42,16 @@ int f_nsteps = 0;
 int f_istep_current = 0;
 int f_iSavedContrast = 0;
 VSGCYCLEPAGEENTRY f_cycle[6];
-
-// not used anymore
-//tuning_type_t f_tuning_type = tt_none_specified;
-//vector<double> f_tuned_param_vec;
-//double f_temporal_contrast_freq = 0;
+PageCyclingTrigger *f_ptrigCycling = NULL;
 ARGratingSpec f_stim;
+bool f_binaryTriggers = true;
+TriggerVector triggers;
 
 // these parameters apply to all curves
 int f_screenDistanceMM = 0;
 COLOR_TYPE f_background = { gray, {0.5, 0.5, 0.5}};
 double f_seconds_between_curves = 0;
-bool f_testing = false;
+bool f_automatic = false;
 bool f_verbose = false;					// words, words, words,....
 
 
@@ -85,9 +83,6 @@ int args(int argc, char **argv);
 // errors? dump usage and exit. 
 void usage();
 
-// draw grating
-//void draw_grating(ARGratingSpec& gr, int videoPage);
-
 int parse_tuning_specfile(string filename);
 void make_argv(vector<string>tokens, int& argc, char** argv);
 void free_argv(int& argc, char **argv);
@@ -97,31 +92,93 @@ void destroy_stim(int stimindex);
 void dump_all_tuning_curve_specs();
 void dump_tuning_curve_specs(tuning_curve_spec_t& tcurve);
 
+// initialize triggers for automatic run
+void init_triggers();
+
+// callback for triggers
+int callback(int &output, const CallbackTrigger* ptrig);
+
+// callback for page cycling trigger
+int page_cycling_callback(int icycle);
 
 int main(int argc, char **argv)
 {
 	// parse command line args
 	if (args(argc, argv)) return 1;
 
+	// words, words, words
 	if (f_verbose) dump_all_tuning_curve_specs();
 
-//	if (init_vsg()) return -1;
+	// initialize vsg, get lock, etc.
 	if (ARvsg::instance().init(f_screenDistanceMM, f_background))
 	{
 		cerr << "Error: Cannot init vsg card." << endl;
 		return -1;
 	}
+
+	// Init pages
 	init_pages();
 
+	// make sure initial screen is blank
+	//vsgPresent();
+	//vsgSetZoneDisplayPage(vsgVIDEOPAGE, 1);
 
-	vsgPresent();
-	vsgSetZoneDisplayPage(vsgVIDEOPAGE, 1);
 
-
-	if (f_testing)
+	if (f_automatic)
 	{
-//		testing_loop();
-		cout << "No testing " << endl;
+		// Initialize triggers
+		init_triggers();
+
+		// Issue ready pulse to spike2
+		ARvsg::instance().ready_pulse();
+
+		// Initialize stim. 
+		// NOTE: this is one place where modifications would be necessary 
+		// should you want to handle multiple curves in automatic mode. 
+		init_stim(0);
+
+		// Now process triggers
+		std::string s;
+		int last_output_trigger=0;
+		int input_trigger=0;
+		while (1)
+		{
+			// If user-triggered, get a trigger entry. 
+			if (!f_binaryTriggers)
+			{
+				// Get a new "trigger" from user
+				cout << "Enter trigger/key: ";
+				cin >> s;
+			}
+			else
+			{
+				input_trigger = vsgIOReadDigitalIn();
+			}
+
+			TriggerFunc	tf = std::for_each(triggers.begin(), triggers.end(), 
+				(f_binaryTriggers ? TriggerFunc(input_trigger, last_output_trigger) : TriggerFunc(s, last_output_trigger)));
+
+			// Now analyze input trigger
+		 	
+			if (tf.quit()) 
+			{
+				// quitting in the middle of page cycling requires special handling
+				vsgSetCommand(vsgCYCLEPAGEDISABLE);
+				vsgMoveScreen(0, 0);
+				break;
+			}
+			else if (tf.present())
+			{	
+				last_output_trigger = tf.output_trigger();
+				vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, tf.output_trigger(), 0);
+				vsgPresent();
+			}
+
+			// Throttle cpu usage a little. No need to be in hyperspeed checking for triggers here. 
+			Sleep(100);
+		}
+
+
 	}
 	else
 	{
@@ -139,62 +196,65 @@ int main(int argc, char **argv)
 	return 0;
 }
 
-#if 0
-void testing_loop()
-{
-	std::string s;
-	bool bQuit = false;
-	while (!bQuit)
-	{
-		// Get a new "trigger" from user
-		cout << "Enter key: ";
-		cin >> s;
 
-		switch(s[0])
-		{
-		case 'q':
-		case 'Q':
-			{
-				bQuit = true;
-				break;
-			}
-		case '0':
-		case '1':
-			{
-				int ipage = s[0] - '0';
-				vsgSetZoneDisplayPage(vsgVIDEOPAGE, ipage);
-				break;
-			}
-		case 'c':
-			{
-				vsgSetZoneDisplayPage(vsgVIDEOPAGE, 1);
-				vsgPresent();
-				prepare_cycling();
-				run_cycling();
-				break;
-			}
-		case 's':
-			{
-				f_istep_current++;
-				if (f_istep_current > f_nsteps)
-				{
-					cout << "Stepping back to stim 0." << endl;
-					f_istep_current = 0;
-				}
-				update_stim(f_istep_current);
-				vsgPresent();
-				break;
-			}
-		default:
-			{
-				cout << "Unknown entry. Try again." << endl;
-				break;
-			}
-		}
+void init_triggers()
+{
+	triggers.addTrigger(new CallbackTrigger("s", 0x2, 0x2, 0x2, 0x2, callback));
+	triggers.addTrigger(new CallbackTrigger("X", 0x2, 0x0, 0x2, 0x0, callback));
+
+	// Initialize page cycling trigger. The number of repeats is the number of parameters in the tuning
+	// curve. NOTE: Assuming that there is just one tuning curve!!!!!
+	f_ptrigCycling = new PageCyclingTrigger("C", (int)f_tuning_curve_vec[0].tuned_parameter_vec.size(), page_cycling_callback);
+	triggers.addTrigger(f_ptrigCycling);
+	triggers.addTrigger(new QuitTrigger("q", 0x80, 0x80, 0xff, 0x0, 0));
+
+		// Dump triggers
+	std::cout << "Triggers:" << std::endl;
+	for (unsigned int i=0; i<triggers.size(); i++)
+	{
+		std::cout << "Trigger " << i << " " << *(triggers[i]) << std::endl;
 	}
 
+	triggers.reset(vsgIOReadDigitalIn());
+	
 }
-#endif
+
+
+
+int callback(int &output, const CallbackTrigger* ptrig)
+{
+	int ival=0;
+	string key = ptrig->getKey();
+	if (key == "s")
+	{
+		update_stim(0, 0);
+		vsgPresent();
+		prepare_cycling(0, false);
+//		vsgSetCommand(vsgVIDEODRIFT);			// allows us to move the offset of video memory
+		vsgSetCommand(vsgCYCLEPAGEENABLE);
+		f_ptrigCycling->started();
+	}
+	else if (key == "X")
+	{
+		vsgSetCommand(vsgCYCLEPAGEDISABLE);
+		f_ptrigCycling->stopped();
+		vsgSetZoneDisplayPage(vsgVIDEOPAGE, 0);
+	}
+
+	return 0;		// this ensures that no vsgPresent is called (which would insert an extra trigger)
+}
+
+int page_cycling_callback(int icycle)
+{
+	// icycle indicates which parameter we're on in the curve. 
+	std::cout << "Page_cycling_callback icycle=" << icycle << std::endl;
+	update_stim(0, icycle);
+	vsgPresent();
+	prepare_cycling(0, icycle == f_tuning_curve_vec[0].tuned_parameter_vec.size()-1);
+	return 0;
+}
+
+
 
 void prepare_cycling(int stimindex, bool bLastOne)
 {
@@ -212,7 +272,7 @@ void prepare_cycling(int stimindex, bool bLastOne)
 	f_cycle[1].Page = 1 + vsgTRIGGERPAGE;
 	f_cycle[1].Xpos = 0;
 	f_cycle[1].Ypos = 0;
-	f_cycle[1].ovPage = 0;
+	f_cycle[1].ovPage = 1;
 	f_cycle[1].ovXpos = 0;
 	f_cycle[1].ovYpos = 0;
 	f_cycle[1].Stop = 0;
@@ -222,7 +282,7 @@ void prepare_cycling(int stimindex, bool bLastOne)
 		f_cycle[2].Page = 1 + vsgTRIGGERPAGE;
 		f_cycle[2].Xpos = 0;
 		f_cycle[2].Ypos = 0;
-		f_cycle[2].ovPage = 0;
+		f_cycle[2].ovPage = 1;
 		f_cycle[2].ovXpos = 0;
 		f_cycle[2].ovYpos = 0;
 		f_cycle[2].Stop = 1;
@@ -314,106 +374,14 @@ void run_cycling()
 	}
 	vsgSetZoneDisplayPage(vsgVIDEOPAGE, 1);
 
-
-
-#if 0
-	// Note that f_nsteps is the number of steps to get through the list. 
-	// If you think about it, that's the number of things in the list minus 1!
-	cout << "Starting stimuli presentation. Hit any key to abort." << endl;
-	for (f_istep_current=0; f_istep_current<=f_nsteps; f_istep_current++)
-	{
-		if (_kbhit()) 
-		{
-			cout << "Aborted by user." << endl;
-			break;
-		}
-		update_stim(f_istep_current);
-		vsgPresent();
-		vsgSetZoneDisplayPage(vsgVIDEOPAGE, 0);
-		vsgPageCyclingSetup(3, f_cycle);
-		vsgSetCommand(vsgCYCLEPAGEENABLE);
-		Sleep(500);
-		while (vsgGetSystemAttribute(vsgPAGECYCLINGSTATE) >= 0)
-		{
-			if (_kbhit())
-			{
-				cout << "Aborted by user." << endl;
-				break;
-			}
-			Sleep(10);
-		}
-		vsgSetZoneDisplayPage(vsgVIDEOPAGE, 1);
-	}
-
-#endif
 }
 
-#if 0
-int init_vsg()
-{
-	int istatus;
-	istatus = vsgInit("");
-	if (istatus)
-	{
-		cerr << "Error in vsgInit. Another VSG program may be running!" << endl;
-	}
-	vsgSetViewDistMM(f_screenDistanceMM);
-	return istatus;
-}
-
-void draw_grating(ARGratingSpec& gr, int videoPage)
-{
-	int status=0;
-	VSGTRIVAL from, to;
-	vsgSetDrawPage(vsgVIDEOPAGE, videoPage, vsgBACKGROUND);
-	gr.select();
-
-	// We assume that the handle is created and selected. In order to make this grating appear, you still must
-	// assign pixel levels (vsgObjSetPixels). Note also that the contrast is initially set to 100% by the call to 
-	// vsgObjSetDefaults().
-
-	vsgObjSetPixelLevels(gr.getFirstLevel(), gr.getNumLevels());
-
-	// Set spatial waveform
-	if (gr.pattern == sinewave)
-	{
-		vsgObjTableSinWave(vsgSWTABLE);
-	}
-	else
-	{	
-		// Set up standard 50:50 square wave
-		vsgObjTableSquareWave(vsgSWTABLE, (DWORD)(vsgObjGetTableSize(vsgSWTABLE)*0.25), (DWORD)(vsgObjGetTableSize(vsgSWTABLE)*0.75));
-	}
-
-	// set temporal freq
-	vsgObjSetDriftVelocity(gr.tf);
-
-	// Set contrast
-	vsgObjSetContrast(gr.contrast);
-
-	// set color vector
-	if (get_colorvector(gr.cv, from, to))
-	{
-		cerr << "Cannot get color vector for type " << gr.cv << endl;
-	}
-	vsgObjSetColourVector(&from, &to, vsgBIPOLAR);
-
-	// Now draw
-	if (gr.w > 0 && gr.h > 0)
-	{
-		vsgDrawGrating(gr.x, -gr.y, gr.w, gr.h, gr.orientation, gr.sf);
-	}
-	else
-	{
-		long lWidth = vsgGetScreenWidthPixels();
-		long lHeight = vsgGetScreenHeightPixels();
-		vsgDrawGrating(gr.x, -gr.y, lWidth, lHeight, gr.orientation, gr.sf);
-	}
-}
-#endif
 
 // clear page 0 and 1. Display page 1. 
 // Page 0 is for stim, page 1 is background. 
+// Calls vsgSetZoneDisplayPage for OVERLAY page 1 and VIDEO page 1
+// NOTE: Overlay page is the background color. With this overlay active we can draw
+// stimuli and call vsgPresent() without the flashes where the stim appears. 
 void init_pages()
 {
 	VSGTRIVAL background;
@@ -424,16 +392,19 @@ void init_pages()
 		cerr << "Cannot get trival for background color " << f_background << endl;
 		return;
 	}
+	vsgPresent();						// must call this once so next function works
 	vsgSetBackgroundColour(&background);
-
-	// Overlay page 0 will be used for all stimuli. Set overlay palette color 1 to have bg color. 
-	vsgSetCommand(vsgOVERLAYMASKMODE);
-	arutil_color_to_overlay_palette(f_background, 1);
-	vsgSetZoneDisplayPage(vsgOVERLAYPAGE, 0);
-
 	vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgBACKGROUND);
 	vsgSetDrawPage(vsgVIDEOPAGE, 1, vsgBACKGROUND);
 	vsgSetZoneDisplayPage(vsgVIDEOPAGE, 1);
+
+	// Overlay page 0 will be used for all stimuli. Set overlay palette color 1 to have bg color and clear page 1 to it. 
+	vsgSetDrawPage(vsgOVERLAYPAGE, 0, 0);		// clear
+	vsgSetDrawPage(vsgOVERLAYPAGE, 1, 1);		// background color
+	arutil_color_to_overlay_palette(f_background, 1);
+	vsgSetCommand(vsgOVERLAYMASKMODE);
+	vsgSetZoneDisplayPage(vsgOVERLAYPAGE, 0);
+
 }
 
 // updates tuned parameter in the stim and redraws it on page 0. 
@@ -510,7 +481,7 @@ int args(int argc, char **argv)
 	tcurve.temporal_contrast_freq = 0.0;
 	tcurve.ttype = tt_none_specified;
 
-	while ((c = getopt(argc, argv, "avb:g:hC:T:S:O:A:X:x:t:Kd:f:u:")) != -1)
+	while ((c = getopt(argc, argv, "avb:g:hC:T:S:O:A:X:x:t:cd:f:u:")) != -1)
 	{
 		switch (c) 
 		{
@@ -518,8 +489,8 @@ int args(int argc, char **argv)
 			have_f = true;
 			filename.assign(optarg);
 			break;
-		case 'K':
-			f_testing = true;
+		case 'c':
+			f_automatic = true;
 			break;
 		case 'v':
 			f_verbose = true;
@@ -607,6 +578,9 @@ int args(int argc, char **argv)
 			s.assign(optarg);
 			if (parse_double(s, tcurve.temporal_contrast_freq)) errflg++; 
 			else have_x = true;
+			break;
+		case 'a':
+			f_binaryTriggers = false;
 			break;
 		case '?':
             errflg++;
@@ -781,6 +755,16 @@ int parse_tuning_curve_spec(int argc, char **argv, tuning_curve_spec_t& tcurve)
 		cerr << "When specifying xy tuning (-X) you must also specify temporal contrast frequency (-x)" << endl;
 		errflg++;
 	}
+
+	// If using automatic tuning (i.e. for acute rig), we cannot handle multiple curves. 
+	// There's not a technical reason for this - the prog could be adapted to deal with that - I'm 
+	// just being lazy...and the rig software doesn't require multiple curves. 
+	if (f_automatic && f_tuning_curve_vec.size() > 1)
+	{
+		cerr << "When using automatic (-A) tuning, multiple curves via an input file (-f) is not implemented!" << endl;
+		errflg++;
+	}
+
 	return errflg;
 }
 
