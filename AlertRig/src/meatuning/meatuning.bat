@@ -1,5 +1,8 @@
 rem orientation full screen
-rem C:\work\AlertRig\bin\meatuning -t 5.0 -b gray -d 500 -g 0,0,0,0,100,.3,3.00,90.0,b,s,e -O 0,60,120,180,240,300,360
+..\..\bin\meatuning -t 0.5 -b gray -d 500 -g 0,0,0,0,100,.3,3.00,90.0,b,s,e -O 0,60,120,180,240,300,360
+
+rem orientation NOT full screen
+rem ..\..\bin\meatuning -t .5 -b gray -d 500 -g 0,0,10,10,100,.3,3.00,90.0,b,s,e -O 0,90,180,270,360
 
 rem spatial frequency full screen
 rem C:\work\AlertRig\bin\meatuning -t 1.0 -b gray -d 500 -g 0,0,0,0,100,.3,3.00,90.0,b,s,e -S 0.1,.5,1,2,3
@@ -24,4 +27,4 @@ rem C:\work\AlertRig\bin\meatuning -t 1.0 -b gray -d 500 -g 0,0,0,0,100,.3,0.00,
 rem C:\work\AlertRig\bin\meatuning -t 1.0 -b gray -d 500 -g 0,0,0,0,100,.3,3.00,90.0,b,s,e -T 0.1,.5,1,2,3
 
 rem use an input spedc file
-..\..\bin\meatuning -v -t 1.0 -b gray -d 500 -u 4.0 -f meatlist.txt
+rem ..\..\bin\meatuning -v -t 1.0 -b gray -d 500 -u 4.0 -f meatlist.txt
