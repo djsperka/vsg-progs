@@ -106,6 +106,9 @@ namespace alert
 		/* Clear page 0 and display it. */
 		void clear();
 
+		/* Send ready pulse -- used for VSG/Spike2 expts. */
+		void ready_pulse(int wait_msecs = 2000);
+
 		static ARvsg& instance() 
 		{
 			static ARvsg vsg;
@@ -653,11 +656,15 @@ namespace alert
 	};
 
 
+	// callback for page cycling trigger
+	class PageCyclingTrigger;
+	typedef int (*PageCyclingTriggerCallbackFunc)(int icycle);
+
 	class PageCyclingTrigger: public Trigger
 	{
 	public:
-		PageCyclingTrigger(std::string i_key, int n_repeats) : 
-		  Trigger(i_key, 0, 0, 0, 0), m_nrepeats(n_repeats), m_repeat_count(0), m_is_started(false) {};
+		PageCyclingTrigger(std::string i_key, int n_repeats, PageCyclingTriggerCallbackFunc callback = NULL) : 
+		  Trigger(i_key, 0, 0, 0, 0), m_nrepeats(n_repeats), m_repeat_count(0), m_is_started(false), m_callback(callback) {};
 		~PageCyclingTrigger() {};
 
 		virtual bool checkAscii(std::string input)
@@ -694,8 +701,23 @@ namespace alert
 		{
 			if (m_repeat_count < m_nrepeats)
 			{
-				setMarker(output);
-				vsgSetCommand(vsgCYCLEPAGEENABLE);
+				if (m_callback)
+				{
+					if (m_callback(m_repeat_count))
+					{
+						m_is_started = false;
+					}
+					else 
+					{
+						setMarker(output);
+						vsgSetCommand(vsgCYCLEPAGEENABLE);
+					}
+				}
+				else
+				{
+					setMarker(output);
+					vsgSetCommand(vsgCYCLEPAGEENABLE);
+				}
 			}
 			else
 			{
@@ -707,6 +729,7 @@ namespace alert
 		int m_nrepeats;
 		int m_repeat_count;
 		bool m_is_started;
+		PageCyclingTriggerCallbackFunc m_callback;
 	};
 
 

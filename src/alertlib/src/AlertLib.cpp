@@ -735,5 +735,13 @@ void alert::ARvsg::clear()
 	clear(0);
 }
 
-
+void alert::ARvsg::ready_pulse(int wait_msecs)
+{
+	// Issue "ready" triggers to spike2.
+	// These commands pulse spike2 port 6. 
+	Sleep(wait_msecs);
+	vsgIOWriteDigitalOut(0xff, vsgDIG6);
+	Sleep(10);
+	vsgIOWriteDigitalOut(0, vsgDIG6);
+}
 
