@@ -11,9 +11,14 @@
 
 var ajNBlocks% := 1;
 var ajNTrialsEachTypePerBlock% := 10;
-var ajDoReadyTraining% := 0;
-var ajDoReadyFixTraining% := 0;
-var ajDoReadyFixStimTraining% := 0;
+'var ajDoReadyTraining% := 0;
+'var ajDoReadyFixTraining% := 0;
+'var ajDoReadyFixStimTraining% := 0;
+const ajNoTraining% := 0;
+const ajReadyTraining% := 1;
+const ajReadyFixTraining% := 2;
+const ajReadyFixStimTraining% := 3;
+var ajTrainingType% := ajNoTraining%;
 var ajCatchTrialPct := 0;
 var ajAlternateCueTypeByBlock% := 0;
 var ajMaxWaitForReadyTime := 1.0;
@@ -42,6 +47,9 @@ var ajContrastDown% := 50;
 var ajAlwaysLooking% := 0;      ' Set to 1 in timing dialog. Will cause Looking% to always return 1. 
 var ajTrialTypesListIndex% := 0;
 var ajShowSingleStim% := 0;
+
+' Strings for DlgList training type
+var ajTrainingTypes$[4];
 
 ' Counters
 
@@ -180,6 +188,10 @@ InitJoystick(13);
 ajTrialTypesList$[0] := "Both";
 ajTrialTypesList$[1] := "Red";
 ajTrialTypesList$[2] := "Green";
+ajTrainingTypes$[ajNoTraining%] := "No Training";
+ajTrainingTypes$[ajReadyTraining%] := "Ready Training";
+ajTrainingTypes$[ajReadyFixTraining%] := "Ready/Fix Training";
+ajTrainingTypes$[ajReadyFixStimTraining%] := "Ready/Fix/Stim Training";
 
 if AttaJoyDialog%() = 0 then
     halt;
@@ -192,7 +204,8 @@ if ajHazardTimeMax < ajHazardTimeMean or ajHazardTimeMean < ajHazardTimeMin then
     halt;
 endif
 
-if ajDoReadyTraining% = 0 and ajTrialTypesListIndex% = 0 then
+'if ajDoReadyTraining% = 0 and ajTrialTypesListIndex% = 0 then
+if ajTrainingType% <> ajReadyTraining% and ajTrialTypesListIndex% = 0 then
     ajNTrialTypes% := 2;
     ajTrialFixptTypeKeys$[0] := "F";
     ajTrialFixptTypeKeys$[1] := "G";
@@ -201,7 +214,8 @@ if ajDoReadyTraining% = 0 and ajTrialTypesListIndex% = 0 then
 else
     ajNTrialTypes% := 1;
     docase
-    case ajDoReadyTraining% = 1 then
+'    case ajDoReadyTraining% = 1 then
+    case ajTrainingType% = ajReadyTraining% then
         ajTrialFixptTypeKeys$[0] := "Z";
         ajTrialFixptTypeKeys$[1] := "Z";
         ajTrialChangeTypeKeys$[0] := "Z";
@@ -590,7 +604,8 @@ func IdleProcessing%()
             case joystickPosition% = ajReadyResponse% then
                 LogStatus("WaitForReady", "Joystick ready.");
                 ajCtrNTrialsReady% += 1;
-                if ajDoReadyTraining% = 0 then
+'                if ajDoReadyTraining% = 0 then
+                if ajTrainingType% <> ajReadyTraining% then
                     SampleKey(ajTrialFixptSampleKey$);                   ' this is determined in PrepareTrial, depends on trial type
                     ChangeStateTo(stateWaitForFixpt%, tNow);
                 else
@@ -679,7 +694,8 @@ func IdleProcessing%()
                 ChangeStateTo(stateFixationBreak%, tNow);
             case tNow - tStateStart > ajHoldFixationTime then
                 ajCtrNTrialsFix% += 1;
-                if ajDoReadyFixTraining% = 0 then
+'                if ajDoReadyFixTraining% = 0 then
+                if ajTrainingType% <> ajReadyFixTraining% then
                     LogStatus("stateHoldFixation", "Fixation held. Request stim up.");
                     SampleKey("S");
                     ChangeStateTo(stateWaitForStimOn%, tNow);
@@ -784,7 +800,8 @@ func IdleProcessing%()
             case tNow - tStateStart > ajHoldFixation3Time then
                 LogStatus("stateHoldFixation3", "Fixation held. Request stim up.");
                 ajCtrNTrialsFix% += 1;
-                if ajDoReadyFixTraining% = 0 then
+'                if ajDoReadyFixTraining% = 0 then
+                if ajTrainingType% <> ajReadyFixTraining% then
                     LogStatus("stateHoldFixation3", "Fixation held. Request stim up.");
                     SampleKey("S");
                     ChangeStateTo(stateWaitForStimOn%, tNow);
@@ -833,7 +850,8 @@ func IdleProcessing%()
                 LogStatus("stateWaitHazardTime", "Eye not in fixation window.");
                 ChangeStateTo(stateFixationBreak%, tNow);
             case tNow - tStateStart > ajTrialHazardTime then
-                if ajDoReadyFixStimTraining% = 0 then
+'                if ajDoReadyFixStimTraining% = 0 then
+                if ajTrainingType% <> ajReadyFixStimTraining% then
                     LogStatus("stateWaitHazardTime", "Request stim contrast change.");
                     ajCtrNTrialsChg% += 1;
                     SampleKey(ajTrialChangeSampleKey$);
@@ -1111,7 +1129,8 @@ func PrepareTrial%()
     s% := tbgGetTrialIndex%(ajTrialTypeIndex%);
     LogInfo("Preparing trial... index " + str$(ajTrialTypeIndex%) + " s=" + str$(s%));
     ajIsCatchTrial% := 0;
-    if s% = 1 and ajDoReadyTraining% = 0 and ajDoReadyFixTraining% = 0 then
+'    if s% = 1 and ajDoReadyTraining% = 0 and ajDoReadyFixTraining% = 0 then
+    if s% = 1 and ajTrainingType% <> ajReadyTraining% and ajTrainingType% <> ajReadyFixTraining% then
             
         ' Generate hazard time
         repeat
@@ -1149,32 +1168,33 @@ func AttaJoyDialog%()
 	DlgInteger(1, "Number of Blocks:", 1, 1000, 20, 2);
 	DlgInteger(2, "# each type/block:", 1, 1000, 20, 3);
     DlgList(3, "Types", "Both|Red|Green", 3, 20, 4);
-    DlgCheck(4, "Ready training", 2, 5);
-    DlgCheck(5, "Rdy/fix training", 2, 6);
-    DlgCheck(6, "Rdy/fix/stim training", 2, 7);
-	DlgInteger(7, "Reward size:", 1, 1000, 20, 8);
-	DlgReal(8, "Catch Trial pct (0-100)", 0, 100, 20, 9);
-	DlgCheck(9, "Show Single Stim", 2, 10);
-	DlgCheck(10, "Alternate cue type by block", 2, 11);
-	DlgInteger(11, "Base contrast(%)", 0, 100, 20, 12);
-	DlgInteger(12, "Chg contrast(%)", 0, 100, 20, 13);
+    DlgList(4, "Training type", ajTrainingTypes$[], 4, 20, 5);
+    DlgCheck(5, "Use Beep", 2, 6);
+'    DlgCheck(4, "Ready training", 2, 5);
+'    DlgCheck(5, "Rdy/fix training", 2, 6);
+'    DlgCheck(6, "Rdy/fix/stim training", 2, 7);
+	DlgInteger(6, "Reward size:", 1, 1000, 20, 7);
+	DlgReal(7, "Catch Trial pct (0-100)", 0, 100, 20, 8);
+	DlgCheck(8, "Show Single Stim", 2, 9);
+	DlgCheck(9, "Alternate cue type by block", 2, 10);
+	DlgInteger(10, "Base contrast(%)", 0, 100, 20, 11);
+	DlgInteger(11, "Chg contrast(%)", 0, 100, 20, 12);
     
-    DlgGroup("Fixation/Hazard", 1, 14, 40, 9);
-    DlgCheck(13, "Use Cue Circles", 2, 15);
-    DlgReal(14, "HoldFix time #1", 0.0, 100.0, 20, 16);
-    DlgReal(15, "HoldFix time #2", 0.0, 100.0, 20, 17);
-    DlgReal(16, "HoldFix time #3", 0.0, 100.0, 20, 18);
-    DlgReal(17, "HoldFix time", 0.0, 100.0, 20, 19);
-    DlgReal(18, "Hazard time (min)", 0.0, 100.0, 20, 20);
-    DlgReal(19, "Hazard time (mean)", 0.0, 100.0, 20, 21);
-    DlgReal(20, "Hazard time (max)", 0.0, 100.0, 20, 22);
-    DlgButton(101, "Timing", AttaJoyTimingDialog%, 1, 23);
+    DlgGroup("Fixation/Hazard", 1, 13, 40, 9);
+    DlgCheck(12, "Use Cue Circles", 2, 14);
+    DlgReal(13, "HoldFix time #1", 0.0, 100.0, 20, 15);
+    DlgReal(14, "HoldFix time #2", 0.0, 100.0, 20, 16);
+    DlgReal(15, "HoldFix time #3", 0.0, 100.0, 20, 17);
+    DlgReal(16, "HoldFix time", 0.0, 100.0, 20, 18);
+    DlgReal(17, "Hazard time (min)", 0.0, 100.0, 20, 19);
+    DlgReal(18, "Hazard time (mean)", 0.0, 100.0, 20, 20);
+    DlgReal(19, "Hazard time (max)", 0.0, 100.0, 20, 21);
+    DlgButton(101, "Timing", AttaJoyTimingDialog%, 1, 22);
     
     DlgAllow(0, 0, AttaJoyDialogChanged%);
 
     status% := DlgShow(ajNBlocks%, ajNTrialsEachTypePerBlock%, ajTrialTypesListIndex%, 
-                       ajDoReadyTraining%, ajDoReadyFixTraining%,
-                       ajDoReadyFixStimTraining%, ajRewardSize%,
+                       ajTrainingType%, ajUseBeep%, ajRewardSize%,
                        ajCatchTrialPct, ajShowSingleStim%, ajAlternateCueTypeByBlock%, 
                        ajContrastBase%, ajContrastUp%,
                        ajUseCueCircles%, ajHoldFixation1Time, ajHoldFixation2Time, ajHoldFixation3Time,
@@ -1194,31 +1214,16 @@ end
 func AttaJoyDialogChanged%(item%)
     var status% := 1;
     docase
-    case item% = 4 then
-        if DlgValue(4) = 1 then
-            DlgValue(5, 0);
-            DlgValue(6, 0);
-        endif
-    case item% = 5 then
-        if DlgValue(5) = 1 then
-            DlgValue(4, 0);
-            DlgValue(6, 0);
-        endif
-    case item% = 6 then
-        if DlgValue(6) = 1 then
-            DlgValue(4, 0);
-            DlgValue(5, 0);
-        endif
-    case item% = 13 then
-        DlgEnable(DlgValue(13), 14);
-        DlgEnable(DlgValue(13), 15);
-        DlgEnable(DlgValue(13), 16);
-        DlgEnable(1-DlgValue(13), 17);
+    case item% = 12 then
+        DlgEnable(DlgValue(12), 13);
+        DlgEnable(DlgValue(12), 14);
+        DlgEnable(DlgValue(12), 15);
+        DlgEnable(1-DlgValue(12), 16);
     case item% = 0 then
+        DlgEnable(ajUseCueCircles%, 13);
         DlgEnable(ajUseCueCircles%, 14);
         DlgEnable(ajUseCueCircles%, 15);
-        DlgEnable(ajUseCueCircles%, 16);
-        DlgEnable(1-ajUseCueCircles%, 17);
+        DlgEnable(1-ajUseCueCircles%, 16);
     endcase
     return status%;
 end
@@ -1252,9 +1257,10 @@ proc GetAttaJoyParameters()
     ajNBlocks% := GetIntRegistryValue%(key$, "NBlocks", ajNBlocks%);
     ajNTrialsEachTypePerBlock% := GetIntRegistryValue%(key$, "NTrialsEachTypePerBlock", ajNTrialsEachTypePerBlock%);
     ajTrialTypesListIndex% := GetIntRegistryValue%(key$, "TrialTypesListIndex", ajTrialTypesListIndex%);
-    ajDoReadyTraining% := GetIntRegistryValue%(key$, "DoReadyTraining", ajDoReadyTraining%);
-    ajDoReadyFixTraining% := GetIntRegistryValue%(key$, "DoReadyFixTraining", ajDoReadyFixTraining%);
-    ajDoReadyFixStimTraining% := GetIntRegistryValue%(key$, "DoReadyFixStimTraining", ajDoReadyFixStimTraining%);
+'    ajDoReadyTraining% := GetIntRegistryValue%(key$, "DoReadyTraining", ajDoReadyTraining%);
+'    ajDoReadyFixTraining% := GetIntRegistryValue%(key$, "DoReadyFixTraining", ajDoReadyFixTraining%);
+'    ajDoReadyFixStimTraining% := GetIntRegistryValue%(key$, "DoReadyFixStimTraining", ajDoReadyFixStimTraining%);
+    ajTrainingType% := GetIntRegistryValue%(key$, "TrainingType", ajTrainingType%);
     ajRewardSize% := GetIntRegistryValue%(key$, "RewardSize", ajRewardSize%);
     ajCatchTrialPct := GetFloatRegistryValue(key$, "CatchTrialPct", ajCatchTrialPct);
     ajShowSingleStim% := GetIntRegistryValue%(key$, "ShowSingleStim", ajShowSingleStim%);
@@ -1288,9 +1294,10 @@ proc SaveAttaJoyParameters()
     SetIntRegistryValue(key$, "NBlocks", ajNBlocks%);
     SetIntRegistryValue(key$, "NTrialsEachTypePerBlock", ajNTrialsEachTypePerBlock%);
     SetIntRegistryValue(key$, "TrialTypesListIndex", ajTrialTypesListIndex%);
-    SetIntRegistryValue(key$, "DoReadyTraining", ajDoReadyTraining%);
-    SetIntRegistryValue(key$, "DoReadyFixTraining", ajDoReadyFixTraining%);
-    SetIntRegistryValue(key$, "DoReadyFixStimTraining", ajDoReadyFixStimTraining%);
+'    SetIntRegistryValue(key$, "DoReadyTraining", ajDoReadyTraining%);
+'    SetIntRegistryValue(key$, "DoReadyFixTraining", ajDoReadyFixTraining%);
+'    SetIntRegistryValue(key$, "DoReadyFixStimTraining", ajDoReadyFixStimTraining%);
+    SetIntRegistryValue(key$, "TrainingType", ajTrainingType%);
     SetIntRegistryValue(key$, "RewardSize", ajRewardSize%);
     SetFloatRegistryValue(key$, "CatchTrialPct", ajCatchTrialPct);
     SetIntRegistryValue(key$, "ShowSingleStim", ajShowSingleStim%);
