@@ -1,58 +1,4 @@
-' $Log: not supported by cvs2svn $
-' Revision 1.15  2009-05-15 17:21:59  devel
-' Fix file auto naming bug that appeared in v6. V6 now really clears sampling (including auto file naming) when you call SampleClear. Go figure.
-'
-' Revision 1.14  2006/09/18 19:13:30  dan
-' Add logic in Stop function to check that stim app is done before running ClearTrigger.
-'
-' Revision 1.13  2006/04/12 00:23:31  dan
-' Moved vsg trigger to port 2
-'
-' Revision 1.12  2006/04/11 00:22:11  dan
-' Changed to use release version of fixation program.
-'
-' Revision 1.11  2006/02/08 22:34:17  dan
-' Allow modification of xy axes during data aquisition
-'
-' Revision 1.10  2005/09/21 22:51:21  dan
-' Added handling for VSG ready pulse. Removed Yield(5) in Start function.
-'
-' Revision 1.9  2005/09/21 19:36:55  dan
-' DoSampleKey correctly sends for both Fixation and Calibration runs.
-'
-' Revision 1.8  2005/05/03 00:06:04  dan
-' Corrected bug in automatic file saving.
-'
-' Revision 1.7  2005/04/27 21:23:18  dan
-' changed FixationColor to string in registry.
-'
-' Revision 1.6  2005/03/18 19:38:51  dan
-' Merged calibration functionality in to this script.
-'
-' Revision 1.5  2005/03/11 01:13:12  dan
-' Almost there!
-'
-' Revision 1.4  2005/03/09 01:06:48  dan
-' Almost there!
-'
-' Revision 1.3  2005/03/05 01:08:54  dan
-' Integrated cut-and-paste from Config.s2s.
-' Still needs to be coupled to new Fixation app.
-'
-' Revision 1.2  2005/02/22 22:21:21  dan
-' New fixation application added
-'
-' Revision 1.1  2005/02/19 01:42:21  dan
-' Initial add.
-'
-' Revision 1.3  2004/10/01 21:07:51  dan
-' Fix bugs in prog command line.
-'
-' Revision 1.2  2004/10/01 20:06:10  dan
-' Modified directory locations for executables (../bin) and sequencer files (script dir)
-'
-' Revision 1.1  2004/10/01 19:41:01  dan
-' From production
+' $Id: Fixation.s2s,v 1.18 2010-05-14 17:22:53 devel Exp $
 ' 
 
 
@@ -373,6 +319,13 @@ var fixDistractor4Flag%; 			' Tells stim to use distractor1 (1) or not (0)
 var fixBackgroundColor$;			' Background color for stim
 var fixCalibrationFlag%;			' 1 for calibration run
 var fixCalibrationOffset;			' degree offset for calibration dots
+
+' Continuous recording options
+var fixCheckContinuous1% := 0;
+var fixContinuous1Freq% := 1000;
+var fixCheckContinuous2% := 0;
+var fixContinuous2Freq% := 1000;
+
 proc GetFixationScriptParameters()
 	var stmp$;
 	var key$;
@@ -398,6 +351,10 @@ proc GetFixationScriptParameters()
 	Profile(key$, "UseDistractor4Flag", 0, fixDistractor4Flag%);
 	Profile(key$, "DoCalibrationFlag", 0, fixCalibrationFlag%);
 	Profile(key$, "CalibrationOffset", "5.0", stmp$);
+    Profile(key$, "CheckContinuous1", fixCheckContinuous1%, fixCheckContinuous1%);
+    Profile(key$, "Continuous1Freq", fixContinuous1Freq%, fixContinuous1Freq%);
+    Profile(key$, "CheckContinuous2", fixCheckContinuous2%, fixCheckContinuous2%);
+    Profile(key$, "Continuous2Freq", fixContinuous2Freq%, fixContinuous2Freq%);
 	fixCalibrationOffset := val(stmp$);
 end;
  	
@@ -418,6 +375,10 @@ proc SaveFixationScriptParameters()
 	Profile(key$, "UseDistractor4Flag", fixDistractor4Flag%);
 	Profile(key$, "DoCalibrationFlag", fixCalibrationFlag%);
 	Profile(key$, "CalibrationOffset", str$(fixCalibrationOffset));
+    Profile(key$, "CheckContinuous1", fixCheckContinuous1%);
+    Profile(key$, "Continuous1Freq", fixContinuous1Freq%);
+    Profile(key$, "CheckContinuous2", fixCheckContinuous2%);
+    Profile(key$, "Continuous2Freq", fixContinuous2Freq%);
 end;
 
 
@@ -448,12 +409,19 @@ func FixationScriptDialog%()
 	DlgCheck(10, "Use distractor 4?");
 	DlgCheck(11, "Calibration run?");
 	DlgReal(12, "Calibration offset (deg):", 0, 10);
-	i%:=DlgShow(fixFixationDuration, fixAcquisitionTime, fixInterTrialTime, fixNumberOfTrials%, ibcl%, fixStimulusFlag%, fixDistractor1Flag%, fixDistractor2Flag%, fixDistractor3Flag%, fixDistractor4Flag%, fixCalibrationFlag%, fixCalibrationOffset);
+    DlgCheck(13, "Continuous port " + str$(NumberOfElectrodes%));
+    DlgInteger(14, "Port " + str$(NumberOfElectrodes%) + " freq", 100, 50000);
+    DlgCheck(15, "Continuous port " + str$(NumberOfElectrodes%+1));
+    DlgInteger(16, "Port " + str$(NumberOfElectrodes%+1) + " freq", 100, 50000);
+	i%:=DlgShow(fixFixationDuration, fixAcquisitionTime, fixInterTrialTime, fixNumberOfTrials%, ibcl%, 
+                fixStimulusFlag%, fixDistractor1Flag%, fixDistractor2Flag%, fixDistractor3Flag%, 
+                fixDistractor4Flag%, fixCalibrationFlag%, fixCalibrationOffset,
+                fixCheckContinuous1%, fixContinuous1Freq%, fixCheckContinuous2%, fixContinuous2Freq%);
 	if i% = 1 then
 		fixBackgroundColor$ := bcl$[ibcl%];
 		SaveFixationScriptParameters();
 	endif;
-	return 1;
+	return i%;
 end;
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
@@ -537,6 +505,8 @@ end;
 
 
 ' Window handles and channel numbers
+var Continuous1Channel%;        ' Channel number for continuous recording, first port above electrodes
+var Continuous2Channel%;        ' Channel number for continuous recording, second port above electrodes
 var XChannel%,YChannel%;		' Channel number assigned to eye x and y
 var TriggerChannel%;			' Channel number assigned to vsg trigger input (i.e. trigger sent by vsg)
 var ReadyChannel%;			' channel number for VSG ready pulse signal
@@ -568,6 +538,10 @@ GetFixationPointParameters();
 GetFixationScriptParameters();
 GetDataParameters();
 
+if FixationScriptDialog%() = 0 then
+    halt;
+endif
+    
 
 ' Check for valid data file path
 if Len(dataDataSet$) = 0 then
@@ -581,10 +555,12 @@ endif
 
 
 ' Assign channel numbers for eye X,Y and trigger. 
-XChannel% := NumberOfElectrodes%+1;
-YChannel% := NumberOfElectrodes%+2;
-TriggerChannel% := NumberOfElectrodes%+3;
-ReadyChannel% := NumberOfElectrodes% + 4;
+Continuous1Channel% := NumberOfElectrodes%+1;
+Continuous2Channel% := NumberOfElectrodes%+2;
+XChannel% := NumberOfElectrodes%+3;
+YChannel% := NumberOfElectrodes%+4;
+TriggerChannel% := NumberOfElectrodes%+5;
+ReadyChannel% := NumberOfElectrodes% + 6;
 CreateSampleConfiguration();
 
 
@@ -879,6 +855,18 @@ proc CreateSampleConfiguration()
 		SampleWaveMark(index,index-1,2000,34,15,28000); ' chan, port, event rate, points, pre-trigger, rate
 		SampleTitle$(index, "Electrode_"+Str$(index)); 
 	next
+
+    if fixCheckContinuous1% = 1 then
+        SampleWaveform(Continuous1Channel%, NumberOfElectrodes%, fixContinuous1Freq%);
+        SampleTitle$(Continuous1Channel%,"Cont1");    
+    endif
+    
+    if fixCheckContinuous2% = 1 then
+        SampleWaveform(Continuous2Channel%, NumberOfElectrodes%, fixContinuous2Freq%);
+        SampleTitle$(Continuous2Channel%, "Cont2");    
+    endif
+    
+
 
 	'EYE COIL CHANNELS. Last # is sampling freq in Hz. 
 	SampleWaveform(XChannel%, 14, 1000);
