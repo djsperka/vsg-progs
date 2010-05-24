@@ -291,12 +291,12 @@ proc CreateSampleConfiguration()
 	SampleComment$(ajChanContrastChg%, "Chg");
 	SampleTitle$(ajChanContrastChg%, "Chg");
 	
-	SampleWaveform(ajChanJoy%, 13, 1000);
+	SampleWaveform(ajChanJoy%, GetJoystickPort%(), 1000);
 	SampleTitle$(ajChanJoy%, "Joy");
     
-	SampleWaveform(ajChanEyeX%, 14, 1000);
+	SampleWaveform(ajChanEyeX%, GetEyeXPort%(), 1000);
 	SampleTitle$(ajChanEyeX%, "Eye X");
-	SampleWaveform(ajChanEyeY%, 15, 1000);
+	SampleWaveform(ajChanEyeY%, GetEyeYPort%(), 1000);
 	SampleTitle$(ajChanEyeY%, "Eye Y");
 
     

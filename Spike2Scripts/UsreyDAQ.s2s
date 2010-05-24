@@ -7,17 +7,29 @@
 '
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
-
 var DistanceToScreenMM$;		' Distance to screen in MM
 var DegreesPerVoltX;			' Conversion factor from ADC to visual degrees
 var DegreesPerVoltY;			' Conversion factor from ADC to visual degrees
 var EyeCoilSamplingFrequency%;		' Frequency to sample eye coil at
 var NumberOfElectrodes%;		' Number of electrodes (i.e. wavemark inputs) in use
 var JuicePerReward%;			' Number of juice squirts per reward
-
+var EyeXPort%;                  ' Port horizontal eye signal connected to
+var EyeYPort%;                  ' Port vertical eye signal connected to
+var JoystickPort%;              ' Port joystick is connected to
 
 GetDAQParameters();
 
+func GetJoystickPort%()
+    return JoystickPort%;
+end
+
+func GetEyeXPort%()
+    return EyeXPort%;
+end
+
+func GetEyeYPort%()
+    return EyeYPort%;
+end
 
 func GetDistanceToScreenMM$()
     return DistanceToScreenMM$;
@@ -39,14 +51,19 @@ func DAQParametersDialog%()
 	GetDAQParameters();
 
 	idist% := val(DistanceToScreenMM$);
-	DlgCreate("DAQ parameters: " + GetCurrentConfiguration$());
+	DlgCreate("DAQ parameters");
 	DlgInteger(1, "Number of Electrodes:", 1, 7, 0, 0, 1);
 	DlgInteger(2, "Screen Distance (MM):", 1, 5000);
 	DlgReal(3, "Degrees/Volt (X):", 0, 100);
 	DlgReal(4, "Degrees/Volt (Y):", 0, 100);
 	DlgInteger(5, "Eye Coil Sampling Freq (Hz):", 1, 20000);
 	DlgInteger(6, "Juice per reward:", 0, 10, 0, 0, 1);
-	iReturn% := DlgShow(NumberOfElectrodes%, idist%, DegreesPerVoltX, DegreesPerVoltY, EyeCoilSamplingFrequency%, JuicePerReward%);
+    DlgInteger(7, "Eye X Port", 0, 15);
+    DlgInteger(8, "Eye Y Port", 0, 15);
+    DlgInteger(9, "Joystick Port", 0, 15);
+	iReturn% := DlgShow(NumberOfElectrodes%, idist%, DegreesPerVoltX, DegreesPerVoltY, 
+                        EyeCoilSamplingFrequency%, JuicePerReward%,
+                        EyeXPort%, EyeYPort%, JoystickPort%);
 
 	if iReturn% = 1 then
 		DistanceToScreenMM$ := str$(idist%);
@@ -63,32 +80,30 @@ proc GetDAQParameters()
 	var key$;
 	var DegreesPerVoltX$, DegreesPerVoltY$;
 
-	key$ := thisRigName$ + "\\" + GetCurrentConfiguration$() + "\\DAQ";
-	Profile(key$, "DistanceToScreenMM", "850", DistanceToScreenMM$);	' will just pass this to stimulus app
-	Profile(key$, "DegreesPerVoltX", "", DegreesPerVoltX$);
-	Profile(key$, "DegreesPerVoltY", "", DegreesPerVoltY$);
-	Profile(key$, "EyeCoilSamplingFrequency", 1000, EyeCoilSamplingFrequency%);
-	Profile(key$, "NumberOfElectrodes", 1, NumberOfElectrodes%);
-	Profile(key$, "JuicePerReward", 1, JuicePerReward%);
-	DegreesPerVoltX := val(DegreesPerVoltX$);
-	DegreesPerVoltY := val(DegreesPerVoltY$);
-
+	key$ := GetRigName$() + "\\" + GetCurrentConfiguration$() + "\\DAQ";
+    DistanceToScreenMM$ := GetStringRegistryValue$(key$, "DistanceToScreenMM", "850");
+    DegreesPerVoltX := GetFloatRegistryValue(key$, "DegreesPerVoltX", 0.0);
+    DegreesPerVoltY := GetFloatRegistryValue(key$, "DegreesPerVoltY", 0.0);
+    EyeCoilSamplingFrequency% := GetIntRegistryValue%(key$, "EyeCoilSamplingFrequency", 1000);
+    NumberOfElectrodes% := GetIntRegistryValue%(key$, "NumberOfElectrodes", 1);
+    JuicePerReward% := GetIntRegistryValue%(key$, "JuicePerReward", 1);
+    EyeXPort% := GetIntRegistryValue%(key$, "EyeXPort", 14);
+    EyeYPort% := GetIntRegistryValue%(key$, "EyeYPort", 15);
+    JoystickPort% := GetIntRegistryValue%(key$, "JoystickPort", 13);
 end;
 
 proc SaveDAQParameters()
-	var key$;
-	var DegreesPerVoltX$, DegreesPerVoltY$;
-	DegreesPerVoltX$ := str$(DegreesPerVoltX);
-	DegreesPerVoltY$ := str$(DegreesPerVoltY);
-	
-	key$ := thisRigName$ + "\\" + GetCurrentConfiguration$() + "\\DAQ";
-	Profile(key$, "DistanceToScreenMM", DistanceToScreenMM$);
-	Profile(key$, "DegreesPerVoltX", DegreesPerVoltX$);
-	Profile(key$, "DegreesPerVoltY", DegreesPerVoltY$);
-	Profile(key$, "EyeCoilSamplingFrequency", EyeCoilSamplingFrequency%);
-	Profile(key$, "NumberOfElectrodes", NumberOfElectrodes%);
-	Profile(key$, "JuicePerReward", JuicePerReward%);
-
+    var key$;
+	key$ := GetRigName$() + "\\" + GetCurrentConfiguration$() + "\\DAQ";
+    SetStringRegistryValue(key$, "DistanceToScreenMM", DistanceToScreenMM$);
+    SetStringRegistryValue(key$, "DegreesPerVoltX", str$(DegreesPerVoltX));
+	SetStringRegistryValue(key$, "DegreesPerVoltY", str$(DegreesPerVoltY));
+	SetIntRegistryValue(key$, "EyeCoilSamplingFrequency", EyeCoilSamplingFrequency%);
+	SetIntRegistryValue(key$, "NumberOfElectrodes", NumberOfElectrodes%);
+	SetIntRegistryValue(key$, "JuicePerReward", JuicePerReward%);
+    SetIntRegistryValue(key$, "EyeXPort", EyeXPort%);
+    SetIntRegistryValue(key$, "EyeYPort", EyeYPort%);
+    SetIntRegistryValue(key$, "JoystickPort", JoystickPort%);
 end;
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
