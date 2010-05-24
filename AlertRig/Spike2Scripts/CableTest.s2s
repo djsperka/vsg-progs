@@ -73,7 +73,7 @@ end;
 func Stop%()
 SampleStop();
 ProgKill(StimHandle);
-ProgRun(bin$ + "\\ClearTrigger",0); 
+'ProgRun(bin$ + "\\ClearTrigger",0); 
 end;
 
 
