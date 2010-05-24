@@ -10,11 +10,11 @@ E00:	'1	DIGOUT [00000001]
             HALT                   ; End of this sequence section
 
 E2:     '2  DIGOUT [00000010]
-            DELAY  s(0.996)-1
+            ;DELAY  s(0.996)-1
             HALT                   ; End of this sequence section
 
 E3:     '3  DIGOUT [00000100]
-            DELAY  s(0.996)-1
+            ;DELAY  s(0.996)-1
             HALT                   ; End of this sequence section
 
 E4:     '4  DIGOUT [00001000]
