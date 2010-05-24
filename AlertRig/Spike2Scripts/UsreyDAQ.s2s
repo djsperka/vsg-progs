@@ -43,6 +43,14 @@ func GetDegreesPerVoltY()
     return DegreesPerVoltY;
 end
 
+func GetNumberOfElectrodes%()
+    return NumberOfElectrodes%;
+end
+
+func GetJuicePerReward%()
+    return JuicePerReward%;
+end
+
 func DAQParametersDialog%()
 
 	var iReturn%;
