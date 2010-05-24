@@ -4,14 +4,20 @@ var grutilDisable%[11];
 var grutilNDisable% := 0;
 
 
+func SaveGratingParameters(type$, gr$)
+    var key$;
+    key$ := GetRegistryKey$(1) + "\\Gratings";
+    SetStringRegistryValue(key$, type$, gr$);
+    return 0;
+end
+
 
 ' Get grating parameters from registry AlertRig\\(config)\\Gratings\\type$
 func GetGratingParameters$(type$)
 	var key$;
 	var stmp$;
-	key$ := GetRigName$() + "\\" + GetCurrentConfiguration$() + "\\Gratings";
-	Profile(key$, type$, "", stmp$);
-	return stmp$;
+	key$ := GetRegistryKey$(1) + "\\Gratings";
+	return GetStringRegistryValue$(key$, type$, "");
 end;
 
 
