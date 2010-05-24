@@ -1,6 +1,9 @@
-' $Id: Fixation.s2s,v 1.18 2010-05-14 17:22:53 devel Exp $
-' 
+' $Id: Fixation.s2s,v 1.19 2010-05-24 18:01:22 devel Exp $
+'
 
+#include "../../Spike2Util/UsreyUtil.s2s"
+#include "UsreyDAQ.s2s"
+#include "UsreyFixationPoint.s2s"
 
 '========================================================================
 '
@@ -13,290 +16,6 @@
 '
 '========================================================================
 
-' File system reference vars. Each var is a directory path, WITHOUT the trailing slash. 
-var bin$, script$, config$;
-script$ := View(App(3)).FileName$(1) + View(App(3)).FileName$(2);	' folder containing this script
-bin$ := View(App(3)).FileName$(1) + View(App(3)).FileName$(2) + "..\\bin";	' Location of executables is ..\bin, relative to script dir
-config$ := View(App(3)).FileName$(1) + View(App(3)).FileName$(2) + "..\\config";	' Location of executables is ..\bin, relative to script dir
-
-''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-'
-'	Get Current configuration START
-'
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-
-func GetCurrentConfiguration$()
-	var key$;
-	var s$;
-	key$:="AlertRig";
-	Profile(key$, "CurrentConfiguration", "default", s$);
-	return s$;
-end;
-
-
-''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-'
-'	Get Current configuration END
-'
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-'
-'	Data parameters START
-'
-'	Vars that control where data is stored. 
-'
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-
-var dataPathRoot$;		' base path for data storage
-var dataDataSet$;		' folder under data path where data files placed
-var dataCellName$;		' part of base name for all data files
-var dataDataSetTextItem%;	' 
-
-proc GetDataParameters()
-	var stmp$;
-	var key$;
-
-	key$:="AlertRig\\Data";
-
-	Profile(key$, "PathRoot", "C:\\Experiments", dataPathRoot$);
-	Profile(key$, "DataSet", "", dataDataSet$);
-	Profile(key$, "CellName", "", dataCellName$);
-	return;
-end;
-
-proc SaveDataParameters()
-	var stmp$;
-	var key$;
-
-	key$:="AlertRig\\Data";
-
-	Profile(key$, "PathRoot", dataPathRoot$);
-	Profile(key$, "DataSet", dataDataSet$);
-	Profile(key$, "CellName", dataCellName$);
-	return;
-end;
-
-func DataParametersDialog%()
-	var i%;
-	GetDataParameters();
-	DlgCreate("Data Storage Parameters", 25, 10, 50);
-	DlgText("Data root path: " + dataPathRoot$, 0, 1);
-	dataDataSetTextItem% := DlgText("Data set name: " + dataDataSet$, 0, 2);
-	DlgString(1, "Cell name:", 10, "", 0, 3);
-        DlgButton(2, "New Data Set", NewDataSet%);
-	i% := DlgShow(dataCellName$);
-	if (i% = 1) then
-		if Len(dataDataSet$) = 0 then
-			Message("Must specify a data set (try the button!)");
-		else
-			if Len(dataCellName$) = 0 then
-				Message("Must specify a cell name");
-			else
-				FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 3, 1);
-				SaveDataParameters();
-			endif;
-		endif;
-	endif;
-	return i%;
-end;
-
-
-func NewDataSet%()
-	var d$;
-	var i%;
-	var dirs$[100];	' if there are ever more than 100 datasets in a single day there will be trouble
-	d$ := Date$(2, 2, 3, 3, "-");
-	PrintLog("NewDataSet: date string = " + d$ + "\n");
-
-	' Change current dir to data path root, then get list of subdirs with this date string
-	PrintLog("NewDataSet: dataPathRoot$=" + dataPathRoot$ + "\n");
-	FilePathSet(dataPathRoot$, 0, 1);
-	i% := FileList(dirs$, -2, d$ + "-??");
-        PrintLog("NewDataSet: found " + str$(i%) + " dirs\n");
-
-	' form new dataset name. The first will have "-01" appended, the second "-02", etc. 
-	dataDataSet$ := Print$("%s-%02d", d$, i%+1);
-	PrintLog("NewDataSet: dataset= " + dataDataSet$ + "\n");
-	DlgValue$(dataDataSetTextItem%, "Data set name: " + dataDataSet$);
-	return 1;
-end;
-
-
-
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-'
-' Data parameters END
-'
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-
-
-
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-'
-'	DAQ Parameters START
-'
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-
-
-var DistanceToScreenMM$;		' Distance to screen in MM
-var DegreesPerVoltX;			' Conversion factor from ADC to visual degrees
-var DegreesPerVoltY;			' Conversion factor from ADC to visual degrees
-var EyeCoilSamplingFrequency%;		' Frequency to sample eye coil at
-var NumberOfElectrodes%;		' Number of electrodes (i.e. wavemark inputs) in use
-var JuicePerReward%;			' Number of juice squirts per reward
-
-
-func DAQParametersDialog%()
-
-	var iReturn%;
-	var idist%;
-
-	GetDAQParameters();
-
-	idist% := val(DistanceToScreenMM$);
-	DlgCreate("DAQ parameters: " + GetCurrentConfiguration$());
-	DlgInteger(1, "Number of Electrodes:", 1, 7, 0, 0, 1);
-	DlgInteger(2, "Screen Distance (MM):", 1, 5000);
-	DlgReal(3, "Degrees/Volt (X):", 0, 100);
-	DlgReal(4, "Degrees/Volt (Y):", 0, 100);
-	DlgInteger(5, "Eye Coil Sampling Freq (Hz):", 1, 20000);
-	DlgInteger(6, "Juice per reward:", 0, 10, 0, 0, 1);
-	iReturn% := DlgShow(NumberOfElectrodes%, idist%, DegreesPerVoltX, DegreesPerVoltY, EyeCoilSamplingFrequency%, JuicePerReward%);
-
-	if iReturn% = 1 then
-		DistanceToScreenMM$ := str$(idist%);
-		SaveDAQParameters();
-	endif
-	return iReturn%;
-end;
-
-
-
-
-	
-proc GetDAQParameters()
-	var key$;
-	var DegreesPerVoltX$, DegreesPerVoltY$;
-
-	key$ := "AlertRig\\" + GetCurrentConfiguration$() + "\\DAQ";
-	Profile(key$, "DistanceToScreenMM", "850", DistanceToScreenMM$);	' will just pass this to stimulus app
-	Profile(key$, "DegreesPerVoltX", "", DegreesPerVoltX$);
-	Profile(key$, "DegreesPerVoltY", "", DegreesPerVoltY$);
-	Profile(key$, "EyeCoilSamplingFrequency", 1000, EyeCoilSamplingFrequency%);
-	Profile(key$, "NumberOfElectrodes", 1, NumberOfElectrodes%);
-	Profile(key$, "JuicePerReward", 1, JuicePerReward%);
-	DegreesPerVoltX := val(DegreesPerVoltX$);
-	DegreesPerVoltY := val(DegreesPerVoltY$);
-
-end;
-
-proc SaveDAQParameters()
-	var key$;
-	var DegreesPerVoltX$, DegreesPerVoltY$;
-	DegreesPerVoltX$ := str$(DegreesPerVoltX);
-	DegreesPerVoltY$ := str$(DegreesPerVoltY);
-	
-	key$ := "AlertRig\\" + GetCurrentConfiguration$() + "\\DAQ";
-	Profile(key$, "DistanceToScreenMM", DistanceToScreenMM$);
-	Profile(key$, "DegreesPerVoltX", DegreesPerVoltX$);
-	Profile(key$, "DegreesPerVoltY", DegreesPerVoltY$);
-	Profile(key$, "EyeCoilSamplingFrequency", EyeCoilSamplingFrequency%);
-	Profile(key$, "NumberOfElectrodes", NumberOfElectrodes%);
-	Profile(key$, "JuicePerReward", JuicePerReward%);
-
-end;
-
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-'
-'	DAQ Parameters END
-'
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-
-
-''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-'
-'	Fixation Point parameters START
-'
-'	These vars and funcs control the parameters for the fixation point stored in the registry. 
-'
-''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-
-
-
-var WindowRadius;
-var FixationX, FixationY;
-var FixationColor$;
-var iFixationColor%;
-var FixationDiameter;
-var FixationColorList$[3]; 
-var FixationArg$;
-
-proc GetFixationPointParameters()
-	var stmp$;
-	var key$;
-	key$ := "AlertRig\\" + GetCurrentConfiguration$() + "\\FixationPoint";
-	Profile(key$, "WindowRadius", "1", stmp$);
-	WindowRadius := val(stmp$);
-
-	Profile(key$, "FixationX", "0", stmp$);
-	FixationX := val(stmp$);
-	Profile(key$, "FixationY", "0", stmp$);
-	FixationY := val(stmp$);
-	Profile(key$, "FixationColor", "0", stmp$);
-	iFixationColor% := val(stmp$);
-
-	FixationColorList$[0]:="red"; 
-	FixationColorList$[1]:="green"; 
-	FixationColorList$[2]:="blue"; 
-	FixationColor$ := FixationColorList$[iFixationColor%];
-
-	Profile(key$, "FixationDiameter", "0.5", stmp$);
-	FixationDiameter := val(stmp$);
-
-	' Form the argument for applications. Convenience for passing args. 
-	FixationArg$ := " -f " + str$(FixationX) + "," + str$(FixationY) + "," + str$(FixationDiameter) + "," + FixationColor$;
-end;
-
-proc SaveFixationPointParameters()
-	var key$;
-	key$ := "AlertRig\\" + GetCurrentConfiguration$() + "\\FixationPoint";
-	Profile(key$, "WindowRadius", str$(WindowRadius));
-	Profile(key$, "FixationX", str$(FixationX));
-	Profile(key$, "FixationY", str$(FixationY));
-	Profile(key$, "FixationColor", str$(iFixationColor%));
-	Profile(key$, "FixationDiameter", str$(FixationDiameter));
-end;
-
-
-func FixationPointDialog%()
-
-	var i%;
-	GetFixationPointParameters();
-	DlgCreate("Fixation parameters: " + GetCurrentConfiguration$(), 25, 10);
-	DlgReal(1, "Fixation X:", -20, 20);
-	DlgReal(2, "Fixation Y:", -20, 20);
-	DlgReal(3, "Fixation diam:", .1, 5);
-	DlgReal(4, "Window radius:", .1, 30);
-	DlgList(5, "Color:", FixationColorList$[]);
-	i% := DlgShow(FixationX, FixationY, FixationDiameter, WindowRadius, iFixationColor%);	
-
-	' If user cancelled, reload params
-	if i% = 0 then
-		GetFixationPointParameters();
-	else
-		SaveFixationPointParameters();
-	endif
-
-	return 1;
-end;
-
-
-''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-'
-'	Fixation Point parameters END
-'
-''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
 
 
@@ -319,13 +38,6 @@ var fixDistractor4Flag%; 			' Tells stim to use distractor1 (1) or not (0)
 var fixBackgroundColor$;			' Background color for stim
 var fixCalibrationFlag%;			' 1 for calibration run
 var fixCalibrationOffset;			' degree offset for calibration dots
-
-' Continuous recording options
-var fixCheckContinuous1% := 0;
-var fixContinuous1Freq% := 1000;
-var fixCheckContinuous2% := 0;
-var fixContinuous2Freq% := 1000;
-
 proc GetFixationScriptParameters()
 	var stmp$;
 	var key$;
@@ -351,10 +63,6 @@ proc GetFixationScriptParameters()
 	Profile(key$, "UseDistractor4Flag", 0, fixDistractor4Flag%);
 	Profile(key$, "DoCalibrationFlag", 0, fixCalibrationFlag%);
 	Profile(key$, "CalibrationOffset", "5.0", stmp$);
-    Profile(key$, "CheckContinuous1", fixCheckContinuous1%, fixCheckContinuous1%);
-    Profile(key$, "Continuous1Freq", fixContinuous1Freq%, fixContinuous1Freq%);
-    Profile(key$, "CheckContinuous2", fixCheckContinuous2%, fixCheckContinuous2%);
-    Profile(key$, "Continuous2Freq", fixContinuous2Freq%, fixContinuous2Freq%);
 	fixCalibrationOffset := val(stmp$);
 end;
  	
@@ -375,10 +83,6 @@ proc SaveFixationScriptParameters()
 	Profile(key$, "UseDistractor4Flag", fixDistractor4Flag%);
 	Profile(key$, "DoCalibrationFlag", fixCalibrationFlag%);
 	Profile(key$, "CalibrationOffset", str$(fixCalibrationOffset));
-    Profile(key$, "CheckContinuous1", fixCheckContinuous1%);
-    Profile(key$, "Continuous1Freq", fixContinuous1Freq%);
-    Profile(key$, "CheckContinuous2", fixCheckContinuous2%);
-    Profile(key$, "Continuous2Freq", fixContinuous2Freq%);
 end;
 
 
@@ -409,19 +113,12 @@ func FixationScriptDialog%()
 	DlgCheck(10, "Use distractor 4?");
 	DlgCheck(11, "Calibration run?");
 	DlgReal(12, "Calibration offset (deg):", 0, 10);
-    DlgCheck(13, "Continuous port " + str$(NumberOfElectrodes%));
-    DlgInteger(14, "Port " + str$(NumberOfElectrodes%) + " freq", 100, 50000);
-    DlgCheck(15, "Continuous port " + str$(NumberOfElectrodes%+1));
-    DlgInteger(16, "Port " + str$(NumberOfElectrodes%+1) + " freq", 100, 50000);
-	i%:=DlgShow(fixFixationDuration, fixAcquisitionTime, fixInterTrialTime, fixNumberOfTrials%, ibcl%, 
-                fixStimulusFlag%, fixDistractor1Flag%, fixDistractor2Flag%, fixDistractor3Flag%, 
-                fixDistractor4Flag%, fixCalibrationFlag%, fixCalibrationOffset,
-                fixCheckContinuous1%, fixContinuous1Freq%, fixCheckContinuous2%, fixContinuous2Freq%);
+	i%:=DlgShow(fixFixationDuration, fixAcquisitionTime, fixInterTrialTime, fixNumberOfTrials%, ibcl%, fixStimulusFlag%, fixDistractor1Flag%, fixDistractor2Flag%, fixDistractor3Flag%, fixDistractor4Flag%, fixCalibrationFlag%, fixCalibrationOffset);
 	if i% = 1 then
 		fixBackgroundColor$ := bcl$[ibcl%];
 		SaveFixationScriptParameters();
 	endif;
-	return i%;
+	return 1;
 end;
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
@@ -430,83 +127,12 @@ end;
 '
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-'
-'	Rig Daily Totals START
-'
-'
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-
-
-var TotalTrials%;
-var TotalRewards%;
-var TotalDate$;
-
-
-proc GetDailyTotals()
-	var key$;
-	key$ := "AlertRig\\Daily";
-	Profile(key$, "TotalDate", "", TotalDate$);
-	Profile(key$, "TotalTrials", 0, TotalTrials%);
-	Profile(key$, "TotalRewards", 0, TotalRewards%);
-
-	' Get date string if needed
-	if Len(TotalDate$) = 0 then
-		TotalDate$ := GetDayString$();
-		SaveDailyTotals();
-	endif
-end;
-
-proc SaveDailyTotals()
-	var key$;
-	key$ := "AlertRig\\Daily";
-	Profile(key$, "TotalDate", TotalDate$);
-	Profile(key$, "TotalTrials", TotalTrials%);
-	Profile(key$, "TotalRewards", TotalRewards%);
-end;
-
-func DailyTotalsDialog%()
-	GetDailyTotals();
-	DlgCreate("Daily Totals");
-	DlgText("Date: " + TotalDate$, 0, 1);
-	DlgText("Trials: " + str$(TotalTrials%), 0, 2);
-	DlgText("Rewards: " + str$(TotalRewards%), 0, 3);
-	DlgButton(2, "Reset", ResetDailyTotals%);
-	DlgShow();
-	return 1;
-end;
-
-
-func GetDayString$()
-	return Date$(2, 1, 3, 2, "-");
-end;
-
-
-func ResetDailyTotals%()
-	GetDailyTotals();
-	TotalRewards%:=0;
-	TotalTrials%:=0;
-	TotalDate$:= GetDayString$();
-	SaveDailyTotals();
-        return 0;
-end;
-
-
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-'
-'	Rig Daily Totals END
-'
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-
-
 
 
 
 
 
 ' Window handles and channel numbers
-var Continuous1Channel%;        ' Channel number for continuous recording, first port above electrodes
-var Continuous2Channel%;        ' Channel number for continuous recording, second port above electrodes
 var XChannel%,YChannel%;		' Channel number assigned to eye x and y
 var TriggerChannel%;			' Channel number assigned to vsg trigger input (i.e. trigger sent by vsg)
 var ReadyChannel%;			' channel number for VSG ready pulse signal
@@ -538,10 +164,6 @@ GetFixationPointParameters();
 GetFixationScriptParameters();
 GetDataParameters();
 
-if FixationScriptDialog%() = 0 then
-    halt;
-endif
-    
 
 ' Check for valid data file path
 if Len(dataDataSet$) = 0 then
@@ -555,12 +177,10 @@ endif
 
 
 ' Assign channel numbers for eye X,Y and trigger. 
-Continuous1Channel% := NumberOfElectrodes%+1;
-Continuous2Channel% := NumberOfElectrodes%+2;
-XChannel% := NumberOfElectrodes%+3;
-YChannel% := NumberOfElectrodes%+4;
-TriggerChannel% := NumberOfElectrodes%+5;
-ReadyChannel% := NumberOfElectrodes% + 6;
+XChannel% := NumberOfElectrodes%+1;
+YChannel% := NumberOfElectrodes%+2;
+TriggerChannel% := NumberOfElectrodes%+3;
+ReadyChannel% := NumberOfElectrodes% + 4;
 CreateSampleConfiguration();
 
 
@@ -856,22 +476,10 @@ proc CreateSampleConfiguration()
 		SampleTitle$(index, "Electrode_"+Str$(index)); 
 	next
 
-    if fixCheckContinuous1% = 1 then
-        SampleWaveform(Continuous1Channel%, NumberOfElectrodes%, fixContinuous1Freq%);
-        SampleTitle$(Continuous1Channel%,"Cont1");    
-    endif
-    
-    if fixCheckContinuous2% = 1 then
-        SampleWaveform(Continuous2Channel%, NumberOfElectrodes%, fixContinuous2Freq%);
-        SampleTitle$(Continuous2Channel%, "Cont2");    
-    endif
-    
-
-
 	'EYE COIL CHANNELS. Last # is sampling freq in Hz. 
-	SampleWaveform(XChannel%, 14, 1000);
+	SampleWaveform(XChannel%, GetEyeXPort%(), 1000);
 	SampleTitle$(XChannel%,"Eye X");
-	SampleWaveform(YChannel%, 15, 1000);
+	SampleWaveform(YChannel%, GetEyeYPort%(), 1000);
 	SampleTitle$(YChannel%, "Eye Y");
 
 	SampleSequencer(script$ + "Fixation.pls");

@@ -1,4 +1,4 @@
-'$Id: Joystick.s2s,v 1.4 2010-03-23 23:49:13 devel Exp $
+'$Id: Joystick.s2s,v 1.5 2010-05-24 17:58:02 devel Exp $
 '
 ' This file contains utilities for using the joystick on the alert2 rig. 
 
@@ -55,14 +55,29 @@ proc GetJoystickParameters()
     var key$;
     var stmp$;
     key$ := GetRegistryKey$(1) + "\\Joystick";
-    Profile(key$, "LeftHigh", str$(jsLeftHigh), stmp$);
-    jsLeftHigh := val(stmp$);
-    Profile(key$, "CenterLow", str$(jsCenterLow), stmp$);
-    jsCenterLow := val(stmp$);
-    Profile(key$, "CenterHigh", str$(jsCenterHigh), stmp$);
-    jsCenterHigh := val(stmp$);
-    Profile(key$, "RightLow", str$(jsRightLow), stmp$);
-    jsRightLow := val(stmp$);
+    jsLeftHigh := GetFloatRegistryValue(key$, "LeftHigh", jsLeftHigh);
+    jsCenterLow := GetFloatRegistryValue(key$, "CenterLow", jsCenterLow);
+    jsCenterHigh := GetFloatRegistryValue(key$, "CenterHigh", jsCenterHigh);
+    jsRightLow := GetFloatRegistryValue(key$, "RightLow", jsRightLow);
+    return;
+end
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+' SaveJoystickParameters
+'
+' This function saves joystick settings for the 
+' current configuration in the registry. 
+'
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+proc SaveJoystickParameters()
+    var key$;
+    key$ := GetRegistryKey$(1) + "\\Joystick";
+    SetFloatRegistryValue(key$, "LeftHigh", jsLeftHigh);
+    SetFloatRegistryValue(key$, "CenterLow", jsCenterLow);
+    SetFloatRegistryValue(key$, "CenterHigh", jsCenterHigh);
+    SetFloatRegistryValue(key$, "RightLow", jsRightLow);
     return;
 end
 
@@ -75,7 +90,6 @@ proc DisplayJoystickParameters()
     PrintLog("\n**************************************\n");
     return;
 end
-
 
 func GetJoystickLeftHigh()
     return jsLeftHigh;
@@ -194,7 +208,6 @@ proc JoystickConfigDialog()
     
     DlgCreate("Joystick Configuration", 40, 40);
     DlgAllow(0, 0, JoystickDialogCheck%);
-    'DlgButton(1, "OK", MultiGratingOKCheck%);
     DlgReal(1, "Voltage", -5, 5);
     DlgCheck(2, "Use Joystick");
     DlgInteger(3, "Joystick Channel", 1, 29);

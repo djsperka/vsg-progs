@@ -223,13 +223,13 @@ proc CreateSampleConfiguration()
 	SampleComment$(rivChanVSGReady%, "VSG Ready");
 	SampleTitle$(rivChanVSGReady%, "VSG Ready");
     
-	SampleWaveform(rivChanJoy%, 13, 1000);
+	SampleWaveform(rivChanJoy%, GetJoystickPort%(), 1000);
 	SampleTitle$(rivChanJoy%, "Joy");
     
     
-	SampleWaveform(rivChanEyeX%, 14, 1000);
+	SampleWaveform(rivChanEyeX%, GetEyeXPort%(), 1000);
 	SampleTitle$(rivChanEyeX%, "Eye X");
-	SampleWaveform(rivChanEyeY%, 15, 1000);
+	SampleWaveform(rivChanEyeY%, GetEyeYPort%(), 1000);
 	SampleTitle$(rivChanEyeY%, "Eye Y");
 
     
