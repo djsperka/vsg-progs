@@ -47,7 +47,7 @@ var ajContrastDown% := 50;
 var ajAlwaysLooking% := 0;      ' Set to 1 in timing dialog. Will cause Looking% to always return 1. 
 var ajTrialTypesListIndex% := 0;
 var ajShowSingleStim% := 0;
-
+var ajExtraFixationTime := 0.2;     ' Extra fixation time during stateWaitForResponse
 ' Strings for DlgList training type
 var ajTrainingTypes$[4];
 
@@ -895,13 +895,13 @@ func IdleProcessing%()
             
             iLoop% := 0;
             docase
-                
-                ' TODO Check with Marty!
-                ' We allow fixation break once contrast change has occurred. 
-                ' Note that tbgTrialCompleted is called above - not after response. 
-'            case Looking%(xEye, yEye) <> 1 then
-'                LogStatus("stateWaitForResponse", "Eye not in fixation window.");
-'                ChangeStateTo(stateFixationBreak%, tNow);
+                ' djs 6-9-2010
+                ' Farran wanted to impose a short "must continue fixating" period 
+                ' during this state. The subject must remain fixated for a short time
+                ' (ajExtraFixationTime, not in dialogs)
+            case Looking%(xEye, yEye) <> 1 and tNow - tStateStart < ajExtraFixationTime then
+                LogStatus("stateWaitForResponse", "Eye not in fixation window for at least " + str$(ajExtraFixationTime) + "s after contrast change.");
+                ChangeStateTo(stateFixationBreak%, tNow);
             case joystickPosition% = JSCenter% then
                 LogStatus("stateWaitForResponse", "Got response.");
                 ChangeStateTo(stateCorrectResponse%, tNow);
@@ -1241,11 +1241,13 @@ func AttaJoyTimingDialog%()
     DlgReal(8, "Correct resp pause time(s):",  .01, 10);
     DlgReal(9, "Incorrect resp pause time(s):",  .01, 10);
     DlgReal(10, "Fix break pause time(s):",  .01, 10);
-    DlgCheck(11, "Always looking (TESTING ONLY)");
+    DlgReal(11, "Fix time after con chg(s):", 0, 10);
+    DlgCheck(12, "Always looking (TESTING ONLY)");
 	DlgShow(ajMaxWaitForReadyTime, ajReadyFailPauseTime, ajReadyBreakPauseTime,
     ajTrainingSuccessPauseTime,
     ajMaxAcquisitionTime, ajAcquisitionFailPauseTime, ajMaxResponseTime, 
-    ajCorrectResponsePauseTime, ajIncorrectResponsePauseTime, ajFixationBreakPauseTime, ajAlwaysLooking%);
+    ajCorrectResponsePauseTime, ajIncorrectResponsePauseTime, ajFixationBreakPauseTime, ajExtraFixationTime,
+    ajAlwaysLooking%);
     return 1;
 end
 
@@ -1285,6 +1287,7 @@ proc GetAttaJoyParameters()
     ajMaxResponseTime := GetFloatRegistryValue(key$, "MaxResponseTime", ajMaxResponseTime);
     ajCorrectResponsePauseTime := GetFloatRegistryValue(key$, "CorrectResponsePauseTime", ajCorrectResponsePauseTime);
     ajIncorrectResponsePauseTime := GetFloatRegistryValue(key$, "IncorrectResponsePauseTime", ajIncorrectResponsePauseTime);
+    ajExtraFixationTime := GetFloatRegistryValue(key$, "ExtraFixationTime", ajExtraFixationTime);
 end
 
 proc SaveAttaJoyParameters()
@@ -1322,6 +1325,7 @@ proc SaveAttaJoyParameters()
     SetFloatRegistryValue(key$, "MaxResponseTime", ajMaxResponseTime);
     SetFloatRegistryValue(key$, "CorrectResponsePauseTime", ajCorrectResponsePauseTime);
     SetFloatRegistryValue(key$, "IncorrectResponsePauseTime", ajIncorrectResponsePauseTime);
+    SetFloatRegistryValue(key$, "ExtraFixationTime", ajExtraFixationTime);
 end
 
 
