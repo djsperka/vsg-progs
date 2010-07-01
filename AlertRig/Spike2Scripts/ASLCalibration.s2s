@@ -1,0 +1,895 @@
+'$Id: ASLCalibration.s2s,v 1.1 2010-07-01 23:50:44 devel Exp $
+
+#include "../../Spike2Util/ChannelUtilities.s2s"
+#include "../../Spike2Util/UsreyUtil.s2s"
+#include "../../Spike2Util/MiscUtilities.s2s"
+#include "UsreyFixationPoint.s2s"
+#include "UsreyDAQ.s2s"
+
+
+' Local variables
+
+var acStimHandle% := -1;
+var acOffsetFile$ := "d:\\work\\asltest\\offset.txt";
+var acSlaveXOffset := 0;
+var acSlaveYOffset := 0;
+var acMasterFixationX := 0;
+var acMasterFixationY := 0;
+var acMasterFixationDiameter := 0;
+var acMasterFixationWindow := 0;
+var acSlaveFixationWindow := 3;
+var acMaxAcquisitionTime := 3;
+var acMasterFixationTime := .75;
+var acMasterAverageTime := .375;  ' must be less than fixation time!
+var acSlaveFixationTime := .75;
+var acSlaveAverageTime := .375;
+var acThatLooksGoodAvgTime := .25;
+var acMasterPauseTime := .5;
+var acSlavePauseTime := .5;
+var acUniversalIntertrialTime := .5;
+var acIsPaused% := 0;
+var acThatLooksGood% := 0;
+var acSlaveParametersChanged% := 0;
+
+' Dialog vars
+var acDoRivalryCalibration% := 0;
+var acBypassPhaseI% := 0;
+var acNumJuicePerReward% := 3;
+
+' Windows and channels
+var acWindowData% := -1;
+var acChanVSGReady% := 10;
+var acChanASLCalDone% := 10;        ' uses same port as vsg ready
+var acChanMasterFixpt% := 10;       ' uses same port as acChanVSGReady%
+var acChanJuice% := 11;
+var acChanTransition% := 12;
+var acChanSlaveFixpt% := 14;
+var acChanOffsetFileChangeAccepted% := 15;
+var acChanEyeX% := 20;
+var acChanEyeY% := 21;
+var acWindowXY% := -1;
+var acChanMonitor% := -1;
+var acChanXYMasterFixpt% := -1;
+var acChanXYMasterFixptWindow% := -1;
+var acChanXYSlaveFixpt% := -1;
+var acChanXYSlaveFixptWindow% := -1;
+
+var acUnitCircleX[36];
+var acUnitCircleY[36];
+var acCircleX[36];
+var acCircleY[36];
+
+
+' States - these constants define a particular state
+
+const stateStartup%             :=  1;
+const statePaused%              :=  2;
+const stateTrialStart%          :=  3;
+const statePausedWaiting%       :=  4;
+const stateIntertrialWait%      :=  7;
+const stateTrialCompleted%      :=  8;
+const stateWaitForFixpt%        :=  9;
+const stateWaitForFixptOff%     :=  11;
+const stateWaitForAcquisition%  :=  12;
+const stateAcquisitionFail%     :=  13;
+const stateHoldFixation%        :=  14;
+const stateQuit%                :=  27;
+const stateDone%                :=  28;
+const stateVSGWait%             :=  29;
+const stateVSGConfirm%          :=  30;
+const stateASLCalibration%      :=  31;
+const stateTransition%          :=  32;
+const stateStartMaster%           :=  33;
+const stateWaitForMaster%         :=  34;
+const stateWaitForMasterAcquisition%    :=  35;
+const stateWaitForMasterFixation%       :=  36;
+const stateMasterAcquisitionFailed%    :=  37;
+const stateMasterFixationBreak%         :=  38;
+const stateMasterSuccess%               :=  39;
+const stateWaitForMasterOff%            :=  40;
+const stateStartSlave%           :=  41;
+const stateWaitForSlave%         :=  42;
+const stateWaitForSlaveAcquisition%    :=  43;
+const stateWaitForSlaveFixation%       :=  44;
+const stateSlaveAcquisitionFailed%    :=  45;
+const stateSlaveFixationBreak%         :=  46;
+const stateSlaveSuccess%               :=  47;
+const stateWaitForSlaveOff%            :=  48;
+const stateWaitForMasterSuccessOff%     :=  49;            
+const stateWaitForSlaveSuccessOff%     :=  50;
+const stateMasterFailPause%                 :=  51;
+const stateSlaveFailPause%                  :=  52;
+const stateWaitForOffsetChange%             :=  53;
+const stateWaitForThatLooksGoodOff%         :=  54;
+const stateThatLooksGood%                   :=  55;
+
+var iState% := stateStartup%;              ' This holds the current state
+
+var tNow:=0;		    ' latest time for which there are values recorded. Used in IdleProcessing
+var tLast:=-1;		    ' last time we checked for a trigger. 
+var xEye, yEye;		    ' eye positions
+var tLastUpdate:=-1;	' last time view was updated
+var vTrigger;		    ' set by NextTime to indicate trigger transition
+var tStateStart:=-1;	' time that present state started. Used to measure wait time, fixation time, etc. 
+var tLastTrigger:=-1;	' last trigger time. New triggers have to be greater than this
+var tTrigger:=-1;	    ' temp var for newly discovered trigger times
+var tSlaveOffsetChange:=-1; ' Set when slave offset is changed - used to look for VSG response
+var tUpdateOffsetTime := -1;
+
+'===========================================================================================
+'
+' Script execution starts here. 
+'
+'===========================================================================================
+
+LogInit(1);
+
+if ASLCalibrationDialog%() = 0 then
+    halt;
+endif
+
+
+' Check a few values for reasonable-ness....
+
+' Sampling config
+CreateSampleConfiguration();
+
+' Prepare display windows, input channels, etc. 
+InitializeWindows();
+
+' Set up toolbar and launch
+InitializeToolbar();
+
+
+proc GetASLCalibrationParameters()
+    var key$;
+    var stmp$;
+    key$ := GetRegistryKey$(1) + "\\ASLCalibration";
+    acDoRivalryCalibration% := GetIntRegistryValue%(key$, "DoRivalryCalibration", acDoRivalryCalibration%);
+    return;
+end
+
+proc SaveASLCalibrationParameters()
+    var key$;
+    var stmp$;
+    key$ := GetRegistryKey$(1) + "\\ASLCalibration";
+    SetIntRegistryValue(key$, "DoRivalryCalibration", acDoRivalryCalibration%);
+    return;
+end
+
+func ASLCalibrationDialog%()
+    var i%;
+    GetASLCalibrationParameters();
+    DlgCreate("Calibration");
+    DlgCheck(1, "Rivalry Calibration");
+    DlgCheck(2, "Bypass Phase I");
+    DlgAllow(0xffff, 0, ASLCalibrationDialogChanged%);
+    i% := DlgShow(acDoRivalryCalibration%, acBypassPhaseI%);
+    if i% = 1 then
+        SaveASLCalibrationParameters();
+    endif    
+    return 1;
+end
+
+func ASLCalibrationDialogChanged%(item%)
+    if item% = 1 then
+        DlgEnable(DlgValue(1), 2);
+    endif
+    return 1;
+end
+
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+' InitilizeWindows - Open data file, set up windows for online display.
+'
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+proc InitializeWindows()
+    var i%;
+    var twopi;
+    
+	'Open the data sampling window
+	acWindowData% := FileNew(0,4);
+	Window(0,48,100,95);
+	View(acWindowData%).WindowVisible(1);
+    XRange(0, 30);
+
+	'Open an XY view to display eye position
+	acWindowXY% := FileNew(12);
+	XRange(-20, 20);
+	YRange(-2, -15, 15);
+	XYDrawMode(0,5,0);
+	WindowVisible(1);
+	Window(0, 0, 100, 47);
+	XYColour(1,16);
+	XYSize(1,-1);
+    
+	'Create a new channel in the XY view to show the monitor's location
+	acChanMonitor% := XYSetChan(0);
+	XYColour(acChanMonitor%, 13);
+	XYDrawMode(acChanMonitor%, 3, 1);
+	XYJoin(acChanMonitor%, 2);
+	XYAddData(acChanMonitor%, -9, -7);
+	XYAddData(acChanMonitor%, 9, -7);
+	XYAddData(acChanMonitor%, 9, 7);
+	XYAddData(acChanMonitor%, -9, 7);
+    
+    
+    acChanXYMasterFixpt% := XYSetChan(0);
+    XYColour(acChanXYMasterFixpt%, 8);
+	XYDrawMode(0,5,0);
+    
+    acChanXYMasterFixptWindow% := XYSetChan(0);
+    XYColour(acChanXYMasterFixptWindow%, 8);
+    XYDrawMode(acChanXYMasterFixptWindow%, 2, 0);
+    XYDrawMode(acChanXYMasterFixptWindow%, 3, 0);
+    XYJoin(acChanXYMasterFixptWindow%, 2);
+    XYSize(acChanXYMasterFixptWindow%, 36);
+    
+    acChanXYSlaveFixpt% := XYSetChan(0);
+    XYColour(acChanXYSlaveFixpt%, 15);
+	XYDrawMode(0,5,0);
+    
+    acChanXYSlaveFixptWindow% := XYSetChan(0);
+    XYColour(acChanXYSlaveFixptWindow%, 15);
+    XYDrawMode(acChanXYSlaveFixptWindow%, 2, 0);
+    XYDrawMode(acChanXYSlaveFixptWindow%, 3, 0);
+    XYJoin(acChanXYSlaveFixptWindow%, 2);
+    XYSize(acChanXYSlaveFixptWindow%, 36);
+
+    ' prepare unit circles for drawing 
+	twopi := 2.0*4.0*ATan(1.0);
+	for i% := 0 to 35 do
+		acUnitCircleX[i%] := Cos(i% * twopi/36.0);
+		acUnitCircleY[i%] := Sin(i% * twopi/36.0);
+	next;
+
+    
+end;
+
+
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+' CreateSampleConfiguration - Set up recording channels, dig input channels for VSG communication
+'
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+proc CreateSampleConfiguration()
+	var index;
+    
+	SampleClear(); 'Set standard sampling state
+	SampleAutoComment(0); 'Prompt for comment after sampling
+	SampleAutoCommit(60); 'Seconds between each file commit
+    
+    FilePathSet(GetDataPathRoot$() + "\\" + GetDataSetName$(), 3);
+    FilePathSet(GetDataPathRoot$() + "\\" + GetDataSetName$(), 1);
+    SampleAutoName$(dataCellName$ + "_ac_000");
+	SampleAutoFile(1);
+    
+	'VSG Ready channel - pulse from VSG application indicating its ready for business.
+    ' ASLCalibration puts ready pulse out as 0x4 (0x40 is common - can't do that in rivalry case because
+    ' of limited output lines). 
+	SampleEvent(acChanVSGReady%, 2, 2, 3600); 'Trigger channel, level
+	SampleComment$(acChanVSGReady%, "Ready");
+	SampleTitle$(acChanVSGReady%, "Ready");
+    
+'	SampleEvent(acChanFixpt%, 1, 2, 3600);
+'	SampleComment$(acChanFixpt%, "Fixpt");
+'	SampleTitle$(acChanFixpt%, "Fixpt");
+    
+	SampleWaveform(acChanEyeX%, GetEyeXPort%(), 1000);
+	SampleTitle$(acChanEyeX%, "Eye X");
+	SampleWaveform(acChanEyeY%, GetEyeYPort%(), 1000);
+	SampleTitle$(acChanEyeY%, "Eye Y");
+    
+    ' this channel used for juice signals during phase I, and for master fixation point during phase II. 
+    SampleEvent(acChanJuice%, 1, 2, 10);
+    SampleTitle$(acChanJuice%, "Juice/Master");
+    
+    'SampleEvent(acChanASLCalDone%, 2, 1, 10);
+    'SampleTitle$(acChanASLCalDone%, "ASLdone");
+    
+    SampleEvent(acChanTransition%, 3, 1, 10);
+    SampleTitle$(acChanTransition%, "Transition");
+    
+    SampleEvent(acChanSlaveFixpt%, 6, 2, 10);
+    SampleTitle$(acChanSlaveFixpt%, "Slave");
+    
+    SampleEvent(acChanOffsetFileChangeAccepted%, 5, 2, 10);
+    SampleTitle$(acChanOffsetFileChangeAccepted%, "OffsetChg");
+    
+	SampleSequencer(script$ + "ASLCalibration.pls");
+	SampleOptimise(2, 2, 2, 2, 50);  'Set optimise mode (do this last)
+	SampleMode(1); 'Continuous sampling
+
+end;
+
+
+
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+' InitilizeToolbar - prepare toolbar buttons. Note that the idle processing function (ToolbarSet(0, blah, blah)) is 
+' not set here. That's done when the user hits the start button.
+'
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+proc InitializeToolbar()
+
+	View(App(8)).WindowVisible(0);	'Hide the standard sample bar
+	ToolbarVisible(1);
+	ToolbarSet(1,"Sample start",Start%);
+	ToolbarSet(2,"Sample stop", Stop%);
+	ToolbarSet(3,"Juice", Reward%);
+	ToolbarSet(4,"Quit",Quit%);
+    ToolbarSet(5, "Slave params", SlaveOffsetDialog%);
+    ToolbarSet(6, "Pause", Pause%);
+    ToolbarSet(7, "Resume", Resume%);
+    ToolbarSet(8, "ThatLooksGood", ThatLooksGood%);
+	ToolbarEnable(2, 0);
+	ToolbarEnable(4, 0);
+	ToolbarEnable(5, 0);
+    ToolbarEnable(6, 0);
+    ToolbarEnable(7, 0);
+    ToolbarEnable(8, 0);
+	Toolbar("Go",0x3ff);
+
+end;
+
+
+func Reward%()
+    DeliverReward(1);
+    return 1;
+end
+
+
+proc DeliverReward(iNumRewards%)
+    SampleSeqVar(1, iNumRewards%);
+    SampleKey("R");
+    return;
+end
+
+proc ChangeStateTo(stateTo%, tStart)
+	iState% := stateTo%;
+	if tStart > 0 then tStateStart := tStart; endif;
+end;
+
+
+func Idle%()
+    
+	var iStatus% := 1;	
+    var iLoop% := 0;        ' States can set this to 1 if we stay in state loop
+    
+    View(acWindowData%);
+	tNow := MaxTime();
+    
+    if tNow > 0.005 then
+        xEye := ChanMeasure(acChanEyeX%, 2, tNow, tNow-.005) * DegreesPerVoltX;
+        yEye := ChanMeasure(acChanEyeY%, 2, tNow-.001, tNow-.006) * DegreesPerVoltY;
+        View(acWindowXY%).XYAddData(1, xEye, yEye);
+    endif
+    
+    
+    repeat
+        iLoop% := 0;
+        docase 
+        case iState% = stateStartup% then
+            
+            LogStatus("stateStartup", "Starting up. " + str$(tNow));
+            ChangeStateTo(stateVSGWait%, tNow);
+            iLoop% := 1;
+            
+        case iState% = stateVSGWait% then
+            
+            ' Waiting for VSG to indicate it is ready. The indication is a pulse (up, then down, 1 frame apart) on port 6.
+
+            if FindRisingEdge%(acChanVSGReady%, tLast, tTrigger) = 0 then
+                LogStatus("stateVSGWait", "Got leading edge of trigger.");
+                tLastTrigger := tTrigger;
+                ChangeStateTo(stateVSGConfirm%, tTrigger);                
+                iLoop% := 1;
+            endif;
+            
+        case iState% = stateVSGConfirm% then
+            
+            ' Waiting for VSG to confirm it is ready. The downward side of the pulse is expected...
+            if FindFallingEdge%(acChanVSGReady%, tLast, tTrigger) = 1 then
+                LogStatus("stateVSGConfirm", "Got trailing edge of trigger.");
+                tLastTrigger := tTrigger;
+                if acDoRivalryCalibration% = 1 and acBypassPhaseI% = 1 then
+                    ChangeStateTo(stateTransition%, tNow);
+                else
+                    ChangeStateTo(stateASLCalibration%, tTrigger);
+                endif 
+                iLoop% := 0;
+            endif;
+            
+        case iState% = stateASLCalibration% then
+            
+            ' There are two channels monitored. One is for juice, the other is the quit signal. 
+            
+            if FindRisingEdge%(acChanASLCalDone%, tLast, tTrigger) = 0 then
+                LogStatus("stateASLCalibration", "Got quit signal from ASL");
+                ChangeStateTo(stateDone%, tNow);
+            endif
+            
+            if FindEdge%(acChanJuice%, tLast, tTrigger) > -1 then
+                LogStatus("stateASLCalibration", "Got JUICE signal from ASL @ " + str$(tTrigger));
+                Reward%();
+            endif
+            
+            if FindRisingEdge%(acChanTransition%, tLast, tTrigger) = 0 then
+                LogStatus("stateASLCalibration", "Got transition signal from ASL");
+                ChangeStateTo(stateTransition%, tNow);
+            endif
+            
+            iLoop% := 0;
+            
+        case iState% = stateTransition% then
+            
+            ReadOffsetFile();
+            ToolbarEnable(6, 1);    ' Pause
+            LogStatus("stateTransition", "Initial offset is " + str$(acSlaveXOffset) + ", " + str$(acSlaveYOffset));
+            ChangeStateTo(stateStartMaster%, tNow);
+            iLoop% := 1;
+            
+        case iState% = stateStartMaster% then
+            
+            if acIsPaused% = 1 then
+                ChangeStateTo(statePaused%, tNow);
+            else
+                ' Request left/master fixpt
+                SampleKey("M");
+                ChangeStateTo(stateWaitForMaster%, tNow);
+                LogStatus("stateStartMaster", "Wait for master start at " + str$(tNow));
+            endif
+            iLoop% := 0;
+            
+        case iState% = stateWaitForMaster% then
+            
+            ' Look for pulse in acChanMasterFixpt%
+            if FindEvent%(acChanMasterFixpt%, tStateStart, tTrigger) = 1 then
+                DisplayFixpt(1, 1);
+                LogStatus("stateWaitForMaster", "Master fixpt up.");
+                ChangeStateTo(stateWaitForMasterAcquisition%, tNow);
+            endif
+            
+        case iState% = stateWaitForMasterAcquisition% then
+            
+            ' Eye within FixationWindow of fixpt.
+            docase
+            case LookingAtMaster%(xEye, yEye) = 1 then
+                ChangeStateTo(stateWaitForMasterFixation%, tNow);
+            case tNow - tStateStart > acMaxAcquisitionTime then
+                LogStatus("stateWaitForMasterAcquisition", "Acq failed.");
+                ChangeStateTo(stateMasterAcquisitionFailed%, tNow);
+            endcase
+            
+        case iState% = stateMasterAcquisitionFailed% then
+            
+            ' Clear master fixpt
+            SampleKey("m");
+            ChangeStateTo(stateWaitForMasterOff%, tNow);
+            
+        case iState% = stateWaitForMasterOff% then
+            
+            if FindEvent%(acChanMasterFixpt%, tStateStart, tTrigger) = 1 then
+                DisplayFixpt(1, 0);
+                ChangeStateTo(stateMasterFailPause%, tNow);
+            endif
+            
+        case iState% = stateMasterFailPause% then
+            
+            if tNow - tStateStart > acMasterPauseTime then
+                ChangeStateTo(stateStartMaster%, tNow);
+            endif
+            
+        case iState% = stateSlaveFailPause% then
+            
+            if tNow - tStateStart > acSlavePauseTime then
+                ChangeStateTo(stateStartSlave%, tNow);
+            endif
+            
+        case iState% = stateWaitForMasterFixation% then
+            
+            docase
+            case LookingAtMaster%(xEye, yEye) <> 1 then
+                LogStatus("stateWaitForMasterFixation", "Fixation broken.");
+                ChangeStateTo(stateMasterFixationBreak%, tNow);
+            case tNow-tStateStart > acMasterFixationTime then
+                LogStatus("stateWaitForMasterFixation", "Success!");
+                ChangeStateTo(stateMasterSuccess%, tNow);
+            endcase
+            
+        case iState% = stateMasterFixationBreak% then
+            
+            SampleKey("m");
+            ChangeStateTo(stateWaitForMasterOff%, tNow);
+            
+        case iState% = stateMasterSuccess% then
+            
+            DeliverReward(acNumJuicePerReward%);
+            Yield();
+            SampleKey("m");
+            ChangeStateTo(stateWaitForMasterSuccessOff%, tNow);
+            
+        case iState% = stateWaitForMasterSuccessOff% then
+            
+            if FindEvent%(acChanMasterFixpt%, tStateStart, tTrigger) = 1 then
+                DisplayFixpt(1, 0);
+                ChangeStateTo(stateStartSlave%, tNow);
+            endif
+            
+        case iState% = stateStartSlave% then
+            
+            if acIsPaused% = 1 then
+                ChangeStateTo(statePaused%, tNow);
+            else
+                ' Request right/slave fixpt
+                SampleKey("S");
+                ChangeStateTo(stateWaitForSlave%, tNow);
+            endif
+            
+        case iState% = stateWaitForSlave% then
+            
+            ' Look for pulse in acChanSlaveFixpt%
+            if FindEvent%(acChanSlaveFixpt%, tStateStart, tTrigger) = 1 then
+                DisplayFixpt(0, 1);
+                LogStatus("stateWaitForSlave", "Slave fixpt up.");
+                ChangeStateTo(stateWaitForSlaveAcquisition%, tNow);
+                ToolbarEnable(8, 1);
+            endif
+            
+        case iState% = stateWaitForSlaveAcquisition% then
+            
+            ' Eye within acSlaveFixationWindow of fixpt.
+            docase
+            case acThatLooksGood% = 1 then
+                DeliverReward(acNumJuicePerReward%);
+                Yield();
+                SampleKey("s");
+                ChangeStateTo(stateWaitForThatLooksGoodOff%, tNow);
+            case LookingAtSlave%(xEye, yEye) = 1 then
+                ChangeStateTo(stateWaitForSlaveFixation%, tNow);
+            case tNow - tStateStart > acMaxAcquisitionTime then
+                LogStatus("stateWaitForSlaveAcquisition", "Acq failed.");
+                ChangeStateTo(stateSlaveAcquisitionFailed%, tNow);
+                ToolbarEnable(8, 0);
+            endcase
+            
+        case iState% = stateWaitForThatLooksGoodOff% then
+            
+            acThatLooksGood% := 0;
+            ToolbarEnable(8, 0);
+            if FindEvent%(acChanSlaveFixpt%, tStateStart, tTrigger) = 1 then
+                DisplayFixpt(0, 0);
+                ChangeStateTo(stateThatLooksGood%, tNow);
+            endif
+            
+        case iState% = stateThatLooksGood% then
+            
+            ' Compute the new offset value and update offset file. 
+            ' This will cause VSG app to update itself. 
+            acThatLooksGood% := 0;
+            ComputeThatLooksGoodOffset();
+            ChangeStateTo(stateWaitForOffsetChange%, tNow);
+
+        case iState% = stateSlaveAcquisitionFailed% then
+            
+            ' Clear slave fixpt
+            SampleKey("s");
+            ChangeStateTo(stateWaitForSlaveOff%, tNow);
+            
+        case iState% = stateWaitForSlaveOff% then
+            
+            if FindEvent%(acChanSlaveFixpt%, tStateStart, tTrigger) = 1 then
+                DisplayFixpt(0, 0);
+                ChangeStateTo(stateSlaveFailPause%, tNow);
+            endif
+            
+        case iState% = stateWaitForSlaveFixation% then
+            
+            docase
+            case acThatLooksGood% = 1 then
+                DeliverReward(acNumJuicePerReward%);
+                Yield();
+                SampleKey("s");
+                ChangeStateTo(stateWaitForThatLooksGoodOff%, tNow);
+            case LookingAtSlave%(xEye, yEye) <> 1 then
+                LogStatus("stateWaitForSlaveFixation", "Fixation broken.");
+                ChangeStateTo(stateSlaveFixationBreak%, tNow);
+            case tNow-tStateStart > acSlaveFixationTime then
+                LogStatus("stateWaitForSlaveFixation", "Success!");
+                ToolbarEnable(8, 0);
+                ChangeStateTo(stateSlaveSuccess%, tNow);
+            endcase
+            
+        case iState% = stateSlaveFixationBreak% then
+            
+            ToolbarEnable(8, 0);
+            SampleKey("s");
+            ChangeStateTo(stateWaitForSlaveOff%, tNow);
+            
+        case iState% = stateSlaveSuccess% then
+            
+            DeliverReward(acNumJuicePerReward%);
+            Yield();
+            SampleKey("s");
+            ChangeStateTo(stateWaitForSlaveSuccessOff%, tNow);
+            
+        case iState% = stateWaitForSlaveSuccessOff% then
+            
+            if FindEvent%(acChanSlaveFixpt%, tStateStart, tTrigger) = 1 then
+                DisplayFixpt(0, 0);
+                ChangeStateTo(stateIntertrialWait%, tNow);
+            endif
+            
+        case iState% = stateIntertrialWait% then
+            
+            if tNow - tStateStart > acUniversalIntertrialTime then
+                ChangeStateTo(stateStartMaster%, tNow);
+            endif
+            
+        case iState% = stateDone% then
+            
+            LogStatus("stateDone", "Reached done state. Calling Stop%()...\n");
+            Stop%();
+            iLoop% := 0;
+            iStatus% := 0;
+            
+        case iState% = statePaused% then
+            
+            ToolbarEnable(5, 1);    ' SlaveParams
+            ToolbarEnable(7, 1);    ' Resume
+            ToolbarEnable(6, 0);    ' Pause
+            ChangeStateTo(statePausedWaiting%, tNow);
+            
+        case iState% = statePausedWaiting% then
+            
+            if acIsPaused% = 0 then
+                ToolbarEnable(7, 0);
+                ToolbarEnable(6, 1);
+                
+                if acSlaveParametersChanged% = 1 then
+                    LogStatus("PausedWaiting", "Slave offset changed, waiting (" + str$(tSlaveOffsetChange) + ")for signal from VSG...");
+                    ChangeStateTo(stateWaitForOffsetChange%, tSlaveOffsetChange);
+                else
+                    ChangeStateTo(stateStartMaster%, tNow);
+                endif
+            endif
+            
+        case iState% = stateWaitForOffsetChange% then
+            
+' HACK            
+           if tNow - tStateStart > 2 then
+'           if FindEvent%(acChanOffsetFileChangeAccepted%, tStateStart, tTrigger) = 1 then
+'               LogStatus("WaitForOffsetChange", "VSG accepted offset change.Resuming...");
+               ChangeStateTo(stateStartMaster%, tNow);
+           endif
+            
+        else
+            
+            ' Unknown state!
+            Message("Unknown state=" + str$(iState%));
+            Stop%();
+            halt;
+            
+        endcase;
+    until iLoop% = 0;
+    
+    
+	tLast := tNow;
+    return iStatus%;
+end
+
+
+func ThatLooksGood%()
+    acThatLooksGood% := 1;
+    tUpdateOffsetTime := View(acWindowData%).MaxTime();
+    return 1;
+end
+
+proc ComputeThatLooksGoodOffset()
+    ' The var tUpdateOffsetTime was set when the "ThatLooksGood" button was hit.
+    var xAvg, yAvg;
+    xAvg := ChanMeasure(acChanEyeX%, 2, tUpdateOffsetTime - acThatLooksGoodAvgTime, tUpdateOffsetTime) * DegreesPerVoltX;
+    yAvg := ChanMeasure(acChanEyeY%, 2, tUpdateOffsetTime - acThatLooksGoodAvgTime, tUpdateOffsetTime) * DegreesPerVoltY;
+    acSlaveXOffset -= xAvg;
+    acSlaveYOffset -= yAvg;
+    WriteOffsetFile();
+    return;
+end
+
+    
+func LookingAtMaster%(x, y)
+    return IsInsideCircle%(x, y, acMasterFixationX, acMasterFixationY, acMasterFixationWindow/2);
+end
+
+func LookingAtSlave%(x, y)
+    return IsInsideCircle%(x, y, acMasterFixationX, acMasterFixationY, acSlaveFixationWindow/2);
+end
+
+proc ReadOffsetFile()
+    var handle := 0;
+    handle := FileOpen(acOffsetFile$, 8, 0);
+    if handle < 0 then
+        LogError("ReadOffsetFile", "Cannot open offset file \"" + acOffsetFile$ + "\", status=" + str$(handle));
+        return;
+    else
+        if Read(acSlaveXOffset, acSlaveYOffset) <> 2 then
+            LogError("ReadOffsetFile", "Error reading offsets from offset file \"" + acOffsetFile$ + "\"");
+            return;
+        endif
+        FileClose();
+    endif
+    return;
+end
+
+proc WriteOffsetFile()
+    var handle := 0;
+    handle := FileOpen(acOffsetFile$, 8, 1);
+    if handle < 0 then
+        LogError("WriteOffsetFile", "Cannot open offset file \"" + acOffsetFile$ + "\", status=" + str$(handle));
+        return;
+    else
+        if Print("%f %f", acSlaveXOffset, acSlaveYOffset) <> 0 then
+            LogError("WriteOffsetFile", "Error writing offsets to offset file \"" + acOffsetFile$ + "\"");
+            return;
+        endif
+        FileClose();
+    endif
+    return;
+end
+
+
+
+
+' Used to hard-quit from toolbar. This will close data files without saving!!! 
+' It is important that this function be disabled once sampling is started!!!
+
+func Quit%()
+    Stop%();
+	FileClose(-1,-1);
+	return 0;
+end;
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func Stop%()
+    var t;
+    
+    ' Dump results to log window
+    'UpdateToolbarText(1);
+    
+	' Disable idle process func
+	ToolbarSet(0, "");
+
+	' Tell stim app to shut down
+    if acStimHandle% > -1 then
+        t := MaxTime();
+        SampleKey("q");
+    
+        ' wait until it stops
+        while ProgStatus(acStimHandle%) > 0 do
+            ' Check whether we've been waiting for a long time....
+            if MaxTime() - t > 3 then
+                SampleKey("0");
+                Yield(1);
+                SampleKey("q");
+                t := MaxTime();
+            else
+                Yield();
+            endif
+        wend
+        acStimHandle% := -1;
+    endif
+    
+    SampleStop();
+    
+    return 0;
+
+end;
+
+func Pause%()
+    acIsPaused% := 1;
+    return 1;
+end
+
+func Resume%()
+    acIsPaused% := 0;
+    return 1;
+end
+
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func Start%()
+    var cmdLine$;
+    var fixSpec$;
+    var extra$;
+    
+    ' Generate command line
+    extra$ := " -v -b gray -C 8 -i d:\\work\\asltest\\with_xdat.xml -d " + GetDistanceToScreenMM$();
+    if acDoRivalryCalibration% = 1 then
+        extra$ += " -r " + acOffsetFile$;
+        if acBypassPhaseI% = 1 then
+            extra$ += " -B";
+        endif
+    endif
+    fixSpec$ := GetFixationArg$();
+    GetFixationPointParameterValues(acMasterFixationX, acMasterFixationY, acMasterFixationDiameter, acMasterFixationWindow);
+'    cmdLine$ := "cmd /k " + GetBinDir$(1) + "ASLCalibration " + fixSpec$ + extra$;
+    cmdLine$ := "cmd /c " + "d:\\work\\asltest\\ASLCalibration " + fixSpec$ + extra$;
+
+    ' Start sampling
+   	SampleStart(0);
+    
+	'Begin the stimulus program. It will take a few seconds for the VSG to initialize.
+	LogInfo(cmdLine$+"\n");
+	acStimHandle% := ProgRun(cmdLine$, 1);
+	if acStimHandle% < 0 then 
+        Message("Could not start stimulus."); 
+        halt; 
+    endif
+	
+	ToolbarSet(0,"",Idle%);	'Enable the Idle function for state handling
+	ToolbarEnable(1,0);
+	ToolbarEnable(2,1);
+	ToolbarEnable(4,1);
+	View(acWindowData%);
+    return 1;
+end;
+
+proc DisplayFixpt(iMaster%, iOn%)
+    if iMaster% <> 0 then
+        View(acWindowXY%).XYDelete(acChanXYMasterFixpt%);        
+        View(acWindowXY%).XYDelete(acChanXYMasterFixptWindow%);        
+        if iOn% <> 0 then
+            ArrConst(acCircleX[], acUnitCircleX[]);
+            ArrMul(acCircleX[], acMasterFixationWindow/2);
+            ArrAdd(acCircleX[], acMasterFixationX);
+            ArrConst(acCircleY[], acUnitCircleY[]);
+            ArrMul(acCircleY[], acMasterFixationWindow/2);
+            ArrAdd(acCircleY[], acMasterFixationY);
+            View(acWindowXY%).XYAddData(acChanXYMasterFixpt%, acMasterFixationX, acMasterFixationY);
+            View(acWindowXY%).XYAddData(acChanXYMasterFixptWindow%, acCircleX[], acCircleY[]);
+        endif
+    else
+        View(acWindowXY%).XYDelete(acChanXYSlaveFixpt%);        
+        View(acWindowXY%).XYDelete(acChanXYSlaveFixptWindow%);        
+        if iOn% <> 0 then
+            ArrConst(acCircleX[], acUnitCircleX[]);
+            ArrMul(acCircleX[], acSlaveFixationWindow/2);
+            'ArrAdd(acCircleX[], acSlaveXOffset);
+            ArrConst(acCircleY[], acUnitCircleY[]);
+            ArrMul(acCircleY[], acSlaveFixationWindow/2);
+            'ArrAdd(acCircleY[], acSlaveYOffset);
+            View(acWindowXY%).XYAddData(acChanXYSlaveFixpt%, acSlaveXOffset, acSlaveYOffset);
+            View(acWindowXY%).XYAddData(acChanXYSlaveFixptWindow%, acCircleX[], acCircleY[]);
+        endif
+    endif
+    return
+end
+
+
+' This can only be called when sampling is active (because of the call to MaxTime)
+' This is designed to be called only when the expt is paused. See handling of 
+' acSlaveParametersChanged% and tSlaveOffset in Idle%().
+
+func SlaveOffsetDialog%()
+    var i%;
+    DlgCreate("Slave Fixpt Parameters");
+    DlgReal(1, "X Offset (deg)", -100, 100);
+    DlgReal(2, "Y Offset (deg)", -100, 100);
+    DlgReal(3, "Window Diam(deg)", 0.01, 30);
+    i% := DlgShow(acSlaveXOffset, acSlaveYOffset, acSlaveFixationWindow);
+    if i% = 1 then
+        WriteOffsetFile();
+        acSlaveParametersChanged% := 1;
+        tSlaveOffsetChange := View(acWindowData%).MaxTime();
+        Yield();
+    endif
+    return 1;
+end
+
+    
