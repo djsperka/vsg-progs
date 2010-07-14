@@ -1,4 +1,4 @@
-' $Id: AttaJoy.s2s,v 1.15 2010-07-14 18:30:14 devel Exp $
+' $Id: AttaJoy.s2s,v 1.16 2010-07-14 20:20:15 devel Exp $
 
 #include "../../Spike2Util/TrialGenInterface.s2s"
 #include "../../Spike2Util/ChannelUtilities.s2s"
@@ -49,6 +49,9 @@ var ajAlwaysLooking% := 0;      ' Set to 1 in timing dialog. Will cause Looking%
 var ajTrialTypesListIndex% := 0;
 var ajShowSingleStim% := 0;
 var ajExtraFixationTime := 0.2;     ' Extra fixation time during stateWaitForResponse
+var ajDoHoldFixationMiniReward% := 1;   ' 2010-07-14 Hard-coded. Set to 0 to eliminate mini-reward. 
+var ajHoldFixationMiniRewardEnable% := 0;   ' when 1 mini reward is enabled; used per-trial
+var ajHoldFixationMiniRewardFraction := .5; ' fraction of hold fixation time passed before mini-reward given
 ' Strings for DlgList training type
 var ajTrainingTypes$[4];
 
@@ -366,6 +369,7 @@ proc InitializeWindows()
 	ajWindowData% := FileNew(0,4);
 	Window(0,48,100,95);
 	View(ajWindowData%).WindowVisible(1);
+    XRange(0, 15);
 
 	'Open an XY view to display eye position
 	ajWindowXY% := FileNew(12);
@@ -662,6 +666,7 @@ func IdleProcessing%()
                 if ajUseCueCircles% then
                     ChangeStateTo(stateHoldFixation1%, tNow);
                 else
+                    ajHoldFixationMiniRewardEnable% := 1;
                     ChangeStateTo(stateHoldFixation%, tNow);
                 endif
             case tNow - tStateStart > ajMaxAcquisitionTime then
@@ -709,6 +714,10 @@ func IdleProcessing%()
                     LogStatus("stateHoldFixation", "Fixation held, trial complete.");
                     ChangeStateTo(stateT2Success%, tNow);
                 endif
+            case ajDoHoldFixationMiniReward% = 1 and (tNow-tStateStart)/ajHoldFixationTime > ajHoldFixationMiniRewardFraction and ajHoldFixationMiniRewardEnable% = 1 then
+                LogStatus("stateHoldFixation", "Mini-reward fraction " + str$((tNow-tStateStart)/ajHoldFixationTime));
+                ajHoldFixationMiniRewardEnable% := 0;
+                DeliverReward(1);
             else
                 iLoop% := 0;
             endcase
