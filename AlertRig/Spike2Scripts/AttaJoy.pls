@@ -1,5 +1,5 @@
-; $Id: AttaJoy.pls,v 1.1 2010-02-19 02:49:59 devel Exp $
-; $Id: AttaJoy.pls,v 1.1 2010-02-19 02:49:59 devel Exp $
+; $Id: AttaJoy.pls,v 1.2 2010-07-14 20:18:33 devel Exp $
+; $Id: AttaJoy.pls,v 1.2 2010-07-14 20:18:33 devel Exp $
 
             SET      1.000 1 0     ;1ms per seq step, DAC scale=1, DAC offset=0
             DIGOUT [00000001]
@@ -62,7 +62,7 @@ ER:     'R  DIGOUT [.......1]
             DIGOUT [.......0]           ; downward pulse delivers juice
             DELAY  5
             DIGOUT [.......1]
-            DELAY  200
+            DELAY  100
             DBNZ   V1,ER                ; decrement V1, more juice unless V1==0
             HALT                   ;End of this sequence section
 
