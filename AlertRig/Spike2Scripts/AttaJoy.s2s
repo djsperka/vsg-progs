@@ -1,6 +1,6 @@
-' $Id: AttaJoy.s2s,v 1.14 2010-06-10 01:50:58 devel Exp $
+' $Id: AttaJoy.s2s,v 1.15 2010-07-14 18:30:14 devel Exp $
 
-#include "../../Spike2Util/TrialBlockGen.s2s"
+#include "../../Spike2Util/TrialGenInterface.s2s"
 #include "../../Spike2Util/ChannelUtilities.s2s"
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "UsreyGratings.s2s"
@@ -235,7 +235,12 @@ else
 endif        
 
 ' Init trial generator
-tbgInit(ajNTrialTypes%, ajNTrialsEachTypePerBlock%, ajNBlocks%);
+if ajAlternateCueTypeByBlock% <> 1 then
+    tbgInit(ajNTrialTypes%, ajNTrialsEachTypePerBlock%, ajNBlocks%);
+else
+    tbaltgInit(ajNTrialTypes%, ajNTrialsEachTypePerBlock%, ajNBlocks%);
+endif
+
 
 ' Get fixation point parameters
 GetFixationPointParameters();
@@ -623,7 +628,7 @@ func IdleProcessing%()
             
             DeliverReward(ajRewardSize%);
             ajUniversalIntertrialTime := ajTrainingSuccessPauseTime;
-            tbgTrialIndexCompleted(ajTrialTypeIndex%);
+            trialgenTrialIndexCompleted(ajTrialTypeIndex%);
             ChangeStateTo(stateIntertrialWait%, tNow);
             iLoop% := 0;
             
@@ -712,7 +717,7 @@ func IdleProcessing%()
             
             SampleKey("X");
             Yield();
-            tbgTrialIndexCompleted(ajTrialTypeIndex%);
+            trialgenTrialIndexCompleted(ajTrialTypeIndex%);
             DeliverReward(ajRewardSize%);
             ajUniversalIntertrialTime := ajTrainingSuccessPauseTime;
             ChangeStateTo(stateWaitForFixptOff%, tNow);
@@ -869,7 +874,7 @@ func IdleProcessing%()
             
             SampleKey("X");
             Yield();
-            tbgTrialIndexCompleted(ajTrialTypeIndex%);
+            trialgenTrialIndexCompleted(ajTrialTypeIndex%);
             DeliverReward(ajRewardSize%);
             ajUniversalIntertrialTime := ajTrainingSuccessPauseTime;
             ChangeStateTo(stateWaitForFixptOff%, tNow);
@@ -917,7 +922,7 @@ func IdleProcessing%()
             
             iLoop% := 0;
             ajCtrCorrect% += 1;
-            tbgTrialIndexCompleted(ajTrialTypeIndex%);
+            trialgenTrialIndexCompleted(ajTrialTypeIndex%);
             SampleKey("X");
             Yield();
             DeliverReward(ajRewardSize%);
@@ -928,7 +933,7 @@ func IdleProcessing%()
             
             iLoop% := 0;
             ajCtrIncorrect% += 1;
-            tbgTrialIndexCompleted(ajTrialTypeIndex%);
+            trialgenTrialIndexCompleted(ajTrialTypeIndex%);
             ajUniversalIntertrialTime := ajIncorrectResponsePauseTime;
             SampleKey("X");
             ChangeStateTo(stateWaitForFixptOff%, tNow);
@@ -1127,7 +1132,7 @@ func PrepareTrial%()
     var index%;
     var s% := 1;
     
-    s% := tbgGetTrialIndex%(ajTrialTypeIndex%);
+    s% := trialgenGetTrialIndex%(ajTrialTypeIndex%);
     LogInfo("Preparing trial... index " + str$(ajTrialTypeIndex%) + " s=" + str$(s%));
     ajIsCatchTrial% := 0;
 '    if s% = 1 and ajDoReadyTraining% = 0 and ajDoReadyFixTraining% = 0 then
