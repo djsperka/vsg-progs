@@ -1,3 +1,5 @@
+'$Id: Rivalry.s2s,v 1.21 2010-07-19 22:52:21 devel Exp $
+
 #include "../../Spike2Util/TrialBlockGen.s2s"
 #include "../../Spike2Util/ChannelUtilities.s2s"
 #include "../../Spike2Util/UsreyUtil.s2s"
