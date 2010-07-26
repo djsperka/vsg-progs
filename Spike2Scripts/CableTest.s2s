@@ -19,7 +19,7 @@ var DataWindow%;
 DataWindow% := FileNew(0,4);
 Window(-0.235849,52.746,97.2484,99.8856);
 View(DataWindow%).WindowVisible(1);
-
+XRange(0, 30);
 
 View(App(8)).WindowVisible(0);	'Hide the standard sample bar
 View(App(9)).WindowVisible(1);	'Open sequencer controls for this script
@@ -95,7 +95,10 @@ for chan% := 1 to 8 do
 	SampleEvent(chan%, port%, 2, 3600); 'Trigger channel, port, type
 	SampleTitle$(chan%, "Port " + str$(port%));
 next
-
+    
+    SampleWaveform(10, 3, 1000);
+    SampleTitle$(10, "Juice line");
+    
 if SampleSequencer(script$ + "\\CableTest.pls")<>0 then
 	Message("CableTest.pls not found!");
 endif
