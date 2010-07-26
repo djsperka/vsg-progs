@@ -1,7 +1,8 @@
-; $Id: Rivalry.pls,v 1.5 2010-03-24 17:55:36 devel Exp $
+; $Id: Rivalry.pls,v 1.6 2010-07-26 17:01:57 devel Exp $
 
             SET      1.000 1 0     ;1ms per seq step, DAC scale=1, DAC offset=0
             DIGOUT [00000001]
+            HALT
 
 ; zero out all trigger lines
 E0:     '0  DIGOUT [00000001]
