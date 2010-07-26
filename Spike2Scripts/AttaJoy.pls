@@ -1,8 +1,9 @@
-; $Id: AttaJoy.pls,v 1.2 2010-07-14 20:18:33 devel Exp $
-; $Id: AttaJoy.pls,v 1.2 2010-07-14 20:18:33 devel Exp $
+; $Id: AttaJoy.pls,v 1.3 2010-07-26 17:02:42 devel Exp $
+; $Id: AttaJoy.pls,v 1.3 2010-07-26 17:02:42 devel Exp $
 
             SET      1.000 1 0     ;1ms per seq step, DAC scale=1, DAC offset=0
             DIGOUT [00000001]
+            HALT
 
 ; zero out all trigger lines
 E0:     '0  DIGOUT [00000001]
