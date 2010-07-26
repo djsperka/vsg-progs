@@ -1,7 +1,9 @@
-; $Id: StarStim.pls,v 1.1 2006-12-18 22:38:02 dan Exp $
+; $Id: StarStim.pls,v 1.2 2010-07-26 17:15:31 devel Exp $
 ;
 
             SET      1.000 1 0     ;Get rate & scaling OK
+            DIGOUT [00000001]
+            HALT
 
 E0:     '0  DIGOUT [00000001]
             DELAY  s(0.996)-1
