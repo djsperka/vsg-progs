@@ -1,9 +1,10 @@
-; $Id: SparseNoise.pls,v 1.1 2010-03-18 23:58:29 devel Exp $
+; $Id: SparseNoise.pls,v 1.2 2010-07-26 17:15:31 devel Exp $
 ;
 ;
 
             SET      1.000 1 0          ;1ms per seq step, DAC scale=1, DAC offset=0
             DIGOUT [00000001]
+            HALT
 
 E0:     '0  DIGOUT [00000000]           ; clear all lines
             DELAY  10
