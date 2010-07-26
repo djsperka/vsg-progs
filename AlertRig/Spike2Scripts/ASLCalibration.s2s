@@ -1,4 +1,4 @@
-'$Id: ASLCalibration.s2s,v 1.1 2010-07-01 23:50:44 devel Exp $
+'$Id: ASLCalibration.s2s,v 1.2 2010-07-26 17:04:13 devel Exp $
 
 #include "../../Spike2Util/ChannelUtilities.s2s"
 #include "../../Spike2Util/UsreyUtil.s2s"
@@ -525,6 +525,7 @@ func Idle%()
         case iState% = stateStartSlave% then
             
             if acIsPaused% = 1 then
+                LogStatus("stateSTartSlave", "Paused.");
                 ChangeStateTo(statePaused%, tNow);
             else
                 ' Request right/slave fixpt
