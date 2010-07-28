@@ -1,4 +1,4 @@
-' $Id: RivalryDualVSG.s2s,v 1.2 2010-07-28 22:33:48 devel Exp $
+' $Id: RivalryDualVSG.s2s,v 1.3 2010-07-28 23:07:08 devel Exp $
 
 #include "../../Spike2Util/TrialBlockGen.s2s"
 #include "../../Spike2Util/ChannelUtilities.s2s"
@@ -24,6 +24,7 @@ var rivResponseIncorrectWaitTime := 3.0;
 var rivResponseBrokenWaitTime := 3.0;
 var rivMaxStimWaitTime := 1.5;
 var rivMaxStimTime := 3.0;
+var rivMinGoodTrialTime := 2.0;
 var rivResponseCorrectRewardSize% := 3;
 var rivMaintainResponseRewardSize% := 1;
 var rivSwapRewardSize% := 2;
@@ -914,7 +915,12 @@ func IdleProcessing%()
             iLoop% := 0;
             if FindEvent%(rivChanMasterPage%, tStateStart, tMasterTrigger) = 1 and 
                 FindEvent%(rivChanSlavePage%, tStateStart, tSlaveTrigger) = 1 then
- 				LogStatus("stateVSGWaitForStimOff", "Stimulus is off.\n");
+                if tStateStart-rivTStartStim > rivMinGoodTrialTime then
+                    trialgenTrialIndexCompleted(rivTrialTypeIndex%);
+                    LogStatus("stateVSGWaitForStimOff", "Stimulus is off. Good trial (" + str$(rivTrialTypeIndex%) + ")");
+                else
+                    LogStatus("stateVSGWaitForStimOff", "Stimulus is off. Not a good trial.");
+                endif
                 DisplayStim(0);
                 SampleKey("x");
                 ChangeStateTo(stateWaitForStimReset%, tMasterTrigger);
@@ -1161,6 +1167,7 @@ func PrepareTrial%()
 end
 
 proc PrepareTrialVars(type%)
+    rivTStartStim := -1;        ' used in WaitForStimOff to decide if a trial was good, depends on elapsed stim time. 
     docase
     case type% = trialtypeTrainingL% then
         LogInfo("Preparing trial... LEFT");
@@ -1209,7 +1216,7 @@ proc PrepareTrialVars(type%)
         rivNStimKey% := 1;
         rivRivalryCatchSwitchTime := Rand(rivRivalryCatchMaxSwitchTime - rivRivalryCatchMinSwitchTime, rivRivalryCatchMinSwitchTime);
     else
-        LogError("", "Unknown index returned from tbgGetTrialIndex%.\n");
+        LogError("", "Unknown index returned from trialgenGetTrialIndex%.\n");
     endcase
 
 end
@@ -1290,6 +1297,7 @@ proc GetRivalryParameters()
     rivSwapMinTime := GetFloatRegistryValue(key$, "SwapMinTime", rivSwapMinTime);
     rivSwapMaxTime := GetFloatRegistryValue(key$, "SwapMaxTime", rivSwapMaxTime);
     rivMaxStimTime := GetFloatRegistryValue(key$, "MaxStimTime", rivMaxStimTime);
+    rivMinGoodTrialTime := GetFloatRegistryValue(key$, "MinGoodTrialTime", rivMinGoodTrialTime);
     rivMaxWaitForReadyTime := GetFloatRegistryValue(key$, "MaxWaitForReadyTime", rivMaxWaitForReadyTime);
     rivReadyFailWaitTime := GetFloatRegistryValue(key$, "ReadyFailWaitTime", rivReadyFailWaitTime);
     rivSwapMaxResponseTime := GetFloatRegistryValue(key$, "SwapMaxResponseTime", rivSwapMaxResponseTime);
@@ -1333,6 +1341,7 @@ proc SaveRivalryParameters()
     SetFloatRegistryValue(key$, "SwapMinTime", rivSwapMinTime);
     SetFloatRegistryValue(key$, "SwapMaxTime", rivSwapMaxTime);
     SetFloatRegistryValue(key$, "MaxStimTime", rivMaxStimTime);
+    SetFloatRegistryValue(key$, "MinGoodTrialTime", rivMinGoodTrialTime);
     SetFloatRegistryValue(key$, "MaxWaitForReadyTime", rivMaxWaitForReadyTime);
     SetFloatRegistryValue(key$, "ReadyFailWaitTime", rivReadyFailWaitTime);
     SetFloatRegistryValue(key$, "MaxResponseTime", rivMaxResponseTime);
@@ -1417,14 +1426,15 @@ func RivalryRewardSwapDialog%()
     DlgInteger(4, "Reward (maintain)", 1, 10);
     DlgReal(5, "Reward wait (maintain)", 0.01, 10);
     DlgInteger(6, "Reward (swap)", 1, 10);
-    DlgReal(7, "Swap time - min", 0.01, 20);
-    DlgReal(8, "Swap time - max", 0.01, 20);
-    DlgReal(9, "Max stim time (s)", .01, 20);
-    DlgReal(10, "Catch switch - min(s)", 0.01, 20.0);
-    DlgReal(11, "Catch switch - max(s)", 0.01, 20.0);
-    DlgReal(12, "Riv reward holdoff(s)", 0.01, 20.0);
+    DlgReal(7, "Swap time - min", 0.01, 60);
+    DlgReal(8, "Swap time - max", 0.01, 60);
+    DlgReal(9, "Max stim time (s)", .01, 60);
+    DlgReal(10, "Min time for good trial", .01, 60);
+    DlgReal(11, "Catch switch - min(s)", 0.01, 60.0);
+    DlgReal(12, "Catch switch - max(s)", 0.01, 60.0);
+    DlgReal(13, "Riv reward holdoff(s)", 0.01, 60.0);
 	DlgShow(rivReadyHoldTime, rivReadyHoldRewardSize%, rivResponseCorrectRewardSize%, rivMaintainResponseRewardSize%, 
-    rivMaintainResponseRewardWait, rivSwapRewardSize%, rivSwapMinTime, rivSwapMaxTime, rivMaxStimTime, 
+    rivMaintainResponseRewardWait, rivSwapRewardSize%, rivSwapMinTime, rivSwapMaxTime, rivMaxStimTime, rivMinGoodTrialTime,
     rivRivalryCatchMinSwitchTime, rivRivalryCatchMaxSwitchTime, rivRivalryRewardHoldoff);
     return 1;
 end
