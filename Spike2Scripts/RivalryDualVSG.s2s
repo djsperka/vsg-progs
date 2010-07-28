@@ -1,8 +1,9 @@
-' $Id: RivalryDualVSG.s2s,v 1.1 2010-07-28 01:38:24 devel Exp $
+' $Id: RivalryDualVSG.s2s,v 1.2 2010-07-28 22:33:48 devel Exp $
 
 #include "../../Spike2Util/TrialBlockGen.s2s"
 #include "../../Spike2Util/ChannelUtilities.s2s"
 #include "../../Spike2Util/UsreyUtil.s2s"
+#include "../../Spike2Util/TrialGenInterface.s2s"
 #include "UsreyGratings.s2s"
 #include "Joystick.s2s"
 #include "UsreyFixationPoint.s2s"
@@ -13,9 +14,6 @@ var rivChooseTrialTypes% := 1;
 
 ' Local config variables
 
-const rivMaxTargets% := 2;
-var rivNTargets% := 0;
-var rivTargetSpecs$[rivMaxTargets%];
 var rivMaxWaitForReadyTime := 1.0;
 var rivReadyHoldTime    := 1.0;
 var rivReadyHoldRewardSize% := 1;
@@ -43,9 +41,12 @@ var rivUseBeep% := 1;
 var rivCorrectionTrials% := 0;
 var rivBeepLengthMS% := 100;
 var rivNBlocks% := 10;
-var rivNTrialsEachTypePerBlock% := 4;     ' Number of trials/block = this * 2
+'var rivNTrialsEachTypePerBlock% := 4;     ' Number of trials/block = this * 2
+var rivNTrainingPerBlock% := 2;     ' Number of training trials per block (should be even for balancing L/R)
+var rivNRivalryperBlock% := 2;      ' Number of rivalry trials per block (should be even for balancing L/R)
+var rivNRivalryCatchPerBlock% := 2; ' Number of rivalry/catch trials per block (should be even for balancing L/R)
 var rivLeftGrating$ := "-3,0,3,3,100,.5,.5,0,b,s,e";
-var rivRightGRating$ := "3,0,3,3,100,.5,.5,0,b,s,e";
+var rivRightGRating$ := "3,0,3,3,100,.5,.5,90,b,s,e";
 var rivLeftGratingX, rivLeftGratingY, rivLeftGratingD;
 var rivRightGratingX, rivRightGratingY, rivRightGratingD;
 var rivFixationX, rivFixationY, rivFixationD, rivFixationWindowD;
@@ -55,8 +56,7 @@ var rivFixationTextItem%;
 var rivFixationArg$;
 
 ' new vars for rivalry
-var rivRivalryMaxTime := 10;
-var rivRivalryRewardHoldoff := .4;
+var rivRivalryRewardHoldoff := .4;  ' during rivalry, min time between rewards
 var rivLastRivalryResponse%;        ' In rivalry maintain state, this is the last response. 
 var rivRivalryCatchMinSwitchTime := 3;
 var rivRivalryCatchMaxSwitchTime := 8;
@@ -207,19 +207,25 @@ if RivalryDialog%() = 0 then
     halt;
 endif
 
-if rivChooseTrialTypes% <> 0 then
-    rivNTrialTypes% := 6;
-    rivTrialTypes%[0] := trialtypeTrainingL%;
-    rivTrialTypes%[1] := trialtypeTrainingR%;
-    rivTrialTypes%[2] := trialtypeRivalryLR%;
-    rivTrialTypes%[3] := trialtypeRivalryRL%;
-    rivTrialTypes%[4] := trialtypeRivalryCatchLR%;
-    rivTrialTypes%[5] := trialtypeRivalryCatchRL%;
-else
-    tbgInit(2, rivNTrialsEachTypePerBlock%, rivNBlocks%);
-    rivNTrialTypes% := 2;
-    rivTrialTypes%[0] := trialtypeTrainingL%;
-    rivTrialTypes%[1] := trialtypeTrainingR%;
+rivNTrialTypes% := 6;
+rivTrialTypes%[0] := trialtypeTrainingL%;
+rivTrialTypes%[1] := trialtypeTrainingR%;
+rivTrialTypes%[2] := trialtypeRivalryLR%;
+rivTrialTypes%[3] := trialtypeRivalryRL%;
+rivTrialTypes%[4] := trialtypeRivalryCatchLR%;
+rivTrialTypes%[5] := trialtypeRivalryCatchRL%;
+
+if rivChooseTrialTypes% = 0 then
+    var weights%[6];
+    weights%[0] := rivNTrainingPerBlock%/2;
+    weights%[1] := rivNTrainingPerBlock% - weights%[0];
+    weights%[2] := rivNRivalryPerBlock%/2;
+    weights%[3] := rivNRivalryPerBlock% - weights%[2];
+    weights%[4] := rivNRivalryCatchPerBlock%/2;
+    weights%[5] := rivNRivalryCatchPerBlock% - weights%[4];
+    
+    tgwInit(rivNTrialTypes%, weights%[0:rivNTrialTypes%], rivNBlocks%);
+
 endif
 
 ' Stupid checks
@@ -713,7 +719,7 @@ func IdleProcessing%()
             case rivUseFixation% = 1 and Looking%(xEye, yEye) <> 1 then
                 LogStatus("WaitForRivalryResponse", "Eye not in fixation window.");
                 ChangeStateTo(stateFixationBroken%, tNow);
-            case tNow-tStateStart > rivRivalryMaxTime then
+            case tNow-rivTStartStim > rivMaxStimTime then
                 LogStatus("WaitForRivalryResponse", "Max time is up. Nice job.");
                 SampleKey("X");
                 ChangeStateTo(stateWaitForStimOff%, tNow);
@@ -1105,16 +1111,6 @@ proc UpdateSwapValues(iJS%)
 end
 
 
-' PrepareBlock
-'
-' Prepares variables etc used for driving a block of trials for this expt. 
-' TODO 
-
-proc PrepareBlock()
-    LogInfo("Preparing block...");
-    tbgInit(2, rivNTrialsEachTypePerBlock%, rivNBlocks%);
-    return
-end
 
 ' PrepareTrial
 '
@@ -1152,12 +1148,13 @@ func PrepareTrial%()
         
     else
         
-        s% := tbgGetTrialIndex%(rivTrialTypeIndex%);
+        s% := trialgenGetTrialIndex%(rivTrialTypeIndex%);
         
         if s% = 1 then
             rivTrialType% := rivTrialTypes%[rivTrialTypeIndex%];
             PrepareTrialVars(rivTrialType%);
         endif
+        
     endcase
     
     return s%;
@@ -1221,41 +1218,56 @@ end
 
 func RivalryDialog%()
     var i%;
+    var stmp$;
     GetRivalryParameters();
     DlgCreate("Rivalry Parameters");
-    DlgGroup("General", 1, 1, 50, 6);
+    DlgAllow(0xffff, 0, RivalryDialogChanged%);
+    DlgGroup("Block structure", 1, 1, 50, 5);
     DlgInteger(1, "# of blocks", 1, 100, 25, 2);
-    DlgInteger(2, "Trials per block", 1, 100, 25, 3);
-    DlgCheck(3, "Use beep?", 1, 4);
-    DlgCheck(4, "Correction trials?", 1, 5);
-    DlgInteger(5, "Beep length (ms)", 1, 1000, 25, 6);
-    DlgButton(101, "Timing", RivalryTimingDialog%, 1, 7);
-    DlgGroup("Reward/Swap", 1, 8, 50, 10);
-    DlgReal(6, "Ready hold time (s)", .1, 10, 25, 9);
-    DlgInteger(7, "Ready hold reward", 0, 10, 25, 10);
-    DlgInteger(8, "Reward (correct resp)", 1, 10, 25, 11);
-    DlgInteger(9, "Reward (maintain)", 1, 10, 25, 12);
-    DlgReal(10, "Reward wait (maintain)", 0.01, 10, 25, 13);
-    DlgInteger(11, "Reward (swap)", 1, 10, 25, 14);
-    DlgReal(12, "Swap time - min", 0.01, 20, 25, 15);
-    DlgReal(13, "Swap time - max", 0.01, 20, 25, 16);
-    DlgReal(14, "Max stim time (s)", .01, 20, 25, 17);
-    DlgGroup("Fixation", 1, 18, 50, 3);
-    DlgCheck(15, "Use Fixation?", 1, 19);
-    DlgButton(104, "Fixation Settings", RivalryFixationDialog%, 1, 20);
-    DlgGroup("Gratings", 1, 21, 50, 3);
-    DlgButton(102, "Left Grating", RivalryLGratingDialog%, 1, 22);
-    rivLeftGratingTextItem% := DlgText(rivLeftGrating$, 15, 22);
-    DlgButton(103, "Right Grating", RivalryRGratingDialog%, 1, 23);
-    rivRightGratingTextItem% := DlgText(rivRightGrating$, 15, 23);
-    i% := DlgShow(rivNBlocks%, rivNTrialsEachTypePerBlock%, rivUseBeep%, rivCorrectionTrials%, rivBeepLengthMS%, rivReadyHoldTime, 
-                  rivReadyHoldRewardSize%, rivResponseCorrectRewardSize%, rivMaintainResponseRewardSize%, rivMaintainResponseRewardWait, 
-                  rivSwapRewardSize%, rivSwapMinTime, rivSwapMaxTime, rivMaxStimTime, rivUseFixation%);
+    DlgInteger(2, "# Training trials/block", 0, 500, 25, 3, 2);
+    DlgInteger(3, "# Rivalry trials/block", 0, 500, 25, 4, 2);
+    DlgInteger(4, "# RivalryCatch trials/block", 0, 500, 25, 5, 2);
+    
+    DlgCheck(5, "Use beep?", 1, 6);
+    DlgInteger(6, "Beep length (ms)", 1, 1000, 25, 7);
+    DlgCheck(7, "Correction trials?", 1, 8);
+    'DlgCheck(8, "Use Fixation?", 1, 9);
+    DlgButton(101, "Fixation Settings", RivalryFixationDialog%, 1, 9);
+    if rivUseFixation% = 1 then
+        rivFixationTextItem% := DlgText(rivFixationArg$, 20, 9);
+    else
+        rivFixationTextItem% := DlgText("Fixation disabled", 20, 9);
+    endif
+    DlgButton(102, "Timing", RivalryTimingDialog%, 1, 10);
+    DlgButton(103, "Reward/Swap/Catch", RivalryRewardSwapDialog%, 1, 11);
+    
+    DlgGroup("Gratings", 1, 12, 50, 3);
+    DlgButton(104, "Left Grating", RivalryLGratingDialog%, 1, 13);
+    rivLeftGratingTextItem% := DlgText(rivLeftGrating$, 15, 13);
+    DlgButton(105, "Right Grating", RivalryRGratingDialog%, 1, 14);
+    rivRightGratingTextItem% := DlgText(rivRightGrating$, 15, 14);
+    i% := DlgShow(rivNBlocks%, rivNTrainingPerBlock%, rivNRivalryperBlock%, rivNRivalryCatchPerBlock%,
+                  rivUseBeep%, rivBeepLengthMS%, rivCorrectionTrials%);
     if i% = 1 then
         SaveRivalryParameters();
     endif
     return i%;
 end
+
+func RivalryDialogChanged%(item%)
+    var status% := 1;
+    docase
+    case item% = 0 then
+        DlgEnable(rivUseFixation%, 101);
+        DlgEnable(rivUseBeep%, 6);
+    case item% = 5 then
+        DlgEnable(DlgValue(5), 6);
+    case item% = 3 then
+        DlgEnable(DlgValue(3), 101);
+    endcase
+    return status%;
+end
+
 
 proc GetRivalryParameters()
     var key$;
@@ -1265,7 +1277,9 @@ proc GetRivalryParameters()
     rivRightGrating$ := GetStringRegistryValue$(key$, "RightGrating", rivRightGrating$);
     rivFixationArg$ := GetFixationArg$();   ' Note: this is NOT saved in SaveRivarlyParameters!
     rivNBlocks% := GetIntRegistryValue%(key$, "NBlocks", rivNBlocks%);
-    rivNTrialsEachTypePerBlock% := GetIntRegistryValue%(key$, "NTrialsEachTypePerBlock", rivNTrialsEachTypePerBlock%);
+    rivNTrainingPerBlock% := GetIntRegistryValue%(key$, "NTrainingPerBlock", rivNTrainingPerBlock%);
+    rivNRivalryPerBlock% := GetIntRegistryValue%(key$, "NRivalryPerBlock", rivNRivalryPerBlock%);
+    rivNRivalryCatchPerBlock% := GetIntRegistryValue%(key$, "NRivalryCatchPerBlock", rivNRivalryCatchPerBlock%);
     rivUseBeep% := GetIntRegistryValue%(key$, "UseBeep", rivUseBeep%);
     rivCorrectionTrials% := GetIntRegistryValue%(key$, "CorrectionTrials", rivCorrectionTrials%);
     rivBeepLengthMS% := GetIntRegistryValue%(key$, "BeepLengthMS", rivBeepLengthMS%);
@@ -1292,6 +1306,11 @@ proc GetRivalryParameters()
     rivAcquisitionFailWaitTime := GetFloatRegistryValue(key$, "AcquisitionFailWaitTime", rivAcquisitionFailWaitTime);
     rivFixationHoldTime := GetFloatRegistryValue(key$, "FixationHoldTime", rivFixationHoldTime);
     rivFixationFailWaitTime := GetFloatRegistryValue(key$, "FixationFailWaitTime", rivFixationFailWaitTime);
+    
+    rivRivalryCatchMinSwitchTime := GetFloatRegistryValue(key$, "RivalryCatchMinSwitchTime", rivRivalryCatchMinSwitchTime);
+    rivRivalryCatchMaxSwitchTime := GetFloatRegistryValue(key$, "RivalryCatchMaxSwitchTime", rivRivalryCatchMaxSwitchTime);
+    rivRivalryRewardHoldoff := GetFloatRegistryValue(key$, "RivalryRewardHoldoff", rivRivalryRewardHoldoff);
+    
 end
 
 proc SaveRivalryParameters()
@@ -1301,7 +1320,9 @@ proc SaveRivalryParameters()
     SetStringRegistryValue(key$, "LeftGrating", rivLeftGrating$);
     SetStringRegistryValue(key$, "RightGrating", rivRightGrating$);
     SetIntRegistryValue(key$, "NBlocks", rivNBlocks%);
-    SetIntRegistryValue(key$, "NTrialsEachTypePerBlock", rivNTrialsEachTypePerBlock%);
+    SetIntRegistryValue(key$, "NTrainingPerBlock", rivNTrainingPerBlock%);
+    SetIntRegistryValue(key$, "NRivalryPerBlock", rivNRivalryPerBlock%);
+    SetIntRegistryValue(key$, "NRivalryCatchPerBlock", rivNRivalryCatchPerBlock%);
     SetIntRegistryValue(key$, "UseBeep", rivUseBeep%);
     SetIntRegistryValue(key$, "CorrectionTrials", rivCorrectionTrials%);
     SetIntRegistryValue(key$, "BeepLengthMS", rivBeepLengthMS%);
@@ -1327,18 +1348,49 @@ proc SaveRivalryParameters()
     SetFloatRegistryValue(key$, "AcquisitionFailWaitTime", rivAcquisitionFailWaitTime);
     SetFloatRegistryValue(key$, "FixationHoldTime", rivFixationHoldTime);
     SetFloatRegistryValue(key$, "FixationFailWaitTime", rivFixationFailWaitTime);
+    SetFloatRegistryValue(key$, "RivalryCatchMinSwitchTime", rivRivalryCatchMinSwitchTime);
+    SetFloatRegistryValue(key$, "RivalryCatchMaxSwitchTime", rivRivalryCatchMaxSwitchTime);
+    SetFloatRegistryValue(key$, "RivalryRewardHoldoff", rivRivalryRewardHoldoff);
 end
 
 func RivalryFixationDialog%()
+    var s%;
     DlgCreate("Rivarly Fixation parameters");
-    DlgReal(1, "Max acq. time(s):", .01, 100);
-    DlgReal(2, "Acq. FAIL wait time(s):", .01, 10);
-    DlgReal(3, "Fixation hold time(s):", 0.01, 10);
-    DlgReal(4, "Fix. BREAK wait time(s):", 0.01, 10);
-    DlgCheck(5, "Always Looking (TESTING)");
-    DlgShow(rivMaxAcquisitionTime, rivAcquisitionFailWaitTime, rivFixationHoldTime, rivFixationFailWaitTime, rivAlwaysLooking%);
+    DlgAllow(0xffff, 0, RivalryFixationDialogChanged%);
+    DlgCheck(1, "Use Fixation?");
+    DlgReal(2, "Max acq. time(s):", .01, 100);
+    DlgReal(3, "Acq. FAIL wait time(s):", .01, 10);
+    DlgReal(4, "Fixation hold time(s):", 0.01, 10);
+    DlgReal(5, "Fix. BREAK wait time(s):", 0.01, 10);
+    DlgCheck(6, "Always Looking (TESTING)");
+    DlgShow(rivUseFixation%, rivMaxAcquisitionTime, rivAcquisitionFailWaitTime, rivFixationHoldTime, rivFixationFailWaitTime, rivAlwaysLooking%);
+    if rivUseFixation% = 1 then
+        DlgValue$(rivFixationTextItem%, rivFixationArg$);
+    else
+        DlgValue$(rivFixationTextItem%, "Fixation disabled");
+    endif
     return 1;
 end
+
+func RivalryFixationDialogChanged%(item%)
+    var status% := 1;
+    docase
+    case item% = 0 then
+        DlgEnable(rivUseFixation%, 2);
+        DlgEnable(rivUseFixation%, 3);
+        DlgEnable(rivUseFixation%, 4);
+        DlgEnable(rivUseFixation%, 5);
+        DlgEnable(rivUseFixation%, 6);
+    case item% = 1 then
+        DlgEnable(DlgValue(1), 2);
+        DlgEnable(DlgValue(1), 3);
+        DlgEnable(DlgValue(1), 4);
+        DlgEnable(DlgValue(1), 5);
+        DlgEnable(DlgValue(1), 6);
+    endcase
+    return status%;
+end
+
 
 
 func RivalryTimingDialog%()
@@ -1353,6 +1405,27 @@ func RivalryTimingDialog%()
     DlgReal(8, "Max stim wait time(s):", .01, 10);
 	DlgShow(rivMaxWaitForReadyTime, rivReadyFailWaitTime, rivMaxResponseTime, rivSwapMaxResponseTime, rivResponseFailWaitTime, 
             rivResponseIncorrectWaitTime, rivResponseBrokenWaitTime, rivMaxStimWaitTime);
+    return 1;
+end
+
+
+func RivalryRewardSwapDialog%()
+	DlgCreate("Rivalry reward/swap");
+    DlgReal(1, "Ready hold time (s)", .1, 10);
+    DlgInteger(2, "Ready hold reward", 0, 10);
+    DlgInteger(3, "Reward (correct resp)", 1, 10);
+    DlgInteger(4, "Reward (maintain)", 1, 10);
+    DlgReal(5, "Reward wait (maintain)", 0.01, 10);
+    DlgInteger(6, "Reward (swap)", 1, 10);
+    DlgReal(7, "Swap time - min", 0.01, 20);
+    DlgReal(8, "Swap time - max", 0.01, 20);
+    DlgReal(9, "Max stim time (s)", .01, 20);
+    DlgReal(10, "Catch switch - min(s)", 0.01, 20.0);
+    DlgReal(11, "Catch switch - max(s)", 0.01, 20.0);
+    DlgReal(12, "Riv reward holdoff(s)", 0.01, 20.0);
+	DlgShow(rivReadyHoldTime, rivReadyHoldRewardSize%, rivResponseCorrectRewardSize%, rivMaintainResponseRewardSize%, 
+    rivMaintainResponseRewardWait, rivSwapRewardSize%, rivSwapMinTime, rivSwapMaxTime, rivMaxStimTime, 
+    rivRivalryCatchMinSwitchTime, rivRivalryCatchMaxSwitchTime, rivRivalryRewardHoldoff);
     return 1;
 end
 
