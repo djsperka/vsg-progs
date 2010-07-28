@@ -1,0 +1,1404 @@
+' $Id: RivalryDualVSG.s2s,v 1.1 2010-07-28 01:38:24 devel Exp $
+
+#include "../../Spike2Util/TrialBlockGen.s2s"
+#include "../../Spike2Util/ChannelUtilities.s2s"
+#include "../../Spike2Util/UsreyUtil.s2s"
+#include "UsreyGratings.s2s"
+#include "Joystick.s2s"
+#include "UsreyFixationPoint.s2s"
+#include "UsreyDAQ.s2s"
+
+' Special for testing. Set to 1 to choose trial type each trial.
+var rivChooseTrialTypes% := 1;
+
+' Local config variables
+
+const rivMaxTargets% := 2;
+var rivNTargets% := 0;
+var rivTargetSpecs$[rivMaxTargets%];
+var rivMaxWaitForReadyTime := 1.0;
+var rivReadyHoldTime    := 1.0;
+var rivReadyHoldRewardSize% := 1;
+var rivReadyFailWaitTime := 1.0;
+var rivMaxResponseTime := 1.0;
+var rivResponseFailWaitTime := 3.0;
+var rivResponseIncorrectWaitTime := 3.0;
+var rivResponseBrokenWaitTime := 3.0;
+var rivMaxStimWaitTime := 1.5;
+var rivMaxStimTime := 3.0;
+var rivResponseCorrectRewardSize% := 3;
+var rivMaintainResponseRewardSize% := 1;
+var rivSwapRewardSize% := 2;
+var rivSwapMinTime := 2;
+var rivSwapMaxTime := 4;
+var rivSwapMaxResponseTime := 2.0;
+var rivMaintainResponseRewardWait := .5;
+var rivUseFixation% := 0;
+var rivMaxAcquisitionTime := 4;
+var rivAcquisitionFailWaitTime := 1;
+var rivFixationHoldTime := 0.5;
+var rivFixationFailWaitTime := 1;
+var rivAlwaysLooking% := 0;
+var rivUseBeep% := 1;
+var rivCorrectionTrials% := 0;
+var rivBeepLengthMS% := 100;
+var rivNBlocks% := 10;
+var rivNTrialsEachTypePerBlock% := 4;     ' Number of trials/block = this * 2
+var rivLeftGrating$ := "-3,0,3,3,100,.5,.5,0,b,s,e";
+var rivRightGRating$ := "3,0,3,3,100,.5,.5,0,b,s,e";
+var rivLeftGratingX, rivLeftGratingY, rivLeftGratingD;
+var rivRightGratingX, rivRightGratingY, rivRightGratingD;
+var rivFixationX, rivFixationY, rivFixationD, rivFixationWindowD;
+var rivLeftGratingTextItem%;
+var rivRightGratingTextItem%;
+var rivFixationTextItem%;
+var rivFixationArg$;
+
+' new vars for rivalry
+var rivRivalryMaxTime := 10;
+var rivRivalryRewardHoldoff := .4;
+var rivLastRivalryResponse%;        ' In rivalry maintain state, this is the last response. 
+var rivRivalryCatchMinSwitchTime := 3;
+var rivRivalryCatchMaxSwitchTime := 8;
+var rivRivalryCatchSwitchTime;      ' In catch trials make the switch after this time
+
+' Counters
+
+var rivCtrNTrials% := 0;
+var rivCtrReadyFail% := 0;
+var rivCtrNoResponse% := 0;
+var rivCtrIncorrect% := 0;
+var rivCtrCorrect% := 0;
+var rivCtrNRewards% := 0;
+
+' Channel numbers for DAQ inputs
+
+var rivChanEyeX%    := 11;
+var rivChanEyeY%    := 12;
+var rivChanJoy%     := 13;
+
+' VSG trigger input channels
+
+var rivChanMasterVSGReady%  :=  20;
+var rivChanSlaveVSGReady%   :=  21;
+var rivChanMasterPage%      :=  22;
+var rivChanSlavePage%       :=  23;
+var rivChanMasterGrating%   :=  24;
+var rivChanSlaveGrating%    :=  25;
+
+' windows
+
+var rivWindowData%;
+var rivWindowXY%;
+
+' display channels
+
+var rivChanMonitor%;
+var rivChanJoystickPos%;
+var rivChanJoystickRangeL%;
+var rivChanJoystickRangeC%;
+var rivChanJoystickRangeR%;
+var rivChanStimDisplay%;
+var rivChanFixptDisplay%;
+var rivChanFixptWindowDisplay%;
+var rivVCoeff;
+var rivVConst;
+var rivJoystickDisplayY;
+var rivUnitCircleX[36];
+var rivUnitCircleY[36];
+
+' Controls
+
+var rivIsPaused% := 0;
+var rivStimHandle% := 0;
+var rivCorrectResponse%;
+var rivIncorrectResponse%;
+var rivTStartStim;                  ' time at which stim is presented
+var rivTLastReward := -1;           ' time at which last reward was delivered - for maintainence rewards
+var rivUniversalIntertrialTime;     ' time to wait between trials
+var rivSwapTime;                    ' time to hold between stim swaps
+
+' trial types and associated vars
+const trialtypeTrainingL%         := 0;
+const trialtypeTrainingR%         := 1;
+const trialtypeRivalryLR%         := 2;
+const trialtypeRivalryRL%         := 3;
+const trialtypeRivalryCatchLR%    := 4;
+const trialtypeRivalryCatchRL%    := 5;
+const trialtypeUnknown%     := -1;
+var rivTrialTypeIndex%;                 ' this is the type returned by the trial generator
+var rivTrialType%;                      ' rivTrialTypes%[rivTrialTypeIndex%]
+const rivMaxTrialTypes% := 10;
+var rivTrialTypes%[rivMaxTrialTypes%];
+var rivNTrialTypes%;                    ' this is the total number of trial types for a single run; depends on settings
+const rivMaxStimKey%        := 2;
+var rivNStimKey%;
+var rivStimKey$[2];
+var rivStimKeyIndex%;
+
+
+' States - these constants define a particular state
+
+const stateStartup%             :=  1;
+const statePaused%              :=  2;
+const stateTrialStart%          :=  3;
+const stateBeep%                :=  4;
+const stateWaitForReady%        :=  5;
+const stateWaitForStimUp%       :=  6;
+const stateWaitForResponse%     :=  7;
+const stateCorrectResponse%     :=  8;
+const stateMaintainResponse%    :=  9;
+const stateMaxResponse%         :=  10;
+const stateBreakResponse%       :=  11;
+const stateWaitForStimOff%      :=  12;
+const stateIntertrialWait%      :=  13;
+const stateReadyFail%           :=  14;
+const stateIncorrectResponse%   :=  15;
+const stateNoResponse%          :=  16;
+const stateQuit%                :=  17;
+const stateDone%                :=  18;
+const stateVSGWait%             :=  19;
+const stateVSGConfirm%          :=  20;
+const stateTrialCompleted%      :=  21;
+const stateReadyHold%           :=  22;
+const stateWaitForSwap%         :=  23;
+const stateWaitForSwapResponse% :=  24;
+const stateCorrectSwapResponse% :=  25;
+const stateNoSwapResponse%      :=  26;
+const stateWaitForFixpt%        :=  27;
+const stateWaitForAcquisition%  :=  28;
+const stateFixationHold%        :=  29;
+const stateAcquisitionFail%     :=  30;
+const stateFixationFail%        :=  31;
+const stateRequestStim%         :=  32;
+const stateRequestFixpt%        :=  33;
+const stateWaitForFixptOff%     :=  34;
+const stateFixationBroken%      :=  35;
+
+' new states for dual vsg ops
+const stateWaitForStimReset%    :=  40;
+const stateWaitForRivalryResponse% := 41;
+
+var iState% := stateStartup%;              ' This holds the current state
+
+var tNow:=0;		    ' latest time for which there are values recorded. Used in IdleProcessing
+var tLast:=-1;		    ' last time we checked for a trigger. 
+var xEye, yEye;		    ' eye positions
+var tLastUpdate:=-1;	' last time view was updated
+var tMasterTrigger := -1;
+var tSlaveTrigger := -1;
+'var vTrigger;		    ' set by NextTime to indicate trigger transition
+var tStateStart:=-1;	' time that present state started. Used to measure wait time, fixation time, etc. 
+'var tLastTrigger:=-1;	' last trigger time. New triggers have to be greater than this
+'var tTrigger:=-1;	    ' temp var for newly discovered trigger times
+var doCorrectionTrial% := 0;    ' this is set to 1 when a trial fails and correction trials were requested
+var isCorrectionTrial% := 0;    ' this is set to 1 when we are in a trial that is a correction trial
+
+'===========================================================================================
+'
+' Script execution starts here. 
+'
+'===========================================================================================
+
+LogInit(1);
+InitJoystick(13);
+
+if RivalryDialog%() = 0 then
+    halt;
+endif
+
+if rivChooseTrialTypes% <> 0 then
+    rivNTrialTypes% := 6;
+    rivTrialTypes%[0] := trialtypeTrainingL%;
+    rivTrialTypes%[1] := trialtypeTrainingR%;
+    rivTrialTypes%[2] := trialtypeRivalryLR%;
+    rivTrialTypes%[3] := trialtypeRivalryRL%;
+    rivTrialTypes%[4] := trialtypeRivalryCatchLR%;
+    rivTrialTypes%[5] := trialtypeRivalryCatchRL%;
+else
+    tbgInit(2, rivNTrialsEachTypePerBlock%, rivNBlocks%);
+    rivNTrialTypes% := 2;
+    rivTrialTypes%[0] := trialtypeTrainingL%;
+    rivTrialTypes%[1] := trialtypeTrainingR%;
+endif
+
+' Stupid checks
+if rivSwapMaxTime < rivSwapMinTime then
+    Message("Duh! Swap max time must be greater than swap min time!");
+    halt;
+endif
+
+' Sampling config
+CreateSampleConfiguration();
+
+' Prepare display windows, input channels, etc. 
+InitializeWindows();
+
+' Set up toolbar and launch
+InitializeToolbar();
+
+
+
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+' CreateSampleConfiguration - Set up recording channels, dig input channels for VSG communication
+'
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+proc CreateSampleConfiguration()
+	var index;
+    
+	SampleClear(); 'Set standard sampling state
+	SampleAutoComment(0); 'Prompt for comment after sampling
+	SampleAutoCommit(60); 'Seconds between each file commit
+    
+    FilePathSet(GetDataPathRoot$() + "\\" + GetDataSetName$(), 3);
+    FilePathSet(GetDataPathRoot$() + "\\" + GetDataSetName$(), 1);
+    SampleAutoName$(dataCellName$ + "_riv_000");
+	SampleAutoFile(1);
+    
+    
+	'Channel recording definitions
+	SampleEvent(rivChanMasterVSGReady%, 1, 2, 3600); 'Trigger channel, level
+	SampleComment$(rivChanMasterVSGReady%, "M RDY");
+	SampleTitle$(rivChanMasterVSGReady%, "M RDY");
+    
+	SampleEvent(rivChanSlaveVSGReady%, 5, 2, 3600); 'Trigger channel, level
+	SampleComment$(rivChanSlaveVSGReady%, "S RDY");
+	SampleTitle$(rivChanSlaveVSGReady%, "S RDY");
+    
+	SampleEvent(rivChanMasterPage%, 0, 1, 3600); 'Trigger channel, level
+	SampleComment$(rivChanMasterPage%, "M Page");
+	SampleTitle$(rivChanMasterPage%, "M Page");
+    
+	SampleEvent(rivChanSlavePage%, 4, 1, 3600); 'Trigger channel, level
+	SampleComment$(rivChanSlavePage%, "S Page");
+	SampleTitle$(rivChanSlavePage%, "S Page");
+    
+	SampleEvent(rivChanMasterGrating%, 2, 2, 3600); 'Trigger channel, level
+	SampleComment$(rivChanMasterGrating%, "M Grating");
+	SampleTitle$(rivChanMasterGrating%, "M Grating");
+    
+	SampleEvent(rivChanSlaveGrating%, 6, 2, 3600); 'Trigger channel, level
+	SampleComment$(rivChanSlaveGrating%, "S Grating");
+	SampleTitle$(rivChanSlaveGrating%, "S Grating");
+    
+    
+	SampleWaveform(rivChanJoy%, GetJoystickPort%(), 1000);
+	SampleTitle$(rivChanJoy%, "Joy");
+    
+    
+	SampleWaveform(rivChanEyeX%, GetEyeXPort%(), 1000);
+	SampleTitle$(rivChanEyeX%, "Eye X");
+	SampleWaveform(rivChanEyeY%, GetEyeYPort%(), 1000);
+	SampleTitle$(rivChanEyeY%, "Eye Y");
+
+    
+	SampleSequencer(script$ + "RivalryDualVSG.pls");
+	SampleOptimise(2, 2, 2, 2, 50);  'Set optimise mode (do this last)
+	SampleMode(1); 'Continuous sampling
+
+end;
+
+
+
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+' InitilizeToolbar - prepare toolbar buttons. Note that the idle processing function (ToolbarSet(0, blah, blah)) is 
+' not set here. That's done when the user hits the start button.
+'
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+proc InitializeToolbar()
+
+	View(App(8)).WindowVisible(0);	'Hide the standard sample bar
+	ToolbarVisible(1);
+'	UpdateToolbarText();
+	ToolbarSet(1,"Sample start",Start%);
+	ToolbarSet(2,"Sample stop", Stop%);
+	ToolbarSet(3,"Juice", Reward%);
+	ToolbarSet(4,"Pause stimuli",Pause%);
+	ToolbarSet(5,"Resume stimuli",Resume%);
+	ToolbarSet(6,"Quit",Quit%);
+	ToolbarEnable(2,0);
+	ToolbarEnable(4,0);
+	ToolbarEnable(5,0);
+	Toolbar("Go",0x3ff);
+
+end;
+
+
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+' InitilizeWindows - Open data file, set up windows for online display.
+'
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+proc InitializeWindows()
+    var i%;
+	var twopi;
+    ' These set the max and min window dimensions. They are also used to scale the joystick 
+    ' position to the xy display, so if you change the size of the window, do it by changing
+    ' these vars!
+    var xyXMin := -20;
+    var xyXMax := 20;
+    var xyYMin := -15;
+    var xyYMax := 15;
+    var lh, cl, ch, rl;
+    rivJoystickDisplayY := -12;     ' y coord in xy window where joystick position is shown. 
+    
+	'Open the data sampling window
+	rivWindowData% := FileNew(0,4);
+	Window(0,48,100,95);
+    XRange(0, 30);
+	View(rivWindowData%).WindowVisible(1);
+
+	'Open an XY view to display eye position
+	rivWindowXY% := FileNew(12);
+	XRange(xyXMin, xyXMax);
+	YRange(-2, xyYMin, xyYMax);
+	XYDrawMode(0,5,0);
+	WindowVisible(1);
+	Window(0, 0, 100, 47);
+	XYColour(1, 16);
+	XYSize(1, -1);
+    
+	'Create a new channel in the XY view to show the monitor's location
+	rivChanMonitor% := XYSetChan(0);
+	XYColour(rivChanMonitor%, 13);
+	XYDrawMode(rivChanMonitor%, 3, 1);
+	XYJoin(rivChanMonitor%, 2);
+	XYAddData(rivChanMonitor%, -9, -7);
+	XYAddData(rivChanMonitor%, 9, -7);
+	XYAddData(rivChanMonitor%, 9, 7);
+	XYAddData(rivChanMonitor%, -9, 7);
+    
+    ' Set up joystick range numbers
+    lh := GetJoystickLeftHigh();
+    cl := GetJoystickCenterLow();
+    ch := GetJoystickCenterHigh();
+    rl := GetJoystickRightLow();
+    
+    ' We'll take the joystick voltage 'v' (which should be between 1 and 4volts) and 
+    ' convert it for display in the xy window like this:
+    ' x coord = v * rivVCoeff + rivVConst;
+    
+    rivVCoeff := (xyXMax - xyXMin)/3;
+    rivVConst := -2.5 * rivVCoeff;
+    
+    rivChanJoystickRangeL% := XYSetChan(0);
+    XYColour(rivChanJoystickRangeL%, 13);
+    XYSize(rivChanJoystickRangeL%, 2);
+    XYJoin(rivChanJoystickRangeL%, 1);
+    XYDrawMode(rivChanJoystickRangeL%, 4, 3);
+    XYAddData(rivChanJoystickRangeL%, xyXMin, rivJoystickDisplayY+1);
+    XYAddData(rivChanJoystickRangeL%, lh * rivVCoeff + rivVConst, rivJoystickDisplayY+1);
+    
+    rivChanJoystickRangeC% := XYSetChan(0);
+    XYColour(rivChanJoystickRangeC%, 13);
+    XYSize(rivChanJoystickRangeC%, 2);
+    XYJoin(rivChanJoystickRangeC%, 1);
+    XYDrawMode(rivChanJoystickRangeC%, 4, 3);
+    XYAddData(rivChanJoystickRangeC%, cl * rivVCoeff + rivVConst, rivJoystickDisplayY+1);
+    XYAddData(rivChanJoystickRangeC%, ch * rivVCoeff + rivVConst, rivJoystickDisplayY+1);
+    
+    rivChanJoystickRangeR% := XYSetChan(0);
+    XYColour(rivChanJoystickRangeR%, 13);
+    XYSize(rivChanJoystickRangeR%, 2);
+    XYJoin(rivChanJoystickRangeR%, 1);
+    XYDrawMode(rivChanJoystickRangeR%, 4, 3);
+    XYAddData(rivChanJoystickRangeR%, rl * rivVCoeff + rivVConst, rivJoystickDisplayY+1);
+    XYAddData(rivChanJoystickRangeR%, xyXMax, rivJoystickDisplayY+1);
+    
+    
+    ' this channel is for a symbol representing the actual joystick position
+    rivChanJoystickPos% := XYSetChan(0);
+    XYColour(rivChanJoystickPos%, 11);
+    XYDrawMode(rivChanJoystickPos%, 1, 8);
+    XYDrawMode(rivChanJoystickPos%, 2, 10);
+    XYSize(rivChanJoystickPos%, -1);
+    
+    ' this channel is for displaying the stimulus
+    rivChanStimDisplay% := XYSetChan(0);
+    XYColour(rivChanStimDisplay%, 8);
+    XYDrawMode(rivChanStimDisplay%, 2, 0);
+    XYDrawMode(rivChanStimDisplay%, 3, 0);
+    XYJoin(rivChanStimDisplay%, 2);
+    XYSize(rivChanStimDisplay%, 36);
+    
+    ' display fixpt
+    rivChanFixptDisplay% := XYSetChan(0);
+    XYColour(rivChanFixptDisplay%, 17);
+   	XYDrawMode(rivChanFixptDisplay%, 1, 0);
+    XYSize(rivChanFixptDisplay%, 1);
+    
+    ' display fixpt window
+    rivChanFixptWindowDisplay% := XYSetChan(0);
+    XYColour(rivChanFixptWindowDisplay%, 17);
+   	XYDrawMode(rivChanFixptWindowDisplay%, 2, 0);
+   	XYDrawMode(rivChanFixptWindowDisplay%, 3, 0);
+    XYJoin(rivChanFixptWindowDisplay%, 2);
+    XYSize(rivChanFixptWindowDisplay%, 36);
+    
+    
+	twopi := 2.0*4.0*ATan(1.0);
+	for i% := 0 to 35 do
+		rivUnitCircleX[i%] := Cos(i% * twopi/36.0);
+		rivUnitCircleY[i%] := Sin(i% * twopi/36.0);
+	next;
+
+    
+end;
+
+
+' DisplayStim
+'
+' Draws stuff in online XY display. 
+' iOn% values and their meanings:
+' 0 : Erase all
+' 1 : Display stim
+' 2 : Display fixpt and window
+
+proc DisplayStim(iOn%)
+    var circleX[36];
+    var circleY[36];
+    
+    docase
+    case iOn% = 0 then
+        View(rivWindowXY%).XYDelete(rivChanStimDisplay%);        
+        View(rivWindowXY%).XYDelete(rivChanFixptDisplay%);        
+        View(rivWindowXY%).XYDelete(rivChanFixptWindowDisplay%);                
+    case iOn% = 1 then
+        View(rivWindowXY%).XYDelete(rivChanStimDisplay%);
+        if rivCorrectResponse% = JSLeft% then
+            ArrConst(circleX[], rivUnitCircleX[]);
+            ArrMul(circleX[], rivLeftGratingD/2);
+            ArrAdd(circleX[], rivLeftGratingX);
+            ArrConst(circleY[], rivUnitCircleY[]);
+            ArrMul(circleY[], rivLeftGratingD/2);
+            ArrAdd(circleY[], rivLeftGratingY);
+        else
+            ArrConst(circleX[], rivUnitCircleX[]);
+            ArrMul(circleX[], rivRightGratingD/2);
+            ArrAdd(circleX[], rivRightGratingX);
+            ArrConst(circleY[], rivUnitCircleY[]);
+            ArrMul(circleY[], rivRightGratingD/2);
+            ArrAdd(circleY[], rivRightGratingY);
+        endif
+        View(rivWindowXY%).XYAddData(rivChanStimDisplay%, circleX[], circleY[]);
+    case iOn% = 2 then
+        View(rivWindowXY%).XYDelete(rivChanFixptDisplay%);        
+        View(rivWindowXY%).XYDelete(rivChanFixptWindowDisplay%);                
+        ArrConst(circleX[], rivUnitCircleX[]);
+        ArrMul(circleX[], rivFixationWindowD/2);
+        ArrAdd(circleX[], rivFixationX);
+        ArrConst(circleY[], rivUnitCircleY[]);
+        ArrMul(circleY[], rivFixationWindowD/2);
+        ArrAdd(circleY[], rivFixationY);
+        View(rivWindowXY%).XYAddData(rivChanFixptDisplay%, rivFixationX, rivFixationY);
+        View(rivWindowXY%).XYAddData(rivChanFixptWindowDisplay%, circleX[], circleY[]);
+    endcase
+    return;
+end
+
+func IdleProcessing%()
+	var iStatus% := 1;	
+    var iLoop% := 0;        ' States can set this to 1 if we stay in state loop
+    var joystickPosition%;
+    var joystickVoltage;
+    
+	tNow := MaxTime();
+    
+    ' Get and display joystick voltage and position
+    joystickPosition% := GetJoystickPosition%(joystickVoltage);
+    View(rivWindowXY%).XYAddData(rivChanJoystickPos%, joystickVoltage * rivVCoeff + rivVConst, rivJoystickDisplayY);
+    
+    if tNow > 0.005 then
+        xEye := ChanMeasure(rivChanEyeX%, 2, tNow, tNow-.005) * DegreesPerVoltX;
+        yEye := ChanMeasure(rivChanEyeY%, 2, tNow-.001, tNow-.006) * DegreesPerVoltY;
+        View(rivWindowXY%).XYAddData(1, xEye, yEye);
+    endif
+    
+    repeat
+        iLoop% := 0;
+        docase 
+        case iState% = stateStartup% then
+            
+            LogStatus("stateStartup", "Starting up.");
+            ChangeStateTo(stateVSGWait%, tNow);
+            iLoop% := 1;
+            
+        case iState% = stateVSGWait% then
+            
+            var trm, tfm, trs, tfs;
+            if FindPulseUp%(rivChanMasterVSGReady%, tStateStart, trm, tfm) = 1 and FindPulseUp%(rivChanSlaveVSGReady%, tStateStart, trs, tfs) = 1 then
+                LogStatus("stateVSGWait", "Got ready pulse from both vsg cards.");
+                ChangeStateTo(stateTrialStart%, tNow);
+                iLoop% := 1;
+            endif;
+            
+        case iState% = stateTrialStart% then
+            
+            var s%;
+            s% := PrepareTrial%();
+            if s% = 1 then
+                ChangeStateTo(stateBeep%, tNow);
+            else
+                ChangeStateTo(stateDone%, tNow);
+            endif
+            iLoop% := 1;
+            
+        case iState% = stateBeep% then
+            
+            if rivUseBeep% <> 0 then
+                Sound("ding", 1);
+            endif
+            Yield(.5);
+            ChangeStateTo(stateWaitForReady%, tNow);
+            iLoop% := 1;
+            
+        case iState% = stateWaitForReady% then
+            
+            ' Wait for joystick to be positioned in the center. 
+            docase
+            case joystickPosition% = JSCenter% then
+                LogStatus("WaitForReady", "Joystick ready.");
+                ChangeStateTo(stateReadyHold%, tNow);
+            case tNow - tStateStart > rivMaxWaitForReadyTime then
+                LogStatus("WaitForReady", "Ready wait time expired.");
+                ChangeStateTo(stateReadyFail%, tNow);
+            endcase
+            iLoop% := 0;
+            
+        case iState% = stateReadyHold% then
+            
+            iLoop% := 0;
+            docase
+            case tNow - tStateStart > rivReadyHoldTime then
+                LogStatus("stateReadyHold", "Ready hold time met.");
+                if rivReadyHoldRewardSize% > 0 then
+                    DeliverReward(rivReadyHoldRewardSize%, tNow);
+                    Yield(.1);
+                endif
+                if rivUseFixation% = 1 then
+                    ChangeStateTo(stateRequestFixpt%, tNow);
+                    iLoop% := 1;
+                else
+                    ChangeStateTo(stateRequestStim%, tNow);
+                    iLoop% := 1;
+                endif
+            case joystickPosition% <> JSCenter% then
+                LogStatus("stateReadyHold", "Joystick not in ready position.");
+                ChangeStateTo(stateReadyFail%, tNow);
+                iLoop% := 1;
+            endcase
+            
+        case iState% = stateRequestFixpt% then
+            
+            LogStatus("stateRequestFixpt", "Request fixpt.");
+            SampleKey(rivStimKey$[rivStimKeyIndex%]);
+            ChangeStateTo(stateWaitForFixpt%, tNow);
+
+        case iState% = stateWaitForFixpt% then
+            
+                ' TODO: Check for js ready here? Exit to what state?
+            iLoop% := 0;
+            docase
+            case FindEvent%(rivChanMasterPage%, tStateStart, tMasterTrigger) = 1 and FindEvent%(rivChanSlavePage%, tStateStart, tSlaveTrigger) = 1 then
+                ' Fixpt is up
+                LogStatus("stateWaitForFixpt", "Fixpt is up.");
+                DisplayStim(2);
+                ChangeStateTo(stateWaitForAcquisition%, tNow);
+                iLoop% := 1;
+            endcase
+                
+        case iState% = stateWaitForAcquisition% then
+            
+            ' Waiting for eye to fall in fixation window. Joystick must remain in ready position.
+            docase
+            case joystickPosition% <> JSCenter% then
+                LogStatus("stateWaitForAcquisition", "Joystick not in ready position.");
+                ChangeStateTo(stateAcquisitionFail%, tNow);
+            case Looking%(xEye, yEye) = 1 then
+                LogStatus("stateWaitForAcquisition", "Eye in fixation window.");
+                ChangeStateTo(stateFixationHold%, tNow);
+            case tNow - tStateStart > rivMaxAcquisitionTime then
+                LogStatus("stateWaitForAcquisition", "Acquisition time is up!");
+                ChangeStateTo(stateAcquisitionFail%, tNow);
+            else
+                iLoop% := 0;
+            endcase
+            
+        case iState% = stateFixationHold% then
+            
+            iLoop% := 0;
+            docase
+            case joystickPosition% <> JSCenter% then
+                LogStatus("stateFixationHold", "Joystick not in ready position.");
+                ChangeStateTo(stateFixationFail%, tNow);
+            case Looking%(xEye, yEye) <> 1 then
+                LogStatus("stateFixationHold", "Eye not in fixation window.");
+                ChangeStateTo(stateFixationFail%, tNow);
+            case tNow - tStateStart > rivFixationHoldTime then
+                LogStatus("stateFixationHold", "Done.");
+                ChangeStateTo(stateRequestStim%, tNow);
+            else
+                iLoop% := 0;
+            endcase
+                
+        case iState% = stateRequestStim% then
+            
+            LogStatus("stateRequestStim", "Request stim");
+            SampleKey("g");
+            ChangeStateTo(stateWaitForStimUp%, tNow);
+            iLoop% := 0;
+                
+        case iState% = stateAcquisitionFail% then
+            
+            rivUniversalIntertrialTime := rivAcquisitionFailWaitTime;
+            SampleKey("X");
+            ChangeStateTo(stateWaitForFixptOff%, tNow);
+            iLoop% := 0;
+            
+        case iState% = stateFixationFail% then
+            
+            rivUniversalIntertrialTime := rivFixationFailWaitTime;
+            SampleKey("X");
+            ChangeStateTo(stateWaitForFixptOff%, tNow);
+            iLoop% := 0;
+            
+        case iState% = stateFixationBroken% then
+            
+            rivUniversalIntertrialTime := rivFixationFailWaitTime;
+            SampleKey("X");
+            ChangeStateTo(stateWaitForStimOff%, tNow);
+            iLoop% := 0;
+            
+        case iState% = stateReadyFail% then
+            
+            rivCtrReadyFail% += 1;
+            rivUniversalIntertrialTime := rivReadyFailWaitTime;
+            ChangeStateTo(stateIntertrialWait%, tNow);
+            iLoop% := 0;
+            
+        case iState% = stateWaitForStimUp% then
+            
+            ' Waiting for stim signals on channel rivChanMasterGrating% and rivChanSlaveGrating%
+            if FindEdge%(rivChanMasterGrating%, tStateStart, tMasterTrigger) > -1 and FindEdge%(rivChanSlaveGrating%, tStateStart, tSlaveTrigger) > -1 then
+				LogStatus("WaitForStimUp", "Stimulus is up.\n");
+                DisplayStim(1);
+                rivTStartStim := tMasterTrigger;
+                docase
+                case rivTrialType% = trialtypeTrainingL% or rivTrialType% = trialtypeTrainingR% then
+                    ChangeStateTo(stateWaitForResponse%, tMasterTrigger);
+                case rivTrialType% = trialtypeRivalryLR% or rivTrialType% = trialtypeRivalryRL% then
+                    ChangeStateTo(stateWaitForRivalryResponse%, tMasterTrigger);
+                    rivLastRivalryResponse% := JSUndefined%;
+                case rivTrialType% = trialtypeRivalryCatchLR% or rivTrialType% = trialtypeRivalryCatchRL% then
+                    ChangeStateTo(stateWaitForRivalryResponse%, tMasterTrigger);
+                    rivLastRivalryResponse% := JSUndefined%;
+                else
+                    LogError("WaitForStimUp", "Unknown trial type (" + str$(rivTrialType%) + ")");
+                    ChangeStateTo(stateDone%, tNow);
+                endcase
+			endif;
+            iLoop% := 0;
+            
+        case iState% = stateWaitForRivalryResponse% then
+            
+            docase
+            case rivUseFixation% = 1 and Looking%(xEye, yEye) <> 1 then
+                LogStatus("WaitForRivalryResponse", "Eye not in fixation window.");
+                ChangeStateTo(stateFixationBroken%, tNow);
+            case tNow-tStateStart > rivRivalryMaxTime then
+                LogStatus("WaitForRivalryResponse", "Max time is up. Nice job.");
+                SampleKey("X");
+                ChangeStateTo(stateWaitForStimOff%, tNow);
+            case (rivTrialType% = trialtypeRivalryCatchLR% or rivTrialType% = trialtypeRivalryCatchRL%) and tNow-tStateStart > rivRivalryCatchSwitchTime then
+                LogStatus("WaitForRivalryResponse", "Switch time is here.");
+                
+                ' Determine what to switch to based on current joystick position. If she's indicating left, 
+                ' switch to right; if she's indicating right, switch to left. If she's indicating neither....???TODO
+                
+                docase 
+                case joystickPosition% = JSLeft% then
+                    rivCorrectResponse% := JSRight%;
+                    rivIncorrectResponse% := JSLeft%;
+                    rivStimKey$[0] := "A";
+                    rivStimKey$[1] := "5";
+                    rivStimKeyIndex% := 0;
+                    rivNStimKey% := 2;
+                case joystickPosition% = JSRight% then
+                    rivCorrectResponse% := JSLeft%;
+                    rivIncorrectResponse% := JSRight%;
+                    rivStimKey$[0] := "5";
+                    rivStimKey$[1] := "A";
+                    rivStimKeyIndex% := 0;
+                    rivNStimKey% := 2;
+                else
+                    LogWarn("WaitForRivalryResponse", "No Joystick response at catch trial switch time!");
+                    rivCorrectResponse% := JSLeft%;
+                    rivIncorrectResponse% := JSRight%;
+                    rivStimKey$[0] := "5";
+                    rivStimKey$[1] := "A";
+                    rivStimKeyIndex% := 0;
+                    rivNStimKey% := 2;
+                endcase
+                SampleKey(rivStimKey$[rivStimKeyIndex%]);
+                UpdateSwapValues(0);
+                ChangeStateTo(stateWaitForSwap%, tNow);
+                
+            case rivLastRivalryResponse% = JSUndefined% and (joystickPosition% = JSLeft% or joystickPosition% = JSRight%) then
+                rivLastRivalryResponse% := joystickPosition%;
+                DeliverReward(rivResponseCorrectRewardSize%, tNow);
+            case ((rivLastRivalryResponse% = JSLeft% and joystickPosition% = JSRight%) or (rivLastRivalryResponse% = JSRight% and joystickPosition% = JSLeft%)) and tNow-rivTLastReward > rivRivalryRewardHoldoff  then
+                rivLastRivalryResponse% := joystickPosition%;
+                DeliverReward(rivSwapRewardSize%, tNow);
+            case rivLastRivalryResponse% = joystickPosition% and tNow-rivTLastReward > rivMaintainResponseRewardWait then
+                DeliverReward(rivMaintainResponseRewardSize%, tNow);
+            endcase
+                
+        case iState% = stateWaitForResponse% then
+            
+            ' Waiting for response. PrepareTrial() sets the global var rivCorrectResponse% (and rivIncorrectResponse%) 
+            ' to either JSLeft% or JSRight%.
+            iLoop% := 1;
+            docase
+            case rivUseFixation% = 1 and Looking%(xEye, yEye) <> 1 then
+                LogStatus("stateWaitForResponse", "Eye not in fixation window.");
+                ChangeStateTo(stateFixationBroken%, tNow);
+            case joystickPosition% = rivCorrectResponse% then
+                LogStatus("stateWaitForResponse", "Correct response!");
+                ChangeStateTo(stateCorrectResponse%, tNow);
+                iLoop% := 1;
+            case joystickPosition% = rivIncorrectResponse% then
+                LogStatus("stateWaitForResponse", "Incorrect response!");
+                ChangeStateTo(stateIncorrectResponse%, tNow);
+                iLoop% := 1;
+            case tNow - tStateStart > rivMaxResponseTime then
+                LogStatus("stateWaitForResponse", "No response!");
+                ChangeStateTo(stateNoResponse%, tNow);
+                iLoop% := 1;
+            else
+                iLoop% := 0;
+            endcase
+            
+        case iState% = stateNoResponse% then
+            
+            doCorrectionTrial% := 1;
+            rivCtrNoResponse% += 1;
+            SampleKey("X");
+            rivUniversalIntertrialTime := rivResponseFailWaitTime;
+            ChangeStateTo(stateWaitForStimOff%, tNow);
+            iLoop% := 0;
+            
+        case iState% = stateCorrectResponse% then
+            
+            doCorrectionTrial% := 0;
+            rivCtrCorrect% += 1;
+            DeliverReward(rivResponseCorrectRewardSize%, tNow);
+            UpdateSwapValues(0);
+            ChangeStateTo(stateMaintainResponse%, tNow);
+            iLoop% := 0;
+            
+        case iState% = stateIncorrectResponse% then
+            
+            doCorrectionTrial% := 1;
+            rivCtrIncorrect% += 1;
+            SampleKey("X");
+            rivUniversalIntertrialTime := rivResponseIncorrectWaitTime;
+            ChangeStateTo(stateWaitForStimOff%, tNow);
+            iLoop% := 0;
+            
+        case iState% = stateMaintainResponse% then
+            
+            ' If subject maintains correct response for specified amount of time, deliver another
+            ' reward, loop again. Upper time limit on this loop applies. 
+            
+            iLoop% := 1;
+            docase
+            case rivUseFixation% = 1 and Looking%(xEye, yEye) <> 1 then
+                LogStatus("stateMaintainResponse", "Eye not in fixation window.");
+                ChangeStateTo(stateFixationBroken%, tNow);
+            case joystickPosition% <> rivCorrectResponse% then
+                LogStatus("stateMaintainResponse", "Correct response broken!");
+                rivUniversalIntertrialTime := rivResponseBrokenWaitTime;
+                SampleKey("X");
+                ChangeStateTo(stateWaitForStimOff%, tNow);
+                iLoop% := 0;
+            case tNow - rivTStartStim > rivMaxStimTime then
+                LogStatus("stateMaintainResponse", "Max response time reached. Moving on...");
+                rivUniversalIntertrialTime := rivMaxStimWaitTime;
+                SampleKey("X");
+                ChangeStateTo(stateWaitForStimOff%, tNow);
+                iLoop% := 0;
+            case joystickPosition% = rivCorrectResponse% then
+                
+                ' Check for maintenance reward
+                if rivTLastReward > 0 and tNow - rivTLastReward > rivMaintainResponseRewardWait then
+                    DeliverReward(rivMaintainResponseRewardSize%, tNow);
+                endif
+                
+                if  tNow - tStateStart > rivSwapTime then
+                    LogStatus("stateMaintainResponse", "Request stim swap.");
+                    rivStimKeyIndex% := 1 - rivStimKeyIndex%;
+                    SampleKey(rivStimKey$[rivStimKeyIndex%]);
+                    UpdateSwapValues(1);
+'                    DeliverReward(rivMaintainResponseRewardSize%);
+                    ChangeStateTo(stateWaitForSwap%, tNow);
+                endif
+                
+                iLoop% := 0;
+            else
+                LogError("stateMaintainResponse", "Unknown condition!!!");
+                iLoop% := 0;
+            endcase
+            
+        case iState% = stateWaitForSwap% then
+            
+            if FindEvent%(rivChanMasterPage%, tStateStart, tMasterTrigger) = 1 and 
+                FindEvent%(rivChanSlavePage%, tStateStart, tSlaveTrigger) = 1 then
+                LogStatus("stateWaitForSwap", "Swap detected.");
+                DisplayStim(1);
+                ChangeStateTo(stateWaitForSwapResponse%, tNow);
+                iLoop% := 0;
+            endif
+            
+        case iState% = stateWaitForSwapResponse% then
+            
+            ' The stim has been swapped, and the value of rivCorrectResponse has been set to the 
+            ' new stim position. We anxiously await a response.
+            
+            iLoop% := 1;
+            docase
+            case rivUseFixation% = 1 and Looking%(xEye, yEye) <> 1 then
+                LogStatus("stateWaitForSwapResponse", "Eye not in fixation window.");
+                ChangeStateTo(stateFixationBroken%, tNow);
+            case joystickPosition% = rivCorrectResponse% then
+                LogStatus("stateWaitForSwapResponse", "Correct response!");
+                ChangeStateTo(stateCorrectSwapResponse%, tNow);
+                iLoop% := 1;
+            case tNow - tStateStart > rivSwapMaxResponseTime then
+                LogStatus("stateWaitForSwapResponse", "No response!");
+                ChangeStateTo(stateNoSwapResponse%, tNow);
+                iLoop% := 1;
+            else
+                iLoop% := 0;
+            endcase
+            
+        case iState% = stateCorrectSwapResponse% then
+            
+            DeliverReward(rivSwapRewardSize%, tNow);
+            ChangeStateTo(stateMaintainResponse%, tNow);
+            iLoop% := 0;
+            
+        case iState% = stateNoSwapResponse% then
+            
+            SampleKey("X");
+            rivUniversalIntertrialTime := rivResponseBrokenWaitTime;
+            ChangeStateTo(stateWaitForStimOff%, tNow);
+            iLoop% := 0;
+
+        case iState% = stateWaitForStimOff% then
+            
+            ' Waiting for stim signal off channel StimChannel%
+            iLoop% := 0;
+            if FindEvent%(rivChanMasterPage%, tStateStart, tMasterTrigger) = 1 and 
+                FindEvent%(rivChanSlavePage%, tStateStart, tSlaveTrigger) = 1 then
+ 				LogStatus("stateVSGWaitForStimOff", "Stimulus is off.\n");
+                DisplayStim(0);
+                SampleKey("x");
+                ChangeStateTo(stateWaitForStimReset%, tMasterTrigger);
+                iLoop% := 0;
+			endif;
+            
+        case iState% = stateWaitForStimReset% then
+            
+            ' Waiting for stim signals on channel rivChanMasterGrating% and rivChanSlaveGrating%
+            iLoop% := 0;
+            if FindEdge%(rivChanMasterGrating%, tStateStart, tMasterTrigger) > -1 and FindEdge%(rivChanSlaveGrating%, tStateStart, tSlaveTrigger) > -1 then
+				LogStatus("stateVSGWaitForStimReset", "Stimulus reset.\n");
+				ChangeStateTo(stateIntertrialWait%, tMasterTrigger);
+                iLoop% := 1;
+			endif;
+            
+        case iState% = stateWaitForFixptOff% then
+            
+            ' Waiting for stim signal off channel StimChannel%
+            iLoop% := 0;
+            if FindEvent%(rivChanMasterPage%, tStateStart, tMasterTrigger) = 1 and 
+                FindEvent%(rivChanSlavePage%, tStateStart, tSlaveTrigger) = 1 then
+				LogStatus("stateVSGWaitForFixptOff", "Fixpt is off.\n");
+                DisplayStim(0);
+				ChangeStateTo(stateIntertrialWait%, tMasterTrigger);
+                iLoop% := 1;
+			endif;
+            
+        case iState% = stateIntertrialWait% then
+            
+            ' Any states that exit to here should have set the universal intertrial wait time!
+            iLoop% := 0;
+            if tNow - tStateStart > rivUniversalIntertrialTime then
+                ChangeStateTo(stateTrialCompleted%, tNow);
+                iLoop% := 1;
+            endif
+            
+        case iState% = stateTrialCompleted% then
+            
+            LogStatus("stateTrialCompleted", "Trial completed.");
+            ' If correction trials are required, deal with that now....
+            ChangeStateTo(stateTrialStart%, tNow);
+            iLoop% := 1;
+            
+        case iState% = stateDone% then
+            
+            LogStatus("stateDone", "Reached done state. Calling Stop%()...\n");
+            Stop%();
+            iLoop% := 0;
+            iStatus% := 0;
+            
+        else
+            
+            ' Unknown state!
+            Message("Unknown state=" + str$(iState%));
+            halt;
+            
+        endcase;
+    until iLoop% = 0;
+    
+	tLast := tNow;
+	return iStatus%;
+end;
+
+
+proc ChangeStateTo(stateTo%, tStart)
+	iState% := stateTo%;
+	if tStart > 0 then tStateStart := tStart; endif;
+end;
+
+proc DeliverReward(iNumRewards%, t)
+    rivTLastReward := t;
+    SampleSeqVar(1, iNumRewards%);
+    SampleKey("R");
+    return;
+end
+
+func Reward%()
+    DeliverReward(1, -1);
+    return 1;
+end
+
+
+' Used to hard-quit from toolbar. This will close data files without saving!!! 
+' It is important that this function be disabled once sampling is started!!!
+
+func Quit%()
+	if rivStimHandle% > 0 then
+        ProgKill(rivStimHandle%);
+        while ProgStatus(rivStimHandle%) > 0 do
+            Yield();
+        wend
+        rivStimHandle% := 0;
+    endif
+	FileClose(-1,-1);
+	return 0;
+end;
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func Stop%()
+
+	' Disable idle process func
+	ToolbarSet(0, "");
+
+	' Tell stim app to shut down
+	SampleKey("q");
+	Yield(.1);
+	SampleStop();
+
+	if rivStimHandle% > 0 then
+        ProgKill(rivStimHandle%);
+        while ProgStatus(rivStimHandle%) > 0 do
+            Yield();
+        wend
+        rivStimHandle% := 0;
+    endif
+    return 0;
+
+end;
+
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func Start%()
+    var cmdLine$;
+    var offsetFilename$ := "unknown";
+    var key$;
+    var h, contrast%, sf, tf, ori, cv$, pattern$, aperture$;
+    
+    ' Fetch the offset filename
+    key$ := GetRegistryKey$(1) + "\\Rivalry";
+    offsetFilename$ := GetDataPathRoot$() + "\\" + GetDataSetName$() + "\\" + GetStringRegistryValue$(key$, "OffsetFile", "file_not_found");
+    
+    ' Parse the grating coordinates for display in the xy window
+    ParseGratingParameters%(rivLeftGrating$, rivLeftGratingX, rivLeftGratingY, rivLeftGratingD, h, contrast%, sf, tf, ori, cv$, pattern$, aperture$);
+    ParseGratingParameters%(rivRightGrating$, rivRightGratingX, rivRightGratingY, rivRightGratingD, h, contrast%, sf, tf, ori, cv$, pattern$, aperture$);
+    GetFixationPointParameterValues(rivFixationX, rivFixationY, rivFixationD, rivFixationWindowD);
+    
+    ' Start sampling
+   	SampleStart(0);
+
+    ' Generate command line
+    cmdLine$ := "cmd /k " + GetBinDir$(1) + "rivalry -S -d " + GetDistanceToScreenMM$() + " -b gray -r " + offsetFilename$ + " -s " + rivLeftGrating$ + " -s " + rivRightGrating$;
+    if rivUseFixation% then
+        cmdLine$ += " " + rivFixationArg$;
+    endif
+    
+	'Begin the stimulus program. It will take a few seconds for the VSG to initialize.
+	LogInfo(cmdLine$+"\n");
+	rivStimHandle% := ProgRun(cmdLine$, 1);
+	if rivStimHandle% < 0 then Message("Could not start stimulus."); halt; endif
+	
+	ToolbarSet(0,"",IdleProcessing%);	'Enable the IdleProcessing function
+	ToolbarEnable(1,0);
+	ToolbarEnable(2,1);
+	ToolbarEnable(4,1);
+	View(rivWindowData%);
+    return 1;
+end;
+
+func Pause%()
+    LogInfo("Pause requested.");
+    rivIsPaused% := 1;
+    return 1;
+end
+
+func Resume%()
+    LogInfo("Resume requested.");
+    rivIsPaused% := 0;
+    return 1;
+end
+
+' UpdateSwapValues(iUpdateCorrectResponse)
+'
+' Compute the (random) time before another stim swap. If 'UpdateCorrectResponse
+' is nonzero, also resets the correct js position. 
+
+proc UpdateSwapValues(iJS%)
+    
+    rivSwapTime := Rand(rivSwapMaxTime - rivSwapMinTime, rivSwapMinTime);
+    
+    if iJS% <> 0 then
+        docase
+        case rivCorrectResponse% = JSLeft% then
+            rivCorrectResponse% := JSRight%;
+        case rivCorrectResponse% = JSRight% then
+            rivCorrectResponse% := JSLeft%;
+        else
+            LogError("UpdateSwapValues", "ERROR! Unknown value for rivCorrectResponse (" + str$(rivCorrectResponse%) + ")");
+            rivCorrectResponse% := JSUndefined%;
+        endcase
+    endif
+    
+    return;
+end
+
+
+' PrepareBlock
+'
+' Prepares variables etc used for driving a block of trials for this expt. 
+' TODO 
+
+proc PrepareBlock()
+    LogInfo("Preparing block...");
+    tbgInit(2, rivNTrialsEachTypePerBlock%, rivNBlocks%);
+    return
+end
+
+' PrepareTrial
+'
+' Prepares variables etc used for driving a single trial
+
+func PrepareTrial%()
+    var index%;
+    var s%;
+    docase
+    case rivCorrectionTrials% = 1 and doCorrectionTrial% = 1 then
+        
+        docase
+        case rivCorrectResponse% = JSLeft% then
+            LogInfo("Correction trial... LEFT");
+            s% := 1;
+        case rivCorrectResponse% = JSRight% then
+            LogInfo("Correction trial... RIGHT");
+            s% := 1;
+        else
+            LogError("", "Unknown correct response value!!!\n");
+            s% := 0;
+        endcase
+        
+    case rivChooseTrialTypes% <> 0 then
+        
+        DlgCreate("Choose trial type");
+        DlgList(1, "Trial type:", "TrainingL|TrainingR|RivalryLR|RivalryRL|RivCatchLR|RivCatchRL");
+        if DlgShow(rivTrialTypeIndex%) = 1 then
+            rivTrialType% := rivTrialTypes%[rivTrialTypeIndex%];
+            PrepareTrialVars(rivTrialType%);
+            s% := 1;
+        else
+            s% := 0;
+        endif
+        
+    else
+        
+        s% := tbgGetTrialIndex%(rivTrialTypeIndex%);
+        
+        if s% = 1 then
+            rivTrialType% := rivTrialTypes%[rivTrialTypeIndex%];
+            PrepareTrialVars(rivTrialType%);
+        endif
+    endcase
+    
+    return s%;
+end
+
+proc PrepareTrialVars(type%)
+    docase
+    case type% = trialtypeTrainingL% then
+        LogInfo("Preparing trial... LEFT");
+        rivCorrectResponse% := JSLeft%;
+        rivIncorrectResponse% := JSRight%;
+        rivStimKey$[0] := "5";
+        rivStimKey$[1] := "A";
+        rivStimKeyIndex% := 0;
+        rivNStimKey% := 2;
+    case type% = trialtypeTrainingR% then
+        LogInfo("Preparing trial... RIGHT");
+        rivCorrectResponse% := JSRight%;
+        rivIncorrectResponse% := JSLeft%;
+        rivStimKey$[0] := "A";
+        rivStimKey$[1] := "5";
+        rivStimKeyIndex% := 0;
+        rivNStimKey% := 2;
+    case type% = trialtypeRivalryLR% then
+        LogInfo("Preparing trial... RivalryLR");
+        rivCorrectResponse% := JSUndefined%;
+        rivIncorrectResponse% := JSUndefined%;
+        rivStimKey$[0] := "6";
+        rivStimKeyIndex% := 0;
+        rivNStimKey% := 1;
+    case type% = trialtypeRivalryRL% then
+        LogInfo("Preparing trial... RivalryRL");
+        rivCorrectResponse% := JSUndefined%;
+        rivIncorrectResponse% := JSUndefined%;
+        rivStimKey$[0] := "9";
+        rivStimKeyIndex% := 0;
+        rivNStimKey% := 1;
+    case type% = trialtypeRivalryCatchLR% then
+        LogInfo("Preparing trial... RivalryCatchLR");
+        rivCorrectResponse% := JSUndefined%;
+        rivIncorrectResponse% := JSUndefined%;
+        rivStimKey$[0] := "6";
+        rivStimKeyIndex% := 0;
+        rivNStimKey% := 1;
+        rivRivalryCatchSwitchTime := Rand(rivRivalryCatchMaxSwitchTime - rivRivalryCatchMinSwitchTime, rivRivalryCatchMinSwitchTime);
+    case type% = trialtypeRivalryCatchRL% then
+        LogInfo("Preparing trial... RivalryCatchRL");
+        rivCorrectResponse% := JSUndefined%;
+        rivIncorrectResponse% := JSUndefined%;
+        rivStimKey$[0] := "9";
+        rivStimKeyIndex% := 0;
+        rivNStimKey% := 1;
+        rivRivalryCatchSwitchTime := Rand(rivRivalryCatchMaxSwitchTime - rivRivalryCatchMinSwitchTime, rivRivalryCatchMinSwitchTime);
+    else
+        LogError("", "Unknown index returned from tbgGetTrialIndex%.\n");
+    endcase
+
+end
+
+
+
+func RivalryDialog%()
+    var i%;
+    GetRivalryParameters();
+    DlgCreate("Rivalry Parameters");
+    DlgGroup("General", 1, 1, 50, 6);
+    DlgInteger(1, "# of blocks", 1, 100, 25, 2);
+    DlgInteger(2, "Trials per block", 1, 100, 25, 3);
+    DlgCheck(3, "Use beep?", 1, 4);
+    DlgCheck(4, "Correction trials?", 1, 5);
+    DlgInteger(5, "Beep length (ms)", 1, 1000, 25, 6);
+    DlgButton(101, "Timing", RivalryTimingDialog%, 1, 7);
+    DlgGroup("Reward/Swap", 1, 8, 50, 10);
+    DlgReal(6, "Ready hold time (s)", .1, 10, 25, 9);
+    DlgInteger(7, "Ready hold reward", 0, 10, 25, 10);
+    DlgInteger(8, "Reward (correct resp)", 1, 10, 25, 11);
+    DlgInteger(9, "Reward (maintain)", 1, 10, 25, 12);
+    DlgReal(10, "Reward wait (maintain)", 0.01, 10, 25, 13);
+    DlgInteger(11, "Reward (swap)", 1, 10, 25, 14);
+    DlgReal(12, "Swap time - min", 0.01, 20, 25, 15);
+    DlgReal(13, "Swap time - max", 0.01, 20, 25, 16);
+    DlgReal(14, "Max stim time (s)", .01, 20, 25, 17);
+    DlgGroup("Fixation", 1, 18, 50, 3);
+    DlgCheck(15, "Use Fixation?", 1, 19);
+    DlgButton(104, "Fixation Settings", RivalryFixationDialog%, 1, 20);
+    DlgGroup("Gratings", 1, 21, 50, 3);
+    DlgButton(102, "Left Grating", RivalryLGratingDialog%, 1, 22);
+    rivLeftGratingTextItem% := DlgText(rivLeftGrating$, 15, 22);
+    DlgButton(103, "Right Grating", RivalryRGratingDialog%, 1, 23);
+    rivRightGratingTextItem% := DlgText(rivRightGrating$, 15, 23);
+    i% := DlgShow(rivNBlocks%, rivNTrialsEachTypePerBlock%, rivUseBeep%, rivCorrectionTrials%, rivBeepLengthMS%, rivReadyHoldTime, 
+                  rivReadyHoldRewardSize%, rivResponseCorrectRewardSize%, rivMaintainResponseRewardSize%, rivMaintainResponseRewardWait, 
+                  rivSwapRewardSize%, rivSwapMinTime, rivSwapMaxTime, rivMaxStimTime, rivUseFixation%);
+    if i% = 1 then
+        SaveRivalryParameters();
+    endif
+    return i%;
+end
+
+proc GetRivalryParameters()
+    var key$;
+    var stmp$;
+    key$ := GetRegistryKey$(1) + "\\Rivalry";
+    rivLeftGrating$ := GetStringRegistryValue$(key$, "LeftGrating", rivLeftGrating$);
+    rivRightGrating$ := GetStringRegistryValue$(key$, "RightGrating", rivRightGrating$);
+    rivFixationArg$ := GetFixationArg$();   ' Note: this is NOT saved in SaveRivarlyParameters!
+    rivNBlocks% := GetIntRegistryValue%(key$, "NBlocks", rivNBlocks%);
+    rivNTrialsEachTypePerBlock% := GetIntRegistryValue%(key$, "NTrialsEachTypePerBlock", rivNTrialsEachTypePerBlock%);
+    rivUseBeep% := GetIntRegistryValue%(key$, "UseBeep", rivUseBeep%);
+    rivCorrectionTrials% := GetIntRegistryValue%(key$, "CorrectionTrials", rivCorrectionTrials%);
+    rivBeepLengthMS% := GetIntRegistryValue%(key$, "BeepLengthMS", rivBeepLengthMS%);
+    rivResponseCorrectRewardSize% := GetIntRegistryValue%(key$, "ResponseCorrectRewardSize", rivResponseCorrectRewardSize%);
+    rivMaintainResponseRewardSize% := GetIntRegistryValue%(key$, "MaintainResponseRewardSize", rivMaintainResponseRewardSize%);
+    rivMaintainResponseRewardWait := GetFloatRegistryValue(key$, "MaintainResponseRewardWait", rivMaintainResponseRewardWait);
+    rivSwapRewardSize% := GetIntRegistryValue%(key$, "SwapRewardSize", rivSwapRewardSize%);
+    rivSwapMinTime := GetFloatRegistryValue(key$, "SwapMinTime", rivSwapMinTime);
+    rivSwapMaxTime := GetFloatRegistryValue(key$, "SwapMaxTime", rivSwapMaxTime);
+    rivMaxStimTime := GetFloatRegistryValue(key$, "MaxStimTime", rivMaxStimTime);
+    rivMaxWaitForReadyTime := GetFloatRegistryValue(key$, "MaxWaitForReadyTime", rivMaxWaitForReadyTime);
+    rivReadyFailWaitTime := GetFloatRegistryValue(key$, "ReadyFailWaitTime", rivReadyFailWaitTime);
+    rivSwapMaxResponseTime := GetFloatRegistryValue(key$, "SwapMaxResponseTime", rivSwapMaxResponseTime);
+    rivMaxResponseTime := GetFloatRegistryValue(key$, "MaxResponseTime", rivMaxResponseTime);
+    rivResponseFailWaitTime := GetFloatRegistryValue(key$, "ResponseFailWaitTime", rivResponseFailWaitTime);
+    rivResponseIncorrectWaitTime := GetFloatRegistryValue(key$, "ResponseIncorrectWaitTime", rivResponseIncorrectWaitTime);
+    rivResponseBrokenWaitTime := GetFloatRegistryValue(key$, "ResponseBrokenWaitTime", rivResponseBrokenWaitTime);
+    rivMaxStimWaitTime := GetFloatRegistryValue(key$, "MaxStimWaitTime", rivMaxStimWaitTime);
+    rivReadyHoldRewardSize% := GetIntRegistryValue%(key$, "ReadyHoldRewardSize", rivReadyHoldRewardSize%);
+    rivReadyHoldTime := GetFloatRegistryValue(key$, "ReadyHoldTime", rivReadyHoldTime);
+    
+    rivUseFixation% := GetIntRegistryValue%(key$, "UseFixation", rivUseFixation%);
+    rivMaxAcquisitionTime := GetFloatRegistryValue(key$, "MaxAcquisitionTime", rivMaxAcquisitionTime);
+    rivAcquisitionFailWaitTime := GetFloatRegistryValue(key$, "AcquisitionFailWaitTime", rivAcquisitionFailWaitTime);
+    rivFixationHoldTime := GetFloatRegistryValue(key$, "FixationHoldTime", rivFixationHoldTime);
+    rivFixationFailWaitTime := GetFloatRegistryValue(key$, "FixationFailWaitTime", rivFixationFailWaitTime);
+end
+
+proc SaveRivalryParameters()
+    var key$;
+    var stmp$;
+    key$ := GetRegistryKey$(1) + "\\Rivalry";
+    SetStringRegistryValue(key$, "LeftGrating", rivLeftGrating$);
+    SetStringRegistryValue(key$, "RightGrating", rivRightGrating$);
+    SetIntRegistryValue(key$, "NBlocks", rivNBlocks%);
+    SetIntRegistryValue(key$, "NTrialsEachTypePerBlock", rivNTrialsEachTypePerBlock%);
+    SetIntRegistryValue(key$, "UseBeep", rivUseBeep%);
+    SetIntRegistryValue(key$, "CorrectionTrials", rivCorrectionTrials%);
+    SetIntRegistryValue(key$, "BeepLengthMS", rivBeepLengthMS%);
+    SetIntRegistryValue(key$, "ResponseCorrectRewardSize", rivResponseCorrectRewardSize%);
+    SetIntRegistryValue(key$, "MaintainResponseRewardSize", rivMaintainResponseRewardSize%);
+    SetFloatRegistryValue(key$, "MaintainResponseRewardWait", rivMaintainResponseRewardWait);
+    SetIntRegistryValue(key$, "SwapRewardSize", rivSwapRewardSize%);
+    SetFloatRegistryValue(key$, "SwapMinTime", rivSwapMinTime);
+    SetFloatRegistryValue(key$, "SwapMaxTime", rivSwapMaxTime);
+    SetFloatRegistryValue(key$, "MaxStimTime", rivMaxStimTime);
+    SetFloatRegistryValue(key$, "MaxWaitForReadyTime", rivMaxWaitForReadyTime);
+    SetFloatRegistryValue(key$, "ReadyFailWaitTime", rivReadyFailWaitTime);
+    SetFloatRegistryValue(key$, "MaxResponseTime", rivMaxResponseTime);
+    SetFloatRegistryValue(key$, "SwapMaxResponseTime", rivSwapMaxResponseTime);
+    SetFloatRegistryValue(key$, "ResponseFailWaitTime", rivResponseFailWaitTime);
+    SetFloatRegistryValue(key$, "ResponseIncorrectWaitTime", rivResponseIncorrectWaitTime);
+    SetFloatRegistryValue(key$, "ResponseBrokenWaitTime", rivResponseBrokenWaitTime);
+    SetFloatRegistryValue(key$, "MaxStimWaitTime", rivMaxStimWaitTime);
+    SetIntRegistryValue(key$, "ReadyHoldRewardSize", rivReadyHoldRewardSize%);
+    SetFloatRegistryValue(key$, "ReadyHoldTime", rivReadyHoldTime);
+    SetIntRegistryValue(key$, "UseFixation", rivUseFixation%);
+    SetFloatRegistryValue(key$, "MaxAcquisitionTime", rivMaxAcquisitionTime);
+    SetFloatRegistryValue(key$, "AcquisitionFailWaitTime", rivAcquisitionFailWaitTime);
+    SetFloatRegistryValue(key$, "FixationHoldTime", rivFixationHoldTime);
+    SetFloatRegistryValue(key$, "FixationFailWaitTime", rivFixationFailWaitTime);
+end
+
+func RivalryFixationDialog%()
+    DlgCreate("Rivarly Fixation parameters");
+    DlgReal(1, "Max acq. time(s):", .01, 100);
+    DlgReal(2, "Acq. FAIL wait time(s):", .01, 10);
+    DlgReal(3, "Fixation hold time(s):", 0.01, 10);
+    DlgReal(4, "Fix. BREAK wait time(s):", 0.01, 10);
+    DlgCheck(5, "Always Looking (TESTING)");
+    DlgShow(rivMaxAcquisitionTime, rivAcquisitionFailWaitTime, rivFixationHoldTime, rivFixationFailWaitTime, rivAlwaysLooking%);
+    return 1;
+end
+
+
+func RivalryTimingDialog%()
+	DlgCreate("Rivalry timing", 25, 10);
+	DlgReal(1, "Max rdy time(s):", .01, 10);
+	DlgReal(2, "Rdy FAIL wait time(s):", .01, 10);
+    DlgReal(3, "Max resp time(s):", .01, 10);
+    DlgReal(4, "Swap resp time(s):", .01, 10);
+    DlgReal(5, "Resp FAIL wait time(s):", .01, 10);
+    DlgReal(6, "Resp INCORRECT wait time(s):", .01, 10);
+    DlgReal(7, "Resp BROKEN wait time(s):", .01, 10);
+    DlgReal(8, "Max stim wait time(s):", .01, 10);
+	DlgShow(rivMaxWaitForReadyTime, rivReadyFailWaitTime, rivMaxResponseTime, rivSwapMaxResponseTime, rivResponseFailWaitTime, 
+            rivResponseIncorrectWaitTime, rivResponseBrokenWaitTime, rivMaxStimWaitTime);
+    return 1;
+end
+
+func DoGratingDialog%(label$, &param$)
+    var status%;
+    var disable%[1];
+    var ndisable% := 0;
+    var x, y, w, h, sf, tf, orientation;
+    var contrast%;
+    var cv$, pattern$, aperture$;
+    
+    status% := GratingParametersDialog%(label$, param$,
+                                        disable%[], ndisable%, 
+                                        x, y, w, h, contrast%, sf, tf, orientation, cv$, pattern$, aperture$);                                       
+    return status%;
+end
+
+func RivalryLGratingDialog%()
+    var s%;
+    s% := DoGratingDialog%("Left Grating Params", rivLeftGrating$);
+    if s% = 1 then
+        DlgValue$(rivLeftGratingTextItem%, rivLeftGrating$);
+    endif
+    return 1;
+end
+
+
+func RivalryRGratingDialog%()
+    var s%;
+    s% := DoGratingDialog%("Right Grating Params", rivRightGrating$);
+    if s% = 1 then
+        DlgValue$(rivRightGratingTextItem%, rivRightGrating$);
+    endif
+    return 1;
+end
+
+func Looking%(x, y)
+	'Determine if the eye position is within the fixation window
+    var s% := 0;
+    docase
+    case rivAlwaysLooking% = 1 then
+        s% := 1;
+    case (Pow(x-FixationX, 2) + Pow(y-FixationY, 2)) <= Pow(WindowRadius, 2) then 
+        s% := 1; 
+    else 
+        s% := 0; 
+    endcase
+    return s%;
+end;
