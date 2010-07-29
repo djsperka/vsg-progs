@@ -1,4 +1,4 @@
-'$Id: ASLCalibration.s2s,v 1.2 2010-07-26 17:04:13 devel Exp $
+'$Id: ASLCalibration.s2s,v 1.3 2010-07-29 17:12:54 devel Exp $
 
 #include "../../Spike2Util/ChannelUtilities.s2s"
 #include "../../Spike2Util/UsreyUtil.s2s"
@@ -124,6 +124,12 @@ var tUpdateOffsetTime := -1;
 
 LogInit(1);
 
+' Fetch the offset filename and check that it exists
+if CheckOffsetFile%(acOffsetFile$) = 0 then
+    halt;
+endif
+
+        
 if ASLCalibrationDialog%() = 0 then
     halt;
 endif
@@ -141,11 +147,49 @@ InitializeWindows();
 InitializeToolbar();
 
 
+func CheckOffsetFile%(&file$)
+    var status% := 0;
+    file$ := GetStringRegistryValue$(GetRegistryKey$(1), "OffsetFile", "file_not_found");
+    if file$ = "file_not_found" then
+        if Query("Registry key " + GetRegistryKey$(1) + " value \"OffsetFile\" not found. Create a new one?") = 1 then
+            SetStringRegistryValue(GetRegistryKey$(1), "OffsetFile", "offset.txt");
+            
+            ' Fetch the offset file again, to make sure that worked.
+            file$ := GetStringRegistryValue$(GetRegistryKey$(1), "OffsetFile", "file_not_found");
+            if file$ = "file_not_found" then
+                ' This really shouldn't happen if we did all that right. 
+                Message("Error fetching offset filename from registy.");
+                return 0;
+            endif
+        else
+            return 0;
+        endif
+    endif
+    
+    ' Now see if file exists or else create a new one with 0,0 offsets.
+    if ReadOffsetFile%() = 0 then
+        if Query("Cannot open offset file " + file$ + ", create a new one?") = 1 then
+            if WriteOffsetFile%() = 0 then
+                Message("Error writing offset file " + file$ + ", quitting.");
+                halt;
+            else
+                status% := 1;
+            endif
+        endif
+    else
+        status% := 1;
+    endif
+    return status%;
+end
+
+
+
 proc GetASLCalibrationParameters()
     var key$;
     var stmp$;
     key$ := GetRegistryKey$(1) + "\\ASLCalibration";
     acDoRivalryCalibration% := GetIntRegistryValue%(key$, "DoRivalryCalibration", acDoRivalryCalibration%);
+    acBypassPhaseI% := GetIntRegistryValue%(key$, "BypassPhaseI", acBypassPhaseI%);
     return;
 end
 
@@ -154,6 +198,7 @@ proc SaveASLCalibrationParameters()
     var stmp$;
     key$ := GetRegistryKey$(1) + "\\ASLCalibration";
     SetIntRegistryValue(key$, "DoRivalryCalibration", acDoRivalryCalibration%);
+    SetIntRegistryValue(key$, "BypassPhaseI", acBypassPhaseI%);
     return;
 end
 
@@ -429,7 +474,7 @@ func Idle%()
             
         case iState% = stateTransition% then
             
-            ReadOffsetFile();
+            ReadOffsetFile%();
             ToolbarEnable(6, 1);    ' Pause
             LogStatus("stateTransition", "Initial offset is " + str$(acSlaveXOffset) + ", " + str$(acSlaveYOffset));
             ChangeStateTo(stateStartMaster%, tNow);
@@ -699,7 +744,7 @@ proc ComputeThatLooksGoodOffset()
     yAvg := ChanMeasure(acChanEyeY%, 2, tUpdateOffsetTime - acThatLooksGoodAvgTime, tUpdateOffsetTime) * DegreesPerVoltY;
     acSlaveXOffset -= xAvg;
     acSlaveYOffset -= yAvg;
-    WriteOffsetFile();
+    WriteOffsetFile%();
     return;
 end
 
@@ -712,36 +757,38 @@ func LookingAtSlave%(x, y)
     return IsInsideCircle%(x, y, acMasterFixationX, acMasterFixationY, acSlaveFixationWindow/2);
 end
 
-proc ReadOffsetFile()
+func ReadOffsetFile%()
+    var status% := 0;
     var handle := 0;
     handle := FileOpen(acOffsetFile$, 8, 0);
     if handle < 0 then
         LogError("ReadOffsetFile", "Cannot open offset file \"" + acOffsetFile$ + "\", status=" + str$(handle));
-        return;
     else
         if Read(acSlaveXOffset, acSlaveYOffset) <> 2 then
             LogError("ReadOffsetFile", "Error reading offsets from offset file \"" + acOffsetFile$ + "\"");
-            return;
+        else
+            status% := 1;
         endif
         FileClose();
     endif
-    return;
+    return status%;
 end
 
-proc WriteOffsetFile()
+func WriteOffsetFile%()
+    var status% := 0;
     var handle := 0;
     handle := FileOpen(acOffsetFile$, 8, 1);
     if handle < 0 then
         LogError("WriteOffsetFile", "Cannot open offset file \"" + acOffsetFile$ + "\", status=" + str$(handle));
-        return;
     else
         if Print("%f %f", acSlaveXOffset, acSlaveYOffset) <> 0 then
             LogError("WriteOffsetFile", "Error writing offsets to offset file \"" + acOffsetFile$ + "\"");
-            return;
+        else
+            status% := 1;
         endif
         FileClose();
     endif
-    return;
+    return status%;
 end
 
 
@@ -885,7 +932,7 @@ func SlaveOffsetDialog%()
     DlgReal(3, "Window Diam(deg)", 0.01, 30);
     i% := DlgShow(acSlaveXOffset, acSlaveYOffset, acSlaveFixationWindow);
     if i% = 1 then
-        WriteOffsetFile();
+        WriteOffsetFile%();
         acSlaveParametersChanged% := 1;
         tSlaveOffsetChange := View(acWindowData%).MaxTime();
         Yield();
