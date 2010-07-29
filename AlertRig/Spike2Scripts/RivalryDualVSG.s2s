@@ -1,4 +1,4 @@
-' $Id: RivalryDualVSG.s2s,v 1.3 2010-07-28 23:07:08 devel Exp $
+' $Id: RivalryDualVSG.s2s,v 1.4 2010-07-29 17:12:17 devel Exp $
 
 #include "../../Spike2Util/TrialBlockGen.s2s"
 #include "../../Spike2Util/ChannelUtilities.s2s"
@@ -10,7 +10,7 @@
 #include "UsreyDAQ.s2s"
 
 ' Special for testing. Set to 1 to choose trial type each trial.
-var rivChooseTrialTypes% := 1;
+var rivChooseTrialTypes% := 0;
 
 ' Local config variables
 
@@ -1051,7 +1051,8 @@ func Start%()
     
     ' Fetch the offset filename
     key$ := GetRegistryKey$(1) + "\\Rivalry";
-    offsetFilename$ := GetDataPathRoot$() + "\\" + GetDataSetName$() + "\\" + GetStringRegistryValue$(key$, "OffsetFile", "file_not_found");
+    offsetFilename$ := GetStringRegistryValue$(GetRegistryKey$(1), "OffsetFile", "file_not_found");
+
     
     ' Parse the grating coordinates for display in the xy window
     ParseGratingParameters%(rivLeftGrating$, rivLeftGratingX, rivLeftGratingY, rivLeftGratingD, h, contrast%, sf, tf, ori, cv$, pattern$, aperture$);
