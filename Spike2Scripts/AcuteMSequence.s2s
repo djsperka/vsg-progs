@@ -1,4 +1,4 @@
-' $Id: AcuteMSequence.s2s,v 1.2 2010-03-26 23:25:01 devel Exp $
+' $Id: AcuteMSequence.s2s,v 1.3 2010-07-30 00:43:33 devel Exp $
 '
 ' AcuteMSequence.s2s
 '
@@ -232,7 +232,7 @@ func Start%()
     
     ' Start message server
     amsHandleMsgSvr:=ProgRun("D:\\work\\AlertRig\\bin\\MsgSvr.exe",0);
-    Message("Start RealTimeM and press OK to start");
+    Message("Start MultiRealTimeM(" + str$(amsNChannels%) + ") and press OK to start");
     
     ' Start sampling
     SampleStart(0);
