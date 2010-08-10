@@ -45,4 +45,8 @@ EJ:     'J  DIGOUT [.......1]      ;Administers juice
             DELAY  s(0.989)-1
             HALT   
 
+EQ:     'q  DIGOUT [11110000]
+            DELAY 10
+            HALT
+
 
