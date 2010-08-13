@@ -1,4 +1,4 @@
-' $Id: AttaJoy.s2s,v 1.16 2010-07-14 20:20:15 devel Exp $
+' $Id: AttaJoy.s2s,v 1.17 2010-08-13 00:20:01 devel Exp $
 
 #include "../../Spike2Util/TrialGenInterface.s2s"
 #include "../../Spike2Util/ChannelUtilities.s2s"
@@ -49,9 +49,9 @@ var ajAlwaysLooking% := 0;      ' Set to 1 in timing dialog. Will cause Looking%
 var ajTrialTypesListIndex% := 0;
 var ajShowSingleStim% := 0;
 var ajExtraFixationTime := 0.2;     ' Extra fixation time during stateWaitForResponse
-var ajDoHoldFixationMiniReward% := 1;   ' 2010-07-14 Hard-coded. Set to 0 to eliminate mini-reward. 
+var ajDoHoldFixationMiniReward% := 0;   ' 2010-07-14 Hard-coded. Set to 0 to eliminate mini-reward. 
 var ajHoldFixationMiniRewardEnable% := 0;   ' when 1 mini reward is enabled; used per-trial
-var ajHoldFixationMiniRewardFraction := .5; ' fraction of hold fixation time passed before mini-reward given
+var ajHoldFixationMiniRewardFraction := .99; ' fraction of hold fixation time passed before mini-reward given
 ' Strings for DlgList training type
 var ajTrainingTypes$[4];
 
