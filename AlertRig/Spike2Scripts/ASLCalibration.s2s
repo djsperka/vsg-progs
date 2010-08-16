@@ -1,4 +1,4 @@
-'$Id: ASLCalibration.s2s,v 1.3 2010-07-29 17:12:54 devel Exp $
+'$Id: ASLCalibration.s2s,v 1.4 2010-08-16 22:56:52 devel Exp $
 
 #include "../../Spike2Util/ChannelUtilities.s2s"
 #include "../../Spike2Util/UsreyUtil.s2s"
@@ -102,6 +102,7 @@ const stateSlaveFailPause%                  :=  52;
 const stateWaitForOffsetChange%             :=  53;
 const stateWaitForThatLooksGoodOff%         :=  54;
 const stateThatLooksGood%                   :=  55;
+const stateWaitBeforeSlave%                 :=  56;
 
 var iState% := stateStartup%;              ' This holds the current state
 
@@ -564,9 +565,15 @@ func Idle%()
             
             if FindEvent%(acChanMasterFixpt%, tStateStart, tTrigger) = 1 then
                 DisplayFixpt(1, 0);
-                ChangeStateTo(stateStartSlave%, tNow);
+                ChangeStateTo(stateWaitBeforeSlave%, tNow);
             endif
             
+        case iState% = stateWaitBeforeSlave% then
+            
+            if tNow-tStateStart > 1 then
+                ChangeStateTo(stateStartSlave%, tNow);
+            endif
+
         case iState% = stateStartSlave% then
             
             if acIsPaused% = 1 then
@@ -912,7 +919,8 @@ proc DisplayFixpt(iMaster%, iOn%)
             ArrConst(acCircleY[], acUnitCircleY[]);
             ArrMul(acCircleY[], acSlaveFixationWindow/2);
             'ArrAdd(acCircleY[], acSlaveYOffset);
-            View(acWindowXY%).XYAddData(acChanXYSlaveFixpt%, acSlaveXOffset, acSlaveYOffset);
+            ' Display the master position, not the offset position!
+            View(acWindowXY%).XYAddData(acChanXYSlaveFixpt%, acMasterFixationX, acMasterFixationY);
             View(acWindowXY%).XYAddData(acChanXYSlaveFixptWindow%, acCircleX[], acCircleY[]);
         endif
     endif
