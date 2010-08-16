@@ -1,4 +1,4 @@
-' $Id: RivalryDualVSG.s2s,v 1.4 2010-07-29 17:12:17 devel Exp $
+' $Id: RivalryDualVSG.s2s,v 1.5 2010-08-16 22:55:25 devel Exp $
 
 #include "../../Spike2Util/TrialBlockGen.s2s"
 #include "../../Spike2Util/ChannelUtilities.s2s"
@@ -100,6 +100,8 @@ var rivChanJoystickRangeL%;
 var rivChanJoystickRangeC%;
 var rivChanJoystickRangeR%;
 var rivChanStimDisplay%;
+var rivChanMasterStimDisplay%;
+var rivChanSlaveStimDisplay%;
 var rivChanFixptDisplay%;
 var rivChanFixptWindowDisplay%;
 var rivVCoeff;
@@ -436,6 +438,22 @@ proc InitializeWindows()
     XYJoin(rivChanStimDisplay%, 2);
     XYSize(rivChanStimDisplay%, 36);
     
+    ' this channel is for displaying the MASTER stimulus
+    rivChanMasterStimDisplay% := XYSetChan(0);
+    XYColour(rivChanMasterStimDisplay%, 8);
+    XYDrawMode(rivChanMasterStimDisplay%, 2, 0);
+    XYDrawMode(rivChanMasterStimDisplay%, 3, 0);
+    XYJoin(rivChanMasterStimDisplay%, 2);
+    XYSize(rivChanMasterStimDisplay%, 36);
+    
+    ' this channel is for displaying the SLAVE stimulus
+    rivChanSlaveStimDisplay% := XYSetChan(0);
+    XYColour(rivChanSlaveStimDisplay%, 8);
+    XYDrawMode(rivChanSlaveStimDisplay%, 2, 0);
+    XYDrawMode(rivChanSlaveStimDisplay%, 3, 0);
+    XYJoin(rivChanSlaveStimDisplay%, 2);
+    XYSize(rivChanSlaveStimDisplay%, 36);
+    
     ' display fixpt
     rivChanFixptDisplay% := XYSetChan(0);
     XYColour(rivChanFixptDisplay%, 17);
@@ -478,6 +496,7 @@ proc DisplayStim(iOn%)
         View(rivWindowXY%).XYDelete(rivChanStimDisplay%);        
         View(rivWindowXY%).XYDelete(rivChanFixptDisplay%);        
         View(rivWindowXY%).XYDelete(rivChanFixptWindowDisplay%);                
+        ToolbarText("");
     case iOn% = 1 then
         View(rivWindowXY%).XYDelete(rivChanStimDisplay%);
         if rivCorrectResponse% = JSLeft% then
@@ -496,6 +515,42 @@ proc DisplayStim(iOn%)
             ArrAdd(circleY[], rivRightGratingY);
         endif
         View(rivWindowXY%).XYAddData(rivChanStimDisplay%, circleX[], circleY[]);
+        docase
+        case rivTrialType% = trialtypeTrainingL% then
+            if rivCorrectResponse% = JSLeft% then
+                ToolbarText("TrainingL: LL");
+            else
+                ToolbarText("TrainingL: RR");
+            endif
+        case rivTrialType% = trialtypeTrainingR% then
+            if rivCorrectResponse% = JSLeft% then
+                ToolbarText("TrainingR: LL");
+            else
+                ToolbarText("TrainingR: RR");
+            endif
+        case rivTrialType% = trialtypeRivalryLR% then
+            ToolbarText("Rivalry: LR");
+        case rivTrialType% = trialtypeRivalryRL% then
+            ToolbarText("Rivalry: RL");
+        case rivTrialType% = trialtypeRivalryCatchLR% then
+            docase
+            case rivCorrectResponse% = JSLeft% then
+                ToolbarText("RivalryCatch: LL");
+            case rivCorrectResponse% = JSRight% then
+                ToolbarText("RivalryCatch: RR");
+            else
+                ToolbarText("RivalryCatch: LR");
+            endcase
+        case rivTrialType% = trialtypeRivalryRL% then
+            docase
+            case rivCorrectResponse% = JSLeft% then
+                ToolbarText("RivalryCatch: LL");
+            case rivCorrectResponse% = JSRight% then
+                ToolbarText("RivalryCatch: RR");
+            else
+                ToolbarText("RivalryCatch: RL");
+            endcase
+        endcase
     case iOn% = 2 then
         View(rivWindowXY%).XYDelete(rivChanFixptDisplay%);        
         View(rivWindowXY%).XYDelete(rivChanFixptWindowDisplay%);                
@@ -510,6 +565,16 @@ proc DisplayStim(iOn%)
     endcase
     return;
 end
+
+proc DrawHorizontalStim(chan%, xll, yll, width, height)
+    return;
+end
+
+proc DrawVerticalStim(chan%, xll, yll, width, height)
+    return;
+end
+
+
 
 func IdleProcessing%()
 	var iStatus% := 1;	
