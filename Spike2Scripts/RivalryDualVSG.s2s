@@ -1,4 +1,4 @@
-' $Id: RivalryDualVSG.s2s,v 1.5 2010-08-16 22:55:25 devel Exp $
+' $Id: RivalryDualVSG.s2s,v 1.6 2010-08-17 01:35:44 devel Exp $
 
 #include "../../Spike2Util/TrialBlockGen.s2s"
 #include "../../Spike2Util/ChannelUtilities.s2s"
@@ -54,7 +54,9 @@ var rivFixationX, rivFixationY, rivFixationD, rivFixationWindowD;
 var rivLeftGratingTextItem%;
 var rivRightGratingTextItem%;
 var rivFixationTextItem%;
+var rivElectrodeTextItem%;
 var rivFixationArg$;
+var rivElectrodes%[8];
 
 ' new vars for rivalry
 var rivRivalryRewardHoldoff := .4;  ' during rivalry, min time between rewards
@@ -226,10 +228,9 @@ if rivChooseTrialTypes% = 0 then
     weights%[3] := rivNRivalryPerBlock% - weights%[2];
     weights%[4] := rivNRivalryCatchPerBlock%/2;
     weights%[5] := rivNRivalryCatchPerBlock% - weights%[4];
-    
     tgwInit(rivNTrialTypes%, weights%[0:rivNTrialTypes%], rivNBlocks%);
-
 endif
+
 
 ' Stupid checks
 if rivSwapMaxTime < rivSwapMinTime then
@@ -256,7 +257,7 @@ InitializeToolbar();
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
 proc CreateSampleConfiguration()
-	var index;
+	var i%;
     
 	SampleClear(); 'Set standard sampling state
 	SampleAutoComment(0); 'Prompt for comment after sampling
@@ -268,7 +269,8 @@ proc CreateSampleConfiguration()
 	SampleAutoFile(1);
     
     
-	'Channel recording definitions
+	'Communication channels for receiving VSG signals
+    
 	SampleEvent(rivChanMasterVSGReady%, 1, 2, 3600); 'Trigger channel, level
 	SampleComment$(rivChanMasterVSGReady%, "M RDY");
 	SampleTitle$(rivChanMasterVSGReady%, "M RDY");
@@ -294,16 +296,24 @@ proc CreateSampleConfiguration()
 	SampleTitle$(rivChanSlaveGrating%, "S Grating");
     
     
+    ' Joystick channel
 	SampleWaveform(rivChanJoy%, GetJoystickPort%(), 1000);
 	SampleTitle$(rivChanJoy%, "Joy");
     
-    
+    ' Eye signals
 	SampleWaveform(rivChanEyeX%, GetEyeXPort%(), 1000);
 	SampleTitle$(rivChanEyeX%, "Eye X");
 	SampleWaveform(rivChanEyeY%, GetEyeYPort%(), 1000);
 	SampleTitle$(rivChanEyeY%, "Eye Y");
-
     
+    ' Electrodes, if any.
+    for i% := 0 to 7 do
+        if rivElectrodes%[i%] = 1 then
+            SampleWaveMark(i% + 1, i%, 2000, 34, 15, 28000); 
+        endif
+    next
+    
+    ' Sequencer file
 	SampleSequencer(script$ + "RivalryDualVSG.pls");
 	SampleOptimise(2, 2, 2, 2, 50);  'Set optimise mode (do this last)
 	SampleMode(1); 'Continuous sampling
@@ -1313,12 +1323,13 @@ func RivalryDialog%()
     endif
     DlgButton(102, "Timing", RivalryTimingDialog%, 1, 10);
     DlgButton(103, "Reward/Swap/Catch", RivalryRewardSwapDialog%, 1, 11);
-    
-    DlgGroup("Gratings", 1, 12, 50, 3);
-    DlgButton(104, "Left Grating", RivalryLGratingDialog%, 1, 13);
-    rivLeftGratingTextItem% := DlgText(rivLeftGrating$, 15, 13);
-    DlgButton(105, "Right Grating", RivalryRGratingDialog%, 1, 14);
-    rivRightGratingTextItem% := DlgText(rivRightGrating$, 15, 14);
+    DlgButton(104, "Electrodes", RivalryElectrodeDialog%, 1, 12);
+    rivElectrodeTextItem% := DlgText(GetElectrodeTextItem$(), 15, 12, 15);
+    DlgGroup("Gratings", 1, 13, 50, 3);
+    DlgButton(105, "Left Grating", RivalryLGratingDialog%, 1, 14);
+    rivLeftGratingTextItem% := DlgText(rivLeftGrating$, 15, 14);
+    DlgButton(106, "Right Grating", RivalryRGratingDialog%, 1, 15);
+    rivRightGratingTextItem% := DlgText(rivRightGrating$, 15, 15);
     i% := DlgShow(rivNBlocks%, rivNTrainingPerBlock%, rivNRivalryperBlock%, rivNRivalryCatchPerBlock%,
                   rivUseBeep%, rivBeepLengthMS%, rivCorrectionTrials%);
     if i% = 1 then
@@ -1374,16 +1385,22 @@ proc GetRivalryParameters()
     rivMaxStimWaitTime := GetFloatRegistryValue(key$, "MaxStimWaitTime", rivMaxStimWaitTime);
     rivReadyHoldRewardSize% := GetIntRegistryValue%(key$, "ReadyHoldRewardSize", rivReadyHoldRewardSize%);
     rivReadyHoldTime := GetFloatRegistryValue(key$, "ReadyHoldTime", rivReadyHoldTime);
-    
     rivUseFixation% := GetIntRegistryValue%(key$, "UseFixation", rivUseFixation%);
     rivMaxAcquisitionTime := GetFloatRegistryValue(key$, "MaxAcquisitionTime", rivMaxAcquisitionTime);
     rivAcquisitionFailWaitTime := GetFloatRegistryValue(key$, "AcquisitionFailWaitTime", rivAcquisitionFailWaitTime);
     rivFixationHoldTime := GetFloatRegistryValue(key$, "FixationHoldTime", rivFixationHoldTime);
     rivFixationFailWaitTime := GetFloatRegistryValue(key$, "FixationFailWaitTime", rivFixationFailWaitTime);
-    
     rivRivalryCatchMinSwitchTime := GetFloatRegistryValue(key$, "RivalryCatchMinSwitchTime", rivRivalryCatchMinSwitchTime);
     rivRivalryCatchMaxSwitchTime := GetFloatRegistryValue(key$, "RivalryCatchMaxSwitchTime", rivRivalryCatchMaxSwitchTime);
     rivRivalryRewardHoldoff := GetFloatRegistryValue(key$, "RivalryRewardHoldoff", rivRivalryRewardHoldoff);
+    rivElectrodes%[0] := GetIntRegistryValue%(key$, "ElectrodePort0", rivElectrodes%[0]);
+    rivElectrodes%[1] := GetIntRegistryValue%(key$, "ElectrodePort1", rivElectrodes%[1]);
+    rivElectrodes%[2] := GetIntRegistryValue%(key$, "ElectrodePort2", rivElectrodes%[2]);
+    rivElectrodes%[3] := GetIntRegistryValue%(key$, "ElectrodePort3", rivElectrodes%[3]);
+    rivElectrodes%[4] := GetIntRegistryValue%(key$, "ElectrodePort4", rivElectrodes%[4]);
+    rivElectrodes%[5] := GetIntRegistryValue%(key$, "ElectrodePort5", rivElectrodes%[5]);
+    rivElectrodes%[6] := GetIntRegistryValue%(key$, "ElectrodePort6", rivElectrodes%[6]);
+    rivElectrodes%[7] := GetIntRegistryValue%(key$, "ElectrodePort7", rivElectrodes%[7]);
     
 end
 
@@ -1426,6 +1443,15 @@ proc SaveRivalryParameters()
     SetFloatRegistryValue(key$, "RivalryCatchMinSwitchTime", rivRivalryCatchMinSwitchTime);
     SetFloatRegistryValue(key$, "RivalryCatchMaxSwitchTime", rivRivalryCatchMaxSwitchTime);
     SetFloatRegistryValue(key$, "RivalryRewardHoldoff", rivRivalryRewardHoldoff);
+    SetIntRegistryValue(key$, "ElectrodePort0", rivElectrodes%[0]);
+    SetIntRegistryValue(key$, "ElectrodePort1", rivElectrodes%[1]);
+    SetIntRegistryValue(key$, "ElectrodePort2", rivElectrodes%[2]);
+    SetIntRegistryValue(key$, "ElectrodePort3", rivElectrodes%[3]);
+    SetIntRegistryValue(key$, "ElectrodePort4", rivElectrodes%[4]);
+    SetIntRegistryValue(key$, "ElectrodePort5", rivElectrodes%[5]);
+    SetIntRegistryValue(key$, "ElectrodePort6", rivElectrodes%[6]);
+    SetIntRegistryValue(key$, "ElectrodePort7", rivElectrodes%[7]);
+    
 end
 
 func RivalryFixationDialog%()
@@ -1504,6 +1530,41 @@ func RivalryRewardSwapDialog%()
     rivRivalryCatchMinSwitchTime, rivRivalryCatchMaxSwitchTime, rivRivalryRewardHoldoff);
     return 1;
 end
+
+func RivalryElectrodeDialog%()
+	DlgCreate("Rivalry Electrodes");
+    DlgCheck(1, "Port 0");
+    DlgCheck(2, "Port 1");
+    DlgCheck(3, "Port 2");
+    DlgCheck(4, "Port 3");
+    DlgCheck(5, "Port 4");
+    DlgCheck(6, "Port 5");
+    DlgCheck(7, "Port 6");
+    DlgCheck(8, "Port 7");
+	DlgShow(rivElectrodes%[0], rivElectrodes%[1], rivElectrodes%[2], rivElectrodes%[3], rivElectrodes%[4], rivElectrodes%[5], rivElectrodes%[6], rivElectrodes%[7]); 
+    DlgValue$(rivElectrodeTextItem%, GetElectrodeTextItem$());
+    return 1;
+end
+
+func GetElectrodeTextItem$()
+    var s$ := "";
+    var n% := 0;
+    var i%;
+    for i% := 0 to 7 do
+        if rivElectrodes%[i%] = 1 then
+            if n%> 0 then
+                s$ += ",";
+            endif
+            n% += 1;
+            s$ += str$(i%);
+        endif
+    next
+    if n% = 0 then
+        s$ := "None";
+    endif
+    return s$;
+end
+
 
 func DoGratingDialog%(label$, &param$)
     var status%;
