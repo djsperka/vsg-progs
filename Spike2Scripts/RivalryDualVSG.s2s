@@ -1,4 +1,5 @@
-' $Id: RivalryDualVSG.s2s,v 1.6 2010-08-17 01:35:44 devel Exp $
+' $Id: RivalryDualVSG.s2s,v 1.7 2010-08-17 18:30:05 devel Exp $
+const rivCVSID$ := "$Id: RivalryDualVSG.s2s,v 1.7 2010-08-17 18:30:05 devel Exp $";
 
 #include "../../Spike2Util/TrialBlockGen.s2s"
 #include "../../Spike2Util/ChannelUtilities.s2s"
@@ -140,6 +141,7 @@ const rivMaxStimKey%        := 2;
 var rivNStimKey%;
 var rivStimKey$[2];
 var rivStimKeyIndex%;
+var rivTrialTextMark$;
 
 
 ' States - these constants define a particular state
@@ -206,7 +208,7 @@ var isCorrectionTrial% := 0;    ' this is set to 1 when we are in a trial that i
 '===========================================================================================
 
 LogInit(1);
-InitJoystick(13);
+InitJoystick(rivChanJoy%);
 
 if RivalryDialog%() = 0 then
     halt;
@@ -268,6 +270,8 @@ proc CreateSampleConfiguration()
     SampleAutoName$(dataCellName$ + "_riv_000");
 	SampleAutoFile(1);
     
+    ' Text mark channel for trial info
+    SampleTextMark(256);
     
 	'Communication channels for receiving VSG signals
     
@@ -1123,6 +1127,7 @@ func Start%()
     var offsetFilename$ := "unknown";
     var key$;
     var h, contrast%, sf, tf, ori, cv$, pattern$, aperture$;
+    var stmp$;
     
     ' Fetch the offset filename
     key$ := GetRegistryKey$(1) + "\\Rivalry";
@@ -1153,6 +1158,14 @@ func Start%()
 	ToolbarEnable(2,1);
 	ToolbarEnable(4,1);
 	View(rivWindowData%);
+    
+    ' Text mark channel header. Version number refers to the content (this should be coordinated with the extraction).
+    SampleText("RivalryDualVSG,1");
+    SampleText(rivCVSID$);
+    SampleText(cmdLine$);
+    stmp$ := Print$("%f,%f,%d,%d,%f,%f,%f,%f,%d", DegreesPerVoltX, DegreesPerVoltY, rivChanEyeX%, rivChanEyeY%, GetJoystickLeftHigh(), GetJoystickCenterHigh(), GetJoystickCenterLow(), GetJoystickRightLow(), rivChanJoy%);
+    SampleText(stmp$);
+    
     return 1;
 end;
 
@@ -1207,9 +1220,11 @@ func PrepareTrial%()
         docase
         case rivCorrectResponse% = JSLeft% then
             LogInfo("Correction trial... LEFT");
+            rivTrialTextMark$ := "*";
             s% := 1;
         case rivCorrectResponse% = JSRight% then
             LogInfo("Correction trial... RIGHT");
+            rivTrialTextMark$ := "*";
             s% := 1;
         else
             LogError("", "Unknown correct response value!!!\n");
@@ -1239,6 +1254,11 @@ func PrepareTrial%()
         
     endcase
     
+    ' Put text marker in data file to show what type of trial this is, along with other info describing what is about to happen. 
+    if s% = 1 then
+        SampleText(rivTrialTextMark$);
+    endif
+    
     return s%;
 end
 
@@ -1253,6 +1273,7 @@ proc PrepareTrialVars(type%)
         rivStimKey$[1] := "A";
         rivStimKeyIndex% := 0;
         rivNStimKey% := 2;
+        rivTrialTextMark$ := Print$("%d,%d,%c,%c", type%, rivNStimKey%, rivStimKey$[0], rivStimKey$[1]);
     case type% = trialtypeTrainingR% then
         LogInfo("Preparing trial... RIGHT");
         rivCorrectResponse% := JSRight%;
@@ -1261,6 +1282,7 @@ proc PrepareTrialVars(type%)
         rivStimKey$[1] := "5";
         rivStimKeyIndex% := 0;
         rivNStimKey% := 2;
+        rivTrialTextMark$ := Print$("%d,%d,%c,%c", type%, rivNStimKey%, rivStimKey$[0], rivStimKey$[1]);
     case type% = trialtypeRivalryLR% then
         LogInfo("Preparing trial... RivalryLR");
         rivCorrectResponse% := JSUndefined%;
@@ -1268,6 +1290,7 @@ proc PrepareTrialVars(type%)
         rivStimKey$[0] := "6";
         rivStimKeyIndex% := 0;
         rivNStimKey% := 1;
+        rivTrialTextMark$ := Print$("%d,%d,%c,%c", type%, rivNStimKey%, rivStimKey$[0], rivStimKey$[1]);
     case type% = trialtypeRivalryRL% then
         LogInfo("Preparing trial... RivalryRL");
         rivCorrectResponse% := JSUndefined%;
@@ -1275,6 +1298,7 @@ proc PrepareTrialVars(type%)
         rivStimKey$[0] := "9";
         rivStimKeyIndex% := 0;
         rivNStimKey% := 1;
+        rivTrialTextMark$ := Print$("%d,%d,%c,%c", type%, rivNStimKey%, rivStimKey$[0], rivStimKey$[1]);
     case type% = trialtypeRivalryCatchLR% then
         LogInfo("Preparing trial... RivalryCatchLR");
         rivCorrectResponse% := JSUndefined%;
@@ -1283,6 +1307,7 @@ proc PrepareTrialVars(type%)
         rivStimKeyIndex% := 0;
         rivNStimKey% := 1;
         rivRivalryCatchSwitchTime := Rand(rivRivalryCatchMaxSwitchTime - rivRivalryCatchMinSwitchTime, rivRivalryCatchMinSwitchTime);
+        rivTrialTextMark$ := Print$("%d,%d,%c,%c,%f", type%, rivNStimKey%, rivStimKey$[0], rivStimKey$[1], rivRivalryCatchSwitchTime);
     case type% = trialtypeRivalryCatchRL% then
         LogInfo("Preparing trial... RivalryCatchRL");
         rivCorrectResponse% := JSUndefined%;
@@ -1291,6 +1316,7 @@ proc PrepareTrialVars(type%)
         rivStimKeyIndex% := 0;
         rivNStimKey% := 1;
         rivRivalryCatchSwitchTime := Rand(rivRivalryCatchMaxSwitchTime - rivRivalryCatchMinSwitchTime, rivRivalryCatchMinSwitchTime);
+        rivTrialTextMark$ := Print$("%d,%d,%c,%c,%f", type%, rivNStimKey%, rivStimKey$[0], rivStimKey$[1], rivRivalryCatchSwitchTime);
     else
         LogError("", "Unknown index returned from trialgenGetTrialIndex%.\n");
     endcase
