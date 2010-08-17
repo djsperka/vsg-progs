@@ -1,5 +1,5 @@
-' $Id: RivalryDualVSG.s2s,v 1.7 2010-08-17 18:30:05 devel Exp $
-const rivCVSID$ := "$Id: RivalryDualVSG.s2s,v 1.7 2010-08-17 18:30:05 devel Exp $";
+' $Id: RivalryDualVSG.s2s,v 1.8 2010-08-17 18:36:09 devel Exp $
+const rivCVSID$ := "$Id: RivalryDualVSG.s2s,v 1.8 2010-08-17 18:36:09 devel Exp $";
 
 #include "../../Spike2Util/TrialBlockGen.s2s"
 #include "../../Spike2Util/ChannelUtilities.s2s"
@@ -271,7 +271,7 @@ proc CreateSampleConfiguration()
 	SampleAutoFile(1);
     
     ' Text mark channel for trial info
-    SampleTextMark(256);
+    SampleTextMark(200);
     
 	'Communication channels for receiving VSG signals
     
