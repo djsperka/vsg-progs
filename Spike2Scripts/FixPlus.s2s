@@ -1,4 +1,4 @@
-' $Id: FixPlus.s2s,v 1.1 2010-08-09 23:23:36 devel Exp $
+' $Id: FixPlus.s2s,v 1.2 2010-08-19 20:23:59 devel Exp $
 '
 ' FixPlus is a modified version of fixation for Corey. 
 ' Its same as fixation, but a stim appears during the fixation period. Uses attention.exe.
@@ -171,22 +171,12 @@ func IdleProcessing%()
 	
     case iState% = stateVSGWait% then
         
-        ' Waiting for VSG to indicate it is ready. The indication is a pulse (up, then down, 1 frame apart) on port 6.
-        tTrigger := NextTime(fixChanVSGReady%, tLast, vTrigger);
-        if tTrigger > tLastTrigger and vTrigger = 0 then
-            PrintLog("state stateVSGWait: Got leading edge of trigger\n");
-            ChangeStateTo(stateVSGWaitConfirm%, tTrigger);
+        var tRise, tFall;
+        if FindPulseUp%(fixChanVSGReady%, -1, tRise, tFall) = 1 then
+            PrintLog("state stateVSGWait: Got ready pulse.\n");
+            ChangeStateTo(stateStartTrial%, tNow);
         endif;
 
-    case iState% = stateVSGWaitConfirm% then
-
-        ' Waiting for VSG to confirm it is ready. The downward side of the pulse is expected...
-        tTrigger := NextTime(fixChanVSGReady%, tLastTrigger, vTrigger);
-        if tTrigger > tLastTrigger and vTrigger = 1 then
-            PrintLog("state stateVSGWaitConfirm: Got trailing edge of trigger\n");
-            ChangeStateTo(stateStartTrial%, tTrigger);
-        endif;
-	
 	case iState% = stateStartTrial% then
 
         ' initial state on startup. 
@@ -195,27 +185,21 @@ func IdleProcessing%()
 
         nTrialsStarted% += 1;
 
+        LogStatus("StartTrial", "Request fixpt");
         SampleKey("F");
         ChangeStateTo(stateWaitForFixpt%, tNow);
         UpdateToolbarText();
 
     case iState% = stateWaitForFixpt% then
 
-        ' Waiting for stimulus to be presented by vsg and trigger to return. 
-        ' NextTime returns a non-negative value whenever there is a TRANSITION. In that case, the 
-        ' value of 'vTrigger' returned is 1 (0) if the transition is high (low) to low (high). Maybe not
-        ' intuitive, but that's the way it is. 
-        tTrigger := NextTime(fixChanFixpt%, tLast, vTrigger);
-        if tTrigger > tLastTrigger then
-
-            if vTrigger = 0 then
+        LogStatus("WaitForFixpt", "waiting..." + str$(tStateStart) + "-" + str$(tNow));
+        if FindRisingEdge%(fixChanFixpt%, tStateStart, tTrigger) = 0 then
     
-                ' Stimulus has been presented. Display stim location and window. Enter state 2
-                DrawStim(1);
-                ChangeStateTo(stateWaitForAcquisition%, tTrigger);
-                tLastTrigger := tTrigger;
-
-            endif
+            ' Stimulus has been presented. Display stim location and window.
+            LogStatus("WaitForFixpt", "Got fixpt trigger.");
+            DrawStim(1);
+            ChangeStateTo(stateWaitForAcquisition%, tTrigger);
+            tLastTrigger := tTrigger;
 
         endif
 
