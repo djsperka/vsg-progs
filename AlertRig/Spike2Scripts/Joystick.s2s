@@ -1,4 +1,4 @@
-'$Id: Joystick.s2s,v 1.5 2010-05-24 17:58:02 devel Exp $
+'$Id: Joystick.s2s,v 1.6 2010-08-20 01:18:45 devel Exp $
 '
 ' This file contains utilities for using the joystick on the alert2 rig. 
 
@@ -203,14 +203,14 @@ proc JoystickConfigDialog()
     var volts:=0.0;
     var iUseJoystick% := 0;
     var iNoGaps% := 0;
-    var iJoystickChannel% := 1;
+    var iJoystickChannel% := 0;
     var status%;
     
     DlgCreate("Joystick Configuration", 40, 40);
     DlgAllow(0, 0, JoystickDialogCheck%);
     DlgReal(1, "Voltage", -5, 5);
     DlgCheck(2, "Use Joystick");
-    DlgInteger(3, "Joystick Channel", 1, 29);
+    DlgInteger(3, "Joystick Channel", 0, 29);
     DlgCheck(4, "No gaps");
     DlgButton(100, "Left Hi", JoystickConfigLeftHigh%, 1, 5); 
     DlgButton(101, "Ctr Low", JoystickConfigCenterLow%, 1, 6); 
