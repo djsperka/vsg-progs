@@ -1,4 +1,4 @@
-' $Id: CoolMouse.s2s,v 1.11 2010-05-24 22:07:30 devel Exp $
+' $Id: CoolMouse.s2s,v 1.12 2010-08-20 01:13:55 devel Exp $
 
 #include "../../Spike2util\UsreyUtil.s2s"
 #include "UsreyGratings.s2s"
@@ -10,10 +10,11 @@ var cmAcquisitionTime := 1.0;
 var cmFixationDuration := 1.0;
 var cmMaintainFixation := 1.0;
 var cmTimeOutTime := 1.0;
-var cmAlwaysLooking% := 1;          ' testing only
+var cmAlwaysLooking% := 0;          ' testing only
 
 ' Window handles and channel numbers
 var XChannel%,YChannel%;		' Channel number assigned to eye x and y
+var JChannel%;
 var TriggerChannel%;			' Channel number assigned to vsg trigger input (i.e. trigger sent by vsg)
 var ReadyChannel%;			' channel number for VSG ready pulse signal
 var DataWindow%;	' time view
@@ -46,6 +47,7 @@ XChannel% := GetNumberOfElectrodes%() + 1;
 YChannel% := GetNumberOfElectrodes%() + 2;
 TriggerChannel% := GetNumberOfElectrodes%() + 3;
 ReadyChannel% := GetNumberOfElectrodes%() + 4;
+JChannel% := GetNumberOfElectrodes%() + 5;
 CreateSampleConfiguration();
 
 
@@ -201,8 +203,30 @@ func IdleProcessing%()
 				if tNow - tStateStart > cmFixationDuration then
 
 					' update tStateStart
-					ChangeStateTo(stateHoldFixation%, tNow);
+					ChangeStateTo(stateMaintainFixation%, tNow);
 					PrintLog("stateWaitForFixation: successful trial.\n");
+	
+					' Reward
+					Reward%();
+	
+				endif
+
+			endif
+        
+  		case iState% = stateMaintainFixation% then
+
+			if InFixationWindow%(xEye, yEye) = 0 then
+	       		
+				PrintLog("stateWaitForFixation: outside fixation window, aborting trial.\n");
+				ChangeStateTo(stateAbort%, tNow);
+
+			else 
+
+				if tNow - tStateStart > cmMaintainFixation then
+
+					' update tStateStart
+					ChangeStateTo(stateMaintainFixation%, tNow);
+					PrintLog("stateMaintainFixation: again....\n");
 	
 					' Reward
 					Reward%();
@@ -247,17 +271,17 @@ proc CreateSampleConfiguration()
 	SampleAutoFile(1);
     
 	'Channel recording definitions
-	SampleEvent(TriggerChannel%, 1, 2, 3600); 'Trigger channel, level
+	SampleEvent(TriggerChannel%, 2, 2, 3600); 'Trigger channel, level
 	SampleComment$(TriggerChannel%, "Trigger");
 	SampleTitle$(TriggerChannel%, "Trigger");
     
-	SampleEvent(25, 0, 2, 3600); 'Trigger channel, level
-	SampleComment$(25, "Trigger");
-	SampleTitle$(25, "T-1");
+'	SampleEvent(25, 0, 2, 3600); 'Trigger channel, level
+'	SampleComment$(25, "Trigger");
+'	SampleTitle$(25, "T-1");
     
-	SampleEvent(26, 2, 2, 3600); 'Trigger channel, level
-	SampleComment$(26, "Trigger+1");
-	SampleTitle$(26, "T+1");
+'	SampleEvent(26, 2, 2, 3600); 'Trigger channel, level
+'	SampleComment$(26, "Trigger+1");
+'	SampleTitle$(26, "T+1");
     
     
 	' channel to look for ready signal from vsg
@@ -270,6 +294,9 @@ proc CreateSampleConfiguration()
 	SampleTitle$(XChannel%,"Eye X");
 	SampleWaveform(YChannel%, GetEyeYPort%(), 1000);
 	SampleTitle$(YChannel%, "Eye Y");
+    
+   	SampleWaveform(JChannel%, 3, 1000);
+	SampleTitle$(JChannel%, "Juice");
 
 	SampleSequencer(script$ + "CoolMouse.pls");
 	SampleOptimise(2, 2, 2, 2, 50);  'Set optimise mode (do this last)
@@ -393,7 +420,7 @@ func Start%()
 	
 	SampleStart(0); 'Start sampling
 	Extras$ := " -b gray -A " + GetFixationArg$() + " -d " + GetDistanceToScreenMM$() + " -g " + GetGratingParameters$("Stimulus");
-	CommandLine$ := "cmd /k " + bin$ + "\\cmouse" + Extras$;
+	CommandLine$ := "cmd /c " + bin$ + "\\cmouse" + Extras$;
 
 	'Begin the stimulus program. It will take a few seconds for the VSG to initialize.
 	PrintLog(CommandLine$+"\n");
