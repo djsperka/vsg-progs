@@ -1,5 +1,5 @@
-' $Id: RivalryDualVSG.s2s,v 1.8 2010-08-17 18:36:09 devel Exp $
-const rivCVSID$ := "$Id: RivalryDualVSG.s2s,v 1.8 2010-08-17 18:36:09 devel Exp $";
+' $Id: RivalryDualVSG.s2s,v 1.9 2010-08-21 00:35:23 devel Exp $
+const rivCVSID$ := "$Id: RivalryDualVSG.s2s,v 1.9 2010-08-21 00:35:23 devel Exp $";
 
 #include "../../Spike2Util/TrialBlockGen.s2s"
 #include "../../Spike2Util/ChannelUtilities.s2s"
@@ -596,9 +596,10 @@ func IdleProcessing%()
     var joystickPosition%;
     var joystickVoltage;
     
-	tNow := MaxTime();
+	tNow := View(rivWindowData%).MaxTime();
     
     ' Get and display joystick voltage and position
+    View(rivWindowData%);
     joystickPosition% := GetJoystickPosition%(joystickVoltage);
     View(rivWindowXY%).XYAddData(rivChanJoystickPos%, joystickVoltage * rivVCoeff + rivVConst, rivJoystickDisplayY);
     
