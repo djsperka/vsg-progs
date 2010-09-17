@@ -1,4 +1,4 @@
-' $Id: AttaJoy.s2s,v 1.17 2010-08-13 00:20:01 devel Exp $
+' $Id: AttaJoy.s2s,v 1.18 2010-09-17 16:51:14 devel Exp $
 
 #include "../../Spike2Util/TrialGenInterface.s2s"
 #include "../../Spike2Util/ChannelUtilities.s2s"
@@ -307,7 +307,10 @@ proc CreateSampleConfiguration()
 	SampleTitle$(ajChanEyeX%, "Eye X");
 	SampleWaveform(ajChanEyeY%, GetEyeYPort%(), 1000);
 	SampleTitle$(ajChanEyeY%, "Eye Y");
-
+    
+    ' Just a single electrode on port 0 for now. 
+	SampleWaveMark(1, 0, 2000, 34, 15, 28000); ' chan, port, event rate, points, pre-trigger, rate
+	SampleTitle$(index,"Electrode"); 
     
 	SampleSequencer(script$ + "AttaJoy.pls");
 	SampleOptimise(2, 2, 2, 2, 50);  'Set optimise mode (do this last)
