@@ -1,5 +1,5 @@
 
-' $Id: FixPlus.s2s,v 1.3 2010-08-20 01:14:47 devel Exp $
+' $Id: FixPlus.s2s,v 1.4 2010-09-21 19:33:15 devel Exp $
 '
 ' FixPlus is a modified version of fixation for Corey. 
 ' Its same as fixation, but a stim appears during the fixation period. Uses attention.exe.
@@ -20,6 +20,8 @@ var fixNumberOfTrials% := 10;			' Number of trials to run
 var fixElectrodes%[8];
 var fixComment$ := "comment";
 var fixNewBlock% := 1;
+var fixAlwaysLooking% := 1;
+var fixShowRaster% := 1;
 
 var fixFixationX, fixFixationY, fixFixationD, fixFixationWindowRadius;
 
@@ -49,6 +51,7 @@ var iStimChannel%;	' channel number for stimulus in xy window
 var iStimWindowChannel%;' channel number for stimulus window in xy window
 var iMonitorChannel%;	' channel number for monitor position display in xy window
 var StimHandle%;	' handle for stimulus application
+var fixRasterWindow% := -1;
 
 ' Experimental control
 
@@ -95,8 +98,15 @@ var tTrigger:=-1;	' temp var for newly discovered trigger times
 var nTrialsStarted%:=0;
 var nTrialsSuccess%:=0;
 var nTrialsFail%:=0;
+var tStimStart := 0;
 
 
+' check for always looking flag
+if fixAlwaysLooking% = 1 then
+    if Query("Always Looking flag is set, which means eye signals are ignored. Set this flag back to zero?") = 1 then
+        fixAlwaysLooking% := 0;
+    endif
+endif
 
 ' Initialize log
 LogInit(1);
@@ -124,6 +134,7 @@ proc GetFixPlusScriptParameters()
 	fixAcquisitionTime := GetFloatRegistryValue(key$, "AcquisitionTime", fixAcquisitionTime);
 	fixInterTrialTime := GetFloatRegistryValue(key$, "InterTrialTime", fixInterTrialTime);
     fixNumberOfTrials% := GetIntRegistryValue%(key$, "NumberOfTrials", fixNumberOfTrials%);
+    fixShowRaster% := GetIntRegistryValue%(key$, "ShowRaster", fixShowRaster%);
     fixElectrodes%[0] := GetIntRegistryValue%(key$, "ElectrodePort0", fixElectrodes%[0]);
     fixElectrodes%[1] := GetIntRegistryValue%(key$, "ElectrodePort1", fixElectrodes%[1]);
     fixElectrodes%[2] := GetIntRegistryValue%(key$, "ElectrodePort2", fixElectrodes%[2]);
@@ -142,6 +153,7 @@ proc SaveFixPlusScriptParameters()
 	SetFloatRegistryValue(key$, "AcquisitionTime", fixAcquisitionTime);
 	SetFloatRegistryValue(key$, "InterTrialTime", fixInterTrialTime);
     SetIntRegistryValue(key$, "NumberOfTrials", fixNumberOfTrials%);
+    SetIntRegistryValue(key$, "ShowRaster", fixShowRaster%);
     SetIntRegistryValue(key$, "ElectrodePort0", fixElectrodes%[0]);
     SetIntRegistryValue(key$, "ElectrodePort1", fixElectrodes%[1]);
     SetIntRegistryValue(key$, "ElectrodePort2", fixElectrodes%[2]);
@@ -165,10 +177,11 @@ func FixPlusScriptDialog%()
 	DlgReal(3, "Acquisition time(s):", .01, 10);
 	DlgReal(4, "Intertrial time(s):", .01, 10);
 	DlgInteger(5, "Number of Trials:", 1, 1000);
-    DlgButton(101, "Electrodes", FixPlusElectrodeDialog%, 1, 6);
-    DlgCheck(6, "New block?", 1, 7);
-    DlgString(7, "Comment", 18, "", 12, 8);
-    fixElectrodeTextItem% := DlgText(GetElectrodeTextItem$(), 15, 6, 15);
+    DlgCheck(6, "Show Rasters?");
+    DlgButton(101, "Electrodes", FixPlusElectrodeDialog%, 1, 7);
+    DlgCheck(7, "New block?", 1, 8);
+    DlgString(8, "Comment", 18, "", 12, 9);
+    fixElectrodeTextItem% := DlgText(GetElectrodeTextItem$(), 15, 7, 15);
     if fixNewBlock% = 1 then
         DlgButton(1, "Start");
     else
@@ -176,7 +189,7 @@ func FixPlusScriptDialog%()
     endif
     DlgButton(0, "Quit");
     DlgAllow(0xffff, 0, FixPlusDialogChanged%);
-	i%:=DlgShow(fixFixationDuration, fixStimulusDuration, fixAcquisitionTime, fixInterTrialTime, fixNumberOfTrials%, fixNewBlock%, fixComment$);
+	i%:=DlgShow(fixFixationDuration, fixStimulusDuration, fixAcquisitionTime, fixInterTrialTime, fixNumberOfTrials%, fixShowRaster%, fixNewBlock%, fixComment$);
     if i% = 1 then
         SaveFixPlusScriptParameters();
     endif
@@ -189,14 +202,16 @@ func FixPlusDialogChanged%(item%)
     docase
     case item% = 0 then
         if iState% = stateVSGWait% then
-            DlgEnable(0, 6);
-            DlgEnable(1, 7);
+            DlgEnable(1, 6);
+            DlgEnable(0, 7);
+            DlgEnable(1, 8);
         else
-            DlgEnable(fixNewBlock%, 7);
+            DlgEnable(0, 6);
+            DlgEnable(fixNewBlock%, 8);
         endif
-    case item% = 6 then
-        DlgEnable(DlgValue(6), 7);
-        if DlgValue(6) = 1 then
+    case item% = 7 then
+        DlgEnable(DlgValue(7), 8);
+        if DlgValue(7) = 1 then
             DlgValue$(-1, "Start");
         else
             DlgValue$(-1, "Resume");
@@ -243,6 +258,7 @@ end
 ' Run real time analysis here. 
 func IdleProcessing%()
 	var iStatus% := 1;	' this is return value. value of 1 (0) continues (stops) processing
+    var i%;
 	tNow := MaxTime();
 
 	xEye := ChanMeasure(fixChanEyeX%,2,tNow-.001,tNow-.006)*DegreesPerVoltX;
@@ -362,6 +378,7 @@ func IdleProcessing%()
         else
             
             if FindRisingEdge%(fixChanStim%, tStateStart, tTrigger) = 0 then
+                tStimStart := tTrigger;
                 LogStatus("stateWaitForStim", "Got stim.");
                 ChangeStateTo(stateHoldFixationMore%, tNow);
             endif
@@ -385,6 +402,11 @@ func IdleProcessing%()
         nTrialsSuccess% += 1;
         Reward%();
         ChangeStateTo(stateStimOff%, tNow);
+        
+        ' if needed, process for rasters
+        if fixRasterWindow% > 0 then
+            View(fixRasterWindow%).Process(tStimStart, tNow, 0, 1);
+        endif
 
     case iState% = stateFailure% then
 
@@ -438,7 +460,6 @@ func IdleProcessing%()
         
     case iState% = statePaused% then
         
-        var i%;
         UpdateToolbarText("Paused");
         i% := FixPlusScriptDialog%();
         if i% = 0 then
@@ -504,11 +525,11 @@ proc CreateSampleConfiguration()
 	SampleComment$(fixChanVSGReady%, "VSG Ready");
 	SampleTitle$(fixChanVSGReady%, "VSG Ready");
     
-	SampleEvent(fixChanFixpt%, 1, 2, 3600);
+	SampleEvent(fixChanFixpt%, 2, 2, 3600);
 	SampleComment$(fixChanFixpt%, "Fixpt");
 	SampleTitle$(fixChanFixpt%, "Fixpt");
     
-	SampleEvent(fixChanStim%, 2, 2, 3600);
+	SampleEvent(fixChanStim%, 3, 2, 3600);
 	SampleComment$(fixChanStim%, "Stim");
 	SampleTitle$(fixChanStim%, "Stim");    
     
@@ -564,19 +585,23 @@ end;
 
 
 proc InitializeWindows()
-
+    
+    var list%[10];      ' channel list
+    var i%;
+ 
 	'Open the data sampling window
 	DataWindow% := FileNew(0,4);
-	Window(-0.235849,52.746,97.2484,99.8856);
+	Window(0, 50, 97, 99);
 	View(DataWindow%).WindowVisible(1);
+    XRange(0, 30);
 
 	'Open an XY view to display eye position
 	XYWindow% := FileNew(12);
-	XRange(-30,30);
-	YRange(-2,-30,30);
+	XRange(-20, 20);
+	YRange(-2,-20,20);
 	XYDrawMode(0,5,0);
 	WindowVisible(1);
-	Window(-0.550314,0.114416,41.5094,52.746);
+	Window(0, 0, 50,50);
 	XYColour(1,16);
 	XYSize(1,-1);
 
@@ -596,9 +621,6 @@ proc InitializeWindows()
 	XYDrawMode(2,2,1);
 	XYJoin(2,1);
 
-	'Draw the fixation window ON SECOND THOUGHT, DON'T
-	'XYAddData(2, FixWindowX[], FixWindowY[]);	
-
 	'Create a new channel in the XY view to display the fixation point
 	iStimChannel% := XYSetChan(0);
 
@@ -611,7 +633,21 @@ proc InitializeWindows()
 	XYAddData(4,9,-7);
 	XYAddData(4,9,7);
 	XYAddData(4,-9,7);
-
+    
+    
+	' Open raster plots if requested. First figure out how many will be needed - that will tell us how to
+    ' do the layout. 
+    
+    View(DataWindow%).ChanList(list%[], 0x10);
+    if list%[0] > 0 then
+        if fixShowRaster% = 1 then
+            'fixRasterWindow% := View(DataWindow%).SetPsth(list%[], 1, fixFixationDuration + fixStimulusDuration, fixFixationDuration, 0, 2);
+            fixRasterWindow% := View(DataWindow%).SetPsth(list%[], 100, (fixFixationDuration + fixStimulusDuration)/100, fixFixationDuration, 0, 2);
+            View(fixRasterWindow%).WindowVisible(1);
+            View(fixRasterWindow%).Window(50, 0, 100, 50);
+        endif
+    endif
+    
 end;
 
 
@@ -668,10 +704,10 @@ func Start%()
     GetFixationPointParameterValues(fixFixationX, fixFixationY, fixFixationD, fixFixationWindowRadius);
     
     ' extra parameters
-    extra$ := " -d " + GetDistanceToScreenMM$() + " -b gray -N -S -Q -t 100,100,100 -g " + GetGratingParameters$("Distractor1");
+    extra$ := " -d " + GetDistanceToScreenMM$() + " -b gray ";
     
     ' Generate command line
-    cmdLine$ := "cmd /k " + GetBinDir$(1) + "Attention " + fixSpec$ + extra$ + " -s " + stimSpec$;
+    cmdLine$ := "cmd /k " + GetBinDir$(1) + "fixstim " + fixSpec$ + extra$ + " -g " + stimSpec$;
  	
 	SampleStart(0); 'Start sampling
     SampleText(fixComment$);
@@ -738,6 +774,10 @@ end;
 func InFixationWindow%(EyePosX,EyePosY)
 	var i% := 0;
 	var xstim, ystim;
+    if fixAlwaysLooking% = 1 then 
+        return 1;
+    endif
+    
 	xstim := GetStimX();
 	ystim := GetStimY();
 	'Determine if the eye position is within the fixation window
