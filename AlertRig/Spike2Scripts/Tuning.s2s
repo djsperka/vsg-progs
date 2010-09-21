@@ -1,4 +1,4 @@
-' $Id: Tuning.s2s,v 1.25 2010-09-21 18:13:08 devel Exp $
+' $Id: Tuning.s2s,v 1.26 2010-09-21 19:29:58 devel Exp $
 
 #include "../../Spike2Util/ChannelUtilities.s2s"
 #include "../../Spike2Util/UsreyUtil.s2s"
@@ -32,6 +32,8 @@ var tunNRepeats%;		' Number of repeats
 ' The Indices array is the order to step through the values with: tunValues[tunValuesIndices%[0]], tunValues[tunValuesIndices%[1]], ...
 var tunValues[100];
 var tunValuesIndices%[100]; 
+var tunNValues%;
+var tunValuesStringified$;
 
 ' These are specific to the individual tuning curve types - orientation first
 var tunOriNSteps%;		' # steps in orientation tuning curve
@@ -865,7 +867,7 @@ func GetPlotXCoord(nTrials%)
 	var x;
 	var n%;
 	n% := nTrials% mod (tunNAdvances% + 1);
-	x := tunValues[n%];
+	x := tunValues[tunValuesIndices%[n%]];
 	return x;
 end;
 
@@ -1029,33 +1031,49 @@ proc CreateSampleConfiguration()
     FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 3);
     FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 1);
     docase
-        case tunType$ = tunTypeContrast$ then 
-            SampleAutoName$(dataCellName$ + "_con_000");
-            tunNAdvances% := tunContrastNSteps%;
-            tunNRepeats% := tunContrastNRepeats%;
-            GetLogProgression(tunContrastMinContrast, tunContrastMaxContrast, tunContrastNSteps%, tunValues);
-        case tunType$ = tunTypeOrientation$ then 
-            SampleAutoName$(dataCellName$ + "_ori_000");
-            tunNAdvances% := tunOriNSteps%;
-            tunNRepeats% := tunOriNRepeats%;
-            GetLinearProgression(tunOriMinOrientation, tunOriMaxOrientation, tunOriNSteps%, tunValues);
-        case tunType$ = tunTypeSpatial$ then 
-            SampleAutoName$(dataCellName$ + "_spa_000");
-            tunNAdvances% := tunSpatialNSteps%;
-            tunNRepeats% := tunSpatialNRepeats%;
-            GetLogProgression(tunSpatialMinSF, tunSpatialMaxSF, tunSpatialNSteps%, tunValues);
-        case tunType$ = tunTypeTemporal$ then 
-            SampleAutoName$(dataCellName$ + "_tem_000");
-            tunNAdvances% := tunTemporalNSteps%;
-            tunNRepeats% := tunTemporalNRepeats%;
-            GetLogProgression(tunTemporalMinTF, tunTemporalMaxTF, tunTemporalNSteps%, tunValues);
-        case tunType$ = tunTypeArea$ then 
-            SampleAutoName$(dataCellName$ + "_area_000");
-            tunNAdvances% := tunAreaNSteps%;
-            tunNRepeats% := tunAreaNRepeats%;
-            GetLogProgression(tunAreaMinDiam, tunAreaMaxDiam, tunAreaNSteps%, tunValues);
-        else
-            SampleAutoName$(dataCellName$ + "_tun_000");
+        
+    case tunType$ = tunTypeContrast$ then 
+        SampleAutoName$(dataCellName$ + "_con_000");
+        tunNAdvances% := tunContrastNSteps%;
+        tunNRepeats% := tunContrastNRepeats%;
+        'GetLogProgression(tunContrastMinContrast, tunContrastMaxContrast, tunContrastNSteps%, tunValues);
+        GetRepeatedParameterProgression%(tunContrastNSteps%+1, tunContrastNRepeats%, tunValues[], tunValuesIndices%[], tunContrastMinContrast, tunContrastMaxContrast, 1, tunContrastProgression%);
+        tunNValues% := (tunContrastNSteps%+1)*tunContrastNRepeats%;
+        tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%);
+    case tunType$ = tunTypeOrientation$ then 
+        SampleAutoName$(dataCellName$ + "_ori_000");
+        tunNAdvances% := tunOriNSteps%;
+        tunNRepeats% := tunOriNRepeats%;
+        'GetLinearProgression(tunOriMinOrientation, tunOriMaxOrientation, tunOriNSteps%, tunValues);
+        GetRepeatedParameterProgression%(tunOriNSteps%+1, tunOriNRepeats%, tunValues[], tunValuesIndices%[], tunOriMinOrientation, tunOriMaxOrientation, 0, tunOriProgression%);
+        tunNValues% := (tunOriNSteps%+1)*tunOriNRepeats%;
+        tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%);
+    case tunType$ = tunTypeSpatial$ then 
+        SampleAutoName$(dataCellName$ + "_spa_000");
+        tunNAdvances% := tunSpatialNSteps%;
+        tunNRepeats% := tunSpatialNRepeats%;
+        'GetLogProgression(tunSpatialMinSF, tunSpatialMaxSF, tunSpatialNSteps%, tunValues);
+        GetRepeatedParameterProgression%(tunSpatialNSteps%+1, tunSpatialNRepeats%, tunValues[], tunValuesIndices%[], tunSpatialMinSF, tunSpatialMaxSF, 1, tunSpatialProgression%);        
+        tunNValues% := (tunSpatialNSteps%+1)*tunSpatialNRepeats%;
+        tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%);
+    case tunType$ = tunTypeTemporal$ then 
+        SampleAutoName$(dataCellName$ + "_tem_000");
+        tunNAdvances% := tunTemporalNSteps%;
+        tunNRepeats% := tunTemporalNRepeats%;
+        'GetLogProgression(tunTemporalMinTF, tunTemporalMaxTF, tunTemporalNSteps%, tunValues);
+        GetRepeatedParameterProgression%(tunTemporalNSteps%, tunTemporalNRepeats%, tunValues[], tunValuesIndices%[], tunTemporalMinTF, tunTemporalMaxTF, 1, tunTemporalProgression%);
+        tunNValues% := (tunTemporalNSteps%+1)*tunTemporalNRepeats%;
+        tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%);
+    case tunType$ = tunTypeArea$ then 
+        SampleAutoName$(dataCellName$ + "_area_000");
+        tunNAdvances% := tunAreaNSteps%;
+        tunNRepeats% := tunAreaNRepeats%;
+        'GetLogProgression(tunAreaMinDiam, tunAreaMaxDiam, tunAreaNSteps%, tunValues);
+        GetRepeatedParameterProgression%(tunAreaNSteps%, tunAreaNRepeats%, tunValues[], tunValuesIndices%[], tunAreaMinDiam, tunAreaMaxDiam, 1, tunAreaProgression%);
+        tunNValues% := (tunAreaNSteps%+1)*tunAreaNRepeats%;
+        tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%);
+    else
+        SampleAutoName$(dataCellName$ + "_tun_000");
     endcase;
 
     SampleAutoFile(1);
@@ -1207,66 +1225,37 @@ proc WriteParameterFile()
 		case tunType$ = tunTypeContrast$ then
 
 			Print("Type:                  : Contrast\n");
-			Print("Min,Max,#Steps         : %f,%f,%d\n", tunContrastMinContrast, tunContrastMaxContrast, tunContrastNSteps%);
-			Print("Values: " + StringifyProgression$(tunNAdvances%, tunValues) + "\n");
-'			Tstepsize := (tunContrastMaxContrast - tunContrastMinContrast)/tunContrastNSteps%;
-'			for i% := 0 to tunContrastNSteps% do
-'				if i% > 0 then Print(", "); endif;
-'				Print("%f", tunContrastMinContrast + i%*Tstepsize);
-'			next;
+			Print("Min,Max,#Steps,#Repeats: %f,%f,%d,%d\n", tunContrastMinContrast, tunContrastMaxContrast, tunContrastNSteps%, tunContrastNRepeats%);
+			Print("Values: " + tunValuesStringified$ + "\n");
 			Print("\n");
 
 
 		case tunType$ = tunTypeOrientation$ then
 
 			Print("Type:                  : Orientation\n");
-			Print("Min,Max,#Steps         : %f,%f,%d\n", tunOriMinOrientation, tunOriMaxOrientation, tunOriNSteps%);
-			Print("Values: " + StringifyProgression$(tunNAdvances%, tunValues) + "\n");
-'			Print("Values: ");
-'			Tstepsize := (tunOriMaxOrientation - tunOriMinOrientation)/tunOriNSteps%;
-'			for i% := 0 to tunOriNSteps% do
-'				if i% > 0 then Print(", "); endif;
-'				Print("%f", tunOriMinOrientation + i%*Tstepsize);
-'			next;
+			Print("Min,Max,#Steps,#Repeats: %f,%f,%d,%d\n", tunOriMinOrientation, tunOriMaxOrientation, tunOriNSteps%, tunOriNRepeats%);
+			Print("Values: " + tunValuesStringified$ + "\n");
 			Print("\n");
 
 		case tunType$ = tunTypeSpatial$ then
 
 			Print("Type:                  : Spatial Frequency\n");
-			Print("Min,Max,#Steps         : %f,%f,%d\n", tunSpatialMinSF, tunSpatialMaxSF, tunSpatialNSteps%);
-			Print("Values: " + StringifyProgression$(tunNAdvances%, tunValues) + "\n");
-'			Print("Values: ");
-'			Tstepsize := (tunSpatialMaxSF - tunSpatialMinSF)/tunSpatialNSteps%;
-'			for i% := 0 to tunSpatialNSteps% do
-'				if i% > 0 then Print(", "); endif;
-'				Print("%f", tunSpatialMinSF + i%*Tstepsize);
-'			next;
+			Print("Min,Max,#Steps,#Repeats: %f,%f,%d,%d\n", tunSpatialMinSF, tunSpatialMaxSF, tunSpatialNSteps%, tunSpatialNRepeats%);
+			Print("Values: " + tunValuesStringified$ + "\n");
 			Print("\n");
 	
 		case tunType$ = tunTypeTemporal$ then
 
 			Print("Type:                  : Temporal Frequency\n");
-			Print("Min,Max,#Steps         : %f,%f,%d\n", tunTemporalMinTF, tunTemporalMaxTF, tunTemporalNSteps%);
-			Print("Values: " + StringifyProgression$(tunNAdvances%, tunValues) + "\n");
-'			Print("Values: ");
-'			Tstepsize := (tunTemporalMaxTF - tunTemporalMinTF)/tunTemporalNSteps%;
-'			for i% := 0 to tunTemporalNSteps% do
-'				if i% > 0 then Print(", "); endif;
-'				Print("%f", tunTemporalMinTF + i%*Tstepsize);
-'			next;
+			Print("Min,Max,#Steps,#Repeats: %f,%f,%d,%d\n", tunTemporalMinTF, tunTemporalMaxTF, tunTemporalNSteps%, tunTemporalNRepeats%);
+			Print("Values: " + tunValuesStringified$ + "\n");
 			Print("\n");
 
 		case tunType$ = tunTypeArea$ then
 
 			Print("Type:                  : Aperture Area\n");
-			Print("Min,Max,#Steps         : %f,%f,%d\n", tunAreaMinDiam, tunAreaMaxDiam, tunAreaNSteps%);
-			Print("Values: " + StringifyProgression$(tunNAdvances%, tunValues) + "\n");
-'			Print("Values: ");
-'			Tstepsize := (tunTemporalMaxTF - tunTemporalMinTF)/tunTemporalNSteps%;
-'			for i% := 0 to tunTemporalNSteps% do
-'				if i% > 0 then Print(", "); endif;
-'				Print("%f", tunTemporalMinTF + i%*Tstepsize);
-'			next;
+			Print("Min,Max,#Steps,#Repeats: %f,%f,%d,%d\n", tunAreaMinDiam, tunAreaMaxDiam, tunAreaNSteps%, tunAreaNRepeats%);
+			Print("Values: " + tunValuesStringified$ + "\n");
 			Print("\n");
 
 		else
@@ -1299,7 +1288,7 @@ func Start%()
 	
 	' Stimulus is always used
 	Stim$ := " -s " + GetGratingParameters$("Stimulus");
-	Values$ := StringifyProgression$(tunNAdvances%, tunValues);	
+	Values$ := tunValuesStringified$;
 	Extras$ := " -b " + tunBackgroundColor$ + " -d " + DistanceToScreenMM$;
 	docase 
 		case tunType$ = tunTypeContrast$ then
@@ -1401,22 +1390,17 @@ Proc GetLinearProgression(xmin, xmax, nsteps%, vec[])
 	next;
 end;
 
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-' Randomize the order of the elements in the given array. 
-Proc RandomizeProgression(nsteps%, vec[])
-
-
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 ' Put a vector of numbers into a comma separated string
-Func StringifyProgression$(nsteps%, vec[])
+Func StringifyProgression$(n%, vec[], ind%[])
 	var s$;
 	var i%;
-	for i% := 0 to nsteps% do
+	for i% := 0 to n%-1 do
 		if i% > 0 then 
 			s$ += ",";
 		endif
-		s$ += str$(vec[i%]);
+		s$ += str$(vec[ind%[i%]]);
 	next
 	return s$;
 end;
