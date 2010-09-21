@@ -1,7 +1,8 @@
-' $Id: AttaJoy.s2s,v 1.18 2010-09-17 16:51:14 devel Exp $
+' $Id: AttaJoy.s2s,v 1.19 2010-09-21 23:52:02 devel Exp $
 
 #include "../../Spike2Util/TrialGenInterface.s2s"
 #include "../../Spike2Util/ChannelUtilities.s2s"
+#include "../../Spike2Util/DlgUtilities.s2s"
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "UsreyGratings.s2s"
 #include "UsreyFixationPoint.s2s"
@@ -52,6 +53,11 @@ var ajExtraFixationTime := 0.2;     ' Extra fixation time during stateWaitForRes
 var ajDoHoldFixationMiniReward% := 0;   ' 2010-07-14 Hard-coded. Set to 0 to eliminate mini-reward. 
 var ajHoldFixationMiniRewardEnable% := 0;   ' when 1 mini reward is enabled; used per-trial
 var ajHoldFixationMiniRewardFraction := .99; ' fraction of hold fixation time passed before mini-reward given
+const ajNPorts% := 8;   ' Number of analog ports. Is there a way to programatically determine this? 
+var ajWavemark%[ajNPorts%]; 
+var ajContinuous%[ajNPorts%];
+
+
 ' Strings for DlgList training type
 var ajTrainingTypes$[4];
 
@@ -268,7 +274,7 @@ InitializeToolbar();
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
 proc CreateSampleConfiguration()
-	var index;
+	var i%;
     
 	SampleClear(); 'Set standard sampling state
 	SampleAutoComment(0); 'Prompt for comment after sampling
@@ -308,9 +314,18 @@ proc CreateSampleConfiguration()
 	SampleWaveform(ajChanEyeY%, GetEyeYPort%(), 1000);
 	SampleTitle$(ajChanEyeY%, "Eye Y");
     
-    ' Just a single electrode on port 0 for now. 
-	SampleWaveMark(1, 0, 2000, 34, 15, 28000); ' chan, port, event rate, points, pre-trigger, rate
-	SampleTitle$(index,"Electrode"); 
+    ' Electrodes: wavemark/continuous
+    for i% := 0 to ajNPorts%-1 do
+        if ajWavemark%[i%] = 1 then
+            if ajContinuous%[i%] = 0 then
+                SampleWaveMark(i%+1, i%, 2000, 34, 15, 28000); ' chan, port, event rate, points, pre-trigger, rate
+                SampleTitle$(i%+1, "WvMk" + str$(i%)); 
+            else
+                SampleWaveform(i%+1, i%, 28000);
+                SampleTitle$(i%+1, "Cont" + str$(i%)); 
+            endif
+        endif
+    next
     
 	SampleSequencer(script$ + "AttaJoy.pls");
 	SampleOptimise(2, 2, 2, 2, 50);  'Set optimise mode (do this last)
@@ -1208,6 +1223,7 @@ func AttaJoyDialog%()
     DlgReal(18, "Hazard time (mean)", 0.0, 100.0, 20, 20);
     DlgReal(19, "Hazard time (max)", 0.0, 100.0, 20, 21);
     DlgButton(101, "Timing", AttaJoyTimingDialog%, 1, 22);
+    DlgButton(102, "Electrodes", AttaJoyElectrodeDialog%, 1, 23);
     
     DlgAllow(0, 0, AttaJoyDialogChanged%);
 
@@ -1270,9 +1286,15 @@ func AttaJoyTimingDialog%()
 end
 
 
+func AttaJoyElectrodeDialog%()
+    return WMCNPortDialog%("Wavemark/Cont ports", ajWavemark%[], ajContinuous%[]);
+end
+
+
 proc GetAttaJoyParameters()
     var key$;
     var stmp$;
+    var i%;
     key$ := GetRegistryKey$(1) + "\\AttaJoy";
     ajNBlocks% := GetIntRegistryValue%(key$, "NBlocks", ajNBlocks%);
     ajNTrialsEachTypePerBlock% := GetIntRegistryValue%(key$, "NTrialsEachTypePerBlock", ajNTrialsEachTypePerBlock%);
@@ -1306,9 +1328,14 @@ proc GetAttaJoyParameters()
     ajCorrectResponsePauseTime := GetFloatRegistryValue(key$, "CorrectResponsePauseTime", ajCorrectResponsePauseTime);
     ajIncorrectResponsePauseTime := GetFloatRegistryValue(key$, "IncorrectResponsePauseTime", ajIncorrectResponsePauseTime);
     ajExtraFixationTime := GetFloatRegistryValue(key$, "ExtraFixationTime", ajExtraFixationTime);
+    for i% := 0 to ajNPorts%-1 do
+        ajWavemark%[i%] := GetIntRegistryValue%(key$, "Wavemark"+str$(i%), ajWavemark%[i%]);
+        ajContinuous%[i%] := GetIntRegistryValue%(key$, "Continuous"+str$(i%), ajContinuous%[i%]);
+    next
 end
 
 proc SaveAttaJoyParameters()
+    var i%;
     var key$;
     var stmp$;
     key$ := GetRegistryKey$(1) + "\\AttaJoy";
@@ -1344,6 +1371,10 @@ proc SaveAttaJoyParameters()
     SetFloatRegistryValue(key$, "CorrectResponsePauseTime", ajCorrectResponsePauseTime);
     SetFloatRegistryValue(key$, "IncorrectResponsePauseTime", ajIncorrectResponsePauseTime);
     SetFloatRegistryValue(key$, "ExtraFixationTime", ajExtraFixationTime);
+    for i% := 0 to ajNPorts%-1 do
+        SetIntRegistryValue(key$, "Wavemark"+str$(i%), ajWavemark%[i%]);
+        SetIntRegistryValue(key$, "Continuous"+str$(i%), ajContinuous%[i%]);
+    next
 end
 
 
