@@ -1,4 +1,4 @@
-' $Id: AttaJoy.s2s,v 1.20 2010-09-22 17:23:18 devel Exp $
+' $Id: AttaJoy.s2s,v 1.21 2010-09-22 18:15:10 devel Exp $
 
 #include "../../Spike2Util/TrialGenInterface.s2s"
 #include "../../Spike2Util/ChannelUtilities.s2s"
@@ -50,15 +50,15 @@ var ajAlwaysLooking% := 0;      ' Set to 1 in timing dialog. Will cause Looking%
 var ajTrialTypesListIndex% := 0;
 var ajShowSingleStim% := 0;
 var ajExtraFixationTime := 0.2;     ' Extra fixation time during stateWaitForResponse
-var ajDoHoldFixationMiniReward% := 0;   ' 2010-07-14 Hard-coded. Set to 0 to eliminate mini-reward. 
+var ajDoHoldFixationMiniReward% := 0;   ' DO NOT MODIFY! Use Bonus dialog!!!
 var ajHoldFixationMiniRewardEnable% := 0;   ' when 1 mini reward is enabled; used per-trial
 var ajHoldFixationMiniRewardFraction := .99; ' fraction of hold fixation time passed before mini-reward given
 const ajNPorts% := 8;   ' Number of analog ports. Is there a way to programatically determine this? 
 var ajWavemark%[ajNPorts%]; 
 var ajContinuous%[ajNPorts%];
-var ajDoJoystickReadyMiniReward% := 0;      ' When set, will deliver a reward 
-var ajJoystickReadyMiniRewardDelay := .2;   ' delay after joystick ready to reward
-var ajJoystickReadyMiniRewardSize% := 1;    ' size of joystick ready reward 
+var ajDoJoystickReadyMiniReward% := 0;      ' When set, will deliver a reward. Set/unset in bonus dialog.
+var ajJoystickReadyMiniRewardDelay := .5;   ' delay after joystick ready to reward
+var ajJoystickReadyMiniRewardSize% := 2;    ' size of joystick ready reward 
 
 ' Strings for DlgList training type
 var ajTrainingTypes$[4];
@@ -634,10 +634,10 @@ func IdleProcessing%()
             case joystickPosition% = ajReadyResponse% then
                 LogStatus("WaitForReady", "Joystick ready.");
                 ajCtrNTrialsReady% += 1;
-'                if ajDoReadyTraining% = 0 then
                 if ajTrainingType% <> ajReadyTraining% then
-                    SampleKey(ajTrialFixptSampleKey$);                   ' this is determined in PrepareTrial, depends on trial type
                     ' If the joystick-ready-mini-reward is enabled, then we deliver it now
+                    SampleKey(ajTrialFixptSampleKey$);                   ' this is determined in PrepareTrial, depends on trial type
+                    Yield();
                     if ajDoJoystickReadyMiniReward% = 1 then
                         DeliverRewardDelayed(ajJoystickReadyMiniRewardDelay, ajJoystickReadyMiniRewardSize%);
                     endif
@@ -1033,7 +1033,7 @@ end
 
 proc DeliverRewardDelayed(tDelay, iNumRewards%)
     SampleSeqVar(1, iNumRewards%);
-    SampleSeqVar(2, tDelay);
+    SampleSeqVar(2, tDelay*1000);
     SampleKey("T");
     return;
 end
@@ -1238,6 +1238,7 @@ func AttaJoyDialog%()
     DlgReal(19, "Hazard time (max)", 0.0, 100.0, 20, 21);
     DlgButton(101, "Timing", AttaJoyTimingDialog%, 1, 22);
     DlgButton(102, "Electrodes", AttaJoyElectrodeDialog%, 1, 23);
+    DlgButton(103, "Bonus", AttaJoyBonusDialog%, 1, 24);
     
     DlgAllow(0, 0, AttaJoyDialogChanged%);
 
@@ -1301,8 +1302,35 @@ end
 
 
 func AttaJoyElectrodeDialog%()
-    return WMCNPortDialog%("Wavemark/Cont ports", ajWavemark%[], ajContinuous%[]);
+    WMCNPortDialog%("Wavemark/Cont ports", ajWavemark%[], ajContinuous%[]);
+    return 1;
 end
+
+func AttaJoyBonusDialog%()
+    DlgCreate("Bonus Rewards");
+    DlgCheck(1, "Hold Fixation Mini-Reward");
+    DlgReal(2, "Hold Fixation Fraction for Reward", 0, 1);
+    DlgCheck(3, "Joystick Ready Mini-Reward");
+    DlgInteger(4, "Joystick Ready Reward Size", 1, 10);
+    DlgReal(5, "Joystick Ready Reward Delay(s)", 0, 1);
+    DlgAllow(0xffff, 0,  AttaJoyBonusDialogChanged%);
+    DlgShow(ajDoHoldFixationMiniReward%, ajHoldFixationMiniRewardFraction, ajDoJoystickReadyMiniReward%, ajJoystickReadyMiniRewardSize%, ajJoystickReadyMiniRewardDelay);
+    return 1;
+end
+
+func AttaJoyBonusDialogChanged%(item%)
+    docase
+    case item% = 0 then
+        DlgEnable(ajDoHoldFixationMiniReward%, 2);
+        DlgEnable(ajDoJoystickReadyMiniReward%, 4, 5);
+    case item% = 1 then
+        DlgEnable(DlgValue(1), 2);
+    case item% = 3 then
+        DlgEnable(DlgValue(3), 4, 5);
+    endcase
+    return 1;
+end
+
 
 
 proc GetAttaJoyParameters()
@@ -1346,6 +1374,11 @@ proc GetAttaJoyParameters()
         ajWavemark%[i%] := GetIntRegistryValue%(key$, "Wavemark"+str$(i%), ajWavemark%[i%]);
         ajContinuous%[i%] := GetIntRegistryValue%(key$, "Continuous"+str$(i%), ajContinuous%[i%]);
     next
+    ajDoHoldFixationMiniReward% := GetIntRegistryValue%(key$, "DoHoldFixationMiniReward", ajDoHoldFixationMiniReward%);
+    ajHoldFixationMiniRewardFraction := GetFloatRegistryValue(key$, "HoldFixationMiniRewardFraction", ajHoldFixationMiniRewardFraction);
+    ajDoJoystickReadyMiniReward% := GetIntRegistryValue%(key$, "DoJoystickReadyMiniReward", ajDoJoystickReadyMiniReward%);
+    ajJoystickReadyMiniRewardSize% := GetIntRegistryValue%(key$, "JoystickReadyMiniRewardSize", ajJoystickReadyMiniRewardSize%);
+    ajJoystickReadyMiniRewardDelay := GetFloatRegistryValue(key$, "JoystickReadyMiniRewardDelay", ajJoystickReadyMiniRewardDelay);
 end
 
 proc SaveAttaJoyParameters()
@@ -1389,6 +1422,11 @@ proc SaveAttaJoyParameters()
         SetIntRegistryValue(key$, "Wavemark"+str$(i%), ajWavemark%[i%]);
         SetIntRegistryValue(key$, "Continuous"+str$(i%), ajContinuous%[i%]);
     next
+    SetIntRegistryValue(key$, "DoHoldFixationMiniReward", ajDoHoldFixationMiniReward%);
+    SetFloatRegistryValue(key$, "HoldFixationMiniRewardFraction", ajHoldFixationMiniRewardFraction);
+    SetIntRegistryValue(key$, "DoJoystickReadyMiniReward", ajDoJoystickReadyMiniReward%);
+    SetIntRegistryValue(key$, "JoystickReadyMiniRewardSize", ajJoystickReadyMiniRewardSize%);
+    SetFloatRegistryValue(key$, "JoystickReadyMiniRewardDelay", ajJoystickReadyMiniRewardDelay);
 end
 
 
