@@ -1,4 +1,4 @@
-' $Id: Tuning.s2s,v 1.26 2010-09-21 19:29:58 devel Exp $
+' $Id: Tuning.s2s,v 1.27 2010-09-22 17:30:42 devel Exp $
 
 #include "../../Spike2Util/ChannelUtilities.s2s"
 #include "../../Spike2Util/UsreyUtil.s2s"
@@ -1102,11 +1102,11 @@ proc CreateSampleConfiguration()
 		SampleTitle$(index,"Electrode_"+Str$(index)); 
 	next
 	
-	SampleWaveform(XChannel%,14,1000);
+	SampleWaveform(XChannel%, GetEyeXPort%(), 1000);
 	SampleTitle$(XChannel%,"Eye X");
-	SampleWaveform(YChannel%,15,1000);
+	SampleWaveform(YChannel%, GetEyeYPort%(), 1000);
 	SampleTitle$(YChannel%,"Eye Y");
-	
+    
 	SampleSequencer(script$ + "Tuning.pls");
 	SampleOptimise(2,2,2,2,50);  'Set optimise mode (do this last)
 	SampleMode(1); 'Continuous sampling
