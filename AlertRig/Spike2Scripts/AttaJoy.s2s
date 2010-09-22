@@ -1,4 +1,4 @@
-' $Id: AttaJoy.s2s,v 1.19 2010-09-21 23:52:02 devel Exp $
+' $Id: AttaJoy.s2s,v 1.20 2010-09-22 17:23:18 devel Exp $
 
 #include "../../Spike2Util/TrialGenInterface.s2s"
 #include "../../Spike2Util/ChannelUtilities.s2s"
@@ -56,7 +56,9 @@ var ajHoldFixationMiniRewardFraction := .99; ' fraction of hold fixation time pa
 const ajNPorts% := 8;   ' Number of analog ports. Is there a way to programatically determine this? 
 var ajWavemark%[ajNPorts%]; 
 var ajContinuous%[ajNPorts%];
-
+var ajDoJoystickReadyMiniReward% := 0;      ' When set, will deliver a reward 
+var ajJoystickReadyMiniRewardDelay := .2;   ' delay after joystick ready to reward
+var ajJoystickReadyMiniRewardSize% := 1;    ' size of joystick ready reward 
 
 ' Strings for DlgList training type
 var ajTrainingTypes$[4];
@@ -635,6 +637,10 @@ func IdleProcessing%()
 '                if ajDoReadyTraining% = 0 then
                 if ajTrainingType% <> ajReadyTraining% then
                     SampleKey(ajTrialFixptSampleKey$);                   ' this is determined in PrepareTrial, depends on trial type
+                    ' If the joystick-ready-mini-reward is enabled, then we deliver it now
+                    if ajDoJoystickReadyMiniReward% = 1 then
+                        DeliverRewardDelayed(ajJoystickReadyMiniRewardDelay, ajJoystickReadyMiniRewardSize%);
+                    endif
                     ChangeStateTo(stateWaitForFixpt%, tNow);
                 else
                     ChangeStateTo(stateT1Success%, tNow);
@@ -1024,6 +1030,14 @@ proc DeliverReward(iNumRewards%)
     SampleKey("R");
     return;
 end
+
+proc DeliverRewardDelayed(tDelay, iNumRewards%)
+    SampleSeqVar(1, iNumRewards%);
+    SampleSeqVar(2, tDelay);
+    SampleKey("T");
+    return;
+end
+
 
 func ajChanFixptWindowDisplay()
     DeliverReward(1);
