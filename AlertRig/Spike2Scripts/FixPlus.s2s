@@ -1,5 +1,5 @@
 
-' $Id: FixPlus.s2s,v 1.4 2010-09-21 19:33:15 devel Exp $
+' $Id: FixPlus.s2s,v 1.5 2010-09-22 17:29:17 devel Exp $
 '
 ' FixPlus is a modified version of fixation for Corey. 
 ' Its same as fixation, but a stim appears during the fixation period. Uses attention.exe.
@@ -20,7 +20,7 @@ var fixNumberOfTrials% := 10;			' Number of trials to run
 var fixElectrodes%[8];
 var fixComment$ := "comment";
 var fixNewBlock% := 1;
-var fixAlwaysLooking% := 1;
+var fixAlwaysLooking% := 0;
 var fixShowRaster% := 1;
 
 var fixFixationX, fixFixationY, fixFixationD, fixFixationWindowRadius;
