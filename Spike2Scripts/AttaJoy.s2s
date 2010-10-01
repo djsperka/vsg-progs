@@ -1,4 +1,10 @@
-' $Id: AttaJoy.s2s,v 1.21 2010-09-22 18:15:10 devel Exp $
+' $Id: AttaJoy.s2s,v 1.22 2010-10-01 16:59:38 devel Exp $
+
+' Stimulator/shock setup: 
+' DOUT0 from VSG ----> TRIG input on 1401 _T_ ajRecordShockTriggerPort% (if not set to -1)
+' DAC0 output on 1401 -----> stimulator pulse _T_ ajRecordShockPort% (if not set to -1)
+
+
 
 #include "../../Spike2Util/TrialGenInterface.s2s"
 #include "../../Spike2Util/ChannelUtilities.s2s"
@@ -13,9 +19,6 @@
 
 var ajNBlocks% := 1;
 var ajNTrialsEachTypePerBlock% := 10;
-'var ajDoReadyTraining% := 0;
-'var ajDoReadyFixTraining% := 0;
-'var ajDoReadyFixStimTraining% := 0;
 const ajNoTraining% := 0;
 const ajReadyTraining% := 1;
 const ajReadyFixTraining% := 2;
@@ -56,9 +59,18 @@ var ajHoldFixationMiniRewardFraction := .99; ' fraction of hold fixation time pa
 const ajNPorts% := 8;   ' Number of analog ports. Is there a way to programatically determine this? 
 var ajWavemark%[ajNPorts%]; 
 var ajContinuous%[ajNPorts%];
-var ajDoJoystickReadyMiniReward% := 0;      ' When set, will deliver a reward. Set/unset in bonus dialog.
-var ajJoystickReadyMiniRewardDelay := .5;   ' delay after joystick ready to reward
-var ajJoystickReadyMiniRewardSize% := 2;    ' size of joystick ready reward 
+var ajDoJoystickReadyMiniReward% := 0;      ' When set, will deliver a reward 
+var ajJoystickReadyMiniRewardDelay := .2;   ' delay after joystick ready to reward
+var ajJoystickReadyMiniRewardSize% := 1;    ' size of joystick ready reward 
+var ajDoShockTrials% := 0;
+var ajShockDelayMS% := 500;
+var ajJoystickAlwaysCorrect% := 0;  ' if 1 then JoystickPostionCorrect% always returns 1 (correct)
+var ajTestShockTrials% := 1;        ' if 1 then every trial is a shock trial
+var ajPulse[1000];                   ' max 5s at 1khz
+var ajShockDoRecordShock% := 1;
+var ajRecordShockPort% := 4;                  ' Must hardcode this or set in dialog! Set to -1 for no record
+var ajRecordShockTriggerPort% := 3;           ' Hardcode. Set to -1 for no record. 
+var ajShockTrialEnable% := 0;                 ' See PrepareTrial(). Set to 1 on trials where there will be a shock. 
 
 ' Strings for DlgList training type
 var ajTrainingTypes$[4];
@@ -81,9 +93,11 @@ var ajCtrNTrialsChg% := 0;
 
 ' Channel numbers for DAQ inputs
 
-var ajChanEyeX%    := 11;
-var ajChanEyeY%    := 12;
-var ajChanJoy%     := 13;
+var ajChanEyeX%                 := 11;
+var ajChanEyeY%                 := 12;
+var ajChanJoy%                  := 13;
+var ajChanRecordShock%          := 14;
+var ajChanRecordShockTrigger%   := 15;
 
 ' VSG trigger input channels
 
@@ -209,14 +223,28 @@ if AttaJoyDialog%() = 0 then
     halt;
 endif
 
-
 ' Check a few values for reasonable-ness....
 if ajHazardTimeMax < ajHazardTimeMean or ajHazardTimeMean < ajHazardTimeMin then
     Message("Must have hazard time max > mean > min!");
     halt;
 endif
 
-'if ajDoReadyTraining% = 0 and ajTrialTypesListIndex% = 0 then
+' 
+if ajJoystickAlwaysCorrect% = 1 then
+    if Query("JoystickAlwaysCorrect is set to 1. This means the joystick is presumed to always be in correct position. Change back to 0?") = 1 then
+        ajJoystickAlwaysCorrect% := 0;
+    endif
+endif
+
+if ajDoShockTrials% = 1 and ajTestShockTrials% = 1 then
+    if Query("TestShockTrials is set to 1. This means every trial is a shock trial. Change back to 0?") = 1 then
+        ajTestShockTrials% := 0;
+    endif
+endif
+
+
+' Each trial type may have different cue/fixpt sample key values, depending
+' on dialog choices regarding training, etc. 
 if ajTrainingType% <> ajReadyTraining% and ajTrialTypesListIndex% = 0 then
     ajNTrialTypes% := 2;
     ajTrialFixptTypeKeys$[0] := "F";
@@ -226,7 +254,6 @@ if ajTrainingType% <> ajReadyTraining% and ajTrialTypesListIndex% = 0 then
 else
     ajNTrialTypes% := 1;
     docase
-'    case ajDoReadyTraining% = 1 then
     case ajTrainingType% = ajReadyTraining% then
         ajTrialFixptTypeKeys$[0] := "Z";
         ajTrialFixptTypeKeys$[1] := "Z";
@@ -252,10 +279,8 @@ else
     tbaltgInit(ajNTrialTypes%, ajNTrialsEachTypePerBlock%, ajNBlocks%);
 endif
 
-
 ' Get fixation point parameters
 GetFixationPointParameters();
-
 
 ' Sampling config
 CreateSampleConfiguration();
@@ -316,6 +341,17 @@ proc CreateSampleConfiguration()
 	SampleWaveform(ajChanEyeY%, GetEyeYPort%(), 1000);
 	SampleTitle$(ajChanEyeY%, "Eye Y");
     
+    if ajShockDoRecordShock% = 1 then
+        if ajRecordShockPort% >= 0 then
+            SampleWaveform(ajChanRecordShock%, ajRecordShockPort%, 5000);
+            SampleTitle$(ajChanRecordShock%, "Shock");
+        endif
+        if ajRecordShockTriggerPort% >= 0 then
+            SampleWaveform(ajChanRecordShockTrigger%, ajRecordShockTriggerPort%, 1000);
+            SampleTitle$(ajChanRecordShockTrigger%, "ShockTrigger");
+        endif            
+    endif
+    
     ' Electrodes: wavemark/continuous
     for i% := 0 to ajNPorts%-1 do
         if ajWavemark%[i%] = 1 then
@@ -329,10 +365,43 @@ proc CreateSampleConfiguration()
         endif
     next
     
+    
+    ' Create play wave area if needed. We have to do this before FileNew()
+    if ajDoShockTrials% = 1 then
+        var s;
+        var ch%[2];
+        LogInfo("Preparing play wave area...");
+        ArrConst(ajPulse[], 0);
+        for i% := ajShockDelayMS% to ajShockDelayMS% + 5 do
+            LogInfo("ajPulse[" + str$(i%) + "] = 5");
+            ajPulse[i%] := 5;
+        next
+        s := PlayWaveAdd("P", "Pulse", 0, 1000, ajPulse[0:1000]);
+        if s < 0 then
+            LogError("Start", "Cannot create play wave area status=" + str$(s));
+            halt;
+        else
+            LogInfo("Play wave area \"P\" created.");
+            s := PlayWaveTrigger("P", 1);
+            LogInfo("Shock trial - area \"P\" trig status now " + str$(PlayWaveTrigger("P")));
+
+            s := PlayWaveChans("P", ch%[]);
+            LogInfo("Play wave area has " +str$(s) + " channels.\n");
+            if s > 0 then
+                PrintLog("First chan is " + str$(ch%[0]) + "\n");
+            endif
+        endif
+        
+    endif
+    
+    
+    
 	SampleSequencer(script$ + "AttaJoy.pls");
 	SampleOptimise(2, 2, 2, 2, 50);  'Set optimise mode (do this last)
 	SampleMode(1); 'Continuous sampling
-
+    
+    
+    
 end;
 
 
@@ -384,7 +453,7 @@ proc InitializeWindows()
     var xyYMax := 15;
     var lh, cl, ch, rl;
     ajJoystickDisplayY := -12;     ' y coord in xy window where joystick position is shown. 
-    
+        
 	'Open the data sampling window
 	ajWindowData% := FileNew(0,4);
 	Window(0,48,100,95);
@@ -612,7 +681,7 @@ func IdleProcessing%()
             
         case iState% = stateWaitForNeutral% then
             
-            if joystickPosition% = JSCenter% then
+            if JoystickPositionCorrect%(joystickPosition%, JSCenter%) = 1 then
                 LogStatus("stateWaitForNeutral", "Joystick in neutral. Proceed.");
                 ChangeStateTo(stateBeep%, tNow);
                 iLoop% := 0;
@@ -631,7 +700,7 @@ func IdleProcessing%()
             
             ' Wait for joystick to be positioned in the center. 
             docase
-            case joystickPosition% = ajReadyResponse% then
+            case JoystickPositionCorrect%(joystickPosition%, ajReadyResponse%) = 1 then
                 LogStatus("WaitForReady", "Joystick ready.");
                 ajCtrNTrialsReady% += 1;
                 if ajTrainingType% <> ajReadyTraining% then
@@ -681,7 +750,7 @@ func IdleProcessing%()
             
             ' Waiting for eye to fall in fixation window. Joystick must remain in ready position.
             docase
-            case joystickPosition% <> ajReadyResponse% then
+            case JoystickPositionCorrect%(joystickPosition%, ajReadyResponse%) = 0 then
                 LogStatus("stateWaitForAcquisition", "Joystick not in ready position.");
                 ChangeStateTo(stateReadyBreak%, tNow);
             case Looking%(xEye, yEye) = 1 then
@@ -721,7 +790,7 @@ func IdleProcessing%()
             
             iLoop% := 0;
             docase
-            case joystickPosition% <> ajReadyResponse% then
+            case JoystickPositionCorrect%(joystickPosition%, ajReadyResponse%) = 0 then
                 LogStatus("stateHoldFixation", "Joystick not in ready position.");
                 ChangeStateTo(stateReadyBreak%, tNow);
             case Looking%(xEye, yEye) <> 1 then
@@ -732,6 +801,11 @@ func IdleProcessing%()
 '                if ajDoReadyFixTraining% = 0 then
                 if ajTrainingType% <> ajReadyFixTraining% then
                     LogStatus("stateHoldFixation", "Fixation held. Request stim up.");
+                    if ajDoShockTrials% = 1 and ajShockTrialEnable% = 1 then
+                        SampleKey("P");
+                        Yield();
+                        LogInfo("PlayWaveStatus = " + PlayWaveStatus$(pos%) + " pos " + str$(pos%));
+                    endif
                     SampleKey("S");
                     ChangeStateTo(stateWaitForStimOn%, tNow);
                 else
@@ -760,7 +834,7 @@ func IdleProcessing%()
             
             iLoop% := 0;
             docase
-            case joystickPosition% <> ajReadyResponse% then
+            case JoystickPositionCorrect%(joystickPosition%, ajReadyResponse%) = 0 then
                 LogStatus("stateHoldFixation1", "Joystick not in ready position.");
                 ChangeStateTo(stateReadyBreak%, tNow);
             case Looking%(xEye, yEye) <> 1 then
@@ -778,7 +852,7 @@ func IdleProcessing%()
             
             iLoop% := 0;
             docase
-            case joystickPosition% <> ajReadyResponse% then
+            case JoystickPositionCorrect%(joystickPosition%, ajReadyResponse%) = 0 then
                 LogStatus("stateWaitForCircle", "Joystick not in ready position.");
                 ChangeStateTo(stateReadyBreak%, tNow);
             case Looking%(xEye, yEye) <> 1 then
@@ -795,7 +869,7 @@ func IdleProcessing%()
             
             iLoop% := 0;
             docase
-            case joystickPosition% <> ajReadyResponse% then
+            case JoystickPositionCorrect%(joystickPosition%, ajReadyResponse%) = 0 then
                 LogStatus("stateHoldFixation2", "Joystick not in ready position.");
                 ChangeStateTo(stateReadyBreak%, tNow);
             case Looking%(xEye, yEye) <> 1 then
@@ -813,7 +887,7 @@ func IdleProcessing%()
             
             iLoop% := 0;
             docase
-            case joystickPosition% <> ajReadyResponse% then
+            case JoystickPositionCorrect%(joystickPosition%, ajReadyResponse%) = 0 then
                 LogStatus("stateWaitForCircleOff", "Joystick not in ready position.");
                 ChangeStateTo(stateReadyBreak%, tNow);
             case Looking%(xEye, yEye) <> 1 then
@@ -830,7 +904,7 @@ func IdleProcessing%()
             
             iLoop% := 0;
             docase
-            case joystickPosition% <> ajReadyResponse% then
+            case JoystickPositionCorrect%(joystickPosition%, ajReadyResponse%) = 0 then
                 LogStatus("stateHoldFixation3", "Joystick not in ready position.");
                 ChangeStateTo(stateReadyBreak%, tNow);
             case Looking%(xEye, yEye) <> 1 then
@@ -863,8 +937,15 @@ func IdleProcessing%()
         case iState% = stateWaitForStimOn% then
             
             iLoop% := 0;
+            
+            if ajDoShockTrials% = 1 and ajShockTrialEnable% = 1 then
+                var pos%;
+                LogInfo("PlayWaveStatus = " + PlayWaveStatus$(pos%) + " pos " + str$(pos%));
+            endif
+            
+            
             docase
-            case joystickPosition% <> ajReadyResponse% then
+            case JoystickPositionCorrect%(joystickPosition%, ajReadyResponse%) = 0 then
                 LogStatus("stateWaitForStimOn", "Joystick not in ready position.");
                 ChangeStateTo(stateReadyBreak%, tNow);
             case Looking%(xEye, yEye) <> 1 then
@@ -874,6 +955,9 @@ func IdleProcessing%()
                 LogStatus("stateWaitForStimOn", "Stim up.");
                 ChangeStateTo(stateWaitHazardTime%, tNow);
                 DisplayStim(2);
+                if ajDoShockTrials% = 1 and ajShockTrialEnable% = 1 then
+                    LogInfo("PlayWaveStatus = " + PlayWaveStatus$(pos%) + " pos " + str$(pos%));
+                endif
             else
                 iLoop% := 0;
             endcase
@@ -882,7 +966,7 @@ func IdleProcessing%()
             
             iLoop% := 0;
             docase
-            case joystickPosition% <> ajReadyResponse% then
+            case JoystickPositionCorrect%(joystickPosition%, ajReadyResponse%) = 0 then
                 LogStatus("stateWaitHazardTime", "Joystick not in ready position.");
                 ChangeStateTo(stateReadyBreak%, tNow);
             case Looking%(xEye, yEye) <> 1 then
@@ -917,7 +1001,7 @@ func IdleProcessing%()
             
             iLoop% := 0;
             docase
-            case joystickPosition% <> ajReadyResponse% then
+            case JoystickPositionCorrect%(joystickPosition%, ajReadyResponse%) = 0 then
                 LogStatus("stateWaitForContrastChange", "Joystick not in ready position.");
                 ChangeStateTo(stateReadyBreak%, tNow);
             case Looking%(xEye, yEye) <> 1 then
@@ -941,7 +1025,7 @@ func IdleProcessing%()
             case Looking%(xEye, yEye) <> 1 and tNow - tStateStart < ajExtraFixationTime then
                 LogStatus("stateWaitForResponse", "Eye not in fixation window for at least " + str$(ajExtraFixationTime) + "s after contrast change.");
                 ChangeStateTo(stateFixationBreak%, tNow);
-            case joystickPosition% = JSCenter% then
+            case JoystickPositionCorrect%(joystickPosition%, JSCenter%) = 1 then
                 LogStatus("stateWaitForResponse", "Got response.");
                 ChangeStateTo(stateCorrectResponse%, tNow);
             case tNow - tStateStart > ajMaxResponseTime then
@@ -1019,6 +1103,25 @@ func IdleProcessing%()
 	return iStatus%;
 end;
 
+' This function makes it possible to test without a joystick. Anywhere the joystick 
+' position must be tested call this! Returns 1 if position is correct. 
+' First arg pos% is current position, second arg is where it should be for correctness. 
+' Set ajJoystickAlwaysCorrect% = 1 to enable always-correctness. 
+
+func JoystickPositionCorrect%(pos%, expectedPos%)
+    if ajJoystickAlwaysCorrect% = 1 then
+        return 1;
+    else
+        if pos% = expectedPos% then
+            return 1;
+        else
+            return 0;
+        endif
+    endif
+    return 0;   ' should never get here
+end
+
+
 
 proc ChangeStateTo(stateTo%, tStart)
 	iState% := stateTo%;
@@ -1094,6 +1197,7 @@ func Start%()
     var distSpec$;
     var fixSpec$;
     var extra$;
+    var status% := 1;   ' return 0 on errors that should halt expt
     
     ' Get stimulus, distractor and fixpt specs
     stimSpec$ := GetGratingParameters$("Stimulus");
@@ -1114,24 +1218,27 @@ func Start%()
     
     ' Generate command line
     cmdLine$ := "cmd /k " + GetBinDir$(1) + "Attention " + fixSpec$ + extra$ + " -s " + stimSpec$ + " -g " + distSpec$;
-
-    ' Start sampling
-   	SampleStart(0);
     
-	'Begin the stimulus program. It will take a few seconds for the VSG to initialize.
-	LogInfo(cmdLine$+"\n");
-	ajStimHandle% := ProgRun(cmdLine$, 1);
-	if ajStimHandle% < 0 then 
-        Message("Could not start stimulus."); 
-        halt; 
+    ' Start sampling
+    if status% = 1 then
+        SampleStart(0);
+    
+        'Begin the stimulus program. It will take a few seconds for the VSG to initialize.
+        LogInfo(cmdLine$+"\n");
+        ajStimHandle% := ProgRun(cmdLine$, 1);
+        if ajStimHandle% < 0 then 
+            LogError("Start", "Could not start stimulus."); 
+            status% := 0;
+        endif
+        
+        ToolbarSet(0,"",IdleProcessing%);	'Enable the IdleProcessing function
+        ToolbarEnable(1,0);
+        ToolbarEnable(2,1);
+        ToolbarEnable(4,1);
+        View(ajWindowData%);
     endif
-	
-	ToolbarSet(0,"",IdleProcessing%);	'Enable the IdleProcessing function
-	ToolbarEnable(1,0);
-	ToolbarEnable(2,1);
-	ToolbarEnable(4,1);
-	View(ajWindowData%);
-    return 1;
+    
+    return status%;
 end;
 
 func Pause%()
@@ -1184,6 +1291,11 @@ func PrepareTrial%()
             ajTrialHazardTime := RandExp(ajHazardTimeMean, ajHazardTimeMin);
             until ajTrialHazardTime <= ajHazardTimeMax;
         
+        ' Will there be a shock on this trial? 
+        ajShockTrialEnable% := 0;
+        if ajTestShockTrials% = 1 then
+            ajShockTrialEnable% := 1;
+        endif
         
         ' Catch trial?
         if ajShowSingleStim% = 0 and ajCatchTrialPct > 0 and Rand()*100 < ajCatchTrialPct then
