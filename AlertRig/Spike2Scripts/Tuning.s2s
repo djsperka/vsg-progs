@@ -1,4 +1,4 @@
-' $Id: Tuning.s2s,v 1.27 2010-09-22 17:30:42 devel Exp $
+' $Id: Tuning.s2s,v 1.28 2010-10-02 00:53:23 devel Exp $
 
 #include "../../Spike2Util/ChannelUtilities.s2s"
 #include "../../Spike2Util/UsreyUtil.s2s"
@@ -680,10 +680,10 @@ var nTrialsAborted% :=0;		'
 
 func IdleProcessing%()
 	var iStatus% := 1;	
-	tNow := MaxTime();
+	tNow := View(DataWindow%).MaxTime();
 
-	xEye := ChanMeasure(XChannel%,2,tNow-.001,tNow-.006)*DegreesPerVoltX;
-	yEye := ChanMeasure(YChannel%,2,tNow-.001,tNow-.006)*DegreesPerVoltY;
+	xEye := View(DataWindow%).ChanMeasure(XChannel%,2,tNow-.001,tNow-.006)*DegreesPerVoltX;
+	yEye := View(DataWindow%).ChanMeasure(YChannel%,2,tNow-.001,tNow-.006)*DegreesPerVoltY;
 
 	' Don't update display every time....
 	if tNow-tLastUpdate > .005 then
@@ -691,11 +691,10 @@ func IdleProcessing%()
 		tLastUpdate := tNow;
 	endif
 
-
 	docase 
     case iState% = stateVSGWait% then
         ' Waiting for VSG to indicate it is ready. The indication is a pulse (up, then down, 1 frame apart) on port 6.
-        if FindPulseUp%(ReadyChannel%, -1, tRise, tFall) = 1 then
+        if View(DataWindow%).FindPulseUp%(ReadyChannel%, -1, tRise, tFall) = 1 then
             LogStatus("VSGWait", "Got Ready Pulse from VSG");
             tLastTrigger := tFall;
             ChangeStateTo(stateStartTrial%, tFall);
@@ -710,7 +709,7 @@ func IdleProcessing%()
     
     case iState% = stateWaitForFixPtOn% then
     
-        if FindRisingEdge%(FixationPointChannel%, tLast, tTrigger) = 0 then
+        if View(DataWindow%).FindRisingEdge%(FixationPointChannel%, tLast, tTrigger) = 0 then
             ' Fixation point is up
             LogStatus("WaitForFixPtOn", "Fixpt on at " + str$(tTrigger) + "\n");
             tLastTrigger := tTrigger;
@@ -737,7 +736,7 @@ func IdleProcessing%()
 
     case iState% = stateWaitForStimOn% then
 
-        if FindRisingEdge%(StimChannel%, tLast, tTrigger) = 0 then
+        if View(DataWindow%).FindRisingEdge%(StimChannel%, tLast, tTrigger) = 0 then
             ' Fixation point is up
             LogStatus("WaitForStimOn", "Stim is up at " + str$(tTrigger));
             tStimOn := tTrigger;
@@ -756,7 +755,7 @@ func IdleProcessing%()
     case iState% = stateWaitForBlank% then
 
         ' we just wait for fix point off signal in this case. 
-        if FindFallingEdge%(FixationPointChannel%, tLast, tTrigger) = 1 then
+        if View(DataWindow%).FindFallingEdge%(FixationPointChannel%, tLast, tTrigger) = 1 then
             ' Fixation point is off
             tLastTrigger := tTrigger;
             ChangeStateTo(stateInterTrialInterval%, tTrigger);
@@ -814,7 +813,7 @@ func IdleProcessing%()
 
     case iState% = stateWaitForStimOff% then
 
-        if FindFallingEdge%(StimChannel%, tLast, tTrigger) = 1 then
+        if View(DataWindow%).FindFallingEdge%(StimChannel%, tLast, tTrigger) = 1 then
             tLastTrigger := tTrigger;
             ChangeStateTo(stateTrialCompleted%, tNow);
         endif
