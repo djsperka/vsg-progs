@@ -1,4 +1,4 @@
-' $Id: AttaJoy.s2s,v 1.23 2010-10-02 00:09:19 devel Exp $
+' $Id: AttaJoy.s2s,v 1.24 2010-10-02 02:50:45 devel Exp $
 
 ' Stimulator/shock setup: 
 ' DOUT0 from VSG ----> TRIG input on 1401 _T_ ajRecordShockTriggerPort% (if not set to -1)
@@ -65,6 +65,7 @@ var ajJoystickReadyMiniRewardSize% := 1;    ' size of joystick ready reward
 var ajDoShockTrials% := 0;
 var ajNShockPerBlock% := 0;
 var ajShockDelayMS% := 500;
+var ajShockDelaySec := .5;
 var ajJoystickAlwaysCorrect% := 0;  ' if 1 then JoystickPostionCorrect% always returns 1 (correct)
 var ajTestShockTrials% := 0;        ' if 1 then every trial is a shock trial
 var ajPulse[2500];                   ' max 5s at 1khz
@@ -73,7 +74,9 @@ var ajRecordShockPort% := 4;                  ' Must hardcode this or set in dia
 var ajRecordShockTriggerPort% := 3;           ' Hardcode. Set to -1 for no record. 
 var ajShockTrialEnable% := 1;                 ' See PrepareTrial(). Set to 1 on trials where there will be a shock. 
 var ajWeights%[4];                              ' for trial generator
-
+var ajShockHazardTimeMin := 1.0;
+var ajShockHazardTimeMean := 1.5;
+var ajShockHazardTimeMax := 2.0;
 
 ' Strings for DlgList training type
 var ajTrainingTypes$[4];
@@ -227,6 +230,9 @@ if AttaJoyDialog%() = 0 then
     halt;
 endif
 
+' Some things have to be calculated
+ajShockDelayMS% := ajShockDelaySec*1000;
+
 ' Check a few values for reasonable-ness....
 if ajHazardTimeMax < ajHazardTimeMean or ajHazardTimeMean < ajHazardTimeMin then
     Message("Must have hazard time max > mean > min!");
@@ -277,11 +283,34 @@ else
 endif        
 
 ' Init trial generator
-if ajAlternateCueTypeByBlock% <> 1 then
-    tbgInit(ajNTrialTypes%, ajNTrialsEachTypePerBlock%, ajNBlocks%);
+if ajDoShockTrials% = 0 then
+    if ajAlternateCueTypeByBlock% <> 1 then
+        tbgInit(ajNTrialTypes%, ajNTrialsEachTypePerBlock%, ajNBlocks%);
+    else
+        tbaltgInit(ajNTrialTypes%, ajNTrialsEachTypePerBlock%, ajNBlocks%);
+    endif
 else
-    tbaltgInit(ajNTrialTypes%, ajNTrialsEachTypePerBlock%, ajNBlocks%);
+    ' No training!
+    if ajTrainingType% <> ajNoTraining% then
+        Message("No shock trials when training trials chosen. Check Training Type setting.");
+        halt;
+    endif
+    
+    if ajNTrialsEachTypePerBlock% < ajNShockPerBlock% then
+        Message("# shock trials per block is greater than # trials per block!");
+        halt;
+    endif
+    
+    ' When ajDoShockTrials% = 1 the meaning of the trial index fetched from trialgenGetTrialIndex% 
+    ' is slightly different. In this case it refers to non-shock trials (index%=0) and shock 
+    ' trials (index=1). We will use trialgenGetTrialIndexAndBlock% and use the block number to 
+    ' to determine the cue type. 
+    
+    ajWeights%[0] := ajNTrialsEachTypePerBlock% - ajNShockPerBlock%;
+    ajWeights%[1] := ajNShockPerBlock%;
+    tgwInit(2, ajWeights%[], ajNBlocks%);
 endif
+
 
 ' Get fixation point parameters
 GetFixationPointParameters();
@@ -1277,43 +1306,82 @@ end
 
 func PrepareTrial%()
     var index%;
+    var block%;
     var s% := 1;
     
-    s% := trialgenGetTrialIndex%(ajTrialTypeIndex%);
-    LogInfo("Preparing trial... index " + str$(ajTrialTypeIndex%) + " s=" + str$(s%));
+    s% := trialgenGetTrialIndexAndBlock%(ajTrialTypeIndex%, block%);
+    LogInfo("Preparing trial... block/index " + str$(block%) + "/" + str$(ajTrialTypeIndex%) + " s=" + str$(s%));
     ajIsCatchTrial% := 0;
-'    if s% = 1 and ajDoReadyTraining% = 0 and ajDoReadyFixTraining% = 0 then
-    if s% = 1 and ajTrainingType% <> ajReadyTraining% and ajTrainingType% <> ajReadyFixTraining% then
-            
-        ' Generate hazard time
-        repeat
-            ajTrialHazardTime := RandExp(ajHazardTimeMean, ajHazardTimeMin);
-            until ajTrialHazardTime <= ajHazardTimeMax;
-        
-        ' Will there be a shock on this trial? 
-        ajShockTrialEnable% := 0;
-        if ajTestShockTrials% = 1 then
-            ajShockTrialEnable% := 1;
-        endif
-        
-        ' Catch trial?
-        if ajShowSingleStim% = 0 and ajCatchTrialPct > 0 and Rand()*100 < ajCatchTrialPct then
-            ajIsCatchTrial% := 1;
-            LogInfo("Catch trial!");
+    
+    if s% = 1 then
+        if ajDoShockTrials% = 0 then
+            if ajTrainingType% <> ajReadyTraining% and ajTrainingType% <> ajReadyFixTraining% then
+                    
+                ' Generate hazard time
+                repeat
+                    ajTrialHazardTime := RandExp(ajHazardTimeMean, ajHazardTimeMin);
+                    until ajTrialHazardTime <= ajHazardTimeMax;
+                
+                ajShockTrialEnable% := 0;
+                
+                ' Catch trial?
+                if ajShowSingleStim% = 0 and ajCatchTrialPct > 0 and Rand()*100 < ajCatchTrialPct then
+                    ajIsCatchTrial% := 1;
+                    LogInfo("Catch trial!");
+                else
+                    ajIsCatchTrial% := 0;
+                endif
+                    
+                ' keys will depend on trial index when shock trials are disabled
+                    
+                if ajIsCatchTrial% = 0 then
+                    ajTrialFixptSampleKey$ := ajTrialFixptTypeKeys$[ajTrialTypeIndex%];
+                    ajTrialChangeSampleKey$ := ajTrialChangeTypeKeys$[ajTrialTypeIndex%];
+                else
+                    ajTrialFixptSampleKey$ := ajTrialFixptTypeKeys$[ajTrialTypeIndex%];
+                    ajTrialChangeSampleKey$ := ajTrialChangeTypeKeys$[1-ajTrialTypeIndex%];
+                endif
+            endif
         else
-            ajIsCatchTrial% := 0;
+            
+            if ajTrialTypeIndex% = 0 then
+                ' no-shock trial: Generate hazard time just like above
+                ajShockTrialEnable% := 0;
+                repeat
+                    ajTrialHazardTime := RandExp(ajHazardTimeMean-ajHazardTimeMin, ajHazardTimeMin);
+                until ajTrialHazardTime <= ajHazardTimeMax;
+            else
+                ' this is a shock trial
+                ajShockTrialEnable% := 1;
+                repeat
+                    ajTrialHazardTime := RandExp(ajShockHazardTimeMean-ajShockHazardTimeMin, ajShockHazardTimeMin);
+                until ajTrialHazardTime <= ajShockHazardTimeMax;
+            endif
+                
+            ' Catch trial?
+            if ajShowSingleStim% = 0 and ajCatchTrialPct > 0 and Rand()*100 < ajCatchTrialPct then
+                ajIsCatchTrial% := 1;
+                LogInfo("Catch trial!");
+            else
+                ajIsCatchTrial% := 0;
+            endif
+                
+            ' keys will depend on block number when both cue types enabled, otherwise its 0
+            
+            index% := 0;
+            if ajTrialTypesListIndex% = 0 then
+                index% := block% mod 2;
+            endif
+            
+            if ajIsCatchTrial% = 0 then
+                ajTrialFixptSampleKey$ := ajTrialFixptTypeKeys$[index%];
+                ajTrialChangeSampleKey$ := ajTrialChangeTypeKeys$[index%];
+            else
+                ajTrialFixptSampleKey$ := ajTrialFixptTypeKeys$[index%];
+                ajTrialChangeSampleKey$ := ajTrialChangeTypeKeys$[1-index%];
+            endif
         endif
-        
     endif
-        
-    if ajIsCatchTrial% = 0 then
-        ajTrialFixptSampleKey$ := ajTrialFixptTypeKeys$[ajTrialTypeIndex%];
-        ajTrialChangeSampleKey$ := ajTrialChangeTypeKeys$[ajTrialTypeIndex%];
-    else
-        ajTrialFixptSampleKey$ := ajTrialFixptTypeKeys$[ajTrialTypeIndex%];
-        ajTrialChangeSampleKey$ := ajTrialChangeTypeKeys$[1-ajTrialTypeIndex%];
-    endif
-
     return s%;
 end
 
@@ -1326,16 +1394,15 @@ func AttaJoyDialog%()
 	DlgInteger(2, "# each type/block:", 1, 1000);
     DlgCheck(3, "Shock trials");
     DlgInteger(4, "# shock/block", 1, 1000);
-    DlgInteger(5, "Shock delay (ms)", 1, 5000);
-    DlgList(6, "Types", "Both|Red|Green", 3);
-    DlgList(7, "Training type", ajTrainingTypes$[], 4);
-    DlgCheck(8, "Use Beep");
-	DlgInteger(9, "Reward size:", 1, 1000);
-	DlgReal(10, "Catch Trial pct (0-100)", 0, 100);
-	DlgCheck(11, "Show Single Stim");
-	DlgCheck(12, "Alternate cue type by block");
-	DlgInteger(13, "Base contrast(%)", 0, 100);
-	DlgInteger(14, "Chg contrast(%)", 0, 100);
+    DlgList(5, "Types", "Both|Red|Green", 3);
+    DlgList(6, "Training type", ajTrainingTypes$[], 4);
+    DlgCheck(7, "Use Beep");
+	DlgInteger(8, "Reward size:", 1, 1000);
+	DlgReal(9, "Catch Trial pct (0-100)", 0, 100);
+	DlgCheck(10, "Show Single Stim");
+	DlgCheck(11, "Alternate cue type by block");
+	DlgInteger(12, "Base contrast(%)", 0, 100);
+	DlgInteger(13, "Chg contrast(%)", 0, 100);
     
     DlgButton(100, "Fix/Hazard", AttaJoyFixHazDialog%);
     DlgButton(101, "Timing", AttaJoyTimingDialog%);
@@ -1346,7 +1413,7 @@ func AttaJoyDialog%()
     DlgAllow(0, 0, AttaJoyDialogChanged%);
 
     status% := DlgShow(ajNBlocks%, ajNTrialsEachTypePerBlock%, ajTrialTypesListIndex%, 
-                       ajDoShockTrials%, ajNShockPerBlock%, ajShockDelayMS%,
+                       ajDoShockTrials%, ajNShockPerBlock%,
                        ajTrainingType%, ajUseBeep%, ajRewardSize%,
                        ajCatchTrialPct, ajShowSingleStim%, ajAlternateCueTypeByBlock%, 
                        ajContrastBase%, ajContrastUp%);
@@ -1383,9 +1450,15 @@ func AttaJoyFixHazDialog%()
     DlgReal(6, "Hazard time (min)", 0.0, 100.0);
     DlgReal(7, "Hazard time (mean)", 0.0, 100.0);
     DlgReal(8, "Hazard time (max)", 0.0, 100.0);
+    DlgInteger(9, "Shock delay (s)", 1, 5);
+    DlgReal(10, "Shock Hazard time (min)", 0.0, 100.0);
+    DlgReal(11, "Shock Hazard time (mean)", 0.0, 100.0);
+    DlgReal(12, "Shock Hazard time (max)", 0.0, 100.0);
+
     DlgAllow(0xffff, 0, AttaJoyFixHazDialogChanged%);
     DlgShow(ajUseCueCircles%, ajHoldFixation1Time, ajHoldFixation2Time, ajHoldFixation3Time,
-    ajHoldFixationTime, ajHazardTimeMin, ajHazardTimeMean, ajHazardTimeMax);
+    ajHoldFixationTime, ajHazardTimeMin, ajHazardTimeMean, ajHazardTimeMax, ajShockDelaySec, 
+    ajShockHazardTimeMin, ajShockHazardTimeMean, ajShockHazardTimeMax);
     return 1;
 end
 
