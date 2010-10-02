@@ -1,4 +1,4 @@
-' $Id: AttaJoy.s2s,v 1.24 2010-10-02 02:50:45 devel Exp $
+' $Id: AttaJoy.s2s,v 1.25 2010-10-02 03:06:09 devel Exp $
 
 ' Stimulator/shock setup: 
 ' DOUT0 from VSG ----> TRIG input on 1401 _T_ ajRecordShockTriggerPort% (if not set to -1)
@@ -73,7 +73,7 @@ var ajShockDoRecordShock% := 1;
 var ajRecordShockPort% := 4;                  ' Must hardcode this or set in dialog! Set to -1 for no record
 var ajRecordShockTriggerPort% := 3;           ' Hardcode. Set to -1 for no record. 
 var ajShockTrialEnable% := 1;                 ' See PrepareTrial(). Set to 1 on trials where there will be a shock. 
-var ajWeights%[4];                              ' for trial generator
+var ajWeights%[2];                              ' for trial generator
 var ajShockHazardTimeMin := 1.0;
 var ajShockHazardTimeMean := 1.5;
 var ajShockHazardTimeMax := 2.0;
@@ -1412,8 +1412,8 @@ func AttaJoyDialog%()
     
     DlgAllow(0, 0, AttaJoyDialogChanged%);
 
-    status% := DlgShow(ajNBlocks%, ajNTrialsEachTypePerBlock%, ajTrialTypesListIndex%, 
-                       ajDoShockTrials%, ajNShockPerBlock%,
+    status% := DlgShow(ajNBlocks%, ajNTrialsEachTypePerBlock%, 
+                       ajDoShockTrials%, ajNShockPerBlock%, ajTrialTypesListIndex%, 
                        ajTrainingType%, ajUseBeep%, ajRewardSize%,
                        ajCatchTrialPct, ajShowSingleStim%, ajAlternateCueTypeByBlock%, 
                        ajContrastBase%, ajContrastUp%);
@@ -1450,7 +1450,7 @@ func AttaJoyFixHazDialog%()
     DlgReal(6, "Hazard time (min)", 0.0, 100.0);
     DlgReal(7, "Hazard time (mean)", 0.0, 100.0);
     DlgReal(8, "Hazard time (max)", 0.0, 100.0);
-    DlgInteger(9, "Shock delay (s)", 1, 5);
+    DlgReal(9, "Shock delay (s)", 1, 5);
     DlgReal(10, "Shock Hazard time (min)", 0.0, 100.0);
     DlgReal(11, "Shock Hazard time (mean)", 0.0, 100.0);
     DlgReal(12, "Shock Hazard time (max)", 0.0, 100.0);
