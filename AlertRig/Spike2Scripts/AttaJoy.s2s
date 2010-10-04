@@ -1,4 +1,4 @@
-' $Id: AttaJoy.s2s,v 1.25 2010-10-02 03:06:09 devel Exp $
+' $Id: AttaJoy.s2s,v 1.26 2010-10-04 19:06:03 devel Exp $
 
 ' Stimulator/shock setup: 
 ' DOUT0 from VSG ----> TRIG input on 1401 _T_ ajRecordShockTriggerPort% (if not set to -1)
@@ -838,7 +838,7 @@ func IdleProcessing%()
                     if ajDoShockTrials% = 1 and ajShockTrialEnable% = 1 then
                         SampleKey("P");
                         Yield();
-                        LogInfo("PlayWaveStatus = " + PlayWaveStatus$(playPos%) + " pos " + str$(playPos%));
+                        trialgenTrialIndexCompleted(ajTrialTypeIndex%);
                     endif
                     SampleKey("S");
                     ChangeStateTo(stateWaitForStimOn%, tNow);
@@ -952,6 +952,7 @@ func IdleProcessing%()
                     if ajDoShockTrials% = 1 and ajShockTrialEnable% = 1 then
                         SampleKey("P");
                         Yield();
+                        trialgenTrialIndexCompleted(ajTrialTypeIndex%);
                         LogInfo("PlayWaveStatus = " + PlayWaveStatus$(playPos%) + " pos " + str$(playPos%));
                     endif
                     SampleKey("S");
@@ -1067,7 +1068,9 @@ func IdleProcessing%()
             
             iLoop% := 0;
             ajCtrCorrect% += 1;
-            trialgenTrialIndexCompleted(ajTrialTypeIndex%);
+            if ajDoShockTrials% = 0 or ajShockTrialEnable% = 0 then
+                trialgenTrialIndexCompleted(ajTrialTypeIndex%);
+            endif
             SampleKey("X");
             Yield();
             DeliverReward(ajRewardSize%);
@@ -1078,7 +1081,9 @@ func IdleProcessing%()
             
             iLoop% := 0;
             ajCtrIncorrect% += 1;
-            trialgenTrialIndexCompleted(ajTrialTypeIndex%);
+            if ajDoShockTrials% = 0 or ajShockTrialEnable% = 0 then
+                trialgenTrialIndexCompleted(ajTrialTypeIndex%);
+            endif
             ajUniversalIntertrialTime := ajIncorrectResponsePauseTime;
             SampleKey("X");
             ChangeStateTo(stateWaitForFixptOff%, tNow);
@@ -1350,12 +1355,14 @@ func PrepareTrial%()
                 repeat
                     ajTrialHazardTime := RandExp(ajHazardTimeMean-ajHazardTimeMin, ajHazardTimeMin);
                 until ajTrialHazardTime <= ajHazardTimeMax;
+                LogStatus("PrepareTrial", "no-shock trial, hazard time " + str$(ajTrialHazardTime));
             else
                 ' this is a shock trial
                 ajShockTrialEnable% := 1;
                 repeat
                     ajTrialHazardTime := RandExp(ajShockHazardTimeMean-ajShockHazardTimeMin, ajShockHazardTimeMin);
                 until ajTrialHazardTime <= ajShockHazardTimeMax;
+                LogStatus("PrepareTrial", "Shock trial, hazard time " + str$(ajTrialHazardTime));
             endif
                 
             ' Catch trial?
@@ -1367,6 +1374,9 @@ func PrepareTrial%()
             endif
                 
             ' keys will depend on block number when both cue types enabled, otherwise its 0
+            ' This is different than the case when there are NO shock trials. Here the index
+            ' obtained from the trial generator determines whether there is a shock - in the 
+            ' no-shock case above the index determines the cue type. 
             
             index% := 0;
             if ajTrialTypesListIndex% = 0 then
