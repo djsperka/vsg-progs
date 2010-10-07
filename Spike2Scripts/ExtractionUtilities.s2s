@@ -39,14 +39,19 @@ func NextKeyOrText(tstart, &val$, ignore$)
 
     ' First look in channel 31 - sample keys
     tKey := NextTime(31, tstart, iKeyCode%[]);
-    while tKey>=0 and InStr(ignore$, Chr$(iKeyCode%[0]))>0 do
+    while tKey>=0 and (Len(ignore$)>0 and InStr(ignore$, Chr$(iKeyCode%[0]))>0) do
         ttemp := tKey;
         tKey := NextTime(31, ttemp, iKeyCode%[]);
     wend
 
-    ' Next look in channel 30 - text markers
-    tText := NextTime(30, tstart, iTextCode%[], sText$);
-    while tText>=0 and InStr(ignore$, Left$(sText$, 1)) do
+    ' Next look in channel 30 - text markers. 
+    ' djs 9-27-2010 Confirm that there is a text marker channel. 
+    if ChanKind(30)>0 then
+        tText := NextTime(30, tstart, iTextCode%[], sText$);
+    endif
+    
+    
+    while tText>=0 and (Len(ignore$)>0 and InStr(ignore$, Left$(sText$, 1))) do
         ttemp := tText;
         tText := NextTime(30, ttemp, iTextCode%[], sText$);
     wend
@@ -55,10 +60,10 @@ func NextKeyOrText(tstart, &val$, ignore$)
     docase
     case tKey < 0 and tText < 0 then
         tfound := -1;
-    case tKey < 0 and tText > 0 then
+    case tKey < 0 and tText >= 0 then
         tfound := tText;
         val$ := sText$;
-    case tKey > 0 and tText < 0 then
+    case tKey >= 0 and tText < 0 then
         tfound := tKey;
         val$ := Chr$(iKeyCode%[0]);
     else
@@ -105,3 +110,17 @@ func NextTriggerTransition(chan%, tstart, transval)
 end
 
 
+func NextTextMark(tstart, &val$)
+    var tText;
+    var iTextCode%[4];
+    
+    if ViewKind() <> 0 then
+        return -1;
+    endif
+    
+    if ChanKind(30)=0 then
+        return -1;
+    endif
+    
+    return NextTime(30, tstart, iTextCode%[], val$);
+end
