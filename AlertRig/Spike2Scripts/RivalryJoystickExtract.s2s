@@ -1,0 +1,119 @@
+'$Id: RivalryJoystickExtract.s2s,v 1.1 2010-10-07 21:59:55 devel Exp $
+'
+' RivalryJoystickExtract
+'
+' Extracts joystick information from Rivalry data files. 
+' The Rivarlry data files contains a TextMark that specifies the joystick bounaries used during 
+' data acquisition. This script reads those boundaries and uses them to find time periods where
+' the joystick position is in each of the regions between the boundaries. We use 4 boundaries, 
+' and so there are 5 regions (numbered in the extracted data files 0, 1, 2, 3, 4). Starting at
+' the lowest VOLTAGE boundary, region 0 is all voltages below that value (or joystick position to 
+' the LEFT of that boundary). Region 1 is the small region between the "Left High" boundary and
+' the "Center Low" boundary. Region 2 is the center region (between "Center Low" and "Center High".
+' Region 3 is the small region between "Center High" and "Right Low". Region 4 is all voltages 
+' above "Right Low", or joystick to the far right. 
+' 
+' The regions used in the Rivalry expt are regions 0 (left), 2 (Center), and 4 (right). 
+' 
+' This script prompts the user for an input text file. This text file should contain filenames 
+' (with full pathnames or pathnames relative to the location of the input text file). 
+'
+' Each input file is scanned and an output text file is written in the same folder as the input 
+' data file, with the extension ".rjy". You must have write access to the directory where the 
+' spike2 data file resides. 
+'
+' A word of caution: The search method used for finding border crossings can fail in some cases. 
+' It will appear to fail at the end of a data file. I have not programmed a test to tell the diff-
+' erence. Thus the Spike2 "Log" window will look something like this when processing a data file:
+'
+'
+'ProcessListFile  Change current directory to C:\Documents and Settings\dan\Desktop\riv\
+'ProcessListFile  File A_riv_012.smr, args "". Start processing...
+'JoyX  Found joystick boundaries: 2.411, 2.429, 2.691, 2.716
+'ERROR===============================================
+'JoystickExtract CursorSearch failed. Check noise and delay params. Last good search was at t=628.177 max time is 631.92
+'====================================================
+'INFO CursorValid is 0
+'ProcessListFile  File A_riv_012.smr, processing complete, status 0
+'ProcessListFile  Done with listfile 
+'ProcessListFile  Restore current directory to C:\Documents and Settings\dan\Desktop\riv\
+'
+' Note the line below the "ERROR". The time of the "last good search" is the time when the joystick voltage
+' last crossed a boundary. The "max time" is the last time data was recorded in the file. In this case, the
+' max time is less than 4 seconds from the last border crossing, and so its likely that the joystick was 
+' not moved during that time. 
+'
+' If you see a large difference between the "last good search time" and the "max time", then you may have 
+' an error in the search. There are some parameters used in the search relating to noise rejection that
+' can be tweaked. I've tested the parameters in use with several Rivalry data files (as well as files
+' from AttaJoy used with Farran's expt) and the searches all reach the end of the files successfully. 
+
+#include "JoystickExtractFunctions.s2s"
+#include "../../Spike2Util/BatchUtilities.s2s"
+
+ProcessListFile%("", JoyX%);
+
+
+func JoyX%(h%, args$)
+    var params$;
+    var stmp$;
+    var version% := 0;
+    var fparams[9];
+    var tmark;
+    var htxt%;
+    var parfile$;
+    var vtmp;
+    
+    
+    ' Get first text mark and extract version
+    tmark := NextTextMark(-1, params$); 
+    if tmark < 0 then
+        LogError("JoyX", "Text mark not found. Is this a rivalry file?");
+        return -1;
+    endif
+    
+    if InStr(params$, "RivalryDualVSG") <> 1 then
+        LogError("JoyX", "First text mark unexpected value: " + params$);
+        return -1;
+    endif
+    ReadStr(Mid$(params$, 16), version%);
+    docase
+    case version% = 1 then
+        
+        ' Note: In version 1 a dumb bug in the code that records the text mark parameters puts the joystick boundaries in the wrong order. It is 
+        ' corrected for extraction below. 
+        tmark := NextTextMark(tmark, params$); 
+        tmark := NextTextMark(tmark, params$); 
+        tmark := NextTextMark(tmark, params$); 
+        if tmark < 0 then
+            LogError("JoyX", "Parameters text mark not found. Is this a rivalry file?");
+            return -1;
+        endif
+        if ReadStr(params$, fparams[]) <> 9 then
+            LogError("JoyX", "Parameters text mark bad format: " + params$);
+            return -1;
+        endif
+        
+        ' fix order error in joystick boundaries
+        vtmp := fparams[5];
+        fparams[5] := fparams[6];
+        fparams[6] := vtmp;
+        LogStatus("JoyX", "Found joystick boundaries: " + str$(fparams[4]) + ", " + str$(fparams[5]) + ", " + str$(fparams[6]) + ", " + str$(fparams[7]));
+        
+        ' Open output text file. 
+        parfile$ := ReplaceFileExtension$(h%, "rjy");
+        htxt% := FileOpen(parfile$, 8, 1);
+        
+        if JoystickExtractInit%(fparams[4:4], fparams[8], htxt%, h%) = 0 then
+            JoystickExtract%(-1, -1);
+        endif
+        View(htxt%);
+        FileClose();
+        
+    else
+        LogError("JoyX", "Unhandled version: " + params$);
+        return -1;
+    endcase
+    
+    return 0;
+end
