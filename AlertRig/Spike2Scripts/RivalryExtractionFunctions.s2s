@@ -1,0 +1,361 @@
+'$Id: RivalryExtractionFunctions.s2s,v 1.1 2010-10-09 01:00:51 devel Exp $'
+
+#include "ExtractionUtilities.s2s"
+#include "../../Spike2Util/LogUtilities.s2s"
+#include "../../Spike2Util/ChannelUtilities.s2s"
+
+
+var refVersion%;                            ' init string format version number
+var refDpVX, refDpVY;                       ' degrees per volt, for converting eye signals to degrees 
+var refChanEyeX%, refChanEyeY%;             ' channel number for eye signals
+var refJoyLH, refJoyCH, refJoyCL, refJoyRL; ' joystick positions
+var refChanJoy%;                            ' channel number for joystick
+var refFixX, refFixY;                       ' fixation positions
+var refFixWindowD;                          ' fixation window diam
+var refInitTextMarkers$[4];
+var refTLastTextMarker := -1;
+
+var refHData%, refHOutput%;                 ' handles for data file and output file, respectively
+
+' Initialize extraction for a file. 
+' sInitString$ can be a replacement initialization string. If non-null, it is used instead of that found in the file, and
+' if so it should adhere to the version number vers%.
+
+func RivalryExtractInit%(hDataHandle%, hOutputHandle%, sInitString$, vers%)
+    var status% := 1;
+    var tStart, tText;
+    var iTextCode%[4];
+    var sText$;
+    var i%;
+    
+    refHData% := hDataHandle%;
+    refHOutput% := hOutputHandle%;
+    
+    if Len(sInitString$) = 0 then
+        ' The first 4 text marks are read. The 4th is the init string. 
+        refTLastTextMarker := -1;
+        View(refHData%);
+        repeat
+            tText := NextTime(30, refTLastTextMarker, iTextCode%[], refInitTextMarkers$[i%]);
+            if tText >= 0 then
+                refTLastTextMarker := tText;
+            endif
+            i% += 1;
+        until tText < 0 or i% = 4;
+        if i% < 4 then
+            LogError("", "Not enough text markers in file.");
+        else
+            for i% := 0 to 3 do
+                LogInfo("Text Marker #" + str$(i%) + ": " + refInitTextMarkers$[i%]);
+            next
+            
+            ' Version number is at the tail end of the first text marker
+            i% := InStr(refInitTextMarkers$[0], ",");
+            if i% = 0 then
+                LogError("", "Error reading first text marker - it should contain version number!");
+            else
+                refVersion% := val(Mid$(refInitTextMarkers$[0], i%+1));
+                status% := ParseInitString%(refInitTextMarkers$[3], refVersion%);
+            endif
+        endif
+        
+    else
+        status% := ParseInitString%(sInitString$, vers%);
+    endif
+    
+    return status%;
+end
+
+
+func ParseInitString%(s$, vers%)
+    var status% := 1;
+    docase
+    case vers% = 1 then
+        if ReadStr(s$, refDpVX, refDpVY, refChanEyeX%, refChanEyeY%, refJoyLH, refJoyCH, refJoyCL, refJoyRL, refChanJoy%) <> 9 then
+            LogError("", "Expected 9 values in version 1 init string.");
+        else
+            status% := 0;
+        endif
+    else
+        LogError("", "Unknown version number (" + str$(vers%) + ")");
+    endcase   
+    return status%;
+end
+
+' states for trial traversal
+const refstateError% := -1;
+const refstateReady% := 0;
+const refstateStart% := 1;
+const refstateFixpt% := 2;
+const refstateStim% := 3;
+const refstateDone% := 4;
+var refIState% := refstateReady%;
+
+' trial types
+const refttypeTrainingL% := 0;
+const refttypeTrainingR% := 1;
+const refttypeRivalryLR% := 2;
+const refttypeRivalryRL% := 3;
+const refttypeRivalryCatchLR% := 4;
+const refttypeRivalryCatchRL% := 5;
+const refttypeUnknown% := -1;
+var refTType% := refttypeUnknown%;
+
+' times
+var refTFixptM := -1;   ' Master fixpt time
+var refTFixptS := -1;   ' Slave fixpt time
+const refMaxTStim% := 20;   ' max number of stim changes. 
+var refNTStim% := 0;       ' number of master/slave stim changes recorded for a trial
+var refTStimM[refMaxTStim%];
+var refTStimS[refMaxTStim%];
+var refTEndTrialM := -1;
+var refTEndTrialS := -1;
+var refICorrection% := -1;
+
+' etc
+var refNKeys%;
+var refKey0$;
+var refKey1$;
+var refTCatch;
+var refLastReady$;
+
+' control
+var refTLast;
+var refTStop;
+
+
+proc InitTrialVars()
+    var i%;
+    refTFixptM := -1;
+    refTFixptS := -1;
+    refNTStim% := 0;
+    for i% := 0 to refMaxTStim%-1 do
+        refTStimM[i%] := -1;
+        refTStimS[i%] := -1;
+    next
+    refTEndTrialM := -1;
+    refTEndTrialS := -1;
+    refTCatch := -1;
+    refNKeys% := 0;
+    refKey0$ := "";
+    refKey1$ := "";
+    refICorrection% := 0;
+    return;
+end
+
+proc WriteTrialVars()
+    var s1$;
+    var s2$;
+    var s3$;
+    var i%;
+    s1$ := Print$("%d,%d,%f,%f,%f,%f,%d", refTType%, refICorrection%, refTFixptM, refTFixptS, refTEndTrialM, refTEndTrialS, refNTStim%);
+    docase
+    case refNTStim% = 0 then
+        s2$ := "0";
+        s3$ := "0";
+    case refNTStim% = 1 then
+        s2$ := Print$("%d,%.4f", refNTStim%, refTStimM[0]);
+        s3$ := Print$("%d,%.4f", refNTStim%, refTStimS[0]);
+    else
+        s2$ := Print$("%d,%.4f", refNTStim%, refTStimM[0]);
+        s3$ := Print$("%d,%.4f", refNTStim%, refTStimS[0]);
+        for i% := 1 to refNTStim%-1 do
+            s2$ += Print$(",%.4f", refTStimM[i%]);
+            s3$ += Print$(",%.4f", refTStimS[i%]);
+        next
+    endcase
+    
+    if refHOutput% >= 0 then
+        View(refHOutput%).Print("%s\n", s1$);
+        View(refHOutput%).Print("%s\n", s2$);
+        View(refHOutput%).Print("%s\n", s3$);
+    endif
+    PrintLog("%s\n", s1$);
+    PrintLog("%s\n", s2$);
+    PrintLog("%s\n", s3$);
+    return;
+end
+
+
+
+func RivalryExtract%(tStart, tEnd)
+    
+    var status% := 0;
+    var tFound := -1;
+    var sFound$;
+    var sIgnore$ := "Rxq";
+    var tTrigger;
+    var ttype%;
+    var nkeys%;
+    var skey1$;
+    var skey2$;
+    var tcatch;
+    var nread%;
+    var stmp$;
+    
+    InitTrialVars();
+    
+    refTLast := tStart;
+    refTStop := tEnd;
+    
+    if tStart < 0 then
+        refTLast := refTLastTextMarker;
+    endif
+    
+
+    tFound := NextKeyOrText(refTLast, sFound$, sIgnore$);
+    while tFound >= 0 and (refTStop < 0 or (refTStop > 0 and tFound <= refTStop)) and refIState% <> refstateError% do
+
+        'LogInfo(sFound$ + " " + str$(tFound));
+        
+        docase 
+        case refIState% = refstateReady% then
+            ' check for correction trial or more ready text
+            if sFound$ = "*" then
+                sFound$ := refLastReady$;
+                refICorrection% := 1;
+            endif
+            
+            docase
+            case Len(sFound$) > 1 then
+                ' Parse text mark
+                ReadSetup("", "", "", "", ",");
+                nread% := ReadStr(sFound$, refTType%, refNKeys%, refKey0$, refKey1$, refTCatch);
+                stmp$ := print$("Found %s Trialtype %d  Keys(%d) \"%s\" \"%s\" Catch %f", sFound$, refTType%, refNKeys%, refKey0$, refKey1$, refTCatch);
+                LogInfo(stmp$);
+                refIState% := refstateStart%;
+                refLastReady$ := sFound$;
+            else
+                LogStatus("refstateReady", "Expecting ready text at " + str$(tFound) + ", found " + sFound$);
+            endcase
+            
+        case refIState% = refstateStart% then
+            ' Expecting one of 569A.
+            
+            docase
+            case Len(sFound$) > 1 then
+                ' trial was aborted early. Dump trial and continue. Don't change state
+                refTEndTrialM := tFound;
+                refTEndTrialS := tFound;
+                WriteTrialVars();
+                InitTrialVars();                
+                
+                ' Parse text mark
+                ReadSetup("", "", "", "", ",");
+                nread% := ReadStr(sFound$, refTType%, refNKeys%, refKey0$, refKey1$, refTCatch);
+                stmp$ := print$("Found %s Trialtype %d  Keys(%d) \"%s\" \"%s\" Catch %f", sFound$, refTType%, refNKeys%, refKey0$, refKey1$, refTCatch);
+                LogInfo(stmp$);
+                refIState% := refstateStart%;
+                refLastReady$ := sFound$;
+            case InStr("569A", sFound$) > 0 then
+                if GetFixptTimes%(tFound) <> 0 then
+                    LogStatus("refstateStart", "Error getting trig times for fixpt/stim key at t=" + str$(tFound));
+                    status% := -1;
+                    refIState% := refstateError%;
+                else
+                    refIState% := refstateFixpt%;
+                endif
+            case sFound$ = "X" then
+                if GetEndTimes%(tFound) <> 0 then
+                    LogStatus("refstateStart", "Error getting trial end times at t=" + str$(tFound));
+                    status% := -1;
+                    refIState% := refstateError%;
+                else
+                    refIState% := refstateDone%;
+                endif
+            else
+                LogStatus("refstateReady", "Expecting stim key (5|6|9|A) at " + str$(tFound) + ", found " + sFound$);
+                refIState% := refstateDone%;
+            endcase
+        case refIState% = refstateFixpt% then
+            ' Expecting g or X
+            docase
+            case sFound$ = "g" then
+                if GetStimTimes%(tFound) <> 0 then
+                    LogStatus("refstateFixpt", "Error getting stim times for stim key at t=" + str$(tFound));
+                    status% := -1;
+                    refIState% := refstateError%;
+                else
+                    refIState% := refstateStim%;
+                endif
+            case sFound$ = "X" then
+                if GetEndTimes%(tFound) <> 0 then
+                    LogStatus("refstateFixpt", "Error getting stim times for stim key at t=" + str$(tFound));
+                    status% := -1;
+                    refIState% := refstateError%;
+                else
+                    refIState% := refstateDone%;
+                endif
+            else
+                LogStatus("refstateFixpt", "Unexpected key \"" + sFound$ + "\"");
+                refIState% := refstateError%;
+            endcase
+        case refIState% = refstateStim% then
+            docase
+            case InStr("569A", sFound$) > 0 then
+                if GetStimTimes%(tFound) <> 0 then
+                    LogStatus("refstateFixpt", "Error getting stim times for stim key at t=" + str$(tFound));
+                    status% := -1;
+                    refIState% := refstateError%;
+                else
+                    refIState% := refstateStim%;
+                endif
+            case sFound$ = "X" then
+                if GetEndTimes%(tFound) <> 0 then
+                    LogStatus("refstateStim", "Error getting stim times for stim key at t=" + str$(tFound));
+                    status% := -1;
+                    refIState% := refstateError%;
+                else
+                    refIState% := refstateDone%;
+                endif
+            else
+                LogStatus("refstateStim", "Unexpected key \"" + sFound$ + "\"");
+                refIState% := refstateError%;
+            endcase
+                
+        else
+            LogError("RivalryExtract", "Unknown state (" + str$(refIState%) + ")");
+            refIState% := refstateError%;
+            status% := -1;
+        endcase
+        
+        if refIState% = refstateDone% then
+            WriteTrialVars();
+            InitTrialVars();
+            refIState% := refstateReady%;
+        endif
+        
+        
+        if refIState% <> refstateError% then
+            refTLast := tFound;
+            tFound := NextKeyOrText(refTLast, sFound$, sIgnore$);
+        endif
+    wend
+    
+    return status%;
+end
+
+func GetFixptTimes%(t)
+    var status% := -1;
+    if FindEvent%(22, t, refTFixptM) = 1 and FindEvent%(23, t, refTFixptS) = 1 then
+        status% := 0;
+    endif
+    return status%
+end
+
+func GetStimTimes%(t)
+    var status% := -1;
+    if FindEvent%(22, t, refTStimM[refNTStim%]) = 1 and FindEvent%(23, t, refTStimS[refNTStim%]) = 1 then
+        refNTStim% += 1;
+        status% := 0;
+    endif
+    return status%
+end
+
+func GetEndTimes%(t)
+    var status% := -1;
+    if FindEvent%(22, t, refTEndTrialM) = 1 and FindEvent%(23, t, refTEndTrialS) = 1 then
+        status% := 0;
+    endif
+    return status%
+end
