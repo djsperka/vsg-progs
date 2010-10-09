@@ -1,0 +1,171 @@
+#include "ExtractionUtilities.s2s"
+#include "../../Spike2Util/MiscUtilities.s2s"
+#include "../../Spike2Util/LogUtilities.s2s"
+#include "../../Spike2Util/ChannelUtilities.s2s"
+
+var txTLast := -1;
+var txTStop := -1;
+var txIsInitialized% := -1;
+const txstateError% := -1;
+const txstateStart% := 0;
+const txstateStimUp% := 1;
+const txstateStimDn% := 2;
+const txstateAdvance% := 3;
+const txstateX% := 4;
+
+var txOutputHandle := -1;
+
+var txIState% := txstateStart%;
+
+var txChanFixpt% := 24;
+var txChanStim% := 25;
+var txChanStimChg% := 26;
+
+' Trial vars
+var tS;     ' onset time of stim
+var tE;     ' off time of stim
+var iCurrentParam% := 0;
+
+' tuning params
+var nparams% := 0;
+var params[1000];
+
+LogInit(1);
+
+
+' InitStr has the parameter filename
+func TuningExtractInit%(hOutput, initStr$)
+    if InitFileVars%(initStr$) < 0 then
+        return -1;
+    endif    
+    txIsInitialized% := 1;
+    txOutputHandle := hOutput;
+    iCurrentParam% := 0;
+    InitTrialVars();
+    return;
+end
+
+
+func InitFileVars%(s$)
+    var status% := 0;
+    var h;
+    var line$;
+    nparams% := 0;
+    h := FileOpen(s$, 8);
+    if h < 0 then
+        status% := -1;
+        PrintLog("Parameter file " + s$ + " should be in same dir as data file.");
+    endif
+
+    while Read(line$) >= 0 and nparams% = 0 do    ' read while not EOF or error
+        ' parameters line starts with "Values:"
+        if InStr(line$, "Values:") = 1 then
+            nparams% := ReadStr(Mid$(line$, 9), params[]);
+        endif    
+    wend;
+    
+    FileClose(); 
+    PrintLog("Got %d params from file %s\n", nparams%, s$);
+    if nparams% < 1 then
+        status% := -1;
+    endif
+    
+end
+
+proc InitTrialVars()
+    tS := -1;
+    tE := -1;
+    return;
+end
+
+proc FlushTrial()
+    var s$;
+    s$ := Print$("%f %f %f\n", params[iCurrentParam%], tS, tE);
+    View(LogHandle()).Print(s$);
+    if txOutputHandle >= 0 then
+        View(txOutputHandle).Print(s$);
+    endif
+
+    return;
+end
+
+
+
+' TuningExtract%(tStart, tStop)
+' 
+' Extract attention data betwen tStart and tStop. If tStart<0, start at beginning of file. 
+' If tStop<0, extract to the end of the file. 
+'
+' When called the current view must be the data file/time view to be analyzed. 
+
+func TuningExtract%(tStart, tStop)
+    var status% := 0;
+    var tFound := -1;
+    var sFound$;
+    var sIgnore$ := "0FJQ";
+    var tTrigger;
+    
+    txTLast := tStart;
+    txTStop := tStop;
+
+    tFound := NextKeyOrText(txTLast, sFound$, sIgnore$);
+    while tFound >= 0 and (txTStop < 0 or (txTStop > 0 and tFound <= txTStop)) and txIState% <> txstateError% do
+
+        'LogInfo(sFound$ + " " + str$(tFound));
+        
+        docase 
+        case txIState% = txstateStart% then
+            docase
+            case sFound$ = "S" then
+                if FindRisingEdge%(txChanStim%, tFound, tS) < 0 then
+                    LogError("", "Rising edge not found after S at t=" + str$(tFound) + "\n");
+                    txIState% := txstateError%;
+                else
+                    txIState% := txstateStimUp%;
+                endif
+            case sFound$ = "X" then
+                ' nothing to see here. An X here is OK, we stay in same state. 
+            else
+                LogError("", "Unexpected key \"" + sFound$ + "\" found at " + str$(tFound) + "\n");
+            endcase
+        case txIState% = txstateStimUp% then
+            ' Expecting "s" or "X"
+            docase 
+            case sFound$ = "s" then
+                if FindFallingEdge%(txChanStim%, tFound, tE) < 0 then
+                    LogError("", "Falling edge not found after s at t=" + str$(tFound) + "\n");
+                    txIState% := txstateError%;
+                else
+                    txIState% := txstateStimDn%;
+                endif
+            case sFound$ = "X" then
+                InitTrialVars();
+                txIState% := txstateStart%;
+            else
+                LogError("", "Unexpected key \"" + sFound$ + "\" found at " + str$(tFound) + "\n");
+                txIState% := txstateError%;
+            endcase
+        case txIState% = txstateStimDn% then
+            ' Expecting "a"
+            docase
+            case sFound$ = "a" then
+                FlushTrial();
+                InitTrialVars();
+                iCurrentParam% += 1;
+                txIState% := txstateStart%;
+            else
+                LogError("", "Unexpected key \"" + sFound$ + "\" found at " + str$(tFound) + "\n");
+                txIState% := txstateError%;
+            endcase
+        else
+            LogError("", "Unexpected state (" + str$(txIState%) + ") found at " + str$(tFound) + "\n");
+            txIState% := txstateError%;
+        endcase
+        
+        txTLast := tFound;
+        tFound := NextKeyOrText(txTLast, sFound$, sIgnore$);
+        
+    wend
+    
+    return 0;
+end
