@@ -22,6 +22,11 @@
 '
 
 
+var euIdentialTime% := 0;
+var euTIdenticalTime := -1;
+var euSIdentical$;
+
+
 func NextKeyOrText(tstart, &val$, ignore$)
     var status% := 0;   ' -1 on error or unknown case
     var tfound := -1;
@@ -36,47 +41,70 @@ func NextKeyOrText(tstart, &val$, ignore$)
     var tText := -1;
     var sText$;
     var iTextCode%[4];  ' not used, actually
-
-    ' First look in channel 31 - sample keys
-    tKey := NextTime(31, tstart, iKeyCode%[]);
-    while tKey>=0 and (Len(ignore$)>0 and InStr(ignore$, Chr$(iKeyCode%[0]))>0) do
-        ttemp := tKey;
-        tKey := NextTime(31, ttemp, iKeyCode%[]);
-    wend
-
-    ' Next look in channel 30 - text markers. 
-    ' djs 9-27-2010 Confirm that there is a text marker channel. 
-    if ChanKind(30)>0 then
-        tText := NextTime(30, tstart, iTextCode%[], sText$);
-    endif
     
     
-    while tText>=0 and (Len(ignore$)>0 and InStr(ignore$, Left$(sText$, 1))) do
-        ttemp := tText;
-        tText := NextTime(30, ttemp, iTextCode%[], sText$);
-    wend
-    
-    ' four cases.
-    docase
-    case tKey < 0 and tText < 0 then
-        tfound := -1;
-    case tKey < 0 and tText >= 0 then
-        tfound := tText;
-        val$ := sText$;
-    case tKey >= 0 and tText < 0 then
-        tfound := tKey;
-        val$ := Chr$(iKeyCode%[0]);
+    ' check for special case
+    if euIdentialTime% = 1 and tstart = euTIdenticalTime then
+        val$ := euSIdentical$;
+        tfound := euTIdenticalTime;
+        euIdentialTime% := 0;
+        euTIdenticalTime := -1;
+        euSIdentical$ := "";
     else
-        'PrintLog("Found both tstart=" + str$(tstart) + " tText=" + str$(tText) + " tKey=" + str$(tKey) + "\n");
-        if tKey < tText then
+        euIdentialTime% := 0;
+        euTIdenticalTime := -1;
+        euSIdentical$ := "";
+    
+        ' First look in channel 31 - sample keys
+        tKey := NextTime(31, tstart, iKeyCode%[]);
+        while tKey>=0 and (Len(ignore$)>0 and InStr(ignore$, Chr$(iKeyCode%[0]))>0) do
+            ttemp := tKey;
+            tKey := NextTime(31, ttemp, iKeyCode%[]);
+        wend
+
+        ' Next look in channel 30 - text markers. 
+        ' djs 9-27-2010 Confirm that there is a text marker channel. 
+        if ChanKind(30)>0 then
+            tText := NextTime(30, tstart, iTextCode%[], sText$);
+        endif
+        
+        
+        while tText>=0 and (Len(ignore$)>0 and InStr(ignore$, Left$(sText$, 1))) do
+            ttemp := tText;
+            tText := NextTime(30, ttemp, iTextCode%[], sText$);
+        wend
+        
+        ' four cases.
+        docase
+        case tKey < 0 and tText < 0 then
+            tfound := -1;
+        case tKey < 0 and tText >= 0 then
+            tfound := tText;
+            val$ := sText$;
+        case tKey >= 0 and tText < 0 then
             tfound := tKey;
             val$ := Chr$(iKeyCode%[0]);
         else
-            tfound := tText;
-            val$ := sText$;
-        endif
-    endcase
-
+            'PrintLog("Found both tstart=" + str$(tstart) + " tText=" + str$(tText) + " tKey=" + str$(tKey) + "\n");
+            docase 
+            case tKey < tText then
+                tfound := tKey;
+                val$ := Chr$(iKeyCode%[0]);
+            case tText < tKey then
+                tfound := tText;
+                val$ := sText$;
+            case tText = tKey then
+                'PrintLog("SAME TIME! %f %s %s\n", tText, sText$, sKey$);
+                ' take the text first, then the key
+                tfound := tText;
+                val$ := sText$;
+                euIdentialTime% := 1;
+                euTIdenticalTime := tKey;
+                euSIdentical$ := Chr$(iKeyCode%[0]);
+            endcase
+        endcase
+    endif
+    
     return tfound;
 end
 
