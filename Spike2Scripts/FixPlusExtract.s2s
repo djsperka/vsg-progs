@@ -1,4 +1,4 @@
-'$Id: FixPlusExtract.s2s,v 1.1 2010-10-11 21:15:59 devel Exp $
+'$Id: FixPlusExtract.s2s,v 1.2 2010-10-12 17:38:54 devel Exp $
 
 ' FixPlusExtract
 '
@@ -158,6 +158,9 @@ func FixPlusX%(h%, args$)
             case sFound$ = "-" then
                 fpOutcome% := fpFailure%;
                 fpIState% := fpstateComplete%;
+            case sFound$ = "X" then
+                fpOutcome% := fpHoldFail%;
+                fpIState% := fpstateDone%;
             else
                 LogError("fpstateStim", "Unexpected text \"" + sFound$ + "\" found at " + str$(tFound));
                 fpIState% := fpstateError%;
