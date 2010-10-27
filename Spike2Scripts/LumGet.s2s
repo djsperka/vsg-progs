@@ -1,0 +1,133 @@
+#include "../../Spike2Util/FileUtilities.s2s"
+
+var iUseIntervals% := 0;
+var intervalSize := 0;
+var iDoMins%;
+var mean, stdev;
+var t1, t2, t;
+var i%;
+var sFilename$;
+var v;
+var triggers[100];
+var ntriggers% := 0;
+const trigChan% := 3;
+const spikChan% := 1;
+var tLast;
+var tNext;
+var tval;
+var lumStart% := 25;
+var lumStep% := 5;
+var sExt$;
+
+' Check view type
+if ViewKind() <> 0 then
+    Message("Need time view to be current.");
+    halt;
+endif
+v := View();
+sFilename$ := ReplaceFileExtension$(v, ".mon");
+
+
+DlgCreate("LumGet");
+DlgInteger(1, "Starting lum%", 0, 100);
+DlgInteger(2, "Lum step", 1, 100);
+i% := DlgShow(lumStart%, lumStep%);
+if i% = 0 then
+    halt;
+endif
+
+
+
+
+' Find times of triggers
+tLast := -1;
+tNext := NextTime(trigChan%, tLast, tval);
+while tNext >= 0 do
+    if tval = 0 then
+        triggers[ntriggers%] := tNext;
+        ntriggers% += 1;
+        if ntriggers% > 1 then
+            sExt$ := Print$(".%03d", lumStart%+(ntriggers%-2)*lumStep%);
+            sFilename$ := ReplaceFileExtension$(v, sExt$);
+            DumpMinima(triggers[ntriggers%-2]+1, triggers[ntriggers%-1]-1, sFilename$, v);
+            PrintLog("Created %s\n", sFilename$);
+        endif
+        
+    endif
+    
+    
+    tLast := tNext;
+    View(v);
+    tNext := NextTime(trigChan%, tLast, tval);
+wend
+
+
+
+
+proc DumpMinima(t1, t2, sFile$, v)
+    var h;
+    var t, tLast;
+    var codes%[4];
+    var data%[34];
+    var tMark;
+    var m%;
+    
+    h := FileOpen(sFile$, 8, 1); 
+    if h<0 then
+        Message("Cannot open file");
+        return;
+    else
+
+        tLast := t1;
+'        View(v);
+        tMark := View(v).NextTime(1, tLast, codes%[], data%[]);
+        while tMark > 0 and tMark < t2 do
+            ' Get min value, write to file
+            m% := data%[Min(data%[])];
+            View(h).Print("%f %d\n", tMark, m%);
+            tLast := tMark;
+            tMark := View(v).NextTime(1, tLast, codes%[], data%[]);
+        wend
+    endif
+    return;
+end
+
+            
+            
+        
+
+    
+
+
+proc GetStatistics(ichannel%, t1, t2, &mean, &stdev)
+    var t, tLast;
+    var codes%[4];
+    var data%[34];
+    var n%;
+    var tMark;
+    var i%;
+    var mins%[200000];
+    var mmin, mmax;
+
+    t := -1;
+    tLast := t1;
+    n% := 0;
+    tMark := NextTime(1, tLast, codes%[], data%[]);
+    while tMark > 0 and tMark < t2 do
+        ' Get min value, save it
+        mins%[n%] := data%[Min(data%[])];
+        
+        'PrintLog("Mark %d: min %d\n", n%, mins%[n%]);
+        
+        n% += 1;
+        tLast := tMark;
+        tMark := NextTime(1, tLast, codes%[], data%[]);
+    wend
+
+    ArrSum(mins%[0:n%], mean, stdev);
+    mmax := mins%[max(mins%[0:n%])];
+    mmin := mins%[min(mins%[0:n%])];
+    PrintLog("%d\t%f\t%f\t%f\t%f\t%f\t%f\n", n%, t1, t2, mmin, mmax, mean, stdev);
+
+    return;
+end
