@@ -1,4 +1,9 @@
 ' $Log: not supported by cvs2svn $
+' Revision 1.2  2006-04-12 00:25:01  dan
+' Ready for production.
+
+#include "UsreyDAQ.s2s"
+#include "../../Spike2Util/UsreyUtil.s2s"'
 
 
 '========================================================================
@@ -12,205 +17,7 @@
 '
 '========================================================================
 
-' File system reference vars. Each var is a directory path, WITHOUT the trailing slash. 
-var bin$, script$, config$;
-script$ := View(App(3)).FileName$(1) + View(App(3)).FileName$(2);	' folder containing this script
-bin$ := View(App(3)).FileName$(1) + View(App(3)).FileName$(2) + "..\\bin";	' Location of executables is ..\bin, relative to script dir
-config$ := View(App(3)).FileName$(1) + View(App(3)).FileName$(2) + "..\\config";	' Location of executables is ..\bin, relative to script dir
 
-''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-'
-'	Get Current configuration START
-'
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-
-func GetCurrentConfiguration$()
-	var key$;
-	var s$;
-	key$:="AlertRig";
-	Profile(key$, "CurrentConfiguration", "default", s$);
-	return s$;
-end;
-
-
-''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-'
-'	Get Current configuration END
-'
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-'
-'	Data parameters START
-'
-'	Vars that control where data is stored. 
-'
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-
-var dataPathRoot$;		' base path for data storage
-var dataDataSet$;		' folder under data path where data files placed
-var dataCellName$;		' part of base name for all data files
-var dataDataSetTextItem%;	' 
-
-proc GetDataParameters()
-	var stmp$;
-	var key$;
-
-	key$:="AlertRig\\Data";
-
-	Profile(key$, "PathRoot", "C:\\Experiments", dataPathRoot$);
-	Profile(key$, "DataSet", "", dataDataSet$);
-	Profile(key$, "CellName", "", dataCellName$);
-	return;
-end;
-
-proc SaveDataParameters()
-	var stmp$;
-	var key$;
-
-	key$:="AlertRig\\Data";
-
-	Profile(key$, "PathRoot", dataPathRoot$);
-	Profile(key$, "DataSet", dataDataSet$);
-	Profile(key$, "CellName", dataCellName$);
-	return;
-end;
-
-func DataParametersDialog%()
-	var i%;
-	GetDataParameters();
-	DlgCreate("Data Storage Parameters", 25, 10, 50);
-	DlgText("Data root path: " + dataPathRoot$, 0, 1);
-	dataDataSetTextItem% := DlgText("Data set name: " + dataDataSet$, 0, 2);
-	DlgString(1, "Cell name:", 10, "", 0, 3);
-        DlgButton(2, "New Data Set", NewDataSet%);
-	i% := DlgShow(dataCellName$);
-	if (i% = 1) then
-		if Len(dataDataSet$) = 0 then
-			Message("Must specify a data set (try the button!)");
-		else
-			if Len(dataCellName$) = 0 then
-				Message("Must specify a cell name");
-			else
-				FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 3, 1);
-				SaveDataParameters();
-			endif;
-		endif;
-	endif;
-	return i%;
-end;
-
-
-func NewDataSet%()
-	var d$;
-	var i%;
-	var dirs$[100];	' if there are ever more than 100 datasets in a single day there will be trouble
-	d$ := Date$(2, 2, 3, 3, "-");
-	PrintLog("NewDataSet: date string = " + d$ + "\n");
-
-	' Change current dir to data path root, then get list of subdirs with this date string
-	PrintLog("NewDataSet: dataPathRoot$=" + dataPathRoot$ + "\n");
-	FilePathSet(dataPathRoot$, 0, 1);
-	i% := FileList(dirs$, -2, d$ + "-??");
-        PrintLog("NewDataSet: found " + str$(i%) + " dirs\n");
-
-	' form new dataset name. The first will have "-01" appended, the second "-02", etc. 
-	dataDataSet$ := Print$("%s-%02d", d$, i%+1);
-	PrintLog("NewDataSet: dataset= " + dataDataSet$ + "\n");
-	DlgValue$(dataDataSetTextItem%, "Data set name: " + dataDataSet$);
-	return 1;
-end;
-
-
-
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-'
-' Data parameters END
-'
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-
-
-
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-'
-'	DAQ Parameters START
-'
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-
-
-var DistanceToScreenMM$;		' Distance to screen in MM
-var DegreesPerVoltX;			' Conversion factor from ADC to visual degrees
-var DegreesPerVoltY;			' Conversion factor from ADC to visual degrees
-var EyeCoilSamplingFrequency%;		' Frequency to sample eye coil at
-var NumberOfElectrodes%;		' Number of electrodes (i.e. wavemark inputs) in use
-var JuicePerReward%;			' Number of juice squirts per reward
-
-
-func DAQParametersDialog%()
-
-	var iReturn%;
-	var idist%;
-
-	GetDAQParameters();
-
-	idist% := val(DistanceToScreenMM$);
-	DlgCreate("DAQ parameters: " + GetCurrentConfiguration$());
-	DlgInteger(1, "Number of Electrodes:", 1, 7, 0, 0, 1);
-	DlgInteger(2, "Screen Distance (MM):", 1, 5000);
-	DlgReal(3, "Degrees/Volt (X):", 0, 100);
-	DlgReal(4, "Degrees/Volt (Y):", 0, 100);
-	DlgInteger(5, "Eye Coil Sampling Freq (Hz):", 1, 20000);
-	DlgInteger(6, "Juice per reward:", 0, 10, 0, 0, 1);
-	iReturn% := DlgShow(NumberOfElectrodes%, idist%, DegreesPerVoltX, DegreesPerVoltY, EyeCoilSamplingFrequency%, JuicePerReward%);
-
-	if iReturn% = 1 then
-		DistanceToScreenMM$ := str$(idist%);
-		SaveDAQParameters();
-	endif
-	return iReturn%;
-end;
-
-
-
-
-	
-proc GetDAQParameters()
-	var key$;
-	var DegreesPerVoltX$, DegreesPerVoltY$;
-
-	key$ := "AlertRig\\" + GetCurrentConfiguration$() + "\\DAQ";
-	Profile(key$, "DistanceToScreenMM", "850", DistanceToScreenMM$);	' will just pass this to stimulus app
-	Profile(key$, "DegreesPerVoltX", "", DegreesPerVoltX$);
-	Profile(key$, "DegreesPerVoltY", "", DegreesPerVoltY$);
-	Profile(key$, "EyeCoilSamplingFrequency", 1000, EyeCoilSamplingFrequency%);
-	Profile(key$, "NumberOfElectrodes", 1, NumberOfElectrodes%);
-	Profile(key$, "JuicePerReward", 1, JuicePerReward%);
-	DegreesPerVoltX := val(DegreesPerVoltX$);
-	DegreesPerVoltY := val(DegreesPerVoltY$);
-
-end;
-
-proc SaveDAQParameters()
-	var key$;
-	var DegreesPerVoltX$, DegreesPerVoltY$;
-	DegreesPerVoltX$ := str$(DegreesPerVoltX);
-	DegreesPerVoltY$ := str$(DegreesPerVoltY);
-	
-	key$ := "AlertRig\\" + GetCurrentConfiguration$() + "\\DAQ";
-	Profile(key$, "DistanceToScreenMM", DistanceToScreenMM$);
-	Profile(key$, "DegreesPerVoltX", DegreesPerVoltX$);
-	Profile(key$, "DegreesPerVoltY", DegreesPerVoltY$);
-	Profile(key$, "EyeCoilSamplingFrequency", EyeCoilSamplingFrequency%);
-	Profile(key$, "NumberOfElectrodes", NumberOfElectrodes%);
-	Profile(key$, "JuicePerReward", JuicePerReward%);
-
-end;
-
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-'
-'	DAQ Parameters END
-'
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
 
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
@@ -407,76 +214,6 @@ end;
 '
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-'
-'	Rig Daily Totals START
-'
-'
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-
-
-var TotalTrials%;
-var TotalRewards%;
-var TotalDate$;
-
-
-proc GetDailyTotals()
-	var key$;
-	key$ := "AlertRig\\Daily";
-	Profile(key$, "TotalDate", "", TotalDate$);
-	Profile(key$, "TotalTrials", 0, TotalTrials%);
-	Profile(key$, "TotalRewards", 0, TotalRewards%);
-
-	' Get date string if needed
-	if Len(TotalDate$) = 0 then
-		TotalDate$ := GetDayString$();
-		SaveDailyTotals();
-	endif
-end;
-
-proc SaveDailyTotals()
-	var key$;
-	key$ := "AlertRig\\Daily";
-	Profile(key$, "TotalDate", TotalDate$);
-	Profile(key$, "TotalTrials", TotalTrials%);
-	Profile(key$, "TotalRewards", TotalRewards%);
-end;
-
-func DailyTotalsDialog%()
-	GetDailyTotals();
-	DlgCreate("Daily Totals");
-	DlgText("Date: " + TotalDate$, 0, 1);
-	DlgText("Trials: " + str$(TotalTrials%), 0, 2);
-	DlgText("Rewards: " + str$(TotalRewards%), 0, 3);
-	DlgButton(2, "Reset", ResetDailyTotals%);
-	DlgShow();
-	return 1;
-end;
-
-
-func GetDayString$()
-	return Date$(2, 1, 3, 2, "-");
-end;
-
-
-func ResetDailyTotals%()
-	GetDailyTotals();
-	TotalRewards%:=0;
-	TotalTrials%:=0;
-	TotalDate$:= GetDayString$();
-	SaveDailyTotals();
-        return 0;
-end;
-
-
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-'
-'	Rig Daily Totals END
-'
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-
-
-
 
 
 
@@ -516,23 +253,6 @@ GetDAQParameters();
 GetFixationPointParameters();
 GetFixationScriptParameters();
 GetDataParameters();
-
-
-' Check for valid data file path
-if Len(dataDataSet$) = 0 then
-	Message("No data set is selected! Edit Data parameters...");
-	' Might be nice to open the dialog here....
-	halt;
-else 
-	' Set path for new data files
-	FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 3, 1);
-	FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 1, 1);
-	SampleAutoName$(dataCellName$ + "_bkf_000");
-	SampleAutoFile(1);
-	PrintLog("dataPathRoot=" + dataPathRoot$ + "\n");
-	PrintLog("dataDataSet=" + dataDataSet$ + "\n");
-	PrintLog("AutoFile status " + str$(SampleAutoFile()) + "\n");
-endif
 
 
 if Query("Did you un-check Edit>Preferences>Sampling>Event ports 0 and 1....?") = 0 then
@@ -825,11 +545,17 @@ end;
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 proc CreateSampleConfiguration()
 	var index;
+    
 	SampleClear(); 'Set standard sampling state
-'	SampleAutoFile(0); 'Enable automatic file naming
 	SampleAutoComment(0); 'Prompt for comment after sampling
 	SampleAutoCommit(60); 'Seconds between each file commit
-
+    
+    FilePathSet(GetDataPathRoot$() + "\\" + GetDataSetName$(), 3);
+    FilePathSet(GetDataPathRoot$() + "\\" + GetDataSetName$(), 1);
+    SampleAutoName$(dataCellName$ + "_bf_000");
+	SampleAutoFile(1);
+    
+    
 	'Channel recording definitions
 	SampleEvent(TriggerChannel%, 2, 2, 3600); 'Trigger channel, level
 	SampleComment$(TriggerChannel%, "Trigger");
@@ -851,17 +577,15 @@ proc CreateSampleConfiguration()
 	SampleEvent(PulseChannel%, 1, 1, 10000);
 	SampleTitle$(PulseChannel%,"Stim Pulse");
 
-
-
 '	for index := 1 to NumberOfElectrodes% do
 '		SampleWaveMark(index,index-1,2000,34,15,28000); ' chan, port, event rate, points, pre-trigger, rate
 '		SampleTitle$(index, "Electrode_"+Str$(index)); 
 '	next
 
 	'EYE COIL CHANNELS. Last # is sampling freq in Hz. 
-	SampleWaveform(XChannel%, 14, 1000);
+	SampleWaveform(XChannel%, GetEyeXPort%(), 1000);
 	SampleTitle$(XChannel%,"Eye X");
-	SampleWaveform(YChannel%, 15, 1000);
+	SampleWaveform(YChannel%, GetEyeYPort%(), 1000);
 	SampleTitle$(YChannel%, "Eye Y");
 
 	SampleSequencer(script$ + "Fixation.pls");
