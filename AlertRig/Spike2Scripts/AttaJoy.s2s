@@ -1,4 +1,4 @@
-' $Id: AttaJoy.s2s,v 1.26 2010-10-04 19:06:03 devel Exp $
+' $Id: AttaJoy.s2s,v 1.27 2010-10-27 20:41:03 devel Exp $
 
 ' Stimulator/shock setup: 
 ' DOUT0 from VSG ----> TRIG input on 1401 _T_ ajRecordShockTriggerPort% (if not set to -1)
@@ -71,7 +71,7 @@ var ajTestShockTrials% := 0;        ' if 1 then every trial is a shock trial
 var ajPulse[2500];                   ' max 5s at 1khz
 var ajShockDoRecordShock% := 1;
 var ajRecordShockPort% := 4;                  ' Must hardcode this or set in dialog! Set to -1 for no record
-var ajRecordShockTriggerPort% := 3;           ' Hardcode. Set to -1 for no record. 
+var ajRecordShockTriggerPort% := -1;           ' Hardcode. Set to -1 for no record. 
 var ajShockTrialEnable% := 1;                 ' See PrepareTrial(). Set to 1 on trials where there will be a shock. 
 var ajWeights%[2];                              ' for trial generator
 var ajShockHazardTimeMin := 1.0;
@@ -335,6 +335,7 @@ InitializeToolbar();
 
 proc CreateSampleConfiguration()
 	var i%;
+    var channelCounter% := 0;
     
 	SampleClear(); 'Set standard sampling state
 	SampleAutoComment(0); 'Prompt for comment after sampling
@@ -388,13 +389,16 @@ proc CreateSampleConfiguration()
     ' Electrodes: wavemark/continuous
     for i% := 0 to ajNPorts%-1 do
         if ajWavemark%[i%] = 1 then
-            if ajContinuous%[i%] = 0 then
-                SampleWaveMark(i%+1, i%, 2000, 34, 15, 28000); ' chan, port, event rate, points, pre-trigger, rate
-                SampleTitle$(i%+1, "WvMk" + str$(i%)); 
-            else
-                SampleWaveform(i%+1, i%, 28000);
-                SampleTitle$(i%+1, "Cont" + str$(i%)); 
-            endif
+            channelCounter% += 1;
+            SampleWaveMark(channelCounter%, i%, 2000, 34, 15, 28000); ' chan, port, event rate, points, pre-trigger, rate
+            SampleTitle$(channelCounter%, "WvMk" + str$(i%)); 
+            LogInfo("WvMk " + str$(i%));
+        endif
+        if ajContinuous%[i%] = 1 then
+            channelCounter% += 1;
+            SampleWaveform(channelCounter%, i%, 28000);
+            SampleTitle$(channelCounter%, "Cont" + str$(i%)); 
+            LogInfo("Cont " + str$(i%));
         endif
     next
     
