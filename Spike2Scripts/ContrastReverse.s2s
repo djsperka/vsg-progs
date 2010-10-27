@@ -1,369 +1,11 @@
-' $Id: ContrastReverse.s2s,v 1.3 2006-11-22 00:46:47 dan Exp $
+' $Id: ContrastReverse.s2s,v 1.4 2010-10-27 21:04:54 devel Exp $
 
-'========================================================================
-'
-' INPUTS
-'
-' Eye X, Y - ADC input 14, 15 respectively
-' VSG trigger - assumed on DIGIN byte 0.  *** THE 1401 SHOULD HAVE PREFERENCES 
-'               SET WITH THE "Event Ports 0 and 1 on read digital input connector" 
-'               BOX CHECKED!!!
-'
-'========================================================================
+#include "../../Spike2util\UsreyUtil.s2s"
+#include "UsreyGratings.s2s"
+#include "UsreyDAQ.s2s"
+#include "UsreyFixationPoint.s2s"
 
-' File system reference vars. Each var is a directory path, WITHOUT the trailing slash. 
-var bin$, script$, config$;
-script$ := View(App(3)).FileName$(1) + View(App(3)).FileName$(2);	' folder containing this script
-bin$ := View(App(3)).FileName$(1) + View(App(3)).FileName$(2) + "..\\bin";	' Location of executables is ..\bin, relative to script dir
-config$ := View(App(3)).FileName$(1) + View(App(3)).FileName$(2) + "..\\config";	' Location of executables is ..\bin, relative to script dir
 
-''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-'
-'	Get Current configuration START
-'
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-
-func GetCurrentConfiguration$()
-	var key$;
-	var s$;
-	key$:="AlertRig";
-	Profile(key$, "CurrentConfiguration", "default", s$);
-	return s$;
-end;
-
-
-''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-'
-'	Get Current configuration END
-'
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-'
-'	Data parameters START
-'
-'	Vars that control where data is stored. 
-'
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-
-var dataPathRoot$;		' base path for data storage
-var dataDataSet$;		' folder under data path where data files placed
-var dataCellName$;		' part of base name for all data files
-var dataDataSetTextItem%;	' 
-
-proc GetDataParameters()
-	var stmp$;
-	var key$;
-
-	key$:="AlertRig\\Data";
-
-	Profile(key$, "PathRoot", "C:\\Experiments", dataPathRoot$);
-	Profile(key$, "DataSet", "", dataDataSet$);
-	Profile(key$, "CellName", "", dataCellName$);
-	return;
-end;
-
-proc SaveDataParameters()
-	var stmp$;
-	var key$;
-
-	key$:="AlertRig\\Data";
-
-	Profile(key$, "PathRoot", dataPathRoot$);
-	Profile(key$, "DataSet", dataDataSet$);
-	Profile(key$, "CellName", dataCellName$);
-	return;
-end;
-
-func DataParametersDialog%()
-	var i%;
-	GetDataParameters();
-	DlgCreate("Data Storage Parameters", 25, 10, 50);
-	DlgText("Data root path: " + dataPathRoot$, 0, 1);
-	dataDataSetTextItem% := DlgText("Data set name: " + dataDataSet$, 0, 2);
-	DlgString(1, "Cell name:", 10, "", 0, 3);
-        DlgButton(2, "New Data Set", NewDataSet%);
-	i% := DlgShow(dataCellName$);
-	if (i% = 1) then
-		if Len(dataDataSet$) = 0 then
-			Message("Must specify a data set (try the button!)");
-		else
-			if Len(dataCellName$) = 0 then
-				Message("Must specify a cell name");
-			else
-				FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 3, 1);
-				SaveDataParameters();
-			endif;
-		endif;
-	endif;
-	return i%;
-end;
-
-
-func NewDataSet%()
-	var d$;
-	var i%;
-	var dirs$[100];	' if there are ever more than 100 datasets in a single day there will be trouble
-	d$ := Date$(2, 2, 3, 3, "-");
-	PrintLog("NewDataSet: date string = " + d$ + "\n");
-
-	' Change current dir to data path root, then get list of subdirs with this date string
-	PrintLog("NewDataSet: dataPathRoot$=" + dataPathRoot$ + "\n");
-	FilePathSet(dataPathRoot$, 0, 1);
-	i% := FileList(dirs$, -2, d$ + "-??");
-        PrintLog("NewDataSet: found " + str$(i%) + " dirs\n");
-
-	' form new dataset name. The first will have "-01" appended, the second "-02", etc. 
-	dataDataSet$ := Print$("%s-%02d", d$, i%+1);
-	PrintLog("NewDataSet: dataset= " + dataDataSet$ + "\n");
-	DlgValue$(dataDataSetTextItem%, "Data set name: " + dataDataSet$);
-	return 1;
-end;
-
-
-
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-'
-' Data parameters END
-'
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-
-
-
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-'
-'	DAQ Parameters START
-'
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-
-
-var DistanceToScreenMM$;		' Distance to screen in MM
-var DegreesPerVoltX;			' Conversion factor from ADC to visual degrees
-var DegreesPerVoltY;			' Conversion factor from ADC to visual degrees
-var EyeCoilSamplingFrequency%;		' Frequency to sample eye coil at
-var NumberOfElectrodes%;		' Number of electrodes (i.e. wavemark inputs) in use
-var JuicePerReward%;			' Number of juice squirts per reward
-
-
-func DAQParametersDialog%()
-
-	var iReturn%;
-	var idist%;
-
-	GetDAQParameters();
-
-	idist% := val(DistanceToScreenMM$);
-	DlgCreate("DAQ parameters: " + GetCurrentConfiguration$());
-	DlgInteger(1, "Number of Electrodes:", 1, 7, 0, 0, 1);
-	DlgInteger(2, "Screen Distance (MM):", 1, 5000);
-	DlgReal(3, "Degrees/Volt (X):", 0, 100);
-	DlgReal(4, "Degrees/Volt (Y):", 0, 100);
-	DlgInteger(5, "Eye Coil Sampling Freq (Hz):", 1, 20000);
-	DlgInteger(6, "Juice per reward:", 0, 10, 0, 0, 1);
-	iReturn% := DlgShow(NumberOfElectrodes%, idist%, DegreesPerVoltX, DegreesPerVoltY, EyeCoilSamplingFrequency%, JuicePerReward%);
-
-	if iReturn% = 1 then
-		DistanceToScreenMM$ := str$(idist%);
-		SaveDAQParameters();
-	endif
-	return iReturn%;
-end;
-
-
-
-
-	
-proc GetDAQParameters()
-	var key$;
-	var DegreesPerVoltX$, DegreesPerVoltY$;
-
-	key$ := "AlertRig\\" + GetCurrentConfiguration$() + "\\DAQ";
-	Profile(key$, "DistanceToScreenMM", "850", DistanceToScreenMM$);	' will just pass this to stimulus app
-	Profile(key$, "DegreesPerVoltX", "", DegreesPerVoltX$);
-	Profile(key$, "DegreesPerVoltY", "", DegreesPerVoltY$);
-	Profile(key$, "EyeCoilSamplingFrequency", 1000, EyeCoilSamplingFrequency%);
-	Profile(key$, "NumberOfElectrodes", 1, NumberOfElectrodes%);
-	Profile(key$, "JuicePerReward", 1, JuicePerReward%);
-	DegreesPerVoltX := val(DegreesPerVoltX$);
-	DegreesPerVoltY := val(DegreesPerVoltY$);
-
-end;
-
-proc SaveDAQParameters()
-	var key$;
-	var DegreesPerVoltX$, DegreesPerVoltY$;
-	DegreesPerVoltX$ := str$(DegreesPerVoltX);
-	DegreesPerVoltY$ := str$(DegreesPerVoltY);
-	
-	key$ := "AlertRig\\" + GetCurrentConfiguration$() + "\\DAQ";
-	Profile(key$, "DistanceToScreenMM", DistanceToScreenMM$);
-	Profile(key$, "DegreesPerVoltX", DegreesPerVoltX$);
-	Profile(key$, "DegreesPerVoltY", DegreesPerVoltY$);
-	Profile(key$, "EyeCoilSamplingFrequency", EyeCoilSamplingFrequency%);
-	Profile(key$, "NumberOfElectrodes", NumberOfElectrodes%);
-	Profile(key$, "JuicePerReward", JuicePerReward%);
-
-end;
-
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-'
-'	DAQ Parameters END
-'
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-
-
-''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-'
-'	Fixation Point parameters START
-'
-'	These vars and funcs control the parameters for the fixation point stored in the registry. 
-'
-''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-
-
-
-var WindowRadius;
-var FixationX, FixationY;
-var FixationColor$;
-var iFixationColor%;
-var FixationDiameter;
-var FixationColorList$[3]; 
-var FixationArg$;
-
-proc GetFixationPointParameters()
-	var stmp$;
-	var key$;
-	key$ := "AlertRig\\" + GetCurrentConfiguration$() + "\\FixationPoint";
-	Profile(key$, "WindowRadius", "1", stmp$);
-	WindowRadius := val(stmp$);
-
-	Profile(key$, "FixationX", "0", stmp$);
-	FixationX := val(stmp$);
-	Profile(key$, "FixationY", "0", stmp$);
-	FixationY := val(stmp$);
-	Profile(key$, "FixationColor", "0", stmp$);
-	iFixationColor% := val(stmp$);
-
-	FixationColorList$[0]:="red"; 
-	FixationColorList$[1]:="green"; 
-	FixationColorList$[2]:="blue"; 
-	FixationColor$ := FixationColorList$[iFixationColor%];
-
-	Profile(key$, "FixationDiameter", "0.5", stmp$);
-	FixationDiameter := val(stmp$);
-
-	' Form the argument for applications. Convenience for passing args. 
-	FixationArg$ := " -f " + str$(FixationX) + "," + str$(FixationY) + "," + str$(FixationDiameter) + "," + FixationColor$;
-end;
-
-proc SaveFixationPointParameters()
-	var key$;
-	key$ := "AlertRig\\" + GetCurrentConfiguration$() + "\\FixationPoint";
-	Profile(key$, "WindowRadius", str$(WindowRadius));
-	Profile(key$, "FixationX", str$(FixationX));
-	Profile(key$, "FixationY", str$(FixationY));
-	Profile(key$, "FixationColor", str$(iFixationColor%));
-	Profile(key$, "FixationDiameter", str$(FixationDiameter));
-end;
-
-
-func FixationPointDialog%()
-
-	var i%;
-	GetFixationPointParameters();
-	DlgCreate("Fixation parameters: " + GetCurrentConfiguration$(), 25, 10);
-	DlgReal(1, "Fixation X:", -20, 20);
-	DlgReal(2, "Fixation Y:", -20, 20);
-	DlgReal(3, "Fixation diam:", .1, 5);
-	DlgReal(4, "Window radius:", .1, 10);
-	DlgList(5, "Color:", FixationColorList$[]);
-	i% := DlgShow(FixationX, FixationY, FixationDiameter, WindowRadius, iFixationColor%);	
-
-	' If user cancelled, reload params
-	if i% = 0 then
-		GetFixationPointParameters();
-	else
-		SaveFixationPointParameters();
-	endif
-
-	return 1;
-end;
-
-
-''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-'
-'	Fixation Point parameters END
-'
-''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-
-
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-'
-'	Rig Daily Totals START
-'
-'
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-
-
-var TotalTrials%;
-var TotalRewards%;
-var TotalDate$;
-
-
-proc GetDailyTotals()
-	var key$;
-	key$ := "AlertRig\\Daily";
-	Profile(key$, "TotalDate", "", TotalDate$);
-	Profile(key$, "TotalTrials", 0, TotalTrials%);
-	Profile(key$, "TotalRewards", 0, TotalRewards%);
-
-	' Get date string if needed
-	if Len(TotalDate$) = 0 then
-		TotalDate$ := GetDayString$();
-		SaveDailyTotals();
-	endif
-end;
-
-proc SaveDailyTotals()
-	var key$;
-	key$ := "AlertRig\\Daily";
-	Profile(key$, "TotalDate", TotalDate$);
-	Profile(key$, "TotalTrials", TotalTrials%);
-	Profile(key$, "TotalRewards", TotalRewards%);
-end;
-
-func DailyTotalsDialog%()
-	GetDailyTotals();
-	DlgCreate("Daily Totals");
-	DlgText("Date: " + TotalDate$, 0, 1);
-	DlgText("Trials: " + str$(TotalTrials%), 0, 2);
-	DlgText("Rewards: " + str$(TotalRewards%), 0, 3);
-	DlgButton(2, "Reset", ResetDailyTotals%);
-	DlgShow();
-	return 1;
-end;
-
-
-func GetDayString$()
-	return Date$(2, 1, 3, 2, "-");
-end;
-
-
-func ResetDailyTotals%()
-	GetDailyTotals();
-	TotalRewards%:=0;
-	TotalTrials%:=0;
-	TotalDate$:= GetDayString$();
-	SaveDailyTotals();
-        return 0;
-end;
-
-
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-'
-'	Rig Daily Totals END
-'
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
 
 
@@ -383,6 +25,8 @@ var crgFramesPerTerm%;			' frames that each msequence term is shown
 var crgContrast%;			' High contrast value
 var crgSF;							' spatial frequency (not necessarily same as that in stimulus)
 var crgDiameter;					' aperture diameter
+var crgAlwaysLooking% := 1;     ' set to 1 so InFixationWindow always returns 1 (testing only!)
+
 
 proc GetCRGScriptParameters()
 	var stmp$;
@@ -447,7 +91,7 @@ func CRGScriptDialog%()
 		PrintLog("Saving params\n");
 		SaveCRGScriptParameters();
 	endif;
-	return 1;
+	return i%;
 end;
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
@@ -495,34 +139,18 @@ var iStimIndex%;
 
 
 
-
-
-' Fetch parameters
-GetDailyTotals();
-GetDAQParameters();
-GetFixationPointParameters();
 GetCRGScriptParameters();
-GetDataParameters();
-
-
-' Check for valid data file path
-if Len(dataDataSet$) = 0 then
-	Message("No data set is selected! Edit Data parameters...");
-	' Might be nice to open the dialog here....
-	halt;
-else 
-	' Set path for new data files
-	FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 3, 1);
-	FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 1, 1);
-	SampleAutoName$(dataCellName$ + "_crg_000");
-	SampleAutoFile(1);
-	PrintLog("dataPathRoot=" + dataPathRoot$ + "\n");
-	PrintLog("dataDataSet=" + dataDataSet$ + "\n");
-	PrintLog("AutoFile status " + str$(SampleAutoFile()) + "\n");
+if CRGScriptDialog%() = 0 then
+    halt;
 endif
 
-
-
+' Warn user if always looking is turned on!
+if crgAlwaysLooking% = 1 then
+    if Query("Script is configured to NOT use eye tracker input.\n"
+        "Change to use eye tracker?") = 1 then
+        crgAlwaysLooking% := 0;
+    endif
+endif
 
 
 ' Assign channel numbers for eye X,Y and trigger. 
@@ -790,10 +418,15 @@ end;
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 proc CreateSampleConfiguration()
 	var index;
+    
 	SampleClear(); 'Set standard sampling state
-'	SampleAutoFile(0); 'Enable automatic file naming
 	SampleAutoComment(0); 'Prompt for comment after sampling
 	SampleAutoCommit(60); 'Seconds between each file commit
+    
+    FilePathSet(GetDataPathRoot$() + "\\" + GetDataSetName$(), 3);
+    FilePathSet(GetDataPathRoot$() + "\\" + GetDataSetName$(), 1);
+    SampleAutoName$(dataCellName$ + "_crg_000");
+	SampleAutoFile(1);
 
 	' Text mark channel for msequence indicators. The "10" is the max # of characters in a mark.
 	SampleTextMark(15);
@@ -949,15 +582,6 @@ proc InitializeToolbar()
 end;
 
 
-' Get grating p[arameters from registry AlertRig\\(config)\\Gratings\\type$
-func GetGratingParameters$(type$)
-	var key$;
-	var stmp$;
-	key$ := "AlertRig\\" + GetCurrentConfiguration$() + "\\Gratings";
-	Profile(key$, type$, "", stmp$);
-	return stmp$;
-end;
-
 
 ' Used to hard-quit from toolbar. This will close data files without saving!!! 
 ' It is important that this function be disabled once sampling is started!!!
@@ -992,7 +616,7 @@ func Start%()
 		endif
 	endif
 	baseFileName$ := GetBaseFileName$();
-	CommandLine$ := "cmd /k " + bin$ + "\\ContrastReverse -m c:\\work\\acuterig\\msequenceterms";
+	CommandLine$ := "cmd /k " + bin$ + "\\ContrastReverse -m " + GetStimDir$(1) + "msequenceterms";
 	CommandLine$ += " -p " + str$(x) + "," + str$(y) + " -l " + str$(crgSegmentTime) + " -t " + str$(crgFramesPerTerm%) + " -D " + DistanceToScreenMM$ + " " + FixationArg$;
 	CommandLine$ += " -d " + str$(crgDiameter) + " -s " + str$(crgSF) + " -C " + str$(crgContrast%) + "," + str$(-1*crgContrast%);
 	CommandLine$ += " -F " + baseFileName$ + ".par";
@@ -1036,13 +660,13 @@ end;
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 func InFixationWindow%(EyePosX,EyePosY)
 	var i% := 0;
-'	var xstim:=0, ystim:=0;
-'	xstim := GetStimX();
-'	ystim := GetStimY();
-	'Determine if the eye position is within the fixation window
-	if (Pow(EyePosX-FixationX, 2) + Pow(EyePosY-FixationY, 2)) <= Pow(WindowRadius,2) then 
-		i% := 1;
-	endif
+    if crgAlwaysLooking% = 0 then
+        if (Pow(EyePosX-FixationX, 2) + Pow(EyePosY-FixationY, 2)) <= Pow(WindowRadius,2) then 
+            i% := 1;
+        endif
+    else
+        i% := 1;
+    endif
 	return i%;
 end;
 
