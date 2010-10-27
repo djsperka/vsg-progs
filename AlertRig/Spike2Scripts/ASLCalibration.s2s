@@ -1,4 +1,4 @@
-'$Id: ASLCalibration.s2s,v 1.4 2010-08-16 22:56:52 devel Exp $
+'$Id: ASLCalibration.s2s,v 1.5 2010-10-27 20:50:27 devel Exp $
 
 #include "../../Spike2Util/ChannelUtilities.s2s"
 #include "../../Spike2Util/UsreyUtil.s2s"
@@ -10,7 +10,7 @@
 ' Local variables
 
 var acStimHandle% := -1;
-var acOffsetFile$ := "d:\\work\\asltest\\offset.txt";
+var acOffsetFile$ := "does_not_exist.txt";
 var acSlaveXOffset := 0;
 var acSlaveYOffset := 0;
 var acMasterFixationX := 0;
@@ -129,7 +129,7 @@ LogInit(1);
 if CheckOffsetFile%(acOffsetFile$) = 0 then
     halt;
 endif
-
+UpdateToolbarText();
         
 if ASLCalibrationDialog%() = 0 then
     halt;
@@ -752,6 +752,7 @@ proc ComputeThatLooksGoodOffset()
     acSlaveXOffset -= xAvg;
     acSlaveYOffset -= yAvg;
     WriteOffsetFile%();
+    UpdateToolbarText();
     return;
 end
 
@@ -874,8 +875,7 @@ func Start%()
     fixSpec$ := GetFixationArg$();
     GetFixationPointParameterValues(acMasterFixationX, acMasterFixationY, acMasterFixationDiameter, acMasterFixationWindow);
 '    cmdLine$ := "cmd /k " + GetBinDir$(1) + "ASLCalibration " + fixSpec$ + extra$;
-    cmdLine$ := "cmd /c " + "d:\\work\\asltest\\ASLCalibration " + fixSpec$ + extra$;
-
+    cmdLine$ := "cmd /c " + GetBinDir$(1) + "ASLCalibration " + fixSpec$ + extra$;
     ' Start sampling
    	SampleStart(0);
     
@@ -915,10 +915,10 @@ proc DisplayFixpt(iMaster%, iOn%)
         if iOn% <> 0 then
             ArrConst(acCircleX[], acUnitCircleX[]);
             ArrMul(acCircleX[], acSlaveFixationWindow/2);
-            'ArrAdd(acCircleX[], acSlaveXOffset);
+            ArrAdd(acCircleX[], acMasterFixationX);
             ArrConst(acCircleY[], acUnitCircleY[]);
             ArrMul(acCircleY[], acSlaveFixationWindow/2);
-            'ArrAdd(acCircleY[], acSlaveYOffset);
+            ArrAdd(acCircleY[], acMasterFixationY);
             ' Display the master position, not the offset position!
             View(acWindowXY%).XYAddData(acChanXYSlaveFixpt%, acMasterFixationX, acMasterFixationY);
             View(acWindowXY%).XYAddData(acChanXYSlaveFixptWindow%, acCircleX[], acCircleY[]);
@@ -941,6 +941,7 @@ func SlaveOffsetDialog%()
     i% := DlgShow(acSlaveXOffset, acSlaveYOffset, acSlaveFixationWindow);
     if i% = 1 then
         WriteOffsetFile%();
+        UpdateToolbarText();
         acSlaveParametersChanged% := 1;
         tSlaveOffsetChange := View(acWindowData%).MaxTime();
         Yield();
@@ -948,4 +949,10 @@ func SlaveOffsetDialog%()
     return 1;
 end
 
-    
+
+proc UpdateToolbarText()
+    var s$;
+    s$ := Print$("Slave offset %f, %f", acSlaveXOffset, acSlaveYOffset);
+    ToolbarText(s$);
+    return;
+end
