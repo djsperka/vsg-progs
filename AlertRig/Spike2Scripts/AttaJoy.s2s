@@ -1,4 +1,5 @@
-' $Id: AttaJoy.s2s,v 1.27 2010-10-27 20:41:03 devel Exp $
+' $Id: AttaJoy.s2s,v 1.28 2010-10-28 02:01:37 devel Exp $
+const ajCVSID$ := "$Id: AttaJoy.s2s,v 1.28 2010-10-28 02:01:37 devel Exp $";
 
 ' Stimulator/shock setup: 
 ' DOUT0 from VSG ----> TRIG input on 1401 _T_ ajRecordShockTriggerPort% (if not set to -1)
@@ -345,6 +346,9 @@ proc CreateSampleConfiguration()
     FilePathSet(GetDataPathRoot$() + "\\" + GetDataSetName$(), 1);
     SampleAutoName$(dataCellName$ + "_aj_000");
 	SampleAutoFile(1);
+    
+    ' Text mark channel for trial info
+    SampleTextMark(200);
     
 	'Channel recording definitions
 	SampleEvent(ajChanVSGReady%, 6, 2, 3600); 'Trigger channel, level
@@ -1234,6 +1238,7 @@ func Start%()
     var distSpec$;
     var fixSpec$;
     var extra$;
+    var tMark$; 
     var status% := 1;   ' return 0 on errors that should halt expt
     
     ' Get stimulus, distractor and fixpt specs
@@ -1259,7 +1264,14 @@ func Start%()
     ' Start sampling
     if status% = 1 then
         SampleStart(0);
-    
+        
+        ' Record initial text marks
+        SampleText("AttaJoy,1");
+        SampleText(ajCVSID$);
+        SampleText(cmdLine$);
+        tMark$ := Print$("%f,%f,%f,%f", GetJoystickLeftHigh(), GetJoystickCenterLow(), GetJoystickCenterHigh(), GetJoystickRightLow());
+        SampleText(tMark$);
+        
         'Begin the stimulus program. It will take a few seconds for the VSG to initialize.
         LogInfo(cmdLine$+"\n");
         ajStimHandle% := ProgRun(cmdLine$, 1);
