@@ -1,5 +1,5 @@
-' $Id: RivalryDualVSG.s2s,v 1.9 2010-08-21 00:35:23 devel Exp $
-const rivCVSID$ := "$Id: RivalryDualVSG.s2s,v 1.9 2010-08-21 00:35:23 devel Exp $";
+' $Id: RivalryDualVSG.s2s,v 1.10 2010-10-28 23:04:10 devel Exp $
+const rivCVSID$ := "$Id: RivalryDualVSG.s2s,v 1.10 2010-10-28 23:04:10 devel Exp $";
 
 #include "../../Spike2Util/TrialBlockGen.s2s"
 #include "../../Spike2Util/ChannelUtilities.s2s"
@@ -47,6 +47,8 @@ var rivNBlocks% := 10;
 var rivNTrainingPerBlock% := 2;     ' Number of training trials per block (should be even for balancing L/R)
 var rivNRivalryperBlock% := 2;      ' Number of rivalry trials per block (should be even for balancing L/R)
 var rivNRivalryCatchPerBlock% := 2; ' Number of rivalry/catch trials per block (should be even for balancing L/R)
+var rivNTrainingRTPerBlock% := 2;   ' Number of training->rivalry->training trials per block (should be even for balancing L/R)
+var rivNTrainingFixedPerBlock% := 2;' Number of training->fixed trials per block (should be even for balancing L/R)
 var rivLeftGrating$ := "-3,0,3,3,100,.5,.5,0,b,s,e";
 var rivRightGRating$ := "3,0,3,3,100,.5,.5,90,b,s,e";
 var rivLeftGratingX, rivLeftGratingY, rivLeftGratingD;
@@ -58,6 +60,14 @@ var rivFixationTextItem%;
 var rivElectrodeTextItem%;
 var rivFixationArg$;
 var rivElectrodes%[8];
+var rivTRTTime1Min := 5;
+var rivTRTTime1Max := 10;
+var rivTRTTime2Min := 5;
+var rivTRTTime2Max := 10;
+var rivTRTTime1;
+var rivTRTTime2;
+var rivTRTTime3;
+
 
 ' new vars for rivalry
 var rivRivalryRewardHoldoff := .4;  ' during rivalry, min time between rewards
@@ -131,18 +141,27 @@ const trialtypeRivalryLR%         := 2;
 const trialtypeRivalryRL%         := 3;
 const trialtypeRivalryCatchLR%    := 4;
 const trialtypeRivalryCatchRL%    := 5;
+const trialtypeTrainingLRT%       := 6;
+const trialtypeTrainingRRT%       := 7;
+const trialtypeTrainingLFixed%    := 8;
+const trialtypeTrainingRFixed%    := 9;
 const trialtypeUnknown%     := -1;
 var rivTrialTypeIndex%;                 ' this is the type returned by the trial generator
 var rivTrialType%;                      ' rivTrialTypes%[rivTrialTypeIndex%]
 const rivMaxTrialTypes% := 10;
 var rivTrialTypes%[rivMaxTrialTypes%];
 var rivNTrialTypes%;                    ' this is the total number of trial types for a single run; depends on settings
-const rivMaxStimKey%        := 2;
+const rivMaxStimKey%        := 3;
 var rivNStimKey%;
-var rivStimKey$[2];
+var rivStimKey$[rivMaxStimKey%];
 var rivStimKeyIndex%;
 var rivTrialTextMark$;
 
+const rivTRTStateUnknown% := -1;
+const rivTRTStateTraining1% := 0;
+const rivTRTStateRivalry% := 1;
+const rivTRTStateTraining2% := 2;
+var rivTRTState% := rivTRTStateUnknown%;
 
 ' States - these constants define a particular state
 
@@ -787,6 +806,17 @@ func IdleProcessing%()
                 case rivTrialType% = trialtypeRivalryCatchLR% or rivTrialType% = trialtypeRivalryCatchRL% then
                     ChangeStateTo(stateWaitForRivalryResponse%, tMasterTrigger);
                     rivLastRivalryResponse% := JSUndefined%;
+                case rivTrialType% = trialtypeTrainingLRT% or rivTrialType% = trialtypeTrainingRRT% then
+                    docase 
+                    case rivTRTState% = rivTRTStateTraining1% or rivTRTState% = rivTRTStateTraining2% then
+                        ChangeStateTo(stateWaitForResponse%, tMasterTrigger);
+                    case rivTRTState% = rivTRTStateRivalry% then
+                        ChangeStateTo(stateWaitForRivalryResponse%, tMasterTrigger);
+                        rivLastRivalryResponse% := JSUndefined%;
+                    else
+                        LogError("WaitForStimUp", "Unknown Training->Rivalry->Training state (" + str$(rivTRTState%) + ")");
+                        ChangeStateTo(stateDone%, tNow);
+                    endcase
                 else
                     LogError("WaitForStimUp", "Unknown trial type (" + str$(rivTrialType%) + ")");
                     ChangeStateTo(stateDone%, tNow);
@@ -837,6 +867,38 @@ func IdleProcessing%()
                 SampleKey(rivStimKey$[rivStimKeyIndex%]);
                 UpdateSwapValues(0);
                 ChangeStateTo(stateWaitForSwap%, tNow);
+                
+            case (rivTrialType% = trialtypeTrainingLRT% or rivTrialType% = trialtypeTrainingRRT%) and rivTRTState% = rivTRTStateRivalry% and tNow - rivTStartStim > rivTRTTime2 then
+                ' Time to transition to second training phase
+                rivTRTState% := rivTRTStateTraining2%;
+                ' Choose stim key to force a change. Take into consideration the current joystick pos and the trial type to make this choice.
+                docase 
+                case joystickPosition% = JSLeft% then
+                    rivCorrectResponse% := JSRight%;
+                    rivIncorrectResponse% := JSLeft%;
+                    rivStimKey$[0] := "A";
+                    rivStimKey$[1] := "5";
+                    rivStimKeyIndex% := 0;
+                    rivNStimKey% := 2;
+                case joystickPosition% = JSRight% then
+                    rivCorrectResponse% := JSLeft%;
+                    rivIncorrectResponse% := JSRight%;
+                    rivStimKey$[0] := "5";
+                    rivStimKey$[1] := "A";
+                    rivStimKeyIndex% := 0;
+                    rivNStimKey% := 2;
+                else
+                    LogWarn("WaitForRivalryResponse", "No Joystick response at second training switch time!");
+                    rivCorrectResponse% := JSLeft%;
+                    rivIncorrectResponse% := JSRight%;
+                    rivStimKey$[0] := "5";
+                    rivStimKey$[1] := "A";
+                    rivStimKeyIndex% := 0;
+                    rivNStimKey% := 2;
+                endcase
+                SampleKey(rivStimKey$[rivStimKeyIndex%]);
+                UpdateSwapValues(0);
+                ChangeStateTo(stateWaitForStimUp%, tNow);
                 
             case rivLastRivalryResponse% = JSUndefined% and (joystickPosition% = JSLeft% or joystickPosition% = JSRight%) then
                 rivLastRivalryResponse% := joystickPosition%;
@@ -916,12 +978,25 @@ func IdleProcessing%()
                 SampleKey("X");
                 ChangeStateTo(stateWaitForStimOff%, tNow);
                 iLoop% := 0;
-            case tNow - rivTStartStim > rivMaxStimTime then
+            case (rivTrialType% = trialtypeTrainingL% or rivTrialType% = trialtypeTrainingR%) and tNow - rivTStartStim > rivMaxStimTime then
                 LogStatus("stateMaintainResponse", "Max response time reached. Moving on...");
                 rivUniversalIntertrialTime := rivMaxStimWaitTime;
                 SampleKey("X");
                 ChangeStateTo(stateWaitForStimOff%, tNow);
                 iLoop% := 0;
+            case (rivTrialType% = trialtypeTrainingLRT% or rivTrialType% = trialtypeTrainingRRT%) and rivTRTState% = rivTRTStateTraining1% and tNow - rivTStartStim > rivTRTTime1 then
+                ' Time to transition to rivalry phase
+                rivTRTState% := rivTRTStateRivalry%;
+                rivStimKeyIndex% := 2;
+                SampleKey(rivStimKey$[rivStimKeyIndex%]);
+                ChangeStateTo(stateWaitForStimUp%, tNow);
+            case (rivTrialType% = trialtypeTrainingLRT% or rivTrialType% = trialtypeTrainingRRT%) and tNow - rivTStartStim > rivTRTTime3 then
+                LogStatus("stateMaintainResponse", "Max response time reached. Moving on...");
+                rivUniversalIntertrialTime := rivMaxStimWaitTime;
+                SampleKey("X");
+                ChangeStateTo(stateWaitForStimOff%, tNow);
+                iLoop% := 0;
+
             case joystickPosition% = rivCorrectResponse% then
                 
                 ' Check for maintenance reward
@@ -1234,8 +1309,11 @@ func PrepareTrial%()
         
     case rivChooseTrialTypes% <> 0 then
         
+        ' This case is for testing only. The var rivChooseTrialTypes must be set to 1 manually. When it is, you get a dialog
+        ' to choose the trial type each time through. 
+        
         DlgCreate("Choose trial type");
-        DlgList(1, "Trial type:", "TrainingL|TrainingR|RivalryLR|RivalryRL|RivCatchLR|RivCatchRL");
+        DlgList(1, "Trial type:", "TrainingL|TrainingR|RivalryLR|RivalryRL|RivCatchLR|RivCatchRL|TrainingLRT|TrainingRLT|TrainingLFixed|TrainingRFixed");
         if DlgShow(rivTrialTypeIndex%) = 1 then
             rivTrialType% := rivTrialTypes%[rivTrialTypeIndex%];
             PrepareTrialVars(rivTrialType%);
@@ -1318,6 +1396,42 @@ proc PrepareTrialVars(type%)
         rivNStimKey% := 1;
         rivRivalryCatchSwitchTime := Rand(rivRivalryCatchMaxSwitchTime - rivRivalryCatchMinSwitchTime, rivRivalryCatchMinSwitchTime);
         rivTrialTextMark$ := Print$("%d,%d,%c,%c,%f", type%, rivNStimKey%, rivStimKey$[0], rivStimKey$[1], rivRivalryCatchSwitchTime);
+    case type% = trialtypeTrainingLRT% then
+        LogInfo("Preparing trial... Training LEFT->Rivalry->Training");
+        rivCorrectResponse% := JSLeft%;
+        rivIncorrectResponse% := JSRight%;
+        rivStimKey$[0] := "5";
+        rivStimKey$[1] := "A";
+        if Rand(2)>1 then
+            rivStimKey$[2] := "6";
+        else
+            rivStimKey$[2] := "9";
+        endif
+        rivStimKeyIndex% := 0;
+        rivNStimKey% := 3;
+        rivTRTTime1 := Rand(rivTRTTime1Max-rivTRTTime1Min, rivTRTTime1Min);
+        rivTRTTime2 := Rand(rivTRTTime2Max-rivTRTTime2Min, rivTRTTime2Min);
+        rivTRTTime3 := rivMaxStimTime - rivTRTTime1 - rivTRTTime2;
+        rivTrialTextMark$ := Print$("%d,%d,%c,%c,%c,%f,%f", type%, rivNStimKey%, rivStimKey$[0], rivStimKey$[1], rivStimKey$[2], rivTRTTime1, rivTRTTime2);        
+        rivTRTState% := rivTRTStateTraining1%;
+    case type% = trialtypeTrainingRRT% then
+        LogInfo("Preparing trial... Training RIGHT->Rivalry->Training");
+        rivCorrectResponse% := JSRight%;
+        rivIncorrectResponse% := JSLeft%;
+        rivStimKey$[0] := "A";
+        rivStimKey$[1] := "5";
+        if Rand(2)>1 then
+            rivStimKey$[2] := "6";
+        else
+            rivStimKey$[2] := "9";
+        endif
+        rivStimKeyIndex% := 0;
+        rivNStimKey% := 3;
+        rivTRTTime1 := Rand(rivTRTTime1Max-rivTRTTime1Min, rivTRTTime1Min);
+        rivTRTTime2 := Rand(rivTRTTime2Max-rivTRTTime2Min, rivTRTTime2Min);
+        rivTRTTime3 := rivMaxStimTime - rivTRTTime1 - rivTRTTime2;
+        rivTrialTextMark$ := Print$("%d,%d,%c,%c,%c,%f,%f", type%, rivNStimKey%, rivStimKey$[0], rivStimKey$[1], rivStimKey$[2], rivTRTTime1, rivTRTTime2);        
+        rivTRTState% := rivTRTStateTraining1%;
     else
         LogError("", "Unknown index returned from trialgenGetTrialIndex%.\n");
     endcase
