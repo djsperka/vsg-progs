@@ -1,5 +1,5 @@
-' $Id: RivalryDualVSG.s2s,v 1.10 2010-10-28 23:04:10 devel Exp $
-const rivCVSID$ := "$Id: RivalryDualVSG.s2s,v 1.10 2010-10-28 23:04:10 devel Exp $";
+' $Id: RivalryDualVSG.s2s,v 1.11 2010-10-29 02:27:49 devel Exp $
+const rivCVSID$ := "$Id: RivalryDualVSG.s2s,v 1.11 2010-10-29 02:27:49 devel Exp $";
 
 #include "../../Spike2Util/TrialBlockGen.s2s"
 #include "../../Spike2Util/ChannelUtilities.s2s"
@@ -60,10 +60,10 @@ var rivFixationTextItem%;
 var rivElectrodeTextItem%;
 var rivFixationArg$;
 var rivElectrodes%[8];
-var rivTRTTime1Min := 5;
-var rivTRTTime1Max := 10;
-var rivTRTTime2Min := 5;
-var rivTRTTime2Max := 10;
+var rivTRTTime1Min := 4;
+var rivTRTTime1Max := 7;
+var rivTRTTime2Min := 4;
+var rivTRTTime2Max := 7;
 var rivTRTTime1;
 var rivTRTTime2;
 var rivTRTTime3;
@@ -130,6 +130,7 @@ var rivStimHandle% := 0;
 var rivCorrectResponse%;
 var rivIncorrectResponse%;
 var rivTStartStim;                  ' time at which stim is presented
+var rivTStimSwap;                   ' in TRT trials this is the transition time from t->R and R->T
 var rivTLastReward := -1;           ' time at which last reward was delivered - for maintainence rewards
 var rivUniversalIntertrialTime;     ' time to wait between trials
 var rivSwapTime;                    ' time to hold between stim swaps
@@ -233,16 +234,20 @@ if RivalryDialog%() = 0 then
     halt;
 endif
 
-rivNTrialTypes% := 6;
+rivNTrialTypes% := 10;
 rivTrialTypes%[0] := trialtypeTrainingL%;
 rivTrialTypes%[1] := trialtypeTrainingR%;
 rivTrialTypes%[2] := trialtypeRivalryLR%;
 rivTrialTypes%[3] := trialtypeRivalryRL%;
 rivTrialTypes%[4] := trialtypeRivalryCatchLR%;
 rivTrialTypes%[5] := trialtypeRivalryCatchRL%;
+rivTrialTypes%[6] := trialtypeTrainingLRT%;
+rivTrialTypes%[7] := trialtypeTrainingRRT%;
+rivTrialTypes%[8] := trialtypeTrainingLFixed%;
+rivTrialTypes%[9] := trialtypeTrainingRFixed%;
 
 if rivChooseTrialTypes% = 0 then
-    var weights%[6];
+    var weights%[10];
     weights%[0] := rivNTrainingPerBlock%/2;
     weights%[1] := rivNTrainingPerBlock% - weights%[0];
     weights%[2] := rivNRivalryPerBlock%/2;
@@ -868,9 +873,10 @@ func IdleProcessing%()
                 UpdateSwapValues(0);
                 ChangeStateTo(stateWaitForSwap%, tNow);
                 
-            case (rivTrialType% = trialtypeTrainingLRT% or rivTrialType% = trialtypeTrainingRRT%) and rivTRTState% = rivTRTStateRivalry% and tNow - rivTStartStim > rivTRTTime2 then
+            case (rivTrialType% = trialtypeTrainingLRT% or rivTrialType% = trialtypeTrainingRRT%) and rivTRTState% = rivTRTStateRivalry% and tNow - rivTStimSwap > rivTRTTime2 then
                 ' Time to transition to second training phase
                 rivTRTState% := rivTRTStateTraining2%;
+                LogStatus("stateWaitForRivalryResponse", "Training->Rivalry->Training: transition back to training...");
                 ' Choose stim key to force a change. Take into consideration the current joystick pos and the trial type to make this choice.
                 docase 
                 case joystickPosition% = JSLeft% then
@@ -898,7 +904,7 @@ func IdleProcessing%()
                 endcase
                 SampleKey(rivStimKey$[rivStimKeyIndex%]);
                 UpdateSwapValues(0);
-                ChangeStateTo(stateWaitForStimUp%, tNow);
+                ChangeStateTo(stateWaitForSwap%, tNow);
                 
             case rivLastRivalryResponse% = JSUndefined% and (joystickPosition% = JSLeft% or joystickPosition% = JSRight%) then
                 rivLastRivalryResponse% := joystickPosition%;
@@ -984,14 +990,17 @@ func IdleProcessing%()
                 SampleKey("X");
                 ChangeStateTo(stateWaitForStimOff%, tNow);
                 iLoop% := 0;
-            case (rivTrialType% = trialtypeTrainingLRT% or rivTrialType% = trialtypeTrainingRRT%) and rivTRTState% = rivTRTStateTraining1% and tNow - rivTStartStim > rivTRTTime1 then
+            case (rivTrialType% = trialtypeTrainingLRT% or rivTrialType% = trialtypeTrainingRRT%) and rivTRTState% = rivTRTStateTraining1% and tNow - rivTStimSwap > rivTRTTime1 then
                 ' Time to transition to rivalry phase
+                LogStatus("stateMaintainResponse", "Transition to rivalry at " + str$(tNow));
                 rivTRTState% := rivTRTStateRivalry%;
                 rivStimKeyIndex% := 2;
+                rivLastRivalryResponse% := joystickPosition%;
                 SampleKey(rivStimKey$[rivStimKeyIndex%]);
-                ChangeStateTo(stateWaitForStimUp%, tNow);
-            case (rivTrialType% = trialtypeTrainingLRT% or rivTrialType% = trialtypeTrainingRRT%) and tNow - rivTStartStim > rivTRTTime3 then
-                LogStatus("stateMaintainResponse", "Max response time reached. Moving on...");
+                ChangeStateTo(stateWaitForSwap%, tNow);
+                iLoop% := 0;
+            case (rivTrialType% = trialtypeTrainingLRT% or rivTrialType% = trialtypeTrainingRRT%) and rivTRTState% = rivTRTStateTraining2% and tNow - rivTStimSwap > rivTRTTime3 then
+                LogStatus("stateMaintainResponse", "Max response time reached. Training->Rivalry->Training trial completed. ");
                 rivUniversalIntertrialTime := rivMaxStimWaitTime;
                 SampleKey("X");
                 ChangeStateTo(stateWaitForStimOff%, tNow);
@@ -1023,9 +1032,19 @@ func IdleProcessing%()
             
             if FindEvent%(rivChanMasterPage%, tStateStart, tMasterTrigger) = 1 and 
                 FindEvent%(rivChanSlavePage%, tStateStart, tSlaveTrigger) = 1 then
+                rivTStimSwap := tMasterTrigger;
                 LogStatus("stateWaitForSwap", "Swap detected.");
                 DisplayStim(1);
-                ChangeStateTo(stateWaitForSwapResponse%, tNow);
+                docase
+                case rivTrialType% = trialtypeTrainingLRT% or rivTrialType% = trialtypeTrainingRRT% then
+                    if rivTRTState% = rivTRTStateRivalry% then
+                        ChangeStateTo(stateWaitForRivalryResponse%, tNow);
+                    else
+                        ChangeStateTo(stateWaitForSwapResponse%, tNow);
+                    endif
+                else
+                    ChangeStateTo(stateWaitForSwapResponse%, tNow);
+                endcase
                 iLoop% := 0;
             endif
             
@@ -1343,6 +1362,7 @@ end
 
 proc PrepareTrialVars(type%)
     rivTStartStim := -1;        ' used in WaitForStimOff to decide if a trial was good, depends on elapsed stim time. 
+    rivTStimSwap := -1;
     docase
     case type% = trialtypeTrainingL% then
         LogInfo("Preparing trial... LEFT");
@@ -1412,7 +1432,7 @@ proc PrepareTrialVars(type%)
         rivTRTTime1 := Rand(rivTRTTime1Max-rivTRTTime1Min, rivTRTTime1Min);
         rivTRTTime2 := Rand(rivTRTTime2Max-rivTRTTime2Min, rivTRTTime2Min);
         rivTRTTime3 := rivMaxStimTime - rivTRTTime1 - rivTRTTime2;
-        rivTrialTextMark$ := Print$("%d,%d,%c,%c,%c,%f,%f", type%, rivNStimKey%, rivStimKey$[0], rivStimKey$[1], rivStimKey$[2], rivTRTTime1, rivTRTTime2);        
+        rivTrialTextMark$ := Print$("%d,%d,%c,%c,%c,%f,%f,%f", type%, rivNStimKey%, rivStimKey$[0], rivStimKey$[1], rivStimKey$[2], rivTRTTime1, rivTRTTime2, rivTRTTime3);        
         rivTRTState% := rivTRTStateTraining1%;
     case type% = trialtypeTrainingRRT% then
         LogInfo("Preparing trial... Training RIGHT->Rivalry->Training");
@@ -1430,7 +1450,7 @@ proc PrepareTrialVars(type%)
         rivTRTTime1 := Rand(rivTRTTime1Max-rivTRTTime1Min, rivTRTTime1Min);
         rivTRTTime2 := Rand(rivTRTTime2Max-rivTRTTime2Min, rivTRTTime2Min);
         rivTRTTime3 := rivMaxStimTime - rivTRTTime1 - rivTRTTime2;
-        rivTrialTextMark$ := Print$("%d,%d,%c,%c,%c,%f,%f", type%, rivNStimKey%, rivStimKey$[0], rivStimKey$[1], rivStimKey$[2], rivTRTTime1, rivTRTTime2);        
+        rivTrialTextMark$ := Print$("%d,%d,%c,%c,%c,%f,%f,%f", type%, rivNStimKey%, rivStimKey$[0], rivStimKey$[1], rivStimKey$[2], rivTRTTime1, rivTRTTime2, rivTRTTime3);        
         rivTRTState% := rivTRTStateTraining1%;
     else
         LogError("", "Unknown index returned from trialgenGetTrialIndex%.\n");
