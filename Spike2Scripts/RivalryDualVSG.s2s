@@ -1,5 +1,5 @@
-' $Id: RivalryDualVSG.s2s,v 1.11 2010-10-29 02:27:49 devel Exp $
-const rivCVSID$ := "$Id: RivalryDualVSG.s2s,v 1.11 2010-10-29 02:27:49 devel Exp $";
+' $Id: RivalryDualVSG.s2s,v 1.12 2010-10-29 17:07:55 devel Exp $
+const rivCVSID$ := "$Id: RivalryDualVSG.s2s,v 1.12 2010-10-29 17:07:55 devel Exp $";
 
 #include "../../Spike2Util/TrialBlockGen.s2s"
 #include "../../Spike2Util/ChannelUtilities.s2s"
@@ -11,7 +11,7 @@ const rivCVSID$ := "$Id: RivalryDualVSG.s2s,v 1.11 2010-10-29 02:27:49 devel Exp
 #include "UsreyDAQ.s2s"
 
 ' Special for testing. Set to 1 to choose trial type each trial.
-var rivChooseTrialTypes% := 0;
+var rivChooseTrialTypes% := 1;
 
 ' Local config variables
 
@@ -799,7 +799,7 @@ func IdleProcessing%()
             
             ' Waiting for stim signals on channel rivChanMasterGrating% and rivChanSlaveGrating%
             if FindEdge%(rivChanMasterGrating%, tStateStart, tMasterTrigger) > -1 and FindEdge%(rivChanSlaveGrating%, tStateStart, tSlaveTrigger) > -1 then
-				LogStatus("WaitForStimUp", "Stimulus is up.\n");
+				LogStatus("WaitForStimUp", "Stimulus is up.");
                 DisplayStim(1);
                 rivTStartStim := tMasterTrigger;
                 docase
@@ -876,7 +876,7 @@ func IdleProcessing%()
             case (rivTrialType% = trialtypeTrainingLRT% or rivTrialType% = trialtypeTrainingRRT%) and rivTRTState% = rivTRTStateRivalry% and tNow - rivTStimSwap > rivTRTTime2 then
                 ' Time to transition to second training phase
                 rivTRTState% := rivTRTStateTraining2%;
-                LogStatus("stateWaitForRivalryResponse", "Training->Rivalry->Training: transition back to training...");
+                LogStatus("stateWaitForRivalryResponse", "Training->Rivalry->Training: transition back to training at " + str$(tNow) + " swap time " + str$(rivTStimSwap) + " t2=" + str$(rivTRTTime2));
                 ' Choose stim key to force a change. Take into consideration the current joystick pos and the trial type to make this choice.
                 docase 
                 case joystickPosition% = JSLeft% then
@@ -990,17 +990,17 @@ func IdleProcessing%()
                 SampleKey("X");
                 ChangeStateTo(stateWaitForStimOff%, tNow);
                 iLoop% := 0;
-            case (rivTrialType% = trialtypeTrainingLRT% or rivTrialType% = trialtypeTrainingRRT%) and rivTRTState% = rivTRTStateTraining1% and tNow - rivTStimSwap > rivTRTTime1 then
+            case (rivTrialType% = trialtypeTrainingLRT% or rivTrialType% = trialtypeTrainingRRT%) and rivTRTState% = rivTRTStateTraining1% and tNow - rivTStartStim > rivTRTTime1 then
                 ' Time to transition to rivalry phase
-                LogStatus("stateMaintainResponse", "Transition to rivalry at " + str$(tNow));
+                LogStatus("stateMaintainResponse", "Transition to rivalry at " + str$(tNow) + " start stim " + str$(rivTStartStim) + " t1=" + str$(rivTRTTime1));
                 rivTRTState% := rivTRTStateRivalry%;
                 rivStimKeyIndex% := 2;
                 rivLastRivalryResponse% := joystickPosition%;
                 SampleKey(rivStimKey$[rivStimKeyIndex%]);
                 ChangeStateTo(stateWaitForSwap%, tNow);
                 iLoop% := 0;
-            case (rivTrialType% = trialtypeTrainingLRT% or rivTrialType% = trialtypeTrainingRRT%) and rivTRTState% = rivTRTStateTraining2% and tNow - rivTStimSwap > rivTRTTime3 then
-                LogStatus("stateMaintainResponse", "Max response time reached. Training->Rivalry->Training trial completed. ");
+            case (rivTrialType% = trialtypeTrainingLRT% or rivTrialType% = trialtypeTrainingRRT%) and rivTRTState% = rivTRTStateTraining2% and tNow - rivTStartStim > rivMaxStimTime then
+                LogStatus("stateMaintainResponse", "Max response time reached. Training->Rivalry->Training trial completed at " + str$(tNow) + " swap time " + str$(rivTStimSwap) + " t3=" + str$(rivTRTTime3));
                 rivUniversalIntertrialTime := rivMaxStimWaitTime;
                 SampleKey("X");
                 ChangeStateTo(stateWaitForStimOff%, tNow);
