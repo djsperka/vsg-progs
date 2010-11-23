@@ -1,5 +1,5 @@
-' $Id: RivalryDualVSG.s2s,v 1.13 2010-11-02 20:28:39 devel Exp $
-const rivCVSID$ := "$Id: RivalryDualVSG.s2s,v 1.13 2010-11-02 20:28:39 devel Exp $";
+' $Id: RivalryDualVSG.s2s,v 1.14 2010-11-23 20:32:29 devel Exp $
+const rivCVSID$ := "$Id: RivalryDualVSG.s2s,v 1.14 2010-11-23 20:32:29 devel Exp $";
 
 #include "../../Spike2Util/TrialBlockGen.s2s"
 #include "../../Spike2Util/ChannelUtilities.s2s"
@@ -67,8 +67,8 @@ var rivTRTTime2Max := 7;
 var rivTRTTime1;    ' Time1 is the time for training (L/R) stimulus before rivalry.
 var rivTRTTime2;    ' Time2 is the time for the rivalry stimulus in TRT trials. 
 var rivTRTTime3;
-var rivTFixedMinTime := 5;
-var rivTFixedMaxTime := 8;
+var rivTFixedMinTime := 8;
+var rivTFixedMaxTime := 12;
 var rivTFixedTime;  ' Time for training stimulus before it being fixed
 
 
@@ -257,6 +257,10 @@ if rivChooseTrialTypes% = 0 then
     weights%[3] := rivNRivalryPerBlock% - weights%[2];
     weights%[4] := rivNRivalryCatchPerBlock%/2;
     weights%[5] := rivNRivalryCatchPerBlock% - weights%[4];
+    weights%[6] := rivNTrainingRTPerBlock%/2;
+    weights%[7] := rivNTrainingRTPerBlock% - weights%[6];
+    weights%[8] := rivNTrainingFixedPerBlock%/2;
+    weights%[9] := rivNTrainingFixedPerBlock% - weights%[8];
     tgwInit(rivNTrialTypes%, weights%[0:rivNTrialTypes%], rivNBlocks%);
 endif
 
@@ -806,7 +810,8 @@ func IdleProcessing%()
                 DisplayStim(1);
                 rivTStartStim := tMasterTrigger;
                 docase
-                case rivTrialType% = trialtypeTrainingL% or rivTrialType% = trialtypeTrainingR% then
+                case rivTrialType% = trialtypeTrainingL% or rivTrialType% = trialtypeTrainingR% or 
+                     rivTrialType% = trialtypeTrainingLFixed% or rivTrialType% = trialtypeTrainingRFixed% then
                     ChangeStateTo(stateWaitForResponse%, tMasterTrigger);
                 case rivTrialType% = trialtypeRivalryLR% or rivTrialType% = trialtypeRivalryRL% then
                     ChangeStateTo(stateWaitForRivalryResponse%, tMasterTrigger);
@@ -987,7 +992,9 @@ func IdleProcessing%()
                 SampleKey("X");
                 ChangeStateTo(stateWaitForStimOff%, tNow);
                 iLoop% := 0;
-            case (rivTrialType% = trialtypeTrainingL% or rivTrialType% = trialtypeTrainingR%) and tNow - rivTStartStim > rivMaxStimTime then
+            case (rivTrialType% = trialtypeTrainingL% or rivTrialType% = trialtypeTrainingR% or 
+                rivTrialType% = trialtypeTrainingLFixed% or rivTrialType% = trialtypeTrainingRFixed%) and 
+                tNow - rivTStartStim > rivMaxStimTime then
                 LogStatus("stateMaintainResponse", "Max response time reached. Moving on...");
                 rivUniversalIntertrialTime := rivMaxStimWaitTime;
                 SampleKey("X");
@@ -1016,6 +1023,15 @@ func IdleProcessing%()
                     DeliverReward(rivMaintainResponseRewardSize%, tNow);
                 endif
                 
+                ' When trial type is Training->Fixed, test if the Fixed time threshold has passed, and if so
+                ' set the next swap time to a REALLY long time from now. 
+                if (rivTrialType% = trialtypeTrainingLFixed% or rivTrialType% = trialtypeTrainingRFixed%) and 
+                    tNow - rivTStartStim > rivTFixedTime  and rivSwapTime < 9999 then
+                    LogStatus("stateCorrectResponse", "Making stim fixed; no more swaps this trial.");
+                    rivSwapTime := 99999;
+                endif
+                
+                ' Now see if its time to swap the stimuli
                 if  tNow - tStateStart > rivSwapTime then
                     LogStatus("stateMaintainResponse", "Request stim swap.");
                     rivStimKeyIndex% := 1 - rivStimKeyIndex%;
@@ -1455,6 +1471,26 @@ proc PrepareTrialVars(type%)
         rivTRTTime3 := rivMaxStimTime - rivTRTTime1 - rivTRTTime2;
         rivTrialTextMark$ := Print$("%d,%d,%c,%c,%c,%f,%f,%f", type%, rivNStimKey%, rivStimKey$[0], rivStimKey$[1], rivStimKey$[2], rivTRTTime1, rivTRTTime2, rivTRTTime3);        
         rivTRTState% := rivTRTStateTraining1%;
+    case type% = trialtypeTrainingLFixed% then
+        LogInfo("Preparing trial... Training LEFT->Fixed");
+        rivCorrectResponse% := JSLeft%;
+        rivIncorrectResponse% := JSRight%;
+        rivStimKey$[0] := "5";
+        rivStimKey$[1] := "A";
+        rivStimKeyIndex% := 0;
+        rivNStimKey% := 2;
+        rivTFixedTime := Rand(rivTFixedMaxTime-rivTFixedMinTime, rivTFixedMinTime);
+        rivTrialTextMark$ := Print$("%d,%d,%c,%c,%f", type%, rivNStimKey%, rivStimKey$[0], rivStimKey$[1],rivTFixedTime);        
+    case type% = trialtypeTrainingRFixed% then
+        LogInfo("Preparing trial... Training RIGHT->Fixed");
+        rivCorrectResponse% := JSRight%;
+        rivIncorrectResponse% := JSLeft%;
+        rivStimKey$[0] := "A";
+        rivStimKey$[1] := "5";
+        rivStimKeyIndex% := 0;
+        rivNStimKey% := 2;
+        rivTFixedTime := Rand(rivTFixedMaxTime-rivTFixedMinTime, rivTFixedMinTime);
+        rivTrialTextMark$ := Print$("%d,%d,%c,%c,%f", type%, rivNStimKey%, rivStimKey$[0], rivStimKey$[1],rivTFixedTime);        
     else
         LogError("", "Unknown index returned from trialgenGetTrialIndex%.\n");
     endcase
@@ -1469,32 +1505,35 @@ func RivalryDialog%()
     GetRivalryParameters();
     DlgCreate("Rivalry Parameters");
     DlgAllow(0xffff, 0, RivalryDialogChanged%);
-    DlgGroup("Block structure", 1, 1, 50, 5);
+    DlgGroup("Block structure", 1, 1, 50, 7);
     DlgInteger(1, "# of blocks", 1, 100, 25, 2);
     DlgInteger(2, "# Training trials/block", 0, 500, 25, 3, 2);
     DlgInteger(3, "# Rivalry trials/block", 0, 500, 25, 4, 2);
     DlgInteger(4, "# RivalryCatch trials/block", 0, 500, 25, 5, 2);
+    DlgInteger(5, "# Training/Riv/Training trials/block", 0, 500, 25, 6, 2);
+    DlgInteger(6, "# Training/Fixed trials/block", 0, 500, 25, 7, 2);
     
-    DlgCheck(5, "Use beep?", 1, 6);
-    DlgInteger(6, "Beep length (ms)", 1, 1000, 25, 7);
-    DlgCheck(7, "Correction trials?", 1, 8);
+    DlgCheck(7, "Use beep?", 1, 8);
+    DlgInteger(8, "Beep length (ms)", 1, 1000, 25, 9);
+    DlgCheck(9, "Correction trials?", 1, 10);
     'DlgCheck(8, "Use Fixation?", 1, 9);
-    DlgButton(101, "Fixation Settings", RivalryFixationDialog%, 1, 9);
+    DlgButton(101, "Fixation Settings", RivalryFixationDialog%, 1, 11);
     if rivUseFixation% = 1 then
-        rivFixationTextItem% := DlgText(rivFixationArg$, 20, 9);
+        rivFixationTextItem% := DlgText(rivFixationArg$, 20, 11);
     else
-        rivFixationTextItem% := DlgText("Fixation disabled", 20, 9);
+        rivFixationTextItem% := DlgText("Fixation disabled", 20, 11);
     endif
-    DlgButton(102, "Timing", RivalryTimingDialog%, 1, 10);
-    DlgButton(103, "Reward/Swap/Catch", RivalryRewardSwapDialog%, 1, 11);
-    DlgButton(104, "Electrodes", RivalryElectrodeDialog%, 1, 12);
-    rivElectrodeTextItem% := DlgText(GetElectrodeTextItem$(), 15, 12, 15);
-    DlgGroup("Gratings", 1, 13, 50, 3);
-    DlgButton(105, "Left Grating", RivalryLGratingDialog%, 1, 14);
-    rivLeftGratingTextItem% := DlgText(rivLeftGrating$, 15, 14);
-    DlgButton(106, "Right Grating", RivalryRGratingDialog%, 1, 15);
-    rivRightGratingTextItem% := DlgText(rivRightGrating$, 15, 15);
+    DlgButton(102, "Timing", RivalryTimingDialog%, 1, 12);
+    DlgButton(103, "Reward/Swap/Catch", RivalryRewardSwapDialog%, 1, 13);
+    DlgButton(104, "Electrodes", RivalryElectrodeDialog%, 1, 14);
+    rivElectrodeTextItem% := DlgText(GetElectrodeTextItem$(), 15, 14, 15);
+    DlgGroup("Gratings", 1, 15, 50, 3);
+    DlgButton(105, "Left Grating", RivalryLGratingDialog%, 1, 16);
+    rivLeftGratingTextItem% := DlgText(rivLeftGrating$, 15, 16);
+    DlgButton(106, "Right Grating", RivalryRGratingDialog%, 1, 17);
+    rivRightGratingTextItem% := DlgText(rivRightGrating$, 15, 17);
     i% := DlgShow(rivNBlocks%, rivNTrainingPerBlock%, rivNRivalryperBlock%, rivNRivalryCatchPerBlock%,
+                  rivNTrainingRTPerBlock%, rivNTrainingFixedPerBlock%,
                   rivUseBeep%, rivBeepLengthMS%, rivCorrectionTrials%);
     if i% = 1 then
         SaveRivalryParameters();
@@ -1507,9 +1546,9 @@ func RivalryDialogChanged%(item%)
     docase
     case item% = 0 then
         DlgEnable(rivUseFixation%, 101);
-        DlgEnable(rivUseBeep%, 6);
-    case item% = 5 then
-        DlgEnable(DlgValue(5), 6);
+        DlgEnable(rivUseBeep%, 8);
+    case item% = 7 then
+        DlgEnable(DlgValue(7), 8);
     case item% = 3 then
         DlgEnable(DlgValue(3), 101);
     endcase
@@ -1565,7 +1604,14 @@ proc GetRivalryParameters()
     rivElectrodes%[5] := GetIntRegistryValue%(key$, "ElectrodePort5", rivElectrodes%[5]);
     rivElectrodes%[6] := GetIntRegistryValue%(key$, "ElectrodePort6", rivElectrodes%[6]);
     rivElectrodes%[7] := GetIntRegistryValue%(key$, "ElectrodePort7", rivElectrodes%[7]);
-    
+    rivTRTTime1Min := GetFloatRegistryValue(key$, "TRTTime1Min", rivTRTTime1Min);
+    rivTRTTime1Max := GetFloatRegistryValue(key$, "TRTTime1Max", rivTRTTime1Max);
+    rivTRTTime2Min := GetFloatRegistryValue(key$, "TRTTime2Min", rivTRTTime2Min);
+    rivTRTTime2Max := GetFloatRegistryValue(key$, "TRTTime2Max", rivTRTTime2Max);
+    rivTFixedMinTime := GetFloatRegistryValue(key$, "TFixedMinTime", rivTFixedMinTime);
+    rivTFixedMaxTime := GetFloatRegistryValue(key$, "TFixedMaxTime", rivTFixedMaxTime);    
+    rivNTrainingRTPerBlock% := GetIntRegistryValue%(key$, "NTrainingRTPerBlock", rivNTrainingRTPerBlock%);
+    rivNTrainingFixedPerBlock% := GetIntRegistryValue%(key$, "NTrainingFixedPerBlock", rivNTrainingFixedPerBlock%);
 end
 
 proc SaveRivalryParameters()
@@ -1615,6 +1661,14 @@ proc SaveRivalryParameters()
     SetIntRegistryValue(key$, "ElectrodePort5", rivElectrodes%[5]);
     SetIntRegistryValue(key$, "ElectrodePort6", rivElectrodes%[6]);
     SetIntRegistryValue(key$, "ElectrodePort7", rivElectrodes%[7]);
+    SetFloatRegistryValue(key$, "TRTTime1Min", rivTRTTime1Min);
+    SetFloatRegistryValue(key$, "TRTTime1Max", rivTRTTime1Max);
+    SetFloatRegistryValue(key$, "TRTTime2Min", rivTRTTime2Min);
+    SetFloatRegistryValue(key$, "TRTTime2Max", rivTRTTime2Max);
+    SetFloatRegistryValue(key$, "TFixedMinTime", rivTFixedMinTime);
+    SetFloatRegistryValue(key$, "TFixedMaxTime", rivTFixedMaxTime);    
+    SetIntRegistryValue(key$, "NTrainingRTPerBlock", rivNTrainingRTPerBlock%);
+    SetIntRegistryValue(key$, "NTrainingFixedPerBlock", rivNTrainingFixedPerBlock%);
     
 end
 
@@ -1689,9 +1743,16 @@ func RivalryRewardSwapDialog%()
     DlgReal(11, "Catch switch - min(s)", 0.01, 60.0);
     DlgReal(12, "Catch switch - max(s)", 0.01, 60.0);
     DlgReal(13, "Riv reward holdoff(s)", 0.01, 60.0);
+    DlgReal(14, "TRT T1 Min", 0.01, 60.0);
+    DlgReal(15, "TRT T1 Max", 0.01, 60.0);
+    DlgReal(16, "TRT T2 Min", 0.01, 60.0);
+    DlgReal(17, "TRT T2 Max", 0.01, 60.0);
+    DlgReal(18, "TFixed Min", 0.01, 60.0);
+    DlgReal(19, "TFixed Max", 0.01, 60.0);
 	DlgShow(rivReadyHoldTime, rivReadyHoldRewardSize%, rivResponseCorrectRewardSize%, rivMaintainResponseRewardSize%, 
     rivMaintainResponseRewardWait, rivSwapRewardSize%, rivSwapMinTime, rivSwapMaxTime, rivMaxStimTime, rivMinGoodTrialTime,
-    rivRivalryCatchMinSwitchTime, rivRivalryCatchMaxSwitchTime, rivRivalryRewardHoldoff);
+    rivRivalryCatchMinSwitchTime, rivRivalryCatchMaxSwitchTime, rivRivalryRewardHoldoff,
+    rivTRTTime1Min, rivTRTTime1Max, rivTRTTime2Min, rivTRTTime2Max, rivTFixedMinTime, rivTFixedMaxTime);
     return 1;
 end
 
