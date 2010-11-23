@@ -1,0 +1,19 @@
+This is the format of the attajoy extract script output file. 
+
+The file is placed in the same dir as the data file. It has the same 
+base name as the data file, with extension "ajj". 
+
+The output file has 8 columns (separated by spaces):
+ttype, ptype, tFixpt, tStim, ctype, tChange, tEndTrial, tResponse
+
+
+ttype: Trial type. 0 (1) for F/Attend-towards (G/Attend-away)
+ptype: Pulse type: 0 (1) for no pulse (yes pulse)
+tFixpt: time of onset of fixation point
+tStim: Time of onset of stimulus
+ctype: change type 0 (1) for C/Attend-towards-changes (D/Attend-away-changes)
+       If -1, trial was aborted prior to contrast change. In this case, tChange, tResponse
+	   have no meaning. 
+tChange: time of contrast change
+tEndTrial: time trial ends, when all stim turned off
+tResponse: time when joystick response occurred
