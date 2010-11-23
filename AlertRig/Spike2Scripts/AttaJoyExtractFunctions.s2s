@@ -1,4 +1,4 @@
-' $Id: AttaJoyExtractFunctions.s2s,v 1.2 2010-11-22 23:26:49 devel Exp $
+' $Id: AttaJoyExtractFunctions.s2s,v 1.3 2010-11-23 00:26:50 devel Exp $
 
 #include "ExtractionUtilities.s2s"
 #include "JoystickExtractFunctions.s2s"
@@ -12,6 +12,7 @@ var axChan% := -1;
 var axIsInitialized% := 0;
 var axData%;            ' data window
 var axNProcessed% := 0;
+var axVersion% := 0;
 
 const axstateError% := -1;
 const axstateStart% := 0;
@@ -64,7 +65,66 @@ func AttaX%(h%, args$)
     var sFound$;
     var sIgnore$ := "TWwsJRq";
     var tJoy4;
+    var tLastTextMarker := -1;
+    var tText;
+    var iTextCode%[4];
+    var sInitTextMarkers$[4];
+    var i%;
     var r2%, r4%;
+    
+    ' If args is present, it should contain voltage boundaries for the joystick regions. 
+    ' If args are not present, search the data file channel30 for text markers. If they are
+    ' present, then the 4th one holds the bounaries. 
+    ' If args not present, and no text markers, then we assume default values for the boundaries. 
+    
+    if Len(args$)>0 then
+        
+        if ReadStr(args$, axBoundaries[0], axBoundaries[1], axBoundaries[2], axBoundaries[3]) <> 4 then
+            LogError("AttaX", "Error in file args (" + args$ + "): should have 4 values.");
+            return -1;
+        endif
+        
+    else
+        
+        tLastTextMarker := -1;
+        i% := 0;
+        View(h%);
+        repeat
+            tText := NextTime(30, tLastTextMarker, iTextCode%[], sInitTextMarkers$[i%]);
+            if tText >= 0 then
+                tLastTextMarker := tText;
+                i% += 1;
+            endif
+            until tText < 0 or i% = 4;
+        
+        docase
+        case i% > 0 and i% < 4 then
+            LogError("", "Not enough text markers in file.");
+            return -1;
+        case i% = 4 then
+            tLast := tLastTextMarker;
+            for i% := 0 to 3 do
+                LogInfo("Text Marker #" + str$(i%) + ": " + sInitTextMarkers$[i%]);
+            next
+            
+            ' Version number is at the tail end of the first text marker
+            i% := InStr(sInitTextMarkers$[0], ",");
+            if i% = 0 then
+                LogError("", "Error reading first text marker - it should contain version number!");
+            else
+                axVersion% := val(Mid$(sInitTextMarkers$[0], i%+1));
+                if ParseInitString%(sInitTextMarkers$[3], axVersion%) = 0 then
+                    LogInfo("Got joystick boundaries from text markers.");
+                else
+                    LogError("AttaX", "Parse error in text marker string.");
+                    return -1;
+                endif
+            endif
+        else
+            LogInfo("No args, no text markers. Assuming version 0 data.");
+        endcase
+       
+    endif
     
     ' Initialize joystick functions
     JoystickExtractInit%(axBoundaries[], axChanJoystick%, -1, h%);
@@ -193,6 +253,23 @@ func AttaX%(h%, args$)
     
     return 0;
 end
+
+
+func ParseInitString%(s$, vers%)
+    var status% := 1;
+    docase
+    case vers% = 1 then
+        if ReadStr(s$, axBoundaries[0], axBoundaries[1], axBoundaries[2], axBoundaries[3]) <> 4 then
+            LogError("", "Expected 4 values in version 1 init string.");
+        else
+            status% := 0;
+        endif
+    else
+        LogError("", "Unknown version number (" + str$(vers%) + ")");
+    endcase   
+    return status%;
+end
+
 
                 
 func AttaXGetTimeFor%(s$, tFound, &tResult)
