@@ -1,4 +1,4 @@
-'$Id: RivalryExtractionFunctions.s2s,v 1.1 2010-10-09 01:00:51 devel Exp $'
+'$Id: RivalryExtractionFunctions.s2s,v 1.2 2010-11-24 00:41:12 devel Exp $'
 
 #include "ExtractionUtilities.s2s"
 #include "../../Spike2Util/LogUtilities.s2s"
@@ -111,12 +111,15 @@ var refTStimS[refMaxTStim%];
 var refTEndTrialM := -1;
 var refTEndTrialS := -1;
 var refICorrection% := -1;
+var refNT%;
+var refT[10];
 
 ' etc
 var refNKeys%;
 var refKey0$;
 var refKey1$;
-var refTCatch;
+var refKey2$;
+var refKeys$;
 var refLastReady$;
 
 ' control
@@ -135,10 +138,13 @@ proc InitTrialVars()
     next
     refTEndTrialM := -1;
     refTEndTrialS := -1;
-    refTCatch := -1;
     refNKeys% := 0;
     refKey0$ := "";
     refKey1$ := "";
+    refKey2$ := "";
+    refKeys$ := "";
+    ArrConst(refT[], -1);
+    refNT% := 0;
     refICorrection% := 0;
     return;
 end
@@ -148,7 +154,7 @@ proc WriteTrialVars()
     var s2$;
     var s3$;
     var i%;
-    s1$ := Print$("%d,%d,%f,%f,%f,%f,%d", refTType%, refICorrection%, refTFixptM, refTFixptS, refTEndTrialM, refTEndTrialS, refNTStim%);
+    s1$ := Print$("%d,%d,%s,%f,%f,%f,%f,%f,%f,%f,%f,%d", refTType%, refICorrection%, refKeys$, refTFixptM, refTFixptS, refTEndTrialM, refTEndTrialS, refT[0], refT[1], refT[2], refT[3], refNTStim%);
     docase
     case refNTStim% = 0 then
         s2$ := "0";
@@ -176,6 +182,65 @@ proc WriteTrialVars()
     return;
 end
 
+func ParseTrialString%(s$)
+    var nread%;
+    
+    ' make sure commas are respected and read the trial type
+    ReadSetup("", "", "", "", ",");
+    nread% := ReadStr(s$, refTType%);
+    if nread% = 1 then
+        docase
+        case refTType% = 0 or refTType% = 1 or ' trialtypeTrainingL/R            
+            refTType% = 2 or refTType% = 3 then ' trialtypeRivalryLR/RL
+            ' just two stim keys
+            nread% := ReadStr(s$, refTType%, refNKeys%, refKey0$, refKey1$);
+            if nread% <> 4 then
+                LogError("ParseTrialString", "Format error for trial type " + str$(refTType%) + ": " + s$);
+                return -1;
+            else
+                refKeys$ := refKey0$ + refKey1$;
+            endif
+        case refTType% = 4 or refTType% = 5 then    ' trialtype RivalryCatchLR/RL
+            ' two stim keys and catch switch time. The actual switch time will 
+            ' be the first element of the switch time array.
+            nread% := ReadStr(s$, refTType%, refNKeys%, refKey0$, refKey1$, refT[0]);
+            if nread% <> 5 then
+                LogError("ParseTrialString", "Format error for trial type " + str$(refTType%) + ": " + s$);
+                return -1;
+            else
+                refKeys$ := refKey0$ + refKey1$;
+                refNT% := 1;
+            endif
+        case refTType% = 6 or refTType% = 7 then    ' trialtype TrainingLRT/RRT
+            ' three stim keys and three times
+            nread% := ReadStr(s$, refTType%, refNKeys%, refKey0$, refKey1$, refKey2$, refT[0], refT[1], refT[2]);
+            if nread% <> 8 then
+                LogError("ParseTrialString", "Format error for trial type " + str$(refTType%) + ": " + s$);
+                return -1;
+            else
+                refKeys$ := refKey0$ + refKey1$ + refKey2$;
+                refNT% := 3;
+            endif
+        case refTType% = 8 or refTType% = 9 then    ' trialtype TrainingL/RFixed
+            ' two stim keys and fix time
+            nread% := ReadStr(s$, refTType%, refNKeys%, refKey0$, refKey1$, refT[0]);
+            if nread% <> 5 then
+                LogError("ParseTrialString", "Format error for trial type " + str$(refTType%) + ": " + s$);
+                return -1;
+            else
+                refKeys$ := refKey0$ + refKey1$;
+                refNT% := 1;
+            endif
+        else
+            LogError("ParseTrialString", "Unknown trial type (" + str$(refTType%) + ").");
+            return -1;
+        endcase
+    else
+        LogError("ParseTrialString", "Cannot get trial type from trial string (" + s$ + ")");
+        return -1;
+    endif
+    return 0;
+end
 
 
 func RivalryExtract%(tStart, tEnd)
@@ -218,10 +283,11 @@ func RivalryExtract%(tStart, tEnd)
             
             docase
             case Len(sFound$) > 1 then
-                ' Parse text mark
-                ReadSetup("", "", "", "", ",");
-                nread% := ReadStr(sFound$, refTType%, refNKeys%, refKey0$, refKey1$, refTCatch);
-                stmp$ := print$("Found %s Trialtype %d  Keys(%d) \"%s\" \"%s\" Catch %f", sFound$, refTType%, refNKeys%, refKey0$, refKey1$, refTCatch);
+                if ParseTrialString%(sFound$) <> 0 then
+                    LogError("refstateReady", "Trial string parse error at t=" + str$(tFound));
+                    return -1;
+                endif
+                stmp$ := print$("Found %s Trialtype %d  Keys(%s) t %f %f %f", sFound$, refTType%, refKeys$, refT[0], refT[1], refT[2]);
                 LogInfo(stmp$);
                 refIState% := refstateStart%;
                 refLastReady$ := sFound$;
@@ -240,10 +306,12 @@ func RivalryExtract%(tStart, tEnd)
                 WriteTrialVars();
                 InitTrialVars();                
                 
-                ' Parse text mark
-                ReadSetup("", "", "", "", ",");
-                nread% := ReadStr(sFound$, refTType%, refNKeys%, refKey0$, refKey1$, refTCatch);
-                stmp$ := print$("Found %s Trialtype %d  Keys(%d) \"%s\" \"%s\" Catch %f", sFound$, refTType%, refNKeys%, refKey0$, refKey1$, refTCatch);
+                
+                if ParseTrialString%(sFound$) <> 0 then
+                    LogError("refstateReady", "Trial string parse error at t=" + str$(tFound));
+                    return -1;
+                endif
+                stmp$ := print$("Found %s Trialtype %d  Keys(%s) t %f %f %f", sFound$, refTType%, refKeys$, refT[0], refT[1], refT[2]);
                 LogInfo(stmp$);
                 refIState% := refstateStart%;
                 refLastReady$ := sFound$;
