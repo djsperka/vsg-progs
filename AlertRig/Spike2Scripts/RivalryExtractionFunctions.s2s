@@ -1,4 +1,4 @@
-'$Id: RivalryExtractionFunctions.s2s,v 1.2 2010-11-24 00:41:12 devel Exp $'
+'$Id: RivalryExtractionFunctions.s2s,v 1.3 2010-11-24 22:56:56 devel Exp $'
 
 #include "ExtractionUtilities.s2s"
 #include "../../Spike2Util/LogUtilities.s2s"
@@ -198,7 +198,7 @@ func ParseTrialString%(s$)
                 LogError("ParseTrialString", "Format error for trial type " + str$(refTType%) + ": " + s$);
                 return -1;
             else
-                refKeys$ := refKey0$ + refKey1$;
+                'refKeys$ := refKey0$ + refKey1$;
             endif
         case refTType% = 4 or refTType% = 5 then    ' trialtype RivalryCatchLR/RL
             ' two stim keys and catch switch time. The actual switch time will 
@@ -208,7 +208,7 @@ func ParseTrialString%(s$)
                 LogError("ParseTrialString", "Format error for trial type " + str$(refTType%) + ": " + s$);
                 return -1;
             else
-                refKeys$ := refKey0$ + refKey1$;
+                'refKeys$ := refKey0$ + refKey1$;
                 refNT% := 1;
             endif
         case refTType% = 6 or refTType% = 7 then    ' trialtype TrainingLRT/RRT
@@ -218,7 +218,7 @@ func ParseTrialString%(s$)
                 LogError("ParseTrialString", "Format error for trial type " + str$(refTType%) + ": " + s$);
                 return -1;
             else
-                refKeys$ := refKey0$ + refKey1$ + refKey2$;
+                'refKeys$ := refKey0$ + refKey1$ + refKey2$;
                 refNT% := 3;
             endif
         case refTType% = 8 or refTType% = 9 then    ' trialtype TrainingL/RFixed
@@ -228,7 +228,7 @@ func ParseTrialString%(s$)
                 LogError("ParseTrialString", "Format error for trial type " + str$(refTType%) + ": " + s$);
                 return -1;
             else
-                refKeys$ := refKey0$ + refKey1$;
+                'refKeys$ := refKey0$ + refKey1$;
                 refNT% := 1;
             endif
         else
@@ -316,7 +316,7 @@ func RivalryExtract%(tStart, tEnd)
                 refIState% := refstateStart%;
                 refLastReady$ := sFound$;
             case InStr("569A", sFound$) > 0 then
-                if GetFixptTimes%(tFound) <> 0 then
+                if GetFixptTimes%(tFound, sFound$) <> 0 then
                     LogStatus("refstateStart", "Error getting trig times for fixpt/stim key at t=" + str$(tFound));
                     status% := -1;
                     refIState% := refstateError%;
@@ -339,7 +339,7 @@ func RivalryExtract%(tStart, tEnd)
             ' Expecting g or X
             docase
             case sFound$ = "g" then
-                if GetStimTimes%(tFound) <> 0 then
+                if GetStimTimes%(tFound, sFound$) <> 0 then
                     LogStatus("refstateFixpt", "Error getting stim times for stim key at t=" + str$(tFound));
                     status% := -1;
                     refIState% := refstateError%;
@@ -361,7 +361,7 @@ func RivalryExtract%(tStart, tEnd)
         case refIState% = refstateStim% then
             docase
             case InStr("569A", sFound$) > 0 then
-                if GetStimTimes%(tFound) <> 0 then
+                if GetStimTimes%(tFound, sFound$) <> 0 then
                     LogStatus("refstateFixpt", "Error getting stim times for stim key at t=" + str$(tFound));
                     status% := -1;
                     refIState% := refstateError%;
@@ -403,18 +403,22 @@ func RivalryExtract%(tStart, tEnd)
     return status%;
 end
 
-func GetFixptTimes%(t)
+func GetFixptTimes%(t, sKey$)
     var status% := -1;
+    refKeys$ := sKey$;
     if FindEvent%(22, t, refTFixptM) = 1 and FindEvent%(23, t, refTFixptS) = 1 then
         status% := 0;
     endif
     return status%
 end
 
-func GetStimTimes%(t)
+func GetStimTimes%(t, sKey$)
     var status% := -1;
     if FindEvent%(22, t, refTStimM[refNTStim%]) = 1 and FindEvent%(23, t, refTStimS[refNTStim%]) = 1 then
         refNTStim% += 1;
+        if sKey$ <> "g" then
+            refKeys$ += sKey$;
+        endif
         status% := 0;
     endif
     return status%
