@@ -1,5 +1,5 @@
-' $Id: RivalryDualVSG.s2s,v 1.14 2010-11-23 20:32:29 devel Exp $
-const rivCVSID$ := "$Id: RivalryDualVSG.s2s,v 1.14 2010-11-23 20:32:29 devel Exp $";
+' $Id: RivalryDualVSG.s2s,v 1.15 2010-11-24 22:44:30 devel Exp $
+const rivCVSID$ := "$Id: RivalryDualVSG.s2s,v 1.15 2010-11-24 22:44:30 devel Exp $";
 
 #include "../../Spike2Util/TrialBlockGen.s2s"
 #include "../../Spike2Util/ChannelUtilities.s2s"
@@ -1441,7 +1441,11 @@ proc PrepareTrialVars(type%)
         rivIncorrectResponse% := JSRight%;
         rivStimKey$[0] := "5";
         rivStimKey$[1] := "A";
-        if Rand(2)>1 then
+        ' 11/24/2010 djs
+        ' Fix bug in call to Rand() here. Was calling this with a single arg. That call just seeds the
+        ' random number generator and always returns something less than one (1). Fixed this so 
+        ' the call uses an offset of 0; that triggers the correct behavior. 
+        if Rand(2, 0)>1 then
             rivStimKey$[2] := "6";
         else
             rivStimKey$[2] := "9";
@@ -1459,7 +1463,11 @@ proc PrepareTrialVars(type%)
         rivIncorrectResponse% := JSLeft%;
         rivStimKey$[0] := "A";
         rivStimKey$[1] := "5";
-        if Rand(2)>1 then
+        ' 11/24/2010 djs
+        ' Fix bug in call to Rand() here. Was calling this with a single arg. That call just seeds the
+        ' random number generator and always returns something less than one (1). Fixed this so 
+        ' the call uses an offset of 0; that triggers the correct behavior. 
+        if Rand(2, 0)>1 then
             rivStimKey$[2] := "6";
         else
             rivStimKey$[2] := "9";
