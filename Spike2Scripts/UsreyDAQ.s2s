@@ -16,6 +16,10 @@ var JuicePerReward%;			' Number of juice squirts per reward
 var EyeXPort%;                  ' Port horizontal eye signal connected to
 var EyeYPort%;                  ' Port vertical eye signal connected to
 var JoystickPort%;              ' Port joystick is connected to
+var WavemarkPorts%[16];
+var NumWavemarkPorts%;
+var ContinuousPorts%[16];
+var NumContinuousPorts%;
 
 GetDAQParameters();
 
@@ -50,6 +54,23 @@ end
 func GetJuicePerReward%()
     return JuicePerReward%;
 end
+
+func GetWavemarkPorts%(ports%[])
+    if Len(ports%[]) < NumWavemarkPorts% then return -1;    ' array not large enough
+    else
+        ArrConst(ports%[0:NumWavemarkPorts%], WavemarkPorts%[0:NumWavemarkPorts%]);
+        return NumWavemarkPorts%;
+    endif
+end
+
+func GetContinuousPorts%(ports%[])
+    if Len(ports%[]) < NumContinuousPorts% then return -1;    ' array not large enough
+    else
+        ArrConst(ports%[0:NumContinuousPorts%], ContinuousPorts%[0:NumContinuousPorts%]);
+        return NumContinuousPorts%;
+    endif
+end
+
 
 func DAQParametersDialog%()
 
@@ -86,7 +107,7 @@ end;
 	
 proc GetDAQParameters()
 	var key$;
-	var DegreesPerVoltX$, DegreesPerVoltY$;
+    var s$;
 
 	key$ := GetRigName$() + "\\" + GetCurrentConfiguration$() + "\\DAQ";
     DistanceToScreenMM$ := GetStringRegistryValue$(key$, "DistanceToScreenMM", "850");
@@ -98,10 +119,17 @@ proc GetDAQParameters()
     EyeXPort% := GetIntRegistryValue%(key$, "EyeXPort", 14);
     EyeYPort% := GetIntRegistryValue%(key$, "EyeYPort", 15);
     JoystickPort% := GetIntRegistryValue%(key$, "JoystickPort", 13);
+    s$ := GetStringRegistryValue$(key$, "WavemarkPorts", "");
+    NumWavemarkPorts% := ReadStr(s$, WavemarkPorts%[]);
+    s$ := GetStringRegistryValue$(key$, "ContinuousPorts", "");
+    NumContinuousPorts% := ReadStr(s$, ContinuousPorts%[]);
+    
 end;
 
 proc SaveDAQParameters()
     var key$;
+    var s$;
+    var i%;
 	key$ := GetRigName$() + "\\" + GetCurrentConfiguration$() + "\\DAQ";
     SetStringRegistryValue(key$, "DistanceToScreenMM", DistanceToScreenMM$);
     SetStringRegistryValue(key$, "DegreesPerVoltX", str$(DegreesPerVoltX));
@@ -112,6 +140,16 @@ proc SaveDAQParameters()
     SetIntRegistryValue(key$, "EyeXPort", EyeXPort%);
     SetIntRegistryValue(key$, "EyeYPort", EyeYPort%);
     SetIntRegistryValue(key$, "JoystickPort", JoystickPort%);
+    s$ := "";
+    for i% := 0 to NumWavemarkPorts%-1 do
+        s$ += str$(WavemarkPorts%[i%]) + ",";
+    next
+    SetStringRegistryValue(key$, "WavemarkPorts", s$);
+    s$ := "";
+    for i% := 0 to NumContinuousPorts%-1 do
+        s$ += str$(ContinuousPorts%[i%]) + ",";
+    next
+    SetStringRegistryValue(key$, "ContinuousPorts", s$);    
 end;
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
