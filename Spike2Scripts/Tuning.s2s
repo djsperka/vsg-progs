@@ -1,4 +1,4 @@
-' $Id: Tuning.s2s,v 1.28 2010-10-02 00:53:23 devel Exp $
+' $Id: Tuning.s2s,v 1.29 2010-12-07 21:26:28 devel Exp $
 
 #include "../../Spike2Util/ChannelUtilities.s2s"
 #include "../../Spike2Util/UsreyUtil.s2s"
@@ -14,6 +14,8 @@
 ' Tuning Curve script START
 '
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+var tunAlwaysLooking% := 0; ' If set eye signals ignored - subject presumed to be looking always. TESTING ONLY.
 
 var tunFixationDuration;	' Time required to hold fixation for reward (stim ON)
 var tunMaintainFixation;	' Time required to hold fixation for reward (stim OFF)
@@ -86,6 +88,14 @@ const tundlgContrastButton% := 10;
 const tundlgSpatialButton% := 11;
 const tundlgTemporalButton% := 12;
 const tundlgAreaButton% := 13;
+
+' Wavemarks and continuous ports are specified elsewhere
+var tunNWavemarks% := 0;
+var tunWavemarkPorts%[16];
+var tunNContinuous% := 0;
+var tunContinuousPorts%[16];
+
+
 
 
 proc GetTuningCurveScriptParameters()
@@ -531,7 +541,7 @@ var StimChangeChannel%;
 var ReadyChannel%;
 
 ' tuning curves
-var TuningWindow%[8];	' one for each channel. There'd better not be more than 8 channels! 
+var TuningWindow%[16];	' one for each wavemark channel
 ' XY window stuff
 var XYWindow%;			' 
 var iStimChannel%;	' channel number for stimulus in xy window
@@ -548,18 +558,12 @@ var iScript%;
 ' Init logging
 LogInit(1);
 
-' Fetch parameters
-'GetDailyTotals();
-'GetDAQParameters();
-'GetFixationPointParameters();
-'GetDataParameters();
-
-' Check for valid data file path
-'if Len(dataDataSet$) = 0 then
-'	Message("No data set is selected! Edit Data parameters...");
-'	' Might be nice to open the dialog here....
-'	halt;
-'endif
+' Check if always looking flag is set. If so, issue a warning. 
+if tunAlwaysLooking% = 1 then
+    if Query("Always looking is SET. Unset?") = 1 then
+        tunAlwaysLooking% := 0;
+    endif
+endif
 
 ' run parameters script....
 tunContext$ := tunContextDAQ$;
@@ -590,6 +594,11 @@ FixationPointChannel% := 24;
 StimChannel% := 25;
 StimChangeChannel% := 26;
 ReadyChannel% := 27;
+
+' Fetch electrode information. 
+tunNWavemarks% := GetWavemarkPorts%(tunWavemarkPorts%[]);
+tunNContinuous% := GetContinuousPorts%(tunContinuousPorts%[]);
+
 CreateSampleConfiguration();
 
 
@@ -630,6 +639,7 @@ end;
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 func Looking%(EyePosX,EyePosY)
 	'Determine if the eye position is within the fixation window
+    if tunAlwaysLooking% = 1 then return 1; endif;
 	if (Pow(EyePosX-FixationX,2) + Pow(EyePosY-FixationY,2)) <= Pow(WindowRadius,2) then return 1; else return 0; endif
 end;
 
@@ -873,12 +883,12 @@ end;
 proc PlotSpikes(t1, t2, vOnOff%, x)
 	var rate;
 	var index%;
-	for index% := 1 to NumberOfElectrodes% do
+	for index% := 1 to tunNWavemarks% do
 		rate := View(DataWindow%).Count(index%, t1, t2)/(t2-t1);
 		if rate >= 0 then
 			if vOnOff% = 1 then
 				' this is signal
-				View(TuningWindow%[index%-1]).XYAddData(index%, x, rate);
+				View(TuningWindow%[index%-1]).XYAddData(1, x, rate);    ' channel 1 is data; channel 2 is background
 			endif
 			' NOTE: IGNORING BACKGROUND HERE FOR THE TIME BEING. 
 	        endif 
@@ -914,19 +924,27 @@ end
 
 
 proc InitializeWindows()
-
+    var i%;
+    var WindowStep;
+    
 	'Open the data sampling window
 	DataWindow% := FileNew(0,4);
 	Window(0,48,50,95);
+    XRange(0, 30);
 	View(DataWindow%).WindowVisible(1);
 
 	' open xy window to display tuning results
-	TuningWindow%[0] := FileNew(12);
-	Window(50, 0, 100, 95);
-	ChanTitle$(0, "Spikes/s");
-	TuningCurveLabels();
-	WindowVisible(1);
-
+    
+    if tunNWavemarks% > 0 then
+        WindowStep := 100/tunNWavemarks%;
+    endif
+    for i% := 0 to tunNWavemarks% do
+        TuningWindow%[i%] := FileNew(12);
+        Window(50, i%*WindowStep, 100, (i%+1)*WindowStep);
+        ChanTitle$(0, "Spikes/s");
+        TuningCurveLabels(tunWavemarkPorts%[i%]);
+        WindowVisible(1);
+    next
 
 	'Open an XY view to display eye position
 	XYWindow% := FileNew(12);
@@ -972,41 +990,42 @@ proc InitializeWindows()
 
 end;
 
-proc TuningCurveLabels()
+proc TuningCurveLabels(iport%)
 
-
+    var s$;
+    s$ := "Port " + str$(iport%);
 	docase 
 		case tunType$ = tunTypeContrast$ then
 
-			WindowTitle$("Contrast Tuning");
+			WindowTitle$("Contrast Tuning - " + s$);
 			XUnits$("Contrast (%)");
 			ChanTitle$(1, "Chan 1");
 			XRange(tunContrastMinContrast, tunContrastMaxContrast);
 
 		case tunType$ = tunTypeOrientation$ then
 
-			WindowTitle$("Orientation Tuning");
+			WindowTitle$("Orientation Tuning - " + s$);
 			XUnits$("Orientation (degrees)");
 			ChanTitle$(1, "Chan 1");
 			XRange(tunOriMinOrientation, tunOriMaxOrientation);
 
 		case tunType$ = tunTypeSpatial$ then
 
-			WindowTitle$("Spatial Frequency Tuning");
+			WindowTitle$("Spatial Frequency Tuning - " + s$);
 			XUnits$("Spatial Frequency");
 			ChanTitle$(1, "Chan 1");
 			XRange(tunSpatialMinSF, tunSpatialMaxSF);
 	
 		case tunType$ = tunTypeTemporal$ then
 
-			WindowTitle$("Temporal Frequency Tuning");
+			WindowTitle$("Temporal Frequency Tuning - " + s$);
 			XUnits$("Temporal Frequency");
 			ChanTitle$(1, "Chan 1");
 			XRange(tunTemporalMinTF, tunTemporalMaxTF);
 
 		case tunType$ = tunTypeArea$ then
 
-			WindowTitle$("Aperture Area Tuning");
+			WindowTitle$("Aperture Area Tuning - " + s$);
 			XUnits$("Aperture Diameter");
 			ChanTitle$(1, "Chan 1");
 			XRange(tunAreaMinDiam, tunAreaMaxDiam);
@@ -1020,7 +1039,7 @@ proc TuningCurveLabels()
 end;
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 proc CreateSampleConfiguration()
-	var index;
+	var i%;
 	SampleClear(); 'Set standard sampling state
 '	SampleAutoFile(0); 'Enable automatic file naming
 	SampleAutoComment(0); 'Prompt for comment after sampling
@@ -1095,11 +1114,23 @@ proc CreateSampleConfiguration()
 	SampleEvent(ReadyChannel%,6,2,3600); 'Trigger channel, level
 	SampleComment$(ReadyChannel%,"VSG Ready");
 	SampleTitle$(ReadyChannel%,"VSG Ready");
-
-	for index := 1 to NumberOfElectrodes% do
-		SampleWaveMark(index,index-1,2000,34,15,28000); ' chan, port, event rate, points, pre-trigger, rate
-		SampleTitle$(index,"Electrode_"+Str$(index)); 
+    
+    ' 12/6/2010
+    ' Wavemark channels will be channels # 1-N, waveform N+1 - N+1+M, where there are N wavemark channels
+    ' and M waveform channels. 
+    for i% := 0 to tunNWavemarks%-1 do
+		SampleWaveMark(i% + 1, tunWavemarkPorts%[i%], 2000, 34, 15, 28000); ' chan, port, event rate, points, pre-trigger, rate
+		SampleTitle$(i% + 1, "WMrk " + str$(tunWavemarkPorts%[i%])); 
 	next
+    for i% := 0 to tunNContinuous%-1 do
+        SampleWaveform(tunNContinuous% + i% + 1, tunContinuousPorts%[i%], 20000);
+        SampleTitle$(tunNContinuous% + i% + 1, "Cont " + str$(tunContinuousPorts%[i%]));
+    next
+        
+	'for index := 1 to NumberOfElectrodes% do
+	'	SampleWaveMark(index,index-1,2000,34,15,28000); ' chan, port, event rate, points, pre-trigger, rate
+	'	SampleTitle$(index,"Electrode_"+Str$(index)); 
+	'next
 	
 	SampleWaveform(XChannel%, GetEyeXPort%(), 1000);
 	SampleTitle$(XChannel%,"Eye X");
@@ -1173,7 +1204,8 @@ proc WriteParameterFile()
 	Print("Eye coil software gain (X) : %f\n", DegreesPerVoltX);
 	Print("Eye coil software gain (Y) : %f\n", DegreesPerVoltY);
 	Print("Eye coil sampling freq (Hz): %d\n", EyeCoilSamplingFrequency%);
-	Print("Number of electrodes       : %d\n", NumberOfElectrodes%);
+    Print("Wavemark ports             : %s\n", GetWavemarkPorts$());
+    Print("Continuous ports           : %s\n", GetContinuousPorts$());
 	Print("Juices per reward          : %d\n", JuicePerReward%);
 	Print("Background color           : %s\n", tunBackgroundColor$);
 
