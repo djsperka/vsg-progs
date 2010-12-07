@@ -1,4 +1,4 @@
-' $Id: Config.s2s,v 1.24 2010-05-24 17:59:06 devel Exp $
+' $Id: Config.s2s,v 1.25 2010-12-07 20:34:26 devel Exp $
 
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "UsreyGratings.s2s"
@@ -15,7 +15,6 @@
 '	These are functions that control the grating parameters stored in the registry. 
 '
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-
 
 
 
@@ -1157,25 +1156,26 @@ end;
 func RigConfigDialog%(config$)
 
 	DlgCreate("Rig Configuration: " + config$, 25, 10, 40);
-	DlgGroup("Settings", 0, 1, 16, 10);
+	DlgGroup("Settings", 0, 1, 16, 11);
 	DlgButton(2, "Data", DataParametersDialog%, 2, 2);
 	DlgButton(3, "DAQ", DAQParametersDialog%, 2, 3);
-	DlgButton(4, "Daily", DailyTotalsDialog%, 2, 4);
-	DlgButton(5, "Fixation", FixationPointDialog%, 2, 5);
-	DlgButton(6, "Stimulus", StimulusDialog%, 2, 6);
-	DlgButton(7, "Distractor 1", Distractor1Dialog%, 2, 7);
-	DlgButton(8, "Distractor 2", Distractor2Dialog%, 2, 8);
-	DlgButton(9, "Distractor 3", Distractor3Dialog%, 2, 9);
-	DlgButton(10, "Distractor 4", Distractor4Dialog%, 2, 10);
+    DlgButton(4, "Electrodes", ElectrodesDialog%, 2, 4);
+	DlgButton(5, "Daily", DailyTotalsDialog%, 2, 5);
+	DlgButton(6, "Fixation", FixationPointDialog%, 2, 6);
+	DlgButton(7, "Stimulus", StimulusDialog%, 2, 7);
+	DlgButton(8, "Distractor 1", Distractor1Dialog%, 2, 8);
+	DlgButton(9, "Distractor 2", Distractor2Dialog%, 2, 9);
+	DlgButton(10, "Distractor 3", Distractor3Dialog%, 2, 10);
+	DlgButton(11, "Distractor 4", Distractor4Dialog%, 2, 11);
 
 	DlgGroup("Scripts", 18, 1, 16, 10);
-	DlgButton(11, "Fixation", FixationScriptDialog%, 20, 2);
-	DlgButton(12, "Attention", AttentionScriptDialog%, 20, 3);
-	DlgButton(13, "Tuning", TuningCurveScriptDialog%, 20, 4);
-	DlgButton(14, "CoolerMouse", CoolerMouseScriptDialog%, 20, 5);
-	DlgButton(15, "MSequence", MSequenceScriptDialog%, 20, 6);
-	DlgButton(16, "ContrastReverse", CRGScriptDialog%, 20, 7);
-	DlgButton(17, "StarStim", StarStimScriptDialog%, 20, 8);
+	DlgButton(12, "Fixation", FixationScriptDialog%, 20, 2);
+	DlgButton(13, "Attention", AttentionScriptDialog%, 20, 3);
+	DlgButton(14, "Tuning", TuningCurveScriptDialog%, 20, 4);
+	DlgButton(15, "CoolerMouse", CoolerMouseScriptDialog%, 20, 5);
+	DlgButton(16, "MSequence", MSequenceScriptDialog%, 20, 6);
+	DlgButton(17, "ContrastReverse", CRGScriptDialog%, 20, 7);
+	DlgButton(18, "StarStim", StarStimScriptDialog%, 20, 8);
 
 	DlgShow();
 
