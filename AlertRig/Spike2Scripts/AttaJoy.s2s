@@ -1,5 +1,5 @@
-' $Id: AttaJoy.s2s,v 1.29 2010-12-07 20:33:24 devel Exp $
-const ajCVSID$ := "$Id: AttaJoy.s2s,v 1.29 2010-12-07 20:33:24 devel Exp $";
+' $Id: AttaJoy.s2s,v 1.30 2010-12-07 21:42:52 devel Exp $
+const ajCVSID$ := "$Id: AttaJoy.s2s,v 1.30 2010-12-07 21:42:52 devel Exp $";
 
 ' Stimulator/shock setup: 
 ' DOUT0 from VSG ----> TRIG input on 1401 _T_ ajRecordShockTriggerPort% (if not set to -1)
@@ -228,6 +228,11 @@ ajTrainingTypes$[ajNoTraining%] := "No Training";
 ajTrainingTypes$[ajReadyTraining%] := "Ready Training";
 ajTrainingTypes$[ajReadyFixTraining%] := "Ready/Fix Training";
 ajTrainingTypes$[ajReadyFixStimTraining%] := "Ready/Fix/Stim Training";
+
+' Fetch electrode information. This can be modified in the dialog, but might not be.
+ajNWavemarks% := GetWavemarkPorts%(ajWavemarkPorts%[]);
+ajNContinuous% := GetContinuousPorts%(ajContinuousPorts%[]);
+
 
 if AttaJoyDialog%() = 0 then
     halt;
@@ -1549,7 +1554,7 @@ func AttaJoyElectrodeDialog%()
     ' We use the globally configured wavemark/continuous ports.
     ElectrodesDialog%();
     
-    ' Fetch electrode information. 
+    ' Fetch electrode information in case it was updated. 
     ajNWavemarks% := GetWavemarkPorts%(ajWavemarkPorts%[]);
     ajNContinuous% := GetContinuousPorts%(ajContinuousPorts%[]);
     
