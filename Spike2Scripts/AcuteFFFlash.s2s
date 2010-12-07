@@ -1,7 +1,7 @@
-' $Id: AcuteFFFlash.s2s,v 1.1 2010-05-10 22:13:40 devel Exp $
+' $Id: AcuteFFFlash.s2s,v 1.2 2010-12-07 20:32:27 devel Exp $
 
-#include "AcuteRig.s2s"
-#include "../../Spike2Util/GratingUtilities.s2s"
+#include "../../Spike2Util/UsreyUtil.s2s"
+#include "UsreyGratings.s2s"
 
 var NChannels% := 1;
 var TriggerChannel% := 11;
@@ -14,11 +14,6 @@ var ffFramesPerTerm% := 4;      ' Frames per mseq term
 var ffContrast% := 100;         ' contrast for flash. 
 var ffUseGrating% := 0;
 
-
-
-'var gCheck%[7];
-'var gParam$[7];
-'var hPeri%[7];
 var windowData% := -1;
 var handleStimulus% := -1;
 var handleRaster% := -1;
@@ -27,15 +22,10 @@ var FilePathRoot$;
 var CellName$;
 var ScreenDistanceMM%;
 
+' Vars for grating dialog. 
 var status%, i%;
 var ffDisabled%[5];
 var ffNDisabled% := 5;
-'var mgNDisableOthers%;
-'const mgMaxGratings% := 7;
-'var mgCheck%[mgMaxGratings%+1];
-'var mgOnce%[mgMaxGratings%];
-
-' Vars for grating dialog. 
 var ffGratingParam$ := "";
 var ffX := 0;
 var ffY := 0;
@@ -48,85 +38,35 @@ var ffCV$ := "b";
 var ffPattern$ := "s";
 var ffAperture$ := "e";
 
+
+'~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+' Script commands start here
+
+LogInit(1);
+
+' Initializations
 ffDisabled%[0] := 5;
 ffDisabled%[1] := 7;
 ffDisabled%[2] := 9;
 ffDisabled%[3] := 10;
 ffDisabled%[4] := 11;
 
+' TODO This will be replaced
 if FetchExperimentInfo%(FilePathRoot$, ScreenDistanceMM%, CellName$) < 0 then
     Message("Experiment info incorrect. Check log window. You may need to re-run NewExp and/or NewCell");
     halt;
 endif
 
-
-
-DlgCreate("Full Field Flash Setup", 40, 40);
-DlgReal(1, "Stim time (s):", 0.1, 300);
-DlgReal(2, "Blank time(s):", 0.1, 300);
-DlgInteger(3, "Offset terms", 0, 32767);
-DlgInteger(4, "# Repeats:", 1, 10000);
-DlgInteger(5, "Frames per term", 1, 100);
-DlgInteger(6, "Contrast:", 0, 100);
-DlgCheck(7, "Use Grating", 1, 7);
-DlgButton(107, "Params", GratingParamsDialog%, 18, 7);
-status% := DlgShow(ffSegmentSeconds, ffBlankSeconds, ffMseqOffsetTerms%, ffNRepeats%, ffFramesPerTerm%, ffContrast%, ffUseGrating%);
-if status% = 0 then
+' Experimental parameters dialog
+if FFDialog%() = 0 then
     halt;
 endif
 
-if status% = 1 then
-    if ffUseGrating% = 1 then
-        ffGratingParam$ := EncodeGratingParameters$(ffX, ffY, ffW, ffH, ffContrast%, ffSF, ffTF, ffOri, ffCV$, ffPattern$, ffAperture$);
-        PrintLog("Grating params: " + ffGratingParam$ + "\n");
-    else
-        PrintLog("Grating " + str$(i%) + " NOT USED \n");
-    endif
-endif
+' Sampling config
+CreateSampleConfiguration();
 
-
-
-
-
-
-
-
-SampleClear(); 'Set standard sampling state
-SampleAutoComment(0);
-SampleAutoCommit(30);
-FilePathSet(FilePathRoot$ + "\\DataFiles\\", 1);
-FilePathSet(FilePathRoot$ + "\\DataFiles\\", 3);
-SampleAutoName$(CellName$ + "_fff_000");
-SampleAutoFile(1);
-
-
-' Event channel for phase triggers
-' Note that the AcuteRig passes VSG trigger output channel 0 to event port 1... so we use 
-' (TriggerChannel%, 1, 1, 3600) instead of (TriggerChannel%, 0, 1, 3600)
-SampleEvent(TriggerChannel%, 1, 1, 3600); 'Trigger channel, level
-SampleComment$(TriggerChannel%,"Trigger");
-SampleTitle$(TriggerChannel%,"Trigger");
-
-' Wavemark channels for electrodes
-for i% := 1 to NChannels% do
-    SampleWaveMark(i%, i%-1, 2000, 34, 15, 28000); ' chan, port, event rate, points, pre-trigger, rate
-    SampleTitle$(i%, "Trode" + str$(i%));
-next
-SampleSequencer(script$ + "MultiGrating.pls");
-SampleOptimise(2,2,2,2,50);  'Set optimise mode (do this last)
-SampleMode(1); 'Continuous sampling  
-
-' Open data file and make it visible
-windowData%:=FileNew(0,4);
-View(windowData%).WindowVisible(1);
-View(windowData%).Window(0,80,100,100);
-
-' Create PSTH view and setup processing B.S.
-handleRaster% := SetPSTH("1", 1, ffSegmentSeconds + ffBlankSeconds - 0.1, 0, TriggerChannel%, 2);
-Window(1, 0, 100, 80);
-ChanHide("1.." + str$(NChannels%));
-WindowVisible(1);
-ProcessTriggered(ffSegmentSeconds + ffBlankSeconds - 0.1, 0, TriggerChannel%, 0, 1);
+' Prepare display windows, input channels, etc. 
+InitializeWindows();
 
 ' Write parameters file
 WriteParametersFile(windowData%);
@@ -137,6 +77,54 @@ ToolbarSet(2,"Sample start",Start%);
 Toolbar("Go",8191);
 
 
+
+
+proc InitializeWindows()
+    
+    ' Open data file and make it visible
+    windowData%:=FileNew(0,4);
+    View(windowData%).WindowVisible(1);
+    View(windowData%).Window(0,80,100,100);
+
+    ' Create PSTH view and setup processing B.S.
+    handleRaster% := SetPSTH("1", 1, ffSegmentSeconds + ffBlankSeconds - 0.1, 0, TriggerChannel%, 2);
+    Window(1, 0, 100, 80);
+    ChanHide("1.." + str$(NChannels%));
+    WindowVisible(1);
+    ProcessTriggered(ffSegmentSeconds + ffBlankSeconds - 0.1, 0, TriggerChannel%, 0, 1);
+    
+end
+
+
+
+func FFDialog%()
+    var status% := 0;
+
+    DlgCreate("Full Field Flash Setup", 40, 40);
+    DlgReal(1, "Stim time (s):", 0.1, 300);
+    DlgReal(2, "Blank time(s):", 0.1, 300);
+    DlgInteger(3, "Offset terms", 0, 32767);
+    DlgInteger(4, "# Repeats:", 1, 10000);
+    DlgInteger(5, "Frames per term", 1, 100);
+    DlgInteger(6, "Contrast:", 0, 100);
+    DlgCheck(7, "Use Grating", 1, 7);
+    DlgButton(107, "Params", GratingParamsDialog%, 18, 7);
+    status% := DlgShow(ffSegmentSeconds, ffBlankSeconds, ffMseqOffsetTerms%, ffNRepeats%, ffFramesPerTerm%, ffContrast%, ffUseGrating%);
+    if status% = 0 then
+        halt;
+    endif
+
+    if status% = 1 then
+        if ffUseGrating% = 1 then
+            ffGratingParam$ := EncodeGratingParameters$(ffX, ffY, ffW, ffH, ffContrast%, ffSF, ffTF, ffOri, ffCV$, ffPattern$, ffAperture$);
+            PrintLog("Grating params: " + ffGratingParam$ + "\n");
+        else
+            PrintLog("Grating " + str$(i%) + " NOT USED \n");
+        endif
+    endif
+    
+    return status%;
+end
 
 
 
@@ -221,13 +209,19 @@ end;
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 proc CreateSampleConfiguration()
     var i%;
+
     SampleClear(); 'Set standard sampling state
-    SampleAutoFile(0); 'Enable automatic file naming
-    SampleAutoComment(0); 'Prompt for comment after sampling
-    SampleAutoCommit(60); 'Seconds between each file commit
+    SampleAutoComment(0);
+    SampleAutoCommit(30);
+    FilePathSet(FilePathRoot$ + "\\DataFiles\\", 1);
+    FilePathSet(FilePathRoot$ + "\\DataFiles\\", 3);
+    SampleAutoName$(CellName$ + "_fff_000");
+    SampleAutoFile(1);
 
     ' Event channel for phase triggers
-    SampleEvent(TriggerChannel%,1,2,3600); 'Trigger channel, level
+    ' Note that the AcuteRig passes VSG trigger output channel 0 to event port 1... so we use 
+    ' (TriggerChannel%, 1, 1, 3600) instead of (TriggerChannel%, 0, 1, 3600)
+    SampleEvent(TriggerChannel%, 1, 1, 3600); 'Trigger channel, level
     SampleComment$(TriggerChannel%,"Trigger");
     SampleTitle$(TriggerChannel%,"Trigger");
 
@@ -236,9 +230,10 @@ proc CreateSampleConfiguration()
         SampleWaveMark(i%, i%-1, 2000, 34, 15, 28000); ' chan, port, event rate, points, pre-trigger, rate
         SampleTitle$(i%, "Trode" + str$(i%));
     next
-
+    SampleSequencer(script$ + "MultiGrating.pls");
     SampleOptimise(2,2,2,2,50);  'Set optimise mode (do this last)
     SampleMode(1); 'Continuous sampling  
+    
 end;
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
