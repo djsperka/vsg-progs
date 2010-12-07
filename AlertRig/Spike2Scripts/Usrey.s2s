@@ -1,4 +1,8 @@
-' $Id: Usrey.s2s,v 1.6 2010-02-18 03:57:11 devel Exp $
+' $Id: Usrey.s2s,v 1.7 2010-12-07 21:27:14 devel Exp $
+
+ZZZZZZZ DO NOT USE THIS FILE!!!!!! ZZZZZZZZZZZ
+Replace with UsreyUtil and/or UsreyDAQ
+
 
 #include "../../Spike2Util/Directories.s2s"
 #include "../../Spike2Util/RigName.s2s"
