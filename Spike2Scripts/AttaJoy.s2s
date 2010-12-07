@@ -1,5 +1,5 @@
-' $Id: AttaJoy.s2s,v 1.28 2010-10-28 02:01:37 devel Exp $
-const ajCVSID$ := "$Id: AttaJoy.s2s,v 1.28 2010-10-28 02:01:37 devel Exp $";
+' $Id: AttaJoy.s2s,v 1.29 2010-12-07 20:33:24 devel Exp $
+const ajCVSID$ := "$Id: AttaJoy.s2s,v 1.29 2010-12-07 20:33:24 devel Exp $";
 
 ' Stimulator/shock setup: 
 ' DOUT0 from VSG ----> TRIG input on 1401 _T_ ajRecordShockTriggerPort% (if not set to -1)
@@ -58,8 +58,10 @@ var ajDoHoldFixationMiniReward% := 0;   ' DO NOT MODIFY! Use Bonus dialog!!!
 var ajHoldFixationMiniRewardEnable% := 0;   ' when 1 mini reward is enabled; used per-trial
 var ajHoldFixationMiniRewardFraction := .99; ' fraction of hold fixation time passed before mini-reward given
 const ajNPorts% := 8;   ' Number of analog ports. Is there a way to programatically determine this? 
-var ajWavemark%[ajNPorts%]; 
-var ajContinuous%[ajNPorts%];
+var ajWavemarkPorts%[ajNPorts%]; 
+var ajContinuousPorts%[ajNPorts%];
+var ajNWavemarks% := 0;
+var ajNContinuous% := 0;
 var ajDoJoystickReadyMiniReward% := 0;      ' When set, will deliver a reward 
 var ajJoystickReadyMiniRewardDelay := .2;   ' delay after joystick ready to reward
 var ajJoystickReadyMiniRewardSize% := 1;    ' size of joystick ready reward 
@@ -391,20 +393,33 @@ proc CreateSampleConfiguration()
     endif
     
     ' Electrodes: wavemark/continuous
-    for i% := 0 to ajNPorts%-1 do
-        if ajWavemark%[i%] = 1 then
-            channelCounter% += 1;
-            SampleWaveMark(channelCounter%, i%, 2000, 34, 15, 28000); ' chan, port, event rate, points, pre-trigger, rate
-            SampleTitle$(channelCounter%, "WvMk" + str$(i%)); 
-            LogInfo("WvMk " + str$(i%));
-        endif
-        if ajContinuous%[i%] = 1 then
-            channelCounter% += 1;
-            SampleWaveform(channelCounter%, i%, 28000);
-            SampleTitle$(channelCounter%, "Cont" + str$(i%)); 
-            LogInfo("Cont " + str$(i%));
-        endif
+    ' 12/6/2010
+    ' Wavemark channels will be channels # 1-N, waveform N+1 - N+1+M, where there are N wavemark channels
+    ' and M waveform channels. 
+    for i% := 0 to ajNWavemarks%-1 do
+		SampleWaveMark(i% + 1, ajWavemarkPorts%[i%], 2000, 34, 15, 28000); ' chan, port, event rate, points, pre-trigger, rate
+		SampleTitle$(i% + 1, "WMrk " + str$(ajWavemarkPorts%[i%])); 
+	next
+    for i% := 0 to ajNContinuous%-1 do
+        SampleWaveform(ajNContinuous% + i% + 1, ajContinuousPorts%[i%], 20000);
+        SampleTitle$(ajNContinuous% + i% + 1, "Cont " + str$(ajContinuousPorts%[i%]));
     next
+    
+    
+'    for i% := 0 to ajNPorts%-1 do
+'        if ajWavemark%[i%] = 1 then
+'            channelCounter% += 1;
+'            SampleWaveMark(channelCounter%, i%, 2000, 34, 15, 28000); ' chan, port, event rate, points, pre-trigger, rate
+'            SampleTitle$(channelCounter%, "WvMk" + str$(i%)); 
+'            LogInfo("WvMk " + str$(i%));
+'        endif
+'        if ajContinuous%[i%] = 1 then
+'            channelCounter% += 1;
+'            SampleWaveform(channelCounter%, i%, 28000);
+'            SampleTitle$(channelCounter%, "Cont" + str$(i%)); 
+'            LogInfo("Cont " + str$(i%));
+'        endif
+'    next
     
     
     ' Create play wave area if needed. We have to do this before FileNew()
@@ -1530,7 +1545,14 @@ end
 
 
 func AttaJoyElectrodeDialog%()
-    WMCNPortDialog%("Wavemark/Cont ports", ajWavemark%[], ajContinuous%[]);
+    
+    ' We use the globally configured wavemark/continuous ports.
+    ElectrodesDialog%();
+    
+    ' Fetch electrode information. 
+    ajNWavemarks% := GetWavemarkPorts%(ajWavemarkPorts%[]);
+    ajNContinuous% := GetContinuousPorts%(ajContinuousPorts%[]);
+    
     return 1;
 end
 
@@ -1603,10 +1625,6 @@ proc GetAttaJoyParameters()
     ajCorrectResponsePauseTime := GetFloatRegistryValue(key$, "CorrectResponsePauseTime", ajCorrectResponsePauseTime);
     ajIncorrectResponsePauseTime := GetFloatRegistryValue(key$, "IncorrectResponsePauseTime", ajIncorrectResponsePauseTime);
     ajExtraFixationTime := GetFloatRegistryValue(key$, "ExtraFixationTime", ajExtraFixationTime);
-    for i% := 0 to ajNPorts%-1 do
-        ajWavemark%[i%] := GetIntRegistryValue%(key$, "Wavemark"+str$(i%), ajWavemark%[i%]);
-        ajContinuous%[i%] := GetIntRegistryValue%(key$, "Continuous"+str$(i%), ajContinuous%[i%]);
-    next
     ajDoHoldFixationMiniReward% := GetIntRegistryValue%(key$, "DoHoldFixationMiniReward", ajDoHoldFixationMiniReward%);
     ajHoldFixationMiniRewardFraction := GetFloatRegistryValue(key$, "HoldFixationMiniRewardFraction", ajHoldFixationMiniRewardFraction);
     ajDoJoystickReadyMiniReward% := GetIntRegistryValue%(key$, "DoJoystickReadyMiniReward", ajDoJoystickReadyMiniReward%);
@@ -1648,10 +1666,6 @@ proc SaveAttaJoyParameters()
     SetFloatRegistryValue(key$, "CorrectResponsePauseTime", ajCorrectResponsePauseTime);
     SetFloatRegistryValue(key$, "IncorrectResponsePauseTime", ajIncorrectResponsePauseTime);
     SetFloatRegistryValue(key$, "ExtraFixationTime", ajExtraFixationTime);
-    for i% := 0 to ajNPorts%-1 do
-        SetIntRegistryValue(key$, "Wavemark"+str$(i%), ajWavemark%[i%]);
-        SetIntRegistryValue(key$, "Continuous"+str$(i%), ajContinuous%[i%]);
-    next
     SetIntRegistryValue(key$, "DoHoldFixationMiniReward", ajDoHoldFixationMiniReward%);
     SetFloatRegistryValue(key$, "HoldFixationMiniRewardFraction", ajHoldFixationMiniRewardFraction);
     SetIntRegistryValue(key$, "DoJoystickReadyMiniReward", ajDoJoystickReadyMiniReward%);
