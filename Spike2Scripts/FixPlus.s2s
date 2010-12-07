@@ -1,5 +1,5 @@
 
-' $Id: FixPlus.s2s,v 1.5 2010-09-22 17:29:17 devel Exp $
+' $Id: FixPlus.s2s,v 1.6 2010-12-07 22:11:53 devel Exp $
 '
 ' FixPlus is a modified version of fixation for Corey. 
 ' Its same as fixation, but a stim appears during the fixation period. Uses attention.exe.
@@ -17,11 +17,15 @@ var fixStimulusDuration := 1.0;         ' How long stim is displayed after fixat
 var fixAcquisitionTime := 2.0;			' Time allowed to acquire target before fail trial, seconds
 var fixInterTrialTime := 1.0;			' Blank time following a trial (both successful and failed), seconds
 var fixNumberOfTrials% := 10;			' Number of trials to run
-var fixElectrodes%[8];
+'var fixElectrodes%[8];
 var fixComment$ := "comment";
 var fixNewBlock% := 1;
 var fixAlwaysLooking% := 0;
 var fixShowRaster% := 1;
+var fixNWavemarks% := 0;
+var fixNContinuous% := 0;
+var fixWavemarkPorts%[16];
+var fixContinuousPorts%[16];
 
 var fixFixationX, fixFixationY, fixFixationD, fixFixationWindowRadius;
 
@@ -112,6 +116,8 @@ endif
 LogInit(1);
 
 ' Fetch parameters
+fixNWavemarks% := GetWavemarkPorts%(fixWavemarkPorts%[]);
+fixNContinuous% := GetContinuousPorts%(fixContinuousPorts%[]);
 if FixPlusScriptDialog%() = 0 then
     halt;
 endif
@@ -135,14 +141,6 @@ proc GetFixPlusScriptParameters()
 	fixInterTrialTime := GetFloatRegistryValue(key$, "InterTrialTime", fixInterTrialTime);
     fixNumberOfTrials% := GetIntRegistryValue%(key$, "NumberOfTrials", fixNumberOfTrials%);
     fixShowRaster% := GetIntRegistryValue%(key$, "ShowRaster", fixShowRaster%);
-    fixElectrodes%[0] := GetIntRegistryValue%(key$, "ElectrodePort0", fixElectrodes%[0]);
-    fixElectrodes%[1] := GetIntRegistryValue%(key$, "ElectrodePort1", fixElectrodes%[1]);
-    fixElectrodes%[2] := GetIntRegistryValue%(key$, "ElectrodePort2", fixElectrodes%[2]);
-    fixElectrodes%[3] := GetIntRegistryValue%(key$, "ElectrodePort3", fixElectrodes%[3]);
-    fixElectrodes%[4] := GetIntRegistryValue%(key$, "ElectrodePort4", fixElectrodes%[4]);
-    fixElectrodes%[5] := GetIntRegistryValue%(key$, "ElectrodePort5", fixElectrodes%[5]);
-    fixElectrodes%[6] := GetIntRegistryValue%(key$, "ElectrodePort6", fixElectrodes%[6]);
-    fixElectrodes%[7] := GetIntRegistryValue%(key$, "ElectrodePort7", fixElectrodes%[7]);
 end;
  	
 proc SaveFixPlusScriptParameters()
@@ -154,14 +152,6 @@ proc SaveFixPlusScriptParameters()
 	SetFloatRegistryValue(key$, "InterTrialTime", fixInterTrialTime);
     SetIntRegistryValue(key$, "NumberOfTrials", fixNumberOfTrials%);
     SetIntRegistryValue(key$, "ShowRaster", fixShowRaster%);
-    SetIntRegistryValue(key$, "ElectrodePort0", fixElectrodes%[0]);
-    SetIntRegistryValue(key$, "ElectrodePort1", fixElectrodes%[1]);
-    SetIntRegistryValue(key$, "ElectrodePort2", fixElectrodes%[2]);
-    SetIntRegistryValue(key$, "ElectrodePort3", fixElectrodes%[3]);
-    SetIntRegistryValue(key$, "ElectrodePort4", fixElectrodes%[4]);
-    SetIntRegistryValue(key$, "ElectrodePort5", fixElectrodes%[5]);
-    SetIntRegistryValue(key$, "ElectrodePort6", fixElectrodes%[6]);
-    SetIntRegistryValue(key$, "ElectrodePort7", fixElectrodes%[7]);
 end;
 
 
@@ -221,37 +211,18 @@ func FixPlusDialogChanged%(item%)
 end
 
 func FixPlusElectrodeDialog%()
-	DlgCreate("FixPlus Electrodes");
-    DlgCheck(1, "Port 0");
-    DlgCheck(2, "Port 1");
-    DlgCheck(3, "Port 2");
-    DlgCheck(4, "Port 3");
-    DlgCheck(5, "Port 4");
-    DlgCheck(6, "Port 5");
-    DlgCheck(7, "Port 6");
-    DlgCheck(8, "Port 7");
-	DlgShow(fixElectrodes%[0], fixElectrodes%[1], fixElectrodes%[2], fixElectrodes%[3], fixElectrodes%[4], fixElectrodes%[5], fixElectrodes%[6], fixElectrodes%[7]); 
-    DlgValue$(fixElectrodeTextItem%, GetElectrodeTextItem$());
+    ' We use the globally configured wavemark/continuous ports.
+    ElectrodesDialog%();
+    
+    ' Fetch electrode information in case it was updated. 
+    fixNWavemarks% := GetWavemarkPorts%(fixWavemarkPorts%[]);
+    fixNContinuous% := GetContinuousPorts%(fixContinuousPorts%[]);
+    
     return 1;
 end
 
 func GetElectrodeTextItem$()
-    var s$ := "";
-    var n% := 0;
-    var i%;
-    for i% := 0 to 7 do
-        if fixElectrodes%[i%] = 1 then
-            if n%> 0 then
-                s$ += ",";
-            endif
-            n% += 1;
-            s$ += str$(i%);
-        endif
-    next
-    if n% = 0 then
-        s$ := "None";
-    endif
-    return s$;
+        return GetWavemarkPorts$();
 end
 
 
@@ -539,10 +510,22 @@ proc CreateSampleConfiguration()
 	SampleTitle$(fixChanEyeY%, "Eye Y");
     
     ' Electrodes, if any.
-    for i% := 0 to 7 do
-        if fixElectrodes%[i%] = 1 then
-            SampleWaveMark(i% + 1, i%, 2000, 34, 15, 28000); 
-        endif
+'    for i% := 0 to 7 do
+'        if fixElectrodes%[i%] = 1 then
+'            SampleWaveMark(i% + 1, i%, 2000, 34, 15, 28000); 
+'        endif
+'    next
+    
+    ' 12/6/2010
+    ' Wavemark channels will be channels # 1-N, waveform N+1 - N+1+M, where there are N wavemark channels
+    ' and M waveform channels. 
+    for i% := 0 to fixNWavemarks%-1 do
+		SampleWaveMark(i% + 1, fixWavemarkPorts%[i%], 2000, 34, 15, 28000); ' chan, port, event rate, points, pre-trigger, rate
+		SampleTitle$(i% + 1, "WMrk " + str$(fixWavemarkPorts%[i%])); 
+	next
+    for i% := 0 to fixNContinuous%-1 do
+        SampleWaveform(fixNContinuous% + i% + 1, fixContinuousPorts%[i%], 20000);
+        SampleTitle$(fixNContinuous% + i% + 1, "Cont " + str$(fixContinuousPorts%[i%]));
     next
 
     
