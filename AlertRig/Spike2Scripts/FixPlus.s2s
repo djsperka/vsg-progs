@@ -1,5 +1,5 @@
 
-' $Id: FixPlus.s2s,v 1.6 2010-12-07 22:11:53 devel Exp $
+' $Id: FixPlus.s2s,v 1.7 2010-12-14 19:32:59 devel Exp $
 '
 ' FixPlus is a modified version of fixation for Corey. 
 ' Its same as fixation, but a stim appears during the fixation period. Uses attention.exe.
@@ -39,7 +39,7 @@ const toolbarItemQuit% := 6;
 
 ' Item numbers for dialog
 var fixElectrodeTextItem%;
-
+const fixElectrodeTextWidth% := 25;
 
 
 ' Window handles and channel numbers
@@ -171,7 +171,7 @@ func FixPlusScriptDialog%()
     DlgButton(101, "Electrodes", FixPlusElectrodeDialog%, 1, 7);
     DlgCheck(7, "New block?", 1, 8);
     DlgString(8, "Comment", 18, "", 12, 9);
-    fixElectrodeTextItem% := DlgText(GetElectrodeTextItem$(), 15, 7, 15);
+    fixElectrodeTextItem% := DlgText(GetElectrodeTextItem$(), 15, 7, fixElectrodeTextWidth%);
     if fixNewBlock% = 1 then
         DlgButton(1, "Start");
     else
@@ -217,12 +217,17 @@ func FixPlusElectrodeDialog%()
     ' Fetch electrode information in case it was updated. 
     fixNWavemarks% := GetWavemarkPorts%(fixWavemarkPorts%[]);
     fixNContinuous% := GetContinuousPorts%(fixContinuousPorts%[]);
-    
+    DlgValue$(fixElectrodeTextItem%, GetElectrodeTextItem$());
     return 1;
 end
 
 func GetElectrodeTextItem$()
-        return GetWavemarkPorts$();
+    var s$;
+    s$ := "WvMk: " + GetWavemarkPorts$() + " Cont:" + GetContinuousPorts$();
+    if Len(s$) > fixElectrodeTextWidth% then
+        s$ := Left$(s$, 22) + "***";
+    endif
+    return s$;
 end
 
 
