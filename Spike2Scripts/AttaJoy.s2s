@@ -1,5 +1,5 @@
-' $Id: AttaJoy.s2s,v 1.30 2010-12-07 21:42:52 devel Exp $
-const ajCVSID$ := "$Id: AttaJoy.s2s,v 1.30 2010-12-07 21:42:52 devel Exp $";
+' $Id: AttaJoy.s2s,v 1.31 2010-12-22 21:31:16 devel Exp $
+const ajCVSID$ := "$Id: AttaJoy.s2s,v 1.31 2010-12-22 21:31:16 devel Exp $";
 
 ' Stimulator/shock setup: 
 ' DOUT0 from VSG ----> TRIG input on 1401 _T_ ajRecordShockTriggerPort% (if not set to -1)
@@ -72,8 +72,8 @@ var ajShockDelaySec := .5;
 var ajJoystickAlwaysCorrect% := 0;  ' if 1 then JoystickPostionCorrect% always returns 1 (correct)
 var ajTestShockTrials% := 0;        ' if 1 then every trial is a shock trial
 var ajPulse[2500];                   ' max 5s at 1khz
-var ajShockDoRecordShock% := 1;
-var ajRecordShockPort% := 4;                  ' Must hardcode this or set in dialog! Set to -1 for no record
+var ajShockDoRecordShock% := 0;
+var ajRecordShockPort% := -1;                  ' Must hardcode this or set in dialog! Set to -1 for no record
 var ajRecordShockTriggerPort% := -1;           ' Hardcode. Set to -1 for no record. 
 var ajShockTrialEnable% := 1;                 ' See PrepareTrial(). Set to 1 on trials where there will be a shock. 
 var ajWeights%[2];                              ' for trial generator
