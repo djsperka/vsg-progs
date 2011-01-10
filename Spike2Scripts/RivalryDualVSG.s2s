@@ -1,5 +1,5 @@
-' $Id: RivalryDualVSG.s2s,v 1.15 2010-11-24 22:44:30 devel Exp $
-const rivCVSID$ := "$Id: RivalryDualVSG.s2s,v 1.15 2010-11-24 22:44:30 devel Exp $";
+' $Id: RivalryDualVSG.s2s,v 1.16 2011-01-10 18:30:22 devel Exp $
+const rivCVSID$ := "$Id: RivalryDualVSG.s2s,v 1.16 2011-01-10 18:30:22 devel Exp $";
 
 #include "../../Spike2Util/TrialBlockGen.s2s"
 #include "../../Spike2Util/ChannelUtilities.s2s"
@@ -822,8 +822,10 @@ func IdleProcessing%()
                 case rivTrialType% = trialtypeTrainingLRT% or rivTrialType% = trialtypeTrainingRRT% then
                     docase 
                     case rivTRTState% = rivTRTStateTraining1% or rivTRTState% = rivTRTStateTraining2% then
+                        LogInfo("ChangeStateTo(stateWaitForResponse%, tMasterTrigger);");
                         ChangeStateTo(stateWaitForResponse%, tMasterTrigger);
                     case rivTRTState% = rivTRTStateRivalry% then
+                        LogInfo("ChangeStateTo(stateWaitForRivalryResponse%, tMasterTrigger);");
                         ChangeStateTo(stateWaitForRivalryResponse%, tMasterTrigger);
                         rivLastRivalryResponse% := JSUndefined%;
                     else
@@ -1090,7 +1092,7 @@ func IdleProcessing%()
             endcase
             
         case iState% = stateCorrectSwapResponse% then
-            
+            LogInfo("stateCorrectSwapResponse% reward size = " + str$(rivSwapRewardSize%) + " tnow = " + str$(tNow));
             DeliverReward(rivSwapRewardSize%, tNow);
             ChangeStateTo(stateMaintainResponse%, tNow);
             iLoop% := 0;
@@ -1185,6 +1187,7 @@ proc ChangeStateTo(stateTo%, tStart)
 end;
 
 proc DeliverReward(iNumRewards%, t)
+    if iNumRewards% = 0 then return; endif;
     rivTLastReward := t;
     SampleSeqVar(1, iNumRewards%);
     SampleKey("R");
@@ -1192,7 +1195,7 @@ proc DeliverReward(iNumRewards%, t)
 end
 
 func Reward%()
-    DeliverReward(1, -1);
+    DeliverReward(2, -1);
     return 1;
 end
 
@@ -1743,7 +1746,7 @@ func RivalryRewardSwapDialog%()
     DlgInteger(3, "Reward (correct resp)", 1, 10);
     DlgInteger(4, "Reward (maintain)", 1, 10);
     DlgReal(5, "Reward wait (maintain)", 0.01, 10);
-    DlgInteger(6, "Reward (swap)", 1, 10);
+    DlgInteger(6, "Reward (swap)", 0, 10);
     DlgReal(7, "Swap time - min", 0.01, 60);
     DlgReal(8, "Swap time - max", 0.01, 60);
     DlgReal(9, "Max stim time (s)", .01, 60);
