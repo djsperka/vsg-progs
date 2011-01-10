@@ -1,5 +1,5 @@
-' $Id: RivalryDualVSG.s2s,v 1.16 2011-01-10 18:30:22 devel Exp $
-const rivCVSID$ := "$Id: RivalryDualVSG.s2s,v 1.16 2011-01-10 18:30:22 devel Exp $";
+' $Id: RivalryDualVSG.s2s,v 1.17 2011-01-10 20:01:31 devel Exp $
+const rivCVSID$ := "$Id: RivalryDualVSG.s2s,v 1.17 2011-01-10 20:01:31 devel Exp $";
 
 #include "../../Spike2Util/TrialBlockGen.s2s"
 #include "../../Spike2Util/ChannelUtilities.s2s"
@@ -78,6 +78,15 @@ var rivLastRivalryResponse%;        ' In rivalry maintain state, this is the las
 var rivRivalryCatchMinSwitchTime := 3;
 var rivRivalryCatchMaxSwitchTime := 8;
 var rivRivalryCatchSwitchTime;      ' In catch trials make the switch after this time
+
+' xhair parameters
+var rivUseXhairs% := 0;
+var rivXhairInnerRadiusOffset := 3;
+var rivXhairMiddleRadiusOffset := 4;
+var rivXhairOuterRadiusOffset := 5;
+var rivXhairNumGridDivisions% := 32;
+var rivXhairInnerOffset := 1;
+var rivXhairOuterOffset := 2;
 
 ' Counters
 
@@ -1245,6 +1254,7 @@ func Start%()
     var key$;
     var h, contrast%, sf, tf, ori, cv$, pattern$, aperture$;
     var stmp$;
+    var xhair$;
     
     ' Fetch the offset filename
     key$ := GetRegistryKey$(1) + "\\Rivalry";
@@ -1264,6 +1274,20 @@ func Start%()
     if rivUseFixation% then
         cmdLine$ += " " + rivFixationArg$;
     endif
+    if rivUseXhairs% = 1 then
+        xhair$ := "-X " + str$(rivLeftGratingX) + "," + str$(rivLeftGratingY) + 
+        "," + str$(rivLeftGratingD/2+rivXhairInnerRadiusOffset) + 
+        "," + str$(rivLeftGratingD/2+rivXhairMiddleRadiusOffset) + 
+        "," + str$(rivLeftGratingD/2+rivXhairOuterRadiusOffset) + 
+        "," + str$(rivXhairNumGridDivisions%);
+        
+        if rivXhairInnerOffset > 0 and rivXhairOuterOffset > 0 then
+            xhair$ += "," + str$(rivLeftGratingD/2+rivXhairInnerOffset) + "," + str$(rivLeftGratingD/2+rivXhairOuterOffset);
+        endif
+        
+        cmdLine$ += " " + xhair$;
+    endif
+    
     
 	'Begin the stimulus program. It will take a few seconds for the VSG to initialize.
 	LogInfo(cmdLine$+"\n");
@@ -1538,11 +1562,12 @@ func RivalryDialog%()
     DlgButton(103, "Reward/Swap/Catch", RivalryRewardSwapDialog%, 1, 13);
     DlgButton(104, "Electrodes", RivalryElectrodeDialog%, 1, 14);
     rivElectrodeTextItem% := DlgText(GetElectrodeTextItem$(), 15, 14, 15);
-    DlgGroup("Gratings", 1, 15, 50, 3);
-    DlgButton(105, "Left Grating", RivalryLGratingDialog%, 1, 16);
-    rivLeftGratingTextItem% := DlgText(rivLeftGrating$, 15, 16);
-    DlgButton(106, "Right Grating", RivalryRGratingDialog%, 1, 17);
-    rivRightGratingTextItem% := DlgText(rivRightGrating$, 15, 17);
+    DlgButton(105, "Crosshairs/Grid", RivalryXhairDialog%, 1, 15);
+    DlgGroup("Gratings", 1, 16, 50, 3);
+    DlgButton(106, "Left Grating", RivalryLGratingDialog%, 1, 17);
+    rivLeftGratingTextItem% := DlgText(rivLeftGrating$, 15, 17);
+    DlgButton(107, "Right Grating", RivalryRGratingDialog%, 1, 18);
+    rivRightGratingTextItem% := DlgText(rivRightGrating$, 15, 18);
     i% := DlgShow(rivNBlocks%, rivNTrainingPerBlock%, rivNRivalryperBlock%, rivNRivalryCatchPerBlock%,
                   rivNTrainingRTPerBlock%, rivNTrainingFixedPerBlock%,
                   rivUseBeep%, rivBeepLengthMS%, rivCorrectionTrials%);
@@ -1623,7 +1648,16 @@ proc GetRivalryParameters()
     rivTFixedMaxTime := GetFloatRegistryValue(key$, "TFixedMaxTime", rivTFixedMaxTime);    
     rivNTrainingRTPerBlock% := GetIntRegistryValue%(key$, "NTrainingRTPerBlock", rivNTrainingRTPerBlock%);
     rivNTrainingFixedPerBlock% := GetIntRegistryValue%(key$, "NTrainingFixedPerBlock", rivNTrainingFixedPerBlock%);
+    rivUseXhairs%  := GetIntRegistryValue%(key$, "UseXhairs", rivUseXhairs%);
+    rivXhairInnerRadiusOffset := GetFloatRegistryValue(key$, "XhairInnerRadiusOffset", rivXhairInnerRadiusOffset);
+    rivXhairMiddleRadiusOffset := GetFloatRegistryValue(key$, "XhairMiddleRadiusOffset", rivXhairMiddleRadiusOffset);
+    rivXhairOuterRadiusOffset := GetFloatRegistryValue(key$, "XhairOuterRadiusOffset", rivXhairOuterRadiusOffset);
+    rivXhairNumGridDivisions% := GetIntRegistryValue%(key$, "XhairNumGridDivisions", rivXhairNumGridDivisions%);
+    rivXhairInnerOffset := GetFloatRegistryValue(key$, "XhairInnerOffset", rivXhairInnerOffset);
+    rivXhairOuterOffset := GetFloatRegistryValue(key$, "XhairOuterOffset", rivXhairOuterOffset);
 end
+
+
 
 proc SaveRivalryParameters()
     var key$;
@@ -1680,6 +1714,13 @@ proc SaveRivalryParameters()
     SetFloatRegistryValue(key$, "TFixedMaxTime", rivTFixedMaxTime);    
     SetIntRegistryValue(key$, "NTrainingRTPerBlock", rivNTrainingRTPerBlock%);
     SetIntRegistryValue(key$, "NTrainingFixedPerBlock", rivNTrainingFixedPerBlock%);
+    SetIntRegistryValue(key$, "UseXhairs", rivUseXhairs%);
+    SetFloatRegistryValue(key$, "XhairInnerRadiusOffset", rivXhairInnerRadiusOffset);
+    SetFloatRegistryValue(key$, "XhairMiddleRadiusOffset", rivXhairMiddleRadiusOffset);
+    SetFloatRegistryValue(key$, "XhairOuterRadiusOffset", rivXhairOuterRadiusOffset);
+    SetIntRegistryValue(key$, "XhairNumGridDivisions", rivXhairNumGridDivisions%);
+    SetFloatRegistryValue(key$, "XhairInnerOffset", rivXhairInnerOffset);
+    SetFloatRegistryValue(key$, "XhairOuterOffset", rivXhairOuterOffset);
     
 end
 
@@ -1815,6 +1856,33 @@ func DoGratingDialog%(label$, &param$)
                                         x, y, w, h, contrast%, sf, tf, orientation, cv$, pattern$, aperture$);                                       
     return status%;
 end
+
+
+
+func RivalryXhairDialog%()
+    DlgCreate("Crosshair/Grid");
+    DlgCheck(1, "Use crosshair grid");
+    DlgReal(2, "Grid inner radius offset", 0, 100);
+    DlgReal(3, "Grid mid radius offset", 0, 100);
+    DlgReal(4, "Grid outer radius offset", 0, 100);
+    DlgInteger(5, "Number of divisions in grid", 2, 128);
+    DlgReal(6, "Xhair inner offset", -1, 100);
+    DlgReal(7, "Xhair outer offset", -1, 100);
+    DlgAllow(0xffff, 0, RivalryXhairDialogChanged%);
+    DlgShow(rivUseXhairs%, rivXhairInnerRadiusOffset, rivXhairMiddleRadiusOffset, rivXhairOuterRadiusOffset, rivXhairNumGridDivisions%, rivXhairInnerOffset, rivXhairOuterOffset);;
+    return 1;
+end
+
+func RivalryXhairDialogChanged%(item%)
+    docase 
+    case item% = 0 then
+        DlgEnable(rivUseXhairs%, 2, 3, 4, 5, 6, 7);
+    case item% = 1 then
+        DlgEnable(DlgValue(1), 2, 3, 4, 5, 6, 7);
+    endcase
+    return 1;
+end
+
 
 func RivalryLGratingDialog%()
     var s%;
