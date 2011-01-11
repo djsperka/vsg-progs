@@ -1,5 +1,5 @@
-' $Id: AttaJoy.s2s,v 1.31 2010-12-22 21:31:16 devel Exp $
-const ajCVSID$ := "$Id: AttaJoy.s2s,v 1.31 2010-12-22 21:31:16 devel Exp $";
+' $Id: AttaJoy.s2s,v 1.32 2011-01-11 18:37:24 devel Exp $
+const ajCVSID$ := "$Id: AttaJoy.s2s,v 1.32 2011-01-11 18:37:24 devel Exp $";
 
 ' Stimulator/shock setup: 
 ' DOUT0 from VSG ----> TRIG input on 1401 _T_ ajRecordShockTriggerPort% (if not set to -1)
@@ -80,6 +80,7 @@ var ajWeights%[2];                              ' for trial generator
 var ajShockHazardTimeMin := 1.0;
 var ajShockHazardTimeMean := 1.5;
 var ajShockHazardTimeMax := 2.0;
+var ajUseReadyRight% := 1;                      ' If 1 (0), ready position is right (left)
 
 ' Strings for DlgList training type
 var ajTrainingTypes$[4];
@@ -237,6 +238,14 @@ ajNContinuous% := GetContinuousPorts%(ajContinuousPorts%[]);
 if AttaJoyDialog%() = 0 then
     halt;
 endif
+
+' Ready position can be chosen in dialog
+if ajUseReadyRight% = 1 then
+    ajReadyResponse% := JSRight%;
+else
+    ajReadyResponse% := JSLeft%;
+endif
+
 
 ' Some things have to be calculated
 ajShockDelayMS% := ajShockDelaySec*1000;
@@ -1443,12 +1452,13 @@ func AttaJoyDialog%()
     DlgList(5, "Types", "Both|Red|Green", 3);
     DlgList(6, "Training type", ajTrainingTypes$[], 4);
     DlgCheck(7, "Use Beep");
-	DlgInteger(8, "Reward size:", 1, 1000);
-	DlgReal(9, "Catch Trial pct (0-100)", 0, 100);
-	DlgCheck(10, "Show Single Stim");
-	DlgCheck(11, "Alternate cue type by block");
-	DlgInteger(12, "Base contrast(%)", 0, 100);
-	DlgInteger(13, "Chg contrast(%)", 0, 100);
+    DlgCheck(8, "Use Ready Right");
+	DlgInteger(9, "Reward size:", 1, 1000);
+	DlgReal(10, "Catch Trial pct (0-100)", 0, 100);
+	DlgCheck(11, "Show Single Stim");
+	DlgCheck(12, "Alternate cue type by block");
+	DlgInteger(13, "Base contrast(%)", 0, 100);
+	DlgInteger(14, "Chg contrast(%)", 0, 100);
     
     DlgButton(100, "Fix/Hazard", AttaJoyFixHazDialog%);
     DlgButton(101, "Timing", AttaJoyTimingDialog%);
@@ -1460,7 +1470,7 @@ func AttaJoyDialog%()
 
     status% := DlgShow(ajNBlocks%, ajNTrialsEachTypePerBlock%, 
                        ajDoShockTrials%, ajNShockPerBlock%, ajTrialTypesListIndex%, 
-                       ajTrainingType%, ajUseBeep%, ajRewardSize%,
+                       ajTrainingType%, ajUseBeep%, ajUseReadyRight%, ajRewardSize%,
                        ajCatchTrialPct, ajShowSingleStim%, ajAlternateCueTypeByBlock%, 
                        ajContrastBase%, ajContrastUp%);
     if status% = 1 then
@@ -1635,6 +1645,7 @@ proc GetAttaJoyParameters()
     ajDoJoystickReadyMiniReward% := GetIntRegistryValue%(key$, "DoJoystickReadyMiniReward", ajDoJoystickReadyMiniReward%);
     ajJoystickReadyMiniRewardSize% := GetIntRegistryValue%(key$, "JoystickReadyMiniRewardSize", ajJoystickReadyMiniRewardSize%);
     ajJoystickReadyMiniRewardDelay := GetFloatRegistryValue(key$, "JoystickReadyMiniRewardDelay", ajJoystickReadyMiniRewardDelay);
+    ajUseReadyRight% := GetIntRegistryValue%(key$, "UseReadyRight", ajUseReadyRight%);
 end
 
 proc SaveAttaJoyParameters()
@@ -1676,6 +1687,7 @@ proc SaveAttaJoyParameters()
     SetIntRegistryValue(key$, "DoJoystickReadyMiniReward", ajDoJoystickReadyMiniReward%);
     SetIntRegistryValue(key$, "JoystickReadyMiniRewardSize", ajJoystickReadyMiniRewardSize%);
     SetFloatRegistryValue(key$, "JoystickReadyMiniRewardDelay", ajJoystickReadyMiniRewardDelay);
+    SetIntRegistryValue(key$, "UseReadyRight", ajUseReadyRight%);
 end
 
 
