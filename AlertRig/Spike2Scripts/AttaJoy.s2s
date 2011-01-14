@@ -1,5 +1,5 @@
-' $Id: AttaJoy.s2s,v 1.32 2011-01-11 18:37:24 devel Exp $
-const ajCVSID$ := "$Id: AttaJoy.s2s,v 1.32 2011-01-11 18:37:24 devel Exp $";
+' $Id: AttaJoy.s2s,v 1.33 2011-01-14 17:55:48 devel Exp $
+const ajCVSID$ := "$Id: AttaJoy.s2s,v 1.33 2011-01-14 17:55:48 devel Exp $";
 
 ' Stimulator/shock setup: 
 ' DOUT0 from VSG ----> TRIG input on 1401 _T_ ajRecordShockTriggerPort% (if not set to -1)
@@ -776,6 +776,7 @@ func IdleProcessing%()
                 ajCtrNTrialsReady% += 1;
                 if ajTrainingType% <> ajReadyTraining% then
                     ' If the joystick-ready-mini-reward is enabled, then we deliver it now
+                    LogInfo("sample key is " + ajTrialFixptSampleKey$);
                     SampleKey(ajTrialFixptSampleKey$);                   ' this is determined in PrepareTrial, depends on trial type
                     Yield();
                     if ajDoJoystickReadyMiniReward% = 1 then
@@ -1646,6 +1647,14 @@ proc GetAttaJoyParameters()
     ajJoystickReadyMiniRewardSize% := GetIntRegistryValue%(key$, "JoystickReadyMiniRewardSize", ajJoystickReadyMiniRewardSize%);
     ajJoystickReadyMiniRewardDelay := GetFloatRegistryValue(key$, "JoystickReadyMiniRewardDelay", ajJoystickReadyMiniRewardDelay);
     ajUseReadyRight% := GetIntRegistryValue%(key$, "UseReadyRight", ajUseReadyRight%);
+    ' add these 1/14/2011 - left out earlier...
+    ajShockDelaySec := GetFloatRegistryValue(key$, "ShockDelaySec", ajShockDelaySec);
+    ajShockHazardTimeMin := GetFloatRegistryValue(key$, "ShockHazardTimeMin", ajShockHazardTimeMin);
+    ajShockHazardTimeMean := GetFloatRegistryValue(key$, "ShockHazardTimeMean", ajShockHazardTimeMean);
+    ajShockHazardTimeMax := GetFloatRegistryValue(key$, "ShockHazardTimeMax", ajShockHazardTimeMax);
+    ajDoShockTrials% := GetIntRegistryValue%(key$, "DoShockTrials", ajDoShockTrials%);
+    ajNShockPerBlock% := GetIntRegistryValue%(key$, "NShockPerBlock", ajNShockPerBlock%);
+    ajUseBeep% := GetIntRegistryValue%(key$, "UseBeep", ajUseBeep%);
 end
 
 proc SaveAttaJoyParameters()
@@ -1688,6 +1697,14 @@ proc SaveAttaJoyParameters()
     SetIntRegistryValue(key$, "JoystickReadyMiniRewardSize", ajJoystickReadyMiniRewardSize%);
     SetFloatRegistryValue(key$, "JoystickReadyMiniRewardDelay", ajJoystickReadyMiniRewardDelay);
     SetIntRegistryValue(key$, "UseReadyRight", ajUseReadyRight%);
+    SetFloatRegistryValue(key$, "ShockDelaySec", ajShockDelaySec);
+    SetFloatRegistryValue(key$, "ShockHazardTimeMin", ajShockHazardTimeMin);
+    SetFloatRegistryValue(key$, "ShockHazardTimeMean", ajShockHazardTimeMean);
+    SetFloatRegistryValue(key$, "ShockHazardTimeMax", ajShockHazardTimeMax);
+    SetIntRegistryValue(key$, "DoShockTrials", ajDoShockTrials%);
+    SetIntRegistryValue(key$, "NShockPerBlock", ajNShockPerBlock%);
+    SetIntRegistryValue(key$, "UseBeep", ajUseBeep%);
+    
 end
 
 
