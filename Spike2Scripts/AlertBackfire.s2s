@@ -1,4 +1,7 @@
 ' $Log: not supported by cvs2svn $
+' Revision 1.3  2010-10-27 20:42:28  devel
+' Bring into the modern world; incorporate reusable code and remove the old cut-and-paste stuff.
+'
 ' Revision 1.2  2006-04-12 00:25:01  dan
 ' Ready for production.
 
@@ -243,6 +246,11 @@ var iStimX%[8];
 var iStimY%[8];
 var iStimIndex%;
 
+' Wavemarks and continuous ports are specified elsewhere
+var fixNWavemarks% := 0;
+var fixWavemarkPorts%[16];
+var fixNContinuous% := 0;
+var fixContinuousPorts%[16];
 
 
 
@@ -261,17 +269,17 @@ endif
 
 
 ' Assign channel numbers for eye X,Y and trigger. 
-ElectrodeChannel% := 1;
-WaveformChannel% := 2;
-XChannel% := 3;
-YChannel% := 4;
-TriggerChannel% := 5;
-ReadyChannel% := 6;
-PulseChannel% := 7;
-'XChannel% := NumberOfElectrodes%+1;
-'YChannel% := NumberOfElectrodes%+2;
-'TriggerChannel% := NumberOfElectrodes%+3;
-'ReadyChannel% := NumberOfElectrodes% + 4;
+XChannel% := 21;
+YChannel% := 22;
+TriggerChannel% := 23;
+ReadyChannel% := 24;
+PulseChannel% := 25;
+
+' Fetch electrode information. 
+fixNWavemarks% := GetWavemarkPorts%(fixWavemarkPorts%[]);
+fixNContinuous% := GetContinuousPorts%(fixContinuousPorts%[]);
+
+
 CreateSampleConfiguration();
 
 
@@ -544,7 +552,7 @@ end;
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 proc CreateSampleConfiguration()
-	var index;
+	var i%;
     
 	SampleClear(); 'Set standard sampling state
 	SampleAutoComment(0); 'Prompt for comment after sampling
@@ -566,13 +574,6 @@ proc CreateSampleConfiguration()
 	SampleComment$(ReadyChannel%,"VSG Ready");
 	SampleTitle$(ReadyChannel%,"VSG Ready");
 
-	' THIS IS HARDCODED TO SAMPLE A SINGLE ELECTRODE!
-	' The waveform channel is the same electrode data (port 0) recorded as a waveform.
-	SampleWaveMark(ElectrodeChannel%, 0, 2000, 34, 15, 28000); ' chan, port, event rate, points, pre-trigger, rate
-	SampleTitle$(index, "Electrode_"+Str$(index)); 
-	SampleWaveform(WaveformChannel%, 0, 28000);
-	SampleTitle$(WaveformChannel%,"Waveform");
-
 	' Pulse input expected on the 1401 event input port 1. Events on rising edge.
 	SampleEvent(PulseChannel%, 1, 1, 10000);
 	SampleTitle$(PulseChannel%,"Stim Pulse");
@@ -587,7 +588,23 @@ proc CreateSampleConfiguration()
 	SampleTitle$(XChannel%,"Eye X");
 	SampleWaveform(YChannel%, GetEyeYPort%(), 1000);
 	SampleTitle$(YChannel%, "Eye Y");
-
+    
+    ' Electrodes: wavemark/continuous
+    ' 12/6/2010
+    ' Wavemark channels will be channels # 1-N, waveform N+1 - N+1+M, where there are N wavemark channels
+    ' and M waveform channels. 
+    for i% := 0 to fixNWavemarks%-1 do
+		SampleWaveMark(i% + 1, fixWavemarkPorts%[i%], 2000, 34, 15, 28000); ' chan, port, event rate, points, pre-trigger, rate
+		SampleTitle$(i% + 1, "WMrk " + str$(fixWavemarkPorts%[i%])); 
+	next
+    for i% := 0 to fixNContinuous%-1 do
+        SampleWaveform(fixNWavemarks% + i% + 1, fixContinuousPorts%[i%], 20000);
+        SampleTitle$(fixNWavemarks% + i% + 1, "Cont " + str$(fixContinuousPorts%[i%]));
+    next
+    
+    
+    
+    
 	SampleSequencer(script$ + "Fixation.pls");
 	SampleOptimise(2, 2, 2, 2, 50);  'Set optimise mode (do this last)
 	SampleMode(1); 'Continuous sampling
