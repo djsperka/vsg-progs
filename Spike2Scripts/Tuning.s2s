@@ -1,9 +1,10 @@
-' $Id: Tuning.s2s,v 1.29 2010-12-07 21:26:28 devel Exp $
+' $Id: Tuning.s2s,v 1.30 2011-02-07 19:01:12 devel Exp $
 
 #include "../../Spike2Util/ChannelUtilities.s2s"
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "../../Spike2Util/LogUtilities.s2s"
 #include "../../Spike2Util/MiscUtilities.s2s"
+#include "TuningDialogs.s2s"
 #include "UsreyGratings.s2s"
 #include "UsreyFixationPoint.s2s"
 #include "UsreyDAQ.s2s"
@@ -17,14 +18,15 @@
 
 var tunAlwaysLooking% := 0; ' If set eye signals ignored - subject presumed to be looking always. TESTING ONLY.
 
-var tunFixationDuration;	' Time required to hold fixation for reward (stim ON)
-var tunMaintainFixation;	' Time required to hold fixation for reward (stim OFF)
-var tunAcquisitionTime;		' Time allowed to acquire fixation
-var tunBackgroundColor$;	' background color for stim
-var tunAcqFailTime;			' Wait time after acquisition failure
-var tunHoldFailTime;			' Wait time after failure to hold fixation (not on the first time after acquisition)
-var tunMaintainFailTime;	' Wait time after breaking fixation during maintain phase
-var tunTimeOutTime;			' Wait time after failure to hold fixation (first time after acquisition)
+var tunFixationDuration := 2.0;	' Time required to hold fixation for reward (stim ON)
+var tunMaintainFixation := 2.0;	' Time required to hold fixation for reward (stim OFF)
+var tunAcquisitionTime := 1.0;		' Time allowed to acquire fixation
+var tunBackgroundColor$ := "gray";	' background color for stim
+var tunAcqFailTime := 2.0;			' Wait time after acquisition failure
+var tunHoldFailTime := 2.0;			' Wait time after failure to hold fixation (not on the first time after acquisition)
+var tunMaintainFailTime := 2.0;	' Wait time after breaking fixation during maintain phase
+var tunTimeOutTime := 2.0;			' Wait time after failure to hold fixation (first time after acquisition)
+var tunDoRivalry% := 0;          ' If checked, run for the rivalry rig
 
 ' These will be set by the tuning curve choice
 var tunNAdvances%;		' Number of times stim will advance during one repeat
@@ -37,57 +39,14 @@ var tunValuesIndices%[100];
 var tunNValues%;
 var tunValuesStringified$;
 
-' These are specific to the individual tuning curve types - orientation first
-var tunOriNSteps%;		' # steps in orientation tuning curve
-var tunOriNRepeats%;		' # repeats in ori tuning curve
-var tunOriMinOrientation;	' min orientation
-var tunOriMaxOrientation;	' max orientation
-var tunOriProgression%;
 
-' Contrast next
-var tunContrastNSteps%;			' # steps in contrast tuning curve
-var tunContrastNRepeats%;		' # repeats in contrast tuning curve
-var tunContrastMinContrast;		' min contrast
-var tunContrastMaxContrast;		' max contrast
-var tunContrastProgression%;
 
-' Spatial next
-var tunSpatialNSteps%;			' # steps in spatial freq tuning curve
-var tunSpatialNRepeats%;		' # repeats in spatial freq tuning curve
-var tunSpatialMinSF;			' min SF
-var tunSpatialMaxSF;			' max SF
-var tunSpatialProgression%;
-
-' Temporal next
-var tunTemporalNSteps%;			' # steps in temporal tuning curve
-var tunTemporalNRepeats%;		' # repeats in temporal tuning curve
-var tunTemporalMinTF;		' min TF
-var tunTemporalMaxTF;		' max TF
-var tunTemporalProgression%;
-
-' Area next
-var tunAreaNSteps%;			' # steps in area tuning curve
-var tunAreaNRepeats%;		' # repeats in area tuning curve
-var tunAreaMinDiam;		' min diameter
-var tunAreaMaxDiam;		' max diameter
-var tunAreaProgression%;
-
-const tunTypeNone$ := "None";
-const tunTypeOrientation$ := "O";
-const tunTypeContrast$ := "C";
-const tunTypeSpatial$ := "S";
-const tunTypeTemporal$ := "T";
-const tunTypeArea$ := "A";
-var tunType$:=tunTypeNone$;
-
-const tunContextDAQ$ := "DAQ";
-const tunContextConfig$ := "Config";
-var tunContext$ := tunContextConfig$;
 const tundlgOrientationButton% := 9;
 const tundlgContrastButton% := 10;
 const tundlgSpatialButton% := 11;
 const tundlgTemporalButton% := 12;
 const tundlgAreaButton% := 13;
+const tundlgDonutButton% := 14;
 
 ' Wavemarks and continuous ports are specified elsewhere
 var tunNWavemarks% := 0;
@@ -96,359 +55,52 @@ var tunNContinuous% := 0;
 var tunContinuousPorts%[16];
 
 
-
-
 proc GetTuningCurveScriptParameters()
-	var stmp$;
 	var key$;
 	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Tuning";
-
-	Profile(key$, "FixationDuration", "2.0", stmp$);
-	tunFixationDuration := val(stmp$);
-	Profile(key$, "MaintainFixation", "2.0", stmp$);
-	tunMaintainFixation := val(stmp$);
-	Profile(key$, "AcquisitionTime", "2.0", stmp$);
-	tunAcquisitionTime := val(stmp$);
-	Profile(key$, "AcqFailTime", "2.0", stmp$);
-	tunAcqFailTime := val(stmp$);
-	Profile(key$, "HoldFailTime", "2.0", stmp$);
-	tunHoldFailTime := val(stmp$);
-	Profile(key$, "MaintainFailTime", "2.0", stmp$);
-	tunMaintainFailTime := val(stmp$);
-	Profile(key$, "TimeOutTime", "2.0", stmp$);
-	tunTimeOutTime := val(stmp$);
-	Profile(key$, "BackgroundColor", "gray", tunBackgroundColor$);
-
+    
+	tunFixationDuration := GetFloatRegistryValue(key$, "FixationDuration", tunFixationDuration);
+	tunMaintainFixation := GetFloatRegistryValue(key$, "MaintainFixation", tunMaintainFixation);
+    tunAcquisitionTime := GetFloatRegistryValue(key$, "AcquisitionTime", tunAcquisitionTime);
+    tunAcqFailTime := GetFloatRegistryValue(key$, "AcqFailTime", tunAcqFailTime);
+    tunHoldFailTime := GetFloatRegistryValue(key$, "HoldFailTime", tunHoldFailTime);
+    tunMaintainFailTime := GetFloatRegistryValue(key$, "MaintainFailTime", tunMaintainFailTime);
+    tunTimeOutTime := GetFloatRegistryValue(key$, "TimeOutTime", tunTimeOutTime);
+    tunBackgroundColor$ := GetStringRegistryValue$(key$, "BackgroundColor", tunBackgroundColor$);
+    tunDoRivalry% := GetIntRegistryValue%(key$, "DoRivalry", tunDoRivalry%);
 end;
 
 proc SaveTuningCurveScriptParameters()
 	var key$;
 	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Tuning";
-	Profile(key$, "FixationDuration", str$(tunFixationDuration));
-	Profile(key$, "MaintainFixation", str$(tunMaintainFixation));
-	Profile(key$, "AcquisitionTime", str$(tunAcquisitionTime));
-	Profile(key$, "AcqFailTime", str$(tunAcqFailTime));
-	Profile(key$, "HoldFailTime", str$(tunHoldFailTime));
-	Profile(key$, "MaintainFailTime", str$(tunMaintainFailTime));
-	Profile(key$, "TimeOutTime", str$(tunTimeOutTime));
-	Profile(key$, "BackgroundColor", tunBackgroundColor$);
+    
+	SetFloatRegistryValue(key$, "FixationDuration", tunFixationDuration);
+	SetFloatRegistryValue(key$, "MaintainFixation", tunMaintainFixation);
+    SetFloatRegistryValue(key$, "AcquisitionTime", tunAcquisitionTime);
+    SetFloatRegistryValue(key$, "AcqFailTime", tunAcqFailTime);
+    SetFloatRegistryValue(key$, "HoldFailTime", tunHoldFailTime);
+    SetFloatRegistryValue(key$, "MaintainFailTime", tunMaintainFailTime);
+    SetFloatRegistryValue(key$, "TimeOutTime", tunTimeOutTime);
+    SetStringRegistryValue(key$, "BackgroundColor", tunBackgroundColor$);
+    SetIntRegistryValue(key$, "DoRivalry", tunDoRivalry%);
+    PrintLog("Saved DoRivalry=%d\n", tunDoRivalry%);
 end;
-
-proc GetTuningCurveOrientationParameters()
-	var stmp$;
-	var key$;
-	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Tuning\\Orientation";
-
-	Profile(key$, "NSteps", 2, tunOriNSteps%);
-	Profile(key$, "NRepeats", 1, tunOriNRepeats%);
-	Profile(key$, "MinOrientation", "0", stmp$);
-	tunOriMinOrientation := val(stmp$);
-	Profile(key$, "MaxOrientation", "360", stmp$);
-	tunOriMaxOrientation := val(stmp$);
-end;
-
-proc SaveTuningCurveOrientationParameters()
-	var key$;
-	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Tuning\\Orientation";
-	Profile(key$, "NSteps", tunOriNSteps%);
-	Profile(key$, "NRepeats", tunOriNRepeats%);
-	Profile(key$, "MinOrientation", str$(tunOriMinOrientation));
-	Profile(key$, "MaxOrientation", str$(tunOriMaxOrientation));
-end;
-
-proc GetTuningCurveContrastParameters()
-	var stmp$;
-	var key$;
-	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Tuning\\Contrast";
-
-	Profile(key$, "NSteps", 2, tunContrastNSteps%);
-	Profile(key$, "NRepeats", 1, tunContrastNRepeats%);
-	Profile(key$, "MinContrast", "0", stmp$);
-	tunContrastMinContrast := val(stmp$);
-	Profile(key$, "MaxContrast", "100", stmp$);
-	tunContrastMaxContrast := val(stmp$);
-end;
-
-proc SaveTuningCurveContrastParameters()
-	var key$;
-	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Tuning\\Contrast";
-	Profile(key$, "NSteps", tunContrastNSteps%);
-	Profile(key$, "NRepeats", tunContrastNRepeats%);
-	Profile(key$, "MinContrast", str$(tunContrastMinContrast));
-	Profile(key$, "MaxContrast", str$(tunContrastMaxContrast));
-end;
-
-proc GetTuningCurveSpatialParameters()
-	var stmp$;
-	var key$;
-	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Tuning\\Spatial";
-
-	Profile(key$, "NSteps", 2, tunSpatialNSteps%);
-	Profile(key$, "NRepeats", 1, tunSpatialNRepeats%);
-	Profile(key$, "MinSF", "0.2", stmp$);
-	tunSpatialMinSF := val(stmp$);
-	Profile(key$, "MaxSF", "10", stmp$);
-	tunSpatialMaxSF := val(stmp$);
-end;
-
-proc SaveTuningCurveSpatialParameters()
-	var key$;
-	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Tuning\\Spatial";
-
-	Profile(key$, "NSteps", tunSpatialNSteps%);
-	Profile(key$, "NRepeats", tunSpatialNRepeats%);
-	Profile(key$, "MinSF", str$(tunSpatialMinSF));
-	Profile(key$, "MaxSF", str$(tunSpatialMaxSF));
-end;
-
-proc GetTuningCurveTemporalParameters()
-	var stmp$;
-	var key$;
-	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Tuning\\Temporal";
-
-	Profile(key$, "NSteps", 2, tunTemporalNSteps%);
-	Profile(key$, "NRepeats", 1, tunTemporalNRepeats%);
-	Profile(key$, "MinTF", "0.1", stmp$);
-	tunTemporalMinTF := val(stmp$);
-	Profile(key$, "MaxTF", "64", stmp$);
-	tunTemporalMaxTF := val(stmp$);
-end;
-
-proc SaveTuningCurveTemporalParameters()
-	var key$;
-	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Tuning\\Temporal";
-
-	Profile(key$, "NSteps", tunTemporalNSteps%);
-	Profile(key$, "NRepeats", tunTemporalNRepeats%);
-	Profile(key$, "MinTF", str$(tunTemporalMinTF));
-	Profile(key$, "MaxTF", str$(tunTemporalMaxTF));
-end;
-
-proc GetTuningCurveAreaParameters()
-	var stmp$;
-	var key$;
-	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Tuning\\Area";
-
-	Profile(key$, "NSteps", 2, tunAreaNSteps%);
-	Profile(key$, "NRepeats", 1, tunAreaNRepeats%);
-	Profile(key$, "MinDiam", "1", stmp$);
-	tunAreaMinDiam := val(stmp$);
-	Profile(key$, "MaxDiam", "1000", stmp$);
-	tunAreaMaxDiam := val(stmp$);
-end;
-
-proc SaveTuningCurveAreaParameters()
-	var key$;
-	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Tuning\\Area";
-
-	Profile(key$, "NSteps", tunAreaNSteps%);
-	Profile(key$, "NRepeats", tunAreaNRepeats%);
-	Profile(key$, "MinDiam", str$(tunAreaMinDiam));
-	Profile(key$, "MaxDiam", str$(tunAreaMaxDiam));
-end;
-
-
-
-
-func TuningCurveOrientationDialog%()
-	var iReturn%;
-	var i%;
-	GetTuningCurveOrientationParameters();
-	DlgCreate("Run Orientation Tuning Curve");
-	DlgInteger(1, "Number of Steps", 2, 100);
-	DlgInteger(2, "Number of Repeats", 1, 10);
-	DlgReal(3, "Min Orientation (deg)", 0, 360);
-	DlgReal(4, "Max Orientation (deg)", 0, 360);
-	DlgCheck(5, "Random Progression");
-	i% := DlgShow(tunOriNSteps%, tunOriNRepeats%, tunOriMinOrientation, tunOriMaxOrientation, tunOriProgression%);
-
-	' If i% is 1 the user hit "OK". If its 0, user hit "Cancel". 
-	' When user hits OK we alwaus save the parameters, and when user hit Cancel we don't.
-	if i% = 1 then
-		SaveTuningCurveOrientationParameters();
-		PrintLog("TuningCurveOrientationDialog - user hit OK\n");
-		tunType$ := tunTypeOrientation$;
-		if tunContext$ = tunContextDAQ$ then
-			iReturn% := 0;
-		else
-			iReturn% := 1;
-		endif;
-	endif;
-	if i% = 0 then
-		PrintLog("TuningCurveOrientationDialog - user hit Cancel\n");
-		tunType$ := tunTypeNone$;
-		if tunContext$ = tunContextDAQ$ then
-			iReturn% := 1;
-		else
-			iReturn% := 2;
-		endif;
-	endif;
-    PrintLog("Return value is %d\n", iReturn%);
-	return iReturn%;
-end;
-
-
-
-func TuningCurveContrastDialog%()
-	var iReturn% := 0;
-	var i%;
-	GetTuningCurveContrastParameters();
-	DlgCreate("Contrast Tuning Curve Parameters");
-	DlgInteger(1, "Number of Steps", 2, 100);
-	DlgInteger(2, "Number of Repeats", 1, 10);
-	DlgReal(3, "Min Contrast (%)", 0.1, 100);
-	DlgReal(4, "Max Contrast (%)", 0.1, 100);
-	DlgCheck(5, "Random Progression");
-
-	i% := DlgShow(tunContrastNSteps%, tunContrastNRepeats%, tunContrastMinContrast, tunContrastMaxContrast, tunContrastProgression%);
-	' If i% is 1 the user hit "OK". If its 0, user hit "Cancel". 
-	' When user hits OK we alwaus save the parameters, and when user hit Cancel we don't.
-	if i% = 1 then
-		SaveTuningCurveContrastParameters();
-'		PrintLog("TuningCurveContrastDialog - user hit OK\n");
-		tunType$ := tunTypeContrast$;
-		if tunContext$ = tunContextDAQ$ then
-			iReturn% := 0;
-		else
-			iReturn% := 1;
-		endif;
-	endif;
-	if i% = 0 then
-'		PrintLog("TuningCurveContrastDialog - user hit Cancel\n");
-		tunType$ := tunTypeNone$;
-		if tunContext$ = tunContextDAQ$ then
-			iReturn% := 1;
-		else
-			iReturn% := 2;
-		endif;
-	endif;
-
-	return iReturn%;
-end;
-
-func TuningCurveSpatialDialog%()
-	var iReturn% := 0;
-	var i%;
-	GetTuningCurveSpatialParameters();
-	DlgCreate("Spatial Freq Tuning Curve Parameters");
-	DlgInteger(1, "Number of Steps", 2, 100);
-	DlgInteger(2, "Number of Repeats", 1, 10);
-	DlgReal(3, "Min SF", .01, 100);
-	DlgReal(4, "Max SF", .01, 100);
-	DlgCheck(5, "Random Progression");
-
-	i% := DlgShow(tunSpatialNSteps%, tunSpatialNRepeats%, tunSpatialMinSF, tunSpatialMaxSF, tunSpatialProgression%);
-	' If i% is 1 the user hit "OK". If its 0, user hit "Cancel". 
-	' When user hits OK we alwaus save the parameters, and when user hit Cancel we don't.
-	if i% = 1 then
-		SaveTuningCurveSpatialParameters();
-'		PrintLog("TuningCurveSpatialDialog - user hit OK\n");
-		tunType$ := tunTypeSpatial$;
-		if tunContext$ = tunContextDAQ$ then
-			iReturn% := 0;
-		else
-			iReturn% := 1;
-		endif;
-	endif;
-	if i% = 0 then
-'		PrintLog("TuningCurveSpatialDialog - user hit Cancel\n");
-		tunType$ := tunTypeNone$;
-		if tunContext$ = tunContextDAQ$ then
-			iReturn% := 1;
-		else
-			iReturn% := 2;
-		endif;
-	endif;
-
-	return iReturn%;
-end;
-
-func TuningCurveTemporalDialog%()
-	var iReturn% := 0;
-	var i%;
-	GetTuningCurveTemporalParameters();
-	DlgCreate("Temporal Freq Tuning Curve Parameters");
-	DlgInteger(1, "Number of Steps", 2, 100);
-	DlgInteger(2, "Number of Repeats", 1, 10);
-	DlgReal(3, "Min TF", 0, 100);
-	DlgReal(4, "Max TF", 0, 100);
-	DlgCheck(5, "Random Progression");
-
-	i% := DlgShow(tunTemporalNSteps%, tunTemporalNRepeats%, tunTemporalMinTF, tunTemporalMaxTF, tunTemporalProgression%);
-	' If i% is 1 the user hit "OK". If its 0, user hit "Cancel". 
-	' When user hits OK we alwaus save the parameters, and when user hit Cancel we don't.
-	if i% = 1 then
-		SaveTuningCurveTemporalParameters();
-'		PrintLog("TuningCurveTemporalDialog - user hit OK\n");
-		tunType$ := tunTypeTemporal$;
-		if tunContext$ = tunContextDAQ$ then
-			iReturn% := 0;
-		else
-			iReturn% := 1;
-		endif;
-	endif;
-	if i% = 0 then
-'		PrintLog("TuningCurveTemporalDialog - user hit Cancel\n");
-		tunType$ := tunTypeNone$;
-		if tunContext$ = tunContextDAQ$ then
-			iReturn% := 1;
-		else
-			iReturn% := 2;
-		endif;
-	endif;
-
-	return iReturn%;
-end;
-
-func TuningCurveAreaDialog%()
-	var iReturn% := 0;
-	var i%;
-	GetTuningCurveAreaParameters();
-	DlgCreate("Area Tuning Curve Parameters");
-	DlgInteger(1, "Number of Steps", 2, 100);
-	DlgInteger(2, "Number of Repeats", 1, 1000);
-	DlgReal(3, "Min Diameter", 0.1, 100);
-	DlgReal(4, "Max Diameter", 0.1, 100);
-	DlgCheck(5, "Random Progression");
-
-	i% := DlgShow(tunAreaNSteps%, tunAreaNRepeats%, tunAreaMinDiam, tunAreaMaxDiam, tunAreaProgression%);
-	' If i% is 1 the user hit "OK". If its 0, user hit "Cancel". 
-	' When user hits OK we alwaus save the parameters, and when user hit Cancel we don't.
-	if i% = 1 then
-		SaveTuningCurveAreaParameters();
-'		PrintLog("TuningCurveTemporalDialog - user hit OK\n");
-		tunType$ := tunTypeArea$;
-		if tunContext$ = tunContextDAQ$ then
-			iReturn% := 0;
-		else
-			iReturn% := 1;
-		endif;
-	endif;
-	if i% = 0 then
-'		PrintLog("TuningCurveTemporalDialog - user hit Cancel\n");
-		tunType$ := tunTypeNone$;
-		if tunContext$ = tunContextDAQ$ then
-			iReturn% := 1;
-		else
-			iReturn% := 2;
-		endif;
-	endif;
-
-	return iReturn%;
-end;
-
 
 
 ' TuningCurveScriptDialog
 ' This dialog uses two global variables, tunContext$ and tunType$. 
-' Set tunContext$ = tunContextConfig$ to run in the config scripts. The dialog and its children (TuningCurveOrientationDialog, etc)
-' will behave as expected, allowing the user to set parameters and saving them in the registry. 
-' Set tunContext$ = tunContextDAQ$ to run in a DAQ script. In this context you must check the return value of the dialog and (possibly)
-' the value of tunType$.
-' If the user hits Cancel in the main dialog, the return value is 0. If the user selects a subdialog and hits OK, the return value will be
-' 1 and the value of tunType$ will be one of (tunTypeOrientation$, tunTypeContrast$, tunTypeSpatial$, tunTypeTemporal$). Here, proceed directly
-' to DAQ. If the user Hits Cancel from the subdialog, then they return to the main dialog. If they hit OK from the main dialog, then the return 
-' value is 1, but tunType$ = tunTypeNone$. 
+' Set tunContext$ = tunContextConfig$ to run in the config scripts. The dialog 
+' and its children (TuningCurveOrientationDialog, etc) will behave as expected, 
+' allowing the user to set parameters and saving them in the registry. Set 
+' tunContext$ = tunContextDAQ$ to run in a DAQ script. In this context you 
+' must check the return value of the dialog and (possibly) the value of 
+' tunType$. If the user hits Cancel in the main dialog, the return value is 0. 
+' If the user selects a subdialog and hits OK, the return value will be 1 and 
+' the value of tunType$ will be one of (tunTypeOrientation$, tunTypeContrast$, 
+' tunTypeSpatial$, tunTypeTemporal$). Here, proceed directly to DAQ. If the 
+' user Hits Cancel from the subdialog, then they return to the main dialog. If 
+' they hit OK from the main dialog, then the return value is 1, but 
+' tunType$ = tunTypeNone$. 
 
 
 func TuningCurveScriptDialog%()
@@ -467,7 +119,7 @@ func TuningCurveScriptDialog%()
 	next;
 
 	DlgCreate("Tuning Curve Parameters", 50, 10);
-	DlgGroup("Common Parameters", 0, 1, 40, 9);
+	DlgGroup("Common Parameters", 0, 1, 40, 10);
 	DlgReal(1, "Acquisition time(s):", 1, 1000, 20, 2);
 	DlgReal(2, "Fixation duration(s):", .1, 10, 20, 3);
 	DlgReal(3, "Maintain fixation(s):", .1, 10, 20, 4);
@@ -476,15 +128,17 @@ func TuningCurveScriptDialog%()
 	DlgReal(6, "Maintain fixation fail time(s):", .01, 10, 20, 7);
 	DlgReal(7, "Time out time(s):", .01, 10, 20, 8);
 	DlgList(8, "Background color:", bcl$, 3, 20, 9);
-	DlgGroup("Individual Tuning Curve Types", 0, 10, 40, 6);
-	DlgButton(tundlgOrientationButton%, "Orientation", TuningCurveOrientationDialog%, 1, 11);
-	DlgButton(tundlgContrastButton%, "Contrast", TuningCurveContrastDialog%, 1, 12);
-	DlgButton(tundlgSpatialButton%, "Spatial Freq", TuningCurveSpatialDialog%, 1, 13);
-	DlgButton(tundlgTemporalButton%, "Temporal Freq", TuningCurveTemporalDialog%, 1, 14);
-	DlgButton(tundlgAreaButton%, "Area", TuningCurveAreaDialog%, 1, 15);
-    
+    DlgCheck(9, "Dual VSG rig", 2, 10);
+	DlgGroup("Individual Tuning Curve Types", 0, 11, 40, 7);
+	DlgButton(tundlgOrientationButton%, "Orientation", TuningCurveOrientationDialog%, 1, 12);
+	DlgButton(tundlgContrastButton%, "Contrast", TuningCurveContrastDialog%, 1, 13);
+	DlgButton(tundlgSpatialButton%, "Spatial Freq", TuningCurveSpatialDialog%, 1, 14);
+	DlgButton(tundlgTemporalButton%, "Temporal Freq", TuningCurveTemporalDialog%, 1, 15);
+	DlgButton(tundlgAreaButton%, "Area", TuningCurveAreaDialog%, 1, 16);
+	DlgButton(tundlgDonutButton%, "Donuts!", TuningCurveDonutDialog%, 1, 17);
+	
 	i%:=DlgShow(tunAcquisitionTime, tunFixationDuration, tunMaintainFixation,
-		tunAcqFailTime, tunHoldFailTime, tunMaintainFailTime, tunTimeOutTime, ibcl%);
+    tunAcqFailTime, tunHoldFailTime, tunMaintainFailTime, tunTimeOutTime, ibcl%, tunDoRivalry%);
     
     ' djs 4-1-09
     ' Spike2 v6 change. DlgShow will return the button number when a button on the dialog is hit and the corresponding
@@ -493,12 +147,22 @@ func TuningCurveScriptDialog%()
     ' was set up to behave accordingly. When the user hits the Cancel button in the subdialog everything still remains
     ' the same. 
     
+    ' djs 2-4-2011
+    ' Spike2v6 bug (see TuningDialogs.s2s) workaround requires that the tuning type dialogs return something > 0. 
+    ' That will mean that closing any of those dialogs will not cause the main dialog (this one) to close automatically. 
+    ' When it did close automatically the return value from DlgShow above was the same as the button that caused
+    ' the close. Now, that button is NOT causing the close, so the return value is going to be 1 (not the button number). 
+    ' In addition, the return value from this function needs to change because we now assume that the user will have
+    ' to hit OK on this dialog to start the experiment. Thus, make sure that the return value from this function is 1
+    ' when user hits OK and 0 when user hits Cancel. Also, do not save script parameters when user hits Cancel.
+    
     PrintLog("Tuning Curve Parameters Dialog - return from DlgShow is %d\n", i%);
-	if i%=tundlgOrientationButton% or i%=tundlgContrastButton% or i%=tundlgSpatialButton% or i%=tundlgTemporalButton% or i%=tundlgAreaButton% then
+    '	if i%=tundlgOrientationButton% or i%=tundlgContrastButton% or i%=tundlgSpatialButton% or i%=tundlgTemporalButton% or i%=tundlgAreaButton% then
+    if i% = 1 then
 		tunBackgroundColor$ := bcl$[ibcl%];
 		SaveTuningCurveScriptParameters();
-		PrintLog("Tuning Curve Parameters dialog - user hit OK, tunType=" + tunType$ + "\n");
-		if tunContext$ = tunContextDAQ$ then iReturn% := 1;
+		if tunContext$ = tunContextDAQ$ then 
+            iReturn% := 1;
 		else iReturn% := 1;
 		endif;
 	endif;
@@ -506,8 +170,8 @@ func TuningCurveScriptDialog%()
 		PrintLog("Tuning Curve Parameters dialog - user hit Cancel, tunType=" + tunType$ + "\n");
 		if tunContext$ = tunContextDAQ$ then 
 			if tunType$ <> tunTypeNone$ then 
-				iReturn% := 1;
-				SaveTuningCurveScriptParameters();
+				iReturn% := 0;
+				'SaveTuningCurveScriptParameters();
 			else iReturn% := 0;
 		 	endif;
 		else
@@ -576,7 +240,7 @@ if iScript% = 1 then
 		LogInfo("No tuning type selected, exit gracefully\n");
 		Halt;
 	else
-		LogInfo("Tuning type \"" + tunType$ + "\" selected, proceed with DAQ\n");
+		LogInfo("Tuning type \"" + tunType$ + "\" selected, proceed with DAQ. DoRivalry = " + str$(tunDoRivalry%));
 	endif;
 else
 	LogInfo("User cancel - exit gracefully\n");
@@ -1029,7 +693,14 @@ proc TuningCurveLabels(iport%)
 			XUnits$("Aperture Diameter");
 			ChanTitle$(1, "Chan 1");
 			XRange(tunAreaMinDiam, tunAreaMaxDiam);
+        
+		case tunType$ = tunTypeDonut$ then
 
+			WindowTitle$("Donut Area Tuning - " + s$);
+			XUnits$("Outer Diameter");
+			ChanTitle$(1, "Chan 1");
+			XRange(tunAreaMinDiam, tunAreaMaxDiam);
+        
 		else
 
 			Message("TuningCurveLabels Error - unknown value for tunType$: " + tunType$);
@@ -1054,7 +725,6 @@ proc CreateSampleConfiguration()
         SampleAutoName$(dataCellName$ + "_con_000");
         tunNAdvances% := tunContrastNSteps%;
         tunNRepeats% := tunContrastNRepeats%;
-        'GetLogProgression(tunContrastMinContrast, tunContrastMaxContrast, tunContrastNSteps%, tunValues);
         GetRepeatedParameterProgression%(tunContrastNSteps%+1, tunContrastNRepeats%, tunValues[], tunValuesIndices%[], tunContrastMinContrast, tunContrastMaxContrast, 1, tunContrastProgression%);
         tunNValues% := (tunContrastNSteps%+1)*tunContrastNRepeats%;
         tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%);
@@ -1062,7 +732,6 @@ proc CreateSampleConfiguration()
         SampleAutoName$(dataCellName$ + "_ori_000");
         tunNAdvances% := tunOriNSteps%;
         tunNRepeats% := tunOriNRepeats%;
-        'GetLinearProgression(tunOriMinOrientation, tunOriMaxOrientation, tunOriNSteps%, tunValues);
         GetRepeatedParameterProgression%(tunOriNSteps%+1, tunOriNRepeats%, tunValues[], tunValuesIndices%[], tunOriMinOrientation, tunOriMaxOrientation, 0, tunOriProgression%);
         tunNValues% := (tunOriNSteps%+1)*tunOriNRepeats%;
         tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%);
@@ -1070,7 +739,6 @@ proc CreateSampleConfiguration()
         SampleAutoName$(dataCellName$ + "_spa_000");
         tunNAdvances% := tunSpatialNSteps%;
         tunNRepeats% := tunSpatialNRepeats%;
-        'GetLogProgression(tunSpatialMinSF, tunSpatialMaxSF, tunSpatialNSteps%, tunValues);
         GetRepeatedParameterProgression%(tunSpatialNSteps%+1, tunSpatialNRepeats%, tunValues[], tunValuesIndices%[], tunSpatialMinSF, tunSpatialMaxSF, 1, tunSpatialProgression%);        
         tunNValues% := (tunSpatialNSteps%+1)*tunSpatialNRepeats%;
         tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%);
@@ -1078,18 +746,27 @@ proc CreateSampleConfiguration()
         SampleAutoName$(dataCellName$ + "_tem_000");
         tunNAdvances% := tunTemporalNSteps%;
         tunNRepeats% := tunTemporalNRepeats%;
-        'GetLogProgression(tunTemporalMinTF, tunTemporalMaxTF, tunTemporalNSteps%, tunValues);
-        GetRepeatedParameterProgression%(tunTemporalNSteps%, tunTemporalNRepeats%, tunValues[], tunValuesIndices%[], tunTemporalMinTF, tunTemporalMaxTF, 1, tunTemporalProgression%);
+        GetRepeatedParameterProgression%(tunTemporalNSteps%+1, tunTemporalNRepeats%, tunValues[], tunValuesIndices%[], tunTemporalMinTF, tunTemporalMaxTF, 1, tunTemporalProgression%);
         tunNValues% := (tunTemporalNSteps%+1)*tunTemporalNRepeats%;
         tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%);
     case tunType$ = tunTypeArea$ then 
         SampleAutoName$(dataCellName$ + "_area_000");
         tunNAdvances% := tunAreaNSteps%;
         tunNRepeats% := tunAreaNRepeats%;
-        'GetLogProgression(tunAreaMinDiam, tunAreaMaxDiam, tunAreaNSteps%, tunValues);
-        GetRepeatedParameterProgression%(tunAreaNSteps%, tunAreaNRepeats%, tunValues[], tunValuesIndices%[], tunAreaMinDiam, tunAreaMaxDiam, 1, tunAreaProgression%);
+        GetRepeatedParameterProgression%(tunAreaNSteps%+1, tunAreaNRepeats%, tunValues[], tunValuesIndices%[], tunAreaMinDiam, tunAreaMaxDiam, 1, tunAreaProgression%);
         tunNValues% := (tunAreaNSteps%+1)*tunAreaNRepeats%;
         tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%);
+    case tunType$ = tunTypeDonut$ then 
+        SampleAutoName$(dataCellName$ + "_donut_000");
+        tunNAdvances% := tunAreaNSteps%;
+        tunNRepeats% := tunAreaNRepeats%;
+        GetRepeatedParameterProgression%(tunAreaNSteps%+1, tunAreaNRepeats%, tunValues[], tunValuesIndices%[], tunAreaMinDiam, tunAreaMaxDiam, 1, tunAreaProgression%);
+        tunNValues% := (tunAreaNSteps%+1)*tunAreaNRepeats%;
+        tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%);
+        'PrintLog("nsteps %d nrepeats %d nvalues %d\n", tunAreaNSteps%, tunAreaNRepeats%, tunNValues%);
+        'for i% := 0 to tunNValues%-1 do
+        '    PrintLog("%d %f\n", i%, tunValues[tunValuesIndices%[i%]]);
+        'next
     else
         SampleAutoName$(dataCellName$ + "_tun_000");
     endcase;
@@ -1115,6 +792,7 @@ proc CreateSampleConfiguration()
 	SampleComment$(ReadyChannel%,"VSG Ready");
 	SampleTitle$(ReadyChannel%,"VSG Ready");
     
+    ' Electrodes: wavemark/continuous
     ' 12/6/2010
     ' Wavemark channels will be channels # 1-N, waveform N+1 - N+1+M, where there are N wavemark channels
     ' and M waveform channels. 
@@ -1123,8 +801,8 @@ proc CreateSampleConfiguration()
 		SampleTitle$(i% + 1, "WMrk " + str$(tunWavemarkPorts%[i%])); 
 	next
     for i% := 0 to tunNContinuous%-1 do
-        SampleWaveform(tunNContinuous% + i% + 1, tunContinuousPorts%[i%], 20000);
-        SampleTitle$(tunNContinuous% + i% + 1, "Cont " + str$(tunContinuousPorts%[i%]));
+        SampleWaveform(tunNWavemarks% + i% + 1, tunContinuousPorts%[i%], 20000);
+        SampleTitle$(tunNWavemarks% + i% + 1, "Cont " + str$(tunContinuousPorts%[i%]));
     next
         
 	'for index := 1 to NumberOfElectrodes% do
@@ -1289,6 +967,13 @@ proc WriteParameterFile()
 			Print("Values: " + tunValuesStringified$ + "\n");
 			Print("\n");
 
+		case tunType$ = tunTypeDonut$ then
+
+			Print("Type:                  : Donut Area\n");
+			Print("Min,Max,#Steps,#Repeats: %f,%f,%d,%d\n", tunAreaMinDiam, tunAreaMaxDiam, tunAreaNSteps%, tunAreaNRepeats%);
+			Print("Values: " + tunValuesStringified$ + "\n");
+			Print("\n");
+
 		else
 
 			Print("TuningCurve Error - unknown value for tunType$: %s\n", tunType$);
@@ -1313,43 +998,71 @@ func Start%()
 	var Tune$;
 	var Stim$:="";
 	var Values$;
+    var Dual$;
+    var key$;
+    var offsetFilename$;
+    var i%;
 	
 	SampleStart(0); 'Start sampling
 	SampleKey("0");
-	
+    
 	' Stimulus is always used
 	Stim$ := " -s " + GetGratingParameters$("Stimulus");
 	Values$ := tunValuesStringified$;
 	Extras$ := " -b " + tunBackgroundColor$ + " -d " + DistanceToScreenMM$;
+    if tunDoRivalry% = 0 then
+        Dual$ := "";
+    else
+        ' Fetch the offset filename
+        key$ := GetRegistryKey$(1) + "\\Rivalry";
+        offsetFilename$ := GetStringRegistryValue$(GetRegistryKey$(1), "OffsetFile", "file_not_found");
+        Dual$ := " -r " + offsetFilename$ + " -M ";
+    endif
+    
 	docase 
-		case tunType$ = tunTypeContrast$ then
+    case tunType$ = tunTypeContrast$ then
+        
+        Tune$ := Dual$ + " -C " + Values$;
 
-'			Tune$ := " -C " + str$(tunContrastMinContrast) + "," + str$(tunContrastMaxContrast) + "," + str$(tunContrastNSteps%);
-			Tune$ := " -C " + Values$;
+    case tunType$ = tunTypeOrientation$ then
 
-		case tunType$ = tunTypeOrientation$ then
+        Tune$ := Dual$ + " -O " + Values$;
 
-'			Tune$ := " -O " + str$(tunOriMinOrientation) + "," + str$(tunOriMaxOrientation) + "," + str$(tunOriNSteps%);
-			Tune$ := " -O " + Values$;
+    case tunType$ = tunTypeSpatial$ then
 
-		case tunType$ = tunTypeSpatial$ then
+        Tune$ := Dual$ + " -S " + Values$;
 
-'			Tune$ := " -S " + str$(tunSpatialMinSF) + "," + str$(tunSpatialMaxSF) + "," + str$(tunSpatialNSteps%);
-			Tune$ := " -S " + Values$;
-	
-		case tunType$ = tunTypeTemporal$ then
+    case tunType$ = tunTypeTemporal$ then
 
-'			Tune$ := " -T " + str$(tunTemporalMinTF) + "," + str$(tunTemporalMaxTF) + "," + str$(tunTemporalNSteps%);
-			Tune$ := " -T " + Values$;
+        Tune$ := Dual$ + " -T " + Values$;
 
-		case tunType$ = tunTypeArea$ then
+    case tunType$ = tunTypeArea$ then
+        
+        Tune$ := Dual$ + " -A " + Values$;
+        
+    case tunType$ = tunTypeDonut$ then
+        
+        ' The args for the stim must be constructed here. 
+        var areaArg$, donutArg$;
+        for i% := 0 to tunNValues%-1 do
+            if tunValues[tunValuesIndices%[i%]] <= tunDonutOptimalDiam then
+                areaArg$ += str$(tunValues[tunValuesIndices%[i%]]) + ",";
+                donutArg$ += "0,0,";
+            else
+                areaArg$ += "0,";
+                donutArg$ += str$(tunValues[tunValuesIndices%[i%]]) + "," + str$(tunDonutOptimalDiam) + ",";
+            endif
+        next
+        areaArg$ := Left$(areaArg$, Len(areaArg$)-1);
+        donutArg$ := Left$(donutArg$, Len(donutArg$)-1);
+        'PrintLog("areaArg: %s\n", areaArg$);
+        'PrintLog("donutArg: %s\n", donutArg$);
+        Tune$ := Dual$ + " -A " + areaArg$ + " -V -H " + donutArg$;
+        
+    else
 
-			Tune$ := " -A " + Values$;
-
-		else
-
-			Message("Error - unknown value for tunType$: " + tunType$);
-			Halt;
+        Message("Error - unknown value for tunType$: " + tunType$);
+        Halt;
 
 	endcase;
 	
