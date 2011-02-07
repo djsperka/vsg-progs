@@ -1,4 +1,4 @@
-' $Id: Tuning.s2s,v 1.32 2011-02-07 20:44:01 devel Exp $
+' $Id: Tuning.s2s,v 1.33 2011-02-07 20:53:10 devel Exp $
 
 #include "../../Spike2Util/ChannelUtilities.s2s"
 #include "../../Spike2Util/UsreyUtil.s2s"
@@ -1009,7 +1009,7 @@ func Start%()
 	' Stimulus is always used
 	Stim$ := " -s " + GetGratingParameters$("Stimulus");
 	Values$ := tunValuesStringified$;
-	Extras$ := " -b " + tunBackgroundColor$ + " -d " + DistanceToScreenMM$ + " -p 2";
+	Extras$ := " -b " + tunBackgroundColor$ + " -d " + DistanceToScreenMM$ + " -p 4";
     if tunDoRivalry% = 0 then
         Dual$ := "";
     else
