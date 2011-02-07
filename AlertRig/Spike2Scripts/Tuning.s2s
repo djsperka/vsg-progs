@@ -1,4 +1,4 @@
-' $Id: Tuning.s2s,v 1.30 2011-02-07 19:01:12 devel Exp $
+' $Id: Tuning.s2s,v 1.31 2011-02-07 20:41:50 devel Exp $
 
 #include "../../Spike2Util/ChannelUtilities.s2s"
 #include "../../Spike2Util/UsreyUtil.s2s"
@@ -257,7 +257,7 @@ YChannel% := 22;
 FixationPointChannel% := 24;
 StimChannel% := 25;
 StimChangeChannel% := 26;
-ReadyChannel% := 27;
+ReadyChannel% := 24;            ' Look for ready signal on port 2 (same as fixpt). 
 
 ' Fetch electrode information. 
 tunNWavemarks% := GetWavemarkPorts%(tunWavemarkPorts%[]);
@@ -777,20 +777,20 @@ proc CreateSampleConfiguration()
 	'Channel recording definitions
 
 	SampleEvent(FixationPointChannel%,2,2,3600); 'Trigger channel, level
-	SampleComment$(FixationPointChannel%,"Fixation");
-	SampleTitle$(FixationPointChannel%,"Fixation");
+	SampleComment$(FixationPointChannel%,"Fix/RDY");
+	SampleTitle$(FixationPointChannel%,"Fix/RDY");
 	
 	SampleEvent(StimChannel%,3,2,3600); 'Trigger channel, level
 	SampleComment$(StimChannel%,"Stim");
 	SampleTitle$(StimChannel%,"Stim");
     
-	SampleEvent(StimChangeChannel%,3,2,3600); 'Trigger channel, level
-	SampleComment$(StimChangeChannel%,"Adv");
-	SampleTitle$(StimChangeChannel%,"Adv");
+'	SampleEvent(StimChangeChannel%,3,2,3600); 'Trigger channel, level
+'	SampleComment$(StimChangeChannel%,"Adv");
+'	SampleTitle$(StimChangeChannel%,"Adv");
 	
-	SampleEvent(ReadyChannel%,6,2,3600); 'Trigger channel, level
-	SampleComment$(ReadyChannel%,"VSG Ready");
-	SampleTitle$(ReadyChannel%,"VSG Ready");
+'	SampleEvent(ReadyChannel%,6,2,3600); 'Trigger channel, level
+'	SampleComment$(ReadyChannel%,"VSG Ready");
+'	SampleTitle$(ReadyChannel%,"VSG Ready");
     
     ' Electrodes: wavemark/continuous
     ' 12/6/2010
