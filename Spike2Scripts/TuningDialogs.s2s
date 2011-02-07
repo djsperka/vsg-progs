@@ -1,0 +1,473 @@
+' $Id: TuningDialogs.s2s,v 1.1 2011-02-07 19:01:12 devel Exp $
+'
+' This file contains dialog functions for the alert tuning script Tuning.s2s.
+#include "../../Spike2Util/UsreyUtil.s2s"
+#include "../../Spike2Util/LogUtilities.s2s"
+#include "../../Spike2Util/MiscUtilities.s2s"
+
+
+
+const tunTypeNone$ := "None";
+const tunTypeOrientation$ := "O";
+const tunTypeContrast$ := "C";
+const tunTypeSpatial$ := "S";
+const tunTypeTemporal$ := "T";
+const tunTypeArea$ := "A";
+const tunTypeDonut$ := "H";
+var tunType$:=tunTypeNone$;
+
+const tunContextDAQ$ := "DAQ";
+const tunContextConfig$ := "Config";
+var tunContext$ := tunContextConfig$;
+
+
+' A note about "steps". 
+' The dialogs ask for a number of "steps". A step is a transition from one stimulus
+' to another. Thus, if there are N steps, there are N+1 different stimuli.
+
+' These are specific to the individual tuning curve types - orientation first
+var tunOriNSteps%;		' # steps in orientation tuning curve
+var tunOriNRepeats%;		' # repeats in ori tuning curve
+var tunOriMinOrientation;	' min orientation
+var tunOriMaxOrientation;	' max orientation
+var tunOriProgression%;
+
+' Contrast next
+var tunContrastNSteps%;			' # steps in contrast tuning curve
+var tunContrastNRepeats%;		' # repeats in contrast tuning curve
+var tunContrastMinContrast;		' min contrast
+var tunContrastMaxContrast;		' max contrast
+var tunContrastProgression%;
+
+' Spatial next
+var tunSpatialNSteps%;			' # steps in spatial freq tuning curve
+var tunSpatialNRepeats%;		' # repeats in spatial freq tuning curve
+var tunSpatialMinSF;			' min SF
+var tunSpatialMaxSF;			' max SF
+var tunSpatialProgression%;
+
+' Temporal next
+var tunTemporalNSteps%;			' # steps in temporal tuning curve
+var tunTemporalNRepeats%;		' # repeats in temporal tuning curve
+var tunTemporalMinTF;		' min TF
+var tunTemporalMaxTF;		' max TF
+var tunTemporalProgression%;
+
+' Area next
+var tunAreaNSteps%;			' # steps in area tuning curve
+var tunAreaNRepeats%;		' # repeats in area tuning curve
+var tunAreaMinDiam;		' min diameter
+var tunAreaMaxDiam;		' max diameter
+var tunAreaProgression%;
+
+' Donuts - use same vars as area. There is one additional var - the optimal value index.
+var tunDonutOptimalIndex%:=0;		' step index where area stim stops growing and donut stim starts
+var tunDonutOptimalDiam;
+
+proc GetTuningCurveOrientationParameters()
+	var key$;
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Tuning\\Orientation";
+    tunOriNSteps% := GetIntRegistryValue%(key$, "NSteps", tunOriNSteps%);
+    tunOriNRepeats% := GetIntRegistryValue%(key$, "NRepeats", tunOriNRepeats%);
+    tunOriMinOrientation := GetFloatRegistryValue(key$, "MinOrientation", tunOriMinOrientation);
+    tunOriMaxOrientation := GetFloatRegistryValue(key$, "MaxOrientation", tunOriMaxOrientation);
+end;
+
+proc SaveTuningCurveOrientationParameters()
+	var key$;
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Tuning\\Orientation";
+    SetIntRegistryValue(key$, "NSteps", tunOriNSteps%);
+    SetIntRegistryValue(key$, "NRepeats", tunOriNRepeats%);
+    SetFloatRegistryValue(key$, "MinOrientation", tunOriMinOrientation);
+    SetFloatRegistryValue(key$, "MaxOrientation", tunOriMaxOrientation);
+end;
+
+proc GetTuningCurveContrastParameters()
+	var stmp$;
+	var key$;
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Tuning\\Contrast";
+    
+    tunContrastNSteps% := GetIntRegistryValue%(key$, "NSteps", tunContrastNSteps%);
+    tunContrastNRepeats% := GetIntRegistryValue%(key$, "NRepeats", tunContrastNRepeats%);
+    tunContrastMinContrast := GetFloatRegistryValue(key$, "MinContrast", tunContrastMinContrast);
+    tunContrastMaxContrast := GetFloatRegistryValue(key$, "MaxContrast", tunContrastMaxContrast);
+end;
+
+proc SaveTuningCurveContrastParameters()
+	var key$;
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Tuning\\Contrast";
+    SetIntRegistryValue(key$, "NSteps", tunContrastNSteps%);
+    SetIntRegistryValue(key$, "NRepeats", tunContrastNRepeats%);
+    SetFloatRegistryValue(key$, "MinContrast", tunContrastMinContrast);
+    SetFloatRegistryValue(key$, "MaxContrast", tunContrastMaxContrast);
+end;
+
+proc GetTuningCurveSpatialParameters()
+	var stmp$;
+	var key$;
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Tuning\\Spatial";
+    
+    tunSpatialNSteps% := GetIntRegistryValue%(key$, "NSteps", tunSpatialNSteps%);
+    tunSpatialNRepeats% := GetIntRegistryValue%(key$, "NRepeats", tunSpatialNRepeats%);
+    tunSpatialMinSF := GetFloatRegistryValue(key$, "MinSF", tunSpatialMinSF);
+    tunSpatialMaxSF := GetFloatRegistryValue(key$, "MaxSF", tunSpatialMaxSF);
+end;
+
+proc SaveTuningCurveSpatialParameters()
+	var key$;
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Tuning\\Spatial";
+    
+    SetIntRegistryValue(key$, "NSteps", tunSpatialNSteps%);
+    SetIntRegistryValue(key$, "NRepeats", tunSpatialNRepeats%);
+    SetFloatRegistryValue(key$, "MinSF", tunSpatialMinSF);
+    SetFloatRegistryValue(key$, "MaxSF", tunSpatialMaxSF);
+end;
+
+proc GetTuningCurveTemporalParameters()
+	var stmp$;
+	var key$;
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Tuning\\Temporal";
+    
+    tunTemporalNSteps% := GetIntRegistryValue%(key$, "NSteps", tunTemporalNSteps%);
+    tunTemporalNRepeats% := GetIntRegistryValue%(key$, "NRepeats", tunTemporalNRepeats%);
+    tunTemporalMinTF := GetFloatRegistryValue(key$, "MinTF", tunTemporalMinTF);
+    tunTemporalMaxTF := GetFloatRegistryValue(key$, "MaxTF", tunTemporalMaxTF);
+end;
+
+proc SaveTuningCurveTemporalParameters()
+	var key$;
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Tuning\\Temporal";
+
+    SetIntRegistryValue(key$, "NSteps", tunTemporalNSteps%);
+    SetIntRegistryValue(key$, "NRepeats", tunTemporalNRepeats%);
+    SetFloatRegistryValue(key$, "MinTF", tunTemporalMinTF);
+    SetFloatRegistryValue(key$, "MaxTF", tunTemporalMaxTF);
+end;
+
+proc GetTuningCurveAreaParameters()
+	var stmp$;
+	var key$;
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Tuning\\Area";
+
+    tunAreaNSteps% := GetIntRegistryValue%(key$, "NSteps", tunAreaNSteps%);
+    tunAreaNRepeats% := GetIntRegistryValue%(key$, "NRepeats", tunAreaNRepeats%);
+    tunAreaMinDiam := GetFloatRegistryValue(key$, "MinDiam", tunAreaMinDiam);
+    tunAreaMaxDiam := GetFloatRegistryValue(key$, "MaxDiam", tunAreaMaxDiam);
+    tunDonutOptimalIndex% := GetIntRegistryValue%(key$, "OptimalIndex", tunDonutOptimalIndex%);
+end;
+
+proc SaveTuningCurveAreaParameters()
+	var key$;
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Tuning\\Area";
+
+    SetIntRegistryValue(key$, "NSteps", tunAreaNSteps%);
+    SetIntRegistryValue(key$, "NRepeats", tunAreaNRepeats%);
+    SetFloatRegistryValue(key$, "MinDiam", tunAreaMinDiam);
+    SetFloatRegistryValue(key$, "MaxDiam", tunAreaMaxDiam);
+    SetIntRegistryValue(key$, "OptimalIndex", tunDonutOptimalIndex%);
+end;
+
+
+
+func TuningCurveOrientationDialog%()
+	var iReturn%;
+	var i%;
+	GetTuningCurveOrientationParameters();
+	DlgCreate("Run Orientation Tuning Curve");
+	DlgInteger(1, "Number of Steps", 2, 100);
+	DlgInteger(2, "Number of Repeats", 1, 10);
+	DlgReal(3, "Min Orientation (deg)", 0, 360);
+	DlgReal(4, "Max Orientation (deg)", 0, 360);
+	DlgCheck(5, "Random Progression");
+	i% := DlgShow(tunOriNSteps%, tunOriNRepeats%, tunOriMinOrientation, tunOriMaxOrientation, tunOriProgression%);
+
+	' If i% is 1 the user hit "OK". If its 0, user hit "Cancel". 
+	' When user hits OK we alwaus save the parameters, and when user hit Cancel we don't.
+    ' djs 2/4/2011
+    ' Spike2 bug workaround implemented. The return value from this function (when in DAQ context this
+    ' dialog is called from a DlgButton in another dialog) should make the parent dialog close, as if 
+    ' the OK button were hit. Bug in Spike2 v6 means this doesn't work right - the parent dialog will 
+    ' close but its variables are not updated prior to doing so.... so any changes to the parent dialog
+    ' are not seen in the subsequent expt, they're not saved in the registry, etc. Workaround is to return
+    ' something > 0 here. The parent dialog will continue to display, and the user has to hit OK on that 
+    ' before things proceed. 
+	if i% = 1 then
+		SaveTuningCurveOrientationParameters();
+		PrintLog("TuningCurveOrientationDialog - user hit OK\n");
+		tunType$ := tunTypeOrientation$;
+		if tunContext$ = tunContextDAQ$ then
+            ' djs 2/4/2011 We return 1 - that's the workaround			iReturn% := 0;
+            iReturn% := 1;
+		else
+			iReturn% := 1;
+		endif;
+	endif;
+	if i% = 0 then
+		PrintLog("TuningCurveOrientationDialog - user hit Cancel\n");
+		tunType$ := tunTypeNone$;
+		if tunContext$ = tunContextDAQ$ then
+			iReturn% := 1;
+		else
+			iReturn% := 2;
+		endif;
+	endif;
+    PrintLog("Return value is %d\n", iReturn%);
+	return iReturn%;
+end;
+
+
+
+func TuningCurveContrastDialog%()
+	var iReturn% := 0;
+	var i%;
+	GetTuningCurveContrastParameters();
+	DlgCreate("Contrast Tuning Curve Parameters");
+	DlgInteger(1, "Number of Steps", 2, 100);
+	DlgInteger(2, "Number of Repeats", 1, 10);
+	DlgReal(3, "Min Contrast (%)", 0.1, 100);
+	DlgReal(4, "Max Contrast (%)", 0.1, 100);
+	DlgCheck(5, "Random Progression");
+
+	i% := DlgShow(tunContrastNSteps%, tunContrastNRepeats%, tunContrastMinContrast, tunContrastMaxContrast, tunContrastProgression%);
+	' If i% is 1 the user hit "OK". If its 0, user hit "Cancel". 
+	' When user hits OK we alwaus save the parameters, and when user hit Cancel we don't.
+    ' djs 2/4/2011
+    ' Spike2 bug workaround implemented. The return value from this function (when in DAQ context this
+    ' dialog is called from a DlgButton in another dialog) should make the parent dialog close, as if 
+    ' the OK button were hit. Bug in Spike2 v6 means this doesn't work right - the parent dialog will 
+    ' close but its variables are not updated prior to doing so.... so any changes to the parent dialog
+    ' are not seen in the subsequent expt, they're not saved in the registry, etc. Workaround is to return
+    ' something > 0 here. The parent dialog will continue to display, and the user has to hit OK on that 
+    ' before things proceed. 
+	if i% = 1 then
+		SaveTuningCurveContrastParameters();
+'		PrintLog("TuningCurveContrastDialog - user hit OK\n");
+		tunType$ := tunTypeContrast$;
+		if tunContext$ = tunContextDAQ$ then
+            ' djs 2/4/2011 We return 1 - that's the workaround			iReturn% := 0;
+            iReturn% := 1;
+		else
+			iReturn% := 1;
+		endif;
+	endif;
+	if i% = 0 then
+'		PrintLog("TuningCurveContrastDialog - user hit Cancel\n");
+		tunType$ := tunTypeNone$;
+		if tunContext$ = tunContextDAQ$ then
+			iReturn% := 1;
+		else
+			iReturn% := 2;
+		endif;
+	endif;
+
+	return iReturn%;
+end;
+
+func TuningCurveSpatialDialog%()
+	var iReturn% := 0;
+	var i%;
+	GetTuningCurveSpatialParameters();
+	DlgCreate("Spatial Freq Tuning Curve Parameters");
+	DlgInteger(1, "Number of Steps", 2, 100);
+	DlgInteger(2, "Number of Repeats", 1, 10);
+	DlgReal(3, "Min SF", .01, 100);
+	DlgReal(4, "Max SF", .01, 100);
+	DlgCheck(5, "Random Progression");
+
+	i% := DlgShow(tunSpatialNSteps%, tunSpatialNRepeats%, tunSpatialMinSF, tunSpatialMaxSF, tunSpatialProgression%);
+	' If i% is 1 the user hit "OK". If its 0, user hit "Cancel". 
+	' When user hits OK we alwaus save the parameters, and when user hit Cancel we don't.
+    ' djs 2/4/2011
+    ' Spike2 bug workaround implemented. The return value from this function (when in DAQ context this
+    ' dialog is called from a DlgButton in another dialog) should make the parent dialog close, as if 
+    ' the OK button were hit. Bug in Spike2 v6 means this doesn't work right - the parent dialog will 
+    ' close but its variables are not updated prior to doing so.... so any changes to the parent dialog
+    ' are not seen in the subsequent expt, they're not saved in the registry, etc. Workaround is to return
+    ' something > 0 here. The parent dialog will continue to display, and the user has to hit OK on that 
+    ' before things proceed. 
+	if i% = 1 then
+		SaveTuningCurveSpatialParameters();
+'		PrintLog("TuningCurveSpatialDialog - user hit OK\n");
+		tunType$ := tunTypeSpatial$;
+		if tunContext$ = tunContextDAQ$ then
+            ' djs 2/4/2011 We return 1 - that's the workaround			iReturn% := 0;
+            iReturn% := 1;
+		else
+			iReturn% := 1;
+		endif;
+	endif;
+	if i% = 0 then
+'		PrintLog("TuningCurveSpatialDialog - user hit Cancel\n");
+		tunType$ := tunTypeNone$;
+		if tunContext$ = tunContextDAQ$ then
+			iReturn% := 1;
+		else
+			iReturn% := 2;
+		endif;
+	endif;
+
+	return iReturn%;
+end;
+
+func TuningCurveTemporalDialog%()
+	var iReturn% := 0;
+	var i%;
+	GetTuningCurveTemporalParameters();
+	DlgCreate("Temporal Freq Tuning Curve Parameters");
+	DlgInteger(1, "Number of Steps", 2, 100);
+	DlgInteger(2, "Number of Repeats", 1, 10);
+	DlgReal(3, "Min TF", 0, 100);
+	DlgReal(4, "Max TF", 0, 100);
+	DlgCheck(5, "Random Progression");
+
+	i% := DlgShow(tunTemporalNSteps%, tunTemporalNRepeats%, tunTemporalMinTF, tunTemporalMaxTF, tunTemporalProgression%);
+	' If i% is 1 the user hit "OK". If its 0, user hit "Cancel". 
+	' When user hits OK we alwaus save the parameters, and when user hit Cancel we don't.
+    ' djs 2/4/2011
+    ' Spike2 bug workaround implemented. The return value from this function (when in DAQ context this
+    ' dialog is called from a DlgButton in another dialog) should make the parent dialog close, as if 
+    ' the OK button were hit. Bug in Spike2 v6 means this doesn't work right - the parent dialog will 
+    ' close but its variables are not updated prior to doing so.... so any changes to the parent dialog
+    ' are not seen in the subsequent expt, they're not saved in the registry, etc. Workaround is to return
+    ' something > 0 here. The parent dialog will continue to display, and the user has to hit OK on that 
+    ' before things proceed. 
+	if i% = 1 then
+		SaveTuningCurveTemporalParameters();
+'		PrintLog("TuningCurveTemporalDialog - user hit OK\n");
+		tunType$ := tunTypeTemporal$;
+		if tunContext$ = tunContextDAQ$ then
+            ' djs 2/4/2011 We return 1 - that's the workaround			iReturn% := 0;
+            iReturn% := 1;
+		else
+			iReturn% := 1;
+		endif;
+	endif;
+	if i% = 0 then
+'		PrintLog("TuningCurveTemporalDialog - user hit Cancel\n");
+		tunType$ := tunTypeNone$;
+		if tunContext$ = tunContextDAQ$ then
+			iReturn% := 1;
+		else
+			iReturn% := 2;
+		endif;
+	endif;
+
+	return iReturn%;
+end;
+
+func TuningCurveAreaDialog%()
+	var iReturn% := 0;
+	var i%;
+	GetTuningCurveAreaParameters();
+	DlgCreate("Area Tuning Curve Parameters");
+	DlgInteger(1, "Number of Steps", 2, 100);
+	DlgInteger(2, "Number of Repeats", 1, 1000);
+	DlgReal(3, "Min Diameter", 0.1, 100);
+	DlgReal(4, "Max Diameter", 0.1, 100);
+	DlgCheck(5, "Random Progression");
+
+	i% := DlgShow(tunAreaNSteps%, tunAreaNRepeats%, tunAreaMinDiam, tunAreaMaxDiam, tunAreaProgression%);
+	' If i% is 1 the user hit "OK". If its 0, user hit "Cancel". 
+	' When user hits OK we always save the parameters, and when user hit Cancel we don't.
+    ' 
+    ' djs 2/4/2011
+    ' Spike2 bug workaround implemented. The return value from this function (when in DAQ context this
+    ' dialog is called from a DlgButton in another dialog) should make the parent dialog close, as if 
+    ' the OK button were hit. Bug in Spike2 v6 means this doesn't work right - the parent dialog will 
+    ' close but its variables are not updated prior to doing so.... so any changes to the parent dialog
+    ' are not seen in the subsequent expt, they're not saved in the registry, etc. Workaround is to return
+    ' something > 0 here. The parent dialog will continue to display, and the user has to hit OK on that 
+    ' before things proceed. 
+	if i% = 1 then
+		SaveTuningCurveAreaParameters();
+'		PrintLog("TuningCurveTemporalDialog - user hit OK\n");
+		tunType$ := tunTypeArea$;
+		if tunContext$ = tunContextDAQ$ then
+            ' djs 2/4/2011 We return 1 - that's the workaround			iReturn% := 0;
+            iReturn% := 1;
+		else
+			iReturn% := 1;
+		endif;
+	endif;
+	if i% = 0 then
+'		PrintLog("TuningCurveTemporalDialog - user hit Cancel\n");
+		tunType$ := tunTypeNone$;
+		if tunContext$ = tunContextDAQ$ then
+			iReturn% := 1;
+		else
+			iReturn% := 2;
+		endif;
+	endif;
+    
+	return iReturn%;
+end;
+
+
+func TuningCurveDonutDialogChanged%(item%)
+    if item% = 0 then
+        DlgEnable(0, 1, 2, 3, 4, 5);
+    endif
+    return 1;
+end
+
+func TuningCurveDonutDialog%()
+	var iReturn% := 0;
+	var i%;
+    var sValues$;
+    var iValue%:=0;
+    var result[100];
+    var indices%[100];
+    
+	GetTuningCurveAreaParameters();
+    
+    ' Before we proceed, we must generate a list of choices for the optimal diameter. 
+    ' Note that there are nsteps+1 values. 
+    
+    GetRepeatedParameterProgression%(tunAreaNSteps%+1, 1, result[], indices%[], tunAreaMinDiam, tunAreaMaxDiam, 1, tunAreaProgression%);
+    sValues$ := GetRealArrayAsStringSep$(result[0:tunAreaNSteps%+1], indices%[0:tunAreaNSteps%+1], "|");
+    
+	DlgCreate("Donut Tuning Curve Parameters");
+	DlgInteger(1, "Number of Steps", 2, 100);
+	DlgInteger(2, "Number of Repeats", 1, 1000);
+	DlgReal(3, "Min Diameter", 0.1, 100);
+	DlgReal(4, "Max Diameter", 0.1, 100);
+	DlgCheck(5, "Random Progression");
+    DlgList(6, "Optimal diameter", sValues$);
+    DlgAllow(0xffff, 0, TuningCurveDonutDialogChanged%);
+	i% := DlgShow(tunAreaNSteps%, tunAreaNRepeats%, tunAreaMinDiam, tunAreaMaxDiam, tunAreaProgression%, tunDonutOptimalIndex%);
+    tunDonutOptimalDiam := result[tunDonutOptimalIndex%];
+    
+	' If i% is 1 the user hit "OK". If its 0, user hit "Cancel". 
+	' When user hits OK we always save the parameters, and when user hit Cancel we don't.
+    ' 
+    ' djs 2/4/2011
+    ' Spike2 bug workaround implemented. The return value from this function (when in DAQ context this
+    ' dialog is called from a DlgButton in another dialog) should make the parent dialog close, as if 
+    ' the OK button were hit. Bug in Spike2 v6 means this doesn't work right - the parent dialog will 
+    ' close but its variables are not updated prior to doing so.... so any changes to the parent dialog
+    ' are not seen in the subsequent expt, they're not saved in the registry, etc. Workaround is to return
+    ' something > 0 here. The parent dialog will continue to display, and the user has to hit OK on that 
+    ' before things proceed. 
+	if i% = 1 then
+		SaveTuningCurveAreaParameters();
+		tunType$ := tunTypeDonut$;
+		if tunContext$ = tunContextDAQ$ then
+            ' djs 2/4/2011 We return 1 - that's the workaround			iReturn% := 0;
+            iReturn% := 1;
+		else
+			iReturn% := 1;
+		endif;
+	endif;
+	if i% = 0 then
+		tunType$ := tunTypeNone$;
+		if tunContext$ = tunContextDAQ$ then
+			iReturn% := 1;
+		else
+			iReturn% := 2;
+		endif;
+	endif;
+    
+	return iReturn%;
+end;
+
+
