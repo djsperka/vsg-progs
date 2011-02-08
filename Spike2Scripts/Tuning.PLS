@@ -1,4 +1,4 @@
-; $Id: Tuning.PLS,v 1.6 2010-07-26 17:15:31 devel Exp $
+; $Id: Tuning.PLS,v 1.7 2011-02-08 00:00:34 devel Exp $
 ;
 
             SET      1.000 1 0     ;Get rate & scaling OK
@@ -29,7 +29,7 @@ EA:     'a  DIGOUT [....i..1]      ;Signals the tuned parameter to advance
             DELAY  s(0.996)-1
             HALT   
 
-EQ:		'Q	DIGOUT [...1...1]		; tells stim we are finished. Program should exit.
+EQ:	'Q  DIGOUT [...1...1]		; tells stim we are finished. Program should exit.
             DELAY  s(0.996)-1
             HALT   
 
