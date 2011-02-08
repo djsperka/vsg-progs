@@ -1,4 +1,4 @@
-' $Id: Tuning.s2s,v 1.33 2011-02-07 20:53:10 devel Exp $
+' $Id: Tuning.s2s,v 1.34 2011-02-08 00:00:34 devel Exp $
 
 #include "../../Spike2Util/ChannelUtilities.s2s"
 #include "../../Spike2Util/UsreyUtil.s2s"
@@ -16,7 +16,7 @@
 '
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
-var tunAlwaysLooking% := 0; ' If set eye signals ignored - subject presumed to be looking always. TESTING ONLY.
+var tunAlwaysLooking% := 1; ' If set eye signals ignored - subject presumed to be looking always. TESTING ONLY.
 
 var tunFixationDuration := 2.0;	' Time required to hold fixation for reward (stim ON)
 var tunMaintainFixation := 2.0;	' Time required to hold fixation for reward (stim OFF)
@@ -257,7 +257,7 @@ YChannel% := 22;
 FixationPointChannel% := 24;
 StimChannel% := 25;
 StimChangeChannel% := 26;
-ReadyChannel% := 24;            ' Look for ready signal on port 2 (same as fixpt). 
+ReadyChannel% := 27;            ' Look for ready signal on port 2 (same as fixpt). 
 
 ' Fetch electrode information. 
 tunNWavemarks% := GetWavemarkPorts%(tunWavemarkPorts%[]);
@@ -355,7 +355,15 @@ var nTrialsAborted% :=0;		'
 func IdleProcessing%()
 	var iStatus% := 1;	
 	tNow := View(DataWindow%).MaxTime();
-
+    
+    ' First time through (tLast<0) just update tLast. Crosstalk on vsg dig outputs leads to erroneous
+    ' triggers. Maybe this will help. 
+    if tLast < 0 then
+        tLast := tNow;
+        return 1;
+    endif
+    
+    
 	xEye := View(DataWindow%).ChanMeasure(XChannel%,2,tNow-.001,tNow-.006)*DegreesPerVoltX;
 	yEye := View(DataWindow%).ChanMeasure(YChannel%,2,tNow-.001,tNow-.006)*DegreesPerVoltY;
 
@@ -370,6 +378,7 @@ func IdleProcessing%()
         ' Waiting for VSG to indicate it is ready. The indication is a pulse (up, then down, 1 frame apart) on port 6.
         if View(DataWindow%).FindPulseUp%(ReadyChannel%, -1, tRise, tFall) = 1 then
             LogStatus("VSGWait", "Got Ready Pulse from VSG");
+            Yield(1.0);
             tLastTrigger := tFall;
             ChangeStateTo(stateStartTrial%, tFall);
         endif;
@@ -389,6 +398,8 @@ func IdleProcessing%()
             tLastTrigger := tTrigger;
             ChangeStateTo(stateWaitForAcquisition%, tTrigger);
             DrawStim(1);	' actually this draws the location of the fixpt.
+'        else
+ '           LogStatus("WaitForFixPtOn", "Waiting at " + str$(tLast));
         endif
 
     case iState% = stateWaitForAcquisition% then
@@ -470,10 +481,6 @@ func IdleProcessing%()
                 ' Reward
                 Reward%();
                 
-                ' Advance
-                SampleKey("a");
-
-
                 ' Process spikes
                 PlotSpikes(tStimOn, tNow, 1, GetPlotXCoord(nTrialsCompleted%));
                 nTrialsCompleted% += 1;
@@ -488,6 +495,9 @@ func IdleProcessing%()
     case iState% = stateWaitForStimOff% then
 
         if View(DataWindow%).FindFallingEdge%(StimChannel%, tLast, tTrigger) = 1 then
+            ' Advance
+            SampleKey("a");
+
             tLastTrigger := tTrigger;
             ChangeStateTo(stateTrialCompleted%, tNow);
         endif
@@ -546,19 +556,20 @@ end;
 
 proc PlotSpikes(t1, t2, vOnOff%, x)
 	var rate;
-	var index%;
-	for index% := 1 to tunNWavemarks% do
-		rate := View(DataWindow%).Count(index%, t1, t2)/(t2-t1);
+	var index%; ' = i+1
+    var i%;
+	for i% := 0 to tunNWavemarks%-1 do
+		rate := View(DataWindow%).Count(i%+1, t1, t2)/(t2-t1);
 		if rate >= 0 then
 			if vOnOff% = 1 then
 				' this is signal
-				View(TuningWindow%[index%-1]).XYAddData(1, x, rate);    ' channel 1 is data; channel 2 is background
+                'PrintLog("%d Count %f\n", i%, rate*(t2-t1));
+				View(TuningWindow%[i%]).XYAddData(1, x, rate);    ' channel 1 is data; channel 2 is background
 			endif
 			' NOTE: IGNORING BACKGROUND HERE FOR THE TIME BEING. 
-	        endif 
+	    endif 
 	next
 end;
-
 
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
@@ -777,8 +788,8 @@ proc CreateSampleConfiguration()
 	'Channel recording definitions
 
 	SampleEvent(FixationPointChannel%,2,2,3600); 'Trigger channel, level
-	SampleComment$(FixationPointChannel%,"Fix/RDY");
-	SampleTitle$(FixationPointChannel%,"Fix/RDY");
+	SampleComment$(FixationPointChannel%,"Fixpt");
+	SampleTitle$(FixationPointChannel%,"Fixpt");
 	
 	SampleEvent(StimChannel%,3,2,3600); 'Trigger channel, level
 	SampleComment$(StimChannel%,"Stim");
@@ -788,9 +799,9 @@ proc CreateSampleConfiguration()
 '	SampleComment$(StimChangeChannel%,"Adv");
 '	SampleTitle$(StimChangeChannel%,"Adv");
 	
-'	SampleEvent(ReadyChannel%,6,2,3600); 'Trigger channel, level
-'	SampleComment$(ReadyChannel%,"VSG Ready");
-'	SampleTitle$(ReadyChannel%,"VSG Ready");
+	SampleEvent(ReadyChannel%, 1, 2, 3600); 'Trigger channel, level
+	SampleComment$(ReadyChannel%,"VSG Ready");
+	SampleTitle$(ReadyChannel%,"VSG Ready");
     
     ' Electrodes: wavemark/continuous
     ' 12/6/2010
@@ -1009,14 +1020,14 @@ func Start%()
 	' Stimulus is always used
 	Stim$ := " -s " + GetGratingParameters$("Stimulus");
 	Values$ := tunValuesStringified$;
-	Extras$ := " -b " + tunBackgroundColor$ + " -d " + DistanceToScreenMM$ + " -p 4";
+	Extras$ := " -b " + tunBackgroundColor$ + " -d " + DistanceToScreenMM$ + " -p 2 -v";
     if tunDoRivalry% = 0 then
         Dual$ := "";
     else
         ' Fetch the offset filename
         key$ := GetRegistryKey$(1) + "\\Rivalry";
         offsetFilename$ := GetStringRegistryValue$(GetRegistryKey$(1), "OffsetFile", "file_not_found");
-        Dual$ := " -r " + offsetFilename$ + " -M ";
+        Dual$ := " -K -r " + offsetFilename$ + " -M ";
     endif
     
 	docase 
@@ -1049,7 +1060,7 @@ func Start%()
                 areaArg$ += str$(tunValues[tunValuesIndices%[i%]]) + ",";
                 donutArg$ += "0,0,";
             else
-                areaArg$ += "0,";
+                areaArg$ += str$(tunDonutOptimalDiam) + ",";
                 donutArg$ += str$(tunValues[tunValuesIndices%[i%]]) + "," + str$(tunDonutOptimalDiam) + ",";
             endif
         next
