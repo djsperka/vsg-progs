@@ -1,4 +1,5 @@
-' $Id: Tuning.s2s,v 1.34 2011-02-08 00:00:34 devel Exp $
+' $Id: Tuning.s2s,v 1.35 2011-02-08 23:03:33 devel Exp $
+const tunCVSID$ := "$Id: Tuning.s2s,v 1.35 2011-02-08 23:03:33 devel Exp $";
 
 #include "../../Spike2Util/ChannelUtilities.s2s"
 #include "../../Spike2Util/UsreyUtil.s2s"
@@ -156,7 +157,7 @@ func TuningCurveScriptDialog%()
     ' to hit OK on this dialog to start the experiment. Thus, make sure that the return value from this function is 1
     ' when user hits OK and 0 when user hits Cancel. Also, do not save script parameters when user hits Cancel.
     
-    PrintLog("Tuning Curve Parameters Dialog - return from DlgShow is %d\n", i%);
+    'PrintLog("Tuning Curve Parameters Dialog - return from DlgShow is %d\n", i%);
     '	if i%=tundlgOrientationButton% or i%=tundlgContrastButton% or i%=tundlgSpatialButton% or i%=tundlgTemporalButton% or i%=tundlgAreaButton% then
     if i% = 1 then
 		tunBackgroundColor$ := bcl$[ibcl%];
@@ -167,7 +168,7 @@ func TuningCurveScriptDialog%()
 		endif;
 	endif;
 	if i% = 0 then
-		PrintLog("Tuning Curve Parameters dialog - user hit Cancel, tunType=" + tunType$ + "\n");
+		'PrintLog("Tuning Curve Parameters dialog - user hit Cancel, tunType=" + tunType$ + "\n");
 		if tunContext$ = tunContextDAQ$ then 
 			if tunType$ <> tunTypeNone$ then 
 				iReturn% := 0;
@@ -407,6 +408,7 @@ func IdleProcessing%()
         ' Waiting for eye to fall inside of fixation window
         if Looking%(xEye, yEye) = 1 then
             LogStatus("WaitForAcquisition", "Eye in fixation window; request stim");
+            SampleText("S," + str$(GetPlotXCoord(nTrialsCompleted%)));
             SampleKey("S");
             iHoldCount% := 0;
             ChangeStateTo(stateWaitForStimOn%, tNow);
@@ -465,6 +467,7 @@ func IdleProcessing%()
             else
                 tInterTrialTime := tunHoldFailTime;
             endif
+            SampleText("-");
             ChangeStateTo(stateAbort%, tNow);
 
         else 
@@ -474,6 +477,7 @@ func IdleProcessing%()
                 iHoldCount% += 1;
 
                 ' turn off stimulus and advance it
+                SampleText("+");
                 LogStatus("HoldFixation", "Turn off and advance stimulus.");
                 SampleKey("s");
                 Yield();
@@ -483,7 +487,6 @@ func IdleProcessing%()
                 
                 ' Process spikes
                 PlotSpikes(tStimOn, tNow, 1, GetPlotXCoord(nTrialsCompleted%));
-                nTrialsCompleted% += 1;
 
                 ' Now wait until stim is off
                 ChangeStateTo(stateWaitForStimOff%, tNow);
@@ -504,6 +507,7 @@ func IdleProcessing%()
 
     case iState% = stateTrialCompleted% then
 
+        nTrialsCompleted% += 1;         ' this state must be exited this time through!!!
         if nTrialsCompleted% = (tunNAdvances%+1)*tunNRepeats% then
             ' We're all done
             ChangeStateTo(stateDone%, tNow);
@@ -527,6 +531,7 @@ func IdleProcessing%()
 
                 LogStatus("MaintainFixation", "success");
                 Reward%();
+                SampleText("S," + str$(GetPlotXCoord(nTrialsCompleted%)));
                 SampleKey("S");
                 ChangeStateTo(stateWaitForStimOn%, tNow);
 
@@ -547,11 +552,12 @@ end;
 
 
 func GetPlotXCoord(nTrials%)
-	var x;
-	var n%;
-	n% := nTrials% mod (tunNAdvances% + 1);
-	x := tunValues[tunValuesIndices%[n%]];
-	return x;
+'	var x;
+'	var n%;
+'	n% := nTrials% mod (tunNAdvances% + 1);
+'	x := tunValues[tunValuesIndices%[n%]];
+    '	return x;
+    return tunValues[tunValuesIndices%[nTrials%]];
 end;
 
 proc PlotSpikes(t1, t2, vOnOff%, x)
@@ -785,8 +791,10 @@ proc CreateSampleConfiguration()
     SampleAutoFile(1);
     PrintLog("AutoFile status " + str$(SampleAutoFile()) + "\n");
     
+    ' Text marks make extraction easier
+    SampleTextMark(200);
+    
 	'Channel recording definitions
-
 	SampleEvent(FixationPointChannel%,2,2,3600); 'Trigger channel, level
 	SampleComment$(FixationPointChannel%,"Fixpt");
 	SampleTitle$(FixationPointChannel%,"Fixpt");
@@ -795,10 +803,6 @@ proc CreateSampleConfiguration()
 	SampleComment$(StimChannel%,"Stim");
 	SampleTitle$(StimChannel%,"Stim");
     
-'	SampleEvent(StimChangeChannel%,3,2,3600); 'Trigger channel, level
-'	SampleComment$(StimChangeChannel%,"Adv");
-'	SampleTitle$(StimChangeChannel%,"Adv");
-	
 	SampleEvent(ReadyChannel%, 1, 2, 3600); 'Trigger channel, level
 	SampleComment$(ReadyChannel%,"VSG Ready");
 	SampleTitle$(ReadyChannel%,"VSG Ready");
@@ -816,11 +820,6 @@ proc CreateSampleConfiguration()
         SampleTitle$(tunNWavemarks% + i% + 1, "Cont " + str$(tunContinuousPorts%[i%]));
     next
         
-	'for index := 1 to NumberOfElectrodes% do
-	'	SampleWaveMark(index,index-1,2000,34,15,28000); ' chan, port, event rate, points, pre-trigger, rate
-	'	SampleTitle$(index,"Electrode_"+Str$(index)); 
-	'next
-	
 	SampleWaveform(XChannel%, GetEyeXPort%(), 1000);
 	SampleTitle$(XChannel%,"Eye X");
 	SampleWaveform(YChannel%, GetEyeYPort%(), 1000);
@@ -830,10 +829,6 @@ proc CreateSampleConfiguration()
 	SampleOptimise(2,2,2,2,50);  'Set optimise mode (do this last)
 	SampleMode(1); 'Continuous sampling
 end;
-
-
-
-
 
 ' Used to hard-quit from toolbar. This will close data files without saving!!! 
 ' It is important that this function be disabled once sampling is started!!!
@@ -867,8 +862,6 @@ func Stop%()
 	TotalTrials% += nTrialsStarted%;
 	TotalRewards% += nTrialsCompleted%;
 	SaveDailyTotals();
-
-
 end;
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
@@ -1003,7 +996,7 @@ end;
 
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 func Start%()
-	var CommandLine$;
+	var cmdLine$;
 	var FixationPoint$;
 	var Extras$;
 	var Tune$;
@@ -1017,6 +1010,7 @@ func Start%()
 	SampleStart(0); 'Start sampling
 	SampleKey("0");
     
+
 	' Stimulus is always used
 	Stim$ := " -s " + GetGratingParameters$("Stimulus");
 	Values$ := tunValuesStringified$;
@@ -1077,11 +1071,19 @@ func Start%()
 
 	endcase;
 	
-	CommandLine$ := "cmd /k " + bin$ + "\\fixstim " + FixationArg$ + Extras$ + Stim$ + Tune$;
+	cmdLine$ := "cmd /k " + bin$ + "\\fixstim " + FixationArg$ + Extras$ + Stim$ + Tune$;
 	
+    ' Record initial text marks. The command line may need to be broken into pieces. 
+    SampleText("Tuning,1," + str$(Len(cmdLine$)));
+    SampleText(tunCVSID$);
+    for i% := 1 to Len(cmdLine$) step 100 do
+        SampleText(Mid$(cmdLine$, i%, 100));
+    next
+    
+    
 	'Begin the stimulus program. It will take a few seconds for the VSG to initialize.
-	PrintLog(CommandLine$+"\n");
-	StimHandle% := ProgRun(CommandLine$,1);
+	PrintLog(cmdLine$+"\n");
+	StimHandle% := ProgRun(cmdLine$,1);
 	if StimHandle% <0 then Message("Could not start stimulus."); halt; endif
 	
 	ToolbarSet(0,"",IdleProcessing%);	'Enable the IdleProcessing function
