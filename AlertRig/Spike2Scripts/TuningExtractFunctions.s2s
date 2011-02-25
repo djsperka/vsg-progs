@@ -102,7 +102,7 @@ func TuningExtract%(tStart, tStop)
     var status% := 0;
     var tFound := -1;
     var sFound$;
-    var sIgnore$ := "0FJQ";
+    var sIgnore$ := "0FJQR";
     var tTrigger;
     
     txTLast := tStart;
