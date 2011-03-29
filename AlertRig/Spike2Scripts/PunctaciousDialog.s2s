@@ -1,0 +1,135 @@
+var punNChannels% := 1;
+var punDotSize% := 4;
+var punUseGrid% := 0;
+var punUsePoints% := 0;
+var punGridCenterX% := 0;
+var punGridCenterY% := 0;
+var punUseDot1% := 0;
+var punUseDot2% := 0;
+var punDot1XY%[2];
+var punDot2XY%[2];
+var punUsePoint1% := 0;
+var punUsePoint2% := 0;
+var punPoint1XY[2];
+var punPoint2XY[2];
+var punUseRamp% := 0;
+var punTOn := 2;
+var punTOff := 1;
+var punFreq := .25;
+var punFullField% := 0;
+
+proc SavePunctaciousParameters()
+    return;
+end
+
+proc GetPunctaciousParameters()
+    return;
+end
+
+
+
+func PunctaciousDialog%()
+    var status%;
+    var tmp%,AdjustedY%;
+    
+    GetPunctaciousParameters();
+    
+    DlgCreate("Punctacious Parameters");
+    DlgInteger(1, "Number of channels: ", 1, 8);
+    DlgInteger(2, "Dot size: ", 4, 28, 0, 0, 4);
+    DlgCheck(3, "Use contrast ramp");
+    DlgReal(4, "Frequency (Hz):", 0.001, 100);
+    DlgReal(5, "T On (sec):", 0.001, 100);
+    DlgReal(6, "T Off (sec):", 0.001, 100);
+    DlgCheck(7, "Full Field");
+    DlgButton(101, "Grid", PunctaciousGridDialog%);
+    DlgButton(102, "Points", PunctaciousPointsDialog%);
+    DlgAllow(0xffff, 0, PunctaciousDialogChanged%);
+'    DlgInteger(6, "Number of repeats: ", 1, 100);
+    '    DlgList(7, "Color properties: ", amsColor$[]);
+    status% := DlgShow(punNChannels%, punDotSize%, punUseRamp%, punFreq, punTOn, punTOff, punFullField%);
+    if status% = 1 then
+        SavePunctaciousParameters();
+    endif
+    
+    return status%
+end
+
+func PunctaciousDialogChanged%(item%)
+    docase
+    case item% = 0 then
+        DlgEnable(1-punUseRamp%, 5, 6);
+        DlgEnable(punUseRamp%, 4);
+    case item% = 3 then
+        DlgEnable(1-DlgValue(3), 5, 6);
+        DlgEnable(DlgValue(3), 4);
+    endcase
+    return 1;
+end
+
+
+func PunctaciousGridDialogChanged%(item%)
+    docase
+    case item% = 0 then
+        DlgEnable(punUseGrid%, 2, 3, 4, 5, 6, 7, 8, 9);
+        DlgEnable(punUseDot1%, 5, 6);
+        DlgEnable(punUseDot2%, 8, 9);
+    case item% = 1 then
+        DlgEnable(DlgValue(1), 2, 3, 4, 7);
+        DlgEnable(DlgValue(4), 5, 6);
+        DlgEnable(DlgValue(7), 8, 9);        
+    case item% = 4 then
+        DlgEnable(DlgValue(4), 5, 6);
+    case item% = 7 then
+        DlgEnable(DlgValue(7), 8, 9);
+    endcase
+    return 1;
+end
+
+
+func PunctaciousGridDialog%()
+    DlgCreate("Punctacious Grid");
+    DlgCheck(1, "Use grid");
+    DlgInteger(2, "Center X coord: ", -400, 400);
+    DlgInteger(3, "Center Y coord: ", -300, 300);
+    DlgCheck(4, "Dot 1", 5, 4);
+    DlgInteger(5, "X:", 0, 15, 20, 4);
+    DlgInteger(6, "Y:", 0, 15, 30, 4);
+    DlgCheck(7, "Dot 2", 5, 5);
+    DlgInteger(8, "X:", 0, 15, 20, 5);
+    DlgInteger(9, "Y:", 0, 15, 30, 5);
+    DlgAllow(0xffff, 0, PunctaciousGridDialogChanged%);
+    DlgShow(punUseGrid%, punGridCenterX%, punGridCenterY%, punUseDot1%, punDot1XY%[0], punDot1XY%[1], punUseDot2%, punDot2XY%[0], punDot2XY%[1]);
+    return 1;
+end
+
+func PunctaciousPointsDialogChanged%(item%)
+    docase
+    case item% = 0 then
+        DlgEnable(punUsePoint1%, 2, 3);
+        DlgEnable(punUsePoint2%, 5, 6);
+    case item% = 1 then
+        DlgEnable(DlgValue(1), 2, 3);
+    case item% = 4 then
+        DlgEnable(DlgValue(4), 5, 6);
+    endcase
+    return 1;
+end
+
+
+func PunctaciousPointsDialog%()
+    DlgCreate("Punctacious Points");
+    DlgCheck(1, "Point 1", 5, 1);
+    DlgInteger(2, "X:", -400, 400, 20, 1);
+    DlgInteger(3, "Y:", -300, 300, 40, 1);
+    DlgCheck(4, "Point` 2", 5, 2);
+    DlgInteger(5, "X:", -400, 400, 20, 2);
+    DlgInteger(6, "Y:", -300, 300, 40, 2);
+    DlgAllow(0xffff, 0, PunctaciousPointsDialogChanged%);
+    DlgShow(punUsePoint1%, punPoint1XY[0], punPoint1XY[1], punUsePoint2%, punPoint2XY[0], punPoint2XY[1]);
+    return 1;
+end
+
+
+
+'PunctaciousDialog%();
