@@ -1,0 +1,259 @@
+' $Id: Vertibar.s2s,v 1.1 2011-03-29 06:34:20 devel Exp $
+'
+#include "../../Spike2Util/UsreyUtil.s2s"
+#include "PunctaciousDialog.s2s"
+
+' dialog
+var vtbNChannels% := 1;
+var vtbFramesPerTerm% := 1;
+var vtbCenterX% := 0;
+var vtbNCols% := 16;
+var vtbBarWidth% := 0;
+var vtbFullScreen% := 0;
+
+' Channel numbers
+var vtbChanTrigger% := 11;
+var vtbChanVSGReady% := 12;
+
+' Windows
+var vtbDataWindow%;
+var vtbRasterWindow%[8];    ' one for each electrode
+
+' Handle
+var vtbStimHandle;
+
+' trigger counting
+var vtbNTriggersCounted% := 0;
+var vtbNTriggersExpected% := 0;
+var vtbLastTriggerTime := -1;
+var vtbFirstTriggerTime := -1;
+
+' states
+const stateStartup%             :=  1;
+const stateVSGWait%             :=  2;
+const stateVSGConfirm%          :=  3;
+const stateStartStim%           :=  4;
+const stateStim%                :=  5;
+const stateDone%                :=  6;
+
+var iState% := stateStartup%;              ' This holds the current state
+
+'~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+' Script starts here
+
+LogInit(1);
+
+if VertibarDialog%() = 0 then
+    halt;
+endif
+
+' Sampling config
+CreateSampleConfiguration();
+
+' Prepare display windows, input channels, etc. 
+InitializeWindows();
+
+' Set up toolbar and launch
+InitializeToolbar();
+
+
+
+func VertibarDialog%()
+    var status% := 0;
+    DlgCreate("Vertibar!");
+    DlgInteger(1, "# Electrodes", 1, 8);
+    DlgInteger(2, "Frames per term", 1, 1000, 0, 0, 1);
+    DlgInteger(3, "# columns", 1, 250, 0, 0, 1);
+    DlgCheck(4, "Full Screen width");
+    DlgInteger(5, "Bar Width (pixels)", 4, 800);
+    DlgInteger(6, "Center X (pixels)", -400, 400);
+    DlgAllow(0xffff, 0, VertibarDialogChanged%);
+    status% := DlgShow(vtbNChannels%, vtbFramesPerTerm%, vtbNCols%, vtbFullScreen%, vtbBarWidth%, vtbCenterX%);;
+    return status%
+end
+
+
+func VertibarDialogChanged%(item%)
+    docase
+    case item% = 0 then
+        DlgEnable(1-vtbFullScreen%, 5);
+    case item% = 4 then
+        DlgEnable(1-DlgValue(4), 5);
+    endcase
+    return 1;
+end
+
+proc CreateSampleConfiguration()
+    
+    var i%;
+    
+	SampleClear(); 'Set standard sampling state
+	SampleAutoComment(0); 'Prompt for comment after sampling
+	SampleAutoCommit(60); 'Seconds between each file commit
+    
+    FilePathSet(GetDataPathRoot$() + "\\" + GetDataSetName$(), 3);
+    FilePathSet(GetDataPathRoot$() + "\\" + GetDataSetName$(), 1);
+    SampleAutoName$(dataCellName$ + "_vtb_000");
+	SampleAutoFile(1);
+
+    'Channel recording definitions
+
+    for i% := 1 to vtbNChannels% do
+        SampleWaveMark(i%, i%-1, 2000, 34, 15, 28000); ' chan, port, event rate, points, pre-trigger, rate
+        SampleTitle$(i%, "Trode " + Str$(i%-1));
+    next
+
+    SampleEvent(vtbChanTrigger%, 1, 1, 1000); 
+    SampleTitle$(vtbChanTrigger%, "Cycle Trg");
+    
+   	SampleEvent(vtbChanVSGReady%, 6, 2, 200); 'Trigger channel, level
+	SampleComment$(vtbChanVSGReady%, "VSG Rdy");
+	SampleTitle$(vtbChanVSGReady%, "VSG Rdy");
+    
+	SampleSequencer(script$ + "SparseNoise.pls");
+    SampleOptimise(2, 2, 2, 2, 50);  'Set optimise mode (do this last)
+    SampleMode(1); 'Continuous sampling
+    
+end;
+
+
+proc InitializeWindows()
+    var i%;
+    var AutoCorr%;
+	var binsz;
+    var winsz;
+    
+    View(App(8)).WindowVisible(0);	'Hide the standard sample bar    
+    vtbDataWindow%:=FileNew(0,4);
+    View(vtbDataWindow%).WindowVisible(1);
+    XRange(0, 15);
+    View(vtbDataWindow%).Window(0,0,50,100);
+end
+
+
+proc InitializeToolbar()
+	
+    ToolbarSet(1,"Quit",Quit%);
+    ToolbarSet(2,"Sample start",Start%);
+    ToolbarSet(3,"Sample stop", Stop%);
+    ToolbarEnable(1, 1);
+    ToolbarEnable(2, 1);
+    ToolbarEnable(3, 0);
+    Toolbar("Go",0xffff);
+    
+end
+func Start%()
+    var cmd$;
+    var args$;
+    cmd$ := "cmd /c " + GetBinDir$(1) + "vertibar.exe ";
+    ' Note center X must be adjusted to VSG default coords, x=0 is left hand edge.
+    args$ := " -t " + str$(vtbFramesPerTerm%) + " -x " + str$(vtbCenterX%+400) + " -c " + str$(vtbNCols%) + " -o 15 -f " + GetStimDir$(1) + "MSequenceTerms";
+    if vtbFullScreen% = 0 then
+        args$ += " -w " + str$(vtbBarWidth%);
+    endif    
+    cmd$ += args$;
+    LogInfo(cmd$);
+    vtbStimHandle := ProgRun(cmd$);
+    
+    SampleStart(0);
+    ToolbarEnable(1,0); 
+    ToolbarEnable(2,0);
+    ToolbarEnable(3,1);
+    ToolbarSet(0, "", Idle%);
+    return 1;
+end
+
+func Stop%()
+    
+    SampleKey("q");
+    Yield();
+    SampleStop();
+    ToolbarSet(0, "");
+    ToolbarEnable(1,1); 
+    ToolbarEnable(3,0);
+    return 1;
+    
+end
+
+func Quit%()
+    ' this would have means to stop MSgSvr, like msequence. 
+    return 0;
+end
+
+
+var tTrigger := -1;
+var tLast := -1;
+var tNow := -1;
+var tLastTrigger := -1;
+var vTrigger;
+var tStateStart := -1;
+var pctComplete;
+var timeLeft;
+var nc, ne; ' spike2 doesn't have a cast operator? 
+var tLastUpdate := -1;
+
+func Idle%()
+    var status% := 1;
+    var i%;
+	tNow := View(vtbDataWindow%).MaxTime();
+    
+    docase 
+    case iState% = stateStartup% then
+        
+        LogStatus("stateStartup", "Starting up.");
+        ChangeStateTo(stateVSGWait%, tNow);
+        
+    case iState% = stateVSGWait% then
+        
+        ' Waiting for VSG to indicate it is ready. The indication is a pulse (up, then down, 1 frame apart) on port 6.
+        tTrigger := View(vtbDataWindow%).NextTime(vtbChanVSGReady%, tLast, vTrigger);
+        if tTrigger > tLastTrigger and vTrigger = 0 then
+            LogStatus("stateVSGWait", "Got leading edge of trigger.");
+            tLastTrigger := tTrigger;
+            ChangeStateTo(stateVSGConfirm%, tTrigger);                
+        endif;
+            
+    case iState% = stateVSGConfirm% then
+            
+        ' Waiting for VSG to confirm it is ready. The downward side of the pulse is expected...
+        tTrigger := View(vtbDataWindow%).NextTime(vtbChanVSGReady%, tLastTrigger, vTrigger);
+        if tTrigger > tLastTrigger and vTrigger = 1 then                
+            LogStatus("stateVSGConfirm", "Got trailing edge of trigger.");
+            tLastTrigger := tTrigger;
+            ChangeStateTo(stateStartStim%, tTrigger);
+        endif;
+            
+    case iState% = stateStartStim% then
+        
+        ' Issue sample key to start stim, then switch to looking for triggers
+        LogStatus("stateStartStim", "Starting stimulus.");
+        Yield(1.0);
+        SampleKey("s");
+        ChangeStateTo(stateStim%, tNow);
+        vtbLastTriggerTime := tNow;
+        
+    case iState% = stateStim% then
+        
+        ' nothin' to do. user must hit stop to stop. 
+        
+    case iState% = stateDone% then
+        
+        Stop%();
+        status% := 1;
+        
+    else
+        
+        LogError("", "Unknown state " + str$(iState%));
+        Stop%();
+        status% := 0;
+        
+    endcase
+    
+    return status%;
+end
+
+proc ChangeStateTo(stateTo%, tStart)
+	iState% := stateTo%;
+	if tStart > 0 then tStateStart := tStart; endif;
+end;
+
