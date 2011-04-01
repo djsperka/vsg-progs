@@ -1,17 +1,12 @@
 var punNChannels% := 1;
 var punDotSize% := 4;
 var punUseGrid% := 0;
-var punUsePoints% := 0;
 var punGridCenterX% := 0;
 var punGridCenterY% := 0;
-var punUseDot1% := 0;
-var punUseDot2% := 0;
-var punDot1XY%[2];
-var punDot2XY%[2];
-var punUsePoint1% := 0;
-var punUsePoint2% := 0;
-var punPoint1XY[2];
-var punPoint2XY[2];
+var punUseGridDots%[4];
+var punGridDotsXY%[4][2];
+var punUsePoints%[4];
+var punPointsXY%[4][2];
 var punUseRamp% := 0;
 var punTOn := 2;
 var punTOff := 1;
@@ -72,16 +67,25 @@ func PunctaciousGridDialogChanged%(item%)
     docase
     case item% = 0 then
         DlgEnable(punUseGrid%, 2, 3, 4, 5, 6, 7, 8, 9);
-        DlgEnable(punUseDot1%, 5, 6);
-        DlgEnable(punUseDot2%, 8, 9);
+        DlgEnable(punUseGrid%, 10, 11, 12, 13, 14, 15);
+        DlgEnable(punUseGridDots%[0], 5, 6);
+        DlgEnable(punUseGridDots%[1], 8, 9);
+        DlgEnable(punUseGridDots%[2], 11, 12);
+        DlgEnable(punUseGridDots%[3], 14, 15);
     case item% = 1 then
-        DlgEnable(DlgValue(1), 2, 3, 4, 7);
+        DlgEnable(DlgValue(1), 2, 3, 4, 7, 10, 13);
         DlgEnable(DlgValue(4), 5, 6);
         DlgEnable(DlgValue(7), 8, 9);        
+        DlgEnable(DlgValue(10), 11, 12);        
+        DlgEnable(DlgValue(13), 14, 15);        
     case item% = 4 then
         DlgEnable(DlgValue(4), 5, 6);
     case item% = 7 then
         DlgEnable(DlgValue(7), 8, 9);
+    case item% = 10 then
+        DlgEnable(DlgValue(10), 11, 12);
+    case item% = 13 then
+        DlgEnable(DlgValue(13), 14, 15);
     endcase
     return 1;
 end
@@ -93,25 +97,41 @@ func PunctaciousGridDialog%()
     DlgInteger(2, "Center X coord: ", -400, 400);
     DlgInteger(3, "Center Y coord: ", -300, 300);
     DlgCheck(4, "Dot 1", 5, 4);
-    DlgInteger(5, "X:", 0, 15, 20, 4);
-    DlgInteger(6, "Y:", 0, 15, 30, 4);
+    DlgInteger(5, "X:", 0, 15, 20, 4, 1);
+    DlgInteger(6, "Y:", 0, 15, 35, 4, 1);
     DlgCheck(7, "Dot 2", 5, 5);
-    DlgInteger(8, "X:", 0, 15, 20, 5);
-    DlgInteger(9, "Y:", 0, 15, 30, 5);
+    DlgInteger(8, "X:", 0, 15, 20, 5, 1);
+    DlgInteger(9, "Y:", 0, 15, 35, 5, 1);
+    DlgCheck(10, "Dot 3", 5, 6);
+    DlgInteger(11, "X:", 0, 15, 20, 6, 1);
+    DlgInteger(12, "Y:", 0, 15, 35, 6, 1);
+    DlgCheck(13, "Dot 4", 5, 7);
+    DlgInteger(14, "X:", 0, 15, 20, 7, 1);
+    DlgInteger(15, "Y:", 0, 15, 35, 7, 1);
     DlgAllow(0xffff, 0, PunctaciousGridDialogChanged%);
-    DlgShow(punUseGrid%, punGridCenterX%, punGridCenterY%, punUseDot1%, punDot1XY%[0], punDot1XY%[1], punUseDot2%, punDot2XY%[0], punDot2XY%[1]);
+    DlgShow(punUseGrid%, punGridCenterX%, punGridCenterY%, 
+        punUseGridDots%[0], punGridDotsXY%[0][0], punGridDotsXY%[0][1], 
+        punUseGridDots%[1], punGridDotsXY%[1][0], punGridDotsXY%[1][1], 
+        punUseGridDots%[2], punGridDotsXY%[2][0], punGridDotsXY%[2][1], 
+        punUseGridDots%[3], punGridDotsXY%[3][0], punGridDotsXY%[3][1]); 
     return 1;
 end
 
 func PunctaciousPointsDialogChanged%(item%)
     docase
     case item% = 0 then
-        DlgEnable(punUsePoint1%, 2, 3);
-        DlgEnable(punUsePoint2%, 5, 6);
+        DlgEnable(punUsePoints%[0], 2, 3);
+        DlgEnable(punUsePoints%[1], 5, 6);
+        DlgEnable(punUsePoints%[2], 8, 9);
+        DlgEnable(punUsePoints%[3], 11, 12);
     case item% = 1 then
         DlgEnable(DlgValue(1), 2, 3);
     case item% = 4 then
         DlgEnable(DlgValue(4), 5, 6);
+    case item% = 7 then
+        DlgEnable(DlgValue(7), 8, 9);
+    case item% = 10 then
+        DlgEnable(DlgValue(10), 11, 12);
     endcase
     return 1;
 end
@@ -125,11 +145,19 @@ func PunctaciousPointsDialog%()
     DlgCheck(4, "Point` 2", 5, 2);
     DlgInteger(5, "X:", -400, 400, 20, 2);
     DlgInteger(6, "Y:", -300, 300, 40, 2);
+    DlgCheck(7, "Point 3", 5, 3);
+    DlgInteger(8, "X:", -400, 400, 20, 3);
+    DlgInteger(9, "Y:", -300, 300, 40, 3);
+    DlgCheck(10, "Point` 4", 5, 4);
+    DlgInteger(11, "X:", -400, 400, 20, 4);
+    DlgInteger(12, "Y:", -300, 300, 40, 4);
     DlgAllow(0xffff, 0, PunctaciousPointsDialogChanged%);
-    DlgShow(punUsePoint1%, punPoint1XY[0], punPoint1XY[1], punUsePoint2%, punPoint2XY[0], punPoint2XY[1]);
+    DlgShow(punUsePoints%[0], punPointsXY%[0][0], punPointsXY%[0][1], 
+        punUsePoints%[1], punPointsXY%[1][0], punPointsXY%[1][1], 
+        punUsePoints%[2], punPointsXY%[2][0], punPointsXY%[2][1], 
+        punUsePoints%[3], punPointsXY%[3][0], punPointsXY%[3][1]);
     return 1;
 end
 
 
 
-'PunctaciousDialog%();
