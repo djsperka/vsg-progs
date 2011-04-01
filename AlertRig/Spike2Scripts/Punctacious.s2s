@@ -1,4 +1,4 @@
-' $Id: Punctacious.s2s,v 1.1 2011-03-29 06:34:20 devel Exp $
+' $Id: Punctacious.s2s,v 1.2 2011-04-01 18:10:03 devel Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "PunctaciousDialog.s2s"
@@ -142,6 +142,7 @@ end
 func Start%()
     var cmd$;
     var args$;
+    var i%;
     cmd$ := "cmd /c " + GetBinDir$(1) + "punctate.exe ";
     args$ := " -r 16 -c 16 -d " + str$(punDotSize%);
     
@@ -160,21 +161,19 @@ func Start%()
     ' grid points?
     if punUseGrid% = 1 then
         args$ += " -p " + str$(punGridCenterX%) + "," + str$(-punGridCenterY%);
-        if punUseDot1% = 1 then
-            args$ += " -P " + str$(punDot1XY%[0]) + "," + str$(punDot1XY%[1]);
-        endif
-        if punUseDot2% = 1 then
-            args$ += " -P " + str$(punDot2XY%[0]) + "," + str$(punDot2XY%[1]);
-        endif
+        for i% := 0 to 3 do
+            if punUseGridDots%[i%] = 1 then
+                args$ += " -P " + str$(punGridDotsXY%[i%][0]) + "," +  str$(punGridDotsXY%[i%][1]);
+            endif
+        next
     endif
     
     ' free points?
-    if punUsePoint1% = 1 then
-        args$ += " -Z " + str$(punPoint1XY[0]) + "," + str$(-punPoint1XY[1]);
-    endif
-    if punUsePoint2% = 1 then
-        args$ += " -Z " + str$(punPoint2XY[0]) + "," + str$(-punPoint2XY[1]);
-    endif
+    for i% := 0 to 3 do
+        if punUsePoints%[i%] = 1 then
+            args$ += " -Z " + str$(punPointsXY%[i%][0]) + "," + str$(-punPointsXY%[i%][1]);
+        endif
+    next
     
     cmd$ += args$;
     
