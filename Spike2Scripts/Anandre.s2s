@@ -1,0 +1,81 @@
+#include "../../Spike2Util/FileUtilities.s2s"
+
+var lgnChannel% := 2;
+var v1Channel% := 1;
+var lpFreq := 120;     ' low pass filter freq
+var lpTRW := 70;
+var bpLowFreq := 700;  ' band pass low freq
+var bpHighFreq := 7000;  ' band pass hi freq
+var bpTRW := 2.5;
+
+var exportFilename$;
+var xchans%[5];
+xchans%[0] := 4;
+var lgnLFPChannel%;
+var lgnMUAChannel%;
+var v1LFPChannel%;
+var v1MUAChannel%;
+
+' LGN LFP
+xchans%[1] := LFP%(lgnChannel%, lpFreq, lpTRW, 0, MaxTime());
+'xchans%[1] := LFP%(lgnChannel%, lpFreq, lpTRW, 0, 10);
+ChanTitle$(xchans%[1], "LGN LFP");
+
+' V1 LFP
+xchans%[2] := LFP%(v1Channel%, lpFreq, lpTRW, 0, MaxTime());
+'xchans%[2] := LFP%(v1Channel%, lpFreq, lpTRW, 0, 10);
+ChanTitle$(xchans%[2], "V1 LFP");
+
+' LGN MUA 
+xchans%[3] := MUA%(lgnChannel%, bpTRW, bpLowFreq, bpHighFreq, lpFreq, lpTRW, 0, MaxTime());
+'xchans%[3] := MUA%(lgnChannel%, bpTRW, bpLowFreq, bpHighFreq, lpFreq, lpTRW, 0, 10);
+ChanTitle$(xchans%[3], "LGN MUA");
+
+' V1 MUA
+xchans%[4] := MUA%(v1Channel%, bpTRW, bpLowFreq, bpHighFreq, lpFreq, lpTRW, 0, MaxTime());
+'xchans%[4] := MUA%(v1Channel%, bpTRW, bpLowFreq, bpHighFreq, lpFreq, lpTRW, 0, 10);
+ChanTitle$(xchans%[4], "V1 MUA");
+
+' Optimize and display filtered channels
+Optimise(xchans%[]);
+ChanShow(xchans%[]);
+
+
+' Now export
+ExportChanList();
+ExportChanList(0, MaxTime(), xchans%[]);
+exportFilename$ := ReplaceFileExtension$(0, ".mat");
+PrintLog("Exporting %s\n", exportFilename$);
+FileSaveAs(exportFilename$, 100, 1, "", 2, "");
+
+
+func LFP%(ichan%, lpFreq, lpTRW, sTime, eTime)
+    var ochan%;
+    
+    ' Low pass filter
+    FiltCreate(-1, 2, lpTRW, lpFreq);
+    ochan% := FiltApply(-1, 0, ichan%, sTime, eTime);
+
+    ' Downsample to 1kHz
+    PrintLog("Sampling frequency is %f, downsamp 1:%d\n", 1/Binsize(ochan%), Round(1/Binsize(ochan%)/1000.));
+    ChanProcessAdd(ochan%, 5, Round(1/Binsize(ochan%)/1000.));
+    
+    return ochan%;
+end
+
+func MUA%(ichan%, bandTRW, bandLow, bandHigh, lpFreq, lpTRW, sTime, eTime)
+    var ochan1%;
+    var ochan2%;
+    
+    ' band pass filter
+    FiltCreate(-1, 4, bandTRW, bandLow, bandHigh);
+    ochan1% := FiltApply(-1, 0, ichan%, sTime, eTime);
+    
+    ' Rectify
+    ChanProcessAdd(ochan1%, 0);
+    
+    ' Now do LFP process
+    ochan2% := LFP%(ochan1%, lpFreq, lpTRW, sTime, eTime);
+    
+    return ochan2%;
+end
