@@ -1,0 +1,341 @@
+' $Id: KrubTuningDialogs.s2s,v 1.1 2011-05-16 20:57:15 devel Exp $
+
+#include "../../Spike2Util/LogUtilities.s2s"
+#include "../../Spike2Util/MiscUtilities.s2s"
+#include "UsreyGratings.s2s"
+
+
+'~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~`
+'
+' These vars have their values set here but are used in the main tuning script. 
+' This file must be #included in the main script. Don't worry about overlapping
+' #include files (i.e. files that may be included here AND in the main script) - 
+' spike2 is smart about it and only includes the file once. 
+'
+'~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+' Colors
+var tunBGColor$[3];
+var tunBGColorIndex% := 0;
+var tunBGColorCurrent$;
+
+' Tuning curve parameters
+
+var tunNRepeats% := 1;
+var tunStimTime := 2;
+var tunBlankTime := 2;
+var tunNSteps% := 15;
+var tunOriMin := 0;
+var tunOriMax := 360;
+var tunContrastMin := 1;
+var tunContrastMax := 100;
+var tunSFMin := 0.1;
+var tunSFMax := 6;
+var tunTFMin := 0.5;
+var tunTFMax := 64;
+var tunRandomProgression% := 0;
+
+' String vars whose values are specific to the expt type
+var tunExptTypeFileLabel$;
+var tunExptTypeLabel$;
+var tunExptTypeArgs$;
+
+' tuned parameter arrays
+const tunMaxParameters% := 500;
+var tunParameterValues[tunMaxParameters%];
+var tunParameterIndices%[tunMaxParameters%];
+
+' Grating parameters
+var tunGratingParams$;
+
+
+
+func KrubTuningDialog%()
+    var status%;
+    
+    LogWarn("KrubTuningDialog()", "TODO: Get Krub Tuning Parameters");
+    
+    DlgCreate("Select Tuning Curve Type");
+    DlgButton(101, "Orientation", TunDlgOrientation%, 1, 1);
+    DlgButton(102, "Contrast", TunDlgContrast%, 1, 2);
+    DlgButton(103, "Spatial Frequency", TunDlgSF%, 1, 3);
+    DlgButton(104, "Temporal Frequency", TunDlgTF%, 1, 4);
+'    DlgButton(105, "Area", TunDlgArea%, 1, 5);
+'    DlgButton(106, "XY", TunDlgXY%, 1, 6);
+    status% := DlgShow();    
+    if status% <> 0 then
+        tunBGColorCurrent$ := tunBGColor$[tunBGColorIndex%];
+    endif
+    
+    LogWarn("KrubTuningDialog()", "TODO: Save Tuning Parameters");
+    
+    return status%;
+end
+
+
+func TunDlgOrientation%()
+    var status%;
+    var nParams%;
+    DlgCreate("Orientation Tuning Parameters");
+    DlgReal(1, "Stimulus time(s)", 0.1, 100.0);
+    DlgReal(2, "Blank time(s)", 0.1, 100.0);
+    DlgInteger(3, "Number of steps", 2, 100);
+    DlgInteger(4, "Number of repeats", 1, 100);
+    DlgReal(5, "Min Orientation", 0, 360);
+    DlgReal(6, "Max Orientation", 0, 360);
+    DlgCheck(7, "Random Progression?");
+	DlgList(8, "Background color:", tunBGColor$);
+    DlgButton(151, "Grating Properties", TunDlgOrientationGrating%);
+    status% := DlgShow(tunStimTime, tunBlankTime, tunNSteps%, tunNRepeats%, tunOriMin, tunOriMax, tunRandomProgression%, tunBGColorIndex%);
+    
+    ' Check return value from DlgShow. If user hit OK, the return value is 1, but we must
+    ' change it to 0 here.... that's so the calling dialog exits. 
+    ' Before we return from here, though, we have all the info needed to put together the 
+    ' command line for the tuning program. 
+    
+    docase
+    case status% = 0 then 
+        status% := 1;
+    case status% = 1 then
+        status% := 0;
+        tunExptTypeFileLabel$ := "ori";
+        tunExptTypeLabel$ := "Orientation";
+        nParams% := (tunNSteps%+1)*tunNRepeats%;
+        if GetRepeatedParameterProgression%(tunNSteps%+1, tunNRepeats%, tunParameterValues[0:nParams%], tunParameterIndices%[0:nParams%], tunOriMin, tunOriMax, 0, tunRandomProgression%) <> 0 then
+            ' TODO: Make sure dialog limits values to this never happens!
+            Message("Cannot get progression values for this expt!");
+            halt;
+        endif
+        tunExptTypeArgs$ := " -O " + GetRealArrayAsString$(tunParameterValues[0:tunNSteps%+1], tunParameterIndices%[0:tunNSteps%+1]);
+        PrintLog(tunExptTypeArgs$ + "\n");
+    endcase
+    
+    return status%;
+end
+
+
+
+func TunDlgOrientationGrating%()
+    
+    var x, y, w, h, sf, tf, ori;
+    var contrast%;
+    var label$, param$, cv$, pattern$, aperture$;
+    var i%;
+    var disable%[11];
+    var ndisable%;
+
+    ' Disregard the return value from GratingParametersDialog and return 1 so the calling dialog does not exit. 
+    ArrConst(disable%[], 0);
+    ndisable% := 1;
+    disable%[0] := 8;
+    i% := GratingParametersDialog%(label$, tunGratingParams$, disable%[], ndisable%, x, y, w, h, contrast%, sf, tf, ori, cv$, pattern$, aperture$);
+    LogInfo("TunDlg Orientation: grating label=>" + label$ + "<");
+    LogInfo("TunDlg Orientation: params=>" + tunGratingParams$ + "<");
+    return 1;
+end
+
+
+
+func TunDlgContrast%()
+    var status%;
+    DlgCreate("Contrast Tuning Parameters");
+    DlgReal(1, "Stimulus time(s)", 0.1, 100.0);
+    DlgReal(2, "Blank time(s)", 0.1, 100.0);
+    DlgInteger(3, "Number of steps", 2, 100);
+    DlgInteger(4, "Number of repeats", 1, 100);
+    DlgReal(5, "Min Contrast%", 1, 100);
+    DlgReal(6, "Max Contrast%", 1, 100);
+    DlgCheck(7, "Random Progression?");
+	DlgList(8, "Background color:", tunBGColor$);
+    DlgButton(151, "Grating Properties", TunDlgContrastGrating%);
+    status% := DlgShow(tunStimTime, tunBlankTime, tunNSteps%, tunNRepeats%, tunContrastMin, tunContrastMax, tunRandomProgression%, tunBGColorIndex%);
+    
+    ' Check return value from DlgShow. If user hit OK, the return value is 1, but we must
+    ' change it to 0 here.... that's so the calling dialog exits. 
+    ' Before we return from here, though, we have all the info needed to put together the 
+    ' command line for the tuning program. 
+    
+    docase
+    case status% = 0 then 
+        status% := 1;
+    case status% = 1 then
+        status% := 0;
+        tunExptTypeFileLabel$ := "dom";
+        tunExptTypeLabel$ := "Contrast";
+        if GetRepeatedParameterProgression%(tunNSteps%+1, tunNRepeats%, tunParameterValues[0:tunNSteps%+1], tunParameterIndices%[0:tunNSteps%+1], tunContrastMin, tunContrastMax, 1, tunRandomProgression%) <> 0 then
+            ' TODO: Make sure dialog limits values to this never happens!
+            Message("Cannot get progression values for this expt!");
+            halt;
+        endif
+        tunExptTypeArgs$ := " -C " + GetRealArrayAsString$(tunParameterValues[0:tunNSteps%+1], tunParameterIndices%[0:tunNSteps%+1]);
+        PrintLog(tunExptTypeArgs$ + "\n");
+    endcase
+    
+    return status%;
+end
+
+func TunDlgContrastGrating%()
+    
+    var x, y, w, h, sf, tf, ori;
+    var contrast%;
+    var label$, param$, cv$, pattern$, aperture$;
+    var i%;
+    var disable%[11];
+    var ndisable%;
+
+    ' Disregard the return value from GratingParametersDialog and return 1 so the calling dialog does not exit. 
+    ArrConst(disable%[], 0);
+    ndisable% := 1;
+    disable%[0] := 5;
+    i% := GratingParametersDialog%(label$, param$, disable%[], ndisable%, x, y, w, h, contrast%, sf, tf, ori, cv$, pattern$, aperture$);
+    return 1;
+end
+
+
+func TunDlgSF%()
+    var status%;
+    var nParams%;
+    DlgCreate("Spatial Frequency Tuning Parameters");
+    DlgReal(1, "Stimulus time(s)", 0.1, 100.0);
+    DlgReal(2, "Blank time(s)", 0.1, 100.0);
+    DlgInteger(3, "Number of steps", 2, 100);
+    DlgInteger(4, "Number of repeats", 1, 100);
+    DlgReal(5, "Min SF", .01, 100);
+    DlgReal(6, "Max SF", .01, 100);
+    DlgCheck(7, "Random Progression?");
+	DlgList(8, "Background color:", tunBGColor$);
+    DlgButton(151, "Grating Properties", TunDlgSFGrating%);
+    status% := DlgShow(tunStimTime, tunBlankTime, tunNSteps%, tunNRepeats%, tunSFMin, tunSFMax, tunRandomProgression%, tunBGColorIndex%);
+    
+    ' Check return value from DlgShow. If user hit OK, the return value is 1, but we must
+    ' change it to 0 here.... that's so the calling dialog exits. 
+    ' Before we return from here, though, we have all the info needed to put together the 
+    ' command line for the tuning program. 
+    
+    docase
+    case status% = 0 then 
+        status% := 1;
+    case status% = 1 then
+        status% := 0;
+        tunExptTypeFileLabel$ := "sf";
+        tunExptTypeLabel$ := "Spatial Frequency";
+        nParams% := (tunNSteps%+1)*tunNRepeats%;
+        if GetRepeatedParameterProgression%(tunNSteps%+1, tunNRepeats%, tunParameterValues[0:nParams%], tunParameterIndices%[0:nParams%], tunSFMin, tunSFMax, 1, tunRandomProgression%) <> 0 then
+            ' TODO: Make sure dialog limits values to this never happens!
+            Message("Cannot get progression values for this expt!");
+            halt;
+        endif
+        tunExptTypeArgs$ := " -S " + GetRealArrayAsString$(tunParameterValues[0:tunNSteps%+1], tunParameterIndices%[0:tunNSteps%+1]);
+        PrintLog(tunExptTypeArgs$ + "\n");
+    endcase
+    
+    return status%;
+end
+
+func TunDlgSFGrating%()
+    
+    var x, y, w, h, sf, tf, ori;
+    var contrast%;
+    var label$, param$, cv$, pattern$, aperture$;
+    var i%;
+    var disable%[11];
+    var ndisable%;
+
+    ' Disregard the return value from GratingParametersDialog and return 1 so the calling dialog does not exit. 
+    ArrConst(disable%[], 0);
+    ndisable% := 1;
+    disable%[0] := 6;
+    i% := GratingParametersDialog%(label$, param$, disable%[], ndisable%, x, y, w, h, contrast%, sf, tf, ori, cv$, pattern$, aperture$);
+    return 1;
+end
+
+
+func TunDlgTF%()
+    var status%;
+    var nParams%;
+    DlgCreate("Temporal Frequency Tuning Parameters");
+    DlgReal(1, "Stimulus time(s)", 0.1, 100.0);
+    DlgReal(2, "Blank time(s)", 0.1, 100.0);
+    DlgInteger(3, "Number of steps", 2, 100);
+    DlgInteger(4, "Number of repeats", 1, 100);
+    DlgReal(5, "Min TF", .01, 100);
+    DlgReal(6, "Max TF", .01, 100);
+    DlgCheck(7, "Random Progression?");
+	DlgList(8, "Background color:", tunBGColor$);
+    DlgButton(151, "Grating Properties", TunDlgTFGrating%);
+    status% := DlgShow(tunStimTime, tunBlankTime, tunNSteps%, tunNRepeats%, tunTFMin, tunTFMax, tunRandomProgression%, tunBGColorIndex%);
+    
+    ' Check return value from DlgShow. If user hit OK, the return value is 1, but we must
+    ' change it to 0 here.... that's so the calling dialog exits. 
+    ' Before we return from here, though, we have all the info needed to put together the 
+    ' command line for the tuning program. 
+    
+    docase
+    case status% = 0 then 
+        status% := 1;
+    case status% = 1 then
+        status% := 0;
+        tunExptTypeFileLabel$ := "tf";
+        tunExptTypeLabel$ := "Temporal Frequency";
+        nParams% := (tunNSteps%+1)*tunNRepeats%;
+        if GetRepeatedParameterProgression%(tunNSteps%+1, tunNRepeats%, tunParameterValues[0:nParams%], tunParameterIndices%[0:nParams%], tunTFMin, tunTFMax, 1, tunRandomProgression%) <> 0 then
+            ' TODO: Make sure dialog limits values to this never happens!
+            Message("Cannot get progression values for this expt!");
+            halt;
+        endif
+        tunExptTypeArgs$ := " -T " + GetRealArrayAsString$(tunParameterValues[0:tunNSteps%+1], tunParameterIndices%[0:tunNSteps%+1]);
+        PrintLog(tunExptTypeArgs$ + "\n");
+    endcase
+    
+    return status%;
+end
+
+func TunDlgTFGrating%()
+    
+    var x, y, w, h, sf, tf, ori;
+    var contrast%;
+    var label$, param$, cv$, pattern$, aperture$;
+    var i%;
+    var disable%[11];
+    var ndisable%;
+
+    ' Disregard the return value from GratingParametersDialog and return 1 so the calling dialog does not exit. 
+    ArrConst(disable%[], 0);
+    ndisable% := 1;
+    disable%[0] := 7;
+    i% := GratingParametersDialog%(label$, param$, disable%[], ndisable%, x, y, w, h, contrast%, sf, tf, ori, cv$, pattern$, aperture$);
+    return 1;
+end
+
+
+func TunDlgArea%()
+    var status%;
+    DlgCreate("Area Tuning Parameters");
+    status% := DlgShow();
+    PrintLog("TunDlgArea %d\n", status%);
+    docase
+    case status% = 0 then 
+        status% := 1;
+    case status% = 1 then
+        status% := 0;
+        tunExptTypeFileLabel$ := "area";
+        tunExptTypeLabel$ := "Area";
+    endcase
+    return status%;
+end
+
+func TunDlgXY%()
+    var status%;
+    DlgCreate("XY Tuning Parameters");
+    status% := DlgShow();
+    PrintLog("TunDlgXY %d\n", status%);
+    docase
+    case status% = 0 then 
+        status% := 1;
+    case status% = 1 then
+        status% := 0;
+        tunExptTypeFileLabel$ := "xy";
+        tunExptTypeLabel$ := "XY";
+    endcase
+    return status%;
+end
