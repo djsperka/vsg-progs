@@ -1,0 +1,364 @@
+' $Id: KrubTuning.s2s,v 1.1 2011-05-16 20:57:15 devel Exp $
+'
+'
+
+#include "KrubTuningDialogs.s2s"
+#include "../../Spike2Util/UsreyUtil.s2s"
+#include "../../Spike2Util/FileUtilities.s2s"
+#include "../../Spike2Util/MiscUtilities.s2s"
+#include "../../Spike2Util/ChannelUtilities.s2s"
+
+' tuning type-specific values
+var tunFileLabel$ := "zzz";
+
+' tuning daq parameters
+var tunNChannels%;
+var tunColorIndex%;
+var tunColor$[4];
+
+' daq channels for triggers from vsg
+var tunChanTrigger% := 11;
+var tunChanVSGReady% := 12;
+
+' prog handles
+var tunHandleStim := -1;
+
+' window handles
+var tunWindowData%;
+
+
+' Tuning curve types
+
+const tuntypeOri%     := 101;
+const tuntypeDom%     := 102;
+const tuntypeSF%       := 103;
+const tuntypeTF%       := 104;
+const tuntypeArea%     := 105;
+const tuntypeXY%       := 106;
+var tuntypeSelected%   := tuntypeOri%;
+
+
+
+
+' Initializations
+
+tunBGColor$[0] := "gray";
+tunBGColor$[1] := "black";
+tunBGColor$[2] := "white";
+
+tunColor$[0] := "Black and white";
+tunColor$[1] := "S cone isolating";
+tunColor$[2] := "M cone isolating";
+tunColor$[3] := "L cone isolating";
+
+tunGratingParams$ := GetGratingParameters$("Stimulus");
+
+' TODO: Resize window?
+'View(App(0)).Window(0,0,75,95);
+
+
+
+
+'~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+' Script starts here
+
+' Initialize logging
+LogInit(1);
+
+
+' Get experimental parameters. 
+' tunFileLabel$ is set here! 
+if KrubTuningDialog%() = 0 then
+    halt;
+endif
+
+' Sampling config
+CreateSampleConfiguration();
+
+' Prepare display windows, input channels, etc. 
+InitializeWindows();
+
+
+	
+ToolbarSet(1,"Quit",Quit%);
+ToolbarSet(2,"Sample start",Start%);
+ToolbarSet(3,"Sample stop", Stop%);
+ToolbarEnable(3,0);
+Toolbar("Go",1234);
+
+' Oh no! Make sure sampling has stopped!
+if SampleStatus() <> -1 then
+    LogWarn("KrubTuning", "Toolbar exited and sampling status is " + str$(SampleStatus()) + ". Stopping sampling...");
+    SampleStop();
+    LogWarn("KrubTuning", "Sampling stopped.");
+endif
+
+
+proc CreateSampleConfiguration()
+    
+    var i%;
+    
+	SampleClear(); 'Set standard sampling state
+	SampleAutoComment(0); 'Prompt for comment after sampling
+	SampleAutoCommit(60); 'Seconds between each file commit
+    
+    FilePathSet(GetDataPathRoot$() + "\\" + GetDataSetName$(), 3);
+    FilePathSet(GetDataPathRoot$() + "\\" + GetDataSetName$(), 1);
+    SampleAutoName$(dataCellName$ + "_" + tunFileLabel$ + "_000");
+	SampleAutoFile(1);
+
+    'Channel recording definitions
+
+    for i% := 1 to tunNChannels% do
+        SampleWaveMark(i%, i%-1, 2000, 34, 15, 28000); ' chan, port, event rate, points, pre-trigger, rate
+        SampleTitle$(i%, "Trode " + Str$(i%-1));
+    next
+
+    SampleEvent(tunChanTrigger%, 1, 1, 1000); 
+    SampleTitle$(tunChanTrigger%, "Terms");
+    
+    
+    ' There is no sequencer script in use
+	'SampleSequencer(script$ + "KrubTuning.pls");
+    SampleOptimise(2, 2, 2, 2, 50);  'Set optimise mode (do this last)
+    SampleMode(1); 'Continuous sampling
+    
+end;
+
+
+proc InitializeWindows()
+    var i%;
+    var AutoCorr%;
+    
+	View(App(8)).WindowVisible(0);	'Hide the standard sample bar
+    
+    tunWindowData% := FileNew(0,4);
+    View(tunWindowData%).WindowVisible(1);
+    View(tunWindowData%).Window(0,33,100,100);
+
+    SaveParameterFile();
+end
+
+proc SaveParameterFile()
+    var handle;
+    var filename$;
+    
+    filename$ := ReplaceFileExtension$(-1, "par");
+    handle := FileOpen(filename$, 8, 1);
+    if handle <0 then 
+        Message("Could not create parameter file " + filename$);
+    else
+        LogInfo("TODO : Writing parameters to file " + filename$);
+        FileClose();
+    endif
+    
+    return;
+end
+
+
+
+
+' Quit is used to exit the script entirely. 
+' If there are any VSG apps running they should be stopped now. 
+' All VSG apps should be triggered off if possible - that allows for clean
+' handling of the lock. 
+' Could check if app is running, display error message. 
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func Quit%()
+'   TODO: Check for running vsg app.
+    return 0;
+end;
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+' Start is used to start sampling and launch the visual stim. 
+' Start must take things from post-dialog (i.e. all parameters can 
+' be assumed to be expt-ready, but live, daq-related values (updated in Idle%() ) - tStateStart, 
+' iState%, etc.) have only been initialized, not used.
+' Start should start sampling, initiate the idle function, 
+' THEN launch the visual stim script. The order is important so that the "ready" triggers from the 
+' stim will be picked up.
+
+func Start%()
+    var cmd$;
+    
+    ' Start sampling
+    SampleStart(0);
+    View(tunWindowData%);    
+    
+    ' Send sample key. 
+    SampleKey("0");
+    
+    ' Set idle here - before vsg launches so we cannot miss the ready signal. 
+    ToolbarEnable(3,1); ' stop
+    ToolbarEnable(2,0); ' start
+    ToolbarEnable(1,0); ' quit
+    ToolbarSet(0, "", Idle%);
+    
+    ' TODO
+    ' Generate command file for matlab visual stim generation. 
+    
+    ' Build command line and launch vsg app.     
+    ' cmd$ := GetBinDir$(1) + "meatuning.exe " + "-cvb " + tunBGColorCurrent$ + " -g " + tunGratingParams$ + " -t " + str$(tunStimTime) + " -d " + GetAcuteDistanceToScreenMM$() + tunExptTypeArgs$;
+    ' LogInfo(cmd$);
+    ' tunHandleStim := ProgRun("cmd /c " + cmd$);
+    
+    
+    'wait 5 seconds for some spikes to come in, and then optimize the display for them.
+    Yield(5);
+    View(tunWindowData%).Optimise(-1, 0, MaxTime());
+    return 1;
+end;
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+
+' Stop must stop applications and sampling nicely. Adjust toolbar to wait for "quit", stop Idle%(). 
+' Generate quit file for the visual stim application. 
+
+func Stop%()
+    
+    ' remove the idle process. 
+    ToolbarSet(0, "");
+    ToolbarEnable(1, 1);
+    ToolbarEnable(3, 0);
+    
+    ' send the quit command before stopping sampling
+'    SampleKey("q");
+'    while ProgStatus(tunHandleStim) > 0 do
+'        Yield(1);
+'    wend
+    
+    '   TODO 
+    ' Generate a "stop" command file for matlab/psychtbx script
+    
+    SampleStop();
+
+    return 1;
+end; 
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+var tNow;               ' Set on entering this func. For this invocation it is the latest time sampled. 
+var tLast;              ' This is tNow from the last time Idle%() was called. 
+var tStateStart := -1;  ' Start time of current state
+var tStimStart := -1;   ' Time of stim ON trig
+var tBlankStart := -1;  ' Time of blankON trig
+var tBlankEnd := -1;    ' time of blankOFF trig
+var iStimCounter% := 0;
+var iBlankCounter% := 0;
+var tTrigger := -1;
+var vTrigger;
+var tLastTrigger := -1;
+var tPulseWindowStart := -1;
+var tPulse1 := -1;
+const tReadyPulseTimeout := 5;
+
+
+' states
+const stateStartup%             :=  1;
+const stateWaitForReadyPulse1%  :=  2;
+const stateWaitForReadyPulse2%  :=  3;
+const stateStartTuning%         :=  4;
+const stateNoStim%              :=  5;
+const stateStimON%              :=  6;
+const stateBlankON%             :=  7;
+const stateDone%                := 99;
+var iState% := stateStartup%;              ' This holds the current state
+var iDummy% := 0;
+
+func Idle%()
+    var status% := 1;
+    
+	tNow := MaxTime();
+    
+    docase 
+    case iState% = stateStartup% then
+        
+        LogStatus("stateStartup", "Starting up.");
+        ChangeStateTo(stateWaitForReadyPulse1%, tNow);
+        
+    case iState% = stateWaitForReadyPulse1% then
+        
+        ' Check for pulse, then for timeout
+        if FindPulseUp%(tunChanTrigger%, tPulse1, tLast) = 1 then
+            ChangeStateTo(stateWaitForReadyPulse2%, tNow);
+        else
+        tTrigger := NextTime(tunChanVSGReady%, tLast, vTrigger);
+        if tTrigger > tLastTrigger and vTrigger = 0 then
+            LogStatus("stateWaitForReadyPulse1", "Got first pulse.");
+            tLastTrigger := tTrigger;
+            ChangeStateTo(stateVSGConfirm%, tTrigger);                
+        endif;
+            
+    case iState% = stateVSGConfirm% then
+            
+        ' Waiting for VSG to confirm it is ready. The downward side of the pulse is expected...
+        tTrigger := NextTime(tunChanVSGReady%, tLastTrigger, vTrigger);
+        if tTrigger > tLastTrigger and vTrigger = 1 then                
+            LogStatus("stateVSGConfirm", "Got trailing edge of trigger.");
+            tLastTrigger := tTrigger;
+            ChangeStateTo(stateStartTuning%, tTrigger);
+        endif;
+            
+    case iState% = stateStartTuning% then
+        
+        ' Issue sample key to start stim, then switch to looking for triggers
+        LogStatus("stateStartTuning", "Starting stimulus.");
+        Yield(1.0);
+        SampleKey("s");
+        ChangeStateTo(stateNoStim%, tNow);
+        
+    case iState% = stateNoStim% then
+        
+        ' Waiting for the first trig - which indicates the stim is on
+        if FindEvent%(tunChanTrigger%, tStateStart, tStimStart) > 0 then
+            ChangeStateTo(stateStimON%, tStimStart);
+        endif
+        
+    case iState% = stateStimON% then
+        
+        ' Waiting for the second trig - which indicates the stim is off
+        if FindEvent%(tunChanTrigger%, tStimStart, tBlankStart) > 0 then
+            ' TODO process spikes
+            LogInfo("TODO: Process spikes for STIM " + str$(iStimCounter%) + " " + str$(tStimStart) + "-" + str$(tBlankStart) + " " + str$(tunParameterValues[tunParameterIndices%[iStimCounter%]]) + "\n");
+            iStimCounter% += 1;
+            ChangeStateTo(stateBlankON%, tBlankStart);
+        endif
+        
+    case iState% = stateBlankON% then
+        
+        ' Waiting for the third trig - which indicates the blank is off
+        if FindEvent%(tunChanTrigger%, tBlankStart, tBlankEnd) > 0 then
+            
+            LogInfo("TODO: Process spikes for BLANK " + str$(iBlankCounter%) + " " + str$(tBlankStart) + "-" + str$(tBlankEnd) + "\n");
+            iBlankCounter% += 1;            
+            
+            ' check whether all stim have been presented
+            if iStimCounter% = (tunNSteps%+1) * tunNRepeats% then
+                ChangeStateTo(stateDone%, tNow);
+            else
+                ChangeStateTo(stateNoStim%, tBlankEnd);
+            endif
+        endif
+        
+    case iState% = stateDone% then
+        
+        Stop%();
+        status% := 1;
+        
+    else
+        
+        LogError("", "Unknown state " + str$(iState%));
+        Stop%();
+        status% := 0;
+        
+    endcase
+    
+    return status%;
+end
+
+proc ChangeStateTo(stateTo%, tStart)
+	iState% := stateTo%;
+	if tStart > 0 then tStateStart := tStart; endif;
+end;
