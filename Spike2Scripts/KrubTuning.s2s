@@ -1,8 +1,9 @@
-' $Id: KrubTuning.s2s,v 1.1 2011-05-16 20:57:15 devel Exp $
+' $Id: KrubTuning.s2s,v 1.2 2011-05-16 23:54:39 devel Exp $
 '
 '
 
 #include "KrubTuningDialogs.s2s"
+#include "UsreyGratings.s2s"
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "../../Spike2Util/FileUtilities.s2s"
 #include "../../Spike2Util/MiscUtilities.s2s"
@@ -26,17 +27,8 @@ var tunHandleStim := -1;
 ' window handles
 var tunWindowData%;
 
-
-' Tuning curve types
-
-const tuntypeOri%     := 101;
-const tuntypeDom%     := 102;
-const tuntypeSF%       := 103;
-const tuntypeTF%       := 104;
-const tuntypeArea%     := 105;
-const tuntypeXY%       := 106;
-var tuntypeSelected%   := tuntypeOri%;
-
+' folder for stim files
+var tunStimFolder$;
 
 
 
@@ -52,6 +44,7 @@ tunColor$[2] := "M cone isolating";
 tunColor$[3] := "L cone isolating";
 
 tunGratingParams$ := GetGratingParameters$("Stimulus");
+tunStimFolder$ := GetStimDir$(1);
 
 ' TODO: Resize window?
 'View(App(0)).Window(0,0,75,95);
@@ -182,13 +175,15 @@ end;
 
 func Start%()
     var cmd$;
+    var i%;
+    var h%;
+    var s$;
+    var x, y, w, h, contrast%, sf, tf, ori, cv$, pattern$, aperture$;
+    var stimfile$, quitfile$;
     
     ' Start sampling
     SampleStart(0);
     View(tunWindowData%);    
-    
-    ' Send sample key. 
-    SampleKey("0");
     
     ' Set idle here - before vsg launches so we cannot miss the ready signal. 
     ToolbarEnable(3,1); ' stop
@@ -196,18 +191,53 @@ func Start%()
     ToolbarEnable(1,0); ' quit
     ToolbarSet(0, "", Idle%);
     
-    ' TODO
-    ' Generate command file for matlab visual stim generation. 
+    ' Before generating command file, fetch the base grating parameters.
+    ParseGratingParameters%(tunGratingParams$, x, y, w, h, contrast%, sf, tf, ori, cv$, pattern$, aperture$);
     
-    ' Build command line and launch vsg app.     
-    ' cmd$ := GetBinDir$(1) + "meatuning.exe " + "-cvb " + tunBGColorCurrent$ + " -g " + tunGratingParams$ + " -t " + str$(tunStimTime) + " -d " + GetAcuteDistanceToScreenMM$() + tunExptTypeArgs$;
-    ' LogInfo(cmd$);
-    ' tunHandleStim := ProgRun("cmd /c " + cmd$);
+    ' Delete old stim file if there is one sitting there. 
+    stimfile$ := tunStimFolder$ + "stim.txt";
+    quitfile$ := tunStimFolder$ + "quit.txt";
+    FileDelete(stimfile$);
+    FileDelete(quitfile$);
     
+    ' Open text file
+    h% := FileNew(1, 0);
+    if h% < 0 then
+        LogError("Start", "Cannot open text file!");
+        halt;
+    endif
     
-    'wait 5 seconds for some spikes to come in, and then optimize the display for them.
-    Yield(5);
-    View(tunWindowData%).Optimise(-1, 0, MaxTime());
+    ' Write header
+    Print("header,34.5,50,2,1,150,1\n");
+    
+    ' Ready pulses (2)
+    Print("ready,2\n");
+    
+    ' Stim/blank/blank for each stim 
+    for i% := 0 to ((tunNSteps%+1)*tunNRepeats%)-1 do
+        docase 
+        case tuntypeSelected% = tuntypeOri% then
+            s$ := EncodeGratingParameters$(x, y, w, h, contrast%, sf, tf, tunParameterValues[tunParameterIndices%[i%]], cv$, pattern$, aperture$);
+        case tuntypeSelected% = tuntypeDom% then
+            s$ := EncodeGratingParameters$(x, y, w, h, tunParameterValues[tunParameterIndices%[i%]], sf, tf, ori, cv$, pattern$, aperture$);
+        case tuntypeSelected% = tuntypeSF% then
+            s$ := EncodeGratingParameters$(x, y, w, h, contrast%, tunParameterValues[tunParameterIndices%[i%]], tf, ori, cv$, pattern$, aperture$);
+        case tuntypeSelected% = tuntypeTF% then
+            s$ := EncodeGratingParameters$(x, y, w, h, contrast%, sf, tunParameterValues[tunParameterIndices%[i%]], ori, cv$, pattern$, aperture$);
+        else
+            LogError("Start", "Unknown tuning curve type (" + str$(tuntypeSelected%) + ")");
+            halt;
+        endcase
+        
+        View(h%).Print("grating," + s$ + "," + str$(tunStimTime) + "\n");
+        View(h%).Print("tblank," + str$(tunBlankTime) + "\n");
+        View(h%).Print("tblank,0.5\n");
+        
+    next
+    
+    ' Close (and name) file
+    View(h%).FileSaveAs(stimfile$);
+    
     return 1;
 end;
 
@@ -225,10 +255,8 @@ func Stop%()
     ToolbarEnable(3, 0);
     
     ' send the quit command before stopping sampling
-'    SampleKey("q");
-'    while ProgStatus(tunHandleStim) > 0 do
-'        Yield(1);
-'    wend
+    FileOpen(tunStimFolder$ + "quit.txt", 8, 1);
+    FileClose();
     
     '   TODO 
     ' Generate a "stop" command file for matlab/psychtbx script
@@ -251,7 +279,8 @@ var tTrigger := -1;
 var vTrigger;
 var tLastTrigger := -1;
 var tPulseWindowStart := -1;
-var tPulse1 := -1;
+var tPulseUp := -1;
+var tPulseDn := -1;
 const tReadyPulseTimeout := 5;
 
 
@@ -269,7 +298,7 @@ var iDummy% := 0;
 
 func Idle%()
     var status% := 1;
-    
+    View(tunWindowData%);
 	tNow := MaxTime();
     
     docase 
@@ -281,32 +310,31 @@ func Idle%()
     case iState% = stateWaitForReadyPulse1% then
         
         ' Check for pulse, then for timeout
-        if FindPulseUp%(tunChanTrigger%, tPulse1, tLast) = 1 then
+        docase 
+        case FindPulseUp%(tunChanTrigger%, tStateStart, tPulseUp, tPulseDn) = 1 then
             ChangeStateTo(stateWaitForReadyPulse2%, tNow);
-        else
-        tTrigger := NextTime(tunChanVSGReady%, tLast, vTrigger);
-        if tTrigger > tLastTrigger and vTrigger = 0 then
-            LogStatus("stateWaitForReadyPulse1", "Got first pulse.");
-            tLastTrigger := tTrigger;
-            ChangeStateTo(stateVSGConfirm%, tTrigger);                
-        endif;
-            
-    case iState% = stateVSGConfirm% then
-            
-        ' Waiting for VSG to confirm it is ready. The downward side of the pulse is expected...
-        tTrigger := NextTime(tunChanVSGReady%, tLastTrigger, vTrigger);
-        if tTrigger > tLastTrigger and vTrigger = 1 then                
-            LogStatus("stateVSGConfirm", "Got trailing edge of trigger.");
-            tLastTrigger := tTrigger;
-            ChangeStateTo(stateStartTuning%, tTrigger);
-        endif;
-            
+        case tNow-tStateStart > tReadyPulseTimeout then
+            Message("Did not see ready pulse from vis stim application. Check that it is running, and that the trigger device is ready.");
+            ChangeStateTo(stateDone%, tNow);
+        endcase
+        
+    case iState% = stateWaitForReadyPulse2% then
+        
+        ' Check for pulse, then for timeout
+        docase 
+        case FindPulseUp%(tunChanTrigger%, tStateStart, tPulseUp, tPulseDn) = 1 then
+            ChangeStateTo(stateStartTuning%, tPulseDn);
+        case tNow-tStateStart > tReadyPulseTimeout then
+            Message("Did not see ready pulse from vis stim application. Check that it is running, and that the trigger device is ready.");
+            ChangeStateTo(stateDone%, tNow);
+        endcase
+        
     case iState% = stateStartTuning% then
         
         ' Issue sample key to start stim, then switch to looking for triggers
-        LogStatus("stateStartTuning", "Starting stimulus.");
-        Yield(1.0);
-        SampleKey("s");
+        LogStatus("stateStartTuning", "Ready for stim triggers.");
+        'Yield(1.0);
+        'SampleKey("s");
         ChangeStateTo(stateNoStim%, tNow);
         
     case iState% = stateNoStim% then
