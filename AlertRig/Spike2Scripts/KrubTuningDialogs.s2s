@@ -1,4 +1,4 @@
-' $Id: KrubTuningDialogs.s2s,v 1.1 2011-05-16 20:57:15 devel Exp $
+' $Id: KrubTuningDialogs.s2s,v 1.2 2011-05-16 23:54:39 devel Exp $
 
 #include "../../Spike2Util/LogUtilities.s2s"
 #include "../../Spike2Util/MiscUtilities.s2s"
@@ -35,10 +35,21 @@ var tunTFMin := 0.5;
 var tunTFMax := 64;
 var tunRandomProgression% := 0;
 
-' String vars whose values are specific to the expt type
+
+' Tuning curve types
+
 var tunExptTypeFileLabel$;
 var tunExptTypeLabel$;
 var tunExptTypeArgs$;
+
+const tuntypeOri%     := 101;
+const tuntypeDom%     := 102;
+const tuntypeSF%       := 103;
+const tuntypeTF%       := 104;
+const tuntypeArea%     := 105;
+const tuntypeXY%       := 106;
+var tuntypeSelected%   := tuntypeOri%;
+
 
 ' tuned parameter arrays
 const tunMaxParameters% := 500;
@@ -48,6 +59,13 @@ var tunParameterIndices%[tunMaxParameters%];
 ' Grating parameters
 var tunGratingParams$;
 
+' Fetch base grating parameters from registry
+tunGratingParams$ := GetGratingParameters$("Stimulus");
+if Len(tunGratingParams$) = 0 then
+    LogWarn("KrubTuningDialog", "Check registry for Gratings/Stimulus values!");
+    tunGratingParams$ := "0,0,5,5,100,.2,4,90,b,s,e";
+endif
+
 
 
 func KrubTuningDialog%()
@@ -56,10 +74,10 @@ func KrubTuningDialog%()
     LogWarn("KrubTuningDialog()", "TODO: Get Krub Tuning Parameters");
     
     DlgCreate("Select Tuning Curve Type");
-    DlgButton(101, "Orientation", TunDlgOrientation%, 1, 1);
-    DlgButton(102, "Contrast", TunDlgContrast%, 1, 2);
-    DlgButton(103, "Spatial Frequency", TunDlgSF%, 1, 3);
-    DlgButton(104, "Temporal Frequency", TunDlgTF%, 1, 4);
+    DlgButton(tuntypeOri%, "Orientation", TunDlgOrientation%, 1, 1);
+    DlgButton(tuntypeDom%, "Contrast", TunDlgContrast%, 1, 2);
+    DlgButton(tuntypeSF%, "Spatial Frequency", TunDlgSF%, 1, 3);
+    DlgButton(tuntypeTF%, "Temporal Frequency", TunDlgTF%, 1, 4);
 '    DlgButton(105, "Area", TunDlgArea%, 1, 5);
 '    DlgButton(106, "XY", TunDlgXY%, 1, 6);
     status% := DlgShow();    
@@ -98,6 +116,7 @@ func TunDlgOrientation%()
         status% := 1;
     case status% = 1 then
         status% := 0;
+        tuntypeSelected% := tuntypeOri%;
         tunExptTypeFileLabel$ := "ori";
         tunExptTypeLabel$ := "Orientation";
         nParams% := (tunNSteps%+1)*tunNRepeats%;
@@ -106,8 +125,6 @@ func TunDlgOrientation%()
             Message("Cannot get progression values for this expt!");
             halt;
         endif
-        tunExptTypeArgs$ := " -O " + GetRealArrayAsString$(tunParameterValues[0:tunNSteps%+1], tunParameterIndices%[0:tunNSteps%+1]);
-        PrintLog(tunExptTypeArgs$ + "\n");
     endcase
     
     return status%;
@@ -160,6 +177,7 @@ func TunDlgContrast%()
         status% := 1;
     case status% = 1 then
         status% := 0;
+        tuntypeSelected% := tuntypeDom%;
         tunExptTypeFileLabel$ := "dom";
         tunExptTypeLabel$ := "Contrast";
         if GetRepeatedParameterProgression%(tunNSteps%+1, tunNRepeats%, tunParameterValues[0:tunNSteps%+1], tunParameterIndices%[0:tunNSteps%+1], tunContrastMin, tunContrastMax, 1, tunRandomProgression%) <> 0 then
@@ -167,8 +185,6 @@ func TunDlgContrast%()
             Message("Cannot get progression values for this expt!");
             halt;
         endif
-        tunExptTypeArgs$ := " -C " + GetRealArrayAsString$(tunParameterValues[0:tunNSteps%+1], tunParameterIndices%[0:tunNSteps%+1]);
-        PrintLog(tunExptTypeArgs$ + "\n");
     endcase
     
     return status%;
@@ -187,7 +203,7 @@ func TunDlgContrastGrating%()
     ArrConst(disable%[], 0);
     ndisable% := 1;
     disable%[0] := 5;
-    i% := GratingParametersDialog%(label$, param$, disable%[], ndisable%, x, y, w, h, contrast%, sf, tf, ori, cv$, pattern$, aperture$);
+    i% := GratingParametersDialog%(label$, tunGratingParams$, disable%[], ndisable%, x, y, w, h, contrast%, sf, tf, ori, cv$, pattern$, aperture$);
     return 1;
 end
 
@@ -217,6 +233,7 @@ func TunDlgSF%()
         status% := 1;
     case status% = 1 then
         status% := 0;
+        tuntypeSelected% := tuntypeSF%;
         tunExptTypeFileLabel$ := "sf";
         tunExptTypeLabel$ := "Spatial Frequency";
         nParams% := (tunNSteps%+1)*tunNRepeats%;
@@ -225,8 +242,6 @@ func TunDlgSF%()
             Message("Cannot get progression values for this expt!");
             halt;
         endif
-        tunExptTypeArgs$ := " -S " + GetRealArrayAsString$(tunParameterValues[0:tunNSteps%+1], tunParameterIndices%[0:tunNSteps%+1]);
-        PrintLog(tunExptTypeArgs$ + "\n");
     endcase
     
     return status%;
@@ -245,7 +260,7 @@ func TunDlgSFGrating%()
     ArrConst(disable%[], 0);
     ndisable% := 1;
     disable%[0] := 6;
-    i% := GratingParametersDialog%(label$, param$, disable%[], ndisable%, x, y, w, h, contrast%, sf, tf, ori, cv$, pattern$, aperture$);
+    i% := GratingParametersDialog%(label$, tunGratingParams$, disable%[], ndisable%, x, y, w, h, contrast%, sf, tf, ori, cv$, pattern$, aperture$);
     return 1;
 end
 
@@ -275,6 +290,7 @@ func TunDlgTF%()
         status% := 1;
     case status% = 1 then
         status% := 0;
+        tuntypeSelected% := tuntypeTF%;
         tunExptTypeFileLabel$ := "tf";
         tunExptTypeLabel$ := "Temporal Frequency";
         nParams% := (tunNSteps%+1)*tunNRepeats%;
@@ -283,8 +299,6 @@ func TunDlgTF%()
             Message("Cannot get progression values for this expt!");
             halt;
         endif
-        tunExptTypeArgs$ := " -T " + GetRealArrayAsString$(tunParameterValues[0:tunNSteps%+1], tunParameterIndices%[0:tunNSteps%+1]);
-        PrintLog(tunExptTypeArgs$ + "\n");
     endcase
     
     return status%;
@@ -303,39 +317,8 @@ func TunDlgTFGrating%()
     ArrConst(disable%[], 0);
     ndisable% := 1;
     disable%[0] := 7;
-    i% := GratingParametersDialog%(label$, param$, disable%[], ndisable%, x, y, w, h, contrast%, sf, tf, ori, cv$, pattern$, aperture$);
+    i% := GratingParametersDialog%(label$, tunGratingParams$, disable%[], ndisable%, x, y, w, h, contrast%, sf, tf, ori, cv$, pattern$, aperture$);
     return 1;
 end
 
 
-func TunDlgArea%()
-    var status%;
-    DlgCreate("Area Tuning Parameters");
-    status% := DlgShow();
-    PrintLog("TunDlgArea %d\n", status%);
-    docase
-    case status% = 0 then 
-        status% := 1;
-    case status% = 1 then
-        status% := 0;
-        tunExptTypeFileLabel$ := "area";
-        tunExptTypeLabel$ := "Area";
-    endcase
-    return status%;
-end
-
-func TunDlgXY%()
-    var status%;
-    DlgCreate("XY Tuning Parameters");
-    status% := DlgShow();
-    PrintLog("TunDlgXY %d\n", status%);
-    docase
-    case status% = 0 then 
-        status% := 1;
-    case status% = 1 then
-        status% := 0;
-        tunExptTypeFileLabel$ := "xy";
-        tunExptTypeLabel$ := "XY";
-    endcase
-    return status%;
-end
