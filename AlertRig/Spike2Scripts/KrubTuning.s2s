@@ -1,8 +1,9 @@
-' $Id: KrubTuning.s2s,v 1.2 2011-05-16 23:54:39 devel Exp $
+' $Id: KrubTuning.s2s,v 1.3 2011-05-17 23:07:25 devel Exp $
 '
 '
 
 #include "KrubTuningDialogs.s2s"
+#include "../../Spike2Util/KrubRigParameters.s2s"
 #include "UsreyGratings.s2s"
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "../../Spike2Util/FileUtilities.s2s"
@@ -44,7 +45,7 @@ tunColor$[2] := "M cone isolating";
 tunColor$[3] := "L cone isolating";
 
 tunGratingParams$ := GetGratingParameters$("Stimulus");
-tunStimFolder$ := GetStimDir$(1);
+tunStimFolder$ := GetDataPathRoot$() + "\\stim";
 
 ' TODO: Resize window?
 'View(App(0)).Window(0,0,75,95);
@@ -65,11 +66,16 @@ if KrubTuningDialog%() = 0 then
     halt;
 endif
 
+if tuntypeSelected% = tuntypeNone% then
+    Message("No tuning type selected!");
+    halt;
+endif
+
 ' Sampling config
-CreateSampleConfiguration();
+'CreateSampleConfiguration();
 
 ' Prepare display windows, input channels, etc. 
-InitializeWindows();
+'InitializeWindows();
 
 
 	
@@ -178,6 +184,7 @@ func Start%()
     var i%;
     var h%;
     var s$;
+    var screenWidth;
     var x, y, w, h, contrast%, sf, tf, ori, cv$, pattern$, aperture$;
     var stimfile$, quitfile$;
     
@@ -195,8 +202,8 @@ func Start%()
     ParseGratingParameters%(tunGratingParams$, x, y, w, h, contrast%, sf, tf, ori, cv$, pattern$, aperture$);
     
     ' Delete old stim file if there is one sitting there. 
-    stimfile$ := tunStimFolder$ + "stim.txt";
-    quitfile$ := tunStimFolder$ + "quit.txt";
+    stimfile$ := tunStimFolder$ + "\\stim.txt";
+    quitfile$ := tunStimFolder$ + "\\quit.txt";
     FileDelete(stimfile$);
     FileDelete(quitfile$);
     
@@ -208,7 +215,8 @@ func Start%()
     endif
     
     ' Write header
-    Print("header,34.5,50,2,1,150,1\n");
+    screenWidth := GetKrubScreenWidth%()/10.0;
+    Print("header,%.1f,%s,%d,1,%d,%d,%d\n", screenWidth, GetAcuteDistanceToScreenMM$(), GetKrubMaskType%(), GetKrubTriggerSqPixels%(), GetKrubTriggerSqFrames%(), GetKrubBgColor%());
     
     ' Ready pulses (2)
     Print("ready,2\n");
@@ -236,8 +244,13 @@ func Start%()
     next
     
     ' Close (and name) file
-    View(h%).FileSaveAs(stimfile$);
-    
+    i% := View(h%).FileSaveAs(stimfile$);
+    if i% < 0 then
+        LogError("Start", Error$(i%));
+        Message(Error$(i%));
+        return 0;
+    endif
+    View(h%).FileClose();
     return 1;
 end;
 
