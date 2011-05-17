@@ -1,0 +1,81 @@
+'$Id: KrubRigParameters.s2s,v 1.1 2011-05-17 23:14:40 devel Exp $
+'
+' Dialog and procs for get/set/modify local Krub rig parameters
+' 
+
+#include "../../Spike2Util/UsreyUtil.s2s"
+
+var krubScreenWidth% := 1024;
+var krubMaskType% := 2;
+var krubTriggerSqFrames% := 1;
+var krubTriggerSqPixels% := 50;
+var krubBgColor% := 127;
+
+
+GetKrubRigParameters();
+
+func GetKrubScreenWidth%()
+    return krubScreenWidth%;
+end
+
+func GetKrubMaskType%()
+    return krubMaskType%;
+end
+
+func GetKrubTriggerSqFrames%()
+    return krubTriggerSqFrames%;
+end
+
+func GetKrubTriggerSqPixels%()
+    return krubTriggerSqPixels%;
+end
+
+func GetKrubBgColor%()
+    return krubBgColor%;
+end
+
+
+
+
+proc GetKrubRigParameters()
+	var stmp$;
+	var key$;
+
+'	key$:="AlertRig\\Data";
+	key$ := GetRigName$();
+    
+    krubScreenWidth% := GetIntRegistryValue%(key$, "ScreenWidth", krubScreenWidth%);
+    krubMaskType% := GetIntRegistryValue%(key$, "MaskType", krubMaskType%);
+    krubTriggerSqFrames% := GetIntRegistryValue%(key$, "TriggerSqFrames", krubTriggerSqFrames%);
+    krubTriggerSqPixels% := GetIntRegistryValue%(key$, "TriggerSqPixels", krubTriggerSqPixels%);
+    krubBgColor% := GetIntRegistryValue%(key$, "BgColor", krubBgColor%);
+end;
+
+
+proc SaveKrubRigParameters()
+	var stmp$;
+	var key$;
+
+	key$ := GetRigName$();
+    
+    SetIntRegistryValue(key$, "ScreenWidth", krubScreenWidth%);
+    SetIntRegistryValue(key$, "MaskType", krubMaskType%);
+    SetIntRegistryValue(key$, "TriggerSqFrames", krubTriggerSqFrames%);
+    SetIntRegistryValue(key$, "TriggerSqPixels", krubTriggerSqPixels%);
+    SetIntRegistryValue(key$, "BgColor", krubBgColor%);
+end;
+
+func KrubRigParametersDialog%()
+	var i%;
+	GetKrubRigParameters();
+	DlgCreate("Krub Rig Parameters");
+    DlgInteger(1, "Screen Width (mm)", 1, 1000);
+    DlgInteger(2, "#frames for trig square", 1, 10);
+    DlgInteger(3, "trig square size, pixels", 1, 100);
+    DlgInteger(4, "Background level (0-255)", 0, 255);
+    i% := DlgShow(krubScreenWidth%, krubTriggerSqFrames%, krubTriggerSqPixels%, krubBgColor%);
+	if (i% = 1) then
+		SaveKrubRigParameters();
+	endif;
+	return i%;
+end;
