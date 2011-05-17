@@ -1,5 +1,5 @@
 #include "../../Spike2Util/UsreyUtil.s2s"
-#include "../../Spike2Util/KrubRigParameters.s2s"
+#include "KrubRigParameters.s2s"
 
 
 
