@@ -1,10 +1,10 @@
-' $Id: KrubTuning.s2s,v 1.4 2011-05-17 23:14:40 devel Exp $
+' $Id: KrubTuning.s2s,v 1.5 2011-05-31 18:38:54 devel Exp $
 '
 '
 
 #include "KrubTuningDialogs.s2s"
 #include "KrubRigParameters.s2s"
-#include "UsreyGratings.s2s"
+#include "KrubGratings.s2s"
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "../../Spike2Util/FileUtilities.s2s"
 #include "../../Spike2Util/MiscUtilities.s2s"
@@ -14,7 +14,7 @@
 var tunFileLabel$ := "zzz";
 
 ' tuning daq parameters
-var tunNChannels%;
+var tunNChannels% := 1;  'where is this changed?  Setting to 1 to get a data channel
 var tunColorIndex%;
 var tunColor$[4];
 
@@ -27,6 +27,13 @@ var tunHandleStim := -1;
 
 ' window handles
 var tunWindowData%;
+var tunResultXYWindow%[50];  'there won't be 50 channels
+
+' data holders
+var tunTotalSpikeCount[50][100];  'Let's assume a max of 50 channels and 100 timepoints, can't be integer due to later math
+var tunTotalSeconds[50][100];
+var tunBlankTotalSpikeCount[50];  'And another for the blank periods
+var tunBlankSeconds[50];
 
 ' folder for stim files
 var tunStimFolder$;
@@ -72,10 +79,10 @@ if tuntypeSelected% = tuntypeNone% then
 endif
 
 ' Sampling config
-'CreateSampleConfiguration();
+CreateSampleConfiguration();
 
 ' Prepare display windows, input channels, etc. 
-'InitializeWindows();
+InitializeWindows();
 
 
 	
@@ -96,6 +103,7 @@ endif
 proc CreateSampleConfiguration()
     
     var i%;
+    var xy%;
     
 	SampleClear(); 'Set standard sampling state
 	SampleAutoComment(0); 'Prompt for comment after sampling
@@ -113,7 +121,7 @@ proc CreateSampleConfiguration()
         SampleTitle$(i%, "Trode " + Str$(i%-1));
     next
 
-    SampleEvent(tunChanTrigger%, 1, 1, 1000); 
+    SampleEvent(tunChanTrigger%, 1, 2, 1000); 
     SampleTitle$(tunChanTrigger%, "Terms");
     
     
@@ -128,13 +136,38 @@ end;
 proc InitializeWindows()
     var i%;
     var AutoCorr%;
+    var tempTitle$;
     
 	View(App(8)).WindowVisible(0);	'Hide the standard sample bar
     
     tunWindowData% := FileNew(0,4);
     View(tunWindowData%).WindowVisible(1);
     View(tunWindowData%).Window(0,33,100,100);
-
+    
+    ' Create results plot for each channel
+    for i% := 1 to tunNChannels% do
+        ' open xy window to display tuning results
+        tunResultXYWindow%[i%] := FileNew(12);
+        ' position in upper-right quadrant of screen
+        Window(50, 0, 100, 50);  'adjust this?
+        ' first channel is signal. specify color etc
+        XYDrawMode(0,5,1);  '0 ignored, set automtic axis range mode, axes set to update with new data
+        XYSort(1,1);  'sort by x-value
+        XYJoin(1,1);  'Join, do not connect first to last
+    '    WindowVisible(1);  
+        XYColour(1,16); ' I have no idea what color 16 is
+        ChanTitle$(1, "Signal");  'Sets title of channel 1
+        XYSetChan(0); ' create second channel. The first channel is automatically created with the FileNew(12) call.
+        XYColour(2,12); ' no idea what color 12 is either
+        ChanTitle$(2, "Bkgd");  'Sets title of channel 2
+        'Create labels
+        ChanTitle$(0, "Spikes/s");  ' y axis label
+        TuningCurveLabels(tuntypeSelected%);
+        tempTitle$ := WindowTitle$();
+        WindowTitle$(tempTitle$ + ", Electrode " + Str$(i%));
+        WindowVisible(1);  'XY plot starts out invisible, make it visible
+    next;
+    
     SaveParameterFile();
 end
 
@@ -155,7 +188,60 @@ proc SaveParameterFile()
 end
 
 
+' Make window title and axis labels for tuning curves.
+' ttype% is the tuning type
+' It is assumed that the xy window is the current view. 
+proc TuningCurveLabels(ttype%)
+    
+    var minValue;
+    var maxValue;
+    
+    minValue := tunParameterValues[min(tunParameterValues)];
+    maxValue := tunParameterValues[max(tunParameterValues)];
+    
+	docase 
+		case ttype% = tuntypeDom% then
 
+			WindowTitle$("Contrast Tuning");
+            XUnits$("Contrast (%)");
+            XRange(minValue, maxValue);
+			'XRange(tunContrastMinContrast, tunContrastMaxContrast);
+
+		case ttype% = tuntypeOri% then
+
+			WindowTitle$("Orientation Tuning");
+            XUnits$("Orientation (degrees)");
+            XRange(minValue, maxValue);
+			'XRange(tunOriMinOrientation, tunOriMaxOrientation);
+
+		case ttype% = tuntypeSF% then
+
+			WindowTitle$("Spatial Frequency Tuning");
+			XUnits$("Spatial Frequency");
+            XRange(minValue, maxValue);
+            'XRange(tunSpatialMinSF, tunSpatialMaxSF);
+	
+		case ttype% = tuntypeTF% then
+
+			WindowTitle$("Temporal Frequency Tuning");
+            XUnits$("Temporal Frequency");
+            XRange(minValue, maxValue);
+			'XRange(tunTemporalMinTF, tunTemporalMaxTF);
+
+		case ttype% = tuntypeArea% then
+
+			WindowTitle$("Aperture Area Tuning");
+            XUnits$("Aperture Diameter");
+            XRange(minValue, maxValue);
+			'XRange(tunAreaMinDiam, tunAreaMaxDiam);
+        
+		else
+
+			Message("TuningCurveLabels Error - unknown value for tuntypeSelected%: " + Str$(ttype%));
+
+	endcase;
+
+end;
 
 ' Quit is used to exit the script entirely. 
 ' If there are any VSG apps running they should be stopped now. 
@@ -185,7 +271,7 @@ func Start%()
     var h%;
     var s$;
     var screenWidth;
-    var x, y, w, h, contrast%, sf, tf, ori, cv$, pattern$, aperture$;
+    var x, y, w, h, contrast%, sf, tf, ori, mo$, pattern$, aperture$;
     var stimfile$, quitfile$;
     
     ' Start sampling
@@ -199,7 +285,7 @@ func Start%()
     ToolbarSet(0, "", Idle%);
     
     ' Before generating command file, fetch the base grating parameters.
-    ParseGratingParameters%(tunGratingParams$, x, y, w, h, contrast%, sf, tf, ori, cv$, pattern$, aperture$);
+    ParseGratingParameters%(tunGratingParams$, x, y, w, h, contrast%, sf, tf, ori, mo$, pattern$, aperture$);
     
     ' Delete old stim file if there is one sitting there. 
     stimfile$ := tunStimFolder$ + "\\stim.txt";
@@ -208,7 +294,7 @@ func Start%()
     FileDelete(quitfile$);
     
     ' Open text file
-    h% := FileNew(1, 0);
+    h% := FileOpen(stimfile$, 8, 1);
     if h% < 0 then
         LogError("Start", "Cannot open text file!");
         halt;
@@ -225,13 +311,13 @@ func Start%()
     for i% := 0 to ((tunNSteps%+1)*tunNRepeats%)-1 do
         docase 
         case tuntypeSelected% = tuntypeOri% then
-            s$ := EncodeGratingParameters$(x, y, w, h, contrast%, sf, tf, tunParameterValues[tunParameterIndices%[i%]], cv$, pattern$, aperture$);
+            s$ := EncodeGratingParameters$(x, y, w, h, contrast%, sf, tf, tunParameterValues[tunParameterIndices%[i%]], mo$, pattern$, aperture$);
         case tuntypeSelected% = tuntypeDom% then
-            s$ := EncodeGratingParameters$(x, y, w, h, tunParameterValues[tunParameterIndices%[i%]], sf, tf, ori, cv$, pattern$, aperture$);
+            s$ := EncodeGratingParameters$(x, y, w, h, tunParameterValues[tunParameterIndices%[i%]], sf, tf, ori, mo$, pattern$, aperture$);
         case tuntypeSelected% = tuntypeSF% then
-            s$ := EncodeGratingParameters$(x, y, w, h, contrast%, tunParameterValues[tunParameterIndices%[i%]], tf, ori, cv$, pattern$, aperture$);
+            s$ := EncodeGratingParameters$(x, y, w, h, contrast%, tunParameterValues[tunParameterIndices%[i%]], tf, ori, mo$, pattern$, aperture$);
         case tuntypeSelected% = tuntypeTF% then
-            s$ := EncodeGratingParameters$(x, y, w, h, contrast%, sf, tunParameterValues[tunParameterIndices%[i%]], ori, cv$, pattern$, aperture$);
+            s$ := EncodeGratingParameters$(x, y, w, h, contrast%, sf, tunParameterValues[tunParameterIndices%[i%]], ori, mo$, pattern$, aperture$);
         else
             LogError("Start", "Unknown tuning curve type (" + str$(tuntypeSelected%) + ")");
             halt;
@@ -243,14 +329,10 @@ func Start%()
         
     next
     
-    ' Close (and name) file
-    i% := View(h%).FileSaveAs(stimfile$);
-    if i% < 0 then
-        LogError("Start", Error$(i%));
-        Message(Error$(i%));
-        return 0;
-    endif
-    View(h%).FileClose();
+    ' Close file
+    FileClose();
+    
+    
     return 1;
 end;
 
@@ -268,7 +350,7 @@ func Stop%()
     ToolbarEnable(3, 0);
     
     ' send the quit command before stopping sampling
-    FileOpen(tunStimFolder$ + "quit.txt", 8, 1);
+    FileOpen(tunStimFolder$ + "\\abort.txt", 8, 1);
     FileClose();
     
     '   TODO 
@@ -294,7 +376,7 @@ var tLastTrigger := -1;
 var tPulseWindowStart := -1;
 var tPulseUp := -1;
 var tPulseDn := -1;
-const tReadyPulseTimeout := 5;
+const tReadyPulseTimeout := 15;
 
 
 ' states
@@ -311,6 +393,7 @@ var iDummy% := 0;
 
 func Idle%()
     var status% := 1;
+    var i%;
     View(tunWindowData%);
 	tNow := MaxTime();
     
@@ -323,11 +406,12 @@ func Idle%()
     case iState% = stateWaitForReadyPulse1% then
         
         ' Check for pulse, then for timeout
+        
         docase 
-        case FindPulseUp%(tunChanTrigger%, tStateStart, tPulseUp, tPulseDn) = 1 then
-            ChangeStateTo(stateWaitForReadyPulse2%, tNow);
+        case FindPulseDown%(tunChanTrigger%, tStateStart, tPulseDn, tPulseUp) = 1 then
+            ChangeStateTo(stateWaitForReadyPulse2%, tPulseUp);   ' start time in new state will be up time of first pulse
         case tNow-tStateStart > tReadyPulseTimeout then
-            Message("Did not see ready pulse from vis stim application. Check that it is running, and that the trigger device is ready.");
+            Message("Did not see first ready pulse from vis stim application. Check that it is running, and that the trigger device is ready.");
             ChangeStateTo(stateDone%, tNow);
         endcase
         
@@ -335,10 +419,10 @@ func Idle%()
         
         ' Check for pulse, then for timeout
         docase 
-        case FindPulseUp%(tunChanTrigger%, tStateStart, tPulseUp, tPulseDn) = 1 then
-            ChangeStateTo(stateStartTuning%, tPulseDn);
+        case FindPulseDown%(tunChanTrigger%, tStateStart, tPulseDn, tPulseUp) = 1 then
+            ChangeStateTo(stateStartTuning%, tPulseUp);
         case tNow-tStateStart > tReadyPulseTimeout then
-            Message("Did not see ready pulse from vis stim application. Check that it is running, and that the trigger device is ready.");
+            Message("Did not see second ready pulse from vis stim application. Check that it is running, and that the trigger device is ready.");
             ChangeStateTo(stateDone%, tNow);
         endcase
         
@@ -353,26 +437,51 @@ func Idle%()
     case iState% = stateNoStim% then
         
         ' Waiting for the first trig - which indicates the stim is on
-        if FindEvent%(tunChanTrigger%, tStateStart, tStimStart) > 0 then
+        if FindPulseDown%(tunChanTrigger%, tStateStart, tStimStart, tPulseUp) = 1 then
+            ChangeStateTo(stateNoStim%, tPulseUp);
+            LogStatus("NoStim", "Pulse at " + str$(tPulseUp));
             ChangeStateTo(stateStimON%, tStimStart);
         endif
         
     case iState% = stateStimON% then
         
         ' Waiting for the second trig - which indicates the stim is off
-        if FindEvent%(tunChanTrigger%, tStimStart, tBlankStart) > 0 then
+        if FindPulseDown%(tunChanTrigger%, tStateStart, tBlankStart, tPulseUp) = 1 then
+ '       if FindEvent%(tunChanTrigger%, tStimStart, tBlankStart) > 0 then
             ' TODO process spikes
             LogInfo("TODO: Process spikes for STIM " + str$(iStimCounter%) + " " + str$(tStimStart) + "-" + str$(tBlankStart) + " " + str$(tunParameterValues[tunParameterIndices%[iStimCounter%]]) + "\n");
-            iStimCounter% += 1;
+            ' Plot data for this epoch, each channel
+            for i% := 1 to tunNChannels% do
+                tunTotalSpikeCount[i%][tunParameterIndices%[iStimCounter%]] := tunTotalSpikeCount[i%][tunParameterIndices%[iStimCounter%]]+View(tunWindowData%).Count(i%, tStimStart, tBlankStart);
+                tunTotalSeconds[i%][tunParameterIndices%[iStimCounter%]] := tunTotalSeconds[i%][tunParameterIndices%[iStimCounter%]]+tBlankStart-tStimStart;
+                'printlog("Total count is %d and total time is %f for a rate of %f\n",tunTotalSpikeCount[i%][tunParameterIndices%[iStimCounter%]],
+                '         tunTotalSeconds[i%][tunParameterIndices%[iStimCounter%]],tunTotalSpikeCount[i%][tunParameterIndices%[iStimCounter%]]/tunTotalSeconds[i%][tunParameterIndices%[iStimCounter%]]);
+                'printlog("Stim count is %d and index is %d and value is %f\n",iStimCounter%,tunParameterIndices%[iStimCounter%],tunParameterValues[tunParameterIndices%[iStimCounter%]]);
+                if iStimCounter% > tunNSteps% then
+                    View(tunResultXYWindow%[i%]).XYDelete(1,tunParameterIndices%[iStimCounter%],tunParameterIndices%[iStimCounter%]);
+                    'View(tunResultXYWindow%[i%]).XYDelete(1,0,0);
+                endif;
+                View(tunResultXYWindow%[i%]).XYAddData(1,tunParameterValues[tunParameterIndices%[iStimCounter%]],tunTotalSpikeCount[i%][tunParameterIndices%[iStimCounter%]]/tunTotalSeconds[i%][tunParameterIndices%[iStimCounter%]]);
+            next;
             ChangeStateTo(stateBlankON%, tBlankStart);
+            iStimCounter% += 1;
         endif
         
     case iState% = stateBlankON% then
         
         ' Waiting for the third trig - which indicates the blank is off
-        if FindEvent%(tunChanTrigger%, tBlankStart, tBlankEnd) > 0 then
-            
+        'if FindEvent%(tunChanTrigger%, tBlankStart, tBlankEnd) > 0 then
+        if FindPulseDown%(tunChanTrigger%, tStateStart, tBlankEnd, tPulseUp) = 1 then
+             
             LogInfo("TODO: Process spikes for BLANK " + str$(iBlankCounter%) + " " + str$(tBlankStart) + "-" + str$(tBlankEnd) + "\n");
+            for i% := 1 to tunNChannels% do
+                tunBlankTotalSpikeCount[i%] := tunBlankTotalSpikeCount[i%]+View(tunWindowData%).Count(i%, tBlankStart, tBlankEnd);
+                tunBlankSeconds[i%] := tunBlankSeconds[i%]+tBlankEnd-tBlankStart;
+                'printlog("Blank count is %d and blank time is %f for a rate of %f\n",tunBlankTotalSpikeCount[i%],tunBlankSeconds[i%],tunBlankTotalSpikeCount[i%]/tunBlankSeconds[i%]);
+                View(tunResultXYWindow%[i%]).XYDelete(2);
+                View(tunResultXYWindow%[i%]).XYAddData(2,1,tunBlankTotalSpikeCount[i%]/tunBlankSeconds[i%]);
+            next;
+            
             iBlankCounter% += 1;            
             
             ' check whether all stim have been presented
@@ -403,3 +512,12 @@ proc ChangeStateTo(stateTo%, tStart)
 	iState% := stateTo%;
 	if tStart > 0 then tStateStart := tStart; endif;
 end;
+
+
+'func SpikeRate(t1, t2, window%, chan%)
+'    if t2-t1 <= 0 then
+'        return -999999;     ' end time before or equal to start time
+'    else
+'        View(window%).Count(chan%, t1, t2)/(t2-t1);
+'    endif
+'end
