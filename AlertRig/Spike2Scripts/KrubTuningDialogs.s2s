@@ -1,8 +1,8 @@
-' $Id: KrubTuningDialogs.s2s,v 1.3 2011-05-17 23:07:25 devel Exp $
+' $Id: KrubTuningDialogs.s2s,v 1.4 2011-05-31 18:38:54 devel Exp $
 
 #include "../../Spike2Util/LogUtilities.s2s"
 #include "../../Spike2Util/MiscUtilities.s2s"
-#include "UsreyGratings.s2s"
+#include "KrubGratings.s2s"
 
 
 '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~`
@@ -181,7 +181,7 @@ func TunDlgOrientationGrating%()
     
     var x, y, w, h, sf, tf, ori;
     var contrast%;
-    var label$, param$, cv$, pattern$, aperture$;
+    var label$, param$, mo$, pattern$, aperture$;
     var i%;
     var disable%[11];
     var ndisable%;
@@ -190,9 +190,11 @@ func TunDlgOrientationGrating%()
     ArrConst(disable%[], 0);
     ndisable% := 1;
     disable%[0] := 8;
-    i% := GratingParametersDialog%(label$, tunGratingParams$, disable%[], ndisable%, x, y, w, h, contrast%, sf, tf, ori, cv$, pattern$, aperture$);
-    LogInfo("TunDlg Orientation: grating label=>" + label$ + "<");
-    LogInfo("TunDlg Orientation: params=>" + tunGratingParams$ + "<");
+    tunGratingParams$ := GetGratingParameters$("Stimulus");
+    i% := GratingParametersDialog%(label$, tunGratingParams$, disable%[], ndisable%, x, y, w, h, contrast%, sf, tf, ori, mo$, pattern$, aperture$);
+    if i% = 1 then
+        SaveGratingParameters("Stimulus", tunGratingParams$);
+    endif
     return 1;
 end
 
@@ -200,6 +202,7 @@ end
 
 func TunDlgContrast%()
     var status%;
+    var nParams%;
     DlgCreate("Contrast Tuning Parameters");
     DlgReal(1, "Stimulus time(s)", 0.1, 100.0);
     DlgReal(2, "Blank time(s)", 0.1, 100.0);
@@ -223,9 +226,11 @@ func TunDlgContrast%()
     case status% = 1 then
         status% := 0;
         tuntypeSelected% := tuntypeDom%;
+        nParams% := (tunNSteps%+1)*tunNRepeats%;
         tunExptTypeFileLabel$ := "dom";
         tunExptTypeLabel$ := "Contrast";
-        if GetRepeatedParameterProgression%(tunNSteps%+1, tunNRepeats%, tunParameterValues[0:tunNSteps%+1], tunParameterIndices%[0:tunNSteps%+1], tunContrastMin, tunContrastMax, 1, tunRandomProgression%) <> 0 then
+        if GetRepeatedParameterProgression%(tunNSteps%+1, tunNRepeats%, tunParameterValues[0:nParams%], tunParameterIndices%[0:nParams%], tunContrastMin, tunContrastMax, 1, tunRandomProgression%) <> 0 then
+        'if GetRepeatedParameterProgression%(tunNSteps%+1, tunNRepeats%, tunParameterValues[0:tunNSteps%+1], tunParameterIndices%[0:tunNSteps%+1], tunContrastMin, tunContrastMax, 1, tunRandomProgression%) <> 0 then
             ' TODO: Make sure dialog limits values to this never happens!
             Message("Cannot get progression values for this expt!");
             halt;
@@ -239,7 +244,7 @@ func TunDlgContrastGrating%()
     
     var x, y, w, h, sf, tf, ori;
     var contrast%;
-    var label$, param$, cv$, pattern$, aperture$;
+    var label$, param$, mo$, pattern$, aperture$;
     var i%;
     var disable%[11];
     var ndisable%;
@@ -248,7 +253,12 @@ func TunDlgContrastGrating%()
     ArrConst(disable%[], 0);
     ndisable% := 1;
     disable%[0] := 5;
-    i% := GratingParametersDialog%(label$, tunGratingParams$, disable%[], ndisable%, x, y, w, h, contrast%, sf, tf, ori, cv$, pattern$, aperture$);
+    tunGratingParams$ := GetGratingParameters$("Stimulus");
+    i% := GratingParametersDialog%(label$, tunGratingParams$, disable%[], ndisable%, x, y, w, h, contrast%, sf, tf, ori, mo$, pattern$, aperture$);
+    if i% = 1 then
+        SaveGratingParameters("Stimulus", tunGratingParams$);
+    endif
+    
     return 1;
 end
 
@@ -261,8 +271,8 @@ func TunDlgSF%()
     DlgReal(2, "Blank time(s)", 0.1, 100.0);
     DlgInteger(3, "Number of steps", 2, 100);
     DlgInteger(4, "Number of repeats", 1, 100);
-    DlgReal(5, "Min SF", .01, 100);
-    DlgReal(6, "Max SF", .01, 100);
+    DlgReal(5, "Min SF (cyc/deg)", .01, 100);
+    DlgReal(6, "Max SF (cyc/deg)", .01, 100);
     DlgCheck(7, "Random Progression?");
 	DlgList(8, "Background color:", tunBGColor$);
     DlgButton(151, "Grating Properties", TunDlgSFGrating%);
@@ -296,7 +306,7 @@ func TunDlgSFGrating%()
     
     var x, y, w, h, sf, tf, ori;
     var contrast%;
-    var label$, param$, cv$, pattern$, aperture$;
+    var label$, param$, mo$, pattern$, aperture$;
     var i%;
     var disable%[11];
     var ndisable%;
@@ -305,7 +315,11 @@ func TunDlgSFGrating%()
     ArrConst(disable%[], 0);
     ndisable% := 1;
     disable%[0] := 6;
-    i% := GratingParametersDialog%(label$, tunGratingParams$, disable%[], ndisable%, x, y, w, h, contrast%, sf, tf, ori, cv$, pattern$, aperture$);
+    tunGratingParams$ := GetGratingParameters$("Stimulus");
+    i% := GratingParametersDialog%(label$, tunGratingParams$, disable%[], ndisable%, x, y, w, h, contrast%, sf, tf, ori, mo$, pattern$, aperture$);
+    if i% = 1 then
+        SaveGratingParameters("Stimulus", tunGratingParams$);
+    endif
     return 1;
 end
 
@@ -318,8 +332,8 @@ func TunDlgTF%()
     DlgReal(2, "Blank time(s)", 0.1, 100.0);
     DlgInteger(3, "Number of steps", 2, 100);
     DlgInteger(4, "Number of repeats", 1, 100);
-    DlgReal(5, "Min TF", .01, 100);
-    DlgReal(6, "Max TF", .01, 100);
+    DlgReal(5, "Min TF (cyc/sec)", .01, 100);
+    DlgReal(6, "Max TF (cyc/sec)", .01, 100);
     DlgCheck(7, "Random Progression?");
 	DlgList(8, "Background color:", tunBGColor$);
     DlgButton(151, "Grating Properties", TunDlgTFGrating%);
@@ -353,7 +367,7 @@ func TunDlgTFGrating%()
     
     var x, y, w, h, sf, tf, ori;
     var contrast%;
-    var label$, param$, cv$, pattern$, aperture$;
+    var label$, param$, mo$, pattern$, aperture$;
     var i%;
     var disable%[11];
     var ndisable%;
@@ -362,7 +376,11 @@ func TunDlgTFGrating%()
     ArrConst(disable%[], 0);
     ndisable% := 1;
     disable%[0] := 7;
-    i% := GratingParametersDialog%(label$, tunGratingParams$, disable%[], ndisable%, x, y, w, h, contrast%, sf, tf, ori, cv$, pattern$, aperture$);
+    tunGratingParams$ := GetGratingParameters$("Stimulus");
+    i% := GratingParametersDialog%(label$, tunGratingParams$, disable%[], ndisable%, x, y, w, h, contrast%, sf, tf, ori, mo$, pattern$, aperture$);
+    if i% = 1 then
+        SaveGratingParameters("Stimulus", tunGratingParams$);
+    endif
     return 1;
 end
 
