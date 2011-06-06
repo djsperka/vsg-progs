@@ -1,5 +1,5 @@
-' $Id: Tuning.s2s,v 1.35 2011-02-08 23:03:33 devel Exp $
-const tunCVSID$ := "$Id: Tuning.s2s,v 1.35 2011-02-08 23:03:33 devel Exp $";
+' $Id: Tuning.s2s,v 1.36 2011-06-06 22:53:46 devel Exp $
+const tunCVSID$ := "$Id: Tuning.s2s,v 1.36 2011-06-06 22:53:46 devel Exp $";
 
 #include "../../Spike2Util/ChannelUtilities.s2s"
 #include "../../Spike2Util/UsreyUtil.s2s"
@@ -48,6 +48,7 @@ const tundlgSpatialButton% := 11;
 const tundlgTemporalButton% := 12;
 const tundlgAreaButton% := 13;
 const tundlgDonutButton% := 14;
+const tundlgBerlinerButton% := 15;
 
 ' Wavemarks and continuous ports are specified elsewhere
 var tunNWavemarks% := 0;
@@ -130,13 +131,14 @@ func TuningCurveScriptDialog%()
 	DlgReal(7, "Time out time(s):", .01, 10, 20, 8);
 	DlgList(8, "Background color:", bcl$, 3, 20, 9);
     DlgCheck(9, "Dual VSG rig", 2, 10);
-	DlgGroup("Individual Tuning Curve Types", 0, 11, 40, 7);
+	DlgGroup("Individual Tuning Curve Types", 0, 11, 40, 8);
 	DlgButton(tundlgOrientationButton%, "Orientation", TuningCurveOrientationDialog%, 1, 12);
 	DlgButton(tundlgContrastButton%, "Contrast", TuningCurveContrastDialog%, 1, 13);
 	DlgButton(tundlgSpatialButton%, "Spatial Freq", TuningCurveSpatialDialog%, 1, 14);
 	DlgButton(tundlgTemporalButton%, "Temporal Freq", TuningCurveTemporalDialog%, 1, 15);
 	DlgButton(tundlgAreaButton%, "Area", TuningCurveAreaDialog%, 1, 16);
 	DlgButton(tundlgDonutButton%, "Donuts!", TuningCurveDonutDialog%, 1, 17);
+    DlgButton(tundlgBerlinerButton%, "Berliners!", TuningCurveBerlinerDialog%, 1, 18);
 	
 	i%:=DlgShow(tunAcquisitionTime, tunFixationDuration, tunMaintainFixation,
     tunAcqFailTime, tunHoldFailTime, tunMaintainFailTime, tunTimeOutTime, ibcl%, tunDoRivalry%);
@@ -207,6 +209,7 @@ var ReadyChannel%;
 
 ' tuning curves
 var TuningWindow%[16];	' one for each wavemark channel
+
 ' XY window stuff
 var XYWindow%;			' 
 var iStimChannel%;	' channel number for stimulus in xy window
@@ -272,7 +275,6 @@ InitializeWindows();
 
 ' Prepare the toolbar buttons
 InitializeToolbar();
-
 
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
@@ -716,7 +718,14 @@ proc TuningCurveLabels(iport%)
 			WindowTitle$("Donut Area Tuning - " + s$);
 			XUnits$("Outer Diameter");
 			ChanTitle$(1, "Chan 1");
-			XRange(tunAreaMinDiam, tunAreaMaxDiam);
+            XRange(tunAreaMinDiam, tunAreaMaxDiam);
+        
+        case tunType$ = tunTypeBerliner$ then
+
+			WindowTitle$("Berliner Procedure - " + s$);
+			XUnits$("Stim Type");
+			ChanTitle$(1, "Chan 1");
+			XRange(0,5);
         
 		else
 
@@ -784,6 +793,13 @@ proc CreateSampleConfiguration()
         'for i% := 0 to tunNValues%-1 do
         '    PrintLog("%d %f\n", i%, tunValues[tunValuesIndices%[i%]]);
         'next
+    case tunType$ = tunTypeBerliner$ then 
+        SampleAutoName$(dataCellName$ + "_berliner_000");
+        tunNAdvances% := tunBerlinerNSteps%-1;  'subtract one because tunBerlinerNSteps% is literal (that is, n stims)
+        tunNRepeats% := tunBerlinerNRepeats%;
+        GetRepeatedParameterProgression%(tunBerlinerNSteps%, tunBerlinerNRepeats%, tunValues[], tunValuesIndices%[], 1, 4, 0, tunBerlinerProgression%);
+        tunNValues% := (tunBerlinerNSteps%)*tunBerlinerNRepeats%;
+        tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%);
     else
         SampleAutoName$(dataCellName$ + "_tun_000");
     endcase;
@@ -916,7 +932,7 @@ proc WriteParameterFile()
 	Print("Width (degrees)                 : %s\n", Tstimw$);
 	Print("Height (degrees)                : %s\n", Tstimh$);
 	Print("Color: b/w(b),lms-cone(l,m,s)   : %s\n", Tstimcv$);
-   Print("Temporal frequency              : %s\n", Tstimtf$);
+    Print("Temporal frequency              : %s\n", Tstimtf$);
 	Print("Spatial frequency               : %s\n", Tstimsf$);
 	Print("Orientation (degrees)           : %s\n", Tstimorientation$);
 	Print("Contrast (%%)                    : %s\n", Tstimcontrast$);
@@ -975,6 +991,13 @@ proc WriteParameterFile()
 
 			Print("Type:                  : Donut Area\n");
 			Print("Min,Max,#Steps,#Repeats: %f,%f,%d,%d\n", tunAreaMinDiam, tunAreaMaxDiam, tunAreaNSteps%, tunAreaNRepeats%);
+			Print("Values: " + tunValuesStringified$ + "\n");
+            Print("\n");
+        
+        case tunType$ = tunTypeBerliner$ then
+
+			Print("Type:                  : Berliner Area\n");
+			Print("Optimal,Max,#Steps,#Repeats: %f,%f,%d,%d\n", tunDonutOptimalDiam, tunBerlinerMaximalDiam, tunBerlinerNSteps%, tunBerlinerNRepeats%);
 			Print("Values: " + tunValuesStringified$ + "\n");
 			Print("\n");
 
@@ -1063,6 +1086,35 @@ func Start%()
         'PrintLog("areaArg: %s\n", areaArg$);
         'PrintLog("donutArg: %s\n", donutArg$);
         Tune$ := Dual$ + " -A " + areaArg$ + " -V -H " + donutArg$;
+        
+    case tunType$ = tunTypeBerliner$ then
+        
+        ' The args for the stim must be constructed here. 
+        var areaArgBerliner$, donutArgBerliner$; 
+        for i% := 0 to tunNValues%-1 do
+            docase
+            case tunValues[tunValuesIndices%[i%]] = 1 then  'stim 1 is optimal center on master, no donut on slave
+                areaArgBerliner$ += str$(tunDonutOptimalDiam) + ",";
+                donutArgBerliner$ += "0,0,";
+            case tunValues[tunValuesIndices%[i%]] = 2 then  'stim 2 is maximal center on master, no donut on slave
+                areaArgBerliner$ += str$(tunBerlinerMaximalDiam) + ",";
+                donutArgBerliner$ += "0,0,";   
+            case tunValues[tunValuesIndices%[i%]] = 3 then  'stim 3 is optimal center on master, donut one step larger on slave
+                areaArgBerliner$ += str$(tunDonutOptimalDiam) + ",";
+                donutArgBerliner$ += str$(tunDonutOptimalDiamPlusOne) + "," + str$(tunDonutOptimalDiam) + ","; 
+            case tunValues[tunValuesIndices%[i%]] = 4 then  'stim 4 is optimal center on master, maximal donut on slave
+                areaArgBerliner$ += str$(tunDonutOptimalDiam) + ",";
+                donutArgBerliner$ += str$(tunBerlinerMaximalDiam) + "," + str$(tunDonutOptimalDiam) + ",";      
+            else
+                Message("Error - unknown value for tunValues: " + str$(tunValues[tunValuesIndices%[i%]]));
+                Halt;   
+            endcase
+        next
+        areaArgBerliner$ := Left$(areaArgBerliner$, Len(areaArgBerliner$)-1);
+        donutArgBerliner$ := Left$(donutArgBerliner$, Len(donutArgBerliner$)-1);
+        'PrintLog("areaArg: %s\n", areaArg$);
+        'PrintLog("donutArg: %s\n", donutArg$);
+        Tune$ := Dual$ + " -A " + areaArgBerliner$ + " -V -H " + donutArgBerliner$;        
         
     else
 
