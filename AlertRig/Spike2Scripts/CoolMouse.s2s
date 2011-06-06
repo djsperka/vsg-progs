@@ -1,4 +1,4 @@
-' $Id: CoolMouse.s2s,v 1.12 2010-08-20 01:13:55 devel Exp $
+' $Id: CoolMouse.s2s,v 1.13 2011-06-06 22:27:31 devel Exp $
 
 #include "../../Spike2util\UsreyUtil.s2s"
 #include "UsreyGratings.s2s"
@@ -417,10 +417,13 @@ end;
 func Start%()
 	var CommandLine$;
 	var Extras$;
-	
+    
 	SampleStart(0); 'Start sampling
 	Extras$ := " -b gray -A " + GetFixationArg$() + " -d " + GetDistanceToScreenMM$() + " -g " + GetGratingParameters$("Stimulus");
 	CommandLine$ := "cmd /c " + bin$ + "\\cmouse" + Extras$;
+
+    ' Clear any trigger bits on digout lines.
+    SampleKey("0");
 
 	'Begin the stimulus program. It will take a few seconds for the VSG to initialize.
 	PrintLog(CommandLine$+"\n");
