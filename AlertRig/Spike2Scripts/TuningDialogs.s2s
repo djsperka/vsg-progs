@@ -1,4 +1,4 @@
-' $Id: TuningDialogs.s2s,v 1.1 2011-02-07 19:01:12 devel Exp $
+' $Id: TuningDialogs.s2s,v 1.2 2011-06-06 22:53:46 devel Exp $
 '
 ' This file contains dialog functions for the alert tuning script Tuning.s2s.
 #include "../../Spike2Util/UsreyUtil.s2s"
@@ -14,6 +14,7 @@ const tunTypeSpatial$ := "S";
 const tunTypeTemporal$ := "T";
 const tunTypeArea$ := "A";
 const tunTypeDonut$ := "H";
+const tunTypeBerliner$ := "B";
 var tunType$:=tunTypeNone$;
 
 const tunContextDAQ$ := "DAQ";
@@ -63,6 +64,14 @@ var tunAreaProgression%;
 ' Donuts - use same vars as area. There is one additional var - the optimal value index.
 var tunDonutOptimalIndex%:=0;		' step index where area stim stops growing and donut stim starts
 var tunDonutOptimalDiam;
+
+' Berliners - also use same variables as Area.  Use optimal value index from Donuts.  Add maximal value index
+var tunDonutOptimalDiamPlusOne;
+var tunBerlinerMaximalIndex%:=0;    ' index for "maximal" size
+var tunBerlinerMaximalDiam;
+var tunBerlinerNSteps%;
+var tunBerlinerNRepeats% := 3;  'just putting in 3 repeats for now
+var tunBerlinerProgression%;
 
 proc GetTuningCurveOrientationParameters()
 	var key$;
@@ -154,6 +163,11 @@ proc GetTuningCurveAreaParameters()
     tunAreaMinDiam := GetFloatRegistryValue(key$, "MinDiam", tunAreaMinDiam);
     tunAreaMaxDiam := GetFloatRegistryValue(key$, "MaxDiam", tunAreaMaxDiam);
     tunDonutOptimalIndex% := GetIntRegistryValue%(key$, "OptimalIndex", tunDonutOptimalIndex%);
+    tunBerlinerMaximalIndex% := GetIntRegistryValue%(key$, "MaximalIndexBerliner", tunBerlinerMaximalIndex%);
+    tunBerlinerMaximalDiam := GetFloatRegistryValue(key$, "MaximalDiamBerliner", tunBerlinerMaximalDiam);
+    tunBerlinerNSteps% := GetIntRegistryValue%(key$, "NStepsBerliner", tunBerlinerNSteps%);
+    tunBerlinerNRepeats% := GetIntRegistryValue%(key$, "NRepeatsDiamBerliner", tunBerlinerNRepeats%);
+    tunBerlinerProgression% := GetIntRegistryValue%(key$, "BerlinerProgression", tunBerlinerProgression%);
 end;
 
 proc SaveTuningCurveAreaParameters()
@@ -165,6 +179,11 @@ proc SaveTuningCurveAreaParameters()
     SetFloatRegistryValue(key$, "MinDiam", tunAreaMinDiam);
     SetFloatRegistryValue(key$, "MaxDiam", tunAreaMaxDiam);
     SetIntRegistryValue(key$, "OptimalIndex", tunDonutOptimalIndex%);
+    SetIntRegistryValue(key$, "MaximalIndexBerliner", tunBerlinerMaximalIndex%);
+    SetFloatRegistryValue(key$, "MaximalDiamBerliner", tunBerlinerMaximalDiam);
+    SetIntRegistryValue(key$, "NStepsBerliner", tunBerlinerNSteps%);
+    SetIntRegistryValue(key$, "NRepeatsDiamBerliner", tunBerlinerNRepeats%);
+    SetIntRegistryValue(key$, "BerlinerProgression", tunBerlinerProgression%);
 end;
 
 
@@ -182,7 +201,7 @@ func TuningCurveOrientationDialog%()
 	i% := DlgShow(tunOriNSteps%, tunOriNRepeats%, tunOriMinOrientation, tunOriMaxOrientation, tunOriProgression%);
 
 	' If i% is 1 the user hit "OK". If its 0, user hit "Cancel". 
-	' When user hits OK we alwaus save the parameters, and when user hit Cancel we don't.
+	' When user hits OK we alwaus save the parameters, and when user hits Cancel we don't.
     ' djs 2/4/2011
     ' Spike2 bug workaround implemented. The return value from this function (when in DAQ context this
     ' dialog is called from a DlgButton in another dialog) should make the parent dialog close, as if 
@@ -230,7 +249,7 @@ func TuningCurveContrastDialog%()
 
 	i% := DlgShow(tunContrastNSteps%, tunContrastNRepeats%, tunContrastMinContrast, tunContrastMaxContrast, tunContrastProgression%);
 	' If i% is 1 the user hit "OK". If its 0, user hit "Cancel". 
-	' When user hits OK we alwaus save the parameters, and when user hit Cancel we don't.
+	' When user hits OK we alwaus save the parameters, and when user hits Cancel we don't.
     ' djs 2/4/2011
     ' Spike2 bug workaround implemented. The return value from this function (when in DAQ context this
     ' dialog is called from a DlgButton in another dialog) should make the parent dialog close, as if 
@@ -276,7 +295,7 @@ func TuningCurveSpatialDialog%()
 
 	i% := DlgShow(tunSpatialNSteps%, tunSpatialNRepeats%, tunSpatialMinSF, tunSpatialMaxSF, tunSpatialProgression%);
 	' If i% is 1 the user hit "OK". If its 0, user hit "Cancel". 
-	' When user hits OK we alwaus save the parameters, and when user hit Cancel we don't.
+	' When user hits OK we alwaus save the parameters, and when user hits Cancel we don't.
     ' djs 2/4/2011
     ' Spike2 bug workaround implemented. The return value from this function (when in DAQ context this
     ' dialog is called from a DlgButton in another dialog) should make the parent dialog close, as if 
@@ -322,7 +341,7 @@ func TuningCurveTemporalDialog%()
 
 	i% := DlgShow(tunTemporalNSteps%, tunTemporalNRepeats%, tunTemporalMinTF, tunTemporalMaxTF, tunTemporalProgression%);
 	' If i% is 1 the user hit "OK". If its 0, user hit "Cancel". 
-	' When user hits OK we alwaus save the parameters, and when user hit Cancel we don't.
+	' When user hits OK we alwaus save the parameters, and when user hits Cancel we don't.
     ' djs 2/4/2011
     ' Spike2 bug workaround implemented. The return value from this function (when in DAQ context this
     ' dialog is called from a DlgButton in another dialog) should make the parent dialog close, as if 
@@ -368,7 +387,7 @@ func TuningCurveAreaDialog%()
 
 	i% := DlgShow(tunAreaNSteps%, tunAreaNRepeats%, tunAreaMinDiam, tunAreaMaxDiam, tunAreaProgression%);
 	' If i% is 1 the user hit "OK". If its 0, user hit "Cancel". 
-	' When user hits OK we always save the parameters, and when user hit Cancel we don't.
+	' When user hits OK we always save the parameters, and when user hits Cancel we don't.
     ' 
     ' djs 2/4/2011
     ' Spike2 bug workaround implemented. The return value from this function (when in DAQ context this
@@ -380,7 +399,7 @@ func TuningCurveAreaDialog%()
     ' before things proceed. 
 	if i% = 1 then
 		SaveTuningCurveAreaParameters();
-'		PrintLog("TuningCurveTemporalDialog - user hit OK\n");
+'		PrintLog("TuningCurveAreaDialog - user hit OK\n");
 		tunType$ := tunTypeArea$;
 		if tunContext$ = tunContextDAQ$ then
             ' djs 2/4/2011 We return 1 - that's the workaround			iReturn% := 0;
@@ -390,7 +409,7 @@ func TuningCurveAreaDialog%()
 		endif;
 	endif;
 	if i% = 0 then
-'		PrintLog("TuningCurveTemporalDialog - user hit Cancel\n");
+'		PrintLog("TuningCurveAreaDialog - user hit Cancel\n");
 		tunType$ := tunTypeNone$;
 		if tunContext$ = tunContextDAQ$ then
 			iReturn% := 1;
@@ -402,11 +421,13 @@ func TuningCurveAreaDialog%()
 	return iReturn%;
 end;
 
-
+' This function is initially called with a "0" input, which forces the 1-5 dialogs to be disabled
+' Of course, this could just be done with a DlgEnable call at the point of dialog creation.  There
+' doesn't seem to be any plan to un-disable those dialogs when the enabled dialog is changed.
 func TuningCurveDonutDialogChanged%(item%)
     if item% = 0 then
         DlgEnable(0, 1, 2, 3, 4, 5);
-    endif
+    endif    
     return 1;
 end
 
@@ -438,7 +459,7 @@ func TuningCurveDonutDialog%()
     tunDonutOptimalDiam := result[tunDonutOptimalIndex%];
     
 	' If i% is 1 the user hit "OK". If its 0, user hit "Cancel". 
-	' When user hits OK we always save the parameters, and when user hit Cancel we don't.
+	' When user hits OK we always save the parameters, and when user hits Cancel we don't.
     ' 
     ' djs 2/4/2011
     ' Spike2 bug workaround implemented. The return value from this function (when in DAQ context this
@@ -470,4 +491,95 @@ func TuningCurveDonutDialog%()
 	return iReturn%;
 end;
 
+' This function is initially called with a "0" input, which forces the 1, 3, 4 dialogs to be disabled
+' Of course, this could just be done with a DlgEnable call at the point of dialog creation.  There
+' doesn't seem to be any plan to un-disable those dialogs when the enabled dialog is changed.
+func TuningCurveBerlinerDialogChanged%(item%)
+    if item% = 0 then
+        DlgEnable(0, 1, 3, 4);
+    endif    
+    return 1;
+end
 
+func TuningCurveBerlinerDialog%()
+	var iReturn% := 0;
+	var i%;
+    var sValues$;
+    var iValue%:=0;
+    var result[100];
+    var indices%[100];
+    
+	GetTuningCurveAreaParameters();
+    
+    ' Before we proceed, we must generate a list of choices for the optimal diameter. These are based on the most recent run of Area tuning
+    ' Note that there are nsteps+1 values. 
+    
+    GetRepeatedParameterProgression%(tunAreaNSteps%+1, 1, result[], indices%[], tunAreaMinDiam, tunAreaMaxDiam, 1, tunAreaProgression%);
+    sValues$ := GetRealArrayAsStringSep$(result[0:tunAreaNSteps%+1], indices%[0:tunAreaNSteps%+1], "|");
+    
+    'We want the default maximal value to be the largest value available when we open the dialog
+    'so set tunBerlinerMaximalIndex% appropriately
+    tunBerlinerMaximalIndex% := tunAreaNSteps%;
+    
+    'Define tunBerlinerNSteps%, because we are no longer doing a tuning curve.  Captain Picard says "There are FOUR Berliners!"
+    tunBerlinerNSteps% := 4;
+    
+	DlgCreate("Berliner Tuning Curve Parameters");
+	'DlgInteger(1, "Number of Steps", 2, 100);
+    DlgInteger(1, "Number of Stimuli", 2, 100);
+	DlgInteger(2, "Number of Repeats", 1, 1000);
+	DlgReal(3, "Min Diameter", 0.1, 100);
+	DlgReal(4, "Max Diameter", 0.1, 100);
+	DlgCheck(5, "Random Progression");
+    DlgList(6, "Optimal diameter", sValues$);
+    DlgList(7, "Maximal diameter", sValues$);
+    DlgAllow(0xffff, 0, TuningCurveBerlinerDialogChanged%);
+	'i% := DlgShow(tunAreaNSteps%, tunAreaNRepeats%, tunAreaMinDiam, tunAreaMaxDiam, tunAreaProgression%, tunDonutOptimalIndex%, tunBerlinerMaximalIndex%);
+    i% := DlgShow(tunBerlinerNSteps%, tunBerlinerNRepeats%, tunAreaMinDiam, tunAreaMaxDiam, tunBerlinerProgression%, tunDonutOptimalIndex%, tunBerlinerMaximalIndex%);
+    
+    ' Don't let the user screw this up by selecting incompatible values
+    if tunBerlinerMaximalIndex% > tunDonutOptimalIndex%+1 then
+        tunDonutOptimalDiam := result[tunDonutOptimalIndex%];
+        tunDonutOptimalDiamPlusOne := result[tunDonutOptimalIndex%+1];
+        tunBerlinerMaximalDiam := result[tunBerlinerMaximalIndex%];
+    else
+        i% := 0;  'Treat this as a "cancel"
+        if tunBerlinerMaximalIndex% > tunDonutOptimalIndex% then
+            message("Oops!|The maximal index was only one value greater than the optimal index!\nThis would result in 'near facilitation' and 'far suppression'\nstimuli being identical!\n\nI know you didn't want that, so try again!");
+        else
+            message("Oops!|The maximal index was not greater than the optimal index!\n\nI know you didn't want that, so try again!");
+        endif;
+    endif;
+    
+	' If i% is 1 the user hit "OK". If its 0, user hit "Cancel". 
+	' When user hits OK we always save the parameters, and when user hits Cancel we don't.
+    ' 
+    ' djs 2/4/2011
+    ' Spike2 bug workaround implemented. The return value from this function (when in DAQ context this
+    ' dialog is called from a DlgButton in another dialog) should make the parent dialog close, as if 
+    ' the OK button were hit. Bug in Spike2 v6 means this doesn't work right - the parent dialog will 
+    ' close but its variables are not updated prior to doing so.... so any changes to the parent dialog
+    ' are not seen in the subsequent expt, they're not saved in the registry, etc. Workaround is to return
+    ' something > 0 here. The parent dialog will continue to display, and the user has to hit OK on that 
+    ' before things proceed. 
+	if i% = 1 then
+		SaveTuningCurveAreaParameters();
+		tunType$ := tunTypeBerliner$;
+		if tunContext$ = tunContextDAQ$ then
+            ' djs 2/4/2011 We return 1 - that's the workaround			iReturn% := 0;
+            iReturn% := 1;
+		else
+			iReturn% := 1;
+		endif;
+	endif;
+	if i% = 0 then
+		tunType$ := tunTypeNone$;
+		if tunContext$ = tunContextDAQ$ then
+			iReturn% := 1;
+		else
+			iReturn% := 2;
+		endif;
+	endif;
+    
+	return iReturn%;
+end;
