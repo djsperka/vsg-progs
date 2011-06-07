@@ -1,4 +1,4 @@
-' $Id: Vertibar.s2s,v 1.1 2011-03-29 06:34:20 devel Exp $
+' $Id: Vertibar.s2s,v 1.2 2011-06-07 18:27:15 devel Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "PunctaciousDialog.s2s"
@@ -6,10 +6,11 @@
 ' dialog
 var vtbNChannels% := 1;
 var vtbFramesPerTerm% := 1;
-var vtbCenterX% := 0;
-var vtbNCols% := 16;
+var vtbCenterCoord% := 0;
+var vtbNBars% := 16;
 var vtbBarWidth% := 0;
 var vtbFullScreen% := 0;
+var vtbHorizontal% := 0;
 
 ' Channel numbers
 var vtbChanTrigger% := 11;
@@ -43,8 +44,11 @@ var iState% := stateStartup%;              ' This holds the current state
 
 LogInit(1);
 
+GetVertibarScriptParameters();
 if VertibarDialog%() = 0 then
     halt;
+else
+    SaveVertibarScriptParameters();
 endif
 
 ' Sampling config
@@ -58,17 +62,46 @@ InitializeToolbar();
 
 
 
+
+proc GetVertibarScriptParameters()
+	var key$;
+	key$:=GetRegistryKey$(1) + "\\Scripts\\Vertibar";
+    
+    vtbNChannels% := GetIntRegistryValue%(key$, "NChannels", vtbNChannels%);
+    vtbFramesPerTerm% := GetIntRegistryValue%(key$, "FramesPerTerm", vtbFramesPerTerm%);
+    vtbNBars% := GetIntRegistryValue%(key$, "NBars", vtbNBars%);
+    vtbFullScreen% := GetIntRegistryValue%(key$, "FullScreen", vtbFullScreen%);
+    vtbHorizontal% := GetIntRegistryValue%(key$, "Horizontal", vtbHorizontal%);
+    vtbBarWidth% := GetIntRegistryValue%(key$, "BarWidth", vtbBarWidth%);
+    vtbCenterCoord% := GetIntRegistryValue%(key$, "CenterCoord", vtbCenterCoord%);
+end;
+
+proc SaveVertibarScriptParameters()
+	var key$;
+	key$:=GetRegistryKey$(1) + "\\Scripts\\Vertibar";
+    SetIntRegistryValue(key$, "NChannels", vtbNChannels%);
+    SetIntRegistryValue(key$, "FramesPerTerm", vtbFramesPerTerm%);
+    SetIntRegistryValue(key$, "NBars", vtbNBars%);
+    SetIntRegistryValue(key$, "FullScreen", vtbFullScreen%);
+    SetIntRegistryValue(key$, "Horizontal", vtbHorizontal%);
+    SetIntRegistryValue(key$, "BarWidth", vtbBarWidth%);
+    SetIntRegistryValue(key$, "CenterCoord", vtbCenterCoord%);
+end;
+
+
+
 func VertibarDialog%()
     var status% := 0;
     DlgCreate("Vertibar!");
     DlgInteger(1, "# Electrodes", 1, 8);
     DlgInteger(2, "Frames per term", 1, 1000, 0, 0, 1);
-    DlgInteger(3, "# columns", 1, 250, 0, 0, 1);
+    DlgInteger(3, "# of bars", 1, 250, 0, 0, 1);
     DlgCheck(4, "Full Screen width");
-    DlgInteger(5, "Bar Width (pixels)", 4, 800);
-    DlgInteger(6, "Center X (pixels)", -400, 400);
+    DlgCheck(5, "Horizontabars");
+    DlgInteger(6, "Bar Width (pixels)", 4, 800);
+    DlgInteger(7, "Center X/Y (pixels)", -400, 400);
     DlgAllow(0xffff, 0, VertibarDialogChanged%);
-    status% := DlgShow(vtbNChannels%, vtbFramesPerTerm%, vtbNCols%, vtbFullScreen%, vtbBarWidth%, vtbCenterX%);;
+    status% := DlgShow(vtbNChannels%, vtbFramesPerTerm%, vtbNBars%, vtbFullScreen%, vtbHorizontal%, vtbBarWidth%, vtbCenterCoord%);;
     return status%
 end
 
@@ -76,9 +109,9 @@ end
 func VertibarDialogChanged%(item%)
     docase
     case item% = 0 then
-        DlgEnable(1-vtbFullScreen%, 5);
+        DlgEnable(1-vtbFullScreen%, 6);
     case item% = 4 then
-        DlgEnable(1-DlgValue(4), 5);
+        DlgEnable(1-DlgValue(4), 6);
     endcase
     return 1;
 end
@@ -146,8 +179,16 @@ func Start%()
     var cmd$;
     var args$;
     cmd$ := "cmd /c " + GetBinDir$(1) + "vertibar.exe ";
-    ' Note center X must be adjusted to VSG default coords, x=0 is left hand edge.
-    args$ := " -t " + str$(vtbFramesPerTerm%) + " -x " + str$(vtbCenterX%+400) + " -c " + str$(vtbNCols%) + " -o 15 -f " + GetStimDir$(1) + "MSequenceTerms";
+    
+    args$ := " -t " + str$(vtbFramesPerTerm%) + " -n " + str$(vtbNBars%) + " -o 15 -f " + GetStimDir$(1) + "MSequenceTerms";
+    if vtbHorizontal% = 0 then
+        ' Note center X must be adjusted to VSG default coords, x=0 is left hand edge.
+        args$ += " -x " + str$(vtbCenterCoord%+400);
+    else
+        ' Note center Y must be adjusted to VSG default coords, y=0 is top edge.
+        args$ += " -H -y " + str$(vtbCenterCoord%+300);
+    endif
+    
     if vtbFullScreen% = 0 then
         args$ += " -w " + str$(vtbBarWidth%);
     endif    
