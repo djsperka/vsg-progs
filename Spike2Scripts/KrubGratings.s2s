@@ -96,14 +96,14 @@ func GratingParametersDialog%(label$, &param$, disable%[], ndisable%, &x, &y, &w
 
 	DlgCreate("Grating parameters: " + label$, 25, 10);
     DlgAllow(0, 0, GratingParametersDialogCheck%);
-	DlgReal(1, "X:", -40, 40);
-	DlgReal(2, "Y:", -40, 40);
-	DlgReal(3, "Width:", .1, 30);
-	DlgReal(4, "Height:", .1, 30);
+	DlgReal(1, "X (vis deg):", -40, 40);
+	DlgReal(2, "Y (vis deg):", -40, 40);
+	DlgReal(3, "Width (vis deg):", .1, 30);
+	DlgReal(4, "Height (vis deg):", .1, 30);
 	DlgInteger(5, "Contrast(%):", -100, 100);
-	DlgReal(6, "Spatial Freq:", .1, 10);
-	DlgReal(7, "Temporal Freq:", 0, 10);
-	DlgReal(8, "Orientation (degrees):", 0, 360);
+	DlgReal(6, "Spatial Freq (cyc/deg):", .1, 10);
+	DlgReal(7, "Temporal Freq (cyc/sec):", 0, 10);
+	DlgReal(8, "Orientation (deg):", 0, 360);
 	DlgList(9, "Mask Orientation:", MaskOrientation$[]);
 	DlgList(10, "Pattern:", PatternList$[]);
 	DlgList(11, "Aperture:", ApertureList$[]);
