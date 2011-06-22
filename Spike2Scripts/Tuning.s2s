@@ -1,5 +1,5 @@
-' $Id: Tuning.s2s,v 1.37 2011-06-22 19:30:34 devel Exp $
-const tunCVSID$ := "$Id: Tuning.s2s,v 1.37 2011-06-22 19:30:34 devel Exp $";
+' $Id: Tuning.s2s,v 1.38 2011-06-22 21:38:42 devel Exp $
+const tunCVSID$ := "$Id: Tuning.s2s,v 1.38 2011-06-22 21:38:42 devel Exp $";
 
 #include "../../Spike2Util/ChannelUtilities.s2s"
 #include "../../Spike2Util/UsreyUtil.s2s"
@@ -213,6 +213,8 @@ var FixationPointChannel%;
 var StimChannel%;
 var StimChangeChannel%;
 var ReadyChannel%;
+var FixationPointSlaveChannel%;
+var StimSlaveChannel%;
 
 ' xy windows for plotting (TuningWindow) and PSTH. 
 var TuningWindow%[16];	' one for each wavemark channel
@@ -273,6 +275,9 @@ FixationPointChannel% := 24;
 StimChannel% := 25;
 StimChangeChannel% := 26;
 ReadyChannel% := 27;            ' Look for ready signal on port 2 (same as fixpt). 
+FixationPointSlaveChannel% := 28;
+StimSlaveChannel% := 29;
+
 
 ' Fetch electrode information. 
 tunNWavemarks% := GetWavemarkPorts%(tunWavemarkPorts%[]);
@@ -365,6 +370,12 @@ var nTrialsStarted%:=0;
 var nTrialsCompleted%:=0;
 var nTrialsAborted% :=0;		' 
 
+var tic;  'Set a tick value equal to the duration of one clock tick in seconds, used to prevent finding
+          'the same "pulse" twice
+tic := View(DataWindow%).BinSize(ReadyChannel%);
+
+var pulseFound%;
+
 func IdleProcessing%()
 	var iStatus% := 1;	
 	tNow := View(DataWindow%).MaxTime();
@@ -372,7 +383,7 @@ func IdleProcessing%()
     ' First time through (tLast<0) just update tLast. Crosstalk on vsg dig outputs leads to erroneous
     ' triggers. Maybe this will help. 
     if tLast < 0 then
-        tLast := tNow;
+        tLast := 1;
         return 1;
     endif
     
@@ -389,11 +400,18 @@ func IdleProcessing%()
 	docase 
     case iState% = stateVSGWait% then
         ' Waiting for VSG to indicate it is ready. The indication is a pulse (up, then down, 1 frame apart) on port 6.
-        if View(DataWindow%).FindPulseUp%(ReadyChannel%, -1, tRise, tFall) = 1 then
-            LogStatus("VSGWait", "Got Ready Pulse from VSG");
+        'if View(DataWindow%).FindPulseUp%(ReadyChannel%, -1, tRise, tFall) = 1 then
+        pulseFound% := View(DataWindow%).FindPulseUp%(ReadyChannel%, tLastTrigger+tic, tRise, tFall);
+        if pulseFound% = 1 then
+            LogStatus("VSGWait", "Got Ready Pulse from VSG at " + str$(tRise));
             Yield(1.0);
             tLastTrigger := tFall;
             ChangeStateTo(stateStartTrial%, tFall);
+        else
+            if pulseFound% = 0 then  'if a (short) "false" trigger is found, update tLastTrigger so we don't see it again
+                LogStatus("VSGWait", "Got FALSE Ready Pulse from VSG at " + str$(tRise));
+                tLastTrigger := tFall;
+            endif;
         endif;
 
     case iState% = stateStartTrial% then
@@ -420,6 +438,7 @@ func IdleProcessing%()
         ' Waiting for eye to fall inside of fixation window
         if Looking%(xEye, yEye) = 1 then
             LogStatus("WaitForAcquisition", "Eye in fixation window; request stim");
+            SampleText("T," + str$(GetPlotXCoord(nTrialsCompleted%)));
             SafeSampleKey("S");
             iHoldCount% := 0;
             ChangeStateTo(stateWaitForStimOn%, tNow);
@@ -497,7 +516,7 @@ func IdleProcessing%()
                 DeliverReward();
                 
                 ' Process spikes
-                PlotSpikes(tStimOn, tNow, 1, nTrialsCompleted%);
+                PlotSpikes(tStimOn, tNow, 1, GetPlotXCoord(nTrialsCompleted%), nTrialsCompleted%);
                 nTrialsCompleted% += 1;
 
                 ' Now wait until stim is off
@@ -543,6 +562,7 @@ func IdleProcessing%()
 
                 LogStatus("MaintainFixation", "success");
                 DeliverReward();
+                SampleText("S," + str$(GetPlotXCoord(nTrialsCompleted%)));
                 SafeSampleKey("S");
                 ChangeStateTo(stateWaitForStimOn%, tNow);
 
@@ -563,25 +583,17 @@ end;
 
 
 func GetPlotXCoord(nTrials%)
-	var x;
-	var n%;
-	'n% := nTrials% mod (tunNAdvances% + 1);
-	'x := tunValues[tunValuesIndices%[n%]];
-	x := tunValues[tunValuesIndices%[nTrials%]];
-	return x;
+    return tunValues[tunValuesIndices%[nTrials%]];
 end;
 
-proc PlotSpikes(t1, t2, vOnOff%, nTrials%)
+proc PlotSpikes(t1, t2, vOnOff%, x, index%)
 	var rate;
-	var index%; ' = i+1
     var i%;
     var tSweep;
     var fftData[16];        ' size of this array should be same as number of bins!
-    var x;                  ' x value for xy plots
-    var ind%;             ' index value for saving fft values f1 and f2. This is the index into tunValues.
     
-    x := tunValues[tunValuesIndices%[nTrials%]];
-    ind% := tunValuesIndices%[nTrials%];
+ '   x := tunValues[tunValuesIndices%[nTrials%]];
+ '   ind% := tunValuesIndices%[nTrials%];
     
 	for i% := 0 to tunNWavemarks%-1 do
 		rate := View(DataWindow%).Count(i%+1, t1, t2)/(t2-t1);
@@ -605,8 +617,8 @@ proc PlotSpikes(t1, t2, vOnOff%, nTrials%)
 			ArrFFT(fftData[], 4); 
             View(TuningWindow%[i%]).XYAddData(2, x, fftData[1]);
             View(TuningWindow%[i%]).XYAddData(3, x, fftData[2]);
-            tunF1Sum[i%][ind%] += fftData[1];
-            tunF2Sum[i%][ind%] += fftData[2];
+            tunF1Sum[i%][index%] += fftData[1];
+            tunF2Sum[i%][index%] += fftData[2];
         endif
         
 	next
@@ -873,6 +885,16 @@ proc CreateSampleConfiguration()
 	SampleComment$(ReadyChannel%,"VSG Ready");
 	SampleTitle$(ReadyChannel%,"VSG Ready");
     
+    ' djs Add channels to capture slave fixpt and stim onset
+	SampleEvent(FixationPointSlaveChannel%, 6, 2, 3600); 'Trigger channel, level
+	SampleComment$(FixationPointSlaveChannel%,"Fixpt-Slave");
+	SampleTitle$(FixationPointSlaveChannel%,"Fixpt-Slave");
+	
+	SampleEvent(StimSlaveChannel%, 7, 2,3600); 'Trigger channel, level
+	SampleComment$(StimSlaveChannel%,"Stim-Slave");
+	SampleTitle$(StimSlaveChannel%,"Stim-Slave");
+    
+    
     ' Electrodes: wavemark/continuous
     ' 12/6/2010
     ' Wavemark channels will be channels # 1-N, waveform N+1 - N+1+M, where there are N wavemark channels
@@ -1099,6 +1121,7 @@ func Start%()
 	var Extras$;
 	var Tune$;
 	var Stim$:="";
+	var SlaveStim$:="";
 	var Values$;
     var Dual$;
     var key$;
@@ -1108,9 +1131,12 @@ func Start%()
 	SampleStart(0); 'Start sampling
 	SafeSampleKey("0");
     
-
-	' Stimulus is always used
-	Stim$ := " -s " + GetGratingParameters$("Stimulus");
+    
+    ' Stimulus is always used
+    Stim$ := " -s " + GetGratingParameters$("Stimulus");
+    ' Slave Stimulus is not always used, but get it anyway
+    SlaveStim$ := " -s " + GetGratingParameters$("SlaveStimulus");
+    
 	Values$ := tunValuesStringified$;
 	Extras$ := " -b " + tunBackgroundColor$ + " -d " + DistanceToScreenMM$ + " -p 2 -v";
     if tunDoRivalry% = 0 then
@@ -1160,7 +1186,7 @@ func Start%()
         donutArg$ := Left$(donutArg$, Len(donutArg$)-1);
         'PrintLog("areaArg: %s\n", areaArg$);
         'PrintLog("donutArg: %s\n", donutArg$);
-        Tune$ := Dual$ + " -A " + areaArg$ + " -V -H " + donutArg$;
+        Tune$ := Dual$ + " -A " + areaArg$ + SlaveStim$ + " -V -H " + donutArg$;  'Added slave stim specs
         
     case tunType$ = tunTypeBerliner$ then
         
@@ -1189,7 +1215,8 @@ func Start%()
         donutArgBerliner$ := Left$(donutArgBerliner$, Len(donutArgBerliner$)-1);
         'PrintLog("areaArg: %s\n", areaArg$);
         'PrintLog("donutArg: %s\n", donutArg$);
-        Tune$ := Dual$ + " -A " + areaArgBerliner$ + " -V -H " + donutArgBerliner$;        
+        'Insert slave stimulus into Tune$, right now just for Berliners, but could be done for donuts
+        Tune$ := Dual$ + " -A " + areaArgBerliner$ + SlaveStim$ + " -V -H " + donutArgBerliner$;        
         
     else
 
