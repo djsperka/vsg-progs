@@ -1,5 +1,7 @@
-' $Id: Tuning.s2s,v 1.38 2011-06-22 21:38:42 devel Exp $
-const tunCVSID$ := "$Id: Tuning.s2s,v 1.38 2011-06-22 21:38:42 devel Exp $";
+' $Id: Tuning.s2s,v 1.39 2011-06-22 21:52:13 jeff Exp $
+const tunCVSID$ := "$Id: Tuning.s2s,v 1.39 2011-06-22 21:52:13 jeff Exp $";
+
+'hello!
 
 #include "../../Spike2Util/ChannelUtilities.s2s"
 #include "../../Spike2Util/UsreyUtil.s2s"
