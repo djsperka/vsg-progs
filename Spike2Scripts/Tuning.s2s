@@ -1,5 +1,5 @@
-' $Id: Tuning.s2s,v 1.36 2011-06-06 22:53:46 devel Exp $
-const tunCVSID$ := "$Id: Tuning.s2s,v 1.36 2011-06-06 22:53:46 devel Exp $";
+' $Id: Tuning.s2s,v 1.37 2011-06-22 19:30:34 devel Exp $
+const tunCVSID$ := "$Id: Tuning.s2s,v 1.37 2011-06-22 19:30:34 devel Exp $";
 
 #include "../../Spike2Util/ChannelUtilities.s2s"
 #include "../../Spike2Util/UsreyUtil.s2s"
@@ -28,6 +28,7 @@ var tunHoldFailTime := 2.0;			' Wait time after failure to hold fixation (not on
 var tunMaintainFailTime := 2.0;	' Wait time after breaking fixation during maintain phase
 var tunTimeOutTime := 2.0;			' Wait time after failure to hold fixation (first time after acquisition)
 var tunDoRivalry% := 0;          ' If checked, run for the rivalry rig
+var tunDoF12% := 1;                 ' compute f1 and f2. 
 
 ' These will be set by the tuning curve choice
 var tunNAdvances%;		' Number of times stim will advance during one repeat
@@ -55,6 +56,12 @@ var tunNWavemarks% := 0;
 var tunWavemarkPorts%[16];
 var tunNContinuous% := 0;
 var tunContinuousPorts%[16];
+
+' Hold sum of F1 values. Each channel (up to 16) has values saved according to the index of the tuning value (up to 100). 
+' Rely on the fact that arrays are initialized with 0s in Spike2. 
+var tunF1Sum[16][100];
+var tunF2Sum[16][100];
+var tunTF;              ' Will need to use this during FFT analysis. Use at your own risk....
 
 
 proc GetTuningCurveScriptParameters()
@@ -207,8 +214,9 @@ var StimChannel%;
 var StimChangeChannel%;
 var ReadyChannel%;
 
-' tuning curves
+' xy windows for plotting (TuningWindow) and PSTH. 
 var TuningWindow%[16];	' one for each wavemark channel
+var PSTHWindow%[16];    ' used for f1 and f2. Will be made invisible when in use. 
 
 ' XY window stuff
 var XYWindow%;			' 
@@ -252,7 +260,10 @@ else
 endif;
 
 
-
+' When TF curve, don't do f1 and f2. 
+if tunType$ = tunTypeTemporal$ then
+    tunDoF12% := 0;
+endif
 
 
 ' Assign channel numbers for eye X,Y and trigger. 
@@ -288,7 +299,7 @@ proc InitializeToolbar()
 	ToolbarVisible(1);
 	ToolbarSet(1,"Sample start",Start%);
 	ToolbarSet(2,"Sample stop", Stop%);
-	ToolbarSet(3,"Juice", Reward%);
+	ToolbarSet(3,"Juice", Juice%);
 	ToolbarSet(4,"Pause stimuli",PauseStimuli%);
 	ToolbarSet(5,"Resume stimuli",ResumeStimuli%);
 '	ToolbarSet(6,"Exp Parameters",AttentionScriptDialog%);
@@ -311,10 +322,9 @@ func Looking%(EyePosX,EyePosY)
 end;
 
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-func Reward%()
-	var i%;
-	for i%:=1 to JuicePerReward% do Yield(.05); SampleKey("J"); next
-	return 1;
+func Juice%()
+    DeliverReward();
+    return 1;
 end;
 
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
@@ -390,7 +400,7 @@ func IdleProcessing%()
 
         ' Start trial. Put up fixation point.
         LogStatus("StartTrial", "Request fixpt");
-        SampleKey("F");
+        SafeSampleKey("F");
         ChangeStateTo(stateWaitForFixPtOn%, tNow);
     
     case iState% = stateWaitForFixPtOn% then
@@ -410,8 +420,7 @@ func IdleProcessing%()
         ' Waiting for eye to fall inside of fixation window
         if Looking%(xEye, yEye) = 1 then
             LogStatus("WaitForAcquisition", "Eye in fixation window; request stim");
-            SampleText("S," + str$(GetPlotXCoord(nTrialsCompleted%)));
-            SampleKey("S");
+            SafeSampleKey("S");
             iHoldCount% := 0;
             ChangeStateTo(stateWaitForStimOn%, tNow);
         else 
@@ -438,7 +447,7 @@ func IdleProcessing%()
 
         ' Signal "X" turns off fixpt and stimulus. The next state 'stateWaitForBlank' only checks for 
         ' fixpt off. 
-        SampleKey("X");
+        SafeSampleKey("X");
         ChangeStateTo(stateWaitForBlank%, tNow);
 
     case iState% = stateWaitForBlank% then
@@ -481,14 +490,15 @@ func IdleProcessing%()
                 ' turn off stimulus and advance it
                 SampleText("+");
                 LogStatus("HoldFixation", "Turn off and advance stimulus.");
-                SampleKey("s");
+                SafeSampleKey("s");
                 Yield();
                 
                 ' Reward
-                Reward%();
+                DeliverReward();
                 
                 ' Process spikes
-                PlotSpikes(tStimOn, tNow, 1, GetPlotXCoord(nTrialsCompleted%));
+                PlotSpikes(tStimOn, tNow, 1, nTrialsCompleted%);
+                nTrialsCompleted% += 1;
 
                 ' Now wait until stim is off
                 ChangeStateTo(stateWaitForStimOff%, tNow);
@@ -501,7 +511,7 @@ func IdleProcessing%()
 
         if View(DataWindow%).FindFallingEdge%(StimChannel%, tLast, tTrigger) = 1 then
             ' Advance
-            SampleKey("a");
+            SafeSampleKey("a");
 
             tLastTrigger := tTrigger;
             ChangeStateTo(stateTrialCompleted%, tNow);
@@ -523,7 +533,7 @@ func IdleProcessing%()
 
         if Looking%(xEye, yEye) = 0 then
 
-        tInterTrialTime := tunMaintainFailTime;
+            tInterTrialTime := tunMaintainFailTime;
     
             LogStatus("MaintainFixation", "Broken; aborting trial");
             ChangeStateTo(stateAbort%, tNow);
@@ -532,9 +542,8 @@ func IdleProcessing%()
             if tNow - tStateStart > tunMaintainFixation then
 
                 LogStatus("MaintainFixation", "success");
-                Reward%();
-                SampleText("S," + str$(GetPlotXCoord(nTrialsCompleted%)));
-                SampleKey("S");
+                DeliverReward();
+                SafeSampleKey("S");
                 ChangeStateTo(stateWaitForStimOn%, tNow);
 
             endif 
@@ -554,18 +563,26 @@ end;
 
 
 func GetPlotXCoord(nTrials%)
-'	var x;
-'	var n%;
-'	n% := nTrials% mod (tunNAdvances% + 1);
-'	x := tunValues[tunValuesIndices%[n%]];
-    '	return x;
-    return tunValues[tunValuesIndices%[nTrials%]];
+	var x;
+	var n%;
+	'n% := nTrials% mod (tunNAdvances% + 1);
+	'x := tunValues[tunValuesIndices%[n%]];
+	x := tunValues[tunValuesIndices%[nTrials%]];
+	return x;
 end;
 
-proc PlotSpikes(t1, t2, vOnOff%, x)
+proc PlotSpikes(t1, t2, vOnOff%, nTrials%)
 	var rate;
 	var index%; ' = i+1
     var i%;
+    var tSweep;
+    var fftData[16];        ' size of this array should be same as number of bins!
+    var x;                  ' x value for xy plots
+    var ind%;             ' index value for saving fft values f1 and f2. This is the index into tunValues.
+    
+    x := tunValues[tunValuesIndices%[nTrials%]];
+    ind% := tunValuesIndices%[nTrials%];
+    
 	for i% := 0 to tunNWavemarks%-1 do
 		rate := View(DataWindow%).Count(i%+1, t1, t2)/(t2-t1);
 		if rate >= 0 then
@@ -576,6 +593,22 @@ proc PlotSpikes(t1, t2, vOnOff%, x)
 			endif
 			' NOTE: IGNORING BACKGROUND HERE FOR THE TIME BEING. 
 	    endif 
+        
+        if tunDoF12% = 1 and vOnOff% = 1 then
+            ' Process for each cycle of the stimulus. A single cycle of the stim takes 1/tf
+			View(PSTHWindow%[i%]);
+			Process(t1, t2, 1, 1);
+			for tSweep := t1+1/tunTF to t2-1/tunTF step 1/tunTF do 
+				Process(tSweep, tSweep+1/tunTF, 0, 1);
+			next
+			ArrConst(fftData[], View(PSTHWindow%[i%]).[]);
+			ArrFFT(fftData[], 4); 
+            View(TuningWindow%[i%]).XYAddData(2, x, fftData[1]);
+            View(TuningWindow%[i%]).XYAddData(3, x, fftData[2]);
+            tunF1Sum[i%][ind%] += fftData[1];
+            tunF2Sum[i%][ind%] += fftData[2];
+        endif
+        
 	next
 end;
 
@@ -609,24 +642,42 @@ end
 proc InitializeWindows()
     var i%;
     var WindowStep;
+    var ch1%, ch2%;
+    
+    ' Get tf of stim
+    tunTF := GetStimulusTF();
+    
+    ' Make spike2 use allof monitor 1
+    View(App()).Window(0, 0, 100, 100, 1);
     
 	'Open the data sampling window
 	DataWindow% := FileNew(0,4);
 	Window(0,48,50,95);
     XRange(0, 30);
 	View(DataWindow%).WindowVisible(1);
-
-	' open xy window to display tuning results
     
+	' open xy window to display tuning results    
     if tunNWavemarks% > 0 then
         WindowStep := 100/tunNWavemarks%;
     endif
-    for i% := 0 to tunNWavemarks% do
+    for i% := 0 to tunNWavemarks%-1 do
         TuningWindow%[i%] := FileNew(12);
         Window(50, i%*WindowStep, 100, (i%+1)*WindowStep);
         ChanTitle$(0, "Spikes/s");
         TuningCurveLabels(tunWavemarkPorts%[i%]);
         WindowVisible(1);
+        
+        ' Create psth window if f1 and f2 analysis needed
+        if tunDoF12% = 1 then
+            
+            ch1% := View(TuningWindow%[i%]).XYSetChan(0);   ' Used to plot f1
+            XYColour(ch1%, 25);
+            ch2% := View(TuningWindow%[i%]).XYSetChan(0);   ' used to plot f2
+            XYColour(ch2%, 30);
+            LogStatus("InitializeWindows", "Channel " + str$(i%+1) + " " + str$(ch1%) + " " + str$(ch2%));
+            PSTHWindow%[i%] := View(DataWindow%).SetPSTH(i%+1, 16, 1 /(tunTF*16), 0, 0, 3);
+            View(PSTHWindow%[i%]).WindowVisible(0);
+        endif        
     next
 
 	'Open an XY view to display eye position
@@ -786,7 +837,7 @@ proc CreateSampleConfiguration()
         SampleAutoName$(dataCellName$ + "_donut_000");
         tunNAdvances% := tunAreaNSteps%;
         tunNRepeats% := tunAreaNRepeats%;
-        GetRepeatedParameterProgression%(tunAreaNSteps%+1, tunAreaNRepeats%, tunValues[], tunValuesIndices%[], tunAreaMinDiam, tunAreaMaxDiam, 1, tunAreaProgression%);
+        GetRepeatedParameterProgression%(tunAreaNSteps%+1, tunAreaNRepeats%, tunValues[], tunValuesIndices%[], tunAreaMinDiam, tunAreaMaxDiam, 1, tunDonutProgression%);
         tunNValues% := (tunAreaNSteps%+1)*tunAreaNRepeats%;
         tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%);
         'PrintLog("nsteps %d nrepeats %d nvalues %d\n", tunAreaNSteps%, tunAreaNRepeats%, tunNValues%);
@@ -805,7 +856,6 @@ proc CreateSampleConfiguration()
     endcase;
 
     SampleAutoFile(1);
-    PrintLog("AutoFile status " + str$(SampleAutoFile()) + "\n");
     
     ' Text marks make extraction easier
     SampleTextMark(200);
@@ -856,12 +906,13 @@ end;
 
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 func Stop%()
-
+    var i%, j%, m%;
+    
 	' Disable idle process func
 	ToolbarSet(0,"");
 
 	' Tell stim app to shut down
-	SampleKey("Q");
+	SafeSampleKey("Q");
 	Yield(.1);
 	SampleStop();
 
@@ -878,6 +929,15 @@ func Stop%()
 	TotalTrials% += nTrialsStarted%;
 	TotalRewards% += nTrialsCompleted%;
 	SaveDailyTotals();
+    
+    ' Figure out max F1 values
+    if tunDoF12% = 1 then
+        for i% := 0 to tunNWavemarks%-1 do
+            m% := Max(tunF1Sum[i%][]);
+            LogStatus("F1 Max", "Channel " + str$(i%+1) + " Port " + str$(tunWavemarkPorts%[i%]) + " max F1 at x=" + str$(tunValues[m%]));
+        next
+    endif    
+
 end;
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
@@ -904,7 +964,7 @@ proc WriteParameterFile()
 	Print("Eye coil sampling freq (Hz): %d\n", EyeCoilSamplingFrequency%);
     Print("Wavemark ports             : %s\n", GetWavemarkPorts$());
     Print("Continuous ports           : %s\n", GetContinuousPorts$());
-	Print("Juices per reward          : %d\n", JuicePerReward%);
+	Print("Reward size (ms)           : %d\n", GetJuiceRewardMS%());
 	Print("Background color           : %s\n", tunBackgroundColor$);
 
 	' write fixpoint parameters
@@ -1017,6 +1077,21 @@ proc WriteParameterFile()
 end;
 
 
+' Gets the temporal freq of the current stimulus. 
+' Make sure to call this only after all user dialogs have been completed (so you know that the stim parameters will not change)
+
+func GetStimulusTF()
+    var gr$;
+    var x, y, w, h, sf, tf, ori;
+    var contrast%;
+    var cv$, pattern$, aperture$;
+	gr$ := GetGratingParameters$("Stimulus");
+    ParseGratingParameters%(gr$, x, y, w, h, contrast%, sf, tf, ori, cv$, pattern$, aperture$);
+    LogStatus("GetStimulusTF", "TF=" + str$(tf));
+    return tf;
+end
+
+
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 func Start%()
 	var cmdLine$;
@@ -1031,7 +1106,7 @@ func Start%()
     var i%;
 	
 	SampleStart(0); 'Start sampling
-	SampleKey("0");
+	SafeSampleKey("0");
     
 
 	' Stimulus is always used

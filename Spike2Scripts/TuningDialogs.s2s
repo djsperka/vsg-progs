@@ -1,4 +1,4 @@
-' $Id: TuningDialogs.s2s,v 1.2 2011-06-06 22:53:46 devel Exp $
+' $Id: TuningDialogs.s2s,v 1.3 2011-06-22 19:31:16 devel Exp $
 '
 ' This file contains dialog functions for the alert tuning script Tuning.s2s.
 #include "../../Spike2Util/UsreyUtil.s2s"
@@ -64,6 +64,7 @@ var tunAreaProgression%;
 ' Donuts - use same vars as area. There is one additional var - the optimal value index.
 var tunDonutOptimalIndex%:=0;		' step index where area stim stops growing and donut stim starts
 var tunDonutOptimalDiam;
+var tunDonutProgression%;
 
 ' Berliners - also use same variables as Area.  Use optimal value index from Donuts.  Add maximal value index
 var tunDonutOptimalDiamPlusOne;
@@ -426,8 +427,8 @@ end;
 ' doesn't seem to be any plan to un-disable those dialogs when the enabled dialog is changed.
 func TuningCurveDonutDialogChanged%(item%)
     if item% = 0 then
-        DlgEnable(0, 1, 2, 3, 4, 5);
-    endif    
+        DlgEnable(0, 1, 2, 3, 4);
+    endif
     return 1;
 end
 
@@ -444,7 +445,7 @@ func TuningCurveDonutDialog%()
     ' Before we proceed, we must generate a list of choices for the optimal diameter. 
     ' Note that there are nsteps+1 values. 
     
-    GetRepeatedParameterProgression%(tunAreaNSteps%+1, 1, result[], indices%[], tunAreaMinDiam, tunAreaMaxDiam, 1, tunAreaProgression%);
+    GetRepeatedParameterProgression%(tunAreaNSteps%+1, 1, result[], indices%[], tunAreaMinDiam, tunAreaMaxDiam, 1, 0);
     sValues$ := GetRealArrayAsStringSep$(result[0:tunAreaNSteps%+1], indices%[0:tunAreaNSteps%+1], "|");
     
 	DlgCreate("Donut Tuning Curve Parameters");
@@ -455,7 +456,7 @@ func TuningCurveDonutDialog%()
 	DlgCheck(5, "Random Progression");
     DlgList(6, "Optimal diameter", sValues$);
     DlgAllow(0xffff, 0, TuningCurveDonutDialogChanged%);
-	i% := DlgShow(tunAreaNSteps%, tunAreaNRepeats%, tunAreaMinDiam, tunAreaMaxDiam, tunAreaProgression%, tunDonutOptimalIndex%);
+	i% := DlgShow(tunAreaNSteps%, tunAreaNRepeats%, tunAreaMinDiam, tunAreaMaxDiam, tunDonutProgression%, tunDonutOptimalIndex%);
     tunDonutOptimalDiam := result[tunDonutOptimalIndex%];
     
 	' If i% is 1 the user hit "OK". If its 0, user hit "Cancel". 
