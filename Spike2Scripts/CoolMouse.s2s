@@ -1,4 +1,4 @@
-' $Id: CoolMouse.s2s,v 1.13 2011-06-06 22:27:31 devel Exp $
+' $Id: CoolMouse.s2s,v 1.14 2011-06-22 19:26:22 devel Exp $
 
 #include "../../Spike2util\UsreyUtil.s2s"
 #include "UsreyGratings.s2s"
@@ -14,7 +14,6 @@ var cmAlwaysLooking% := 0;          ' testing only
 
 ' Window handles and channel numbers
 var XChannel%,YChannel%;		' Channel number assigned to eye x and y
-var JChannel%;
 var TriggerChannel%;			' Channel number assigned to vsg trigger input (i.e. trigger sent by vsg)
 var ReadyChannel%;			' channel number for VSG ready pulse signal
 var DataWindow%;	' time view
@@ -47,7 +46,6 @@ XChannel% := GetNumberOfElectrodes%() + 1;
 YChannel% := GetNumberOfElectrodes%() + 2;
 TriggerChannel% := GetNumberOfElectrodes%() + 3;
 ReadyChannel% := GetNumberOfElectrodes%() + 4;
-JChannel% := GetNumberOfElectrodes%() + 5;
 CreateSampleConfiguration();
 
 
@@ -134,7 +132,7 @@ func IdleProcessing%()
 
 			' Start trial. Put up fixation point.
 			PrintLog("stateStartTrial: Send F key\n");
-			SampleKey("F");
+			SafeSampleKey("F");
 			ChangeStateTo(stateWaitForFixPtOn%, tTrigger);
 		
 		case iState% = stateWaitForFixPtOn% then
@@ -167,7 +165,7 @@ func IdleProcessing%()
 			' Signal "X" turns off fixpt and stimulus. The next state 'stateWaitForBlank' only checks for 
 			' fixpt off. 
 			PrintLog("stateAbort: send f key.\n");
-			SampleKey("f");
+			SafeSampleKey("f");
 			ChangeStateTo(stateWaitForBlank%, tNow);
 
 		case iState% = stateWaitForBlank% then
@@ -207,7 +205,7 @@ func IdleProcessing%()
 					PrintLog("stateWaitForFixation: successful trial.\n");
 	
 					' Reward
-					Reward%();
+					DeliverReward();
 	
 				endif
 
@@ -229,7 +227,7 @@ func IdleProcessing%()
 					PrintLog("stateMaintainFixation: again....\n");
 	
 					' Reward
-					Reward%();
+					DeliverReward();
 	
 				endif
 
@@ -275,15 +273,6 @@ proc CreateSampleConfiguration()
 	SampleComment$(TriggerChannel%, "Trigger");
 	SampleTitle$(TriggerChannel%, "Trigger");
     
-'	SampleEvent(25, 0, 2, 3600); 'Trigger channel, level
-'	SampleComment$(25, "Trigger");
-'	SampleTitle$(25, "T-1");
-    
-'	SampleEvent(26, 2, 2, 3600); 'Trigger channel, level
-'	SampleComment$(26, "Trigger+1");
-'	SampleTitle$(26, "T+1");
-    
-    
 	' channel to look for ready signal from vsg
 	SampleEvent(ReadyChannel%,6,2,3600); 'Trigger channel, level
 	SampleComment$(ReadyChannel%,"VSG Ready");
@@ -295,9 +284,6 @@ proc CreateSampleConfiguration()
 	SampleWaveform(YChannel%, GetEyeYPort%(), 1000);
 	SampleTitle$(YChannel%, "Eye Y");
     
-   	SampleWaveform(JChannel%, 3, 1000);
-	SampleTitle$(JChannel%, "Juice");
-
 	SampleSequencer(script$ + "CoolMouse.pls");
 	SampleOptimise(2, 2, 2, 2, 50);  'Set optimise mode (do this last)
 	SampleMode(1); 'Continuous sampling
@@ -398,7 +384,7 @@ proc InitializeToolbar()
 	ToolbarVisible(1);
 	ToolbarSet(1,"Start",Start%);
 	ToolbarSet(2,"Stop", Stop%);
-	ToolbarSet(3,"Juice",Reward%);
+	ToolbarSet(3,"Juice", Juice%);
 	ToolbarEnable(2,0);
 	Toolbar("Go", 0x3ff);
 
@@ -451,7 +437,7 @@ func Stop%()
 	ToolbarSet(0,"");
 
 	' Tell stim app to shut down
-	SampleKey("q");
+	SafeSampleKey("q");
 	Yield(.1);
 	SampleStop();
 '	ProgKill(StimHandle%);
@@ -492,13 +478,11 @@ func InFixationWindow%(EyePosX,EyePosY)
 end;
 
 
-''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-func Reward%()
-	var i;
-	for i:=1 to JuicePerReward% do Yield(.05); SampleKey("J"); next
-	return 1;
-end;
 
+func Juice%()
+    DeliverReward();
+    return 1;
+end
 
 
 proc GetCoolMouseParameters()
