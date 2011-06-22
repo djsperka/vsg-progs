@@ -1,4 +1,4 @@
-'$Id: ASLCalibration.s2s,v 1.5 2010-10-27 20:50:27 devel Exp $
+'$Id: ASLCalibration.s2s,v 1.6 2011-06-22 19:27:10 devel Exp $
 
 #include "../../Spike2Util/ChannelUtilities.s2s"
 #include "../../Spike2Util/UsreyUtil.s2s"
@@ -368,7 +368,7 @@ proc InitializeToolbar()
 	ToolbarVisible(1);
 	ToolbarSet(1,"Sample start",Start%);
 	ToolbarSet(2,"Sample stop", Stop%);
-	ToolbarSet(3,"Juice", Reward%);
+	ToolbarSet(3,"Juice", Juice%);
 	ToolbarSet(4,"Quit",Quit%);
     ToolbarSet(5, "Slave params", SlaveOffsetDialog%);
     ToolbarSet(6, "Pause", Pause%);
@@ -385,17 +385,11 @@ proc InitializeToolbar()
 end;
 
 
-func Reward%()
-    DeliverReward(1);
+func Juice%()
+    DeliverReward();
     return 1;
 end
 
-
-proc DeliverReward(iNumRewards%)
-    SampleSeqVar(1, iNumRewards%);
-    SampleKey("R");
-    return;
-end
 
 proc ChangeStateTo(stateTo%, tStart)
 	iState% := stateTo%;
@@ -463,7 +457,7 @@ func Idle%()
             
             if FindEdge%(acChanJuice%, tLast, tTrigger) > -1 then
                 LogStatus("stateASLCalibration", "Got JUICE signal from ASL @ " + str$(tTrigger));
-                Reward%();
+                DeliverReward();
             endif
             
             if FindRisingEdge%(acChanTransition%, tLast, tTrigger) = 0 then
@@ -487,7 +481,7 @@ func Idle%()
                 ChangeStateTo(statePaused%, tNow);
             else
                 ' Request left/master fixpt
-                SampleKey("M");
+                SafeSampleKey("M");
                 ChangeStateTo(stateWaitForMaster%, tNow);
                 LogStatus("stateStartMaster", "Wait for master start at " + str$(tNow));
             endif
@@ -516,7 +510,7 @@ func Idle%()
         case iState% = stateMasterAcquisitionFailed% then
             
             ' Clear master fixpt
-            SampleKey("m");
+            SafeSampleKey("m");
             ChangeStateTo(stateWaitForMasterOff%, tNow);
             
         case iState% = stateWaitForMasterOff% then
@@ -551,14 +545,14 @@ func Idle%()
             
         case iState% = stateMasterFixationBreak% then
             
-            SampleKey("m");
+            SafeSampleKey("m");
             ChangeStateTo(stateWaitForMasterOff%, tNow);
             
         case iState% = stateMasterSuccess% then
             
-            DeliverReward(acNumJuicePerReward%);
+            DeliverReward();
             Yield();
-            SampleKey("m");
+            SafeSampleKey("m");
             ChangeStateTo(stateWaitForMasterSuccessOff%, tNow);
             
         case iState% = stateWaitForMasterSuccessOff% then
@@ -581,7 +575,7 @@ func Idle%()
                 ChangeStateTo(statePaused%, tNow);
             else
                 ' Request right/slave fixpt
-                SampleKey("S");
+                SafeSampleKey("S");
                 ChangeStateTo(stateWaitForSlave%, tNow);
             endif
             
@@ -600,9 +594,9 @@ func Idle%()
             ' Eye within acSlaveFixationWindow of fixpt.
             docase
             case acThatLooksGood% = 1 then
-                DeliverReward(acNumJuicePerReward%);
+                DeliverReward();
                 Yield();
-                SampleKey("s");
+                SafeSampleKey("s");
                 ChangeStateTo(stateWaitForThatLooksGoodOff%, tNow);
             case LookingAtSlave%(xEye, yEye) = 1 then
                 ChangeStateTo(stateWaitForSlaveFixation%, tNow);
@@ -632,7 +626,7 @@ func Idle%()
         case iState% = stateSlaveAcquisitionFailed% then
             
             ' Clear slave fixpt
-            SampleKey("s");
+            SafeSampleKey("s");
             ChangeStateTo(stateWaitForSlaveOff%, tNow);
             
         case iState% = stateWaitForSlaveOff% then
@@ -646,9 +640,9 @@ func Idle%()
             
             docase
             case acThatLooksGood% = 1 then
-                DeliverReward(acNumJuicePerReward%);
+                DeliverReward();
                 Yield();
-                SampleKey("s");
+                SafeSampleKey("s");
                 ChangeStateTo(stateWaitForThatLooksGoodOff%, tNow);
             case LookingAtSlave%(xEye, yEye) <> 1 then
                 LogStatus("stateWaitForSlaveFixation", "Fixation broken.");
@@ -662,14 +656,14 @@ func Idle%()
         case iState% = stateSlaveFixationBreak% then
             
             ToolbarEnable(8, 0);
-            SampleKey("s");
+            SafeSampleKey("s");
             ChangeStateTo(stateWaitForSlaveOff%, tNow);
             
         case iState% = stateSlaveSuccess% then
             
-            DeliverReward(acNumJuicePerReward%);
+            DeliverReward();
             Yield();
-            SampleKey("s");
+            SafeSampleKey("s");
             ChangeStateTo(stateWaitForSlaveSuccessOff%, tNow);
             
         case iState% = stateWaitForSlaveSuccessOff% then
@@ -824,15 +818,15 @@ func Stop%()
 	' Tell stim app to shut down
     if acStimHandle% > -1 then
         t := MaxTime();
-        SampleKey("q");
+        SafeSampleKey("q");
     
         ' wait until it stops
         while ProgStatus(acStimHandle%) > 0 do
             ' Check whether we've been waiting for a long time....
             if MaxTime() - t > 3 then
-                SampleKey("0");
+                SafeSampleKey("0");
                 Yield(1);
-                SampleKey("q");
+                SafeSampleKey("q");
                 t := MaxTime();
             else
                 Yield();
