@@ -1,31 +1,42 @@
-; $Id: CoolMouse.pls,v 1.2 2010-08-20 01:13:55 devel Exp $
+; $Id: CoolMouse.pls,v 1.3 2011-06-22 19:19:34 devel Exp $
 ;
 ;
 
-            SET      1.000 1 0          ;1ms per seq step, DAC scale=1, DAC offset=0
-            DIGOUT [00000001]
+            SET      0.010 1 0     ;Get rate & scaling OK
+            DIGOUT [00000000]
+            VAR    V2=0            ;V2 logs whether the sequencer is in use
             HALT
 
-E0:     '0  DIGOUT [00000001]           ; clear all lines except for juice
-            DELAY  10
+; zero out all trigger lines
+E0:     '0  MOVI V2,1
+            DIGOUT [00000000]
+            MOVI V2,0
+            HALT                   ;End of this sequence section
+
+EF:     'F  MOVI V2,1
+            DIGOUT [......1.]           ; fixpt on
+            MOVI V2,0
             HALT   
 
-EF:     'F  DIGOUT [......1.]           ; fixpt on
-            DELAY  10
-            HALT   
-
-EG:     'f  DIGOUT [......0.]           ; fixpt off
-            DELAY  10
+EG:     'f  MOVI V2,1
+            DIGOUT [......0.]           ; fixpt off
+            MOVI V2,0
             HALT   
 
 ; Quit stimulus application
-EQ:     'q  DIGOUT [10000001]
-            DELAY  10
+EQ:     'q  MOVI V2,1
+            DIGOUT [10000000]
+            MOVI V2,0
             HALT                   ;End of this sequence section
 
 
-EJ:     'J  DIGOUT [.......1]
-            DIGOUT [.......0]           ; downward pulse delivers juice
-            DELAY  10
-            DIGOUT [.......1]
+; Reward
+ER:     'R  MOVI V2,1
+            BLE    V1,0,RDONE           ; Skip if V1 is <= 0
+            MULI V1,ms(1)               ; convert V1 from ms to clock ticks
+            DIGOUT [.......0]
+            DIGOUT [.......1]           ; upward pulse delivers juice
+            DELAY  V1                   ; Delay V1 ms
+RDONE:      DIGOUT [.......0]           ; close valve
+            MOVI V2,0
             HALT
