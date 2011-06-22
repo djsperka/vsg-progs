@@ -1,5 +1,5 @@
-' $Id: StarStim.s2s,v 1.5 2011-01-21 02:41:45 devel Exp $
-const starCVSID$ := "$Id: StarStim.s2s,v 1.5 2011-01-21 02:41:45 devel Exp $";
+' $Id: StarStim.s2s,v 1.6 2011-06-22 19:29:34 devel Exp $
+const starCVSID$ := "$Id: StarStim.s2s,v 1.6 2011-06-22 19:29:34 devel Exp $";
 
 '========================================================================
 '
@@ -276,7 +276,7 @@ func IdleProcessing%()
 			' Enter state 1
 
 			nTrialsStarted% += 1;
-			SampleKey("F");
+			SafeSampleKey("F");
 			iState% := stateWaitForFixPtOn%;
 
 		case iState% = stateWaitForFixPtOn% then
@@ -320,7 +320,7 @@ func IdleProcessing%()
 		case iState% = stateAbort% then
 
 			DrawFix(0);
-			SampleKey("f");
+			SafeSampleKey("f");
 			iState% := stateWaitForFixPtOff%;
 
 		case iState% = stateWaitForFixPtOff% then
@@ -361,9 +361,9 @@ func IdleProcessing%()
             endif
             
 			' Send stim signal, yield short time, then turn off fix pt.
-			SampleKey("S");
+			SafeSampleKey("S");
 			Yield(0.05);
-			SampleKey("f");
+			SafeSampleKey("f");
 			DrawFix(0);
 			DrawTarget(1);
 			iState% := stateWaitForStimOn%;
@@ -403,9 +403,9 @@ func IdleProcessing%()
 		case iState% = stateSuccess% then
 
 			nTrialsSuccess% += 1;
-            Reward%();
             SampleText("+");
-			SampleKey("X");
+            DeliverReward();
+			SafeSampleKey("X");
 			Yield(0.05);
 			AdvanceTarget();
 			iState% := stateWaitForStimOff%;
@@ -415,7 +415,7 @@ func IdleProcessing%()
 
 			nTrialsFail% += 1;
             SampleText("-");
-			SampleKey("X");
+			SafeSampleKey("X");
 			Yield(0.05);
 			AdvanceTarget();
 			iState% := stateWaitForStimOff%;
@@ -501,6 +501,7 @@ proc CreateSampleConfiguration()
 	SampleComment$(ReadyChannel%,"VSG Ready");
 	SampleTitle$(ReadyChannel%,"VSG Ready");
 
+    SampleWaveForm(28, 3, 10000);
 
 ' djs No recording for this stim....
 '	for index := 1 to NumberOfElectrodes% do
@@ -666,10 +667,10 @@ proc InitializeToolbar()
 
 	View(App(8)).WindowVisible(0);	'Hide the standard sample bar
 	ToolbarVisible(1);
-	ToolbarSet(1,"Sample start",Start%);
+	ToolbarSet(1,"Sample start", Start%);
 	ToolbarSet(2,"Sample stop", Stop%);
-	ToolbarSet(3,"Juice",Reward%);
-	ToolbarSet(4,"Quit",Quit%);
+	ToolbarSet(3,"Juice", Juice%);
+	ToolbarSet(4,"Quit", Quit%);
 	ToolbarEnable(2,0);
 	Toolbar("Go", 0x3ff);
 
@@ -770,7 +771,7 @@ func Stop%()
 	ToolbarSet(0,"");
 
 	' Tell stim app to shut down
-	SampleKey("Q");
+	SafeSampleKey("Q");
 	Yield(.1);
 	SampleStop();
 	ProgKill(StimHandle%);
@@ -875,7 +876,7 @@ end;
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 proc AdvanceTarget()
 
-	SampleKey("a");
+	SafeSampleKey("a");
 	iTargetPoint%+=1;
 	if (starRandomize% = 0) then
 		if (iTargetPoint% = starNumTargets%) then
@@ -891,9 +892,8 @@ end;
 
 
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-func Reward%()
-	var i;
-	for i:=1 to JuicePerReward% do Yield(.05); SampleKey("J"); next
+func Juice%()
+    DeliverReward();
 	return 1;
 end;
 
@@ -921,7 +921,7 @@ proc WriteParameterFile()
 	Print("Eye coil software gain (Y) : %f\n", DegreesPerVoltY);
 	Print("Eye coil sampling freq (Hz): %d\n", EyeCoilSamplingFrequency%);
 	Print("Number of electrodes       : %d\n", NumberOfElectrodes%);
-	Print("Juices per reward          : %d\n", JuicePerReward%);
+	Print("Reward size (ms)           : %d\n", GetJuiceRewardMS%());
 
 	' write fixpoint parameters
 	Print("\nFixation point\n");
