@@ -1,5 +1,5 @@
-' $Id: RivalryDualVSG.s2s,v 1.17 2011-01-10 20:01:31 devel Exp $
-const rivCVSID$ := "$Id: RivalryDualVSG.s2s,v 1.17 2011-01-10 20:01:31 devel Exp $";
+' $Id: RivalryDualVSG.s2s,v 1.18 2011-06-22 19:28:39 devel Exp $
+const rivCVSID$ := "$Id: RivalryDualVSG.s2s,v 1.18 2011-06-22 19:28:39 devel Exp $";
 
 #include "../../Spike2Util/TrialBlockGen.s2s"
 #include "../../Spike2Util/ChannelUtilities.s2s"
@@ -17,7 +17,7 @@ var rivChooseTrialTypes% := 0;
 
 var rivMaxWaitForReadyTime := 1.0;
 var rivReadyHoldTime    := 1.0;
-var rivReadyHoldRewardSize% := 1;
+var rivReadyHoldRewardSizeMS% := 1;
 var rivReadyFailWaitTime := 1.0;
 var rivMaxResponseTime := 1.0;
 var rivResponseFailWaitTime := 3.0;
@@ -26,9 +26,9 @@ var rivResponseBrokenWaitTime := 3.0;
 var rivMaxStimWaitTime := 1.5;
 var rivMaxStimTime := 3.0;
 var rivMinGoodTrialTime := 2.0;
-var rivResponseCorrectRewardSize% := 3;
-var rivMaintainResponseRewardSize% := 1;
-var rivSwapRewardSize% := 2;
+var rivResponseCorrectRewardSizeMS% := 3;
+var rivMaintainResponseRewardSizeMS% := 1;
+var rivSwapRewardSizeMS% := 2;
 var rivSwapMinTime := 2;
 var rivSwapMaxTime := 4;
 var rivSwapMaxResponseTime := 2.0;
@@ -42,6 +42,10 @@ var rivAlwaysLooking% := 0;
 var rivUseBeep% := 1;
 var rivCorrectionTrials% := 0;
 var rivBeepLengthMS% := 100;
+var rivSingleRewardMS% := 50;
+var rivUseSingleReward% := 0;
+var rivSingleRewardProb% := 100;
+var rivTempUseSingleReward% := 0;   ' the value of rivUseSingleReward is not available in Reward/Swap/Catch dialog
 var rivNBlocks% := 10;
 'var rivNTrialsEachTypePerBlock% := 4;     ' Number of trials/block = this * 2
 var rivNTrainingPerBlock% := 2;     ' Number of training trials per block (should be even for balancing L/R)
@@ -146,6 +150,8 @@ var rivTStimSwap;                   ' in TRT trials this is the transition time 
 var rivTLastReward := -1;           ' time at which last reward was delivered - for maintainence rewards
 var rivUniversalIntertrialTime;     ' time to wait between trials
 var rivSwapTime;                    ' time to hold between stim swaps
+var rivCompleteTrialFlag% := 0;
+var rivSingleRewardGoodTrialFlag% := 1;
 
 ' trial types and associated vars
 const trialtypeTrainingL%         := 0;
@@ -381,7 +387,7 @@ proc InitializeToolbar()
 '	UpdateToolbarText();
 	ToolbarSet(1,"Sample start",Start%);
 	ToolbarSet(2,"Sample stop", Stop%);
-	ToolbarSet(3,"Juice", Reward%);
+	ToolbarSet(3,"Juice", Juice%);
 	ToolbarSet(4,"Pause stimuli",Pause%);
 	ToolbarSet(5,"Resume stimuli",Resume%);
 	ToolbarSet(6,"Quit",Quit%);
@@ -706,8 +712,9 @@ func IdleProcessing%()
             docase
             case tNow - tStateStart > rivReadyHoldTime then
                 LogStatus("stateReadyHold", "Ready hold time met.");
-                if rivReadyHoldRewardSize% > 0 then
-                    DeliverReward(rivReadyHoldRewardSize%, tNow);
+                if rivReadyHoldRewardSizeMS% > 0 then
+                    'DeliverReward(rivReadyHoldRewardSize%, tNow);
+                    Reward(rivReadyHoldRewardSizeMS%, tNow);
                     Yield(.1);
                 endif
                 if rivUseFixation% = 1 then
@@ -726,7 +733,7 @@ func IdleProcessing%()
         case iState% = stateRequestFixpt% then
             
             LogStatus("stateRequestFixpt", "Request fixpt.");
-            SampleKey(rivStimKey$[rivStimKeyIndex%]);
+            SafeSampleKey(rivStimKey$[rivStimKeyIndex%]);
             ChangeStateTo(stateWaitForFixpt%, tNow);
 
         case iState% = stateWaitForFixpt% then
@@ -779,28 +786,28 @@ func IdleProcessing%()
         case iState% = stateRequestStim% then
             
             LogStatus("stateRequestStim", "Request stim");
-            SampleKey("g");
+            SafeSampleKey("g");
             ChangeStateTo(stateWaitForStimUp%, tNow);
             iLoop% := 0;
                 
         case iState% = stateAcquisitionFail% then
             
             rivUniversalIntertrialTime := rivAcquisitionFailWaitTime;
-            SampleKey("X");
+            SafeSampleKey("X");
             ChangeStateTo(stateWaitForFixptOff%, tNow);
             iLoop% := 0;
             
         case iState% = stateFixationFail% then
             
             rivUniversalIntertrialTime := rivFixationFailWaitTime;
-            SampleKey("X");
+            SafeSampleKey("X");
             ChangeStateTo(stateWaitForFixptOff%, tNow);
             iLoop% := 0;
             
         case iState% = stateFixationBroken% then
             
             rivUniversalIntertrialTime := rivFixationFailWaitTime;
-            SampleKey("X");
+            SafeSampleKey("X");
             ChangeStateTo(stateWaitForStimOff%, tNow);
             iLoop% := 0;
             
@@ -856,7 +863,8 @@ func IdleProcessing%()
                 ChangeStateTo(stateFixationBroken%, tNow);
             case tNow-rivTStartStim > rivMaxStimTime then
                 LogStatus("WaitForRivalryResponse", "Max time is up. Nice job.");
-                SampleKey("X");
+                SafeSampleKey("X");
+                rivCompleteTrialFlag% := 1;
                 ChangeStateTo(stateWaitForStimOff%, tNow);
             case (rivTrialType% = trialtypeRivalryCatchLR% or rivTrialType% = trialtypeRivalryCatchRL%) and tNow-tStateStart > rivRivalryCatchSwitchTime then
                 LogStatus("WaitForRivalryResponse", "Switch time is here.");
@@ -888,7 +896,7 @@ func IdleProcessing%()
                     rivStimKeyIndex% := 0;
                     rivNStimKey% := 2;
                 endcase
-                SampleKey(rivStimKey$[rivStimKeyIndex%]);
+                SafeSampleKey(rivStimKey$[rivStimKeyIndex%]);
                 UpdateSwapValues(0);
                 ChangeStateTo(stateWaitForSwap%, tNow);
                 
@@ -921,18 +929,21 @@ func IdleProcessing%()
                     rivStimKeyIndex% := 0;
                     rivNStimKey% := 2;
                 endcase
-                SampleKey(rivStimKey$[rivStimKeyIndex%]);
+                SafeSampleKey(rivStimKey$[rivStimKeyIndex%]);
                 UpdateSwapValues(0);
                 ChangeStateTo(stateWaitForSwap%, tNow);
                 
             case rivLastRivalryResponse% = JSUndefined% and (joystickPosition% = JSLeft% or joystickPosition% = JSRight%) then
                 rivLastRivalryResponse% := joystickPosition%;
-                DeliverReward(rivResponseCorrectRewardSize%, tNow);
+                'DeliverReward(rivResponseCorrectRewardSize%, tNow);
+                Reward(rivResponseCorrectRewardSizeMS%, tNow);
             case ((rivLastRivalryResponse% = JSLeft% and joystickPosition% = JSRight%) or (rivLastRivalryResponse% = JSRight% and joystickPosition% = JSLeft%)) and tNow-rivTLastReward > rivRivalryRewardHoldoff  then
                 rivLastRivalryResponse% := joystickPosition%;
-                DeliverReward(rivSwapRewardSize%, tNow);
+                'DeliverReward(rivSwapRewardSize%, tNow);
+                Reward(rivSwapRewardSizeMS%, tNow);
             case rivLastRivalryResponse% = joystickPosition% and tNow-rivTLastReward > rivMaintainResponseRewardWait then
-                DeliverReward(rivMaintainResponseRewardSize%, tNow);
+                Reward(rivMaintainResponseRewardSizeMS%, tNow);
+                'DeliverReward(rivMaintainResponseRewardSize%, tNow);
             endcase
                 
         case iState% = stateWaitForResponse% then
@@ -962,9 +973,15 @@ func IdleProcessing%()
             
         case iState% = stateNoResponse% then
             
+            ' djs In the event that there is no response we will actually end the trial, 
+            ' even when the single reward flag is set. 
+            
+            rivSingleRewardGoodTrialFlag% := 0;
+            LogStatus("stateNoResponse", "Trial ended - no response.");
+            
             doCorrectionTrial% := 1;
             rivCtrNoResponse% += 1;
-            SampleKey("X");
+            SafeSampleKey("X");
             rivUniversalIntertrialTime := rivResponseFailWaitTime;
             ChangeStateTo(stateWaitForStimOff%, tNow);
             iLoop% := 0;
@@ -973,7 +990,8 @@ func IdleProcessing%()
             
             doCorrectionTrial% := 0;
             rivCtrCorrect% += 1;
-            DeliverReward(rivResponseCorrectRewardSize%, tNow);
+            Reward(rivResponseCorrectRewardSizeMS%, tNow);
+            'DeliverReward(rivResponseCorrectRewardSize%, tNow);
             UpdateSwapValues(0);
             ChangeStateTo(stateMaintainResponse%, tNow);
             iLoop% := 0;
@@ -982,9 +1000,15 @@ func IdleProcessing%()
             
             doCorrectionTrial% := 1;
             rivCtrIncorrect% += 1;
-            SampleKey("X");
-            rivUniversalIntertrialTime := rivResponseIncorrectWaitTime;
-            ChangeStateTo(stateWaitForStimOff%, tNow);
+            if rivUseSingleReward% = 1 then
+                rivSingleRewardGoodTrialFlag% := 0;
+                UpdateSwapValues(0);
+                ChangeStateTo(stateMaintainResponse%, tNow);
+            else
+                SafeSampleKey("X");
+                rivUniversalIntertrialTime := rivResponseIncorrectWaitTime;
+                ChangeStateTo(stateWaitForStimOff%, tNow);
+            endif
             iLoop% := 0;
             
         case iState% = stateMaintainResponse% then
@@ -998,17 +1022,39 @@ func IdleProcessing%()
                 LogStatus("stateMaintainResponse", "Eye not in fixation window.");
                 ChangeStateTo(stateFixationBroken%, tNow);
             case joystickPosition% <> rivCorrectResponse% then
-                LogStatus("stateMaintainResponse", "Correct response broken!");
-                rivUniversalIntertrialTime := rivResponseBrokenWaitTime;
-                SampleKey("X");
-                ChangeStateTo(stateWaitForStimOff%, tNow);
+                
+                doCorrectionTrial% := 1;
+                if rivUseSingleReward% = 1 then
+                    if rivSingleRewardGoodTrialFlag% <> 0 then
+                        LogStatus("stateMaintainResponse", "Correct response broken! Continuing trial...");
+                    endif
+                    rivSingleRewardGoodTrialFlag% := 0;
+                    ' We have to check here whether the max time has been reached. When rivUseSingleReward is 
+                    ' zero (the bottom half of this if-then-else block) the trial ends here because
+                    ' of the incorrect response. When rivUseSingleReward is set however, the trial wouldn't
+                    ' end. Without a test for rivMaxStimTime the trial can go on indefinitely, 
+                    ' or until fixation is broken or until a correct response is made. 
+                    if tNow - rivTStartStim > rivMaxStimTime then
+                        LogStatus("stateMaintainResponse", "Time up: " + str$(tNow - rivTStartStim) + " > " + str$(rivMaxStimTime) + "\n");
+                        rivUniversalIntertrialTime := rivResponseBrokenWaitTime;
+                        SafeSampleKey("X");
+                        ChangeStateTo(stateWaitForStimOff%, tNow);
+                    endif
+                else
+                    LogStatus("stateMaintainResponse", "Correct response broken!");
+                    rivUniversalIntertrialTime := rivResponseBrokenWaitTime;
+                    SafeSampleKey("X");
+                    ChangeStateTo(stateWaitForStimOff%, tNow);
+                endif
+                
                 iLoop% := 0;
             case (rivTrialType% = trialtypeTrainingL% or rivTrialType% = trialtypeTrainingR% or 
                 rivTrialType% = trialtypeTrainingLFixed% or rivTrialType% = trialtypeTrainingRFixed%) and 
                 tNow - rivTStartStim > rivMaxStimTime then
-                LogStatus("stateMaintainResponse", "Max response time reached. Moving on...");
+                LogStatus("stateMaintainResponse", "Time up: " + str$(tNow - rivTStartStim) + " > " + str$(rivMaxStimTime) + "\n");
                 rivUniversalIntertrialTime := rivMaxStimWaitTime;
-                SampleKey("X");
+                rivCompleteTrialFlag% := 1;
+                SafeSampleKey("X");
                 ChangeStateTo(stateWaitForStimOff%, tNow);
                 iLoop% := 0;
             case (rivTrialType% = trialtypeTrainingLRT% or rivTrialType% = trialtypeTrainingRRT%) and rivTRTState% = rivTRTStateTraining1% and tNow - rivTStartStim > rivTRTTime1 then
@@ -1017,13 +1063,14 @@ func IdleProcessing%()
                 rivTRTState% := rivTRTStateRivalry%;
                 rivStimKeyIndex% := 2;
                 rivLastRivalryResponse% := joystickPosition%;
-                SampleKey(rivStimKey$[rivStimKeyIndex%]);
+                SafeSampleKey(rivStimKey$[rivStimKeyIndex%]);
                 ChangeStateTo(stateWaitForSwap%, tNow);
                 iLoop% := 0;
             case (rivTrialType% = trialtypeTrainingLRT% or rivTrialType% = trialtypeTrainingRRT%) and rivTRTState% = rivTRTStateTraining2% and tNow - rivTStartStim > rivMaxStimTime then
                 LogStatus("stateMaintainResponse", "Max response time reached. Training->Rivalry->Training trial completed at " + str$(tNow) + " swap time " + str$(rivTStimSwap) + " t3=" + str$(rivTRTTime3));
                 rivUniversalIntertrialTime := rivMaxStimWaitTime;
-                SampleKey("X");
+                rivCompleteTrialFlag% := 1;
+                SafeSampleKey("X");
                 ChangeStateTo(stateWaitForStimOff%, tNow);
                 iLoop% := 0;
 
@@ -1031,7 +1078,8 @@ func IdleProcessing%()
                 
                 ' Check for maintenance reward
                 if rivTLastReward > 0 and tNow - rivTLastReward > rivMaintainResponseRewardWait then
-                    DeliverReward(rivMaintainResponseRewardSize%, tNow);
+                    Reward(rivMaintainResponseRewardSizeMS%, tNow);
+                    'DeliverReward(rivMaintainResponseRewardSize%, tNow);
                 endif
                 
                 ' When trial type is Training->Fixed, test if the Fixed time threshold has passed, and if so
@@ -1046,7 +1094,7 @@ func IdleProcessing%()
                 if  tNow - tStateStart > rivSwapTime then
                     LogStatus("stateMaintainResponse", "Request stim swap.");
                     rivStimKeyIndex% := 1 - rivStimKeyIndex%;
-                    SampleKey(rivStimKey$[rivStimKeyIndex%]);
+                    SafeSampleKey(rivStimKey$[rivStimKeyIndex%]);
                     UpdateSwapValues(1);
 '                    DeliverReward(rivMaintainResponseRewardSize%);
                     ChangeStateTo(stateWaitForSwap%, tNow);
@@ -1093,22 +1141,40 @@ func IdleProcessing%()
                 ChangeStateTo(stateCorrectSwapResponse%, tNow);
                 iLoop% := 1;
             case tNow - tStateStart > rivSwapMaxResponseTime then
-                LogStatus("stateWaitForSwapResponse", "No response!");
-                ChangeStateTo(stateNoSwapResponse%, tNow);
-                iLoop% := 1;
+                if rivUseSingleReward% = 1 then
+                    if rivSingleRewardGoodTrialFlag% <> 0 then
+                        LogStatus("stateNoSwapResponse", "No response! Continuing trial anyways...");
+                    endif
+                    rivSingleRewardGoodTrialFlag% := 0;
+                    if tNow - rivTStartStim > rivMaxStimTime then
+                        LogStatus("stateNoSwapResponse", "Time up: " + str$(tNow - rivTStartStim) + " > " + str$(rivMaxStimTime) + "\n");
+                        rivUniversalIntertrialTime := rivResponseBrokenWaitTime;
+                        SafeSampleKey("X");
+                        ChangeStateTo(stateWaitForStimOff%, tNow);
+                    endif
+                else
+                    LogStatus("stateWaitForSwapResponse", "No response!");
+                    ChangeStateTo(stateNoSwapResponse%, tNow);
+                    iLoop% := 1;
+                endif
+                
+                iLoop% := 0;
             else
                 iLoop% := 0;
             endcase
             
         case iState% = stateCorrectSwapResponse% then
-            LogInfo("stateCorrectSwapResponse% reward size = " + str$(rivSwapRewardSize%) + " tnow = " + str$(tNow));
-            DeliverReward(rivSwapRewardSize%, tNow);
+            
+            LogInfo("stateCorrectSwapResponse% reward size = " + str$(rivSwapRewardSizeMS%) + " tnow = " + str$(tNow));
+            Reward(rivSwapRewardSizeMS%, tNow);
+            'DeliverReward(rivSwapRewardSize%, tNow);
             ChangeStateTo(stateMaintainResponse%, tNow);
             iLoop% := 0;
             
         case iState% = stateNoSwapResponse% then
             
-            SampleKey("X");
+            LogStatus("stateNoSwapResponse", "No response! Trial done.");
+            SafeSampleKey("X");
             rivUniversalIntertrialTime := rivResponseBrokenWaitTime;
             ChangeStateTo(stateWaitForStimOff%, tNow);
             iLoop% := 0;
@@ -1126,7 +1192,18 @@ func IdleProcessing%()
                     LogStatus("stateVSGWaitForStimOff", "Stimulus is off. Not a good trial.");
                 endif
                 DisplayStim(0);
-                SampleKey("x");
+                if rivCompleteTrialFlag% = 1 and rivSingleRewardGoodTrialFlag% = 1 then
+                    ' this only gives reward if "single reward" was checked in main dlg
+                    ' For TrainingLRT and TrainingRRT type trials, there is an additional probability of reward - 
+                    ' i.e. for some of those trials the reward will not be delivered. 
+                    ' For all other trial types that prob is 100%, meaning the reward is always delivered. 
+                    if rivTrialType% = trialtypeTrainingLRT% or rivTrialType% = trialtypeTrainingRRT% then
+                        RewardBypass(rivSingleRewardMS%, tNow, rivSingleRewardProb%);
+                    else
+                        RewardBypass(rivSingleRewardMS%, tNow, 100);
+                    endif
+                endif
+                SafeSampleKey("x");
                 ChangeStateTo(stateWaitForStimReset%, tMasterTrigger);
                 iLoop% := 0;
 			endif;
@@ -1195,16 +1272,38 @@ proc ChangeStateTo(stateTo%, tStart)
 	if tStart > 0 then tStateStart := tStart; endif;
 end;
 
-proc DeliverReward(iNumRewards%, t)
-    if iNumRewards% = 0 then return; endif;
-    rivTLastReward := t;
-    SampleSeqVar(1, iNumRewards%);
-    SampleKey("R");
+
+' Reward will deliver a reward only if the var rivUseSingleReward% (set in main dialog) is 0.
+' RewardBypass will deliver a reward only if rivUseSingleReward is 1. 
+
+proc Reward(rewardMS%, t)
+    if rivUseSingleReward% = 0 then
+        if t>0 then
+            rivTLastReward := t;
+        endif
+        DeliverRewardMS(rewardMS%);
+    endif
     return;
 end
 
-func Reward%()
-    DeliverReward(2, -1);
+proc RewardBypass(rewardMS%, t, prob)
+    if rivUseSingleReward% = 1 then
+        if t>0 then
+            rivTLastReward := t;
+        endif
+        ' roll the dice. prob is the probability that we give a reward here. If prob is 90, then
+        ' we deliver reward 90% of the time. 
+        if prob = 100 or (prob < 100 and Rand(100, 0) < prob) then
+            DeliverRewardMS(rewardMS%);
+        else
+            LogInfo("Doh! No reward this time, even though it was earned.");
+        endif
+    endif
+    return;
+end
+
+func Juice%()
+    DeliverReward();
     return 1;
 end
 
@@ -1231,7 +1330,7 @@ func Stop%()
 	ToolbarSet(0, "");
 
 	' Tell stim app to shut down
-	SampleKey("q");
+	SafeSampleKey("q");
 	Yield(.1);
 	SampleStop();
 
@@ -1301,10 +1400,10 @@ func Start%()
 	View(rivWindowData%);
     
     ' Text mark channel header. Version number refers to the content (this should be coordinated with the extraction).
-    SampleText("RivalryDualVSG,1");
+    SampleText("RivalryDualVSG,2");
     SampleText(rivCVSID$);
     SampleText(cmdLine$);
-    stmp$ := Print$("%f,%f,%d,%d,%f,%f,%f,%f,%d", DegreesPerVoltX, DegreesPerVoltY, rivChanEyeX%, rivChanEyeY%, GetJoystickLeftHigh(), GetJoystickCenterHigh(), GetJoystickCenterLow(), GetJoystickRightLow(), rivChanJoy%);
+    stmp$ := Print$("%f,%f,%d,%d,%f,%f,%f,%f,%d,%d", DegreesPerVoltX, DegreesPerVoltY, rivChanEyeX%, rivChanEyeY%, GetJoystickLeftHigh(), GetJoystickCenterHigh(), GetJoystickCenterLow(), GetJoystickRightLow(), rivChanJoy%, rivUseSingleReward%);
     SampleText(stmp$);
     
     return 1;
@@ -1397,6 +1496,10 @@ func PrepareTrial%()
         endif
         
     endcase
+    
+    ' reset complete trial flag and single reward goodness flag
+    rivCompleteTrialFlag% := 0;
+    rivSingleRewardGoodTrialFlag% := 1;
     
     ' Put text marker in data file to show what type of trial this is, along with other info describing what is about to happen. 
     if s% = 1 then
@@ -1551,26 +1654,29 @@ func RivalryDialog%()
     DlgCheck(7, "Use beep?", 1, 8);
     DlgInteger(8, "Beep length (ms)", 1, 1000, 25, 9);
     DlgCheck(9, "Correction trials?", 1, 10);
-    'DlgCheck(8, "Use Fixation?", 1, 9);
-    DlgButton(101, "Fixation Settings", RivalryFixationDialog%, 1, 11);
+    DlgCheck(10, "Use single reward?", 1, 11);
+    DlgInteger(11, "Single reward size (ms)", 0, 1000, 25, 12);
+    DlgInteger(12, "TRT reward probability (0-100)", 0, 100, 25, 13);
+    DlgButton(101, "Fixation Settings", RivalryFixationDialog%, 1, 14);
     if rivUseFixation% = 1 then
-        rivFixationTextItem% := DlgText(rivFixationArg$, 20, 11);
+        rivFixationTextItem% := DlgText(rivFixationArg$, 20, 14);
     else
-        rivFixationTextItem% := DlgText("Fixation disabled", 20, 11);
+        rivFixationTextItem% := DlgText("Fixation disabled", 20, 14);
     endif
-    DlgButton(102, "Timing", RivalryTimingDialog%, 1, 12);
-    DlgButton(103, "Reward/Swap/Catch", RivalryRewardSwapDialog%, 1, 13);
-    DlgButton(104, "Electrodes", RivalryElectrodeDialog%, 1, 14);
-    rivElectrodeTextItem% := DlgText(GetElectrodeTextItem$(), 15, 14, 15);
-    DlgButton(105, "Crosshairs/Grid", RivalryXhairDialog%, 1, 15);
-    DlgGroup("Gratings", 1, 16, 50, 3);
-    DlgButton(106, "Left Grating", RivalryLGratingDialog%, 1, 17);
-    rivLeftGratingTextItem% := DlgText(rivLeftGrating$, 15, 17);
-    DlgButton(107, "Right Grating", RivalryRGratingDialog%, 1, 18);
-    rivRightGratingTextItem% := DlgText(rivRightGrating$, 15, 18);
+    DlgButton(102, "Timing", RivalryTimingDialog%, 1, 15);
+    DlgButton(103, "Reward/Swap/Catch", RivalryRewardSwapDialog%, 1, 16);
+    DlgButton(104, "Electrodes", RivalryElectrodeDialog%, 1, 17);
+    rivElectrodeTextItem% := DlgText(GetElectrodeTextItem$(), 15, 17, 15);
+    DlgButton(105, "Crosshairs/Grid", RivalryXhairDialog%, 1, 18);
+    DlgGroup("Gratings", 1, 19, 50, 3);
+    DlgButton(106, "Left Grating", RivalryLGratingDialog%, 1, 20);
+    rivLeftGratingTextItem% := DlgText(rivLeftGrating$, 15, 20);
+    DlgButton(107, "Right Grating", RivalryRGratingDialog%, 1, 21);
+    rivRightGratingTextItem% := DlgText(rivRightGrating$, 15, 21);
     i% := DlgShow(rivNBlocks%, rivNTrainingPerBlock%, rivNRivalryperBlock%, rivNRivalryCatchPerBlock%,
                   rivNTrainingRTPerBlock%, rivNTrainingFixedPerBlock%,
-                  rivUseBeep%, rivBeepLengthMS%, rivCorrectionTrials%);
+                  rivUseBeep%, rivBeepLengthMS%, rivCorrectionTrials%,
+                  rivUseSingleReward%, rivSingleRewardMS%, rivSingleRewardProb%);
     if i% = 1 then
         SaveRivalryParameters();
     endif
@@ -1583,8 +1689,11 @@ func RivalryDialogChanged%(item%)
     case item% = 0 then
         DlgEnable(rivUseFixation%, 101);
         DlgEnable(rivUseBeep%, 8);
+        DlgEnable(rivUseSingleReward%, 11);
     case item% = 7 then
         DlgEnable(DlgValue(7), 8);
+    case item% = 10 then
+        DlgEnable(DlgValue(10), 11);
     case item% = 3 then
         DlgEnable(DlgValue(3), 101);
     endcase
@@ -1606,10 +1715,13 @@ proc GetRivalryParameters()
     rivUseBeep% := GetIntRegistryValue%(key$, "UseBeep", rivUseBeep%);
     rivCorrectionTrials% := GetIntRegistryValue%(key$, "CorrectionTrials", rivCorrectionTrials%);
     rivBeepLengthMS% := GetIntRegistryValue%(key$, "BeepLengthMS", rivBeepLengthMS%);
-    rivResponseCorrectRewardSize% := GetIntRegistryValue%(key$, "ResponseCorrectRewardSize", rivResponseCorrectRewardSize%);
-    rivMaintainResponseRewardSize% := GetIntRegistryValue%(key$, "MaintainResponseRewardSize", rivMaintainResponseRewardSize%);
+    rivUseSingleReward% := GetIntRegistryValue%(key$, "UseSingleReward", rivUseSingleReward%);
+    rivSingleRewardMS% := GetIntRegistryValue%(key$, "SingleRewardMS", rivSingleRewardMS%);
+    rivSingleRewardProb% := GetIntRegistryValue%(key$, "SingleRewardProb", rivSingleRewardProb%);
+    rivResponseCorrectRewardSizeMS% := GetIntRegistryValue%(key$, "ResponseCorrectRewardSizeMS", rivResponseCorrectRewardSizeMS%);
+    rivMaintainResponseRewardSizeMS% := GetIntRegistryValue%(key$, "MaintainResponseRewardSizeMS", rivMaintainResponseRewardSizeMS%);
     rivMaintainResponseRewardWait := GetFloatRegistryValue(key$, "MaintainResponseRewardWait", rivMaintainResponseRewardWait);
-    rivSwapRewardSize% := GetIntRegistryValue%(key$, "SwapRewardSize", rivSwapRewardSize%);
+    rivSwapRewardSizeMS% := GetIntRegistryValue%(key$, "SwapRewardSizeMS", rivSwapRewardSizeMS%);
     rivSwapMinTime := GetFloatRegistryValue(key$, "SwapMinTime", rivSwapMinTime);
     rivSwapMaxTime := GetFloatRegistryValue(key$, "SwapMaxTime", rivSwapMaxTime);
     rivMaxStimTime := GetFloatRegistryValue(key$, "MaxStimTime", rivMaxStimTime);
@@ -1622,7 +1734,7 @@ proc GetRivalryParameters()
     rivResponseIncorrectWaitTime := GetFloatRegistryValue(key$, "ResponseIncorrectWaitTime", rivResponseIncorrectWaitTime);
     rivResponseBrokenWaitTime := GetFloatRegistryValue(key$, "ResponseBrokenWaitTime", rivResponseBrokenWaitTime);
     rivMaxStimWaitTime := GetFloatRegistryValue(key$, "MaxStimWaitTime", rivMaxStimWaitTime);
-    rivReadyHoldRewardSize% := GetIntRegistryValue%(key$, "ReadyHoldRewardSize", rivReadyHoldRewardSize%);
+    rivReadyHoldRewardSizeMS% := GetIntRegistryValue%(key$, "ReadyHoldRewardSizeMS", rivReadyHoldRewardSizeMS%);
     rivReadyHoldTime := GetFloatRegistryValue(key$, "ReadyHoldTime", rivReadyHoldTime);
     rivUseFixation% := GetIntRegistryValue%(key$, "UseFixation", rivUseFixation%);
     rivMaxAcquisitionTime := GetFloatRegistryValue(key$, "MaxAcquisitionTime", rivMaxAcquisitionTime);
@@ -1672,10 +1784,13 @@ proc SaveRivalryParameters()
     SetIntRegistryValue(key$, "UseBeep", rivUseBeep%);
     SetIntRegistryValue(key$, "CorrectionTrials", rivCorrectionTrials%);
     SetIntRegistryValue(key$, "BeepLengthMS", rivBeepLengthMS%);
-    SetIntRegistryValue(key$, "ResponseCorrectRewardSize", rivResponseCorrectRewardSize%);
-    SetIntRegistryValue(key$, "MaintainResponseRewardSize", rivMaintainResponseRewardSize%);
+    SetIntRegistryValue(key$, "UseSingleReward", rivUseSingleReward%);
+    SetIntRegistryValue(key$, "SingleRewardMS", rivSingleRewardMS%);
+    SetIntRegistryValue(key$, "SingleRewardProb", rivSingleRewardProb%);
+    SetIntRegistryValue(key$, "ResponseCorrectRewardSizeMS", rivResponseCorrectRewardSizeMS%);
+    SetIntRegistryValue(key$, "MaintainResponseRewardSizeMS", rivMaintainResponseRewardSizeMS%);
     SetFloatRegistryValue(key$, "MaintainResponseRewardWait", rivMaintainResponseRewardWait);
-    SetIntRegistryValue(key$, "SwapRewardSize", rivSwapRewardSize%);
+    SetIntRegistryValue(key$, "SwapRewardSizeMS", rivSwapRewardSizeMS%);
     SetFloatRegistryValue(key$, "SwapMinTime", rivSwapMinTime);
     SetFloatRegistryValue(key$, "SwapMaxTime", rivSwapMaxTime);
     SetFloatRegistryValue(key$, "MaxStimTime", rivMaxStimTime);
@@ -1688,7 +1803,7 @@ proc SaveRivalryParameters()
     SetFloatRegistryValue(key$, "ResponseIncorrectWaitTime", rivResponseIncorrectWaitTime);
     SetFloatRegistryValue(key$, "ResponseBrokenWaitTime", rivResponseBrokenWaitTime);
     SetFloatRegistryValue(key$, "MaxStimWaitTime", rivMaxStimWaitTime);
-    SetIntRegistryValue(key$, "ReadyHoldRewardSize", rivReadyHoldRewardSize%);
+    SetIntRegistryValue(key$, "ReadyHoldRewardSizeMS", rivReadyHoldRewardSizeMS%);
     SetFloatRegistryValue(key$, "ReadyHoldTime", rivReadyHoldTime);
     SetIntRegistryValue(key$, "UseFixation", rivUseFixation%);
     SetFloatRegistryValue(key$, "MaxAcquisitionTime", rivMaxAcquisitionTime);
@@ -1734,7 +1849,8 @@ func RivalryFixationDialog%()
     DlgReal(4, "Fixation hold time(s):", 0.01, 10);
     DlgReal(5, "Fix. BREAK wait time(s):", 0.01, 10);
     DlgCheck(6, "Always Looking (TESTING)");
-    DlgShow(rivUseFixation%, rivMaxAcquisitionTime, rivAcquisitionFailWaitTime, rivFixationHoldTime, rivFixationFailWaitTime, rivAlwaysLooking%);
+    DlgCheck(7, "Choose trial types (TESTING)");
+    DlgShow(rivUseFixation%, rivMaxAcquisitionTime, rivAcquisitionFailWaitTime, rivFixationHoldTime, rivFixationFailWaitTime, rivAlwaysLooking%, rivChooseTrialTypes%);
     if rivUseFixation% = 1 then
         DlgValue$(rivFixationTextItem%, rivFixationArg$);
     else
@@ -1762,8 +1878,6 @@ func RivalryFixationDialogChanged%(item%)
     return status%;
 end
 
-
-
 func RivalryTimingDialog%()
 	DlgCreate("Rivalry timing", 25, 10);
 	DlgReal(1, "Max rdy time(s):", .01, 10);
@@ -1781,13 +1895,19 @@ end
 
 
 func RivalryRewardSwapDialog%()
+    
+    ' Set value of temp var so that the changed function RivalryRewardSwapDialogChanged can 
+    ' decide whether to disable reward-related values. The value of rivUseSingleReward is not 
+    ' updated until the main dialog is OK'd, but these vars should be enabled/disabled based
+    ' on the current state of the checkbox. 
+    rivTempUseSingleReward% := DlgValue(10);
 	DlgCreate("Rivalry reward/swap");
     DlgReal(1, "Ready hold time (s)", .1, 10);
-    DlgInteger(2, "Ready hold reward", 0, 10);
-    DlgInteger(3, "Reward (correct resp)", 1, 10);
-    DlgInteger(4, "Reward (maintain)", 1, 10);
+    DlgInteger(2, "Ready hold reward (ms)", 0, 1000);
+    DlgInteger(3, "Reward (correct resp, ms)", 1, 1000);
+    DlgInteger(4, "Reward (maintain, ms)", 1, 1000);
     DlgReal(5, "Reward wait (maintain)", 0.01, 10);
-    DlgInteger(6, "Reward (swap)", 0, 10);
+    DlgInteger(6, "Reward (swap, ms)", 0, 1000);
     DlgReal(7, "Swap time - min", 0.01, 60);
     DlgReal(8, "Swap time - max", 0.01, 60);
     DlgReal(9, "Max stim time (s)", .01, 60);
@@ -1801,12 +1921,23 @@ func RivalryRewardSwapDialog%()
     DlgReal(17, "TRT T2 Max", 0.01, 60.0);
     DlgReal(18, "TFixed Min", 0.01, 60.0);
     DlgReal(19, "TFixed Max", 0.01, 60.0);
-	DlgShow(rivReadyHoldTime, rivReadyHoldRewardSize%, rivResponseCorrectRewardSize%, rivMaintainResponseRewardSize%, 
-    rivMaintainResponseRewardWait, rivSwapRewardSize%, rivSwapMinTime, rivSwapMaxTime, rivMaxStimTime, rivMinGoodTrialTime,
+    DlgAllow(0xffff, 0, RivalryRewardSwapDialogChanged%);
+	DlgShow(rivReadyHoldTime, rivReadyHoldRewardSizeMS%, rivResponseCorrectRewardSizeMS%, rivMaintainResponseRewardSizeMS%, 
+    rivMaintainResponseRewardWait, rivSwapRewardSizeMS%, rivSwapMinTime, rivSwapMaxTime, rivMaxStimTime, rivMinGoodTrialTime,
     rivRivalryCatchMinSwitchTime, rivRivalryCatchMaxSwitchTime, rivRivalryRewardHoldoff,
     rivTRTTime1Min, rivTRTTime1Max, rivTRTTime2Min, rivTRTTime2Max, rivTFixedMinTime, rivTFixedMaxTime);
     return 1;
 end
+
+func RivalryRewardSwapDialogChanged%(item%)
+    var status% := 1;
+    docase
+    case item% = 0 then
+        DlgEnable(1-rivTempUseSingleReward%, 2, 3, 4, 5, 6, 13);
+    endcase
+    return status%;
+end
+
 
 func RivalryElectrodeDialog%()
 	DlgCreate("Rivalry Electrodes");
