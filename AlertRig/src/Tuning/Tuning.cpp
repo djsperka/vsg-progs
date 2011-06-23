@@ -153,18 +153,11 @@ void init_pages()
 	// Save contrast value, since stim will be initially drawn OFF (i.e. contrast set to 0)
 	m_iSavedContrast = m_stim.contrast;
 
-	// initialize video pages
-	if (ARvsg::instance().init_video())
-	{
-		cerr << "VSG video initialization failed!" << endl;
-	}
+	// clear page 2, set view to page 2 while we draw page 0
+	vsgSetDrawPage(vsgVIDEOPAGE, 2, vsgBACKGROUND);
+	vsgSetZoneDisplayPage(vsgVIDEOPAGE, 2);
 
-	vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgNOCLEAR);
-
-	m_fp.init(2);
-	m_fp.setContrast(0);
-	m_fp.draw();
-
+	// init and draw stim
 	m_stim.init(50);
 	switch(m_tuning_type)
 	{
@@ -188,10 +181,27 @@ void init_pages()
 		cerr << "Error in init_pages: unknown tuning type!" << endl;
 	}
 	m_stim.setContrast(0);
-	m_stim.drawOnce();
+	m_stim.draw((long)vsgTRANSONLOWER);
 	m_bStimIsOff = true;
+
+	// init and draw fixpt (it will show even if stim overlaps)
+	m_fp.init(2);
+	m_fp.setContrast(0);
+	m_fp.draw();
+
+
+	// Set display page to page 0 now.
+	vsgSetZoneDisplayPage(vsgVIDEOPAGE, 0);
 	vsgPresent();
 
+}
+
+void draw_single_page(int ipage, ARGratingSpec& stim, ARContrastFixationPointSpec& fp)
+{
+	vsgSetDrawPage(vsgVIDEOPAGE, ipage, vsgBACKGROUND);
+	stim.draw((long)vsgTRANSONLOWER);
+	fp.draw();
+	return;
 }
 
 
@@ -272,8 +282,8 @@ int callback(int &output, const CallbackTrigger* ptrig)
 		default:
 			cerr << "Error in trigger callback: unknown tuning type!" << endl;
 		}
-		m_stim.redraw(true);
-
+		m_stim.draw((long)vsgTRANSONLOWER);
+		m_fp.draw();
 	}
 	else if (key == "s")
 	{
@@ -283,7 +293,7 @@ int callback(int &output, const CallbackTrigger* ptrig)
 			m_iSavedContrast = m_stim.contrast;
 			m_stim.setContrast(0);
 			m_bStimIsOff = true;
-			m_stim.redraw(true);
+			//m_stim.redraw(true);
 		}
 		else
 		{
@@ -298,7 +308,7 @@ int callback(int &output, const CallbackTrigger* ptrig)
 			cout << "Set stim to " << m_iSavedContrast << endl;
 			m_stim.setContrast(m_iSavedContrast);
 			m_bStimIsOff = false;
-			m_stim.redraw(true);
+			//m_stim.redraw(true);
 		}
 		else
 		{
@@ -333,17 +343,11 @@ void init_pages_area()
 		cerr << "VSG overlay initialization failed!" << endl;
 	}
 
-
-	// allocate some levels for the grating
-
-	PIXEL_LEVEL stimFirstLevel;
-	LevelManager::instance().request_range(50, stimFirstLevel);
-
 	// init the stim. This call creates a vsg object. Have to set draw page to a video page, otherwise vsg tells us
 	// that there's only pixel levels 0-3 available. 
 
 	vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgNOCLEAR);
-	m_stim.init(stimFirstLevel, 50);
+	m_stim.init(50);
 
 	// Next, draw full screen grating on video page 0
 

@@ -326,7 +326,7 @@ int main(int argc, char **argv)
 	blankPage();
 
 	ARvsg::instance().clear();
-	ARvsg::instance().release_lock();
+//	ARvsg::instance().release_lock();
 
 	return 0;
 }

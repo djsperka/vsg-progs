@@ -22,6 +22,7 @@ using namespace alert;
 
 #pragma comment (lib, "vsgv8.lib")
 
+int callback(int &output, const CallbackTrigger* ptrig);
 int args(int argc, char **argv);
 int init_pages();
 int init_triggers();
@@ -40,6 +41,8 @@ bool f_verbose = false;
 ARGratingSpec f_grating;
 ARContrastFixationPointSpec f_fixpt;
 bool f_alert = false;
+bool f_bFixationOn = false;
+TriggerVector triggers;
 
 double f_vsgWidthPixels;
 double f_vsgHeightPixels;
@@ -49,6 +52,7 @@ double f_monWidthPixels;
 double f_monHeightPixels;
 double f_tfPrevious = 0;
 
+long f_lastInput = 0;
 
 
 int main(int argc, char **argv)
@@ -58,6 +62,8 @@ int main(int argc, char **argv)
 	{
 		return 1;
 	}
+
+	cout << "args done" << endl;
 
 	// Get lock and init vsg
 	if (ARvsg::instance().init(f_screenDistanceMM, f_background))
@@ -73,9 +79,14 @@ int main(int argc, char **argv)
 	init_pages();
 
 
+	vsgIOWriteDigitalOut(0, 0xff);
+	ARvsg::instance().ready_pulse();
+	triggers.reset(vsgIOReadDigitalIn());
+	cout << "Reset with " << (vsgIOReadDigitalIn() & 0xff) << endl;
+	f_lastInput = vsgIOReadDigitalIn();
+
 	bool bUseManualTriggers = false;
 	bool bSendTrigger = false;
-	bool bFixationOn = false;
 	bool bMouseOn = true;
 	bool bQuit = false;
 	int key;
@@ -86,8 +97,9 @@ int main(int argc, char **argv)
 	int iPage = 1;
 	long lDigitalIO=0;
 	long lDigitalIOLast=0;
+	long last_output_trigger = 0;
 
-	// loop forever until 'q' is hit on keyboard
+	// loop forever until 'q' is hit on keyboard or a quit signal is received on digition IO lines
 	while(!bQuit)
 	{
 		// get cursor position if mouse is on.
@@ -104,39 +116,25 @@ int main(int argc, char **argv)
 		// read vsg io for fixation pt signal
 		if (f_alert && !bUseManualTriggers)
 		{
-			long ltemp = vsgIOReadDigitalIn();
-			lDigitalIO = ltemp & vsgDIG1;
-			bFixationOn =  lDigitalIO != 0;
-			bSendTrigger = lDigitalIO!=lDigitalIOLast;
-			lDigitalIOLast = lDigitalIO;
+			TriggerFunc	tf = std::for_each(triggers.begin(), triggers.end(), TriggerFunc(vsgIOReadDigitalIn(), last_output_trigger));
 
-			bQuit = ((ltemp & vsgDIG6) != 0);
+			if (tf.quit()) bQuit = true;
+			else if (tf.present())
+			{	
+				// The use of vsgIODigitalWriteOut here means that the output triggers appear as-is at the 
+				// spike2 end. When we use vsgObjSetTriggers the bits are shifted left by one because the 
+				// VSG takes the lowest order output bit for itself, and when we output bit 0x1 it is sent
+				// on DOUT1 (not DOUT0).
+				last_output_trigger = tf.output_trigger();
+				vsgIOWriteDigitalOut(tf.output_trigger(), 0xff);
+			}
 		}
-
-
 
 		// flip overlay page, then draw aperture (and fixpt if needed).
 		iPage = 1 - iPage;
 		vsgSetDrawPage(vsgOVERLAYPAGE, iPage, 1);
-		UpdateOverlay(bFixationOn, f_fixpt.x, f_fixpt.y, f_fixpt.d, degVSGMouseX, degVSGMouseY, f_grating.w);
-
-		// put freshly drawn overlay page up
-		if (!bSendTrigger)
-		{
-			vsgSetZoneDisplayPage(vsgOVERLAYPAGE, iPage);
-		}
-		else
-		{
-			if (bFixationOn)
-			{
-				vsgIOWriteDigitalOut(0x2, 0x2);
-			}
-			else 
-			{
-				vsgIOWriteDigitalOut(0x0, 0x2);
-			}
-			vsgSetZoneDisplayPage(vsgOVERLAYPAGE, iPage + vsgTRIGGERPAGE);
-		}
+		UpdateOverlay(f_bFixationOn, f_fixpt.x, f_fixpt.y, f_fixpt.d, degVSGMouseX, degVSGMouseY, f_grating.w);
+		vsgSetZoneDisplayPage(vsgOVERLAYPAGE, iPage);
 
 		while (_kbhit() && !bQuit)
 		{
@@ -374,7 +372,7 @@ int main(int argc, char **argv)
 					if (bUseManualTriggers)
 					{
 						cout << "Fixation point ON" << endl;
-						bFixationOn = true;
+						f_bFixationOn = true;
 					}
 					else
 					{
@@ -387,7 +385,7 @@ int main(int argc, char **argv)
 					if (bUseManualTriggers)
 					{
 						cout << "Fixation point OFF" << endl;
-						bFixationOn = false;
+						f_bFixationOn = false;
 					}
 					else
 					{
@@ -552,8 +550,35 @@ int init_pages()
 	arutil_draw_aperture(f_grating, 1);
 	vsgSetZoneDisplayPage(vsgOVERLAYPAGE, 0);
 
+	// Initialize triggers
+
+	// Fixation point trigger
+	triggers.addTrigger(new CallbackTrigger("F", 0x2, 0x2, 0x4, 0x4, callback));
+	triggers.addTrigger(new CallbackTrigger("f", 0x2, 0x0, 0x4, 0x0, callback));
+
+	// quit trigger
+	triggers.addTrigger(new QuitTrigger("q", 0x80, 0x80, 0xff, 0x0, 0));
+
+
 	return 0;
 }
+
+
+int callback(int &output, const CallbackTrigger* ptrig)
+{
+	int ival=0;
+	string key = ptrig->getKey();
+	if (key == "F")
+	{
+		f_bFixationOn = true;
+	}
+	else if (key == "f")
+	{
+		f_bFixationOn = false;
+	}
+	return 1;
+}
+
 
 int args(int argc, char **argv)
 {	

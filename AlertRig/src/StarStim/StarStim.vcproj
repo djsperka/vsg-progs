@@ -241,6 +241,10 @@
 			>
 		</Filter>
 		<File
+			RelativePath=".\README.txt"
+			>
+		</File>
+		<File
 			RelativePath="starstim.txt"
 			>
 		</File>
