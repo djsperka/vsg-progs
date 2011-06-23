@@ -27,11 +27,17 @@ bool m_getLockFile = false;
 bool m_getScreenDistance = false;
 bool m_getFixpt = false;
 bool m_getStimulus = false;
+bool m_getMaster = false;
+bool m_getSlave = false;
+bool m_getConfig = false;
 
 int testLockFile();
 int testScreenDistance();
 int testFixpt();
 int testStimulus();
+int testMaster();
+int testSlave();
+int testConfig();
 
 int main (int argc, char *argv[])
 {
@@ -73,6 +79,30 @@ int main (int argc, char *argv[])
 				cerr << "Stimulus test OK." << endl;
 			else
 				cerr << "Stimulus test FAILED." << endl;
+		}
+
+		if (m_getMaster)
+		{
+			if (!testMaster())
+				cerr << "Master test OK." << endl;
+			else
+				cerr << "Master test FAILED." << endl;
+		}
+
+		if (m_getSlave)
+		{
+			if (!testSlave())
+				cerr << "Slave test OK." << endl;
+			else
+				cerr << "Slave test FAILED." << endl;
+		}
+
+		if (m_getConfig)
+		{
+			if (!testConfig())
+				cerr << "Config test OK." << endl;
+			else
+				cerr << "Config test FAILED." << endl;
 		}
 
 	}
@@ -147,6 +177,56 @@ int testStimulus()
 	return status;
 }
 
+int testMaster()
+{
+	int status = 0;
+	string s;
+
+	if (!GetRegVSGMaster(s))
+	{
+		cerr << "ERROR: Cannot get Master config from registy." << endl;
+		status = -1;
+	}
+	else
+		cerr << "Got master config = " << s << endl;
+
+	return status;
+}
+
+
+int testSlave()
+{
+	int status = 0;
+	string s;
+
+	if (!GetRegVSGSlave(s))
+	{
+		cerr << "ERROR: Cannot get Slave config from registy." << endl;
+		status = -1;
+	}
+	else
+		cerr << "Got slave config = " << s << endl;
+
+	return status;
+}
+
+int testConfig()
+{
+	int status = 0;
+	string s;
+
+	if (!GetRegVSGConfig(s))
+	{
+		cerr << "ERROR: Cannot get Config value from registy." << endl;
+		status = -1;
+	}
+	else
+		cerr << "Got Config value = " << s << endl;
+
+	return status;
+}
+
+
 int args(int argc, char **argv)
 {	
 	string s;
@@ -154,7 +234,7 @@ int args(int argc, char **argv)
 	extern char *optarg;
 	extern int optind;
 	int errflg = 0;
-	while ((c = getopt(argc, argv, "aldfs")) != -1)
+	while ((c = getopt(argc, argv, "aldfsMSC")) != -1)
 	{
 		switch (c) 
 		{
@@ -163,6 +243,9 @@ int args(int argc, char **argv)
 			m_getScreenDistance = true;
 			m_getFixpt = true;
 			m_getStimulus = true;
+			m_getMaster = true;
+			m_getSlave = true;
+			m_getConfig = true;
 			break;
 		case 'l':
 			m_getLockFile = true;
@@ -175,6 +258,15 @@ int args(int argc, char **argv)
 			break;
 		case 's':
 			m_getStimulus = true;
+			break;
+		case 'M':
+			m_getMaster = true;
+			break;
+		case 'S':
+			m_getSlave = true;
+			break;
+		case 'C':
+			m_getConfig = true;
 			break;
 		case 'h':
 			errflg++;

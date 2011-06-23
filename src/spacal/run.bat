@@ -1,0 +1,1 @@
+..\..\bin\spacal -a -d 555 -b gray -f 0,0,1,blue -n "c:\Documents and Settings\Lab\Desktop\next.txt" -c "c:\Documents and Settings\Lab\Desktop\curr.txt"

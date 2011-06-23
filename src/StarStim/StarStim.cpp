@@ -32,6 +32,7 @@ vector<VSGOBJHANDLE> m_vecHandles;
 int m_nTargets=0;
 int m_iCurrentTarget = 0;
 TriggerVector m_triggers;
+double m_dOffsetDegrees = 0;
 
 // parse args
 int args(int argc, char **argv);
@@ -114,20 +115,28 @@ int main(int argc, char **argv)
 void generate_targets()
 {
 	double angle;
+	double offset;
+	double xorigin, yorigin;
 
+	angle = 2*PI/m_nTargets;
+	offset = m_dOffsetDegrees * PI/180;
+	xorigin = m_fp.x;
+	yorigin = m_fp.y;
+
+#if 0
   	m_target.init(2);
 	m_target.setContrast(0);
 	m_target.draw();
 	m_vecHandles.push_back(m_target.handle());
+#endif
 
 	// Now take m_target.x,y and rotate. 
-	angle = 2*PI/m_nTargets;
-	for (int i=1; i<m_nTargets; i++)
+	for (int i=0; i<m_nTargets; i++)
 	{
 		ARContrastFixationPointSpec t;
-		double theta = angle * i;
-		t.x = m_target.x * cos(theta) - m_target.y * sin(theta);
-		t.y = m_target.x * sin(theta) + m_target.y * cos(theta);
+		double theta = angle * i + offset;
+		t.x = (m_target.x - xorigin) * cos(theta) - (m_target.y - yorigin) * sin(theta) + xorigin;
+		t.y = (m_target.x - xorigin) * sin(theta) + (m_target.y - yorigin) * cos(theta) + yorigin;
 		t.d = m_target.d;
 		t.color = m_target.color;
 		t.init(2);
@@ -141,12 +150,12 @@ void init_pages()
 {
 
 	// initialize video pages
-	if (ARvsg::instance().init_video())
+	if (ARvsg::instance().init(m_screenDistanceMM, m_background))
 	{
 		cerr << "VSG video initialization failed!" << endl;
 	}
 
-	vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgNOCLEAR);
+	vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgBACKGROUND);
 
 	m_fp.init(2);
 	m_fp.setContrast(0);
@@ -183,30 +192,25 @@ int callback(int &output, const CallbackTrigger* ptrig)
 	string key = ptrig->getKey();
 	if (key == "a")
 	{
-		cout << "a trig" << endl;
 		m_iCurrentTarget++;
 		if (m_iCurrentTarget == m_vecTargetOrder.size()) m_iCurrentTarget = 0;
 	}
 	else if (key == "s")
 	{
-		cout << "s trig" << endl;
 		vsgObjSelect(m_vecHandles[m_vecTargetOrder[m_iCurrentTarget]]);
 		vsgObjSetContrast(0);
 	}
 	else if (key == "S")
 	{
-		cout << "S trig" << endl;
 		vsgObjSelect(m_vecHandles[m_vecTargetOrder[m_iCurrentTarget]]);
 		vsgObjSetContrast(100);
 	}
 	else if (key == "F")
 	{
-		cout << "F trig" << endl;
 		m_fp.setContrast(100);
 	}
 	else if (key == "f")
 	{
-		cout << "f trig" << endl;
 		m_fp.setContrast(0);
 	}
 
@@ -249,7 +253,7 @@ int args(int argc, char **argv)
 	extern char *optarg;
 	extern int optind;
 	int errflg = 0;
-	while ((c = getopt(argc, argv, "avf:t:b:d:hn:r:")) != -1)
+	while ((c = getopt(argc, argv, "avf:t:b:d:hn:r:o:")) != -1)
 	{
 		switch (c) 
 		{
@@ -287,6 +291,10 @@ int args(int argc, char **argv)
 			s.assign(optarg);
 			if (parse_input_file(s, m_vecTargetOrder)) errflg++;
 			else have_r = true;
+			break;
+		case 'o':
+			s.assign(optarg);
+			if (parse_double(s, m_dOffsetDegrees)) errflg++;
 			break;
 		case 'h':
 			errflg++;

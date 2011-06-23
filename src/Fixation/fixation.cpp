@@ -244,7 +244,7 @@ int init_pages()
 	if (m_distractors.size() > 0)
 	{
 		// determine the level slice for each
-		int islice = LevelManager::instance().remaining()/m_distractors.size();
+		int islice = 250/m_distractors.size();
 		if (islice > 50) islice=50;
 		for (unsigned int i=0; i<m_distractors.size(); i++)
 		{
