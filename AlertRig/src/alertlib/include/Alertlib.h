@@ -249,6 +249,7 @@ namespace alert
 		PATTERN_TYPE pattern;
 		APERTURE_TYPE aperture;
 		COLOR_VECTOR_TYPE cv;
+		double spph;			/* spatial phase */
 		int draw(bool useTransOnLower);
 		virtual int draw();
 		virtual int drawOverlay();
