@@ -41,51 +41,25 @@ bool GetRegConfiguration()
 		if (!getenv_s(&iGetenvReturnValue, buffer, 256, "RIG"))
 		{
 			f_szRigName.assign(buffer);
-			cout << "Env var RIG found: rig name is " << f_szRigName << endl;
+			cerr << "Env var RIG found: rig name is " << f_szRigName << endl;
 		}
 		else
 		{
 			f_szRigName.assign("AlertRig");
-			cout << "Env var RIG not found. using \"AlertRig\" as rig name." << endl;
+			cerr << "Env var RIG not found. using \"AlertRig\" as rig name." << endl;
 		}
 
+		strcpy_s(buffer, 256, "Software\\CED\\Spike2\\");
+		strcat_s(buffer, 256, f_szRigName.c_str());
 
-	    /* Now attempt to open the key Software/CED/Spike2/AlertRig/. */
+		b = GetRegString(buffer, "CurrentConfiguration", f_szConfig);
+		f_szRegistryKey.assign(buffer);
+		f_szRegistryKey += "\\";
+		f_szRegistryKey += f_szConfig;
 
-		key = "Software\\CED\\Spike2\\" + f_szRigName;
-		if (!CRegistry::KeyExists(key.c_str(), HKEY_CURRENT_USER)) 
-		{
-			cout << "Registry key \"" + key + "\" not found!!!!" << endl;
-		}
-		else
-		{
-			cout << "Opening key " << key << endl;
-			regMyReg.Open(key.c_str(), HKEY_CURRENT_USER);
-			if (!regMyReg["CurrentConfiguration"].Exists())
-			{
-				cout << "Registry value for CurrentConfiguration not found!!!!" << endl;
-			}
-			else
-			{
-				// Get current configuration
-				f_szConfig = (std::string)regMyReg["CurrentConfiguration"];
-				f_szRegistryKey.assign("Software\\CED\\Spike2\\");
-				f_szRegistryKey.append(f_szRigName);
-				f_szRegistryKey.append("\\");
-				f_szRegistryKey.append(f_szConfig);
-				cout << "Registry key is " << f_szRegistryKey << endl;
-				f_bHaveConfig = true;
-				b = true;
-			}
-			// Close the open key
-			regMyReg.Close();
-
-		}
-	
+		if (b) cerr << "current configuration = " << f_szConfig << endl;
 	}
-
 	return b;
-
 }
 
 
@@ -248,6 +222,7 @@ bool GetRegFixpt(double& fixX, double& fixY, double &fixD, COLOR_TYPE& fixC)
 bool GetRegStimulus(ARApertureGratingSpec &stim)
 {
 	bool b = false;
+	std::string s;
 	std::string szKey;
 	if (GetRegConfiguration())
 	{
@@ -255,28 +230,10 @@ bool GetRegStimulus(ARApertureGratingSpec &stim)
 
 	    /* Now attempt to open the key Software/CED/Spike2/AlertRig/. */
 		szKey = f_szRegistryKey + "\\Gratings";
-		if (!CRegistry::KeyExists(szKey.c_str(), HKEY_CURRENT_USER)) 
+		b = GetRegString(szKey.c_str(), "Stimulus", s);
+		if (b)
 		{
-			std::string sztemp = "Registry key " + szKey + " not found!!!!";
-			cout << sztemp << endl;
-		}
-		else
-		{
-			regMyReg.Open(szKey.c_str(), HKEY_CURRENT_USER);
-			if (!regMyReg["Stimulus"].Exists())
-			{
-				std::string sztemp = "Registry value Stimulus for key " + szKey + " not found!!!!";
-				cout << sztemp << endl;
-			}
-			else
-			{
-				// Get current configuration
-				string s = (std::string)regMyReg["Stimulus"];
-				parse_grating(s, stim);
-				b = true;
-			}
-			// Close the open key
-			regMyReg.Close();
+			parse_grating(s, stim);
 		}
 	}
 	else 
@@ -331,26 +288,49 @@ bool SaveRegStimulus(std::string s)
 
 bool GetRegLockFile(std::string &s)
 {
+	return GetRegString("Software\\CED\\Spike2", "LockFile", s);
+}
+
+
+bool GetRegVSGConfig(std::string &s)
+{
+	return GetRegString("Software\\CED\\Spike2", "VSGConfig", s);
+}
+
+
+bool GetRegVSGMaster(std::string &s)
+{
+	return GetRegString("Software\\CED\\Spike2", "VSGMaster", s);
+}
+
+
+bool GetRegVSGSlave(std::string &s)
+{
+	return GetRegString("Software\\CED\\Spike2", "VSGSlave", s);
+}
+
+bool GetRegString(const char *key, const char *value, std::string& s)
+{
 	bool b = false;
 	CRegistry regMyReg( NULL );  // No special flags
 
     /* Attempt to open the key Software/CED/Spike2/. */
 
-	if (!CRegistry::KeyExists("Software\\CED\\Spike2", HKEY_CURRENT_USER)) 
+	if (!CRegistry::KeyExists(key, HKEY_CURRENT_USER)) 
 	{
-		cout << "Spike2 registry key not found in HKEY_CURRENT_USER (Is spike2 installed on this machine?" << endl;
+		cout << "Registry key " << key << " not found in HKEY_CURRENT_USER." << endl;
 	}
 	else
 	{
-		regMyReg.Open("Software\\CED\\Spike2", HKEY_CURRENT_USER);
-		if (!regMyReg["LockFile"].Exists())
+		regMyReg.Open(key, HKEY_CURRENT_USER);
+		if (!regMyReg[value].Exists())
 		{
-			cout << "Spike2 registry value for LockFile not found!!!!" << endl;
+			cout << "Registry value " << value << " not found in key " << key << "." << endl;
 		}
 		else
 		{
 			// Get the value
-			s = (std::string)regMyReg["LockFile"];
+			s = (std::string)regMyReg[value];
 			b = true;
 		}
 		// Close the open key

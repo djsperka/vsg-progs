@@ -288,8 +288,8 @@ void prepareVideo()
 		}
 
 		// Two pages are used. Page 0 is "off", page 1 is "on".
-		LevelManager::instance().request_single(ploff);
-		LevelManager::instance().request_single(plon);
+		ARvsg::instance().getLevelManager().request_single(ploff);
+		ARvsg::instance().getLevelManager().request_single(plon);
 		arutil_color_to_palette(ctoff, ploff);
 		arutil_color_to_palette(cton, plon);
 		vsgSetDrawPage(vsgVIDEOPAGE, MSEQ_OFF_PAGE, ploff);

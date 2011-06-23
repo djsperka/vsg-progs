@@ -25,17 +25,16 @@ int callback(int &output, const CallbackTrigger* ptrig);
 using namespace std;
 using namespace alert;
 
-//ARContrastFixationPointSpec m_afp;
-ARFixationPointSpec m_fixpt;
-bool m_bHaveFixpt = false;
-COLOR_TYPE m_background;
-vector<ARGratingSpec*> m_gratings;
-int m_screenDistanceMM=0;
-bool m_verbose=false;
+ARFixationPointSpec f_fixpt;
+bool f_bHaveFixpt = false;
+COLOR_TYPE f_background;
+vector<ARGratingSpec*> f_gratings;
+int f_screenDistanceMM=0;
+bool f_verbose=false;
 TriggerVector triggers;
-bool m_binaryTriggers = true;
-bool m_bCalibration = false;
-bool m_driftvelTriggers = false;
+bool f_binaryTriggers = true;
+bool f_bRivalry = false;
+string f_szOffsetFile;
 
 const int f_iPage0 = 0;
 const int f_iPage1 = 1;
@@ -58,19 +57,19 @@ int main (int argc, char *argv[])
 	}
 	else
 	{
-		if (m_verbose)
+		if (f_verbose)
 		{
-			cout << "Screen distance " << m_screenDistanceMM << endl;
-			cout << "Background color " << m_background << endl;
-			for (unsigned int i=0; i<m_gratings.size(); i++)
+			cout << "Screen distance " << f_screenDistanceMM << endl;
+			cout << "Background color " << f_background << endl;
+			for (unsigned int i=0; i<f_gratings.size(); i++)
 			{
-				cout << "Grating " << (i+1) << ": " << m_gratings[i] << endl;
+				cout << "Grating " << (i+1) << ": " << f_gratings[i] << endl;
 			}
 		}
 	}
 
 	// INit vsg
-	if (ARvsg::instance().init(m_screenDistanceMM, m_background))
+	if (ARvsg::instance().init(f_screenDistanceMM, f_background))
 	{
 		cerr << "VSG init failed!" << endl;
 		return 1;
@@ -99,7 +98,7 @@ int main (int argc, char *argv[])
 	while (1)
 	{
 		// If user-triggered, get a trigger entry. 
-		if (!m_binaryTriggers)
+		if (!f_binaryTriggers)
 		{
 			// Get a new "trigger" from user
 			cout << "Enter trigger/key: ";
@@ -107,7 +106,7 @@ int main (int argc, char *argv[])
 		}
 
 		TriggerFunc	tf = std::for_each(triggers.begin(), triggers.end(), 
-			(m_binaryTriggers ? TriggerFunc(vsgIOReadDigitalIn(), last_output_trigger) : TriggerFunc(s, last_output_trigger)));
+			(f_binaryTriggers ? TriggerFunc(vsgIOReadDigitalIn(), last_output_trigger) : TriggerFunc(s, last_output_trigger)));
 
 		// Now analyze input trigger
 	 	
@@ -138,26 +137,23 @@ int args(int argc, char **argv)
 	extern char *optarg;
 	extern int optind;
 	int errflg = 0;
-	while ((c = getopt(argc, argv, "s:b:hd:vaf:T")) != -1)
+	while ((c = getopt(argc, argv, "s:b:hd:vaf:r:")) != -1)
 	{
 		switch (c) 
 		{
 		case 'a':
-			m_binaryTriggers = false;
+			f_binaryTriggers = false;
 			break;
 		case 'v':
-			m_verbose = true;
-			break;
-		case 'T':
-			m_driftvelTriggers = true;
+			f_verbose = true;
 			break;
 		case 'b': 
 			s.assign(optarg);
-			if (parse_color(s, m_background)) errflg++; 
+			if (parse_color(s, f_background)) errflg++; 
 			break;
 		case 'd':
 			s.assign(optarg);
-			if (parse_distance(s, m_screenDistanceMM)) errflg++;
+			if (parse_distance(s, f_screenDistanceMM)) errflg++;
 			else have_d=true;
 			break;
 		case 's':
@@ -165,14 +161,18 @@ int args(int argc, char **argv)
 			s.assign(optarg);
 			if (!parse_grating(s, *pspec))
 			{
-				m_gratings.push_back(pspec);
+				f_gratings.push_back(pspec);
 			}
 			else errflg++;
 			break;
 		case 'f':
 			s.assign(optarg);
-			if (parse_fixation_point(s, m_fixpt)) errflg++;
-			else m_bHaveFixpt = true;
+			if (parse_fixation_point(s, f_fixpt)) errflg++;
+			else f_bHaveFixpt = true;
+			break;
+		case 'r':
+			f_bRivalry = true;
+			f_szOffsetFile.assign(optarg);
 			break;
 		case 'h':
 			errflg++;
@@ -186,7 +186,7 @@ int args(int argc, char **argv)
 		}
 	}
 
-	if (m_gratings.size() != 2)
+	if (f_gratings.size() != 2)
 	{
 		cerr << "Must specify exactly two gratings!" << endl;
 		errflg++;
@@ -220,69 +220,52 @@ int init_pages()
 		return 1;
 	}
 
-	if (m_bHaveFixpt)
+	if (f_bHaveFixpt)
 	{
 		VSGTRIVAL c;
-		//m_fixpt.init(vsgFIXATION);
-		get_color(m_fixpt.color, c);
+		//f_fixpt.init(vsgFIXATION);
+		get_color(f_fixpt.color, c);
 		vsgSetFixationColour(&c);
 	}
 
 
 	// draw first grating on page 0
 	vsgSetDrawPage(vsgVIDEOPAGE, f_iPage0, vsgNOCLEAR);
-	m_gratings[0]->init(islice);
-	m_gratings[0]->draw(true);
+	f_gratings[0]->init(islice);
+	f_gratings[0]->draw(true);
 
 	// If needed, draw fixpt on same page. Must init fixpt first. 
-	if (m_bHaveFixpt)
+	if (f_bHaveFixpt)
 	{
 		vsgSetPen1(vsgFIXATION);
-		m_fixpt.draw();
+		f_fixpt.draw();
 	}
 
 	// draw second grating on page 1
 	vsgSetDrawPage(vsgVIDEOPAGE, f_iPage1, vsgNOCLEAR);
-	m_gratings[1]->init(islice);
-	m_gratings[1]->draw(true);
+	f_gratings[1]->init(islice);
+	f_gratings[1]->draw(true);
 
 	// If needed, draw fixpt on same page. No need to init fixpt - that was done above. 
-	if (m_bHaveFixpt)
+	if (f_bHaveFixpt)
 	{
 		vsgSetPen1(vsgFIXATION);
-		m_fixpt.draw();
+		f_fixpt.draw();
 	}
 
 	// Page 2 is blank. Page 3 will have fixpt alone, if needed. 
 	vsgSetDrawPage(vsgVIDEOPAGE, f_iPageFixpt, vsgNOCLEAR);
-	if (m_bHaveFixpt)
+	if (f_bHaveFixpt)
 	{
 		vsgSetPen1(vsgFIXATION);
-		m_fixpt.draw();
+		f_fixpt.draw();
 	}
 
 
-#if 0
-	// initialize overlay pages. Overlay page 0 and 1 will be used. Init them to CLEAR. 
-	if (ARvsg::instance().init_overlay())
-	{
-		cerr << "VSG overlay initialization failed!" << endl;
-		return 1;
-	}
-	vsgSetDrawPage(vsgOVERLAYPAGE, 1, 0);
-	if (m_bHaveFixpt)
-	{
-		arutil_color_to_overlay_palette(m_afp, 3);
-		arutil_draw_overlay(m_afp, 3, 1);
-	}
-	vsgSetDrawPage(vsgOVERLAYPAGE, 0, 0);
-#endif
 
 	// trigger to turn stim 0/1 on
 	triggers.addTrigger(new PageTrigger("0", 0x6, 0x2, 0x2, 0x2, 0));
 	triggers.addTrigger(new PageTrigger("1", 0x6, 0x4, 0x2, 0x2, 1));
-	//triggers.addTrigger(new CallbackTrigger("0", 0x6, 0x2, 0x2, 0x2, callback));
-	//triggers.addTrigger(new CallbackTrigger("1", 0x6, 0x4, 0x2, 0x2, callback));
 
 	// trigger to toggle 0/1 contrast
 	triggers.addTrigger(new TogglePageTrigger("z", 0x8, 0x8|AR_TRIGGER_TOGGLE, 0x4, 0x4|AR_TRIGGER_TOGGLE, 0, 1));
@@ -292,12 +275,6 @@ int init_pages()
 
 	// Fixation point trigger
 	triggers.addTrigger(new PageTrigger("F", 0x10, 0x10, 0x8, 0x8, 3));
-	//triggers.addTrigger(new PageTrigger("f", 0x10, 0x0, 0x8, 0x0, 4));
-
-	if (m_driftvelTriggers)
-	{
-		triggers.addTrigger(new CallbackTrigger("T", 0x0, 0x0, 0x0, 0x0, callback));
-	}
 
 	// quit trigger
 	triggers.addTrigger(new QuitTrigger("q", 0x80, 0x80, 0xff, 0x0, 0));
@@ -374,7 +351,7 @@ int callback(int &output, const CallbackTrigger* ptrig)
 	}
 	else if (key=="T")
 	{
-		m_gratings[0]->select();
+		f_gratings[0]->select();
 		vsgObjSetTriggers(vsgTRIG_DRIFTVEL, 0, 0);
 		vsgSetZoneDisplayPage(vsgVIDEOPAGE, 0);
 		vsgPresent();

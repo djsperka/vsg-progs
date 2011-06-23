@@ -1,4 +1,4 @@
-// $Id: main.cpp,v 1.4 2010-02-27 01:54:16 devel Exp $
+// $Id: main.cpp,v 1.5 2011-06-23 02:09:34 djsperka Exp $
 //
 //
 #include "vsgv8.h"
@@ -40,6 +40,46 @@ int main(int argc, char **argv)
 	vsgPresent();
 
 	vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, 0x0, 0);
+	vsgPresent();
+
+	vsgObjSetTriggers(vsgTRIG_ONPRESENT, 0, 0);
+	vsgPresent();
+	vsgObjSetTriggers(vsgTRIG_ONPRESENT, 0, 0);
+	vsgPresent();
+	vsgObjSetTriggers(vsgTRIG_ONPRESENT, 0, 0);
+	vsgPresent();
+
+	vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, 0xFE, 0);
+	vsgPresent();
+
+	vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, 0x0, 0);
+	vsgPresent();
+
+	vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, 0xFC, 0);
+	vsgPresent();
+
+	vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, 0x0, 0);
+	vsgPresent();
+
+	vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, 0x1, 0);
+	vsgPresent();
+	vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, 0x2, 0);
+	vsgPresent();
+	vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, 0x4, 0);
+	vsgPresent();
+	vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, 0x8, 0);
+	vsgPresent();
+	vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, 0x10, 0);
+	vsgPresent();
+	vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, 0x20, 0);
+	vsgPresent();
+	vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, 0x40, 0);
+	vsgPresent();
+	vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, 0x80, 0);
+	vsgPresent();
+	vsgObjSetTriggers(vsgTRIG_ONPRESENT, 0, 0);
+	vsgPresent();
+	vsgObjSetTriggers(vsgTRIG_ONPRESENT, 0, 0);
 	vsgPresent();
 
 	return 0;

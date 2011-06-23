@@ -341,6 +341,10 @@
 				RelativePath="include\Registry.h"
 				>
 			</File>
+			<File
+				RelativePath=".\include\usrey_msequence.h"
+				>
+			</File>
 		</Filter>
 	</Files>
 	<Globals>

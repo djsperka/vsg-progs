@@ -1,4 +1,5 @@
 #include "Alertlib.h"
+#include "AlertUtil.h"
 #include "RegHelper.h"
 #include <iostream>
 #include <string>
@@ -12,496 +13,108 @@
 using namespace std;
 using namespace alert;
 
-std::ostream& operator<<(std::ostream& out, const alert::ARFixationPointSpec& arfps)
+std::ostream& operator<<(std::ostream& out, const ARFixationPointSpec& arfps)
 {
 	out << arfps.x << ", " << arfps.y << "," << arfps.d << "," << arfps.color;
 	return out;
 }
 
-std::ostream& operator<<(std::ostream& out, const alert::ARGratingSpec& args)
+std::ostream& operator<<(std::ostream& out, const ARGratingSpec& args)
 {
 	out << args.x << "," << args.y << "," << args.w << "," << args.h << "," << args.contrast << "," << args.sf << "," << args.tf << "," << args.orientation << "," << args.cv << "," << args.pattern << "," << args.aperture;
 	return out;
 }
 
-std::ostream& operator<<(std::ostream& out, const alert::Trigger& t)
+std::ostream& operator<<(std::ostream& out, const Trigger& t)
 {
 	out << t.toString();
 	return out;
 }
 
 
-
-
-int alert::ARObject::select()
+ARvsg& ARvsg::instance() 
 {
-	if (m_initialized) 
-	{
-		vsgObjSelect(m_handle);
-		return 0;
-	}
-	else return -1;
+	static ARvsg vsg;
+	return vsg; 
 };
 
-
-void alert::ARObject::init(int numlevels)
+ARvsg& ARvsg::instance(bool is_master, bool is_slave)
 {
-	PIXEL_LEVEL level;
-	if (numlevels == vsgFIXATION)
-	{
-		level = vsgFIXATION;
-		init(level, 1);
-	}
-	else if (numlevels>1)
-	{
-		LevelManager::instance().request_range(numlevels, level);
-		init(level, numlevels);
-	}
-	else if (numlevels==1)
-	{
-		LevelManager::instance().request_single(level);
-		init(level, numlevels);
-	}
-	else
-	{
-		cerr << "Error - number of levels must be >0!" << endl;
-	}
+	if (is_master && !is_slave) return ARvsg::master();
+	if (!is_master && is_slave) return ARvsg::slave();
+	return ARvsg::instance();
 }
 
-
-
-void alert::ARObject::init(PIXEL_LEVEL first, int numlevels)
+ARvsg& ARvsg::master() 
 {
-	m_handle = vsgObjCreate();
-	m_first = first;
-	m_numlevels = numlevels;
-	vsgObjSetDefaults();
-	vsgObjSetContrast(100);
-	vsgObjSetPixelLevels(first, numlevels);
-	m_initialized = true;
+	static ARvsg master(true, false);
+	return master; 
+};
 
-	cerr << "init obj on level " << first << ", with " << numlevels << " levels" << endl;
-}
-
-
-int alert::ARFixationPointSpec::draw()
+ARvsg& ARvsg::slave() 
 {
-	vsgSetDrawMode(vsgCENTREXY + vsgSOLIDFILL);
-	vsgDrawOval(x, -1*y, d, d);
-	return 0;
-}
-
-
-// oh-oh! The fixpt will hijack overlay palette color level 2!
-int alert::ARFixationPointSpec::drawOverlay()
-{
-	int status=0;
-	VSGTRIVAL c;
-	if (get_color(this->color, c))
-	{
-		cerr << "Cannot get color for fix pt: " << this->color << endl;
-		status=1;
-	}
-	else
-	{
-		vsgPaletteWriteOverlayCols((VSGLUTBUFFER *)&c, 2, 1);
-		vsgSetPen1(2);	// overlay page transparent
-		vsgDrawOval(x, -1*y, d, d);
-	}
-	return status;
-}
-
-
-int alert::ARContrastFixationPointSpec::draw()
-{
-	int status=0;
-	VSGTRIVAL from, to;
-
-	select();
-
-	if (get_color(this->color, to))
-	{
-		cerr << "Cannot get color trival for point: " << this->color << endl;
-		status=1;
-	}
-	else if (get_color(alert::ARvsg::instance().background_color(), from))
-	{
-		cerr << "Cannot get background color trival for point: " << alert::ARvsg::instance().background_color() << endl;
-		status=1;
-	}
-	else 
-	{
-		vsgObjSetColourVector(&from, &to, vsgUNIPOLAR);
-		cerr << "from=" << from.a << "," << from.b << "," << from.c << " to=" << to.a << "," << to.b << "," << to.c << endl;
-	}
-
-	if (!status)
-	{
-		vsgSetPen1(getFirstLevel());
-		ARFixationPointSpec::draw();
-	}
-	return status;
-}
-
-int alert::ARContrastFixationPointSpec::drawOverlay()
-{
-	vsgSetPen1(0);
-	vsgDrawOval(x, -1*y, d, d);
-	return 0;
-}
-
-
-int alert::ARContrastCircleSpec::draw()
-{
-	int status=0;
-	VSGTRIVAL from, to;
-
-	select();
-
-	if (get_color(this->color, to))
-	{
-		cerr << "Cannot get color trival for point: " << this->color << endl;
-		status=1;
-	}
-	else if (get_color(alert::ARvsg::instance().background_color(), from))
-	{
-		cerr << "Cannot get background color trival for point: " << alert::ARvsg::instance().background_color() << endl;
-		status=1;
-	}
-	else 
-	{
-		vsgObjSetColourVector(&from, &to, vsgUNIPOLAR);
-		cerr << "from=" << from.a << "," << from.b << "," << from.c << " to=" << to.a << "," << to.b << "," << to.c << endl;
-	}
-
-	if (!status)
-	{
-		vsgSetPen1(getFirstLevel());
-		vsgSetDrawMode(vsgCENTREXY + vsgPIXELPEN);
-		vsgDrawOval(x, -1*y, d, d);
-	}
-	return status;
-}
-
-// this function doesn't make sense. Should actually draw on the overlay, not draw clear. 
-int alert::ARContrastCircleSpec::drawOverlay()
-{
-	vsgSetPen1(0);
-	vsgDrawOval(x, -1*y, d, d);
-	return 0;
-}
-
-
-int alert::ARContrastLineSpec::draw()
-{
-	int status=0;
-	VSGTRIVAL from, to;
-
-	select();
-
-	if (get_color(this->color, to))
-	{
-		cerr << "Cannot get color trival for point: " << this->color << endl;
-		status=1;
-	}
-	else if (get_color(alert::ARvsg::instance().background_color(), from))
-	{
-		cerr << "Cannot get background color trival for point: " << alert::ARvsg::instance().background_color() << endl;
-		status=1;
-	}
-	else 
-	{
-		vsgObjSetColourVector(&from, &to, vsgUNIPOLAR);
-		cerr << "from=" << from.a << "," << from.b << "," << from.c << " to=" << to.a << "," << to.b << "," << to.c << endl;
-	}
-
-	if (!status)
-	{
-		vsgSetPen1(getFirstLevel());
-		vsgSetDrawMode(vsgPIXELPEN);
-		vsgDrawLine(x0, y0, x1, y1);
-	}
-	return status;
-}
-
-// this function doesn't make sense. Should actually draw on the overlay, not draw clear. 
-int alert::ARContrastLineSpec::drawOverlay()
-{
-	vsgSetPen1(0);
-	vsgDrawLine(x0, y0, x1, y1);
-	return 0;
-}
-
-
-
-int alert::ARGratingSpec::draw()
-{
-	return draw(false);
-}
-
-int alert::ARGratingSpec::redraw(bool useTransOnLower)
-{
-	int status=0;
-	select();
-	if (useTransOnLower)
-	{
-		// djs TRANSONLOWER seems to leave artifacts on the screen when we turn the contrast off. !!!
-		// if ellipse, draw an ellipse on level 0 for TRANSONLOWER
-		// djs. Specifically setting the level seems to lead to artifacts. I found that leaving the levels
-		// unassigned solves this. I suspect this may lead to trouble someday.....
-		if (this->aperture == ellipse)
-		{
-			vsgSetPen1(250);
-//			vsgSetPen2(0);
-			vsgSetDrawMode(vsgCENTREXY + vsgSOLIDFILL);
-			vsgDrawOval(x, -1*y, w, h);
-		}
-	}
-
-
-	// Now draw
-	if (this->aperture == ellipse)
-	{
-		if (useTransOnLower)
-		{
-			vsgSetDrawMode(vsgCENTREXY + vsgTRANSONLOWER);
-			vsgSetPen1(getFirstLevel());
-			vsgSetPen2(getFirstLevel() + getNumLevels());
-			vsgDrawGrating(this->x, -1*this->y, this->w, this->h, this->orientation, this->sf);
-//			vsgSetDrawMode(vsgCENTREXY);
-		}
-		else
-		{
-			vsgSetDrawMode(vsgCENTREXY);
-			vsgDrawGrating(this->x, -1*this->y, this->w, this->h, this->orientation, this->sf);
-		}
-	}
-	else
-	{
-		vsgSetDrawMode(vsgCENTREXY);
-		vsgDrawGrating(this->x, -1*this->y, this->w, this->h, this->orientation, this->sf);
-	}
-
-
-	return 0;
-}
-
-
-int alert::ARGratingSpec::drawOnce()
-{
-	return draw(true);
-}
-
-int alert::ARGratingSpec::draw(bool useTransOnLower)
-{
-	int status=0;
-	VSGTRIVAL from, to;
-
-	select();
-
-	// We assume that the handle is created and selected. In order to make this grating appear, you still must
-	// assign pixel levels (vsgObjSetPixels). Note also that the contrast is initially set to 100% by the call to 
-	// vsgObjSetDefaults().
-
-	if (useTransOnLower)
-	{
-		// djs TRANSONLOWER seems to leave artifacts on the screen when we turn the contrast off. !!!
-		// if ellipse, draw an ellipse on level 0 for TRANSONLOWER
-		// djs. Specifically setting the level seems to lead to artifacts. I found that leaving the levels
-		// unassigned solves this. I suspect this may lead to trouble someday.....
-		if (this->aperture == ellipse)
-		{
-			vsgSetPen1(250);
-//			vsgSetPen2(0);
-			vsgSetDrawMode(vsgCENTREXY + vsgSOLIDFILL);
-			vsgDrawOval(x, -1*y, w, h);
-		}
-	}
-
-	// Set object defauilts. setDefaults() sets contrast to 100% 
-	// -- this may not be what we want, so reset contrast to the 
-	// stim's current value
-	vsgObjSetDefaults();
-	vsgObjSetContrast(contrast);
-
-	// assign pixel levels for object
-	vsgObjSetPixelLevels(getFirstLevel(), getNumLevels());
-
-	// Set spatial waveform
-	if (this->pattern == sinewave)
-	{
-		vsgObjTableSinWave(vsgSWTABLE);
-	}
-	else
-	{	
-		// Set up standard 50:50 square wave
-		vsgObjTableSquareWave(vsgSWTABLE, (DWORD)(vsgObjGetTableSize(vsgSWTABLE)*0.25), (DWORD)(vsgObjGetTableSize(vsgSWTABLE)*0.75));
-	}
-
-	// set temporal freq
-	vsgObjSetDriftVelocity(tf);
-
-	// set color vector
-	if (get_colorvector(this->cv, from, to))
-	{
-		cerr << "Cannot get color vector for type " << this->cv << endl;
-	}
-	vsgObjSetColourVector(&from, &to, vsgBIPOLAR);
-
-	// Now draw
-	if (this->aperture == ellipse)
-	{
-		if (useTransOnLower)
-		{
-			vsgSetDrawMode(vsgCENTREXY + vsgTRANSONHIGHER);
-			vsgSetPen1(getFirstLevel());
-			vsgSetPen2(getFirstLevel() + getNumLevels() -1);
-			vsgDrawGrating(this->x, -1*this->y, this->w, this->h, this->orientation, this->sf);
-//			vsgSetDrawMode(vsgCENTREXY);
-		}
-		else
-		{
-			vsgSetDrawMode(vsgCENTREXY);
-			vsgDrawGrating(this->x, -1*this->y, this->w, this->h, this->orientation, this->sf);
-		}
-	}
-	else
-	{
-		vsgSetDrawMode(vsgCENTREXY);
-		vsgDrawGrating(this->x, -1*this->y, this->w, this->h, this->orientation, this->sf);
-	}
-
-	return 0;
-}
-
-int alert::ARGratingSpec::drawBackground()
-{
-	vsgSetPen1(ARvsg::instance().background_level());
-	vsgSetDrawMode(vsgCENTREXY);
-	if (this->aperture == ellipse)
-	{
-		vsgDrawOval(x, -1*y, w, h);
-	}
-	else
-	{
-		vsgDrawRect(x, -1*y, w, h);
-	}
-	return 0;
-}
-
-int alert::ARGratingSpec::drawOverlay()
-{
-	vsgSetPen1(0);
-	vsgSetDrawMode(vsgCENTREXY);
-	if (this->aperture == ellipse)
-	{
-		vsgDrawOval(x, -1*y, w, h);
-	}
-	else
-	{
-		vsgDrawRect(x, -1*y, w, h);
-	}
-	return 0;
-}
-
-
-
-
-
-
-int alert::ARApertureGratingSpec::draw()
-{
-	int status=0;
-	VSGTRIVAL from, to;
-
-	select();
-
-	// We assume that the handle is created and selected. In order to make this grating appear, you still must
-	// assign pixel levels (vsgObjSetPixels). Note also that the contrast is initially set to 100% by the call to 
-	// vsgObjSetDefaults().
-
-	vsgObjSetDefaults();
-	vsgObjSetPixelLevels(getFirstLevel(), getNumLevels());
-
-	// Set spatial waveform
-	if (this->pattern == sinewave)
-	{
-		vsgObjTableSinWave(vsgSWTABLE);
-	}
-	else
-	{	
-		// Set up standard 50:50 square wave
-		vsgObjTableSquareWave(vsgSWTABLE, (DWORD)(vsgObjGetTableSize(vsgSWTABLE)*0.25), (DWORD)(vsgObjGetTableSize(vsgSWTABLE)*0.75));
-	}
-
-	// set temporal freq
-	vsgObjSetDriftVelocity(tf);
-
-	// set color vector
-	if (get_colorvector(this->cv, from, to))
-	{
-		cerr << "Cannot get color vector for type " << this->cv << endl;
-	}
-	vsgObjSetColourVector(&from, &to, vsgBIPOLAR);
-
-	// 
-	double dWidth = vsgGetScreenWidthPixels();
-	double dHeight = vsgGetScreenHeightPixels();
-	vsgUnit2Unit(vsgPIXELUNIT,dWidth,vsgDEGREEUNIT,&dWidth);
-	vsgUnit2Unit(vsgPIXELUNIT,dHeight,vsgDEGREEUNIT,&dHeight);
-
-	// Now draw
-	vsgSetDrawMode(vsgCENTREXY);
-	vsgDrawGrating(0, 0, dWidth, dHeight, this->orientation, this->sf);
-
-	return 0;
-}
-
-
-
-
-
-
-int alert::LevelManager::request_single(PIXEL_LEVEL& level)
-{
-	int status=0;
-	if (m_next < 250)
-	{
-		level = m_next++;
-	}
-	else status=1;
-	return status;
-}
-
-int alert::LevelManager::request_range(int num, PIXEL_LEVEL& first)
-{
-	int status=0;
-	if (250-m_next >= num)
-	{
-		first = m_next;
-		m_next += num;
-	}
-	else status=1;
-	return status;
-}
-
-
-alert::ARvsg::~ARvsg()
+	static ARvsg slave(false, true);
+	return slave; 
+};
+
+COLOR_TYPE ARvsg::background_color() 
 { 
-	if (m_bHaveLock) 
+	return m_background_color; 
+};
+
+PIXEL_LEVEL ARvsg::background_level() 
+{ 
+	return m_background_level; 
+};
+
+long ARvsg::getScreenHeightPixels() 
+{ 
+	return m_heightPixels; 
+};
+
+long ARvsg::getScreenWidthPixels() 
+{ 
+	return m_widthPixels; 
+};
+
+double ARvsg::getScreenHeightDegrees() 
+{ 
+	return m_heightDegrees; 
+};
+
+double ARvsg::getScreenWidthDegrees() 
+{ 
+	return m_widthDegrees; 
+};
+
+ARvsg::ARvsg(bool bMaster, bool bSlave) : m_initialized(false), m_is_master(bMaster), m_is_slave(bSlave), m_device_handle(-999), m_next_available_level(0)
+{
+	cout << "ARvsg::ARvsg(" << bMaster << ", " << bSlave << ")" << endl;
+}
+
+ARvsg::~ARvsg()
+{ 
+	clear();
+	if (c_bHaveLock) 
 	{
-		clear(); 
 		release_lock();
 	} 
 };
 
-bool alert::ARvsg::acquire_lock()
+// static member variable. The lock need only be obtained once, even if using master/slave. 
+bool ARvsg::c_bHaveLock = false;
+
+
+bool ARvsg::acquire_lock()
 {
 	string name;
 	int fd;
 	int status;
 
-	m_bHaveLock = false;
+	// If the lock was already obtained, return.
+	if (c_bHaveLock) return true;
+
+
 
 	// Get lock file name
 	if (!GetRegLockFile(name))
@@ -520,16 +133,19 @@ bool alert::ARvsg::acquire_lock()
 	else
 	{
 		cerr << "acquire_lock(): got vsg lock." << endl;
-		m_bHaveLock = true;
+		c_bHaveLock = true;
 		_close(fd);
 	}
 	return true;
 }
 
 
-void alert::ARvsg::release_lock()
+void ARvsg::release_lock()
 {
 	string name;
+
+	// If the lock was already released, return.
+	if (!c_bHaveLock) return;
 
 	// Get lock file name
 	if (!GetRegLockFile(name))
@@ -538,13 +154,28 @@ void alert::ARvsg::release_lock()
 		return;
 	}
 	remove(name.c_str());
-	m_bHaveLock = false;
+	c_bHaveLock = false;
 	return;
 }
 
+bool ARvsg::is_master()
+{
+	return m_is_master;
+}
+
+bool ARvsg::is_slave()
+{
+	return m_is_slave;
+}
 
 
-int alert::ARvsg::init(int screenDistanceMM, COLOR_TYPE i_bg,  bool bUseLockFile)
+void ARvsg::select()
+{
+	vsgInitSelectDevice(m_device_handle);
+}
+
+
+int ARvsg::init(int screenDistanceMM, COLOR_TYPE i_bg,  bool bUseLockFile, bool bSlaveSynch)
 {
 	VSGTRIVAL background;
 	int status=0;
@@ -562,10 +193,71 @@ int alert::ARvsg::init(int screenDistanceMM, COLOR_TYPE i_bg,  bool bUseLockFile
 		{
 			cerr << "ARvsg::init(): ignoring lock file!" << endl;
 		}
+
+
+		// Initialize VSG card. 
+		// Exactly WHICH vsg card should be initialize depends on the particulars of what this ARvsg represents. 
+		// If running master/slave setup, then m_is_master==true or m_is_slave==true, and then specific 
+		// initializations should be done using the VSG configurations indicated in the registry key/value 
+		// HKCU\Software\Spike2\VSGMaster (or VSGSlave). 
+		// If running single VSG, then m_is_master == m_is_slave == false. In this case use the VSG configuration
+		// indicated in HKCU\Software\Spike2\VSGConfig IF IT EXISTS. If it does not exist, then init with the current
+		// default VSG card (i.e. use "" as the arg to vsgInit). 
 		
-		if (vsgInit(""))
+		if (!m_is_master && !m_is_slave)
 		{
-			cerr << "Error in vsgInit()." << endl;
+			string s;
+			if (!GetRegVSGConfig(s))
+			{
+				cerr << "Initialize VSG using currently selected configuration (see VSG Desktop)" << endl;
+				m_device_handle = vsgInit("");
+			}
+			else
+			{
+				cerr << "Initialize VSG using configuration file \"" << s << "\"" << endl;
+				m_device_handle = vsgInit(const_cast<char *>(s.c_str()));
+			}
+		}
+		else if (m_is_master)
+		{
+			string s;
+			if (!GetRegVSGMaster(s))
+			{
+				cerr << "ERROR: Registry key HKCU\\Software\\Spike2\\VSGMaster not found!" << endl;
+				return 1;
+			}
+			else
+			{
+				cerr << "Initialize Master VSG using configuration file \"" << s << "\"" << endl;
+				m_device_handle = vsgInit(const_cast<char *>(s.c_str()));
+			}
+		}
+		else if (m_is_slave)
+		{
+			string s;
+			if (!GetRegVSGSlave(s))
+			{
+				cerr << "ERROR: Registry key HKCU\\Software\\Spike2\\VSGSlave not found!" << endl;
+				return 1;
+			}
+			else
+			{
+				cerr << "Initialize Slave VSG using configuration file \"" << s << "\"" << endl;
+				if (bSlaveSynch)
+				{
+					m_device_handle = vsgAdvancedInit(const_cast<char *>(s.c_str()), vsgADVINITSLAVEVIDEO);
+				}
+				else
+				{
+					cerr << "WARNING: Non-enslavement initialization!!! No frame sync!!" << endl;
+					m_device_handle = vsgInit(const_cast<char *>(s.c_str()));
+				}
+			}
+		}
+
+		if (m_device_handle < 0)
+		{
+			cerr << "Error (" << m_device_handle << ")in vsgInit()." << endl;
 			return 1;
 		}
 
@@ -575,11 +267,18 @@ int alert::ARvsg::init(int screenDistanceMM, COLOR_TYPE i_bg,  bool bUseLockFile
 		/*
 		 * If screen distance is negative, then set spatial units to PIXEL units. 
 		 */
+
+		vsgInitSelectDevice(m_device_handle);
+
 		if (screenDistanceMM <= 0) 
 		{
-			vsgSetSpatialUnits(vsgPIXELUNIT);
+			// djs 3-22-11
+			// spatial units are set to pixel units with the init() call. 
+			//vsgSetSpatialUnits(vsgPIXELUNIT);
 			m_heightPixels = vsgGetScreenHeightPixels();
 			m_widthPixels = vsgGetScreenWidthPixels();
+			m_background_color = i_bg;
+
 		}
 		else
 		{
@@ -589,26 +288,33 @@ int alert::ARvsg::init(int screenDistanceMM, COLOR_TYPE i_bg,  bool bUseLockFile
 			m_widthPixels = vsgGetScreenWidthPixels();
 			vsgUnitToUnit(vsgPIXELUNIT, m_heightPixels, vsgDEGREEUNIT, &m_heightDegrees);
 			vsgUnitToUnit(vsgPIXELUNIT, m_widthPixels, vsgDEGREEUNIT, &m_widthDegrees);
-		}
-		m_background_color = i_bg;
 
-		// this level gets used later, but we request it now to insure we get level 0
-		alert::LevelManager::instance().request_single(m_background_level);
-		
-		// The background level was obtained in the init() call.
-		if (get_color(m_background_color, background))
-		{
-			cerr << "Cannot get trival for background color " << m_background_color << endl;
-			status = 2;
+			m_background_color = i_bg;
+			// this level gets used later, but we request it now to insure we get level 0
+			request_single(m_background_level);
+
+			// Create single dummy object and assign it a level
+			m_handle = vsgObjCreate();
+			vsgObjSetPixelLevels(m_background_level, 1);
+			
+			// The background level was obtained in the init() call.
+			if (get_color(m_background_color, background))
+			{
+				cerr << "Cannot get trival for background color " << m_background_color << endl;
+				status = 2;
+			}
+			//vsgPaletteSet(m_background_level, m_background_level, &background);
+			vsgPresent();
+			vsgSetBackgroundColour(&background);
+			cout << "Background color set to " << background.a << "," << background.b << "," << background.c << endl;
 		}
-		vsgSetBackgroundColour(&background);
 	}
 	return status;
 }
 
 
 
-int alert::ARvsg::init_overlay()
+int ARvsg::init_overlay()
 {
 	int status=0;
 	VSGTRIVAL background;
@@ -628,8 +334,9 @@ int alert::ARvsg::init_overlay()
 		}
 		else
 		{
-			int npages = vsgGetSystemAttribute(vsgNUMOVERLAYPAGES);
 			// Get the number of overlay pages, then clear them all. 
+			int npages = vsgGetSystemAttribute(vsgNUMOVERLAYPAGES);
+			cerr << "There are " << npages << " overlay pages." << endl;
 			vsgPaletteWriteOverlayCols((VSGLUTBUFFER*)&background, 1, 1);
 			for (int i=npages-1; i>=0; i--)
 			{
@@ -642,7 +349,7 @@ int alert::ARvsg::init_overlay()
 
 
 
-int alert::ARvsg::init_video()
+int ARvsg::init_video()
 {
 	return init_video_pages(NULL, NULL, NULL);
 }
@@ -650,7 +357,7 @@ int alert::ARvsg::init_video()
 
 
 
-int alert::ARvsg::init_video_pages(voidfunc func_before_objects, voidfunc func_after_objects, void *data)
+int ARvsg::init_video_pages(voidfunc func_before_objects, voidfunc func_after_objects, void *data)
 {
 	int i;
 	int status=0;
@@ -701,7 +408,7 @@ int alert::ARvsg::init_video_pages(voidfunc func_before_objects, voidfunc func_a
 
 		// Create a single vsg object and set vsgBACKGROUND color
 		m_handle = vsgObjCreate();
-		alert::LevelManager::instance().request_single(dummy_level);
+		request_single(dummy_level);
 		vsgObjSetPixelLevels(dummy_level, 1);
 		cerr << " Dummy object " << (int)m_handle << " level " << (int)dummy_level << endl;
 		vsgSetBackgroundColour(&background);
@@ -724,24 +431,839 @@ int alert::ARvsg::init_video_pages(voidfunc func_before_objects, voidfunc func_a
 	return status;
 };
 
-void alert::ARvsg::clear(int ipage)
+void ARvsg::clear(int ipage)
 {
 	vsgSetDrawPage(vsgVIDEOPAGE, ipage, vsgBACKGROUND);
-	vsgPresent();
+
+	// djs 4-30-2010 
+	// modify this to set the display page to the just-cleared page. Not sure why the vsgPresent() was here before. 
+	vsgSetZoneDisplayPage(vsgVIDEOPAGE, ipage);
+	//vsgPresent();
 }
 
-void alert::ARvsg::clear()
+void ARvsg::clear()
 {
 	clear(0);
 }
 
-void alert::ARvsg::ready_pulse(int wait_msecs)
+void ARvsg::ready_pulse(int wait_msecs, unsigned int which_bit)
 {
 	// Issue "ready" triggers to spike2.
 	// These commands pulse spike2 port 6. 
 	Sleep(wait_msecs);
-	vsgIOWriteDigitalOut(0xff, vsgDIG6);
+	vsgIOWriteDigitalOut(0xff, which_bit);
 	Sleep(10);
-	vsgIOWriteDigitalOut(0, vsgDIG6);
+	vsgIOWriteDigitalOut(0, which_bit);
 }
 
+
+int ARvsg::remaining() 
+{ 
+	return 250-m_next_available_level; 
+}
+
+int ARvsg::request_single(PIXEL_LEVEL& level)
+{
+	int status=0;
+	if (m_next_available_level < 250)
+	{
+		level = m_next_available_level++;
+	}
+	else status=1;
+	return status;
+}
+
+int ARvsg::request_range(int num, PIXEL_LEVEL& first)
+{
+	int status=0;
+	if (remaining() >= num)
+	{
+		first = m_next_available_level;
+		m_next_available_level += num;
+	}
+	else status=1;
+	return status;
+}
+
+
+
+
+
+//static ARvsg& f_vsg_default = ARvsg::instance();
+
+ARObject::ARObject() : m_initialized(false), m_use_master(false), m_use_slave(false) 
+{
+};
+
+ARObject::~ARObject() {};
+
+ARObject& ARObject::operator=(const ARObject& obj)
+{
+	cout << "ARObject::operator=" << endl;
+	if (this != &obj)
+	{
+		m_initialized = obj.m_initialized;
+		m_handle = obj.m_handle;
+		m_first = obj.m_first;
+		m_numlevels = obj.m_numlevels;
+		m_use_master = obj.m_use_master;
+		m_use_slave = obj.m_use_slave;
+	}
+	return *this;
+}
+
+
+void ARObject::destroy() 
+{ 
+	vsgObjDestroy(m_handle); 
+	m_handle = 0; 
+	return;
+};
+
+int ARObject::select()
+{
+	if (m_initialized) 
+	{
+		vsgObjSelect(m_handle);
+		return 0;
+	}
+	else return -1;
+};
+
+
+void ARObject::init(int numlevels)
+{
+	PIXEL_LEVEL level;
+	if (numlevels == vsgFIXATION)
+	{
+		level = vsgFIXATION;
+		init(level, 1);
+	}
+	else if (numlevels>1)
+	{
+		getVSG().request_range(numlevels, level);
+		init(level, numlevels);
+	}
+	else if (numlevels==1)
+	{
+		getVSG().request_single(level);
+		init(level, numlevels);
+	}
+	else
+	{
+		cerr << "Error - number of levels must be >0!" << endl;
+	}
+}
+
+void ARObject::init(ARvsg& vsg, PIXEL_LEVEL first, int numlevels)
+{
+	m_use_master = vsg.is_master();
+	m_use_slave = vsg.is_slave();
+	init(first, numlevels);
+}
+
+void ARObject::init(ARvsg& vsg, int numlevels)
+{
+	m_use_master = vsg.is_master();
+	m_use_slave = vsg.is_slave();
+	init(numlevels);
+}
+
+
+void ARObject::init(PIXEL_LEVEL first, int numlevels)
+{
+	m_handle = vsgObjCreate();
+	m_first = first;
+	m_numlevels = numlevels;
+	vsgObjSetDefaults();
+	vsgObjSetContrast(100);
+	vsgObjSetPixelLevels(first, numlevels);
+	m_initialized = true;
+
+	cerr << "init obj on level " << first << ", with " << numlevels << " levels" << endl;
+}
+
+void ARObject::setContrast(int contrast) 
+{ 
+	select(); 
+	vsgObjSetContrast(contrast); 
+};
+
+VSGOBJHANDLE ARObject::handle() 
+{ 
+	return m_handle; 
+};
+
+bool ARObject::initialized() 
+{ 
+	return m_initialized; 
+};
+
+PIXEL_LEVEL ARObject::getFirstLevel() 
+{ 
+	return m_first; 
+};
+
+int ARObject::getNumLevels() 
+{ 
+	return m_numlevels; 
+};
+
+ARvsg& ARObject::getVSG()
+{
+	return ARvsg::instance(m_use_master, m_use_slave);
+};
+
+// This object works a little differently than the others. 
+// First of all, there is no color vector - it will always be black/white (though that can be changed 
+// after this function is called). Second, it really should be init'd with AT LEAST 3 levels, preferably 
+// more. 
+
+int ARXhairSpec::draw()
+{
+	int status=0;
+	VSGTRIVAL from = {0, 0, 0};
+	VSGTRIVAL to = {1, 1, 1};
+	PIXEL_LEVEL level_first, level_mid, level_x;
+
+	select();
+	level_first = getFirstLevel();
+	level_mid = getFirstLevel() + getNumLevels()/2;
+	level_x = this->getFirstLevel() + this->getNumLevels()/8;
+	if (getNumLevels() < 3)
+	{
+		cerr << "WARNING: ARXhair objects should be initialized with at least 3 levels!" << endl;
+	}
+	vsgObjSetColourVector(&from, &to, vsgBIPOLAR);
+	drawPie(this->nc, level_first, level_mid, this->x, -this->y, this->ro);
+	drawPie(this->nc, level_mid, level_first, this->x, -this->y, this->rm);
+	vsgSetPen1(vsgBACKGROUND);
+	vsgDrawOval(this->x, -this->y, 2*this->ri, 2*this->ri);
+
+	double pixels=4, delta;
+	vsgUnit2Unit(vsgPIXELUNIT, pixels, vsgDEGREEUNIT, &delta);
+
+#ifdef DRAW_RED_XHAIR
+	COLOR_TYPE r = {red, {0}};
+	arutil_color_to_palette(r, 245);
+#endif
+
+	if (this->r1 > 0 && this->r2 > 0)
+	{
+		vsgSetPen1(level_x);
+		vsgSetPen1(245);
+		vsgSetDrawMode(vsgSOLIDPEN);
+		vsgSetPenSize(4, 4);
+
+		vsgDrawLine(this->x + this->r1 - delta/2, -this->y - delta/2, this->x + this->r2 - delta/2, -this->y - delta/2);
+		vsgDrawLine(this->x-delta/2, -this->y + this->r1 - delta/2, this->x-delta/2, -this->y + this->r2 - delta/2);
+		vsgDrawLine(this->x - this->r1 - delta/2, -this->y - delta/2, this->x - this->r2 - delta/2, -this->y - delta/2);
+		vsgDrawLine(this->x-delta/2, -this->y - this->r1 - delta/2, this->x-delta/2, -this->y - this->r2 - delta/2);
+	}
+	return 0;
+}
+
+int ARXhairSpec::drawPie(int n, PIXEL_LEVEL first, PIXEL_LEVEL second, double x, double y, double r)
+{
+	double astep;
+	int i;
+	astep = 360.0/n;
+	cout << "draw pie " << n << ", " << first << ", " << second << ", " << r << ", " << astep << endl;
+	for (i=0; i<n; i++)
+	{
+		if (i % 2 == 0)
+		{
+			vsgSetPen1(first);
+		}
+		else
+		{
+			vsgSetPen1(second);
+		}
+		vsgDrawPieArc(x, y, 2*r, 2*r, i*astep, astep*1.5);
+	}
+	vsgSetPen1(first);
+	vsgDrawPieArc(x, y, 2*r, 2*r, 0, astep);
+	return 0;
+}
+
+int ARXhairSpec::drawOverlay()
+{
+	cerr << "ARXhairSpec::drawOverlay() not implemented!" << endl;
+	return -1;
+}
+
+int ARRectangleSpec::draw()
+{
+	vsgSetDrawMode(vsgCENTREXY + vsgSOLIDFILL);
+	vsgDrawRect(x, y, w, h);
+	return 0;
+}
+
+int ARRectangleSpec::drawOverlay()
+{
+	cerr << "ARRectangleSpec::drawOverlay() not implemented!" << endl;
+	return -1;
+}
+
+int ARContrastRectangleSpec::draw()
+{
+	int status=0;
+	VSGTRIVAL from, to;
+
+	select();
+
+	if (get_color(this->color, to))
+	{
+		cerr << "Cannot get color trival for point: " << this->color << endl;
+		status=1;
+	}
+	else if (get_color(getVSG().background_color(), from))
+	{
+		cerr << "Cannot get background color trival for point: " << getVSG().background_color() << endl;
+		status=1;
+	}
+	else 
+	{
+		vsgObjSetColourVector(&from, &to, vsgUNIPOLAR);
+		cerr << "from=" << from.a << "," << from.b << "," << from.c << " to=" << to.a << "," << to.b << "," << to.c << endl;
+	}
+
+	if (!status)
+	{
+		vsgSetPen1(getFirstLevel());
+		ARRectangleSpec::draw();
+	}
+	return status;
+}
+
+int ARContrastRectangleSpec::drawOverlay()
+{
+	vsgSetPen1(0);
+	vsgDrawRect(x, -1*y, w, h);
+	return 0;
+}
+
+int ARMultiContrastRectangleSpec::draw()
+{
+	int status=0;
+	VSGTRIVAL from, to;
+
+	select();
+	vsgSetDrawMode(vsgSOLIDFILL);
+	if (get_color(this->color, to))
+	{
+		cerr << "Cannot get color trival for point: " << this->color << endl;
+		status=1;
+	}
+	else if (get_color(getVSG().background_color(), from))
+	{
+		cerr << "Cannot get background color trival for point: " << getVSG().background_color() << endl;
+		status=1;
+	}
+	else 
+	{
+		vsgObjSetColourVector(&from, &to, vsgUNIPOLAR);
+		cerr << "from=" << from.a << "," << from.b << "," << from.c << " to=" << to.a << "," << to.b << "," << to.c << endl;
+	}
+
+	if (!status)
+	{
+		vsgSetPen1(getFirstLevel());
+		for (vector<XYWH>::iterator it= this->begin(); it != this->end(); ++it)
+		{
+			vsgDrawRect(it->x, it->y, it->w, it->h);
+			cout << "draw rect " << it->x << ", " << it->y << ", " << it->w << ", " <<  it->h << endl;
+		}
+	}
+	return status;
+}
+
+int ARMultiContrastRectangleSpec::drawOverlay()
+{
+	// not implemented!
+	return 0;
+}
+
+
+
+
+int ARFixationPointSpec::draw()
+{
+	vsgSetDrawMode(vsgCENTREXY + vsgSOLIDFILL);
+	vsgDrawOval(x, -1*y, d, d);
+	return 0;
+}
+
+
+// oh-oh! The fixpt will hijack overlay palette color level 2!
+int ARFixationPointSpec::drawOverlay()
+{
+	int status=0;
+	VSGTRIVAL c;
+	if (get_color(this->color, c))
+	{
+		cerr << "Cannot get color for fix pt: " << this->color << endl;
+		status=1;
+	}
+	else
+	{
+		vsgPaletteWriteOverlayCols((VSGLUTBUFFER *)&c, 2, 1);
+		vsgSetPen1(2);	// overlay page transparent
+		vsgDrawOval(x, -1*y, d, d);
+	}
+	return status;
+}
+
+
+int ARContrastFixationPointSpec::draw()
+{
+	int status=0;
+	VSGTRIVAL from, to;
+
+	select();
+
+	if (get_color(this->color, to))
+	{
+		cerr << "Cannot get color trival for point: " << this->color << endl;
+		status=1;
+	}
+	else if (get_color(getVSG().background_color(), from))
+	{
+		cerr << "Cannot get background color trival for point: " << getVSG().background_color() << endl;
+		status=1;
+	}
+	else 
+	{
+		vsgObjSetColourVector(&from, &to, vsgUNIPOLAR);
+		cerr << "from=" << from.a << "," << from.b << "," << from.c << " to=" << to.a << "," << to.b << "," << to.c << endl;
+	}
+
+	if (!status)
+	{
+		vsgSetPen1(getFirstLevel());
+		ARFixationPointSpec::draw();
+	}
+	return status;
+}
+
+int ARContrastFixationPointSpec::drawOverlay()
+{
+	vsgSetPen1(0);
+	vsgDrawOval(x, -1*y, d, d);
+	return 0;
+}
+
+int ARContrastCircleSpec::draw()
+{
+	int status=0;
+	VSGTRIVAL from, to;
+
+	select();
+
+	if (get_color(this->color, to))
+	{
+		cerr << "Cannot get color trival for point: " << this->color << endl;
+		status=1;
+	}
+	else if (get_color(getVSG().background_color(), from))
+	{
+		cerr << "Cannot get background color trival for point: " << getVSG().background_color() << endl;
+		status=1;
+	}
+	else 
+	{
+		vsgObjSetColourVector(&from, &to, vsgUNIPOLAR);
+		cerr << "from=" << from.a << "," << from.b << "," << from.c << " to=" << to.a << "," << to.b << "," << to.c << endl;
+	}
+
+	if (!status)
+	{
+		vsgSetPen1(getFirstLevel());
+		vsgSetDrawMode(vsgCENTREXY + vsgPIXELPEN);
+		vsgDrawOval(x, -1*y, d, d);
+	}
+	return status;
+}
+
+// this function doesn't make sense. Should actually draw on the overlay, not draw clear. 
+int ARContrastCircleSpec::drawOverlay()
+{
+	vsgSetPen1(0);
+	vsgDrawOval(x, -1*y, d, d);
+	return 0;
+}
+
+
+int ARContrastLineSpec::draw()
+{
+	int status=0;
+	VSGTRIVAL from, to;
+
+	select();
+
+	if (get_color(this->color, to))
+	{
+		cerr << "Cannot get color trival for point: " << this->color << endl;
+		status=1;
+	}
+	else if (get_color(getVSG().background_color(), from))
+	{
+		cerr << "Cannot get background color trival for point: " << getVSG().background_color() << endl;
+		status=1;
+	}
+	else 
+	{
+		vsgObjSetColourVector(&from, &to, vsgUNIPOLAR);
+		cerr << "from=" << from.a << "," << from.b << "," << from.c << " to=" << to.a << "," << to.b << "," << to.c << endl;
+	}
+
+	if (!status)
+	{
+		vsgSetPen1(getFirstLevel());
+		vsgSetDrawMode(vsgPIXELPEN);
+		vsgDrawLine(x0, y0, x1, y1);
+	}
+	return status;
+}
+
+// this function doesn't make sense. Should actually draw on the overlay, not draw clear. 
+int ARContrastLineSpec::drawOverlay()
+{
+	vsgSetPen1(0);
+	vsgDrawLine(x0, y0, x1, y1);
+	return 0;
+}
+
+
+int ARGratingSpec::draw()
+{
+	return draw(false);
+}
+
+int ARGratingSpec::redraw(bool useTransOnLower)
+{
+	int status=0;
+	select();
+	if (useTransOnLower)
+	{
+		// djs TRANSONLOWER seems to leave artifacts on the screen when we turn the contrast off. !!!
+		// if ellipse, draw an ellipse on level 0 for TRANSONLOWER
+		// djs. Specifically setting the level seems to lead to artifacts. I found that leaving the levels
+		// unassigned solves this. I suspect this may lead to trouble someday.....
+		if (this->aperture == ellipse)
+		{
+			vsgSetPen1(250);
+//			vsgSetPen2(0);
+			vsgSetDrawMode(vsgCENTREXY + vsgSOLIDFILL);
+			vsgDrawOval(x, -1*y, w, h);
+		}
+	}
+
+
+	// Now draw
+	if (this->aperture == ellipse)
+	{
+		if (useTransOnLower)
+		{
+			vsgSetDrawMode(vsgCENTREXY + vsgTRANSONLOWER);
+			vsgSetPen1(getFirstLevel());
+			vsgSetPen2(getFirstLevel() + getNumLevels());
+			vsgDrawGrating(this->x, -1*this->y, this->w, this->h, this->orientation, this->sf);
+//			vsgSetDrawMode(vsgCENTREXY);
+		}
+		else
+		{
+			vsgSetDrawMode(vsgCENTREXY);
+			vsgDrawGrating(this->x, -1*this->y, this->w, this->h, this->orientation, this->sf);
+		}
+	}
+	else
+	{
+		vsgSetDrawMode(vsgCENTREXY);
+		vsgDrawGrating(this->x, -1*this->y, this->w, this->h, this->orientation, this->sf);
+	}
+
+
+	return 0;
+}
+
+
+int ARGratingSpec::drawOnce()
+{
+	return draw(true);
+}
+
+int ARGratingSpec::draw(bool useTransOnHigher)
+{
+	if (useTransOnHigher)
+	{
+		return draw((long)vsgTRANSONHIGHER);
+	}
+	else
+	{
+		return draw((long)0);
+	}
+}
+
+
+int ARGratingSpec::draw(long mode)
+{
+	int status=0;
+	int ipen;
+	VSGTRIVAL from, to;
+
+	select();
+
+	// We assume that the handle is created and selected. In order to make this grating appear, you still must
+	// assign pixel levels (vsgObjSetPixels). Note also that the contrast is initially set to 100% by the call to 
+	// vsgObjSetDefaults().
+
+	if (mode == vsgTRANSONHIGHER) ipen = 255;
+	else ipen = 0;
+
+	if (mode == vsgTRANSONHIGHER || mode == vsgTRANSONLOWER)
+	{
+		// djs TRANSONLOWER seems to leave artifacts on the screen when we turn the contrast off. !!!
+		// if ellipse, draw an ellipse on level 0 for TRANSONLOWER
+		// djs. Specifically setting the level seems to lead to artifacts. I found that leaving the levels
+		// unassigned solves this. I suspect this may lead to trouble someday.....
+		if (this->aperture == ellipse)
+		{
+			vsgSetPen1(ipen);
+			vsgSetDrawMode(vsgCENTREXY + vsgSOLIDFILL);
+			vsgDrawOval(x, -1*y, w, h);
+		}
+	}
+
+	// Set object defauilts. setDefaults() sets contrast to 100% 
+	// -- this may not be what we want, so reset contrast to the 
+	// stim's current value
+	vsgObjSetDefaults();
+	vsgObjSetContrast(contrast);
+
+	// assign pixel levels for object
+	vsgObjSetPixelLevels(getFirstLevel(), getNumLevels());
+
+	// Set spatial waveform
+	if (this->pattern == sinewave)
+	{
+		vsgObjTableSinWave(vsgSWTABLE);
+	}
+	else
+	{	
+		// Set up standard 50:50 square wave
+		vsgObjTableSquareWave(vsgSWTABLE, (DWORD)(vsgObjGetTableSize(vsgSWTABLE)*0.25), (DWORD)(vsgObjGetTableSize(vsgSWTABLE)*0.75));
+	}
+
+	// set temporal freq
+	vsgObjSetDriftVelocity(tf);
+
+	// set color vector
+	if (get_colorvector(this->cv, from, to))
+	{
+		cerr << "Cannot get color vector for type " << this->cv << endl;
+	}
+	vsgObjSetColourVector(&from, &to, vsgBIPOLAR);
+
+	// Now draw
+	if (this->aperture == ellipse)
+	{
+		if (mode == vsgTRANSONLOWER || mode == vsgTRANSONHIGHER)
+		{
+			vsgSetDrawMode(vsgCENTREXY + mode);
+		}
+		else
+		{
+			vsgSetDrawMode(vsgCENTREXY);
+		}
+		vsgSetPen1(getFirstLevel());
+		vsgSetPen2(getFirstLevel() + getNumLevels() -1);
+		vsgDrawGrating(this->x, -1*this->y, this->w, this->h, this->orientation, this->sf);
+	}
+	else
+	{
+		vsgSetDrawMode(vsgCENTREXY);
+		vsgDrawGrating(this->x, -1*this->y, this->w, this->h, this->orientation, this->sf);
+	}
+
+	return 0;
+}
+
+int ARGratingSpec::drawBackground()
+{
+	vsgSetPen1(getVSG().background_level());
+	vsgSetDrawMode(vsgCENTREXY);
+	if (this->aperture == ellipse)
+	{
+		vsgDrawOval(x, -1*y, w, h);
+	}
+	else
+	{
+		vsgDrawRect(x, -1*y, w, h);
+	}
+	return 0;
+}
+
+int ARGratingSpec::drawOverlay()
+{
+	vsgSetPen1(0);
+	vsgSetDrawMode(vsgCENTREXY);
+	if (this->aperture == ellipse)
+	{
+		vsgDrawOval(x, -1*y, w, h);
+	}
+	else
+	{
+		vsgDrawRect(x, -1*y, w, h);
+	}
+	return 0;
+}
+
+
+
+ARDonutSpec::ARDonutSpec(const ARGratingSpec& g)
+{
+	x = g.x;
+	y = g.y;
+	w = g.w;
+	h = g.h;
+	wd = 0;
+	hd = 0;
+	sf = g.sf;
+	tf = g.tf;
+	orientation = g.orientation;
+	contrast = g.contrast;
+	pattern = g.pattern;
+	aperture = g.aperture;
+	cv = g.cv;
+}
+
+int ARDonutSpec::draw(long mode)
+{
+	int status=0;
+	if (w > 0  && h > 0)
+	{
+		ARGratingSpec::draw(mode);
+		vsgSetPen1(vsgBACKGROUND);
+
+		// Now draw the hole, but only if the diam is >0
+		if (wd > 0 && hd > 0)
+		{
+			if (this->aperture == ellipse)
+			{
+				vsgSetDrawMode(vsgCENTREXY);
+				vsgDrawOval(x, -1*y, wd, hd);
+			}
+			else
+			{
+				vsgSetDrawMode(vsgCENTREXY);
+				vsgDrawRect(this->x, -1*this->y, this->wd, this->hd);
+			}
+		}
+	}
+	return 0;
+}
+
+int ARDonutSpec::draw()
+{
+	return draw(true);
+}
+
+int ARDonutSpec::draw(bool useTransOnHigher)
+{
+	if (useTransOnHigher)
+	{
+		return draw((long)vsgTRANSONHIGHER);
+	}
+	else
+	{
+		return draw((long)0);
+	}
+}
+
+
+// this probably won't work right
+
+int ARDonutSpec::drawOverlay()
+{
+	vsgSetPen1(0);
+	vsgSetDrawMode(vsgCENTREXY);
+	if (this->aperture == ellipse)
+	{
+		vsgDrawOval(x, -1*y, w, h);
+	}
+	else
+	{
+		vsgDrawRect(x, -1*y, w, h);
+	}
+	return 0;
+}
+
+
+void ARGratingSpec::setContrast(int contrast) 
+{ 
+	select(); 
+	this->contrast = contrast; 
+	vsgObjSetContrast(contrast); 
+};
+
+void ARGratingSpec::setTemporalFrequency(double tf) 
+{ 
+	select(); 
+	this->tf = tf; 
+	vsgObjSetDriftVelocity(tf); 
+};
+
+void ARGratingSpec::resetDriftPhase()
+{
+	select();
+	vsgObjResetDriftPhase();
+}
+
+int ARApertureGratingSpec::draw()
+{
+	int status=0;
+	VSGTRIVAL from, to;
+
+	select();
+
+	// We assume that the handle is created and selected. In order to make this grating appear, you still must
+	// assign pixel levels (vsgObjSetPixels). Note also that the contrast is initially set to 100% by the call to 
+	// vsgObjSetDefaults().
+
+	vsgObjSetDefaults();
+	vsgObjSetPixelLevels(getFirstLevel(), getNumLevels());
+
+	// Set spatial waveform
+	if (this->pattern == sinewave)
+	{
+		vsgObjTableSinWave(vsgSWTABLE);
+	}
+	else
+	{	
+		// Set up standard 50:50 square wave
+		vsgObjTableSquareWave(vsgSWTABLE, (DWORD)(vsgObjGetTableSize(vsgSWTABLE)*0.25), (DWORD)(vsgObjGetTableSize(vsgSWTABLE)*0.75));
+	}
+
+	// set temporal freq
+	vsgObjSetDriftVelocity(tf);
+
+	// set color vector
+	if (get_colorvector(this->cv, from, to))
+	{
+		cerr << "Cannot get color vector for type " << this->cv << endl;
+	}
+	vsgObjSetColourVector(&from, &to, vsgBIPOLAR);
+
+	// 
+	double dWidth = vsgGetScreenWidthPixels();
+	double dHeight = vsgGetScreenHeightPixels();
+	vsgUnit2Unit(vsgPIXELUNIT,dWidth,vsgDEGREEUNIT,&dWidth);
+	vsgUnit2Unit(vsgPIXELUNIT,dHeight,vsgDEGREEUNIT,&dHeight);
+
+	// Now draw
+	vsgSetDrawMode(vsgCENTREXY);
+	vsgDrawGrating(0, 0, dWidth, dHeight, this->orientation, this->sf);
+
+	return 0;
+}

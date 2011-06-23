@@ -38,7 +38,6 @@ int arutil_color_to_palette(COLOR_TYPE ct, PIXEL_LEVEL level)
 	}
 	else
 	{
-//		vsgPaletteWrite((VSGLUTBUFFER*)&c, level, 1);
 		vsgPaletteSet(level, level, &c);
 	}
 	return status;
@@ -50,6 +49,7 @@ int	arutil_draw_overlay(ARFixationPointSpec& fp, PIXEL_LEVEL level, int overlayP
 {
 	int status=0;
 	int numOverlayPages = vsgGetSystemAttribute(vsgNUMOVERLAYPAGES);
+
 	if (overlayPage>=0 && overlayPage < numOverlayPages)
 	{
 		vsgSetDrawPage(vsgOVERLAYPAGE, overlayPage, vsgNOCLEAR);
@@ -282,7 +282,6 @@ int arutil_draw_aperture(ARGratingSpec& gr, int overlayPage)
 		{
 			// clear the whole page
 			vsgSetDrawPage(vsgOVERLAYPAGE, overlayPage, 0);
-			cout << "Cleared page" << endl;
 		}
 		else
 		{
@@ -297,7 +296,7 @@ int arutil_draw_aperture(ARGratingSpec& gr, int overlayPage)
 		}
 	}
 	else status = -1;
-	return 0;
+	return status;
 }
 
 
@@ -329,6 +328,38 @@ int arutil_load_mseq(char **ppseq, string& filename, int iOrder)
 			istatus=3;
 			cerr << "Expected " << nterms << " terms in seq. Found " << strlen(*ppseq) << ". Check mseq file." << endl;
 		}
+		fclose(fp);
+	}
+
+	return istatus;
+}
+
+
+
+int arutil_load_sequence(char **ppseq, string& filename)
+{
+	int istatus=0;
+	FILE *fp=(FILE *)NULL;
+	int nterms = 0;
+
+	// Open mseq file
+	fopen_s(&fp, filename.c_str(), "r");
+	if (!fp) 
+	{
+		istatus=-1;
+		cerr << "Cannot open sequence file " << filename << endl;
+	}
+	else
+	{
+		// Determine size of file in bytes....
+		fseek(fp, 0L, SEEK_END);
+		nterms = ftell(fp);
+		fseek(fp, 0L, SEEK_SET);
+
+		// allocate memory for sequence
+		(*ppseq) = (char *)malloc(nterms+1);
+		memset((*ppseq), 0, nterms+1);
+		istatus = fread(*ppseq, sizeof(char), nterms, fp);
 		fclose(fp);
 	}
 

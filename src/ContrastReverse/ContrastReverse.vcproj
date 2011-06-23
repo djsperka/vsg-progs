@@ -2,7 +2,7 @@
 <VisualStudioProject
 	ProjectType="Visual C++"
 	Version="9.00"
-	Name="ContrastReverse"
+	Name="crg"
 	ProjectGUID="{E2250E44-CE86-435F-8260-6327FF13F44B}"
 	TargetFrameworkVersion="0"
 	>
@@ -70,7 +70,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				OutputFile="../../bin/ContrastReverse.exe"
+				OutputFile="../../bin/crg.exe"
 				LinkIncremental="1"
 				SuppressStartupBanner="true"
 				AdditionalLibraryDirectories="&quot;C:\Program Files\Cambridge Research Systems\VSGV8\Windows\Win32\MSVC\LIB&quot;;../../alertlib/lib"
@@ -160,7 +160,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				OutputFile="../../bin/dContrastReverse.exe"
+				OutputFile="../../bin/dcrg.exe"
 				LinkIncremental="2"
 				SuppressStartupBanner="true"
 				AdditionalLibraryDirectories="&quot;C:\Program Files\Cambridge Research Systems\VSGV8\Windows\Win32\MSVC\LIB&quot;;../../alertlib/lib"
@@ -204,7 +204,7 @@
 			Filter="cpp;c;cxx;rc;def;r;odl;idl;hpj;bat"
 			>
 			<File
-				RelativePath="ContrastReverse.cpp"
+				RelativePath=".\crg.cpp"
 				>
 				<FileConfiguration
 					Name="Release|Win32"
@@ -236,6 +236,10 @@
 			Filter="ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe"
 			>
 		</Filter>
+		<File
+			RelativePath=".\README.txt"
+			>
+		</File>
 	</Files>
 	<Globals>
 	</Globals>

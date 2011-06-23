@@ -170,6 +170,7 @@
 				OutputFile="../../bin/dASLCalibration.exe"
 				LinkIncremental="2"
 				SuppressStartupBanner="true"
+				AdditionalLibraryDirectories="&quot;C:\Program Files\Cambridge Research Systems\VSGV8\Windows\Win32\MSVC\LIB&quot;"
 				GenerateDebugInformation="true"
 				ProgramDatabaseFile=".\Debug/dASLCalibration.pdb"
 				SubSystem="1"
