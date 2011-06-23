@@ -82,7 +82,9 @@ int parse_grating(const std::string& s, alert::ARGratingSpec& ag)
 	vector<string> tokens;
 	tokenize(s, tokens, ",");
 
-	// Expected format for grating
+	// There are two allowed formats for gratings. The long form has 11 args, the short just 8. 
+	// 
+	// Long format for grating:
 	// x,y,w,h,contrast%,sf,tf,orientation,color_vector,s|q,r|e
 	// x,y,w,h in degrees
 	// contrast should be an integer from 0-100. 
@@ -91,7 +93,9 @@ int parse_grating(const std::string& s, alert::ARGratingSpec& ag)
 	// l|L for l-cone, m|M for m-cone and s|S for s-cone. default is black/white
 	// s|q indicates pattern type, s for sine wave, q for square wave
 	// r|e indicates aperture type, r for rectangular (height h, width w), e for elliptical
-	// the last three args (color_vector, pattern, aperture) can be omitted. 
+	//
+	// Short form: the last three args (color_vector, pattern, aperture) can be omitted. 
+
 
 	if (tokens.size() < 8 || tokens.size() > 11)
 	{
