@@ -16,12 +16,27 @@
 #include <sstream>
 #include <fstream>
 #include <algorithm>
+#include <sys/stat.h>
 
 
 // Set this bit in the out_val of a trigger to indicate it should be toggled.
 // The given out_val (without the toggle bit) will be the first value triggered.
 // After that the value will toggle.
 #define AR_TRIGGER_TOGGLE 0x8000
+
+// output values from trigger or callbacks to ask for a master/slave present
+// Apps must look at TriggerFunc::deferred() value to discern these requests.
+#define PLEASE_PRESENT_MASTER 0x100
+#define PLEASE_PRESENT_SLAVE  0x200
+#define PLEASE_PRESENT_MASTER_ON_TRIGGER 0x400
+#define PLEASE_PRESENT_SLAVE_ON_TRIGGER  0x800
+
+#define GET_MASTER_TRIGGER_BITS(a) ((24>>a)&0xff)
+#define GET_SLAVE_TRIGGER_BITS(a) ((16>>a)&0xff)
+
+#define SET_MASTER_TRIGGER_BITS(a) (24<<(a&0xff))
+#define SET_SLAVE_TRIGGER_BITS(a)  (16<<(a&0xff))
+
 
 // These typedefs are used in all the specs. 
 typedef enum colorvectorenum { unknown_color_vector=0, b_w, l_cone, m_cone, s_cone, custom_color_vector } COLOR_VECTOR_ENUM;
@@ -43,6 +58,11 @@ typedef struct color_struct
 	VSGTRIVAL color;
 } COLOR_TYPE;
 
+typedef struct xywh_struct 
+{
+	double x, y, w, h;
+} XYWH;
+
 // useful helper functions
 int parse_color(std::string s, COLOR_TYPE& c);
 int get_color(COLOR_TYPE c, VSGTRIVAL& trival);
@@ -53,6 +73,7 @@ int parse_aperture(std::string s, APERTURE_TYPE& a);
 int parse_distance(std::string s, int& dist);
 int parse_integer(std::string s, int& i);
 int parse_double(std::string s, double& d);
+int parse_int_list(std::string s, std::vector<int>& list);
 int parse_contrast_triplet(std::string s, int& i_iContrastDown, int& i_iContrastBase, int& i_iContrastUp);
 int parse_int_pair(std::string s, int& i_i1, int& i_i2);
 int parse_sequence_pair(std::string s, int& i_i1, int& i_i2);
@@ -86,12 +107,22 @@ namespace alert
 {
 
 	// Singleton class representing the VSG. 
+	// Modified 4-27-2010 djs
+	// Changed to a "double singleton" class to accomodate the dual vsg setup. 
 	class ARvsg
 	{
 	public:
 		~ARvsg();
-		int init(int screenDistanceMM, COLOR_TYPE i_bg, bool bUseLockFile=true);
+		int init(int screenDistanceMM, COLOR_TYPE i_bg, bool bUseLockFile=true, bool bSlaveSynch = false);
+
+		// This function initializes all pages to background color. That color is set as 
+		// level 0 - this func does not use vsgBACKGROUND. This func should be used if 
+		// you draw gratings with draw(true). Why? Well, initially your pages are initialized
+		// to a low level - 0 or 1. Then draw(true) draws an ellipse using level 250. Next, 
+		// the grating is drawn using vsgTRANSONHIGHER, meaning that only the portion of the 
+		// grating that overlays the ellipse will actually be drawn. 
 		int init_video();
+
 		int init_overlay();
 
 		int init_video_pages(voidfunc func_before_objects, voidfunc func_after_objects, void *data);
@@ -107,25 +138,45 @@ namespace alert
 		void clear();
 
 		/* Send ready pulse -- used for VSG/Spike2 expts. */
-		void ready_pulse(int wait_msecs = 2000);
+		void ready_pulse(int wait_msecs = 2000, unsigned int which_bit = vsgDIG6);
 
-		static ARvsg& instance() 
-		{
-			static ARvsg vsg;
-			return vsg; 
-		};
+		/* 
+		 * instance() will return a singleton instance of this class. Use this when you are using a single 
+		 * vsg. When using dual vsg setup, use master() and slave() to get instances for each separately. 
+		 */
+		static ARvsg& instance();
+		static ARvsg& master();
+		static ARvsg& slave();
+		static ARvsg& ARvsg::instance(bool is_master, bool is_slave);
 
-		COLOR_TYPE background_color() { return m_background_color; };
-		PIXEL_LEVEL background_level() { return m_background_level; };
+		bool is_master();
+		bool is_slave();
 
-		long getScreenHeightPixels() { return m_heightPixels; };
-		long getScreenWidthPixels() { return m_widthPixels; };
-		double getScreenHeightDegrees() { return m_heightDegrees; };
-		double getScreenWidthDegrees() { return m_widthDegrees; };
+		/*
+		 * Select specifies the vsg to which commands are directed. 
+		 */
+		void select();
+
+		COLOR_TYPE background_color();
+		PIXEL_LEVEL background_level();
+		long getScreenHeightPixels();
+		long getScreenWidthPixels();
+		double getScreenHeightDegrees();
+		double getScreenWidthDegrees();
+
+//		LevelManager& getLevelManager();
+		// Use these functions to get available levels
+		int request_single(PIXEL_LEVEL& level);
+		int request_range(int num, PIXEL_LEVEL& first);
+		int remaining();
 
 	private:
-		ARvsg() : m_initialized(false), m_bHaveLock(true) {};
+		ARvsg(bool bMaster=false, bool bSlave=false);
+		ARvsg(ARvsg const&) {};
+		ARvsg& operator=(ARvsg const&) {};
 		bool m_initialized;
+		bool m_is_master;
+		bool m_is_slave;
 		VSGOBJHANDLE m_handle;
 		PIXEL_LEVEL m_background_level;
 		COLOR_TYPE m_background_color;
@@ -133,10 +184,10 @@ namespace alert
 		long m_widthPixels;
 		double m_heightDegrees;
 		double m_widthDegrees;
-		bool m_bHaveLock;
+		static bool c_bHaveLock;
+		long m_device_handle;
+		int m_next_available_level;
 	};
-
-
 
 	// Base class that encapsulates VSG objects. All spec classes should inherit from this. 
 	// djs 3-23-10 Add init special case. If using numlevels = vsgFIXATION, that particular level is 
@@ -145,22 +196,30 @@ namespace alert
 	class ARObject
 	{
 	public:
-		ARObject() : m_initialized(false) {};
-		virtual ~ARObject() {};
+		ARObject();
+		// : m_initialized(false), m_vsg(f_vsg_default) {};
+		virtual ~ARObject();
 		void init(PIXEL_LEVEL first, int numlevels);
+		void init(ARvsg& vsg, PIXEL_LEVEL first, int numlevels);
 		void init(int numlevels);
-		void destroy() { vsgObjDestroy(m_handle); m_handle = 0; };
+		void init(ARvsg& vsg, int numlevels);
+		void destroy();
 		int select();
-		virtual void setContrast(int contrast) { select(); vsgObjSetContrast(contrast); };
-		VSGOBJHANDLE handle() { return m_handle; };
-		bool initialized() { return m_initialized; };
-		PIXEL_LEVEL getFirstLevel() { return m_first; };
-		int getNumLevels() { return m_numlevels; };
+		virtual void setContrast(int contrast);
+		VSGOBJHANDLE handle();
+		bool initialized();
+		PIXEL_LEVEL getFirstLevel();
+		int getNumLevels();
+		ARObject& operator=(const ARObject& obj);
+	protected:
+		ARvsg& getVSG();
 	private:
 		bool m_initialized;
 		VSGOBJHANDLE m_handle;
 		PIXEL_LEVEL m_first;
 		int m_numlevels;
+		bool m_use_master;
+		bool m_use_slave;
 	};
 
 	// Base class for specs. Objects drawn using overlay pages use AROverlaySpec
@@ -180,7 +239,55 @@ namespace alert
 		virtual int drawOverlay() = 0;
 	};
 
+	// Rectangle Spec
+	class ARRectangleSpec: public ARSpec
+	{
+	public:
+		ARRectangleSpec() {};
+		~ARRectangleSpec() {};
+		double x, y;	// Center
+		double w, h;	// width, height. Units depend on how vsg is initialized
+		COLOR_TYPE color;
+		virtual int draw();
+		virtual int drawOverlay();
+	};
 
+	
+	class ARContrastRectangleSpec: public ARRectangleSpec
+	{
+	public:
+		ARContrastRectangleSpec() {};
+		~ARContrastRectangleSpec() {};
+		int draw();
+		int drawOverlay();
+	};
+
+	// Rectangle Spec
+	class ARMultiContrastRectangleSpec: public ARSpec, public std::vector<XYWH>
+	{
+	public:
+		COLOR_TYPE color;
+		ARMultiContrastRectangleSpec() {};
+		~ARMultiContrastRectangleSpec() {};
+		virtual int draw();
+		virtual int drawOverlay();
+	};
+
+	// Xhair Spec
+	class ARXhairSpec: public ARSpec
+	{
+	public:
+		ARXhairSpec() {};
+		~ARXhairSpec() {};
+		double x, y;	// Center
+		double ri, rm, ro;	// inner, middle, outer diameter
+		int nc;				// number of divisions
+		double r1, r2;		// inner and outer radii for tick lines
+		virtual int draw();
+		virtual int drawOverlay();
+	private:
+		int drawPie(int nc, PIXEL_LEVEL first, PIXEL_LEVEL second, double x, double y, double r);
+	};
 
 
 	// Fixation Point Spec
@@ -249,15 +356,31 @@ namespace alert
 		PATTERN_TYPE pattern;
 		APERTURE_TYPE aperture;
 		COLOR_VECTOR_TYPE cv;
-		double spph;			/* spatial phase */
-		int draw(bool useTransOnLower);
+
+		// If useTransOnHigher is true then the page should have been cleared with a LOW pixel level.
+		// If its false, then the grating is drawn as a rectangle.
+		virtual int draw(bool useTransOnHigher);
+
+		// drawMode should be either vsgTRANSONLOWER or vsgTRANSONHIGHER (all other modes are ignored). The
+		// actual grating is drawn with the mode supplied and vsgCENTREXY. 
+		// This function has a long and tortured history, so its usage is a little tricky. There's lots
+		// of ways to get a circular grating and this is one. If using 
+		virtual int draw(long drawMode);		// 
+
+		// This just calls draw(true)
 		virtual int draw();
+
+		// This draws an aperture on level 0. You must set the current draw page to an OVERLAYPAGE prior to 
+		// calling this function!
 		virtual int drawOverlay();
-		int redraw(bool useTransOnLower);
-		int drawOnce();
-		int drawBackground();
-		virtual void setContrast(int contrast) { select(); this->contrast = contrast; vsgObjSetContrast(contrast); };
-		virtual void setTemporalFrequency(double tf) { select(); this->tf = tf; vsgObjSetDriftVelocity(tf); };
+
+
+		virtual int redraw(bool useTransOnLower);
+		virtual int drawOnce();
+		virtual int drawBackground();
+		virtual void setContrast(int contrast);
+		virtual void setTemporalFrequency(double tf);
+		virtual void resetDriftPhase();
 	};
 
 
@@ -273,17 +396,18 @@ namespace alert
 	};
 
 
-	class LevelManager
+	// Grating spec
+	class ARDonutSpec: public ARGratingSpec
 	{
 	public:
-		static LevelManager& instance() { static LevelManager m_instance; return m_instance; };
-		~LevelManager() {};
-		int request_single(PIXEL_LEVEL& level);
-		int request_range(int num, PIXEL_LEVEL& first);
-		int remaining() { return 251-m_next; }
-	private:
-		LevelManager(): m_next(0) {};
-		int m_next;
+		ARDonutSpec() {};
+		ARDonutSpec(const ARGratingSpec& g);
+		virtual ~ARDonutSpec() {};
+		double wd, hd;			// width, height of donut hole
+		virtual int draw();
+		virtual int draw(bool useTransOnHigher);
+		virtual int draw(long drawMode);		// 
+		virtual int drawOverlay();				// probably won't work right!
 	};
 
 
@@ -394,10 +518,10 @@ namespace alert
 		};
 
 
-		std::string toString() const
+		virtual std::string toString() const
 		{
 			std::ostringstream oss;
-			oss << "Trigger " << m_key << " in mask/val/toggle: 0x" << std::hex << m_in_mask << "/0x" << m_in_val << "/" << m_btoggleIn << " out mask/val/toggle: 0x" << m_out_mask << "/0x" << m_out_val << "/" << m_btoggleOut;
+			oss << "Trigger " << m_key << " in m/v/t: 0x" << std::hex << m_in_mask << "/0x" << m_in_val << "/" << m_btoggleIn << " out m/v/t: 0x" << m_out_mask << "/0x" << m_out_val << "/" << m_btoggleOut;
 			return oss.str();
 		}
 
@@ -464,6 +588,14 @@ namespace alert
 			setMarker(output);
 			return m_callback(output, this);
 		};
+	
+		virtual std::string toString() const
+		{
+			std::ostringstream oss;
+			oss << "Callback " << m_key << " in m/v/t: 0x" << std::hex << m_in_mask << "/0x" << m_in_val << "/" << m_btoggleIn << " out m/v/t: 0x" << m_out_mask << "/0x" << m_out_val << "/" << m_btoggleOut;
+			return oss.str();
+		}
+
 	protected:
 		TriggerCallbackFunc m_callback;
 	};
@@ -536,18 +668,6 @@ namespace alert
 			return bValue;
 		};
 
-		std::string toString() const
-		{
-			unsigned int i;
-			std::ostringstream oss;
-			oss << "Trigger with multiple inputs" << std::endl;
-			for (i=0; i<this->size(); i++)
-			{
-				oss << "   " << i << ": " << (*this)[i].first << " in mask/val/toggle: 0x" << std::hex << m_in_mask << "/0x" << (*this)[i].second << "/" << m_btoggleIn << " out mask/val/toggle: 0x" << m_out_mask << "/0x" << m_out_val << "/" << m_btoggleOut;
-			}
-			return oss.str();
-		};
-
 		virtual int execute(int& output)
 		{
 			setMarker(output);
@@ -561,9 +681,20 @@ namespace alert
 			else return (*this)[m_input_matched].first;
 		};
 
+		virtual std::string toString() const
+		{
+			unsigned int i;
+			std::ostringstream oss;
+			oss << "MISOCallback " << std::endl; 
+			for (i=0; i<this->size(); i++)
+			{
+				oss << "         " << (*this)[i].first << " in m/v/t: 0x" << std::hex << m_in_mask << "/0x" << (*this)[i].second << "/" << m_btoggleIn << " out m/v/t: 0x" << m_out_mask << "/0x" << m_out_val << "/" << m_btoggleOut;
+				if (i<(this->size()-1)) oss << std::endl;
+			}
+			return oss.str();
+		}
+
 	};
-
-
 
 
 
@@ -579,9 +710,62 @@ namespace alert
 			vsgSetDrawPage(vsgVIDEOPAGE, m_page, vsgNOCLEAR);
 			return 1;
 		};
+		virtual std::string toString() const
+		{
+			std::ostringstream oss;
+			oss << "Page(" << m_page << ")" << m_key << " in m/v/t: 0x" << std::hex << m_in_mask << "/0x" << m_in_val << "/" << m_btoggleIn << " out m/v/t: 0x" << m_out_mask << "/0x" << m_out_val << "/" << m_btoggleOut;
+			return oss.str();
+		}
 	protected:
 		int m_page;
 	};
+
+	class MasterPageTrigger: public PageTrigger
+	{
+	public:
+		MasterPageTrigger(std::string i_key, int i_in_mask, int i_in_val, int i_out_mask, int i_out_val, int i_page) : 
+		  PageTrigger(i_key, i_in_mask, i_in_val, i_out_mask, i_out_val, i_page) {};
+		~MasterPageTrigger() {};
+
+		// execute requires present.... but what vsg will receive that? 
+		// possibly return diff't values for this trigger, e.g. MASTER_PRESENT or SLAVE_PRESENT?
+		virtual int execute(int& output)
+		{
+			ARvsg::master().select();
+			PageTrigger::execute(output);
+			return PLEASE_PRESENT_MASTER;
+		}
+		virtual std::string toString() const
+		{
+			std::ostringstream oss;
+			oss << "MasterPage(" << m_page << ")" << m_key << " in m/v/t: 0x" << std::hex << m_in_mask << "/0x" << m_in_val << "/" << m_btoggleIn << " out m/v/t: 0x" << m_out_mask << "/0x" << m_out_val << "/" << m_btoggleOut;
+			return oss.str();
+		}
+	};
+
+	class SlavePageTrigger: public PageTrigger
+	{
+	public:
+		SlavePageTrigger(std::string i_key, int i_in_mask, int i_in_val, int i_out_mask, int i_out_val, int i_page) : 
+		  PageTrigger(i_key, i_in_mask, i_in_val, i_out_mask, i_out_val, i_page) {};
+		~SlavePageTrigger() {};
+
+		// execute requires present.... but what vsg will receive that? 
+		// possibly return diff't values for this trigger, e.g. MASTER_PRESENT or SLAVE_PRESENT?
+		virtual int execute(int& output)
+		{
+			ARvsg::slave().select();
+			PageTrigger::execute(output);
+			return PLEASE_PRESENT_SLAVE;
+		}
+		virtual std::string toString() const
+		{
+			std::ostringstream oss;
+			oss << "SlavePage(" << m_page << ")" << m_key << " in m/v/t: 0x" << std::hex << m_in_mask << "/0x" << m_in_val << "/" << m_btoggleIn << " out m/v/t: 0x" << m_out_mask << "/0x" << m_out_val << "/" << m_btoggleOut;
+			return oss.str();
+		}
+	};
+
 
 	class TogglePageTrigger: public Trigger
 	{
@@ -598,11 +782,56 @@ namespace alert
 			setMarker(output);
 			return 1;
 		};
+		virtual std::string toString() const
+		{
+			std::ostringstream oss;
+			oss << "TogglePage(" << m_pageA << "/" << m_pageB << ")" << m_key << " in m/v/t: 0x" << std::hex << m_in_mask << "/0x" << m_in_val << "/" << m_btoggleIn << " out m/v/t: 0x" << m_out_mask << "/0x" << m_out_val << "/" << m_btoggleOut;
+			return oss.str();
+		}
 	protected:
 		int m_pageA;
 		int m_pageB;
 	};
 
+	class MasterTogglePageTrigger: public TogglePageTrigger
+	{
+	public:
+		MasterTogglePageTrigger(std::string i_key, int i_in_mask, int i_in_val, int i_out_mask, int i_out_val, int i_pageA, int i_pageB) : 
+		  TogglePageTrigger(i_key, i_in_mask, i_in_val, i_out_mask, i_out_val, i_pageA, i_pageB) {};
+		  ~MasterTogglePageTrigger() {};
+		virtual int execute(int& output)
+		{
+			ARvsg::master().select();
+			TogglePageTrigger::execute(output);
+			return PLEASE_PRESENT_MASTER;
+		}
+		virtual std::string toString() const
+		{
+			std::ostringstream oss;
+			oss << "MasterTogglePage(" << m_pageA << "/" << m_pageB << ")" << m_key << " in m/v/t: 0x" << std::hex << m_in_mask << "/0x" << m_in_val << "/" << m_btoggleIn << " out m/v/t: 0x" << m_out_mask << "/0x" << m_out_val << "/" << m_btoggleOut;
+			return oss.str();
+		}
+	};
+
+	class SlaveTogglePageTrigger: public TogglePageTrigger
+	{
+	public:
+		SlaveTogglePageTrigger(std::string i_key, int i_in_mask, int i_in_val, int i_out_mask, int i_out_val, int i_pageA, int i_pageB) : 
+		  TogglePageTrigger(i_key, i_in_mask, i_in_val, i_out_mask, i_out_val, i_pageA, i_pageB) {};
+		  ~SlaveTogglePageTrigger() {};
+		virtual int execute(int& output)
+		{
+			ARvsg::slave().select();
+			TogglePageTrigger::execute(output);
+			return PLEASE_PRESENT_SLAVE;
+		}
+		virtual std::string toString() const
+		{
+			std::ostringstream oss;
+			oss << "SlaveTogglePage(" << m_pageA << "/" << m_pageB << ")" << m_key << " in m/v/t: 0x" << std::hex << m_in_mask << "/0x" << m_in_val << "/" << m_btoggleIn << " out m/v/t: 0x" << m_out_mask << "/0x" << m_out_val << "/" << m_btoggleOut;
+			return oss.str();
+		}
+	};
 
 	class OverlayPageTrigger: public Trigger
 	{
@@ -616,6 +845,12 @@ namespace alert
 			vsgSetDrawPage(vsgOVERLAYPAGE, m_page, vsgNOCLEAR);
 			return 1;
 		};
+		virtual std::string toString() const
+		{
+			std::ostringstream oss;
+			oss << "OverlayPage(" << m_page << ")" << m_key << " in m/v/t: 0x" << std::hex << m_in_mask << "/0x" << m_in_val << "/" << m_btoggleIn << " out m/v/t: 0x" << m_out_mask << "/0x" << m_out_val << "/" << m_btoggleOut;
+			return oss.str();
+		}
 	protected:
 		int m_page;
 	};
@@ -633,6 +868,12 @@ namespace alert
 			vsgSetDrawPage(vsgVIDEOPAGE, m_page, vsgNOCLEAR);
 			return -1;
 		};
+		virtual std::string toString() const
+		{
+			std::ostringstream oss;
+			oss << "Quit    " << m_key << " in m/v/t: 0x" << std::hex << m_in_mask << "/0x" << m_in_val << "/" << m_btoggleIn << " out m/v/t: 0x" << m_out_mask << "/0x" << m_out_val << "/" << m_btoggleOut;
+			return oss.str();
+		}
 	private:
 	};
 
@@ -654,7 +895,22 @@ namespace alert
 			}
 			return 1;
 		};
+		virtual std::string toString() const
+		{
+			unsigned int i;
+			std::ostringstream oss;
+			oss << "Contrast( ";
+			for (i=0; i<this->size(); i++)
+			{
+				oss << (int)((*this)[i].first) << "->" << (*this)[i].second;
+				if (i<this->size()-1) oss << ":";
+			}
+			oss << ") ";
+			oss << m_key << " in m/v/t: 0x" << std::hex << m_in_mask << "/0x" << m_in_val << "/" << m_btoggleIn << " out m/v/t: 0x" << m_out_mask << "/0x" << m_out_val << "/" << m_btoggleOut;
+			return oss.str();
+		}
 	};
+
 
 
 	// callback for page cycling trigger
@@ -734,6 +990,99 @@ namespace alert
 	};
 
 
+	// callback for file monitor trigger
+	class FileChangedTrigger;
+	typedef int (*FileChangedTriggerCallbackFunc)(bool created, bool deleted);
+
+
+	// If an output trigger value and mask are supplied, then the output is fired when this trigger executes. 
+	// We have to do this because there is no present() issued by this trigger. 
+	// That could lead to problems if multiple triggers will fire at once, I suppose. 
+	class FileChangedTrigger: public Trigger
+	{
+	public:
+		FileChangedTrigger(std::string i_key, std::string filename, FileChangedTriggerCallbackFunc callback = NULL, int i_out_mask=0, int i_out_val=0) : 
+		  Trigger(i_key, 0, 0, i_out_mask, i_out_val), m_filename(filename), m_callback(callback), m_exists(false), m_bCreated(false), m_bDeleted(false)
+		  {
+			  init();
+		  }
+		~FileChangedTrigger() {};
+
+		virtual bool checkAscii(std::string input)
+		{
+			return checkBinary(0);
+		};
+
+		virtual bool checkBinary(int input)
+		{
+			struct _stat fileinfo;
+			bool bValue = false;
+			int status=0;
+
+			status = _stat(m_filename.c_str(), &fileinfo);
+			if (status)
+			{
+				// nonzero status value means the file was not found.
+				if (m_exists)
+				{
+					bValue = true;
+					m_bCreated = false;
+					m_bDeleted = true;
+					m_exists = false;
+				}
+			}
+			else
+			{
+				if (!m_exists)
+				{
+					bValue = true;
+					m_bCreated = true;
+					m_bDeleted = false;
+					m_exists = true;
+					m_fileinfo = fileinfo;
+				}
+				else if (fileinfo.st_mtime != m_fileinfo.st_mtime)
+				{
+					bValue = true;
+					m_bCreated = false;
+					m_bDeleted = false;
+					m_fileinfo = fileinfo;
+				}
+			}
+			return bValue;
+		};
+
+		virtual int execute(int& output)
+		{
+			if (m_callback)
+			{
+				if (!m_callback(m_bCreated, m_bDeleted))
+				{
+					setMarker(output);
+				}
+			}
+			else
+			{
+				setMarker(output);
+			}
+			// When writing via vsgIOWriteDigitalOut we must shift left 1 bit because vsgObjSetTriggers does. 
+			if (m_out_mask) vsgIOWriteDigitalOut(output << 1, m_out_mask << 1);
+			return 0;
+		};
+	private:
+		void init()
+		{
+			if (_stat(m_filename.c_str(), &m_fileinfo)) m_exists = false;
+			else m_exists = true;
+		};
+	protected:
+		std::string m_filename;
+		bool m_exists;
+		bool m_bCreated;
+		bool m_bDeleted;
+		FileChangedTriggerCallbackFunc m_callback;
+		struct _stat m_fileinfo;
+	};
 
 
 	class ResetTriggerFunc
@@ -762,7 +1111,7 @@ namespace alert
 		bool quit() { return m_quit; };
 		int deferred() { return m_ideferred; };
 
-		void operator()(Trigger* pitem)
+		virtual void operator()(Trigger* pitem)
 		{
 			bool bTest=false;
 			if (m_binary) bTest = pitem->checkBinary(m_itrigger);
@@ -781,7 +1130,7 @@ namespace alert
 				}
 			}
 		};
-	private:
+	protected:
 		bool m_quit;
 		bool m_binary;	// if true, do a binary trigger test. Otherwise do ascii
 		int m_itrigger;	// input trigger value to test against
@@ -790,6 +1139,36 @@ namespace alert
 		int m_otrigger;	// if m_present is true, this is the output trigger value
 		int m_page;
 		int m_ideferred;	// flag set to indicate deferred processing of some sort is needed.
+	};
+
+
+	class MasterSlaveTriggerFunc : public TriggerFunc
+	{
+	public:
+		MasterSlaveTriggerFunc(std::string key, int otrigger) : TriggerFunc(key, otrigger) {};
+		MasterSlaveTriggerFunc(int itrigger, int otrigger) : TriggerFunc(itrigger, otrigger) {};
+
+		// This func differs from regular TriggerFunc's method in the handling of m_ideferred - because I'm scared
+		// of breaking apps that use negative values in return values, or those where multiple triggers fire. 
+		virtual void operator()(Trigger* pitem)
+		{
+			bool bTest=false;
+			if (m_binary) bTest = pitem->checkBinary(m_itrigger);
+			else bTest = pitem->checkAscii(m_skey);
+
+			if (bTest)
+			{
+				int i;
+				i = pitem->execute(m_otrigger);
+				m_ideferred |= i;
+				if (i > 0) m_present = true;
+				else if (i < 0) 
+				{
+					m_present = true;
+					m_quit = true;
+				}
+			}
+		};
 	};
 
 
@@ -816,6 +1195,8 @@ namespace alert
 		}
 	};
 
+
+
 };	// end namespace alert;
 
 
@@ -827,7 +1208,7 @@ std::ostream& operator<<(std::ostream& out, const alert::Trigger& t);
 // instead of input operators, methods
 int parse_fixation_point(const std::string& s, alert::ARFixationPointSpec& afp);
 int parse_grating(const std::string& s, alert::ARGratingSpec& ag);
-
-
+int parse_donut(const std::string& s, alert::ARDonutSpec& ad);
+int parse_xhair(const std::string& s, alert::ARXhairSpec& axh);
 
 #endif
