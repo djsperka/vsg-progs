@@ -7,8 +7,8 @@
 #undef __GNU_LIBRARY__
 
 #include "VSGV8.H"
-#include "util.h"
-
+//#include "util.h"
+#include "alertlib.h"
 
 #ifdef _DEBUG
 #pragma comment(lib, "dalert.lib")
@@ -23,6 +23,7 @@ int args(int argc, char **argv);
 static void usage();
 int init();
 
+using namespace alert;
 using namespace std;
 int m_screenDistanceMM=0;
 bool m_verbose=true;
@@ -90,8 +91,14 @@ int init()
 	int npages;
 	int nframerate;
 	unsigned int i;
+	COLOR_TYPE g = {gray, {0.5,0.5,0.5}};
 
-	if (0 != (istatus = vsgInit(""))) return istatus;
+	//if (0 != (istatus = vsgInit(""))) return istatus;
+	if (ARvsg::instance().init(0, g))
+	{
+		cerr << "Error initializing VSG." << endl;
+		return -1;
+	}
 
 	npages = vsgGetSystemAttribute(vsgNUMVIDEOPAGES);
 	nframerate = vsgGetSystemAttribute(vsgFRAMERATE);
@@ -156,7 +163,7 @@ int args(int argc, char **argv)
 		{
 			vector<string> tokens;
 			s.assign(optarg);
-			mytokenize(s, tokens, ",");
+			tokenize(s, tokens, ",");
 			cout << "Parsed " << tokens.size() << " tokens." << endl;
 			if (tokens.size()%4 != 0) 
 			{

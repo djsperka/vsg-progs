@@ -11,8 +11,6 @@
 #include "vsgv8.h"
 #include "Alertlib.h"
 
-#define DONT_USE_CV_CODE 1
-
 #ifdef _DEBUG
 #pragma comment(lib, "dalert.lib")
 #else
@@ -43,14 +41,15 @@ double m_anspt_diameter_degrees = 0.5;
 COLOR_TYPE m_background;
 ARGratingSpec m_spec_stimulus;
 bool m_bstimulus=false;
+int m_iStimulusOriginalContrast;
 ARGratingSpec m_spec_distractor;
 bool m_bdistractor=false;
+int m_iDistractorOriginalContrast;
 int m_screenDistanceMM=0;
 bool m_verbose=false;
 TriggerVector triggers;
 bool m_binaryTriggers = true;
 bool m_bTrainingContrast = false;
-int m_iTrainingContrast = 0;
 int m_iContrastDown=0;
 int m_iContrastBase=50;
 int m_iContrastUp=100;
@@ -59,27 +58,18 @@ bool m_bNoAnswerPoints = false;
 int m_imageCount = 0;
 bool m_bCueCircles = false;
 bool m_bSingleStim = false;
-
-
-
-
-
+bool m_bStimulusOn = false;
+bool m_bDistractorOn = false;
 
 static void usage();
 static int init_pages();
 static int init_answer_points();
-static int init_overlay();
 
 int main (int argc, char *argv[])
 {
+	std::string s;
+	int last_output_trigger=0;
 
-
-#if DONT_USE_CV_CODE
-	cout << "NOT USING COLORVECTOR CODE!" << endl;
-	cout << "NOT USING COLORVECTOR CODE!" << endl;
-	cout << "NOT USING COLORVECTOR CODE!" << endl;
-	cout << "NOT USING COLORVECTOR CODE!" << endl;
-#endif
 
 	// Check input arguments
 	if (args(argc, argv))
@@ -93,8 +83,8 @@ int main (int argc, char *argv[])
 			cout << "Screen distance " << m_screenDistanceMM << endl;
 			cout << "Fixation point" << m_spec_fixpt << endl;
 			cout << "Background color " << m_background << endl;
-			if (m_bstimulus) cout << "Stimulus : " << m_spec_stimulus << endl;
-			if (m_bdistractor) cout << "Distractor : " << m_spec_distractor << endl;
+			cout << "Stimulus : " << m_spec_stimulus << endl;
+			cout << "Distractor : " << m_spec_distractor << endl;
 		}
 	}
 
@@ -104,7 +94,6 @@ int main (int argc, char *argv[])
 		init_answer_points();
 	}
 
-
 	// INit vsg
 	if (ARvsg::instance().init(m_screenDistanceMM, m_background))
 	{
@@ -112,13 +101,12 @@ int main (int argc, char *argv[])
 		return 1;
 	}
 
+	// Set pulse trigger bit high so vsgPresent pulses are downward-going. 
+	//Sleep(100);
+	//vsgIOWriteDigitalOut(vsgDIG0, vsgDIG0); 
+	// reset all output triggers
+	vsgIOWriteDigitalOut(0, 0xff);
 
-	// Init overlay pages
-//	if (init_overlay())
-//	{
-//		cerr << "Overlay page init failed!" << endl;
-//		return 1;
-//	}
 
 	// write video pages
 	init_pages();
@@ -133,16 +121,9 @@ int main (int argc, char *argv[])
 	}
 
 
-	vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, 0x20, 0);
-	vsgPresent();
-
-	vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, 0x00, 0);
-	vsgPresent();
-
+	ARvsg::instance().ready_pulse(100, 0x40);
 
 	// All right, start monitoring triggers........
-	std::string s;
-	int last_output_trigger=0;
 	while (1)
 	{
 		// If user-triggered, get a trigger entry. 
@@ -161,7 +142,6 @@ int main (int argc, char *argv[])
 		if (tf.quit()) break;
 		else if (tf.present())
 		{	
-//			cout << "OUT: " << tf.output_trigger() << endl;
 			last_output_trigger = tf.output_trigger();
 			vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, tf.output_trigger(), 0);
 			vsgPresent();
@@ -183,6 +163,8 @@ int args(int argc, char **argv)
 	bool have_d=false;
 	bool have_b=false;
 	bool have_t=false;
+	bool have_s=false;
+	bool have_g=false;
 	string s;
 	int c;
 	extern char *optarg;
@@ -218,7 +200,8 @@ int args(int argc, char **argv)
 			s.assign(optarg);
 			if (!parse_grating(s, m_spec_stimulus))
 			{
-				m_bstimulus = true;
+				have_s = true;
+				m_iStimulusOriginalContrast = m_spec_stimulus.contrast;
 			}
 			else errflg++;
 			break;
@@ -226,7 +209,8 @@ int args(int argc, char **argv)
 			s.assign(optarg);
 			if (!parse_grating(s, m_spec_distractor))
 			{
-				m_bdistractor = true;
+				have_g = true;
+				m_iDistractorOriginalContrast = m_spec_distractor.contrast;
 			}
 			else errflg++;
 			break;
@@ -234,17 +218,6 @@ int args(int argc, char **argv)
 			s.assign(optarg);
 			if (parse_contrast_triplet(s, m_iContrastDown, m_iContrastBase, m_iContrastUp)) errflg++;
 			else have_t = true;
-			break;
-		case 'T':
-			s.assign(optarg);
-			if (!parse_integer(s, m_iTrainingContrast))
-			{
-				m_bTrainingContrast = true;
-			}
-			else
-			{
-				errflg++;
-			}
 			break;
 		case 'A':
 			s.assign(optarg);
@@ -318,6 +291,16 @@ int args(int argc, char **argv)
 		}
 	}
 
+	if (!have_s)
+	{
+		cerr << "Stimulus not specified!" << endl;
+		errflg++;
+	}
+	if (!have_g)
+	{
+		cerr << "Distractor not specified!" << endl;
+		errflg++;
+	}
 	if (!have_f) 
 	{
 		cerr << "Fixation point not specified!" << endl; 
@@ -366,31 +349,6 @@ int init_answer_points()
 	return 0;
 }
 
-
-int init_overlay()
-{
-	// Initialize and draw overlay page
-	if (ARvsg::instance().init_overlay())
-	{
-		cerr << "VSG overlay initialization failed!" << endl;
-		return 1;
-	}
-	vsgSetDrawPage(vsgOVERLAYPAGE, 0, 1);
-
-	if (m_bstimulus) m_spec_stimulus.drawOverlay();
-	if (m_bdistractor) m_spec_distractor.drawOverlay();
-	m_spec_fixpt.drawOverlay();
-	if (!m_bNoAnswerPoints)
-	{
-		m_spec_anspt_up.drawOverlay();
-		m_spec_anspt_down.drawOverlay();
-	}
-	return 0;
-}
-
-
-
-
 // The return value from this trigger callback determines whether a vsgPresent() is issued. 
 
 int callback(int &output, const CallbackTrigger* ptrig)
@@ -398,9 +356,6 @@ int callback(int &output, const CallbackTrigger* ptrig)
 	int ival=1;
 	VSGTRIVAL from, to;
 	string key = ptrig->getKey();
-
-
-//	cout << "callback: key " << ptrig->getKey() << endl;
 
 	if (key == "S")
 	{
@@ -410,102 +365,33 @@ int callback(int &output, const CallbackTrigger* ptrig)
 			m_spec_anspt_down.setContrast(100);
 		}
 
-#if DONT_USE_CV_CODE
-
 		// ignoring training contrast for now. 
 
 		if ((m_bFStimulus && m_bSingleStim) || !m_bSingleStim)
 		{
-			m_spec_stimulus.draw(true);
+			// Rather than redraw stim, just reset drift phase and set contrast. Will become visible on present.
 			m_spec_stimulus.setContrast(m_iContrastBase);
+			m_spec_stimulus.select();
+			vsgObjResetDriftPhase();
+			m_bStimulusOn = true;
 		}
-//		m_spec_stimulus.select();
-//		vsgObjSetSpatialPhase(0);
 
 		if ((!m_bFStimulus && m_bSingleStim) || !m_bSingleStim)
 		{
-			m_spec_distractor.draw(true);
+			// Rather than redraw distractor, just reset drift phase and set contrast. Will become visible on present.
 			m_spec_distractor.setContrast(m_iContrastBase);
-		}
-//		m_spec_distractor.select();
-//		vsgObjSetSpatialPhase(0);
-
-
-
-#else
-		if (!m_bTrainingContrast)
-		{
-//			cout << "!Training contrast " << m_iTrainingContrast << endl;
-			get_colorvector(m_spec_stimulus.cv, from, to);
-			m_spec_stimulus.select();
-			vsgObjSetColourVector(&from, &to, vsgBIPOLAR);
-			vsgObjSetSpatialPhase(0);
-			m_spec_stimulus.setContrast(m_iContrastBase);
-
-
-			get_colorvector(m_spec_distractor.cv, from, to);
 			m_spec_distractor.select();
-			vsgObjSetColourVector(&from, &to, vsgBIPOLAR);
-			vsgObjSetSpatialPhase(0);
-			m_spec_distractor.setContrast(m_iContrastBase);
+			vsgObjResetDriftPhase();
+			m_bDistractorOn = true;
 		}
-		else
-		{
-//			cout << "Training contrast " << m_iTrainingContrast << endl;
-			if (m_bFStimulus)
-			{
-				// distractor goes to training contrast. If training contrast is 0, then do not
-				// update color vector, because distractor may be visible at 0 contrast. 
-
-				get_colorvector(m_spec_stimulus.cv, from, to);
-				m_spec_stimulus.select();
-				vsgObjSetColourVector(&from, &to, vsgBIPOLAR);
-				vsgObjSetSpatialPhase(0);
-				m_spec_stimulus.setContrast(m_iContrastBase);
-
-				if (m_iTrainingContrast != 0)
-				{
-					get_colorvector(m_spec_distractor.cv, from, to);
-					m_spec_distractor.select();
-					vsgObjSetColourVector(&from, &to, vsgBIPOLAR);
-					vsgObjSetSpatialPhase(0);
-					m_spec_distractor.setContrast(m_iTrainingContrast);
-				}
-			}
-			else
-			{
-				// stimulus goes to training contrast. 
-				get_colorvector(m_spec_distractor.cv, from, to);
-				m_spec_distractor.select();
-				vsgObjSetColourVector(&from, &to, vsgBIPOLAR);
-				vsgObjSetSpatialPhase(0);
-				m_spec_distractor.setContrast(m_iContrastBase);
-
-				if (m_iTrainingContrast != 0) 
-				{
-					get_colorvector(m_spec_stimulus.cv, from, to);
-					m_spec_stimulus.select();
-					vsgObjSetColourVector(&from, &to, vsgBIPOLAR);
-					vsgObjSetSpatialPhase(0);
-					m_spec_stimulus.setContrast(m_iTrainingContrast);
-				}
-			}
-		}
-#endif
 	}
 	else if (key == "s")
 	{
 
-#if DONT_USE_CV_CODE
 		m_spec_stimulus.setContrast(0);
 		m_spec_distractor.setContrast(0);
-#else
-		get_color(m_background, from);
-		m_spec_stimulus.select();
-		vsgObjSetColourVector(&from, &from, vsgBIPOLAR);
-		m_spec_distractor.select();
-		vsgObjSetColourVector(&from, &from, vsgBIPOLAR);
-#endif
+		m_bStimulusOn = false;
+		m_bDistractorOn = false;
 		if (m_bLollipops)
 		{
 			m_spec_stim_circle.setContrast(0);
@@ -523,16 +409,10 @@ int callback(int &output, const CallbackTrigger* ptrig)
 			m_spec_anspt_down.setContrast(0);
 		}
 
-#if DONT_USE_CV_CODE
 		m_spec_stimulus.setContrast(0);
 		m_spec_distractor.setContrast(0);
-#else
-		get_color(m_background, from);
-		m_spec_stimulus.select();
-		vsgObjSetColourVector(&from, &from, vsgBIPOLAR);
-		m_spec_distractor.select();
-		vsgObjSetColourVector(&from, &from, vsgBIPOLAR);
-#endif
+		m_bStimulusOn = false;
+		m_bDistractorOn = false;
 
 		if (m_bLollipops)
 		{
@@ -632,7 +512,19 @@ int callback(int &output, const CallbackTrigger* ptrig)
 	{
 		if (!m_bSingleStim || (m_bSingleStim && m_bFStimulus))
 		{
-			m_spec_stimulus.setContrast(m_iContrastUp);
+			if (m_bStimulusOn)
+			{
+				m_spec_stimulus.setContrast(m_iContrastUp);
+			}
+			else
+			{
+				// djs 8-16-10
+				// If the stimulus is NOT on and this command is received then we display the 
+				// stimulus at its original contrast (the contrast used in the command line
+				// arg for the stim). 
+				m_spec_stimulus.setContrast(m_iStimulusOriginalContrast);
+				m_bStimulusOn = true;
+			}
 		}
 
 		if (m_bSingleStim && !m_bFStimulus)
@@ -656,7 +548,15 @@ int callback(int &output, const CallbackTrigger* ptrig)
 	{
 		if (!m_bSingleStim || (m_bSingleStim && !m_bFStimulus))
 		{
-			m_spec_distractor.setContrast(m_iContrastUp);
+			if (m_bDistractorOn)
+			{
+				m_spec_distractor.setContrast(m_iContrastUp);
+			}
+			else
+			{
+				m_spec_distractor.setContrast(m_iDistractorOriginalContrast);
+				m_bDistractorOn = true;
+			}
 		}
 
 		if (m_bSingleStim && m_bFStimulus)
@@ -861,10 +761,10 @@ int init_pages()
 	if (!m_bCueCircles)
 	{
 		vecInputs.push_back(std::pair< string, int>("F", 0x2));
-		//vecInputs.push_back(std::pair< string, int>("X", 0x16));
 		vecInputs.push_back(std::pair< string, int>("G", 0x4));
 		vecInputs.push_back(std::pair< string, int>("W", 0x10));
 		triggers.push_back(new MultiInputSingleOutputCallbackTrigger(vecInputs, 0x16, 0x1, 0x1 | AR_TRIGGER_TOGGLE, callback));
+
 		// trigger to turn stim, distractor, answer points and fixation point OFF
 		triggers.addTrigger(new CallbackTrigger("X", 0x16, 0x16, 0xa, 0x0, callback));
 	}
@@ -872,7 +772,6 @@ int init_pages()
 	{
 		vecInputs.push_back(std::pair< string, int>("F", 0x2));
 		vecInputs.push_back(std::pair< string, int>("G", 0x4));
-		//vecInputs.push_back(std::pair< string, int>("X", 0x6));
 		triggers.push_back(new MultiInputSingleOutputCallbackTrigger(vecInputs, 0x6, 0x1, 0x1, callback));
 
 		triggers.addTrigger(new CallbackTrigger("W", 0x10, 0x10, 0x4, 0x4, callback));
@@ -886,32 +785,6 @@ int init_pages()
 
 	// trigger to turn stimand distractor OFF (answer points remain on)
 	triggers.addTrigger(new CallbackTrigger("s", 0x8, 0x0, 0x2, 0x0, callback));
-
-	// trigger to turn stim, distractor, answer points and fixation point OFF
-	//triggers.addTrigger(new CallbackTrigger("X", 0x16, 0x16, 0xa, 0x0, callback));
-
-#if 0
-
-	// trigger to turn stim contrast UP
-	ptrigStimUP = new ContrastTrigger("C", 0xe0, 0x20, 0x8, 0x8);
-	ptrigStimUP->push_back( std::pair<VSGOBJHANDLE, int>(m_spec_stimulus.handle(), m_iContrastUp) );
-	triggers.addTrigger(ptrigStimUP);
-
-	// trigger to turn stim contrast DOWN
-	ptrigStimDOWN = new ContrastTrigger("c", 0xe0, 0x40, 0x8, 0x8);
-	ptrigStimDOWN->push_back( std::pair<VSGOBJHANDLE, int>(m_spec_stimulus.handle(), m_iContrastDown) );
-	triggers.addTrigger(ptrigStimDOWN);
-
-	// trigger to turn distractor contrast UP
-	ptrigDistractorUP = new ContrastTrigger("D", 0xe0, 0x60, 0x8, 0x8);
-	ptrigDistractorUP->push_back( std::pair<VSGOBJHANDLE, int>(m_spec_distractor.handle(), m_iContrastUp) );
-	triggers.addTrigger(ptrigDistractorUP);
-
-	// trigger to turn distractor contrast DOWN
-	ptrigDistractorDOWN = new ContrastTrigger("d", 0xe0, 0x80, 0x8, 0x8);
-	ptrigDistractorDOWN->push_back( std::pair<VSGOBJHANDLE, int>(m_spec_distractor.handle(), m_iContrastDown) );
-	triggers.addTrigger(ptrigDistractorDOWN);
-#endif
 
 	// Triggers for contrast change. These were ContrastTriggers, but changed them to callback triggers when 
 	// adding "SingleStim" option. When using SingleStim I want to be able to guard against the WRONG contrast
@@ -927,10 +800,6 @@ int init_pages()
 
 	// quit trigger
 	triggers.addTrigger(new QuitTrigger("q", 0xf0, 0xf0, 0xff, 0x0, 0));
-
-	// Set vsg trigger mode
-	vsgObjSetTriggers(vsgTRIG_ONPRESENT+vsgTRIG_TOGGLEMODE,0,0);
-
 
 	return status;
 }

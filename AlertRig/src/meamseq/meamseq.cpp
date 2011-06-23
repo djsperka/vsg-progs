@@ -145,6 +145,7 @@ int draw_mseq(char *seq, int order, int r, int c, int d)
 
 
 	// prepare vsg for drawing
+	vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgNOCLEAR);
 	vsgSetCommand(vsgPALETTERAMP);
 	vsgSetPen1(255);	// "ON" is white
 	vsgSetPen2(0);		// "OFF" is black
@@ -248,8 +249,6 @@ int main(int argc, char **argv)
 	vsgSetDrawOrigin(0,0);
 	vsgSetDrawMode(vsgSOLIDFILL);			// default is vsgCENTREXY! This makes it top-left-hand-corner origin
 	vsgSetCommand(vsgPALETTERAMP);
-	vsgSetPen1(255);
-	vsgSetPen2(0);
 	vsgSetCommand(vsgVIDEOCLEAR);
 
 	// aperture location will be in f_iapXCorner, f_iapYCorner

@@ -244,6 +244,10 @@
 			Filter="ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe"
 			>
 		</Filter>
+		<File
+			RelativePath=".\README.txt"
+			>
+		</File>
 	</Files>
 	<Globals>
 	</Globals>

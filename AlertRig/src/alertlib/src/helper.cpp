@@ -205,6 +205,248 @@ int parse_grating(const std::string& s, alert::ARGratingSpec& ag)
 }
 
 
+
+int parse_donut(const std::string& s, alert::ARDonutSpec& ag)
+{
+	int status=0;
+	vector<string> tokens;
+	tokenize(s, tokens, ",");
+
+	// Expected format for donut: same as grating but with donut width,height following w,h
+	// x,y,w,h,wd,hd,contrast%,sf,tf,orientation,color_vector,s|q,r|e
+	// x,y,w,h,wd,hd in degrees
+	// contrast should be an integer from 0-100. 
+	// 0 <= orientation < 360
+	// color_vector should be b|w|black|white|gray|... for black/white,
+	// l|L for l-cone, m|M for m-cone and s|S for s-cone. default is black/white
+	// s|q indicates pattern type, s for sine wave, q for square wave
+	// r|e indicates aperture type, r for rectangular (height h, width w), e for elliptical
+	// the last three args (color_vector, pattern, aperture) can be omitted. 
+
+	if (tokens.size() < 10 || tokens.size() > 13)
+	{
+		status=1;	// bad format
+	}
+	else
+	{
+		istringstream iss;
+		iss.str(tokens[0]);
+		iss >> ag.x;
+		if (!iss) 
+		{
+			cerr << "bad x: " << tokens[0] << endl;
+			status=1;
+		}
+		iss.str(tokens[1]);
+		iss.clear();
+		iss >> ag.y;
+		if (!iss) 
+		{
+			cerr << "bad y: " << tokens[1] << endl;
+			status=1;
+		}
+		iss.str(tokens[2]);
+		iss.clear();
+		iss >> ag.w;
+		if (!iss)
+		{
+			cerr << "bad w: " << tokens[2] << endl;
+			status=1;
+		}
+		iss.str(tokens[3]);
+		iss.clear();
+		iss >> ag.h;
+		if (!iss)
+		{
+			cerr << "bad h: " << tokens[3] << endl;
+			status=1;
+		}
+		iss.str(tokens[4]);
+		iss.clear();
+		iss >> ag.wd;
+		if (!iss)
+		{
+			cerr << "bad wd: " << tokens[4] << endl;
+			status=1;
+		}
+		iss.str(tokens[5]);
+		iss.clear();
+		iss >> ag.hd;
+		if (!iss)
+		{
+			cerr << "bad hd: " << tokens[5] << endl;
+			status=1;
+		}
+
+
+
+		iss.str(tokens[6]);
+		iss.clear();
+		iss >> ag.contrast;
+		if (!iss)
+		{
+			cerr << "bad contrast: " << tokens[6] << endl;
+			status=1;
+		}
+		iss.str(tokens[7]);
+		iss.clear();
+		iss >> ag.sf;
+		if (!iss)
+		{
+			cerr << "bad sf: " << tokens[7] << endl;
+			status=1;
+		}
+		iss.str(tokens[8]);
+		iss.clear();
+		iss >> ag.tf;
+		if (!iss)
+		{
+			cerr << "bad tf: " << tokens[8] << endl;
+			status=1;
+		}
+		iss.str(tokens[9]);
+		iss.clear();
+		iss >> ag.orientation;
+		if (!iss)
+		{
+			cerr << "bad orientation: " << tokens[9] << endl;
+			status=1;
+		}
+
+		// set defaults for the remaining items, then read if present
+		ag.cv.type = b_w;
+		ag.pattern = sinewave;
+		ag.aperture = ellipse;
+
+		if (tokens.size() > 10)
+		{
+			if (parse_colorvector(tokens[10], ag.cv))
+			{
+				cerr << "bad colorvector: " << tokens[10] << endl;
+				status=1;
+			}
+		}
+		if (tokens.size() > 11)
+		{
+			if (parse_pattern(tokens[11], ag.pattern))
+			{
+				cerr << "bad pattern: " << tokens[11] << endl;
+				status=1;
+			}
+		}
+		if (tokens.size() > 12)
+		{
+			if (parse_aperture(tokens[12], ag.aperture))
+			{
+				cerr << "bad aperture: " << tokens[12] << endl;
+				status=1;
+			}
+		}
+	
+	}
+
+
+	return status;
+}
+
+
+
+int parse_xhair(const std::string& s, alert::ARXhairSpec& axh)
+{
+	int status=0;
+	vector<string> tokens;
+	tokenize(s, tokens, ",");
+
+	// Expected format for xhair is 
+	// x,y,r_inner,r_mid,r_outer,num_divisions,r1,r2
+	// If r1 and r2 are omitted the crosshairs are not drawn. 
+	// The check circle pattern is always drawn. 
+
+	if (tokens.size() != 6 && tokens.size() != 8)
+	{
+		status=1;	// bad format
+	}
+	else
+	{
+		istringstream iss;
+		iss.str(tokens[0]);
+		iss >> axh.x;
+		if (!iss) 
+		{
+			cerr << "bad x: " << tokens[0] << endl;
+			status=1;
+		}
+		iss.str(tokens[1]); 
+		iss.clear();
+		iss >> axh.y;
+		if (!iss) 
+		{
+			cerr << "bad y: " << tokens[1] << endl;
+			status=1;
+		}
+		iss.str(tokens[2]);
+		iss.clear();
+		iss >> axh.ri;
+		if (!iss) 
+		{
+			cerr << "bad r_inner: " << tokens[2] << endl;
+			status=1;
+		}
+		iss.str(tokens[3]);
+		iss.clear();
+		iss >> axh.rm;
+		if (!iss) 
+		{
+			cerr << "bad r_mid: " << tokens[3] << endl;
+			status=1;
+		}
+		iss.str(tokens[4]);
+		iss.clear();
+		iss >> axh.ro;
+		if (!iss) 
+		{
+			cerr << "bad r_outer: " << tokens[4] << endl;
+			status=1;
+		}
+		iss.str(tokens[5]);
+		iss.clear();
+		iss >> axh.nc;
+		if (!iss) 
+		{
+			cerr << "bad num_divisions: " << tokens[5] << endl;
+			status=1;
+		}
+
+		if (tokens.size() == 8)
+		{
+			iss.str(tokens[6]);
+			iss.clear();
+			iss >> axh.r1;
+			if (!iss) 
+			{
+				cerr << "bad r_xhair1: " << tokens[6] << endl;
+				status=1;
+			}
+			iss.str(tokens[7]);
+			iss.clear();
+			iss >> axh.r2;
+			if (!iss) 
+			{
+				cerr << "bad r_xhair2: " << tokens[7] << endl;
+				status=1;
+			}
+		}
+		else
+		{
+			axh.r1 = axh.r2 = -1;
+		}
+	}
+
+
+	return status;
+}
+
+
 std::ostream& operator<<(std::ostream& out, const COLOR_TYPE& c)
 {
 	switch(c.type)
@@ -473,6 +715,32 @@ int parse_tuning_triplet(std::string s, double& i_dMin, double& i_dMax, int& i_i
 	return status;
 }
 
+int parse_int_list(std::string s, std::vector<int>& list)
+{
+	int status=0;
+	unsigned int i;
+	istringstream iss;
+	int num;
+	vector<string> tokens;
+	tokenize(s, tokens, ",");
+	for (i=0; i<tokens.size(); i++)
+	{
+		iss.clear();
+		iss.str(tokens[i]);
+		iss >> num;
+		if (!iss) 
+		{
+			cerr << "bad tuning value: " << tokens[i] << endl;
+			status=1;
+		}
+		else
+		{
+			list.push_back(num);
+		}
+	}
+	return status;
+}
+
 
 int parse_tuning_list(std::string s, vector<double>& tuning_list, int& i_iSteps)
 {
@@ -694,5 +962,4 @@ void tokenize(const string& str, vector<string>& tokens, const string& delimiter
         pos = str.find_first_of(delimiters, lastPos);
     }
 }
-
 
