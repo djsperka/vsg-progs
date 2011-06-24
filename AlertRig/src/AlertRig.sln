@@ -87,8 +87,6 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "mouse3", "mouse3\mouse3.vcp
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "simpler", "simpler\simpler.vcproj", "{D2258A72-8F5E-497B-BBE2-9ACAFE2B1CA6}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "AcuteCoolMouse", "AcuteCoolMouse\AcuteCoolMouse.vcproj", "{00733EF4-C24A-4217-8358-B2A75BFCF15D}"
-EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "NewMSequence", "NewMSequence\NewMSequence.vcproj", "{B668D1E0-F0D0-4A7D-8D2D-EB9697C9ECE1}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "MsgSvr", "MsgSvr\MsgSvr.vcproj", "{55527689-ED1F-4D4F-A441-E2B9CD745369}"
@@ -149,8 +147,6 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "fixstim", "fixstim\fixstim.
 	ProjectSection(ProjectDependencies) = postProject
 		{E7D13D4D-A7AD-46B3-A513-BC9B6297E6D3} = {E7D13D4D-A7AD-46B3-A513-BC9B6297E6D3}
 	EndProjectSection
-EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "threaded", "threaded\threaded.vcproj", "{DCA34B37-2E25-4B49-A32D-A32CC5A646C7}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "cramp", "cramp\cramp.vcproj", "{1BA513C4-CC00-4F56-B206-AC22388C047A}"
 	ProjectSection(ProjectDependencies) = postProject
@@ -329,14 +325,6 @@ Global
 		{D2258A72-8F5E-497B-BBE2-9ACAFE2B1CA6}.Unicode Debug|Win32.Build.0 = Debug|Win32
 		{D2258A72-8F5E-497B-BBE2-9ACAFE2B1CA6}.Unicode Release|Win32.ActiveCfg = Release|Win32
 		{D2258A72-8F5E-497B-BBE2-9ACAFE2B1CA6}.Unicode Release|Win32.Build.0 = Release|Win32
-		{00733EF4-C24A-4217-8358-B2A75BFCF15D}.Debug|Win32.ActiveCfg = Debug|Win32
-		{00733EF4-C24A-4217-8358-B2A75BFCF15D}.Debug|Win32.Build.0 = Debug|Win32
-		{00733EF4-C24A-4217-8358-B2A75BFCF15D}.Release|Win32.ActiveCfg = Release|Win32
-		{00733EF4-C24A-4217-8358-B2A75BFCF15D}.Release|Win32.Build.0 = Release|Win32
-		{00733EF4-C24A-4217-8358-B2A75BFCF15D}.Unicode Debug|Win32.ActiveCfg = Debug|Win32
-		{00733EF4-C24A-4217-8358-B2A75BFCF15D}.Unicode Debug|Win32.Build.0 = Debug|Win32
-		{00733EF4-C24A-4217-8358-B2A75BFCF15D}.Unicode Release|Win32.ActiveCfg = Release|Win32
-		{00733EF4-C24A-4217-8358-B2A75BFCF15D}.Unicode Release|Win32.Build.0 = Release|Win32
 		{B668D1E0-F0D0-4A7D-8D2D-EB9697C9ECE1}.Debug|Win32.ActiveCfg = Debug|Win32
 		{B668D1E0-F0D0-4A7D-8D2D-EB9697C9ECE1}.Debug|Win32.Build.0 = Debug|Win32
 		{B668D1E0-F0D0-4A7D-8D2D-EB9697C9ECE1}.Release|Win32.ActiveCfg = Release|Win32
@@ -473,14 +461,6 @@ Global
 		{851D4849-9B90-45E0-B8CE-9B86FCD7A184}.Unicode Debug|Win32.Build.0 = Debug|Win32
 		{851D4849-9B90-45E0-B8CE-9B86FCD7A184}.Unicode Release|Win32.ActiveCfg = Release|Win32
 		{851D4849-9B90-45E0-B8CE-9B86FCD7A184}.Unicode Release|Win32.Build.0 = Release|Win32
-		{DCA34B37-2E25-4B49-A32D-A32CC5A646C7}.Debug|Win32.ActiveCfg = Debug|Win32
-		{DCA34B37-2E25-4B49-A32D-A32CC5A646C7}.Debug|Win32.Build.0 = Debug|Win32
-		{DCA34B37-2E25-4B49-A32D-A32CC5A646C7}.Release|Win32.ActiveCfg = Release|Win32
-		{DCA34B37-2E25-4B49-A32D-A32CC5A646C7}.Release|Win32.Build.0 = Release|Win32
-		{DCA34B37-2E25-4B49-A32D-A32CC5A646C7}.Unicode Debug|Win32.ActiveCfg = Debug|Win32
-		{DCA34B37-2E25-4B49-A32D-A32CC5A646C7}.Unicode Debug|Win32.Build.0 = Debug|Win32
-		{DCA34B37-2E25-4B49-A32D-A32CC5A646C7}.Unicode Release|Win32.ActiveCfg = Release|Win32
-		{DCA34B37-2E25-4B49-A32D-A32CC5A646C7}.Unicode Release|Win32.Build.0 = Release|Win32
 		{1BA513C4-CC00-4F56-B206-AC22388C047A}.Debug|Win32.ActiveCfg = Debug|Win32
 		{1BA513C4-CC00-4F56-B206-AC22388C047A}.Debug|Win32.Build.0 = Debug|Win32
 		{1BA513C4-CC00-4F56-B206-AC22388C047A}.Release|Win32.ActiveCfg = Release|Win32
