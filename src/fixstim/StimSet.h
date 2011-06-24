@@ -6,9 +6,15 @@ using namespace alert;
 
 class StimSet
 {
+private:
+	double m_spatialphase;
 public:
-	StimSet() {};
+	StimSet() : m_spatialphase(0) {};
+	StimSet(double spph) : m_spatialphase(spph) {};
 	virtual ~StimSet() {};
+
+	// Get spatial phase value preferred
+	double get_spatial_phase() { return m_spatialphase; };
 
 	// subclasses should return the number of pages they will need.
 	virtual int num_pages() = 0;
@@ -52,7 +58,7 @@ public:
 class GratingStimSet: public StimSet
 {
 public:
-	GratingStimSet(alert::ARGratingSpec& g, double xoffset, double yoffset) : StimSet(), m_page(-1), m_grating(g) {m_grating.x += xoffset; m_grating.y += yoffset;};
+	GratingStimSet(alert::ARGratingSpec& g, double xoffset, double yoffset, double spatialphase=0) : StimSet(spatialphase), m_page(-1), m_grating(g) {m_grating.x += xoffset; m_grating.y += yoffset;};
 	virtual ~GratingStimSet() {};
 	virtual int num_pages();
 	virtual int num_overlay_pages();
@@ -71,7 +77,7 @@ private:
 class FixptGratingStimSet: public StimSet
 {
 public:
-	FixptGratingStimSet(alert::ARContrastFixationPointSpec& f, alert::ARGratingSpec& g, double xoffset, double yoffset) : StimSet(), m_fixpt(f), m_grating(g), m_page(-1), m_bHaveGrating(true) {m_grating.x += xoffset; m_grating.y += yoffset; m_fixpt.x += xoffset; m_fixpt.y += yoffset;};
+	FixptGratingStimSet(alert::ARContrastFixationPointSpec& f, alert::ARGratingSpec& g, double xoffset, double yoffset, double spatialphase=0) : StimSet(spatialphase), m_fixpt(f), m_grating(g), m_page(-1), m_bHaveGrating(true) {m_grating.x += xoffset; m_grating.y += yoffset; m_fixpt.x += xoffset; m_fixpt.y += yoffset;};
 	FixptGratingStimSet(alert::ARContrastFixationPointSpec& f, double xoffset, double yoffset) : StimSet(), m_fixpt(f), m_page(-1), m_bHaveGrating(false) {m_fixpt.x += xoffset; m_fixpt.y += yoffset;};
 	virtual ~FixptGratingStimSet() {};
 	virtual int num_pages();
@@ -92,8 +98,8 @@ private:
 class ContrastStimSet: public StimSet
 {
 public:
-	ContrastStimSet(alert::ARContrastFixationPointSpec& f, alert::ARGratingSpec& g, std::vector<double> parameters) : m_fixpt(f), m_grating(g), m_bHaveFixpt(true), m_contrasts(parameters) {};
-	ContrastStimSet(alert::ARGratingSpec& g, std::vector<double> parameters) : m_grating(g), m_bHaveFixpt(false), m_contrasts(parameters) {};
+	ContrastStimSet(alert::ARContrastFixationPointSpec& f, alert::ARGratingSpec& g, std::vector<double> parameters, double spatialphase=0) : StimSet(spatialphase), m_fixpt(f), m_grating(g), m_bHaveFixpt(true), m_contrasts(parameters) {};
+	ContrastStimSet(alert::ARGratingSpec& g, std::vector<double> parameters, double spatialphase=0) : StimSet(spatialphase), m_grating(g), m_bHaveFixpt(false), m_contrasts(parameters) {};
 	virtual int num_pages() {return 1;};
 	virtual int num_overlay_pages() {return 0;};
 	//virtual int init(std::vector<int> pages);
@@ -112,8 +118,8 @@ private:
 class TFStimSet: public StimSet
 {
 public:
-	TFStimSet(alert::ARContrastFixationPointSpec& f, alert::ARGratingSpec& g, std::vector<double> parameters) : m_fixpt(f), m_grating(g), m_bHaveFixpt(true), m_temporal_frequencies(parameters) {};
-	TFStimSet(alert::ARGratingSpec& g, std::vector<double> parameters) : m_grating(g), m_bHaveFixpt(false), m_temporal_frequencies(parameters) {};
+	TFStimSet(alert::ARContrastFixationPointSpec& f, alert::ARGratingSpec& g, std::vector<double> parameters, double spatialphase=0) : StimSet(spatialphase), m_fixpt(f), m_grating(g), m_bHaveFixpt(true), m_temporal_frequencies(parameters) {};
+	TFStimSet(alert::ARGratingSpec& g, std::vector<double> parameters, double spatialphase=0) : StimSet(spatialphase), m_grating(g), m_bHaveFixpt(false), m_temporal_frequencies(parameters) {};
 	virtual int num_pages() {return 1;};
 	virtual int num_overlay_pages() {return 0;};
 	//virtual int init(std::vector<int> pages);
@@ -134,8 +140,8 @@ private:
 class SFStimSet: public StimSet
 {
 public:
-	SFStimSet(alert::ARContrastFixationPointSpec& f, alert::ARGratingSpec& g, std::vector<double> parameters) : m_fixpt(f), m_grating(g), m_bHaveFixpt(true), m_spatial_frequencies(parameters), m_current_page(-1) {};
-	SFStimSet(alert::ARGratingSpec& g, std::vector<double> parameters) : m_grating(g), m_bHaveFixpt(false), m_spatial_frequencies(parameters), m_current_page(-1) {};
+	SFStimSet(alert::ARContrastFixationPointSpec& f, alert::ARGratingSpec& g, std::vector<double> parameters, double spatialphase=0) : StimSet(spatialphase), m_fixpt(f), m_grating(g), m_bHaveFixpt(true), m_spatial_frequencies(parameters), m_current_page(-1) {};
+	SFStimSet(alert::ARGratingSpec& g, std::vector<double> parameters, double spatialphase=0) : StimSet(spatialphase), m_grating(g), m_bHaveFixpt(false), m_spatial_frequencies(parameters), m_current_page(-1) {};
 	virtual int num_pages() {return 2;};
 	virtual int num_overlay_pages() {return 0;};
 	//virtual int init(std::vector<int> pages);
@@ -156,8 +162,8 @@ private:
 class OrientationStimSet: public StimSet
 {
 public:
-	OrientationStimSet(alert::ARContrastFixationPointSpec& f, alert::ARGratingSpec& g, std::vector<double> parameters) : m_fixpt(f), m_grating(g), m_bHaveFixpt(true), m_orientations(parameters), m_current_page(-1) {};
-	OrientationStimSet(alert::ARGratingSpec& g, std::vector<double> parameters) : m_grating(g), m_bHaveFixpt(false), m_orientations(parameters), m_current_page(-1) {};
+	OrientationStimSet(alert::ARContrastFixationPointSpec& f, alert::ARGratingSpec& g, std::vector<double> parameters, double spatialphase=0) : StimSet(spatialphase), m_fixpt(f), m_grating(g), m_bHaveFixpt(true), m_orientations(parameters), m_current_page(-1) {};
+	OrientationStimSet(alert::ARGratingSpec& g, std::vector<double> parameters, double spatialphase=0) : StimSet(spatialphase), m_grating(g), m_bHaveFixpt(false), m_orientations(parameters), m_current_page(-1) {};
 	virtual int num_pages() {return 2;};
 	virtual int num_overlay_pages() {return 0;};
 	//virtual int init(std::vector<int> pages);
@@ -178,8 +184,8 @@ private:
 class AreaStimSet: public StimSet
 {
 public:
-	AreaStimSet(alert::ARContrastFixationPointSpec& f, alert::ARGratingSpec& g, std::vector<double> parameters) : m_fixpt(f), m_grating(g), m_bHaveFixpt(true), m_diameters(parameters), m_current_page(-1) {};
-	AreaStimSet(alert::ARGratingSpec& g, std::vector<double> parameters) : m_grating(g), m_bHaveFixpt(false), m_diameters(parameters), m_current_page(-1) {};
+	AreaStimSet(alert::ARContrastFixationPointSpec& f, alert::ARGratingSpec& g, std::vector<double> parameters, double spatialphase=0) : StimSet(spatialphase), m_fixpt(f), m_grating(g), m_bHaveFixpt(true), m_diameters(parameters), m_current_page(-1) {};
+	AreaStimSet(alert::ARGratingSpec& g, std::vector<double> parameters, double spatialphase=0) : StimSet(spatialphase), m_grating(g), m_bHaveFixpt(false), m_diameters(parameters), m_current_page(-1) {};
 	virtual int num_pages() {return 2;};
 	virtual int num_overlay_pages() {return 0;};
 	//virtual int init(std::vector<int> pages);
@@ -200,8 +206,8 @@ private:
 class DonutStimSet: public StimSet
 {
 public:
-	DonutStimSet(alert::ARContrastFixationPointSpec& f, alert::ARGratingSpec& g, std::vector<double> parameters) : m_fixpt(f), m_donut(g), m_bHaveFixpt(true), m_current_page(-1) {init_diameters(parameters);};
-	DonutStimSet(alert::ARGratingSpec& g, std::vector<double> parameters) : m_donut(g), m_bHaveFixpt(false), m_current_page(-1) {init_diameters(parameters);};
+	DonutStimSet(alert::ARContrastFixationPointSpec& f, alert::ARGratingSpec& g, std::vector<double> parameters, double spatialphase=0) : StimSet(spatialphase), m_fixpt(f), m_donut(g), m_bHaveFixpt(true), m_current_page(-1) {init_diameters(parameters);};
+	DonutStimSet(alert::ARGratingSpec& g, std::vector<double> parameters, double spatialphase=0) : StimSet(spatialphase), m_donut(g), m_bHaveFixpt(false), m_current_page(-1) {init_diameters(parameters);};
 	virtual int num_pages() {return 2;};
 	virtual int num_overlay_pages() {return 0;};
 	//virtual int init(std::vector<int> pages);
