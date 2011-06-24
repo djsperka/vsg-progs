@@ -250,6 +250,7 @@ int GratingStimSet::handle_trigger(std::string &s)
 	{
 		m_grating.select();
 		vsgObjResetDriftPhase();
+		vsgObjSetSpatialPhase(get_spatial_phase());
 		m_grating.setContrast(m_contrast);
 		status = 1;
 	}
@@ -309,6 +310,7 @@ int FixptGratingStimSet::handle_trigger(std::string &s)
 		{
 			m_grating.select();
 			vsgObjResetDriftPhase();
+			vsgObjSetSpatialPhase(get_spatial_phase());
 			m_grating.setContrast(m_contrast);
 		}
 		status = 1;
@@ -368,6 +370,7 @@ int ContrastStimSet::handle_trigger(std::string& s)
 	{
 		m_grating.select();
 		vsgObjResetDriftPhase();
+		vsgObjSetSpatialPhase(get_spatial_phase());
 		m_grating.setContrast((int)*m_iterator);
 		status = 1;
 	}
@@ -434,6 +437,7 @@ int TFStimSet::handle_trigger(std::string& s)
 	{
 		m_grating.select();
 		vsgObjResetDriftPhase();
+		vsgObjSetSpatialPhase(get_spatial_phase());
 		m_grating.setContrast(m_contrast);
 		m_grating.setTemporalFrequency(*m_iterator);
 		status = 1;
@@ -507,6 +511,7 @@ int SFStimSet::handle_trigger(std::string& s)
 	{
 		m_grating.select();
 		vsgObjResetDriftPhase();
+		vsgObjSetSpatialPhase(get_spatial_phase());
 		m_grating.setContrast(m_contrast);
 		status = 1;
 	}
@@ -588,6 +593,7 @@ int OrientationStimSet::handle_trigger(std::string& s)
 	{
 		m_grating.select();
 		vsgObjResetDriftPhase();
+		vsgObjSetSpatialPhase(get_spatial_phase());
 		m_grating.setContrast(m_contrast);
 		status = 1;
 	}
@@ -670,6 +676,7 @@ int AreaStimSet::handle_trigger(std::string& s)
 	{
 		m_grating.select();
 		vsgObjResetDriftPhase();
+		vsgObjSetSpatialPhase(get_spatial_phase());
 		m_grating.setContrast(m_contrast);
 		status = 1;
 	}
@@ -701,9 +708,10 @@ int AreaStimSet::handle_trigger(std::string& s)
 			m_fixpt.draw();
 		}
 		// HACK
-		VSGPAGEDESCRIPTOR page;
-		vsgGetCurrentDrawPage(&page);
-		cout << "handle a: zdp=" << vsgGetZoneDisplayPage(vsgVIDEOPAGE) << " dp=" << page.Page << endl;
+		//VSGPAGEDESCRIPTOR page;
+		//page._StructSize = sizeof(VSGPAGEDESCRIPTOR);
+		//vsgGetCurrentDrawPage(&page);
+		//cout << "handle a: zdp=" << vsgGetZoneDisplayPage(vsgVIDEOPAGE) << " dp=" << page.Page << endl;
 		vsgSetZoneDisplayPage(vsgVIDEOPAGE, m_pages[m_current_page]);
 		//end hack
 		status = 0;
@@ -769,6 +777,7 @@ int DonutStimSet::handle_trigger(std::string& s)
 {
 	int status = 0;
 	VSGPAGEDESCRIPTOR page;
+	page._StructSize = sizeof(VSGPAGEDESCRIPTOR);
 	if (s == "F")
 	{
 		if (m_bHaveFixpt)
@@ -781,15 +790,16 @@ int DonutStimSet::handle_trigger(std::string& s)
 	{
 		m_donut.select();
 		vsgObjResetDriftPhase();
+		vsgObjSetSpatialPhase(get_spatial_phase());
 		m_donut.setContrast(m_contrast);
-		vsgGetCurrentDrawPage(&page);
-		cout << "handle S: zdp=" << vsgGetZoneDisplayPage(vsgVIDEOPAGE) << " dp=" << page.Page << endl;
+		//vsgGetCurrentDrawPage(&page);
+		//cout << "handle S: zdp=" << vsgGetZoneDisplayPage(vsgVIDEOPAGE) << " dp=" << page.Page << endl;
 		status = 1;
 	}
 	else if (s == "s")
 	{
-		vsgGetCurrentDrawPage(&page);
-		cout << "handle s: zdp=" << vsgGetZoneDisplayPage(vsgVIDEOPAGE) << " dp=" << page.Page << endl;
+		//vsgGetCurrentDrawPage(&page);
+		//cout << "handle s: zdp=" << vsgGetZoneDisplayPage(vsgVIDEOPAGE) << " dp=" << page.Page << endl;
 		m_donut.setContrast(0);
 		status = 1;
 	}
@@ -818,8 +828,8 @@ int DonutStimSet::handle_trigger(std::string& s)
 			m_fixpt.draw();
 		}
 		// HACK
-		vsgGetCurrentDrawPage(&page);
-		cout << "handle a: zdp=" << vsgGetZoneDisplayPage(vsgVIDEOPAGE) << " dp=" << page.Page << endl;
+		//vsgGetCurrentDrawPage(&page);
+		//cout << "handle a: zdp=" << vsgGetZoneDisplayPage(vsgVIDEOPAGE) << " dp=" << page.Page << endl;
 		vsgSetZoneDisplayPage(vsgVIDEOPAGE, m_pages[m_current_page]);
 		//end hack
 		status = 0;
@@ -936,7 +946,11 @@ int CRGStimSet::handle_trigger(std::string& s)
 	else if (s == "S")
 	{
 		m_grating0.setContrast(-1*m_contrast);
+		m_grating0.select();
+		vsgObjSetSpatialPhase(get_spatial_phase());
 		m_grating1.setContrast(m_contrast);
+		m_grating1.select();
+		vsgObjSetSpatialPhase(get_spatial_phase());
 		vsgSetSynchronisedCommand(vsgSYNC_PRESENT, vsgCYCLEPAGEENABLE, 0);
 		status = 1;
 	}
