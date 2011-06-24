@@ -1,4 +1,4 @@
-/* $Id: fixstim.cpp,v 1.2 2011-06-23 02:09:34 djsperka Exp $ */
+/* $Id: fixstim.cpp,v 1.3 2011-06-24 01:51:02 djsperka Exp $ */
 
 #include <iostream>
 #include <fstream>
@@ -37,6 +37,7 @@ ARGratingSpec f_grating;
 StimSet *f_pStimSet = NULL;			// This is for master in dualVSG mode
 StimSet *f_pStimSetSlave = NULL;
 int f_iDistanceToScreenMM = -1;
+double f_spatialphase = 0;
 TriggerVector triggers;
 bool f_bDualVSG = false;
 bool f_bDualVSGBothStim = false;
@@ -53,7 +54,7 @@ int args(int argc, char **argv);
 void usage();
 void init_triggers();
 int callback(int &output, const CallbackTrigger* ptrig);
-template <class T> StimSet* create_stimset(bool bHaveFixpt, ARContrastFixationPointSpec& fixpt, ARGratingSpec& grating, vector<double> params, double offsetX, double offsetY);
+template <class T> StimSet* create_stimset(bool bHaveFixpt, ARContrastFixationPointSpec& fixpt, ARGratingSpec& grating, vector<double> params, double offsetX, double offsetY, double spatialphase);
 
 int main (int argc, char *argv[])
 {
@@ -316,7 +317,7 @@ int callback(int &output, const CallbackTrigger* ptrig)
 }
 
 template <class T>
-StimSet* create_stimset(bool bHaveFixpt, ARContrastFixationPointSpec& fixpt, ARGratingSpec& grating, vector<double> params, double offsetX, double offsetY)
+StimSet* create_stimset(bool bHaveFixpt, ARContrastFixationPointSpec& fixpt, ARGratingSpec& grating, vector<double> params, double offsetX, double offsetY, double spatialphase)
 {
 	StimSet *pstimset=(StimSet *)NULL;
 	ARContrastFixationPointSpec f(fixpt);
@@ -327,11 +328,11 @@ StimSet* create_stimset(bool bHaveFixpt, ARContrastFixationPointSpec& fixpt, ARG
 	{
 		f.x += offsetX;
 		f.y += offsetY;
-		pstimset = new T(f, g, params);
+		pstimset = new T(f, g, params, spatialphase);
 	}
 	else
 	{
-		pstimset = new T(g, params);
+		pstimset = new T(g, params, spatialphase);
 	}
 	return pstimset;
 }
@@ -350,7 +351,7 @@ int args(int argc, char **argv)
 	string sequence_filename;
 	bool have_F = false;
 	char activeScreen = ' ';
-	while ((c = getopt(argc, argv, "f:b:d:avg:s:C:T:S:O:A:R:B:F:DMVr:H:Zp:K")) != -1)
+	while ((c = getopt(argc, argv, "f:b:d:avg:s:C:T:S:O:A:R:B:F:DMVr:H:Zp:KP:")) != -1)
 	{
 		switch(c)
 		{
@@ -394,21 +395,21 @@ int args(int argc, char **argv)
 				case ' ':
 					if (!have_fixpt)
 					{
-						f_pStimSet = new GratingStimSet(f_grating, 0, 0);
+						f_pStimSet = new GratingStimSet(f_grating, 0, 0, f_spatialphase);
 					}
 					else
 					{
-						f_pStimSet = new FixptGratingStimSet(f_fixpt, f_grating, 0, 0);
+						f_pStimSet = new FixptGratingStimSet(f_fixpt, f_grating, 0, 0, f_spatialphase);
 					}
 					break;
 				case 'V':
 					if (!have_fixpt)
 					{
-						f_pStimSetSlave = new GratingStimSet(f_grating, f_dSlaveXOffset, f_dSlaveYOffset);
+						f_pStimSetSlave = new GratingStimSet(f_grating, f_dSlaveXOffset, f_dSlaveYOffset, f_spatialphase);
 					}
 					else
 					{
-						f_pStimSetSlave = new FixptGratingStimSet(f_fixpt, f_grating, f_dSlaveXOffset, f_dSlaveYOffset);
+						f_pStimSetSlave = new FixptGratingStimSet(f_fixpt, f_grating, f_dSlaveXOffset, f_dSlaveYOffset, f_spatialphase);
 					}
 					break;
 				case 'D':
@@ -419,13 +420,13 @@ int args(int argc, char **argv)
 					}
 					else if (!have_fixpt)
 					{
-						f_pStimSet = new GratingStimSet(f_grating, 0, 0);
-						f_pStimSetSlave = new GratingStimSet(f_grating, f_dSlaveXOffset, f_dSlaveYOffset);
+						f_pStimSet = new GratingStimSet(f_grating, 0, 0, f_spatialphase);
+						f_pStimSetSlave = new GratingStimSet(f_grating, f_dSlaveXOffset, f_dSlaveYOffset, f_spatialphase);
 					}
 					else
 					{
-						f_pStimSet = new FixptGratingStimSet(f_fixpt, f_grating, 0, 0);
-						f_pStimSetSlave = new FixptGratingStimSet(f_fixpt, f_grating, f_dSlaveXOffset, f_dSlaveYOffset);
+						f_pStimSet = new FixptGratingStimSet(f_fixpt, f_grating, 0, 0, f_spatialphase);
+						f_pStimSetSlave = new FixptGratingStimSet(f_fixpt, f_grating, f_dSlaveXOffset, f_dSlaveYOffset, f_spatialphase);
 					}
 					break;
 				}
@@ -441,6 +442,11 @@ int args(int argc, char **argv)
 		case 'p':
 			s.assign(optarg);
 			if (parse_integer(s, f_pulse))
+				errflg++;
+			break;
+		case 'P':
+			s.assign(optarg);
+			if (parse_double(s, f_spatialphase))
 				errflg++;
 			break;
 		case 'O':
@@ -477,14 +483,14 @@ int args(int argc, char **argv)
 								{
 								case 'M':
 								case ' ':
-									f_pStimSet = create_stimset<SFStimSet>(have_fixpt, f_fixpt, f_grating, tuning_parameters, 0, 0);
+									f_pStimSet = create_stimset<SFStimSet>(have_fixpt, f_fixpt, f_grating, tuning_parameters, 0, 0, f_spatialphase);
 									break;
 								case 'V':
-									f_pStimSetSlave = create_stimset<SFStimSet>(have_fixpt, f_fixpt, f_grating, tuning_parameters, f_dSlaveXOffset, f_dSlaveYOffset);
+									f_pStimSetSlave = create_stimset<SFStimSet>(have_fixpt, f_fixpt, f_grating, tuning_parameters, f_dSlaveXOffset, f_dSlaveYOffset, f_spatialphase);
 									break;
 								case 'D':
-									f_pStimSet = create_stimset<SFStimSet>(have_fixpt, f_fixpt, f_grating, tuning_parameters, 0, 0);
-									f_pStimSetSlave = create_stimset<SFStimSet>(have_fixpt, f_fixpt, f_grating, tuning_parameters, f_dSlaveXOffset, f_dSlaveYOffset);
+									f_pStimSet = create_stimset<SFStimSet>(have_fixpt, f_fixpt, f_grating, tuning_parameters, 0, 0, f_spatialphase);
+									f_pStimSetSlave = create_stimset<SFStimSet>(have_fixpt, f_fixpt, f_grating, tuning_parameters, f_dSlaveXOffset, f_dSlaveYOffset, f_spatialphase);
 									break;
 								}
 								break;
@@ -495,14 +501,14 @@ int args(int argc, char **argv)
 								{
 								case 'M':
 								case ' ':
-									f_pStimSet = create_stimset<ContrastStimSet>(have_fixpt, f_fixpt, f_grating, tuning_parameters, 0, 0);
+									f_pStimSet = create_stimset<ContrastStimSet>(have_fixpt, f_fixpt, f_grating, tuning_parameters, 0, 0, f_spatialphase);
 									break;
 								case 'V':
-									f_pStimSetSlave = create_stimset<ContrastStimSet>(have_fixpt, f_fixpt, f_grating, tuning_parameters, f_dSlaveXOffset, f_dSlaveYOffset);
+									f_pStimSetSlave = create_stimset<ContrastStimSet>(have_fixpt, f_fixpt, f_grating, tuning_parameters, f_dSlaveXOffset, f_dSlaveYOffset, f_spatialphase);
 									break;
 								case 'D':
-									f_pStimSet = create_stimset<ContrastStimSet>(have_fixpt, f_fixpt, f_grating, tuning_parameters, 0, 0);
-									f_pStimSetSlave = create_stimset<ContrastStimSet>(have_fixpt, f_fixpt, f_grating, tuning_parameters, f_dSlaveXOffset, f_dSlaveYOffset);
+									f_pStimSet = create_stimset<ContrastStimSet>(have_fixpt, f_fixpt, f_grating, tuning_parameters, 0, 0, f_spatialphase);
+									f_pStimSetSlave = create_stimset<ContrastStimSet>(have_fixpt, f_fixpt, f_grating, tuning_parameters, f_dSlaveXOffset, f_dSlaveYOffset, f_spatialphase);
 									break;
 								}
 								break;
@@ -513,14 +519,14 @@ int args(int argc, char **argv)
 								{
 								case 'M':
 								case ' ':
-									f_pStimSet = create_stimset<TFStimSet>(have_fixpt, f_fixpt, f_grating, tuning_parameters, 0, 0);
+									f_pStimSet = create_stimset<TFStimSet>(have_fixpt, f_fixpt, f_grating, tuning_parameters, 0, 0, f_spatialphase);
 									break;
 								case 'V':
-									f_pStimSetSlave = create_stimset<TFStimSet>(have_fixpt, f_fixpt, f_grating, tuning_parameters, f_dSlaveXOffset, f_dSlaveYOffset);
+									f_pStimSetSlave = create_stimset<TFStimSet>(have_fixpt, f_fixpt, f_grating, tuning_parameters, f_dSlaveXOffset, f_dSlaveYOffset, f_spatialphase);
 									break;
 								case 'D':
-									f_pStimSet = create_stimset<TFStimSet>(have_fixpt, f_fixpt, f_grating, tuning_parameters, 0, 0);
-									f_pStimSetSlave = create_stimset<TFStimSet>(have_fixpt, f_fixpt, f_grating, tuning_parameters, f_dSlaveXOffset, f_dSlaveYOffset);
+									f_pStimSet = create_stimset<TFStimSet>(have_fixpt, f_fixpt, f_grating, tuning_parameters, 0, 0, f_spatialphase);
+									f_pStimSetSlave = create_stimset<TFStimSet>(have_fixpt, f_fixpt, f_grating, tuning_parameters, f_dSlaveXOffset, f_dSlaveYOffset, f_spatialphase);
 									break;
 								}
 								break;
@@ -531,14 +537,14 @@ int args(int argc, char **argv)
 								{
 								case 'M':
 								case ' ':
-									f_pStimSet = create_stimset<OrientationStimSet>(have_fixpt, f_fixpt, f_grating, tuning_parameters, 0, 0);
+									f_pStimSet = create_stimset<OrientationStimSet>(have_fixpt, f_fixpt, f_grating, tuning_parameters, 0, 0, f_spatialphase);
 									break;
 								case 'V':
-									f_pStimSetSlave = create_stimset<OrientationStimSet>(have_fixpt, f_fixpt, f_grating, tuning_parameters, f_dSlaveXOffset, f_dSlaveYOffset);
+									f_pStimSetSlave = create_stimset<OrientationStimSet>(have_fixpt, f_fixpt, f_grating, tuning_parameters, f_dSlaveXOffset, f_dSlaveYOffset, f_spatialphase);
 									break;
 								case 'D':
-									f_pStimSet = create_stimset<OrientationStimSet>(have_fixpt, f_fixpt, f_grating, tuning_parameters, 0, 0);
-									f_pStimSetSlave = create_stimset<OrientationStimSet>(have_fixpt, f_fixpt, f_grating, tuning_parameters, f_dSlaveXOffset, f_dSlaveYOffset);
+									f_pStimSet = create_stimset<OrientationStimSet>(have_fixpt, f_fixpt, f_grating, tuning_parameters, 0, 0, f_spatialphase);
+									f_pStimSetSlave = create_stimset<OrientationStimSet>(have_fixpt, f_fixpt, f_grating, tuning_parameters, f_dSlaveXOffset, f_dSlaveYOffset, f_spatialphase);
 									break;
 								}
 								break;
@@ -549,14 +555,14 @@ int args(int argc, char **argv)
 								{
 								case 'M':
 								case ' ':
-									f_pStimSet = create_stimset<AreaStimSet>(have_fixpt, f_fixpt, f_grating, tuning_parameters, 0, 0);
+									f_pStimSet = create_stimset<AreaStimSet>(have_fixpt, f_fixpt, f_grating, tuning_parameters, 0, 0, f_spatialphase);
 									break;
 								case 'V':
-									f_pStimSetSlave = create_stimset<AreaStimSet>(have_fixpt, f_fixpt, f_grating, tuning_parameters, f_dSlaveXOffset, f_dSlaveYOffset);
+									f_pStimSetSlave = create_stimset<AreaStimSet>(have_fixpt, f_fixpt, f_grating, tuning_parameters, f_dSlaveXOffset, f_dSlaveYOffset, f_spatialphase);
 									break;
 								case 'D':
-									f_pStimSet = create_stimset<AreaStimSet>(have_fixpt, f_fixpt, f_grating, tuning_parameters, 0, 0);
-									f_pStimSetSlave = create_stimset<AreaStimSet>(have_fixpt, f_fixpt, f_grating, tuning_parameters, f_dSlaveXOffset, f_dSlaveYOffset);
+									f_pStimSet = create_stimset<AreaStimSet>(have_fixpt, f_fixpt, f_grating, tuning_parameters, 0, 0, f_spatialphase);
+									f_pStimSetSlave = create_stimset<AreaStimSet>(have_fixpt, f_fixpt, f_grating, tuning_parameters, f_dSlaveXOffset, f_dSlaveYOffset, f_spatialphase);
 									break;
 								}
 								break;
@@ -567,14 +573,14 @@ int args(int argc, char **argv)
 								{
 								case 'M':
 								case ' ':
-									f_pStimSet = create_stimset<DonutStimSet>(have_fixpt, f_fixpt, f_grating, tuning_parameters, 0, 0);
+									f_pStimSet = create_stimset<DonutStimSet>(have_fixpt, f_fixpt, f_grating, tuning_parameters, 0, 0, f_spatialphase);
 									break;
 								case 'V':
-									f_pStimSetSlave = create_stimset<DonutStimSet>(have_fixpt, f_fixpt, f_grating, tuning_parameters, f_dSlaveXOffset, f_dSlaveYOffset);
+									f_pStimSetSlave = create_stimset<DonutStimSet>(have_fixpt, f_fixpt, f_grating, tuning_parameters, f_dSlaveXOffset, f_dSlaveYOffset, f_spatialphase);
 									break;
 								case 'D':
-									f_pStimSet = create_stimset<DonutStimSet>(have_fixpt, f_fixpt, f_grating, tuning_parameters, 0, 0);
-									f_pStimSetSlave = create_stimset<DonutStimSet>(have_fixpt, f_fixpt, f_grating, tuning_parameters, f_dSlaveXOffset, f_dSlaveYOffset);
+									f_pStimSet = create_stimset<DonutStimSet>(have_fixpt, f_fixpt, f_grating, tuning_parameters, 0, 0, f_spatialphase);
+									f_pStimSetSlave = create_stimset<DonutStimSet>(have_fixpt, f_fixpt, f_grating, tuning_parameters, f_dSlaveXOffset, f_dSlaveYOffset, f_spatialphase);
 									break;
 								}
 								break;

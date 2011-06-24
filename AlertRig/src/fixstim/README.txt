@@ -21,6 +21,12 @@ Command Line options:
         trigger ("F"), the stimulus will have a hole corresponding to the 
         fixation point position. You can omit the fixation point altogether and 
         then the stimulus will have no hole. 
+-P      specify spatial phase for gratings. Applies to any grating spec that 
+        follows (when using a -g), or to the tuning curve set that follows
+        (when using C|O|A|S|T|H). The value should be between -180 and +180. 
+        The spatial phase can be specified more than once -- this may be 
+        useful if using a dual vsg machine and you want the gratings on 
+        the two screens to have different initial spatial phases.
         
         
 To specify a single grating as the stimulus, use the "-g" option:
