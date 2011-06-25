@@ -211,18 +211,26 @@ int init_pages()
 	int islice=50;
 	ContrastTrigger *ptrig = NULL;
 	CallbackTrigger *pcall = NULL;
+	string s;
 
-	// initialize video pages
+	// initialize video pages. Video memory (all pages) is cleared to vsgBACKGROUND.
 	if (ARvsg::instance().init_video())
 	{
 		cerr << "VSG video initialization failed!" << endl;
 		return 1;
 	}
 
+	// set current display page to page 1.
+	vsgSetZoneDisplayPage(vsgVIDEOPAGE, f_iPage1);
+
+	// We will draw on page 0, so we will not see drawing artifacts. 
+	// The draw page is not displayed until vsgPresent() is called. 
 	vsgSetDrawPage(vsgVIDEOPAGE, f_iPage0, vsgNOCLEAR);
 
+	// draw first grating. Note that with the above setup, gratings should be drawn
+	// with draw() or draw((long)vsgTRANSONLOWER) or draw(false)
 	m_gratings[0]->init(islice);
-	m_gratings[0]->draw(true);
+	m_gratings[0]->draw();
 	m_gratings[0]->setContrast(0);
 	triggers.addTrigger(new CallbackTrigger("S", 0x2, 0x2, 0x2, 0x2, callback));
 	triggers.addTrigger(new CallbackTrigger("s", 0x2, 0x0, 0x2, 0x2, callback));
@@ -230,11 +238,15 @@ int init_pages()
 	if (m_gratings.size() > 1)
 	{
 		m_gratings[1]->init(islice);
-		m_gratings[1]->draw(true);
+		m_gratings[1]->draw(false);
 		m_gratings[1]->setContrast(0);
 		triggers.addTrigger(new CallbackTrigger("T", 0x4, 0x4, 0x2, 0x2, callback));
 		triggers.addTrigger(new CallbackTrigger("t", 0x4, 0x0, 0x2, 0x2, callback));
 	}
+
+	// This will make the current draw page the current display page. 
+	vsgPresent();
+
 
 
 	// quit trigger
