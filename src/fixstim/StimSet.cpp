@@ -237,8 +237,7 @@ int GratingStimSet::init(ARvsg& vsg, std::vector<int> pages)
 	vsgSetDrawPage(vsgVIDEOPAGE, m_page, vsgBACKGROUND);
 	m_grating.init(vsg, 40);
 	m_grating.setContrast(0);
-//	m_grating.draw(true);
-	m_grating.draw((long)vsgTRANSONLOWER);
+	m_grating.draw();
 	vsgPresent();
 	return status;
 }
@@ -287,7 +286,7 @@ int FixptGratingStimSet::init(ARvsg& vsg, std::vector<int> pages)
 		m_contrast = m_grating.contrast;
 		m_grating.init(vsg, 40);
 		m_grating.setContrast(0);
-		m_grating.draw((long)vsgTRANSONLOWER);
+		m_grating.draw();
 	}
 	m_fixpt.init(vsg, 2);
 	m_fixpt.setContrast(0);
@@ -343,7 +342,7 @@ int ContrastStimSet::init(ARvsg& vsg, std::vector<int> pages)
 	vsgSetDrawPage(vsgVIDEOPAGE, m_page, vsgBACKGROUND);
 	m_grating.init(vsg, 40);
 	m_grating.setContrast(0);
-	m_grating.draw((long)vsgTRANSONLOWER);
+	m_grating.draw();
 	if (m_bHaveFixpt)
 	{
 		m_fixpt.init(vsg, 2);
@@ -353,7 +352,7 @@ int ContrastStimSet::init(ARvsg& vsg, std::vector<int> pages)
 
 	vsgPresent();
 	return status;
-}
+}	
 
 int ContrastStimSet::handle_trigger(std::string& s)
 {
@@ -411,7 +410,7 @@ int TFStimSet::init(ARvsg& vsg, std::vector<int> pages)
 	m_grating.init(vsg, 40);
 	m_grating.setContrast(0);
 	m_grating.setTemporalFrequency(*m_iterator);
-	m_grating.draw((long)vsgTRANSONLOWER);
+	m_grating.draw();
 	if (m_bHaveFixpt)
 	{
 		m_fixpt.init(vsg, 2);
@@ -485,7 +484,7 @@ int SFStimSet::init(ARvsg& vsg, std::vector<int> pages)
 	m_grating.init(vsg, 40);
 	m_grating.setContrast(0);
 	m_grating.sf = *m_iterator;
-	m_grating.draw((long)vsgTRANSONLOWER);
+	m_grating.draw();
 	if (m_bHaveFixpt)
 	{
 		m_fixpt.init(vsg, 2);
@@ -537,7 +536,7 @@ int SFStimSet::handle_trigger(std::string& s)
 		vsgSetDrawPage(vsgVIDEOPAGE, m_pages[m_current_page], vsgBACKGROUND);
 		//m_grating.setContrast(0);
 		m_grating.sf = *m_iterator;
-		m_grating.draw((long)vsgTRANSONLOWER);
+		m_grating.draw();
 		if (m_bHaveFixpt)
 		{
 			//m_fixpt.setContrast(0);
@@ -567,7 +566,7 @@ int OrientationStimSet::init(ARvsg& vsg, std::vector<int> pages)
 	m_grating.init(vsg, 40);
 	m_grating.setContrast(0);
 	m_grating.orientation = *m_iterator;
-	m_grating.draw((long)vsgTRANSONLOWER);
+	m_grating.draw();
 	if (m_bHaveFixpt)
 	{
 		m_fixpt.init(vsg, 2);
@@ -619,7 +618,7 @@ int OrientationStimSet::handle_trigger(std::string& s)
 		vsgSetDrawPage(vsgVIDEOPAGE, m_pages[m_current_page], vsgBACKGROUND);
 		//m_grating.setContrast(0);
 		m_grating.orientation = *m_iterator;
-		m_grating.draw((long)vsgTRANSONLOWER);
+		m_grating.draw();
 		if (m_bHaveFixpt)
 		{
 			//m_fixpt.setContrast(0);
@@ -650,7 +649,7 @@ int AreaStimSet::init(ARvsg& vsg, std::vector<int> pages)
 	m_grating.init(vsg, 40);
 	m_grating.setContrast(0);
 	m_grating.w = m_grating.h = *m_iterator;
-	m_grating.draw((long)vsgTRANSONLOWER);
+	m_grating.draw();
 	if (m_bHaveFixpt)
 	{
 		m_fixpt.init(vsg, 2);
@@ -702,7 +701,7 @@ int AreaStimSet::handle_trigger(std::string& s)
 		vsgSetDrawPage(vsgVIDEOPAGE, m_pages[m_current_page], vsgBACKGROUND);
 		//m_grating.setContrast(0);
 		m_grating.w = m_grating.h = *m_iterator;
-		m_grating.draw((long)vsgTRANSONLOWER);
+		m_grating.draw();
 		if (m_bHaveFixpt)
 		{
 			m_fixpt.draw();
@@ -762,7 +761,7 @@ int DonutStimSet::init(ARvsg& vsg, std::vector<int> pages)
 	m_donut.setContrast(0);
 	m_donut.w = m_donut.h = m_iterator->first;
 	m_donut.wd = m_donut.hd = m_iterator->second;
-	m_donut.draw((long)vsgTRANSONLOWER);
+	m_donut.draw();
 	if (m_bHaveFixpt)
 	{
 		m_fixpt.init(vsg, 2);
@@ -821,7 +820,7 @@ int DonutStimSet::handle_trigger(std::string& s)
 		//m_grating.setContrast(0);
 		m_donut.w = m_donut.h = m_iterator->first;
 		m_donut.wd = m_donut.hd = m_iterator->second;
-		m_donut.draw((long)vsgTRANSONLOWER);
+		m_donut.draw();
 		if (m_bHaveFixpt)
 		{
 			//m_fixpt.setContrast(0);
@@ -873,7 +872,7 @@ int CRGStimSet::init(ARvsg& vsg, std::vector<int> pages)
 	m_grating0.init(vsg, 40);
 	m_grating0.setContrast(0);
 	m_grating0.setTemporalFrequency(0);
-	m_grating0.draw((long)vsgTRANSONLOWER);
+	m_grating0.draw();
 	if (m_bHaveFixpt)
 	{
 		m_fixpt.init(vsg, 2);
@@ -886,7 +885,7 @@ int CRGStimSet::init(ARvsg& vsg, std::vector<int> pages)
 	m_grating1.init(vsg, 40);
 	m_grating1.setContrast(0);
 	m_grating1.setTemporalFrequency(0);
-	m_grating1.draw((long)vsgTRANSONLOWER);
+	m_grating1.draw();
 	if (m_bHaveFixpt)
 	{
 		// do not init - the fixpt was init'd above
