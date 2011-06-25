@@ -133,3 +133,49 @@ Triggers
 
 
 
+
+Examples:
+
+
+
+fixstim.exe -a -d 1000 -b gray -P 180 -s 0,0,5,5,100,.2,0,90 -A 1,2,4,8
+
+   Single vsg, area tuning curve (diameters 1,2,4,8 degrees). 
+   All gratings have spatial phase 180 degrees (should be black at center). 
+   ASCII triggers: S   stim ON
+                   s   stim off
+                   a   advance to next diameter
+                   X   all off
+                   q   quit program
+
+   Assumed that you give triggers in the order: Ssa. (The "a" trig has a
+   delay as the grating is redrawn). 
+
+
+
+fixstim.exe -a -d 1000 -b gray -f 0,0,1,red -P 180 -g 0,0,5,5,100,.2,0,90
+
+   Single vsg, Fixpt and grating stim. 
+   Grating have spatial phase 180 degrees (should be black at center). 
+   ASCII triggers: F   fixpt on
+                   S   stim ON
+                   s   stim off
+                   a   advance to next diameter
+                   X   all off
+                   q   quit program
+
+
+
+fixstim.exe -a -d 1000 -b gray -r f:\experiments\offset.txt
+            -f 0,0,1,red -P 180 -K
+            -M -s 0,0,5,5,100,.2,0,90 -A 1,2,4,8 
+            -V -s 0,0,5,5,100,.5,1,0 -H 4,1,8,1,6,5,3,0
+
+
+   Dual vsg, offset taken from f:\experiments\offset.txt (file must exist)
+   All gratings spatial phase 180
+   The "-K" tells the prog to attempt master/slave timing (this causes 
+   long startup time)
+   Master screen - area tuning curve
+   Slave screen - donut tuning curve
+   same triggers as above   
