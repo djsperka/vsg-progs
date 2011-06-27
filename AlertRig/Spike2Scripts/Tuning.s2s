@@ -1,7 +1,5 @@
-' $Id: Tuning.s2s,v 1.39 2011-06-22 21:52:13 jeff Exp $
-const tunCVSID$ := "$Id: Tuning.s2s,v 1.39 2011-06-22 21:52:13 jeff Exp $";
-
-'hello!
+' $Id: Tuning.s2s,v 1.40 2011-06-27 18:08:54 djsperka Exp $
+const tunCVSID$ := "$Id: Tuning.s2s,v 1.40 2011-06-27 18:08:54 djsperka Exp $";
 
 #include "../../Spike2Util/ChannelUtilities.s2s"
 #include "../../Spike2Util/UsreyUtil.s2s"
@@ -519,7 +517,7 @@ func IdleProcessing%()
                 
                 ' Process spikes
                 PlotSpikes(tStimOn, tNow, 1, GetPlotXCoord(nTrialsCompleted%), nTrialsCompleted%);
-                nTrialsCompleted% += 1;
+                'nTrialsCompleted% += 1;
 
                 ' Now wait until stim is off
                 ChangeStateTo(stateWaitForStimOff%, tNow);
@@ -564,7 +562,7 @@ func IdleProcessing%()
 
                 LogStatus("MaintainFixation", "success");
                 DeliverReward();
-                SampleText("S," + str$(GetPlotXCoord(nTrialsCompleted%)));
+                SampleText("T," + str$(GetPlotXCoord(nTrialsCompleted%)));
                 SafeSampleKey("S");
                 ChangeStateTo(stateWaitForStimOn%, tNow);
 
