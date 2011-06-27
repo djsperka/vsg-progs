@@ -1,4 +1,4 @@
-' $Id: TuningDialogs.s2s,v 1.4 2011-06-22 21:38:42 devel Exp $
+' $Id: TuningDialogs.s2s,v 1.5 2011-06-27 18:46:21 djsperka Exp $
 '
 ' This file contains dialog functions for the alert tuning script Tuning.s2s.
 #include "../../Spike2Util/UsreyUtil.s2s"
@@ -171,6 +171,7 @@ proc GetTuningCurveAreaParameters()
     tunAreaMinDiam := GetFloatRegistryValue(key$, "MinDiam", tunAreaMinDiam);
     tunAreaMaxDiam := GetFloatRegistryValue(key$, "MaxDiam", tunAreaMaxDiam);
     tunDonutOptimalIndex% := GetIntRegistryValue%(key$, "OptimalIndex", tunDonutOptimalIndex%);
+    tunDonutProgression% := GetIntRegistryValue%(key$, "DonutProgression", tunDonutProgression%);
     tunBerlinerMaximalIndex% := GetIntRegistryValue%(key$, "MaximalIndexBerliner", tunBerlinerMaximalIndex%);
     tunBerlinerMaximalDiam := GetFloatRegistryValue(key$, "MaximalDiamBerliner", tunBerlinerMaximalDiam);
     tunBerlinerNSteps% := GetIntRegistryValue%(key$, "NStepsBerliner", tunBerlinerNSteps%);
@@ -188,6 +189,7 @@ proc SaveTuningCurveAreaParameters()
     SetFloatRegistryValue(key$, "MinDiam", tunAreaMinDiam);
     SetFloatRegistryValue(key$, "MaxDiam", tunAreaMaxDiam);
     SetIntRegistryValue(key$, "OptimalIndex", tunDonutOptimalIndex%);
+    SetIntRegistryValue(key$, "DonutProgression", tunDonutProgression%);
     SetIntRegistryValue(key$, "MaximalIndexBerliner", tunBerlinerMaximalIndex%);
     SetFloatRegistryValue(key$, "MaximalDiamBerliner", tunBerlinerMaximalDiam);
     SetIntRegistryValue(key$, "NStepsBerliner", tunBerlinerNSteps%);
