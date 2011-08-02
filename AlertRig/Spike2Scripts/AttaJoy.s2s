@@ -1,5 +1,5 @@
-' $Id: AttaJoy.s2s,v 1.35 2011-06-22 17:38:43 devel Exp $
-const ajCVSID$ := "$Id: AttaJoy.s2s,v 1.35 2011-06-22 17:38:43 devel Exp $";
+' $Id: AttaJoy.s2s,v 1.36 2011-08-02 22:16:00 devel Exp $
+const ajCVSID$ := "$Id: AttaJoy.s2s,v 1.36 2011-08-02 22:16:00 devel Exp $";
 
 ' Stimulator/shock setup: 
 ' DOUT0 from VSG ----> TRIG input on 1401 _T_ ajRecordShockTriggerPort% (if not set to -1)
@@ -1401,6 +1401,10 @@ func PrepareTrial%()
                     ajTrialFixptSampleKey$ := ajTrialFixptTypeKeys$[ajTrialTypeIndex%];
                     ajTrialChangeSampleKey$ := ajTrialChangeTypeKeys$[1-ajTrialTypeIndex%];
                 endif
+            else
+                ' This is needed for ready/fix training but not ready training. Doesn't matter for ready trng
+                ' though so just set the var. 
+                ajTrialFixptSampleKey$ := ajTrialFixptTypeKeys$[ajTrialTypeIndex%];
             endif
         else
             
