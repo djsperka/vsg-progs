@@ -1,0 +1,151 @@
+'$Id: AcuteTuningExtractionFunctions.s2s,v 1.1 2011-08-17 17:25:19 devel Exp $'
+
+#include "ExtractionUtilities.s2s"
+#include "../../Spike2Util/LogUtilities.s2s"
+#include "../../Spike2Util/ChannelUtilities.s2s"
+#include "../../Spike2Util/FileUtilities.s2s"
+
+const maxParam% := 1000;
+var actunParam[maxParam%];
+var actunIndex%[maxParam%];
+var actunNParam% := 0;
+var actunStimChannel%;
+
+
+func AcTunX%(h%, args$)
+    var sParFile$;
+    var sTxtFile$;
+    var iStatus% := 0;
+    var iParam% := 0;
+    var tStart, tEnd, tLast:=-1;
+    var v, h;
+    
+    ' Initialize
+    actunNParam% := 0;
+    
+    ' Find trigger channel
+    if GetTriggerChannel%(actunStimChannel%) = 0 then
+        LogError("AcTunX", "Error determining trigger channel!?! Is this acute tuning data?");
+        return 1;
+    endif
+    
+    sParFile$ := ReplaceFileExtension$(h%, ".par");
+    LogInfo("par file " + sParFile$);
+    sTxtFile$ := ReplaceFileExtension$(h%, ".txt");
+    LogInfo("txt file " + sTxtFile$);
+    
+    ' Open par file and get tuning parameters
+    if GetTuningParameters%(sParFile$) < 0 then
+        LogError("AcTunX", "Error getting parameters from par file " + sParFile$);
+        return 1;
+    endif
+    
+    ' Now open text file and get the stim periods
+    v := View();
+    h := FileOpen(sTxtFile$, 8, 1);
+    View(v);
+    while iParam% < actunNParam% and GetNextStimPeriod%(actunStimChannel%, tLast, tStart, tEnd) = 1 do
+        
+        View(h).Print("%f %f %f\n", actunParam[iParam%], tStart, tEnd);
+        PrintLog("%f %f %f\n", actunParam[iParam%], tStart, tEnd);
+        iParam% += 1;
+        View(v);
+        
+    wend
+    
+    return iStatus%;
+end
+
+' Return neg on error
+func GetTuningParameters%(sParFile$)
+    var iStatus% := -1;
+    var h;
+    var v; ' save current view here
+    var line$;
+    var key$;
+    var n%, i%;
+    var x;
+    var s$;
+    
+    v := View();
+    h := FileOpen(sParFile$, 8);
+    if h < 0 then
+        LogError("GetTuningParameters", "Cannot open par file " + sParFile$);
+        return iStatus%;
+    endif
+    
+'    while Read(line$) >= 0 and nparams% = 0 do    ' read while not EOF or error
+ '       ' parameters line starts with "Values:"
+  '      if InStr(line$, "Values:") = 1 then
+   '         nparams% := ReadStr(Mid$(line$, 9), params[]);
+    '    endif    
+   ' wend;
+    
+    ' Read first line of par file
+    Read(line$);
+    docase 
+    case InStr(line$, "[Temporal") = 1 then        
+        key$ := "Temporal Frequency";
+        LogStatus("GetTuningParameters", "TF tuning");
+    case InStr(line$, "[Spatial") = 1 then        
+        key$ := "Spatial Frequency";
+        LogStatus("GetTuningParameters", "SF tuning");
+    case InStr(line$, "[Orientation") = 1 then        
+        key$ := "Orientation";
+        LogStatus("GetTuningParameters", "Ori tuning");
+    else
+        LogError("GetTuningParameters", "Tuning type not handled! (" + line$ + ")");
+        iStatus% := -1;
+        return iStatus%;
+    endcase
+    
+    ' Now read line by line
+    while Read(s$, i%, x) >= 0 do
+        'PrintLog("%s\n", s$);
+        if s$ = key$ then
+            actunIndex%[actunNParam%] := i%;
+            actunParam[actunNParam%] := x;
+            actunNParam% += 1;
+        endif
+    wend
+    LogStatus("GetTuningParameters", "Got " + str$(actunNParam%) + " tuning parameters.");
+    if actunNParam% > 0 then
+        iStatus% := 0;
+    endif
+    
+    FileClose();
+    View(v);
+    return iStatus%;
+end
+
+
+' Find channel with "Level" type. Assuming there's just one.
+' Return 1 if found, 0 otherwise. 
+
+func GetTriggerChannel%(&channel%)
+    var iStatus% := 0;
+    var iChannels%[10];
+    if ChanList(iChannels%[], 0x4) = 1 then
+        iStatus% := 1;
+        channel% := iChannels%[1];
+    endif
+    return iStatus%;
+end
+
+            
+' Find the next up/down period on the channel actunStimChannel%, starting at tLast.
+' Returns 1 if a period is found, otherwise return 0. If a period is found, the 
+' tLast value is set so the next call will find a new period. 
+
+func GetNextStimPeriod%(actunStimChannel%, &tLast, &tStart, &tEnd)
+    var iStatus% := 0;
+    tStart := NextTriggerTransition(actunStimChannel%, tLast, 0);
+    if tStart > 0 then
+        tEnd := NextTriggerTransition(actunStimChannel%, tStart, 1);
+        if tEnd > 0 then
+            tLast := tEnd;
+            iStatus% := 1;
+        endif
+    endif
+    return iStatus%;
+end
