@@ -81,6 +81,9 @@ int parse_tuning_triplet(std::string s, double& i_dMin, double& i_dMax, int& i_i
 int parse_tuning_list(std::string s, std::vector<double>& tuning_list, int& i_iSteps);
 int parse_xy(std::string s, double& x, double& y);
 void tokenize(const std::string& str, std::vector<std::string>& tokens, const std::string& delimiters);
+void make_argv(const std::string& str, int &argc, char **argv);
+void make_argv(std::vector<std::string>tokens, int& argc, char** argv);
+void free_argv(int& argc, char **argv);
 
 // convenient operators
 std::ostream& operator<<(std::ostream& out, const COLOR_TYPE& c);
