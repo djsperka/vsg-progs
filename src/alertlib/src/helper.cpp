@@ -963,3 +963,34 @@ void tokenize(const string& str, vector<string>& tokens, const string& delimiter
     }
 }
 
+void make_argv(const std::string& str, int &argc, char **argv)
+{
+	vector<string> tokens;
+	tokenize(str, tokens, " \n\t");
+	make_argv(tokens, argc, argv);
+	return;
+}
+
+void make_argv(vector<string>tokens, int& argc, char** argv)
+{
+	unsigned int i;
+	argv[0] = (char *)malloc(9);
+	strcpy_s(argv[0], 9, "PROGNAME");
+	for (i=0; i<tokens.size(); i++)
+	{
+		argv[i+1] = (char *)malloc(tokens[i].length()+1);
+		strcpy_s(argv[i+1], tokens[i].length()+1, tokens[i].c_str());
+	}
+	argc = (int)tokens.size()+1;
+}
+
+void free_argv(int& argc, char **argv)
+{
+	int i;
+	for (i=0; i<argc; i++)
+	{
+		free(argv[i]);
+		argv[i] = NULL;
+	}
+	argc = 0;
+}
