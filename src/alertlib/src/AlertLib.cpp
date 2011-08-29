@@ -278,7 +278,13 @@ int ARvsg::init(int screenDistanceMM, COLOR_TYPE i_bg,  bool bUseLockFile, bool 
 			m_heightPixels = vsgGetScreenHeightPixels();
 			m_widthPixels = vsgGetScreenWidthPixels();
 			m_background_color = i_bg;
-
+			request_single(m_background_level);
+			if (get_color(m_background_color, background))
+			{
+				cerr << "Cannot get trival for background color " << m_background_color << endl;
+				status = 2;
+			}
+			arutil_color_to_palette(m_background_color, m_background_level);
 		}
 		else
 		{
@@ -296,7 +302,6 @@ int ARvsg::init(int screenDistanceMM, COLOR_TYPE i_bg,  bool bUseLockFile, bool 
 			// Create single dummy object and assign it a level
 			m_handle = vsgObjCreate();
 			vsgObjSetPixelLevels(m_background_level, 1);
-			cout << "Background level " << m_background_level << endl;
 			
 			// The background level was obtained in the init() call.
 			if (get_color(m_background_color, background))
@@ -304,6 +309,7 @@ int ARvsg::init(int screenDistanceMM, COLOR_TYPE i_bg,  bool bUseLockFile, bool 
 				cerr << "Cannot get trival for background color " << m_background_color << endl;
 				status = 2;
 			}
+			//vsgPaletteSet(m_background_level, m_background_level, &background);
 			vsgPresent();
 			vsgSetBackgroundColour(&background);
 			cout << "Background color set to " << background.a << "," << background.b << "," << background.c << endl;
@@ -359,7 +365,10 @@ int ARvsg::init_video()
 
 int ARvsg::init_video_pages(voidfunc func_before_objects, voidfunc func_after_objects, void *data)
 {
+	int i;
 	int status=0;
+	VSGTRIVAL background;
+	PIXEL_LEVEL dummy_level;
 
 	if (!m_initialized)
 	{
@@ -367,9 +376,59 @@ int ARvsg::init_video_pages(voidfunc func_before_objects, voidfunc func_after_ob
 		return 1;
 	}
 	else 
-	{
-		vsgSetPen2(vsgBACKGROUND);
-		vsgSetCommand(vsgVIDEOCLEAR);
+	{		
+		// set background color, er colour, in palette
+		// We'll set the vsgBACKGROUND color later, after the vsgObject is created. 
+		// The background level was obtained in the init() call.
+		if (get_color(m_background_color, background))
+		{
+			cerr << "Cannot get trival for background color " << m_background_color << endl;
+			status = 2;
+		}
+
+
+		VSGLUTBUFFER buffer;
+		for(i=0; i<256; i++) buffer[i] = background;
+		vsgLUTBUFFERWrite(0,&buffer);
+		vsgLUTBUFFERtoPalette(0);
+		
+		
+		
+		
+		
+//		vsgPaletteWrite((VSGLUTBUFFER*)&background, m_background_level, 1);
+//		vsgPaletteWrite((VSGLUTBUFFER*)&background, 250, 1);
+//		for (i = 0; i<252; i++) vsgPaletteWrite((VSGLUTBUFFER*)&background, i, 1);
+
+		// Now clear all pages to background level, then call the before_objects callback, 
+		// if it exists. 
+		for (i=0; i<vsgGetSystemAttribute(vsgNUMVIDEOPAGES); i++)
+		{
+			vsgSetDrawPage(vsgVIDEOPAGE, i, m_background_level);
+			if (func_before_objects)
+			{
+				func_before_objects(i, data);
+			}
+		}
+		
+
+		// Create a single vsg object and set vsgBACKGROUND color
+		m_handle = vsgObjCreate();
+		request_single(dummy_level);
+		vsgObjSetPixelLevels(dummy_level, 1);
+		cerr << " Dummy object " << (int)m_handle << " level " << (int)dummy_level << endl;
+		vsgSetBackgroundColour(&background);
+
+
+		// Now call after_objects callback if not null
+		if (func_after_objects)
+		{
+			for (i=0; i<vsgGetSystemAttribute(vsgNUMVIDEOPAGES); i++)
+			{
+				vsgSetDrawPage(vsgVIDEOPAGE, i, vsgNOCLEAR);
+				func_after_objects(i, data);
+			}
+		}
 
 		// Finally, set page 0 as the current page and present. 
 		vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgNOCLEAR);
@@ -948,7 +1007,7 @@ int ARGratingSpec::draw(bool useTransOnHigher)
 	}
 	else
 	{
-		return draw((long)vsgTRANSONLOWER);
+		return draw((long)0);
 	}
 }
 
@@ -1113,7 +1172,7 @@ int ARDonutSpec::draw(long mode)
 
 int ARDonutSpec::draw()
 {
-	return draw(false);
+	return draw(true);
 }
 
 int ARDonutSpec::draw(bool useTransOnHigher)
@@ -1124,7 +1183,7 @@ int ARDonutSpec::draw(bool useTransOnHigher)
 	}
 	else
 	{
-		return draw((long)vsgTRANSONLOWER);
+		return draw((long)0);
 	}
 }
 
