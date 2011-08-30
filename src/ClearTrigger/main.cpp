@@ -1,8 +1,12 @@
-// $Id: main.cpp,v 1.5 2011-06-23 02:09:34 djsperka Exp $
+// $Id: main.cpp,v 1.6 2011-08-30 01:16:43 djsperka Exp $
 //
 //
 #include "vsgv8.h"
 #include "Alertlib.h"
+#define __GNU_LIBRARY__
+#include "getopt.h"
+#undef __GNU_LIBRARY__
+
 
 #ifdef _DEBUG
 #pragma comment(lib, "dalert.lib")
@@ -12,6 +16,9 @@
 
 #pragma comment(lib, "vsgv8.lib")
 
+bool f_bUseLock = true;
+int args(int argc, char **argv);
+
 using namespace alert;
 using namespace std;
 
@@ -20,8 +27,14 @@ int main(int argc, char **argv)
 	COLOR_TYPE background = {gray, {0, 0, 0}};
 	int dist=999;
 
+	if (args(argc, argv))
+	{
+		cerr << " Bad command line args." << endl;
+		return -1;
+	}
+
 	// INit vsg
-	if (ARvsg::instance().init(dist, background))
+	if (ARvsg::instance().init(dist, background, f_bUseLock))
 	{
 		cerr << "VSG init failed!" << endl;
 		return 1;
@@ -83,4 +96,28 @@ int main(int argc, char **argv)
 	vsgPresent();
 
 	return 0;
+}
+
+
+
+int args(int argc, char **argv)
+{	
+	string s;
+	int c;
+	extern char *optarg;
+	extern int optind;
+	int errflg = 0;
+	while ((c = getopt(argc, argv, "n")) != -1)
+	{
+		switch(c)
+		{
+			case 'n':
+				f_bUseLock = false;
+				break;
+			default:
+				cout << "Unknown arg: " << c << endl;
+				break;
+		}
+	}
+	return errflg;
 }

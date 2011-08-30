@@ -2,6 +2,7 @@
 #include "coneiso.h"
 #include <vector>
 #include <string>
+#include <sstream>
 
 #ifdef _DEBUG
 #pragma comment(lib, "dalert.lib")
@@ -962,6 +963,17 @@ void tokenize(const string& str, vector<string>& tokens, const string& delimiter
         pos = str.find_first_of(delimiters, lastPos);
     }
 }
+
+void make_argv(std::ifstream& ifs, int& argc, char **argv)
+{
+     // Read the whole file into a string
+     stringstream ss;
+     ss << ifs.rdbuf();
+     string contents( ss.str() );
+	 make_argv(contents, argc, argv);
+	 return;
+}
+
 
 void make_argv(const std::string& str, int &argc, char **argv)
 {
