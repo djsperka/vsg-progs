@@ -343,11 +343,11 @@ int arutil_load_sequence(char **ppseq, string& filename)
 	int nterms = 0;
 
 	// Open mseq file
-	fopen_s(&fp, filename.c_str(), "r");
-	if (!fp) 
+	if (fopen_s(&fp, filename.c_str(), "r")) 
 	{
 		istatus=-1;
 		cerr << "Cannot open sequence file " << filename << endl;
+		perror("arutil_load_sequence: ");
 	}
 	else
 	{

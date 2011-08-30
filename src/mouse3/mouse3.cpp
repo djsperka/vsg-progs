@@ -57,7 +57,7 @@ void main(int ArgumentCount, char *Arguments[])
 //	DrawIcon();
 	
 	int	x_val, y_val, i=0;
-	int DistanceToScreen;
+	int DistanceToScreen = 500;
 	int ReturnValue;
 	int key;
 	float Aperture=1;
@@ -72,11 +72,8 @@ void main(int ArgumentCount, char *Arguments[])
 	x_val = 0;
 	y_val = 0;
 
-	printf(" ____________________________________\n");
-	printf("|                                    |\n");
-	printf("| Mouse Control stimulation program. |\n");
-	printf("|    Type <h> for help.              |\n");
-	printf("|____________________________________|\n");
+	printf("Enter screen distance in mm: ");
+	scanf("%d", &DistanceToScreen);
 
 
 	ReturnValue=InitializeCard();
@@ -128,8 +125,15 @@ void main(int ArgumentCount, char *Arguments[])
 	DistanceToScreen=atoi(Arguments[4]);
 	vsgSetViewDistMM(DistanceToScreen);
 
-	printf("Distance to Screen = %i\n",DistanceToScreen);
+	//printf("Distance to Screen = %i\n",DistanceToScreen);
 	
+
+	printf(" ____________________________________\n");
+	printf("|                                    |\n");
+	printf("| Mouse Control stimulation program. |\n");
+	printf("|    Type <h> for help.              |\n");
+	printf("|____________________________________|\n");
+
 
 //	printf("%f %f %f \n", FixationX, FixationY, FixationDiameter);
 
@@ -145,8 +149,8 @@ void main(int ArgumentCount, char *Arguments[])
 		vsgUnit2Unit(vsgPIXELUNIT,Pos.x,vsgDEGREEUNIT,&MouseX);
 		vsgUnit2Unit(vsgPIXELUNIT,Pos.y,vsgDEGREEUNIT,&MouseY);
 		vsgSetPen1(0);
-		vsgDrawOval(MouseX-ScrWidth/2, MouseY-ScrHeight/2, Aperture, Aperture);
-	
+		//vsgDrawOval(MouseX-ScrWidth/2, MouseY-ScrHeight/2, Aperture, Aperture);
+		vsgDrawOval(MouseX, MouseY, Aperture, Aperture);
 		StimulusState=vsgIOReadDigitalIn();
 //		printf ("%x\n", StimulusState);
 
