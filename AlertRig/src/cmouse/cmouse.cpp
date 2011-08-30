@@ -43,6 +43,8 @@ ARContrastFixationPointSpec f_fixpt;
 bool f_alert = false;
 bool f_bFixationOn = false;
 TriggerVector triggers;
+bool f_bUseLockFile = true;
+int f_pulse = 0x40;		// default pulse on bit 7
 
 double f_vsgWidthPixels;
 double f_vsgHeightPixels;
@@ -63,10 +65,8 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-	cout << "args done" << endl;
-
 	// Get lock and init vsg
-	if (ARvsg::instance().init(f_screenDistanceMM, f_background))
+	if (ARvsg::instance().init(f_screenDistanceMM, f_background, f_bUseLockFile))
 	{
 		cerr << "VSG init failed!" << endl;
 		return 1;
@@ -80,7 +80,7 @@ int main(int argc, char **argv)
 
 
 	vsgIOWriteDigitalOut(0, 0xff);
-	ARvsg::instance().ready_pulse();
+	ARvsg::instance().ready_pulse(250, f_pulse);
 	triggers.reset(vsgIOReadDigitalIn());
 	cout << "Reset with " << (vsgIOReadDigitalIn() & 0xff) << endl;
 	f_lastInput = vsgIOReadDigitalIn();
@@ -583,6 +583,7 @@ int callback(int &output, const CallbackTrigger* ptrig)
 int args(int argc, char **argv)
 {	
 	bool have_d=false;
+	bool have_D = false;
 	bool have_fixpt = false;
 	bool have_grating = false;
 	string s;
@@ -590,12 +591,15 @@ int args(int argc, char **argv)
 	extern char *optarg;
 	extern int optind;
 	int errflg = 0;
-	while ((c = getopt(argc, argv, "d:avg:f:Ab:")) != -1)
+	while ((c = getopt(argc, argv, "Dd:avg:f:Ab:np:")) != -1)
 	{
 		switch (c) 
 		{
 		case 'A':
 			f_alert = true;
+			break;
+		case 'n':
+			f_bUseLockFile = false;
 			break;
 		case 'a':
 			f_binaryTriggers = false;
@@ -604,8 +608,19 @@ int args(int argc, char **argv)
 			s.assign(optarg);
 			if (parse_color(s, f_background)) errflg++; 
 			break;
+		case 'p':
+			s.assign(optarg);
+			if (parse_integer(s, f_pulse))
+			{
+				cerr << "Error in pulse arg: must be integer (0-7)." << endl;
+				errflg++;
+			}
+			break;
 		case 'v':
 			f_verbose = true;
+			break;
+		case 'D':
+			have_D = true;
 			break;
 		case 'd':
 			s.assign(optarg);
@@ -638,7 +653,17 @@ int args(int argc, char **argv)
 		}
 	}
 
-	if (!have_d)
+	if (have_D)
+	{
+		cout << "Enter screen distance in MM: ";
+		cin >> f_screenDistanceMM;
+		if (!cin)
+		{
+			cerr << "Bad data entered. Try again." << endl;
+			errflg++;
+		}
+	}
+	else if (!have_d)
 	{
 		cerr << "No screen distance supplied - checking registry..." << endl;
 		if (GetRegScreenDistance(f_screenDistanceMM))

@@ -165,6 +165,13 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "punctate", "punctate\puncta
 		{E7D13D4D-A7AD-46B3-A513-BC9B6297E6D3} = {E7D13D4D-A7AD-46B3-A513-BC9B6297E6D3}
 	EndProjectSection
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "dualstim", "dualstim\dualstim.vcproj", "{2698EE93-EF4A-4394-93D1-460939767B88}"
+	ProjectSection(ProjectDependencies) = postProject
+		{E7D13D4D-A7AD-46B3-A513-BC9B6297E6D3} = {E7D13D4D-A7AD-46B3-A513-BC9B6297E6D3}
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ActiveXSvr", "ActiveXMsgInterface\ActiveXSvr.vcproj", "{9FAAA836-092E-421A-82F3-5F51915446CF}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -493,6 +500,22 @@ Global
 		{BDD71506-C18B-4DB9-B8CA-BEA2EC500B00}.Unicode Debug|Win32.Build.0 = Debug|Win32
 		{BDD71506-C18B-4DB9-B8CA-BEA2EC500B00}.Unicode Release|Win32.ActiveCfg = Release|Win32
 		{BDD71506-C18B-4DB9-B8CA-BEA2EC500B00}.Unicode Release|Win32.Build.0 = Release|Win32
+		{2698EE93-EF4A-4394-93D1-460939767B88}.Debug|Win32.ActiveCfg = Debug|Win32
+		{2698EE93-EF4A-4394-93D1-460939767B88}.Debug|Win32.Build.0 = Debug|Win32
+		{2698EE93-EF4A-4394-93D1-460939767B88}.Release|Win32.ActiveCfg = Release|Win32
+		{2698EE93-EF4A-4394-93D1-460939767B88}.Release|Win32.Build.0 = Release|Win32
+		{2698EE93-EF4A-4394-93D1-460939767B88}.Unicode Debug|Win32.ActiveCfg = Debug|Win32
+		{2698EE93-EF4A-4394-93D1-460939767B88}.Unicode Debug|Win32.Build.0 = Debug|Win32
+		{2698EE93-EF4A-4394-93D1-460939767B88}.Unicode Release|Win32.ActiveCfg = Release|Win32
+		{2698EE93-EF4A-4394-93D1-460939767B88}.Unicode Release|Win32.Build.0 = Release|Win32
+		{9FAAA836-092E-421A-82F3-5F51915446CF}.Debug|Win32.ActiveCfg = Debug|Win32
+		{9FAAA836-092E-421A-82F3-5F51915446CF}.Debug|Win32.Build.0 = Debug|Win32
+		{9FAAA836-092E-421A-82F3-5F51915446CF}.Release|Win32.ActiveCfg = Release|Win32
+		{9FAAA836-092E-421A-82F3-5F51915446CF}.Release|Win32.Build.0 = Release|Win32
+		{9FAAA836-092E-421A-82F3-5F51915446CF}.Unicode Debug|Win32.ActiveCfg = Unicode Debug|Win32
+		{9FAAA836-092E-421A-82F3-5F51915446CF}.Unicode Debug|Win32.Build.0 = Unicode Debug|Win32
+		{9FAAA836-092E-421A-82F3-5F51915446CF}.Unicode Release|Win32.ActiveCfg = Unicode Release|Win32
+		{9FAAA836-092E-421A-82F3-5F51915446CF}.Unicode Release|Win32.Build.0 = Unicode Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
