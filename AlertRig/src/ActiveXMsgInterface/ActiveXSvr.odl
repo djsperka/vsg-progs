@@ -1,0 +1,69 @@
+// ActiveXSvr.odl : type library source for ActiveX Control project.
+
+// This file will be processed by the Make Type Library (mktyplib) tool to
+// produce the type library (ActiveXSvr.tlb) that will become a resource in
+// ActiveXSvr.ocx.
+
+#include <olectl.h>
+#include <idispids.h>
+
+[ uuid(81946AA9-9155-46AF-AA82-8F39B1841EAE), version(1.0),
+  helpfile("ActiveXSvr.hlp"),
+  helpstring("ActiveXSvr ActiveX Control module"),
+  control ]
+library ACTIVEXSVRLib
+{
+	importlib(STDOLE_TLB);
+	importlib(STDTYPE_TLB);
+
+	//  Primary dispatch interface for CActiveXSvrCtrl
+
+	[ uuid(E5D637CF-FFCE-4EFE-86C8-7D8D8F9ADE4E),
+	  helpstring("Dispatch interface for ActiveXSvr Control"), hidden ]
+	dispinterface _DActiveXSvr
+	{
+		properties:
+			// NOTE - ClassWizard will maintain property information here.
+			//    Use extreme caution when editing this section.
+			//{{AFX_ODL_PROP(CActiveXSvrCtrl)
+			//}}AFX_ODL_PROP
+
+		methods:
+			// NOTE - ClassWizard will maintain method information here.
+			//    Use extreme caution when editing this section.
+			//{{AFX_ODL_METHOD(CActiveXSvrCtrl)
+			[id(1)] BSTR getNextMessage();
+			[id(2)] void addMessage(BSTR strMessage);
+			//}}AFX_ODL_METHOD
+	};
+
+	//  Event dispatch interface for CActiveXSvrCtrl
+
+	[ uuid(B7CA4094-55BE-4152-B5EB-B604550D0E4E),
+	  helpstring("Event interface for ActiveXSvr Control") ]
+	dispinterface _DActiveXSvrEvents
+	{
+		properties:
+			//  Event interface has no properties
+
+		methods:
+			// NOTE - ClassWizard will maintain event information here.
+			//    Use extreme caution when editing this section.
+			//{{AFX_ODL_EVENT(CActiveXSvrCtrl)
+			//}}AFX_ODL_EVENT
+	};
+
+	//  Class information for CActiveXSvrCtrl
+
+	[ uuid(EF5A57C5-18DD-4406-A292-6BBC4040AF38),
+	  helpstring("ActiveXSvr Control"), control ]
+	coclass ActiveXSvr
+	{
+		[default] dispinterface _DActiveXSvr;
+		[default, source] dispinterface _DActiveXSvrEvents;
+	};
+
+
+	//{{AFX_APPEND_ODL}}
+	//}}AFX_APPEND_ODL}}
+};
