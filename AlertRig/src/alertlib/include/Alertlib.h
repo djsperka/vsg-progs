@@ -83,6 +83,7 @@ int parse_xy(std::string s, double& x, double& y);
 void tokenize(const std::string& str, std::vector<std::string>& tokens, const std::string& delimiters);
 void make_argv(const std::string& str, int &argc, char **argv);
 void make_argv(std::vector<std::string>tokens, int& argc, char** argv);
+void make_argv(std::ifstream& ifs, int& argc, char **argv);
 void free_argv(int& argc, char **argv);
 
 // convenient operators
@@ -283,7 +284,7 @@ namespace alert
 		ARXhairSpec() {};
 		~ARXhairSpec() {};
 		double x, y;	// Center
-		double ri, rm, ro;	// inner, middle, outer diameter
+		double ri, rm, ro;	// inner, middle, outer radii
 		int nc;				// number of divisions
 		double r1, r2;		// inner and outer radii for tick lines
 		virtual int draw();
@@ -698,6 +699,71 @@ namespace alert
 		}
 
 	};
+
+
+	// Functor technique from http://www.newty.de/fpt/functor.html
+
+	class FunctorCallbackTrigger;	// forward declaration needed
+
+	// Abstract callback base class
+	class TFunctor 
+	{
+	public:
+		virtual int operator()(int &output, const FunctorCallbackTrigger* ptrig)=0;  // call using operator "()"
+		virtual int call(int &output, const FunctorCallbackTrigger* ptrig)=0;        // call using function "Call"	
+	};
+
+
+
+	// Derived template for specific functor that can be used in CallbackFunctorTrigger
+   template <class TClass> class TSpecificFunctor : public TFunctor
+   {
+   private:
+      int (TClass::*fpt)(int &output, const FunctorCallbackTrigger* ptrig);   // pointer to member function
+      TClass* pt2Object;                  // pointer to object
+
+   public:
+
+      // constructor - takes pointer to an object and pointer to a member and stores
+      // them in two private variables
+      TSpecificFunctor(TClass* _pt2Object, int(TClass::*_fpt)(int &output, const FunctorCallbackTrigger* ptrig))
+         { pt2Object = _pt2Object;  fpt=_fpt; };
+
+      // override operator "()"
+      virtual int operator()(int &output, const FunctorCallbackTrigger* ptrig)
+       { return (*pt2Object.*fpt)(output, ptrig);};              // execute member function
+
+      // override function "Call"
+      virtual int call(int &output, const FunctorCallbackTrigger* ptrig)
+        { return (*pt2Object.*fpt)(output, ptrig);};             // execute member function
+   };
+
+
+   	class FunctorCallbackTrigger: public Trigger
+	{
+	public:
+		FunctorCallbackTrigger(std::string i_key, int i_in_mask, int i_in_val, int i_out_mask, int i_out_val, TFunctor *pfunc ) : 
+		  Trigger(i_key, i_in_mask, i_in_val, i_out_mask, i_out_val), m_pfunc(pfunc)  {};
+		~FunctorCallbackTrigger() {};
+		virtual int execute(int& output)
+		{
+			setMarker(output);
+			return (*m_pfunc)(output, this);
+		};
+	
+		virtual std::string toString() const
+		{
+			std::ostringstream oss;
+			oss << "Callback " << m_key << " in m/v/t: 0x" << std::hex << m_in_mask << "/0x" << m_in_val << "/" << m_btoggleIn << " out m/v/t: 0x" << m_out_mask << "/0x" << m_out_val << "/" << m_btoggleOut;
+			return oss.str();
+		}
+
+	protected:
+		TFunctor *m_pfunc;
+	};
+
+
+
 
 
 
