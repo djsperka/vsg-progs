@@ -191,7 +191,7 @@ int ARvsg::init(int screenDistanceMM, COLOR_TYPE i_bg,  bool bUseLockFile, bool 
 		}
 		else
 		{
-			cerr << "ARvsg::init(): ignoring lock file!" << endl;
+			cout << "ARvsg::init(): ignoring lock file!" << endl;
 		}
 
 
@@ -209,12 +209,12 @@ int ARvsg::init(int screenDistanceMM, COLOR_TYPE i_bg,  bool bUseLockFile, bool 
 			string s;
 			if (!GetRegVSGConfig(s))
 			{
-				cerr << "Initialize VSG using currently selected configuration (see VSG Desktop)" << endl;
+				cout << "Initialize VSG using currently selected configuration (see VSG Desktop)" << endl;
 				m_device_handle = vsgInit("");
 			}
 			else
 			{
-				cerr << "Initialize VSG using configuration file \"" << s << "\"" << endl;
+				cout << "Initialize VSG using configuration file \"" << s << "\"" << endl;
 				m_device_handle = vsgInit(const_cast<char *>(s.c_str()));
 			}
 		}
@@ -228,7 +228,7 @@ int ARvsg::init(int screenDistanceMM, COLOR_TYPE i_bg,  bool bUseLockFile, bool 
 			}
 			else
 			{
-				cerr << "Initialize Master VSG using configuration file \"" << s << "\"" << endl;
+				cout << "Initialize Master VSG using configuration file \"" << s << "\"" << endl;
 				m_device_handle = vsgInit(const_cast<char *>(s.c_str()));
 			}
 		}
@@ -242,14 +242,14 @@ int ARvsg::init(int screenDistanceMM, COLOR_TYPE i_bg,  bool bUseLockFile, bool 
 			}
 			else
 			{
-				cerr << "Initialize Slave VSG using configuration file \"" << s << "\"" << endl;
+				cout << "Initialize Slave VSG using configuration file \"" << s << "\"" << endl;
 				if (bSlaveSynch)
 				{
 					m_device_handle = vsgAdvancedInit(const_cast<char *>(s.c_str()), vsgADVINITSLAVEVIDEO);
 				}
 				else
 				{
-					cerr << "WARNING: Non-enslavement initialization!!! No frame sync!!" << endl;
+					cout << "WARNING: Non-enslavement initialization!!! No frame sync!!" << endl;
 					m_device_handle = vsgInit(const_cast<char *>(s.c_str()));
 				}
 			}
@@ -342,7 +342,7 @@ int ARvsg::init_overlay()
 		{
 			// Get the number of overlay pages, then clear them all. 
 			int npages = vsgGetSystemAttribute(vsgNUMOVERLAYPAGES);
-			cerr << "There are " << npages << " overlay pages." << endl;
+			cout << "There are " << npages << " overlay pages." << endl;
 			vsgPaletteWriteOverlayCols((VSGLUTBUFFER*)&background, 1, 1);
 			for (int i=npages-1; i>=0; i--)
 			{
@@ -586,7 +586,7 @@ void ARObject::init(PIXEL_LEVEL first, int numlevels)
 	vsgObjSetPixelLevels(first, numlevels);
 	m_initialized = true;
 
-	cerr << "init obj on level " << first << ", with " << numlevels << " levels" << endl;
+	cout << "init obj on level " << first << ", with " << numlevels << " levels" << endl;
 }
 
 void ARObject::setContrast(int contrast) 
@@ -630,12 +630,13 @@ int ARXhairSpec::draw()
 	int status=0;
 	VSGTRIVAL from = {0, 0, 0};
 	VSGTRIVAL to = {1, 1, 1};
-	PIXEL_LEVEL level_first, level_mid, level_x;
+	PIXEL_LEVEL level_first, level_mid, level_x, level_last;
 
 	select();
 	level_first = getFirstLevel();
 	level_mid = getFirstLevel() + getNumLevels()/2;
 	level_x = this->getFirstLevel() + this->getNumLevels()/8;
+	level_last = getFirstLevel() + getNumLevels() - 1;
 	if (getNumLevels() < 3)
 	{
 		cerr << "WARNING: ARXhair objects should be initialized with at least 3 levels!" << endl;
@@ -656,10 +657,10 @@ int ARXhairSpec::draw()
 
 	if (this->r1 > 0 && this->r2 > 0)
 	{
-		vsgSetPen1(level_x);
-		vsgSetPen1(245);
-		vsgSetDrawMode(vsgSOLIDPEN);
-		vsgSetPenSize(4, 4);
+		vsgSetPen1(level_mid);
+		//vsgSetPen1(245);
+		vsgSetDrawMode(vsgCENTREXY + vsgSOLIDPEN);
+		vsgSetPenSize(2, 2);
 
 		vsgDrawLine(this->x + this->r1 - delta/2, -this->y - delta/2, this->x + this->r2 - delta/2, -this->y - delta/2);
 		vsgDrawLine(this->x-delta/2, -this->y + this->r1 - delta/2, this->x-delta/2, -this->y + this->r2 - delta/2);
@@ -674,7 +675,7 @@ int ARXhairSpec::drawPie(int n, PIXEL_LEVEL first, PIXEL_LEVEL second, double x,
 	double astep;
 	int i;
 	astep = 360.0/n;
-	cout << "draw pie " << n << ", " << first << ", " << second << ", " << r << ", " << astep << endl;
+	vsgSetDrawMode(vsgCENTREXY + vsgSOLIDFILL);
 	for (i=0; i<n; i++)
 	{
 		if (i % 2 == 0)
@@ -731,7 +732,6 @@ int ARContrastRectangleSpec::draw()
 	else 
 	{
 		vsgObjSetColourVector(&from, &to, vsgUNIPOLAR);
-		cerr << "from=" << from.a << "," << from.b << "," << from.c << " to=" << to.a << "," << to.b << "," << to.c << endl;
 	}
 
 	if (!status)
@@ -769,7 +769,6 @@ int ARMultiContrastRectangleSpec::draw()
 	else 
 	{
 		vsgObjSetColourVector(&from, &to, vsgUNIPOLAR);
-		cerr << "from=" << from.a << "," << from.b << "," << from.c << " to=" << to.a << "," << to.b << "," << to.c << endl;
 	}
 
 	if (!status)
@@ -795,6 +794,7 @@ int ARMultiContrastRectangleSpec::drawOverlay()
 
 int ARFixationPointSpec::draw()
 {
+	vsgSetPen1(getFirstLevel());
 	vsgSetDrawMode(vsgCENTREXY + vsgSOLIDFILL);
 	vsgDrawOval(x, -1*y, d, d);
 	return 0;
@@ -841,11 +841,11 @@ int ARContrastFixationPointSpec::draw()
 	else 
 	{
 		vsgObjSetColourVector(&from, &to, vsgUNIPOLAR);
-		cerr << "from=" << from.a << "," << from.b << "," << from.c << " to=" << to.a << "," << to.b << "," << to.c << endl;
 	}
 
 	if (!status)
 	{
+		vsgSetDrawMode(vsgCENTREXY + vsgSOLIDFILL);
 		vsgSetPen1(getFirstLevel());
 		ARFixationPointSpec::draw();
 	}
@@ -879,7 +879,6 @@ int ARContrastCircleSpec::draw()
 	else 
 	{
 		vsgObjSetColourVector(&from, &to, vsgUNIPOLAR);
-		cerr << "from=" << from.a << "," << from.b << "," << from.c << " to=" << to.a << "," << to.b << "," << to.c << endl;
 	}
 
 	if (!status)
@@ -920,7 +919,6 @@ int ARContrastLineSpec::draw()
 	else 
 	{
 		vsgObjSetColourVector(&from, &to, vsgUNIPOLAR);
-		cerr << "from=" << from.a << "," << from.b << "," << from.c << " to=" << to.a << "," << to.b << "," << to.c << endl;
 	}
 
 	if (!status)
