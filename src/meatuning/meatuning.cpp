@@ -84,8 +84,6 @@ int args(int argc, char **argv);
 void usage();
 
 int parse_tuning_specfile(string filename);
-void make_argv(vector<string>tokens, int& argc, char** argv);
-void free_argv(int& argc, char **argv);
 int args(int argc, char **argv);
 void destroy_stim(int stimindex);
 
@@ -775,29 +773,6 @@ void usage()
 	cerr << "usage: meatuning -d screen_distance_MM -b g|b|w -s x,y,w,h,contrast%,sf,tf,orientation,color_vector,s|q,r|e" << endl;
 }
 
-void make_argv(vector<string>tokens, int& argc, char** argv)
-{
-	unsigned int i;
-	argv[0] = (char *)malloc(9);
-	strcpy_s(argv[0], 9, "PROGNAME");
-	for (i=0; i<tokens.size(); i++)
-	{
-		argv[i+1] = (char *)malloc(tokens[i].length()+1);
-		strcpy_s(argv[i+1], tokens[i].length()+1, tokens[i].c_str());
-	}
-	argc = (int)tokens.size()+1;
-}
-
-void free_argv(int& argc, char **argv)
-{
-	int i;
-	for (i=0; i<argc; i++)
-	{
-		free(argv[i]);
-		argv[i] = NULL;
-	}
-	argc = 0;
-}
 
 int parse_tuning_specfile(string filename)
 {
