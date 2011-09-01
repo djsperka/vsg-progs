@@ -1,0 +1,440 @@
+#include "../../Spike2Util/UsreyUtil.s2s"
+
+' ports used for recording
+const amsNPorts% := 8;   ' Number of analog ports
+var amsWavemarkPorts%[amsNPorts%]; 
+var amsContinuousPorts%[amsNPorts%];
+var amsNWavemarks% := 0;
+var amsNContinuous% := 0;
+
+
+var ViewHandle,FilePathRoot$,ExperimentHandle,LastFile$,NumberRead,ParameterFileHandle;
+var DataWindow%,DuplicateChannels%[64];
+var ProgHandle;
+
+ 
+'First, we open CurrentExperiment.par to find out what experiment is currently running.
+'If we cannot open the file, or the file is empty, we print an error message and quit.
+'ViewHandle := FileOpen("D:\\AcuteRig\\Experiments\\CurrentExperiment.par",8,0);
+'if ViewHandle < 0 then Message("Could not determine current experiment."); Halt; endif;
+'NumberRead := Read(FilePathRoot$);
+'if NumberRead < 1 then Message("Could not determine current experiment."); Halt; endif;
+'FileClose();
+FilePathRoot$ := GetCurrentDataPath$(0);
+PrintLog("FilePathRoot = " + FilePathRoot$ + "\n");
+
+'Find out what the last parameter file created was, so we know how to interpret the incoming spikes
+'if NumberRead >0 then
+PrintLog("Look for %s\\LastFile\n", FilePathRoot$);
+ExperimentHandle := FileOpen(FilePathRoot$+"\\LastFile",8,0);
+If ExperimentHandle < 0 then Message("Could not determine most recent parameter file"); Halt; endif;
+NumberRead := Read(LastFile$);
+if NumberRead < 1 then Message("Could not determine most recent parameter file"); Halt; endif;
+FileClose();
+'endif
+PrintLog("LastFile is %s\n", LastFile$);
+
+'Open that most recently created parameter file.
+PrintLog("Look for parameter file %s\\%s.par\n", FilePathRoot$, LastFile$);
+'ParameterFileHandle := FileOpen(FilePathRoot$+"\\DataFiles\\"+LastFile$+".par",8,0);
+ParameterFileHandle := FileOpen(FilePathRoot$+"\\"+LastFile$+".par",8,0);
+if ParameterFileHandle <0 then Message("Parameter file not found"); Halt; endif
+
+'Read the parameter file for this experiment
+var ExperimentType$,NumberOfRepeats%,TemporalFrequency,SignalDuration,BlankDuration,NumberOfSteps%;
+var ParameterType$,FreeParameter[500],Units$,MaxIndex%;
+var GratingProgression$;
+var ReversalFrequency;
+var ReturnValue;
+ReturnValue := ReadParameterFile();
+if ReturnValue <0 then Halt; endif
+
+
+var StimulusCounter% := 0;
+var DlgResponse;
+'Find out how many input channels the user wishes to
+'record, and whether or not to calculate (and display)
+'the F1 and background noise (in spikes/second).
+var CalculateF1%,CalculateF2%,SeparateTraces%,TriggerChannel%,AutoStart%;
+DlgCreate("Describe your inputs");
+DlgCheck(1,"Calculate F1s?");
+DlgCheck(2,"Calculate F2s?");
+DlgResponse := DlgShow(CalculateF1%,CalculateF2%);
+if DlgResponse = 0 then Halt; endif
+
+' Need to set this after wavemark and waveform channels are determined. 
+'TriggerChannel% := NumberOfChannels%+1;
+
+'Create a sample configuration based on previous user input
+'and the parameter file.
+CreateSampleConfiguration();
+View(App(0)).Window(0,0,100,100);
+'Create the data sampling window
+DataWindow% := FileNew(0,4);	'Open the data sampling window
+View(DataWindow%).WindowVisible(1);
+View(DataWindow%).Window(0,60,100,100);
+View(DataWindow%).WindowTitle$("Incoming spikes");
+
+'Hide the normal Start/Stop buttons, so people don't get confused between 
+'Spike2's Start button, and our custom Start button.
+View(App(8)).WindowVisible(0);
+
+'Setup the Toolbar to control aquisition and processing
+var TriggerOnTime := 0, TriggerOffTime :=0, TriggerOnOff$, FFTData[16];
+ToolbarVisible(1);
+'ToolbarSet(0,"",IdleProcessing%);
+ToolbarSet(1,"Sample start",Start%);
+ToolbarSet(2,"Sample stop", Stop%);
+Toolbar("Go",102);
+ToolbarEnable(2,0);
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func ReadParameterFile()
+'Obtain the name of the parameter file for this experiment
+
+View(ParameterFileHandle); 
+if ParameterFileHandle <0 then return(-1) endif
+'Read the values from the parameter file into the global variables defined in the main script body.
+Read(ExperimentType$);
+docase
+case ExperimentType$ = "[SurrOri]" then
+	  ExperimentType$ := "[Orientation tuning]"; 
+endcase
+docase 
+	case ExperimentType$="[Contrast tuning]" then 
+		ParameterType$:="Grating Contrast";
+		Units$:="percent";
+	case ExperimentType$="[Orientation tuning]" then
+		ParameterType$:="Orientation";  
+		Units$:="degrees"; 
+	case ExperimentType$="[Spatial frequency tuning]" then
+		ParameterType$:="Spatial Frequency";
+		Units$:="cyc/deg";  
+	case ExperimentType$="[Temporal frequency tuning]" then
+		ParameterType$:="Temporal Frequency";
+		Units$:="Hz";
+		CalculateF1%:=0;
+		CalculateF2%:=0;
+	case ExperimentType$="[Aperture area tuning]" then
+		ParameterType$:="Aperture";
+		Units$:="diameter";
+	case ExperimentType$="[XY Test]" then
+		ParameterType$:="Phase";
+endcase  
+var Parameter$,Value1$;
+while ReturnValue >=0 do
+	ReturnValue := Read(Parameter$,Value1$);
+	docase
+		case Parameter$ = ParameterType$ then
+			FreeParameter[val(Value1$)] := val(Mid$(Value1$,3));
+			MaxIndex% := val(Value1$);
+		case Parameter$ = "Number Of Repeats" then
+			NumberOfRepeats% := val(Value1$);
+		case Parameter$ = "Temporal Frequency" then
+			TemporalFrequency := val(Value1$);
+		case Parameter$ = "Signal Duration" then
+			SignalDuration := val(Value1$);
+		case Parameter$ = "Blank Duration" then
+			BlankDuration := val(Value1$);
+		case Parameter$ = "Number Of Steps" then
+			NumberOfSteps% := val(Value1$);
+		case Parameter$ = "Grating Progression" then
+			GratingProgression$ := Value1$;
+		case Parameter$ = "Reversal Frequency" then
+			ReversalFrequency := val(Value1$);
+	endcase
+wend
+return(1);
+end;
+
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+proc CreateSampleConfiguration()
+var index;
+var i%;
+SampleClear(); 'Set standard sampling state
+SampleAutoFile(0); 'Enable automatic file naming
+SampleAutoComment(0); 'Prompt for comment after sampling
+SampleAutoCommit(60); 'Seconds between each file commit
+    
+' Get wavemark/continuous ports
+amsNWavemarks% := GetWavemarkPorts%(amsWavemarkPorts%[]);
+amsNContinuous% := GetContinuousPorts%(amsContinuousPorts%[]);
+
+'Wavemark channel recording definitions
+for i% := 0 to amsNWavemarks%-1 do
+    SampleWaveMark(i% + 1, amsWavemarkPorts%[i%], 2000, 34, 15, 28000); ' chan, port, event rate, points, pre-trigger, rate
+    SampleTitle$(i% + 1, "WMrk " + str$(amsWavemarkPorts%[i%])); 
+next
+for i% := 0 to amsNContinuous%-1 do
+    SampleWaveform(amsNWavemarks% + i% + 1, amsContinuousPorts%[i%], 20000);
+    SampleTitle$(amsNWavemarks% + i% + 1, "Cont " + str$(amsContinuousPorts%[i%]));
+next
+
+TriggerChannel% := amsNWavemarks% + amsNContinuous%;    
+    
+    
+'Channel recording definitions
+SampleEvent(TriggerChannel%,1,2,3600); 'Trigger channel, level
+SampleComment$(TriggerChannel%,"Trigger");
+SampleTitle$(TriggerChannel%,"Trigger");
+'DrawMode(TriggerChannel%,2);	'Set the trigger channel to line mode.
+
+SampleOptimise(2,2,2,2,50);  'Set optimise mode (do this last)
+SampleMode(1); 'Continuous sampling  
+end;
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+proc WindowLayout()
+var SizeFactor,Row,Column,index,MaxDuplicates;
+var PSTHhandle;
+    
+'Find out how many duplicates of this channel there are. Users duplicate
+'channels to separate data from WaveMarks or groups of wavemarks.
+for index := 1 to amsNWavemarks% do
+	' djs Version 4 returns 0 when there's no dups, whereas v5 seems to return 1. Original 
+	' script always added +1 to result of DupChan below. 
+	DuplicateChannels%[index] := DupChan(index,-1);
+	if DuplicateChannels%[index] < 0 then 
+		DuplicateChannels%[index] := 0;
+	endif
+	PrintLog("WindowLayout: index=" + str$(index) + " dupchan=" + str$(DuplicateChannels%[index]) + "\n");
+	if DuplicateChannels%[index] <0 then DuplicateChannels%[index] := 0; endif
+next
+
+if ExperimentType$="[Temporal frequency tuning]" then CalculateF1%:=0; CalculateF2%:=0; endif
+'For Display purposes, figure out the largest number
+'of duplicates of a channel. Then, calculate what 
+'percentage of the second screen we want each window 
+'to take. Remember screen width is doubled due to the
+'second monitor.
+var Height, Width,DuplicateIndex,AutoCorr%,ChannelNumber;
+MaxDuplicates := DuplicateChannels%[Max(DuplicateChannels%[])];
+Height := 100/(MaxDuplicates+1);
+Width := 50/amsNWavemarks%;
+
+'Draw the various analysis windows. One window for each channel, all spikes. One auto-correllogram
+'per channel. One window for each duplicate of each channel, for WaveMark-specific plots.
+for index := 1 to amsNWavemarks% do
+'Create an XY-plot for each channel and its duplicates
+	for DuplicateIndex := 0 to DuplicateChannels%[index] do
+		View(DataWindow%);
+		if DuplicateIndex = 0 then ChannelNumber := index; else ChannelNumber := DupChan(index,DuplicateIndex); endif
+
+		PrintLog("WindowLayout: index " + str$(index) + " Dup Index " + str$(DuplicateIndex) + " Channel#=" + str$(ChannelNumber) + "\n");
+		var xy%;
+		xy% := FileNew(12);		'Open XY view for this channel
+		Window(50+(index-1)*Width, DuplicateIndex*Height, 50+index*Width, (DuplicateIndex+1)*Height);
+		WindowVisible(1);
+		if DuplicateIndex =0 then
+			if index = 1 then WindowTitle$("Cortex");	else WindowTitle$("LGN "+Str$(index-1)); endif
+		else
+			WindowTitle$("Channel "+str$(index)+" WaveMark "+str$(DuplicateIndex));
+		endif
+		XUnits$(Units$);
+		ChanTitle$(1,"Spikes/s");
+		XYColour(1,16);
+		if GratingProgression$="Monotonic" then XYJoin(1,1); endif
+'Create a channel in this XY-view to display background information
+		XYSetChan(0);
+		ChanTitle$(2,"Background");
+		XYColour(2,17);
+		if GratingProgression$="Monotonic" then XYJoin(2,1); endif	
+		if DuplicateIndex=0 then XYKey(1,1); endif ' display the XY-view key in the topmost window.
+
+'Set up auto-correllogram. We re-use the handle variable because we only
+'need it for one-time sizing and process operations.
+		AutoCorr% := View(DataWindow%).SetEvtCrl(index,60,.0005,.015,index);
+		View(AutoCorr%);
+		Window((index-1)*Width, DuplicateIndex*Height*.6, index*Width, (DuplicateIndex+1)*Height*.6);
+		WindowVisible(1);
+		WindowTitle$("Channel "+str$(index)+" WaveMark "+str$(DuplicateIndex)+" AutoCorr"); 		
+'If the user chose to display F1s, create that channel and a PSTH
+'from which to calculate the F1. The 'or' clause is there to make
+'sure we create the same PSTH in the case where the user wants F2s
+'but not F1s.
+
+	if CalculateF1% = 1 or CalculateF2% =1 then 
+	View(xy%);  'added
+			XYSetChan(0);
+			ChanTitle$(3,"F1");
+			XYColour(3,25);
+			if GratingProgression$="Monotonic" then XYJoin(3,1); endif
+			if ExperimentType$="[XY Test]" then 
+				PSTHhandle := View(DataWindow%).SetPSTH(ChannelNumber,16,1 /(ReversalFrequency*16),0,0,3);
+			else
+				PSTHhandle := View(DataWindow%).SetPSTH(ChannelNumber,16,1 /(TemporalFrequency*16),0,0,3);
+			endif
+			View(PSTHhandle).WindowVisible(0); 'We make the PSTHs invisible as they are used only for calculations
+			View(PSTHhandle).WindowTitle$("PSTH "+Str$(View(DataWindow%).DupChan(index,DuplicateIndex)));			
+'If the user chose to display F2s, create that channel
+			if CalculateF2% = 1 then 
+				XYSetChan(0);
+				ChanTitle$(4,"F2");  
+				XYColour(4,30);
+				if GratingProgression$="Monotonic" then XYJoin(4,1); endif  
+			endif			
+		endif
+	next
+next 
+
+View(DataWindow%); 'Since most functions want the time view, we bring that to the forefront.
+end;
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func Start%()
+View(App(0)).Window(0,0,100,100); 'Make use of our dual monitors!
+SampleStart(1);
+View(DataWindow%).Window(0,60,50,100);
+'Setup the data display windows for tuning curves, auto-correllograms, etc.
+WindowLayout();
+ToolbarSet(0,"",IdleProcessing%); 'Set the IdleProcessing function to run on empty interrupts.
+ToolbarEnable(2,1);
+ToolbarEnable(1,0);
+'if Autostart% = 1 then ProgHandle := ProgRun("D:\\work\\AlertRig\\bin\\TuningCurve.exe",0); endif
+return 1;
+end; 
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func Stop%()
+SampleStop();
+'if Autostart% = 1 then ProgKill(ProgHandle); endif
+'ProgRun("D:\\work\\AlertRig\\bin\\ClearTrigger.exe",0);
+ToolbarClear(0); 'No need for the IdleProcessing function to run after Sampling has stopped.
+View(DataWindow%);
+var FileNumber, ThrowAway$,ReturnValue; 
+FilePathSet(FilePathRoot$+"\\");
+FileNumber := FileList(ThrowAway$,-1,LastFile$+"*.smr")+1;
+if FileNumber >1 then
+	ReturnValue := FileSaveAs(FilePathRoot$+"\\"+LastFile$+"Run"+Str$(FileNumber)+".smr",-1);
+else
+	ReturnValue := FileSaveAs(FilePathRoot$+"\\"+LastFile$+".smr",-1);
+endif
+
+ToolbarEnable(2,0);
+ToolbarEnable(1,0);
+var index;
+View(SampleHandle(1)).WindowVisible(1);
+if CalculateF1%=1 then
+	for index := 1 to amsNWavemarks% do
+		View(ViewFind("PSTH "+Str$(index))).FileClose(0,-1);
+	next
+endif
+
+View(App(8)).WindowVisible(1);
+return 0;
+end;
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func IdleProcessing%()   		'This function will be run whenever an interrupt
+										'is available.
+var OldTriggerOnTime;
+var EventTime, FirstEvent;
+var XYDataX[NumberOfSteps%],XYDataY[NumberOfSteps%];
+
+'We make sure the data window is selected, so measurements like Count
+'work as expected.
+View(DataWindow%);
+
+'Because Spike2 records the second half of the TTL trigger pulse that
+'signals the program to begin data collection, we wait until we see 
+'the SECOND event on the trigger channel to begin processing.
+FirstEvent := NextTime(TriggerChannel%,NextTime(TriggerChannel%,0));
+if FirstEvent <=0 then return 1; endif 
+
+'If triggerOnTime=0, then we know we are looking at the beginning of our first stimulus
+'because TriggerOnTime has never been set. So we set TriggerOnTime to FirstEvent and
+'we set TriggerOnOff to "Off", so that we know we are now looking for the "off" trigger 
+'that will signal the end of the stimulus.
+if TriggerOnTime=0 then TriggerOnTime :=FirstEvent;TriggerOnOff$ := "Off"; endif
+
+'If this is NOT the first trigger, then we perform different analyses depending
+'on whether it is an "on" trigger, or an "off" trigger.
+docase 
+'If we are looking for the "off" trigger
+	case TriggerOnOff$ = "Off" then 
+		if LastTime(TriggerChannel%,MaxTime(TriggerChannel%)+.01) > TriggerOnTime then
+			TriggerOffTime := NextTime(TriggerChannel%,TriggerOnTime);
+			TriggerOnOff$ := "On"; 'Now that we found an "off" trigger, next time look for "on".
+'Since we just found an "off" trigger, we know the most recent stimulus has finished.
+'So we perform our per-stimulus analyses (XY-plots, AutoCorrs, etc).
+			StimulusProcessing(TriggerOnTime, TriggerOffTime);
+'If this is the end of the last stimulus, stop sampling.
+   		if StimulusCounter% = NumberOfRepeats%*(1+NumberOfSteps%)
+				then Stop%(); 
+			else
+			StimulusCounter% := StimulusCounter% + 1;
+			endif
+		endif
+	case	TriggerOnOff$ = "On" then
+		if LastTime(TriggerChannel%,MaxTime(TriggerChannel%))+.01 > TriggerOffTime then 
+			TriggerOnTime := NextTime(TriggerChannel%,TriggerOffTime);
+			TriggerOnOff$ := "Off";
+'Since we just found an "on" trigger, we perform analysis on the background noise
+'before the new stimulus begins.
+			BackgroundProcessing(TriggerOffTime, TriggerOnTime);
+		endif
+endcase
+return 1;
+end; 
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+proc StimulusProcessing(TriggerOnTime, TriggerOffTime)
+var DuplicateIndex,SweepIndex,ChannelIndex,Title$,ChannelNumber;
+var SpikesPerSecond;
+View(DataWindow%).Optimise(-1,0,MaxTime()); 'Optimize the Y axes.
+'For each channel, and each duplicate, perform the analyses the user specified earlier.
+
+for ChannelIndex := 1 to amsNWavemarks% do
+	for DuplicateIndex :=0 to DuplicateChannels%[ChannelIndex] do
+		View(DataWindow%); 
+		if DuplicateIndex = 0 then
+			ChannelNumber := ChannelIndex;
+			if ChannelIndex = 1 then Title$ := "Cortex";	else Title$ := "LGN "+Str$(ChannelIndex-1); endif
+		else
+			Title$ := "Channel "+str$(ChannelIndex)+" WaveMark "+str$(DuplicateIndex);
+			ChannelNumber := DupChan(ChannelIndex,DuplicateIndex);
+		endif
+		' djs temp
+		PrintLog("StimProc: ChannelIndex " + str$(ChannelIndex) + " Dup Index " + str$(DuplicateIndex) + " Channel#=" + str$(ChannelNumber) + "\n");
+
+		'calculate the response in spikes per second, and display it on the graph
+		if ChannelNumber <0 then Halt; endif
+		SpikesPerSecond := View(DataWindow%).count(ChannelNumber,TriggerOnTime,TriggerOffTime) / (TriggerOffTime - TriggerOnTime);
+		View(ViewFind(Title$)).XYAddData(1,FreeParameter[StimulusCounter%],SpikesPerSecond);
+		'If the user chose to display F1s, update the PSTHs, find the F1s, and plot them on the XY graph.
+		if CalculateF1% = 1 or CalculateF2% = 1 then
+			View(ViewFind("PSTH "+Str$(ChannelIndex)));
+			Process(TriggerOnTime,TriggerOffTime,1,1);
+			for SweepIndex :=1 to trunc(SignalDuration*TemporalFrequency) -1 do 
+				Process(TriggerOnTime+SweepIndex*(1/TemporalFrequency),TriggerOffTime,0,1);
+			next
+			ArrConst(FFTData[],View(ViewFind("PSTH "+Str$(ChannelNumber))).[]);
+			ArrFFT(FFTData[],4); 
+			if CalculateF1% = 1 then View(ViewFind(Title$)).XYAddData(3,FreeParameter[StimulusCounter%],FFTData[1]); endif
+			if CalculateF2% = 1 then View(ViewFind(Title$)).XYAddData(4,FreeParameter[StimulusCounter%],FFTData[2]); endif
+		endif
+		'Update AutoCorrs
+		View(ViewFind("Channel "+str$(ChannelIndex)+" WaveMark "+str$(DuplicateIndex)+" AutoCorr")).Process(TriggerOnTime,TriggerOffTime,0,1);
+	next
+next
+
+end;
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+proc BackgroundProcessing(TriggerOffTime,TriggerOnTime)
+
+var DuplicateIndex, ChannelNumber;
+var ChannelIndex,Title$,SpikesPerSecond;
+for ChannelIndex := 1 to amsNWavemarks% do
+	for DuplicateIndex :=0 to DuplicateChannels%[ChannelIndex] do
+		if DuplicateIndex = 0 then
+			ChannelNumber := ChannelIndex;
+			if ChannelIndex = 1 then Title$ := "Cortex";	else Title$ := "LGN "+Str$(ChannelIndex-1); endif
+		else
+			Title$ := "Channel "+str$(ChannelIndex)+" WaveMark "+str$(DuplicateIndex);
+			ChannelNumber := DupChan(ChannelIndex,DuplicateIndex);
+		endif
+		SpikesPerSecond := View(DataWindow%).count(ChannelIndex,TriggerOffTime,TriggerOnTime) / (TriggerOnTime - TriggerOffTime);
+		View(ViewFind(Title$)).XYAddData(2,FreeParameter[StimulusCounter%-1],SpikesPerSecond);
+		'Update AutoCorrs
+		View(ViewFind("Channel "+str$(ChannelIndex)+" WaveMark "+str$(DuplicateIndex)+" AutoCorr")).Process(TriggerOnTime,TriggerOffTime,0,1);
+	next
+next
+end;
