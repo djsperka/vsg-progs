@@ -1,3 +1,5 @@
+#include "../../Spike2Util/UsreyUtil.s2s"
+
 var punNChannels% := 1;
 var punDotSize% := 4;
 var punUseGrid% := 0;
@@ -14,10 +16,93 @@ var punFreq := .25;
 var punFullField% := 0;
 
 proc SavePunctaciousParameters()
+	var key$;
+	key$:=GetRegistryKey$(1) + "\\Scripts\\Punctacious";
+    
+    ' Main dialog
+    SetIntRegistryValue(key$, "DotSize", punDotSize%);
+    SetIntRegistryValue(key$, "UseRamp", punUseRamp%);
+    SetFloatRegistryValue(key$, "Freq", punFreq);
+    SetFloatRegistryValue(key$, "TOn", punTOn);
+    SetFloatRegistryValue(key$, "TOff", punTOff);
+    SetIntRegistryValue(key$, "FullField", punFullField%);
+    
+    ' grid dialog
+    SetIntRegistryValue(key$, "UseGrid", punUseGrid%);
+    SetIntRegistryValue(key$, "GridCenterX", punGridCenterX%);
+    SetIntRegistryValue(key$, "GridCenterY", punGridCenterY%);
+    SetIntRegistryValue(key$, "UseGridDots_0", punUseGridDots%[0]);
+    SetIntRegistryValue(key$, "UseGridDots_1", punUseGridDots%[1]);
+    SetIntRegistryValue(key$, "UseGridDots_2", punUseGridDots%[2]);
+    SetIntRegistryValue(key$, "UseGridDots_3", punUseGridDots%[3]);
+    SetIntRegistryValue(key$, "GridDotsXY_0_0", punGridDotsXY%[0][0]);
+    SetIntRegistryValue(key$, "GridDotsXY_0_1", punGridDotsXY%[0][1]);
+    SetIntRegistryValue(key$, "GridDotsXY_1_0", punGridDotsXY%[1][0]);
+    SetIntRegistryValue(key$, "GridDotsXY_1_1", punGridDotsXY%[1][1]);
+    SetIntRegistryValue(key$, "GridDotsXY_2_0", punGridDotsXY%[2][0]);
+    SetIntRegistryValue(key$, "GridDotsXY_2_1", punGridDotsXY%[2][1]);
+    SetIntRegistryValue(key$, "GridDotsXY_3_0", punGridDotsXY%[3][0]);
+    SetIntRegistryValue(key$, "GridDotsXY_3_1", punGridDotsXY%[3][1]);
+    
+    ' points dialog
+    SetIntRegistryValue(key$, "UsePoints_0", punUsePoints%[0]);
+    SetIntRegistryValue(key$, "UsePoints_1", punUsePoints%[1]);
+    SetIntRegistryValue(key$, "UsePoints_2", punUsePoints%[2]);
+    SetIntRegistryValue(key$, "UsePoints_3", punUsePoints%[3]);
+    SetIntRegistryValue(key$, "PointsXY_0_0", punPointsXY%[0][0]);
+    SetIntRegistryValue(key$, "PointsXY_0_1", punPointsXY%[0][1]);
+    SetIntRegistryValue(key$, "PointsXY_1_0", punPointsXY%[1][0]);
+    SetIntRegistryValue(key$, "PointsXY_1_1", punPointsXY%[1][1]);
+    SetIntRegistryValue(key$, "PointsXY_2_0", punPointsXY%[2][0]);
+    SetIntRegistryValue(key$, "PointsXY_2_1", punPointsXY%[2][1]);
+    SetIntRegistryValue(key$, "PointsXY_3_0", punPointsXY%[3][0]);
+    SetIntRegistryValue(key$, "PointsXY_3_1", punPointsXY%[3][1]);
     return;
 end
 
 proc GetPunctaciousParameters()
+	var key$;
+	key$:=GetRegistryKey$(1) + "\\Scripts\\Punctacious";
+    
+    ' Main dialog
+    punDotSize% := GetIntRegistryValue%(key$, "DotSize", punDotSize%);
+    punUseRamp% := GetIntRegistryValue%(key$, "UseRamp", punUseRamp%);
+    punFreq := GetFloatRegistryValue(key$, "Freq", punFreq);
+    punTOn := GetFloatRegistryValue(key$, "TOn", punTOn);
+    punTOff := GetFloatRegistryValue(key$, "TOff", punTOff);
+    punFullField% := GetIntRegistryValue%(key$, "FullField", punFullField%);
+    
+    ' grid dialog
+    punUseGrid% := GetIntRegistryValue%(key$, "UseGrid", punUseGrid%);
+    punGridCenterX% := GetIntRegistryValue%(key$, "GridCenterX", punGridCenterX%);
+    punGridCenterY% := GetIntRegistryValue%(key$, "GridCenterY", punGridCenterY%);
+    punUseGridDots%[0] := GetIntRegistryValue%(key$, "UseGridDots_0", punUseGridDots%[0]);
+    punUseGridDots%[1] := GetIntRegistryValue%(key$, "UseGridDots_1", punUseGridDots%[1]);
+    punUseGridDots%[2] := GetIntRegistryValue%(key$, "UseGridDots_2", punUseGridDots%[2]);
+    punUseGridDots%[3] := GetIntRegistryValue%(key$, "UseGridDots_3", punUseGridDots%[3]);
+    punGridDotsXY%[0][0] := GetIntRegistryValue%(key$, "GridDotsXY_0_0", punGridDotsXY%[0][0]);
+    punGridDotsXY%[0][1] := GetIntRegistryValue%(key$, "GridDotsXY_0_1", punGridDotsXY%[0][1]);
+    punGridDotsXY%[1][0] := GetIntRegistryValue%(key$, "GridDotsXY_1_0", punGridDotsXY%[1][0]);
+    punGridDotsXY%[1][1] := GetIntRegistryValue%(key$, "GridDotsXY_1_1", punGridDotsXY%[1][1]);
+    punGridDotsXY%[2][0] := GetIntRegistryValue%(key$, "GridDotsXY_2_0", punGridDotsXY%[2][0]);
+    punGridDotsXY%[2][1] := GetIntRegistryValue%(key$, "GridDotsXY_2_1", punGridDotsXY%[2][1]);
+    punGridDotsXY%[3][0] := GetIntRegistryValue%(key$, "GridDotsXY_3_0", punGridDotsXY%[3][0]);
+    punGridDotsXY%[3][1] := GetIntRegistryValue%(key$, "GridDotsXY_3_1", punGridDotsXY%[3][1]);
+    
+    ' points dialog
+    punUsePoints%[0] := GetIntRegistryValue%(key$, "UsePoints_0", punUsePoints%[0]);
+    punUsePoints%[1] := GetIntRegistryValue%(key$, "UsePoints_1", punUsePoints%[1]);
+    punUsePoints%[2] := GetIntRegistryValue%(key$, "UsePoints_2", punUsePoints%[2]);
+    punUsePoints%[3] := GetIntRegistryValue%(key$, "UsePoints_3", punUsePoints%[3]);
+    punPointsXY%[0][0] := GetIntRegistryValue%(key$, "PointsXY_0_0", punPointsXY%[0][0]);
+    punPointsXY%[0][1] := GetIntRegistryValue%(key$, "PointsXY_0_1", punPointsXY%[0][1]);
+    punPointsXY%[1][0] := GetIntRegistryValue%(key$, "PointsXY_1_0", punPointsXY%[1][0]);
+    punPointsXY%[1][1] := GetIntRegistryValue%(key$, "PointsXY_1_1", punPointsXY%[1][1]);
+    punPointsXY%[2][0] := GetIntRegistryValue%(key$, "PointsXY_2_0", punPointsXY%[2][0]);
+    punPointsXY%[2][1] := GetIntRegistryValue%(key$, "PointsXY_2_1", punPointsXY%[2][1]);
+    punPointsXY%[3][0] := GetIntRegistryValue%(key$, "PointsXY_3_0", punPointsXY%[3][0]);
+    punPointsXY%[3][1] := GetIntRegistryValue%(key$, "PointsXY_3_1", punPointsXY%[3][1]);
+
     return;
 end
 
@@ -30,19 +115,18 @@ func PunctaciousDialog%()
     GetPunctaciousParameters();
     
     DlgCreate("Punctacious Parameters");
-    DlgInteger(1, "Number of channels: ", 1, 8);
-    DlgInteger(2, "Dot size: ", 4, 28, 0, 0, 4);
-    DlgCheck(3, "Use contrast ramp");
-    DlgReal(4, "Frequency (Hz):", 0.001, 100);
-    DlgReal(5, "T On (sec):", 0.001, 100);
-    DlgReal(6, "T Off (sec):", 0.001, 100);
-    DlgCheck(7, "Full Field");
+    DlgInteger(1, "Dot size: ", 4, 28, 0, 0, 4);
+    DlgCheck(2, "Use contrast ramp");
+    DlgReal(3, "Frequency (Hz):", 0.001, 100);
+    DlgReal(4, "T On (sec):", 0.001, 100);
+    DlgReal(5, "T Off (sec):", 0.001, 100);
+    DlgCheck(6, "Full Field");
     DlgButton(101, "Grid", PunctaciousGridDialog%);
     DlgButton(102, "Points", PunctaciousPointsDialog%);
     DlgAllow(0xffff, 0, PunctaciousDialogChanged%);
 '    DlgInteger(6, "Number of repeats: ", 1, 100);
     '    DlgList(7, "Color properties: ", amsColor$[]);
-    status% := DlgShow(punNChannels%, punDotSize%, punUseRamp%, punFreq, punTOn, punTOff, punFullField%);
+    status% := DlgShow(punDotSize%, punUseRamp%, punFreq, punTOn, punTOff, punFullField%);
     if status% = 1 then
         SavePunctaciousParameters();
     endif
@@ -53,11 +137,11 @@ end
 func PunctaciousDialogChanged%(item%)
     docase
     case item% = 0 then
-        DlgEnable(1-punUseRamp%, 5, 6);
-        DlgEnable(punUseRamp%, 4);
-    case item% = 3 then
-        DlgEnable(1-DlgValue(3), 5, 6);
-        DlgEnable(DlgValue(3), 4);
+        DlgEnable(1-punUseRamp%, 4, 5);
+        DlgEnable(punUseRamp%, 3);
+    case item% = 2 then
+        DlgEnable(1-DlgValue(2), 4, 5);
+        DlgEnable(DlgValue(2), 3);
     endcase
     return 1;
 end

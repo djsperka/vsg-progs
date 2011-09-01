@@ -1,10 +1,9 @@
-' $Id: Vertibar.s2s,v 1.2 2011-06-07 18:27:15 devel Exp $
+' $Id: Vertibar.s2s,v 1.3 2011-09-01 18:38:54 djsperka Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "PunctaciousDialog.s2s"
 
 ' dialog
-var vtbNChannels% := 1;
 var vtbFramesPerTerm% := 1;
 var vtbCenterCoord% := 0;
 var vtbNBars% := 16;
@@ -12,9 +11,16 @@ var vtbBarWidth% := 0;
 var vtbFullScreen% := 0;
 var vtbHorizontal% := 0;
 
+' ports used for recording
+const vtbNPorts% := 8;   ' Number of analog ports
+var vtbWavemarkPorts%[vtbNPorts%]; 
+var vtbContinuousPorts%[vtbNPorts%];
+var vtbNWavemarks% := 0;
+var vtbNContinuous% := 0;
+
 ' Channel numbers
-var vtbChanTrigger% := 11;
-var vtbChanVSGReady% := 12;
+var vtbChanTrigger% := 21;
+var vtbChanVSGReady% := 22;
 
 ' Windows
 var vtbDataWindow%;
@@ -67,7 +73,6 @@ proc GetVertibarScriptParameters()
 	var key$;
 	key$:=GetRegistryKey$(1) + "\\Scripts\\Vertibar";
     
-    vtbNChannels% := GetIntRegistryValue%(key$, "NChannels", vtbNChannels%);
     vtbFramesPerTerm% := GetIntRegistryValue%(key$, "FramesPerTerm", vtbFramesPerTerm%);
     vtbNBars% := GetIntRegistryValue%(key$, "NBars", vtbNBars%);
     vtbFullScreen% := GetIntRegistryValue%(key$, "FullScreen", vtbFullScreen%);
@@ -79,7 +84,6 @@ end;
 proc SaveVertibarScriptParameters()
 	var key$;
 	key$:=GetRegistryKey$(1) + "\\Scripts\\Vertibar";
-    SetIntRegistryValue(key$, "NChannels", vtbNChannels%);
     SetIntRegistryValue(key$, "FramesPerTerm", vtbFramesPerTerm%);
     SetIntRegistryValue(key$, "NBars", vtbNBars%);
     SetIntRegistryValue(key$, "FullScreen", vtbFullScreen%);
@@ -93,15 +97,14 @@ end;
 func VertibarDialog%()
     var status% := 0;
     DlgCreate("Vertibar!");
-    DlgInteger(1, "# Electrodes", 1, 8);
-    DlgInteger(2, "Frames per term", 1, 1000, 0, 0, 1);
-    DlgInteger(3, "# of bars", 1, 250, 0, 0, 1);
-    DlgCheck(4, "Full Screen width");
-    DlgCheck(5, "Horizontabars");
-    DlgInteger(6, "Bar Width (pixels)", 4, 800);
-    DlgInteger(7, "Center X/Y (pixels)", -400, 400);
+    DlgInteger(1, "Frames per term", 1, 1000, 0, 0, 1);
+    DlgInteger(2, "# of bars", 1, 250, 0, 0, 1);
+    DlgCheck(3, "Full Screen width");
+    DlgCheck(4, "Horizontabars");
+    DlgInteger(5, "Bar Width (pixels)", 4, 800);
+    DlgInteger(6, "Center X/Y (pixels)", -400, 400);
     DlgAllow(0xffff, 0, VertibarDialogChanged%);
-    status% := DlgShow(vtbNChannels%, vtbFramesPerTerm%, vtbNBars%, vtbFullScreen%, vtbHorizontal%, vtbBarWidth%, vtbCenterCoord%);;
+    status% := DlgShow(vtbFramesPerTerm%, vtbNBars%, vtbFullScreen%, vtbHorizontal%, vtbBarWidth%, vtbCenterCoord%);;
     return status%
 end
 
@@ -128,12 +131,20 @@ proc CreateSampleConfiguration()
     FilePathSet(GetDataPathRoot$() + "\\" + GetDataSetName$(), 1);
     SampleAutoName$(dataCellName$ + "_vtb_000");
 	SampleAutoFile(1);
-
-    'Channel recording definitions
-
-    for i% := 1 to vtbNChannels% do
-        SampleWaveMark(i%, i%-1, 2000, 34, 15, 28000); ' chan, port, event rate, points, pre-trigger, rate
-        SampleTitle$(i%, "Trode " + Str$(i%-1));
+    
+    ' Get wavemark/continuous ports
+    vtbNWavemarks% := GetWavemarkPorts%(vtbWavemarkPorts%[]);
+    vtbNContinuous% := GetContinuousPorts%(vtbContinuousPorts%[]);
+    PrintLog("wm %d cont %d\n", vtbNWavemarks%, vtbNContinuous%);
+    
+    'Wavemark channel recording definitions
+    for i% := 0 to vtbNWavemarks%-1 do
+		SampleWaveMark(i% + 1, vtbWavemarkPorts%[i%], 2000, 34, 15, 28000); ' chan, port, event rate, points, pre-trigger, rate
+		SampleTitle$(i% + 1, "WMrk " + str$(vtbWavemarkPorts%[i%])); 
+	next
+    for i% := 0 to vtbNContinuous%-1 do
+        SampleWaveform(vtbNWavemarks% + i% + 1, vtbContinuousPorts%[i%], 20000);
+        SampleTitle$(vtbNWavemarks% + i% + 1, "Cont " + str$(vtbContinuousPorts%[i%]));
     next
 
     SampleEvent(vtbChanTrigger%, 1, 1, 1000); 
@@ -178,6 +189,7 @@ end
 func Start%()
     var cmd$;
     var args$;
+    PrintLog("bindir %s\n", GetBinDir$(1));
     cmd$ := "cmd /c " + GetBinDir$(1) + "vertibar.exe ";
     
     args$ := " -t " + str$(vtbFramesPerTerm%) + " -n " + str$(vtbNBars%) + " -o 15 -f " + GetStimDir$(1) + "MSequenceTerms";
