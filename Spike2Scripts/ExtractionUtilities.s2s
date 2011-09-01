@@ -25,6 +25,16 @@
 var euIdentialTime% := 0;
 var euTIdenticalTime := -1;
 var euSIdentical$;
+var euIgnoreText% := 0;         ' used internally only - when 1 NextKeyOrText will ignore text marks. See NextKey()
+
+func NextKey(tstart, &val$, ignore$)
+    var t := -1;
+    euIgnoreText% := 1;
+    t := NextKeyOrText(tstart, val$, ignore$);
+    euIgnoreText% := 0;
+    return t;
+end
+
 
 
 func NextKeyOrText(tstart, &val$, ignore$)
@@ -64,7 +74,8 @@ func NextKeyOrText(tstart, &val$, ignore$)
 
         ' Next look in channel 30 - text markers. 
         ' djs 9-27-2010 Confirm that there is a text marker channel. 
-        if ChanKind(30)>0 then
+        ' djs 6-21-2011 Added NextKey - which directs this function to ignore channel 30 text marks. 
+        if euIgnoreText% = 0 and ChanKind(30)>0 then
             tText := NextTime(30, tstart, iTextCode%[], sText$);
         endif
         
