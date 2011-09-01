@@ -1,0 +1,59 @@
+' Collects 60 seconds of data from a single channel and displays the data and
+' an FFT. Data sampling starts immediately when script started. After data taking 
+' complete, opens 'File Save' dialog. 
+'
+' Hard-coded to use input port 2 - this is set in the sampling configuration file, 
+' eeg.s2c. 
+
+#include "../../Spike2Util/UsreyUtil.s2s"
+
+var hData%;
+var hPower%;
+var iSeconds% := 10;
+var iStatus%;
+
+CreateSampleConfiguration();
+InitializeWindows();
+
+SampleStart(0);
+
+repeat
+	iStatus% := SampleStatus();
+	Yield(1);
+until iStatus%<0;
+
+View(hData%);
+
+
+proc CreateSampleConfiguration()
+    
+    var i%;
+    
+	SampleClear(); 'Set standard sampling state
+	SampleAutoComment(0); 'Prompt for comment after sampling
+	SampleAutoCommit(60); 'Seconds between each file commit
+    SampleLimitTime(iSeconds%);
+    
+    FilePathSet(GetDataPathRoot$() + "\\" + GetDataSetName$(), 3);
+    FilePathSet(GetDataPathRoot$() + "\\" + GetDataSetName$(), 1);
+    SampleAutoName$("EEG_000");
+	SampleAutoFile(1);
+
+    SampleWaveform(1, 2, 1000);
+    SampleTitle$(1, "EEG Port2");
+    
+    SampleOptimise(2, 2, 2, 2, 50);  'Set optimise mode (do this last)
+    SampleMode(1); 'Continuous sampling
+end;
+
+
+proc InitializeWindows()
+    hData% := FileNew(0, 5);
+    XRange(0, iSeconds%);
+    Window(0, 50, 100, 100);
+    hPower% := SetPower(1, 2048);
+    View(hPower%).WindowVisible(1);
+    View(hPower%).Window(0, 0, 100, 50);
+    ProcessAuto(1.0, 0, 1);
+    return;
+end
