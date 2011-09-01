@@ -20,11 +20,21 @@ var txIState% := txstateStart%;
 var txChanFixpt% := 24;
 var txChanStim% := 25;
 var txChanStimChg% := 26;
+var txChanFixptSlave% := 28;
+var txChanStimSlave% := 29;
+var txChanFrame% := 19;
+var txChanFrameSlave% := 20;
 
 ' Trial vars
 var tS;     ' onset time of stim
 var tE;     ' off time of stim
+var tSSlave;' onset time of stim for slave screen
+var tESlave;' off time of stim for slave screen
 var iCurrentParam% := 0;
+
+' version info
+var txVersion% := 0;
+var txDualVSG% := 0;
 
 ' tuning params
 var nparams% := 0;
@@ -75,18 +85,97 @@ end
 proc InitTrialVars()
     tS := -1;
     tE := -1;
+    tSSlave := -1;
+    tESlave := -1;
     return;
 end
 
+
+func FindStimPulses%(chan%, tS1, tS2, tP[])
+    var count% := 0;
+    var tN;
+    var t0, t1;
+    var st%;
+    
+    ' Look for 3 pulses
+    tN := tS1-.001;
+    st% := FindPulseUp%(chan%, tN, t0, t1);
+    while st% = 1 and count% < 3 do
+        tP[count%] := t0;
+        count% += 1;
+        'PrintLog("Pulse %d at %f - %f\n", count%, t0, t1);
+        tN := t1;
+        st% := FindPulseUp%(chan%, tN, t0, t1);
+    wend
+    
+    if count% = 3 and tP[2] < tS2 then
+        return 1;
+    endif
+    
+    return 0;
+end
+
+
+
 proc FlushTrial()
     var s$;
-    s$ := Print$("%f %f %f\n", params[iCurrentParam%], tS, tE);
+    var tPM[3];
+    var tPS[3];
+    
+    if txVersion% = 2 and txDualVSG% = 1 then
+        if FindStimPulses%(txChanFrame%, tS, tE, tPM[]) <> 1 then
+            PrintLog("ERROR: Cannot find master stim pulses in window from %f - %f\n", tS, tE);
+            return;
+        endif
+    
+        if FindStimPulses%(txChanFrameSlave%, tSSlave, tESlave, tPS[]) <> 1 then
+            PrintLog("ERROR: Cannot find slave stim pulses in window from %f - %f\n", tSSlave, tESlave);
+            return;
+        endif
+    
+        s$ := Print$("%f %f %f %f %f\n", params[iCurrentParam%], tPM[1], tPM[2], tPS[1], tPS[2]);
+    else
+        s$ := Print$("%f %f %f %f %f\n", params[iCurrentParam%], tS, tE, tSSlave, tESlave);
+    endif
+        
     View(LogHandle()).Print(s$);
     if txOutputHandle >= 0 then
         View(txOutputHandle).Print(s$);
     endif
 
     return;
+end
+
+
+' GetTuningVersion%
+'
+' Looks at text marks at beginning of data file to determine what "version" the tuning data is. 
+
+proc GetTuningVersion(&version%, &isDual%)
+    var s$;
+    var iStatus% := 0;
+    var tLast := -1;
+    var count% := 0;
+    var cLength%;
+    var i%;
+    while iStatus% = 0 do
+        tLast := NextTextMark(tLast, s$);
+        docase
+        case count% = 0 then
+            ' Parse version and command line length
+            i% := InStr(s$, ",");
+            ReadStr(DelStr$(s$, 1, i%), version%, cLength%);
+            PrintLog("Version %d Len %d\n", version%, cLength%);
+            count% := 1;
+        case count% = 1 then
+            count% := 2;    ' ignore this text mark - its the CVS ID. 
+        case count% = 2 then
+            if InStr(LCase$(s$), "dualstim") > 0 then
+                isDual% := 1;
+            endif
+            iStatus% := 1;
+        endcase
+    wend
 end
 
 
@@ -102,13 +191,16 @@ func TuningExtract%(tStart, tStop)
     var status% := 0;
     var tFound := -1;
     var sFound$;
-    var sIgnore$ := "0FJQR";
+    var sIgnore$ := "0FJQR+";
     var tTrigger;
+    
+    GetTuningVersion(txVersion%, txDualVSG%);
+    PrintLog("Version %d dual %d\n", txVersion%, txDualVSG%);
     
     txTLast := tStart;
     txTStop := tStop;
 
-    tFound := NextKeyOrText(txTLast, sFound$, sIgnore$);
+    tFound := NextKey(txTLast, sFound$, sIgnore$);
     while tFound >= 0 and (txTStop < 0 or (txTStop > 0 and tFound <= txTStop)) and txIState% <> txstateError% do
 
         'LogInfo(sFound$ + " " + str$(tFound));
@@ -116,8 +208,9 @@ func TuningExtract%(tStart, tStop)
         docase 
         case txIState% = txstateStart% then
             docase
-            case sFound$ = "S" then
-                if FindRisingEdge%(txChanStim%, tFound, tS) < 0 then
+                '            case sFound$ = "S" then
+            case InStr(sFound$, "S") = 1 then
+                if FindRisingEdge%(txChanStim%, tFound, tS) < 0 or FindRisingEdge%(txChanStimSlave%, tFound, tSSlave) < 0 then
                     LogError("", "Rising edge not found after S at t=" + str$(tFound) + "\n");
                     txIState% := txstateError%;
                 else
@@ -132,7 +225,7 @@ func TuningExtract%(tStart, tStop)
             ' Expecting "s" or "X"
             docase 
             case sFound$ = "s" then
-                if FindFallingEdge%(txChanStim%, tFound, tE) < 0 then
+                if FindFallingEdge%(txChanStim%, tFound, tE) < 0 or FindFallingEdge%(txChanStimSlave%, tFound, tESlave) < 0 then
                     LogError("", "Falling edge not found after s at t=" + str$(tFound) + "\n");
                     txIState% := txstateError%;
                 else
@@ -163,7 +256,7 @@ func TuningExtract%(tStart, tStop)
         endcase
         
         txTLast := tFound;
-        tFound := NextKeyOrText(txTLast, sFound$, sIgnore$);
+        tFound := NextKey(txTLast, sFound$, sIgnore$);
         
     wend
     
