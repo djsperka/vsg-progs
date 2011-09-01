@@ -50,10 +50,12 @@ end;
 proc InitializeWindows()
     hData% := FileNew(0, 5);
     XRange(0, iSeconds%);
+    YRange(1, -2, 2);
     Window(0, 50, 100, 100);
     hPower% := SetPower(1, 2048);
     View(hPower%).WindowVisible(1);
     View(hPower%).Window(0, 0, 100, 50);
+    View(hPower%).XRange(0, 100);
     ProcessAuto(1.0, 0, 1);
     return;
 end
