@@ -1,4 +1,4 @@
-' $Id: CoolMouse.s2s,v 1.14 2011-06-22 19:26:22 devel Exp $
+' $Id: CoolMouse.s2s,v 1.15 2011-09-01 23:54:32 devel Exp $
 
 #include "../../Spike2util\UsreyUtil.s2s"
 #include "UsreyGratings.s2s"
@@ -274,7 +274,7 @@ proc CreateSampleConfiguration()
 	SampleTitle$(TriggerChannel%, "Trigger");
     
 	' channel to look for ready signal from vsg
-	SampleEvent(ReadyChannel%,6,2,3600); 'Trigger channel, level
+	SampleEvent(ReadyChannel%, 1, 2, 3600); 'Trigger channel, level
 	SampleComment$(ReadyChannel%,"VSG Ready");
 	SampleTitle$(ReadyChannel%,"VSG Ready");
 
@@ -405,7 +405,7 @@ func Start%()
 	var Extras$;
     
 	SampleStart(0); 'Start sampling
-	Extras$ := " -b gray -A " + GetFixationArg$() + " -d " + GetDistanceToScreenMM$() + " -g " + GetGratingParameters$("Stimulus");
+	Extras$ := " -b gray -p 2 -A " + GetFixationArg$() + " -d " + GetDistanceToScreenMM$() + " -g " + GetGratingParameters$("Stimulus");
 	CommandLine$ := "cmd /c " + bin$ + "\\cmouse" + Extras$;
 
     ' Clear any trigger bits on digout lines.
