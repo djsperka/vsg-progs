@@ -1,4 +1,4 @@
-' $Id: AcuteMSequence.s2s,v 1.5 2011-06-07 18:25:51 devel Exp $
+' $Id: AcuteMSequence.s2s,v 1.6 2011-09-01 18:36:16 djsperka Exp $
 '
 ' AcuteMSequence.s2s
 '
@@ -9,7 +9,6 @@
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "../../Spike2Util/FileUtilities.s2s"
 
-var amsNChannels%;
 var amsFramesPerTerm%;
 var amsDotSize%;
 var amsXOrigin%, amsYOrigin%;
@@ -17,9 +16,17 @@ var amsRepeats% := 1;
 var amsColorIndex%;
 var amsColor$[4];
 
+' ports used for recording
+const amsNPorts% := 8;   ' Number of analog ports
+var amsWavemarkPorts%[amsNPorts%]; 
+var amsContinuousPorts%[amsNPorts%];
+var amsNWavemarks% := 0;
+var amsNContinuous% := 0;
+
+
 ' daq channels for triggers from vsg
-var amsChanTrigger% := 11;
-var amsChanVSGReady% := 12;
+var amsChanTrigger% := 21;
+var amsChanVSGReady% := 22;
 
 ' prog handles
 var amsHandleMsgSvr := -1;
@@ -60,7 +67,7 @@ amsColor$[1] := "S cone isolating";
 amsColor$[2] := "M cone isolating";
 amsColor$[3] := "L cone isolating";
 
-View(App(0)).Window(0,0,75,95);
+View(App(0)).Window(0,0,100,95);
 
 
 
@@ -97,14 +104,13 @@ func AcuteMSequenceDialog%()
     GetAcuteMSequenceParameters();
     
     DlgCreate("M Sequence Parameters");
-    DlgInteger(1, "Number of channels: ", 1, 8);
-    DlgInteger(2, "Frames per term: ", 1, 1000000);
-    DlgInteger(3, "Dot size: ", 4, 28, 0, 0, 4);
-    DlgInteger(4, "Center X coord: ", -400, 400);
-    DlgInteger(5, "Center Y coord: ", -300, 300);
-    DlgInteger(6, "Number of repeats: ", 1, 100);
-    DlgList(7, "Color properties: ", amsColor$[]);
-    status% := DlgShow(amsNChannels%, amsFramesPerTerm%, amsDotSize%, amsXOrigin%, amsYOrigin%, amsRepeats%, amsColorIndex%);
+    DlgInteger(1, "Frames per term: ", 1, 1000000);
+    DlgInteger(2, "Dot size: ", 4, 28, 0, 0, 4);
+    DlgInteger(3, "Center X coord: ", -400, 400);
+    DlgInteger(4, "Center Y coord: ", -300, 300);
+    DlgInteger(5, "Number of repeats: ", 1, 100);
+    DlgList(6, "Color properties: ", amsColor$[]);
+    status% := DlgShow(amsFramesPerTerm%, amsDotSize%, amsXOrigin%, amsYOrigin%, amsRepeats%, amsColorIndex%);
     
     if status% = 1 then
         
@@ -132,7 +138,6 @@ end
 proc GetAcuteMSequenceParameters()
 	var key$;
 	key$:=GetRegistryKey$(1) + "\\Scripts\\MSequence";
-    amsNChannels% := GetIntRegistryValue%(key$, "NChannels", amsNChannels%);
     amsFramesPerTerm% := GetIntRegistryValue%(key$, "FramesPerTerm", amsFramesPerTerm%);
     amsDotSize% := GetIntRegistryValue%(key$, "DotSize", amsDotSize%);
     amsXOrigin% := GetIntRegistryValue%(key$, "XOrigin", amsXOrigin%);
@@ -145,7 +150,6 @@ end
 proc SaveAcuteMSequenceParameters()
 	var key$;
 	key$:=GetRegistryKey$(1) + "\\Scripts\\MSequence";
-    SetIntRegistryValue(key$, "NChannels", amsNChannels%);
     SetIntRegistryValue(key$, "FramesPerTerm", amsFramesPerTerm%);
     SetIntRegistryValue(key$, "DotSize", amsDotSize%);
     SetIntRegistryValue(key$, "XOrigin", amsXOrigin%);
@@ -169,12 +173,21 @@ proc CreateSampleConfiguration()
     SampleAutoName$(dataCellName$ + "_mseq_000");
 	SampleAutoFile(1);
 
-    'Channel recording definitions
-
-    for i% := 1 to amsNChannels% do
-        SampleWaveMark(i%, i%-1, 2000, 34, 15, 28000); ' chan, port, event rate, points, pre-trigger, rate
-        SampleTitle$(i%, "Trode " + Str$(i%-1));
+    ' Get wavemark/continuous ports
+    amsNWavemarks% := GetWavemarkPorts%(amsWavemarkPorts%[]);
+    amsNContinuous% := GetContinuousPorts%(amsContinuousPorts%[]);
+    PrintLog("wm %d cont %d\n", amsNWavemarks%, amsNContinuous%);
+    
+    'Wavemark channel recording definitions
+    for i% := 0 to amsNWavemarks%-1 do
+		SampleWaveMark(i% + 1, amsWavemarkPorts%[i%], 2000, 34, 15, 28000); ' chan, port, event rate, points, pre-trigger, rate
+		SampleTitle$(i% + 1, "WMrk " + str$(amsWavemarkPorts%[i%])); 
+	next
+    for i% := 0 to amsNContinuous%-1 do
+        SampleWaveform(amsNWavemarks% + i% + 1, amsContinuousPorts%[i%], 20000);
+        SampleTitle$(amsNWavemarks% + i% + 1, "Cont " + str$(amsContinuousPorts%[i%]));
     next
+
 
     SampleEvent(amsChanTrigger%, 1, 1, 1000); 
     SampleTitle$(amsChanTrigger%, "Terms");
@@ -198,15 +211,17 @@ proc InitializeWindows()
     
     amsWindowData% := FileNew(0,4);
     View(amsWindowData%).WindowVisible(1);
-    View(amsWindowData%).Window(0,33,100,100);
-
-    for i% :=1 to amsNChannels% do
-        AutoCorr% :=View(amsWindowData%).SetEvtCrl(i%, 60, .0005, .015, i%);
-        View(AutoCorr%).ProcessAuto(5, 0, 1, 5);
-        View(AutoCorr%).Window((i%-1)*(100/amsNChannels%), 0, i%*(100/amsNChannels%), 33);
-        View(AutoCorr%).WindowVisible(1);
-        View(AutoCorr%).WindowTitle$("Channel "+str$(i%)+" AutoCorr");
-    next
+    View(amsWindowData%).Window(0,50,100,100);
+    
+    if amsNWavemarks% > 0 then
+        for i% :=1 to amsNWavemarks% do
+            AutoCorr% :=View(amsWindowData%).SetEvtCrl(i%, 60, .0005, .015, i%);
+            View(AutoCorr%).ProcessAuto(5, 0, 1, 5);
+            View(AutoCorr%).Window((i%-1)*(100/amsNWavemarks%), 0, i%*(100/amsNWavemarks%), 33);
+            View(AutoCorr%).WindowVisible(1);
+            View(AutoCorr%).WindowTitle$("Channel "+str$(i%)+" AutoCorr");
+        next
+    endif
     
     SaveParameterFile();
 end
@@ -222,7 +237,7 @@ proc SaveParameterFile()
     else
         LogInfo("Writing parameters to file " + filename$);
         Print("[M Sequence]\n");
-        Print("\"Number Of Channels\" %d\n",amsNChannels%);
+        Print("\"Number Of Channels\" %d\n",amsNWavemarks%);
         Print("\"Frames Per Term\" %d\n",amsFramesPerTerm%);
         Print("\"Dot Size\" %f\n",amsDotSize%);
         Print("\"X Origin\" %f\n",amsXOrigin%);
@@ -249,7 +264,7 @@ func Start%()
     
     ' Start message server
     amsHandleMsgSvr:=ProgRun("D:\\work\\AlertRig\\bin\\MsgSvr.exe",0);
-    Message("Start MultiRealTimeM(" + str$(amsNChannels%) + ") and press OK to start");
+    Message("Start MultiRealTimeM(" + str$(amsNWavemarks%) + ") and press OK to start");
     
     ' Start sampling
     SampleStart(0);
@@ -401,7 +416,7 @@ func CountSpikes%()
         else
             ' TriggerTime is valid, so the interval [TriggerTime, NextTriggerTime] is a term in the sequence. 
             ' Count spikes for each data channel and save it in BlockData$[]
-            for index := 1 to amsNChannels% do 
+            for index := 1 to amsNWavemarks% do 
                 SpikeCount:=View(amsWindowData%).count(index,TriggerTime,NextTriggerTime);
                 BlockData$[index-1]:=BlockData$[index-1]+" "+str$(SpikeCount);
             next 
@@ -419,8 +434,8 @@ func CountSpikes%()
             ' pile up. Not too sure about that, though. Regardless, the test determines when we push the BlockData$[]
             ' up to the MsgSvr.
             
-            if BlockIndex*amsFramesPerTerm%>=(40*amsNChannels%) or status% < 0 then 
-                for index := 1 to amsNChannels% do 
+            if BlockIndex*amsFramesPerTerm%>=(40*amsNWavemarks%) or status% < 0 then 
+                for index := 1 to amsNWavemarks% do 
                     SendMessage(BlockData$[index-1]);
                     BlockData$[index-1]:=str$(index);
                     PercentComplete:=TriggerNumber/(32768*amsRepeats%);

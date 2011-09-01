@@ -1,11 +1,18 @@
-' $Id: Punctacious.s2s,v 1.2 2011-04-01 18:10:03 devel Exp $
+' $Id: Punctacious.s2s,v 1.3 2011-09-01 18:38:54 djsperka Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "PunctaciousDialog.s2s"
 
+' ports used for recording
+const punNPorts% := 8;   ' Number of analog ports
+var punWavemarkPorts%[punNPorts%]; 
+var punContinuousPorts%[punNPorts%];
+var punNWavemarks% := 0;
+var punNContinuous% := 0;
+
 ' Channel numbers
-var punChanTrigger% := 11;
-var punChanVSGReady% := 12;
+var punChanTrigger% := 21;
+var punChanVSGReady% := 22;
 
 ' Windows
 var punDataWindow%;
@@ -72,11 +79,20 @@ proc CreateSampleConfiguration()
     SampleAutoName$(dataCellName$ + "_pun_000");
 	SampleAutoFile(1);
 
-    'Channel recording definitions
-
-    for i% := 1 to punNChannels% do
-        SampleWaveMark(i%, i%-1, 2000, 34, 15, 28000); ' chan, port, event rate, points, pre-trigger, rate
-        SampleTitle$(i%, "Trode " + Str$(i%-1));
+    ' Get wavemark/continuous ports
+    punNWavemarks% := GetWavemarkPorts%(punWavemarkPorts%[]);
+    punNContinuous% := GetContinuousPorts%(punContinuousPorts%[]);
+    
+    'Wavemark channel recording definitions
+    for i% := 0 to punNWavemarks%-1 do
+		SampleWaveMark(i% + 1, punWavemarkPorts%[i%], 2000, 34, 15, 28000); ' chan, port, event rate, points, pre-trigger, rate
+		SampleTitle$(i% + 1, "WMrk " + str$(punWavemarkPorts%[i%])); 
+	next
+    
+    'Waveform channel recording definitions
+    for i% := 0 to punNContinuous%-1 do
+        SampleWaveform(punNWavemarks% + i% + 1, punContinuousPorts%[i%], 20000);
+        SampleTitle$(punNWavemarks% + i% + 1, "Cont " + str$(punContinuousPorts%[i%]));
     next
 
     SampleEvent(punChanTrigger%, 1, 1, 1000); 
@@ -105,25 +121,33 @@ proc InitializeWindows()
     XRange(0, 15);
     View(punDataWindow%).Window(0,0,50,100);
     
-    winsz := floor(100/punNChannels%);
-    if punUseRamp% = 1 then
-        binsz := 1/punFreq;        
-        for i% := 0 to punNChannels%-1 do
-            punRasterWindow%[i%] := View(punDataWindow%).SetPSTH(str$(i%+1), 1, binsz, 0, punChanTrigger%, 2);
-            View(punRasterWindow%[i%]);
-            WindowVisible(1);
-            Window(50, i%*winsz, 100, winsz);
-        next
-    else
-        binsz := punTOff + punTOn;
-        for i% := 0 to punNChannels%-1 do
-            punRasterWindow%[i%] := View(punDataWindow%).SetPSTH(str$(i%+1), 1, binsz, punTOff, punChanTrigger%, 2);
-            View(punRasterWindow%[i%]);
-            WindowVisible(1);
-            Window(50, i%*winsz, 100, winsz);
-        next
+    ' A word about channels. The CreateSampleConfiguration script creates daq channels using the 
+    ' wavemark and waveform channel numbers configured using ElectrodesDialog (see 
+    ' Spike2Util/ElectrodesUtilities.s2s). 
+    ' 
+    ' When CreateSampleConfiguration creates wavemark channels, it uses channel numbers
+    ' 1-punNWavemarks% for the ports being used for wavemarks. 
+    
+    if punNWavemarks% > 0 then
+        winsz := floor(100/punNWavemarks%);
+        if punUseRamp% = 1 then
+            binsz := 1/punFreq;        
+            for i% := 0 to punNWavemarks%-1 do
+                punRasterWindow%[i%] := View(punDataWindow%).SetPSTH(str$(i%+1), 1, binsz, 0, punChanTrigger%, 2);
+                View(punRasterWindow%[i%]);
+                WindowVisible(1);
+                Window(50, i%*winsz, 100, (i%+1)*winsz);
+            next
+        else
+            binsz := punTOff + punTOn;
+            for i% := 0 to punNWavemarks%-1 do
+                punRasterWindow%[i%] := View(punDataWindow%).SetPSTH(str$(i%+1), 1, binsz, punTOff, punChanTrigger%, 2);
+                View(punRasterWindow%[i%]);
+                WindowVisible(1);
+                Window(50, i%*winsz, 100, (i%+1)*winsz);
+            next
+        endif
     endif
-
 end
 
 
@@ -264,7 +288,7 @@ func Idle%()
         while tTrigger > -1 do
             if punNTriggersCounted% > 5 then
                 LogStatus("stateStim", "Process trigger at " + str$(tTrigger));
-                for i% := 1 to punNChannels% do
+                for i% := 1 to punNWavemarks% do
                     View(punRasterWindow%[i%-1]).Process(punLastTriggerTime, tTrigger, 0, 1);
                 next
             endif

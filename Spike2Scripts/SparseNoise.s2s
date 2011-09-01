@@ -1,4 +1,4 @@
-' $Id: SparseNoise.s2s,v 1.3 2010-03-26 23:23:22 devel Exp $
+' $Id: SparseNoise.s2s,v 1.4 2011-09-01 18:38:54 djsperka Exp $
 '
 ' SparseNoise.s2s
 '
@@ -6,7 +6,6 @@
 
 #include "../../Spike2Util/UsreyUtil.s2s"
 
-var spnNChannels% := 1;
 var spnFramesPerTerm% := 1;
 var spnDotSize% := 4;
 var spnCenterX% := 0;
@@ -14,9 +13,16 @@ var spnCenterY% := 0;
 var spnNRepeats% := 1;
 var spnKeepCmdWindow% := 0;
 
+' ports used for recording
+const spnNPorts% := 8;   ' Number of analog ports
+var spnWavemarkPorts%[spnNPorts%]; 
+var spnContinuousPorts%[spnNPorts%];
+var spnNWavemarks% := 0;
+var spnNContinuous% := 0;
+
 ' Channel numbers
-var spnChanTrigger% := 11;
-var spnChanVSGReady% := 12;
+var spnChanTrigger% := 21;
+var spnChanVSGReady% := 22;
 
 ' Windows
 var spnDataWindow%;
@@ -79,15 +85,13 @@ func SparseNoiseDialog%()
 
     ' dialog fer collectin' parameters and such
     DlgCreate("Sparse Noise Parameters");
-    DlgInteger(1, "Number of channels: ", 1, 8);
-    DlgInteger(2, "Frames per term: ", 1, 1000);
-    DlgInteger(3, "Dot size (pixels): ", 1, 100);
-    DlgInteger(4, "Center X coord: ", -400, 400);
-    DlgInteger(5, "Center Y coord: ", -300, 300);
-    DlgInteger(6, "Number of repeats: ", 1, 100);
-    DlgCheck(7, "Keep cmd window up");
+    DlgInteger(1, "Frames per term: ", 1, 1000);
+    DlgInteger(2, "Dot size (pixels): ", 1, 100);
+    DlgInteger(3, "Center X coord: ", -400, 400);
+    DlgInteger(4, "Center Y coord: ", -300, 300);
+    DlgInteger(5, "Number of repeats: ", 1, 100);
 
-    s% := DlgShow(spnNChannels%, spnFramesPerTerm%, spnDotSize%, spnCenterX%, spnCenterY%, spnNRepeats%, spnKeepCmdWindow%);
+    s% := DlgShow(spnFramesPerTerm%, spnDotSize%, spnCenterX%, spnCenterY%, spnNRepeats%);
     
     
     ' Check inputs and adjust as needed. Dot size must be multiple of 4, not too large for screen. Note that
@@ -110,12 +114,24 @@ func SparseNoiseDialog%()
 end
 
 proc SaveSparseNoiseParameters()
-    LogInfo("TODO: SaveSparseNoiseParameters");
+	var key$;
+	key$:=GetRegistryKey$(1) + "\\Scripts\\SparseNoise";
+    SetIntRegistryValue(key$, "FramesPerTerm", spnFramesPerTerm%);
+    SetIntRegistryValue(key$, "DotSize", spnDotSize%);
+    SetIntRegistryValue(key$, "CenterX", spnCenterX%);
+    SetIntRegistryValue(key$, "CenterY", spnCenterY%);
+    SetIntRegistryValue(key$, "NRepeats", spnNRepeats%);
     return;
 end
 
 proc GetSparseNoiseParameters()
-    LogInfo("TODO: GetSparseNoiseParameters");
+	var key$;
+	key$:=GetRegistryKey$(1) + "\\Scripts\\SparseNoise";
+    spnFramesPerTerm% := GetIntRegistryValue%(key$, "FramesPerTerm", spnFramesPerTerm%);
+    spnDotSize% := GetIntRegistryValue%(key$, "DotSize", spnDotSize%);
+    spnCenterX% := GetIntRegistryValue%(key$, "CenterX", spnCenterX%);
+    spnCenterY% := GetIntRegistryValue%(key$, "CenterY", spnCenterY%);
+    spnNRepeats% := GetIntRegistryValue%(key$, "NRepeats", spnNRepeats%);
     return;
 end
 
@@ -133,11 +149,18 @@ proc CreateSampleConfiguration()
     SampleAutoName$(dataCellName$ + "_spn_000");
 	SampleAutoFile(1);
 
-    'Channel recording definitions
-
-    for i% := 1 to spnNChannels% do
-        SampleWaveMark(i%, i%-1, 2000, 34, 15, 28000); ' chan, port, event rate, points, pre-trigger, rate
-        SampleTitle$(i%, "Trode " + Str$(i%-1));
+    ' Get wavemark/continuous ports
+    spnNWavemarks% := GetWavemarkPorts%(spnWavemarkPorts%[]);
+    spnNContinuous% := GetContinuousPorts%(spnContinuousPorts%[]);
+    
+    'Wavemark channel recording definitions
+    for i% := 0 to spnNWavemarks%-1 do
+		SampleWaveMark(i% + 1, spnWavemarkPorts%[i%], 2000, 34, 15, 28000); ' chan, port, event rate, points, pre-trigger, rate
+		SampleTitle$(i% + 1, "WMrk " + str$(spnWavemarkPorts%[i%])); 
+	next
+    for i% := 0 to spnNContinuous%-1 do
+        SampleWaveform(spnNWavemarks% + i% + 1, spnContinuousPorts%[i%], 20000);
+        SampleTitle$(spnNWavemarks% + i% + 1, "Cont " + str$(spnContinuousPorts%[i%]));
     next
 
     SampleEvent(spnChanTrigger%, 1, 1, 1000); 
@@ -163,15 +186,16 @@ proc InitializeWindows()
     spnDataWindow%:=FileNew(0,4);
     View(spnDataWindow%).WindowVisible(1);
     View(spnDataWindow%).Window(0,33,100,100);
-
-    for i% :=1 to spnNChannels% do
-        AutoCorr% :=View(spnDataWindow%).SetEvtCrl(i%, 60, .0005, .015, i%);
-        View(AutoCorr%).ProcessAuto(5, 0, 1, 5);
-        View(AutoCorr%).Window((i%-1)*(100/spnNChannels%), 0, i%*(100/spnNChannels%), 33);
-        View(AutoCorr%).WindowVisible(1);
-        View(AutoCorr%).WindowTitle$("Channel "+str$(i%)+" AutoCorr");
-    next
-
+    
+    if spnNWavemarks% > 0 then
+        for i% :=1 to spnNWavemarks% do
+            AutoCorr% :=View(spnDataWindow%).SetEvtCrl(i%, 60, .0005, .015, i%);
+            View(AutoCorr%).ProcessAuto(5, 0, 1, 5);
+            View(AutoCorr%).Window((i%-1)*(100/spnNWavemarks%), 0, i%*(100/spnNWavemarks%), 33);
+            View(AutoCorr%).WindowVisible(1);
+            View(AutoCorr%).WindowTitle$("Channel "+str$(i%)+" AutoCorr");
+        next
+    endif
 end
 
 
