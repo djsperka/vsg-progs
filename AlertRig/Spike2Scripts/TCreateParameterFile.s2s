@@ -1,0 +1,743 @@
+' $Id: TCreateParameterFile.s2s,v 1.1 2011-09-01 18:40:41 djsperka Exp $
+'
+' CreateParameterFile.s2s
+'
+' This script creates parameter files which are used to generate tuning curves. 
+' The script presents a series of dialogs where the user enters parameters for the 
+' stimuli, then an SDL file is generated. The generated SDL file is used with the VSG's
+' SDL add-on to drive the stimuli monitor. The actual data collection and online 
+' analysis is done via the 'MultiTuningAnalysis' script. 
+'
+' djs MODIFIED 3-26-10
+'
+' Transitional. Make this file use registry vars. Eventual goal is elimination. 
+
+#include "../../Spike2Util/UsreyUtil.s2s"
+
+var ExperimentType$,ViewHandle,ParameterFileName$, SampleIndex%, RepetitionIndex%;
+var Index%,SignalPlusBlank,SignalDuration;
+var FilePathRoot$, ParameterFilePath$,FileNameRoot$, FileNumber%:=0,NumberRead;
+var FileSuffix$,ExperimentHandle, DistanceToScreen;
+var ColorIndex%,Color$[4];
+
+Color$[0] := "Black and white";
+Color$[1] := "S cone isolating";
+Color$[2] := "M cone isolating";
+Color$[3] := "L cone isolating";
+
+'First, we open CurrentExperiment.par to find out what experiment is currently running.
+'If we cannot open the file, or the file is empty, we print an error message and quit.
+'ViewHandle := FileOpen("D:\\AcuteRig\\Experiments\\CurrentExperiment.par",8,0);
+'if ViewHandle < 0 then Message("Could not determine current experiment."); Halt; endif;
+'NumberRead := Read(FilePathRoot$);
+'if NumberRead < 1 then Message("Could not determine current experiment."); Halt; endif;
+'FileClose();
+FilePathRoot$ := GetCurrentDataPath$(0);
+PrintLog("FilePathRoot = " + FilePathRoot$ + "\n");
+
+'Next, we open the Experiment.par file and read out the current cell we're recording from.
+'If we encounter an error, notify the user and quit.
+'ExperimentHandle := FileOpen(FilePathRoot$+"\\Experiment.par",8,0);
+'if ExperimentHandle <0 then Message("Could not read current experiment parameters."); Halt; endif;
+'Read(); 'Ignore the first line, as that is distance from the screen.
+'NumberRead:=Read(FileNameRoot$); 'Read the current cell name.
+'if NumberRead <1 then Message("Could not determine current cell name"); Halt; endif;
+'FileClose();
+FileNameRoot$ := GetDataCellName$();
+PrintLog("FileNameRoot = " + FileNameRoot$ + "\n");
+
+'Ask the user what kind of experiment they would like to perform.
+ExperimentType$ := GetExperimentType$();
+
+'Set the file suffix type to match the desired experiment
+docase
+	case ExperimentType$="Orientation tuning" then
+		FileSuffix$ := "_ori";
+	case ExperimentType$="Contrast tuning" then
+		FileSuffix$ := "_dom";
+	case ExperimentType$="Spatial frequency tuning" then
+		FileSuffix$ := "_sf";
+	case ExperimentType$="Temporal frequency tuning" then
+		FileSuffix$ := "_tf";
+	case ExperimentType$="Aperture area tuning" then
+		FileSuffix$ := "_area";
+	case ExperimentType$="M Sequence" then
+		FileSuffix$ := "_mseq";
+	case ExperimentType$="MSeq in Grating" then
+		FileSuffix$ := "_mgrt";
+	case ExperimentType$="XY Test" then
+		FileSuffix$ := "_xy";
+endcase;
+
+'Figure out what to name our parameter file
+ParameterFilePath$ := FilePathRoot$+"\\";
+FilePathSet(ParameterFilePath$);
+ParameterFileName$ := FileNameRoot$+FileSuffix$;
+PrintLog("ParameterFileName = " + ParameterFileName$ + "\n");
+var ThrowAway$; ' We don't actually care what the file names are, just how many. Thus, ThrowAway$.
+'Count how many experiments of this kind have already been run for this cell.
+FileNumber% := FileList(ThrowAway$,-1,ParameterFileName$+"*"+".par"); 
+FileNameRoot$ := ParameterFileName$+"_"+Str$(FileNumber%+1);
+ParameterFileName$ := ParameterFileName$+"_"+Str$(FileNumber%+1)+".par";
+
+'Keep a record of what the most recent file created was.
+ExperimentHandle := FileOpen(FilePathRoot$+"\\LastFile",8,1);
+Print(FileNameRoot$);
+FileClose();
+
+'Open our Parameter File for writing.
+ViewHandle := FileOpen(ParameterFilePath$+ParameterFileName$,8,1);
+if ViewHandle <0 then Message("Could not create parameter file " +FilePathRoot$+ParameterFileName$); Halt; endif;
+
+'Write the experiment type, and then call the appropriate subscript to write the parameters.
+Print("[%s]\n",ExperimentType$);
+Print("\"Color\" %s\n",Color$[ColorIndex%]);
+docase 
+	case ExperimentType$="Orientation tuning" then
+		SetOrientationGratingProperties(ViewHandle);
+	case ExperimentType$="Contrast tuning" then
+		SetContrastGratingProperties(ViewHandle);
+	case ExperimentType$="Spatial frequency tuning" then
+		SetSpatialFrequencyGratingProperties(ViewHandle);
+	case ExperimentType$="Temporal frequency tuning" then
+		SetTemporalFrequencyGratingProperties(ViewHandle);
+	case ExperimentType$="Aperture area tuning" then
+		SetApertureAreaGratingProperties(ViewHandle);
+	case ExperimentType$="XY Test" then
+		SetXYTestGratingProperties(ViewHandle);
+endcase;
+
+'If the experiment is not an Aperture Area Tuning, then set the aperture properties. 
+if ExperimentType$ <> "Aperture area tuning" then SetApertureProperties(ViewHandle); endif
+
+SignalPlusBlank := SetTimingProperties(ViewHandle);
+FrontView(ViewHandle);
+FileClose(0);
+
+'When this script finishes, create an SDL file.
+ScriptRun(GetScriptDir$(1) + "TCreateSDL.s2s");
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func GetExperimentType$()
+
+var ExperimentType$[6],Index%, ReturnValue$;
+DlgCreate("Experiment Type");
+ExperimentType$[0] := "Orientation tuning";
+ExperimentType$[1] := "Contrast tuning";
+ExperimentType$[2] := "Spatial frequency tuning";
+ExperimentType$[3] := "Temporal frequency tuning";
+ExperimentType$[4] := "Aperture area tuning";
+ExperimentType$[5] := "XY Test";
+
+DlgList(1,"Select your experiment type:",ExperimentType$[]);
+DlgList(2,"Select your color properties:",Color$[]);
+ColorIndex% :=0;
+DlgShow(Index%,ColorIndex%);
+return ExperimentType$[Index%];
+end;
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func SetOrientationGratingProperties(ViewHandle);
+
+var GratingPattern$,GratingProgression$,NumberOfSteps%,NumberOfSamples%;
+var GratingContrast,SpatialFrequency,TemporalFrequency;
+var PatternList$[2],PatternIndex%, ProgressionList$[2], ProgressionIndex%;
+var BackgroundColor$[3], BackgroundColorIndex%, Background$;
+var MinOrientation, MaxOrientation;
+BackgroundColor$[0] := "Black";
+BackgroundColor$[1] := "Grey (Mean)";
+BackgroundColor$[2] := "White";
+
+PatternList$[0] := "Sine" ; PatternList$[1] := "Square Wave";
+ProgressionList$[0] := "Monotonic" ; ProgressionList$[1] := "Random";
+DlgCreate("Describe Your Grating");
+DlgList(1,"Grating pattern:",PatternList$[]);
+DlgList(2,"Grating progression:",ProgressionList$[]);
+DlgInteger(3,"Number of steps:",1,200);
+DlgInteger(4,"Number of repeats:",1,100);
+DlgReal(5,"Grating contrast",0,100);
+DlgReal(6,"Spatial frequency",0,100);
+DlgReal(7,"Temporal frequency",0,100);
+DlgList(8,"Background color",BackgroundColor$[]);
+DlgReal(9,"Minimum orientation",0,360);
+DlgReal(10,"Maximum orientation",0,360);
+
+NumberOfSteps% := 15 ; NumberOfSamples% := 1; GratingContrast := 100;
+SpatialFrequency := 1; TemporalFrequency :=4; BackgroundColorIndex% :=1;
+MinOrientation :=0; MaxOrientation :=360;
+
+DlgShow(PatternIndex%,ProgressionIndex%,NumberOfSteps%,NumberOfSamples%,
+        GratingContrast,SpatialFrequency,TemporalFrequency,BackgroundColorIndex%,
+		  MinOrientation,MaxOrientation);
+
+GratingPattern$ := PatternList$[PatternIndex%];
+GratingProgression$ := ProgressionList$[ProgressionIndex%];
+docase
+	case BackgroundColorIndex% = 0 then
+		Background$ := "Max";
+	case BackgroundColorIndex% = 1 then
+		Background$ := "Mean";
+	case BackgroundColorIndex% = 2 then
+		Background$ := "Min";
+endcase
+
+FrontView(ViewHandle);
+Print("\"Grating Pattern\" %s\n",GratingPattern$);
+Print("\"Grating Progression\" %s\n",GratingProgression$);
+Print("\"Number Of Steps\" %d\n",NumberOfSteps%);		  
+Print("\"Number Of Repeats\" %d\n",NumberOfSamples%);
+Print("\"Grating Contrast\" %.2f\n",GratingContrast);
+Print("\"Spatial Frequency\" %.3f\n",SpatialFrequency);
+Print("\"Temporal Frequency\" %.3f\n",TemporalFrequency);
+Print("\"Background Color\" %s\n",Background$);
+
+var Orientations[NumberOfSamples%*(NumberOfSteps%+1)+1];
+var PossibleOrientations[NumberOfSteps%+1];
+var RandomNumber%;
+
+for SampleIndex% := 0 to NumberOfSteps% do
+		PossibleOrientations[SampleIndex%] := MinOrientation+(MaxOrientation - MinOrientation)*(SampleIndex%)/(NumberOfSteps%);
+
+next;
+
+docase
+	case GratingProgression$ = "Monotonic" then
+		for RepetitionIndex% :=0 to NumberOfSamples% -1 do
+			for SampleIndex% := 0 to NumberOfSteps% do
+				Orientations[RepetitionIndex%*(NumberOfSteps%+1) +SampleIndex%]
+				:= PossibleOrientations[SampleIndex%];
+			next;
+		next;
+	case GratingProgression$ = "Random" then
+		for RepetitionIndex% :=0 to NumberOfSamples% -1 do
+			for SampleIndex% := 0 to NumberOfSteps% do
+				RandomNumber% := round(rand()*((RepetitionIndex%+1)*NumberOfSteps%+1));
+				while Orientations[RandomNumber%] <>0 do
+					RandomNumber% := round(rand()*((RepetitionIndex%+1)*NumberOfSteps%+1));
+				wend;
+				Orientations[RandomNumber%] := PossibleOrientations[SampleIndex%];
+			next;
+		next;
+endcase;
+
+for Index% :=0 to NumberOfSamples%*(NumberOfSteps%+1) -1 do
+	Print("\"Orientation\" %d %.2f\n",Index%,Orientations[Index%]);
+next;
+
+end;
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func SetContrastGratingProperties(ViewHandle);
+
+var GratingPattern$,GratingProgression$,NumberOfSteps%,NumberOfSamples%;
+var GratingOrientation,SpatialFrequency,TemporalFrequency;
+var PatternList$[2],PatternIndex%, ProgressionList$[2], ProgressionIndex%;
+var BackgroundColor$[3], BackgroundColorIndex%, Background$;
+var MinContrast, MaxContrast;
+BackgroundColor$[0] := "Black";
+BackgroundColor$[1] := "Grey (Mean)";
+BackgroundColor$[2] := "White";
+
+PatternList$[0] := "Sine" ; PatternList$[1] := "Square Wave";
+ProgressionList$[0] := "Monotonic" ; ProgressionList$[1] := "Random";
+DlgCreate("Describe Your Grating");
+DlgList(1,"Grating pattern:",PatternList$[]);
+DlgList(2,"Grating progression:",ProgressionList$[]);
+DlgInteger(3,"Number of steps:",1,200);
+DlgInteger(4,"Number of repeats:",1,1000);
+DlgReal(5,"Grating orientation",0,360);
+DlgReal(6,"Spatial frequency",0,100);
+DlgReal(7,"Temporal frequency",0,100);
+DlgList(8,"Background color",BackgroundColor$[]);
+DlgReal(9,"Minimum contrast",1,100);
+DlgReal(10,"Maximum contrast",1,100);
+NumberOfSteps% := 15 ; NumberOfSamples% := 1; GratingOrientation := 0;
+SpatialFrequency := 1; TemporalFrequency :=4; BackgroundColorIndex% :=1;
+MinContrast :=0; MaxContrast :=100;
+DlgShow(PatternIndex%,ProgressionIndex%,NumberOfSteps%,NumberOfSamples%,
+        GratingOrientation,SpatialFrequency,TemporalFrequency,BackgroundColorIndex%,
+		  MinContrast,MaxContrast);
+
+GratingPattern$ := PatternList$[PatternIndex%];
+GratingProgression$ := ProgressionList$[ProgressionIndex%];
+docase
+	case BackgroundColorIndex% = 0 then
+		Background$ := "Max";
+	case BackgroundColorIndex% = 1 then
+		Background$ := "Mean";
+	case BackgroundColorIndex% = 2 then
+		Background$ := "Min";
+endcase
+
+FrontView(ViewHandle);
+Print("\"Grating Pattern\" %s\n",GratingPattern$);
+Print("\"Grating Progression\" %s\n",GratingProgression$);
+Print("\"Number Of Steps\" %d\n",NumberOfSteps%);		  
+Print("\"Number Of Repeats\" %d\n",NumberOfSamples%);
+Print("\"Grating Orientation\" %.2f\n",GratingOrientation);
+Print("\"Spatial Frequency\" %.3f\n",SpatialFrequency);
+Print("\"Temporal Frequency\" %.3f\n",TemporalFrequency);
+Print("\"Background Color\" %s\n",Background$);
+
+var Contrasts[NumberOfSamples%*(NumberOfSteps%+1)+1];
+var PossibleContrasts[NumberOfSteps%+1];
+var LogMin,LogMax;
+LogMin :=log(MinContrast); LogMax :=log(MaxContrast);
+var RandomNumber%;
+for SampleIndex% := 0 to NumberOfSteps% do
+	PossibleContrasts[SampleIndex%] := Pow(10,(LogMin+(LogMax - LogMin)*(SampleIndex%)/(NumberOfSteps%)));
+next;
+
+docase
+	case GratingProgression$ = "Monotonic" then
+		for RepetitionIndex% :=0 to NumberOfSamples% -1 do
+			for SampleIndex% := 0 to NumberOfSteps% do
+				Contrasts[RepetitionIndex%*(NumberOfSteps%+1) +SampleIndex%]
+				:= PossibleContrasts[SampleIndex%];
+			next;
+		next;
+	case GratingProgression$ = "Random" then
+		for RepetitionIndex% :=0 to NumberOfSamples% -1 do
+			for SampleIndex% := 0 to NumberOfSteps% do
+				RandomNumber% := round(rand()*((RepetitionIndex%+1)*NumberOfSteps%+1));
+				while Contrasts[RandomNumber%] <>0 do
+					RandomNumber% := round(rand()*((RepetitionIndex%+1)*NumberOfSteps%+1));
+				wend;
+				Contrasts[RandomNumber%] := PossibleContrasts[SampleIndex%];
+			next;
+		next;
+endcase;
+
+for Index% :=0 to NumberOfSamples%*(NumberOfSteps%+1) -1 do
+	Print("\"Grating Contrast\" %d %.2f\n",Index%,Contrasts[Index%]);
+next;
+
+end;
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+proc SetApertureProperties(ViewHandle)
+
+var ApertureType$, ApertureList$[2], ApertureIndex%;
+var ApertureWidth, ApertureHeight, ApertureCenterX, ApertureCenterY;
+
+ApertureList$[0] := "Ellipse"; ApertureList$[1] := "Rectangle";
+DlgCreate("Describe The Grating Aperture");
+DlgList(1,"Aperture type: ",ApertureList$[]);
+DlgReal(2,"Aperture width: ",0,20);
+DlgReal(3,"Aperture height: ",0,20);
+DlgReal(4,"Aperture center X: ",-20,20);
+DlgReal(5,"Aperture center Y: ",-20,20);
+
+ApertureWidth := 5; ApertureHeight := 5;
+DlgShow(ApertureIndex%,ApertureWidth,ApertureHeight,ApertureCenterX,ApertureCenterY);
+
+ApertureType$ := ApertureList$[ApertureIndex%];
+
+FrontView(ViewHandle);
+Print("\"Aperture Type\" %s\n",ApertureType$);
+Print("\"Aperture Width\" %.3f\n",ApertureWidth);
+Print("\"Aperture Height\" %.3f\n",ApertureHeight);
+Print("\"Aperture Center X\" %.3f\n",ApertureCenterX);
+Print("\"Aperture Center Y\" %.3f\n",ApertureCenterY);
+end;
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func SetTimingProperties(ViewHandle)
+
+var SignalDuration, BlankDuration;
+
+DlgCreate("Describe Your Timing");
+DlgReal(1,"Signal duration: ",0,100);
+DlgReal(2,"Blank duration: ",0,100);
+
+SignalDuration :=2 ; BlankDuration :=2 ;
+DlgShow(SignalDuration,BlankDuration);
+
+FrontView(ViewHandle);
+Print("\"Signal Duration\" %f\n",SignalDuration);
+Print("\"Blank Duration\" %f\n",BlankDuration);
+return(SignalDuration+BlankDuration);
+end;
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func SetSpatialFrequencyGratingProperties(ViewHandle);
+
+var GratingPattern$,GratingProgression$,NumberOfSteps%,NumberOfSamples%;
+var GratingContrast,Orientation,TemporalFrequency;
+var PatternList$[2],PatternIndex%, ProgressionList$[2], ProgressionIndex%;
+var BackgroundColor$[3], BackgroundColorIndex%, Background$;
+var MinFrequency, MaxFrequency;
+
+BackgroundColor$[0] := "Black";
+BackgroundColor$[1] := "Grey (Mean)";
+BackgroundColor$[2] := "White";
+
+PatternList$[0] := "Sine" ; PatternList$[1] := "Square Wave";
+ProgressionList$[0] := "Monotonic" ; ProgressionList$[1] := "Random";
+DlgCreate("Describe Your Grating");
+DlgList(1,"Grating pattern:",PatternList$[]);
+DlgList(2,"Grating progression:",ProgressionList$[]);
+DlgInteger(3,"Number of steps:",1,200);
+DlgInteger(4,"Number of repeats:",1,100);
+DlgReal(5,"Grating contrast",0,100);
+DlgReal(6,"Orientation",0,360);
+DlgReal(7,"Temporal frequency",0,100);
+DlgList(8,"Background color",BackgroundColor$[]);
+DlgReal(9,"Min. Spat. Freq.",.01,100);
+DlgReal(10,"Max. Spat. Freq.",.01,100);
+
+NumberOfSteps% := 15 ; NumberOfSamples% := 1; GratingContrast := 100;
+Orientation := 0; TemporalFrequency :=4; BackgroundColorIndex% :=1;
+MinFrequency :=.1; MaxFrequency :=6;
+
+DlgShow(PatternIndex%,ProgressionIndex%,NumberOfSteps%,NumberOfSamples%,
+        GratingContrast,Orientation,TemporalFrequency,BackgroundColorIndex%,
+		  MinFrequency,MaxFrequency);
+
+GratingPattern$ := PatternList$[PatternIndex%];
+GratingProgression$ := ProgressionList$[ProgressionIndex%];
+docase
+	case BackgroundColorIndex% = 0 then
+		Background$ := "Max";
+	case BackgroundColorIndex% = 1 then
+		Background$ := "Mean";
+	case BackgroundColorIndex% = 2 then
+		Background$ := "Min";
+endcase
+
+FrontView(ViewHandle);
+Print("\"Grating Pattern\" %s\n",GratingPattern$);
+Print("\"Grating Progression\" %s\n",GratingProgression$);
+Print("\"Number Of Steps\" %d\n",NumberOfSteps%);		  
+Print("\"Number Of Repeats\" %d\n",NumberOfSamples%);
+Print("\"Grating Contrast\" %.2f\n",GratingContrast);
+Print("\"Orientation\" %.2f\n",Orientation);
+Print("\"Temporal Frequency\" %.3f\n",TemporalFrequency);
+Print("\"Background Color\" %s\n",Background$);
+
+var SpatialFrequencies[NumberOfSamples%*(NumberOfSteps%+1)];
+var PossibleSpatialFrequencies[NumberOfSteps%+1];
+var RandomNumber%;
+var LogMin,LogMax;
+LogMin :=log(MinFrequency); LogMax :=log(MaxFrequency);
+
+for SampleIndex% := 0 to NumberOfSteps% do
+	PossibleSpatialFrequencies[SampleIndex%] := Pow(10,(LogMin+(LogMax - LogMin)*(SampleIndex%)/(NumberOfSteps%)));
+next;
+
+docase
+	case GratingProgression$ = "Monotonic" then
+		for RepetitionIndex% :=0 to NumberOfSamples% -1 do
+			for SampleIndex% := 0 to NumberOfSteps% do
+				SpatialFrequencies[RepetitionIndex%*(NumberOfSteps%+1) +SampleIndex%]
+				:= PossibleSpatialFrequencies[SampleIndex%];
+			next;
+		next;
+	case GratingProgression$ = "Random" then
+		for RepetitionIndex% :=0 to NumberOfSamples% -1 do
+			for SampleIndex% := 0 to NumberOfSteps% do
+				RandomNumber% := round(rand()*((RepetitionIndex%+1)*NumberOfSteps%+1));
+				while SpatialFrequencies[RandomNumber%] <>0 do
+					RandomNumber% := round(rand()*((RepetitionIndex%+1)*NumberOfSteps%+1));
+				wend;
+				SpatialFrequencies[RandomNumber%] := PossibleSpatialFrequencies[SampleIndex%];
+			next;
+		next;
+endcase;
+
+for Index% :=0 to NumberOfSamples%*(NumberOfSteps%+1) -1 do
+	Print("\"Spatial Frequency\" %d %.3f\n",Index%,SpatialFrequencies[Index%]);
+next;
+
+end;
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func SetTemporalFrequencyGratingProperties(ViewHandle);
+
+var GratingPattern$,GratingProgression$,NumberOfSteps%,NumberOfSamples%;
+var GratingContrast,SpatialFrequency,Orientation;
+var PatternList$[2],PatternIndex%, ProgressionList$[2], ProgressionIndex%;
+var BackgroundColor$[3], BackgroundColorIndex%, Background$;
+var MinFrequency, MaxFrequency;
+
+BackgroundColor$[0] := "Black";
+BackgroundColor$[1] := "Grey (Mean)";
+BackgroundColor$[2] := "White";
+
+PatternList$[0] := "Sine" ; PatternList$[1] := "Square Wave";
+ProgressionList$[0] := "Monotonic" ; ProgressionList$[1] := "Random";
+DlgCreate("Describe Your Grating");
+DlgList(1,"Grating pattern:",PatternList$[]);
+DlgList(2,"Grating progression:",ProgressionList$[]);
+DlgInteger(3,"Number of steps:",1,200);
+DlgInteger(4,"Number of repeats:",1,100);
+DlgReal(5,"Grating contrast",0,100);
+DlgReal(6,"Spatial frequency",0,100);
+DlgReal(7,"Orientation",0,360);
+DlgList(8,"Background color",BackgroundColor$[]);
+DlgReal(9,"Min. Temp. Freq.",.01,100);
+DlgReal(10,"Max. Temp. Freq.",.01,100);
+
+NumberOfSteps% := 20 ; NumberOfSamples% := 1; GratingContrast := 100;
+SpatialFrequency := 1; Orientation := 0; BackgroundColorIndex% :=1;
+MinFrequency :=.5; MaxFrequency :=64;
+
+DlgShow(PatternIndex%,ProgressionIndex%,NumberOfSteps%,NumberOfSamples%,
+        GratingContrast,SpatialFrequency,Orientation,BackgroundColorIndex%,
+		  MinFrequency, MaxFrequency);
+
+GratingPattern$ := PatternList$[PatternIndex%];
+GratingProgression$ := ProgressionList$[ProgressionIndex%];
+docase
+	case BackgroundColorIndex% = 0 then
+		Background$ := "Max";
+	case BackgroundColorIndex% = 1 then
+		Background$ := "Mean";
+	case BackgroundColorIndex% = 2 then
+		Background$ := "Min";
+endcase
+
+FrontView(ViewHandle);
+Print("\"Grating Pattern\" %s\n",GratingPattern$);
+Print("\"Grating Progression\" %s\n",GratingProgression$);
+Print("\"Number Of Steps\" %d\n",NumberOfSteps%);		  
+Print("\"Number Of Repeats\" %d\n",NumberOfSamples%);
+Print("\"Grating Contrast\" %.2f\n",GratingContrast);
+Print("\"Spatial Frequency\" %.3f\n",SpatialFrequency);
+Print("\"Orientation\" %.2f\n",Orientation);
+Print("\"Background Color\" %s\n",Background$);
+
+var TemporalFrequencies[NumberOfSamples%*(NumberOfSteps%+1)+1];
+var PossibleTemporalFrequencies[NumberOfSteps%+1];
+var RandomNumber%;
+var LogMin; var LogMax;
+LogMin := log(MinFrequency); LogMax:=log(MaxFrequency);
+for SampleIndex% := 0 to NumberOfSteps% do
+	PossibleTemporalFrequencies[SampleIndex%] := Pow(10,(LogMin+(LogMax - LogMin)*(SampleIndex%)/(NumberOfSteps%)));
+next;
+
+docase
+	case GratingProgression$ = "Monotonic" then
+		for RepetitionIndex% :=0 to NumberOfSamples% -1 do
+			for SampleIndex% := 0 to NumberOfSteps% do
+				TemporalFrequencies[RepetitionIndex%*(NumberOfSteps%+1) +SampleIndex%]
+				:= PossibleTemporalFrequencies[SampleIndex%];
+			next;
+		next;
+	case GratingProgression$ = "Random" then
+		for RepetitionIndex% :=0 to NumberOfSamples% -1 do
+			for SampleIndex% := 0 to NumberOfSteps% do
+				RandomNumber% := round(rand()*((RepetitionIndex%+1)*NumberOfSteps%+1));
+				while TemporalFrequencies[RandomNumber%] <>0 do
+					RandomNumber% := round(rand()*((RepetitionIndex%+1)*NumberOfSteps%+1));
+				wend;
+				TemporalFrequencies[RandomNumber%] := PossibleTemporalFrequencies[SampleIndex%];
+			next;
+		next;
+endcase;
+
+for Index% :=0 to NumberOfSamples%*(NumberOfSteps%+1) -1 do
+	Print("\"Temporal Frequency\" %d %.3f\n",Index%,TemporalFrequencies[Index%]);
+next;
+
+end;
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func SetApertureAreaGratingProperties(ViewHandle);
+
+var GratingPattern$,GratingProgression$,NumberOfSteps%,NumberOfSamples%;
+var GratingContrast,SpatialFrequency,TemporalFrequency,Orientation;
+var PatternList$[2],PatternIndex%, ProgressionList$[2], ProgressionIndex%;
+var BackgroundColor$[3], BackgroundColorIndex%, Background$;
+var CenterX,CenterY;
+var Min, Max;
+var ApertureType$, ApertureList$[2],ApertureIndex%;
+var PlacementList$[2],PlacementIndex%;
+
+PlacementList$[0] := "Stimulus";
+PlacementList$[1] := "Background";
+ApertureList$[0] := "Ellipse"; ApertureList$[1] := "Rectangle";
+BackgroundColor$[0] := "Black";
+BackgroundColor$[1] := "Grey (Mean)";
+BackgroundColor$[2] := "White";
+
+PatternList$[0] := "Sine" ; PatternList$[1] := "Square Wave";
+ProgressionList$[0] := "Monotonic" ; ProgressionList$[1] := "Random";
+DlgCreate("Describe Your Grating");
+DlgList(1,"Grating pattern:",PatternList$[]);
+DlgList(2,"Grating progression:",ProgressionList$[]);
+DlgInteger(3,"Number of steps:",1,200);
+DlgInteger(4,"Number of repeats:",1,100);
+DlgReal(5,"Orientation",0,360);
+DlgReal(6,"Grating contrast",0,100);
+DlgReal(7,"Spatial frequency",0,100);
+DlgReal(8,"Temporal frequency",0,100);
+DlgList(9,"Background color",BackgroundColor$[]);
+DlgReal(10,"Min. aperture diameter",.01,40);
+DlgReal(11,"Max. aperture diameter",.01,40);
+DlgList(12,"Aperture type: ",ApertureList$[]);
+DlgReal(13,"X Center",-20,20);
+DlgReal(14,"Y Center",-20,20);
+DlgList(15,"Grating placement",PlacementList$[]);
+
+NumberOfSteps% := 15 ; NumberOfSamples% := 1; GratingContrast := 100;
+SpatialFrequency := 1; TemporalFrequency :=4; BackgroundColorIndex% :=1;
+Min := .1; Max :=10; ApertureIndex%:=0; CenterX:=0; CenterY :=0; PlacementIndex% :=0;
+
+DlgShow(PatternIndex%,ProgressionIndex%,NumberOfSteps%,NumberOfSamples%,
+        Orientation,GratingContrast,SpatialFrequency,TemporalFrequency,BackgroundColorIndex%,
+		  Min,Max,ApertureIndex%,CenterX,CenterY,PlacementIndex%);
+GratingPattern$ := PatternList$[PatternIndex%];
+GratingProgression$ := ProgressionList$[ProgressionIndex%];
+docase
+	case BackgroundColorIndex% = 0 then
+		Background$ := "Max";
+	case BackgroundColorIndex% = 1 then
+		Background$ := "Mean";
+	case BackgroundColorIndex% = 2 then
+		Background$ := "Min";
+endcase
+
+
+FrontView(ViewHandle);
+
+ApertureType$ := ApertureList$[ApertureIndex%];
+
+Print("\"Aperture Type\" %s\n",ApertureType$);
+Print("\"Grating Pattern\" %s\n",GratingPattern$);
+Print("\"Grating Progression\" %s\n",GratingProgression$);
+Print("\"Number Of Steps\" %d\n",NumberOfSteps%);		  
+Print("\"Number Of Repeats\" %d\n",NumberOfSamples%);
+Print("\"Grating Contrast\" %.2f\n",GratingContrast);
+Print("\"Orientation\" %.2f\n",Orientation);
+Print("\"Spatial Frequency\" %.3f\n",SpatialFrequency);
+Print("\"Temporal Frequency\" %.3f\n",TemporalFrequency);
+Print("\"Background Color\" %s\n",Background$);
+Print("\"Aperture Center X\" %.3f\n",CenterX);
+Print("\"Aperture Center Y\" %.3f\n",CenterY);
+Print("\"Grating Placement\" %s\n",PlacementList$[PlacementIndex%]);
+var Apertures[NumberOfSamples%*(NumberOfSteps%+1)+1];
+var PossibleApertures[NumberOfSteps%+1];
+var RandomNumber%;
+var LogMin, LogMax;
+LogMin := log(Min); LogMax := log(Max);
+for SampleIndex% := 0 to NumberOfSteps% do
+		PossibleApertures[SampleIndex%] := Pow(10,LogMin+(LogMax - LogMin)*(SampleIndex%)/(NumberOfSteps%));
+next;
+
+docase
+	case GratingProgression$ = "Monotonic" then
+		for RepetitionIndex% :=0 to NumberOfSamples% -1 do
+			for SampleIndex% := 0 to NumberOfSteps% do
+				Apertures[RepetitionIndex%*(NumberOfSteps%+1) +SampleIndex%]
+				:= PossibleApertures[SampleIndex%];
+			next;
+		next;
+	case GratingProgression$ = "Random" then
+		for RepetitionIndex% :=0 to NumberOfSamples% -1 do
+			for SampleIndex% := 0 to NumberOfSteps% do
+				RandomNumber% := round(rand()*((RepetitionIndex%+1)*NumberOfSteps%+1));
+				while Apertures[RandomNumber%] <>0 do
+					RandomNumber% := round(rand()*((RepetitionIndex%+1)*NumberOfSteps%+1));
+				wend;
+				Apertures[RandomNumber%] := PossibleApertures[SampleIndex%];
+			next;
+		next;
+endcase;
+
+for Index% :=0 to NumberOfSamples%*(NumberOfSteps%+1) -1 do
+	Print("\"Aperture\" %d %.3f\n",Index%,Apertures[Index%]);
+next;
+
+end;
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func SetXYTestGratingProperties(ViewHandle);
+
+var GratingPattern$,GratingProgression$,NumberOfSteps%,NumberOfSamples%;
+var GratingContrast,SpatialFrequency,ReversalFrequency;
+var PatternList$[2],PatternIndex%, ProgressionList$[2], ProgressionIndex%;
+var BackgroundColor$[3], BackgroundColorIndex%, Background$;
+var MinPhase, MaxPhase;
+BackgroundColor$[0] := "Black";
+BackgroundColor$[1] := "Grey (Mean)";
+BackgroundColor$[2] := "White";
+
+PatternList$[0] := "Sine" ; PatternList$[1] := "Square Wave";
+ProgressionList$[0] := "Monotonic" ; ProgressionList$[1] := "Random";
+DlgCreate("Describe Your Grating");
+DlgList(1,"Grating pattern:",PatternList$[]);
+DlgList(2,"Grating progression:",ProgressionList$[]);
+DlgInteger(3,"Number of steps:",1,200);
+DlgInteger(4,"Number of repeats:",1,100);
+DlgReal(5,"Grating contrast",0,100);
+DlgReal(6,"Spatial frequency",0,100);
+DlgReal(7,"Reversal frequency",0,100);
+DlgList(8,"Background color",BackgroundColor$[]);
+DlgReal(9,"Minimum phase",0,360);
+DlgReal(10,"Maximum phase",0,360);
+
+NumberOfSteps% := 15 ; NumberOfSamples% := 1; GratingContrast := 100;
+SpatialFrequency := 1; ReversalFrequency :=4; BackgroundColorIndex% :=1;
+MinPhase :=0; MaxPhase :=360;
+
+DlgShow(PatternIndex%,ProgressionIndex%,NumberOfSteps%,NumberOfSamples%,
+        GratingContrast,SpatialFrequency,ReversalFrequency,BackgroundColorIndex%,
+		  MinPhase,MaxPhase);
+
+GratingPattern$ := PatternList$[PatternIndex%];
+GratingProgression$ := ProgressionList$[ProgressionIndex%];
+docase
+	case BackgroundColorIndex% = 0 then
+		Background$ := "Max";
+	case BackgroundColorIndex% = 1 then
+		Background$ := "Mean";
+	case BackgroundColorIndex% = 2 then
+		Background$ := "Min";
+endcase
+
+FrontView(ViewHandle);
+Print("\"Grating Pattern\" %s\n",GratingPattern$);
+Print("\"Grating Progression\" %s\n",GratingProgression$);
+Print("\"Number Of Steps\" %d\n",NumberOfSteps%);		  
+Print("\"Number Of Repeats\" %d\n",NumberOfSamples%);
+Print("\"Grating Contrast\" %.2f\n",GratingContrast);
+Print("\"Spatial Frequency\" %.3f\n",SpatialFrequency);
+Print("\"Reversal Frequency\" %.3f\n",ReversalFrequency);
+Print("\"Background Color\" %s\n",Background$);
+
+var Phases[NumberOfSamples%*(NumberOfSteps%+1)+1];
+var PossiblePhases[NumberOfSteps%+1];
+var RandomNumber%;
+
+for SampleIndex% := 0 to NumberOfSteps% do
+		PossiblePhases[SampleIndex%] := MinPhase+(MaxPhase - MinPhase)*(SampleIndex%)/(NumberOfSteps%);
+
+next;
+
+docase
+	case GratingProgression$ = "Monotonic" then
+		for RepetitionIndex% :=0 to NumberOfSamples% -1 do
+			for SampleIndex% := 0 to NumberOfSteps% do
+				Phases[RepetitionIndex%*(NumberOfSteps%+1) +SampleIndex%]
+				:= PossiblePhases[SampleIndex%];
+			next;
+		next;
+	case GratingProgression$ = "Random" then
+		for RepetitionIndex% :=0 to NumberOfSamples% -1 do
+			for SampleIndex% := 0 to NumberOfSteps% do
+				RandomNumber% := round(rand()*((RepetitionIndex%+1)*NumberOfSteps%+1));
+				while Phases[RandomNumber%] <>0 do
+					RandomNumber% := round(rand()*((RepetitionIndex%+1)*NumberOfSteps%+1));
+				wend;
+				Phases[RandomNumber%] := PossiblePhases[SampleIndex%];
+			next;
+		next;
+endcase;
+
+for Index% :=0 to NumberOfSamples%*(NumberOfSteps%+1) -1 do
+	Print("\"Phase\" %d %.2f\n",Index%,Phases[Index%]);
+next;
+
+end;
+
+
+
+
+
