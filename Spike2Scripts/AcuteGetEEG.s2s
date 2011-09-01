@@ -9,7 +9,7 @@
 
 var hData%;
 var hPower%;
-var iSeconds% := 10;
+var iSeconds% := 60;
 var iStatus%;
 
 CreateSampleConfiguration();
