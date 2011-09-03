@@ -1,7 +1,36 @@
+' $Id: Anandre.s2s,v 1.2 2011-09-03 00:19:31 djsperka Exp $ 
+'
+' Anandre.s2s
+'
+' Does some filtering and downsampling on continuous record data. 
+' Filter and downsampling parameters determined by Andre. I have
+' tried to indicate where one can tweak the parameters. I also don't
+' have any experience with the Spike2 filtering functions, so I 
+' hope that I have reproduced the analysis that Andre asked for. 
+'
+' To run this analysis, open the data file and when it has focus, run this
+' script. It takes a while and may consume all resources on your machine. 
+' I've run this on a machine with 4GB of memory - I don't know the 
+' minimum required. 
+'
+' Output is in the form of a Matlab ".mat" file, in same dir as the 
+' data file, with same base filename. 
+'
+' Spike2 will appear to freeze while this is running. Be patient; large
+' datafiles take a while. Haven't timed any, usually I run it and walk 
+' away. Large files.....maybe 30 minutes? 
+
 #include "../../Spike2Util/FileUtilities.s2s"
 
+
+
+' These are the channels where we expect to find the 
+' continuous record data. 
 var lgnChannel% := 2;
 var v1Channel% := 1;
+
+' Filtering parameters. See the functions LFP% and MUA% below, and refer
+' to Spike2 documentation for FiltCreate function. 
 var lpFreq := 120;     ' low pass filter freq
 var lpTRW := 70;
 var bpLowFreq := 700;  ' band pass low freq
