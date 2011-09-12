@@ -1,0 +1,913 @@
+' $Id: TuningDialogsDualVSG.s2s,v 1.1 2011-09-12 17:39:43 devel Exp $
+'
+' This file contains dialog functions for the alert tuning script Tuning.s2s.
+#include "../../Spike2Util/UsreyUtil.s2s"
+#include "../../Spike2Util/LogUtilities.s2s"
+#include "../../Spike2Util/MiscUtilities.s2s"
+#include "UsreyGratings.s2s"
+
+
+const tunTypeNone$ := "None";
+const tunTypeOrientation$ := "O";
+const tunTypeContrast$ := "C";
+const tunTypeSpatial$ := "S";
+const tunTypeTemporal$ := "T";
+const tunTypeArea$ := "A";
+const tunTypeDonut$ := "H";
+const tunTypeBerliner$ := "B";
+var tunType$:=tunTypeNone$;
+
+const tunContextDAQ$ := "DAQ";
+const tunContextConfig$ := "Config";
+var tunContext$ := tunContextConfig$;
+
+
+' A note about "steps". 
+' The dialogs ask for a number of "steps". A step is a transition from one stimulus
+' to another. Thus, if there are N steps, there are N+1 different stimuli.
+
+' These are specific to the individual tuning curve types - orientation first
+var tunOriNSteps%;		' # steps in orientation tuning curve
+var tunOriNRepeats%;		' # repeats in ori tuning curve
+var tunOriMinOrientation;	' min orientation
+var tunOriMaxOrientation;	' max orientation
+var tunOriProgression%;
+
+' Contrast next
+var tunContrastNSteps%;			' # steps in contrast tuning curve
+var tunContrastNRepeats%;		' # repeats in contrast tuning curve
+var tunContrastMinContrast;		' min contrast
+var tunContrastMaxContrast;		' max contrast
+var tunContrastProgression%;
+
+' Spatial next
+var tunSpatialNSteps%;			' # steps in spatial freq tuning curve
+var tunSpatialNRepeats%;		' # repeats in spatial freq tuning curve
+var tunSpatialMinSF;			' min SF
+var tunSpatialMaxSF;			' max SF
+var tunSpatialProgression%;
+
+' Temporal next
+var tunTemporalNSteps%;			' # steps in temporal tuning curve
+var tunTemporalNRepeats%;		' # repeats in temporal tuning curve
+var tunTemporalMinTF;		' min TF
+var tunTemporalMaxTF;		' max TF
+var tunTemporalProgression%;
+
+' Area next
+var tunAreaNSteps%;			' # steps in area tuning curve
+var tunAreaNRepeats%;		' # repeats in area tuning curve
+var tunAreaMinDiam;		' min diameter
+var tunAreaMaxDiam;		' max diameter
+var tunAreaProgression%;
+
+' Donuts - use same vars as area. There is one additional var - the optimal value index.
+var tunDonutOptimalIndex%:=0;		' step index where area stim stops growing and donut stim starts
+var tunDonutOptimalDiam;
+var tunDonutProgression%;
+
+
+' Berliners - also use same variables as Area.  Use optimal value index from Donuts.  Add maximal value index
+var tunDonutOptimalDiamPlusOne;
+var tunBerlinerMaximalIndex%:=0;    ' index for "maximal" size
+var tunBerlinerMaximalDiam;
+var tunBerlinerNSteps%;
+var tunBerlinerNRepeats% := 3;  'just putting in 3 repeats for now
+var tunBerlinerProgression%;
+
+' Strings that hold grating parameters
+var tunGratingParams$;
+var tunGratingParamsSlave$;
+
+' Crosshair display variables
+var tunUseXHairs%;                'Do we use crosshairs?
+var tunXHairInnerRadiusOffset;    'Inner diameter of inner grid ring
+var tunXHairMiddleRadiusOffset;   'Outer diameter of inner grid ring/Inner diameter of outer grid ring
+var tunXHairOuterRadiusOffset;    'Outer diameter of outer grid ring
+var tunXHairNumGridDivisions%;    'Number of divisions in the grid rings
+var tunXHairTicInnerOffset;       'Inner extent of 0/90/180/270 ticks
+var tunXHairTicOuterOffset;       'Outer extent of 0/90/180/270 ticks
+var tunMaximalDiam;
+var tunSlaveMaximalDiam;
+
+
+proc GetTuningCurveOrientationParameters()
+	var key$;
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Tuning\\Orientation";
+    tunOriNSteps% := GetIntRegistryValue%(key$, "NSteps", tunOriNSteps%);
+    tunOriNRepeats% := GetIntRegistryValue%(key$, "NRepeats", tunOriNRepeats%);
+    tunOriMinOrientation := GetFloatRegistryValue(key$, "MinOrientation", tunOriMinOrientation);
+    tunOriMaxOrientation := GetFloatRegistryValue(key$, "MaxOrientation", tunOriMaxOrientation);
+end;
+
+proc SaveTuningCurveOrientationParameters()
+	var key$;
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Tuning\\Orientation";
+    SetIntRegistryValue(key$, "NSteps", tunOriNSteps%);
+    SetIntRegistryValue(key$, "NRepeats", tunOriNRepeats%);
+    SetFloatRegistryValue(key$, "MinOrientation", tunOriMinOrientation);
+    SetFloatRegistryValue(key$, "MaxOrientation", tunOriMaxOrientation);
+end;
+
+proc GetTuningCurveContrastParameters()
+	var stmp$;
+	var key$;
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Tuning\\Contrast";
+    
+    tunContrastNSteps% := GetIntRegistryValue%(key$, "NSteps", tunContrastNSteps%);
+    tunContrastNRepeats% := GetIntRegistryValue%(key$, "NRepeats", tunContrastNRepeats%);
+    tunContrastMinContrast := GetFloatRegistryValue(key$, "MinContrast", tunContrastMinContrast);
+    tunContrastMaxContrast := GetFloatRegistryValue(key$, "MaxContrast", tunContrastMaxContrast);
+end;
+
+proc SaveTuningCurveContrastParameters()
+	var key$;
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Tuning\\Contrast";
+    SetIntRegistryValue(key$, "NSteps", tunContrastNSteps%);
+    SetIntRegistryValue(key$, "NRepeats", tunContrastNRepeats%);
+    SetFloatRegistryValue(key$, "MinContrast", tunContrastMinContrast);
+    SetFloatRegistryValue(key$, "MaxContrast", tunContrastMaxContrast);
+end;
+
+proc GetTuningCurveSpatialParameters()
+	var stmp$;
+	var key$;
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Tuning\\Spatial";
+    
+    tunSpatialNSteps% := GetIntRegistryValue%(key$, "NSteps", tunSpatialNSteps%);
+    tunSpatialNRepeats% := GetIntRegistryValue%(key$, "NRepeats", tunSpatialNRepeats%);
+    tunSpatialMinSF := GetFloatRegistryValue(key$, "MinSF", tunSpatialMinSF);
+    tunSpatialMaxSF := GetFloatRegistryValue(key$, "MaxSF", tunSpatialMaxSF);
+end;
+
+proc SaveTuningCurveSpatialParameters()
+	var key$;
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Tuning\\Spatial";
+    
+    SetIntRegistryValue(key$, "NSteps", tunSpatialNSteps%);
+    SetIntRegistryValue(key$, "NRepeats", tunSpatialNRepeats%);
+    SetFloatRegistryValue(key$, "MinSF", tunSpatialMinSF);
+    SetFloatRegistryValue(key$, "MaxSF", tunSpatialMaxSF);
+end;
+
+proc GetTuningCurveTemporalParameters()
+	var stmp$;
+	var key$;
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Tuning\\Temporal";
+    
+    tunTemporalNSteps% := GetIntRegistryValue%(key$, "NSteps", tunTemporalNSteps%);
+    tunTemporalNRepeats% := GetIntRegistryValue%(key$, "NRepeats", tunTemporalNRepeats%);
+    tunTemporalMinTF := GetFloatRegistryValue(key$, "MinTF", tunTemporalMinTF);
+    tunTemporalMaxTF := GetFloatRegistryValue(key$, "MaxTF", tunTemporalMaxTF);
+end;
+
+proc SaveTuningCurveTemporalParameters()
+	var key$;
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Tuning\\Temporal";
+
+    SetIntRegistryValue(key$, "NSteps", tunTemporalNSteps%);
+    SetIntRegistryValue(key$, "NRepeats", tunTemporalNRepeats%);
+    SetFloatRegistryValue(key$, "MinTF", tunTemporalMinTF);
+    SetFloatRegistryValue(key$, "MaxTF", tunTemporalMaxTF);
+end;
+
+proc GetTuningCurveAreaParameters()
+	var stmp$;
+	var key$;
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Tuning\\Area";
+
+    tunAreaNSteps% := GetIntRegistryValue%(key$, "NSteps", tunAreaNSteps%);
+    tunAreaNRepeats% := GetIntRegistryValue%(key$, "NRepeats", tunAreaNRepeats%);
+    tunAreaMinDiam := GetFloatRegistryValue(key$, "MinDiam", tunAreaMinDiam);
+    tunAreaMaxDiam := GetFloatRegistryValue(key$, "MaxDiam", tunAreaMaxDiam);
+    tunDonutOptimalIndex% := GetIntRegistryValue%(key$, "OptimalIndex", tunDonutOptimalIndex%);
+    tunBerlinerMaximalIndex% := GetIntRegistryValue%(key$, "MaximalIndexBerliner", tunBerlinerMaximalIndex%);
+    tunBerlinerMaximalDiam := GetFloatRegistryValue(key$, "MaximalDiamBerliner", tunBerlinerMaximalDiam);
+    tunBerlinerNSteps% := GetIntRegistryValue%(key$, "NStepsBerliner", tunBerlinerNSteps%);
+    tunBerlinerNRepeats% := GetIntRegistryValue%(key$, "NRepeatsDiamBerliner", tunBerlinerNRepeats%);
+    tunBerlinerProgression% := GetIntRegistryValue%(key$, "BerlinerProgression", tunBerlinerProgression%);
+end;
+
+proc SaveTuningCurveAreaParameters()
+	var key$;
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Tuning\\Area";
+
+    SetIntRegistryValue(key$, "NSteps", tunAreaNSteps%);
+    SetIntRegistryValue(key$, "NRepeats", tunAreaNRepeats%);
+    SetFloatRegistryValue(key$, "MinDiam", tunAreaMinDiam);
+    SetFloatRegistryValue(key$, "MaxDiam", tunAreaMaxDiam);
+    SetIntRegistryValue(key$, "OptimalIndex", tunDonutOptimalIndex%);
+    SetIntRegistryValue(key$, "MaximalIndexBerliner", tunBerlinerMaximalIndex%);
+    SetFloatRegistryValue(key$, "MaximalDiamBerliner", tunBerlinerMaximalDiam);
+    SetIntRegistryValue(key$, "NStepsBerliner", tunBerlinerNSteps%);
+    SetIntRegistryValue(key$, "NRepeatsDiamBerliner", tunBerlinerNRepeats%);
+    SetIntRegistryValue(key$, "BerlinerProgression", tunBerlinerProgression%);
+end;
+
+
+
+func TuningCurveOrientationDialog%()
+	var iReturn%;
+	var i%;
+	GetTuningCurveOrientationParameters();
+	DlgCreate("Run Orientation Tuning Curve");
+	DlgInteger(1, "Number of Steps", 2, 100);
+	DlgInteger(2, "Number of Repeats", 1, 10);
+	DlgReal(3, "Min Orientation (deg)", 0, 360);
+	DlgReal(4, "Max Orientation (deg)", 0, 360);
+	DlgCheck(5, "Random Progression");
+	i% := DlgShow(tunOriNSteps%, tunOriNRepeats%, tunOriMinOrientation, tunOriMaxOrientation, tunOriProgression%);
+
+	' If i% is 1 the user hit "OK". If its 0, user hit "Cancel". 
+	' When user hits OK we alwaus save the parameters, and when user hits Cancel we don't.
+    ' djs 2/4/2011
+    ' Spike2 bug workaround implemented. The return value from this function (when in DAQ context this
+    ' dialog is called from a DlgButton in another dialog) should make the parent dialog close, as if 
+    ' the OK button were hit. Bug in Spike2 v6 means this doesn't work right - the parent dialog will 
+    ' close but its variables are not updated prior to doing so.... so any changes to the parent dialog
+    ' are not seen in the subsequent expt, they're not saved in the registry, etc. Workaround is to return
+    ' something > 0 here. The parent dialog will continue to display, and the user has to hit OK on that 
+    ' before things proceed. 
+	if i% = 1 then
+		SaveTuningCurveOrientationParameters();
+		PrintLog("TuningCurveOrientationDialog - user hit OK\n");
+		tunType$ := tunTypeOrientation$;
+		if tunContext$ = tunContextDAQ$ then
+            ' djs 2/4/2011 We return 1 - that's the workaround			iReturn% := 0;
+            iReturn% := 1;
+		else
+			iReturn% := 1;
+		endif;
+	endif;
+	if i% = 0 then
+		PrintLog("TuningCurveOrientationDialog - user hit Cancel\n");
+		tunType$ := tunTypeNone$;
+		if tunContext$ = tunContextDAQ$ then
+			iReturn% := 1;
+		else
+			iReturn% := 2;
+		endif;
+	endif;
+    PrintLog("Return value is %d\n", iReturn%);
+	return iReturn%;
+end;
+
+
+
+func TuningCurveContrastDialog%()
+	var iReturn% := 0;
+	var i%;
+	GetTuningCurveContrastParameters();
+	DlgCreate("Contrast Tuning Curve Parameters");
+	DlgInteger(1, "Number of Steps", 2, 100);
+	DlgInteger(2, "Number of Repeats", 1, 10);
+	DlgReal(3, "Min Contrast (%)", 0.1, 100);
+	DlgReal(4, "Max Contrast (%)", 0.1, 100);
+	DlgCheck(5, "Random Progression");
+
+	i% := DlgShow(tunContrastNSteps%, tunContrastNRepeats%, tunContrastMinContrast, tunContrastMaxContrast, tunContrastProgression%);
+	' If i% is 1 the user hit "OK". If its 0, user hit "Cancel". 
+	' When user hits OK we alwaus save the parameters, and when user hits Cancel we don't.
+    ' djs 2/4/2011
+    ' Spike2 bug workaround implemented. The return value from this function (when in DAQ context this
+    ' dialog is called from a DlgButton in another dialog) should make the parent dialog close, as if 
+    ' the OK button were hit. Bug in Spike2 v6 means this doesn't work right - the parent dialog will 
+    ' close but its variables are not updated prior to doing so.... so any changes to the parent dialog
+    ' are not seen in the subsequent expt, they're not saved in the registry, etc. Workaround is to return
+    ' something > 0 here. The parent dialog will continue to display, and the user has to hit OK on that 
+    ' before things proceed. 
+	if i% = 1 then
+		SaveTuningCurveContrastParameters();
+'		PrintLog("TuningCurveContrastDialog - user hit OK\n");
+		tunType$ := tunTypeContrast$;
+		if tunContext$ = tunContextDAQ$ then
+            ' djs 2/4/2011 We return 1 - that's the workaround			iReturn% := 0;
+            iReturn% := 1;
+		else
+			iReturn% := 1;
+		endif;
+	endif;
+	if i% = 0 then
+'		PrintLog("TuningCurveContrastDialog - user hit Cancel\n");
+		tunType$ := tunTypeNone$;
+		if tunContext$ = tunContextDAQ$ then
+			iReturn% := 1;
+		else
+			iReturn% := 2;
+		endif;
+	endif;
+
+	return iReturn%;
+end;
+
+func TuningCurveSpatialDialog%()
+	var iReturn% := 0;
+	var i%;
+	GetTuningCurveSpatialParameters();
+	DlgCreate("Spatial Freq Tuning Curve Parameters");
+	DlgInteger(1, "Number of Steps", 2, 100);
+	DlgInteger(2, "Number of Repeats", 1, 10);
+	DlgReal(3, "Min SF", .01, 100);
+	DlgReal(4, "Max SF", .01, 100);
+	DlgCheck(5, "Random Progression");
+
+	i% := DlgShow(tunSpatialNSteps%, tunSpatialNRepeats%, tunSpatialMinSF, tunSpatialMaxSF, tunSpatialProgression%);
+	' If i% is 1 the user hit "OK". If its 0, user hit "Cancel". 
+	' When user hits OK we alwaus save the parameters, and when user hits Cancel we don't.
+    ' djs 2/4/2011
+    ' Spike2 bug workaround implemented. The return value from this function (when in DAQ context this
+    ' dialog is called from a DlgButton in another dialog) should make the parent dialog close, as if 
+    ' the OK button were hit. Bug in Spike2 v6 means this doesn't work right - the parent dialog will 
+    ' close but its variables are not updated prior to doing so.... so any changes to the parent dialog
+    ' are not seen in the subsequent expt, they're not saved in the registry, etc. Workaround is to return
+    ' something > 0 here. The parent dialog will continue to display, and the user has to hit OK on that 
+    ' before things proceed. 
+	if i% = 1 then
+		SaveTuningCurveSpatialParameters();
+'		PrintLog("TuningCurveSpatialDialog - user hit OK\n");
+		tunType$ := tunTypeSpatial$;
+		if tunContext$ = tunContextDAQ$ then
+            ' djs 2/4/2011 We return 1 - that's the workaround			iReturn% := 0;
+            iReturn% := 1;
+		else
+			iReturn% := 1;
+		endif;
+	endif;
+	if i% = 0 then
+'		PrintLog("TuningCurveSpatialDialog - user hit Cancel\n");
+		tunType$ := tunTypeNone$;
+		if tunContext$ = tunContextDAQ$ then
+			iReturn% := 1;
+		else
+			iReturn% := 2;
+		endif;
+	endif;
+
+	return iReturn%;
+end;
+
+func TuningCurveTemporalDialog%()
+	var iReturn% := 0;
+	var i%;
+	GetTuningCurveTemporalParameters();
+	DlgCreate("Temporal Freq Tuning Curve Parameters");
+	DlgInteger(1, "Number of Steps", 2, 100);
+	DlgInteger(2, "Number of Repeats", 1, 10);
+	DlgReal(3, "Min TF", 0, 100);
+	DlgReal(4, "Max TF", 0, 100);
+	DlgCheck(5, "Random Progression");
+
+	i% := DlgShow(tunTemporalNSteps%, tunTemporalNRepeats%, tunTemporalMinTF, tunTemporalMaxTF, tunTemporalProgression%);
+	' If i% is 1 the user hit "OK". If its 0, user hit "Cancel". 
+	' When user hits OK we alwaus save the parameters, and when user hits Cancel we don't.
+    ' djs 2/4/2011
+    ' Spike2 bug workaround implemented. The return value from this function (when in DAQ context this
+    ' dialog is called from a DlgButton in another dialog) should make the parent dialog close, as if 
+    ' the OK button were hit. Bug in Spike2 v6 means this doesn't work right - the parent dialog will 
+    ' close but its variables are not updated prior to doing so.... so any changes to the parent dialog
+    ' are not seen in the subsequent expt, they're not saved in the registry, etc. Workaround is to return
+    ' something > 0 here. The parent dialog will continue to display, and the user has to hit OK on that 
+    ' before things proceed. 
+	if i% = 1 then
+		SaveTuningCurveTemporalParameters();
+'		PrintLog("TuningCurveTemporalDialog - user hit OK\n");
+		tunType$ := tunTypeTemporal$;
+		if tunContext$ = tunContextDAQ$ then
+            ' djs 2/4/2011 We return 1 - that's the workaround			iReturn% := 0;
+            iReturn% := 1;
+		else
+			iReturn% := 1;
+		endif;
+	endif;
+	if i% = 0 then
+'		PrintLog("TuningCurveTemporalDialog - user hit Cancel\n");
+		tunType$ := tunTypeNone$;
+		if tunContext$ = tunContextDAQ$ then
+			iReturn% := 1;
+		else
+			iReturn% := 2;
+		endif;
+	endif;
+
+	return iReturn%;
+end;
+
+func TuningCurveAreaDialog%()
+	var iReturn% := 0;
+	var i%;
+	GetTuningCurveAreaParameters();
+	DlgCreate("Area Tuning Curve Parameters");
+	DlgInteger(1, "Number of Steps", 2, 100);
+	DlgInteger(2, "Number of Repeats", 1, 1000);
+	DlgReal(3, "Min Diameter", 0.1, 100);
+	DlgReal(4, "Max Diameter", 0.1, 100);
+	DlgCheck(5, "Random Progression");
+
+	i% := DlgShow(tunAreaNSteps%, tunAreaNRepeats%, tunAreaMinDiam, tunAreaMaxDiam, tunAreaProgression%);
+	' If i% is 1 the user hit "OK". If its 0, user hit "Cancel". 
+	' When user hits OK we always save the parameters, and when user hits Cancel we don't.
+    ' 
+    ' djs 2/4/2011
+    ' Spike2 bug workaround implemented. The return value from this function (when in DAQ context this
+    ' dialog is called from a DlgButton in another dialog) should make the parent dialog close, as if 
+    ' the OK button were hit. Bug in Spike2 v6 means this doesn't work right - the parent dialog will 
+    ' close but its variables are not updated prior to doing so.... so any changes to the parent dialog
+    ' are not seen in the subsequent expt, they're not saved in the registry, etc. Workaround is to return
+    ' something > 0 here. The parent dialog will continue to display, and the user has to hit OK on that 
+    ' before things proceed. 
+    'tunMaximalDiam := tunAreaMaxDiam;  This won't do anything unless FIXSTIM is updated to allow crosshairs
+	if i% = 1 then
+		SaveTuningCurveAreaParameters();
+'		PrintLog("TuningCurveAreaDialog - user hit OK\n");
+		tunType$ := tunTypeArea$;
+		if tunContext$ = tunContextDAQ$ then
+            ' djs 2/4/2011 We return 1 - that's the workaround			iReturn% := 0;
+            iReturn% := 1;
+		else
+			iReturn% := 1;
+		endif;
+	endif;
+	if i% = 0 then
+'		PrintLog("TuningCurveAreaDialog - user hit Cancel\n");
+		tunType$ := tunTypeNone$;
+		if tunContext$ = tunContextDAQ$ then
+			iReturn% := 1;
+		else
+			iReturn% := 2;
+		endif;
+	endif;
+    
+	return iReturn%;
+end;
+
+' This function is initially called with a "0" input, which forces the 1-5 dialogs to be disabled
+' Of course, this could just be done with a DlgEnable call at the point of dialog creation.  There
+' doesn't seem to be any plan to un-disable those dialogs when the enabled dialog is changed.
+func TuningCurveDonutDialogChanged%(item%)
+    if item% = 0 then
+        DlgEnable(0, 1, 2, 3, 4);
+    endif    
+    return 1;
+end
+
+func TuningCurveDonutDialog%()
+	var iReturn% := 0;
+	var i%;
+    var sValues$;
+    var iValue%:=0;
+    var result[1000];
+    var indices%[1000];
+    
+	GetTuningCurveAreaParameters();
+    
+    ' Before we proceed, we must generate a list of choices for the optimal diameter. 
+    ' Note that there are nsteps+1 values. 
+    
+    GetRepeatedParameterProgression%(tunAreaNSteps%+1, 1, result[], indices%[], tunAreaMinDiam, tunAreaMaxDiam, 1, 0);
+    sValues$ := GetRealArrayAsStringSep$(result[0:tunAreaNSteps%+1], indices%[0:tunAreaNSteps%+1], "|");
+    
+	DlgCreate("Donut Tuning Curve Parameters");
+	DlgInteger(1, "Number of Steps", 2, 100);
+	DlgInteger(2, "Number of Repeats", 1, 1000);
+	DlgReal(3, "Min Diameter", 0.1, 100);
+	DlgReal(4, "Max Diameter", 0.1, 100);
+	DlgCheck(5, "Random Progression");
+    DlgList(6, "Optimal diameter", sValues$);
+    DlgButton(151, "Master Grating", TunDlgGratingMaster%);
+    DlgButton(152, "Slave Grating", TunDlgGratingSlave%);
+    DlgButton(153, "Master Vals -> Slave", TunMasterValsToSlave%);
+    DlgButton(154, "Slave Vals -> Master", TunSlaveValsToMaster%);
+    DlgAllow(0xffff, 0, TuningCurveDonutDialogChanged%);
+	i% := DlgShow(tunAreaNSteps%, tunAreaNRepeats%, tunAreaMinDiam, tunAreaMaxDiam, tunDonutProgression%, tunDonutOptimalIndex%);
+    tunDonutOptimalDiam := result[tunDonutOptimalIndex%];
+    
+	' If i% is 1 the user hit "OK". If its 0, user hit "Cancel". 
+	' When user hits OK we always save the parameters, and when user hits Cancel we don't.
+    ' 
+    ' djs 2/4/2011
+    ' Spike2 bug workaround implemented. The return value from this function (when in DAQ context this
+    ' dialog is called from a DlgButton in another dialog) should make the parent dialog close, as if 
+    ' the OK button were hit. Bug in Spike2 v6 means this doesn't work right - the parent dialog will 
+    ' close but its variables are not updated prior to doing so.... so any changes to the parent dialog
+    ' are not seen in the subsequent expt, they're not saved in the registry, etc. Workaround is to return
+    ' something > 0 here. The parent dialog will continue to display, and the user has to hit OK on that 
+    ' before things proceed. 
+    tunMaximalDiam := result[tunDonutOptimalIndex%];
+    tunSlaveMaximalDiam := tunAreaMaxDiam;
+	if i% = 1 then
+		SaveTuningCurveAreaParameters();
+		tunType$ := tunTypeDonut$;
+		if tunContext$ = tunContextDAQ$ then
+            ' djs 2/4/2011 We return 1 - that's the workaround			iReturn% := 0;
+            iReturn% := 1;
+		else
+			iReturn% := 1;
+		endif;
+	endif;
+	if i% = 0 then
+		tunType$ := tunTypeNone$;
+		if tunContext$ = tunContextDAQ$ then
+			iReturn% := 1;
+		else
+			iReturn% := 2;
+		endif;
+	endif;
+    
+	return iReturn%;
+end;
+
+' This function is initially called with a "0" input, which forces the 1, 3, 4 dialogs to be disabled
+' Of course, this could just be done with a DlgEnable call at the point of dialog creation.  There
+' doesn't seem to be any plan to un-disable those dialogs when the enabled dialog is changed.
+func TuningCurveBerlinerDialogChanged%(item%)
+    var gr$;
+    var x;
+    var y;
+    var w;
+    var h;
+    var contrast%;
+    var sf;
+    var tf;
+    var ori;
+    var cv$;
+    var pattern$;
+    var aperture$;
+    var temp$;
+    
+    if item% = 0 then
+        DlgEnable(0, 1, 3, 4);
+    endif   
+    return 1;
+end
+
+func TuningCurveBerlinerDialog%()
+	var iReturn% := 0;
+	var i%;
+    var sValues$;
+    var iValue%:=0;
+    var result[1000];
+    var indices%[1000];
+    
+	GetTuningCurveAreaParameters();
+    
+    ' Before we proceed, we must generate a list of choices for the optimal diameter. These are based on the most recent run of Area tuning
+    ' Note that there are nsteps+1 values. 
+    
+    GetRepeatedParameterProgression%(tunAreaNSteps%+1, 1, result[], indices%[], tunAreaMinDiam, tunAreaMaxDiam, 1, tunAreaProgression%);
+    sValues$ := GetRealArrayAsStringSep$(result[0:tunAreaNSteps%+1], indices%[0:tunAreaNSteps%+1], "|");
+    
+    'We want the default maximal value to be the largest value available when we open the dialog
+    'so set tunBerlinerMaximalIndex% appropriately
+    tunBerlinerMaximalIndex% := tunAreaNSteps%;
+    
+    'Define tunBerlinerNSteps%, because we are no longer doing a tuning curve.
+    tunBerlinerNSteps% := 6;
+    
+	DlgCreate("Berliner Tuning Curve Parameters");
+	'DlgInteger(1, "Number of Steps", 2, 100);
+    DlgInteger(1, "Number of Stimuli", 2, 100);
+	DlgInteger(2, "Number of Repeats", 1, 1000);
+	DlgReal(3, "Min Diameter", 0.1, 100);
+	DlgReal(4, "Max Diameter", 0.1, 100);
+	DlgCheck(5, "Random Progression");
+    DlgList(6, "Optimal diameter", sValues$);
+    DlgList(7, "Maximal diameter", sValues$);
+    DlgButton(151, "Master Grating", TunDlgGratingMaster%);
+    DlgButton(152, "Slave Grating", TunDlgGratingSlave%);
+    DlgButton(153, "Master Vals -> Slave", TunMasterValsToSlave%);
+    DlgButton(154, "Slave Vals -> Master", TunSlaveValsToMaster%);
+    DlgAllow(0xffff, 0, TuningCurveBerlinerDialogChanged%);
+	'i% := DlgShow(tunAreaNSteps%, tunAreaNRepeats%, tunAreaMinDiam, tunAreaMaxDiam, tunAreaProgression%, tunDonutOptimalIndex%, tunBerlinerMaximalIndex%);
+    i% := DlgShow(tunBerlinerNSteps%, tunBerlinerNRepeats%, tunAreaMinDiam, tunAreaMaxDiam, tunBerlinerProgression%, tunDonutOptimalIndex%, tunBerlinerMaximalIndex%);
+    
+    tunMaximalDiam := tunAreaMaxDiam;
+    tunSlaveMaximalDiam := result[tunBerlinerMaximalIndex%];
+    ' Don't let the user screw this up by selecting incompatible values
+    if tunBerlinerMaximalIndex% > tunDonutOptimalIndex%+1 then
+        tunDonutOptimalDiam := result[tunDonutOptimalIndex%];
+        tunDonutOptimalDiamPlusOne := result[tunDonutOptimalIndex%+1];
+        tunBerlinerMaximalDiam := result[tunBerlinerMaximalIndex%];
+    else
+        i% := 0;  'Treat this as a "cancel"
+        if tunBerlinerMaximalIndex% > tunDonutOptimalIndex% then
+            message("Oops!|The maximal index was only one value greater than the optimal index!\nThis would result in 'near facilitation' and 'far suppression'\nstimuli being identical!\n\nI know you didn't want that, so try again!");
+        else
+            message("Oops!|The maximal index was not greater than the optimal index!\n\nI know you didn't want that, so try again!");
+        endif;
+    endif;
+    
+	' If i% is 1 the user hit "OK". If its 0, user hit "Cancel". 
+	' When user hits OK we always save the parameters, and when user hits Cancel we don't.
+    ' 
+    ' djs 2/4/2011
+    ' Spike2 bug workaround implemented. The return value from this function (when in DAQ context this
+    ' dialog is called from a DlgButton in another dialog) should make the parent dialog close, as if 
+    ' the OK button were hit. Bug in Spike2 v6 means this doesn't work right - the parent dialog will 
+    ' close but its variables are not updated prior to doing so.... so any changes to the parent dialog
+    ' are not seen in the subsequent expt, they're not saved in the registry, etc. Workaround is to return
+    ' something > 0 here. The parent dialog will continue to display, and the user has to hit OK on that 
+    ' before things proceed. 
+	if i% = 1 then
+		SaveTuningCurveAreaParameters();
+		tunType$ := tunTypeBerliner$;
+		if tunContext$ = tunContextDAQ$ then
+            ' djs 2/4/2011 We return 1 - that's the workaround			iReturn% := 0;
+            iReturn% := 1;
+		else
+			iReturn% := 1;
+		endif;
+	endif;
+	if i% = 0 then
+		tunType$ := tunTypeNone$;
+		if tunContext$ = tunContextDAQ$ then
+			iReturn% := 1;
+		else
+			iReturn% := 2;
+		endif;
+	endif;
+    
+	return iReturn%;
+end;
+
+
+
+
+func TunDlgGratingMaster%()
+    
+    var x, y, w, h, sf, tf, ori, phase;
+    var contrast%;
+    var param$, cv$, pattern$, aperture$;
+    var label$;
+    var i%;
+    var tunGratingParamsStat$;
+    
+    tunGratingParams$ := GetGratingParameters$("Stimulus", phase);
+    i% := GratingParametersDialogMaster%(label$, tunGratingParams$, tunGratingParamsStat$, x, y, w, h, contrast%, sf, tf, ori, phase, cv$, pattern$, aperture$);
+    if i% = 1 then
+        SaveGratingParameters("Stimulus", tunGratingParams$, phase);
+        SaveGratingParameters("StatStimulus", tunGratingParamsStat$, phase);
+    endif
+    
+    return 1;
+end
+
+
+
+func TunDlgGratingSlave%()
+    
+    var x, y, w, h, sf, tf, ori, phase;
+    var contrast%;
+    var param$, cv$, pattern$, aperture$;
+    var label$;
+    var i%;
+    var tunGratingParamsStat$;
+    
+    tunGratingParams$ := GetGratingParameters$("SlaveStimulus", phase);
+    i% := GratingParametersDialogSlave%(label$, tunGratingParams$, tunGratingParamsStat$, x, y, w, h, contrast%, sf, tf, ori, phase, cv$, pattern$, aperture$);
+    if i% = 1 then
+        SaveGratingParameters("SlaveStimulus", tunGratingParams$, phase);
+        SaveGratingParameters("StatSlaveStimulus", tunGratingParamsStat$, phase);
+    endif
+    
+    return 1;
+end
+
+
+
+func GratingParametersDialogMaster%(label$, &param$, &statparam$, &x, &y, &w, &h, &contrast%, &sf, &tf, &ori, &phase, &cv$, &pattern$, &aperture$)
+    
+	var i% := 13;  'That's right, 13
+    var tempPhase;
+    var firstRun := 1;
+    
+	var ColorVectorList$[5];
+	var cvl$[5];
+	var icvl% := 0;
+    var icvlS% := 0;
+	ColorVectorList$[0]:="Black/White";	cvl$[0]:="b";
+	ColorVectorList$[1]:="L cone";		cvl$[1]:="l";
+	ColorVectorList$[2]:="M cone";		cvl$[2]:="m";
+	ColorVectorList$[3]:="S cone";		cvl$[3]:="s";
+	ColorVectorList$[4]:="Custom";		cvl$[4]:="custom";
+    
+	var PatternList$[2];
+	var pl$[2];
+	var ipl% := 0;
+    var iplS% := 0;
+	PatternList$[0]:="Sine";	pl$[0]:="s";
+	PatternList$[1]:="Square";	pl$[1]:="q";
+    
+	var ApertureList$[2];
+	var al$[2];
+	var ial% := 0;
+    var ialS% := 0;
+	ApertureList$[0]:="Ellipse";	al$[0]:="e";
+	ApertureList$[1]:="Rectangle";	al$[1]:="r";
+    
+    while i% = 13 do
+        
+        ' If the passed param$ is non-empty, then parse it before opening the dialog. 
+        if Len(param$)>0 then
+            if ParseGratingParameters%(param$, x, y, w, h, contrast%, sf, tf, ori, cv$, pattern$, aperture$) = 0 then
+                FindMatchedStringIndex%(cv$, cvl$[], 2, 0);
+                FindMatchedStringIndex%(pattern$, pl$[], 2, 0);
+                FindMatchedStringIndex%(aperture$, al$, 3, 0);
+            endif
+        endif
+        
+        DlgCreate("Grating parameters: " + label$, 25, 11);
+        '    DlgAllow(0, 0, GratingParametersDialogDoubleCheck%);
+        DlgReal(1, "X:", -40, 40);
+        DlgReal(2, "Y:", -40, 40);
+        DlgReal(3, "Width:", .1, 30);
+        DlgReal(4, "Height:", .1, 30);
+        DlgInteger(5, "Contrast(%):", -100, 100);
+        DlgReal(6, "Spatial Freq:", .1, 10);
+        DlgReal(7, "Temporal Freq:", 0, 10);
+        DlgReal(8, "Orientation (degrees):", -360, 360);
+        DlgReal(9, "Initial Phase (deg, 0 = white at center)", 0, 360);
+        DlgList(10, "Color:", ColorVectorList$[]);
+        DlgList(11, "Pattern:", PatternList$[]);
+        DlgList(12, "Aperture:", ApertureList$[]);
+        DlgButton(13, "Copy from Slave", TunCopySlaveVals%(param$, tempPhase));
+        if firstRun = 0 then  'prevent phase from being overwritten the first time the function is called
+            phase := tempPhase;
+        endif;
+        firstRun := 0;      
+        
+        i% := DlgShow(x, y, w, h, contrast%, sf, tf, ori, phase, icvl%, ipl%, ial%);
+        
+    wend;
+      
+	if i%=1 then
+		cv$ := cvl$[icvl%];
+		pattern$ := pl$[ipl%];
+		aperture$ := al$[ial%];
+		' save parameters
+		param$ := Print$("%.1f,%.1f,%.1f,%.1f,%d,%.2f,%.2f,%.1f,%s,%s,%s", x, y, w, h, contrast%, sf, tf, ori, cv$, pattern$, aperture$);
+        statparam$ := Print$("%.1f,%.1f,%.1f,%.1f,%d,%.2f,0.00,%.1f,%s,%s,%s", x, y, w, h, contrast%, sf, ori, cv$, pattern$, aperture$); 'hardcoded zero TF
+    endif
+    return i%;
+end;
+
+func GratingParametersDialogSlave%(label$, &param$, &statparam$, &x, &y, &w, &h, &contrast%, &sf, &tf, &ori, &phase, &cv$, &pattern$, &aperture$)
+    
+	var i% := 13;  'That's right, 13
+    var tempPhase;
+    var firstRun := 1;
+    
+	var ColorVectorList$[5];
+	var cvl$[5];
+	var icvl% := 0;
+    var icvlS% := 0;
+	ColorVectorList$[0]:="Black/White";	cvl$[0]:="b";
+	ColorVectorList$[1]:="L cone";		cvl$[1]:="l";
+	ColorVectorList$[2]:="M cone";		cvl$[2]:="m";
+	ColorVectorList$[3]:="S cone";		cvl$[3]:="s";
+	ColorVectorList$[4]:="Custom";		cvl$[4]:="custom";
+    
+	var PatternList$[2];
+	var pl$[2];
+	var ipl% := 0;
+    var iplS% := 0;
+	PatternList$[0]:="Sine";	pl$[0]:="s";
+	PatternList$[1]:="Square";	pl$[1]:="q";
+    
+	var ApertureList$[2];
+	var al$[2];
+	var ial% := 0;
+    var ialS% := 0;
+	ApertureList$[0]:="Ellipse";	al$[0]:="e";
+	ApertureList$[1]:="Rectangle";	al$[1]:="r";
+    
+    while i% = 13 do
+        
+        ' If the passed param$ is non-empty, then parse it before opening the dialog. 
+        if Len(param$)>0 then
+            if ParseGratingParameters%(param$, x, y, w, h, contrast%, sf, tf, ori, cv$, pattern$, aperture$) = 0 then
+                FindMatchedStringIndex%(cv$, cvl$[], 2, 0);
+                FindMatchedStringIndex%(pattern$, pl$[], 2, 0);
+                FindMatchedStringIndex%(aperture$, al$, 3, 0);
+            endif
+        endif
+        
+        DlgCreate("Grating parameters: " + label$, 25, 11);
+        '    DlgAllow(0, 0, GratingParametersDialogDoubleCheck%);
+        DlgReal(1, "X:", -40, 40);
+        DlgReal(2, "Y:", -40, 40);
+        DlgReal(3, "Width:", .1, 30);
+        DlgReal(4, "Height:", .1, 30);
+        DlgInteger(5, "Contrast(%):", -100, 100);
+        DlgReal(6, "Spatial Freq:", .1, 10);
+        DlgReal(7, "Temporal Freq:", 0, 10);
+        DlgReal(8, "Orientation (degrees):", -360, 360);
+        DlgReal(9, "Initial Phase (deg, 0 = white at center)", 0, 360);
+        DlgList(10, "Color:", ColorVectorList$[]);
+        DlgList(11, "Pattern:", PatternList$[]);
+        DlgList(12, "Aperture:", ApertureList$[]);
+        DlgButton(13, "Copy From Master", TunCopyMasterVals%(param$, tempPhase));
+        if firstRun = 0 then  'prevent phase from being overwritten the first time the function is called
+            phase := tempPhase;
+        endif;
+        firstRun := 0;
+        
+        i% := DlgShow(x, y, w, h, contrast%, sf, tf, ori, phase, icvl%, ipl%, ial%);
+        
+    wend;
+    
+	if i%=1 then
+		cv$ := cvl$[icvl%];
+		pattern$ := pl$[ipl%];
+		aperture$ := al$[ial%];
+		' save parameters
+		param$ := Print$("%.1f,%.1f,%.1f,%.1f,%d,%.2f,%.2f,%.1f,%s,%s,%s", x, y, w, h, contrast%, sf, tf, ori, cv$, pattern$, aperture$);
+        statparam$ := Print$("%.1f,%.1f,%.1f,%.1f,%d,%.2f,0.00,%.1f,%s,%s,%s", x, y, w, h, contrast%, sf, ori, cv$, pattern$, aperture$); 'hardcoded zero TF
+    endif
+    return i%;
+end;
+
+
+
+func TunCopySlaveVals%(&param$,&phase)
+
+    param$ := GetGratingParameters$("SlaveStimulus", phase);
+
+    return 1;
+end
+
+
+
+func TunCopyMasterVals%(&param$,&phase)
+
+    param$ := GetGratingParameters$("Stimulus", phase);
+
+    return 1;
+end
+
+
+func TunMasterValsToSlave%()
+    
+    var x, y, w, h;
+    var contrast%;
+    var sf, tf, ori, phase;
+    var cv$, pattern$, aperture$;
+    
+    var tempParams$;
+    
+    tempParams$ := GetGratingParameters$("Stimulus", phase);
+    SaveGratingParameters("SlaveStimulus", tempParams$, phase);
+    ParseGratingParameters%(tempParams$, x, y, w, h, contrast%, sf, tf, ori, cv$, pattern$, aperture$);
+    tempParams$ := Print$("%.1f,%.1f,%.1f,%.1f,%d,%.2f,0.00,%.1f,%.1f,%s,%s,%s", x, y, w, h, contrast%, sf, ori, phase, cv$, pattern$, aperture$); 'hardcoded zero TF
+    SaveGratingParameters("StatSlaveStimulus", tempParams$, phase);
+    
+    return 1;
+end
+
+
+func TunSlaveValsToMaster%()
+    
+    var x, y, w, h;
+    var contrast%;
+    var sf, tf, ori, phase;
+    var cv$, pattern$, aperture$;
+    
+    var tempParams$;
+    
+    tempParams$ := GetGratingParameters$("SlaveStimulus", phase);
+    SaveGratingParameters("Stimulus", tempParams$, phase);
+    ParseGratingParameters%(tempParams$, x, y, w, h, contrast%, sf, tf, ori, cv$, pattern$, aperture$);
+    tempParams$ := Print$("%.1f,%.1f,%.1f,%.1f,%d,%.2f,0.00,%.1f,%.1f,%s,%s,%s", x, y, w, h, contrast%, sf, ori, phase, cv$, pattern$, aperture$); 'hardcoded zero TF
+    SaveGratingParameters("StatStimulus", tempParams$, phase);
+    
+    return 1;
+end
+
+
+
+
+
+
+func TuningXHairDialog%()
+    DlgCreate("Crosshair/Grid");
+    DlgCheck(1, "Use crosshair grid");
+    DlgReal(2, "Grid inner radius offset", 0, 100);
+    DlgReal(3, "Grid mid radius offset", 0, 100);
+    DlgReal(4, "Grid outer radius offset", 0, 100);
+    DlgInteger(5, "Number of divisions in grid", 2, 128);
+    DlgReal(6, "XHair inner offset", -1, 100);
+    DlgReal(7, "XHair outer offset", -1, 100);
+    DlgAllow(0xffff, 0, TuningXHairDialogChanged%);
+    DlgShow(tunUseXHairs%, tunXHairInnerRadiusOffset, tunXHairMiddleRadiusOffset, tunXHairOuterRadiusOffset, tunXHairNumGridDivisions%, tunXHairTicInnerOffset, tunXHairTicOuterOffset);
+    return 1;
+end
+
+
+func TuningXHairDialogChanged%(item%)
+    docase 
+    case item% = 0 then
+        DlgEnable(tunUseXHairs%, 2, 3, 4, 5, 6, 7);
+    case item% = 1 then
+        DlgEnable(DlgValue(1), 2, 3, 4, 5, 6, 7);
+    endcase
+    return 1;
+end
