@@ -83,6 +83,11 @@ int parse_grating(const std::string& s, alert::ARGratingSpec& ag)
 	vector<string> tokens;
 	tokenize(s, tokens, ",");
 
+	// UPDATED 9/15/2011 djs
+	// Added phase parameter to grating spec. In text form it fits after the orientation.
+	// Now the long (short) form is 12 (9) args. 
+	// For backwards compatibility we still allow 11/8 as below. 
+	// 
 	// There are two allowed formats for gratings. The long form has 11 args, the short just 8. 
 	// 
 	// Long format for grating:
@@ -98,7 +103,7 @@ int parse_grating(const std::string& s, alert::ARGratingSpec& ag)
 	// Short form: the last three args (color_vector, pattern, aperture) can be omitted. 
 
 
-	if (tokens.size() < 8 || tokens.size() > 11)
+	if (tokens.size() < 8 || tokens.size() > 12)
 	{
 		status=1;	// bad format
 	}
@@ -169,36 +174,71 @@ int parse_grating(const std::string& s, alert::ARGratingSpec& ag)
 			status=1;
 		}
 
+		// If there are 8 tokens, set phase = 0. 
+		// If there are 9 or 12, read phase.
+		ag.phase = 0;
+		if (tokens.size() == 9 || tokens.size() == 12)
+		{
+			iss.str(tokens[8]);
+			iss.clear();
+			iss >> ag.phase;
+			if (!iss)
+			{
+				cerr << "bad phase: " << tokens[8] << endl;
+				status = 1;
+			}
+		}
+
 		// set defaults for the remaining items, then read if present
 		ag.cv.type = b_w;
 		ag.pattern = sinewave;
 		ag.aperture = ellipse;
 
-		if (tokens.size() > 8)
+		// Handle 4 cases: 8, 9, 11, 12
+		switch(tokens.size())
 		{
+		case 8:
+		case 9:
+			// Short form. Do nothing.
+			break;
+		case 11:
 			if (parse_colorvector(tokens[8], ag.cv))
 			{
 				cerr << "bad colorvector: " << tokens[8] << endl;
 				status=1;
 			}
-		}
-		if (tokens.size() > 9)
-		{
 			if (parse_pattern(tokens[9], ag.pattern))
 			{
 				cerr << "bad pattern: " << tokens[9] << endl;
 				status=1;
 			}
-		}
-		if (tokens.size() > 10)
-		{
 			if (parse_aperture(tokens[10], ag.aperture))
 			{
 				cerr << "bad aperture: " << tokens[10] << endl;
 				status=1;
 			}
+			break;
+		case 12:
+			if (parse_colorvector(tokens[9], ag.cv))
+			{
+				cerr << "bad colorvector: " << tokens[9] << endl;
+				status=1;
+			}
+			if (parse_pattern(tokens[10], ag.pattern))
+			{
+				cerr << "bad pattern: " << tokens[10] << endl;
+				status=1;
+			}
+			if (parse_aperture(tokens[11], ag.aperture))
+			{
+				cerr << "bad aperture: " << tokens[11] << endl;
+				status=1;
+			}
+			break;
+		default:
+			cerr << "Bad number of args for grating (" << tokens.size() << " (s/b 8,9,11,12)" << endl;
+			break;
 		}
-	
 	}
 
 
