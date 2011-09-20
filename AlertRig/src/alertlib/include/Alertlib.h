@@ -351,15 +351,21 @@ namespace alert
 	class ARGratingSpec: public ARSpec
 	{
 	public:
-		ARGratingSpec() {};
+		ARGratingSpec() : phase(0) {};
 		virtual ~ARGratingSpec() {};
 		double x,y,w,h;
 		double sf, tf;
 		double orientation;
 		int contrast;
+		double phase;	// initial phase
 		PATTERN_TYPE pattern;
 		APERTURE_TYPE aperture;
 		COLOR_VECTOR_TYPE cv;
+
+		// reset spatial phase to the initial phase
+		virtual int resetSpatialPhase() { return setSpatialPhase(phase); };
+
+		virtual int setSpatialPhase(double p) { select(); return vsgObjSetSpatialPhase(p); };
 
 		// If useTransOnHigher is true then the page should have been cleared with a LOW pixel level.
 		// If its false, then the grating is drawn as a rectangle.
@@ -378,8 +384,6 @@ namespace alert
 		// calling this function!
 		virtual int drawOverlay();
 
-
-		virtual int redraw(bool useTransOnLower);
 		virtual int drawOnce();
 		virtual int drawBackground();
 		virtual void setContrast(int contrast);
