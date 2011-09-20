@@ -21,7 +21,7 @@ std::ostream& operator<<(std::ostream& out, const ARFixationPointSpec& arfps)
 
 std::ostream& operator<<(std::ostream& out, const ARGratingSpec& args)
 {
-	out << args.x << "," << args.y << "," << args.w << "," << args.h << "," << args.contrast << "," << args.sf << "," << args.tf << "," << args.orientation << "," << args.cv << "," << args.pattern << "," << args.aperture;
+	out << args.x << "," << args.y << "," << args.w << "," << args.h << "," << args.contrast << "," << args.sf << "," << args.tf << "," << args.orientation << "," << args.phase << "," << args.cv << "," << args.pattern << "," << args.aperture;
 	return out;
 }
 
@@ -944,54 +944,6 @@ int ARGratingSpec::draw()
 	return draw(false);
 }
 
-int ARGratingSpec::redraw(bool useTransOnLower)
-{
-	int status=0;
-	select();
-	if (useTransOnLower)
-	{
-		// djs TRANSONLOWER seems to leave artifacts on the screen when we turn the contrast off. !!!
-		// if ellipse, draw an ellipse on level 0 for TRANSONLOWER
-		// djs. Specifically setting the level seems to lead to artifacts. I found that leaving the levels
-		// unassigned solves this. I suspect this may lead to trouble someday.....
-		if (this->aperture == ellipse)
-		{
-			vsgSetPen1(250);
-//			vsgSetPen2(0);
-			vsgSetDrawMode(vsgCENTREXY + vsgSOLIDFILL);
-			vsgDrawOval(x, -1*y, w, h);
-		}
-	}
-
-
-	// Now draw
-	if (this->aperture == ellipse)
-	{
-		if (useTransOnLower)
-		{
-			vsgSetDrawMode(vsgCENTREXY + vsgTRANSONLOWER);
-			vsgSetPen1(getFirstLevel());
-			vsgSetPen2(getFirstLevel() + getNumLevels());
-			vsgDrawGrating(this->x, -1*this->y, this->w, this->h, this->orientation, this->sf);
-//			vsgSetDrawMode(vsgCENTREXY);
-		}
-		else
-		{
-			vsgSetDrawMode(vsgCENTREXY);
-			vsgDrawGrating(this->x, -1*this->y, this->w, this->h, this->orientation, this->sf);
-		}
-	}
-	else
-	{
-		vsgSetDrawMode(vsgCENTREXY);
-		vsgDrawGrating(this->x, -1*this->y, this->w, this->h, this->orientation, this->sf);
-	}
-
-
-	return 0;
-}
-
-
 int ARGratingSpec::drawOnce()
 {
 	return draw(true);
@@ -1005,7 +957,7 @@ int ARGratingSpec::draw(bool useTransOnHigher)
 	}
 	else
 	{
-		return draw((long)0);
+		return draw((long)vsgTRANSONLOWER);
 	}
 }
 
@@ -1058,6 +1010,9 @@ int ARGratingSpec::draw(long mode)
 		// Set up standard 50:50 square wave
 		vsgObjTableSquareWave(vsgSWTABLE, (DWORD)(vsgObjGetTableSize(vsgSWTABLE)*0.25), (DWORD)(vsgObjGetTableSize(vsgSWTABLE)*0.75));
 	}
+
+	// set spatialphase
+	vsgObjSetSpatialPhase(phase);
 
 	// set temporal freq
 	vsgObjSetDriftVelocity(tf);
@@ -1137,6 +1092,7 @@ ARDonutSpec::ARDonutSpec(const ARGratingSpec& g)
 	tf = g.tf;
 	orientation = g.orientation;
 	contrast = g.contrast;
+	phase = g.phase;
 	pattern = g.pattern;
 	aperture = g.aperture;
 	cv = g.cv;
