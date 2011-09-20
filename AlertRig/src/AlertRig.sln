@@ -172,6 +172,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "dualstim", "dualstim\dualst
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ActiveXSvr", "ActiveXMsgInterface\ActiveXSvr.vcproj", "{9FAAA836-092E-421A-82F3-5F51915446CF}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "testparse", "testparse\testparse.vcproj", "{E355EE96-EA31-4169-B563-1D23542EA94A}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -516,6 +518,14 @@ Global
 		{9FAAA836-092E-421A-82F3-5F51915446CF}.Unicode Debug|Win32.Build.0 = Unicode Debug|Win32
 		{9FAAA836-092E-421A-82F3-5F51915446CF}.Unicode Release|Win32.ActiveCfg = Unicode Release|Win32
 		{9FAAA836-092E-421A-82F3-5F51915446CF}.Unicode Release|Win32.Build.0 = Unicode Release|Win32
+		{E355EE96-EA31-4169-B563-1D23542EA94A}.Debug|Win32.ActiveCfg = Debug|Win32
+		{E355EE96-EA31-4169-B563-1D23542EA94A}.Debug|Win32.Build.0 = Debug|Win32
+		{E355EE96-EA31-4169-B563-1D23542EA94A}.Release|Win32.ActiveCfg = Release|Win32
+		{E355EE96-EA31-4169-B563-1D23542EA94A}.Release|Win32.Build.0 = Release|Win32
+		{E355EE96-EA31-4169-B563-1D23542EA94A}.Unicode Debug|Win32.ActiveCfg = Debug|Win32
+		{E355EE96-EA31-4169-B563-1D23542EA94A}.Unicode Debug|Win32.Build.0 = Debug|Win32
+		{E355EE96-EA31-4169-B563-1D23542EA94A}.Unicode Release|Win32.ActiveCfg = Release|Win32
+		{E355EE96-EA31-4169-B563-1D23542EA94A}.Unicode Release|Win32.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
