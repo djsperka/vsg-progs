@@ -30,7 +30,6 @@ COLOR_TYPE m_background;
 vector<ARGratingSpec*> m_gratings;
 int m_screenDistanceMM=0;
 bool m_verbose=false;
-double m_spatialphase = 0;
 TriggerVector triggers;
 bool m_binaryTriggers = true;
 bool m_bCalibration = false;
@@ -57,10 +56,9 @@ int main (int argc, char *argv[])
 		{
 			cout << "Screen distance " << m_screenDistanceMM << endl;
 			cout << "Background color " << m_background << endl;
-			cout << "Spatial phast " << m_spatialphase << endl;
 			for (unsigned int i=0; i<m_gratings.size(); i++)
 			{
-				cout << "Grating " << (i+1) << ": " << m_gratings[i] << endl;
+				cout << "Grating " << (i+1) << ": " << *m_gratings[i] << endl;
 			}
 		}
 	}
@@ -126,14 +124,13 @@ int main (int argc, char *argv[])
 int args(int argc, char **argv)
 {	
 	bool have_d=false;
-	bool have_p = false;
 	string s;
 	int c;
 	ARGratingSpec *pspec=NULL;
 	extern char *optarg;
 	extern int optind;
 	int errflg = 0;
-	while ((c = getopt(argc, argv, "s:b:hd:vap:")) != -1)
+	while ((c = getopt(argc, argv, "s:b:hd:va")) != -1)
 	{
 		switch (c) 
 		{
@@ -151,11 +148,6 @@ int args(int argc, char **argv)
 			s.assign(optarg);
 			if (parse_distance(s, m_screenDistanceMM)) errflg++;
 			else have_d=true;
-			break;
-		case 'p':
-			s.assign(optarg);
-			if (parse_double(s, m_spatialphase)) errflg++;
-			else have_p=true;
 			break;
 		case 's':
 			pspec = new ARGratingSpec();
@@ -188,11 +180,6 @@ int args(int argc, char **argv)
 		cerr << "Screen distance not specified!" << endl; 
 		errflg++;
 	}
-	if (!have_p)
-	{
-		cerr << "Must specify spatial phase!" << endl;
-		errflg++;
-	}
 	if (errflg) 
 	{
 		usage();
@@ -213,19 +200,12 @@ int init_pages()
 	CallbackTrigger *pcall = NULL;
 	string s;
 
-	// initialize video pages. Video memory (all pages) is cleared to vsgBACKGROUND.
-	if (ARvsg::instance().init_video())
-	{
-		cerr << "VSG video initialization failed!" << endl;
-		return 1;
-	}
-
 	// set current display page to page 1.
 	vsgSetZoneDisplayPage(vsgVIDEOPAGE, f_iPage1);
 
 	// We will draw on page 0, so we will not see drawing artifacts. 
 	// The draw page is not displayed until vsgPresent() is called. 
-	vsgSetDrawPage(vsgVIDEOPAGE, f_iPage0, vsgNOCLEAR);
+	vsgSetDrawPage(vsgVIDEOPAGE, f_iPage0, vsgBACKGROUND);
 
 	// draw first grating. Note that with the above setup, gratings should be drawn
 	// with draw() or draw((long)vsgTRANSONLOWER) or draw(false)
@@ -284,7 +264,6 @@ int callback(int &output, const CallbackTrigger* ptrig)
 		m_gratings[0]->setContrast(100);
 		m_gratings[0]->select();
 		vsgObjResetDriftPhase();
-		vsgObjSetSpatialPhase(m_spatialphase);
 	}
 	else if (key == "s")
 	{
@@ -297,7 +276,6 @@ int callback(int &output, const CallbackTrigger* ptrig)
 			m_gratings[1]->setContrast(100);
 			m_gratings[1]->select();
 			vsgObjResetDriftPhase();
-			//vsgObjSetSpatialPhase(0);
 		}
 	}
 	else if (key == "t")
