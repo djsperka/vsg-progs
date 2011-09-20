@@ -293,7 +293,6 @@ int callback(int &output, const CallbackTrigger* ptrig)
 			m_iSavedContrast = m_stim.contrast;
 			m_stim.setContrast(0);
 			m_bStimIsOff = true;
-			//m_stim.redraw(true);
 		}
 		else
 		{
@@ -308,7 +307,6 @@ int callback(int &output, const CallbackTrigger* ptrig)
 			cout << "Set stim to " << m_iSavedContrast << endl;
 			m_stim.setContrast(m_iSavedContrast);
 			m_bStimIsOff = false;
-			//m_stim.redraw(true);
 		}
 		else
 		{
