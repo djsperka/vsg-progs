@@ -38,15 +38,25 @@ bool GetRegConfiguration()
 		 * following path is used: Software\\CED\\Spike2\\AcuteRig
 		 */
 
-		if (!getenv_s(&iGetenvReturnValue, buffer, 256, "RIG"))
+		if (!getenv_s(&iGetenvReturnValue, buffer, 256, "RIG") && strlen(buffer)>0)
 		{
 			f_szRigName.assign(buffer);
 			cerr << "Env var RIG found: rig name is " << f_szRigName << endl;
 		}
 		else
 		{
-			f_szRigName.assign("AlertRig");
-			cerr << "Env var RIG not found. using \"AlertRig\" as rig name." << endl;
+			strcpy_s(buffer, 256, "Software\\CED\\Spike2");
+			b = GetRegString(buffer, "RigName", f_szRigName);
+			if (!b)
+			{
+				f_szRigName.assign("AlertRig");
+				cerr << "Env var RIG not found, no reg value \"RigName\", using \"AlertRig\" as rig name." << endl;
+			}
+			else
+			{
+				string s(buffer);
+				cerr << "Registry key " << s << " value RigName found: " << f_szRigName << endl;
+			}
 		}
 
 		strcpy_s(buffer, 256, "Software\\CED\\Spike2\\");
