@@ -1,4 +1,4 @@
-' $Id: Anandre.s2s,v 1.2 2011-09-03 00:19:31 djsperka Exp $ 
+' $Id: Anandre.s2s,v 1.3 2011-09-22 00:43:34 djsperka Exp $ 
 '
 ' Anandre.s2s
 '
@@ -36,7 +36,7 @@ var lpTRW := 70;
 var bpLowFreq := 700;  ' band pass low freq
 var bpHighFreq := 7000;  ' band pass hi freq
 var bpTRW := 2.5;
-
+var tStart := 0, tEnd := 60;
 var exportFilename$;
 var xchans%[5];
 xchans%[0] := 4;
@@ -44,40 +44,67 @@ var lgnLFPChannel%;
 var lgnMUAChannel%;
 var v1LFPChannel%;
 var v1MUAChannel%;
+var testing% := 0;
+var dchan% := -1;
+
+if testing% = 0 then
+    tEnd := MaxTime();
+endif
+
 
 ' LGN LFP
-xchans%[1] := LFP%(lgnChannel%, lpFreq, lpTRW, 0, MaxTime());
-'xchans%[1] := LFP%(lgnChannel%, lpFreq, lpTRW, 0, 10);
+xchans%[1] := LFP%(lgnChannel%, lpFreq, lpTRW, tStart, tEnd);
+xchans%[0] := 1;
 ChanTitle$(xchans%[1], "LGN LFP");
+exportFilename$ := ModifyFilename$(0, "", "-lgnlfp", ".mat");
+ExportStuff(tStart, tEnd, xchans%[], exportFilename$);
+ChanDelete(xchans%[]);
 
 ' V1 LFP
-xchans%[2] := LFP%(v1Channel%, lpFreq, lpTRW, 0, MaxTime());
-'xchans%[2] := LFP%(v1Channel%, lpFreq, lpTRW, 0, 10);
-ChanTitle$(xchans%[2], "V1 LFP");
+xchans%[1] := LFP%(v1Channel%, lpFreq, lpTRW, tStart, tEnd);
+xchans%[0] := 1;
+ChanTitle$(xchans%[1], "V1 LFP");
+exportFilename$ := ModifyFilename$(0, "", "-v1lfp", ".mat");
+ExportStuff(tStart, tEnd, xchans%[], exportFilename$);
+ChanDelete(xchans%[]);
 
 ' LGN MUA 
-xchans%[3] := MUA%(lgnChannel%, bpTRW, bpLowFreq, bpHighFreq, lpFreq, lpTRW, 0, MaxTime());
-'xchans%[3] := MUA%(lgnChannel%, bpTRW, bpLowFreq, bpHighFreq, lpFreq, lpTRW, 0, 10);
-ChanTitle$(xchans%[3], "LGN MUA");
+xchans%[1] := MUA%(lgnChannel%, bpTRW, bpLowFreq, bpHighFreq, lpFreq, lpTRW, tStart, tEnd);
+xchans%[0] := 1;
+ChanTitle$(xchans%[1], "LGN MUA");
+exportFilename$ := ModifyFilename$(0, "", "-lgnmua", ".mat");
+ExportStuff(tStart, tEnd, xchans%[], exportFilename$);
+xchans%[0] := 2;
+xchans%[2] := dchan%;
+ChanDelete(xchans%[]);
 
 ' V1 MUA
-xchans%[4] := MUA%(v1Channel%, bpTRW, bpLowFreq, bpHighFreq, lpFreq, lpTRW, 0, MaxTime());
-'xchans%[4] := MUA%(v1Channel%, bpTRW, bpLowFreq, bpHighFreq, lpFreq, lpTRW, 0, 10);
-ChanTitle$(xchans%[4], "V1 MUA");
-
-' Optimize and display filtered channels
-Optimise(xchans%[]);
-ChanShow(xchans%[]);
-
-
-' Now export
-ExportChanList();
-ExportChanList(0, MaxTime(), xchans%[]);
-exportFilename$ := ReplaceFileExtension$(0, ".mat");
-PrintLog("Exporting %s\n", exportFilename$);
-FileSaveAs(exportFilename$, 100, 1, "", 2, "");
+xchans%[1] := MUA%(v1Channel%, bpTRW, bpLowFreq, bpHighFreq, lpFreq, lpTRW, tStart, tEnd);
+xchans%[0] := 1;
+ChanTitle$(xchans%[1], "V1 MUA");
+exportFilename$ := ModifyFilename$(0, "", "-v1mua", ".mat");
+ExportStuff(tStart, tEnd, xchans%[], exportFilename$);
+xchans%[0] := 2;
+xchans%[2] := dchan%;
+ChanDelete(xchans%[]);
 
 
+proc ExportStuff(t0, t1, ch%[], fname$)
+    ' Optimize and display filtered channels
+    Optimise(ch%[]);
+    ChanShow(ch%[]);
+    
+    ' Now export
+    ExportChanList();
+    ExportChanList(t0, t1, ch%[]);
+    PrintLog("Exporting %s\n", fname$);
+    FileSaveAs(fname$, 100, 1, "", 2, "");
+
+    return;
+end
+
+    
+    
 func LFP%(ichan%, lpFreq, lpTRW, sTime, eTime)
     var ochan%;
     
@@ -93,18 +120,17 @@ func LFP%(ichan%, lpFreq, lpTRW, sTime, eTime)
 end
 
 func MUA%(ichan%, bandTRW, bandLow, bandHigh, lpFreq, lpTRW, sTime, eTime)
-    var ochan1%;
     var ochan2%;
     
     ' band pass filter
     FiltCreate(-1, 4, bandTRW, bandLow, bandHigh);
-    ochan1% := FiltApply(-1, 0, ichan%, sTime, eTime);
+    dchan% := FiltApply(-1, 0, ichan%, sTime, eTime);
     
     ' Rectify
-    ChanProcessAdd(ochan1%, 0);
+    ChanProcessAdd(dchan%, 0);
     
     ' Now do LFP process
-    ochan2% := LFP%(ochan1%, lpFreq, lpTRW, sTime, eTime);
+    ochan2% := LFP%(dchan%, lpFreq, lpTRW, sTime, eTime);
     
     return ochan2%;
 end
