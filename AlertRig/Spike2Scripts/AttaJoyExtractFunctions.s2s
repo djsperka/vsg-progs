@@ -1,4 +1,4 @@
-' $Id: AttaJoyExtractFunctions.s2s,v 1.3 2010-11-23 00:26:50 devel Exp $
+' $Id: AttaJoyExtractFunctions.s2s,v 1.4 2011-09-22 00:43:57 djsperka Exp $
 
 #include "ExtractionUtilities.s2s"
 #include "JoystickExtractFunctions.s2s"
@@ -279,7 +279,7 @@ func AttaXGetTimeFor%(s$, tFound, &tResult)
         
         status% := FindRisingEdge%(axChanFixpt%, tFound, tResult);
         if status% <> 0 then
-            LogError("AttaXGetTimeFor", "Fixpt edge not found. F/G at " + str$(tFound));
+            LogError("AttaXGetTimeFor", "Fixpt edge not found(status " + str$(status%) + "). F/G at " + str$(tFound));
             return -1;
         endif
         
