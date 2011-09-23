@@ -392,7 +392,7 @@ int FixptGratingStimSet::handle_trigger(std::string &s)
 		{
 			m_grating.select();
 			vsgObjResetDriftPhase();
-			vsgObjSetSpatialPhase(get_spatial_phase());
+			//vsgObjSetSpatialPhase(get_spatial_phase());
 			m_grating.setContrast(m_contrast);
 		}
 		setup_cycling(1, 2, 1);
@@ -604,7 +604,7 @@ int ContrastStimSet::handle_trigger(std::string& s)
 		{
 			m_grating.select();
 			vsgObjResetDriftPhase();
-			vsgObjSetSpatialPhase(get_spatial_phase());
+			//vsgObjSetSpatialPhase(get_spatial_phase());
 			m_grating.setContrast(m_contrast);
 		}
 		setup_cycling(1, 2, 1);
@@ -872,7 +872,7 @@ int TFStimSet::handle_trigger(std::string& s)
 		{
 			m_grating.select();
 			vsgObjResetDriftPhase();
-			vsgObjSetSpatialPhase(get_spatial_phase());
+			//vsgObjSetSpatialPhase(get_spatial_phase());
 			m_grating.setContrast(m_contrast);
 		}
 		setup_cycling(1, 2, 1);
@@ -1138,7 +1138,7 @@ int SFStimSet::handle_trigger(std::string& s)
 		{
 			m_grating.select();
 			vsgObjResetDriftPhase();
-			vsgObjSetSpatialPhase(get_spatial_phase());
+			//vsgObjSetSpatialPhase(get_spatial_phase());
 			m_grating.setContrast(m_contrast);
 		}
 		setup_cycling(1, 2, 1);
@@ -1421,7 +1421,7 @@ int OrientationStimSet::handle_trigger(std::string& s)
 		{
 			m_grating.select();
 			vsgObjResetDriftPhase();
-			vsgObjSetSpatialPhase(get_spatial_phase());
+			//vsgObjSetSpatialPhase(get_spatial_phase());
 			m_grating.setContrast(m_contrast);
 		}
 		setup_cycling(1, 2, 1);
@@ -1710,7 +1710,7 @@ int AreaStimSet::handle_trigger(std::string& s)
 		{
 			m_grating.select();
 			vsgObjResetDriftPhase();
-			vsgObjSetSpatialPhase(get_spatial_phase());
+			//vsgObjSetSpatialPhase(get_spatial_phase());
 			m_grating.setContrast(m_contrast);
 		}
 		setup_cycling(1, 2, 1);
@@ -1887,7 +1887,7 @@ int DonutStimSet::handle_trigger(std::string& s)
 		{
 			m_grating.select();
 			vsgObjResetDriftPhase();
-			vsgObjSetSpatialPhase(get_spatial_phase());
+			//vsgObjSetSpatialPhase(get_spatial_phase());
 			m_grating.setContrast(m_contrast);
 		}
 		setup_cycling(1, 2, 1);
