@@ -164,6 +164,7 @@ proc GetTuningVersion(&version%, &isDual%)
     var count% := 0;
     var cLength%;
     var i%;
+    isDual% := 0;
     while iStatus% = 0 do
         tLast := NextTextMark(tLast, s$);
         docase
