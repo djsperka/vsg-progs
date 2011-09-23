@@ -1,4 +1,4 @@
-/* $Id: dualstim.cpp,v 1.1 2011-08-30 01:59:34 djsperka Exp $ */
+/* $Id: dualstim.cpp,v 1.2 2011-09-23 00:11:33 djsperka Exp $ */
 
 #include <iostream>
 #include <fstream>
@@ -57,7 +57,7 @@ bool f_bHaveResponseFile = false;
 
 // function prototypes
 
-int args(int argc, char **argv);
+int prargs_callback(int c, string& arg);
 void usage();
 void init_triggers();
 int callback(int &output, const FunctorCallbackTrigger* ptrig);
@@ -149,27 +149,10 @@ int main (int argc, char *argv[])
 	int status = 0;
 
 	// Check input arguments
-	status = args(argc, argv);
-	if (f_bHaveResponseFile)
-	{
-		ifstream ifs(f_szResponseFile.c_str());
-		if (!ifs)
-		{
-			cerr << "Error - cannot open response file " << f_szResponseFile << endl;
-			status = -1;
-		}
-		else
-		{
-			int argc_r;
-			char **argv_r = NULL;
-			make_argv(ifs, argc_r, argv_r);
-			status = args(argc_r, argv_r);
-			free_argv(argc_r, argv_r);
-		}
-	}
+	status = prargs(argc, argv, prargs_callback, "f:b:d:avg:s:C:T:S:O:A:DMVr:H:Zp:KP:w:y:t:X:", 'F');
 	if (status)
 	{
-		return 1;
+		return -1;
 	}
 
 	f_pDualStimSet = new MyDualStimSet(f_pStimSet, f_pStimSetSlave, f_nFramesDelay, f_dStimTime);
@@ -340,379 +323,372 @@ StimSet* create_stimset(bool bHaveFixpt, ARContrastFixationPointSpec& fixpt, boo
 	return pstimset;
 }
 
-
-int args(int argc, char **argv)
+int prargs_callback(int c, string& arg)
 {	
 	string s;
-	int c;
-	extern char *optarg;
-	extern int optind;
-	int errflg = 0;
-	bool have_fixpt = false;
-	bool have_xhair = false;
-	bool have_stim = false;
-	bool have_g = false;
-	bool have_d = false;
-	bool have_w = false;
-	bool have_t = false;
+	static int errflg = 0;
+	static bool have_fixpt = false;
+	static bool have_xhair = false;
+	static bool have_stim = false;
+	static bool have_g = false;
+	static bool have_d = false;
+	static bool have_w = false;
+	static bool have_t = false;
 	int delay=0, frames=0;
 	string sequence_filename;
-	char activeScreen = ' ';
-	while ((c = getopt(argc, argv, "F:f:b:d:avg:s:C:T:S:O:A:DMVr:H:Zp:KP:w:y:t:X:")) != -1)
+	static char activeScreen = ' ';
+
+	switch(c)
 	{
-		switch(c)
+	case 'a':
+		f_binaryTriggers = false;
+		break;
+	case 'F':
+		f_bHaveResponseFile = true;
+		f_szResponseFile.assign(optarg);
+		break;
+	case 'Z':
+		f_dumpStimSetsOnly = true;
+		break;
+	case 'v':
+		f_verbose = true;
+		break;
+	case 'K':
+		f_bSlaveSynch = true;
+		break;
+	case 'b': 
+		s.assign(optarg);
+		if (parse_color(s, f_background)) errflg++; 
+		break;
+	case 'd':
+		s.assign(optarg);
+		if (parse_distance(s, f_iDistanceToScreenMM)) errflg++;
+		else have_d=true;
+		break;
+	case 'f':
+		s.assign(optarg);
+		if (parse_fixation_point(s, f_fixpt)) errflg++;
+		else 
 		{
-		case 'a':
-			f_binaryTriggers = false;
-			break;
-		case 'F':
-			f_bHaveResponseFile = true;
-			f_szResponseFile.assign(optarg);
-			break;
-		case 'Z':
-			f_dumpStimSetsOnly = true;
-			break;
-		case 'v':
-			f_verbose = true;
-			break;
-		case 'K':
-			f_bSlaveSynch = true;
-			break;
-		case 'b': 
-			s.assign(optarg);
-			if (parse_color(s, f_background)) errflg++; 
-			break;
-		case 'd':
-			s.assign(optarg);
-			if (parse_distance(s, f_iDistanceToScreenMM)) errflg++;
-			else have_d=true;
-			break;
-		case 'f':
-			s.assign(optarg);
-			if (parse_fixation_point(s, f_fixpt)) errflg++;
-			else 
+			have_fixpt = true;
+		}
+		break;
+	case 'g':
+		s.assign(optarg);
+		if (parse_grating(s, f_grating)) errflg++;
+		else 
+		{
+			switch (activeScreen)
 			{
-				have_fixpt = true;
-			}
-			break;
-		case 'g':
-			s.assign(optarg);
-			if (parse_grating(s, f_grating)) errflg++;
-			else 
-			{
-				switch (activeScreen)
+			case 'M':
+			case ' ':
+				f_pStimSet = create_stimset(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, 0, 0, f_spatialphase);
+				break;
+			case 'V':
+				f_pStimSetSlave = create_stimset(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, f_dSlaveXOffset, f_dSlaveYOffset, f_spatialphase);
+				break;
+			case 'D':
+				if (activeScreen != ' ' && !f_bDualVSG)
 				{
-				case 'M':
-				case ' ':
+					cerr << "Error - cannot specify active screen (-[D|M|V]) without also specifying slave screen offset!" << endl;
+					errflg++;
+				}
+				else
+				{
 					f_pStimSet = create_stimset(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, 0, 0, f_spatialphase);
-					break;
-				case 'V':
 					f_pStimSetSlave = create_stimset(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, f_dSlaveXOffset, f_dSlaveYOffset, f_spatialphase);
-					break;
-				case 'D':
-					if (activeScreen != ' ' && !f_bDualVSG)
-					{
-						cerr << "Error - cannot specify active screen (-[D|M|V]) without also specifying slave screen offset!" << endl;
-						errflg++;
-					}
-					else
-					{
-						f_pStimSet = create_stimset(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, 0, 0, f_spatialphase);
-						f_pStimSetSlave = create_stimset(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, f_dSlaveXOffset, f_dSlaveYOffset, f_spatialphase);
-					}
-					break;
 				}
-			}
-			break;
-		case 's':
-			s.assign(optarg);
-			if (parse_grating(s, f_grating)) 
-				errflg++;
-			else 
-				have_stim = true;
-			break;
-		case 'p':
-			s.assign(optarg);
-			if (parse_integer(s, f_pulse))
-				errflg++;
-			break;
-		case 'P':
-			s.assign(optarg);
-			if (parse_double(s, f_spatialphase))
-				errflg++;
-			break;
-		case 'O':
-		case 'T':
-		case 'S':
-		case 'C':
-		case 'A':
-		case 'H':
-			{
-				vector<double> tuning_parameters;
-				int nsteps;
-
-				s.assign(optarg);
-				if (parse_tuning_list(s, tuning_parameters, nsteps)) errflg++;
-				else 
-				{
-					if (!have_stim)
-					{
-						cerr << "Error - must pass template grating stimulus with \"-s\" before passing tuning parameters." << endl;
-						errflg++;
-					}
-					else if (activeScreen != ' ' && !f_bDualVSG)
-					{
-						cerr << "Error - cannot specify active screen (-[D|M|V]) without also specifying slave screen offset!" << endl;
-						errflg++;
-					}
-					else
-					{
-						switch (c)
-						{
-						case 'S':
-							{
-								switch (activeScreen)
-								{
-								case 'M':
-								case ' ':
-									f_pStimSet = create_stimset<SFStimSet>(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, tuning_parameters, 0, 0, f_spatialphase);
-									break;
-								case 'V':
-									f_pStimSetSlave = create_stimset<SFStimSet>(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, tuning_parameters, f_dSlaveXOffset, f_dSlaveYOffset, f_spatialphase);
-									break;
-								case 'D':
-									f_pStimSet = create_stimset<SFStimSet>(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, tuning_parameters, 0, 0, f_spatialphase);
-									f_pStimSetSlave = create_stimset<SFStimSet>(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, tuning_parameters, f_dSlaveXOffset, f_dSlaveYOffset, f_spatialphase);
-									break;
-								}
-								break;
-							}
-						case 'C':
-							{
-								switch (activeScreen)
-								{
-								case 'M':
-								case ' ':
-									f_pStimSet = create_stimset<ContrastStimSet>(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, tuning_parameters, 0, 0, f_spatialphase);
-									break;
-								case 'V':
-									f_pStimSetSlave = create_stimset<ContrastStimSet>(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, tuning_parameters, f_dSlaveXOffset, f_dSlaveYOffset, f_spatialphase);
-									break;
-								case 'D':
-									f_pStimSet = create_stimset<ContrastStimSet>(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, tuning_parameters, 0, 0, f_spatialphase);
-									f_pStimSetSlave = create_stimset<ContrastStimSet>(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, tuning_parameters, f_dSlaveXOffset, f_dSlaveYOffset, f_spatialphase);
-									break;
-								}
-								break;
-							}
-						case 'T':
-							{
-								switch (activeScreen)
-								{
-								case 'M':
-								case ' ':
-									f_pStimSet = create_stimset<TFStimSet>(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, tuning_parameters, 0, 0, f_spatialphase);
-									break;
-								case 'V':
-									f_pStimSetSlave = create_stimset<TFStimSet>(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, tuning_parameters, f_dSlaveXOffset, f_dSlaveYOffset, f_spatialphase);
-									break;
-								case 'D':
-									f_pStimSet = create_stimset<TFStimSet>(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, tuning_parameters, 0, 0, f_spatialphase);
-									f_pStimSetSlave = create_stimset<TFStimSet>(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, tuning_parameters, f_dSlaveXOffset, f_dSlaveYOffset, f_spatialphase);
-									break;
-								}
-								break;
-							}
-						case 'O':
-							{
-								switch (activeScreen)
-								{
-								case 'M':
-								case ' ':
-									f_pStimSet = create_stimset<OrientationStimSet>(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, tuning_parameters, 0, 0, f_spatialphase);
-									break;
-								case 'V':
-									f_pStimSetSlave = create_stimset<OrientationStimSet>(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, tuning_parameters, f_dSlaveXOffset, f_dSlaveYOffset, f_spatialphase);
-									break;
-								case 'D':
-									f_pStimSet = create_stimset<OrientationStimSet>(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, tuning_parameters, 0, 0, f_spatialphase);
-									f_pStimSetSlave = create_stimset<OrientationStimSet>(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, tuning_parameters, f_dSlaveXOffset, f_dSlaveYOffset, f_spatialphase);
-									break;
-								}
-								break;
-							}
-						case 'A':
-							{
-								switch (activeScreen)
-								{
-								case 'M':
-								case ' ':
-									f_pStimSet = create_stimset<AreaStimSet>(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, tuning_parameters, 0, 0, f_spatialphase);
-									break;
-								case 'V':
-									f_pStimSetSlave = create_stimset<AreaStimSet>(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, tuning_parameters, f_dSlaveXOffset, f_dSlaveYOffset, f_spatialphase);
-									break;
-								case 'D':
-									f_pStimSet = create_stimset<AreaStimSet>(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, tuning_parameters, 0, 0, f_spatialphase);
-									f_pStimSetSlave = create_stimset<AreaStimSet>(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, tuning_parameters, f_dSlaveXOffset, f_dSlaveYOffset, f_spatialphase);
-									break;
-								}
-								break;
-							}
-						case 'H':
-							{
-								switch (activeScreen)
-								{
-								case 'M':
-								case ' ':
-									f_pStimSet = create_stimset<DonutStimSet>(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, tuning_parameters, 0, 0, f_spatialphase);
-									break;
-								case 'V':
-									f_pStimSetSlave = create_stimset<DonutStimSet>(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, tuning_parameters, f_dSlaveXOffset, f_dSlaveYOffset, f_spatialphase);
-									break;
-								case 'D':
-									f_pStimSet = create_stimset<DonutStimSet>(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, tuning_parameters, 0, 0, f_spatialphase);
-									f_pStimSetSlave = create_stimset<DonutStimSet>(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, tuning_parameters, f_dSlaveXOffset, f_dSlaveYOffset, f_spatialphase);
-									break;
-								}
-								break;
-							}
-						default:
-							{
-								cerr << "ERROR - unhandled tuning curve type (" << (char)c << ")" << endl;
-								errflg++;
-								break;
-							}
-						}
-					}
-				}
-				break;
-			}
-		case 'D':
-			{
-				activeScreen = 'D';
-				break;
-			}
-		case 'M':
-			{
-				activeScreen = 'M';
-				break;
-			}
-		case 'V':
-			{
-				activeScreen = 'V';
-				break;
-			}
-		case 'r':
-			{
-				ifstream in;
-				s.assign(optarg);
-
-				// First attempt to read two doubles from the string
-				if (parse_xy(s, f_dSlaveXOffset, f_dSlaveYOffset))
-				{
-					f_szOffsetFile.assign(optarg);
-					f_bDualVSG = true;
-					in.open(f_szOffsetFile.c_str());
-					if (in)
-					{
-						in >> f_dSlaveXOffset >> f_dSlaveYOffset;
-						if (!in)
-						{
-							cerr << "Format error in offset file!" << endl;
-							errflg++;
-						}
-						else
-						{
-							cout << "Got slave offset (" << f_dSlaveXOffset << ", " << f_dSlaveYOffset << ") from file (" << f_szOffsetFile << ")." << endl;
-						}
-					}
-					else
-					{
-						cerr << "Cannot open offset file (" << f_szOffsetFile << ")." << endl;
-						errflg++;
-					}
-				}
-				else
-				{
-					f_bDualVSG = true;
-					cout << "Got slave offset (" << f_dSlaveXOffset << ", " << f_dSlaveYOffset << ") from arg list." << endl;
-				}
-				break;
-			}
-		case 't':
-			{
-				s.assign(optarg);
-				if (parse_double(s, f_dStimTime))
-				{
-					cerr << "Bad format for stim time (-t): should be time(in sec)" << endl;
-					errflg++;
-				}
-				else
-					have_t = true;
-				break;
-			}
-		case 'y':
-			{
-				s.assign(optarg);
-				if (parse_integer(s, f_nFramesDelay) || f_nFramesDelay<=0)
-				{
-					cerr << "Bad format for delay frames (-y): should be integer>0" << endl;
-					errflg++;
-				}
-				break;
-			}
-		case 'X':
-			{
-				s.assign(optarg);
-				if (parse_xhair(s, f_xhair)) errflg++;
-				else
-				{
-					have_xhair = true;
-				}
-				break;
-			}
-		default:
-			{
-				cerr << "Unknown option - " << (char)c << endl;
-				errflg++;
 				break;
 			}
 		}
+		break;
+	case 's':
+		s.assign(optarg);
+		if (parse_grating(s, f_grating)) 
+			errflg++;
+		else 
+			have_stim = true;
+		break;
+	case 'p':
+		s.assign(optarg);
+		if (parse_integer(s, f_pulse))
+			errflg++;
+		break;
+	case 'P':
+		s.assign(optarg);
+		if (parse_double(s, f_spatialphase))
+			errflg++;
+		break;
+	case 'O':
+	case 'T':
+	case 'S':
+	case 'C':
+	case 'A':
+	case 'H':
+		{
+			vector<double> tuning_parameters;
+			int nsteps;
+
+			s.assign(optarg);
+			if (parse_tuning_list(s, tuning_parameters, nsteps)) errflg++;
+			else 
+			{
+				if (!have_stim)
+				{
+					cerr << "Error - must pass template grating stimulus with \"-s\" before passing tuning parameters." << endl;
+					errflg++;
+				}
+				else if (activeScreen != ' ' && !f_bDualVSG)
+				{
+					cerr << "Error - cannot specify active screen (-[D|M|V]) without also specifying slave screen offset!" << endl;
+					errflg++;
+				}
+				else
+				{
+					switch (c)
+					{
+					case 'S':
+						{
+							switch (activeScreen)
+							{
+							case 'M':
+							case ' ':
+								f_pStimSet = create_stimset<SFStimSet>(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, tuning_parameters, 0, 0, f_spatialphase);
+								break;
+							case 'V':
+								f_pStimSetSlave = create_stimset<SFStimSet>(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, tuning_parameters, f_dSlaveXOffset, f_dSlaveYOffset, f_spatialphase);
+								break;
+							case 'D':
+								f_pStimSet = create_stimset<SFStimSet>(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, tuning_parameters, 0, 0, f_spatialphase);
+								f_pStimSetSlave = create_stimset<SFStimSet>(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, tuning_parameters, f_dSlaveXOffset, f_dSlaveYOffset, f_spatialphase);
+								break;
+							}
+							break;
+						}
+					case 'C':
+						{
+							switch (activeScreen)
+							{
+							case 'M':
+							case ' ':
+								f_pStimSet = create_stimset<ContrastStimSet>(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, tuning_parameters, 0, 0, f_spatialphase);
+								break;
+							case 'V':
+								f_pStimSetSlave = create_stimset<ContrastStimSet>(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, tuning_parameters, f_dSlaveXOffset, f_dSlaveYOffset, f_spatialphase);
+								break;
+							case 'D':
+								f_pStimSet = create_stimset<ContrastStimSet>(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, tuning_parameters, 0, 0, f_spatialphase);
+								f_pStimSetSlave = create_stimset<ContrastStimSet>(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, tuning_parameters, f_dSlaveXOffset, f_dSlaveYOffset, f_spatialphase);
+								break;
+							}
+							break;
+						}
+					case 'T':
+						{
+							switch (activeScreen)
+							{
+							case 'M':
+							case ' ':
+								f_pStimSet = create_stimset<TFStimSet>(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, tuning_parameters, 0, 0, f_spatialphase);
+								break;
+							case 'V':
+								f_pStimSetSlave = create_stimset<TFStimSet>(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, tuning_parameters, f_dSlaveXOffset, f_dSlaveYOffset, f_spatialphase);
+								break;
+							case 'D':
+								f_pStimSet = create_stimset<TFStimSet>(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, tuning_parameters, 0, 0, f_spatialphase);
+								f_pStimSetSlave = create_stimset<TFStimSet>(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, tuning_parameters, f_dSlaveXOffset, f_dSlaveYOffset, f_spatialphase);
+								break;
+							}
+							break;
+						}
+					case 'O':
+						{
+							switch (activeScreen)
+							{
+							case 'M':
+							case ' ':
+								f_pStimSet = create_stimset<OrientationStimSet>(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, tuning_parameters, 0, 0, f_spatialphase);
+								break;
+							case 'V':
+								f_pStimSetSlave = create_stimset<OrientationStimSet>(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, tuning_parameters, f_dSlaveXOffset, f_dSlaveYOffset, f_spatialphase);
+								break;
+							case 'D':
+								f_pStimSet = create_stimset<OrientationStimSet>(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, tuning_parameters, 0, 0, f_spatialphase);
+								f_pStimSetSlave = create_stimset<OrientationStimSet>(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, tuning_parameters, f_dSlaveXOffset, f_dSlaveYOffset, f_spatialphase);
+								break;
+							}
+							break;
+						}
+					case 'A':
+						{
+							switch (activeScreen)
+							{
+							case 'M':
+							case ' ':
+								f_pStimSet = create_stimset<AreaStimSet>(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, tuning_parameters, 0, 0, f_spatialphase);
+								break;
+							case 'V':
+								f_pStimSetSlave = create_stimset<AreaStimSet>(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, tuning_parameters, f_dSlaveXOffset, f_dSlaveYOffset, f_spatialphase);
+								break;
+							case 'D':
+								f_pStimSet = create_stimset<AreaStimSet>(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, tuning_parameters, 0, 0, f_spatialphase);
+								f_pStimSetSlave = create_stimset<AreaStimSet>(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, tuning_parameters, f_dSlaveXOffset, f_dSlaveYOffset, f_spatialphase);
+								break;
+							}
+							break;
+						}
+					case 'H':
+						{
+							switch (activeScreen)
+							{
+							case 'M':
+							case ' ':
+								f_pStimSet = create_stimset<DonutStimSet>(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, tuning_parameters, 0, 0, f_spatialphase);
+								break;
+							case 'V':
+								f_pStimSetSlave = create_stimset<DonutStimSet>(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, tuning_parameters, f_dSlaveXOffset, f_dSlaveYOffset, f_spatialphase);
+								break;
+							case 'D':
+								f_pStimSet = create_stimset<DonutStimSet>(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, tuning_parameters, 0, 0, f_spatialphase);
+								f_pStimSetSlave = create_stimset<DonutStimSet>(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, tuning_parameters, f_dSlaveXOffset, f_dSlaveYOffset, f_spatialphase);
+								break;
+							}
+							break;
+						}
+					default:
+						{
+							cerr << "ERROR - unhandled tuning curve type (" << (char)c << ")" << endl;
+							errflg++;
+							break;
+						}
+					}
+				}
+			}
+			break;
+		}
+	case 'D':
+		{
+			activeScreen = 'D';
+			break;
+		}
+	case 'M':
+		{
+			activeScreen = 'M';
+			break;
+		}
+	case 'V':
+		{
+			activeScreen = 'V';
+			break;
+		}
+	case 'r':
+		{
+			ifstream in;
+			s.assign(optarg);
+
+			// First attempt to read two doubles from the string
+			if (parse_xy(s, f_dSlaveXOffset, f_dSlaveYOffset))
+			{
+				f_szOffsetFile.assign(optarg);
+				f_bDualVSG = true;
+				in.open(f_szOffsetFile.c_str());
+				if (in)
+				{
+					in >> f_dSlaveXOffset >> f_dSlaveYOffset;
+					if (!in)
+					{
+						cerr << "Format error in offset file!" << endl;
+						errflg++;
+					}
+					else
+					{
+						cout << "Got slave offset (" << f_dSlaveXOffset << ", " << f_dSlaveYOffset << ") from file (" << f_szOffsetFile << ")." << endl;
+					}
+				}
+				else
+				{
+					cerr << "Cannot open offset file (" << f_szOffsetFile << ")." << endl;
+					errflg++;
+				}
+			}
+			else
+			{
+				f_bDualVSG = true;
+				cout << "Got slave offset (" << f_dSlaveXOffset << ", " << f_dSlaveYOffset << ") from arg list." << endl;
+			}
+			break;
+		}
+	case 't':
+		{
+			s.assign(optarg);
+			if (parse_double(s, f_dStimTime))
+			{
+				cerr << "Bad format for stim time (-t): should be time(in sec)" << endl;
+				errflg++;
+			}
+			else
+				have_t = true;
+			break;
+		}
+	case 'y':
+		{
+			s.assign(optarg);
+			if (parse_integer(s, f_nFramesDelay) || f_nFramesDelay<=0)
+			{
+				cerr << "Bad format for delay frames (-y): should be integer>0" << endl;
+				errflg++;
+			}
+			break;
+		}
+	case 'X':
+		{
+			s.assign(optarg);
+			if (parse_xhair(s, f_xhair)) errflg++;
+			else
+			{
+				have_xhair = true;
+			}
+			break;
+		}
+	case 0:
+		{
+			if (!have_t)
+			{
+				cerr << "Error - must specify stim time (-t) in sec." << endl;
+				errflg++;
+			}
+
+
+			if (!f_pStimSet && !f_pStimSetSlave)
+			{
+				cerr << "Error - when using dual VSG mode you must specify one of D/M/V options and a stimulus set (COASTg)." << endl;
+				errflg++;
+			}
+			else if (!f_pStimSetSlave)
+			{
+				f_fixpt.x += f_dSlaveXOffset;
+				f_fixpt.y += f_dSlaveYOffset;
+				f_pStimSetSlave = new FixptGratingStimSet(f_fixpt);
+				f_fixpt.x -= f_dSlaveXOffset;
+				f_fixpt.y -= f_dSlaveYOffset;
+			}
+			else if (!f_pStimSet)
+			{
+				f_pStimSet = new FixptGratingStimSet(f_fixpt);
+			}
+
+			break;
+		}
+	default:
+		{
+			cerr << "Unknown option - " << (char)c << endl;
+			errflg++;
+			break;
+		}
 	}
 
-	// If response file found, just return. This could be bad - user should pass nothing else on command line 
-	// if response file is used!!! 
-	if (f_bHaveResponseFile)
-	{
-		return 0;
-	}
 
-	if (!have_t)
-	{
-		cerr << "Error - must specify stim time (-t) in sec." << endl;
-		errflg++;
-	}
-
-
-	if (!f_pStimSet && !f_pStimSetSlave)
-	{
-		cerr << "Error - when using dual VSG mode you must specify one of D/M/V options and a stimulus set (COASTg)." << endl;
-		errflg++;
-	}
-	else if (!f_pStimSetSlave)
-	{
-		f_fixpt.x += f_dSlaveXOffset;
-		f_fixpt.y += f_dSlaveYOffset;
-		f_pStimSetSlave = new FixptGratingStimSet(f_fixpt);
-		f_fixpt.x -= f_dSlaveXOffset;
-		f_fixpt.y -= f_dSlaveYOffset;
-	}
-	else if (!f_pStimSet)
-	{
-		f_pStimSet = new FixptGratingStimSet(f_fixpt);
-	}
-
+	cout << "option " << (char)c << " return " << errflg << endl;
 	return errflg;
 }
 

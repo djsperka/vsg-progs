@@ -796,6 +796,7 @@ int parse_tuning_specfile(string filename)
 			if (s[0] != '#')
 			{
 				tokens.clear();
+				tokens.push_back(string("PROGNAME"));
 				tokenize(s, tokens, " ");
 				make_argv(tokens, argc, argv);
 				if (parse_tuning_curve_spec(argc, argv, tcurve))
