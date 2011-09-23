@@ -13,6 +13,11 @@ const txstateStimDn% := 2;
 const txstateAdvance% := 3;
 const txstateX% := 4;
 
+' additional states for Version 3 data
+const txStatePreStim% := 5;
+const txStateTrialSuccess% := 6;
+const txStateTrialFailure% := 7;
+
 var txOutputHandle := -1;
 
 var txIState% := txstateStart%;
@@ -39,6 +44,7 @@ var txDualVSG% := 0;
 ' tuning params
 var nparams% := 0;
 var params[1000];
+var v3param;
 
 LogInit(1);
 
@@ -122,7 +128,7 @@ proc FlushTrial()
     var tPM[3];
     var tPS[3];
     
-    if txVersion% = 2 and txDualVSG% = 1 then
+    if (txVersion% = 2 or txVersion% = 3) and txDualVSG% = 1 then
         if FindStimPulses%(txChanFrame%, tS, tE, tPM[]) <> 1 then
             PrintLog("ERROR: Cannot find master stim pulses in window from %f - %f\n", tS, tE);
             return;
@@ -191,7 +197,7 @@ func TuningExtract%(tStart, tStop)
     var status% := 0;
     var tFound := -1;
     var sFound$;
-    var sIgnore$ := "0FJQR+";
+    var sIgnore$;
     var tTrigger;
     
     GetTuningVersion(txVersion%, txDualVSG%);
@@ -199,66 +205,168 @@ func TuningExtract%(tStart, tStop)
     
     txTLast := tStart;
     txTStop := tStop;
-
-    tFound := NextKey(txTLast, sFound$, sIgnore$);
-    while tFound >= 0 and (txTStop < 0 or (txTStop > 0 and tFound <= txTStop)) and txIState% <> txstateError% do
-
-        'LogInfo(sFound$ + " " + str$(tFound));
-        
-        docase 
-        case txIState% = txstateStart% then
-            docase
-                '            case sFound$ = "S" then
-            case InStr(sFound$, "S") = 1 then
-                if FindRisingEdge%(txChanStim%, tFound, tS) < 0 or FindRisingEdge%(txChanStimSlave%, tFound, tSSlave) < 0 then
-                    LogError("", "Rising edge not found after S at t=" + str$(tFound) + "\n");
-                    txIState% := txstateError%;
-                else
-                    txIState% := txstateStimUp%;
-                endif
-            case sFound$ = "X" then
-                ' nothing to see here. An X here is OK, we stay in same state. 
-            else
-                LogError("", "Unexpected key \"" + sFound$ + "\" found at " + str$(tFound) + "\n");
-            endcase
-        case txIState% = txstateStimUp% then
-            ' Expecting "s" or "X"
-            docase 
-            case sFound$ = "s" then
-                if FindFallingEdge%(txChanStim%, tFound, tE) < 0 or FindFallingEdge%(txChanStimSlave%, tFound, tESlave) < 0 then
-                    LogError("", "Falling edge not found after s at t=" + str$(tFound) + "\n");
-                    txIState% := txstateError%;
-                else
-                    txIState% := txstateStimDn%;
-                endif
-            case sFound$ = "X" then
-                InitTrialVars();
-                txIState% := txstateStart%;
-            else
-                LogError("", "Unexpected key \"" + sFound$ + "\" found at " + str$(tFound) + "\n");
-                txIState% := txstateError%;
-            endcase
-        case txIState% = txstateStimDn% then
-            ' Expecting "a"
-            docase
-            case sFound$ = "a" then
-                FlushTrial();
-                InitTrialVars();
-                iCurrentParam% += 1;
-                txIState% := txstateStart%;
-            else
-                LogError("", "Unexpected key \"" + sFound$ + "\" found at " + str$(tFound) + "\n");
-                txIState% := txstateError%;
-            endcase
-        else
-            LogError("", "Unexpected state (" + str$(txIState%) + ") found at " + str$(tFound) + "\n");
-            txIState% := txstateError%;
-        endcase
-        
-        txTLast := tFound;
-        tFound := NextKey(txTLast, sFound$, sIgnore$);
-        
-    wend
     
+    docase
+    case txVersion% = 1 or txVersion% = 2 then
+        
+        sIgnore$ := "0FJQR+";
+        tFound := NextKey(txTLast, sFound$, sIgnore$);
+        while tFound >= 0 and (txTStop < 0 or (txTStop > 0 and tFound <= txTStop)) and txIState% <> txstateError% do
+
+            'LogInfo(sFound$ + " " + str$(tFound));
+            
+            docase 
+            case txIState% = txstateStart% then
+                docase
+                case InStr(sFound$, "S") = 1 then
+                    if FindRisingEdge%(txChanStim%, tFound, tS) < 0 or FindRisingEdge%(txChanStimSlave%, tFound, tSSlave) < 0 then
+                        LogError("", "Rising edge not found after S at t=" + str$(tFound) + "\n");
+                        txIState% := txstateError%;
+                    else
+                        txIState% := txstateStimUp%;
+                    endif
+                case sFound$ = "X" then
+                    ' nothing to see here. An X here is OK, we stay in same state. 
+                else
+                    LogError("", "Unexpected key \"" + sFound$ + "\" found at " + str$(tFound) + "\n");
+                endcase
+            case txIState% = txstateStimUp% then
+                ' Expecting "s" or "X"
+                docase 
+                case sFound$ = "s" then
+                    if FindFallingEdge%(txChanStim%, tFound, tE) < 0 or FindFallingEdge%(txChanStimSlave%, tFound, tESlave) < 0 then
+                        LogError("", "Falling edge not found after s at t=" + str$(tFound) + "\n");
+                        txIState% := txstateError%;
+                    else
+                        txIState% := txstateStimDn%;
+                    endif
+                case sFound$ = "X" then
+                    InitTrialVars();
+                    txIState% := txstateStart%;
+                else
+                    LogError("", "Unexpected key \"" + sFound$ + "\" found at " + str$(tFound) + "\n");
+                    txIState% := txstateError%;
+                endcase
+            case txIState% = txstateStimDn% then
+                ' Expecting "a"
+                docase
+                case sFound$ = "a" then
+                    FlushTrial();
+                    InitTrialVars();
+                    iCurrentParam% += 1;
+                    txIState% := txstateStart%;
+                else
+                    LogError("", "Unexpected key \"" + sFound$ + "\" found at " + str$(tFound) + "\n");
+                    txIState% := txstateError%;
+                endcase
+            else
+                LogError("", "Unexpected state (" + str$(txIState%) + ") found at " + str$(tFound) + "\n");
+                txIState% := txstateError%;
+            endcase
+            
+            txTLast := tFound;
+            tFound := NextKey(txTLast, sFound$, sIgnore$);
+            
+        wend
+    case txVersion% = 3 then
+        
+        sIgnore$ := "0FJQR";        
+        tFound := NextKeyOrText(txTLast, sFound$, sIgnore$);
+        while tFound >= 0 and (txTStop < 0 or (txTStop > 0 and tFound <= txTStop)) and txIState% <> txstateError% do
+
+            'LogInfo(sFound$ + " " + str$(tFound));
+            
+            docase 
+            case txIState% = txstateStart% then
+                docase
+                    
+                case InStr(sFound$, "T,") = 1 then
+                    v3param := val(Mid$(sFound$, 3));
+                    txIState% := txStatePreStim%;
+                case sFound$ = "X" then
+                    LogStatus("txstateStart", "Aborted trial at " + str$(tFound));
+                else
+                    LogError("txstateStart", "Unexpected key \"" + sFound$ + "\" found at " + str$(tFound) + "\n");
+                endcase
+                
+            case txIState% = txStatePreStim% then
+                docase
+                case sFound$ = "S" then
+                    if FindRisingEdge%(txChanStim%, tFound, tS) < 0 or FindRisingEdge%(txChanStimSlave%, tFound, tSSlave) < 0 then
+                        LogError("txstatePreStim", "Rising edge not found after S at t=" + str$(tFound) + "\n");
+                        txIState% := txstateError%;
+                    else
+                        txIState% := txstateStimUp%;
+                    endif
+                else
+                    LogError("txstatePreStim", "Unexpected key \"" + sFound$ + "\" found at " + str$(tFound) + "\n");
+                endcase
+                 
+            case txIState% = txstateStimUp% then
+                ' Expecting "+" or "-"
+                docase 
+                case sFound$ = "+" then
+                    if FindFallingEdge%(txChanStim%, tFound, tE) < 0 or FindFallingEdge%(txChanStimSlave%, tFound, tESlave) < 0 then
+                        LogError("txstateStimUp", "Falling edge not found after s at t=" + str$(tFound) + "\n");
+                        txIState% := txstateError%;
+                    else
+                        txIState% := txStateTrialSuccess%;
+                    endif
+                case sFound$ = "-" then
+                    txIState% := txStateTrialFailure%;
+                else
+                    LogError("txstateStimUp", "Unexpected key \"" + sFound$ + "\" found at " + str$(tFound) + "\n");
+                    txIState% := txstateError%;
+                endcase
+                
+            case txIState% = txStateTrialSuccess% then
+                docase
+                case sFound$ = "X" then
+                    
+                    ' Check that param found in data file matches order in par file
+                    if v3param <> params[iCurrentParam%] then
+                        LogError("txStateTrialSuccess", "Trial parameter does not match par file at " + str$(tFound));
+                    endif
+                    
+                    FlushTrial();                
+                    InitTrialVars();
+                    txIState% := txstateAdvance%;
+                else
+                    LogError("txstateTrialSuccess", "Unexpected key \"" + sFound$ + "\" found at " + str$(tFound) + "\n");
+                    txIState% := txstateError%;
+                endcase
+            case txIState% = txStateTrialFailure% then
+                docase
+                case sFound$ = "X" then
+                    InitTrialVars();
+                    txIState% := txstateStart%;
+                else
+                    LogError("txstateTrialFailure", "Unexpected key \"" + sFound$ + "\" found at " + str$(tFound) + "\n");
+                    txIState% := txstateError%;
+                endcase
+            case txIState% = txstateAdvance% then
+                ' Expecting "a"
+                docase
+                case sFound$ = "a" then
+                    iCurrentParam% += 1;
+                    txIState% := txstateStart%;
+                else
+                    LogError("txstateAdvance", "Unexpected key \"" + sFound$ + "\" found at " + str$(tFound) + "\n");
+                    txIState% := txstateError%;
+                endcase
+            else
+                LogError("", "Unexpected state (" + str$(txIState%) + ") found at " + str$(tFound) + "\n");
+                txIState% := txstateError%;
+            endcase
+            
+            txTLast := tFound;
+            tFound := NextKeyOrText(txTLast, sFound$, sIgnore$);
+            
+        wend
+        
+        
+    endcase
+    
+        
     return 0;
 end
