@@ -249,7 +249,7 @@ int GratingStimSet::handle_trigger(std::string &s)
 	{
 		m_grating.select();
 		vsgObjResetDriftPhase();
-		vsgObjSetSpatialPhase(get_spatial_phase());
+		//vsgObjSetSpatialPhase(get_spatial_phase());
 		m_grating.setContrast(m_contrast);
 		status = 1;
 	}
@@ -309,7 +309,7 @@ int FixptGratingStimSet::handle_trigger(std::string &s)
 		{
 			m_grating.select();
 			vsgObjResetDriftPhase();
-			vsgObjSetSpatialPhase(get_spatial_phase());
+			//vsgObjSetSpatialPhase(get_spatial_phase());
 			m_grating.setContrast(m_contrast);
 		}
 		status = 1;
@@ -369,7 +369,7 @@ int ContrastStimSet::handle_trigger(std::string& s)
 	{
 		m_grating.select();
 		vsgObjResetDriftPhase();
-		vsgObjSetSpatialPhase(get_spatial_phase());
+		//vsgObjSetSpatialPhase(get_spatial_phase());
 		m_grating.setContrast((int)*m_iterator);
 		status = 1;
 	}
@@ -436,7 +436,7 @@ int TFStimSet::handle_trigger(std::string& s)
 	{
 		m_grating.select();
 		vsgObjResetDriftPhase();
-		vsgObjSetSpatialPhase(get_spatial_phase());
+		//vsgObjSetSpatialPhase(get_spatial_phase());
 		m_grating.setContrast(m_contrast);
 		m_grating.setTemporalFrequency(*m_iterator);
 		status = 1;
@@ -510,7 +510,7 @@ int SFStimSet::handle_trigger(std::string& s)
 	{
 		m_grating.select();
 		vsgObjResetDriftPhase();
-		vsgObjSetSpatialPhase(get_spatial_phase());
+		//vsgObjSetSpatialPhase(get_spatial_phase());
 		m_grating.setContrast(m_contrast);
 		status = 1;
 	}
@@ -592,7 +592,7 @@ int OrientationStimSet::handle_trigger(std::string& s)
 	{
 		m_grating.select();
 		vsgObjResetDriftPhase();
-		vsgObjSetSpatialPhase(get_spatial_phase());
+		//vsgObjSetSpatialPhase(get_spatial_phase());
 		m_grating.setContrast(m_contrast);
 		status = 1;
 	}
@@ -675,7 +675,7 @@ int AreaStimSet::handle_trigger(std::string& s)
 	{
 		m_grating.select();
 		vsgObjResetDriftPhase();
-		vsgObjSetSpatialPhase(get_spatial_phase());
+		//vsgObjSetSpatialPhase(get_spatial_phase());
 		m_grating.setContrast(m_contrast);
 		status = 1;
 	}
@@ -789,7 +789,7 @@ int DonutStimSet::handle_trigger(std::string& s)
 	{
 		m_donut.select();
 		vsgObjResetDriftPhase();
-		vsgObjSetSpatialPhase(get_spatial_phase());
+		//vsgObjSetSpatialPhase(get_spatial_phase());
 		m_donut.setContrast(m_contrast);
 		//vsgGetCurrentDrawPage(&page);
 		//cout << "handle S: zdp=" << vsgGetZoneDisplayPage(vsgVIDEOPAGE) << " dp=" << page.Page << endl;
@@ -946,10 +946,10 @@ int CRGStimSet::handle_trigger(std::string& s)
 	{
 		m_grating0.setContrast(-1*m_contrast);
 		m_grating0.select();
-		vsgObjSetSpatialPhase(get_spatial_phase());
+		//vsgObjSetSpatialPhase(get_spatial_phase());
 		m_grating1.setContrast(m_contrast);
 		m_grating1.select();
-		vsgObjSetSpatialPhase(get_spatial_phase());
+		//vsgObjSetSpatialPhase(get_spatial_phase());
 		vsgSetSynchronisedCommand(vsgSYNC_PRESENT, vsgCYCLEPAGEENABLE, 0);
 		status = 1;
 	}
