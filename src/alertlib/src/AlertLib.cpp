@@ -1126,7 +1126,7 @@ int ARDonutSpec::draw(long mode)
 
 int ARDonutSpec::draw()
 {
-	return draw(true);
+	return draw(false);
 }
 
 int ARDonutSpec::draw(bool useTransOnHigher)
@@ -1137,7 +1137,7 @@ int ARDonutSpec::draw(bool useTransOnHigher)
 	}
 	else
 	{
-		return draw((long)0);
+		return draw((long)vsgTRANSONLOWER);
 	}
 }
 

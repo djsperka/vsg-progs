@@ -621,6 +621,10 @@ int ContrastStimSet::handle_trigger(std::string& s)
 	{
 		vsgSetCommand(vsgCYCLEPAGEDISABLE);
 		vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgNOCLEAR);
+		if (has_fixpt())
+		{
+			fixpt().setContrast(0);
+		}
 		if (has_grating())
 		{
 			m_grating.setContrast(0);
@@ -889,6 +893,10 @@ int TFStimSet::handle_trigger(std::string& s)
 	{
 		vsgSetCommand(vsgCYCLEPAGEDISABLE);
 		vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgNOCLEAR);
+		if (has_fixpt())
+		{
+			fixpt().setContrast(0);
+		}
 		if (has_grating())
 		{
 			m_grating.setContrast(0);
@@ -1155,6 +1163,10 @@ int SFStimSet::handle_trigger(std::string& s)
 	{
 		vsgSetCommand(vsgCYCLEPAGEDISABLE);
 		vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgNOCLEAR);
+		if (has_fixpt())
+		{
+			fixpt().setContrast(0);
+		}
 		if (has_grating())
 		{
 			m_grating.setContrast(0);
@@ -1442,6 +1454,10 @@ int OrientationStimSet::handle_trigger(std::string& s)
 	{
 		vsgSetCommand(vsgCYCLEPAGEDISABLE);
 		vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgNOCLEAR);
+		if (has_fixpt())
+		{
+			fixpt().setContrast(0);
+		}
 		if (has_grating())
 		{
 			m_grating.setContrast(0);
@@ -1731,6 +1747,10 @@ int AreaStimSet::handle_trigger(std::string& s)
 	{
 		vsgSetCommand(vsgCYCLEPAGEDISABLE);
 		vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgNOCLEAR);
+		if (has_fixpt())
+		{
+			fixpt().setContrast(0);
+		}
 		if (has_grating())
 		{
 			m_grating.setContrast(0);
@@ -1908,6 +1928,10 @@ int DonutStimSet::handle_trigger(std::string& s)
 	{
 		vsgSetCommand(vsgCYCLEPAGEDISABLE);
 		vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgNOCLEAR);
+		if (has_fixpt())
+		{
+			fixpt().setContrast(0);
+		}
 		if (has_grating())
 		{
 			m_grating.setContrast(0);
