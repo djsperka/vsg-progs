@@ -59,14 +59,6 @@ std::ostream& operator<<(std::ostream& out, const StimSet& sset)
 	return out;
 }
 
-#if 0
-std::string StimSet::toString() const
-{
-	std::ostringstream oss;
-	oss << "StimSet NI.";
-	return oss.str();
-}
-#endif
 
 int StimSet::setup_cycling(int firstpage, int secondpage, int lastpage)
 {
@@ -420,46 +412,6 @@ int FixptGratingStimSet::handle_trigger(std::string &s)
 
 int ContrastStimSet::init(ARvsg& vsg)
 {
-#if 0
-	int status = 0;
-	vsg.select();
-	m_iterator = m_contrasts.begin();
-
-	// get levels and set contrasts - don't draw yet
-	m_grating.init(vsg, 40);
-	m_grating.setContrast(0);
-	if (has_fixpt())
-	{
-		fixpt().init(vsg, 2);
-		fixpt().setContrast(0);
-	}
-
-
-	// page 2 has grating (contrast 0) and fixpt (contrast 100)
-	vsgSetDrawPage(vsgVIDEOPAGE, 2, vsgBACKGROUND);
-	m_grating.draw();
-	if (has_fixpt())
-	{
-		fixpt().draw();
-	}
-
-	// page 1 has fixpt (contrast 100) and no grating
-	vsgSetDrawPage(vsgVIDEOPAGE, 1, vsgBACKGROUND);
-	if (has_fixpt())
-	{
-		fixpt().draw();
-	}
-
-	// page 0 is blank
-	vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgBACKGROUND);
-
-	// present (page 0 will be displayed)
-	vsgPresent();
-
-	// cycling prep
-	setup_cycling(1, 2, 1);
-	return status;
-#else
 	int status = 0;
 
 	vsg.select();
@@ -524,69 +476,13 @@ int ContrastStimSet::init(ARvsg& vsg)
 
 
 	return status;
-#endif
 }	
 
 int ContrastStimSet::handle_trigger(std::string& s)
-#if 0
 {
 	int status = 0;
 	if (s == "F")
 	{
-		vsgSetDrawPage(vsgVIDEOPAGE, 1, vsgNOCLEAR);
-		if (has_fixpt())
-		{
-			fixpt().setContrast(100);
-			status = 1;
-		}
-	}
-	else if (s == "S")
-	{
-		m_grating.select();
-		vsgObjResetDriftPhase();
-		vsgObjSetSpatialPhase(get_spatial_phase());
-		m_grating.setContrast((int)*m_iterator);
-		vsgSetSynchronisedCommand(vsgSYNC_PRESENT, vsgCYCLEPAGEENABLE, 0);
-		status = 1;
-	}
-	else if (s == "s")
-	{
-		m_grating.setContrast(0);
-		vsgSetSynchronisedCommand(vsgSYNC_PRESENT, vsgCYCLEPAGEDISABLE, 0);
-		status = 1;
-	}
-	else if (s == "a")
-	{
-		m_iterator++;
-		if (m_iterator == m_contrasts.end())
-		{
-			cout << "at end of contrasts, back to beginning." << endl;
-			m_iterator = m_contrasts.begin();
-		}
-		cout << "Contrast " << *m_iterator << endl;
-		status = 1;
-	}
-	else if (s == "X")
-	{
-		vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgNOCLEAR);
-		vsgSetSynchronisedCommand(vsgSYNC_PRESENT, vsgCYCLEPAGEDISABLE, 0);
-		status = 1;
-	}
-	return status;
-#else
-{
-	int status = 0;
-	if (s == "F")
-	{
-#if 0
-		// s/b draw page 1, so set contrast and present
-		vsgSetDrawPage(vsgVIDEOPAGE, 1, vsgNOCLEAR);
-		if (has_fixpt())
-		{
-			fixpt().setContrast(100);
-		}
-		status = 1;
-#endif
 		// s/b draw page 1, so set contrast and present
 		vsgSetDrawPage(vsgVIDEOPAGE, 1, vsgNOCLEAR);
 		if (has_fixpt())
@@ -647,61 +543,9 @@ int ContrastStimSet::handle_trigger(std::string& s)
 	}
 	return status;
 }
-#endif
 
 int TFStimSet::init(ARvsg& vsg)
 {
-#if OLDCODE
-	int status = 0;
-	vsg.select();
-
-	// init vsg obj (get levels) and set contrast to 0 (save original contrast value) - 
-	// will draw invisible obj i.e. off.  Same for fixpt if applicable.
-	m_grating.init(vsg, 40);
-
-	m_iterator = m_temporal_frequencies.begin();
-
-	// SUBCLASS define this operation - set stim params so correct grating is 
-	// drawn first time around. Stim params will need to be set in the "a" 
-	// trigger as well. 
-	m_grating.setTemporalFrequency(*m_iterator);
-
-	m_contrast = m_grating.contrast;
-	m_grating.setContrast(0);
-	if (has_fixpt())
-	{
-		fixpt().init(vsg, 2);
-		fixpt().setContrast(0);
-	}
-
-	// page 2 : draw stim, then fixpt
-	vsgSetDrawPage(vsgVIDEOPAGE, 2, vsgBACKGROUND);
-	m_grating.draw();
-	if (has_fixpt())
-	{
-		fixpt().draw();
-	}
-	vsgPresent();
-
-
-	// page 1 has fixpt just draw fixpt, not stim
-	vsgSetDrawPage(vsgVIDEOPAGE, 1, vsgBACKGROUND);
-	if (has_fixpt())
-	{
-		fixpt().draw();
-	}
-	vsgPresent();
-
-
-	// page 0 is blank. 
-	// Call present() so this page is displayed
-	vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgBACKGROUND);
-	vsgPresent();
-
-	// cycling prep
-	setup_cycling(1, 2, 1);
-	return status;
-#else
 
 	int status = 0;
 
@@ -767,98 +611,10 @@ int TFStimSet::init(ARvsg& vsg)
 
 
 	return status;
-#endif
 }
 
 int TFStimSet::handle_trigger(std::string& s)
 {
-#if OLDCODE
-	int status = 0;
-	if (s == "F")
-	{
-		// Switch to page 1, turn on fixpt, return 1 (requests vsgPresent())
-		vsgSetDrawPage(vsgVIDEOPAGE, 1, vsgNOCLEAR);
-		if (has_fixpt())
-		{
-			fixpt().setContrast(100);
-			status = 1;
-		}
-	}
-	else if (s == "S")
-	{
-		// Turn on stim. Select() it, get drift/spatial phase set,
-		// vsgSetSynchronizedCommand tells vsg to start page cycling
-		// on next present, which we request by returning 1. 
-		m_grating.select();
-		vsgObjResetDriftPhase();
-		vsgObjSetSpatialPhase(get_spatial_phase());
-		m_grating.setContrast(m_contrast);
-
-		// SUBCLASS set parameter in stim
-		m_grating.setTemporalFrequency(*m_iterator);
-
-		vsgSetSynchronisedCommand(vsgSYNC_PRESENT, vsgCYCLEPAGEENABLE, 0);
-		status = 1;
-	}
-	else if (s == "s")
-	{
-		// If it hasn't happened already, stop cycling (vsgSetSynchronizedCommand - 
-		// see "S" above). Also set stim contrast back to 0.
-		m_grating.setContrast(0);
-		vsgSetSynchronisedCommand(vsgSYNC_PRESENT, vsgCYCLEPAGEDISABLE, 0);
-		status = 1;
-	}
-	else if (s == "a")
-	{
-		// advance to next parameter, cycle back if at end. 
-		m_iterator++;
-		if (m_iterator == m_temporal_frequencies.end())
-		{
-			cerr << "at end of temporal frequencies, back to beginning." << endl;
-			m_iterator = m_temporal_frequencies.begin();
-		}
-		cerr << "TF " << *m_iterator << endl;
-
-		// SUBCLASS set parameter. 
-		// SUBCLASS decides if stim must be redrawn? 
-		// TF and Contrast don't require it, 
-		// SF, Area, Berliner, Donut, Orientation, ? DO require it. 
-		// Maybe make m_reqireRedraw and .requireRedraw(bool) protected func.
-		//m_grating.select();
-		//m_grating.setTemporalFrequency(*m_iterator);
-
-		// SUBCLASS set parameter. 
-		// SUBCLASS decides if stim must be redrawn? 
-		// TF and Contrast don't require it, 
-		// SF, Area, Berliner, Donut, Orientation, ? DO require it. 
-		// Maybe make m_reqireRedraw and .requireRedraw(bool) protected func.
-		m_grating.select();
-		m_grating.setTemporalFrequency(*m_iterator);
-
-		int ipage = vsgGetZoneDisplayPage(vsgVIDEOPAGE);
-
-		// page 2 : draw stim, then fixpt
-		vsgSetDrawPage(vsgVIDEOPAGE, 2, vsgBACKGROUND);
-		m_grating.draw();
-		if (has_fixpt())
-		{
-			fixpt().draw();
-		}
-		vsgPresent();
-		vsgSetDrawPage(vsgVIDEOPAGE, ipage, vsgNOCLEAR);
-
-
-		status = 1;
-	}
-	else if (s == "X")
-	{
-		// to page 0, disable cycling (see "S", "s")
-		vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgNOCLEAR);
-		vsgSetSynchronisedCommand(vsgSYNC_PRESENT, vsgCYCLEPAGEDISABLE, 0);
-		status = 1;
-	}
-	return status;
-#else
 	int status = 0;
 	if (s == "F")
 	{
@@ -919,7 +675,6 @@ int TFStimSet::handle_trigger(std::string& s)
 		status = 1;
 	}
 	return status;
-#endif
 }
 
 
@@ -928,56 +683,6 @@ int TFStimSet::handle_trigger(std::string& s)
 
 int SFStimSet::init(ARvsg& vsg)
 {
-#if 0
-	int status = 0;
-	vsg.select();
-	m_iterator = m_spatial_frequencies.begin();
-
-	// init vsg obj (get levels)
-	m_grating.init(vsg, 40);
-
-	// SUBCLASS define this operation - set stim params so correct grating is 
-	// drawn first time around. Stim params will need to be set in the "a" 
-	// trigger as well. 
-	m_grating.sf = *m_iterator;
-
-	// Save contrast value, then set to 0
-	// will draw invisible obj i.e. off.  Same for fixpt if applicable.	
-	m_contrast = m_grating.contrast;
-	m_grating.setContrast(0);
-	if (has_fixpt())
-	{
-		fixpt().init(vsg, 2);
-		fixpt().setContrast(0);
-	}
-
-
-	// page 2 : draw stim, then fixpt
-	vsgSetDrawPage(vsgVIDEOPAGE, 2, vsgBACKGROUND);
-	m_grating.draw();
-	if (has_fixpt())
-	{
-		fixpt().draw();
-	}
-	vsgPresent();
-
-	// page 1 has fixpt just draw fixpt, not stim
-	vsgSetDrawPage(vsgVIDEOPAGE, 1, vsgBACKGROUND);
-	if (has_fixpt())
-	{
-		fixpt().draw();
-	}
-	vsgPresent();
-
-	// page 0 is blank. 
-	// Call present() so this page is displayed
-	vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgBACKGROUND);
-	vsgPresent();
-
-	// cycling prep
-	setup_cycling(1, 2, 1);
-	return status;
-#else
 	
 	int status = 0;
 
@@ -1045,90 +750,10 @@ int SFStimSet::init(ARvsg& vsg)
 
 
 	return status;
-
-#endif
 }
 
 int SFStimSet::handle_trigger(std::string& s)
 {
-#if 0
-	int status = 0;
-	if (s == "F")
-	{
-		// Switch to page 1, turn on fixpt, return 1 (requests vsgPresent())
-		vsgSetDrawPage(vsgVIDEOPAGE, 1, vsgNOCLEAR);
-		if (has_fixpt())
-		{
-			fixpt().setContrast(100);
-			status = 1;
-		}
-	}
-	else if (s == "S")
-	{
-		// Turn on stim. Select() it, get drift/spatial phase set,
-		// vsgSetSynchronizedCommand tells vsg to start page cycling
-		// on next present, which we request by returning 1. 
-		m_grating.select();
-		vsgObjResetDriftPhase();
-		vsgObjSetSpatialPhase(get_spatial_phase());
-		m_grating.setContrast(m_contrast);
-
-		// SUBCLASS set parameter in stim  NOOOOOOOO! ONLY FOR TF?
-		// m_grating.sf = *m_iterator;
-
-		vsgSetSynchronisedCommand(vsgSYNC_PRESENT, vsgCYCLEPAGEENABLE, 0);
-		status = 1;
-	}
-	else if (s == "s")
-	{
-		// If it hasn't happened already, stop cycling (vsgSetSynchronizedCommand - 
-		// see "S" above). Also set stim contrast back to 0.
-		m_grating.setContrast(0);
-		vsgSetSynchronisedCommand(vsgSYNC_PRESENT, vsgCYCLEPAGEDISABLE, 0);
-		status = 1;
-	}
-	else if (s == "a")
-	{
-		// advance to next parameter, cycle back if at end. 
-		m_iterator++;
-		if (m_iterator == m_spatial_frequencies.end())
-		{
-			cerr << "at end of spatial frequencies, back to beginning." << endl;
-			m_iterator = m_spatial_frequencies.begin();
-		}
-		cerr << "SF " << *m_iterator << endl;
-
-		// SUBCLASS set parameter. 
-		// SUBCLASS decides if stim must be redrawn? 
-		// TF and Contrast don't require it, 
-		// SF, Area, Berliner, Donut, Orientation, ? DO require it. 
-		// Maybe make m_reqireRedraw and .requireRedraw(bool) protected func.
-		m_grating.select();
-		m_grating.sf = *m_iterator;
-
-		int ipage = vsgGetZoneDisplayPage(vsgVIDEOPAGE);
-
-		// page 2 : draw stim, then fixpt
-		vsgSetDrawPage(vsgVIDEOPAGE, 2, vsgBACKGROUND);
-		m_grating.draw();
-		if (has_fixpt())
-		{
-			fixpt().draw();
-		}
-		vsgPresent();
-		vsgSetDrawPage(vsgVIDEOPAGE, ipage, vsgNOCLEAR);
-
-		status = 1;
-	}
-	else if (s == "X")
-	{
-		// to page 0, disable cycling (see "S", "s")
-		vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgNOCLEAR);
-		vsgSetSynchronisedCommand(vsgSYNC_PRESENT, vsgCYCLEPAGEDISABLE, 0);
-		status = 1;
-	}
-	return status;
-#else
 	int status = 0;
 	if (s == "F")
 	{
@@ -1207,63 +832,10 @@ int SFStimSet::handle_trigger(std::string& s)
 		status = 1;
 	}
 	return status;
-
-#endif
 }
 
 int OrientationStimSet::init(ARvsg& vsg)
 {
-#if 0
-	int status = 0;
-	vsg.select();
-	m_iterator = m_orientations.begin();
-
-	// init vsg obj (get levels)
-	m_grating.init(vsg, 40);
-
-	// SUBCLASS define this operation - set stim params so correct grating is 
-	// drawn first time around. Stim params will need to be set in the "a" 
-	// trigger as well. 
-	m_grating.orientation = *m_iterator;
-
-	// Save contrast value, then set to 0
-	// will draw invisible obj i.e. off.  Same for fixpt if applicable.	
-	m_contrast = m_grating.contrast;
-	m_grating.setContrast(0);
-	if (has_fixpt())
-	{
-		fixpt().init(vsg, 2);
-		fixpt().setContrast(0);
-	}
-
-
-	// page 2 : draw stim, then fixpt
-	vsgSetDrawPage(vsgVIDEOPAGE, 2, vsgBACKGROUND);
-	m_grating.draw();
-	if (has_fixpt())
-	{
-		fixpt().draw();
-	}
-	vsgPresent();
-
-	// page 1 has fixpt just draw fixpt, not stim
-	vsgSetDrawPage(vsgVIDEOPAGE, 1, vsgBACKGROUND);
-	if (has_fixpt())
-	{
-		fixpt().draw();
-	}
-	vsgPresent();
-
-	// page 0 is blank. 
-	// Call present() so this page is displayed
-	vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgBACKGROUND);
-	vsgPresent();
-
-	// cycling prep
-	setup_cycling(1, 2, 1);
-	return status;
-#else
-		
 	int status = 0;
 
 	vsg.select();
@@ -1330,92 +902,10 @@ int OrientationStimSet::init(ARvsg& vsg)
 
 
 	return status;
-
-
-#endif
 }
 
 int OrientationStimSet::handle_trigger(std::string& s)
 {
-#if 0
-	int status = 0;
-	if (s == "F")
-	{
-		// Switch to page 1, turn on fixpt, return 1 (requests vsgPresent())
-		vsgSetDrawPage(vsgVIDEOPAGE, 1, vsgNOCLEAR);
-		if (has_fixpt())
-		{
-			fixpt().setContrast(100);
-			status = 1;
-		}
-	}
-	else if (s == "S")
-	{
-		// Turn on stim. Select() it, get drift/spatial phase set,
-		// vsgSetSynchronizedCommand tells vsg to start page cycling
-		// on next present, which we request by returning 1. 
-		m_grating.select();
-		vsgObjResetDriftPhase();
-		vsgObjSetSpatialPhase(get_spatial_phase());
-		m_grating.setContrast(m_contrast);
-
-		// SUBCLASS set parameter in stim  NOOOOOOOO! ONLY FOR TF?
-		// m_grating.sf = *m_iterator;
-
-		vsgSetSynchronisedCommand(vsgSYNC_PRESENT, vsgCYCLEPAGEENABLE, 0);
-		status = 1;
-	}
-	else if (s == "s")
-	{
-		// If it hasn't happened already, stop cycling (vsgSetSynchronizedCommand - 
-		// see "S" above). Also set stim contrast back to 0.
-		m_grating.setContrast(0);
-		vsgSetSynchronisedCommand(vsgSYNC_PRESENT, vsgCYCLEPAGEDISABLE, 0);
-		status = 1;
-	}
-	else if (s == "a")
-	{
-		// advance to next parameter, cycle back if at end. 
-		m_iterator++;
-		if (m_iterator == m_orientations.end())
-		{
-			cerr << "at end of orientations, back to beginning." << endl;
-			m_iterator = m_orientations.begin();
-		}
-		cerr << "Orientation " << *m_iterator << endl;
-
-		// SUBCLASS set parameter. 
-		// SUBCLASS decides if stim must be redrawn? 
-		// TF and Contrast don't require it, 
-		// SF, Area, Berliner, Donut, Orientation, ? DO require it. 
-		// Maybe make m_reqireRedraw and .requireRedraw(bool) protected func.
-		m_grating.select();
-		m_grating.orientation = *m_iterator;
-
-		int ipage = vsgGetZoneDisplayPage(vsgVIDEOPAGE);
-
-		// page 2 : draw stim, then fixpt
-		vsgSetDrawPage(vsgVIDEOPAGE, 2, vsgBACKGROUND);
-		m_grating.draw();
-		if (has_fixpt())
-		{
-			fixpt().draw();
-		}
-		vsgPresent();
-		vsgSetDrawPage(vsgVIDEOPAGE, ipage, vsgNOCLEAR);
-
-		status = 1;
-	}
-	else if (s == "X")
-	{
-		// to page 0, disable cycling (see "S", "s")
-		vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgNOCLEAR);
-		vsgSetSynchronisedCommand(vsgSYNC_PRESENT, vsgCYCLEPAGEDISABLE, 0);
-		status = 1;
-	}
-	return status;
-#else
-
 	int status = 0;
 	if (s == "F")
 	{
@@ -1499,66 +989,11 @@ int OrientationStimSet::handle_trigger(std::string& s)
 		status = 1;
 	}
 	return status;
-
-
-#endif
 }
 
 
 int AreaStimSet::init(ARvsg& vsg)
 {
-#if 0
-	int status = 0;
-	vsg.select();
-	m_iterator = m_diameters.begin();
-
-	// init vsg obj (get levels)
-	m_grating.init(vsg, 40);
-
-	// SUBCLASS define this operation - set stim params so correct grating is 
-	// drawn first time around. Stim params will need to be set in the "a" 
-	// trigger as well. 
-	m_grating.w = m_grating.h = *m_iterator;
-
-	// Save contrast value, then set to 0
-	// will draw invisible obj i.e. off.  Same for fixpt if applicable.	
-	m_contrast = m_grating.contrast;
-	m_grating.setContrast(0);
-	if (has_fixpt())
-	{
-		fixpt().init(vsg, 2);
-		fixpt().setContrast(0);
-	}
-
-
-	// page 2 : draw stim, then fixpt
-	vsgSetDrawPage(vsgVIDEOPAGE, 2, vsgBACKGROUND);
-	m_grating.draw();
-	if (has_fixpt())
-	{
-		fixpt().draw();
-	}
-	vsgPresent();
-
-	// page 1 has fixpt just draw fixpt, not stim
-	vsgSetDrawPage(vsgVIDEOPAGE, 1, vsgBACKGROUND);
-	if (has_fixpt())
-	{
-		fixpt().draw();
-	}
-	vsgPresent();
-
-	// page 0 is blank. 
-	// Call present() so this page is displayed
-	vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgBACKGROUND);
-	vsgPresent();
-
-	// cycling prep
-	setup_cycling(1, 2, 1);
-	return status;
-
-#else
-
 	int status = 0;
 	vsg.select();
 
@@ -1624,91 +1059,10 @@ int AreaStimSet::init(ARvsg& vsg)
 
 
 	return status;
-
-#endif
 }
 
 int AreaStimSet::handle_trigger(std::string& s)
 {
-#if 0
-	int status = 0;
-	if (s == "F")
-	{
-		// Switch to page 1, turn on fixpt, return 1 (requests vsgPresent())
-		vsgSetDrawPage(vsgVIDEOPAGE, 1, vsgNOCLEAR);
-		if (has_fixpt())
-		{
-			fixpt().setContrast(100);
-			status = 1;
-		}
-	}
-	else if (s == "S")
-	{
-		// Turn on stim. Select() it, get drift/spatial phase set,
-		// vsgSetSynchronizedCommand tells vsg to start page cycling
-		// on next present, which we request by returning 1. 
-		m_grating.select();
-		vsgObjResetDriftPhase();
-		vsgObjSetSpatialPhase(get_spatial_phase());
-		m_grating.setContrast(m_contrast);
-
-		// SUBCLASS set parameter in stim  NOOOOOOOO! ONLY FOR TF?
-		// m_grating.sf = *m_iterator;
-
-		vsgSetSynchronisedCommand(vsgSYNC_PRESENT, vsgCYCLEPAGEENABLE, 0);
-		status = 1;
-	}
-	else if (s == "s")
-	{
-		// If it hasn't happened already, stop cycling (vsgSetSynchronizedCommand - 
-		// see "S" above). Also set stim contrast back to 0.
-		m_grating.setContrast(0);
-		vsgSetSynchronisedCommand(vsgSYNC_PRESENT, vsgCYCLEPAGEDISABLE, 0);
-		status = 1;
-	}
-	else if (s == "a")
-	{
-		// advance to next parameter, cycle back if at end. 
-		m_iterator++;
-		if (m_iterator == m_diameters.end())
-		{
-			cerr << "at end of diameters, back to beginning." << endl;
-			m_iterator = m_diameters.begin();
-		}
-		cerr << "Diameter " << *m_iterator << endl;
-
-		// SUBCLASS set parameter. 
-		// SUBCLASS decides if stim must be redrawn? 
-		// TF and Contrast don't require it, 
-		// SF, Area, Berliner, Donut, Orientation, ? DO require it. 
-		// Maybe make m_reqireRedraw and .requireRedraw(bool) protected func.
-		m_grating.select();
-		m_grating.w = m_grating.h = *m_iterator;
-
-		int ipage = vsgGetZoneDisplayPage(vsgVIDEOPAGE);
-
-		// page 2 : draw stim, then fixpt
-		vsgSetDrawPage(vsgVIDEOPAGE, 2, vsgBACKGROUND);
-		m_grating.draw();
-		if (has_fixpt())
-		{
-			fixpt().draw();
-		}
-		vsgPresent();
-		vsgSetDrawPage(vsgVIDEOPAGE, ipage, vsgNOCLEAR);
-
-		status = 1;
-	}
-	else if (s == "X")
-	{
-		// to page 0, disable cycling (see "S", "s")
-		vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgNOCLEAR);
-		vsgSetSynchronisedCommand(vsgSYNC_PRESENT, vsgCYCLEPAGEDISABLE, 0);
-		status = 1;
-	}
-	return status;
-#else
-
 	int status = 0;
 	if (s == "F")
 	{
@@ -1794,8 +1148,6 @@ int AreaStimSet::handle_trigger(std::string& s)
 		status = 1;
 	}
 	return status;
-
-#endif
 }
 
 int DonutStimSet::init_diameters(std::vector<double>diams)
