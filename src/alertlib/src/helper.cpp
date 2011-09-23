@@ -1014,6 +1014,7 @@ void make_argv(std::ifstream& ifs, int& argc, char **argv)
 	 return;
 }
 
+/* Warning! Make sure you prepend the progname to your string!!! */
 
 void make_argv(const std::string& str, int &argc, char **argv)
 {
@@ -1023,17 +1024,27 @@ void make_argv(const std::string& str, int &argc, char **argv)
 	return;
 }
 
+
+/*ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ    
+All of these automatically add the program name, and assume that the first element
+of args (the progname) has already been stripped. 
+*/
+
 void make_argv(vector<string>tokens, int& argc, char** argv)
 {
 	unsigned int i;
+	/* 
+	 * djs 9-4-2011 Change this to NOT add a program name entry prior to the passed tokens
+	 * Instead, just copy all tokens. Caller MUST pre-pend the progname. 
 	argv[0] = (char *)malloc(9);
 	strcpy_s(argv[0], 9, "PROGNAME");
+	*/
 	for (i=0; i<tokens.size(); i++)
 	{
-		argv[i+1] = (char *)malloc(tokens[i].length()+1);
-		strcpy_s(argv[i+1], tokens[i].length()+1, tokens[i].c_str());
+		argv[i] = (char *)malloc(tokens[i].length()+1);
+		strcpy_s(argv[i], tokens[i].length()+1, tokens[i].c_str());
 	}
-	argc = (int)tokens.size()+1;
+	argc = (int)tokens.size();
 }
 
 void free_argv(int& argc, char **argv)
@@ -1045,4 +1056,132 @@ void free_argv(int& argc, char **argv)
 		argv[i] = NULL;
 	}
 	argc = 0;
+}
+
+// tokenize all lines in filename, separated on spaces. 
+// Lines beginning with # are ignored and not counted. 
+// Returns number of non-# lines read from file. Return -1 if file cannot be opened. 
+
+int tokenize_response_file(char *filename, vector<string> &tokens)
+{
+	int count=0;
+	ifstream ifs(filename);
+	string s;
+	if (!ifs.is_open())
+	{
+		s.assign(filename);
+		cerr << "ERROR: Cannot open response file " << s << endl;
+		return -1;
+	}
+
+	getline(ifs, s);
+	while (ifs)
+	{
+		if (s[0] != '#')
+		{
+			count++;
+			tokenize(s, tokens, " ");
+		}
+		getline(ifs, s);
+	}
+	return count;
+}
+
+
+/*
+ * prargs
+ * 
+ * Process command line args. Automatic handling of response files. 
+ * Caller must pass a callback function pfunc(int c, string arg), which 
+ * is called for each option/arg found. The callback function must
+ * do whatever processing of the option (and arg if relevant) is necessary.
+ * The callback should return 0 if all is well, nonzero return will halt
+ * command line processing and prargs will return that value. 
+ * On successful handling of all args prargs will return 0. 
+ */
+
+int prargs(int argc, char **argv, process_args_func pfunc, char *options, int response_file_char)
+{
+	string s;
+	int c;
+	extern char *optarg;
+	extern int optind;
+	int errflg = 0;
+	char *local_argv[2048];
+	int local_argc = 0;
+	bool stop_processing = false;
+	int status = 0;
+
+	// Check that pfunc is not null, then test for response file.
+	if (!pfunc)
+	{
+		cerr << "prargs: process_args_func is NULL." << endl;
+		return -1;
+	}
+
+	// Tokenize command line args.
+	vector<string> vecArgs;
+	int i;
+	for (i=0; i<argc; i++)
+	{
+		// Check for response_file_char -- don't put response file arg into the vector. 
+		if (response_file_char &&
+			argv[i][0] == '-' && argv[i][1] == response_file_char)
+		{		
+			// the next arg [i+1] is the response filename.
+			// tokenize response_file will read that file and append tokens
+			// to vecArgs
+
+			// It is an error to have nested response file args!
+
+			if (tokenize_response_file(argv[i+1], vecArgs) < 0)
+			{
+				return -1;
+			}
+
+			i += 1;
+		}
+		else
+		{
+			s.assign(argv[i]);
+			vecArgs.push_back(s);
+		}
+	}
+
+	// Now all tokens are in vecArgs. Make argc and argv....
+	make_argv(vecArgs, local_argc, local_argv);
+
+
+	// Now process them with getopt.
+	while (!stop_processing && (c = getopt(local_argc, local_argv, options)) != -1)
+	{
+		stringstream ss;
+		switch (c) 
+		{
+		case '?':
+			ss.clear();
+			ss << (char)c;
+			cerr << "unknown arg letter (" << ss.str() << ")" << endl;
+			break;
+		default:
+			if (optarg)	s.assign(optarg);
+			else s.assign("");
+			if (status = pfunc(c, s))
+				stop_processing = true;
+			break;
+		}
+	}
+
+	// If we made it through all options without complaint, make one more
+	// call to the callback with the opt=0. 
+	if (c == -1 && !status)
+	{
+		s.assign("");
+		status = pfunc(0, s);
+	}
+
+	// free the space taken up by our version of the args
+	free_argv(local_argc, local_argv);
+
+	return status;
 }

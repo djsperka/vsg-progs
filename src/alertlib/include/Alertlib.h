@@ -85,6 +85,32 @@ void make_argv(const std::string& str, int &argc, char **argv);
 void make_argv(std::vector<std::string>tokens, int& argc, char** argv);
 void make_argv(std::ifstream& ifs, int& argc, char **argv);
 void free_argv(int& argc, char **argv);
+/*
+ * prargs
+ * 
+ * Process command line args. Automatic handling of response files. 
+ * Caller must pass a callback function pfunc(int c, string arg), which 
+ * is called for each option/arg found. The callback function must
+ * do whatever processing of the option (and arg if relevant) is necessary.
+ * The callback should return 0 if all is well, nonzero return will halt
+ * command line processing and prargs will return that value. 
+ * On successful handling of all args prargs will return 0. 
+ * 
+ * options is the same gnu getopt style of options, colon (:) means option has an arg. 
+ * Response_file_char is the char in the options that represents the response file. 
+ * Pass 0 (the default) for no response file option. When you pass a response file 
+ * arg, the contents of the response file are inserted in to the argv passed at the 
+ * point where the response file is found. The response file option and arg are not 
+ * used when the callback function is called for each arg found. 
+ *
+ * The callback is called once after all args have been processed. The callback
+ * should look for the option c==0 to handle post-arg processing. Can return nonzero here
+ * on errors. 
+ */
+
+typedef int (*process_args_func)(int option, std::string& arg);
+int prargs(int argc, char **argv, process_args_func pfunc, char *options, int response_file_char=0);
+int tokenize_response_file(char *filename, std::vector<std::string> &tokens);
 
 // convenient operators
 std::ostream& operator<<(std::ostream& out, const COLOR_TYPE& c);
