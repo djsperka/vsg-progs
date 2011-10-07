@@ -1,4 +1,4 @@
-'$Id: AcuteTuningExtractionFunctions.s2s,v 1.3 2011-08-23 20:57:34 devel Exp $'
+'$Id: AcuteTuningExtractionFunctions.s2s,v 1.4 2011-10-07 20:08:15 djsperka Exp $'
 
 #include "ExtractionUtilities.s2s"
 #include "../../Spike2Util/LogUtilities.s2s"
@@ -133,6 +133,46 @@ func GetTuningParameters%(sParFile$)
     return iStatus%;
 end
 
+' Find tuning version. Old-style acute tuning files have no text marks. Newer ones will have text marks
+' and a version number in them. This function will return a version number and a channel for stim triggers. 
+' The old-style files will be assigned version "1". 
+' Returns 1 on success, or negative error value. 
+
+proc GetTuningVersion(&version%, &channel%)
+    var s$;
+    var iStatus% := 0;
+    var tLast := -1;
+    var count% := 0;
+    var cLength%;
+    var i%;
+    while iStatus% = 0 do
+        tLast := NextTextMark(tLast, s$);
+        docase
+        case tLast < 0 then
+            ' no text marks means this is old-style. 
+            version% := 1;
+            if GetTriggerChannel%(channel%) = 1 then
+                iStatus% := 1;
+            else
+                iStatus% := -1;
+            endif
+        else
+            ' Parse version and command line length
+            i% := InStr(s$, ",");
+            ReadStr(DelStr$(s$, 1, i%), version%, cLength%);
+            PrintLog("Version %d Len %d\n", version%, cLength%);
+            ' Figure out which channel number is the stim channel
+            if GetV3TriggerChannel%(channel%) = 1 then
+                iStatus% := 1;
+            else
+                iStatus% := -1;
+            endif
+        endcase
+    wend
+end
+    
+    
+
 
 ' Find channel with "Level" type. Assuming there's just one.
 ' Return 1 if found, 0 otherwise. 
@@ -147,7 +187,29 @@ func GetTriggerChannel%(&channel%)
     return iStatus%;
 end
 
-            
+
+
+' Find channel with "Level" type and "Stim" title.
+' Return 1 if found, 0 otherwise. 
+
+func GetV3TriggerChannel%(&channel%)
+    var iStatus% := 0;
+    var i%;
+    var iChannels%[10];
+    if ChanList(iChannels%[], 0x4) > 0 then
+        iStatus% := 1;
+        for i% := 1 to iChannels%[0] do
+            if SampleTitle$(iChannels%[i%]) = "Stim" then
+                channel% := iChannels%[i%];
+                iStatus% := 1;
+                i% := iChannels%[0];    ' Exit loop
+            endif
+        next
+    endif
+    return iStatus%;
+end
+
+
 ' Find the next up/down period on the channel actunStimChannel%, starting at tLast.
 ' Returns 1 if a period is found, otherwise return 0. If a period is found, the 
 ' tLast value is set so the next call will find a new period. 
