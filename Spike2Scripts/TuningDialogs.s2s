@@ -1,4 +1,4 @@
-' $Id: TuningDialogs.s2s,v 1.5 2011-06-27 18:46:21 djsperka Exp $
+' $Id: TuningDialogs.s2s,v 1.6 2011-10-07 21:13:13 jeff Exp $
 '
 ' This file contains dialog functions for the alert tuning script Tuning.s2s.
 #include "../../Spike2Util/UsreyUtil.s2s"
@@ -21,7 +21,6 @@ const tunContextDAQ$ := "DAQ";
 const tunContextConfig$ := "Config";
 var tunContext$ := tunContextConfig$;
 
-'var tunUseStationaryValue%;  
 
 ' A note about "steps". 
 ' The dialogs ask for a number of "steps". A step is a transition from one stimulus
@@ -67,6 +66,7 @@ var tunDonutOptimalIndex%:=0;		' step index where area stim stops growing and do
 var tunDonutOptimalDiam;
 var tunDonutProgression%;
 
+
 ' Berliners - also use same variables as Area.  Use optimal value index from Donuts.  Add maximal value index
 var tunDonutOptimalDiamPlusOne;
 var tunBerlinerMaximalIndex%:=0;    ' index for "maximal" size
@@ -74,12 +74,22 @@ var tunBerlinerMaximalDiam;
 var tunBerlinerNSteps%;
 var tunBerlinerNRepeats% := 3;  'just putting in 3 repeats for now
 var tunBerlinerProgression%;
-var tunSetStationary%;  'Keeps track of "stationary" checkbox state, Berliners dialog only
-'var tunStationaryCurrent%;  'Keeps track of current "stationary" state, all dialogs
 
 ' Strings that hold grating parameters
 var tunGratingParams$;
 var tunGratingParamsSlave$;
+
+' Crosshair display variables
+var tunUseXHairs%;                'Do we use crosshairs?
+var tunXHairInnerRadiusOffset;    'Inner diameter of inner grid ring
+var tunXHairMiddleRadiusOffset;   'Outer diameter of inner grid ring/Inner diameter of outer grid ring
+var tunXHairOuterRadiusOffset;    'Outer diameter of outer grid ring
+var tunXHairNumGridDivisions%;    'Number of divisions in the grid rings
+var tunXHairTicInnerOffset;       'Inner extent of 0/90/180/270 ticks
+var tunXHairTicOuterOffset;       'Outer extent of 0/90/180/270 ticks
+var tunMaximalDiam;
+var tunSlaveMaximalDiam;
+
 
 proc GetTuningCurveOrientationParameters()
 	var key$;
@@ -177,7 +187,6 @@ proc GetTuningCurveAreaParameters()
     tunBerlinerNSteps% := GetIntRegistryValue%(key$, "NStepsBerliner", tunBerlinerNSteps%);
     tunBerlinerNRepeats% := GetIntRegistryValue%(key$, "NRepeatsDiamBerliner", tunBerlinerNRepeats%);
     tunBerlinerProgression% := GetIntRegistryValue%(key$, "BerlinerProgression", tunBerlinerProgression%);
-    tunSetStationary% := GetIntRegistryValue%(key$, "SetStationary", tunSetStationary%);
 end;
 
 proc SaveTuningCurveAreaParameters()
@@ -195,7 +204,6 @@ proc SaveTuningCurveAreaParameters()
     SetIntRegistryValue(key$, "NStepsBerliner", tunBerlinerNSteps%);
     SetIntRegistryValue(key$, "NRepeatsDiamBerliner", tunBerlinerNRepeats%);
     SetIntRegistryValue(key$, "BerlinerProgression", tunBerlinerProgression%);
-    SetIntRegistryValue(key$, "SetStationary", tunSetStationary%);
 end;
 
 
@@ -409,6 +417,7 @@ func TuningCurveAreaDialog%()
     ' are not seen in the subsequent expt, they're not saved in the registry, etc. Workaround is to return
     ' something > 0 here. The parent dialog will continue to display, and the user has to hit OK on that 
     ' before things proceed. 
+    'tunMaximalDiam := tunAreaMaxDiam;  This won't do anything unless FIXSTIM is updated to allow crosshairs
 	if i% = 1 then
 		SaveTuningCurveAreaParameters();
 '		PrintLog("TuningCurveAreaDialog - user hit OK\n");
@@ -448,8 +457,8 @@ func TuningCurveDonutDialog%()
 	var i%;
     var sValues$;
     var iValue%:=0;
-    var result[100];
-    var indices%[100];
+    var result[1000];
+    var indices%[1000];
     
 	GetTuningCurveAreaParameters();
     
@@ -468,6 +477,8 @@ func TuningCurveDonutDialog%()
     DlgList(6, "Optimal diameter", sValues$);
     DlgButton(151, "Master Grating", TunDlgGratingMaster%);
     DlgButton(152, "Slave Grating", TunDlgGratingSlave%);
+    DlgButton(153, "Master Vals -> Slave", TunMasterValsToSlave%);
+    DlgButton(154, "Slave Vals -> Master", TunSlaveValsToMaster%);
     DlgAllow(0xffff, 0, TuningCurveDonutDialogChanged%);
 	i% := DlgShow(tunAreaNSteps%, tunAreaNRepeats%, tunAreaMinDiam, tunAreaMaxDiam, tunDonutProgression%, tunDonutOptimalIndex%);
     tunDonutOptimalDiam := result[tunDonutOptimalIndex%];
@@ -483,6 +494,8 @@ func TuningCurveDonutDialog%()
     ' are not seen in the subsequent expt, they're not saved in the registry, etc. Workaround is to return
     ' something > 0 here. The parent dialog will continue to display, and the user has to hit OK on that 
     ' before things proceed. 
+    tunMaximalDiam := result[tunDonutOptimalIndex%];
+    tunSlaveMaximalDiam := tunAreaMaxDiam;
 	if i% = 1 then
 		SaveTuningCurveAreaParameters();
 		tunType$ := tunTypeDonut$;
@@ -508,60 +521,10 @@ end;
 ' This function is initially called with a "0" input, which forces the 1, 3, 4 dialogs to be disabled
 ' Of course, this could just be done with a DlgEnable call at the point of dialog creation.  There
 ' doesn't seem to be any plan to un-disable those dialogs when the enabled dialog is changed.
-func TuningCurveBerlinerDialogChanged%(item%)
-    var gr$;
-    var x;
-    var y;
-    var w;
-    var h;
-    var contrast%;
-    var sf;
-    var tf;
-    var ori;
-    var cv$;
-    var pattern$;
-    var aperture$;
-    var temp$;
-    
+func TuningCurveBerlinerDialogChanged%(item%)    
     if item% = 0 then
         DlgEnable(0, 1, 3, 4);
     endif   
-'    if item% = 6 then  'If stationary is changed
-'        'Please note that if a temporal frequency value is updated AFTER stationary is checked, that value
-'        'will stick.
-'        tunSetStationary% := 1 - tunSetStationary%;  'This changes tunSetStationary so that we can use it to actually do stuff before pressing OK.
-'        'Note that the value tracks the current value in the checkbox so everything is kosher.
-'        
-'        if tunSetStationary% = 1 then
-'            gr$ := GetGratingParameters$("Stimulus");
-'            ParseGratingParameters%(gr$, x, y, w, h, contrast%, sf, tf, ori, cv$, pattern$, aperture$);
-'            Profile(GetRegistryKey$(1) + "\\Gratings","OldStimTF",Str$(tf));  'Write old value of tf to registry as a string
-'            tf := 0;  'set grating to stationary
-'            gr$ := Print$("%.1f,%.1f,%.1f,%.1f,%d,%.2f,%.2f,%.1f,%s,%s,%s", x, y, w, h, contrast%, sf, tf, ori, cv$, pattern$, aperture$);
-'            SaveGratingParameters("Stimulus", gr$);
-'            
-'            gr$ := GetGratingParameters$("SlaveStimulus");
-'            ParseGratingParameters%(gr$, x, y, w, h, contrast%, sf, tf, ori, cv$, pattern$, aperture$);
-'            Profile(GetRegistryKey$(1) + "\\Gratings","OldSlaveTF",Str$(tf));  'Write old value of tf to registry as a string
-'            tf := 0;  'set grating to stationary
-'            gr$ := Print$("%.1f,%.1f,%.1f,%.1f,%d,%.2f,%.2f,%.1f,%s,%s,%s", x, y, w, h, contrast%, sf, tf, ori, cv$, pattern$, aperture$);
-'            SaveGratingParameters("SlaveStimulus", gr$);
-'        else
-'            gr$ := GetGratingParameters$("Stimulus");
-'            ParseGratingParameters%(gr$, x, y, w, h, contrast%, sf, tf, ori, cv$, pattern$, aperture$);
-'            Profile(GetRegistryKey$(1) + "\\Gratings","OldStimTF","0",temp$);  'Read in old value of tf from registry as a string
-'            tf := Val(temp$);  'and put the value in tf
-'            gr$ := Print$("%.1f,%.1f,%.1f,%.1f,%d,%.2f,%.2f,%.1f,%s,%s,%s", x, y, w, h, contrast%, sf, tf, ori, cv$, pattern$, aperture$);
-'            SaveGratingParameters("Stimulus", gr$);
-'            
-'            gr$ := GetGratingParameters$("SlaveStimulus");
-'            ParseGratingParameters%(gr$, x, y, w, h, contrast%, sf, tf, ori, cv$, pattern$, aperture$);
-'            Profile(GetRegistryKey$(1) + "\\Gratings","OldSlaveTF","0",temp$);  'Read in old value of tf from registry as a string
-'            tf := Val(temp$);  'and put the value in tf
-'            gr$ := Print$("%.1f,%.1f,%.1f,%.1f,%d,%.2f,%.2f,%.1f,%s,%s,%s", x, y, w, h, contrast%, sf, tf, ori, cv$, pattern$, aperture$);
-'            SaveGratingParameters("SlaveStimulus", gr$);
-'        endif;
-'    endif;
     return 1;
 end
 
@@ -570,8 +533,8 @@ func TuningCurveBerlinerDialog%()
 	var i%;
     var sValues$;
     var iValue%:=0;
-    var result[100];
-    var indices%[100];
+    var result[1000];
+    var indices%[1000];
     
 	GetTuningCurveAreaParameters();
     
@@ -585,8 +548,8 @@ func TuningCurveBerlinerDialog%()
     'so set tunBerlinerMaximalIndex% appropriately
     tunBerlinerMaximalIndex% := tunAreaNSteps%;
     
-    'Define tunBerlinerNSteps%, because we are no longer doing a tuning curve.  Captain Picard says "There are FOUR Berliners!"
-    tunBerlinerNSteps% := 4;
+    'Define tunBerlinerNSteps%, because we are no longer doing a tuning curve.
+    tunBerlinerNSteps% := 6;
     
 	DlgCreate("Berliner Tuning Curve Parameters");
 	'DlgInteger(1, "Number of Steps", 2, 100);
@@ -595,17 +558,18 @@ func TuningCurveBerlinerDialog%()
 	DlgReal(3, "Min Diameter", 0.1, 100);
 	DlgReal(4, "Max Diameter", 0.1, 100);
 	DlgCheck(5, "Random Progression");
-    DlgCheck(6, "Stationary, disabled");
-    DlgList(7, "Optimal diameter", sValues$);
-    DlgList(8, "Maximal diameter", sValues$);
+    DlgList(6, "Optimal diameter", sValues$);
+    DlgList(7, "Maximal diameter", sValues$);
     DlgButton(151, "Master Grating", TunDlgGratingMaster%);
     DlgButton(152, "Slave Grating", TunDlgGratingSlave%);
+    DlgButton(153, "Master Vals -> Slave", TunMasterValsToSlave%);
+    DlgButton(154, "Slave Vals -> Master", TunSlaveValsToMaster%);
     DlgAllow(0xffff, 0, TuningCurveBerlinerDialogChanged%);
 	'i% := DlgShow(tunAreaNSteps%, tunAreaNRepeats%, tunAreaMinDiam, tunAreaMaxDiam, tunAreaProgression%, tunDonutOptimalIndex%, tunBerlinerMaximalIndex%);
-    i% := DlgShow(tunBerlinerNSteps%, tunBerlinerNRepeats%, tunAreaMinDiam, tunAreaMaxDiam, tunBerlinerProgression%, tunSetStationary%, tunDonutOptimalIndex%, tunBerlinerMaximalIndex%);
+    i% := DlgShow(tunBerlinerNSteps%, tunBerlinerNRepeats%, tunAreaMinDiam, tunAreaMaxDiam, tunBerlinerProgression%, tunDonutOptimalIndex%, tunBerlinerMaximalIndex%);
     
-    'printlog("\nAfter dialog tunSetStationary is %d\n",tunSetStationary%);
-    
+    tunMaximalDiam := tunAreaMaxDiam;
+    tunSlaveMaximalDiam := result[tunBerlinerMaximalIndex%];
     ' Don't let the user screw this up by selecting incompatible values
     if tunBerlinerMaximalIndex% > tunDonutOptimalIndex%+1 then
         tunDonutOptimalDiam := result[tunDonutOptimalIndex%];
@@ -658,16 +622,18 @@ end;
 
 func TunDlgGratingMaster%()
     
-    var x, y, w, h, sf, tf, ori;
+    var x, y, w, h, sf, tf, ori, phase;
     var contrast%;
     var param$, cv$, pattern$, aperture$;
     var label$;
     var i%;
+    var tunGratingParamsStat$;
     
     tunGratingParams$ := GetGratingParameters$("Stimulus");
-    i% := GratingParametersDialogMaster%(label$, tunGratingParams$, x, y, w, h, contrast%, sf, tf, ori, cv$, pattern$, aperture$);
+    i% := GratingParametersDialogMaster%(label$, tunGratingParams$, tunGratingParamsStat$, x, y, w, h, contrast%, sf, tf, ori, phase, cv$, pattern$, aperture$);
     if i% = 1 then
         SaveGratingParameters("Stimulus", tunGratingParams$);
+        SaveGratingParameters("StatStimulus", tunGratingParamsStat$);
     endif
     
     return 1;
@@ -677,16 +643,18 @@ end
 
 func TunDlgGratingSlave%()
     
-    var x, y, w, h, sf, tf, ori;
+    var x, y, w, h, sf, tf, ori, phase;
     var contrast%;
     var param$, cv$, pattern$, aperture$;
     var label$;
     var i%;
+    var tunGratingParamsStat$;
     
     tunGratingParams$ := GetGratingParameters$("SlaveStimulus");
-    i% := GratingParametersDialogSlave%(label$, tunGratingParams$, x, y, w, h, contrast%, sf, tf, ori, cv$, pattern$, aperture$);
+    i% := GratingParametersDialogSlave%(label$, tunGratingParams$, tunGratingParamsStat$, x, y, w, h, contrast%, sf, tf, ori, phase, cv$, pattern$, aperture$);
     if i% = 1 then
         SaveGratingParameters("SlaveStimulus", tunGratingParams$);
+        SaveGratingParameters("StatSlaveStimulus", tunGratingParamsStat$);
     endif
     
     return 1;
@@ -694,9 +662,11 @@ end
 
 
 
-func GratingParametersDialogMaster%(label$, &param$, &x, &y, &w, &h, &contrast%, &sf, &tf, &ori, &cv$, &pattern$, &aperture$)
+func GratingParametersDialogMaster%(label$, &param$, &statparam$, &x, &y, &w, &h, &contrast%, &sf, &tf, &ori, &phase, &cv$, &pattern$, &aperture$)
     
-	var i% := 12;  'That's right, 12
+	var i% := 13;  'That's right, 13
+    var tempPhase;
+    var firstRun := 1;
     
 	var ColorVectorList$[5];
 	var cvl$[5];
@@ -722,17 +692,16 @@ func GratingParametersDialogMaster%(label$, &param$, &x, &y, &w, &h, &contrast%,
 	ApertureList$[0]:="Ellipse";	al$[0]:="e";
 	ApertureList$[1]:="Rectangle";	al$[1]:="r";
     
-    while i% = 12 do
+    while i% = 13 do
         
         ' If the passed param$ is non-empty, then parse it before opening the dialog. 
         if Len(param$)>0 then
-            if ParseGratingParameters%(param$, x, y, w, h, contrast%, sf, tf, ori, cv$, pattern$, aperture$) = 0 then
-                FindMatchedStringIndex%(cv$, cvl$[], 2, 0);
-                FindMatchedStringIndex%(pattern$, pl$[], 2, 0);
-                FindMatchedStringIndex%(aperture$, al$, 3, 0);
+            if ParseGratingParameters%(param$, x, y, w, h, contrast%, sf, tf, ori, phase, cv$, pattern$, aperture$) = 0 then
+                icvl% := FindMatchedStringIndex%(cv$, cvl$[], 2, 0);
+                ipl% := FindMatchedStringIndex%(pattern$, pl$[], 2, 0);
+                ial% := FindMatchedStringIndex%(aperture$, al$, 3, 0);
             endif
         endif
-        
         
         DlgCreate("Grating parameters: " + label$, 25, 11);
         '    DlgAllow(0, 0, GratingParametersDialogDoubleCheck%);
@@ -743,32 +712,40 @@ func GratingParametersDialogMaster%(label$, &param$, &x, &y, &w, &h, &contrast%,
         DlgInteger(5, "Contrast(%):", -100, 100);
         DlgReal(6, "Spatial Freq:", .1, 10);
         DlgReal(7, "Temporal Freq:", 0, 10);
-        DlgReal(8, "Orientation (degrees):", 0, 360);
-        DlgList(9, "Color:", ColorVectorList$[]);
-        DlgList(10, "Pattern:", PatternList$[]);
-        DlgList(11, "Aperture:", ApertureList$[]);
-        DlgButton(12, "Copy from Slave", TunCopySlaveVals%(param$));
-        DlgAllow(0xffff, 0, TunDisableTF%);
+        DlgReal(8, "Orientation (degrees):", -360, 360);
+        DlgReal(9, "Initial Phase (deg, 0 = white at center)", 0, 360);
+        DlgList(10, "Color:", ColorVectorList$[]);
+        DlgList(11, "Pattern:", PatternList$[]);
+        DlgList(12, "Aperture:", ApertureList$[]);
+        DlgButton(13, "Copy from Slave", TunCopySlaveVals%(param$));
+        if firstRun = 0 then  'prevent phase from being overwritten the first time the function is called
+            phase := tempPhase;
+        endif;
+        firstRun := 0;      
         
-        
-        
-        i% := DlgShow(x, y, w, h, contrast%, sf, tf, ori, icvl%, ipl%, ial%);
+        i% := DlgShow(x, y, w, h, contrast%, sf, tf, ori, phase, icvl%, ipl%, ial%);
+        Convert180(phase);
         
     wend;
-    
+      
 	if i%=1 then
 		cv$ := cvl$[icvl%];
 		pattern$ := pl$[ipl%];
 		aperture$ := al$[ial%];
 		' save parameters
-		param$ := Print$("%.1f,%.1f,%.1f,%.1f,%d,%.2f,%.2f,%.1f,%s,%s,%s", x, y, w, h, contrast%, sf, tf, ori, cv$, pattern$, aperture$);
-	endif
+        param$ := EncodeGratingParameters$(x, y, w, h, contrast%, sf, tf, ori, phase, cv$, pattern$, aperture$);
+		'param$ := Print$("%.1f,%.1f,%.1f,%.1f,%d,%.2f,%.2f,%.1f,%s,%s,%s", x, y, w, h, contrast%, sf, tf, ori, cv$, pattern$, aperture$);
+        statparam$ := EncodeGratingParameters$(x, y, w, h, contrast%, sf, 0, ori, phase, cv$, pattern$, aperture$);  'hardcoded zero TF
+        'statparam$ := Print$("%.1f,%.1f,%.1f,%.1f,%d,%.2f,0.00,%.1f,%s,%s,%s", x, y, w, h, contrast%, sf, ori, cv$, pattern$, aperture$); 'hardcoded zero TF
+    endif
     return i%;
 end;
 
-func GratingParametersDialogSlave%(label$, &param$, &x, &y, &w, &h, &contrast%, &sf, &tf, &ori, &cv$, &pattern$, &aperture$)
+func GratingParametersDialogSlave%(label$, &param$, &statparam$, &x, &y, &w, &h, &contrast%, &sf, &tf, &ori, &phase, &cv$, &pattern$, &aperture$)
     
-	var i% := 12;  'That's right, 12
+	var i% := 13;  'That's right, 13
+    var tempPhase;
+    var firstRun := 1;
     
 	var ColorVectorList$[5];
 	var cvl$[5];
@@ -794,14 +771,14 @@ func GratingParametersDialogSlave%(label$, &param$, &x, &y, &w, &h, &contrast%, 
 	ApertureList$[0]:="Ellipse";	al$[0]:="e";
 	ApertureList$[1]:="Rectangle";	al$[1]:="r";
     
-    while i% = 12 do
+    while i% = 13 do
         
         ' If the passed param$ is non-empty, then parse it before opening the dialog. 
         if Len(param$)>0 then
-            if ParseGratingParameters%(param$, x, y, w, h, contrast%, sf, tf, ori, cv$, pattern$, aperture$) = 0 then
-                FindMatchedStringIndex%(cv$, cvl$[], 2, 0);
-                FindMatchedStringIndex%(pattern$, pl$[], 2, 0);
-                FindMatchedStringIndex%(aperture$, al$, 3, 0);
+            if ParseGratingParameters%(param$, x, y, w, h, contrast%, sf, tf, ori, phase, cv$, pattern$, aperture$) = 0 then
+                icvl% := FindMatchedStringIndex%(cv$, cvl$[], 2, 0);
+                ipl% := FindMatchedStringIndex%(pattern$, pl$[], 2, 0);
+                ial% := FindMatchedStringIndex%(aperture$, al$, 3, 0);
             endif
         endif
         
@@ -814,16 +791,19 @@ func GratingParametersDialogSlave%(label$, &param$, &x, &y, &w, &h, &contrast%, 
         DlgInteger(5, "Contrast(%):", -100, 100);
         DlgReal(6, "Spatial Freq:", .1, 10);
         DlgReal(7, "Temporal Freq:", 0, 10);
-        DlgReal(8, "Orientation (degrees):", 0, 360);
-        DlgList(9, "Color:", ColorVectorList$[]);
-        DlgList(10, "Pattern:", PatternList$[]);
-        DlgList(11, "Aperture:", ApertureList$[]);
-        DlgButton(12, "Copy From Master", TunCopyMasterVals%(param$));
-        DlgAllow(0xffff, 0, TunDisableTF%);
+        DlgReal(8, "Orientation (degrees):", -360, 360);
+        DlgReal(9, "Initial Phase (deg, 0 = white at center)", 0, 360);
+        DlgList(10, "Color:", ColorVectorList$[]);
+        DlgList(11, "Pattern:", PatternList$[]);
+        DlgList(12, "Aperture:", ApertureList$[]);
+        DlgButton(13, "Copy From Master", TunCopyMasterVals%(param$));
+        if firstRun = 0 then  'prevent phase from being overwritten the first time the function is called
+            phase := tempPhase;
+        endif;
+        firstRun := 0;
         
-        
-        
-        i% := DlgShow(x, y, w, h, contrast%, sf, tf, ori, icvl%, ipl%, ial%);
+        i% := DlgShow(x, y, w, h, contrast%, sf, tf, ori, phase, icvl%, ipl%, ial%);
+        Convert180(phase);
         
     wend;
     
@@ -832,17 +812,20 @@ func GratingParametersDialogSlave%(label$, &param$, &x, &y, &w, &h, &contrast%, 
 		pattern$ := pl$[ipl%];
 		aperture$ := al$[ial%];
 		' save parameters
-		param$ := Print$("%.1f,%.1f,%.1f,%.1f,%d,%.2f,%.2f,%.1f,%s,%s,%s", x, y, w, h, contrast%, sf, tf, ori, cv$, pattern$, aperture$);
-	endif
+		param$ := EncodeGratingParameters$(x, y, w, h, contrast%, sf, tf, ori, phase, cv$, pattern$, aperture$);
+		'param$ := Print$("%.1f,%.1f,%.1f,%.1f,%d,%.2f,%.2f,%.1f,%s,%s,%s", x, y, w, h, contrast%, sf, tf, ori, cv$, pattern$, aperture$);
+        statparam$ := EncodeGratingParameters$(x, y, w, h, contrast%, sf, 0, ori, phase, cv$, pattern$, aperture$);  'hardcoded zero TF
+        'statparam$ := Print$("%.1f,%.1f,%.1f,%.1f,%d,%.2f,0.00,%.1f,%s,%s,%s", x, y, w, h, contrast%, sf, ori, cv$, pattern$, aperture$); 'hardcoded zero TF
+    endif
     return i%;
 end;
 
 
 
 func TunCopySlaveVals%(&param$)
-    
+
     param$ := GetGratingParameters$("SlaveStimulus");
-    
+
     return 1;
 end
 
@@ -851,16 +834,74 @@ end
 func TunCopyMasterVals%(&param$)
 
     param$ := GetGratingParameters$("Stimulus");
+
+    return 1;
+end
+
+
+func TunMasterValsToSlave%()
+    
+    var x, y, w, h;
+    var contrast%;
+    var sf, tf, ori, phase;
+    var cv$, pattern$, aperture$;
+    
+    var tempParams$;
+    
+    tempParams$ := GetGratingParameters$("Stimulus");
+    SaveGratingParameters("SlaveStimulus", tempParams$);
+    ParseGratingParameters%(tempParams$, x, y, w, h, contrast%, sf, tf, ori, phase, cv$, pattern$, aperture$);
+    tempParams$ := EncodeGratingParameters$(x, y, w, h, contrast%, sf, 0, ori, phase, cv$, pattern$, aperture$);  'hardcoded zero TF
+    SaveGratingParameters("StatSlaveStimulus", tempParams$);
     
     return 1;
 end
 
 
-func TunDisableTF%(item%)
-'    if item% = 0 then
-'        if tunSetStationary% = 1 then
-'            DlgEnable(0,7);
-'        endif;
-'    endif;
-    return item%;
+func TunSlaveValsToMaster%()
+    
+    var x, y, w, h;
+    var contrast%;
+    var sf, tf, ori, phase;
+    var cv$, pattern$, aperture$;
+    
+    var tempParams$;
+    
+    tempParams$ := GetGratingParameters$("SlaveStimulus");
+    SaveGratingParameters("Stimulus", tempParams$);
+    ParseGratingParameters%(tempParams$, x, y, w, h, contrast%, sf, tf, ori, phase, cv$, pattern$, aperture$);
+    tempParams$ := EncodeGratingParameters$(x, y, w, h, contrast%, sf, 0, ori, phase, cv$, pattern$, aperture$);  'hardcoded zero TF
+    SaveGratingParameters("StatStimulus", tempParams$);
+    
+    return 1;
+end
+
+
+
+
+
+
+func TuningXHairDialog%()
+    DlgCreate("Crosshair/Grid");
+    DlgCheck(1, "Use crosshair grid");
+    DlgReal(2, "Grid inner radius offset", 0, 100);
+    DlgReal(3, "Grid mid radius offset", 0, 100);
+    DlgReal(4, "Grid outer radius offset", 0, 100);
+    DlgInteger(5, "Number of divisions in grid", 2, 128);
+    DlgReal(6, "XHair inner offset", -1, 100);
+    DlgReal(7, "XHair outer offset", -1, 100);
+    DlgAllow(0xffff, 0, TuningXHairDialogChanged%);
+    DlgShow(tunUseXHairs%, tunXHairInnerRadiusOffset, tunXHairMiddleRadiusOffset, tunXHairOuterRadiusOffset, tunXHairNumGridDivisions%, tunXHairTicInnerOffset, tunXHairTicOuterOffset);
+    return 1;
+end
+
+
+func TuningXHairDialogChanged%(item%)
+    docase 
+    case item% = 0 then
+        DlgEnable(tunUseXHairs%, 2, 3, 4, 5, 6, 7);
+    case item% = 1 then
+        DlgEnable(DlgValue(1), 2, 3, 4, 5, 6, 7);
+    endcase
+    return 1;
 end
