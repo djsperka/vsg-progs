@@ -1,4 +1,10 @@
 ' $Log: not supported by cvs2svn $
+' Revision 1.2.10.1  2011/09/22 21:25:49  jeff
+' Changes accounting for addition of phase in grating parameters string
+'
+' Revision 1.2  2006/12/22 22:30:07  dan
+' Add blackscreen stuff to par file.
+'
 ' Revision 1.1  2006/12/14 00:46:01  dan
 ' Beta test version of tuning curve with black screen capabilities. This version uses executable sandbox.exe and sequencer file tuning-blackscreen.
 '
@@ -1641,12 +1647,12 @@ proc WriteParameterFile()
 	Print("-------------------\n\n");
 
 	var Tstimstr$;
-	var Tstimx$, Tstimy$, Tstimw$, Tstimh$, Tstimcontrast$, Tstimsf$, Tstimtf$, Tstimorientation$, Tstimcv$, Tstimp$, Tstimap$;
+	var Tstimx$, Tstimy$, Tstimw$, Tstimh$, Tstimcontrast$, Tstimsf$, Tstimtf$, Tstimorientation$, TStimphase$, Tstimcv$, Tstimp$, Tstimap$;
 	var i%;
 	var Tstepsize;
 	Tstimstr$ := GetGratingParameters$("Stimulus");
 	ReadSetup(",",",",",",",",",");
-	i% := ReadStr(Tstimstr$, Tstimx$, Tstimy$, Tstimw$, Tstimh$, Tstimcontrast$, Tstimsf$, Tstimtf$, Tstimorientation$, Tstimcv$, Tstimp$, Tstimap$);
+	i% := ReadStr(Tstimstr$, Tstimx$, Tstimy$, Tstimw$, Tstimh$, Tstimcontrast$, Tstimsf$, Tstimtf$, Tstimorientation$, Tstimphase$, Tstimcv$, Tstimp$, Tstimap$);
 	Print("Position (x, degrees)           : %s\n", Tstimx$);
 	Print("Position (y, degrees)           : %s\n", Tstimy$);
 	Print("Width (degrees)                 : %s\n", Tstimw$);
