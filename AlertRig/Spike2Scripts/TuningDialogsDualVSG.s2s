@@ -1,4 +1,4 @@
-' $Id: TuningDialogsDualVSG.s2s,v 1.1 2011-09-12 17:39:43 devel Exp $
+' $Id: TuningDialogsDualVSG.s2s,v 1.2 2011-10-07 21:01:38 jeff Exp $
 '
 ' This file contains dialog functions for the alert tuning script Tuning.s2s.
 #include "../../Spike2Util/UsreyUtil.s2s"
@@ -519,21 +519,7 @@ end;
 ' This function is initially called with a "0" input, which forces the 1, 3, 4 dialogs to be disabled
 ' Of course, this could just be done with a DlgEnable call at the point of dialog creation.  There
 ' doesn't seem to be any plan to un-disable those dialogs when the enabled dialog is changed.
-func TuningCurveBerlinerDialogChanged%(item%)
-    var gr$;
-    var x;
-    var y;
-    var w;
-    var h;
-    var contrast%;
-    var sf;
-    var tf;
-    var ori;
-    var cv$;
-    var pattern$;
-    var aperture$;
-    var temp$;
-    
+func TuningCurveBerlinerDialogChanged%(item%)    
     if item% = 0 then
         DlgEnable(0, 1, 3, 4);
     endif   
@@ -641,11 +627,11 @@ func TunDlgGratingMaster%()
     var i%;
     var tunGratingParamsStat$;
     
-    tunGratingParams$ := GetGratingParameters$("Stimulus", phase);
+    tunGratingParams$ := GetGratingParameters$("Stimulus");
     i% := GratingParametersDialogMaster%(label$, tunGratingParams$, tunGratingParamsStat$, x, y, w, h, contrast%, sf, tf, ori, phase, cv$, pattern$, aperture$);
     if i% = 1 then
-        SaveGratingParameters("Stimulus", tunGratingParams$, phase);
-        SaveGratingParameters("StatStimulus", tunGratingParamsStat$, phase);
+        SaveGratingParameters("Stimulus", tunGratingParams$);
+        SaveGratingParameters("StatStimulus", tunGratingParamsStat$);
     endif
     
     return 1;
@@ -662,11 +648,11 @@ func TunDlgGratingSlave%()
     var i%;
     var tunGratingParamsStat$;
     
-    tunGratingParams$ := GetGratingParameters$("SlaveStimulus", phase);
+    tunGratingParams$ := GetGratingParameters$("SlaveStimulus");
     i% := GratingParametersDialogSlave%(label$, tunGratingParams$, tunGratingParamsStat$, x, y, w, h, contrast%, sf, tf, ori, phase, cv$, pattern$, aperture$);
     if i% = 1 then
-        SaveGratingParameters("SlaveStimulus", tunGratingParams$, phase);
-        SaveGratingParameters("StatSlaveStimulus", tunGratingParamsStat$, phase);
+        SaveGratingParameters("SlaveStimulus", tunGratingParams$);
+        SaveGratingParameters("StatSlaveStimulus", tunGratingParamsStat$);
     endif
     
     return 1;
@@ -708,10 +694,10 @@ func GratingParametersDialogMaster%(label$, &param$, &statparam$, &x, &y, &w, &h
         
         ' If the passed param$ is non-empty, then parse it before opening the dialog. 
         if Len(param$)>0 then
-            if ParseGratingParameters%(param$, x, y, w, h, contrast%, sf, tf, ori, cv$, pattern$, aperture$) = 0 then
-                FindMatchedStringIndex%(cv$, cvl$[], 2, 0);
-                FindMatchedStringIndex%(pattern$, pl$[], 2, 0);
-                FindMatchedStringIndex%(aperture$, al$, 3, 0);
+            if ParseGratingParameters%(param$, x, y, w, h, contrast%, sf, tf, ori, phase, cv$, pattern$, aperture$) = 0 then
+                icvl% := FindMatchedStringIndex%(cv$, cvl$[], 2, 0);
+                ipl% := FindMatchedStringIndex%(pattern$, pl$[], 2, 0);
+                ial% := FindMatchedStringIndex%(aperture$, al$, 3, 0);
             endif
         endif
         
@@ -729,13 +715,14 @@ func GratingParametersDialogMaster%(label$, &param$, &statparam$, &x, &y, &w, &h
         DlgList(10, "Color:", ColorVectorList$[]);
         DlgList(11, "Pattern:", PatternList$[]);
         DlgList(12, "Aperture:", ApertureList$[]);
-        DlgButton(13, "Copy from Slave", TunCopySlaveVals%(param$, tempPhase));
+        DlgButton(13, "Copy from Slave", TunCopySlaveVals%(param$));
         if firstRun = 0 then  'prevent phase from being overwritten the first time the function is called
             phase := tempPhase;
         endif;
         firstRun := 0;      
         
         i% := DlgShow(x, y, w, h, contrast%, sf, tf, ori, phase, icvl%, ipl%, ial%);
+        Convert180(phase);
         
     wend;
       
@@ -744,8 +731,10 @@ func GratingParametersDialogMaster%(label$, &param$, &statparam$, &x, &y, &w, &h
 		pattern$ := pl$[ipl%];
 		aperture$ := al$[ial%];
 		' save parameters
-		param$ := Print$("%.1f,%.1f,%.1f,%.1f,%d,%.2f,%.2f,%.1f,%s,%s,%s", x, y, w, h, contrast%, sf, tf, ori, cv$, pattern$, aperture$);
-        statparam$ := Print$("%.1f,%.1f,%.1f,%.1f,%d,%.2f,0.00,%.1f,%s,%s,%s", x, y, w, h, contrast%, sf, ori, cv$, pattern$, aperture$); 'hardcoded zero TF
+        param$ := EncodeGratingParameters$(x, y, w, h, contrast%, sf, tf, ori, phase, cv$, pattern$, aperture$);
+		'param$ := Print$("%.1f,%.1f,%.1f,%.1f,%d,%.2f,%.2f,%.1f,%s,%s,%s", x, y, w, h, contrast%, sf, tf, ori, cv$, pattern$, aperture$);
+        statparam$ := EncodeGratingParameters$(x, y, w, h, contrast%, sf, 0, ori, phase, cv$, pattern$, aperture$);  'hardcoded zero TF
+        'statparam$ := Print$("%.1f,%.1f,%.1f,%.1f,%d,%.2f,0.00,%.1f,%s,%s,%s", x, y, w, h, contrast%, sf, ori, cv$, pattern$, aperture$); 'hardcoded zero TF
     endif
     return i%;
 end;
@@ -784,10 +773,10 @@ func GratingParametersDialogSlave%(label$, &param$, &statparam$, &x, &y, &w, &h,
         
         ' If the passed param$ is non-empty, then parse it before opening the dialog. 
         if Len(param$)>0 then
-            if ParseGratingParameters%(param$, x, y, w, h, contrast%, sf, tf, ori, cv$, pattern$, aperture$) = 0 then
-                FindMatchedStringIndex%(cv$, cvl$[], 2, 0);
-                FindMatchedStringIndex%(pattern$, pl$[], 2, 0);
-                FindMatchedStringIndex%(aperture$, al$, 3, 0);
+            if ParseGratingParameters%(param$, x, y, w, h, contrast%, sf, tf, ori, phase, cv$, pattern$, aperture$) = 0 then
+                icvl% := FindMatchedStringIndex%(cv$, cvl$[], 2, 0);
+                ipl% := FindMatchedStringIndex%(pattern$, pl$[], 2, 0);
+                ial% := FindMatchedStringIndex%(aperture$, al$, 3, 0);
             endif
         endif
         
@@ -805,13 +794,14 @@ func GratingParametersDialogSlave%(label$, &param$, &statparam$, &x, &y, &w, &h,
         DlgList(10, "Color:", ColorVectorList$[]);
         DlgList(11, "Pattern:", PatternList$[]);
         DlgList(12, "Aperture:", ApertureList$[]);
-        DlgButton(13, "Copy From Master", TunCopyMasterVals%(param$, tempPhase));
+        DlgButton(13, "Copy From Master", TunCopyMasterVals%(param$));
         if firstRun = 0 then  'prevent phase from being overwritten the first time the function is called
             phase := tempPhase;
         endif;
         firstRun := 0;
         
         i% := DlgShow(x, y, w, h, contrast%, sf, tf, ori, phase, icvl%, ipl%, ial%);
+        Convert180(phase);
         
     wend;
     
@@ -820,26 +810,28 @@ func GratingParametersDialogSlave%(label$, &param$, &statparam$, &x, &y, &w, &h,
 		pattern$ := pl$[ipl%];
 		aperture$ := al$[ial%];
 		' save parameters
-		param$ := Print$("%.1f,%.1f,%.1f,%.1f,%d,%.2f,%.2f,%.1f,%s,%s,%s", x, y, w, h, contrast%, sf, tf, ori, cv$, pattern$, aperture$);
-        statparam$ := Print$("%.1f,%.1f,%.1f,%.1f,%d,%.2f,0.00,%.1f,%s,%s,%s", x, y, w, h, contrast%, sf, ori, cv$, pattern$, aperture$); 'hardcoded zero TF
+		param$ := EncodeGratingParameters$(x, y, w, h, contrast%, sf, tf, ori, phase, cv$, pattern$, aperture$);
+		'param$ := Print$("%.1f,%.1f,%.1f,%.1f,%d,%.2f,%.2f,%.1f,%s,%s,%s", x, y, w, h, contrast%, sf, tf, ori, cv$, pattern$, aperture$);
+        statparam$ := EncodeGratingParameters$(x, y, w, h, contrast%, sf, 0, ori, phase, cv$, pattern$, aperture$);  'hardcoded zero TF
+        'statparam$ := Print$("%.1f,%.1f,%.1f,%.1f,%d,%.2f,0.00,%.1f,%s,%s,%s", x, y, w, h, contrast%, sf, ori, cv$, pattern$, aperture$); 'hardcoded zero TF
     endif
     return i%;
 end;
 
 
 
-func TunCopySlaveVals%(&param$,&phase)
+func TunCopySlaveVals%(&param$)
 
-    param$ := GetGratingParameters$("SlaveStimulus", phase);
+    param$ := GetGratingParameters$("SlaveStimulus");
 
     return 1;
 end
 
 
 
-func TunCopyMasterVals%(&param$,&phase)
+func TunCopyMasterVals%(&param$)
 
-    param$ := GetGratingParameters$("Stimulus", phase);
+    param$ := GetGratingParameters$("Stimulus");
 
     return 1;
 end
@@ -854,11 +846,11 @@ func TunMasterValsToSlave%()
     
     var tempParams$;
     
-    tempParams$ := GetGratingParameters$("Stimulus", phase);
-    SaveGratingParameters("SlaveStimulus", tempParams$, phase);
-    ParseGratingParameters%(tempParams$, x, y, w, h, contrast%, sf, tf, ori, cv$, pattern$, aperture$);
-    tempParams$ := Print$("%.1f,%.1f,%.1f,%.1f,%d,%.2f,0.00,%.1f,%.1f,%s,%s,%s", x, y, w, h, contrast%, sf, ori, phase, cv$, pattern$, aperture$); 'hardcoded zero TF
-    SaveGratingParameters("StatSlaveStimulus", tempParams$, phase);
+    tempParams$ := GetGratingParameters$("Stimulus");
+    SaveGratingParameters("SlaveStimulus", tempParams$);
+    ParseGratingParameters%(tempParams$, x, y, w, h, contrast%, sf, tf, ori, phase, cv$, pattern$, aperture$);
+    tempParams$ := EncodeGratingParameters$(x, y, w, h, contrast%, sf, 0, ori, phase, cv$, pattern$, aperture$);  'hardcoded zero TF
+    SaveGratingParameters("StatSlaveStimulus", tempParams$);
     
     return 1;
 end
@@ -873,11 +865,11 @@ func TunSlaveValsToMaster%()
     
     var tempParams$;
     
-    tempParams$ := GetGratingParameters$("SlaveStimulus", phase);
-    SaveGratingParameters("Stimulus", tempParams$, phase);
-    ParseGratingParameters%(tempParams$, x, y, w, h, contrast%, sf, tf, ori, cv$, pattern$, aperture$);
-    tempParams$ := Print$("%.1f,%.1f,%.1f,%.1f,%d,%.2f,0.00,%.1f,%.1f,%s,%s,%s", x, y, w, h, contrast%, sf, ori, phase, cv$, pattern$, aperture$); 'hardcoded zero TF
-    SaveGratingParameters("StatStimulus", tempParams$, phase);
+    tempParams$ := GetGratingParameters$("SlaveStimulus");
+    SaveGratingParameters("Stimulus", tempParams$);
+    ParseGratingParameters%(tempParams$, x, y, w, h, contrast%, sf, tf, ori, phase, cv$, pattern$, aperture$);
+    tempParams$ := EncodeGratingParameters$(x, y, w, h, contrast%, sf, 0, ori, phase, cv$, pattern$, aperture$);  'hardcoded zero TF
+    SaveGratingParameters("StatStimulus", tempParams$);
     
     return 1;
 end
