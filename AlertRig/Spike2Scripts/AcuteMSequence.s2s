@@ -1,4 +1,4 @@
-' $Id: AcuteMSequence.s2s,v 1.6 2011-09-01 18:36:16 djsperka Exp $
+' $Id: AcuteMSequence.s2s,v 1.7 2011-10-07 20:07:38 djsperka Exp $
 '
 ' AcuteMSequence.s2s
 '
@@ -15,6 +15,9 @@ var amsXOrigin%, amsYOrigin%;
 var amsRepeats% := 1;
 var amsColorIndex%;
 var amsColor$[4];
+
+' set to 1 if using visage
+var amsUseMEAMSeq% := 0;
 
 ' ports used for recording
 const amsNPorts% := 8;   ' Number of analog ports
@@ -263,14 +266,21 @@ func Start%()
     var cmd$;
     
     ' Start message server
-    amsHandleMsgSvr:=ProgRun("D:\\work\\AlertRig\\bin\\MsgSvr.exe",0);
+    amsHandleMsgSvr:=ProgRun(GetBinDir$(1) + "MsgSvr.exe", 0);
     Message("Start MultiRealTimeM(" + str$(amsNWavemarks%) + ") and press OK to start");
     
     ' Start sampling
     SampleStart(0);
     View(amsWindowData%);    
+
+    if amsUseMEAMSeq% = 0 then
+        cmd$ := GetBinDir$(1) + "msequence.exe -t " + str$(amsFramesPerTerm%) + " -d " + str$(amsDotSize%) + 
+        " -p " + str$(amsXOrigin%) + "," + str$(-amsYOrigin%) + " -R " + str$(amsRepeats%) + " -f " + GetStimDir$(1) + "MSequenceTerms";
+    else
+        cmd$ := GetBinDir$(1) + "meamseq.exe -t " + str$(amsFramesPerTerm%) + " -d " + str$(amsDotSize%) + 
+        " -p " + str$(amsXOrigin%) + "," + str$(-amsYOrigin%) + " -R " + str$(amsRepeats%) + " -m " + GetStimDir$(1) + "MSequenceTerms" + " -o 15 -r 16 -c 16 -T";
+    endif
     
-    cmd$ := GetBinDir$(1) + "msequence.exe -t " + str$(amsFramesPerTerm%) + " -d " + str$(amsDotSize%) + " -p " + str$(amsXOrigin%) + "," + str$(-amsYOrigin%) + " -R " + str$(amsRepeats%) + " -f " + GetStimDir$(1) + "MSequenceTerms";
     LogInfo(cmd$);
     amsHandleStim := ProgRun("cmd /c " + cmd$);
     
@@ -458,11 +468,9 @@ end
 
 proc SendMessage(Message$)
 var hSend%;
-'PrintLog(Message$+"\n");
+    
 hSend% := ProgRun(GetBinDir$(1) + "\\sendmessage "+Message$);
-'hSend% := ProgRun("D:\\work\\AlertRig\\bin\\SendMessage "+Message$);
-
-
+    
 ' NOTE: THIS 'while' STOPS PROCESSING UNTIL THE ACTIVEX SERVER HAS RECEIVED THE DATA. 
 ' TO REVERT TO THE OLD WAY (DON'T STOP PROCESSING) JUST COMMENT OUT THE LINES FROM 'while' TO 'wend'
 ' BELOW.
