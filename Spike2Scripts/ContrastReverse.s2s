@@ -1,4 +1,4 @@
-' $Id: ContrastReverse.s2s,v 1.5 2011-10-07 21:01:38 jeff Exp $
+' $Id: ContrastReverse.s2s,v 1.6 2011-10-10 22:08:25 devel Exp $
 
 #include "../../Spike2util\UsreyUtil.s2s"
 #include "UsreyGratings.s2s"
@@ -617,7 +617,7 @@ func Start%()
 	endif
 	baseFileName$ := GetBaseFileName$();
 	CommandLine$ := "cmd /k " + bin$ + "\\ContrastReverse -m " + GetStimDir$(1) + "msequenceterms";
-	CommandLine$ += " -p " + str$(x) + "," + str$(y) + " -l " + str$(crgSegmentTime) + " -t " + str$(crgFramesPerTerm%) + " -D " + DistanceToScreenMM$ + " " + FixationArg$;
+	CommandLine$ += " -p " + str$(x) + "," + str$(y) + " -l " + str$(crgSegmentTime) + " -t " + str$(crgFramesPerTerm%) + " -D " + GetDistanceToScreenMM$() + " " + FixationArg$;
 	CommandLine$ += " -d " + str$(crgDiameter) + " -s " + str$(crgSF) + " -C " + str$(crgContrast%) + "," + str$(-1*crgContrast%);
 	CommandLine$ += " -F " + baseFileName$ + ".par";
 
@@ -721,7 +721,7 @@ proc WriteParameterFile()
 
 	Print("General information\n");
 	Print("-------------------\n\n");
-	Print("Distance to screen (MM)    : %s\n", DistanceToScreenMM$);
+	Print("Distance to screen (MM)    : %s\n", GetDistanceToScreenMM$());
 	Print("Eye coil software gain (X) : %f\n", DegreesPerVoltX);
 	Print("Eye coil software gain (Y) : %f\n", DegreesPerVoltY);
 	Print("Eye coil sampling freq (Hz): %d\n", EyeCoilSamplingFrequency%);
