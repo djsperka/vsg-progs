@@ -1,4 +1,4 @@
-' $Id: Fixation.s2s,v 1.19 2010-05-24 18:01:22 devel Exp $
+' $Id: Fixation.s2s,v 1.20 2011-10-10 21:51:11 devel Exp $
 '
 
 #include "../../Spike2Util/UsreyUtil.s2s"
@@ -682,7 +682,7 @@ func Start%()
 			endif
 		endif
 		
-		Extras$ := " -b " + fixBackgroundColor$ + " -d " + DistanceToScreenMM$;
+		Extras$ := " -b " + fixBackgroundColor$ + " -d " + GetDistanceToScreenMM$();
 		
 		CommandLine$ := "cmd /k " + bin$ + "\\Fixation " + FixationArg$ + Extras$ + Distractors$;
 		
@@ -691,7 +691,7 @@ func Start%()
 
 		Horizontal%();
 
-		Extras$ := " -b " + fixBackgroundColor$ + " -d " + DistanceToScreenMM$ + " -C " + str$(fixCalibrationOffset);
+		Extras$ := " -b " + fixBackgroundColor$ + " -d " + GetDistanceToScreenMM$() + " -C " + str$(fixCalibrationOffset);
 		CommandLine$ := "cmd /k " + bin$ + "\\Calibration " + FixationArg$ + Extras$;
 
 	endif
