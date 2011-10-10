@@ -1,4 +1,7 @@
 ' $Log: not supported by cvs2svn $
+' Revision 1.6  2011/10/10 18:47:16  devel
+' Use calls to GetDistanceToScreenMM().
+'
 ' Revision 1.5  2011/02/05 00:26:58  devel
 ' Adapt correlation processes for multiple electrodes.
 '
@@ -12,108 +15,8 @@
 ' Ready for production.
 
 #include "UsreyDAQ.s2s"
+#include "UsreyFixationPoint.s2s"
 #include "../../Spike2Util/UsreyUtil.s2s"'
-
-
-'========================================================================
-'
-' INPUTS
-'
-' Eye X, Y - ADC input 14, 15 respectively
-' VSG trigger - assumed on DIGIN byte 0.  *** THE 1401 SHOULD HAVE PREFERENCES 
-'               SET WITH THE "Event Ports 0 and 1 on read digital input connector" 
-'               BOX CHECKED!!!
-'
-'========================================================================
-
-
-
-
-''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-'
-'	Fixation Point parameters START
-'
-'	These vars and funcs control the parameters for the fixation point stored in the registry. 
-'
-''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-
-
-
-var WindowRadius;
-var FixationX, FixationY;
-var FixationColor$;
-var iFixationColor%;
-var FixationDiameter;
-var FixationColorList$[3]; 
-var FixationArg$;
-
-proc GetFixationPointParameters()
-	var stmp$;
-	var key$;
-	key$ := "AlertRig\\" + GetCurrentConfiguration$() + "\\FixationPoint";
-	Profile(key$, "WindowRadius", "1", stmp$);
-	WindowRadius := val(stmp$);
-
-	Profile(key$, "FixationX", "0", stmp$);
-	FixationX := val(stmp$);
-	Profile(key$, "FixationY", "0", stmp$);
-	FixationY := val(stmp$);
-	Profile(key$, "FixationColor", "0", stmp$);
-	iFixationColor% := val(stmp$);
-
-	FixationColorList$[0]:="red"; 
-	FixationColorList$[1]:="green"; 
-	FixationColorList$[2]:="blue"; 
-	FixationColor$ := FixationColorList$[iFixationColor%];
-
-	Profile(key$, "FixationDiameter", "0.5", stmp$);
-	FixationDiameter := val(stmp$);
-
-	' Form the argument for applications. Convenience for passing args. 
-	FixationArg$ := " -f " + str$(FixationX) + "," + str$(FixationY) + "," + str$(FixationDiameter) + "," + FixationColor$;
-end;
-
-proc SaveFixationPointParameters()
-	var key$;
-	key$ := "AlertRig\\" + GetCurrentConfiguration$() + "\\FixationPoint";
-	Profile(key$, "WindowRadius", str$(WindowRadius));
-	Profile(key$, "FixationX", str$(FixationX));
-	Profile(key$, "FixationY", str$(FixationY));
-	Profile(key$, "FixationColor", str$(iFixationColor%));
-	Profile(key$, "FixationDiameter", str$(FixationDiameter));
-end;
-
-
-func FixationPointDialog%()
-
-	var i%;
-	GetFixationPointParameters();
-	DlgCreate("Fixation parameters: " + GetCurrentConfiguration$(), 25, 10);
-	DlgReal(1, "Fixation X:", -20, 20);
-	DlgReal(2, "Fixation Y:", -20, 20);
-	DlgReal(3, "Fixation diam:", .1, 5);
-	DlgReal(4, "Window radius:", .1, 10);
-	DlgList(5, "Color:", FixationColorList$[]);
-	i% := DlgShow(FixationX, FixationY, FixationDiameter, WindowRadius, iFixationColor%);	
-
-	' If user cancelled, reload params
-	if i% = 0 then
-		GetFixationPointParameters();
-	else
-		SaveFixationPointParameters();
-	endif
-
-	return 1;
-end;
-
-
-''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-'
-'	Fixation Point parameters END
-'
-''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-
-
 
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
@@ -257,16 +160,6 @@ var fixNWavemarks% := 0;
 var fixWavemarkPorts%[16];
 var fixNContinuous% := 0;
 var fixContinuousPorts%[16];
-
-
-
-
-' Fetch parameters
-GetDailyTotals();
-GetDAQParameters();
-GetFixationPointParameters();
-GetFixationScriptParameters();
-GetDataParameters();
 
 
 if Query("Did you un-check Edit>Preferences>Sampling>Event ports 0 and 1....?") = 0 then
