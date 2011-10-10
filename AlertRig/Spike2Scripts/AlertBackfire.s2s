@@ -1,4 +1,7 @@
 ' $Log: not supported by cvs2svn $
+' Revision 1.5  2011/02/05 00:26:58  devel
+' Adapt correlation processes for multiple electrodes.
+'
 ' Revision 1.4  2011/02/04 23:50:34  devel
 ' Allow configuration of multiple electrodes.
 '
@@ -823,7 +826,7 @@ func Start%()
 			endif
 		endif
 		
-		Extras$ := " -b " + fixBackgroundColor$ + " -d " + DistanceToScreenMM$;
+		Extras$ := " -b " + fixBackgroundColor$ + " -d " + GetDistanceToScreenMM$();
 		
 		CommandLine$ := "cmd /k " + bin$ + "\\Fixation " + FixationArg$ + Extras$ + Distractors$;
 		
@@ -832,7 +835,7 @@ func Start%()
 
 		Horizontal%();
 
-		Extras$ := " -b " + fixBackgroundColor$ + " -d " + DistanceToScreenMM$ + " -C " + str$(fixCalibrationOffset);
+		Extras$ := " -b " + fixBackgroundColor$ + " -d " + GetDistanceToScreenMM$() + " -C " + str$(fixCalibrationOffset);
 		CommandLine$ := "cmd /k " + bin$ + "\\Calibration " + FixationArg$ + Extras$;
 
 	endif
