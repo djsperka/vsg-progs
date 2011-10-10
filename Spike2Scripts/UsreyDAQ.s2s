@@ -11,7 +11,7 @@
 #include "../../Spike2Util/DlgUtilities.s2s"
 
 
-var DistanceToScreenMM$;		' Distance to screen in MM
+' DJS var DistanceToScreenMM$;		' Distance to screen in MM
 var DegreesPerVoltX;			' Conversion factor from ADC to visual degrees
 var DegreesPerVoltY;			' Conversion factor from ADC to visual degrees
 var EyeCoilSamplingFrequency%;		' Frequency to sample eye coil at
@@ -35,9 +35,10 @@ func GetEyeYPort%()
     return EyeYPort%;
 end
 
-func GetDistanceToScreenMM$()
-    return DistanceToScreenMM$;
-end
+' DJS MOVED TO UsreyUtil.s2s 
+' func GetDistanceToScreenMM$()
+'    return DistanceToScreenMM$;
+'end
 
 func GetDegreesPerVoltX()
     return DegreesPerVoltX;
