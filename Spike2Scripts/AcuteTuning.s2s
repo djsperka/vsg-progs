@@ -1,680 +1,1616 @@
-' $Id: AcuteTuning.s2s,v 1.4 2010-04-23 23:41:06 devel Exp $
-'
-' AcuteTuning.s2s
-'
-' This is a replacement for the old acute rig tuning curve functions CreateParameterFile.s2s, 
-' CreateSDL.s2s. 
+' $Id: AcuteTuning.s2s,v 1.5 2011-10-10 23:02:44 devel Exp $
+const tunCVSID$ := "$Id: AcuteTuning.s2s,v 1.5 2011-10-10 23:02:44 devel Exp $";
 
-#include "../../Spike2Util/UsreyUtil.s2s"
-#include "../../Spike2Util/FileUtilities.s2s"
-#include "../../Spike2Util/MiscUtilities.s2s"
+
+
+
+' Hello again
+
 #include "../../Spike2Util/ChannelUtilities.s2s"
+#include "../../Spike2Util/UsreyUtil.s2s"
+#include "../../Spike2Util/LogUtilities.s2s"
+#include "../../Spike2Util/MiscUtilities.s2s"
+#include "AcuteTuningDialogs.s2s"
 #include "UsreyGratings.s2s"
-
-' tuning type-specific values
-var tunFileLabel$ := "zzz";
-
-' tuning daq parameters
-var tunNChannels%;
-var tunColorIndex%;
-var tunColor$[4];
-
-' Grating parameters
-var tunGratingParams$;
-
-' daq channels for triggers from vsg
-var tunChanTrigger% := 11;
-var tunChanVSGReady% := 12;
-
-' prog handles
-var tunHandleStim := -1;
-
-' window handles
-var tunWindowData%;
+'#include "UsreyFixationPoint.s2s"  'Removing fixation point
+#include "UsreyDAQ.s2s"
 
 
-' Tuning curve types
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+' Tuning Curve script START
+'
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
-const tuntypeOri%     := 101;
-const tuntypeDom%     := 102;
-const tuntypeSF%       := 103;
-const tuntypeTF%       := 104;
-const tuntypeArea%     := 105;
-const tuntypeXY%       := 106;
-var tuntypeSelected%   := tuntypeOri%;
+'var tunAlwaysLooking% := 1; ' If set eye signals ignored - subject presumed to be looking always. TESTING ONLY.
 
-' String vars whose values are specific to the expt type
-var tunExptTypeFileLabel$;
-var tunExptTypeLabel$;
-var tunExptTypeArgs$;
-
-' Colors
-var tunBGColor$[3];
-var tunBGColorIndex% := 0;
-var tunBGColorCurrent$;
-
-' Tuning curve parameters
-
-var tunNRepeats% := 1;
-var tunStimTime := 2;
-var tunBlankTime := 2;
-var tunNSteps% := 15;
-var tunOriMin := 0;
-var tunOriMax := 360;
-var tunContrastMin := 1;
-var tunContrastMax := 100;
-var tunSFMin := 0.1;
-var tunSFMax := 6;
-var tunTFMin := 0.5;
-var tunTFMax := 64;
-var tunRandomProgression% := 0;
-
-' tuned parameter arrays
-const tunMaxParameters% := 500;
-var tunParameterValues[tunMaxParameters%];
-var tunParameterIndices%[tunMaxParameters%];
-
-
-' Initializations
-
-tunBGColor$[0] := "gray";
-tunBGColor$[1] := "black";
-tunBGColor$[2] := "white";
-
-tunColor$[0] := "Black and white";
-tunColor$[1] := "S cone isolating";
-tunColor$[2] := "M cone isolating";
-tunColor$[3] := "L cone isolating";
-
-tunGratingParams$ := GetGratingParameters$("Stimulus");
-
-' TODO: Resize window?
-'View(App(0)).Window(0,0,75,95);
+'var tunFixationDuration := 2.0;	' Time required to hold fixation for reward (stim ON) - this is the stimulus duration
+'var tunUseMaintainMode% := 1;  ' If 1, maintain fixation point on screen through stimuli, if zero, force "restart" on each stimulus
+'var tunMaintainFixation := 2.0;	' Time required to hold fixation for reward (stim OFF)
+var tunStimulusDuration := 3;      ' New, time for each stimulus to last, replaces tunFixationDuration
+var tunInterTrialTime := 1;        ' New, time between stimuli 
+'var tunAcquisitionTime := 1.0;		' Time allowed to acquire fixation
+var tunBackgroundColor$ := "gray";	' background color for stim
+'var tunAcqFailTime := 2.0;			' Wait time after acquisition failure
+'var tunHoldFailTime := 2.0;			' Wait time after failure to hold fixation (not on the first time after acquisition)
+'var tunMaintainFailTime := 2.0;	' Wait time after breaking fixation during maintain phase
+'var tunTimeOutTime := 2.0;			' Wait time after failure to hold fixation (first time after acquisition)
+'var tunDoRivalry% := 0;          ' If checked, run for the rivalry rig
+var tunDoF12% := 1;                 ' compute f1 and f2. 
+'var tunSetStationary% := 0;         'do stationary?
+'var tunXHairText$;                  'holds whether crosshairs are on or off
+'var updateXHairText%;             'Gets the item number of a DlgText object for update
 
 
 
+' These will be set by the tuning curve choice
+var tunNAdvances%;		' Number of times stim will advance during one repeat
+var tunNRepeats%;		' Number of repeats
 
-'~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-' Script starts here
+' This vector will hold the actual values to step through. Some are log steps, some are not. 
+' The Indices array is the order to step through the values with: tunValues[tunValuesIndices%[0]], tunValues[tunValuesIndices%[1]], ...
+' djs Make a constant tunMaxTrials to set the max number of trials. Arrays etc should be declared with this const. See below and
+' tunF1Sum, tunF2Sum. 
+const tunMaxTrials% := 1000;
+var tunValues[tunMaxTrials%];
+var tunValuesIndices%[tunMaxTrials%]; 
+var tunNValues%;
+var tunValuesStringified$;
 
-' Initialize logging
+
+'const tundlgXHairButton% := 8;
+const tundlgOrientationButton% := 9;
+const tundlgContrastButton% := 10;
+const tundlgSpatialButton% := 11;
+const tundlgTemporalButton% := 12;
+const tundlgAreaButton% := 13;
+const tundlgGratingParametersButton% := 14;
+'const tundlgDonutButton% := 14;
+'const tundlgBerlinerButton% := 15;
+
+' Wavemarks and continuous ports are specified elsewhere
+var tunNWavemarks% := 0;
+var tunWavemarkPorts%[16];
+var tunNContinuous% := 0;
+var tunContinuousPorts%[16];
+
+' Hold sum of F1 values. Each channel (up to 16) has values saved according to the index of the tuning value
+' Rely on the fact that arrays are initialized with 0s in Spike2. 
+var tunF1Sum[16][tunMaxTrials%];
+var tunF2Sum[16][tunMaxTrials%];
+var tunTF;              ' Will need to use this during FFT analysis. Use at your own risk....
+
+
+
+proc GetTuningCurveScriptParameters()
+	var key$;
+	key$:= GetRigName$() + GetCurrentConfiguration$() + "\\Scripts\\Tuning";
+    
+	'tunFixationDuration := GetFloatRegistryValue(key$, "FixationDuration", tunFixationDuration);
+    'tunUseMaintainMode% := GetIntRegistryValue%(key$, "UseMaintainMode", tunUseMaintainMode%);
+	'tunMaintainFixation := GetFloatRegistryValue(key$, "MaintainFixation", tunMaintainFixation);
+    tunStimulusDuration := GetFloatRegistryValue(key$, "StimulusDuration", tunStimulusDuration);  'new
+    tunInterTrialTime := GetFloatRegistryValue(key$, "InterTrialTime", tunInterTrialTime);  'new
+    'tunAcquisitionTime := GetFloatRegistryValue(key$, "AcquisitionTime", tunAcquisitionTime);
+    'tunAcqFailTime := GetFloatRegistryValue(key$, "AcqFailTime", tunAcqFailTime);
+    'tunHoldFailTime := GetFloatRegistryValue(key$, "HoldFailTime", tunHoldFailTime);
+    'tunMaintainFailTime := GetFloatRegistryValue(key$, "MaintainFailTime", tunMaintainFailTime);
+    'tunTimeOutTime := GetFloatRegistryValue(key$, "TimeOutTime", tunTimeOutTime);
+    tunBackgroundColor$ := GetStringRegistryValue$(key$, "BackgroundColor", tunBackgroundColor$);
+    'tunDoRivalry% := GetIntRegistryValue%(key$, "DoRivalry", tunDoRivalry%);
+    'tunUseXHairs% := GetIntRegistryValue%(key$, "UseXHairs", tunUseXHairs%);
+    'tunXHairInnerRadiusOffset := GetFloatRegistryValue(key$, "XHairInnerRadiusOffset", tunXHairInnerRadiusOffset);
+    'tunXHairMiddleRadiusOffset := GetFloatRegistryValue(key$, "XHairMiddleRadiusOffset", tunXHairMiddleRadiusOffset);
+    'tunXHairOuterRadiusOffset := GetFloatRegistryValue(key$, "XHairOuterRadiusOffset", tunXHairOuterRadiusOffset);
+    'tunXHairTicInnerOffset := GetFloatRegistryValue(key$, "XHairTicInnerOffset", tunXHairTicInnerOffset);
+    'tunXHairTicOuterOffset := GetFloatRegistryValue(key$, "XHairTicOuterOffset", tunXHairTicOuterOffset);
+    'tunXHairNumGridDivisions% := GetIntRegistryValue%(key$, "XHairNumGridDivisions", tunXHairNumGridDivisions%);
+
+end;
+
+proc SaveTuningCurveScriptParameters()
+	var key$;
+	key$:= GetRigName$() + GetCurrentConfiguration$() + "\\Scripts\\Tuning";
+    
+	'SetFloatRegistryValue(key$, "FixationDuration", tunFixationDuration);
+    'SetFloatRegistryValue(key$, "UseMaintainMode", tunUseMaintainMode%);
+	'SetFloatRegistryValue(key$, "MaintainFixation", tunMaintainFixation);
+    SetFloatRegistryValue(key$, "StimulusDuration", tunStimulusDuration);
+    SetFloatRegistryValue(key$, "InterTrialTime", tunInterTrialTime);
+    'SetFloatRegistryValue(key$, "AcquisitionTime", tunAcquisitionTime);
+    'SetFloatRegistryValue(key$, "AcqFailTime", tunAcqFailTime);
+    'SetFloatRegistryValue(key$, "HoldFailTime", tunHoldFailTime);
+    'SetFloatRegistryValue(key$, "MaintainFailTime", tunMaintainFailTime);
+    'SetFloatRegistryValue(key$, "TimeOutTime", tunTimeOutTime);
+    SetStringRegistryValue(key$, "BackgroundColor", tunBackgroundColor$);
+    'SetIntRegistryValue(key$, "DoRivalry", tunDoRivalry%);
+    'SetIntRegistryValue(key$, "UseXHairs", tunUseXHairs%);
+    'SetFloatRegistryValue(key$, "XHairInnerRadiusOffset", tunXHairInnerRadiusOffset);
+    'SetFloatRegistryValue(key$, "XHairMiddleRadiusOffset", tunXHairMiddleRadiusOffset);
+    'SetFloatRegistryValue(key$, "XHairOuterRadiusOffset", tunXHairOuterRadiusOffset);
+    'SetFloatRegistryValue(key$, "XHairTicInnerOffset", tunXHairTicInnerOffset);
+    'SetFloatRegistryValue(key$, "XHairTicOuterOffset", tunXHairTicOuterOffset);
+    'SetIntRegistryValue(key$, "XHairNumGridDivisions", tunXHairNumGridDivisions%);
+    'PrintLog("Saved DoRivalry=%d\n", tunDoRivalry%);
+end;
+
+
+' TuningCurveScriptDialog
+' This dialog uses two global variables, tunContext$ and tunType$. 
+' Set tunContext$ = tunContextConfig$ to run in the config scripts. The dialog 
+' and its children (TuningCurveOrientationDialog, etc) will behave as expected, 
+' allowing the user to set parameters and saving them in the registry. Set 
+' tunContext$ = tunContextDAQ$ to run in a DAQ script. In this context you 
+' must check the return value of the dialog and (possibly) the value of 
+' tunType$. If the user hits Cancel in the main dialog, the return value is 0. 
+' If the user selects a subdialog and hits OK, the return value will be 1 and 
+' the value of tunType$ will be one of (tunTypeOrientation$, tunTypeContrast$, 
+' tunTypeSpatial$, tunTypeTemporal$). Here, proceed directly to DAQ. If the 
+' user Hits Cancel from the subdialog, then they return to the main dialog. If 
+' they hit OK from the main dialog, then the return value is 1, but 
+' tunType$ = tunTypeNone$. 
+
+
+func TuningCurveScriptDialog%()
+	var i%;
+	var iReturn%;
+    var tempParam$;
+    var tempPhase;
+    var boxOK% := 1;  'do the stimulus/crosshairs boxes overlap?
+	GetTuningCurveScriptParameters();
+	var bcl$[3];
+	var ibcl%:=0;
+	bcl$[0] := "gray";
+	bcl$[1] := "black";
+	bcl$[2] := "white";
+	for i%:=0 to 2 do
+		if tunBackgroundColor$ = bcl$[i%] then
+			ibcl% := i%;
+		endif
+	next;
+    
+'    docase 
+'    case tunUseXHairs% = 0 then
+'        tunXHairText$ := "Crosshairs are OFF";
+'    case tunUseXHairs% = 1 then
+'        tunXHairText$ := "Crosshairs are ON";
+'    endcase
+
+	DlgCreate("Tuning Curve Parameters", 50, 10);
+	DlgGroup("Common Parameters", 0, 1, 40, 4);
+'	DlgReal(1, "Acquisition time(s):", 1, 1000, 20, 2);
+'	DlgReal(2, "Fixation duration(s):", .1, 10, 20, 3);
+'	DlgReal(3, "Maintain fixation(s):", .1, 10, 20, 4);
+	DlgReal(1, "Stimulus Duration(s):", .1, 100, 20, 2);  'new, allow really long stimuli
+    DlgReal(2, "InterTrial Time(s):", .1, 100, 20, 3);  'new, allow really long stimuli
+'	DlgReal(4, "Acquisition fail time(s):", .01, 10, 20, 5);
+'	DlgReal(5, "Hold fixation failure time(s):", .01, 10, 20, 6);
+'	DlgReal(6, "Maintain fixation fail time(s):", .01, 10, 20, 7);
+'	DlgReal(7, "Time out time(s):", .01, 10, 20, 8);
+'	DlgList(8, "Background color:", bcl$, 3, 20, 9);
+	DlgList(3, "Background color:", bcl$, 3, 20, 4);  'updated as new dialog number
+'    DlgCheck(9, "Dual VSG rig", 2, 10);
+'    DlgCheck(10, "Maintain Fixpt between trials", 2, 11);
+'    DlgButton(tundlgXHairButton%, "Crosshairs", UpdateTuningXHairDialog%, 1, 12);
+'    updateXHairText% := DlgText(tunXHairText$, 15, 12);
+	DlgGroup("Individual Tuning Curve Types", 0, 6, 40, 6);
+	DlgButton(tundlgOrientationButton%, "Orientation", TuningCurveOrientationDialog%, 1, 7);
+	DlgButton(tundlgContrastButton%, "Contrast", TuningCurveContrastDialog%, 1, 8);
+	DlgButton(tundlgSpatialButton%, "Spatial Freq", TuningCurveSpatialDialog%, 1, 9);
+	DlgButton(tundlgTemporalButton%, "Temporal Freq", TuningCurveTemporalDialog%, 1, 10);
+	DlgButton(tundlgAreaButton%, "Area", TuningCurveAreaDialog%, 1, 11);
+    DlgGroup("Grating Parameters", 0, 12, 40, 2);
+    DlgButton(tundlgGratingParametersButton%, "Grating Parameters", TunDlgGratingMaster%, 1, 13);
+'	 DlgButton(tundlgDonutButton%, "Donuts!", TuningCurveDonutDialog%, 1, 19);
+'    DlgButton(tundlgBerlinerButton%, "Berliners!", TuningCurveBerlinerDialog%, 1, 20);
+'    DlgGroup("For Lazy People",0,21,40,2);
+'    DlgCheck(11, "Stationary",2,22);
+'    DlgAllow(0xffff, 0, TuningCurveScriptDialogChanged%);
+	
+'	i%:=DlgShow(tunAcquisitionTime, tunFixationDuration, tunMaintainFixation,
+'    tunAcqFailTime, tunHoldFailTime, tunMaintainFailTime, tunTimeOutTime, ibcl%, tunDoRivalry%, 
+'    tunUseMaintainMode%, tunSetStationary%);
+    
+    i%:=DlgShow(tunStimulusDuration, tunInterTrialTime, ibcl%);  'new, for reduced dialog
+    
+    ' djs 4-1-09
+    ' Spike2 v6 change. DlgShow will return the button number when a button on the dialog is hit and the corresponding
+    ' function returns 0. In this case those buttons open the various tuning type sub dialogs (orientation, area, etc). 
+    ' In the last version, DlgShow would return the same value that the subdialog's function returned, and the code here
+    ' was set up to behave accordingly. When the user hits the Cancel button in the subdialog everything still remains
+    ' the same. 
+    
+    ' djs 2-4-2011
+    ' Spike2v6 bug (see TuningDialogs.s2s) workaround requires that the tuning type dialogs return something > 0. 
+    ' That will mean that closing any of those dialogs will not cause the main dialog (this one) to close automatically. 
+    ' When it did close automatically the return value from DlgShow above was the same as the button that caused
+    ' the close. Now, that button is NOT causing the close, so the return value is going to be 1 (not the button number). 
+    ' In addition, the return value from this function needs to change because we now assume that the user will have
+    ' to hit OK on this dialog to start the experiment. Thus, make sure that the return value from this function is 1
+    ' when user hits OK and 0 when user hits Cancel. Also, do not save script parameters when user hits Cancel.
+    
+    'PrintLog("Tuning Curve Parameters Dialog - return from DlgShow is %d\n", i%);
+    '	if i%=tundlgOrientationButton% or i%=tundlgContrastButton% or i%=tundlgSpatialButton% or i%=tundlgTemporalButton% or i%=tundlgAreaButton% then
+    if i% = 1 then
+		tunBackgroundColor$ := bcl$[ibcl%];
+		SaveTuningCurveScriptParameters();
+		if tunContext$ = tunContextDAQ$ then 
+            iReturn% := 1;
+		else iReturn% := 1;
+		endif;
+        
+        'check to make sure that the box for the crosshairs and stimuli do not overlap
+        'this would work if it only got the maximum value of the size of the stimuli
+'        if tunUseXHairs% = 1 and (tunType$ = tunTypeBerliner$ or tunType$ = tunTypeDonut$) then
+'            tempParam$ := GetGratingParameters$("Stimulus");
+'            boxOK% := CheckXHairStimulusBox(tempParam$,tunXHairOuterRadiusOffset,tunMaximalDiam);
+'            if boxOK% = 0 then
+'                boxOK% := Query("The stimulus will overlap the crosshairs!","Continue","Quit");
+'            endif;           
+'            if boxOK% = 1 then
+'                tempParam$ := GetGratingParameters$("SlaveStimulus");
+'                boxOK% := CheckXHairStimulusBox(tempParam$,tunXHairOuterRadiusOffset,tunSlaveMaximalDiam);
+'                if boxOK% = 0 then
+'                    boxOK% := Query("The slave stimulus will overlap the crosshairs!","Continue","Quit");
+'                endif;
+'            endif;
+'            if boxOK% = 0 then
+'                iReturn% := 0;  'quit if user requested quit
+'            endif;
+'        endif;  
+        
+	endif;
+	if i% = 0 then
+		'PrintLog("Tuning Curve Parameters dialog - user hit Cancel, tunType=" + tunType$ + "\n");
+		if tunContext$ = tunContextDAQ$ then 
+			if tunType$ <> tunTypeNone$ then 
+				iReturn% := 0;
+				'SaveTuningCurveScriptParameters();
+			else iReturn% := 0;
+		 	endif;
+		else
+			iReturn% := 2;		' The calling/main dialog would close if we returned 0
+		endif;
+	endif;
+	return iReturn%;
+end;
+
+
+
+'func TuningCurveScriptDialogChanged%(item%) 
+'    if DlgValue(9) = 0 then  'If single VSG, do not allow Donuts or Berliners
+'        DlgEnable(0,-tundlgDonutButton%,-tundlgBerlinerButton%);
+'    endif;
+'    if DlgValue(9) = 1 then  'If dual VSG, allow donuts and Berliners
+'        DlgEnable(1,-tundlgDonutButton%,-tundlgBerlinerButton%);
+'    endif;
+'    return 1;
+'end
+
+
+
+
+'func UpdateTuningXHairDialog%()
+'    
+'    'Run the tuning crosshairs dialog  
+'    TuningXHairDialog%();  
+'    
+'    'When done with the tuning crosshairs dialog, update tunXHairText$ and update the main dialog
+'    docase 
+'    case tunUseXHairs% = 0 then
+'        tunXHairText$ := "Crosshairs are OFF";
+'    case tunUseXHairs% = 1 then
+'        tunXHairText$ := "Crosshairs are ON";
+'    endcase
+'    
+'    DlgValue$(updateXHairText%, tunXHairText$);
+'    
+'    return 1;
+'end
+
+
+
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+' Tuning Curve script END
+'
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+
+' Overall script control vars
+var Pause% := 0;
+
+' Channel numbers and handles
+var StimHandle%;			' handle for stimulus application
+var DataWindow%;		' 
+var XChannel%;
+var YChannel%;
+
+var FrameChannel%;
+'var FrameSlaveChannel%;
+'var FixationPointChannel%;
+var StimChannel%;
+var StimChangeChannel%;
+var ReadyChannel%;
+'var FixationPointSlaveChannel%;
+'var StimSlaveChannel%;
+
+' xy windows for plotting (TuningWindow) and PSTH. 
+var TuningWindow%[16];	' one for each wavemark channel
+var PSTHWindow%[16];    ' used for f1 and f2. Will be made invisible when in use. 
+
+' XY window stuff
+var XYWindow%;			' 
+var iStimChannel%;	' channel number for stimulus in xy window
+var iStimWindowChannel%;' channel number for stimulus window in xy window
+var iMonitorChannel%;	' channel number for monitor position display in xy window
+
+' Display stuff
+var FixWindowX[36],FixWindowY[36];	' points for displaying fixation window in xy view
+var windowX[36], windowY[36];
+
+' dummy vars
+var iScript%;
+
+' Init logging
 LogInit(1);
 
+' Check if always looking flag is set. If so, issue a warning. 
+'if tunAlwaysLooking% = 1 then
+'    if Query("Always looking is SET. Unset?") = 1 then
+'        tunAlwaysLooking% := 0;
+'    endif
+'endif
 
-' Get experimental parameters. 
-' tunFileLabel$ is set here! 
-if AcuteTuningDialog%() = 0 then
-    halt;
+' run parameters script....
+tunContext$ := tunContextDAQ$;
+tunType$ := tunTypeNone$;
+
+GetTuningCurveScriptParameters();
+iScript% := TuningCurveScriptDialog%();
+if iScript% = 1 then
+	if tunType$ = tunTypeNone$ then
+		LogInfo("No tuning type selected, exit gracefully\n");
+		Halt;
+	else
+		'LogInfo("Tuning type \"" + tunType$ + "\" selected, proceed with DAQ. DoRivalry = " + str$(tunDoRivalry%));
+        LogInfo("Tuning type \"" + tunType$ + "\" selected, proceed with DAQ.");
+	endif;
+else
+	LogInfo("User cancel - exit gracefully\n");
+	Halt;
+endif;
+
+
+' When TF curve, don't do f1 and f2. 
+if tunType$ = tunTypeTemporal$ then
+    tunDoF12% := 0;
 endif
 
-' Sampling config
+
+' Assign channel numbers for eye X,Y and trigger. 
+XChannel% := 21;
+YChannel% := 22;
+'FixationPointChannel% := 24;
+StimChannel% := 25;
+ReadyChannel% := 27;            ' Look for ready signal on port 2 (same as fixpt). 
+'FixationPointSlaveChannel% := 28;
+'StimSlaveChannel% := 29;
+FrameChannel% := 19;
+'FrameSlaveChannel% := 20;
+
+' Fetch electrode information. 
+tunNWavemarks% := GetWavemarkPorts%(tunWavemarkPorts%[]);
+tunNContinuous% := GetContinuousPorts%(tunContinuousPorts%[]);
+
 CreateSampleConfiguration();
 
-' Prepare display windows, input channels, etc. 
+
+' Get display windows ready
 InitializeWindows();
 
-
-	
-ToolbarSet(1,"Quit",Quit%);
-ToolbarSet(2,"Sample start",Start%);
-ToolbarSet(3,"Sample stop", Stop%);
-ToolbarEnable(3,0);
-Toolbar("Go",1234);
-
-' Oh no! Make sure sampling has stopped!
-if SampleStatus() <> -1 then
-    LogWarn("AcuteTuning", "Toolbar exited and sampling status is " + str$(SampleStatus()) + ". Stopping sampling...");
-    SampleStop();
-    LogWarn("AcuteTuning", "Sampling stopped.");
-endif
+' Prepare the toolbar buttons
+InitializeToolbar();
 
 
-proc CreateSampleConfiguration()
-    
-    var i%;
-    
-	SampleClear(); 'Set standard sampling state
-	SampleAutoComment(0); 'Prompt for comment after sampling
-	SampleAutoCommit(60); 'Seconds between each file commit
-    
-    FilePathSet(GetDataPathRoot$() + "\\" + GetDataSetName$(), 3);
-    FilePathSet(GetDataPathRoot$() + "\\" + GetDataSetName$(), 1);
-    SampleAutoName$(dataCellName$ + "_" + tunFileLabel$ + "_000");
-	SampleAutoFile(1);
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+' InitilizeToolbar - prepare toolbar buttons. Note that the idle processing function (ToolbarSet(0, blah, blah)) is 
+' not set here. That's done when the user hits the start button.
+'
+proc InitializeToolbar()
 
-    'Channel recording definitions
-
-    for i% := 1 to tunNChannels% do
-        SampleWaveMark(i%, i%-1, 2000, 34, 15, 28000); ' chan, port, event rate, points, pre-trigger, rate
-        SampleTitle$(i%, "Trode " + Str$(i%-1));
-    next
-
-    SampleEvent(tunChanTrigger%, 1, 1, 1000); 
-    SampleTitle$(tunChanTrigger%, "Terms");
-    
-   	SampleEvent(tunChanVSGReady%, 6, 2, 200); 'Trigger channel, level
-	SampleComment$(tunChanVSGReady%, "VSG Rdy");
-	SampleTitle$(tunChanVSGReady%, "VSG Rdy");
-    
-	SampleSequencer(script$ + "AcuteTuning.pls");
-    SampleOptimise(2, 2, 2, 2, 50);  'Set optimise mode (do this last)
-    SampleMode(1); 'Continuous sampling
-    
-end;
-
-
-proc InitializeWindows()
-    var i%;
-    var AutoCorr%;
-    
 	View(App(8)).WindowVisible(0);	'Hide the standard sample bar
-    
-    tunWindowData% := FileNew(0,4);
-    View(tunWindowData%).WindowVisible(1);
-    View(tunWindowData%).Window(0,33,100,100);
+	ToolbarVisible(1);
+	ToolbarSet(1,"Sample start",Start%);
+	ToolbarSet(2,"Sample stop", Stop%);
+'	ToolbarSet(3,"Juice", Juice%);
+	ToolbarSet(4,"Pause stimuli",PauseStimuli%);
+	ToolbarSet(5,"Resume stimuli",ResumeStimuli%);
+'	ToolbarSet(6,"Exp Parameters",AttentionScriptDialog%);
+	ToolbarSet(7,"Quit",Quit%);
+	ToolbarEnable(2,0);
+	ToolbarEnable(4,0);
+	ToolbarEnable(5,0);
+	Toolbar("Go",0x3ff);
 
-    SaveParameterFile();
-end
-
-proc SaveParameterFile()
-    var handle;
-    var filename$;
-    
-    filename$ := ReplaceFileExtension$(-1, "par");
-    handle := FileOpen(filename$, 8, 1);
-    if handle <0 then 
-        Message("Could not create parameter file " + filename$);
-    else
-        LogInfo("TODO : Writing parameters to file " + filename$);
-        FileClose();
-    endif
-    
-    return;
-end
-
-
-func AcuteTuningDialog%()
-    var status%;
-    
-    LogWarn("AcuteTuningDialog()", "TODO: Get Acute Tuning Parameters");
-    
-    DlgCreate("Select Tuning Curve Type");
-    DlgButton(101, "Orientation", TunDlgOrientation%, 1, 1);
-    DlgButton(102, "Contrast", TunDlgContrast%, 1, 2);
-    DlgButton(103, "Spatial Frequency", TunDlgSF%, 1, 3);
-    DlgButton(104, "Temporal Frequency", TunDlgTF%, 1, 4);
-    DlgButton(105, "Area", TunDlgArea%, 1, 5);
-    DlgButton(106, "XY", TunDlgXY%, 1, 6);
-    status% := DlgShow();    
-    if status% <> 0 then
-        tunBGColorCurrent$ := tunBGColor$[tunBGColorIndex%];
-    endif
-    
-    LogWarn("AcuteTuningDialog()", "TODO: Save Acute Tuning Parameters");
-    
-    return status%;
-end
-
-
-func TunDlgOrientation%()
-    var status%;
-    var nParams%;
-    DlgCreate("Orientation Tuning Parameters");
-    DlgReal(1, "Stimulus time(s)", 0.1, 100.0);
-    DlgReal(2, "Blank time(s)", 0.1, 100.0);
-    DlgInteger(3, "Number of steps", 2, 100);
-    DlgInteger(4, "Number of repeats", 1, 100);
-    DlgReal(5, "Min Orientation", 0, 360);
-    DlgReal(6, "Max Orientation", 0, 360);
-    DlgCheck(7, "Random Progression?");
-	DlgList(8, "Background color:", tunBGColor$);
-    DlgButton(151, "Grating Properties", TunDlgOrientationGrating%);
-    status% := DlgShow(tunStimTime, tunBlankTime, tunNSteps%, tunNRepeats%, tunOriMin, tunOriMax, tunRandomProgression%, tunBGColorIndex%);
-    
-    ' Check return value from DlgShow. If user hit OK, the return value is 1, but we must
-    ' change it to 0 here.... that's so the calling dialog exits. 
-    ' Before we return from here, though, we have all the info needed to put together the 
-    ' command line for the tuning program. 
-    
-    docase
-    case status% = 0 then 
-        status% := 1;
-    case status% = 1 then
-        status% := 0;
-        tunExptTypeFileLabel$ := "ori";
-        tunExptTypeLabel$ := "Orientation";
-        nParams% := (tunNSteps%+1)*tunNRepeats%;
-        if GetRepeatedParameterProgression%(tunNSteps%+1, tunNRepeats%, tunParameterValues[0:nParams%], tunParameterIndices%[0:nParams%], tunOriMin, tunOriMax, 0, tunRandomProgression%) <> 0 then
-            ' TODO: Make sure dialog limits values to this never happens!
-            Message("Cannot get progression values for this expt!");
-            halt;
-        endif
-        tunExptTypeArgs$ := " -O " + GetRealArrayAsString$(tunParameterValues[0:tunNSteps%+1], tunParameterIndices%[0:tunNSteps%+1]);
-        PrintLog(tunExptTypeArgs$ + "\n");
-    endcase
-    
-    return status%;
-end
-
-
-
-func TunDlgOrientationGrating%()
-    
-    var x, y, w, h, sf, tf, ori;
-    var contrast%;
-    var label$, param$, cv$, pattern$, aperture$;
-    var i%;
-    var disable%[11];
-    var ndisable%;
-
-    ' Disregard the return value from GratingParametersDialog and return 1 so the calling dialog does not exit. 
-    ArrConst(disable%[], 0);
-    ndisable% := 1;
-    disable%[0] := 8;
-    i% := GratingParametersDialog%(label$, tunGratingParams$, disable%[], ndisable%, x, y, w, h, contrast%, sf, tf, ori, cv$, pattern$, aperture$);
-    LogInfo("TunDlg Orientation: grating label=>" + label$ + "<");
-    LogInfo("TunDlg Orientation: params=>" + tunGratingParams$ + "<");
-    return 1;
-end
-
-
-
-func TunDlgContrast%()
-    var status%;
-    DlgCreate("Contrast Tuning Parameters");
-    DlgReal(1, "Stimulus time(s)", 0.1, 100.0);
-    DlgReal(2, "Blank time(s)", 0.1, 100.0);
-    DlgInteger(3, "Number of steps", 2, 100);
-    DlgInteger(4, "Number of repeats", 1, 100);
-    DlgReal(5, "Min Contrast%", 1, 100);
-    DlgReal(6, "Max Contrast%", 1, 100);
-    DlgCheck(7, "Random Progression?");
-	DlgList(8, "Background color:", tunBGColor$);
-    DlgButton(151, "Grating Properties", TunDlgContrastGrating%);
-    status% := DlgShow(tunStimTime, tunBlankTime, tunNSteps%, tunNRepeats%, tunContrastMin, tunContrastMax, tunRandomProgression%, tunBGColorIndex%);
-    
-    ' Check return value from DlgShow. If user hit OK, the return value is 1, but we must
-    ' change it to 0 here.... that's so the calling dialog exits. 
-    ' Before we return from here, though, we have all the info needed to put together the 
-    ' command line for the tuning program. 
-    
-    docase
-    case status% = 0 then 
-        status% := 1;
-    case status% = 1 then
-        status% := 0;
-        tunExptTypeFileLabel$ := "dom";
-        tunExptTypeLabel$ := "Contrast";
-        if GetRepeatedParameterProgression%(tunNSteps%+1, tunNRepeats%, tunParameterValues[0:tunNSteps%+1], tunParameterIndices%[0:tunNSteps%+1], tunContrastMin, tunContrastMax, 1, tunRandomProgression%) <> 0 then
-            ' TODO: Make sure dialog limits values to this never happens!
-            Message("Cannot get progression values for this expt!");
-            halt;
-        endif
-        tunExptTypeArgs$ := " -C " + GetRealArrayAsString$(tunParameterValues[0:tunNSteps%+1], tunParameterIndices%[0:tunNSteps%+1]);
-        PrintLog(tunExptTypeArgs$ + "\n");
-    endcase
-    
-    return status%;
-end
-
-func TunDlgContrastGrating%()
-    
-    var x, y, w, h, sf, tf, ori;
-    var contrast%;
-    var label$, param$, cv$, pattern$, aperture$;
-    var i%;
-    var disable%[11];
-    var ndisable%;
-
-    ' Disregard the return value from GratingParametersDialog and return 1 so the calling dialog does not exit. 
-    ArrConst(disable%[], 0);
-    ndisable% := 1;
-    disable%[0] := 5;
-    i% := GratingParametersDialog%(label$, param$, disable%[], ndisable%, x, y, w, h, contrast%, sf, tf, ori, cv$, pattern$, aperture$);
-    return 1;
-end
-
-
-func TunDlgSF%()
-    var status%;
-    var nParams%;
-    DlgCreate("Spatial Frequency Tuning Parameters");
-    DlgReal(1, "Stimulus time(s)", 0.1, 100.0);
-    DlgReal(2, "Blank time(s)", 0.1, 100.0);
-    DlgInteger(3, "Number of steps", 2, 100);
-    DlgInteger(4, "Number of repeats", 1, 100);
-    DlgReal(5, "Min SF", .01, 100);
-    DlgReal(6, "Max SF", .01, 100);
-    DlgCheck(7, "Random Progression?");
-	DlgList(8, "Background color:", tunBGColor$);
-    DlgButton(151, "Grating Properties", TunDlgSFGrating%);
-    status% := DlgShow(tunStimTime, tunBlankTime, tunNSteps%, tunNRepeats%, tunSFMin, tunSFMax, tunRandomProgression%, tunBGColorIndex%);
-    
-    ' Check return value from DlgShow. If user hit OK, the return value is 1, but we must
-    ' change it to 0 here.... that's so the calling dialog exits. 
-    ' Before we return from here, though, we have all the info needed to put together the 
-    ' command line for the tuning program. 
-    
-    docase
-    case status% = 0 then 
-        status% := 1;
-    case status% = 1 then
-        status% := 0;
-        tunExptTypeFileLabel$ := "sf";
-        tunExptTypeLabel$ := "Spatial Frequency";
-        nParams% := (tunNSteps%+1)*tunNRepeats%;
-        if GetRepeatedParameterProgression%(tunNSteps%+1, tunNRepeats%, tunParameterValues[0:nParams%], tunParameterIndices%[0:nParams%], tunSFMin, tunSFMax, 1, tunRandomProgression%) <> 0 then
-            ' TODO: Make sure dialog limits values to this never happens!
-            Message("Cannot get progression values for this expt!");
-            halt;
-        endif
-        tunExptTypeArgs$ := " -S " + GetRealArrayAsString$(tunParameterValues[0:tunNSteps%+1], tunParameterIndices%[0:tunNSteps%+1]);
-        PrintLog(tunExptTypeArgs$ + "\n");
-    endcase
-    
-    return status%;
-end
-
-func TunDlgSFGrating%()
-    
-    var x, y, w, h, sf, tf, ori;
-    var contrast%;
-    var label$, param$, cv$, pattern$, aperture$;
-    var i%;
-    var disable%[11];
-    var ndisable%;
-
-    ' Disregard the return value from GratingParametersDialog and return 1 so the calling dialog does not exit. 
-    ArrConst(disable%[], 0);
-    ndisable% := 1;
-    disable%[0] := 6;
-    i% := GratingParametersDialog%(label$, param$, disable%[], ndisable%, x, y, w, h, contrast%, sf, tf, ori, cv$, pattern$, aperture$);
-    return 1;
-end
-
-
-func TunDlgTF%()
-    var status%;
-    var nParams%;
-    DlgCreate("Temporal Frequency Tuning Parameters");
-    DlgReal(1, "Stimulus time(s)", 0.1, 100.0);
-    DlgReal(2, "Blank time(s)", 0.1, 100.0);
-    DlgInteger(3, "Number of steps", 2, 100);
-    DlgInteger(4, "Number of repeats", 1, 100);
-    DlgReal(5, "Min TF", .01, 100);
-    DlgReal(6, "Max TF", .01, 100);
-    DlgCheck(7, "Random Progression?");
-	DlgList(8, "Background color:", tunBGColor$);
-    DlgButton(151, "Grating Properties", TunDlgTFGrating%);
-    status% := DlgShow(tunStimTime, tunBlankTime, tunNSteps%, tunNRepeats%, tunTFMin, tunTFMax, tunRandomProgression%, tunBGColorIndex%);
-    
-    ' Check return value from DlgShow. If user hit OK, the return value is 1, but we must
-    ' change it to 0 here.... that's so the calling dialog exits. 
-    ' Before we return from here, though, we have all the info needed to put together the 
-    ' command line for the tuning program. 
-    
-    docase
-    case status% = 0 then 
-        status% := 1;
-    case status% = 1 then
-        status% := 0;
-        tunExptTypeFileLabel$ := "tf";
-        tunExptTypeLabel$ := "Temporal Frequency";
-        nParams% := (tunNSteps%+1)*tunNRepeats%;
-        if GetRepeatedParameterProgression%(tunNSteps%+1, tunNRepeats%, tunParameterValues[0:nParams%], tunParameterIndices%[0:nParams%], tunTFMin, tunTFMax, 1, tunRandomProgression%) <> 0 then
-            ' TODO: Make sure dialog limits values to this never happens!
-            Message("Cannot get progression values for this expt!");
-            halt;
-        endif
-        tunExptTypeArgs$ := " -T " + GetRealArrayAsString$(tunParameterValues[0:tunNSteps%+1], tunParameterIndices%[0:tunNSteps%+1]);
-        PrintLog(tunExptTypeArgs$ + "\n");
-    endcase
-    
-    return status%;
-end
-
-func TunDlgTFGrating%()
-    
-    var x, y, w, h, sf, tf, ori;
-    var contrast%;
-    var label$, param$, cv$, pattern$, aperture$;
-    var i%;
-    var disable%[11];
-    var ndisable%;
-
-    ' Disregard the return value from GratingParametersDialog and return 1 so the calling dialog does not exit. 
-    ArrConst(disable%[], 0);
-    ndisable% := 1;
-    disable%[0] := 7;
-    i% := GratingParametersDialog%(label$, param$, disable%[], ndisable%, x, y, w, h, contrast%, sf, tf, ori, cv$, pattern$, aperture$);
-    return 1;
-end
-
-
-func TunDlgArea%()
-    var status%;
-    DlgCreate("Area Tuning Parameters");
-    status% := DlgShow();
-    PrintLog("TunDlgArea %d\n", status%);
-    docase
-    case status% = 0 then 
-        status% := 1;
-    case status% = 1 then
-        status% := 0;
-        tunExptTypeFileLabel$ := "area";
-        tunExptTypeLabel$ := "Area";
-    endcase
-    return status%;
-end
-
-func TunDlgXY%()
-    var status%;
-    DlgCreate("XY Tuning Parameters");
-    status% := DlgShow();
-    PrintLog("TunDlgXY %d\n", status%);
-    docase
-    case status% = 0 then 
-        status% := 1;
-    case status% = 1 then
-        status% := 0;
-        tunExptTypeFileLabel$ := "xy";
-        tunExptTypeLabel$ := "XY";
-    endcase
-    return status%;
-end
-
-
-' Quit is used to exit the script entirely. 
-' If there are any VSG apps running they should be stopped now. 
-' All VSG apps should be triggered off if possible - that allows for clean
-' handling of the lock. 
-' Could check if app is running, display error message. 
-
-''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-func Quit%()
-'   TODO: Check for running vsg app.
-    return 0;
 end;
 
-''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
-' Start is used to start sampling. Start must take things from post-dialog (i.e. all parameters can 
-' be assumed to be expt-ready, but live, daq-related values (updated in Idle%() ) - tStateStart, 
-' iState%, etc.) have only been initialized, not used.
-' Start should start sampling, and immediately issue a SampleKey("0"); to lower all output lines. 
-' THEN launch vsg application (so it sees the cleared triggers. 
-' Finally, take care of the toolbar. 
 
-func Start%()
-    var cmd$;
-    
-    ' Start sampling
-    SampleStart(0);
-    View(tunWindowData%);    
-    
-    ' Send sample key. 
-    SampleKey("0");
-    
-    ' Set idle here - before vsg launches so we cannot miss the ready signal. 
-    ToolbarEnable(3,1); ' stop
-    ToolbarEnable(2,0); ' start
-    ToolbarEnable(1,0); ' quit
-    ToolbarSet(0, "", Idle%);
-    
-    ' Build command line and launch vsg app.     
-    cmd$ := GetBinDir$(1) + "meatuning.exe " + "-cvb " + tunBGColorCurrent$ + " -g " + tunGratingParams$ + " -t " + str$(tunStimTime) + " -d " + GetAcuteDistanceToScreenMM$() + tunExptTypeArgs$;
-    LogInfo(cmd$);
-    tunHandleStim := ProgRun("cmd /c " + cmd$);
-    
-    
-    'wait 5 seconds for some spikes to come in, and then optimize the display for them.
-    Yield(5);
-    View(tunWindowData%).Optimise(-1, 0, MaxTime());
-    return 1;
-end;
 
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'func Looking%(EyePosX,EyePosY)
+'	'Determine if the eye position is within the fixation window
+'    if tunAlwaysLooking% = 1 then return 1; endif;
+'	if (Pow(EyePosX-FixationX,2) + Pow(EyePosY-FixationY,2)) <= Pow(WindowRadius,2) then return 1; else return 0; endif
+'end;
 
-
-' Stop must stop applications and sampling nicely. Adjust toolbar to wait for "quit", stop Idle%(). 
-' Send SampleKey to kill the VSG app and wait for it to exit. 
-' TODO: Can this be done with a timeout?
-' VSG apps should return to gray screen, clear triggers, all off - at same time that lock is freed?
-
-func Stop%()
-    
-    ' remove the idle process. 
-    ToolbarSet(0, "");
-    ToolbarEnable(1, 1);
-    ToolbarEnable(3, 0);
-    
-    ' send the quit command before stopping sampling
-    SampleKey("q");
-    while ProgStatus(tunHandleStim) > 0 do
-        Yield(1);
-    wend
-    SampleStop();
-    
-    ' clear screen/trigger, just in case
-    'ProgRun(GetBinDir$(1) + "ClearTrigger");
-
-    return 1;
-end; 
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'func Juice%()
+'    DeliverReward();
+'    return 1;
+'end;
 
-var tNow;               ' Set on entering this func. For this invocation it is the latest time sampled. 
-var tLast;              ' This is tNow from the last time Idle%() was called. 
-var tStateStart := -1;  ' Start time of current state
-var tStimStart := -1;   ' Time of stim ON trig
-var tBlankStart := -1;  ' Time of blankON trig
-var tBlankEnd := -1;    ' time of blankOFF trig
-var iStimCounter% := 0;
-var iBlankCounter% := 0;
-var tTrigger := -1;
-var vTrigger;
-var tlastTrigger := -1;
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
-' states
-const stateStartup%             :=  1;
-const stateVSGWait%             :=  2;
-const stateVSGConfirm%          :=  3;
-const stateStartTuning%         :=  4;
-const stateNoStim%              :=  5;
-const stateStimON%              :=  6;
-const stateBlankON%             :=  7;
-const stateDone%                := 99;
-var iState% := stateStartup%;              ' This holds the current state
-var iDummy% := 0;
 
-func Idle%()
-    var status% := 1;
+
+var tNow:=0;		' latest time for which there are values recorded. Used in IdleProcessing
+var tLast:=-1;		' last time we checked for a trigger. 
+'var xEye, yEye;		' eye positions
+var tLastUpdate:=-1;	' last time view was updated
+var vTrigger;		' set by NextTime to indicate trigger transition
+var tStateStart:=-1;	' time that present state started. Used to measure wait time, fixation time, etc. 
+var tLastTrigger:=-1;	' last trigger time. New triggers have to be greater than this
+var tTrigger:=-1;	' temp var for newly discovered trigger times
+var tStimOn:=-1;	' time that stim was turned on. Used to measure spike rates 
+var tStimSequence := -1;    ' time that stim sequence started; followed by pulses on frame channels
+var tInterTrialTime := 0;	' Time spent waiting between trials (i.e. after screen is blank, but before fix point is presented)
+'var iHoldCount% := 0;	' Counter of how many times we progress through the hold fixation state in the maintainence loop. Used to decide if "time out" is required. 
+var tRise, tFall;
+'var tKludge := 0.06;    ' Add to Fixation time to account for stim sequence. Ugly hack, admittedly, but one does what one must. 
+
+' Constants for states
+const stateStartTrial%:=0;		' Start trial state
+'const stateWaitForFixPtOn%:=1;		' Waiting for fixation point return trigger (on)
+'const stateWaitForBlank%:=2;		' Waiting for fixation point return trigger (off)
+const stateWaitForStimOn%:=3;		' Wait for stimulus return trigger (on)
+const stateWaitForStimOff%:=4;		' Wait for stimulus return trigger (off)
+const stateStimulusPlaying%:=5;     ' New, wait for tNow to exceed stimulus duration
+'const stateWaitForAcquisition%:=5;	' Waiting for subject to acquire fixation point
+'const stateHoldFixation%:=6;		' Holding fixation point
+'const stateAbort%:=7;			' Failed trial state
+const stateMaintainFixation%:=8;	' Maintaining fixation (stim off period)
+const stateInterTrialInterval%:=9;	' time out after failed trial
+const stateVSGWait%:=10;		' wait for vsg to send ready signal #1
+const stateVSGWaitConfirm%:=11;		' waif for vsg to send ready signal #2
+const stateTrialCompleted%:=12;		' trial has been completed successfully
+const stateDone%:=13;	
+const stateWaitForStimTrigger% := 14; ' Rising edge indicating start of stim sequence
+var iState% := stateVSGWait%;	' present state
+
+var nTrialsStarted%:=0;
+var nTrialsCompleted%:=0;
+var nTrialsAborted% :=0;		' 
+
+var tic;  'Set a tick value equal to the duration of one clock tick in seconds, used to prevent finding
+          'the same "pulse" twice
+tic := View(DataWindow%).BinSize(ReadyChannel%);
+
+var pulseFound%;
+
+func IdleProcessing%()
+	var iStatus% := 1;	
+	tNow := View(DataWindow%).MaxTime();
     
-	tNow := MaxTime();
+    ' First time through (tLast<0) just update tLast. Crosstalk on vsg dig outputs leads to erroneous
+    ' triggers. Maybe this will help. 
+    if tLast < 0 then
+        tLast := 1;
+        return 1;
+    endif
     
-    docase 
-    case iState% = stateStartup% then
-        
-        LogStatus("stateStartup", "Starting up.");
-        ChangeStateTo(stateVSGWait%, tNow);
-        
+    
+'	xEye := View(DataWindow%).ChanMeasure(XChannel%,2,tNow-.001,tNow-.006)*DegreesPerVoltX;
+'	yEye := View(DataWindow%).ChanMeasure(YChannel%,2,tNow-.001,tNow-.006)*DegreesPerVoltY;
+
+	' Don't update display every time....
+'	if tNow-tLastUpdate > .005 then
+'		View(XYWindow%).XYAddData(1,xEye,yEye);
+'		tLastUpdate := tNow;
+'	endif
+
+	docase 
     case iState% = stateVSGWait% then
-        
         ' Waiting for VSG to indicate it is ready. The indication is a pulse (up, then down, 1 frame apart) on port 6.
-        tTrigger := NextTime(tunChanVSGReady%, tLast, vTrigger);
-        if tTrigger > tLastTrigger and vTrigger = 0 then
-            LogStatus("stateVSGWait", "Got leading edge of trigger.");
-            tLastTrigger := tTrigger;
-            ChangeStateTo(stateVSGConfirm%, tTrigger);                
+        'if View(DataWindow%).FindPulseUp%(ReadyChannel%, -1, tRise, tFall) = 1 then
+        pulseFound% := View(DataWindow%).FindPulseUp%(ReadyChannel%, tLastTrigger+tic, tRise, tFall);
+        if pulseFound% = 1 then
+            LogStatus("VSGWait", "Got Ready Pulse from VSG at " + str$(tRise));
+            Yield(1.0);
+            tLastTrigger := tFall;
+            ChangeStateTo(stateStartTrial%, tFall);
+        else
+            if pulseFound% = 0 then  'if a (short) "false" trigger is found, update tLastTrigger so we don't see it again
+                LogStatus("VSGWait", "Got FALSE Ready Pulse from VSG at " + str$(tRise));
+                tLastTrigger := tFall;
+            endif;
         endif;
-            
-    case iState% = stateVSGConfirm% then
-            
-        ' Waiting for VSG to confirm it is ready. The downward side of the pulse is expected...
-        tTrigger := NextTime(tunChanVSGReady%, tLastTrigger, vTrigger);
-        if tTrigger > tLastTrigger and vTrigger = 1 then                
-            LogStatus("stateVSGConfirm", "Got trailing edge of trigger.");
+
+    case iState% = stateStartTrial% then
+
+        ' Start trial. Put up fixation point.
+'        LogStatus("StartTrial", "Request fixpt");
+'        SafeSampleKey("F");
+'        ChangeStateTo(stateWaitForFixPtOn%, tNow);
+        
+        ' Start trial. Put up stimulus.
+        LogStatus("StartTrial", "Request stimulus");
+        SampleText("T," + str$(GetPlotXCoord(nTrialsCompleted%)));
+        SafeSampleKey("S");
+        'iHoldCount% := 0;
+        ChangeStateTo(stateWaitForStimTrigger%, tNow);
+    
+'    case iState% = stateWaitForFixPtOn% then
+'    
+'        if View(DataWindow%).FindRisingEdge%(FixationPointChannel%, tLast, tTrigger) = 0 then
+'            ' Fixation point is up
+'            LogStatus("WaitForFixPtOn", "Fixpt on at " + str$(tTrigger) + "\n");
+'            tLastTrigger := tTrigger;
+'            ChangeStateTo(stateWaitForAcquisition%, tTrigger);
+'            DrawStim(1);	' actually this draws the location of the fixpt.
+''        else
+' '           LogStatus("WaitForFixPtOn", "Waiting at " + str$(tLast));
+'        endif
+
+'    case iState% = stateWaitForAcquisition% then
+'
+'        ' Waiting for eye to fall inside of fixation window
+'        if Looking%(xEye, yEye) = 1 then
+'            LogStatus("WaitForAcquisition", "Eye in fixation window; request stim");
+'            SampleText("T," + str$(GetPlotXCoord(nTrialsCompleted%)));
+'            SafeSampleKey("S");
+'            iHoldCount% := 0;
+'            ChangeStateTo(stateWaitForStimTrigger%, tNow);
+'        else 
+'            if tNow - tStateStart > tunAcquisitionTime then
+'                ' failed to acquire target. 
+'                tInterTrialTime := tunAcqFailTime;
+'                LogStatus("WaitForAcquisition", "Failed.");
+'                ChangeStateTo(stateAbort%, tNow);
+'            endif
+'        endif
+
+    case iState% = stateWaitForStimTrigger% then
+
+        if View(DataWindow%).FindRisingEdge%(StimChannel%, tLast, tTrigger) = 0 then
+            ' Stimulus has begun
+            LogStatus("WaitForStimTrigger", "Stim sequence started at " + str$(tTrigger));
+            tStimOn := tTrigger;
+            tStimSequence := tTrigger;      ' TODO remove tStimOn ref above - see stateWaitForStimOn
             tLastTrigger := tTrigger;
-            ChangeStateTo(stateStartTuning%, tTrigger);
-        endif;
-            
-    case iState% = stateStartTuning% then
-        
-        ' Issue sample key to start stim, then switch to looking for triggers
-        LogStatus("stateStartTuning", "Starting stimulus.");
-        Yield(1.0);
-        SampleKey("s");
-        ChangeStateTo(stateNoStim%, tNow);
-        
-    case iState% = stateNoStim% then
-        
-        ' Waiting for the first trig - which indicates the stim is on
-        if FindEvent%(tunChanTrigger%, tStateStart, tStimStart) > 0 then
-            ChangeStateTo(stateStimON%, tStimStart);
+            'ChangeStateTo(stateHoldFixation%, tTrigger);
+            ChangeStateTo(stateStimulusPlaying%, tTrigger);
         endif
         
-    case iState% = stateStimON% then
         
-        ' Waiting for the second trig - which indicates the stim is off
-        if FindEvent%(tunChanTrigger%, tStimStart, tBlankStart) > 0 then
-            ' TODO process spikes
-            LogInfo("TODO: Process spikes for STIM " + str$(iStimCounter%) + " " + str$(tStimStart) + "-" + str$(tBlankStart) + " " + str$(tunParameterValues[tunParameterIndices%[iStimCounter%]]) + "\n");
-            iStimCounter% += 1;
-            ChangeStateTo(stateBlankON%, tBlankStart);
+        
+    case iState% = stateStimulusPlaying% then
+
+        if tNow - tStateStart > tunStimulusDuration then
+            
+            ' turn off stimulus and advance it
+            SampleText("+");
+            LogStatus("StimulusPlaying", "Turn off and advance stimulus.");
+            
+            SafeSampleKey("X");            
+                        
+            Yield();
+            
+            ' Process spikes
+            PlotSpikes(tStimOn, tNow, 1, GetPlotXCoord(nTrialsCompleted%), nTrialsCompleted%);
+            
+            ' Now wait until stim is off
+            ChangeStateTo(stateWaitForStimOff%, tNow);
+            
         endif
         
-    case iState% = stateBlankON% then
         
-        ' Waiting for the third trig - which indicates the blank is off
-        if FindEvent%(tunChanTrigger%, tBlankStart, tBlankEnd) > 0 then
-            
-            LogInfo("TODO: Process spikes for BLANK " + str$(iBlankCounter%) + " " + str$(tBlankStart) + "-" + str$(tBlankEnd) + "\n");
-            iBlankCounter% += 1;            
-            
-            ' check whether all stim have been presented
-            if iStimCounter% = (tunNSteps%+1) * tunNRepeats% then
-                ChangeStateTo(stateDone%, tNow);
-            else
-                ChangeStateTo(stateNoStim%, tBlankEnd);
-            endif
+        
+    case iState% = stateWaitForStimOff% then
+
+        if View(DataWindow%).FindFallingEdge%(StimChannel%, tLast, tTrigger) = 1 then
+            ' Advance
+            SafeSampleKey("a");
+
+            tLastTrigger := tTrigger;
+            ChangeStateTo(stateTrialCompleted%, tNow);
         endif
         
-    case iState% = stateDone% then
         
-        Stop%();
-        status% := 1;
+    case iState% = stateTrialCompleted% then
         
+        nTrialsCompleted% += 1;         ' this state must be exited this time through!!!
+        printlog("number of trials completed is %d\n",nTrialsCompleted%);
+        if nTrialsCompleted% = (tunNAdvances%+1)*tunNRepeats% then
+            ' We're all done
+            ChangeStateTo(stateDone%, tNow);
+            Stop%();
+            iStatus% := 0;
+        else
+            tInterTrialTime := tunInterTrialTime;
+            ChangeStateTo(stateInterTrialInterval%, tNow);
+        endif        
+'    case iState% = stateWaitForStimOn% then
+'        
+'        ' Starting from tStimSequence, look for pulses in FrameChannel% and FrameSlaveChannel%
+'        LogStatus("WaitForStimOn", "NOT IMPLEMENTED!");
+        
+'    case iState% = stateAbort% then
+'
+'        ' Signal "X" turns off fixpt and stimulus. The next state 'stateWaitForBlank' only checks for 
+'        ' fixpt off. 
+'        SafeSampleKey("X");
+'        ChangeStateTo(stateWaitForBlank%, tNow);
+
+'    case iState% = stateWaitForBlank% then
+'
+'        ' we just wait for fix point off signal in this case. 
+'        if View(DataWindow%).FindFallingEdge%(FixationPointChannel%, tLast, tTrigger) = 1 then
+'            ' Fixation point is off
+'            tLastTrigger := tTrigger;
+'            ChangeStateTo(stateInterTrialInterval%, tTrigger);
+'            DrawStim(0);	' actually this draws the location of the fixpt.
+'        endif
+
+    case iState% = stateInterTrialInterval% then
+
+        if tNow - tStateStart > tInterTrialTime then
+
+            ChangeStateTo(stateStartTrial%, tNow);
+
+        endif
+
+'    case iState% = stateHoldFixation% then
+'
+'        if Looking%(xEye, yEye) = 0 then
+'            
+'            LogStatus("WaitForFixation", "Fixation broken, aborting trial.");
+'            if iHoldCount% = 0 then 
+'                tInterTrialTime := tunTimeOutTime;
+'            else
+'                tInterTrialTime := tunHoldFailTime;
+'            endif
+'            SampleText("-");
+'            ChangeStateTo(stateAbort%, tNow);
+'
+'        else 
+'
+'            if tNow - tStateStart > tunFixationDuration + tKludge then
+'
+'                iHoldCount% += 1;
+'
+'                ' turn off stimulus and advance it
+'                SampleText("+");
+'                LogStatus("HoldFixation", "Turn off and advance stimulus.");
+'                
+'                ' djs If NoMaintain was chosen, then turn EVERYTHING off (stim and fixpt) now.
+'                ' Otherwise just turn off stim. 
+'                if tunUseMaintainMode% = 1 then
+'                    SafeSampleKey("s");
+'                else
+'                    SafeSampleKey("X");
+'                endif;
+'                
+'                Yield();
+'                
+'                ' Reward
+'                DeliverReward();
+'                
+'                ' Process spikes
+'                PlotSpikes(tStimOn, tNow, 1, GetPlotXCoord(nTrialsCompleted%), nTrialsCompleted%);
+'
+'                ' Now wait until stim is off
+'                ChangeStateTo(stateWaitForStimOff%, tNow);
+'
+'            endif
+'
+'        endif
+'
+'    case iState% = stateWaitForStimOff% then
+'
+'        if View(DataWindow%).FindFallingEdge%(StimChannel%, tLast, tTrigger) = 1 then
+'            ' Advance
+'            SafeSampleKey("a");
+'
+'            tLastTrigger := tTrigger;
+'            ChangeStateTo(stateTrialCompleted%, tNow);
+'        endif
+
+'    case iState% = stateTrialCompleted% then
+'        
+'        nTrialsCompleted% += 1;         ' this state must be exited this time through!!!
+'        printlog("number of trials completed is %d\n",nTrialsCompleted%);
+'        if nTrialsCompleted% = (tunNAdvances%+1)*tunNRepeats% then
+'            ' We're all done
+'            ChangeStateTo(stateDone%, tNow);
+'            Stop%();
+'            iStatus% := 0;
+'        else
+'            if tunUseMaintainMode% = 1 then
+'                ChangeStateTo(stateMaintainFixation%, tNow);
+'            else
+'                tInterTrialTime := tunMaintainFailTime;
+'                ChangeStateTo(stateInterTrialInterval%, tNow);
+'            endif
+'        endif
+            
+'    case iState% = stateMaintainFixation% then
+'
+'        if Looking%(xEye, yEye) = 0 then
+'
+'            tInterTrialTime := tunMaintainFailTime;
+'    
+'            LogStatus("MaintainFixation", "Broken; aborting trial");
+'            ChangeStateTo(stateAbort%, tNow);
+'
+'        else 
+'            if tNow - tStateStart > tunMaintainFixation then
+'
+'                LogStatus("MaintainFixation", "success");
+'                DeliverReward();
+'                SampleText("T," + str$(GetPlotXCoord(nTrialsCompleted%)));
+'                SafeSampleKey("S");
+'                ChangeStateTo(stateWaitForStimTrigger%, tNow);
+'
+'            endif 
+'        endif
+
     else
         
-        LogError("", "Unknown state " + str$(iState%));
-        Stop%();
-        status% := 0;
-        
-    endcase
-    
-    return status%;
-end
+        ' Unknown state!
+        Message("Unknown state=" + str$(iState%));
+        halt;
 
+	endcase;
+
+	tLast := tNow;
+	return iStatus%;
+end;
+
+
+func GetPlotXCoord(nTrials%)
+    return tunValues[tunValuesIndices%[nTrials%]];
+end;
+
+proc PlotSpikes(t1, t2, vOnOff%, x, index%)
+	var rate;
+    var i%;
+    var tSweep;
+    var fftData[16];        ' size of this array should be same as number of bins!
+    
+ '   x := tunValues[tunValuesIndices%[nTrials%]];
+ '   ind% := tunValuesIndices%[nTrials%];
+    
+	for i% := 0 to tunNWavemarks%-1 do
+		rate := View(DataWindow%).Count(i%+1, t1, t2)/(t2-t1);
+		if rate >= 0 then
+			if vOnOff% = 1 then
+				' this is signal
+                'PrintLog("%d Count %f\n", i%, rate*(t2-t1));
+				View(TuningWindow%[i%]).XYAddData(1, x, rate);    ' channel 1 is data; channel 2 is background
+			endif
+			' NOTE: IGNORING BACKGROUND HERE FOR THE TIME BEING. 
+	    endif 
+        
+        if tunDoF12% = 1 and vOnOff% = 1 then
+            ' Process for each cycle of the stimulus. A single cycle of the stim takes 1/tf
+			View(PSTHWindow%[i%]);
+			Process(t1, t2, 1, 1);
+			for tSweep := t1+1/tunTF to t2-1/tunTF step 1/tunTF do 
+				Process(tSweep, tSweep+1/tunTF, 0, 1);
+			next
+			ArrConst(fftData[], View(PSTHWindow%[i%]).[]);
+			ArrFFT(fftData[], 4); 
+            View(TuningWindow%[i%]).XYAddData(2, x, fftData[1]);
+            View(TuningWindow%[i%]).XYAddData(3, x, fftData[2]);
+            tunF1Sum[i%][index%] += fftData[1];
+            tunF2Sum[i%][index%] += fftData[2];
+        endif
+        
+	next
+end;
+
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 proc ChangeStateTo(stateTo%, tStart)
 	iState% := stateTo%;
 	if tStart > 0 then tStateStart := tStart; endif;
 end;
+
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func PauseStimuli%();
+Pause% :=1;
+ToolbarEnable(4,0);
+ToolbarEnable(5,1);
+return 1;
+end
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func ResumeStimuli%();
+Pause% :=0;
+ToolbarEnable(4,1);
+ToolbarEnable(5,0);
+return 1;
+end
+
+
+
+
+
+proc InitializeWindows()
+    var i%;
+    var WindowStep;
+    var ch1%, ch2%;
+    
+    ' Get tf of stim
+    tunTF := GetStimulusTF();
+    
+    ' Make spike2 use allof monitor 1
+    View(App()).Window(0, 0, 100, 100, 1);
+    
+	'Open the data sampling window
+	DataWindow% := FileNew(0,4);
+	Window(0,48,50,95);
+    XRange(0, 30);
+	View(DataWindow%).WindowVisible(1);
+    
+	' open xy window to display tuning results    
+    if tunNWavemarks% > 0 then
+        WindowStep := 100/tunNWavemarks%;
+    endif
+    for i% := 0 to tunNWavemarks%-1 do
+        TuningWindow%[i%] := FileNew(12);
+        Window(50, i%*WindowStep, 100, (i%+1)*WindowStep);
+        ChanTitle$(0, "Spikes/s");
+        TuningCurveLabels(tunWavemarkPorts%[i%]);
+        WindowVisible(1);
+        
+        ' Create psth window if f1 and f2 analysis needed
+        if tunDoF12% = 1 then
+            
+            ch1% := View(TuningWindow%[i%]).XYSetChan(0);   ' Used to plot f1
+            XYColour(ch1%, 25);
+            ch2% := View(TuningWindow%[i%]).XYSetChan(0);   ' used to plot f2
+            XYColour(ch2%, 30);
+            LogStatus("InitializeWindows", "Channel " + str$(i%+1) + " " + str$(ch1%) + " " + str$(ch2%));
+            PSTHWindow%[i%] := View(DataWindow%).SetPSTH(i%+1, 16, 1 /(tunTF*16), 0, 0, 3);
+            View(PSTHWindow%[i%]).WindowVisible(0);
+        endif        
+    next
+
+	'Open an XY view to display eye position
+'	XYWindow% := FileNew(12);
+'	XRange(-30,30);
+'	YRange(-2,-30,30);
+'	XYDrawMode(0,5,0);
+'	WindowVisible(1);
+'	Window(0, 0, 50, 47);
+'	XYColour(1,16);
+'	XYSize(1,-1);
+
+
+	'Calcuate the fixation window
+'	var index%;
+'	var twopi;
+'	twopi := 2.0*4.0*ATan(1.0);
+'	
+'	for index% := 0 to 35 do
+'		FixWindowX[index%] := FixationX + WindowRadius * Cos(index% * twopi/36.0);
+'		FixWindowY[index%] := FixationY + WindowRadius * Sin(index% * twopi/36.0);
+'	next;
+
+	'Create a new channel in the XY view to display the fixation window
+'	iStimWindowChannel% := XYSetChan(0);
+'	XYColour(2,13);
+'	XYDrawMode(2,2,1);
+'	XYJoin(2,1);
+	'Draw the fixation window
+'	XYAddData(2, FixWindowX[], FixWindowY[]);
+
+	'Create a new channel in the XY view to display the fixation point
+'	iStimChannel% := XYSetChan(0);
+
+	'Create a new channel in the XY view to show the monitor's location
+'	iMonitorChannel% := XYSetChan(0);
+'	XYColour(4,13);
+'	XYDrawMode(4,3,1);
+'	XYJoin(4,2);
+'	XYAddData(4,-9,-7);
+'	XYAddData(4,9,-7);
+'	XYAddData(4,9,7);
+'	XYAddData(4,-9,7);
+
+end;
+
+proc TuningCurveLabels(iport%)
+
+    var s$;
+    s$ := "Port " + str$(iport%);
+	docase 
+		case tunType$ = tunTypeContrast$ then
+
+			WindowTitle$("Contrast Tuning - " + s$);
+			XUnits$("Contrast (%)");
+			ChanTitle$(1, "Chan 1");
+			XRange(tunContrastMinContrast, tunContrastMaxContrast);
+
+		case tunType$ = tunTypeOrientation$ then
+
+			WindowTitle$("Orientation Tuning - " + s$);
+			XUnits$("Orientation (degrees)");
+			ChanTitle$(1, "Chan 1");
+			XRange(tunOriMinOrientation, tunOriMaxOrientation);
+
+		case tunType$ = tunTypeSpatial$ then
+
+			WindowTitle$("Spatial Frequency Tuning - " + s$);
+			XUnits$("Spatial Frequency");
+			ChanTitle$(1, "Chan 1");
+			XRange(tunSpatialMinSF, tunSpatialMaxSF);
+	
+		case tunType$ = tunTypeTemporal$ then
+
+			WindowTitle$("Temporal Frequency Tuning - " + s$);
+			XUnits$("Temporal Frequency");
+			ChanTitle$(1, "Chan 1");
+			XRange(tunTemporalMinTF, tunTemporalMaxTF);
+
+		case tunType$ = tunTypeArea$ then
+
+			WindowTitle$("Aperture Area Tuning - " + s$);
+			XUnits$("Aperture Diameter");
+			ChanTitle$(1, "Chan 1");
+			XRange(tunAreaMinDiam, tunAreaMaxDiam);
+        
+'		case tunType$ = tunTypeDonut$ then
+'
+'			WindowTitle$("Donut Area Tuning - " + s$);
+'			XUnits$("Outer Diameter");
+'			ChanTitle$(1, "Chan 1");
+'            XRange(tunAreaMinDiam, tunAreaMaxDiam);
+'        
+'        case tunType$ = tunTypeBerliner$ then
+'
+'			WindowTitle$("Berliner Procedure - " + s$);
+'			XUnits$("Stim Type");
+'			ChanTitle$(1, "Chan 1");
+'			XRange(0,5);
+        
+		else
+
+			Message("TuningCurveLabels Error - unknown value for tunType$: " + tunType$);
+
+	endcase;
+
+end;
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+proc CreateSampleConfiguration()
+	var i%;
+	SampleClear(); 'Set standard sampling state
+'	SampleAutoFile(0); 'Enable automatic file naming
+	SampleAutoComment(0); 'Prompt for comment after sampling
+	SampleAutoCommit(60); 'Seconds between each file commit
+    
+    ' Set path for new data files, and for those saved automatically
+    FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 3);
+    FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 1);
+    docase
+        
+    case tunType$ = tunTypeContrast$ then 
+        SampleAutoName$(dataCellName$ + "_con_000");
+        tunNAdvances% := tunContrastNSteps%;
+        tunNRepeats% := tunContrastNRepeats%;
+        GetRepeatedParameterProgression%(tunContrastNSteps%+1, tunContrastNRepeats%, tunValues[], tunValuesIndices%[], tunContrastMinContrast, tunContrastMaxContrast, 1, tunContrastProgression%);
+        tunNValues% := (tunContrastNSteps%+1)*tunContrastNRepeats%;
+        tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%);
+    case tunType$ = tunTypeOrientation$ then 
+        SampleAutoName$(dataCellName$ + "_ori_000");
+        tunNAdvances% := tunOriNSteps%;
+        tunNRepeats% := tunOriNRepeats%;
+        GetRepeatedParameterProgression%(tunOriNSteps%+1, tunOriNRepeats%, tunValues[], tunValuesIndices%[], tunOriMinOrientation, tunOriMaxOrientation, 0, tunOriProgression%);
+        tunNValues% := (tunOriNSteps%+1)*tunOriNRepeats%;
+        tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%);
+    case tunType$ = tunTypeSpatial$ then 
+        SampleAutoName$(dataCellName$ + "_spa_000");
+        tunNAdvances% := tunSpatialNSteps%;
+        tunNRepeats% := tunSpatialNRepeats%;
+        GetRepeatedParameterProgression%(tunSpatialNSteps%+1, tunSpatialNRepeats%, tunValues[], tunValuesIndices%[], tunSpatialMinSF, tunSpatialMaxSF, 1, tunSpatialProgression%);        
+        tunNValues% := (tunSpatialNSteps%+1)*tunSpatialNRepeats%;
+        tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%);
+    case tunType$ = tunTypeTemporal$ then 
+        SampleAutoName$(dataCellName$ + "_tem_000");
+        tunNAdvances% := tunTemporalNSteps%;
+        tunNRepeats% := tunTemporalNRepeats%;
+        GetRepeatedParameterProgression%(tunTemporalNSteps%+1, tunTemporalNRepeats%, tunValues[], tunValuesIndices%[], tunTemporalMinTF, tunTemporalMaxTF, 1, tunTemporalProgression%);
+        tunNValues% := (tunTemporalNSteps%+1)*tunTemporalNRepeats%;
+        tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%);
+    case tunType$ = tunTypeArea$ then 
+        SampleAutoName$(dataCellName$ + "_area_000");
+        tunNAdvances% := tunAreaNSteps%;
+        tunNRepeats% := tunAreaNRepeats%;
+        GetRepeatedParameterProgression%(tunAreaNSteps%+1, tunAreaNRepeats%, tunValues[], tunValuesIndices%[], tunAreaMinDiam, tunAreaMaxDiam, 1, tunAreaProgression%);
+        tunNValues% := (tunAreaNSteps%+1)*tunAreaNRepeats%;
+        tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%);
+'    case tunType$ = tunTypeDonut$ then 
+'        SampleAutoName$(dataCellName$ + "_donut_000");
+'        tunNAdvances% := tunAreaNSteps%;
+'        tunNRepeats% := tunAreaNRepeats%;
+'        GetRepeatedParameterProgression%(tunAreaNSteps%+1, tunAreaNRepeats%, tunValues[], tunValuesIndices%[], tunAreaMinDiam, tunAreaMaxDiam, 1, tunDonutProgression%);
+'        tunNValues% := (tunAreaNSteps%+1)*tunAreaNRepeats%;
+'        tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%);
+        'PrintLog("nsteps %d nrepeats %d nvalues %d\n", tunAreaNSteps%, tunAreaNRepeats%, tunNValues%);
+        'for i% := 0 to tunNValues%-1 do
+        '    PrintLog("%d %f\n", i%, tunValues[tunValuesIndices%[i%]]);
+        'next
+'    case tunType$ = tunTypeBerliner$ then 
+'        SampleAutoName$(dataCellName$ + "_berliner_000");
+'        tunNAdvances% := tunBerlinerNSteps%-1;  'subtract one because tunBerlinerNSteps% is literal (that is, n stims)
+'        tunNRepeats% := tunBerlinerNRepeats%;
+'        GetRepeatedParameterProgression%(tunBerlinerNSteps%, tunBerlinerNRepeats%, tunValues[], tunValuesIndices%[], 1, tunBerlinerNSteps%, 0, tunBerlinerProgression%);
+'        tunNValues% := (tunBerlinerNSteps%)*tunBerlinerNRepeats%;
+'        tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%);
+    else
+        SampleAutoName$(dataCellName$ + "_tun_000");
+    endcase;
+
+    SampleAutoFile(1);
+    
+    ' Text marks make extraction easier
+    SampleTextMark(200);
+    
+	'Channel recording definitions
+'	SampleEvent(FixationPointChannel%,2,2,3600); 'Trigger channel, level
+'	SampleComment$(FixationPointChannel%,"Fixpt");
+'	SampleTitle$(FixationPointChannel%,"Fixpt");
+	
+	SampleEvent(StimChannel%,3,2,3600); 'Trigger channel, level
+	SampleComment$(StimChannel%,"Stim");
+	SampleTitle$(StimChannel%,"Stim");
+    
+	SampleEvent(ReadyChannel%, 1, 2, 3600); 'Trigger channel, level
+	SampleComment$(ReadyChannel%,"VSG Ready");
+	SampleTitle$(ReadyChannel%,"VSG Ready");
+    
+    ' djs Add channels to capture slave fixpt and stim onset
+'	SampleEvent(FixationPointSlaveChannel%, 6, 2, 3600); 'Trigger channel, level
+'	SampleComment$(FixationPointSlaveChannel%,"Fixpt-Slave");
+'	SampleTitle$(FixationPointSlaveChannel%,"Fixpt-Slave");
+	
+'	SampleEvent(StimSlaveChannel%, 7, 2,3600); 'Trigger channel, level
+'	SampleComment$(StimSlaveChannel%,"Stim-Slave");
+'	SampleTitle$(StimSlaveChannel%,"Stim-Slave");
+    
+	SampleEvent(FrameChannel%, 0, 2, 3600);
+	SampleComment$(FrameChannel%,"Frame");
+	SampleTitle$(FrameChannel%,"Frame");
+    
+'	SampleEvent(FrameSlaveChannel%, 4, 2, 3600);
+'	SampleComment$(FrameSlaveChannel%,"Frame-Slave");
+'	SampleTitle$(FrameSlaveChannel%,"Frame-Slave");
+    
+    
+    ' Electrodes: wavemark/continuous
+    ' 12/6/2010
+    ' Wavemark channels will be channels # 1-N, waveform N+1 - N+1+M, where there are N wavemark channels
+    ' and M waveform channels. 
+    for i% := 0 to tunNWavemarks%-1 do
+		SampleWaveMark(i% + 1, tunWavemarkPorts%[i%], 2000, 34, 15, 28000); ' chan, port, event rate, points, pre-trigger, rate
+		SampleTitle$(i% + 1, "WMrk " + str$(tunWavemarkPorts%[i%])); 
+	next
+    for i% := 0 to tunNContinuous%-1 do
+        SampleWaveform(tunNWavemarks% + i% + 1, tunContinuousPorts%[i%], 20000);
+        SampleTitle$(tunNWavemarks% + i% + 1, "Cont " + str$(tunContinuousPorts%[i%]));
+    next
+        
+'	SampleWaveform(XChannel%, GetEyeXPort%(), 1000);
+'	SampleTitle$(XChannel%,"Eye X");
+'	SampleWaveform(YChannel%, GetEyeYPort%(), 1000);
+'	SampleTitle$(YChannel%,"Eye Y");
+    
+	SampleSequencer(script$ + "Tuning.pls");
+	SampleOptimise(2,2,2,2,50);  'Set optimise mode (do this last)
+	SampleMode(1); 'Continuous sampling
+end;
+
+' Used to hard-quit from toolbar. This will close data files without saving!!! 
+' It is important that this function be disabled once sampling is started!!!
+
+func Quit%()
+	FileClose(-1,-1);
+	return 0;
+end;
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func Stop%()
+    var i%, j%, m%;
+    
+	' Disable idle process func
+	ToolbarSet(0,"");
+
+	' Tell stim app to shut down
+	SafeSampleKey("Q");
+	Yield(.1);
+	SampleStop();
+
+	ProgKill(StimHandle%);
+	while ProgStatus(StimHandle%) > 0 do
+		Yield();
+	wend
+'	ProgRun(bin$ + "\\ClearTrigger",0);
+
+	' Write parameter file
+	WriteParameterFile();
+
+	' Increment daily totals and save then
+	TotalTrials% += nTrialsStarted%;
+'	TotalRewards% += nTrialsCompleted%;
+	SaveDailyTotals();
+    
+    ' Figure out max F1 values
+    if tunDoF12% = 1 then
+        for i% := 0 to tunNWavemarks%-1 do
+            m% := Max(tunF1Sum[i%][]);
+            LogStatus("F1 Max", "Channel " + str$(i%+1) + " Port " + str$(tunWavemarkPorts%[i%]) + " max F1 at x=" + str$(tunValues[m%]));
+        next
+    endif    
+
+end;
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+proc WriteParameterFile()
+	var parFileName$;
+	var parFileBase$;
+	var parHandle%;
+
+	' get filename for parfile (data file + "par" extension) and open it
+	View(DataWindow%);
+	parFileBase$ := FileName$(1) + FileName$(2) + FileName$(3) + FileName$(4);
+	parFileName$ := parFileBase$ + ".par";
+	PrintLog("par filename is " + parFileName$ + "\n");
+	parHandle% := FileOpen(parFileName$, 8, 1);
+
+	' write general info - eye coil gains, dist to screen
+	Print("Tuning parameters for %s\n\n", parFileBase$);
+
+	Print("General information\n");
+	Print("-------------------\n\n");
+	Print("Distance to screen (MM)    : %s\n", GetAcuteDistanceToScreenMM$());
+'	Print("Eye coil software gain (X) : %f\n", DegreesPerVoltX);
+'	Print("Eye coil software gain (Y) : %f\n", DegreesPerVoltY);
+'	Print("Eye coil sampling freq (Hz): %d\n", EyeCoilSamplingFrequency%);
+    Print("Wavemark ports             : %s\n", GetWavemarkPorts$());
+    Print("Continuous ports           : %s\n", GetContinuousPorts$());
+'	Print("Reward size (ms)           : %d\n", GetJuiceRewardMS%());
+	Print("Background color           : %s\n", tunBackgroundColor$);
+
+	' write fixpoint parameters
+'	Print("\nFixation point\n");
+'	Print("-------------------\n\n");
+'	Print("Window radius              : %f\n", WindowRadius);
+'	Print("Position (x, degrees)      : %f\n", FixationX);
+'	Print("Position (y, degrees)      : %f\n", FixationY);
+'	Print("Diameter (degrees)         : %f\n", FixationDiameter);
+'	Print("Color                      : %s\n", FixationColor$);
+
+	' write stimulus parameters
+	Print("\nStimulus\n");
+	Print("-------------------\n\n");
+
+	var Tstimstr$;
+	var Tstimx$, Tstimy$, Tstimw$, Tstimh$, Tstimcontrast$, Tstimsf$, Tstimtf$, Tstimorientation$, Tstimphase$, Tstimcv$, Tstimp$, Tstimap$;
+	var i%;
+	var Tstepsize;
+    var phase;
+	Tstimstr$ := GetGratingParameters$("Stimulus");
+	ReadSetup(",",",",",",",",",");
+	i% := ReadStr(Tstimstr$, Tstimx$, Tstimy$, Tstimw$, Tstimh$, Tstimcontrast$, Tstimsf$, Tstimtf$, Tstimorientation$, Tstimphase$, Tstimcv$, Tstimp$, Tstimap$);
+	Print("Position (x, degrees)           : %s\n", Tstimx$);
+	Print("Position (y, degrees)           : %s\n", Tstimy$);
+	Print("Width (degrees)                 : %s\n", Tstimw$);
+	Print("Height (degrees)                : %s\n", Tstimh$);
+	Print("Color: b/w(b),lms-cone(l,m,s)   : %s\n", Tstimcv$);
+    Print("Temporal frequency              : %s\n", Tstimtf$);
+	Print("Spatial frequency               : %s\n", Tstimsf$);
+	Print("Orientation (degrees)           : %s\n", Tstimorientation$);
+    Print("Initial Phase (degrees)         : %f\n", phase);
+	Print("Contrast (%%)                    : %s\n", Tstimcontrast$);
+	Print("Aperture: ellipse(e)/square(q)  : %s\n", Tstimap$);
+	Print("Type: sine (s)/square (q)       : %s\n", Tstimp$);
+
+
+	Print("\nExperimental parameters\n");
+	Print("-------------------------\n\n");
+
+'	Print("Fixation time(s)       : %f\n", tunFixationDuration);
+'	Print("Maintain fixation (s)  : %f\n", tunMaintainFixation);
+    Print("Stimulus Duration (s)  : %f\n", tunStimulusDuration);
+'	Print("Time out (s)           : %f\n", tunTimeOutTime);
+'	Print("Acquisition time (s)   : %f\n", tunAcquisitionTime);
+
+	Print("\nTuning parameters\n");
+	Print("-------------------\n\n");
+	docase 
+		case tunType$ = tunTypeContrast$ then
+
+			Print("Type:                  : Contrast\n");
+			Print("Min,Max,#Steps,#Repeats: %f,%f,%d,%d\n", tunContrastMinContrast, tunContrastMaxContrast, tunContrastNSteps%, tunContrastNRepeats%);
+			Print("Values: " + tunValuesStringified$ + "\n");
+			Print("\n");
+
+
+		case tunType$ = tunTypeOrientation$ then
+
+			Print("Type:                  : Orientation\n");
+			Print("Min,Max,#Steps,#Repeats: %f,%f,%d,%d\n", tunOriMinOrientation, tunOriMaxOrientation, tunOriNSteps%, tunOriNRepeats%);
+			Print("Values: " + tunValuesStringified$ + "\n");
+			Print("\n");
+
+		case tunType$ = tunTypeSpatial$ then
+
+			Print("Type:                  : Spatial Frequency\n");
+			Print("Min,Max,#Steps,#Repeats: %f,%f,%d,%d\n", tunSpatialMinSF, tunSpatialMaxSF, tunSpatialNSteps%, tunSpatialNRepeats%);
+			Print("Values: " + tunValuesStringified$ + "\n");
+			Print("\n");
+	
+		case tunType$ = tunTypeTemporal$ then
+
+			Print("Type:                  : Temporal Frequency\n");
+			Print("Min,Max,#Steps,#Repeats: %f,%f,%d,%d\n", tunTemporalMinTF, tunTemporalMaxTF, tunTemporalNSteps%, tunTemporalNRepeats%);
+			Print("Values: " + tunValuesStringified$ + "\n");
+			Print("\n");
+
+		case tunType$ = tunTypeArea$ then
+
+			Print("Type:                  : Aperture Area\n");
+			Print("Min,Max,#Steps,#Repeats: %f,%f,%d,%d\n", tunAreaMinDiam, tunAreaMaxDiam, tunAreaNSteps%, tunAreaNRepeats%);
+			Print("Values: " + tunValuesStringified$ + "\n");
+			Print("\n");
+
+'		case tunType$ = tunTypeDonut$ then
+'
+'			Print("Type:                  : Donut Area\n");
+'			Print("Min,Max,#Steps,#Repeats: %f,%f,%d,%d\n", tunAreaMinDiam, tunAreaMaxDiam, tunAreaNSteps%, tunAreaNRepeats%);
+'			Print("Values: " + tunValuesStringified$ + "\n");
+'            Print("\n");
+'        
+'        case tunType$ = tunTypeBerliner$ then
+'
+'			Print("Type:                  : Berliner Area\n");
+'			Print("Optimal,Max,#Steps,#Repeats: %f,%f,%d,%d\n", tunDonutOptimalDiam, tunBerlinerMaximalDiam, tunBerlinerNSteps%, tunBerlinerNRepeats%);
+'			Print("Values: " + tunValuesStringified$ + "\n");
+'			Print("\n");
+
+		else
+
+			Print("TuningCurve Error - unknown value for tunType$: %s\n", tunType$);
+
+	endcase;
+
+
+
+
+
+	' close parfile
+	FileClose(0);
+
+end;
+
+
+' Gets the temporal freq of the current stimulus. 
+' Make sure to call this only after all user dialogs have been completed (so you know that the stim parameters will not change)
+
+func GetStimulusTF()
+    var gr$;
+    var x, y, w, h, sf, tf, ori, phase;
+    var contrast%;
+    var cv$, pattern$, aperture$;
+	gr$ := GetGratingParameters$("Stimulus");
+    ParseGratingParameters%(gr$, x, y, w, h, contrast%, sf, tf, ori, phase, cv$, pattern$, aperture$);
+    LogStatus("GetStimulusTF", "TF=" + str$(tf));
+    return tf;
+end
+
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func Start%()
+	var cmdLine$;
+'	var FixationPoint$;
+	var Extras$;
+	var Tune$;
+	var Stim$:="";
+'	var SlaveStim$:="";
+	var Values$;
+'    var Dual$;
+    var key$;
+    var offsetFilename$;
+    var i%;
+    var ProgName$;
+'    var XHairArg$;
+	
+	SampleStart(0); 'Start sampling
+	SafeSampleKey("0");
+    
+    
+    Stim$ := " -s " + GetGratingParameters$("Stimulus");    
+    
+'    if tunSetStationary% = 0 then
+'        ' Stimulus is always used
+'        Stim$ := " -s " + GetGratingParameters$("Stimulus");
+'        ' Slave Stimulus is not always used, but get it anyway
+'        SlaveStim$ := " -s " + GetGratingParameters$("SlaveStimulus");
+'    else
+'        ' Stimulus is always used
+'        Stim$ := " -s " + GetGratingParameters$("StatStimulus");
+'        ' Slave Stimulus is not always used, but get it anyway
+'        SlaveStim$ := " -s " + GetGratingParameters$("StatSlaveStimulus");
+'    endif;
+    
+    
+	Values$ := tunValuesStringified$;
+	Extras$ := " -b " + tunBackgroundColor$ + " -d " + GetAcuteDistanceToScreenMM$() + " -p 2 -v";
+    
+    
+    ' Fetch the offset filename
+'    key$ := GetRegistryKey$(1) + "\\Rivalry";
+'    offsetFilename$ := GetStringRegistryValue$(GetRegistryKey$(1), "OffsetFile", "file_not_found");
+'    Dual$ := " -K -r " + offsetFilename$ + " -M ";    
+    
+'    if tunDoRivalry% = 0 then
+'        Dual$ := "";
+'    else
+'        ' Fetch the offset filename
+'        key$ := GetRegistryKey$(1) + "\\Rivalry";
+'        offsetFilename$ := GetStringRegistryValue$(GetRegistryKey$(1), "OffsetFile", "file_not_found");
+'        Dual$ := " -K -r " + offsetFilename$ + " -M ";
+'    endif
+    
+    'By default, set ProgName$ to be FIXSTIM
+    ProgName$ := "\\fixstim.exe ";    
+    
+	docase 
+    case tunType$ = tunTypeContrast$ then
+        
+        'Tune$ := Dual$ + " -C " + Values$;
+        Tune$ := " -C " + Values$;
+
+    case tunType$ = tunTypeOrientation$ then
+
+        'Tune$ := Dual$ + " -O " + Values$;
+        Tune$ := " -O " + Values$;
+
+    case tunType$ = tunTypeSpatial$ then
+
+        'Tune$ := Dual$ + " -S " + Values$;
+        Tune$ := " -S " + Values$;
+
+    case tunType$ = tunTypeTemporal$ then
+
+        'Tune$ := Dual$ + " -T " + Values$;
+        Tune$ := " -T " + Values$;
+
+    case tunType$ = tunTypeArea$ then
+        
+        'Tune$ := Dual$ + " -A " + Values$;
+        Tune$ := " -A " + Values$;
+        
+'    case tunType$ = tunTypeDonut$ then
+'        
+'        ' The args for the stim must be constructed here. 
+'        var areaArg$, donutArg$;
+'        for i% := 0 to tunNValues%-1 do
+'            if tunValues[tunValuesIndices%[i%]] <= tunDonutOptimalDiam then
+'                areaArg$ += str$(tunValues[tunValuesIndices%[i%]]) + ",";
+'                donutArg$ += "0,0,";
+'            else
+'                areaArg$ += str$(tunDonutOptimalDiam) + ",";
+'                donutArg$ += str$(tunValues[tunValuesIndices%[i%]]) + "," + str$(tunDonutOptimalDiam) + ",";
+'            endif
+'        next
+'        areaArg$ := Left$(areaArg$, Len(areaArg$)-1);
+'        donutArg$ := Left$(donutArg$, Len(donutArg$)-1);
+'        'PrintLog("areaArg: %s\n", areaArg$);
+'        'PrintLog("donutArg: %s\n", donutArg$);
+'        Tune$ := Dual$ + " -A " + areaArg$ + SlaveStim$ + " -V -H " + donutArg$;  'Added slave stim specs
+'        ProgName$ := "\\dualstim.exe ";  'Dual screen scenarios call a different program
+'        Extras$ := Extras$ + " -t " + Str$(tunFixationDuration) + " ";  'add stimulus duration in seconds
+'        
+'    case tunType$ = tunTypeBerliner$ then
+'        
+'        ' The args for the stim must be constructed here. 
+'        var areaArgBerliner$, donutArgBerliner$; 
+'        for i% := 0 to tunNValues%-1 do
+'            docase
+'            case tunValues[tunValuesIndices%[i%]] = 1 then  'stim 1 is optimal center on master, no donut on slave
+'                areaArgBerliner$ += str$(tunDonutOptimalDiam) + ",";
+'                donutArgBerliner$ += "0,0,";
+'            case tunValues[tunValuesIndices%[i%]] = 2 then  'stim 2 is maximal center on master, no donut on slave
+'                areaArgBerliner$ += str$(tunBerlinerMaximalDiam) + ",";
+'                donutArgBerliner$ += "0,0,";   
+'            case tunValues[tunValuesIndices%[i%]] = 3 then  'stim 3 is optimal center on master, donut one step larger on slave
+'                areaArgBerliner$ += str$(tunDonutOptimalDiam) + ",";
+'                donutArgBerliner$ += str$(tunDonutOptimalDiamPlusOne) + "," + str$(tunDonutOptimalDiam) + ","; 
+'            case tunValues[tunValuesIndices%[i%]] = 4 then  'stim 4 is optimal center on master, maximal donut on slave
+'                areaArgBerliner$ += str$(tunDonutOptimalDiam) + ",";
+'                donutArgBerliner$ += str$(tunBerlinerMaximalDiam) + "," + str$(tunDonutOptimalDiam) + ",";   
+'            case tunValues[tunValuesIndices%[i%]] = 5 then  'stim 5 is optimal center on master, optimal center on slave
+'                areaArgBerliner$ += str$(tunDonutOptimalDiam) + ",";
+'                donutArgBerliner$ += str$(tunDonutOptimalDiam) + "," + str$(0) + ","; 
+'            case tunValues[tunValuesIndices%[i%]] = 6 then  'stim 6 is maximal center on master, maximal center on slave
+'                areaArgBerliner$ += str$(tunBerlinerMaximalDiam) + ",";
+'                donutArgBerliner$ += str$(tunBerlinerMaximalDiam) + "," + str$(0) + ",";      
+'            else
+'                Message("Error - unknown value for tunValues: " + str$(tunValues[tunValuesIndices%[i%]]));
+'                Halt;   
+'            endcase
+'        next
+'        areaArgBerliner$ := Left$(areaArgBerliner$, Len(areaArgBerliner$)-1);
+'        donutArgBerliner$ := Left$(donutArgBerliner$, Len(donutArgBerliner$)-1);
+'        'PrintLog("areaArg: %s\n", areaArg$);
+'        'PrintLog("donutArg: %s\n", donutArg$);
+'        'Insert slave stimulus into Tune$, right now just for Berliners, but could be done for donuts
+'        Tune$ := Dual$ + " -A " + areaArgBerliner$ + SlaveStim$ + " -V -H " + donutArgBerliner$;   
+'        ProgName$ := "\\dualstim.exe ";  'Dual screen scenarios call a different program
+'        Extras$ := Extras$ + " -t " + Str$(tunFixationDuration) + " ";  'add stimulus duration in seconds
+        
+    else
+
+        Message("Error - unknown value for tunType$: " + tunType$);
+        Halt;
+
+	endcase;
+	
+    cmdLine$ := "cmd /k " + bin$ + ProgName$ + Extras$ + Stim$ + Tune$;
+    
+'    if tunUseXHairs% = 1 and (tunType$ = tunTypeBerliner$ or tunType$ = tunTypeDonut$) then 'Construct command line with crosshair argument, only for DUALSTIM, FIXSTIM won't do this
+'        'split XHairArg$ construction into two lines due to length
+'        XHairArg$ := " -X " + Str$(FixationX) + "," + Str$(FixationY) + "," + Str$(tunXHairInnerRadiusOffset) + "," + Str$(tunXHairMiddleRadiusOffset) + ","; 
+'        XHairArg$ := XHairArg$ + Str$(tunXHairOuterRadiusOffset) + "," + Str$(tunXHairNumGridDivisions%) + "," + Str$(tunXHairTicInnerOffset) + "," + Str$(tunXHairTicOuterOffset) + " ";
+'        cmdLine$ := "cmd /k " + bin$ + ProgName$ + FixationArg$ + XHairArg$ + Extras$ + Stim$ + Tune$;
+'    else  'Construct command line without crosshair argument
+'        cmdLine$ := "cmd /k " + bin$ + ProgName$ + FixationArg$ + Extras$ + Stim$ + Tune$;
+    '    endif;
+    
+    ' Record initial text marks. The command line may need to be broken into pieces. 
+    SampleText("Tuning,3," + str$(Len(cmdLine$)));  'not clear what this should be, if anything.
+'    if tunUseMaintainMode% = 1 then  'if fixation point stays on, extraction is version 2
+'        SampleText("Tuning,2," + str$(Len(cmdLine$)));
+'    else 'value is 0, fixation point goes off, extraction is version 3
+'        SampleText("Tuning,3," + str$(Len(cmdLine$)));
+'    endif;
+    SampleText(tunCVSID$);
+    for i% := 1 to Len(cmdLine$) step 100 do
+        SampleText(Mid$(cmdLine$, i%, 100));
+    next
+    
+    
+	'Begin the stimulus program. It will take a few seconds for the VSG to initialize.
+	PrintLog(cmdLine$+"\n");
+    printlog("num advances is %d and num repeats is %d\n",tunNAdvances%,tunNRepeats%);
+	StimHandle% := ProgRun(cmdLine$,1);
+	if StimHandle% <0 then Message("Could not start stimulus."); halt; endif
+	
+	ToolbarSet(0,"",IdleProcessing%);	'Enable the IdleProcessing function
+	ToolbarEnable(2,1);
+	ToolbarEnable(1,0);
+	ToolbarEnable(6,0);
+	ToolbarEnable(7,0);
+	View(DataWindow%);
+	Yield(.1);
+return 1;
+end;
+
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+' DrawStim
+' 
+' Draws stimulus in xy window (iDraw%==1) or blanks it (0). 
+'proc DrawStim(iDraw%)
+'
+'	if iDraw% > 0 then
+'		var xstim, ystim;
+'		xstim := FixationX;
+'		ystim := FixationY;
+'
+'		' Draw stimulus in xy window
+'		View(XYWindow%).XYAddData(iStimChannel%, xstim, ystim);
+'	else 
+'		' erase the stim and the window from xy view
+'		View(XYWindow%).XYDelete(iStimChannel%);
+'	endif
+'
+'end;
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+' Get a log progression from xmin to xmax, through nsteps%. Assumed that vec[] has enough room!
+Proc GetLogProgression(xmin, xmax, nsteps%, vec[])
+	var stepsize;
+	var v;
+	var i%:= 0;
+	stepsize := (Ln(xmax) - Ln(xmin))/nsteps%;
+	for v := Ln(xmin) to Ln(xmax)+stepsize/2 step stepsize do
+		PrintLog("Value[" + str$(i%) + "]=" + str$(Exp(v)) + "\n");
+		vec[i%] := Exp(v);
+		i% := i% + 1;
+	next;
+end;
+
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+' Get a linear progression from xmin to xmax, through nsteps%. Assumed that vec[] has enough room!
+Proc GetLinearProgression(xmin, xmax, nsteps%, vec[])
+	var stepsize;
+	var v;
+	var i%:= 0;
+	stepsize := (xmax -xmin)/nsteps%;
+	for v := xmin to xmax+stepsize/2 step stepsize do
+	'	PrintLog("Value=" + str$(v) + "\n");
+		vec[i%] := v;
+		i% := i% + 1;
+	next;
+end;
+
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+' Put a vector of numbers into a comma separated string
+Func StringifyProgression$(n%, vec[], ind%[])
+	var s$;
+	var i%;
+	for i% := 0 to n%-1 do
+		if i% > 0 then 
+			s$ += ",";
+		endif
+		s$ += str$(vec[ind%[i%]]);
+	next
+	return s$;
+end;
+
+
+
+
+
+'----- Check to make sure the stimulus and crosshair rectangles do not overlap
+'Func CheckXHairStimulusBox(gr$,maxRadius,maxDiam);
+'    var x;
+'    var y;
+'    var w;
+'    var h;
+'    var contrast%;
+'    var sf;
+'    var tf;
+'    var ori;
+'    var phase;
+'    var cv$;
+'    var pattern$;
+'    var aperture$;
+'    var xencroach;
+'    var yencroach;
+'    
+'    ParseGratingParameters%(gr$, x, y, w, h, contrast%, sf, tf, ori, phase, cv$, pattern$, aperture$);
+'    xencroach := Abs(x) - w/2;
+'    yencroach := Abs(y) - h/2;
+'    if maxDiam > 0 then
+'        xencroach := Abs(x) - maxDiam/2;
+'        yencroach := Abs(y) - maxDiam/2;
+'    endif;
+'    if xencroach < maxRadius and yencroach < maxRadius then
+'        return 0;  'rectangles will overlap
+'    else
+'        return 1;  'rectangles will not overlap
+'    endif;
+'       
+'end
+
