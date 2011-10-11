@@ -11,7 +11,7 @@
 #include "../../Spike2Util/DlgUtilities.s2s"
 
 
-' DJS var DistanceToScreenMM$;		' Distance to screen in MM
+var DistanceToScreenMM$;		' Distance to screen in MM
 var DegreesPerVoltX;			' Conversion factor from ADC to visual degrees
 var DegreesPerVoltY;			' Conversion factor from ADC to visual degrees
 var EyeCoilSamplingFrequency%;		' Frequency to sample eye coil at
