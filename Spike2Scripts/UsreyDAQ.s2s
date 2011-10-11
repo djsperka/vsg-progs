@@ -154,6 +154,25 @@ proc SaveDAQParameters()
 end;
 
 
+proc GetElectrodeParameters()
+	var key$;
+    var s$;
+	key$ := GetRigName$() + "\\" + GetCurrentConfiguration$() + "\\DAQ";
+    s$ := GetStringRegistryValue$(key$, "WavemarkPorts", "");
+    NumWavemarkPorts% := ReadStr(s$, WavemarkPorts%[]);
+    s$ := GetStringRegistryValue$(key$, "ContinuousPorts", "");
+    NumContinuousPorts% := ReadStr(s$, ContinuousPorts%[]);
+end;
+
+proc SaveElectrodeParameters()
+    var key$;
+    var s$;
+    var i%;
+	key$ := GetRigName$() + "\\" + GetCurrentConfiguration$() + "\\DAQ";
+    SetStringRegistryValue(key$, "WavemarkPorts", GetWavemarkPorts$());
+    SetStringRegistryValue(key$, "ContinuousPorts", GetContinuousPorts$());    
+end;
+
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 '
 '	DAQ Parameters END
