@@ -36,9 +36,9 @@ func GetEyeYPort%()
 end
 
 ' DJS MOVED TO UsreyUtil.s2s 
-' func GetDistanceToScreenMM$()
-'    return DistanceToScreenMM$;
-'end
+ func GetDistanceToScreenMM$()
+    return DistanceToScreenMM$;
+end
 
 func GetDegreesPerVoltX()
     return DegreesPerVoltX;
