@@ -21,6 +21,10 @@ var JuiceRewardMS% := 200;      ' for Ben's new juicer this is the length of tim
 var EyeXPort%;                  ' Port horizontal eye signal connected to
 var EyeYPort%;                  ' Port vertical eye signal connected to
 var JoystickPort%;              ' Port joystick is connected to
+var WavemarkPorts%[16];
+var NumWavemarkPorts%;
+var ContinuousPorts%[16];
+var NumContinuousPorts%;
 GetDAQParameters();
 
 func GetJoystickPort%()
