@@ -11,7 +11,7 @@
 #include "../../Spike2Util/DlgUtilities.s2s"
 
 
-var DistanceToScreenMM$;		' Distance to screen in MM
+var DistanceToScreenMM$;		' Distance to screen in MM 
 var DegreesPerVoltX;			' Conversion factor from ADC to visual degrees
 var DegreesPerVoltY;			' Conversion factor from ADC to visual degrees
 var EyeCoilSamplingFrequency%;		' Frequency to sample eye coil at
@@ -39,8 +39,7 @@ func GetEyeYPort%()
     return EyeYPort%;
 end
 
-' DJS MOVED TO UsreyUtil.s2s 
- func GetDistanceToScreenMM$()
+func GetDistanceToScreenMM$()
     return DistanceToScreenMM$;
 end
 
@@ -89,6 +88,86 @@ Proc SafeSampleKey(s$)
     return;
 end
 
+
+func GetWavemarkPorts%(ports%[])
+    docase
+    case Len(ports%[]) < NumWavemarkPorts% then 
+        return -1;    ' array not large enough
+    case NumWavemarkPorts% = 0 then
+        return 0;
+    else
+        ArrConst(ports%[0:NumWavemarkPorts%], WavemarkPorts%[0:NumWavemarkPorts%]);
+        return NumWavemarkPorts%;
+    endcase
+end
+
+func GetContinuousPorts%(ports%[])
+    docase
+    case Len(ports%[]) < NumContinuousPorts% then 
+        return -1;    ' array not large enough
+    case NumContinuousPorts% = 0 then
+        return 0;
+    else
+        ArrConst(ports%[0:NumContinuousPorts%], ContinuousPorts%[0:NumContinuousPorts%]);
+        return NumContinuousPorts%;
+    endcase
+end
+
+func GetWavemarkPorts$()
+    var s$ := "";
+    var i%;
+    var count% := 0;
+    for i% := 0 to NumWavemarkPorts%-1 do
+        s$ += str$(WavemarkPorts%[i%]);
+        if i% < NumWavemarkPorts%-1 then
+            s$ += ",";
+        endif
+    next
+    return s$;
+end
+
+func GetContinuousPorts$()
+    var s$ := "";
+    var i%;
+    for i% := 0 to NumContinuousPorts%-1 do
+        s$ += str$(ContinuousPorts%[i%]);
+        if i% < NumContinuousPorts%-1 then
+            s$ += ",";
+        endif
+    next
+    return s$;
+end
+
+func ElectrodesDialog%()
+    var wm%[16];
+    var cn%[16];
+    var i%;
+    GetElectrodeParameters();
+    ArrConst(wm%[], 0);
+    ArrConst(cn%[], 0);
+    for i% := 0 to NumContinuousPorts%-1 do
+        cn%[ContinuousPorts%[i%]] := 1;
+    next
+    for i% := 0 to NumWavemarkPorts%-1 do
+        wm%[WavemarkPorts%[i%]] := 1;
+    next
+    if WMCNPortDialog%("Electrode Configuration", wm%[], cn%[]) = 1 then
+        NumWavemarkPorts% := 0;
+        NumContinuousPorts% := 0;
+        for i% := 0 to Len(wm%[])-1 do
+            if wm%[i%] = 1 then
+                WavemarkPorts%[NumWavemarkPorts%] := i%;
+                NumWavemarkPorts% += 1;
+            endif
+            if cn%[i%] = 1 then
+                ContinuousPorts%[NumContinuousPorts%] := i%;
+                NumContinuousPorts% += 1;
+            endif
+        next
+        SaveElectrodeParameters();
+    endif
+    return 1;
+end;
 
 
 func DAQParametersDialog%()
@@ -157,7 +236,6 @@ proc SaveDAQParameters()
     SaveElectrodeParameters();
 end;
 
-
 proc GetElectrodeParameters()
 	var key$;
     var s$;
@@ -176,6 +254,7 @@ proc SaveElectrodeParameters()
     SetStringRegistryValue(key$, "WavemarkPorts", GetWavemarkPorts$());
     SetStringRegistryValue(key$, "ContinuousPorts", GetContinuousPorts$());    
 end;
+
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 '
