@@ -28,7 +28,7 @@ using namespace alert;
 
 
 VSGCYCLEPAGEENTRY MPositions[32768];
-char *f_sequence = NULL;
+const char *f_sequence = NULL;
 
 const int f_iOrder = 15;
 bool f_binaryTriggers = true;
@@ -36,7 +36,7 @@ TriggerVector triggers;
 double f_apX=0, f_apY=0;
 double f_sf = 0;
 string f_sFilename;
-double f_dSegmentTime = 0;
+//double f_dSegmentTime = 0;
 int f_iSegmentLength = 0;
 int f_iDistanceToScreen = 0;
 int f_iFramesPerTerm = 0;
@@ -47,8 +47,6 @@ ARGratingSpec f_grating0;
 ARGratingSpec f_grating1;
 ARGratingSpec f_grating2;
 double f_diameter = 0;
-string f_sParfile;
-RepeatingSpec f_repeating;
 bool f_bUseCRG = false;
 
 void usage();
@@ -75,34 +73,24 @@ void usage()
 
 int args(int argc, char **argv)
 {	
-	bool have_m = false;
 	bool have_fix = false;
-	bool have_l = false;
 	bool have_t = false;
+	bool have_n = false;
 	bool have_C = false;
 	bool have_d = false;
 	bool have_s = false;
-	bool have_par = false;
 
 	string s;
 	int c;
 	extern char *optarg;
 	extern int optind;
 	int errflg = 0;
-	while ((c = getopt(argc, argv, "am:f:l:d:t:d:C:F:")) != -1)
+	while ((c = getopt(argc, argv, "af:l:d:t:d:C:n:s:")) != -1)
 	{
 		switch (c) 
 		{
 		case 'a':
 			f_binaryTriggers = false;
-			break;
-		case 'm':
-			f_sFilename.assign(optarg);
-			have_m = true;
-			break;
-		case 'F':
-			f_sParfile.assign(optarg);
-			have_par = true;
 			break;
 		case 'f':
 			s.assign(optarg);
@@ -119,17 +107,10 @@ int args(int argc, char **argv)
 				parse_grating(s, f_grating2);
 			}
 			break;
-		case 'l':
+		case 'n':
 			s.assign(optarg);
-			if (parse_double(s, f_dSegmentTime))
-			{
-				cerr << "Cannot parse segment time (" << s << "): must be a double." << endl;
-				errflg++;
-			}
-			else
-			{
-				have_l = true;
-			}
+			if (parse_integer(s, f_iSegmentLength)) errflg++;
+			else have_n = true;
 			break;
 		case 'd':
 			s.assign(optarg);
@@ -180,16 +161,6 @@ int args(int argc, char **argv)
 		}
 	}
 
-	if (!have_m) 
-	{
-		cerr << "No sequence file (-m) specified!" << endl; 
-		errflg++;
-	}
-	if (!have_par)
-	{
-		cerr << "No parfile (-F) specified! Need this to tell spike2 how many terms in segment!" << endl;
-		errflg++;
-	}
 	if (!have_fix) 
 	{
 		cerr << "No fixation point (-f) specified!" << endl; 
@@ -200,9 +171,9 @@ int args(int argc, char **argv)
 		cerr << "No screen distance (-d) specified!" << endl; 
 		errflg++;
 	}
-	if (!have_l)
+	if (!have_n)
 	{
-		cerr << "No segment length (-l) specified!" << endl;
+		cerr << "No segment length (-n) specified!" << endl;
 		errflg++;
 	}
 	if (!have_t)
@@ -226,11 +197,14 @@ int args(int argc, char **argv)
 	}
 	else
 	{
+#if 0
 		if (arutil_load_mseq(&f_sequence, f_sFilename, f_iOrder))
 		{
 			errflg++;
 			cerr << "Error loading mseq file " << f_sFilename << endl;
 		}
+#endif
+		f_sequence = get_msequence();
 
 		// assign contrast values to grating specs used in crg. f_grating2 is left as-is.
 		f_grating0.contrast = f_iContrastLow;
@@ -435,7 +409,7 @@ int callback(int &output, const CallbackTrigger* ptrig)
 }
 
 
-
+#if 0
 int writeTermsToParfile()
 {
 	int status = 0;
@@ -443,7 +417,6 @@ int writeTermsToParfile()
 	double dtmp = (double)frame_us / 1000000.0 * f_iFramesPerTerm;			// this is now seconds per term
 	double dtmp2 = f_dSegmentTime/dtmp;
 	f_iSegmentLength = (int)dtmp2 + 1;
-
 	// Now open parfile and write that number into it, then close it. 
 	ofstream out;
 	out.open(f_sParfile.c_str(), std::ios::out);
@@ -456,8 +429,10 @@ int writeTermsToParfile()
 	{
 		status = 1;
 	}
+
 	return status;
 }
+#endif
 
 
 int main(int argc, char **argv)
@@ -479,29 +454,10 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-
-	// Figure out number of terms in segment, then write that number into the parfile. 
-	// If that file cannot be opened or written, it is an error and we exit. 
-	if (writeTermsToParfile())
-	{
-		cerr << "Cannot write to parfile " << f_sParfile << endl;
-		return 1;
-	}
-	else
-	{
-		cout << "Segment terms = " << f_iSegmentLength << endl;
-	}
+	ARvsg::instance().ready_pulse(100);
 
 
-	// Issue "ready" triggers to spike2.
-	// These commands pulse spike2 port 6. 
-	vsgObjCreate();
-	vsgObjSetPixelLevels(200, 2);
-	vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, 0x20, 0);
-	vsgPresent();
 
-	vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, 0x00, 0);
-	vsgPresent();
 	vsgSetCommand(vsgDISABLELUTANIM);
 	vsgSetCommand(vsgPALETTERAMP);
 
