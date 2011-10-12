@@ -283,6 +283,10 @@
 				</FileConfiguration>
 			</File>
 			<File
+				RelativePath=".\src\mseq.cpp"
+				>
+			</File>
+			<File
 				RelativePath=".\src\RegHelper.cpp"
 				>
 			</File>
@@ -339,10 +343,6 @@
 			</File>
 			<File
 				RelativePath="include\Registry.h"
-				>
-			</File>
-			<File
-				RelativePath=".\include\usrey_msequence.h"
 				>
 			</File>
 		</Filter>
