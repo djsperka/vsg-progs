@@ -85,6 +85,8 @@ void make_argv(const std::string& str, int &argc, char **argv);
 void make_argv(std::vector<std::string>tokens, int& argc, char** argv);
 void make_argv(std::ifstream& ifs, int& argc, char **argv);
 void free_argv(int& argc, char **argv);
+const char* get_msequence();
+
 /*
  * prargs
  * 
