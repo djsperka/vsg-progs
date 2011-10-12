@@ -1,4 +1,4 @@
-/* $Id: fixstim.cpp,v 1.3 2011-06-24 01:51:02 djsperka Exp $ */
+/* $Id: fixstim.cpp,v 1.4 2011-10-12 21:11:09 devel Exp $ */
 
 #include <iostream>
 #include <fstream>
@@ -351,7 +351,7 @@ int args(int argc, char **argv)
 	string sequence_filename;
 	bool have_F = false;
 	char activeScreen = ' ';
-	while ((c = getopt(argc, argv, "f:b:d:avg:s:C:T:S:O:A:R:B:F:DMVr:H:Zp:KP:")) != -1)
+	while ((c = getopt(argc, argv, "f:b:d:avg:s:C:T:S:O:A:R:B:DMVr:H:Zp:KP:")) != -1)
 	{
 		switch(c)
 		{
@@ -601,7 +601,7 @@ int args(int argc, char **argv)
 			{
 				vector<int> list;
 				int nterms;
-				char *sequence = NULL;
+				const char *sequence = NULL;
 				bool balanced = (c=='B');
 
 				s.assign(optarg);
@@ -612,6 +612,30 @@ int args(int argc, char **argv)
 				}
 				else
 				{
+					// djs sequence is ALWAYS the msequence. 
+
+					sequence = get_msequence();
+					nterms = strlen(sequence);
+
+					// Check that sequence args work with this sequence file
+					if (nterms > 0 && list[1] > -1 && (list[1]+list[2] < nterms))
+					{
+						string seq;
+						seq.assign(&sequence[list[1]], list[2]);
+
+						// Create StimSet
+						if (have_fixpt)
+						{
+							f_pStimSet = new CRGStimSet(f_fixpt, f_grating, list[0], seq, balanced);
+						}
+						else
+						{
+							f_pStimSet = new CRGStimSet(f_grating, list[0], seq, balanced);
+						}
+					}
+
+
+#if 0
 					if (have_F)
 					{
 						// Open file and load sequence
@@ -648,6 +672,8 @@ int args(int argc, char **argv)
 						cerr << "Error - must supply sequence file (\"-F\") before CRG argument (\"-R\")" << endl;
 						errflg++;
 					}
+#endif
+
 				}
 				break;
 			}
