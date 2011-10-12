@@ -36,7 +36,7 @@ int f_pulse = 0x40;
 bool f_binaryTriggers = true;
 int f_iNumberLength=3;		// number of digits in image filenames, e.g. image000.bmp, image001,bmp has 3.
 int f_sequenceIndex = 1;
-int f_sequenceLength = 20;
+//int f_sequenceLength = 20;
 bool bTesting = false;
 VSGCYCLEPAGEENTRY f_cycle[32768];
 
@@ -203,10 +203,10 @@ void move_window(int image)
 void advance_sequence()
 {
 	// the sequence consists of the images, in order. Remember that the first image in f_vecImages is a
-	// dummy - the background color. Each sequence played has f_sequenceLength images. The sequence will 
+	// dummy - the background color. Each sequence played has f_termsPerSequence images. The sequence will 
 	// wrap as needed, skipping over the dummy background image each time. 
 	// f_sequenceIndex = index of current sequence start.
-	f_sequenceIndex += f_sequenceLength;
+	f_sequenceIndex += f_termsPerSequence;
 	if (f_sequenceIndex >= (int)f_vecImages.size())
 	{
 		f_sequenceIndex = f_sequenceIndex%f_vecImages.size() + 1;	// the "+1" is due to the dummy image
@@ -217,9 +217,9 @@ void advance_sequence()
 void prepare_cycling()
 {
 	int i, index;
-	memset(f_cycle, 0, (f_sequenceLength+1)*sizeof(VSGCYCLEPAGEENTRY));
+	memset(f_cycle, 0, (f_termsPerSequence+1)*sizeof(VSGCYCLEPAGEENTRY));
 
-	for (i=0, index=f_sequenceIndex; i<f_sequenceLength; i++, index++)
+	for (i=0, index=f_sequenceIndex; i<f_termsPerSequence; i++, index++)
 	{
 		if (index == f_vecImages.size()) index = 1;	// skip over dummy image
 		f_cycle[i].Page = 0+vsgDUALPAGE+vsgTRIGGERPAGE;
@@ -228,20 +228,20 @@ void prepare_cycling()
 		f_cycle[i].Frames = f_framesPerTerm;
 		f_cycle[i].Stop = 0;
 		f_cycle[i].ovPage = 1;
-		f_cycle[i].ovXpos = 0;
+		f_cycle[i].ovXpos = 0;// HACK
 		f_cycle[i].ovYpos = 0;
 		cout << "cycle[" << i << "] x,y = " << f_cycle[i].Xpos << ", " << f_cycle[i].Ypos <<  " fpt " << f_framesPerTerm << endl;
 	}
-	f_cycle[f_sequenceLength].Page = 0+vsgDUALPAGE+vsgTRIGGERPAGE;
-	f_cycle[f_sequenceLength].Xpos = f_vecImages[0].x;
-	f_cycle[f_sequenceLength].Ypos = f_vecImages[0].y;
-	f_cycle[f_sequenceLength].Frames = 1;
-	f_cycle[f_sequenceLength].Stop = 1;
-	f_cycle[f_sequenceLength].ovPage = 1;
-	f_cycle[f_sequenceLength].ovXpos = 0;
-	f_cycle[f_sequenceLength].ovYpos = 0;
+	f_cycle[f_termsPerSequence].Page = 0+vsgDUALPAGE+vsgTRIGGERPAGE;
+	f_cycle[f_termsPerSequence].Xpos = f_vecImages[0].x;
+	f_cycle[f_termsPerSequence].Ypos = f_vecImages[0].y;
+	f_cycle[f_termsPerSequence].Frames = 1;
+	f_cycle[f_termsPerSequence].Stop = 1;
+	f_cycle[f_termsPerSequence].ovPage = 1;
+	f_cycle[f_termsPerSequence].ovXpos = 0;
+	f_cycle[f_termsPerSequence].ovYpos = 0;
 	
-	i=vsgPageCyclingSetup(f_sequenceLength+1, &f_cycle[0]);
+	i=vsgPageCyclingSetup(f_termsPerSequence+1, &f_cycle[0]);
 	cout << "cycling status " << i << endl;
 }
 
@@ -270,7 +270,7 @@ int callback(int &output, const CallbackTrigger* ptrig)
 	else if (key == "s")
 	{
 		//move_window(0);
-		vsgSetSynchronisedCommand(vsgSYNC_PRESENT, vsgCYCLEPAGEDISABLE, 0);
+		//HACK vsgSetSynchronisedCommand(vsgSYNC_PRESENT, vsgCYCLEPAGEDISABLE, 0);
 
 	}
 	else if (key == "X")
