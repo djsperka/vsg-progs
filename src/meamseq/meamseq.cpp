@@ -38,11 +38,20 @@ int f_iapXCorner=0;
 int f_iapYCorner=0;
 char *f_sequence=NULL;
 bool f_testing = false;
+bool f_triggered = false;
+bool f_binaryTriggers = true;
+int f_nRepeats = 1;
+TriggerVector triggers;
+PageCyclingTrigger *f_ptrigCycling = NULL;
+
+
 
 bool blankPage();
 int draw_mseq(char *seq, int order, int r, int c, int d);
 void prepare_cycling();
 void testing_loop();
+int callback(int &output, const CallbackTrigger* ptrig);
+void init_triggers();
 
 #define NO_APERTURE_PAGE 1
 #define APERTURE_PAGE 0
@@ -282,36 +291,136 @@ int main(int argc, char **argv)
 	else
 	{
 		prepare_cycling();
-		cout << "Hit S  to start msequence." << endl;
-		while (true)
+
+		if (!f_triggered)
 		{
-			if (_kbhit() && ('S'==_getch()))
+			cout << "Hit S  to start msequence." << endl;
+			while (true)
 			{
-				break;
+				if (_kbhit() && ('S'==_getch()))
+				{
+					break;
+				}
+				Sleep(100);
 			}
-			Sleep(100);
-		}
-		vsgSetCommand(vsgVIDEODRIFT+vsgOVERLAYDRIFT);			// allows us to move the offset of video memory
-		vsgSetCommand(vsgCYCLEPAGEENABLE);
-		Sleep(1000);
-		cout << "Hit q to abort msequence." << endl;
-		while (vsgGetSystemAttribute(vsgPAGECYCLINGSTATE) >= 0) 
-		{
-			if (_kbhit() && ('q'==_getch()))
-			{
-				vsgSetCommand(vsgCYCLEPAGEDISABLE);
-				vsgSetZoneDisplayPage(vsgOVERLAYPAGE, NO_APERTURE_PAGE);
-				cout << "Aborted by user." << endl;
-				break;
-			}
+			vsgSetCommand(vsgVIDEODRIFT+vsgOVERLAYDRIFT);			// allows us to move the offset of video memory
+			vsgSetCommand(vsgCYCLEPAGEENABLE);
 			Sleep(1000);
+			cout << "Hit q to abort msequence." << endl;
+			while (vsgGetSystemAttribute(vsgPAGECYCLINGSTATE) >= 0) 
+			{
+				if (_kbhit() && ('q'==_getch()))
+				{
+					vsgSetCommand(vsgCYCLEPAGEDISABLE);
+					vsgSetZoneDisplayPage(vsgOVERLAYPAGE, NO_APERTURE_PAGE);
+					cout << "Aborted by user." << endl;
+					break;
+				}
+				Sleep(1000);
+			}
+			cout << "Done with msequence." << endl;
 		}
-		cout << "Done with msequence." << endl;
+		else
+		{
+
+			init_triggers();
+
+			// Issue "ready" triggers to spike2.
+			// These commands pulse spike2 port 6. 
+			vsgIOWriteDigitalOut(0xff, vsgDIG6);
+			Sleep(10);
+			vsgIOWriteDigitalOut(0, vsgDIG6);
+
+			// All right, start monitoring triggers........
+			std::string s;
+			int last_output_trigger=0;
+			int input_trigger=0;
+			while (1)
+			{
+				// If user-triggered, get a trigger entry. 
+				if (!f_binaryTriggers)
+				{
+					// Get a new "trigger" from user
+					cout << "Enter trigger/key: ";
+					cin >> s;
+				}
+				else
+				{
+					input_trigger = vsgIOReadDigitalIn();
+				}
+
+				TriggerFunc	tf = std::for_each(triggers.begin(), triggers.end(), 
+					(f_binaryTriggers ? TriggerFunc(input_trigger, last_output_trigger) : TriggerFunc(s, last_output_trigger)));
+
+				// Now analyze input trigger
+				// the callback function should return 0 ALWAYS in this program -- no vsgPresent() should get called. 
+			 	
+				if (tf.quit()) 
+				{
+					// quitting in the middle of page cycling requires special handling
+					vsgSetCommand(vsgCYCLEPAGEDISABLE);
+					vsgSetZoneDisplayPage(vsgOVERLAYPAGE, 1);
+					break;
+				}
+				else if (tf.present())
+				{	
+					last_output_trigger = tf.output_trigger();
+					vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, tf.output_trigger(), 0);
+					vsgPresent();
+				}
+
+				// Throttle cpu usage a little. No need to be in hyperspeed checking for triggers here. 
+				Sleep(100);
+			}
+		}
 	}
 
 
 	return 0;
 }
+
+
+
+void init_triggers()
+{
+	triggers.addTrigger(new CallbackTrigger("s", 0x2, 0x2, 0x2, 0x2, callback));
+	triggers.addTrigger(new CallbackTrigger("X", 0x2, 0x0, 0x2, 0x0, callback));
+	f_ptrigCycling = new PageCyclingTrigger("C", f_nRepeats);
+	triggers.addTrigger(f_ptrigCycling);
+	triggers.addTrigger(new QuitTrigger("q", 0x80, 0x80, 0xff, 0x0, 0));
+
+		// Dump triggers
+	std::cout << "Triggers:" << std::endl;
+	for (unsigned int i=0; i<triggers.size(); i++)
+	{
+		std::cout << "Trigger " << i << " " << *(triggers[i]) << std::endl;
+	}
+	
+}
+
+
+
+int callback(int &output, const CallbackTrigger* ptrig)
+{
+	int ival=0;
+	string key = ptrig->getKey();
+	if (key == "s")
+	{
+		vsgResetTimer();
+		vsgSetCommand(vsgVIDEODRIFT+vsgOVERLAYDRIFT);
+		vsgSetCommand(vsgCYCLEPAGEENABLE);
+		f_ptrigCycling->started();
+	}
+	else if (key == "X")
+	{
+		vsgSetCommand(vsgCYCLEPAGEDISABLE);
+		f_ptrigCycling->stopped();
+		vsgSetZoneDisplayPage(vsgOVERLAYPAGE, 1);
+	}
+
+	return 0;		// this ensures that no vsgPresent is called (which would insert an extra trigger)
+}
+
 
 
 void testing_loop()
@@ -476,12 +585,26 @@ int args(int argc, char **argv)
 	extern char *optarg;
 	extern int optind;
 	int errflg = 0;
-	while ((c = getopt(argc, argv, "t:r:c:o:vp:d:am:D:K")) != -1)
+	while ((c = getopt(argc, argv, "t:r:c:o:vp:d:am:D:KTR:")) != -1)
 	{
 		switch (c) 
 		{
 		case 'K':
 			f_testing = true;
+			break;
+		case 'T':
+			f_triggered = true;
+			break;
+		case 'a':
+			f_binaryTriggers = false;
+			break;
+		case 'R':
+			s.assign(optarg);
+			if (parse_integer(s, f_nRepeats))
+			{
+				cerr << "Cannot parse repeats (" << s << "): must be an integer." << endl;
+				errflg++;
+			}
 			break;
 		case 'p':
 			s.assign(optarg);
