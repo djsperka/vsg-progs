@@ -20,7 +20,7 @@ using namespace alert;
 
 int args(int argc, char **argv);
 
-
+#define IS_VISAGE (vsgGetSystemAttribute(vsgDEVICECLASS)==7)
 
 int args(int argc, char **argv)
 {	
@@ -123,7 +123,14 @@ int main(int argc, char *argv[])
 				lastDiginState=diginState;
 				if (!f_dio)
 				{
-					vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, diginState, 0);
+					if (IS_VISAGE)
+					{
+						vsgSetTriggerOptions(vsgTRIGOPT_PRESENT, 0, vsgTRIG_OUTPUTMARKER, 0.5, 0, diginState << 1, 0x1FE);
+					}
+					else
+					{
+						vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, diginState, 0);
+					}
 					vsgPresent();
 				}
 				else
