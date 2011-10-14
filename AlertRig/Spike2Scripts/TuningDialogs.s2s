@@ -1,4 +1,4 @@
-' $Id: TuningDialogs.s2s,v 1.6 2011-10-07 21:13:13 jeff Exp $
+' $Id: TuningDialogs.s2s,v 1.7 2011-10-14 17:37:06 jeff Exp $
 '
 ' This file contains dialog functions for the alert tuning script Tuning.s2s.
 #include "../../Spike2Util/UsreyUtil.s2s"
@@ -665,8 +665,6 @@ end
 func GratingParametersDialogMaster%(label$, &param$, &statparam$, &x, &y, &w, &h, &contrast%, &sf, &tf, &ori, &phase, &cv$, &pattern$, &aperture$)
     
 	var i% := 13;  'That's right, 13
-    var tempPhase;
-    var firstRun := 1;
     
 	var ColorVectorList$[5];
 	var cvl$[5];
@@ -718,10 +716,7 @@ func GratingParametersDialogMaster%(label$, &param$, &statparam$, &x, &y, &w, &h
         DlgList(11, "Pattern:", PatternList$[]);
         DlgList(12, "Aperture:", ApertureList$[]);
         DlgButton(13, "Copy from Slave", TunCopySlaveVals%(param$));
-        if firstRun = 0 then  'prevent phase from being overwritten the first time the function is called
-            phase := tempPhase;
-        endif;
-        firstRun := 0;      
+     
         
         i% := DlgShow(x, y, w, h, contrast%, sf, tf, ori, phase, icvl%, ipl%, ial%);
         Convert180(phase);
@@ -744,8 +739,6 @@ end;
 func GratingParametersDialogSlave%(label$, &param$, &statparam$, &x, &y, &w, &h, &contrast%, &sf, &tf, &ori, &phase, &cv$, &pattern$, &aperture$)
     
 	var i% := 13;  'That's right, 13
-    var tempPhase;
-    var firstRun := 1;
     
 	var ColorVectorList$[5];
 	var cvl$[5];
@@ -797,10 +790,6 @@ func GratingParametersDialogSlave%(label$, &param$, &statparam$, &x, &y, &w, &h,
         DlgList(11, "Pattern:", PatternList$[]);
         DlgList(12, "Aperture:", ApertureList$[]);
         DlgButton(13, "Copy From Master", TunCopyMasterVals%(param$));
-        if firstRun = 0 then  'prevent phase from being overwritten the first time the function is called
-            phase := tempPhase;
-        endif;
-        firstRun := 0;
         
         i% := DlgShow(x, y, w, h, contrast%, sf, tf, ori, phase, icvl%, ipl%, ial%);
         Convert180(phase);
