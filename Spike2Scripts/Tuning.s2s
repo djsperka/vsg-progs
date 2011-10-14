@@ -1,5 +1,5 @@
-' $Id: Tuning.s2s,v 1.43 2011-10-14 16:22:36 jeff Exp $
-const tunCVSID$ := "$Id: Tuning.s2s,v 1.43 2011-10-14 16:22:36 jeff Exp $";
+' $Id: Tuning.s2s,v 1.44 2011-10-14 17:37:06 jeff Exp $
+const tunCVSID$ := "$Id: Tuning.s2s,v 1.44 2011-10-14 17:37:06 jeff Exp $";
 
 
 
@@ -1116,7 +1116,7 @@ proc WriteParameterFile()
 
 	Print("General information\n");
 	Print("-------------------\n\n");
-	Print("Distance to screen (MM)    : %s\n", DistanceToScreenMM$);
+	Print("Distance to screen (MM)    : %s\n", GetDistanceToScreenMM$());
 	Print("Eye coil software gain (X) : %f\n", DegreesPerVoltX);
 	Print("Eye coil software gain (Y) : %f\n", DegreesPerVoltY);
 	Print("Eye coil sampling freq (Hz): %d\n", EyeCoilSamplingFrequency%);
@@ -1286,7 +1286,7 @@ func Start%()
     
     
 	Values$ := tunValuesStringified$;
-	Extras$ := " -b " + tunBackgroundColor$ + " -d " + DistanceToScreenMM$ + " -p 2 -v";
+    Extras$ := " -b " + tunBackgroundColor$ + " -d " + GetDistanceToScreenMM$() + " -p 2 -v";
     if tunDoRivalry% = 0 then
         Dual$ := "";
     else
