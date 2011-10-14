@@ -1,5 +1,5 @@
-' $Id: StarSac2.s2s,v 1.1 2011-10-13 19:22:07 devel Exp $
-const starCVSID$ := "$Id: StarSac2.s2s,v 1.1 2011-10-13 19:22:07 devel Exp $";
+' $Id: StarSac2.s2s,v 1.2 2011-10-14 17:35:43 jeff Exp $
+const starCVSID$ := "$Id: StarSac2.s2s,v 1.2 2011-10-14 17:35:43 jeff Exp $";
 
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "../../Spike2Util/MiscUtilities.s2s"
@@ -1162,7 +1162,7 @@ proc WriteParameterFile()
 
 	Print("General information\n");
 	Print("-------------------\n\n");
-	Print("Distance to screen (MM)    : %s\n", DistanceToScreenMM$);
+	Print("Distance to screen (MM)    : %s\n", GetDistanceToScreenMM$());
 	Print("Eye coil software gain (X) : %f\n", DegreesPerVoltX);
 	Print("Eye coil software gain (Y) : %f\n", DegreesPerVoltY);
 	Print("Eye coil sampling freq (Hz): %d\n", EyeCoilSamplingFrequency%);
