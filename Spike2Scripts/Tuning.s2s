@@ -1,5 +1,5 @@
-' $Id: Tuning.s2s,v 1.42 2011-10-07 21:12:55 jeff Exp $
-const tunCVSID$ := "$Id: Tuning.s2s,v 1.42 2011-10-07 21:12:55 jeff Exp $";
+' $Id: Tuning.s2s,v 1.43 2011-10-14 16:22:36 jeff Exp $
+const tunCVSID$ := "$Id: Tuning.s2s,v 1.43 2011-10-14 16:22:36 jeff Exp $";
 
 
 
@@ -107,7 +107,7 @@ proc SaveTuningCurveScriptParameters()
 	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Tuning";
     
 	SetFloatRegistryValue(key$, "FixationDuration", tunFixationDuration);
-    SetFloatRegistryValue(key$, "UseMaintainMode", tunUseMaintainMode%);
+    SetIntRegistryValue(key$, "UseMaintainMode", tunUseMaintainMode%);
 	SetFloatRegistryValue(key$, "MaintainFixation", tunMaintainFixation);
     SetFloatRegistryValue(key$, "AcquisitionTime", tunAcquisitionTime);
     SetFloatRegistryValue(key$, "AcqFailTime", tunAcqFailTime);
