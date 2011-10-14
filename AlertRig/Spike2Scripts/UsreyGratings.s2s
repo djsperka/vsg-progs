@@ -185,7 +185,7 @@ func ParseGratingParameters%(gr$, &x, &y, &w, &h, &contrast%, &sf, &tf, &ori, &p
         status% := -1; 'otherwise return 0 if cv$/pattern$/aperture$ are present
                        'there is currently no return scheme to indicate that phase is present
     endif;
-    return n%;
+    return status%;
 end
 
 
