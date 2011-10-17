@@ -1,5 +1,5 @@
-' $Id: Tuning.s2s,v 1.44 2011-10-14 17:37:06 jeff Exp $
-const tunCVSID$ := "$Id: Tuning.s2s,v 1.44 2011-10-14 17:37:06 jeff Exp $";
+' $Id: Tuning.s2s,v 1.45 2011-10-17 21:50:51 jeff Exp $
+const tunCVSID$ := "$Id: Tuning.s2s,v 1.45 2011-10-17 21:50:51 jeff Exp $";
 
 
 
@@ -167,9 +167,10 @@ func TuningCurveScriptDialog%()
     case tunUseXHairs% = 1 then
         tunXHairText$ := "Crosshairs are ON";
     endcase
-
-	DlgCreate("Tuning Curve Parameters", 50, 10);
-	DlgGroup("Common Parameters", 0, 1, 40, 11);
+    
+    'Updated dialog box - more efficient use of space, neater
+    DlgCreate("Tuning Curve Parameters", 0, 0, 0, 0, -1, 1, 1);  'center dialog relative to screen and not to application window to eliminate cutting off the bottom of the dialog!
+	DlgGroup("Common Parameters", 0, 1, 45, 9);
 	DlgReal(1, "Acquisition time(s):", 1, 1000, 20, 2);
 	DlgReal(2, "Fixation duration(s):", .1, 10, 20, 3);
 	DlgReal(3, "Maintain fixation(s):", .1, 10, 20, 4);
@@ -178,20 +179,19 @@ func TuningCurveScriptDialog%()
 	DlgReal(6, "Maintain fixation fail time(s):", .01, 10, 20, 7);
 	DlgReal(7, "Time out time(s):", .01, 10, 20, 8);
 	DlgList(8, "Background color:", bcl$, 3, 20, 9);
-    DlgCheck(9, "Dual VSG rig", 2, 10);
-    DlgCheck(10, "Maintain Fixpt between trials", 2, 11);
-    DlgButton(tundlgXHairButton%, "Crosshairs", UpdateTuningXHairDialog%, 1, 12);
-    updateXHairText% := DlgText(tunXHairText$, 15, 12);
-	DlgGroup("Individual Tuning Curve Types", 0, 13, 40, 8);
-	DlgButton(tundlgOrientationButton%, "Orientation", TuningCurveOrientationDialog%, 1, 14);
-	DlgButton(tundlgContrastButton%, "Contrast", TuningCurveContrastDialog%, 1, 15);
-	DlgButton(tundlgSpatialButton%, "Spatial Freq", TuningCurveSpatialDialog%, 1, 16);
-	DlgButton(tundlgTemporalButton%, "Temporal Freq", TuningCurveTemporalDialog%, 1, 17);
-	DlgButton(tundlgAreaButton%, "Area", TuningCurveAreaDialog%, 1, 18);
-	DlgButton(tundlgDonutButton%, "Donuts!", TuningCurveDonutDialog%, 1, 19);
-    DlgButton(tundlgBerlinerButton%, "Berliners!", TuningCurveBerlinerDialog%, 1, 20);
-    DlgGroup("For Lazy People",0,21,40,2);
-    DlgCheck(11, "Stationary",2,22);
+    DlgCheck(9, "Dual VSG rig", 2, 11);
+    DlgCheck(10, "Maintain Fixpt between trials", 2, 12);
+    DlgCheck(11, "Stationary",2,13);
+    DlgButton(tundlgXHairButton%, " Crosshairs  ", UpdateTuningXHairDialog%, 1, 14);
+    updateXHairText% := DlgText(tunXHairText$, 15, 14);
+	DlgGroup("Individual Tuning Curve Types", 0, 16, 45, 4);
+	DlgButton(tundlgOrientationButton%, " Orientation  ", TuningCurveOrientationDialog%, 1, 17);
+	DlgButton(tundlgContrastButton%, "     Contrast     ", TuningCurveContrastDialog%, 17, 17);
+	DlgButton(tundlgSpatialButton%, "Spatial Freq", TuningCurveSpatialDialog%, 1, 18);
+	DlgButton(tundlgTemporalButton%, "Temporal Freq", TuningCurveTemporalDialog%, 17, 18);
+	DlgButton(tundlgAreaButton%, "Area", TuningCurveAreaDialog%, 35, 17);
+	DlgButton(tundlgDonutButton%, "   Donuts!   ", TuningCurveDonutDialog%, 1, 19);
+    DlgButton(tundlgBerlinerButton%, "    Berliners!    ", TuningCurveBerlinerDialog%, 17, 19);
     DlgAllow(0xffff, 0, TuningCurveScriptDialogChanged%);
 	
 	i%:=DlgShow(tunAcquisitionTime, tunFixationDuration, tunMaintainFixation,
