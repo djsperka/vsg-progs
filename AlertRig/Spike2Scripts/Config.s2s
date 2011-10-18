@@ -1,4 +1,4 @@
-' $Id: Config.s2s,v 1.28 2011-10-07 21:01:38 jeff Exp $
+' $Id: Config.s2s,v 1.29 2011-10-18 16:18:40 jeff Exp $
 
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "UsreyGratings.s2s"
@@ -80,7 +80,7 @@ end;
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 '
-'	Grating Dialogs (Distractors, Stimulus) END
+'	Grating Dialogs (Distractors, Stimulus) END 
 '
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
