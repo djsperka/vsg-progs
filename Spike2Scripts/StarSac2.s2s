@@ -1,5 +1,5 @@
-' $Id: StarSac2.s2s,v 1.2 2011-10-14 17:35:43 jeff Exp $
-const starCVSID$ := "$Id: StarSac2.s2s,v 1.2 2011-10-14 17:35:43 jeff Exp $";
+' $Id: StarSac2.s2s,v 1.3 2011-10-25 17:32:18 devel Exp $
+const starCVSID$ := "$Id: StarSac2.s2s,v 1.3 2011-10-25 17:32:18 devel Exp $";
 
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "../../Spike2Util/MiscUtilities.s2s"
@@ -318,10 +318,10 @@ var fixBrokenThisTrial% := 0;   ' only valid for a few states TODO
 ' Run real time analysis here. 
 func IdleProcessing%()
 	var iStatus% := 1;	' this is return value. value of 1 (0) continues (stops) processing
-	tNow := MaxTime();
+	tNow := View(DataWindow%).MaxTime();
 
-	xEye := ChanMeasure(XChannel%,2,tNow-.001,tNow-.006)*DegreesPerVoltX;
-	yEye := ChanMeasure(YChannel%,2,tNow-.001,tNow-.006)*DegreesPerVoltY;
+	xEye := View(DataWindow%).ChanMeasure(XChannel%,2,tNow-.001,tNow-.006)*DegreesPerVoltX;
+	yEye := View(DataWindow%).ChanMeasure(YChannel%,2,tNow-.001,tNow-.006)*DegreesPerVoltY;
 
 	' Don't update display every time. 
 	' Note that this stim displays eye continuously, without erasing... 
@@ -339,7 +339,7 @@ func IdleProcessing%()
 	
     case iState% = stateVSGWait% then
         
-        if FindPulseUp%(ReadyChannel%, -1, tTrigger, tLastTrigger) = 1 then
+        if View(DataWindow%).FindPulseUp%(ReadyChannel%, -1, tTrigger, tLastTrigger) = 1 then
             LogStatus("VSGWait", "Got ready pulse at " + str$(tTrigger));
             ChangeStateTo(stateStartTrial%, tNow);
         endif
@@ -354,7 +354,7 @@ func IdleProcessing%()
 
     case iState% = stateWaitForFixPtOn% then
         
-        if FindRisingEdge%(FixationChannel%, tLast, tTrigger) = 0 then
+        if View(DataWindow%).FindRisingEdge%(FixationChannel%, tLast, tTrigger) = 0 then
             ' Stimulus has been presented. Display stim location and window. Enter state 2
             DrawFix(1);
             ChangeStateTo(stateWaitForAcquisition%, tNow);
@@ -397,7 +397,7 @@ func IdleProcessing%()
 
     case iState% = stateWaitForFixPtOff% then
         
-        if FindFallingEdge%(FixationChannel%, tLast, tTrigger) = 1 then
+        if View(DataWindow%).FindFallingEdge%(FixationChannel%, tLast, tTrigger) = 1 then
             
             ChangeStateTo(stateInterTrial%, tNow);
             
@@ -468,7 +468,7 @@ func IdleProcessing%()
         endif
         
         ' Check if stim target has come on finally.
-        if FindRisingEdge%(StimChannel%, tLast, tTrigger) = 0 then
+        if View(DataWindow%).FindRisingEdge%(StimChannel%, tLast, tTrigger) = 0 then
             ChangeStateTo(stateWaitForAnswer%, tNow);
             iStarPosColor% := GetEyeTraceColor%(starTargetOrder%[iTargetPoint%]);
             iStarPosChannel% := View(StarWindow%).XYSetChan(0, 0, 0, 1, iStarPosColor%);
@@ -550,7 +550,7 @@ func IdleProcessing%()
         endif
         
         ' Wait for stim to be off
-        if FindFallingEdge%(StimChannel%, tLast, tTrigger) = 1 then
+        if View(DataWindow%).FindFallingEdge%(StimChannel%, tLast, tTrigger) = 1 then
 
             if starKeepFixptOn% = 1 and fixBrokenThisTrial% = 0 then
                 DrawTarget(0);
