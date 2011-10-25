@@ -1,51 +1,60 @@
-; $Id: FixPlus.PLS,v 1.2 2010-09-21 19:33:15 devel Exp $
+; $Id: FixPlus.PLS,v 1.3 2011-10-25 17:28:49 devel Exp $
 
-            SET      1.000 1 0     ;1ms per seq step, DAC scale=1, DAC offset=0
+            SET      0.010 1 0     ;1ms per seq step, DAC scale=1, DAC offset=0
             DIGOUT [00000001]
-            HALT
+            VAR    V2=0
+            HALT   
 
 ; zero out all trigger lines
-E0:     '0  DIGOUT [00000001]
-            DELAY  10
-            HALT
-
-EF:     'F  DIGOUT [......11]      ;Signals the fixation point on
-            DELAY  10
+E0:     '0  MOVI   V2,1
+            DIGOUT [00000001]
+            MOVI   V2,0
             HALT   
 
-ES:     'S  DIGOUT [.....1.1]      ;Signals the stimulus on
-            DELAY  10
+EF:     'F  MOVI   V2,1
+            DIGOUT [......11]      ;Signals the fixation point on
+            MOVI   V2,0
             HALT   
 
-ET:     's  DIGOUT [.....0.1]      ;Signals the stimulus off
-            DELAY  10
+ES:     'S  MOVI   V2,1
+            DIGOUT [.....1.1]      ;Signals the stimulus on
+            MOVI   V2,0
             HALT   
 
-EX:     'X  DIGOUT [.....001]      ; all off
-            DELAY  10
+ET:     's  MOVI   V2,1
+            DIGOUT [.....0.1]      ;Signals the stimulus off
+            MOVI   V2,0
             HALT   
 
-EA:     'a  DIGOUT [....i..1]      ;Advance stimulus
-            DELAY  10
+EX:     'X  MOVI   V2,1
+            DIGOUT [.....001]      ;all off
+            MOVI   V2,0
             HALT   
 
-EQ:     'q  DIGOUT [...1...1]      ;exit program
-            DELAY  10
+EA:     'a  MOVI   V2,1
+            DIGOUT [....i..1]      ;Advance stimulus
+            MOVI   V2,0
+            HALT   
+
+EQ:     'q  MOVI   V2,1
+            DIGOUT [...1...1]      ;exit program
+            MOVI   V2,0
             HALT   
 
 ; Reward
 ER:     'R  DIGOUT [.......1]
-            DIGOUT [.......0]           ; downward pulse delivers juice
+            DIGOUT [.......0]      ;downward pulse delivers juice
             DELAY  5
             DIGOUT [.......1]
             DELAY  100
-            DBNZ   V1,ER                ; decrement V1, more juice unless V1==0
+            DBNZ   V1,ER           ;decrement V1, more juice unless V1==0
             HALT                   ;End of this sequence section
 
 
-EJ:     'J  DIGOUT [.......1]
+EJ:     'J  MOVI   V2,1
+            DIGOUT [.......1]
             DIGOUT [.......0]
             DELAY  s(0.005)-1
             DIGOUT [.......1]
-            DELAY  s(0.989)-1
-            HALT                   ; End of this sequence section
+            MOVI   V2,0
+            HALT                   ;End of this sequence section
