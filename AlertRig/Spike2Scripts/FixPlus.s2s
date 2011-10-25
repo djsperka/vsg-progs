@@ -1,5 +1,5 @@
 
-' $Id: FixPlus.s2s,v 1.7 2010-12-14 19:32:59 devel Exp $
+' $Id: FixPlus.s2s,v 1.8 2011-10-25 17:27:53 devel Exp $
 '
 ' FixPlus is a modified version of fixation for Corey. 
 ' Its same as fixation, but a stim appears during the fixation period. Uses attention.exe.
@@ -276,7 +276,7 @@ func IdleProcessing%()
         nTrialsStarted% += 1;
 
         LogStatus("StartTrial", "Request fixpt");
-        SampleKey("F");
+        SafeSampleKey("F");
         ChangeStateTo(stateWaitForFixpt%, tNow);
         UpdateToolbarText("");
 
@@ -313,12 +313,12 @@ func IdleProcessing%()
     case iState% = stateAcquisitionFailure% then
         
         SampleText("A");
-        SampleKey("X");
+        SafeSampleKey("X");
         ChangeStateTo(stateWaitForFixptOff%, tNow);
         
     case iState% = stateWaitForFixptOff% then
         
-        LogStatus("WaitForFixptOff", "waiting@ " + str$(tNow) + " statestart " + str$(tStateStart));
+        'LogStatus("WaitForFixptOff", "waiting@ " + str$(tNow) + " statestart " + str$(tStateStart));
         if FindFallingEdge%(fixChanFixpt%, tStateStart, tTrigger) = 1 then
             DrawStim(0);
             ChangeStateTo(stateCheckTrial%, tNow);
@@ -331,14 +331,14 @@ func IdleProcessing%()
             
             nTrialsFail% += 1;
             SampleText("H");
-            SampleKey("X");
+            SafeSampleKey("X");
             ChangeStateTo(stateWaitForFixptOff%, tNow);
 
         else
 
             if tNow - tStateStart >= fixFixationDuration then
                 
-                SampleKey("S");
+                SafeSampleKey("S");
                 ChangeStateTo(stateWaitForStim%, tNow);
 
             endif
@@ -392,7 +392,7 @@ func IdleProcessing%()
     case iState% = stateStimOff% then
 
         DrawStim(0);
-        SampleKey("X");
+        SafeSampleKey("X");
         ChangeStateTo(stateWaitForBlank%, tNow);
 
     case iState% = stateWaitForBlank% then
@@ -725,7 +725,7 @@ func Stop%()
 	ToolbarSet(0, "");
 
 	' Tell stim app to shut down
-	SampleKey("q");
+	SafeSampleKey("q");
 	Yield(.1);
 	SampleStop();
 	ProgKill(StimHandle%);
@@ -779,7 +779,7 @@ end;
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 func Reward%()
 	var i;
-	for i:=1 to JuicePerReward% do Yield(.05); SampleKey("J"); next
+	for i:=1 to JuicePerReward% do Yield(.05); SafeSampleKey("J"); next
 	return 1;
 end;
 
@@ -789,11 +789,6 @@ proc ChangeStateTo(stateTo%, tStart)
 	if tStart > 0 then tStateStart := tStart; endif;
 end;
 
-proc DeliverReward(iNumRewards%)
-    SampleSeqVar(1, iNumRewards%);
-    SampleKey("R");
-    return;
-end
 
 
 
