@@ -73,10 +73,24 @@ end
 proc DeliverRewardMS(iMS%)
     PrintLog("Reward %d\n", iMS%);
     SampleSeqVar(1, iMS%);
-    SampleKey("R");
+    SafeSampleKey("R");
     Yield(); YieldSystem(iMS%/1000.0);
     return;
 end
+
+func DeliverRewardNum%(iNum%)
+	var i;
+	for i:=1 to iNum% do Yield(.05); SafeSampleKey("J"); next
+	return iNum%;
+end
+
+
+' Call this to deliver "J" reward
+proc DeliverRewardNumber()
+    DeliverRewardNum%(JuicePerReward%);
+    return;
+end
+
 
 Proc SafeSampleKey(s$)
     var count% := 0;
@@ -89,113 +103,31 @@ Proc SafeSampleKey(s$)
 end
 
 
-'func GetWavemarkPorts%(ports%[])
-'    docase
-'    case Len(ports%[]) < NumWavemarkPorts% then 
-'        return -1;    ' array not large enough
-'    case NumWavemarkPorts% = 0 then
-'        return 0;
-'    else
-'        ArrConst(ports%[0:NumWavemarkPorts%], WavemarkPorts%[0:NumWavemarkPorts%]);
-'        return NumWavemarkPorts%;
-'    endcase
-'end
-
-'func GetContinuousPorts%(ports%[])
-'    docase
-'    case Len(ports%[]) < NumContinuousPorts% then 
-'        return -1;    ' array not large enough
-'    case NumContinuousPorts% = 0 then
-'        return 0;
-'    else
-'        ArrConst(ports%[0:NumContinuousPorts%], ContinuousPorts%[0:NumContinuousPorts%]);
-'        return NumContinuousPorts%;
-'    endcase
-'end
-
-'func GetWavemarkPorts$()
-'    var s$ := "";
-'    var i%;
-'    var count% := 0;
-'    for i% := 0 to NumWavemarkPorts%-1 do
-'        s$ += str$(WavemarkPorts%[i%]);
-'        if i% < NumWavemarkPorts%-1 then
-'            s$ += ",";
-'        endif
-'    next
-'    return s$;
-'end
-
-'func GetContinuousPorts$()
-'    var s$ := "";
-'    var i%;
-'    for i% := 0 to NumContinuousPorts%-1 do
-'        s$ += str$(ContinuousPorts%[i%]);
-'        if i% < NumContinuousPorts%-1 then
-'            s$ += ",";
-'        endif
-'    next
-'    return s$;
-'end
-
-'func ElectrodesDialog%()
-'    var wm%[16];
-'    var cn%[16];
-'    var i%;
-'    GetElectrodeParameters();
-'    ArrConst(wm%[], 0);
-'    ArrConst(cn%[], 0);
-'    for i% := 0 to NumContinuousPorts%-1 do
-'        cn%[ContinuousPorts%[i%]] := 1;
-'    next
-'    for i% := 0 to NumWavemarkPorts%-1 do
-'        wm%[WavemarkPorts%[i%]] := 1;
-'    next
-'    if WMCNPortDialog%("Electrode Configuration", wm%[], cn%[]) = 1 then
-'        NumWavemarkPorts% := 0;
-'        NumContinuousPorts% := 0;
-'        for i% := 0 to Len(wm%[])-1 do
-'            if wm%[i%] = 1 then
-'                WavemarkPorts%[NumWavemarkPorts%] := i%;
-'                NumWavemarkPorts% += 1;
-'            endif
-'            if cn%[i%] = 1 then
-'                ContinuousPorts%[NumContinuousPorts%] := i%;
-'                NumContinuousPorts% += 1;
-'            endif
-'        next
-'        SaveElectrodeParameters();
-'    endif
-'    return 1;
-'end;
-
 
 func DAQParametersDialog%()
 
 	var iReturn%;
-	var idist%;
 
 	GetDAQParameters();
+    GetDataParameters();
 
-	idist% := val(DistanceToScreenMM$);
 	DlgCreate("DAQ parameters");
 	DlgInteger(1, "Number of Electrodes:", 1, 7, 0, 0, 1);
-	DlgInteger(2, "Screen Distance (MM):", 1, 5000);
-	DlgReal(3, "Degrees/Volt (X):", 0, 100);
-	DlgReal(4, "Degrees/Volt (Y):", 0, 100);
-	DlgInteger(5, "Eye Coil Sampling Freq (Hz):", 1, 20000);
-	DlgInteger(6, "Juice per reward:", 0, 10, 0, 0, 1);
-    DlgInteger(7, "Juice Reward ms:", 0, 1000);
-    DlgInteger(8, "Eye X Port", 0, 15);
-    DlgInteger(9, "Eye Y Port", 0, 15);
-    DlgInteger(10, "Joystick Port", 0, 15);
-	iReturn% := DlgShow(NumberOfElectrodes%, idist%, DegreesPerVoltX, DegreesPerVoltY, 
+	DlgReal(2, "Degrees/Volt (X):", 0, 100);
+	DlgReal(3, "Degrees/Volt (Y):", 0, 100);
+	DlgInteger(4, "Eye Coil Sampling Freq (Hz):", 1, 20000);
+	DlgInteger(5, "Juice per reward:", 0, 10, 0, 0, 1);
+    DlgInteger(6, "Juice Reward ms:", 0, 1000);
+    DlgInteger(7, "Eye X Port", 0, 15);
+    DlgInteger(8, "Eye Y Port", 0, 15);
+    DlgInteger(9, "Joystick Port", 0, 15);
+	iReturn% := DlgShow(NumberOfElectrodes%, DegreesPerVoltX, DegreesPerVoltY, 
                         EyeCoilSamplingFrequency%, JuicePerReward%, JuiceRewardMS%,
                         EyeXPort%, EyeYPort%, JoystickPort%);
 
 	if iReturn% = 1 then
-		DistanceToScreenMM$ := str$(idist%);
 		SaveDAQParameters();
+        SaveDataparameters();
 	endif
 	return iReturn%;
 end;
@@ -205,7 +137,6 @@ end;
 proc GetDAQParameters()
 	var key$;
 	key$ := GetRigName$() + "\\" + GetCurrentConfiguration$() + "\\DAQ";
-    DistanceToScreenMM$ := GetStringRegistryValue$(key$, "DistanceToScreenMM", "850");
     DegreesPerVoltX := GetFloatRegistryValue(key$, "DegreesPerVoltX", 0.0);
     DegreesPerVoltY := GetFloatRegistryValue(key$, "DegreesPerVoltY", 0.0);
     EyeCoilSamplingFrequency% := GetIntRegistryValue%(key$, "EyeCoilSamplingFrequency", 1000);
@@ -223,7 +154,6 @@ proc SaveDAQParameters()
     var s$;
     var i%;
 	key$ := GetRigName$() + "\\" + GetCurrentConfiguration$() + "\\DAQ";
-    SetStringRegistryValue(key$, "DistanceToScreenMM", DistanceToScreenMM$);
     SetStringRegistryValue(key$, "DegreesPerVoltX", str$(DegreesPerVoltX));
 	SetStringRegistryValue(key$, "DegreesPerVoltY", str$(DegreesPerVoltY));
 	SetIntRegistryValue(key$, "EyeCoilSamplingFrequency", EyeCoilSamplingFrequency%);
