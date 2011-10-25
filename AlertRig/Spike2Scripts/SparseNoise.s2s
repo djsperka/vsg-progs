@@ -1,4 +1,4 @@
-' $Id: SparseNoise.s2s,v 1.4 2011-09-01 18:38:54 djsperka Exp $
+' $Id: SparseNoise.s2s,v 1.5 2011-10-25 17:29:52 devel Exp $
 '
 ' SparseNoise.s2s
 '
@@ -162,8 +162,9 @@ proc CreateSampleConfiguration()
         SampleWaveform(spnNWavemarks% + i% + 1, spnContinuousPorts%[i%], 20000);
         SampleTitle$(spnNWavemarks% + i% + 1, "Cont " + str$(spnContinuousPorts%[i%]));
     next
-
-    SampleEvent(spnChanTrigger%, 1, 1, 1000); 
+    
+    ' djs 10-19-11 Change to port 0, make sure Preferences>Sampling>Dig Ports 1/2 on .. is CHECKED. 
+    SampleEvent(spnChanTrigger%, 0, 1, 1000); 
     SampleTitle$(spnChanTrigger%, "Terms");
     
    	SampleEvent(spnChanVSGReady%, 6, 2, 200); 'Trigger channel, level
