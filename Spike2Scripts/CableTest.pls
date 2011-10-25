@@ -1,49 +1,36 @@
             SET    1,1,0           ; Get rate & scaling OK
-            DIGOUT [00000001]
+            DIGOUT [00000000]
             HALT
 
-E0:     '0  DIGOUT [00000001]
-            DELAY  s(0.996)-1
+E0:     '0  DIGOUT [00000000]
             HALT                   ; End of this sequence section
 
 E1:	'1  DIGOUT [00000001]
-            DELAY  s(0.996)-1
             HALT                   ; End of this sequence section
 
-E2:     '2  DIGOUT [00000011]
-            ;DELAY  s(0.996)-1
+E2:     '2  DIGOUT [00000010]
             HALT                   ; End of this sequence section
 
-E3:     '3  DIGOUT [00000101]
-            ;DELAY  s(0.996)-1
+E3:     '3  DIGOUT [00000100]
             HALT                   ; End of this sequence section
 
-E4:     '4  DIGOUT [00001001]
-            DELAY  s(0.996)-1
+E4:     '4  DIGOUT [00001000]
             HALT                   ; End of this sequence section
 
-E5:     '5  DIGOUT [00010001]
-            DELAY  s(0.996)-1
+E5:     '5  DIGOUT [00010000]
             HALT                   ; End of this sequence section
 
-E6:     '6  DIGOUT [00100001]
-            DELAY  s(0.996)-1
+E6:     '6  DIGOUT [00100000]
             HALT                   ; End of this sequence section
 
-E7:     '7  DIGOUT [01000001]
-            DELAY  s(0.996)-1
+E7:     '7  DIGOUT [01000000]
             HALT                   ; End of this sequence section
 
-E8:     '8  DIGOUT [10000001]
-            DELAY  s(0.996)-1
+E8:     '8  DIGOUT [10000000]
             HALT                   ; End of this sequence section
 
-EJ:     'J  DIGOUT [.......1]      ;Administers juice
-            DIGOUT [.......0]
-            DELAY  s(0.005)-1
-            DIGOUT [.......1]
-            DELAY  s(0.989)-1
-            HALT   
+Ez:     'z  DIGOUT [11111111]
+            HALT                   ; End of this sequence section
 
 EQ:     'q  DIGOUT [11110000]
             DELAY 10
