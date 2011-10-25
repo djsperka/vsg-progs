@@ -1,4 +1,4 @@
-' $Id: Vertibar.s2s,v 1.3 2011-09-01 18:38:54 djsperka Exp $
+' $Id: Vertibar.s2s,v 1.4 2011-10-25 17:36:15 devel Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "PunctaciousDialog.s2s"
@@ -146,8 +146,9 @@ proc CreateSampleConfiguration()
         SampleWaveform(vtbNWavemarks% + i% + 1, vtbContinuousPorts%[i%], 20000);
         SampleTitle$(vtbNWavemarks% + i% + 1, "Cont " + str$(vtbContinuousPorts%[i%]));
     next
-
-    SampleEvent(vtbChanTrigger%, 1, 1, 1000); 
+    
+    ' djs 10-19-2011 Change the trig channel to port 0 (and CHECK the "Port 1+2 on rear dig input connector" box in preferences
+    SampleEvent(vtbChanTrigger%, 0, 1, 1000); 
     SampleTitle$(vtbChanTrigger%, "Cycle Trg");
     
    	SampleEvent(vtbChanVSGReady%, 6, 2, 200); 'Trigger channel, level
