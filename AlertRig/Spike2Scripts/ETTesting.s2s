@@ -1,8 +1,7 @@
-' $Id: ETTesting.s2s,v 1.3 2010-03-12 01:35:41 devel Exp $
+' $Id: ETTesting.s2s,v 1.4 2011-10-25 17:25:44 devel Exp $
 
-#include "../../Spike2Util/RigName.s2s"
+#include "../../Spike2Util/UsreyUtil.s2s"
 #include "../../Spike2Util/MiscUtilities.s2s"
-#include "Usrey.s2s"
 #include "UsreyFixationPoint.s2s"
 
 
@@ -325,7 +324,7 @@ func start%()
     ToolbarSet(0, "", idle%);
     
     
-	sExtras$ := " -b " + etBackgroundColor$ + " -d " + DistanceToScreenMM$ + " -C " + str$(etFixptOffset);
+	sExtras$ := " -b " + etBackgroundColor$ + " -d " + GetDistanceToScreenMM$() + " -C " + str$(etFixptOffset);
 	sCommandLine$ := "cmd /k " + bin$ + "\\Calibration " + FixationArg$ + sExtras$;
     PrintLog("Command line: %s\n", sCommandLine$);
    	fStimHandle% := ProgRun(sCommandLine$, 1);
