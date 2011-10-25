@@ -200,6 +200,7 @@ func TuningExtract%(tStart, tStop)
     var sFound$;
     var sIgnore$;
     var tTrigger;
+    var t1;
     
     GetTuningVersion(txVersion%, txDualVSG%);
     PrintLog("Version %d dual %d\n", txVersion%, txDualVSG%);
@@ -208,7 +209,7 @@ func TuningExtract%(tStart, tStop)
     txTStop := tStop;
     
     docase
-    case txVersion% = 1 or txVersion% = 2 then
+    case txVersion% = 1 or txVersion% = 2 or txVersion% = 4 then
         
         sIgnore$ := "0FJQR+";
         tFound := NextKey(txTLast, sFound$, sIgnore$);
@@ -220,12 +221,25 @@ func TuningExtract%(tStart, tStop)
             case txIState% = txstateStart% then
                 docase
                 case InStr(sFound$, "S") = 1 then
-                    if FindRisingEdge%(txChanStim%, tFound, tS) < 0 or FindRisingEdge%(txChanStimSlave%, tFound, tSSlave) < 0 then
-                        LogError("", "Rising edge not found after S at t=" + str$(tFound) + "\n");
-                        txIState% := txstateError%;
+                    docase
+                    case txVersion% = 1 or txVersion% = 2 then
+                        if FindRisingEdge%(txChanStim%, tFound, tS) < 0 or FindRisingEdge%(txChanStimSlave%, tFound, tSSlave) < 0 then
+                            LogError("", "Rising edge not found after S at t=" + str$(tFound) + "\n");
+                            txIState% := txstateError%;
+                        else
+                            txIState% := txstateStimUp%;
+                        endif
+                    case txVersion% = 4 then
+                        if FindPulseUp%(txChanFrame%, tFound, tS, t1) = 0 then
+                            LogError("", "Rising pulse not found after S at t=" + str$(tFound) + "\n");
+                            txIState% := txstateError%;
+                        else
+                            txIState% := txstateStimUp%;
+                        endif
                     else
-                        txIState% := txstateStimUp%;
-                    endif
+                        LogError("", "Unknown version number " + str$(txVersion%));
+                    endcase
+                        
                 case sFound$ = "X" then
                     ' nothing to see here. An X here is OK, we stay in same state. 
                 else
@@ -235,12 +249,25 @@ func TuningExtract%(tStart, tStop)
                 ' Expecting "s" or "X"
                 docase 
                 case sFound$ = "s" then
-                    if FindFallingEdge%(txChanStim%, tFound, tE) < 0 or FindFallingEdge%(txChanStimSlave%, tFound, tESlave) < 0 then
-                        LogError("", "Falling edge not found after s at t=" + str$(tFound) + "\n");
-                        txIState% := txstateError%;
+                    docase
+                    case txVersion% = 1 or txVersion% = 2 then
+                        if FindFallingEdge%(txChanStim%, tFound, tE) < 0 or FindFallingEdge%(txChanStimSlave%, tFound, tESlave) < 0 then
+                            LogError("", "Falling edge not found after s at t=" + str$(tFound) + "\n");
+                            txIState% := txstateError%;
+                        else
+                            txIState% := txstateStimDn%;
+                        endif
+                    case txVersion% = 4 then
+                        if FindPulseUp%(txChanFrame%, tFound, tE, t1) = 0 then
+                            LogError("", "Rising pulse not found after s at t=" + str$(tFound) + "\n");
+                            txIState% := txstateError%;
+                        else
+                            txIState% := txstateStimDn%;
+                        endif
                     else
-                        txIState% := txstateStimDn%;
-                    endif
+                        LogError("", "Unknown version number " + str$(txVersion%));
+                    endcase
+                        
                 case sFound$ = "X" then
                     InitTrialVars();
                     txIState% := txstateStart%;
@@ -269,7 +296,7 @@ func TuningExtract%(tStart, tStop)
             tFound := NextKey(txTLast, sFound$, sIgnore$);
             
         wend
-    case txVersion% = 3 then
+    case txVersion% = 3 or txVersion% = 5 then
         
         sIgnore$ := "0FJQR";        
         tFound := NextKeyOrText(txTLast, sFound$, sIgnore$);
@@ -293,12 +320,26 @@ func TuningExtract%(tStart, tStop)
             case txIState% = txStatePreStim% then
                 docase
                 case sFound$ = "S" then
-                    if FindRisingEdge%(txChanStim%, tFound, tS) < 0 or FindRisingEdge%(txChanStimSlave%, tFound, tSSlave) < 0 then
-                        LogError("txstatePreStim", "Rising edge not found after S at t=" + str$(tFound) + "\n");
-                        txIState% := txstateError%;
+                    docase
+                    case txVersion% = 3 then
+                        
+                        if FindRisingEdge%(txChanStim%, tFound, tS) < 0 or FindRisingEdge%(txChanStimSlave%, tFound, tSSlave) < 0 then
+                            LogError("txstatePreStim", "Rising edge not found after S at t=" + str$(tFound) + "\n");
+                            txIState% := txstateError%;
+                        else
+                            txIState% := txstateStimUp%;
+                        endif
+                    case txVersion% = 5 then
+                        if FindPulseUp%(txChanFrame%, tFound, tS, t1) = 0 then
+                            LogError("", "Rising pulse not found after S at t=" + str$(tFound) + "\n");
+                            txIState% := txstateError%;
+                        else
+                            txIState% := txstateStimUp%;
+                        endif
                     else
-                        txIState% := txstateStimUp%;
-                    endif
+                        LogError("", "Unknown version number " + str$(txVersion%));
+                    endcase
+                        
                 else
                     LogError("txstatePreStim", "Unexpected key \"" + sFound$ + "\" found at " + str$(tFound) + "\n");
                 endcase
@@ -307,12 +348,25 @@ func TuningExtract%(tStart, tStop)
                 ' Expecting "+" or "-"
                 docase 
                 case sFound$ = "+" then
-                    if FindFallingEdge%(txChanStim%, tFound, tE) < 0 or FindFallingEdge%(txChanStimSlave%, tFound, tESlave) < 0 then
-                        LogError("txstateStimUp", "Falling edge not found after s at t=" + str$(tFound) + "\n");
-                        txIState% := txstateError%;
+                    docase 
+                    case txVersion% = 3 then
+                        if FindFallingEdge%(txChanStim%, tFound, tE) < 0 or FindFallingEdge%(txChanStimSlave%, tFound, tESlave) < 0 then
+                            LogError("txstateStimUp", "Falling edge not found after s at t=" + str$(tFound) + "\n");
+                            txIState% := txstateError%;
+                        else
+                            txIState% := txStateTrialSuccess%;
+                        endif
+                    case txVersion% = 5 then
+                        if FindPulseUp%(txChanFrame%, tFound, tE, t1) = 0 then
+                            LogError("", "Rising pulse not found after s at t=" + str$(tFound) + "\n");
+                            txIState% := txstateError%;
+                        else
+                            txIState% := txStateTrialSuccess%;
+                        endif
                     else
-                        txIState% := txStateTrialSuccess%;
-                    endif
+                        LogError("", "Unknown version number " + str$(txVersion%));
+                    endcase
+                        
                 case sFound$ = "-" then
                     txIState% := txStateTrialFailure%;
                 else
