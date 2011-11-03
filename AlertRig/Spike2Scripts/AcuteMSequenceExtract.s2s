@@ -1,4 +1,4 @@
-'$Id: AcuteMSequenceExtract.s2s,v 1.1 2011-11-03 23:00:35 devel Exp $
+'$Id: AcuteMSequenceExtract.s2s,v 1.2 2011-11-03 23:57:30 devel Exp $
 
 ' AcuteMSequenceExtract
 '
@@ -30,7 +30,22 @@ LogStatus("AcuteMSequenceExtract", "Processed " + str$(nProcessed%) + " files.")
 
 
 
+func GetTermsChannel%(h%)
+    var list%[10];
+    var i%;
+    var chan% := 0;
+    
+    ' Find all event channels
+    ChanList(list%[], 0x2);
+    for i% := 1 to list%[0] do
+        if ChanTitle$(list%[i%]) = "Terms" then
+            return list%[i%];
+        endif
+    next
+    return 0;
+end
 
+    
 
 
 func AcuteMSequenceTrigX%(h%, args$)
@@ -40,6 +55,12 @@ func AcuteMSequenceTrigX%(h%, args$)
     var tLast := -1;
     var tTrigger := -1;
     var nTriggers% := 0;
+    
+    chanTerms% := GetTermsChannel%(h%);
+    if chanTerms% = 0 then
+        LogError("AcuteMSequenceTrigX", "Cannot get terms channel number!");
+        return 1;
+    endif
     
     
     sOutfile$ := ReplaceFileExtension$(h%, ".trg");
