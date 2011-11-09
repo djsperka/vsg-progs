@@ -1,5 +1,7 @@
-' $Id: AttaJoy.s2s,v 1.36 2011-08-02 22:16:00 devel Exp $
-const ajCVSID$ := "$Id: AttaJoy.s2s,v 1.36 2011-08-02 22:16:00 devel Exp $";
+' $Id: AttaJoy.s2s,v 1.37 2011-11-09 17:56:43 jeff Exp $
+const ajCVSID$ := "$Id: AttaJoy.s2s,v 1.37 2011-11-09 17:56:43 jeff Exp $";
+
+' Update 11/7/11 Jeff, includes SafeSampleKey and multi-juicer updates
 
 ' Stimulator/shock setup: 
 ' DOUT0 from VSG ----> TRIG input on 1401 _T_ ajRecordShockTriggerPort% (if not set to -1)
@@ -46,6 +48,7 @@ var ajMaxResponseTime := 2.0;
 var ajCorrectResponsePauseTime := 1.0;
 var ajIncorrectResponsePauseTime := 1.0;
 var ajRewardSize% := 1;
+var ajRewardFactorMS% := 200;  'number of ms corresponding to a single reward (for open-high juicer)
 var ajUseBeep% := 1;
 var ajContrastBase% := 75;
 var ajContrastUp% := 100;
@@ -213,6 +216,7 @@ var tTrigger:=-1;	    ' temp var for newly discovered trigger times
 var doCorrectionTrial% := 0;    ' this is set to 1 when a trial fails and correction trials were requested
 var isCorrectionTrial% := 0;    ' this is set to 1 when we are in a trial that is a correction trial
 var tCircleOn := -1;
+var JuicerType%; 
 
 '===========================================================================================
 '
@@ -233,6 +237,20 @@ ajTrainingTypes$[ajReadyFixStimTraining%] := "Ready/Fix/Stim Training";
 ' Fetch electrode information. This can be modified in the dialog, but might not be.
 ajNWavemarks% := GetWavemarkPorts%(ajWavemarkPorts%[]);
 ajNContinuous% := GetContinuousPorts%(ajContinuousPorts%[]);
+
+
+' Make sure Juicer information has been set, and set sequencer variable for juicer
+' Quit if no juicer information has been set!
+JuicerType% := SetJuicerSequencerVariable%();
+if JuicerType% = 0 then
+    message("You did not select a juicer open state in Config/DAQ!  Quitting!");
+    Halt;
+else
+    if JuicerType% = 3 then
+        message("You indicated that you did not know your juicer open state in Config/DAQ!\nYou cannot continue without this information!\nAsk Dan or Jeff for help...Quitting!");
+        Halt;
+    endif
+endif
 
 
 if AttaJoyDialog%() = 0 then
@@ -785,7 +803,7 @@ func IdleProcessing%()
                 if ajTrainingType% <> ajReadyTraining% then
                     ' If the joystick-ready-mini-reward is enabled, then we deliver it now
                     LogInfo("sample key is " + ajTrialFixptSampleKey$);
-                    SampleKey(ajTrialFixptSampleKey$);                   ' this is determined in PrepareTrial, depends on trial type
+                    SafeSampleKey(ajTrialFixptSampleKey$);                   ' this is determined in PrepareTrial, depends on trial type
                     Yield();
                     if ajDoJoystickReadyMiniReward% = 1 then
                         DeliverRewardDelayed(ajJoystickReadyMiniRewardDelay, ajJoystickReadyMiniRewardSize%);
@@ -803,7 +821,7 @@ func IdleProcessing%()
             
         case iState% = stateT1Success% then
             
-            DeliverReward(ajRewardSize%);
+            DeliverReward2(ajRewardSize%);
             ajUniversalIntertrialTime := ajTrainingSuccessPauseTime;
             trialgenTrialIndexCompleted(ajTrialTypeIndex%);
             ChangeStateTo(stateIntertrialWait%, tNow);
@@ -853,7 +871,7 @@ func IdleProcessing%()
         case iState% = stateReadyBreak% then
             
             ajCtrReadyBreak% += 1;
-            SampleKey("X");
+            SafeSampleKey("X");
             ajUniversalIntertrialTime := ajReadyBreakPauseTime;
             ChangeStateTo(stateWaitForFixptOff%, tNow);
             iLoop% := 0;
@@ -862,7 +880,7 @@ func IdleProcessing%()
             
             ajCtrNTrialsAcqFail% += 1;
             ajUniversalIntertrialTime := ajAcquisitionFailPauseTime;
-            SampleKey("X");
+            SafeSampleKey("X");
             ChangeStateTo(stateWaitForFixptOff%, tNow);
             iLoop% := 0;
             
@@ -882,11 +900,11 @@ func IdleProcessing%()
                 if ajTrainingType% <> ajReadyFixTraining% then
                     LogStatus("stateHoldFixation", "Fixation held. Request stim up.");
                     if ajDoShockTrials% = 1 and ajShockTrialEnable% = 1 then
-                        SampleKey("P");
+                        SafeSampleKey("P");
                         Yield();
                         trialgenTrialIndexCompleted(ajTrialTypeIndex%);
                     endif
-                    SampleKey("S");
+                    SafeSampleKey("S");
                     ChangeStateTo(stateWaitForStimOn%, tNow);
                 else
                     LogStatus("stateHoldFixation", "Fixation held, trial complete.");
@@ -895,17 +913,17 @@ func IdleProcessing%()
             case ajDoHoldFixationMiniReward% = 1 and (tNow-tStateStart)/ajHoldFixationTime > ajHoldFixationMiniRewardFraction and ajHoldFixationMiniRewardEnable% = 1 then
                 LogStatus("stateHoldFixation", "Mini-reward fraction " + str$((tNow-tStateStart)/ajHoldFixationTime));
                 ajHoldFixationMiniRewardEnable% := 0;
-                DeliverReward(1);
+                DeliverReward2(1);
             else
                 iLoop% := 0;
             endcase
             
         case iState% = stateT2Success% then
             
-            SampleKey("X");
+            SafeSampleKey("X");
             Yield();
             trialgenTrialIndexCompleted(ajTrialTypeIndex%);
-            DeliverReward(ajRewardSize%);
+            DeliverReward2(ajRewardSize%);
             ajUniversalIntertrialTime := ajTrainingSuccessPauseTime;
             ChangeStateTo(stateWaitForFixptOff%, tNow);
             iLoop% := 0;
@@ -922,7 +940,7 @@ func IdleProcessing%()
                 ChangeStateTo(stateFixationBreak%, tNow);
             case tNow - tStateStart > ajHoldFixation1Time then
                 LogStatus("stateHoldFixation1", "Fixation held. Request circle up.");
-                SampleKey("W");
+                SafeSampleKey("W");
                 ChangeStateTo(stateWaitForCircle%, tNow);
             else
                 iLoop% := 0;
@@ -957,7 +975,7 @@ func IdleProcessing%()
                 ChangeStateTo(stateFixationBreak%, tNow);
             case tNow - tCircleOn > ajHoldFixation2Time then
                 LogStatus("stateHoldFixation2", "Fixation held. Request circle off.");
-                SampleKey("w");
+                SafeSampleKey("w");
                 ChangeStateTo(stateWaitForCircleOff%, tNow);
             else
                 iLoop% := 0;
@@ -996,12 +1014,12 @@ func IdleProcessing%()
                 if ajTrainingType% <> ajReadyFixTraining% then
                     LogStatus("stateHoldFixation3", "Fixation held. Request stim up.");
                     if ajDoShockTrials% = 1 and ajShockTrialEnable% = 1 then
-                        SampleKey("P");
+                        SafeSampleKey("P");
                         Yield();
                         trialgenTrialIndexCompleted(ajTrialTypeIndex%);
                         LogInfo("PlayWaveStatus = " + PlayWaveStatus$(playPos%) + " pos " + str$(playPos%));
                     endif
-                    SampleKey("S");
+                    SafeSampleKey("S");
                     ChangeStateTo(stateWaitForStimOn%, tNow);
                 else
                     LogStatus("stateHoldFixation3", "Fixation held, trial complete.");
@@ -1015,7 +1033,7 @@ func IdleProcessing%()
             
             ajUniversalIntertrialTime := ajFixationBreakPauseTime;
             ajCtrNTrialsFixBreak% += 1;
-            SampleKey("X");
+            SafeSampleKey("X");
             ChangeStateTo(stateWaitForFixptOff%, tNow);
             iLoop% := 0;
             
@@ -1052,7 +1070,7 @@ func IdleProcessing%()
                 if ajTrainingType% <> ajReadyFixStimTraining% then
                     LogStatus("stateWaitHazardTime", "Request stim contrast change.");
                     ajCtrNTrialsChg% += 1;
-                    SampleKey(ajTrialChangeSampleKey$);
+                    SafeSampleKey(ajTrialChangeSampleKey$);
                     ChangeStateTo(stateWaitForContrastChange%, tNow);
                 else
                     LogStatus("stateWaitHazardTime", "Fixation held, trial complete.");
@@ -1064,10 +1082,10 @@ func IdleProcessing%()
             
         case iState% = stateT3Success% then
             
-            SampleKey("X");
+            SafeSampleKey("X");
             Yield();
             trialgenTrialIndexCompleted(ajTrialTypeIndex%);
-            DeliverReward(ajRewardSize%);
+            DeliverReward2(ajRewardSize%);
             ajUniversalIntertrialTime := ajTrainingSuccessPauseTime;
             ChangeStateTo(stateWaitForFixptOff%, tNow);
             iLoop% := 0;
@@ -1117,9 +1135,9 @@ func IdleProcessing%()
             if ajDoShockTrials% = 0 or ajShockTrialEnable% = 0 then
                 trialgenTrialIndexCompleted(ajTrialTypeIndex%);
             endif
-            SampleKey("X");
+            SafeSampleKey("X");
             Yield(.5);    ' djs 2011-06-14 Are X and R running together? 
-            DeliverReward(ajRewardSize%);
+            DeliverReward2(ajRewardSize%);
             ajUniversalIntertrialTime := ajCorrectResponsePauseTime;
             ChangeStateTo(stateWaitForFixptOff%, tNow);
             
@@ -1131,7 +1149,7 @@ func IdleProcessing%()
                 trialgenTrialIndexCompleted(ajTrialTypeIndex%);
             endif
             ajUniversalIntertrialTime := ajIncorrectResponsePauseTime;
-            SampleKey("X");
+            SafeSampleKey("X");
             ChangeStateTo(stateWaitForFixptOff%, tNow);
             
         case iState% = stateWaitForFixptOff% then
@@ -1207,22 +1225,33 @@ proc ChangeStateTo(stateTo%, tStart)
 	if tStart > 0 then tStateStart := tStart; endif;
 end;
 
-proc DeliverReward(iNumRewards%)
-    SampleSeqVar(1, iNumRewards%);
-    SampleKey("R");
+proc DeliverReward2(iNumRewards%)
+    SampleSeqVar(4, 1);  'minimum delay, changed to 4 because 2 is used for SafeSampleKey!
+    if JuicerType% = 1 then
+        DeliverRewardMS(iNumRewards%*ajRewardFactorMS%);
+    else
+        if JuicerType% = 2 then
+            DeliverRewardNum%(iNumRewards%);
+        endif;
+    endif;
     return;
 end
 
 proc DeliverRewardDelayed(tDelay, iNumRewards%)
-    SampleSeqVar(1, iNumRewards%);
-    SampleSeqVar(2, tDelay*1000);
-    SampleKey("T");
+    SampleSeqVar(4, tDelay*1000);  'changed to 4 because 2 is used for SafeSampleKey!
+    if JuicerType% = 1 then
+        DeliverRewardMS(iNumRewards%*ajRewardFactorMS%);
+    else
+        if JuicerType% = 2 then
+            DeliverRewardNum%(iNumRewards%);
+        endif;
+    endif;
     return;
 end
 
 
 func ajChanFixptWindowDisplay()
-    DeliverReward(1);
+    DeliverReward2(1);
     return 1;
 end
 
@@ -1252,7 +1281,7 @@ func Stop%()
 	ToolbarSet(0, "");
 
 	' Tell stim app to shut down
-	SampleKey("q");
+	SafeSampleKey("q");
 	Yield(.1);
 	SampleStop();
 
@@ -1342,7 +1371,7 @@ func Resume%()
 end
 
 func Reward%()
-    DeliverReward(1);
+    DeliverReward2(1);
     return 0;
 end
 
@@ -1467,12 +1496,15 @@ func AttaJoyDialog%()
     DlgList(6, "Training type", ajTrainingTypes$[], 4);
     DlgCheck(7, "Use Beep");
     DlgCheck(8, "Use Ready Right");
-	DlgInteger(9, "Reward size:", 1, 1000);
-	DlgReal(10, "Catch Trial pct (0-100)", 0, 100);
-	DlgCheck(11, "Show Single Stim");
-	DlgCheck(12, "Alternate cue type by block");
-	DlgInteger(13, "Base contrast(%)", 0, 100);
-	DlgInteger(14, "Chg contrast(%)", 0, 100);
+    DlgInteger(9, "Number of Rewards:", 1, 1000);
+    if JuicerType% = 1 then
+        DlgInteger(10, "MS per one 'reward':", 1, 2000);
+    endif;
+	DlgReal(11, "Catch Trial pct (0-100)", 0, 100);
+	DlgCheck(12, "Show Single Stim");
+	DlgCheck(13, "Alternate cue type by block");
+	DlgInteger(14, "Base contrast(%)", 0, 100);
+	DlgInteger(15, "Chg contrast(%)", 0, 100);
     
     DlgButton(100, "Fix/Hazard", AttaJoyFixHazDialog%);
     DlgButton(101, "Timing", AttaJoyTimingDialog%);
@@ -1481,12 +1513,21 @@ func AttaJoyDialog%()
     DlgButton(104, "Bonus", AttaJoyBonusDialog%);
     
     DlgAllow(0, 0, AttaJoyDialogChanged%);
-
-    status% := DlgShow(ajNBlocks%, ajNTrialsEachTypePerBlock%, 
+    
+    if JuicerType% = 1 then
+        status% := DlgShow(ajNBlocks%, ajNTrialsEachTypePerBlock%, 
+                       ajDoShockTrials%, ajNShockPerBlock%, ajTrialTypesListIndex%, 
+                       ajTrainingType%, ajUseBeep%, ajUseReadyRight%, ajRewardSize%, ajRewardFactorMS%,
+                       ajCatchTrialPct, ajShowSingleStim%, ajAlternateCueTypeByBlock%, 
+                       ajContrastBase%, ajContrastUp%);
+    else
+        status% := DlgShow(ajNBlocks%, ajNTrialsEachTypePerBlock%, 
                        ajDoShockTrials%, ajNShockPerBlock%, ajTrialTypesListIndex%, 
                        ajTrainingType%, ajUseBeep%, ajUseReadyRight%, ajRewardSize%,
                        ajCatchTrialPct, ajShowSingleStim%, ajAlternateCueTypeByBlock%, 
                        ajContrastBase%, ajContrastUp%);
+    endif;
+    
     if status% = 1 then
         SaveAttaJoyParameters();
     endif
@@ -1630,6 +1671,7 @@ proc GetAttaJoyParameters()
     ajTrialTypesListIndex% := GetIntRegistryValue%(key$, "TrialTypesListIndex", ajTrialTypesListIndex%);
     ajTrainingType% := GetIntRegistryValue%(key$, "TrainingType", ajTrainingType%);
     ajRewardSize% := GetIntRegistryValue%(key$, "RewardSize", ajRewardSize%);
+    ajRewardFactorMS% := GetIntRegistryValue%(key$, "RewardFactorMS", ajRewardFactorMS%);
     ajCatchTrialPct := GetFloatRegistryValue(key$, "CatchTrialPct", ajCatchTrialPct);
     ajShowSingleStim% := GetIntRegistryValue%(key$, "ShowSingleStim", ajShowSingleStim%);
     ajAlternateCueTypeByBlock% := GetIntRegistryValue%(key$, "AlternateCueTypeByBlock", ajAlternateCueTypeByBlock%);
@@ -1680,6 +1722,7 @@ proc SaveAttaJoyParameters()
     SetIntRegistryValue(key$, "TrialTypesListIndex", ajTrialTypesListIndex%);
     SetIntRegistryValue(key$, "TrainingType", ajTrainingType%);
     SetIntRegistryValue(key$, "RewardSize", ajRewardSize%);
+    SetIntRegistryValue(key$, "RewardFactorMS", ajRewardFactorMS%);
     SetFloatRegistryValue(key$, "CatchTrialPct", ajCatchTrialPct);
     SetIntRegistryValue(key$, "ShowSingleStim", ajShowSingleStim%);
     SetIntRegistryValue(key$, "AlternateCueTypeByBlock", ajAlternateCueTypeByBlock%);

@@ -1,10 +1,18 @@
+' Revision 1.1  2011/11/07 jeff
+' Added multiple juicer functionality
+#include "../../Spike2Util/UsreyUtil.s2s"
+
 var ctCheckAscii% := 0;
 var ctUseIODigitalWriteOut% := 0;
 var StimHandle;	' vsg application handle
+var JuicerIndex%;
 ' Local file system variables. 
-var bin$, script$;
 bin$ := View(App(3)).FileName$(1) + View(App(3)).FileName$(2) + "..\\bin";	' Location of executables is ..\bin, relative to script dir
 script$ := View(App(3)).FileName$(1) + View(App(3)).FileName$(2);	' folder containing this script
+
+'Set a juicer sequencer variable so we can use this on any rig
+SetJuicerSequencerVariable%();
+SampleSeqVar(1,200);  'Also need to set the open duration for the juicer
 
 ' Dialog
 if CableTestDialog%() = 0 then
@@ -113,3 +121,22 @@ SampleMode(1); 'Continuous sampling
 end;
 
 
+func SetJuicerSequencerVariable%()
+    'first, just ensure that we get the proper value for the Juicer Index
+    var key$;
+    key$ := GetRigName$() + "\\" + GetCurrentConfiguration$() + "\\DAQ";
+    JuicerIndex% := GetIntRegistryValue%(key$, "JuicerIndex", JuicerIndex%);
+    
+    'Set sample sequencer variable 3 to 0 if juicer is open-high, and to 1 if juicer is open-low
+    'This is equivalent to setting sample sequencer variable 3 to the value of the bit when closed
+    if JuicerIndex% = 1 then 'open high
+        SampleSeqVar(3,0);
+    else
+        if JuicerIndex% = 2 then 'open low
+            SampleSeqVar(3,1);
+        endif
+    endif
+    
+    
+    return JuicerIndex%;
+end
