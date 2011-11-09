@@ -18,6 +18,7 @@ var EyeCoilSamplingFrequency%;		' Frequency to sample eye coil at
 var NumberOfElectrodes%;		' Number of electrodes (i.e. wavemark inputs) in use
 var JuicePerReward%;			' Number of juice squirts per reward
 var JuiceRewardMS% := 200;      ' for Ben's new juicer this is the length of time juicer is held open.
+var JuicerIndex% := 0;          ' default juicer index will not allow sampling, 1 is open high, 2 is open low
 var EyeXPort%;                  ' Port horizontal eye signal connected to
 var EyeYPort%;                  ' Port vertical eye signal connected to
 var JoystickPort%;              ' Port joystick is connected to
@@ -63,13 +64,13 @@ func GetJuiceRewardMS%()
     return JuiceRewardMS%;
 end
 
-' Deliver reward set in Config
+' Call this to deliver ms-based (open-high juicer) reward set in Config
 proc DeliverReward()
     DeliverRewardMS(JuiceRewardMS%);
     return;
 end
 
-' Deliver a specified reward
+' Deliver a reward specified in milliseconds
 proc DeliverRewardMS(iMS%)
     PrintLog("Reward %d\n", iMS%);
     SampleSeqVar(1, iMS%);
@@ -78,17 +79,18 @@ proc DeliverRewardMS(iMS%)
     return;
 end
 
+
+' Call this to deliver "J" reward (number of pulses, for open-low juicer)
+proc DeliverRewardNumber()
+    DeliverRewardNum%(JuicePerReward%);
+    return;
+end
+
+
 func DeliverRewardNum%(iNum%)
 	var i;
 	for i:=1 to iNum% do Yield(.05); SafeSampleKey("J"); next
 	return iNum%;
-end
-
-
-' Call this to deliver "J" reward
-proc DeliverRewardNumber()
-    DeliverRewardNum%(JuicePerReward%);
-    return;
 end
 
 
@@ -111,6 +113,13 @@ func DAQParametersDialog%()
 	GetDAQParameters();
     GetDataParameters();
 
+    var juicerList$[4];
+    juicerList$[0] := "Select a juicer style";
+    juicerList$[1] := "Open High (Ben, variable duration)";
+    juicerList$[2] := "Open Low (fixed duration)";
+    juicerList$[3] := "I don't know";
+    
+    
 	DlgCreate("DAQ parameters");
 	DlgInteger(1, "Number of Electrodes:", 1, 7, 0, 0, 1);
 	DlgReal(2, "Degrees/Volt (X):", 0, 100);
@@ -118,12 +127,13 @@ func DAQParametersDialog%()
 	DlgInteger(4, "Eye Coil Sampling Freq (Hz):", 1, 20000);
 	DlgInteger(5, "Juice per reward:", 0, 10, 0, 0, 1);
     DlgInteger(6, "Juice Reward ms:", 0, 1000);
-    DlgInteger(7, "Eye X Port", 0, 15);
-    DlgInteger(8, "Eye Y Port", 0, 15);
-    DlgInteger(9, "Joystick Port", 0, 15);
+    DlgList(7, "Juicer Open State:",juicerList$,4);
+    DlgInteger(8, "Eye X Port", 0, 15);
+    DlgInteger(9, "Eye Y Port", 0, 15);
+    DlgInteger(10, "Joystick Port", 0, 15);
 	iReturn% := DlgShow(NumberOfElectrodes%, DegreesPerVoltX, DegreesPerVoltY, 
                         EyeCoilSamplingFrequency%, JuicePerReward%, JuiceRewardMS%,
-                        EyeXPort%, EyeYPort%, JoystickPort%);
+                        JuicerIndex%, EyeXPort%, EyeYPort%, JoystickPort%);
 
 	if iReturn% = 1 then
 		SaveDAQParameters();
@@ -143,6 +153,7 @@ proc GetDAQParameters()
     NumberOfElectrodes% := GetIntRegistryValue%(key$, "NumberOfElectrodes", 1);
     JuicePerReward% := GetIntRegistryValue%(key$, "JuicePerReward", 1);
     JuiceRewardMS% := GetIntRegistryValue%(key$, "JuiceRewardMS", JuiceRewardMS%);
+    JuicerIndex% := GetIntRegistryValue%(key$, "JuicerIndex", JuicerIndex%);
     EyeXPort% := GetIntRegistryValue%(key$, "EyeXPort", 14);
     EyeYPort% := GetIntRegistryValue%(key$, "EyeYPort", 15);
     JoystickPort% := GetIntRegistryValue%(key$, "JoystickPort", 13);
@@ -160,12 +171,35 @@ proc SaveDAQParameters()
 	SetIntRegistryValue(key$, "NumberOfElectrodes", NumberOfElectrodes%);
 	SetIntRegistryValue(key$, "JuicePerReward", JuicePerReward%);
     SetIntRegistryValue(key$, "JuiceRewardMS", JuiceRewardMS%);
+    SetIntRegistryValue(key$, "JuicerIndex", JuicerIndex%);
     SetIntRegistryValue(key$, "EyeXPort", EyeXPort%);
     SetIntRegistryValue(key$, "EyeYPort", EyeYPort%);
     SetIntRegistryValue(key$, "JoystickPort", JoystickPort%);
     SaveElectrodeParameters();
 end;
 
+
+func SetJuicerSequencerVariable%()
+    'first, just ensure that we get the proper value for the Juicer Index
+    var key$;
+    key$ := GetRigName$() + "\\" + GetCurrentConfiguration$() + "\\DAQ";
+    JuicerIndex% := GetIntRegistryValue%(key$, "JuicerIndex", JuicerIndex%);
+    
+    'Set sample sequencer variable 3 to 0 if juicer is open-high, and to 1 if juicer is open-low
+    'This is equivalent to setting sample sequencer variable 3 to the value of the bit when closed
+    if JuicerIndex% = 1 then 'open high
+        SampleSeqVar(3,0);
+    else
+        if JuicerIndex% = 2 then 'open low
+            SampleSeqVar(3,1);
+        endif
+    endif
+    
+    
+    return JuicerIndex%;
+end
+
+    
 'proc GetElectrodeParameters()
 '	var key$;
 '    var s$;
