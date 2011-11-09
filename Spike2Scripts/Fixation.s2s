@@ -1,5 +1,5 @@
-' $Id: Fixation.s2s,v 1.20 2011-10-10 21:51:11 devel Exp $
-'
+' $Id: Fixation.s2s,v 1.21 2011-11-09 18:00:22 jeff Exp $
+' Update 11/8/11 Jeff, includes SafeSampleKey and multi-juicer updates
 
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "UsreyDAQ.s2s"
@@ -144,6 +144,8 @@ var iMonitorChannel%;	' channel number for monitor position display in xy window
 var StimHandle%;	' handle for stimulus application
 ' Experimental control
 var Pause%:=0;		' When 1, expt is paused - no idle processing done
+var JuicerType%;                'Helps us determine if juicer value has been set
+
 
 ' Display stuff
 var FixWindowX[36],FixWindowY[36];	' points for displaying fixation window in xy view
@@ -173,6 +175,18 @@ if Len(dataDataSet$) = 0 then
 endif
 
 
+' Make sure Juicer information has been set, and set sequencer variable for juicer
+' Quit if no juicer information has been set!
+JuicerType% := SetJuicerSequencerVariable%();
+if JuicerType% = 0 then
+    message("You did not select a juicer open state in Config/DAQ!  Quitting!");
+    Halt;
+else
+    if JuicerType% = 3 then
+        message("You indicated that you did not know your juicer open state in Config/DAQ!\nYou cannot continue without this information!\nAsk Dan or Jeff for help...Quitting!");
+        Halt;
+    endif
+endif
 
 
 
@@ -276,7 +290,7 @@ func IdleProcessing%()
 			if fixCalibrationFlag% = 1 then
 				DoSampleKey();
 			else
-				SampleKey("H");
+				SafeSampleKey("H");
 			endif
 			iState% := stateWaitForStim%;
 '			PrintLog("State 0 - Start new trial - stimulus trigger sent\n");
@@ -364,7 +378,7 @@ func IdleProcessing%()
 			' Turn off stimulus, enter state 5 - wait for stimulus off msg
 			DrawStim(0);
 '			PrintLog("State 4 - turning off stimulus....\n");
-			SampleKey("L");
+			SafeSampleKey("L");
 			iState% := stateWaitForBlank%;
 			tStateStart := tNow;
 
@@ -430,7 +444,7 @@ proc DoSampleKey()
 	var iSeqVar% := 0;
 	iSeqVar% := (3 + iStimY%[iStimIndex%]*16 + iStimX%[iStimIndex%]*4) * 256;
 	SampleSeqVar(1, iSeqVar%);
-	SampleKey("S");
+	SafeSampleKey("S");
 end;
 
 proc UpdateToolbarText()
@@ -724,7 +738,7 @@ func Stop%()
 	ToolbarSet(0,"");
 
 	' Tell stim app to shut down
-	SampleKey("Q");
+	SafeSampleKey("Q");
 	Yield(.1);
 	SampleStop();
 	ProgKill(StimHandle%);
@@ -809,8 +823,14 @@ end;
 
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 func Reward%()
-	var i;
-	for i:=1 to JuicePerReward% do Yield(.05); SampleKey("J"); next
+    'Check juicer type and deliver reward
+    if JuicerType% = 1 then  'open-high juicer, dispense based on ms
+        DeliverReward();
+    else
+        if JuicerType% = 2 then  'open-low juicer, dispense based on number of hits
+            DeliverRewardNumber();
+        endif;
+    endif;
 	return 1;
 end;
 
