@@ -1,8 +1,9 @@
 
-' $Id: FixPlus.s2s,v 1.8 2011-10-25 17:27:53 devel Exp $
+' $Id: FixPlus.s2s,v 1.9 2011-11-09 18:37:40 jeff Exp $
 '
 ' FixPlus is a modified version of fixation for Corey. 
 ' Its same as fixation, but a stim appears during the fixation period. Uses attention.exe.
+' Update 11/8/11 Jeff, includes SafeSampleKey and multi-juicer updates
 
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "../../Spike2Util/ChannelUtilities.s2s"
@@ -103,6 +104,7 @@ var nTrialsStarted%:=0;
 var nTrialsSuccess%:=0;
 var nTrialsFail%:=0;
 var tStimStart := 0;
+var JuicerType%;                'Helps us determine if juicer value has been set
 
 
 ' check for always looking flag
@@ -121,6 +123,22 @@ fixNContinuous% := GetContinuousPorts%(fixContinuousPorts%[]);
 if FixPlusScriptDialog%() = 0 then
     halt;
 endif
+
+
+
+' Make sure Juicer information has been set, and set sequencer variable for juicer
+' Quit if no juicer information has been set!
+JuicerType% := SetJuicerSequencerVariable%();
+if JuicerType% = 0 then
+    message("You did not select a juicer open state in Config/DAQ!  Quitting!");
+    Halt;
+else
+    if JuicerType% = 3 then
+        message("You indicated that you did not know your juicer open state in Config/DAQ!\nYou cannot continue without this information!\nAsk Dan or Jeff for help...Quitting!");
+        Halt;
+    endif
+endif
+
 
 CreateSampleConfiguration();
 
@@ -778,8 +796,14 @@ end;
 
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 func Reward%()
-	var i;
-	for i:=1 to JuicePerReward% do Yield(.05); SafeSampleKey("J"); next
+	'Check juicer type and deliver reward
+    if JuicerType% = 1 then  'open-high juicer, dispense based on ms
+        DeliverReward();
+    else
+        if JuicerType% = 2 then  'open-low juicer, dispense based on number of hits
+            DeliverRewardNumber();
+        endif;
+    endif;
 	return 1;
 end;
 
@@ -789,6 +813,11 @@ proc ChangeStateTo(stateTo%, tStart)
 	if tStart > 0 then tStateStart := tStart; endif;
 end;
 
+'proc DeliverReward(iNumRewards%)
+'    SampleSeqVar(1, iNumRewards%);
+'    SafeSampleKey("R");
+'    return;
+'end
 
 
 

@@ -1,4 +1,5 @@
-' $Id: CoolMouse.s2s,v 1.16 2011-10-14 15:36:00 devel Exp $
+' $Id: CoolMouse.s2s,v 1.17 2011-11-09 18:34:21 jeff Exp $
+' Update 11/8/11 Jeff, includes SafeSampleKey and multi-juicer updates
 
 #include "../../Spike2util\UsreyUtil.s2s"
 #include "UsreyGratings.s2s"
@@ -22,6 +23,7 @@ var iStimChannel%;	' channel number for stimulus in xy window
 var iStimWindowChannel%;' channel number for stimulus window in xy window
 var iMonitorChannel%;	' channel number for monitor position display in xy window
 var StimHandle%;	' handle for stimulus application
+var JuicerType%;                'Helps us determine if juicer value has been set
 
 ' Display stuff
 var FixWindowX[36],FixWindowY[36];	' points for displaying fixation window in xy view
@@ -30,6 +32,21 @@ var windowX[36], windowY[36];
 var iStimX%[8];
 var iStimY%[8];
 var iStimIndex%;
+
+
+' Make sure Juicer information has been set, and set sequencer variable for juicer
+' Quit if no juicer information has been set!
+JuicerType% := SetJuicerSequencerVariable%();
+if JuicerType% = 0 then
+    message("You did not select a juicer open state in Config/DAQ!  Quitting!");
+    Halt;
+else
+    if JuicerType% = 3 then
+        message("You indicated that you did not know your juicer open state in Config/DAQ!\nYou cannot continue without this information!\nAsk Dan or Jeff for help...Quitting!");
+        Halt;
+    endif
+endif
+
 
 
 ' Dialog
@@ -91,6 +108,8 @@ var iState% := stateVSGWait%;	' present state
 var nTrialsStarted%:=0;
 var nTrialsCompleted%:=0;
 var nTrialsAborted% :=0;		' 
+
+
 
 func IdleProcessing%()
 	var iStatus% := 1;	
@@ -410,7 +429,7 @@ func Start%()
 	CommandLine$ := "cmd /c " + bin$ + "\\cmouse" + Extras$;
 
     ' Clear any trigger bits on digout lines.
-    SampleKey("0");
+    SafeSampleKey("0");
 
 	'Begin the stimulus program. It will take a few seconds for the VSG to initialize.
 	PrintLog(CommandLine$+"\n");
@@ -481,7 +500,14 @@ end;
 
 
 func Juice%()
-    DeliverReward();
+    'Check juicer type and deliver reward
+    if JuicerType% = 1 then  'open-high juicer, dispense based on ms
+        DeliverReward();
+    else
+        if JuicerType% = 2 then  'open-low juicer, dispense based on number of hits
+            DeliverRewardNumber();
+        endif;
+    endif;
     return 1;
 end
 
