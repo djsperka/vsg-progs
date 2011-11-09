@@ -1,5 +1,7 @@
-' $Id: StarSac.s2s,v 1.2 2011-10-14 17:35:43 jeff Exp $
-const starCVSID$ := "$Id: StarSac.s2s,v 1.2 2011-10-14 17:35:43 jeff Exp $";
+' $Id: StarSac.s2s,v 1.3 2011-11-09 19:10:19 jeff Exp $
+' Update 11/8/11 Jeff, includes SafeSampleKey and multi-juicer updates
+
+const starCVSID$ := "$Id: StarSac.s2s,v 1.3 2011-11-09 19:10:19 jeff Exp $";
 
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "../../Spike2Util/MiscUtilities.s2s"
@@ -202,6 +204,7 @@ var iStarPosChannel% := 1;
 var StimHandle%;	' handle for stimulus application
 ' Experimental control
 var Pause%:=0;		' When 1, expt is paused - no idle processing done
+var JuicerType%;                'Helps us determine if juicer value has been set
 
 ' Display stuff
 var FixWindowX[36],FixWindowY[36];	' points for displaying fixation window in xy view
@@ -216,6 +219,21 @@ LogInit(1);
 ' Fetch electrode config
 starNWavemarks% := GetWavemarkPorts%(starWavemarkPorts%[]);
 starNContinuous% := GetContinuousPorts%(starContinuousPorts%[]);
+
+
+' Make sure Juicer information has been set, and set sequencer variable for juicer
+' Quit if no juicer information has been set!
+JuicerType% := SetJuicerSequencerVariable%();
+if JuicerType% = 0 then
+    message("You did not select a juicer open state in Config/DAQ!  Quitting!");
+    Halt;
+else
+    if JuicerType% = 3 then
+        message("You indicated that you did not know your juicer open state in Config/DAQ!\nYou cannot continue without this information!\nAsk Dan or Jeff for help...Quitting!");
+        Halt;
+    endif
+endif
+
 
 ' Run dialog
 if StarStimScriptDialog%() = 0 then
@@ -335,7 +353,7 @@ func IdleProcessing%()
         nTrialsStarted% += 1;
         starVariableFixationTime := Rand(starMaxFixationTime-starMinFixationTime, starMinFixationTime);
         LogStatus("StartTrial", "Start trial " + str$(nTrialsStarted%) + " Fix time " + str$(starVariableFixationTime));
-        SampleKey("F");
+        SafeSampleKey("F");
         ChangeStateTo(stateWaitForFixPtOn%, tNow);
 
     case iState% = stateWaitForFixPtOn% then
@@ -378,7 +396,7 @@ func IdleProcessing%()
         nTrialsAbort% += 1;
         DrawFix(0);
         DrawTarget(0);
-        SampleKey("X");
+        SafeSampleKey("X");
         ChangeStateTo(stateWaitForFixPtOff%, tNow);
 
     case iState% = stateWaitForFixPtOff% then
@@ -419,12 +437,12 @@ func IdleProcessing%()
         SampleText(str$(starTargetOrder%[iTargetPoint%]));
             
         ' Send stim signal, yield short time, then turn off fix pt (unless we don't want to).
-        SampleKey("S");
+        SafeSampleKey("S");
         DrawTarget(1);
         Yield(0.05);
         
         if starKeepFixptOn% = 0 then
-            SampleKey("f");
+            SafeSampleKey("f");
             DrawFix(0);
         endif
         ChangeStateTo(stateWaitForStimOn%, tNow);
@@ -503,7 +521,7 @@ func IdleProcessing%()
         nTrialsSuccess% += 1;
         nTrialsSuccessByTarget%[starTargetOrder%[iTargetPoint%]] += 1;
         SampleText("+");
-        SampleKey("X");
+        SafeSampleKey("X");
         Yield();
         Reward%();
         Yield(0.05);
@@ -516,9 +534,9 @@ func IdleProcessing%()
         nTrialsFailByTarget%[starTargetOrder%[iTargetPoint%]] += 1;
         SampleText("-");
         if starKeepFixptOn% = 1 and fixBrokenThisTrial% = 0 then
-            SampleKey("s")
+            SafeSampleKey("s")
         else
-            SampleKey("X");
+            SafeSampleKey("X");
         endif
         
         Yield(0.05);
@@ -1013,7 +1031,7 @@ func Stop%()
 	ToolbarSet(0,"");
 
 	' Tell stim app to shut down
-	SampleKey("Q");
+	SafeSampleKey("Q");
 	Yield(.1);
 	SampleStop();
 	ProgKill(StimHandle%);
@@ -1078,7 +1096,7 @@ end;
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 proc AdvanceTarget()
 
-	SampleKey("a");
+	SafeSampleKey("a");
 	iTargetPoint%+=1;
     if iTargetPoint% = starNTargetOrder% then
         iTargetPoint% := 0;
@@ -1087,20 +1105,38 @@ end;
 
 
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+' With new ability for multiple juicers, there is no ability to specify the juice per reward
+'    because it would be a pain in the butt to code and would take up a lot of space on the
+'    dialog boxes.  Instead I have arbitrarily decided that for each hit, the
+'    "timed" juicer will deliver 200 ms of reward.  That value can be changed right here.
+var MSPerRewardHit% := 200;
+
 func Juice%()
     Reward%();
 	return 1;
 end;
 
 func Reward%()
-	var i;
-	for i:=1 to JuicePerReward% do Yield(.05); SampleKey("J"); next
+    'Check juicer type and deliver reward
+    if JuicerType% = 1 then  'open-high juicer, dispense based on ms
+        DeliverRewardMS(JuicePerReward%*MSPerRewardHit%);
+    else
+        if JuicerType% = 2 then  'open-low juicer, dispense based on number of hits
+            DeliverRewardNumber();
+        endif;
+    endif;
 	return 1;
 end;
 
 func RewardSmall%()
-	var i;
-	for i:=1 to starJuicePerSmallReward% do Yield(.05); SampleKey("J"); next
+    'Check juicer type and deliver reward
+    if JuicerType% = 1 then  'open-high juicer, dispense based on ms
+        DeliverRewardMS(starJuicePerSmallReward%*MSPerRewardHit%);
+    else
+        if JuicerType% = 2 then  'open-low juicer, dispense based on number of hits
+            DeliverRewardNum%(starJuicePerSmallReward%);
+        endif;
+    endif;	
 	return 1;
 end;
 
