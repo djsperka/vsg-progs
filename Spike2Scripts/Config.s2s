@@ -1,4 +1,4 @@
-' $Id: Config.s2s,v 1.29 2011-10-18 16:18:40 jeff Exp $
+' $Id: Config.s2s,v 1.30 2011-11-09 17:57:53 jeff Exp $
 
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "UsreyGratings.s2s"
@@ -1015,7 +1015,7 @@ end;
 
 
 
-
+'CoolerMouse isn't pining; it has ceased to be!  This is an EX-FUNCTION!
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 '
@@ -1024,44 +1024,44 @@ end;
 '
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
-var cmFixationDuration;			' fixation time for reward
-var cmUseDialog%;					' 1 to use dialog, 0 to use console "classic" mode
-
-proc GetCoolerMouseParameters()
-	var stmp$;
-	var key$;
-
-	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\CoolerMouse";
-
-	Profile(key$, "FixationDuration", "2", stmp$);
-	cmFixationDuration := val(stmp$);
-	Profile(key$, "UseDialog", 1, cmUseDialog%);
-	return;
-end;
-
-proc SaveCoolerMouseParameters()
-	var key$;
-
-	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\CoolerMouse";
-
-	Profile(key$, "FixationDuration", str$(cmFixationDuration));
-	Profile(key$, "UseDialog", cmUseDialog%);
-	return;
-end;
+'var cmFixationDuration;			' fixation time for reward
+'var cmUseDialog%;					' 1 to use dialog, 0 to use console "classic" mode
 
 
-func CoolerMouseScriptDialog%()
-	var i%;
-	GetCoolerMouseParameters();
-	DlgCreate("CoolerMouse Parameters", 25, 10, 50);
-	DlgReal(1, "Fixation Duration(s):", 0.1, 10);
-	DlgCheck(2, "Use Dialog?");
-	i% := DlgShow(cmFixationDuration, cmUseDialog%);
-	if (i% = 1) then
-		SaveCoolerMouseParameters();
-	endif;
-	return i%;
-end;
+'proc GetCoolerMouseParameters()
+'	var stmp$;
+'	var key$;
+'
+'	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\CoolerMouse";
+'
+'	Profile(key$, "FixationDuration", "2", stmp$);
+'	cmFixationDuration := val(stmp$);
+'	Profile(key$, "UseDialog", 1, cmUseDialog%);
+'	return;
+'end;
+'
+'proc SaveCoolerMouseParameters()
+'	var key$;
+'
+'	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\CoolerMouse";
+'
+'	Profile(key$, "FixationDuration", str$(cmFixationDuration));
+'	Profile(key$, "UseDialog", cmUseDialog%);
+'	return;
+'end;
+'
+'func CoolerMouseScriptDialog%()
+'	var i%;
+'	GetCoolerMouseParameters();
+'	DlgCreate("CoolerMouse Parameters", 25, 10, 50);
+'	DlgReal(1, "Fixation Duration(s):", 0.1, 10);
+'	DlgCheck(2, "Use Dialog?");
+'	i% := DlgShow(cmFixationDuration, cmUseDialog%);
+'	if (i% = 1) then
+'		SaveCoolerMouseParameters();
+'	endif;
+'	return i%;
+'end;
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 '
@@ -1096,9 +1096,9 @@ func RigConfigDialog%(config$)
 	DlgButton(13, "Fixation", FixationScriptDialog%, 20, 2);
 	DlgButton(14, "Attention", AttentionScriptDialog%, 20, 3);
 	DlgButton(15, "Tuning", TuningCurveScriptDialog%, 20, 4);
-	DlgButton(16, "CoolerMouse", CoolerMouseScriptDialog%, 20, 5);
-	DlgButton(17, "MSequence", MSequenceScriptDialog%, 20, 6);
-	DlgButton(18, "ContrastReverse", CRGScriptDialog%, 20, 7);
+	'DlgButton(16, "CoolerMouse", CoolerMouseScriptDialog%, 20, 5);  'removing this button as CoolerMouse has been ousted
+	DlgButton(16, "MSequence", MSequenceScriptDialog%, 20, 6);
+	DlgButton(17, "ContrastReverse", CRGScriptDialog%, 20, 7);
 
 	DlgShow();
 
