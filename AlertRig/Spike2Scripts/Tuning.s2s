@@ -1,5 +1,7 @@
-' $Id: Tuning.s2s,v 1.45 2011-10-17 21:50:51 jeff Exp $
-const tunCVSID$ := "$Id: Tuning.s2s,v 1.45 2011-10-17 21:50:51 jeff Exp $";
+' $Id: Tuning.s2s,v 1.46 2011-11-09 18:18:41 jeff Exp $
+' Update 11/8/11 Jeff, includes multi-juicer updates
+
+const tunCVSID$ := "$Id: Tuning.s2s,v 1.46 2011-11-09 18:18:41 jeff Exp $";
 
 
 
@@ -38,6 +40,7 @@ var tunDoF12% := 1;                 ' compute f1 and f2.
 var tunSetStationary% := 0;         'do stationary?
 var tunXHairText$;                  'holds whether crosshairs are on or off
 var updateXHairText%;             'Gets the item number of a DlgText object for update
+var JuicerType%;                'Helps us determine if juicer value has been set
 
 
 
@@ -170,7 +173,7 @@ func TuningCurveScriptDialog%()
     
     'Updated dialog box - more efficient use of space, neater
     DlgCreate("Tuning Curve Parameters", 0, 0, 0, 0, -1, 1, 1);  'center dialog relative to screen and not to application window to eliminate cutting off the bottom of the dialog!
-	DlgGroup("Common Parameters", 0, 1, 45, 9);
+	DlgGroup("Common Parameters", 0, 1, 45, 10);
 	DlgReal(1, "Acquisition time(s):", 1, 1000, 20, 2);
 	DlgReal(2, "Fixation duration(s):", .1, 10, 20, 3);
 	DlgReal(3, "Maintain fixation(s):", .1, 10, 20, 4);
@@ -179,24 +182,37 @@ func TuningCurveScriptDialog%()
 	DlgReal(6, "Maintain fixation fail time(s):", .01, 10, 20, 7);
 	DlgReal(7, "Time out time(s):", .01, 10, 20, 8);
 	DlgList(8, "Background color:", bcl$, 3, 20, 9);
-    DlgCheck(9, "Dual VSG rig", 2, 11);
-    DlgCheck(10, "Maintain Fixpt between trials", 2, 12);
-    DlgCheck(11, "Stationary",2,13);
-    DlgButton(tundlgXHairButton%, " Crosshairs  ", UpdateTuningXHairDialog%, 1, 14);
-    updateXHairText% := DlgText(tunXHairText$, 15, 14);
-	DlgGroup("Individual Tuning Curve Types", 0, 16, 45, 4);
-	DlgButton(tundlgOrientationButton%, " Orientation  ", TuningCurveOrientationDialog%, 1, 17);
-	DlgButton(tundlgContrastButton%, "     Contrast     ", TuningCurveContrastDialog%, 17, 17);
-	DlgButton(tundlgSpatialButton%, "Spatial Freq", TuningCurveSpatialDialog%, 1, 18);
-	DlgButton(tundlgTemporalButton%, "Temporal Freq", TuningCurveTemporalDialog%, 17, 18);
-	DlgButton(tundlgAreaButton%, "Area", TuningCurveAreaDialog%, 35, 17);
-	DlgButton(tundlgDonutButton%, "   Donuts!   ", TuningCurveDonutDialog%, 1, 19);
-    DlgButton(tundlgBerlinerButton%, "    Berliners!    ", TuningCurveBerlinerDialog%, 17, 19);
+    if JuicerType% = 1 then
+        DlgInteger(9, "Juicer open dur. (ms):", 1, 2000, 20, 10);
+    else  'JuicerResult should only be 2, other values should not allow access to dialog box
+        DlgInteger(9, "Num. juicer pulses:", 1, 20, 20, 10);
+    endif;   
+    'juicer duration / n repeats dialog here?  Have to write values to DAQ parameters if changed, disable if not correct for juicer? 
+    DlgCheck(10, "Dual VSG rig", 2, 12);
+    DlgCheck(11, "Maintain Fixpt between trials", 2, 13);
+    DlgCheck(12, "Stationary",2,14);
+    DlgButton(tundlgXHairButton%, " Crosshairs  ", UpdateTuningXHairDialog%, 1, 15);
+    updateXHairText% := DlgText(tunXHairText$, 15, 15);
+	DlgGroup("Individual Tuning Curve Types", 0, 17, 45, 4);
+	DlgButton(tundlgOrientationButton%, " Orientation  ", TuningCurveOrientationDialog%, 1, 18);
+	DlgButton(tundlgContrastButton%, "     Contrast     ", TuningCurveContrastDialog%, 17, 18);
+	DlgButton(tundlgSpatialButton%, "Spatial Freq", TuningCurveSpatialDialog%, 1, 19);
+	DlgButton(tundlgTemporalButton%, "Temporal Freq", TuningCurveTemporalDialog%, 17, 19);
+	DlgButton(tundlgAreaButton%, "Area", TuningCurveAreaDialog%, 35, 18);
+	DlgButton(tundlgDonutButton%, "   Donuts!   ", TuningCurveDonutDialog%, 1, 20);
+    DlgButton(tundlgBerlinerButton%, "    Berliners!    ", TuningCurveBerlinerDialog%, 17, 20);
     DlgAllow(0xffff, 0, TuningCurveScriptDialogChanged%);
 	
-	i%:=DlgShow(tunAcquisitionTime, tunFixationDuration, tunMaintainFixation,
-    tunAcqFailTime, tunHoldFailTime, tunMaintainFailTime, tunTimeOutTime, ibcl%, tunDoRivalry%, 
-    tunUseMaintainMode%, tunSetStationary%);
+    if JuicerType% = 1 then
+        i%:=DlgShow(tunAcquisitionTime, tunFixationDuration, tunMaintainFixation,
+        tunAcqFailTime, tunHoldFailTime, tunMaintainFailTime, tunTimeOutTime, ibcl%, JuiceRewardMS%, tunDoRivalry%, 
+        tunUseMaintainMode%, tunSetStationary%);
+    else
+        i%:=DlgShow(tunAcquisitionTime, tunFixationDuration, tunMaintainFixation,
+        tunAcqFailTime, tunHoldFailTime, tunMaintainFailTime, tunTimeOutTime, ibcl%, JuicePerReward%, tunDoRivalry%, 
+        tunUseMaintainMode%, tunSetStationary%);
+    endif;
+    
     
     ' djs 4-1-09
     ' Spike2 v6 change. DlgShow will return the button number when a button on the dialog is hit and the corresponding
@@ -219,6 +235,7 @@ func TuningCurveScriptDialog%()
     if i% = 1 then
 		tunBackgroundColor$ := bcl$[ibcl%];
 		SaveTuningCurveScriptParameters();
+        SaveDAQParameters();  'Now saving DAQ parameters because juicer variables can change
 		if tunContext$ = tunContextDAQ$ then 
             iReturn% := 1;
 		else iReturn% := 1;
@@ -348,6 +365,21 @@ if tunAlwaysLooking% = 1 then
     endif
 endif
 
+
+' Make sure Juicer information has been set, and set sequencer variable for juicer
+' Quit if no juicer information has been set!
+JuicerType% := SetJuicerSequencerVariable%();
+if JuicerType% = 0 then
+    message("You did not select a juicer open state in Config/DAQ!  Quitting!");
+    Halt;
+else
+    if JuicerType% = 3 then
+        message("You indicated that you did not know your juicer open state in Config/DAQ!\nYou cannot continue without this information!\nAsk Dan or Jeff for help...Quitting!");
+        Halt;
+    endif
+endif
+
+
 ' run parameters script....
 tunContext$ := tunContextDAQ$;
 tunType$ := tunTypeNone$;
@@ -387,7 +419,9 @@ FrameSlaveChannel% := 20;
 ' Fetch electrode information. 
 tunNWavemarks% := GetWavemarkPorts%(tunWavemarkPorts%[]);
 tunNContinuous% := GetContinuousPorts%(tunContinuousPorts%[]);
+        
 
+'Create sampling configuration
 CreateSampleConfiguration();
 
 
@@ -432,8 +466,14 @@ func Looking%(EyePosX,EyePosY)
 end;
 
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-func Juice%()
-    DeliverReward();
+func Juice%()  'note that this function is unused within Tuning, not sure if it's used elsewhere
+    if JuicerType% = 1 then  'open-high juicer, dispense based on ms
+        DeliverReward();
+    else
+        if JuicerType% = 2 then  'open-low juicer, dispense based on number of hits
+            DeliverRewardNumber();
+        endif;
+    endif;
     return 1;
 end;
 
@@ -635,7 +675,13 @@ func IdleProcessing%()
                 Yield();
                 
                 ' Reward
-                DeliverReward();
+                if JuicerType% = 1 then  'open-high juicer, dispense based on ms
+                    DeliverReward();
+                else
+                    if JuicerType% = 2 then  'open-low juicer, dispense based on number of hits
+                        DeliverRewardNumber();
+                    endif;
+                endif;
                 
                 ' Process spikes
                 PlotSpikes(tStimOn, tNow, 1, GetPlotXCoord(nTrialsCompleted%), nTrialsCompleted%);
@@ -689,7 +735,15 @@ func IdleProcessing%()
             if tNow - tStateStart > tunMaintainFixation then
 
                 LogStatus("MaintainFixation", "success");
-                DeliverReward();
+                
+                if JuicerType% = 1 then  'open-high juicer, dispense based on ms
+                    DeliverReward();
+                else
+                    if JuicerType% = 2 then  'open-low juicer, dispense based on number of hits
+                        DeliverRewardNumber();
+                    endif;
+                endif;
+
                 SampleText("T," + str$(GetPlotXCoord(nTrialsCompleted%)));
                 SafeSampleKey("S");
                 ChangeStateTo(stateWaitForStimTrigger%, tNow);

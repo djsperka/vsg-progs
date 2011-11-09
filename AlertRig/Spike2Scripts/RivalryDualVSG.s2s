@@ -1,5 +1,6 @@
-' $Id: RivalryDualVSG.s2s,v 1.18 2011-06-22 19:28:39 devel Exp $
-const rivCVSID$ := "$Id: RivalryDualVSG.s2s,v 1.18 2011-06-22 19:28:39 devel Exp $";
+' $Id: RivalryDualVSG.s2s,v 1.19 2011-11-09 18:15:59 jeff Exp $
+' Update 11/8/11 Jeff, includes multi-juicer updates
+const rivCVSID$ := "$Id: RivalryDualVSG.s2s,v 1.19 2011-11-09 18:15:59 jeff Exp $";
 
 #include "../../Spike2Util/TrialBlockGen.s2s"
 #include "../../Spike2Util/ChannelUtilities.s2s"
@@ -238,6 +239,7 @@ var tStateStart:=-1;	' time that present state started. Used to measure wait tim
 'var tTrigger:=-1;	    ' temp var for newly discovered trigger times
 var doCorrectionTrial% := 0;    ' this is set to 1 when a trial fails and correction trials were requested
 var isCorrectionTrial% := 0;    ' this is set to 1 when we are in a trial that is a correction trial
+var JuicerType%;                'Helps us determine if juicer value has been set
 
 '===========================================================================================
 '
@@ -247,6 +249,19 @@ var isCorrectionTrial% := 0;    ' this is set to 1 when we are in a trial that i
 
 LogInit(1);
 InitJoystick(rivChanJoy%);
+
+' Make sure Juicer information has been set, and set sequencer variable for juicer
+' Quit if no juicer information has been set!
+JuicerType% := SetJuicerSequencerVariable%();
+if JuicerType% = 0 then
+    message("You did not select a juicer open state in Config/DAQ!  Quitting!");
+    Halt;
+else
+    if JuicerType% = 3 then
+        message("You indicated that you did not know your juicer open state in Config/DAQ!\nYou cannot continue without this information!\nAsk Dan or Jeff for help...Quitting!");
+        Halt;
+    endif
+endif
 
 if RivalryDialog%() = 0 then
     halt;
@@ -1275,18 +1290,37 @@ end;
 
 ' Reward will deliver a reward only if the var rivUseSingleReward% (set in main dialog) is 0.
 ' RewardBypass will deliver a reward only if rivUseSingleReward is 1. 
+' With new ability for multiple juicers, there is no ability to specify the number of rewards
+'    because it would be a pain in the butt to code and would take up a lot of space on the
+'    dialog boxes.  Instead I have arbitrarily decided that for each 200 ms of reward, the
+'    "untimed" juicer will deliver one hit.  That value can be changed right here.
+var MSPerRewardHit% := 200;
+
 
 proc Reward(rewardMS%, t)
+    var NumRewards;
+    var NumRewards%;
     if rivUseSingleReward% = 0 then
         if t>0 then
             rivTLastReward := t;
         endif
-        DeliverRewardMS(rewardMS%);
+        'Check juicer type and deliver reward
+        if JuicerType% = 1 then  'open-high juicer, dispense based on ms
+            DeliverRewardMS(rewardMS%);
+        else
+            if JuicerType% = 2 then  'open-low juicer, dispense based on number of hits
+                NumRewards := round(rewardMS%/MSPerRewardHit%);
+                NumRewards% := NumRewards;
+                DeliverRewardNum%(NumRewards%);
+            endif;
+        endif;
     endif
     return;
 end
 
 proc RewardBypass(rewardMS%, t, prob)
+    var NumRewards;
+    var NumRewards%;
     if rivUseSingleReward% = 1 then
         if t>0 then
             rivTLastReward := t;
@@ -1294,7 +1328,16 @@ proc RewardBypass(rewardMS%, t, prob)
         ' roll the dice. prob is the probability that we give a reward here. If prob is 90, then
         ' we deliver reward 90% of the time. 
         if prob = 100 or (prob < 100 and Rand(100, 0) < prob) then
-            DeliverRewardMS(rewardMS%);
+            'Check juicer type and deliver reward
+            if JuicerType% = 1 then  'open-high juicer, dispense based on ms
+                DeliverRewardMS(rewardMS%);
+            else
+                if JuicerType% = 2 then  'open-low juicer, dispense based on number of hits
+                    NumRewards := round(rewardMS%/MSPerRewardHit%);
+                    NumRewards% := NumRewards;
+                    DeliverRewardNum%(NumRewards%);
+                endif;
+            endif;
         else
             LogInfo("Doh! No reward this time, even though it was earned.");
         endif
@@ -1303,7 +1346,18 @@ proc RewardBypass(rewardMS%, t, prob)
 end
 
 func Juice%()
-    DeliverReward();
+    var NumRewards;
+    var NumRewards%;
+    'Check juicer type and deliver reward
+    if JuicerType% = 1 then  'open-high juicer, dispense based on ms
+        DeliverRewardMS(rivSingleRewardMS%);
+    else
+        if JuicerType% = 2 then  'open-low juicer, dispense based on number of hits
+            NumRewards := round(rivSingleRewardMS%/MSPerRewardHit%);
+            NumRewards% := NumRewards;
+            DeliverRewardNum%(NumRewards%);
+        endif;
+    endif;
     return 1;
 end
 
@@ -1351,7 +1405,7 @@ func Start%()
     var cmdLine$;
     var offsetFilename$ := "unknown";
     var key$;
-    var h, contrast%, sf, tf, ori, cv$, pattern$, aperture$;
+    var h, contrast%, sf, tf, ori, phase, cv$, pattern$, aperture$;
     var stmp$;
     var xhair$;
     
@@ -1361,8 +1415,8 @@ func Start%()
 
     
     ' Parse the grating coordinates for display in the xy window
-    ParseGratingParameters%(rivLeftGrating$, rivLeftGratingX, rivLeftGratingY, rivLeftGratingD, h, contrast%, sf, tf, ori, cv$, pattern$, aperture$);
-    ParseGratingParameters%(rivRightGrating$, rivRightGratingX, rivRightGratingY, rivRightGratingD, h, contrast%, sf, tf, ori, cv$, pattern$, aperture$);
+    ParseGratingParameters%(rivLeftGrating$, rivLeftGratingX, rivLeftGratingY, rivLeftGratingD, h, contrast%, sf, tf, ori, phase, cv$, pattern$, aperture$);
+    ParseGratingParameters%(rivRightGrating$, rivRightGratingX, rivRightGratingY, rivRightGratingD, h, contrast%, sf, tf, ori, phase, cv$, pattern$, aperture$);
     GetFixationPointParameterValues(rivFixationX, rivFixationY, rivFixationD, rivFixationWindowD);
     
     ' Start sampling
@@ -1978,13 +2032,13 @@ func DoGratingDialog%(label$, &param$)
     var status%;
     var disable%[1];
     var ndisable% := 0;
-    var x, y, w, h, sf, tf, orientation;
+    var x, y, w, h, sf, tf, orientation, phase;
     var contrast%;
     var cv$, pattern$, aperture$;
     
     status% := GratingParametersDialog%(label$, param$,
                                         disable%[], ndisable%, 
-                                        x, y, w, h, contrast%, sf, tf, orientation, cv$, pattern$, aperture$);                                       
+                                        x, y, w, h, contrast%, sf, tf, orientation, phase, cv$, pattern$, aperture$);                                       
     return status%;
 end
 

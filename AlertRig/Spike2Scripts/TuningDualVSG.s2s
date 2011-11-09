@@ -1,5 +1,5 @@
-' $Id: TuningDualVSG.s2s,v 1.1 2011-09-12 17:39:43 devel Exp $
-const tunCVSID$ := "$Id: TuningDualVSG.s2s,v 1.1 2011-09-12 17:39:43 devel Exp $";
+' $Id: TuningDualVSG.s2s,v 1.2 2011-11-09 18:19:02 jeff Exp $
+const tunCVSID$ := "$Id: TuningDualVSG.s2s,v 1.2 2011-11-09 18:19:02 jeff Exp $";
 
 
 
@@ -37,7 +37,7 @@ var tunDoF12% := 1;                 ' compute f1 and f2.
 var tunSetStationary% := 0;         'do stationary?
 var tunXHairText$;                  'holds whether crosshairs are on or off
 var updateXHairText%;             'Gets the item number of a DlgText object for update
-
+var JuicerType%;                'Helps us determine if juicer value has been set
 
 
 ' These will be set by the tuning curve choice
@@ -165,8 +165,9 @@ func TuningCurveScriptDialog%()
         tunXHairText$ := "Crosshairs are ON";
     endcase
 
-	DlgCreate("Tuning Curve Parameters", 50, 10);
-	DlgGroup("Common Parameters", 0, 1, 40, 11);
+	'Updated dialog box - more efficient use of space, neater
+    DlgCreate("Tuning Curve Parameters", 0, 0, 0, 0, -1, 1, 1);  'center dialog relative to screen and not to application window to eliminate cutting off the bottom of the dialog!
+	DlgGroup("Common Parameters", 0, 1, 45, 10);
 	DlgReal(1, "Acquisition time(s):", 1, 1000, 20, 2);
 	DlgReal(2, "Fixation duration(s):", .1, 10, 20, 3);
 	DlgReal(3, "Maintain fixation(s):", .1, 10, 20, 4);
@@ -175,23 +176,36 @@ func TuningCurveScriptDialog%()
 	DlgReal(6, "Maintain fixation fail time(s):", .01, 10, 20, 7);
 	DlgReal(7, "Time out time(s):", .01, 10, 20, 8);
 	DlgList(8, "Background color:", bcl$, 3, 20, 9);
-    DlgCheck(9, "Dual VSG rig", 2, 10);
-    DlgButton(tundlgXHairButton%, "Crosshairs", UpdateTuningXHairDialog%, 1, 11);
-    updateXHairText% := DlgText(tunXHairText$, 15, 11);
-	DlgGroup("Individual Tuning Curve Types", 0, 12, 40, 8);
-	DlgButton(tundlgOrientationButton%, "Orientation", TuningCurveOrientationDialog%, 1, 13);
-	DlgButton(tundlgContrastButton%, "Contrast", TuningCurveContrastDialog%, 1, 14);
-	DlgButton(tundlgSpatialButton%, "Spatial Freq", TuningCurveSpatialDialog%, 1, 15);
-	DlgButton(tundlgTemporalButton%, "Temporal Freq", TuningCurveTemporalDialog%, 1, 16);
-	DlgButton(tundlgAreaButton%, "Area", TuningCurveAreaDialog%, 1, 17);
-	DlgButton(tundlgDonutButton%, "Donuts!", TuningCurveDonutDialog%, 1, 18);
-    DlgButton(tundlgBerlinerButton%, "Berliners!", TuningCurveBerlinerDialog%, 1, 19);
-    DlgGroup("For Lazy People",0,20,40,2);
-    DlgCheck(10, "Stationary",2,21);
-    'DlgAllow(0xffff, 0, TuningCurveScriptDialogChanged%);
+    if JuicerType% = 1 then
+        DlgInteger(9, "Juicer open dur. (ms):", 1, 2000, 20, 10);
+    else  'JuicerResult should only be 2, other values should not allow access to dialog box
+        DlgInteger(9, "Num. juicer pulses:", 1, 20, 20, 10);
+    endif;   
+    'juicer duration / n repeats dialog here?  Have to write values to DAQ parameters if changed, disable if not correct for juicer? 
+    DlgCheck(10, "Dual VSG rig", 2, 12);
+    DlgCheck(11, "Maintain Fixpt between trials", 2, 13);
+    DlgCheck(12, "Stationary",2,14);
+    DlgButton(tundlgXHairButton%, " Crosshairs  ", UpdateTuningXHairDialog%, 1, 15);
+    updateXHairText% := DlgText(tunXHairText$, 15, 15);
+	DlgGroup("Individual Tuning Curve Types", 0, 17, 45, 4);
+	DlgButton(tundlgOrientationButton%, " Orientation  ", TuningCurveOrientationDialog%, 1, 18);
+	DlgButton(tundlgContrastButton%, "     Contrast     ", TuningCurveContrastDialog%, 17, 18);
+	DlgButton(tundlgSpatialButton%, "Spatial Freq", TuningCurveSpatialDialog%, 1, 19);
+	DlgButton(tundlgTemporalButton%, "Temporal Freq", TuningCurveTemporalDialog%, 17, 19);
+	DlgButton(tundlgAreaButton%, "Area", TuningCurveAreaDialog%, 35, 18);
+	DlgButton(tundlgDonutButton%, "   Donuts!   ", TuningCurveDonutDialog%, 1, 20);
+    DlgButton(tundlgBerlinerButton%, "    Berliners!    ", TuningCurveBerlinerDialog%, 17, 20);
+    DlgAllow(0xffff, 0, TuningCurveScriptDialogChanged%);
 	
-	i%:=DlgShow(tunAcquisitionTime, tunFixationDuration, tunMaintainFixation,
-    tunAcqFailTime, tunHoldFailTime, tunMaintainFailTime, tunTimeOutTime, ibcl%, tunDoRivalry%, tunSetStationary%);
+    if JuicerType% = 1 then
+        i%:=DlgShow(tunAcquisitionTime, tunFixationDuration, tunMaintainFixation,
+        tunAcqFailTime, tunHoldFailTime, tunMaintainFailTime, tunTimeOutTime, ibcl%, JuiceRewardMS%, tunDoRivalry%, 
+        tunUseMaintainMode%, tunSetStationary%);
+    else
+        i%:=DlgShow(tunAcquisitionTime, tunFixationDuration, tunMaintainFixation,
+        tunAcqFailTime, tunHoldFailTime, tunMaintainFailTime, tunTimeOutTime, ibcl%, JuicePerReward%, tunDoRivalry%, 
+        tunUseMaintainMode%, tunSetStationary%);
+    endif;
     
     ' djs 4-1-09
     ' Spike2 v6 change. DlgShow will return the button number when a button on the dialog is hit and the corresponding
@@ -222,13 +236,13 @@ func TuningCurveScriptDialog%()
         'check to make sure that the box for the crosshairs and stimuli do not overlap
         'this would work if it only got the maximum value of the size of the stimuli
         if tunUseXHairs% = 1 and (tunType$ = tunTypeBerliner$ or tunType$ = tunTypeDonut$) then
-            tempParam$ := GetGratingParameters$("Stimulus", tempPhase);
+            tempParam$ := GetGratingParameters$("Stimulus");
             boxOK% := CheckXHairStimulusBox(tempParam$,tunXHairOuterRadiusOffset,tunMaximalDiam);
             if boxOK% = 0 then
                 boxOK% := Query("The stimulus will overlap the crosshairs!","Continue","Quit");
             endif;           
             if boxOK% = 1 then
-                tempParam$ := GetGratingParameters$("SlaveStimulus", tempPhase);
+                tempParam$ := GetGratingParameters$("SlaveStimulus");
                 boxOK% := CheckXHairStimulusBox(tempParam$,tunXHairOuterRadiusOffset,tunSlaveMaximalDiam);
                 if boxOK% = 0 then
                     boxOK% := Query("The slave stimulus will overlap the crosshairs!","Continue","Quit");
@@ -254,6 +268,17 @@ func TuningCurveScriptDialog%()
 	endif;
 	return iReturn%;
 end;
+
+
+func TuningCurveScriptDialogChanged%(item%) 
+    if DlgValue(9) = 0 then  'If single VSG, do not allow Donuts or Berliners
+        DlgEnable(0,-tundlgDonutButton%,-tundlgBerlinerButton%);
+    endif;
+    if DlgValue(9) = 1 then  'If dual VSG, allow donuts and Berliners
+        DlgEnable(1,-tundlgDonutButton%,-tundlgBerlinerButton%);
+    endif;
+    return 1;
+end
 
 
 
@@ -329,6 +354,20 @@ if tunAlwaysLooking% = 1 then
         tunAlwaysLooking% := 0;
     endif
 endif
+
+' Make sure Juicer information has been set, and set sequencer variable for juicer
+' Quit if no juicer information has been set!
+JuicerType% := SetJuicerSequencerVariable%();
+if JuicerType% = 0 then
+    message("You did not select a juicer open state in Config/DAQ!  Quitting!");
+    Halt;
+else
+    if JuicerType% = 3 then
+        message("You indicated that you did not know your juicer open state in Config/DAQ!\nYou cannot continue without this information!\nAsk Dan or Jeff for help...Quitting!");
+        Halt;
+    endif
+endif
+
 
 ' run parameters script....
 tunContext$ := tunContextDAQ$;
@@ -414,8 +453,14 @@ func Looking%(EyePosX,EyePosY)
 end;
 
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-func Juice%()
-    DeliverReward();
+func Juice%()  'note that this function is unused within Tuning, not sure if it's used elsewhere
+    if JuicerType% = 1 then  'open-high juicer, dispense based on ms
+        DeliverReward();
+    else
+        if JuicerType% = 2 then  'open-low juicer, dispense based on number of hits
+            DeliverRewardNumber();
+        endif;
+    endif;
     return 1;
 end;
 
@@ -617,7 +662,13 @@ func IdleProcessing%()
                 Yield();
                 
                 ' Reward
-                DeliverReward();
+                if JuicerType% = 1 then  'open-high juicer, dispense based on ms
+                    DeliverReward();
+                else
+                    if JuicerType% = 2 then  'open-low juicer, dispense based on number of hits
+                        DeliverRewardNumber();
+                    endif;
+                endif;
                 
                 ' Process spikes
                 PlotSpikes(tStimOn, tNow, 1, GetPlotXCoord(nTrialsCompleted%), nTrialsCompleted%);
@@ -672,7 +723,15 @@ func IdleProcessing%()
             if tNow - tStateStart > tunMaintainFixation then
 
                 LogStatus("MaintainFixation", "success");
-                DeliverReward();
+                
+                if JuicerType% = 1 then  'open-high juicer, dispense based on ms
+                    DeliverReward();
+                else
+                    if JuicerType% = 2 then  'open-low juicer, dispense based on number of hits
+                        DeliverRewardNumber();
+                    endif;
+                endif;
+                
                 SampleText("T," + str$(GetPlotXCoord(nTrialsCompleted%)));
                 SafeSampleKey("S");
                 ChangeStateTo(stateWaitForStimTrigger%, tNow);
@@ -1126,7 +1185,7 @@ proc WriteParameterFile()
 	var i%;
 	var Tstepsize;
     var phase;
-	Tstimstr$ := GetGratingParameters$("Stimulus", phase);
+	Tstimstr$ := GetGratingParameters$("Stimulus");
 	ReadSetup(",",",",",",",",",");
 	i% := ReadStr(Tstimstr$, Tstimx$, Tstimy$, Tstimw$, Tstimh$, Tstimcontrast$, Tstimsf$, Tstimtf$, Tstimorientation$, Tstimcv$, Tstimp$, Tstimap$);
 	Print("Position (x, degrees)           : %s\n", Tstimx$);
@@ -1228,8 +1287,8 @@ func GetStimulusTF()
     var x, y, w, h, sf, tf, ori, phase;
     var contrast%;
     var cv$, pattern$, aperture$;
-	gr$ := GetGratingParameters$("Stimulus", phase);
-    ParseGratingParameters%(gr$, x, y, w, h, contrast%, sf, tf, ori, cv$, pattern$, aperture$);
+	gr$ := GetGratingParameters$("Stimulus");
+    ParseGratingParameters%(gr$, x, y, w, h, contrast%, sf, tf, ori, phase, cv$, pattern$, aperture$);
     LogStatus("GetStimulusTF", "TF=" + str$(tf));
     return tf;
 end
@@ -1259,26 +1318,26 @@ func Start%()
     
     if tunSetStationary% = 0 then
         ' Stimulus is always used
-        Stim$ := " -s " + GetGratingParameters$("Stimulus", masterPhase);
+        Stim$ := " -s " + GetGratingParameters$("Stimulus");
         if (tunType$ = tunTypeBerliner$ or tunType$ = tunTypeDonut$) then
             Convert180(masterPhase);  'must convert to -179:180
             Stim$ := Stim$ + " -P " + Str$(masterPhase);
         endif;
         ' Slave Stimulus is not always used, but get it anyway
-        SlaveStim$ := " -s " + GetGratingParameters$("SlaveStimulus", slavePhase);
+        SlaveStim$ := " -s " + GetGratingParameters$("SlaveStimulus");
         if (tunType$ = tunTypeBerliner$ or tunType$ = tunTypeDonut$) then
             Convert180(slavePhase);  'must convert to -179:180
             SlaveStim$ := SlaveStim$ + " -P " + Str$(slavePhase);
         endif;
     else
         ' Stimulus is always used
-        Stim$ := " -s " + GetGratingParameters$("StatStimulus", masterPhase);
+        Stim$ := " -s " + GetGratingParameters$("StatStimulus");
         if (tunType$ = tunTypeBerliner$ or tunType$ = tunTypeDonut$) then
             Convert180(masterPhase);  'must convert to -179:180
             Stim$ := Stim$ + " -P " + Str$(masterPhase);
         endif; 
         ' Slave Stimulus is not always used, but get it anyway
-        SlaveStim$ := " -s " + GetGratingParameters$("StatSlaveStimulus", slavePhase);
+        SlaveStim$ := " -s " + GetGratingParameters$("StatSlaveStimulus");
         if (tunType$ = tunTypeBerliner$ or tunType$ = tunTypeDonut$) then
             Convert180(slavePhase);  'must convert to -179:180
             SlaveStim$ := SlaveStim$ + " -P " + Str$(slavePhase);
@@ -1487,24 +1546,24 @@ end;
 
 
 '---- Convert an input number to a value between -179.9999... and 180
-Func Convert180(&x)
-    var y;
-    y := x mod 360;
-    docase
-    case y < -180 then
-        y := y + 360;
-    case y > 180 then
-        y := y - 360;
-    endcase
-    if y = -0 then  'don't allow negative zero to be safe, might muck up the VSG call
-        y := 0;
-    endif;
-    if y = -180 then  'don't allow -180 to be safe, might muck up the VSG call
-        y := 180;
-    endif;
-    x := y;
-    return 1;
-end
+'Func Convert180(&x)
+'    var y;
+'    y := x mod 360;
+'    docase
+'    case y < -180 then
+'        y := y + 360;
+'    case y > 180 then
+'        y := y - 360;
+'    endcase
+'    if y = -0 then  'don't allow negative zero to be safe, might muck up the VSG call
+'        y := 0;
+'    endif;
+'    if y = -180 then  'don't allow -180 to be safe, might muck up the VSG call
+'        y := 180;
+'    endif;
+'    x := y;
+'    return 1;
+'end
 
 
 '----- Check to make sure the stimulus and crosshair rectangles do not overlap
@@ -1517,13 +1576,14 @@ Func CheckXHairStimulusBox(gr$,maxRadius,maxDiam);
     var sf;
     var tf;
     var ori;
+    var phase;
     var cv$;
     var pattern$;
     var aperture$;
     var xencroach;
     var yencroach;
     
-    ParseGratingParameters%(gr$, x, y, w, h, contrast%, sf, tf, ori, cv$, pattern$, aperture$);
+    ParseGratingParameters%(gr$, x, y, w, h, contrast%, sf, tf, ori, phase, cv$, pattern$, aperture$);
     xencroach := Abs(x) - w/2;
     yencroach := Abs(y) - h/2;
     if maxDiam > 0 then
