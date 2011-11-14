@@ -1,4 +1,7 @@
 ' $Log: not supported by cvs2svn $
+' Revision 1.8  2011/11/09 17:56:03  jeff
+' Update to allow use of open-high (variable open dur) OR open-low (constant open dur) juicers
+'
 ' Revision 1.7  2011/10/10 23:05:49  devel
 ' Remove direct reference to DistanceToScreenMM. Remove duplicated dialogs and use UsreyUtil.s2s instead.
 '
@@ -174,7 +177,7 @@ endif
 
 ' Make sure Juicer information has been set, and set sequencer variable for juicer
 ' Quit if no juicer information has been set!
-JuicerType% := SetJuicerSequencerVariable%();
+JuicerType% := GetJuicerType%();
 if JuicerType% = 0 then
     message("You did not select a juicer open state in Config/DAQ!  Quitting!");
     Halt;
@@ -685,6 +688,9 @@ func Start%()
 	
 	SampleStart(0); 'Start sampling
 	
+    ' Set Sequencer Variable #3 based on juicer type 
+    SetJuicerSequencerVariable%();    
+    
 	GetFixationScriptParameters();
 
 
