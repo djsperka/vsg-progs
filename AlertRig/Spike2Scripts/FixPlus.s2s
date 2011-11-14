@@ -1,5 +1,5 @@
 
-' $Id: FixPlus.s2s,v 1.9 2011-11-09 18:37:40 jeff Exp $
+' $Id: FixPlus.s2s,v 1.10 2011-11-14 22:38:45 jeff Exp $
 '
 ' FixPlus is a modified version of fixation for Corey. 
 ' Its same as fixation, but a stim appears during the fixation period. Uses attention.exe.
@@ -128,7 +128,7 @@ endif
 
 ' Make sure Juicer information has been set, and set sequencer variable for juicer
 ' Quit if no juicer information has been set!
-JuicerType% := SetJuicerSequencerVariable%();
+JuicerType% := GetJuicerType%();
 if JuicerType% = 0 then
     message("You did not select a juicer open state in Config/DAQ!  Quitting!");
     Halt;
@@ -716,6 +716,10 @@ func Start%()
     cmdLine$ := "cmd /k " + GetBinDir$(1) + "fixstim " + fixSpec$ + extra$ + " -g " + stimSpec$;
  	
 	SampleStart(0); 'Start sampling
+    
+    ' Set Sequencer Variable #3 based on juicer type 
+    SetJuicerSequencerVariable%();    
+    
     SampleText(fixComment$);
     
  	'Begin the stimulus program. It will take a few seconds for the VSG to initialize.

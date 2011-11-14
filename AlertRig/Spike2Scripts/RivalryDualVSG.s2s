@@ -1,6 +1,6 @@
-' $Id: RivalryDualVSG.s2s,v 1.19 2011-11-09 18:15:59 jeff Exp $
+' $Id: RivalryDualVSG.s2s,v 1.20 2011-11-14 22:38:46 jeff Exp $
 ' Update 11/8/11 Jeff, includes multi-juicer updates
-const rivCVSID$ := "$Id: RivalryDualVSG.s2s,v 1.19 2011-11-09 18:15:59 jeff Exp $";
+const rivCVSID$ := "$Id: RivalryDualVSG.s2s,v 1.20 2011-11-14 22:38:46 jeff Exp $";
 
 #include "../../Spike2Util/TrialBlockGen.s2s"
 #include "../../Spike2Util/ChannelUtilities.s2s"
@@ -252,7 +252,7 @@ InitJoystick(rivChanJoy%);
 
 ' Make sure Juicer information has been set, and set sequencer variable for juicer
 ' Quit if no juicer information has been set!
-JuicerType% := SetJuicerSequencerVariable%();
+JuicerType% := GetJuicerType%();
 if JuicerType% = 0 then
     message("You did not select a juicer open state in Config/DAQ!  Quitting!");
     Halt;
@@ -1421,6 +1421,9 @@ func Start%()
     
     ' Start sampling
    	SampleStart(0);
+    
+    ' Set Sequencer Variable #3 based on juicer type 
+    SetJuicerSequencerVariable%();
 
     ' Generate command line
     cmdLine$ := "cmd /k " + GetBinDir$(1) + "rivalry -S -d " + GetDistanceToScreenMM$() + " -b gray -r " + offsetFilename$ + " -s " + rivLeftGrating$ + " -s " + rivRightGrating$;

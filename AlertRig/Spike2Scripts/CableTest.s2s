@@ -11,7 +11,7 @@ bin$ := View(App(3)).FileName$(1) + View(App(3)).FileName$(2) + "..\\bin";	' Loc
 script$ := View(App(3)).FileName$(1) + View(App(3)).FileName$(2);	' folder containing this script
 
 'Set a juicer sequencer variable so we can use this on any rig
-SetJuicerSequencerVariable%();
+GetJuicerType%();
 SampleSeqVar(1,200);  'Also need to set the open duration for the juicer
 
 ' Dialog
@@ -73,6 +73,10 @@ endif
 'Begin the stimulus program. It will take a few seconds for the VSG to initialize.
 PrintLog(CommandLine$+"\n");
 SampleStart(0); 'Start sampling
+    
+' Set Sequencer Variable #3 based on juicer type 
+SetJuicerSequencerVariable%();
+    
 StimHandle := ProgRun(CommandLine$,1);
 if StimHandle <0 then Message("Could not start stimulus."); Stop%(); halt; endif
 'Yield(5);	'Wait a few seconds to make sure the VSG has time to initialize.
@@ -121,12 +125,21 @@ SampleMode(1); 'Continuous sampling
 end;
 
 
-func SetJuicerSequencerVariable%()
-    'first, just ensure that we get the proper value for the Juicer Index
+func GetJuicerType%()
+    
+    'Get the proper value for the Juicer Index
     var key$;
     key$ := GetRigName$() + "\\" + GetCurrentConfiguration$() + "\\DAQ";
     JuicerIndex% := GetIntRegistryValue%(key$, "JuicerIndex", JuicerIndex%);
     
+    return JuicerIndex%;
+    
+end
+
+
+
+func SetJuicerSequencerVariable%()
+   
     'Set sample sequencer variable 3 to 0 if juicer is open-high, and to 1 if juicer is open-low
     'This is equivalent to setting sample sequencer variable 3 to the value of the bit when closed
     if JuicerIndex% = 1 then 'open high
@@ -137,6 +150,4 @@ func SetJuicerSequencerVariable%()
         endif
     endif
     
-    
-    return JuicerIndex%;
 end

@@ -1,7 +1,7 @@
-' $Id: TuningVisage.s2s,v 1.2 2011-11-09 19:09:35 jeff Exp $
+' $Id: TuningVisage.s2s,v 1.3 2011-11-14 22:38:46 jeff Exp $
 ' Update 11/8/11 Jeff, includes multi-juicer updates
 
-const tunCVSID$ := "$Id: TuningVisage.s2s,v 1.2 2011-11-09 19:09:35 jeff Exp $";
+const tunCVSID$ := "$Id: TuningVisage.s2s,v 1.3 2011-11-14 22:38:46 jeff Exp $";
 
 #include "../../Spike2Util/ChannelUtilities.s2s"
 #include "../../Spike2Util/UsreyUtil.s2s"
@@ -363,7 +363,7 @@ endif
 
 ' Make sure Juicer information has been set, and set sequencer variable for juicer
 ' Quit if no juicer information has been set!
-JuicerType% := SetJuicerSequencerVariable%();
+JuicerType% := GetJuicerType%();
 if JuicerType% = 0 then
     message("You did not select a juicer open state in Config/DAQ!  Quitting!");
     Halt;
@@ -1332,6 +1332,10 @@ func Start%()
     var XHairArg$;
 	
 	SampleStart(0); 'Start sampling
+    
+    ' Set Sequencer Variable #3 based on juicer type 
+    SetJuicerSequencerVariable%();
+    
 	SafeSampleKey("0");
     
     

@@ -1,4 +1,4 @@
-' $Id: Fixation.s2s,v 1.21 2011-11-09 18:00:22 jeff Exp $
+' $Id: Fixation.s2s,v 1.22 2011-11-14 22:38:45 jeff Exp $
 ' Update 11/8/11 Jeff, includes SafeSampleKey and multi-juicer updates
 
 #include "../../Spike2Util/UsreyUtil.s2s"
@@ -177,7 +177,7 @@ endif
 
 ' Make sure Juicer information has been set, and set sequencer variable for juicer
 ' Quit if no juicer information has been set!
-JuicerType% := SetJuicerSequencerVariable%();
+JuicerType% := GetJuicerType%();
 if JuicerType% = 0 then
     message("You did not select a juicer open state in Config/DAQ!  Quitting!");
     Halt;
@@ -642,6 +642,9 @@ func Start%()
 	
 	SampleStart(0); 'Start sampling
 	
+    ' Set Sequencer Variable #3 based on juicer type 
+    SetJuicerSequencerVariable%();
+    
 	GetFixationScriptParameters();
 
 

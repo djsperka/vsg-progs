@@ -1,4 +1,4 @@
-'$Id: Rivalry.s2s,v 1.22 2011-11-09 18:15:15 jeff Exp $
+'$Id: Rivalry.s2s,v 1.23 2011-11-14 22:38:45 jeff Exp $
 ' Update 11/8/11 Jeff, includes SafeSampleKey and multi-juicer updates
 
 #include "../../Spike2Util/TrialBlockGen.s2s"
@@ -173,7 +173,7 @@ tbgInit(2, rivNTrialsEachTypePerBlock%, rivNBlocks%);
 
 ' Make sure Juicer information has been set, and set sequencer variable for juicer
 ' Quit if no juicer information has been set!
-JuicerType% := SetJuicerSequencerVariable%();
+JuicerType% := GetJuicerType%();
 if JuicerType% = 0 then
     message("You did not select a juicer open state in Config/DAQ!  Quitting!");
     Halt;
@@ -956,6 +956,10 @@ func Start%()
     
     ' Start sampling
    	SampleStart(0);
+    
+    ' Set Sequencer Variable #3 based on juicer type 
+    SetJuicerSequencerVariable%();
+    
 
     ' Generate command line
     cmdLine$ := "cmd /k " + GetBinDir$(1) + "gratings -d " + GetDistanceToScreenMM$() + " -b gray -s " + rivLeftGrating$ + " -s " + rivRightGrating$;
