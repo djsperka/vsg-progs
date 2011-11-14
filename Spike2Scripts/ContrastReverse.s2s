@@ -1,4 +1,4 @@
-' $Id: ContrastReverse.s2s,v 1.8 2011-11-09 18:33:03 jeff Exp $
+' $Id: ContrastReverse.s2s,v 1.9 2011-11-14 22:38:45 jeff Exp $
 ' Update 11/8/11 Jeff, includes SafeSampleKey and multi-juicer updates
 
 #include "../../Spike2util/UsreyUtil.s2s"
@@ -81,7 +81,7 @@ crgNContinuous% := GetContinuousPorts%(crgContinuousPorts%[]);
 
 ' Make sure Juicer information has been set, and set sequencer variable for juicer
 ' Quit if no juicer information has been set!
-JuicerType% := SetJuicerSequencerVariable%();
+JuicerType% := GetJuicerType%();
 if JuicerType% = 0 then
     message("You did not select a juicer open state in Config/DAQ!  Quitting!");
     Halt;
@@ -705,6 +705,10 @@ func Start%()
 	var i%;
 	
 	SampleStart(0); 'Start sampling
+    
+    ' Set Sequencer Variable #3 based on juicer type 
+    SetJuicerSequencerVariable%();    
+    
 	SafeSampleKey("0");	' clear trigger lines 
 	GetCRGScriptParameters();
 

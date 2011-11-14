@@ -1,5 +1,5 @@
-' $Id: AttaJoy.s2s,v 1.37 2011-11-09 17:56:43 jeff Exp $
-const ajCVSID$ := "$Id: AttaJoy.s2s,v 1.37 2011-11-09 17:56:43 jeff Exp $";
+' $Id: AttaJoy.s2s,v 1.38 2011-11-14 22:38:45 jeff Exp $
+const ajCVSID$ := "$Id: AttaJoy.s2s,v 1.38 2011-11-14 22:38:45 jeff Exp $";
 
 ' Update 11/7/11 Jeff, includes SafeSampleKey and multi-juicer updates
 
@@ -241,7 +241,7 @@ ajNContinuous% := GetContinuousPorts%(ajContinuousPorts%[]);
 
 ' Make sure Juicer information has been set, and set sequencer variable for juicer
 ' Quit if no juicer information has been set!
-JuicerType% := SetJuicerSequencerVariable%();
+JuicerType% := GetJuicerType%();
 if JuicerType% = 0 then
     message("You did not select a juicer open state in Config/DAQ!  Quitting!");
     Halt;
@@ -1331,6 +1331,9 @@ func Start%()
     ' Start sampling
     if status% = 1 then
         SampleStart(0);
+        
+        ' Set Sequencer Variable #3 based on juicer type 
+        SetJuicerSequencerVariable%();
         
         ' Record initial text marks
         SampleText("AttaJoy,1");
