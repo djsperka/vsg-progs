@@ -1,5 +1,5 @@
-' $Id: TuningDualVSG.s2s,v 1.3 2011-11-14 22:38:46 jeff Exp $
-const tunCVSID$ := "$Id: TuningDualVSG.s2s,v 1.3 2011-11-14 22:38:46 jeff Exp $";
+' $Id: TuningDualVSG.s2s,v 1.4 2011-11-16 00:48:00 jeff Exp $
+const tunCVSID$ := "$Id: TuningDualVSG.s2s,v 1.4 2011-11-16 00:48:00 jeff Exp $";
 
 
 
@@ -37,7 +37,6 @@ var tunDoF12% := 1;                 ' compute f1 and f2.
 var tunSetStationary% := 0;         'do stationary?
 var tunXHairText$;                  'holds whether crosshairs are on or off
 var updateXHairText%;             'Gets the item number of a DlgText object for update
-var JuicerType%;                'Helps us determine if juicer value has been set
 
 
 ' These will be set by the tuning curve choice
@@ -271,10 +270,10 @@ end;
 
 
 func TuningCurveScriptDialogChanged%(item%) 
-    if DlgValue(9) = 0 then  'If single VSG, do not allow Donuts or Berliners
+    if DlgValue(10) = 0 then  'If single VSG, do not allow Donuts or Berliners
         DlgEnable(0,-tundlgDonutButton%,-tundlgBerlinerButton%);
     endif;
-    if DlgValue(9) = 1 then  'If dual VSG, allow donuts and Berliners
+    if DlgValue(10) = 1 then  'If dual VSG, allow donuts and Berliners
         DlgEnable(1,-tundlgDonutButton%,-tundlgBerlinerButton%);
     endif;
     return 1;
@@ -355,18 +354,6 @@ if tunAlwaysLooking% = 1 then
     endif
 endif
 
-' Make sure Juicer information has been set, and set sequencer variable for juicer
-' Quit if no juicer information has been set!
-JuicerType% := GetJuicerType%();
-if JuicerType% = 0 then
-    message("You did not select a juicer open state in Config/DAQ!  Quitting!");
-    Halt;
-else
-    if JuicerType% = 3 then
-        message("You indicated that you did not know your juicer open state in Config/DAQ!\nYou cannot continue without this information!\nAsk Dan or Jeff for help...Quitting!");
-        Halt;
-    endif
-endif
 
 
 ' run parameters script....
@@ -454,13 +441,7 @@ end;
 
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 func Juice%()  'note that this function is unused within Tuning, not sure if it's used elsewhere
-    if JuicerType% = 1 then  'open-high juicer, dispense based on ms
-        DeliverReward();
-    else
-        if JuicerType% = 2 then  'open-low juicer, dispense based on number of hits
-            DeliverRewardNumber();
-        endif;
-    endif;
+    DefaultReward();
     return 1;
 end;
 
@@ -662,13 +643,7 @@ func IdleProcessing%()
                 Yield();
                 
                 ' Reward
-                if JuicerType% = 1 then  'open-high juicer, dispense based on ms
-                    DeliverReward();
-                else
-                    if JuicerType% = 2 then  'open-low juicer, dispense based on number of hits
-                        DeliverRewardNumber();
-                    endif;
-                endif;
+                DefaultReward();
                 
                 ' Process spikes
                 PlotSpikes(tStimOn, tNow, 1, GetPlotXCoord(nTrialsCompleted%), nTrialsCompleted%);
@@ -724,13 +699,7 @@ func IdleProcessing%()
 
                 LogStatus("MaintainFixation", "success");
                 
-                if JuicerType% = 1 then  'open-high juicer, dispense based on ms
-                    DeliverReward();
-                else
-                    if JuicerType% = 2 then  'open-low juicer, dispense based on number of hits
-                        DeliverRewardNumber();
-                    endif;
-                endif;
+                DefaultReward();
                 
                 SampleText("T," + str$(GetPlotXCoord(nTrialsCompleted%)));
                 SafeSampleKey("S");
@@ -1313,11 +1282,10 @@ func Start%()
     var slavePhase;
 	
 	SampleStart(0); 'Start sampling
-    
     ' Set Sequencer Variable #3 based on juicer type 
     SetJuicerSequencerVariable%();
-    
-	SafeSampleKey("0");
+    ' Clear any trigger bits on digout lines.
+    SafeSampleKey("0");
     
     
     if tunSetStationary% = 0 then
