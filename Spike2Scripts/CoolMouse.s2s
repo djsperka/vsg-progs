@@ -1,4 +1,4 @@
-' $Id: CoolMouse.s2s,v 1.18 2011-11-14 22:38:45 jeff Exp $
+' $Id: CoolMouse.s2s,v 1.19 2011-11-16 00:48:00 jeff Exp $
 ' Update 11/8/11 Jeff, includes SafeSampleKey and multi-juicer updates
 
 #include "../../Spike2util\UsreyUtil.s2s"
@@ -23,7 +23,6 @@ var iStimChannel%;	' channel number for stimulus in xy window
 var iStimWindowChannel%;' channel number for stimulus window in xy window
 var iMonitorChannel%;	' channel number for monitor position display in xy window
 var StimHandle%;	' handle for stimulus application
-var JuicerType%;                'Helps us determine if juicer value has been set
 
 ' Display stuff
 var FixWindowX[36],FixWindowY[36];	' points for displaying fixation window in xy view
@@ -32,21 +31,6 @@ var windowX[36], windowY[36];
 var iStimX%[8];
 var iStimY%[8];
 var iStimIndex%;
-
-
-' Make sure Juicer information has been set, and set sequencer variable for juicer
-' Quit if no juicer information has been set!
-JuicerType% := GetJuicerType%();
-if JuicerType% = 0 then
-    message("You did not select a juicer open state in Config/DAQ!  Quitting!");
-    Halt;
-else
-    if JuicerType% = 3 then
-        message("You indicated that you did not know your juicer open state in Config/DAQ!\nYou cannot continue without this information!\nAsk Dan or Jeff for help...Quitting!");
-        Halt;
-    endif
-endif
-
 
 
 ' Dialog
@@ -224,7 +208,7 @@ func IdleProcessing%()
 					PrintLog("stateWaitForFixation: successful trial.\n");
 	
 					' Reward
-					DeliverReward();
+					DefaultReward();
 	
 				endif
 
@@ -246,7 +230,7 @@ func IdleProcessing%()
 					PrintLog("stateMaintainFixation: again....\n");
 	
 					' Reward
-					DeliverReward();
+					DefaultReward();
 	
 				endif
 
@@ -425,15 +409,13 @@ func Start%()
 	var Extras$;
     
 	SampleStart(0); 'Start sampling
-    
     ' Set Sequencer Variable #3 based on juicer type 
     SetJuicerSequencerVariable%();
-    
-	Extras$ := " -b gray -p 2 -A " + GetFixationArg$() + " -d " + GetDistanceToScreenMM$() + " -g " + GetGratingParameters$("Stimulus");
-	CommandLine$ := "cmd /c " + bin$ + "\\cmouse" + Extras$;
-
     ' Clear any trigger bits on digout lines.
     SafeSampleKey("0");
+
+	Extras$ := " -b gray -p 2 -A " + GetFixationArg$() + " -d " + GetDistanceToScreenMM$() + " -g " + GetGratingParameters$("Stimulus");
+	CommandLine$ := "cmd /c " + bin$ + "\\cmouse" + Extras$;
 
 	'Begin the stimulus program. It will take a few seconds for the VSG to initialize.
 	PrintLog(CommandLine$+"\n");
@@ -504,14 +486,7 @@ end;
 
 
 func Juice%()
-    'Check juicer type and deliver reward
-    if JuicerType% = 1 then  'open-high juicer, dispense based on ms
-        DeliverReward();
-    else
-        if JuicerType% = 2 then  'open-low juicer, dispense based on number of hits
-            DeliverRewardNumber();
-        endif;
-    endif;
+    DefaultReward();
     return 1;
 end
 

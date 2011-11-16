@@ -1,4 +1,4 @@
-'$Id: Rivalry.s2s,v 1.23 2011-11-14 22:38:45 jeff Exp $
+'$Id: Rivalry.s2s,v 1.24 2011-11-16 00:48:00 jeff Exp $
 ' Update 11/8/11 Jeff, includes SafeSampleKey and multi-juicer updates
 
 #include "../../Spike2Util/TrialBlockGen.s2s"
@@ -158,7 +158,6 @@ var tLastReward := -1;
 var tTrigger:=-1;	    ' temp var for newly discovered trigger times
 var doCorrectionTrial% := 0;    ' this is set to 1 when a trial fails and correction trials were requested
 var isCorrectionTrial% := 0;    ' this is set to 1 when we are in a trial that is a correction trial
-var JuicerType%;                'Helps us determine if juicer value has been set
 
 '===========================================================================================
 '
@@ -169,20 +168,6 @@ var JuicerType%;                'Helps us determine if juicer value has been set
 LogInit(1);
 InitJoystick(13);
 tbgInit(2, rivNTrialsEachTypePerBlock%, rivNBlocks%);
-
-
-' Make sure Juicer information has been set, and set sequencer variable for juicer
-' Quit if no juicer information has been set!
-JuicerType% := GetJuicerType%();
-if JuicerType% = 0 then
-    message("You did not select a juicer open state in Config/DAQ!  Quitting!");
-    Halt;
-else
-    if JuicerType% = 3 then
-        message("You indicated that you did not know your juicer open state in Config/DAQ!\nYou cannot continue without this information!\nAsk Dan or Jeff for help...Quitting!");
-        Halt;
-    endif
-endif
 
 
 if RivalryDialog%() = 0 then
@@ -956,9 +941,10 @@ func Start%()
     
     ' Start sampling
    	SampleStart(0);
-    
     ' Set Sequencer Variable #3 based on juicer type 
     SetJuicerSequencerVariable%();
+    ' Clear any trigger bits on digout lines.
+    SafeSampleKey("0");
     
 
     ' Generate command line

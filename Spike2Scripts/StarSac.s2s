@@ -1,7 +1,7 @@
-' $Id: StarSac.s2s,v 1.4 2011-11-14 22:38:46 jeff Exp $
+' $Id: StarSac.s2s,v 1.5 2011-11-16 00:48:00 jeff Exp $
 ' Update 11/8/11 Jeff, includes SafeSampleKey and multi-juicer updates
 
-const starCVSID$ := "$Id: StarSac.s2s,v 1.4 2011-11-14 22:38:46 jeff Exp $";
+const starCVSID$ := "$Id: StarSac.s2s,v 1.5 2011-11-16 00:48:00 jeff Exp $";
 
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "../../Spike2Util/MiscUtilities.s2s"
@@ -204,7 +204,6 @@ var iStarPosChannel% := 1;
 var StimHandle%;	' handle for stimulus application
 ' Experimental control
 var Pause%:=0;		' When 1, expt is paused - no idle processing done
-var JuicerType%;                'Helps us determine if juicer value has been set
 
 ' Display stuff
 var FixWindowX[36],FixWindowY[36];	' points for displaying fixation window in xy view
@@ -220,19 +219,6 @@ LogInit(1);
 starNWavemarks% := GetWavemarkPorts%(starWavemarkPorts%[]);
 starNContinuous% := GetContinuousPorts%(starContinuousPorts%[]);
 
-
-' Make sure Juicer information has been set, and set sequencer variable for juicer
-' Quit if no juicer information has been set!
-JuicerType% := GetJuicerType%();
-if JuicerType% = 0 then
-    message("You did not select a juicer open state in Config/DAQ!  Quitting!");
-    Halt;
-else
-    if JuicerType% = 3 then
-        message("You indicated that you did not know your juicer open state in Config/DAQ!\nYou cannot continue without this information!\nAsk Dan or Jeff for help...Quitting!");
-        Halt;
-    endif
-endif
 
 
 ' Run dialog
@@ -950,9 +936,10 @@ func Start%()
 
 	
 	SampleStart(0); 'Start sampling
-    
     ' Set Sequencer Variable #3 based on juicer type 
-    SetJuicerSequencerVariable%();    
+    SetJuicerSequencerVariable%();
+    ' Clear any trigger bits on digout lines.
+    SafeSampleKey("0");  
     
 	CommandLine$ := "cmd /k " + bin$ + "\\StarStim " + TargetArg$ + Extras$;
     
