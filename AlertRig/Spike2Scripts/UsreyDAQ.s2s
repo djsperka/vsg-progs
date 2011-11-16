@@ -22,11 +22,58 @@ var JuicerIndex% := 0;          ' default juicer index will not allow sampling, 
 var EyeXPort%;                  ' Port horizontal eye signal connected to
 var EyeYPort%;                  ' Port vertical eye signal connected to
 var JoystickPort%;              ' Port joystick is connected to
+var JuicerType%;                ' Type of juicer
 'var WavemarkPorts%[16];
 'var NumWavemarkPorts%;
 'var ContinuousPorts%[16];
 'var NumContinuousPorts%;
 GetDAQParameters();
+
+' Make sure Juicer information has been set, and set sequencer variable for juicer
+' Quit if no juicer information has been set!
+JuicerType% := GetJuicerType%();
+if JuicerType% = 0 then
+    JuicerCheckDialog%();
+endif
+
+
+func JuicerCheckDialog%()
+    
+    GetDAQParameters();
+    
+    var iReturn%;
+    
+    var juicerList$[3];
+    juicerList$[0] := "Select a juicer style";
+    juicerList$[1] := "Open Hi (Ben, var dur)";
+    juicerList$[2] := "Open Low (fixed dur)";
+    
+    'This dialog will not go away until you select one of the two juicer styles or cancel
+    'but should only show up the first time that UsreyDAQ is run on a machine - after that 
+    'there should be a legal value in the registry
+    while JuicerIndex% < 1 or JuicerIndex% > 2 do
+    
+        DlgCreate("Juicer not specifed!");
+        DlgList(1, "Juicer Open State:",juicerList$,3);
+        
+        iReturn% := DlgShow(JuicerIndex%);
+        
+        if iReturn% < 1 then
+            halt;
+        endif;
+        
+    wend;
+        
+    if iReturn% = 1 then
+		SaveDAQParameters();
+    endif;
+        
+    JuicerType% := JuicerIndex%;
+        
+	return iReturn%;
+end
+
+
 
 func GetJoystickPort%()
     return JoystickPort%;
@@ -64,11 +111,50 @@ func GetJuiceRewardMS%()
     return JuiceRewardMS%;
 end
 
-' Call this to deliver ms-based (open-high juicer) reward set in Config
+'When placed into the toolbar, the function must return an integer value
+func DefaultReward%()
+    DefaultReward();
+    return 1;
+end
+
+'This is the overarching reward function that should be called to get a default reward
+func DefaultReward()
+    if JuicerType% = 1 then  'open-high juicer, dispense based on ms
+        DeliverRewardMS(JuiceRewardMS%);
+    else
+        if JuicerType% = 2 then  'open-low juicer, dispense based on number of hits
+            DeliverRewardNum%(JuicePerReward%);
+        endif;
+    endif;
+end
+
+
+'This is the overarching reward function that should be called to get a specified reward
+'when the input is known to be correct for the juicer type
+func SpecifyReward(in%)
+    if JuicerType% = 1 then  'open-high juicer, dispense based on ms
+        DeliverRewardMS(in%);
+    else
+        if JuicerType% = 2 then  'open-low juicer, dispense based on number of hits
+            DeliverRewardNum%(in%);
+        endif;
+    endif;
+end
+
+
+'This is retained to allow old functions that are not "fixed" to avoid crashes, redirect to default reward
 proc DeliverReward()
-    DeliverRewardMS(JuiceRewardMS%);
+    DefaultReward();
     return;
 end
+
+
+'This is retained to allow old functions that are not "fixed" to avoid crashes, redirect to default reward
+proc DeliverRewardNumber()
+    DefaultReward();
+    return;
+end
+
 
 ' Deliver a reward specified in milliseconds
 proc DeliverRewardMS(iMS%)
@@ -76,13 +162,6 @@ proc DeliverRewardMS(iMS%)
     SampleSeqVar(1, iMS%);
     SafeSampleKey("R");
     Yield(); YieldSystem(iMS%/1000.0);
-    return;
-end
-
-
-' Call this to deliver "J" reward (number of pulses, for open-low juicer)
-proc DeliverRewardNumber()
-    DeliverRewardNum%(JuicePerReward%);
     return;
 end
 
@@ -189,14 +268,17 @@ end
 func DAQParametersDialog%()
 
 	var iReturn%;
+    var JuicerIndexDecremented%;
+    
+    'This little bit allows us to disallow any values other than legal juicer values
+    'without changing the rest of the code
+    JuicerIndexDecremented% := JuicerIndex%-1;
 
 	GetDAQParameters();
     
-    var juicerList$[4];
-    juicerList$[0] := "Select a juicer style";
-    juicerList$[1] := "Open High (Ben, variable duration)";
-    juicerList$[2] := "Open Low (fixed duration)";
-    juicerList$[3] := "I don't know";
+    var juicerList2$[2];
+    juicerList2$[0] := "Open Hi (Ben, var dur)";
+    juicerList2$[1] := "Open Low (fixed dur)";
     
     
 	DlgCreate("DAQ parameters");
@@ -206,15 +288,16 @@ func DAQParametersDialog%()
 	DlgInteger(4, "Eye Coil Sampling Freq (Hz):", 1, 20000);
 	DlgInteger(5, "Juice per reward:", 0, 10, 0, 0, 1);
     DlgInteger(6, "Juice Reward ms:", 0, 1000);
-    DlgList(7, "Juicer Open State:",juicerList$,4);
+    DlgList(7, "Juicer Open State:",juicerList2$,2);
     DlgInteger(8, "Eye X Port", 0, 15);
     DlgInteger(9, "Eye Y Port", 0, 15);
     DlgInteger(10, "Joystick Port", 0, 15);
 	iReturn% := DlgShow(NumberOfElectrodes%, DegreesPerVoltX, DegreesPerVoltY, 
                         EyeCoilSamplingFrequency%, JuicePerReward%, JuiceRewardMS%,
-                        JuicerIndex%, EyeXPort%, EyeYPort%, JoystickPort%);
+                        JuicerIndexDecremented%, EyeXPort%, EyeYPort%, JoystickPort%);
 
 	if iReturn% = 1 then
+        JuicerIndex% := JuicerIndexDecremented% + 1; 'Correct JuicerIndex%
 		SaveDAQParameters();
 	endif
 	return iReturn%;

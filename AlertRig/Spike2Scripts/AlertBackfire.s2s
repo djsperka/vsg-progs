@@ -1,4 +1,7 @@
 ' $Log: not supported by cvs2svn $
+' Revision 1.9  2011/11/14 22:38:45  jeff
+' Dual juicer fix - moving sequencer variable assignment to after the start of sampling
+'
 ' Revision 1.8  2011/11/09 17:56:03  jeff
 ' Update to allow use of open-high (variable open dur) OR open-low (constant open dur) juicers
 '
@@ -152,7 +155,6 @@ var iMonitorChannel%;	' channel number for monitor position display in xy window
 var StimHandle%;	' handle for stimulus application
 ' Experimental control
 var Pause%:=0;		' When 1, expt is paused - no idle processing done
-var JuicerType%;                'Helps us determine if juicer value has been set
 
 
 ' Display stuff
@@ -174,19 +176,6 @@ if Query("Did you un-check Edit>Preferences>Sampling>Event ports 0 and 1....?") 
 	halt;
 endif
 
-
-' Make sure Juicer information has been set, and set sequencer variable for juicer
-' Quit if no juicer information has been set!
-JuicerType% := GetJuicerType%();
-if JuicerType% = 0 then
-    message("You did not select a juicer open state in Config/DAQ!  Quitting!");
-    Halt;
-else
-    if JuicerType% = 3 then
-        message("You indicated that you did not know your juicer open state in Config/DAQ!\nYou cannot continue without this information!\nAsk Dan or Jeff for help...Quitting!");
-        Halt;
-    endif
-endif
 
 
 ' Assign channel numbers for eye X,Y and trigger. 
@@ -381,7 +370,7 @@ func IdleProcessing%()
     case iState% = stateSuccess% then
         
         nTrialsSuccess% += 1;
-        Reward%();
+        DefaultReward();
         ' tally successful trials
         iState% := stateStimOff%;
         tStateStart := tNow;
@@ -642,7 +631,7 @@ proc InitializeToolbar()
 	ToolbarVisible(1);
 	ToolbarSet(1,"Sample start",Start%);
 	ToolbarSet(2,"Sample stop", Stop%);
-	ToolbarSet(3,"Juice",Reward%);
+	ToolbarSet(3,"Juice",DefaultReward%);
 	ToolbarSet(4,"Pause stimuli",PauseStimuli%);
 	ToolbarSet(5,"Resume stimuli",ResumeStimuli%);
 	ToolbarSet(6,"Exp Parameters",FixationScriptDialog%);
@@ -687,9 +676,10 @@ func Start%()
 	var Distractors$:="";
 	
 	SampleStart(0); 'Start sampling
-	
-    ' Set Sequencer Variable #3 based on juicer type 
-    SetJuicerSequencerVariable%();    
+	' Set Sequencer Variable #3 based on juicer type 
+    SetJuicerSequencerVariable%();
+    ' Clear any trigger bits on digout lines.
+    SafeSampleKey("0");  
     
 	GetFixationScriptParameters();
 
@@ -858,18 +848,6 @@ func InFixationWindow%(EyePosX,EyePosY)
 		i% := 1;
 	endif
 	return i%;
-end;
-
-
-func Reward%()
-    'Check juicer type and deliver reward
-    if JuicerType% = 1 then  'open-high juicer, dispense based on ms
-        DeliverReward();
-    else
-        if JuicerType% = 2 then  'open-low juicer, dispense based on number of hits
-            DeliverRewardNumber();
-        endif;
-    endif;
 end;
 
 

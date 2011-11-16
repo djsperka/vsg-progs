@@ -1,4 +1,4 @@
-' $Id: ContrastReverse.s2s,v 1.9 2011-11-14 22:38:45 jeff Exp $
+' $Id: ContrastReverse.s2s,v 1.10 2011-11-16 00:48:00 jeff Exp $
 ' Update 11/8/11 Jeff, includes SafeSampleKey and multi-juicer updates
 
 #include "../../Spike2util/UsreyUtil.s2s"
@@ -61,7 +61,6 @@ var baseFileName$;		' basefilename with dir - populated in Start%()
 
 ' Experimental control
 var Pause%:=0;		' When 1, expt is paused - no idle processing done
-var JuicerType%;                'Helps us determine if juicer value has been set
 
 ' Display stuff
 var FixWindowX[36],FixWindowY[36];	' points for displaying fixation window in xy view
@@ -78,19 +77,6 @@ LogInit(1);
 ' Fetch electrode information. This can be modified in the dialog, but might not be.
 crgNWavemarks% := GetWavemarkPorts%(crgWavemarkPorts%[]);
 crgNContinuous% := GetContinuousPorts%(crgContinuousPorts%[]);
-
-' Make sure Juicer information has been set, and set sequencer variable for juicer
-' Quit if no juicer information has been set!
-JuicerType% := GetJuicerType%();
-if JuicerType% = 0 then
-    message("You did not select a juicer open state in Config/DAQ!  Quitting!");
-    Halt;
-else
-    if JuicerType% = 3 then
-        message("You indicated that you did not know your juicer open state in Config/DAQ!\nYou cannot continue without this information!\nAsk Dan or Jeff for help...Quitting!");
-        Halt;
-    endif
-endif
 
 
 if CRGScriptDialog%() = 0 then
@@ -295,87 +281,11 @@ func IdleProcessing%()
         
     case iState% = stateWaitForAcquisition% then
 
-	
-		case iState% = stateVSGWait% then
-
-			' Waiting for VSG to indicate it is ready. The indication is a pulse (up, then down, 1 frame apart) on port 6.
-			tTrigger := NextTime(ReadyChannel%, tLast, vTrigger);
-			if tTrigger > tLastTrigger and vTrigger = 0 then
-				PrintLog("state stateVSGWait: Got leading edge of trigger\n");
-				tLastTrigger := tTrigger;
-				iState% := stateVSGWaitConfirm%;
-			endif;
-
-		case iState% = stateVSGWaitConfirm% then
-
-			' Waiting for VSG to confirm it is ready. The downward side of the pulse is expected...
-			tTrigger := NextTime(ReadyChannel%, tLastTrigger, vTrigger);
-			if tTrigger > tLastTrigger and vTrigger = 1 then
-				PrintLog("state stateVSGWaitConfirm: Got trailing edge of trigger\n");
-				tLastTrigger := tTrigger;
-				iState% := stateGetSegmentLength%;
-			endif;
-
-		case iState% = stateGetSegmentLength% then
-			if (GetSegmentLength%() = 0) then
-				PrintLog("GetSegmentLength() failed!\n");
-'				Stop%();
-				halt;
-			else 
-				iState% := stateStartTrial%;
-			endif;
-	
-		case iState% = stateStartTrial% then
-
-			' initial state on startup. 
-			' DIGOUT to present stimulus
-			' Enter state 1
-
-			nTrialsStarted% += 1;
-			SafeSampleKey("D");
-			iState% := stateWaitForDot%;
-			PrintLog("StateStartTrial - dot trigger sent\n");
-
-		case iState% = stateWaitForDot% then
-	
-			' Waiting for stimulus to be presented by vsg and trigger to return. 
-			' NextTime returns a non-negative value whenever there is a TRANSITION. In that case, the 
-			' value of 'vTrigger' returned is 1 (0) if the transition is high (low) to low (high). Maybe not
-			' intuitive, but that's the way it is. 
-			tTrigger := NextTime(DotChannel%,tLast,vTrigger);
-			if tTrigger > tLastTrigger then
-
-				if vTrigger = 0 then
-		
-					' Stimulus has been presented. Display stim location and window. Enter state 2
-					DrawStim(1);
-					iState% := stateWaitForAcquisition%;
-					tStateStart := tNow;
-
-				endif
-
-			endif
-
-		case iState% = stateWaitForAcquisition% then
-
-			if tNow-tStateStart < crgAcquisitionTime then
+        if tNow-tStateStart < crgAcquisitionTime then
+            
 				
-				' Acquisition happens when the eye falls within the fixation window.
-				if InFixationWindow%(xEye, yEye) > 0 then
-
-					PrintLog("StateWaitForAcquisition - acquired target.\n");
-					iState% := stateHoldFixation%;
-					tStateStart := tNow;
-					tAcquisition := tNow;	
-				endif
-
-			else
-
-				' Failed. Turn off stim and try again.
-				PrintLog("StateWaitForAcquisition - failed.\n");
-				SafeSampleKey("x");
-				iState% := stateFailure%;
-				tStateStart := tNow;
+            ' Acquisition happens when the eye falls within the fixation window.
+            if InFixationWindow%(xEye, yEye) > 0 then
 
                 LogStatus("WaitForAcquisition", "Acq at t=" + str$(tNow));
                 ChangeStateTo(stateHoldFixation%, tNow);
@@ -391,23 +301,13 @@ func IdleProcessing%()
 
         endif
 
-				PrintLog("StateHoldFixation - broke fixation.\n");
-				SafeSampleKey("x");
-				iState% := stateFailure%;
-				tStateStart := tNow;
+	case iState% = stateHoldFixation% then
 
         if InFixationWindow%(xEye, yEye) <= 0 then
 
-				if tNow - tStateStart >= crgFixationDuration then
-	
-						' put stim up and start counting triggers
-						SafeSampleKey("S");
-						PrintLog("StateHoldFixation - success, put up stim.\n");
-						iState% := stateStimulus%;
-						tStateStart := tNow;
-						tStartCRGSegment := tNow;
-	
-				endif
+            LogStatus("HoldFixation", "Broken fixation.");
+            SampleKey("X");
+            ChangeStateTo(stateFailure%, tNow);
 
         else
 
@@ -422,21 +322,13 @@ func IdleProcessing%()
 
         endif
 
-				PrintLog("StateStimulus - broke fixation.\n");
-				SafeSampleKey("x");
-				iState% := stateFailure%;
-				tStateStart := tNow;
 
 	case iState% = stateStimulus% then
 
         ' If fixation is broken stop the current segment. 
         ' If fixation still good, check if segment time is done. 
 
-					' Fixation. Reward. New trial.
-					SafeSampleKey("s");
-					PrintLog("StateHoldFixation - success.\n");
-					iState% := stateSuccess%;
-					tStateStart := tNow;
+        if InFixationWindow%(xEye, yEye) <= 0 then
 
             SampleKey("X");
             LogStatus("HoldFixation", "Broken fixation.");
@@ -466,7 +358,7 @@ func IdleProcessing%()
 
         PrintLog("StateSuccess - reward.\n");
         nTrialsSuccess% += 1;
-        Reward%();
+        DefaultReward();
         iState% := stateInterval%;
 
     case iState% = stateFailure% then
@@ -674,7 +566,7 @@ proc InitializeToolbar()
 	ToolbarVisible(1);
 	ToolbarSet(1,"Sample start",Start%);
 	ToolbarSet(2,"Sample stop", Stop%);
-	ToolbarSet(3,"Juice",Reward%);
+	ToolbarSet(3,"Juice",DefaultReward%);
 	ToolbarSet(4,"Quit",Quit%);
 	ToolbarEnable(2,0);
 	ToolbarEnable(4,0);
@@ -704,12 +596,11 @@ func Start%()
     var cv$, pattern$, aperture$;
 	var i%;
 	
-	SampleStart(0); 'Start sampling
-    
-    ' Set Sequencer Variable #3 based on juicer type 
-    SetJuicerSequencerVariable%();    
-    
-	SafeSampleKey("0");	' clear trigger lines 
+	SampleStart(0); 'Start sampling  
+  	' Set Sequencer Variable #3 based on juicer type 
+    SetJuicerSequencerVariable%();
+    ' Clear any trigger bits on digout lines.
+    SafeSampleKey("0");
 	GetCRGScriptParameters();
 
 '	Get the grating stimulus parameters and parse
@@ -773,18 +664,6 @@ func InFixationWindow%(EyePosX,EyePosY)
 	return i%;
 end;
 
-
-''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-func Reward%()
-	'Check juicer type and deliver reward
-    if JuicerType% = 1 then  'open-high juicer, dispense based on ms
-        DeliverReward();
-    else
-        if JuicerType% = 2 then  'open-low juicer, dispense based on number of hits
-            DeliverRewardNumber();
-        endif;
-    endif;
-end;
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 proc WriteParameterFile()
