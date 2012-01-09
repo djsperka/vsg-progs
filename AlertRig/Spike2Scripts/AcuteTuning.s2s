@@ -1,10 +1,6 @@
-' $Id: AcuteTuning.s2s,v 1.5 2011-10-10 23:02:44 devel Exp $
-const tunCVSID$ := "$Id: AcuteTuning.s2s,v 1.5 2011-10-10 23:02:44 devel Exp $";
+' $Id: AcuteTuning.s2s,v 1.6 2012-01-09 20:07:25 devel Exp $
+const tunCVSID$ := "$Id: AcuteTuning.s2s,v 1.6 2012-01-09 20:07:25 devel Exp $";
 
-
-
-
-' Hello again
 
 #include "../../Spike2Util/ChannelUtilities.s2s"
 #include "../../Spike2Util/UsreyUtil.s2s"
@@ -79,6 +75,10 @@ var tunContinuousPorts%[16];
 var tunF1Sum[16][tunMaxTrials%];
 var tunF2Sum[16][tunMaxTrials%];
 var tunTF;              ' Will need to use this during FFT analysis. Use at your own risk....
+
+' djs 10-19-11 trigger hack for Visage trigger bug.
+var tunTriggerHack% := 1;
+
 
 
 
@@ -584,16 +584,28 @@ func IdleProcessing%()
 '        endif
 
     case iState% = stateWaitForStimTrigger% then
-
-        if View(DataWindow%).FindRisingEdge%(StimChannel%, tLast, tTrigger) = 0 then
-            ' Stimulus has begun
-            LogStatus("WaitForStimTrigger", "Stim sequence started at " + str$(tTrigger));
-            tStimOn := tTrigger;
-            tStimSequence := tTrigger;      ' TODO remove tStimOn ref above - see stateWaitForStimOn
-            tLastTrigger := tTrigger;
-            'ChangeStateTo(stateHoldFixation%, tTrigger);
-            ChangeStateTo(stateStimulusPlaying%, tTrigger);
+        
+        if tunTriggerHack% = 0 then
+            if View(DataWindow%).FindRisingEdge%(StimChannel%, tLast, tTrigger) = 0 then
+                ' Stimulus has begun
+                LogStatus("WaitForStimTrigger", "Stim sequence started at " + str$(tTrigger));
+                tStimOn := tTrigger;
+                tStimSequence := tTrigger;      ' TODO remove tStimOn ref above - see stateWaitForStimOn
+                tLastTrigger := tTrigger;
+                'ChangeStateTo(stateHoldFixation%, tTrigger);
+                ChangeStateTo(stateStimulusPlaying%, tTrigger);
+            endif
+        else
+            if View(DataWindow%).FindPulseUp%(FrameChannel%, tStateStart, tRise, tFall) = 1 then
+                ' Stimulus has begun
+                LogStatus("WaitForStimTrigger", "Stim sequence started at " + str$(tRise));
+                tStimOn := tRise;
+                tStimSequence := tRise;
+                tLastTrigger := tRise;
+                ChangeStateTo(stateStimulusPlaying%, tRise);
+            endif
         endif
+            
         
         
         
@@ -620,15 +632,24 @@ func IdleProcessing%()
         
         
     case iState% = stateWaitForStimOff% then
-
-        if View(DataWindow%).FindFallingEdge%(StimChannel%, tLast, tTrigger) = 1 then
-            ' Advance
-            SafeSampleKey("a");
-
-            tLastTrigger := tTrigger;
-            ChangeStateTo(stateTrialCompleted%, tNow);
-        endif
         
+        if tunTriggerHack% = 0 then
+            if View(DataWindow%).FindFallingEdge%(StimChannel%, tLast, tTrigger) = 1 then
+                ' Advance
+                SafeSampleKey("a");
+
+                tLastTrigger := tTrigger;
+                ChangeStateTo(stateTrialCompleted%, tNow);
+            endif
+        else
+            if View(DataWindow%).FindPulseUp%(FrameChannel%, tStateStart, tRise, tFall) = 1 then
+                ' Advance
+                SafeSampleKey("a");
+
+                tLastTrigger := tRise;
+                ChangeStateTo(stateTrialCompleted%, tRise);
+            endif
+        endif
         
     case iState% = stateTrialCompleted% then
         
@@ -1484,7 +1505,12 @@ func Start%()
     '    endif;
     
     ' Record initial text marks. The command line may need to be broken into pieces. 
-    SampleText("Tuning,3," + str$(Len(cmdLine$)));  'not clear what this should be, if anything.
+    if tunTriggerHack% = 0 then
+        SampleText("Tuning,3," + str$(Len(cmdLine$)));  'not clear what this should be, if anything.
+    else
+        SampleText("Tuning,4," + str$(Len(cmdLine$)));  'not clear what this should be, if anything.
+    endif
+    
 '    if tunUseMaintainMode% = 1 then  'if fixation point stays on, extraction is version 2
 '        SampleText("Tuning,2," + str$(Len(cmdLine$)));
 '    else 'value is 0, fixation point goes off, extraction is version 3
