@@ -1,7 +1,7 @@
-' $Id: Tuning.s2s,v 1.48 2011-11-16 00:48:00 jeff Exp $
+' $Id: Tuning.s2s,v 1.49 2012-01-10 18:03:43 jeff Exp $
 ' Update 11/8/11 Jeff, includes multi-juicer updates
 
-const tunCVSID$ := "$Id: Tuning.s2s,v 1.48 2011-11-16 00:48:00 jeff Exp $";
+const tunCVSID$ := "$Id: Tuning.s2s,v 1.49 2012-01-10 18:03:43 jeff Exp $";
 
 
 
@@ -187,15 +187,15 @@ func TuningCurveScriptDialog%()
         DlgInteger(9, "Num. juicer pulses:", 1, 20, 20, 10);
     endif;   
     'juicer duration / n repeats dialog here?  Have to write values to DAQ parameters if changed, disable if not correct for juicer? 
-    DlgCheck(10, "Dual VSG rig", 2, 12);
+    DlgCheck(10, "Use Dual VSG", 2, 12);
     DlgCheck(11, "Maintain Fixpt between trials", 2, 13);
     DlgCheck(12, "Stationary",2,14);
     DlgButton(tundlgXHairButton%, " Crosshairs  ", UpdateTuningXHairDialog%, 1, 15);
     updateXHairText% := DlgText(tunXHairText$, 15, 15);
 	DlgGroup("Individual Tuning Curve Types", 0, 17, 45, 4);
-	DlgButton(tundlgOrientationButton%, " Orientation  ", TuningCurveOrientationDialog%, 1, 18);
-	DlgButton(tundlgContrastButton%, "     Contrast     ", TuningCurveContrastDialog%, 17, 18);
-	DlgButton(tundlgSpatialButton%, "Spatial Freq", TuningCurveSpatialDialog%, 1, 19);
+	DlgButton(tundlgOrientationButton%, " Orientation  ", TuningCurveOrientationDialog%, 1, 18); 'Note that labels for Orientation-Area are superceded 
+	DlgButton(tundlgContrastButton%, "     Contrast     ", TuningCurveContrastDialog%, 17, 18);  'by TuningCurveScriptDialogChanged% even upon opening 
+	DlgButton(tundlgSpatialButton%, "Spatial Freq", TuningCurveSpatialDialog%, 1, 19);           'the dialog (i.e. whatever label is here is unused)
 	DlgButton(tundlgTemporalButton%, "Temporal Freq", TuningCurveTemporalDialog%, 17, 19);
 	DlgButton(tundlgAreaButton%, "Area", TuningCurveAreaDialog%, 35, 18);
 	DlgButton(tundlgDonutButton%, "   Donuts!   ", TuningCurveDonutDialog%, 1, 20);
@@ -281,9 +281,21 @@ end;
 func TuningCurveScriptDialogChanged%(item%) 
     if DlgValue(10) = 0 then  'If single VSG, do not allow Donuts or Berliners
         DlgEnable(0,-tundlgDonutButton%,-tundlgBerlinerButton%);
+        'Also, change labels on buttons to reflect the monocular aspect of not using dual VSG
+        DlgValue$(-tundlgOrientationButton%, " Orientation  ");
+        DlgValue$(-tundlgContrastButton%, "     Contrast     ");
+        DlgValue$(-tundlgSpatialButton%, "Spatial Freq");
+        DlgValue$(-tundlgTemporalButton%, "Temporal Freq");
+        DlgValue$(-tundlgAreaButton%, "Area");
     endif;
     if DlgValue(10) = 1 then  'If dual VSG, allow donuts and Berliners
         DlgEnable(1,-tundlgDonutButton%,-tundlgBerlinerButton%);
+        'Also, change labels on buttons to reflect the binocular aspect of using dual VSG
+        DlgValue$(-tundlgOrientationButton%, " D Orientation ");
+        DlgValue$(-tundlgContrastButton%, "    D Contrast    ");
+        DlgValue$(-tundlgSpatialButton%, "D Spatial Freq");
+        DlgValue$(-tundlgTemporalButton%, "D Temporal Freq");
+        DlgValue$(-tundlgAreaButton%, "D Area");
     endif;
     return 1;
 end
@@ -1325,36 +1337,63 @@ func Start%()
     Extras$ := " -b " + tunBackgroundColor$ + " -d " + GetDistanceToScreenMM$() + " -p 2 -v";
     if tunDoRivalry% = 0 then
         Dual$ := "";
+        ProgName$ := "\\fixstim.exe "; 
     else
         ' Fetch the offset filename
         key$ := GetRegistryKey$(1) + "\\Rivalry";
         offsetFilename$ := GetStringRegistryValue$(GetRegistryKey$(1), "OffsetFile", "file_not_found");
         Dual$ := " -K -r " + offsetFilename$ + " -M ";
+        ProgName$ := "\\dualstim.exe "; 
+        Extras$ := Extras$ + " -t " + Str$(tunFixationDuration) + " ";  'add stimulus duration in seconds
     endif
     
     'By default, set ProgName$ to be FIXSTIM, change this for donuts and berliners
-    ProgName$ := "\\fixstim.exe ";    
+    'ProgName$ := "\\fixstim.exe ";    
     
 	docase 
     case tunType$ = tunTypeContrast$ then
         
-        Tune$ := Dual$ + " -C " + Values$;
+        if tunDoRivalry% = 0 then
+            Tune$ := Dual$ + " -C " + Values$;
+        else
+            Tune$ := Dual$ + " -C " + Values$ + Stim$ + " -V -C " + Values$ ;
+        endif;
 
     case tunType$ = tunTypeOrientation$ then
 
-        Tune$ := Dual$ + " -O " + Values$;
+        'Tune$ := Dual$ + " -O " + Values$;
+        if tunDoRivalry% = 0 then
+            Tune$ := Dual$ + " -O " + Values$;
+        else
+            Tune$ := Dual$ + " -O " + Values$ + Stim$ + " -V -O " + Values$ ;
+        endif;
 
     case tunType$ = tunTypeSpatial$ then
 
-        Tune$ := Dual$ + " -S " + Values$;
+        'Tune$ := Dual$ + " -S " + Values$;
+        if tunDoRivalry% = 0 then
+            Tune$ := Dual$ + " -S " + Values$;
+        else
+            Tune$ := Dual$ + " -S " + Values$ + Stim$ + " -V -S " + Values$ ;
+        endif;
 
     case tunType$ = tunTypeTemporal$ then
 
-        Tune$ := Dual$ + " -T " + Values$;
+        'Tune$ := Dual$ + " -T " + Values$;
+        if tunDoRivalry% = 0 then
+            Tune$ := Dual$ + " -T " + Values$;
+        else
+            Tune$ := Dual$ + " -T " + Values$ + Stim$ + " -V -T " + Values$ ;
+        endif;
 
     case tunType$ = tunTypeArea$ then
         
-        Tune$ := Dual$ + " -A " + Values$;
+        'Tune$ := Dual$ + " -A " + Values$;
+        if tunDoRivalry% = 0 then
+            Tune$ := Dual$ + " -A " + Values$;
+        else
+            Tune$ := Dual$ + " -A " + Values$ + Stim$ + " -V -A " + Values$ ;
+        endif;
         
     case tunType$ = tunTypeDonut$ then
         
@@ -1374,8 +1413,8 @@ func Start%()
         'PrintLog("areaArg: %s\n", areaArg$);
         'PrintLog("donutArg: %s\n", donutArg$);
         Tune$ := Dual$ + " -A " + areaArg$ + SlaveStim$ + " -V -H " + donutArg$;  'Added slave stim specs
-        ProgName$ := "\\dualstim.exe ";  'Dual screen scenarios call a different program
-        Extras$ := Extras$ + " -t " + Str$(tunFixationDuration) + " ";  'add stimulus duration in seconds
+        'ProgName$ := "\\dualstim.exe ";  'Dual screen scenarios call a different program
+        'Extras$ := Extras$ + " -t " + Str$(tunFixationDuration) + " ";  'add stimulus duration in seconds
         
     case tunType$ = tunTypeBerliner$ then
         
@@ -1412,8 +1451,8 @@ func Start%()
         'PrintLog("donutArg: %s\n", donutArg$);
         'Insert slave stimulus into Tune$, right now just for Berliners, but could be done for donuts
         Tune$ := Dual$ + " -A " + areaArgBerliner$ + SlaveStim$ + " -V -H " + donutArgBerliner$;   
-        ProgName$ := "\\dualstim.exe ";  'Dual screen scenarios call a different program
-        Extras$ := Extras$ + " -t " + Str$(tunFixationDuration) + " ";  'add stimulus duration in seconds
+        'ProgName$ := "\\dualstim.exe ";  'Dual screen scenarios call a different program
+        'Extras$ := Extras$ + " -t " + Str$(tunFixationDuration) + " ";  'add stimulus duration in seconds
         
     else
 
