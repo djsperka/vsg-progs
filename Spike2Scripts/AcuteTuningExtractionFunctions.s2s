@@ -1,4 +1,4 @@
-'$Id: AcuteTuningExtractionFunctions.s2s,v 1.4 2011-10-07 20:08:15 djsperka Exp $'
+'$Id: AcuteTuningExtractionFunctions.s2s,v 1.5 2012-01-10 22:26:52 devel Exp $'
 
 #include "ExtractionUtilities.s2s"
 #include "../../Spike2Util/LogUtilities.s2s"
@@ -9,8 +9,8 @@ const maxParam% := 1000;
 var actunParam[maxParam%];
 var actunIndex%[maxParam%];
 var actunNParam% := 0;
-var actunStimChannel%;
-
+var actunTriggerChannel%;
+var actunVersion% := 1;
 
 func AcTunX%(h%, args$)
     var sParFile$;
@@ -18,14 +18,18 @@ func AcTunX%(h%, args$)
     var iStatus% := 0;
     var iParam% := 0;
     var tStart, tEnd, tLast:=-1;
+    var tFound;
     var v, h;
+    var parameter;
     
     ' Initialize
     actunNParam% := 0;
     
-    ' Find trigger channel
-    if GetTriggerChannel%(actunStimChannel%) = 0 then
-        LogError("AcTunX", "Error determining trigger channel!?! Is this acute tuning data?");
+    ' Determine the tuning version. 
+    if GetTuningVersion%(actunVersion%, actunTriggerChannel%) = 1 then
+        LogStatus("AcTunX", "Version " + str$(actunVersion%) + " trig/stim: " + str$(actunTriggerChannel%));
+    else
+        LogError("AcTunX", "Error deterimining tuning version.");
         return 1;
     endif
     
@@ -40,30 +44,88 @@ func AcTunX%(h%, args$)
     sTxtFile$ := ReplaceFileExtension$(h%, ".txt");
     LogInfo("txt file " + sTxtFile$);
     
-    ' Open par file and get tuning parameters
-    if GetTuningParameters%(sParFile$) < 0 then
-        LogError("AcTunX", "Error getting parameters from par file " + sParFile$);
-        return 1;
-    endif
-    
-    ' Now open text file and get the stim periods
     v := View();
     h := FileOpen(sTxtFile$, 8, 1);
     View(v);
-    while iParam% < actunNParam% and GetNextStimPeriod%(actunStimChannel%, tLast, tStart, tEnd) = 1 do
-        
-        View(h).Print("%f %f %f\n", actunParam[iParam%], tStart, tEnd);
-        PrintLog("%f %f %f\n", actunParam[iParam%], tStart, tEnd);
-        iParam% += 1;
-        View(v);
-        
-    wend
     
+    ' Version 1 is the old style tuning data. The data file does not contain the tuning parameters - they must be extracted
+    ' from the par file. 
+    
+    ' Version 3/4 are new stype tuning data. The par file can be ignored. Instead, the parameter values are embedded in the
+    ' data file as text marks. Look for text mark starting with "T,". The value following the comma is the tuned parameter
+    ' value. From there we search for a sample key "S", then the trig on/off. Version 3 uses the regular stim channel, but 
+    ' version 4 was a hack to work around a bug in Visage triggering, and the frame channel pulses are used to determine
+    ' stim on and off times. 
+    
+    docase 
+    case actunVersion% = 1 then
+        
+        ' Open par file and get tuning parameters
+        if GetV1TuningParameters%(sParFile$) < 0 then
+            LogError("AcTunX", "Error getting parameters from par file " + sParFile$);
+            return 1;
+        endif
+    
+        while iParam% < actunNParam% and GetNextStimPeriod%(actunTriggerChannel%, tLast, tStart, tEnd) = 1 do
+            
+            View(h).Print("%f %f %f\n", actunParam[iParam%], tStart, tEnd);
+            PrintLog("%f %f %f\n", actunParam[iParam%], tStart, tEnd);
+            iParam% += 1;
+            View(v);
+            
+        wend
+        
+    case actunVersion% = 3 then
+        
+        tLast := GetNextTuningParameterTextMark(tLast, parameter);
+        while tLast > 0 and GetNextStimPeriod%(actunTriggerChannel%, tLast, tStart, tEnd) = 1 do
+            
+            View(h).Print("%f %f %f\n", parameter, tStart, tEnd);
+            PrintLog("%f %f %f\n", parameter, tStart, tEnd);
+            View(v);
+            tLast := GetNextTuningParameterTextMark(tLast, parameter);
+            
+        wend
+        
+    case actunVersion% = 4 then
+        
+        tLast := GetNextTuningParameterTextMark(tLast, parameter);
+        while tLast > 0 and GetNextFramePeriod%(actunTriggerChannel%, tLast, tStart, tEnd) = 1 do
+            
+            View(h).Print("%f %f %f\n", parameter, tStart, tEnd);
+            PrintLog("%f %f %f\n", parameter, tStart, tEnd);
+            View(v);
+            tLast := GetNextTuningParameterTextMark(tLast, parameter);
+            
+        wend
+        
+    endcase
+    
+        
     return iStatus%;
 end
 
+
+func GetNextTuningParameterTextMark(tstart, &parameter)
+    
+    var t;
+    var val$ := "";
+    t := NextTextMark(tstart, val$);
+    while t >= 0 and InStr(val$, "T,") <> 1 do
+        tstart := t;
+        t := NextTextMark(tstart, val$)
+    wend
+    if t >= 0 then
+        parameter := val(Mid$(val$, 3));
+    endif
+    return t;
+    
+end
+
+    
+    
 ' Return neg on error
-func GetTuningParameters%(sParFile$)
+func GetV1TuningParameters%(sParFile$)
     var iStatus% := -1;
     var h;
     var v; ' save current view here
@@ -80,13 +142,7 @@ func GetTuningParameters%(sParFile$)
         return iStatus%;
     endif
     
-'    while Read(line$) >= 0 and nparams% = 0 do    ' read while not EOF or error
- '       ' parameters line starts with "Values:"
-  '      if InStr(line$, "Values:") = 1 then
-   '         nparams% := ReadStr(Mid$(line$, 9), params[]);
-    '    endif    
-   ' wend;
-    
+   
     ' Read first line of par file
     Read(line$);
     docase 
@@ -133,12 +189,15 @@ func GetTuningParameters%(sParFile$)
     return iStatus%;
 end
 
+
+
+
 ' Find tuning version. Old-style acute tuning files have no text marks. Newer ones will have text marks
 ' and a version number in them. This function will return a version number and a channel for stim triggers. 
 ' The old-style files will be assigned version "1". 
 ' Returns 1 on success, or negative error value. 
 
-proc GetTuningVersion(&version%, &channel%)
+func GetTuningVersion%(&version%, &trigChannel%)
     var s$;
     var iStatus% := 0;
     var tLast := -1;
@@ -151,7 +210,7 @@ proc GetTuningVersion(&version%, &channel%)
         case tLast < 0 then
             ' no text marks means this is old-style. 
             version% := 1;
-            if GetTriggerChannel%(channel%) = 1 then
+            if GetTriggerChannel%(version%, trigChannel%) = 1 then
                 iStatus% := 1;
             else
                 iStatus% := -1;
@@ -162,13 +221,14 @@ proc GetTuningVersion(&version%, &channel%)
             ReadStr(DelStr$(s$, 1, i%), version%, cLength%);
             PrintLog("Version %d Len %d\n", version%, cLength%);
             ' Figure out which channel number is the stim channel
-            if GetV3TriggerChannel%(channel%) = 1 then
+            if GetTriggerChannel%(version%, trigChannel%) = 1 then
                 iStatus% := 1;
             else
                 iStatus% := -1;
             endif
         endcase
     wend
+    return iStatus%;
 end
     
     
@@ -177,13 +237,31 @@ end
 ' Find channel with "Level" type. Assuming there's just one.
 ' Return 1 if found, 0 otherwise. 
 
-func GetTriggerChannel%(&channel%)
+func GetTriggerChannel%(iVersion%, &channel%)
     var iStatus% := 0;
     var iChannels%[10];
-    if ChanList(iChannels%[], 0x4) = 1 then
-        iStatus% := 1;
-        channel% := iChannels%[1];
-    endif
+    docase
+    case iVersion% = 1 then
+        
+        if ChanList(iChannels%[], 0x4) = 1 then
+            iStatus% := 1;
+            channel% := iChannels%[1];
+        endif
+        
+    case iVersion% = 3 then
+        
+        iStatus% := GetNamedChannel%("Stim", channel%);
+        
+    case iVersion% = 4 then
+        
+        iStatus% := GetNamedChannel%("Frame", channel%);
+        
+    else
+        
+        LogError("GetTriggerChannel", "Unhandled version number (" + str$(iVersion%) + ")");
+        
+    endcase
+        
     return iStatus%;
 end
 
@@ -192,14 +270,13 @@ end
 ' Find channel with "Level" type and "Stim" title.
 ' Return 1 if found, 0 otherwise. 
 
-func GetV3TriggerChannel%(&channel%)
+func GetNamedChannel%(name$, &channel%)
     var iStatus% := 0;
     var i%;
     var iChannels%[10];
     if ChanList(iChannels%[], 0x4) > 0 then
-        iStatus% := 1;
         for i% := 1 to iChannels%[0] do
-            if SampleTitle$(iChannels%[i%]) = "Stim" then
+            if SampleTitle$(iChannels%[i%]) = name$ then
                 channel% := iChannels%[i%];
                 iStatus% := 1;
                 i% := iChannels%[0];    ' Exit loop
@@ -220,6 +297,26 @@ func GetNextStimPeriod%(actunStimChannel%, &tLast, &tStart, &tEnd)
     if tStart > 0 then
         tEnd := NextTriggerTransition(actunStimChannel%, tStart, 1);
         if tEnd > 0 then
+            tLast := tEnd;
+            iStatus% := 1;
+        endif
+    endif
+    return iStatus%;
+end
+
+
+' Find a stim period like GetNextStimPeriod, but do it with pulses on the 
+' frame channel. Some acute rig files use the frame channel to work around 
+' a visage triggering bug. 
+
+func GetNextFramePeriod%(channel%, &tLast, &tStart, &tEnd)
+    var iStatus% := 0;
+    var s%;
+    var tRise, tFall;
+    s% := FindPulseUp%(channel%, tLast, tStart, tFall);
+    if s% = 1 then
+        s% := FindPulseUp%(channel%, tStart, tEnd, tFall);
+        if s% = 1 then
             tLast := tEnd;
             iStatus% := 1;
         endif
