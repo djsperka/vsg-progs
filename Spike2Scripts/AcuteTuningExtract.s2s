@@ -1,0 +1,17 @@
+#include "AcuteTuningExtractionFunctions.s2s"
+#include "../../Spike2Util/FileUtilities.s2s"
+
+
+var hData%;
+
+' Init logging
+LogInit(1);
+
+' Get data file. The "current" view must be a time view, otherwise we bail. 
+hData% := View(0);
+if (ViewKind(hData%) <> 0) then
+    Message("Current view must be a time view.");
+    halt;
+endif
+
+AcTunX%(hData%, "");
