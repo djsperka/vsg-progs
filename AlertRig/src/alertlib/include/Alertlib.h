@@ -19,6 +19,9 @@
 #include <sys/stat.h>
 
 
+// This macro returns true for a Visage, false for a 2/5 card. 
+#define IS_VISAGE (vsgGetSystemAttribute(vsgDEVICECLASS)==7)
+
 // Set this bit in the out_val of a trigger to indicate it should be toggled.
 // The given out_val (without the toggle bit) will be the first value triggered.
 // After that the value will toggle.
@@ -79,7 +82,9 @@ int parse_int_pair(std::string s, int& i_i1, int& i_i2);
 int parse_sequence_pair(std::string s, int& i_i1, int& i_i2);
 int parse_tuning_triplet(std::string s, double& i_dMin, double& i_dMax, int& i_iSteps);
 int parse_tuning_list(std::string s, std::vector<double>& tuning_list, int& i_iSteps);
+int parse_number_list(std::string s, std::vector<double>& number_list);
 int parse_xy(std::string s, double& x, double& y);
+int parse_triplet(std::string s, double& d1, double& d2, double &d3);
 void tokenize(const std::string& str, std::vector<std::string>& tokens, const std::string& delimiters);
 void make_argv(const std::string& str, int &argc, char **argv);
 void make_argv(std::vector<std::string>tokens, int& argc, char** argv);
@@ -229,6 +234,7 @@ namespace alert
 	{
 	public:
 		ARObject();
+		ARObject(const ARObject& obj);
 		// : m_initialized(false), m_vsg(f_vsg_default) {};
 		virtual ~ARObject();
 		void init(PIXEL_LEVEL first, int numlevels);
@@ -260,6 +266,7 @@ namespace alert
 	{
 	public:
 		ARSpec() {};
+		ARSpec(const ARSpec& s) : ARObject(s) {};
 		virtual ~ARSpec() {};
 		
 		/* Draw object on currently selected page. */
@@ -275,10 +282,11 @@ namespace alert
 	class ARRectangleSpec: public ARSpec
 	{
 	public:
-		ARRectangleSpec() {};
+		ARRectangleSpec(): x(0), y(0), orientation(0) {};
 		~ARRectangleSpec() {};
 		double x, y;	// Center
 		double w, h;	// width, height. Units depend on how vsg is initialized
+		double orientation;
 		COLOR_TYPE color;
 		virtual int draw();
 		virtual int drawOverlay();
@@ -328,7 +336,9 @@ namespace alert
 	{
 	public:
 		ARFixationPointSpec() {};
+		ARFixationPointSpec(const ARFixationPointSpec& fixpt);
 		~ARFixationPointSpec() {};
+		ARFixationPointSpec& operator=(const ARFixationPointSpec& fixpt);
 		double x, y;
 		double d;
 		COLOR_TYPE color;
@@ -342,7 +352,10 @@ namespace alert
 	{
 	public:
 		ARContrastFixationPointSpec() {};
+		ARContrastFixationPointSpec(const ARContrastFixationPointSpec& fixpt) : ARFixationPointSpec(fixpt) {};
 		~ARContrastFixationPointSpec() {};
+		ARContrastFixationPointSpec& operator=(const ARContrastFixationPointSpec& fixpt);
+		ARContrastFixationPointSpec& operator=(const ARFixationPointSpec& fixpt);
 		int draw();
 		int drawOverlay();
 	};
@@ -354,7 +367,9 @@ namespace alert
 	{
 	public:
 		ARContrastCircleSpec() {};
+		ARContrastCircleSpec(const ARContrastCircleSpec& c);
 		~ARContrastCircleSpec() {};
+		ARContrastCircleSpec& operator=(const ARContrastCircleSpec& c);
 		int draw();
 		int drawOverlay();
 	};
@@ -368,7 +383,9 @@ namespace alert
 		double x0, y0, x1, y1;
 		COLOR_TYPE color;
 		ARContrastLineSpec() {};
+		ARContrastLineSpec(const ARContrastLineSpec& line);
 		~ARContrastLineSpec() {};
+		ARContrastLineSpec& operator=(const ARContrastLineSpec& line);
 		int draw();
 		int drawOverlay();
 	};
@@ -379,9 +396,19 @@ namespace alert
 	class ARGratingSpec: public ARSpec
 	{
 	public:
-		ARGratingSpec() : phase(0) {};
+		ARGratingSpec() : phase(0), wd(0), hd(0) {};
+
+		// Copy constructor only copies grating parameters, not vsg object properties. 
+		// A grating initialize with this constructor must still be initialized, and it will 
+		// be a different vsg object than the original!
+
+		ARGratingSpec(const ARGratingSpec& g);
 		virtual ~ARGratingSpec() {};
+
+		ARGratingSpec& operator=(const ARGratingSpec& g);
+
 		double x,y,w,h;
+		double wd, hd;	
 		double sf, tf;
 		double orientation;
 		int contrast;
@@ -429,21 +456,6 @@ namespace alert
 		ARApertureGratingSpec() {};
 		virtual ~ARApertureGratingSpec() {};
 		virtual int draw();
-	};
-
-
-	// Grating spec
-	class ARDonutSpec: public ARGratingSpec
-	{
-	public:
-		ARDonutSpec() {};
-		ARDonutSpec(const ARGratingSpec& g);
-		virtual ~ARDonutSpec() {};
-		double wd, hd;			// width, height of donut hole
-		virtual int draw();
-		virtual int draw(bool useTransOnHigher);
-		virtual int draw(long drawMode);		// 
-		virtual int drawOverlay();				// probably won't work right!
 	};
 
 
@@ -1309,7 +1321,6 @@ std::ostream& operator<<(std::ostream& out, const alert::Trigger& t);
 // instead of input operators, methods
 int parse_fixation_point(const std::string& s, alert::ARFixationPointSpec& afp);
 int parse_grating(const std::string& s, alert::ARGratingSpec& ag);
-int parse_donut(const std::string& s, alert::ARDonutSpec& ad);
 int parse_xhair(const std::string& s, alert::ARXhairSpec& axh);
 
 #endif
