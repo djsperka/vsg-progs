@@ -1,4 +1,4 @@
-/* $Id: dualstim.cpp,v 1.2 2011-09-23 00:11:33 djsperka Exp $ */
+/* $Id: dualstim.cpp,v 1.3 2012-01-20 02:08:57 devel Exp $ */
 
 #include <iostream>
 #include <fstream>
@@ -32,16 +32,13 @@ bool f_binaryTriggers = true;
 bool f_verbose = false;
 bool f_dumpStimSetsOnly = false;
 COLOR_TYPE f_background = { gray, {0.5, 0.5, 0.5}};
-ARContrastFixationPointSpec f_fixpt;
-ARXhairSpec f_xhair;
-ARGratingSpec f_grating;
-StimSet *f_pStimSet = NULL;			// This is for master in dualVSG mode
-StimSet *f_pStimSetSlave = NULL;
+StimSet f_stimset;			// This is for master in dualVSG mode
+StimSet f_stimsetSlave;
 class MyDualStimSet;	// forward declaration
 MyDualStimSet *f_pDualStimSet = NULL;
 int f_iDistanceToScreenMM = -1;
 double f_spatialphase = 0;
-TriggerVector triggers;
+TriggerVector f_triggers;
 bool f_bDualVSG = false;
 bool f_bDualVSGBothStim = false;
 bool f_bDualVSGMasterStim = false;
@@ -60,88 +57,7 @@ bool f_bHaveResponseFile = false;
 int prargs_callback(int c, string& arg);
 void usage();
 void init_triggers();
-int callback(int &output, const FunctorCallbackTrigger* ptrig);
-template <class T> StimSet* create_stimset(bool bHaveFixpt, ARContrastFixationPointSpec& fixpt, bool bHaveXhair, ARXhairSpec& xhair, ARGratingSpec& grating, vector<double> params, double offsetX, double offsetY, double spatialphase);
-StimSet* create_stimset(bool bHaveFixpt, ARContrastFixationPointSpec& fixpt, bool bHaveXhair, ARXhairSpec& xhair, ARGratingSpec& grating, double offsetX, double offsetY, double spatialphase);
-
-class MyDualStimSet : public DualStimSet
-{
-private: 
-	StimSet *m_pMasterStimSet;
-	StimSet *m_pSlaveStimSet;
-	ARGratingSpec m_gratingMaster;
-	ARGratingSpec m_gratingSlave;
-	TSpecificFunctor<MyDualStimSet> *m_pcallbackFunctor;
-	int m_nFramesDelay;
-	double m_dStimTime;
-public:
-	MyDualStimSet(StimSet* pMaster, StimSet *pSlave, int nframes_delay, double tstim_on) : m_pMasterStimSet(pMaster), m_pSlaveStimSet(pSlave), m_nFramesDelay(nframes_delay), m_dStimTime(tstim_on)
-	{
-		m_pcallbackFunctor = new TSpecificFunctor<MyDualStimSet>(this, &MyDualStimSet::callback);
-	};
-	virtual ~MyDualStimSet() {};
-	virtual int init(ARvsg& master, ARvsg& slave);
-	virtual int init_triggers(TriggerVector& triggers);
-	virtual int cleanup(ARvsg& master, ARvsg& slave);
-
-	// Dump something relevant for verbosity's sake
-	virtual std::string toString() const;
-	int callback(int &output, const FunctorCallbackTrigger* ptrig);
-};
-
-int MyDualStimSet::init(ARvsg& master, ARvsg& slave)
-{
-	int status=0;
-	int nframes_on = (int)(m_dStimTime * 1000000 /(double)vsgGetSystemAttribute(vsgFRAMETIME));
-	status = m_pMasterStimSet->init(master, m_nFramesDelay+1, nframes_on, m_nFramesDelay+2);
-	if (status) return status;
-
-	status = m_pSlaveStimSet->init(slave, m_nFramesDelay, nframes_on, m_nFramesDelay);
-	if (status) return status;
-
-	return 0;
-}
-
-int MyDualStimSet::callback(int& output, const FunctorCallbackTrigger* ptrig)
-{
-	int status=0;
-	ARvsg::master().select();
-	status = m_pMasterStimSet->handle_trigger(ptrig->getKey());
-	ARvsg::slave().select();
-	status |= m_pSlaveStimSet->handle_trigger(ptrig->getKey());
-	return status;
-}
-
-
-int MyDualStimSet::init_triggers(TriggerVector& triggers)
-{
-	triggers.addTrigger(new FunctorCallbackTrigger("F", 0x2, 0x2, 0x2, 0x2, m_pcallbackFunctor));
-	triggers.addTrigger(new FunctorCallbackTrigger("S", 0x4, 0x4, 0x4, 0x4, m_pcallbackFunctor));
-	triggers.addTrigger(new FunctorCallbackTrigger("s", 0x4, 0x0, 0x4, 0x0, m_pcallbackFunctor));
-	triggers.addTrigger(new FunctorCallbackTrigger("X", 0x6, 0x0, 0x6, 0x0, m_pcallbackFunctor));
-	triggers.addTrigger(new FunctorCallbackTrigger("a", 0x8, 0x8|AR_TRIGGER_TOGGLE, 0x8, 0x8|AR_TRIGGER_TOGGLE, m_pcallbackFunctor));
-
-	// quit trigger
-	triggers.addTrigger(new QuitTrigger("q", 0x10, 0x10, 0xff, 0x0, 0));
-
-	return 0;
-}
-
-int MyDualStimSet::cleanup(ARvsg& master, ARvsg& slave)
-{
-	cout << "MyDualStimSet::cleanup()" << endl;
-	return 0;
-}
-
-std::string MyDualStimSet::toString() const
-{
-	std::ostringstream oss;
-	oss << "MY Dual StimSet" << endl;
-	oss << *m_pMasterStimSet << endl;
-	oss << *m_pSlaveStimSet << endl;
-	return oss.str();
-}
-
+int callback(int &output, const CallbackTrigger* ptrig);
 
 
 int main (int argc, char *argv[])
@@ -149,16 +65,10 @@ int main (int argc, char *argv[])
 	int status = 0;
 
 	// Check input arguments
-	status = prargs(argc, argv, prargs_callback, "f:b:d:avg:s:C:T:S:O:A:DMVr:H:Zp:KP:w:y:t:X:", 'F');
+	status = prargs(argc, argv, prargs_callback, "f:b:d:avg:s:C:T:S:O:A:DMVr:H:Zp:Kw:y:t:X:Y:h:", 'F');
 	if (status)
 	{
 		return -1;
-	}
-
-	f_pDualStimSet = new MyDualStimSet(f_pStimSet, f_pStimSetSlave, f_nFramesDelay, f_dStimTime);
-	if (f_verbose)
-	{
-		cout << "Dual Stim Set:" << endl << *f_pDualStimSet << endl;
 	}
 
 	if (f_verbose)
@@ -172,7 +82,6 @@ int main (int argc, char *argv[])
 	if (f_verbose)
 		cout << "Initializing slave VSG..." << endl;
 	if (ARvsg::slave().init(f_iDistanceToScreenMM, f_background, true, f_bSlaveSynch))
-
 	{
 		cerr << "VSG init for slave failed!" << endl;
 		return -1;
@@ -180,21 +89,18 @@ int main (int argc, char *argv[])
 
 	if (f_verbose)
 		cout << "Initializing stim..." << endl;
-	ARvsg::master().select();
-	if (f_pDualStimSet->init(ARvsg::master(), ARvsg::slave()))
-	{
-		cerr << "Stim set initialization failed." << endl;
-		return -1;
-	}
+	f_stimset.init(ARvsg::master(), f_nFramesDelay+1, f_dStimTime, f_nFramesDelay+2);
+	f_stimsetSlave.init(ARvsg::slave(), f_nFramesDelay, f_dStimTime, f_nFramesDelay);
 
+	ARvsg::master().select();
 
 	// Initialize triggers
-	f_pDualStimSet->init_triggers(triggers);
+	init_triggers();
 	if (f_verbose)
 	{
-		for (unsigned int i=0; i<triggers.size(); i++)
+		for (unsigned int i=0; i<f_triggers.size(); i++)
 		{
-			std::cout << "Trigger " << i << " " << *(triggers[i]) << std::endl;
+			std::cout << "Trigger " << i << " " << *(f_triggers[i]) << std::endl;
 		}
 	}
 
@@ -224,7 +130,7 @@ int main (int argc, char *argv[])
 			input_trigger = vsgIOReadDigitalIn();
 		}
 
-		TriggerFunc	tf = std::for_each(triggers.begin(), triggers.end(), 
+		TriggerFunc	tf = std::for_each(f_triggers.begin(), f_triggers.end(), 
 			(f_binaryTriggers ? TriggerFunc(input_trigger, last_output_trigger) : TriggerFunc(s, last_output_trigger)));
 
 		// Now analyze input trigger
@@ -252,84 +158,47 @@ int main (int argc, char *argv[])
 	ARvsg::slave().select();
 	ARvsg::slave().clear();
 	vsgPresent();
-	f_pDualStimSet->cleanup(ARvsg::master(), ARvsg::slave());
 
 	return 0;
 }
 
-StimSet* create_stimset(bool bHaveFixpt, ARContrastFixationPointSpec& fixpt, bool bHaveXhair, ARXhairSpec& xhair, ARGratingSpec& grating, double offsetX, double offsetY, double spatialphase)
+
+int callback(int &output, const CallbackTrigger* ptrig)
 {
-	StimSet *pstimset=(StimSet *)NULL;
-	ARContrastFixationPointSpec f(fixpt);
-	ARGratingSpec g(grating);
-	ARXhairSpec x(xhair);
-	g.x += offsetX;
-	g.y += offsetY;
-	if (bHaveFixpt)
-	{
-		if (!bHaveXhair) 
-		{
-			f.x += offsetX;
-			f.y += offsetY;
-			pstimset = new FixptGratingStimSet(f, g, spatialphase);
-		}
-		else
-		{
-			f.x += offsetX;
-			f.y += offsetY;
-			x.x += offsetX;
-			x.y += offsetY;
-			pstimset = new FixptGratingStimSet(f, x, g, spatialphase);
-		}
-	}
-	else
-	{
-		pstimset = new FixptGratingStimSet(g, spatialphase);
-	}
-	return pstimset;
+	int status=0;
+	ARvsg::master().select();
+	status = f_stimset.handle_trigger(ptrig->getKey());
+	ARvsg::slave().select();
+	status |= f_stimsetSlave.handle_trigger(ptrig->getKey());
+	return status;
+
 }
 
-template <class T>
-StimSet* create_stimset(bool bHaveFixpt, ARContrastFixationPointSpec& fixpt, bool bHaveXhair, ARXhairSpec& xhair, ARGratingSpec& grating, vector<double> params, double offsetX, double offsetY, double spatialphase)
+void init_triggers()
 {
-	StimSet *pstimset=(StimSet *)NULL;
-	ARContrastFixationPointSpec f(fixpt);
-	ARGratingSpec g(grating);
-	ARXhairSpec x(xhair);
-	g.x += offsetX;
-	g.y += offsetY;
-	if (bHaveFixpt)
-	{
-		if (!bHaveXhair) 
-		{
-			f.x += offsetX;
-			f.y += offsetY;
-			pstimset = new T(f, g, params, spatialphase);
-		}
-		else
-		{
-			f.x += offsetX;
-			f.y += offsetY;
-			x.x += offsetX;
-			x.y += offsetY;
-			pstimset = new T(f, x, g, params, spatialphase);
-		}
+	f_triggers.addTrigger(new CallbackTrigger("F", 0x2, 0x2, 0x2, 0x2, callback));
+	f_triggers.addTrigger(new CallbackTrigger("S", 0x4, 0x4, 0x4, 0x4, callback));
+	f_triggers.addTrigger(new CallbackTrigger("s", 0x4, 0x0, 0x4, 0x0, callback));
+	f_triggers.addTrigger(new CallbackTrigger("X", 0x6, 0x0, 0x6, 0x0, callback));
+	f_triggers.addTrigger(new CallbackTrigger("a", 0x8, 0x8|AR_TRIGGER_TOGGLE, 0x8, 0x8|AR_TRIGGER_TOGGLE, callback));
 
-	}
-	else
-	{
-		pstimset = new T(g, params, spatialphase);
-	}
-	return pstimset;
+	// quit trigger
+	f_triggers.addTrigger(new QuitTrigger("q", 0x10, 0x10, 0xff, 0x0, 0));
+
+	return;
 }
+
 
 int prargs_callback(int c, string& arg)
 {	
 	string s;
+	static ARContrastFixationPointSpec fixpt;
+	static ARXhairSpec xhair;
+	static ARGratingSpec grating;
 	static int errflg = 0;
 	static bool have_fixpt = false;
 	static bool have_xhair = false;
-	static bool have_stim = false;
+	static bool have_grating = false;
 	static bool have_g = false;
 	static bool have_d = false;
 	static bool have_w = false;
@@ -367,7 +236,7 @@ int prargs_callback(int c, string& arg)
 		break;
 	case 'f':
 		s.assign(optarg);
-		if (parse_fixation_point(s, f_fixpt)) errflg++;
+		if (parse_fixation_point(s, fixpt)) errflg++;
 		else 
 		{
 			have_fixpt = true;
@@ -375,17 +244,24 @@ int prargs_callback(int c, string& arg)
 		break;
 	case 'g':
 		s.assign(optarg);
-		if (parse_grating(s, f_grating)) errflg++;
+		if (parse_grating(s, grating)) errflg++;
 		else 
 		{
 			switch (activeScreen)
 			{
 			case 'M':
 			case ' ':
-				f_pStimSet = create_stimset(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, 0, 0, f_spatialphase);
+				if (have_fixpt) f_stimset.set_fixpt(fixpt);
+				if (have_xhair) f_stimset.set_xhair(xhair);
+				if (have_grating) f_stimset.set_grating(grating);
+				//f_pStimSet = create_stimset(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, 0, 0, f_spatialphase);
 				break;
 			case 'V':
-				f_pStimSetSlave = create_stimset(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, f_dSlaveXOffset, f_dSlaveYOffset, f_spatialphase);
+				// For slave stimset, must add offset values to stim, fixpt, xhair. 
+				//f_pStimSetSlave = create_stimset(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, f_dSlaveXOffset, f_dSlaveYOffset, f_spatialphase);
+				if (have_fixpt) f_stimsetSlave.set_fixpt(fixpt, f_dSlaveXOffset, f_dSlaveYOffset);
+				if (have_xhair) f_stimsetSlave.set_xhair(xhair, f_dSlaveXOffset, f_dSlaveYOffset);
+				if (have_grating) f_stimsetSlave.set_grating(grating, f_dSlaveXOffset, f_dSlaveYOffset);
 				break;
 			case 'D':
 				if (activeScreen != ' ' && !f_bDualVSG)
@@ -395,8 +271,14 @@ int prargs_callback(int c, string& arg)
 				}
 				else
 				{
-					f_pStimSet = create_stimset(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, 0, 0, f_spatialphase);
-					f_pStimSetSlave = create_stimset(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, f_dSlaveXOffset, f_dSlaveYOffset, f_spatialphase);
+					//f_pStimSet = create_stimset(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, 0, 0, f_spatialphase);
+					//f_pStimSetSlave = create_stimset(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, f_dSlaveXOffset, f_dSlaveYOffset, f_spatialphase);
+					if (have_fixpt) f_stimset.set_fixpt(fixpt);
+					if (have_xhair) f_stimset.set_xhair(xhair);
+					if (have_grating) f_stimset.set_grating(grating);
+					if (have_fixpt) f_stimsetSlave.set_fixpt(fixpt, f_dSlaveXOffset, f_dSlaveYOffset);
+					if (have_xhair) f_stimsetSlave.set_xhair(xhair, f_dSlaveXOffset, f_dSlaveYOffset);
+					if (have_grating) f_stimsetSlave.set_grating(grating, f_dSlaveXOffset, f_dSlaveYOffset);
 				}
 				break;
 			}
@@ -404,27 +286,24 @@ int prargs_callback(int c, string& arg)
 		break;
 	case 's':
 		s.assign(optarg);
-		if (parse_grating(s, f_grating)) 
+		if (parse_grating(s, grating)) 
 			errflg++;
 		else 
-			have_stim = true;
+			have_grating = true;
 		break;
 	case 'p':
 		s.assign(optarg);
 		if (parse_integer(s, f_pulse))
 			errflg++;
 		break;
-	case 'P':
-		s.assign(optarg);
-		if (parse_double(s, f_spatialphase))
-			errflg++;
-		break;
-	case 'O':
-	case 'T':
-	case 'S':
 	case 'C':
+	case 'O':
 	case 'A':
+	case 'S':
+	case 'T':
 	case 'H':
+	case 'X':
+	case 'Y':
 		{
 			vector<double> tuning_parameters;
 			int nsteps;
@@ -433,7 +312,7 @@ int prargs_callback(int c, string& arg)
 			if (parse_tuning_list(s, tuning_parameters, nsteps)) errflg++;
 			else 
 			{
-				if (!have_stim)
+				if (!have_grating)
 				{
 					cerr << "Error - must pass template grating stimulus with \"-s\" before passing tuning parameters." << endl;
 					errflg++;
@@ -445,122 +324,84 @@ int prargs_callback(int c, string& arg)
 				}
 				else
 				{
-					switch (c)
+					// Create a stim parameter set
+					StimParameterList *plist;
+					switch(c)
 					{
-					case 'S':
-						{
-							switch (activeScreen)
-							{
-							case 'M':
-							case ' ':
-								f_pStimSet = create_stimset<SFStimSet>(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, tuning_parameters, 0, 0, f_spatialphase);
-								break;
-							case 'V':
-								f_pStimSetSlave = create_stimset<SFStimSet>(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, tuning_parameters, f_dSlaveXOffset, f_dSlaveYOffset, f_spatialphase);
-								break;
-							case 'D':
-								f_pStimSet = create_stimset<SFStimSet>(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, tuning_parameters, 0, 0, f_spatialphase);
-								f_pStimSetSlave = create_stimset<SFStimSet>(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, tuning_parameters, f_dSlaveXOffset, f_dSlaveYOffset, f_spatialphase);
-								break;
-							}
-							break;
-						}
 					case 'C':
-						{
-							switch (activeScreen)
-							{
-							case 'M':
-							case ' ':
-								f_pStimSet = create_stimset<ContrastStimSet>(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, tuning_parameters, 0, 0, f_spatialphase);
-								break;
-							case 'V':
-								f_pStimSetSlave = create_stimset<ContrastStimSet>(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, tuning_parameters, f_dSlaveXOffset, f_dSlaveYOffset, f_spatialphase);
-								break;
-							case 'D':
-								f_pStimSet = create_stimset<ContrastStimSet>(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, tuning_parameters, 0, 0, f_spatialphase);
-								f_pStimSetSlave = create_stimset<ContrastStimSet>(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, tuning_parameters, f_dSlaveXOffset, f_dSlaveYOffset, f_spatialphase);
-								break;
-							}
-							break;
-						}
-					case 'T':
-						{
-							switch (activeScreen)
-							{
-							case 'M':
-							case ' ':
-								f_pStimSet = create_stimset<TFStimSet>(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, tuning_parameters, 0, 0, f_spatialphase);
-								break;
-							case 'V':
-								f_pStimSetSlave = create_stimset<TFStimSet>(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, tuning_parameters, f_dSlaveXOffset, f_dSlaveYOffset, f_spatialphase);
-								break;
-							case 'D':
-								f_pStimSet = create_stimset<TFStimSet>(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, tuning_parameters, 0, 0, f_spatialphase);
-								f_pStimSetSlave = create_stimset<TFStimSet>(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, tuning_parameters, f_dSlaveXOffset, f_dSlaveYOffset, f_spatialphase);
-								break;
-							}
-							break;
-						}
+						plist = new StimContrastList(tuning_parameters);
+						break;
 					case 'O':
-						{
-							switch (activeScreen)
-							{
-							case 'M':
-							case ' ':
-								f_pStimSet = create_stimset<OrientationStimSet>(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, tuning_parameters, 0, 0, f_spatialphase);
-								break;
-							case 'V':
-								f_pStimSetSlave = create_stimset<OrientationStimSet>(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, tuning_parameters, f_dSlaveXOffset, f_dSlaveYOffset, f_spatialphase);
-								break;
-							case 'D':
-								f_pStimSet = create_stimset<OrientationStimSet>(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, tuning_parameters, 0, 0, f_spatialphase);
-								f_pStimSetSlave = create_stimset<OrientationStimSet>(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, tuning_parameters, f_dSlaveXOffset, f_dSlaveYOffset, f_spatialphase);
-								break;
-							}
-							break;
-						}
+						plist = new StimOrientationList(tuning_parameters);
+						break;
 					case 'A':
-						{
-							switch (activeScreen)
-							{
-							case 'M':
-							case ' ':
-								f_pStimSet = create_stimset<AreaStimSet>(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, tuning_parameters, 0, 0, f_spatialphase);
-								break;
-							case 'V':
-								f_pStimSetSlave = create_stimset<AreaStimSet>(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, tuning_parameters, f_dSlaveXOffset, f_dSlaveYOffset, f_spatialphase);
-								break;
-							case 'D':
-								f_pStimSet = create_stimset<AreaStimSet>(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, tuning_parameters, 0, 0, f_spatialphase);
-								f_pStimSetSlave = create_stimset<AreaStimSet>(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, tuning_parameters, f_dSlaveXOffset, f_dSlaveYOffset, f_spatialphase);
-								break;
-							}
-							break;
-						}
+						plist = new StimAreaList(tuning_parameters);
+						break;
+					case 'S':
+						plist = new StimSFList(tuning_parameters);
+						break;
+					case 'T':
+						plist = new StimTFList(tuning_parameters);
+						break;
 					case 'H':
-						{
-							switch (activeScreen)
-							{
-							case 'M':
-							case ' ':
-								f_pStimSet = create_stimset<DonutStimSet>(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, tuning_parameters, 0, 0, f_spatialphase);
-								break;
-							case 'V':
-								f_pStimSetSlave = create_stimset<DonutStimSet>(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, tuning_parameters, f_dSlaveXOffset, f_dSlaveYOffset, f_spatialphase);
-								break;
-							case 'D':
-								f_pStimSet = create_stimset<DonutStimSet>(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, tuning_parameters, 0, 0, f_spatialphase);
-								f_pStimSetSlave = create_stimset<DonutStimSet>(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, tuning_parameters, f_dSlaveXOffset, f_dSlaveYOffset, f_spatialphase);
-								break;
-							}
-							break;
-						}
+						plist = new StimHoleList(tuning_parameters);
+						break;
+					case 'X':
+						plist = new StimXList(tuning_parameters);
+						break;
+					case 'Y':
+						plist = new StimYList(tuning_parameters);
+						break;
 					default:
+						cerr << "Unhandled varying stim parameter type (" << (char)c << ")" << endl;
+						errflg++;
+					}
+
+					// Initialize stimset(s) and add the StimParameterList. Note that in 
+					// some cases we'll be initializing stimset(s) multiple times (if multiple
+					// stim lists are generated for either or both screens.
+					//
+					// The appearance of a one of the StimParameterList args (COASTHXY) triggers
+					// initialization of the stim set. The same is true when "-g" is encountered. 
+
+					switch (activeScreen)
+					{
+					case 'M':
+					case ' ':
+						if (have_fixpt) f_stimset.set_fixpt(fixpt);
+						if (have_xhair) f_stimset.set_xhair(xhair);
+						if (have_grating) f_stimset.set_grating(grating);
+						f_stimset.push_back(plist);
+						//f_pStimSet = create_stimset(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, 0, 0, f_spatialphase);
+						break;
+					case 'V':
+						// For slave stimset, must add offset values to stim, fixpt, xhair. 
+						//f_pStimSetSlave = create_stimset(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, f_dSlaveXOffset, f_dSlaveYOffset, f_spatialphase);
+						if (have_fixpt) f_stimsetSlave.set_fixpt(fixpt, f_dSlaveXOffset, f_dSlaveYOffset);
+						if (have_xhair) f_stimsetSlave.set_xhair(xhair, f_dSlaveXOffset, f_dSlaveYOffset);
+						if (have_grating) f_stimsetSlave.set_grating(grating, f_dSlaveXOffset, f_dSlaveYOffset);
+						f_stimsetSlave.push_back(plist);
+						break;
+					case 'D':
+						if (activeScreen != ' ' && !f_bDualVSG)
 						{
-							cerr << "ERROR - unhandled tuning curve type (" << (char)c << ")" << endl;
+							cerr << "Error - cannot specify active screen (-[D|M|V]) without also specifying slave screen offset!" << endl;
 							errflg++;
-							break;
 						}
+						else
+						{
+							//f_pStimSet = create_stimset(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, 0, 0, f_spatialphase);
+							//f_pStimSetSlave = create_stimset(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, f_dSlaveXOffset, f_dSlaveYOffset, f_spatialphase);
+							if (have_fixpt) f_stimset.set_fixpt(fixpt);
+							if (have_xhair) f_stimset.set_xhair(xhair);
+							if (have_grating) f_stimset.set_grating(grating);
+							if (have_fixpt) f_stimsetSlave.set_fixpt(fixpt, f_dSlaveXOffset, f_dSlaveYOffset);
+							if (have_xhair) f_stimsetSlave.set_xhair(xhair, f_dSlaveXOffset, f_dSlaveYOffset);
+							if (have_grating) f_stimsetSlave.set_grating(grating, f_dSlaveXOffset, f_dSlaveYOffset);
+							f_stimset.push_back(plist->clone());
+							f_stimsetSlave.push_back(plist);
+						}
+						break;
 					}
 				}
 			}
@@ -640,10 +481,10 @@ int prargs_callback(int c, string& arg)
 			}
 			break;
 		}
-	case 'X':
+	case 'h':
 		{
 			s.assign(optarg);
-			if (parse_xhair(s, f_xhair)) errflg++;
+			if (parse_xhair(s, xhair)) errflg++;
 			else
 			{
 				have_xhair = true;
@@ -659,22 +500,18 @@ int prargs_callback(int c, string& arg)
 			}
 
 
-			if (!f_pStimSet && !f_pStimSetSlave)
+			if (f_stimset.is_empty() && f_stimsetSlave.is_empty())
 			{
 				cerr << "Error - when using dual VSG mode you must specify one of D/M/V options and a stimulus set (COASTg)." << endl;
 				errflg++;
 			}
-			else if (!f_pStimSetSlave)
+			else if (f_stimsetSlave.is_empty())
 			{
-				f_fixpt.x += f_dSlaveXOffset;
-				f_fixpt.y += f_dSlaveYOffset;
-				f_pStimSetSlave = new FixptGratingStimSet(f_fixpt);
-				f_fixpt.x -= f_dSlaveXOffset;
-				f_fixpt.y -= f_dSlaveYOffset;
+				if (have_fixpt) f_stimsetSlave.set_fixpt(fixpt, f_dSlaveXOffset, f_dSlaveYOffset);
 			}
-			else if (!f_pStimSet)
+			else if (f_stimset.is_empty())
 			{
-				f_pStimSet = new FixptGratingStimSet(f_fixpt);
+				if (have_fixpt) f_stimset.set_fixpt(fixpt);
 			}
 
 			break;
@@ -687,8 +524,6 @@ int prargs_callback(int c, string& arg)
 		}
 	}
 
-
-	cout << "option " << (char)c << " return " << errflg << endl;
 	return errflg;
 }
 
