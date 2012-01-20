@@ -81,7 +81,13 @@ int parse_grating(const std::string& s, alert::ARGratingSpec& ag)
 {
 	int status=0;
 	vector<string> tokens;
-	tokenize(s, tokens, ",");
+	vector<double> numbers;
+	int num = 0;			// number of numbers
+	double d;
+	istringstream iss;
+
+	// updated 1/18/2012 djs
+	// Now allow for gratings and/or donuts.  
 
 	// UPDATED 9/15/2011 djs
 	// Added phase parameter to grating spec. In text form it fits after the orientation.
@@ -102,256 +108,83 @@ int parse_grating(const std::string& s, alert::ARGratingSpec& ag)
 	//
 	// Short form: the last three args (color_vector, pattern, aperture) can be omitted. 
 
-
-	if (tokens.size() < 8 || tokens.size() > 12)
+	tokenize(s, tokens, ",");
+	if (tokens.size() < 8 || tokens.size() > 14)
 	{
+		cerr << "Bad grating spec format." << endl;
 		status=1;	// bad format
 	}
 	else
 	{
-		istringstream iss;
-		iss.str(tokens[0]);
-		iss >> ag.x;
-		if (!iss) 
+		for (unsigned int i=0; i<tokens.size() && iss; i++)
 		{
-			cerr << "bad x: " << tokens[0] << endl;
-			status=1;
-		}
-		iss.str(tokens[1]);
-		iss.clear();
-		iss >> ag.y;
-		if (!iss) 
-		{
-			cerr << "bad y: " << tokens[1] << endl;
-			status=1;
-		}
-		iss.str(tokens[2]);
-		iss.clear();
-		iss >> ag.w;
-		if (!iss)
-		{
-			cerr << "bad w: " << tokens[2] << endl;
-			status=1;
-		}
-		iss.str(tokens[3]);
-		iss.clear();
-		iss >> ag.h;
-		if (!iss)
-		{
-			cerr << "bad h: " << tokens[3] << endl;
-			status=1;
-		}
-		iss.str(tokens[4]);
-		iss.clear();
-		iss >> ag.contrast;
-		if (!iss)
-		{
-			cerr << "bad contrast: " << tokens[4] << endl;
-			status=1;
-		}
-		iss.str(tokens[5]);
-		iss.clear();
-		iss >> ag.sf;
-		if (!iss)
-		{
-			cerr << "bad sf: " << tokens[5] << endl;
-			status=1;
-		}
-		iss.str(tokens[6]);
-		iss.clear();
-		iss >> ag.tf;
-		if (!iss)
-		{
-			cerr << "bad tf: " << tokens[6] << endl;
-			status=1;
-		}
-		iss.str(tokens[7]);
-		iss.clear();
-		iss >> ag.orientation;
-		if (!iss)
-		{
-			cerr << "bad orientation: " << tokens[7] << endl;
-			status=1;
-		}
-
-		// If there are 8 tokens, set phase = 0. 
-		// If there are 9 or 12, read phase.
-		ag.phase = 0;
-		if (tokens.size() == 9 || tokens.size() == 12)
-		{
-			iss.str(tokens[8]);
 			iss.clear();
-			iss >> ag.phase;
-			if (!iss)
+			iss.str(tokens[i]);
+			iss >> d;
+			if (iss) 
 			{
-				cerr << "bad phase: " << tokens[8] << endl;
-				status = 1;
+				numbers.push_back(d);
 			}
 		}
 
-		// set defaults for the remaining items, then read if present
-		ag.cv.type = b_w;
-		ag.pattern = sinewave;
-		ag.aperture = ellipse;
-
-		// Handle 4 cases: 8, 9, 11, 12
-		switch(tokens.size())
+		switch(numbers.size())
 		{
 		case 8:
+			ag.x = numbers[0];
+			ag.y = numbers[1];
+			ag.w = numbers[2];
+			ag.h = numbers[3];
+			ag.contrast = (int)numbers[4];
+			ag.sf = numbers[5];
+			ag.tf = numbers[6];
+			ag.orientation = numbers[7];
+			ag.phase = 0;
+			ag.wd = 0;
+			ag.hd = 0;
+			break;
 		case 9:
-			// Short form. Do nothing.
+			ag.x = numbers[0];
+			ag.y = numbers[1];
+			ag.w = numbers[2];
+			ag.h = numbers[3];
+			ag.contrast = (int)numbers[4];
+			ag.sf = numbers[5];
+			ag.tf = numbers[6];
+			ag.orientation = numbers[7];
+			ag.phase = numbers[8];
+			ag.wd = 0;
+			ag.hd = 0;
+			break;
+		case 10:
+			ag.x = numbers[0];
+			ag.y = numbers[1];
+			ag.w = numbers[2];
+			ag.h = numbers[3];
+			ag.wd = numbers[4];
+			ag.hd = numbers[5];
+			ag.contrast = (int)numbers[6];
+			ag.sf = numbers[7];
+			ag.tf = numbers[8];
+			ag.orientation = numbers[9];
+			ag.phase = 0;
 			break;
 		case 11:
-			if (parse_colorvector(tokens[8], ag.cv))
-			{
-				cerr << "bad colorvector: " << tokens[8] << endl;
-				status=1;
-			}
-			if (parse_pattern(tokens[9], ag.pattern))
-			{
-				cerr << "bad pattern: " << tokens[9] << endl;
-				status=1;
-			}
-			if (parse_aperture(tokens[10], ag.aperture))
-			{
-				cerr << "bad aperture: " << tokens[10] << endl;
-				status=1;
-			}
-			break;
-		case 12:
-			if (parse_colorvector(tokens[9], ag.cv))
-			{
-				cerr << "bad colorvector: " << tokens[9] << endl;
-				status=1;
-			}
-			if (parse_pattern(tokens[10], ag.pattern))
-			{
-				cerr << "bad pattern: " << tokens[10] << endl;
-				status=1;
-			}
-			if (parse_aperture(tokens[11], ag.aperture))
-			{
-				cerr << "bad aperture: " << tokens[11] << endl;
-				status=1;
-			}
+			ag.x = numbers[0];
+			ag.y = numbers[1];
+			ag.w = numbers[2];
+			ag.h = numbers[3];
+			ag.wd = numbers[4];
+			ag.hd = numbers[5];
+			ag.contrast = (int)numbers[6];
+			ag.sf = numbers[7];
+			ag.tf = numbers[8];
+			ag.orientation = numbers[9];
+			ag.phase = numbers[10];
 			break;
 		default:
-			cerr << "Bad number of args for grating (" << tokens.size() << " (s/b 8,9,11,12)" << endl;
+			cerr << "Bad number of tokens! parse_grating incorrectly configured!" << endl;
+			status = 1;
 			break;
-		}
-	}
-
-
-	return status;
-}
-
-
-
-int parse_donut(const std::string& s, alert::ARDonutSpec& ag)
-{
-	int status=0;
-	vector<string> tokens;
-	tokenize(s, tokens, ",");
-
-	// Expected format for donut: same as grating but with donut width,height following w,h
-	// x,y,w,h,wd,hd,contrast%,sf,tf,orientation,color_vector,s|q,r|e
-	// x,y,w,h,wd,hd in degrees
-	// contrast should be an integer from 0-100. 
-	// 0 <= orientation < 360
-	// color_vector should be b|w|black|white|gray|... for black/white,
-	// l|L for l-cone, m|M for m-cone and s|S for s-cone. default is black/white
-	// s|q indicates pattern type, s for sine wave, q for square wave
-	// r|e indicates aperture type, r for rectangular (height h, width w), e for elliptical
-	// the last three args (color_vector, pattern, aperture) can be omitted. 
-
-	if (tokens.size() < 10 || tokens.size() > 13)
-	{
-		status=1;	// bad format
-	}
-	else
-	{
-		istringstream iss;
-		iss.str(tokens[0]);
-		iss >> ag.x;
-		if (!iss) 
-		{
-			cerr << "bad x: " << tokens[0] << endl;
-			status=1;
-		}
-		iss.str(tokens[1]);
-		iss.clear();
-		iss >> ag.y;
-		if (!iss) 
-		{
-			cerr << "bad y: " << tokens[1] << endl;
-			status=1;
-		}
-		iss.str(tokens[2]);
-		iss.clear();
-		iss >> ag.w;
-		if (!iss)
-		{
-			cerr << "bad w: " << tokens[2] << endl;
-			status=1;
-		}
-		iss.str(tokens[3]);
-		iss.clear();
-		iss >> ag.h;
-		if (!iss)
-		{
-			cerr << "bad h: " << tokens[3] << endl;
-			status=1;
-		}
-		iss.str(tokens[4]);
-		iss.clear();
-		iss >> ag.wd;
-		if (!iss)
-		{
-			cerr << "bad wd: " << tokens[4] << endl;
-			status=1;
-		}
-		iss.str(tokens[5]);
-		iss.clear();
-		iss >> ag.hd;
-		if (!iss)
-		{
-			cerr << "bad hd: " << tokens[5] << endl;
-			status=1;
-		}
-
-
-
-		iss.str(tokens[6]);
-		iss.clear();
-		iss >> ag.contrast;
-		if (!iss)
-		{
-			cerr << "bad contrast: " << tokens[6] << endl;
-			status=1;
-		}
-		iss.str(tokens[7]);
-		iss.clear();
-		iss >> ag.sf;
-		if (!iss)
-		{
-			cerr << "bad sf: " << tokens[7] << endl;
-			status=1;
-		}
-		iss.str(tokens[8]);
-		iss.clear();
-		iss >> ag.tf;
-		if (!iss)
-		{
-			cerr << "bad tf: " << tokens[8] << endl;
-			status=1;
-		}
-		iss.str(tokens[9]);
-		iss.clear();
-		iss >> ag.orientation;
-		if (!iss)
-		{
-			cerr << "bad orientation: " << tokens[9] << endl;
-			status=1;
 		}
 
 		// set defaults for the remaining items, then read if present
@@ -359,36 +192,34 @@ int parse_donut(const std::string& s, alert::ARDonutSpec& ag)
 		ag.pattern = sinewave;
 		ag.aperture = ellipse;
 
-		if (tokens.size() > 10)
+		if (tokens.size() > numbers.size())
 		{
-			if (parse_colorvector(tokens[10], ag.cv))
+			if (parse_colorvector(tokens[numbers.size()], ag.cv))
 			{
-				cerr << "bad colorvector: " << tokens[10] << endl;
+				cerr << "bad colorvector: " << tokens[numbers.size()] << endl;
 				status=1;
 			}
 		}
-		if (tokens.size() > 11)
+		if (tokens.size() > numbers.size()+1)
 		{
-			if (parse_pattern(tokens[11], ag.pattern))
+			if (parse_pattern(tokens[numbers.size()+1], ag.pattern))
 			{
-				cerr << "bad pattern: " << tokens[11] << endl;
+				cerr << "bad pattern: " << tokens[numbers.size()+1] << endl;
 				status=1;
 			}
 		}
-		if (tokens.size() > 12)
+		if (tokens.size() > numbers.size()+2)
 		{
-			if (parse_aperture(tokens[12], ag.aperture))
+			if (parse_aperture(tokens[numbers.size()+2], ag.aperture))
 			{
-				cerr << "bad aperture: " << tokens[12] << endl;
+				cerr << "bad aperture: " << tokens[numbers.size()+2] << endl;
 				status=1;
 			}
 		}
-	
 	}
-
-
 	return status;
 }
+
 
 
 
@@ -756,6 +587,47 @@ int parse_tuning_triplet(std::string s, double& i_dMin, double& i_dMax, int& i_i
 	return status;
 }
 
+int parse_triplet(std::string s, double& i_d1, double& i_d2, double& i_d3)
+{
+	int status=0;
+	vector<string> tokens;
+	tokenize(s, tokens, ",");
+	if (tokens.size() != 3)
+	{
+		cerr << "Bad triplet format: " << s << endl;
+		status=1;
+	}
+	else
+	{
+		istringstream iss;
+		iss.str(tokens[0]);
+		iss >> i_d1;
+		if (!iss) 
+		{
+			cerr << "bad triplet value: " << tokens[0] << endl;
+			status=1;
+		}
+		iss.str(tokens[1]);
+		iss.clear();
+		iss >> i_d2;
+		if (!iss) 
+		{
+			cerr << "bad triplet value: " << tokens[1] << endl;
+			status=1;
+		}
+		iss.str(tokens[2]);
+		iss.clear();
+		iss >> i_d3;
+		if (!iss)
+		{
+			cerr << "bad triplet value: " << tokens[2] << endl;
+			status=1;
+		}
+	}
+	return status;
+}
+
+
 int parse_int_list(std::string s, std::vector<int>& list)
 {
 	int status=0;
@@ -809,6 +681,38 @@ int parse_tuning_list(std::string s, vector<double>& tuning_list, int& i_iSteps)
 	// Number of steps is the size of the list MINUS 1!
 	i_iSteps = tuning_list.size() - 1;
 	return status;
+}
+
+
+// Just like parse_tuning_list, but doesn't return error when it hits a bad value. 
+// Used for parsing grating spec, where there may be a variable number of numbers
+// before some characters. Fill the vec with numbers but don't err when a non-number 
+// is found. Always return 0, since its not considered an error to have a 
+// non-number in the list. 
+
+int parse_number_list(std::string s, vector<double>& number_list)
+{
+	int status=0;
+	unsigned int i;
+	istringstream iss;
+	double d;
+	vector<string> tokens;
+	tokenize(s, tokens, ",");
+	for (i=0; i<tokens.size() && status==0; i++)
+	{
+		iss.clear();
+		iss.str(tokens[i]);
+		iss >> d;
+		if (!iss) 
+		{
+			status=1;
+		}
+		else
+		{
+			number_list.push_back(d);
+		}
+	}
+	return 0;
 }
 
 

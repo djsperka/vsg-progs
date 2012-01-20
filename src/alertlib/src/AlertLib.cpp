@@ -21,7 +21,7 @@ std::ostream& operator<<(std::ostream& out, const ARFixationPointSpec& arfps)
 
 std::ostream& operator<<(std::ostream& out, const ARGratingSpec& args)
 {
-	out << args.x << "," << args.y << "," << args.w << "," << args.h << "," << args.contrast << "," << args.sf << "," << args.tf << "," << args.orientation << "," << args.phase << "," << args.cv << "," << args.pattern << "," << args.aperture;
+	out << "x,y=(" << args.x << "," << args.y << ") w,h,wd,hd=(" << args.w << "," << args.h << "," << args.wd << "," << args.hd << ") c=" << args.contrast << " sf=" << args.sf << " tf=" << args.tf << " ori=" << args.orientation << " ph=" << args.phase << " cv=" << args.cv << " p=" << args.pattern << " ap=" << args.aperture;
 	return out;
 }
 
@@ -285,6 +285,7 @@ int ARvsg::init(int screenDistanceMM, COLOR_TYPE i_bg,  bool bUseLockFile, bool 
 				status = 2;
 			}
 			arutil_color_to_palette(m_background_color, m_background_level);
+			cout << "Background level " << m_background_level << " color set to " << m_background_color.color.a << "," << m_background_color.color.b << "," << m_background_color.color.c << endl;
 		}
 		else
 		{
@@ -501,11 +502,20 @@ ARObject::ARObject() : m_initialized(false), m_use_master(false), m_use_slave(fa
 {
 };
 
+ARObject::ARObject(const ARObject& obj)
+{
+	m_initialized = obj.m_initialized;
+	m_handle = obj.m_handle;
+	m_first = obj.m_first;
+	m_numlevels = obj.m_numlevels;
+	m_use_master = obj.m_use_master;
+	m_use_slave = obj.m_use_slave;
+}
+
 ARObject::~ARObject() {};
 
 ARObject& ARObject::operator=(const ARObject& obj)
 {
-	cout << "ARObject::operator=" << endl;
 	if (this != &obj)
 	{
 		m_initialized = obj.m_initialized;
@@ -702,7 +712,7 @@ int ARXhairSpec::drawOverlay()
 int ARRectangleSpec::draw()
 {
 	vsgSetDrawMode(vsgCENTREXY + vsgSOLIDFILL);
-	vsgDrawRect(x, y, w, h);
+	vsgDrawBar(x, y, w, h, orientation);
 	return 0;
 }
 
@@ -745,7 +755,7 @@ int ARContrastRectangleSpec::draw()
 int ARContrastRectangleSpec::drawOverlay()
 {
 	vsgSetPen1(0);
-	vsgDrawRect(x, -1*y, w, h);
+	vsgDrawBar(x, -1*y, w, h, orientation);
 	return 0;
 }
 
@@ -776,7 +786,7 @@ int ARMultiContrastRectangleSpec::draw()
 		vsgSetPen1(getFirstLevel());
 		for (vector<XYWH>::iterator it= this->begin(); it != this->end(); ++it)
 		{
-			vsgDrawRect(it->x, it->y, it->w, it->h);
+			vsgDrawBar(it->x, it->y, it->w, it->h, 0);
 			cout << "draw rect " << it->x << ", " << it->y << ", " << it->w << ", " <<  it->h << endl;
 		}
 	}
@@ -789,7 +799,26 @@ int ARMultiContrastRectangleSpec::drawOverlay()
 	return 0;
 }
 
+ARFixationPointSpec::ARFixationPointSpec(const ARFixationPointSpec& fixpt) : ARSpec(fixpt)
+{
+	x = fixpt.x;
+	y = fixpt.y;
+	color = fixpt.color;
+	d = fixpt.d;
+}
 
+ARFixationPointSpec& ARFixationPointSpec::operator=(const ARFixationPointSpec& fixpt)
+{
+	if (this != &fixpt)
+	{
+		ARObject::operator=(fixpt);
+		x = fixpt.x;
+		y = fixpt.y;
+		d = fixpt.d;
+		color = fixpt.color;
+	}
+	return *this;
+}
 
 
 int ARFixationPointSpec::draw()
@@ -818,6 +847,24 @@ int ARFixationPointSpec::drawOverlay()
 		vsgDrawOval(x, -1*y, d, d);
 	}
 	return status;
+}
+
+ARContrastFixationPointSpec& ARContrastFixationPointSpec::operator=(const ARContrastFixationPointSpec& fixpt)
+{
+	if (this != &fixpt)
+	{
+		ARFixationPointSpec::operator=(fixpt);
+	}
+	return *this;
+}
+
+ARContrastFixationPointSpec& ARContrastFixationPointSpec::operator=(const ARFixationPointSpec& fixpt)
+{
+	if (this != &fixpt)
+	{
+		ARFixationPointSpec::operator=(fixpt);
+	}
+	return *this;
 }
 
 
@@ -859,6 +906,20 @@ int ARContrastFixationPointSpec::drawOverlay()
 	return 0;
 }
 
+ARContrastCircleSpec::ARContrastCircleSpec(const ARContrastCircleSpec& c) : ARContrastFixationPointSpec(c)
+{
+}
+
+ARContrastCircleSpec& ARContrastCircleSpec::operator=(const ARContrastCircleSpec& c)
+{
+	if (this != &c)
+	{
+		ARContrastFixationPointSpec::operator=(c);
+	}
+	return *this;
+}
+
+
 int ARContrastCircleSpec::draw()
 {
 	int status=0;
@@ -899,6 +960,31 @@ int ARContrastCircleSpec::drawOverlay()
 }
 
 
+ARContrastLineSpec::ARContrastLineSpec(const ARContrastLineSpec& line) : ARSpec(line)
+{
+	x0 = line.x0;
+	x1 = line.x1;
+	y0 = line.y0;
+	y1 = line.y1;
+	color = line.color;
+}
+
+ARContrastLineSpec& ARContrastLineSpec::operator=(const ARContrastLineSpec& line)
+{
+	if (this != &line)
+	{
+		ARSpec::operator=(line);
+		x0 = line.x0;
+		x1 = line.x1;
+		y0 = line.y0;
+		y1 = line.y1;
+		color = line.color;
+	}
+	return *this;
+}
+
+
+
 int ARContrastLineSpec::draw()
 {
 	int status=0;
@@ -937,6 +1023,49 @@ int ARContrastLineSpec::drawOverlay()
 	vsgDrawLine(x0, y0, x1, y1);
 	return 0;
 }
+
+
+ARGratingSpec::ARGratingSpec(const ARGratingSpec& g) : ARSpec(g)
+{
+	x = g.x;
+	y = g.y;
+	w = g.w;
+	h = g.h;
+	wd = g.wd;
+	hd = g.hd;
+	contrast = g.contrast;
+	sf = g.sf;
+	tf = g.tf;
+	orientation = g.orientation;
+	phase = g.phase;
+	cv = g.cv;
+	pattern = g.pattern;
+	aperture = g.aperture;
+}
+
+ARGratingSpec& ARGratingSpec::operator=(const ARGratingSpec& g)
+{
+	if (this != &g)
+	{
+		ARObject::operator=(g);
+		x = g.x;
+		y = g.y;
+		w = g.w;
+		h = g.h;
+		wd = g.wd;
+		hd = g.hd;
+		contrast = g.contrast;
+		sf = g.sf;
+		tf = g.tf;
+		orientation = g.orientation;
+		phase = g.phase;
+		cv = g.cv;
+		pattern = g.pattern;
+		aperture = g.aperture;
+	}
+	return *this;
+}
+
 
 
 int ARGratingSpec::draw()
@@ -1045,6 +1174,28 @@ int ARGratingSpec::draw(long mode)
 		vsgDrawGrating(this->x, -1*this->y, this->w, this->h, this->orientation, this->sf);
 	}
 
+	// Draw hole if this is a donut. Having both hd, wd > 0 makes this a donut.
+	// Check for dumb situation w,h == 0.
+	if (w > 0  && h > 0)
+	{
+		vsgSetPen1(vsgBACKGROUND);
+
+		// Now draw the hole, but only if the diam is >0
+		if (wd > 0 && hd > 0)
+		{
+			if (this->aperture == ellipse)
+			{
+				vsgSetDrawMode(vsgCENTREXY);
+				vsgDrawOval(x, -1*y, wd, hd);
+			}
+			else
+			{
+				vsgSetDrawMode(vsgCENTREXY);
+				vsgDrawRect(this->x, -1*this->y, this->wd, this->hd);
+			}
+		}
+	}
+
 	return 0;
 }
 
@@ -1078,86 +1229,6 @@ int ARGratingSpec::drawOverlay()
 	return 0;
 }
 
-
-
-ARDonutSpec::ARDonutSpec(const ARGratingSpec& g)
-{
-	x = g.x;
-	y = g.y;
-	w = g.w;
-	h = g.h;
-	wd = 0;
-	hd = 0;
-	sf = g.sf;
-	tf = g.tf;
-	orientation = g.orientation;
-	contrast = g.contrast;
-	phase = g.phase;
-	pattern = g.pattern;
-	aperture = g.aperture;
-	cv = g.cv;
-}
-
-int ARDonutSpec::draw(long mode)
-{
-	int status=0;
-	if (w > 0  && h > 0)
-	{
-		ARGratingSpec::draw(mode);
-		vsgSetPen1(vsgBACKGROUND);
-
-		// Now draw the hole, but only if the diam is >0
-		if (wd > 0 && hd > 0)
-		{
-			if (this->aperture == ellipse)
-			{
-				vsgSetDrawMode(vsgCENTREXY);
-				vsgDrawOval(x, -1*y, wd, hd);
-			}
-			else
-			{
-				vsgSetDrawMode(vsgCENTREXY);
-				vsgDrawRect(this->x, -1*this->y, this->wd, this->hd);
-			}
-		}
-	}
-	return 0;
-}
-
-int ARDonutSpec::draw()
-{
-	return draw(false);
-}
-
-int ARDonutSpec::draw(bool useTransOnHigher)
-{
-	if (useTransOnHigher)
-	{
-		return draw((long)vsgTRANSONHIGHER);
-	}
-	else
-	{
-		return draw((long)vsgTRANSONLOWER);
-	}
-}
-
-
-// this probably won't work right
-
-int ARDonutSpec::drawOverlay()
-{
-	vsgSetPen1(0);
-	vsgSetDrawMode(vsgCENTREXY);
-	if (this->aperture == ellipse)
-	{
-		vsgDrawOval(x, -1*y, w, h);
-	}
-	else
-	{
-		vsgDrawRect(x, -1*y, w, h);
-	}
-	return 0;
-}
 
 
 void ARGratingSpec::setContrast(int contrast) 
