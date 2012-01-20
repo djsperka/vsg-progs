@@ -35,7 +35,7 @@ int main (int argc, char *argv[])
 		case 'g':
 			s.assign(optarg);
 			istatus = parse_grating(s, grating);
-			cout << "Parse grating status " << istatus << ": " << grating << endl;
+			cout << (istatus==0 ? "OK : " : "ERR: ") << grating << endl;
 			break;
 		default:
 			cout << "Unknown option " << c << endl;
