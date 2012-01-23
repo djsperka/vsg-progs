@@ -53,3 +53,6 @@ rem ..\..\bin\fixstim -a -v -d 500 -f -5,-5,1,green -s 0,0,5,5,100,.2,1,45,b,s,e
 rem crg, using msequence, short one. 
 rem ..\..\bin\fixstim -a -v -d 500 -s 0,0,5,5,100,.2,1,45,b,s,e -F ..\..\stim\MSequenceTerms -B 1,100,5
 rem ..\..\bin\fixstim -a -v -d 500 -s 0,0,5,5,100,.2,1,45,b,s,e -F ..\..\stim\MSequenceTerms -B 2,100,5
+
+rem CBar
+..\..\bin\fixstim -a -v -b black -d 500 -G aaa

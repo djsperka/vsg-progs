@@ -1,4 +1,4 @@
-/* $Id: fixstim.cpp,v 1.4 2011-10-12 21:11:09 devel Exp $ */
+/* $Id: fixstim.cpp,v 1.5 2012-01-23 23:20:28 devel Exp $ */
 
 #include <iostream>
 #include <fstream>
@@ -208,7 +208,14 @@ int main (int argc, char *argv[])
 			else if (tf.present())
 			{	
 				last_output_trigger = tf.output_trigger();
-				vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, tf.output_trigger(), 0);
+				if (IS_VISAGE)
+				{
+					vsgSetTriggerOptions(vsgTRIGOPT_PRESENT, 0, vsgTRIG_OUTPUTMARKER, 0.5, 0, tf.output_trigger() << 1, 0x1FE);
+				}
+				else
+				{
+					vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, tf.output_trigger(), 0);
+				}
 				vsgPresent();
 			}
 			Sleep(10);
@@ -351,7 +358,7 @@ int args(int argc, char **argv)
 	string sequence_filename;
 	bool have_F = false;
 	char activeScreen = ' ';
-	while ((c = getopt(argc, argv, "f:b:d:avg:s:C:T:S:O:A:R:B:DMVr:H:Zp:KP:")) != -1)
+	while ((c = getopt(argc, argv, "f:b:d:avg:s:C:T:S:O:A:R:B:DMVr:H:Zp:KP:G:")) != -1)
 	{
 		switch(c)
 		{
@@ -567,24 +574,6 @@ int args(int argc, char **argv)
 								}
 								break;
 							}
-						case 'H':
-							{
-								switch (activeScreen)
-								{
-								case 'M':
-								case ' ':
-									f_pStimSet = create_stimset<DonutStimSet>(have_fixpt, f_fixpt, f_grating, tuning_parameters, 0, 0, f_spatialphase);
-									break;
-								case 'V':
-									f_pStimSetSlave = create_stimset<DonutStimSet>(have_fixpt, f_fixpt, f_grating, tuning_parameters, f_dSlaveXOffset, f_dSlaveYOffset, f_spatialphase);
-									break;
-								case 'D':
-									f_pStimSet = create_stimset<DonutStimSet>(have_fixpt, f_fixpt, f_grating, tuning_parameters, 0, 0, f_spatialphase);
-									f_pStimSetSlave = create_stimset<DonutStimSet>(have_fixpt, f_fixpt, f_grating, tuning_parameters, f_dSlaveXOffset, f_dSlaveYOffset, f_spatialphase);
-									break;
-								}
-								break;
-							}
 						default:
 							{
 								cerr << "ERROR - unhandled tuning curve type (" << (char)c << ")" << endl;
@@ -612,8 +601,6 @@ int args(int argc, char **argv)
 				}
 				else
 				{
-					// djs sequence is ALWAYS the msequence. 
-
 					sequence = get_msequence();
 					nterms = strlen(sequence);
 
@@ -633,47 +620,6 @@ int args(int argc, char **argv)
 							f_pStimSet = new CRGStimSet(f_grating, list[0], seq, balanced);
 						}
 					}
-
-
-#if 0
-					if (have_F)
-					{
-						// Open file and load sequence
-
-						nterms = arutil_load_sequence(&sequence, sequence_filename);
-
-						// Check that sequence args work with this sequence file
-
-						if (nterms > 0 && list[1] > -1 && (list[1]+list[2] < nterms))
-						{
-							string seq;
-							seq.assign(&sequence[list[1]], list[2]);
-
-							// Create StimSet
-							if (have_fixpt)
-							{
-								f_pStimSet = new CRGStimSet(f_fixpt, f_grating, list[0], seq, balanced);
-							}
-							else
-							{
-								f_pStimSet = new CRGStimSet(f_grating, list[0], seq, balanced);
-							}
-
-							free(sequence);
-						}
-						else
-						{
-							cerr << "Error - cannot get sequence (start term " << list[1] << ", nterms " << list[2] << ") from sequence file " << sequence_filename << ". The sequence file has only " << nterms << " terms." << endl;
-							errflg++;
-						}
-					}
-					else
-					{
-						cerr << "Error - must supply sequence file (\"-F\") before CRG argument (\"-R\")" << endl;
-						errflg++;
-					}
-#endif
-
 				}
 				break;
 			}
@@ -681,6 +627,43 @@ int args(int argc, char **argv)
 			{
 				sequence_filename.assign(optarg);
 				have_F = true;
+				break;
+			}
+		case 'G':
+			{
+				vector<double> tuning_parameters;
+				vector<string> tokens;
+				int nsteps;
+				double ww, hh, dps;
+				COLOR_TYPE color;
+				s.assign(optarg);
+				tokenize(s, tokens, ",");
+				if (parse_color(tokens[0], color))
+				{
+					cerr << "Error - first parameter in bar list spec must be a color (" << tokens[0] << ")." << endl;
+					errflg++;
+				}
+				else
+				{
+					tokens.erase(tokens.begin());
+				}
+
+				if (parse_tuning_list(tokens, tuning_parameters, nsteps) || tuning_parameters.size() <= 3)
+				{
+					cerr << "Error - cannot parse drifting bar parameters color,width,height,deg_per_sec,ori1,ori2,..." << endl;
+					errflg++;
+				}
+				else
+				{
+					ww = tuning_parameters[0];
+					hh = tuning_parameters[1];
+					dps = tuning_parameters[2];
+					
+					tuning_parameters.erase(tuning_parameters.begin());
+					tuning_parameters.erase(tuning_parameters.begin());
+					tuning_parameters.erase(tuning_parameters.begin());
+					f_pStimSet = new CBarStimSet(color, ww, hh, dps, tuning_parameters);
+				}
 				break;
 			}
 		case 'D':
