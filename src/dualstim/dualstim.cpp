@@ -1,4 +1,4 @@
-/* $Id: dualstim.cpp,v 1.3 2012-01-20 02:08:57 devel Exp $ */
+/* $Id: dualstim.cpp,v 1.4 2012-01-23 23:13:30 devel Exp $ */
 
 #include <iostream>
 #include <fstream>
@@ -30,7 +30,6 @@ using namespace alert;
 // globals
 bool f_binaryTriggers = true;
 bool f_verbose = false;
-bool f_dumpStimSetsOnly = false;
 COLOR_TYPE f_background = { gray, {0.5, 0.5, 0.5}};
 StimSet f_stimset;			// This is for master in dualVSG mode
 StimSet f_stimsetSlave;
@@ -39,10 +38,6 @@ MyDualStimSet *f_pDualStimSet = NULL;
 int f_iDistanceToScreenMM = -1;
 double f_spatialphase = 0;
 TriggerVector f_triggers;
-bool f_bDualVSG = false;
-bool f_bDualVSGBothStim = false;
-bool f_bDualVSGMasterStim = false;
-bool f_bDualVSGSlaveStim = false;
 bool f_bSlaveSynch = false;
 string f_szOffsetFile;
 double f_dSlaveXOffset=0, f_dSlaveYOffset=0;
@@ -65,7 +60,7 @@ int main (int argc, char *argv[])
 	int status = 0;
 
 	// Check input arguments
-	status = prargs(argc, argv, prargs_callback, "f:b:d:avg:s:C:T:S:O:A:DMVr:H:Zp:Kw:y:t:X:Y:h:", 'F');
+	status = prargs(argc, argv, prargs_callback, "f:b:d:avg:s:C:T:S:O:A:DMVr:H:Zp:Ky:t:X:Y:h:", 'F');
 	if (status)
 	{
 		return -1;
@@ -151,7 +146,6 @@ int main (int argc, char *argv[])
 
 		Sleep(100);
 	}
-	cout << "Clear" << endl;
 	ARvsg::master().select();
 	ARvsg::master().clear();
 	vsgPresent();
@@ -203,6 +197,7 @@ int prargs_callback(int c, string& arg)
 	static bool have_d = false;
 	static bool have_w = false;
 	static bool have_t = false;
+	static bool have_offset = false;
 	int delay=0, frames=0;
 	string sequence_filename;
 	static char activeScreen = ' ';
@@ -215,9 +210,6 @@ int prargs_callback(int c, string& arg)
 	case 'F':
 		f_bHaveResponseFile = true;
 		f_szResponseFile.assign(optarg);
-		break;
-	case 'Z':
-		f_dumpStimSetsOnly = true;
 		break;
 	case 'v':
 		f_verbose = true;
@@ -244,7 +236,11 @@ int prargs_callback(int c, string& arg)
 		break;
 	case 'g':
 		s.assign(optarg);
-		if (parse_grating(s, grating)) errflg++;
+		if (parse_grating(s, grating)) 
+		{
+			cerr << "Error: cannot parse grating spec: " << string(optarg) << endl;
+			errflg++;
+		}
 		else 
 		{
 			switch (activeScreen)
@@ -253,32 +249,31 @@ int prargs_callback(int c, string& arg)
 			case ' ':
 				if (have_fixpt) f_stimset.set_fixpt(fixpt);
 				if (have_xhair) f_stimset.set_xhair(xhair);
-				if (have_grating) f_stimset.set_grating(grating);
-				//f_pStimSet = create_stimset(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, 0, 0, f_spatialphase);
+				cout << "Setting master stimset grating to this:" << endl << grating << endl;
+				f_stimset.set_grating(grating);
 				break;
 			case 'V':
 				// For slave stimset, must add offset values to stim, fixpt, xhair. 
 				//f_pStimSetSlave = create_stimset(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, f_dSlaveXOffset, f_dSlaveYOffset, f_spatialphase);
 				if (have_fixpt) f_stimsetSlave.set_fixpt(fixpt, f_dSlaveXOffset, f_dSlaveYOffset);
 				if (have_xhair) f_stimsetSlave.set_xhair(xhair, f_dSlaveXOffset, f_dSlaveYOffset);
-				if (have_grating) f_stimsetSlave.set_grating(grating, f_dSlaveXOffset, f_dSlaveYOffset);
+				cout << "Setting slave stimset grating to this:" << endl << grating << endl;
+				f_stimsetSlave.set_grating(grating, f_dSlaveXOffset, f_dSlaveYOffset);
 				break;
 			case 'D':
-				if (activeScreen != ' ' && !f_bDualVSG)
+				if (activeScreen != ' ' && !have_offset)
 				{
 					cerr << "Error - cannot specify active screen (-[D|M|V]) without also specifying slave screen offset!" << endl;
 					errflg++;
 				}
 				else
 				{
-					//f_pStimSet = create_stimset(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, 0, 0, f_spatialphase);
-					//f_pStimSetSlave = create_stimset(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, f_dSlaveXOffset, f_dSlaveYOffset, f_spatialphase);
 					if (have_fixpt) f_stimset.set_fixpt(fixpt);
 					if (have_xhair) f_stimset.set_xhair(xhair);
-					if (have_grating) f_stimset.set_grating(grating);
+					f_stimset.set_grating(grating);
 					if (have_fixpt) f_stimsetSlave.set_fixpt(fixpt, f_dSlaveXOffset, f_dSlaveYOffset);
 					if (have_xhair) f_stimsetSlave.set_xhair(xhair, f_dSlaveXOffset, f_dSlaveYOffset);
-					if (have_grating) f_stimsetSlave.set_grating(grating, f_dSlaveXOffset, f_dSlaveYOffset);
+					f_stimsetSlave.set_grating(grating, f_dSlaveXOffset, f_dSlaveYOffset);
 				}
 				break;
 			}
@@ -304,6 +299,7 @@ int prargs_callback(int c, string& arg)
 	case 'H':
 	case 'X':
 	case 'Y':
+	case 'Z':
 		{
 			vector<double> tuning_parameters;
 			int nsteps;
@@ -317,7 +313,7 @@ int prargs_callback(int c, string& arg)
 					cerr << "Error - must pass template grating stimulus with \"-s\" before passing tuning parameters." << endl;
 					errflg++;
 				}
-				else if (activeScreen != ' ' && !f_bDualVSG)
+				else if (activeScreen != ' ' && !have_offset)
 				{
 					cerr << "Error - cannot specify active screen (-[D|M|V]) without also specifying slave screen offset!" << endl;
 					errflg++;
@@ -352,6 +348,9 @@ int prargs_callback(int c, string& arg)
 					case 'Y':
 						plist = new StimYList(tuning_parameters);
 						break;
+					case 'Z':
+						plist = new StimXYList(tuning_parameters);
+						break;
 					default:
 						cerr << "Unhandled varying stim parameter type (" << (char)c << ")" << endl;
 						errflg++;
@@ -372,26 +371,22 @@ int prargs_callback(int c, string& arg)
 						if (have_xhair) f_stimset.set_xhair(xhair);
 						if (have_grating) f_stimset.set_grating(grating);
 						f_stimset.push_back(plist);
-						//f_pStimSet = create_stimset(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, 0, 0, f_spatialphase);
 						break;
 					case 'V':
 						// For slave stimset, must add offset values to stim, fixpt, xhair. 
-						//f_pStimSetSlave = create_stimset(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, f_dSlaveXOffset, f_dSlaveYOffset, f_spatialphase);
 						if (have_fixpt) f_stimsetSlave.set_fixpt(fixpt, f_dSlaveXOffset, f_dSlaveYOffset);
 						if (have_xhair) f_stimsetSlave.set_xhair(xhair, f_dSlaveXOffset, f_dSlaveYOffset);
 						if (have_grating) f_stimsetSlave.set_grating(grating, f_dSlaveXOffset, f_dSlaveYOffset);
 						f_stimsetSlave.push_back(plist);
 						break;
 					case 'D':
-						if (activeScreen != ' ' && !f_bDualVSG)
+						if (activeScreen != ' ' && !have_offset)
 						{
 							cerr << "Error - cannot specify active screen (-[D|M|V]) without also specifying slave screen offset!" << endl;
 							errflg++;
 						}
 						else
 						{
-							//f_pStimSet = create_stimset(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, 0, 0, f_spatialphase);
-							//f_pStimSetSlave = create_stimset(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, f_dSlaveXOffset, f_dSlaveYOffset, f_spatialphase);
 							if (have_fixpt) f_stimset.set_fixpt(fixpt);
 							if (have_xhair) f_stimset.set_xhair(xhair);
 							if (have_grating) f_stimset.set_grating(grating);
@@ -431,7 +426,7 @@ int prargs_callback(int c, string& arg)
 			if (parse_xy(s, f_dSlaveXOffset, f_dSlaveYOffset))
 			{
 				f_szOffsetFile.assign(optarg);
-				f_bDualVSG = true;
+				have_offset = true;
 				in.open(f_szOffsetFile.c_str());
 				if (in)
 				{
@@ -454,7 +449,7 @@ int prargs_callback(int c, string& arg)
 			}
 			else
 			{
-				f_bDualVSG = true;
+				have_offset = true;
 				cout << "Got slave offset (" << f_dSlaveXOffset << ", " << f_dSlaveYOffset << ") from arg list." << endl;
 			}
 			break;
@@ -499,10 +494,16 @@ int prargs_callback(int c, string& arg)
 				errflg++;
 			}
 
+			if (!have_offset)
+			{
+				cerr << "Error - must specify slave screen offset with \"-r filename\" or \"-r x,y\"." << endl;
+				errflg++;
+			}
+
 
 			if (f_stimset.is_empty() && f_stimsetSlave.is_empty())
 			{
-				cerr << "Error - when using dual VSG mode you must specify one of D/M/V options and a stimulus set (COASTg)." << endl;
+				cerr << "Error - you must specify one of D/M/V options and a stimulus set (COASTHXYg)." << endl;
 				errflg++;
 			}
 			else if (f_stimsetSlave.is_empty())
