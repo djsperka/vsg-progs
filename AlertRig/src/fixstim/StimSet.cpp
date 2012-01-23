@@ -1,5 +1,8 @@
 #include "StimSet.h"
 #include <iostream>
+#define _USE_MATH_DEFINES
+#include <cmath>
+
 using namespace std;
 
 std::ostream& operator<<(std::ostream& out, const StimSet& sset)
@@ -169,29 +172,6 @@ std::string AreaStimSet::toString() const
 	return oss.str();
 }
 
-std::string DonutStimSet::toString() const
-{
-	unsigned int i;
-	std::ostringstream oss;
-	oss << "Area StimSet" << endl;
-	if (m_bHaveFixpt)
-	{
-		oss << "  fixation point: " << m_fixpt << endl;
-	}
-	else
-	{
-		oss << "  fixation point: NONE" << endl;
-	}
-	oss <<     "  donut         : " << m_donut << endl;
-	oss << "  (outer, inner) diameters: ";
-	for (i=0; i<m_diameters.size(); i++)
-	{
-		if (i>0) oss << ", ";
-		oss << "(" << m_diameters[i].first << ", " << m_diameters[i].second << ")";
-	}
-	oss << endl;
-	return oss.str();
-}
 
 std::string CRGStimSet::toString() const
 {
@@ -726,121 +706,6 @@ int AreaStimSet::handle_trigger(std::string& s)
 	return status;
 }
 
-int DonutStimSet::init_diameters(std::vector<double>diams)
-{
-	double d1, d2;
-	std::vector<double>::const_iterator iter = diams.begin();
-	for (; iter != diams.end(); iter++)
-	{
-		d1 = *iter;
-		iter++;
-		if (iter == diams.end())
-		{
-			cerr << "AHoleStimSet: ERROR! Must init with an even number of diameters!" << endl;
-			return -1;
-		}
-		d2 = *iter;
-		m_diameters.push_back(make_pair(d1, d2));
-	}
-	return 0;
-}
-
-
-int DonutStimSet::init(ARvsg& vsg, std::vector<int> pages)
-{
-	int status = 0;
-	std::pair<double, double> p;
-	m_pages[0] = pages[0];
-	m_pages[1] = pages[1];
-	m_contrast = m_donut.contrast;
-	m_iterator = m_diameters.begin();
-	vsgSetDrawPage(vsgVIDEOPAGE, m_pages[1], vsgBACKGROUND);
-	vsgSetDrawPage(vsgVIDEOPAGE, m_pages[0], vsgBACKGROUND);
-	m_current_page = 0;
-	m_donut.init(vsg, 40);
-	m_donut.setContrast(0);
-	m_donut.w = m_donut.h = m_iterator->first;
-	m_donut.wd = m_donut.hd = m_iterator->second;
-	m_donut.draw();
-	if (m_bHaveFixpt)
-	{
-		m_fixpt.init(vsg, 2);
-		m_fixpt.setContrast(0);
-		m_fixpt.draw();
-	}
-	vsgPresent();
-	return status;
-}
-
-int DonutStimSet::handle_trigger(std::string& s)
-{
-	int status = 0;
-	VSGPAGEDESCRIPTOR page;
-	page._StructSize = sizeof(VSGPAGEDESCRIPTOR);
-	if (s == "F")
-	{
-		if (m_bHaveFixpt)
-		{
-			m_fixpt.setContrast(100);
-			status = 1;
-		}
-	}
-	else if (s == "S")
-	{
-		m_donut.select();
-		vsgObjResetDriftPhase();
-		//vsgObjSetSpatialPhase(get_spatial_phase());
-		m_donut.setContrast(m_contrast);
-		//vsgGetCurrentDrawPage(&page);
-		//cout << "handle S: zdp=" << vsgGetZoneDisplayPage(vsgVIDEOPAGE) << " dp=" << page.Page << endl;
-		status = 1;
-	}
-	else if (s == "s")
-	{
-		//vsgGetCurrentDrawPage(&page);
-		//cout << "handle s: zdp=" << vsgGetZoneDisplayPage(vsgVIDEOPAGE) << " dp=" << page.Page << endl;
-		m_donut.setContrast(0);
-		status = 1;
-	}
-	else if (s == "a")
-	{
-		// increment iterator, reset to beginning if at end
-		m_iterator++;
-		if (m_iterator == m_diameters.end())
-		{
-			cerr << "at end of orientations, back to beginning." << endl;
-			m_iterator = m_diameters.begin();
-		}
-		cerr << "Diameter " << m_iterator->first <<  " Inner " << m_iterator->second << endl;
-
-		// Change current page and clear it. Note that this is not the page currently in view.
-		// Set the sf and draw the grating, then draw the fixpt. 
-		m_current_page = 1 - m_current_page;
-		vsgSetDrawPage(vsgVIDEOPAGE, m_pages[m_current_page], vsgBACKGROUND);
-		//m_grating.setContrast(0);
-		m_donut.w = m_donut.h = m_iterator->first;
-		m_donut.wd = m_donut.hd = m_iterator->second;
-		m_donut.draw();
-		if (m_bHaveFixpt)
-		{
-			//m_fixpt.setContrast(0);
-			m_fixpt.draw();
-		}
-		// HACK
-		//vsgGetCurrentDrawPage(&page);
-		//cout << "handle a: zdp=" << vsgGetZoneDisplayPage(vsgVIDEOPAGE) << " dp=" << page.Page << endl;
-		vsgSetZoneDisplayPage(vsgVIDEOPAGE, m_pages[m_current_page]);
-		//end hack
-		status = 0;
-	}
-	else if (s == "X")
-	{
-		m_fixpt.setContrast(0);
-		m_donut.setContrast(0);
-		status = 1;
-	}
-	return status;
-}
 
 
 
@@ -968,4 +833,261 @@ int CRGStimSet::handle_trigger(std::string& s)
 		status = 1;
 	}
 	return status;
+}
+
+
+int CBarStimSet::init(ARvsg& vsg, std::vector<int> pages)
+{
+	int status = 0;
+	m_pageBackground = pages[0];
+	m_pageStim = pages[1];
+	cout << "background page " << m_pageBackground << " stim " << m_pageStim << endl;
+
+#if 0
+	ARContrastRectangleSpec rect;
+	rect.x = rect.y = 0;
+	rect.w = 10;
+	rect.h = 2;
+	rect.color.type = red;
+	rect.color.color.a = 0; rect.color.color.b = rect.color.color.c = 0;
+	rect.orientation = 0;
+	rect.init(1);
+	rect.setContrast(100);
+	rect.draw();
+	vsgPresent();
+#endif
+
+	vsgSetPen2(vsgBACKGROUND);
+	vsgSetCommand(vsgVIDEOCLEAR);
+	//vsgSetDrawPage(vsgVIDEOPAGE, m_pageBackground, vsgBACKGROUND);
+	vsgSetDrawPage(vsgVIDEOPAGE, m_pageStim, vsgBACKGROUND);
+
+	m_rect.x = m_rect.y = 0;
+	m_rect.w = m_barWidth;
+	m_rect.h = m_barHeight;
+	m_rect.orientation = *m_iterator;
+	//m_rect.contrast = 100;
+	m_rect.init(1);
+
+	// draw bar
+	m_rect.draw();
+	vsgPresent();
+
+	prepareCycling(*m_iterator);
+
+	return 0;
+}
+
+int CBarStimSet::handle_trigger(std::string& s)
+{
+	int status = 0;
+	if (s == "F")
+	{
+	}
+	else if (s == "S")
+	{
+		//vsgSetZoneDisplayPage(vsgVIDEOPAGE, m_pageStim);
+		////vsgSetDrawPage(vsgVIDEOPAGE, m_pageStim, vsgNOCLEAR);
+		m_rect.setContrast(100);
+		vsgSetSynchronisedCommand(vsgSYNC_PRESENT, vsgCYCLEPAGEENABLE, 0);
+		status = 1;
+	}
+	else if (s == "a")
+	{
+		vsgSetDrawPage(vsgVIDEOPAGE, m_pageStim, vsgBACKGROUND);
+		m_iterator++;
+		if (m_iterator == m_orientations.end()) m_iterator = m_orientations.begin();
+		m_rect.orientation = *m_iterator;
+		cout << "Ori " << m_rect.orientation << endl;
+		m_rect.setContrast(0);
+		m_rect.draw();
+		prepareCycling(*m_iterator);
+	}
+	else if (s == "X")
+	{
+		m_rect.setContrast(0);
+		vsgSetSynchronisedCommand(vsgSYNC_PRESENT, vsgCYCLEPAGEDISABLE, 0);
+		status = 1;
+	}
+	return status;
+}
+
+std::string CBarStimSet::toString() const
+{
+	return string("CBar TEST StimSet");
+}
+
+void CBarStimSet::prepareCycling(double ori)
+{
+	VSGCYCLEPAGEENTRY cycle[32768];
+	float thetadeg = (float)(*m_iterator);
+	int i;
+	double uhat[2];
+	double vhat[2];
+	double d;		// travel distance for center of box
+	double pixperframe;
+	double pixperdegree;
+	long frametimeus;
+	long C0[2], C1[2], C2[2], C3[2];	// corners of screen, if needed. 
+	long H, W;
+	double h, w;
+	double p[2], q[2];
+	int stepsPerSide;
+	double stepSize;
+
+	// Screen dimensions, corner coordinates
+	H = vsgGetScreenHeightPixels();
+	W = vsgGetScreenWidthPixels();
+	C0[0] = W/2; C0[1] = -H/2;
+	C1[0] = -W/2; C1[1] = -H/2;
+	C2[0] = -W/2; C2[1] = H/2;
+	C3[0] = W/2; C3[1] = H/2;
+
+	// bar width, height in pixels, speed in pixels per frame
+	frametimeus = vsgGetSystemAttribute(vsgFRAMETIME);
+	vsgUnitToUnit(vsgDEGREEUNIT, 1, vsgPIXELUNIT, &pixperdegree);
+	pixperframe = m_degreesPerSecond * pixperdegree * frametimeus / 1000000;
+	vsgUnitToUnit(vsgDEGREEUNIT, m_barHeight, vsgPIXELUNIT, &h);
+	vsgUnitToUnit(vsgDEGREEUNIT, m_barWidth, vsgPIXELUNIT, &w);
+	cout << "pix per frame is " << pixperframe << " box dimensions " << w << "x" << h << endl;
+
+	// Unit vectors and mid-endpoints
+	uhat[0] = -sin((*m_iterator)* M_PI/180.0);
+	uhat[1] = -cos((*m_iterator)* M_PI/180.0);
+	vhat[0] = -uhat[1];
+	vhat[1] = uhat[0];
+	for (i=0; i<2; i++)
+	{
+		p[i] = -w/2*vhat[i];
+		q[i] = w/2*vhat[i];
+	}
+
+
+	// normalize ori
+	ori = *m_iterator;
+	ori = ori - (floor(ori/360.0) * 360.0);
+	cout << "Ori is " << ori << endl;
+
+	// now find d, travel distance
+	if (ori == 0)
+	{
+		d = H/2;
+	}
+	else if (ori < 90)
+	{
+		d = getDistance(C0, C1, C2, p, q, uhat, vhat);
+	}
+	else if (ori == 90)
+	{
+		d = W/2;
+	}
+	else if (ori < 180)
+	{
+		d = getDistance(C1, C2, C3, p, q, uhat, vhat);
+	}
+	else if (ori == 180)
+	{
+		d = H/2;
+	}
+	else if (ori < 270)
+	{
+		d = getDistance(C2, C3, C0, p, q, uhat, vhat);
+	}
+	else if (ori == 270)
+	{
+		d = W/2;
+	}
+	else 
+	{
+		d = getDistance(C3, C0, C1, p, q, uhat, vhat);
+	}
+
+	// We have the travel distance, now we must set up the cycling system.
+	// The travel distance that has been computed is the distance from a line through
+	// the center of the box.
+
+	// Number of frames/steps on either side of center. 
+	stepsPerSide = (int)fabs(((d+h/2)/pixperframe));
+	stepSize = fabs(d+h/2) / stepsPerSide;
+	cout << "Travel distance is " << d << " pix per frame " << pixperframe << " steps per side " << stepsPerSide << " step size " << stepSize << endl;
+
+	// First half of travel...
+	for (i = 0; i < stepsPerSide; i++)
+	{
+		cycle[i].Frames = 1;
+		cycle[i].Page = m_pageStim;
+		cycle[i].Xpos = (short)((stepsPerSide - i)*stepSize*uhat[0]);
+		cycle[i].Ypos = (short)((stepsPerSide - i)*stepSize*uhat[1]);
+		cycle[i].Stop = 0;
+	}
+
+	// Second half of travel
+	for (i = 0; i < stepsPerSide; i++)
+	{
+		cycle[i+stepsPerSide].Frames = 1;
+		cycle[i+stepsPerSide].Page = m_pageStim;
+		cycle[i+stepsPerSide].Xpos = -(short)(i*stepSize*uhat[0]);
+		cycle[i+stepsPerSide].Ypos = -(short)(i*stepSize*uhat[1]);
+		cycle[i+stepsPerSide].Stop = 0;
+	}
+
+	cycle[stepsPerSide*2].Frames = 1;
+	cycle[stepsPerSide*2].Page = m_pageBackground + vsgTRIGGERPAGE;
+	cycle[stepsPerSide*2].Stop = 1;
+
+	vsgPageCyclingSetup(stepsPerSide*2+1, &cycle[0]);
+	cerr << "Page cycling ready" << endl;
+
+}
+
+double CBarStimSet::getDistance(long *c0, long *c1, long *c2, double *p, double *q, double *u, double *v)
+{
+	double PP[2], QQ[2];
+	double dPP, dQQ;
+	int i;
+	double dist;
+	for (i=0; i<2; i++) 
+	{
+		PP[i] = c1[i] - p[i];
+		QQ[i] = c1[i] - q[i];
+	}
+	dPP = PP[0] * v[0] + PP[1] * v[1];
+	dQQ = QQ[0] * v[0] + QQ[1] * v[1];
+
+	cout << "u " << u[0] << "," << u[1] << " v " << v[0] << "," << v[1] << endl;
+	cout << "PP " << PP[0] << "," << PP[1] << " dPP " << dPP << endl;
+	cout << "QQ " << QQ[0] << "," << QQ[1] << " dQQ " << dQQ << endl;
+	if (dPP <= 0 && dQQ <= 0)
+	{
+		cout << "(dPP <= 0 && dQQ <= 0)" << endl;
+		dist = max(getIntersectDistance(c0, c1, p, u), getIntersectDistance(c0, c1, q, u));
+	}
+	else if (dPP > 0 && dQQ <= 0)
+	{
+		cout << "Corner shot" << endl;
+		dist = PP[0] * u[0] + PP[1] * u[1];
+	}
+	else
+	{
+		cout << "else" << endl;
+		dist = max(getIntersectDistance(c1, c2, p, u), getIntersectDistance(c1, c2, q, u));
+	}
+	return dist;
+}
+
+double CBarStimSet::getIntersectDistance(long *ca, long *cb, double *p, double *u)
+{
+	double a = 0;
+	long U[2];
+	U[0] = ca[0] - cb[0];
+	U[1] = ca[1] - cb[1];
+	if (U[1] == 0)
+	{
+		a = (ca[1] - p[1])/u[1];
+	}
+	else
+	{
+		a = (ca[0] - p[0])/u[0];
+	}
+	return a;
 }

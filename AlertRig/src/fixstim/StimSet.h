@@ -203,29 +203,6 @@ private:
 	bool m_bHaveFixpt;
 };
 
-class DonutStimSet: public StimSet
-{
-public:
-	DonutStimSet(alert::ARContrastFixationPointSpec& f, alert::ARGratingSpec& g, std::vector<double> parameters, double spatialphase=0) : StimSet(spatialphase), m_fixpt(f), m_donut(g), m_bHaveFixpt(true), m_current_page(-1) {init_diameters(parameters);};
-	DonutStimSet(alert::ARGratingSpec& g, std::vector<double> parameters, double spatialphase=0) : StimSet(spatialphase), m_donut(g), m_bHaveFixpt(false), m_current_page(-1) {init_diameters(parameters);};
-	virtual int num_pages() {return 2;};
-	virtual int num_overlay_pages() {return 0;};
-	//virtual int init(std::vector<int> pages);
-	virtual int init(ARvsg& vsg, std::vector<int> pages);
-	virtual int handle_trigger(std::string& s);
-	virtual std::string toString() const;
-private:
-	int init_diameters(std::vector<double>diams);
-	int m_pages[2];
-	int m_current_page;		// page flipping. This is the page currently displayed when handle_trigger is called. 
-	int m_contrast;
-	std::vector<std::pair<double,double>> m_diameters;
-	std::vector<std::pair<double,double>>::const_iterator m_iterator;
-	alert::ARDonutSpec m_donut;
-	alert::ARContrastFixationPointSpec m_fixpt;
-	bool m_bHaveFixpt;
-};
-
 
 class CRGStimSet: public StimSet
 {
@@ -249,4 +226,29 @@ private:
 	int m_fpt;
 	std::string m_seq;
 	bool m_balanced;
+};
+
+class CBarStimSet: public StimSet
+{
+public:
+	CBarStimSet(COLOR_TYPE& c, double w, double h, double dps, std::vector<double> parameters) : StimSet(), m_barWidth(w), m_barHeight(h), m_degreesPerSecond(dps), m_orientations(parameters) {	m_iterator = m_orientations.begin(); m_rect.color = c; };
+	virtual int num_pages() {return 2;};
+	virtual int num_overlay_pages() {return 0;};
+	virtual int init(ARvsg& vsg, std::vector<int> pages);
+	virtual int handle_trigger(std::string& s);
+	virtual std::string toString() const;
+	void prepareCycling(double ori);
+	double getDistance(long *c0, long *c1, long *c2, double *p, double *q, double *u, double *v);
+	double getIntersectDistance(long *ca, long *cb, double *p, double *u);
+	void set_color(COLOR_TYPE& color) { m_rect.color = color; };
+private:
+	int m_pageBackground;
+	int m_pageStim;
+	double m_barWidth;	// degrees
+	double m_barHeight;	// degrees
+	double m_degreesPerSecond;	// um, degrees per second
+	ARContrastRectangleSpec m_rect;
+	std::vector<double> m_orientations;
+	std::vector<double>::const_iterator m_iterator;
+	double m_pixels_per_frame;
 };
