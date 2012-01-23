@@ -8,6 +8,12 @@ using namespace alert;
 using namespace boost;
 
 
+
+// This class represents a list of parameter values over which a grating may vary. 
+// The advance() method steps to the next value in the list and sets it in the grating.
+// The set_current_parameter() method is an initialization - it sets the grating to the
+// first value in the list.
+
 class StimParameterList
 {
 public:
@@ -17,6 +23,8 @@ public:
 	virtual ARGratingSpec& set_current_parameter(ARGratingSpec& grating) = 0;
 	virtual StimParameterList* clone() const = 0;
 };
+
+// Parameter value list for contrast
 
 class StimContrastList: public StimParameterList
 {
@@ -50,6 +58,9 @@ private:
 	vector<double>::const_iterator m_iter;
 };
 
+
+// Parameter value list for orientation
+
 class StimOrientationList: public StimParameterList
 {
 public:
@@ -80,6 +91,8 @@ private:
 	vector<double> m_vec;
 	vector<double>::const_iterator m_iter;
 };
+
+// Parameter value list for area (list of diameters)
 
 class StimAreaList: public StimParameterList
 {
@@ -112,6 +125,8 @@ private:
 	vector<double>::const_iterator m_iter;
 };
 
+// Parameter value list for spatial frequency
+
 class StimSFList: public StimParameterList
 {
 public:
@@ -143,6 +158,8 @@ private:
 	vector<double>::const_iterator m_iter;
 };
 
+// Parameter value list for temporal frequency
+
 class StimTFList: public StimParameterList
 {
 public:
@@ -173,6 +190,10 @@ private:
 	vector<double> m_vec;
 	vector<double>::const_iterator m_iter;
 };
+
+// Parameter value list for donuts. Input is a list of diameter pairs: od1,id1,od2,id2,... where
+// od is outer diameter and id is inner diameter. Setting id to 0 yields a grating 
+// with no hole. 
 
 class StimHoleList: public StimParameterList
 {
@@ -225,6 +246,7 @@ private:
 	vector< pair<double, double> >::const_iterator m_iter;
 };
 
+// Parameter value list for x position
 
 class StimXList: public StimParameterList
 {
@@ -257,6 +279,8 @@ private:
 	vector<double>::const_iterator m_iter;
 };
 
+// Parameter value list for y position
+
 class StimYList: public StimParameterList
 {
 public:
@@ -286,6 +310,58 @@ public:
 private:
 	vector<double> m_vec;
 	vector<double>::const_iterator m_iter;
+};
+
+
+class StimXYList: public StimParameterList
+{
+public:
+	StimXYList(vector<double> xys) : StimParameterList()
+	{
+		init_xys(xys);
+		m_iter = m_vec.begin(); 
+	};
+	StimXYList(const StimXYList& list) : StimParameterList(), m_vec(list.m_vec)
+	{
+		m_iter = m_vec.begin();
+	}
+	virtual ~StimXYList() {};
+	virtual StimXYList *clone() const
+	{
+		return new StimXYList(*this);
+	}
+
+	virtual ARGratingSpec& advance(ARGratingSpec& grating)
+	{
+		m_iter++;
+		if (m_iter == m_vec.end()) m_iter = m_vec.begin();
+		return set_current_parameter(grating);
+	}
+
+	virtual ARGratingSpec& set_current_parameter(ARGratingSpec& grating)
+	{
+		grating.x = m_iter->first;
+		grating.y = m_iter->second;
+		return grating;
+	}
+
+private:
+	void init_xys(vector<double>xys)
+	{
+		double x, y;
+		std::vector<double>::const_iterator iter = xys.begin();
+		for (; iter != xys.end(); iter++)
+		{
+			x = *iter;
+			iter++;
+			assert(iter != xys.end());
+			y = *iter;
+			m_vec.push_back(make_pair(x, y));
+		}
+		return;
+	}
+	vector< pair<double, double> > m_vec;
+	vector< pair<double, double> >::const_iterator m_iter;
 };
 
 
@@ -376,131 +452,3 @@ public:
 std::ostream& operator<<(std::ostream& out, const StimSet& sset);
 
 
-
-#if 0
-// This stim set can take a fixpt and grating, or just a fixpt. 
-class FixptGratingStimSet: public StimSet
-{
-public:
-	FixptGratingStimSet(alert::ARContrastFixationPointSpec& f, alert::ARGratingSpec& g, double spatialphase=0) : StimSet(f, spatialphase), m_grating(g), m_bHaveGrating(true) {};
-	FixptGratingStimSet(alert::ARContrastFixationPointSpec& f, double spatialphase=0) : StimSet(f, spatialphase), m_bHaveGrating(false) {};
-	FixptGratingStimSet(alert::ARContrastFixationPointSpec& f, alert::ARXhairSpec& x, alert::ARGratingSpec& g, double spatialphase=0) : StimSet(f, x, spatialphase), m_grating(g), m_bHaveGrating(true) {};
-	FixptGratingStimSet(alert::ARContrastFixationPointSpec& f, alert::ARXhairSpec& x, double spatialphase=0) : StimSet(f, x, spatialphase), m_bHaveGrating(false) {};
-	FixptGratingStimSet(alert::ARGratingSpec& g, double spatialphase=0) : StimSet(spatialphase), m_grating(g),  m_bHaveGrating(true) {};
-	virtual ~FixptGratingStimSet() {};
-	virtual int init(ARvsg& vsg);
-	virtual int handle_trigger(std::string& s);
-	virtual std::string toString() const;
-	virtual bool has_grating() const { return m_bHaveGrating; };
-private:
-	bool m_bHaveGrating;
-	int m_contrast;
-	alert::ARGratingSpec m_grating;
-};
-
-class ContrastStimSet: public StimSet
-{
-public:
-	ContrastStimSet(alert::ARContrastFixationPointSpec& f, alert::ARGratingSpec& g, std::vector<double> parameters, double spatialphase=0) : StimSet(f, spatialphase), m_grating(g), m_contrasts(parameters) {};
-	ContrastStimSet(alert::ARContrastFixationPointSpec& f, alert::ARXhairSpec& x, alert::ARGratingSpec& g, std::vector<double> parameters, double spatialphase=0) : StimSet(f, x, spatialphase), m_grating(g), m_contrasts(parameters) {};
-	ContrastStimSet(alert::ARGratingSpec& g, std::vector<double> parameters, double spatialphase=0) : StimSet(spatialphase), m_grating(g), m_contrasts(parameters) {};
-	virtual int init(ARvsg& vsg);
-	virtual int handle_trigger(std::string& s);
-	virtual std::string toString() const;
-	virtual bool has_grating() const { return true; };
-private:
-	int m_contrast;
-	std::vector<double> m_contrasts;
-	std::vector<double>::const_iterator m_iterator;
-	alert::ARGratingSpec m_grating;
-};
-
-class TFStimSet: public StimSet
-{
-public:
-	TFStimSet(alert::ARContrastFixationPointSpec& f, alert::ARGratingSpec& g, std::vector<double> parameters, double spatialphase=0) : StimSet(f, spatialphase), m_grating(g), m_temporal_frequencies(parameters) {};
-	TFStimSet(alert::ARContrastFixationPointSpec& f, alert::ARXhairSpec& x, alert::ARGratingSpec& g, std::vector<double> parameters, double spatialphase=0) : StimSet(f, x, spatialphase), m_grating(g), m_temporal_frequencies(parameters) {};
-	TFStimSet(alert::ARGratingSpec& g, std::vector<double> parameters, double spatialphase=0) : StimSet(spatialphase), m_grating(g), m_temporal_frequencies(parameters) {};
-	virtual int init(ARvsg& vsg);
-	virtual int handle_trigger(std::string& s);
-	virtual std::string toString() const;
-	virtual bool has_grating() const { return true; };
-private:
-	int m_contrast;
-	std::vector<double> m_temporal_frequencies;
-	std::vector<double>::const_iterator m_iterator;
-	alert::ARGratingSpec m_grating;
-};
-
-
-class SFStimSet: public StimSet
-{
-public:
-	SFStimSet(alert::ARContrastFixationPointSpec& f, alert::ARGratingSpec& g, std::vector<double> parameters, double spatialphase=0) : StimSet(f, spatialphase), m_grating(g), m_spatial_frequencies(parameters) {};
-	SFStimSet(alert::ARContrastFixationPointSpec& f, alert::ARXhairSpec& x, alert::ARGratingSpec& g, std::vector<double> parameters, double spatialphase=0) : StimSet(f, x, spatialphase), m_grating(g), m_spatial_frequencies(parameters) {};
-	SFStimSet(alert::ARGratingSpec& g, std::vector<double> parameters, double spatialphase=0) : StimSet(spatialphase), m_grating(g), m_spatial_frequencies(parameters) {};
-	virtual int init(ARvsg& vsg);
-	virtual int handle_trigger(std::string& s);
-	virtual std::string toString() const;
-	virtual bool has_grating() const { return true; };
-private:
-	int m_contrast;
-	std::vector<double> m_spatial_frequencies;
-	std::vector<double>::const_iterator m_iterator;
-	alert::ARGratingSpec m_grating;
-};
-
-class OrientationStimSet: public StimSet
-{
-public:
-	OrientationStimSet(alert::ARContrastFixationPointSpec& f, alert::ARGratingSpec& g, std::vector<double> parameters, double spatialphase=0) : StimSet(f, spatialphase), m_grating(g), m_orientations(parameters) {};
-	OrientationStimSet(alert::ARContrastFixationPointSpec& f, alert::ARXhairSpec& x, alert::ARGratingSpec& g, std::vector<double> parameters, double spatialphase=0) : StimSet(f, x, spatialphase), m_grating(g), m_orientations(parameters) {};
-	OrientationStimSet(alert::ARGratingSpec& g, std::vector<double> parameters, double spatialphase=0) : StimSet(spatialphase), m_grating(g), m_orientations(parameters) {};
-	virtual int init(ARvsg& vsg);
-	virtual int handle_trigger(std::string& s);
-	virtual std::string toString() const;
-	virtual bool has_grating() const { return true; };
-private:
-	int m_contrast;
-	std::vector<double> m_orientations;
-	std::vector<double>::const_iterator m_iterator;
-	alert::ARGratingSpec m_grating;
-};
-
-class AreaStimSet: public StimSet
-{
-public:
-	AreaStimSet(alert::ARContrastFixationPointSpec& f, alert::ARGratingSpec& g, std::vector<double> parameters, double spatialphase=0) : StimSet(f, spatialphase), m_grating(g), m_diameters(parameters) {};
-	AreaStimSet(alert::ARContrastFixationPointSpec& f, alert::ARXhairSpec& x, alert::ARGratingSpec& g, std::vector<double> parameters, double spatialphase=0) : StimSet(f, x, spatialphase), m_grating(g), m_diameters(parameters) {};
-	AreaStimSet(alert::ARGratingSpec& g, std::vector<double> parameters, double spatialphase=0) : StimSet(spatialphase), m_grating(g), m_diameters(parameters) {};
-	virtual int init(ARvsg& vsg);
-	virtual int handle_trigger(std::string& s);
-	virtual std::string toString() const;
-	virtual bool has_grating() const { return true; };
-private:
-	int m_contrast;
-	std::vector<double> m_diameters;
-	std::vector<double>::const_iterator m_iterator;
-	alert::ARGratingSpec m_grating;
-};
-
-class DonutStimSet: public StimSet
-{
-public:
-	DonutStimSet(alert::ARContrastFixationPointSpec& f, alert::ARGratingSpec& g, std::vector<double> parameters, double spatialphase=0) : StimSet(f, spatialphase), m_grating(g) {init_diameters(parameters);};
-	DonutStimSet(alert::ARContrastFixationPointSpec& f, alert::ARXhairSpec& x, alert::ARGratingSpec& g, std::vector<double> parameters, double spatialphase=0) : StimSet(f, x, spatialphase), m_grating(g) {init_diameters(parameters);};
-	DonutStimSet(alert::ARGratingSpec& g, std::vector<double> parameters, double spatialphase=0) : StimSet(spatialphase), m_grating(g) {init_diameters(parameters);};
-	virtual int init(ARvsg& vsg);
-	virtual int handle_trigger(std::string& s);
-	virtual std::string toString() const;
-	virtual bool has_grating() const { return true; };
-private:
-	int init_diameters(std::vector<double>diams);
-	int m_contrast;
-	std::vector<std::pair<double,double>> m_diameters;
-	std::vector<std::pair<double,double>>::const_iterator m_iterator;
-	alert::ARDonutSpec m_grating;
-};
-
-
-#endif
