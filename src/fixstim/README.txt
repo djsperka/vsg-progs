@@ -21,13 +21,13 @@ Command Line options:
         trigger ("F"), the stimulus will have a hole corresponding to the 
         fixation point position. You can omit the fixation point altogether and 
         then the stimulus will have no hole. 
--P      specify spatial phase for gratings. Applies to any grating spec that 
-        follows (when using a -g), or to the tuning curve set that follows
-        (when using C|O|A|S|T|H). The value should be between -180 and +180. 
-        The spatial phase can be specified more than once -- this may be 
-        useful if using a dual vsg machine and you want the gratings on 
-        the two screens to have different initial spatial phases.
-        
+-P      specify spatial phase for gratings. OBSOLETE. This arg is allowed on the
+		command line but is ignored by the program.
+-p      ready pulse. This should be an int; the binary value specifies the trigger
+		lines which are pulsed when the application is ready to receive triggers. 
+		In Spike2, the ports correspond to bit numbers in this arg - hence "-p 2"
+		will pulse port 1 on the 1401. 
+
         
 To specify a single grating as the stimulus, use the "-g" option:
 
@@ -43,14 +43,10 @@ the grating specification using the "-s" option
 -A <area0,area1,...>    Area tuning curve
 -S <sf0,sf1,...>    Spatial frequency tuning curve
 -T <tf0,tf1,...>    Temporal frequency tuning curve
--H <d0,h0,d1,h1,d2,h2...>   Donuts (see below)
 
-Donut stim set is specified with a set of pairs of diameters. If the second diameter
-of a pair is zero, then the first diameter is taken to be an aperture size
-and a circular grating is presented. If the second diameter is greater than zero,
-then it is the diameter of the annular hole in the donut. The second number in 
-the pair must be less than the first!
 
+
+Contrast Reversing Grating Stimulus
 
 To specify a contrast reversing grating stimulus, first give a grating 
 specification using the "-s" option AND a filename containing the sequence 
@@ -76,6 +72,33 @@ options:
                       a balanced sequence overall. Note that the number of 
                       terms shown in the complete sequence is 2*n_terms. 
 
+
+Drifting Bar Stimulus
+
+This stimulus consists of a rectangular bar that drifts across the screen. The 
+direction of the drift is perpendicular to the width of the bar, and the center
+of the bar will always drift through the center of the screen. The color of the 
+bar, its width and height, and its drift velocity must be specified, along with 
+a list of direction angles. The zero degree orientation is when the width of the 
+bar is horizontal and the direction is upwards on the screen. Positive angles
+run counter-clockwise from there; thus a 90 degree orientation has a vertically
+oriented bar travelling from right to left across the screen. 
+
+Triggers are generated on the frame where any part of the bar first appears on the 
+screen and on the frame when the last portion of the bar leaves the screen. 
+
+To specify this type of tuning curve, use the -G option:
+
+-G color,bar_width,bar_height,bar_speed,ori1,ori2,ori3,...
+
+where bar_width and bar_height are in visual degrees, and bar_speed is in visual 
+degrees per second. Orientation are all in degrees. The color may be specified 
+with one of white, black, gray, red, green or blue, or as a custom color by giving
+an rgb triplet (r/g/b), where each of r, g, and b are integers in [0, 255]. 
+
+
+DUAL VSG options
+
 Cool dual VSG options. The first option is required - it tells us how much the
 coordinate offset is between the master and slave screen. The DMV options allow
 you to specify what you want to display on either, or both, screens. When used, 
@@ -96,6 +119,16 @@ but not the master.
                       Master only - put stim on master.
 -V                   
                       Slave only - put stim on slave.
+
+-K		              attempt to synchronize master and slave VSG cards. 
+					  Obviously this has no meaning (and will cause failure) 
+					  on a machine with only one VSG card. It is of marginal 
+					  utility on a machine with two such cards, and use of this has 
+					  largely been dropped.
+
+-t					  stim time (sec) (dualstim only). This value is converted to 
+					  frames, and stimuli are visible on screen for that many frames 
+					  (unless switched off early). 
 
 
 Grating specification
@@ -121,7 +154,8 @@ Grating specification
 
 Triggers
 
-		The ready pulse issued is 0x20, seen on CED port 6.
+		The ready pulse issued is 0x20, seen on CED port 6 (this may be 
+		changed with the -p option - see above). 
         This program uses the following triggers and trigger responses:
         
         Action/visual    | Fixpt | Stim  | AllOff|Advance(*)| quit     
