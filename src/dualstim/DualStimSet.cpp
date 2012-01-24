@@ -25,6 +25,9 @@ int StimSet::init(ARvsg& vsg)
 	}
 	if (has_grating())
 	{
+		// grating contrast is saved. Whenever grating is drawn it must
+		// be drawn with contrast 0. That way it isn't seen until later, 
+		// when we set the contrast to its intended value. 
 		m_contrast = m_grating.contrast;
 		grating().init(vsg, f_nlevels);
 		grating().setContrast(0);
@@ -122,8 +125,13 @@ int StimSet::handle_trigger(std::string& s)
 	}
 	else if (s == "a")
 	{	
+		if (has_grating()) grating().setContrast(m_contrast);
 		advance();
-
+		if (has_grating()) 
+		{
+			m_contrast = grating().contrast;
+			grating().setContrast(0);
+		}
 
 		// SUBCLASS: redraw page 2 if necessary
 		int ipage = vsgGetZoneDisplayPage(vsgVIDEOPAGE);
