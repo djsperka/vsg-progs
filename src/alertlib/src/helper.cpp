@@ -658,11 +658,17 @@ int parse_int_list(std::string s, std::vector<int>& list)
 int parse_tuning_list(std::string s, vector<double>& tuning_list, int& i_iSteps)
 {
 	int status=0;
+	vector<string> tokens;
+	tokenize(s, tokens, ",");
+	return parse_tuning_list(tokens, tuning_list, i_iSteps);
+}
+
+int parse_tuning_list(vector<string>& tokens, vector<double>& tuning_list, int& i_iSteps)
+{
+	int status = 0;
 	unsigned int i;
 	istringstream iss;
 	double d;
-	vector<string> tokens;
-	tokenize(s, tokens, ",");
 	for (i=0; i<tokens.size(); i++)
 	{
 		iss.clear();
@@ -693,11 +699,18 @@ int parse_tuning_list(std::string s, vector<double>& tuning_list, int& i_iSteps)
 int parse_number_list(std::string s, vector<double>& number_list)
 {
 	int status=0;
+	vector<string> tokens;
+	tokenize(s, tokens, ",");
+	parse_number_list(tokens, number_list);
+	return 0;
+}
+
+int parse_number_list(vector<string>& tokens, vector<double>& number_list)
+{
+	int status = 0;
 	unsigned int i;
 	istringstream iss;
 	double d;
-	vector<string> tokens;
-	tokenize(s, tokens, ",");
 	for (i=0; i<tokens.size() && status==0; i++)
 	{
 		iss.clear();
@@ -714,7 +727,6 @@ int parse_number_list(std::string s, vector<double>& number_list)
 	}
 	return 0;
 }
-
 
 
 int get_color(COLOR_TYPE c, VSGTRIVAL& trival)
