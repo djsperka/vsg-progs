@@ -1,4 +1,4 @@
-/* $Id: dualstim.cpp,v 1.4 2012-01-23 23:13:30 devel Exp $ */
+/* $Id: dualstim.cpp,v 1.5 2012-01-26 02:28:51 devel Exp $ */
 
 #include <iostream>
 #include <fstream>
@@ -479,7 +479,11 @@ int prargs_callback(int c, string& arg)
 	case 'h':
 		{
 			s.assign(optarg);
-			if (parse_xhair(s, xhair)) errflg++;
+			if (parse_xhair(s, xhair)) 
+			{
+				cerr << "Error parsing xhair arg (" << s << ")" << endl;
+				errflg++;
+			}
 			else
 			{
 				have_xhair = true;
