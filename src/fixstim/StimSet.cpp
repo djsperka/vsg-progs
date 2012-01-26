@@ -857,10 +857,26 @@ int CBarStimSet::init(ARvsg& vsg, std::vector<int> pages)
 	vsgPresent();
 #endif
 
+	vsgSetPageWidth(2048);
 	vsgSetPen2(vsgBACKGROUND);
 	vsgSetCommand(vsgVIDEOCLEAR);
 	//vsgSetDrawPage(vsgVIDEOPAGE, m_pageBackground, vsgBACKGROUND);
 	vsgSetDrawPage(vsgVIDEOPAGE, m_pageStim, vsgBACKGROUND);
+
+	// check that bar width does not exceed maximum
+	long w, h;
+	double m;
+	double md;
+	w = vsgGetScreenWidthPixels();
+	h = vsgGetScreenHeightPixels();
+	m = sqrt((double)(w*w) + (double)(h*h));
+	cerr << "Max bar pixels " << m << endl;
+	vsgUnitToUnit(vsgPIXELUNIT, m, vsgDEGREEUNIT, &md);
+	if (md < m_barWidth)
+	{
+		cerr << "Specified bar width (" << m_barWidth << ") too large. Reducing to max degrees (" << md << ")" << endl;
+		m_barWidth = md;
+	}
 
 	m_rect.x = m_rect.y = 0;
 	m_rect.w = m_barWidth;
@@ -894,6 +910,10 @@ int CBarStimSet::handle_trigger(std::string& s)
 	}
 	else if (s == "a")
 	{
+		// The bar may span multiple pages, so lets just clear all of video memory.
+		vsgSetPen2(vsgBACKGROUND);
+		vsgSetCommand(vsgVIDEOCLEAR);
+		// OK now set draw page
 		vsgSetDrawPage(vsgVIDEOPAGE, m_pageStim, vsgBACKGROUND);
 		m_iterator++;
 		if (m_iterator == m_orientations.end()) m_iterator = m_orientations.begin();
@@ -1033,6 +1053,8 @@ void CBarStimSet::prepareCycling(double ori)
 
 	cycle[stepsPerSide*2].Frames = 1;
 	cycle[stepsPerSide*2].Page = m_pageBackground + vsgTRIGGERPAGE;
+	cycle[stepsPerSide*2].Xpos = 0;
+	cycle[stepsPerSide*2].Ypos = 0;
 	cycle[stepsPerSide*2].Stop = 1;
 
 	vsgPageCyclingSetup(stepsPerSide*2+1, &cycle[0]);
