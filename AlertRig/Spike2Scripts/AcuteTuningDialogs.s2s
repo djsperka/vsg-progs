@@ -1,4 +1,4 @@
-' $Id: AcuteTuningDialogs.s2s,v 1.1 2012-01-09 20:07:25 devel Exp $
+' $Id: AcuteTuningDialogs.s2s,v 1.2 2012-01-26 23:41:07 jeff Exp $
 '
 ' This file contains dialog functions for the alert tuning script Tuning.s2s.
 #include "../../Spike2Util/UsreyUtil.s2s"
@@ -7,12 +7,14 @@
 #include "UsreyGratings.s2s"
 
 
+
 const tunTypeNone$ := "None";
 const tunTypeOrientation$ := "O";
 const tunTypeContrast$ := "C";
 const tunTypeSpatial$ := "S";
 const tunTypeTemporal$ := "T";
 const tunTypeArea$ := "A";
+const tunTypeDriftingBar$ := "G";
 'const tunTypeDonut$ := "H";
 'const tunTypeBerliner$ := "B";
 var tunType$:=tunTypeNone$;
@@ -60,6 +62,18 @@ var tunAreaNRepeats%;		' # repeats in area tuning curve
 var tunAreaMinDiam;		' min diameter
 var tunAreaMaxDiam;		' max diameter
 var tunAreaProgression%;
+
+' These are specific to the individual tuning curve types - drifting bar
+var tunBarNSteps%;		' # steps in drifting bar tuning curve
+var tunBarNRepeats%;		' # repeats in drifting bar tuning curve
+var tunBarMinOrientation;	' min drifting bar orientation
+var tunBarMaxOrientation;	' max drifting bar orientation
+var tunBarProgression%;
+var tunBarForegroundGrayLevel%; ' Foreground gray level for bar
+var tunBarWidth;
+var tunBarHeight;
+var tunBarSpeed;
+
 
 ' Donuts - use same vars as area. There is one additional var - the optimal value index.
 'var tunDonutOptimalIndex%:=0;		' step index where area stim stops growing and donut stim starts
@@ -202,6 +216,35 @@ proc SaveTuningCurveAreaParameters()
 '    SetIntRegistryValue(key$, "NStepsBerliner", tunBerlinerNSteps%);
 '    SetIntRegistryValue(key$, "NRepeatsDiamBerliner", tunBerlinerNRepeats%);
 '    SetIntRegistryValue(key$, "BerlinerProgression", tunBerlinerProgression%);
+end;
+
+
+proc GetTuningCurveDriftingBarParameters()
+	var key$;
+	key$:= GetRigName$() + GetCurrentConfiguration$() + "\\Scripts\\Tuning\\DriftingBar";
+    tunBarNSteps% := GetIntRegistryValue%(key$, "NSteps", tunBarNSteps%);
+    tunBarNRepeats% := GetIntRegistryValue%(key$, "NRepeats", tunBarNRepeats%);
+    tunBarProgression% := GetIntRegistryValue%(key$, "Progression", tunBarProgression%);
+    tunBarMinOrientation := GetFloatRegistryValue(key$, "MinOrientation", tunBarMinOrientation);
+    tunBarMaxOrientation := GetFloatRegistryValue(key$, "MaxOrientation", tunBarMaxOrientation);
+    tunBarForegroundGrayLevel% := GetIntRegistryValue%(key$, "ForegroundGrayLevel", tunBarForegroundGrayLevel%);
+    tunBarWidth := GetFloatRegistryValue(key$, "Width", tunBarWidth);
+    tunBarHeight := GetFloatRegistryValue(key$, "Height", tunBarHeight);
+    tunBarSpeed := GetFloatRegistryValue(key$, "Speed", tunBarSpeed);
+end;
+
+proc SaveTuningCurveDriftingBarParameters()
+	var key$;
+	key$:= GetRigName$() + GetCurrentConfiguration$() + "\\Scripts\\Tuning\\DriftingBar";
+    SetIntRegistryValue(key$, "NSteps", tunBarNSteps%);
+    SetIntRegistryValue(key$, "NRepeats", tunBarNRepeats%);
+    SetIntRegistryValue(key$, "Progression", tunBarProgression%);
+    SetFloatRegistryValue(key$, "MinOrientation", tunBarMinOrientation);
+    SetFloatRegistryValue(key$, "MaxOrientation", tunBarMaxOrientation);
+    SetIntRegistryValue(key$, "ForegroundGrayLevel", tunBarForegroundGrayLevel%);
+    SetFloatRegistryValue(key$, "Width", tunBarWidth);
+    SetFloatRegistryValue(key$, "Height", tunBarHeight);
+    SetFloatRegistryValue(key$, "Speed", tunBarSpeed);
 end;
 
 
@@ -439,6 +482,63 @@ func TuningCurveAreaDialog%()
     
 	return iReturn%;
 end;
+
+
+
+func TuningCurveDriftingBarDialog%()
+	var iReturn%;
+	var i%;
+	GetTuningCurveDriftingBarParameters();
+	DlgCreate("Run Drifting Bar Tuning Curve");
+    DlgGroup("Tuning Curve Parameters", 1, 1, 38, 5);
+	DlgInteger(1, "Number of Steps", 2, 99, 20, 2);  'note that 100 steps breaks something - no time to track it down right now JJ
+	DlgInteger(2, "Number of Repeats", 1, 30, 20, 3);
+	DlgReal(3, "Min Orientation (deg)", 0, 360, 20, 4);
+	DlgReal(4, "Max Orientation (deg)", 0, 360, 20, 5);
+    DlgGroup("Bar Parameters", 1, 7, 38, 5);
+    DlgReal(5, "Bar Width (deg)", 0.01, 30, 20, 8);  'not sure about what the maximum here will be, Dan is working it out
+	DlgReal(6, "Bar Height (deg)", 0.01, 30, 20, 9); 
+    DlgReal(7, "Bar Speed (deg/s)", 0.001, 30, 20, 10); 
+    DlgInteger(8, "Bar Gray Level (0-255):", 0, 255, 20, 11);  'new, allow all grays
+	DlgCheck(9, "Random Progression", 2, 13);
+	i% := DlgShow(tunBarNSteps%, tunBarNRepeats%, tunBarMinOrientation, tunBarMaxOrientation, tunBarWidth, tunBarHeight, tunBarSpeed, tunBarForegroundGrayLevel%, tunBarProgression%);
+
+	' If i% is 1 the user hit "OK". If its 0, user hit "Cancel". 
+	' When user hits OK we alwaus save the parameters, and when user hits Cancel we don't.
+    ' djs 2/4/2011
+    ' Spike2 bug workaround implemented. The return value from this function (when in DAQ context this
+    ' dialog is called from a DlgButton in another dialog) should make the parent dialog close, as if 
+    ' the OK button were hit. Bug in Spike2 v6 means this doesn't work right - the parent dialog will 
+    ' close but its variables are not updated prior to doing so.... so any changes to the parent dialog
+    ' are not seen in the subsequent expt, they're not saved in the registry, etc. Workaround is to return
+    ' something > 0 here. The parent dialog will continue to display, and the user has to hit OK on that 
+    ' before things proceed. 
+	if i% = 1 then
+		SaveTuningCurveDriftingBarParameters();
+		PrintLog("TuningCurveDriftingBarDialog - user hit OK\n");
+		tunType$ := tunTypeDriftingBar$;
+		if tunContext$ = tunContextDAQ$ then
+            ' djs 2/4/2011 We return 1 - that's the workaround			iReturn% := 0;
+            iReturn% := 1;
+		else
+			iReturn% := 1;
+		endif;
+	endif;
+	if i% = 0 then
+		PrintLog("TuningCurveDriftingBarDialog - user hit Cancel\n");
+		tunType$ := tunTypeNone$;
+		if tunContext$ = tunContextDAQ$ then
+			iReturn% := 1;
+		else
+			iReturn% := 2;
+		endif;
+	endif;
+    PrintLog("Return value is %d\n", iReturn%);
+	return iReturn%;
+end;
+
+
+
 
 ' This function is initially called with a "0" input, which forces the 1-5 dialogs to be disabled
 ' Of course, this could just be done with a DlgEnable call at the point of dialog creation.  There
