@@ -1,5 +1,5 @@
-' $Id: AcuteTuning.s2s,v 1.7 2012-01-10 22:32:28 devel Exp $
-const tunCVSID$ := "$Id: AcuteTuning.s2s,v 1.7 2012-01-10 22:32:28 devel Exp $";
+' $Id: AcuteTuning.s2s,v 1.8 2012-01-26 23:41:07 jeff Exp $
+const tunCVSID$ := "$Id: AcuteTuning.s2s,v 1.8 2012-01-26 23:41:07 jeff Exp $";
 
 
 #include "../../Spike2Util/ChannelUtilities.s2s"
@@ -19,7 +19,8 @@ const tunCVSID$ := "$Id: AcuteTuning.s2s,v 1.7 2012-01-10 22:32:28 devel Exp $";
 
 var tunStimulusDuration := 3;      ' New, time for each stimulus to last, replaces tunFixationDuration
 var tunInterTrialTime := 1;        ' New, time between stimuli 
-var tunBackgroundColor$ := "gray";	' background color for stim
+'var tunBackgroundColor$ := "gray";	' background color for stim
+var tunBackgroundGrayLevel% := 128; ' Background gray level
 var tunDoF12% := 1;                 ' compute f1 and f2. 
 
 ' These will be set by the tuning curve choice
@@ -44,8 +45,8 @@ const tundlgSpatialButton% := 11;
 const tundlgTemporalButton% := 12;
 const tundlgAreaButton% := 13;
 const tundlgGratingParametersButton% := 14;
-'const tundlgDonutButton% := 14;
-'const tundlgBerlinerButton% := 15;
+const tundlgDriftingBarButton% := 15;
+
 
 ' Wavemarks and continuous ports are specified elsewhere
 var tunNWavemarks% := 0;
@@ -71,7 +72,8 @@ proc GetTuningCurveScriptParameters()
     
     tunStimulusDuration := GetFloatRegistryValue(key$, "StimulusDuration", tunStimulusDuration);  'new
     tunInterTrialTime := GetFloatRegistryValue(key$, "InterTrialTime", tunInterTrialTime);  'new
-    tunBackgroundColor$ := GetStringRegistryValue$(key$, "BackgroundColor", tunBackgroundColor$);
+    'tunBackgroundColor$ := GetStringRegistryValue$(key$, "BackgroundColor", tunBackgroundColor$);
+    tunBackgroundGrayLevel% := GetIntRegistryValue%(key$, "BackgroundGrayLevel", tunBackgroundGrayLevel%);
 end;
 
 proc SaveTuningCurveScriptParameters()
@@ -80,7 +82,8 @@ proc SaveTuningCurveScriptParameters()
     
     SetFloatRegistryValue(key$, "StimulusDuration", tunStimulusDuration);
     SetFloatRegistryValue(key$, "InterTrialTime", tunInterTrialTime);
-    SetStringRegistryValue(key$, "BackgroundColor", tunBackgroundColor$);
+    'SetStringRegistryValue(key$, "BackgroundColor", tunBackgroundColor$);
+    SetIntRegistryValue(key$, "BackgroundGrayLevel", tunBackgroundGrayLevel%);
 end;
 
 
@@ -107,33 +110,37 @@ func TuningCurveScriptDialog%()
     var tempPhase;
     var boxOK% := 1;  'do the stimulus/crosshairs boxes overlap?
 	GetTuningCurveScriptParameters();
-	var bcl$[3];
-	var ibcl%:=0;
-	bcl$[0] := "gray";
-	bcl$[1] := "black";
-	bcl$[2] := "white";
-	for i%:=0 to 2 do
-		if tunBackgroundColor$ = bcl$[i%] then
-			ibcl% := i%;
-		endif
-	next;
+'	var bcl$[3];
+'	var ibcl%:=0;
+'	bcl$[0] := "gray";
+'	bcl$[1] := "black";
+'	bcl$[2] := "white";
+'	for i%:=0 to 2 do
+'		if tunBackgroundColor$ = bcl$[i%] then
+'			ibcl% := i%;
+'		endif
+'	next;
     
 
 	DlgCreate("Tuning Curve Parameters", 50, 10);
-	DlgGroup("Common Parameters", 0, 1, 40, 4);
+	DlgGroup("Common Parameters", 1, 1, 38, 4);
 	DlgReal(1, "Stimulus Duration(s):", .1, 100, 20, 2);  'new, allow really long stimuli
     DlgReal(2, "InterTrial Time(s):", .1, 100, 20, 3);  'new, allow really long stimuli
-	DlgList(3, "Background color:", bcl$, 3, 20, 4);  'updated as new dialog number
-	DlgGroup("Individual Tuning Curve Types", 0, 6, 40, 6);
-	DlgButton(tundlgOrientationButton%, "Orientation", TuningCurveOrientationDialog%, 1, 7);
-	DlgButton(tundlgContrastButton%, "Contrast", TuningCurveContrastDialog%, 1, 8);
-	DlgButton(tundlgSpatialButton%, "Spatial Freq", TuningCurveSpatialDialog%, 1, 9);
-	DlgButton(tundlgTemporalButton%, "Temporal Freq", TuningCurveTemporalDialog%, 1, 10);
-	DlgButton(tundlgAreaButton%, "Area", TuningCurveAreaDialog%, 1, 11);
-    DlgGroup("Grating Parameters", 0, 12, 40, 2);
-    DlgButton(tundlgGratingParametersButton%, "Grating Parameters", TunDlgGratingMaster%, 1, 13);
+	'DlgList(3, "Background color:", bcl$, 3, 20, 4);  'updated as new dialog number
+    DlgInteger(3, "Background Gray Level (0-255):", 0, 255, 20, 4);  'new, allow all grays
+	DlgGroup("Individual Tuning Curve Types", 1, 6, 38, 6);
+	DlgButton(tundlgOrientationButton%, "Orientation", TuningCurveOrientationDialog%, 2, 7);
+	DlgButton(tundlgContrastButton%, "Contrast", TuningCurveContrastDialog%, 2, 8);
+	DlgButton(tundlgSpatialButton%, "Spatial Freq", TuningCurveSpatialDialog%, 2, 9);
+	DlgButton(tundlgTemporalButton%, "Temporal Freq", TuningCurveTemporalDialog%, 2, 10);
+	DlgButton(tundlgAreaButton%, "Area", TuningCurveAreaDialog%, 2, 11);
+    DlgGroup("Grating Parameters", 1, 12, 38, 2);
+    DlgButton(tundlgGratingParametersButton%, "Grating Parameters", TunDlgGratingMaster%, 2, 13);
+    DlgGroup("Non-Grating Stimuli", 1, 14, 38, 2);
+    DlgButton(tundlgDriftingBarButton%, "Drifting Bars", TuningCurveDriftingBarDialog%, 2, 15);
     
-    i%:=DlgShow(tunStimulusDuration, tunInterTrialTime, ibcl%);  'new, for reduced dialog
+    'i%:=DlgShow(tunStimulusDuration, tunInterTrialTime, ibcl%);  'new, for reduced dialog
+    i%:=DlgShow(tunStimulusDuration, tunInterTrialTime, tunBackgroundGrayLevel%);  'now using background gray level
     
     ' djs 4-1-09
     ' Spike2 v6 change. DlgShow will return the button number when a button on the dialog is hit and the corresponding
@@ -154,7 +161,7 @@ func TuningCurveScriptDialog%()
     'PrintLog("Tuning Curve Parameters Dialog - return from DlgShow is %d\n", i%);
     '	if i%=tundlgOrientationButton% or i%=tundlgContrastButton% or i%=tundlgSpatialButton% or i%=tundlgTemporalButton% or i%=tundlgAreaButton% then
     if i% = 1 then
-		tunBackgroundColor$ := bcl$[ibcl%];
+		'tunBackgroundColor$ := bcl$[ibcl%];
 		SaveTuningCurveScriptParameters();
 		if tunContext$ = tunContextDAQ$ then 
             iReturn% := 1;
@@ -310,6 +317,8 @@ const stateVSGWaitConfirm%:=11;		' waif for vsg to send ready signal #2
 const stateTrialCompleted%:=12;		' trial has been completed successfully
 const stateDone%:=13;	
 const stateWaitForStimTrigger% := 14; ' Rising edge indicating start of stim sequence
+const stateBarPlaying%:=15;
+
 var iState% := stateVSGWait%;	' present state
 
 var nTrialsStarted%:=0;
@@ -370,7 +379,11 @@ func IdleProcessing%()
                 tStimSequence := tTrigger;      ' TODO remove tStimOn ref above - see stateWaitForStimOn
                 tLastTrigger := tTrigger;
                 'ChangeStateTo(stateHoldFixation%, tTrigger);
-                ChangeStateTo(stateStimulusPlaying%, tTrigger);
+                if tunType$ = tunTypeDriftingBar$ then
+                    ChangeStateTo(stateBarPlaying%, tTrigger);
+                else
+                    ChangeStateTo(stateStimulusPlaying%, tTrigger);
+                endif;
             endif
         else
             if View(DataWindow%).FindPulseUp%(FrameChannel%, tStateStart, tRise, tFall) = 1 then
@@ -379,7 +392,11 @@ func IdleProcessing%()
                 tStimOn := tRise;
                 tStimSequence := tRise;
                 tLastTrigger := tRise;
-                ChangeStateTo(stateStimulusPlaying%, tRise);
+                if tunType$ = tunTypeDriftingBar$ then
+                    ChangeStateTo(stateBarPlaying%, tRise);
+                else
+                    ChangeStateTo(stateStimulusPlaying%, tRise);
+                endif;
             endif
         endif
             
@@ -426,6 +443,28 @@ func IdleProcessing%()
                 tLastTrigger := tRise;
                 ChangeStateTo(stateTrialCompleted%, tRise);
             endif
+        endif
+        
+        
+    case iState% = stateBarPlaying% then
+        if View(DataWindow%).FindPulseUp%(FrameChannel%, tStateStart, tRise, tFall) = 1 then
+            
+            'Note stimulus is off
+            SampleText("+");
+            LogStatus("BarPlaying", "Turn off and advance stimulus.");          
+            
+            SafeSampleKey("X");            
+            
+            Yield();
+            
+            ' Process spikes
+            PlotSpikes(tStimOn, tNow, 1, GetPlotXCoord(nTrialsCompleted%), nTrialsCompleted%);
+            
+            'Advance
+            SafeSampleKey("a");
+
+            tLastTrigger := tRise;
+            ChangeStateTo(stateTrialCompleted%, tRise);
         endif
         
     case iState% = stateTrialCompleted% then
@@ -565,7 +604,8 @@ proc InitializeWindows()
             ch2% := View(TuningWindow%[i%]).XYSetChan(0);   ' used to plot f2
             XYColour(ch2%, 30);
             LogStatus("InitializeWindows", "Channel " + str$(i%+1) + " " + str$(ch1%) + " " + str$(ch2%));
-            PSTHWindow%[i%] := View(DataWindow%).SetPSTH(i%+1, 16, 1 /(tunTF*16), 0, 0, 3);
+            'PSTHWindow%[i%] := View(DataWindow%).SetPSTH(i%+1, 16, 1 /(tunTF*16), 0, 0, 3);
+            PSTHWindow%[i%] := View(DataWindow%).SetPSTH(tunWavemarkPorts%[i%]+1, 16, 1 /(tunTF*16), 0, 0, 3);  'must use index to tWMP%[] now that channel #s correspond to port #s (+1)
             View(PSTHWindow%[i%]).WindowVisible(0);
         endif        
     next
@@ -611,6 +651,13 @@ proc TuningCurveLabels(iport%)
 			XUnits$("Aperture Diameter");
 			ChanTitle$(1, "Chan 1");
 			XRange(tunAreaMinDiam, tunAreaMaxDiam);
+        
+        case tunType$ = tunTypeDriftingBar$ then
+
+			WindowTitle$("Drifting Bar Orientation Tuning - " + s$);
+			XUnits$("Orientation (degrees)");
+			ChanTitle$(1, "Chan 1");
+            XRange(tunBarMinOrientation, tunBarMaxOrientation);
         
 		else
 
@@ -667,10 +714,18 @@ proc CreateSampleConfiguration()
         GetRepeatedParameterProgression%(tunAreaNSteps%+1, tunAreaNRepeats%, tunValues[], tunValuesIndices%[], tunAreaMinDiam, tunAreaMaxDiam, 1, tunAreaProgression%);
         tunNValues% := (tunAreaNSteps%+1)*tunAreaNRepeats%;
         tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%);
+    case tunType$ = tunTypeDriftingBar$ then 
+        SampleAutoName$(dataCellName$ + "_bar_000");
+        tunNAdvances% := tunBarNSteps%;
+        tunNRepeats% := tunBarNRepeats%;
+        GetRepeatedParameterProgression%(tunBarNSteps%+1, tunBarNRepeats%, tunValues[], tunValuesIndices%[], tunBarMinOrientation, tunBarMaxOrientation, 0, tunBarProgression%);
+        tunNValues% := (tunBarNSteps%+1)*tunBarNRepeats%;
+        tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%);
     else
         SampleAutoName$(dataCellName$ + "_tun_000");
     endcase;
-
+    
+    
     SampleAutoFile(1);
     
     ' Text marks make extraction easier
@@ -694,12 +749,18 @@ proc CreateSampleConfiguration()
     ' Wavemark channels will be channels # 1-N, waveform N+1 - N+1+M, where there are N wavemark channels
     ' and M waveform channels. 
     for i% := 0 to tunNWavemarks%-1 do
-		SampleWaveMark(i% + 1, tunWavemarkPorts%[i%], 2000, 34, 15, 28000); ' chan, port, event rate, points, pre-trigger, rate
-		SampleTitle$(i% + 1, "WMrk " + str$(tunWavemarkPorts%[i%])); 
+		'SampleWaveMark(i% + 1, tunWavemarkPorts%[i%], 2000, 34, 15, 28000); ' chan, port, event rate, points, pre-trigger, rate
+		'SampleTitle$(i% + 1, "WMrk " + str$(tunWavemarkPorts%[i%])); 
+        'Trying here to avoid wrapping port numbers
+        SampleWaveMark(tunWavemarkPorts%[i%]+1, tunWavemarkPorts%[i%], 2000, 34, 15, 28000); ' chan, port, event rate, points, pre-trigger, rate
+		SampleTitle$(tunWavemarkPorts%[i%]+1, "WMrk " + str$(tunWavemarkPorts%[i%]));
 	next
     for i% := 0 to tunNContinuous%-1 do
-        SampleWaveform(tunNWavemarks% + i% + 1, tunContinuousPorts%[i%], 20000);
-        SampleTitle$(tunNWavemarks% + i% + 1, "Cont " + str$(tunContinuousPorts%[i%]));
+        'SampleWaveform(tunNWavemarks% + i% + 1, tunContinuousPorts%[i%], 20000);
+        'SampleTitle$(tunNWavemarks% + i% + 1, "Cont " + str$(tunContinuousPorts%[i%]));
+        'Trying here to avoid wrapping port numbers
+        SampleWaveform(tunContinuousPorts%[i%]+1, tunContinuousPorts%[i%], 20000);
+        SampleTitle$(tunContinuousPorts%[i%]+1, "Cont " + str$(tunContinuousPorts%[i%]));
     next
     
 	SampleSequencer(script$ + "Tuning.pls");
@@ -771,7 +832,8 @@ proc WriteParameterFile()
 	Print("Distance to screen (MM)    : %s\n", GetAcuteDistanceToScreenMM$());
     Print("Wavemark ports             : %s\n", GetWavemarkPorts$());
     Print("Continuous ports           : %s\n", GetContinuousPorts$());
-	Print("Background color           : %s\n", tunBackgroundColor$);
+	'Print("Background color           : %s\n", tunBackgroundColor$);
+    Print("Background gray level      : %d\n", tunBackgroundGrayLevel%);
 
 	' write stimulus parameters
 	Print("\nStimulus\n");
@@ -839,6 +901,13 @@ proc WriteParameterFile()
 			Print("Type:                  : Aperture Area\n");
 			Print("Min,Max,#Steps,#Repeats: %f,%f,%d,%d\n", tunAreaMinDiam, tunAreaMaxDiam, tunAreaNSteps%, tunAreaNRepeats%);
 			Print("Values: " + tunValuesStringified$ + "\n");
+            Print("\n");
+        
+        case tunType$ = tunTypeDriftingBar$ then
+
+			Print("Type:                  : DriftingBar\n");
+			Print("Min,Max,#Steps,#Repeats: %f,%f,%d,%d\n", tunBarMinOrientation, tunBarMaxOrientation, tunBarNSteps%, tunBarNRepeats%);
+			Print("Values: " + tunValuesStringified$ + "\n");
 			Print("\n");
 
 		else
@@ -882,15 +951,21 @@ func Start%()
     var offsetFilename$;
     var i%;
     var ProgName$;
+    var tunBGStr$;
+    var tunFGStr$;
+    var tunBarStr$;
 '    var XHairArg$;
 	
 	SampleStart(0); 'Start sampling
 	SafeSampleKey("0");
     
+    'build background gray level string
+    tunBGStr$ := "(" + Str$(tunBackgroundGrayLevel%) + "/" + Str$(tunBackgroundGrayLevel%) + "/" + Str$(tunBackgroundGrayLevel%) + ") ";
     
     Stim$ := " -s " + GetGratingParameters$("Stimulus");    
 	Values$ := tunValuesStringified$;
-	Extras$ := " -b " + tunBackgroundColor$ + " -d " + GetAcuteDistanceToScreenMM$() + " -p 2 -v";
+    'Extras$ := " -b " + tunBackgroundColor$ + " -d " + GetAcuteDistanceToScreenMM$() + " -p 2 -v";
+    Extras$ := " -b " + tunBGStr$ + " -d " + GetAcuteDistanceToScreenMM$() + " -p 2 -v";
     
     'By default, set ProgName$ to be FIXSTIM
     ProgName$ := "\\fixstim.exe ";    
@@ -920,6 +995,15 @@ func Start%()
         
         'Tune$ := Dual$ + " -A " + Values$;
         Tune$ := " -A " + Values$;
+        
+    case tunType$ = tunTypeDriftingBar$ then
+        
+        'build foreground gray level string
+        tunFGStr$ := "(" + Str$(tunBarForegroundGrayLevel%) + "/" + Str$(tunBarForegroundGrayLevel%) + "/" + Str$(tunBarForegroundGrayLevel%) + ")";
+        'build drifting bar string
+        tunBarStr$ := Str$(tunBarWidth) + "," + Str$(tunBarHeight) + "," + Str$(tunBarSpeed) + ",";
+        
+        Tune$ := " -G " + tunFGStr$ + "," + tunBarStr$ + "," + Values$;
         
     else
 
