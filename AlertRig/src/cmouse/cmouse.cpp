@@ -193,27 +193,29 @@ int main(int argc, char **argv)
 					break;
 				}
 			case 't':
-			{
-				double d = -1;
-				cout << "Temporal Frequency = ";
-				cin >> d;
-				if (d>=0 && d<50)
 				{
-					f_grating.setTemporalFrequency(d);
-					f_tfPrevious = 0;
-					vsgPresent();
+					double d = -1;
+					cout << "Temporal Frequency = ";
+					cin >> d;
+					if (d>=0 && d<50)
+					{
+						f_grating.setTemporalFrequency(d);
+						f_tfPrevious = 0;
+						arutil_draw_grating_fullscreen(f_grating, 0);
+						vsgPresent();
+					}
+					else 
+					{
+						cout << "Error in input: Temporal freq must be between 0 and 50." << endl;
+					}
+					break;
 				}
-				else 
-				{
-					cout << "Error in input: Temporal freq must be between 0 and 50." << endl;
-				}
-				break;
-			}
 			case ' ':
 				{
 					double tmp = f_grating.tf;
 					f_grating.setTemporalFrequency(f_tfPrevious);
 					f_tfPrevious = tmp;
+					arutil_draw_grating_fullscreen(f_grating, 0);
 					vsgPresent();
 					break;
 				}
