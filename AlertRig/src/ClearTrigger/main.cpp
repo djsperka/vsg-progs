@@ -1,4 +1,4 @@
-// $Id: main.cpp,v 1.6 2011-08-30 01:16:43 djsperka Exp $
+// $Id: main.cpp,v 1.7 2012-01-27 23:01:26 devel Exp $
 //
 //
 #include "vsgv8.h"
@@ -18,6 +18,7 @@
 
 bool f_bUseLock = true;
 int args(int argc, char **argv);
+void do_trig(int t);
 
 using namespace alert;
 using namespace std;
@@ -40,62 +41,70 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
+	vsgSetPen2(vsgBACKGROUND);
+	vsgSetCommand(vsgVIDEOCLEAR);
 
-	// initialize video pages
-	if (ARvsg::instance().init_video())
-	{
-		cerr << "VSG video initialization failed!" << endl;
-		return 1;
-	}
-	vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgBACKGROUND);
-
-	vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, 0xFF, 0);
+	do_trig(0xff);
 	vsgPresent();
 
-	vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, 0x0, 0);
+	do_trig(0x0);
 	vsgPresent();
 
-	vsgObjSetTriggers(vsgTRIG_ONPRESENT, 0, 0);
+	do_trig(0x0);
 	vsgPresent();
-	vsgObjSetTriggers(vsgTRIG_ONPRESENT, 0, 0);
+	do_trig(0x0);
 	vsgPresent();
-	vsgObjSetTriggers(vsgTRIG_ONPRESENT, 0, 0);
-	vsgPresent();
-
-	vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, 0xFE, 0);
+	do_trig(0x0);
 	vsgPresent();
 
-	vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, 0x0, 0);
+	do_trig(0xfe);
 	vsgPresent();
 
-	vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, 0xFC, 0);
+	do_trig(0x0);
 	vsgPresent();
 
-	vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, 0x0, 0);
+	do_trig(0xfc);
 	vsgPresent();
 
-	vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, 0x1, 0);
+	do_trig(0x0);
 	vsgPresent();
-	vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, 0x2, 0);
+
+	do_trig(0x1);
 	vsgPresent();
-	vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, 0x4, 0);
+	do_trig(0x2);
 	vsgPresent();
-	vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, 0x8, 0);
+	do_trig(0x4);
 	vsgPresent();
-	vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, 0x10, 0);
+	do_trig(0x8);
 	vsgPresent();
-	vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, 0x20, 0);
+	do_trig(0x10);
 	vsgPresent();
-	vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, 0x40, 0);
+	do_trig(0x20);
 	vsgPresent();
-	vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, 0x80, 0);
+	do_trig(0x40);
 	vsgPresent();
-	vsgObjSetTriggers(vsgTRIG_ONPRESENT, 0, 0);
+	do_trig(0x80);
 	vsgPresent();
-	vsgObjSetTriggers(vsgTRIG_ONPRESENT, 0, 0);
+	do_trig(0x0);
+	vsgPresent();
+	do_trig(0x0);
 	vsgPresent();
 
 	return 0;
+}
+
+
+void do_trig(int t)
+{
+	if (IS_VISAGE)
+	{
+		vsgSetTriggerOptions(vsgTRIGOPT_PRESENT, 0, vsgTRIG_OUTPUTMARKER, 0.5, 0, t << 1, 0x1FE);
+	}
+	else
+	{
+		vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, t, 0);
+	}
+	return;
 }
 
 
