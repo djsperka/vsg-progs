@@ -1,5 +1,5 @@
-' $Id: AcuteTuning.s2s,v 1.9 2012-01-27 01:53:40 jeff Exp $
-const tunCVSID$ := "$Id: AcuteTuning.s2s,v 1.9 2012-01-27 01:53:40 jeff Exp $";
+' $Id: AcuteTuning.s2s,v 1.10 2012-01-27 17:55:07 jeff Exp $
+const tunCVSID$ := "$Id: AcuteTuning.s2s,v 1.10 2012-01-27 17:55:07 jeff Exp $";
 
 
 #include "../../Spike2Util/ChannelUtilities.s2s"
@@ -748,6 +748,7 @@ proc CreateSampleConfiguration()
     ' 12/6/2010
     ' Wavemark channels will be channels # 1-N, waveform N+1 - N+1+M, where there are N wavemark channels
     ' and M waveform channels. 
+    ' Changed!  To avoid confusion wavemarks now are place on channels (Port+1) and waveforms on channels (Port+8)
     for i% := 0 to tunNWavemarks%-1 do
 		'SampleWaveMark(i% + 1, tunWavemarkPorts%[i%], 2000, 34, 15, 28000); ' chan, port, event rate, points, pre-trigger, rate
 		'SampleTitle$(i% + 1, "WMrk " + str$(tunWavemarkPorts%[i%])); 
@@ -756,14 +757,22 @@ proc CreateSampleConfiguration()
 		SampleTitle$(tunWavemarkPorts%[i%]+1, "WMrk " + str$(tunWavemarkPorts%[i%]));
         if tunWavemarkPorts%[i%] > 6 then
             message("The rig should only be set up to collect data from Ports 0-6!  Quitting!");
-            quit%();
+            'This message comes up because of the non-collapsed (i.e. non-continuous) channel numbers.  There is a "hack" a few lines below
+            'which sets the continuous waveforms to live on channels numbered 7 greater than the corresponding WaveMark channel.  We can get
+            'away with this because the Thomas system which feeds into the CED has only 7 electrode channels which are fed to Ports 0-6 on
+            'the CED.  As of now, the channels that can legally hold WaveMarks are channels 1-7 and the channels that can legally hold
+            'continuous waveforms are channels 8-14.  Since channel 19 holds pulses, there isn't a lot more room to work under this scheme
+            'before needing to reposition other channels anyway (this non-collapsed scheme would work up to a hard-coded 9 rather than 7 Ports).
+            'So if you need to use Port 7/8, you'll need to change the hardcode here and for tunNContinuous% below to 8/9.  If you need
+            'to go beyond Port 8, you'll have to either move some of the hardcoded pulse channels, or dump the non-collapsed numbering scheme. -jj
+            halt();
         endif;
 	next
     for i% := 0 to tunNContinuous%-1 do
         'SampleWaveform(tunNWavemarks% + i% + 1, tunContinuousPorts%[i%], 20000);
         'SampleTitle$(tunNWavemarks% + i% + 1, "Cont " + str$(tunContinuousPorts%[i%]));
         'Trying here to avoid collapsing channel numbers
-        SampleWaveform(tunContinuousPorts%[i%]+8, tunContinuousPorts%[i%], 20000);  'this hack only works because wavemark ports are limited to channels 1-7
+        SampleWaveform(tunContinuousPorts%[i%]+8, tunContinuousPorts%[i%], 20000);  'this hack only works because wavemark chans are limited to channels 1-7
         SampleTitle$(tunContinuousPorts%[i%]+8, "Cont " + str$(tunContinuousPorts%[i%]));
     next
     
