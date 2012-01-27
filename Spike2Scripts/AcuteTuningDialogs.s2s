@@ -1,4 +1,4 @@
-' $Id: AcuteTuningDialogs.s2s,v 1.2 2012-01-26 23:41:07 jeff Exp $
+' $Id: AcuteTuningDialogs.s2s,v 1.3 2012-01-27 01:53:40 jeff Exp $
 '
 ' This file contains dialog functions for the alert tuning script Tuning.s2s.
 #include "../../Spike2Util/UsreyUtil.s2s"
@@ -496,8 +496,8 @@ func TuningCurveDriftingBarDialog%()
 	DlgReal(3, "Min Orientation (deg)", 0, 360, 20, 4);
 	DlgReal(4, "Max Orientation (deg)", 0, 360, 20, 5);
     DlgGroup("Bar Parameters", 1, 7, 38, 5);
-    DlgReal(5, "Bar Width (deg)", 0.01, 30, 20, 8);  'not sure about what the maximum here will be, Dan is working it out
-	DlgReal(6, "Bar Height (deg)", 0.01, 30, 20, 9); 
+    DlgReal(5, "Bar Width (deg)", 0.01, 1000, 20, 8);  'Values over max width allowed by ViSaGe will be truncated w/ no ill effects
+	DlgReal(6, "Bar Height (deg)", 0.01, 50, 20, 9);   'For most screen distances, 50 degs should be across the entire screen anyway...could certainly restrict further 
     DlgReal(7, "Bar Speed (deg/s)", 0.001, 30, 20, 10); 
     DlgInteger(8, "Bar Gray Level (0-255):", 0, 255, 20, 11);  'new, allow all grays
 	DlgCheck(9, "Random Progression", 2, 13);
