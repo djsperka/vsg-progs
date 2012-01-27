@@ -1,4 +1,4 @@
-' $Id: AcuteMSequence.s2s,v 1.8 2011-10-25 16:52:51 devel Exp $
+' $Id: AcuteMSequence.s2s,v 1.9 2012-01-27 17:57:50 jeff Exp $
 '
 ' AcuteMSequence.s2s
 '
@@ -182,14 +182,38 @@ proc CreateSampleConfiguration()
     PrintLog("wm %d cont %d\n", amsNWavemarks%, amsNContinuous%);
     
     'Wavemark channel recording definitions
+'    for i% := 0 to amsNWavemarks%-1 do
+'		SampleWaveMark(i% + 1, amsWavemarkPorts%[i%], 2000, 34, 15, 28000); ' chan, port, event rate, points, pre-trigger, rate
+'		SampleTitle$(i% + 1, "WMrk " + str$(amsWavemarkPorts%[i%])); 
+'	next
+'    for i% := 0 to amsNContinuous%-1 do
+'        SampleWaveform(amsNWavemarks% + i% + 1, amsContinuousPorts%[i%], 20000);
+'        SampleTitle$(amsNWavemarks% + i% + 1, "Cont " + str$(amsContinuousPorts%[i%]));
+'    next
+    
+
+    ' Changed!  To avoid confusion wavemarks now are place on channels (Port+1) and waveforms on channels (Port+8)
     for i% := 0 to amsNWavemarks%-1 do
-		SampleWaveMark(i% + 1, amsWavemarkPorts%[i%], 2000, 34, 15, 28000); ' chan, port, event rate, points, pre-trigger, rate
-		SampleTitle$(i% + 1, "WMrk " + str$(amsWavemarkPorts%[i%])); 
+        SampleWaveMark(amsWavemarkPorts%[i%]+1, amsWavemarkPorts%[i%], 2000, 34, 15, 28000); ' chan, port, event rate, points, pre-trigger, rate
+		SampleTitle$(amsWavemarkPorts%[i%]+1, "WMrk " + str$(amsWavemarkPorts%[i%]));
+        if amsWavemarkPorts%[i%] > 6 then
+            message("The rig should only be set up to collect data from Ports 0-6!  Quitting!");
+            'This message comes up because of the non-collapsed (i.e. non-continuous) channel numbers.  There is a "hack" a few lines below
+            'which sets the continuous waveforms to live on channels numbered 7 greater than the corresponding WaveMark channel.  We can get
+            'away with this because the Thomas system which feeds into the CED has only 7 electrode channels which are fed to Ports 0-6 on
+            'the CED.  As of now, the channels that can legally hold WaveMarks are channels 1-7 and the channels that can legally hold
+            'continuous waveforms are channels 8-14.  Since channel 19 holds pulses, there isn't a lot more room to work under this scheme
+            'before needing to reposition other channels anyway (this non-collapsed scheme would work up to a hard-coded 9 rather than 7 Ports).
+            'So if you need to use Port 7/8, you'll need to change the hardcode here and for tunNContinuous% below to 8/9.  If you need
+            'to go beyond Port 8, you'll have to either move some of the hardcoded pulse channels, or dump the non-collapsed numbering scheme. -jj
+            halt();
+        endif;
 	next
     for i% := 0 to amsNContinuous%-1 do
-        SampleWaveform(amsNWavemarks% + i% + 1, amsContinuousPorts%[i%], 20000);
-        SampleTitle$(amsNWavemarks% + i% + 1, "Cont " + str$(amsContinuousPorts%[i%]));
+        SampleWaveform(amsContinuousPorts%[i%]+8, amsContinuousPorts%[i%], 20000);  'this hack only works because wavemark chans are limited to channels 1-7
+        SampleTitle$(amsContinuousPorts%[i%]+8, "Cont " + str$(amsContinuousPorts%[i%]));
     next
+    
 
     ' djs 10-19-2011 Change this to port 0 (and check the "Event Ports 1+2..." box in preferences/Sampling....
     SampleEvent(amsChanTrigger%, 0, 1, 1000); 
