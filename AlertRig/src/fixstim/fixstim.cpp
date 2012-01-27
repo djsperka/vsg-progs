@@ -1,4 +1,4 @@
-/* $Id: fixstim.cpp,v 1.5 2012-01-23 23:20:28 devel Exp $ */
+/* $Id: fixstim.cpp,v 1.6 2012-01-27 23:29:02 devel Exp $ */
 
 #include <iostream>
 #include <fstream>
@@ -648,7 +648,7 @@ int args(int argc, char **argv)
 					tokens.erase(tokens.begin());
 				}
 
-				if (parse_tuning_list(tokens, tuning_parameters, nsteps) || tuning_parameters.size() <= 3)
+				if (parse_number_list(tokens, tuning_parameters) || tuning_parameters.size() <= 3)
 				{
 					cerr << "Error - cannot parse drifting bar parameters color,width,height,deg_per_sec,ori1,ori2,..." << endl;
 					errflg++;
