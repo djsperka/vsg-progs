@@ -1,5 +1,5 @@
-' $Id: AcuteTuning.s2s,v 1.8 2012-01-26 23:41:07 jeff Exp $
-const tunCVSID$ := "$Id: AcuteTuning.s2s,v 1.8 2012-01-26 23:41:07 jeff Exp $";
+' $Id: AcuteTuning.s2s,v 1.9 2012-01-27 01:53:40 jeff Exp $
+const tunCVSID$ := "$Id: AcuteTuning.s2s,v 1.9 2012-01-27 01:53:40 jeff Exp $";
 
 
 #include "../../Spike2Util/ChannelUtilities.s2s"
@@ -751,16 +751,20 @@ proc CreateSampleConfiguration()
     for i% := 0 to tunNWavemarks%-1 do
 		'SampleWaveMark(i% + 1, tunWavemarkPorts%[i%], 2000, 34, 15, 28000); ' chan, port, event rate, points, pre-trigger, rate
 		'SampleTitle$(i% + 1, "WMrk " + str$(tunWavemarkPorts%[i%])); 
-        'Trying here to avoid wrapping port numbers
+        'Trying here to avoid collapsing channel numbers
         SampleWaveMark(tunWavemarkPorts%[i%]+1, tunWavemarkPorts%[i%], 2000, 34, 15, 28000); ' chan, port, event rate, points, pre-trigger, rate
 		SampleTitle$(tunWavemarkPorts%[i%]+1, "WMrk " + str$(tunWavemarkPorts%[i%]));
+        if tunWavemarkPorts%[i%] > 6 then
+            message("The rig should only be set up to collect data from Ports 0-6!  Quitting!");
+            quit%();
+        endif;
 	next
     for i% := 0 to tunNContinuous%-1 do
         'SampleWaveform(tunNWavemarks% + i% + 1, tunContinuousPorts%[i%], 20000);
         'SampleTitle$(tunNWavemarks% + i% + 1, "Cont " + str$(tunContinuousPorts%[i%]));
-        'Trying here to avoid wrapping port numbers
-        SampleWaveform(tunContinuousPorts%[i%]+1, tunContinuousPorts%[i%], 20000);
-        SampleTitle$(tunContinuousPorts%[i%]+1, "Cont " + str$(tunContinuousPorts%[i%]));
+        'Trying here to avoid collapsing channel numbers
+        SampleWaveform(tunContinuousPorts%[i%]+8, tunContinuousPorts%[i%], 20000);  'this hack only works because wavemark ports are limited to channels 1-7
+        SampleTitle$(tunContinuousPorts%[i%]+8, "Cont " + str$(tunContinuousPorts%[i%]));
     next
     
 	SampleSequencer(script$ + "Tuning.pls");
