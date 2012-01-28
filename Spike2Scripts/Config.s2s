@@ -1,4 +1,4 @@
-' $Id: Config.s2s,v 1.30 2011-11-09 17:57:53 jeff Exp $
+' $Id: Config.s2s,v 1.31 2012-01-28 00:53:11 jeff Exp $
 
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "UsreyGratings.s2s"
@@ -57,6 +57,8 @@ proc GratingDialog(type$)
 	var y:=0;
 	var w:=1;
 	var h:=1;
+    var iw:=0;
+    var ih:=0;
 	var contrast%:=100;
 	var orientation:=0;
     var phase:=0;
@@ -70,7 +72,7 @@ proc GratingDialog(type$)
     
 	gr$ := GetGratingParameters$(type$);
 	if gr$ <> "" then
-        if GratingParametersDialog%(type$, gr$, disable%, ndisable%, x, y, w, h, contrast%, sf, tf, orientation, phase, cv$, p$, ap$) = 1 then
+        if GratingParametersDialog%(type$, gr$, disable%, ndisable%, x, y, w, h, iw, ih, contrast%, sf, tf, orientation, phase, cv$, p$, ap$) = 1 then
             SaveGratingParameters(type$, gr$);
         endif
     endif
@@ -1092,13 +1094,16 @@ func RigConfigDialog%(config$)
 	DlgButton(12, "Distractor 4", Distractor4Dialog%, 2, 12);
     
 
-	DlgGroup("Scripts", 18, 1, 20, 10);
-	DlgButton(13, "Fixation", FixationScriptDialog%, 20, 2);
-	DlgButton(14, "Attention", AttentionScriptDialog%, 20, 3);
-	DlgButton(15, "Tuning", TuningCurveScriptDialog%, 20, 4);
-	'DlgButton(16, "CoolerMouse", CoolerMouseScriptDialog%, 20, 5);  'removing this button as CoolerMouse has been ousted
-	DlgButton(16, "MSequence", MSequenceScriptDialog%, 20, 6);
-	DlgButton(17, "ContrastReverse", CRGScriptDialog%, 20, 7);
+	DlgGroup("Scripts", 18, 1, 20, 12);
+    DlgText("Script access from", 20, 3);
+    DlgText("Config has been", 20, 4);
+    DlgText("deprecated", 20, 5);
+	'DlgButton(13, "Fixation", FixationScriptDialog%, 20, 2);
+	'DlgButton(14, "Attention", AttentionScriptDialog%, 20, 3);
+	'DlgButton(15, "Tuning", TuningCurveScriptDialog%, 20, 4);
+	''DlgButton(16, "CoolerMouse", CoolerMouseScriptDialog%, 20, 5);  'removing this button as CoolerMouse has been ousted
+	'DlgButton(16, "MSequence", MSequenceScriptDialog%, 20, 6);
+	'DlgButton(17, "ContrastReverse", CRGScriptDialog%, 20, 7);
 
 	DlgShow();
 
