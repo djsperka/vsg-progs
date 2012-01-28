@@ -44,7 +44,10 @@ var txDualVSG% := 0;
 ' tuning params
 var nparams% := 0;
 var params[1000];
+var params2[1000];
 var v3param;
+var v3param2;  'Technically v7 but who's counting?
+var IsTwoCurves%;
 
 LogInit(1);
 
@@ -66,6 +69,7 @@ func InitFileVars%(s$)
     var status% := 0;
     var h;
     var line$;
+    var count%:=1;
     nparams% := 0;
     h := FileOpen(s$, 8);
     if h < 0 then
@@ -73,10 +77,23 @@ func InitFileVars%(s$)
         PrintLog("Parameter file " + s$ + " should be in same dir as data file.");
     endif
 
-    while Read(line$) >= 0 and nparams% = 0 do    ' read while not EOF or error
+    while Read(line$) >= 0 do 'and nparams% = 0 do    ' read while not EOF or error
         ' parameters line starts with "Values:"
         if InStr(line$, "Values:") = 1 then
-            nparams% := ReadStr(Mid$(line$, 9), params[]);
+            docase
+            case count% = 1 then
+                nparams% := ReadStr(Mid$(line$, 9), params[]);
+                count% += 1;
+                printlog("%s\n",line$);
+            case count% = 2 then
+                ReadStr(Mid$(line$, 9), params2[]);
+                count% += 1;
+                IsTwoCurves% := 1;
+                printlog("%s\n",line$);
+            case count% > 2 then
+                message("Error! Found a third Values line in parameter file! Quitting!");
+                halt();
+            endcase;
         endif    
     wend;
     
@@ -138,10 +155,18 @@ proc FlushTrial()
             PrintLog("ERROR: Cannot find slave stim pulses in window from %f - %f\n", tSSlave, tESlave);
             return;
         endif
-    
-        s$ := Print$("%f %f %f %f %f\n", params[iCurrentParam%], tPM[1], tPM[2], tPS[1], tPS[2]);
+        
+        if IsTwoCurves% = 0 then
+            s$ := Print$("%f %f %f %f %f\n", params[iCurrentParam%], tPM[1], tPM[2], tPS[1], tPS[2]);
+        else
+            s$ := Print$("%f %f %f %f %f %f\n", params[iCurrentParam%], params2[iCurrentParam%], tPM[1], tPM[2], tPS[1], tPS[2]);
+        endif;
     else
-        s$ := Print$("%f %f %f %f %f\n", params[iCurrentParam%], tS, tE, tSSlave, tESlave);
+        if IsTwoCurves% = 0 then
+            s$ := Print$("%f %f %f %f %f\n", params[iCurrentParam%], tS, tE, tSSlave, tESlave);
+        else
+            s$ := Print$("%f %f %f %f %f %f\n", params[iCurrentParam%], params2[iCurrentParam%], tS, tE, tSSlave, tESlave);
+        endif;
     endif
         
     View(LogHandle()).Print(s$);
@@ -208,8 +233,17 @@ func TuningExtract%(tStart, tStop)
     txTLast := tStart;
     txTStop := tStop;
     
+    'Tuning versions
+    '1) Unknown
+    '2) fixation point stays on
+    '3) fixation point goes off
+    '4) unknown
+    '5) unknown
+    '6) Dual tuning curve, fixation point stays on
+    '7) Dual tuning curve, fixation point goes off
+    
     docase
-    case txVersion% = 1 or txVersion% = 2 or txVersion% = 4 then
+    case txVersion% = 1 or txVersion% = 2 or txVersion% = 4 or txVersion% = 6 then
         
         sIgnore$ := "0FJQR+";
         tFound := NextKey(txTLast, sFound$, sIgnore$);
@@ -222,7 +256,7 @@ func TuningExtract%(tStart, tStop)
                 docase
                 case InStr(sFound$, "S") = 1 then
                     docase
-                    case txVersion% = 1 or txVersion% = 2 then
+                    case txVersion% = 1 or txVersion% = 2 or txVersion% = 6 then
                         if FindRisingEdge%(txChanStim%, tFound, tS) < 0 or FindRisingEdge%(txChanStimSlave%, tFound, tSSlave) < 0 then
                             LogError("", "Rising edge not found after S at t=" + str$(tFound) + "\n");
                             txIState% := txstateError%;
@@ -250,7 +284,7 @@ func TuningExtract%(tStart, tStop)
                 docase 
                 case sFound$ = "s" then
                     docase
-                    case txVersion% = 1 or txVersion% = 2 then
+                    case txVersion% = 1 or txVersion% = 2 or txVersion% = 6 then
                         if FindFallingEdge%(txChanStim%, tFound, tE) < 0 or FindFallingEdge%(txChanStimSlave%, tFound, tESlave) < 0 then
                             LogError("", "Falling edge not found after s at t=" + str$(tFound) + "\n");
                             txIState% := txstateError%;
@@ -296,7 +330,7 @@ func TuningExtract%(tStart, tStop)
             tFound := NextKey(txTLast, sFound$, sIgnore$);
             
         wend
-    case txVersion% = 3 or txVersion% = 5 then
+    case txVersion% = 3 or txVersion% = 5 or txVersion% = 7 then
         
         sIgnore$ := "0FJQR";        
         tFound := NextKeyOrText(txTLast, sFound$, sIgnore$);
@@ -309,7 +343,15 @@ func TuningExtract%(tStart, tStop)
                 docase
                     
                 case InStr(sFound$, "T,") = 1 then
-                    v3param := val(Mid$(sFound$, 3));
+                    if IsTwoCurves% = 0 then
+                        v3param := val(Mid$(sFound$, 3));
+                    else
+                        var temp%;
+                        temp% := InStr(sFound$, ",T2,");  'find where T2 starts
+                        v3param := val(Mid$(sFound$, 3, temp%-3));  'get value between "T," and ",T,"
+                        v3param2 := val(Mid$(sFound$, temp%+4));  'get value after ",T2,"
+                        'printlog("Success  %f  %f\n",v3param,v3param2);
+                    endif;
                     txIState% := txStatePreStim%;
                 case sFound$ = "X" then
                     LogStatus("txstateStart", "Aborted trial at " + str$(tFound));
@@ -321,7 +363,7 @@ func TuningExtract%(tStart, tStop)
                 docase
                 case sFound$ = "S" then
                     docase
-                    case txVersion% = 3 then
+                    case txVersion% = 3 or txVersion% = 7 then
                         
                         if FindRisingEdge%(txChanStim%, tFound, tS) < 0 or FindRisingEdge%(txChanStimSlave%, tFound, tSSlave) < 0 then
                             LogError("txstatePreStim", "Rising edge not found after S at t=" + str$(tFound) + "\n");
@@ -349,7 +391,7 @@ func TuningExtract%(tStart, tStop)
                 docase 
                 case sFound$ = "+" then
                     docase 
-                    case txVersion% = 3 then
+                    case txVersion% = 3  or txVersion% = 7 then
                         if FindFallingEdge%(txChanStim%, tFound, tE) < 0 or FindFallingEdge%(txChanStimSlave%, tFound, tESlave) < 0 then
                             LogError("txstateStimUp", "Falling edge not found after s at t=" + str$(tFound) + "\n");
                             txIState% := txstateError%;
@@ -379,7 +421,7 @@ func TuningExtract%(tStart, tStop)
                 case sFound$ = "X" then
                     
                     ' Check that param found in data file matches order in par file
-                    if v3param <> params[iCurrentParam%] then
+                    if v3param <> params[iCurrentParam%] or v3param2 <> params2[iCurrentParam%] then
                         LogError("txStateTrialSuccess", "Trial parameter does not match par file at " + str$(tFound));
                     endif
                     

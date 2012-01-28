@@ -1,7 +1,7 @@
-' $Id: Tuning.s2s,v 1.49 2012-01-10 18:03:43 jeff Exp $
+' $Id: Tuning.s2s,v 1.50 2012-01-28 00:53:11 jeff Exp $
 ' Update 11/8/11 Jeff, includes multi-juicer updates
 
-const tunCVSID$ := "$Id: Tuning.s2s,v 1.49 2012-01-10 18:03:43 jeff Exp $";
+const tunCVSID$ := "$Id: Tuning.s2s,v 1.50 2012-01-28 00:53:11 jeff Exp $";
 
 
 
@@ -12,321 +12,16 @@ const tunCVSID$ := "$Id: Tuning.s2s,v 1.49 2012-01-10 18:03:43 jeff Exp $";
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "../../Spike2Util/LogUtilities.s2s"
 #include "../../Spike2Util/MiscUtilities.s2s"
+#include "UsreyDAQ.s2s"
 #include "TuningDialogs.s2s"
 #include "UsreyGratings.s2s"
 #include "UsreyFixationPoint.s2s"
-#include "UsreyDAQ.s2s"
+
 
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 '
 ' Tuning Curve script START
-'
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-
-var tunAlwaysLooking% := 1; ' If set eye signals ignored - subject presumed to be looking always. TESTING ONLY.
-
-var tunFixationDuration := 2.0;	' Time required to hold fixation for reward (stim ON) - this is the stimulus duration
-var tunUseMaintainMode% := 1;  ' If 1, maintain fixation point on screen through stimuli, if zero, force "restart" on each stimulus
-var tunMaintainFixation := 2.0;	' Time required to hold fixation for reward (stim OFF)
-var tunAcquisitionTime := 1.0;		' Time allowed to acquire fixation
-var tunBackgroundColor$ := "gray";	' background color for stim
-var tunAcqFailTime := 2.0;			' Wait time after acquisition failure
-var tunHoldFailTime := 2.0;			' Wait time after failure to hold fixation (not on the first time after acquisition)
-var tunMaintainFailTime := 2.0;	' Wait time after breaking fixation during maintain phase
-var tunTimeOutTime := 2.0;			' Wait time after failure to hold fixation (first time after acquisition)
-var tunDoRivalry% := 0;          ' If checked, run for the rivalry rig
-var tunDoF12% := 1;                 ' compute f1 and f2. 
-var tunSetStationary% := 0;         'do stationary?
-var tunXHairText$;                  'holds whether crosshairs are on or off
-var updateXHairText%;             'Gets the item number of a DlgText object for update
-
-
-
-' These will be set by the tuning curve choice
-var tunNAdvances%;		' Number of times stim will advance during one repeat
-var tunNRepeats%;		' Number of repeats
-
-' This vector will hold the actual values to step through. Some are log steps, some are not. 
-' The Indices array is the order to step through the values with: tunValues[tunValuesIndices%[0]], tunValues[tunValuesIndices%[1]], ...
-' djs Make a constant tunMaxTrials to set the max number of trials. Arrays etc should be declared with this const. See below and
-' tunF1Sum, tunF2Sum. 
-const tunMaxTrials% := 1000;
-var tunValues[tunMaxTrials%];
-var tunValuesIndices%[tunMaxTrials%]; 
-var tunNValues%;
-var tunValuesStringified$;
-
-
-const tundlgXHairButton% := 8;
-const tundlgOrientationButton% := 9;
-const tundlgContrastButton% := 10;
-const tundlgSpatialButton% := 11;
-const tundlgTemporalButton% := 12;
-const tundlgAreaButton% := 13;
-const tundlgDonutButton% := 14;
-const tundlgBerlinerButton% := 15;
-
-' Wavemarks and continuous ports are specified elsewhere
-var tunNWavemarks% := 0;
-var tunWavemarkPorts%[16];
-var tunNContinuous% := 0;
-var tunContinuousPorts%[16];
-
-' Hold sum of F1 values. Each channel (up to 16) has values saved according to the index of the tuning value
-' Rely on the fact that arrays are initialized with 0s in Spike2. 
-var tunF1Sum[16][tunMaxTrials%];
-var tunF2Sum[16][tunMaxTrials%];
-var tunTF;              ' Will need to use this during FFT analysis. Use at your own risk....
-
-
-proc GetTuningCurveScriptParameters()
-	var key$;
-	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Tuning";
-    
-	tunFixationDuration := GetFloatRegistryValue(key$, "FixationDuration", tunFixationDuration);
-    tunUseMaintainMode% := GetIntRegistryValue%(key$, "UseMaintainMode", tunUseMaintainMode%);
-	tunMaintainFixation := GetFloatRegistryValue(key$, "MaintainFixation", tunMaintainFixation);
-    tunAcquisitionTime := GetFloatRegistryValue(key$, "AcquisitionTime", tunAcquisitionTime);
-    tunAcqFailTime := GetFloatRegistryValue(key$, "AcqFailTime", tunAcqFailTime);
-    tunHoldFailTime := GetFloatRegistryValue(key$, "HoldFailTime", tunHoldFailTime);
-    tunMaintainFailTime := GetFloatRegistryValue(key$, "MaintainFailTime", tunMaintainFailTime);
-    tunTimeOutTime := GetFloatRegistryValue(key$, "TimeOutTime", tunTimeOutTime);
-    tunBackgroundColor$ := GetStringRegistryValue$(key$, "BackgroundColor", tunBackgroundColor$);
-    tunDoRivalry% := GetIntRegistryValue%(key$, "DoRivalry", tunDoRivalry%);
-    tunUseXHairs% := GetIntRegistryValue%(key$, "UseXHairs", tunUseXHairs%);
-    tunXHairInnerRadiusOffset := GetFloatRegistryValue(key$, "XHairInnerRadiusOffset", tunXHairInnerRadiusOffset);
-    tunXHairMiddleRadiusOffset := GetFloatRegistryValue(key$, "XHairMiddleRadiusOffset", tunXHairMiddleRadiusOffset);
-    tunXHairOuterRadiusOffset := GetFloatRegistryValue(key$, "XHairOuterRadiusOffset", tunXHairOuterRadiusOffset);
-    tunXHairTicInnerOffset := GetFloatRegistryValue(key$, "XHairTicInnerOffset", tunXHairTicInnerOffset);
-    tunXHairTicOuterOffset := GetFloatRegistryValue(key$, "XHairTicOuterOffset", tunXHairTicOuterOffset);
-    tunXHairNumGridDivisions% := GetIntRegistryValue%(key$, "XHairNumGridDivisions", tunXHairNumGridDivisions%);
-
-end;
-
-proc SaveTuningCurveScriptParameters()
-	var key$;
-	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Tuning";
-    
-	SetFloatRegistryValue(key$, "FixationDuration", tunFixationDuration);
-    SetIntRegistryValue(key$, "UseMaintainMode", tunUseMaintainMode%);
-	SetFloatRegistryValue(key$, "MaintainFixation", tunMaintainFixation);
-    SetFloatRegistryValue(key$, "AcquisitionTime", tunAcquisitionTime);
-    SetFloatRegistryValue(key$, "AcqFailTime", tunAcqFailTime);
-    SetFloatRegistryValue(key$, "HoldFailTime", tunHoldFailTime);
-    SetFloatRegistryValue(key$, "MaintainFailTime", tunMaintainFailTime);
-    SetFloatRegistryValue(key$, "TimeOutTime", tunTimeOutTime);
-    SetStringRegistryValue(key$, "BackgroundColor", tunBackgroundColor$);
-    SetIntRegistryValue(key$, "DoRivalry", tunDoRivalry%);
-    SetIntRegistryValue(key$, "UseXHairs", tunUseXHairs%);
-    SetFloatRegistryValue(key$, "XHairInnerRadiusOffset", tunXHairInnerRadiusOffset);
-    SetFloatRegistryValue(key$, "XHairMiddleRadiusOffset", tunXHairMiddleRadiusOffset);
-    SetFloatRegistryValue(key$, "XHairOuterRadiusOffset", tunXHairOuterRadiusOffset);
-    SetFloatRegistryValue(key$, "XHairTicInnerOffset", tunXHairTicInnerOffset);
-    SetFloatRegistryValue(key$, "XHairTicOuterOffset", tunXHairTicOuterOffset);
-    SetIntRegistryValue(key$, "XHairNumGridDivisions", tunXHairNumGridDivisions%);
-    PrintLog("Saved DoRivalry=%d\n", tunDoRivalry%);
-end;
-
-
-' TuningCurveScriptDialog
-' This dialog uses two global variables, tunContext$ and tunType$. 
-' Set tunContext$ = tunContextConfig$ to run in the config scripts. The dialog 
-' and its children (TuningCurveOrientationDialog, etc) will behave as expected, 
-' allowing the user to set parameters and saving them in the registry. Set 
-' tunContext$ = tunContextDAQ$ to run in a DAQ script. In this context you 
-' must check the return value of the dialog and (possibly) the value of 
-' tunType$. If the user hits Cancel in the main dialog, the return value is 0. 
-' If the user selects a subdialog and hits OK, the return value will be 1 and 
-' the value of tunType$ will be one of (tunTypeOrientation$, tunTypeContrast$, 
-' tunTypeSpatial$, tunTypeTemporal$). Here, proceed directly to DAQ. If the 
-' user Hits Cancel from the subdialog, then they return to the main dialog. If 
-' they hit OK from the main dialog, then the return value is 1, but 
-' tunType$ = tunTypeNone$. 
-
-
-func TuningCurveScriptDialog%()
-	var i%;
-	var iReturn%;
-    var tempParam$;
-    var tempPhase;
-    var boxOK% := 1;  'do the stimulus/crosshairs boxes overlap?
-	GetTuningCurveScriptParameters();
-	var bcl$[3];
-	var ibcl%:=0;
-	bcl$[0] := "gray";
-	bcl$[1] := "black";
-	bcl$[2] := "white";
-	for i%:=0 to 2 do
-		if tunBackgroundColor$ = bcl$[i%] then
-			ibcl% := i%;
-		endif
-	next;
-    
-    docase 
-    case tunUseXHairs% = 0 then
-        tunXHairText$ := "Crosshairs are OFF";
-    case tunUseXHairs% = 1 then
-        tunXHairText$ := "Crosshairs are ON";
-    endcase
-    
-    'Updated dialog box - more efficient use of space, neater
-    DlgCreate("Tuning Curve Parameters", 0, 0, 0, 0, -1, 1, 1);  'center dialog relative to screen and not to application window to eliminate cutting off the bottom of the dialog!
-	DlgGroup("Common Parameters", 0, 1, 45, 10);
-	DlgReal(1, "Acquisition time(s):", 1, 1000, 20, 2);
-	DlgReal(2, "Fixation duration(s):", .1, 10, 20, 3);
-	DlgReal(3, "Maintain fixation(s):", .1, 10, 20, 4);
-	DlgReal(4, "Acquisition fail time(s):", .01, 10, 20, 5);
-	DlgReal(5, "Hold fixation failure time(s):", .01, 10, 20, 6);
-	DlgReal(6, "Maintain fixation fail time(s):", .01, 10, 20, 7);
-	DlgReal(7, "Time out time(s):", .01, 10, 20, 8);
-	DlgList(8, "Background color:", bcl$, 3, 20, 9);
-    if JuicerType% = 1 then
-        DlgInteger(9, "Juicer open dur. (ms):", 1, 2000, 20, 10);
-    else  'JuicerResult should only be 2, other values should not allow access to dialog box
-        DlgInteger(9, "Num. juicer pulses:", 1, 20, 20, 10);
-    endif;   
-    'juicer duration / n repeats dialog here?  Have to write values to DAQ parameters if changed, disable if not correct for juicer? 
-    DlgCheck(10, "Use Dual VSG", 2, 12);
-    DlgCheck(11, "Maintain Fixpt between trials", 2, 13);
-    DlgCheck(12, "Stationary",2,14);
-    DlgButton(tundlgXHairButton%, " Crosshairs  ", UpdateTuningXHairDialog%, 1, 15);
-    updateXHairText% := DlgText(tunXHairText$, 15, 15);
-	DlgGroup("Individual Tuning Curve Types", 0, 17, 45, 4);
-	DlgButton(tundlgOrientationButton%, " Orientation  ", TuningCurveOrientationDialog%, 1, 18); 'Note that labels for Orientation-Area are superceded 
-	DlgButton(tundlgContrastButton%, "     Contrast     ", TuningCurveContrastDialog%, 17, 18);  'by TuningCurveScriptDialogChanged% even upon opening 
-	DlgButton(tundlgSpatialButton%, "Spatial Freq", TuningCurveSpatialDialog%, 1, 19);           'the dialog (i.e. whatever label is here is unused)
-	DlgButton(tundlgTemporalButton%, "Temporal Freq", TuningCurveTemporalDialog%, 17, 19);
-	DlgButton(tundlgAreaButton%, "Area", TuningCurveAreaDialog%, 35, 18);
-	DlgButton(tundlgDonutButton%, "   Donuts!   ", TuningCurveDonutDialog%, 1, 20);
-    DlgButton(tundlgBerlinerButton%, "    Berliners!    ", TuningCurveBerlinerDialog%, 17, 20);
-    DlgAllow(0xffff, 0, TuningCurveScriptDialogChanged%);
-	
-    if JuicerType% = 1 then
-        i%:=DlgShow(tunAcquisitionTime, tunFixationDuration, tunMaintainFixation,
-        tunAcqFailTime, tunHoldFailTime, tunMaintainFailTime, tunTimeOutTime, ibcl%, JuiceRewardMS%, tunDoRivalry%, 
-        tunUseMaintainMode%, tunSetStationary%);
-    else
-        i%:=DlgShow(tunAcquisitionTime, tunFixationDuration, tunMaintainFixation,
-        tunAcqFailTime, tunHoldFailTime, tunMaintainFailTime, tunTimeOutTime, ibcl%, JuicePerReward%, tunDoRivalry%, 
-        tunUseMaintainMode%, tunSetStationary%);
-    endif;
-    
-    
-    ' djs 4-1-09
-    ' Spike2 v6 change. DlgShow will return the button number when a button on the dialog is hit and the corresponding
-    ' function returns 0. In this case those buttons open the various tuning type sub dialogs (orientation, area, etc). 
-    ' In the last version, DlgShow would return the same value that the subdialog's function returned, and the code here
-    ' was set up to behave accordingly. When the user hits the Cancel button in the subdialog everything still remains
-    ' the same. 
-    
-    ' djs 2-4-2011
-    ' Spike2v6 bug (see TuningDialogs.s2s) workaround requires that the tuning type dialogs return something > 0. 
-    ' That will mean that closing any of those dialogs will not cause the main dialog (this one) to close automatically. 
-    ' When it did close automatically the return value from DlgShow above was the same as the button that caused
-    ' the close. Now, that button is NOT causing the close, so the return value is going to be 1 (not the button number). 
-    ' In addition, the return value from this function needs to change because we now assume that the user will have
-    ' to hit OK on this dialog to start the experiment. Thus, make sure that the return value from this function is 1
-    ' when user hits OK and 0 when user hits Cancel. Also, do not save script parameters when user hits Cancel.
-    
-    'PrintLog("Tuning Curve Parameters Dialog - return from DlgShow is %d\n", i%);
-    '	if i%=tundlgOrientationButton% or i%=tundlgContrastButton% or i%=tundlgSpatialButton% or i%=tundlgTemporalButton% or i%=tundlgAreaButton% then
-    if i% = 1 then
-		tunBackgroundColor$ := bcl$[ibcl%];
-		SaveTuningCurveScriptParameters();
-        SaveDAQParameters();  'Now saving DAQ parameters because juicer variables can change
-		if tunContext$ = tunContextDAQ$ then 
-            iReturn% := 1;
-		else iReturn% := 1;
-		endif;
-        
-        'check to make sure that the box for the crosshairs and stimuli do not overlap
-        'this would work if it only got the maximum value of the size of the stimuli
-        if tunUseXHairs% = 1 and (tunType$ = tunTypeBerliner$ or tunType$ = tunTypeDonut$) then
-            tempParam$ := GetGratingParameters$("Stimulus");
-            boxOK% := CheckXHairStimulusBox(tempParam$,tunXHairOuterRadiusOffset,tunMaximalDiam);
-            if boxOK% = 0 then
-                boxOK% := Query("The stimulus will overlap the crosshairs!","Continue","Quit");
-            endif;           
-            if boxOK% = 1 then
-                tempParam$ := GetGratingParameters$("SlaveStimulus");
-                boxOK% := CheckXHairStimulusBox(tempParam$,tunXHairOuterRadiusOffset,tunSlaveMaximalDiam);
-                if boxOK% = 0 then
-                    boxOK% := Query("The slave stimulus will overlap the crosshairs!","Continue","Quit");
-                endif;
-            endif;
-            if boxOK% = 0 then
-                iReturn% := 0;  'quit if user requested quit
-            endif;
-        endif;  
-        
-	endif;
-	if i% = 0 then
-		'PrintLog("Tuning Curve Parameters dialog - user hit Cancel, tunType=" + tunType$ + "\n");
-		if tunContext$ = tunContextDAQ$ then 
-			if tunType$ <> tunTypeNone$ then 
-				iReturn% := 0;
-				'SaveTuningCurveScriptParameters();
-			else iReturn% := 0;
-		 	endif;
-		else
-			iReturn% := 2;		' The calling/main dialog would close if we returned 0
-		endif;
-	endif;
-	return iReturn%;
-end;
-
-
-
-func TuningCurveScriptDialogChanged%(item%) 
-    if DlgValue(10) = 0 then  'If single VSG, do not allow Donuts or Berliners
-        DlgEnable(0,-tundlgDonutButton%,-tundlgBerlinerButton%);
-        'Also, change labels on buttons to reflect the monocular aspect of not using dual VSG
-        DlgValue$(-tundlgOrientationButton%, " Orientation  ");
-        DlgValue$(-tundlgContrastButton%, "     Contrast     ");
-        DlgValue$(-tundlgSpatialButton%, "Spatial Freq");
-        DlgValue$(-tundlgTemporalButton%, "Temporal Freq");
-        DlgValue$(-tundlgAreaButton%, "Area");
-    endif;
-    if DlgValue(10) = 1 then  'If dual VSG, allow donuts and Berliners
-        DlgEnable(1,-tundlgDonutButton%,-tundlgBerlinerButton%);
-        'Also, change labels on buttons to reflect the binocular aspect of using dual VSG
-        DlgValue$(-tundlgOrientationButton%, " D Orientation ");
-        DlgValue$(-tundlgContrastButton%, "    D Contrast    ");
-        DlgValue$(-tundlgSpatialButton%, "D Spatial Freq");
-        DlgValue$(-tundlgTemporalButton%, "D Temporal Freq");
-        DlgValue$(-tundlgAreaButton%, "D Area");
-    endif;
-    return 1;
-end
-
-
-
-
-func UpdateTuningXHairDialog%()
-    
-    'Run the tuning crosshairs dialog  
-    TuningXHairDialog%();  
-    
-    'When done with the tuning crosshairs dialog, update tunXHairText$ and update the main dialog
-    docase 
-    case tunUseXHairs% = 0 then
-        tunXHairText$ := "Crosshairs are OFF";
-    case tunUseXHairs% = 1 then
-        tunXHairText$ := "Crosshairs are ON";
-    endcase
-    
-    DlgValue$(updateXHairText%, tunXHairText$);
-    
-    return 1;
-end
-
-
-
-
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-'
-' Tuning Curve script END
 '
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
@@ -365,6 +60,49 @@ var windowX[36], windowY[36];
 
 ' dummy vars
 var iScript%;
+
+
+var tNow:=0;		' latest time for which there are values recorded. Used in IdleProcessing
+var tLast:=-1;		' last time we checked for a trigger. 
+var xEye, yEye;		' eye positions
+var tLastUpdate:=-1;	' last time view was updated
+var vTrigger;		' set by NextTime to indicate trigger transition
+var tStateStart:=-1;	' time that present state started. Used to measure wait time, fixation time, etc. 
+var tLastTrigger:=-1;	' last trigger time. New triggers have to be greater than this
+var tTrigger:=-1;	' temp var for newly discovered trigger times
+var tStimOn:=-1;	' time that stim was turned on. Used to measure spike rates 
+var tStimSequence := -1;    ' time that stim sequence started; followed by pulses on frame channels
+var tInterTrialTime := 0;	' Time spent waiting between trials (i.e. after screen is blank, but before fix point is presented)
+var iHoldCount% := 0;	' Counter of how many times we progress through the hold fixation state in the maintainence loop. Used to decide if "time out" is required. 
+var tRise, tFall;
+var tKludge := 0.06;    ' Add to Fixation time to account for stim sequence. Ugly hack, admittedly, but one does what one must. 
+
+' Constants for states
+const stateStartTrial%:=0;		' Start trial state
+const stateWaitForFixPtOn%:=1;		' Waiting for fixation point return trigger (on)
+const stateWaitForBlank%:=2;		' Waiting for fixation point return trigger (off)
+const stateWaitForStimOn%:=3;		' Wait for stimulus return trigger (on)
+const stateWaitForStimOff%:=4;		' Wait for stimulus return trigger (off)
+const stateWaitForAcquisition%:=5;	' Waiting for subject to acquire fixation point
+const stateHoldFixation%:=6;		' Holding fixation point
+const stateAbort%:=7;			' Failed trial state
+const stateMaintainFixation%:=8;	' Maintaining fixation (stim off period)
+const stateInterTrialInterval%:=9;	' time out after failed trial
+const stateVSGWait%:=10;		' wait for vsg to send ready signal #1
+const stateVSGWaitConfirm%:=11;		' waif for vsg to send ready signal #2
+const stateTrialCompleted%:=12;		' trial has been completed successfully
+const stateDone%:=13;	
+const stateWaitForStimTrigger% := 14; ' Rising edge indicating start of stim sequence
+var iState% := stateVSGWait%;	' present state
+
+var nTrialsStarted%:=0;
+var nTrialsCompleted%:=0;
+var nTrialsAborted% :=0;		' 
+
+var tic;  'Set a tick value equal to the duration of one clock tick in seconds, used to prevent finding
+          'the same "pulse" twice
+var pulseFound%;
+
 
 ' Init logging
 LogInit(1);
@@ -425,104 +163,28 @@ CreateSampleConfiguration();
 ' Get display windows ready
 InitializeWindows();
 
+tic := View(DataWindow%).BinSize(ReadyChannel%);
+
 ' Prepare the toolbar buttons
 InitializeToolbar();
 
 
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 '
-' InitilizeToolbar - prepare toolbar buttons. Note that the idle processing function (ToolbarSet(0, blah, blah)) is 
-' not set here. That's done when the user hits the start button.
+' Tuning Curve script END
 '
-proc InitializeToolbar()
-
-	View(App(8)).WindowVisible(0);	'Hide the standard sample bar
-	ToolbarVisible(1);
-	ToolbarSet(1,"Sample start",Start%);
-	ToolbarSet(2,"Sample stop", Stop%);
-	ToolbarSet(3,"Juice", Juice%);
-	ToolbarSet(4,"Pause stimuli",PauseStimuli%);
-	ToolbarSet(5,"Resume stimuli",ResumeStimuli%);
-'	ToolbarSet(6,"Exp Parameters",AttentionScriptDialog%);
-	ToolbarSet(7,"Quit",Quit%);
-	ToolbarEnable(2,0);
-	ToolbarEnable(4,0);
-	ToolbarEnable(5,0);
-	Toolbar("Go",0x3ff);
-
-end;
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
 
-
-
-''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-func Looking%(EyePosX,EyePosY)
-	'Determine if the eye position is within the fixation window
-    if tunAlwaysLooking% = 1 then return 1; endif;
-	if (Pow(EyePosX-FixationX,2) + Pow(EyePosY-FixationY,2)) <= Pow(WindowRadius,2) then return 1; else return 0; endif
-end;
-
-''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-func Juice%()  'note that this function is unused within Tuning, not sure if it's used elsewhere
-    if JuicerType% = 1 then  'open-high juicer, dispense based on ms
-        DeliverReward();
-    else
-        if JuicerType% = 2 then  'open-low juicer, dispense based on number of hits
-            DeliverRewardNumber();
-        endif;
-    endif;
-    return 1;
-end;
-
-''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-
-
-
-var tNow:=0;		' latest time for which there are values recorded. Used in IdleProcessing
-var tLast:=-1;		' last time we checked for a trigger. 
-var xEye, yEye;		' eye positions
-var tLastUpdate:=-1;	' last time view was updated
-var vTrigger;		' set by NextTime to indicate trigger transition
-var tStateStart:=-1;	' time that present state started. Used to measure wait time, fixation time, etc. 
-var tLastTrigger:=-1;	' last trigger time. New triggers have to be greater than this
-var tTrigger:=-1;	' temp var for newly discovered trigger times
-var tStimOn:=-1;	' time that stim was turned on. Used to measure spike rates 
-var tStimSequence := -1;    ' time that stim sequence started; followed by pulses on frame channels
-var tInterTrialTime := 0;	' Time spent waiting between trials (i.e. after screen is blank, but before fix point is presented)
-var iHoldCount% := 0;	' Counter of how many times we progress through the hold fixation state in the maintainence loop. Used to decide if "time out" is required. 
-var tRise, tFall;
-var tKludge := 0.06;    ' Add to Fixation time to account for stim sequence. Ugly hack, admittedly, but one does what one must. 
-
-' Constants for states
-const stateStartTrial%:=0;		' Start trial state
-const stateWaitForFixPtOn%:=1;		' Waiting for fixation point return trigger (on)
-const stateWaitForBlank%:=2;		' Waiting for fixation point return trigger (off)
-const stateWaitForStimOn%:=3;		' Wait for stimulus return trigger (on)
-const stateWaitForStimOff%:=4;		' Wait for stimulus return trigger (off)
-const stateWaitForAcquisition%:=5;	' Waiting for subject to acquire fixation point
-const stateHoldFixation%:=6;		' Holding fixation point
-const stateAbort%:=7;			' Failed trial state
-const stateMaintainFixation%:=8;	' Maintaining fixation (stim off period)
-const stateInterTrialInterval%:=9;	' time out after failed trial
-const stateVSGWait%:=10;		' wait for vsg to send ready signal #1
-const stateVSGWaitConfirm%:=11;		' waif for vsg to send ready signal #2
-const stateTrialCompleted%:=12;		' trial has been completed successfully
-const stateDone%:=13;	
-const stateWaitForStimTrigger% := 14; ' Rising edge indicating start of stim sequence
-var iState% := stateVSGWait%;	' present state
-
-var nTrialsStarted%:=0;
-var nTrialsCompleted%:=0;
-var nTrialsAborted% :=0;		' 
-
-var tic;  'Set a tick value equal to the duration of one clock tick in seconds, used to prevent finding
-          'the same "pulse" twice
-tic := View(DataWindow%).BinSize(ReadyChannel%);
-
-var pulseFound%;
 
 func IdleProcessing%()
 	var iStatus% := 1;	
+    var xval;
+    var yval;
+    var xind%;
+    var yind%;
+    
 	tNow := View(DataWindow%).MaxTime();
     
     ' First time through (tLast<0) just update tLast. Crosstalk on vsg dig outputs leads to erroneous
@@ -583,7 +245,13 @@ func IdleProcessing%()
         ' Waiting for eye to fall inside of fixation window
         if Looking%(xEye, yEye) = 1 then
             LogStatus("WaitForAcquisition", "Eye in fixation window; request stim");
-            SampleText("T," + str$(GetPlotXCoord(nTrialsCompleted%)));
+            if TunType$ = tunTypeBoxODonuts$ then
+                GetPlotXYCoord(nTrialsCompleted%,xval,yval,xind%,yind%);  'fill xval, yval
+                SampleText("T," + str$(xval) + ",T2," + str$(yval));  'Just a guess at what will work
+            else
+                SampleText("T," + str$(GetPlotXCoord(nTrialsCompleted%)));
+            endif;
+            
             SafeSampleKey("S");
             iHoldCount% := 0;
             ChangeStateTo(stateWaitForStimTrigger%, tNow);
@@ -674,8 +342,13 @@ func IdleProcessing%()
                 ' Reward
                 DefaultReward();
                 
-                ' Process spikes
-                PlotSpikes(tStimOn, tNow, 1, GetPlotXCoord(nTrialsCompleted%), nTrialsCompleted%);
+                ' Process Spikes
+                if TunType$ = tunTypeBoxODonuts$ then
+                    GetPlotXYCoord(nTrialsCompleted%,xval,yval,xind%,yind%);  'fill xval, yval
+                    PlotSpikes2TunCurves(tStimOn, tNow, 1, xval, yind%);
+                else
+                    PlotSpikes(tStimOn, tNow, 1, GetPlotXCoord(nTrialsCompleted%), nTrialsCompleted%);
+                endif;                
 
                 ' Now wait until stim is off
                 ChangeStateTo(stateWaitForStimOff%, tNow);
@@ -700,7 +373,7 @@ func IdleProcessing%()
         printlog("number of trials completed is %d\n",nTrialsCompleted%);
 		ToolbarText(str$(nTrialsCompleted%) + "/" + str$((tunNAdvances%+1)*tunNRepeats%) + " trials completed.");        
 		if nTrialsCompleted% = (tunNAdvances%+1)*tunNRepeats% then
-            ' We're all done
+            ' We're all done - appears to not reward on final trial.  How chintzy!
             ChangeStateTo(stateDone%, tNow);
             Stop%();
             iStatus% := 0;
@@ -735,7 +408,13 @@ func IdleProcessing%()
                     endif;
                 endif;
 
-                SampleText("T," + str$(GetPlotXCoord(nTrialsCompleted%)));
+                if TunType$ = tunTypeBoxODonuts$ then
+                    GetPlotXYCoord(nTrialsCompleted%,xval,yval,xind%,yind%);  'fill xval, yval
+                    SampleText("T," + str$(xval) + ",T2," + str$(yval));  'Just a guess at what will work
+                else
+                    SampleText("T," + str$(GetPlotXCoord(nTrialsCompleted%)));
+                endif;
+                
                 SafeSampleKey("S");
                 ChangeStateTo(stateWaitForStimTrigger%, tNow);
 
@@ -755,8 +434,64 @@ func IdleProcessing%()
 end;
 
 
-func GetPlotXCoord(nTrials%)
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+' InitializeToolbar - prepare toolbar buttons. Note that the idle processing function (ToolbarSet(0, blah, blah)) is 
+' not set here. That's done when the user hits the start button.
+'
+proc InitializeToolbar()
+
+	View(App(8)).WindowVisible(0);	'Hide the standard sample bar
+	ToolbarVisible(1);
+	ToolbarSet(1,"Sample start",Start%);
+	ToolbarSet(2,"Sample stop", Stop%);
+	ToolbarSet(3,"Juice", Juice%);
+	ToolbarSet(4,"Pause stimuli",PauseStimuli%);
+	ToolbarSet(5,"Resume stimuli",ResumeStimuli%);
+'	ToolbarSet(6,"Exp Parameters",AttentionScriptDialog%);
+	ToolbarSet(7,"Quit",Quit%);
+	ToolbarEnable(2,0);
+	ToolbarEnable(4,0);
+	ToolbarEnable(5,0);
+	Toolbar("Go",0x3ff);
+
+end;
+
+
+
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func Looking%(EyePosX,EyePosY)
+	'Determine if the eye position is within the fixation window
+    if tunAlwaysLooking% = 1 then return 1; endif;
+	if (Pow(EyePosX-FixationX,2) + Pow(EyePosY-FixationY,2)) <= Pow(WindowRadius,2) then return 1; else return 0; endif
+end;
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func Juice%()  'note that this function is only used for Toolbar-based juice delivery
+    if JuicerType% = 1 then  'open-high juicer, dispense based on ms
+        DeliverReward();
+    else
+        if JuicerType% = 2 then  'open-low juicer, dispense based on number of hits
+            DeliverRewardNumber();
+        endif;
+    endif;
+    return 1;
+end;
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+
+
+func GetPlotXCoord(nTrials%)  
     return tunValues[tunValuesIndices%[nTrials%]];
+end;
+
+func GetPlotXYCoord(nTrials%,&xval,&yval,&xind%,&yind%)  'new for Box O' Donuts
+    xval := tun1Values[tun1ValuesIndices%[nTrials%]];
+    yval := tun2Values[tun2ValuesIndices%[nTrials%]];
+    xind% := tun1ValuesIndices%[nTrials%];  'at time of writing, xind is not used (may as well put it in)
+    yind% := tun2ValuesIndices%[nTrials%];  'but yind is used in PlotSpikes2TunCurves
 end;
 
 proc PlotSpikes(t1, t2, vOnOff%, x, index%)
@@ -796,6 +531,26 @@ proc PlotSpikes(t1, t2, vOnOff%, x, index%)
         
 	next
 end;
+
+
+proc PlotSpikes2TunCurves(t1, t2, vOnOff%, x, yind%)
+	var rate;
+    var i%;
+        
+	for i% := 0 to tunNWavemarks%-1 do
+		rate := View(DataWindow%).Count(i%+1, t1, t2)/(t2-t1);
+		if rate >= 0 then
+			if vOnOff% = 1 then  'This apparently allows us to not update if we call the update function...weird...no matter, as it's hard coded to 1 in the call.
+				' this is signal
+                'PrintLog("%d Count %f\n", i%, rate*(t2-t1));
+				View(TuningWindow%[i%]).XYAddData(yind%+1, x, rate);    'will plot different-colored "lines" based on yind% (I hope), must add 1 to yind% because first chan in XYplot is 1, not 0
+			endif
+			' NOTE: IGNORING BACKGROUND HERE FOR THE TIME BEING. 
+	    endif 
+	next
+end;
+
+
 
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
@@ -947,7 +702,14 @@ proc TuningCurveLabels(iport%)
 			WindowTitle$("Aperture Area Tuning - " + s$);
 			XUnits$("Aperture Diameter");
 			ChanTitle$(1, "Chan 1");
-			XRange(tunAreaMinDiam, tunAreaMaxDiam);
+            XRange(tunAreaMinDiam, tunAreaMaxDiam);
+        
+        case tunType$ = tunTypeXPos$ then
+
+			WindowTitle$("X Position Tuning - " + s$);
+			XUnits$("X Position");
+			ChanTitle$(1, "Chan 1");
+			XRange(tunXPosMinXPos, tunXPosMaxXPos);
         
 		case tunType$ = tunTypeDonut$ then
 
@@ -963,6 +725,31 @@ proc TuningCurveLabels(iport%)
 			ChanTitle$(1, "Chan 1");
 			XRange(0,5);
         
+        case tunType$ = tunTypeBoxODonuts$ then  'this is just a label, but not sure how we proceed here
+
+            WindowTitle$("Box O' Donuts Procedure - " + s$);
+            docase
+            case tunType1$ = tunTypeContrast$ then
+                XUnits$("Contrast (%)");
+                XRange(tunContrastMinContrast, tunContrastMaxContrast);
+            case tunType1$ = tunTypeOrientation$ then
+                XUnits$("Orientation (degrees)");
+                XRange(tunOriMinOrientation, tunOriMaxOrientation);
+            case tunType1$ = tunTypeSpatial$ then
+                XUnits$("Spatial Frequency");
+                XRange(tunSpatialMinSF, tunSpatialMaxSF);
+            case tunType1$ = tunTypeTemporal$ then
+                XUnits$("Temporal Frequency");
+                XRange(tunTemporalMinTF, tunTemporalMaxTF);
+            case tunType1$ = tunTypeArea$ then
+                XUnits$("Aperture Diameter");
+                XRange(tunAreaMinDiam, tunAreaMaxDiam);
+            case tunType1$ = tunTypeXPos$ then
+                XUnits$("X Position");
+                XRange(tunXPosMinXPos, tunXPosMaxXPos);
+            endcase
+			ChanTitle$(1, "Chan 1");
+        
 		else
 
 			Message("TuningCurveLabels Error - unknown value for tunType$: " + tunType$);
@@ -973,6 +760,8 @@ end;
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 proc CreateSampleConfiguration()
 	var i%;
+    var temp1$;
+    var temp2$;
 	SampleClear(); 'Set standard sampling state
 '	SampleAutoFile(0); 'Enable automatic file naming
 	SampleAutoComment(0); 'Prompt for comment after sampling
@@ -981,12 +770,14 @@ proc CreateSampleConfiguration()
     ' Set path for new data files, and for those saved automatically
     FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 3);
     FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 1);
+    
+
     docase
         
     case tunType$ = tunTypeContrast$ then 
         SampleAutoName$(dataCellName$ + "_con_000");
-        tunNAdvances% := tunContrastNSteps%;
-        tunNRepeats% := tunContrastNRepeats%;
+        tunNAdvances% := tunContrastNSteps%;  'this...
+        tunNRepeats% := tunContrastNRepeats%; '...and this are only used in a printlog statement
         GetRepeatedParameterProgression%(tunContrastNSteps%+1, tunContrastNRepeats%, tunValues[], tunValuesIndices%[], tunContrastMinContrast, tunContrastMaxContrast, 1, tunContrastProgression%);
         tunNValues% := (tunContrastNSteps%+1)*tunContrastNRepeats%;
         tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%);
@@ -994,7 +785,7 @@ proc CreateSampleConfiguration()
         SampleAutoName$(dataCellName$ + "_ori_000");
         tunNAdvances% := tunOriNSteps%;
         tunNRepeats% := tunOriNRepeats%;
-        GetRepeatedParameterProgression%(tunOriNSteps%+1, tunOriNRepeats%, tunValues[], tunValuesIndices%[], tunOriMinOrientation, tunOriMaxOrientation, 0, tunOriProgression%);
+        GetRepeatedParameterProgression%(tunOriNSteps%+1, tunOriNRepeats%, tunValues[], tunValuesIndices%[], tunOriMinOrientation, tunOriMaxOrientation, 0, tunOriProgression%);  'Note - linear spacing for orientation, not log
         tunNValues% := (tunOriNSteps%+1)*tunOriNRepeats%;
         tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%);
     case tunType$ = tunTypeSpatial$ then 
@@ -1018,6 +809,13 @@ proc CreateSampleConfiguration()
         GetRepeatedParameterProgression%(tunAreaNSteps%+1, tunAreaNRepeats%, tunValues[], tunValuesIndices%[], tunAreaMinDiam, tunAreaMaxDiam, 1, tunAreaProgression%);
         tunNValues% := (tunAreaNSteps%+1)*tunAreaNRepeats%;
         tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%);
+    case tunType$ = tunTypeXPos$ then 
+        SampleAutoName$(dataCellName$ + "_xpos_000");
+        tunNAdvances% := tunXPosNSteps%;
+        tunNRepeats% := tunXPosNRepeats%;
+        GetRepeatedParameterProgression%(tunXPosNSteps%+1, tunXPosNRepeats%, tunValues[], tunValuesIndices%[], tunXPosMinXPos, tunXPosMaxXPos, 0, tunXPosProgression%);  'Note - linear spacing for position, not log
+        tunNValues% := (tunXPosNSteps%+1)*tunXPosNRepeats%;
+        tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%);    
     case tunType$ = tunTypeDonut$ then 
         SampleAutoName$(dataCellName$ + "_donut_000");
         tunNAdvances% := tunAreaNSteps%;
@@ -1036,14 +834,83 @@ proc CreateSampleConfiguration()
         GetRepeatedParameterProgression%(tunBerlinerNSteps%, tunBerlinerNRepeats%, tunValues[], tunValuesIndices%[], 1, tunBerlinerNSteps%, 0, tunBerlinerProgression%);
         tunNValues% := (tunBerlinerNSteps%)*tunBerlinerNRepeats%;
         tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%);
-    else
+    case tunType$ = tunTypeBoxODonuts$ then
+        
+        'here we can do a GRPP for each of the two tuning curves (using one repeat, one repeat only) to get the values
+        'then we have to randomize (or not) before stringifying
+        docase
+        case tuntype1$ = tunTypeContrast$ then
+            GetRepeatedParameterProgression%(tunContrastNSteps%+1, 1, tun1Values[], tun1ValuesIndices%[], tunContrastMinContrast, tunContrastMaxContrast, 1, 0);
+            tun1NValues% := (tunContrastNSteps%+1);
+            temp1$ := "_con";
+        case tuntype1$ = tunTypeOrientation$ then
+            GetRepeatedParameterProgression%(tunOriNSteps%+1, 1, tun1Values[], tun1ValuesIndices%[], tunOriMinOrientation, tunOriMaxOrientation, 0, 0); 
+            tun1NValues% := (tunOriNSteps%+1);    
+            temp1$ := "_ori";            
+        case tuntype1$ = tunTypeSpatial$ then
+            GetRepeatedParameterProgression%(tunSpatialNSteps%+1, 1, tun1Values[], tun1ValuesIndices%[], tunSpatialMinSF, tunSpatialMaxSF, 1, 0);
+            tun1NValues% := (tunSpatialNSteps%+1);
+            temp1$ := "_spa";
+        case tuntype1$ = tunTypeTemporal$ then
+            GetRepeatedParameterProgression%(tunTemporalNSteps%+1, 1, tun1Values[], tun1ValuesIndices%[], tunTemporalMinTF, tunTemporalMaxTF, 1, 0);
+            tun1NValues% := (tunTemporalNSteps%+1);
+            temp1$ := "_tem";
+        case tuntype1$ = tunTypeArea$ then
+            GetRepeatedParameterProgression%(tunAreaNSteps%+1, 1, tun1Values[], tun1ValuesIndices%[], tunAreaMinDiam, tunAreaMaxDiam, 1, 0);
+            tun1NValues% := (tunAreaNSteps%+1);
+            temp1$ := "_area";
+        case tuntype1$ = tunTypeXPos$ then
+            GetRepeatedParameterProgression%(tunXPosNSteps%+1, 1, tun1Values[], tun1ValuesIndices%[], tunXPosMinXPos, tunXPosMaxXPos, 1, 0);
+            tun1NValues% := (tunXPosNSteps%+1);
+            temp1$ := "_xpos";
+        endcase;
+        
+        docase
+        case tuntype2$ = tunTypeContrast$ then
+            GetRepeatedParameterProgression%(tunContrastNSteps%+1, 1, tun2Values[], tun2ValuesIndices%[], tunContrastMinContrast, tunContrastMaxContrast, 1, 0);
+            tun2NValues% := (tunContrastNSteps%+1); 
+            temp2$ := "_con";
+        case tuntype2$ = tunTypeOrientation$ then
+            GetRepeatedParameterProgression%(tunOriNSteps%+1, 1, tun2Values[], tun2ValuesIndices%[], tunOriMinOrientation, tunOriMaxOrientation, 0, 0);
+            tun2NValues% := (tunOriNSteps%+1);  
+            temp2$ := "_ori";            
+        case tuntype2$ = tunTypeSpatial$ then
+            GetRepeatedParameterProgression%(tunSpatialNSteps%+1, 1, tun2Values[], tun2ValuesIndices%[], tunSpatialMinSF, tunSpatialMaxSF, 1, 0);
+            tun2NValues% := (tunSpatialNSteps%+1);
+            temp2$ := "_spa";
+        case tuntype2$ = tunTypeTemporal$ then
+            GetRepeatedParameterProgression%(tunTemporalNSteps%+1, 1, tun2Values[], tun2ValuesIndices%[], tunTemporalMinTF, tunTemporalMaxTF, 1, 0);
+            tun2NValues% := (tunTemporalNSteps%+1);
+            temp2$ := "_tem";
+        case tuntype2$ = tunTypeArea$ then
+            GetRepeatedParameterProgression%(tunAreaNSteps%+1, 1, tun2Values[], tun2ValuesIndices%[], tunAreaMinDiam, tunAreaMaxDiam, 1, 0);
+            tun2NValues% := (tunAreaNSteps%+1);
+            temp2$ := "_area";
+        case tuntype2$ = tunTypeXPos$ then
+            GetRepeatedParameterProgression%(tunXPosNSteps%+1, 1, tun2Values[], tun2ValuesIndices%[], tunXPosMinXPos, tunXPosMaxXPos, 1, 0);
+            tun2NValues% := (tunXPosNSteps%+1);
+            temp2$ := "_xpos";
+        endcase;
+        
+        SampleAutoName$(dataCellName$ + "_boxodonuts" + temp1$ + temp2$ + "_000");        
+        
+        tunNRepeats% := tunBoxODonutsNRepeats%;   
+        tunNAdvances% := tun1NValues%*tun2NValues%-1;  'this gives the correct number of advances
+        
+        'Now we need to grid the values out into two appropriate tunValues and tunValuesIndices (the randomizer bit)
+        GridStimuli(tun1Values[],tun2Values[],tun1NValues%,tun2NValues%,tun1ValuesIndices%[],tun2ValuesIndices%[],tunBoxODonutsProgression%,tunBoxODonutsNRepeats%); 
+        
+        'StringifyProgression$ will work just fine on tun1/2Values and tun1/2ValuesIndices
+        tun1ValuesStringified$ := StringifyProgression$(tun1NValues%*tun2NValues%*tunBoxODonutsNRepeats%, tun1Values[], tun1ValuesIndices%[]);
+        tun2ValuesStringified$ := StringifyProgression$(tun1NValues%*tun2NValues%*tunBoxODonutsNRepeats%, tun2Values[], tun2ValuesIndices%[]);
+    else    
         SampleAutoName$(dataCellName$ + "_tun_000");
     endcase;
 
     SampleAutoFile(1);
     
     ' Text marks make extraction easier
-    SampleTextMark(200);
+    SampleTextMark(200);  'Channel 30 is textmark channel
     
 	'Channel recording definitions
 	SampleEvent(FixationPointChannel%,2,2,3600); 'Trigger channel, level
@@ -1184,17 +1051,19 @@ proc WriteParameterFile()
 	Print("-------------------\n\n");
 
 	var Tstimstr$;
-	var Tstimx$, Tstimy$, Tstimw$, Tstimh$, Tstimcontrast$, Tstimsf$, Tstimtf$, Tstimorientation$, Tstimphase$, Tstimcv$, Tstimp$, Tstimap$;
+	var Tstimx$, Tstimy$, Tstimw$, Tstimh$, Tstimiw$, Tstimih$, Tstimcontrast$, Tstimsf$, Tstimtf$, Tstimorientation$, Tstimphase$, Tstimcv$, Tstimp$, Tstimap$;
 	var i%;
 	var Tstepsize;
     var phase;
 	Tstimstr$ := GetGratingParameters$("Stimulus");
 	ReadSetup(",",",",",",",",",");
-	i% := ReadStr(Tstimstr$, Tstimx$, Tstimy$, Tstimw$, Tstimh$, Tstimcontrast$, Tstimsf$, Tstimtf$, Tstimorientation$, Tstimphase$, Tstimcv$, Tstimp$, Tstimap$);
+	i% := ReadStr(Tstimstr$, Tstimx$, Tstimy$, Tstimw$, Tstimh$, Tstimiw$, Tstimih$, Tstimcontrast$, Tstimsf$, Tstimtf$, Tstimorientation$, Tstimphase$, Tstimcv$, Tstimp$, Tstimap$);
 	Print("Position (x, degrees)           : %s\n", Tstimx$);
 	Print("Position (y, degrees)           : %s\n", Tstimy$);
 	Print("Width (degrees)                 : %s\n", Tstimw$);
 	Print("Height (degrees)                : %s\n", Tstimh$);
+    Print("Inner Width (degrees)           : %s\n", Tstimiw$);
+	Print("Inner Height (degrees)          : %s\n", Tstimih$);
 	Print("Color: b/w(b),lms-cone(l,m,s)   : %s\n", Tstimcv$);
     Print("Temporal frequency              : %s\n", Tstimtf$);
 	Print("Spatial frequency               : %s\n", Tstimsf$);
@@ -1250,6 +1119,13 @@ proc WriteParameterFile()
 			Print("Type:                  : Aperture Area\n");
 			Print("Min,Max,#Steps,#Repeats: %f,%f,%d,%d\n", tunAreaMinDiam, tunAreaMaxDiam, tunAreaNSteps%, tunAreaNRepeats%);
 			Print("Values: " + tunValuesStringified$ + "\n");
+            Print("\n");
+        
+        case tunType$ = tunTypeXPos$ then
+
+			Print("Type:                  : X Position\n");
+			Print("Min,Max,#Steps,#Repeats: %f,%f,%d,%d\n", tunXPosMinXPos, tunXPosMaxXPos, tunXPosNSteps%, tunXPosNRepeats%);
+			Print("Values: " + tunValuesStringified$ + "\n");
 			Print("\n");
 
 		case tunType$ = tunTypeDonut$ then
@@ -1265,16 +1141,107 @@ proc WriteParameterFile()
 			Print("Optimal,Max,#Steps,#Repeats: %f,%f,%d,%d\n", tunDonutOptimalDiam, tunBerlinerMaximalDiam, tunBerlinerNSteps%, tunBerlinerNRepeats%);
 			Print("Values: " + tunValuesStringified$ + "\n");
 			Print("\n");
+        
+        case tunType$ = tunTypeBoxODonuts$ then
 
+			Print("Type:                  : Box O' Donuts\n");
+			Print("#Repeats: %d\n", tunBoxODonutsNRepeats%);
+            Print("\n");
+            docase 
+                case tunType1$ = tunTypeContrast$ then
+            
+                Print("Type 1:                  : Contrast\n");
+                Print("Min,Max,#Steps,#Repeats: %f,%f,%d,%d\n", tunContrastMinContrast, tunContrastMaxContrast, tunContrastNSteps%, tunContrastNRepeats%);
+                Print("Values: " + tun1ValuesStringified$ + "\n");
+                Print("\n");
+            
+            
+                case tunType1$ = tunTypeOrientation$ then
+            
+                Print("Type 1:                  : Orientation\n");
+                Print("Min,Max,#Steps,#Repeats: %f,%f,%d,%d\n", tunOriMinOrientation, tunOriMaxOrientation, tunOriNSteps%, tunOriNRepeats%);
+                Print("Values: " + tun1ValuesStringified$ + "\n");
+                Print("\n");
+            
+                case tunType1$ = tunTypeSpatial$ then
+            
+                Print("Type 1:                  : Spatial Frequency\n");
+                Print("Min,Max,#Steps,#Repeats: %f,%f,%d,%d\n", tunSpatialMinSF, tunSpatialMaxSF, tunSpatialNSteps%, tunSpatialNRepeats%);
+                Print("Values: " + tun1ValuesStringified$ + "\n");
+                Print("\n");
+            
+                case tunType1$ = tunTypeTemporal$ then
+            
+                Print("Type 1:                  : Temporal Frequency\n");
+                Print("Min,Max,#Steps,#Repeats: %f,%f,%d,%d\n", tunTemporalMinTF, tunTemporalMaxTF, tunTemporalNSteps%, tunTemporalNRepeats%);
+                Print("Values: " + tun1ValuesStringified$ + "\n");
+                Print("\n");
+            
+                case tunType1$ = tunTypeArea$ then
+            
+                Print("Type 1:                  : Aperture Area\n");
+                Print("Min,Max,#Steps,#Repeats: %f,%f,%d,%d\n", tunAreaMinDiam, tunAreaMaxDiam, tunAreaNSteps%, tunAreaNRepeats%);
+                Print("Values: " + tun1ValuesStringified$ + "\n");
+                Print("\n");
+            
+                case tunType1$ = tunTypeXPos$ then
+            
+                Print("Type 1:                  : X Position\n");
+                Print("Min,Max,#Steps,#Repeats: %f,%f,%d,%d\n", tunXPosMinXPos, tunXPosMaxXPos, tunXPosNSteps%, tunXPosNRepeats%);
+                Print("Values: " + tun1ValuesStringified$ + "\n");
+                Print("\n");
+            endcase
+        
+            docase 
+                case tunType2$ = tunTypeContrast$ then
+                
+                Print("Type 2:                  : Contrast\n");
+                Print("Min,Max,#Steps,#Repeats: %f,%f,%d,%d\n", tunContrastMinContrast, tunContrastMaxContrast, tunContrastNSteps%, tunContrastNRepeats%);
+                Print("Values: " + tun2ValuesStringified$ + "\n");
+                Print("\n");
+            
+            
+                case tunType2$ = tunTypeOrientation$ then
+            
+                Print("Type 2:                  : Orientation\n");
+                Print("Min,Max,#Steps,#Repeats: %f,%f,%d,%d\n", tunOriMinOrientation, tunOriMaxOrientation, tunOriNSteps%, tunOriNRepeats%);
+                Print("Values: " + tun2ValuesStringified$ + "\n");
+                Print("\n");
+            
+                case tunType2$ = tunTypeSpatial$ then
+            
+                Print("Type 2:                  : Spatial Frequency\n");
+                Print("Min,Max,#Steps,#Repeats: %f,%f,%d,%d\n", tunSpatialMinSF, tunSpatialMaxSF, tunSpatialNSteps%, tunSpatialNRepeats%);
+                Print("Values: " + tun2ValuesStringified$ + "\n");
+                Print("\n");
+            
+                case tunType2$ = tunTypeTemporal$ then
+            
+                Print("Type 2:                  : Temporal Frequency\n");
+                Print("Min,Max,#Steps,#Repeats: %f,%f,%d,%d\n", tunTemporalMinTF, tunTemporalMaxTF, tunTemporalNSteps%, tunTemporalNRepeats%);
+                Print("Values: " + tun2ValuesStringified$ + "\n");
+                Print("\n");
+            
+                case tunType2$ = tunTypeArea$ then
+            
+                Print("Type 2:                  : Aperture Area\n");
+                Print("Min,Max,#Steps,#Repeats: %f,%f,%d,%d\n", tunAreaMinDiam, tunAreaMaxDiam, tunAreaNSteps%, tunAreaNRepeats%);
+                Print("Values: " + tun2ValuesStringified$ + "\n");
+                Print("\n");
+                
+                case tunType2$ = tunTypeXPos$ then
+            
+                Print("Type 2:                  : X Position\n");
+                Print("Min,Max,#Steps,#Repeats: %f,%f,%d,%d\n", tunXPosMinXPos, tunXPosMaxXPos, tunXPosNSteps%, tunXPosNRepeats%);
+                Print("Values: " + tun2ValuesStringified$ + "\n");
+                Print("\n");
+            endcase
+            
 		else
 
 			Print("TuningCurve Error - unknown value for tunType$: %s\n", tunType$);
 
 	endcase;
-
-
-
-
 
 	' close parfile
 	FileClose(0);
@@ -1287,11 +1254,11 @@ end;
 
 func GetStimulusTF()
     var gr$;
-    var x, y, w, h, sf, tf, ori, phase;
+    var x, y, w, h, iw, ih, sf, tf, ori, phase;
     var contrast%;
     var cv$, pattern$, aperture$;
 	gr$ := GetGratingParameters$("Stimulus");
-    ParseGratingParameters%(gr$, x, y, w, h, contrast%, sf, tf, ori, phase, cv$, pattern$, aperture$);
+    ParseGratingParameters%(gr$, x, y, w, h, iw, ih, contrast%, sf, tf, ori, phase, cv$, pattern$, aperture$);
     LogStatus("GetStimulusTF", "TF=" + str$(tf));
     return tf;
 end
@@ -1300,18 +1267,32 @@ end
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 func Start%()
 	var cmdLine$;
-	var FixationPoint$;
-	var Extras$;
-	var Tune$;
-	var Stim$:="";
-	var SlaveStim$:="";
-	var Values$;
-    var Dual$;
-    var key$;
-    var offsetFilename$;
-    var i%;
+    var Opener$;
     var ProgName$;
-    var XHairArg$;
+    var XHairArg$:="";  'Note that all variables are used to construct cmdLine$, if unused, must be empty
+    var BGColor$;
+    var Dist2Screen$;
+    var TriggerPort$;
+    var Verbose$:=" -v ";  'For now, verbose is always on
+    var RefrLock$:="";
+    var OffsetFile$:="";
+    var StimDur$:="";
+    var MGrat$:=" -s ";
+    var SGrat$:=" -s ";
+    var MGratParam$:="";
+	var SGratParam$:="";
+    var MasterIndicator$:="";  'Do not use Master Indicator
+    var SlaveIndicator$:="";  'or Slave Indicator for fixstim, set if needed
+    var KlugeArg$:=" -H ";  'this is for a Jerry-rigged "hole" in Box O' Donuts slave stimuli 
+    var MValues$:="";
+    var SValues$:="";   
+    var S2Values$:="";  'won't be used except for Box O' Donuts 
+    var KlugeValues$:="";  'this is for a Jerry-rigged "hole" in Box O' Donuts slave stimuli
+    var key$;
+    var i%;
+    
+    
+    
 	
 	SampleStart(0); 'Start sampling
 	' Set Sequencer Variable #3 based on juicer type 
@@ -1320,82 +1301,130 @@ func Start%()
     SafeSampleKey("0");
     
     
+    
+    'Begin building the command line argument
+    Opener$ := "cmd /k " + bin$;
+    
+    'Get grating parameters, do this first so we can clear the SGratParam$ if Slave monitor is unused
     if tunSetStationary% = 0 then
         ' Stimulus is always used
-        Stim$ := " -s " + GetGratingParameters$("Stimulus");
+        MGratParam$ := GetGratingParameters$("Stimulus");
         ' Slave Stimulus is not always used, but get it anyway
-        SlaveStim$ := " -s " + GetGratingParameters$("SlaveStimulus");
+        SGratParam$ := GetGratingParameters$("SlaveStimulus");
     else
         ' Stimulus is always used
-        Stim$ := " -s " + GetGratingParameters$("StatStimulus");
+        MGratParam$ := GetGratingParameters$("StatStimulus");
         ' Slave Stimulus is not always used, but get it anyway
-        SlaveStim$ := " -s " + GetGratingParameters$("StatSlaveStimulus");
-    endif;
+        SGratParam$ := GetGratingParameters$("StatSlaveStimulus");
+    endif;    
     
-    
-	Values$ := tunValuesStringified$;
-    Extras$ := " -b " + tunBackgroundColor$ + " -d " + GetDistanceToScreenMM$() + " -p 2 -v";
+    'Set rivalry options
     if tunDoRivalry% = 0 then
-        Dual$ := "";
-        ProgName$ := "\\fixstim.exe "; 
-    else
+        RefrLock$ := "";  'do not lock frame refresh
+        ProgName$ := "\\fixstim.exe "; 'set program name for one VSG
+        
+        'I don't really like doing this (in principle these should start empty and be filled if they are being
+        'used), but I'd have to do another "if tunSetStationary" statement, so this cuts down on total code
+        SGrat$ := "";  'clear Slave grating indicator, we won't use it
+        SGratParam$ := "";  'clear slave grating parameters, we won't use them
+        
+    else  'for rivalry (dualstim.exe), we need some extra commands that must be empty for a fixstim.exe call
+        RefrLock$ := " -K ";  'lock frame refresh on the two screens
+        ProgName$ := "\\dualstim.exe "; 'set program name for dual VSG
+        
         ' Fetch the offset filename
         key$ := GetRegistryKey$(1) + "\\Rivalry";
-        offsetFilename$ := GetStringRegistryValue$(GetRegistryKey$(1), "OffsetFile", "file_not_found");
-        Dual$ := " -K -r " + offsetFilename$ + " -M ";
-        ProgName$ := "\\dualstim.exe "; 
-        Extras$ := Extras$ + " -t " + Str$(tunFixationDuration) + " ";  'add stimulus duration in seconds
-    endif
+        OffsetFile$ := GetStringRegistryValue$(GetRegistryKey$(1), "OffsetFile", "file_not_found");
+        OffsetFile$ := " -r " + OffsetFile$;
+        
+        ' Fetch the stimulus duration (in dualstim, stimoff is done by counting frames because of VSG frame synching)
+        StimDur$ := " -t " + Str$(tunFixationDuration) + " ";  'add stimulus duration in seconds
+        
+        ' Set monitor indicators, required for Dualstim
+        MasterIndicator$ := " -M ";  'master monitor indicator
+        SlaveIndicator$ := " -V ";  'slave monitor indicator
+    endif;
     
-    'By default, set ProgName$ to be FIXSTIM, change this for donuts and berliners
-    'ProgName$ := "\\fixstim.exe ";    
+    'Fixation arguments are set by UsreyFixationPoint.s2s and need not be done here
     
+    'Set crosshair options, if required
+    'if tunUseXHairs% = 1 and (tunType$ = tunTypeBerliner$ or tunType$ = tunTypeDonut$) then 'Construct command line with crosshair argument, only for DUALSTIM, FIXSTIM won't do this (but now anything can be dualstim)
+    if tunUseXHairs% = 1 and (tunDoRivalry% > 0) then 'Construct command line with crosshair argument, only for DUALSTIM, FIXSTIM won't do this
+        'split XHairArg$ construction into two lines due to length
+        'Note that XHair flag has changed to "-h" (from "-X") as of 1-20-12 jj
+        XHairArg$ := " -h " + Str$(FixationX) + "," + Str$(FixationY) + "," + Str$(tunXHairInnerRadiusOffset) + "," + Str$(tunXHairMiddleRadiusOffset) + ","; 
+        XHairArg$ := XHairArg$ + Str$(tunXHairOuterRadiusOffset) + "," + Str$(tunXHairNumGridDivisions%) + "," + Str$(tunXHairTicInnerOffset) + "," + Str$(tunXHairTicOuterOffset) + " ";
+    endif;
+    
+    'Set background color
+    BGColor$ := " -b " + tunBackgroundColor$;
+    
+    'Set distance to screen
+    Dist2Screen$ := " -d " + GetDistanceToScreenMM$();
+    
+    'Set trigger port
+    TriggerPort$ := " -p 2 ";  'This one's hard-coded for now
+    
+    'Turn on verbose
+    Verbose$ := " -v ";
+     
+    'Get default tuning curve values - these may get changed!
+    MValues$ := tunValuesStringified$;  
+    
+    'Run a case statement to do tuning-curve-specific stuff, this is simple except for Donuts, etc.
 	docase 
     case tunType$ = tunTypeContrast$ then
+        TunCurveMArg$ := " -C ";
         
-        if tunDoRivalry% = 0 then
-            Tune$ := Dual$ + " -C " + Values$;
-        else
-            Tune$ := Dual$ + " -C " + Values$ + Stim$ + " -V -C " + Values$ ;
+        if tunDoRivalry% = 1 then
+            TunCurveSArg$ := " -C ";  'Set slave to run same tuning curve...
+            SValues$ := MValues$;  '...with same values as Master tuning curve
         endif;
 
     case tunType$ = tunTypeOrientation$ then
+        TunCurveMArg$ := " -O ";
 
-        'Tune$ := Dual$ + " -O " + Values$;
-        if tunDoRivalry% = 0 then
-            Tune$ := Dual$ + " -O " + Values$;
-        else
-            Tune$ := Dual$ + " -O " + Values$ + Stim$ + " -V -O " + Values$ ;
+        if tunDoRivalry% = 1 then
+            TunCurveSArg$ := " -O ";  'Set slave to run same tuning curve...
+            SValues$ := MValues$;  '...with same values as Master tuning curve
         endif;
 
     case tunType$ = tunTypeSpatial$ then
+        TunCurveMArg$ := " -S ";
 
-        'Tune$ := Dual$ + " -S " + Values$;
-        if tunDoRivalry% = 0 then
-            Tune$ := Dual$ + " -S " + Values$;
-        else
-            Tune$ := Dual$ + " -S " + Values$ + Stim$ + " -V -S " + Values$ ;
+        if tunDoRivalry% = 1 then
+            TunCurveSArg$ := " -S ";  'Set slave to run same tuning curve...
+            SValues$ := MValues$;  '...with same values as Master tuning curve
         endif;
 
     case tunType$ = tunTypeTemporal$ then
+        TunCurveMArg$ := " -T ";
 
-        'Tune$ := Dual$ + " -T " + Values$;
-        if tunDoRivalry% = 0 then
-            Tune$ := Dual$ + " -T " + Values$;
-        else
-            Tune$ := Dual$ + " -T " + Values$ + Stim$ + " -V -T " + Values$ ;
+        if tunDoRivalry% = 1 then
+            TunCurveSArg$ := " -T ";  'Set slave to run same tuning curve...
+            SValues$ := MValues$;  '...with same values as Master tuning curve
         endif;
 
     case tunType$ = tunTypeArea$ then
+        TunCurveMArg$ := " -A ";
+
+        if tunDoRivalry% = 1 then
+            TunCurveSArg$ :="  -A ";  'Set slave to run same tuning curve...
+            SValues$ := MValues$;  '...with same values as Master tuning curve
+        endif;
         
-        'Tune$ := Dual$ + " -A " + Values$;
-        if tunDoRivalry% = 0 then
-            Tune$ := Dual$ + " -A " + Values$;
-        else
-            Tune$ := Dual$ + " -A " + Values$ + Stim$ + " -V -A " + Values$ ;
+    case tunType$ = tunTypeXPos$ then
+        TunCurveMArg$ := " -X ";
+
+        if tunDoRivalry% = 1 then
+            TunCurveSArg$ :="  -X ";  'Set slave to run same tuning curve...
+            SValues$ := MValues$;  '...with same values as Master tuning curve
         endif;
         
     case tunType$ = tunTypeDonut$ then
+        
+        TunCurveMArg$ := " -A ";  'Donuts do area on Master
+        TunCurveSArg$ := " -H ";  'And "hole" stimuli on Slave
         
         ' The args for the stim must be constructed here. 
         var areaArg$, donutArg$;
@@ -1410,13 +1439,15 @@ func Start%()
         next
         areaArg$ := Left$(areaArg$, Len(areaArg$)-1);
         donutArg$ := Left$(donutArg$, Len(donutArg$)-1);
-        'PrintLog("areaArg: %s\n", areaArg$);
-        'PrintLog("donutArg: %s\n", donutArg$);
-        Tune$ := Dual$ + " -A " + areaArg$ + SlaveStim$ + " -V -H " + donutArg$;  'Added slave stim specs
-        'ProgName$ := "\\dualstim.exe ";  'Dual screen scenarios call a different program
-        'Extras$ := Extras$ + " -t " + Str$(tunFixationDuration) + " ";  'add stimulus duration in seconds
+        
+        'Now put the constructed stim sets into standard variables
+        MValues$ := areaArg$;
+        SValues$ := donutArg$;
         
     case tunType$ = tunTypeBerliner$ then
+        
+        TunCurveMArg$ := " -A ";  'Donuts do area on Master
+        TunCurveSArg$ := " -H ";  'And "hole" stimuli on Slave
         
         ' The args for the stim must be constructed here. 
         var areaArgBerliner$, donutArgBerliner$; 
@@ -1447,12 +1478,28 @@ func Start%()
         next
         areaArgBerliner$ := Left$(areaArgBerliner$, Len(areaArgBerliner$)-1);
         donutArgBerliner$ := Left$(donutArgBerliner$, Len(donutArgBerliner$)-1);
-        'PrintLog("areaArg: %s\n", areaArg$);
-        'PrintLog("donutArg: %s\n", donutArg$);
-        'Insert slave stimulus into Tune$, right now just for Berliners, but could be done for donuts
-        Tune$ := Dual$ + " -A " + areaArgBerliner$ + SlaveStim$ + " -V -H " + donutArgBerliner$;   
-        'ProgName$ := "\\dualstim.exe ";  'Dual screen scenarios call a different program
-        'Extras$ := Extras$ + " -t " + Str$(tunFixationDuration) + " ";  'add stimulus duration in seconds
+        
+        'Now put the constructed stim sets into standard variables
+        MValues$ := areaArgBerliner$;
+        SValues$ := donutArgBerliner$;   
+        
+    case tunType$ = tunTypeBoxODonuts$ then
+        'Set slave values, do this first because master values may be set to slave values
+        TunCurveSArg$ := " -" + TunType1$ + " ";
+        TunCurveS2Arg$ := " -" + TunType2$ + " ";
+        SValues$ := tun1ValuesStringified$;
+        S2Values$ := tun2ValuesStringified$;
+        
+        'Set master values, based on whether the master should vary with TunCurve1 on slave or not
+        if tunMasterFollowsCurve1% = 0 then        
+            MGrat$ := " -g ";  'Change master grating variable to -g because it doesn't change
+            TunCurveMArg$ := "";  'clear the tuning curve argument
+            MValues$ := "";  'clear the tuning curve values
+        else
+            'Do not change master grating variable to -G
+            TunCurveMArg$ := TunCurveSArg$;  'Set master tuning curve argument same as slave 1
+            MValues$ := SValues$;  'Set master tuning curve values same as slave 1
+        endif;        
         
     else
 
@@ -1461,20 +1508,35 @@ func Start%()
 
 	endcase;
 	
-    if tunUseXHairs% = 1 and (tunType$ = tunTypeBerliner$ or tunType$ = tunTypeDonut$) then 'Construct command line with crosshair argument, only for DUALSTIM, FIXSTIM won't do this
-        'split XHairArg$ construction into two lines due to length
-        XHairArg$ := " -X " + Str$(FixationX) + "," + Str$(FixationY) + "," + Str$(tunXHairInnerRadiusOffset) + "," + Str$(tunXHairMiddleRadiusOffset) + ","; 
-        XHairArg$ := XHairArg$ + Str$(tunXHairOuterRadiusOffset) + "," + Str$(tunXHairNumGridDivisions%) + "," + Str$(tunXHairTicInnerOffset) + "," + Str$(tunXHairTicOuterOffset) + " ";
-        cmdLine$ := "cmd /k " + bin$ + ProgName$ + FixationArg$ + XHairArg$ + Extras$ + Stim$ + Tune$;
-    else  'Construct command line without crosshair argument
-        cmdLine$ := "cmd /k " + bin$ + ProgName$ + FixationArg$ + Extras$ + Stim$ + Tune$;
+
+    'Build command line, any values that are unnecessary will be empty, so the build should work no matter what type of command line is required
+    cmdLine$ := Opener$ + ProgName$ + FixationArg$ + XHairArg$ + BGColor$ + Dist2Screen$ + TriggerPort$ + Verbose$; 'prelim stuff
+    cmdLine$ := cmdLine$ + RefrLock$ + OffsetFile$ + StimDur$;  'Dual VSG stuff
+    cmdLine$ := cmdLine$ + MGrat$ + MGratParam$ + MasterIndicator$ + TunCurveMArg$ + MValues$;  'Master grating stuff
+    cmdLine$ := cmdLine$ + SGrat$ + SGratParam$ + SlaveIndicator$ + TunCurveSArg$ + SValues$;  'Slave grating stuff
+    cmdLine$ := cmdLine$ + TunCurveS2Arg$ + S2Values$;  'Second slave parameters (for Box O' Donuts, more possible)
+    'Note that building with empty defaults means if we don't fill something (e.g. DualInd$ for fixstim) all is OK
+'    if tunUseHoleKluge% = 1 then
+'        cmdLine$ := cmdLine$ + KlugeArg$ + KlugeValues$;
+'    endif;
+    
+    
+    
+    ' Record initial text marks. The command line may need to be broken into pieces.
+    if tunType$ = tunTypeBoxODonuts$ then    
+        if tunUseMaintainMode% = 1 then  'if fixation point stays on, extraction is version 6
+            SampleText("Tuning,6," + str$(Len(cmdLine$)));
+        else 'value is 0, fixation point goes off, extraction is version 7
+            SampleText("Tuning,7," + str$(Len(cmdLine$)));
+        endif;
+    else
+        if tunUseMaintainMode% = 1 then  'if fixation point stays on, extraction is version 2
+            SampleText("Tuning,2," + str$(Len(cmdLine$)));
+        else 'value is 0, fixation point goes off, extraction is version 3
+            SampleText("Tuning,3," + str$(Len(cmdLine$)));
+        endif;
     endif;
-    ' Record initial text marks. The command line may need to be broken into pieces. 
-    if tunUseMaintainMode% = 1 then  'if fixation point stays on, extraction is version 2
-        SampleText("Tuning,2," + str$(Len(cmdLine$)));
-    else 'value is 0, fixation point goes off, extraction is version 3
-        SampleText("Tuning,3," + str$(Len(cmdLine$)));
-    endif;
+    
     SampleText(tunCVSID$);
     for i% := 1 to Len(cmdLine$) step 100 do
         SampleText(Mid$(cmdLine$, i%, 100));
@@ -1564,38 +1626,4 @@ Func StringifyProgression$(n%, vec[], ind%[])
 end;
 
 
-
-
-
-'----- Check to make sure the stimulus and crosshair rectangles do not overlap
-Func CheckXHairStimulusBox(gr$,maxRadius,maxDiam);
-    var x;
-    var y;
-    var w;
-    var h;
-    var contrast%;
-    var sf;
-    var tf;
-    var ori;
-    var phase;
-    var cv$;
-    var pattern$;
-    var aperture$;
-    var xencroach;
-    var yencroach;
-    
-    ParseGratingParameters%(gr$, x, y, w, h, contrast%, sf, tf, ori, phase, cv$, pattern$, aperture$);
-    xencroach := Abs(x) - w/2;
-    yencroach := Abs(y) - h/2;
-    if maxDiam > 0 then
-        xencroach := Abs(x) - maxDiam/2;
-        yencroach := Abs(y) - maxDiam/2;
-    endif;
-    if xencroach < maxRadius and yencroach < maxRadius then
-        return 0;  'rectangles will overlap
-    else
-        return 1;  'rectangles will not overlap
-    endif;
-       
-end
 
