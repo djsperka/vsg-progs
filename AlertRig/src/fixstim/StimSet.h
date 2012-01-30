@@ -231,7 +231,7 @@ private:
 class CBarStimSet: public StimSet
 {
 public:
-	CBarStimSet(COLOR_TYPE& c, double w, double h, double dps, std::vector<double> parameters) : StimSet(), m_barWidth(w), m_barHeight(h), m_degreesPerSecond(dps), m_orientations(parameters) {	m_iterator = m_orientations.begin(); m_rect.color = c; };
+	CBarStimSet(COLOR_TYPE& c, double w, double h, double dps, std::vector<double> parameters) : StimSet(), m_barWidth(w), m_barHeight(h), m_degreesPerSecond(dps), m_orientations(parameters), m_barOffsetXPixels(1024), m_barOffsetYPixels(512), m_barMaxWidthKludge(1.2) {	m_iterator = m_orientations.begin(); m_rect.color = c; };
 	virtual int num_pages() {return 2;};
 	virtual int num_overlay_pages() {return 0;};
 	virtual int init(ARvsg& vsg, std::vector<int> pages);
@@ -246,8 +246,14 @@ private:
 	int m_pageStim;
 	double m_barWidth;	// degrees
 	double m_barHeight;	// degrees
+	double m_barMaxWidthKludge;	// max bar width is diagonal times this, but why isn't diagonal big enough?
 	double m_degreesPerSecond;	// um, degrees per second
+	double m_barOffsetXPixels;		// drawing offset for bar in pixels
+	double m_barOffsetYPixels;
+	double m_barOffsetXDegrees;		// drawing offset for bar in degrees
+	double m_barOffsetYDegrees;
 	ARContrastRectangleSpec m_rect;
+	ARContrastLineSpec m_perp;
 	std::vector<double> m_orientations;
 	std::vector<double>::const_iterator m_iterator;
 	double m_pixels_per_frame;

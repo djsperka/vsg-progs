@@ -229,7 +229,6 @@ int GratingStimSet::handle_trigger(std::string &s)
 	{
 		m_grating.select();
 		vsgObjResetDriftPhase();
-		//vsgObjSetSpatialPhase(get_spatial_phase());
 		m_grating.setContrast(m_contrast);
 		status = 1;
 	}
@@ -289,7 +288,6 @@ int FixptGratingStimSet::handle_trigger(std::string &s)
 		{
 			m_grating.select();
 			vsgObjResetDriftPhase();
-			//vsgObjSetSpatialPhase(get_spatial_phase());
 			m_grating.setContrast(m_contrast);
 		}
 		status = 1;
@@ -349,7 +347,6 @@ int ContrastStimSet::handle_trigger(std::string& s)
 	{
 		m_grating.select();
 		vsgObjResetDriftPhase();
-		//vsgObjSetSpatialPhase(get_spatial_phase());
 		m_grating.setContrast((int)*m_iterator);
 		status = 1;
 	}
@@ -416,7 +413,6 @@ int TFStimSet::handle_trigger(std::string& s)
 	{
 		m_grating.select();
 		vsgObjResetDriftPhase();
-		//vsgObjSetSpatialPhase(get_spatial_phase());
 		m_grating.setContrast(m_contrast);
 		m_grating.setTemporalFrequency(*m_iterator);
 		status = 1;
@@ -490,7 +486,6 @@ int SFStimSet::handle_trigger(std::string& s)
 	{
 		m_grating.select();
 		vsgObjResetDriftPhase();
-		//vsgObjSetSpatialPhase(get_spatial_phase());
 		m_grating.setContrast(m_contrast);
 		status = 1;
 	}
@@ -514,7 +509,6 @@ int SFStimSet::handle_trigger(std::string& s)
 		// Set the sf and draw the grating, then draw the fixpt. 
 		m_current_page = 1 - m_current_page;
 		vsgSetDrawPage(vsgVIDEOPAGE, m_pages[m_current_page], vsgBACKGROUND);
-		//m_grating.setContrast(0);
 		m_grating.sf = *m_iterator;
 		m_grating.draw();
 		if (m_bHaveFixpt)
@@ -572,7 +566,6 @@ int OrientationStimSet::handle_trigger(std::string& s)
 	{
 		m_grating.select();
 		vsgObjResetDriftPhase();
-		//vsgObjSetSpatialPhase(get_spatial_phase());
 		m_grating.setContrast(m_contrast);
 		status = 1;
 	}
@@ -596,12 +589,10 @@ int OrientationStimSet::handle_trigger(std::string& s)
 		// Set the sf and draw the grating, then draw the fixpt. 
 		m_current_page = 1 - m_current_page;
 		vsgSetDrawPage(vsgVIDEOPAGE, m_pages[m_current_page], vsgBACKGROUND);
-		//m_grating.setContrast(0);
 		m_grating.orientation = *m_iterator;
 		m_grating.draw();
 		if (m_bHaveFixpt)
 		{
-			//m_fixpt.setContrast(0);
 			m_fixpt.draw();
 		}
 		status = 1;
@@ -655,7 +646,6 @@ int AreaStimSet::handle_trigger(std::string& s)
 	{
 		m_grating.select();
 		vsgObjResetDriftPhase();
-		//vsgObjSetSpatialPhase(get_spatial_phase());
 		m_grating.setContrast(m_contrast);
 		status = 1;
 	}
@@ -679,23 +669,14 @@ int AreaStimSet::handle_trigger(std::string& s)
 		// Set the sf and draw the grating, then draw the fixpt. 
 		m_current_page = 1 - m_current_page;
 		vsgSetDrawPage(vsgVIDEOPAGE, m_pages[m_current_page], vsgBACKGROUND);
-		//m_grating.setContrast(0);
 		m_grating.w = m_grating.h = *m_iterator;
 		m_grating.draw();
 		if (m_bHaveFixpt)
 		{
 			m_fixpt.draw();
 		}
-		// HACK
-		//VSGPAGEDESCRIPTOR page;
-		//page._StructSize = sizeof(VSGPAGEDESCRIPTOR);
-		//vsgGetCurrentDrawPage(&page);
-		//cout << "handle a: zdp=" << vsgGetZoneDisplayPage(vsgVIDEOPAGE) << " dp=" << page.Page << endl;
 		vsgSetZoneDisplayPage(vsgVIDEOPAGE, m_pages[m_current_page]);
-		//end hack
 		status = 0;
-
-//		status = 1;
 	}
 	else if (s == "X")
 	{
@@ -754,8 +735,6 @@ int CRGStimSet::init(ARvsg& vsg, std::vector<int> pages)
 	if (m_bHaveFixpt)
 	{
 		// do not init - the fixpt was init'd above
-		// m_fixpt.init(2);
-		// m_fixpt.setContrast(0);
 		m_fixpt.select();
 		m_fixpt.draw();
 	}
@@ -811,10 +790,8 @@ int CRGStimSet::handle_trigger(std::string& s)
 	{
 		m_grating0.setContrast(-1*m_contrast);
 		m_grating0.select();
-		//vsgObjSetSpatialPhase(get_spatial_phase());
 		m_grating1.setContrast(m_contrast);
 		m_grating1.select();
-		//vsgObjSetSpatialPhase(get_spatial_phase());
 		vsgSetSynchronisedCommand(vsgSYNC_PRESENT, vsgCYCLEPAGEENABLE, 0);
 		status = 1;
 	}
@@ -843,24 +820,9 @@ int CBarStimSet::init(ARvsg& vsg, std::vector<int> pages)
 	m_pageStim = pages[1];
 	cout << "background page " << m_pageBackground << " stim " << m_pageStim << endl;
 
-#if 0
-	ARContrastRectangleSpec rect;
-	rect.x = rect.y = 0;
-	rect.w = 10;
-	rect.h = 2;
-	rect.color.type = red;
-	rect.color.color.a = 0; rect.color.color.b = rect.color.color.c = 0;
-	rect.orientation = 0;
-	rect.init(1);
-	rect.setContrast(100);
-	rect.draw();
-	vsgPresent();
-#endif
-
 	vsgSetPageWidth(2048);
 	vsgSetPen2(vsgBACKGROUND);
 	vsgSetCommand(vsgVIDEOCLEAR);
-	//vsgSetDrawPage(vsgVIDEOPAGE, m_pageBackground, vsgBACKGROUND);
 	vsgSetDrawPage(vsgVIDEOPAGE, m_pageStim, vsgBACKGROUND);
 
 	// check that bar width does not exceed maximum
@@ -869,8 +831,8 @@ int CBarStimSet::init(ARvsg& vsg, std::vector<int> pages)
 	double md;
 	w = vsgGetScreenWidthPixels();
 	h = vsgGetScreenHeightPixels();
-	m = sqrt((double)(w*w) + (double)(h*h));
-	cerr << "Max bar pixels " << m << endl;
+	m = sqrt((double)(w*w) + (double)(h*h)) * m_barMaxWidthKludge;
+	cerr << "Max bar pixels " << m << " (includes kludge factor)" << endl;
 	vsgUnitToUnit(vsgPIXELUNIT, m, vsgDEGREEUNIT, &md);
 	if (md < m_barWidth)
 	{
@@ -878,11 +840,13 @@ int CBarStimSet::init(ARvsg& vsg, std::vector<int> pages)
 		m_barWidth = md;
 	}
 
-	m_rect.x = m_rect.y = 0;
+	vsgUnitToUnit(vsgPIXELUNIT, m_barOffsetXPixels, vsgDEGREEUNIT, &m_barOffsetXDegrees);
+	vsgUnitToUnit(vsgPIXELUNIT, m_barOffsetYPixels, vsgDEGREEUNIT, &m_barOffsetYDegrees);
+	m_rect.x = m_barOffsetXDegrees;
+	m_rect.y = m_barOffsetYDegrees;
 	m_rect.w = m_barWidth;
 	m_rect.h = m_barHeight;
 	m_rect.orientation = *m_iterator;
-	//m_rect.contrast = 100;
 	m_rect.init(1);
 
 	// draw bar
@@ -902,8 +866,6 @@ int CBarStimSet::handle_trigger(std::string& s)
 	}
 	else if (s == "S")
 	{
-		//vsgSetZoneDisplayPage(vsgVIDEOPAGE, m_pageStim);
-		////vsgSetDrawPage(vsgVIDEOPAGE, m_pageStim, vsgNOCLEAR);
 		m_rect.setContrast(100);
 		vsgSetSynchronisedCommand(vsgSYNC_PRESENT, vsgCYCLEPAGEENABLE, 0);
 		status = 1;
@@ -1036,8 +998,8 @@ void CBarStimSet::prepareCycling(double ori)
 	{
 		cycle[i].Frames = 1;
 		cycle[i].Page = m_pageStim;
-		cycle[i].Xpos = (short)((stepsPerSide - i)*stepSize*uhat[0]);
-		cycle[i].Ypos = (short)((stepsPerSide - i)*stepSize*uhat[1]);
+		cycle[i].Xpos = (short)((stepsPerSide - i)*stepSize*uhat[0] + m_barOffsetXPixels);
+		cycle[i].Ypos = (short)((stepsPerSide - i)*stepSize*uhat[1] + m_barOffsetYPixels);
 		cycle[i].Stop = 0;
 	}
 
@@ -1046,8 +1008,8 @@ void CBarStimSet::prepareCycling(double ori)
 	{
 		cycle[i+stepsPerSide].Frames = 1;
 		cycle[i+stepsPerSide].Page = m_pageStim;
-		cycle[i+stepsPerSide].Xpos = -(short)(i*stepSize*uhat[0]);
-		cycle[i+stepsPerSide].Ypos = -(short)(i*stepSize*uhat[1]);
+		cycle[i+stepsPerSide].Xpos = -(short)(i*stepSize*uhat[0] - m_barOffsetXPixels);
+		cycle[i+stepsPerSide].Ypos = -(short)(i*stepSize*uhat[1] - m_barOffsetYPixels);
 		cycle[i+stepsPerSide].Stop = 0;
 	}
 
