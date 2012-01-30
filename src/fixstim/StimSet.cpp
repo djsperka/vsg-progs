@@ -832,8 +832,8 @@ int CBarStimSet::init(ARvsg& vsg, std::vector<int> pages)
 	w = vsgGetScreenWidthPixels();
 	h = vsgGetScreenHeightPixels();
 	m = sqrt((double)(w*w) + (double)(h*h)) * m_barMaxWidthKludge;
-	cerr << "Max bar pixels " << m << " (includes kludge factor)" << endl;
 	vsgUnitToUnit(vsgPIXELUNIT, m, vsgDEGREEUNIT, &md);
+	cerr << "Max bar pixels " << m << " degrees " << md << " (includes kludge factor)" << endl;
 	if (md < m_barWidth)
 	{
 		cerr << "Specified bar width (" << m_barWidth << ") too large. Reducing to max degrees (" << md << ")" << endl;
