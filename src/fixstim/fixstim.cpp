@@ -1,4 +1,4 @@
-/* $Id: fixstim.cpp,v 1.6 2012-01-27 23:29:02 devel Exp $ */
+/* $Id: fixstim.cpp,v 1.7 2012-01-30 21:45:43 devel Exp $ */
 
 #include <iostream>
 #include <fstream>
@@ -633,7 +633,6 @@ int args(int argc, char **argv)
 			{
 				vector<double> tuning_parameters;
 				vector<string> tokens;
-				int nsteps;
 				double ww, hh, dps;
 				COLOR_TYPE color;
 				s.assign(optarg);
