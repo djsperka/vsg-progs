@@ -1,5 +1,5 @@
-' $Id: AcuteTuning.s2s,v 1.10 2012-01-27 17:55:07 jeff Exp $
-const tunCVSID$ := "$Id: AcuteTuning.s2s,v 1.10 2012-01-27 17:55:07 jeff Exp $";
+' $Id: AcuteTuning.s2s,v 1.11 2012-02-01 22:35:32 devel Exp $
+const tunCVSID$ := "$Id: AcuteTuning.s2s,v 1.11 2012-02-01 22:35:32 devel Exp $";
 
 
 #include "../../Spike2Util/ChannelUtilities.s2s"
@@ -318,6 +318,7 @@ const stateTrialCompleted%:=12;		' trial has been completed successfully
 const stateDone%:=13;	
 const stateWaitForStimTrigger% := 14; ' Rising edge indicating start of stim sequence
 const stateBarPlaying%:=15;
+const stateWaitingForBarOff%:=16;
 
 var iState% := stateVSGWait%;	' present state
 
@@ -447,7 +448,7 @@ func IdleProcessing%()
         
         
     case iState% = stateBarPlaying% then
-        if View(DataWindow%).FindPulseUp%(FrameChannel%, tStateStart, tRise, tFall) = 1 then
+        if View(DataWindow%).FindPulseUp%(FrameChannel%, tStateStart, tRise, tFall) = 1 then 'find signal indicating bar is off screen
             
             'Note stimulus is off
             SampleText("+");
@@ -461,11 +462,22 @@ func IdleProcessing%()
             PlotSpikes(tStimOn, tNow, 1, GetPlotXCoord(nTrialsCompleted%), nTrialsCompleted%);
             
             'Advance
-            SafeSampleKey("a");
+            'SafeSampleKey("a");
 
             tLastTrigger := tRise;
-            ChangeStateTo(stateTrialCompleted%, tRise);
+            'ChangeStateTo(stateTrialCompleted%, tRise);
+            ChangeStateTo(stateWaitingForBarOff%, tRise);
         endif
+        
+    case iState% = stateWaitingForBarOff% then
+        if View(DataWindow%).FindPulseUp%(FrameChannel%, tStateStart, tRise, tFall) = 1 then 'find signal indicating bar stimulus has been turned off
+            
+            'Advance
+            SafeSampleKey("a");
+            
+            tLastTrigger := tRise;
+            ChangeStateTo(stateTrialCompleted%, tRise);
+        endif;
         
     case iState% = stateTrialCompleted% then
         
