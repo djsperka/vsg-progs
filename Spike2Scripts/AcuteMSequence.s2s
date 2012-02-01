@@ -1,4 +1,4 @@
-' $Id: AcuteMSequence.s2s,v 1.10 2012-01-27 22:39:33 devel Exp $
+' $Id: AcuteMSequence.s2s,v 1.11 2012-02-01 18:34:53 devel Exp $
 '
 ' AcuteMSequence.s2s
 '
@@ -246,7 +246,7 @@ proc InitializeWindows()
             View(AutoCorr%).ProcessAuto(5, 0, 1, 5);
             View(AutoCorr%).Window((i%-1)*(100/amsNWavemarks%), 0, i%*(100/amsNWavemarks%), 33);
             View(AutoCorr%).WindowVisible(1);
-            View(AutoCorr%).WindowTitle$("Channel "+str$(i%)+" AutoCorr");
+            View(AutoCorr%).WindowTitle$("Channel "+str$(amsWavemarkPorts%[i%-1]+1)+" AutoCorr");
         next
     endif
     
@@ -288,6 +288,8 @@ end;
 
 func Start%()
     var cmd$;
+    var tmp$;
+    var i%;
     
     ' Start message server
     amsHandleMsgSvr:=ProgRun(GetBinDir$(1) + "MsgSvr.exe", 0);
@@ -313,7 +315,19 @@ func Start%()
     ToolbarEnable(1,0); 
     ToolbarSet(0, "", Idle%);
     
-    ProgRun(GetBinDir$(1) + "SendMessage StartM");
+    ' djs. Modify StartM message to also include the Spike2 channel numbers. 
+    ' they will be appended to the msg like this: StartM 1 3 7
+    ' It should be possible to eliminate the need to run MultiRealTimeM with an argument (number of channels), 
+    ' since the StartM will effectively have that info. 
+    tmp$ := "";
+    if amsNWavemarks% > 0 then
+        for i% := 0 to amsNWavemarks%-1 do
+            tmp$ += str$(amsWavemarkPorts%[i%]+1) + " ";
+        next
+    endif
+    
+    LogInfo("Append channel numbers to StartM: " + tmp$);
+    ProgRun(GetBinDir$(1) + "SendMessage StartM " + tmp$);
     
     'wait 5 seconds for some spikes to come in, and then optimize the display for them.
     Yield(5);
