@@ -1,4 +1,4 @@
-' $Id: AcuteMSequence.s2s,v 1.11 2012-02-01 18:34:53 devel Exp $
+' $Id: AcuteMSequence.s2s,v 1.12 2012-02-02 06:29:43 devel Exp $
 '
 ' AcuteMSequence.s2s
 '
@@ -465,7 +465,8 @@ func CountSpikes%()
             ' TriggerTime is valid, so the interval [TriggerTime, NextTriggerTime] is a term in the sequence. 
             ' Count spikes for each data channel and save it in BlockData$[]
             for index := 1 to amsNWavemarks% do 
-                SpikeCount:=View(amsWindowData%).count(index,TriggerTime,NextTriggerTime);
+                'SpikeCount:=View(amsWindowData%).count(index,TriggerTime,NextTriggerTime);
+                SpikeCount:=View(amsWindowData%).count(amsWavemarkPorts%[index-1]+1,TriggerTime,NextTriggerTime);
                 BlockData$[index-1]:=BlockData$[index-1]+" "+str$(SpikeCount);
             next 
             TriggerTime:=NextTriggerTime;
