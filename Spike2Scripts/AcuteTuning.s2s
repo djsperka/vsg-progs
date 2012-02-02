@@ -1,5 +1,5 @@
-' $Id: AcuteTuning.s2s,v 1.11 2012-02-01 22:35:32 devel Exp $
-const tunCVSID$ := "$Id: AcuteTuning.s2s,v 1.11 2012-02-01 22:35:32 devel Exp $";
+' $Id: AcuteTuning.s2s,v 1.12 2012-02-02 05:34:43 devel Exp $
+const tunCVSID$ := "$Id: AcuteTuning.s2s,v 1.12 2012-02-02 05:34:43 devel Exp $";
 
 
 #include "../../Spike2Util/ChannelUtilities.s2s"
@@ -525,7 +525,7 @@ proc PlotSpikes(t1, t2, vOnOff%, x, index%)
     var fftData[16];        ' size of this array should be same as number of bins!
     
 	for i% := 0 to tunNWavemarks%-1 do
-		rate := View(DataWindow%).Count(i%+1, t1, t2)/(t2-t1);
+		rate := View(DataWindow%).Count(i%+2, t1, t2)/(t2-t1);
 		if rate >= 0 then
 			if vOnOff% = 1 then
 				' this is signal
@@ -952,11 +952,11 @@ end;
 
 func GetStimulusTF()
     var gr$;
-    var x, y, w, h, sf, tf, ori, phase;
+    var x, y, w, h, iw, ih, sf, tf, ori, phase;
     var contrast%;
     var cv$, pattern$, aperture$;
 	gr$ := GetGratingParameters$("Stimulus");
-    ParseGratingParameters%(gr$, x, y, w, h, contrast%, sf, tf, ori, phase, cv$, pattern$, aperture$);
+    ParseGratingParameters%(gr$, x, y, w, h, iw, ih, contrast%, sf, tf, ori, phase, cv$, pattern$, aperture$);
     LogStatus("GetStimulusTF", "TF=" + str$(tf));
     return tf;
 end
