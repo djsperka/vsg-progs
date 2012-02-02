@@ -21,7 +21,7 @@ std::ostream& operator<<(std::ostream& out, const ARFixationPointSpec& arfps)
 
 std::ostream& operator<<(std::ostream& out, const ARGratingSpec& args)
 {
-	out << args.x << "," << args.y << args.w << "," << args.h << "," << args.wd << "," << args.hd << args.contrast << args.sf << args.tf << args.orientation << args.phase << args.cv << args.pattern << args.aperture;
+	out << args.x << "," << args.y << "," << args.w << "," << args.h << "," << args.wd << "," << args.hd << "," << args.contrast << "," << args.sf << "," << args.tf << "," << args.orientation << "," << args.phase << "," << args.cv << "," << args.pattern << "," << args.aperture;
 	//out << "x,y=(" << args.x << "," << args.y << ") w,h,wd,hd=(" << args.w << "," << args.h << "," << args.wd << "," << args.hd << ") c=" << args.contrast << " sf=" << args.sf << " tf=" << args.tf << " ori=" << args.orientation << " ph=" << args.phase << " cv=" << args.cv << " p=" << args.pattern << " ap=" << args.aperture;
 	return out;
 }
