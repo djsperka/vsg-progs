@@ -1,7 +1,7 @@
-' $Id: Tuning.s2s,v 1.50 2012-01-28 00:53:11 jeff Exp $
+' $Id: Tuning.s2s,v 1.51 2012-02-03 23:44:51 jeff Exp $
 ' Update 11/8/11 Jeff, includes multi-juicer updates
 
-const tunCVSID$ := "$Id: Tuning.s2s,v 1.50 2012-01-28 00:53:11 jeff Exp $";
+const tunCVSID$ := "$Id: Tuning.s2s,v 1.51 2012-02-03 23:44:51 jeff Exp $";
 
 
 
@@ -448,7 +448,8 @@ proc InitializeToolbar()
 	ToolbarSet(3,"Juice", Juice%);
 	ToolbarSet(4,"Pause stimuli",PauseStimuli%);
 	ToolbarSet(5,"Resume stimuli",ResumeStimuli%);
-'	ToolbarSet(6,"Exp Parameters",AttentionScriptDialog%);
+    '	ToolbarSet(6,"Exp Parameters",AttentionScriptDialog%);
+    ToolbarSet(6,"Select Wavemarks",SelectWavemarkDialog%);
 	ToolbarSet(7,"Quit",Quit%);
 	ToolbarEnable(2,0);
 	ToolbarEnable(4,0);
@@ -1626,4 +1627,29 @@ Func StringifyProgression$(n%, vec[], ind%[])
 end;
 
 
+
+
+
+func SelectWavemarkDialog%()
+	var iReturn%:=1;
+	var i%;
+    var whichWaveMark% := 1;
+	DlgCreate("Select Wavemark");
+	DlgInteger(1, "Input Wavemark to view, -1 for all", -1, 256);  'max is based on highest possible wavemark value
+    
+	i% := DlgShow(whichWaveMark%);
+
+	if i% = 1 then
+		PrintLog("SelectWavemarkDialog - user hit OK\n");
+        for i% := 0 to tunNWavemarks%-1 do  'for each wavemark channel
+            View(DataWindow%).MarkMask(i%+1,0,0,-1);  'exclude all codes on layer 0
+            View(DataWindow%).MarkMask(i%+1,0,1,whichWaveMark%);  'then include requested code (or all, if -1) on layer 0
+        next;       
+	endif;
+	if i% = 0 then
+		PrintLog("SelectWavemarkDialog - user hit Cancel\n");
+	endif;
+    'PrintLog("Return value is %d\n", iReturn%);  'always return 1, so don't bother reporting this
+	return iReturn%;
+end;
 
