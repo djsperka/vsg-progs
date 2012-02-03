@@ -194,6 +194,10 @@
 				RelativePath=".\DualStimSet.h"
 				>
 			</File>
+			<File
+				RelativePath=".\StimParameterList.h"
+				>
+			</File>
 		</Filter>
 		<Filter
 			Name="Resource Files"
