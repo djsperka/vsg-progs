@@ -78,25 +78,19 @@ int main (int argc, char *argv[])
 	}
 	vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgNOCLEAR);
 
-//	vsgPaletteWrite((VSGLUTBUFFER*)&fixation_color, m_fixation_level, 1);
-
 	// init triggers
 	init_triggers();
 
 	// Issue "ready" triggers to spike2.
 	// These commands pulse spike2 port 6. 
-	vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, 0x20, 0);
-	vsgPresent();
-
-	vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, 0x00, 0);
-	vsgPresent();
-
-	triggers.reset(vsgIOReadDigitalIn());
+	ARvsg::instance().ready_pulse(500);
 
 
-	// All right, start monitoring triggers........
+
+	// Start monitoring triggers........
 	std::string s;
 	int last_output_trigger=0;
+	triggers.reset(vsgIOReadDigitalIn());
 	while (1)
 	{
 		// If user-triggered, get a trigger entry. 
@@ -116,7 +110,14 @@ int main (int argc, char *argv[])
 		else if (tf.present())
 		{	
 			last_output_trigger = tf.output_trigger();
-			vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, tf.output_trigger(), 0);
+			if (IS_VISAGE)
+			{
+				vsgSetTriggerOptions(vsgTRIGOPT_PRESENT, 0, vsgTRIG_OUTPUTMARKER, 0.5, 0, tf.output_trigger() << 1, 0x1FE);
+			}
+			else
+			{
+				vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, tf.output_trigger(), 0);
+			}
 			vsgPresent();
 		}
 	}
@@ -183,7 +184,6 @@ void init_page(int ipage, void *unused)
 
 	if (bDraw)
 	{
-		cout << "draw page " << ipage << " " << x << "," << y << " level " << m_fixation_level << endl;
 		vsgSetPen1(vsgFIXATION);
 		vsgDrawOval(x, y, m_afp.d, m_afp.d);
 	}
