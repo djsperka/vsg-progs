@@ -83,20 +83,12 @@ int main (int argc, char *argv[])
 	init_triggers();
 
 	// Issue "ready" triggers to spike2.
-	// These commands pulse spike2 port 6. 
-	vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, 0x20, 0);
-	vsgPresent();
+	ARvsg::instance().ready_pulse(500);
 
-	vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, 0x00, 0);
-	vsgPresent();
-
-	triggers.reset(vsgIOReadDigitalIn());
-
-
-
-	// All right, start monitoring triggers........
+	// Start monitoring triggers........
 	std::string s;
 	int last_output_trigger=0;
+	triggers.reset(vsgIOReadDigitalIn());
 	while (1)
 	{
 		// If user-triggered, get a trigger entry. 
@@ -116,8 +108,14 @@ int main (int argc, char *argv[])
 		else if (tf.present())
 		{	
 			last_output_trigger = tf.output_trigger();
-			vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, tf.output_trigger(), 0);
-//			cout << "SetTriggers=" << tf.output_trigger() << endl;
+			if (IS_VISAGE)
+			{
+				vsgSetTriggerOptions(vsgTRIGOPT_PRESENT, 0, vsgTRIG_OUTPUTMARKER, 0.5, 0, tf.output_trigger() << 1, 0x1FE);
+			}
+			else
+			{
+				vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, tf.output_trigger(), 0);
+			}
 			vsgPresent();
 		}
 	}
