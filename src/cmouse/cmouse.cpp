@@ -82,7 +82,6 @@ int main(int argc, char **argv)
 	vsgIOWriteDigitalOut(0, 0xff);
 	ARvsg::instance().ready_pulse(250, f_pulse);
 	triggers.reset(vsgIOReadDigitalIn());
-	cout << "Reset with " << (vsgIOReadDigitalIn() & 0xff) << endl;
 	f_lastInput = vsgIOReadDigitalIn();
 
 	bool bUseManualTriggers = false;
