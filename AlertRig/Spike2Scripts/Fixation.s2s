@@ -1,4 +1,4 @@
-' $Id: Fixation.s2s,v 1.23 2011-11-16 00:48:00 jeff Exp $
+' $Id: Fixation.s2s,v 1.24 2012-02-04 02:51:22 devel Exp $
 ' Update 11/8/11 Jeff, includes SafeSampleKey and multi-juicer updates
 
 #include "../../Spike2Util/UsreyUtil.s2s"
@@ -15,9 +15,6 @@
 '               BOX CHECKED!!!
 '
 '========================================================================
-
-
-
 
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
@@ -118,7 +115,7 @@ func FixationScriptDialog%()
 		fixBackgroundColor$ := bcl$[ibcl%];
 		SaveFixationScriptParameters();
 	endif;
-	return 1;
+	return i%;
 end;
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
@@ -154,18 +151,6 @@ var iStimX%[8];
 var iStimY%[8];
 var iStimIndex%;
 
-
-
-
-
-' Fetch parameters
-GetDailyTotals();
-GetDAQParameters();
-GetFixationPointParameters();
-GetFixationScriptParameters();
-GetDataParameters();
-
-
 ' Check for valid data file path
 if Len(dataDataSet$) = 0 then
 	Message("No data set is selected! Edit Data parameters...");
@@ -174,13 +159,17 @@ if Len(dataDataSet$) = 0 then
 endif
 
 
+if FixationScriptDialog%() = 0 then
+    halt;
+endif
+
 
 
 ' Assign channel numbers for eye X,Y and trigger. 
-XChannel% := NumberOfElectrodes%+1;
-YChannel% := NumberOfElectrodes%+2;
-TriggerChannel% := NumberOfElectrodes%+3;
-ReadyChannel% := NumberOfElectrodes% + 4;
+XChannel% := 21;
+YChannel% := 22;
+TriggerChannel% := 23;
+ReadyChannel% := 24;
 CreateSampleConfiguration();
 
 
@@ -455,10 +444,6 @@ proc CreateSampleConfiguration()
 	FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 1, 1);
 	SampleAutoName$(dataCellName$ + "_fix_000");
 	SampleAutoFile(1);
-	PrintLog("dataPathRoot=" + dataPathRoot$ + "\n");
-	PrintLog("dataDataSet=" + dataDataSet$ + "\n");
-	PrintLog("AutoFile status " + str$(SampleAutoFile()) + "\n");
-
 
 	'Channel recording definitions
 	SampleEvent(TriggerChannel%, 2, 2, 3600); 'Trigger channel, level
@@ -470,17 +455,14 @@ proc CreateSampleConfiguration()
 	SampleComment$(ReadyChannel%,"VSG Ready");
 	SampleTitle$(ReadyChannel%,"VSG Ready");
 
-
-	for index := 1 to NumberOfElectrodes% do
-		SampleWaveMark(index,index-1,2000,34,15,28000); ' chan, port, event rate, points, pre-trigger, rate
-		SampleTitle$(index, "Electrode_"+Str$(index)); 
-	next
-
 	'EYE COIL CHANNELS. Last # is sampling freq in Hz. 
 	SampleWaveform(XChannel%, GetEyeXPort%(), 1000);
 	SampleTitle$(XChannel%,"Eye X");
 	SampleWaveform(YChannel%, GetEyeYPort%(), 1000);
 	SampleTitle$(YChannel%, "Eye Y");
+
+    ' Set up channels for sampling electrodes.
+    CreateElectrodeSamplingConfiguration(1, 11);
 
 	SampleSequencer(script$ + "Fixation.pls");
 	SampleOptimise(2, 2, 2, 2, 50);  'Set optimise mode (do this last)
@@ -523,7 +505,8 @@ proc InitializeWindows()
 
 	'Open the data sampling window
 	DataWindow% := FileNew(0,4);
-	Window(-0.235849,52.746,97.2484,99.8856);
+    Window(-0.235849,52.746,97.2484,99.8856);
+    XRange(0, 30);
 	View(DataWindow%).WindowVisible(1);
 
 	'Open an XY view to display eye position
@@ -735,7 +718,7 @@ func Stop%()
 	while ProgStatus(StimHandle%) > 0 do
 		Yield();
 	wend
-	ProgRun(bin$ + "\\ClearTrigger",0);
+	'ProgRun(bin$ + "\\ClearTrigger",0);
 
 	' Increment daily totals and save then
 	TotalTrials% += nTrialsStarted%;
