@@ -146,13 +146,21 @@ int main(int argc, char **argv)
 					float a = -1;
 					cout << "Aperture Diameter (degrees) = ";
 					cin >> a;
-					if ( a>0 )
+					if (!cin.fail())
 					{
-						f_grating.w = f_grating.h = a;
+						if (a > 0)
+						{
+							f_grating.w = f_grating.h = a;
+						}
+						else 
+						{
+							cerr << "Error in input: Aperture diam must be a number>0." << endl;
+						}
 					}
-					else 
+					else
 					{
-						cerr << "Error in input: Aperture diam must be a number>0." << endl;
+						cerr << "Bad format - must be a number." << endl;
+						cin.clear(); cin.ignore(INT_MAX, '\n');
 					}
 					break;
 				}
@@ -162,15 +170,23 @@ int main(int argc, char **argv)
 					double luminance = -1;
 					cout << "Background luminance = ";
 					cin >> luminance;
-					if (luminance >= 0 && luminance <= 1)
+					if (!cin.fail())
 					{
-						c.type = custom;
-						c.color.a = c.color.b = c.color.c = luminance;
-						arutil_color_to_overlay_palette(c, 1);
+						if (luminance >= 0 && luminance <= 1)
+						{
+							c.type = custom;
+							c.color.a = c.color.b = c.color.c = luminance;
+							arutil_color_to_overlay_palette(c, 1);
+						}
+						else
+						{
+							cerr << "Error in input: luminance value must be between 0 and 1!" << endl;
+						}
 					}
 					else
 					{
-						cerr << "Error in input: luminance value must be between 0 and 1!" << endl;
+						cerr << "Bad format - must be a number." << endl;
+						cin.clear(); cin.ignore(INT_MAX, '\n');
 					}
 					break;
 				}
@@ -179,15 +195,23 @@ int main(int argc, char **argv)
 					double s;
 					cout << "Spatial frequency [cycles/degree]= ";
 					cin >> s;
-					if (s>0.005 && s<100)
+					if (!cin.fail())
 					{
-						f_grating.sf = s;
-						arutil_draw_grating_fullscreen(f_grating, 0);
-						vsgPresent();
+						if (s>0.005 && s<100)
+						{
+							f_grating.sf = s;
+							arutil_draw_grating_fullscreen(f_grating, 0);
+							vsgPresent();
+						}
+						else
+						{
+							cout << "Error in input: spatial freq must be a number between 0.005 and 100." << endl;
+						}
 					}
 					else
 					{
-						cout << "Error in input: spatial freq must be a number between 0.005 and 100." << endl;
+						cerr << "Bad format - must be a number." << endl;
+						cin.clear(); cin.ignore(INT_MAX, '\n');
 					}
 					break;
 				}
@@ -196,16 +220,24 @@ int main(int argc, char **argv)
 					double d = -1;
 					cout << "Temporal Frequency = ";
 					cin >> d;
-					if (d>=0 && d<50)
+					if (!cin.fail())
 					{
-						f_grating.setTemporalFrequency(d);
-						f_tfPrevious = 0;
-						arutil_draw_grating_fullscreen(f_grating, 0);
-						vsgPresent();
+						if (d>=0 && d<50)
+						{
+							f_grating.setTemporalFrequency(d);
+							f_tfPrevious = 0;
+							arutil_draw_grating_fullscreen(f_grating, 0);
+							vsgPresent();
+						}
+						else 
+						{
+							cout << "Error in input: Temporal freq must be between 0 and 50." << endl;
+						}
 					}
-					else 
+					else
 					{
-						cout << "Error in input: Temporal freq must be between 0 and 50." << endl;
+						cerr << "Bad format - must be a number." << endl;
+						cin.clear(); cin.ignore(INT_MAX, '\n');
 					}
 					break;
 				}
@@ -223,14 +255,23 @@ int main(int argc, char **argv)
 					int c;
 					cout << "Contrast = ";
 					cin >> c;
-					if (c>=0 && c<=100)
+					if (!cin.fail())
 					{
-						f_grating.setContrast(c);
-						vsgPresent();
+						if (c>=0 && c<=100)
+						{
+							f_grating.setContrast(c);
+							arutil_draw_grating_fullscreen(f_grating, 0);
+							vsgPresent();
+						}
+						else
+						{
+							cout << "Error in input: Contrast must be between 0 and 100." << endl;
+						}
 					}
 					else
 					{
-						cout << "Error in input: Contrast must be between 0 and 100." << endl;
+						cerr << "Bad format - must be an integer." << endl;
+						cin.clear(); cin.ignore(INT_MAX, '\n');
 					}
 					break;
 				}
@@ -239,15 +280,23 @@ int main(int argc, char **argv)
 					double oo = 999;
 					cout <<"Orientation = ";
 					cin >> oo;
-					if (oo >=0 && oo <=360)
+					if (!cin.fail())
 					{
-						f_grating.orientation = oo;
-						arutil_draw_grating_fullscreen(f_grating, 0);
-						vsgPresent();
+						if (oo >=0 && oo <=360)
+						{
+							f_grating.orientation = oo;
+							arutil_draw_grating_fullscreen(f_grating, 0);
+							vsgPresent();
+						}
+						else
+						{
+							cout << "Error in input: Orientation must be a number between 0 and 360" << endl;
+						}
 					}
 					else
 					{
-						cout << "Error in input: Orientation must be a number between 0 and 360" << endl;
+						cerr << "Bad format - must be a number." << endl;
+						cin.clear(); cin.ignore(INT_MAX, '\n');
 					}
 					break;
 				}
@@ -310,13 +359,21 @@ int main(int argc, char **argv)
 					int i;
 					cout << "Step size (pixels) = ";
 					cin >> i;
-					if (i > 0)
+					if (!cin.fail())
 					{
-						iStepSize = i;
+						if (i > 0)
+						{
+							iStepSize = i;
+						}
+						else
+						{
+							cout << "Error in input: step size must be positive" << endl;
+						}
 					}
 					else
 					{
-						cout << "Error in input: step size must be positive" << endl;
+						cerr << "Bad format - must be an integer." << endl;
+						cin.clear(); cin.ignore(INT_MAX, '\n');
 					}
 					break;
 				}
