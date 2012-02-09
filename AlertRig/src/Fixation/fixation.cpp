@@ -67,14 +67,16 @@ int main (int argc, char *argv[])
 		return 1;
 	}
 
-
+#if 0
 	// initialize video pages
 	if (ARvsg::instance().init_video())
 	{
 		cerr << "VSG video initialization failed!" << endl;
 		return 1;
 	}
-	vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgNOCLEAR);
+#endif
+
+	vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgBACKGROUND);
 
 	// write video pages
 	init_pages();
@@ -237,7 +239,7 @@ void init_triggers()
 int init_pages()
 {
 	int status=0;
-	vsgSetDrawPage(vsgVIDEOPAGE, STIMULUS_PAGE, vsgNOCLEAR);
+	vsgSetDrawPage(vsgVIDEOPAGE, STIMULUS_PAGE, vsgBACKGROUND);
 
 	if (m_distractors.size() > 0)
 	{
@@ -247,7 +249,7 @@ int init_pages()
 		for (unsigned int i=0; i<m_distractors.size(); i++)
 		{
 			m_distractors[i]->init(islice);
-			m_distractors[i]->drawOnce();
+			m_distractors[i]->draw();
 		}
 	}
 
@@ -255,6 +257,8 @@ int init_pages()
 	m_afp.init(2);
 	m_afp.draw();
 
+	vsgSetDrawPage(vsgVIDEOPAGE, BACKGROUND_PAGE, vsgBACKGROUND);
+	vsgPresent();
 
 	// Set trigger mode
 	vsgObjSetTriggers(vsgTRIG_ONPRESENT+vsgTRIG_TOGGLEMODE,0,0);
