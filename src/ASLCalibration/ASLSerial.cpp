@@ -112,12 +112,13 @@ int aslserial_connect(string configfile)
 					cerr << "Found vert_gaze_coord at item index " << i << endl;
 				}
 			}
-
+#if 0
 			if (f_xdatIndex[0] < 0)
 			{
 				cerr << "ERROR: Serial output does not contain XDAT. Check serial configuration!" << endl;
 				status = -1;
 			}
+#endif
 			if (f_dotIndex[0] < 0)
 			{
 				cerr << "ERROR: Serial output does not contain pupil_diam. Check serial configuration!" << endl;
@@ -213,6 +214,7 @@ int aslserial_get(int *pdotnumber, int *pxdat, float *pxoffset, float *pyoffset)
 		if (f_pedantic) vval("dot", value);
 		*pdotnumber = value.iVal;
 		VariantClear(&value); // prevent memory leak
+#if 0
 		SafeArrayGetElement(items, f_xdatIndex, &value);
 		if (f_pedantic) vval("xdat", value);
 		*pxdat = value.iVal;
@@ -225,6 +227,12 @@ int aslserial_get(int *pdotnumber, int *pxdat, float *pxoffset, float *pyoffset)
 		if (f_pedantic) vval("yoffset", value);
 		*pyoffset = value.fltVal;
 		VariantClear(&value); // prevent memory leak
+#else
+		*pxdat = 0;
+		*pxoffset = 0;
+		*pyoffset = 0;
+#endif
+
 		status = 0;
 		f_pedantic = false;
 #if 0
