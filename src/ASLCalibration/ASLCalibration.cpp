@@ -93,6 +93,9 @@ int _tmain(int argc, TCHAR* argv[], TCHAR* envp[])
 	int idisplay = 0;
 	bool bOffsetFileWritten = false;
 	bool bOffsetReceived = false;
+	int last_output_trigger=0;
+	long input_trigger = 0;
+	string s;
 
 	// Check input arguments
 	if (args(argc, argv))
@@ -129,6 +132,9 @@ int _tmain(int argc, TCHAR* argv[], TCHAR* envp[])
 		return 1;
 	}
 
+	//Init triggers - hack alert!
+	init_triggers();
+
 	// bypass phase I?
 
 	if (!f_bRivalry || (f_bRivalry && !f_bypassPhaseI))
@@ -157,15 +163,7 @@ int _tmain(int argc, TCHAR* argv[], TCHAR* envp[])
 			// when one of those dot numbers is received. Below I send the ready signal and 
 			// set that up. 
 
-			if (!f_bRivalry)
-			{
-				ARvsg::instance().ready_pulse(1000, 0x4);
-			}
-			else
-			{
-				ARvsg::master().ready_pulse(2000, 0x4);
-				ARvsg::master().select();
-			}
+			ARvsg::instance().ready_pulse(1000, 0x4);
 
 
 			// Trigger loop for phase I of calibration. Monkey calibration uses ONLY phase I, and Rivalry
@@ -181,175 +179,33 @@ int _tmain(int argc, TCHAR* argv[], TCHAR* envp[])
 				idisplay = 0;
 				if (!aslserial_get(&idot, &xdat, &f_fSlaveXOffset, &f_fSlaveYOffset))
 				{
-					if (xdat & XDAT_ENABLE_BIT)
+					if (idot != lastidot)
 					{
-						// if offset received, force dot to be zero.
-						if (bOffsetReceived) idot = 0;
+						idisplay = 1;
+						cerr << "Dot " << idot << endl; 
 
-						if (idot != lastidot)
-						{
-							idisplay = 1;
-
-							// change dot on screen here
-							if (!f_bRivalry)
-							{							
-								if (lastidot > 0) f_fixpts[lastidot-1].setContrast(0);
-								if (idot > 0) f_fixpts[idot-1].setContrast(100);
-								vsgPresent();
-							}
-							else
-							{
-								if (lastidot == 10)
-								{
-									ARvsg::slave().select();
-									f_fixpts[9].setContrast(0);
-								}
-								else if (lastidot > 0)
-								{
-									ARvsg::master().select();
-									f_fixpts[lastidot-1].setContrast(0);
-								}
-
-								if (idot == 10)
-								{
-									ARvsg::slave().select();
-									f_fixpts[9].setContrast(100);
-								}
-								else if (idot > 0)
-								{
-									ARvsg::master().select();
-									f_fixpts[idot-1].setContrast(100);
-								}
-								ARvsg::slave().select();
-								vsgPresent();
-								ARvsg::master().select();
-								vsgPresent();
-							}
-							lastidot = idot;
-						}
-
-						if (xdat != lastxdat)
-						{
-							idisplay = 1;
-							ijuice = (xdat ^ lastxdat) & XDAT_JUICE_MASK;
-							iquit = (xdat & XDAT_QUIT_BIT);
-							ioffset = (xdat & XDAT_OFFSET_BIT);
-							lastxdat = xdat;
-
-							if (ijuice)
-							{
-								// Toggle juice bit and send it to spike2
-								spike2_output_bits ^= SPIKE2_JUICE_MASK;
-								vsgIOWriteDigitalOut(spike2_output_bits, SPIKE2_JUICE_MASK);
-							}
-
-							if (iquit)
-							{
-								spike2_output_bits |= SPIKE2_QUIT_BIT;
-								vsgIOWriteDigitalOut(spike2_output_bits, SPIKE2_QUIT_BIT);
-							}
-
-							if (ioffset)
-							{
-								bOffsetReceived = true;
-								if (!bOffsetFileWritten)
-								{
-									ofstream offsetFile(f_szOffsetFile.c_str(), ios_base::trunc);
-									if (!offsetFile)
-									{
-										cerr << "Cannot open offset file \"" << f_szOffsetFile << "\". This is bad." << endl;
-									}
-									else
-									{
-										cerr << "Writing initial offset to offset file " << f_szOffsetFile << ": (" << f_fSlaveXOffset << ", " << f_fSlaveYOffset << ")" << endl;
-										offsetFile << f_fSlaveXOffset/10.0f << " " << f_fSlaveYOffset/10.0f;
-										offsetFile.close();
-										bOffsetFileWritten = true;
-									}
-								}
-								spike2_output_bits |= SPIKE2_TRANSITION_BIT;
-								vsgIOWriteDigitalOut(spike2_output_bits, SPIKE2_TRANSITION_BIT);
-							}
-						}
-						if (idisplay)
-						{
-							cerr << idot << " " 
-								<< (ijuice ? "J" : "-") << " " 
-								<< (iquit ? "Q" : "-") << " ";
-							if (ioffset)
-								cerr << "O (" << f_fSlaveXOffset << "," << f_fSlaveYOffset << ")" << endl;
-							else
-								cerr << "- (" << f_fSlaveXOffset << "," << f_fSlaveYOffset << ")" << endl;
-						}
+						// change dot on screen here
+						if (lastidot > 0) f_fixpts[lastidot-1].setContrast(0);
+						if (idot > 0) f_fixpts[idot-1].setContrast(100);
+						vsgPresent();
+						lastidot = idot;
 					}
 				}
+
+				input_trigger = vsgIOReadDigitalIn();
+				TriggerFunc	tf = std::for_each(triggers.begin(), triggers.end(), 
+					(f_binaryTriggers ? TriggerFunc(input_trigger, last_output_trigger) : TriggerFunc(s, last_output_trigger)));
+
+				// Now analyze input trigger
+			 	
+				if (tf.quit()) break;
+
 				Sleep(100);
 			}
 			aslserial_disconnect();
 
 		}
 	}   // if (!f_bRivalry || (f_bRivalry && !f_bypassPhaseI))   -- Phase I calibration
-
-	// Rivalry calibration ALWAYS has phase II. 
-
-	if (f_bRivalry)
-	{
-		offsetfile_changed(false, false);	// trigger a read of the offset file
-		update_slave_fixpt();
-		init_triggers();
-		ARvsg::master().select();
-		ARvsg::master().ready_pulse(100, 0x4);
-
-		// All right, start monitoring triggers........
-		std::string s;
-		int last_output_trigger=0;
-		int ideferred = 0;
-		while (1)
-		{
-			// If user-triggered, get a trigger entry. 
-			if (!f_binaryTriggers)
-			{
-				// Get a new "trigger" from user
-				cout << "Enter trigger/key: ";
-				cin >> s;
-			}
-
-			ARvsg::master().select();		// vsgIOReadDigitalIn() must come from master vsg!
-			MasterSlaveTriggerFunc	tf = std::for_each(triggers.begin(), triggers.end(), 
-				(f_binaryTriggers ? MasterSlaveTriggerFunc(vsgIOReadDigitalIn(), last_output_trigger) : MasterSlaveTriggerFunc(s, last_output_trigger)));
-
-			// Now analyze input trigger
-		 	
-			if (tf.quit()) break;
-			else if (tf.present())
-			{	
-				// Exactly what type of present do we need? 
-				ideferred = tf.deferred();
-				last_output_trigger = tf.output_trigger();
-				if (ideferred & PLEASE_PRESENT_MASTER)
-				{
-					ARvsg::master().select();
-					vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, tf.output_trigger(), 0);
-					//cout << "master present..." << tf.output_trigger();
-					vsgPresent();
-					//cout << " done." << endl;
-				}
-				else if (ideferred & PLEASE_PRESENT_SLAVE)
-				{
-					ARvsg::slave().select();
-					vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, tf.output_trigger(), 0);
-					//cout << "slave present..." << tf.output_trigger();
-					vsgPresent();
-					//cout << "done." << endl;
-				}
-			}
-		}
-
-		ARvsg::master().select();
-		ARvsg::master().clear();
-		ARvsg::slave().select();
-		ARvsg::slave().clear();
-	}
 
 	return 0;
 }
@@ -391,81 +247,7 @@ int init_calibration()
 		vsgPresent();
 		vsgSetZoneDisplayPage(vsgVIDEOPAGE, 0);
 	}
-	else
-	{
-		if (ARvsg::slave().init(f_screenDistanceMM, f_background))
-		{
-			cerr << "VSG init for slave failed!" << endl;
-			return 1;
-		}
-		else
-		{
-			// clear a page and present it, then do drawings on another page.
-			vsgSetDrawPage(vsgVIDEOPAGE, 1, vsgBACKGROUND);
-			vsgPresent();
-			vsgSetZoneDisplayPage(vsgVIDEOPAGE, 1);
-			vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgBACKGROUND);
-			f_fixpts[9].color = f_afp.color;
-			f_fixpts[9].d = f_afp.d;
-			f_fixpts[9].x = 0;
-			f_fixpts[9].y = 0;
-			f_fixpts[9].init(ARvsg::slave(), 2);
-			f_fixpts[9].setContrast(0);
-			f_fixpts[9].draw();
-			vsgPresent();
-			vsgSetZoneDisplayPage(vsgVIDEOPAGE, 0);
-		}
 
-
-		if (ARvsg::master().init(f_screenDistanceMM, f_background))
-		{
-			cerr << "VSG init for master failed!" << endl;
-			return 1;
-		}
-		else
-		{
-			vsgSetDrawPage(vsgVIDEOPAGE, 1, vsgBACKGROUND);
-			vsgSetZoneDisplayPage(vsgVIDEOPAGE, 1);
-			vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgBACKGROUND);
-			for (unsigned int i=0; i<9; i++)
-			{
-				f_fixpts[i].color = f_afp.color;
-				f_fixpts[i].d = f_afp.d;
-
-				// hack for bypass cases. 
-				// We want to use the actual fixation settings in this case, not the calibration points.
-				// The assumption is that when bypassing phase I then only the center point (or, more 
-				// accurately, the point as specified with -f on the command line) is used.
-
-				if (i == 4)
-				{
-					if (!f_bypassPhaseI)
-					{
-						f_fixpts[i].x = (((int)i % 3) - 1) * f_dCalibrationOffset;
-						f_fixpts[i].y = (((int)i / 3) - 1) * f_dCalibrationOffset;
-					}
-					else
-					{
-						f_fixpts[i].x = f_afp.x;
-						f_fixpts[i].y = f_afp.y;
-						cerr << "Bypass phase I, master fixpt: " << f_fixpts[i] << endl;
-					}
-				}
-				else
-				{
-					f_fixpts[i].x = (((int)i % 3) - 1) * f_dCalibrationOffset;
-					f_fixpts[i].y = (((int)i / 3) - 1) * f_dCalibrationOffset;
-				}
-
-				//cout << "i, x, y = " << i << ", " << f_fixpts[i].x << ", " << f_fixpts[i].y << endl;
-				f_fixpts[i].init(ARvsg::master(), 2);
-				f_fixpts[i].setContrast(0);
-				f_fixpts[i].draw();
-			}
-			vsgPresent();
-			vsgSetZoneDisplayPage(vsgVIDEOPAGE, 0);
-		}
-	}
 	return status;
 }
 
@@ -479,34 +261,8 @@ int init_calibration()
 int init_triggers()
 {
 	int status=0;
-
-	// fixation point for master (M/m) and slave (S/s).
-	// Remember that the output triggers for the master and slave are limited to the low 3 bytes. 
-	// The slave bytes are sent on spike2 DIGIN lines 4,5,6.
-	triggers.addTrigger(new CallbackTrigger("M", 0x2, 0x2, 0x2, 0x2, callback));
-	triggers.addTrigger(new CallbackTrigger("m", 0x2, 0x0, 0x2, 0x0, callback));
-	triggers.addTrigger(new CallbackTrigger("S", 0x4, 0x4, 0x2, 0x2, callback));
-	triggers.addTrigger(new CallbackTrigger("s", 0x4, 0x0, 0x2, 0x0, callback));
-
 	// quit trigger
-	triggers.addTrigger(new QuitTrigger("q", 0x40, 0x40, 0xff, 0x0, 0));
-
-	// File change trigger
-	triggers.addTrigger(new FileChangedTrigger("y", f_szOffsetFile, offsetfile_changed, 0x1, 0x1 | AR_TRIGGER_TOGGLE));
-
-	// Set vsg trigger mode
-	vsgObjSetTriggers(vsgTRIG_ONPRESENT+vsgTRIG_TOGGLEMODE,0,0);
-
-	// Dump triggers
-	if (f_verbose)
-	{
-		std::cerr << "Triggers:" << std::endl;
-		for (unsigned int i=0; i<triggers.size(); i++)
-		{
-			std::cerr << "Trigger " << i << " " << *(triggers[i]) << std::endl;
-		}
-	}
-
+	triggers.addTrigger(new QuitTrigger("q", 0x10, 0x10, 0xff, 0x0, 0));
 	return status;
 }
 
@@ -603,13 +359,10 @@ int args(int argc, char **argv)
 	extern char *optarg;
 	extern int optind;
 	int errflg = 0;
-	while ((c = getopt(argc, argv, "af:b:hd:vC:i:r:vB")) != -1)
+	while ((c = getopt(argc, argv, "f:b:hd:vC:i:r:vB")) != -1)
 	{
 		switch (c) 
 		{
-		case 'a':
-			f_binaryTriggers = false;
-			break;
 		case 'B':
 			f_bypassPhaseI = true;
 			break;
