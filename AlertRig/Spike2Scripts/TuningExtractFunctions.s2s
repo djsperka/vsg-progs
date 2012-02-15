@@ -365,7 +365,7 @@ func TuningExtract%(tStart, tStop)
                     docase
                     case txVersion% = 3 or txVersion% = 7 then
                         
-                        if FindRisingEdge%(txChanStim%, tFound, tS) < 0 or FindRisingEdge%(txChanStimSlave%, tFound, tSSlave) < 0 then
+                        if FindRisingEdge%(txChanStim%, tFound, tS) < 0 or (txDualVSG% = 1 and FindRisingEdge%(txChanStimSlave%, tFound, tSSlave) < 0) then
                             LogError("txstatePreStim", "Rising edge not found after S at t=" + str$(tFound) + "\n");
                             txIState% := txstateError%;
                         else
@@ -392,7 +392,7 @@ func TuningExtract%(tStart, tStop)
                 case sFound$ = "+" then
                     docase 
                     case txVersion% = 3  or txVersion% = 7 then
-                        if FindFallingEdge%(txChanStim%, tFound, tE) < 0 or FindFallingEdge%(txChanStimSlave%, tFound, tESlave) < 0 then
+                        if FindFallingEdge%(txChanStim%, tFound, tE) < 0 or (txDualVSG% = 1 and FindFallingEdge%(txChanStimSlave%, tFound, tESlave) < 0) then
                             LogError("txstateStimUp", "Falling edge not found after s at t=" + str$(tFound) + "\n");
                             txIState% := txstateError%;
                         else
