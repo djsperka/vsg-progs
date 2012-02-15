@@ -1,7 +1,7 @@
-' $Id: Tuning.s2s,v 1.52 2012-02-15 18:04:00 jeff Exp $
+' $Id: Tuning.s2s,v 1.53 2012-02-15 21:32:00 devel Exp $
 ' Update 11/8/11 Jeff, includes multi-juicer updates
 
-const tunCVSID$ := "$Id: Tuning.s2s,v 1.52 2012-02-15 18:04:00 jeff Exp $";
+const tunCVSID$ := "$Id: Tuning.s2s,v 1.53 2012-02-15 21:32:00 devel Exp $";
 
 
 
@@ -1252,7 +1252,13 @@ proc WriteParameterFile()
                 Print("Values: " + tun2ValuesStringified$ + "\n");
                 Print("\n");
             endcase
-            
+        
+        case tunType$ = tunTypeDots$ then
+        
+			Print("Type:                  : Dots\n");
+			Print("Min,Max,#Steps,#Repeats: %f,%f,%d,%d\n", tunDotsMinOrientation, tunDotsMaxOrientation, tunDotsNSteps%, tunDotsNRepeats%);
+			Print("Values: " + tunValuesStringified$ + "\n");
+			Print("\n");
 		else
 
 			Print("TuningCurve Error - unknown value for tunType$: %s\n", tunType$);
