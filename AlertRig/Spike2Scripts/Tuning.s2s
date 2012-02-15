@@ -1,7 +1,7 @@
-' $Id: Tuning.s2s,v 1.51 2012-02-03 23:44:51 jeff Exp $
+' $Id: Tuning.s2s,v 1.52 2012-02-15 18:04:00 jeff Exp $
 ' Update 11/8/11 Jeff, includes multi-juicer updates
 
-const tunCVSID$ := "$Id: Tuning.s2s,v 1.51 2012-02-03 23:44:51 jeff Exp $";
+const tunCVSID$ := "$Id: Tuning.s2s,v 1.52 2012-02-15 18:04:00 jeff Exp $";
 
 
 
@@ -669,7 +669,15 @@ proc TuningCurveLabels(iport%)
 
     var s$;
     s$ := "Port " + str$(iport%);
-	docase 
+	docase
+        
+        case tunType$ = tunTypeDots$ then
+
+			WindowTitle$("Dots, Orientation Tuning - " + s$);
+			XUnits$("Orientation (degrees)");
+			ChanTitle$(1, "Chan 1");
+            XRange(tunDotsMinOrientation, tunDotsMaxOrientation);
+        
 		case tunType$ = tunTypeContrast$ then
 
 			WindowTitle$("Contrast Tuning - " + s$);
@@ -775,6 +783,13 @@ proc CreateSampleConfiguration()
 
     docase
         
+    case tunType$ = tunTypeDots$ then 
+        SampleAutoName$(dataCellName$ + "_dots_000");
+        tunNAdvances% := tunDotsNSteps%;
+        tunNRepeats% := tunDotsNRepeats%;
+        GetRepeatedParameterProgression%(tunDotsNSteps%+1, tunDotsNRepeats%, tunValues[], tunValuesIndices%[], tunDotsMinOrientation, tunDotsMaxOrientation, 0, tunDotsProgression%);  'Note - linear spacing for orientation, not log
+        tunNValues% := (tunDotsNSteps%+1)*tunDotsNRepeats%;
+        tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%);        
     case tunType$ = tunTypeContrast$ then 
         SampleAutoName$(dataCellName$ + "_con_000");
         tunNAdvances% := tunContrastNSteps%;  'this...
@@ -1501,6 +1516,21 @@ func Start%()
             TunCurveMArg$ := TunCurveSArg$;  'Set master tuning curve argument same as slave 1
             MValues$ := SValues$;  'Set master tuning curve values same as slave 1
         endif;        
+        
+    case tunType$ = tunTypeDots$ then
+        'Dots is a fairly different beast, we'll need to do thing a bit differently than the others
+        'build different background gray level string
+        BGColor$ := " -b " +  "(" + Str$(tunDotsBGR%) + "/" + Str$(tunDotsBGG%) + "/" + Str$(tunDotsBGB%) + ") ";
+        TunCurveMArg$ := " -D ";  'Dots on Master
+        'holding on to trigger port for now, maybe needs to be cleared?
+        MGrat$ := "";  'but clearing MGrat$
+        MGratParam$ := "";  'and MGratParam$
+        MasterIndicator$ := "";  'and MasterIndicator$
+        'then buidling the grating spec
+        MValues$ := "(" + Str$(tunDotsFGR%) + "/" + Str$(tunDotsFGG%) + "/" + Str$(tunDotsFGB%) + ")," 
+                  + Str$(tunDotsX) + "," + Str$(tunDotsY) + "," + Str$(tunDotsDiameter) + "," 
+                  + Str$(tunDotsSpeed) + "," + Str$(tunDotsDensity) + "," + Str$(tunDotsSize%) + ",";
+        MValues$ := MValues$ + tunValuesStringified$;
         
     else
 
