@@ -1,4 +1,4 @@
-' $Id: TuningDialogs.s2s,v 1.8 2012-01-28 00:53:11 jeff Exp $
+' $Id: TuningDialogs.s2s,v 1.9 2012-02-15 18:04:00 jeff Exp $
 '
 ' This file contains dialog functions for the alert tuning script Tuning.s2s.
 #include "../../Spike2Util/UsreyUtil.s2s"
@@ -17,7 +17,8 @@ const tunTypeArea$ := "A";
 const tunTypeDonut$ := "H";  '(H)ole in stimulus
 const tunTypeBerliner$ := "B";
 const tunTypeBoxODonuts$ := "G";  '(G)rid of stimuli
-const tunTypeXPos$ := "X";  'Pending addition by Dan, which is not guaranteed to happen, or be -X
+const tunTypeXPos$ := "X";  
+const tunTypeDots$ := "D";
 var tunType$:=tunTypeNone$;
 var tunType1$:=tunTypeNone$;  'for first of two tuning curves, if Box O' Donuts
 var tunType2$:=tunTypeNone$;  'for second of two tuning curves, if Box O' Donuts
@@ -36,6 +37,7 @@ const tundlgDonutButton% := 14;
 const tundlgBerlinerButton% := 15;
 const tundlgBoxODonutsButton% := 16;
 const tundlgXPosButton% := 17;
+const tundlgDotsButton% := 18;
 
 ' A note about "steps". 
 ' The dialogs ask for a number of "steps". A step is a transition from one stimulus
@@ -110,6 +112,27 @@ var tunBoxODonutsNRepeats%;
 var tunMasterFollowsCurve1%;
 
 
+' Dots - this is a bit different - it's an orientation tuning curve, 
+' but the other parameters aren't quite general grating parameters, so do them here, too
+var tunDotsNSteps%;		' # steps in orientation tuning curve
+var tunDotsNRepeats%;		' # repeats in ori tuning curve
+var tunDotsMinOrientation;	' min orientation
+var tunDotsMaxOrientation;	' max orientation
+var tunDotsProgression%;
+var tunDotsX;               ' X position, deg
+var tunDotsY;               ' Y position, deg
+var tunDotsDiameter;        ' deg
+var tunDotsSpeed;           ' deg/sec
+var tunDotsDensity;         ' dots/deg^2
+var tunDotsSize%;           ' pixels
+var tunDotsBGR%;            ' Background color, red level
+var tunDotsBGG%;            ' Background color, green level
+var tunDotsBGB%;            ' Background color, blue level
+var tunDotsFGR%;            ' Dot color, red level
+var tunDotsFGG%;            ' Dot color, green level
+var tunDotsFGB%;            ' Dot color, blue level
+
+
 ' Strings that hold grating parameters
 var tunGratingParams$;
 var tunGratingParamsSlave$;
@@ -182,6 +205,8 @@ var tunF2Sum[16][tunMaxTrials%];
 var tunTF;              ' Will need to use this during FFT analysis. Use at your own risk....
 
 
+'------------ Read/write tuning curve parameters to the registry ------------
+
 proc GetTuningCurveOrientationParameters()
 	var key$;
 	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Tuning\\Orientation";
@@ -189,6 +214,7 @@ proc GetTuningCurveOrientationParameters()
     tunOriNRepeats% := GetIntRegistryValue%(key$, "NRepeats", tunOriNRepeats%);
     tunOriMinOrientation := GetFloatRegistryValue(key$, "MinOrientation", tunOriMinOrientation);
     tunOriMaxOrientation := GetFloatRegistryValue(key$, "MaxOrientation", tunOriMaxOrientation);
+    tunOriProgression% := GetIntRegistryValue%(key$, "Progression", tunOriProgression%);
 end;
 
 proc SaveTuningCurveOrientationParameters()
@@ -198,6 +224,7 @@ proc SaveTuningCurveOrientationParameters()
     SetIntRegistryValue(key$, "NRepeats", tunOriNRepeats%);
     SetFloatRegistryValue(key$, "MinOrientation", tunOriMinOrientation);
     SetFloatRegistryValue(key$, "MaxOrientation", tunOriMaxOrientation);
+    SetIntRegistryValue(key$, "Progression", tunOriProgression%);
 end;
 
 proc GetTuningCurveContrastParameters()
@@ -209,6 +236,7 @@ proc GetTuningCurveContrastParameters()
     tunContrastNRepeats% := GetIntRegistryValue%(key$, "NRepeats", tunContrastNRepeats%);
     tunContrastMinContrast := GetFloatRegistryValue(key$, "MinContrast", tunContrastMinContrast);
     tunContrastMaxContrast := GetFloatRegistryValue(key$, "MaxContrast", tunContrastMaxContrast);
+    tunContrastProgression% := GetIntRegistryValue%(key$, "Progression", tunContrastProgression%);
 end;
 
 proc SaveTuningCurveContrastParameters()
@@ -218,6 +246,7 @@ proc SaveTuningCurveContrastParameters()
     SetIntRegistryValue(key$, "NRepeats", tunContrastNRepeats%);
     SetFloatRegistryValue(key$, "MinContrast", tunContrastMinContrast);
     SetFloatRegistryValue(key$, "MaxContrast", tunContrastMaxContrast);
+    SetIntRegistryValue(key$, "Progression", tunContrastProgression%);
 end;
 
 proc GetTuningCurveSpatialParameters()
@@ -229,6 +258,7 @@ proc GetTuningCurveSpatialParameters()
     tunSpatialNRepeats% := GetIntRegistryValue%(key$, "NRepeats", tunSpatialNRepeats%);
     tunSpatialMinSF := GetFloatRegistryValue(key$, "MinSF", tunSpatialMinSF);
     tunSpatialMaxSF := GetFloatRegistryValue(key$, "MaxSF", tunSpatialMaxSF);
+    tunSpatialProgression% := GetIntRegistryValue%(key$, "Progression", tunSpatialProgression%);
 end;
 
 proc SaveTuningCurveSpatialParameters()
@@ -239,6 +269,7 @@ proc SaveTuningCurveSpatialParameters()
     SetIntRegistryValue(key$, "NRepeats", tunSpatialNRepeats%);
     SetFloatRegistryValue(key$, "MinSF", tunSpatialMinSF);
     SetFloatRegistryValue(key$, "MaxSF", tunSpatialMaxSF);
+    SetIntRegistryValue(key$, "Progression", tunSpatialProgression%);
 end;
 
 proc GetTuningCurveTemporalParameters()
@@ -250,6 +281,7 @@ proc GetTuningCurveTemporalParameters()
     tunTemporalNRepeats% := GetIntRegistryValue%(key$, "NRepeats", tunTemporalNRepeats%);
     tunTemporalMinTF := GetFloatRegistryValue(key$, "MinTF", tunTemporalMinTF);
     tunTemporalMaxTF := GetFloatRegistryValue(key$, "MaxTF", tunTemporalMaxTF);
+    tunTemporalProgression% := GetIntRegistryValue%(key$, "Progression", tunTemporalProgression%);
 end;
 
 proc SaveTuningCurveTemporalParameters()
@@ -260,6 +292,7 @@ proc SaveTuningCurveTemporalParameters()
     SetIntRegistryValue(key$, "NRepeats", tunTemporalNRepeats%);
     SetFloatRegistryValue(key$, "MinTF", tunTemporalMinTF);
     SetFloatRegistryValue(key$, "MaxTF", tunTemporalMaxTF);
+    SetIntRegistryValue(key$, "Progression", tunTemporalProgression%);
 end;
 
 
@@ -272,6 +305,7 @@ proc GetTuningCurveXPosParameters()
     tunXPosNRepeats% := GetIntRegistryValue%(key$, "NRepeats", tunXPosNRepeats%);
     tunXPosMinXPos := GetFloatRegistryValue(key$, "MinTF", tunXPosMinXPos);
     tunXPosMaxXPos := GetFloatRegistryValue(key$, "MaxTF", tunXPosMaxXPos);
+    tunXPosProgression% := GetIntRegistryValue%(key$, "Progression", tunXPosProgression%);
 end;
 
 proc SaveTuningCurveXPosParameters()
@@ -282,6 +316,7 @@ proc SaveTuningCurveXPosParameters()
     SetIntRegistryValue(key$, "NRepeats", tunXPosNRepeats%);
     SetFloatRegistryValue(key$, "MinTF", tunXPosMinXPos);
     SetFloatRegistryValue(key$, "MaxTF", tunXPosMaxXPos);
+    SetIntRegistryValue(key$, "Progression", tunXPosProgression%);
 end;
 
 proc GetTuningCurveAreaParameters()
@@ -293,6 +328,7 @@ proc GetTuningCurveAreaParameters()
     tunAreaNRepeats% := GetIntRegistryValue%(key$, "NRepeats", tunAreaNRepeats%);
     tunAreaMinDiam := GetFloatRegistryValue(key$, "MinDiam", tunAreaMinDiam);
     tunAreaMaxDiam := GetFloatRegistryValue(key$, "MaxDiam", tunAreaMaxDiam);
+    tunAreaProgression% := GetIntRegistryValue%(key$, "Progression", tunAreaProgression%);
     tunDonutOptimalIndex% := GetIntRegistryValue%(key$, "OptimalIndex", tunDonutOptimalIndex%);
     tunDonutProgression% := GetIntRegistryValue%(key$, "DonutProgression", tunDonutProgression%);
     tunBerlinerMaximalIndex% := GetIntRegistryValue%(key$, "MaximalIndexBerliner", tunBerlinerMaximalIndex%);
@@ -313,6 +349,7 @@ proc SaveTuningCurveAreaParameters()
     SetIntRegistryValue(key$, "NRepeats", tunAreaNRepeats%);
     SetFloatRegistryValue(key$, "MinDiam", tunAreaMinDiam);
     SetFloatRegistryValue(key$, "MaxDiam", tunAreaMaxDiam);
+    SetIntRegistryValue(key$, "Progression", tunAreaProgression%);
     SetIntRegistryValue(key$, "OptimalIndex", tunDonutOptimalIndex%);
     SetIntRegistryValue(key$, "DonutProgression", tunDonutProgression%);
     SetIntRegistryValue(key$, "MaximalIndexBerliner", tunBerlinerMaximalIndex%);
@@ -325,6 +362,51 @@ proc SaveTuningCurveAreaParameters()
     SetIntRegistryValue(key$, "BoxODonutsNRepeats", tunBoxODonutsNRepeats%);
 end;
 
+proc GetTuningCurveDotsParameters()
+	var key$;
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Tuning\\Dots";
+    tunDotsNSteps% := GetIntRegistryValue%(key$, "NSteps", tunDotsNSteps%);
+    tunDotsNRepeats% := GetIntRegistryValue%(key$, "NRepeats", tunDotsNRepeats%);
+    tunDotsMinOrientation := GetFloatRegistryValue(key$, "MinOrientation", tunDotsMinOrientation);
+    tunDotsMaxOrientation := GetFloatRegistryValue(key$, "MaxOrientation", tunDotsMaxOrientation);
+    tunDotsX := GetFloatRegistryValue(key$, "X", tunDotsX);
+    tunDotsY := GetFloatRegistryValue(key$, "Y", tunDotsY);
+    tunDotsDiameter := GetFloatRegistryValue(key$, "Diameter", tunDotsDiameter);
+    tunDotsSpeed := GetFloatRegistryValue(key$, "Speed", tunDotsSpeed);
+    tunDotsDensity := GetFloatRegistryValue(key$, "Density", tunDotsDensity);
+    tunDotsSize% := GetIntRegistryValue%(key$, "Size", tunDotsSize%);
+    tunDotsProgression% := GetIntRegistryValue%(key$, "Progression", tunDotsProgression%);
+    tunDotsBGR% := GetIntRegistryValue%(key$, "BGR", tunDotsBGR%);
+    tunDotsBGG% := GetIntRegistryValue%(key$, "BGG", tunDotsBGG%);
+    tunDotsBGB% := GetIntRegistryValue%(key$, "BGB", tunDotsBGB%);
+    tunDotsFGR% := GetIntRegistryValue%(key$, "FGR", tunDotsFGR%);
+    tunDotsFGG% := GetIntRegistryValue%(key$, "FGG", tunDotsFGG%);
+    tunDotsFGB% := GetIntRegistryValue%(key$, "FGB", tunDotsFGB%);
+end;
+
+proc SaveTuningCurveDotsParameters()
+	var key$;
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Tuning\\Dots";
+    SetIntRegistryValue(key$, "NSteps", tunDotsNSteps%);
+    SetIntRegistryValue(key$, "NRepeats", tunDotsNRepeats%);
+    SetFloatRegistryValue(key$, "MinOrientation", tunDotsMinOrientation);
+    SetFloatRegistryValue(key$, "MaxOrientation", tunDotsMaxOrientation);
+    SetFloatRegistryValue(key$, "X", tunDotsX);
+    SetFloatRegistryValue(key$, "Y", tunDotsY);
+    SetFloatRegistryValue(key$, "Diameter", tunDotsDiameter);
+    SetFloatRegistryValue(key$, "Speed", tunDotsSpeed);
+    SetFloatRegistryValue(key$, "Density", tunDotsDensity);
+    SetIntRegistryValue(key$, "Size", tunDotsSize%);
+    SetIntRegistryValue(key$, "Progression", tunDotsProgression%);
+    SetIntRegistryValue(key$, "BGR", tunDotsBGR%);
+    SetIntRegistryValue(key$, "BGG", tunDotsBGG%);
+    SetIntRegistryValue(key$, "BGB", tunDotsBGB%);
+    SetIntRegistryValue(key$, "FGR", tunDotsFGR%);
+    SetIntRegistryValue(key$, "FGG", tunDotsFGG%);
+    SetIntRegistryValue(key$, "FGB", tunDotsFGB%);
+end;
+
+'------------ END Read/write tuning curve parameters to the registry ------------
 
 
 func TuningCurveOrientationDialog%()
@@ -1056,6 +1138,83 @@ end
 
 
 
+func TuningCurveDotsDialog%()
+	var iReturn%;
+	var i%;
+	GetTuningCurveDotsParameters();
+	DlgCreate("Run Dots Tuning Curve");
+    
+    DlgGroup("Tuning Curve Parameters", 1, 1, 47, 6);
+	DlgInteger(1, "Number of Steps", 2, 100, 0, 2);
+	DlgInteger(2, "Number of Repeats", 1, 10, 0, 3);
+	DlgReal(3, "Min Orientation (deg)", 0, 360, 0, 4);
+	DlgReal(4, "Max Orientation (deg)", 0, 360, 0, 5);
+	DlgCheck(5, "Random Progression", 0, 6);
+    
+    DlgGroup("Dot Parameters", 1, 7, 47, 7);
+    DlgReal(6, "X Position (deg):",  -40, 40, 0, 8);
+    DlgReal(7, "Y Position (deg):", -40, 40, 0, 9);
+    DlgReal(8, "Diameter (deg):", .1, 30, 0, 10);
+    DlgReal(9, "Speed (deg/sec):", 0, 10, 0, 11);
+    DlgReal(10, "Density (dots/deg^2):", 0, 200, 0 ,12);
+    DlgInteger(11, "Dot Size (pixels):", 0, 50, 0, 13);
+    
+    DlgGroup("Color", 1, 14, 47, 7);
+    DlgInteger(12, "BG Color Red Value:", 0, 255, 0, 15);
+    DlgInteger(13, "BG Color Green Value:", 0, 255, 0, 16);
+    DlgInteger(14, "BG Color Blue Value:", 0, 255, 0, 17);
+    DlgInteger(15, "Dot Color Red Value:", 0, 255, 0, 18);
+    DlgInteger(16, "Dot Color Green Value:", 0, 255, 0, 19);
+    DlgInteger(17, "Dot Color Blue Value:", 0, 255, 0, 20);
+
+    
+    
+    'DlgList(12, "Color:", ColorVectorList$[]);  Color, BG color?  
+    
+    
+	i% := DlgShow(tunDotsNSteps%, tunDotsNRepeats%, tunDotsMinOrientation, tunDotsMaxOrientation, tunDotsProgression%, tunDotsX, tunDotsY,
+    tunDotsDiameter, tunDotsSpeed, tunDotsDensity, tunDotsSize%, tunDotsBGR%, tunDotsBGG%, tunDotsBGB%, tunDotsFGR%, tunDotsFGG%, tunDotsFGB%);
+
+	' If i% is 1 the user hit "OK". If its 0, user hit "Cancel". 
+	' When user hits OK we alwaus save the parameters, and when user hits Cancel we don't.
+    ' djs 2/4/2011
+    ' Spike2 bug workaround implemented. The return value from this function (when in DAQ context this
+    ' dialog is called from a DlgButton in another dialog) should make the parent dialog close, as if 
+    ' the OK button were hit. Bug in Spike2 v6 means this doesn't work right - the parent dialog will 
+    ' close but its variables are not updated prior to doing so.... so any changes to the parent dialog
+    ' are not seen in the subsequent expt, they're not saved in the registry, etc. Workaround is to return
+    ' something > 0 here. The parent dialog will continue to display, and the user has to hit OK on that 
+    ' before things proceed. 
+	if i% = 1 then
+		SaveTuningCurveDotsParameters();
+		PrintLog("TuningCurveDotsDialog - user hit OK\n");
+		tunType$ := tunTypeDots$;
+                
+		if tunContext$ = tunContextDAQ$ then
+            ' djs 2/4/2011 We return 1 - that's the workaround			iReturn% := 0;
+            iReturn% := 1;
+		else
+			iReturn% := 1;
+		endif;
+	endif;
+	if i% = 0 then
+		PrintLog("TuningCurveDotsDialog - user hit Cancel\n");
+		tunType$ := tunTypeNone$;
+		if tunContext$ = tunContextDAQ$ then
+			iReturn% := 1;
+		else
+			iReturn% := 2;
+		endif;
+	endif;
+    PrintLog("Return value is %d\n", iReturn%);
+	return iReturn%;
+end;
+
+
+
+
+
+
 
 func TunDlgGratingMaster%()
     
@@ -1465,7 +1624,7 @@ func TuningCurveScriptDialog%()
     DlgCheck(12, "Stationary",2,14);
     DlgButton(tundlgXHairButton%, " Crosshairs  ", UpdateTuningXHairDialog%, 1, 15);
     updateXHairText% := DlgText(tunXHairText$, 15, 15);
-	DlgGroup("Individual Tuning Curve Types", 1, 17, 52, 4);
+	DlgGroup("Individual Tuning Curve Types", 1, 17, 52, 5);
 	DlgButton(tundlgOrientationButton%, " Orientation  ", TuningCurveOrientationDialog%, 2, 18); 'Note that labels for Orientation-Area are superceded 
 	DlgButton(tundlgContrastButton%, "     Contrast     ", TuningCurveContrastDialog%, 18, 18);  'by TuningCurveScriptDialogChanged% even upon opening 
 	DlgButton(tundlgSpatialButton%, "Spatial Freq", TuningCurveSpatialDialog%, 2, 19);           'the dialog (i.e. whatever label is here is unused)
@@ -1475,6 +1634,7 @@ func TuningCurveScriptDialog%()
 	DlgButton(tundlgDonutButton%, "   Donuts!   ", TuningCurveDonutDialog%, 2, 20);
     DlgButton(tundlgBerlinerButton%, "    Berliners!    ", TuningCurveBerlinerDialog%, 18, 20);
     DlgButton(tundlgBoxODonutsButton%, " Box O' Donuts ", TuningCurveBoxODonutsDialog%, 36, 20);
+    DlgButton(tundlgDotsButton%, "    Dots!    ", TuningCurveDotsDialog%, 2, 21);
     DlgAllow(0xffff, 0, TuningCurveScriptDialogChanged%);
 	
     if JuicerType% = 1 then
@@ -1556,6 +1716,8 @@ end;
 func TuningCurveScriptDialogChanged%(item%) 
     if DlgValue(10) = 0 then  'If single VSG, do not allow Donuts or Berliners
         DlgEnable(0,-tundlgDonutButton%,-tundlgBerlinerButton%,-tundlgBoxODonutsButton%);
+        'But do allow Dots
+        DlgEnable(1,-tundlgDotsButton%);
         'Also, change labels on buttons to reflect the monocular aspect of not using dual VSG
         DlgValue$(-tundlgOrientationButton%, " Orientation  ");
         DlgValue$(-tundlgContrastButton%, "     Contrast     ");
@@ -1566,6 +1728,8 @@ func TuningCurveScriptDialogChanged%(item%)
     endif;
     if DlgValue(10) = 1 then  'If dual VSG, allow donuts and Berliners
         DlgEnable(1,-tundlgDonutButton%,-tundlgBerlinerButton%,-tundlgBoxODonutsButton%);
+        'But don't allow Dots
+        DlgEnable(0,-tundlgDotsButton%);
         'Also, change labels on buttons to reflect the binocular aspect of using dual VSG
         DlgValue$(-tundlgOrientationButton%, " D Orientation ");
         DlgValue$(-tundlgContrastButton%, "    D Contrast    ");
