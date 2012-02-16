@@ -1,4 +1,4 @@
-' $Id: TuningDialogs.s2s,v 1.9 2012-02-15 18:04:00 jeff Exp $
+' $Id: TuningDialogs.s2s,v 1.10 2012-02-16 00:11:16 jeff Exp $
 '
 ' This file contains dialog functions for the alert tuning script Tuning.s2s.
 #include "../../Spike2Util/UsreyUtil.s2s"
@@ -167,6 +167,7 @@ var updateXHairText%;             'Gets the item number of a DlgText object for 
 var TunCurveMArg$:="";            'holds type of tuning curve on Master
 var TunCurveSArg$:="";            'holds type of tuning curve on slave
 var TunCurveS2Arg$:="";           'holds second type of tuning curve on slave, for Box O' Donuts
+var tunNoCardSync%;               'allows us to turn off card synching for Dualstim
 
 
 ' These will be set by the tuning curve choice
@@ -1622,6 +1623,7 @@ func TuningCurveScriptDialog%()
     DlgCheck(10, "Use Dual VSG", 2, 12);
     DlgCheck(11, "Maintain Fixpt between trials", 2, 13);
     DlgCheck(12, "Stationary",2,14);
+    DlgCheck(13, "Select to turn off card sync", 25, 12);
     DlgButton(tundlgXHairButton%, " Crosshairs  ", UpdateTuningXHairDialog%, 1, 15);
     updateXHairText% := DlgText(tunXHairText$, 15, 15);
 	DlgGroup("Individual Tuning Curve Types", 1, 17, 52, 5);
@@ -1640,11 +1642,11 @@ func TuningCurveScriptDialog%()
     if JuicerType% = 1 then
         i%:=DlgShow(tunAcquisitionTime, tunFixationDuration, tunMaintainFixation,
         tunAcqFailTime, tunHoldFailTime, tunMaintainFailTime, tunTimeOutTime, ibcl%, JuiceRewardMS%, tunDoRivalry%, 
-        tunUseMaintainMode%, tunSetStationary%);
+        tunUseMaintainMode%, tunSetStationary%, tunNoCardSync%);
     else
         i%:=DlgShow(tunAcquisitionTime, tunFixationDuration, tunMaintainFixation,
         tunAcqFailTime, tunHoldFailTime, tunMaintainFailTime, tunTimeOutTime, ibcl%, JuicePerReward%, tunDoRivalry%, 
-        tunUseMaintainMode%, tunSetStationary%);
+        tunUseMaintainMode%, tunSetStationary%, tunNoCardSync%);
     endif;
     
     
@@ -1716,6 +1718,8 @@ end;
 func TuningCurveScriptDialogChanged%(item%) 
     if DlgValue(10) = 0 then  'If single VSG, do not allow Donuts or Berliners
         DlgEnable(0,-tundlgDonutButton%,-tundlgBerlinerButton%,-tundlgBoxODonutsButton%);
+        'Also disable card synch functions
+        DlgEnable(0,13);
         'But do allow Dots
         DlgEnable(1,-tundlgDotsButton%);
         'Also, change labels on buttons to reflect the monocular aspect of not using dual VSG
@@ -1728,6 +1732,8 @@ func TuningCurveScriptDialogChanged%(item%)
     endif;
     if DlgValue(10) = 1 then  'If dual VSG, allow donuts and Berliners
         DlgEnable(1,-tundlgDonutButton%,-tundlgBerlinerButton%,-tundlgBoxODonutsButton%);
+        'Also allow turning off card synch
+        DlgEnable(1,13);
         'But don't allow Dots
         DlgEnable(0,-tundlgDotsButton%);
         'Also, change labels on buttons to reflect the binocular aspect of using dual VSG
