@@ -1,7 +1,7 @@
-' $Id: Tuning.s2s,v 1.53 2012-02-15 21:32:00 devel Exp $
+' $Id: Tuning.s2s,v 1.54 2012-02-16 00:11:15 jeff Exp $
 ' Update 11/8/11 Jeff, includes multi-juicer updates
 
-const tunCVSID$ := "$Id: Tuning.s2s,v 1.53 2012-02-15 21:32:00 devel Exp $";
+const tunCVSID$ := "$Id: Tuning.s2s,v 1.54 2012-02-16 00:11:15 jeff Exp $";
 
 
 
@@ -1351,7 +1351,12 @@ func Start%()
         SGratParam$ := "";  'clear slave grating parameters, we won't use them
         
     else  'for rivalry (dualstim.exe), we need some extra commands that must be empty for a fixstim.exe call
-        RefrLock$ := " -K ";  'lock frame refresh on the two screens
+        if tunNoCardSync% = 0 then
+            RefrLock$ := " -K ";  'lock frame refresh on the two screens
+        else
+            RefrLock$ := "";  'do not lock frame refresh on the two screens
+        endif;
+        
         ProgName$ := "\\dualstim.exe "; 'set program name for dual VSG
         
         ' Fetch the offset filename
