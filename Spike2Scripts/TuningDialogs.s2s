@@ -1,4 +1,4 @@
-' $Id: TuningDialogs.s2s,v 1.10 2012-02-16 00:11:16 jeff Exp $
+' $Id: TuningDialogs.s2s,v 1.11 2012-02-23 19:49:04 jeff Exp $
 '
 ' This file contains dialog functions for the alert tuning script Tuning.s2s.
 #include "../../Spike2Util/UsreyUtil.s2s"
@@ -19,9 +19,11 @@ const tunTypeBerliner$ := "B";
 const tunTypeBoxODonuts$ := "G";  '(G)rid of stimuli
 const tunTypeXPos$ := "X";  
 const tunTypeDots$ := "D";
+const tunTypeDisparity$ := "DX";  
 var tunType$:=tunTypeNone$;
 var tunType1$:=tunTypeNone$;  'for first of two tuning curves, if Box O' Donuts
 var tunType2$:=tunTypeNone$;  'for second of two tuning curves, if Box O' Donuts
+var tunDualTuningType%;  'Determines whether, on dual tuning, both (0), Master (1), or Slave (2) screen varies.
 
 const tunContextDAQ$ := "DAQ";
 const tunContextConfig$ := "Config";
@@ -38,6 +40,7 @@ const tundlgBerlinerButton% := 15;
 const tundlgBoxODonutsButton% := 16;
 const tundlgXPosButton% := 17;
 const tundlgDotsButton% := 18;
+const tundlgDisparityButton% := 19;
 
 ' A note about "steps". 
 ' The dialogs ask for a number of "steps". A step is a transition from one stimulus
@@ -132,6 +135,16 @@ var tunDotsFGR%;            ' Dot color, red level
 var tunDotsFGG%;            ' Dot color, green level
 var tunDotsFGB%;            ' Dot color, blue level
 
+
+' Disparity - this runs a Disparity tuning curve on either the slave or master screen
+var tunDisparityOnMaster%;      ' if 1, Disparity is on master, if 0, Disparity is on slave.
+var tunDisparityProgression%;   ' if 1, progression is random
+var tunDisparityLinear%;        ' if 1, tuning curve is linear, 0 log
+var tunDisparityNSteps%;
+var tunDisparityNRepeats%;
+var tunDisparityCenterXPos;
+var tunDisparityMaxXPos;
+var tunDisparityMinXPos;
 
 ' Strings that hold grating parameters
 var tunGratingParams$;
@@ -304,8 +317,8 @@ proc GetTuningCurveXPosParameters()
     
     tunXPosNSteps% := GetIntRegistryValue%(key$, "NSteps", tunXPosNSteps%);
     tunXPosNRepeats% := GetIntRegistryValue%(key$, "NRepeats", tunXPosNRepeats%);
-    tunXPosMinXPos := GetFloatRegistryValue(key$, "MinTF", tunXPosMinXPos);
-    tunXPosMaxXPos := GetFloatRegistryValue(key$, "MaxTF", tunXPosMaxXPos);
+    tunXPosMinXPos := GetFloatRegistryValue(key$, "MinXPos", tunXPosMinXPos);
+    tunXPosMaxXPos := GetFloatRegistryValue(key$, "MaxXPos", tunXPosMaxXPos);
     tunXPosProgression% := GetIntRegistryValue%(key$, "Progression", tunXPosProgression%);
 end;
 
@@ -315,10 +328,41 @@ proc SaveTuningCurveXPosParameters()
 
     SetIntRegistryValue(key$, "NSteps", tunXPosNSteps%);
     SetIntRegistryValue(key$, "NRepeats", tunXPosNRepeats%);
-    SetFloatRegistryValue(key$, "MinTF", tunXPosMinXPos);
-    SetFloatRegistryValue(key$, "MaxTF", tunXPosMaxXPos);
+    SetFloatRegistryValue(key$, "MinXPos", tunXPosMinXPos);
+    SetFloatRegistryValue(key$, "MaxXPos", tunXPosMaxXPos);
     SetIntRegistryValue(key$, "Progression", tunXPosProgression%);
 end;
+
+proc GetTuningCurveDisparityParameters()
+	var stmp$;
+	var key$;
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Tuning\\Disparity";
+    
+    tunDisparityNSteps% := GetIntRegistryValue%(key$, "NSteps", tunDisparityNSteps%);
+    tunDisparityNRepeats% := GetIntRegistryValue%(key$, "NRepeats", tunDisparityNRepeats%);
+    tunDisparityCenterXPos := GetFloatRegistryValue(key$, "CenterXPos", tunDisparityCenterXPos);
+    tunDisparityMaxXPos := GetFloatRegistryValue(key$, "MaxXPos", tunDisparityMaxXPos);
+    tunDisparityProgression% := GetIntRegistryValue%(key$, "Progression", tunDisparityProgression%);
+    tunDisparityLinear% := GetIntRegistryValue%(key$, "Linear", tunDisparityLinear%);
+    tunDisparityOnMaster% := GetIntRegistryValue%(key$, "Master", tunDisparityOnMaster%);
+    
+end;
+
+proc SaveTuningCurveDisparityParameters()
+	var stmp$;
+	var key$;
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Tuning\\Disparity";
+    
+    SetIntRegistryValue(key$, "NSteps", tunDisparityNSteps%);
+    SetIntRegistryValue(key$, "NRepeats", tunDisparityNRepeats%);
+    SetFloatRegistryValue(key$, "CenterXPos", tunDisparityCenterXPos);
+    SetFloatRegistryValue(key$, "MaxXPos", tunDisparityMaxXPos);
+    SetIntRegistryValue(key$, "Progression", tunDisparityProgression%);
+    SetIntRegistryValue(key$, "Linear", tunDisparityLinear%);
+    SetIntRegistryValue(key$, "Master", tunDisparityOnMaster%);
+    
+end;
+
 
 proc GetTuningCurveAreaParameters()
 	var stmp$;
@@ -860,6 +904,82 @@ func TuningCurveXPosDialog%()
     
 	return iReturn%;
 end;
+
+
+func TuningCurveDisparityDialog%()
+    'This is closely related to XPos
+	var iReturn% := 0;
+	var i%;
+    var x, y, w, h, iw, ih, sf, tf, ori, phase;
+    var contrast%;
+    var param$, cv$, pattern$, aperture$;
+    var label$;
+    
+    'get parameters for Disparity tuning curve
+    GetTuningCurveDisparityParameters();
+    
+    'get current x position, will allow update without going to grating parameters
+    param$ := GetGratingParameters$("Stimulus");  'for XPos, get grating parameters from master stimulus, will reset master/slave accordingly 
+	ParseGratingParameters%(param$, x, y, w, h, iw, ih, contrast%, sf, tf, ori, phase, cv$, pattern$, aperture$);
+    tunDisparityCenterXPos := x;
+    
+	DlgCreate("Disparity Tuning Curve Parameters");
+	DlgInteger(1, "Number of Steps (one way)", 2, 100);
+	DlgInteger(2, "Number of Repeats", 1, 1000);
+	DlgReal(3, "Center X Position", -14, 14);
+	DlgReal(4, "Max X Position (will mirror)", -14, 14);
+    DlgCheck(5, "Slave Screen Is Stationary");
+    DlgCheck(6, "No function - only linear for now");
+    'DlgCheck(6, "Linear progression (unchecked is log)");
+    DlgCheck(7, "Random Progression");
+    
+    
+	i% := DlgShow(tunDisparityNSteps%, tunDisparityNRepeats%, tunDisparityCenterXPos, tunDisparityMaxXPos, tunDisparityOnMaster%, tunDisparityLinear%, tunDisparityProgression%);
+	' If i% is 1 the user hit "OK". If its 0, user hit "Cancel". 
+	' When user hits OK we always save the parameters, and when user hits Cancel we don't.
+    ' 
+    ' djs 2/4/2011
+    ' Spike2 bug workaround implemented. The return value from this function (when in DAQ context this
+    ' dialog is called from a DlgButton in another dialog) should make the parent dialog close, as if 
+    ' the OK button were hit. Bug in Spike2 v6 means this doesn't work right - the parent dialog will 
+    ' close but its variables are not updated prior to doing so.... so any changes to the parent dialog
+    ' are not seen in the subsequent expt, they're not saved in the registry, etc. Workaround is to return
+    ' something > 0 here. The parent dialog will continue to display, and the user has to hit OK on that 
+    ' before things proceed. 
+    'tunMaximalDiam := tunAreaMaxDiam;  This won't do anything unless FIXSTIM is updated to allow crosshairs
+	if i% = 1 then
+		SaveTuningCurveDisparityParameters();
+        'and reset the x position for master AND slave gratings
+        x := tunDisparityCenterXPos;
+        param$ := EncodeGratingParameters$(x, y, w, h, iw, ih, contrast%, sf, tf, ori, phase, cv$, pattern$, aperture$);
+        SaveGratingParameters("Stimulus", param$);  'this saves master
+        TunMasterValsToSlave%();  'this copies master values over to slave
+		
+        tunType$ := tunTypeDisparity$;
+        
+        
+		if tunContext$ = tunContextDAQ$ then
+            ' djs 2/4/2011 We return 1 - that's the workaround			iReturn% := 0;
+            iReturn% := 1;
+		else
+			iReturn% := 1;
+		endif;
+	endif;
+	if i% = 0 then
+'		PrintLog("TuningCurveAreaDialog - user hit Cancel\n");
+		tunType$ := tunTypeNone$;
+		if tunContext$ = tunContextDAQ$ then
+			iReturn% := 1;
+		else
+			iReturn% := 2;
+		endif;
+	endif;
+    
+	return iReturn%;
+end;
+
+
+
 
 
 
@@ -1527,6 +1647,7 @@ proc GetTuningCurveScriptParameters()
     tunTimeOutTime := GetFloatRegistryValue(key$, "TimeOutTime", tunTimeOutTime);
     tunBackgroundColor$ := GetStringRegistryValue$(key$, "BackgroundColor", tunBackgroundColor$);
     tunDoRivalry% := GetIntRegistryValue%(key$, "DoRivalry", tunDoRivalry%);
+    tunDualTuningType% := GetIntRegistryValue%(key$, "DualTuningType", tunDualTuningType%);
     tunUseXHairs% := GetIntRegistryValue%(key$, "UseXHairs", tunUseXHairs%);
     tunXHairInnerRadiusOffset := GetFloatRegistryValue(key$, "XHairInnerRadiusOffset", tunXHairInnerRadiusOffset);
     tunXHairMiddleRadiusOffset := GetFloatRegistryValue(key$, "XHairMiddleRadiusOffset", tunXHairMiddleRadiusOffset);
@@ -1534,7 +1655,7 @@ proc GetTuningCurveScriptParameters()
     tunXHairTicInnerOffset := GetFloatRegistryValue(key$, "XHairTicInnerOffset", tunXHairTicInnerOffset);
     tunXHairTicOuterOffset := GetFloatRegistryValue(key$, "XHairTicOuterOffset", tunXHairTicOuterOffset);
     tunXHairNumGridDivisions% := GetIntRegistryValue%(key$, "XHairNumGridDivisions", tunXHairNumGridDivisions%);
-
+    
 end;
 
 proc SaveTuningCurveScriptParameters()
@@ -1551,6 +1672,7 @@ proc SaveTuningCurveScriptParameters()
     SetFloatRegistryValue(key$, "TimeOutTime", tunTimeOutTime);
     SetStringRegistryValue(key$, "BackgroundColor", tunBackgroundColor$);
     SetIntRegistryValue(key$, "DoRivalry", tunDoRivalry%);
+    SetIntRegistryValue(key$, "DualTuningType", tunDualTuningType%);
     SetIntRegistryValue(key$, "UseXHairs", tunUseXHairs%);
     SetFloatRegistryValue(key$, "XHairInnerRadiusOffset", tunXHairInnerRadiusOffset);
     SetFloatRegistryValue(key$, "XHairMiddleRadiusOffset", tunXHairMiddleRadiusOffset);
@@ -1586,10 +1708,15 @@ func TuningCurveScriptDialog%()
     var boxOK% := 1;  'do the stimulus/crosshairs boxes overlap?
 	GetTuningCurveScriptParameters();
 	var bcl$[3];
-	var ibcl%:=0;
 	bcl$[0] := "gray";
 	bcl$[1] := "black";
 	bcl$[2] := "white";
+    var ibcl%:=0;
+    var dualType$[3];
+    dualType$[0] := "Dual Tuning";
+    dualType$[1] := "Master only";
+    dualType$[2] := "Slave only";
+    
 	for i%:=0 to 2 do
 		if tunBackgroundColor$ = bcl$[i%] then
 			ibcl% := i%;
@@ -1620,12 +1747,15 @@ func TuningCurveScriptDialog%()
         DlgInteger(9, "Num. juicer pulses:", 1, 20, 20, 10);
     endif;   
     'juicer duration / n repeats dialog here?  Have to write values to DAQ parameters if changed, disable if not correct for juicer? 
+    DlgGroup("Dual VSG Options", 1, 11, 52, 3);
     DlgCheck(10, "Use Dual VSG", 2, 12);
-    DlgCheck(11, "Maintain Fixpt between trials", 2, 13);
-    DlgCheck(12, "Stationary",2,14);
-    DlgCheck(13, "Select to turn off card sync", 25, 12);
-    DlgButton(tundlgXHairButton%, " Crosshairs  ", UpdateTuningXHairDialog%, 1, 15);
-    updateXHairText% := DlgText(tunXHairText$, 15, 15);
+    DlgCheck(11, "Select to turn off card sync", 25, 12);
+    DlgList(12, "Dual Tuning Configuration:", dualType$, 3, 25, 13);
+    
+    DlgCheck(13, "Maintain Fixpt between trials", 2, 14);
+    DlgCheck(14, "Stationary",2,15);
+    DlgButton(tundlgXHairButton%, " Crosshairs  ", UpdateTuningXHairDialog%, 1, 16);
+    updateXHairText% := DlgText(tunXHairText$, 15, 16);
 	DlgGroup("Individual Tuning Curve Types", 1, 17, 52, 5);
 	DlgButton(tundlgOrientationButton%, " Orientation  ", TuningCurveOrientationDialog%, 2, 18); 'Note that labels for Orientation-Area are superceded 
 	DlgButton(tundlgContrastButton%, "     Contrast     ", TuningCurveContrastDialog%, 18, 18);  'by TuningCurveScriptDialogChanged% even upon opening 
@@ -1637,16 +1767,17 @@ func TuningCurveScriptDialog%()
     DlgButton(tundlgBerlinerButton%, "    Berliners!    ", TuningCurveBerlinerDialog%, 18, 20);
     DlgButton(tundlgBoxODonutsButton%, " Box O' Donuts ", TuningCurveBoxODonutsDialog%, 36, 20);
     DlgButton(tundlgDotsButton%, "    Dots!    ", TuningCurveDotsDialog%, 2, 21);
+    DlgButton(tundlgDisparityButton%, "   Disparity   ", TuningCurveDisparityDialog%, 36, 21);
     DlgAllow(0xffff, 0, TuningCurveScriptDialogChanged%);
 	
     if JuicerType% = 1 then
         i%:=DlgShow(tunAcquisitionTime, tunFixationDuration, tunMaintainFixation,
-        tunAcqFailTime, tunHoldFailTime, tunMaintainFailTime, tunTimeOutTime, ibcl%, JuiceRewardMS%, tunDoRivalry%, 
-        tunUseMaintainMode%, tunSetStationary%, tunNoCardSync%);
+        tunAcqFailTime, tunHoldFailTime, tunMaintainFailTime, tunTimeOutTime, ibcl%, JuiceRewardMS%, tunDoRivalry%, tunNoCardSync%, 
+        tunDualTuningType%, tunUseMaintainMode%, tunSetStationary%);
     else
         i%:=DlgShow(tunAcquisitionTime, tunFixationDuration, tunMaintainFixation,
-        tunAcqFailTime, tunHoldFailTime, tunMaintainFailTime, tunTimeOutTime, ibcl%, JuicePerReward%, tunDoRivalry%, 
-        tunUseMaintainMode%, tunSetStationary%, tunNoCardSync%);
+        tunAcqFailTime, tunHoldFailTime, tunMaintainFailTime, tunTimeOutTime, ibcl%, JuicePerReward%, tunDoRivalry%, tunNoCardSync%, 
+        tunDualTuningType%, tunUseMaintainMode%, tunSetStationary%);
     endif;
     
     
@@ -1718,8 +1849,9 @@ end;
 func TuningCurveScriptDialogChanged%(item%) 
     if DlgValue(10) = 0 then  'If single VSG, do not allow Donuts or Berliners
         DlgEnable(0,-tundlgDonutButton%,-tundlgBerlinerButton%,-tundlgBoxODonutsButton%);
-        'Also disable card synch functions
-        DlgEnable(0,13);
+        'Also disable card synch functions, dual tuning listbox
+        DlgEnable(0,11); 'card synch
+        DlgEnable(0,12); 'dual tuning listbox
         'But do allow Dots
         DlgEnable(1,-tundlgDotsButton%);
         'Also, change labels on buttons to reflect the monocular aspect of not using dual VSG
@@ -1732,17 +1864,35 @@ func TuningCurveScriptDialogChanged%(item%)
     endif;
     if DlgValue(10) = 1 then  'If dual VSG, allow donuts and Berliners
         DlgEnable(1,-tundlgDonutButton%,-tundlgBerlinerButton%,-tundlgBoxODonutsButton%);
-        'Also allow turning off card synch
-        DlgEnable(1,13);
+        'Also allow turning off card synch, dual tuning listbox
+        DlgEnable(1,11);  'card synch
+        DlgEnable(1,12);  'dual tuning listbox
         'But don't allow Dots
         DlgEnable(0,-tundlgDotsButton%);
         'Also, change labels on buttons to reflect the binocular aspect of using dual VSG
-        DlgValue$(-tundlgOrientationButton%, " D Orientation ");
-        DlgValue$(-tundlgContrastButton%, "    D Contrast    ");
-        DlgValue$(-tundlgSpatialButton%, "D Spatial Freq");
-        DlgValue$(-tundlgTemporalButton%, "D Temporal Freq");
-        DlgValue$(-tundlgAreaButton%, "D Area");
-        DlgValue$(-tundlgXPosButton%, "D X Position");
+        docase 
+            case DlgValue(12) = 0 then
+                DlgValue$(-tundlgOrientationButton%, " D Orientation ");
+                DlgValue$(-tundlgContrastButton%, "    D Contrast    ");
+                DlgValue$(-tundlgSpatialButton%, "D Spatial Freq");
+                DlgValue$(-tundlgTemporalButton%, "D Temporal Freq");
+                DlgValue$(-tundlgAreaButton%, "D Area");
+                DlgValue$(-tundlgXPosButton%, "D X Position");
+            case DlgValue(12) = 1 then
+                DlgValue$(-tundlgOrientationButton%, " M Orientation ");
+                DlgValue$(-tundlgContrastButton%, "    M Contrast    ");
+                DlgValue$(-tundlgSpatialButton%, "M Spatial Freq");
+                DlgValue$(-tundlgTemporalButton%, "M Temporal Freq");
+                DlgValue$(-tundlgAreaButton%, "M Area");
+                DlgValue$(-tundlgXPosButton%, "M X Position");
+            case DlgValue(12) = 2 then
+                DlgValue$(-tundlgOrientationButton%, " S Orientation ");
+                DlgValue$(-tundlgContrastButton%, "    S Contrast    ");
+                DlgValue$(-tundlgSpatialButton%, "S Spatial Freq");
+                DlgValue$(-tundlgTemporalButton%, "S Temporal Freq");
+                DlgValue$(-tundlgAreaButton%, "S Area");
+                DlgValue$(-tundlgXPosButton%, "S X Position");
+        endcase;
     endif;
     return 1;
 end
