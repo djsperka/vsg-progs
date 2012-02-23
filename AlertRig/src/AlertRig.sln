@@ -177,6 +177,11 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "testparse", "testparse\test
 		{E7D13D4D-A7AD-46B3-A513-BC9B6297E6D3} = {E7D13D4D-A7AD-46B3-A513-BC9B6297E6D3}
 	EndProjectSection
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "tmouse", "tmouse\tmouse.vcproj", "{144D4490-415E-43B1-B18C-AB78E8D926C8}"
+	ProjectSection(ProjectDependencies) = postProject
+		{E7D13D4D-A7AD-46B3-A513-BC9B6297E6D3} = {E7D13D4D-A7AD-46B3-A513-BC9B6297E6D3}
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -529,6 +534,14 @@ Global
 		{E355EE96-EA31-4169-B563-1D23542EA94A}.Unicode Debug|Win32.Build.0 = Debug|Win32
 		{E355EE96-EA31-4169-B563-1D23542EA94A}.Unicode Release|Win32.ActiveCfg = Release|Win32
 		{E355EE96-EA31-4169-B563-1D23542EA94A}.Unicode Release|Win32.Build.0 = Release|Win32
+		{144D4490-415E-43B1-B18C-AB78E8D926C8}.Debug|Win32.ActiveCfg = Debug|Win32
+		{144D4490-415E-43B1-B18C-AB78E8D926C8}.Debug|Win32.Build.0 = Debug|Win32
+		{144D4490-415E-43B1-B18C-AB78E8D926C8}.Release|Win32.ActiveCfg = Release|Win32
+		{144D4490-415E-43B1-B18C-AB78E8D926C8}.Release|Win32.Build.0 = Release|Win32
+		{144D4490-415E-43B1-B18C-AB78E8D926C8}.Unicode Debug|Win32.ActiveCfg = Debug|Win32
+		{144D4490-415E-43B1-B18C-AB78E8D926C8}.Unicode Debug|Win32.Build.0 = Debug|Win32
+		{144D4490-415E-43B1-B18C-AB78E8D926C8}.Unicode Release|Win32.ActiveCfg = Release|Win32
+		{144D4490-415E-43B1-B18C-AB78E8D926C8}.Unicode Release|Win32.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
