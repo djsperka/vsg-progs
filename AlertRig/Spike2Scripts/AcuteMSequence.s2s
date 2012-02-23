@@ -1,4 +1,4 @@
-' $Id: AcuteMSequence.s2s,v 1.13 2012-02-02 06:31:35 devel Exp $
+' $Id: AcuteMSequence.s2s,v 1.14 2012-02-23 01:55:11 devel Exp $
 '
 ' AcuteMSequence.s2s
 '
@@ -474,7 +474,7 @@ func CountSpikes%()
             TriggerNumber:=TriggerNumber+1;
             
             ' Was that the last trigger? 
-            if TriggerNumber = 32768 * amsRepeats% thenwh
+            if TriggerNumber = 32768 * amsRepeats% then
                 status% := -1;
             endif
             
