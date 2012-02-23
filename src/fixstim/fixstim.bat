@@ -55,4 +55,7 @@ rem ..\..\bin\fixstim -a -v -d 500 -s 0,0,5,5,100,.2,1,45,b,s,e -F ..\..\stim\MS
 rem ..\..\bin\fixstim -a -v -d 500 -s 0,0,5,5,100,.2,1,45,b,s,e -F ..\..\stim\MSequenceTerms -B 2,100,5
 
 rem CBar
-..\..\bin\fixstim -a -v -b black -d 500 -G aaa
+rem ..\..\bin\fixstim -a -v -b black -d 500 -G aaa
+
+rem dots color,x,y,diam,speed,density,dotsize,angle1,angle2,...
+..\..\bin\fixstim -a -v -b gray -p 2 -d 500 -f 0,0,1,green -D white,5,5,10,1,10,2,0,45,90
