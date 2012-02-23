@@ -1,7 +1,7 @@
-' $Id: Tuning.s2s,v 1.54 2012-02-16 00:11:15 jeff Exp $
+' $Id: Tuning.s2s,v 1.55 2012-02-23 19:49:04 jeff Exp $
 ' Update 11/8/11 Jeff, includes multi-juicer updates
 
-const tunCVSID$ := "$Id: Tuning.s2s,v 1.54 2012-02-16 00:11:15 jeff Exp $";
+const tunCVSID$ := "$Id: Tuning.s2s,v 1.55 2012-02-23 19:49:04 jeff Exp $";
 
 
 
@@ -371,8 +371,8 @@ func IdleProcessing%()
         
         nTrialsCompleted% += 1;         ' this state must be exited this time through!!!
         printlog("number of trials completed is %d\n",nTrialsCompleted%);
-		ToolbarText(str$(nTrialsCompleted%) + "/" + str$((tunNAdvances%+1)*tunNRepeats%) + " trials completed.");        
-		if nTrialsCompleted% = (tunNAdvances%+1)*tunNRepeats% then
+		ToolbarText(str$(nTrialsCompleted%) + "/" + str$(tunNValues%) + " trials completed.");        
+		if nTrialsCompleted% = tunNValues% then
             ' We're all done - appears to not reward on final trial.  How chintzy!
             ChangeStateTo(stateDone%, tNow);
             Stop%();
@@ -718,7 +718,14 @@ proc TuningCurveLabels(iport%)
 			WindowTitle$("X Position Tuning - " + s$);
 			XUnits$("X Position");
 			ChanTitle$(1, "Chan 1");
-			XRange(tunXPosMinXPos, tunXPosMaxXPos);
+            XRange(tunXPosMinXPos, tunXPosMaxXPos);
+        
+        case tunType$ = tunTypeDisparity$ then
+
+			WindowTitle$("Disparity Tuning - " + s$);
+			XUnits$("Disparity (deg)");
+			ChanTitle$(1, "Chan 1");
+			XRange(2*tunDisparityCenterXPos-tunDisparityMaxXPos, tunDisparityMaxXPos);
         
 		case tunType$ = tunTypeDonut$ then
 
@@ -831,7 +838,15 @@ proc CreateSampleConfiguration()
         tunNRepeats% := tunXPosNRepeats%;
         GetRepeatedParameterProgression%(tunXPosNSteps%+1, tunXPosNRepeats%, tunValues[], tunValuesIndices%[], tunXPosMinXPos, tunXPosMaxXPos, 0, tunXPosProgression%);  'Note - linear spacing for position, not log
         tunNValues% := (tunXPosNSteps%+1)*tunXPosNRepeats%;
-        tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%);    
+        tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%);   
+    case tunType$ = tunTypeDisparity$ then 
+        SampleAutoName$(dataCellName$ + "_disparity_000");
+        tunNAdvances% := tunDisparityNSteps%;
+        tunNRepeats% := tunDisparityNRepeats%;
+        GetRepeatedSymmetricParameterProgression%(tunDisparityNSteps%+1, tunDisparityNRepeats%, tunValues[], tunValuesIndices%[], tunDisparityCenterXPos, tunDisparityMaxXPos, 0, tunXPosProgression%);  'linear spacing only
+        'GetRepeatedSymmetricParameterProgression%(tunDisparityNSteps%+1, tunDisparityNRepeats%, tunValues[], tunValuesIndices%[], tunDisparityCenterXPos, tunDisparityMaxXPos, 1-tunDisparityLinear%, tunXPosProgression%);  'allow log spacing
+        tunNValues% := (2*tunDisparityNSteps%+1)*tunDisparityNRepeats%;
+        tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%);         
     case tunType$ = tunTypeDonut$ then 
         SampleAutoName$(dataCellName$ + "_donut_000");
         tunNAdvances% := tunAreaNSteps%;
@@ -912,6 +927,7 @@ proc CreateSampleConfiguration()
         
         tunNRepeats% := tunBoxODonutsNRepeats%;   
         tunNAdvances% := tun1NValues%*tun2NValues%-1;  'this gives the correct number of advances
+        tunNValues% := tun1NValues%*tun2NValues%*tunBoxODonutsNRepeats%;  'now used in idle loop instead of (tunNAdvances%+1)*tunNRepeats
         
         'Now we need to grid the values out into two appropriate tunValues and tunValuesIndices (the randomizer bit)
         GridStimuli(tun1Values[],tun2Values[],tun1NValues%,tun2NValues%,tun1ValuesIndices%[],tun2ValuesIndices%[],tunBoxODonutsProgression%,tunBoxODonutsNRepeats%); 
@@ -1063,14 +1079,13 @@ proc WriteParameterFile()
 	Print("Color                      : %s\n", FixationColor$);
 
 	' write stimulus parameters
-	Print("\nStimulus\n");
-	Print("-------------------\n\n");
-
 	var Tstimstr$;
 	var Tstimx$, Tstimy$, Tstimw$, Tstimh$, Tstimiw$, Tstimih$, Tstimcontrast$, Tstimsf$, Tstimtf$, Tstimorientation$, Tstimphase$, Tstimcv$, Tstimp$, Tstimap$;
 	var i%;
 	var Tstepsize;
     var phase;
+    Print("\nStimulus\n");  'Master grating
+	Print("-------------------\n\n");
 	Tstimstr$ := GetGratingParameters$("Stimulus");
 	ReadSetup(",",",",",",",",",");
 	i% := ReadStr(Tstimstr$, Tstimx$, Tstimy$, Tstimw$, Tstimh$, Tstimiw$, Tstimih$, Tstimcontrast$, Tstimsf$, Tstimtf$, Tstimorientation$, Tstimphase$, Tstimcv$, Tstimp$, Tstimap$);
@@ -1088,8 +1103,31 @@ proc WriteParameterFile()
 	Print("Contrast (%%)                    : %s\n", Tstimcontrast$);
 	Print("Aperture: ellipse(e)/square(q)  : %s\n", Tstimap$);
 	Print("Type: sine (s)/square (q)       : %s\n", Tstimp$);
-
-
+    
+    if tunDoRivalry% = 1 then  'Do slave grating only if we're using it
+        Print("\Slave Stimulus\n");  'Slave grating
+        Print("-------------------\n\n");
+        Tstimstr$ := GetGratingParameters$("SlaveStimulus");
+        ReadSetup(",",",",",",",",",");
+        i% := ReadStr(Tstimstr$, Tstimx$, Tstimy$, Tstimw$, Tstimh$, Tstimiw$, Tstimih$, Tstimcontrast$, Tstimsf$, Tstimtf$, Tstimorientation$, Tstimphase$, Tstimcv$, Tstimp$, Tstimap$);
+        Print("Position (x, degrees)           : %s\n", Tstimx$);
+        Print("Position (y, degrees)           : %s\n", Tstimy$);
+        Print("Width (degrees)                 : %s\n", Tstimw$);
+        Print("Height (degrees)                : %s\n", Tstimh$);
+        Print("Inner Width (degrees)           : %s\n", Tstimiw$);
+        Print("Inner Height (degrees)          : %s\n", Tstimih$);
+        Print("Color: b/w(b),lms-cone(l,m,s)   : %s\n", Tstimcv$);
+        Print("Temporal frequency              : %s\n", Tstimtf$);
+        Print("Spatial frequency               : %s\n", Tstimsf$);
+        Print("Orientation (degrees)           : %s\n", Tstimorientation$);
+        Print("Initial Phase (degrees)         : %f\n", phase);
+        Print("Contrast (%%)                    : %s\n", Tstimcontrast$);
+        Print("Aperture: ellipse(e)/square(q)  : %s\n", Tstimap$);
+        Print("Type: sine (s)/square (q)       : %s\n", Tstimp$);  
+    endif;        
+    
+    
+    
 	Print("\nExperimental parameters\n");
 	Print("-------------------------\n\n");
 
@@ -1141,6 +1179,13 @@ proc WriteParameterFile()
 
 			Print("Type:                  : X Position\n");
 			Print("Min,Max,#Steps,#Repeats: %f,%f,%d,%d\n", tunXPosMinXPos, tunXPosMaxXPos, tunXPosNSteps%, tunXPosNRepeats%);
+			Print("Values: " + tunValuesStringified$ + "\n");
+            Print("\n");
+        
+        case tunType$ = tunTypeDisparity$ then
+
+			Print("Type:                  : Disparity\n");
+			Print("Center,Max,#Steps,#Repeats: %f,%f,%d,%d\n", tunDisparityCenterXPos, tunDisparityMaxXPos, tunDisparityNSteps%, tunDisparityNRepeats%);
 			Print("Values: " + tunValuesStringified$ + "\n");
 			Print("\n");
 
@@ -1406,6 +1451,8 @@ func Start%()
         if tunDoRivalry% = 1 then
             TunCurveSArg$ := " -C ";  'Set slave to run same tuning curve...
             SValues$ := MValues$;  '...with same values as Master tuning curve
+            'based on tunDualTuningType%, allows dual to produce tuning curve on both, only master, or only slave
+            ClearMasterOrSlaveIfNecessary(SGrat$,SGratParam$,SlaveIndicator$,TunCurveSArg$,SValues$,MGrat$,MGratParam$,MasterIndicator$,TunCurveMArg$,MValues$);  
         endif;
 
     case tunType$ = tunTypeOrientation$ then
@@ -1414,6 +1461,8 @@ func Start%()
         if tunDoRivalry% = 1 then
             TunCurveSArg$ := " -O ";  'Set slave to run same tuning curve...
             SValues$ := MValues$;  '...with same values as Master tuning curve
+            'based on tunDualTuningType%, allows dual to produce tuning curve on both, only master, or only slave
+            ClearMasterOrSlaveIfNecessary(SGrat$,SGratParam$,SlaveIndicator$,TunCurveSArg$,SValues$,MGrat$,MGratParam$,MasterIndicator$,TunCurveMArg$,MValues$);  
         endif;
 
     case tunType$ = tunTypeSpatial$ then
@@ -1422,6 +1471,8 @@ func Start%()
         if tunDoRivalry% = 1 then
             TunCurveSArg$ := " -S ";  'Set slave to run same tuning curve...
             SValues$ := MValues$;  '...with same values as Master tuning curve
+            'based on tunDualTuningType%, allows dual to produce tuning curve on both, only master, or only slave
+            ClearMasterOrSlaveIfNecessary(SGrat$,SGratParam$,SlaveIndicator$,TunCurveSArg$,SValues$,MGrat$,MGratParam$,MasterIndicator$,TunCurveMArg$,MValues$);  
         endif;
 
     case tunType$ = tunTypeTemporal$ then
@@ -1430,6 +1481,8 @@ func Start%()
         if tunDoRivalry% = 1 then
             TunCurveSArg$ := " -T ";  'Set slave to run same tuning curve...
             SValues$ := MValues$;  '...with same values as Master tuning curve
+            'based on tunDualTuningType%, allows dual to produce tuning curve on both, only master, or only slave
+            ClearMasterOrSlaveIfNecessary(SGrat$,SGratParam$,SlaveIndicator$,TunCurveSArg$,SValues$,MGrat$,MGratParam$,MasterIndicator$,TunCurveMArg$,MValues$);  
         endif;
 
     case tunType$ = tunTypeArea$ then
@@ -1438,6 +1491,8 @@ func Start%()
         if tunDoRivalry% = 1 then
             TunCurveSArg$ :="  -A ";  'Set slave to run same tuning curve...
             SValues$ := MValues$;  '...with same values as Master tuning curve
+            'based on tunDualTuningType%, allows dual to produce tuning curve on both, only master, or only slave
+            ClearMasterOrSlaveIfNecessary(SGrat$,SGratParam$,SlaveIndicator$,TunCurveSArg$,SValues$,MGrat$,MGratParam$,MasterIndicator$,TunCurveMArg$,MValues$);  
         endif;
         
     case tunType$ = tunTypeXPos$ then
@@ -1446,7 +1501,23 @@ func Start%()
         if tunDoRivalry% = 1 then
             TunCurveSArg$ :="  -X ";  'Set slave to run same tuning curve...
             SValues$ := MValues$;  '...with same values as Master tuning curve
+            'based on tunDualTuningType%, allows dual to produce tuning curve on both, only master, or only slave
+            ClearMasterOrSlaveIfNecessary(SGrat$,SGratParam$,SlaveIndicator$,TunCurveSArg$,SValues$,MGrat$,MGratParam$,MasterIndicator$,TunCurveMArg$,MValues$);  
         endif;
+        
+    case tunType$ = tunTypeDisparity$ then
+        if tunDisparityOnMaster% = 1 then
+            TunCurveMArg$ := " -X "; 'do disaprity by moving master
+            SGrat$ := " -g ";  'Change slave grating variable to -g because it doesn't change
+            TunCurveSArg$ := "";  'clear the slave tuning curve argument
+            SValues$ := "";  'clear the slave tuning curve values 
+        else
+            TunCurveSArg$ := " -X "; 'do disaprity by moving slave
+            SValues$ := MValues$;  'get values from "Master" tuning curve (assigned earlier)
+            MGrat$ := " -g ";  'Change master grating variable to -g because it doesn't change
+            TunCurveMArg$ := "";  'clear the master tuning curve argument
+            MValues$ := "";  'clear the master tuning curve values
+        endif;       
         
     case tunType$ = tunTypeDonut$ then
         
@@ -1550,12 +1621,13 @@ func Start%()
 
 	endcase;
 	
+    
 
     'Build command line, any values that are unnecessary will be empty, so the build should work no matter what type of command line is required
     cmdLine$ := Opener$ + ProgName$ + FixationArg$ + XHairArg$ + BGColor$ + Dist2Screen$ + TriggerPort$ + Verbose$; 'prelim stuff
     cmdLine$ := cmdLine$ + RefrLock$ + OffsetFile$ + StimDur$;  'Dual VSG stuff
-    cmdLine$ := cmdLine$ + MGrat$ + MGratParam$ + MasterIndicator$ + TunCurveMArg$ + MValues$;  'Master grating stuff
-    cmdLine$ := cmdLine$ + SGrat$ + SGratParam$ + SlaveIndicator$ + TunCurveSArg$ + SValues$;  'Slave grating stuff
+    cmdLine$ := cmdLine$ + MasterIndicator$ + MGrat$ + MGratParam$ + TunCurveMArg$ + MValues$;  'Master grating stuff
+    cmdLine$ := cmdLine$ + SlaveIndicator$ + SGrat$ + SGratParam$ + TunCurveSArg$ + SValues$;  'Slave grating stuff
     cmdLine$ := cmdLine$ + TunCurveS2Arg$ + S2Values$;  'Second slave parameters (for Box O' Donuts, more possible)
     'Note that building with empty defaults means if we don't fill something (e.g. DualInd$ for fixstim) all is OK
 '    if tunUseHoleKluge% = 1 then
@@ -1694,3 +1766,21 @@ func SelectWavemarkDialog%()
 	return iReturn%;
 end;
 
+
+proc ClearMasterOrSlaveIfNecessary(&SGrat$,&SGratParam$,&SlaveIndicator$,&TunCurveSArg$,&SValues$,&MGrat$,&MGratParam$,&MasterIndicator$,&TunCurveMArg$,&MValues$)
+    'Clear master/slave if there is only one tuning curve to do. 
+    if tunDualTuningType% = 1 then        
+        SGrat$ := "";  'clear slave grating
+        SGratParam$ := "";  'clear slave grating params
+        SlaveIndicator$ := "";  'clear slave indicator
+        TunCurveSArg$ := "";  'clear the tuning curve argument
+        SValues$ := "";  'clear the tuning curve values
+    endif
+    if tunDualTuningType% = 2 then        
+        MGrat$ := "";  'clear master grating
+        MGratParam$ := "";  'clear master grating params
+        MasterIndicator$ := "";  'clear master indicator
+        TunCurveMArg$ := "";  'clear the tuning curve argument
+        MValues$ := "";  'clear the tuning curve values
+    endif;
+end;
