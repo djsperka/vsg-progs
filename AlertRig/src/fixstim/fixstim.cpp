@@ -1,4 +1,4 @@
-/* $Id: fixstim.cpp,v 1.8 2012-02-10 23:54:02 devel Exp $ */
+/* $Id: fixstim.cpp,v 1.9 2012-02-23 18:52:47 devel Exp $ */
 
 #include <iostream>
 #include <fstream>
@@ -54,7 +54,7 @@ int main (int argc, char *argv[])
 	int status;
 
 	// Check input arguments
-	status = prargs(argc, argv, prargs_callback, "f:b:d:avg:s:C:T:S:O:A:R:B:H:Zp:G:", 'F');
+	status = prargs(argc, argv, prargs_callback, "f:b:d:avg:s:C:T:S:O:A:R:B:H:Zp:G:D:", 'F');
 	if (status)
 	{
 		return -1;
@@ -389,6 +389,60 @@ int prargs_callback(int c, string& arg)
 				tuning_parameters.erase(tuning_parameters.begin());
 				tuning_parameters.erase(tuning_parameters.begin());
 				f_pStimSet = new CBarStimSet(color, ww, hh, dps, tuning_parameters);
+			}
+			break;
+		}
+	case 'D':
+		{
+			// Dots arg: -D color,x,y,diam,speed,density,dotsize,angle1,angle2,...
+			vector<double> tuning_parameters;
+			vector<string> tokens;
+			COLOR_TYPE color;
+			double dotx, doty, dotdiam, dotspeed, dotdensity, dotsize;
+			tokenize(arg, tokens, ",");
+			if (parse_color(tokens[0], color))
+			{
+				cerr << "Error - first parameter in bar list spec must be a color (" << tokens[0] << ")." << endl;
+				errflg++;
+			}
+			else
+			{
+				tokens.erase(tokens.begin());
+			}
+
+			if (parse_number_list(tokens, tuning_parameters) || tuning_parameters.size() <= 6)
+			{
+				cerr << "Error - cannot parse dots parameters: color,x,y,diam,speed,density,dotsize,angle1,angle2,..." << endl;
+				errflg++;
+			}
+			else
+			{
+				dotx = tuning_parameters[0];
+				tuning_parameters.erase(tuning_parameters.begin());
+				doty = tuning_parameters[0];
+				tuning_parameters.erase(tuning_parameters.begin());
+				dotdiam = tuning_parameters[0];
+				tuning_parameters.erase(tuning_parameters.begin());
+				dotspeed = tuning_parameters[0];
+				tuning_parameters.erase(tuning_parameters.begin());
+				dotdensity = tuning_parameters[0];
+				tuning_parameters.erase(tuning_parameters.begin());
+				dotsize = tuning_parameters[0];
+				tuning_parameters.erase(tuning_parameters.begin());
+
+				// whatever's left in tuning_parameters are the angles. 
+				// TODO: should probably do something with those. 
+
+
+				if (have_fixpt)
+				{
+					f_pStimSet = new DotStimSet(f_fixpt, dotx, doty, color, dotdiam, dotspeed, dotdensity, (int)dotsize, tuning_parameters);
+				}
+				else
+				{
+					f_pStimSet = new DotStimSet(dotx, doty, color, dotdiam, dotspeed, dotdensity, (int)dotsize, tuning_parameters);
+				}
+
 			}
 			break;
 		}
