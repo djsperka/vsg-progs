@@ -1,7 +1,9 @@
 #include "alertlib.h"
+#include <windows.h>	// mutex
 #include <vector>
 #include <string>
 
+using namespace std;
 using namespace alert;
 
 class StimSet
@@ -247,4 +249,69 @@ private:
 	std::vector<double> m_orientations;
 	std::vector<double>::const_iterator m_iterator;
 	double m_pixels_per_frame;
+};
+
+class DotStimSet: public StimSet
+{
+public:
+	DotStimSet(alert::ARContrastFixationPointSpec& f, double x, double y, COLOR_TYPE color, double diameter, double speed, double density, int dotsize, vector<double>& angles);
+	DotStimSet(double x, double y, COLOR_TYPE color, double speed, double diameter, double density, int dotsize, vector<double>& angles);
+	~DotStimSet();
+	virtual int num_pages() {return 3;};
+	virtual int num_overlay_pages() {return 0;};
+	virtual int init(ARvsg& vsg, std::vector<int> pages);
+	virtual int handle_trigger(std::string& s);
+	virtual std::string toString() const;
+	static void threadfunc(void *);
+private:
+	// Generate initial set of dots. 
+	void generate_dots();
+
+	// Draw fixpt/dots on current draw page
+	void update_page();
+
+	// update thread function
+	void do_dots();
+
+	// func to shift dots and wrap if necessary
+	void shift_dots();
+
+	// thread handle
+	HANDLE m_thread;
+
+	// event handle
+	HANDLE m_event;
+
+	// page tracking
+	int m_pages[2];
+	int m_ipage;
+	int m_pageBackground;
+
+	// data we need to keep
+	vector<double> m_angles;
+	vector<double>::const_iterator m_iterator;
+	alert::ARContrastFixationPointSpec m_fixpt;
+	bool m_bHaveFixpt;
+	double m_x;				// position in degrees
+	double m_y;				// position in degrees
+	double m_diameter;		// diameter in degrees (circular patch)
+	double m_speed;			// degrees per second
+	double m_xPixel;		// position converted to pixels (positive-down, ULH origin)
+	double m_yPixel;		// position converted to pixels (positive-down, ULH origin)
+	double m_diameterPixel;	// diameter converted to pixels
+	double m_speedPixelsPerFrame;	// pixels per frame (NOT per second)
+
+	// these do not require pixel conversion
+	double m_density;		// density in dots per square degree
+	int m_dotsize;
+	COLOR_TYPE m_color;
+
+	// dot storage
+	int m_nDots;
+	double *m_dots;
+	PIXEL_LEVEL m_dotLevel;
+
+	// status of stim
+	bool m_bDotsOn;
+	bool m_bFixptOn;
 };
