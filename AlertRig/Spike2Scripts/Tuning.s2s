@@ -1,7 +1,7 @@
-' $Id: Tuning.s2s,v 1.55 2012-02-23 19:49:04 jeff Exp $
+' $Id: Tuning.s2s,v 1.56 2012-02-23 20:09:29 jeff Exp $
 ' Update 11/8/11 Jeff, includes multi-juicer updates
 
-const tunCVSID$ := "$Id: Tuning.s2s,v 1.55 2012-02-23 19:49:04 jeff Exp $";
+const tunCVSID$ := "$Id: Tuning.s2s,v 1.56 2012-02-23 20:09:29 jeff Exp $";
 
 
 
@@ -843,8 +843,8 @@ proc CreateSampleConfiguration()
         SampleAutoName$(dataCellName$ + "_disparity_000");
         tunNAdvances% := tunDisparityNSteps%;
         tunNRepeats% := tunDisparityNRepeats%;
-        GetRepeatedSymmetricParameterProgression%(tunDisparityNSteps%+1, tunDisparityNRepeats%, tunValues[], tunValuesIndices%[], tunDisparityCenterXPos, tunDisparityMaxXPos, 0, tunXPosProgression%);  'linear spacing only
-        'GetRepeatedSymmetricParameterProgression%(tunDisparityNSteps%+1, tunDisparityNRepeats%, tunValues[], tunValuesIndices%[], tunDisparityCenterXPos, tunDisparityMaxXPos, 1-tunDisparityLinear%, tunXPosProgression%);  'allow log spacing
+        GetRepeatedSymmetricParameterProgression%(tunDisparityNSteps%+1, tunDisparityNRepeats%, tunValues[], tunValuesIndices%[], tunDisparityCenterXPos, tunDisparityMaxXPos, 0, tunDisparityProgression%);  'linear spacing only
+        'GetRepeatedSymmetricParameterProgression%(tunDisparityNSteps%+1, tunDisparityNRepeats%, tunValues[], tunValuesIndices%[], tunDisparityCenterXPos, tunDisparityMaxXPos, 1-tunDisparityLinear%, tunDisparityProgression%);  'allow log spacing
         tunNValues% := (2*tunDisparityNSteps%+1)*tunDisparityNRepeats%;
         tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%);         
     case tunType$ = tunTypeDonut$ then 
