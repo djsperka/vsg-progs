@@ -1,7 +1,7 @@
-' $Id: Tuning.s2s,v 1.56 2012-02-23 20:09:29 jeff Exp $
+' $Id: Tuning.s2s,v 1.57 2012-02-24 22:46:41 jeff Exp $
 ' Update 11/8/11 Jeff, includes multi-juicer updates
 
-const tunCVSID$ := "$Id: Tuning.s2s,v 1.56 2012-02-23 20:09:29 jeff Exp $";
+const tunCVSID$ := "$Id: Tuning.s2s,v 1.57 2012-02-24 22:46:41 jeff Exp $";
 
 
 
@@ -1014,6 +1014,7 @@ func Stop%()
 	ToolbarSet(0,"");
 
 	' Tell stim app to shut down
+    SafeSampleKey("X");
 	SafeSampleKey("Q");
 	Yield(.1);
 	SampleStop();
