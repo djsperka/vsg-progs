@@ -1,4 +1,4 @@
-/* $Id: tmouse.cpp,v 1.1 2012-02-23 18:56:44 devel Exp $ */
+/* $Id: tmouse.cpp,v 1.2 2012-03-21 23:16:41 devel Exp $ */
 
 #include <windows.h>
 #include <process.h>
@@ -44,8 +44,10 @@ bool f_bAlert = false;
 bool f_bUseLockFile = true;
 bool f_bQuit = false;
 bool f_bMouseOn = true;
+bool f_bUseManualTriggers = false;
 int f_iStepSize = 5;
 double f_cvec[2];		// draw position of stim in pixels from ULH corner
+TriggerVector f_triggers;
 
 // screen parameters
 double f_vsgWidthPixels;
@@ -544,6 +546,7 @@ void do_update(void *unused)
 // thread to check digitial inputs and check triggers
 void do_digin(void *unused)
 {
+	long last_output_trigger = 0;
 	while (!f_bQuit)
 	{
 		if (f_bAlert && !f_bUseManualTriggers)
