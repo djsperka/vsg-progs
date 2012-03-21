@@ -14,7 +14,8 @@ using namespace alert;
 string f_szConfig;
 bool f_bHaveConfig = false;
 string f_szRigName;
-string f_szRegistryKey;
+string f_szRegistryBase;		// e.g. Software\\CED\\Spike2\\AlertRig
+string f_szRegistryKey;			// e.g. f_szRegistryBase + \\default
 
 bool GetRegConfiguration()
 {
@@ -61,6 +62,7 @@ bool GetRegConfiguration()
 
 		strcpy_s(buffer, 256, "Software\\CED\\Spike2\\");
 		strcat_s(buffer, 256, f_szRigName.c_str());
+		f_szRegistryBase.assign(buffer);
 
 		b = GetRegString(buffer, "CurrentConfiguration", f_szConfig);
 		f_szRegistryKey.assign(buffer);
@@ -83,14 +85,9 @@ bool GetRegScreenDistance(int& dist)
 		CRegistry regMyReg( NULL );  // No special flags
 
 		/* On the AcuteRig there is no DAQ key - the screen distance is stored with Data parameters. */
-		if (f_szRigName == "AcuteRig")
-		{
-			szKey.assign("Software\\CED\\Spike2\\AcuteRig\\Data");
-		}
-		else
-		{
-			szKey = f_szRegistryKey + "\\DAQ";
-		}
+		/* 2-23-2012. All rigs store screen distance in Data key. */
+		szKey.assign(f_szRegistryBase);
+		szKey += "\\Data";
 
 		if (!CRegistry::KeyExists(szKey.c_str(), HKEY_CURRENT_USER)) 
 		{
