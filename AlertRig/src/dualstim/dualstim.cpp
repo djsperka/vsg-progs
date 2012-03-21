@@ -1,4 +1,4 @@
-/* $Id: dualstim.cpp,v 1.5 2012-01-26 02:28:51 devel Exp $ */
+/* $Id: dualstim.cpp,v 1.6 2012-03-21 23:21:26 devel Exp $ */
 
 #include <iostream>
 #include <fstream>
@@ -60,7 +60,7 @@ int main (int argc, char *argv[])
 	int status = 0;
 
 	// Check input arguments
-	status = prargs(argc, argv, prargs_callback, "f:b:d:avg:s:C:T:S:O:A:DMVr:H:Zp:Ky:t:X:Y:h:", 'F');
+	status = prargs(argc, argv, prargs_callback, "f:b:d:avg:s:C:T:S:O:A:DMVr:H:Zp:Ky:t:X:Y:h:n", 'F');
 	if (status)
 	{
 		return -1;
@@ -232,6 +232,38 @@ int prargs_callback(int c, string& arg)
 		else 
 		{
 			have_fixpt = true;
+		}
+		break;
+	case 'n':
+		switch (activeScreen)
+		{
+		case 'M':
+		case ' ':
+			if (have_fixpt) f_stimset.set_fixpt(fixpt);
+			if (have_xhair) f_stimset.set_xhair(xhair);
+			cout << "Setting master stimset without grating" << endl;
+			break;
+		case 'V':
+			// For slave stimset, must add offset values to stim, fixpt, xhair. 
+			//f_pStimSetSlave = create_stimset(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, f_dSlaveXOffset, f_dSlaveYOffset, f_spatialphase);
+			if (have_fixpt) f_stimsetSlave.set_fixpt(fixpt, f_dSlaveXOffset, f_dSlaveYOffset);
+			if (have_xhair) f_stimsetSlave.set_xhair(xhair, f_dSlaveXOffset, f_dSlaveYOffset);
+			cout << "Setting slave stimset without grating" << endl;
+			break;
+		case 'D':
+			if (activeScreen != ' ' && !have_offset)
+			{
+				cerr << "Error - cannot specify active screen (-[D|M|V]) without also specifying slave screen offset!" << endl;
+				errflg++;
+			}
+			else
+			{
+				if (have_fixpt) f_stimset.set_fixpt(fixpt);
+				if (have_xhair) f_stimset.set_xhair(xhair);
+				if (have_fixpt) f_stimsetSlave.set_fixpt(fixpt, f_dSlaveXOffset, f_dSlaveYOffset);
+				if (have_xhair) f_stimsetSlave.set_xhair(xhair, f_dSlaveXOffset, f_dSlaveYOffset);
+			}
+			break;
 		}
 		break;
 	case 'g':
@@ -507,16 +539,18 @@ int prargs_callback(int c, string& arg)
 
 			if (f_stimset.is_empty() && f_stimsetSlave.is_empty())
 			{
-				cerr << "Error - you must specify one of D/M/V options and a stimulus set (COASTHXYg)." << endl;
+				cerr << "Error - you must specify one of D/M/V options and a stimulus set (COASTHXYgn)." << endl;
 				errflg++;
 			}
 			else if (f_stimsetSlave.is_empty())
 			{
 				if (have_fixpt) f_stimsetSlave.set_fixpt(fixpt, f_dSlaveXOffset, f_dSlaveYOffset);
+				if (have_xhair) f_stimsetSlave.set_xhair(xhair, f_dSlaveXOffset, f_dSlaveYOffset);
 			}
 			else if (f_stimset.is_empty())
 			{
 				if (have_fixpt) f_stimset.set_fixpt(fixpt);
+				if (have_xhair) f_stimset.set_xhair(xhair);
 			}
 
 			break;
