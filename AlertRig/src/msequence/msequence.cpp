@@ -38,7 +38,6 @@ bool f_outline = false;
 bool f_terms = false;	// testing only
 
 #define NUMBER_OF_TERMS 32767
-char *f_sMSequence = NULL;
 VSGCYCLEPAGEENTRY f_MPositions[32768];
 
 void init_pages_and_cycling();
@@ -144,6 +143,7 @@ int init_pages_and_cycling_2(long dotWidth, long dotHeight, int iZoom, int nRows
 	VSGTRIVAL bw[2] = { {1, 1, 1}, {0, 0, 0}};
 	VSGLUTBUFFER buffer;
 	int status = 0;
+	char *mseq = NULL;
 
 	// all drawing is done relative to upper left corner of video page
 	vsgSetDrawOrigin(0,0);
@@ -331,7 +331,7 @@ int init_pages_and_cycling_2(long dotWidth, long dotHeight, int iZoom, int nRows
 			// term = px + pcy; p==128 when n==15, r=c=16
 			//term=(16*128*rindex+128*cindex) % NUMBER_OF_TERMS;
 			term = (p * cindex + p * nCols * rindex) % (M-1);
-			if (f_sMSequence[term]=='1') 
+			if (mseq[term]=='1') 
 			{
 				vsgDrawRect(pixelWidth*(cindex+.5), pixelHeight*(rindex+.5), pixelWidth, pixelHeight);
 			}
@@ -704,14 +704,6 @@ int args(int argc, char **argv)
 	if (errflg) 
 	{
 		usage();
-	}
-	else
-	{
-		if (arutil_load_mseq(&f_sMSequence, f_sFilename, f_iOrder))
-		{
-			errflg++;
-			cerr << "Error loading mseq file " << f_sFilename << endl;
-		}
 	}
 
 	return errflg;
