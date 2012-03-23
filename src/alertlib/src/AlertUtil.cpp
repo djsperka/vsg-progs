@@ -1,8 +1,9 @@
 #include "AlertUtil.h"
 #include <iostream>
 #include <cmath>
-#include <cstdio>
+#include <boost/algorithm/string.hpp> 
 using namespace std;
+using namespace boost;
 
 int arutil_color_to_overlay_palette(ARFixationPointSpec& fp, PIXEL_LEVEL level)
 {
@@ -301,67 +302,62 @@ int arutil_draw_aperture(ARGratingSpec& gr, int overlayPage)
 
 
 
-int arutil_load_mseq(char **ppseq, string& filename, int iOrder)
+int arutil_load_mseq(string& seq, string& filename, int iOrder)
 {
 	int istatus=0;
-	FILE *fp=(FILE *)NULL;
 	int nterms = (int)pow(2.0f, iOrder) -1;
 
-	// Open mseq file
-	fopen_s(&fp, filename.c_str(), "r");
-	if (!fp) 
+	istatus = arutil_load_sequence(seq, filename);
+	if (!istatus)
 	{
-		istatus=1;
-		cerr << "Cannot open sequence file " << filename << endl;
-	}
-	else
-	{
-		(*ppseq) = (char *)malloc(nterms+1);
-		memset((*ppseq), 0, nterms+1);
-		if (!fread(*ppseq, sizeof(char), nterms, fp))
-		{
-			istatus=2;
-			cerr << "Expected " << nterms << " terms in seq. Check mseq file " << filename << endl;
-		}
-		else if ((int)strlen(*ppseq) != nterms)
+		if (seq.length() != nterms)
 		{
 			istatus=3;
-			cerr << "Expected " << nterms << " terms in seq. Found " << strlen(*ppseq) << ". Check mseq file." << endl;
+			cerr << "Expected " << nterms << " terms in seq. Found " << seq.length() << ". Check mseq file." << endl;
 		}
-		fclose(fp);
 	}
-
 	return istatus;
 }
 
 
 
-int arutil_load_sequence(char **ppseq, string& filename)
+int arutil_load_sequence(string& seq, string& filename)
 {
 	int istatus=0;
-	FILE *fp=(FILE *)NULL;
 	int nterms = 0;
-
-	// Open mseq file
-	if (fopen_s(&fp, filename.c_str(), "r")) 
+	string line;
+	ifstream seqfile(filename.c_str());
+	if (seqfile.is_open())
 	{
-		istatus=-1;
-		cerr << "Cannot open sequence file " << filename << endl;
-		perror("arutil_load_sequence: ");
+		getline(seqfile, line);
+		seqfile.close();
 	}
+	else istatus = -1;
+	return istatus;
+}
+
+
+int arutil_load_sequences(vector<string>& sequences, string& filename)
+{
+	int istatus = 0;
+	string line;
+	ifstream seqfile(filename.c_str());
+	if (seqfile.is_open())
+	{
+		while (seqfile.good())
+		{
+			getline (seqfile, line);
+			trim(line);
+			if (!line.empty() || line[0]!='#')
+			{
+				sequences.push_back(line);
+			}
+		}
+	    seqfile.close();
+    }
 	else
 	{
-		// Determine size of file in bytes....
-		fseek(fp, 0L, SEEK_END);
-		nterms = ftell(fp);
-		fseek(fp, 0L, SEEK_SET);
-
-		// allocate memory for sequence
-		(*ppseq) = (char *)malloc(nterms+1);
-		memset((*ppseq), 0, nterms+1);
-		istatus = fread(*ppseq, sizeof(char), nterms, fp);
-		fclose(fp);
+		istatus = -1;
 	}
-
 	return istatus;
 }

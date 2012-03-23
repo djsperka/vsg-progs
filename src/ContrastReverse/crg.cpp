@@ -197,13 +197,6 @@ int args(int argc, char **argv)
 	}
 	else
 	{
-#if 0
-		if (arutil_load_mseq(&f_sequence, f_sFilename, f_iOrder))
-		{
-			errflg++;
-			cerr << "Error loading mseq file " << f_sFilename << endl;
-		}
-#endif
 		f_sequence = get_msequence();
 
 		// assign contrast values to grating specs used in crg. f_grating2 is left as-is.

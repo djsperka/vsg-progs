@@ -1,4 +1,4 @@
-/* $Id: dualstim.cpp,v 1.6 2012-03-21 23:21:26 devel Exp $ */
+/* $Id: dualstim.cpp,v 1.7 2012-03-23 22:18:21 devel Exp $ */
 
 #include <iostream>
 #include <fstream>
@@ -12,7 +12,8 @@
 #include "vsgv8.h"
 #include "Alertlib.h"
 #include "AlertUtil.h"
-#include "DualStimSet.h"
+#include "StimSetFGX.h"
+#include "StimSetCRG.h"
 using namespace std;
 using namespace alert;
 
@@ -31,10 +32,8 @@ using namespace alert;
 bool f_binaryTriggers = true;
 bool f_verbose = false;
 COLOR_TYPE f_background = { gray, {0.5, 0.5, 0.5}};
-StimSet f_stimset;			// This is for master in dualVSG mode
-StimSet f_stimsetSlave;
-class MyDualStimSet;	// forward declaration
-MyDualStimSet *f_pDualStimSet = NULL;
+StimSetBase *f_pstimset = NULL;
+StimSetBase *f_pstimsetSlave = NULL;
 int f_iDistanceToScreenMM = -1;
 double f_spatialphase = 0;
 TriggerVector f_triggers;
@@ -60,7 +59,7 @@ int main (int argc, char *argv[])
 	int status = 0;
 
 	// Check input arguments
-	status = prargs(argc, argv, prargs_callback, "f:b:d:avg:s:C:T:S:O:A:DMVr:H:Zp:Ky:t:X:Y:h:n", 'F');
+	status = prargs(argc, argv, prargs_callback, "f:b:d:avg:s:C:T:S:O:A:DMVr:H:Zp:Ky:t:X:Y:h:nR:", 'F');
 	if (status)
 	{
 		return -1;
@@ -84,8 +83,8 @@ int main (int argc, char *argv[])
 
 	if (f_verbose)
 		cout << "Initializing stim..." << endl;
-	f_stimset.init(ARvsg::master(), f_nFramesDelay+1, f_dStimTime, f_nFramesDelay+2);
-	f_stimsetSlave.init(ARvsg::slave(), f_nFramesDelay, f_dStimTime, f_nFramesDelay);
+	f_pstimset->init(ARvsg::master());
+	f_pstimsetSlave->init(ARvsg::slave());
 
 	ARvsg::master().select();
 
@@ -161,9 +160,9 @@ int callback(int &output, const CallbackTrigger* ptrig)
 {
 	int status=0;
 	ARvsg::master().select();
-	status = f_stimset.handle_trigger(ptrig->getKey());
+	status = f_pstimset->handle_trigger(ptrig->getKey());
 	ARvsg::slave().select();
-	status |= f_stimsetSlave.handle_trigger(ptrig->getKey());
+	status |= f_pstimsetSlave->handle_trigger(ptrig->getKey());
 	return status;
 
 }
@@ -201,6 +200,8 @@ int prargs_callback(int c, string& arg)
 	int delay=0, frames=0;
 	string sequence_filename;
 	static char activeScreen = ' ';
+	static StimSetFGX *pSSFGX = NULL;
+	static StimSetFGX *pSSFGXSlave = NULL;
 
 	switch(c)
 	{
@@ -235,19 +236,29 @@ int prargs_callback(int c, string& arg)
 		}
 		break;
 	case 'n':
+		// Trigger creation of FGX stim set. 
 		switch (activeScreen)
 		{
 		case 'M':
 		case ' ':
-			if (have_fixpt) f_stimset.set_fixpt(fixpt);
-			if (have_xhair) f_stimset.set_xhair(xhair);
+			if (!pSSFGX) 
+			{
+				pSSFGX = new StimSetFGX();
+				f_pstimset = pSSFGX;
+			}
+			if (have_fixpt) pSSFGX->set_fixpt(fixpt);
+			if (have_xhair) pSSFGX->set_xhair(xhair);
 			cout << "Setting master stimset without grating" << endl;
 			break;
 		case 'V':
 			// For slave stimset, must add offset values to stim, fixpt, xhair. 
-			//f_pStimSetSlave = create_stimset(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, f_dSlaveXOffset, f_dSlaveYOffset, f_spatialphase);
-			if (have_fixpt) f_stimsetSlave.set_fixpt(fixpt, f_dSlaveXOffset, f_dSlaveYOffset);
-			if (have_xhair) f_stimsetSlave.set_xhair(xhair, f_dSlaveXOffset, f_dSlaveYOffset);
+			if (!pSSFGXSlave) 
+			{
+				pSSFGXSlave = new StimSetFGX();
+				f_pstimsetSlave = pSSFGXSlave;
+			}
+			if (have_fixpt) pSSFGXSlave->set_fixpt(fixpt, f_dSlaveXOffset, f_dSlaveYOffset);
+			if (have_xhair) pSSFGXSlave->set_xhair(xhair, f_dSlaveXOffset, f_dSlaveYOffset);
 			cout << "Setting slave stimset without grating" << endl;
 			break;
 		case 'D':
@@ -258,10 +269,20 @@ int prargs_callback(int c, string& arg)
 			}
 			else
 			{
-				if (have_fixpt) f_stimset.set_fixpt(fixpt);
-				if (have_xhair) f_stimset.set_xhair(xhair);
-				if (have_fixpt) f_stimsetSlave.set_fixpt(fixpt, f_dSlaveXOffset, f_dSlaveYOffset);
-				if (have_xhair) f_stimsetSlave.set_xhair(xhair, f_dSlaveXOffset, f_dSlaveYOffset);
+				if (!pSSFGX) 
+				{
+					pSSFGX = new StimSetFGX();
+					f_pstimset = pSSFGX;
+				}
+				if (have_fixpt) pSSFGX->set_fixpt(fixpt);
+				if (have_xhair) pSSFGX->set_xhair(xhair);
+				if (!pSSFGXSlave) 
+				{
+					pSSFGXSlave = new StimSetFGX();
+					f_pstimsetSlave = pSSFGXSlave;
+				}
+				if (have_fixpt) pSSFGXSlave->set_fixpt(fixpt, f_dSlaveXOffset, f_dSlaveYOffset);
+				if (have_xhair) pSSFGXSlave->set_xhair(xhair, f_dSlaveXOffset, f_dSlaveYOffset);
 			}
 			break;
 		}
@@ -279,18 +300,27 @@ int prargs_callback(int c, string& arg)
 			{
 			case 'M':
 			case ' ':
-				if (have_fixpt) f_stimset.set_fixpt(fixpt);
-				if (have_xhair) f_stimset.set_xhair(xhair);
+				if (!pSSFGX) 
+				{
+					pSSFGX = new StimSetFGX();
+					f_pstimset = pSSFGX;
+				}
+				if (have_fixpt) pSSFGX->set_fixpt(fixpt);
+				if (have_xhair) pSSFGX->set_xhair(xhair);
 				cout << "Setting master stimset grating to this:" << endl << grating << endl;
-				f_stimset.set_grating(grating);
+				pSSFGX->set_grating(grating);
 				break;
 			case 'V':
 				// For slave stimset, must add offset values to stim, fixpt, xhair. 
-				//f_pStimSetSlave = create_stimset(have_fixpt, f_fixpt, have_xhair, f_xhair, f_grating, f_dSlaveXOffset, f_dSlaveYOffset, f_spatialphase);
-				if (have_fixpt) f_stimsetSlave.set_fixpt(fixpt, f_dSlaveXOffset, f_dSlaveYOffset);
-				if (have_xhair) f_stimsetSlave.set_xhair(xhair, f_dSlaveXOffset, f_dSlaveYOffset);
+				if (!pSSFGXSlave) 
+				{
+					pSSFGXSlave = new StimSetFGX();
+					f_pstimsetSlave = pSSFGXSlave;
+				}
+				if (have_fixpt) pSSFGXSlave->set_fixpt(fixpt, f_dSlaveXOffset, f_dSlaveYOffset);
+				if (have_xhair) pSSFGXSlave->set_xhair(xhair, f_dSlaveXOffset, f_dSlaveYOffset);
 				cout << "Setting slave stimset grating to this:" << endl << grating << endl;
-				f_stimsetSlave.set_grating(grating, f_dSlaveXOffset, f_dSlaveYOffset);
+				pSSFGXSlave->set_grating(grating, f_dSlaveXOffset, f_dSlaveYOffset);
 				break;
 			case 'D':
 				if (activeScreen != ' ' && !have_offset)
@@ -300,12 +330,22 @@ int prargs_callback(int c, string& arg)
 				}
 				else
 				{
-					if (have_fixpt) f_stimset.set_fixpt(fixpt);
-					if (have_xhair) f_stimset.set_xhair(xhair);
-					f_stimset.set_grating(grating);
-					if (have_fixpt) f_stimsetSlave.set_fixpt(fixpt, f_dSlaveXOffset, f_dSlaveYOffset);
-					if (have_xhair) f_stimsetSlave.set_xhair(xhair, f_dSlaveXOffset, f_dSlaveYOffset);
-					f_stimsetSlave.set_grating(grating, f_dSlaveXOffset, f_dSlaveYOffset);
+					if (!pSSFGX) 
+					{
+						pSSFGX = new StimSetFGX();
+						f_pstimset = pSSFGX;
+					}
+					if (have_fixpt) pSSFGX->set_fixpt(fixpt);
+					if (have_xhair) pSSFGX->set_xhair(xhair);
+					pSSFGX->set_grating(grating);
+					if (!pSSFGXSlave) 
+					{
+						pSSFGXSlave = new StimSetFGX();
+						f_pstimsetSlave = pSSFGXSlave;
+					}
+					if (have_fixpt) pSSFGXSlave->set_fixpt(fixpt, f_dSlaveXOffset, f_dSlaveYOffset);
+					if (have_xhair) pSSFGXSlave->set_xhair(xhair, f_dSlaveXOffset, f_dSlaveYOffset);
+					pSSFGXSlave->set_grating(grating, f_dSlaveXOffset, f_dSlaveYOffset);
 				}
 				break;
 			}
@@ -399,17 +439,27 @@ int prargs_callback(int c, string& arg)
 					{
 					case 'M':
 					case ' ':
-						if (have_fixpt) f_stimset.set_fixpt(fixpt);
-						if (have_xhair) f_stimset.set_xhair(xhair);
-						if (have_grating) f_stimset.set_grating(grating);
-						f_stimset.push_back(plist);
+						if (!pSSFGX) 
+						{
+							pSSFGX = new StimSetFGX();
+							f_pstimset = pSSFGX;
+						}
+						if (have_fixpt) pSSFGX->set_fixpt(fixpt);
+						if (have_xhair) pSSFGX->set_xhair(xhair);
+						if (have_grating) pSSFGX->set_grating(grating);
+						pSSFGX->push_back(plist);
 						break;
 					case 'V':
 						// For slave stimset, must add offset values to stim, fixpt, xhair. 
-						if (have_fixpt) f_stimsetSlave.set_fixpt(fixpt, f_dSlaveXOffset, f_dSlaveYOffset);
-						if (have_xhair) f_stimsetSlave.set_xhair(xhair, f_dSlaveXOffset, f_dSlaveYOffset);
-						if (have_grating) f_stimsetSlave.set_grating(grating, f_dSlaveXOffset, f_dSlaveYOffset);
-						f_stimsetSlave.push_back(plist);
+						if (!pSSFGXSlave) 
+						{
+							pSSFGXSlave = new StimSetFGX();
+							f_pstimsetSlave = pSSFGXSlave;
+						}
+						if (have_fixpt) pSSFGXSlave->set_fixpt(fixpt, f_dSlaveXOffset, f_dSlaveYOffset);
+						if (have_xhair) pSSFGXSlave->set_xhair(xhair, f_dSlaveXOffset, f_dSlaveYOffset);
+						if (have_grating) pSSFGXSlave->set_grating(grating, f_dSlaveXOffset, f_dSlaveYOffset);
+						pSSFGXSlave->push_back(plist);
 						break;
 					case 'D':
 						if (activeScreen != ' ' && !have_offset)
@@ -419,14 +469,25 @@ int prargs_callback(int c, string& arg)
 						}
 						else
 						{
-							if (have_fixpt) f_stimset.set_fixpt(fixpt);
-							if (have_xhair) f_stimset.set_xhair(xhair);
-							if (have_grating) f_stimset.set_grating(grating);
-							if (have_fixpt) f_stimsetSlave.set_fixpt(fixpt, f_dSlaveXOffset, f_dSlaveYOffset);
-							if (have_xhair) f_stimsetSlave.set_xhair(xhair, f_dSlaveXOffset, f_dSlaveYOffset);
-							if (have_grating) f_stimsetSlave.set_grating(grating, f_dSlaveXOffset, f_dSlaveYOffset);
-							f_stimset.push_back(plist->clone());
-							f_stimsetSlave.push_back(plist);
+							if (!pSSFGX) 
+							{
+								pSSFGX = new StimSetFGX();
+								f_pstimset = pSSFGX;
+							}
+							if (have_fixpt) pSSFGX->set_fixpt(fixpt);
+							if (have_xhair) pSSFGX->set_xhair(xhair);
+							if (have_grating) pSSFGX->set_grating(grating);
+							pSSFGX->push_back(plist->clone());
+
+							if (!pSSFGXSlave) 
+							{
+								pSSFGXSlave = new StimSetFGX();
+								f_pstimsetSlave = pSSFGXSlave;
+							}
+							if (have_fixpt) pSSFGXSlave->set_fixpt(fixpt, f_dSlaveXOffset, f_dSlaveYOffset);
+							if (have_xhair) pSSFGXSlave->set_xhair(xhair, f_dSlaveXOffset, f_dSlaveYOffset);
+							if (have_grating) pSSFGXSlave->set_grating(grating, f_dSlaveXOffset, f_dSlaveYOffset);
+							pSSFGXSlave->push_back(plist);
 						}
 						break;
 					}
@@ -508,6 +569,86 @@ int prargs_callback(int c, string& arg)
 			}
 			break;
 		}
+	case 'R':
+		{
+			int ifpt;
+			vector<string> tokens;
+			vector<string> sequences;
+			StimSetCRG* pSSCRG = NULL;
+
+			s.assign(optarg);
+			tokenize(s, tokens, ",");
+			if (tokens.size() != 2)
+			{
+				cerr << "Bad format for CRG stim. Expecting \"-R frames_per_term,filename\", got \"" << s << "\"." << endl;
+				errflg++;
+			}
+			else if (parse_integer(tokens[0], ifpt))
+			{
+				cerr << "Bad format for CRG frames_per_term. Expecting \"-R frames_per_term,filename\", got \"" << s << "\"." << endl;
+				errflg++;
+			}
+			else if (arutil_load_sequences(sequences, tokens[1]))
+			{
+				cerr << "Error loading sequences for CRG stim. Check format of stim file \"" << tokens[1] << "\"" << endl;
+				errflg++;
+			}
+			if (!have_grating)
+			{
+				cerr << "Error - must pass template grating stimulus with \"-s\" before passing sequence parameters." << endl;
+				errflg++;
+			}
+			else if (activeScreen != ' ' && !have_offset)
+			{
+				cerr << "Error - cannot specify active screen (-[D|M|V]) without also specifying slave screen offset!" << endl;
+				errflg++;
+			}
+
+			// Check that all sequences are the same length. 
+			for (vector<string>::const_iterator it = sequences.begin(); it != sequences.end(); it++)
+			{
+				if (it->length() != sequences.begin()->length())
+				{
+					cerr << "Error - all sequences are not the same lenth (" << sequences.begin()->length() << "). Check sequence file." << endl;
+					errflg++;
+				}
+			}
+
+			if (!errflg)
+			{
+				pSSCRG = new StimSetCRG(ifpt, sequences);
+				switch (activeScreen)
+				{
+				case 'M':
+				case ' ':
+					if (have_fixpt) pSSCRG->set_fixpt(fixpt);
+					if (have_xhair) pSSCRG->set_xhair(xhair);
+					pSSCRG->set_grating(grating);
+					f_pstimset = pSSCRG;
+					break;
+				case 'V':
+					if (have_fixpt) pSSCRG->set_fixpt(fixpt, f_dSlaveXOffset, f_dSlaveYOffset);
+					if (have_xhair) pSSCRG->set_xhair(xhair, f_dSlaveXOffset, f_dSlaveYOffset);
+					pSSCRG->set_grating(grating, f_dSlaveXOffset, f_dSlaveYOffset);
+					f_pstimsetSlave = pSSCRG;
+					break;
+				case 'D':
+					if (have_fixpt) pSSCRG->set_fixpt(fixpt);
+					if (have_xhair) pSSCRG->set_xhair(xhair);
+					pSSCRG->set_grating(grating);
+					f_pstimset = pSSCRG;
+
+					//Make a new one for slave
+					pSSCRG = new StimSetCRG(ifpt, sequences);
+					if (have_fixpt) pSSCRG->set_fixpt(fixpt, f_dSlaveXOffset, f_dSlaveYOffset);
+					if (have_xhair) pSSCRG->set_xhair(xhair, f_dSlaveXOffset, f_dSlaveYOffset);
+					pSSCRG->set_grating(grating, f_dSlaveXOffset, f_dSlaveYOffset);
+					f_pstimsetSlave = pSSCRG;
+					break;
+				}
+			}
+			break;
+		}
 	case 'h':
 		{
 			s.assign(optarg);
@@ -524,6 +665,13 @@ int prargs_callback(int c, string& arg)
 		}
 	case 0:
 		{
+			f_pstimset->set_stimtime(f_dStimTime);
+			f_pstimset->set_frames_delay(f_nFramesDelay+1);
+			f_pstimset->set_frames_fixpt_delay(f_nFramesDelay+2);
+			f_pstimsetSlave->set_stimtime(f_dStimTime);
+			f_pstimsetSlave->set_frames_delay(f_nFramesDelay);
+			f_pstimsetSlave->set_frames_fixpt_delay(f_nFramesDelay);
+
 			if (!have_t)
 			{
 				cerr << "Error - must specify stim time (-t) in sec." << endl;
@@ -537,20 +685,16 @@ int prargs_callback(int c, string& arg)
 			}
 
 
-			if (f_stimset.is_empty() && f_stimsetSlave.is_empty())
+			if (!f_pstimset)
 			{
-				cerr << "Error - you must specify one of D/M/V options and a stimulus set (COASTHXYgn)." << endl;
+				cerr << "Error - no master stim set specified!" << endl;
 				errflg++;
 			}
-			else if (f_stimsetSlave.is_empty())
+
+			if (!f_pstimsetSlave)
 			{
-				if (have_fixpt) f_stimsetSlave.set_fixpt(fixpt, f_dSlaveXOffset, f_dSlaveYOffset);
-				if (have_xhair) f_stimsetSlave.set_xhair(xhair, f_dSlaveXOffset, f_dSlaveYOffset);
-			}
-			else if (f_stimset.is_empty())
-			{
-				if (have_fixpt) f_stimset.set_fixpt(fixpt);
-				if (have_xhair) f_stimset.set_xhair(xhair);
+				cerr << "Error - no slave stim set specified!" << endl;
+				errflg++;
 			}
 
 			break;
