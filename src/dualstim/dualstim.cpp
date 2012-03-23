@@ -1,4 +1,4 @@
-/* $Id: dualstim.cpp,v 1.7 2012-03-23 22:18:21 devel Exp $ */
+/* $Id: dualstim.cpp,v 1.8 2012-03-23 23:13:40 devel Exp $ */
 
 #include <iostream>
 #include <fstream>
@@ -574,18 +574,19 @@ int prargs_callback(int c, string& arg)
 			int ifpt;
 			vector<string> tokens;
 			vector<string> sequences;
+			vector<int> order;
 			StimSetCRG* pSSCRG = NULL;
 
 			s.assign(optarg);
 			tokenize(s, tokens, ",");
-			if (tokens.size() != 2)
+			if (tokens.size() < 2)
 			{
-				cerr << "Bad format for CRG stim. Expecting \"-R frames_per_term,filename\", got \"" << s << "\"." << endl;
+				cerr << "Bad format for CRG stim. Expecting \"-R frames_per_term,filename[,i1,i2,i3...]\", got \"" << s << "\"." << endl;
 				errflg++;
 			}
 			else if (parse_integer(tokens[0], ifpt))
 			{
-				cerr << "Bad format for CRG frames_per_term. Expecting \"-R frames_per_term,filename\", got \"" << s << "\"." << endl;
+				cerr << "Bad format for CRG frames_per_term. Expecting \"-R frames_per_term,filename[,i1,i2,i3...]\", got \"" << s << "\"." << endl;
 				errflg++;
 			}
 			else if (arutil_load_sequences(sequences, tokens[1]))
@@ -593,6 +594,32 @@ int prargs_callback(int c, string& arg)
 				cerr << "Error loading sequences for CRG stim. Check format of stim file \"" << tokens[1] << "\"" << endl;
 				errflg++;
 			}
+
+			if (!errflg)
+			{
+				tokens.erase(tokens.begin());
+				tokens.erase(tokens.begin());
+				// anything left? 
+				if (tokens.size() > 0)
+				{
+					if (parse_int_list(tokens, order))
+					{
+						cerr << "Error in sequence order list. Expecting fpt,filename,i0,i1,i2,... where iN are integers." << endl;
+						errflg++;
+					}
+				}
+				else
+				{
+					unsigned int i;
+					for (i=0; i<sequences.size(); i++)
+					{
+						order.push_back(i);
+					}
+					cerr << "Warning: No sequence order supplied on command line. Using default ordering for sequences." << endl;
+				}
+			}
+
+
 			if (!have_grating)
 			{
 				cerr << "Error - must pass template grating stimulus with \"-s\" before passing sequence parameters." << endl;
@@ -609,14 +636,14 @@ int prargs_callback(int c, string& arg)
 			{
 				if (it->length() != sequences.begin()->length())
 				{
-					cerr << "Error - all sequences are not the same lenth (" << sequences.begin()->length() << "). Check sequence file." << endl;
+					cerr << "Error - all sequences are not the same length (" << sequences.begin()->length() << "). Check sequence file." << endl;
 					errflg++;
 				}
 			}
 
 			if (!errflg)
 			{
-				pSSCRG = new StimSetCRG(ifpt, sequences);
+				pSSCRG = new StimSetCRG(ifpt, sequences, order);
 				switch (activeScreen)
 				{
 				case 'M':
@@ -639,7 +666,7 @@ int prargs_callback(int c, string& arg)
 					f_pstimset = pSSCRG;
 
 					//Make a new one for slave
-					pSSCRG = new StimSetCRG(ifpt, sequences);
+					pSSCRG = new StimSetCRG(ifpt, sequences, order);
 					if (have_fixpt) pSSCRG->set_fixpt(fixpt, f_dSlaveXOffset, f_dSlaveYOffset);
 					if (have_xhair) pSSCRG->set_xhair(xhair, f_dSlaveXOffset, f_dSlaveYOffset);
 					pSSCRG->set_grating(grating, f_dSlaveXOffset, f_dSlaveYOffset);
