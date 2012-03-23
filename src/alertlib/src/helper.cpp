@@ -654,6 +654,31 @@ int parse_int_list(std::string s, std::vector<int>& list)
 	return status;
 }
 
+int parse_int_list(vector<string>& tokens, vector<int>& int_list)
+{
+	int status = 0;
+	unsigned int i;
+	istringstream iss;
+	int n;
+	for (i=0; i<tokens.size() && status==0; i++)
+	{
+		iss.clear();
+		iss.str(tokens[i]);
+		iss >> n;
+		if (!iss) 
+		{
+			status=1;
+			cerr << "Bad int value: " << tokens[i] << endl;
+		}
+		else
+		{
+			int_list.push_back(n);
+		}
+	}
+	return status;
+}
+
+
 
 int parse_tuning_list(std::string s, vector<double>& tuning_list, int& i_iSteps)
 {
@@ -705,6 +730,7 @@ int parse_number_list(std::string s, vector<double>& number_list)
 	return 0;
 }
 
+// NOte: same as above - return 0. Stops at first non-number in list.
 int parse_number_list(vector<string>& tokens, vector<double>& number_list)
 {
 	int status = 0;
