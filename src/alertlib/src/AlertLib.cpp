@@ -499,13 +499,12 @@ int ARvsg::request_range(int num, PIXEL_LEVEL& first)
 
 //static ARvsg& f_vsg_default = ARvsg::instance();
 
-ARObject::ARObject() : m_initialized(false), m_use_master(false), m_use_slave(false) 
+ARObject::ARObject() : m_handle(0), m_use_master(false), m_use_slave(false) 
 {
 };
 
 ARObject::ARObject(const ARObject& obj)
 {
-	m_initialized = obj.m_initialized;
 	m_handle = obj.m_handle;
 	m_first = obj.m_first;
 	m_numlevels = obj.m_numlevels;
@@ -519,7 +518,6 @@ ARObject& ARObject::operator=(const ARObject& obj)
 {
 	if (this != &obj)
 	{
-		m_initialized = obj.m_initialized;
 		m_handle = obj.m_handle;
 		m_first = obj.m_first;
 		m_numlevels = obj.m_numlevels;
@@ -532,14 +530,14 @@ ARObject& ARObject::operator=(const ARObject& obj)
 
 void ARObject::destroy() 
 { 
-	vsgObjDestroy(m_handle); 
+	if (m_handle > 0) vsgObjDestroy(m_handle); 
 	m_handle = 0; 
 	return;
 };
 
 int ARObject::select()
 {
-	if (m_initialized) 
+	if (m_handle > 0) 
 	{
 		vsgObjSelect(m_handle);
 		return 0;
