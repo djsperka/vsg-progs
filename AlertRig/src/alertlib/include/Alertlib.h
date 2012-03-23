@@ -77,6 +77,7 @@ int parse_distance(std::string s, int& dist);
 int parse_integer(std::string s, int& i);
 int parse_double(std::string s, double& d);
 int parse_int_list(std::string s, std::vector<int>& list);
+int parse_int_list(std::vector<std::string>& tokens, std::vector<int>& list);
 int parse_contrast_triplet(std::string s, int& i_iContrastDown, int& i_iContrastBase, int& i_iContrastUp);
 int parse_int_pair(std::string s, int& i_i1, int& i_i2);
 int parse_sequence_pair(std::string s, int& i_i1, int& i_i2);

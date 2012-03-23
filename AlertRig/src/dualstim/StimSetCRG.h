@@ -7,24 +7,42 @@ using namespace alert;
 
 
 
-class StimSequenceList : public vector<string>
+class StimSequenceList
 {
 private:
-	vector<string>::const_iterator m_iter;
+	vector<int>::const_iterator m_index;
+	vector<string> m_sequences;
+	vector<int> m_order;
 	StimSequenceList() {};
 public:
-	StimSequenceList(vector<string> sequences): vector<string>(sequences) { m_iter = begin(); };
+#if 0
+	// WANT TO FORCE ORDER AS AN ARGUMENT TO AVOID ERROR IN OMITTING IT!
+	StimSequenceList(vector<string> sequences): m_sequences(sequences) 
+	{ 
+		// init order - use 0,1,2,3,... 
+		int i;
+		m_order.clear();
+		for (i=0; i<m_sequences.size(); i++) m_order.push_back(i);
+		m_index = m_order.begin();
+	}
+#endif
+
+	StimSequenceList(vector<string> sequences, vector<int> order): m_sequences(sequences), m_order(order) 
+	{ 
+		m_index = m_order.begin();
+	}
+
 	virtual ~StimSequenceList() {};
 	void advance()
 	{
-		m_iter++;
-		if (m_iter == end()) m_iter = begin();
+		m_index++;
+		if (m_index == m_order.end()) m_index = m_order.begin();
 		return;
 	}
 
 	string get_current_sequence()
 	{
-		return *m_iter;
+		return m_sequences[*m_index];
 	}
 };
 
@@ -36,7 +54,7 @@ private:
 	ARGratingSpec m_grating0;		// this will be the base grating, with opposite contrast. 
 	unsigned int m_fpt;
 public:
-	StimSetCRG(unsigned int ifpt, vector<string> sequences): m_fpt(ifpt), StimSequenceList(sequences) {};
+	StimSetCRG(unsigned int ifpt, vector<string> sequences, vector<int> order): m_fpt(ifpt), StimSequenceList(sequences, order) {};
 	virtual ~StimSetCRG() {};
 
 	void set_initial_parameters();
