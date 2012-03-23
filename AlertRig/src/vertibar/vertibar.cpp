@@ -42,7 +42,6 @@ int f_nextLutBufferIndex = 0;
 
 
 #define MAXLUTBUFFERS 2000
-char *f_sMSequence = NULL;
 VSGLUTBUFFER f_buffer;
 
 int args(int argc, char **argv);
@@ -248,12 +247,6 @@ int args(int argc, char **argv)
 	}
 	else
 	{
-		if (arutil_load_mseq(&f_sMSequence, f_sFilename, f_iOrder))
-		{
-			errflg++;
-			cerr << "Error loading mseq file " << f_sFilename << endl;
-		}
-
 		f_M = (int)pow(2.0f, (float)f_iOrder); 
 		f_p = f_M/f_nBars;
 		if ((f_p * f_nBars) != f_M)
@@ -470,6 +463,7 @@ int populateLutBuffers(int &nextTerm, int nTerms, int &nextBufferIndex)
 	static VSGTRIVAL b = {0, 0, 0};
 	static VSGTRIVAL g = {0.5, 0.5, 0.5};
 	int i, j, n;
+	const char *seq = get_msequence();
 	int bufferIndex;
 	bufferIndex = nextBufferIndex;
 
@@ -484,7 +478,7 @@ int populateLutBuffers(int &nextTerm, int nTerms, int &nextBufferIndex)
 			// The rest of the dots in the row are governed by  px + pcy. The y value is the term in the
 			// first column, and x is the column index; c = f_nBars.
 			n = (f_p * j + f_p * f_nBars * nextTerm) % (f_M-1);
-			if (f_sMSequence[n]=='1')
+			if (seq[n]=='1')
 			{
 				f_buffer[j] = w;
 			}

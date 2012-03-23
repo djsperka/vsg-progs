@@ -237,7 +237,6 @@ namespace alert
 	public:
 		ARObject();
 		ARObject(const ARObject& obj);
-		// : m_initialized(false), m_vsg(f_vsg_default) {};
 		virtual ~ARObject();
 		void init(PIXEL_LEVEL first, int numlevels);
 		void init(ARvsg& vsg, PIXEL_LEVEL first, int numlevels);
