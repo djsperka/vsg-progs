@@ -1,4 +1,4 @@
-' $Id: KrubTuning.s2s,v 1.5 2011-05-31 18:38:54 devel Exp $
+' $Id: KrubTuning.s2s,v 1.6 2012-03-26 16:43:20 jeff Exp $
 '
 '
 
@@ -123,6 +123,9 @@ proc CreateSampleConfiguration()
 
     SampleEvent(tunChanTrigger%, 1, 2, 1000); 
     SampleTitle$(tunChanTrigger%, "Terms");
+    
+    'Make textmark channel for easier data extraction
+    SampleTextMark(200);  'Channel 30 is textmark channel    
     
     
     ' There is no sequencer script in use
@@ -441,6 +444,7 @@ func Idle%()
             ChangeStateTo(stateNoStim%, tPulseUp);
             LogStatus("NoStim", "Pulse at " + str$(tPulseUp));
             ChangeStateTo(stateStimON%, tStimStart);
+            SampleText("STIMON " + Str$(iStimCounter%+1),tStimStart); 'Record start time, which stimulus#
         endif
         
     case iState% = stateStimON% then
@@ -464,6 +468,7 @@ func Idle%()
                 View(tunResultXYWindow%[i%]).XYAddData(1,tunParameterValues[tunParameterIndices%[iStimCounter%]],tunTotalSpikeCount[i%][tunParameterIndices%[iStimCounter%]]/tunTotalSeconds[i%][tunParameterIndices%[iStimCounter%]]);
             next;
             ChangeStateTo(stateBlankON%, tBlankStart);
+            SampleText("STIMOFF " + Str$(iStimCounter%+1),tBlankStart); 'Record off time, which stimulus#
             iStimCounter% += 1;
         endif
         
