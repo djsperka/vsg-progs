@@ -4,6 +4,7 @@
 #include "getopt.h"
 #undef __GNU_LIBRARY__
 #include <iostream>
+#include <fstream>
 #include <cstdio>
 #include <conio.h>
 #include <cmath>
@@ -43,7 +44,7 @@ bool f_binaryTriggers = true;
 int f_nRepeats = 1;
 TriggerVector triggers;
 PageCyclingTrigger *f_ptrigCycling = NULL;
-
+bool f_bSuperHack = false;
 
 
 bool blankPage();
@@ -53,6 +54,7 @@ void testing_loop();
 int callback(int &output, const CallbackTrigger* ptrig);
 void init_triggers();
 
+#define BIG_APERTURE_PAGE 2
 #define NO_APERTURE_PAGE 1
 #define APERTURE_PAGE 0
 
@@ -229,6 +231,7 @@ void prepareOverlay()
 	ovcolor.a = ovcolor.b = ovcolor.c = 0.5;
 	vsgPaletteWriteOverlayCols((VSGLUTBUFFER*)&ovcolor, 1, 1);
 	vsgSetCommand(vsgOVERLAYMASKMODE);
+	vsgSetDrawPage(vsgOVERLAYPAGE, BIG_APERTURE_PAGE, 0);
 	vsgSetDrawPage(vsgOVERLAYPAGE, NO_APERTURE_PAGE, 1);
 	vsgSetDrawPage(vsgOVERLAYPAGE, APERTURE_PAGE, 1);
 	vsgSetPen1(0);	// that's clear on the overlay page!
@@ -522,6 +525,9 @@ void prepare_cycling()
 	int h;
 	int w;
 	int M;
+	ofstream out;
+	if (f_bSuperHack)
+		out.open("C:\\Documents and Settings\\Lab\\Desktop\\mseq.txt");
 
 	p =  (int)pow(2.0f, (float)f_iOrder)/(f_iRows*f_iCols);
 	w = vsgGetScreenWidthPixels();
@@ -537,19 +543,26 @@ void prepare_cycling()
 		xterm = (icol * f_iDot) - f_iapXCorner;
 		yterm = (irow * f_iDot) - f_iapYCorner;
 		mpos[iterm].Frames = f_iFramesPerTerm;
-		mpos[iterm].ovPage = APERTURE_PAGE;
+		if (!f_bSuperHack)
+			mpos[iterm].ovPage = APERTURE_PAGE;
+		else
+			mpos[iterm].ovPage = BIG_APERTURE_PAGE;
 		mpos[iterm].ovXpos = 0;
 		mpos[iterm].ovYpos = 0;
 		mpos[iterm].Page = 0 + vsgDUALPAGE + vsgTRIGGERPAGE;
 		mpos[iterm].Stop = 0;
 		mpos[iterm].Xpos = xterm;
 		mpos[iterm].Ypos = yterm;
+		if (f_bSuperHack) out << iterm << " " << xterm << " " << yterm << endl;
 	}
 	mpos[M].Page = 0 + vsgDUALPAGE + vsgTRIGGERPAGE;
 	mpos[M].ovPage = NO_APERTURE_PAGE;
 	mpos[M].Stop = 1;
 
 	vsgPageCyclingSetup(M+1, mpos);
+
+	if (f_bSuperHack)
+		out.close();
 }
 
 bool blankPage()
@@ -585,10 +598,13 @@ int args(int argc, char **argv)
 	extern char *optarg;
 	extern int optind;
 	int errflg = 0;
-	while ((c = getopt(argc, argv, "t:r:c:o:vp:d:am:D:KTR:")) != -1)
+	while ((c = getopt(argc, argv, "t:r:c:o:vp:d:am:D:KTR:k")) != -1)
 	{
 		switch (c) 
 		{
+		case 'k':
+			f_bSuperHack = true;
+			break;
 		case 'K':
 			f_testing = true;
 			break;
