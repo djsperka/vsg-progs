@@ -1,4 +1,4 @@
-' $Id: AcuteTuningDialogs.s2s,v 1.4 2012-02-02 05:35:29 devel Exp $
+' $Id: AcuteTuningDialogs.s2s,v 1.5 2012-03-27 16:30:24 devel Exp $
 '
 ' This file contains dialog functions for the alert tuning script Tuning.s2s.
 #include "../../Spike2Util/UsreyUtil.s2s"
@@ -805,10 +805,10 @@ func GratingParametersDialog2%(label$, &param$, &statparam$, &x, &y, &w, &h, &iw
         '    DlgAllow(0, 0, GratingParametersDialogDoubleCheck%);
         DlgReal(1, "X:", -40, 40);
         DlgReal(2, "Y:", -40, 40);
-        DlgReal(3, "Outer Width:", .1, 30);
-        DlgReal(4, "Outer Height:", .1, 30);
-        DlgReal(5, "Inner Width:", 0, 30);
-        DlgReal(6, "Inner Height:", 0, 30);
+        DlgReal(3, "Outer Width:", .1, 100);
+        DlgReal(4, "Outer Height:", .1, 100);
+        DlgReal(5, "Inner Width:", 0, 100);
+        DlgReal(6, "Inner Height:", 0, 100);
         DlgInteger(7, "Contrast(%):", -100, 100);
         DlgReal(8, "Spatial Freq:", .1, 10);
         DlgReal(9, "Temporal Freq:", 0, 10);
