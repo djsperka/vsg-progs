@@ -1,4 +1,4 @@
-' $Id: AcuteMSequence.s2s,v 1.14 2012-02-23 01:55:11 devel Exp $
+' $Id: AcuteMSequence.s2s,v 1.15 2012-03-27 16:24:42 devel Exp $
 '
 ' AcuteMSequence.s2s
 '
@@ -108,7 +108,7 @@ func AcuteMSequenceDialog%()
     
     DlgCreate("M Sequence Parameters");
     DlgInteger(1, "Frames per term: ", 1, 1000000);
-    DlgInteger(2, "Dot size: ", 4, 28, 0, 0, 4);
+    DlgInteger(2, "Dot size: ", 4, 24, 0, 0, 4);
     DlgInteger(3, "Center X coord: ", -400, 400);
     DlgInteger(4, "Center Y coord: ", -300, 300);
     DlgInteger(5, "Number of repeats: ", 1, 100);
