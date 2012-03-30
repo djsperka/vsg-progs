@@ -30,6 +30,7 @@ BEGIN_DISPATCH_MAP(CMsgSvrDoc, COleServerDoc)
 	DISP_FUNCTION(CMsgSvrDoc, "addMessage", addMessage, VT_EMPTY, VTS_BSTR)
 	DISP_FUNCTION(CMsgSvrDoc, "getNextMessage", getNextMessage, VT_BSTR, VTS_NONE)
 	//}}AFX_DISPATCH_MAP
+	DISP_FUNCTION_ID(CMsgSvrDoc, "clearMessages", dispidclearMessages, clearMessages, VT_EMPTY, VTS_NONE)
 END_DISPATCH_MAP()
 
 // Note: we add support for IID_IMsgSvr to support typesafe binding
@@ -140,3 +141,10 @@ BSTR CMsgSvrDoc::getNextMessage()
 	}
 }
 
+
+void CMsgSvrDoc::clearMessages(void)
+{
+	AFX_MANAGE_STATE(AfxGetAppModuleState());
+
+	((CMsgSvrApp *)AfxGetApp())->m_listMessages.RemoveAll();
+}

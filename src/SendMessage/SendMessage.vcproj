@@ -4,6 +4,7 @@
 	Version="9.00"
 	Name="SendMessage"
 	ProjectGUID="{C4589EF8-8A34-4BCA-9E3C-A72C5C2877D8}"
+	RootNamespace="SendMessage"
 	Keyword="MFCProj"
 	TargetFrameworkVersion="0"
 	>
@@ -301,6 +302,10 @@
 			>
 			<File
 				RelativePath="msgsvr.h"
+				>
+			</File>
+			<File
+				RelativePath=".\MyMsgSvr.h"
 				>
 			</File>
 			<File
