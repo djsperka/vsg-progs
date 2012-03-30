@@ -61,6 +61,12 @@ protected:
 	//}}AFX_DISPATCH
 	DECLARE_DISPATCH_MAP()
 	DECLARE_INTERFACE_MAP()
+	void clearMessages(void);
+
+	enum 
+	{
+		dispidclearMessages = 3L
+	};
 };
 
 /////////////////////////////////////////////////////////////////////////////

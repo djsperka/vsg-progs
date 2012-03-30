@@ -27,6 +27,7 @@ library MsgSvr
 			//{{AFX_ODL_METHOD(CMsgSvrDoc)
 			[id(1)] void addMessage(BSTR strMessage);
 			[id(2)] BSTR getNextMessage();
+			[id(3)] void clearMessages(void);
 			//}}AFX_ODL_METHOD
 
 	};

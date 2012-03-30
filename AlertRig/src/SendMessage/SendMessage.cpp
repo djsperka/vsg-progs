@@ -3,7 +3,7 @@
 
 #include "stdafx.h"
 #include "SendMessage.h"
-#include "msgsvr.h"
+#include "MyMsgSvr.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -49,7 +49,7 @@ BOOL CSendMessageApp::InitInstance()
 	}
 
 
-	IMsgSvr m_handler;
+	MyMsgSvr m_handler;
 	if (!m_handler.CreateDispatch(_T("ucdavis.msg.handler")))
 	{
 		AfxMessageBox("Unable to attach to message server.");
@@ -57,7 +57,11 @@ BOOL CSendMessageApp::InitInstance()
 	}
 
 	CString strTemp = CString(m_lpCmdLine);
-	m_handler.addMessage(strTemp);
+
+	if (strTemp == "clear")
+		m_handler.clearMessages();
+	else
+		m_handler.addMessage(strTemp);
 
 	return TRUE;
 
