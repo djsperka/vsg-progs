@@ -3,6 +3,8 @@
 using namespace std;
 
 static const int f_nlevels = 100;
+const string StimSequenceList::empty_sequence = "";
+
 
 int StimSetCRG::init(ARvsg& vsg)
 {
