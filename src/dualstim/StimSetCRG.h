@@ -14,18 +14,8 @@ private:
 	vector<string> m_sequences;
 	vector<int> m_order;
 	StimSequenceList() {};
+	static const string empty_sequence;
 public:
-#if 0
-	// WANT TO FORCE ORDER AS AN ARGUMENT TO AVOID ERROR IN OMITTING IT!
-	StimSequenceList(vector<string> sequences): m_sequences(sequences) 
-	{ 
-		// init order - use 0,1,2,3,... 
-		int i;
-		m_order.clear();
-		for (i=0; i<m_sequences.size(); i++) m_order.push_back(i);
-		m_index = m_order.begin();
-	}
-#endif
 
 	StimSequenceList(vector<string> sequences, vector<int> order): m_sequences(sequences), m_order(order) 
 	{ 
@@ -40,9 +30,12 @@ public:
 		return;
 	}
 
-	string get_current_sequence()
+	const string& get_current_sequence()
 	{
-		return m_sequences[*m_index];
+		if (*m_index < (int)m_sequences.size() && *m_index > -1)
+			return m_sequences.at(*m_index);
+		else
+			return StimSequenceList::empty_sequence;
 	}
 };
 
