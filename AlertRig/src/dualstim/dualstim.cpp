@@ -1,4 +1,4 @@
-/* $Id: dualstim.cpp,v 1.8 2012-03-23 23:13:40 devel Exp $ */
+/* $Id: dualstim.cpp,v 1.9 2012-04-10 16:57:24 devel Exp $ */
 
 #include <iostream>
 #include <fstream>
@@ -514,36 +514,35 @@ int prargs_callback(int c, string& arg)
 		{
 			ifstream in;
 			s.assign(optarg);
-
-			// First attempt to read two doubles from the string
-			if (parse_xy(s, f_dSlaveXOffset, f_dSlaveYOffset))
+			in.open(s.c_str());
+			if (in)
 			{
-				f_szOffsetFile.assign(optarg);
-				have_offset = true;
-				in.open(f_szOffsetFile.c_str());
-				if (in)
+				in >> f_dSlaveXOffset >> f_dSlaveYOffset;
+				if (!in)
 				{
-					in >> f_dSlaveXOffset >> f_dSlaveYOffset;
-					if (!in)
-					{
-						cerr << "Format error in offset file!" << endl;
-						errflg++;
-					}
-					else
-					{
-						cout << "Got slave offset (" << f_dSlaveXOffset << ", " << f_dSlaveYOffset << ") from file (" << f_szOffsetFile << ")." << endl;
-					}
+					cerr << "Format error in offset file!" << endl;
+					errflg++;
 				}
 				else
 				{
-					cerr << "Cannot open offset file (" << f_szOffsetFile << ")." << endl;
-					errflg++;
+					have_offset = true;
+					cout << "Got slave offset (" << f_dSlaveXOffset << ", " << f_dSlaveYOffset << ") from file (" << s << ")." << endl;
 				}
 			}
 			else
 			{
-				have_offset = true;
-				cout << "Got slave offset (" << f_dSlaveXOffset << ", " << f_dSlaveYOffset << ") from arg list." << endl;
+				// File open failed, so now try to parse the arg as an x,y pair. 
+				if (!parse_xy(s, f_dSlaveXOffset, f_dSlaveYOffset))
+				{
+					have_offset = true;
+					cout << "Got slave offset (" << f_dSlaveXOffset << ", " << f_dSlaveYOffset << ") from arg list." << endl;
+				}
+				else
+				{
+					// both file open and parse failed. Cannot understand the arg!
+					cerr << "Offset arg (-r) must be either a filename or an x,y pair. Both failed, check arg: " << s << endl;
+					errflg++;
+				}
 			}
 			break;
 		}
@@ -692,13 +691,6 @@ int prargs_callback(int c, string& arg)
 		}
 	case 0:
 		{
-			f_pstimset->set_stimtime(f_dStimTime);
-			f_pstimset->set_frames_delay(f_nFramesDelay+1);
-			f_pstimset->set_frames_fixpt_delay(f_nFramesDelay+2);
-			f_pstimsetSlave->set_stimtime(f_dStimTime);
-			f_pstimsetSlave->set_frames_delay(f_nFramesDelay);
-			f_pstimsetSlave->set_frames_fixpt_delay(f_nFramesDelay);
-
 			if (!have_t)
 			{
 				cerr << "Error - must specify stim time (-t) in sec." << endl;
@@ -717,11 +709,24 @@ int prargs_callback(int c, string& arg)
 				cerr << "Error - no master stim set specified!" << endl;
 				errflg++;
 			}
+			else
+			{
+				f_pstimset->set_stimtime(f_dStimTime);
+				f_pstimset->set_frames_delay(f_nFramesDelay+1);
+				f_pstimset->set_frames_fixpt_delay(f_nFramesDelay+2);
+			}
+
 
 			if (!f_pstimsetSlave)
 			{
 				cerr << "Error - no slave stim set specified!" << endl;
 				errflg++;
+			}
+			else
+			{
+				f_pstimsetSlave->set_stimtime(f_dStimTime);
+				f_pstimsetSlave->set_frames_delay(f_nFramesDelay);
+				f_pstimsetSlave->set_frames_fixpt_delay(f_nFramesDelay);
 			}
 
 			break;
