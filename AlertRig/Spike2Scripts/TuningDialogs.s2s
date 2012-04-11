@@ -1,4 +1,4 @@
-' $Id: TuningDialogs.s2s,v 1.11 2012-02-23 19:49:04 jeff Exp $
+' $Id: TuningDialogs.s2s,v 1.12 2012-04-11 20:36:18 jeff Exp $
 '
 ' This file contains dialog functions for the alert tuning script Tuning.s2s.
 #include "../../Spike2Util/UsreyUtil.s2s"
@@ -19,9 +19,12 @@ const tunTypeBerliner$ := "B";
 const tunTypeBoxODonuts$ := "G";  '(G)rid of stimuli
 const tunTypeXPos$ := "X";  
 const tunTypeDots$ := "D";
-const tunTypeDisparity$ := "DX";  
+const tunTypeDisparity$ := "DX";
+const tunTypeCRG$ := "R";
+const tunTypeBlank$ := "BLANK";
+const tunTypeGratingOnly$ := "GO";
 var tunType$:=tunTypeNone$;
-var tunType1$:=tunTypeNone$;  'for first of two tuning curves, if Box O' Donuts
+var tunType1$:=tunTypeNone$;  'for first of two tuning curves, if Box O' Donuts, or for non-CRG curve in CRG scenarios
 var tunType2$:=tunTypeNone$;  'for second of two tuning curves, if Box O' Donuts
 var tunDualTuningType%;  'Determines whether, on dual tuning, both (0), Master (1), or Slave (2) screen varies.
 
@@ -41,6 +44,11 @@ const tundlgBoxODonutsButton% := 16;
 const tundlgXPosButton% := 17;
 const tundlgDotsButton% := 18;
 const tundlgDisparityButton% := 19;
+const tundlgCRGButton% := 20;
+const tundlgSelectSEQFileButton% := 21;
+const tundlgBlankButton% := 22;
+const tundlgGratingOnlyButton% := 23;
+const tundlgCRG2Button% := 24;  'This is for CRG on SECOND screen
 
 ' A note about "steps". 
 ' The dialogs ask for a number of "steps". A step is a transition from one stimulus
@@ -146,6 +154,23 @@ var tunDisparityCenterXPos;
 var tunDisparityMaxXPos;
 var tunDisparityMinXPos;
 
+
+' Contrast Reversing Gratings
+var tunCRGCurrentCurve%:=0;     ' note, will be 0 unless CRG is selected on the dialog
+var tunCRGNRepeats%;            ' number of repeats of the CRG sequence, note there will be one repeat for each level in the non-CRG tuning curve
+                                    ' thus if this is 3 and the tuning curve has 5 values and there are 10 sequences this is 150 stimuli
+var tunCRGFramesPerFlip%;       ' number of frames for each contrast reverse in the sequence
+var tunCRGProgression%;         ' if 1, progression is random
+var tunCRGOnSlave%;             ' if 1, CRG is on slave screen, using slave here so "master" is at top of list box with this variable as an index
+var tunCRGSeqFile$;             ' full path of sequence file
+var tunCRGSeqFile2$;            ' full path of secondary sequence file, if used
+var tunCRGNSeq1%;               ' will hold the number of sequences in the sequence file, not saved to registry
+var tunCRGNSeq2%;               ' will hold the number of sequences in the sequence file, not saved to registry
+var tunCRGNFlips1%;             ' number of flips per sequence in file 1 (note that nFlips is a bit of a misnomer...it's really the number of frame-blocks)
+var tunCRGNFlips2%;             ' number of flips per sequence in file 2
+var tunCRGSecsPerSeq:=0;        ' length of a sequence in seconds, to be compared to stim duration in tuning curve, not saved to registry
+
+
 ' Strings that hold grating parameters
 var tunGratingParams$;
 var tunGratingParamsSlave$;
@@ -171,7 +196,8 @@ var tunBackgroundColor$ := "gray";	' background color for stim
 var tunAcqFailTime := 2.0;			' Wait time after acquisition failure
 var tunHoldFailTime := 2.0;			' Wait time after failure to hold fixation (not on the first time after acquisition)
 var tunMaintainFailTime := 2.0;	' Wait time after breaking fixation during maintain phase
-var tunTimeOutTime := 2.0;			' Wait time after failure to hold fixation (first time after acquisition)
+'var tunTimeOutTime := 2.0;			' Wait time after failure to hold fixation (first time after acquisition)
+var tunStdInterTrialTime := 2.0;    'Standard intertrial time
 var tunDoRivalry% := 0;          ' If checked, run for the rivalry rig
 var tunDoF12% := 1;                 ' compute f1 and f2. 
 var tunSetStationary% := 0;         'do stationary?
@@ -451,6 +477,31 @@ proc SaveTuningCurveDotsParameters()
     SetIntRegistryValue(key$, "FGB", tunDotsFGB%);
 end;
 
+
+proc GetTuningCurveCRGParameters()
+	var key$;
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Tuning\\CRG";
+    tunCRGNRepeats% := GetIntRegistryValue%(key$, "CRGNRepeats", tunCRGNRepeats%);
+    tunCRGFramesPerFlip% := GetIntRegistryValue%(key$, "CRGFramesPerTurn", tunCRGFramesPerFlip%);
+    tunCRGProgression% := GetIntRegistryValue%(key$, "CRGProgression", tunCRGProgression%);
+    tunCRGOnSlave% := GetIntRegistryValue%(key$, "CRGOnSlave", tunCRGOnSlave%);
+    tunCRGSeqFile$ := GetStringRegistryValue$(key$, "CRGSeqFile", tunCRGSeqFile$);
+end;
+
+
+proc SaveTuningCurveCRGParameters()
+	var key$;
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Tuning\\CRG";
+    SetIntRegistryValue(key$, "CRGNRepeats", tunCRGNRepeats%);
+    SetIntRegistryValue(key$, "CRGFramesPerTurn", tunCRGFramesPerFlip%);
+    SetIntRegistryValue(key$, "CRGProgression", tunCRGProgression%);
+    SetIntRegistryValue(key$, "CRGOnSlave", tunCRGOnSlave%);
+    SetStringRegistryValue(key$, "CRGSeqFile", tunCRGSeqFile$);
+end;
+
+
+
+
 '------------ END Read/write tuning curve parameters to the registry ------------
 
 
@@ -489,23 +540,32 @@ func TuningCurveOrientationDialog%()
 		PrintLog("TuningCurveOrientationDialog - user hit OK\n");
 		tunType$ := tunTypeOrientation$;
         
-        'Change text on Box O' Donuts dialog box, if we're calling from there.
-        if tunBoxODonutsCurrentCurve% = 1 then
+        'Change text on Box O' Donuts/CRG dialog box, if we're calling from there.
+        docase
+        case tunBoxODonutsCurrentCurve% = 1 then
             tunType1$ := tunTypeOrientation$;
             tunCurve1Text$ := "Tuning Curve 1 is ORIENTATION";
             DlgValue$(updateCurve1Text%, tunCurve1Text$);
-            tunBoxODonutsCurrentCurve% := 2;  'update current curve
-            DlgEnable(0,-tundlgOrientationButton%); 'So we don't pick orientation again
-        else
-            if tunBoxODonutsCurrentCurve% = 2 then
-                tunType2$ := tunTypeOrientation$;
-                tunCurve2Text$ := "Tuning Curve 2 is ORIENTATION";
-                DlgValue$(updateCurve2Text%, tunCurve2Text$);
-                tunBoxODonutsCurrentCurve% := 3;  'update current curve
-                DlgEnable(0,-tundlgOrientationButton%); 'So we don't pick orientation again
-                TuningCurveBoxODonutsDialogChanged%(-1);  'Enables "OK" button, -1 is sham input
+            tunBoxODonutsCurrentCurve% := 2;  'update current curve 
+            DlgEnable(0,-tundlgOrientationButton%);  'So we don't pick orientation again
+        case tunBoxODonutsCurrentCurve% = 2 then
+            tunType2$ := tunTypeOrientation$;
+            tunCurve2Text$ := "Tuning Curve 2 is ORIENTATION";
+            DlgValue$(updateCurve2Text%, tunCurve2Text$);
+            tunBoxODonutsCurrentCurve% := 3;  'update current curve 
+            DlgEnable(0,-tundlgOrientationButton%);  'So we don't pick orientation again
+            TuningCurveBoxODonutsDialogChanged%(-1);  'Enables "OK" button, -1 is sham input
+        case tunCRGCurrentCurve% = 1 then
+            tunCRGCurrentCurve% := 2;
+            tunType1$ := tunTypeOrientation$;
+            if DlgValue(5) = 0 then 'if CRG is on master, then tuning curve selected is on slave
+                tunCurve1Text$ := "Tuning Curve on Slave is ORIENTATION";
+            else
+                tunCurve1Text$ := "Tuning Curve on Master is ORIENTATION";
             endif;
-        endif;
+            DlgValue$(updateCurve1Text%, tunCurve1Text$);
+            TuningCurveCRGDialogChanged%(-1);  'Enables "OK" button, -1 is sham input
+        endcase;
         
         
 		if tunContext$ = tunContextDAQ$ then
@@ -564,23 +624,32 @@ func TuningCurveContrastDialog%()
 '		PrintLog("TuningCurveContrastDialog - user hit OK\n");
 		tunType$ := tunTypeContrast$;
         
-        'Change text on Box O' Donuts dialog box, if we're calling from there.
-        if tunBoxODonutsCurrentCurve% = 1 then
+        'Change text on Box O' Donuts/CRG dialog box, if we're calling from there.
+        docase
+        case tunBoxODonutsCurrentCurve% = 1 then
             tunType1$ := tunTypeContrast$;
             tunCurve1Text$ := "Tuning Curve 1 is CONTRAST";
             DlgValue$(updateCurve1Text%, tunCurve1Text$);
             tunBoxODonutsCurrentCurve% := 2;  'update current curve 
             DlgEnable(0,-tundlgContrastButton%);  'So we don't pick contrast again
-        else
-            if tunBoxODonutsCurrentCurve% = 2 then
-                tunType2$ := tunTypeContrast$;
-                tunCurve2Text$ := "Tuning Curve 2 is CONTRAST";
-                DlgValue$(updateCurve2Text%, tunCurve2Text$);
-                tunBoxODonutsCurrentCurve% := 3;  'update current curve 
-                DlgEnable(0,-tundlgContrastButton%);  'So we don't pick contrast again
-                TuningCurveBoxODonutsDialogChanged%(-1);  'Enables "OK" button, -1 is sham input
+        case tunBoxODonutsCurrentCurve% = 2 then
+            tunType2$ := tunTypeContrast$;
+            tunCurve2Text$ := "Tuning Curve 2 is CONTRAST";
+            DlgValue$(updateCurve2Text%, tunCurve2Text$);
+            tunBoxODonutsCurrentCurve% := 3;  'update current curve 
+            DlgEnable(0,-tundlgContrastButton%);  'So we don't pick contrast again
+            TuningCurveBoxODonutsDialogChanged%(-1);  'Enables "OK" button, -1 is sham input
+        case tunCRGCurrentCurve% = 1 then
+            tunCRGCurrentCurve% := 2;
+            tunType1$ := tunTypeContrast$;
+            if DlgValue(5) = 0 then  'if CRG is on master, then tuning curve selected is on slave
+                tunCurve1Text$ := "Tuning Curve on Slave is CONTRAST";
+            else
+                tunCurve1Text$ := "Tuning Curve on Master is CONTRAST";
             endif;
-        endif;
+            DlgValue$(updateCurve1Text%, tunCurve1Text$);
+            TuningCurveCRGDialogChanged%(-1);  'Enables "OK" button, -1 is sham input
+        endcase;
         
         
 		if tunContext$ = tunContextDAQ$ then
@@ -637,23 +706,32 @@ func TuningCurveSpatialDialog%()
 '		PrintLog("TuningCurveSpatialDialog - user hit OK\n");
 		tunType$ := tunTypeSpatial$;
         
-        'Change text on Box O' Donuts dialog box, if we're calling from there.
-        if tunBoxODonutsCurrentCurve% = 1 then
+        'Change text on Box O' Donuts/CRG dialog box, if we're calling from there.
+        docase
+        case tunBoxODonutsCurrentCurve% = 1 then
             tunType1$ := tunTypeSpatial$;
             tunCurve1Text$ := "Tuning Curve 1 is SPATIAL FREQ";
             DlgValue$(updateCurve1Text%, tunCurve1Text$);
             tunBoxODonutsCurrentCurve% := 2;  'update current curve 
             DlgEnable(0,-tundlgSpatialButton%);  'So we don't pick spatial frequency again
-        else
-            if tunBoxODonutsCurrentCurve% = 2 then
-                tunType2$ := tunTypeSpatial$;
-                tunCurve2Text$ := "Tuning Curve 2 is SPATIAL FREQ";
-                DlgValue$(updateCurve2Text%, tunCurve2Text$);
-                tunBoxODonutsCurrentCurve% := 3;  'update current curve 
-                DlgEnable(0,-tundlgSpatialButton%);  'So we don't pick spatial frequency again
-                TuningCurveBoxODonutsDialogChanged%(-1);  'Enables "OK" button, -1 is sham input
-            endif; 
-        endif;
+        case tunBoxODonutsCurrentCurve% = 2 then
+            tunType2$ := tunTypeSpatial$;
+            tunCurve2Text$ := "Tuning Curve 2 is SPATIAL FREQ";
+            DlgValue$(updateCurve2Text%, tunCurve2Text$);
+            tunBoxODonutsCurrentCurve% := 3;  'update current curve 
+            DlgEnable(0,-tundlgSpatialButton%);  'So we don't pick spatial frequency again
+            TuningCurveBoxODonutsDialogChanged%(-1);  'Enables "OK" button, -1 is sham input
+        case tunCRGCurrentCurve% = 1 then
+            tunCRGCurrentCurve% := 2;
+            tunType1$ := tunTypeSpatial$;
+            if DlgValue(5) = 0 then  'if CRG is on master, then tuning curve selected is on slave
+                tunCurve1Text$ := "Tuning Curve on Slave is SPATIAL FREQ";
+            else
+                tunCurve1Text$ := "Tuning Curve on Master is SPATIAL FREQ";
+            endif;
+            DlgValue$(updateCurve1Text%, tunCurve1Text$);
+            TuningCurveCRGDialogChanged%(-1);  'Enables "OK" button, -1 is sham input
+        endcase;
         
         
 		if tunContext$ = tunContextDAQ$ then
@@ -710,23 +788,32 @@ func TuningCurveTemporalDialog%()
 '		PrintLog("TuningCurveTemporalDialog - user hit OK\n");
 		tunType$ := tunTypeTemporal$;
         
-        'Change text on Box O' Donuts dialog box, if we're calling from there.
-        if tunBoxODonutsCurrentCurve% = 1 then
+        'Change text on Box O' Donuts/CRG dialog box, if we're calling from there.
+        docase
+        case tunBoxODonutsCurrentCurve% = 1 then
             tunType1$ := tunTypeTemporal$;
             tunCurve1Text$ := "Tuning Curve 1 is TEMPORAL FREQ";
             DlgValue$(updateCurve1Text%, tunCurve1Text$);
             tunBoxODonutsCurrentCurve% := 2;  'update current curve 
             DlgEnable(0,-tundlgTemporalButton%);  'So we don't pick temporal frequency again
-        else
-            if tunBoxODonutsCurrentCurve% = 2 then
-                tunType2$ := tunTypeTemporal$;
-                tunCurve2Text$ := "Tuning Curve 2 is TEMPORAL FREQ";
-                DlgValue$(updateCurve2Text%, tunCurve2Text$);
-                tunBoxODonutsCurrentCurve% := 3;  'update current curve 
-                DlgEnable(0,-tundlgTemporalButton%);  'So we don't pick temporal frequency again
-                TuningCurveBoxODonutsDialogChanged%(-1);  'Enables "OK" button, -1 is sham input
+        case tunBoxODonutsCurrentCurve% = 2 then
+            tunType2$ := tunTypeTemporal$;
+            tunCurve2Text$ := "Tuning Curve 2 is TEMPORAL FREQ";
+            DlgValue$(updateCurve2Text%, tunCurve2Text$);
+            tunBoxODonutsCurrentCurve% := 3;  'update current curve 
+            DlgEnable(0,-tundlgTemporalButton%);  'So we don't pick temporal frequency again
+            TuningCurveBoxODonutsDialogChanged%(-1);  'Enables "OK" button, -1 is sham input
+        case tunCRGCurrentCurve% = 1 then
+            tunCRGCurrentCurve% := 2;
+            tunType1$ := tunTypeTemporal$;
+            if DlgValue(5) = 0 then  'if CRG is on master, then tuning curve selected is on slave
+                tunCurve1Text$ := "Tuning Curve on Slave is TEMPORAL FREQ";
+            else
+                tunCurve1Text$ := "Tuning Curve on Master is TEMPORAL FREQ";
             endif;
-        endif;
+            DlgValue$(updateCurve1Text%, tunCurve1Text$);
+            TuningCurveCRGDialogChanged%(-1);  'Enables "OK" button, -1 is sham input
+        endcase;
         
         
 		if tunContext$ = tunContextDAQ$ then
@@ -786,23 +873,32 @@ func TuningCurveAreaDialog%()
 '		PrintLog("TuningCurveAreaDialog - user hit OK\n");
 		tunType$ := tunTypeArea$;
         
-        'Change text on Box O' Donuts dialog box, if we're calling from there.
-        if tunBoxODonutsCurrentCurve% = 1 then
+        'Change text on Box O' Donuts/CRG dialog box, if we're calling from there.
+        docase
+        case tunBoxODonutsCurrentCurve% = 1 then
             tunType1$ := tunTypeArea$;
             tunCurve1Text$ := "Tuning Curve 1 is AREA";
             DlgValue$(updateCurve1Text%, tunCurve1Text$);
             tunBoxODonutsCurrentCurve% := 2;  'update current curve 
             DlgEnable(0,-tundlgAreaButton%);  'So we don't pick area again
-        else
-            if tunBoxODonutsCurrentCurve% = 2 then
-                tunType2$ := tunTypeArea$;
-                tunCurve2Text$ := "Tuning Curve 2 is AREA";
-                DlgValue$(updateCurve2Text%, tunCurve2Text$);
-                tunBoxODonutsCurrentCurve% := 3;  'update current curve 
-                DlgEnable(0,-tundlgAreaButton%);  'So we don't pick area again
-                TuningCurveBoxODonutsDialogChanged%(-1);  'Enables "OK" button, -1 is sham input
+        case tunBoxODonutsCurrentCurve% = 2 then
+            tunType2$ := tunTypeArea$;
+            tunCurve2Text$ := "Tuning Curve 2 is AREA";
+            DlgValue$(updateCurve2Text%, tunCurve2Text$);
+            tunBoxODonutsCurrentCurve% := 3;  'update current curve 
+            DlgEnable(0,-tundlgAreaButton%);  'So we don't pick area again
+            TuningCurveBoxODonutsDialogChanged%(-1);  'Enables "OK" button, -1 is sham input
+        case tunCRGCurrentCurve% = 1 then
+            tunCRGCurrentCurve% := 2;
+            tunType1$ := tunTypeArea$;
+            if DlgValue(5) = 0 then  'if CRG is on master, then tuning curve selected is on slave
+                tunCurve1Text$ := "Tuning Curve on Slave is AREA";
+            else
+                tunCurve1Text$ := "Tuning Curve on Master is AREA";
             endif;
-        endif;
+            DlgValue$(updateCurve1Text%, tunCurve1Text$);
+            TuningCurveCRGDialogChanged%(-1);  'Enables "OK" button, -1 is sham input
+        endcase;
         
         
 		if tunContext$ = tunContextDAQ$ then
@@ -865,24 +961,33 @@ func TuningCurveXPosDialog%()
 '		PrintLog("TuningCurveAreaDialog - user hit OK\n");
 		tunType$ := tunTypeXPos$;
         
-        'Change text on Box O' Donuts dialog box, if we're calling from there.
+        'Change text on Box O' Donuts/CRG dialog box, if we're calling from there.
         'Oh, and update tuning types we are going to use.
-        if tunBoxODonutsCurrentCurve% = 1 then
+        docase
+        case tunBoxODonutsCurrentCurve% = 1 then
             tunType1$ := tunTypeXPos$;
             tunCurve1Text$ := "Tuning Curve 1 is X POSITION";
             DlgValue$(updateCurve1Text%, tunCurve1Text$);
-            tunBoxODonutsCurrentCurve% := 2;  'update current curve
-            DlgEnable(0,-tundlgXPosButton%);  'So we don't pick XPos again
-        else
-            if tunBoxODonutsCurrentCurve% = 2 then
-                tunType2$ := tunTypeXPos$;
-                tunCurve2Text$ := "Tuning Curve 2 is X POSITION";
-                DlgValue$(updateCurve2Text%, tunCurve2Text$);
-                tunBoxODonutsCurrentCurve% := 3;  'update current curve
-                DlgEnable(0,-tundlgXPosButton%);  'So we don't pick XPos again
-                TuningCurveBoxODonutsDialogChanged%(-1);  'Enables "OK" button, -1 is sham input
+            tunBoxODonutsCurrentCurve% := 2;  'update current curve 
+            DlgEnable(0,-tundlgXPosButton%);  'So we don't pick X position again
+        case tunBoxODonutsCurrentCurve% = 2 then
+            tunType2$ := tunTypeXPos$;
+            tunCurve2Text$ := "Tuning Curve 2 is X POSITION";
+            DlgValue$(updateCurve2Text%, tunCurve2Text$);
+            tunBoxODonutsCurrentCurve% := 3;  'update current curve 
+            DlgEnable(0,-tundlgXPosButton%);  'So we don't pick X position again
+            TuningCurveBoxODonutsDialogChanged%(-1);  'Enables "OK" button, -1 is sham input
+        case tunCRGCurrentCurve% = 1 then
+            tunCRGCurrentCurve% := 2;
+            tunType1$ := tunTypeXPos$;
+            if DlgValue(5) = 0 then  'if CRG is on master, then tuning curve selected is on slave
+                tunCurve1Text$ := "Tuning Curve on Slave is X POSITION";
+            else
+                tunCurve1Text$ := "Tuning Curve on Master is X POSITION";
             endif;
-        endif;
+            DlgValue$(updateCurve1Text%, tunCurve1Text$);
+            TuningCurveCRGDialogChanged%(-1);  'Enables "OK" button, -1 is sham input
+        endcase;
         
         
 		if tunContext$ = tunContextDAQ$ then
@@ -1334,6 +1439,196 @@ end;
 
 
 
+' This function is initially called with a "0" input, no function decided yet
+' Second tuning curve and OK should be disabled until first curve/second curve
+' are selected
+func TuningCurveCRGDialogChanged%(item%)    
+    'This re-enables the master/slave listbox if CRG dialog is cancelled (actually not needed)
+    'if item% = 0 then
+        'DlgEnable(1,5); 
+    'endif;  
+    if item% = 5 then
+        if DlgValue(5) = 0 then
+            DlgValue$(updateCurve2Text%,"Contrast Reversing Grating on MASTER");
+        else
+            DlgValue$(updateCurve2Text%,"Contrast Reversing Grating on SLAVE");
+        endif;
+    endif;
+    if tunCRGCurrentCurve% = 2 then
+        DlgEnable(1,-1);  'enable "OK" if curve has been selected
+        DlgEnable(0,5);   'and disable the master/slave listbox - can't change this once you've picked a curve
+    else
+        DlgEnable(0,-1);  'Otherwise disable "OK"
+    endif;
+    
+    return 1;
+end
+
+
+func TuningCurveCRGDialog%()
+    'Just copied over Box O Donuts for now
+    var sValues$;
+    var i%;
+    var iReturn%;
+    var tunCurveText$;
+    var tunCurveCRGText$;
+    
+    var mylist$[2];
+    mylist$[0] := "Master";
+    mylist$[1] := "Slave";
+    
+    GetTuningCurveCRGParameters();    
+    
+    tunCRGCurrentCurve% := 1;  'this will be 0 unless we select this tuning curve
+    
+    tunCurveText$ := "Tuning Curve is unselected";
+    if tunCRGOnSlave% = 0 then
+        tunCurveCRGText$ := "Contrast Reversing Grating on MASTER";
+    else
+        tunCurveCRGText$ := "Contrast Reversing Grating on SLAVE";
+    endif;
+    
+    
+    DlgCreate("Contrast Reversing Grating Parameters");
+    
+    DlgInteger(1,"# of repeats per CRG sequence",1,100,30,1);
+    DlgInteger(2,"# of frames per turn",1,1000,30,2);
+    DlgCheck(3, "Random Progression", 2, 3);
+    DlgButton(tundlgSelectSEQFileButton%,   "Select Sequence File", SelectSEQFile%,49,3);
+    DlgString(4,40,20,"",50,2);  'for visual confirmation of selected seq file
+    
+    
+    
+    DlgGroup("CRG Screen and Tuning Curve Type", 1, 4, 52, 7); 
+    DlgList(5, "CRG is on:", mylist$[], 2, 3);
+    updateCurve2Text% := DlgText(tunCurveCRGText$, 9, 6, 50);  'this keeps track of which screen holds CRG, 1/2 label got swapped, just rolling with it
+    updateCurve1Text% := DlgText(tunCurveText$, 9, 7, 50);  'this is to keep track of selected tuning curve 
+    DlgButton(tundlgBlankButton%, "     Blank     ", TuningCurveCRGBlank%, 2, 8);  'for blank screen
+    DlgButton(tundlgGratingOnlyButton%, "  Grating Only  ", TuningCurveCRGGratingOnly%, 18, 8);  'for single grating
+    DlgButton(tundlgCRG2Button%, "Secondary CRG", TuningCurveCRG2%, 36, 8);  'for secondary CRG
+    
+    DlgButton(tundlgOrientationButton%, " Orientation  ", TuningCurveOrientationDialog%, 2, 9); 'Note that labels for Orientation-Area are superceded 
+	DlgButton(tundlgContrastButton%, "     Contrast     ", TuningCurveContrastDialog%, 18, 9);  'by TuningCurveScriptDialogChanged% even upon opening 
+	DlgButton(tundlgSpatialButton%, "Spatial Freq", TuningCurveSpatialDialog%, 2, 10);           'the dialog (i.e. whatever label is here is unused)
+	DlgButton(tundlgTemporalButton%, "Temporal Freq", TuningCurveTemporalDialog%, 18, 10);
+	DlgButton(tundlgAreaButton%, "         Area         ", TuningCurveAreaDialog%, 36, 9);
+    DlgButton(tundlgXPosButton%, "     X Position     ", TuningCurveXPosDialog%, 36, 10);
+    
+    DlgButton(151, "Master Grating", TunDlgGratingMaster%);
+    DlgButton(152, "Slave Grating", TunDlgGratingSlave%);
+    DlgButton(153, "Master Vals -> Slave", TunMasterValsToSlave%);
+    DlgButton(154, "Slave Vals -> Master", TunSlaveValsToMaster%);
+    DlgAllow(0xffff, 0, TuningCurveCRGDialogChanged%);
+    
+    i% := DlgShow(tunCRGNRepeats%,tunCRGFramesPerFlip%,tunCRGProgression%,tunCRGSeqFile$,tunCRGOnSlave%);
+    
+    ' If i% is 1 the user hit "OK". If its 0, user hit "Cancel". 
+	' When user hits OK we always save the parameters, and when user hits Cancel we don't.
+    ' 
+    ' djs 2/4/2011
+    ' Spike2 bug workaround implemented. The return value from this function (when in DAQ context this
+    ' dialog is called from a DlgButton in another dialog) should make the parent dialog close, as if 
+    ' the OK button were hit. Bug in Spike2 v6 means this doesn't work right - the parent dialog will 
+    ' close but its variables are not updated prior to doing so.... so any changes to the parent dialog
+    ' are not seen in the subsequent expt, they're not saved in the registry, etc. Workaround is to return
+    ' something > 0 here. The parent dialog will continue to display, and the user has to hit OK on that 
+    ' before things proceed. 
+	
+    tunCRGCurrentCurve% := 0;  'reset this, we don't need it once this dialog box is closed and it messes up stuff if we want to pick a different tuning curve    
+    if i% = 1 then
+		SaveTuningCurveCRGParameters();
+		tunType$ := tunTypeCRG$;
+		if tunContext$ = tunContextDAQ$ then
+            ' djs 2/4/2011 We return 1 - that's the workaround			iReturn% := 0;
+            iReturn% := 1;
+		else
+			iReturn% := 1;
+		endif;
+	endif;
+	if i% = 0 then
+		tunType$ := tunTypeNone$;
+		if tunContext$ = tunContextDAQ$ then
+			iReturn% := 1;
+		else
+			iReturn% := 2;
+		endif;
+	endif;
+    
+	return iReturn%;   
+    
+end
+
+
+
+
+
+func TuningCurveCRGBlank%()
+'This function is ONLY called from the CRG dialog box, calling from anywhere else would make no sense, don't do it.
+    tunCRGCurrentCurve% := 2;
+    tunType1$ := tunTypeBlank$;
+    if DlgValue(5) = 0 then  'if CRG is on master, then tuning curve selected is on slave
+        tunCurve1Text$ := "Slave will be BLANK";
+    else
+        tunCurve1Text$ := "Master will be BLANK";
+    endif;
+    DlgValue$(updateCurve1Text%, tunCurve1Text$);
+    TuningCurveCRGDialogChanged%(-1);  'Enables "OK" button, -1 is sham input
+    return 1;
+end
+
+
+
+
+
+func TuningCurveCRGGratingOnly%()
+'This function is ONLY called from the CRG dialog box, calling from anywhere else would make no sense, don't do it.
+    tunCRGCurrentCurve% := 2;
+    tunType1$ := tunTypeGratingOnly$;
+    if DlgValue(5) = 0 then  'if CRG is on master, then tuning curve selected is on slave
+        tunCurve1Text$ := "Slave will have STATIC GRATING";
+    else
+        tunCurve1Text$ := "Master will have STATIC GRATING";
+    endif;
+    DlgValue$(updateCurve1Text%, tunCurve1Text$);
+    TuningCurveCRGDialogChanged%(-1);  'Enables "OK" button, -1 is sham input
+    'set some contrast values...I think we can get away without committing these to the registry
+    'Actually, I'm just going to hard code this in Tuning's CreateSampleConfiguration, should work fine
+    'tunContrastNSteps% := 1;
+    'tunContrastMinContrast := 0;
+    'tunContrastMaxContrast := 100;
+    return 1;
+end
+
+
+
+
+func TuningCurveCRG2%()
+'This function is ONLY called from the CRG dialog box, calling from anywhere else would make no sense, don't do it.
+    var direc$;
+    var fh0%;
+    
+    direc$ := FilePath$();  'get current directory
+    fh0%:=FileOpen(direc$+"*.txt",1,0,"Please select a secondary CRG sequence file");  'Find a sequence file
+    tunCRGSeqFile2$ := FileName$(0);  'Get full path of selected file
+    FileClose(fh0%);  'Just close the file, we're not using it 
+    
+    
+    if fh0% > 0  then 'success in opening file 
+        tunCRGCurrentCurve% := 2;
+        tunType1$ := tunTypeCRG$;
+    
+        if DlgValue(5) = 0 then  'if CRG is on master, then tuning curve selected is on slave
+            tunCurve1Text$ := "Slave will have SECONDARY CRG";
+        else
+            tunCurve1Text$ := "Master will have SECONDARY CRG";
+        endif;
+        DlgValue$(updateCurve1Text%, tunCurve1Text$);
+        TuningCurveCRGDialogChanged%(-1);  'Enables "OK" button, -1 is sham input
+    endif
+    
+    return 1;
+end
+
 
 
 
@@ -1435,7 +1730,6 @@ func GratingParametersDialogMaster%(label$, &param$, &statparam$, &x, &y, &w, &h
         DlgList(13, "Pattern:", PatternList$[]);
         DlgList(14, "Aperture:", ApertureList$[]);
         DlgButton(15, "Copy from Slave", TunCopySlaveVals%(param$));
-     
         
         i% := DlgShow(x, y, w, h, iw, ih, contrast%, sf, tf, ori, phase, icvl%, ipl%, ial%);
         Convert180(phase);
@@ -1644,7 +1938,7 @@ proc GetTuningCurveScriptParameters()
     tunAcqFailTime := GetFloatRegistryValue(key$, "AcqFailTime", tunAcqFailTime);
     tunHoldFailTime := GetFloatRegistryValue(key$, "HoldFailTime", tunHoldFailTime);
     tunMaintainFailTime := GetFloatRegistryValue(key$, "MaintainFailTime", tunMaintainFailTime);
-    tunTimeOutTime := GetFloatRegistryValue(key$, "TimeOutTime", tunTimeOutTime);
+    tunStdInterTrialTime := GetFloatRegistryValue(key$, "StdInterTrialTime", tunStdInterTrialTime);
     tunBackgroundColor$ := GetStringRegistryValue$(key$, "BackgroundColor", tunBackgroundColor$);
     tunDoRivalry% := GetIntRegistryValue%(key$, "DoRivalry", tunDoRivalry%);
     tunDualTuningType% := GetIntRegistryValue%(key$, "DualTuningType", tunDualTuningType%);
@@ -1669,7 +1963,7 @@ proc SaveTuningCurveScriptParameters()
     SetFloatRegistryValue(key$, "AcqFailTime", tunAcqFailTime);
     SetFloatRegistryValue(key$, "HoldFailTime", tunHoldFailTime);
     SetFloatRegistryValue(key$, "MaintainFailTime", tunMaintainFailTime);
-    SetFloatRegistryValue(key$, "TimeOutTime", tunTimeOutTime);
+    SetFloatRegistryValue(key$, "StdInterTrialTime", tunStdInterTrialTime);
     SetStringRegistryValue(key$, "BackgroundColor", tunBackgroundColor$);
     SetIntRegistryValue(key$, "DoRivalry", tunDoRivalry%);
     SetIntRegistryValue(key$, "DualTuningType", tunDualTuningType%);
@@ -1733,18 +2027,18 @@ func TuningCurveScriptDialog%()
     'Updated dialog box - more efficient use of space, neater
     DlgCreate("Tuning Curve Parameters", 0, 0, 0, 0, -1, 1, 1);  'center dialog relative to screen and not to application window to eliminate cutting off the bottom of the dialog!
 	DlgGroup("Common Parameters", 1, 1, 52, 10);
-	DlgReal(1, "Acquisition time(s):", 1, 1000, 20, 2);
-	DlgReal(2, "Fixation duration(s):", .1, 10, 20, 3);
-	DlgReal(3, "Maintain fixation(s):", .1, 10, 20, 4);
-	DlgReal(4, "Acquisition fail time(s):", .01, 10, 20, 5);
-	DlgReal(5, "Hold fixation failure time(s):", .01, 10, 20, 6);
-	DlgReal(6, "Maintain fixation fail time(s):", .01, 10, 20, 7);
-	DlgReal(7, "Time out time(s):", .01, 10, 20, 8);
-	DlgList(8, "Background color:", bcl$, 3, 20, 9);
+	DlgReal(1, "Acquire Fixation time(s):", 1, 1000, 40, 2);
+    DlgReal(2, "Acquire Fixation penalty(s):", .01, 10, 40, 3);
+	DlgReal(3, "Stimulus duration(s):", .1, 10, 40, 4);
+    DlgReal(4, "During-Stim fixation break penalty(s):", .01, 10, 40, 5);
+    DlgReal(5, "Intertrial interval(s):", .01, 10, 40, 6);
+	DlgReal(6, "Maintain fixation after stim(s):", .1, 10, 40, 7);
+	DlgReal(7, "Maintain fixation after stim penalty(s):", .01, 10, 40, 8);
+	DlgList(8, "Background color:", bcl$, 3, 34, 9);
     if JuicerType% = 1 then
-        DlgInteger(9, "Juicer open dur. (ms):", 1, 2000, 20, 10);
+        DlgInteger(9, "Juicer open dur. (ms):", 1, 2000, 40, 10);
     else  'JuicerResult should only be 2, other values should not allow access to dialog box
-        DlgInteger(9, "Num. juicer pulses:", 1, 20, 20, 10);
+        DlgInteger(9, "Num. juicer pulses:", 1, 20, 40, 10);
     endif;   
     'juicer duration / n repeats dialog here?  Have to write values to DAQ parameters if changed, disable if not correct for juicer? 
     DlgGroup("Dual VSG Options", 1, 11, 52, 3);
@@ -1761,22 +2055,25 @@ func TuningCurveScriptDialog%()
 	DlgButton(tundlgContrastButton%, "     Contrast     ", TuningCurveContrastDialog%, 18, 18);  'by TuningCurveScriptDialogChanged% even upon opening 
 	DlgButton(tundlgSpatialButton%, "Spatial Freq", TuningCurveSpatialDialog%, 2, 19);           'the dialog (i.e. whatever label is here is unused)
 	DlgButton(tundlgTemporalButton%, "Temporal Freq", TuningCurveTemporalDialog%, 18, 19);
-	DlgButton(tundlgAreaButton%, "Area", TuningCurveAreaDialog%, 36, 18);
-    DlgButton(tundlgXPosButton%, "X Position", TuningCurveXPosDialog%, 36, 19);
+	DlgButton(tundlgAreaButton%, "         Area         ", TuningCurveAreaDialog%, 36, 18);
+    DlgButton(tundlgXPosButton%, "     X Position     ", TuningCurveXPosDialog%, 36, 19);
 	DlgButton(tundlgDonutButton%, "   Donuts!   ", TuningCurveDonutDialog%, 2, 20);
     DlgButton(tundlgBerlinerButton%, "    Berliners!    ", TuningCurveBerlinerDialog%, 18, 20);
     DlgButton(tundlgBoxODonutsButton%, " Box O' Donuts ", TuningCurveBoxODonutsDialog%, 36, 20);
-    DlgButton(tundlgDotsButton%, "    Dots!    ", TuningCurveDotsDialog%, 2, 21);
-    DlgButton(tundlgDisparityButton%, "   Disparity   ", TuningCurveDisparityDialog%, 36, 21);
+    DlgButton(tundlgDotsButton%, "     Dots!     ", TuningCurveDotsDialog%, 2, 21);
+    DlgButton(tundlgCRGButton%, "      CRaGs      ",TuningCurveCRGDialog%, 18, 21);
+    DlgButton(tundlgDisparityButton%, "      Disparity      ", TuningCurveDisparityDialog%, 36, 21);
     DlgAllow(0xffff, 0, TuningCurveScriptDialogChanged%);
 	
     if JuicerType% = 1 then
-        i%:=DlgShow(tunAcquisitionTime, tunFixationDuration, tunMaintainFixation,
-        tunAcqFailTime, tunHoldFailTime, tunMaintainFailTime, tunTimeOutTime, ibcl%, JuiceRewardMS%, tunDoRivalry%, tunNoCardSync%, 
+        i%:=DlgShow(tunAcquisitionTime, tunAcqFailTime, tunFixationDuration, tunHoldFailTime, 
+        tunStdInterTrialTime, tunMaintainFixation, tunMaintainFailTime,
+        ibcl%, JuiceRewardMS%, tunDoRivalry%, tunNoCardSync%, 
         tunDualTuningType%, tunUseMaintainMode%, tunSetStationary%);
     else
-        i%:=DlgShow(tunAcquisitionTime, tunFixationDuration, tunMaintainFixation,
-        tunAcqFailTime, tunHoldFailTime, tunMaintainFailTime, tunTimeOutTime, ibcl%, JuicePerReward%, tunDoRivalry%, tunNoCardSync%, 
+        i%:=DlgShow(tunAcquisitionTime, tunAcqFailTime, tunFixationDuration, tunHoldFailTime, 
+        tunStdInterTrialTime, tunMaintainFixation, tunMaintainFailTime, 
+        ibcl%, JuicePerReward%, tunDoRivalry%, tunNoCardSync%, 
         tunDualTuningType%, tunUseMaintainMode%, tunSetStationary%);
     endif;
     
@@ -1847,8 +2144,8 @@ end;
 
 
 func TuningCurveScriptDialogChanged%(item%) 
-    if DlgValue(10) = 0 then  'If single VSG, do not allow Donuts or Berliners
-        DlgEnable(0,-tundlgDonutButton%,-tundlgBerlinerButton%,-tundlgBoxODonutsButton%);
+    if DlgValue(10) = 0 then  'If single VSG, do not allow Donuts or Berliners or disparity or CRG
+        DlgEnable(0,-tundlgDonutButton%,-tundlgBerlinerButton%,-tundlgBoxODonutsButton%,-tundlgCRGButton%,-tundlgDisparityButton%);
         'Also disable card synch functions, dual tuning listbox
         DlgEnable(0,11); 'card synch
         DlgEnable(0,12); 'dual tuning listbox
@@ -1862,8 +2159,8 @@ func TuningCurveScriptDialogChanged%(item%)
         DlgValue$(-tundlgAreaButton%, "Area");
         DlgValue$(-tundlgXPosButton%, "X Position");
     endif;
-    if DlgValue(10) = 1 then  'If dual VSG, allow donuts and Berliners
-        DlgEnable(1,-tundlgDonutButton%,-tundlgBerlinerButton%,-tundlgBoxODonutsButton%);
+    if DlgValue(10) = 1 then  'If dual VSG, allow donuts and Berliners and disparity and CRG
+        DlgEnable(1,-tundlgDonutButton%,-tundlgBerlinerButton%,-tundlgBoxODonutsButton%,-tundlgCRGButton%,-tundlgDisparityButton%);
         'Also allow turning off card synch, dual tuning listbox
         DlgEnable(1,11);  'card synch
         DlgEnable(1,12);  'dual tuning listbox
@@ -1893,6 +2190,14 @@ func TuningCurveScriptDialogChanged%(item%)
                 DlgValue$(-tundlgAreaButton%, "S Area");
                 DlgValue$(-tundlgXPosButton%, "S X Position");
         endcase;
+    endif;
+    if DlgValue(13) = 0 then 'disable maintain mode timing if not using maintain mode
+        DlgEnable(0,6);
+        DlgEnable(0,7);
+    endif;
+    if DlgValue(13) = 1 then 'enable maintain mode timing if using maintain mode
+        DlgEnable(1,6);
+        DlgEnable(1,7);
     endif;
     return 1;
 end
@@ -1952,6 +2257,26 @@ Func CheckXHairStimulusBox(gr$,maxRadius,maxDiam);
     endif;
        
 end
+
+
+
+func SelectSEQFile%()
+
+    var status% := 1;
+    var direc$;
+    var fh0%;
+    
+    direc$ := FilePath$();  'get current directory
+    fh0%:=FileOpen(direc$+"*.txt",1,0,"Please select a CRG sequence file");  'Find a sequence file
+    direc$ := FileName$(0);  'Get full path of selected file
+    FileClose(fh0%);  'Just close the file, we're not using it
+    DlgValue$(4,direc$);  'Place filename into dialog item 4 of calling dialog
+
+	return status%;  'return 1 so calling dialog doesn't close
+    
+end;
+
+
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 '
