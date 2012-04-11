@@ -1,7 +1,7 @@
-' $Id: Tuning.s2s,v 1.57 2012-02-24 22:46:41 jeff Exp $
+' $Id: Tuning.s2s,v 1.58 2012-04-11 20:36:18 jeff Exp $
 ' Update 11/8/11 Jeff, includes multi-juicer updates
 
-const tunCVSID$ := "$Id: Tuning.s2s,v 1.57 2012-02-24 22:46:41 jeff Exp $";
+const tunCVSID$ := "$Id: Tuning.s2s,v 1.58 2012-04-11 20:36:18 jeff Exp $";
 
 
 
@@ -73,9 +73,10 @@ var tTrigger:=-1;	' temp var for newly discovered trigger times
 var tStimOn:=-1;	' time that stim was turned on. Used to measure spike rates 
 var tStimSequence := -1;    ' time that stim sequence started; followed by pulses on frame channels
 var tInterTrialTime := 0;	' Time spent waiting between trials (i.e. after screen is blank, but before fix point is presented)
-var iHoldCount% := 0;	' Counter of how many times we progress through the hold fixation state in the maintainence loop. Used to decide if "time out" is required. 
+'var iHoldCount% := 0;	' Counter of how many times we progress through the hold fixation state in the maintainence loop. Used to decide if "time out" is required. 
 var tRise, tFall;
 var tKludge := 0.06;    ' Add to Fixation time to account for stim sequence. Ugly hack, admittedly, but one does what one must. 
+
 
 ' Constants for states
 const stateStartTrial%:=0;		' Start trial state
@@ -134,10 +135,38 @@ else
 endif;
 
 
-' When TF curve, don't do f1 and f2. 
-if tunType$ = tunTypeTemporal$ then
+' When TF/CRG curve, don't do f1 and f2. 
+if tunType$ = tunTypeTemporal$ or tunType$ = tunTypeCRG$ then
     tunDoF12% := 0;
 endif
+
+' Read in CRG sequence file (SEQ) if doing contrast reversing grating, get length, make sure it's kosher
+if tunType$ = tunTypeCRG$ then
+    'Getting sequence lengths, number of flips, checking files against each other, if two
+    tunCRGNSeq1% := CheckSeqFile%(tunCRGSeqFile$,tunCRGNFlips1%);
+    if tunType1$ = tunTypeCRG$ then  'If secondary grating is CRG as well, read second grating
+        tunCRGNSeq2% := CheckSeqFile%(tunCRGSeqFile2$,tunCRGNFlips2%);
+        if tunCRGNSeq1% <> tunCRGNSeq2% then
+            Message("ERROR!|The number of sequences must be the same in each file!");
+            halt;
+        endif;
+        if tunCRGNFlips1% <> tunCRGNFlips2% then
+            Message("ERROR!|The number of flips must be the same in each file!");
+            halt;
+        endif
+        'if there is a CRG on both screens, set tunFixationDuration to 0; used in Idle processing to determine
+        'when to advance the stimulus, don't want this value to interfere if it's not being used.
+        tunFixationDuration := 0;   
+    endif;
+    
+    'Calculate duration of stimulus
+    tunCRGSecsPerSeq := tunCRGFramesPerFlip%*tunCRGNFlips1%/dataScreenHz;
+    'printlog("duration of CRG stim is %f seconds\n",tunCRGSecsPerSeq);
+    
+    
+
+endif;
+
 
 
 ' Assign channel numbers for eye X,Y and trigger. 
@@ -245,15 +274,16 @@ func IdleProcessing%()
         ' Waiting for eye to fall inside of fixation window
         if Looking%(xEye, yEye) = 1 then
             LogStatus("WaitForAcquisition", "Eye in fixation window; request stim");
-            if TunType$ = tunTypeBoxODonuts$ then
+            docase
+            case TunType$ = tunTypeBoxODonuts$ or TunType$ = tunTypeCRG$ then
                 GetPlotXYCoord(nTrialsCompleted%,xval,yval,xind%,yind%);  'fill xval, yval
                 SampleText("T," + str$(xval) + ",T2," + str$(yval));  'Just a guess at what will work
             else
                 SampleText("T," + str$(GetPlotXCoord(nTrialsCompleted%)));
-            endif;
+            endcase;
             
             SafeSampleKey("S");
-            iHoldCount% := 0;
+            'iHoldCount% := 0;  'disimplemented
             ChangeStateTo(stateWaitForStimTrigger%, tNow);
         else 
             if tNow - tStateStart > tunAcquisitionTime then
@@ -311,19 +341,20 @@ func IdleProcessing%()
         if Looking%(xEye, yEye) = 0 then
             
             LogStatus("WaitForFixation", "Fixation broken, aborting trial.");
-            if iHoldCount% = 0 then 
-                tInterTrialTime := tunTimeOutTime;
-            else
-                tInterTrialTime := tunHoldFailTime;
-            endif
+            'if iHoldCount% = 0 then     'disimplemented
+            '    tInterTrialTime := tunTimeOutTime;
+            'else
+            '    tInterTrialTime := tunHoldFailTime;
+            'endif
+            tInterTrialTime := tunHoldFailTime; 'replaces disimplemented code directly above
             SampleText("-");
             ChangeStateTo(stateAbort%, tNow);
 
         else 
+            'tunCRGSecsPerSeq will be 0 unless there is a CRG; tunFixationDuration will be 0 if both screens are CRG
+            if tNow - tStateStart > tunFixationDuration + tKludge and tNow - tStateStart > tunCRGSecsPerSeq + tKludge then  
 
-            if tNow - tStateStart > tunFixationDuration + tKludge then
-
-                iHoldCount% += 1;
+                'iHoldCount% += 1;  'disimplemented
 
                 ' turn off stimulus and advance it
                 SampleText("+");
@@ -343,12 +374,16 @@ func IdleProcessing%()
                 DefaultReward();
                 
                 ' Process Spikes
-                if TunType$ = tunTypeBoxODonuts$ then
+                docase
+                case TunType$ = tunTypeBoxODonuts$ then
                     GetPlotXYCoord(nTrialsCompleted%,xval,yval,xind%,yind%);  'fill xval, yval
                     PlotSpikes2TunCurves(tStimOn, tNow, 1, xval, yind%);
+                case TunType$ = tunTypeCRG$ then
+                    GetPlotXYCoord(nTrialsCompleted%,xval,yval,xind%,yind%);  'fill xval, yval
+                    PlotSpikes(tStimOn, tNow, 1, yval, nTrialsCompleted%);  'yes, yval
                 else
                     PlotSpikes(tStimOn, tNow, 1, GetPlotXCoord(nTrialsCompleted%), nTrialsCompleted%);
-                endif;                
+                endcase;                
 
                 ' Now wait until stim is off
                 ChangeStateTo(stateWaitForStimOff%, tNow);
@@ -381,7 +416,8 @@ func IdleProcessing%()
             if tunUseMaintainMode% = 1 then
                 ChangeStateTo(stateMaintainFixation%, tNow);
             else
-                tInterTrialTime := tunMaintainFailTime;
+                'tInterTrialTime := tunMaintainFailTime;
+                tInterTrialTime := tunStdInterTrialTime;
                 ChangeStateTo(stateInterTrialInterval%, tNow);
             endif
         endif
@@ -407,13 +443,14 @@ func IdleProcessing%()
                         DeliverRewardNumber();
                     endif;
                 endif;
-
-                if TunType$ = tunTypeBoxODonuts$ then
+                
+                docase
+                case TunType$ = tunTypeBoxODonuts$ or TunType$ = tunTypeCRG$ then
                     GetPlotXYCoord(nTrialsCompleted%,xval,yval,xind%,yind%);  'fill xval, yval
                     SampleText("T," + str$(xval) + ",T2," + str$(yval));  'Just a guess at what will work
                 else
                     SampleText("T," + str$(GetPlotXCoord(nTrialsCompleted%)));
-                endif;
+                endcase;
                 
                 SafeSampleKey("S");
                 ChangeStateTo(stateWaitForStimTrigger%, tNow);
@@ -588,7 +625,7 @@ proc InitializeWindows()
     ' Get tf of stim
     tunTF := GetStimulusTF();
     
-    ' Make spike2 use allof monitor 1
+    ' Make spike2 use all of monitor 1
     View(App()).Window(0, 0, 100, 100, 1);
     
 	'Open the data sampling window
@@ -741,7 +778,7 @@ proc TuningCurveLabels(iport%)
 			ChanTitle$(1, "Chan 1");
 			XRange(0,5);
         
-        case tunType$ = tunTypeBoxODonuts$ then  'this is just a label, but not sure how we proceed here
+        case tunType$ = tunTypeBoxODonuts$ then  
 
             WindowTitle$("Box O' Donuts Procedure - " + s$);
             docase
@@ -765,6 +802,40 @@ proc TuningCurveLabels(iport%)
                 XRange(tunXPosMinXPos, tunXPosMaxXPos);
             endcase
 			ChanTitle$(1, "Chan 1");
+        
+        case tunType$ = tunTypeCRG$ then  'I don't know if Ben will use this much, I'm going to go rogue and use the SECOND (tuning curve) for the X axis
+
+            WindowTitle$("Contrast Reversing Grating Procedure - " + s$);
+            docase
+            case tunType1$ = tunTypeContrast$ then  'note that here tunType1$ is the SECOND...
+                XUnits$("Contrast (%)");
+                XRange(tunContrastMinContrast, tunContrastMaxContrast);
+            case tunType1$ = tunTypeOrientation$ then
+                XUnits$("Orientation (degrees)");
+                XRange(tunOriMinOrientation, tunOriMaxOrientation);
+            case tunType1$ = tunTypeSpatial$ then
+                XUnits$("Spatial Frequency");
+                XRange(tunSpatialMinSF, tunSpatialMaxSF);
+            case tunType1$ = tunTypeTemporal$ then
+                XUnits$("Temporal Frequency");
+                XRange(tunTemporalMinTF, tunTemporalMaxTF);
+            case tunType1$ = tunTypeArea$ then
+                XUnits$("Aperture Diameter");
+                XRange(tunAreaMinDiam, tunAreaMaxDiam);
+            case tunType1$ = tunTypeXPos$ then
+                XUnits$("X Position");
+                XRange(tunXPosMinXPos, tunXPosMaxXPos);
+            case tunType1$ = tunTypeBlank$ then
+                XUnits$("Blank");
+                XRange(-1, 1);
+            case tunType1$ = tunTypeGratingOnly$ then
+                XUnits$("Grating Off(0)/On(100)");
+                XRange(0, 100);
+            case tunType1$ = tunTypeCRG$ then
+                XUnits$("CRG Secondary Off(0)/On(1)");
+                XRange(0, 1);
+            endcase
+            ChanTitle$(1, "Chan 1");
         
 		else
 
@@ -935,6 +1006,70 @@ proc CreateSampleConfiguration()
         'StringifyProgression$ will work just fine on tun1/2Values and tun1/2ValuesIndices
         tun1ValuesStringified$ := StringifyProgression$(tun1NValues%*tun2NValues%*tunBoxODonutsNRepeats%, tun1Values[], tun1ValuesIndices%[]);
         tun2ValuesStringified$ := StringifyProgression$(tun1NValues%*tun2NValues%*tunBoxODonutsNRepeats%, tun2Values[], tun2ValuesIndices%[]);
+    case tunType$ = tunTypeCRG$ then
+        
+        'GetRepeatedParameterProgression%(n%, nr%, result[], indices%[], firstval, lastval, ilog%, irandom%)
+        'Generate one list for the CRG on the "main" (rather than master/slave) screen
+        GetRepeatedParameterProgression%(tunCRGNSeq1%,1,tun1Values[],tun1ValuesIndices%[],0,tunCRGNSeq1%-1,0,tunCRGProgression%);
+        tun1NValues% := tunCRGNSeq1%;
+        
+        'Generate a second list for the tuning curve on the "secondary" (rather than master/slave) screen
+        'Note the ugly mix of tuntype1$, temp2$, and tun2NValues%, etc., and then try to forget about it.  Not worth fixing.
+        'All of these are the same as for Box O' Donuts except for CRG2, Blank (Static is treated as contrast)
+        docase
+        case tuntype1$ = tunTypeContrast$ then
+            GetRepeatedParameterProgression%(tunContrastNSteps%+1, 1, tun2Values[], tun2ValuesIndices%[], tunContrastMinContrast, tunContrastMaxContrast, 1, 0);
+            tun2NValues% := (tunContrastNSteps%+1); 
+            temp2$ := "_con";
+        case tuntype1$ = tunTypeOrientation$ then
+            GetRepeatedParameterProgression%(tunOriNSteps%+1, 1, tun2Values[], tun2ValuesIndices%[], tunOriMinOrientation, tunOriMaxOrientation, 0, 0);
+            tun2NValues% := (tunOriNSteps%+1);  
+            temp2$ := "_ori";            
+        case tuntype1$ = tunTypeSpatial$ then
+            GetRepeatedParameterProgression%(tunSpatialNSteps%+1, 1, tun2Values[], tun2ValuesIndices%[], tunSpatialMinSF, tunSpatialMaxSF, 1, 0);
+            tun2NValues% := (tunSpatialNSteps%+1);
+            temp2$ := "_spa";
+        case tuntype1$ = tunTypeTemporal$ then
+            GetRepeatedParameterProgression%(tunTemporalNSteps%+1, 1, tun2Values[], tun2ValuesIndices%[], tunTemporalMinTF, tunTemporalMaxTF, 1, 0);
+            tun2NValues% := (tunTemporalNSteps%+1);
+            temp2$ := "_tem";
+        case tuntype1$ = tunTypeArea$ then
+            GetRepeatedParameterProgression%(tunAreaNSteps%+1, 1, tun2Values[], tun2ValuesIndices%[], tunAreaMinDiam, tunAreaMaxDiam, 1, 0);
+            tun2NValues% := (tunAreaNSteps%+1);
+            temp2$ := "_area";
+        case tuntype1$ = tunTypeXPos$ then
+            GetRepeatedParameterProgression%(tunXPosNSteps%+1, 1, tun2Values[], tun2ValuesIndices%[], tunXPosMinXPos, tunXPosMaxXPos, 1, 0);
+            tun2NValues% := (tunXPosNSteps%+1);
+            temp2$ := "_xpos";
+        case tuntype1$ = tunTypeBlank$ then
+            tun2NValues% := 1;
+            temp2$ := "_blank";
+        case tuntype1$ = tunTypeGratingOnly$ then
+            GetRepeatedParameterProgression%(2, 1, tun2Values[], tun2ValuesIndices%[], 0, 100, 0, 0);
+            tun2NValues% := 2;
+            temp2$ := "_grat";
+        case tuntype1$ = tunTypeCRG$ then
+            'OK, the trick here is going to be in the StringifyProgression, and not here
+            GetRepeatedParameterProgression%(2, 1, tun2Values[], tun2ValuesIndices%[], 0, 100, 0, 0);
+            tun2NValues% := 2;
+            temp2$ := "_crg";
+        endcase;
+        
+        SampleAutoName$(dataCellName$ + "_crg" + temp2$ + "_000"); 
+        tunNRepeats% := tunCRGNRepeats%;
+        tunNAdvances% := tun1NValues%*tun2NValues%-1;  'this gives the correct number of advances
+        tunNValues% := tun1NValues%*tun2NValues%*tunCRGNRepeats%;  'now used in idle loop instead of (tunNAdvances%+1)*tunNRepeats
+        
+        'Now we need to grid the values out into two appropriate tunValues and tunValuesIndices (the randomizer bit)
+        GridStimuli(tun1Values[],tun2Values[],tun1NValues%,tun2NValues%,tun1ValuesIndices%[],tun2ValuesIndices%[],tunCRGProgression%,tunCRGNRepeats%);
+        
+        'StringifyProgression$ will work just fine on tun1/2Values and tun1/2ValuesIndices
+        tun1ValuesStringified$ := StringifyProgression$(tun1NValues%*tun2NValues%*tunCRGNRepeats%, tun1Values[], tun1ValuesIndices%[]);
+        if tuntype1$ = tunTypeCRG$ then 'but we need to call a "special" stringify function if CRG on secondary screen
+            tun2ValuesStringified$ := StringifyProgressionCRG2$(tun1NValues%*tun2NValues%*tunCRGNRepeats%, tun2Values[], tun2ValuesIndices%[], tun1Values[], tun1ValuesIndices%[]);
+        else
+            tun2ValuesStringified$ := StringifyProgression$(tun1NValues%*tun2NValues%*tunCRGNRepeats%, tun2Values[], tun2ValuesIndices%[]);
+        endif;
     else    
         SampleAutoName$(dataCellName$ + "_tun_000");
     endcase;
@@ -1048,6 +1183,8 @@ proc WriteParameterFile()
 	var parFileName$;
 	var parFileBase$;
 	var parHandle%;
+    var tempPrimary$;
+    var tempSecondary$;
 
 	' get filename for parfile (data file + "par" extension) and open it
 	View(DataWindow%);
@@ -1132,9 +1269,13 @@ proc WriteParameterFile()
 	Print("\nExperimental parameters\n");
 	Print("-------------------------\n\n");
 
-	Print("Fixation time(s)       : %f\n", tunFixationDuration);
+	'Print("Fixation time(s)       : %f\n", tunFixationDuration);  'cleaning these up!
+	'Print("Maintain fixation (s)  : %f\n", tunMaintainFixation);
+	'Print("Time out (s)           : %f\n", tunTimeOutTime);
+	'Print("Acquisition time (s)   : %f\n", tunAcquisitionTime);
+    Print("Stimulus Duration(s)   : %f\n", tunFixationDuration);
 	Print("Maintain fixation (s)  : %f\n", tunMaintainFixation);
-	Print("Time out (s)           : %f\n", tunTimeOutTime);
+	Print("Time out (s)           : %f\n", tunHoldFailTime);
 	Print("Acquisition time (s)   : %f\n", tunAcquisitionTime);
 
 	Print("\nTuning parameters\n");
@@ -1299,6 +1440,90 @@ proc WriteParameterFile()
                 Print("\n");
             endcase
         
+        case tunType$ = tunTypeCRG$ then
+
+			Print("Type:                  : Contrast Reversing Grating\n");
+			Print("#Repeats: %d\n", tunCRGNRepeats%);
+            Print("\n");
+        
+            if tunCRGOnSlave% = 0 then
+                tempPrimary$ := "Master";
+                tempSecondary$ := "Slave";
+            else
+                tempPrimary$ := "Slave";
+                tempSecondary$ := "Master";
+            endif;
+        
+                Print(tempPrimary$ + ":                  : CRG\n");
+                Print("FramesPerFlip,#Repeats: %d,%d\n", tunCRGFramesPerFlip%, tunCRGNRepeats%);
+                Print("SEQFile: " + tunCRGSeqFile$ + "\n");
+                Print("Values: " + tun1ValuesStringified$ + "\n");
+                Print("\n");        
+        
+            docase 
+                case tunType1$ = tunTypeContrast$ then
+            
+                Print(tempSecondary$ + ":                  : Contrast\n");
+                Print("Min,Max,#Steps,#Repeats: %f,%f,%d,%d\n", tunContrastMinContrast, tunContrastMaxContrast, tunContrastNSteps%, tunContrastNRepeats%);
+                Print("Values: " + tun2ValuesStringified$ + "\n");
+                Print("\n");
+            
+            
+                case tunType1$ = tunTypeOrientation$ then
+            
+                Print(tempSecondary$ + ":                  : Orientation\n");
+                Print("Min,Max,#Steps,#Repeats: %f,%f,%d,%d\n", tunOriMinOrientation, tunOriMaxOrientation, tunOriNSteps%, tunOriNRepeats%);
+                Print("Values: " + tun2ValuesStringified$ + "\n");
+                Print("\n");
+            
+                case tunType1$ = tunTypeSpatial$ then
+            
+                Print(tempSecondary$ + ":                  : Spatial Frequency\n");
+                Print("Min,Max,#Steps,#Repeats: %f,%f,%d,%d\n", tunSpatialMinSF, tunSpatialMaxSF, tunSpatialNSteps%, tunSpatialNRepeats%);
+                Print("Values: " + tun2ValuesStringified$ + "\n");
+                Print("\n");
+            
+                case tunType1$ = tunTypeTemporal$ then
+            
+                Print(tempSecondary$ + ":                  : Temporal Frequency\n");
+                Print("Min,Max,#Steps,#Repeats: %f,%f,%d,%d\n", tunTemporalMinTF, tunTemporalMaxTF, tunTemporalNSteps%, tunTemporalNRepeats%);
+                Print("Values: " + tun2ValuesStringified$ + "\n");
+                Print("\n");
+            
+                case tunType1$ = tunTypeArea$ then
+            
+                Print(tempSecondary$ + ":                  : Aperture Area\n");
+                Print("Min,Max,#Steps,#Repeats: %f,%f,%d,%d\n", tunAreaMinDiam, tunAreaMaxDiam, tunAreaNSteps%, tunAreaNRepeats%);
+                Print("Values: " + tun2ValuesStringified$ + "\n");
+                Print("\n");
+            
+                case tunType1$ = tunTypeXPos$ then
+            
+                Print(tempSecondary$ + ":                  : X Position\n");
+                Print("Min,Max,#Steps,#Repeats: %f,%f,%d,%d\n", tunXPosMinXPos, tunXPosMaxXPos, tunXPosNSteps%, tunXPosNRepeats%);
+                Print("Values: " + tun2ValuesStringified$ + "\n");
+                Print("\n");
+            
+                case tunType1$ = tunTypeBlank$ then
+            
+                Print(tempSecondary$ + ":                  : Blank\n");
+                Print("\n");
+            
+                case tunType1$ = tunTypeGratingOnly$ then
+            
+                Print(tempSecondary$ + ":                  : Grating Only\n");
+                Print("Values: " + tun2ValuesStringified$ + "\n");
+                Print("\n");
+            
+                case tunType1$ = tunTypeCRG$ then
+            
+                Print(tempSecondary$ + ":                  :CRG\n");
+                Print("SEQFile: " + tunCRGSeqFile2$ + "\n");
+                Print("Values: " + tun2ValuesStringified$ + "\n");
+                Print("\n");
+            
+            endcase
+        
         case tunType$ = tunTypeDots$ then
         
 			Print("Type:                  : Dots\n");
@@ -1358,6 +1583,10 @@ func Start%()
     var KlugeValues$:="";  'this is for a Jerry-rigged "hole" in Box O' Donuts slave stimuli
     var key$;
     var i%;
+    'var CRGPrimaryArg$;  'This is always "-R", hard code
+    var CRGPrimaryValues$;
+    var CRGSecondaryArg$;
+    var CRGSecondaryValues$;
     
     
     
@@ -1508,12 +1737,12 @@ func Start%()
         
     case tunType$ = tunTypeDisparity$ then
         if tunDisparityOnMaster% = 1 then
-            TunCurveMArg$ := " -X "; 'do disaprity by moving master
+            TunCurveMArg$ := " -X "; 'do disparity by moving master
             SGrat$ := " -g ";  'Change slave grating variable to -g because it doesn't change
             TunCurveSArg$ := "";  'clear the slave tuning curve argument
             SValues$ := "";  'clear the slave tuning curve values 
         else
-            TunCurveSArg$ := " -X "; 'do disaprity by moving slave
+            TunCurveSArg$ := " -X "; 'do disparity by moving slave
             SValues$ := MValues$;  'get values from "Master" tuning curve (assigned earlier)
             MGrat$ := " -g ";  'Change master grating variable to -g because it doesn't change
             TunCurveMArg$ := "";  'clear the master tuning curve argument
@@ -1598,7 +1827,67 @@ func Start%()
             'Do not change master grating variable to -G
             TunCurveMArg$ := TunCurveSArg$;  'Set master tuning curve argument same as slave 1
             MValues$ := SValues$;  'Set master tuning curve values same as slave 1
-        endif;        
+        endif;    
+        
+    case tunType$ = tunTypeCRG$ then
+        'Assign Primary/Secondary screen values, Secondary tuning curve argument
+        CRGPrimaryValues$ := Str$(tunCRGFramesPerFlip%) + "," + tunCRGSeqFile$ + "," + tun1ValuesStringified$;
+        docase
+        case tunType1$ = tunTypeContrast$ then
+            CRGSecondaryArg$ := " -C ";
+            CRGSecondaryValues$ := tun2ValuesStringified$;
+        case tunType1$ = tunTypeOrientation$ then
+            CRGSecondaryArg$ := " -O ";
+            CRGSecondaryValues$ := tun2ValuesStringified$;
+        case tunType1$ = tunTypeSpatial$ then
+            CRGSecondaryArg$ := " -S ";
+            CRGSecondaryValues$ := tun2ValuesStringified$;
+        case tunType1$ = tunTypeTemporal$ then
+            CRGSecondaryArg$ := " -T ";
+            CRGSecondaryValues$ := tun2ValuesStringified$;
+        case tunType1$ = tunTypeArea$ then
+            CRGSecondaryArg$ := " -A ";
+            CRGSecondaryValues$ := tun2ValuesStringified$;
+        case tunType1$ = tunTypeXPos$ then
+            CRGSecondaryArg$ := " -X ";
+            CRGSecondaryValues$ := tun2ValuesStringified$;
+            
+        case tunType1$ = tunTypeCRG$ then
+            CRGSecondaryArg$ := " -R ";
+            CRGSecondaryValues$ := Str$(tunCRGFramesPerFlip%) + "," + tunCRGSeqFile2$ + "," + tun2ValuesStringified$;
+        'case tunType1$ = tunTypeBlank$ then  'Do nothing here, blank out values once we know which screen is which
+
+        case tunType1$ = tunTypeGratingOnly$ then
+            CRGSecondaryArg$ := " -C ";  'Yes, we do in fact treat it as contrast, the values should be 100 or 0 for on/off
+            CRGSecondaryValues$ := tun2ValuesStringified$; 
+        endcase;
+        
+        'Determine whether primary is master or slave screen, set master/slave values
+        if tunCRGOnSlave% = 0 then 'primary on master
+            TunCurveMArg$ := " -R ";
+            TunCurveSArg$ := CRGSecondaryArg$;
+            MValues$ := CRGPrimaryValues$;
+            SValues$ := CRGSecondaryValues$;
+            if tunType1$ = tunTypeBlank$ then
+                TunCurveSArg$ := "";
+                SValues$ := "";
+                SGrat$ := " -n ";
+                SGratParam$ := "";
+                'SlaveIndicator$ := "";
+            endif;
+        else 'primary on slave
+            TunCurveSArg$ := " -R ";
+            TunCurveMArg$ := CRGSecondaryArg$;
+            SValues$ := CRGPrimaryValues$;
+            MValues$ := CRGSecondaryValues$;
+            if tunType1$ = tunTypeBlank$ then
+                TunCurveMArg$ := "";
+                MValues$ := "";
+                MGrat$ := " -n ";
+                MGratParam$ := "";
+                'MasterIndicator$ := "";
+            endif;
+        endif;
         
     case tunType$ = tunTypeDots$ then
         'Dots is a fairly different beast, we'll need to do thing a bit differently than the others
@@ -1638,10 +1927,17 @@ func Start%()
     
     
     ' Record initial text marks. The command line may need to be broken into pieces.
-    if tunType$ = tunTypeBoxODonuts$ then    
+    docase
+    case tunType$ = tunTypeBoxODonuts$ then    
         if tunUseMaintainMode% = 1 then  'if fixation point stays on, extraction is version 6
             SampleText("Tuning,6," + str$(Len(cmdLine$)));
         else 'value is 0, fixation point goes off, extraction is version 7
+            SampleText("Tuning,7," + str$(Len(cmdLine$)));
+        endif;
+    case tunType$ = tunTypeCRG$ then
+        if tunUseMaintainMode% = 1 then  'if fixation point stays on, try extraction version 6
+            SampleText("Tuning,6," + str$(Len(cmdLine$)));
+        else 'value is 0, fixation point goes off, try extraction version 7
             SampleText("Tuning,7," + str$(Len(cmdLine$)));
         endif;
     else
@@ -1650,7 +1946,7 @@ func Start%()
         else 'value is 0, fixation point goes off, extraction is version 3
             SampleText("Tuning,3," + str$(Len(cmdLine$)));
         endif;
-    endif;
+    endcase;
     
     SampleText(tunCVSID$);
     for i% := 1 to Len(cmdLine$) step 100 do
@@ -1743,6 +2039,30 @@ end;
 
 
 
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+' Put a vector of numbers into a comma separated string
+' Here we will use a "reference" vector to determine whether to pass a value or not
+' This is designed for the 2-screen CRG experiments.  The progression for the secondary screen will be
+' a series of zeros and 100s.  If 0, we want the secondary screen to be blank, so we insert -1.  If non-zero,
+' we want the secondary screen to have the same SEQfile index as the main screen, so we refer back to the
+' main screen value.
+Func StringifyProgressionCRG2$(n%, refvec[], refind%[], vec[], ind%[])
+	var s$;
+	var i%;
+	for i% := 0 to n%-1 do
+		if i% > 0 then 
+			s$ += ",";
+		endif
+        if refvec[refind%[i%]] = 0 then
+            s$ += str$(-1);
+        else
+            s$ += str$(vec[ind%[i%]]);
+        endif;
+	next
+	return s$;
+end;
+
+
 
 func SelectWavemarkDialog%()
 	var iReturn%:=1;
@@ -1770,18 +2090,89 @@ end;
 
 proc ClearMasterOrSlaveIfNecessary(&SGrat$,&SGratParam$,&SlaveIndicator$,&TunCurveSArg$,&SValues$,&MGrat$,&MGratParam$,&MasterIndicator$,&TunCurveMArg$,&MValues$)
     'Clear master/slave if there is only one tuning curve to do. 
+    'Note that SlaveIndicator$ and MasterIndicator$ are no longer changed, but still in the subject line so I don't have to change everything else
     if tunDualTuningType% = 1 then        
-        SGrat$ := "";  'clear slave grating
+        SGrat$ := " -n ";  'clear slave grating
         SGratParam$ := "";  'clear slave grating params
-        SlaveIndicator$ := "";  'clear slave indicator
+        'SlaveIndicator$ := "";  'clear slave indicator, don't do this anymore after change to Dualstim
         TunCurveSArg$ := "";  'clear the tuning curve argument
         SValues$ := "";  'clear the tuning curve values
     endif
     if tunDualTuningType% = 2 then        
-        MGrat$ := "";  'clear master grating
+        MGrat$ := " -n ";  'clear master grating
         MGratParam$ := "";  'clear master grating params
-        MasterIndicator$ := "";  'clear master indicator
+        'MasterIndicator$ := "";  'clear master indicator, don't do this anymore after change to Dualstim
         TunCurveMArg$ := "";  'clear the tuning curve argument
         MValues$ := "";  'clear the tuning curve values
     endif;
 end;
+
+
+
+func CheckSeqFile%(fileIn$,&nFlips%);
+    var fh0%;
+    var numRead%;
+    var readLine$[2];
+    var keepGoing% := 1;
+    var nFlipsFirst%;
+    var nFlipsSubsequent%;
+    var loopedOnce%;
+    var lineLength%;
+    var expectStr%[50];
+    var i%;
+    var nCh%;  'number of characters
+    var lineCount%;
+    
+    fh0%:=FileOpen(fileIn$,8,0);
+    
+    readsetup(""," ","","","	");
+    
+    while keepGoing% do
+        'Read the next line in the file, return line and number of fields read
+        numRead% := read(readLine$[0:2]);
+        'And update the number of lines read
+        lineCount% += 1;
+        
+        'Here we expect exactly one field per line, if there is more than one, this is an error, quit
+        if numRead% > 1 then
+            message("ERROR!!!|Expected exactly one field on line " + Str$(lineCount%) + ",\ngot " + Str$(numRead%) + " fields!");
+            fileclose();  'close fh0%, the currently open file             
+            halt;
+        endif;
+        
+        'Get the number of flips in the line
+        docase
+        case loopedOnce% = 0 then
+            nFlipsFirst% := Len(readLine$[0]);
+            loopedOnce% := 1;  'don't do this again
+        case numRead% >= 0 then 'Make sure all lines are the same length
+            nFlipsSubsequent% := Len(readLine$[0]);
+            if nFlipsFirst% <> nFlipsSubsequent% then
+                message("ERROR!!!|On line " + Str$(lineCount%) + " expected " + Str$(nFlipsFirst%) + " flips,\ngot " + Str$(nFlipsSubsequent%) + "!");
+                fileclose();  'close fh0%, the currently open file
+                halt;
+            endif;
+        case numRead%<0 then
+            keepGoing% := 0;
+        endcase;    
+        
+        'Make sure there are nothing but zeros or ones
+        for i% := 0 to len(readLine$[0])-1 do
+            if mid$(readLine$[0],i%+1,1) <> "1" and mid$(readLine$[0],i%+1,1)  <> "0" then
+                message("ERROR!!!|On line " + Str$(lineCount%) + " found unexpected character " + mid$(readLine$[0],i%+1,1) + "!");
+                fileclose();  'close fh0%, the currently open file
+                halt;
+            endif;
+        next;
+        
+    wend;    
+    
+    fileclose();  'close fh0%, the currently open file
+    
+    printlog("Successfully read file %s, contained %d lines with %d flips per line!\n",fileIn$,lineCount%-1,nFlipsFirst%);
+    
+    nFlips% := nFlipsFirst%;  'set nFlips%, which sets the flips variable sent in the call    
+    
+    return lineCount%-1;
+    
+end
