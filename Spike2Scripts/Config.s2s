@@ -1,4 +1,4 @@
-' $Id: Config.s2s,v 1.31 2012-01-28 00:53:11 jeff Exp $
+' $Id: Config.s2s,v 1.32 2012-04-11 20:36:17 jeff Exp $
 
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "UsreyGratings.s2s"
@@ -75,6 +75,8 @@ proc GratingDialog(type$)
         if GratingParametersDialog%(type$, gr$, disable%, ndisable%, x, y, w, h, iw, ih, contrast%, sf, tf, orientation, phase, cv$, p$, ap$) = 1 then
             SaveGratingParameters(type$, gr$);
         endif
+    else
+        message("Warning!|No grating parameters are defined for " + type$ + "!\nYou can set initial parameters from Tuning!");
     endif
     
 end;
