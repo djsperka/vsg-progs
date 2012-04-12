@@ -1,4 +1,4 @@
-' $Id: TuningDialogs.s2s,v 1.12 2012-04-11 20:36:18 jeff Exp $
+' $Id: TuningDialogs.s2s,v 1.13 2012-04-12 21:29:44 devel Exp $
 '
 ' This file contains dialog functions for the alert tuning script Tuning.s2s.
 #include "../../Spike2Util/UsreyUtil.s2s"
@@ -1381,7 +1381,7 @@ func TuningCurveDotsDialog%()
     DlgReal(6, "X Position (deg):",  -40, 40, 0, 8);
     DlgReal(7, "Y Position (deg):", -40, 40, 0, 9);
     DlgReal(8, "Diameter (deg):", .1, 30, 0, 10);
-    DlgReal(9, "Speed (deg/sec):", 0, 10, 0, 11);
+    DlgReal(9, "Speed (deg/sec):", 0, 100, 0, 11);
     DlgReal(10, "Density (dots/deg^2):", 0, 200, 0 ,12);
     DlgInteger(11, "Dot Size (pixels):", 0, 50, 0, 13);
     
