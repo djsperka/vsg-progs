@@ -1,4 +1,4 @@
-' $Id: Anandre.s2s,v 1.3 2011-09-22 00:43:34 djsperka Exp $ 
+' $Id: Anandre.s2s,v 1.4 2012-04-12 21:38:35 devel Exp $ 
 '
 ' Anandre.s2s
 '
@@ -26,8 +26,8 @@
 
 ' These are the channels where we expect to find the 
 ' continuous record data. 
-var lgnChannel% := 2;
-var v1Channel% := 1;
+var lgnChannel% := 3; ' djs change for MartyKen data from 2;
+var v1Channel% := 4; ' djs change for MartyKen data from 1;
 
 ' Filtering parameters. See the functions LFP% and MUA% below, and refer
 ' to Spike2 documentation for FiltCreate function. 
