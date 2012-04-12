@@ -1,4 +1,4 @@
-' $Id: Fixation.s2s,v 1.24 2012-02-04 02:51:22 devel Exp $
+' $Id: Fixation.s2s,v 1.25 2012-04-12 21:36:58 devel Exp $
 ' Update 11/8/11 Jeff, includes SafeSampleKey and multi-juicer updates
 
 #include "../../Spike2Util/UsreyUtil.s2s"
@@ -35,6 +35,7 @@ var fixDistractor4Flag%; 			' Tells stim to use distractor1 (1) or not (0)
 var fixBackgroundColor$;			' Background color for stim
 var fixCalibrationFlag%;			' 1 for calibration run
 var fixCalibrationOffset;			' degree offset for calibration dots
+var fixAlwaysLooking% := 0;
 proc GetFixationScriptParameters()
 	var stmp$;
 	var key$;
@@ -110,7 +111,10 @@ func FixationScriptDialog%()
 	DlgCheck(10, "Use distractor 4?");
 	DlgCheck(11, "Calibration run?");
 	DlgReal(12, "Calibration offset (deg):", 0, 10);
-	i%:=DlgShow(fixFixationDuration, fixAcquisitionTime, fixInterTrialTime, fixNumberOfTrials%, ibcl%, fixStimulusFlag%, fixDistractor1Flag%, fixDistractor2Flag%, fixDistractor3Flag%, fixDistractor4Flag%, fixCalibrationFlag%, fixCalibrationOffset);
+    DlgCheck(13, "Always looking?");
+	i%:=DlgShow(fixFixationDuration, fixAcquisitionTime, fixInterTrialTime, fixNumberOfTrials%, ibcl%, fixStimulusFlag%, 
+    fixDistractor1Flag%, fixDistractor2Flag%, fixDistractor3Flag%, fixDistractor4Flag%, 
+    fixCalibrationFlag%, fixCalibrationOffset, fixAlwaysLooking%);
 	if i% = 1 then
 		fixBackgroundColor$ := bcl$[ibcl%];
 		SaveFixationScriptParameters();
@@ -150,6 +154,10 @@ var windowX[36], windowY[36];
 var iStimX%[8];
 var iStimY%[8];
 var iStimIndex%;
+
+
+' init logging so msgs appear in LogWindow
+LogInit(1);
 
 ' Check for valid data file path
 if Len(dataDataSet$) = 0 then
@@ -231,180 +239,185 @@ func IdleProcessing%()
 	docase 
 
 	
-		case iState% = stateVSGWait% then
+    case iState% = stateVSGWait% then
 
-			' Waiting for VSG to indicate it is ready. The indication is a pulse (up, then down, 1 frame apart) on port 6.
-			tTrigger := NextTime(ReadyChannel%, tLast, vTrigger);
-			if tTrigger > tLastTrigger and vTrigger = 0 then
-				PrintLog("state stateVSGWait: Got leading edge of trigger\n");
-				tLastTrigger := tTrigger;
-				iState% := stateVSGWaitConfirm%;
-			endif;
+        ' Waiting for VSG to indicate it is ready. The indication is a pulse (up, then down, 1 frame apart) on port 6.
+        tTrigger := NextTime(ReadyChannel%, tLast, vTrigger);
+        if tTrigger > tLastTrigger and vTrigger = 0 then
+            LogStatus("VSGWait", "Got leading edge of ready trigger");
+            tLastTrigger := tTrigger;
+            iState% := stateVSGWaitConfirm%;
+        endif;
 
-		case iState% = stateVSGWaitConfirm% then
+    case iState% = stateVSGWaitConfirm% then
 
-			' Waiting for VSG to confirm it is ready. The downward side of the pulse is expected...
-			tTrigger := NextTime(ReadyChannel%, tLastTrigger, vTrigger);
-			if tTrigger > tLastTrigger and vTrigger = 1 then
-				PrintLog("state stateVSGWaitConfirm: Got trailing edge of trigger\n");
-				tLastTrigger := tTrigger;
-				iState% := stateStartTrial%;
-			endif;
+        ' Waiting for VSG to confirm it is ready. The downward side of the pulse is expected...
+        tTrigger := NextTime(ReadyChannel%, tLastTrigger, vTrigger);
+        if tTrigger > tLastTrigger and vTrigger = 1 then
+            LogStatus("VSGWait", "Got falling edge of ready trigger");
+            tLastTrigger := tTrigger;
+            iState% := stateStartTrial%;
+        endif;
 
-	
-		case iState% = stateStartTrial% then
 
-			' initial state on startup. 
-			' DIGOUT to present stimulus
-			' Enter state 1
+    case iState% = stateStartTrial% then
 
-			nTrialsStarted% += 1;
-			iStimIndex% := (iStimIndex% + 1) mod 8;
+        ' initial state on startup. 
+        ' DIGOUT to present stimulus
+        ' Enter state 1
 
-			' calibration run does not require a separate trigger - the setting of the seqvar does the trick. 
-			if fixCalibrationFlag% = 1 then
-				DoSampleKey();
-			else
-				SafeSampleKey("H");
-			endif
-			iState% := stateWaitForStim%;
+        nTrialsStarted% += 1;
+        iStimIndex% := (iStimIndex% + 1) mod 8;
+
+        ' calibration run does not require a separate trigger - the setting of the seqvar does the trick. 
+        if fixCalibrationFlag% = 1 then
+            DoSampleKey();
+        else
+            SafeSampleKey("H");
+        endif
+        iState% := stateWaitForStim%;
 '			PrintLog("State 0 - Start new trial - stimulus trigger sent\n");
-			UpdateToolbarText();
+        UpdateToolbarText();
 
-		case iState% = stateWaitForStim% then
-	
-			' Waiting for stimulus to be presented by vsg and trigger to return. 
-			' NextTime returns a non-negative value whenever there is a TRANSITION. In that case, the 
-			' value of 'vTrigger' returned is 1 (0) if the transition is high (low) to low (high). Maybe not
-			' intuitive, but that's the way it is. 
-			tTrigger := NextTime(TriggerChannel%,tLast,vTrigger);
-			if tTrigger > tLastTrigger then
+    case iState% = stateWaitForStim% then
 
-				if vTrigger = 0 then
-		
-					' Stimulus has been presented. Display stim location and window. Enter state 2
-					DrawStim(1);
-					iState% := stateWaitForAcquisition%;
-					tStateStart := tTrigger;
-					tLastTrigger := tTrigger;
+        ' Waiting for stimulus to be presented by vsg and trigger to return. 
+        ' NextTime returns a non-negative value whenever there is a TRANSITION. In that case, the 
+        ' value of 'vTrigger' returned is 1 (0) if the transition is high (low) to low (high). Maybe not
+        ' intuitive, but that's the way it is. 
+        tTrigger := NextTime(TriggerChannel%,tLast,vTrigger);
+        if tTrigger > tLastTrigger then
 
-				endif
+            if vTrigger = 0 then
+    
+                ' Stimulus has been presented. Display stim location and window. Enter state 2
+                DrawStim(1);
+                iState% := stateWaitForAcquisition%;
+                tStateStart := tTrigger;
+                tLastTrigger := tTrigger;
+            
+                LogStatus("WaitForStim", "Stim up trig");
+            else
+   				LogStatus("WaitForStim", "Wrong trig edge tNow=" + str$(tNow) + " tTrigger=" + str$(tTrigger) + " tLastTrigger=" + str$(tLastTrigger));
+            endif
 
-			endif
+        endif
 
-		case iState% = stateWaitForAcquisition% then
+    case iState% = stateWaitForAcquisition% then
 
-			if tNow-tStateStart < fixAcquisitionTime then
-				
-				' Acquisition happens when the eye falls within the fixation window.
-				if InFixationWindow%(xEye, yEye) > 0 then
+        if tNow-tStateStart < fixAcquisitionTime then
+            
+            ' Acquisition happens when the eye falls within the fixation window.
+            if InFixationWindow%(xEye, yEye) > 0 then
 
 '					PrintLog("State 2 - acquired target. tNow=" + str$(tNow) + " Enter state 3\n");
-					iState% := stateHoldFixation%;
-					tStateStart := tNow;
-	
-				endif
+                iState% := stateHoldFixation%;
+                tStateStart := tNow;
 
-			else
+            endif
 
-				' Failed. Turn off stim and try again.
+        else
+
+            ' Failed. Turn off stim and try again.
 '				PrintLog("State 2 - acquisition failed. Enter state 4\n");
-				iState% := stateFailure%;
-				tStateStart := tNow;
+            iState% := stateFailure%;
+            tStateStart := tNow;
 
-			endif
+        endif
 
-		case iState% = stateHoldFixation% then
+    case iState% = stateHoldFixation% then
 
-			' Waiting for fixation....
-			if InFixationWindow%(xEye, yEye) <= 0 then
+        ' Waiting for fixation....
+        if InFixationWindow%(xEye, yEye) <= 0 then
 
-				iState% := stateFailure%;
-				tStateStart := tNow;
+            iState% := stateFailure%;
+            tStateStart := tNow;
 
-			else
+        else
 
-				if tNow - tStateStart >= fixFixationDuration then
+            if tNow - tStateStart >= fixFixationDuration then
 
-					' Fixation. Reward. New trial.
-					iState% := stateSuccess%;
-					tStateStart := tNow;
+                ' Fixation. Reward. New trial.
+                iState% := stateSuccess%;
+                tStateStart := tNow;
 
-				endif
+            endif
 
-			endif
+        endif
 
-		case iState% = stateSuccess% then
+    case iState% = stateSuccess% then
 
-			nTrialsSuccess% += 1;
-			DefaultReward();
-			' tally successful trials
-			iState% := stateStimOff%;
-			tStateStart := tNow;
+        nTrialsSuccess% += 1;
+        DefaultReward();
+        ' tally successful trials
+        iState% := stateStimOff%;
+        tStateStart := tNow;
 
-		case iState% = stateFailure% then
+    case iState% = stateFailure% then
 
-			nTrialsFail% += 1;
-			iState% := stateStimOff%;
-			tStateStart := tNow;
+        nTrialsFail% += 1;
+        iState% := stateStimOff%;
+        tStateStart := tNow;
 
-		case iState% = stateStimOff% then
+    case iState% = stateStimOff% then
 
-			' Turn off stimulus, enter state 5 - wait for stimulus off msg
-			DrawStim(0);
+        ' Turn off stimulus, enter state 5 - wait for stimulus off msg
+        DrawStim(0);
 '			PrintLog("State 4 - turning off stimulus....\n");
-			SafeSampleKey("L");
-			iState% := stateWaitForBlank%;
-			tStateStart := tNow;
+        SafeSampleKey("L");
+        iState% := stateWaitForBlank%;
+        tStateStart := tNow;
 
-		case iState% = stateWaitForBlank% then
+    case iState% = stateWaitForBlank% then
 
-			' Wait for stim to be off
-			tTrigger := NextTime(TriggerChannel%,tLast,vTrigger);
-			if tTrigger > tLast then
+        ' Wait for stim to be off
+        tTrigger := NextTime(TriggerChannel%,tLast,vTrigger);
+        if tTrigger > tLast then
 
-				if vTrigger = 1 then
-		
-					' Stimulus has been turned off by vsg. Enter state 6
+            if vTrigger = 1 then
+    
+                ' Stimulus has been turned off by vsg. Enter state 6
 '					PrintLog("State 5 - Stim OFF trigger found. Enter state 6\n");
-					iState% := stateCheckTrial%;
-					tStateStart := tTrigger;
-					tLastTrigger := tTrigger;
-	
-				endif
+                iState% := stateCheckTrial%;
+                tStateStart := tTrigger;
+                tLastTrigger := tTrigger;
+                LogStatus("WaitForBlank", "Stim off trig");
+            else
+   				LogStatus("WaitForBlank", "Wrong trig edge tNow=" + str$(tNow) + " tTrigger=" + str$(tTrigger) + " tLastTrigger=" + str$(tLastTrigger));
+            endif
 
-			endif
+        endif
 
-		case iState% = stateCheckTrial% then
+    case iState% = stateCheckTrial% then
 
-			' Check trial count
-			if nTrialsStarted% = fixNumberOfTrials%  and fixCalibrationFlag% = 0 then
-				Stop%();
-				iState% := stateDone%;
-				iStatus% := 0;
-			else
-				iState% := stateInterval%;
-				tStateStart := tNow;
-			endif
+        ' Check trial count
+        if nTrialsStarted% = fixNumberOfTrials%  and fixCalibrationFlag% = 0 then
+            Stop%();
+            iState% := stateDone%;
+            iStatus% := 0;
+        else
+            iState% := stateInterval%;
+            tStateStart := tNow;
+        endif
 
 
-		case iState% = stateInterval% then
+    case iState% = stateInterval% then
 
-			' Inter-trial wait time
-			if tNow - tStateStart > fixInterTrialTime then
-	
-				' Back to state 0
+        ' Inter-trial wait time
+        if tNow - tStateStart > fixInterTrialTime then
+
+            ' Back to state 0
 '				PrintLog("State 6 - IT wait is done. Start new trial.\n");
-				iState% := stateStartTrial%;
-				tStateStart := tNow;
-	
-			endif
+            iState% := stateStartTrial%;
+            tStateStart := tNow;
 
-		else 
+        endif
 
-			' Unknown state!
-			Message("Unknown state=" + str$(iState%));
-			halt;
+    else 
+
+        ' Unknown state!
+        Message("Unknown state=" + str$(iState%));
+        halt;
 
 	endcase;
 
@@ -784,12 +797,17 @@ end;
 func InFixationWindow%(EyePosX,EyePosY)
 	var i% := 0;
 	var xstim, ystim;
-	xstim := GetStimX();
-	ystim := GetStimY();
-	'Determine if the eye position is within the fixation window
-	if (Pow(EyePosX-xstim, 2) + Pow(EyePosY-ystim, 2)) <= Pow(WindowRadius,2) then 
-		i% := 1;
-	endif
+    if fixAlwaysLooking% = 1 then
+        i% := 1;
+    else
+        xstim := GetStimX();
+        ystim := GetStimY();
+        'Determine if the eye position is within the fixation window
+        if (Pow(EyePosX-xstim, 2) + Pow(EyePosY-ystim, 2)) <= Pow(WindowRadius,2) then 
+            i% := 1;
+        endif
+    endif
+    
 	return i%;
 end;
 
