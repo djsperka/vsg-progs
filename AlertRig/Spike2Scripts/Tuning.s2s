@@ -1,7 +1,7 @@
-' $Id: Tuning.s2s,v 1.58 2012-04-11 20:36:18 jeff Exp $
+' $Id: Tuning.s2s,v 1.59 2012-04-12 21:29:44 devel Exp $
 ' Update 11/8/11 Jeff, includes multi-juicer updates
 
-const tunCVSID$ := "$Id: Tuning.s2s,v 1.58 2012-04-11 20:36:18 jeff Exp $";
+const tunCVSID$ := "$Id: Tuning.s2s,v 1.59 2012-04-12 21:29:44 devel Exp $";
 
 
 
@@ -136,7 +136,8 @@ endif;
 
 
 ' When TF/CRG curve, don't do f1 and f2. 
-if tunType$ = tunTypeTemporal$ or tunType$ = tunTypeCRG$ then
+' Also Dots. 
+if tunType$ = tunTypeTemporal$ or tunType$ = tunTypeCRG$ or tunType$ = tunTypeDots$ then
     tunDoF12% := 0;
 endif
 
