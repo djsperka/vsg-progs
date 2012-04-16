@@ -1,4 +1,4 @@
-'$Id: AcuteTuningExtractionFunctions.s2s,v 1.5 2012-01-10 22:26:52 devel Exp $'
+'$Id: AcuteTuningExtractionFunctions.s2s,v 1.6 2012-04-16 23:01:42 devel Exp $'
 
 #include "ExtractionUtilities.s2s"
 #include "../../Spike2Util/LogUtilities.s2s"
@@ -276,7 +276,7 @@ func GetNamedChannel%(name$, &channel%)
     var iChannels%[10];
     if ChanList(iChannels%[], 0x4) > 0 then
         for i% := 1 to iChannels%[0] do
-            if SampleTitle$(iChannels%[i%]) = name$ then
+            if ChanTitle$(iChannels%[i%]) = name$ then
                 channel% := iChannels%[i%];
                 iStatus% := 1;
                 i% := iChannels%[0];    ' Exit loop
