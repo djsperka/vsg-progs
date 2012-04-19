@@ -1,7 +1,7 @@
-' $Id: Tuning.s2s,v 1.59 2012-04-12 21:29:44 devel Exp $
+' $Id: Tuning.s2s,v 1.60 2012-04-19 00:31:00 devel Exp $
 ' Update 11/8/11 Jeff, includes multi-juicer updates
 
-const tunCVSID$ := "$Id: Tuning.s2s,v 1.59 2012-04-12 21:29:44 devel Exp $";
+const tunCVSID$ := "$Id: Tuning.s2s,v 1.60 2012-04-19 00:31:00 devel Exp $";
 
 
 
@@ -1928,6 +1928,9 @@ func Start%()
     
     
     ' Record initial text marks. The command line may need to be broken into pieces.
+    ' For tuning: Version 6,7 are always box--o-donuts
+    ' Version 8 is CRG.
+    
     docase
     case tunType$ = tunTypeBoxODonuts$ then    
         if tunUseMaintainMode% = 1 then  'if fixation point stays on, extraction is version 6
@@ -1936,17 +1939,10 @@ func Start%()
             SampleText("Tuning,7," + str$(Len(cmdLine$)));
         endif;
     case tunType$ = tunTypeCRG$ then
-        if tunUseMaintainMode% = 1 then  'if fixation point stays on, try extraction version 6
-            SampleText("Tuning,6," + str$(Len(cmdLine$)));
-        else 'value is 0, fixation point goes off, try extraction version 7
-            SampleText("Tuning,7," + str$(Len(cmdLine$)));
-        endif;
+        SampleText("Tuning,8," + str$(Len(cmdLine$)));
     else
-        if tunUseMaintainMode% = 1 then  'if fixation point stays on, extraction is version 2
-            SampleText("Tuning,2," + str$(Len(cmdLine$)));
-        else 'value is 0, fixation point goes off, extraction is version 3
-            SampleText("Tuning,3," + str$(Len(cmdLine$)));
-        endif;
+        ' djs Always version 3. NO difference if maintainmode is used or not. 
+        SampleText("Tuning,3," + str$(Len(cmdLine$)));
     endcase;
     
     SampleText(tunCVSID$);
