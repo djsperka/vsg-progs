@@ -2,6 +2,7 @@
 #include "../../Spike2Util/MiscUtilities.s2s"
 #include "../../Spike2Util/LogUtilities.s2s"
 #include "../../Spike2Util/ChannelUtilities.s2s"
+#include "../../Spike2Util/FileUtilities.s2s"
 
 var txTLast := -1;
 var txTStop := -1;
@@ -18,7 +19,11 @@ const txStatePreStim% := 5;
 const txStateTrialSuccess% := 6;
 const txStateTrialFailure% := 7;
 
+var txArgs$;
+var txDataHandle := -1;
 var txOutputHandle := -1;
+var txMasterOutputHandle := -1;     ' output file for master CRG pulse times. Only opened if needed.
+var txSlaveOutputHandle := -1;      ' output file for slave CRG pulse times. Only opened if needed.
 
 var txIState% := txstateStart%;
 
@@ -40,28 +45,76 @@ var iCurrentParam% := 0;
 ' version info
 var txVersion% := 0;
 var txDualVSG% := 0;
+var txIsTwoCurves% := 0;
+var txIsMasterCRG% := 0;
+var txIsSlaveCRG% := 0;
 
 ' tuning params
+' Warning: assumed that params and params2 have same number of params? Could that be a problem?
+' Also - the 1000 is an arbitrary limit...crash?
 var nparams% := 0;
 var params[1000];
 var params2[1000];
 var v3param;
 var v3param2;  'Technically v7 but who's counting?
-var IsTwoCurves%;
 
 LogInit(1);
+SetMinPulseWidth(0.00005); ' ignore any pulses whose width is less than this. 
 
 
-' InitStr has the parameter filename
-func TuningExtractInit%(hOutput, initStr$)
-    if InitFileVars%(initStr$) < 0 then
+
+func TuningX%(h%, args$)
+    var parfile$;
+    var outfile$;
+    var masterfile$;
+    var slavefile$;
+    var s$;
+    var status%;
+    
+    txDataHandle := h%;
+    txArgs$ := args$;   ' unused
+    
+    ' Make data file current view, get version
+    View(txDataHandle);
+    parfile$ :=  ReplaceFileExtension$(txDataHandle, "par");
+    
+    
+    GetTuningVersion(txVersion%, txDualVSG%);
+    if InitFileVars%(parfile$) < 0 then
         return -1;
     endif    
+    s$ := Print$("Data file version %d, dual=%d, twoCurves=%d, masterCRG=%d, slaveCRG=%d", txVersion%, txDualVSG%, txIsTwoCurves%, txIsMasterCRG%, txIsSlaveCRG%);
+    LogStatus("TuningX", s$);
     txIsInitialized% := 1;
-    txOutputHandle := hOutput;
+    
+    ' open output files
+    txOutputHandle := FileOpen(ReplaceFileExtension$(txDataHandle, "txt"), 8, 1);
+    if txIsMasterCRG% = 1 then
+        txMasterOutputHandle := FileOpen(ModifyFilename$(txDataHandle, "", "_master", "txt"), 8, 1);
+    endif
+    if txIsSlaveCRG% = 1 then
+        txSlaveOutputHandle := FileOpen(ModifyFilename$(txDataHandle, "", "_slave", "txt"), 8, 1);
+    endif
+    
     iCurrentParam% := 0;
     InitTrialVars();
-    return;
+    
+    View(txDataHandle);
+    status% := TuningExtract%(-1, -1);
+    
+    ' Close output files
+    View(txOutputHandle);
+    FileClose();
+    if txMasterOutputHandle > 0 then
+        View(txMasterOutputHandle);
+        FileClose();
+    endif
+    if txSlaveOutputHandle > 0 then
+        View(txSlaveOutputHandle);
+        FileClose();
+    endif
+    
+    return status%;
 end
 
 
@@ -74,12 +127,25 @@ func InitFileVars%(s$)
     h := FileOpen(s$, 8);
     if h < 0 then
         status% := -1;
-        PrintLog("Parameter file " + s$ + " should be in same dir as data file.");
+        LogError("InitFileVars", "Parameter file " + s$ + " should be in same dir as data file.");
     endif
-
+    
+    ' djs 2012-04-18 
+    ' Change to use case stmt inside the while loop. This needed to parse CRG param files, in turn
+    ' needed to know what type of pulses to expect. 
+    
     while Read(line$) >= 0 do 'and nparams% = 0 do    ' read while not EOF or error
-        ' parameters line starts with "Values:"
-        if InStr(line$, "Values:") = 1 then
+        
+        ' A line that starts with "Values:" is a list of tuning parameters. 
+        ' If we find two such lines, we know that this is a "TwoCurve" data file, where the
+        ' output file format will be slightly different as there are two parameters per trial
+        ' instead of just one. 
+        '
+        ' If there is a line starting with "Master:" or "Slave:", then we have a Contrast Reversing Grating
+        ' stim, and we need to know if there are CRG or tuning curve stims for master/slave.
+        
+        docase
+        case InStr(line$, "Values:") = 1 then
             docase
             case count% = 1 then
                 nparams% := ReadStr(Mid$(line$, 9), params[]);
@@ -88,13 +154,28 @@ func InitFileVars%(s$)
             case count% = 2 then
                 ReadStr(Mid$(line$, 9), params2[]);
                 count% += 1;
-                IsTwoCurves% := 1;
+                txIsTwoCurves% := 1;
                 printlog("%s\n",line$);
             case count% > 2 then
-                message("Error! Found a third Values line in parameter file! Quitting!");
-                halt();
+                LogError("InitFileVars", "Found a third Values line in parameter file! Quitting!");
+                status% := -1;
             endcase;
-        endif    
+        case InStr(line$, "Master:") = 1 then
+            docase 
+            case InStr(line$, "CRG") > 0 then
+                txIsMasterCRG% := 1;
+            else
+                txIsMasterCRG% := 0;
+            endcase
+        case InStr(line$, "Slave:") = 1 then
+            docase 
+            case InStr(line$, "CRG") > 0 then
+                txIsSlaveCRG% := 1;
+            else
+                txIsSlaveCRG% := 0;
+            endcase
+        endcase
+        
     wend;
     
     FileClose(); 
@@ -102,7 +183,6 @@ func InitFileVars%(s$)
     if nparams% < 1 then
         status% := -1;
     endif
-    
 end
 
 proc InitTrialVars()
@@ -112,6 +192,36 @@ proc InitTrialVars()
     tESlave := -1;
     return;
 end
+
+' Find up-pulses between tS1 and tS2. Save leading edge time in tP[], which can store up to maxP%. 
+' Return the number stored in nP%, and return the actual number found as the func return value.
+' To find out if the interval has more pulses than you expect, check the return value.
+
+func FindPulsesUp%(chan%, tS1, tS2, tP[], &nP%, maxP%)
+    var count% := 0;
+    var tN;
+    var t0, t1;
+    var st%;
+    
+    ' Can't remember why we use the 0.001 kludge. Is this still necessary?
+    ' I think it was because the start time is coincident with the 
+    nP% := 0;
+    st% := 1;
+    tN := tS1-.001;
+    st% := FindPulseUp%(chan%, tN, t0, t1);
+    while st% = 1 and t0 < tS2 do
+        if nP% < maxP% then
+            tP[nP%] := t0;
+            nP% += 1;
+        endif
+        count% += 1;
+        tN := t1;
+        st% := FindPulseUp%(chan%, tN, t0, t1);
+    wend
+    
+    return count%;
+end
+
 
 
 func FindStimPulses%(chan%, tS1, tS2, tP[])
@@ -144,30 +254,68 @@ proc FlushTrial()
     var s$;
     var tPM[3];
     var tPS[3];
-    
-    if (txVersion% = 2 or txVersion% = 3) and txDualVSG% = 1 then
-        if FindStimPulses%(txChanFrame%, tS, tE, tPM[]) <> 1 then
-            PrintLog("ERROR: Cannot find master stim pulses in window from %f - %f\n", tS, tE);
-            return;
-        endif
-    
-        if FindStimPulses%(txChanFrameSlave%, tSSlave, tESlave, tPS[]) <> 1 then
-            PrintLog("ERROR: Cannot find slave stim pulses in window from %f - %f\n", tSSlave, tESlave);
-            return;
+    var maxpulses% := 1000;
+    var pulses[maxpulses%];
+    var npulses% := 0;
+    docase
+        case (txVersion% = 2 or txVersion% = 3) and txDualVSG% = 1 then
+            if FindStimPulses%(txChanFrame%, tS, tE, tPM[]) <> 1 then
+                PrintLog("ERROR: Cannot find master stim pulses in window from %f - %f\n", tS, tE);
+                return;
+            endif
+        
+            if FindStimPulses%(txChanFrameSlave%, tSSlave, tESlave, tPS[]) <> 1 then
+                PrintLog("ERROR: Cannot find slave stim pulses in window from %f - %f\n", tSSlave, tESlave);
+                return;
+            endif
+            
+            if txIsTwoCurves% = 0 then
+                s$ := Print$("%f %f %f %f %f\n", params[iCurrentParam%], tPM[1], tPM[2], tPS[1], tPS[2]);
+            else
+                s$ := Print$("%f %f %f %f %f %f\n", params[iCurrentParam%], params2[iCurrentParam%], tPM[1], tPM[2], tPS[1], tPS[2]);
+        endif;
+    case txVersion% = 6 or txVersion% = 7 or txVersion% = 8 then
+        ' CRG type. Master and/or Slave has CRG pulses to be fetched.
+        ' The output files should already be opened!
+        if txIsMasterCRG% = 1 then
+            FindPulsesUp%(txChanFrame%, tS, tE, pulses[], npulses%, maxpulses%);
+            s$ := GetRealArrayNAsString$(pulses[1:npulses%-1], npulses%-1);
+            View(LogHandle()).Print("%s\n", s$);
+            View(txMasterOutputHandle).Print("%s\n", s$);
+        else
+            if FindStimPulses%(txChanFrame%, tS, tE, tPM[]) <> 1 then
+                PrintLog("ERROR: Cannot find master stim pulses in window from %f - %f\n", tS, tE);
+                return;
+            else
+                tS := tPM[1];
+                tE := tPM[2];
+            endif
         endif
         
-        if IsTwoCurves% = 0 then
-            s$ := Print$("%f %f %f %f %f\n", params[iCurrentParam%], tPM[1], tPM[2], tPS[1], tPS[2]);
+        if txIsSlaveCRG% = 1 then
+            FindPulsesUp%(txChanFrameSlave%, tSSlave, tESlave, pulses[], npulses%, maxpulses%);
+            s$ := GetRealArrayNAsString$(pulses[1:npulses%-1], npulses%-1);
+            View(LogHandle()).Print("%s\n", s$);
+            View(txSlaveOutputHandle).Print("%s\n", s$);
         else
-            s$ := Print$("%f %f %f %f %f %f\n", params[iCurrentParam%], params2[iCurrentParam%], tPM[1], tPM[2], tPS[1], tPS[2]);
-        endif;
+            if FindStimPulses%(txChanFrameSlave%, tSSlave, tESlave, tPS[]) <> 1 then
+                PrintLog("ERROR: Cannot find master stim pulses in window from %f - %f\n", tS, tE);
+                return;
+            else
+                tSSlave := tPS[1];
+                tESlave := tPS[2];
+            endif
+        endif
+            
+        s$ := Print$("%f %f %f %f %f %f\n", params[iCurrentParam%], params2[iCurrentParam%], tS, tE, tSSlave, tESlave);
+        
     else
-        if IsTwoCurves% = 0 then
+        if txIsTwoCurves% = 0 then
             s$ := Print$("%f %f %f %f %f\n", params[iCurrentParam%], tS, tE, tSSlave, tESlave);
         else
             s$ := Print$("%f %f %f %f %f %f\n", params[iCurrentParam%], params2[iCurrentParam%], tS, tE, tSSlave, tESlave);
         endif;
-    endif
+    endcase
         
     View(LogHandle()).Print(s$);
     if txOutputHandle >= 0 then
@@ -197,7 +345,6 @@ proc GetTuningVersion(&version%, &isDual%)
             ' Parse version and command line length
             i% := InStr(s$, ",");
             ReadStr(DelStr$(s$, 1, i%), version%, cLength%);
-            PrintLog("Version %d Len %d\n", version%, cLength%);
             count% := 1;
         case count% = 1 then
             count% := 2;    ' ignore this text mark - its the CVS ID. 
@@ -208,7 +355,10 @@ proc GetTuningVersion(&version%, &isDual%)
             iStatus% := 1;
         endcase
     wend
+    s$ := Print$("Version %d isDual=%d", version%, isDual%);
+    LogStatus("GetTuningVersion", s$);
 end
+
 
 
 
@@ -227,23 +377,42 @@ func TuningExtract%(tStart, tStop)
     var tTrigger;
     var t1;
     
-    GetTuningVersion(txVersion%, txDualVSG%);
-    PrintLog("Version %d dual %d\n", txVersion%, txDualVSG%);
+    ' djs move this to TuningExtractInit    
+    'GetTuningVersion(txVersion%, txDualVSG%);
     
     txTLast := tStart;
     txTStop := tStop;
     
-    'Tuning versions
-    '1) Unknown
-    '2) fixation point stays on
-    '3) fixation point goes off
-    '4) unknown
-    '5) unknown
-    '6) Dual tuning curve, fixation point stays on
-    '7) Dual tuning curve, fixation point goes off
+    'Tuning versions - updated 4/16/12 djs
+    ' Tuning versions are used to tell what pattern of events we expect to find in tuning data. 
+    ' As the tuning script changes and evolves, new logic and behaviors may alter the sequence 
+    ' of SampleKey and SampleText placed in the data file -- this may in turn require different
+    ' logic to extract data. Advancing the version number (and preserving the existing code for 
+    ' previous versions) allows us to maintain backwards compatibility (we should always be able
+    ' to extract data from old files). For the experimenter, however, the same script can be used
+    ' to extract data from all versions of their data. This should be transparent to the user. 
+    ' 
+    ' Here is a list of the versions used to date, with some notes about what changes led to the 
+    ' new version number. 
+    ' 1) old old old. This data did not use text marks at all, nor did it actually record the 
+    '    version in the data file. The old-skool extraction was used on this data, and these
+    '    data are not supported here. 
+    ' 2) First version with text marks. A complete trial is one which has the stim turned off - 
+    '    expect Ssa. 
+    ' 3) First version with tag mark (T,param) placed in data file at the start of a trial. This 
+    '    is intended to be redundant with the par file. Trial success or failure is indicated with 
+    '    a "+" or "-". Expect TS+Xa for complete successful trial.
+    ' 4,5) These versions are the same as 2,3, except they were used in the period when we used
+    '    the Visage system from Leo's lab. That system had a "weak" stim trigger line, meaning that
+    '    the high level on the trigger output did not stay high, but instead dropped at some time
+    '    but always BEFORE it is requested. This "Visage trigger hack" data was mostly generated by
+    '    Farran on her rig (that's where we used the old Visage). 
+    ' 6,7) These are used for Box 'o' donuts data. There is no difference between 6 and 7 as far as 
+    '    extraction is concerned.
+    ' 8) This is for CRG data. The CRG data will have a second data file opened for the trigger times.
     
     docase
-    case txVersion% = 1 or txVersion% = 2 or txVersion% = 4 or txVersion% = 6 then
+    case txVersion% = 1 or txVersion% = 2 or txVersion% = 4 then
         
         sIgnore$ := "0FJQR+";
         tFound := NextKey(txTLast, sFound$, sIgnore$);
@@ -256,7 +425,7 @@ func TuningExtract%(tStart, tStop)
                 docase
                 case InStr(sFound$, "S") = 1 then
                     docase
-                    case txVersion% = 1 or txVersion% = 2 or txVersion% = 6 then
+                    case txVersion% = 1 or txVersion% = 2 then
                         if FindRisingEdge%(txChanStim%, tFound, tS) < 0 or (txDualVSG% = 1 and FindRisingEdge%(txChanStimSlave%, tFound, tSSlave) < 0) then
                             LogError("", "Rising edge not found after S at t=" + str$(tFound) + "\n");
                             txIState% := txstateError%;
@@ -277,14 +446,14 @@ func TuningExtract%(tStart, tStop)
                 case sFound$ = "X" then
                     ' nothing to see here. An X here is OK, we stay in same state. 
                 else
-                    LogError("", "Unexpected key \"" + sFound$ + "\" found at " + str$(tFound) + "\n");
+                    LogWarn("", "Unexpected key \"" + sFound$ + "\" found at " + str$(tFound) + "\n");
                 endcase
             case txIState% = txstateStimUp% then
                 ' Expecting "s" or "X"
                 docase 
                 case sFound$ = "s" then
                     docase
-                    case txVersion% = 1 or txVersion% = 2 or txVersion% = 6 then
+                    case txVersion% = 1 or txVersion% = 2 then
                         if FindFallingEdge%(txChanStim%, tFound, tE) < 0 or (txDualVSG% = 1 and FindFallingEdge%(txChanStimSlave%, tFound, tESlave) < 0) then
                             LogError("", "Falling edge not found after s at t=" + str$(tFound) + "\n");
                             txIState% := txstateError%;
@@ -330,20 +499,24 @@ func TuningExtract%(tStart, tStop)
             tFound := NextKey(txTLast, sFound$, sIgnore$);
             
         wend
-    case txVersion% = 3 or txVersion% = 5 or txVersion% = 7 then
+        
+        ' If an error occurred set status to nonzero so caller knows there was a problem. 
+        if txIState% = txstateError% then
+            status% := 1;
+        endif
+
+    case txVersion% = 3 or txVersion% = 5 or txVersion% = 6 or txVersion% = 7 or txVersion% = 8 then
         
         sIgnore$ := "0FJQR";        
         tFound := NextKeyOrText(txTLast, sFound$, sIgnore$);
         while tFound >= 0 and (txTStop < 0 or (txTStop > 0 and tFound <= txTStop)) and txIState% <> txstateError% do
-
-            'LogInfo(sFound$ + " " + str$(tFound));
             
             docase 
             case txIState% = txstateStart% then
                 docase
                     
                 case InStr(sFound$, "T,") = 1 then
-                    if IsTwoCurves% = 0 then
+                    if txIsTwoCurves% = 0 then
                         v3param := val(Mid$(sFound$, 3));
                     else
                         var temp%;
@@ -356,14 +529,14 @@ func TuningExtract%(tStart, tStop)
                 case sFound$ = "X" then
                     LogStatus("txstateStart", "Aborted trial at " + str$(tFound));
                 else
-                    LogError("txstateStart", "Unexpected key \"" + sFound$ + "\" found at " + str$(tFound) + "\n");
+                    LogWarn("txstateStart", "Unexpected key \"" + sFound$ + "\" found at " + str$(tFound) + "\n");
                 endcase
                 
             case txIState% = txStatePreStim% then
                 docase
                 case sFound$ = "S" then
                     docase
-                    case txVersion% = 3 or txVersion% = 7 then
+                    case txVersion% = 3 or txVersion% = 6 or txVersion% = 7 or txVersion% = 8 then
                         
                         if FindRisingEdge%(txChanStim%, tFound, tS) < 0 or (txDualVSG% = 1 and FindRisingEdge%(txChanStimSlave%, tFound, tSSlave) < 0) then
                             LogError("txstatePreStim", "Rising edge not found after S at t=" + str$(tFound) + "\n");
@@ -391,7 +564,7 @@ func TuningExtract%(tStart, tStop)
                 docase 
                 case sFound$ = "+" then
                     docase 
-                    case txVersion% = 3  or txVersion% = 7 then
+                    case txVersion% = 3  or txVersion% = 6 or txVersion% = 7 or txVersion% = 8 then
                         if FindFallingEdge%(txChanStim%, tFound, tE) < 0 or (txDualVSG% = 1 and FindFallingEdge%(txChanStimSlave%, tFound, tESlave) < 0) then
                             LogError("txstateStimUp", "Falling edge not found after s at t=" + str$(tFound) + "\n");
                             txIState% := txstateError%;
@@ -411,14 +584,19 @@ func TuningExtract%(tStart, tStop)
                         
                 case sFound$ = "-" then
                     txIState% := txStateTrialFailure%;
+                case sFound$ = "X" then
+                    ' Trial aborted. Probably at end of file.
+                    InitTrialVars();
+                    txIState% := txstateStart%;
                 else
                     LogError("txstateStimUp", "Unexpected key \"" + sFound$ + "\" found at " + str$(tFound) + "\n");
                     txIState% := txstateError%;
                 endcase
                 
+            ' djs add sFound$="s" below to allow for MaintainMode data. 
             case txIState% = txStateTrialSuccess% then
                 docase
-                case sFound$ = "X" then
+                case sFound$ = "X" or sFound$ = "s" then
                     
                     ' Check that param found in data file matches order in par file
                     if v3param <> params[iCurrentParam%] or v3param2 <> params2[iCurrentParam%] then
@@ -462,8 +640,12 @@ func TuningExtract%(tStart, tStop)
         wend
         
         
+        ' If an error occurred set status to nonzero so caller knows there was a problem. 
+        if txIState% = txstateError% then
+            status% := 1;
+        endif
+
     endcase
     
-        
-    return 0;
+    return status%;
 end
