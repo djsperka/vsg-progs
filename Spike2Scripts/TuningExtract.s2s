@@ -16,21 +16,6 @@ if (ViewKind(hData%) <> 0) then
     halt;
 endif
 
-' Open output text file. 
-hTxt := FileOpen(FileName$(1)+FileName$(2)+FileName$(3)+FileName$(4)+".txt", 8, 1);
-View(hData%);
-
-' Open parameter file
-parFile$ := ReplaceFileExtension$(hData%, "par");
-
-if TuningExtractInit%(hTxt, parFile$) < 0 then
-    Message("Error initializing extraction. Check log.");
-    halt;
-endif
-
-
-TuningExtract%(-1, -1);
-
-View(hTxt).FileClose();
+TuningX%(hData%, "");
 
 
