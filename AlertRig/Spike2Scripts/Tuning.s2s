@@ -1,7 +1,7 @@
-' $Id: Tuning.s2s,v 1.60 2012-04-19 00:31:00 devel Exp $
+' $Id: Tuning.s2s,v 1.61 2012-04-30 18:08:15 jeff Exp $
 ' Update 11/8/11 Jeff, includes multi-juicer updates
 
-const tunCVSID$ := "$Id: Tuning.s2s,v 1.60 2012-04-19 00:31:00 devel Exp $";
+const tunCVSID$ := "$Id: Tuning.s2s,v 1.61 2012-04-30 18:08:15 jeff Exp $";
 
 
 
@@ -1074,7 +1074,8 @@ proc CreateSampleConfiguration()
     else    
         SampleAutoName$(dataCellName$ + "_tun_000");
     endcase;
-
+    
+    
     SampleAutoFile(1);
     
     ' Text marks make extraction easier
