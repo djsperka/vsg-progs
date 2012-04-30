@@ -1,4 +1,4 @@
-' $Id: TuningDialogs.s2s,v 1.13 2012-04-12 21:29:44 devel Exp $
+' $Id: TuningDialogs.s2s,v 1.14 2012-04-30 18:08:15 jeff Exp $
 '
 ' This file contains dialog functions for the alert tuning script Tuning.s2s.
 #include "../../Spike2Util/UsreyUtil.s2s"
@@ -510,7 +510,7 @@ func TuningCurveOrientationDialog%()
 	var i%;
 	GetTuningCurveOrientationParameters();
 	DlgCreate("Run Orientation Tuning Curve");
-	DlgInteger(1, "Number of Steps", 2, 100);
+	DlgInteger(1, "Number of Steps", 1, 100);
 	'DlgInteger(2, "Number of Repeats", 1, 10);
 	DlgReal(3, "Min Orientation (deg)", 0, 360);
 	DlgReal(4, "Max Orientation (deg)", 0, 360);
@@ -595,7 +595,7 @@ func TuningCurveContrastDialog%()
 	var i%;
 	GetTuningCurveContrastParameters();
 	DlgCreate("Contrast Tuning Curve Parameters");
-	DlgInteger(1, "Number of Steps", 2, 100);
+	DlgInteger(1, "Number of Steps", 1, 100);
 	'DlgInteger(2, "Number of Repeats", 1, 10);
 	DlgReal(3, "Min Contrast (%)", 0.1, 100);
 	DlgReal(4, "Max Contrast (%)", 0.1, 100);
@@ -677,7 +677,7 @@ func TuningCurveSpatialDialog%()
 	var i%;
 	GetTuningCurveSpatialParameters();
 	DlgCreate("Spatial Freq Tuning Curve Parameters");
-	DlgInteger(1, "Number of Steps", 2, 100);
+	DlgInteger(1, "Number of Steps", 1, 100);
 	'DlgInteger(2, "Number of Repeats", 1, 10);
 	DlgReal(3, "Min SF", .01, 100);
 	DlgReal(4, "Max SF", .01, 100);
@@ -759,7 +759,7 @@ func TuningCurveTemporalDialog%()
 	var i%;
 	GetTuningCurveTemporalParameters();
 	DlgCreate("Temporal Freq Tuning Curve Parameters");
-	DlgInteger(1, "Number of Steps", 2, 100);
+	DlgInteger(1, "Number of Steps", 1, 100);
 	'DlgInteger(2, "Number of Repeats", 1, 10);
 	DlgReal(3, "Min TF", 0, 100);
 	DlgReal(4, "Max TF", 0, 100);
@@ -841,7 +841,7 @@ func TuningCurveAreaDialog%()
 	var i%;
 	GetTuningCurveAreaParameters();
 	DlgCreate("Area Tuning Curve Parameters");
-	DlgInteger(1, "Number of Steps", 2, 100);
+	DlgInteger(1, "Number of Steps", 1, 100);
 	'DlgInteger(2, "Number of Repeats", 1, 1000);
 	DlgReal(3, "Min Diameter", 0.1, 100);
 	DlgReal(4, "Max Diameter", 0.1, 100);
@@ -927,7 +927,7 @@ func TuningCurveXPosDialog%()
 	var i%;
 	GetTuningCurveXPosParameters();
 	DlgCreate("XPos Tuning Curve Parameters");
-	DlgInteger(1, "Number of Steps", 2, 100);
+	DlgInteger(1, "Number of Steps", 1, 100);
 	'DlgInteger(2, "Number of Repeats", 1, 1000);
 	DlgReal(3, "Min X Position", -14, 14);
 	DlgReal(4, "Max X Position", -14, 14);
@@ -1029,7 +1029,7 @@ func TuningCurveDisparityDialog%()
     tunDisparityCenterXPos := x;
     
 	DlgCreate("Disparity Tuning Curve Parameters");
-	DlgInteger(1, "Number of Steps (one way)", 2, 100);
+	DlgInteger(1, "Number of Steps (one way)", 1, 100);
 	DlgInteger(2, "Number of Repeats", 1, 1000);
 	DlgReal(3, "Center X Position", -14, 14);
 	DlgReal(4, "Max X Position (will mirror)", -14, 14);
@@ -1115,7 +1115,7 @@ func TuningCurveDonutDialog%()
     sValues$ := GetRealArrayAsStringSep$(result[0:tunAreaNSteps%+1], indices%[0:tunAreaNSteps%+1], "|");
     
 	DlgCreate("Donut Tuning Curve Parameters");
-	DlgInteger(1, "Number of Steps", 2, 100);
+	DlgInteger(1, "Number of Steps", 1, 100);
 	DlgInteger(2, "Number of Repeats", 1, 1000);
 	DlgReal(3, "Min Diameter", 0.1, 100);
 	DlgReal(4, "Max Diameter", 0.1, 100);
@@ -1199,7 +1199,7 @@ func TuningCurveBerlinerDialog%()
     
 	DlgCreate("Berliner Tuning Curve Parameters");
 	'DlgInteger(1, "Number of Steps", 2, 100);
-    DlgInteger(1, "Number of Stimuli", 2, 100);
+    DlgInteger(1, "Number of Stimuli", 1, 100);
 	DlgInteger(2, "Number of Repeats", 1, 1000);
 	DlgReal(3, "Min Diameter", 0.1, 100);
 	DlgReal(4, "Max Diameter", 0.1, 100);
@@ -1371,7 +1371,7 @@ func TuningCurveDotsDialog%()
 	DlgCreate("Run Dots Tuning Curve");
     
     DlgGroup("Tuning Curve Parameters", 1, 1, 47, 6);
-	DlgInteger(1, "Number of Steps", 2, 100, 0, 2);
+	DlgInteger(1, "Number of Steps", 1, 100, 0, 2);
 	DlgInteger(2, "Number of Repeats", 1, 10, 0, 3);
 	DlgReal(3, "Min Orientation (deg)", 0, 360, 0, 4);
 	DlgReal(4, "Max Orientation (deg)", 0, 360, 0, 5);
