@@ -1,4 +1,4 @@
-/* $Id: fixstim.cpp,v 1.9 2012-02-23 18:52:47 devel Exp $ */
+/* $Id: fixstim.cpp,v 1.10 2012-06-15 21:40:36 devel Exp $ */
 
 #include <iostream>
 #include <fstream>
@@ -54,7 +54,7 @@ int main (int argc, char *argv[])
 	int status;
 
 	// Check input arguments
-	status = prargs(argc, argv, prargs_callback, "f:b:d:avg:s:C:T:S:O:A:R:B:H:Zp:G:D:", 'F');
+	status = prargs(argc, argv, prargs_callback, "f:b:d:avg:s:C:T:S:O:A:P:R:B:H:Zp:G:D:", 'F');
 	if (status)
 	{
 		return -1;
@@ -263,6 +263,7 @@ int prargs_callback(int c, string& arg)
 	case 'C':
 	case 'A':
 	case 'H':
+	case 'P':
 		{
 			vector<double> tuning_parameters;
 			int nsteps;
@@ -302,6 +303,20 @@ int prargs_callback(int c, string& arg)
 					case 'A':
 						{
 							f_pStimSet = create_stimset<AreaStimSet>(have_fixpt, f_fixpt, f_grating, tuning_parameters);
+							break;
+						}
+					case 'P':
+						{
+							double tf = tuning_parameters[0];
+							tuning_parameters.erase(tuning_parameters.begin());
+							if (have_fixpt)
+							{
+								f_pStimSet = new CounterphaseStimSet(f_fixpt, f_grating, tuning_parameters, tf);
+							}
+							else
+							{
+								f_pStimSet = new CounterphaseStimSet(f_grating, tuning_parameters, tf);
+							}
 							break;
 						}
 					default:
