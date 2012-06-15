@@ -172,6 +172,29 @@ std::string AreaStimSet::toString() const
 	return oss.str();
 }
 
+std::string CounterphaseStimSet::toString() const
+{
+	unsigned int i;
+	std::ostringstream oss;
+	oss << "Counterphase StimSet" << endl;
+	if (m_bHaveFixpt)
+	{
+		oss << "  fixation point: " << m_fixpt << endl;
+	}
+	else
+	{
+		oss << "  fixation point: NONE" << endl;
+	}
+	oss <<     "  grating base  : " << m_grating << endl;
+	oss << "  phases: ";
+	for (i=0; i<m_phases.size(); i++)
+	{
+		if (i>0) oss << ", ";
+		oss << m_phases[i];
+	}
+	oss << endl;
+	return oss.str();
+}
 
 std::string CRGStimSet::toString() const
 {
@@ -1074,4 +1097,95 @@ double CBarStimSet::getIntersectDistance(long *ca, long *cb, double *p, double *
 		a = (ca[0] - p[0])/u[0];
 	}
 	return a;
+}
+
+
+int CounterphaseStimSet::init(ARvsg& vsg, std::vector<int> pages)
+{
+	int status = 0;
+	m_pages[0] = pages[0];
+	m_pages[1] = pages[1];
+	cout << "Pages " << m_pages[0] << ", " << m_pages[1] << endl;
+	m_contrast = m_grating.contrast;
+	m_iterator = m_phases.begin();
+	vsgSetDrawPage(vsgVIDEOPAGE, m_pages[1], vsgBACKGROUND);
+	vsgSetDrawPage(vsgVIDEOPAGE, m_pages[0], vsgBACKGROUND);
+	m_current_page = 0;
+	m_grating.init(vsg, 40);
+	m_grating.setContrast(0);
+	m_grating.setTemporalFrequency(0);
+	m_grating.phase = *m_iterator;
+	m_grating.draw();
+	vsgObjTableSinWave(vsgTWTABLE);
+	vsgObjSetTemporalFrequency(m_tf);
+	vsgObjSetTemporalPhase(0);
+	if (m_bHaveFixpt)
+	{
+		m_fixpt.init(vsg, 2);
+		m_fixpt.setContrast(0);
+		m_fixpt.draw();
+	}
+	vsgPresent();
+	return status;
+}
+
+int CounterphaseStimSet::handle_trigger(std::string& s)
+{
+	int status = 0;
+	if (s == "F")
+	{
+		if (m_bHaveFixpt)
+		{
+			m_fixpt.setContrast(100);
+			status = 1;
+		}
+	}
+	else if (s == "S")
+	{
+		m_grating.select();
+		vsgObjResetDriftPhase();
+		m_grating.setContrast(m_contrast);
+		status = 1;
+	}
+	else if (s == "s")
+	{
+		m_grating.setContrast(0);
+		status = 1;
+	}
+	else if (s == "a")
+	{
+		// increment iterator, reset to beginning if at end
+		m_iterator++;
+		if (m_iterator == m_phases.end())
+		{
+			cerr << "at end of phases, back to beginning." << endl;
+			m_iterator = m_phases.begin();
+		}
+		cerr << "Phase " << *m_iterator << endl;
+
+		// Change current page and clear it. Note that this is not the page currently in view.
+		// Set the sf and draw the grating, then draw the fixpt. 
+		m_current_page = 1 - m_current_page;
+		vsgSetDrawPage(vsgVIDEOPAGE, m_pages[m_current_page], vsgBACKGROUND);
+		m_grating.phase = *m_iterator;
+		m_grating.draw();
+		vsgObjTableSinWave(vsgTWTABLE);
+		vsgObjSetTemporalFrequency(m_tf);
+		vsgObjSetTemporalPhase(0);
+		if (m_bHaveFixpt)
+		{
+			//m_fixpt.setContrast(0);
+			m_fixpt.draw();
+		}
+		status = 1;
+	}
+	else if (s == "X")
+	{
+		m_fixpt.setContrast(0);
+		m_grating.setContrast(0);
+		m_grating.select();
+		vsgObjSetTemporalFrequency(0);
+		status = 1;
+	}
+	return status;
 }

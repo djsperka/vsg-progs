@@ -196,6 +196,28 @@ private:
 	bool m_bHaveFixpt;
 };
 
+class CounterphaseStimSet: public StimSet
+{
+public:
+	CounterphaseStimSet(alert::ARContrastFixationPointSpec& f, alert::ARGratingSpec& g, std::vector<double> parameters, double tf) : StimSet(), m_fixpt(f), m_grating(g), m_bHaveFixpt(true), m_phases(parameters), m_tf(tf), m_current_page(-1) {};
+	CounterphaseStimSet(alert::ARGratingSpec& g, std::vector<double> parameters, double tf) : StimSet(), m_grating(g), m_bHaveFixpt(false), m_phases(parameters), m_tf(tf), m_current_page(-1) {};
+	virtual int num_pages() {return 2;};
+	virtual int num_overlay_pages() {return 0;};
+	virtual int init(ARvsg& vsg, std::vector<int> pages);
+	virtual int handle_trigger(std::string& s);
+	virtual std::string toString() const;
+private:
+	int m_pages[2];
+	int m_current_page;		// page flipping. This is the page currently displayed when handle_trigger is called. 
+	int m_contrast;
+	std::vector<double> m_phases;
+	double m_tf;
+	std::vector<double>::const_iterator m_iterator;
+	alert::ARGratingSpec m_grating;
+	alert::ARContrastFixationPointSpec m_fixpt;
+	bool m_bHaveFixpt;
+};
+
 
 class CRGStimSet: public StimSet
 {
