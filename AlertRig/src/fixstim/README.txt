@@ -21,8 +21,6 @@ Command Line options:
         trigger ("F"), the stimulus will have a hole corresponding to the 
         fixation point position. You can omit the fixation point altogether and 
         then the stimulus will have no hole. 
--P      specify spatial phase for gratings. OBSOLETE. This arg is allowed on the
-		command line but is ignored by the program.
 -p      ready pulse. This should be an int; the binary value specifies the trigger
 		lines which are pulsed when the application is ready to receive triggers. 
 		In Spike2, the ports correspond to bit numbers in this arg - hence "-p 2"
