@@ -43,7 +43,10 @@ the grating specification using the "-s" option
 -A <area0,area1,...>    Area tuning curve
 -S <sf0,sf1,...>    Spatial frequency tuning curve
 -T <tf0,tf1,...>    Temporal frequency tuning curve
-
+-P <tf,phase0,phase1,...>   Counterphase tuning curve. tf is the frequency of the 
+                            phase transition, and phase0 is the spatial phase
+                            of the grating. The temporal frequency (drift velocity)
+                            of the grating spec is ignored (and is set to 0).
 
 
 Contrast Reversing Grating Stimulus
@@ -96,39 +99,6 @@ degrees per second. Orientation are all in degrees. The color may be specified
 with one of white, black, gray, red, green or blue, or as a custom color by giving
 an rgb triplet (r/g/b), where each of r, g, and b are integers in [0, 255]. 
 
-
-DUAL VSG options
-
-Cool dual VSG options. The first option is required - it tells us how much the
-coordinate offset is between the master and slave screen. The DMV options allow
-you to specify what you want to display on either, or both, screens. When used, 
-these options indicate the 'active screen' - the next stimulus type (COASTHg)
-will be applied to that screen. If a fixpt has (not) been specified, then it will
-(will not) be applied to that screen as well. There can be different stimulus 
-sets on the master and slave screens. Alternatively, you may specify a stimulus 
-set for the master but none for the slave. In this case the slave will display 
-only the fixation point. Similarly you can specify a stimulus set for the slave 
-but not the master. 
-
--r offset_filename
-                      When using a dual VSG setup you have to provide a text file
-                      that contains the offsets for stuff on the slave screen.
--D                    
-                      Dual - put stim set on both master and slave
--M
-                      Master only - put stim on master.
--V                   
-                      Slave only - put stim on slave.
-
--K		              attempt to synchronize master and slave VSG cards. 
-					  Obviously this has no meaning (and will cause failure) 
-					  on a machine with only one VSG card. It is of marginal 
-					  utility on a machine with two such cards, and use of this has 
-					  largely been dropped.
-
--t					  stim time (sec) (dualstim only). This value is converted to 
-					  frames, and stimuli are visible on screen for that many frames 
-					  (unless switched off early). 
 
 
 Grating specification
