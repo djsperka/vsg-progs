@@ -25,6 +25,8 @@ Command Line options:
 		lines which are pulsed when the application is ready to receive triggers. 
 		In Spike2, the ports correspond to bit numbers in this arg - hence "-p 2"
 		will pulse port 1 on the 1401. 
+-w		Use step temporal waveform, not sinusoid (default) for counterphase tuning. 
+		Ignored for all other types. Must be issued before the "-P" arg!
 
         
 To specify a single grating as the stimulus, use the "-g" option:
