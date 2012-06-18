@@ -1,4 +1,4 @@
-' $Id: AcuteTuningDialogs.s2s,v 1.6 2012-06-18 21:02:16 jeff Exp $
+' $Id: AcuteTuningDialogs.s2s,v 1.7 2012-06-18 23:06:25 jeff Exp $
 '
 ' This file contains dialog functions for the alert tuning script Tuning.s2s.
 #include "../../Spike2Util/UsreyUtil.s2s"
@@ -71,6 +71,7 @@ var tunNullTestMinPhase;		' min phase
 var tunNullTestMaxPhase;		' max phase
 var tunNullTestProgression%;
 var tunNullTestTF;              ' Transition frequency
+var tunNullTestStepFunc%;        ' If 1, use a step function in time, if 0, use smooth sine function in time
 
 ' These are specific to the individual tuning curve types - drifting bar
 var tunBarNSteps%;		' # steps in drifting bar tuning curve
@@ -246,6 +247,7 @@ proc GetTuningCurveNullTestParameters()
     tunNullTestNSteps% := GetIntRegistryValue%(key$, "NSteps", tunNullTestNSteps%);
     tunNullTestNRepeats% := GetIntRegistryValue%(key$, "NRepeats", tunNullTestNRepeats%);
     tunNullTestProgression% := GetIntRegistryValue%(key$, "Progression", tunNullTestProgression%);
+    tunNullTestStepFunc% := GetIntRegistryValue%(key$, "StepFunc", tunNullTestStepFunc%);
     tunNullTestMinPhase := GetFloatRegistryValue(key$, "MinPhase", tunNullTestMinPhase);
     tunNullTestMaxPhase := GetFloatRegistryValue(key$, "MaxPhase", tunNullTestMaxPhase);
     tunNullTestTF := GetFloatRegistryValue(key$, "TransitionFreq", tunNullTestTF);
@@ -258,6 +260,7 @@ proc SaveTuningCurveNullTestParameters()
     SetIntRegistryValue(key$, "NSteps", tunNullTestNSteps%);
     SetIntRegistryValue(key$, "NRepeats", tunNullTestNRepeats%);
     SetIntRegistryValue(key$, "Progression", tunNullTestProgression%);
+    SetIntRegistryValue(key$, "StepFunc", tunNullTestStepFunc%);
     SetFloatRegistryValue(key$, "MinPhase", tunNullTestMinPhase);
     SetFloatRegistryValue(key$, "MaxPhase", tunNullTestMaxPhase);
     SetFloatRegistryValue(key$, "TransitionFreq", tunNullTestTF);
@@ -540,10 +543,11 @@ func TuningCurveNullTestDialog%()
 	DlgInteger(2, "Number of Repeats", 1, 30);
 	DlgReal(3, "Start Phase", 0, 360);
 	DlgReal(4, "End Phase", 0, 360);
-    DlgReal(5, "Transition Frequency", 0.1,100);
+    DlgReal(5, "Transition Frequency (Hz)", 0.1,100);
 	DlgCheck(6, "Random Progression");
+    DlgCheck(7, "Step Function in Time");
 
-	i% := DlgShow(tunNullTestNSteps%, tunNullTestNRepeats%, tunNullTestMinPhase, tunNullTestMaxPhase, tunNullTestTF, tunNullTestProgression%);
+	i% := DlgShow(tunNullTestNSteps%, tunNullTestNRepeats%, tunNullTestMinPhase, tunNullTestMaxPhase, tunNullTestTF, tunNullTestProgression%, tunNullTestStepFunc%);
 	' If i% is 1 the user hit "OK". If its 0, user hit "Cancel". 
 	' When user hits OK we always save the parameters, and when user hits Cancel we don't.
     ' 
