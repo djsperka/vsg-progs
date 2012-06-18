@@ -1,5 +1,5 @@
-' $Id: AcuteTuning.s2s,v 1.14 2012-06-18 23:06:25 jeff Exp $
-const tunCVSID$ := "$Id: AcuteTuning.s2s,v 1.14 2012-06-18 23:06:25 jeff Exp $";
+' $Id: AcuteTuning.s2s,v 1.15 2012-06-18 23:46:33 jeff Exp $
+const tunCVSID$ := "$Id: AcuteTuning.s2s,v 1.15 2012-06-18 23:46:33 jeff Exp $";
 
 
 #include "../../Spike2Util/ChannelUtilities.s2s"
@@ -521,7 +521,7 @@ func GetPlotXCoord(nTrials%)
     return tunValues[tunValuesIndices%[nTrials%]];
 end;
 
-'PlotSpikes(tStimOn, tNow, 1, GetPlotXCoord(nTrialsCompleted%), nTrialsCompleted%);
+
 proc PlotSpikes(t1, t2, vOnOff%, x, index%)
 	var rate;
     var i%;
@@ -616,9 +616,9 @@ proc InitializeWindows()
         if tunDoF12% = 1 then
             
             ch1% := View(TuningWindow%[i%]).XYSetChan(0);   ' Used to plot f1
-            XYColour(ch1%, 25);
+            XYColour(ch1%, 2);
             ch2% := View(TuningWindow%[i%]).XYSetChan(0);   ' used to plot f2
-            XYColour(ch2%, 30);
+            XYColour(ch2%, 29);
             LogStatus("InitializeWindows", "Channel " + str$(i%+1) + " " + str$(ch1%) + " " + str$(ch2%));
             'PSTHWindow%[i%] := View(DataWindow%).SetPSTH(i%+1, 16, 1 /(tunTF*16), 0, 0, 3);
             PSTHWindow%[i%] := View(DataWindow%).SetPSTH(tunWavemarkPorts%[i%]+1, 16, 1 /(tunTF*16), 0, 0, 3);  'must use index to tWMP%[] now that channel #s correspond to port #s (+1)
