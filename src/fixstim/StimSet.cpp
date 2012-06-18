@@ -1116,7 +1116,14 @@ int CounterphaseStimSet::init(ARvsg& vsg, std::vector<int> pages)
 	m_grating.setTemporalFrequency(0);	// bad terminology, this calls vsgObjSetDriftVelocity()
 	m_grating.phase = *m_iterator;
 	m_grating.draw();
-	vsgObjTableSinWave(vsgTWTABLE);
+	if (!m_bStepTW)
+	{
+		vsgObjTableSinWave(vsgTWTABLE);
+	}
+	else
+	{
+		vsgObjTableSquareWave(vsgTWTABLE, vsgObjGetTableSize(vsgTWTABLE)*0.25, vsgObjGetTableSize(vsgTWTABLE)*0.75);
+	}
 	vsgObjSetTemporalFrequency(0);
 	vsgObjSetTemporalPhase(0);
 
@@ -1176,7 +1183,14 @@ int CounterphaseStimSet::handle_trigger(std::string& s)
 		vsgSetDrawPage(vsgVIDEOPAGE, m_pages[m_current_page], vsgBACKGROUND);
 		m_grating.phase = *m_iterator;
 		m_grating.draw();
-		vsgObjTableSinWave(vsgTWTABLE);
+		if (!m_bStepTW)
+		{
+			vsgObjTableSinWave(vsgTWTABLE);
+		}
+		else
+		{
+			vsgObjTableSquareWave(vsgTWTABLE, vsgObjGetTableSize(vsgTWTABLE)*0.25, vsgObjGetTableSize(vsgTWTABLE)*0.75);
+		}
 		vsgObjSetTemporalPhase(0);
 		if (m_bHaveFixpt)
 		{
