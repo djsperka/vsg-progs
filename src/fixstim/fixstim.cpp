@@ -1,4 +1,4 @@
-/* $Id: fixstim.cpp,v 1.10 2012-06-15 21:40:36 devel Exp $ */
+/* $Id: fixstim.cpp,v 1.11 2012-06-18 22:50:51 devel Exp $ */
 
 #include <iostream>
 #include <fstream>
@@ -54,7 +54,7 @@ int main (int argc, char *argv[])
 	int status;
 
 	// Check input arguments
-	status = prargs(argc, argv, prargs_callback, "f:b:d:avg:s:C:T:S:O:A:P:R:B:H:Zp:G:D:", 'F');
+	status = prargs(argc, argv, prargs_callback, "f:b:d:avg:s:C:T:S:O:A:P:R:B:H:Zp:G:D:w", 'F');
 	if (status)
 	{
 		return -1;
@@ -206,6 +206,7 @@ int prargs_callback(int c, string& arg)
 	static bool have_stim = false;
 	static bool have_g = false;
 	static bool have_d = false;
+	static bool bStepTW = false;
 
 	switch(c)
 	{
@@ -224,6 +225,9 @@ int prargs_callback(int c, string& arg)
 	case 'd':
 		if (parse_distance(arg, f_iDistanceToScreenMM)) errflg++;
 		else have_d=true;
+		break;
+	case 'w':
+		bStepTW = true;
 		break;
 	case 'f':
 		if (parse_fixation_point(arg, f_fixpt)) errflg++;
@@ -311,11 +315,11 @@ int prargs_callback(int c, string& arg)
 							tuning_parameters.erase(tuning_parameters.begin());
 							if (have_fixpt)
 							{
-								f_pStimSet = new CounterphaseStimSet(f_fixpt, f_grating, tuning_parameters, tf);
+								f_pStimSet = new CounterphaseStimSet(f_fixpt, f_grating, tuning_parameters, tf, bStepTW);
 							}
 							else
 							{
-								f_pStimSet = new CounterphaseStimSet(f_grating, tuning_parameters, tf);
+								f_pStimSet = new CounterphaseStimSet(f_grating, tuning_parameters, tf, bStepTW);
 							}
 							break;
 						}
