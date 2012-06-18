@@ -1,4 +1,4 @@
-' $Id: AcuteTuningDialogs.s2s,v 1.5 2012-03-27 16:30:24 devel Exp $
+' $Id: AcuteTuningDialogs.s2s,v 1.6 2012-06-18 21:02:16 jeff Exp $
 '
 ' This file contains dialog functions for the alert tuning script Tuning.s2s.
 #include "../../Spike2Util/UsreyUtil.s2s"
@@ -15,6 +15,7 @@ const tunTypeSpatial$ := "S";
 const tunTypeTemporal$ := "T";
 const tunTypeArea$ := "A";
 const tunTypeDriftingBar$ := "G";
+const tunTypeNullTest$ := "P";  'This is P for counterPhase reversal, I guess
 'const tunTypeDonut$ := "H";
 'const tunTypeBerliner$ := "B";
 var tunType$:=tunTypeNone$;
@@ -63,6 +64,14 @@ var tunAreaMinDiam;		' min diameter
 var tunAreaMaxDiam;		' max diameter
 var tunAreaProgression%;
 
+' Null Test next
+var tunNullTestNSteps%;			' # steps in area tuning curve
+var tunNullTestNRepeats%;		' # repeats in area tuning curve
+var tunNullTestMinPhase;		' min phase
+var tunNullTestMaxPhase;		' max phase
+var tunNullTestProgression%;
+var tunNullTestTF;              ' Transition frequency
+
 ' These are specific to the individual tuning curve types - drifting bar
 var tunBarNSteps%;		' # steps in drifting bar tuning curve
 var tunBarNRepeats%;		' # repeats in drifting bar tuning curve
@@ -110,6 +119,7 @@ proc GetTuningCurveOrientationParameters()
 	key$:= GetRigName$() + GetCurrentConfiguration$() + "\\Scripts\\Tuning\\Orientation";
     tunOriNSteps% := GetIntRegistryValue%(key$, "NSteps", tunOriNSteps%);
     tunOriNRepeats% := GetIntRegistryValue%(key$, "NRepeats", tunOriNRepeats%);
+    tunOriProgression% := GetIntRegistryValue%(key$, "Progression", tunOriProgression%);
     tunOriMinOrientation := GetFloatRegistryValue(key$, "MinOrientation", tunOriMinOrientation);
     tunOriMaxOrientation := GetFloatRegistryValue(key$, "MaxOrientation", tunOriMaxOrientation);
 end;
@@ -119,6 +129,7 @@ proc SaveTuningCurveOrientationParameters()
 	key$:= GetRigName$() + GetCurrentConfiguration$() + "\\Scripts\\Tuning\\Orientation";
     SetIntRegistryValue(key$, "NSteps", tunOriNSteps%);
     SetIntRegistryValue(key$, "NRepeats", tunOriNRepeats%);
+    SetIntRegistryValue(key$, "Progression", tunOriProgression%);
     SetFloatRegistryValue(key$, "MinOrientation", tunOriMinOrientation);
     SetFloatRegistryValue(key$, "MaxOrientation", tunOriMaxOrientation);
 end;
@@ -130,6 +141,7 @@ proc GetTuningCurveContrastParameters()
     
     tunContrastNSteps% := GetIntRegistryValue%(key$, "NSteps", tunContrastNSteps%);
     tunContrastNRepeats% := GetIntRegistryValue%(key$, "NRepeats", tunContrastNRepeats%);
+    tunContrastProgression% := GetIntRegistryValue%(key$, "Progression", tunContrastProgression%);
     tunContrastMinContrast := GetFloatRegistryValue(key$, "MinContrast", tunContrastMinContrast);
     tunContrastMaxContrast := GetFloatRegistryValue(key$, "MaxContrast", tunContrastMaxContrast);
 end;
@@ -139,6 +151,7 @@ proc SaveTuningCurveContrastParameters()
 	key$:= GetRigName$() + GetCurrentConfiguration$() + "\\Scripts\\Tuning\\Contrast";
     SetIntRegistryValue(key$, "NSteps", tunContrastNSteps%);
     SetIntRegistryValue(key$, "NRepeats", tunContrastNRepeats%);
+    SetIntRegistryValue(key$, "Progression", tunContrastProgression%);
     SetFloatRegistryValue(key$, "MinContrast", tunContrastMinContrast);
     SetFloatRegistryValue(key$, "MaxContrast", tunContrastMaxContrast);
 end;
@@ -150,6 +163,7 @@ proc GetTuningCurveSpatialParameters()
     
     tunSpatialNSteps% := GetIntRegistryValue%(key$, "NSteps", tunSpatialNSteps%);
     tunSpatialNRepeats% := GetIntRegistryValue%(key$, "NRepeats", tunSpatialNRepeats%);
+    tunSpatialProgression% := GetIntRegistryValue%(key$, "Progression", tunSpatialProgression%);
     tunSpatialMinSF := GetFloatRegistryValue(key$, "MinSF", tunSpatialMinSF);
     tunSpatialMaxSF := GetFloatRegistryValue(key$, "MaxSF", tunSpatialMaxSF);
 end;
@@ -160,6 +174,7 @@ proc SaveTuningCurveSpatialParameters()
     
     SetIntRegistryValue(key$, "NSteps", tunSpatialNSteps%);
     SetIntRegistryValue(key$, "NRepeats", tunSpatialNRepeats%);
+    SetIntRegistryValue(key$, "Progression", tunSpatialProgression%);
     SetFloatRegistryValue(key$, "MinSF", tunSpatialMinSF);
     SetFloatRegistryValue(key$, "MaxSF", tunSpatialMaxSF);
 end;
@@ -171,6 +186,7 @@ proc GetTuningCurveTemporalParameters()
     
     tunTemporalNSteps% := GetIntRegistryValue%(key$, "NSteps", tunTemporalNSteps%);
     tunTemporalNRepeats% := GetIntRegistryValue%(key$, "NRepeats", tunTemporalNRepeats%);
+    tunTemporalProgression% := GetIntRegistryValue%(key$, "Progression", tunTemporalProgression%);
     tunTemporalMinTF := GetFloatRegistryValue(key$, "MinTF", tunTemporalMinTF);
     tunTemporalMaxTF := GetFloatRegistryValue(key$, "MaxTF", tunTemporalMaxTF);
 end;
@@ -181,6 +197,7 @@ proc SaveTuningCurveTemporalParameters()
 
     SetIntRegistryValue(key$, "NSteps", tunTemporalNSteps%);
     SetIntRegistryValue(key$, "NRepeats", tunTemporalNRepeats%);
+    SetIntRegistryValue(key$, "Progression", tunTemporalProgression%);
     SetFloatRegistryValue(key$, "MinTF", tunTemporalMinTF);
     SetFloatRegistryValue(key$, "MaxTF", tunTemporalMaxTF);
 end;
@@ -192,6 +209,7 @@ proc GetTuningCurveAreaParameters()
 
     tunAreaNSteps% := GetIntRegistryValue%(key$, "NSteps", tunAreaNSteps%);
     tunAreaNRepeats% := GetIntRegistryValue%(key$, "NRepeats", tunAreaNRepeats%);
+    tunAreaProgression% := GetIntRegistryValue%(key$, "Progression", tunAreaProgression%);
     tunAreaMinDiam := GetFloatRegistryValue(key$, "MinDiam", tunAreaMinDiam);
     tunAreaMaxDiam := GetFloatRegistryValue(key$, "MaxDiam", tunAreaMaxDiam);
 '    tunDonutOptimalIndex% := GetIntRegistryValue%(key$, "OptimalIndex", tunDonutOptimalIndex%);
@@ -208,6 +226,7 @@ proc SaveTuningCurveAreaParameters()
 
     SetIntRegistryValue(key$, "NSteps", tunAreaNSteps%);
     SetIntRegistryValue(key$, "NRepeats", tunAreaNRepeats%);
+    SetIntRegistryValue(key$, "Progression", tunAreaProgression%);
     SetFloatRegistryValue(key$, "MinDiam", tunAreaMinDiam);
     SetFloatRegistryValue(key$, "MaxDiam", tunAreaMaxDiam);
 '    SetIntRegistryValue(key$, "OptimalIndex", tunDonutOptimalIndex%);
@@ -216,6 +235,32 @@ proc SaveTuningCurveAreaParameters()
 '    SetIntRegistryValue(key$, "NStepsBerliner", tunBerlinerNSteps%);
 '    SetIntRegistryValue(key$, "NRepeatsDiamBerliner", tunBerlinerNRepeats%);
 '    SetIntRegistryValue(key$, "BerlinerProgression", tunBerlinerProgression%);
+end;
+
+
+proc GetTuningCurveNullTestParameters()
+	var stmp$;
+	var key$;
+	key$:= GetRigName$() + GetCurrentConfiguration$() + "\\Scripts\\Tuning\\NullTest";
+    
+    tunNullTestNSteps% := GetIntRegistryValue%(key$, "NSteps", tunNullTestNSteps%);
+    tunNullTestNRepeats% := GetIntRegistryValue%(key$, "NRepeats", tunNullTestNRepeats%);
+    tunNullTestProgression% := GetIntRegistryValue%(key$, "Progression", tunNullTestProgression%);
+    tunNullTestMinPhase := GetFloatRegistryValue(key$, "MinPhase", tunNullTestMinPhase);
+    tunNullTestMaxPhase := GetFloatRegistryValue(key$, "MaxPhase", tunNullTestMaxPhase);
+    tunNullTestTF := GetFloatRegistryValue(key$, "TransitionFreq", tunNullTestTF);
+end;
+
+proc SaveTuningCurveNullTestParameters()
+	var key$;
+	key$:= GetRigName$() + GetCurrentConfiguration$() + "\\Scripts\\Tuning\\NullTest";
+
+    SetIntRegistryValue(key$, "NSteps", tunNullTestNSteps%);
+    SetIntRegistryValue(key$, "NRepeats", tunNullTestNRepeats%);
+    SetIntRegistryValue(key$, "Progression", tunNullTestProgression%);
+    SetFloatRegistryValue(key$, "MinPhase", tunNullTestMinPhase);
+    SetFloatRegistryValue(key$, "MaxPhase", tunNullTestMaxPhase);
+    SetFloatRegistryValue(key$, "TransitionFreq", tunNullTestTF);
 end;
 
 
@@ -482,6 +527,59 @@ func TuningCurveAreaDialog%()
     
 	return iReturn%;
 end;
+
+
+
+
+func TuningCurveNullTestDialog%()
+	var iReturn% := 0;
+	var i%;
+	GetTuningCurveNullTestParameters();
+	DlgCreate("Null Test Tuning Curve Parameters");
+	DlgInteger(1, "Number of Steps", 2, 99);
+	DlgInteger(2, "Number of Repeats", 1, 30);
+	DlgReal(3, "Start Phase", 0, 360);
+	DlgReal(4, "End Phase", 0, 360);
+    DlgReal(5, "Transition Frequency", 0.1,100);
+	DlgCheck(6, "Random Progression");
+
+	i% := DlgShow(tunNullTestNSteps%, tunNullTestNRepeats%, tunNullTestMinPhase, tunNullTestMaxPhase, tunNullTestTF, tunNullTestProgression%);
+	' If i% is 1 the user hit "OK". If its 0, user hit "Cancel". 
+	' When user hits OK we always save the parameters, and when user hits Cancel we don't.
+    ' 
+    ' djs 2/4/2011
+    ' Spike2 bug workaround implemented. The return value from this function (when in DAQ context this
+    ' dialog is called from a DlgButton in another dialog) should make the parent dialog close, as if 
+    ' the OK button were hit. Bug in Spike2 v6 means this doesn't work right - the parent dialog will 
+    ' close but its variables are not updated prior to doing so.... so any changes to the parent dialog
+    ' are not seen in the subsequent expt, they're not saved in the registry, etc. Workaround is to return
+    ' something > 0 here. The parent dialog will continue to display, and the user has to hit OK on that 
+    ' before things proceed. 
+    'tunMaximalDiam := tunAreaMaxDiam;  This won't do anything unless FIXSTIM is updated to allow crosshairs
+	if i% = 1 then
+		SaveTuningCurveNullTestParameters();
+'		PrintLog("TuningCurveAreaDialog - user hit OK\n");
+		tunType$ := tunTypeNullTest$;
+		if tunContext$ = tunContextDAQ$ then
+            ' djs 2/4/2011 We return 1 - that's the workaround			iReturn% := 0;
+            iReturn% := 1;
+		else
+			iReturn% := 1;
+		endif;
+	endif;
+	if i% = 0 then
+'		PrintLog("TuningCurveNullTestDialog - user hit Cancel\n");
+		tunType$ := tunTypeNone$;
+		if tunContext$ = tunContextDAQ$ then
+			iReturn% := 1;
+		else
+			iReturn% := 2;
+		endif;
+	endif;
+    
+	return iReturn%;
+end;
+
 
 
 
