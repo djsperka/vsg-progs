@@ -1,5 +1,5 @@
-' $Id: AcuteTuning.s2s,v 1.12 2012-02-02 05:34:43 devel Exp $
-const tunCVSID$ := "$Id: AcuteTuning.s2s,v 1.12 2012-02-02 05:34:43 devel Exp $";
+' $Id: AcuteTuning.s2s,v 1.13 2012-06-18 21:02:15 jeff Exp $
+const tunCVSID$ := "$Id: AcuteTuning.s2s,v 1.13 2012-06-18 21:02:15 jeff Exp $";
 
 
 #include "../../Spike2Util/ChannelUtilities.s2s"
@@ -46,6 +46,7 @@ const tundlgTemporalButton% := 12;
 const tundlgAreaButton% := 13;
 const tundlgGratingParametersButton% := 14;
 const tundlgDriftingBarButton% := 15;
+const tundlgNullTestButton% := 16;
 
 
 ' Wavemarks and continuous ports are specified elsewhere
@@ -128,16 +129,18 @@ func TuningCurveScriptDialog%()
     DlgReal(2, "InterTrial Time(s):", .1, 100, 20, 3);  'new, allow really long stimuli
 	'DlgList(3, "Background color:", bcl$, 3, 20, 4);  'updated as new dialog number
     DlgInteger(3, "Background Gray Level (0-255):", 0, 255, 20, 4);  'new, allow all grays
-	DlgGroup("Individual Tuning Curve Types", 1, 6, 38, 6);
+	DlgGroup("Individual Tuning Curve Types", 1, 6, 38, 7);
 	DlgButton(tundlgOrientationButton%, "Orientation", TuningCurveOrientationDialog%, 2, 7);
 	DlgButton(tundlgContrastButton%, "Contrast", TuningCurveContrastDialog%, 2, 8);
 	DlgButton(tundlgSpatialButton%, "Spatial Freq", TuningCurveSpatialDialog%, 2, 9);
 	DlgButton(tundlgTemporalButton%, "Temporal Freq", TuningCurveTemporalDialog%, 2, 10);
 	DlgButton(tundlgAreaButton%, "Area", TuningCurveAreaDialog%, 2, 11);
-    DlgGroup("Grating Parameters", 1, 12, 38, 2);
-    DlgButton(tundlgGratingParametersButton%, "Grating Parameters", TunDlgGratingMaster%, 2, 13);
-    DlgGroup("Non-Grating Stimuli", 1, 14, 38, 2);
-    DlgButton(tundlgDriftingBarButton%, "Drifting Bars", TuningCurveDriftingBarDialog%, 2, 15);
+    DlgButton(tundlgNullTestButton%, "Null Test", TuningCurveNullTestDialog%, 2, 12);
+    
+    DlgGroup("Grating Parameters", 1, 13, 38, 2);
+    DlgButton(tundlgGratingParametersButton%, "Grating Parameters", TunDlgGratingMaster%, 2, 14);
+    DlgGroup("Non-Grating Stimuli", 1, 15, 38, 2);
+    DlgButton(tundlgDriftingBarButton%, "Drifting Bars", TuningCurveDriftingBarDialog%, 2, 16);
     
     'i%:=DlgShow(tunStimulusDuration, tunInterTrialTime, ibcl%);  'new, for reduced dialog
     i%:=DlgShow(tunStimulusDuration, tunInterTrialTime, tunBackgroundGrayLevel%);  'now using background gray level
@@ -671,6 +674,13 @@ proc TuningCurveLabels(iport%)
 			ChanTitle$(1, "Chan 1");
             XRange(tunBarMinOrientation, tunBarMaxOrientation);
         
+        case tunType$ = tunTypeNullTest$ then
+
+			WindowTitle$("Null Test Counterphase Tuning - " + s$);
+			XUnits$("Phase (degrees)");
+			ChanTitle$(1, "Chan 1");
+            XRange(tunNullTestMinPhase, tunNullTestMaxPhase);
+        
 		else
 
 			Message("TuningCurveLabels Error - unknown value for tunType$: " + tunType$);
@@ -732,6 +742,13 @@ proc CreateSampleConfiguration()
         tunNRepeats% := tunBarNRepeats%;
         GetRepeatedParameterProgression%(tunBarNSteps%+1, tunBarNRepeats%, tunValues[], tunValuesIndices%[], tunBarMinOrientation, tunBarMaxOrientation, 0, tunBarProgression%);
         tunNValues% := (tunBarNSteps%+1)*tunBarNRepeats%;
+        tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%);
+    case tunType$ = tunTypeNullTest$ then 
+        SampleAutoName$(dataCellName$ + "_nulltest_000");
+        tunNAdvances% := tunNullTestNSteps%;
+        tunNRepeats% := tunNullTestNRepeats%;
+        GetRepeatedParameterProgression%(tunNullTestNSteps%+1, tunNullTestNRepeats%, tunValues[], tunValuesIndices%[], tunNullTestMinPhase, tunNullTestMaxPhase, 0, tunNullTestProgression%);
+        tunNValues% := (tunNullTestNSteps%+1)*tunNullTestNRepeats%;
         tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%);
     else
         SampleAutoName$(dataCellName$ + "_tun_000");
@@ -934,7 +951,14 @@ proc WriteParameterFile()
 			Print("Min,Max,#Steps,#Repeats: %f,%f,%d,%d\n", tunBarMinOrientation, tunBarMaxOrientation, tunBarNSteps%, tunBarNRepeats%);
 			Print("Values: " + tunValuesStringified$ + "\n");
 			Print("\n");
+        
+        case tunType$ = tunTypeNullTest$ then
 
+			Print("Type:                  : Null Test Counterphase Gratings\n");
+			Print("Min,Max,#Steps,#Repeats: %f,%f,%d,%d\n", tunNullTestMinPhase, tunNullTestMaxPhase, tunNullTestNSteps%, tunNullTestNRepeats%);
+			Print("Values: " + tunValuesStringified$ + "\n");
+            Print("\n");
+        
 		else
 
 			Print("TuningCurve Error - unknown value for tunType$: %s\n", tunType$);
@@ -1020,6 +1044,9 @@ func Start%()
         
         'Tune$ := Dual$ + " -A " + Values$;
         Tune$ := " -A " + Values$;
+        
+    case tunType$ = tunTypeNullTest$ then
+        Tune$ := " -P " + Str$(tunNullTestTF) + "," + Values$;
         
     case tunType$ = tunTypeDriftingBar$ then
         
