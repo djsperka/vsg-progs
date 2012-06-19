@@ -1,4 +1,4 @@
-' $Id: AcuteMSequence.s2s,v 1.16 2012-03-30 19:05:21 devel Exp $
+' $Id: AcuteMSequence.s2s,v 1.17 2012-06-19 01:43:08 devel Exp $
 '
 ' AcuteMSequence.s2s
 '
@@ -379,7 +379,7 @@ var tStateStart := -1;
 func Idle%()
     var status% := 1;
     
-	tNow := MaxTime();
+	tNow := View(amsWindowData%).MaxTime();
     
     docase 
     case iState% = stateStartup% then
@@ -390,7 +390,7 @@ func Idle%()
     case iState% = stateVSGWait% then
         
         ' Waiting for VSG to indicate it is ready. The indication is a pulse (up, then down, 1 frame apart) on port 6.
-        tTrigger := NextTime(amsChanVSGReady%, tLast, vTrigger);
+        tTrigger := View(amsWindowData%).NextTime(amsChanVSGReady%, tLast, vTrigger);
         if tTrigger > tLastTrigger and vTrigger = 0 then
             LogStatus("stateVSGWait", "Got leading edge of trigger.");
             tLastTrigger := tTrigger;
@@ -400,7 +400,7 @@ func Idle%()
     case iState% = stateVSGConfirm% then
             
         ' Waiting for VSG to confirm it is ready. The downward side of the pulse is expected...
-        tTrigger := NextTime(amsChanVSGReady%, tLastTrigger, vTrigger);
+        tTrigger := View(amsWindowData%).NextTime(amsChanVSGReady%, tLastTrigger, vTrigger);
         if tTrigger > tLastTrigger and vTrigger = 1 then                
             LogStatus("stateVSGConfirm", "Got trailing edge of trigger.");
             tLastTrigger := tTrigger;
