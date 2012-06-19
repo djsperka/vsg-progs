@@ -1122,13 +1122,14 @@ int CounterphaseStimSet::init(ARvsg& vsg, std::vector<int> pages)
 	}
 	else
 	{
-		vsgObjTableSquareWave(vsgTWTABLE, vsgObjGetTableSize(vsgTWTABLE)*0.25, vsgObjGetTableSize(vsgTWTABLE)*0.75);
+//		vsgObjTableSquareWave(vsgTWTABLE, vsgObjGetTableSize(vsgTWTABLE)*0.25, vsgObjGetTableSize(vsgTWTABLE)*0.75);
+		vsgObjTableSquareWave(vsgTWTABLE, 0, vsgObjGetTableSize(vsgTWTABLE)*0.5);
 	}
 	vsgObjSetTemporalFrequency(0);
 	vsgObjSetTemporalPhase(0);
 
 	// Set trigger options to trigger on temporal phase
-	vsgSetTriggerOptions(vsgTRIGOPT_OAS, -1, vsgTRIG_TEMPFREQ, 0.5, 0, 0, 0);
+	vsgSetTriggerOptions(vsgTRIGOPT_OAS, -1, vsgTRIG_TEMPFREQX2, 0.5, 0, 0, 0);
 
 
 	if (m_bHaveFixpt)
@@ -1189,7 +1190,8 @@ int CounterphaseStimSet::handle_trigger(std::string& s)
 		}
 		else
 		{
-			vsgObjTableSquareWave(vsgTWTABLE, vsgObjGetTableSize(vsgTWTABLE)*0.25, vsgObjGetTableSize(vsgTWTABLE)*0.75);
+//			vsgObjTableSquareWave(vsgTWTABLE, vsgObjGetTableSize(vsgTWTABLE)*0.25, vsgObjGetTableSize(vsgTWTABLE)*0.75);
+			vsgObjTableSquareWave(vsgTWTABLE, 0, vsgObjGetTableSize(vsgTWTABLE)*0.5);
 		}
 		vsgObjSetTemporalPhase(0);
 		if (m_bHaveFixpt)
