@@ -1,5 +1,5 @@
-' $Id: AcuteTuning.s2s,v 1.17 2012-06-20 20:43:04 jeff Exp $
-const tunCVSID$ := "$Id: AcuteTuning.s2s,v 1.17 2012-06-20 20:43:04 jeff Exp $";
+' $Id: AcuteTuning.s2s,v 1.18 2012-06-20 21:14:16 devel Exp $
+const tunCVSID$ := "$Id: AcuteTuning.s2s,v 1.18 2012-06-20 21:14:16 devel Exp $";
 
 
 #include "../../Spike2Util/ChannelUtilities.s2s"
@@ -646,18 +646,18 @@ proc InitializeWindows()
         rasterTotal := rasterPre + rasterPost + tunStimulusDuration;  'calculate total raster time
         histBins% := rasterTotal/histBinWidth;  'and number of bins
         handlePSTH%[i%] := View(DataWindow%).SetPsth(tunWavemarkPorts%[i%]+1,histBins%,histBinWidth,rasterPre,memChanRasterTriggers%,3);  '3 makes rasters and scales to spikes per second
-        WindowVisible(1);  'make window visible
         windowtitle$("No Data");  'name gets changed later
         Window(75, i%*WindowStep, 100, (i%+1)*WindowStep);  'size window as above, squeeze in
+        WindowVisible(1);  'make window visible
         FrontView(DataWindow%);  'bring main window back to front to avoid view is not a time view shit
         
         ' Create psth window if f1 and f2 analysis needed
         if tunDoF12% = 1 then
             
             ch1% := View(TuningWindow%[i%]).XYSetChan(0);   ' Used to plot f1
-            XYColour(ch1%, 16);
+            View(TuningWindow%[i%]).XYColour(ch1%, 16);
             ch2% := View(TuningWindow%[i%]).XYSetChan(0);   ' used to plot f2
-            XYColour(ch2%, 38);
+            View(TuningWindow%[i%]).XYColour(ch2%, 38);
             LogStatus("InitializeWindows", "Channel " + str$(i%+1) + " " + str$(ch1%) + " " + str$(ch2%));
             'PSTHWindow%[i%] := View(DataWindow%).SetPSTH(i%+1, 16, 1 /(tunTF*16), 0, 0, 3);
             PSTHWindow%[i%] := View(DataWindow%).SetPSTH(tunWavemarkPorts%[i%]+1, 16, 1 /(tunTF*16), 0, 0, 3);  'must use index to tWMP%[] now that channel #s correspond to port #s (+1)
