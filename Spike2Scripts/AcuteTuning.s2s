@@ -1,5 +1,5 @@
-' $Id: AcuteTuning.s2s,v 1.18 2012-06-20 21:14:16 devel Exp $
-const tunCVSID$ := "$Id: AcuteTuning.s2s,v 1.18 2012-06-20 21:14:16 devel Exp $";
+' $Id: AcuteTuning.s2s,v 1.19 2012-06-21 00:21:10 devel Exp $
+const tunCVSID$ := "$Id: AcuteTuning.s2s,v 1.19 2012-06-21 00:21:10 devel Exp $";
 
 
 #include "../../Spike2Util/ChannelUtilities.s2s"
@@ -66,12 +66,16 @@ var rasterPost := 0;  'No post-stim for now, but this will facilitate a change i
 var histBinWidth := 0.05;  'Just throwing out 50 ms as a number
 var histBins%;
 var myTitle$;
+var myTitle2$;
 
 ' Hold sum of F1 values. Each channel (up to 16) has values saved according to the index of the tuning value
 ' Rely on the fact that arrays are initialized with 0s in Spike2. 
 var tunF1Sum[16][tunMaxTrials%];
 var tunF2Sum[16][tunMaxTrials%];
 var tunTF;              ' Will need to use this during FFT analysis. Use at your own risk....
+var tunF1Cum[16];
+var tunF2Cum[16];
+var tunRateCum[16];
 
 ' djs 10-19-11 trigger hack for Visage trigger bug.
 var tunTriggerHack% := 1;
@@ -387,9 +391,7 @@ func IdleProcessing%()
 
     case iState% = stateWaitForStimTrigger% then
         
-        'Set stimCodes[0] to hold the index of the current stimulus
-        stimCodes%[0] := tunValuesIndices%[nTrialsCompleted%]; 'nTrialsCompleted has not yet been incremented, so this is right
-        
+                
         if tunTriggerHack% = 0 then
             if View(DataWindow%).FindRisingEdge%(StimChannel%, tLast, tTrigger) = 0 then
                 ' Stimulus has begun
@@ -419,9 +421,7 @@ func IdleProcessing%()
             endif
         endif
         
-        'log stimulus start time in textmark channel for raster triggering
-        view(DataWindow%).MemSetItem(memChanRasterTriggers%,0,tStimOn,stimCodes%[],Str$(tunValues[tunValuesIndices%[nTrialsCompleted%]]));
-
+        
         
         
         
@@ -436,6 +436,11 @@ func IdleProcessing%()
             SafeSampleKey("X");            
                         
             Yield();
+            
+            'Set stimCodes[0] to hold the index of the current stimulus
+            stimCodes%[0] := tunValuesIndices%[nTrialsCompleted%]; 'nTrialsCompleted has not yet been incremented, so this is right
+            'log stimulus start time in textmark channel for raster triggering
+            view(DataWindow%).MemSetItem(memChanRasterTriggers%,0,tStimOn,stimCodes%[],Str$(tunValues[tunValuesIndices%[nTrialsCompleted%]]));
             
             ' Process spikes
             PlotSpikes(tStimOn, tNow, 1, GetPlotXCoord(nTrialsCompleted%), nTrialsCompleted%);
@@ -544,15 +549,20 @@ proc PlotSpikes(t1, t2, vOnOff%, x, index%)
 	var rate;
     var i%;
     var tSweep;
-    var fftData[16];        ' size of this array should be same as number of bins!
+    var fftData[16];        ' size of this array should be same as number of bins! 
     
 	for i% := 0 to tunNWavemarks%-1 do
-		rate := View(DataWindow%).Count(i%+2, t1, t2)/(t2-t1);
+		rate := View(DataWindow%).Count(i%+1, t1, t2)/(t2-t1);
+        'tunRateCum := tunRateCum + rate;  'and this line doesn't work...oh array.
+        'if tunRateCum >= 0 then  'and array
 		if rate >= 0 then
 			if vOnOff% = 1 then
 				' this is signal
                 'PrintLog("%d Count %f\n", i%, rate*(t2-t1));
 				View(TuningWindow%[i%]).XYAddData(1, x, rate);    ' channel 1 is data; channel 2 is background
+                'Grr.  Deleting data will make this hard.
+                'View(TuningWindow%[i%]).XYDelete(1);
+                'View(TuningWindow%[i%]).XYAddData(1, x, tunRateCum/index%);    ' channel 1 is data; channel 2 is background
 			endif
 			' NOTE: IGNORING BACKGROUND HERE FOR THE TIME BEING. 
 	    endif 
@@ -629,7 +639,8 @@ proc InitializeWindows()
     'Create textmark channel to hold onset times of stimuli
     memChanRasterTriggers% := MemChan(8, 25); 'Create textmarker channel for stimtype
     ChanTitle$(MemChanRasterTriggers%,"RasterTriggers"); 'give it a title, could be useful if channel is saved
-    chanhide(MemChanRasterTriggers%); 'hide the memchan, don't need to see it.    
+    'chanhide(MemChanRasterTriggers%); 'hide the memchan, don't need to see it.    
+    chanshow(MemChanRasterTriggers%);
     
 	' open xy window to display tuning results    
     if tunNWavemarks% > 0 then
@@ -641,15 +652,17 @@ proc InitializeWindows()
         ChanTitle$(0, "Spikes/s");
         TuningCurveLabels(tunWavemarkPorts%[i%]);
         WindowVisible(1);        
+       
         
         'Create raster/PSTH result view for each electrode
         rasterTotal := rasterPre + rasterPost + tunStimulusDuration;  'calculate total raster time
         histBins% := rasterTotal/histBinWidth;  'and number of bins
         handlePSTH%[i%] := View(DataWindow%).SetPsth(tunWavemarkPorts%[i%]+1,histBins%,histBinWidth,rasterPre,memChanRasterTriggers%,3);  '3 makes rasters and scales to spikes per second
-        windowtitle$("No Data");  'name gets changed later
-        Window(75, i%*WindowStep, 100, (i%+1)*WindowStep);  'size window as above, squeeze in
-        WindowVisible(1);  'make window visible
+        View(handlePSTH%[i%]).windowtitle$("No Data");  'name gets changed later
+        View(handlePSTH%[i%]).Window(75, i%*WindowStep, 100, (i%+1)*WindowStep);  'size window as above, squeeze in
+        View(handlePSTH%[i%]).WindowVisible(1);  'make window visible
         FrontView(DataWindow%);  'bring main window back to front to avoid view is not a time view shit
+
         
         ' Create psth window if f1 and f2 analysis needed
         if tunDoF12% = 1 then
@@ -670,11 +683,13 @@ end;
 proc TuningCurveLabels(iport%)
 
     var s$;
-    s$ := "Port " + str$(iport%);
+    's$ := "Port " + str$(iport%);
+    s$ := "Electrode " + str$(iport%);
 	docase 
 		case tunType$ = tunTypeContrast$ then
         
             myTitle$ := s$ + " - Contrast = ";
+            myTitle2$ := " - Contrast = ";
 			WindowTitle$("Contrast Tuning - " + s$);
 			XUnits$("Contrast (%)");
 			ChanTitle$(1, "Chan 1");
@@ -683,6 +698,7 @@ proc TuningCurveLabels(iport%)
 		case tunType$ = tunTypeOrientation$ then
         
             myTitle$ := s$ + " - Orientation = ";
+            myTitle2$ := " - Orientation = ";
 			WindowTitle$("Orientation Tuning - " + s$);
 			XUnits$("Orientation (degrees)");
 			ChanTitle$(1, "Chan 1");
@@ -691,6 +707,7 @@ proc TuningCurveLabels(iport%)
 		case tunType$ = tunTypeSpatial$ then
         
             myTitle$ := s$ + " - Spatial Freq = ";
+            myTitle2$ := " - Spatial Freq = ";
 			WindowTitle$("Spatial Frequency Tuning - " + s$);
 			XUnits$("Spatial Frequency");
 			ChanTitle$(1, "Chan 1");
@@ -699,6 +716,7 @@ proc TuningCurveLabels(iport%)
 		case tunType$ = tunTypeTemporal$ then
         
             myTitle$ := s$ + " - Temporal Freq = ";
+            myTitle2$ := " - Temporal Freq = ";
 			WindowTitle$("Temporal Frequency Tuning - " + s$);
 			XUnits$("Temporal Frequency");
 			ChanTitle$(1, "Chan 1");
@@ -707,6 +725,7 @@ proc TuningCurveLabels(iport%)
 		case tunType$ = tunTypeArea$ then
         
             myTitle$ := s$ + " - Area = ";
+            myTitle2$ := " - Area = ";
 			WindowTitle$("Aperture Area Tuning - " + s$);
 			XUnits$("Aperture Diameter");
 			ChanTitle$(1, "Chan 1");
@@ -715,6 +734,7 @@ proc TuningCurveLabels(iport%)
         case tunType$ = tunTypeDriftingBar$ then
         
             myTitle$ := s$ + " - Bar Orientation = ";
+            myTitle2$ := " - Bar Orientation = ";
 			WindowTitle$("Drifting Bar Orientation Tuning - " + s$);
 			XUnits$("Orientation (degrees)");
 			ChanTitle$(1, "Chan 1");
@@ -723,6 +743,7 @@ proc TuningCurveLabels(iport%)
         case tunType$ = tunTypeNullTest$ then
         
             myTitle$ := s$ + " - Phase = ";
+            myTitle2$ := " - Phase = ";
 			WindowTitle$("Null Test Counterphase Tuning - " + s$);
 			XUnits$("Phase (degrees)");
 			ChanTitle$(1, "Chan 1");
@@ -801,8 +822,9 @@ proc CreateSampleConfiguration()
         SampleAutoName$(dataCellName$ + "_tun_000");
     endcase;
     
-    printlog("unique? %f\n",tunValues[]);
-    printlog("all indices? %d\n",tunValuesIndices%[]);
+    printlog("values are %f\n",tunValues[]);
+    printlog("Indices are %d\n",tunValuesIndices%[]);
+    
     
     SampleAutoFile(1);
     
@@ -899,7 +921,21 @@ func Stop%()
             LogStatus("F1 Max", "Channel " + str$(i%+1) + " Port " + str$(tunWavemarkPorts%[i%]) + " max F1 at x=" + str$(tunValues[m%]));
         next
     endif    
-
+    
+    ' Plot rasters for each individual stimulus, for each electrode
+    for j% := 0 to tunNWavemarks%-1 do
+        for i% := 0 to tunValuesIndices%[max(tunValuesIndices%[])] do
+            handlePSTH%[i%] := View(DataWindow%).SetPsth(tunWavemarkPorts%[j%]+1,histBins%,histBinWidth,rasterPre,memChanRasterTriggers%,3);  '3 makes rasters and scales to spikes per second
+            'not sure what the best sizing mech is, punting for now
+            'View(handlePSTH%[i%]).Window(75, i%*WindowStep, 100, (i%+1)*WindowStep);  'size window as above, squeeze in
+            View(handlePSTH%[i%]).WindowVisible(1);  'make window visible
+            
+            'create the raster
+            view(handlePSTH%[i%]).process(0,view(-1).maxtime(),1,1,0,MemChanRasterTriggers%,rasterTotal,rasterPre,i%);  'Update single-stim histogram        
+            'And update the title, to indicate which stimulus it is
+            view(handlePSTH%[i%]).windowtitle$("Electrode " + Str$(tunWavemarkPorts%[j%]) + myTitle2$ + Str$(tunValues[i%]));  'Rename single-stim histogram
+        next
+    next
 end;
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
