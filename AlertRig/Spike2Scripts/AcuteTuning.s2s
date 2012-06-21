@@ -1,5 +1,5 @@
-' $Id: AcuteTuning.s2s,v 1.20 2012-06-21 18:56:06 jeff Exp $
-const tunCVSID$ := "$Id: AcuteTuning.s2s,v 1.20 2012-06-21 18:56:06 jeff Exp $";
+' $Id: AcuteTuning.s2s,v 1.21 2012-06-21 19:33:51 devel Exp $
+const tunCVSID$ := "$Id: AcuteTuning.s2s,v 1.21 2012-06-21 19:33:51 devel Exp $";
 
 
 #include "../../Spike2Util/ChannelUtilities.s2s"
@@ -550,23 +550,23 @@ proc PlotSpikes(t1, t2, vOnOff%, x, index%)
     var i%;
     var tSweep;
     var fftData[16];        ' size of this array should be same as number of bins! 
-    var index2%;
+    'var index2%;
     
-    index2% := ArrFindFloat%(tunValues[],x);  'this is going to correspond to the index of the XYPlot that will be deleted/updated
+    'index2% := ArrFindFloat%(tunValues[],x);  'this is going to correspond to the index of the XYPlot that will be deleted/updated
     
 	for i% := 0 to tunNWavemarks%-1 do
 		rate := View(DataWindow%).Count(i%+1, t1, t2)/(t2-t1);
-        tunRateCum[i%] := tunRateCum[i%] + rate;  
-        if tunRateCum[i%] >= 0 then  
-		'if rate >= 0 then
+        'tunRateCum[i%] := tunRateCum[i%] + rate;  
+        'if tunRateCum[i%] >= 0 then  
+		if rate >= 0 then
 			if vOnOff% = 1 then
 				' this is signal
                 'PrintLog("%d Count %f\n", i%, rate*(t2-t1));
-				'View(TuningWindow%[i%]).XYAddData(1, x, rate);    ' channel 1 is data; channel 2 is background
+				View(TuningWindow%[i%]).XYAddData(1, x, rate);    ' channel 1 is data; channel 2 is background
                 'Grr.  Deleting data will make this hard.
-                View(TuningWindow%[i%]).XYSort(1,1);  'sort by x
-                View(TuningWindow%[i%]).XYDelete(1,index2%);  'delete the last entry for this value
-                View(TuningWindow%[i%]).XYAddData(1, x, tunRateCum[i%]/index%);    ' channel 1 is data; channel 2 is background
+                'View(TuningWindow%[i%]).XYSort(1,1);  'sort by x
+                'View(TuningWindow%[i%]).XYDelete(1,index2%);  'delete the last entry for this value
+                'View(TuningWindow%[i%]).XYAddData(1, x, tunRateCum[i%]/(index%+1));    ' channel 1 is data; channel 2 is background
 			endif
 			' NOTE: IGNORING BACKGROUND HERE FOR THE TIME BEING. 
 	    endif 
@@ -574,7 +574,7 @@ proc PlotSpikes(t1, t2, vOnOff%, x, index%)
         'update the raster even if there are no spikes on this trial
         view(handlePSTH%[i%]).process(0,view(-1).maxtime(),1,1,0,MemChanRasterTriggers%,rasterTotal,rasterPre,stimCodes%[0]);  'Update single-stim histogram        
         'And update the title, to indicate which stimulus it is
-        view(handlePSTH%[i%]).windowtitle$(myTitle$ + Str$(tunValues[tunValuesIndices%[nTrialsCompleted%]]));  'Rename single-stim histogram
+        view(handlePSTH%[i%]).windowtitle$("Electrode " + Str$(tunWavemarkPorts%[i%]) + myTitle2$ + Str$(tunValues[tunValuesIndices%[nTrialsCompleted%]]));  'Rename single-stim histogram
         
         
         if tunDoF12% = 1 and vOnOff% = 1 then
@@ -587,16 +587,16 @@ proc PlotSpikes(t1, t2, vOnOff%, x, index%)
 			ArrConst(fftData[], View(PSTHWindow%[i%]).[]);
 			ArrFFT(fftData[], 4); 
             
-            tunF1Cum[i%] += fftdata[1];
-            tunF2Cum[i%] += fftdata[2];
-            View(TuningWindow%[i%]).XYSort(2,1);  'sort by x
-            View(TuningWindow%[i%]).XYSort(3,1);  'sort by x
-            View(TuningWindow%[i%]).XYDelete(2,index2%);  'delete the last entry for this value
-            View(TuningWindow%[i%]).XYDelete(3,index2%);  'delete the last entry for this value
-            'View(TuningWindow%[i%]).XYAddData(2, x, fftData[1]);
-            'View(TuningWindow%[i%]).XYAddData(3, x, fftData[2]);
-            View(TuningWindow%[i%]).XYAddData(2, x, tunF1Cum[i%]/index%);
-            View(TuningWindow%[i%]).XYAddData(3, x, tunF2Cum[i%]/index%);
+            'tunF1Cum[i%] += fftdata[1];
+            'tunF2Cum[i%] += fftdata[2];
+            'View(TuningWindow%[i%]).XYSort(2,1);  'sort by x
+            'View(TuningWindow%[i%]).XYSort(3,1);  'sort by x
+            'View(TuningWindow%[i%]).XYDelete(2,index2%);  'delete the last entry for this value
+            'View(TuningWindow%[i%]).XYDelete(3,index2%);  'delete the last entry for this value
+            View(TuningWindow%[i%]).XYAddData(2, x, fftData[1]);
+            View(TuningWindow%[i%]).XYAddData(3, x, fftData[2]);
+            'View(TuningWindow%[i%]).XYAddData(2, x, tunF1Cum[i%]/(index%+1));
+            'View(TuningWindow%[i%]).XYAddData(3, x, tunF2Cum[i%]/(index%+1));
             tunF1Sum[i%][index%] += fftData[1];
             tunF2Sum[i%][index%] += fftData[2];
         endif
