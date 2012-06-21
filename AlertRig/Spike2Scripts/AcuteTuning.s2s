@@ -1,5 +1,5 @@
-' $Id: AcuteTuning.s2s,v 1.21 2012-06-21 19:33:51 devel Exp $
-const tunCVSID$ := "$Id: AcuteTuning.s2s,v 1.21 2012-06-21 19:33:51 devel Exp $";
+' $Id: AcuteTuning.s2s,v 1.22 2012-06-21 22:59:57 jeff Exp $
+const tunCVSID$ := "$Id: AcuteTuning.s2s,v 1.22 2012-06-21 22:59:57 jeff Exp $";
 
 
 #include "../../Spike2Util/ChannelUtilities.s2s"
@@ -67,6 +67,9 @@ var histBinWidth := 0.05;  'Just throwing out 50 ms as a number
 var histBins%;
 var myTitle$;
 var myTitle2$;
+var trodes[10];  'global, for creating rasters at the end
+var vals[30];    'global, for creating rasters at the end
+var handlePSTHend%[10];  'For creating rasters at the end
 
 ' Hold sum of F1 values. Each channel (up to 16) has values saved according to the index of the tuning value
 ' Rely on the fact that arrays are initialized with 0s in Spike2. 
@@ -936,19 +939,23 @@ func Stop%()
     endif    
     
     ' Plot rasters for each individual stimulus, for each electrode
-    for j% := 0 to tunNWavemarks%-1 do
-        for i% := 0 to tunValuesIndices%[max(tunValuesIndices%[])] do
-            handlePSTH%[i%] := View(DataWindow%).SetPsth(tunWavemarkPorts%[j%]+1,histBins%,histBinWidth,rasterPre,memChanRasterTriggers%,3);  '3 makes rasters and scales to spikes per second
-            'not sure what the best sizing mech is, punting for now
-            'View(handlePSTH%[i%]).Window(75, i%*WindowStep, 100, (i%+1)*WindowStep);  'size window as above, squeeze in
-            View(handlePSTH%[i%]).WindowVisible(1);  'make window visible
-            
-            'create the raster
-            view(handlePSTH%[i%]).process(0,view(-1).maxtime(),1,1,0,MemChanRasterTriggers%,rasterTotal,rasterPre,i%);  'Update single-stim histogram        
-            'And update the title, to indicate which stimulus it is
-            view(handlePSTH%[i%]).windowtitle$("Electrode " + Str$(tunWavemarkPorts%[j%]) + myTitle2$ + Str$(tunValues[i%]));  'Rename single-stim histogram
-        next
-    next
+    ' Caitlin sez "too many rasters"
+    'for j% := 0 to tunNWavemarks%-1 do
+    '    for i% := 0 to tunValuesIndices%[max(tunValuesIndices%[])] do
+    '        handlePSTH%[i%] := View(DataWindow%).SetPsth(tunWavemarkPorts%[j%]+1,histBins%,histBinWidth,rasterPre,memChanRasterTriggers%,3);  '3 makes rasters and scales to spikes per second
+    '        'not sure what the best sizing mech is, punting for now
+    '        'View(handlePSTH%[i%]).Window(75, i%*WindowStep, 100, (i%+1)*WindowStep);  'size window as above, squeeze in
+    '        View(handlePSTH%[i%]).WindowVisible(1);  'make window visible
+    '        
+    '        'create the raster
+    '        view(handlePSTH%[i%]).process(0,view(-1).maxtime(),1,1,0,MemChanRasterTriggers%,rasterTotal,rasterPre,i%);  'Update single-stim histogram        
+    '        'And update the title, to indicate which stimulus it is
+    '        view(handlePSTH%[i%]).windowtitle$("Electrode " + Str$(tunWavemarkPorts%[j%]) + myTitle2$ + Str$(tunValues[i%]));  'Rename single-stim histogram
+    '    next
+    'next
+    
+    InvestigateRastersDialog%();
+    
 end;
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
@@ -1248,3 +1255,75 @@ Func StringifyProgression$(n%, vec[], ind%[])
 	return s$;
 end;
 
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'Allow investigation of rasters
+
+func InvestigateRastersDialog%()
+	var i%;
+    var trodes$[10];
+    'var trodes[10];  'make global
+    var vals$[30];
+    'var vals[30];    'make global
+    var nTrodes%;
+    var nVals%;
+    var ind1%;
+    var ind2%;
+    var temp;
+    
+    ArrConst(trodes,-4341);  'arbitrary values that won't come up
+    ArrConst(vals,-235124);
+    
+    'Fill out lists, get number of unique entries
+    for i% := 1 to Len(trodes$[]) do
+        temp := tunWavemarkPorts%[i%];
+        if ArrFindFloat%(trodes,temp) = -1 and nTrodes% = 0 then
+            nTrodes% := i% + 1;
+        endif;
+        trodes$[i%] := Str$(tunWavemarkPorts%[i%]);
+    next;
+    
+    for i% := 1 to Len(vals$[]) do
+        temp := tunValues[i%];
+        if ArrFindFloat%(vals,temp) = -1 and nVals% = 0 then
+            nVals% := i% + 1;
+        endif;
+        vals$[i%] := Str$(tunValues[i%]);
+    next;
+    
+	DlgCreate("Investigate Rasters", 50, 10);
+	DlgList(1, "Electrode:", trodes$, nTrodes%, 20, 2);  'List of available electrodes
+    DlgList(2, "Tuning Curve Value:", vals$, nVals%, 20, 3);  
+
+	'DlgButton(1, "View Raster", InvestigateRasters%, 2, 5);
+    DlgAllow(1023,0,InvestigateRasters%);
+    
+    i%:=DlgShow(ind1%,ind2%);  'we're not keeping any of these values
+    
+    return 1;
+        
+end;
+
+
+func InvestigateRasters%(i%)
+    var t%;
+    var v%;
+    
+    t% := DlgValue(1);
+    v% := DlgValue(2);
+
+    'create window for each 'trode requested
+    if handlePSTHend%[tunWavemarkPorts%[t%]] = 0 then
+        handlePSTHend%[tunWavemarkPorts%[t%]] := View(DataWindow%).SetPsth(tunWavemarkPorts%[t%]+1,histBins%,histBinWidth,rasterPre,memChanRasterTriggers%,3);  '3 makes rasters and scales to spikes per second
+    endif;
+    
+    'not sure what the best sizing mech is, punting for now
+    View(handlePSTH%[tunWavemarkPorts%[t%]]).Window(75, 0, 100, 33);  'arbitrary
+    View(handlePSTH%[tunWavemarkPorts%[t%]]).WindowVisible(1);  'make window visible        
+    'create the raster
+    view(handlePSTH%[tunWavemarkPorts%[t%]]).process(0,view(-1).maxtime(),1,1,0,MemChanRasterTriggers%,rasterTotal,rasterPre,v%);  'Update single-stim histogram        
+    'And update the title, to indicate which stimulus it is
+    view(handlePSTH%[tunWavemarkPorts%[t%]]).windowtitle$("Electrode " + Str$(tunWavemarkPorts%[t%]) + myTitle2$ + Str$(tunValues[i%]));  'Rename single-stim histogram
+
+    return 1;
+end;
