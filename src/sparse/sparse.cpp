@@ -35,6 +35,8 @@ int f_nterms = 0;
 double f_tbefore = 1.0;
 double f_tafter = 1.0;
 bool f_binaryTriggers = true;
+bool f_bigDump = false;
+bool f_bInvertBW = false;		// if true, inverts sense of black/white pages (for testing revcorr only!)
 TriggerVector triggers;
 PageCyclingTrigger *f_ptrigCycling = NULL;
 VSGCYCLEPAGEENTRY f_MPositions[32768];
@@ -47,6 +49,7 @@ void prepare_page_cycling();
 void init_triggers();
 int callback(int &output, const CallbackTrigger* ptrig);
 bool is_term_onscreen(int ix, int iy);
+void big_dump();
 
 int main(int argc, char **argv)
 {
@@ -55,6 +58,13 @@ int main(int argc, char **argv)
 	if (args(argc, argv))
 	{
 		return 1;
+	}
+
+	// If dump, dump and quit.
+	if (f_bigDump)
+	{
+		big_dump();
+		return 0;
 	}
 
 	// INit vsg
@@ -121,47 +131,53 @@ int main(int argc, char **argv)
 	vsgIOWriteDigitalOut(0, vsgDIG6);
 
 
-	// All right, start monitoring triggers........
-	std::string s;
-	int last_output_trigger=0;
-	int input_trigger=0;
-	while (1)
+	if (f_bTesting)
 	{
-		// If user-triggered, get a trigger entry. 
-		if (!f_binaryTriggers)
-		{
-			// Get a new "trigger" from user
-			cout << "Enter trigger/key: ";
-			cin >> s;
-		}
-		else
-		{
-			input_trigger = vsgIOReadDigitalIn();
-		}
-
-		TriggerFunc	tf = std::for_each(triggers.begin(), triggers.end(), 
-			(f_binaryTriggers ? TriggerFunc(input_trigger, last_output_trigger) : TriggerFunc(s, last_output_trigger)));
-
-		// Now analyze input trigger
-	 	
-		if (tf.quit()) 
-		{
-			// quitting in the middle of page cycling requires special handling
-			vsgSetCommand(vsgCYCLEPAGEDISABLE);
-			vsgMoveScreen(0, 0);
-			break;
-		}
-		else if (tf.present())
-		{	
-			last_output_trigger = tf.output_trigger();
-			vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, tf.output_trigger(), 0);
-			vsgPresent();
-		}
-
-		// Throttle cpu usage a little. No need to be in hyperspeed checking for triggers here. 
-		Sleep(100);
+		do_testing();
 	}
+	else
+	{
+		// All right, start monitoring triggers........
+		std::string s;
+		int last_output_trigger=0;
+		int input_trigger=0;
+		while (1)
+		{
+			// If user-triggered, get a trigger entry. 
+			if (!f_binaryTriggers)
+			{
+				// Get a new "trigger" from user
+				cout << "Enter trigger/key: ";
+				cin >> s;
+			}
+			else
+			{
+				input_trigger = vsgIOReadDigitalIn();
+			}
 
+			TriggerFunc	tf = std::for_each(triggers.begin(), triggers.end(), 
+				(f_binaryTriggers ? TriggerFunc(input_trigger, last_output_trigger) : TriggerFunc(s, last_output_trigger)));
+
+			// Now analyze input trigger
+		 	
+			if (tf.quit()) 
+			{
+				// quitting in the middle of page cycling requires special handling
+				vsgSetCommand(vsgCYCLEPAGEDISABLE);
+				vsgMoveScreen(0, 0);
+				break;
+			}
+			else if (tf.present())
+			{	
+				last_output_trigger = tf.output_trigger();
+				vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, tf.output_trigger(), 0);
+				vsgPresent();
+			}
+
+			// Throttle cpu usage a little. No need to be in hyperspeed checking for triggers here. 
+			Sleep(100);
+		}
+	}
 
 //	cout << "Releasing lock" << endl;
 //	ARvsg::instance().release_lock();
@@ -273,9 +289,15 @@ void prepare_page_cycling()
 		iterm = i+1;
 		term = f_pterms[iterm]%(2*16*16);
 		if (term % 2) 
-			ipage=0;				// white dot
-		else 
-			ipage=2;				// black dot
+		{
+			ipage = 0;				// white dot
+			if (f_bInvertBW) ipage = 2;
+		}
+		else
+		{
+			ipage = 2;				// black dot
+			if (f_bInvertBW) ipage = 0;
+		}
 
 		iy = term/(2*16);							// TODO hard coded for 16 x 16
 		ix = (term %(2*16))/2;
@@ -353,6 +375,51 @@ int load_stimulus(const string& sfilename)
 }
 
 
+// dump terms to txt file sparse.txt
+void big_dump()
+{
+	int i, iterm;
+	int term;
+	int ix, iy;
+	int x, y;
+	int idot;
+	ofstream out("sparse.txt");
+	if (!out)
+	{
+		cerr << "Cannot open sparse.txt." << endl;
+	}
+	else
+	{
+		out << "i  iterm  ix iy idot" << endl;
+		out << "ix, iy are position in grid. Positive right,down." << endl;
+		out << "idot = 1 (0) : white (black)" << endl;
+		for (i=0; i<f_nterms; i++)
+		{
+			iterm = i+1;
+			term = f_pterms[iterm]%(2*16*16);
+
+			if (term % 2) 
+				//ipage=0;				// white dot
+				idot = 1;
+			else 
+				//ipage=2;				// black dot
+				idot = 0;
+
+			iy = term/(2*16);							// TODO hard coded for 16 x 16
+			ix = (term %(2*16))/2;
+
+	//		x = f_pixBoxX - f_scxGridX - ix*f_iDotSize;
+	//		y = f_pixBoxY - f_scxGridY - iy*f_iDotSize;
+
+			out << i << " " << iterm << " " << ix << " " << iy << " " << idot << endl;
+		}
+		out.close();
+		cerr << "Dumped terms to sparse.txt." << endl;
+	}
+	return;
+}
+
+
 int args(int argc, char **argv)
 {	
 	string s;
@@ -367,12 +434,18 @@ int args(int argc, char **argv)
 	bool have_t = false;
 	bool have_f = false;
 
-	while ((c = getopt(argc, argv, "d:p:r:c:t:hvVf:TR:a")) != -1)
+	while ((c = getopt(argc, argv, "d:p:r:c:t:hvVf:TR:aDI")) != -1)
 	{
 		switch (c) 
 		{
 		case 'a':
 			f_binaryTriggers = false;
+			break;
+		case 'D':
+			f_bigDump = true;
+			break;
+		case 'I':
+			f_bInvertBW = true;
 			break;
 		case 'T':
 			f_bTesting = true;
