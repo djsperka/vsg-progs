@@ -1,4 +1,4 @@
-' $Id: Fixation.s2s,v 1.25 2012-04-12 21:36:58 devel Exp $
+' $Id: Fixation.s2s,v 1.26 2012-06-25 23:46:38 devel Exp $
 ' Update 11/8/11 Jeff, includes SafeSampleKey and multi-juicer updates
 
 #include "../../Spike2Util/UsreyUtil.s2s"
@@ -464,7 +464,7 @@ proc CreateSampleConfiguration()
 	SampleTitle$(TriggerChannel%, "Trigger");
 
 	' channel to look for ready signal from vsg
-	SampleEvent(ReadyChannel%,6,2,3600); 'Trigger channel, level
+	SampleEvent(ReadyChannel%, 1, 2, 3600); 'Trigger channel, level
 	SampleComment$(ReadyChannel%,"VSG Ready");
 	SampleTitle$(ReadyChannel%,"VSG Ready");
 
