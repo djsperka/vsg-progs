@@ -33,6 +33,7 @@ TriggerVector triggers;
 bool m_binaryTriggers = true;
 bool m_bCalibration = false;
 double m_dCalibrationOffset = 0.0;
+int f_pulse = 0x2;
 
 static void usage();
 static int init_pages();
@@ -85,7 +86,7 @@ int main (int argc, char *argv[])
 	init_triggers();
 
 	// Issue "ready" triggers to spike2.
-	ARvsg::instance().ready_pulse(500);
+	ARvsg::instance().ready_pulse(500, f_pulse);
 
 	// Start monitoring triggers........
 	std::string s;
