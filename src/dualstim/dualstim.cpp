@@ -1,4 +1,4 @@
-/* $Id: dualstim.cpp,v 1.9 2012-04-10 16:57:24 devel Exp $ */
+/* $Id: dualstim.cpp,v 1.10 2012-06-26 20:47:41 devel Exp $ */
 
 #include <iostream>
 #include <fstream>
@@ -59,7 +59,7 @@ int main (int argc, char *argv[])
 	int status = 0;
 
 	// Check input arguments
-	status = prargs(argc, argv, prargs_callback, "f:b:d:avg:s:C:T:S:O:A:DMVr:H:Zp:Ky:t:X:Y:h:nR:", 'F');
+	status = prargs(argc, argv, prargs_callback, "f:b:d:avg:s:C:T:S:O:A:DMVr:H:Zp:Ky:t:X:Y:h:nR:c:", 'F');
 	if (status)
 	{
 		return -1;
@@ -196,6 +196,7 @@ int prargs_callback(int c, string& arg)
 	static bool have_d = false;
 	static bool have_w = false;
 	static bool have_t = false;
+	static bool have_c = false;
 	static bool have_offset = false;
 	int delay=0, frames=0;
 	string sequence_filename;
