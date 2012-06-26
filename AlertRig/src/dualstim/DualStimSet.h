@@ -12,10 +12,13 @@ private:
 	double m_dstimtime_sec;
 	ARContrastFixationPointSpec m_fixpt;
 	ARXhairSpec m_xhair;
-	ARGratingSpec m_grating;
 	bool m_have_fixpt;
 	bool m_have_xhair;
+
+protected:
+	ARGratingSpec m_grating;
 	bool m_have_grating;
+
 public:
 	StimSetBase(): m_nframes_on(1), m_nframes_delay(0), m_nframes_fixpt_delay(0), m_dstimtime_sec(0.0), m_have_fixpt(false), m_have_xhair(false), m_have_grating(false) {};
 	~StimSetBase() {};
@@ -36,8 +39,8 @@ public:
 	void set_fixpt(ARFixationPointSpec& fixpt, double xoffset, double yoffset);
 	void set_xhair(ARXhairSpec& xhair);
 	void set_xhair(ARXhairSpec& xhair, double xoffset, double yoffset);
-	void set_grating(ARGratingSpec& grating);
-	void set_grating(ARGratingSpec& grating, double xoffset, double yoffset);
+	virtual void set_grating(ARGratingSpec& grating);
+	virtual void set_grating(ARGratingSpec& grating, double xoffset, double yoffset);
 
 	virtual bool has_fixpt() const { return m_have_fixpt; };
 	virtual bool has_xhair() const { return m_have_xhair; };
@@ -46,7 +49,7 @@ public:
 	ARContrastFixationPointSpec& fixpt() { return m_fixpt; };
 	const ARContrastFixationPointSpec& fixpt() const { return m_fixpt; };
 	ARXhairSpec& xhair() { return m_xhair; };
-	ARGratingSpec& grating() { return m_grating; };
+	virtual ARGratingSpec& grating() { return m_grating; };
 };
 
 #define _STIM_SET_BASE
