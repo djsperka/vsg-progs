@@ -1,4 +1,4 @@
-' $Id: Fixation.s2s,v 1.27 2012-06-29 21:56:19 devel Exp $
+' $Id: Fixation.s2s,v 1.28 2012-06-29 22:50:01 jeff Exp $
 ' Update 11/8/11 Jeff, includes SafeSampleKey and multi-juicer updates
 
 #include "../../Spike2Util/UsreyUtil.s2s"
@@ -36,6 +36,10 @@ var fixBackgroundColor$;			' Background color for stim
 var fixCalibrationFlag%;			' 1 for calibration run
 var fixCalibrationOffset;			' degree offset for calibration dots
 var fixAlwaysLooking% := 0;
+var fixInterleaveLED%;              'If 1, interleave fixation LED with fixation point
+var fixSaveData%;                   'If 1, save data to fixSaveDataName$;
+var fixSaveDataName$ := "F:\\Experiments\\fixation\\fixdata.mat";
+
 proc GetFixationScriptParameters()
 	var stmp$;
 	var key$;
@@ -60,6 +64,8 @@ proc GetFixationScriptParameters()
 	Profile(key$, "UseDistractor3Flag", 0, fixDistractor3Flag%);
 	Profile(key$, "UseDistractor4Flag", 0, fixDistractor4Flag%);
 	Profile(key$, "DoCalibrationFlag", 0, fixCalibrationFlag%);
+    Profile(key$, "InterleaveLED", 0, fixInterleaveLED%);
+    Profile(key$, "SaveData", 0, fixSaveData%);
 	Profile(key$, "CalibrationOffset", "5.0", stmp$);
 	fixCalibrationOffset := val(stmp$);
 end;
@@ -80,6 +86,8 @@ proc SaveFixationScriptParameters()
 	Profile(key$, "UseDistractor3Flag", fixDistractor3Flag%);
 	Profile(key$, "UseDistractor4Flag", fixDistractor4Flag%);
 	Profile(key$, "DoCalibrationFlag", fixCalibrationFlag%);
+    Profile(key$, "InterleaveLED", fixInterleaveLED%);
+    Profile(key$, "SaveData", fixSaveData%);
 	Profile(key$, "CalibrationOffset", str$(fixCalibrationOffset));
 end;
 
@@ -104,16 +112,18 @@ func FixationScriptDialog%()
 	DlgReal(3, "Intertrial time(s):", .01, 10);
 	DlgInteger(4, "Number of Trials:", 1, 1000);
 	DlgList(5, "Background color:", bcl$);
-	DlgCheck(6, "Use stimulus?");
-	DlgCheck(7, "Use distractor 1?");
-	DlgCheck(8, "Use distractor 2?");
-	DlgCheck(9, "Use distractor 3?");
-	DlgCheck(10, "Use distractor 4?");
-	DlgCheck(11, "Calibration run?");
-	DlgReal(12, "Calibration offset (deg):", 0, 10);
-    DlgCheck(13, "Always looking?");
-	i%:=DlgShow(fixFixationDuration, fixAcquisitionTime, fixInterTrialTime, fixNumberOfTrials%, ibcl%, fixStimulusFlag%, 
-    fixDistractor1Flag%, fixDistractor2Flag%, fixDistractor3Flag%, fixDistractor4Flag%, 
+    DlgCheck(6, "Interleave Fixation LED?");
+    DlgCheck(7, "Save Data?");
+	DlgCheck(8, "Use stimulus?");
+	DlgCheck(9, "Use distractor 1?"); 
+	DlgCheck(10, "Use distractor 2?");
+	DlgCheck(11, "Use distractor 3?");
+	DlgCheck(12, "Use distractor 4?");
+	DlgCheck(13, "Calibration run?");
+	DlgReal(14, "Calibration offset (deg):", 0, 10);
+    DlgCheck(15, "Always looking?");
+	i%:=DlgShow(fixFixationDuration, fixAcquisitionTime, fixInterTrialTime, fixNumberOfTrials%, ibcl%, fixInterleaveLED%,
+    fixSaveData%, fixStimulusFlag%, fixDistractor1Flag%, fixDistractor2Flag%, fixDistractor3Flag%, fixDistractor4Flag%, 
     fixCalibrationFlag%, fixCalibrationOffset, fixAlwaysLooking%);
 	if i% = 1 then
 		fixBackgroundColor$ := bcl$[ibcl%];
@@ -135,6 +145,7 @@ end;
 
 ' Window handles and channel numbers
 var XChannel%,YChannel%;		' Channel number assigned to eye x and y
+var keyboardChannel%:=31;       'this is the number of the keyboard channel
 var TriggerChannel%;			' Channel number assigned to vsg trigger input (i.e. trigger sent by vsg)
 var ReadyChannel%;			' channel number for VSG ready pulse signal
 var DataWindow%;	' time view
@@ -171,6 +182,10 @@ if FixationScriptDialog%() = 0 then
     halt;
 endif
 
+if fixCalibrationFlag% = 1 and fixInterleaveLED% = 1 then
+    message("Calibration Flag and Interleave LED flag cannot be simultaneously implemented!");
+    halt;
+endif
 
 
 ' Assign channel numbers for eye X,Y and trigger. 
@@ -206,7 +221,13 @@ const stateInterval%		:= 9;
 const stateDone%		:= 10;
 const stateVSGWait%:=10;		' wait for vsg to send ready signal #1
 const stateVSGWaitConfirm%:=11;		' waif for vsg to send ready signal #2
-
+const statePreLEDInterval%:=12;
+const stateStartLEDTrial%:=13;
+const stateWaitForLEDAcquisition%:=14;
+const stateHoldLEDFixation%:=15;
+const stateLEDFailure%:=16;
+const stateLEDSuccess%:=17;
+const stateLEDStimOff%:=18;
 
 var tNow:=0;		' latest time for which there are values recorded. Used in IdleProcessing
 var tLast:=-1;		' last time we checked for a trigger. 
@@ -220,6 +241,9 @@ var tTrigger:=-1;	' temp var for newly discovered trigger times
 var nTrialsStarted%:=0;
 var nTrialsSuccess%:=0;
 var nTrialsFail%:=0;
+var nLEDTrialsStarted%:=0;
+var nLEDTrialsSuccess%:=0;
+var nLEDTrialsFail%:=0;
 
 ' Run real time analysis here. 
 func IdleProcessing%()
@@ -269,15 +293,19 @@ func IdleProcessing%()
         ' initial state on startup. 
         ' DIGOUT to present stimulus
         ' Enter state 1
-
-        nTrialsStarted% += 1;
-        iStimIndex% := (iStimIndex% + 1) mod 8;
-
-        ' calibration run does not require a separate trigger - the setting of the seqvar does the trick. 
-        if fixCalibrationFlag% = 1 then
-            DoSampleKey();
-        else
-            SafeSampleKey("H");
+        if Pause% = 0 then
+            nTrialsStarted% += 1;
+            iStimIndex% := (iStimIndex% + 1) mod 8;
+            
+            ' calibration run does not require a separate trigger - the setting of the seqvar does the trick. 
+            if fixCalibrationFlag% = 1 then
+                DoSampleKey();
+            else
+                SafeSampleKey("H");
+            endif
+            iState% := stateWaitForStim%;
+            '			PrintLog("State 0 - Start new trial - stimulus trigger sent\n");
+            UpdateToolbarText();
         endif
         ChangeStateTo(stateWaitForStim%, tNow);
         UpdateToolbarText();
@@ -357,7 +385,13 @@ func IdleProcessing%()
     
                 ' Stimulus has been turned off by vsg. Enter state 6
                 '					PrintLog("State 5 - Stim OFF trigger found. Enter state 6\n");
-                ChangeStateTo(stateCheckTrial%, tTrigger);
+                if fixInterleaveLED% = 0 then
+                    ChangeStateTo(stateCheckTrial%, tTrigger);
+                else
+					ChangeStateTo(statePreLEDInterval%, tTrigger);
+                endif
+                tStateStart := tTrigger;
+                tLastTrigger := tTrigger;
                 LogStatus("WaitForBlank", "Stim off trig");
             else
                 ' this should never happen!
@@ -367,7 +401,101 @@ func IdleProcessing%()
             endif
 
         endif
+        
+    case iState% = statePreLEDInterval% then
+        ' Inter-trial wait time
+        if tNow - tStateStart > fixInterTrialTime then
 
+            iState% := stateStartLEDTrial%;
+            tStateStart := tNow;
+
+        endif
+        
+
+
+    case iState% = stateStartLEDTrial% then
+
+        ' initial state on startup. 
+        ' DIGOUT to present stimulus
+        ' Enter state 1
+        
+        if Pause% = 0 then
+            nLEDTrialsStarted% += 1;
+            'iStimIndex% := (iStimIndex% + 1) mod 8;
+            
+            SafeSampleKey("F");
+            
+            iState% := stateWaitForLEDAcquisition%;
+            tStateStart := tNow;
+            
+            UpdateToolbarText();
+        endif
+        
+
+
+    case iState% = stateWaitForLEDAcquisition% then
+
+        if tNow-tStateStart < fixAcquisitionTime then
+            
+            ' Acquisition happens when the eye falls within the fixation window.
+            if InFixationWindow%(xEye, yEye) > 0 then
+
+               iState% := stateHoldLEDFixation%;
+               tStateStart := tNow;
+
+            endif
+
+        else
+
+           ' Failed. Turn off stim and try again.
+'				PrintLog("State 2 - acquisition failed. Enter state 4\n");
+            iState% := stateFailure%;
+            tStateStart := tNow;
+
+        endif
+
+    case iState% = stateHoldLEDFixation% then
+
+        ' Waiting for fixation....
+        if InFixationWindow%(xEye, yEye) <= 0 then
+
+            iState% := stateLEDFailure%;
+            tStateStart := tNow;
+
+        else
+
+            if tNow - tStateStart >= fixFixationDuration then
+
+                ' Fixation. Reward. New trial.
+                iState% := stateLEDSuccess%;
+                tStateStart := tNow;
+
+            endif
+
+        endif
+
+    case iState% = stateLEDSuccess% then
+
+        nLEDTrialsSuccess% += 1;
+        DefaultReward();
+        ' tally successful trials
+        iState% := stateLEDStimOff%;
+        tStateStart := tNow;
+
+    case iState% = stateLEDFailure% then
+
+        nLEDTrialsFail% += 1;
+        iState% := stateLEDStimOff%;
+        tStateStart := tNow;
+
+    case iState% = stateLEDStimOff% then
+
+        ' Turn off stimulus, enter state 5 - wait for stimulus off msg
+        SafeSampleKey("G");
+        iState% := stateCheckTrial%;
+        tStateStart := tNow;
+     
+        
     case iState% = stateCheckTrial% then
 
         ' Check trial count
@@ -717,8 +845,8 @@ func Stop%()
 	'ProgRun(bin$ + "\\ClearTrigger",0);
 
 	' Increment daily totals and save then
-	TotalTrials% += nTrialsStarted%;
-	TotalRewards% += nTrialsSuccess%;
+	TotalTrials% += (nTrialsStarted% + nLEDTrialsStarted%);
+	TotalRewards% += (nTrialsSuccess% + nLEDTrialsSuccess%);
 	SaveDailyTotals();
 
 	' Save data file
@@ -733,6 +861,12 @@ func Stop%()
     
 	s$ := Print$("Trial#/Total %d/%d Success/Failure %d/%d", nTrialsStarted%, fixNumberOfTrials%, nTrialsSuccess%, nTrialsFail%);
 	PrintLog(s$);
+    
+    if fixSaveData% = 1 then
+        View(DataWindow%);
+        'call to ExportChanList() may be necessary?
+        FileSaveAs(fixSaveDataName$,100,1); 'We will overwrite the .mat file every time; Ben will save what he needs.  Default behavior is fine here.
+    endif
     
     
 end;
