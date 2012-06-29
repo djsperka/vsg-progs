@@ -1,4 +1,7 @@
 ; $Log: not supported by cvs2svn $
+; Revision 1.6  2011/11/16 00:48:00  jeff
+; Update to dual juicer capability, moving majority of work to UsreyDAQ when possible
+;
 ; Revision 1.5  2011/11/09 17:59:49  jeff
 ; Update to allow use of open-high (variable open dur) OR open-low (constant open dur) juicers
 ;
@@ -39,12 +42,12 @@
 0010            HALT   
 
 0011 EH:     'H MOVI   V2,1
-0012            DIGOUT [....001.]
+0012            DIGOUT [.....01.]
 0013            MOVI   V2,0
 0014            HALT                   ;End of this sequence section
 
 0015 EL:     'L MOVI   V2,1
-0016            DIGOUT [....000.]
+0016            DIGOUT [.....00.]
 0017            MOVI   V2,0
 0018            HALT                   ;End of this sequence section
 
@@ -86,3 +89,12 @@
 0050            DIGOUT [.......0]      ;Close juicer valve
 0051 JDONE:     MOVI   V2,0            ;Log that sequencer is not in use
 0052            HALT                   ;End of this sequence section
+
+; LED commands for fixation LED
+0053 LEDON:  'F MOVI   V2,1            ;Log that sequencer is in use
+0054            DIGOUT [....1...]      ;Turn on LED - don't know which digout yet
+0055            JUMP   LDONE           ;Jump over LEDOFF to a HALT
+0053 LEDOFF: 'G MOVI   V2,1            ;Log that sequencer is in use
+0054            DIGOUT [....0...]      ;Turn off LED - don't know which digout yet
+0055 LDONE:     MOVI   V2,0            ;Log that sequencer is not in use
+0056            HALT                   ;End of this sequence section
