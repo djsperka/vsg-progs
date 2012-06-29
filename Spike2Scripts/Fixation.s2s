@@ -1,4 +1,4 @@
-' $Id: Fixation.s2s,v 1.26 2012-06-25 23:46:38 devel Exp $
+' $Id: Fixation.s2s,v 1.27 2012-06-29 21:56:19 devel Exp $
 ' Update 11/8/11 Jeff, includes SafeSampleKey and multi-juicer updates
 
 #include "../../Spike2Util/UsreyUtil.s2s"
@@ -225,6 +225,12 @@ var nTrialsFail%:=0;
 func IdleProcessing%()
 	var iStatus% := 1;	' this is return value. value of 1 (0) continues (stops) processing
 	tNow := MaxTime();
+    
+    if tNow - tLast < 0.001 then
+        Yield(.001);
+        return 1;
+    endif
+    
 
 	xEye := ChanMeasure(XChannel%,2,tNow-.001,tNow-.006)*DegreesPerVoltX;
 	yEye := ChanMeasure(YChannel%,2,tNow-.001,tNow-.006)*DegreesPerVoltY;
@@ -242,21 +248,19 @@ func IdleProcessing%()
     case iState% = stateVSGWait% then
 
         ' Waiting for VSG to indicate it is ready. The indication is a pulse (up, then down, 1 frame apart) on port 6.
-        tTrigger := NextTime(ReadyChannel%, tLast, vTrigger);
+        tTrigger := NextTime(ReadyChannel%, tStateStart, vTrigger);
         if tTrigger > tLastTrigger and vTrigger = 0 then
             LogStatus("VSGWait", "Got leading edge of ready trigger");
-            tLastTrigger := tTrigger;
-            iState% := stateVSGWaitConfirm%;
+            ChangeStateTo(stateVSGWaitConfirm%, tTrigger);
         endif;
 
     case iState% = stateVSGWaitConfirm% then
 
         ' Waiting for VSG to confirm it is ready. The downward side of the pulse is expected...
-        tTrigger := NextTime(ReadyChannel%, tLastTrigger, vTrigger);
-        if tTrigger > tLastTrigger and vTrigger = 1 then
+        tTrigger := NextTime(ReadyChannel%, tStateStart, vTrigger);
+        if tTrigger > tStateStart and vTrigger = 1 then
             LogStatus("VSGWait", "Got falling edge of ready trigger");
-            tLastTrigger := tTrigger;
-            iState% := stateStartTrial%;
+            ChangeStateTo(stateStartTrial%, tNow);
         endif;
 
 
@@ -275,8 +279,7 @@ func IdleProcessing%()
         else
             SafeSampleKey("H");
         endif
-        iState% := stateWaitForStim%;
-'			PrintLog("State 0 - Start new trial - stimulus trigger sent\n");
+        ChangeStateTo(stateWaitForStim%, tNow);
         UpdateToolbarText();
 
     case iState% = stateWaitForStim% then
@@ -285,105 +288,82 @@ func IdleProcessing%()
         ' NextTime returns a non-negative value whenever there is a TRANSITION. In that case, the 
         ' value of 'vTrigger' returned is 1 (0) if the transition is high (low) to low (high). Maybe not
         ' intuitive, but that's the way it is. 
-        tTrigger := NextTime(TriggerChannel%,tLast,vTrigger);
-        if tTrigger > tLastTrigger then
-
+        tTrigger := NextTime(TriggerChannel%, tStateStart, vTrigger);
+        'LogStatus("WaitForStim", str$(tStateStart) + "," + str$(tNow) + "," + str$(tTrigger) + "," + str$(vTrigger));
+        if tTrigger > 0 then
             if vTrigger = 0 then
-    
                 ' Stimulus has been presented. Display stim location and window. Enter state 2
                 DrawStim(1);
-                iState% := stateWaitForAcquisition%;
-                tStateStart := tTrigger;
-                tLastTrigger := tTrigger;
-            
+                ChangeStateTo(stateWaitForAcquisition%, tTrigger);
                 LogStatus("WaitForStim", "Stim up trig");
             else
+                ' This should never happen
    				LogStatus("WaitForStim", "Wrong trig edge tNow=" + str$(tNow) + " tTrigger=" + str$(tTrigger) + " tLastTrigger=" + str$(tLastTrigger));
+                Message("Wrong trig edge in stateWaitForStim!");
+                halt;
             endif
-
         endif
 
     case iState% = stateWaitForAcquisition% then
 
         if tNow-tStateStart < fixAcquisitionTime then
-            
             ' Acquisition happens when the eye falls within the fixation window.
             if InFixationWindow%(xEye, yEye) > 0 then
-
-'					PrintLog("State 2 - acquired target. tNow=" + str$(tNow) + " Enter state 3\n");
-                iState% := stateHoldFixation%;
-                tStateStart := tNow;
-
+                ChangeStateTo(stateHoldFixation%, tNow);
             endif
-
         else
-
             ' Failed. Turn off stim and try again.
-'				PrintLog("State 2 - acquisition failed. Enter state 4\n");
-            iState% := stateFailure%;
-            tStateStart := tNow;
-
+            ChangeStateTo(stateFailure%, tNow);
         endif
 
     case iState% = stateHoldFixation% then
 
         ' Waiting for fixation....
         if InFixationWindow%(xEye, yEye) <= 0 then
-
-            iState% := stateFailure%;
-            tStateStart := tNow;
-
+            ChangeStateTo(stateFailure%, tNow);
         else
-
             if tNow - tStateStart >= fixFixationDuration then
-
                 ' Fixation. Reward. New trial.
-                iState% := stateSuccess%;
-                tStateStart := tNow;
-
+                ChangeStateTo(stateSuccess%, tNow);
             endif
-
         endif
 
     case iState% = stateSuccess% then
 
         nTrialsSuccess% += 1;
         DefaultReward();
-        ' tally successful trials
-        iState% := stateStimOff%;
-        tStateStart := tNow;
+        ChangeStateTo(stateStimOff%, tNow);
 
     case iState% = stateFailure% then
 
         nTrialsFail% += 1;
-        iState% := stateStimOff%;
-        tStateStart := tNow;
+        ChangeStateTo(stateStimOff%, tNow);
 
     case iState% = stateStimOff% then
 
         ' Turn off stimulus, enter state 5 - wait for stimulus off msg
         DrawStim(0);
-'			PrintLog("State 4 - turning off stimulus....\n");
         SafeSampleKey("L");
-        iState% := stateWaitForBlank%;
-        tStateStart := tNow;
+        ChangeStateTo(stateWaitForBlank%, tNow);
 
     case iState% = stateWaitForBlank% then
 
         ' Wait for stim to be off
-        tTrigger := NextTime(TriggerChannel%,tLast,vTrigger);
+        tTrigger := NextTime(TriggerChannel%, tStateStart,vTrigger);
+        'LogStatus("WaitForBlank", str$(tStateStart) + "," + str$(tNow) + "," + str$(tTrigger) + "," + str$(vTrigger));
         if tTrigger > tLast then
 
             if vTrigger = 1 then
     
                 ' Stimulus has been turned off by vsg. Enter state 6
-'					PrintLog("State 5 - Stim OFF trigger found. Enter state 6\n");
-                iState% := stateCheckTrial%;
-                tStateStart := tTrigger;
-                tLastTrigger := tTrigger;
+                '					PrintLog("State 5 - Stim OFF trigger found. Enter state 6\n");
+                ChangeStateTo(stateCheckTrial%, tTrigger);
                 LogStatus("WaitForBlank", "Stim off trig");
             else
+                ' this should never happen!
+                Message("Wrong trig edge in stateWaitForBlank!");
    				LogStatus("WaitForBlank", "Wrong trig edge tNow=" + str$(tNow) + " tTrigger=" + str$(tTrigger) + " tLastTrigger=" + str$(tLastTrigger));
+                halt;
             endif
 
         endif
@@ -393,11 +373,10 @@ func IdleProcessing%()
         ' Check trial count
         if nTrialsStarted% = fixNumberOfTrials%  and fixCalibrationFlag% = 0 then
             Stop%();
-            iState% := stateDone%;
+            ChangeStateTo(stateDone%, tNow);
             iStatus% := 0;
         else
-            iState% := stateInterval%;
-            tStateStart := tNow;
+            ChangeStateTo(stateInterval%, tNow);
         endif
 
 
@@ -407,9 +386,7 @@ func IdleProcessing%()
         if tNow - tStateStart > fixInterTrialTime then
 
             ' Back to state 0
-'				PrintLog("State 6 - IT wait is done. Start new trial.\n");
-            iState% := stateStartTrial%;
-            tStateStart := tNow;
+            ChangeStateTo(stateStartTrial%, tNow);
 
         endif
 
@@ -441,6 +418,12 @@ proc UpdateToolbarText()
 	s$ := Print$("Trial#/Total %d/%d Success/Failure %d/%d", nTrialsStarted%, fixNumberOfTrials%, nTrialsSuccess%, nTrialsFail%);
 	ToolbarText(s$);
 
+end;
+
+
+proc ChangeStateTo(stateTo%, t)
+    iState% := stateTo%;
+    tStateStart := t;
 end;
 
 
