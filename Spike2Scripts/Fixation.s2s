@@ -1,4 +1,4 @@
-' $Id: Fixation.s2s,v 1.28 2012-06-29 22:50:01 jeff Exp $
+' $Id: Fixation.s2s,v 1.29 2012-06-29 22:56:33 jeff Exp $
 ' Update 11/8/11 Jeff, includes SafeSampleKey and multi-juicer updates
 
 #include "../../Spike2Util/UsreyUtil.s2s"
@@ -390,7 +390,6 @@ func IdleProcessing%()
                 else
 					ChangeStateTo(statePreLEDInterval%, tTrigger);
                 endif
-                tStateStart := tTrigger;
                 tLastTrigger := tTrigger;
                 LogStatus("WaitForBlank", "Stim off trig");
             else
@@ -405,9 +404,8 @@ func IdleProcessing%()
     case iState% = statePreLEDInterval% then
         ' Inter-trial wait time
         if tNow - tStateStart > fixInterTrialTime then
-
-            iState% := stateStartLEDTrial%;
-            tStateStart := tNow;
+            
+            ChangeStateTo(stateStartLEDTrial%, tNow);
 
         endif
         
@@ -425,8 +423,7 @@ func IdleProcessing%()
             
             SafeSampleKey("F");
             
-            iState% := stateWaitForLEDAcquisition%;
-            tStateStart := tNow;
+            ChangeStateTo(stateWaitForLEDAcquisition%, tNow);
             
             UpdateToolbarText();
         endif
@@ -439,18 +436,16 @@ func IdleProcessing%()
             
             ' Acquisition happens when the eye falls within the fixation window.
             if InFixationWindow%(xEye, yEye) > 0 then
-
-               iState% := stateHoldLEDFixation%;
-               tStateStart := tNow;
+                
+               ChangeStateTo(stateHoldLEDFixation%, tNow);
 
             endif
 
         else
 
            ' Failed. Turn off stim and try again.
-'				PrintLog("State 2 - acquisition failed. Enter state 4\n");
-            iState% := stateFailure%;
-            tStateStart := tNow;
+           ' PrintLog("State 2 - acquisition failed. Enter state 4\n");
+            ChangeStateTo(stateLEDFailure%, tNow);
 
         endif
 
@@ -458,17 +453,15 @@ func IdleProcessing%()
 
         ' Waiting for fixation....
         if InFixationWindow%(xEye, yEye) <= 0 then
-
-            iState% := stateLEDFailure%;
-            tStateStart := tNow;
+            
+            ChangeStateTo(stateLEDFailure%, tNow);
 
         else
 
             if tNow - tStateStart >= fixFixationDuration then
 
                 ' Fixation. Reward. New trial.
-                iState% := stateLEDSuccess%;
-                tStateStart := tNow;
+                ChangeStateTo(stateLEDSuccess%, tNow);
 
             endif
 
@@ -479,21 +472,18 @@ func IdleProcessing%()
         nLEDTrialsSuccess% += 1;
         DefaultReward();
         ' tally successful trials
-        iState% := stateLEDStimOff%;
-        tStateStart := tNow;
+        ChangeStateTo(stateLEDStimOff%, tNow);
 
     case iState% = stateLEDFailure% then
 
         nLEDTrialsFail% += 1;
-        iState% := stateLEDStimOff%;
-        tStateStart := tNow;
+        ChangeStateTo(stateLEDStimOff%, tNow);
 
     case iState% = stateLEDStimOff% then
 
         ' Turn off stimulus, enter state 5 - wait for stimulus off msg
         SafeSampleKey("G");
-        iState% := stateCheckTrial%;
-        tStateStart := tNow;
+        ChangeStateTo(stateCheckTrial%, tNow);
      
         
     case iState% = stateCheckTrial% then
