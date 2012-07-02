@@ -1,4 +1,4 @@
-' $Id: Fixation.s2s,v 1.30 2012-07-02 20:29:15 jeff Exp $
+' $Id: Fixation.s2s,v 1.31 2012-07-02 22:20:47 jeff Exp $
 ' Update 11/8/11 Jeff, includes SafeSampleKey and multi-juicer updates
 
 #include "../../Spike2Util/UsreyUtil.s2s"
@@ -836,6 +836,7 @@ func Stop%()
 	ToolbarSet(0,"");
 
 	' Tell stim app to shut down
+    Yield(.1);
 	SafeSampleKey("Q");
 	Yield(.1);
 	SampleStop();
@@ -866,6 +867,7 @@ func Stop%()
     if fixSaveData% = 1 then
         View(DataWindow%);
         'call to ExportChanList() may be necessary?
+        ExportChanList(0,maxtime(),XChannel%,YChannel%,TriggerChannel%,ReadyChannel%,31);  'export all channels, 31 is the keyboard channel
         FileSaveAs(fixSaveDataName$,100,1); 'We will overwrite the .mat file every time; Ben will save what he needs.  Default behavior is fine here.
     endif
     

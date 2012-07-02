@@ -1,4 +1,7 @@
 ; $Log: not supported by cvs2svn $
+; Revision 1.8  2012/07/02 21:27:38  devel
+; Amidst fixing fixation update
+;
 ; Revision 1.7  2012/06/29 22:44:06  jeff
 ; Update for Ben's LED fixation, includes lines to operate LED
 ; should be on correct DIGOUT port but that's easy enough to change if not.
@@ -34,71 +37,73 @@
 0000 ZERO:   '0 MOVI   V2,1            ;Log that sequencer is in use
 0001            BLT    V3,1,ZOPENHI    ;Branch, if V3 is 0, go to ZOPENHI
 0002            DIGOUT [00000001]      ;Set juicer bit to closed (1 is closed)
-0003            JUMP   ZERODONE        ;Jump over ZOPENHI to MOVI
-0004 ZOPENHI:   DIGOUT [00000000]      ;Set juicer bit to closed (0 is closed)
-0005 ZERODONE:  MOVI   V2,0            ;Log that sequencer is not in use
-0006            HALT                   ;End of this sequence section
+0003            DIGLOW [00000000]      ;Also zero low bits
+0004            JUMP   ZERODONE        ;Jump over ZOPENHI to MOVI
+0005 ZOPENHI:   DIGOUT [00000000]      ;Set juicer bit to closed (0 is closed)
+0006            DIGLOW [00000000]      ;Also zero low bits
+0007 ZERODONE:  MOVI   V2,0            ;Log that sequencer is not in use
+0008            HALT                   ;End of this sequence section
 
 
-0007 ES:     'S MOVI   V2,1
-0008            DIGOUT V1
-0009            MOVI   V2,0
-0010            HALT   
+0009 ES:     'S MOVI   V2,1
+0010            DIGOUT V1
+0011            MOVI   V2,0
+0012            HALT   
 
-0011 EH:     'H MOVI   V2,1
-0012            DIGOUT [.....01.]
-0013            MOVI   V2,0
-0014            HALT                   ;End of this sequence section
+0013 EH:     'H MOVI   V2,1
+0014            DIGOUT [.....01.]
+0015            MOVI   V2,0
+0016            HALT                   ;End of this sequence section
 
-0015 EL:     'L MOVI   V2,1
-0016            DIGOUT [.....00.]
-0017            MOVI   V2,0
-0018            HALT                   ;End of this sequence section
+0017 EL:     'L MOVI   V2,1
+0018            DIGOUT [.....00.]
+0019            MOVI   V2,0
+0020            HALT                   ;End of this sequence section
 
-0019 EQ:     'Q MOVI   V2,1
-0020            DIGOUT [0100000.]
-0021            MOVI   V2,0
-0022            HALT                   ;End of this sequence section
+0021 EQ:     'Q MOVI   V2,1
+0022            DIGOUT [0100000.]
+0023            MOVI   V2,0
+0024            HALT                   ;End of this sequence section
 
 ; Reward
-0023 REW:    'R MOVI   V2,1            ;Log that sequencer is in use
-0024            BLT    V3,1,REWHI      ;Branch, if V3 is 0, go to REWHI
-0025            DIGOUT [.......1]      ;Assert that juicer is closed
-0026            DIGOUT [.......0]      ;Downward pulse delivers juice
-0027            DELAY  s(0.005)-1      ;Delay for 5 ms for adequate pulse width
-0028            DIGOUT [.......1]      ;End downward pulse, juicer will close on its own
-0029            JUMP   RDONE           ;Jump over REWHI to a HALT
-0030 REWHI:     BLE    V1,0,RDONE      ;Skip if V1 is <= 0
-0031            MULI   V1,ms(1)        ;convert V1 from ms to clock ticks
-0032            DIGOUT [.......0]      ;Assert that juicer is closed
-0033            DIGOUT [.......1]      ;Voltage High delivers juice
-0034            DELAY  V1              ;Delay V1 ms, duration of reward
-0035            DIGOUT [.......0]      ;Close juicer valve
-0036 RDONE:     MOVI   V2,0            ;Log that sequencer is not in use
-0037            HALT                   ;End of this sequence section
+0025 REW:    'R MOVI   V2,1            ;Log that sequencer is in use
+0026            BLT    V3,1,REWHI      ;Branch, if V3 is 0, go to REWHI
+0027            DIGOUT [.......1]      ;Assert that juicer is closed
+0028            DIGOUT [.......0]      ;Downward pulse delivers juice
+0029            DELAY  s(0.005)-1      ;Delay for 5 ms for adequate pulse width
+0030            DIGOUT [.......1]      ;End downward pulse, juicer will close on its own
+0031            JUMP   RDONE           ;Jump over REWHI to a HALT
+0032 REWHI:     BLE    V1,0,RDONE      ;Skip if V1 is <= 0
+0033            MULI   V1,ms(1)        ;convert V1 from ms to clock ticks
+0034            DIGOUT [.......0]      ;Assert that juicer is closed
+0035            DIGOUT [.......1]      ;Voltage High delivers juice
+0036            DELAY  V1              ;Delay V1 ms, duration of reward
+0037            DIGOUT [.......0]      ;Close juicer valve
+0038 RDONE:     MOVI   V2,0            ;Log that sequencer is not in use
+0039            HALT                   ;End of this sequence section
 
 ; Reward, compatible with 'J'uicer command from Farran's rig, just do same thing as 'R'
-0038 JCR:    'J MOVI   V2,1            ;Log that sequencer is in use
-0039            BLT    V3,1,JCRHI      ;Branch, if V3 is 0, go to JCRHI
-0040            DIGOUT [.......1]      ;Assert that juicer is closed
-0041            DIGOUT [.......0]      ;Downward pulse delivers juice
-0042            DELAY  s(0.005)-1      ;Delay for 5 ms for adequate pulse width
-0043            DIGOUT [.......1]      ;End downward pulse, juicer will close on its own
-0044            JUMP   JDONE           ;Jump over JCRHI to a HALT
-0045 JCRHI:     BLE    V1,0,JDONE      ;Skip if V1 is <= 0
-0046            MULI   V1,ms(1)        ;convert V1 from ms to clock ticks
-0047            DIGOUT [.......0]      ;Assert that juicer is closed
-0048            DIGOUT [.......1]      ;Voltage High delivers juice
-0049            DELAY  V1              ;Delay V1 ms, duration of reward
-0050            DIGOUT [.......0]      ;Close juicer valve
-0051 JDONE:     MOVI   V2,0            ;Log that sequencer is not in use
-0052            HALT                   ;End of this sequence section
+0040 JCR:    'J MOVI   V2,1            ;Log that sequencer is in use
+0041            BLT    V3,1,JCRHI      ;Branch, if V3 is 0, go to JCRHI
+0042            DIGOUT [.......1]      ;Assert that juicer is closed
+0043            DIGOUT [.......0]      ;Downward pulse delivers juice
+0044            DELAY  s(0.005)-1      ;Delay for 5 ms for adequate pulse width
+0045            DIGOUT [.......1]      ;End downward pulse, juicer will close on its own
+0046            JUMP   JDONE           ;Jump over JCRHI to a HALT
+0047 JCRHI:     BLE    V1,0,JDONE      ;Skip if V1 is <= 0
+0048            MULI   V1,ms(1)        ;convert V1 from ms to clock ticks
+0049            DIGOUT [.......0]      ;Assert that juicer is closed
+0050            DIGOUT [.......1]      ;Voltage High delivers juice
+0051            DELAY  V1              ;Delay V1 ms, duration of reward
+0052            DIGOUT [.......0]      ;Close juicer valve
+0053 JDONE:     MOVI   V2,0            ;Log that sequencer is not in use
+0054            HALT                   ;End of this sequence section
 
 ; LED commands for fixation LED
-0053 LEDON:  'F MOVI   V2,1            ;Log that sequencer is in use
-0054            DIGLOW [1.......]      ;Turn on LED - don't know which digout yet
-0055            JUMP   LDONE           ;Jump over LEDOFF to a HALT
-0053 LEDOFF: 'G MOVI   V2,1            ;Log that sequencer is in use
-0054            DIGLOW [0.......]      ;Turn off LED - don't know which digout yet
-0055 LDONE:     MOVI   V2,0            ;Log that sequencer is not in use
-0056            HALT                   ;End of this sequence section
+0055 LEDON:  'F MOVI   V2,1            ;Log that sequencer is in use
+0056            DIGLOW [1.......]      ;Turn on LED - don't know which digout yet
+0057            JUMP   LDONE           ;Jump over LEDOFF to a HALT
+0058 LEDOFF: 'G MOVI   V2,1            ;Log that sequencer is in use
+0059            DIGLOW [0.......]      ;Turn off LED - don't know which digout yet
+0060 LDONE:     MOVI   V2,0            ;Log that sequencer is not in use
+0061            HALT                   ;End of this sequence section
