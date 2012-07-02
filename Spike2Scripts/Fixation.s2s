@@ -1,4 +1,4 @@
-' $Id: Fixation.s2s,v 1.29 2012-06-29 22:56:33 jeff Exp $
+' $Id: Fixation.s2s,v 1.30 2012-07-02 20:29:15 jeff Exp $
 ' Update 11/8/11 Jeff, includes SafeSampleKey and multi-juicer updates
 
 #include "../../Spike2Util/UsreyUtil.s2s"
@@ -37,6 +37,7 @@ var fixCalibrationFlag%;			' 1 for calibration run
 var fixCalibrationOffset;			' degree offset for calibration dots
 var fixAlwaysLooking% := 0;
 var fixInterleaveLED%;              'If 1, interleave fixation LED with fixation point
+var fixSimultaneousLED%;
 var fixSaveData%;                   'If 1, save data to fixSaveDataName$;
 var fixSaveDataName$ := "F:\\Experiments\\fixation\\fixdata.mat";
 
@@ -65,6 +66,7 @@ proc GetFixationScriptParameters()
 	Profile(key$, "UseDistractor4Flag", 0, fixDistractor4Flag%);
 	Profile(key$, "DoCalibrationFlag", 0, fixCalibrationFlag%);
     Profile(key$, "InterleaveLED", 0, fixInterleaveLED%);
+    Profile(key$, "SimultaneousLED", 0, fixSimultaneousLED%);
     Profile(key$, "SaveData", 0, fixSaveData%);
 	Profile(key$, "CalibrationOffset", "5.0", stmp$);
 	fixCalibrationOffset := val(stmp$);
@@ -87,6 +89,7 @@ proc SaveFixationScriptParameters()
 	Profile(key$, "UseDistractor4Flag", fixDistractor4Flag%);
 	Profile(key$, "DoCalibrationFlag", fixCalibrationFlag%);
     Profile(key$, "InterleaveLED", fixInterleaveLED%);
+    Profile(key$, "SimultaneousLED", fixSimultaneousLED%);
     Profile(key$, "SaveData", fixSaveData%);
 	Profile(key$, "CalibrationOffset", str$(fixCalibrationOffset));
 end;
@@ -113,17 +116,18 @@ func FixationScriptDialog%()
 	DlgInteger(4, "Number of Trials:", 1, 1000);
 	DlgList(5, "Background color:", bcl$);
     DlgCheck(6, "Interleave Fixation LED?");
-    DlgCheck(7, "Save Data?");
-	DlgCheck(8, "Use stimulus?");
-	DlgCheck(9, "Use distractor 1?"); 
-	DlgCheck(10, "Use distractor 2?");
-	DlgCheck(11, "Use distractor 3?");
-	DlgCheck(12, "Use distractor 4?");
-	DlgCheck(13, "Calibration run?");
-	DlgReal(14, "Calibration offset (deg):", 0, 10);
-    DlgCheck(15, "Always looking?");
+    DlgCheck(7, "LED and Fixation Simultaneous?");
+    DlgCheck(8, "Save Data?");
+	DlgCheck(9, "Use stimulus?");
+	DlgCheck(10, "Use distractor 1?"); 
+	DlgCheck(11, "Use distractor 2?");
+	DlgCheck(12, "Use distractor 3?");
+	DlgCheck(13, "Use distractor 4?");
+	DlgCheck(14, "Calibration run?");
+	DlgReal(15, "Calibration offset (deg):", 0, 10);
+    DlgCheck(16, "Always looking?");
 	i%:=DlgShow(fixFixationDuration, fixAcquisitionTime, fixInterTrialTime, fixNumberOfTrials%, ibcl%, fixInterleaveLED%,
-    fixSaveData%, fixStimulusFlag%, fixDistractor1Flag%, fixDistractor2Flag%, fixDistractor3Flag%, fixDistractor4Flag%, 
+    fixSimultaneousLED%,fixSaveData%, fixStimulusFlag%, fixDistractor1Flag%, fixDistractor2Flag%, fixDistractor3Flag%, fixDistractor4Flag%, 
     fixCalibrationFlag%, fixCalibrationOffset, fixAlwaysLooking%);
 	if i% = 1 then
 		fixBackgroundColor$ := bcl$[ibcl%];
@@ -303,6 +307,10 @@ func IdleProcessing%()
             else
                 SafeSampleKey("H");
             endif
+            if fixSimultaneousLED% = 1 then
+                SafeSampleKey("F");
+            endif
+            
             iState% := stateWaitForStim%;
             '			PrintLog("State 0 - Start new trial - stimulus trigger sent\n");
             UpdateToolbarText();
@@ -372,6 +380,9 @@ func IdleProcessing%()
         ' Turn off stimulus, enter state 5 - wait for stimulus off msg
         DrawStim(0);
         SafeSampleKey("L");
+        if fixSimultaneousLED% = 1 then
+            SafeSampleKey("G");
+        endif
         ChangeStateTo(stateWaitForBlank%, tNow);
 
     case iState% = stateWaitForBlank% then
