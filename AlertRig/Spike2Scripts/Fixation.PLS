@@ -1,4 +1,8 @@
 ; $Log: not supported by cvs2svn $
+; Revision 1.7  2012/06/29 22:44:06  jeff
+; Update for Ben's LED fixation, includes lines to operate LED
+; should be on correct DIGOUT port but that's easy enough to change if not.
+;
 ; Revision 1.6  2011/11/16 00:48:00  jeff
 ; Update to dual juicer capability, moving majority of work to UsreyDAQ when possible
 ;
@@ -92,9 +96,9 @@
 
 ; LED commands for fixation LED
 0053 LEDON:  'F MOVI   V2,1            ;Log that sequencer is in use
-0054            DIGOUT [....1...]      ;Turn on LED - don't know which digout yet
+0054            DIGLOW [1.......]      ;Turn on LED - don't know which digout yet
 0055            JUMP   LDONE           ;Jump over LEDOFF to a HALT
 0053 LEDOFF: 'G MOVI   V2,1            ;Log that sequencer is in use
-0054            DIGOUT [....0...]      ;Turn off LED - don't know which digout yet
+0054            DIGLOW [0.......]      ;Turn off LED - don't know which digout yet
 0055 LDONE:     MOVI   V2,0            ;Log that sequencer is not in use
 0056            HALT                   ;End of this sequence section
