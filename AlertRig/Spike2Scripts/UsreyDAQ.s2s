@@ -177,7 +177,7 @@ Proc SafeSampleKey(s$)
     var count% := 0;
     yield(.001);  'It takes the sequencer up to a full step to change the value of variable V2
     'Step is here assumed to be 1 ms, could possibly be read from sequencer?
-    while SampleSeqVar(2) <> 0 do and count% < 5000 do
+    while SampleSeqVar(2) <> 0 and count% < 5000 do
         count% += 1;
         Yield(.001);
     wend
