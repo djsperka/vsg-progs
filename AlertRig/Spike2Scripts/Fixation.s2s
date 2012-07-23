@@ -1,4 +1,4 @@
-' $Id: Fixation.s2s,v 1.34 2012-07-18 17:53:10 jeff Exp $
+' $Id: Fixation.s2s,v 1.35 2012-07-23 18:04:45 jeff Exp $
 ' Update 11/8/11 Jeff, includes SafeSampleKey and multi-juicer updates
 
 #include "../../Spike2Util/UsreyUtil.s2s"
@@ -231,7 +231,8 @@ const stateWaitForLEDAcquisition%:=14;
 const stateHoldLEDFixation%:=15;
 const stateLEDFailure%:=16;
 const stateLEDSuccess%:=17;
-const stateLEDStimOff%:=18;
+const stateLEDIsOff%:=18;
+const stateNextAfterFixation%:=19;
 
 var tNow:=0;		' latest time for which there are values recorded. Used in IdleProcessing
 var tLast:=-1;		' last time we checked for a trigger. 
@@ -248,12 +249,14 @@ var nTrialsFail%:=0;
 var nLEDTrialsStarted%:=0;
 var nLEDTrialsSuccess%:=0;
 var nLEDTrialsFail%:=0;
-var LEDOK%:=0;
-var FixPtOK%:=0;
+var LEDSuccess%:=0;
+var fixSuccess% := 0;
 
 ' Run real time analysis here. 
 func IdleProcessing%()
 	var iStatus% := 1;	' this is return value. value of 1 (0) continues (stops) processing
+    var stayInLoop% := 1;
+    
 	tNow := MaxTime();
     
     if tNow - tLast < 0.001 then
@@ -270,281 +273,319 @@ func IdleProcessing%()
 		View(XYWindow%).XYAddData(1,xEye,yEye);
 		tLastUpdate := tNow;
 	endif
-
-	' What state are we in? 
-	docase 
-
-	
-    case iState% = stateVSGWait% then
-
-        ' Waiting for VSG to indicate it is ready. The indication is a pulse (up, then down, 1 frame apart) on port 6.
-        tTrigger := NextTime(ReadyChannel%, tStateStart, vTrigger);
-        if tTrigger > tLastTrigger and vTrigger = 0 then
-            LogStatus("VSGWait", "Got leading edge of ready trigger");
-            ChangeStateTo(stateVSGWaitConfirm%, tTrigger);
-        endif;
-
-    case iState% = stateVSGWaitConfirm% then
-
-        ' Waiting for VSG to confirm it is ready. The downward side of the pulse is expected...
-        tTrigger := NextTime(ReadyChannel%, tStateStart, vTrigger);
-        if tTrigger > tStateStart and vTrigger = 1 then
-            LogStatus("VSGWait", "Got falling edge of ready trigger");
-            ChangeStateTo(stateStartTrial%, tNow);
-        endif;
-
-
-    case iState% = stateStartTrial% then
-
-        ' initial state on startup. 
-        ' DIGOUT to present stimulus
-        ' Enter state 1
-        if Pause% = 0 then
-            nTrialsStarted% += 1;
-            iStimIndex% := (iStimIndex% + 1) mod 8;
-            
-            ' calibration run does not require a separate trigger - the setting of the seqvar does the trick. 
-            if fixCalibrationFlag% = 1 then
-                DoSampleKey();
-            else
-                SafeSampleKey("H");
-            endif
-            if fixSimultaneousLED% = 1 then
-                SafeSampleKey("F");
-            endif
-            
-            iState% := stateWaitForStim%;
-            '			PrintLog("State 0 - Start new trial - stimulus trigger sent\n");
-            UpdateToolbarText();
-        endif
-        ChangeStateTo(stateWaitForStim%, tNow);
-        UpdateToolbarText();
-
-    case iState% = stateWaitForStim% then
-
-        ' Waiting for stimulus to be presented by vsg and trigger to return. 
-        ' NextTime returns a non-negative value whenever there is a TRANSITION. In that case, the 
-        ' value of 'vTrigger' returned is 1 (0) if the transition is high (low) to low (high). Maybe not
-        ' intuitive, but that's the way it is. 
-        tTrigger := NextTime(TriggerChannel%, tStateStart, vTrigger);
-        'LogStatus("WaitForStim", str$(tStateStart) + "," + str$(tNow) + "," + str$(tTrigger) + "," + str$(vTrigger));
-        if tTrigger > 0 then
-            if vTrigger = 0 then
-                ' Stimulus has been presented. Display stim location and window. Enter state 2
-                DrawStim(1);
-                ChangeStateTo(stateWaitForAcquisition%, tTrigger);
-                LogStatus("WaitForStim", "Stim up trig");
-            else
-                ' This should never happen
-   				LogStatus("WaitForStim", "Wrong trig edge tNow=" + str$(tNow) + " tTrigger=" + str$(tTrigger) + " tLastTrigger=" + str$(tLastTrigger));
-                Message("Wrong trig edge in stateWaitForStim!");
-                halt;
-            endif
-        endif
-
-    case iState% = stateWaitForAcquisition% then
-
-        if tNow-tStateStart < fixAcquisitionTime then
-            ' Acquisition happens when the eye falls within the fixation window.
-            if InFixationWindow%(xEye, yEye) > 0 then
-                ChangeStateTo(stateHoldFixation%, tNow);
-            endif
-        else
-            ' Failed. Turn off stim and try again.
-            ChangeStateTo(stateFailure%, tNow);
-        endif
-
-    case iState% = stateHoldFixation% then
-
-        ' Waiting for fixation....
-        if InFixationWindow%(xEye, yEye) <= 0 then
-            ChangeStateTo(stateFailure%, tNow);
-        else
-            if tNow - tStateStart >= fixFixationDuration then
-                ' Fixation. Reward. New trial.
-                ChangeStateTo(stateSuccess%, tNow);
-            endif
-        endif
-
-    case iState% = stateSuccess% then
-
-        nTrialsSuccess% += 1;
-        FixPtOK% := 1;
-        DefaultReward();
-        ChangeStateTo(stateStimOff%, tNow);
-
-    case iState% = stateFailure% then
-
-        nTrialsFail% += 1;
-        ChangeStateTo(stateStimOff%, tNow);
-
-    case iState% = stateStimOff% then
-
-        ' Turn off stimulus, enter state 5 - wait for stimulus off msg
-        DrawStim(0);
-        SafeSampleKey("L");
-        if fixSimultaneousLED% = 1 then
-            SafeSampleKey("G");
-        endif
-        ChangeStateTo(stateWaitForBlank%, tNow);
-
-    case iState% = stateWaitForBlank% then
-
-        ' Wait for stim to be off
-        tTrigger := NextTime(TriggerChannel%, tStateStart,vTrigger);
-        'LogStatus("WaitForBlank", str$(tStateStart) + "," + str$(tNow) + "," + str$(tTrigger) + "," + str$(vTrigger));
-        if tTrigger > tLast then
-
-            if vTrigger = 1 then
     
-                ' Stimulus has been turned off by vsg. Enter state 6
-                '					PrintLog("State 5 - Stim OFF trigger found. Enter state 6\n");
-                if fixInterleaveLED% = 0 then  'If no interleaved LED, go to next Fixation Point
-                    ChangeStateTo(stateCheckTrial%, tTrigger);
+    while stayInLoop% = 1 do
+        
+        tNow := MaxTime();  'reestablish tNow in case it has changed
+        stayInLoop% := 0;  'Allow break
+        
+        ' What state are we in? 
+        docase 
+            
+            
+        case iState% = stateVSGWait% then
+            
+            ' Waiting for VSG to indicate it is ready. The indication is a pulse (up, then down, 1 frame apart) on port 6.
+            tTrigger := NextTime(ReadyChannel%, tStateStart, vTrigger);
+            if tTrigger > tLastTrigger and vTrigger = 0 then
+                LogStatus("VSGWait", "Got leading edge of ready trigger");
+                ChangeStateTo(stateVSGWaitConfirm%, tTrigger);
+            endif;
+            
+        case iState% = stateVSGWaitConfirm% then
+            
+            ' Waiting for VSG to confirm it is ready. The downward side of the pulse is expected...
+            tTrigger := NextTime(ReadyChannel%, tStateStart, vTrigger);
+            if tTrigger > tStateStart and vTrigger = 1 then
+                LogStatus("VSGWait", "Got falling edge of ready trigger");
+                ChangeStateTo(stateStartTrial%, tNow);
+                stayInLoop% := 1;  'Once VSG is ready, don't wait to start the trial
+            endif;
+            
+            
+        case iState% = stateStartTrial% then
+            
+            ' initial state on startup. 
+            ' DIGOUT to present stimulus
+            ' Enter state 1
+            if Pause% = 0 then
+                nTrialsStarted% += 1;
+                iStimIndex% := (iStimIndex% + 1) mod 8;
+                
+                ' calibration run does not require a separate trigger - the setting of the seqvar does the trick. 
+                if fixCalibrationFlag% = 1 then
+                    DoSampleKey();
                 else
-                    if FixPtOK% = 1 then  'if success during interleaved LED, go to LED
-                        FixPtOK% := 0; 'reset successs variable
-                        ChangeStateTo(statePreLEDInterval%, tTrigger);
-                    else 'if failure, go back to fixation point
-                        ChangeStateTo(stateCheckTrial%, tTrigger);
+                    SafeSampleKey("H");
+                endif
+                if fixSimultaneousLED% = 1 then
+                    SafeSampleKey("F");
+                endif
+                
+                iState% := stateWaitForStim%;
+                '			PrintLog("State 0 - Start new trial - stimulus trigger sent\n");
+                UpdateToolbarText();
+                ChangeStateTo(stateWaitForStim%, tNow);
+            endif;
+            
+            
+        case iState% = stateWaitForStim% then
+            
+            ' Waiting for stimulus to be presented by vsg and trigger to return. 
+            ' NextTime returns a non-negative value whenever there is a TRANSITION. In that case, the 
+            ' value of 'vTrigger' returned is 1 (0) if the transition is high (low) to low (high). Maybe not
+            ' intuitive, but that's the way it is. 
+            tTrigger := NextTime(TriggerChannel%, tStateStart, vTrigger);
+            'LogStatus("WaitForStim", str$(tStateStart) + "," + str$(tNow) + "," + str$(tTrigger) + "," + str$(vTrigger));
+            if tTrigger > 0 then
+                if vTrigger = 0 then
+                    ' Stimulus has been presented. Display stim location and window. Enter state 2
+                    DrawStim(1);
+                    ChangeStateTo(stateWaitForAcquisition%, tTrigger);
+                    LogStatus("WaitForStim", "Stim up trig");
+                else
+                    ' This should never happen
+                    LogStatus("WaitForStim", "Wrong trig edge tNow=" + str$(tNow) + " tTrigger=" + str$(tTrigger) + " tLastTrigger=" + str$(tLastTrigger));
+                    Message("Wrong trig edge in stateWaitForStim!");
+                    halt;
+                endif
+            endif
+            
+        case iState% = stateWaitForAcquisition% then
+            
+            if tNow-tStateStart < fixAcquisitionTime then
+                ' Acquisition happens when the eye falls within the fixation window.
+                if InFixationWindow%(xEye, yEye) > 0 then
+                    ChangeStateTo(stateHoldFixation%, tNow);
+                endif
+            else
+                ' Failed. Turn off stim and try again.
+                fixSuccess% := 0;
+                ChangeStateTo(stateStimOff%, tNow);
+                stayInLoop% := 1;  'No reason to wait, go straight to stim off
+            endif
+            
+        case iState% = stateHoldFixation% then
+            
+            ' Waiting for fixation....
+            if InFixationWindow%(xEye, yEye) <= 0 then
+                fixSuccess% := 0;
+                ChangeStateTo(stateStimOff%, tNow);
+                stayInLoop% := 1;  'No reason to wait, go straight to stim off
+            else
+                if tNow - tStateStart >= fixFixationDuration then
+                    ' Fixation. Reward. New trial.
+                    fixSuccess% := 1;
+                    ChangeStateTo(stateStimOff%, tNow);
+                    stayInLoop% := 1;  'No reason to wait, go straight to stim off
+                endif
+            endif
+            
+        case iState% = stateStimOff% then
+            
+            ' Turn off stimulus
+            DrawStim(0);
+            SafeSampleKey("L");
+            if fixSimultaneousLED% = 1 then
+                SafeSampleKey("G");
+            endif
+            ChangeStateTo(stateWaitForBlank%, tNow);            
+            
+            
+        case iState% = stateWaitForBlank% then
+            
+            ' Wait for stim to be off
+            tTrigger := NextTime(TriggerChannel%, tStateStart,vTrigger);
+            'LogStatus("WaitForBlank", str$(tStateStart) + "," + str$(tNow) + "," + str$(tTrigger) + "," + str$(vTrigger));
+            if tTrigger > tLast then
+                
+                if vTrigger = 1 then      
+                    tLastTrigger := tTrigger;
+                    LogStatus("WaitForBlank", "Stim off trig");
+                    if fixSuccess% = 0 then
+                        ChangeStateTo(stateFailure%, tTrigger);
+                        stayInLoop% := 1;  'No reason to wait, go straight to failure
+                    else
+                        ChangeStateTo(stateSuccess%, tTrigger);
+                        stayInLoop% := 1;  'No reason to wait, go straight to success
                     endif;
+                else
+                    ' this should never happen!
+                    Message("Wrong trig edge in stateWaitForBlank!");
+                    LogStatus("WaitForBlank", "Wrong trig edge tNow=" + str$(tNow) + " tTrigger=" + str$(tTrigger) + " tLastTrigger=" + str$(tLastTrigger));
+                    halt;
+                endif
+                
+            endif
+            
+            
+        case iState% = stateSuccess% then
+            
+            nTrialsSuccess% += 1;
+            DefaultReward();
+            ChangeStateTo(stateNextAfterFixation%, tNow);
+            stayInLoop% := 1;  'No reason to wait
+            
+        case iState% = stateFailure% then
+            
+            nTrialsFail% += 1;
+            ChangeStateTo(stateNextAfterFixation%, tNow);
+            stayInLoop% := 1;  'No reason to wait
+            
+        
+        case iState% = stateNextAfterFixation% then
+            
+            if fixInterleaveLED% = 0 then  'If no interleaved LED, go to next Fixation Point
+                ChangeStateTo(stateCheckTrial%, tNow);
+                stayInLoop% := 1;  'No reason to wait
+            else
+                if fixSuccess% = 1 then  'if success during interleaved LED, go to LED
+                    fixSuccess% := 0; 'reset success variable
+                    ChangeStateTo(statePreLEDInterval%, tNow);
+                    stayInLoop% := 1;  'No reason to wait
+                else 'if failure, go back to fixation point
+                    ChangeStateTo(stateCheckTrial%, tNow);
+                    stayInLoop% := 1;  'No reason to wait
+                endif;
+            endif;
+        
+            
+        case iState% = statePreLEDInterval% then
+            ' Inter-trial wait time
+            if tNow - tStateStart > fixInterTrialTime then
+                
+                ChangeStateTo(stateStartLEDTrial%, tNow);
+                stayInLoop% := 1;  'No reason to wait
+                
+            endif
+            
+            
+            
+        case iState% = stateStartLEDTrial% then
+            
+            ' initial state on startup. 
+            ' DIGOUT to present stimulus
+            ' Enter state 1
+            
+            if Pause% = 0 then
+                nLEDTrialsStarted% += 1;
+                'iStimIndex% := (iStimIndex% + 1) mod 8;
+                
+                SafeSampleKey("F");
+                
+                ChangeStateTo(stateWaitForLEDAcquisition%, tNow);
+                
+                UpdateToolbarText();
+            endif
+            
+            
+            
+        case iState% = stateWaitForLEDAcquisition% then
+            
+            if tNow-tStateStart < fixAcquisitionTime then
+                
+                ' Acquisition happens when the eye falls within the fixation window.
+                if InFixationWindow%(xEye, yEye) > 0 then
+                    
+                    ChangeStateTo(stateHoldLEDFixation%, tNow);
                     
                 endif
-                tLastTrigger := tTrigger;
-                LogStatus("WaitForBlank", "Stim off trig");
-            else
-                ' this should never happen!
-                Message("Wrong trig edge in stateWaitForBlank!");
-   				LogStatus("WaitForBlank", "Wrong trig edge tNow=" + str$(tNow) + " tTrigger=" + str$(tTrigger) + " tLastTrigger=" + str$(tLastTrigger));
-                halt;
-            endif
-
-        endif
-        
-    case iState% = statePreLEDInterval% then
-        ' Inter-trial wait time
-        if tNow - tStateStart > fixInterTrialTime then
-            
-            ChangeStateTo(stateStartLEDTrial%, tNow);
-
-        endif
-        
-
-
-    case iState% = stateStartLEDTrial% then
-
-        ' initial state on startup. 
-        ' DIGOUT to present stimulus
-        ' Enter state 1
-        
-        if Pause% = 0 then
-            nLEDTrialsStarted% += 1;
-            'iStimIndex% := (iStimIndex% + 1) mod 8;
-            
-            SafeSampleKey("F");
-            
-            ChangeStateTo(stateWaitForLEDAcquisition%, tNow);
-            
-            UpdateToolbarText();
-        endif
-        
-
-
-    case iState% = stateWaitForLEDAcquisition% then
-
-        if tNow-tStateStart < fixAcquisitionTime then
-            
-            ' Acquisition happens when the eye falls within the fixation window.
-            if InFixationWindow%(xEye, yEye) > 0 then
                 
-               ChangeStateTo(stateHoldLEDFixation%, tNow);
-
+            else
+                
+                ' Failed. Turn off stim and try again.
+                ' Turn off stimulus immediately
+                SafeSampleKey("G");
+                ChangeStateTo(stateLEDFailure%, tNow);
+                stayInLoop% := 1;  'No reason to wait
             endif
-
-        else
-
-           ' Failed. Turn off stim and try again.
-           ' PrintLog("State 2 - acquisition failed. Enter state 4\n");
-            ChangeStateTo(stateLEDFailure%, tNow);
-
-        endif
-
-    case iState% = stateHoldLEDFixation% then
-
-        ' Waiting for fixation....
-        if InFixationWindow%(xEye, yEye) <= 0 then
             
-            ChangeStateTo(stateLEDFailure%, tNow);
-
-        else
-
-            if tNow - tStateStart >= fixFixationDuration then
-
-                ' Fixation. Reward. New trial.
-                ChangeStateTo(stateLEDSuccess%, tNow);
-
+        case iState% = stateHoldLEDFixation% then
+            
+            ' Waiting for fixation....
+            if InFixationWindow%(xEye, yEye) <= 0 then
+                ' Turn off stimulus immediately
+                SafeSampleKey("G");
+                ChangeStateTo(stateLEDFailure%, tNow);
+                stayInLoop% := 1;  'No reason to wait
+            else
+                
+                if tNow - tStateStart >= fixFixationDuration then
+                    
+                    ' Turn off stimulus immediately
+                    SafeSampleKey("G");
+                    ' Fixation. Reward. New trial.
+                    ChangeStateTo(stateLEDSuccess%, tNow);
+                    stayInLoop% := 1;  'No reason to wait
+                endif
+                
             endif
-
-        endif
-
-    case iState% = stateLEDSuccess% then
-
-        nLEDTrialsSuccess% += 1;
-        DefaultReward();
-        LEDOK% := 1;
-        ' tally successful trials
-        ChangeStateTo(stateLEDStimOff%, tNow);
-
-    case iState% = stateLEDFailure% then
-
-        nLEDTrialsFail% += 1;
-        ChangeStateTo(stateLEDStimOff%, tNow);
-
-    case iState% = stateLEDStimOff% then
-
-        ' Turn off stimulus, enter state 5 - wait for stimulus off msg
-        SafeSampleKey("G");
-        'must be interleaved to get here
-        if LEDOK% = 1 then  'If LED trial was OK, 
-            LEDOK%:=0; 'reset LED success variables
-            ChangeStateTo(stateCheckTrial%, tNow); 'prepare for next Fixation trial
-        else
-            ChangeStateTo(statePreLEDInterval%, tNow);  'return to LED
-        endif;
-     
+            
+        case iState% = stateLEDSuccess% then
+            
+            nLEDTrialsSuccess% += 1;
+            DefaultReward();
+            LEDSuccess% := 1;
+            ' tally successful trials
+            ChangeStateTo(stateLEDIsOff%, tNow);
+            stayInLoop% := 1;  'No reason to wait
+            
+        case iState% = stateLEDFailure% then
+            
+            LEDSuccess% := 0;
+            nLEDTrialsFail% += 1;
+            ChangeStateTo(stateLEDIsOff%, tNow);
+            stayInLoop% := 1;  'No reason to wait
+            
+        case iState% = stateLEDIsOff% then
+            
+            
+            'must be interleaved to get here
+            if LEDSuccess% = 1 then  'If LED trial was OK, 
+                LEDSuccess%:=0; 'reset LED success variables
+                ChangeStateTo(stateCheckTrial%, tNow); 'prepare for next Fixation trial
+                stayInLoop% := 1;  'No reason to wait
+            else
+                ChangeStateTo(statePreLEDInterval%, tNow);  'return to LED
+            endif;
+            
+            
+        case iState% = stateCheckTrial% then
+            
+            ' Check trial count
+            if nTrialsStarted% = fixNumberOfTrials%  and fixCalibrationFlag% = 0 then
+                Stop%();
+                'ChangeStateTo(stateDone%, tNow);  '??? Stop% overrides
+                'stayInLoop% := 1;  'No reason to wait
+                iStatus% := 0;
+            else
+                ChangeStateTo(stateInterval%, tNow);
+            endif
+            
+            
+        case iState% = stateInterval% then
+            
+            ' Inter-trial wait time
+            if tNow - tStateStart > fixInterTrialTime then
+                
+                ' Back to state 0
+                ChangeStateTo(stateStartTrial%, tNow);
+                stayInLoop% := 1;  'No reason to wait
+                
+            endif
+            
+        else 
+            
+            ' Unknown state!
+            Message("Unknown state=" + str$(iState%));
+            halt;
+            
+        endcase;
         
-    case iState% = stateCheckTrial% then
-
-        ' Check trial count
-        if nTrialsStarted% = fixNumberOfTrials%  and fixCalibrationFlag% = 0 then
-            Stop%();
-            ChangeStateTo(stateDone%, tNow);
-            iStatus% := 0;
-        else
-            ChangeStateTo(stateInterval%, tNow);
-        endif
-
-
-    case iState% = stateInterval% then
-
-        ' Inter-trial wait time
-        if tNow - tStateStart > fixInterTrialTime then
-
-            ' Back to state 0
-            ChangeStateTo(stateStartTrial%, tNow);
-
-        endif
-
-    else 
-
-        ' Unknown state!
-        Message("Unknown state=" + str$(iState%));
-        halt;
-
-	endcase;
-
-	tLast := tNow;
-	
+        tLast := tNow;
+                
+    wend
+    
 	return iStatus%;
 
 end;
@@ -560,7 +601,11 @@ end;
 proc UpdateToolbarText()
 
 	var s$;
-	s$ := Print$("Trial#/Total %d/%d Success/Failure %d/%d", nTrialsStarted%, fixNumberOfTrials%, nTrialsSuccess%, nTrialsFail%);
+    if fixInterleaveLED% = 0 then
+        s$ := Print$("Trial#/Total %d/%d Success/Failure %d/%d", nTrialsStarted%, fixNumberOfTrials%, nTrialsSuccess%, nTrialsFail%);
+    else        
+        s$ := Print$("Trial#/Total %d/%d Success/Failure %d/%d LEDSuccess/LEDFail %d/%d", nTrialsStarted%, fixNumberOfTrials%, nTrialsSuccess%, nTrialsFail%, nLEDTrialsSuccess%, nLEDTrialsFail%);
+    endif;
 	ToolbarText(s$);
 
 end;
