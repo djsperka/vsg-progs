@@ -1,6 +1,6 @@
 
 
-const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.2 2012-07-30 18:02:22 devel Exp $";
+const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.3 2012-07-30 20:42:23 jeff Exp $";
 
 
 ' Hello again
@@ -58,6 +58,7 @@ var buttonDuringSequence%;
 var buttonError%;
 
 var tNow:=0;		' latest time for which there are values recorded. Used in IdleProcessing
+var tButtonStart;   ' start time on button check
 var tLast:=-1;		' last time we checked for a trigger. 
 var tLastUpdate:=-1;	' last time view was updated
 var vTrigger;		' set by NextTime to indicate trigger transition
@@ -676,7 +677,7 @@ func IdleProcessing%()
     endif;    
     
     'Check button state, from the time of the last button press/release until now.  Will only return one value.
-    buttonError% := WhichButton%(buttonTime,tNow,buttonStatus%);
+    buttonError% := WhichButton%(tButtonStart,tNow,buttonStatus%,buttonTime);
     
 	docase 
     case iState% = stateVSGWait% then
@@ -701,7 +702,7 @@ func IdleProcessing%()
         docase
         case buttonTime > -1 or buttonStatus% <> 0 or buttonError% = -1 then 'if there is an extraneous button press, flush button and return to ITI
             buttonError% := 0;  'erase any possible button error
-            FlushButton(buttonTime,tNow,buttonStatus%);
+            FlushButton(tButtonStart,tNow,buttonStatus%,buttonTime);
             ChangeStateTo(stateITI%, tNow);  
         case pause% = 0 then  'This is the part on Sprockets when we pause
             'do nothing
@@ -713,7 +714,7 @@ func IdleProcessing%()
     case iState% = stateXHairUp% then
         if buttonTime > -1 or buttonStatus% <> 0 or buttonError% = -1 then 'if there is an extraneous button press, flush button and return to ITI
             buttonError% := 0;  'erase any possible button error
-            FlushButton(buttonTime,tNow,buttonStatus%);
+            FlushButton(tButtonStart,tNow,buttonStatus%,buttonTime);
             ChangeStateTo(stateITI%, tNow);
         else 
             ' Start trial. Put up crosshairs.
@@ -886,7 +887,7 @@ func IdleProcessing%()
 	return iStatus%;
 end;
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-func WhichButton%(&startT,endT,&bStatus%)
+func WhichButton%(&startT,endT,&bStatus%,&buttonT)
 	'Determine which button is pressed, if any
     'Read the button channel, of course
     'Note - another very ad-hoc function, which assumes lots of variables we know exist
@@ -921,21 +922,25 @@ func WhichButton%(&startT,endT,&bStatus%)
     'what is expected.
     docase
     case button1Press = -1 and button2Press = -1 and button1Release = -1 and button2Release = -1 then 'nothing happened on this check
-        startT := -1;
+        startT := endT;
+        buttonT := -1;
         return 1;
     case bStatus% = 0 then  'initial status is no button pressed
         'check for either button press
         docase
         case button1Press = -1 and button2Press = -1 then  'no button pressed
-            startT := -1;  'no change
+            startT := endT;  'no change
+            buttonT := -1;
             docase
             case button1Release > -1 then
                 printlog("Error!  Button 1 release occurred without a recorded press!");
                 startT := button1Release;  'fast-forward to time of "false" release
+                buttonT := startT;
                 return -1;
             case button2Release > -1 then
                 printlog("Error!  Button 2 release occurred without a recorded press!");
                 startT := button2Release;  'fast-forward to time of "false" release
+                buttonT := startT;
                 return -1;  
             else
                 return 1;  'success, no change
@@ -944,6 +949,7 @@ func WhichButton%(&startT,endT,&bStatus%)
             if button1Press < button2Press then
                 bStatus% := 1;  'consider it a button 1 press
                 startT := button1Press;
+                buttonT := startT;
                 docase 
                 case button1Release > -1 and button1Release < button1Press then
                     printlog("Error!  Button 1 release occurred before Button 1 press when initial status was no button pressed!");
@@ -957,6 +963,7 @@ func WhichButton%(&startT,endT,&bStatus%)
             else  'button2Press > button1Press
                 bStatus% := 2;  'consider it a button 2 press
                 startT := button2Press;
+                buttonT := startT;
                 docase 
                 case button1Release > -1 and button1Release < button2Press then
                     printlog("Error!  Button 1 release occurred before Button 2 press when initial status was no button pressed!");
@@ -971,6 +978,7 @@ func WhichButton%(&startT,endT,&bStatus%)
         case button1Press > -1 then  'no button 2 press, would trigger prior case
             bStatus% := 1;  'consider it a button 1 press
             startT := button1Press;
+            buttonT := startT;
             docase 
             case button1Release > -1 and button1Release < button1Press then
                 printlog("Error!  Button 1 release occurred before Button 1 press when initial status was no button pressed!");
@@ -984,6 +992,7 @@ func WhichButton%(&startT,endT,&bStatus%)
         case button2Press > -1 then  'no button 1 press, would trigger prior case
             bStatus% := 2;  'consider it a button 2 press
             startT := button2Press;
+            buttonT := startT;
             docase 
             case button1Release > -1 and button1Release < button2Press then
                 printlog("Error!  Button 1 release occurred before Button 2 press when initial status was no button pressed!");
@@ -997,6 +1006,7 @@ func WhichButton%(&startT,endT,&bStatus%)
         else
             printlog("Error - shouldn't ever get in here!"); 'logically all states should be accounted for, but just in case
             startT := max(button1Press,button2Press,button1Release,button2Release);  'just clear it all out
+            buttonT := startT;
             docase  'And set the button status based on the last recorded event
             case startT = button1Release or startT = button2Release then
                 bStatus% := 0;
@@ -1014,9 +1024,11 @@ func WhichButton%(&startT,endT,&bStatus%)
         case button1Release > -1 then
             bStatus% := 0;  'Button is released
             startT := button1Release;
+            buttonT := startT;
         case button1Press > -1 or button2Press > -1 or button2Release > -1 then
             printlog("Error!  Recorded something other than button 1 release when button 1 believed to be pressed!");
             startT := max(button1Press,button2Press,button2Release);
+            buttonT := startT;
             docase
             case startT = button1Press then
                 bStatus% := 1;
@@ -1027,7 +1039,8 @@ func WhichButton%(&startT,endT,&bStatus%)
             endcase;
             return -1;
         else
-            startT := -1;  'no change            
+            startT := endT;  'no change 
+            buttonT := -1;            
         endcase;
         
         'check for crazy errors
@@ -1054,9 +1067,11 @@ func WhichButton%(&startT,endT,&bStatus%)
         case button2Release > -1 then
             bStatus% := 0;  'Button is released
             startT := button2Release;
+            buttonT := startT;
         case button1Press > -1 or button2Press > -1 or button1Release > -1 then
             printlog("Error!  Recorded something other than button 2 release when button 2 believed to be pressed!");
             startT := max(button1Press,button2Press,button1Release);
+            buttonT := startT;
             docase
             case startT = button1Press then
                 bStatus% := 1;
@@ -1067,7 +1082,8 @@ func WhichButton%(&startT,endT,&bStatus%)
             endcase;
             return -1;
         else
-            startT := -1;  'no change            
+            startT := endT;  'no change
+            buttonT := -1;            
         endcase;
         
         'check for crazy errors
@@ -1094,11 +1110,11 @@ func WhichButton%(&startT,endT,&bStatus%)
 end;
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
-proc FlushButton(&startT,endT,&bStatus%)
+proc FlushButton(&startT,endT,&bStatus%,&buttonT)
     'Used to flush out the status of the button until all button events are in the past relative to endT (typically tNow)
     'Useful in the case of a button error, to just clear out and start over
-    while startT > -1 do
-        WhichButton%(startT,endT,bStatus%);
+    while buttonT > -1 do
+        WhichButton%(startT,endT,bStatus%,buttonT);
     wend;
     'When this is done we will have no idea when the last event occured or necessarily what it was, but bStatus% 
     'ought to be correct for time endT and we will be ready to try reading the button again.
