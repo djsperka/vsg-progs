@@ -1,0 +1,427 @@
+'These includes are only here to allow successful compile separate from the main DonutHunt script.  They can be removed once 
+'the whole thing is together
+#include "../../Spike2Util/ChannelUtilities.s2s"
+#include "../../Spike2Util/UsreyUtil.s2s"
+#include "../../Spike2Util/LogUtilities.s2s"
+#include "../../Spike2Util/MiscUtilities.s2s"
+#include "UsreyDAQ.s2s"
+#include "DonutHuntDialogs.s2s"
+#include "UsreyGratings.s2s"
+#include "UsreyFixationPoint.s2s"
+
+'DonutHuntDialogs - just what it sounds like
+var startup%:=0;  'This just sets the main dialog OK button to disabled to start
+const dhXHairButton% := 2;
+const dhSelectSEQFileButton% := 3;
+const dhGratingButton% := 4;
+
+'Main dialog variables
+var dhNRepeats%;
+var dhMinStimDelay;
+var dhRandStimDelay;
+var dhDelayBeforeDContrast;
+var dhDurAfterDContrast;
+var dhDoCRG%;
+var dhNRepeatsPerCRG%;
+var dhNFramesPerTurn%;
+var dhCRGFilename$;
+var dhShowDonutOnMaster%;
+
+'Grating dialog variables
+var dhXOffset;
+var dhSpatialFreq;
+var dhTemporalFreq;
+var dhInitialPhase%;
+var dhDonutContrast;
+var dhCoreContrast;
+var dhMinDContrast;
+var dhMaxDContrast;
+var dhNContrastLevels%;
+var dhContrastLogProgression%;
+var dhCoreDiameter;
+var dhMinDonutDiameter;
+var dhMaxDonutDiameter;
+var dhNDonutDiameters%;
+var dhDiameterLogProgression%;
+var dhDonutOrientation;
+var dhMinCoreOrientation;
+var dhMaxCoreOrientation;
+var dhNCoreOrientations%;
+
+'Crosshair dialog variables 
+var dhXHairInnerRadiusOffset;
+var dhXHairMiddleRadiusOffset;
+var dhXHairOuterRadiusOffset;
+var dhXHairNumGridDivisions%;
+var dhXHairTicInnerOffset;
+var dhXHairTicOuterOffset;
+
+proc GetDonutHuntMainParameters()
+	var key$;
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\DonutHunt";
+    
+    dhNRepeats% := GetIntRegistryValue%(key$, "NRepeats", dhNRepeats%);
+    dhMinStimDelay := GetFloatRegistryValue(key$, "MinStimDelay", dhMinStimDelay);
+    dhRandStimDelay := GetFloatRegistryValue(key$, "RandStimDelay", dhRandStimDelay);
+    dhDelayBeforeDContrast := GetFloatRegistryValue(key$, "DelayBeforeDContrast", dhDelayBeforeDContrast);
+    dhDurAfterDContrast := GetFloatRegistryValue(key$, "DurAfterDContrast", dhDurAfterDContrast);
+    dhDoCRG% := GetIntRegistryValue%(key$, "DoCRG", dhDoCRG%);
+    dhNRepeatsPerCRG% := GetIntRegistryValue%(key$, "NRepeatsPerCRG", dhNRepeatsPerCRG%);
+    dhNFramesPerTurn% := GetIntRegistryValue%(key$, "NFramesPerTurn", dhNFramesPerTurn%);
+    dhCRGFilename$ := GetStringRegistryValue$(key$, "CRGFilename", dhCRGFilename$);
+    dhShowDonutOnMaster% := GetIntRegistryValue%(key$, "ShowDonutOnMaster", dhShowDonutOnMaster%);
+    
+    
+end;
+
+proc SaveDonutHuntMainParameters()
+	var key$;
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\DonutHunt";
+    
+	SetIntRegistryValue(key$, "NRepeats", dhNRepeats%);
+    SetFloatRegistryValue(key$, "MinStimDelay", dhMinStimDelay);
+    SetFloatRegistryValue(key$, "RandStimDelay", dhRandStimDelay);
+    SetFloatRegistryValue(key$, "DelayBeforeDContrast", dhDelayBeforeDContrast);
+    SetFloatRegistryValue(key$, "DurAfterDContrast", dhDurAfterDContrast);
+    SetIntRegistryValue(key$, "DoCRG", dhDoCRG%);
+    SetIntRegistryValue(key$, "NRepeatsPerCRG", dhNRepeatsPerCRG%);
+    SetIntRegistryValue(key$, "NFramesPerTurn", dhNFramesPerTurn%);
+    SetStringRegistryValue(key$, "CRGFilename", dhCRGFilename$);
+    SetIntRegistryValue(key$, "ShowDonutOnMaster", dhShowDonutOnMaster%);
+
+end;
+
+
+proc GetDonutHuntGratingParameters()
+	var key$;
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\DonutHunt";  'same location as main
+    
+    dhXOffset := GetFloatRegistryValue(key$, "XOffset", dhXOffset);
+    dhSpatialFreq := GetFloatRegistryValue(key$, "SpatialFreq", dhSpatialFreq);
+    dhTemporalFreq := GetFloatRegistryValue(key$, "TemporalFreq", dhTemporalFreq);
+    dhInitialPhase% := GetIntRegistryValue%(key$, "InitialPhase", dhInitialPhase%);
+    dhDonutContrast := GetFloatRegistryValue(key$, "DonutContrast", dhDonutContrast);
+    dhCoreContrast := GetFloatRegistryValue(key$, "CoreContrast", dhCoreContrast);
+    dhMinDContrast := GetFloatRegistryValue(key$, "MinDContrast", dhMinDContrast);
+    dhMaxDContrast := GetFloatRegistryValue(key$, "MaxDContrast", dhMaxDContrast);
+    dhNContrastLevels% := GetIntRegistryValue%(key$, "NContrastLevels", dhNContrastLevels%);
+    dhContrastLogProgression% := GetIntRegistryValue%(key$, "ContrastLogProgression", dhContrastLogProgression%);
+    dhCoreDiameter := GetFloatRegistryValue(key$, "CoreDiameter", dhCoreDiameter);
+    dhMinDonutDiameter := GetFloatRegistryValue(key$, "MinDonutDiameter", dhMinDonutDiameter);
+    dhMaxDonutDiameter := GetFloatRegistryValue(key$, "MaxDonutDiameter", dhMaxDonutDiameter);
+    dhNDonutDiameters% := GetIntRegistryValue%(key$, "NDonutDiameters", dhNDonutDiameters%);
+    dhDiameterLogProgression% := GetIntRegistryValue%(key$, "DiameterLogProgression", dhDiameterLogProgression%);
+    dhDonutOrientation := GetFloatRegistryValue(key$, "DonutOrientation", dhDonutOrientation);
+    dhMinCoreOrientation := GetFloatRegistryValue(key$, "MinCoreOrientation", dhMinCoreOrientation);
+    dhMaxCoreOrientation := GetFloatRegistryValue(key$, "MaxCoreOrientation", dhMaxCoreOrientation);
+    dhNCoreOrientations% := GetIntRegistryValue%(key$, "NCoreOrientations", dhNCoreOrientations%);
+    
+end
+
+
+
+proc SaveDonutHuntGratingParameters()
+	var key$;
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\DonutHunt";  'same location as main
+    
+    SetFloatRegistryValue(key$, "XOffset", dhXOffset);
+    SetFloatRegistryValue(key$, "SpatialFreq", dhSpatialFreq);
+    SetFloatRegistryValue(key$, "TemporalFreq", dhTemporalFreq);
+    SetIntRegistryValue(key$, "InitialPhase", dhInitialPhase%);
+    SetFloatRegistryValue(key$, "DonutContrast", dhDonutContrast);
+    SetFloatRegistryValue(key$, "CoreContrast", dhCoreContrast);
+    SetFloatRegistryValue(key$, "MinDContrast", dhMinDContrast);
+    SetFloatRegistryValue(key$, "MaxDContrast", dhMaxDContrast);
+    SetIntRegistryValue(key$, "NContrastLevels", dhNContrastLevels%);
+    SetIntRegistryValue(key$, "ContrastLogProgression", dhContrastLogProgression%);
+    SetFloatRegistryValue(key$, "CoreDiameter", dhCoreDiameter);
+    SetFloatRegistryValue(key$, "MinDonutDiameter", dhMinDonutDiameter);
+    SetFloatRegistryValue(key$, "MaxDonutDiameter", dhMaxDonutDiameter);
+    SetIntRegistryValue(key$, "NDonutDiameters", dhNDonutDiameters%);
+    SetIntRegistryValue(key$, "DiameterLogProgression", dhDiameterLogProgression%);
+    SetFloatRegistryValue(key$, "DonutOrientation", dhDonutOrientation);
+    SetFloatRegistryValue(key$, "MinCoreOrientation", dhMinCoreOrientation);
+    SetFloatRegistryValue(key$, "MaxCoreOrientation", dhMaxCoreOrientation);
+    SetIntRegistryValue(key$, "NCoreOrientations", dhNCoreOrientations%);
+    
+end
+
+
+
+proc GetDonutHuntXHairParameters()
+	var key$;
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\DonutHunt\\XHair";
+    
+	dhXHairInnerRadiusOffset := GetFloatRegistryValue(key$, "XHairInnerRadiusOffset", dhXHairInnerRadiusOffset);
+    dhXHairNumGridDivisions% := GetIntRegistryValue%(key$, "XHairNumGridDivisions%", dhXHairNumGridDivisions%);
+    dhXHairMiddleRadiusOffset := GetFloatRegistryValue(key$, "XHairMiddleRadiusOffset", dhXHairMiddleRadiusOffset);
+    dhXHairOuterRadiusOffset := GetFloatRegistryValue(key$, "XHairOuterRadiusOffset", dhXHairOuterRadiusOffset);
+    dhXHairTicInnerOffset := GetFloatRegistryValue(key$, "XHairTicInnerOffset", dhXHairTicInnerOffset);
+    dhXHairTicOuterOffset := GetFloatRegistryValue(key$, "XHairTicOuterOffset", dhXHairTicOuterOffset);
+    
+end;
+
+proc SaveDonutHuntXHairParameters()
+	var key$;
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\DonutHunt\\XHair";
+    
+    SetFloatRegistryValue(key$, "XHairInnerRadiusOffset", dhXHairInnerRadiusOffset);
+    SetIntRegistryValue(key$, "XHairNumGridDivisions%", dhXHairNumGridDivisions%);
+    SetFloatRegistryValue(key$, "XHairMiddleRadiusOffset", dhXHairMiddleRadiusOffset);
+    SetFloatRegistryValue(key$, "XHairOuterRadiusOffset", dhXHairOuterRadiusOffset);
+    SetFloatRegistryValue(key$, "XHairTicInnerOffset", dhXHairTicInnerOffset);
+    SetFloatRegistryValue(key$, "XHairTicOuterOffset", dhXHairTicOuterOffset);
+
+end;
+
+
+func DonutHuntXHairDialog%()
+    var i%;
+    
+    GetDonutHuntXHairParameters();
+    
+    DlgCreate("Crosshair/Grid");
+    DlgReal(1, "Grid inner radius offset", 0, 100);
+    DlgReal(2, "Grid mid radius offset", 0, 100);
+    DlgReal(3, "Grid outer radius offset", 0, 100);
+    DlgInteger(4, "Number of divisions in grid", 2, 128);
+    DlgReal(5, "XHair inner offset", -1, 100);
+    DlgReal(6, "XHair outer offset", -1, 100);
+    i% := DlgShow(dhXHairInnerRadiusOffset, dhXHairMiddleRadiusOffset, dhXHairOuterRadiusOffset, dhXHairNumGridDivisions%, dhXHairTicInnerOffset, dhXHairTicOuterOffset);
+    
+    if i% = 1 then
+        'Save parameters
+        SaveDonutHuntXHairParameters();
+    endif;
+    
+    return 1;
+end
+
+
+
+
+func DonutHuntMainDialog%()
+    
+    var i%;
+    var status% := 0;  
+    var j%;
+
+    
+    
+    ' Fetch parameters from registry    
+    GetDonutHuntMainParameters();    
+    
+    ' Generate the dialog    
+    DlgCreate("Donut Hunt Dialog",0,0,60,13);
+    
+    'The top 2 non-categorized bits
+    DlgInteger(1,6,1,100,23,1);  'Number of repeats
+    DlgText("Number of Repeats",2,1);
+    DlgButton(dhXHairButton%,"       Crosshairs       ",DonutHuntXHairDialog%,2,2);
+    DlgButton(dhGratingButton%,"Grating Parameters",DonutHuntGratingDialog%,2,3);
+    DlgCheck(10,"Show Donut On Master",35,1);
+
+    
+    'Timing parameters
+    DlgGroup("Timing Parameters",1,4,58,3);
+    DlgReal(2,6,0,10,23,5);  'Minimum delay
+    DlgText("Min delay (sec)",2,5);
+    DlgReal(3,6,0,10,23,6);  'Random delay
+    DlgText("Random delay (sec)",2,6);
+    DlgReal(4,6,0,10,52,5);  'Pre-contrast change time
+    DlgText("Pre-change time (sec)",31,5);
+    DlgReal(5,6,0,10,52,6);  'Post-contrast change time
+    DlgText("Post-change time (sec)",31,6);
+    
+    'CRG parameters
+    DlgGroup("CRG",1,7,58,5);
+    DlgCheck(6, "Do CRG", 2, 8);
+    DlgInteger(7,6,0,100,23,9);  'N repeats per CRG sequence
+    DlgText("Repeats per CRG seq",2,9);
+    DlgInteger(8,6,0,100,52,9);  'N Frames per turn
+    DlgText("Frames per turn",31,9);
+    DlgString(9,55,200,"",3,11);  'for visual confirmation of selected seq file; max character value (20) only applies to typing in, not assigning via Value().  Huh.
+    DlgButton(dhSelectSEQFileButton%,"Select Sequence File",SelectSEQFile%,2,10);
+
+    DlgAllow(0xffff, 0, DonutHuntMainDialogChanged%);
+    
+    ' Show the dialog. 
+    i%:=DlgShow(dhNRepeats%,dhMinStimDelay,dhRandStimDelay,dhDelayBeforeDContrast,dhDurAfterDContrast,
+    dhDoCRG%,dhNRepeatsPerCRG%,dhNFramesPerTurn%,dhCRGFilename$,dhShowDonutOnMaster%);
+
+    
+    
+    ' If user hit OK then save parameters (and return 1). 
+	if i% = 1 then
+        
+        'Save parameters
+        SaveDonutHuntMainParameters();   
+        
+        'printlog("%s\n",dhCRGFilename$);
+        
+        status% := 1;
+    else
+        status% := 0;
+    endif
+    
+	return status%;
+   
+end;
+
+
+
+' This function is initially called with a "0" input
+func DonutHuntMainDialogChanged%(item%)  
+    if startup% = 0 then
+        DlgEnable(0,-1);  'Otherwise disable "OK"
+        startup%:=1;
+        'Enable is done in the DonutHuntGratingDialog
+    endif;
+    
+    'This re-enables the master/slave listbox if CRG dialog is cancelled (actually not needed)
+    'if item% = 0 then
+        'DlgEnable(1,5); 
+    'endif;  
+    if DlgValue(6) = 0 then
+        'DlgEnable(1,-1);  'enable "OK" if curve has been selected
+        DlgEnable(0,7);   'Disable CRG stuff
+        DlgEnable(0,8);   
+        DlgEnable(0,9);  
+        DlgEnable(0,-dhSelectSEQFileButton%);
+    else
+        'DlgEnable(0,-1);  'Otherwise disable "OK"
+        DlgEnable(1,7);   'Enable CRG stuff
+        DlgEnable(1,8);   
+        DlgEnable(1,9);
+        DlgEnable(1,-dhSelectSEQFileButton%);
+    endif;
+    
+    return 1;
+end
+
+
+func DonutHuntGratingDialog%()
+    
+    var i%;
+    var allOK% := 0;
+    var param$;
+    
+    'Disable the calling dialog's OK button, in case invalid numbers are entered
+    '(On the first call it will be disabled anyway)
+    DlgEnable(0,-1);  'this is kinda cool, that DlgEnable here affects the calling dialog.    
+    
+    ' Fetch parameters from registry    
+    GetDonutHuntGratingParameters();    
+    
+    ' Generate the dialog    
+    DlgCreate("Donut Hunt Dialog",0,0,60,18);
+    
+    'Common grating parameters
+    DlgGroup("Common Grating Parameters",1,1,58,3);
+    DlgReal(1,6,0,100,23,2);  'X offset
+    DlgText("X Offset (deg)",2,2);
+    DlgReal(2,6,0,100,23,3);  'Spatial freq
+    DlgText("Spatial Freq. (cyc/deg)",2,3);
+    DlgReal(3,6,0,100,52,2);  'Temporal freq
+    DlgText("Temporal Freq. (cyc/s)",31,2);
+    DlgInteger(4,6,0,360,52,3);  'Init phase
+    DlgText("Initial Phase (deg)",31,3);
+   
+    'Contrast parameters
+    DlgGroup("Contrast Parameters",1,4,58,5);
+    DlgReal(5,6,0.1,100,52,5);  'Donut contrast
+    DlgText("Donut contrast",31,5);
+    DlgReal(6,6,0.1,100,23,5);  'Core contrast
+    DlgText("Core base contrast",2,5);
+    DlgReal(7,6,0.1,100,23,6);  'Minimum change core contrast
+    DlgText("Min core cont. change",2,6);
+    DlgReal(8,6,0.1,100,23,7);  'Maximum change core contrast
+    DlgText("Max core cont. change",2,7);
+    DlgInteger(9,6,0,100,23,8);  'Number of contrast levels
+    DlgText("# contrast levels",2,8);
+    DlgCheck(10, "Contrast Log Progression", 31, 8);
+    
+    'Diameter parameters
+    DlgGroup("Diameter Parameters",1,9,58,4);
+    DlgReal(11,6,0,100,52,10);  'Core diameter
+    DlgText("Core diameter (deg)",31,10);
+    DlgReal(12,6,0,100,23,10);  'Minimum donut diameter
+    DlgText("Min donut diam. (deg)",2,10);
+    DlgReal(13,6,0,100,23,11);  'Maximum donut diameter
+    DlgText("Max donut diam. (deg)",2,11);
+    DlgInteger(14,6,0,100,23,12);  'Number of donut sizes
+    DlgText("# donut sizes",2,12);
+    DlgCheck(15, "Donut Size Log Progression", 31, 12);
+    
+    
+    'Orientation parameters
+    DlgGroup("Orientation Parameters",1,13,58,4);
+    DlgReal(16,6,0,360,52,14);  'Donut Orientation
+    DlgText("Donut Orientation (deg)",31,14);
+    DlgReal(17,6,0,360,23,14);  'Minimum Core orientation
+    DlgText("Min Core orient. (deg)",2,14);
+    DlgReal(18,6,0,360,23,15);  'Maximum Core prientation
+    DlgText("Max Core orient. (deg)",2,15);
+    DlgInteger(19,6,0,100,23,16);  'Number of orientations
+    DlgText("# orientations",2,16);
+    
+    ' Show the dialog. 
+    i%:=DlgShow(dhXOffset,dhSpatialFreq,dhTemporalFreq,dhInitialPhase%,dhDonutContrast,dhCoreContrast,
+    dhMinDContrast,dhMaxDContrast,dhNContrastLevels%,dhContrastLogProgression%,dhCoreDiameter,
+    dhMinDonutDiameter,dhMaxDonutDiameter,dhNDonutDiameters%,dhDiameterLogProgression%,dhDonutOrientation,
+    dhMinCoreOrientation,dhMaxCoreOrientation,dhNCoreOrientations%);
+
+    
+    ' If user hit OK then check a couple of parameters
+	if i% = 1 then
+        'it's dummyproofing!
+        docase
+        case dhCoreContrast + dhMaxDContrast > 100 then
+            message("Error!  The baseline core contrast plus maximum contrast add up to more than 100!");
+        case dhMinDContrast > dhMaxDContrast then
+            message("Error!  The min contrast is greater than the max contrast!");
+        case dhCoreDiameter > dhMinDonutDiameter then
+            message("Error!  The diameter of the core is greater than the smallest diameter of the donut!");
+        case dhMinDonutDiameter > dhMaxDonutDiameter then    
+            message("Error!  The min donut diameter of the core is greater than the max donut diameter!");
+        else
+            allOK% := 1;
+        endcase;            
+    endif;
+    
+    ' If all is OK then save parameters    
+    if allOK% = 1 then        
+        'Save parameters
+        SaveDonutHuntGratingParameters();   
+        
+        'Encode and save Core and Donut parameters (not Master/Slave specific, we'll assign that when we come to it)
+        param$ := EncodeGratingParameters$(0,0,dhCoreDiameter,dhCoreDiameter,0,0,dhCoreContrast,dhSpatialFreq,dhTemporalFreq,0,dhInitialPhase%,"b","s","e");
+        SaveGratingParameters("Core", param$);  'this saves core        
+        param$ := EncodeGratingParameters$(0,0,dhMinDonutDiameter,dhMinDonutDiameter,dhCoreDiameter,dhCoreDiameter,dhDonutContrast,dhSpatialFreq,dhTemporalFreq,dhDonutOrientation,dhInitialPhase%,"b","s","e");
+        SaveGratingParameters("Donut", param$);  'this saves core 
+        
+        'if the user says OK, enable OK on the main dialog
+        DlgEnable(1,-1);  'this is kinda cool, that DlgEnable here affects the calling dialog.
+    endif
+    
+	return 1;
+   
+end;
+
+
+
+func SelectSEQFile%()
+
+    var status% := 1;
+    var direc$;
+    var fh0%;
+    
+    direc$ := FilePath$();  'get current directory
+    fh0%:=FileOpen(direc$+"*.txt",1,0,"Please select a CRG sequence file");  'Find a sequence file
+    direc$ := FileName$(0);  'Get full path of selected file
+    FileClose(fh0%);  'Just close the file, we're not using it
+    DlgValue$(9,direc$);  'Place filename into dialog item of calling dialog
+
+	return status%;  'return 1 so calling dialog doesn't close
+    
+end;
