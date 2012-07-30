@@ -1,6 +1,6 @@
 
 
-const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.3 2012-07-30 20:42:23 jeff Exp $";
+const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.4 2012-07-30 21:18:14 jeff Exp $";
 
 
 ' Hello again
@@ -933,12 +933,12 @@ func WhichButton%(&startT,endT,&bStatus%,&buttonT)
             buttonT := -1;
             docase
             case button1Release > -1 then
-                printlog("Error!  Button 1 release occurred without a recorded press!");
+                printlog("Error!  Button 1 release occurred without a recorded press!\n");
                 startT := button1Release;  'fast-forward to time of "false" release
                 buttonT := startT;
                 return -1;
             case button2Release > -1 then
-                printlog("Error!  Button 2 release occurred without a recorded press!");
+                printlog("Error!  Button 2 release occurred without a recorded press!\n");
                 startT := button2Release;  'fast-forward to time of "false" release
                 buttonT := startT;
                 return -1;  
@@ -950,12 +950,13 @@ func WhichButton%(&startT,endT,&bStatus%,&buttonT)
                 bStatus% := 1;  'consider it a button 1 press
                 startT := button1Press;
                 buttonT := startT;
+                printlog("Recorded button 1 press at " + Str$(startT) + "\n");
                 docase 
                 case button1Release > -1 and button1Release < button1Press then
-                    printlog("Error!  Button 1 release occurred before Button 1 press when initial status was no button pressed!");
+                    printlog("Error!  Button 1 release occurred before Button 1 press when initial status was no button pressed!\n");
                     return -1;
                 case button2Release > -1 and button2Release < button1Press then
-                    printlog("Error!  Button 2 release occurred before Button 1 press when initial status was no button pressed!");
+                    printlog("Error!  Button 2 release occurred before Button 1 press when initial status was no button pressed!\n");
                     return -1;  
                 else
                     return 1
@@ -964,47 +965,50 @@ func WhichButton%(&startT,endT,&bStatus%,&buttonT)
                 bStatus% := 2;  'consider it a button 2 press
                 startT := button2Press;
                 buttonT := startT;
+                printlog("Recorded button 2 press at " + Str$(startT) + "\n");
                 docase 
                 case button1Release > -1 and button1Release < button2Press then
-                    printlog("Error!  Button 1 release occurred before Button 2 press when initial status was no button pressed!");
+                    printlog("Error!  Button 1 release occurred before Button 2 press when initial status was no button pressed!\n");
                     return -1;
                 case button2Release > -1 and button2Release < button2Press then
-                    printlog("Error!  Button 2 release occurred before Button 2 press when initial status was no button pressed!");
+                    printlog("Error!  Button 2 release occurred before Button 2 press when initial status was no button pressed!\n");
                     return -1;  
                 else
                     return 1
                 endcase;
             endif;
         case button1Press > -1 then  'no button 2 press, would trigger prior case
-            bStatus% := 1;  'consider it a button 1 press
+            bStatus% := 1;  'it's a button 1 press
             startT := button1Press;
             buttonT := startT;
+            printlog("Recorded button 1 press at " + Str$(startT) + "\n");
             docase 
             case button1Release > -1 and button1Release < button1Press then
-                printlog("Error!  Button 1 release occurred before Button 1 press when initial status was no button pressed!");
+                printlog("Error!  Button 1 release occurred before Button 1 press when initial status was no button pressed!\n");
                 return -1;
             case button2Release > -1 and button2Release < button1Press then
-                printlog("Error!  Button 2 release occurred before Button 1 press when initial status was no button pressed!");
+                printlog("Error!  Button 2 release occurred before Button 1 press when initial status was no button pressed!\n");
                 return -1;  
             else
                 return 1
             endcase;
         case button2Press > -1 then  'no button 1 press, would trigger prior case
-            bStatus% := 2;  'consider it a button 2 press
+            bStatus% := 2;  'it's a button 2 press
             startT := button2Press;
             buttonT := startT;
+            printlog("Recorded button 2 press at " + Str$(startT) + "\n");
             docase 
             case button1Release > -1 and button1Release < button2Press then
-                printlog("Error!  Button 1 release occurred before Button 2 press when initial status was no button pressed!");
+                printlog("Error!  Button 1 release occurred before Button 2 press when initial status was no button pressed!\n");
                 return -1;
             case button2Release > -1 and button2Release < button2Press then
-                printlog("Error!  Button 2 release occurred before Button 2 press when initial status was no button pressed!");
+                printlog("Error!  Button 2 release occurred before Button 2 press when initial status was no button pressed!\n");
                 return -1;  
             else
                 return 1
             endcase;
         else
-            printlog("Error - shouldn't ever get in here!"); 'logically all states should be accounted for, but just in case
+            printlog("Error - shouldn't ever get in here!\n"); 'logically all states should be accounted for, but just in case
             startT := max(button1Press,button2Press,button1Release,button2Release);  'just clear it all out
             buttonT := startT;
             docase  'And set the button status based on the last recorded event
@@ -1025,8 +1029,9 @@ func WhichButton%(&startT,endT,&bStatus%,&buttonT)
             bStatus% := 0;  'Button is released
             startT := button1Release;
             buttonT := startT;
+            printlog("Recorded button 1 release at " + Str$(startT) + "\n");
         case button1Press > -1 or button2Press > -1 or button2Release > -1 then
-            printlog("Error!  Recorded something other than button 1 release when button 1 believed to be pressed!");
+            printlog("Error!  Recorded something other than button 1 release when button 1 believed to be pressed!\n");
             startT := max(button1Press,button2Press,button2Release);
             buttonT := startT;
             docase
@@ -1046,16 +1051,16 @@ func WhichButton%(&startT,endT,&bStatus%,&buttonT)
         'check for crazy errors
         docase
         case button1Press > -1 and button1Press < button1Release then
-            printlog("Error!  Button 1 press occurred before release when initial status was Button 1 down!");
+            printlog("Error!  Button 1 press occurred before release when initial status was Button 1 down!\n");
             return -1;
         case button2Press > -1 and button2Press < button1Release then
-            printlog("Error!  Button 2 press occurred before Button 1 release when initial status was Button 1 down!");
+            printlog("Error!  Button 2 press occurred before Button 1 release when initial status was Button 1 down!\n");
             return -1;
         case button2Release > -1 and button2Release < button1Release then   
-            printlog("Error!  Button 2 release occurred before Button 1 release when initial status was Button 1 down!");
+            printlog("Error!  Button 2 release occurred before Button 1 release when initial status was Button 1 down!\n");
             return -1;
         case button1Release = -1 and (button1Press > -1 or button2Press > -1 or button2Release > -1) then
-            printlog("Error!  Button 1 release expected, another event detected!");
+            printlog("Error!  Button 1 release expected, another event detected!\n");
             return -1;
         else
             return 1;  'success
@@ -1068,8 +1073,9 @@ func WhichButton%(&startT,endT,&bStatus%,&buttonT)
             bStatus% := 0;  'Button is released
             startT := button2Release;
             buttonT := startT;
+            printlog("Recorded button 2 release at " + Str$(startT) + "\n");
         case button1Press > -1 or button2Press > -1 or button1Release > -1 then
-            printlog("Error!  Recorded something other than button 2 release when button 2 believed to be pressed!");
+            printlog("Error!  Recorded something other than button 2 release when button 2 believed to be pressed!\n");
             startT := max(button1Press,button2Press,button1Release);
             buttonT := startT;
             docase
@@ -1089,16 +1095,16 @@ func WhichButton%(&startT,endT,&bStatus%,&buttonT)
         'check for crazy errors
         docase
         case button2Press > -1 and button2Press < button2Release then
-            printlog("Error!  Button 2 press occurred before release when initial status was Button 2 down!");
+            printlog("Error!  Button 2 press occurred before release when initial status was Button 2 down!\n");
             return -1;
         case button1Press > -1 and button1Press < button2Release then
-            printlog("Error!  Button 1 press occurred before Button 2 release when initial status was Button 2 down!");
+            printlog("Error!  Button 1 press occurred before Button 2 release when initial status was Button 2 down!\n");
             return -1;
         case button1Release > -1 and button1Release < button2Release then   
-            printlog("Error!  Button 1 release occurred before Button 2 release when initial status was Button 2 down!");
+            printlog("Error!  Button 1 release occurred before Button 2 release when initial status was Button 2 down!\n");
             return -1;
         case button2Release = -1 and (button1Press > -1 or button2Press > -1 or button1Release > -1) then
-            printlog("Error!  Button 2 release expected, another event detected!");
+            printlog("Error!  Button 2 release expected, another event detected!\n");
             return -1;
         else
             return 1;  'success
@@ -1116,6 +1122,7 @@ proc FlushButton(&startT,endT,&bStatus%,&buttonT)
     while buttonT > -1 do
         WhichButton%(startT,endT,bStatus%,buttonT);
     wend;
+    printlog("Button Flush complete at " + Str$(endT) + "\n");
     'When this is done we will have no idea when the last event occured or necessarily what it was, but bStatus% 
     'ought to be correct for time endT and we will be ready to try reading the button again.
 end
@@ -1170,6 +1177,42 @@ Func StringifyProgressionLR$(n%, vec[], ind%[])
 end;
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 proc ChangeStateTo(stateTo%, tStart)
+    var tempState$;
 	iState% := stateTo%;
-	if tStart > 0 then tStateStart := tStart; endif;
+	if tStart > 0 then 
+        tStateStart := tStart; 
+    endif;
+    
+    'Being terribly verbose about this to track stuff down, may well remove once tracking downing is done.
+    docase
+    case iState% = 0 then
+        tempState$ := "stateVSGWait%";
+    case iState% = 1 then
+        tempState$ := "stateXHairUp%";
+    case iState% = 2 then
+        tempState$ := "stateWaitForXHairOn%";
+    case iState% = 3 then
+        tempState$ := "stateWaitInitDown%";
+    case iState% = 4 then
+        tempState$ := "stateWaitInitUpL%";
+    case iState% = 5 then
+        tempState$ := "stateWaitInitUpR%";
+    case iState% = 6 then
+        tempState$ := "stateStartSequence%";
+    case iState% = 7 then
+        tempState$ := "stateWaitOnsetTrigger%";
+    case iState% = 8 then
+        tempState$ := "stateWaitOffsetTrigger%";
+    case iState% = 9 then
+        tempState$ := "stateWaitResponse%";
+    case iState% = 10 then
+        tempState$ := "stateWaitRelease%";
+    case iState% = 11 then
+        tempState$ := "stateDone%";
+    case iState% = 12 then
+        tempState$ := "stateITI%";
+    else
+        tempState$ := "UNKNOWN!!!";
+    endcase
+    printlog("State has been changed to " + tempState$ + " at t = " + Str$(tStart) + "\n");
 end;
