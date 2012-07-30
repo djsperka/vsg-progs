@@ -1,6 +1,6 @@
 
 
-const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.1 2012-07-30 16:51:17 jeff Exp $";
+const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.2 2012-07-30 18:02:22 devel Exp $";
 
 
 ' Hello again
@@ -146,15 +146,15 @@ ButtonChannel% := 1;
 ButtonPort% := 5;  'This appears to be correct
 
 'Create sampling configuration
-'CreateSampleConfiguration();
+CreateSampleConfiguration();
 
 'Create stimulus order
 CreateStimulusOrder();  'this has previously been done within CreateSampleConfiguration
 
 ' Get display windows ready
-'InitializeWindows();
+InitializeWindows();
 
-'tic := View(DataWindow%).BinSize(ReadyChannel%);
+tic := View(DataWindow%).BinSize(ReadyChannel%);
 
 ' Prepare the toolbar buttons
 InitializeToolbar();
@@ -461,7 +461,7 @@ func Start%()
     
 
     'Build command line, any values that are unnecessary will be empty, so the build should work no matter what type of command line is required
-    cmdLine$ := Opener$ + " -a " + ProgName$ + FixationArg$ + XHairArg$ + BGColor$ + Dist2Screen$ + TriggerPort$ + Verbose$; 'prelim stuff
+    cmdLine$ := Opener$ + ProgName$ + FixationArg$ + XHairArg$ + BGColor$ + Dist2Screen$ + TriggerPort$ + Verbose$; 'prelim stuff
     cmdLine$ := cmdLine$ + RefrLock$ + OffsetFile$ + StimDur$;  'Dual VSG stuff
     cmdLine$ := cmdLine$ + SpecFileArg$;  'specification file
 
