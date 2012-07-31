@@ -1,6 +1,6 @@
 
 
-const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.4 2012-07-30 21:18:14 jeff Exp $";
+const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.5 2012-07-31 17:18:02 jeff Exp $";
 
 
 ' Hello again
@@ -703,8 +703,7 @@ func IdleProcessing%()
         case buttonTime > -1 or buttonStatus% <> 0 or buttonError% = -1 then 'if there is an extraneous button press, flush button and return to ITI
             buttonError% := 0;  'erase any possible button error
             FlushButton(tButtonStart,tNow,buttonStatus%,buttonTime);
-            ChangeStateTo(stateITI%, tNow);  
-        case pause% = 0 then  'This is the part on Sprockets when we pause
+        case pause% = 1 then  'This is the part on Sprockets when we pause
             'do nothing
         case tNow - tStateStart > tInterTrialTime then
             ChangeStateTo(stateXHairUp%, tNow);
@@ -813,6 +812,7 @@ func IdleProcessing%()
             buttonError% := 0;  'erase any possible button error
             buttonDuringSequence% := 1;
         endif;
+        'Stim channel will not go low untile AFTER X command
         if View(DataWindow%).FindFallingEdge%(StimChannel%, tLast, tTrigger) = 1 then
             ' Stim is off
             tLastTrigger := tTrigger;
@@ -824,7 +824,7 @@ func IdleProcessing%()
         docase
         case buttonDuringSequence% = 1 then
             buttonDuringSequence% := 0;
-            SafeSampleKey("X");  'Removes XHair
+            SafeSampleKey("X");  'Removes XHair/stimulus
             ChangeStateTo(stateITI%, tNow);
             LogStatus("Sequence", "Button during sequence! Trial aborted!");
         case buttonStatus% = 1 then    
