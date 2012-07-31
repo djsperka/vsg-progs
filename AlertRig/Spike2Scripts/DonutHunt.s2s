@@ -1,6 +1,6 @@
 
 
-const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.5 2012-07-31 17:18:02 jeff Exp $";
+const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.6 2012-07-31 17:28:12 devel Exp $";
 
 
 ' Hello again
@@ -703,6 +703,7 @@ func IdleProcessing%()
         case buttonTime > -1 or buttonStatus% <> 0 or buttonError% = -1 then 'if there is an extraneous button press, flush button and return to ITI
             buttonError% := 0;  'erase any possible button error
             FlushButton(tButtonStart,tNow,buttonStatus%,buttonTime);
+            'ChangeStateTo(stateITI%, tNow);  
         case pause% = 1 then  'This is the part on Sprockets when we pause
             'do nothing
         case tNow - tStateStart > tInterTrialTime then
