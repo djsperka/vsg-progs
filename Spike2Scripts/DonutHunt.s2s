@@ -1,6 +1,6 @@
 
 
-const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.6 2012-07-31 17:28:12 devel Exp $";
+const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.7 2012-08-01 20:02:55 jeff Exp $";
 
 
 ' Hello again
@@ -24,6 +24,7 @@ const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.6 2012-07-31 17:28:12 devel Exp $";
 
 ' Overall script control vars
 var Pause% := 0;
+var pausing% := 0;  'This is used to determine if we just exited a pause, so we can flush the button
 
 ' Channel numbers and handles
 var StimHandle%;			' handle for stimulus application
@@ -59,7 +60,7 @@ var buttonError%;
 
 var tNow:=0;		' latest time for which there are values recorded. Used in IdleProcessing
 var tButtonStart;   ' start time on button check
-var tLast:=-1;		' last time we checked for a trigger. 
+'var tLast:=-1;		' last time we checked for a trigger.  I don't think we need this, tLastTrigger will suffice
 var tLastUpdate:=-1;	' last time view was updated
 var vTrigger;		' set by NextTime to indicate trigger transition
 var tStateStart:=-1;	' time that present state started. Used to measure wait time, fixation time, etc. 
@@ -98,12 +99,21 @@ const stateWaitInitUpL%:=4;          ' wait for initiation button release
 const stateWaitInitUpR%:=5;
 const stateStartSequence%:=6;       ' start the trial sequence
 const stateWaitOnsetTrigger%:=7;    ' wait for the stimulus onset trigger 
-const stateWaitOffsetTrigger%:=8;   ' wait for the trigger indicating the sequence is over, starts response window
+const stateWaitStimStart%:=8;       ' Note when the stimulus actually starts
 const stateWaitResponse%:=9;    ' wait for button press to indicate response, advance stimulus, etc.
 const stateWaitRelease%:=10;     ' not timing critical, but make sure button is up before starting next trial
 const stateDone%:=11;            ' get outta here!
 const stateITI%:=12;             ' wait to put up next trial
+const statePreITIEnsureNoButton%:=13;  'make sure button isn't pressed
+const stateCheckButtonDuringXHair%:=14;  'look at button after XHair wait period
+const stateWaitContrastChange%:=15;  ' wait for contrast change
+const stateWaitStimOffset%:=16;      ' wait for stimulus offset, there are several mask triggers
+const stateCheckButtonDuringStim%:=17;  'look at button after stimulus period
 
+const nOnsetTriggers% := 2;
+const nMaskTriggers% := 4;
+var nOnsetTriggersFound%;
+var nMaskTriggersFound%;
 
 var iState% := stateVSGWait%;	' present state
 
@@ -425,8 +435,8 @@ func Start%()
     Opener$ := "cmd /k " + bin$;
     
     'DonutHunt is always dual-screen
-    'RefrLock$ := " -K ";  'lock frame refresh on the two screens
-    RefrLock$ := "";  'Dan sez refresh lock probably doesn't matter
+    RefrLock$ := " -K ";  'lock frame refresh on the two screens
+    'RefrLock$ := "";  'Dan sez refresh lock probably doesn't matter, nope, now Dan sez do it for kicks and all
     
     ProgName$ := "\\dualstim.exe "; 'set program name for dual VSG
     
@@ -657,39 +667,37 @@ end;
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 func IdleProcessing%()
 	var iStatus% := 1;	
-    var xval;
-    var yval;
-    var xind%;
-    var yind%;
+    var tTemp;
     
-	tNow := View(DataWindow%).MaxTime();
+    'if no time has passed, wait 1 ms and try again
+	tTemp := View(DataWindow%).MaxTime();
+    if tTemp = tNow then
+        yield(.001);
+        return 1;
+    else
+        tNow := tTemp;
+    endif;
     
-    ' First time through (tLast<0) just update tLast. Crosstalk on vsg dig outputs leads to erroneous
-    ' triggers. Maybe this will help. 
-    'if tLast < 0 then
-    '    tLast := 1;
-    '    return 1;
-    'endif
-    'Alternately, why not try this, which won't cause any issues with WhichButton%; above tLast could be greater than tNow
+    
+    ' First time through just update tLast to skip first second. Crosstalk on vsg dig outputs leads to erroneous
+    ' triggers. Just let those go. 
     if tNow < 1 then
-        tLast := 1;
+        tLastTrigger := 1;
         return 1;
     endif;    
     
-    'Check button state, from the time of the last button press/release until now.  Will only return one value.
-    buttonError% := WhichButton%(tButtonStart,tNow,buttonStatus%,buttonTime);
     
 	docase 
     case iState% = stateVSGWait% then
-        ' Waiting for VSG to indicate it is ready. The indication is a pulse (up, then down, 1 frame apart) on port 6.
-        'if View(DataWindow%).FindPulseUp%(ReadyChannel%, -1, tRise, tFall) = 1 then
+        'Waiting for VSG to indicate it is ready. The indication is a pulse (up, then down, 1 frame apart) on port 6.
         'Ignore any potential button activity while waiting for the VSG to sync up.
         pulseFound% := View(DataWindow%).FindPulseUp%(ReadyChannel%, tLastTrigger+tic, tRise, tFall);
         if pulseFound% = 1 then
             LogStatus("VSGWait", "Got Ready Pulse from VSG at " + str$(tRise));
             Yield(1.0);
             tLastTrigger := tFall;
-            ChangeStateTo(stateITI%, tFall);
+            ChangeStateTo(statePreITIEnsureNoButton%, tFall);
+            FlushButton(tButtonStart,tNow,buttonStatus%,buttonTime);  'ignore any button presses up to tNow, get correct buttonStatus%
         else
             if pulseFound% = 0 then  'if a (short) "false" trigger is found, update tLastTrigger so we don't see it again
                 LogStatus("VSGWait", "Got FALSE Ready Pulse from VSG at " + str$(tRise));
@@ -697,8 +705,27 @@ func IdleProcessing%()
             endif;
         endif;
         
-    case iState% = stateITI% then 
+    case iState% = statePreITIEnsureNoButton% then
+        'buttonStatus% will have been set by either WhichButton% (below) or FlushButton% (above/below)
+        docase
+        case pause% = 1 then  'This is the part on Sprockets when we pause
+            pausing% := 1;  'set pausing variable
+        case pausing% = 1 then  'if we were just pausing
+            pausing% := 0;  'unset pausing variable
+            FlushButton(tButtonStart,tNow,buttonStatus%,buttonTime);  'and flush out all button events
+        case buttonError% = -1 then  'if there is record of a button error
+            printlog("Button error found prior to ITI!\n");
+            buttonError% := 0;  'erase button error
+            FlushButton(tButtonStart,tNow,buttonStatus%,buttonTime);  'and flush out all button events
+        case buttonStatus% = 0 then  'if button is not pressed, keep going
+            ChangeStateTo(stateITI%, tNow);
+        else 'otherwise if button is pressed, wait for button release before ITI
+            buttonError% := WhichButton%(tButtonStart,tNow,buttonStatus%,buttonTime);  'update button state until something happens
+        endcase;
         
+        
+    case iState% = stateITI% then 
+        buttonError% := WhichButton%(tButtonStart,tNow,buttonStatus%,buttonTime);  'update button state while waiting through ITI
         docase
         case buttonTime > -1 or buttonStatus% <> 0 or buttonError% = -1 then 'if there is an extraneous button press, flush button and return to ITI
             buttonError% := 0;  'erase any possible button error
@@ -712,39 +739,39 @@ func IdleProcessing%()
         
         
     case iState% = stateXHairUp% then
-        if buttonTime > -1 or buttonStatus% <> 0 or buttonError% = -1 then 'if there is an extraneous button press, flush button and return to ITI
-            buttonError% := 0;  'erase any possible button error
-            FlushButton(tButtonStart,tNow,buttonStatus%,buttonTime);
-            ChangeStateTo(stateITI%, tNow);
-        else 
-            ' Start trial. Put up crosshairs.
-            LogStatus("StartTrial", "Request crosshairs");
-            SafeSampleKey("F");
-            ChangeStateTo(stateWaitForXHairOn%, tNow);
-        endif;
+
+        ' Start trial. Put up crosshairs.  Do not check button until XHair confirmed.
+        LogStatus("StartTrial", "Request crosshairs");
+        SafeSampleKey("F");
+        ChangeStateTo(stateWaitForXHairOn%, tNow);
         
         
     case iState% = stateWaitForXHairOn% then
-        if buttonTime > -1 or buttonError% = -1 then  'note if a button is pressed, but let XHair come up since we've asked for it
-            buttonError% := 0;  'erase any possible button error
-            buttonDuringXHair% := 1;
-        endif;
-        if View(DataWindow%).FindRisingEdge%(FixationPointChannel%, tLast, tTrigger) = 0 then
+        if View(DataWindow%).FindRisingEdge%(FixationPointChannel%, tLastTrigger, tTrigger) = 0 then
             ' Fixation point is up
             LogStatus("WaitForXHairOn", "Crosshair on at " + str$(tTrigger) + "\n");
             tLastTrigger := tTrigger;
-            ChangeStateTo(stateWaitInitDown%, tTrigger);
+            ChangeStateTo(stateCheckButtonDuringXHair%, tTrigger);
         endif
         
+    case iState% = stateCheckButtonDuringXHair% then  'this state will last for exactly one button check - was there a premature press or not?
+        'last time we checked the button, nothing was pressed
+        buttonError% := WhichButton%(tButtonStart,tNow,buttonStatus%,buttonTime);
+        if buttonTime > -1 then  'if there is any press
+            printlog("Premature button press found during XHair onset!\n");
+            SafeSampleKey("X");  'Removes XHair
+            ChangeStateTo(statePreITIEnsureNoButton%, tNow);  'go back to pre-ITI
+            FlushButton(tButtonStart,tNow,buttonStatus%,buttonTime);  'after flushing button
+        else 'move forward
+            ChangeStateTo(stateWaitInitDown%, tNow);
+        endif;
+                
         
     case iState% = stateWaitInitDown% then
+        ' Wait for button press to initiate trial
+        buttonError% := WhichButton%(tButtonStart,tNow,buttonStatus%,buttonTime);
+
         docase
-        case buttonDuringXHair% = 1 or buttonError% = -1 then 'abort if button is pressed early or there is a button error
-            buttonError% := 0;  'erase any possible button error
-            buttonDuringXHair% := 0;  'reset
-            SafeSampleKey("X");  'Removes XHair
-            ChangeStateTo(stateITI%, tNow); 
-        ' Otherwise wait for button press
         case buttonStatus% = 1 then  
             LogStatus("WaitInitDown", "Init Button Pressed (Left)");
             SampleText("Init Press Left",buttonTime);
@@ -753,15 +780,24 @@ func IdleProcessing%()
             LogStatus("WaitInitDown", "Init Button Pressed (Right)");
             SampleText("Init Press Right",buttonTime);
             ChangeStateTo(stateWaitInitUpR%, tNow);
+        case buttonError% = -1 then  'if there's an error
+            printlog("Error in button while waiting for trial init press!\n");
+            buttonError% := 0;  
+            SafeSampleKey("X");  'Removes XHair
+            ChangeStateTo(statePreITIEnsureNoButton%, tNow);  'go back to pre-ITI
+            FlushButton(tButtonStart,tNow,buttonStatus%,buttonTime);  'after flushing button
         endcase        
         
         
     case iState% = stateWaitInitUpL% then
+        buttonError% := WhichButton%(tButtonStart,tNow,buttonStatus%,buttonTime);
         docase
         case buttonError% = -1 then
+            printlog("Error in button while waiting for trial init release!\n");
             buttonError% := 0;  'erase any possible button error
             SafeSampleKey("X");  'Removes XHair
-            ChangeStateTo(stateITI%, tNow);
+            ChangeStateTo(statePreITIEnsureNoButton%, tNow);  'go back to pre-ITI
+            FlushButton(tButtonStart,tNow,buttonStatus%,buttonTime);  'after flushing button
         case buttonStatus% = 0 then
             ' Button is released
             LogStatus("WaitInitUpL", "Init Button Released (Left)");
@@ -771,11 +807,14 @@ func IdleProcessing%()
         
         
     case iState% = stateWaitInitUpR% then
+        buttonError% := WhichButton%(tButtonStart,tNow,buttonStatus%,buttonTime);
         docase
         case buttonError% = -1 then
+            printlog("Error in button while waiting for trial init release!\n");
             buttonError% := 0;  'erase any possible button error
             SafeSampleKey("X");  'Removes XHair
-            ChangeStateTo(stateITI%, tNow);
+            ChangeStateTo(statePreITIEnsureNoButton%, tNow);  'go back to pre-ITI
+            FlushButton(tButtonStart,tNow,buttonStatus%,buttonTime);  'after flushing button
         case buttonStatus% = 0 then
             ' Button is released
             LogStatus("WaitInitUpR", "Init Button Released (Right)");
@@ -783,51 +822,78 @@ func IdleProcessing%()
             ChangeStateTo(stateStartSequence%, tNow);
         endcase;        
         
-    case iState% = stateStartSequence% then
-        if buttonTime > -1 or buttonError% = -1 then  'bail out if there's a button press after init but before we start
-            buttonError% := 0;  'erase any possible button error
-            SafeSampleKey("X");  'Removes XHair
-            ChangeStateTo(stateITI%, tNow);
-        endif;
+    case iState% = stateStartSequence% then 'do not check button press until sequence is complete
         SafeSampleKey("S");
         ChangeStateTo(stateWaitOnsetTrigger%, tNow); 
-        
-        
-    case iState% = stateWaitOnsetTrigger% then        
-        if buttonTime > -1 or buttonError% = -1 then  'note if a button is pressed, but let sequence complete since we've asked for it
-            buttonError% := 0;  'erase any possible button error
-            buttonDuringSequence% := 1;
+                
+    'There are two triggers on both the Frame and FrameSlave channels, one to indicate the start of the delay
+    'period, and another 10 ms later (don't know why the second, but it's there).  We just need to note that
+    'these have happened and then move on.  They should be synched, so FrameChannel% will suffice
+    case iState% = stateWaitOnsetTrigger% then   
+        pulseFound% := View(DataWindow%).FindPulseUp%(FrameChannel%, tLastTrigger, tRise, tFall);
+        if pulseFound% = 1 then
+            nOnsetTriggersFound% += 1; 
+            tLastTrigger := tFall;            
         endif;
-        if View(DataWindow%).FindRisingEdge%(StimChannel%, tLast, tTrigger) = 0 then
+        if nOnsetTriggersFound% = nOnsetTriggers% then
+            ChangeStateTo(stateWaitStimStart%, tNow);
+            nOnsetTriggersFound% := 0;
+        endif;
+        
+        
+    case iState% = stateWaitStimStart% then
+        pulseFound% := View(DataWindow%).FindPulseUp%(FrameChannel%, tLastTrigger, tRise, tFall);
+        if pulseFound% = 1 then
             SampleText("T," + str$(GetContrastCondition(nTrialsCompleted%)));
-            LogStatus("StartSequence", "Stim sequence started at " + str$(tTrigger));        
-            tStimOn := tTrigger;
-            tStimSequence := tTrigger;
-            tLastTrigger := tTrigger;
-            ChangeStateTo(stateWaitOffsetTrigger%, tNow);
+            LogStatus("StartSequence", "Stim sequence started at " + str$(tRise)); 
+            tLastTrigger := tRise;       
+            'tStimOn := tTrigger;  'these were unused...just commenting for now
+            'tStimSequence := tTrigger; 
+            ChangeStateTo(stateWaitContrastChange%, tNow);
         endif;
         
-
-    case iState% = stateWaitOffsetTrigger% then
-        if buttonTime > -1 or buttonError% = -1 then  'note if a button is pressed, but let sequence complete since we've asked for it
-            buttonError% := 0;  'erase any possible button error
-            buttonDuringSequence% := 1;
+    case iState% = stateWaitContrastChange% then
+        pulseFound% := View(DataWindow%).FindPulseUp%(FrameChannel%, tLastTrigger, tRise, tFall);
+        if pulseFound% = 1 then
+            SampleText("CC," + str$(GetContrastCondition(nTrialsCompleted%)));
+            LogStatus("ContrastChange", "Contrast Change occured at " + str$(tRise)); 
+            tLastTrigger := tRise;       
+            ChangeStateTo(stateWaitStimOffset%, tNow);
         endif;
-        'Stim channel will not go low untile AFTER X command
-        if View(DataWindow%).FindFallingEdge%(StimChannel%, tLast, tTrigger) = 1 then
-            ' Stim is off
-            tLastTrigger := tTrigger;
-            ChangeStateTo(stateWaitResponse%, tTrigger);
-        endif
+        
+        
+    case iState% = stateWaitStimOffset% then
+        pulseFound% := View(DataWindow%).FindPulseUp%(FrameChannel%, tLastTrigger, tRise, tFall);
+        if pulseFound% = 1 then
+            nOnsetTriggersFound% += 1; 
+            tLastTrigger := tFall;  
+            SampleText("M" + Str$(nOnsetTriggersFound%) + "," + str$(GetContrastCondition(nTrialsCompleted%)));
+            LogStatus("Mask", "Mask " + Str$(nOnsetTriggersFound%) + " occured at " + str$(tRise));
+        endif;
+        if nMaskTriggersFound% = nMaskTriggers% then
+            ChangeStateTo(stateCheckButtonDuringStim%, tNow);
+            nOnsetTriggersFound% := 0;
+        endif;
+        
+        
+    case iState% = stateCheckButtonDuringStim% then  'this state will last for exactly one button check - was there a premature press or not?
+        'last time we checked the button, nothing was pressed
+        buttonError% := WhichButton%(tButtonStart,tNow,buttonStatus%,buttonTime);
+        if buttonTime > -1 then  'if there is any press
+            printlog("Premature button press found during Stimulus!\n");
+            LogStatus("Sequence", "Button during sequence! Trial aborted!");
+            SafeSampleKey("X");  'Removes XHair, stimulus
+            ChangeStateTo(statePreITIEnsureNoButton%, tNow);  'go back to pre-ITI
+            FlushButton(tButtonStart,tNow,buttonStatus%,buttonTime);  'after flushing button
+        else 'move forward
+            ChangeStateTo(stateWaitResponse%, tNow);
+        endif;        
+        
         
         
     case iState% = stateWaitResponse% then
+        buttonError% := WhichButton%(tButtonStart,tNow,buttonStatus%,buttonTime);
         docase
-        case buttonDuringSequence% = 1 then
-            buttonDuringSequence% := 0;
-            SafeSampleKey("X");  'Removes XHair/stimulus
-            ChangeStateTo(stateITI%, tNow);
-            LogStatus("Sequence", "Button during sequence! Trial aborted!");
         case buttonStatus% = 1 then    
             SafeSampleKey("a");  'advance stimulus
             SafeSampleKey("X");  'Removes XHair
@@ -855,19 +921,34 @@ func IdleProcessing%()
             nTrialsCompleted% += 1;
             printlog("number of trials completed is %d\n",nTrialsCompleted%);
             ToolbarText(str$(nTrialsCompleted%) + "/" + str$(dhNValues%) + " trials completed, " + Str$(pctCorrect) + "% correct.");
-            ChangeStateTo(stateWaitRelease%, tNow);    
+            ChangeStateTo(stateWaitRelease%, tNow);  
+        case buttonError% = -1 then
+            printlog("Error in button while waiting for response!\n");
+            buttonError% := 0;  'erase button error
+            SafeSampleKey("X");  'Removes XHair, but don't advance stimulus
+            ChangeStateTo(statePreITIEnsureNoButton%, tNow);  'go back to pre-ITI
+            FlushButton(tButtonStart,tNow,buttonStatus%,buttonTime);  'after flushing button
         endcase
         
         
     case iState% = stateWaitRelease% then
-
-        if buttonStatus% = 0 then
+        buttonError% := WhichButton%(tButtonStart,tNow,buttonStatus%,buttonTime);
+        docase
+        case buttonStatus% = 0 then
             if nTrialsCompleted% = dhNValues% then
                 ChangeStateTo(stateDone%, tNow);
             else
-                ChangeStateTo(stateITI%, tNow);
+                ChangeStateTo(statePreITIEnsureNoButton%, tNow);
             endif;
-        endif
+        case buttonError% = -1 then
+            printlog("Error in button while waiting for response-release!\n");
+            if nTrialsCompleted% = dhNValues% then 'check for end-of-stimuli anyway
+                ChangeStateTo(stateDone%, tNow);
+            endif;
+            buttonError% := 0;  'erase button error
+            ChangeStateTo(statePreITIEnsureNoButton%, tNow);  'just wait for next stimulus
+            FlushButton(tButtonStart,tNow,buttonStatus%,buttonTime);  'after flushing button
+        endcase
         
         
     case iState% = stateDone% then
@@ -884,7 +965,7 @@ func IdleProcessing%()
 
 	endcase;
 
-	tLast := tNow;
+	'tLast := tNow;
 	return iStatus%;
 end;
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
@@ -901,7 +982,7 @@ func WhichButton%(&startT,endT,&bStatus%,&buttonT)
     button1Release := -1;
     button2Release := -1;
 
-    'Checks will return -1 if there are no events of that type
+    'Each check will return -1 if there are no events of that type, time of event if there is one
     'Check for button 1 (left) press
     button1Press := ChanSearch(ButtonChannel%,8,startT+tic,endT,button1Thresh,buttonHysteresis,buttonMinTime);
     
@@ -914,6 +995,8 @@ func WhichButton%(&startT,endT,&bStatus%,&buttonT)
     'Check for button 2 (right) release
     button2Release := ChanSearch(ButtonChannel%,8,startT+tic,endT,button2Thresh,buttonHysteresis,buttonMinTime);
     
+    'OK, I'm trying to take out the startT := endT lines when nothing happens - it's possible things are being missed
+    'due to buttonMinTime and then skipped because the tiem moves forward.
     
     'Now do a whole bunch of checking to make sure there aren't any errors, update startT and bStatus% if necessary,
     'and hopefully return success
@@ -923,14 +1006,14 @@ func WhichButton%(&startT,endT,&bStatus%,&buttonT)
     'what is expected.
     docase
     case button1Press = -1 and button2Press = -1 and button1Release = -1 and button2Release = -1 then 'nothing happened on this check
-        startT := endT;
+        'startT := endT;
         buttonT := -1;
         return 1;
     case bStatus% = 0 then  'initial status is no button pressed
         'check for either button press
         docase
         case button1Press = -1 and button2Press = -1 then  'no button pressed
-            startT := endT;  'no change
+            'startT := endT;  'no change
             buttonT := -1;
             docase
             case button1Release > -1 then
@@ -1045,7 +1128,7 @@ func WhichButton%(&startT,endT,&bStatus%,&buttonT)
             endcase;
             return -1;
         else
-            startT := endT;  'no change 
+            'startT := endT;  'no change 
             buttonT := -1;            
         endcase;
         
@@ -1089,7 +1172,7 @@ func WhichButton%(&startT,endT,&bStatus%,&buttonT)
             endcase;
             return -1;
         else
-            startT := endT;  'no change
+            'startT := endT;  'no change
             buttonT := -1;            
         endcase;
         
@@ -1203,7 +1286,7 @@ proc ChangeStateTo(stateTo%, tStart)
     case iState% = 7 then
         tempState$ := "stateWaitOnsetTrigger%";
     case iState% = 8 then
-        tempState$ := "stateWaitOffsetTrigger%";
+        tempState$ := "stateWaitStimStart%";
     case iState% = 9 then
         tempState$ := "stateWaitResponse%";
     case iState% = 10 then
@@ -1212,6 +1295,16 @@ proc ChangeStateTo(stateTo%, tStart)
         tempState$ := "stateDone%";
     case iState% = 12 then
         tempState$ := "stateITI%";
+    case iState% = 13 then
+        tempState$ := "statePreITIEnsureNoButton%";
+    case iState% = 14 then
+        tempState$ := "stateCheckButtonDuringXHair%";
+    case iState% = 15 then
+        tempState$ := "stateWaitContrastChange%";
+    case iState% = 16 then
+        tempState$ := "stateWaitStimOffset%";
+    case iState% = 17 then
+        tempState$ := "stateCheckButtonDuringStim%";
     else
         tempState$ := "UNKNOWN!!!";
     endcase
