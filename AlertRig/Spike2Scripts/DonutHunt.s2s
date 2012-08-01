@@ -1,6 +1,6 @@
 
 
-const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.7 2012-08-01 20:02:55 jeff Exp $";
+const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.8 2012-08-01 20:54:45 jeff Exp $";
 
 
 ' Hello again
@@ -110,9 +110,9 @@ const stateWaitContrastChange%:=15;  ' wait for contrast change
 const stateWaitStimOffset%:=16;      ' wait for stimulus offset, there are several mask triggers
 const stateCheckButtonDuringStim%:=17;  'look at button after stimulus period
 
-const nOnsetTriggers% := 2;
+'const nOnsetTriggers% := 2;  'one of these is a "false pulse", so we'll skip it 
 const nMaskTriggers% := 4;
-var nOnsetTriggersFound%;
+'var nOnsetTriggersFound%;
 var nMaskTriggersFound%;
 
 var iState% := stateVSGWait%;	' present state
@@ -344,7 +344,8 @@ proc InitializeToolbar()
 	ToolbarEnable(2,0);
 	ToolbarEnable(3,0);
 	ToolbarEnable(4,0);
-	Toolbar("Go",0x3ff);
+	'Toolbar("Go",0x3ff);
+    Toolbar("Go",7);  'If we lock down what can be done while interacting, maybe the flashing menu thing will go bye-bye
 
 end;
 
@@ -729,10 +730,8 @@ func IdleProcessing%()
         docase
         case buttonTime > -1 or buttonStatus% <> 0 or buttonError% = -1 then 'if there is an extraneous button press, flush button and return to ITI
             buttonError% := 0;  'erase any possible button error
-            FlushButton(tButtonStart,tNow,buttonStatus%,buttonTime);
-            'ChangeStateTo(stateITI%, tNow);  
-        case pause% = 1 then  'This is the part on Sprockets when we pause
-            'do nothing
+            FlushButton(tButtonStart,tNow,buttonStatus%,buttonTime);  'flush button
+            ChangeStateTo(statePreITIEnsureNoButton%, tFall);  'and go back to pre-ITI
         case tNow - tStateStart > tInterTrialTime then
             ChangeStateTo(stateXHairUp%, tNow);
         endcase;
@@ -832,13 +831,14 @@ func IdleProcessing%()
     case iState% = stateWaitOnsetTrigger% then   
         pulseFound% := View(DataWindow%).FindPulseUp%(FrameChannel%, tLastTrigger, tRise, tFall);
         if pulseFound% = 1 then
-            nOnsetTriggersFound% += 1; 
-            tLastTrigger := tFall;            
+        '    nOnsetTriggersFound% += 1; 
+            tLastTrigger := tFall; '+0.1??  Don't know if NextTime will fail if the time passed > maxTime()
+            ChangeStateTo(stateWaitStimStart%, tNow);            
         endif;
-        if nOnsetTriggersFound% = nOnsetTriggers% then
-            ChangeStateTo(stateWaitStimStart%, tNow);
-            nOnsetTriggersFound% := 0;
-        endif;
+        'if nOnsetTriggersFound% = nOnsetTriggers% then
+        '    ChangeStateTo(stateWaitStimStart%, tNow);
+        '    nOnsetTriggersFound% := 0;
+        'endif;
         
         
     case iState% = stateWaitStimStart% then
