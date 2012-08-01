@@ -1,6 +1,6 @@
 
 
-const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.11 2012-08-01 21:26:09 jeff Exp $";
+const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.12 2012-08-01 22:33:28 jeff Exp $";
 
 
 ' Hello again
@@ -759,7 +759,7 @@ func IdleProcessing%()
         if buttonTime > -1 then  'if there is any press
             printlog("Premature button press found during XHair onset!\n");
             SafeSampleKey("X");  'Removes XHair
-            ChangeStateTo(statePreITIEnsureNoButton%, tNow);  'go back to pre-ITI
+            ChangeStateTo(stateCheckStimOff%, tNow);  'go back to pre-ITI
             FlushButton(tButtonStart,tNow,buttonStatus%,buttonTime);  'after flushing button
         else 'move forward
             ChangeStateTo(stateWaitInitDown%, tNow);
@@ -783,7 +783,7 @@ func IdleProcessing%()
             printlog("Error in button while waiting for trial init press!\n");
             buttonError% := 0;  
             SafeSampleKey("X");  'Removes XHair
-            ChangeStateTo(statePreITIEnsureNoButton%, tNow);  'go back to pre-ITI
+            ChangeStateTo(stateCheckStimOff%, tNow);  'go back to pre-ITI
             FlushButton(tButtonStart,tNow,buttonStatus%,buttonTime);  'after flushing button
         endcase        
         
@@ -795,7 +795,7 @@ func IdleProcessing%()
             printlog("Error in button while waiting for trial init release!\n");
             buttonError% := 0;  'erase any possible button error
             SafeSampleKey("X");  'Removes XHair
-            ChangeStateTo(statePreITIEnsureNoButton%, tNow);  'go back to pre-ITI
+            ChangeStateTo(stateCheckStimOff%, tNow);  'go back to pre-ITI
             FlushButton(tButtonStart,tNow,buttonStatus%,buttonTime);  'after flushing button
         case buttonStatus% = 0 then
             ' Button is released
@@ -812,7 +812,7 @@ func IdleProcessing%()
             printlog("Error in button while waiting for trial init release!\n");
             buttonError% := 0;  'erase any possible button error
             SafeSampleKey("X");  'Removes XHair
-            ChangeStateTo(statePreITIEnsureNoButton%, tNow);  'go back to pre-ITI
+            ChangeStateTo(stateCheckStimOff%, tNow);  'go back to pre-ITI
             FlushButton(tButtonStart,tNow,buttonStatus%,buttonTime);  'after flushing button
         case buttonStatus% = 0 then
             ' Button is released
@@ -883,7 +883,7 @@ func IdleProcessing%()
             printlog("Premature button press found during Stimulus!\n");
             LogStatus("Sequence", "Button during sequence! Trial aborted!");
             SafeSampleKey("X");  'Removes XHair, stimulus
-            ChangeStateTo(statePreITIEnsureNoButton%, tNow);  'go back to pre-ITI
+            ChangeStateTo(stateCheckStimOff%, tNow);  'go back to pre-ITI
             FlushButton(tButtonStart,tNow,buttonStatus%,buttonTime);  'after flushing button
         else 'move forward
             ChangeStateTo(stateWaitResponse%, tNow);
@@ -926,7 +926,7 @@ func IdleProcessing%()
             printlog("Error in button while waiting for response!\n");
             buttonError% := 0;  'erase button error
             SafeSampleKey("X");  'Removes XHair, but don't advance stimulus
-            ChangeStateTo(statePreITIEnsureNoButton%, tNow);  'go back to pre-ITI
+            ChangeStateTo(stateCheckStimOff%, tNow);  'go back to pre-ITI
             FlushButton(tButtonStart,tNow,buttonStatus%,buttonTime);  'after flushing button
         endcase
         
@@ -938,7 +938,7 @@ func IdleProcessing%()
             if nTrialsCompleted% = dhNValues% then
                 ChangeStateTo(stateDone%, tNow);
             else
-                ChangeStateTo(statePreITIEnsureNoButton%, tNow);
+                ChangeStateTo(stateCheckStimOff%, tNow);
             endif;
         case buttonError% = -1 then
             printlog("Error in button while waiting for response-release!\n");
@@ -946,7 +946,7 @@ func IdleProcessing%()
                 ChangeStateTo(stateDone%, tNow);
             endif;
             buttonError% := 0;  'erase button error
-            ChangeStateTo(statePreITIEnsureNoButton%, tNow);  'just wait for next stimulus
+            ChangeStateTo(stateCheckStimOff%, tNow);  'just wait for next stimulus
             FlushButton(tButtonStart,tNow,buttonStatus%,buttonTime);  'after flushing button
         endcase
         
