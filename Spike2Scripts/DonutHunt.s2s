@@ -1,6 +1,6 @@
 
 
-const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.10 2012-08-01 21:09:55 jeff Exp $";
+const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.11 2012-08-01 21:26:09 jeff Exp $";
 
 
 ' Hello again
@@ -345,8 +345,7 @@ proc InitializeToolbar()
 	ToolbarEnable(2,0);
 	ToolbarEnable(3,0);
 	ToolbarEnable(4,0);
-	'Toolbar("Go",0x3ff);
-    Toolbar("Go",7);  'If we lock down what can be done while interacting, maybe the flashing menu thing will go bye-bye
+	Toolbar("Go",0x3ff);
 
 end;
 
@@ -918,8 +917,8 @@ func IdleProcessing%()
             else
                 sampleText("Right Response (Wrong)",buttonTime);
             endif
-            pctCorrect := round(1000*nCorrect%/nTrialsCompleted%)/10;
             nTrialsCompleted% += 1;
+            pctCorrect := round(1000*nCorrect%/nTrialsCompleted%)/10;
             printlog("number of trials completed is %d\n",nTrialsCompleted%);
             ToolbarText(str$(nTrialsCompleted%) + "/" + str$(dhNValues%) + " trials completed, " + Str$(pctCorrect) + "% correct.");
             ChangeStateTo(stateWaitRelease%, tNow);  
