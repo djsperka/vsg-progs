@@ -1,6 +1,6 @@
 
 
-const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.9 2012-08-01 20:58:30 jeff Exp $";
+const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.10 2012-08-01 21:09:55 jeff Exp $";
 
 
 ' Hello again
@@ -109,6 +109,7 @@ const stateCheckButtonDuringXHair%:=14;  'look at button after XHair wait period
 const stateWaitContrastChange%:=15;  ' wait for contrast change
 const stateWaitStimOffset%:=16;      ' wait for stimulus offset, there are several mask triggers
 const stateCheckButtonDuringStim%:=17;  'look at button after stimulus period
+const stateCheckStimOff%:=18;  'make sure stimulus ic off
 
 'const nOnsetTriggers% := 2;  'one of these is a "false pulse", so we'll skip it 
 const nMaskTriggers% := 4;
@@ -832,7 +833,7 @@ func IdleProcessing%()
         pulseFound% := View(DataWindow%).FindPulseUp%(FrameChannel%, tLastTrigger, tRise, tFall);
         if pulseFound% = 1 then
         '    nOnsetTriggersFound% += 1; 
-            tLastTrigger := tFall; '+0.1??  Don't know if NextTime will fail if the time passed > maxTime()
+            tLastTrigger := tFall + 0.1; '+0.1??  Don't know if NextTime will fail if the time passed > maxTime()
             ChangeStateTo(stateWaitStimStart%, tNow);            
         endif;
         'if nOnsetTriggersFound% = nOnsetTriggers% then
@@ -903,8 +904,8 @@ func IdleProcessing%()
             else
                 sampleText("Left Response (Wrong)",buttonTime);
             endif
-            pctCorrect := round(1000*nCorrect%/nTrialsCompleted%)/10;
             nTrialsCompleted% += 1;
+            pctCorrect := round(1000*nCorrect%/nTrialsCompleted%)/10;
             printlog("number of trials completed is %d\n",nTrialsCompleted%);
             ToolbarText(str$(nTrialsCompleted%) + "/" + str$(dhNValues%) + " trials completed, " + Str$(pctCorrect) + "% correct.");
             ChangeStateTo(stateWaitRelease%, tNow);
@@ -950,6 +951,14 @@ func IdleProcessing%()
             FlushButton(tButtonStart,tNow,buttonStatus%,buttonTime);  'after flushing button
         endcase
         
+        
+    case iState% = stateCheckStimOff% then
+        if View(DataWindow%).FindFallingEdge%(StimChannel%, tLastTrigger, tTrigger) = 1 then
+            ' Stimulus is down
+            LogStatus("StimOff", "Stim completely off at " + str$(tTrigger) + "\n");
+            tLastTrigger := tTrigger;
+            ChangeStateTo(statePreITIEnsureNoButton%, tTrigger);
+        endif
         
     case iState% = stateDone% then
         
@@ -1305,6 +1314,8 @@ proc ChangeStateTo(stateTo%, tStart)
         tempState$ := "stateWaitStimOffset%";
     case iState% = 17 then
         tempState$ := "stateCheckButtonDuringStim%";
+    case iState% = 18 then
+        tempState$ := "stateCheckStimOff%";
     else
         tempState$ := "UNKNOWN!!!";
     endcase
