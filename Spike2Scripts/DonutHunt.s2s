@@ -1,6 +1,6 @@
 
 
-const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.12 2012-08-01 22:33:28 jeff Exp $";
+const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.13 2012-08-07 17:35:32 jeff Exp $";
 
 
 ' Hello again
@@ -275,7 +275,11 @@ proc CreateStimulusOrder()
         nExistingBlocks% := DealStimuliToBlocks%(dhCenterOriValues[],dhNValues%,nExistingBlocks%,dhNCoreOrientations%,dhMinCoreOrientation,dhMaxCoreOrientation,0);
         
         if nExistingBlocks% <> dhNValues% then
-            message("NValues (" + Str$(dhNValues%) + ") is not equal to total blocks created by DS2Bs (" + Str$(nExistingBlocks%) + ") Hmm!");
+            if nExistingBlocks% = -1 then
+                message("DealStimuliToBlocks returned -1 (error)!");
+            else
+                message("NValues (" + Str$(dhNValues%) + ") is not equal to total blocks created by DS2Bs (" + Str$(nExistingBlocks%) + ") Hmm!");
+            endif;
             halt();
         endif;
         
@@ -390,6 +394,8 @@ func Start%()
     var SpecFileArg$;
     var coreParam$;
     var donutParam$;
+    var coreScreen$;
+    var donutScreen$;
 	
 	SampleStart(0); 'Start sampling
 	' Set Sequencer Variable #3 based on juicer type 
@@ -408,15 +414,15 @@ func Start%()
     coreParam$ := GetGratingParameters$("Core");  'this grabs core 
     donutParam$ := GetGratingParameters$("Donut");  'this grabs donut
     if dhShowDonutOnMaster% = 1 then
-        MGratParam$ := donutParam$;
-        SGratParam$ := coreParam$;
+        donutScreen$ := "M";  'now, we need to know which line to put these on, and whether "M"/"S" is the correct spec
+        coreScreen$ := "S";  'but fundamentally those two questions answered ought to do it.
     else
-        SGratParam$ := donutParam$;
-        MGratParam$ := coreParam$;
+        coreScreen$ := "M";
+        donutScreen$ := "S";
     endif;
-    Print("%s\n",MGratParam$);  'master-stim-spec
+    Print("%s\n",coreParam$);  'core-stim-spec
     Print("%f,0,%f,0\n",-dhXOffset,dhXOffset);  'xL,yL,xR,yR master
-    Print("%s\n",SGratParam$);  'slave-stim-spec
+    Print("%s\n",donutParam$);  'donut-stim-spec
     Print("%f,0,%f,0\n",-dhXOffset,dhXOffset);  'xL,yL,xR,yR slave, same as master            
     Print("%f,%f,%f\n",dhDelayBeforeDContrast,dhDurAfterDContrast,dhCoreContrast);  't2,t3,contrast_base        t2,t3 in s
     Print("%s\n",dhT1ValuesStringified$); 't1_0,t1_1,t1_2,...           per-trial t1 values in seconds
