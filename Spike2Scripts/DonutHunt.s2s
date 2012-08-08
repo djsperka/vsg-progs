@@ -1,6 +1,6 @@
 
 
-const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.15 2012-08-08 18:06:24 jeff Exp $";
+const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.16 2012-08-08 20:26:42 jeff Exp $";
 
 
 ' Hello again
@@ -906,11 +906,13 @@ func IdleProcessing%()
         buttonError% := WhichButton%(tButtonStart,tNow,buttonStatus%,buttonTime);
         docase
         case buttonStatus% = 1 then    
-            if dhLRValues[nTrialsCompleted%] = 0 then
+            if dhLRValues[dhStimulusIndices%[nTrialsCompleted%]] = 0 then
                 nCorrect% += 1;
                 sampleText("Left Response (Correct)",buttonTime);
+                printlog("Stimulus Left; Correct left response at %f\n",buttonTime);
             else
                 sampleText("Left Response (Wrong)",buttonTime);
+                printlog("Stimulus Right; Incorrect left response at %f\n",buttonTime);
             endif
             ChangeStateTo(stateWaitRelease%, tNow);
             'Can't take these repeated lines out of the CASE, because they can't execute if no button press
@@ -919,11 +921,13 @@ func IdleProcessing%()
             printlog("number of trials completed is %d\n",nTrialsCompleted%);
             ToolbarText(str$(nTrialsCompleted%) + "/" + str$(dhNValues%) + " trials completed, " + Str$(pctCorrect) + "% correct.");
         case buttonStatus% = 2 then    
-            if dhLRValues[nTrialsCompleted%] = 1 then
+            if dhLRValues[dhStimulusIndices%[nTrialsCompleted%]] = 1 then
                 nCorrect% += 1;
                 sampleText("Right Response (Correct)",buttonTime);
+                printlog("Stimulus Right; Correct right response at %f\n",buttonTime);
             else
                 sampleText("Right Response (Wrong)",buttonTime);
+                printlog("Stimulus Right; Incorrect right response at %f\n",buttonTime);
             endif
             ChangeStateTo(stateWaitRelease%, tNow);
             'Can't take these repeated lines out of the CASE, because they can't execute if no button press
