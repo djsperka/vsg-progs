@@ -1,6 +1,6 @@
 
 
-const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.13 2012-08-07 17:35:32 jeff Exp $";
+const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.14 2012-08-08 17:14:50 jeff Exp $";
 
 
 ' Hello again
@@ -717,7 +717,7 @@ func IdleProcessing%()
         docase
         case pause% = 1 then  'This is the part on Sprockets when we pause
             pausing% := 1;  'set pausing variable
-        case pausing% = 1 then  'if we were just pausing
+        case pausing% = 1 then  'if we were just pausing and are now exiting a pause
             pausing% := 0;  'unset pausing variable
             FlushButton(tButtonStart,tNow,buttonStatus%,buttonTime);  'and flush out all button events
         case buttonError% = -1 then  'if there is record of a button error
@@ -765,7 +765,8 @@ func IdleProcessing%()
         if buttonTime > -1 then  'if there is any press
             printlog("Premature button press found during XHair onset!\n");
             SafeSampleKey("X");  'Removes XHair
-            ChangeStateTo(stateCheckStimOff%, tNow);  'go back to pre-ITI
+            'ChangeStateTo(stateCheckStimOff%, tNow);  'go back to pre-ITI, this seems wrong!
+            ChangeStateTo(statePreITIEnsureNoButton%, tNow);  'not checking for Xhair off, if that's a problem...
             FlushButton(tButtonStart,tNow,buttonStatus%,buttonTime);  'after flushing button
         else 'move forward
             ChangeStateTo(stateWaitInitDown%, tNow);
@@ -789,7 +790,8 @@ func IdleProcessing%()
             printlog("Error in button while waiting for trial init press!\n");
             buttonError% := 0;  
             SafeSampleKey("X");  'Removes XHair
-            ChangeStateTo(stateCheckStimOff%, tNow);  'go back to pre-ITI
+            'ChangeStateTo(stateCheckStimOff%, tNow);  'go back to pre-ITI, this seems wrong!
+            ChangeStateTo(statePreITIEnsureNoButton%, tNow);  'not checking for Xhair off, if that's a problem...
             FlushButton(tButtonStart,tNow,buttonStatus%,buttonTime);  'after flushing button
         endcase        
         
@@ -801,7 +803,8 @@ func IdleProcessing%()
             printlog("Error in button while waiting for trial init release!\n");
             buttonError% := 0;  'erase any possible button error
             SafeSampleKey("X");  'Removes XHair
-            ChangeStateTo(stateCheckStimOff%, tNow);  'go back to pre-ITI
+            'ChangeStateTo(stateCheckStimOff%, tNow);  'go back to pre-ITI, this seems wrong!
+            ChangeStateTo(statePreITIEnsureNoButton%, tNow);  'not checking for Xhair off, if that's a problem...
             FlushButton(tButtonStart,tNow,buttonStatus%,buttonTime);  'after flushing button
         case buttonStatus% = 0 then
             ' Button is released
@@ -818,7 +821,8 @@ func IdleProcessing%()
             printlog("Error in button while waiting for trial init release!\n");
             buttonError% := 0;  'erase any possible button error
             SafeSampleKey("X");  'Removes XHair
-            ChangeStateTo(stateCheckStimOff%, tNow);  'go back to pre-ITI
+            'ChangeStateTo(stateCheckStimOff%, tNow);  'go back to pre-ITI, this seems wrong!
+            ChangeStateTo(statePreITIEnsureNoButton%, tNow);  'not checking for Xhair off, if that's a problem...
             FlushButton(tButtonStart,tNow,buttonStatus%,buttonTime);  'after flushing button
         case buttonStatus% = 0 then
             ' Button is released
@@ -837,14 +841,9 @@ func IdleProcessing%()
     case iState% = stateWaitOnsetTrigger% then   
         pulseFound% := View(DataWindow%).FindPulseUp%(FrameChannel%, tLastTrigger, tRise, tFall);
         if pulseFound% = 1 then
-        '    nOnsetTriggersFound% += 1; 
             tLastTrigger := tFall + 0.1; '+0.1??  Don't know if NextTime will fail if the time passed > maxTime()
             ChangeStateTo(stateWaitStimStart%, tNow);            
         endif;
-        'if nOnsetTriggersFound% = nOnsetTriggers% then
-        '    ChangeStateTo(stateWaitStimStart%, tNow);
-        '    nOnsetTriggersFound% := 0;
-        'endif;
         
         
     case iState% = stateWaitStimStart% then
@@ -853,8 +852,6 @@ func IdleProcessing%()
             SampleText("T," + str$(GetContrastCondition(nTrialsCompleted%)));
             LogStatus("StartSequence", "Stim sequence started at " + str$(tRise)); 
             tLastTrigger := tRise;       
-            'tStimOn := tTrigger;  'these were unused...just commenting for now
-            'tStimSequence := tTrigger; 
             ChangeStateTo(stateWaitContrastChange%, tNow);
         endif;
         
@@ -889,9 +886,12 @@ func IdleProcessing%()
             printlog("Premature button press found during Stimulus!\n");
             LogStatus("Sequence", "Button during sequence! Trial aborted!");
             SafeSampleKey("X");  'Removes XHair, stimulus
-            ChangeStateTo(stateCheckStimOff%, tNow);  'go back to pre-ITI
+            ChangeStateTo(stateCheckStimOff%, tNow);  'check that the stimulus is off, then repeat
             FlushButton(tButtonStart,tNow,buttonStatus%,buttonTime);  'after flushing button
         else 'move forward
+            SafeSampleKey("a");  'advance stimulus, we do this now because it takes some time on the VSG end
+                                 'and we need to let that time occur during the response window
+            SafeSampleKey("X");  'Removes XHair
             ChangeStateTo(stateWaitResponse%, tNow);
         endif;        
         
@@ -901,68 +901,72 @@ func IdleProcessing%()
         buttonError% := WhichButton%(tButtonStart,tNow,buttonStatus%,buttonTime);
         docase
         case buttonStatus% = 1 then    
-            SafeSampleKey("a");  'advance stimulus
-            SafeSampleKey("X");  'Removes XHair
             if dhLRValues[nTrialsCompleted%] = 0 then
                 nCorrect% += 1;
                 sampleText("Left Response (Correct)",buttonTime);
             else
                 sampleText("Left Response (Wrong)",buttonTime);
             endif
+            ChangeStateTo(stateWaitRelease%, tNow);
+            'Can't take these repeated lines out of the CASE, because they can't execute if no button press
             nTrialsCompleted% += 1;
             pctCorrect := round(1000*nCorrect%/nTrialsCompleted%)/10;
             printlog("number of trials completed is %d\n",nTrialsCompleted%);
             ToolbarText(str$(nTrialsCompleted%) + "/" + str$(dhNValues%) + " trials completed, " + Str$(pctCorrect) + "% correct.");
-            ChangeStateTo(stateWaitRelease%, tNow);
         case buttonStatus% = 2 then    
-            SafeSampleKey("a");  'advance stimulus
-            SafeSampleKey("X");  'Removes XHair
             if dhLRValues[nTrialsCompleted%] = 1 then
                 nCorrect% += 1;
                 sampleText("Right Response (Correct)",buttonTime);
             else
                 sampleText("Right Response (Wrong)",buttonTime);
             endif
+            ChangeStateTo(stateWaitRelease%, tNow);
+            'Can't take these repeated lines out of the CASE, because they can't execute if no button press
             nTrialsCompleted% += 1;
             pctCorrect := round(1000*nCorrect%/nTrialsCompleted%)/10;
             printlog("number of trials completed is %d\n",nTrialsCompleted%);
             ToolbarText(str$(nTrialsCompleted%) + "/" + str$(dhNValues%) + " trials completed, " + Str$(pctCorrect) + "% correct.");
-            ChangeStateTo(stateWaitRelease%, tNow);  
         case buttonError% = -1 then
             printlog("Error in button while waiting for response!\n");
             buttonError% := 0;  'erase button error
-            SafeSampleKey("X");  'Removes XHair, but don't advance stimulus
-            ChangeStateTo(stateCheckStimOff%, tNow);  'go back to pre-ITI
-            FlushButton(tButtonStart,tNow,buttonStatus%,buttonTime);  'after flushing button
+            'since we have already advanced the stimulus, we can't repeat a stim on a
+            'button error.  I guess we just call it wrong and move on.
+            sampleText("Button error, counted as wrong",buttonTime);
+            ChangeStateTo(stateCheckStimOff%, tNow);  'skip stateWaitRelease% as we're flushing the button
+            FlushButton(tButtonStart,tNow,buttonStatus%,buttonTime);  'flush button
+            'Can't take these repeated lines out of the CASE, because they can't execute if no button press
+            nTrialsCompleted% += 1;
+            pctCorrect := round(1000*nCorrect%/nTrialsCompleted%)/10;
+            printlog("number of trials completed is %d\n",nTrialsCompleted%);
+            ToolbarText(str$(nTrialsCompleted%) + "/" + str$(dhNValues%) + " trials completed, " + Str$(pctCorrect) + "% correct.");
         endcase
+                
         
         
     case iState% = stateWaitRelease% then
         buttonError% := WhichButton%(tButtonStart,tNow,buttonStatus%,buttonTime);
         docase
         case buttonStatus% = 0 then
-            if nTrialsCompleted% = dhNValues% then
-                ChangeStateTo(stateDone%, tNow);
-            else
-                ChangeStateTo(stateCheckStimOff%, tNow);
-            endif;
+            ChangeStateTo(stateCheckStimOff%, tNow);
         case buttonError% = -1 then
             printlog("Error in button while waiting for response-release!\n");
-            if nTrialsCompleted% = dhNValues% then 'check for end-of-stimuli anyway
-                ChangeStateTo(stateDone%, tNow);
-            endif;
             buttonError% := 0;  'erase button error
-            ChangeStateTo(stateCheckStimOff%, tNow);  'just wait for next stimulus
+            ChangeStateTo(stateCheckStimOff%, tNow);  'make sure stimulus is off
             FlushButton(tButtonStart,tNow,buttonStatus%,buttonTime);  'after flushing button
         endcase
         
         
     case iState% = stateCheckStimOff% then
+        'after response window is over, check on status of stimulus offset
         if View(DataWindow%).FindFallingEdge%(StimChannel%, tLastTrigger, tTrigger) = 1 then
             ' Stimulus is down
             LogStatus("StimOff", "Stim completely off at " + str$(tTrigger) + "\n");
             tLastTrigger := tTrigger;
-            ChangeStateTo(statePreITIEnsureNoButton%, tTrigger);
+            if nTrialsCompleted% = dhNValues% then  
+                ChangeStateTo(stateDone%, tNow);
+            else 
+                ChangeStateTo(statePreITIEnsureNoButton%, tTrigger);
+            endif;
         endif
         
     case iState% = stateDone% then
