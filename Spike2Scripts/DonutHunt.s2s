@@ -1,6 +1,6 @@
 
 
-const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.16 2012-08-08 20:26:42 jeff Exp $";
+const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.17 2012-08-08 21:37:29 jeff Exp $";
 
 
 ' Hello again
@@ -303,7 +303,8 @@ proc CreateStimulusOrder()
         dhDonutDiamValuesStringified$ := dhDonutDiamValuesStringified$ + Comma$ + StringifyProgression$(dhNValues%, dhDonutDiamValues[], dhStimulusIndices%[]);
         dhCenterOriValuesStringified$ := dhCenterOriValuesStringified$ + Comma$ + StringifyProgression$(dhNValues%, dhCenterOriValues[], dhStimulusIndices%[]);
         'dhLRValuesStringified$ := dhLRValuesStringified$ + Comma$ + StringifyProgressionLR$(dhNValues%, dhLRValues[], dhStimulusIndices%[]);  'this is L/R, not 0/1, dan's VSG uses 0/1 after all
-        dhLRValuesStringified$ := dhLRValuesStringified$ + Comma$ + StringifyProgression$(dhNValues%, dhLRValues[], dhStimulusIndices%[]);  'this is 0/1
+        dhLRValuesStringified$ := dhLRValuesStringified$ + Comma$ + StringifyProgression$(dhNValues%, dhLRValues[], dhStimulusIndices%[]);  'this is 0/1 NOTE THAT 0 CORRESPONDS TO LEFT ON THE NON-REVERSED SCREEN!
+                                                                                                                                            'that means that 0 is RIGHT when viewed in the stereoscope
         dhT1ValuesStringified$ := dhT1ValuesStringified$ + Comma$ + StringifyProgression$(dhNValues%, dhT1Values[], dhStimulusIndices%[]);
         
     next;
@@ -906,7 +907,7 @@ func IdleProcessing%()
         buttonError% := WhichButton%(tButtonStart,tNow,buttonStatus%,buttonTime);
         docase
         case buttonStatus% = 1 then    
-            if dhLRValues[dhStimulusIndices%[nTrialsCompleted%]] = 0 then
+            if dhLRValues[dhStimulusIndices%[nTrialsCompleted%]] = 1 then  'this is reversed in stereoscope, so 1 = left
                 nCorrect% += 1;
                 sampleText("Left Response (Correct)",buttonTime);
                 printlog("Stimulus Left; Correct left response at %f\n",buttonTime);
@@ -921,7 +922,7 @@ func IdleProcessing%()
             printlog("number of trials completed is %d\n",nTrialsCompleted%);
             ToolbarText(str$(nTrialsCompleted%) + "/" + str$(dhNValues%) + " trials completed, " + Str$(pctCorrect) + "% correct.");
         case buttonStatus% = 2 then    
-            if dhLRValues[dhStimulusIndices%[nTrialsCompleted%]] = 1 then
+            if dhLRValues[dhStimulusIndices%[nTrialsCompleted%]] = 0 then  'this is reversed in stereoscope, so 0 = right
                 nCorrect% += 1;
                 sampleText("Right Response (Correct)",buttonTime);
                 printlog("Stimulus Right; Correct right response at %f\n",buttonTime);
