@@ -1,6 +1,6 @@
 
 
-const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.14 2012-08-08 17:14:50 jeff Exp $";
+const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.15 2012-08-08 18:06:24 jeff Exp $";
 
 
 ' Hello again
@@ -414,12 +414,17 @@ func Start%()
     coreParam$ := GetGratingParameters$("Core");  'this grabs core 
     donutParam$ := GetGratingParameters$("Donut");  'this grabs donut
     if dhShowDonutOnMaster% = 1 then
-        donutScreen$ := "M";  'now, we need to know which line to put these on, and whether "M"/"S" is the correct spec
-        coreScreen$ := "S";  'but fundamentally those two questions answered ought to do it.
+        'donutScreen$ := "M";  'now, we need to know which line to put these on, and whether "M"/"S" is the correct spec
+        'coreScreen$ := "S";  'but fundamentally those two questions answered ought to do it.
+        donutScreen$ := "Master";
+        coreScreen$ := "Slave";
     else
-        coreScreen$ := "M";
-        donutScreen$ := "S";
+        'coreScreen$ := "M";
+        'donutScreen$ := "S";
+        coreScreen$ := "Master";
+        donutScreen$ := "Slave";
     endif;
+    Print("%s,%s\n",coreScreen$,donutScreen$);  'Specifies which item is on which screen (hopefully syntax is right)
     Print("%s\n",coreParam$);  'core-stim-spec
     Print("%f,0,%f,0\n",-dhXOffset,dhXOffset);  'xL,yL,xR,yR master
     Print("%s\n",donutParam$);  'donut-stim-spec
