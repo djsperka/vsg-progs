@@ -1,4 +1,4 @@
-' $Id: AcuteMSequence.s2s,v 1.17 2012-06-19 01:43:08 devel Exp $
+' $Id: AcuteMSequence.s2s,v 1.18 2012-08-09 16:43:39 devel Exp $
 '
 ' AcuteMSequence.s2s
 '
@@ -270,6 +270,7 @@ proc SaveParameterFile()
         Print("\"X Origin\" %f\n",amsXOrigin%);
         Print("\"Y Origin\" %f\n",amsYOrigin%);
         Print("\"Number of Repeats\" %d\n",amsRepeats%);
+        Print("\"Screen Distance\" %s\n", GetDistanceToScreenMM$());
         FileClose();
     endif
     
@@ -359,10 +360,6 @@ func Stop%()
     ' better let matlab know we've stopped
     ProgRun(GetBinDir$(1) + "SendMessage StopM");
     Yield(1);
-    
-    ' clear the screen, just in case
-    ProgRun(GetBinDir$(1) + "ClearTrigger");
-    
 
     return 1;
 end; 
