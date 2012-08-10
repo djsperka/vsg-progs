@@ -1,6 +1,6 @@
 
 
-const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.18 2012-08-10 00:34:52 jeff Exp $";
+const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.19 2012-08-10 18:08:22 jeff Exp $";
 
 
 ' Hello again
@@ -864,7 +864,7 @@ func IdleProcessing%()
     case iState% = stateWaitStimStart% then
         pulseFound% := View(DataWindow%).FindPulseUp%(FrameChannel%, tLastTrigger, tRise, tFall);
         if pulseFound% = 1 then
-            SampleText("T,"+str$(GetLR(nTrialsCompleted%))+","+str$(GetContrast(nTrialsCompleted%))+","+str$(GetDiam(nTrialsCompleted%))+","+str$(GetOri(nTrialsCompleted%)));
+            SampleText("T,"+str$(GetLR(nTrialsCompleted%))+","+str$(dhCoreContrast)+str$(GetContrast(nTrialsCompleted%))+","+str$(GetDiam(nTrialsCompleted%))+","+str$(GetOri(nTrialsCompleted%)));
             LogStatus("StartSequence", "Stim sequence started at " + str$(tRise)); 
             tLastTrigger := tRise;       
             ChangeStateTo(stateWaitContrastChange%, tNow);
