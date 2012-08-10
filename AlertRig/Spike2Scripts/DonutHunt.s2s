@@ -1,6 +1,6 @@
 
 
-const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.17 2012-08-08 21:37:29 jeff Exp $";
+const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.18 2012-08-10 00:34:52 jeff Exp $";
 
 
 ' Hello again
@@ -535,7 +535,8 @@ end;
 
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 func Stop%()
-    var i%, j%, m%;
+    var i%, j%, m%, mylen%;
+    var fn$;
     
 	' Disable idle process func
 	ToolbarSet(0,"");
@@ -560,7 +561,15 @@ func Stop%()
 '	TotalRewards% += nTrialsCompleted%;
 '	SaveDailyTotals();
     
-   
+    View(DataWindow%);
+    ExportChanList();
+    ExportChanList(0,maxtime(),30);  '30 is the textmark channel, we don't really need to export anything else, besides it will all exist
+    fn$ := FileName$();  'get current file name
+    mylen% := Len(fn$);
+    fn$ := Left$(fn$,mylen%-4);
+    fn$ := fn$ + ".mat";
+    FileSaveAs(fn$,100,0,"",0,"UseSName=0"); 'Do not overwrite the .mat file - should have a different name and if it doesn't that is a red flag
+    
 
 end;
 
@@ -855,7 +864,7 @@ func IdleProcessing%()
     case iState% = stateWaitStimStart% then
         pulseFound% := View(DataWindow%).FindPulseUp%(FrameChannel%, tLastTrigger, tRise, tFall);
         if pulseFound% = 1 then
-            SampleText("T," + str$(GetContrastCondition(nTrialsCompleted%)));
+            SampleText("T,"+str$(GetLR(nTrialsCompleted%))+","+str$(GetContrast(nTrialsCompleted%))+","+str$(GetDiam(nTrialsCompleted%))+","+str$(GetOri(nTrialsCompleted%)));
             LogStatus("StartSequence", "Stim sequence started at " + str$(tRise)); 
             tLastTrigger := tRise;       
             ChangeStateTo(stateWaitContrastChange%, tNow);
@@ -864,7 +873,7 @@ func IdleProcessing%()
     case iState% = stateWaitContrastChange% then
         pulseFound% := View(DataWindow%).FindPulseUp%(FrameChannel%, tLastTrigger, tRise, tFall);
         if pulseFound% = 1 then
-            SampleText("CC," + str$(GetContrastCondition(nTrialsCompleted%)));
+            SampleText("CC");  'don't really need to indicate the trial type
             LogStatus("ContrastChange", "Contrast Change occured at " + str$(tRise)); 
             tLastTrigger := tRise;       
             ChangeStateTo(stateWaitStimOffset%, tNow);
@@ -876,7 +885,7 @@ func IdleProcessing%()
         if pulseFound% = 1 then
             nMaskTriggersFound% += 1; 
             tLastTrigger := tFall;  
-            SampleText("M" + Str$(nMaskTriggersFound%) + "," + str$(GetContrastCondition(nTrialsCompleted%)));
+            SampleText("M" + Str$(nMaskTriggersFound%));  'don't really need to indicate the trial type
             LogStatus("Mask", "Mask " + Str$(nMaskTriggersFound%) + " occured at " + str$(tRise));
         endif;
         if nMaskTriggersFound% = nMaskTriggers% then
@@ -1240,9 +1249,22 @@ proc FlushButton(&startT,endT,&bStatus%,&buttonT)
 end
 
 
-func GetContrastCondition(nTrials%)  
+func GetContrast(nTrials%)  
     return dhdContrastValues[dhStimulusIndices%[nTrials%]];
 end;
+
+func GetLR(nTrials%)  
+    return dhLRValues[dhStimulusIndices%[nTrials%]];
+end;
+
+func GetDiam(nTrials%)  
+    return dhDonutDiamValues[dhStimulusIndices%[nTrials%]];
+end;
+
+func GetOri(nTrials%)  
+    return dhCenterOriValues[dhStimulusIndices%[nTrials%]];
+end;
+
 
 ' Used to hard-quit from toolbar. This will close data files without saving!!! 
 ' It is important that this function be disabled once sampling is started!!!
