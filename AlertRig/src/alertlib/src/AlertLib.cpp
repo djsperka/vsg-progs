@@ -595,7 +595,7 @@ void ARObject::init(PIXEL_LEVEL first, int numlevels)
 	vsgObjSetPixelLevels(first, numlevels);
 	m_initialized = true;
 
-	cout << "init obj on level " << first << ", with " << numlevels << " levels" << endl;
+	cout << "init obj(" << (int)m_handle << ") on level " << first << ", with " << numlevels << " levels" << endl;
 }
 
 void ARObject::setContrast(int contrast) 
@@ -707,6 +707,76 @@ int ARXhairSpec::drawOverlay()
 	cerr << "ARXhairSpec::drawOverlay() not implemented!" << endl;
 	return -1;
 }
+
+int ARRandomGridSpec::draw()
+{
+	int status=0;
+	double xbox, ybox;
+	double xstart, ystart;
+	VSGTRIVAL from = {0, 0, 0};
+	VSGTRIVAL to = {1, 1, 1};
+	PIXEL_LEVEL level_black, level_white;
+	long startPixelLevel, numPixelLevels;
+
+	select();
+	level_black = getFirstLevel();
+	level_white = getFirstLevel() + getNumLevels()/2;
+	if (getNumLevels() < 3)
+	{
+		cerr << "WARNING: ARRandomGrid objects should be initialized with at least 3 levels!" << endl;
+	}
+	vsgObjSetColourVector(&from, &to, vsgBIPOLAR);
+	vsgObjGetPixelLevels(&startPixelLevel, &numPixelLevels);
+
+	// WARNING: All positions will be calculated in pixels!!!
+
+	// xbox and ybox are the width and height of the individual boxes in the grid
+	xbox = w/nc;
+	ybox = h/nr;
+
+	// xstart, ystart is the center of the small box in the corner of the overall grid
+	// xstart and ystart are in Y-up screen coords (origin at center, y pos up). 
+	// We'll do all calculations in this frame (call it "yup" frame)
+	// and only transform to actual drawing coords (origin upper lh corner, y positive down)
+	// when we actually draw.
+	// 
+	// conversions: x_draw = x_yup - W/2  (W, H screen width, height in current units)
+	//              y_draw = H/2 - y_yup
+
+	xstart = x - w/2 + xbox/2;
+	ystart = y - h/2 + ybox/2;
+
+	// now draw the boxes
+	vsgSetDrawMode(vsgCENTREXY);
+	vsgSetPen1(level_black);
+	vsgDrawRect(x, -y, w, h);
+	vsgSetPen1(level_white);
+	for (int i=0; i<nc; i++)
+	{
+		for (int j=0; j<nr; j++)
+		{
+			if (RAND_MAX-rand() > RAND_MAX/2) 
+			{
+				vsgDrawRect(xstart+i*xbox, -(ystart+j*ybox), xbox, ybox);
+			}
+		}
+	}
+	return 0;
+}
+
+
+int ARRandomGridSpec::drawOverlay()
+{
+	cerr << "ARRandomGridSpec::drawOverlay() not implemented!" << endl;
+	return -1;
+}
+
+
+
+
+
+
+
 
 int ARRectangleSpec::draw()
 {
@@ -1119,38 +1189,41 @@ int ARGratingSpec::draw(long mode)
 		}
 	}
 
-	// Set object defauilts. setDefaults() sets contrast to 100% 
-	// -- this may not be what we want, so reset contrast to the 
-	// stim's current value
-	vsgObjSetDefaults();
+	if (!m_bDrawInitDone)
+	{
+		// Set object defauilts. setDefaults() sets contrast to 100% 
+		// -- this may not be what we want, so reset contrast to the 
+		// stim's current value
+		//vsgObjSetDefaults();
+		//vsgObjSetContrast(contrast);
+
+		// assign pixel levels for object
+		vsgObjSetPixelLevels(getFirstLevel(), getNumLevels());
+
+		// Set spatial waveform
+		if (this->pattern == sinewave)
+		{
+			vsgObjTableSinWave(vsgSWTABLE);
+		}
+		else
+		{	
+			// Set up standard 50:50 square wave
+			vsgObjTableSquareWave(vsgSWTABLE, (DWORD)(vsgObjGetTableSize(vsgSWTABLE)*0.25), (DWORD)(vsgObjGetTableSize(vsgSWTABLE)*0.75));
+		}
+
+		// set color vector
+		if (get_colorvector(this->cv, from, to))
+		{
+			cerr << "Cannot get color vector for type " << this->cv << endl;
+		}
+		vsgObjSetColourVector(&from, &to, vsgBIPOLAR);
+
+		m_bDrawInitDone = true;
+	}
+
 	vsgObjSetContrast(contrast);
-
-	// assign pixel levels for object
-	vsgObjSetPixelLevels(getFirstLevel(), getNumLevels());
-
-	// Set spatial waveform
-	if (this->pattern == sinewave)
-	{
-		vsgObjTableSinWave(vsgSWTABLE);
-	}
-	else
-	{	
-		// Set up standard 50:50 square wave
-		vsgObjTableSquareWave(vsgSWTABLE, (DWORD)(vsgObjGetTableSize(vsgSWTABLE)*0.25), (DWORD)(vsgObjGetTableSize(vsgSWTABLE)*0.75));
-	}
-
-	// set spatialphase
 	vsgObjSetSpatialPhase(phase);
-
-	// set temporal freq
 	vsgObjSetDriftVelocity(tf);
-
-	// set color vector
-	if (get_colorvector(this->cv, from, to))
-	{
-		cerr << "Cannot get color vector for type " << this->cv << endl;
-	}
-	vsgObjSetColourVector(&from, &to, vsgBIPOLAR);
 
 	// Now draw
 	if (this->aperture == ellipse)
