@@ -13,49 +13,40 @@ int StimSetBase::get_frames_on()
 	return m_nframes_on; 
 };
 
-void StimSetBase::set_fixpt(ARFixationPointSpec& fixpt)
+void StimSetBase::set_fixpt(const ARFixationPointSpec& fixpt, double xoffset, double yoffset)
 {
 	m_have_fixpt = true;
 	m_fixpt = fixpt;
-	return;
-}
-
-void StimSetBase::set_fixpt(ARFixationPointSpec& fixpt, double xoffset, double yoffset)
-{
-	set_fixpt(fixpt);
 	m_fixpt.x += xoffset;
 	m_fixpt.y += yoffset;
 	return;
 }
 
-
-void StimSetBase::set_xhair(ARXhairSpec& xhair)
+void StimSetBase::set_xhair(const ARXhairSpec& xhair, double xoffset, double yoffset)
 {
 	m_have_xhair = true;
 	m_xhair = xhair;
+	m_xhair.x += xoffset;
+	m_xhair.y += yoffset;
 	return;
 }
 
-void StimSetBase::set_xhair(ARXhairSpec& xhair, double xoffset, double yoffset)
-{
-	set_xhair(xhair);
-	xhair.x += xoffset;
-	xhair.y += yoffset;
-	return;
-}
-
-void StimSetBase::set_grating(ARGratingSpec& grating)
+void StimSetSingleGrating::set_grating(const ARGratingSpec& grating, double xoffset, double yoffset)
 {
 	m_have_grating = true;
 	m_grating = grating;
-	return;
-}
-
-void StimSetBase::set_grating(ARGratingSpec& grating, double xoffset, double yoffset)
-{
-	set_grating(grating);
 	m_grating.x += xoffset;
 	m_grating.y += yoffset;
 	return;
 }
 
+void StimSetMultipleGrating::set_grating(const ARGratingSpec& grating, double xoffset, double yoffset)
+{
+	ARGratingSpec *temp = new ARGratingSpec(grating);
+	m_have_grating = true;
+	temp->x += xoffset;
+	temp->y += yoffset;
+	m_gratings.push_back(temp);
+	m_contrasts.push_back(temp->contrast);
+	return;
+}

@@ -1,3 +1,6 @@
+#ifndef _STIMSETCRG_H_
+#define _STIMSETCRG_H_
+
 #include "DualStimSet.h"
 #include <string>
 #include <vector>
@@ -40,11 +43,11 @@ public:
 };
 
 
-class StimSetCRG: public StimSetBase, public StimSequenceList
+class StimSetCRG: public StimSetMultipleGrating, public StimSequenceList
 {
-private:
+protected:
 	int m_contrast;
-	ARGratingSpec m_grating0;		// this will be the base grating, with opposite contrast. 
+	ARGratingSpec m_grating1;		// this will be the base grating, with opposite contrast. 
 	unsigned int m_fpt;
 public:
 	StimSetCRG(unsigned int ifpt, vector<string> sequences, vector<int> order): m_fpt(ifpt), StimSequenceList(sequences, order) {};
@@ -57,3 +60,4 @@ public:
 	virtual int handle_trigger(std::string& s);
 };
 
+#endif

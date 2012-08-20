@@ -1,3 +1,6 @@
+#ifndef _STIMPARAMETERLIST_H_
+#define _STIMPARAMETERLIST_H_
+
 #include "alertlib.h"
 #include <vector>
 #include <cassert>
@@ -359,3 +362,6 @@ private:
 	vector< pair<double, double> > m_vec;
 	vector< pair<double, double> >::const_iterator m_iter;
 };
+
+
+#endif
