@@ -331,6 +331,18 @@ namespace alert
 		int drawPie(int nc, PIXEL_LEVEL first, PIXEL_LEVEL second, double x, double y, double r);
 	};
 
+	// random grid Spec
+	class ARRandomGridSpec: public ARSpec
+	{
+	public:
+		ARRandomGridSpec() {};
+		~ARRandomGridSpec() {};
+		double x, y;	// Center
+		double w, h;	// width, height
+		int nr, nc;		// number of rows, columns
+		virtual int draw();
+		virtual int drawOverlay();
+	};
 
 	// Fixation Point Spec
 
@@ -397,8 +409,10 @@ namespace alert
 	// Grating spec
 	class ARGratingSpec: public ARSpec
 	{
+	private:
+		bool m_bDrawInitDone;
 	public:
-		ARGratingSpec() : phase(0), wd(0), hd(0) {};
+		ARGratingSpec() : m_bDrawInitDone(false), phase(0), wd(0), hd(0) {};
 
 		// Copy constructor only copies grating parameters, not vsg object properties. 
 		// A grating initialize with this constructor must still be initialized, and it will 
