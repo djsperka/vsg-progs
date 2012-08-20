@@ -1,4 +1,4 @@
-/* $Id: dualstim.cpp,v 1.10 2012-06-26 20:47:41 devel Exp $ */
+/* $Id: dualstim.cpp,v 1.11 2012-08-20 22:22:09 devel Exp $ */
 
 #include <iostream>
 #include <fstream>
@@ -9,13 +9,17 @@
 #include "getopt.h"
 #undef __GNU_LIBRARY__
 
+#include <boost/shared_ptr.hpp>
 #include "vsgv8.h"
 #include "Alertlib.h"
 #include "AlertUtil.h"
 #include "StimSetFGX.h"
+#include "StimSetFGGX.h"
 #include "StimSetCRG.h"
+#include "SSInfo.h"
 using namespace std;
 using namespace alert;
+using namespace boost;
 
 
 // libs
@@ -27,6 +31,7 @@ using namespace alert;
 #endif
 #pragma comment (lib, "vsgv8.lib")
 
+#pragma comment (lib, "Winmm.lib")
 
 // globals
 bool f_binaryTriggers = true;
@@ -59,7 +64,7 @@ int main (int argc, char *argv[])
 	int status = 0;
 
 	// Check input arguments
-	status = prargs(argc, argv, prargs_callback, "f:b:d:avg:s:C:T:S:O:A:DMVr:H:Zp:Ky:t:X:Y:h:nR:c:", 'F');
+	status = prargs(argc, argv, prargs_callback, "f:b:d:avg:s:C:T:S:O:A:DMVr:H:Zp:Ky:t:X:Y:h:nR:P:", 'F');
 	if (status)
 	{
 		return -1;
@@ -83,7 +88,9 @@ int main (int argc, char *argv[])
 
 	if (f_verbose)
 		cout << "Initializing stim..." << endl;
+	ARvsg::master().select();
 	f_pstimset->init(ARvsg::master());
+	ARvsg::slave().select();
 	f_pstimsetSlave->init(ARvsg::slave());
 
 	ARvsg::master().select();
@@ -172,8 +179,13 @@ void init_triggers()
 	f_triggers.addTrigger(new CallbackTrigger("F", 0x2, 0x2, 0x2, 0x2, callback));
 	f_triggers.addTrigger(new CallbackTrigger("S", 0x4, 0x4, 0x4, 0x4, callback));
 	f_triggers.addTrigger(new CallbackTrigger("s", 0x4, 0x0, 0x4, 0x0, callback));
-	f_triggers.addTrigger(new CallbackTrigger("X", 0x6, 0x0, 0x6, 0x0, callback));
+	f_triggers.addTrigger(new CallbackTrigger("X", 0x6, 0x0, 0x7, 0x0, callback));
 	f_triggers.addTrigger(new CallbackTrigger("a", 0x8, 0x8|AR_TRIGGER_TOGGLE, 0x8, 0x8|AR_TRIGGER_TOGGLE, callback));
+
+	// new triggers, unused, but available.
+	f_triggers.addTrigger(new CallbackTrigger("C", 0x20, 0x20, 0x1, 0x1, callback));
+	f_triggers.addTrigger(new CallbackTrigger("D", 0x40, 0x40, 0x1, 0x1, callback));
+	f_triggers.addTrigger(new CallbackTrigger("E", 0x80, 0x80, 0x0, 0x0, callback));
 
 	// quit trigger
 	f_triggers.addTrigger(new QuitTrigger("q", 0x10, 0x10, 0xff, 0x0, 0));
@@ -198,6 +210,7 @@ int prargs_callback(int c, string& arg)
 	static bool have_t = false;
 	static bool have_c = false;
 	static bool have_offset = false;
+	static vector<double> fggxParams;
 	int delay=0, frames=0;
 	string sequence_filename;
 	static char activeScreen = ' ';
@@ -364,6 +377,34 @@ int prargs_callback(int c, string& arg)
 		if (parse_integer(s, f_pulse))
 			errflg++;
 		break;
+	case 'P':
+		{
+			s.assign(optarg);
+			shared_ptr<SSInfo> pssinfo(new SSInfo());
+			if (!SSInfo::load(s, *pssinfo))
+			{
+				cerr << "Error parsing stim set info file " << s << endl;
+				errflg++;
+			}
+
+			// Make sure to assign the "core" and "donut" correctly! 
+			if (pssinfo->getCoreIsMaster())
+			{
+				f_pstimset = (StimSetBase *)new StimSetFGGXCore(pssinfo);
+				f_pstimsetSlave = (StimSetBase *)new StimSetFGGXDonut(pssinfo, f_dSlaveXOffset, f_dSlaveYOffset);
+			}
+			else
+			{
+				f_pstimsetSlave = (StimSetBase *)new StimSetFGGXCore(pssinfo, f_dSlaveXOffset, f_dSlaveYOffset);
+				f_pstimset = (StimSetBase *)new StimSetFGGXDonut(pssinfo);
+			}
+			if (have_fixpt) f_pstimset->set_fixpt(fixpt);
+			if (have_xhair) f_pstimset->set_xhair(xhair);
+			if (have_fixpt) f_pstimsetSlave->set_fixpt(fixpt, f_dSlaveXOffset, f_dSlaveYOffset);
+			if (have_xhair) f_pstimsetSlave->set_xhair(xhair, f_dSlaveXOffset, f_dSlaveYOffset);
+
+			break;
+		}
 	case 'C':
 	case 'O':
 	case 'A':
@@ -509,6 +550,21 @@ int prargs_callback(int c, string& arg)
 	case 'V':
 		{
 			activeScreen = 'V';
+			break;
+		}
+	case 'c':
+		{
+			int ignore;
+			s.assign(optarg);
+			if (parse_tuning_list(s, fggxParams, ignore))
+			{
+				errflg++;
+				cerr << "Error in input: contrast change stim arg (-c) requires 6 values: x0,y0,x1,y1,c_base,c_change" << endl;
+			}
+			else
+			{
+				have_c = true;
+			}
 			break;
 		}
 	case 'r':
