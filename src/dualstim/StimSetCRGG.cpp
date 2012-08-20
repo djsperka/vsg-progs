@@ -1,12 +1,40 @@
-#include "StimSetCRG.h"
+#include "StimSetCRGG.h"
 #include <iostream>
 using namespace std;
 
-static const int f_nlevels = 100;
-const string StimSequenceList::empty_sequence = "";
+static const int f_nlevels = 50;
+
+void StimSetCRGG::set_grating(ARGratingSpec& grating)
+{
+	m_have_grating = true;
+	m_grating = grating;
+	m_grating.x = m_crggParams[0];
+	m_grating.y = m_crggParams[1];
+
+	m_grating1 = grating;
+	m_grating1.x = m_crggParams[2];
+	m_grating1.y = m_crggParams[3];
+
+	m_grating2 = m_grating;
+	m_grating3 = m_grating1;
+}
+
+void StimSetCRGG::set_grating(ARGratingSpec& grating, double xoffset, double yoffset)
+{
+	set_grating(grating);
+	m_grating.x += xoffset;
+	m_grating.y += yoffset;
+	m_grating1.x += xoffset;
+	m_grating1.y += yoffset;
+	m_grating2.x += xoffset;
+	m_grating2.y += yoffset;
+	m_grating3.x += xoffset;
+	m_grating3.y += yoffset;
+	return;
+}
 
 
-int StimSetCRG::init(ARvsg& vsg)
+int StimSetCRGG::init(ARvsg& vsg)
 {
 	
 	int status = 0;
@@ -22,23 +50,14 @@ int StimSetCRG::init(ARvsg& vsg)
 	}
 	if (has_grating())
 	{
-		grating().setTemporalFrequency(0);
-
-		// This had better have a grating!!!
-		// Grating0 will be the reversed grating - shown for "0" in the sequence. 
-		// grating() will be shown for "1".
-		m_grating1 = grating();
-
-
-		// grating contrast is saved. Whenever grating is drawn it must
-		// be drawn with contrast 0. That way it isn't seen until later, 
-		// when we set the contrast to its intended value. 
-		m_contrast = grating().contrast;
-
-		grating().init(vsg, f_nlevels);
-		m_grating1.init(vsg, f_nlevels);
-		grating().setContrast(0);
-		m_grating1.setContrast(0);
+		for (int i=0; i<4; i++)
+		{
+			grating(i).init(vsg, f_nlevels);
+			grating(i).setTemporalFrequency(0);
+			grating(i).setContrast(0);
+		}
+		// grating contrast as originally specified is ignored - we use 
+		// crggParams[4] instead. We use crggParams[5] as the up-contrast. 
 	}
 
 	// page 2 - xhair, fixpt and stim. 
@@ -51,7 +70,8 @@ int StimSetCRG::init(ARvsg& vsg)
 	{
 		fixpt().draw();
 	}
-	grating().draw();
+	grating(0).draw();
+	grating(1).draw();
 	vsgPresent();
 
 	// page 3 - xhair, fixpt and reversed stim. 
@@ -64,9 +84,38 @@ int StimSetCRG::init(ARvsg& vsg)
 	{
 		fixpt().draw();
 	}
-	m_grating1.draw();
+	grating(0).draw();
+	grating(1).draw();
 	vsgPresent();
 
+	// page 4 - xhair, fixpt, stim with contrast change
+	vsgSetDrawPage(vsgVIDEOPAGE, 4, vsgBACKGROUND);
+	if (has_xhair())
+	{
+		xhair().draw();
+	}
+	if (has_fixpt())
+	{
+		fixpt().draw();
+	}
+	grating(2).draw();
+	grating(3).draw();
+	vsgPresent();
+
+	// page 5 - xhair, fixpt, stim with (reversed) contrast change
+	vsgSetDrawPage(vsgVIDEOPAGE, 5, vsgBACKGROUND);
+	if (has_xhair())
+	{
+		xhair().draw();
+	}
+	if (has_fixpt())
+	{
+		fixpt().draw();
+	}
+	grating(2).draw();
+	grating(3).draw();
+	vsgPresent();
+zzzzzzzzzzzzzzzzzzzzzzzzzzz
 	// page 1 - xhair and fixpt
 	vsgSetDrawPage(vsgVIDEOPAGE, 1, vsgBACKGROUND);
 	if (has_xhair())
@@ -90,7 +139,7 @@ int StimSetCRG::init(ARvsg& vsg)
 	return status;
 }
 
-int StimSetCRG::handle_trigger(std::string& s)
+int StimSetCRGG::handle_trigger(std::string& s)
 {
 	int status = 0;
 	if (s == "F")
@@ -108,9 +157,9 @@ int StimSetCRG::handle_trigger(std::string& s)
 		grating().select();
 		vsgObjResetDriftPhase();
 		grating().setContrast(m_contrast);
-		m_grating1.select();
+		m_grating0.select();
 		vsgObjResetDriftPhase();
-		m_grating1.setContrast(-1*m_contrast);
+		m_grating0.setContrast(-1*m_contrast);
 		setup_cycling(1, 2, 3, 1);
 		vsgSetSynchronisedCommand(vsgSYNC_PRESENT, vsgCYCLEPAGEENABLE, 0);
 		status = 1;
@@ -119,20 +168,20 @@ int StimSetCRG::handle_trigger(std::string& s)
 	else if (s == "C") 
 	{
 		grating().setContrast(100);
-		m_grating1.setContrast(-100);
+		m_grating0.setContrast(-100);
 		status = 1;
 	}
 	else if (s == "D") 
 	{
 		grating().setContrast(100);
-		m_grating1.setContrast(-100);
+		m_grating0.setContrast(-100);
 		status = 0;
 	}
 	// end hack djs
 	else if (s == "s")
 	{
 		grating().setContrast(0);
-		m_grating1.setContrast(0);
+		m_grating0.setContrast(0);
 		vsgSetSynchronisedCommand(vsgSYNC_PRESENT, vsgCYCLEPAGEDISABLE, 0);
 		vsgSetDrawPage(vsgVIDEOPAGE, 1, vsgNOCLEAR);
 		status = 1;
@@ -146,7 +195,7 @@ int StimSetCRG::handle_trigger(std::string& s)
 			fixpt().setContrast(0);
 		}
 		grating().setContrast(0);
-		m_grating1.setContrast(0);
+		m_grating0.setContrast(0);
 		status = 1;
 	}
 	else if (s == "a")
@@ -159,7 +208,7 @@ int StimSetCRG::handle_trigger(std::string& s)
 
 
 
-int StimSetCRG::setup_cycling(int firstpage, int stim1page, int stim0page, int lastpage)
+int StimSetCRGG::setup_cycling(int firstpage, int stim1page, int stim0page, int lastpage)
 {
 	VSGCYCLEPAGEENTRY cycle[32768];
 	int status = 0;
