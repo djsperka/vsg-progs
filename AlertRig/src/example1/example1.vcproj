@@ -264,6 +264,14 @@
 				</FileConfiguration>
 			</File>
 			<File
+				RelativePath="..\dualstim\DualStimSet.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\dualstim\DualStimSet.h"
+				>
+			</File>
+			<File
 				RelativePath="example1.cpp"
 				>
 				<FileConfiguration
@@ -288,7 +296,31 @@
 				</FileConfiguration>
 			</File>
 			<File
+				RelativePath=".\fggx.cpp"
+				>
+			</File>
+			<File
 				RelativePath=".\gratings.cpp"
+				>
+				<FileConfiguration
+					Name="Release|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+			</File>
+			<File
+				RelativePath=".\grid.cpp"
 				>
 				<FileConfiguration
 					Name="Release|Win32"
@@ -348,7 +380,75 @@
 				</FileConfiguration>
 			</File>
 			<File
+				RelativePath=".\ssinfo.cpp"
+				>
+				<FileConfiguration
+					Name="Release|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+			</File>
+			<File
+				RelativePath="..\dualstim\SSInfo.h"
+				>
+			</File>
+			<File
 				RelativePath=".\stimlist.cpp"
+				>
+				<FileConfiguration
+					Name="Release|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+			</File>
+			<File
+				RelativePath="..\dualstim\StimParameterList.h"
+				>
+			</File>
+			<File
+				RelativePath="..\dualstim\StimSetFGGX.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\dualstim\StimSetFGGX.h"
+				>
+			</File>
+			<File
+				RelativePath="..\dualstim\StimSetFGGXCore.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\dualstim\StimSetFGGXDonut.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\dualstim\StimSetFGX.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\dualstim\StimSetFGX.h"
 				>
 			</File>
 			<File
