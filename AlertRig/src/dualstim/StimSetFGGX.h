@@ -24,6 +24,9 @@ protected:
 	virtual void copy_scratch_page(int dest);
 	void getRandomList(vector<int>& result, int N, int num);
 
+	// Get the max outer diameter from m_pssinfo
+	double getGridDiam();
+
 public:
 	StimSetFGGX(shared_ptr<SSInfo> pssinfo, double xOffset=0.0, double yOffset=0.0);
 	~StimSetFGGX() {};
