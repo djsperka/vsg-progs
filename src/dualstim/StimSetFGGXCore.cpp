@@ -16,6 +16,7 @@ static const int f_nlevels = 20;
 StimSetFGGXCore::StimSetFGGXCore(shared_ptr<SSInfo> pssinfo, double xOffset, double yOffset) : StimSetFGGX(pssinfo, xOffset, yOffset)
 {
  	double x, y;
+	double diam;
 	ARGratingSpec g0 = m_pssinfo->getCoreGrating();
 	ARGratingSpec g1 = m_pssinfo->getCoreGrating();
 	/*
@@ -42,15 +43,16 @@ StimSetFGGXCore::StimSetFGGXCore(shared_ptr<SSInfo> pssinfo, double xOffset, dou
 	m_pssinfo->getCoreXY(0, x, y);
 	m_grid0.x = x;
 	m_grid0.y = y;
-	m_grid0.w = grating(0).w;
-	m_grid0.h = grating(0).h;
+	diam = getGridDiam();
+	m_grid0.w = diam;
+	m_grid0.h = diam;
 	m_grid0.nc = m_grid0.nr = 8;
 
 	m_pssinfo->getCoreXY(1, x, y);
 	m_grid1.x = x;
 	m_grid1.y = y;
-	m_grid1.w = grating(1).w;
-	m_grid1.h = grating(1).h;
+	m_grid1.w = diam;
+	m_grid1.h = diam;
 	m_grid1.nc = m_grid1.nr = 8;
 
 	// create event object

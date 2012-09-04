@@ -95,7 +95,6 @@ void StimSetFGGXDonut::draw_pages(bool bDrawAllPages)
 {
 	int savepage;
 	Stopwatch w;
-	double x, y;
 	w.split("Start");
 
 	// Before any drawing, save the current display page
@@ -121,11 +120,7 @@ void StimSetFGGXDonut::draw_pages(bool bDrawAllPages)
 	if (has_fixpt())
 		fixpt().setContrast(0);
 	grating(0).setContrast(0);
-	/*
-	grating(1).setContrast(0);
-	grating(2).setContrast(0);
-	grating(3).setContrast(0);
-	*/
+
 #if USE_GRIDS
 	m_grid0.setContrast(0);
 	m_grid1.setContrast(0);
@@ -187,7 +182,7 @@ void StimSetFGGXDonut::draw_pages(bool bDrawAllPages)
 		copy_scratch_page(4);
 		grating(0).draw();
 		grating(1).draw();
-		vsgPresent();
+		//vsgPresent();
 		w.split("page 4 gratings done.");
 	}
 
@@ -220,15 +215,16 @@ int StimSetFGGXDonut::init(ARvsg& vsg)
 	grating(1).setContrast(0);
 
 #if USE_GRIDS
+	double gDiam = getGridDiam();
 	m_grid0.x = grating(0).x;
 	m_grid0.y = grating(0).y;
-	m_grid0.w = grating(0).w;
-	m_grid0.h = grating(0).h;
+	m_grid0.w = gDiam;
+	m_grid0.h = gDiam;
 	m_grid0.nc = m_grid0.nr = 8;
 	m_grid1.x = grating(1).x;
 	m_grid1.y = grating(1).y;
-	m_grid1.w = grating(1).w;
-	m_grid1.h = grating(1).h;
+	m_grid1.w = gDiam;
+	m_grid1.h = gDiam;
 	m_grid1.nc = m_grid1.nr = 8;
 
 	m_grid0.init(vsg, 3);
