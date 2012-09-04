@@ -1,6 +1,6 @@
 
 
-const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.20 2012-08-10 18:18:37 jeff Exp $";
+const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.21 2012-09-04 21:26:04 jeff Exp $";
 
 
 ' Hello again
@@ -904,9 +904,11 @@ func IdleProcessing%()
             ChangeStateTo(stateCheckStimOff%, tNow);  'check that the stimulus is off, then repeat
             FlushButton(tButtonStart,tNow,buttonStatus%,buttonTime);  'after flushing button
         else 'move forward
+            SafeSampleKey("X");  'Removes XHair, do this BEFORE advancing stimulus!
+            yield(.001);         'Give a break to ensure "X" comes through
             SafeSampleKey("a");  'advance stimulus, we do this now because it takes some time on the VSG end
                                  'and we need to let that time occur during the response window
-            SafeSampleKey("X");  'Removes XHair
+            
             ChangeStateTo(stateWaitResponse%, tNow);
         endif;        
         
