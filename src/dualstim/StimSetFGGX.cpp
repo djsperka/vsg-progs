@@ -31,11 +31,7 @@ int StimSetFGGX::setup_cycling()
 	double factor;
 	double t1, t2, t3;
 	vector<int> pages;
-	getRandomList(pages, m_ngridpages, 5);
-
-	cout << "grid pages selected "; 
-	for (vector<int>::const_iterator it = pages.begin(); it!=pages.end(); it++) cout << *it << ",";
-	cout << endl;
+	getRandomList(pages, m_ngridpages, 3);
 
 	m_pssinfo->getT1(m_itrial, t1);
 	t2 = m_pssinfo->getT2();
@@ -57,31 +53,23 @@ int StimSetFGGX::setup_cycling()
 	cycle[2].Page = 4 + vsgTRIGGERPAGE;
 	cycle[2].Stop = 0;
 
-	cycle[3].Frames = 10;
+	cycle[3].Frames = 20;
 	cycle[3].Page = m_firstgridpage + pages[0] + vsgTRIGGERPAGE;
 	cycle[3].Stop = 0;
 
-	cycle[4].Frames = 10;
+	cycle[4].Frames = 20;
 	cycle[4].Page = m_firstgridpage + pages[1] + vsgTRIGGERPAGE;
 	cycle[4].Stop = 0;
 
-	cycle[5].Frames = 10;
+	cycle[5].Frames = 20;
 	cycle[5].Page = m_firstgridpage + pages[2] + vsgTRIGGERPAGE;
 	cycle[5].Stop = 0;
 
-	cycle[6].Frames = 10;
-	cycle[6].Page = m_firstgridpage + pages[3] + vsgTRIGGERPAGE;
-	cycle[6].Stop = 0;
+	cycle[6].Frames = 1;
+	cycle[6].Page = 0 + vsgTRIGGERPAGE;
+	cycle[6].Stop = 1;
 
-	cycle[7].Frames = 10;
-	cycle[7].Page = m_firstgridpage + pages[4] + vsgTRIGGERPAGE;
-	cycle[7].Stop = 0;
-
-	cycle[8].Frames = 1;
-	cycle[8].Page = 0 + vsgTRIGGERPAGE;
-	cycle[8].Stop = 1;
-
-	status = vsgPageCyclingSetup(9, &cycle[0]);
+	status = vsgPageCyclingSetup(7, &cycle[0]);
 
 	return status;
 }
