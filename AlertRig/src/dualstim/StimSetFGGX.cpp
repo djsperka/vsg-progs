@@ -26,19 +26,34 @@ void StimSetFGGX::advance()
 
 int StimSetFGGX::setup_cycling()
 {
-	VSGCYCLEPAGEENTRY cycle[10];
+	VSGCYCLEPAGEENTRY cycle[16];
 	int status = 0;
 	double factor;
 	double t1, t2, t3;
+	int nFramesPerGrid;
 	vector<int> pages;
-	getRandomList(pages, m_ngridpages, 3);
+	int nGrids = m_pssinfo->getNHC();
+	if (nGrids > 8) 
+	{
+		cerr << "nHC grids capped at 8!" << endl;
+		nGrids = 8;
+	}
+	getRandomList(pages, m_ngridpages, nGrids);
+	cerr << "Grid pages: ";
+	for (int i=0; i<nGrids; i++)
+	{
+		cerr << pages[i] << ", ";
+	}
+	cerr << endl;
 
 	m_pssinfo->getT1(m_itrial, t1);
 	t2 = m_pssinfo->getT2();
 	t3 = m_pssinfo->getT3();
 
-	// factor will convert those times to frames
+	// factor (frames/sec) will convert those times to frames
 	factor = 1000000.0f / vsgGetSystemAttribute(vsgFRAMETIME);
+	nFramesPerGrid = (int)(factor * m_pssinfo->getTHC()/nGrids);
+
 
 	memset(cycle, 0, sizeof(cycle));
 	cycle[0].Frames = (WORD)(t1 * factor);
@@ -53,23 +68,18 @@ int StimSetFGGX::setup_cycling()
 	cycle[2].Page = 4 + vsgTRIGGERPAGE;
 	cycle[2].Stop = 0;
 
-	cycle[3].Frames = 20;
-	cycle[3].Page = m_firstgridpage + pages[0] + vsgTRIGGERPAGE;
-	cycle[3].Stop = 0;
+	for (int i = 0; i < nGrids; i++)
+	{
+		cycle[3+i].Frames = nFramesPerGrid;
+		cycle[3+i].Page = m_firstgridpage + pages[i] + vsgTRIGGERPAGE;
+		cycle[3+i].Stop = 0;
+	}
 
-	cycle[4].Frames = 20;
-	cycle[4].Page = m_firstgridpage + pages[1] + vsgTRIGGERPAGE;
-	cycle[4].Stop = 0;
+	cycle[3+nGrids].Frames = 1;
+	cycle[3+nGrids].Page = 0 + vsgTRIGGERPAGE;
+	cycle[3+nGrids].Stop = 1;
 
-	cycle[5].Frames = 20;
-	cycle[5].Page = m_firstgridpage + pages[2] + vsgTRIGGERPAGE;
-	cycle[5].Stop = 0;
-
-	cycle[6].Frames = 1;
-	cycle[6].Page = 0 + vsgTRIGGERPAGE;
-	cycle[6].Stop = 1;
-
-	status = vsgPageCyclingSetup(7, &cycle[0]);
+	status = vsgPageCyclingSetup(4+nGrids, &cycle[0]);
 
 	return status;
 }
