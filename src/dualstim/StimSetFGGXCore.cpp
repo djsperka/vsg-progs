@@ -167,7 +167,7 @@ void StimSetFGGXCore::draw_pages(bool bDrawAllPages)
 		w.split("1,2 done");
 
 		// page 2-n, copy scratch page
-		for (int i=2; i<m_firstgridpage + m_ngridpages; i++)
+		for (int i=2; i<(m_firstgridpage + m_ngridpages); i++)
 			copy_scratch_page(i);
 		//vsgPresent();
 		w.split("copied sp 2-8");

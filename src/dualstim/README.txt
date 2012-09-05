@@ -150,3 +150,44 @@ dualstim.exe -a -d 1000 -b gray -r 0,0 -f 0,0,0.2,red -M -s 0,0,5,5,100,.2,0,90 
 	Note: using -X and -Y here is equivalent to using -Z -2,-2,0,0,2,2,4,4
 
 
+
+
+psychophysics input file
+------------------------
+
+The format for the psychophysics input file (command line arg -P <filename> and
+used with DonutHunt script) is as follows:
+
+Input values are comma-separated on each line. No comment lines or blank lines allowed.
+
+Line 1: Begins with the word "master" or "slave". This indicates which screen will have
+the grating "core" stimulus (which follows on line 2). 
+
+Line 2: Grating "core" stimulus spec. The position and contrast are ignored.
+
+Line 3: x0,y0,x1,y1 - position of the two core grids (degrees)
+
+Line 4: Grating "donut" spec. The position, contrast and od are ignored.
+
+Line 5: x0,y0,x1,y1 - position of the two donut grids (degrees). Can be diff't than "core".
+
+Line 6: t2,t3,cbase,nHC,tHC
+        t2 = time from grating onset to contrast change
+		t3 = time from grating contrast change to gratings off and HC grids appear
+		cbase = base contrast of "core" and "donut" gratings
+		nHC = number of Hi-Contrast grids to be flashed after contrast change
+		tHC = sec (total) the Hi-Contrast grids are on screen. Each grid: tHC/nHC
+		
+		
+
+** The next 5 lines are per-trial values. 
+** Each line should have the same number of comma-separated items on it!
+
+
+
+Line 7: t1 - time from fixpt onset to appearance of gratings
+Line 8: CUp - contrast up, when CC happens, this is the contrast the core changes to
+Line 9: Which - which of the two core grids changes contrast. Either 0 or 1, where
+        0 refers to the core at x0,y0 and 1 refers to the core at x1,y1 (see Line 3 above)
+Line 10: orientation of core grating, in degrees
+Line 11: outer diameter of donut, in degrees
