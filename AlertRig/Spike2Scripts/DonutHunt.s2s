@@ -1,6 +1,6 @@
 
 
-const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.21 2012-09-04 21:26:04 jeff Exp $";
+const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.22 2012-09-05 17:54:16 jeff Exp $";
 
 
 ' Hello again
@@ -397,6 +397,7 @@ func Start%()
     var donutParam$;
     var coreScreen$;
     var donutScreen$;
+    
 	
 	SampleStart(0); 'Start sampling
 	' Set Sequencer Variable #3 based on juicer type 
@@ -430,7 +431,7 @@ func Start%()
     Print("%f,0,%f,0\n",-dhXOffset,dhXOffset);  'xL,yL,xR,yR master
     Print("%s\n",donutParam$);  'donut-stim-spec
     Print("%f,0,%f,0\n",-dhXOffset,dhXOffset);  'xL,yL,xR,yR slave, same as master            
-    Print("%f,%f,%f\n",dhDelayBeforeDContrast,dhDurAfterDContrast,dhCoreContrast);  't2,t3,contrast_base        t2,t3 in s
+    Print("%f,%f,%f\n",dhDelayBeforeDContrast,dhDurAfterDContrast,dhCoreContrast,dhNGrids%,dhGridDur);  't2,t3,contrast_base, number of grids, grid duration    t2,t3 gridDur in s
     Print("%s\n",dhT1ValuesStringified$); 't1_0,t1_1,t1_2,...           per-trial t1 values in seconds
     Print("%s\n",dhdContrastValuesStringified$);  'Cup_0,Cup_1,....           per-trial contrast-up values
     Print("%s\n",dhLRValuesStringified$);  'LR_0,LR_1,...               per-trial values for which stim on master screen changes contrast. 0(1) = Left(Right)

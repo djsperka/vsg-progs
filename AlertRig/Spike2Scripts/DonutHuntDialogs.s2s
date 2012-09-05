@@ -26,6 +26,8 @@ var dhNRepeatsPerCRG%;
 var dhNFramesPerTurn%;
 var dhCRGFilename$;
 var dhShowDonutOnMaster%;
+var dhNGrids%; 
+var dhGridDur; 
 
 'Grating dialog variables
 var dhXOffset;
@@ -70,7 +72,8 @@ proc GetDonutHuntMainParameters()
     dhNFramesPerTurn% := GetIntRegistryValue%(key$, "NFramesPerTurn", dhNFramesPerTurn%);
     dhCRGFilename$ := GetStringRegistryValue$(key$, "CRGFilename", dhCRGFilename$);
     dhShowDonutOnMaster% := GetIntRegistryValue%(key$, "ShowDonutOnMaster", dhShowDonutOnMaster%);
-    
+    dhNGrids% := GetIntRegistryValue%(key$, "NGrids", dhNGrids%);
+    dhGridDur := GetFloatRegistryValue(key$, "GridDur", dhGridDur);
     
 end;
 
@@ -88,6 +91,8 @@ proc SaveDonutHuntMainParameters()
     SetIntRegistryValue(key$, "NFramesPerTurn", dhNFramesPerTurn%);
     SetStringRegistryValue(key$, "CRGFilename", dhCRGFilename$);
     SetIntRegistryValue(key$, "ShowDonutOnMaster", dhShowDonutOnMaster%);
+    SetIntRegistryValue(key$, "NGrids", dhNGrids%);
+    SetFloatRegistryValue(key$, "GridDur", dhGridDur);
 
 end;
 
@@ -212,18 +217,18 @@ func DonutHuntMainDialog%()
     GetDonutHuntMainParameters();    
     
     ' Generate the dialog    
-    DlgCreate("Donut Hunt Dialog",0,0,60,13);
+    DlgCreate("Donut Hunt Dialog",0,0,60,14);
     
     'The top 2 non-categorized bits
     DlgInteger(1,6,1,100,23,1);  'Number of repeats
     DlgText("Number of Repeats",2,1);
     DlgButton(dhXHairButton%,"       Crosshairs       ",DonutHuntXHairDialog%,2,2);
     DlgButton(dhGratingButton%,"Grating Parameters",DonutHuntGratingDialog%,2,3);
-    DlgCheck(10,"Show Donut On Master",35,1);
+    DlgCheck(12,"Show Donut On Master",35,1);
 
     
-    'Timing parameters
-    DlgGroup("Timing Parameters",1,4,58,3);
+    'Timing/Masker parameters
+    DlgGroup("Timing/Masker Parameters",1,4,58,4);
     DlgReal(2,6,0,10,23,5);  'Minimum delay
     DlgText("Min delay (sec)",2,5);
     DlgReal(3,6,0,10,23,6);  'Random delay
@@ -232,22 +237,26 @@ func DonutHuntMainDialog%()
     DlgText("Pre-change time (sec)",31,5);
     DlgReal(5,6,0,10,52,6);  'Post-contrast change time
     DlgText("Post-change time (sec)",31,6);
+    DlgInteger(6,6,3,3,23,7);  'Number of grids - note that the value must be 3 right now!
+    DlgText("Number of maskers",2,7);
+    DlgReal(7,6,0,10,52,7);  'Total grid duration
+    DlgText("Total mask dur. (sec)",31,7);
     
     'CRG parameters
-    DlgGroup("CRG",1,7,58,5);
-    DlgCheck(6, "Do CRG", 2, 8);
-    DlgInteger(7,6,0,100,23,9);  'N repeats per CRG sequence
-    DlgText("Repeats per CRG seq",2,9);
-    DlgInteger(8,6,0,100,52,9);  'N Frames per turn
-    DlgText("Frames per turn",31,9);
-    DlgString(9,55,200,"",3,11);  'for visual confirmation of selected seq file; max character value (20) only applies to typing in, not assigning via Value().  Huh.
+    DlgGroup("CRG",1,8,58,5);
+    DlgCheck(8, "Do CRG", 2, 9);
+    DlgInteger(9,6,0,100,23,10);  'N repeats per CRG sequence
+    DlgText("Repeats per CRG seq",2,10);
+    DlgInteger(10,6,0,100,52,10);  'N Frames per turn
+    DlgText("Frames per turn",31,10);
+    DlgString(11,55,200,"",3,12);  'for visual confirmation of selected seq file; max character value (20) only applies to typing in, not assigning via Value().  Huh.
     DlgButton(dhSelectSEQFileButton%,"Select Sequence File",SelectSEQFile%,2,10);
 
     DlgAllow(0xffff, 0, DonutHuntMainDialogChanged%);
     
     ' Show the dialog. 
     i%:=DlgShow(dhNRepeats%,dhMinStimDelay,dhRandStimDelay,dhDelayBeforeDContrast,dhDurAfterDContrast,
-    dhDoCRG%,dhNRepeatsPerCRG%,dhNFramesPerTurn%,dhCRGFilename$,dhShowDonutOnMaster%);
+    dhNGrids%,dhGridDur,dhDoCRG%,dhNRepeatsPerCRG%,dhNFramesPerTurn%,dhCRGFilename$,dhShowDonutOnMaster%);
 
     
     
