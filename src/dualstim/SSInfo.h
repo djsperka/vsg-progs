@@ -22,6 +22,8 @@ private:
 	vector<int> m_vecLR;
 	vector<double> m_vecOri;
 	vector<double> m_vecDiam;
+	int m_nHC;			// # hi-contrast grids
+	double m_tHC;		// sec (total) for the grids
 
 public:
 	SSInfo() {};
@@ -34,13 +36,17 @@ public:
 			m_vecCUp(ss.m_vecCUp),
 			m_vecLR(ss.m_vecLR),
 			m_vecOri(ss.m_vecOri),
-			m_vecDiam(ss.m_vecDiam)
+			m_vecDiam(ss.m_vecDiam),
+			m_nHC(ss.m_nHC),
+			m_tHC(ss.m_tHC)
 	{
 	};
 	~SSInfo() {};
 	const bool getCoreIsMaster() const { return m_bCoreIsMaster; };
 	const ARGratingSpec& getCoreGrating() const { return m_coreGrating; };
 	const ARGratingSpec& getDonutGrating() const { return m_donutGrating; };
+	const int getNHC() const { return m_nHC; };
+	const double getTHC() const { return m_tHC; };
 	bool getCoreXY(int i, double& x, double& y) const
 	{
 		bool b = true;
@@ -172,11 +178,11 @@ public:
 			return false;
 		}
 
-		// line 6 has t2,t3,cbase
+		// line 6 has t2,t3,cbase,nHC,msHC
 		getline(in, s);
-		if (!in.good() || parse_number_list(s, vtmp) || vtmp.size() != 3) 
-		{ 
-			cerr << "Error in input: expecting 3 comma-separated numbers on line 6" << endl;
+		if (!in.good() || parse_number_list(s, vtmp) || vtmp.size() != 5)
+		{
+			cerr << "Error in input: expecting 5 comma-separated numbers (t2,t3,cbase,nHC,msHC) on line 6" << endl;
 			return false;
 		}
 		else
@@ -184,6 +190,8 @@ public:
 			ssinfo.m_t2 = vtmp[0];
 			ssinfo.m_t3 = vtmp[1];
 			ssinfo.m_cbase = (int)vtmp[2];
+			ssinfo.m_nHC = (int)vtmp[3];
+			ssinfo.m_tHC = vtmp[4];
 		}
 
 		// The next 5 lines are per-trial values. Each line should have 
