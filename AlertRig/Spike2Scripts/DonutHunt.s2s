@@ -1,6 +1,6 @@
 
 
-const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.24 2012-09-06 22:41:55 jeff Exp $";
+const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.25 2012-09-06 22:54:58 jeff Exp $";
 
 
 ' Hello again
@@ -158,12 +158,11 @@ ButtonChannel% := 1;
 ButtonPort% := 5;  'This appears to be correct
 
 'Create sampling configuration
-'CreateSampleConfiguration();
+CreateSampleConfiguration();
 
 'Create stimulus order
 CreateStimulusOrder();  'this has previously been done within CreateSampleConfiguration
 
-halt;
 
 ' Get display windows ready
 InitializeWindows();
