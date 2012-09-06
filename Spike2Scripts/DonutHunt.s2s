@@ -1,6 +1,6 @@
 
 
-const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.23 2012-09-05 17:59:00 jeff Exp $";
+const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.24 2012-09-06 22:41:55 jeff Exp $";
 
 
 ' Hello again
@@ -158,10 +158,12 @@ ButtonChannel% := 1;
 ButtonPort% := 5;  'This appears to be correct
 
 'Create sampling configuration
-CreateSampleConfiguration();
+'CreateSampleConfiguration();
 
 'Create stimulus order
 CreateStimulusOrder();  'this has previously been done within CreateSampleConfiguration
+
+halt;
 
 ' Get display windows ready
 InitializeWindows();
@@ -255,59 +257,75 @@ proc CreateStimulusOrder()
     var i%;
     var j%;  
     var Comma$:="";  'start empty
+    var temp%[1000];
     
     'get number of values
     dhNValues% := 2*dhNContrastLevels%*dhNDonutDiameters%*dhNCoreOrientations%;
     
+    'reset nExistingBlocks%
+    nExistingBlocks% := 1;
+    
+    'Note that these really only need to be done once.  They used to be done inside the FOR loop below,
+    'but the result was, of course, always the same so obviously, why do that?
+    'Assign L/R
+    nExistingBlocks% := DealStimuliToBlocks%(dhLRValues[],dhNValues%,nExistingBlocks%,2,0,1,0);
+    'Assign contrast levels
+    nExistingBlocks% := DealStimuliToBlocks%(dhdContrastValues[],dhNValues%,nExistingBlocks%,dhNContrastLevels%,dhMinDContrast,dhMaxDContrast,dhContrastLogProgression%);
+    ArrAdd(dhdContrastValues[],dhCoreContrast);  'Put it in terms of absolute contrast, not change in contrast
+    'Assign donut diameter values
+    nExistingBlocks% := DealStimuliToBlocks%(dhDonutDiamValues[],dhNValues%,nExistingBlocks%,dhNDonutDiameters%,dhMinDonutDiameter,dhMaxDonutDiameter,dhDiameterLogProgression%);
+    'Assign core orientation values
+    nExistingBlocks% := DealStimuliToBlocks%(dhCenterOriValues[],dhNValues%,nExistingBlocks%,dhNCoreOrientations%,dhMinCoreOrientation,dhMaxCoreOrientation,0);
+    
+    if nExistingBlocks% <> dhNValues% then
+        if nExistingBlocks% = -1 then
+            message("DealStimuliToBlocks returned -1 (error)!");
+        else
+            message("NValues (" + Str$(dhNValues%) + ") is not equal to total blocks created by DS2Bs (" + Str$(nExistingBlocks%) + ") Hmm!");
+        endif;
+        halt();
+    endif;    
+    
+    
     for i% := 1 to dhNRepeats% do
         
-        'reset nExistingBlocks% each time through
-        nExistingBlocks% := 1;
-        
-        'Assign L/R
-        nExistingBlocks% := DealStimuliToBlocks%(dhLRValues[],dhNValues%,nExistingBlocks%,2,0,1,0);
-        'Assign contrast levels
-        nExistingBlocks% := DealStimuliToBlocks%(dhdContrastValues[],dhNValues%,nExistingBlocks%,dhNContrastLevels%,dhMinDContrast,dhMaxDContrast,dhContrastLogProgression%);
-        ArrAdd(dhdContrastValues[],dhCoreContrast);  'Put it in terms of absolute contrast, not change in contrast
-        'Assign donut diameter values
-        nExistingBlocks% := DealStimuliToBlocks%(dhDonutDiamValues[],dhNValues%,nExistingBlocks%,dhNDonutDiameters%,dhMinDonutDiameter,dhMaxDonutDiameter,dhDiameterLogProgression%);
-        'Assign core orientation values
-        nExistingBlocks% := DealStimuliToBlocks%(dhCenterOriValues[],dhNValues%,nExistingBlocks%,dhNCoreOrientations%,dhMinCoreOrientation,dhMaxCoreOrientation,0);
-        
-        if nExistingBlocks% <> dhNValues% then
-            if nExistingBlocks% = -1 then
-                message("DealStimuliToBlocks returned -1 (error)!");
-            else
-                message("NValues (" + Str$(dhNValues%) + ") is not equal to total blocks created by DS2Bs (" + Str$(nExistingBlocks%) + ") Hmm!");
-            endif;
-            halt();
-        endif;
-        
-        'Assign T1 values
+        'Assign T1 values, this needs to be done every time or we only get a small number of T1 values repeated
         Rand(dhT1Values[],dhRandStimDelay,dhMinStimDelay);  'dhT1Values[] is filled
         
         'Assign random indices - one size fits all, we will index each Values array with the same number by design
-        Shuffle%(dhNValues%,dhStimulusIndices%[]);
+        Shuffle%(dhNValues%,temp%[]);
         'This is the non-shuffled version, I don't think I even want to give Ben that option because it doesn't make sense (but useful for testing)
         'for j% := 0 to dhNValues%-1 do
-        '    dhStimulusIndices%[j%] := j%;
+            'temp%[j%] := j%;
         'next;
+        arrconst(dhStimulusIndices%[dhNValues%*(i%-1):dhNValues%],temp%[0:dhNValues%]);
         
         'Set the Comma$ variable to have a comma in it for all rounds following the first one
         if i% > 1 then
             Comma$ := ",";
         endif;
+               
         
         'I don't know if I need to stringify anything, and if so if it has to be done here...
-        dhdContrastValuesStringified$ := dhdContrastValuesStringified$ + Comma$ + StringifyProgression$(dhNValues%, dhdContrastValues[], dhStimulusIndices%[]);
-        dhDonutDiamValuesStringified$ := dhDonutDiamValuesStringified$ + Comma$ + StringifyProgression$(dhNValues%, dhDonutDiamValues[], dhStimulusIndices%[]);
-        dhCenterOriValuesStringified$ := dhCenterOriValuesStringified$ + Comma$ + StringifyProgression$(dhNValues%, dhCenterOriValues[], dhStimulusIndices%[]);
+        dhdContrastValuesStringified$ := dhdContrastValuesStringified$ + Comma$ + StringifyProgression$(dhNValues%, dhdContrastValues[], temp%[]);
+        dhDonutDiamValuesStringified$ := dhDonutDiamValuesStringified$ + Comma$ + StringifyProgression$(dhNValues%, dhDonutDiamValues[], temp%[]);
+        dhCenterOriValuesStringified$ := dhCenterOriValuesStringified$ + Comma$ + StringifyProgression$(dhNValues%, dhCenterOriValues[], temp%[]);
         'dhLRValuesStringified$ := dhLRValuesStringified$ + Comma$ + StringifyProgressionLR$(dhNValues%, dhLRValues[], dhStimulusIndices%[]);  'this is L/R, not 0/1, dan's VSG uses 0/1 after all
-        dhLRValuesStringified$ := dhLRValuesStringified$ + Comma$ + StringifyProgression$(dhNValues%, dhLRValues[], dhStimulusIndices%[]);  'this is 0/1 NOTE THAT 0 CORRESPONDS TO LEFT ON THE NON-REVERSED SCREEN!
+        dhLRValuesStringified$ := dhLRValuesStringified$ + Comma$ + StringifyProgression$(dhNValues%, dhLRValues[], temp%[]);  'this is 0/1 NOTE THAT 0 CORRESPONDS TO LEFT ON THE NON-REVERSED SCREEN!
                                                                                                                                             'that means that 0 is RIGHT when viewed in the stereoscope
-        dhT1ValuesStringified$ := dhT1ValuesStringified$ + Comma$ + StringifyProgression$(dhNValues%, dhT1Values[], dhStimulusIndices%[]);
-        
+        dhT1ValuesStringified$ := dhT1ValuesStringified$ + Comma$ + StringifyProgression$(dhNValues%, dhT1Values[], temp%[]);
     next;
+    
+
+'    for j% := 0 to (dhNValues%*dhNRepeats%)-1 do    
+'        'printlog(str$(dhStimulusIndices%[j%])+"T,"+str$(GetLR(j%))+","+str$(dhCoreContrast)+","+str$(GetContrast(j%))+","+str$(GetDiam(j%))+","+str$(GetOri(j%))+"\n");
+'        printlog(str$(GetLR(j%))+","+str$(dhCoreContrast)+","+str$(GetContrast(j%))+","+str$(GetDiam(j%))+","+str$(GetOri(j%))+"\n");
+'    next;
+'    'printlog("%d\n",dhStimulusIndices%[0:2*dhNValues%]);
+'    printlog("LR_%s\n",dhLRValuesStringified$);
+'    printlog("Cont_%s\n",dhdContrastValuesStringified$);
+'    printlog("Diam_%s\n",dhDonutDiamValuesStringified$);
+'    printlog("Ori_%s\n",dhCenterOriValuesStringified$);
     
 end;
 
@@ -517,6 +535,7 @@ func Start%()
 	'Begin the stimulus program. It will take a few seconds for the VSG to initialize.
 	PrintLog(cmdLine$+"\n");
     printlog("num advances is %d and num repeats is %d\n",dhNValues%,dhNRepeats%);
+    dhNValues% := dhNValues%*dhNRepeats%;  'Idle loop uses dhNValues as a stopping guide, but we need the number of repeats
 	StimHandle% := ProgRun(cmdLine$,1);
 	if StimHandle% <0 then Message("Could not start stimulus."); halt; endif
 	
@@ -919,7 +938,7 @@ func IdleProcessing%()
         buttonError% := WhichButton%(tButtonStart,tNow,buttonStatus%,buttonTime);
         docase
         case buttonStatus% = 1 then    
-            if dhLRValues[dhStimulusIndices%[nTrialsCompleted%]] = 1 then  'this is reversed in stereoscope, so 1 = left
+            if GetLR(nTrialsCompleted%) = 1 then  'this is reversed in stereoscope, so 1 = left in experimental conditions
                 nCorrect% += 1;
                 sampleText("Left Response (Correct)",buttonTime);
                 printlog("Stimulus Left; Correct left response at %f\n",buttonTime);
@@ -934,7 +953,7 @@ func IdleProcessing%()
             printlog("number of trials completed is %d\n",nTrialsCompleted%);
             ToolbarText(str$(nTrialsCompleted%) + "/" + str$(dhNValues%) + " trials completed, " + Str$(pctCorrect) + "% correct.");
         case buttonStatus% = 2 then    
-            if dhLRValues[dhStimulusIndices%[nTrialsCompleted%]] = 0 then  'this is reversed in stereoscope, so 0 = right
+            if GetLR(nTrialsCompleted%) = 0 then  'this is reversed in stereoscope, so 0 = right in experimental conditions
                 nCorrect% += 1;
                 sampleText("Right Response (Correct)",buttonTime);
                 printlog("Stimulus Right; Correct right response at %f\n",buttonTime);
@@ -961,6 +980,8 @@ func IdleProcessing%()
             pctCorrect := round(1000*nCorrect%/nTrialsCompleted%)/10;
             printlog("number of trials completed is %d\n",nTrialsCompleted%);
             ToolbarText(str$(nTrialsCompleted%) + "/" + str$(dhNValues%) + " trials completed, " + Str$(pctCorrect) + "% correct.");
+        else  'this should not happen
+            message("Whoops, code leak in stateWaitResponse%!");
         endcase
                 
         
