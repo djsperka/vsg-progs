@@ -1,6 +1,6 @@
 
 
-const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.25 2012-09-06 22:54:58 jeff Exp $";
+const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.26 2012-09-06 23:15:24 jeff Exp $";
 
 
 ' Hello again
@@ -979,8 +979,6 @@ func IdleProcessing%()
             pctCorrect := round(1000*nCorrect%/nTrialsCompleted%)/10;
             printlog("number of trials completed is %d\n",nTrialsCompleted%);
             ToolbarText(str$(nTrialsCompleted%) + "/" + str$(dhNValues%) + " trials completed, " + Str$(pctCorrect) + "% correct.");
-        else  'this should not happen
-            message("Whoops, code leak in stateWaitResponse%!");
         endcase
                 
         
