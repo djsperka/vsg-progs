@@ -1,6 +1,6 @@
 
 
-const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.26 2012-09-06 23:15:24 jeff Exp $";
+const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.27 2012-09-25 20:55:02 jeff Exp $";
 
 
 ' Hello again
@@ -39,6 +39,21 @@ var FixationPointSlaveChannel%;
 var StimSlaveChannel%;
 var ButtonChannel%;
 var ButtonPort%;
+var XChannel%;
+var YChannel%; 
+
+' xy windows for plotting (TuningWindow) and PSTH. 
+var TuningWindow%[16];	' one for each wavemark channel
+
+' XY window stuff
+var XYWindow%;			' 
+var iStimChannel%;	' channel number for stimulus in xy window
+var iStimWindowChannel%;' channel number for stimulus window in xy window
+var iMonitorChannel%;	' channel number for monitor position display in xy window
+
+' Display stuff
+var FixWindowX[36],FixWindowY[36];	' points for displaying fixation window in xy view
+var windowX[36], windowY[36];
 
 ' dummy vars
 var iScript%;
@@ -60,7 +75,6 @@ var buttonError%;
 
 var tNow:=0;		' latest time for which there are values recorded. Used in IdleProcessing
 var tButtonStart;   ' start time on button check
-'var tLast:=-1;		' last time we checked for a trigger.  I don't think we need this, tLastTrigger will suffice
 var tLastUpdate:=-1;	' last time view was updated
 var vTrigger;		' set by NextTime to indicate trigger transition
 var tStateStart:=-1;	' time that present state started. Used to measure wait time, fixation time, etc. 
@@ -71,6 +85,7 @@ var tStimSequence := -1;    ' time that stim sequence started; followed by pulse
 var tInterTrialTime := 0.2;	' Time spent waiting between trials (i.e. after screen is blank, but before fix point is presented) 
 var tRise, tFall;
 var tKludge := 0.06;    ' Add to Fixation time to account for stim sequence. Ugly hack, admittedly, but one does what one must. 
+var xEye, yEye;		' eye positions
 
 
 ' Values for the "tuning curve"
@@ -109,19 +124,27 @@ const stateCheckButtonDuringXHair%:=14;  'look at button after XHair wait period
 const stateWaitContrastChange%:=15;  ' wait for contrast change
 const stateWaitStimOffset%:=16;      ' wait for stimulus offset, there are several mask triggers
 const stateCheckButtonDuringStim%:=17;  'look at button after stimulus period
-const stateCheckStimOff%:=18;  'make sure stimulus ic off
+const stateCheckStimOff%:=18;  'make sure stimulus is off
+const stateWaitForFixPtOn%:=19;		' Waiting for fixation point return trigger (on)
+const stateWaitForBlank%:=20;		' Waiting for fixation point return trigger (off)
+const stateWaitForAcquisition%:=21;	' Waiting for subject to acquire fixation point
+const stateMonkeyITI%:=22;          ' ITI for animal
+const stateHoldFixationToContrastChange%:=23;  'holding fixation through contrast change
+const stateHoldFixationToStimOffset%:=24;  'holding fixation point to end of stimulus
+const stateReward%:=25;              'rewarding animal
 
-'const nOnsetTriggers% := 2;  'one of these is a "false pulse", so we'll skip it 
 const nMaskTriggers% := 4;
-'var nOnsetTriggersFound%;
 var nMaskTriggersFound%;
 
 var iState% := stateVSGWait%;	' present state
 
 var nTrialsStarted%:=0;
 var nTrialsCompleted%:=0;
+var nTrialsAborted% :=0;
+
 var nCorrect%;
 var pctCorrect;
+var MonkeySuccess%;
 
 var tic;  'Set a tick value equal to the duration of one clock tick in seconds, used to prevent finding
           'the same "pulse" twice
@@ -130,6 +153,14 @@ var pulseFound%;
 
 ' Init logging
 LogInit(1);
+
+
+'' Check if always looking flag is set. If so, issue a warning. 
+if alwaysLooking% = 1 and dhIsHuman% = 0 then
+    if Query("Always looking is SET. Unset?") = 1 then
+        alwaysLooking% := 0;
+    endif
+endif
 
 
 ' run parameters script....
@@ -146,7 +177,9 @@ else
 endif;
 
 
-' Assign channel numbers 
+' Assign channel numbers
+XChannel% := 21;
+YChannel% := 22; 
 FixationPointChannel% := 24;
 StimChannel% := 25;
 ReadyChannel% := 27;            ' Look for ready signal on port 2 (same as fixpt). 
@@ -156,6 +189,13 @@ FrameChannel% := 19;
 FrameSlaveChannel% := 20;
 ButtonChannel% := 1;
 ButtonPort% := 5;  'This appears to be correct
+
+if dhIsHuman% = 0 then
+    ' Fetch electrode information. 
+    dhNWavemarks% := GetWavemarkPorts%(dhWavemarkPorts%[]);
+    dhNContinuous% := GetContinuousPorts%(dhContinuousPorts%[]);
+endif;
+
 
 'Create sampling configuration
 CreateSampleConfiguration();
@@ -237,11 +277,40 @@ proc CreateSampleConfiguration()
     SampleComment$(ButtonChannel%,"Raw Button");
 	SampleTitle$(ButtonChannel%,"Raw Button");
     
-    SampleSequencer(script$ + "Tuning.pls");  'use tuning.pls?
-	SampleOptimise(2,2,2,2,50);  'Set optimise mode (do this last)
-	
     
-   
+    if dhIsHuman% = 0 then
+        
+        'eye position channels
+        SampleWaveform(XChannel%, GetEyeXPort%(), 1000);
+        SampleTitle$(XChannel%,"Eye X");
+        SampleWaveform(YChannel%, GetEyeYPort%(), 1000);
+        SampleTitle$(YChannel%,"Eye Y");
+        
+        
+        ' Electrodes: wavemark/continuous
+        ' 12/6/2010
+        ' Wavemark channels will be channels # 1-N, waveform N+1 - N+1+M, where there are N wavemark channels
+        ' and M waveform channels. 
+        for i% := 0 to dhNWavemarks%-1 do
+            SampleWaveMark(i% + 1, dhWavemarkPorts%[i%], 2000, 34, 15, 28000); ' chan, port, event rate, points, pre-trigger, rate
+            SampleTitle$(i% + 1, "WMrk " + str$(dhWavemarkPorts%[i%])); 
+        next
+        for i% := 0 to dhNContinuous%-1 do
+            SampleWaveform(dhNWavemarks% + i% + 1, dhContinuousPorts%[i%], 20000);
+            SampleTitle$(dhNWavemarks% + i% + 1, "Cont " + str$(dhContinuousPorts%[i%]));
+        next
+        
+        SampleWaveform(XChannel%, GetEyeXPort%(), 1000);
+        SampleTitle$(XChannel%,"Eye X");
+        SampleWaveform(YChannel%, GetEyeYPort%(), 1000);
+        SampleTitle$(YChannel%,"Eye Y");
+        
+        SampleSequencer(script$ + "Tuning.pls");
+        SampleOptimise(2,2,2,2,50);  'Set optimise mode (do this last)
+        SampleMode(1); 'Continuous sampling
+      
+    endif;
+    
 	
 end;
 
@@ -332,7 +401,9 @@ end;
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 proc InitializeWindows()
-
+    var i%;
+    var WindowStep;
+    
     ' Make spike2 use all of monitor 1
     View(App()).Window(0, 0, 100, 100, 1);
     
@@ -341,7 +412,67 @@ proc InitializeWindows()
 	Window(0,48,50,95);
     XRange(0, 30);
 	'View(DataWindow%).WindowVisible(1);  'redundant, I believe
+    
+    if dhIsHuman% = 0 then
+        
+        ' open xy window to display tuning results    
+        if dhNWavemarks% > 0 then
+            WindowStep := 100/dhNWavemarks%;
+        endif
+        for i% := 0 to dhNWavemarks%-1 do
+            TuningWindow%[i%] := FileNew(12);
+            Window(50, i%*WindowStep, 100, (i%+1)*WindowStep);
+            ChanTitle$(0, "Spikes/s");
+            TuningCurveLabels(dhWavemarkPorts%[i%]);
+            WindowVisible(1);
+        next;
+        
+        
+        
+        'Open an XY view to display eye position
+        XYWindow% := FileNew(12);
+        XRange(-30,30);
+        YRange(-2,-30,30);
+        XYDrawMode(0,5,0);
+        WindowVisible(1);
+        Window(0, 0, 50, 47);
+        XYColour(1,16);
+        XYSize(1,-1);
+    
+        'Calcuate the fixation window
+        var index%;
+        var twopi;
+        twopi := 2.0*4.0*ATan(1.0);
+	
+        for index% := 0 to 35 do
+            FixWindowX[index%] := FixationX + WindowRadius * Cos(index% * twopi/36.0);
+            FixWindowY[index%] := FixationY + WindowRadius * Sin(index% * twopi/36.0);
+        next;
 
+        'Create a new channel in the XY view to display the fixation window
+        iStimWindowChannel% := XYSetChan(0);
+        XYColour(2,13);
+        XYDrawMode(2,2,1);
+        XYJoin(2,1);
+        'Draw the fixation window
+        XYAddData(2, FixWindowX[], FixWindowY[]);
+
+        'Create a new channel in the XY view to display the fixation point
+        iStimChannel% := XYSetChan(0);
+
+        'Create a new channel in the XY view to show the monitor's location
+        iMonitorChannel% := XYSetChan(0);
+        XYColour(4,13);
+        XYDrawMode(4,3,1);
+        XYJoin(4,2);
+        XYAddData(4,-9,-7);
+        XYAddData(4,9,-7);
+        XYAddData(4,9,7);
+        XYAddData(4,-9,7);    
+        
+    endif;
+    
+    
 end;
 
 
@@ -363,7 +494,9 @@ proc InitializeToolbar()
 	ToolbarSet(2,"Sample stop", Stop%);
 	ToolbarSet(3,"Pause stimuli",PauseStimuli%);
 	ToolbarSet(4,"Resume stimuli",ResumeStimuli%);
-	ToolbarSet(5,"Quit",Quit%);
+    ToolbarSet(5,"Juice", Juice%);
+    ToolbarSet(6,"Select Wavemarks",SelectWavemarkDialog%);
+	ToolbarSet(7,"Quit",Quit%);
 	ToolbarEnable(2,0);
 	ToolbarEnable(3,0);
 	ToolbarEnable(4,0);
@@ -376,7 +509,6 @@ end;
 
 
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-'Much of this is yet to be completed
 func Start%()
 	var cmdLine$;
     var Opener$;
@@ -727,9 +859,24 @@ func IdleProcessing%()
         return 1;
     endif;    
     
+    'Get eye position
+    if dhIsHuman% = 0 then
+        xEye := View(DataWindow%).ChanMeasure(XChannel%,2,tNow-.001,tNow-.006)*DegreesPerVoltX;
+        yEye := View(DataWindow%).ChanMeasure(YChannel%,2,tNow-.001,tNow-.006)*DegreesPerVoltY;
+        
+        'But only update eye position display every 5 ms....
+        if tNow-tLastUpdate > .005 then
+            View(XYWindow%).XYAddData(1,xEye,yEye);
+            tLastUpdate := tNow;
+        endif; 
+    endif;
+    
+    
+    
     
 	docase 
-    case iState% = stateVSGWait% then
+    'combined logic
+    case iState% = stateVSGWait% then 
         'Waiting for VSG to indicate it is ready. The indication is a pulse (up, then down, 1 frame apart) on port 6.
         'Ignore any potential button activity while waiting for the VSG to sync up.
         pulseFound% := View(DataWindow%).FindPulseUp%(ReadyChannel%, tLastTrigger+tic, tRise, tFall);
@@ -737,8 +884,12 @@ func IdleProcessing%()
             LogStatus("VSGWait", "Got Ready Pulse from VSG at " + str$(tRise));
             Yield(1.0);
             tLastTrigger := tFall;
-            ChangeStateTo(statePreITIEnsureNoButton%, tFall);
-            FlushButton(tButtonStart,tNow,buttonStatus%,buttonTime);  'ignore any button presses up to tNow, get correct buttonStatus%
+            if dhIsHuman% = 1 then
+                ChangeStateTo(statePreITIEnsureNoButton%, tFall); 'jump to human logic
+                FlushButton(tButtonStart,tNow,buttonStatus%,buttonTime);  'ignore any button presses up to tNow, get correct buttonStatus%
+            else
+                ChangeStateTo(stateMonkeyITI%, tFall);  'jump to monkey logic
+            endif;
         else
             if pulseFound% = 0 then  'if a (short) "false" trigger is found, update tLastTrigger so we don't see it again
                 LogStatus("VSGWait", "Got FALSE Ready Pulse from VSG at " + str$(tRise));
@@ -746,7 +897,9 @@ func IdleProcessing%()
             endif;
         endif;
         
-    case iState% = statePreITIEnsureNoButton% then
+        
+    'human logic
+    case iState% = statePreITIEnsureNoButton% then 
         'buttonStatus% will have been set by either WhichButton% (below) or FlushButton% (above/below)
         docase
         case pause% = 1 then  'This is the part on Sprockets when we pause
@@ -765,6 +918,7 @@ func IdleProcessing%()
         endcase;
         
         
+    'human logic   
     case iState% = stateITI% then 
         buttonError% := WhichButton%(tButtonStart,tNow,buttonStatus%,buttonTime);  'update button state while waiting through ITI
         docase
@@ -773,11 +927,19 @@ func IdleProcessing%()
             FlushButton(tButtonStart,tNow,buttonStatus%,buttonTime);  'flush button
             ChangeStateTo(statePreITIEnsureNoButton%, tFall);  'and go back to pre-ITI
         case tNow - tStateStart > tInterTrialTime then
-            ChangeStateTo(stateXHairUp%, tNow);
+            ChangeStateTo(stateXHairUp%, tNow); 'return to combined logic
         endcase;
         
         
-    case iState% = stateXHairUp% then
+    'monkey logic    
+    case iState% = stateMonkeyITI% then 
+        if tNow - tStateStart > tInterTrialTime then
+            ChangeStateTo(stateXHairUp%, tNow); 'return to combined logic
+        endif;            
+        
+        
+    'combined logic        
+    case iState% = stateXHairUp% then 
 
         ' Start trial. Put up crosshairs.  Do not check button until XHair confirmed.
         LogStatus("StartTrial", "Request crosshairs");
@@ -785,14 +947,22 @@ func IdleProcessing%()
         ChangeStateTo(stateWaitForXHairOn%, tNow);
         
         
-    case iState% = stateWaitForXHairOn% then
+    'combined logic
+    case iState% = stateWaitForXHairOn% then 
         if View(DataWindow%).FindRisingEdge%(FixationPointChannel%, tLastTrigger, tTrigger) = 0 then
             ' Fixation point is up
             LogStatus("WaitForXHairOn", "Crosshair on at " + str$(tTrigger) + "\n");
             tLastTrigger := tTrigger;
-            ChangeStateTo(stateCheckButtonDuringXHair%, tTrigger);
-        endif
+            if dhIsHuman% = 1 then
+                ChangeStateTo(stateCheckButtonDuringXHair%, tTrigger); 'jump to human logic
+            else
+                DrawStim(1);	' this draws the location of the fixpt.
+                ChangeStateTo(stateWaitForAcquisition%, tTrigger);  'jump to monkey logic
+            endif;            
+        endif;
         
+        
+    'human logic
     case iState% = stateCheckButtonDuringXHair% then  'this state will last for exactly one button check - was there a premature press or not?
         'last time we checked the button, nothing was pressed
         buttonError% := WhichButton%(tButtonStart,tNow,buttonStatus%,buttonTime);
@@ -807,6 +977,7 @@ func IdleProcessing%()
         endif;
                 
         
+    'human logic
     case iState% = stateWaitInitDown% then
         ' Wait for button press to initiate trial
         buttonError% := WhichButton%(tButtonStart,tNow,buttonStatus%,buttonTime);
@@ -830,6 +1001,7 @@ func IdleProcessing%()
         endcase        
         
         
+    'human logic
     case iState% = stateWaitInitUpL% then
         buttonError% := WhichButton%(tButtonStart,tNow,buttonStatus%,buttonTime);
         docase
@@ -848,6 +1020,7 @@ func IdleProcessing%()
         endcase;
         
         
+    'human logic
     case iState% = stateWaitInitUpR% then
         buttonError% := WhichButton%(tButtonStart,tNow,buttonStatus%,buttonTime);
         docase
@@ -865,13 +1038,35 @@ func IdleProcessing%()
             ChangeStateTo(stateStartSequence%, tNow);
         endcase;        
         
+        
+    'human logic    
     case iState% = stateStartSequence% then 'do not check button press until sequence is complete
         SafeSampleKey("S");
-        ChangeStateTo(stateWaitOnsetTrigger%, tNow); 
-                
+        ChangeStateTo(stateWaitOnsetTrigger%, tNow); 'jump to combined logic
+        
+        
+    'monkey logic    
+    case iState% = stateWaitForAcquisition% then
+        ' Waiting for eye to fall inside of fixation window
+        if Looking%(xEye, yEye) = 1 then
+            LogStatus("WaitForAcquisition", "Eye in fixation window; request stim");            
+            SafeSampleKey("S");
+            ChangeStateTo(stateWaitOnsetTrigger%, tNow);  'jump to combined logic
+        else 
+            if tNow - tStateStart > dhAcquisitionTime then
+                ' failed to acquire target. 
+                tInterTrialTime := dhAcqFailTime;
+                LogStatus("WaitForAcquisition", "Failed.");
+                SafeSampleKey("X");
+                ChangeStateTo(stateWaitForBlank%, tNow);
+            endif;
+        endif;         
+        
+        
     'There are two triggers on both the Frame and FrameSlave channels, one to indicate the start of the delay
     'period, and another 10 ms later (don't know why the second, but it's there).  We just need to note that
     'these have happened and then move on.  They should be synched, so FrameChannel% will suffice
+    'combined logic
     case iState% = stateWaitOnsetTrigger% then   
         pulseFound% := View(DataWindow%).FindPulseUp%(FrameChannel%, tLastTrigger, tRise, tFall);
         if pulseFound% = 1 then
@@ -880,15 +1075,22 @@ func IdleProcessing%()
         endif;
         
         
+    'combined logic    
     case iState% = stateWaitStimStart% then
         pulseFound% := View(DataWindow%).FindPulseUp%(FrameChannel%, tLastTrigger, tRise, tFall);
         if pulseFound% = 1 then
             SampleText("T,"+str$(GetLR(nTrialsCompleted%))+","+str$(dhCoreContrast)+","+str$(GetContrast(nTrialsCompleted%))+","+str$(GetDiam(nTrialsCompleted%))+","+str$(GetOri(nTrialsCompleted%)));
             LogStatus("StartSequence", "Stim sequence started at " + str$(tRise)); 
-            tLastTrigger := tRise;       
-            ChangeStateTo(stateWaitContrastChange%, tNow);
+            tLastTrigger := tRise; 
+            if dhIsHuman% = 1 then
+                ChangeStateTo(stateWaitContrastChange%, tNow); 'jump to human logic
+            else
+                ChangeStateTo(stateHoldFixationToContrastChange%, tNow); 'jump to monkey logic
+            endif;
         endif;
         
+        
+    'human logic
     case iState% = stateWaitContrastChange% then
         pulseFound% := View(DataWindow%).FindPulseUp%(FrameChannel%, tLastTrigger, tRise, tFall);
         if pulseFound% = 1 then
@@ -899,6 +1101,7 @@ func IdleProcessing%()
         endif;
         
         
+    'human logic    
     case iState% = stateWaitStimOffset% then
         pulseFound% := View(DataWindow%).FindPulseUp%(FrameChannel%, tLastTrigger, tRise, tFall);
         if pulseFound% = 1 then
@@ -913,6 +1116,7 @@ func IdleProcessing%()
         endif;
         
         
+    'human logic    
     case iState% = stateCheckButtonDuringStim% then  'this state will last for exactly one button check - was there a premature press or not?
         'last time we checked the button, nothing was pressed
         buttonError% := WhichButton%(tButtonStart,tNow,buttonStatus%,buttonTime);
@@ -932,7 +1136,7 @@ func IdleProcessing%()
         endif;        
         
         
-        
+    'human logic, in future monkey may respond    
     case iState% = stateWaitResponse% then
         buttonError% := WhichButton%(tButtonStart,tNow,buttonStatus%,buttonTime);
         docase
@@ -982,7 +1186,7 @@ func IdleProcessing%()
         endcase
                 
         
-        
+    'human logic    
     case iState% = stateWaitRelease% then
         buttonError% := WhichButton%(tButtonStart,tNow,buttonStatus%,buttonTime);
         docase
@@ -996,34 +1200,114 @@ func IdleProcessing%()
         endcase
         
         
+    'monkey logic    
+    case iState% = stateHoldFixationToContrastChange% then
+        if Looking%(xEye, yEye) = 0 then
+            LogStatus("HoldFixationPreContrastChange", "Fixation broken, aborting trial.");
+            tInterTrialTime := dhHoldFailTime; 
+            SampleText("-");
+            SafeSampleKey("X");  'turn off fixpt on fixation failure
+            ChangeStateTo(stateCheckStimOff%, tNow); 'jump to combined logic
+        else 
+            pulseFound% := View(DataWindow%).FindPulseUp%(FrameChannel%, tLastTrigger, tRise, tFall);
+            if pulseFound% = 1 then
+                SampleText("CC");  'don't really need to indicate the trial type
+                LogStatus("ContrastChange", "Contrast Change occured at " + str$(tRise)); 
+                tLastTrigger := tRise;       
+                ChangeStateTo(stateHoldFixationToStimOffset%, tNow);
+            endif;
+        endif;       
+            
+            
+    'monkey logic    
+    case iState% = stateHoldFixationToStimOffset% then
+        if Looking%(xEye, yEye) = 0 then
+            LogStatus("HoldFixationPreStimOff", "Fixation broken, aborting trial.");
+            tInterTrialTime := dhHoldFailTime; 
+            SampleText("-");
+            SafeSampleKey("X");  'turn off fixpt on fixation failure
+            ChangeStateTo(stateCheckStimOff%, tNow); 'jump to combined logic
+        else
+            pulseFound% := View(DataWindow%).FindPulseUp%(FrameChannel%, tLastTrigger, tRise, tFall);
+            if pulseFound% = 1 then
+                nMaskTriggersFound% += 1; 
+                tLastTrigger := tFall;  
+                SampleText("M" + Str$(nMaskTriggersFound%));  'don't really need to indicate the trial type
+                LogStatus("Mask", "Mask " + Str$(nMaskTriggersFound%) + " occured at " + str$(tRise));
+            endif;
+            if nMaskTriggersFound% = nMaskTriggers% then
+                nMaskTriggersFound% := 0;
+                'move forward
+                SafeSampleKey("X");  'Removes XHair, do this BEFORE advancing stimulus!
+                yield(.001);         'Give a break to ensure "X" comes through
+                SafeSampleKey("a");  'advance stimulus, we do this now because it takes some time on the VSG end
+                                     'and we need to let that time occur during the response window
+                MonkeySuccess% := 1;  'this trial was correct!
+                ChangeStateTo(stateCheckStimOff%, tNow); 'jump to combined logic
+            endif;
+        endif;
+            
+            
+    'combined logic            
     case iState% = stateCheckStimOff% then
         'after response window is over, check on status of stimulus offset
         if View(DataWindow%).FindFallingEdge%(StimChannel%, tLastTrigger, tTrigger) = 1 then
             ' Stimulus is down
             LogStatus("StimOff", "Stim completely off at " + str$(tTrigger) + "\n");
             tLastTrigger := tTrigger;
-            if nTrialsCompleted% = dhNValues% then  
+            docase
+            case nTrialsCompleted% = dhNValues% then  
                 ChangeStateTo(stateDone%, tNow);
-            else 
-                ChangeStateTo(statePreITIEnsureNoButton%, tTrigger);
-            endif;
+            case dhIsHuman% = 1 then 
+                ChangeStateTo(statePreITIEnsureNoButton%, tTrigger);  'jump to human logic
+            case dhIsHuman% = 0 and MonkeySuccess% = 1 then
+                MonkeySuccess% := 0;  'reset
+                ChangeStateTo(stateReward%, tTrigger);  'jump to monkey logic, reward before next trial
+            case dhIsHuman% = 0 and MonkeySuccess% = 0 then
+                ChangeStateTo(stateMonkeyITI%, tTrigger);  'jump to monkey logic, next trial
+            endcase;
         endif
         
-    case iState% = stateDone% then
         
+    case iState% = stateReward% then
+        LogStatus("Reward", "Delivering Reward");
+        docase
+        case JuicerType% = 1 then  'open-high juicer, dispense based on ms
+            DeliverReward();
+        case JuicerType% = 2 then  'open-low juicer, dispense based on number of hits
+            DeliverRewardNumber();
+        endcase;
+        ChangeStateTo(stateMonkeyITI%, tTrigger);
+        'Plot spikes for contrast only
+        PlotSpikes(tStimOn, tNow, 1, GetContrast(nTrialsCompleted%), nTrialsCompleted%);
+
+        
+    
+    'monkey logic
+    case iState% = stateWaitForBlank% then
+        ' we just wait for fix point off signal in this case. 
+        if View(DataWindow%).FindFallingEdge%(FixationPointChannel%, tLastTrigger, tTrigger) = 1 then
+            ' Fixation point is off
+            tLastTrigger := tTrigger;
+            DrawStim(0);	' undraw the location of the fixpt. on CED monitor
+            ChangeStateTo(stateMonkeyITI%, tTrigger);
+        endif;
+            
+            
+    'combined logic
+    case iState% = stateDone% then
         Stop%();
         iStatus% := 0;
-        
-        
+            
+            
+    'combined logic    
     else
-        
         ' Unknown state!
         Message("Unknown state=" + str$(iState%));
         halt;
 
 	endcase;
 
-	'tLast := tNow;
 	return iStatus%;
 end;
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
@@ -1332,54 +1616,149 @@ Func StringifyProgressionLR$(n%, vec[], ind%[])
 end;
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 proc ChangeStateTo(stateTo%, tStart)
-    var tempState$;
+    'var tempState$;
 	iState% := stateTo%;
 	if tStart > 0 then 
         tStateStart := tStart; 
     endif;
     
     'Being terribly verbose about this to track stuff down, may well remove once tracking downing is done.
-    docase
-    case iState% = 0 then
-        tempState$ := "stateVSGWait%";
-    case iState% = 1 then
-        tempState$ := "stateXHairUp%";
-    case iState% = 2 then
-        tempState$ := "stateWaitForXHairOn%";
-    case iState% = 3 then
-        tempState$ := "stateWaitInitDown%";
-    case iState% = 4 then
-        tempState$ := "stateWaitInitUpL%";
-    case iState% = 5 then
-        tempState$ := "stateWaitInitUpR%";
-    case iState% = 6 then
-        tempState$ := "stateStartSequence%";
-    case iState% = 7 then
-        tempState$ := "stateWaitOnsetTrigger%";
-    case iState% = 8 then
-        tempState$ := "stateWaitStimStart%";
-    case iState% = 9 then
-        tempState$ := "stateWaitResponse%";
-    case iState% = 10 then
-        tempState$ := "stateWaitRelease%";
-    case iState% = 11 then
-        tempState$ := "stateDone%";
-    case iState% = 12 then
-        tempState$ := "stateITI%";
-    case iState% = 13 then
-        tempState$ := "statePreITIEnsureNoButton%";
-    case iState% = 14 then
-        tempState$ := "stateCheckButtonDuringXHair%";
-    case iState% = 15 then
-        tempState$ := "stateWaitContrastChange%";
-    case iState% = 16 then
-        tempState$ := "stateWaitStimOffset%";
-    case iState% = 17 then
-        tempState$ := "stateCheckButtonDuringStim%";
-    case iState% = 18 then
-        tempState$ := "stateCheckStimOff%";
+'    docase
+'    case iState% = 0 then
+'        tempState$ := "stateVSGWait%";
+'    case iState% = 1 then
+'        tempState$ := "stateXHairUp%";
+'    case iState% = 2 then
+'        tempState$ := "stateWaitForXHairOn%";
+'    case iState% = 3 then
+'        tempState$ := "stateWaitInitDown%";
+'    case iState% = 4 then
+'        tempState$ := "stateWaitInitUpL%";
+'    case iState% = 5 then
+'        tempState$ := "stateWaitInitUpR%";
+'    case iState% = 6 then
+'        tempState$ := "stateStartSequence%";
+'    case iState% = 7 then
+'        tempState$ := "stateWaitOnsetTrigger%";
+'    case iState% = 8 then
+'        tempState$ := "stateWaitStimStart%";
+'    case iState% = 9 then
+'        tempState$ := "stateWaitResponse%";
+'    case iState% = 10 then
+'        tempState$ := "stateWaitRelease%";
+'    case iState% = 11 then
+'        tempState$ := "stateDone%";
+'    case iState% = 12 then
+'        tempState$ := "stateITI%";
+'    case iState% = 13 then
+'        tempState$ := "statePreITIEnsureNoButton%";
+'    case iState% = 14 then
+'        tempState$ := "stateCheckButtonDuringXHair%";
+'    case iState% = 15 then
+'        tempState$ := "stateWaitContrastChange%";
+'    case iState% = 16 then
+'        tempState$ := "stateWaitStimOffset%";
+'    case iState% = 17 then
+'        tempState$ := "stateCheckButtonDuringStim%";
+'    case iState% = 18 then
+'        tempState$ := "stateCheckStimOff%";
+'    else
+'        tempState$ := "UNKNOWN!!!";
+'    endcase
+'    printlog("State has been changed to " + tempState$ + " at t = " + Str$(tStart) + "\n");
+end;
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func Looking%(EyePosX,EyePosY)
+	'Determine if the eye position is within the fixation window
+    if dhIsHuman% = 1 or alwaysLooking% = 1 then 
+        return 1; 
+    endif;
+	if (Pow(EyePosX-FixationX,2) + Pow(EyePosY-FixationY,2)) <= Pow(WindowRadius,2) then return 1; else return 0; endif
+end;
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func Juice%()  'note that this function is only used for Toolbar-based juice delivery
+    if JuicerType% = 1 then  'open-high juicer, dispense based on ms
+        DeliverReward();
     else
-        tempState$ := "UNKNOWN!!!";
-    endcase
-    printlog("State has been changed to " + tempState$ + " at t = " + Str$(tStart) + "\n");
+        if JuicerType% = 2 then  'open-low juicer, dispense based on number of hits
+            DeliverRewardNumber();
+        endif;
+    endif;
+    return 1;
+end;
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+' DrawStim
+' 
+' Draws stimulus in xy window (iDraw%==1) or blanks it (0). 
+proc DrawStim(iDraw%)
+
+	if iDraw% > 0 then
+		var xstim, ystim;
+		xstim := FixationX;
+		ystim := FixationY;
+
+		' Draw stimulus in xy window
+		View(XYWindow%).XYAddData(iStimChannel%, xstim, ystim);
+	else 
+		' erase the stim and the window from xy view
+		View(XYWindow%).XYDelete(iStimChannel%);
+	endif
+
+end;
+
+
+func SelectWavemarkDialog%()
+	var iReturn%:=1;
+	var i%;
+    var whichWaveMark% := 1;
+	DlgCreate("Select Wavemark");
+	DlgInteger(1, "Input Wavemark to view, -1 for all", -1, 256);  'max is based on highest possible wavemark value
+    
+	i% := DlgShow(whichWaveMark%);
+
+	if i% = 1 then
+		PrintLog("SelectWavemarkDialog - user hit OK\n");
+        for i% := 0 to dhNWavemarks%-1 do  'for each wavemark channel
+            View(DataWindow%).MarkMask(i%+1,0,0,-1);  'exclude all codes on layer 0
+            View(DataWindow%).MarkMask(i%+1,0,1,whichWaveMark%);  'then include requested code (or all, if -1) on layer 0
+        next;       
+	endif;
+	if i% = 0 then
+		PrintLog("SelectWavemarkDialog - user hit Cancel\n");
+	endif;
+    'PrintLog("Return value is %d\n", iReturn%);  'always return 1, so don't bother reporting this
+	return iReturn%;
+end;
+
+proc TuningCurveLabels(iport%)
+    
+'to be done    
+    
+'    var s$;
+'    s$ := "Port " + str$(iport%);
+
+'    WindowTitle$("Dots, Orientation Tuning - " + s$);
+'    XUnits$("Orientation (degrees)");
+'	 ChanTitle$(1, "Chan 1");
+'    XRange(tunDotsMinOrientation, tunDotsMaxOrientation);
+    
+end;
+
+proc PlotSpikes(t1, t2, vOnOff%, x, index%)
+	var rate;
+    var i%;
+    
+	for i% := 0 to dhNWavemarks%-1 do
+		rate := View(DataWindow%).Count(i%+1, t1, t2)/(t2-t1);
+		if rate >= 0 then
+			if vOnOff% = 1 then
+				View(TuningWindow%[i%]).XYAddData(1, x, rate);    ' channel 1 is data; channel 2 is background
+			endif
+			' NOTE: IGNORING BACKGROUND HERE FOR THE TIME BEING. 
+	    endif       
+	next
 end;
