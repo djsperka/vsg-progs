@@ -1,6 +1,6 @@
 
 
-const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.27 2012-09-25 20:55:02 jeff Exp $";
+const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.28 2012-09-25 21:17:53 jeff Exp $";
 
 
 ' Hello again
@@ -304,13 +304,11 @@ proc CreateSampleConfiguration()
         SampleTitle$(XChannel%,"Eye X");
         SampleWaveform(YChannel%, GetEyeYPort%(), 1000);
         SampleTitle$(YChannel%,"Eye Y");
-        
-        SampleSequencer(script$ + "Tuning.pls");
-        SampleOptimise(2,2,2,2,50);  'Set optimise mode (do this last)
-        SampleMode(1); 'Continuous sampling
-      
     endif;
     
+    SampleSequencer(script$ + "Tuning.pls");
+    SampleOptimise(2,2,2,2,50);  'Set optimise mode (do this last)
+    SampleMode(1); 'Continuous sampling
 	
 end;
 
