@@ -1,6 +1,6 @@
 
 
-const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.28 2012-09-25 21:17:53 jeff Exp $";
+const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.29 2012-09-25 21:35:31 jeff Exp $";
 
 
 ' Hello again
@@ -1079,6 +1079,7 @@ func IdleProcessing%()
         if pulseFound% = 1 then
             SampleText("T,"+str$(GetLR(nTrialsCompleted%))+","+str$(dhCoreContrast)+","+str$(GetContrast(nTrialsCompleted%))+","+str$(GetDiam(nTrialsCompleted%))+","+str$(GetOri(nTrialsCompleted%)));
             LogStatus("StartSequence", "Stim sequence started at " + str$(tRise)); 
+            tStimOn := tRise;
             tLastTrigger := tRise; 
             if dhIsHuman% = 1 then
                 ChangeStateTo(stateWaitContrastChange%, tNow); 'jump to human logic
