@@ -14,6 +14,13 @@ var startup%:=0;  'This just sets the main dialog OK button to disabled to start
 const dhXHairButton% := 2;
 const dhSelectSEQFileButton% := 3;
 const dhGratingButton% := 4;
+const dhFixationButton% := 5;
+
+' Wavemarks and continuous ports are specified elsewhere
+var dhNWavemarks% := 0;
+var dhWavemarkPorts%[16];
+var dhNContinuous% := 0;
+var dhContinuousPorts%[16];
 
 'Main dialog variables
 var dhNRepeats%;
@@ -57,6 +64,17 @@ var dhXHairOuterRadiusOffset;
 var dhXHairNumGridDivisions%;
 var dhXHairTicInnerOffset;
 var dhXHairTicOuterOffset;
+
+'Fixation variables
+var dhIsHuman% := 1; ' If set eye signals ignored - subject presumed to be looking always. TESTING ONLY.
+var dhUseMaintainMode% := 1;  ' If 1, maintain fixation point on screen through stimuli, if zero, force "restart" on each stimulus
+var dhMaintainFixation := 2.0;	' Time required to hold fixation for reward (stim OFF)
+var dhAcquisitionTime := 1.0;		' Time allowed to acquire fixation
+var dhAcqFailTime := 2.0;			' Wait time after acquisition failure
+var dhHoldFailTime := 2.0;			' Wait time after failure to hold fixation (not on the first time after acquisition)
+var dhMaintainFailTime := 2.0;	' Wait time after breaking fixation during maintain phase
+var alwaysLooking% := 0;
+
 
 proc GetDonutHuntMainParameters()
 	var key$;
@@ -158,7 +176,7 @@ proc GetDonutHuntXHairParameters()
 	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\DonutHunt\\XHair";
     
 	dhXHairInnerRadiusOffset := GetFloatRegistryValue(key$, "XHairInnerRadiusOffset", dhXHairInnerRadiusOffset);
-    dhXHairNumGridDivisions% := GetIntRegistryValue%(key$, "XHairNumGridDivisions%", dhXHairNumGridDivisions%);
+    dhXHairNumGridDivisions% := GetIntRegistryValue%(key$, "XHairNumGridDivisions", dhXHairNumGridDivisions%);
     dhXHairMiddleRadiusOffset := GetFloatRegistryValue(key$, "XHairMiddleRadiusOffset", dhXHairMiddleRadiusOffset);
     dhXHairOuterRadiusOffset := GetFloatRegistryValue(key$, "XHairOuterRadiusOffset", dhXHairOuterRadiusOffset);
     dhXHairTicInnerOffset := GetFloatRegistryValue(key$, "XHairTicInnerOffset", dhXHairTicInnerOffset);
@@ -171,11 +189,39 @@ proc SaveDonutHuntXHairParameters()
 	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\DonutHunt\\XHair";
     
     SetFloatRegistryValue(key$, "XHairInnerRadiusOffset", dhXHairInnerRadiusOffset);
-    SetIntRegistryValue(key$, "XHairNumGridDivisions%", dhXHairNumGridDivisions%);
+    SetIntRegistryValue(key$, "XHairNumGridDivisions", dhXHairNumGridDivisions%);
     SetFloatRegistryValue(key$, "XHairMiddleRadiusOffset", dhXHairMiddleRadiusOffset);
     SetFloatRegistryValue(key$, "XHairOuterRadiusOffset", dhXHairOuterRadiusOffset);
     SetFloatRegistryValue(key$, "XHairTicInnerOffset", dhXHairTicInnerOffset);
     SetFloatRegistryValue(key$, "XHairTicOuterOffset", dhXHairTicOuterOffset);
+
+end;
+
+proc GetDonutHuntFixationParameters()
+	var key$;
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\DonutHunt\\Fixation";
+    
+    dhIsHuman% := GetIntRegistryValue%(key$, "IsHuman", dhIsHuman%);
+    dhUseMaintainMode% := GetIntRegistryValue%(key$, "UseMaintainMode", dhUseMaintainMode%);
+    dhMaintainFixation := GetFloatRegistryValue(key$, "MaintainFixation", dhMaintainFixation);
+    dhAcquisitionTime := GetFloatRegistryValue(key$, "AcquisitionTime", dhAcquisitionTime);
+    dhAcqFailTime := GetFloatRegistryValue(key$, "AcqFailTime", dhAcqFailTime);
+    dhHoldFailTime := GetFloatRegistryValue(key$, "HoldFailTime", dhHoldFailTime);
+    dhMaintainFailTime := GetFloatRegistryValue(key$, "MaintainFailTime", dhMaintainFailTime);
+    
+end;
+
+proc SaveDonutHuntFixationParameters()
+	var key$;
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\DonutHunt\\Fixation";
+    
+    SetIntRegistryValue(key$, "IsHuman", dhIsHuman%);
+    SetIntRegistryValue(key$, "UseMaintainMode", dhUseMaintainMode%);
+    SetFloatRegistryValue(key$, "MaintainFixation", dhMaintainFixation);
+    SetFloatRegistryValue(key$, "AcquisitionTime", dhAcquisitionTime);
+    SetFloatRegistryValue(key$, "AcqFailTime", dhAcqFailTime);
+    SetFloatRegistryValue(key$, "HoldFailTime", dhHoldFailTime);
+    SetFloatRegistryValue(key$, "MaintainFailTime", dhMaintainFailTime);
 
 end;
 
@@ -203,6 +249,28 @@ func DonutHuntXHairDialog%()
 end
 
 
+func DonutHuntFixationDialog%()
+    var i%;
+    
+    GetDonutHuntFixationParameters();
+    
+    DlgCreate("Fixation");
+    DlgCheck(1, "Subject Is Human");
+    DlgCheck(2, "Maintain Fixpt between trials");
+    DlgReal(3, "Maintain fixation after stim(s):", 0.1, 10);
+    DlgReal(4, "Acquire Fixation time(s):", 1, 1000);
+    DlgReal(5, "Acquire Fixation penalty(s):", .01, 10);
+    DlgReal(6, "During-Stim fixation break penalty(s):", .01, 10);
+    DlgReal(7, "Maintain fixation after stim penalty(s):", .01, 10);
+    i% := DlgShow(dhIsHuman%, dhUseMaintainMode%, dhMaintainFixation, dhAcquisitionTime, dhAcqFailTime, dhHoldFailTime, dhMaintainFailTime);
+    
+    if i% = 1 then
+        'Save parameters
+        SaveDonutHuntFixationParameters();
+    endif;
+    
+    return 1;
+end
 
 
 func DonutHuntMainDialog%()
@@ -224,7 +292,9 @@ func DonutHuntMainDialog%()
     DlgText("Number of Repeats",2,1);
     DlgButton(dhXHairButton%,"       Crosshairs       ",DonutHuntXHairDialog%,2,2);
     DlgButton(dhGratingButton%,"Grating Parameters",DonutHuntGratingDialog%,2,3);
+    DlgButton(dhFixationButton%,"Fixation",DonutHuntFixationDialog%,23,2);
     DlgCheck(12,"Show Donut On Master",35,1);
+    DlgCheck(13,"Always Looking",35,3);
 
     
     'Timing/Masker parameters
@@ -256,7 +326,7 @@ func DonutHuntMainDialog%()
     
     ' Show the dialog. 
     i%:=DlgShow(dhNRepeats%,dhMinStimDelay,dhRandStimDelay,dhDelayBeforeDContrast,dhDurAfterDContrast,
-    dhNGrids%,dhGridDur,dhDoCRG%,dhNRepeatsPerCRG%,dhNFramesPerTurn%,dhCRGFilename$,dhShowDonutOnMaster%);
+    dhNGrids%,dhGridDur,dhDoCRG%,dhNRepeatsPerCRG%,dhNFramesPerTurn%,dhCRGFilename$,dhShowDonutOnMaster%,alwaysLooking%);
 
     
     
