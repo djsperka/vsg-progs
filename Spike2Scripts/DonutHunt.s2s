@@ -1,6 +1,6 @@
 
 
-const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.31 2012-09-26 16:31:00 jeff Exp $";
+const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.32 2012-09-26 20:44:15 jeff Exp $";
 
 
 ' Hello again
@@ -945,6 +945,7 @@ func IdleProcessing%()
         ' Start trial. Put up crosshairs.  Do not check button until XHair confirmed.
         LogStatus("StartTrial", "Request crosshairs");
         SafeSampleKey("F");
+        tLastTrigger := tStateStart;  'don't bother looking for the XHair before this state began
         ChangeStateTo(stateWaitForXHairOn%, tNow);
         
         
@@ -970,8 +971,8 @@ func IdleProcessing%()
         if buttonTime > -1 then  'if there is any press
             printlog("Premature button press found during XHair onset!\n");
             SafeSampleKey("X");  'Removes XHair
-            'ChangeStateTo(stateCheckStimOff%, tNow);  'go back to pre-ITI, this seems wrong!
-            ChangeStateTo(statePreITIEnsureNoButton%, tNow);  'not checking for Xhair off, if that's a problem...
+            'ChangeStateTo(statePreITIEnsureNoButton%, tNow);  'not checking for Xhair off, if that's a problem...
+            ChangeStateTo(stateWaitForBlank%, tNow);  'jump to combined logic
             FlushButton(tButtonStart,tNow,buttonStatus%,buttonTime);  'after flushing button
         else 'move forward
             ChangeStateTo(stateWaitInitDown%, tNow);
@@ -996,8 +997,8 @@ func IdleProcessing%()
             printlog("Error in button while waiting for trial init press!\n");
             buttonError% := 0;  
             SafeSampleKey("X");  'Removes XHair
-            'ChangeStateTo(stateCheckStimOff%, tNow);  'go back to pre-ITI, this seems wrong!
-            ChangeStateTo(statePreITIEnsureNoButton%, tNow);  'not checking for Xhair off, if that's a problem...
+            'ChangeStateTo(statePreITIEnsureNoButton%, tNow);  'not checking for Xhair off, if that's a problem...
+            ChangeStateTo(stateWaitForBlank%, tNow);  'jump to combined logic
             FlushButton(tButtonStart,tNow,buttonStatus%,buttonTime);  'after flushing button
         endcase        
         
@@ -1010,8 +1011,8 @@ func IdleProcessing%()
             printlog("Error in button while waiting for trial init release!\n");
             buttonError% := 0;  'erase any possible button error
             SafeSampleKey("X");  'Removes XHair
-            'ChangeStateTo(stateCheckStimOff%, tNow);  'go back to pre-ITI, this seems wrong!
-            ChangeStateTo(statePreITIEnsureNoButton%, tNow);  'not checking for Xhair off, if that's a problem...
+            'ChangeStateTo(statePreITIEnsureNoButton%, tNow);  'not checking for Xhair off, if that's a problem...
+            ChangeStateTo(stateWaitForBlank%, tNow);  'jump to combined logic
             FlushButton(tButtonStart,tNow,buttonStatus%,buttonTime);  'after flushing button
         case buttonStatus% = 0 then
             ' Button is released
@@ -1029,8 +1030,8 @@ func IdleProcessing%()
             printlog("Error in button while waiting for trial init release!\n");
             buttonError% := 0;  'erase any possible button error
             SafeSampleKey("X");  'Removes XHair
-            'ChangeStateTo(stateCheckStimOff%, tNow);  'go back to pre-ITI, this seems wrong!
-            ChangeStateTo(statePreITIEnsureNoButton%, tNow);  'not checking for Xhair off, if that's a problem...
+            'ChangeStateTo(statePreITIEnsureNoButton%, tNow);  'not checking for Xhair off, if that's a problem...
+            ChangeStateTo(stateWaitForBlank%, tNow);  'jump to combined logic
             FlushButton(tButtonStart,tNow,buttonStatus%,buttonTime);  'after flushing button
         case buttonStatus% = 0 then
             ' Button is released
@@ -1059,7 +1060,7 @@ func IdleProcessing%()
                 tInterTrialTime := dhAcqFailTime;
                 LogStatus("WaitForAcquisition", "Failed.");
                 SafeSampleKey("X");
-                ChangeStateTo(stateWaitForBlank%, tNow);
+                ChangeStateTo(stateWaitForBlank%, tNow); 'jump to combined logic
             endif;
         endif;         
         
@@ -1069,10 +1070,10 @@ func IdleProcessing%()
     'these have happened and then move on.  They should be synched, so FrameChannel% will suffice
     'combined logic
     case iState% = stateWaitOnsetTrigger% then   
-        pulseFound% := View(DataWindow%).FindPulseUp%(FrameChannel%, tLastTrigger, tRise, tFall);
-        if pulseFound% = 1 then
-            tLastTrigger := tFall + 0.1; '+0.1??  Don't know if NextTime will fail if the time passed > maxTime()
-            ChangeStateTo(stateWaitStimStart%, tNow);            
+        'pulseFound% := View(DataWindow%).FindPulseUp%(FrameChannel%, tLastTrigger, tRise, tFall);
+        if View(DataWindow%).FindRisingEdge%(StimChannel%, tLastTrigger, tTrigger) = 0 then
+            tLastTrigger := tTrigger + 0.1; 'There is a double-pulse (~10 ms gap) on the Frame Channel, the 0.1 seconds skips that
+            ChangeStateTo(stateWaitStimStart%, tNow);
         endif;
         
         
@@ -1080,7 +1081,7 @@ func IdleProcessing%()
     case iState% = stateWaitStimStart% then
         pulseFound% := View(DataWindow%).FindPulseUp%(FrameChannel%, tLastTrigger, tRise, tFall);
         if pulseFound% = 1 then
-            SampleText("T,"+str$(GetLR(nTrialsCompleted%))+","+str$(dhCoreContrast)+","+str$(GetContrast(nTrialsCompleted%))+","+str$(GetDiam(nTrialsCompleted%))+","+str$(GetOri(nTrialsCompleted%)));
+            SampleText("T,"+str$(GetLR(nTrialsCompleted%))+","+str$(dhCoreContrast)+","+str$(GetContrast(nTrialsCompleted%))+","+str$(GetDiam(nTrialsCompleted%))+","+str$(GetOri(nTrialsCompleted%)),tRise);
             LogStatus("StartSequence", "Stim sequence started at " + str$(tRise)); 
             tLastTrigger := tRise; 
             if dhIsHuman% = 1 then
@@ -1095,7 +1096,7 @@ func IdleProcessing%()
     case iState% = stateWaitContrastChange% then
         pulseFound% := View(DataWindow%).FindPulseUp%(FrameChannel%, tLastTrigger, tRise, tFall);
         if pulseFound% = 1 then
-            SampleText("CC");  'don't really need to indicate the trial type
+            SampleText("CC",tRise);  'don't really need to indicate the trial type
             LogStatus("ContrastChange", "Contrast Change occured at " + str$(tRise)); 
             tLastTrigger := tRise;       
             ChangeStateTo(stateWaitStimOffset%, tNow);
@@ -1108,7 +1109,7 @@ func IdleProcessing%()
         if pulseFound% = 1 then
             nMaskTriggersFound% += 1; 
             tLastTrigger := tFall;  
-            SampleText("M" + Str$(nMaskTriggersFound%));  'don't really need to indicate the trial type
+            SampleText("M" + Str$(nMaskTriggersFound%),tRise);  'don't really need to indicate the trial type
             LogStatus("Mask", "Mask " + Str$(nMaskTriggersFound%) + " occured at " + str$(tRise));
         endif;
         if nMaskTriggersFound% = nMaskTriggers% then
@@ -1212,7 +1213,7 @@ func IdleProcessing%()
         else 
             pulseFound% := View(DataWindow%).FindPulseUp%(FrameChannel%, tLastTrigger, tRise, tFall);
             if pulseFound% = 1 then
-                SampleText("CC");  'don't really need to indicate the trial type
+                SampleText("CC",tRise);  'don't really need to indicate the trial type
                 LogStatus("ContrastChange", "Contrast Change occured at " + str$(tRise)); 
                 tStimOn := tRise;
                 tLastTrigger := tRise;       
@@ -1234,7 +1235,7 @@ func IdleProcessing%()
             if pulseFound% = 1 then
                 nMaskTriggersFound% += 1; 
                 tLastTrigger := tFall;  
-                SampleText("M" + Str$(nMaskTriggersFound%));  'don't really need to indicate the trial type
+                SampleText("M" + Str$(nMaskTriggersFound%),tRise);  'don't really need to indicate the trial type
                 LogStatus("Mask", "Mask " + Str$(nMaskTriggersFound%) + " occured at " + str$(tRise));
             endif;
             if nMaskTriggersFound% = nMaskTriggers% then
@@ -1286,14 +1287,18 @@ func IdleProcessing%()
 
         
     
-    'monkey logic
+    'combined logic (was monkey logic, but now human also checks for XHair off)
     case iState% = stateWaitForBlank% then
         ' we just wait for fix point off signal in this case. 
         if View(DataWindow%).FindFallingEdge%(FixationPointChannel%, tLastTrigger, tTrigger) = 1 then
             ' Fixation point is off
             tLastTrigger := tTrigger;
-            DrawStim(0);	' undraw the location of the fixpt. on CED monitor
-            ChangeStateTo(stateMonkeyITI%, tTrigger);
+            if dhIsHuman% = 0 then
+                DrawStim(0);	' undraw the location of the fixpt. on CED monitor
+                ChangeStateTo(stateMonkeyITI%, tTrigger); 'jump to monkey logic
+            else
+                ChangeStateTo(statePreITIEnsureNoButton%, tNow); 'jump to human logic
+            endif;
         endif;
             
             
