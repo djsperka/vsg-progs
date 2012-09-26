@@ -1,6 +1,6 @@
 
 
-const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.32 2012-09-26 20:44:15 jeff Exp $";
+const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.33 2012-09-26 21:41:53 jeff Exp $";
 
 
 ' Hello again
@@ -86,6 +86,8 @@ var tInterTrialTime := 0.2;	' Time spent waiting between trials (i.e. after scre
 var tRise, tFall;
 var tKludge := 0.06;    ' Add to Fixation time to account for stim sequence. Ugly hack, admittedly, but one does what one must. 
 var xEye, yEye;		' eye positions
+var advanceStim% := 0;
+var JuiceRewardMS;    'float version for math
 
 
 ' Values for the "tuning curve"
@@ -1130,8 +1132,8 @@ func IdleProcessing%()
             FlushButton(tButtonStart,tNow,buttonStatus%,buttonTime);  'after flushing button
         else 'move forward
             SafeSampleKey("X");  'Removes XHair, do this BEFORE advancing stimulus!
-            yield(.001);         'Give a break to ensure "X" comes through
-            SafeSampleKey("a");  'advance stimulus, we do this now because it takes some time on the VSG end
+            advanceStim% := 1;
+            'SafeSampleKey("a");  'advance stimulus, we do this now because it takes some time on the VSG end
                                  'and we need to let that time occur during the response window
             
             ChangeStateTo(stateWaitResponse%, tNow);
@@ -1242,8 +1244,8 @@ func IdleProcessing%()
                 nMaskTriggersFound% := 0;
                 'move forward
                 SafeSampleKey("X");  'Removes XHair, do this BEFORE advancing stimulus!
-                yield(.001);         'Give a break to ensure "X" comes through
-                SafeSampleKey("a");  'advance stimulus, we do this now because it takes some time on the VSG end
+                advanceStim% := 1;
+                'SafeSampleKey("a");  'advance stimulus, we do this now because it takes some time on the VSG end
                                      'and we need to let that time occur during the response window
                 MonkeySuccess% := 1;  'this trial was correct!
                 nTrialsCompleted% += 1;
@@ -1259,6 +1261,10 @@ func IdleProcessing%()
             ' Stimulus is down
             LogStatus("StimOff", "Stim completely off at " + str$(tTrigger) + "\n");
             tLastTrigger := tTrigger;
+            if advanceStim% = 1 then
+                SafeSampleKey("A");  'advance stimulus, VSG will be unresponsive while stim is being constructed, OK to request next fixpt but it may not come up for a bit
+                advanceStim% := 0;  'reset
+            endif;
             docase
             case nTrialsCompleted% = dhNValues% then  
                 ChangeStateTo(stateDone%, tNow);
@@ -1281,7 +1287,8 @@ func IdleProcessing%()
         case JuicerType% = 2 then  'open-low juicer, dispense based on number of hits
             DeliverRewardNumber();
         endcase;
-        ChangeStateTo(stateMonkeyITI%, tTrigger);
+        JuiceRewardMS := JuiceRewardMS%;
+        ChangeStateTo(stateMonkeyITI%, tTrigger+.2+(JuiceRewardMS/1000));
         'Plot spikes for contrast only
         PlotSpikes(tStimOn, tNow, 1, GetContrast(nTrialsCompleted%), nTrialsCompleted%);
 
