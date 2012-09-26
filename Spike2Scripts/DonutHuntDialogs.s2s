@@ -38,6 +38,8 @@ var dhGridDur;
 
 'Grating dialog variables
 var dhXOffset;
+var dhYOffset;
+var dhYOffsetTemp;  'this is so that we can force YOffset to zero in human experiments but keep the animal value in the registry
 var dhSpatialFreq;
 var dhTemporalFreq;
 var dhInitialPhase%;
@@ -66,13 +68,13 @@ var dhXHairTicInnerOffset;
 var dhXHairTicOuterOffset;
 
 'Fixation variables
-var dhIsHuman% := 1; ' If set eye signals ignored - subject presumed to be looking always. TESTING ONLY.
-var dhUseMaintainMode% := 1;  ' If 1, maintain fixation point on screen through stimuli, if zero, force "restart" on each stimulus
-var dhMaintainFixation := 2.0;	' Time required to hold fixation for reward (stim OFF)
-var dhAcquisitionTime := 1.0;		' Time allowed to acquire fixation
-var dhAcqFailTime := 2.0;			' Wait time after acquisition failure
-var dhHoldFailTime := 2.0;			' Wait time after failure to hold fixation (not on the first time after acquisition)
-var dhMaintainFailTime := 2.0;	' Wait time after breaking fixation during maintain phase
+var dhIsHuman%; ' If set eye signals ignored - subject presumed to be looking always. TESTING ONLY.
+var dhUseMaintainMode%;  ' If 1, maintain fixation point on screen through stimuli, if zero, force "restart" on each stimulus
+var dhMaintainFixation;	' Time required to hold fixation for reward (stim OFF)
+var dhAcquisitionTime;		' Time allowed to acquire fixation
+var dhAcqFailTime;			' Wait time after acquisition failure
+var dhHoldFailTime;			' Wait time after failure to hold fixation (not on the first time after acquisition)
+var dhMaintainFailTime;	' Wait time after breaking fixation during maintain phase
 var alwaysLooking% := 0;
 
 
@@ -120,6 +122,7 @@ proc GetDonutHuntGratingParameters()
 	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\DonutHunt";  'same location as main
     
     dhXOffset := GetFloatRegistryValue(key$, "XOffset", dhXOffset);
+    dhYOffset := GetFloatRegistryValue(key$, "YOffset", dhYOffset);
     dhSpatialFreq := GetFloatRegistryValue(key$, "SpatialFreq", dhSpatialFreq);
     dhTemporalFreq := GetFloatRegistryValue(key$, "TemporalFreq", dhTemporalFreq);
     dhInitialPhase% := GetIntRegistryValue%(key$, "InitialPhase", dhInitialPhase%);
@@ -148,6 +151,7 @@ proc SaveDonutHuntGratingParameters()
 	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\DonutHunt";  'same location as main
     
     SetFloatRegistryValue(key$, "XOffset", dhXOffset);
+    SetFloatRegistryValue(key$, "YOffset", dhYOffset);
     SetFloatRegistryValue(key$, "SpatialFreq", dhSpatialFreq);
     SetFloatRegistryValue(key$, "TemporalFreq", dhTemporalFreq);
     SetIntRegistryValue(key$, "InitialPhase", dhInitialPhase%);
@@ -282,7 +286,12 @@ func DonutHuntMainDialog%()
     
     
     ' Fetch parameters from registry    
-    GetDonutHuntMainParameters();    
+    GetDonutHuntMainParameters();  
+    
+    ' Fetch these, because if you don't click on them...
+    GetDonutHuntFixationParameters();    
+    GetDonutHuntXHairParameters();
+    'grating parameters is OK, that has to be clicked on.
     
     ' Generate the dialog    
     DlgCreate("Donut Hunt Dialog",0,0,60,14);
@@ -320,7 +329,7 @@ func DonutHuntMainDialog%()
     DlgInteger(10,6,0,100,52,10);  'N Frames per turn
     DlgText("Frames per turn",31,10);
     DlgString(11,55,200,"",3,12);  'for visual confirmation of selected seq file; max character value (20) only applies to typing in, not assigning via Value().  Huh.
-    DlgButton(dhSelectSEQFileButton%,"Select Sequence File",SelectSEQFile%,2,10);
+    DlgButton(dhSelectSEQFileButton%,"Select Sequence File",SelectSEQFile%,2,11);
 
     DlgAllow(0xffff, 0, DonutHuntMainDialogChanged%);
     
@@ -392,60 +401,68 @@ func DonutHuntGratingDialog%()
     ' Fetch parameters from registry    
     GetDonutHuntGratingParameters();    
     
+    'Hold value of dhYOffset from registry, we will display and change a temporary value
+    dhYOffsetTemp := dhYOffset;
+    
     ' Generate the dialog    
-    DlgCreate("Donut Hunt Dialog",0,0,60,18);
+    DlgCreate("Donut Hunt Dialog",0,0,60,19);
     
     'Common grating parameters
-    DlgGroup("Common Grating Parameters",1,1,58,3);
-    DlgReal(1,6,0,100,23,2);  'X offset
+    DlgGroup("Common Grating Parameters",1,1,58,4);
+    DlgReal(1,6,0,100,23,2);  'X offset, floor at 0 because we are reflecting
     DlgText("X Offset (deg)",2,2);
-    DlgReal(2,6,0,100,23,3);  'Spatial freq
-    DlgText("Spatial Freq. (cyc/deg)",2,3);
-    DlgReal(3,6,0,100,52,2);  'Temporal freq
-    DlgText("Temporal Freq. (cyc/s)",31,2);
-    DlgInteger(4,6,0,360,52,3);  'Init phase
-    DlgText("Initial Phase (deg)",31,3);
+    DlgReal(2,6,-100,100,23,3);  'Y Offset, negative values legal
+    DlgText("Y Offset (deg)",2,3);
+    DlgReal(3,6,0,100,52,2);  'Spatial freq
+    DlgText("Spatial Freq. (cyc/deg)",31,2);
+    DlgReal(4,6,0,100,52,3);  'Temporal freq
+    DlgText("Temporal Freq. (cyc/s)",31,3);
+    DlgInteger(5,6,0,360,52,4);  'Init phase
+    DlgText("Initial Phase (deg)",31,4);
    
     'Contrast parameters
-    DlgGroup("Contrast Parameters",1,4,58,5);
-    DlgReal(5,6,0.1,100,52,5);  'Donut contrast
-    DlgText("Donut contrast",31,5);
-    DlgReal(6,6,0.1,100,23,5);  'Core contrast
-    DlgText("Core base contrast",2,5);
-    DlgReal(7,6,0.1,100,23,6);  'Minimum change core contrast
-    DlgText("Min core cont. change",2,6);
-    DlgReal(8,6,0.1,100,23,7);  'Maximum change core contrast
-    DlgText("Max core cont. change",2,7);
-    DlgInteger(9,6,0,100,23,8);  'Number of contrast levels
-    DlgText("# contrast levels",2,8);
-    DlgCheck(10, "Contrast Log Progression", 31, 8);
+    DlgGroup("Contrast Parameters",1,5,58,5);
+    DlgReal(6,6,0.1,100,52,6);  'Donut contrast
+    DlgText("Donut contrast",31,6);
+    DlgReal(7,6,0.1,100,23,6);  'Core contrast
+    DlgText("Core base contrast",2,6);
+    DlgReal(8,6,0.1,100,23,7);  'Minimum change core contrast
+    DlgText("Min core cont. change",2,7);
+    DlgReal(9,6,0.1,100,23,8);  'Maximum change core contrast
+    DlgText("Max core cont. change",2,8);
+    DlgInteger(10,6,0,100,23,9);  'Number of contrast levels
+    DlgText("# contrast levels",2,9);
+    DlgCheck(11, "Contrast Log Progression", 31, 9);
     
     'Diameter parameters
-    DlgGroup("Diameter Parameters",1,9,58,4);
-    DlgReal(11,6,0,100,52,10);  'Core diameter
-    DlgText("Core diameter (deg)",31,10);
-    DlgReal(12,6,0,100,23,10);  'Minimum donut diameter
-    DlgText("Min donut diam. (deg)",2,10);
-    DlgReal(13,6,0,100,23,11);  'Maximum donut diameter
-    DlgText("Max donut diam. (deg)",2,11);
-    DlgInteger(14,6,0,100,23,12);  'Number of donut sizes
-    DlgText("# donut sizes",2,12);
-    DlgCheck(15, "Donut Size Log Progression", 31, 12);
+    DlgGroup("Diameter Parameters",1,10,58,4);
+    DlgReal(12,6,0,100,52,11);  'Core diameter
+    DlgText("Core diameter (deg)",31,11);
+    DlgReal(13,6,0,100,23,11);  'Minimum donut diameter
+    DlgText("Min donut diam. (deg)",2,11);
+    DlgReal(14,6,0,100,23,12);  'Maximum donut diameter
+    DlgText("Max donut diam. (deg)",2,12);
+    DlgInteger(15,6,0,100,23,13);  'Number of donut sizes
+    DlgText("# donut sizes",2,13);
+    DlgCheck(16, "Donut Size Log Progression", 31, 13);
     
     
     'Orientation parameters
-    DlgGroup("Orientation Parameters",1,13,58,4);
-    DlgReal(16,6,0,360,52,14);  'Donut Orientation
-    DlgText("Donut Orientation (deg)",31,14);
-    DlgReal(17,6,0,360,23,14);  'Minimum Core orientation
-    DlgText("Min Core orient. (deg)",2,14);
-    DlgReal(18,6,0,360,23,15);  'Maximum Core prientation
-    DlgText("Max Core orient. (deg)",2,15);
-    DlgInteger(19,6,0,100,23,16);  'Number of orientations
-    DlgText("# orientations",2,16);
+    DlgGroup("Orientation Parameters",1,14,58,4);
+    DlgReal(17,6,0,360,52,15);  'Donut Orientation
+    DlgText("Donut Orientation (deg)",31,15);
+    DlgReal(18,6,0,360,23,15);  'Minimum Core orientation
+    DlgText("Min Core orient. (deg)",2,15);
+    DlgReal(19,6,0,360,23,16);  'Maximum Core prientation
+    DlgText("Max Core orient. (deg)",2,16);
+    DlgInteger(20,6,0,100,23,17);  'Number of orientations
+    DlgText("# orientations",2,17);
+    
+    DlgAllow(0xffff, 0, DonutHuntGratingDialogChanged%);    
+    
     
     ' Show the dialog. 
-    i%:=DlgShow(dhXOffset,dhSpatialFreq,dhTemporalFreq,dhInitialPhase%,dhDonutContrast,dhCoreContrast,
+    i%:=DlgShow(dhXOffset,dhYOffsetTemp,dhSpatialFreq,dhTemporalFreq,dhInitialPhase%,dhDonutContrast,dhCoreContrast,
     dhMinDContrast,dhMaxDContrast,dhNContrastLevels%,dhContrastLogProgression%,dhCoreDiameter,
     dhMinDonutDiameter,dhMaxDonutDiameter,dhNDonutDiameters%,dhDiameterLogProgression%,dhDonutOrientation,
     dhMinCoreOrientation,dhMaxCoreOrientation,dhNCoreOrientations%);
@@ -471,7 +488,15 @@ func DonutHuntGratingDialog%()
     ' If all is OK then save parameters    
     if allOK% = 1 then        
         'Save parameters
-        SaveDonutHuntGratingParameters();   
+        if dhIsHuman% = 0 then  
+            dhYOffset := dhYOffsetTemp; 'if monkey, update dhYOffset so it can be saved to registry
+        else
+            'no code, just note: if human, do not change dhYOffset to 0, re-save old value to registry
+        endif;
+        SaveDonutHuntGratingParameters();
+        
+        'and now that parameters are saved to the registry, update dhYOffset to the proper value, human or monkey
+        dhYOffset := dhYOffsetTemp;
         
         'Encode and save Core and Donut parameters (not Master/Slave specific, we'll assign that when we come to it)
         param$ := EncodeGratingParameters$(0,0,dhCoreDiameter,dhCoreDiameter,0,0,dhCoreContrast,dhSpatialFreq,dhTemporalFreq,0,dhInitialPhase%,"b","s","e");
@@ -479,6 +504,8 @@ func DonutHuntGratingDialog%()
         param$ := EncodeGratingParameters$(0,0,dhMinDonutDiameter,dhMinDonutDiameter,dhCoreDiameter,dhCoreDiameter,dhDonutContrast,dhSpatialFreq,dhTemporalFreq,dhDonutOrientation,dhInitialPhase%,"b","s","e");
         SaveGratingParameters("Donut", param$);  'this saves core 
         
+        'printlog("The y offset is %f\n",dhYOffset); 'just checking
+      
         'if the user says OK, enable OK on the main dialog
         DlgEnable(1,-1);  'this is kinda cool, that DlgEnable here affects the calling dialog.
     endif
@@ -487,6 +514,19 @@ func DonutHuntGratingDialog%()
    
 end;
 
+
+func DonutHuntGratingDialogChanged%(item%)
+    if item% = 0 then  'Only run this callback when opening the dialog, not on a change
+        if dhIsHuman% = 1 then
+            DlgValue(2,0);  'force Y offset to 0, don't let it change
+            DlgEnable(0,2);
+        else
+            DlgValue(2,dhYOffset);  'set initial Y offset to saved value, let it change
+            DlgEnable(1,2);
+        endif;
+    endif;
+    return 1;  'if we don't return 1, we can't freaking change anything.
+end;
 
 
 func SelectSEQFile%()
