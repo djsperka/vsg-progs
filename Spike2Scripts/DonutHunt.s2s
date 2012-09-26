@@ -1,6 +1,6 @@
 
 
-const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.30 2012-09-25 21:44:35 jeff Exp $";
+const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.31 2012-09-26 16:31:00 jeff Exp $";
 
 
 ' Hello again
@@ -168,6 +168,8 @@ endif
 'tunType$ := tunTypeNone$;
 
 iScript% := DonutHuntMainDialog%();
+
+
 
 if iScript% = 1 then
     LogInfo("Proceed with DAQ.\n");
@@ -409,7 +411,7 @@ proc InitializeWindows()
 	DataWindow% := FileNew(0,1);
 	Window(0,48,50,95);
     XRange(0, 30);
-	View(DataWindow%).WindowVisible(1); 
+	'View(DataWindow%).WindowVisible(1);  'ought to be redundant
     
     if dhIsHuman% = 0 then
         
@@ -575,9 +577,9 @@ func Start%()
     endif;
     Print("%s,%s\n",coreScreen$,donutScreen$);  'Specifies which item is on which screen (hopefully syntax is right)
     Print("%s\n",coreParam$);  'core-stim-spec
-    Print("%f,0,%f,0\n",-dhXOffset,dhXOffset);  'xL,yL,xR,yR master
+    Print("%f,%f,%f,%f\n",-dhXOffset,dhYOffset,dhXOffset,dhYOffset);  'xL,yL,xR,yR master
     Print("%s\n",donutParam$);  'donut-stim-spec
-    Print("%f,0,%f,0\n",-dhXOffset,dhXOffset);  'xL,yL,xR,yR slave, same as master            
+    Print("%f,%f,%f,%f\n",-dhXOffset,dhYOffset,dhXOffset,dhYOffset);  'xL,yL,xR,yR slave, same as master            
     Print("%f,%f,%f,%f,%f\n",dhDelayBeforeDContrast,dhDurAfterDContrast,dhCoreContrast,dhNGrids%,dhGridDur);  't2,t3,contrast_base, number of grids, grid duration    t2,t3 gridDur in s
     Print("%s\n",dhT1ValuesStringified$); 't1_0,t1_1,t1_2,...           per-trial t1 values in seconds
     Print("%s\n",dhdContrastValuesStringified$);  'Cup_0,Cup_1,....           per-trial contrast-up values
@@ -793,6 +795,7 @@ proc WriteParameterFile()
 	Print("-------------------\n\n");
     
     Print("X Offset                   : %f\n",dhXOffset);
+    Print("Y Offset                   : %f\n",dhYOffset);
     Print("Spatial Frequency          : %f\n",dhSpatialFreq);
     Print("Temporal Frequency         : %f\n",dhTemporalFreq);
     Print("Initial Phase              : %d\n",dhInitialPhase%);
@@ -1079,7 +1082,6 @@ func IdleProcessing%()
         if pulseFound% = 1 then
             SampleText("T,"+str$(GetLR(nTrialsCompleted%))+","+str$(dhCoreContrast)+","+str$(GetContrast(nTrialsCompleted%))+","+str$(GetDiam(nTrialsCompleted%))+","+str$(GetOri(nTrialsCompleted%)));
             LogStatus("StartSequence", "Stim sequence started at " + str$(tRise)); 
-            tStimOn := tRise;
             tLastTrigger := tRise; 
             if dhIsHuman% = 1 then
                 ChangeStateTo(stateWaitContrastChange%, tNow); 'jump to human logic
@@ -1212,6 +1214,7 @@ func IdleProcessing%()
             if pulseFound% = 1 then
                 SampleText("CC");  'don't really need to indicate the trial type
                 LogStatus("ContrastChange", "Contrast Change occured at " + str$(tRise)); 
+                tStimOn := tRise;
                 tLastTrigger := tRise;       
                 ChangeStateTo(stateHoldFixationToStimOffset%, tNow);
             endif;
@@ -1242,6 +1245,7 @@ func IdleProcessing%()
                 SafeSampleKey("a");  'advance stimulus, we do this now because it takes some time on the VSG end
                                      'and we need to let that time occur during the response window
                 MonkeySuccess% := 1;  'this trial was correct!
+                nTrialsCompleted% += 1;
                 ChangeStateTo(stateCheckStimOff%, tNow); 'jump to combined logic
             endif;
         endif;
