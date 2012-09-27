@@ -1,6 +1,6 @@
 
 
-const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.33 2012-09-26 21:41:53 jeff Exp $";
+const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.34 2012-09-27 22:16:38 jeff Exp $";
 
 
 ' Hello again
@@ -1262,7 +1262,7 @@ func IdleProcessing%()
             LogStatus("StimOff", "Stim completely off at " + str$(tTrigger) + "\n");
             tLastTrigger := tTrigger;
             if advanceStim% = 1 then
-                SafeSampleKey("A");  'advance stimulus, VSG will be unresponsive while stim is being constructed, OK to request next fixpt but it may not come up for a bit
+                SafeSampleKey("a");  'advance stimulus, VSG will be unresponsive while stim is being constructed, OK to request next fixpt but it may not come up for a bit
                 advanceStim% := 0;  'reset
             endif;
             docase
