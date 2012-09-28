@@ -1,6 +1,6 @@
 
 
-const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.36 2012-09-28 18:23:44 jeff Exp $";
+const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.37 2012-09-28 18:44:09 jeff Exp $";
 
 
 ' Hello again
@@ -1238,7 +1238,7 @@ func IdleProcessing%()
         endif;        
         
         
-    'human logic, in future monkey may respond    
+    'human logic   
     case iState% = stateWaitResponse% then
         buttonError% := WhichButton%(tButtonStart,tNow,buttonStatus%,buttonTime);
         docase
@@ -1385,7 +1385,8 @@ func IdleProcessing%()
             ChangeStateTo(stateCheckStimOff%, tNow); 'jump to combined logic
         case tNow > tStateStart + dhResponseWindow then
             LogStatus("WaitJoystickResponse", "No response after response window closed at " + str$(tNow) + "\n");
-            nTrialsCompleted% += 1;
+            'nTrialsCompleted% += 1;  'do not advance
+            advanceStim% := 0;  'undo our call to advance stimulus.  Will use same stimulus if no response
             MonkeySuccess% := 0;
             ChangeStateTo(stateCheckStimOff%, tNow); 'jump to combined logic (no response window timeout penalty implemented)
         endcase;
