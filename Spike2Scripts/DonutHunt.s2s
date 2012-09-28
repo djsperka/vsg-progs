@@ -1,6 +1,6 @@
 
 
-const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.34 2012-09-27 22:16:38 jeff Exp $";
+const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.35 2012-09-28 18:10:51 jeff Exp $";
 
 
 ' Hello again
@@ -12,6 +12,7 @@ const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.34 2012-09-27 22:16:38 jeff Exp $";
 #include "UsreyDAQ.s2s"
 #include "DonutHuntDialogs.s2s"
 #include "UsreyGratings.s2s"
+#include "Joystick.s2s"
 #include "UsreyFixationPoint.s2s"
 
 
@@ -41,6 +42,16 @@ var ButtonChannel%;
 var ButtonPort%;
 var XChannel%;
 var YChannel%; 
+
+' Joystick stuff
+var JoyChannel%;
+var dhChanJoystickPos%;
+var dhChanJoystickRangeL%;
+var dhChanJoystickRangeC%;
+var dhChanJoystickRangeR%;
+var dhVCoeff;
+var dhVConst;
+var dhJoystickDisplayY;  'no X?
 
 ' xy windows for plotting (TuningWindow) and PSTH. 
 var TuningWindow%[16];	' one for each wavemark channel
@@ -134,6 +145,7 @@ const stateMonkeyITI%:=22;          ' ITI for animal
 const stateHoldFixationToContrastChange%:=23;  'holding fixation through contrast change
 const stateHoldFixationToStimOffset%:=24;  'holding fixation point to end of stimulus
 const stateReward%:=25;              'rewarding animal
+const stateWaitJoystickResponse%:=26;  'waiting for joystick response
 
 const nMaskTriggers% := 4;
 var nMaskTriggersFound%;
@@ -155,6 +167,7 @@ var pulseFound%;
 
 ' Init logging
 LogInit(1);
+
 
 
 '' Check if always looking flag is set. If so, issue a warning. 
@@ -193,6 +206,10 @@ FrameChannel% := 19;
 FrameSlaveChannel% := 20;
 ButtonChannel% := 1;
 ButtonPort% := 5;  'This appears to be correct
+JoyChannel% := 13;
+
+
+InitJoystick(JoyChannel%);
 
 if dhIsHuman% = 0 then
     ' Fetch electrode information. 
@@ -273,15 +290,7 @@ proc CreateSampleConfiguration()
 	SampleTitle$(FrameSlaveChannel%,"Frame-Slave");
     
     
-    'add waveform channel to analyze button events
-    if ButtonPort% = 0 then
-        message("Ben hain't told you which port that there button device thingy is on!");
-    endif;
-    SampleWaveform(ButtonChannel%,ButtonPort%,10000);  'Giving 0.1 ms resolution for now
-    SampleComment$(ButtonChannel%,"Raw Button");
-	SampleTitle$(ButtonChannel%,"Raw Button");
-    
-    
+    'Set up fixation, response acquisition based on monkey/human, joystick usage
     if dhIsHuman% = 0 then
         
         'eye position channels
@@ -308,6 +317,23 @@ proc CreateSampleConfiguration()
         SampleTitle$(XChannel%,"Eye X");
         SampleWaveform(YChannel%, GetEyeYPort%(), 1000);
         SampleTitle$(YChannel%,"Eye Y");
+        
+        'Set up joystick channel if using joystick, monkey only
+        if dhUseJoystick% = 1 then
+            SampleWaveform(JoyChannel%, GetJoystickPort%(), 1000);
+            SampleTitle$(JoyChannel%, "Joy");
+        endif;
+        
+    else 'if human, set up button channel
+        
+        'add waveform channel to analyze button events
+        if ButtonPort% = 0 then
+            message("Ben hain't told you which port that there button device thingy is on!");
+        endif;
+        SampleWaveform(ButtonChannel%,ButtonPort%,10000);  'Giving 0.1 ms resolution for now
+        SampleComment$(ButtonChannel%,"Raw Button");
+        SampleTitle$(ButtonChannel%,"Raw Button");
+        
     endif;
     
     SampleSequencer(script$ + "Tuning.pls");
@@ -405,9 +431,23 @@ end;
 proc InitializeWindows()
     var i%;
     var WindowStep;
+    var index%;
+    var twopi;
+    twopi := 2.0*4.0*ATan(1.0);
+    ' These set the max and min window dimensions. They are also used to scale the joystick 
+    ' position to the xy display, so if you change the size of the window, do it by changing
+    ' these vars!
+    var xyXMin := -30;
+    var xyXMax := 30;
+    var xyYMin := -30;
+    var xyYMax := 30;
+    var lh, cl, ch, rl;
+    dhJoystickDisplayY := -12;     ' y coord in xy window where joystick position is shown.
+    
     
     ' Make spike2 use all of monitor 1
     View(App()).Window(0, 0, 100, 100, 1);
+    
     
 	'Open the data sampling window
 	DataWindow% := FileNew(0,1);
@@ -415,7 +455,8 @@ proc InitializeWindows()
     XRange(0, 30);
 	'View(DataWindow%).WindowVisible(1);  'ought to be redundant
     
-    if dhIsHuman% = 0 then
+    
+    if dhIsHuman% = 0 then 'for monkey, open window for display of tuning results, eye position, etc.
         
         ' open xy window to display tuning results    
         if dhNWavemarks% > 0 then
@@ -429,12 +470,10 @@ proc InitializeWindows()
             WindowVisible(1);
         next;
         
-        
-        
         'Open an XY view to display eye position
         XYWindow% := FileNew(12);
-        XRange(-30,30);
-        YRange(-2,-30,30);
+        XRange(xyXMin, xyXMax);
+        YRange(-2, xyYMin, xyYMax);
         XYDrawMode(0,5,0);
         WindowVisible(1);
         Window(0, 0, 50, 47);
@@ -442,10 +481,6 @@ proc InitializeWindows()
         XYSize(1,-1);
     
         'Calcuate the fixation window
-        var index%;
-        var twopi;
-        twopi := 2.0*4.0*ATan(1.0);
-	
         for index% := 0 to 35 do
             FixWindowX[index%] := FixationX + WindowRadius * Cos(index% * twopi/36.0);
             FixWindowY[index%] := FixationY + WindowRadius * Sin(index% * twopi/36.0);
@@ -471,6 +506,55 @@ proc InitializeWindows()
         XYAddData(4,9,-7);
         XYAddData(4,9,7);
         XYAddData(4,-9,7);    
+        
+        'If using joystick (not just fixating) set up joystick stuff
+        if dhUseJoystick% then
+            ' Set up joystick range numbers
+            lh := GetJoystickLeftHigh();
+            cl := GetJoystickCenterLow();
+            ch := GetJoystickCenterHigh();
+            rl := GetJoystickRightLow();
+        
+            ' We'll take the joystick voltage 'v' (which should be between 1 and 4volts) and 
+            ' convert it for display in the xy window like this:
+            ' x coord = v * rivVCoeff + rivVConst;
+        
+            dhVCoeff := (xyXMax - xyXMin)/3;
+            dhVConst := -2.5 * dhVCoeff;
+        
+            dhChanJoystickRangeL% := XYSetChan(0);
+            XYColour(dhChanJoystickRangeL%, 13);
+            XYSize(dhChanJoystickRangeL%, 2);
+            XYJoin(dhChanJoystickRangeL%, 1);
+            XYDrawMode(dhChanJoystickRangeL%, 4, 3);
+            XYAddData(dhChanJoystickRangeL%, xyXMin, dhJoystickDisplayY+1);
+            XYAddData(dhChanJoystickRangeL%, lh * dhVCoeff + dhVConst, dhJoystickDisplayY+1);
+        
+            dhChanJoystickRangeC% := XYSetChan(0);
+            XYColour(dhChanJoystickRangeC%, 13);
+            XYSize(dhChanJoystickRangeC%, 2);
+            XYJoin(dhChanJoystickRangeC%, 1);
+            XYDrawMode(dhChanJoystickRangeC%, 4, 3);
+            XYAddData(dhChanJoystickRangeC%, cl * dhVCoeff + dhVConst, dhJoystickDisplayY+1);
+            XYAddData(dhChanJoystickRangeC%, ch * dhVCoeff + dhVConst, dhJoystickDisplayY+1);
+        
+            dhChanJoystickRangeR% := XYSetChan(0);
+            XYColour(dhChanJoystickRangeR%, 13);
+            XYSize(dhChanJoystickRangeR%, 2);
+            XYJoin(dhChanJoystickRangeR%, 1);
+            XYDrawMode(dhChanJoystickRangeR%, 4, 3);
+            XYAddData(dhChanJoystickRangeR%, rl * dhVCoeff + dhVConst, dhJoystickDisplayY+1);
+            XYAddData(dhChanJoystickRangeR%, xyXMax, dhJoystickDisplayY+1);
+        
+        
+            ' this channel is for a symbol representing the actual joystick position
+            dhChanJoystickPos% := XYSetChan(0);
+            XYColour(dhChanJoystickPos%, 11);
+            XYDrawMode(dhChanJoystickPos%, 1, 8);
+            XYDrawMode(dhChanJoystickPos%, 2, 10);
+            XYSize(dhChanJoystickPos%, -1);
+            
+        endif;        
         
     endif;
     
@@ -844,6 +928,8 @@ end;
 func IdleProcessing%()
 	var iStatus% := 1;	
     var tTemp;
+    var joystickPosition%;
+    var joystickVoltage;
     
     'if no time has passed, wait 1 ms and try again
 	tTemp := View(DataWindow%).MaxTime();
@@ -867,15 +953,25 @@ func IdleProcessing%()
         xEye := View(DataWindow%).ChanMeasure(XChannel%,2,tNow-.001,tNow-.006)*DegreesPerVoltX;
         yEye := View(DataWindow%).ChanMeasure(YChannel%,2,tNow-.001,tNow-.006)*DegreesPerVoltY;
         
-        'But only update eye position display every 5 ms....
+        ' Get and display joystick voltage and position
+        if dhUseJoystick% = 1 then
+            joystickPosition% := GetJoystickPosition%(joystickVoltage);
+        endif;
+        
+        'But only update eye position/joystick DISPLAY every 5 ms....
         if tNow-tLastUpdate > .005 then
             View(XYWindow%).XYAddData(1,xEye,yEye);
+            if dhUseJoystick% = 1 then
+                View(XYWindow%).XYAddData(dhChanJoystickPos%, joystickVoltage * dhVCoeff + dhVConst, dhJoystickDisplayY);
+            endif;
             tLastUpdate := tNow;
         endif; 
     endif;
     
     
     
+    
+    'And here's the big ol' state logic loop
     
 	docase 
     'combined logic
@@ -936,9 +1032,11 @@ func IdleProcessing%()
         
     'monkey logic    
     case iState% = stateMonkeyITI% then 
-        if tNow - tStateStart > tInterTrialTime then
-            ChangeStateTo(stateXHairUp%, tNow); 'return to combined logic
-        endif;            
+        if joystickPosition% = JSCenter% or dhUseJoystick% = 0 then 'don't let the monkey start until the joystick is in the center
+            if tNow - tStateStart > tInterTrialTime then
+                ChangeStateTo(stateXHairUp%, tNow); 'return to combined logic
+            endif;            
+        endif;
         
         
     'combined logic        
@@ -1052,8 +1150,8 @@ func IdleProcessing%()
     'monkey logic    
     case iState% = stateWaitForAcquisition% then
         ' Waiting for eye to fall inside of fixation window
-        if Looking%(xEye, yEye) = 1 then
-            LogStatus("WaitForAcquisition", "Eye in fixation window; request stim");            
+        if Looking%(xEye, yEye) = 1 and (joystickPosition% = JSCenter% or dhUseJoystick% = 0) then
+            LogStatus("WaitForAcquisition", "Eye in fixation window; Joystick OK; request stim");            
             SafeSampleKey("S");
             ChangeStateTo(stateWaitOnsetTrigger%, tNow);  'jump to combined logic
         else 
@@ -1206,11 +1304,18 @@ func IdleProcessing%()
         
     'monkey logic    
     case iState% = stateHoldFixationToContrastChange% then
-        if Looking%(xEye, yEye) = 0 then
+        docase
+        case Looking%(xEye, yEye) = 0 then
             LogStatus("HoldFixationPreContrastChange", "Fixation broken, aborting trial.");
             tInterTrialTime := dhHoldFailTime; 
             SampleText("-");
             SafeSampleKey("X");  'turn off fixpt on fixation failure
+            ChangeStateTo(stateCheckStimOff%, tNow); 'jump to combined logic
+        case joystickPosition% <> JSCenter% and dhUseJoystick% = 1 then
+            LogStatus("HoldFixationPreContrastChange", "Joystick moved, aborting trial.");
+            tInterTrialTime := dhHoldFailTime; 
+            SampleText("-");
+            SafeSampleKey("X");  'turn off fixpt on joystick failure
             ChangeStateTo(stateCheckStimOff%, tNow); 'jump to combined logic
         else 
             pulseFound% := View(DataWindow%).FindPulseUp%(FrameChannel%, tLastTrigger, tRise, tFall);
@@ -1221,16 +1326,23 @@ func IdleProcessing%()
                 tLastTrigger := tRise;       
                 ChangeStateTo(stateHoldFixationToStimOffset%, tNow);
             endif;
-        endif;       
+        endcase;       
             
             
     'monkey logic    
     case iState% = stateHoldFixationToStimOffset% then
-        if Looking%(xEye, yEye) = 0 then
+        docase
+        case Looking%(xEye, yEye) = 0 then
             LogStatus("HoldFixationPreStimOff", "Fixation broken, aborting trial.");
             tInterTrialTime := dhHoldFailTime; 
             SampleText("-");
             SafeSampleKey("X");  'turn off fixpt on fixation failure
+            ChangeStateTo(stateCheckStimOff%, tNow); 'jump to combined logic
+        case joystickPosition% <> JSCenter% and dhUseJoystick% = 1 then
+            LogStatus("HoldFixationPreStimOff", "Joystick moved, aborting trial.");
+            tInterTrialTime := dhHoldFailTime; 
+            SampleText("-");
+            SafeSampleKey("X");  'turn off fixpt on joystick failure
             ChangeStateTo(stateCheckStimOff%, tNow); 'jump to combined logic
         else
             pulseFound% := View(DataWindow%).FindPulseUp%(FrameChannel%, tLastTrigger, tRise, tFall);
@@ -1244,15 +1356,40 @@ func IdleProcessing%()
                 nMaskTriggersFound% := 0;
                 'move forward
                 SafeSampleKey("X");  'Removes XHair, do this BEFORE advancing stimulus!
-                advanceStim% := 1;
-                'SafeSampleKey("a");  'advance stimulus, we do this now because it takes some time on the VSG end
-                                     'and we need to let that time occur during the response window
-                MonkeySuccess% := 1;  'this trial was correct!
-                nTrialsCompleted% += 1;
-                ChangeStateTo(stateCheckStimOff%, tNow); 'jump to combined logic
+                advanceStim% := 1;  'advance stimulus in the future
+                if dhUseJoystick% = 0 then
+                    MonkeySuccess% := 1;  'this trial was correct, only fixation required
+                    nTrialsCompleted% += 1;
+                    ChangeStateTo(stateCheckStimOff%, tNow); 'jump to combined logic
+                else
+                    ChangeStateTo(stateWaitJoystickResponse%, tNow); 'move to state checking for response
+                endif;
             endif;
-        endif;
+        endcase;
             
+            
+    case iState% = stateWaitJoystickResponse% then
+        docase
+        case joystickPosition% <> JSCenter% then
+            docase
+            case GetLR(nTrialsCompleted%) = 0 and joystickPosition% = JSRight% then 'right stimulus
+                MonkeySuccess% := 1;
+            case GetLR(nTrialsCompleted%) = 0 and joystickPosition% = JSLeft% then 'right stimulus
+                MonkeySuccess% := 0;
+            case GetLR(nTrialsCompleted%) = 1 and joystickPosition% = JSRight% then 'left stimulus
+                MonkeySuccess% := 0;
+            case GetLR(nTrialsCompleted%) = 1 and joystickPosition% = JSLeft% then 'left stimulus
+                MonkeySuccess% := 1; 
+            endcase
+            nTrialsCompleted% += 1;
+            ChangeStateTo(stateCheckStimOff%, tNow); 'jump to combined logic
+        case tNow > tStateStart + dhResponseWindow then
+            LogStatus("WaitJoystickResponse", "No response after response window closed at " + str$(tNow) + "\n");
+            nTrialsCompleted% += 1;
+            MonkeySuccess% := 0;
+            ChangeStateTo(stateCheckStimOff%, tNow); 'jump to combined logic (no response window timeout penalty implemented)
+        endcase;
+                    
             
     'combined logic            
     case iState% = stateCheckStimOff% then
