@@ -1,6 +1,6 @@
 
 
-const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.35 2012-09-28 18:10:51 jeff Exp $";
+const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.36 2012-09-28 18:23:44 jeff Exp $";
 
 
 ' Hello again
@@ -955,7 +955,7 @@ func IdleProcessing%()
         
         ' Get and display joystick voltage and position
         if dhUseJoystick% = 1 then
-            joystickPosition% := GetJoystickPosition%(joystickVoltage);
+            joystickPosition% := View(DataWindow%).GetJoystickPosition%(joystickVoltage);
         endif;
         
         'But only update eye position/joystick DISPLAY every 5 ms....
