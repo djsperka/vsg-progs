@@ -1,0 +1,68 @@
+msequence
+-------
+
+Usage: [bracketed items are optional, all others required]
+
+msequence -f msequence_file -d dotsize -p x,y -t frames_per_term [-o order] [-r rows] [-c columns] [-a] [-v] [-V] [-T first,last]
+
+-p x,y: x,y represent the screen position, in pixels, of the center of the grid pattern. 
+      The center of the screen is (0,0), and x is positive-going-right, 
+      y is positive-going-up.
+-f msequence-file : the path to a text file containing the m-sequence. 
+                      The file should contain only '0' and '1', and no extraneous 
+                      spaces or newlines. There should be EXACTLY (2**order - 1) 
+                      characters in the file
+-d dotsize : the size in pixels of each square in the grid pattern
+-t frames_per_term : the number of video frames for each term in the sequence 
+
+----optional stuff below --------
+
+-a : (optional) if present, use ascii triggers (i.e. from keyboard, NOT from dig inputs)
+-o order : (optional, default 15) the order of the msequence. 
+           There MUST BE  2**order - 1 terms in 'msequence_file'. 
+           Our "standard" m-sequence (filename MSequenceTerms) has order 15.
+-r rows : (optional, default 16) the number of rows in the grid pattern
+-c columns : (optional, default 16) the number of columns in the grid pattern
+-R repeats : (optional) number of times the sequence should run. default is 1.
+-T first,last : (optional) just show a subsequence, starting at 'first' term and ending at 'last'. Sequence terms numbered 
+                starting at 0.
+-v : verbose output. Prints some useful information about your VSG/Visage, your screen size and the sequence parameters. 
+
+INPUT Triggers:
+
+Ascii trigger option (-a) causes the program to look for signals from the keyboard to start and stop the sequence. There are
+two keys:
+"s" - start sequence
+"X" - stop sequence
+"q" - stop sequence and quit program
+
+Without ascii triggers the program will expect TTL trigger inputs on the digital input pins.
+
+"s" - DIGIN1 (0x2) - set this pin HI to start sequence
+"X" - DIGIN1 (0x0) - set this pin LO to stop sequence
+"q" - DIGIN7 (0x80) - set this pin HI to quit program
+
+
+OUTPUT triggers: 
+
+Frame triggers (sent at the start of each term in the sequence) are put on DIGOUT0 - digital output 0. A full sequence will have one
+extra trigger at the end which indicates the start of the first blank screen following the last term in the sequence. For example, 
+the "standard" sequence of 32767 terms will have 32768 triggers - one for the start of each term in the sequence, and a final 
+trigger which shows the end of the last term. This is a convenience for counting spikes offline - you know the start and end of 
+each term.
+
+Limitations: 
+
+There are limitations which involve the screen resolution your VSG/Visage is configured for, the dots size and the grid size
+(both columns and rows). The command line below will work fine on a screen configured for 800x600. YMMV.
+
+
+Example: 
+
+msequence -f MSequenceTerms -a -p 0,0 -d 16 -t 4 -v
+
+This will run the sequence contained in the file 'MSequenceTerms'. The order of the sequence is 15 (this is a check on the length of the sequence).
+The grid will be 16x16, centered on the screen. The individual dots are 16 pixels in size. 
+
+
+
