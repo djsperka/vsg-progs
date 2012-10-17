@@ -755,7 +755,7 @@ int args(int argc, char **argv)
 
 void usage()
 {
-	cerr << "usage: msequence -f filename -o order -r rows -c columns -d dotsize -p x,y -t frames_per_term" << endl;
+	cerr << "usage: meamseq -m filename -o order -r rows -c columns -d dotsize -p x,y -t frames_per_term [-T] [-a] [-v]" << endl;
 }
 
 
