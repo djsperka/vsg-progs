@@ -4,7 +4,9 @@ meamseq
 Usage:
 
 meamseq -p x,y -m msequence-file-name -o order -d dotsize -r rows -c columns \
-        -t frames-per-term [-v] [-K]
+        -t frames-per-term [-v] [-K] [-T] [-a]
+
+[ arguments in brackets are optional; all others required ]
 
 x,y : screen position, in pixels, of the center of the grid pattern. 
       The center of the screen is (0,0), and x is positive-going-right, 
@@ -12,7 +14,9 @@ x,y : screen position, in pixels, of the center of the grid pattern.
 msequence-file-name : the path to a text file containing the m-sequence. 
                       The file should contain only '0' and '1', and no extraneous 
                       spaces or newlines. There should be EXACTLY (2**order - 1) 
-                      characters in the file
+                      characters in the file. A relative path name is relative to
+                      the directory from which you start the application. Full path 
+                      names are OK.
 order : the order of the msequence. There are 2**order - 1 terms in the sequence. 
         Our "standard" m-sequence has order 15.
 dotsize : the size in pixels of each square in the grid pattern
@@ -20,6 +24,58 @@ rows : the number of rows in the grid pattern
 columns : the number of columns in the grid pattern
 frames-per-term : the number of video frames for each term in the sequence 
 
+
+INPUT TRIGGERS
+--------------
+
+The options "-T" and "-a" are related to how the program looks for input triggers. 
+If neither option is specified, the program will prepare to show the msequence and 
+display the following:
+
+    Hit S  to start msequence.
+
+A capital "S" keystroke (no Enter required) will start the sequence. The capital letter
+is required to lessen  the likelihood of inadvertently starting the sequence. 
+
+After the sequence is started, the following is displayed:
+
+    Hit q to abort msequence.
+    
+The letter "q" (no Enter required) will stop the sequence. 
+
+Using the "-T" option on the command line causes the program to use its input triggering
+system. This system can be used in two modes: digital and ascii. To use ascii triggering, 
+specify "-a". If "-a" is omitted, binary triggering will be used. 
+
+Ascii triggers are keystrokes (Enter required)
+
+"s" - start (or restart) sequence
+"X" - stop sequence
+"q" - stop sequence and quit program
+
+
+Binary triggers are TTL pulses on the digital input lines. 
+
+"s" - vsgDIG1 set HI
+"X" - vsgDIG1 set LO
+"q" - vsgDIG7 set HI
+
+
+OUTPUT TRIGGERS
+---------------
+
+Frame triggers are put out on vsg digital output line 0. These triggers are put out at the 
+onset time of each term in the sequence (not at every frame - this is important if you use
+'frames_per_term' not equal to 1). There is one extra trigger put out at the end of the 
+last term in the sequence. Thus, for an order-15 sequence (32767 terms) you will find 32768
+trigger pulses on the trigger output line. This is a convenience for data extraction - each 
+pair of adjacent trigger times is the stimulus period for a single term in the sequence. 
+
+
+
+
+TESTING MODE
+------------
 
 The "-K" option runs the program in a testing mode - normally not useful in the lab. 
 The following options are available:
@@ -30,3 +86,11 @@ The following options are available:
 <number> : place this term in the sequence in the aperture window on screen. Use this to display
            a particular term or terms in the sequence. 
 'q' : quit
+
+
+EXAMPLE
+-------
+meamseq -m MSequenceTerms -o 15 -p 0,0 -r 16 -c 16 -t 1 -d 4 -v
+
+Runs the msequence in the file 'MSequenceTerms', centered at the center of the screen, 
+with 16x16 grid, 1 frame per term. Will ask for "S" to start the sequence, and "q" to end. 
