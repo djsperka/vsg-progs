@@ -51,3 +51,33 @@ Time(s) n         : There are 4 sets of entries, numbered 1-4. The color dropdow
                     Color 4 - NONE
                     Time 4 - doesn't matter - ignored
                    
+
+
+AcuteFlash-Chapman-Extract
+--------------------------
+
+This script will extract transition times for the color flash script files. The data file must be 
+the current open file in Spike2. Position the script file behind the data window so you can hit the 
+"run script" button while the data file is visible. 
+
+The script will create a text file in the same folder as the data file (thus you must have write access
+to that folder when you run the script). The text file has the same base name as the data file, 
+with a ".trg" extension. 
+
+The trg file has time values, one per line, for the extracted transition times. There will be one 
+extra trg time at the end of the sequence indicating when the last term ended. This means that when
+you load the file you can use each subsequent pair of times as the period when a particular color
+was on screen. For example, if you have a 4-color pattern and you do 3 repeats you will have 3*4+1=13 
+trigger times for the 12 full-screen flashes. 
+
+Which came first?
+-----------------
+
+There is a text mark in the data file (in Spike2 it shows up as a yellow box in channel 30) at or near
+the start of data acquisition. The text in this box will be a combination of the letters "B", "W", and "G".
+Their order is the order of the colors flashed on the screen for a single repeat. So, the first time 
+interval - the time between the first and second trigger times extracted - corresponds to the first
+letter/color in this text mark. The second letter is the second time interval extracted, and so on. 
+Only one sequence - a single repeat - is shown in the text mark, regardless of the number of repeats
+you requested. 
+
