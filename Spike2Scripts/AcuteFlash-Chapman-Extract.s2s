@@ -1,0 +1,81 @@
+var chanTerms% := 2;   ' Channel number for terms
+var n%;
+var sOutfile$;
+var htxt%;
+var hdata%;
+var tLast := -1;
+var tTrigger := -1;
+var nTriggers% := 0;
+
+' Check that current view is a result view
+hdata% := View();
+if ViewKind(hdata%) <> 0 then
+	Message("Current view must be a result view (data file).");
+	halt;
+endif
+   
+sOutfile$ := ReplaceFileExtension$(hdata%, ".trg");
+htxt% := FileOpen(sOutfile$, 8, 1);
+PrintLog("Output file " + sOutfile$);
+ 
+ tTrigger := View(hdata%).NextTime(chanTerms%, tLast);
+ while tTrigger > 0 do
+     View(htxt%).Print("%f\n", tTrigger);
+     nTriggers% += 1;
+     tLast := tTrigger;
+     tTrigger := View(hdata%).NextTime(chanTerms%, tLast);
+ wend
+    
+
+
+'****fi Spike2Util/FileUtilities/ReplaceFileExtension$
+' NAME
+' ReplaceFileExtension$(view%, ext$)
+' SYNOPSIS
+' Takes the filename of the view specified by v% (or the current view if v% < 0) and 
+' forms a filename with the same path and basename, but with the extension ext$. The 
+' resulting filename is returned (the file is neither created nor opened!). 
+'
+' It doesn't matter if the extension ext$ has the preceding dot "." or not. If it is 
+' present it is used as-is. If the dot is not present AND the extension is of nonzero 
+' length then the dot is added. If the dot is not present AND the extension has zero 
+' length, then the filename returned has no dot OR extension. 
+' RETURN VALUE
+' Filename value. 
+'****
+
+' 
+'
+
+func ReplaceFileExtension$(v%, ext$)
+    var vTmp%;
+    var s$;
+    var dot$ := ".";
+    
+    ' Change view temporarily if requested
+    if v% >= 0 then
+        vTmp% := View(v%);
+    endif
+    
+    ' Filename base without dot or extension. 
+    s$ := FileName$(1)+FileName$(2)+FileName$(3)+FileName$(4);
+    
+    ' reset view if necessary
+    if v% >= 0 then
+        View(vTmp%);
+    endif
+    
+    ' add extension and/or dot unless ext$ = ""
+    if Len(ext$) > 0 then
+        if InStr(ext$, dot$) = 1 then
+            s$ += ext$;
+        else
+            s$ += dot$ + ext$;
+        endif
+    endif
+    
+    ' all done
+    return s$;
+end
+
+
