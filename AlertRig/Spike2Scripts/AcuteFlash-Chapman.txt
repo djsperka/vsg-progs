@@ -1,0 +1,53 @@
+AcuteFlash-Chapman
+------------------
+
+This spike2 script will generate a full-field solid-color stimulus with a repeating pattern. 
+
+The colors black, gray and white can be used. A repeating pattern of up to 4 of these colors
+can be specified, with each color appearing on the screen for a length of time that you
+can specify.
+
+The entire sequence of full-field flash colors will be repeated as many times as you require. 
+
+
+The dialog has the following fields:
+
+Number of Channels: 1-8, the number of DAQ channels you are using. Assumes that you use analog
+                    ports 0, 1, 2, ..., in that order. If you are using just one channel, 
+                    specify 1 here and make sure your electrode output goes to the analog input
+                    port 0 on the 1401. If you use two channels, specify 2 here and make sure
+                    your electrode outputs are in analog input ports 0 and 1 on the 1401. 
+
+Number of repeats : How many times you want the pattern to repeat. 
+
+Color n
+Time(s) n         : There are 4 sets of entries, numbered 1-4. The color dropdown can be NONE, 
+                    Black, Gray or White. The script will generate a pattern using each of the 
+                    color dropdowns until it encounters one that is NONE. You must specify the 
+                    colors starting from 1. Any color dropdowns after the first NONE found will 
+                    be ignored. The Time(s) field is the time in seconds that this color will 
+                    be on screen. 
+
+                    Example: You want Black(1s)/Gray(1s)/White(1s)/Gray(1s)
+
+                    Color 1 - Black
+                    Time 1 - 1
+                    Color 2 - Gray
+                    Time 2 - 1
+                    Color 3 - White
+                    Time 3 - 1
+                    Color 4 - Gray
+                    Time 4 - 1
+
+
+                    Example: Gray(0.5s)/White(1s)/Black(1s)
+
+                    Color 1 - Gray
+                    Time 1 - 0.5
+                    Color 2 - White
+                    Time 2 - 1
+                    Color 3 - Black
+                    Time 3 - 1
+                    Color 4 - NONE
+                    Time 4 - doesn't matter - ignored
+                   
