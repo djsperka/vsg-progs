@@ -1,10 +1,11 @@
-' $Id: AcuteFlash-Chapman.s2s,v 1.1 2012-10-23 17:56:56 devel Exp $
+' $Id: AcuteFlash-Chapman.s2s,v 1.2 2012-10-23 21:06:13 devel Exp $
 
 
 var hView,hExperiment;
 var hDataWindow%;
 var hHistWindow%;
 var hHistCursor%;
+var hRasterWindow%;
 var hStimulus%;
 var bgTotalCounts:=0;
 var bgTotalTime:=0;
@@ -17,9 +18,9 @@ var TriggerChannel%;
 var colorSel%[4];
 var times[4];
 var nFlash% := 0;
-
-var tPeriod;
-var dDiameter;
+var sFlashArg$;     ' part of arg list for colorflash prog. 
+var sPattern$;		  ' letters representing color pattern to stick in data file
+var tPeriod;        ' period for a single cycle
 var sFilePathRoot$;	' dir for current experiment. 
 var sFileNameRoot$;	' base name for data files
 var sParameterFilePath$;
@@ -61,6 +62,13 @@ View(hDataWindow%).WindowVisible(1);
 View(hDataWindow%).Window(0,0,100,50);
 View(hDataWindow%).XRange(0, 30);
 View(hDataWindow%);
+
+' Open raster plot
+hRasterWindow% :=  View(hDataWindow%).SetPSTH(1, 50, tPeriod/50, 0, 0, 2);
+View(hRasterWindow%).WindowVisible(1);
+View(hRasterWindow%).Window(0,50,100,100);
+
+
 sParameterFilePath$ := FileName$(1) + FileName$(2);
 sParameterFileName$ := FileName$(3) + FileName$(4) + ".par";
 
@@ -76,8 +84,11 @@ Toolbar("Go",1234);
 
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-
+' dialog to get parameters. 
+' do some processing of parameters when done so we can use info later in script. 
 func AFDialog%()
+   var iret%;
+	var i%, iStop%;
 	times[0] := 1;
 	times[1] := 1;
 	times[2] := 1;
@@ -93,7 +104,39 @@ func AFDialog%()
 	DlgReal(8, "Time(s) 3", 0.01, 100.0);
 	DlgList(9, "Color 4", "NONE|Black|Gray|White", 4);
 	DlgReal(10, "Time(s) 4", 0.01, 100.0);
-	return DlgShow(nChannels%, nRepeats%,  colorSel%[0], times[0], colorSel%[1], times[1], colorSel%[2], times[2], colorSel%[3], times[3]);
+	iret% := DlgShow(nChannels%, nRepeats%,  colorSel%[0], times[0], colorSel%[1], times[1], colorSel%[2], times[2], colorSel%[3], times[3]);
+
+   if iret% = 1 then
+		sFlashArg$ := " -p ";
+		tPeriod := 0;
+		while i% < 4 and iStop% = 0 do
+			if colorSel%[i%] = 0 then
+				iStop% := 1;
+			else
+				nFlash% += 1;
+				if i% > 0 then 
+					sFlashArg$ += ",";
+				endif
+				docase 
+				case colorSel%[i%] = 1 then
+					sFlashArg$ += "0,0,0," + str$(times[i%]);
+					sPattern$ += "B";
+					tPeriod += times[i%];
+				case colorSel%[i%] = 2 then
+					sFlashArg$ += "0.5,0.5,0.5," + str$(times[i%]);
+					sPattern$ += "G";
+					tPeriod += times[i%];
+				case colorSel%[i%] = 3 then
+					sFlashArg$ += "1,1,1," + str$(times[i%]);
+					sPattern$ += "W";
+					tPeriod += times[i%];
+				endcase
+			   i% += 1;
+			endif
+		wend
+   endif	
+	
+   return iret%;	
 end
 
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
@@ -106,34 +149,6 @@ end;
 
 func Start%()
 	var sCommand$;
-	var sFlashArg$ := " -p ";
-	var sPattern$;
-	var i%;
-	var iStop% := 0;
-
-	while i% < 4 and iStop% = 0 do
-		if colorSel%[i%] = 0 then
-			iStop% := 1;
-		else
-			nFlash% += 1;
-			if i% > 0 then 
-				sFlashArg$ += ",";
-			endif
-			docase 
-			case colorSel%[i%] = 1 then
-				sFlashArg$ += "0,0,0," + str$(times[i%]);
-				sPattern$ += "B";
-			case colorSel%[i%] = 2 then
-				sFlashArg$ += "0.5,0.5,0.5," + str$(times[i%]);
-				sPattern$ += "G";
-			case colorSel%[i%] = 3 then
-				sFlashArg$ += "1,1,1," + str$(times[i%]);
-				sPattern$ += "W";
-			endcase
-		   i% += 1;
-		endif
-	wend
-
 	sCommand$ := bin$ + "\\colorflash -n -A -r " + str$(nRepeats%) + sFlashArg$;
 	PrintLog("Command line: " + sCommand$ + "\n");
 	SampleStart(0);
@@ -243,52 +258,23 @@ const stateStimDone% := 6;
 var state% := stateStim%;
 ' When nCountBlocks% = nBlocks%  and nCountRepeats% = nRepeats% then the stimulus has run its course. 
 
+var iStartCycle% := -1;
+var iStartCycleTime;
+
 func IdleProcessing%()
 	var istatus% := 1;
-	var loopDone% := 0;
-	var iNextState% := 0;
 
-	' Look for trigger. Each trigger leads to a transition FROM the current state. The state% indicates what state the stim was in prior to the trigger. 
+	' Look for trigger and keep tally. Process for raster if we reached the end of a cycle.
 	tTrigger := View(hDataWindow%).NextTime(TriggerChannel%, tTriggerLast);
 	if tTrigger > 0 then
 		iCycle% += 1;
-		iNextState% := iCycle% mod nFlash%;
-
-		docase
-			case state% = stateStim% then
-				PrintLog("iCycle %d nFlash %d iNextState %d\n", iCycle%, nFlash%, iNextState%);
-			case state% = stateGray% then
-
-				PrintLog("exiting stateGray\n");
-				HandleBackgroundSpikes(tTriggerLast, tTrigger);
-				state% := iNextState%;
-				loopDone% := 1;
-
-			case state% = stateWhite% then
-
-				PrintLog("exiting stateWhite\n");
-				'HandleWhiteSpikes(tTriggerLast, tTrigger);
-				state% := iNextState%;
-				loopDone% := 1;
-
-			case state% = stateBlack% then
-
-				PrintLog("exiting stateBlack\n");
-				HandleSpikes(tTriggerLast);
-				state% := iNextState%;					
-
-			case state% = stateStimDone% then
-
-				PrintLog("Stopping stim\n");
-				Stop%();
-				istatus% := 0;
-				loopDone% := 1;
-
-			else
-				PrintLog("Unknown state (" + str$(state%) + ")!\n");
-				loopDone% := 1;
-
-		endcase;		
+		if iCycle% mod nFlash% = 0 then
+			if iCycle% > 0 then 	
+				View(hRasterWindow%).Process(iStartCycleTime, iStartCycleTime + tPeriod, 0, 1);
+				PrintLog("Process icycle %d start %f end %f\n", iCycle%, iStartCycleTime, iStartCycleTime+tPeriod);
+			endif
+			iStartCycleTime := tTrigger;
+		endif
 
 		tTriggerLast := tTrigger;
 	endif 	' if tTrigger > 0
