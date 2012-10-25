@@ -36,6 +36,7 @@ TriggerVector triggers;
 PageCyclingTrigger *f_ptrigCycling = NULL;
 bool f_outline = false;
 bool f_terms = false;	// testing only
+bool f_bUseLockFile = true;
 
 #define NUMBER_OF_TERMS 32767
 VSGCYCLEPAGEENTRY f_MPositions[32768];
@@ -58,7 +59,7 @@ int main(int argc, char *argv[])
 	}
 
 	// INit vsg
-	if (ARvsg::instance().init(-1, f_background))
+	if (ARvsg::instance().init(-1, f_background, f_bUseLockFile))
 	{
 		cerr << "VSG init failed!" << endl;
 		return 1;
@@ -486,12 +487,15 @@ int args(int argc, char **argv)
 	bool have_w = false;
 	bool have_h = false;
 
-	while ((c = getopt(argc, argv, "t:f:p:d:aR:hvVT:z:r:c:o:OKW:H:yN")) != -1)
+	while ((c = getopt(argc, argv, "t:f:p:d:aR:hvVT:z:r:c:o:OKW:H:yNL")) != -1)
 	{
 		switch (c) 
 		{
 		case 'a':
 			f_binaryTriggers = false;
+			break;
+		case 'L':
+			f_bUseLockFile = false;
 			break;
 		case 'f':
 			f_sFilename.assign(optarg);
