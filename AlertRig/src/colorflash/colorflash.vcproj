@@ -164,7 +164,7 @@
 				OutputFile="..\..\bin\colorflash.exe"
 				LinkIncremental="1"
 				SuppressStartupBanner="true"
-				AdditionalLibraryDirectories="&quot;C:\Program Files\Cambridge Research Systems\VSGV8\Windows\Win32\MSVC\LIB&quot;;../../alertlib/lib"
+				AdditionalLibraryDirectories="&quot;C:\Program Files\Cambridge Research Systems\VSGV8\Windows\Win32\MSVC\LIB&quot;;../alertlib/lib"
 				ProgramDatabaseFile=".\Release/colorflash.pdb"
 				SubSystem="1"
 				RandomizedBaseAddress="1"
