@@ -9,6 +9,7 @@
 #include <io.h>
 #include <fcntl.h>
 #include <sys/stat.h>
+#include <cmath>
 
 using namespace std;
 using namespace alert;
@@ -771,6 +772,46 @@ int ARRandomGridSpec::drawOverlay()
 	return -1;
 }
 
+
+
+
+int ARChessboardSpec::draw()
+{
+	int status=0;
+	double xbox, ybox, ndiv, ww, hh;
+	VSGTRIVAL from = {0, 0, 0};
+	VSGTRIVAL to = {1, 1, 1};
+
+	// Need to get dx and dy - individual box dimensions
+	ndiv = (double)nr;
+	if (nr<=0) ndiv = 1;
+	ybox = h/ndiv;
+	hh = ybox*ndiv;
+
+	ndiv = (double)nc;
+	if (nc <= 0) ndiv = 1;
+	xbox = w/ndiv;
+	ww = xbox * ndiv;
+
+	select();
+	vsgObjTableSinWave(vsgSWTABLE);
+	vsgObjSetColourVector(&from, &to, vsgBIPOLAR);
+	//vsgObjTableSinWave(vsgTWTABLE);
+	vsgObjTableSquareWave(vsgTWTABLE, (WORD)(vsgObjGetTableSize(vsgTWTABLE)*.25), (WORD)(vsgObjGetTableSize(vsgTWTABLE)*.75));
+	vsgObjSetTemporalFrequency(tf);
+	vsgSetPen1(getFirstLevel());
+	vsgSetPen2(getFirstLevel()+getNumLevels()-1);
+	vsgSetDrawMode(vsgCENTREXY);
+	vsgDrawChessboard(x, -y, ww, hh, xbox, ybox, 0);
+	return 0;
+}
+
+
+int ARChessboardSpec::drawOverlay()
+{
+	cerr << "ARChessboardSpec::drawOverlay() not implemented!" << endl;
+	return -1;
+}
 
 
 
