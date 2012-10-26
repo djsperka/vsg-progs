@@ -9,15 +9,17 @@ using namespace std;
 
 static const int f_nlevels = 20;
 
-#define USE_GRIDS 1
+#undef USE_GRIDS
 
 
 
 
 
-StimSetFGGXDonut::StimSetFGGXDonut(shared_ptr<SSInfo> pssinfo, double xOffset, double yOffset) : StimSetFGGX(pssinfo, xOffset, yOffset)
+StimSetFGGXDonut::StimSetFGGXDonut(shared_ptr<SSInfo> pssinfo, double xOffset, double yOffset) 
+: StimSetFGGX(pssinfo, xOffset, yOffset)
 {
  	double x, y;
+	double diam;
 	ARGratingSpec g0 = m_pssinfo->getDonutGrating();
 	m_pssinfo->getDonutXY(0, x, y);
 	g0.x = x;
@@ -27,6 +29,41 @@ StimSetFGGXDonut::StimSetFGGXDonut(shared_ptr<SSInfo> pssinfo, double xOffset, d
 	g0.x = x;
 	g0.y = y;
 	set_grating(g0, xOffset, yOffset);
+
+#if USE_GRIDS
+	m_pssinfo->getCoreXY(0, x, y);
+	m_grid0.x = x;
+	m_grid0.y = y;
+	diam = getGridDiam();
+	m_grid0.w = diam;
+	m_grid0.h = diam;
+	m_grid0.nc = m_grid0.nr = 8;
+
+	m_pssinfo->getCoreXY(1, x, y);
+	m_grid1.x = x;
+	m_grid1.y = y;
+	m_grid1.w = diam;
+	m_grid1.h = diam;
+	m_grid1.nc = m_grid1.nr = 8;
+#else
+	m_pssinfo->getDonutXY(0, x, y);
+	m_cb0.x = x;
+	m_cb0.y = y;
+	diam = getGridDiam();
+	m_cb0.w = diam;
+	m_cb0.h = diam;
+	m_cb0.nc = m_cb0.nr = 8;
+	m_cb0.tf = m_pssinfo->getTFHC();
+
+	m_pssinfo->getDonutXY(1, x, y);
+	m_cb1.x = x;
+	m_cb1.y = y;
+	diam = getGridDiam();
+	m_cb1.w = diam;
+	m_cb1.h = diam;
+	m_cb1.nc = m_cb1.nr = 8;
+	m_cb1.tf = m_pssinfo->getTFHC();
+#endif
 }
 
 void StimSetFGGXDonut::per_trial_predraw_updates()
@@ -53,17 +90,37 @@ int StimSetFGGXDonut::handle_trigger(std::string& s)
 	}
 	else if (s == "S")
 	{
-		grating(0).setContrast(contrast(0));
-		grating(1).setContrast(contrast(1));
 		if (has_fixpt()) fixpt().setContrast(100);
 		if (has_xhair()) xhair().setContrast(100);
 #if USE_GRIDS
 		m_grid0.setContrast(100);
 		m_grid1.setContrast(100);
+#else
+		m_cb0.setContrast(100);
+		m_cb1.setContrast(100);
 #endif
 
+		grating(0).select();
+		grating(0).setContrast(contrast(0));
+		vsgObjResetDriftPhase();
+
+		grating(1).select();
+		grating(1).setContrast(contrast(1));
+		vsgObjResetDriftPhase();
+
+		if (has_fixpt() && m_pssinfo->getUseAnswerPoints())
+		{
+			int cSame, cUp, lr;
+			double tIgnore;
+
+			// Need to know which grating will have the contrast change. That will be grating(1).
+			m_pssinfo->getLR(m_itrial, lr);
+			m_pssinfo->getAnswerPointParameters(cUp, cSame, tIgnore);
+			m_ap0.setContrast(cSame);
+			m_ap1.setContrast(cUp);
+			cout << "Set answer point contrast " << cSame << ", " << cUp << endl;
+		}
 		setup_cycling();
-		//SetEvent(m_event);
 		vsgSetSynchronisedCommand(vsgSYNC_PRESENT, vsgCYCLEPAGEENABLE, 0);
 		status = 1;
 	}
@@ -94,6 +151,8 @@ int StimSetFGGXDonut::handle_trigger(std::string& s)
 void StimSetFGGXDonut::draw_pages(bool bDrawAllPages)
 {
 	int savepage;
+	double x, y;
+	int lr;
 	Stopwatch w;
 	w.split("Start");
 
@@ -124,6 +183,9 @@ void StimSetFGGXDonut::draw_pages(bool bDrawAllPages)
 #if USE_GRIDS
 	m_grid0.setContrast(0);
 	m_grid1.setContrast(0);
+#else
+	m_cb0.setContrast(0);
+	m_cb1.setContrast(0);
 #endif
 
 	w.split("contrast, pretrial done.");
@@ -166,9 +228,15 @@ void StimSetFGGXDonut::draw_pages(bool bDrawAllPages)
 			vsgSetDrawPage(vsgVIDEOPAGE, m_firstgridpage + i, vsgNOCLEAR);
 			m_grid0.draw();
 			m_grid1.draw();
-			vsgPresent();
+			//vsgPresent();
 			w.split("grid page done.");
 		}
+		vsgSetDrawPage(vsgVIDEOPAGE, m_firstgridpage+m_ngridpages, vsgBACKGROUND);
+#else
+		vsgSetDrawPage(vsgVIDEOPAGE, 5, vsgBACKGROUND);
+		m_cb0.draw();
+		m_cb1.draw();
+		vsgSetDrawPage(vsgVIDEOPAGE, 6, vsgBACKGROUND);
 #endif
 	}
 	else
@@ -184,6 +252,44 @@ void StimSetFGGXDonut::draw_pages(bool bDrawAllPages)
 		grating(1).draw();
 		//vsgPresent();
 		w.split("page 4 gratings done.");
+
+#if USE_GRIDS
+		vsgSetDrawPage(vsgVIDEOPAGE, m_firstgridpage+m_ngridpages, vsgBACKGROUND);
+#else
+		vsgSetDrawPage(vsgVIDEOPAGE, 6, vsgBACKGROUND);
+#endif
+
+		if (has_fixpt() && m_pssinfo->getUseAnswerPoints())
+		{
+			// Need to know which grating will have the contrast change. That will be grating(1).
+			m_pssinfo->getLR(m_itrial, lr);
+			if (lr == 0)
+			{
+				// left grating will have contrast change. 
+				m_pssinfo->getDonutXY(0, x, y);
+				m_ap1.x = x;
+				m_ap1.y = y;
+				m_ap1.draw();
+
+				m_pssinfo->getDonutXY(1, x, y);
+				m_ap0.x = x;
+				m_ap0.y = y;
+				m_ap0.draw();
+			}
+			else
+			{
+				m_pssinfo->getDonutXY(0, x, y);
+				m_ap0.x = x;
+				m_ap0.y = y;
+				m_ap0.draw();
+
+				// right grating will have contrast change. 
+				m_pssinfo->getDonutXY(1, x, y);
+				m_ap1.x = x;
+				m_ap1.y = y;
+				m_ap1.draw();
+			}
+		}
 	}
 
 	vsgSetDrawPage(vsgVIDEOPAGE, savepage, vsgNOCLEAR);
@@ -208,27 +314,29 @@ int StimSetFGGXDonut::init(ARvsg& vsg)
 	if (has_fixpt())
 	{
 		fixpt().init(vsg, 2);
+
+		// only allow answer points when you have fixpt
+		if (m_pssinfo->getUseAnswerPoints())
+		{
+			m_ap0.color = m_ap1.color = fixpt().color;
+			m_ap0.d = m_ap1.d = fixpt().d;
+			m_ap0.init(vsg, 2);
+			m_ap1.init(vsg, 2);
+		}
 	}
+
+
 	grating(0).init(vsg, f_nlevels);
 	grating(0).setContrast(0);
 	grating(1).init(vsg, f_nlevels);
 	grating(1).setContrast(0);
 
 #if USE_GRIDS
-	double gDiam = getGridDiam();
-	m_grid0.x = grating(0).x;
-	m_grid0.y = grating(0).y;
-	m_grid0.w = gDiam;
-	m_grid0.h = gDiam;
-	m_grid0.nc = m_grid0.nr = 8;
-	m_grid1.x = grating(1).x;
-	m_grid1.y = grating(1).y;
-	m_grid1.w = gDiam;
-	m_grid1.h = gDiam;
-	m_grid1.nc = m_grid1.nr = 8;
-
 	m_grid0.init(vsg, 3);
 	m_grid1.init(vsg, 3);
+#else
+	m_cb0.init(vsg, 2);
+	m_cb1.init(vsg, 2);
 #endif
 
 	Stopwatch w;

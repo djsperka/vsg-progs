@@ -22,9 +22,12 @@ private:
 	vector<int> m_vecLR;
 	vector<double> m_vecOri;
 	vector<double> m_vecDiam;
-	int m_nHC;			// # hi-contrast grids
+	double m_tfHC;		// temporal freq of hi-contrast grids
 	double m_tHC;		// sec (total) for the grids
-
+	bool m_bUseAnswerPoints;
+	int m_iCUpAnswerPointContrast;
+	int m_iCSameAnswerPointContrast;
+	double m_tAnswerPoint;
 public:
 	SSInfo() {};
 	SSInfo(const SSInfo& ss) : 
@@ -37,15 +40,19 @@ public:
 			m_vecLR(ss.m_vecLR),
 			m_vecOri(ss.m_vecOri),
 			m_vecDiam(ss.m_vecDiam),
-			m_nHC(ss.m_nHC),
-			m_tHC(ss.m_tHC)
+			m_tfHC(ss.m_tfHC),
+			m_tHC(ss.m_tHC),
+			m_bUseAnswerPoints(ss.m_bUseAnswerPoints),
+			m_iCUpAnswerPointContrast(ss.m_iCUpAnswerPointContrast),
+			m_iCSameAnswerPointContrast(ss.m_iCSameAnswerPointContrast),
+			m_tAnswerPoint(ss.m_tAnswerPoint)
 	{
 	};
 	~SSInfo() {};
 	const bool getCoreIsMaster() const { return m_bCoreIsMaster; };
 	const ARGratingSpec& getCoreGrating() const { return m_coreGrating; };
 	const ARGratingSpec& getDonutGrating() const { return m_donutGrating; };
-	const int getNHC() const { return m_nHC; };
+	const double getTFHC() const { return m_tfHC; };
 	const double getTHC() const { return m_tHC; };
 	bool getCoreXY(int i, double& x, double& y) const
 	{
@@ -73,6 +80,15 @@ public:
 	double getT3() const { return m_t3; };
 	int getCBase() const { return m_cbase; };
 	unsigned int getSize() const { return m_vecT1.size(); };
+	bool getUseAnswerPoints() const { return m_bUseAnswerPoints; };
+	void getAnswerPointParameters(int& iCUpContrast, int& iCSameContrast, double& tAnswerPoint)
+	{
+		iCUpContrast = m_iCUpAnswerPointContrast;
+		iCSameContrast = m_iCSameAnswerPointContrast;
+		tAnswerPoint = m_tAnswerPoint;
+		return;
+	};
+
 	bool getT1(int trial, double& t1) const 
 	{
 		bool b = true;
@@ -118,7 +134,10 @@ public:
 		bool b = true;
 		string s;
 		vector<double>vtmp;
+		vector<string>vtokens;
+		unsigned int i;
 		ifstream in(filename.c_str(), ifstream::in);
+
 		if (!in.good()) 
 		{
 			cerr << "Cannot open input file " << filename << endl;
@@ -126,24 +145,131 @@ public:
 		}
 
 		// First line is "master,slave" or "slave,master". I'm just going to look at the first character.
+		// Update: first line will now carry info about answer points. 
+		// master,slave,answer points,100,100,2
+		// That's master-core, slave-donut, use answer points, cUp contrast 100, cSame contrast 100, 2 sec max 
+		// Tokenize with comma delimeter.
+		// Defaults are m,s,no answer points,100,100,5
+		// Can have only m, or m,s 
+		// Third token should be omitted if no answer points, but can be included (anything not starting 
+		// with "a" or "A") if you want to change the final page time. the contrast values will be parsed
+		// in that case but not used. 
 		getline(in, s);
 		if (!in.good())
 		{
 			cerr << "Error in input at first line." << endl;
 			return false;
 		}
-		if (s[0] == 'M' || s[0] == 'm')
+		tokenize(s, vtokens, ",");
+
+		i = 0;
+		ssinfo.m_bUseAnswerPoints = false;
+		ssinfo.m_iCUpAnswerPointContrast = 100;
+		ssinfo.m_iCSameAnswerPointContrast = 100;
+		ssinfo.m_tAnswerPoint = 5;
+		while (i < vtokens.size())
 		{
-			ssinfo.m_bCoreIsMaster = true;
-		}
-		else if (s[0] == 'S' || s[0] == 's')
-		{
-			ssinfo.m_bCoreIsMaster = false;
-		}
-		else
-		{
-			cerr << "Error in input at first line: first line should be \"master,slave\" or \"slave,master\"." << endl;
-			return false;
+			switch (i)
+			{
+			case 0: 
+				{
+					if (vtokens[i][0] == 'M' || vtokens[i][0] == 'm')
+					{
+						ssinfo.m_bCoreIsMaster = true;
+						cerr << "Core is master screen." << endl;
+					}
+					else if (vtokens[i][0] == 'S' || vtokens[i][0] == 's')
+					{
+						ssinfo.m_bCoreIsMaster = false;
+						cerr << "Core is slave screen." << endl;
+					}
+					else
+					{
+						cerr << "Error in input at first line: first line should be \"master,slave\" or \"slave,master\"." << endl;
+						return false;
+					}
+					break;
+				}
+			case 1:
+				{
+					if (vtokens[i][0] == 'M' || vtokens[i][0] == 'm')
+					{
+						if (ssinfo.m_bCoreIsMaster)
+						{
+							cerr << "Error in input at first line: first line should start with \"master,slave\" or \"slave,master\"." << endl;
+							return false;
+						}
+					}
+					else if (vtokens[i][0] == 'S' || vtokens[i][0] == 's')
+					{
+						if (!ssinfo.m_bCoreIsMaster)
+						{
+							cerr << "Error in input at first line: first line should start with \"master,slave\" or \"slave,master\"." << endl;
+							return false;
+						}
+					}
+					else
+					{
+						cerr << "Error in input at first line: first line should start with \"master,slave\" or \"slave,master\"." << endl;
+						return false;
+					}
+					break;
+				}
+			case 2:
+				{
+					if (vtokens[i][0] == 'A' || vtokens[i][0] == 'a')
+					{
+						ssinfo.m_bUseAnswerPoints = true;
+						cerr << "Using answer points. " << endl;
+					}
+					else if (vtokens[i][0] == 'N' || vtokens[i][0] == 'n')
+					{
+						ssinfo.m_bUseAnswerPoints = false;
+					}
+					else
+					{
+						cerr << "Error in input at first line: Third token on first line should be start with A|a|N|n for answer points (or none)" << endl;
+						return false;
+					}
+					break;
+				}
+			case 3:
+				{
+					if (parse_integer(vtokens[i], ssinfo.m_iCUpAnswerPointContrast))
+					{
+						cerr << "Error in input at first line: 4th token should be integer contrast." << endl;
+						return false;
+					}
+					break;
+				}
+			case 4:
+				{
+					if (parse_integer(vtokens[i], ssinfo.m_iCSameAnswerPointContrast))
+					{
+						cerr << "Error in input at first line: 5th token should be integer contrast." << endl;
+						return false;
+					}
+					break;
+				}
+			case 5:
+				{
+					if (parse_double(vtokens[i], ssinfo.m_tAnswerPoint))
+					{
+						cerr << "Error in input at first line: 6th token should be answer point page max time." << endl;
+						return false;
+					}
+					break;
+				}
+			default:
+				{
+					cerr << "Error in input: extra tokens on line 1." << endl;
+					return false;
+					break;
+				}
+			}
+
+			// don't forget to increment i!
+			i++;
 		}
 
 		// second line is core grating template
@@ -182,7 +308,7 @@ public:
 		getline(in, s);
 		if (!in.good() || parse_number_list(s, vtmp) || vtmp.size() != 5)
 		{
-			cerr << "Error in input: expecting 5 comma-separated numbers (t2,t3,cbase,nHC,msHC) on line 6" << endl;
+			cerr << "Error in input: expecting 5 comma-separated numbers (t2,t3,cbase,tfHC,msHC) on line 6" << endl;
 			return false;
 		}
 		else
@@ -190,7 +316,7 @@ public:
 			ssinfo.m_t2 = vtmp[0];
 			ssinfo.m_t3 = vtmp[1];
 			ssinfo.m_cbase = (int)vtmp[2];
-			ssinfo.m_nHC = (int)vtmp[3];
+			ssinfo.m_tfHC = vtmp[3];
 			ssinfo.m_tHC = vtmp[4];
 		}
 
