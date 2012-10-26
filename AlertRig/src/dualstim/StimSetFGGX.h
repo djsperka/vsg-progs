@@ -19,6 +19,10 @@ protected:
 	shared_ptr<SSInfo> m_pssinfo;
 	ARRandomGridSpec m_grid0;
 	ARRandomGridSpec m_grid1;
+	ARContrastFixationPointSpec m_ap0;
+	ARContrastFixationPointSpec m_ap1;
+	ARChessboardSpec m_cb0;
+	ARChessboardSpec m_cb1;
 	//virtual void draw_pages(bool updates_only);
 	virtual void draw_scratch_pages();
 	virtual void copy_scratch_page(int dest);
@@ -37,33 +41,24 @@ public:
 };
 
 
-// s/b StimSetFGGXCore
 class StimSetFGGXCore: public StimSetFGGX
 {
 private:
-//	HANDLE m_thread;
-//	HANDLE m_event;
 	virtual void per_trial_predraw_updates();
 	virtual void draw_pages(bool updates_only);
-//	void do_updates();
 protected:
 public:
 	StimSetFGGXCore(shared_ptr<SSInfo> pssinfo, double xOffset=0.0, double yOffset=0.0);
 	~StimSetFGGXCore() {};
 	virtual int handle_trigger(std::string& s);
-//	static void threadfunc(void *obj);
 	virtual int init(ARvsg& vsg);
 };
 
-// s/b StimSetFGGXDonut
 class StimSetFGGXDonut: public StimSetFGGX
 {
 private:
-//	HANDLE m_thread;
-//	HANDLE m_event;
 	virtual void per_trial_predraw_updates();
 protected:
-//	void threadfunc(void *obj);
 	virtual void draw_pages(bool updates_only);
 public:
 	StimSetFGGXDonut(shared_ptr<SSInfo> pssinfo, double xOffset=0.0, double yOffset=0.0);

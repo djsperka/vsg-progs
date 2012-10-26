@@ -9,37 +9,20 @@ using namespace std;
 
 static const int f_nlevels = 20;
 
-#define USE_GRIDS 1
+#undef USE_GRIDS
 
 
-
-StimSetFGGXCore::StimSetFGGXCore(shared_ptr<SSInfo> pssinfo, double xOffset, double yOffset) : StimSetFGGX(pssinfo, xOffset, yOffset)
+StimSetFGGXCore::StimSetFGGXCore(shared_ptr<SSInfo> pssinfo, double xOffset, double yOffset) 
+: StimSetFGGX(pssinfo, xOffset, yOffset)
 {
  	double x, y;
 	double diam;
 	ARGratingSpec g0 = m_pssinfo->getCoreGrating();
 	ARGratingSpec g1 = m_pssinfo->getCoreGrating();
-	/*
-	ARGratingSpec g2 = m_pssinfo->getCoreGrating();
-	ARGratingSpec g3 = m_pssinfo->getCoreGrating();
-	m_pssinfo->getCoreXY(0, x, y);
-	g0.x = x;
-	g0.y = y;
-	m_pssinfo->getCoreXY(1, x, y);
-	g1.x = x;
-	g1.y = y;
-	m_pssinfo->getCoreXY(0, x, y);
-	g2.x = x;
-	g2.y = y;
-	m_pssinfo->getCoreXY(1, x, y);
-	g3.x = x;
-	g3.y = y;
-	set_grating(g2, xOffset, yOffset);
-	set_grating(g3, xOffset, yOffset);
-	*/
 	set_grating(g0, xOffset, yOffset);
 	set_grating(g1, xOffset, yOffset);
 
+#if USE_GRIDS
 	m_pssinfo->getCoreXY(0, x, y);
 	m_grid0.x = x;
 	m_grid0.y = y;
@@ -54,17 +37,25 @@ StimSetFGGXCore::StimSetFGGXCore(shared_ptr<SSInfo> pssinfo, double xOffset, dou
 	m_grid1.w = diam;
 	m_grid1.h = diam;
 	m_grid1.nc = m_grid1.nr = 8;
+#else
+	m_pssinfo->getCoreXY(0, x, y);
+	m_cb0.x = x;
+	m_cb0.y = y;
+	diam = getGridDiam();
+	m_cb0.w = diam;
+	m_cb0.h = diam;
+	m_cb0.nc = m_cb0.nr = 8;
+	m_cb0.tf = m_pssinfo->getTFHC();
 
-	// create event object
-	//m_event = CreateEvent(	NULL, 
-	//						FALSE,	// auto-reset; resets to nonsignaled after waiting thread is released
-	//						FALSE,	// non-signaled initial state
-	//						NULL);
-
-	// Start thread. The thread will block on the event above - which indicates "start dot updates". 
-	// A bool var will tell the thread to stop and resume waiting on the event.
-	//m_thread = (HANDLE)_beginthread(StimSetFGGXCore::threadfunc, 0, this);
-
+	m_pssinfo->getCoreXY(1, x, y);
+	m_cb1.x = x;
+	m_cb1.y = y;
+	diam = getGridDiam();
+	m_cb1.w = diam;
+	m_cb1.h = diam;
+	m_cb1.nc = m_cb1.nr = 8;
+	m_cb1.tf = m_pssinfo->getTFHC();
+#endif
 }
 
 
@@ -90,6 +81,15 @@ int StimSetFGGXCore::init(ARvsg& vsg)
 	if (has_fixpt())
 	{
 		fixpt().init(vsg, 2);
+
+		// only allow answer points when you have fixpt
+		if (m_pssinfo->getUseAnswerPoints())
+		{
+			m_ap0.color = m_ap1.color = fixpt().color;
+			m_ap0.d = m_ap1.d = fixpt().d;
+			m_ap0.init(vsg, 2);
+			m_ap1.init(vsg, 2);
+		}
 	}
 	grating(0).init(vsg, f_nlevels);
 	grating(1).init(vsg, f_nlevels);
@@ -97,6 +97,9 @@ int StimSetFGGXCore::init(ARvsg& vsg)
 #if USE_GRIDS
 	m_grid0.init(vsg, 3);
 	m_grid1.init(vsg, 3);
+#else
+	m_cb0.init(vsg, 2);
+	m_cb1.init(vsg, 2);
 #endif
 
 	Stopwatch w;
@@ -137,9 +140,9 @@ void StimSetFGGXCore::draw_pages(bool bDrawAllPages)
 	// page 2: xhair and fixpt
 	// page 3: xhair, fixpt, gratings 0 and 1
 	// page 4: xhair, fixpt, gratings 2 and 3
-	// page 5: xhair, fixpt, plaid#1
-	// page 6: xhair, fixpt, plaid#2
-	// page 7: xhair, fixpt, plaid#3
+	// page 5: this is m_firstGridPage
+	// page 5 - m_firstGridPage+m_nGridPages-1 - plaids
+	// page m_firstGridPage+m_nGridPages - blank or answer points
 
 	// Set all contrasts to 0 while we draw to prevent flashing them 
 	if (has_xhair())
@@ -151,6 +154,9 @@ void StimSetFGGXCore::draw_pages(bool bDrawAllPages)
 #if USE_GRIDS
 	m_grid0.setContrast(0);
 	m_grid1.setContrast(0);
+#else
+	m_cb0.setContrast(0);
+	m_cb1.setContrast(0);
 #endif
 
 	w.split("contrast, pretrial done.");
@@ -228,7 +234,45 @@ void StimSetFGGXCore::draw_pages(bool bDrawAllPages)
 			//vsgPresent();
 			w.split("grid page done.");
 		}
+		vsgSetDrawPage(vsgVIDEOPAGE, m_firstgridpage+m_ngridpages, vsgBACKGROUND);
+#else
+		vsgSetDrawPage(vsgVIDEOPAGE, 5, vsgBACKGROUND);
+		m_cb0.draw();
+		m_cb1.draw();
+		vsgSetDrawPage(vsgVIDEOPAGE, 6, vsgBACKGROUND);
 #endif
+
+		if (has_fixpt() && m_pssinfo->getUseAnswerPoints())
+		{
+			// Need to know which grating will have the contrast change. That will be grating(1).
+			m_pssinfo->getLR(m_itrial, lr);
+			if (lr == 0)
+			{
+				// left grating will have contrast change. 
+				m_pssinfo->getCoreXY(0, x, y);
+				m_ap1.x = x;
+				m_ap1.y = y;
+				m_ap1.draw();
+
+				m_pssinfo->getCoreXY(1, x, y);
+				m_ap0.x = x;
+				m_ap0.y = y;
+				m_ap0.draw();
+			}
+			else
+			{
+				m_pssinfo->getCoreXY(0, x, y);
+				m_ap0.x = x;
+				m_ap0.y = y;
+				m_ap0.draw();
+
+				// right grating will have contrast change. 
+				m_pssinfo->getCoreXY(1, x, y);
+				m_ap1.x = x;
+				m_ap1.y = y;
+				m_ap1.draw();
+			}
+		}
 	}
 	else
 	{
@@ -276,6 +320,44 @@ void StimSetFGGXCore::draw_pages(bool bDrawAllPages)
 		}
 		//vsgPresent();
 		w.split("page 4 gratings done.");
+
+#if USE_GRIDS
+		vsgSetDrawPage(vsgVIDEOPAGE, m_firstgridpage+m_ngridpages, vsgBACKGROUND);
+#else
+		vsgSetDrawPage(vsgVIDEOPAGE, 6, vsgBACKGROUND);
+#endif
+
+		if (has_fixpt() && m_pssinfo->getUseAnswerPoints())
+		{
+			// Need to know which grating will have the contrast change. That will be grating(1).
+			m_pssinfo->getLR(m_itrial, lr);
+			if (lr == 0)
+			{
+				// left grating will have contrast change. 
+				m_pssinfo->getCoreXY(0, x, y);
+				m_ap1.x = x;
+				m_ap1.y = y;
+				m_ap1.draw();
+
+				m_pssinfo->getCoreXY(1, x, y);
+				m_ap0.x = x;
+				m_ap0.y = y;
+				m_ap0.draw();
+			}
+			else
+			{
+				m_pssinfo->getCoreXY(0, x, y);
+				m_ap0.x = x;
+				m_ap0.y = y;
+				m_ap0.draw();
+
+				// right grating will have contrast change. 
+				m_pssinfo->getCoreXY(1, x, y);
+				m_ap1.x = x;
+				m_ap1.y = y;
+				m_ap1.draw();
+			}
+		}
 	}
 
 	vsgSetDrawPage(vsgVIDEOPAGE, savepage, vsgNOCLEAR);
@@ -317,6 +399,9 @@ int StimSetFGGXCore::handle_trigger(std::string& s)
 #if USE_GRIDS
 		m_grid0.setContrast(100);
 		m_grid1.setContrast(100);
+#else
+		m_cb0.setContrast(100);
+		m_cb1.setContrast(100);
 #endif
 
 		grating(0).select();
@@ -326,6 +411,19 @@ int StimSetFGGXCore::handle_trigger(std::string& s)
 		grating(1).select();
 		vsgObjResetDriftPhase();
 		grating(1).setContrast(cup);
+
+		if (has_fixpt() && m_pssinfo->getUseAnswerPoints())
+		{
+			int cSame, cUp;
+			double tIgnore;
+
+			// Need to know which grating will have the contrast change. That will be grating(1).
+			m_pssinfo->getLR(m_itrial, lr);
+			m_pssinfo->getAnswerPointParameters(cUp, cSame, tIgnore);
+			m_ap0.setContrast(cSame);
+			m_ap1.setContrast(cUp);
+			cout << "Set answer point contrast " << cSame << ", " << cUp << endl;
+		}
 
 		setup_cycling();
 		vsgSetSynchronisedCommand(vsgSYNC_PRESENT, vsgCYCLEPAGEENABLE, 0);
@@ -371,6 +469,9 @@ int StimSetFGGXCore::handle_trigger(std::string& s)
 #if USE_GRIDS
 			m_grid0.setContrast(100);
 			m_grid1.setContrast(100);
+#else
+			m_cb0.setContrast(100);
+			m_cb1.setContrast(100);
 #endif
 
 			vsgSetDrawPage(vsgVIDEOPAGE, ipage, vsgNOCLEAR);
