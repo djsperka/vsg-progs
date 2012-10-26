@@ -162,6 +162,11 @@ Input values are comma-separated on each line. No comment lines or blank lines a
 
 Line 1: Begins with the word "master" or "slave". This indicates which screen will have
 the grating "core" stimulus (which follows on line 2). 
+UPDATE: This line now contains additional parameters if using answer points. 
+The third token should be "answerpoints", or anything that begins with "a". 
+The fourth and fifth tokens are the contrast for the "correct" answer point and the
+"incorrect" answer point, respectively. The sixth token is the max time the 
+answer points are on screen before the animation is ended.
 
 Line 2: Grating "core" stimulus spec. The position and contrast are ignored.
 
@@ -171,12 +176,13 @@ Line 4: Grating "donut" spec. The position, contrast and od are ignored.
 
 Line 5: x0,y0,x1,y1 - position of the two donut grids (degrees). Can be diff't than "core".
 
-Line 6: t2,t3,cbase,nHC,tHC
+UPDATE:
+Line 6: t2,t3,cbase,tf-Chessboard,tChessboard
         t2 = time from grating onset to contrast change
-		t3 = time from grating contrast change to gratings off and HC grids appear
-		cbase = base contrast of "core" and "donut" gratings
-		nHC = number of Hi-Contrast grids to be flashed after contrast change
-		tHC = sec (total) the Hi-Contrast grids are on screen. Each grid: tHC/nHC
+	t3 = time from grating contrast change to gratings off and HC grids appear
+	cbase = base contrast of "core" and "donut" gratings
+	tfChessboard = Temporal freq of chessboard contrast change
+	tChessboard = sec (total) the chessboard is on screen
 		
 		
 
