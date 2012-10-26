@@ -335,7 +335,7 @@ func DonutHuntMainDialog%()
     DlgReal(5,6,0,10,52,6);  'Post-contrast change time
     DlgText("Post-change time (sec)",31,6);
     DlgReal(6,6,0,100,23,7);  'Number of grids per second
-    DlgText("Masker temporal frequency",2,7);
+    DlgText("Masker temp. freq. (Hz)",2,7);
     DlgReal(7,6,0,10,52,7);  'Total grid duration
     DlgText("Total mask dur. (sec)",31,7);
     
@@ -397,15 +397,15 @@ func DonutHuntMainDialogChanged%(item%)
     'endif;  
     if DlgValue(6) = 0 then
         'DlgEnable(1,-1);  'enable "OK" if curve has been selected
-        DlgEnable(0,7);   'Disable CRG stuff
-        DlgEnable(0,8);   
-        DlgEnable(0,9);  
+        DlgEnable(0,8);   'Disable CRG stuff
+        DlgEnable(0,9);   
+        DlgEnable(0,10);  
         DlgEnable(0,-dhSelectSEQFileButton%);
     else
         'DlgEnable(0,-1);  'Otherwise disable "OK"
-        DlgEnable(1,7);   'Enable CRG stuff
-        DlgEnable(1,8);   
-        DlgEnable(1,9);
+        DlgEnable(1,8);   'Enable CRG stuff
+        DlgEnable(1,9);   
+        DlgEnable(1,10);
         DlgEnable(1,-dhSelectSEQFileButton%);
     endif;
     
