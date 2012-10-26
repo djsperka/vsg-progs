@@ -1,6 +1,6 @@
 
 
-const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.37 2012-09-28 18:44:09 jeff Exp $";
+const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.38 2012-10-26 22:34:39 jeff Exp $";
 
 
 ' Hello again
@@ -64,7 +64,8 @@ var iMonitorChannel%;	' channel number for monitor position display in xy window
 
 ' Display stuff
 var FixWindowX[36],FixWindowY[36];	' points for displaying fixation window in xy view
-var windowX[36], windowY[36];
+var Choice1WindowX[36], Choice1WindowY[36];
+var Choice2WindowX[36], Choice2WindowY[36];
 
 ' dummy vars
 var iScript%;
@@ -96,9 +97,15 @@ var tStimSequence := -1;    ' time that stim sequence started; followed by pulse
 var tInterTrialTime := 0.2;	' Time spent waiting between trials (i.e. after screen is blank, but before fix point is presented) 
 var tRise, tFall;
 var tKludge := 0.06;    ' Add to Fixation time to account for stim sequence. Ugly hack, admittedly, but one does what one must. 
+
+' Eye position stuff
 var xEye, yEye;		' eye positions
 var advanceStim% := 0;
 var JuiceRewardMS;    'float version for math
+var CorrX;            'location of correct, incorrect responses
+var CorrY;
+var WrongX;
+var WrongY;
 
 
 ' Values for the "tuning curve"
@@ -146,6 +153,7 @@ const stateHoldFixationToContrastChange%:=23;  'holding fixation through contras
 const stateHoldFixationToStimOffset%:=24;  'holding fixation point to end of stimulus
 const stateReward%:=25;              'rewarding animal
 const stateWaitJoystickResponse%:=26;  'waiting for joystick response
+const stateWaitSaccadeResponse%:=27;   'waiting for saccade response
 
 const nMaskTriggers% := 4;
 var nMaskTriggersFound%;
@@ -480,12 +488,21 @@ proc InitializeWindows()
         XYColour(1,16);
         XYSize(1,-1);
     
-        'Calcuate the fixation window
+        'Calcuate the fixation window, and choice windows if appropriate
         for index% := 0 to 35 do
             FixWindowX[index%] := FixationX + WindowRadius * Cos(index% * twopi/36.0);
             FixWindowY[index%] := FixationY + WindowRadius * Sin(index% * twopi/36.0);
+            'note that since this is done at the very beginning, we don't know which window is the target window on any given trial, so the two are identical 
+            if dhUseJoystick% > 1 then
+                Choice1WindowX[index%] := dhXOffset + dhChoicePointRadius * Cos(index% * twopi/36.0);
+                Choice1WindowY[index%] := dhYOffset + dhChoicePointRadius * Sin(index% * twopi/36.0);
+                Choice2WindowX[index%] := -dhXOffset + dhChoicePointRadius * Cos(index% * twopi/36.0);
+                Choice2WindowY[index%] := dhYOffset + dhChoicePointRadius * Sin(index% * twopi/36.0);
+            endif;
         next;
-
+        
+     
+        
         'Create a new channel in the XY view to display the fixation window
         iStimWindowChannel% := XYSetChan(0);
         XYColour(2,13);
@@ -493,6 +510,11 @@ proc InitializeWindows()
         XYJoin(2,1);
         'Draw the fixation window
         XYAddData(2, FixWindowX[], FixWindowY[]);
+        if dhUseJoystick% > 1 then
+            XYAddData(2,Choice1WindowX[], Choice1WindowY[]);
+            XYAddData(2,Choice2WindowX[], Choice2WindowY[]);
+        endif;
+        
 
         'Create a new channel in the XY view to display the fixation point
         iStimChannel% := XYSetChan(0);
@@ -632,6 +654,9 @@ func Start%()
     var donutParam$;
     var coreScreen$;
     var donutScreen$;
+    var correctContrast%;
+    var wrongContrast%;
+    var maximumChoicePointDur := 100;  '100 seconds
     
 	
 	SampleStart(0); 'Start sampling
@@ -650,23 +675,37 @@ func Start%()
 	' write info
     coreParam$ := GetGratingParameters$("Core");  'this grabs core 
     donutParam$ := GetGratingParameters$("Donut");  'this grabs donut
+    
+    'Assign master and slave screens
     if dhShowDonutOnMaster% = 1 then
-        'donutScreen$ := "M";  'now, we need to know which line to put these on, and whether "M"/"S" is the correct spec
-        'coreScreen$ := "S";  'but fundamentally those two questions answered ought to do it.
         donutScreen$ := "Master";
         coreScreen$ := "Slave";
     else
-        'coreScreen$ := "M";
-        'donutScreen$ := "S";
         coreScreen$ := "Master";
         donutScreen$ := "Slave";
     endif;
-    Print("%s,%s\n",coreScreen$,donutScreen$);  'Specifies which item is on which screen (hopefully syntax is right)
+    
+    'determine how to do the contrast of the choice points
+    docase
+    case dhUseJoystick% < 2 then
+        correctContrast% := 0;
+        wrongContrast% := 0;
+    case dhUseJoystick% = 2 then
+        correctContrast% := 100;
+        wrongContrast% := 100;
+    case dhUseJoystick% = 3 then
+        correctContrast% := 100;
+        wrongContrast% := 0;
+    endcase
+    
+    Print("%s,%s",coreScreen$,donutScreen$);  'Specifies which item is on which screen (hopefully syntax is right)
+    Print("answerpoints,%d,%d,%f\n",correctContrast%,wrongContrast%,maximumChoicePointDur); 'line 1 continued, choice point info
     Print("%s\n",coreParam$);  'core-stim-spec
     Print("%f,%f,%f,%f\n",-dhXOffset,dhYOffset,dhXOffset,dhYOffset);  'xL,yL,xR,yR master
     Print("%s\n",donutParam$);  'donut-stim-spec
     Print("%f,%f,%f,%f\n",-dhXOffset,dhYOffset,dhXOffset,dhYOffset);  'xL,yL,xR,yR slave, same as master            
-    Print("%f,%f,%f,%f,%f\n",dhDelayBeforeDContrast,dhDurAfterDContrast,dhCoreContrast,dhNGrids%,dhGridDur);  't2,t3,contrast_base, number of grids, grid duration    t2,t3 gridDur in s
+    'Print("%f,%f,%f,%f,%f\n",dhDelayBeforeDContrast,dhDurAfterDContrast,dhCoreContrast,dhNGrids%,dhGridDur);  't2,t3,contrast_base, number of grids, grid duration    t2,t3 gridDur in s
+    Print("%f,%f,%f,%f,%f\n",dhDelayBeforeDContrast,dhDurAfterDContrast,dhCoreContrast,dhGridTF,dhGridDur);  't2,t3,contrast_base, grid temporal frequency, grid total duration    t2,t3 gridDur in s
     Print("%s\n",dhT1ValuesStringified$); 't1_0,t1_1,t1_2,...           per-trial t1 values in seconds
     Print("%s\n",dhdContrastValuesStringified$);  'Cup_0,Cup_1,....           per-trial contrast-up values
     Print("%s\n",dhLRValuesStringified$);  'LR_0,LR_1,...               per-trial values for which stim on master screen changes contrast. 0(1) = Left(Right)
@@ -930,6 +969,7 @@ func IdleProcessing%()
     var tTemp;
     var joystickPosition%;
     var joystickVoltage;
+    var saccadeResp%;
     
     'if no time has passed, wait 1 ms and try again
 	tTemp := View(DataWindow%).MaxTime();
@@ -1031,7 +1071,7 @@ func IdleProcessing%()
         
         
     'monkey logic    
-    case iState% = stateMonkeyITI% then 
+    case iState% = stateMonkeyITI% then   'this is ONLY for checking joystick position, eye position is checked later
         if joystickPosition% = JSCenter% or dhUseJoystick% = 0 then 'don't let the monkey start until the joystick is in the center
             if tNow - tStateStart > tInterTrialTime then
                 ChangeStateTo(stateXHairUp%, tNow); 'return to combined logic
@@ -1150,7 +1190,7 @@ func IdleProcessing%()
     'monkey logic    
     case iState% = stateWaitForAcquisition% then
         ' Waiting for eye to fall inside of fixation window
-        if Looking%(xEye, yEye) = 1 and (joystickPosition% = JSCenter% or dhUseJoystick% = 0) then
+        if Looking%(xEye, yEye) = 1 and (joystickPosition% = JSCenter% or dhUseJoystick% <> 1) then
             LogStatus("WaitForAcquisition", "Eye in fixation window; Joystick OK; request stim");            
             SafeSampleKey("S");
             ChangeStateTo(stateWaitOnsetTrigger%, tNow);  'jump to combined logic
@@ -1297,7 +1337,7 @@ func IdleProcessing%()
         case buttonError% = -1 then
             printlog("Error in button while waiting for response-release!\n");
             buttonError% := 0;  'erase button error
-            ChangeStateTo(stateCheckStimOff%, tNow);  'make sure stimulus is off
+            ChangeStateTo(stateCheckStimOff%, tNow);  'make sure stimulus is off, combined logic
             FlushButton(tButtonStart,tNow,buttonStatus%,buttonTime);  'after flushing button
         endcase
         
@@ -1348,26 +1388,44 @@ func IdleProcessing%()
             pulseFound% := View(DataWindow%).FindPulseUp%(FrameChannel%, tLastTrigger, tRise, tFall);
             if pulseFound% = 1 then
                 nMaskTriggersFound% += 1; 
-                tLastTrigger := tFall;  
-                SampleText("M" + Str$(nMaskTriggersFound%),tRise);  'don't really need to indicate the trial type
-                LogStatus("Mask", "Mask " + Str$(nMaskTriggersFound%) + " occured at " + str$(tRise));
-            endif;
-            if nMaskTriggersFound% = nMaskTriggers% then
-                nMaskTriggersFound% := 0;
-                'move forward
-                SafeSampleKey("X");  'Removes XHair, do this BEFORE advancing stimulus!
-                advanceStim% := 1;  'advance stimulus in the future
-                if dhUseJoystick% = 0 then
-                    MonkeySuccess% := 1;  'this trial was correct, only fixation required
-                    nTrialsCompleted% += 1;
-                    ChangeStateTo(stateCheckStimOff%, tNow); 'jump to combined logic
-                else
-                    ChangeStateTo(stateWaitJoystickResponse%, tNow); 'move to state checking for response
+                tLastTrigger := tFall;
+                if nMaskTriggersFound% <= nMaskTriggers% then  'don't call the final screen a mask
+                    SampleText("M" + Str$(nMaskTriggersFound%),tRise);  'don't really need to indicate the trial type
+                    LogStatus("Mask", "Mask " + Str$(nMaskTriggersFound%) + " occured at " + str$(tRise));
                 endif;
             endif;
+            if nMaskTriggersFound% = nMaskTriggers%+1 then  'Note that with the change to add saccade responses
+                                                            'the XHair goes blank here but the stimulus continues
+                                                            'with a blank screen (or choice points) and we still
+                                                            'have to turn it off
+                nMaskTriggersFound% := 0;  'reset
+                advanceStim% := 1;  'note to advance stimulus in the future
+                
+                'Where do we go from here?  Which is the way that's clear?
+                docase
+                case dhUseJoystick% = 0 then  'no response required
+                    SampleText("Off" + Str$(nMaskTriggersFound%),tRise);  'tRise will carry over from most recent FindPulseUp% call
+                    LogStatus("XHair Off", "XHair Off " + Str$(nMaskTriggersFound%) + " occured at " + str$(tRise));
+                    MonkeySuccess% := 1;  'this trial was correct, only fixation required
+                    nTrialsCompleted% += 1;
+                    SafeSampleKey("X");  'Turns off blank page, do this BEFORE advancing stimulus!
+                    ChangeStateTo(stateCheckStimOff%, tNow); 'jump to combined logic
+                case dhUseJoystick% = 1 then  'use joystick for response
+                    SampleText("Off" + Str$(nMaskTriggersFound%),tRise);  'tRise will carry over from most recent FindPulseUp% call
+                    LogStatus("XHair Off", "XHair Off " + Str$(nMaskTriggersFound%) + " occured at " + str$(tRise));
+                    SafeSampleKey("X");  'Turns off blank page, do this BEFORE advancing stimulus!
+                    ChangeStateTo(stateWaitJoystickResponse%, tNow); 'move to state checking for response
+                case dhUseJoystick% > 1 then  'use saccade for response
+                    SampleText("CP" + Str$(nMaskTriggersFound%),tRise);  'tRise will carry over from most recent FindPulseUp% call
+                    LogStatus("Choice Points", "Choice Points " + Str$(nMaskTriggersFound%) + " up at " + str$(tRise));
+                    'wait to do SafeSampleKey("X")
+                    ChangeStateTo(stateWaitSaccadeResponse%, tNow);
+                endcase;
+            endif;
         endcase;
-            
-            
+        
+        
+    'monkey logic        
     case iState% = stateWaitJoystickResponse% then
         docase
         case joystickPosition% <> JSCenter% then
@@ -1390,7 +1448,51 @@ func IdleProcessing%()
             MonkeySuccess% := 0;
             ChangeStateTo(stateCheckStimOff%, tNow); 'jump to combined logic (no response window timeout penalty implemented)
         endcase;
-                    
+        
+        
+    'monkey logic
+    case iState% = stateWaitSaccadeResponse% then
+        'assign CorrX, etc.
+        'Note that the YOffset is always the same for L and R, and therefore there is no difference between correct and
+        'incorrect YOffsets.  This will need to be changed if YOffset may vary for L and R in the future.
+        if GetLR(nTrialsCompleted%) = 0 then 'right stimulus
+            CorrX := dhXOffset;
+            CorrY := dhYOffset;
+            WrongX := -dhXOffset;
+            WrongY := dhYOffset;
+        else  'left stimulus
+            CorrX := -dhXOffset;
+            CorrY := dhYOffset;
+            WrongX := dhXOffset;
+            WrongY := dhYOffset;
+        endif;
+        'if doing training, "remove" incorrect response location
+        if dhUseJoystick% = 3 then
+            WrongX := 999999999;  'Yeah, it's not going to get there.
+            WrongY := 999999999;
+        endif;
+        'Check for response
+        saccadeResp% := SaccadeResponse%(xEye,yEye,CorrX,CorrY,WrongX,WrongY);
+        docase
+        case saccadeResp% = 1 then 'correct response
+            MonkeySuccess% := 1;
+            nTrialsCompleted% += 1;
+            SafeSampleKey("X");  'Removes choice points, do this BEFORE advancing stimulus!
+            ChangeStateTo(stateCheckStimOff%, tNow); 'jump to combined logic
+        case saccadeResp% = -1 then 'incorrect response
+            MonkeySuccess% := 0;
+            nTrialsCompleted% += 1;
+            SafeSampleKey("X");  'Removes choice points, do this BEFORE advancing stimulus!
+            ChangeStateTo(stateCheckStimOff%, tNow); 'jump to combined logic
+        case tNow > tStateStart + dhResponseWindow then
+            LogStatus("WaitSaccadeResponse", "No response after response window closed at " + str$(tNow) + "\n");
+            'nTrialsCompleted% += 1;  'do not advance
+            advanceStim% := 0;  'undo our call to advance stimulus.  Will use same stimulus if no response
+            MonkeySuccess% := 0;
+            SafeSampleKey("X");  'Removes choice points (in case they aren't off), do this BEFORE advancing stimulus!
+            ChangeStateTo(stateCheckStimOff%, tNow); 'jump to combined logic (no response window timeout penalty implemented)
+        endcase;
+        
             
     'combined logic            
     case iState% = stateCheckStimOff% then
@@ -1828,6 +1930,22 @@ func Looking%(EyePosX,EyePosY)
         return 1; 
     endif;
 	if (Pow(EyePosX-FixationX,2) + Pow(EyePosY-FixationY,2)) <= Pow(WindowRadius,2) then return 1; else return 0; endif
+end;
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func SaccadeResponse%(EyePosX,EyePosY,CorrX,CorrY,WrongX,WrongY)
+	'Determine if the eye position is within one of two possible response window
+    if dhIsHuman% = 1 or alwaysLooking% = 1 then 
+        return 1; 
+    endif;
+    docase
+	case (Pow(EyePosX-CorrX,2) + Pow(EyePosY-CorrY,2)) <= Pow(dhChoicePointRadius,2) then 
+        return 1;  'wrong
+    case (Pow(EyePosX-WrongX,2) + Pow(EyePosY-WrongY,2)) <= Pow(dhChoicePointRadius,2) then
+        return -1;  'wrong
+    else
+        return 0;  'no response
+    endcase
 end;
 
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
