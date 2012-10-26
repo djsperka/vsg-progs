@@ -340,9 +340,25 @@ namespace alert
 		double x, y;	// Center
 		double w, h;	// width, height
 		int nr, nc;		// number of rows, columns
+		double tf;
 		virtual int draw();
 		virtual int drawOverlay();
 	};
+
+	// alternating chessboard spec
+	class ARChessboardSpec: public ARSpec
+	{
+	public:
+		ARChessboardSpec(): nr(8), nc(8), tf(1.0) {};
+		~ARChessboardSpec() {};
+		double x, y;	// Center
+		double w, h;	// width, height
+		int nr, nc;		// number of rows, columns
+		double tf;
+		virtual int draw();
+		virtual int drawOverlay();
+	};
+
 
 	// Fixation Point Spec
 
