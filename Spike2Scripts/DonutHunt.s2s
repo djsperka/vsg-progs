@@ -1,6 +1,6 @@
 
 
-const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.41 2012-10-30 22:03:17 jeff Exp $";
+const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.42 2012-10-30 22:25:42 jeff Exp $";
 
 
 ' Hello again
@@ -1072,7 +1072,7 @@ func IdleProcessing%()
         
     'monkey logic    
     case iState% = stateMonkeyITI% then   'this is ONLY for checking joystick position, eye position is checked later
-        if joystickPosition% = JSCenter% or dhUseJoystick% = 0 then 'don't let the monkey start until the joystick is in the center
+        if joystickPosition% = JSCenter% or dhUseJoystick% <> 1 then 'don't let the monkey start until the joystick is in the center
             if tNow - tStateStart > tInterTrialTime then
                 ChangeStateTo(stateXHairUp%, tNow); 'return to combined logic
             endif;            
