@@ -355,12 +355,18 @@ func DonutHuntMainDialog%()
     ' If user hit OK then save parameters (and return 1). 
 	if i% = 1 then
         
+        if dhUseJoystick% > 1 and (Pow(FixationX-dhXOffset,2) + Pow(FixationY-dhYOffset,2)) <= Pow(dhChoicePointRadius+WindowRadius,2) then
+            message("Error!  The fixation window and the response windows overlap!  Quitting!");
+            status% := 0; 'and get out if this happens
+        endif;
+        
         'Save parameters
         SaveDonutHuntMainParameters();   
-        
+
         'printlog("%s\n",dhCRGFilename$);
         
         status% := 1;
+
     else
         status% := 0;
     endif
