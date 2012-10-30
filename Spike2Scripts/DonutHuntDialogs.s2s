@@ -33,7 +33,7 @@ var dhNRepeatsPerCRG%;
 var dhNFramesPerTurn%;
 var dhCRGFilename$;
 var dhShowDonutOnMaster%;
-var dhGridTF; 
+var dhNGrids%; 
 var dhGridDur; 
 
 'Grating dialog variables
@@ -70,7 +70,6 @@ var dhXHairTicOuterOffset;
 'Fixation variables
 var dhIsHuman%; ' If set eye signals ignored - subject presumed to be looking always.
 var dhUseJoystick%;  ' If 1 AND dhIsHuman% = 0, then joystick response is expected, ignored if dhIsHuman% is 0
-                     ' If 2 or 3 AND dhIsHuman% = 0, then saccade response is expected (3 is training, only target response allowed)
 var dhUseMaintainMode%;  ' If 1, maintain fixation point on screen through stimuli, if zero, force "restart" on each stimulus
 var dhMaintainFixation;	' Time required to hold fixation for reward (stim OFF)
 var dhAcquisitionTime;		' Time allowed to acquire fixation
@@ -79,11 +78,6 @@ var dhHoldFailTime;			' Wait time after failure to hold fixation (not on the fir
 var dhMaintainFailTime;	' Wait time after breaking fixation during maintain phase
 var dhResponseWindow;
 var alwaysLooking% := 0;
-
-'Choice Point variables
-var dhTargChoicePointContrast% := 100;  'for now these are hardcoded to 100, but they can easily be put into a
-var dhNontargChoicePointContrast% := 100;  'dialog and changed if necessary
-var dhChoicePointRadius := 1;  'hard code the radius to be 1 degree, not expected to be changed
 
 
 proc GetDonutHuntMainParameters()
@@ -100,7 +94,7 @@ proc GetDonutHuntMainParameters()
     dhNFramesPerTurn% := GetIntRegistryValue%(key$, "NFramesPerTurn", dhNFramesPerTurn%);
     dhCRGFilename$ := GetStringRegistryValue$(key$, "CRGFilename", dhCRGFilename$);
     dhShowDonutOnMaster% := GetIntRegistryValue%(key$, "ShowDonutOnMaster", dhShowDonutOnMaster%);
-    dhGridTF := GetIntRegistryValue%(key$, "GridTF", dhGridTF);
+    dhNGrids% := GetIntRegistryValue%(key$, "NGrids", dhNGrids%);
     dhGridDur := GetFloatRegistryValue(key$, "GridDur", dhGridDur);
     dhUseJoystick% := GetIntRegistryValue%(key$, "UseJoystick", dhUseJoystick%);
     dhResponseWindow := GetFloatRegistryValue(key$, "ResponseWindow", dhResponseWindow);
@@ -121,7 +115,7 @@ proc SaveDonutHuntMainParameters()
     SetIntRegistryValue(key$, "NFramesPerTurn", dhNFramesPerTurn%);
     SetStringRegistryValue(key$, "CRGFilename", dhCRGFilename$);
     SetIntRegistryValue(key$, "ShowDonutOnMaster", dhShowDonutOnMaster%);
-    SetIntRegistryValue(key$, "GridTF", dhGridTF);
+    SetIntRegistryValue(key$, "NGrids", dhNGrids%);
     SetFloatRegistryValue(key$, "GridDur", dhGridDur);
     SetIntRegistryValue(key$, "UseJoystick", dhUseJoystick%);
     SetFloatRegistryValue(key$, "ResponseWindow", dhResponseWindow);
@@ -294,13 +288,8 @@ func DonutHuntMainDialog%()
     var i%;
     var status% := 0;  
     var j%;
-    var dhResponseList$[4];
 
-    ' Set dhResponseList$[]
-    dhResponseList$[0] := "No response";
-    dhResponseList$[1] := "Joystick";
-    dhResponseList$[2] := "Saccade";
-    dhResponseList$[3] := "Saccade (Training)";
+    
     
     ' Fetch parameters from registry    
     GetDonutHuntMainParameters();  
@@ -334,15 +323,14 @@ func DonutHuntMainDialog%()
     DlgText("Pre-change time (sec)",31,5);
     DlgReal(5,6,0,10,52,6);  'Post-contrast change time
     DlgText("Post-change time (sec)",31,6);
-    DlgReal(6,6,0,100,23,7);  'Number of grids per second
-    DlgText("Masker temp. freq. (Hz)",2,7);
+    DlgInteger(6,6,3,3,23,7);  'Number of grids - note that the value must be 3 right now!
+    DlgText("Number of maskers",2,7);
     DlgReal(7,6,0,10,52,7);  'Total grid duration
     DlgText("Total mask dur. (sec)",31,7);
     
     'Monkey only
     DlgGroup("Monkey Only Parameters",1,8,58,2);
-    'DlgCheck(14,"Use Joystick",35,9);
-    DlgList(14,20,dhResponseList$[],4,35,9);
+    DlgCheck(14,"Use Joystick",35,9);
     DlgReal(15,6,0,10,23,9);  'Minimum delay
     DlgText("Response Window (sec)",2,9);
     
@@ -360,7 +348,7 @@ func DonutHuntMainDialog%()
     
     ' Show the dialog. 
     i%:=DlgShow(dhNRepeats%,dhMinStimDelay,dhRandStimDelay,dhDelayBeforeDContrast,dhDurAfterDContrast,
-    dhGridTF,dhGridDur,dhDoCRG%,dhNRepeatsPerCRG%,dhNFramesPerTurn%,dhCRGFilename$,dhShowDonutOnMaster%,alwaysLooking%,dhUseJoystick%,dhResponseWindow);
+    dhNGrids%,dhGridDur,dhDoCRG%,dhNRepeatsPerCRG%,dhNFramesPerTurn%,dhCRGFilename$,dhShowDonutOnMaster%,alwaysLooking%,dhUseJoystick%,dhResponseWindow);
 
     
     
@@ -397,15 +385,15 @@ func DonutHuntMainDialogChanged%(item%)
     'endif;  
     if DlgValue(6) = 0 then
         'DlgEnable(1,-1);  'enable "OK" if curve has been selected
-        DlgEnable(0,8);   'Disable CRG stuff
-        DlgEnable(0,9);   
-        DlgEnable(0,10);  
+        DlgEnable(0,7);   'Disable CRG stuff
+        DlgEnable(0,8);   
+        DlgEnable(0,9);  
         DlgEnable(0,-dhSelectSEQFileButton%);
     else
         'DlgEnable(0,-1);  'Otherwise disable "OK"
-        DlgEnable(1,8);   'Enable CRG stuff
-        DlgEnable(1,9);   
-        DlgEnable(1,10);
+        DlgEnable(1,7);   'Enable CRG stuff
+        DlgEnable(1,8);   
+        DlgEnable(1,9);
         DlgEnable(1,-dhSelectSEQFileButton%);
     endif;
     
@@ -505,12 +493,9 @@ func DonutHuntGratingDialog%()
             message("Error!  The diameter of the core is greater than the smallest diameter of the donut!");
         case dhMinDonutDiameter > dhMaxDonutDiameter then    
             message("Error!  The min donut diameter of the core is greater than the max donut diameter!");
-        case dhUseJoystick% > 1 and (Pow(FixationX-dhXOffset,2) + Pow(FixationY-dhYOffsetTemp,2)) >= Pow(dhChoicePointRadius+WindowRadius,2) then
-            message("Error!  The fixation window and the response windows overlap!");
         else
             allOK% := 1;
         endcase;            
-
     endif;
     
     ' If all is OK then save parameters    
