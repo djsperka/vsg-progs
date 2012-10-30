@@ -1,6 +1,6 @@
 
 
-const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.39 2012-10-30 21:53:18 devel Exp $";
+const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.40 2012-10-30 21:57:10 jeff Exp $";
 
 
 ' Hello again
@@ -508,7 +508,7 @@ proc InitializeWindows()
         XYAddData(4,-9,7);    
         
         'If using joystick (not just fixating) set up joystick stuff
-        if dhUseJoystick% then
+        if dhUseJoystick% = 1 then
             ' Set up joystick range numbers
             lh := GetJoystickLeftHigh();
             cl := GetJoystickCenterLow();
@@ -661,7 +661,22 @@ func Start%()
         coreScreen$ := "Master";
         donutScreen$ := "Slave";
     endif;
-    Print("%s,%s\n",coreScreen$,donutScreen$);  'Specifies which item is on which screen (hopefully syntax is right)
+    
+    'determine how to do the contrast of the choice points
+    docase
+    case dhUseJoystick% < 2 then
+        correctContrast% := 0;
+        wrongContrast% := 0;
+    case dhUseJoystick% = 2 then
+        correctContrast% := 100;
+        wrongContrast% := 100;
+    case dhUseJoystick% = 3 then
+        correctContrast% := 100;
+        wrongContrast% := 0;
+    endcase
+    
+    Print("%s,%s,",coreScreen$,donutScreen$);  'Specifies which item is on which screen (hopefully syntax is right)
+    Print("answerpoints,%d,%d,%f\n",correctContrast%,wrongContrast%,maximumChoicePointDur); 'line 1 continued, choice point info
     Print("%s\n",coreParam$);  'core-stim-spec
     Print("%f,%f,%f,%f\n",-dhXOffset,dhYOffset,dhXOffset,dhYOffset);  'xL,yL,xR,yR master
     Print("%s\n",donutParam$);  'donut-stim-spec
