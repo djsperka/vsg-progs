@@ -1,6 +1,6 @@
 
 
-const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.45 2012-10-31 18:38:13 jeff Exp $";
+const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.46 2012-10-31 23:19:42 jeff Exp $";
 
 
 ' Hello again
@@ -1461,14 +1461,14 @@ func IdleProcessing%()
         'Note that the YOffset is always the same for L and R, and therefore there is no difference between correct and
         'incorrect YOffsets.  This will need to be changed if YOffset may vary for L and R in the future.
         if GetLR(nTrialsCompleted%) = 0 then 'right stimulus
-            CorrX := dhXOffset;
-            CorrY := dhYOffset;
-            WrongX := -dhXOffset;
-            WrongY := dhYOffset;
-        else  'left stimulus
             CorrX := -dhXOffset;
             CorrY := dhYOffset;
             WrongX := dhXOffset;
+            WrongY := dhYOffset;
+        else  'left stimulus
+            CorrX := dhXOffset;
+            CorrY := dhYOffset;
+            WrongX := -dhXOffset;
             WrongY := dhYOffset;
         endif;
         'if doing training, "remove" incorrect response location

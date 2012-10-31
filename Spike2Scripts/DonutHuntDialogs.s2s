@@ -83,7 +83,7 @@ var alwaysLooking% := 0;
 'Choice Point variables
 var dhTargChoicePointContrast% := 100;  'for now these are hardcoded to 100, but they can easily be put into a
 var dhNontargChoicePointContrast% := 100;  'dialog and changed if necessary
-var dhChoicePointRadius := 1;  'hard code the radius to be 1 degree, not expected to be changed
+var dhChoicePointRadius := 1.5;  'hard code the radius to be 1.5 degree, not expected to be changed
 
 
 proc GetDonutHuntMainParameters()
