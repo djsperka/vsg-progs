@@ -1,6 +1,6 @@
 
 
-const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.44 2012-10-31 18:04:37 jeff Exp $";
+const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.45 2012-10-31 18:38:13 jeff Exp $";
 
 
 ' Hello again
@@ -688,7 +688,7 @@ func Start%()
     
     'determine how to do the contrast of the choice points
     docase
-    case dhUseJoystick% < 2 then
+    case dhUseJoystick% < 2 or dhIsHuman% = 1 then
         correctContrast% := 0;
         wrongContrast% := 0;
     case dhUseJoystick% = 2 then
