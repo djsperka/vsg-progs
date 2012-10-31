@@ -1,6 +1,6 @@
 
 
-const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.43 2012-10-31 17:18:08 jeff Exp $";
+const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.44 2012-10-31 18:04:37 jeff Exp $";
 
 
 ' Hello again
@@ -155,7 +155,8 @@ const stateReward%:=25;              'rewarding animal
 const stateWaitJoystickResponse%:=26;  'waiting for joystick response
 const stateWaitSaccadeResponse%:=27;   'waiting for saccade response
 
-const nMaskTriggers% := 4;
+'const nMaskTriggers% := 4;
+const nMaskTriggers% := 1;  'yikes!  Big change!
 var nMaskTriggersFound%;
 
 var iState% := stateVSGWait%;	' present state
@@ -1249,13 +1250,17 @@ func IdleProcessing%()
         if pulseFound% = 1 then
             nMaskTriggersFound% += 1; 
             tLastTrigger := tFall;  
-            SampleText("M" + Str$(nMaskTriggersFound%),tRise);  'don't really need to indicate the trial type
-            LogStatus("Mask", "Mask " + Str$(nMaskTriggersFound%) + " occured at " + str$(tRise));
+            if nMaskTriggersFound% = nMaskTriggers%+1 then
+                ChangeStateTo(stateCheckButtonDuringStim%, tNow);
+                nMaskTriggersFound% := 0;
+                SampleText("MOff" + Str$(nMaskTriggersFound%),tRise);  'don't really need to indicate the trial type
+                LogStatus("Mask Off", "Mask Off occured at " + str$(tRise));
+            else
+                SampleText("M" + Str$(nMaskTriggersFound%),tRise);  'don't really need to indicate the trial type
+                LogStatus("Mask", "Mask " + Str$(nMaskTriggersFound%) + " occured at " + str$(tRise));
+            endif;
         endif;
-        if nMaskTriggersFound% = nMaskTriggers% then
-            ChangeStateTo(stateCheckButtonDuringStim%, tNow);
-            nMaskTriggersFound% := 0;
-        endif;
+        
         
         
     'human logic    
@@ -1405,19 +1410,19 @@ func IdleProcessing%()
                 docase
                 case dhUseJoystick% = 0 then  'no response required
                     SampleText("Off" + Str$(nMaskTriggersFound%),tRise);  'tRise will carry over from most recent FindPulseUp% call
-                    LogStatus("XHair Off", "XHair Off " + Str$(nMaskTriggersFound%) + " occured at " + str$(tRise));
+                    LogStatus("XHair Off", "XHair Off occured at " + str$(tRise));
                     MonkeySuccess% := 1;  'this trial was correct, only fixation required
                     nTrialsCompleted% += 1;
                     SafeSampleKey("X");  'Turns off blank page, do this BEFORE advancing stimulus!
                     ChangeStateTo(stateCheckStimOff%, tNow); 'jump to combined logic
                 case dhUseJoystick% = 1 then  'use joystick for response
                     SampleText("Off" + Str$(nMaskTriggersFound%),tRise);  'tRise will carry over from most recent FindPulseUp% call
-                    LogStatus("XHair Off", "XHair Off " + Str$(nMaskTriggersFound%) + " occured at " + str$(tRise));
+                    LogStatus("XHair Off", "XHair Off occured at " + str$(tRise));
                     SafeSampleKey("X");  'Turns off blank page, do this BEFORE advancing stimulus!
                     ChangeStateTo(stateWaitJoystickResponse%, tNow); 'move to state checking for response
                 case dhUseJoystick% > 1 then  'use saccade for response
                     SampleText("CP" + Str$(nMaskTriggersFound%),tRise);  'tRise will carry over from most recent FindPulseUp% call
-                    LogStatus("Choice Points", "Choice Points " + Str$(nMaskTriggersFound%) + " up at " + str$(tRise));
+                    LogStatus("Choice Points", "Choice Points up at " + str$(tRise));
                     'wait to do SafeSampleKey("X")
                     ChangeStateTo(stateWaitSaccadeResponse%, tNow);
                 endcase;
