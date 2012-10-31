@@ -1,6 +1,6 @@
 
 
-const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.42 2012-10-30 22:25:42 jeff Exp $";
+const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.43 2012-10-31 17:18:08 jeff Exp $";
 
 
 ' Hello again
@@ -1468,7 +1468,7 @@ func IdleProcessing%()
         endif;
         'if doing training, "remove" incorrect response location
         if dhUseJoystick% = 3 then
-            WrongX := 999999999;  'Yeah, it's not going to get there.
+            WrongX := 999999999;  'Yeah, it's not going to get there
             WrongY := 999999999;
         endif;
         'Check for response
