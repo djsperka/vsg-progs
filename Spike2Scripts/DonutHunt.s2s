@@ -1,6 +1,6 @@
 
 
-const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.46 2012-10-31 23:19:42 jeff Exp $";
+const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.47 2012-11-01 22:14:44 jeff Exp $";
 
 
 ' Hello again
@@ -154,6 +154,7 @@ const stateHoldFixationToStimOffset%:=24;  'holding fixation point to end of sti
 const stateReward%:=25;              'rewarding animal
 const stateWaitJoystickResponse%:=26;  'waiting for joystick response
 const stateWaitSaccadeResponse%:=27;   'waiting for saccade response
+const stateMonkeyMissPenalty%:=28;    'penalty for missing
 
 'const nMaskTriggers% := 4;
 const nMaskTriggers% := 1;  'yikes!  Big change!
@@ -1472,10 +1473,10 @@ func IdleProcessing%()
             WrongY := dhYOffset;
         endif;
         'if doing training, "remove" incorrect response location
-        if dhUseJoystick% = 3 then
-            WrongX := 999999999;  'Yeah, it's not going to get there
-            WrongY := 999999999;
-        endif;
+        'if dhUseJoystick% = 3 then
+        '    WrongX := 999999999;  'Yeah, it's not going to get there
+        '    WrongY := 999999999;
+        'endif;
         'Check for response
         saccadeResp% := SaccadeResponse%(xEye,yEye,CorrX,CorrY,WrongX,WrongY);
         docase
@@ -1486,7 +1487,11 @@ func IdleProcessing%()
             ChangeStateTo(stateCheckStimOff%, tNow); 'jump to combined logic
         case saccadeResp% = -1 then 'incorrect response
             MonkeySuccess% := 0;
-            nTrialsCompleted% += 1;
+            if dhUseJoystick% = 3 then  'If we are in training saccade mode
+                advanceStim% := 0;  'undo our call to advance stimulus, redo stim
+            else
+                nTrialsCompleted% += 1;  'If not training, allow stimulus to advance, increment trial count
+            endif;
             SafeSampleKey("X");  'Removes choice points, do this BEFORE advancing stimulus!
             ChangeStateTo(stateCheckStimOff%, tNow); 'jump to combined logic
         case tNow > tStateStart + dhResponseWindow then
@@ -1519,7 +1524,8 @@ func IdleProcessing%()
                 MonkeySuccess% := 0;  'reset
                 ChangeStateTo(stateReward%, tTrigger);  'jump to monkey logic, reward before next trial
             case dhIsHuman% = 0 and MonkeySuccess% = 0 then
-                ChangeStateTo(stateMonkeyITI%, tTrigger);  'jump to monkey logic, next trial
+                'ChangeStateTo(stateMonkeyITI%, tTrigger);  'jump to monkey logic, next trial
+                ChangeStateTo(stateMonkeyMissPenalty%, tTrigger);  'jump to penalty state
             endcase;
         endif
         
@@ -1536,7 +1542,13 @@ func IdleProcessing%()
         ChangeStateTo(stateMonkeyITI%, tTrigger+.2+(JuiceRewardMS/1000));
         'Plot spikes for contrast only
         PlotSpikes(tStimOn, tNow, 1, GetContrast(nTrialsCompleted%), nTrialsCompleted%);
-
+        
+        
+    'monkey logic
+    case iState% = stateMonkeyMissPenalty% then
+        if tNow > tStateStart + dhMissTime then
+            ChangeStateTo(stateMonkeyITI%, tTrigger);  'jump to next trial
+        endif;
         
     
     'combined logic (was monkey logic, but now human also checks for XHair off)
