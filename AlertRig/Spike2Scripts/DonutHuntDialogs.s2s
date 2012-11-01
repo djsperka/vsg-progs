@@ -77,6 +77,7 @@ var dhAcquisitionTime;		' Time allowed to acquire fixation
 var dhAcqFailTime;			' Wait time after acquisition failure
 var dhHoldFailTime;			' Wait time after failure to hold fixation (not on the first time after acquisition)
 var dhMaintainFailTime;	' Wait time after breaking fixation during maintain phase
+var dhMissTime;  'Wait time after miss
 var dhResponseWindow;
 var alwaysLooking% := 0;
 
@@ -224,6 +225,7 @@ proc GetDonutHuntFixationParameters()
     dhAcqFailTime := GetFloatRegistryValue(key$, "AcqFailTime", dhAcqFailTime);
     dhHoldFailTime := GetFloatRegistryValue(key$, "HoldFailTime", dhHoldFailTime);
     dhMaintainFailTime := GetFloatRegistryValue(key$, "MaintainFailTime", dhMaintainFailTime);
+    dhMissTime := GetFloatRegistryValue(key$, "MissTime", dhMissTime);
     
 end;
 
@@ -238,6 +240,7 @@ proc SaveDonutHuntFixationParameters()
     SetFloatRegistryValue(key$, "AcqFailTime", dhAcqFailTime);
     SetFloatRegistryValue(key$, "HoldFailTime", dhHoldFailTime);
     SetFloatRegistryValue(key$, "MaintainFailTime", dhMaintainFailTime);
+    SetFloatRegistryValue(key$, "MissTime", dhMissTime);
 
 end;
 
@@ -278,7 +281,8 @@ func DonutHuntFixationDialog%()
     DlgReal(5, "Acquire Fixation penalty(s):", .01, 10);
     DlgReal(6, "During-Stim fixation break penalty(s):", .01, 10);
     DlgReal(7, "Maintain fixation after stim penalty(s):", .01, 10);
-    i% := DlgShow(dhIsHuman%, dhUseMaintainMode%, dhMaintainFixation, dhAcquisitionTime, dhAcqFailTime, dhHoldFailTime, dhMaintainFailTime);
+    DlgReal(8, "Monkey saccade miss penalty(s)", .01, 10);
+    i% := DlgShow(dhIsHuman%, dhUseMaintainMode%, dhMaintainFixation, dhAcquisitionTime, dhAcqFailTime, dhHoldFailTime, dhMaintainFailTime, dhMissTime);
     
     if i% = 1 then
         'Save parameters
