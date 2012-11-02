@@ -1,6 +1,6 @@
 
 
-const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.48 2012-11-02 00:19:45 jeff Exp $";
+const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.49 2012-11-02 00:21:48 jeff Exp $";
 
 
 ' Hello again
@@ -1526,6 +1526,7 @@ func IdleProcessing%()
             case dhIsHuman% = 0 and MonkeySuccess% = 0 then
                 ChangeStateTo(stateMonkeyITI%, tTrigger);  'jump to monkey logic, next trial
             case dhIsHuman% = 0 and MonkeySuccess% = -1 then
+                MonkeySuccess% := 0;  'reset
                 ChangeStateTo(stateMonkeyMissPenalty%, tTrigger);  'jump to penalty state
             endcase;
         endif
