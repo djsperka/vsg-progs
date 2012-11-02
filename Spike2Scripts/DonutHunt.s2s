@@ -1,6 +1,6 @@
 
 
-const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.47 2012-11-01 22:14:44 jeff Exp $";
+const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.48 2012-11-02 00:19:45 jeff Exp $";
 
 
 ' Hello again
@@ -1486,7 +1486,7 @@ func IdleProcessing%()
             SafeSampleKey("X");  'Removes choice points, do this BEFORE advancing stimulus!
             ChangeStateTo(stateCheckStimOff%, tNow); 'jump to combined logic
         case saccadeResp% = -1 then 'incorrect response
-            MonkeySuccess% := 0;
+            MonkeySuccess% := -1;  'allow penalty
             if dhUseJoystick% = 3 then  'If we are in training saccade mode
                 advanceStim% := 0;  'undo our call to advance stimulus, redo stim
             else
@@ -1498,7 +1498,7 @@ func IdleProcessing%()
             LogStatus("WaitSaccadeResponse", "No response after response window closed at " + str$(tNow) + "\n");
             'nTrialsCompleted% += 1;  'do not advance
             advanceStim% := 0;  'undo our call to advance stimulus.  Will use same stimulus if no response
-            MonkeySuccess% := 0;
+            MonkeySuccess% := -1;  'allow penalty
             SafeSampleKey("X");  'Removes choice points (in case they aren't off), do this BEFORE advancing stimulus!
             ChangeStateTo(stateCheckStimOff%, tNow); 'jump to combined logic (no response window timeout penalty implemented)
         endcase;
@@ -1524,7 +1524,8 @@ func IdleProcessing%()
                 MonkeySuccess% := 0;  'reset
                 ChangeStateTo(stateReward%, tTrigger);  'jump to monkey logic, reward before next trial
             case dhIsHuman% = 0 and MonkeySuccess% = 0 then
-                'ChangeStateTo(stateMonkeyITI%, tTrigger);  'jump to monkey logic, next trial
+                ChangeStateTo(stateMonkeyITI%, tTrigger);  'jump to monkey logic, next trial
+            case dhIsHuman% = 0 and MonkeySuccess% = -1 then
                 ChangeStateTo(stateMonkeyMissPenalty%, tTrigger);  'jump to penalty state
             endcase;
         endif
