@@ -201,11 +201,19 @@ void StimSetFGGXDonut::draw_pages(bool bDrawAllPages)
 		vsgPresent();
 		w.split("1,2 done");
 
+#if USE_GRIDS
 		// page 2-n, copy scratch page
 		for (int i=2; i<m_firstgridpage + m_ngridpages; i++)
 			copy_scratch_page(i);
 		vsgPresent();
 		w.split("copied sp 2-8");
+#else
+		// page 2-n, copy scratch page
+		for (int i=2; i<6; i++)
+			copy_scratch_page(i);
+		vsgPresent();
+		w.split("copied sp 2-6");
+#endif
 
 		// gratings. Note these had their x,y set in constructor. The donut positions do no 
 		// change. 
@@ -233,7 +241,8 @@ void StimSetFGGXDonut::draw_pages(bool bDrawAllPages)
 		}
 		vsgSetDrawPage(vsgVIDEOPAGE, m_firstgridpage+m_ngridpages, vsgBACKGROUND);
 #else
-		vsgSetDrawPage(vsgVIDEOPAGE, 5, vsgBACKGROUND);
+		vsgSetDrawPage(vsgVIDEOPAGE, 5, vsgNOCLEAR);
+//		fixpt().draw();
 		m_cb0.draw();
 		m_cb1.draw();
 		vsgSetDrawPage(vsgVIDEOPAGE, 6, vsgBACKGROUND);
@@ -258,7 +267,6 @@ void StimSetFGGXDonut::draw_pages(bool bDrawAllPages)
 #else
 		vsgSetDrawPage(vsgVIDEOPAGE, 6, vsgBACKGROUND);
 #endif
-
 		if (has_fixpt() && m_pssinfo->getUseAnswerPoints())
 		{
 			// Need to know which grating will have the contrast change. That will be grating(1).
