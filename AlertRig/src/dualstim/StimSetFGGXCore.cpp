@@ -236,7 +236,7 @@ void StimSetFGGXCore::draw_pages(bool bDrawAllPages)
 		}
 		vsgSetDrawPage(vsgVIDEOPAGE, m_firstgridpage+m_ngridpages, vsgBACKGROUND);
 #else
-		vsgSetDrawPage(vsgVIDEOPAGE, 5, vsgBACKGROUND);
+		vsgSetDrawPage(vsgVIDEOPAGE, 5, vsgNOCLEAR);
 		m_cb0.draw();
 		m_cb1.draw();
 		vsgSetDrawPage(vsgVIDEOPAGE, 6, vsgBACKGROUND);
