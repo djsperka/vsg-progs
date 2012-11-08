@@ -79,6 +79,7 @@ var dhHoldFailTime;			' Wait time after failure to hold fixation (not on the fir
 var dhMaintainFailTime;	' Wait time after breaking fixation during maintain phase
 var dhMissTime;  'Wait time after miss
 var dhResponseWindow;
+var dhWrongCPContrast%;
 var alwaysLooking% := 0;
 
 'Choice Point variables
@@ -226,6 +227,7 @@ proc GetDonutHuntFixationParameters()
     dhHoldFailTime := GetFloatRegistryValue(key$, "HoldFailTime", dhHoldFailTime);
     dhMaintainFailTime := GetFloatRegistryValue(key$, "MaintainFailTime", dhMaintainFailTime);
     dhMissTime := GetFloatRegistryValue(key$, "MissTime", dhMissTime);
+    dhWrongCPContrast% := GetIntRegistryValue%(key$, "WrongCPContrast", dhWrongCPContrast%);
     
 end;
 
@@ -241,6 +243,7 @@ proc SaveDonutHuntFixationParameters()
     SetFloatRegistryValue(key$, "HoldFailTime", dhHoldFailTime);
     SetFloatRegistryValue(key$, "MaintainFailTime", dhMaintainFailTime);
     SetFloatRegistryValue(key$, "MissTime", dhMissTime);
+    SetIntRegistryValue(key$, "WrongCPContrast", dhWrongCPContrast%);
 
 end;
 
@@ -282,7 +285,8 @@ func DonutHuntFixationDialog%()
     DlgReal(6, "During-Stim fixation break penalty(s):", .01, 10);
     DlgReal(7, "Maintain fixation after stim penalty(s):", .01, 10);
     DlgReal(8, "Monkey saccade miss penalty(s)", .01, 10);
-    i% := DlgShow(dhIsHuman%, dhUseMaintainMode%, dhMaintainFixation, dhAcquisitionTime, dhAcqFailTime, dhHoldFailTime, dhMaintainFailTime, dhMissTime);
+    DlgInteger(9, "Wrong CP contrast (0-100, SaccTrain only):",0,100);
+    i% := DlgShow(dhIsHuman%, dhUseMaintainMode%, dhMaintainFixation, dhAcquisitionTime, dhAcqFailTime, dhHoldFailTime, dhMaintainFailTime, dhMissTime,dhWrongCPContrast%);
     
     if i% = 1 then
         'Save parameters
