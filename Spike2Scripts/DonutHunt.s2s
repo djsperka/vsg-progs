@@ -1,6 +1,6 @@
 
 
-const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.49 2012-11-02 00:21:48 jeff Exp $";
+const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.50 2012-11-08 20:06:10 jeff Exp $";
 
 
 ' Hello again
@@ -697,7 +697,7 @@ func Start%()
         wrongContrast% := 100;
     case dhUseJoystick% = 3 then
         correctContrast% := 100;
-        wrongContrast% := 0;
+        wrongContrast% := dhWrongCPContrast%;
     endcase
     
     Print("%s,%s,",coreScreen$,donutScreen$);  'Specifies which item is on which screen (hopefully syntax is right)
