@@ -1,7 +1,9 @@
-' $Id: Attention.s2s,v 1.23 2011-10-25 16:57:39 devel Exp $
+' $Id: Attention.s2s,v 1.24 2012-12-11 21:16:09 devel Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
+#include "UsreyFixationPoint.s2s"
+#include "UsreyDAQ.s2s"
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 '
@@ -536,18 +538,18 @@ endif;
 
 
 ' Assign channel numbers for eye X,Y and trigger. 
-XChannel% := NumberOfElectrodes%+1;
-YChannel% := NumberOfElectrodes%+2;
-FrameTriggerChannel% := NumberOfElectrodes%+3;
-FixationPointChannel% := NumberOfElectrodes%+4;
-StimChannel% := NumberOfElectrodes%+5;
-StimChangeChannel% := NumberOfElectrodes%+6;
-ReadyChannel% := NumberOfElectrodes%+7;
+XChannel% := 21;
+YChannel% := 22;
+FrameTriggerChannel% := 23;
+FixationPointChannel% := 24;
+StimChannel% := 25;
+StimChangeChannel% := 26;
+ReadyChannel% := 27;
 CreateSampleConfiguration();
 
 
 ' Initialize extraction
-AttentionExtractInit(-1);
+AttentionExtractInit%(-1, "");
 
 ' Get display windows ready
 InitializeWindows();
@@ -642,8 +644,7 @@ end;
 
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 func Reward%()
-	var i%;
-	for i%:=1 to JuicePerReward% do Yield(.05); SampleKey("J"); next
+    DefaultReward();
 	return 1;
 end;
 
@@ -1231,11 +1232,9 @@ proc CreateSampleConfiguration()
 	SampleEvent(ReadyChannel%,6,2,3600); 'Trigger channel, level
 	SampleComment$(ReadyChannel%,"VSG Ready");
 	SampleTitle$(ReadyChannel%,"VSG Ready");
-
-	for index := 1 to NumberOfElectrodes% do
-		SampleWaveMark(index,index-1,2000,34,15,28000); ' chan, port, event rate, points, pre-trigger, rate
-		SampleTitle$(index,"Electrode_"+Str$(index)); 
-	next
+    
+    ' Set up channels for sampling electrodes.
+    CreateElectrodeSamplingConfiguration(1, 11);
 	
 	SampleWaveform(XChannel%,14,1000);
 	SampleTitle$(XChannel%,"Eye X");
@@ -1308,7 +1307,7 @@ func Stop%()
 	wend
 
     ' update statistics
-    AttentionExtract%(-1);
+    AttentionExtract%(-1, -1);
     
 	'ProgRun(bin$ + "\\ClearTrigger",0);
 
@@ -1354,7 +1353,7 @@ func Start%()
         
 	Stim$ := " -g " + distSpec$ + " -s " + stimSpec$;
 	Contrast$ := " -t " + str$(attContrastDown%) + "," + str$(attContrastBase%) + "," + str$(attContrastUp%);
-	Extras$ := " -b " + attBackgroundColor$ + " -d " + DistanceToScreenMM$ + " -A " + str$(attAnswerPointOffset) + " -D " + str$(attAnswerPointDiameter) + lolSpec$;
+	Extras$ := " -b " + attBackgroundColor$ + " -d " + GetDistanceToScreenMM$() + " -A " + str$(attAnswerPointOffset) + " -D " + str$(attAnswerPointDiameter) + lolSpec$;
     if attTrainingContrastCheck% = 1 then
         Extras$ := Extras$ + " -T " + str$(attTrainingContrastPct%);
     endif
