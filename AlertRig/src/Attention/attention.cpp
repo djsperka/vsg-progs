@@ -143,7 +143,14 @@ int main (int argc, char *argv[])
 		else if (tf.present())
 		{	
 			last_output_trigger = tf.output_trigger();
-			vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, tf.output_trigger(), 0);
+			if (IS_VISAGE)
+			{
+				vsgSetTriggerOptions(vsgTRIGOPT_PRESENT, 0, vsgTRIG_OUTPUTMARKER, 0.5, 0, tf.output_trigger() << 1, 0x1FE);
+			}
+			else
+			{
+				vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, tf.output_trigger(), 0);
+			}
 			vsgPresent();
 		}
 		Sleep(10);
@@ -616,28 +623,18 @@ int init_pages()
 	ContrastTrigger *ptrigStimDOWN = NULL;
 	ContrastTrigger *ptrigDistractorUP = NULL;
 	ContrastTrigger *ptrigDistractorDOWN = NULL;
-	VSGTRIVAL bg;
 	COLOR_TYPE r = { red, {0,0,0} };
 	COLOR_TYPE g = { green, {0,0,0} };
 	std::vector<std::pair<std::string, int> >vecInputs;
 
-	// initialize video pages
-	if (ARvsg::instance().init_video())
-	{
-		cerr << "VSG video initialization failed!" << endl;
-		return 1;
-	}
-
-	vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgNOCLEAR);
-
+	vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgBACKGROUND);
 	
-	get_color(m_background, bg);
 	m_spec_stimulus.init(islice);
-	m_spec_stimulus.draw(true);
+	m_spec_stimulus.draw();
 	m_spec_stimulus.setContrast(0);
 
 	m_spec_distractor.init(islice);
-	m_spec_distractor.draw(true);
+	m_spec_distractor.draw();
 	m_spec_distractor.setContrast(0);
 
 	// Now fixation point
