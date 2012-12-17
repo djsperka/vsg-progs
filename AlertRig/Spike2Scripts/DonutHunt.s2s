@@ -1,6 +1,6 @@
 
 
-const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.50 2012-11-08 20:06:10 jeff Exp $";
+const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.51 2012-12-17 23:10:56 devel Exp $";
 
 
 ' Hello again
@@ -59,7 +59,9 @@ var TuningWindow%[16];	' one for each wavemark channel
 ' XY window stuff
 var XYWindow%;			' 
 var iStimChannel%;	' channel number for stimulus in xy window
-var iStimWindowChannel%;' channel number for stimulus window in xy window
+var iStimWindowChannel%;' channel number for stimulus window in xy window (fixation)
+var iStimWindowChannel2%;' channel number for stimulus window in xy window (choice1)
+var iStimWindowChannel3%;' channel number for stimulus window in xy window (choice2)
 var iMonitorChannel%;	' channel number for monitor position display in xy window
 
 ' Display stuff
@@ -507,14 +509,25 @@ proc InitializeWindows()
         
         'Create a new channel in the XY view to display the fixation window
         iStimWindowChannel% := XYSetChan(0);
-        XYColour(2,13);
-        XYDrawMode(2,2,1);
-        XYJoin(2,1);
+        XYColour(iStimWindowChannel%,13);
+        XYDrawMode(iStimWindowChannel%,2,1);
+        XYJoin(iStimWindowChannel%,1);
         'Draw the fixation window
-        XYAddData(2, FixWindowX[], FixWindowY[]);
+        XYAddData(iStimWindowChannel%, FixWindowX[], FixWindowY[]);
         if dhUseJoystick% > 1 then
-            XYAddData(2,Choice1WindowX[], Choice1WindowY[]);
-            XYAddData(2,Choice2WindowX[], Choice2WindowY[]);
+            iStimWindowChannel2% := XYSetChan(0);
+            XYColour(iStimWindowChannel2%,13);
+            XYDrawMode(iStimWindowChannel2%,2,1);
+            XYJoin(iStimWindowChannel2%,1);
+            'Draw the fixation window
+            XYAddData(iStimWindowChannel2%,Choice1WindowX[], Choice1WindowY[]);
+            
+            iStimWindowChannel3% := XYSetChan(0);
+            XYColour(iStimWindowChannel3%,13);
+            XYDrawMode(iStimWindowChannel3%,2,1);
+            XYJoin(iStimWindowChannel3%,1);
+            'Draw the fixation window
+            XYAddData(iStimWindowChannel3%,Choice2WindowX[], Choice2WindowY[]);
         endif;
         
 
@@ -523,13 +536,13 @@ proc InitializeWindows()
 
         'Create a new channel in the XY view to show the monitor's location
         iMonitorChannel% := XYSetChan(0);
-        XYColour(4,13);
-        XYDrawMode(4,3,1);
-        XYJoin(4,2);
-        XYAddData(4,-9,-7);
-        XYAddData(4,9,-7);
-        XYAddData(4,9,7);
-        XYAddData(4,-9,7);    
+        XYColour(iMonitorChannel%,13);
+        XYDrawMode(iMonitorChannel%,3,1);
+        XYJoin(iMonitorChannel%,2);
+        XYAddData(iMonitorChannel%,-9,-7);
+        XYAddData(iMonitorChannel%,9,-7);
+        XYAddData(iMonitorChannel%,9,7);
+        XYAddData(iMonitorChannel%,-9,7);    
         
         'If using joystick (not just fixating) set up joystick stuff
         if dhUseJoystick% = 1 then
