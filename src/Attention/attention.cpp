@@ -742,7 +742,7 @@ int init_pages()
 
 	vecInputs.push_back(std::pair< string, int>("F", 0x2));
 	vecInputs.push_back(std::pair< string, int>("G", 0x4));
-	triggers.push_back(new MultiInputSingleOutputCallbackTrigger(vecInputs, 0x6, 0x1, 0x1 | AR_TRIGGER_TOGGLE, callback));
+	triggers.push_back(new MultiInputSingleOutputCallbackTrigger(vecInputs, 0x6, 0x1, 0x1, callback));
 	triggers.addTrigger(new CallbackTrigger("X", 0x6, 0x6, 0xf, 0x0, callback));
 
 	if (m_bCueCircles)
