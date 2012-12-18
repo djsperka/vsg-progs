@@ -22,7 +22,8 @@ circle is drawn (on the "W" trigger) around the stim indicated by the fixation p
 trigger. So, if an "F" is sent, then the "W" will draw the cue circle around the "s" 
 stim. The "w" will turn off the cue circle. 
 
-Lollipops: This and cue circles are mutually exclusive. The -c, -l and -G options can
+Lollipops: These go on and off with the fixation point. Does not have a separate trigger. 
+This and cue circles are mutually exclusive. The -c, -l and -G options can
 be used here (though they have defaults of -c .1 -l .75 -G .5). The length of the stick 
 is the distance from the edge of the cue circle to the fixpt center MINUS the gap. The 
 fraction "-l" specifies how to place the line in that space; .75 centers it with equal 
@@ -56,3 +57,16 @@ Command Line options:
 -Q		use cue circles
 -S		use single stim (may be stim or distractor depending on fixpt cue used)
 -h		print help
+
+
+Triggers
+
+		The ready pulse issued is 0x20, seen on CED port 6.
+        This program uses the following triggers and trigger responses:
+        
+        Action/visual    | FixptR| FixptG| Stim  |CueCircle|CueCircle|Chg - C  | Chg - c |Chg - D  |Chg - d  | AllOff   | quit     
+        ascii trigger    | F     | G     | S     | W (on)  | w (off) | C       | c       | D       | d       | X        | q        
+        input mask/val   |0x2/0x2|0x4/0x4|0x8/0x8|0x10/0x10|0x10/0x0 |0xe0/0x20|0xe0/0x40|0xe0/0x60|0xe0/0x80|0x6/0x6   | 0xf0/0xf0
+        out mask/val     |0x1/0x1|0x1/0x1|0x2/0x2|0x4/0x4  | 0x4/0x0 |0x8/0x8  |0x8/0x8  |0x8/0x8  |0x8/0x8  |0xf/0x0   | 0xff/0x0
+        spike2 port      | 1     | 1     | 2     | 3       | 3       | 4       | 4       | 4       | 4       |          |
+        
