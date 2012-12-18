@@ -121,7 +121,7 @@ int main (int argc, char *argv[])
 	}
 
 
-	ARvsg::instance().ready_pulse(100, 0x40);
+	ARvsg::instance().ready_pulse(500);
 
 	// All right, start monitoring triggers........
 	while (1)
@@ -492,15 +492,7 @@ int callback(int &output, const CallbackTrigger* ptrig)
 	}
 	else if (key == "W")
 	{
-		if (!m_bCueCircles)
-		{
-			get_color(m_background, from);
-			to.a = to.b = to.c = 1;
-			m_spec_fixpt.select();
-			vsgObjSetColourVector(&from, &to, vsgUNIPOLAR);
-			m_spec_fixpt.setContrast(100);
-		}
-		else
+		if (m_bCueCircles)
 		{
 			// Which cue circle we turn on depends on which fixation point was used. 
 			if (m_bFStimulus) m_spec_stim_circle.setContrast(100);
@@ -616,13 +608,6 @@ int init_pages()
 {
 	int status=0;
 	int islice=50;
-	ContrastTrigger *ptrig = NULL;
-	ContrastTrigger *ptrigStimON = NULL;
-	ContrastTrigger *ptrigStimOFF = NULL;
-	ContrastTrigger *ptrigStimUP = NULL;
-	ContrastTrigger *ptrigStimDOWN = NULL;
-	ContrastTrigger *ptrigDistractorUP = NULL;
-	ContrastTrigger *ptrigDistractorDOWN = NULL;
 	COLOR_TYPE r = { red, {0,0,0} };
 	COLOR_TYPE g = { green, {0,0,0} };
 	std::vector<std::pair<std::string, int> >vecInputs;
@@ -755,25 +740,15 @@ int init_pages()
 	// trigger (and response bit) for the cue circles. I'm using the W trigger for cue circles - that
 	// means that when using cue circles you don't get to use the white spot. 
 
-	if (!m_bCueCircles)
-	{
-		vecInputs.push_back(std::pair< string, int>("F", 0x2));
-		vecInputs.push_back(std::pair< string, int>("G", 0x4));
-		vecInputs.push_back(std::pair< string, int>("W", 0x10));
-		triggers.push_back(new MultiInputSingleOutputCallbackTrigger(vecInputs, 0x16, 0x1, 0x1 | AR_TRIGGER_TOGGLE, callback));
+	vecInputs.push_back(std::pair< string, int>("F", 0x2));
+	vecInputs.push_back(std::pair< string, int>("G", 0x4));
+	triggers.push_back(new MultiInputSingleOutputCallbackTrigger(vecInputs, 0x6, 0x1, 0x1 | AR_TRIGGER_TOGGLE, callback));
+	triggers.addTrigger(new CallbackTrigger("X", 0x6, 0x6, 0xf, 0x0, callback));
 
-		// trigger to turn stim, distractor, answer points and fixation point OFF
-		triggers.addTrigger(new CallbackTrigger("X", 0x16, 0x16, 0xa, 0x0, callback));
-	}
-	else
+	if (m_bCueCircles)
 	{
-		vecInputs.push_back(std::pair< string, int>("F", 0x2));
-		vecInputs.push_back(std::pair< string, int>("G", 0x4));
-		triggers.push_back(new MultiInputSingleOutputCallbackTrigger(vecInputs, 0x6, 0x1, 0x1, callback));
-
 		triggers.addTrigger(new CallbackTrigger("W", 0x10, 0x10, 0x4, 0x4, callback));
 		triggers.addTrigger(new CallbackTrigger("w", 0x10, 0x0, 0x4, 0x0, callback));
-		triggers.addTrigger(new CallbackTrigger("X", 0x6, 0x6, 0xf, 0x0, callback));
 	}	
 
 
