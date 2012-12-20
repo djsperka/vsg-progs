@@ -1,4 +1,4 @@
-' $Id: Attention.s2s,v 1.24 2012-12-11 21:16:09 devel Exp $
+' $Id: Attention.s2s,v 1.25 2012-12-20 20:05:07 devel Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -549,7 +549,7 @@ CreateSampleConfiguration();
 
 
 ' Initialize extraction
-AttentionExtractInit%(-1, "");
+'AttentionExtractInit%(-1, "");
 
 ' Get display windows ready
 InitializeWindows();
@@ -746,24 +746,55 @@ func IdleProcessing%()
 			UpdateToolbarText();
 			PrepareTrial();
             attCountAllTrials% += 1;
-            SampleKey("W");
-            ChangeStateTo(stateWaitForWhitePointOn%, tNow);
-        case iState% = stateWaitForWhitePointOn% then
-			tTrigger := NextTime(FixationPointChannel%, tLast, vTrigger);
+            'SafeSampleKey("W");
+            docase
+            case trialType% = trialtypeAttendToward% then
+                'PrintLog("stateWhitePointFixation: Request cue F - AttendToward\n");
+                PrintLog("Request cue F - AttendToward\n");
+                SafeSampleKey("F");
+                attCountTowardTrials% += 1;
+            case trialType% = trialtypeAttendAway% then
+                'PrintLog("stateWhitePointFixation: Request cue G - AttendAway\n");
+                PrintLog("Request cue G - AttendAway\n");
+                SafeSampleKey("G");
+                attCountAwayTrials% += 1;
+            else
+                PrintLog("ERROR: Unknown trial type (" + str$(trialType%) + "\n");
+            endcase
+            ChangeStateTo(stateWaitForFixPtOn%, tNow);
+
+            
+        'case iState% = stateWaitForWhitePointOn% then
+        '    tTrigger := NextTime(FixationPointChannel%, tLast, vTrigger);  'no, trigger appears to come on frame channel
+        '    'tTrigger := NextTime(FrameTriggerChannel%, tLast, vTrigger);
+		'	if tTrigger > tLast then
+		'		' white point is up
+		'		PrintLog("stateWaitForWhitePointOn: signal received. " + str$(tTrigger) + "\n");
+        '        tLastTrigger := tTrigger;
+		'		ChangeStateTo(stateWaitForAcquisition%, tTrigger);
+		'		DrawStim(1);	' actually this draws the location of the fixpt.
+		'	endif
+        
+        
+        case iState% = stateWaitForFixPtOn% then
+            tTrigger := NextTime(FixationPointChannel%, tLast, vTrigger);
+			'tTrigger := NextTime(FrameTriggerChannel%, tLast, vTrigger);
 			if tTrigger > tLast then
-				' white point is up
-				PrintLog("stateWaitForWhitePointOn: signal received. " + str$(tTrigger) + "\n");
-                tLastTrigger := tTrigger;
+				' Fixation point is up
+				PrintLog("stateWaitForFixPtOn: signal received. " + str$(tNow) + "\n");
+				tLastTrigger := tTrigger;
 				ChangeStateTo(stateWaitForAcquisition%, tTrigger);
 				DrawStim(1);	' actually this draws the location of the fixpt.
 			endif
-            
+        
+        
 		case iState% = stateWaitForAcquisition% then
 
 			' Waiting for eye to fall inside of fixation window
 			if Looking%(xEye, yEye) = 1 then
 				PrintLog("stateWaitForAcquisition: eye in fixation window.\n");
-				ChangeStateTo(stateWhitePointFixation%, tNow);
+                'ChangeStateTo(stateWhitePointFixation%, tNow);
+                ChangeStateTo(stateWaitForFixation%, tNow);
 			else 
 				if tNow - tStateStart > attAcquisitionTime then
 					PrintLog("stateWaitForAcquisition: failed.\n");
@@ -771,41 +802,41 @@ func IdleProcessing%()
 				endif
 			endif
         
-        case iState% = stateWhitePointFixation% then
-        
-			' Eye must remain inside of fixation window
-			if Looking%(xEye, yEye) = 1 then
-				if tNow - tStateStart > attWhitePointTime then
-					PrintLog("stateWhitePointFixation: Success. Cue up...\n");
-        			docase
-                        case trialType% = trialtypeAttendToward% then
-                            PrintLog("stateWhitePointFixation: Request cue F - AttendToward\n");
-                            SampleKey("F");
-                            attCountTowardTrials% += 1;
-                        case trialType% = trialtypeAttendAway% then
-                            PrintLog("stateWhitePointFixation: Request cue G - AttendAway\n");
-                            SampleKey("G");
-                            attCountAwayTrials% += 1;
-                        else
-                            PrintLog("ERROR: Unknown trial type (" + str$(trialType%) + "\n");
-                    endcase
-                    ChangeStateTo(stateWaitForFixPtOn%, tTrigger);
-                endif
-            else
-				PrintLog("stateWhitePointFixation: failed.\n");
-				ChangeStateTo(stateAbort%, tNow);
-			endif
+'        case iState% = stateWhitePointFixation% then
+'        
+'			' Eye must remain inside of fixation window
+'			if Looking%(xEye, yEye) = 1 then
+'				if tNow - tStateStart > attWhitePointTime then
+'					PrintLog("stateWhitePointFixation: Success. Cue up...\n");
+'        			docase
+'                        case trialType% = trialtypeAttendToward% then
+'                            PrintLog("stateWhitePointFixation: Request cue F - AttendToward\n");
+'                            SafeSampleKey("F");
+'                            attCountTowardTrials% += 1;
+'                        case trialType% = trialtypeAttendAway% then
+'                            PrintLog("stateWhitePointFixation: Request cue G - AttendAway\n");
+'                            SafeSampleKey("G");
+'                            attCountAwayTrials% += 1;
+'                        else
+'                            PrintLog("ERROR: Unknown trial type (" + str$(trialType%) + "\n");
+'                    endcase
+'                    ChangeStateTo(stateWaitForFixPtOn%, tTrigger);
+'                endif
+'            else
+'				PrintLog("stateWhitePointFixation: failed.\n");
+'				ChangeStateTo(stateAbort%, tNow);
+'			endif
                 
-        case iState% = stateWaitForFixPtOn% then
-
-			tTrigger := NextTime(FixationPointChannel%, tLast, vTrigger);
-			if tTrigger > tLast then
-				' Fixation point is up
-				PrintLog("stateWaitForFixPtOn: signal received. " + str$(tNow) + "\n");
-				tLastTrigger := tTrigger;
-				ChangeStateTo(stateWaitForFixation%, tTrigger);
-				DrawStim(1);	' actually this draws the location of the fixpt.
-			endif
+'        case iState% = stateWaitForFixPtOn% then
+'            tTrigger := NextTime(FixationPointChannel%, tLast, vTrigger);
+'			'tTrigger := NextTime(FrameTriggerChannel%, tLast, vTrigger);
+'			if tTrigger > tLast then
+'				' Fixation point is up
+'				PrintLog("stateWaitForFixPtOn: signal received. " + str$(tNow) + "\n");
+'				tLastTrigger := tTrigger;
+'				ChangeStateTo(stateWaitForFixation%, tTrigger);
+'				DrawStim(1);	' actually this draws the location of the fixpt.
+'			endif
 
 		case iState% = stateWaitForFixation% then
 
@@ -813,7 +844,7 @@ func IdleProcessing%()
 			if Looking%(xEye, yEye) = 1 then
 				if tNow - tStateStart > attFixationTime then
 					PrintLog("stateWaitForFixation: Success. Gratings up...\n");
-					SampleKey("S");
+					SafeSampleKey("S");
 					ChangeStateTo(stateWaitForStimOn%, tNow);
 				endif
 			else 
@@ -822,8 +853,8 @@ func IdleProcessing%()
 			endif
 
 		case iState% = stateWaitForStimOn% then
-
-			tTrigger := NextTime(StimChannel%, tLast, vTrigger);
+            tTrigger := NextTime(StimChannel%, tLast, vTrigger);
+			'tTrigger := NextTime(FrameTriggerChannel%, tLast, vTrigger);
 			if tTrigger > tLast and vTrigger = 0 then
 				' gratings et al are up
 				PrintLog("stateWaitForStimOn: stim is up.\n");
@@ -838,7 +869,7 @@ func IdleProcessing%()
 			' Signal "X" turns off fixpt and stimulus. The next state 'stateWaitForBlank' only checks for 
 			' fixpt off. 
 			PrintLog("stateAbort: send X key.\n");
-			SampleKey("X");
+			SafeSampleKey("X");
 
 			' tally up aborted trials
 			attCountAllTrialsAbort% += 1;
@@ -847,7 +878,7 @@ func IdleProcessing%()
 					attCountTowardTrialsAbort% += 1;
 				case trialType% = trialtypeAttendAway% then
 					attCountAwayTrialsAbort% += 1;
-				else
+				else 
 					PrintLog("ERROR: Unknown trial type (" + str$(trialType%) + "\n");
 			endcase
 
@@ -856,8 +887,9 @@ func IdleProcessing%()
 
 		case iState% = stateWaitForBlank% then
 
-			' we just wait for fix point off signal in this case. 
-			tTrigger := NextTime(FixationPointChannel%, tLast, vTrigger);
+            ' we just wait for fix point off signal in this case. 
+            tTrigger := NextTime(FixationPointChannel%, tLast, vTrigger);
+			'tTrigger := NextTime(FrameTriggerChannel%, tLast, vTrigger);
 			'if tTrigger > tLast and vTrigger = 1 then
 			if tTrigger > tLast then
 				' Fixation point is off
@@ -893,29 +925,29 @@ func IdleProcessing%()
 						case trialType% = trialtypeAttendToward% then
 							if trialContrastUpDown% > 0 then
 								if trialCatch% = 0 then
-									SampleKey("C");
+									SafeSampleKey("C");
 								else
-									SampleKey("D");
+									SafeSampleKey("D");
 								endif
 							else
 								if trialCatch% = 0 then
-									SampleKey("c");
+									SafeSampleKey("c");
 								else
-									SampleKey("d");
+									SafeSampleKey("d");
 								endif
 							endif
 						case trialType% = trialtypeAttendAway% then
 							if trialContrastUpDown% > 0 then
 								if trialCatch% = 0 then
-									SampleKey("D");
+									SafeSampleKey("D");
 								else
-									SampleKey("C");
+									SafeSampleKey("C");
 								endif
 							else
 								if trialCatch% = 0 then
-									SampleKey("d");
+									SafeSampleKey("d");
 								else
-									SampleKey("c");
+									SafeSampleKey("c");
 								endif
 							endif
 						else
@@ -931,8 +963,8 @@ func IdleProcessing%()
 			endif
 
 		case iState% = stateWaitForContrastChange% then
-
-			tTrigger := NextTime(StimChangeChannel%, tLast, vTrigger);
+            tTrigger := NextTime(StimChangeChannel%, tLast, vTrigger);
+			'tTrigger := NextTime(FrameTriggerChannel%, tLast, vTrigger);
             if tTrigger > tLast and vTrigger = 0 then
                 PrintLog("stateWaitForContrastChange: got it.\n");
                 tLastTrigger := tTrigger;
@@ -951,7 +983,7 @@ func IdleProcessing%()
             ' a var to tell us whether the stim has been turned off. 
                 if isStimDistractorOff% = 0 then
                     if Looking%(xEye, yEye) = 0 then
-                        SampleKey("s");
+                        SafeSampleKey("s");
            				PrintLog("stateWaitForAnswer: fix broken - turn off stim\n");
                         isStimDistractorOff% := 1;
                     endif
@@ -984,18 +1016,19 @@ func IdleProcessing%()
 							else
 								PrintLog("ERROR: Unknown trial type (" + str$(trialType%) + "\n");
 						endcase
-                        Yield(.01);    ' necessary so that the SampleText and SampleKey below don't land on the same time (makes extraction difficult)
+                        Yield(.01);    ' necessary so that the SampleText and SafeSampleKey below don't land on the same time (makes extraction difficult)
 					endif
 	
-					SampleKey("X");
+					SafeSampleKey("X");
 					ChangeStateTo(stateTrialCompletedWaitForBlank%, tNow);
 				endif
 			endif
 
 		case iState% = stateTrialCompletedWaitForBlank% then
 
-			' we just wait for fix point off signal in this case. 
-			tTrigger := NextTime(FixationPointChannel%, tLast, vTrigger);
+            ' we just wait for fix point off signal in this case. 
+            tTrigger := NextTime(FixationPointChannel%, tLast, vTrigger);
+			'tTrigger := NextTime(FrameTriggerChannel%, tLast, vTrigger);
 			'if tTrigger > tLast and vTrigger = 1 then
 			if tTrigger > tLast then
 				' Fixation point is off
@@ -1297,7 +1330,7 @@ func Stop%()
 	ToolbarSet(0,"");
 
 	' Tell stim app to shut down
-	SampleKey("q");
+	SafeSampleKey("q");
 	Yield(.1);
 	SampleStop();
 
@@ -1307,7 +1340,7 @@ func Stop%()
 	wend
 
     ' update statistics
-    AttentionExtract%(-1, -1);
+    'AttentionExtract%(-1, -1);
     
 	'ProgRun(bin$ + "\\ClearTrigger",0);
 
@@ -1328,7 +1361,10 @@ func Start%()
     var x;
 	
 	SampleStart(0); 'Start sampling
-	SampleKey("0");
+	' Set Sequencer Variable #3 based on juicer type 
+    SetJuicerSequencerVariable%();
+    ' Clear any trigger bits on digout lines.
+    SafeSampleKey("0");
     ttemp := View(DataWindow%).MaxTime();
     Yield();
     tLast := View(DataWindow%).MaxTime();
