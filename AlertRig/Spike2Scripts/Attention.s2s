@@ -1,4 +1,4 @@
-' $Id: Attention.s2s,v 1.26 2012-12-20 21:45:39 jeff Exp $
+' $Id: Attention.s2s,v 1.27 2012-12-20 22:59:36 jeff Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -46,6 +46,8 @@ var attAbortWaitTime;
 var attBlockAlternate%;
 var attTrainingContrastCheck%:=0;
 var attTrainingContrastPct%:=0;
+var randBlockOrderVar%;     'this will be 0 or 1, and will determine whether we start attend-toward or attend-away
+randBlockOrderVar% := round(rand()); 'just set it right now
 
 var attCustomGratingColorCheck%;
 var attCustomGratingColorStimFrom%[3];
@@ -861,7 +863,7 @@ func IdleProcessing%()
 				tStimOn := tTrigger;
 				tLastTrigger := tTrigger;
                 ChangeStateTo(stateHoldFixation%, tTrigger);
-                SampleText("cc in " + Str$(trialHazardFunctionTime));
+                SampleText("hazard dur " + Str$(trialHazardFunctionTime));
 			endif
 
 			
@@ -1152,7 +1154,7 @@ proc PrepareBlock()
 	' Modified: The above is done only when attBlockAlternate% is non zero. Otherwise its random trial-by-trial 
 	' cue type. 
 	if attBlockAlternate% <>0 then
-		if (nBlocksCompleted% mod 2) = 0 then
+		if ((nBlocksCompleted%+randBlockOrderVar%) mod 2) = 0 then
 			trialType% := trialtypeAttendToward%;
 			PrintLog("Attend-toward ");
 		else
