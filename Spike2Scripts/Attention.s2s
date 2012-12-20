@@ -1,4 +1,4 @@
-' $Id: Attention.s2s,v 1.25 2012-12-20 20:05:07 devel Exp $
+' $Id: Attention.s2s,v 1.26 2012-12-20 21:45:39 jeff Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -860,7 +860,8 @@ func IdleProcessing%()
 				PrintLog("stateWaitForStimOn: stim is up.\n");
 				tStimOn := tTrigger;
 				tLastTrigger := tTrigger;
-				ChangeStateTo(stateHoldFixation%, tTrigger);
+                ChangeStateTo(stateHoldFixation%, tTrigger);
+                SampleText("cc in " + Str$(trialHazardFunctionTime));
 			endif
 
 			
@@ -1277,7 +1278,7 @@ proc CreateSampleConfiguration()
 	SampleWaveform(NumberOfElectrodes%+10, 6, 1000);
 	SampleTitle$(NumberOfElectrodes%+10, "PD");
 
-	SampleTextMark(1);
+	SampleTextMark(30);  'increase number of allowed characters, 1 is so stingy!
 
 	SampleSequencer(script$ + "Attention.pls");
 	SampleOptimise(2,2,2,2,50);  'Set optimise mode (do this last)
