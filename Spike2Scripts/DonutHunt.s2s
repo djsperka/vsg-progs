@@ -1,6 +1,6 @@
 
 
-const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.51 2012-12-17 23:10:56 devel Exp $";
+const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.52 2012-12-21 00:11:51 jeff Exp $";
 
 
 ' Hello again
@@ -985,6 +985,7 @@ func IdleProcessing%()
     var joystickPosition%;
     var joystickVoltage;
     var saccadeResp%;
+    var respTime;
     
     'if no time has passed, wait 1 ms and try again
 	tTemp := View(DataWindow%).MaxTime();
@@ -1448,15 +1449,24 @@ func IdleProcessing%()
     case iState% = stateWaitJoystickResponse% then
         docase
         case joystickPosition% <> JSCenter% then
+            respTime := View(DataWindow%).MaxTime();
             docase
             case GetLR(nTrialsCompleted%) = 0 and joystickPosition% = JSRight% then 'right stimulus
                 MonkeySuccess% := 1;
+                sampleText("Right Response (Correct)",respTime);
+                printlog("Stimulus Left; Correct right response at %f\n",respTime);
             case GetLR(nTrialsCompleted%) = 0 and joystickPosition% = JSLeft% then 'right stimulus
                 MonkeySuccess% := 0;
+                sampleText("Right Response (Wrong)",respTime);
+                printlog("Stimulus Right; Incorrect right response at %f\n",respTime);
             case GetLR(nTrialsCompleted%) = 1 and joystickPosition% = JSRight% then 'left stimulus
                 MonkeySuccess% := 0;
+                sampleText("Left Response (Wrong)",respTime);
+                printlog("Stimulus Right; Incorrect left response at %f\n",respTime);
             case GetLR(nTrialsCompleted%) = 1 and joystickPosition% = JSLeft% then 'left stimulus
                 MonkeySuccess% := 1; 
+                sampleText("Left Response (Correct)",respTime);
+                printlog("Stimulus Left; Correct left response at %f\n",respTime);
             endcase
             nTrialsCompleted% += 1;
             ChangeStateTo(stateCheckStimOff%, tNow); 'jump to combined logic
@@ -1494,12 +1504,28 @@ func IdleProcessing%()
         saccadeResp% := SaccadeResponse%(xEye,yEye,CorrX,CorrY,WrongX,WrongY);
         docase
         case saccadeResp% = 1 then 'correct response
+            respTime := View(DataWindow%).MaxTime();
             MonkeySuccess% := 1;
+            if GetLR(nTrialsCompleted%) = 0 then
+                sampleText("Right Response (Correct)",respTime);
+                printlog("Stimulus Left; Correct right response at %f\n",respTime);
+            else
+                sampleText("Left Response (Correct)",respTime);
+                printlog("Stimulus Left; Correct left response at %f\n",respTime);
+            endif;
             nTrialsCompleted% += 1;
             SafeSampleKey("X");  'Removes choice points, do this BEFORE advancing stimulus!
             ChangeStateTo(stateCheckStimOff%, tNow); 'jump to combined logic
         case saccadeResp% = -1 then 'incorrect response
+            respTime := View(DataWindow%).MaxTime();
             MonkeySuccess% := -1;  'allow penalty
+            if GetLR(nTrialsCompleted%) = 0 then
+                sampleText("Right Response (Incorrect)",respTime);
+                printlog("Stimulus Left; Incorrect right response at %f\n",respTime);
+            else
+                sampleText("Left Response (Incorrect)",respTime);
+                printlog("Stimulus Left; Incorrect left response at %f\n",respTime);
+            endif;
             if dhUseJoystick% = 3 then  'If we are in training saccade mode
                 advanceStim% := 0;  'undo our call to advance stimulus, redo stim
             else
