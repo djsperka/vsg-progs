@@ -1,4 +1,4 @@
-' $Id: Attention.s2s,v 1.27 2012-12-20 22:59:36 jeff Exp $
+' $Id: Attention.s2s,v 1.28 2013-01-07 23:49:00 jeff Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -15,6 +15,7 @@
 
 var attNumberOfBlocks%;
 var attTrialsPerBlock%;
+var attEasyTrialsPerBlock%;
 var attCatchTrialPercentage;
 var attBackgroundColor$;
 var attBackgroundRed% := 0;
@@ -30,8 +31,9 @@ var attAnswerPointDiameter := 0.05;
 var attAnswerPointOffset := 5.0;
 var attAnswerPointWindowRadius := 2.0;
 var attContrastBase%;
-var attContrastUp%;
-var attContrastDown%;
+var attMaxContChange%;
+var attMinContChange%;
+var attNContLevels%;
 var attFixationTime;
 var attWhitePointTime;          ' xxxxx
 var attFixationCueMinTime;      ' xxxxx
@@ -76,15 +78,16 @@ var attCountAwayTrialsCorrect% := 0;
 var attCountAwayTrialsIncorrect% := 0;
 var attCountAwayTrialsAbort% := 0;
 
-' constants for dialog and check functio
-const attdlgTrainingContrastCheck% := 8;
-const attdlgTrainingContrastPct% := 9;
-const attdlgLollipopCheck% := 10;
-const attdlgCueLinePct% := 11;
-const attdlgCircleDiameterDiff% := 12;
-const attdlgLollipopContrast% := 13;
-const attdlgLollipopStickContrast% := 14;
-const attdlgLollipopStickGap := 15;
+' constants for dialog and check function - start with 10 because there are 9 dialog entries prior
+' sure, it would be great if all the dialog numbers were done like this, but they ain't, and time is time
+const attdlgTrainingContrastCheck% := 10;
+const attdlgTrainingContrastPct% := 11;
+const attdlgLollipopCheck% := 12;
+const attdlgCueLinePct% := 13;
+const attdlgCircleDiameterDiff% := 14;
+const attdlgLollipopContrast% := 15;
+const attdlgLollipopStickContrast% := 16;
+const attdlgLollipopStickGap := 17;
 
 ' constants for timing dialog
 const atttimingdlgFixationCueMinTime% := 3;
@@ -123,6 +126,7 @@ proc GetAttentionScriptParameters()
 
 	Profile(key$, "NumberOfBlocks", 1, attNumberOfBlocks%);
 	Profile(key$, "TrialsPerBlock", 1, attTrialsPerBlock%);
+    Profile(key$, "EasyTrialsPerBlock", 1, attEasyTrialsPerBlock%);
 	Profile(key$, "CatchTrialPercentage", "0.0", stmp$);
 	attCatchTrialPercentage := val(stmp$);
 	Profile(key$, "BlockAlternate", 1, attBlockAlternate%);
@@ -137,8 +141,9 @@ proc GetAttentionScriptParameters()
     endif
     
     Profile(key$, "ContrastBase", 50, attContrastBase%);
-	Profile(key$, "ContrastUp", 80, attContrastUp%);
-	Profile(key$, "ContrastDown", 20, attContrastDown%);
+	Profile(key$, "ContrastMax", 80, attMaxContChange%);
+	Profile(key$, "ContrastMin", 20, attMinContChange%);
+    Profile(key$, "NContrastLevels", 20, attNContLevels%);
 
 	Profile(key$, "AnswerPointDiameter", "0.5", stmp$);
 	attAnswerPointDiameter := val(stmp$);
@@ -212,14 +217,16 @@ proc SaveAttentionScriptParameters()
 
 	Profile(key$, "NumberOfBlocks", attNumberOfBlocks%);
 	Profile(key$, "TrialsPerBlock", attTrialsPerBlock%);
+    Profile(key$, "EasyTrialsPerBlock", attEasyTrialsPerBlock%);
 	Profile(key$, "CatchTrialPercentage", str$(attCatchTrialPercentage));
 	Profile(key$, "BlockAlternate", attBlockAlternate%);
 	Profile(key$, "TrainingContrastCheck", attTrainingContrastCheck%);
 	Profile(key$, "TrainingContrastPct", attTrainingContrastPct%);
 	Profile(key$, "BackgroundColor", attBackgroundColor$);
 	Profile(key$, "ContrastBase", attContrastBase%);
-	Profile(key$, "ContrastUp", attContrastUp%);
-	Profile(key$, "ContrastDown", attContrastDown%);
+	Profile(key$, "ContrastMax", attMaxContChange%);
+	Profile(key$, "ContrastMin", attMinContChange%);
+    Profile(key$, "NContrastLevels", attNContLevels%);
 	Profile(key$, "FixationCueMinTime", str$(attFixationCueMinTime));
 	Profile(key$, "FixationCueMaxTime", str$(attFixationCueMaxTime));
 	Profile(key$, "WhitePointTime", str$(attWhitePointTime));
@@ -262,28 +269,30 @@ func AttentionScriptDialog%()
 	GetAttentionScriptParameters();
 
 	DlgCreate("Attention Training Parameters", 25, 10);
-    DlgGroup("Blocks, contrast", 1, 1, 35, 10);
-	DlgInteger(1, "Number of Blocks:", 1, 1000, 20, 2);
-	DlgInteger(2, "Trials per block:", 1, 1000, 20, 3);
-	DlgReal(3, "Catch Trial pct (0-100)", 0, 100, 20, 4);
-	DlgCheck(4, "Alternate cue type by block", 2, 5);
-	DlgInteger(5, "Base contrast(%)", 0, 100, 20, 6);
-	DlgInteger(6, "Up contrast(%)", 0, 100, 20, 7);
-	DlgInteger(7, "Down contrast(%)", 0, 100, 20, 8);
-	DlgCheck(attdlgTrainingContrastCheck%, "Training Contrast", 2, 9);
-	DlgInteger(attdlgTrainingContrastPct%, "Training Contrast(%)", 0, 100, 20, 10);
-    DlgButton(2, "Colors", ColorsDialog%, 1, 12);
-    DlgButton(3, "Timing", TimingDialog%, 1, 13);
-    DlgGroup("Lollipops", 1, 14, 35, 7);
-    DlgCheck(attdlgLollipopCheck%, "Use lollipop cues", 2, 15);
-    DlgReal(attdlgCueLinePct%, "Cue line %", 0, 100, 20, 16);
-    DlgReal(attdlgCircleDiameterDiff%, "Circle diameter diff", 0, 10, 20, 17);
-    DlgInteger(attdlgLollipopContrast%, "Lollipop contrast", 0, 100, 20, 18);
-    DlgInteger(attdlgLollipopStickContrast%, "Stick contrast", 0, 100, 20, 19);
-    DlgReal(attdlgLollipopStickGap, "Lollipop stick gap", 0, 10, 20, 20);
+    DlgGroup("Blocks, contrast", 1, 1, 34, 12);
+	DlgInteger(1, "Number of Blocks:", 1, 1000, 22, 2);
+	DlgInteger(2, "Reg. Trials per block:", 1, 1000, 22, 3);
+    DlgInteger(3, "Easy Trials per block:", 1, 1000, 22, 4);
+	DlgReal(4, "Catch Trial pct (0-100)", 0, 100, 22, 5);
+	DlgCheck(5, "Alternate cue type by block", 2, 6);
+	DlgInteger(6, "Base contrast (%)", 0, 100, 22, 7);
+	DlgInteger(7, "Max dContrast (%base)", 0, 500, 22, 8);
+	DlgInteger(8, "Min dContrast (%base)", 0, 500, 22, 9);
+    DlgInteger(9, "N contrast levels", 0, 10, 22, 10);
+	DlgCheck(attdlgTrainingContrastCheck%, "Training Contrast", 2, 11);
+	DlgInteger(attdlgTrainingContrastPct%, "Training Contrast(%)", 0, 100, 22, 12);
+    DlgButton(2, "Colors", ColorsDialog%, 1, 14);
+    DlgButton(3, "Timing", TimingDialog%, 1, 15);
+    DlgGroup("Lollipops", 1, 16, 34, 7);
+    DlgCheck(attdlgLollipopCheck%, "Use lollipop cues", 2, 17);
+    DlgReal(attdlgCueLinePct%, "Cue line %", 0, 100, 22, 18);
+    DlgReal(attdlgCircleDiameterDiff%, "Circle diameter diff", 0, 10, 22, 19);
+    DlgInteger(attdlgLollipopContrast%, "Lollipop contrast", 0, 100, 22, 20);
+    DlgInteger(attdlgLollipopStickContrast%, "Stick contrast", 0, 100, 22, 21);
+    DlgReal(attdlgLollipopStickGap, "Lollipop stick gap", 0, 10, 22, 22);
     DlgAllow(0, 0, AttentionScriptDialogChanged%);
-	i%:=DlgShow(attNumberOfBlocks%, attTrialsPerBlock%, attCatchTrialPercentage,attBlockAlternate%, 
-                attContrastBase%, attContrastUp%, attContrastDown%,
+	i%:=DlgShow(attNumberOfBlocks%, attTrialsPerBlock%, attEasyTrialsPerBlock%, attCatchTrialPercentage,
+                attBlockAlternate%, attContrastBase%, attMaxContChange%, attMinContChange%, attNContLevels%,
                 attTrainingContrastCheck%, attTrainingContrastPct%, 
                 attLollipopCheck%, attCueLinePct, attCircleDiameterDiff, 
                 attLollipopContrast%, attLollipopStickContrast%, attCueLineGap);
@@ -647,6 +656,7 @@ end;
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 func Reward%()
     DefaultReward();
+    'No sample text, just use 'R' from keyboard channel
 	return 1;
 end;
 
@@ -702,22 +712,28 @@ var trialContrastUpDown%;
 var trialHazardFunctionTime;
 
 func IdleProcessing%()
+    var getPreciseTiming := 1;
 	var iStatus% := 1;	
-	tNow := MaxTime();
-
-	xEye := ChanMeasure(XChannel%,2,tNow-.001,tNow-.006)*DegreesPerVoltX;
-	yEye := ChanMeasure(YChannel%,2,tNow-.001,tNow-.006)*DegreesPerVoltY;
-
-	' Don't update display every time....
-	if tNow-tLastUpdate > .005 then
-		View(XYWindow%).XYAddData(1,xEye,yEye);
-		tLastUpdate := tNow;
-	endif
-
-
-	docase 
+    
+    while getPreciseTiming = 1 do 
+        
+        getPreciseTiming := 0;  'don't get precise timing unless we ask to (if 0, return control to windows after each idle loop iteration)
+        
+        tNow := MaxTime();
+        
+        xEye := ChanMeasure(XChannel%,2,tNow-.001,tNow-.006)*DegreesPerVoltX;
+        yEye := ChanMeasure(YChannel%,2,tNow-.001,tNow-.006)*DegreesPerVoltY;
+        
+        ' Don't update display every time....
+        if tNow-tLastUpdate > .005 then
+            View(XYWindow%).XYAddData(1,xEye,yEye);
+            tLastUpdate := tNow;
+        endif
+        
+        
+        docase 
 		case iState% = stateVSGWait% then
-
+            
 			' Waiting for VSG to indicate it is ready. The indication is a pulse (up, then down, 1 frame apart) on port 6.
 			tTrigger := NextTime(ReadyChannel%, tLast, vTrigger);
 			if tTrigger > tLastTrigger and vTrigger = 0 then
@@ -725,9 +741,9 @@ func IdleProcessing%()
 				tLastTrigger := tTrigger;
 				ChangeStateTo(stateVSGWaitConfirm%, tTrigger);
 			endif;
-
+            
 		case iState% = stateVSGWaitConfirm% then
-
+            
 			' Waiting for VSG to confirm it is ready. The downward side of the pulse is expected...
 			tTrigger := NextTime(ReadyChannel%, tLastTrigger, vTrigger);
 			if tTrigger > tLastTrigger and vTrigger = 1 then
@@ -735,15 +751,15 @@ func IdleProcessing%()
 				tLastTrigger := tTrigger;
 				ChangeStateTo(stateStartBlock%, tTrigger);
 			endif;
-
-
+            
+            
 		case iState% = stateStartBlock% then
-
+            
 			PrepareBlock();
 			ChangeStateTo(stateStartTrial%, tNow);
-
+            
 		case iState% = stateStartTrial% then
-
+            
 			' Start trial. Put up fixation point.
 			UpdateToolbarText();
 			PrepareTrial();
@@ -764,84 +780,45 @@ func IdleProcessing%()
                 PrintLog("ERROR: Unknown trial type (" + str$(trialType%) + "\n");
             endcase
             ChangeStateTo(stateWaitForFixPtOn%, tNow);
-
             
-        'case iState% = stateWaitForWhitePointOn% then
-        '    tTrigger := NextTime(FixationPointChannel%, tLast, vTrigger);  'no, trigger appears to come on frame channel
-        '    'tTrigger := NextTime(FrameTriggerChannel%, tLast, vTrigger);
-		'	if tTrigger > tLast then
-		'		' white point is up
-		'		PrintLog("stateWaitForWhitePointOn: signal received. " + str$(tTrigger) + "\n");
-        '        tLastTrigger := tTrigger;
-		'		ChangeStateTo(stateWaitForAcquisition%, tTrigger);
-		'		DrawStim(1);	' actually this draws the location of the fixpt.
-		'	endif
-        
-        
+            
         case iState% = stateWaitForFixPtOn% then
             tTrigger := NextTime(FixationPointChannel%, tLast, vTrigger);
 			'tTrigger := NextTime(FrameTriggerChannel%, tLast, vTrigger);
 			if tTrigger > tLast then
 				' Fixation point is up
-				PrintLog("stateWaitForFixPtOn: signal received. " + str$(tNow) + "\n");
+				PrintLog("stateWaitForFixPtOn: signal received. " + str$(tTrigger) + "\n");
 				tLastTrigger := tTrigger;
 				ChangeStateTo(stateWaitForAcquisition%, tTrigger);
+                if trialType% = trialtypeAttendToward% then
+                    SampleText("Fixation point on, Attend Toward",tTrigger);
+                else
+                    SampleText("Fixation point on, Attend Away",tTrigger);
+                endif;
 				DrawStim(1);	' actually this draws the location of the fixpt.
 			endif
-        
-        
+            
+            
 		case iState% = stateWaitForAcquisition% then
-
+            getPreciseTiming := 1;
 			' Waiting for eye to fall inside of fixation window
 			if Looking%(xEye, yEye) = 1 then
 				PrintLog("stateWaitForAcquisition: eye in fixation window.\n");
                 'ChangeStateTo(stateWhitePointFixation%, tNow);
                 ChangeStateTo(stateWaitForFixation%, tNow);
+                SampleText("Fixation Acquired",tNow);
+                getPreciseTiming := 0;
 			else 
 				if tNow - tStateStart > attAcquisitionTime then
 					PrintLog("stateWaitForAcquisition: failed.\n");
 					ChangeStateTo(stateAbort%, tNow);
+                    getPreciseTiming := 0;
 				endif
 			endif
-        
-'        case iState% = stateWhitePointFixation% then
-'        
-'			' Eye must remain inside of fixation window
-'			if Looking%(xEye, yEye) = 1 then
-'				if tNow - tStateStart > attWhitePointTime then
-'					PrintLog("stateWhitePointFixation: Success. Cue up...\n");
-'        			docase
-'                        case trialType% = trialtypeAttendToward% then
-'                            PrintLog("stateWhitePointFixation: Request cue F - AttendToward\n");
-'                            SafeSampleKey("F");
-'                            attCountTowardTrials% += 1;
-'                        case trialType% = trialtypeAttendAway% then
-'                            PrintLog("stateWhitePointFixation: Request cue G - AttendAway\n");
-'                            SafeSampleKey("G");
-'                            attCountAwayTrials% += 1;
-'                        else
-'                            PrintLog("ERROR: Unknown trial type (" + str$(trialType%) + "\n");
-'                    endcase
-'                    ChangeStateTo(stateWaitForFixPtOn%, tTrigger);
-'                endif
-'            else
-'				PrintLog("stateWhitePointFixation: failed.\n");
-'				ChangeStateTo(stateAbort%, tNow);
-'			endif
-                
-'        case iState% = stateWaitForFixPtOn% then
-'            tTrigger := NextTime(FixationPointChannel%, tLast, vTrigger);
-'			'tTrigger := NextTime(FrameTriggerChannel%, tLast, vTrigger);
-'			if tTrigger > tLast then
-'				' Fixation point is up
-'				PrintLog("stateWaitForFixPtOn: signal received. " + str$(tNow) + "\n");
-'				tLastTrigger := tTrigger;
-'				ChangeStateTo(stateWaitForFixation%, tTrigger);
-'				DrawStim(1);	' actually this draws the location of the fixpt.
-'			endif
-
+            
+            
 		case iState% = stateWaitForFixation% then
-
+            
 			' Eye must remain inside of fixation window
 			if Looking%(xEye, yEye) = 1 then
 				if tNow - tStateStart > attFixationTime then
@@ -853,7 +830,7 @@ func IdleProcessing%()
 				PrintLog("stateWaitForFixation: failed.\n");
 				ChangeStateTo(stateAbort%, tNow);
 			endif
-
+            
 		case iState% = stateWaitForStimOn% then
             tTrigger := NextTime(StimChannel%, tLast, vTrigger);
 			'tTrigger := NextTime(FrameTriggerChannel%, tLast, vTrigger);
@@ -863,33 +840,33 @@ func IdleProcessing%()
 				tStimOn := tTrigger;
 				tLastTrigger := tTrigger;
                 ChangeStateTo(stateHoldFixation%, tTrigger);
-                SampleText("hazard dur " + Str$(trialHazardFunctionTime));
+                SampleText("Stimulus on, hazard dur " + Str$(trialHazardFunctionTime),tTrigger);
 			endif
-
+            
 			
 		case iState% = stateAbort% then
-
+            
 			' Signal "X" turns off fixpt and stimulus. The next state 'stateWaitForBlank' only checks for 
 			' fixpt off. 
 			PrintLog("stateAbort: send X key.\n");
 			SafeSampleKey("X");
-
+            
 			' tally up aborted trials
 			attCountAllTrialsAbort% += 1;
 			docase
-				case trialType% = trialtypeAttendToward% then
-					attCountTowardTrialsAbort% += 1;
-				case trialType% = trialtypeAttendAway% then
-					attCountAwayTrialsAbort% += 1;
-				else 
-					PrintLog("ERROR: Unknown trial type (" + str$(trialType%) + "\n");
+            case trialType% = trialtypeAttendToward% then
+                attCountTowardTrialsAbort% += 1;
+            case trialType% = trialtypeAttendAway% then
+                attCountAwayTrialsAbort% += 1;
+            else 
+                PrintLog("ERROR: Unknown trial type (" + str$(trialType%) + "\n");
 			endcase
-
+            
 			' move on
 			ChangeStateTo(stateWaitForBlank%, tNow);
-
+            
 		case iState% = stateWaitForBlank% then
-
+            
             ' we just wait for fix point off signal in this case. 
             tTrigger := NextTime(FixationPointChannel%, tLast, vTrigger);
 			'tTrigger := NextTime(FrameTriggerChannel%, tLast, vTrigger);
@@ -901,70 +878,71 @@ func IdleProcessing%()
 				ChangeStateTo(stateAbortWait%, tTrigger);
 				DrawStim(0);	' actually this draws the location of the fixpt.
 			endif
-
+            
 		case iState% = stateAbortWait% then
-
+            
 			if tNow - tStateStart > attAbortWaitTime then
-
+                
 				PrintLog("stateAbortWait: time out is done.\n");
 				ChangeStateTo(stateStartTrial%, tNow);
-
+                
 			endif
-
+            
 		case iState% = stateHoldFixation% then
-
+            
 			if Looking%(xEye, yEye) = 0 then
 	       		
 				PrintLog("stateWaitForFixation: outside fixation window, aborting trial.\n");
 				ChangeStateTo(stateAbort%, tNow);
-
+                SampleText("Fixation broken, trial aborted");
+                
 			else 
-
+                
 				if (tNow - tStateStart) > (trialHazardFunctionTime) then
-
+                    
 					' turn off stimulus and advance it
 					PrintLog("stateHoldFixation: signal contrast change\n");
 					docase
-						case trialType% = trialtypeAttendToward% then
-							if trialContrastUpDown% > 0 then
-								if trialCatch% = 0 then
-									SafeSampleKey("C");
-								else
-									SafeSampleKey("D");
-								endif
-							else
-								if trialCatch% = 0 then
-									SafeSampleKey("c");
-								else
-									SafeSampleKey("d");
-								endif
-							endif
-						case trialType% = trialtypeAttendAway% then
-							if trialContrastUpDown% > 0 then
-								if trialCatch% = 0 then
-									SafeSampleKey("D");
-								else
-									SafeSampleKey("C");
-								endif
-							else
-								if trialCatch% = 0 then
-									SafeSampleKey("d");
-								else
-									SafeSampleKey("c");
-								endif
-							endif
-						else
-							PrintLog("ERROR! Unknown blocktype!!!\n");
+                    case trialType% = trialtypeAttendToward% then
+                        if trialContrastUpDown% > 0 then
+                            if trialCatch% = 0 then
+                                SafeSampleKey("C");
+                            else
+                                SafeSampleKey("D");
+                            endif
+                        else
+                            if trialCatch% = 0 then
+                                SafeSampleKey("c");
+                            else
+                                SafeSampleKey("d");
+                            endif
+                        endif
+                    case trialType% = trialtypeAttendAway% then
+                        if trialContrastUpDown% > 0 then
+                            if trialCatch% = 0 then
+                                SafeSampleKey("D");
+                            else
+                                SafeSampleKey("C");
+                            endif
+                        else
+                            if trialCatch% = 0 then
+                                SafeSampleKey("d");
+                            else
+                                SafeSampleKey("c");
+                            endif
+                        endif
+                    else
+                        PrintLog("ERROR! Unknown blocktype!!!\n");
 					endcase;
-							
-
+                    
+                    
 					' Now wait until contrast change trigger is received
 					ChangeStateTo(stateWaitForContrastChange%, tNow);
-
+                    
 				endif
-
+                
 			endif
-
+            
 		case iState% = stateWaitForContrastChange% then
             tTrigger := NextTime(StimChangeChannel%, tLast, vTrigger);
 			'tTrigger := NextTime(FrameTriggerChannel%, tLast, vTrigger);
@@ -973,62 +951,113 @@ func IdleProcessing%()
                 tLastTrigger := tTrigger;
                 isStimDistractorOff% := 0;
 				ChangeStateTo(stateWaitForAnswer%, tNow);
+                docase
+                    case trialType% = trialtypeAttendToward% then
+                        if trialContrastUpDown% > 0 then
+                            if trialCatch% = 0 then
+                                Sampletext("Contrast Change Up, Attend Toward",tTrigger);
+                            else
+                                Sampletext("Contrast Change Up, Attend Toward (catch)",tTrigger);
+                            endif
+                        else
+                            if trialCatch% = 0 then
+                                Sampletext("Contrast Change Down, Attend Toward",tTrigger);
+                            else
+                                Sampletext("Contrast Change Down, Attend Toward (catch)",tTrigger);
+                            endif
+                        endif
+                    case trialType% = trialtypeAttendAway% then
+                        if trialContrastUpDown% > 0 then
+                            if trialCatch% = 0 then
+                                Sampletext("Contrast Change Up, Attend Away",tTrigger);
+                            else
+                                Sampletext("Contrast Change Up, Attend Away (catch)",tTrigger);
+                            endif
+                        else
+                            if trialCatch% = 0 then
+                                Sampletext("Contrast Change Down, Attend Away",tTrigger);
+                            else
+                                Sampletext("Contrast Change Down, Attend Away (catch)",tTrigger);
+                            endif
+                        endif
+                    else
+                        PrintLog("ERROR! Unknown blocktype!!!\n");
+					endcase;
 			endif
-
+            
 		case iState% = stateWaitForAnswer% then
-
+            getPreciseTiming := 1;  'we need precise timing here, stay in while loop until we get eye movements we expect
 			if tNow - tStateStart > attTimeToAnswer then
 				PrintLog("stateWaitForAnswer: timed out\n");
 				ChangeStateTo(stateAbort%, tNow);
             else
-            ' When fixation is first broken we turn off the stim and distractor. 
-            ' That test is done separately from the test for an answer. Also set up 
-            ' a var to tell us whether the stim has been turned off. 
+                ' When fixation is first broken we turn off the stim and distractor. 
+                ' That test is done separately from the test for an answer. Also set up 
+                ' a var to tell us whether the stim has been turned off. 
                 if isStimDistractorOff% = 0 then
                     if Looking%(xEye, yEye) = 0 then
                         SafeSampleKey("s");
+                        SampleText("Fixation broken during response window",tNow);
            				PrintLog("stateWaitForAnswer: fix broken - turn off stim\n");
                         isStimDistractorOff% := 1;
                     endif
                 endif
-
+                
 				iAnswer% := Answer%(xEye, yEye);
 				if iAnswer% = 1 or iAnswer% = -1 then
 					' Got an answer. Record marker for correct/incorrect answer
 					if iAnswer% = trialContrastUpDown% then
 						' Correct answer
-						SampleText("+");
-						attCountAllTrialsCorrect% += 1;
+                        attCountAllTrialsCorrect% += 1;
+                        'SampleText("+");
 						docase
-							case trialType% = trialtypeAttendToward% then
-								attCountTowardTrialsCorrect% += 1;
-							case trialType% = trialtypeAttendAway% then
-								attCountAwayTrialsCorrect% += 1;
-							else
-								PrintLog("ERROR: Unknown trial type (" + str$(trialType%) + "\n");
+                        case trialType% = trialtypeAttendToward% and trialContrastUpDown% = 1 then
+                            attCountTowardTrialsCorrect% += 1;
+                            SampleText("Correct, Attend Toward, Contrast Up",tNow);
+                        case trialType% = trialtypeAttendAway% and trialContrastUpDown% = 1 then
+                            attCountAwayTrialsCorrect% += 1;
+                            SampleText("Correct, Attend Away, Contrast Up",tNow);
+                        case trialType% = trialtypeAttendToward% and trialContrastUpDown% = -1 then
+                            attCountTowardTrialsCorrect% += 1;
+                            SampleText("Correct, Attend Toward, Contrast Down",tNow);
+                        case trialType% = trialtypeAttendAway% and trialContrastUpDown% = -1 then
+                            attCountAwayTrialsCorrect% += 1;
+                            SampleText("Correct, Attend Away, Contrast Down",tNow);
+                        else
+                            PrintLog("ERROR: Unknown trial type (" + str$(trialType%) + "\n");
 						endcase
+                        getPreciseTiming := 0;
 						Reward%();
 					else
-                        SampleText("-");
+                        'SampleText("-");
 						attCountAllTrialsIncorrect% += 1;
 						docase
-							case trialType% = trialtypeAttendToward% then
-								attCountTowardTrialsIncorrect% += 1;
-							case trialType% = trialtypeAttendAway% then
-								attCountAwayTrialsIncorrect% += 1;
-							else
-								PrintLog("ERROR: Unknown trial type (" + str$(trialType%) + "\n");
+                        case trialType% = trialtypeAttendToward% and trialContrastUpDown% = 1 then
+                            attCountTowardTrialsIncorrect% += 1;
+                            SampleText("Incorrect, Attend Toward, Contrast Up",tNow);
+                        case trialType% = trialtypeAttendAway% and trialContrastUpDown% = 1 then
+                            attCountAwayTrialsIncorrect% += 1;
+                            SampleText("Incorrect, Attend Away, Contrast Up",tNow);
+                        case trialType% = trialtypeAttendToward% and trialContrastUpDown% = -1 then
+                            attCountTowardTrialsIncorrect% += 1;
+                            SampleText("Incorrect, Attend Toward, Contrast Down",tNow);
+                        case trialType% = trialtypeAttendAway% and trialContrastUpDown% = -1 then
+                            attCountAwayTrialsIncorrect% += 1;
+                            SampleText("Incorrect, Attend Away, Contrast Down",tNow);
+                        else
+                            PrintLog("ERROR: Unknown trial type (" + str$(trialType%) + "\n");
 						endcase
+                        getPreciseTiming := 0;
                         Yield(.01);    ' necessary so that the SampleText and SafeSampleKey below don't land on the same time (makes extraction difficult)
 					endif
-	
+                    
 					SafeSampleKey("X");
 					ChangeStateTo(stateTrialCompletedWaitForBlank%, tNow);
 				endif
 			endif
-
+            
 		case iState% = stateTrialCompletedWaitForBlank% then
-
+            
             ' we just wait for fix point off signal in this case. 
             tTrigger := NextTime(FixationPointChannel%, tLast, vTrigger);
 			'tTrigger := NextTime(FrameTriggerChannel%, tLast, vTrigger);
@@ -1040,20 +1069,20 @@ func IdleProcessing%()
 				ChangeStateTo(stateTrialCompletedPause%, tTrigger);
 				DrawStim(0);	' actually this draws the location of the fixpt.
 			endif
-
+            
 		case iState% = stateTrialCompletedPause% then
-
+            
 			if tNow - tStateStart > attInterTrialTime then
-
+                
 				PrintLog("stateTrialCompletedPause: time out is done.\n");
 				ChangeStateTo(stateTrialCompleted%, tNow);
-
+                
 			endif
-
-
-
+            
+            
+            
 		case iState% = stateTrialCompleted% then
-
+            
 			PrintLog("Trial completed.\n");
 			nTrialsCompleted% := nTrialsCompleted% + 1;
 			if nTrialsCompleted% = attTrialsPerBlock% then
@@ -1061,9 +1090,9 @@ func IdleProcessing%()
 			else
 				ChangeStateTo(stateStartTrial%, tNow);
 			endif
-	
+            
 		case iState% = stateBlockCompleted% then
-
+            
 			PrintLog("Block completed.\n");
 			nBlocksCompleted% := nBlocksCompleted% + 1;
 			if nBlocksCompleted% = attNumberOfBlocks% then
@@ -1073,16 +1102,18 @@ func IdleProcessing%()
 			else
 				ChangeStateTo(stateStartBlock%, tNow);
 			endif
-
+            
 		else
 			
 			' Unknown state!
 			Message("Unknown state=" + str$(iState%));
 			halt;
-
-	endcase;
-
-	tLast := tNow;
+            
+        endcase;
+        
+        tLast := tNow;
+    wend;
+    
 	return iStatus%;
 end;
 
@@ -1280,7 +1311,7 @@ proc CreateSampleConfiguration()
 	SampleWaveform(NumberOfElectrodes%+10, 6, 1000);
 	SampleTitle$(NumberOfElectrodes%+10, "PD");
 
-	SampleTextMark(30);  'increase number of allowed characters, 1 is so stingy!
+	SampleTextMark(200);  'increase number of allowed characters, 1 is so stingy!
 
 	SampleSequencer(script$ + "Attention.pls");
 	SampleOptimise(2,2,2,2,50);  'Set optimise mode (do this last)
@@ -1328,6 +1359,8 @@ end;
 
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 func Stop%()
+    var i%, mylen%;
+    var fn$;
 
 	' Disable idle process func
 	ToolbarSet(0,"");
@@ -1341,7 +1374,27 @@ func Stop%()
 	while ProgStatus(StimHandle%) > 0 do
 		Yield();
 	wend
-
+    
+    View(DataWindow%);
+    ExportChanList();
+    ExportChanList(0,maxtime(),30);  '30 is the textmark channel
+    ExportChanList(0,maxtime(),31);  '31 is the keyboard channel
+    
+'Code for putting other various channels into the Matlab extraction, Ben doesn't want them but they will be useful for other code    
+'    ExportChanList(0,maxtime(),XChannel%);  'Eye position channel, X
+'    ExportChanList(0,maxtime(),YChannel%);  'Eye position channel, Y
+    for i% := 0 to NumWavemarkPorts%-1 do
+        ExportChanList(0,maxtime(),i%+1);  'Wavemark channel(s)
+    next;
+    
+    
+    fn$ := FileName$();  'get current file name
+    mylen% := Len(fn$);
+    fn$ := Left$(fn$,mylen%-4);
+    fn$ := fn$ + ".mat";
+    FileSaveAs(fn$,100,0,"",0,"UseSName=0"); 'Do not overwrite the .mat file - should have a different name and if it doesn't that is a red flag    
+    
+    
     ' update statistics
     'AttentionExtract%(-1, -1);
     
@@ -1391,11 +1444,17 @@ func Start%()
     endif
         
 	Stim$ := " -g " + distSpec$ + " -s " + stimSpec$;
-	Contrast$ := " -t " + str$(attContrastDown%) + "," + str$(attContrastBase%) + "," + str$(attContrastUp%);
+	Contrast$ := " -t " + str$(attMinContChange%) + "," + str$(attContrastBase%) + "," + str$(attMaxContChange%);
 	Extras$ := " -b " + attBackgroundColor$ + " -d " + GetDistanceToScreenMM$() + " -A " + str$(attAnswerPointOffset) + " -D " + str$(attAnswerPointDiameter) + lolSpec$;
     if attTrainingContrastCheck% = 1 then
         Extras$ := Extras$ + " -T " + str$(attTrainingContrastPct%);
     endif
+    
+    'Hardcode the choice points to be red no matter what
+    'Turns out that for the attention program the color in the fixation argument sets the color of the choice
+    'points but that the actual fixation point is set differently.  FixationArg$ is created at the outset of
+    'the script, but here I'm overriding the value to make the choice points always red.
+    FixationArg$ := " -f " + str$(FixationX) + "," + str$(FixationY) + "," + str$(FixationDiameter) + ",red";
 	
 	'CommandLine$ := "cmd /c " + bin$ + "\\dAttention " + FixationArg$ + Extras$ + Distractors$;
 	CommandLine$ := "cmd /k " + bin$ + "\\Attention " + FixationArg$ + Extras$ + Stim$ + Contrast$;
