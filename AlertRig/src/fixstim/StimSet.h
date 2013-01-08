@@ -223,6 +223,8 @@ private:
 class CRGStimSet: public StimSet
 {
 public:
+	CRGStimSet(alert::ARContrastFixationPointSpec& f, alert::ARGratingSpec& g, int frames_per_term, const std::string& sequence, std::vector<double> contrasts, bool balanced = false);
+	CRGStimSet(alert::ARGratingSpec& g, int frames_per_term, const std::string& sequence, std::vector<double> contrasts, bool balanced = false);
 	CRGStimSet(alert::ARContrastFixationPointSpec& f, alert::ARGratingSpec& g, int frames_per_term, const std::string& sequence, bool balanced = false);
 	CRGStimSet(alert::ARGratingSpec& g, int frames_per_term, const std::string& sequence, bool balanced = false);
 	virtual int num_pages() {return 2;};
@@ -233,7 +235,9 @@ public:
 private:
 	int m_page0;
 	int m_page1;
-	int m_contrast;
+	//int m_contrast;
+	vector<double> m_contrasts;
+	vector<double>::const_iterator m_iterator;
 	alert::ARGratingSpec m_grating0;
 	alert::ARGratingSpec m_grating1;
 	alert::ARContrastFixationPointSpec m_fixpt;

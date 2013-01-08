@@ -1,4 +1,4 @@
-/* $Id: fixstim.cpp,v 1.11 2012-06-18 22:50:51 devel Exp $ */
+/* $Id: fixstim.cpp,v 1.12 2013-01-08 23:30:37 devel Exp $ */
 
 #include <iostream>
 #include <fstream>
@@ -337,8 +337,9 @@ int prargs_callback(int c, string& arg)
 	case 'R':
 	case 'B':
 		{
-			vector<int> list;
+			vector<double> list;
 			int nterms;
+			int iunused;
 			const char *sequence = NULL;
 			bool balanced = (c=='B');
 
@@ -347,30 +348,51 @@ int prargs_callback(int c, string& arg)
 				cerr << "Error - must specify a grating stim (-s) before specifying a CRG stimulus." << endl;
 				errflg++;
 			}
-			else if (parse_int_list(arg, list) || list.size() != 3)
+			else if (parse_tuning_list(arg, list, iunused) || list.size() < 3)
 			{
-				cerr << "Bad format in repeating arg. Should be 3 ints: frames_per_term,first_term(0...),nterms" << endl;
+				cerr << "Bad format in repeating arg. Should be at least 3 ints: frames_per_term,first_term(0...),nterms[,contrast0,contrast1,...]" << endl;
 				errflg++;
 			}
 			else
 			{
+				int first, length, fpt;
+				fpt = (int)list[0];
+				first = (int)list[1];
+				length = (int)list[2];
+				list.erase(list.begin());	// erase first three elements
+				list.erase(list.begin());
+				list.erase(list.begin());
 				sequence = get_msequence();
 				nterms = strlen(sequence);
 
 				// Check that sequence args work with this sequence file
-				if (nterms > 0 && list[1] > -1 && (list[1]+list[2] < nterms))
+				if (nterms > 0 && first > -1 && (first+length < nterms))
 				{
 					string seq;
-					seq.assign(&sequence[list[1]], list[2]);
+					seq.assign(&sequence[first], length);
 
 					// Create StimSet
 					if (have_fixpt)
 					{
-						f_pStimSet = new CRGStimSet(f_fixpt, f_grating, list[0], seq, balanced);
+						if (list.size() > 0)
+						{
+							f_pStimSet = new CRGStimSet(f_fixpt, f_grating, fpt, seq, list, balanced);
+						}
+						else
+						{
+							f_pStimSet = new CRGStimSet(f_fixpt, f_grating, fpt, seq, balanced);
+						}
 					}
 					else
 					{
-						f_pStimSet = new CRGStimSet(f_grating, list[0], seq, balanced);
+						if (list.size() > 0)
+						{
+							f_pStimSet = new CRGStimSet(f_grating, fpt, seq, list, balanced);
+						}
+						else
+						{
+							f_pStimSet = new CRGStimSet(f_grating, fpt, seq, balanced);
+						}
 					}
 				}
 			}
