@@ -1,4 +1,4 @@
-' $Id: Attention.s2s,v 1.28 2013-01-07 23:49:00 jeff Exp $
+' $Id: Attention.s2s,v 1.29 2013-01-08 22:04:45 jeff Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -31,8 +31,8 @@ var attAnswerPointDiameter := 0.05;
 var attAnswerPointOffset := 5.0;
 var attAnswerPointWindowRadius := 2.0;
 var attContrastBase%;
-var attMaxContChange%;
-var attMinContChange%;
+var attMaxContChange;
+var attMinContChange;
 var attNContLevels%;
 var attFixationTime;
 var attWhitePointTime;          ' xxxxx
@@ -141,8 +141,8 @@ proc GetAttentionScriptParameters()
     endif
     
     Profile(key$, "ContrastBase", 50, attContrastBase%);
-	Profile(key$, "ContrastMax", 80, attMaxContChange%);
-	Profile(key$, "ContrastMin", 20, attMinContChange%);
+	Profile(key$, "ContrastMax", 80, attMaxContChange);
+	Profile(key$, "ContrastMin", 20, attMinContChange);
     Profile(key$, "NContrastLevels", 20, attNContLevels%);
 
 	Profile(key$, "AnswerPointDiameter", "0.5", stmp$);
@@ -224,8 +224,8 @@ proc SaveAttentionScriptParameters()
 	Profile(key$, "TrainingContrastPct", attTrainingContrastPct%);
 	Profile(key$, "BackgroundColor", attBackgroundColor$);
 	Profile(key$, "ContrastBase", attContrastBase%);
-	Profile(key$, "ContrastMax", attMaxContChange%);
-	Profile(key$, "ContrastMin", attMinContChange%);
+	Profile(key$, "ContrastMax", attMaxContChange);
+	Profile(key$, "ContrastMin", attMinContChange);
     Profile(key$, "NContrastLevels", attNContLevels%);
 	Profile(key$, "FixationCueMinTime", str$(attFixationCueMinTime));
 	Profile(key$, "FixationCueMaxTime", str$(attFixationCueMaxTime));
@@ -276,8 +276,8 @@ func AttentionScriptDialog%()
 	DlgReal(4, "Catch Trial pct (0-100)", 0, 100, 22, 5);
 	DlgCheck(5, "Alternate cue type by block", 2, 6);
 	DlgInteger(6, "Base contrast (%)", 0, 100, 22, 7);
-	DlgInteger(7, "Max dContrast (%base)", 0, 500, 22, 8);
-	DlgInteger(8, "Min dContrast (%base)", 0, 500, 22, 9);
+	DlgReal(7, "Max dContrast (oct)", 0, 10, 22, 8);
+	DlgReal(8, "Min dContrast (oct)", 0, 10, 22, 9);
     DlgInteger(9, "N contrast levels", 0, 10, 22, 10);
 	DlgCheck(attdlgTrainingContrastCheck%, "Training Contrast", 2, 11);
 	DlgInteger(attdlgTrainingContrastPct%, "Training Contrast(%)", 0, 100, 22, 12);
@@ -292,7 +292,7 @@ func AttentionScriptDialog%()
     DlgReal(attdlgLollipopStickGap, "Lollipop stick gap", 0, 10, 22, 22);
     DlgAllow(0, 0, AttentionScriptDialogChanged%);
 	i%:=DlgShow(attNumberOfBlocks%, attTrialsPerBlock%, attEasyTrialsPerBlock%, attCatchTrialPercentage,
-                attBlockAlternate%, attContrastBase%, attMaxContChange%, attMinContChange%, attNContLevels%,
+                attBlockAlternate%, attContrastBase%, attMaxContChange, attMinContChange, attNContLevels%,
                 attTrainingContrastCheck%, attTrainingContrastPct%, 
                 attLollipopCheck%, attCueLinePct, attCircleDiameterDiff, 
                 attLollipopContrast%, attLollipopStickContrast%, attCueLineGap);
@@ -712,12 +712,12 @@ var trialContrastUpDown%;
 var trialHazardFunctionTime;
 
 func IdleProcessing%()
-    var getPreciseTiming := 1;
+    'var getPreciseTiming := 1;
 	var iStatus% := 1;	
     
-    while getPreciseTiming = 1 do 
+    'while getPreciseTiming = 1 do 
         
-        getPreciseTiming := 0;  'don't get precise timing unless we ask to (if 0, return control to windows after each idle loop iteration)
+        'getPreciseTiming := 0;  'don't get precise timing unless we ask to (if 0, return control to windows after each idle loop iteration)
         
         tNow := MaxTime();
         
@@ -800,19 +800,19 @@ func IdleProcessing%()
             
             
 		case iState% = stateWaitForAcquisition% then
-            getPreciseTiming := 1;
+            'getPreciseTiming := 1;
 			' Waiting for eye to fall inside of fixation window
 			if Looking%(xEye, yEye) = 1 then
 				PrintLog("stateWaitForAcquisition: eye in fixation window.\n");
                 'ChangeStateTo(stateWhitePointFixation%, tNow);
                 ChangeStateTo(stateWaitForFixation%, tNow);
                 SampleText("Fixation Acquired",tNow);
-                getPreciseTiming := 0;
+                'getPreciseTiming := 0;
 			else 
 				if tNow - tStateStart > attAcquisitionTime then
 					PrintLog("stateWaitForAcquisition: failed.\n");
 					ChangeStateTo(stateAbort%, tNow);
-                    getPreciseTiming := 0;
+                    'getPreciseTiming := 0;
 				endif
 			endif
             
@@ -986,7 +986,7 @@ func IdleProcessing%()
 			endif
             
 		case iState% = stateWaitForAnswer% then
-            getPreciseTiming := 1;  'we need precise timing here, stay in while loop until we get eye movements we expect
+            'getPreciseTiming := 1;  'we need precise timing here, stay in while loop until we get eye movements we expect
 			if tNow - tStateStart > attTimeToAnswer then
 				PrintLog("stateWaitForAnswer: timed out\n");
 				ChangeStateTo(stateAbort%, tNow);
@@ -1026,7 +1026,7 @@ func IdleProcessing%()
                         else
                             PrintLog("ERROR: Unknown trial type (" + str$(trialType%) + "\n");
 						endcase
-                        getPreciseTiming := 0;
+                        'getPreciseTiming := 0;
 						Reward%();
 					else
                         'SampleText("-");
@@ -1047,7 +1047,7 @@ func IdleProcessing%()
                         else
                             PrintLog("ERROR: Unknown trial type (" + str$(trialType%) + "\n");
 						endcase
-                        getPreciseTiming := 0;
+                        'getPreciseTiming := 0;
                         Yield(.01);    ' necessary so that the SampleText and SafeSampleKey below don't land on the same time (makes extraction difficult)
 					endif
                     
@@ -1112,7 +1112,7 @@ func IdleProcessing%()
         endcase;
         
         tLast := tNow;
-    wend;
+    'wend;
     
 	return iStatus%;
 end;
@@ -1443,8 +1443,8 @@ func Start%()
         lolSpec$ := "";
     endif
         
-	Stim$ := " -g " + distSpec$ + " -s " + stimSpec$;
-	Contrast$ := " -t " + str$(attMinContChange%) + "," + str$(attContrastBase%) + "," + str$(attMaxContChange%);
+	Stim$ := " -g " + distSpec$ + " -s " + stimSpec$;  
+	Contrast$ := " -t " + str$(round(attContrastBase%/pow(2,attMinContChange))) + "," + str$(attContrastBase%) + "," + str$(round(attContrastBase%*pow(2,attMaxContChange)));  'this will change once tuning curves are in, at least a bit
 	Extras$ := " -b " + attBackgroundColor$ + " -d " + GetDistanceToScreenMM$() + " -A " + str$(attAnswerPointOffset) + " -D " + str$(attAnswerPointDiameter) + lolSpec$;
     if attTrainingContrastCheck% = 1 then
         Extras$ := Extras$ + " -T " + str$(attTrainingContrastPct%);
