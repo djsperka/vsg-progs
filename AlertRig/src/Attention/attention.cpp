@@ -50,6 +50,8 @@ bool m_verbose=false;
 TriggerVector triggers;
 bool m_binaryTriggers = true;
 bool m_bTrainingContrast = false;
+vector<double> m_contrasts;
+vector<double>::const_iterator m_iterator;
 int m_iContrastDown=0;
 int m_iContrastBase=50;
 int m_iContrastUp=100;
@@ -64,17 +66,21 @@ bool m_bDistractorOn = false;
 static void usage();
 static int init_pages();
 static int init_answer_points();
+static int prargs_callback(int c, string& arg);
+
 
 int main (int argc, char *argv[])
 {
+	int status;
 	std::string s;
 	int last_output_trigger=0;
 
 
 	// Check input arguments
-	if (args(argc, argv))
+	status = prargs(argc, argv, prargs_callback, "f:b:g:hd:vas:t:A:D:T:c:l:p:P:LG:NQS", 'F');
+	if (status)
 	{
-		return 1;
+		return -1;
 	}
 	else
 	{
@@ -162,177 +168,172 @@ int main (int argc, char *argv[])
 	return 0;
 }
 
+//int args(int argc, char **argv)
 
-
-int args(int argc, char **argv)
+int prargs_callback(int c, string& arg)
 {	
-	bool have_f=false;
-	bool have_d=false;
-	bool have_b=false;
-	bool have_t=false;
-	bool have_s=false;
-	bool have_g=false;
-	string s;
-	int c;
-	extern char *optarg;
-	extern int optind;
-	int errflg = 0;
+	static bool have_f=false;
+	static bool have_d=false;
+	static bool have_b=false;
+	static bool have_t=false;
+	static bool have_s=false;
+	static bool have_g=false;
+	int status = 0;
+	int iunused;
 	ARGratingSpec agtemp;
-	while ((c = getopt(argc, argv, "f:b:g:hd:vas:t:A:D:T:c:l:p:P:LG:NQS")) != -1)
+	switch (c) 
 	{
-		switch (c) 
+	case 'a':
+		m_binaryTriggers = false;
+		break;
+	case 'v':
+		m_verbose = true;
+		break;
+	case 'f': 
+		if (parse_fixation_point(arg, m_spec_fixpt)) status++;
+		else have_f = true;
+		break;
+	case 'b': 
+		if (parse_color(arg, m_background)) status++; 
+		else have_b = true;
+		break;
+	case 'd':
+		if (parse_distance(arg, m_screenDistanceMM)) status++;
+		else have_d=true;
+		break;
+	case 's':
+		if (!parse_grating(arg, m_spec_stimulus))
 		{
-		case 'a':
-			m_binaryTriggers = false;
-			break;
-		case 'v':
-			m_verbose = true;
-			break;
-		case 'f': 
-			s.assign(optarg);
-			if (parse_fixation_point(s, m_spec_fixpt)) errflg++;
-			else have_f = true;
-			break;
-		case 'b': 
-			s.assign(optarg);
-			if (parse_color(s, m_background)) errflg++; 
-			else have_b = true;
-			break;
-		case 'd':
-			s.assign(optarg);
-			if (parse_distance(s, m_screenDistanceMM)) errflg++;
-			else have_d=true;
-			break;
-		case 's':
-			s.assign(optarg);
-			if (!parse_grating(s, m_spec_stimulus))
-			{
-				have_s = true;
-				m_iStimulusOriginalContrast = m_spec_stimulus.contrast;
-			}
-			else errflg++;
-			break;
-		case 'g':
-			s.assign(optarg);
-			if (!parse_grating(s, m_spec_distractor))
-			{
-				have_g = true;
-				m_iDistractorOriginalContrast = m_spec_distractor.contrast;
-			}
-			else errflg++;
-			break;
-		case 't':
-			s.assign(optarg);
-			if (parse_contrast_triplet(s, m_iContrastDown, m_iContrastBase, m_iContrastUp)) errflg++;
-			else have_t = true;
-			break;
-		case 'A':
-			s.assign(optarg);
-			if (parse_double(s, m_anspt_offset_degrees)) errflg++;
-			break;
-		case 'D':
-			s.assign(optarg);
-			if (parse_double(s, m_anspt_diameter_degrees)) errflg++;
-			break;
-		case 'c':
-			s.assign(optarg);
-			if (parse_double(s, m_circle_diameter_differential)) 
-			{
-				cerr << "Bad circle diameter differential: " << s << endl;
-				errflg++;
-			}
-			break;
-		case 'l':
-			s.assign(optarg);
-			if (parse_double(s, m_cue_line_fraction)) 
-			{
-				cerr << "Bad cue line fraction: " << s << endl;
-				errflg++;
-			}
-			break;
-		case 'G':
-			s.assign(optarg);
-			if (parse_double(s, m_cue_line_gap)) 
-			{
-				cerr << "Bad cue line gap: " << s << endl;
-				errflg++;
-			}
-			break;
-		case 'p':
-			s.assign(optarg);
-			if (parse_integer(s, m_iLollipopContrast)) 
-			{
-				cerr << "Bad lollipop contrast value: " << s << endl;
-				errflg++;
-			}
-			break;
-		case 'P':
-			s.assign(optarg);
-			if (parse_integer(s, m_iLollipopStickContrast)) 
-			{
-				cerr << "Bad lollipop stick contrast value: " << s << endl;
-				errflg++;
-			}
-			break;
-		case 'L':
-			m_bLollipops = true;
-			break;
-		case 'N':
-			m_bNoAnswerPoints = true;
-			break;
-		case 'Q':
-			m_bCueCircles = true;
-			break;
-		case 'S':
-			m_bSingleStim = true;
-			break;
-		case 'h':
-			errflg++;
-			break;
-		case '?':
-            errflg++;
-			break;
-		default:
-			errflg++;
-			break;
+			have_s = true;
+			m_iStimulusOriginalContrast = m_spec_stimulus.contrast;
 		}
+		else status++;
+		break;
+	case 'g':
+		if (!parse_grating(arg, m_spec_distractor))
+		{
+			have_g = true;
+			m_iDistractorOriginalContrast = m_spec_distractor.contrast;
+		}
+		else status++;
+		break;
+	case 't':
+		if (parse_tuning_list(arg, m_contrasts, iunused)) status++;
+		else 
+		{
+			// check that the number is divisible by three....
+			if (m_contrasts.size() % 3)
+			{
+				cerr << "Contrast list must have #entries be a multiple of 3." << endl;
+				status++;
+			}
+			else
+			{
+				have_t = true;
+				m_iterator = m_contrasts.begin();
+				m_iContrastDown = (int)*m_iterator;
+				m_iContrastBase = (int)*(m_iterator+1);
+				m_iContrastUp = (int)*(m_iterator+2);
+			}
+		}
+		break;
+	case 'A':
+		if (parse_double(arg, m_anspt_offset_degrees)) status++;
+		break;
+	case 'D':
+		if (parse_double(arg, m_anspt_diameter_degrees)) status++;
+		break;
+	case 'c':
+		if (parse_double(arg, m_circle_diameter_differential)) 
+		{
+			cerr << "Bad circle diameter differential: " << arg << endl;
+			status++;
+		}
+		break;
+	case 'l':
+		if (parse_double(arg, m_cue_line_fraction)) 
+		{
+			cerr << "Bad cue line fraction: " << arg << endl;
+			status++;
+		}
+		break;
+	case 'G':
+		if (parse_double(arg, m_cue_line_gap)) 
+		{
+			cerr << "Bad cue line gap: " << arg << endl;
+			status++;
+		}
+		break;
+	case 'p':
+		if (parse_integer(arg, m_iLollipopContrast)) 
+		{
+			cerr << "Bad lollipop contrast value: " << arg << endl;
+			status++;
+		}
+		break;
+	case 'P':
+		if (parse_integer(arg, m_iLollipopStickContrast)) 
+		{
+			cerr << "Bad lollipop stick contrast value: " << arg << endl;
+			status++;
+		}
+		break;
+	case 'L':
+		m_bLollipops = true;
+		break;
+	case 'N':
+		m_bNoAnswerPoints = true;
+		break;
+	case 'Q':
+		m_bCueCircles = true;
+		break;
+	case 'S':
+		m_bSingleStim = true;
+		break;
+	case 'h':
+		status++;
+		break;
+	case '?':
+        status++;
+		break;
+	case 0:
+		if (!have_s)
+		{
+			cerr << "Stimulus not specified!" << endl;
+			status++;
+		}
+		if (!have_g)
+		{
+			cerr << "Distractor not specified!" << endl;
+			status++;
+		}
+		if (!have_f) 
+		{
+			cerr << "Fixation point not specified!" << endl; 
+			status++;
+		}
+		if (!have_d)
+		{
+			cerr << "Screen distance not specified!" << endl; 
+			status++;
+		}
+		if (!have_b)
+		{
+			cerr << "Background color not specified!" << endl;
+			status++;
+		}
+		if (!have_t)
+		{
+			cerr << "Contrast triplet not specified!" << endl;
+			status++;
+		}
+		break;
+	default:
+		status++;
+		break;
 	}
 
-	if (!have_s)
-	{
-		cerr << "Stimulus not specified!" << endl;
-		errflg++;
-	}
-	if (!have_g)
-	{
-		cerr << "Distractor not specified!" << endl;
-		errflg++;
-	}
-	if (!have_f) 
-	{
-		cerr << "Fixation point not specified!" << endl; 
-		errflg++;
-	}
-	if (!have_d)
-	{
-		cerr << "Screen distance not specified!" << endl; 
-		errflg++;
-	}
-	if (!have_b)
-	{
-		cerr << "Background color not specified!" << endl;
-		errflg++;
-	}
-	if (!have_t)
-	{
-		cerr << "Contrast triplet not specified!" << endl;
-		errflg++;
-	}
-	if (errflg) 
-	{
-		usage();
-	}
-	return errflg;
+	return status;
 }
 
 void usage()
@@ -575,6 +576,19 @@ int callback(int &output, const CallbackTrigger* ptrig)
 			cerr << endl << "Warning! In single stim mode (-S), cannot change contrast of non-cued stimulus!" << endl << endl;
 		}
 	}
+	else if (key == "a")
+	{
+		cout << "Advance trigger received." << endl;
+		m_iterator += 3;
+		if (m_iterator == m_contrasts.end())
+		{
+			cout << "Reached end of contrast triplets. Start over at beginning...." << endl;
+			m_iterator = m_contrasts.begin();
+		}
+		m_iContrastDown = (int)*m_iterator;
+		m_iContrastBase = (int)*(m_iterator+1);
+		m_iContrastUp = (int)*(m_iterator+2);
+	}
 	else if (key == "i")
 	{
 		char filename[256];
@@ -742,8 +756,8 @@ int init_pages()
 
 	vecInputs.push_back(std::pair< string, int>("F", 0x2));
 	vecInputs.push_back(std::pair< string, int>("G", 0x4));
-	triggers.push_back(new MultiInputSingleOutputCallbackTrigger(vecInputs, 0x6, 0x1, 0x1, callback));
-	triggers.addTrigger(new CallbackTrigger("X", 0x6, 0x6, 0xf, 0x0, callback));
+	triggers.push_back(new MultiInputSingleOutputCallbackTrigger(vecInputs, 0x66, 0x1, 0x1, callback));
+	triggers.addTrigger(new CallbackTrigger("X", 0x6E, 0x0, 0xf, 0x0, callback));
 
 	if (m_bCueCircles)
 	{
@@ -762,16 +776,20 @@ int init_pages()
 	// adding "SingleStim" option. When using SingleStim I want to be able to guard against the WRONG contrast
 	// change trigger being issued - that would cause the non-displayed stim to suddenly appear when its 
 	// contrast is changed. 
-	triggers.addTrigger(new CallbackTrigger("C", 0xe0, 0x20, 0x8, 0x8, callback));
-	triggers.addTrigger(new CallbackTrigger("c", 0xe0, 0x40, 0x8, 0x8, callback));
-	triggers.addTrigger(new CallbackTrigger("D", 0xe0, 0x60, 0x8, 0x8, callback));
-	triggers.addTrigger(new CallbackTrigger("d", 0xe0, 0x80, 0x8, 0x8, callback));
+	triggers.addTrigger(new CallbackTrigger("C", 0x6E, 0x2A, 0x8, 0x8, callback));
+	triggers.addTrigger(new CallbackTrigger("c", 0x6E, 0x4A, 0x8, 0x8, callback));
+	triggers.addTrigger(new CallbackTrigger("D", 0x6E, 0x2C, 0x8, 0x8, callback));
+	triggers.addTrigger(new CallbackTrigger("d", 0x6E, 0x4C, 0x8, 0x8, callback));
 
 	// Image trigger. Will only work with ascii triggers (i.e. keyboard). 
 	triggers.addTrigger(new CallbackTrigger("i", 0x0, 0x0, 0x0, 0x0, callback));
 
+	// advance trigger
+	triggers.addTrigger(new CallbackTrigger("a", 0x80, 0x80|AR_TRIGGER_TOGGLE, 0x10, 0x10|AR_TRIGGER_TOGGLE, callback));
+	//triggers.addTrigger(new CallbackTrigger("a", 0x8, 0x8|AR_TRIGGER_TOGGLE, 0x8, 0x8|AR_TRIGGER_TOGGLE, callback));
+
 	// quit trigger
-	triggers.addTrigger(new QuitTrigger("q", 0xf0, 0xf0, 0xff, 0x0, 0));
+	triggers.addTrigger(new QuitTrigger("q", 0x7E, 0x7E, 0xff, 0x0, 0));
 
 	return status;
 }

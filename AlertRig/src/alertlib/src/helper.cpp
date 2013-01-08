@@ -1039,6 +1039,12 @@ int tokenize_response_file(char *filename, vector<string> &tokens)
  * do whatever processing of the option (and arg if relevant) is necessary.
  * The callback should return 0 if all is well, nonzero return will halt
  * command line processing and prargs will return that value. 
+ * After all args have been processed without trouble (the callback returned
+ * 0 every time), then the callback is called one last time with arg = 0. 
+ * The callback function can then do any final processing (check that all 
+ * required args were provided, for example). As with a regular arg, the callback
+ * should return 0 if all is well, or else return nonzero value. 
+ *
  * On successful handling of all args prargs will return 0. 
  */
 
