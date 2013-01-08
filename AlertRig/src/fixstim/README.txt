@@ -62,18 +62,24 @@ options:
                       the same grating with its contrast reversed is taken as 
                       the "0". The temporal frequency of the given grating 
                       specification is ignored (it is set to 0). 
--R frames_per_term,first_term,n_terms  
+-R frames_per_term,first_term,n_terms[,contrast0,contrast1,contrast2,...] 
                       Each of these three values is an integer. The sequence 
                       terms are numbered starting at 0. It is an error to 
                       specify n_terms greater than the number of terms in the
                       sequence file, or to specify a first term which is less 
                       than 0 or greater than the number of terms in the 
-                      sequence file. 
--B frames_per_term,first_term,n_terms 
+                      sequence file. If a list of contrast values are given, 
+                      then the 'a' trigger will advance the stimulus through
+                      the contrasts, assigning 'contrast0' and -1*'contrast0' 
+                      to the stimulus on the first trial. After advancing with
+                      'a', then we use 'contrast1', and so on. 
+-B frames_per_term,first_term,n_terms[,contrast0,contrast1,contrast2,...] 
                       Same as "-R", except the sequence presented is played 
                       twice, with the second iteration reversed. This ensures 
                       a balanced sequence overall. Note that the number of 
                       terms shown in the complete sequence is 2*n_terms. 
+                      If a list of contrast values are given, the behavior is the 
+                      same as that for -R above.
 
 
 Drifting Bar Stimulus
