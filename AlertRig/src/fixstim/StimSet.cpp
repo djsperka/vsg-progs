@@ -716,15 +716,31 @@ int AreaStimSet::handle_trigger(std::string& s)
 CRGStimSet::CRGStimSet(alert::ARContrastFixationPointSpec& f, alert::ARGratingSpec& g, int frames_per_term, const std::string& sequence, bool balanced) : m_grating1(g), m_grating0(g), m_fixpt(f), m_bHaveFixpt(true), m_fpt(frames_per_term), m_balanced(balanced)
 { 
 	m_seq.assign(sequence); 
-	m_contrast = m_grating1.contrast;
+	m_contrasts.push_back(m_grating1.contrast);
+	m_iterator = m_contrasts.begin();
+	//m_contrast = m_grating1.contrast;
 }
 
 CRGStimSet::CRGStimSet(alert::ARGratingSpec& g, int frames_per_term, const std::string& sequence, bool balanced) : m_grating1(g), m_grating0(g), m_bHaveFixpt(false), m_fpt(frames_per_term), m_balanced(balanced)
 { 
 	m_seq.assign(sequence); 
-	m_contrast = m_grating1.contrast;
+	m_contrasts.push_back(m_grating1.contrast);
+	m_iterator = m_contrasts.begin();
+	//m_contrast = m_grating1.contrast;
 }
 
+CRGStimSet::CRGStimSet(alert::ARContrastFixationPointSpec& f, alert::ARGratingSpec& g, int frames_per_term, const std::string& sequence, std::vector<double> contrasts, bool balanced) : m_grating1(g), m_grating0(g), m_fixpt(f), m_bHaveFixpt(true), m_fpt(frames_per_term), m_contrasts(contrasts), m_balanced(balanced)
+{ 
+	m_seq.assign(sequence); 
+	m_iterator = m_contrasts.begin();
+}
+
+CRGStimSet::CRGStimSet(alert::ARGratingSpec& g, int frames_per_term, const std::string& sequence, std::vector<double> contrasts, bool balanced) : m_grating1(g), m_grating0(g), m_bHaveFixpt(false), m_fpt(frames_per_term), m_contrasts(contrasts), m_balanced(balanced)
+{ 
+	m_seq.assign(sequence); 
+	m_iterator = m_contrasts.begin();
+	//m_contrast = m_grating1.contrast;
+}
 
 int CRGStimSet::init(ARvsg& vsg, std::vector<int> pages)
 {
@@ -811,15 +827,18 @@ int CRGStimSet::handle_trigger(std::string& s)
 	}
 	else if (s == "S")
 	{
-		m_grating0.setContrast(-1*m_contrast);
+		int contrast = (int)(*m_iterator);
+		m_grating0.setContrast(-1*contrast);
 		m_grating0.select();
-		m_grating1.setContrast(m_contrast);
+		m_grating1.setContrast(contrast);
 		m_grating1.select();
 		vsgSetSynchronisedCommand(vsgSYNC_PRESENT, vsgCYCLEPAGEENABLE, 0);
 		status = 1;
 	}
 	else if (s == "a")
 	{
+		m_iterator++;
+		if (m_iterator == m_contrasts.end()) m_iterator = m_contrasts.begin();
 	}
 	else if (s == "X")
 	{
@@ -1123,7 +1142,7 @@ int CounterphaseStimSet::init(ARvsg& vsg, std::vector<int> pages)
 	else
 	{
 //		vsgObjTableSquareWave(vsgTWTABLE, vsgObjGetTableSize(vsgTWTABLE)*0.25, vsgObjGetTableSize(vsgTWTABLE)*0.75);
-		vsgObjTableSquareWave(vsgTWTABLE, 0, vsgObjGetTableSize(vsgTWTABLE)*0.5);
+		vsgObjTableSquareWave(vsgTWTABLE, 0, (DWORD)(vsgObjGetTableSize(vsgTWTABLE)*0.5));
 	}
 	vsgObjSetTemporalFrequency(0);
 	vsgObjSetTemporalPhase(0);
@@ -1191,7 +1210,7 @@ int CounterphaseStimSet::handle_trigger(std::string& s)
 		else
 		{
 //			vsgObjTableSquareWave(vsgTWTABLE, vsgObjGetTableSize(vsgTWTABLE)*0.25, vsgObjGetTableSize(vsgTWTABLE)*0.75);
-			vsgObjTableSquareWave(vsgTWTABLE, 0, vsgObjGetTableSize(vsgTWTABLE)*0.5);
+			vsgObjTableSquareWave(vsgTWTABLE, 0, (DWORD)(vsgObjGetTableSize(vsgTWTABLE)*0.5));
 		}
 		vsgObjSetTemporalPhase(0);
 		if (m_bHaveFixpt)
