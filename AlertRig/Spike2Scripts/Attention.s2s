@@ -1,4 +1,4 @@
-' $Id: Attention.s2s,v 1.29 2013-01-08 22:04:45 jeff Exp $
+' $Id: Attention.s2s,v 1.30 2013-01-09 18:47:34 jeff Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -141,10 +141,17 @@ proc GetAttentionScriptParameters()
     endif
     
     Profile(key$, "ContrastBase", 50, attContrastBase%);
-	Profile(key$, "ContrastMax", 80, attMaxContChange);
-	Profile(key$, "ContrastMin", 20, attMinContChange);
+	'Profile(key$, "ContrastMax", 80, attMaxContChange);  ;now reals, have to do pull a string and convert
+	'Profile(key$, "ContrastMin", 20, attMinContChange);
     Profile(key$, "NContrastLevels", 20, attNContLevels%);
-
+    
+    
+    Profile(key$, "ContrastMax", "1", stmp$);
+	attMaxContChange := val(stmp$);
+    
+    Profile(key$, "ContrastMin", "1", stmp$);
+	attMinContChange := val(stmp$);
+    
 	Profile(key$, "AnswerPointDiameter", "0.5", stmp$);
 	attAnswerPointDiameter := val(stmp$);
 
@@ -224,8 +231,8 @@ proc SaveAttentionScriptParameters()
 	Profile(key$, "TrainingContrastPct", attTrainingContrastPct%);
 	Profile(key$, "BackgroundColor", attBackgroundColor$);
 	Profile(key$, "ContrastBase", attContrastBase%);
-	Profile(key$, "ContrastMax", attMaxContChange);
-	Profile(key$, "ContrastMin", attMinContChange);
+	Profile(key$, "ContrastMax", str$(attMaxContChange));
+	Profile(key$, "ContrastMin", str$(attMinContChange));
     Profile(key$, "NContrastLevels", attNContLevels%);
 	Profile(key$, "FixationCueMinTime", str$(attFixationCueMinTime));
 	Profile(key$, "FixationCueMaxTime", str$(attFixationCueMaxTime));
