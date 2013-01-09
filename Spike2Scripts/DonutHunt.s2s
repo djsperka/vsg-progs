@@ -1,6 +1,6 @@
 
 
-const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.53 2012-12-27 23:21:29 jeff Exp $";
+const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.54 2013-01-09 19:49:33 jeff Exp $";
 
 
 ' Hello again
@@ -325,10 +325,6 @@ proc CreateSampleConfiguration()
             SampleTitle$(dhNWavemarks% + i% + 1, "Cont " + str$(dhContinuousPorts%[i%]));
         next
         
-        SampleWaveform(XChannel%, GetEyeXPort%(), 1000);
-        SampleTitle$(XChannel%,"Eye X");
-        SampleWaveform(YChannel%, GetEyeYPort%(), 1000);
-        SampleTitle$(YChannel%,"Eye Y");
         
         'Set up joystick channel if using joystick, monkey only
         if dhUseJoystick% = 1 then
@@ -854,7 +850,26 @@ func Stop%()
     
     View(DataWindow%);
     ExportChanList();
-    ExportChanList(0,maxtime(),30);  '30 is the textmark channel, we don't really need to export anything else, besides it will all exist
+    ExportChanList(0,maxtime(),30);  '30 is the textmark channel
+    
+'Code for putting other various channels into the Matlab extraction, Ben doesn't want them but they will be useful for other code    
+'    if dhIsHuman% = 0 then
+'        ExportChanList(0,maxtime(),XChannel%);  'Eye position channel, X
+'        ExportChanList(0,maxtime(),YChannel%);  'Eye position channel, Y
+'        if dhUseJoystick% = 1 then
+'            ExportChanList(0,maxtime(),JoyChannel%);  'Joystick channel
+'        endif;
+'        for i% := 0 to dhNWavemarks%-1 do
+'            ExportChanList(0,maxtime(),i%+1);  'Wavemark channel(s)
+'        next;
+'        for i% := 0 to dhNContinuous%-1 do
+'            ExportChanList(0,maxtime(),dhNWavemarks%+i%+1);  'Continuous channel(s)
+'        next;
+'    else
+'        ExportChanList(0,maxtime(),ButtonChannel%);  'Button channel
+'    endif;
+    
+    
     fn$ := FileName$();  'get current file name
     mylen% := Len(fn$);
     fn$ := Left$(fn$,mylen%-4);
@@ -1453,6 +1468,7 @@ func IdleProcessing%()
             docase
             case GetLR(nTrialsCompleted%) = 0 and joystickPosition% = JSRight% then 'right stimulus
                 MonkeySuccess% := 1;
+                nCorrect% += 1;
                 sampleText("Right Response (Correct)",respTime);
                 printlog("Stimulus Right; Correct right response at %f\n",respTime);
             case GetLR(nTrialsCompleted%) = 0 and joystickPosition% = JSLeft% then 'right stimulus
@@ -1465,10 +1481,14 @@ func IdleProcessing%()
                 printlog("Stimulus Left; Incorrect right response at %f\n",respTime);
             case GetLR(nTrialsCompleted%) = 1 and joystickPosition% = JSLeft% then 'left stimulus
                 MonkeySuccess% := 1; 
+                nCorrect% += 1;
                 sampleText("Left Response (Correct)",respTime);
                 printlog("Stimulus Left; Correct left response at %f\n",respTime);
             endcase
             nTrialsCompleted% += 1;
+            pctCorrect := round(1000*nCorrect%/nTrialsCompleted%)/10;
+            printlog("number of trials completed is %d\n",nTrialsCompleted%);
+            ToolbarText(str$(nTrialsCompleted%) + "/" + str$(dhNValues%) + " trials completed, " + Str$(pctCorrect) + "% correct.");
             ChangeStateTo(stateCheckStimOff%, tNow); 'jump to combined logic
         case tNow > tStateStart + dhResponseWindow then
             LogStatus("WaitJoystickResponse", "No response after response window closed at " + str$(tNow) + "\n");
@@ -1507,13 +1527,18 @@ func IdleProcessing%()
             respTime := View(DataWindow%).MaxTime();
             MonkeySuccess% := 1;
             if GetLR(nTrialsCompleted%) = 0 then
+                nCorrect% += 1;
                 sampleText("Right Response (Correct)",respTime);
                 printlog("Stimulus Right; Correct right response at %f\n",respTime);
             else
+                nCorrect% += 1;
                 sampleText("Left Response (Correct)",respTime);
                 printlog("Stimulus Left; Correct left response at %f\n",respTime);
             endif;
             nTrialsCompleted% += 1;
+            pctCorrect := round(1000*nCorrect%/nTrialsCompleted%)/10;
+            printlog("number of trials completed is %d\n",nTrialsCompleted%);
+            ToolbarText(str$(nTrialsCompleted%) + "/" + str$(dhNValues%) + " trials completed, " + Str$(pctCorrect) + "% correct.");
             SafeSampleKey("X");  'Removes choice points, do this BEFORE advancing stimulus!
             ChangeStateTo(stateCheckStimOff%, tNow); 'jump to combined logic
         case saccadeResp% = -1 then 'incorrect response
@@ -1530,6 +1555,9 @@ func IdleProcessing%()
                 advanceStim% := 0;  'undo our call to advance stimulus, redo stim
             else
                 nTrialsCompleted% += 1;  'If not training, allow stimulus to advance, increment trial count
+                pctCorrect := round(1000*nCorrect%/nTrialsCompleted%)/10;
+                printlog("number of trials completed is %d\n",nTrialsCompleted%);
+                ToolbarText(str$(nTrialsCompleted%) + "/" + str$(dhNValues%) + " trials completed, " + Str$(pctCorrect) + "% correct.");
             endif;
             SafeSampleKey("X");  'Removes choice points, do this BEFORE advancing stimulus!
             ChangeStateTo(stateCheckStimOff%, tNow); 'jump to combined logic
