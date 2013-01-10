@@ -1,4 +1,4 @@
-' $Id: Attention.s2s,v 1.31 2013-01-10 19:00:19 jeff Exp $
+' $Id: Attention.s2s,v 1.32 2013-01-10 19:13:12 jeff Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -1269,6 +1269,7 @@ proc InitializeWindows()
     'reuse FixationX, FixationY
     'First window
     for index% := 0 to 35 do
+        FixWindowX[index%] := FixationX + attAnswerPointWindowRadius * Cos(index% * twopi/36.0);
 		FixWindowY[index%] := FixationY + attAnswerPointOffset + attAnswerPointWindowRadius * Sin(index% * twopi/36.0);
 	next;
     iAnswerWindowChannel1% := XYSetChan(0);
