@@ -1,5 +1,5 @@
-' $Id: AcuteTuning.s2s,v 1.27 2013-01-10 01:30:59 jeff Exp $
-const tunCVSID$ := "$Id: AcuteTuning.s2s,v 1.27 2013-01-10 01:30:59 jeff Exp $";
+' $Id: AcuteTuning.s2s,v 1.28 2013-01-10 01:38:16 jeff Exp $
+const tunCVSID$ := "$Id: AcuteTuning.s2s,v 1.28 2013-01-10 01:38:16 jeff Exp $";
 
 
 #include "../../Spike2Util/ChannelUtilities.s2s"
@@ -1253,11 +1253,11 @@ func Start%()
         if tunCRGMBalanced% = 1 then
             tunCRGBal$ := " -B ";
             tunCRGNumTerms% := (tunStimulusDuration/2)*(dataScreenHz/tunCRGMFramesPerTurn%);
-            nTriggersExpected% := (2*tunCRGNumTerms% )+2;
+            nTriggersExpected% := (2*tunCRGNumTerms% )+1;
         else
             tunCRGBal$ := " -R ";
             tunCRGNumTerms% := tunStimulusDuration*(dataScreenHz/tunCRGMFramesPerTurn%);
-            nTriggersExpected% := tunCRGNumTerms% +2;
+            nTriggersExpected% := tunCRGNumTerms% +1;
         endif;
             printlog("number of triggers expected is %d\n",nTriggersExpected%);
         
