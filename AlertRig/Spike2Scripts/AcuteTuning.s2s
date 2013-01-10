@@ -1,5 +1,5 @@
-' $Id: AcuteTuning.s2s,v 1.25 2013-01-10 00:57:39 jeff Exp $
-const tunCVSID$ := "$Id: AcuteTuning.s2s,v 1.25 2013-01-10 00:57:39 jeff Exp $";
+' $Id: AcuteTuning.s2s,v 1.26 2013-01-10 01:25:30 devel Exp $
+const tunCVSID$ := "$Id: AcuteTuning.s2s,v 1.26 2013-01-10 01:25:30 devel Exp $";
 
 
 #include "../../Spike2Util/ChannelUtilities.s2s"
@@ -22,7 +22,7 @@ var tunInterTrialTime := 1;        ' New, time between stimuli
 'var tunBackgroundColor$ := "gray";	' background color for stim
 var tunBackgroundGrayLevel% := 128; ' Background gray level
 var tunDoF12% := 1;                 ' compute f1 and f2. 
-var tunMSeqLocation$ := "D:\work\AlertRig\stim\MSequenceTerms";  'location of M-Seq file
+var tunMSeqLocation$ := "D:\\work\\AlertRig\\stim\\MSequenceTerms";  'location of M-Seq file
 
 ' These will be set by the tuning curve choice
 var tunNAdvances%;		' Number of times stim will advance during one repeat
@@ -528,6 +528,7 @@ func IdleProcessing%()
         if View(DataWindow%).FindPulseUp%(FrameChannel%, tStateStart, tRise, tFall) = 1 then 'find signal indicating bar is off screen
             
             triggerCount% += 1;
+
             
             if triggerCount% = nTriggersExpected% then
             
@@ -822,6 +823,14 @@ proc TuningCurveLabels(iport%)
 			ChanTitle$(1, "Chan 1");
             XRange(tunNullTestMinPhase, tunNullTestMaxPhase);
         
+        case tunType$ = tunTypeCRG$ then
+        
+            myTitle$ := s$ + " - Contrast = ";
+            myTitle2$ := " - Contrast = ";
+			WindowTitle$("CRG Contrast Tuning - " + s$);
+			XUnits$("Contrast (%)");
+			ChanTitle$(1, "Chan 1");
+            XRange(tunCRGMMinContrast, tunCRGMMaxContrast);
 		else
 
 			Message("TuningCurveLabels Error - unknown value for tunType$: " + tunType$);
@@ -1244,13 +1253,14 @@ func Start%()
         if tunCRGMBalanced% = 1 then
             tunCRGBal$ := " -B ";
             tunCRGNumTerms% := (tunStimulusDuration/2)*(dataScreenHz/tunCRGMFramesPerTurn%);
-            nTriggersExpected% := (2*tunNValues%)+2;
+            nTriggersExpected% := (2*tunCRGNumTerms% )+2;
         else
             tunCRGBal$ := " -R ";
             tunCRGNumTerms% := tunStimulusDuration*(dataScreenHz/tunCRGMFramesPerTurn%);
-            nTriggersExpected% := tunNValues%+2;
+            nTriggersExpected% := tunCRGNumTerms% +2;
         endif;
-
+            printlog("number of triggers expected is %d\n",nTriggersExpected%);
+        
         Tune$ := " -F " + tunMSeqLocation$ + tunCRGBal$ + Str$(tunCRGMFramesPerTurn%) + "," + Str$(tunCRGMFirstTerm%) + "," + Str$(tunCRGNumTerms%) + "," + Values$;  'Values$ indicates the contrasts
         
     else
