@@ -1,5 +1,5 @@
-' $Id: AcuteTuning.s2s,v 1.26 2013-01-10 01:25:30 devel Exp $
-const tunCVSID$ := "$Id: AcuteTuning.s2s,v 1.26 2013-01-10 01:25:30 devel Exp $";
+' $Id: AcuteTuning.s2s,v 1.27 2013-01-10 01:30:59 jeff Exp $
+const tunCVSID$ := "$Id: AcuteTuning.s2s,v 1.27 2013-01-10 01:30:59 jeff Exp $";
 
 
 #include "../../Spike2Util/ChannelUtilities.s2s"
@@ -528,7 +528,7 @@ func IdleProcessing%()
         if View(DataWindow%).FindPulseUp%(FrameChannel%, tStateStart, tRise, tFall) = 1 then 'find signal indicating bar is off screen
             
             triggerCount% += 1;
-
+            tStateStart := tFall;  'reset time to find all triggers
             
             if triggerCount% = nTriggersExpected% then
             
