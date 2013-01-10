@@ -1,5 +1,5 @@
-' $Id: AcuteTuning.s2s,v 1.24 2013-01-10 00:42:37 jeff Exp $
-const tunCVSID$ := "$Id: AcuteTuning.s2s,v 1.24 2013-01-10 00:42:37 jeff Exp $";
+' $Id: AcuteTuning.s2s,v 1.25 2013-01-10 00:57:39 jeff Exp $
+const tunCVSID$ := "$Id: AcuteTuning.s2s,v 1.25 2013-01-10 00:57:39 jeff Exp $";
 
 
 #include "../../Spike2Util/ChannelUtilities.s2s"
@@ -37,6 +37,8 @@ var tunValues[tunMaxTrials%];
 var tunValuesIndices%[tunMaxTrials%]; 
 var tunNValues%;
 var tunValuesStringified$;
+var nTriggersExpected%;     'only for tunTypeCRG$
+var triggerCount%;
 
 
 'const tundlgXHairButton% := 8;
@@ -349,6 +351,8 @@ const stateDone%:=13;
 const stateWaitForStimTrigger% := 14; ' Rising edge indicating start of stim sequence
 const stateBarPlaying%:=15;
 const stateWaitingForBarOff%:=16;
+const stateCRGPlaying%:=17;
+const stateWaitingForCRGOff%:=18;
 
 var iState% := stateVSGWait%;	' present state
 
@@ -424,11 +428,14 @@ func IdleProcessing%()
                 tStimOn := tRise;
                 tStimSequence := tRise;
                 tLastTrigger := tRise;
-                if tunType$ = tunTypeDriftingBar$ then
+                docase
+                case tunType$ = tunTypeCRG$ then
+                    ChangeStateTo(stateCRGPlaying%, tRise);
+                case tunType$ = tunTypeDriftingBar$ then
                     ChangeStateTo(stateBarPlaying%, tRise);
                 else
                     ChangeStateTo(stateStimulusPlaying%, tRise);
-                endif;
+                endcase;
             endif
         endif
         
@@ -515,6 +522,48 @@ func IdleProcessing%()
             tLastTrigger := tRise;
             ChangeStateTo(stateTrialCompleted%, tRise);
         endif;
+        
+        
+   case iState% = stateCRGPlaying% then
+        if View(DataWindow%).FindPulseUp%(FrameChannel%, tStateStart, tRise, tFall) = 1 then 'find signal indicating bar is off screen
+            
+            triggerCount% += 1;
+            
+            if triggerCount% = nTriggersExpected% then
+            
+                'Note stimulus is off
+                SampleText("+");
+                LogStatus("CRGPlaying", "Turn off and advance stimulus.");          
+            
+                SafeSampleKey("X");            
+            
+                Yield();
+            
+                ' Process spikes
+                PlotSpikes(tStimOn, tNow, 1, GetPlotXCoord(nTrialsCompleted%), nTrialsCompleted%);
+            
+                'Advance
+                'SafeSampleKey("a");
+
+                tLastTrigger := tRise;
+                'ChangeStateTo(stateTrialCompleted%, tRise);
+                ChangeStateTo(stateWaitingForCRGOff%, tRise);
+            endif;
+            
+        endif
+        
+    case iState% = stateWaitingForCRGOff% then
+        if View(DataWindow%).FindPulseUp%(FrameChannel%, tStateStart, tRise, tFall) = 1 then 'find signal indicating bar stimulus has been turned off
+            
+            'Advance
+            SafeSampleKey("a");
+            triggerCount% := 0;
+            
+            tLastTrigger := tRise;
+            ChangeStateTo(stateTrialCompleted%, tRise);
+        endif;  
+        
+        
         
     case iState% = stateTrialCompleted% then
         
@@ -1195,9 +1244,11 @@ func Start%()
         if tunCRGMBalanced% = 1 then
             tunCRGBal$ := " -B ";
             tunCRGNumTerms% := (tunStimulusDuration/2)*(dataScreenHz/tunCRGMFramesPerTurn%);
+            nTriggersExpected% := (2*tunNValues%)+2;
         else
             tunCRGBal$ := " -R ";
             tunCRGNumTerms% := tunStimulusDuration*(dataScreenHz/tunCRGMFramesPerTurn%);
+            nTriggersExpected% := tunNValues%+2;
         endif;
 
         Tune$ := " -F " + tunMSeqLocation$ + tunCRGBal$ + Str$(tunCRGMFramesPerTurn%) + "," + Str$(tunCRGMFirstTerm%) + "," + Str$(tunCRGNumTerms%) + "," + Values$;  'Values$ indicates the contrasts
