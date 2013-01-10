@@ -1,4 +1,4 @@
-' $Id: AcuteTuningDialogs.s2s,v 1.7 2012-06-18 23:06:25 jeff Exp $
+' $Id: AcuteTuningDialogs.s2s,v 1.8 2013-01-10 00:42:37 jeff Exp $
 '
 ' This file contains dialog functions for the alert tuning script Tuning.s2s.
 #include "../../Spike2Util/UsreyUtil.s2s"
@@ -16,6 +16,7 @@ const tunTypeTemporal$ := "T";
 const tunTypeArea$ := "A";
 const tunTypeDriftingBar$ := "G";
 const tunTypeNullTest$ := "P";  'This is P for counterPhase reversal, I guess
+const tunTypeCRG$ := "R"; 'cRg, I guess
 'const tunTypeDonut$ := "H";
 'const tunTypeBerliner$ := "B";
 var tunType$:=tunTypeNone$;
@@ -84,6 +85,17 @@ var tunBarWidth;
 var tunBarHeight;
 var tunBarSpeed;
 
+
+' Contrast next
+var tunCRGMNSteps%;			' # steps in contrast tuning curve
+var tunCRGMNRepeats%;		' # repeats in contrast tuning curve
+var tunCRGMMinContrast;		' min contrast
+var tunCRGMMaxContrast;		' max contrast
+var tunCRGMProgression%;
+var tunCRGMFramesPerTurn%;  ' how many frames per each term in the CRG?
+var tunCRGMFirstTerm%;      ' what term to start with?
+const tunCRGMNumTerms% := 32767;  'this is correct
+var tunCRGMBalanced%;       ' if 1, balance presentation
 
 ' Donuts - use same vars as area. There is one additional var - the optimal value index.
 'var tunDonutOptimalIndex%:=0;		' step index where area stim stops growing and donut stim starts
@@ -293,6 +305,33 @@ proc SaveTuningCurveDriftingBarParameters()
     SetFloatRegistryValue(key$, "Width", tunBarWidth);
     SetFloatRegistryValue(key$, "Height", tunBarHeight);
     SetFloatRegistryValue(key$, "Speed", tunBarSpeed);
+end;
+
+
+proc GetTuningCurveCRGMParameters()
+	var stmp$;
+	var key$;
+	key$:= GetRigName$() + GetCurrentConfiguration$() + "\\Scripts\\Tuning\\CRGM";
+    
+    tunCRGMNSteps% := GetIntRegistryValue%(key$, "NSteps", tunCRGMNSteps%);
+    tunCRGMNRepeats% := GetIntRegistryValue%(key$, "NRepeats", tunCRGMNRepeats%);
+    tunCRGMProgression% := GetIntRegistryValue%(key$, "Progression", tunCRGMProgression%);
+    tunCRGMMinContrast := GetFloatRegistryValue(key$, "MinContrast", tunCRGMMinContrast);
+    tunCRGMMaxContrast := GetFloatRegistryValue(key$, "MaxContrast", tunCRGMMaxContrast);
+    tunCRGMFramesPerTurn% := GetIntRegistryValue%(key$, "FramesPerTurn", tunCRGMFramesPerTurn%);
+    tunCRGMBalanced% := GetIntRegistryValue%(key$, "Balanced", tunCRGMBalanced%);
+end;
+
+proc SaveTuningCurveCRGMParameters()
+	var key$;
+	key$:= GetRigName$() + GetCurrentConfiguration$() + "\\Scripts\\Tuning\\CRGM";
+    SetIntRegistryValue(key$, "NSteps", tunCRGMNSteps%);
+    SetIntRegistryValue(key$, "NRepeats", tunCRGMNRepeats%);
+    SetIntRegistryValue(key$, "Progression", tunCRGMProgression%);
+    SetFloatRegistryValue(key$, "MinContrast", tunCRGMMinContrast);
+    SetFloatRegistryValue(key$, "MaxContrast", tunCRGMMaxContrast);
+    SetIntRegistryValue(key$, "FramesPerTurn", tunCRGMFramesPerTurn%);
+    SetIntRegistryValue(key$, "Balanced", tunCRGMBalanced%);
 end;
 
 
@@ -640,7 +679,63 @@ func TuningCurveDriftingBarDialog%()
 end;
 
 
+func TuningCurveCRGMDialog%()
+	var iReturn% := 0;
+	var i%;
+    var tempdur;
+    var lastStartTerm%;
+	GetTuningCurveCRGMParameters();
+    
+    'M-Seq doesn't wrap, so we have to set an end point
+    tempdur := DlgValue(1);  'this gets the currently-set duration of the stimulus in seconds
+    lastStartTerm% := tunCRGMNumTerms% - 100 - (tempdur*dataScreenHz);  'don't start the M-Seq beyond this point - there's a buffer
+                                                                        'assumes one frame per turn, unbalanced
+    
+    'set value of starting term in M sequence to ~random, allow user to change in dialog if they want
+    tunCRGMFirstTerm% := Ceil(Rand(tunCRGMNumTerms%-99,99));  'will give value between 100 and tunCRGMNumTerms%, inclusive
+    
+	DlgCreate("CRG M-Seq Tuning Curve Parameters");
+	DlgInteger(1, "Number of Steps", 2, 99);
+	DlgInteger(2, "Number of Repeats", 1, 30);
+	DlgReal(3, "Min Contrast (%)", 0.1, 100);
+	DlgReal(4, "Max Contrast (%)", 0.1, 100);
+	DlgCheck(5, "Random Progression");
+    DlgInteger(6, "Frames per turn", 1, 1000);
+    DlgInteger(7, "MSeq Starting Point", 100, lastStartTerm%);  'maximum start term calculated above
+    DlgCheck(8, "Balanced");
 
+	i% := DlgShow(tunCRGMNSteps%, tunCRGMNRepeats%, tunCRGMMinContrast, tunCRGMMaxContrast, tunCRGMProgression%, tunCRGMFramesPerTurn%, tunCRGMFirstTerm%, tunCRGMBalanced%);
+	' If i% is 1 the user hit "OK". If its 0, user hit "Cancel". 
+	' When user hits OK we alwaus save the parameters, and when user hits Cancel we don't.
+    ' djs 2/4/2011
+    ' Spike2 bug workaround implemented. The return value from this function (when in DAQ context this
+    ' dialog is called from a DlgButton in another dialog) should make the parent dialog close, as if 
+    ' the OK button were hit. Bug in Spike2 v6 means this doesn't work right - the parent dialog will 
+    ' close but its variables are not updated prior to doing so.... so any changes to the parent dialog
+    ' are not seen in the subsequent expt, they're not saved in the registry, etc. Workaround is to return
+    ' something > 0 here. The parent dialog will continue to display, and the user has to hit OK on that 
+    ' before things proceed. 
+	if i% = 1 then
+		SaveTuningCurveCRGMParameters();
+		tunType$ := tunTypeCRG$;
+		if tunContext$ = tunContextDAQ$ then
+            ' djs 2/4/2011 We return 1 - that's the workaround			iReturn% := 0;
+            iReturn% := 1;
+		else
+			iReturn% := 1;
+		endif;
+	endif;
+	if i% = 0 then
+		tunType$ := tunTypeNone$;
+		if tunContext$ = tunContextDAQ$ then
+			iReturn% := 1;
+		else
+			iReturn% := 2;
+		endif;
+	endif;
+
+	return iReturn%;
+end;
 
 ' This function is initially called with a "0" input, which forces the 1-5 dialogs to be disabled
 ' Of course, this could just be done with a DlgEnable call at the point of dialog creation.  There
