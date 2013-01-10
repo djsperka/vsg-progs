@@ -1,5 +1,5 @@
-' $Id: AcuteTuning.s2s,v 1.23 2012-06-21 23:54:50 devel Exp $
-const tunCVSID$ := "$Id: AcuteTuning.s2s,v 1.23 2012-06-21 23:54:50 devel Exp $";
+' $Id: AcuteTuning.s2s,v 1.24 2013-01-10 00:42:37 jeff Exp $
+const tunCVSID$ := "$Id: AcuteTuning.s2s,v 1.24 2013-01-10 00:42:37 jeff Exp $";
 
 
 #include "../../Spike2Util/ChannelUtilities.s2s"
@@ -22,6 +22,7 @@ var tunInterTrialTime := 1;        ' New, time between stimuli
 'var tunBackgroundColor$ := "gray";	' background color for stim
 var tunBackgroundGrayLevel% := 128; ' Background gray level
 var tunDoF12% := 1;                 ' compute f1 and f2. 
+var tunMSeqLocation$ := "D:\work\AlertRig\stim\MSequenceTerms";  'location of M-Seq file
 
 ' These will be set by the tuning curve choice
 var tunNAdvances%;		' Number of times stim will advance during one repeat
@@ -47,6 +48,7 @@ const tundlgAreaButton% := 13;
 const tundlgGratingParametersButton% := 14;
 const tundlgDriftingBarButton% := 15;
 const tundlgNullTestButton% := 16;
+const tundlgCRGMButton% := 17;
 
 
 ' Wavemarks and continuous ports are specified elsewhere
@@ -158,8 +160,9 @@ func TuningCurveScriptDialog%()
     
     DlgGroup("Grating Parameters", 1, 13, 38, 2);
     DlgButton(tundlgGratingParametersButton%, "Grating Parameters", TunDlgGratingMaster%, 2, 14);
-    DlgGroup("Non-Grating Stimuli", 1, 15, 38, 2);
+    DlgGroup("Non-Grating Stimuli", 1, 15, 38, 3);
     DlgButton(tundlgDriftingBarButton%, "Drifting Bars", TuningCurveDriftingBarDialog%, 2, 16);
+    DlgButton(tundlgCRGMButton%, "CRGs", TuningCurveCRGMDialog%, 2, 17);
     
     'i%:=DlgShow(tunStimulusDuration, tunInterTrialTime, ibcl%);  'new, for reduced dialog
     i%:=DlgShow(tunStimulusDuration, tunInterTrialTime, tunBackgroundGrayLevel%);  'now using background gray level
@@ -183,12 +186,17 @@ func TuningCurveScriptDialog%()
     'PrintLog("Tuning Curve Parameters Dialog - return from DlgShow is %d\n", i%);
     '	if i%=tundlgOrientationButton% or i%=tundlgContrastButton% or i%=tundlgSpatialButton% or i%=tundlgTemporalButton% or i%=tundlgAreaButton% then
     if i% = 1 then
-		'tunBackgroundColor$ := bcl$[ibcl%];
-		SaveTuningCurveScriptParameters();
-		if tunContext$ = tunContextDAQ$ then 
-            iReturn% := 1;
-		else iReturn% := 1;
-		endif;
+        
+        if tunCRGMFirstTerm% > tunCRGMNumTerms% - 100 - (tunStimulusDuration*dataScreenHz) then
+            Message("Error!  Duration was changed and CRG first term is not legal!  Quitting!");
+            i% := 0;
+        else
+            SaveTuningCurveScriptParameters();
+            if tunContext$ = tunContextDAQ$ then 
+                iReturn% := 1;
+            else iReturn% := 1;
+            endif;
+        endif;
         
 	endif;
 	if i% = 0 then
@@ -834,6 +842,13 @@ proc CreateSampleConfiguration()
         GetRepeatedParameterProgression%(tunNullTestNSteps%+1, tunNullTestNRepeats%, tunValues[], tunValuesIndices%[], tunNullTestMinPhase, tunNullTestMaxPhase, 0, tunNullTestProgression%);
         tunNValues% := (tunNullTestNSteps%+1)*tunNullTestNRepeats%;
         tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%);
+    case tunType$ = tunTypeCRG$ then 
+        SampleAutoName$(dataCellName$ + "_crg_000");
+        tunNAdvances% := tunCRGMNSteps%;
+        tunNRepeats% := tunCRGMNRepeats%;
+        GetRepeatedParameterProgression%(tunCRGMNSteps%+1, tunCRGMNRepeats%, tunValues[], tunValuesIndices%[], tunCRGMMinContrast, tunCRGMMaxContrast, 1, tunCRGMProgression%);
+        tunNValues% := (tunCRGMNSteps%+1)*tunCRGMNRepeats%;
+        tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%);
     else
         SampleAutoName$(dataCellName$ + "_tun_000");
     endcase;
@@ -1114,6 +1129,8 @@ func Start%()
     var tunBGStr$;
     var tunFGStr$;
     var tunBarStr$;
+    var tunCRGBal$;
+    var tunCRGNumTerms%;
 '    var XHairArg$;
 	
 	SampleStart(0); 'Start sampling
@@ -1173,6 +1190,18 @@ func Start%()
         
         Tune$ := " -G " + tunFGStr$ + "," + tunBarStr$ + "," + Values$;
         
+    case tunType$ = tunTypeCRG$ then
+        
+        if tunCRGMBalanced% = 1 then
+            tunCRGBal$ := " -B ";
+            tunCRGNumTerms% := (tunStimulusDuration/2)*(dataScreenHz/tunCRGMFramesPerTurn%);
+        else
+            tunCRGBal$ := " -R ";
+            tunCRGNumTerms% := tunStimulusDuration*(dataScreenHz/tunCRGMFramesPerTurn%);
+        endif;
+
+        Tune$ := " -F " + tunMSeqLocation$ + tunCRGBal$ + Str$(tunCRGMFramesPerTurn%) + "," + Str$(tunCRGMFirstTerm%) + "," + Str$(tunCRGNumTerms%) + "," + Values$;  'Values$ indicates the contrasts
+        
     else
 
         Message("Error - unknown value for tunType$: " + tunType$);
@@ -1181,7 +1210,8 @@ func Start%()
 	endcase;
 	
     cmdLine$ := "cmd /k " + bin$ + ProgName$ + Extras$ + Stim$ + Tune$;
-    
+    PrintLog(cmdLine$+"\n");
+    printlog("num advances is %d and num repeats is %d\n",tunNAdvances%,tunNRepeats%);
     ' Record initial text marks. The command line may need to be broken into pieces. 
     if tunTriggerHack% = 0 then
         SampleText("Tuning,3," + str$(Len(cmdLine$)));  'not clear what this should be, if anything.
