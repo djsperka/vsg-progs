@@ -1,5 +1,5 @@
-' $Id: AcuteTuning.s2s,v 1.28 2013-01-10 01:38:16 jeff Exp $
-const tunCVSID$ := "$Id: AcuteTuning.s2s,v 1.28 2013-01-10 01:38:16 jeff Exp $";
+' $Id: AcuteTuning.s2s,v 1.29 2013-01-11 18:22:25 devel Exp $
+const tunCVSID$ := "$Id: AcuteTuning.s2s,v 1.29 2013-01-11 18:22:25 devel Exp $";
 
 
 #include "../../Spike2Util/ChannelUtilities.s2s"
@@ -87,7 +87,8 @@ var tunRateCum[16];
 ' djs 10-19-11 trigger hack for Visage trigger bug.
 var tunTriggerHack% := 1;
 
-
+var memorychannel% := 29;
+var memorychannelvisible% := 0;
 
 
 proc GetTuningCurveScriptParameters()
@@ -360,6 +361,8 @@ var nTrialsStarted%:=0;
 var nTrialsCompleted%:=0;
 var nTrialsAborted% :=0;		' 
 
+var stimOffTime;
+
 var pulseFound%;
 var tic;  'Set a tick value equal to the duration of one clock tick in seconds, used to prevent finding
           'the same "pulse" twice
@@ -415,11 +418,14 @@ func IdleProcessing%()
                 tStimSequence := tTrigger;      ' TODO remove tStimOn ref above - see stateWaitForStimOn
                 tLastTrigger := tTrigger;
                 'ChangeStateTo(stateHoldFixation%, tTrigger);
-                if tunType$ = tunTypeDriftingBar$ then
-                    ChangeStateTo(stateBarPlaying%, tTrigger);
+                docase
+                case tunType$ = tunTypeCRG$ then
+                    ChangeStateTo(stateCRGPlaying%, tRise);
+                case tunType$ = tunTypeDriftingBar$ then
+                    ChangeStateTo(stateBarPlaying%, tRise);
                 else
-                    ChangeStateTo(stateStimulusPlaying%, tTrigger);
-                endif;                
+                    ChangeStateTo(stateStimulusPlaying%, tRise);
+                endcase;                
             endif
         else
             if View(DataWindow%).FindPulseUp%(FrameChannel%, tStateStart, tRise, tFall) = 1 then
@@ -528,23 +534,29 @@ func IdleProcessing%()
         if View(DataWindow%).FindPulseUp%(FrameChannel%, tStateStart, tRise, tFall) = 1 then 'find signal indicating bar is off screen
             
             triggerCount% += 1;
-            tStateStart := tFall;  'reset time to find all triggers
+            tStateStart := tRise;  'reset time to find all triggers
+            'printlog("Found trigger %d at %f\n",triggerCount%,tStateStart);
             
             if triggerCount% = nTriggersExpected% then
             
                 'Note stimulus is off
-                SampleText("+");
+                stimOffTime := tStateStart;
+                SampleText("+",tStateStart);
+                view(DataWindow%).MemSetItem(memChanRasterTriggers%,0,tStateStart,stimCodes%[],"+");
                 LogStatus("CRGPlaying", "Turn off and advance stimulus.");          
             
                 SafeSampleKey("X");            
             
                 Yield();
-            
+                
+                'Set stimCodes[0] to hold the index of the current stimulus
+                stimCodes%[0] := tunValuesIndices%[nTrialsCompleted%]; 'nTrialsCompleted has not yet been incremented, so this is right
+                'log stimulus start time in textmark channel for raster triggering
+                view(DataWindow%).MemSetItem(memChanRasterTriggers%,0,tStimOn,stimCodes%[],Str$(tunValues[tunValuesIndices%[nTrialsCompleted%]]));
+                            
+                
                 ' Process spikes
                 PlotSpikes(tStimOn, tNow, 1, GetPlotXCoord(nTrialsCompleted%), nTrialsCompleted%);
-            
-                'Advance
-                'SafeSampleKey("a");
 
                 tLastTrigger := tRise;
                 'ChangeStateTo(stateTrialCompleted%, tRise);
@@ -555,7 +567,7 @@ func IdleProcessing%()
         
     case iState% = stateWaitingForCRGOff% then
         if View(DataWindow%).FindPulseUp%(FrameChannel%, tStateStart, tRise, tFall) = 1 then 'find signal indicating bar stimulus has been turned off
-            
+            printlog("Maxtime is now %f, writing sample text\n",view(DataWindow%).maxtime());
             'Advance
             SafeSampleKey("a");
             triggerCount% := 0;
@@ -579,6 +591,10 @@ func IdleProcessing%()
             tInterTrialTime := tunInterTrialTime;
             ChangeStateTo(stateInterTrialInterval%, tNow);
         endif        
+        
+        view(datawindow%).MemSave(memChanRasterTriggers%,memorychannel%,0,1);
+            
+        
 
     case iState% = stateInterTrialInterval% then
 
@@ -715,6 +731,7 @@ proc InitializeWindows()
     ChanTitle$(MemChanRasterTriggers%,"RasterTriggers"); 'give it a title, could be useful if channel is saved
     'chanhide(MemChanRasterTriggers%); 'hide the memchan, don't need to see it.    
     chanshow(MemChanRasterTriggers%);
+    
     
 	' open xy window to display tuning results    
     if tunNWavemarks% > 0 then
@@ -997,7 +1014,10 @@ func Stop%()
 
 	' Write parameter file
 	WriteParameterFile();
-
+    
+    
+    
+    
 	' Increment daily totals and save then
 	TotalTrials% += nTrialsStarted%;
 '	TotalRewards% += nTrialsCompleted%;
@@ -1253,11 +1273,11 @@ func Start%()
         if tunCRGMBalanced% = 1 then
             tunCRGBal$ := " -B ";
             tunCRGNumTerms% := (tunStimulusDuration/2)*(dataScreenHz/tunCRGMFramesPerTurn%);
-            nTriggersExpected% := (2*tunCRGNumTerms% )+1;
+            nTriggersExpected% := (tunStimulusDuration)*(dataScreenHz/tunCRGMFramesPerTurn%);
         else
             tunCRGBal$ := " -R ";
             tunCRGNumTerms% := tunStimulusDuration*(dataScreenHz/tunCRGMFramesPerTurn%);
-            nTriggersExpected% := tunCRGNumTerms% +1;
+            nTriggersExpected% := tunCRGNumTerms%;  'There is one trigger per frame change.  The first trigger is parsed as the stim on, so each trigger we count is an offset, there are as many offsets as turns
         endif;
             printlog("number of triggers expected is %d\n",nTriggersExpected%);
         
