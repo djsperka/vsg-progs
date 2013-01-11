@@ -1,5 +1,5 @@
-' $Id: AcuteTuning.s2s,v 1.29 2013-01-11 18:22:25 devel Exp $
-const tunCVSID$ := "$Id: AcuteTuning.s2s,v 1.29 2013-01-11 18:22:25 devel Exp $";
+' $Id: AcuteTuning.s2s,v 1.30 2013-01-11 18:43:54 jeff Exp $
+const tunCVSID$ := "$Id: AcuteTuning.s2s,v 1.30 2013-01-11 18:43:54 jeff Exp $";
 
 
 #include "../../Spike2Util/ChannelUtilities.s2s"
@@ -997,7 +997,8 @@ end;
 
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 func Stop%()
-    var i%, j%, m%;
+    var i%, j%, m%, mylen%;
+    var fn$;
     
 	' Disable idle process func
 	ToolbarSet(0,"");
@@ -1015,7 +1016,13 @@ func Stop%()
 	' Write parameter file
 	WriteParameterFile();
     
-    
+    ' Write matlab file
+    fn$ := FileName$();  'get current file name
+    mylen% := Len(fn$);
+    fn$ := Left$(fn$,mylen%-4);
+    fn$ := fn$ + ".mat";
+    FileSaveAs(fn$,100,0,"",0,"UseSName=0"); 'Do not overwrite the .mat file - should have a different name and if it doesn't that is a red flag
+
     
     
 	' Increment daily totals and save then
