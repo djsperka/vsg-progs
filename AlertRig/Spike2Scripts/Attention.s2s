@@ -1,4 +1,4 @@
-' $Id: Attention.s2s,v 1.32 2013-01-10 19:13:12 jeff Exp $
+' $Id: Attention.s2s,v 1.33 2013-01-11 22:24:08 jeff Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -1449,6 +1449,7 @@ func Start%()
     var distSpec$;
     var lolSpec$;
     var x;
+    var i%;
 	
 	SampleStart(0); 'Start sampling
 	' Set Sequencer Variable #3 based on juicer type 
@@ -1493,6 +1494,13 @@ func Start%()
 	'CommandLine$ := "cmd /c " + bin$ + "\\dAttention " + FixationArg$ + Extras$ + Distractors$;
 	CommandLine$ := "cmd /k " + bin$ + "\\Attention " + FixationArg$ + Extras$ + Stim$ + Contrast$;
 	
+    
+    'Print the parameters
+    for i% := 1 to Len(CommandLine$) step 100 do
+        SampleText(Mid$(CommandLine$, i%, 100));
+    next
+    
+    
 	'Begin the stimulus program. It will take a few seconds for the VSG to initialize.
 	PrintLog(CommandLine$+"\n");
 	StimHandle% := ProgRun(CommandLine$,1);
