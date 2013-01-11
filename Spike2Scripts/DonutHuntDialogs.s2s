@@ -106,6 +106,7 @@ proc GetDonutHuntMainParameters()
     dhGridDur := GetFloatRegistryValue(key$, "GridDur", dhGridDur);
     dhUseJoystick% := GetIntRegistryValue%(key$, "UseJoystick", dhUseJoystick%);
     dhResponseWindow := GetFloatRegistryValue(key$, "ResponseWindow", dhResponseWindow);
+    dhChoicePointRadius := GetFloatRegistryValue(key$, "ChoicePointRadius", dhChoicePointRadius);
     
 end;
 
@@ -127,6 +128,7 @@ proc SaveDonutHuntMainParameters()
     SetFloatRegistryValue(key$, "GridDur", dhGridDur);
     SetIntRegistryValue(key$, "UseJoystick", dhUseJoystick%);
     SetFloatRegistryValue(key$, "ResponseWindow", dhResponseWindow);
+    SetFloatRegistryValue(key$, "ChoicePointRadius", dhChoicePointRadius);
 
 end;
 
@@ -319,7 +321,7 @@ func DonutHuntMainDialog%()
     'grating parameters is OK, that has to be clicked on.
     
     ' Generate the dialog    
-    DlgCreate("Donut Hunt Dialog",0,0,60,16);
+    DlgCreate("Donut Hunt Dialog",0,0,60,17);
     
     'The top 2 non-categorized bits
     DlgInteger(1,6,1,100,23,1);  'Number of repeats
@@ -348,33 +350,34 @@ func DonutHuntMainDialog%()
     DlgText("Total mask dur. (sec)",31,7);
     
     'Monkey only
-    DlgGroup("Monkey Only Parameters",1,8,58,2);
+    DlgGroup("Monkey Only Parameters",1,8,58,3);
     'DlgCheck(14,"Use Joystick",35,9);
     DlgList(14,20,dhResponseList$[],4,35,9);
     DlgReal(15,6,0,10,23,9);  'Minimum delay
     DlgText("Response Window (sec)",2,9);
+    DlgReal(16,6,0,10,23,10);  'choice point radius
+    DlgText("Choice Pt Radius (deg)",2,10);
     
     'CRG parameters
-    DlgGroup("CRG",1,10,58,5);
-    DlgCheck(8, "Do CRG", 2, 11);
-    DlgInteger(9,6,0,100,23,12);  'N repeats per CRG sequence
-    DlgText("Repeats per CRG seq",2,12);
-    DlgInteger(10,6,0,100,52,12);  'N Frames per turn
-    DlgText("Frames per turn",31,12);
-    DlgString(11,55,200,"",3,14);  'for visual confirmation of selected seq file; max character value (20) only applies to typing in, not assigning via Value().  Huh.
-    DlgButton(dhSelectSEQFileButton%,"Select Sequence File",SelectSEQFile%,2,13);
+    DlgGroup("CRG",1,11,58,5);
+    DlgCheck(8, "Do CRG", 2, 12);
+    DlgInteger(9,6,0,100,23,13);  'N repeats per CRG sequence
+    DlgText("Repeats per CRG seq",2,13);
+    DlgInteger(10,6,0,100,52,13);  'N Frames per turn
+    DlgText("Frames per turn",31,13);
+    DlgString(11,55,200,"",3,15);  'for visual confirmation of selected seq file; max character value (20) only applies to typing in, not assigning via Value().  Huh.
+    DlgButton(dhSelectSEQFileButton%,"Select Sequence File",SelectSEQFile%,2,14);
 
     DlgAllow(0xffff, 0, DonutHuntMainDialogChanged%);
     
     ' Show the dialog. 
     i%:=DlgShow(dhNRepeats%,dhMinStimDelay,dhRandStimDelay,dhDelayBeforeDContrast,dhDurAfterDContrast,
-    dhGridTF,dhGridDur,dhDoCRG%,dhNRepeatsPerCRG%,dhNFramesPerTurn%,dhCRGFilename$,dhShowDonutOnMaster%,alwaysLooking%,dhUseJoystick%,dhResponseWindow);
+    dhGridTF,dhGridDur,dhDoCRG%,dhNRepeatsPerCRG%,dhNFramesPerTurn%,dhCRGFilename$,dhShowDonutOnMaster%,alwaysLooking%,dhUseJoystick%,dhResponseWindow,dhChoicePointRadius);
 
     
     
     ' If user hit OK then save parameters (and return 1). 
 	if i% = 1 then
-        
         if dhUseJoystick% > 1 and (Pow(FixationX-dhXOffset,2) + Pow(FixationY-dhYOffset,2)) <= Pow(dhChoicePointRadius+WindowRadius,2) then
             message("Error!  The fixation window and the response windows overlap!  Quitting!");
             status% := 0; 'and get out if this happens
