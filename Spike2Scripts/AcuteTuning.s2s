@@ -1,5 +1,5 @@
-' $Id: AcuteTuning.s2s,v 1.30 2013-01-11 18:43:54 jeff Exp $
-const tunCVSID$ := "$Id: AcuteTuning.s2s,v 1.30 2013-01-11 18:43:54 jeff Exp $";
+' $Id: AcuteTuning.s2s,v 1.31 2013-01-12 03:53:37 devel Exp $
+const tunCVSID$ := "$Id: AcuteTuning.s2s,v 1.31 2013-01-12 03:53:37 devel Exp $";
 
 
 #include "../../Spike2Util/ChannelUtilities.s2s"
@@ -999,6 +999,7 @@ end;
 func Stop%()
     var i%, j%, m%, mylen%;
     var fn$;
+    var chanToExport%[30];
     
 	' Disable idle process func
 	ToolbarSet(0,"");
@@ -1016,12 +1017,24 @@ func Stop%()
 	' Write parameter file
 	WriteParameterFile();
     
+    
+    view(dataWindow%);
+    MemSave(memChanRasterTriggers%,memorychannel%,0,1);  'final update of memory channel
+    ExportChanList();
+    chanToExport%[1] := 29;  'channels to export go in elements 1:...
+    chanToExport%[2] := 30;
+    for j% := 0 to tunNWavemarks%-1 do
+        chanToExport%[j%+3]:=tunWavemarkPorts%[j%]+1;
+    next;
+    chanToExport%[0] := 2+j%;  'total number of channels goes in element 0
+    ExportChanList(0,view(datawindow%).maxtime(),chanToExport%[]);
+    
     ' Write matlab file
     fn$ := FileName$();  'get current file name
     mylen% := Len(fn$);
     fn$ := Left$(fn$,mylen%-4);
     fn$ := fn$ + ".mat";
-    FileSaveAs(fn$,100,0,"",0,"UseSName=0"); 'Do not overwrite the .mat file - should have a different name and if it doesn't that is a red flag
+    j% := view(datawindow%).FileSaveAs(fn$,100,0,"",0,"UseSName=0"); 'Do not overwrite the .mat file - should have a different name and if it doesn't that is a red flag
 
     
     
