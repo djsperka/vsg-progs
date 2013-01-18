@@ -1,4 +1,4 @@
-' $Id: Attention.s2s,v 1.34 2013-01-18 22:06:55 jeff Exp $
+' $Id: Attention.s2s,v 1.35 2013-01-18 22:19:34 jeff Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -299,7 +299,7 @@ func AttentionScriptDialog%()
 	DlgInteger(6, "Base contrast (%)", 0, 100, 22, 7);
 	DlgReal(7, "Max dContrast (oct)", 0, 10, 22, 8);
 	DlgReal(8, "Min dContrast (oct)", 0, 10, 22, 9);
-    DlgInteger(9, "N contrast levels", 0, 10, 22, 10);
+    DlgInteger(9, "N contrast levels", 1, 10, 22, 10);
     DlgReal(10, "Ans. window rad. (deg)", 0.01, 10, 22, 11);
 	DlgCheck(attdlgTrainingContrastCheck%, "Training Contrast", 2, 12);
 	DlgInteger(attdlgTrainingContrastPct%, "Training Contrast(%)", 0, 100, 22, 13);
@@ -323,9 +323,17 @@ func AttentionScriptDialog%()
 		SaveAttentionScriptParameters();
         
         'get contrast list
-        GetLogProgression(attContrastBase%*(pow(2,attMinContChange)),attContrastBase%*(pow(2,attMaxContChange)),attNContLevels%-1,attContrastList[0:attNContLevels%]);  'levels above base
-        GetLogProgression(attContrastBase%/(pow(2,attMaxContChange)),attContrastBase%/(pow(2,attMinContChange)),attNContLevels%-1,attContrastList[attNContLevels%:attNContLevels%]);  'levels below base, in *ascending* order
-        round(attContrastList[]);  'we can only use integer values in the VSG call
+        if attNContLeves% > 1 then
+            GetLogProgression(attContrastBase%*(pow(2,attMinContChange)),attContrastBase%*(pow(2,attMaxContChange)),attNContLevels%-1,attContrastList[0:attNContLevels%]);  'levels above base
+            GetLogProgression(attContrastBase%/(pow(2,attMaxContChange)),attContrastBase%/(pow(2,attMinContChange)),attNContLevels%-1,attContrastList[attNContLevels%:attNContLevels%]);  'levels below base, in *ascending* order
+            round(attContrastList[]);  'we can only use integer values in the VSG call
+        else
+            'if only one value is requested, this will crash GetLogProgression, so just do it manually
+            attContrastList[0] := attContrastBase%*(pow(2,attMaxContChange));
+            attContrastList[1] := attContrastBase%/(pow(2,attMaxContChange));
+            message("Note that only one contrast level was requested, using MAX as actual value!");
+        endif;
+        
         'printlog("%f\n",attContrastList[]);
         
         'get number of trials to run, which is hypothetical "max" number for both test trials and catch trials regardless of catch/test percentage
