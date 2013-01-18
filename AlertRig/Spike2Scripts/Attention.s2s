@@ -1,4 +1,4 @@
-' $Id: Attention.s2s,v 1.35 2013-01-18 22:19:34 jeff Exp $
+' $Id: Attention.s2s,v 1.36 2013-01-18 22:21:41 jeff Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -323,7 +323,7 @@ func AttentionScriptDialog%()
 		SaveAttentionScriptParameters();
         
         'get contrast list
-        if attNContLeves% > 1 then
+        if attNContLevels% > 1 then
             GetLogProgression(attContrastBase%*(pow(2,attMinContChange)),attContrastBase%*(pow(2,attMaxContChange)),attNContLevels%-1,attContrastList[0:attNContLevels%]);  'levels above base
             GetLogProgression(attContrastBase%/(pow(2,attMaxContChange)),attContrastBase%/(pow(2,attMinContChange)),attNContLevels%-1,attContrastList[attNContLevels%:attNContLevels%]);  'levels below base, in *ascending* order
             round(attContrastList[]);  'we can only use integer values in the VSG call
