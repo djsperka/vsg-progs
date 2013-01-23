@@ -1,4 +1,4 @@
-' $Id: Attention.s2s,v 1.36 2013-01-18 22:21:41 jeff Exp $
+' $Id: Attention.s2s,v 1.37 2013-01-23 22:41:02 jeff Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -47,6 +47,7 @@ var attInterTrialTime;
 var attTimeToAnswer;
 var attAbortWaitTime;
 var attBlockAlternate%;
+var attNoBlockRand%;  'if 1, don't do blocked randomization
 var attTrainingContrastCheck%:=0;
 var attTrainingContrastPct%:=0;
 var randBlockOrderVar%;     'this will be 0 or 1, and will determine whether we start attend-toward or attend-away
@@ -81,14 +82,14 @@ var attCountAwayTrialsAbort% := 0;
 
 ' constants for dialog and check function - start with 10 because there are 9 dialog entries prior
 ' sure, it would be great if all the dialog numbers were done like this, but they ain't, and time is time
-const attdlgTrainingContrastCheck% := 11;
-const attdlgTrainingContrastPct% := 12;
-const attdlgLollipopCheck% := 13;
-const attdlgCueLinePct% := 14;
-const attdlgCircleDiameterDiff% := 15;
-const attdlgLollipopContrast% := 16;
-const attdlgLollipopStickContrast% := 17;
-const attdlgLollipopStickGap := 18;
+const attdlgTrainingContrastCheck% := 12;
+const attdlgTrainingContrastPct% := 13;
+const attdlgLollipopCheck% := 14;
+const attdlgCueLinePct% := 15;
+const attdlgCircleDiameterDiff% := 16;
+const attdlgLollipopContrast% := 17;
+const attdlgLollipopStickContrast% := 18;
+const attdlgLollipopStickGap := 19;
 
 ' constants for timing dialog
 const atttimingdlgFixationCueMinTime% := 2;
@@ -142,6 +143,7 @@ proc GetAttentionScriptParameters()
 	Profile(key$, "CatchTrialPercentage", "0.0", stmp$);
 	attCatchTrialPercentage := val(stmp$);
 	Profile(key$, "BlockAlternate", 1, attBlockAlternate%);
+    Profile(key$, "NoBlockRand", 1, attNoBlockRand%);
 	Profile(key$, "TrainingContrastCheck", 0, attTrainingContrastCheck%);
 	Profile(key$, "TrainingContrastPct", 0, attTrainingContrastPct%);
 	Profile(key$, "BackgroundColor", "gray", attBackgroundColor$);
@@ -239,6 +241,7 @@ proc SaveAttentionScriptParameters()
     Profile(key$, "EasyTrialsPerBlock", attEasyTrialsPerBlock%);
 	Profile(key$, "CatchTrialPercentage", str$(attCatchTrialPercentage));
 	Profile(key$, "BlockAlternate", attBlockAlternate%);
+    Profile(key$, "NoBlockRand", attNoBlockRand%);
 	Profile(key$, "TrainingContrastCheck", attTrainingContrastCheck%);
 	Profile(key$, "TrainingContrastPct", attTrainingContrastPct%);
 	Profile(key$, "BackgroundColor", attBackgroundColor$);
@@ -290,31 +293,32 @@ func AttentionScriptDialog%()
 	GetAttentionScriptParameters();
     
 	DlgCreate("Attention Training Parameters", 25, 10);
-    DlgGroup("Blocks, contrast", 1, 1, 34, 13);
+    DlgGroup("Blocks, contrast", 1, 1, 34, 14);
 	DlgInteger(1, "Number of Blocks:", 1, 1000, 22, 2);
 	DlgInteger(2, "Reg. Trials per block:", 1, 1000, 22, 3);
     DlgInteger(3, "Easy Trials per block:", 1, 1000, 22, 4);
 	DlgReal(4, "Catch Trial pct (0-100)", 0, 100, 22, 5);
 	DlgCheck(5, "Alternate cue type by block", 2, 6);
-	DlgInteger(6, "Base contrast (%)", 0, 100, 22, 7);
-	DlgReal(7, "Max dContrast (oct)", 0, 10, 22, 8);
-	DlgReal(8, "Min dContrast (oct)", 0, 10, 22, 9);
-    DlgInteger(9, "N contrast levels", 1, 10, 22, 10);
-    DlgReal(10, "Ans. window rad. (deg)", 0.01, 10, 22, 11);
-	DlgCheck(attdlgTrainingContrastCheck%, "Training Contrast", 2, 12);
-	DlgInteger(attdlgTrainingContrastPct%, "Training Contrast(%)", 0, 100, 22, 13);
-    DlgButton(2, "Colors", ColorsDialog%, 1, 14);
-    DlgButton(3, "Timing", TimingDialog%, 1, 15);
-    DlgGroup("Lollipops", 1, 17, 34, 7);
-    DlgCheck(attdlgLollipopCheck%, "Use lollipop cues", 2, 18);
-    DlgReal(attdlgCueLinePct%, "Cue line %", 0, 100, 22, 19);
-    DlgReal(attdlgCircleDiameterDiff%, "Circle diameter diff", 0, 10, 22, 20);
-    DlgInteger(attdlgLollipopContrast%, "Lollipop contrast", 0, 100, 22, 21);
-    DlgInteger(attdlgLollipopStickContrast%, "Stick contrast", 0, 100, 22, 22);
-    DlgReal(attdlgLollipopStickGap, "Lollipop stick gap", 0, 10, 22, 23);
+    DlgCheck(6, "Do NOT randomize by block", 2,7);
+    DlgInteger(7, "Base contrast (%)", 0, 100, 22, 8);
+	DlgReal(8, "Max dContrast (oct)", 0, 10, 22, 9);
+	DlgReal(9, "Min dContrast (oct)", 0, 10, 22, 10);
+    DlgInteger(10, "N contrast levels", 1, 10, 22, 11);
+    DlgReal(11, "Ans. window rad. (deg)", 0.01, 10, 22, 12);
+	DlgCheck(attdlgTrainingContrastCheck%, "Training Contrast", 2, 13);
+	DlgInteger(attdlgTrainingContrastPct%, "Training Contrast(%)", 0, 100, 22, 14);
+    DlgButton(2, "Colors", ColorsDialog%, 1, 15);
+    DlgButton(3, "Timing", TimingDialog%, 1, 16);
+    DlgGroup("Lollipops", 1, 18, 34, 7);
+    DlgCheck(attdlgLollipopCheck%, "Use lollipop cues", 2, 19);
+    DlgReal(attdlgCueLinePct%, "Cue line %", 0, 100, 22, 20);
+    DlgReal(attdlgCircleDiameterDiff%, "Circle diameter diff", 0, 10, 22, 21);
+    DlgInteger(attdlgLollipopContrast%, "Lollipop contrast", 0, 100, 22, 22);
+    DlgInteger(attdlgLollipopStickContrast%, "Stick contrast", 0, 100, 22, 23);
+    DlgReal(attdlgLollipopStickGap, "Lollipop stick gap", 0, 10, 22, 24);
     DlgAllow(0, 0, AttentionScriptDialogChanged%);
 	i%:=DlgShow(attNumberOfBlocks%, attTrialsPerBlock%, attEasyTrialsPerBlock%, attCatchTrialPercentage,
-    attBlockAlternate%, attContrastBase%, attMaxContChange, attMinContChange, attNContLevels%,
+    attBlockAlternate%, attNoBlockRand%, attContrastBase%, attMaxContChange, attMinContChange, attNContLevels%,
     attAnswerPointWindowRadius, attTrainingContrastCheck%, attTrainingContrastPct%, 
     attLollipopCheck%, attCueLinePct, attCircleDiameterDiff, 
     attLollipopContrast%, attLollipopStickContrast%, attCueLineGap);
@@ -340,9 +344,13 @@ func AttentionScriptDialog%()
         tempTotal := attNumberOfBlocks%*attTrialsPerBlock%;  'total number of non-"easy" trials
         tempNBlocks% := ceil(tempTotal/(attNContLevels%*2));  'total number of times we have to repeat the tuning curve to reach the total number of trials
         
-        'get trial order, attTrialOrder%[] will hold indices into attContrastList[] for all trials
-        GetRepeatedParameterProgression%(attNContLevels%*2,tempNBlocks%,attTrial[],attTrialOrder%[],0,(attNContLevels%*2)-1,0,1);
-        
+        if attNoBlockRand% = 0 then
+            'get trial order, attTrialOrder%[] will hold indices into attContrastList[] for all trials
+            GetRepeatedParameterProgression%(attNContLevels%*2,tempNBlocks%,attTrial[],attTrialOrder%[],0,(attNContLevels%*2)-1,0,1);
+        else 'Henry sez just do true random
+            Rand(attTrialOrder%[0:attNContLevels%*2*tempNBlocks%],(attNContLevels%*2));
+        endif;        
+
         'repeat for attCatchTrialOrder%[], we can even make it the same length, who cares that we can't get through them all
         GetRepeatedParameterProgression%(attNContLevels%*2,tempNBlocks%,attTrial[],attCatchTrialOrder%[],0,(attNContLevels%*2)-1,0,1);
         
