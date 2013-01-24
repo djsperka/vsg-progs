@@ -1,4 +1,4 @@
-' $Id: Attention.s2s,v 1.39 2013-01-24 19:48:41 jeff Exp $
+' $Id: Attention.s2s,v 1.40 2013-01-24 22:04:03 jeff Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -892,6 +892,7 @@ func IdleProcessing%()
         else 
             if tNow - tStateStart > attAcquisitionTime then
                 PrintLog("stateWaitForAcquisition: failed.\n");
+                abortIsResponse% := 0;
                 ChangeStateTo(stateAbort%, tNow);
                 'getPreciseTiming := 0;
             endif
@@ -1008,8 +1009,6 @@ func IdleProcessing%()
             abortIsResponse% := 0;
             ChangeStateTo(stateAbort%, tNow);
             SampleText("Fixation broken, non-response, trial aborted");
-            
-        
             
         else 
             
