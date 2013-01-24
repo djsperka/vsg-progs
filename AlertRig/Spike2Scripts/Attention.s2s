@@ -1,4 +1,4 @@
-' $Id: Attention.s2s,v 1.37 2013-01-23 22:41:02 jeff Exp $
+' $Id: Attention.s2s,v 1.38 2013-01-24 19:31:33 jeff Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -46,6 +46,7 @@ var attAcquisitionTime;
 var attInterTrialTime;
 var attTimeToAnswer;
 var attAbortWaitTime;
+var attEarlyResponseWaitTime;
 var attBlockAlternate%;
 var attNoBlockRand%;  'if 1, don't do blocked randomization
 var attTrainingContrastCheck%:=0;
@@ -131,6 +132,7 @@ var attContrastList%[attMaxTrl%];  'A list of which contrast is being used on ea
 var attUpDownList%[attMaxTrl%];    '1 if using increase in contrast, -1 if using decrease on each trial, filled by CreateContrastList
 var attValidList%[attMaxTrl%];     '1 if valid, 0 if catch trial, filled by CreateContrastList
 var thisContrast%;                 'for sampletexty stuff
+var abortIsResponse%;              'if 1, use "response abort", otherwise use regular abort
 
 proc GetAttentionScriptParameters()
 	var stmp$;
@@ -205,6 +207,9 @@ proc GetAttentionScriptParameters()
 	Profile(key$, "AbortWaitTime", "1.0", stmp$);
 	attAbortWaitTime := val(stmp$);
     
+    Profile(key$, "EarlyResponseWaitTime", "1.0", stmp$);
+	attEarlyResponseWaitTime := val(stmp$);
+    
     Profile(key$, "CustomGratingColorsCheck", 0, attCustomGratingColorCheck%);
     Profile(key$, "CustomGratingColorsStimFromRed", 0, attCustomGratingColorStimFrom%[0]);
     Profile(key$, "CustomGratingColorsStimFromGreen", 0, attCustomGratingColorStimFrom%[1]);
@@ -257,6 +262,7 @@ proc SaveAttentionScriptParameters()
     Profile(key$, "HazardCutoffTime", str$(attHazardCutoffTime));
 	Profile(key$, "AcquisitionTime", str$(attAcquisitionTime));
 	Profile(key$, "AbortWaitTime", str$(attAbortWaitTime));
+    Profile(key$, "EarlyResponseWaitTime", str$(attEarlyResponseWaitTime));
 	Profile(key$, "InterTrialTime", str$(attInterTrialTime));
 	Profile(key$, "TimeToAnswer", str$(attTimeToAnswer));
 	Profile(key$, "AnswerPointDiameter", str$(attAnswerPointDiameter));
@@ -429,11 +435,12 @@ func TimingDialog%()
 	DlgReal(7, "Time to answer(s):", 0.01, 10.0);
 	DlgReal(8, "Intertrial time(s):", .01, 10);
 	DlgReal(9, "Abort wait time(s):", .01, 10);
+    DlgReal(10, "Early Response wait time(s):", .01, 100);  'I'll let that be really really long
     
     DlgAllow(0, 0, TimingDialogChanged%);
 	i%:=DlgShow(attAcquisitionTime, attFixationCueMinTime, attFixationCueMaxTime, 
     attHazardMinTime, attHazardExpMeanTime, attHazardCutoffTime, attTimeToAnswer, 
-    attInterTrialTime, attAbortWaitTime);
+    attInterTrialTime, attAbortWaitTime,attEarlyResponseWaitTime);
     return 1;
 end
 
@@ -769,6 +776,7 @@ const stateStartBlock%:=17;
 const stateTrialCompletedWaitForBlank% := 18;
 const stateTrialCompletedPause% := 19;
 const stateNoResponse% := 20;
+const stateEarlyResponseWait% := 12;
 var iState% := stateVSGWait%;	' present state
 
 const trialtypeAttendToward% := 100;
@@ -893,16 +901,22 @@ func IdleProcessing%()
     case iState% = stateHoldFixationToStimOn% then
         
         ' Eye must remain inside of fixation window
-        if Looking%(xEye, yEye) = 1 then
+        docase
+        case Looking%(xEye, yEye) = 1 then
             if tNow - tStateStart > attFixationTime then
                 PrintLog("stateHoldFixationToStimOn: Success. Gratings up...\n");
                 SafeSampleKey("S");
                 ChangeStateTo(stateWaitForStimOn%, tNow);
             endif
-        else 
-            PrintLog("stateHoldFixationToStimOn: failed.\n");
+        case Answer%(xEye, yEye) <> 0 then  'if animal responds
+            PrintLog("stateHoldFixationToStimOn: failed, early response.\n");
+            abortIsResponse% := 1;
             ChangeStateTo(stateAbort%, tNow);
-        endif
+        else 'if fixation simply fails
+            PrintLog("stateHoldFixationToStimOn: failed, lost fixation.\n");
+            abortIsResponse% := 0;
+            ChangeStateTo(stateAbort%, tNow);
+        endcase
         
     case iState% = stateWaitForStimOn% then
         tTrigger := NextTime(StimChannel%, tLast, vTrigger);
@@ -927,7 +941,7 @@ func IdleProcessing%()
         view(XYWindow%).XYColour(iAnswerWindowChannel1%,13);  'Force up answer window to blue
         view(XYWindow%).XYColour(iAnswerWindowChannel2%,13);  'Force down answer window to blue
         
-        ' tally up aborted trials
+        ' tally up aborted trials, right now not distinguishing between response aborts and regular aborts
         attCountAllTrialsAbort% += 1;
         docase
         case trialType% = trialtypeAttendToward% then
@@ -951,7 +965,11 @@ func IdleProcessing%()
             ' Fixation point is off
             PrintLog("stateWaitForBlank: Fix pt is off.\n");
             tLastTrigger := tTrigger;
-            ChangeStateTo(stateAbortWait%, tTrigger);
+            if abortIsResponse% = 0 then
+                ChangeStateTo(stateAbortWait%, tTrigger);
+            else
+                ChangeStateTo(stateEarlyResponseWait%, tTrigger);
+            endif;
             DrawStim(0);	' actually this draws the location of the fixpt.
         endif
         
@@ -964,13 +982,31 @@ func IdleProcessing%()
             
         endif
         
+         
+    case iState% = stateEarlyResponseWait% then
+        
+        if tNow - tStateStart > attEarlyResponseWaitTime then
+            
+            PrintLog("stateEarlyResponseWait: time out is done.\n");
+            ChangeStateTo(stateStartTrial%, tNow);
+            
+        endif        
+        
+        
     case iState% = stateHoldFixationToCC% then
         
-        if Looking%(xEye, yEye) = 0 then
-            
+        docase
+        case Looking%(xEye, yEye) = 0 then
             PrintLog("stateHoldFixationToCC: outside fixation window, aborting trial.\n");
+            abortIsResponse% := 0;
             ChangeStateTo(stateAbort%, tNow);
-            SampleText("Fixation broken, trial aborted");
+            SampleText("Fixation broken, non-response, trial aborted");
+            
+        case Answer% (xEye, yEye) <> 0 then
+            PrintLog("stateHoldFixationToCC: in response window, aborting trial.\n");
+            abortIsResponse% := 1;
+            ChangeStateTo(stateAbort%, tNow);
+            SampleText("Fixation broken, early response, trial aborted");
             
         else 
             
@@ -1017,7 +1053,7 @@ func IdleProcessing%()
                 
             endif
             
-        endif
+        endcase
         
     case iState% = stateWaitForContrastChange% then
         tTrigger := NextTime(StimChangeChannel%, tLast, vTrigger);
