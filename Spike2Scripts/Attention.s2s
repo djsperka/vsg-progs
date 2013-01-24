@@ -1,4 +1,4 @@
-' $Id: Attention.s2s,v 1.38 2013-01-24 19:31:33 jeff Exp $
+' $Id: Attention.s2s,v 1.39 2013-01-24 19:48:41 jeff Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -970,6 +970,7 @@ func IdleProcessing%()
             else
                 ChangeStateTo(stateEarlyResponseWait%, tTrigger);
             endif;
+            abortIsResponse% := 0;  'reset
             DrawStim(0);	' actually this draws the location of the fixpt.
         endif
         
@@ -996,17 +997,19 @@ func IdleProcessing%()
     case iState% = stateHoldFixationToCC% then
         
         docase
+        case Answer% (xEye, yEye) <> 0 then
+            PrintLog("stateHoldFixationToCC: in response window, aborting trial.\n");
+            abortIsResponse% := 1;
+            ChangeStateTo(stateAbort%, tNow);
+            SampleText("Fixation broken, early response, trial aborted");
+            
         case Looking%(xEye, yEye) = 0 then
             PrintLog("stateHoldFixationToCC: outside fixation window, aborting trial.\n");
             abortIsResponse% := 0;
             ChangeStateTo(stateAbort%, tNow);
             SampleText("Fixation broken, non-response, trial aborted");
             
-        case Answer% (xEye, yEye) <> 0 then
-            PrintLog("stateHoldFixationToCC: in response window, aborting trial.\n");
-            abortIsResponse% := 1;
-            ChangeStateTo(stateAbort%, tNow);
-            SampleText("Fixation broken, early response, trial aborted");
+        
             
         else 
             
@@ -1058,7 +1061,8 @@ func IdleProcessing%()
     case iState% = stateWaitForContrastChange% then
         tTrigger := NextTime(StimChangeChannel%, tLast, vTrigger);
         'tTrigger := NextTime(FrameTriggerChannel%, tLast, vTrigger);
-        if tTrigger > tLast and vTrigger = 0 then
+        docase
+        case tTrigger > tLast and vTrigger = 0 then
             PrintLog("stateWaitForContrastChange: got it.\n");
             tLastTrigger := tTrigger;
             isStimDistractorOff% := 0;
@@ -1099,13 +1103,18 @@ func IdleProcessing%()
             else
                 PrintLog("ERROR! Unknown blocktype!!!\n");
             endcase;
-        else    
-            if Looking%(xEye, yEye) = 0 then
-                PrintLog("stateWaitForContrastChange: outside fixation window before contrast change, aborting trial.\n");
-                ChangeStateTo(stateAbort%, tNow);
-                SampleText("Fixation broken, trial aborted"); 
-            endif;            
-        endif;
+        case Answer%(xEye, yEye) <> 0 then
+            PrintLog("stateWaitForContrastChange: early response before contrast change, aborting trial.\n");
+            abortIsResponse% := 1;
+            ChangeStateTo(stateAbort%, tNow);
+            SampleText("Fixation broken, early response, trial aborted");
+            
+        case Looking%(xEye, yEye) = 0 then
+            PrintLog("stateWaitForContrastChange: outside fixation window before contrast change, aborting trial.\n");
+            abortIsResponse% := 0;
+            ChangeStateTo(stateAbort%, tNow);
+            SampleText("Fixation broken, non-response, trial aborted");            
+        endcase;
         
     case iState% = stateWaitForAnswer% then
         'getPreciseTiming := 1;  'we need precise timing here, stay in while loop until we get eye movements we expect
