@@ -1,4 +1,4 @@
-' $Id: Attention.s2s,v 1.40 2013-01-24 22:04:03 jeff Exp $
+' $Id: Attention.s2s,v 1.41 2013-01-24 22:14:25 devel Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -29,7 +29,7 @@ var attBackgroundToGreen% := 0;
 var attBackgroundToBlue% := 0;
 var attAnswerPointDiameter := 0.05;
 var attAnswerPointOffset := 5.0;
-var attAnswerPointWindowRadius := 2.0;
+var attAnswerPointWindowRadius := 2.5;
 var attContrastBase%;
 var attMaxContChange;
 var attMinContChange;
@@ -776,7 +776,7 @@ const stateStartBlock%:=17;
 const stateTrialCompletedWaitForBlank% := 18;
 const stateTrialCompletedPause% := 19;
 const stateNoResponse% := 20;
-const stateEarlyResponseWait% := 12;
+const stateEarlyResponseWait% := 21;
 var iState% := stateVSGWait%;	' present state
 
 const trialtypeAttendToward% := 100;
@@ -1223,7 +1223,7 @@ func IdleProcessing%()
         
         if tNow - tStateStart > attInterTrialTime then
             
-            PrintLog("stateTrialCompletedPause: time out is done.\n");
+            PrintLog("stateTrialCompletedPause: inter-trial time is done.\n");
             ChangeStateTo(stateTrialCompleted%, tNow);
             
         endif
