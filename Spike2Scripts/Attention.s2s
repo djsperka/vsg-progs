@@ -1,4 +1,4 @@
-' $Id: Attention.s2s,v 1.41 2013-01-24 22:14:25 devel Exp $
+' $Id: Attention.s2s,v 1.42 2013-01-28 21:42:00 jeff Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -47,6 +47,7 @@ var attInterTrialTime;
 var attTimeToAnswer;
 var attAbortWaitTime;
 var attEarlyResponseWaitTime;
+var attEarlyResponseCheckWindow;
 var attBlockAlternate%;
 var attNoBlockRand%;  'if 1, don't do blocked randomization
 var attTrainingContrastCheck%:=0;
@@ -210,6 +211,10 @@ proc GetAttentionScriptParameters()
     Profile(key$, "EarlyResponseWaitTime", "1.0", stmp$);
 	attEarlyResponseWaitTime := val(stmp$);
     
+    Profile(key$, "EarlyResponseCheckWindow", "1.0", stmp$);
+	attEarlyResponseCheckWindow := val(stmp$);
+    
+    
     Profile(key$, "CustomGratingColorsCheck", 0, attCustomGratingColorCheck%);
     Profile(key$, "CustomGratingColorsStimFromRed", 0, attCustomGratingColorStimFrom%[0]);
     Profile(key$, "CustomGratingColorsStimFromGreen", 0, attCustomGratingColorStimFrom%[1]);
@@ -263,6 +268,7 @@ proc SaveAttentionScriptParameters()
 	Profile(key$, "AcquisitionTime", str$(attAcquisitionTime));
 	Profile(key$, "AbortWaitTime", str$(attAbortWaitTime));
     Profile(key$, "EarlyResponseWaitTime", str$(attEarlyResponseWaitTime));
+    Profile(key$, "EarlyResponseCheckWindow", str$(attEarlyResponseCheckWindow));
 	Profile(key$, "InterTrialTime", str$(attInterTrialTime));
 	Profile(key$, "TimeToAnswer", str$(attTimeToAnswer));
 	Profile(key$, "AnswerPointDiameter", str$(attAnswerPointDiameter));
@@ -436,11 +442,19 @@ func TimingDialog%()
 	DlgReal(8, "Intertrial time(s):", .01, 10);
 	DlgReal(9, "Abort wait time(s):", .01, 10);
     DlgReal(10, "Early Response wait time(s):", .01, 100);  'I'll let that be really really long
+    DlgReal(11, "Early Response check window(s): ", .01, 1);
     
     DlgAllow(0, 0, TimingDialogChanged%);
 	i%:=DlgShow(attAcquisitionTime, attFixationCueMinTime, attFixationCueMaxTime, 
     attHazardMinTime, attHazardExpMeanTime, attHazardCutoffTime, attTimeToAnswer, 
-    attInterTrialTime, attAbortWaitTime,attEarlyResponseWaitTime);
+    attInterTrialTime, attAbortWaitTime,attEarlyResponseWaitTime,attEarlyResponseCheckWindow);
+    if i% = 1 then
+        if attAbortWaitTime < attEarlyResponseCheckWindow then
+            message("Early Response Check Window is longer than Abort Wait Time!");
+            message("Reducing ERC Window to be equal to Abort Wait Time!");
+            attEarlyResponseCheckWindow := attAbortWaitTime;
+        endif;
+    endif;
     return 1;
 end
 
@@ -755,8 +769,6 @@ var tStimOn:=-1;	' time that stim was turned on. Used to measure spike rates
 
 ' Constants for states
 const stateStartTrial%:=0;		        ' Start trial state
-const stateWaitForWhitePointOn%:=20;    ' Waiting for fixation white point
-const stateWhitePointFixation%:=21;     ' white point up, remain fixation
 const stateWaitForFixPtOn%:=1;		    ' Waiting for fixation/cue point return trigger (on)
 const stateHoldFixationToStimOn%:=2;		    ' Maintaining fixation with cue color point and lollipops up
 const stateWaitForStimOn%:=3;		    ' Wait for stimulus return trigger (on)
@@ -775,8 +787,11 @@ const stateBlockCompleted%:=16;
 const stateStartBlock%:=17;
 const stateTrialCompletedWaitForBlank% := 18;
 const stateTrialCompletedPause% := 19;
-const stateNoResponse% := 20;
-const stateEarlyResponseWait% := 21;
+const stateWaitForWhitePointOn%:=20;    ' Waiting for fixation white point  This white point stuff is mostly or wholly excised
+const stateWhitePointFixation%:=21;     ' white point up, remain fixation
+const stateNoResponse% := 22;
+const stateEarlyResponseWait% := 23;
+const stateCheckEarlyResponse% := 24;
 var iState% := stateVSGWait%;	' present state
 
 const trialtypeAttendToward% := 100;
@@ -890,9 +905,8 @@ func IdleProcessing%()
             SampleText("Fixation Acquired",tNow);
             'getPreciseTiming := 0;
         else 
-            if tNow - tStateStart > attAcquisitionTime then
+            if tNow - tStateStart > attAcquisitionTime then  'simple abort on failure to acquire
                 PrintLog("stateWaitForAcquisition: failed.\n");
-                abortIsResponse% := 0;
                 ChangeStateTo(stateAbort%, tNow);
                 'getPreciseTiming := 0;
             endif
@@ -909,14 +923,15 @@ func IdleProcessing%()
                 SafeSampleKey("S");
                 ChangeStateTo(stateWaitForStimOn%, tNow);
             endif
-        case Answer%(xEye, yEye) <> 0 then  'if animal responds
-            PrintLog("stateHoldFixationToStimOn: failed, early response.\n");
-            abortIsResponse% := 1;
-            ChangeStateTo(stateAbort%, tNow);
-        else 'if fixation simply fails
-            PrintLog("stateHoldFixationToStimOn: failed, lost fixation.\n");
-            abortIsResponse% := 0;
-            ChangeStateTo(stateAbort%, tNow);
+        else 'if fixation fails, begin abort, check to see if it is an early response
+            if Answer%(xEye, yEye) <> 0 then  'if it's in response window, quit while you're ahead
+                PrintLog("stateWaitForStimOn: in response window, aborting trial.\n");
+                abortIsResponse% := 1;
+                ChangeStateTo(stateAbort%,tNow);
+                SampleText("Fixation broken, early response, trial aborted");
+            else  'keep checking
+                ChangeStateTo(stateCheckEarlyResponse%, tNow);
+            endif;
         endcase
         
     case iState% = stateWaitForStimOn% then
@@ -954,7 +969,8 @@ func IdleProcessing%()
         endcase
         
         ' move on
-        ChangeStateTo(stateWaitForBlank%, tNow);
+        'ChangeStateTo(stateWaitForBlank%, tNow);
+        ChangeStateTo(stateWaitForBlank%, tStateStart);  'don't update time, carry forward
         
     case iState% = stateWaitForBlank% then
         
@@ -966,54 +982,64 @@ func IdleProcessing%()
             ' Fixation point is off
             PrintLog("stateWaitForBlank: Fix pt is off.\n");
             tLastTrigger := tTrigger;
-            if abortIsResponse% = 0 then
-                ChangeStateTo(stateAbortWait%, tTrigger);
-            else
+            if abortIsResponse% = 1 then
+                abortIsResponse% := 0;
                 ChangeStateTo(stateEarlyResponseWait%, tTrigger);
+            else                
+                'ChangeStateTo(stateAbortWait%, tTrigger);
+                ChangeStateTo(stateAbortWait%, tStateStart);  'don't update time, "credits" for time served
             endif;
-            abortIsResponse% := 0;  'reset
             DrawStim(0);	' actually this draws the location of the fixpt.
         endif
         
     case iState% = stateAbortWait% then
         
         if tNow - tStateStart > attAbortWaitTime then
-            
             PrintLog("stateAbortWait: time out is done.\n");
             ChangeStateTo(stateStartTrial%, tNow);
-            
         endif
+        
+       
+        
+    case iState% = stateCheckEarlyResponse% then
+        
+        if tNow - tStateStart < attEarlyResponseCheckWindow then
+            if Answer% (xEye, yEye) <> 0 then
+                PrintLog("stateCheckEarlyResponse: in response window, aborting trial.\n");
+                abortIsResponse% := 1;
+                ChangeStateTo(stateAbort%, tNow);
+                SampleText("Fixation broken, early response, trial aborted");
+            endif;
+        else 'credit the animal for time served on the abort if it's not a response
+            PrintLog("stateCheckEarlyResponse: no response in window, aborting trial.\n");
+            ChangeStateTo(stateAbort%, tNow-attEarlyResponseCheckWindow); 
+            SampleText("Fixation broken, no response, trial aborted");
+        endif;
         
          
     case iState% = stateEarlyResponseWait% then
         
         if tNow - tStateStart > attEarlyResponseWaitTime then
-            
             PrintLog("stateEarlyResponseWait: time out is done.\n");
             ChangeStateTo(stateStartTrial%, tNow);
-            
         endif        
         
         
     case iState% = stateHoldFixationToCC% then
         
-        docase
-        case Answer% (xEye, yEye) <> 0 then
-            PrintLog("stateHoldFixationToCC: in response window, aborting trial.\n");
-            abortIsResponse% := 1;
-            ChangeStateTo(stateAbort%, tNow);
-            SampleText("Fixation broken, early response, trial aborted");
-            
-        case Looking%(xEye, yEye) = 0 then
-            PrintLog("stateHoldFixationToCC: outside fixation window, aborting trial.\n");
-            abortIsResponse% := 0;
-            ChangeStateTo(stateAbort%, tNow);
-            SampleText("Fixation broken, non-response, trial aborted");
+        docase            
+        case Looking%(xEye, yEye) = 0 then  'begin abort procedure, check to see if it's an early response
+            if Answer%(xEye, yEye) <> 0 then  'if it's in response window, quit while you're ahead
+                PrintLog("stateHoldFixationToCC: in response window, aborting trial.\n");
+                abortIsResponse% := 1;
+                ChangeStateTo(stateAbort%,tNow);
+                SampleText("Fixation broken, early response, trial aborted");
+            else  'keep checking
+                ChangeStateTo(stateCheckEarlyResponse%, tNow);
+            endif;
             
         else 
-            
             if (tNow - tStateStart) > (trialHazardFunctionTime) then
-                
                 ' turn off stimulus and advance it
                 PrintLog("stateHoldFixationToCC: request contrast change\n");
                 docase
@@ -1048,7 +1074,6 @@ func IdleProcessing%()
                 else
                     PrintLog("ERROR! Unknown blocktype!!!\n");
                 endcase;
-                
                 
                 ' Now wait until contrast change trigger is received
                 ChangeStateTo(stateWaitForContrastChange%, tNow);
@@ -1102,17 +1127,17 @@ func IdleProcessing%()
             else
                 PrintLog("ERROR! Unknown blocktype!!!\n");
             endcase;
-        case Answer%(xEye, yEye) <> 0 then
-            PrintLog("stateWaitForContrastChange: early response before contrast change, aborting trial.\n");
-            abortIsResponse% := 1;
-            ChangeStateTo(stateAbort%, tNow);
-            SampleText("Fixation broken, early response, trial aborted");
             
-        case Looking%(xEye, yEye) = 0 then
-            PrintLog("stateWaitForContrastChange: outside fixation window before contrast change, aborting trial.\n");
-            abortIsResponse% := 0;
-            ChangeStateTo(stateAbort%, tNow);
-            SampleText("Fixation broken, non-response, trial aborted");            
+        case Looking%(xEye, yEye) = 0 then  'begin abort procedure, check to see if it is an early response
+            if Answer%(xEye, yEye) <> 0 then  'if it's in response window, quit while you're ahead
+                PrintLog("stateWaitForContrastChange: in response window, aborting trial.\n");
+                abortIsResponse% := 1;
+                ChangeStateTo(stateAbort%,tNow);
+                SampleText("Fixation broken, early response, trial aborted");
+            else  'keep checking
+                ChangeStateTo(stateCheckEarlyResponse%, tNow);
+            endif;
+            
         endcase;
         
     case iState% = stateWaitForAnswer% then
