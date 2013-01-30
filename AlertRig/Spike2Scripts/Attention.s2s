@@ -1,4 +1,4 @@
-' $Id: Attention.s2s,v 1.42 2013-01-28 21:42:00 jeff Exp $
+' $Id: Attention.s2s,v 1.43 2013-01-30 00:49:43 jeff Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -44,8 +44,10 @@ var attHazardExpMeanTime;
 var attHazardCutoffTime;
 var attAcquisitionTime;
 var attInterTrialTime;
+var attInterTrialTime2;
 var attTimeToAnswer;
 var attAbortWaitTime;
+var attMissPenalty;
 var attEarlyResponseWaitTime;
 var attEarlyResponseCheckWindow;
 var attBlockAlternate%;
@@ -208,6 +210,9 @@ proc GetAttentionScriptParameters()
 	Profile(key$, "AbortWaitTime", "1.0", stmp$);
 	attAbortWaitTime := val(stmp$);
     
+    Profile(key$, "MissPenalty", "1.0", stmp$);
+	attMissPenalty := val(stmp$);
+    
     Profile(key$, "EarlyResponseWaitTime", "1.0", stmp$);
 	attEarlyResponseWaitTime := val(stmp$);
     
@@ -267,6 +272,7 @@ proc SaveAttentionScriptParameters()
     Profile(key$, "HazardCutoffTime", str$(attHazardCutoffTime));
 	Profile(key$, "AcquisitionTime", str$(attAcquisitionTime));
 	Profile(key$, "AbortWaitTime", str$(attAbortWaitTime));
+    Profile(key$, "MissPenalty", str$(attMissPenalty));
     Profile(key$, "EarlyResponseWaitTime", str$(attEarlyResponseWaitTime));
     Profile(key$, "EarlyResponseCheckWindow", str$(attEarlyResponseCheckWindow));
 	Profile(key$, "InterTrialTime", str$(attInterTrialTime));
@@ -443,11 +449,12 @@ func TimingDialog%()
 	DlgReal(9, "Abort wait time(s):", .01, 10);
     DlgReal(10, "Early Response wait time(s):", .01, 100);  'I'll let that be really really long
     DlgReal(11, "Early Response check window(s): ", .01, 1);
+    DlgReal(12, "Miss Penalty(s): ", 0, 100);
     
     DlgAllow(0, 0, TimingDialogChanged%);
 	i%:=DlgShow(attAcquisitionTime, attFixationCueMinTime, attFixationCueMaxTime, 
     attHazardMinTime, attHazardExpMeanTime, attHazardCutoffTime, attTimeToAnswer, 
-    attInterTrialTime, attAbortWaitTime,attEarlyResponseWaitTime,attEarlyResponseCheckWindow);
+    attInterTrialTime, attAbortWaitTime,attEarlyResponseWaitTime,attEarlyResponseCheckWindow,attMissPenalty);
     if i% = 1 then
         if attAbortWaitTime < attEarlyResponseCheckWindow then
             message("Early Response Check Window is longer than Abort Wait Time!");
@@ -1165,6 +1172,7 @@ func IdleProcessing%()
                 if iAnswer% = trialContrastUpDown% then
                     ' Correct answer
                     attCountAllTrialsCorrect% += 1;
+                    attInterTrialTime2 := attInterTrialTime;
                     'SampleText("+");
                     docase
                     case trialType% = trialtypeAttendToward% and trialContrastUpDown% = 1 then
@@ -1187,6 +1195,7 @@ func IdleProcessing%()
                 else
                     'SampleText("-");
                     attCountAllTrialsIncorrect% += 1;
+                    attInterTrialTime2 := attInterTrialTime + attMissPenalty;
                     docase
                     case trialType% = trialtypeAttendToward% and trialContrastUpDown% = 1 then
                         attCountTowardTrialsIncorrect% += 1;
@@ -1246,7 +1255,7 @@ func IdleProcessing%()
         
     case iState% = stateTrialCompletedPause% then
         
-        if tNow - tStateStart > attInterTrialTime then
+        if tNow - tStateStart > attInterTrialTime2 then
             
             PrintLog("stateTrialCompletedPause: inter-trial time is done.\n");
             ChangeStateTo(stateTrialCompleted%, tNow);
