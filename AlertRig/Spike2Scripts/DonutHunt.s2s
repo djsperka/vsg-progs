@@ -1,6 +1,6 @@
 
 
-const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.54 2013-01-09 19:49:33 jeff Exp $";
+const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.55 2013-01-31 23:10:31 jeff Exp $";
 
 
 ' Hello again
@@ -494,10 +494,10 @@ proc InitializeWindows()
             FixWindowY[index%] := FixationY + WindowRadius * Sin(index% * twopi/36.0);
             'note that since this is done at the very beginning, we don't know which window is the target window on any given trial, so the two are identical 
             if dhUseJoystick% > 1 then
-                Choice1WindowX[index%] := dhXOffset + dhChoicePointRadius * Cos(index% * twopi/36.0);
-                Choice1WindowY[index%] := dhYOffset + dhChoicePointRadius * Sin(index% * twopi/36.0);
-                Choice2WindowX[index%] := -dhXOffset + dhChoicePointRadius * Cos(index% * twopi/36.0);
-                Choice2WindowY[index%] := dhYOffset + dhChoicePointRadius * Sin(index% * twopi/36.0);
+                Choice1WindowX[index%] := FixationX + dhXOffset + dhChoicePointRadius * Cos(index% * twopi/36.0);
+                Choice1WindowY[index%] := FixationY + dhYOffset + dhChoicePointRadius * Sin(index% * twopi/36.0);
+                Choice2WindowX[index%] := FixationX - dhXOffset + dhChoicePointRadius * Cos(index% * twopi/36.0);
+                Choice2WindowY[index%] := FixationY + dhYOffset + dhChoicePointRadius * Sin(index% * twopi/36.0);
             endif;
         next;
         
@@ -712,9 +712,9 @@ func Start%()
     Print("%s,%s,",coreScreen$,donutScreen$);  'Specifies which item is on which screen (hopefully syntax is right)
     Print("answerpoints,%d,%d,%f\n",correctContrast%,wrongContrast%,maximumChoicePointDur); 'line 1 continued, choice point info
     Print("%s\n",coreParam$);  'core-stim-spec
-    Print("%f,%f,%f,%f\n",-dhXOffset,dhYOffset,dhXOffset,dhYOffset);  'xL,yL,xR,yR master
+    Print("%f,%f,%f,%f\n",FixationX-dhXOffset,FixationY+dhYOffset,FixationX+dhXOffset,FixationY+dhYOffset);  'xL,yL,xR,yR master
     Print("%s\n",donutParam$);  'donut-stim-spec
-    Print("%f,%f,%f,%f\n",-dhXOffset,dhYOffset,dhXOffset,dhYOffset);  'xL,yL,xR,yR slave, same as master            
+    Print("%f,%f,%f,%f\n",FixationX-dhXOffset,FixationY+dhYOffset,FixationX+dhXOffset,FixationY+dhYOffset);  'xL,yL,xR,yR slave, same as master            
     'Print("%f,%f,%f,%f,%f\n",dhDelayBeforeDContrast,dhDurAfterDContrast,dhCoreContrast,dhNGrids%,dhGridDur);  't2,t3,contrast_base, number of grids, grid duration    t2,t3 gridDur in s
     Print("%f,%f,%f,%f,%f\n",dhDelayBeforeDContrast,dhDurAfterDContrast,dhCoreContrast,dhGridTF,dhGridDur);  't2,t3,contrast_base, grid temporal frequency, grid total duration    t2,t3 gridDur in s
     Print("%s\n",dhT1ValuesStringified$); 't1_0,t1_1,t1_2,...           per-trial t1 values in seconds
@@ -1505,15 +1505,15 @@ func IdleProcessing%()
         'Note that the YOffset is always the same for L and R, and therefore there is no difference between correct and
         'incorrect YOffsets.  This will need to be changed if YOffset may vary for L and R in the future.
         if GetLR(nTrialsCompleted%) = 0 then 'right stimulus
-            CorrX := -dhXOffset;
-            CorrY := dhYOffset;
-            WrongX := dhXOffset;
-            WrongY := dhYOffset;
+            CorrX := FixationX - dhXOffset;
+            CorrY := FixationY + dhYOffset;
+            WrongX := FixationX + dhXOffset;
+            WrongY := FixationY + dhYOffset;
         else  'left stimulus
-            CorrX := dhXOffset;
-            CorrY := dhYOffset;
-            WrongX := -dhXOffset;
-            WrongY := dhYOffset;
+            CorrX := FixationX + dhXOffset;
+            CorrY := FixationY + dhYOffset;
+            WrongX := FixationX - dhXOffset;
+            WrongY := FixationY + dhYOffset;
         endif;
         'if doing training, "remove" incorrect response location
         'if dhUseJoystick% = 3 then
