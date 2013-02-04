@@ -1,4 +1,4 @@
-' $Id: AttentionGoNoGo.s2s,v 1.2 2013-02-04 21:33:17 jeff Exp $
+' $Id: AttentionGoNoGo.s2s,v 1.3 2013-02-04 23:11:36 jeff Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -55,7 +55,7 @@ var attNoBlockRand%;  'if 1, don't do blocked randomization
 var attTrainingContrastCheck%:=0;
 var attTrainingContrastPct%:=0;
 var randBlockOrderVar%;     'this will be 0 or 1, and will determine whether we start attend-toward or attend-away
-randBlockOrderVar% := round(rand()); 'just set it right now
+randBlockOrderVar% := round(rand(0.0)); 'just set it right now, may need 0.0 to properly seed random number generator
 
 var attCustomGratingColorCheck%;
 var attCustomGratingColorStimFrom%[3];
@@ -1040,7 +1040,7 @@ func IdleProcessing%()
         
         if tNow - tStateStart > attFalseAlarmWaitTime then
             PrintLog("stateFalseAlarmWait: time out is done.\n");
-            ChangeStateTo(stateStartTrial%, tNow);
+            ChangeStateTo(stateTrialCompleted%, tNow);
         endif        
         
         
@@ -1162,7 +1162,8 @@ func IdleProcessing%()
                 else
                     SampleText("Miss, Attend Away",tNow);
                 endif;
-                ChangeStateTo(stateMiss%, tNow);
+                ChangeStateTo(stateMiss%, tNow); 'go to miss penalty
+                SafeSampleKey("a");
             else
                 SafeSampleKey("X");  'turn off animation
                 PrintLog("stateWaitForAnswer: no response on no-go trial, correct rejection\n");
@@ -1348,7 +1349,7 @@ proc PrepareTrial()
 	PrintLog("Prepare trial: ");
     
 	if attBlockAlternate% = 0 then
-		if (Rand() < 0.5) then
+		if (Rand(0.0) < 0.5) then
 			trialType% := trialtypeAttendToward%;
 			PrintLog("Trial type: attend-toward\n");
 		else
