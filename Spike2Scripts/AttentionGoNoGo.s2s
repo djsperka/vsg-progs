@@ -1,4 +1,4 @@
-' $Id: AttentionGoNoGo.s2s,v 1.1 2013-02-04 18:25:22 jeff Exp $
+' $Id: AttentionGoNoGo.s2s,v 1.2 2013-02-04 21:33:17 jeff Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -1002,6 +1002,8 @@ func IdleProcessing%()
             if FAIsResponse% = 1 then
                 FAIsResponse% := 0;
                 ChangeStateTo(stateFalseAlarmWait%, tTrigger);
+                'advance on false alarm
+                SafeSampleKey("a");  'this is the only place to get into stateFalseAlarmWait, so advance here is fine
             else                
                 'ChangeStateTo(stateAbortWait%, tTrigger);
                 ChangeStateTo(stateAbortWait%, tStateStart);  'don't update time, "credits" for time served
@@ -1035,9 +1037,6 @@ func IdleProcessing%()
         
          
     case iState% = stateFalseAlarmWait% then
-        
-        'advance on false alarm
-        SafeSampleKey("a");        
         
         if tNow - tStateStart > attFalseAlarmWaitTime then
             PrintLog("stateFalseAlarmWait: time out is done.\n");
@@ -1192,7 +1191,7 @@ func IdleProcessing%()
             if iAnswer% = 1 then 'or iAnswer% = -1 then
                 ' Got an answer. Record marker for correct/incorrect answer
                 'if iAnswer% = trialContrastUpDown% then
-                if trialContrastUpDown% = 1 then
+                if trialContrastUpDown% = 1 then 'it's a GO trial
                     ' Hit                    
                     attCountAllTrialsCorrect% += 1;
                     attInterTrialTime2 := attInterTrialTime;
@@ -1217,30 +1216,31 @@ func IdleProcessing%()
                     Reward%();
                     ChangeStateTo(stateTrialCompletedWaitForBlank%, tNow);
                     SafeSampleKey("X");
-                else
+                else  'it's a NO-GO trial, and we got an answer
                     'SampleText("-");
                     attCountAllTrialsIncorrect% += 1;
                     attInterTrialTime2 := attInterTrialTime + attMissPenalty;
                     docase
                     case trialType% = trialtypeAttendToward% and trialContrastUpDown% = 1 then
                         attCountTowardTrialsIncorrect% += 1;
-                        SampleText("Miss, Attend Toward",tNow);
+                        SampleText("False Alarm, Attend Toward",tNow);
                     case trialType% = trialtypeAttendAway% and trialContrastUpDown% = 1 then
                         attCountAwayTrialsIncorrect% += 1;
-                        SampleText("Miss, Attend Away",tNow);
+                        SampleText("False Alarm, Attend Away",tNow);
                     case trialType% = trialtypeAttendToward% and trialContrastUpDown% = -1 then
                         attCountTowardTrialsIncorrect% += 1;
-                        SampleText("Miss, Attend Toward",tNow);
+                        SampleText("False Alarm, Attend Toward",tNow);
                     case trialType% = trialtypeAttendAway% and trialContrastUpDown% = -1 then
                         attCountAwayTrialsIncorrect% += 1;
-                        SampleText("Miss, Attend Away",tNow);
+                        SampleText("False Alarm, Attend Away",tNow);
                     else
                         PrintLog("ERROR: Unknown trial type (" + str$(trialType%) + "\n");
                     endcase
                     'getPreciseTiming := 0;
                     Yield(.01);    ' necessary so that the SampleText and SafeSampleKey below don't land on the same time (makes extraction difficult)
-                    ChangeStateTo(stateMiss%, tNow);
-                    SafeSampleKey("X");
+                    FAIsResponse% := 1;
+                    ChangeStateTo(stateAbort%,tNow);
+                    'SafeSampleKey("X");
                 endif
             endif
         endif
