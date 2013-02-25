@@ -1,6 +1,6 @@
-' $Id: StarStim.s2s,v 1.9 2011-11-16 00:48:00 jeff Exp $
+' $Id: StarStim.s2s,v 1.10 2013-02-25 22:25:04 devel Exp $
 ' Update 11/8/11 Jeff, includes multi-juicer updates
-const starCVSID$ := "$Id: StarStim.s2s,v 1.9 2011-11-16 00:48:00 jeff Exp $";
+const starCVSID$ := "$Id: StarStim.s2s,v 1.10 2013-02-25 22:25:04 devel Exp $";
 
 '========================================================================
 '
@@ -178,12 +178,12 @@ endif
 
 
 ' Assign channel numbers for eye X,Y and trigger. 
-XChannel% := NumberOfElectrodes%+1;
-YChannel% := NumberOfElectrodes%+2;
-ReadyChannel% := NumberOfElectrodes% + 3;
-FixationChannel% := NumberOfElectrodes%+4;
-StimChannel% := NumberOfElectrodes%+5;
-ChangeChannel% := NumberOfElectrodes%+6;
+XChannel% := 21;
+YChannel% := 22;
+ReadyChannel% := 23;
+FixationChannel% := 24;
+StimChannel% := 25;
+ChangeChannel% := 26;
 CreateSampleConfiguration();
 
 ' Get display windows ready
@@ -505,8 +505,6 @@ proc CreateSampleConfiguration()
 	SampleComment$(ReadyChannel%,"VSG Ready");
 	SampleTitle$(ReadyChannel%,"VSG Ready");
 
-    SampleWaveForm(28, 3, 10000);
-
 ' djs No recording for this stim....
 '	for index := 1 to NumberOfElectrodes% do
 '		SampleWaveMark(index,index-1,2000,34,15,28000); ' chan, port, event rate, points, pre-trigger, rate
@@ -726,7 +724,7 @@ func Start%()
 	else
 		Extras$ := "";
 	endif
-	Extras$ += " -b gray -d " + DistanceToScreenMM$ + " -n " + str$(starNumTargets%) + " -o " + str$(starTargetRotation);
+	Extras$ += " -b gray -d " + GetDistanceToScreenMM$() + " -n " + str$(starNumTargets%) + " -o " + str$(starTargetRotation);
 
 	' Fetch stim parameters. We need the x,y position only to determine the base target pos.
     if starUseStimulusXY% then
