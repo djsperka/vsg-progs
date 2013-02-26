@@ -35,6 +35,7 @@ JuicerType% := GetJuicerType%();
 if JuicerType% = 0 then
     JuicerCheckDialog%();
 endif
+SetJuicerSequencerVariable%();  'this will make the same call in various Start%() functions redundant
 
 
 func JuicerCheckDialog%()
@@ -300,6 +301,7 @@ func DAQParametersDialog%()
 
 	if iReturn% = 1 then
         JuicerIndex% := JuicerIndexDecremented% + 1; 'Correct JuicerIndex%
+        SetJuicerSequencerVariable%();  'This allows reset of juicer sequencer variable without restarting the script.  Probably redundant.
 		SaveDAQParameters();
 	endif
 	return iReturn%;
