@@ -1,4 +1,4 @@
-' $Id: AttentionGoNoGoTemp.s2s,v 1.1 2013-02-28 18:19:31 devel Exp $
+' $Id: AttentionGoNoGoTemp.s2s,v 1.2 2013-02-28 22:44:50 jeff Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -136,6 +136,17 @@ var attUpDownList%[attMaxTrl%];    '1 if using increase in contrast, -1 if using
 var attValidList%[attMaxTrl%];     '1 if valid, 0 if catch trial, filled by CreateContrastList
 var thisContrast%;                 'for sampletexty stuff
 var FAIsResponse%;              'if 1, use "response abort", otherwise use regular abort
+var expectedAnswer%;            'keeps track of expected answer, saves a bunch of redundant code
+
+'we need to explicitly know the position of the gratings to place the answer windows on the gratings
+var upX;
+var upY;
+var upW;
+var upH;
+var downX;
+var downY;
+var downW;
+var downH;
 
 proc GetAttentionScriptParameters()
 	var stmp$;
@@ -619,8 +630,8 @@ var XYWindow%;			'
 var iStimChannel%;	' channel number for stimulus in xy window
 var iFixationWindowChannel%;' channel number for fixation window in xy window
 var iMonitorChannel%;	' channel number for monitor position display in xy window
-var iAnswerWindowChannel1%;  'channel number for answer window display in xy window
-'var iAnswerWindowChannel2%;  'Nope, no second window in go/no-go
+var iAnswerWindowChannel1%;  'channel number for upper answer window display in xy window
+var iAnswerWindowChannel2%;  'channel number for lower answer window display in XY window
 
 ' Display stuff
 var FixWindowX[36],FixWindowY[36];	' points for displaying fixation window in xy view
@@ -755,9 +766,12 @@ func Answer%(EyePosX, EyePosY)
     var ans% := 0;
     var ansptRadius;
     ansptRadius := Pow(attAnswerPointWindowRadius,2);
-	if (Pow(EyePosX-FixationX,2) + Pow(EyePosY-(FixationY+attAnswerPointOffset),2)) <= ansptRadius then ans% := 1; endif
-    'There is now no bottom response location
+    'Top response location
+	'if (Pow(EyePosX-FixationX,2) + Pow(EyePosY-(FixationY+attAnswerPointOffset),2)) <= ansptRadius then ans% := 1; endif
+    if (Pow(EyePosX-upX,2) + Pow(EyePosY-(upY),2)) <= upW then ans% := 1; endif  'just assuming upW = upH!
+    'Bottom response location
 	'if (Pow(EyePosX-FixationX,2) + Pow(EyePosY-(FixationY-attAnswerPointOffset),2)) <= ansptRadius then ans% := -1; endif
+    if (Pow(EyePosX-downX,2) + Pow(EyePosY-(downY),2)) <= downW then ans% := -1; endif  'just assuming downW = downH!
 	return ans%;
 end;
 
@@ -972,7 +986,8 @@ func IdleProcessing%()
         SafeSampleKey("X");
         
         view(XYWindow%).XYColour(iAnswerWindowChannel1%,13);  'Force up answer window to blue
-        view(XYWindow%).XYColour(iFixationWindowChannel%,13);  'Force down answer window to blue
+        view(XYWindow%).XYColour(iAnswerWindowChannel2%,13);  'Force down answer window to blue
+        view(XYWindow%).XYColour(iFixationWindowChannel%,13);  'Force fixation window to blue
         
         ' tally up aborted trials, right now not distinguishing between response aborts and regular aborts
         attCountAllTrialsAbort% += 1;
@@ -1113,10 +1128,11 @@ func IdleProcessing%()
             docase
             case trialType% = trialtypeAttendToward% then
                 if trialContrastUpDown% > 0 then
-                    view(XYWindow%).XYColour(iAnswerWindowChannel1%,16);  'Change up answer window to red
                     if trialCatch% = 0 then
+                        view(XYWindow%).XYColour(iAnswerWindowChannel1%,16);  'Change up answer window to red
                         Sampletext("Contrast Change Up, Level " + Str$(thisContrast%) + ", Attend Toward",tTrigger);
                     else
+                        view(XYWindow%).XYColour(iAnswerWindowChannel2%,16);  'Change down answer window to red
                         Sampletext("Contrast Change Up, Level " + Str$(thisContrast%) + ", Attend Toward (catch)",tTrigger);
                     endif
                 else
@@ -1125,10 +1141,11 @@ func IdleProcessing%()
                 endif
             case trialType% = trialtypeAttendAway% then
                 if trialContrastUpDown% > 0 then
-                    view(XYWindow%).XYColour(iAnswerWindowChannel1%,16);  'Change up answer window to red
                     if trialCatch% = 0 then
+                        view(XYWindow%).XYColour(iAnswerWindowChannel2%,16);  'Change down answer window to red
                         Sampletext("Contrast Change Up, Level " + Str$(thisContrast%) + ", Attend Away",tTrigger);
                     else
+                        view(XYWindow%).XYColour(iAnswerWindowChannel1%,16);  'Change up answer window to red
                         Sampletext("Contrast Change Up, Level " + Str$(thisContrast%) + ", Attend Away (catch)",tTrigger);
                     endif
                 else
@@ -1189,10 +1206,11 @@ func IdleProcessing%()
             endif
             
             iAnswer% := Answer%(xEye, yEye);
-            if iAnswer% = 1 then 'or iAnswer% = -1 then
+            if iAnswer% = 1 or iAnswer% = -1 then
                 ' Got an answer. Record marker for correct/incorrect answer
-                'if iAnswer% = trialContrastUpDown% then
-                if trialContrastUpDown% = 1 then 'it's a GO trial
+                docase
+                case iAnswer% = expectedAnswer% then
+                'if trialContrastUpDown% = 1 then 'it's a GO trial
                     ' Hit                    
                     attCountAllTrialsCorrect% += 1;
                     attInterTrialTime2 := attInterTrialTime;
@@ -1204,17 +1222,30 @@ func IdleProcessing%()
                     case trialType% = trialtypeAttendAway% and trialContrastUpDown% = 1 then
                         attCountAwayTrialsCorrect% += 1;
                         SampleText("Hit, Attend Away, Contrast Up",tNow);
-                    case trialType% = trialtypeAttendToward% and trialContrastUpDown% = -1 then
-                        attCountTowardTrialsCorrect% += 1;
-                        SampleText("Hit, Attend Toward, Contrast Down",tNow);
-                    case trialType% = trialtypeAttendAway% and trialContrastUpDown% = -1 then
-                        attCountAwayTrialsCorrect% += 1;
-                        SampleText("Hit, Attend Away, Contrast Down",tNow);
                     else
                         PrintLog("ERROR: Unknown trial type (" + str$(trialType%) + "\n");
                     endcase
                     'getPreciseTiming := 0;
                     Reward%();
+                    ChangeStateTo(stateTrialCompletedWaitForBlank%, tNow);
+                    SafeSampleKey("X");
+                case iAnswer% = -expectedAnswer% then
+                'if trialContrastUpDown% = 1 then 'it's a GO trial
+                    ' Saccade to wrong grating                    
+                    attCountAllTrialsIncorrect% += 1;
+                    attInterTrialTime2 := attInterTrialTime + attMissPenalty;
+                    'SampleText("+");
+                    docase
+                    case trialType% = trialtypeAttendToward% and trialContrastUpDown% = 1 then
+                        attCountTowardTrialsIncorrect% += 1;
+                        SampleText("Miss, Attend Toward, Moved To Wrong Grating, Contrast Up",tNow);
+                    case trialType% = trialtypeAttendAway% and trialContrastUpDown% = 1 then
+                        attCountAwayTrialsIncorrect% += 1;
+                        SampleText("Miss, Attend Away, Moved To Wrong Grating, Contrast Up",tNow);
+                    else
+                        PrintLog("ERROR: Unknown trial type (" + str$(trialType%) + "\n");
+                    endcase
+                    'getPreciseTiming := 0;
                     ChangeStateTo(stateTrialCompletedWaitForBlank%, tNow);
                     SafeSampleKey("X");
                 else  'it's a NO-GO trial, and we got an answer
@@ -1228,12 +1259,6 @@ func IdleProcessing%()
                     case trialType% = trialtypeAttendAway% and trialContrastUpDown% = 1 then
                         attCountAwayTrialsIncorrect% += 1;
                         SampleText("False Alarm, Attend Away",tNow);
-                    case trialType% = trialtypeAttendToward% and trialContrastUpDown% = -1 then
-                        attCountTowardTrialsIncorrect% += 1;
-                        SampleText("False Alarm, Attend Toward",tNow);
-                    case trialType% = trialtypeAttendAway% and trialContrastUpDown% = -1 then
-                        attCountAwayTrialsIncorrect% += 1;
-                        SampleText("False Alarm, Attend Away",tNow);
                     else
                         PrintLog("ERROR: Unknown trial type (" + str$(trialType%) + "\n");
                     endcase
@@ -1242,7 +1267,7 @@ func IdleProcessing%()
                     FAIsResponse% := 1;
                     ChangeStateTo(stateAbort%,tNow);
                     'SafeSampleKey("X");
-                endif
+                endcase
             endif
         endif
         
@@ -1299,6 +1324,7 @@ func IdleProcessing%()
         
     case iState% = stateTrialCompleted% then
         view(XYWindow%).XYColour(iAnswerWindowChannel1%,13);  'Force up answer window to blue
+        view(XYWindow%).XYColour(iAnswerWindowChannel2%,13);  'Force down answer window to blue
         view(XYWindow%).XYColour(iFixationWindowChannel%,13);  'Force fixation window to blue
         PrintLog("Trial completed.\n");
         nTrialsCompleted% += 1;
@@ -1396,6 +1422,32 @@ proc PrepareTrial()
     'Record actual contrast level on this trial
     thisContrast% := attContrastList%[attCurrTrialIndex%];
     
+    'Calculate expected answer
+    docase
+    case trialType% = trialtypeAttendToward% then
+        if trialContrastUpDown% > 0 then
+            if trialCatch% = 0 then
+                expectedAnswer% := 1;
+            else
+                expectedAnswer% := -1;
+            endif
+        else
+            expectedAnswer% := 0;
+        endif
+    case trialType% = trialtypeAttendAway% then
+        if trialContrastUpDown% > 0 then
+            if trialCatch% = 0 then
+                expectedAnswer% := -1;
+            else
+                expectedAnswer% := 1;
+            endif
+        else
+            expectedAnswer% := 0;
+        endif
+    else
+        PrintLog("ERROR! Unknown blocktype!!!\n");
+    endcase;
+    
 end
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
@@ -1476,13 +1528,20 @@ proc InitializeWindows()
 	XYJoin(iFixationWindowChannel%,1);
 	'Draw the fixation window
 	XYAddData(iFixationWindowChannel%, FixWindowX[], FixWindowY[]);
+        
+    
+    'get locations of stimuli so that answer windows overlap them
+    ParseGratingParametersBrief%(GetGratingParameters$("Stimulus"),upX,upY,upW,upH); 
+    ParseGratingParametersBrief%(GetGratingParameters$("Distractor1"),downX,downY,downW,downH);  
     
     'Create new channels in the XY view to display the answer windows
     'reuse FixationX, FixationY
     'First window
     for index% := 0 to 35 do
-        FixWindowX[index%] := FixationX + attAnswerPointWindowRadius * Cos(index% * twopi/36.0);
-		FixWindowY[index%] := FixationY + attAnswerPointOffset + attAnswerPointWindowRadius * Sin(index% * twopi/36.0);
+        'FixWindowX[index%] := FixationX + attAnswerPointWindowRadius * Cos(index% * twopi/36.0);
+		'FixWindowY[index%] := FixationY + attAnswerPointOffset + attAnswerPointWindowRadius * Sin(index% * twopi/36.0);
+        FixWindowX[index%] := upX + upW * Cos(index% * twopi/36.0);
+		FixWindowY[index%] := upY + upH * Sin(index% * twopi/36.0);
 	next;
     iAnswerWindowChannel1% := XYSetChan(0);
     XYColour(iAnswerWindowChannel1%,13);
@@ -1491,17 +1550,19 @@ proc InitializeWindows()
 	'Draw the answer window
 	XYAddData(iAnswerWindowChannel1%, FixWindowX[], FixWindowY[]);
     
-    'NO SECOND WINDOW IN GO/NO-GO
+
 '    'Second window
-'    for index% := 0 to 35 do
-'		FixWindowY[index%] := FixationY - attAnswerPointOffset + attAnswerPointWindowRadius * Sin(index% * twopi/36.0);
-'	next;
-'    iAnswerWindowChannel2% := XYSetChan(0);
-'    XYColour(iAnswerWindowChannel2%,13);
-'	XYDrawMode(iAnswerWindowChannel2%,2,1);
-'	XYJoin(iAnswerWindowChannel2%,1);
-'	'Draw the answer window
-'	XYAddData(iAnswerWindowChannel2%, FixWindowX[], FixWindowY[]);
+    for index% := 0 to 35 do
+		FixWindowX[index%] := downX + downW * Cos(index% * twopi/36.0);
+		FixWindowY[index%] := downY + downH * Sin(index% * twopi/36.0);
+		'FixWindowY[index%] := FixationY - attAnswerPointOffset + attAnswerPointWindowRadius * Sin(index% * twopi/36.0);
+	next;
+    iAnswerWindowChannel2% := XYSetChan(0);
+    XYColour(iAnswerWindowChannel2%,13);
+	XYDrawMode(iAnswerWindowChannel2%,2,1);
+	XYJoin(iAnswerWindowChannel2%,1);
+	'Draw the answer window
+	XYAddData(iAnswerWindowChannel2%, FixWindowX[], FixWindowY[]);
     
 	'Create a new channel in the XY view to display the fixation point
 	iStimChannel% := XYSetChan(0);
@@ -1702,7 +1763,8 @@ func Start%()
 	Stim$ := " -g " + distSpec$ + " -s " + stimSpec$;  
 	'Contrast$ := " -t " + str$(round(attContrastBase%/pow(2,attMinContChange))) + "," + str$(attContrastBase%) + "," + str$(round(attContrastBase%*pow(2,attMaxContChange)));  'this will change once tuning curves are in, at least a bit
 	CreateContrastList(Contrast$,attContrastList%,attValidList%,attUpDownList%);  'Fills Contrast$ with the big ol' list, plus some vars to make it easier on us all 
-    Extras$ := " -b " + attBackgroundColor$ + " -d " + GetDistanceToScreenMM$() + " -A " + str$(attAnswerPointOffset) + " -D " + str$(attAnswerPointDiameter) + lolSpec$;
+    'Extras$ := " -b " + attBackgroundColor$ + " -d " + GetDistanceToScreenMM$() + " -A " + str$(attAnswerPointOffset) + " -D " + str$(attAnswerPointDiameter) + lolSpec$;  'answer points on
+    Extras$ := " -b " + attBackgroundColor$ + " -d " + GetDistanceToScreenMM$() + " -N " + lolSpec$;  'answer points off
     if attTrainingContrastCheck% = 1 then
         Extras$ := Extras$ + " -T " + str$(attTrainingContrastPct%);
     endif
@@ -1851,3 +1913,21 @@ Proc CreateContrastList(&c$,cList%[],&vList%[],&udList%[])
     next;
     c$ := Left$(c$,len(c$)-1); 'remove trailing comma from the list
 end;
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+' ParseGratingParametersBrief%(gr$, &x, &y, &w, &h);
+' 
+' Given a grating parameter list, parse the individual values in to the given variable list. 
+' Simpler version than the full-blown one, as it doesn't return all values. 
+' This version will work for all possible variable list lengths - with/without phase/cv/pattern/aperture/inner/outer
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+func ParseGratingParametersBrief%(gr$, &x, &y, &w, &h)
+    var status% := 0;
+    var n%;
+	ReadSetup("", "", "", "", ",");
+	n% := ReadStr(gr$, x, y, w, h);
+    ReadSetup();
+    if n% <> 4 then status% := -1; endif;
+    return n%;
+end
