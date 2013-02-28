@@ -1,4 +1,4 @@
-' $Id: Attention.s2s,v 1.43 2013-01-30 00:49:43 jeff Exp $
+' $Id: Attention.s2s,v 1.44 2013-02-28 18:19:51 devel Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -174,8 +174,8 @@ proc GetAttentionScriptParameters()
 	Profile(key$, "AnswerPointDiameter", "0.5", stmp$);
 	attAnswerPointDiameter := val(stmp$);
     
-	Profile(key$, "AnswerPointOffset", "5.0", stmp$);
-	attAnswerPointOffset := val(stmp$);
+	'Profile(key$, "AnswerPointOffset", "5.0", stmp$);
+	'attAnswerPointOffset := val(stmp$);
     
 	Profile(key$, "AnswerPointWindowRadius", "2.0", stmp$);
 	attAnswerPointWindowRadius := val(stmp$);
@@ -278,7 +278,7 @@ proc SaveAttentionScriptParameters()
 	Profile(key$, "InterTrialTime", str$(attInterTrialTime));
 	Profile(key$, "TimeToAnswer", str$(attTimeToAnswer));
 	Profile(key$, "AnswerPointDiameter", str$(attAnswerPointDiameter));
-	Profile(key$, "AnswerPointOffset", str$(attAnswerPointOffset));
+	'Profile(key$, "AnswerPointOffset", str$(attAnswerPointOffset));
 	Profile(key$, "AnswerPointWindowRadius", str$(attAnswerPointWindowRadius));
     Profile(key$, "CustomGratingColorsCheck", attCustomGratingColorCheck%);
     Profile(key$, "CustomGratingColorsStimFromRed", attCustomGratingColorStimFrom%[0]);
