@@ -1,4 +1,4 @@
-' $Id: AttentionGoNoGoTemp.s2s,v 1.3 2013-02-28 23:25:41 devel Exp $
+' $Id: AttentionGoNoGoTemp.s2s,v 1.4 2013-03-04 23:06:53 jeff Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -16,7 +16,8 @@
 var attNumberOfBlocks%;
 var attTrialsPerBlock%;
 var attEasyTrialsPerBlock%;
-var attCatchTrialPercentage;
+var attCatchTrialPercentage;  'this really could be an integer, but whatevs
+var attNoGoTrialPercentage;  'ditto
 var attBackgroundColor$;
 var attBackgroundRed% := 0;
 var attBackgroundGreen% := 0;
@@ -86,14 +87,14 @@ var attCountAwayTrialsAbort% := 0;
 
 ' constants for dialog and check function - start with 10 because there are 9 dialog entries prior
 ' sure, it would be great if all the dialog numbers were done like this, but they ain't, and time is time
-const attdlgTrainingContrastCheck% := 12;
-const attdlgTrainingContrastPct% := 13;
-const attdlgLollipopCheck% := 14;
-const attdlgCueLinePct% := 15;
-const attdlgCircleDiameterDiff% := 16;
-const attdlgLollipopContrast% := 17;
-const attdlgLollipopStickContrast% := 18;
-const attdlgLollipopStickGap := 19;
+const attdlgTrainingContrastCheck% := 13;
+const attdlgTrainingContrastPct% := 14;
+const attdlgLollipopCheck% := 15;
+const attdlgCueLinePct% := 16;
+const attdlgCircleDiameterDiff% := 17;
+const attdlgLollipopContrast% := 18;
+const attdlgLollipopStickContrast% := 19;
+const attdlgLollipopStickGap := 20;
 
 ' constants for timing dialog
 const atttimingdlgFixationCueMinTime% := 2;
@@ -128,6 +129,7 @@ var attcolorsdlgCustomGratingColorDistractorToBlue% := 17;
 'variables for Henry's tuning curve version
 const attMaxTrl% := 1000;
 var attTrialOrder%[attMaxTrl%]; 'this variable will hold the index to attContrastList[] to get contrast of the test trials
+var attTrialOrderTemp%[attMaxTrl%];  'helps in creating variable percentages of no-go trials
 var attCatchTrialOrder%[attMaxTrl%]; 'this variable will hold the index to attContrastList[] to get contrast of the catch trials
 var attTrial[attMaxTrl%];       'this variable is really only here because GetRepeatedParameterProgression wants to fill it; we will ignore it
 var attCurrTrialIndex%;         'We'll need to keep track of the current trial index
@@ -157,7 +159,9 @@ proc GetAttentionScriptParameters()
 	Profile(key$, "TrialsPerBlock", 1, attTrialsPerBlock%);
     Profile(key$, "EasyTrialsPerBlock", 1, attEasyTrialsPerBlock%);
 	Profile(key$, "CatchTrialPercentage", "0.0", stmp$);
-	attCatchTrialPercentage := val(stmp$);
+    attCatchTrialPercentage := val(stmp$);
+    Profile(key$, "NoGoTrialPercentage", "0.0", stmp$);
+	attNoGoTrialPercentage := val(stmp$);
 	Profile(key$, "BlockAlternate", 1, attBlockAlternate%);
     Profile(key$, "NoBlockRand", 1, attNoBlockRand%);
 	Profile(key$, "TrainingContrastCheck", 0, attTrainingContrastCheck%);
@@ -266,6 +270,7 @@ proc SaveAttentionScriptParameters()
 	Profile(key$, "TrialsPerBlock", attTrialsPerBlock%);
     Profile(key$, "EasyTrialsPerBlock", attEasyTrialsPerBlock%);
 	Profile(key$, "CatchTrialPercentage", str$(attCatchTrialPercentage));
+    Profile(key$, "NoGoTrialPercentage", str$(attNoGoTrialPercentage));
 	Profile(key$, "BlockAlternate", attBlockAlternate%);
     Profile(key$, "NoBlockRand", attNoBlockRand%);
 	Profile(key$, "TrainingContrastCheck", attTrainingContrastCheck%);
@@ -317,42 +322,53 @@ end;
 
 func AttentionScriptDialog%()
 	var i%;
+    var j%;
+    var tempIndex%;
     var tempNBlocks%;
     var tempTotal;  'friggin integer math
+    var tempWhoops;
 	GetAttentionScriptParameters();
     
 	DlgCreate("Attention Training Parameters", 25, 10);
-    DlgGroup("Blocks, contrast", 1, 1, 34, 14);
+    DlgGroup("Blocks, contrast", 1, 1, 34, 15);
 	DlgInteger(1, "Number of Blocks:", 1, 1000, 22, 2);
 	DlgInteger(2, "Reg. Trials per block:", 1, 1000, 22, 3);
     DlgInteger(3, "Easy Trials per block:", 1, 1000, 22, 4);
 	DlgReal(4, "Catch Trial pct (0-100)", 0, 100, 22, 5);
-	DlgCheck(5, "Alternate cue type by block", 2, 6);
-    DlgCheck(6, "Do NOT randomize by block", 2,7);
-    DlgInteger(7, "Base contrast (%)", 0, 100, 22, 8);
-	DlgReal(8, "Max dContrast (oct)", 0, 10, 22, 9);
-	DlgReal(9, "Min dContrast (oct)", 0, 10, 22, 10);
-    DlgInteger(10, "N contrast levels", 1, 10, 22, 11);
-    DlgReal(11, "Ans. window rad. (deg)", 0.01, 10, 22, 12);
-	DlgCheck(attdlgTrainingContrastCheck%, "Training Contrast", 2, 13);
-	DlgInteger(attdlgTrainingContrastPct%, "Training Contrast(%)", 0, 100, 22, 14);
-    DlgButton(2, "Colors", ColorsDialog%, 1, 15);
-    DlgButton(3, "Timing", TimingDialog%, 1, 16);
-    DlgGroup("Lollipops", 1, 18, 34, 7);
-    DlgCheck(attdlgLollipopCheck%, "Use lollipop cues", 2, 19);
-    DlgReal(attdlgCueLinePct%, "Cue line %", 0, 100, 22, 20);
-    DlgReal(attdlgCircleDiameterDiff%, "Circle diameter diff", 0, 10, 22, 21);
-    DlgInteger(attdlgLollipopContrast%, "Lollipop contrast", 0, 100, 22, 22);
-    DlgInteger(attdlgLollipopStickContrast%, "Stick contrast", 0, 100, 22, 23);
-    DlgReal(attdlgLollipopStickGap, "Lollipop stick gap", 0, 10, 22, 24);
+    DlgReal(5, "No-Go Trial pct (0-100)", 0, 100, 22, 6);
+	DlgCheck(6, "Alternate cue type by block", 2, 7);
+    DlgCheck(7, "Do NOT randomize by block", 2,8);
+    DlgInteger(8, "Base contrast (%)", 0, 100, 22, 9);
+	DlgReal(9, "Max dContrast (oct)", 0, 10, 22, 10);
+	DlgReal(10, "Min dContrast (oct)", 0, 10, 22, 11);
+    DlgInteger(11, "N contrast levels", 1, 10, 22, 12);
+    DlgReal(12, "Ans. window rad. (deg)", 0.01, 10, 22, 13);
+	DlgCheck(attdlgTrainingContrastCheck%, "Training Contrast", 2, 14);
+	DlgInteger(attdlgTrainingContrastPct%, "Training Contrast(%)", 0, 100, 22, 15);
+    DlgButton(2, "Colors", ColorsDialog%, 1, 16);
+    DlgButton(3, "Timing", TimingDialog%, 1, 17);
+    DlgGroup("Lollipops", 1, 19, 34, 7);
+    DlgCheck(attdlgLollipopCheck%, "Use lollipop cues", 2, 20);
+    DlgReal(attdlgCueLinePct%, "Cue line %", 0, 100, 22, 21);
+    DlgReal(attdlgCircleDiameterDiff%, "Circle diameter diff", 0, 10, 22, 22);
+    DlgInteger(attdlgLollipopContrast%, "Lollipop contrast", 0, 100, 22, 23);
+    DlgInteger(attdlgLollipopStickContrast%, "Stick contrast", 0, 100, 22, 24);
+    DlgReal(attdlgLollipopStickGap, "Lollipop stick gap", 0, 10, 22, 25);
     DlgAllow(0, 0, AttentionScriptDialogChanged%);
-	i%:=DlgShow(attNumberOfBlocks%, attTrialsPerBlock%, attEasyTrialsPerBlock%, attCatchTrialPercentage,
+	i%:=DlgShow(attNumberOfBlocks%, attTrialsPerBlock%, attEasyTrialsPerBlock%, attCatchTrialPercentage, attNoGoTrialPercentage, 
     attBlockAlternate%, attNoBlockRand%, attContrastBase%, attMaxContChange, attMinContChange, attNContLevels%,
     attAnswerPointWindowRadius, attTrainingContrastCheck%, attTrainingContrastPct%, 
     attLollipopCheck%, attCueLinePct, attCircleDiameterDiff, 
     attLollipopContrast%, attLollipopStickContrast%, attCueLineGap);
 	if i% = 1 then
         '	attBackgroundColor$ := bcl$[ibcl%];
+        if attMinContChange > attMaxContChange then
+            message("The maximum contrast change must be MORE than the minimum!  Swapping!");
+            tempWhoops := attMinContChange;
+            attMinContChange := attMaxContChange;
+            attMaxContChange := tempWhoops;
+        endif;
+        
 		SaveAttentionScriptParameters();
         
         'get contrast list
@@ -366,32 +382,34 @@ func AttentionScriptDialog%()
             attContrastList[0] := attContrastBase%*(pow(2,attMaxContChange));
             'attContrastList[1] := attContrastBase%/(pow(2,attMaxContChange));
             attContrastList[1] := attContrastBase%;  'for go/no-go, use the base, not a down contrast
+                        
             message("Note that only one contrast level was requested, using MAX as actual value!");
         endif;
         
-        'printlog("%f\n",attContrastList[]);
-        
         'get number of trials to run, which is hypothetical "max" number for both test trials and catch trials regardless of catch/test percentage
         tempTotal := attNumberOfBlocks%*attTrialsPerBlock%;  'total number of non-"easy" trials
-        tempNBlocks% := ceil(tempTotal/(attNContLevels%*2));  'total number of times we have to repeat the tuning curve to reach the total number of trials
+        'tempNBlocks% := ceil(tempTotal/(attNContLevels%*2));  'total number of times we have to repeat the tuning curve to reach the total number of trials
+        tempNBlocks% := ceil(tempTotal/(attNContLevels%));  'MAXIMUM number of times we have to repeat the tuning curve to reach the total number of trials, if 0 no-go trials
         
+        printlog("number of contrast levels is %d and tempnblocks is %d\n",attNContLevels%,tempNBlocks%);
+        
+        'It's a bit tricky to try to push the idea of variable No-Go percentage (as opposed to 50%) into the GetRepeatedParameterProgression
+        'schematic, but I think I've got a plan.
+        'First step - create a list of contrasts as normal in a temporary variable, but only include "go" contrasts 
         if attNoBlockRand% = 0 then
             'get trial order, attTrialOrder%[] will hold indices into attContrastList[] for all trials
-            GetRepeatedParameterProgression%(attNContLevels%*2,tempNBlocks%,attTrial[],attTrialOrder%[],0,(attNContLevels%*2)-1,0,1);
+            'GetRepeatedParameterProgression%(attNContLevels%*2,tempNBlocks%,attTrial[],attTrialOrder%[],0,(attNContLevels%*2)-1,0,1);  'this has Go and No-go contrasts
+            GetRepeatedParameterProgression%(attNContLevels%,tempNBlocks%,attTrial[],attTrialOrder%[],0,(attNContLevels%)-1,0,1);  'this has only Go contrasts
         else 'Henry sez just do true random
-            Rand(attTrialOrder%[0:attNContLevels%*2*tempNBlocks%],(attNContLevels%*2));
-        endif;        
+            'Rand(attTrialOrder%[0:attNContLevels%*2*tempNBlocks%],(attNContLevels%*2)); 'this has Go and No-go contrasts
+            Rand(attTrialOrder%[0:attNContLevels%*tempNBlocks%],attNContLevels%);  'this has only the Go contrast
+        endif;   
 
-        'repeat for attCatchTrialOrder%[], we can even make it the same length, who cares that we can't get through them all
-        GetRepeatedParameterProgression%(attNContLevels%*2,tempNBlocks%,attTrial[],attCatchTrialOrder%[],0,(attNContLevels%*2)-1,0,1);
-        'OK, for now we are using the ABOVE line, which assigns both GO and NO-GO trials as catch trials.  We will simply
-        'have to ignore the "catch" designation for the NO-GO trials.  The result of this is that in the long run if we
-        'ask for 10% catch trials, only 5% of all trials (and 10% of GO trials) will be catch trials.
-        'The below line will assign only GO trials as catch trials, thus the percentages will get funny and skewed towards GO trials.
-        'GetRepeatedParameterProgression%(attNContLevels%,tempNBlocks%,attTrial[],attCatchTrialOrder%[],0,attNContLevels%-1,0,1);
-
+        'The below line will assign only GO trials as catch trials
+        GetRepeatedParameterProgression%(attNContLevels%,tempNBlocks%,attTrial[],attCatchTrialOrder%[],0,attNContLevels%-1,0,1);
         
-        'Commented out - useful for testing the creation of the trial order
+        
+        ''Commented out - useful for testing the creation of the trial order
         'var Contrast$;
         'CreateContrastList(Contrast$,attContrastList%,attValidList%,attUpDownList%);
         'var specFileName$:="E:\\AttentionSpecFile.txt";
@@ -401,6 +419,7 @@ func AttentionScriptDialog%()
         'Print("%s",Contrast$);  'file should be everything starting from FixationArg$ on
         ''close spec file
         'FileClose(0);
+        'printlog("Temp trial order list is %d\n",attTrialOrder%[0:attNumberOfBlocks%*(attTrialsPerBlock%+attEasyTrialsPerBlock%)]);
         'printlog("Contrast list is %d\n",attContrastList%[0:attNumberOfBlocks%*(attTrialsPerBlock%+attEasyTrialsPerBlock%)]);
         'printlog("Valid list is %d\n",attValidList%[0:attNumberOfBlocks%*(attTrialsPerBlock%+attEasyTrialsPerBlock%)]);
         'printlog("UpDown list is %d\n",attUpDownList%[0:attNumberOfBlocks%*(attTrialsPerBlock%+attEasyTrialsPerBlock%)]);
@@ -1196,14 +1215,15 @@ func IdleProcessing%()
             ' When fixation is first broken we turn off the stim and distractor. 
             ' That test is done separately from the test for an answer. Also set up 
             ' a var to tell us whether the stim has been turned off. 
-            if isStimDistractorOff% = 0 then
-                if Looking%(xEye, yEye) = 0 then
-                    SafeSampleKey("s");
-                    SampleText("Fixation broken during response window",tNow);
-                    PrintLog("stateWaitForAnswer: fix broken - turn off stim\n");
-                    isStimDistractorOff% := 1;
-                endif
-            endif
+            'Get rid of this so that stimulus stays on until time to answer is over
+            'if isStimDistractorOff% = 0 then
+            '    if Looking%(xEye, yEye) = 0 then
+            '        SafeSampleKey("s");
+            '        SampleText("Fixation broken during response window",tNow);
+            '        PrintLog("stateWaitForAnswer: fix broken - turn off stim\n");
+            '        isStimDistractorOff% := 1;
+            '    endif
+            'endif
             
             iAnswer% := Answer%(xEye, yEye);
             if iAnswer% = 1 or iAnswer% = -1 then
@@ -1266,7 +1286,7 @@ func IdleProcessing%()
                     Yield(.01);    ' necessary so that the SampleText and SafeSampleKey below don't land on the same time (makes extraction difficult)
                     FAIsResponse% := 1;
                     ChangeStateTo(stateAbort%,tNow);
-                    'SafeSampleKey("X");
+                    'SafeSampleKey("X");  'this is done in stateAbort%
                 endcase
             endif
         endif
@@ -1317,7 +1337,7 @@ func IdleProcessing%()
         if tNow - tStateStart > attMissPenalty then
             
             PrintLog("stateMiss: penalty time is done.\n");
-            ChangeStateTo(stateTrialCompleted%, tNow);
+            ChangeStateTo(stateTrialCompletedWaitForBlank%, tNow);
             
         endif
         
@@ -1868,44 +1888,47 @@ Proc CreateContrastList(&c$,cList%[],&vList%[],&udList%[])
     var totalCount%;  'the current index of the xList% variables
     
     c$ := " -t ";
-    
+       
     for i% := 1 to attNumberOfBlocks% do
         for j% := 1 to attTrialsPerBlock%+attEasyTrialsPerBlock% do
             if j% <= attEasyTrialsPerBlock% then
                 vList%[totalCount%] := 1;  'all easy trials are valid
-                'all easy trials are also "go", in the go/no-go experiment, the rest is commented out
-                'if (Rand() < 0.5) then
-                    udList%[totalCount%] := 1;  'up contrast
-                    cList%[totalCount%] := attContrastList[attNContLevels%-1];  'fill cList%[] with the highest contrast
-                    c$ := c$ + "0," + Str$(attContrastBase%) + "," + Str$(attContrastList[attNContLevels%-1]) + ",";  'fill c$ with easy, up trial
-                'else
-                '    udList%[totalCount%] := -1;  'down contrast
-                '    cList%[totalCount%] := attContrastList[attNContLevels%];  'fill cList%[] with the lowest contrast
-                '    c$ := c$ + Str$(attContrastList[attNContLevels%]) + "," + Str$(attContrastBase%) + "," + "0,";  'fill c$ with easy, down trial
-                'endif;
+                udList%[totalCount%] := 1;  'up contrast
+                cList%[totalCount%] := attContrastList[attNContLevels%-1];  'fill cList%[] with the highest contrast
+                c$ := c$ + "0," + Str$(attContrastBase%) + "," + Str$(attContrastList[attNContLevels%-1]) + ",";  'fill c$ with easy, up trial
             else 'regular trial
-                if (Rand()*100 < attCatchTrialPercentage) then 'catch trial
-                    vList%[totalCount%] := 0;  'catch = invalid
-                    cList%[totalCount%] := attContrastList[attCatchTrialOrder%[catchCount%]];
-                    if attCatchTrialOrder%[catchCount%] >= attNContLevels% then  'use index to determine whether contrast change is up or down
-                        udList%[totalCount%] := -1;  'the second half are down contrast
-                        c$ := c$ + Str$(attContrastList[attCatchTrialOrder%[catchCount%]]) + "," + Str$(attContrastBase%) + "," + "0,";  'fill c$ with down catch trial
-                    else
-                        udList%[totalCount%] := 1;   'the first half are up contrast
-                        c$ := c$ + "0," + Str$(attContrastBase%) + "," + Str$(attContrastList[attCatchTrialOrder%[catchCount%]]) + ",";  'fill c$ with up catch trial
+                if (Rand()*100 < attNoGoTrialPercentage) then 'NoGo trial
+                    vList%[totalCount%] := 1;  'all no-go trials are valid
+                    udList%[totalCount%] := -1;  '"down" contrast, which now indicates no-go
+                    cList%[totalCount%] := attContrastList[attNContLevels%];  'fill cList%[] with the base contrast
+                    c$ := c$ + "0," + Str$(attContrastBase%) + "," + Str$(attContrastList[attNContLevels%]) + ",";  'fill c$ with no-go trial
+                else    
+                    
+                    if (Rand()*100 < attCatchTrialPercentage) then 'catch trial
+                        vList%[totalCount%] := 0;  'catch = invalid
+                        cList%[totalCount%] := attContrastList[attCatchTrialOrder%[catchCount%]];
+                        'commenting out this IF because in the No-Go experiment the first half will never execute
+                        'if attCatchTrialOrder%[catchCount%] >= attNContLevels% then  'use index to determine whether contrast change is up or down
+                        '    udList%[totalCount%] := -1;  'the second half are down contrast
+                        '    c$ := c$ + Str$(attContrastList[attCatchTrialOrder%[catchCount%]]) + "," + Str$(attContrastBase%) + "," + "0,";  'fill c$ with down catch trial
+                        'else
+                            udList%[totalCount%] := 1;   'the first half are up contrast
+                            c$ := c$ + "0," + Str$(attContrastBase%) + "," + Str$(attContrastList[attCatchTrialOrder%[catchCount%]]) + ",";  'fill c$ with up catch trial
+                        'endif;
+                        catchCount% += 1;  
+                    else  'valid trial
+                        vList%[totalCount%] := 1;  'valid
+                        cList%[totalCount%] := attContrastList[attTrialOrder%[stdCount%]];
+                        'commenting out this IF because in the No-Go experiment the first half will never execute
+                        'if attTrialOrder%[stdCount%] >= attNContLevels% then  'use index to determine whether contrast change is up or down
+                        '    udList%[totalCount%] := -1;  'the second half are down contrast
+                        '    c$ := c$ + Str$(attContrastList[attTrialOrder%[stdCount%]]) + "," + Str$(attContrastBase%) + "," + "0,";  'fill c$ with down std trial
+                        'else
+                            udList%[totalCount%] := 1;   'the first half are up contrast
+                            c$ := c$ + "0," + Str$(attContrastBase%) + "," + Str$(attContrastList[attTrialOrder%[stdCount%]]) + ",";  'fill c$ with up std trial
+                        'endif;
+                        stdCount% += 1;
                     endif;
-                    catchCount% += 1;  
-                else  'valid trial
-                    vList%[totalCount%] := 1;  'valid
-                    cList%[totalCount%] := attContrastList[attTrialOrder%[stdCount%]];
-                    if attTrialOrder%[stdCount%] >= attNContLevels% then  'use index to determine whether contrast change is up or down
-                        udList%[totalCount%] := -1;  'the second half are down contrast
-                        c$ := c$ + Str$(attContrastList[attTrialOrder%[stdCount%]]) + "," + Str$(attContrastBase%) + "," + "0,";  'fill c$ with down std trial
-                    else
-                        udList%[totalCount%] := 1;   'the first half are up contrast
-                        c$ := c$ + "0," + Str$(attContrastBase%) + "," + Str$(attContrastList[attTrialOrder%[stdCount%]]) + ",";  'fill c$ with up std trial
-                    endif;
-                    stdCount% += 1;
                 endif;
             endif;
             totalCount% += 1;
