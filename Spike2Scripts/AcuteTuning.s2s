@@ -1,5 +1,5 @@
-' $Id: AcuteTuning.s2s,v 1.31 2013-01-12 03:53:37 devel Exp $
-const tunCVSID$ := "$Id: AcuteTuning.s2s,v 1.31 2013-01-12 03:53:37 devel Exp $";
+' $Id: AcuteTuning.s2s,v 1.32 2013-03-13 20:16:19 jeff Exp $
+const tunCVSID$ := "$Id: AcuteTuning.s2s,v 1.32 2013-03-13 20:16:19 jeff Exp $";
 
 
 #include "../../Spike2Util/ChannelUtilities.s2s"
@@ -62,6 +62,7 @@ var tunContinuousPorts%[16];
 
 'Variables for creating rasters
 var memChanRasterTriggers%;  'a memory channel that holds raster triggers
+var memChanBetterTextMark%;  'a memory channel that mimics the textmark channel, but with better temporal fidelity
 var handlePSTH%[16];         'a list of PSTH handles
 var stimCodes%[4];           'For the raster textmark channel; we'll only use index 0 but the textmark requires a 4-length vector
 var rasterTotal;  'total duration for raster
@@ -87,8 +88,9 @@ var tunRateCum[16];
 ' djs 10-19-11 trigger hack for Visage trigger bug.
 var tunTriggerHack% := 1;
 
-var memorychannel% := 29;
-var memorychannelvisible% := 0;
+var memorychannel% := 28;
+var memorychannel2% := 29;
+'var memorychannelvisible% := 0;  'unused...?
 
 
 proc GetTuningCurveScriptParameters()
@@ -463,8 +465,9 @@ func IdleProcessing%()
             
             'Set stimCodes[0] to hold the index of the current stimulus
             stimCodes%[0] := tunValuesIndices%[nTrialsCompleted%]; 'nTrialsCompleted has not yet been incremented, so this is right
-            'log stimulus start time in textmark channel for raster triggering
+            'log stimulus start time in pseudotextmark channel and for raster triggering
             view(DataWindow%).MemSetItem(memChanRasterTriggers%,0,tStimOn,stimCodes%[],Str$(tunValues[tunValuesIndices%[nTrialsCompleted%]]));
+            view(DataWindow%).MemSetItem(memChanBetterTextMark%,0,tStimOn,stimCodes%[],Str$(tunValues[tunValuesIndices%[nTrialsCompleted%]]));
             
             ' Process spikes
             PlotSpikes(tStimOn, tNow, 1, GetPlotXCoord(nTrialsCompleted%), nTrialsCompleted%);
@@ -542,7 +545,8 @@ func IdleProcessing%()
                 'Note stimulus is off
                 stimOffTime := tStateStart;
                 SampleText("+",tStateStart);
-                view(DataWindow%).MemSetItem(memChanRasterTriggers%,0,tStateStart,stimCodes%[],"+");
+                'Log time of offset only in pseudotextmark channel
+                view(DataWindow%).MemSetItem(memChanBetterTextMark%,0,tStateStart,stimCodes%[],"+");
                 LogStatus("CRGPlaying", "Turn off and advance stimulus.");          
             
                 SafeSampleKey("X");            
@@ -551,9 +555,9 @@ func IdleProcessing%()
                 
                 'Set stimCodes[0] to hold the index of the current stimulus
                 stimCodes%[0] := tunValuesIndices%[nTrialsCompleted%]; 'nTrialsCompleted has not yet been incremented, so this is right
-                'log stimulus start time in textmark channel for raster triggering
+                'log stimulus start time in pseudotextmark channel and for raster triggering
                 view(DataWindow%).MemSetItem(memChanRasterTriggers%,0,tStimOn,stimCodes%[],Str$(tunValues[tunValuesIndices%[nTrialsCompleted%]]));
-                            
+                view(DataWindow%).MemSetItem(memChanBetterTextMark%,0,tStimOn,stimCodes%[],Str$(tunValues[tunValuesIndices%[nTrialsCompleted%]]));            
                 
                 ' Process spikes
                 PlotSpikes(tStimOn, tNow, 1, GetPlotXCoord(nTrialsCompleted%), nTrialsCompleted%);
@@ -593,6 +597,8 @@ func IdleProcessing%()
         endif        
         
         view(datawindow%).MemSave(memChanRasterTriggers%,memorychannel%,0,1);
+        view(datawindow%).MemSave(memChanBetterTextMark%,memorychannel2%,0,1);
+        
             
         
 
@@ -729,8 +735,14 @@ proc InitializeWindows()
     'Create textmark channel to hold onset times of stimuli
     memChanRasterTriggers% := MemChan(8, 25); 'Create textmarker channel for stimtype
     ChanTitle$(MemChanRasterTriggers%,"RasterTriggers"); 'give it a title, could be useful if channel is saved
-    'chanhide(MemChanRasterTriggers%); 'hide the memchan, don't need to see it.    
-    chanshow(MemChanRasterTriggers%);
+    chanhide(MemChanRasterTriggers%); 'hide the memchan, don't need to see it.    
+    'chanshow(MemChanRasterTriggers%);
+    
+    'Create textmark channel to hold onset times of stimuli
+    memChanBetterTextMark% := MemChan(8, 25); 'Create textmarker channel for stimtype
+    ChanTitle$(memChanBetterTextMark%,"PseudoTextMark"); 'give it a title, could be useful if channel is saved
+    'chanhide(memChanBetterTextMark%); 'hide the memchan, don't need to see it.    
+    chanshow(memChanBetterTextMark%);
     
     
 	' open xy window to display tuning results    
@@ -1020,6 +1032,8 @@ func Stop%()
     
     view(dataWindow%);
     MemSave(memChanRasterTriggers%,memorychannel%,0,1);  'final update of memory channel
+    MemSave(memChanBetterTextMark%,memorychannel2%,0,1);  'final update of memory channel
+    
     ExportChanList();
     chanToExport%[1] := 29;  'channels to export go in elements 1:...
     chanToExport%[2] := 30;
