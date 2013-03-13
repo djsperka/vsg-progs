@@ -1,4 +1,4 @@
-' $Id: AcuteTuningDialogs.s2s,v 1.8 2013-01-10 00:42:37 jeff Exp $
+' $Id: AcuteTuningDialogs.s2s,v 1.9 2013-03-13 20:30:37 devel Exp $
 '
 ' This file contains dialog functions for the alert tuning script Tuning.s2s.
 #include "../../Spike2Util/UsreyUtil.s2s"
@@ -696,7 +696,7 @@ func TuningCurveCRGMDialog%()
     
 	DlgCreate("CRG M-Seq Tuning Curve Parameters");
 	DlgInteger(1, "Number of Steps", 2, 99);
-	DlgInteger(2, "Number of Repeats", 1, 30);
+	DlgInteger(2, "Number of Repeats", 1, 300);  'henry changed here from 30 to 300
 	DlgReal(3, "Min Contrast (%)", 0.1, 100);
 	DlgReal(4, "Max Contrast (%)", 0.1, 100);
 	DlgCheck(5, "Random Progression");
