@@ -1,5 +1,5 @@
-' $Id: AcuteTuning.s2s,v 1.32 2013-03-13 20:16:19 jeff Exp $
-const tunCVSID$ := "$Id: AcuteTuning.s2s,v 1.32 2013-03-13 20:16:19 jeff Exp $";
+' $Id: AcuteTuning.s2s,v 1.33 2013-03-13 21:31:59 jeff Exp $
+const tunCVSID$ := "$Id: AcuteTuning.s2s,v 1.33 2013-03-13 21:31:59 jeff Exp $";
 
 
 #include "../../Spike2Util/ChannelUtilities.s2s"
@@ -276,8 +276,8 @@ else
 endif;
 
 
-' When TF curve, don't do f1 and f2. 
-if tunType$ = tunTypeTemporal$ then
+' When TF curve or TF = 0, don't do f1 and f2. 
+if tunType$ = tunTypeTemporal$ or GetTemporalFrequency() = 0 then
     tunDoF12% := 0;
 endif
 
@@ -1114,13 +1114,15 @@ proc WriteParameterFile()
 	Print("-------------------\n\n");
 
 	var Tstimstr$;
-	var Tstimx$, Tstimy$, Tstimw$, Tstimh$, Tstimcontrast$, Tstimsf$, Tstimtf$, Tstimorientation$, Tstimphase$, Tstimcv$, Tstimp$, Tstimap$;
+    var Tstimx$, Tstimy$, Tstimw$, Tstimh$, Tstiminnerw$, Tstiminnerh$, Tstimcontrast$, Tstimsf$, Tstimtf$, Tstimorientation$, Tstimphase$, Tstimcv$, Tstimp$, Tstimap$;	
+	'var Tstimx$, Tstimy$, Tstimw$, Tstimh$, Tstimcontrast$, Tstimsf$, Tstimtf$, Tstimorientation$, Tstimphase$, Tstimcv$, Tstimp$, Tstimap$;
 	var i%;
 	var Tstepsize;
     var phase;
 	Tstimstr$ := GetGratingParameters$("Stimulus");
 	ReadSetup(",",",",",",",",",");
-	i% := ReadStr(Tstimstr$, Tstimx$, Tstimy$, Tstimw$, Tstimh$, Tstimcontrast$, Tstimsf$, Tstimtf$, Tstimorientation$, Tstimphase$, Tstimcv$, Tstimp$, Tstimap$);
+    i% := ReadStr(Tstimstr$, Tstimx$, Tstimy$, Tstimw$, Tstimh$, Tstiminnerw$, Tstiminnerh$, Tstimcontrast$, Tstimsf$, Tstimtf$, Tstimorientation$, Tstimphase$, Tstimcv$, Tstimp$, Tstimap$);
+	'i% := ReadStr(Tstimstr$, Tstimx$, Tstimy$, Tstimw$, Tstimh$, Tstimcontrast$, Tstimsf$, Tstimtf$, Tstimorientation$, Tstimphase$, Tstimcv$, Tstimp$, Tstimap$);
 	Print("Position (x, degrees)           : %s\n", Tstimx$);
 	Print("Position (y, degrees)           : %s\n", Tstimy$);
 	Print("Width (degrees)                 : %s\n", Tstimw$);
@@ -1468,3 +1470,20 @@ func InvestigateRasters%(i%)
 
     return 1;
 end;
+
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+' Just a quickie that grabs the current temporal frequency, useful for making sure
+' F1/F2 calcs aren't done is TF = 0
+
+func GetTemporalFrequency()
+    var Tstimstr$;
+    var Tstimx$, Tstimy$, Tstimw$, Tstimh$, Tstiminnerw$, Tstiminnerh$, Tstimcontrast$, Tstimsf$, Tstimtf$, Tstimorientation$, Tstimphase$, Tstimcv$, Tstimp$, Tstimap$;	
+    var i%;
+    Tstimstr$ := GetGratingParameters$("Stimulus");
+	ReadSetup(",",",",",",",",",");
+	i% := ReadStr(Tstimstr$, Tstimx$, Tstimy$, Tstimw$, Tstimh$, Tstiminnerw$, Tstiminnerh$, Tstimcontrast$, Tstimsf$, Tstimtf$, Tstimorientation$, Tstimphase$, Tstimcv$, Tstimp$, Tstimap$);
+    printlog("OK, in GTF the TF is %s\n",Tstimtf$);
+    return Val(Tstimtf$);
+end
