@@ -1,4 +1,4 @@
-' $Id: AcuteTuningDialogs.s2s,v 1.9 2013-03-13 20:30:37 devel Exp $
+' $Id: AcuteTuningDialogs.s2s,v 1.10 2013-03-15 18:40:40 jeff Exp $
 '
 ' This file contains dialog functions for the alert tuning script Tuning.s2s.
 #include "../../Spike2Util/UsreyUtil.s2s"
@@ -110,6 +110,16 @@ var tunCRGMBalanced%;       ' if 1, balance presentation
 'var tunBerlinerNSteps%;
 'var tunBerlinerNRepeats% := 3;  'just putting in 3 repeats for now
 'var tunBerlinerProgression%;
+
+' Optogenetics variables
+var tunPreStimOptoTime;
+var tunPostStimOptoTime;
+var tunOptoStaysOn%;
+var tunOptoVoltageOut;
+var tunOptoStartState%;  'essentially an index, 0 = off first, 1 = on first (those are logical), 2 = random
+var tunOptoState% := 0;  'current opto state, will toggle, can set here in dialog box
+var tunRecOptoBox% := 0;      'record the output from the opto box?
+var tunRecStimulator% := 0;   'record the stimulator?
 
 ' Strings that hold grating parameters
 var tunGratingParams$;
@@ -334,6 +344,32 @@ proc SaveTuningCurveCRGMParameters()
     SetIntRegistryValue(key$, "Balanced", tunCRGMBalanced%);
 end;
 
+proc GetTunOptoParameters()
+	var stmp$;
+	var key$;
+	key$:= GetRigName$() + GetCurrentConfiguration$() + "\\Scripts\\Tuning\\Opto";
+    
+    tunPreStimOptoTime := GetFloatRegistryValue(key$, "PreStimOptoTime", tunPreStimOptoTime);
+    tunPostStimOptoTime := GetFloatRegistryValue(key$, "PostStimOptoTime", tunPostStimOptoTime);
+    tunOptoStaysOn% := GetIntRegistryValue%(key$, "OptoStaysOn", tunOptoStaysOn%);
+    tunOptoVoltageOut := GetFloatRegistryValue(key$, "OptoVoltageOut", tunOptoVoltageOut);
+    tunOptoStartState% := GetIntRegistryValue%(key$, "OptoStartState", tunOptoStartState%);
+    tunRecOptoBox% := GetIntRegistryValue%(key$, "RecOptoBox", tunRecOptoBox%);
+    tunRecStimulator% := GetIntRegistryValue%(key$, "RecStimulator", tunRecStimulator%);
+
+end;
+
+proc SaveTunOptoParameters()
+	var key$;
+	key$:= GetRigName$() + GetCurrentConfiguration$() + "\\Scripts\\Tuning\\Opto";
+    SetFloatRegistryValue(key$, "PreStimOptoTime", tunPreStimOptoTime);
+    SetFloatRegistryValue(key$, "PostStimOptoTime", tunPostStimOptoTime);
+    SetIntRegistryValue(key$, "OptoStaysOn", tunOptoStaysOn%);
+    SetFloatRegistryValue(key$, "OptoVoltageOut", tunOptoVoltageOut);
+    SetIntRegistryValue(key$, "OptoStartState", tunOptoStartState%);
+    SetIntRegistryValue(key$, "RecOptoBox", tunRecOptoBox%);
+    SetIntRegistryValue(key$, "RecStimulator", tunRecStimulator%);
+end;
 
 
 func TuningCurveOrientationDialog%()
@@ -362,6 +398,12 @@ func TuningCurveOrientationDialog%()
 		SaveTuningCurveOrientationParameters();
 		PrintLog("TuningCurveOrientationDialog - user hit OK\n");
 		tunType$ := tunTypeOrientation$;
+        
+        'Reset dialog OK button text on Select dialog, and note which experiment to run
+        DlgValue$(-1,"Run Orientation");
+        TuningCurveScriptDialogAllowOK% := 1;  'Prepare to enable OK button
+        TuningCurveScriptDialogChanged%(-1);  'Enables "OK" button, -1 is sham input
+        
 		if tunContext$ = tunContextDAQ$ then
             ' djs 2/4/2011 We return 1 - that's the workaround			iReturn% := 0;
             iReturn% := 1;
@@ -377,6 +419,10 @@ func TuningCurveOrientationDialog%()
 		else
 			iReturn% := 2;
 		endif;
+        'Reset dialog OK button text on Select dialog, and note we need to pick an expt.
+        DlgValue$(-1,"Select Expt.");
+        TuningCurveScriptDialogAllowOK% := 0;  'Prepare to disable OK button
+        TuningCurveScriptDialogChanged%(-1);  'Disables "OK" button, -1 is sham input
 	endif;
     PrintLog("Return value is %d\n", iReturn%);
 	return iReturn%;
@@ -410,6 +456,12 @@ func TuningCurveContrastDialog%()
 		SaveTuningCurveContrastParameters();
 '		PrintLog("TuningCurveContrastDialog - user hit OK\n");
 		tunType$ := tunTypeContrast$;
+        
+        'Reset dialog OK button text on Select dialog, and note which experiment to run
+        DlgValue$(-1,"Run Contrast");
+        TuningCurveScriptDialogAllowOK% := 1;  'Prepare to enable OK button
+        TuningCurveScriptDialogChanged%(-1);  'Enables "OK" button, -1 is sham input
+        
 		if tunContext$ = tunContextDAQ$ then
             ' djs 2/4/2011 We return 1 - that's the workaround			iReturn% := 0;
             iReturn% := 1;
@@ -425,6 +477,10 @@ func TuningCurveContrastDialog%()
 		else
 			iReturn% := 2;
 		endif;
+        'Reset dialog OK button text on Select dialog, and note we need to pick an expt.
+        DlgValue$(-1,"Select Expt.");
+        TuningCurveScriptDialogAllowOK% := 0;  'Prepare to disable OK button
+        TuningCurveScriptDialogChanged%(-1);  'Disables "OK" button, -1 is sham input
 	endif;
 
 	return iReturn%;
@@ -456,6 +512,12 @@ func TuningCurveSpatialDialog%()
 		SaveTuningCurveSpatialParameters();
 '		PrintLog("TuningCurveSpatialDialog - user hit OK\n");
 		tunType$ := tunTypeSpatial$;
+        
+        'Reset dialog OK button text on Select dialog, and note which experiment to run
+        DlgValue$(-1,"Run Spatial");
+        TuningCurveScriptDialogAllowOK% := 1;  'Prepare to enable OK button
+        TuningCurveScriptDialogChanged%(-1);  'Enables "OK" button, -1 is sham input
+        
 		if tunContext$ = tunContextDAQ$ then
             ' djs 2/4/2011 We return 1 - that's the workaround			iReturn% := 0;
             iReturn% := 1;
@@ -471,6 +533,10 @@ func TuningCurveSpatialDialog%()
 		else
 			iReturn% := 2;
 		endif;
+        'Reset dialog OK button text on Select dialog, and note we need to pick an expt.
+        DlgValue$(-1,"Select Expt.");
+        TuningCurveScriptDialogAllowOK% := 0;  'Prepare to disable OK button
+        TuningCurveScriptDialogChanged%(-1);  'Disables "OK" button, -1 is sham input
 	endif;
 
 	return iReturn%;
@@ -502,6 +568,12 @@ func TuningCurveTemporalDialog%()
 		SaveTuningCurveTemporalParameters();
 '		PrintLog("TuningCurveTemporalDialog - user hit OK\n");
 		tunType$ := tunTypeTemporal$;
+        
+        'Reset dialog OK button text on Select dialog, and note which experiment to run
+        DlgValue$(-1,"Run Temporal");
+        TuningCurveScriptDialogAllowOK% := 1;  'Prepare to enable OK button
+        TuningCurveScriptDialogChanged%(-1);  'Enables "OK" button, -1 is sham input
+        
 		if tunContext$ = tunContextDAQ$ then
             ' djs 2/4/2011 We return 1 - that's the workaround			iReturn% := 0;
             iReturn% := 1;
@@ -517,6 +589,10 @@ func TuningCurveTemporalDialog%()
 		else
 			iReturn% := 2;
 		endif;
+        'Reset dialog OK button text on Select dialog, and note we need to pick an expt.
+        DlgValue$(-1,"Select Expt.");
+        TuningCurveScriptDialogAllowOK% := 0;  'Prepare to disable OK button
+        TuningCurveScriptDialogChanged%(-1);  'Disables "OK" button, -1 is sham input
 	endif;
 
 	return iReturn%;
@@ -550,6 +626,12 @@ func TuningCurveAreaDialog%()
 		SaveTuningCurveAreaParameters();
 '		PrintLog("TuningCurveAreaDialog - user hit OK\n");
 		tunType$ := tunTypeArea$;
+        
+        'Reset dialog OK button text on Select dialog, and note which experiment to run
+        DlgValue$(-1,"Run Area");
+        TuningCurveScriptDialogAllowOK% := 1;  'Prepare to enable OK button
+        TuningCurveScriptDialogChanged%(-1);  'Enables "OK" button, -1 is sham input
+        
 		if tunContext$ = tunContextDAQ$ then
             ' djs 2/4/2011 We return 1 - that's the workaround			iReturn% := 0;
             iReturn% := 1;
@@ -565,6 +647,10 @@ func TuningCurveAreaDialog%()
 		else
 			iReturn% := 2;
 		endif;
+        'Reset dialog OK button text on Select dialog, and note we need to pick an expt.
+        DlgValue$(-1,"Select Expt.");
+        TuningCurveScriptDialogAllowOK% := 0;  'Prepare to disable OK button
+        TuningCurveScriptDialogChanged%(-1);  'Disables "OK" button, -1 is sham input
 	endif;
     
 	return iReturn%;
@@ -603,6 +689,12 @@ func TuningCurveNullTestDialog%()
 		SaveTuningCurveNullTestParameters();
 '		PrintLog("TuningCurveAreaDialog - user hit OK\n");
 		tunType$ := tunTypeNullTest$;
+        
+        'Reset dialog OK button text on Select dialog, and note which experiment to run
+        DlgValue$(-1,"Run Null Test");
+        TuningCurveScriptDialogAllowOK% := 1;  'Prepare to enable OK button
+        TuningCurveScriptDialogChanged%(-1);  'Enables "OK" button, -1 is sham input
+        
 		if tunContext$ = tunContextDAQ$ then
             ' djs 2/4/2011 We return 1 - that's the workaround			iReturn% := 0;
             iReturn% := 1;
@@ -618,6 +710,10 @@ func TuningCurveNullTestDialog%()
 		else
 			iReturn% := 2;
 		endif;
+        'Reset dialog OK button text on Select dialog, and note we need to pick an expt.
+        DlgValue$(-1,"Select Expt.");
+        TuningCurveScriptDialogAllowOK% := 0;  'Prepare to disable OK button
+        TuningCurveScriptDialogChanged%(-1);  'Disables "OK" button, -1 is sham input
 	endif;
     
 	return iReturn%;
@@ -658,6 +754,12 @@ func TuningCurveDriftingBarDialog%()
 		SaveTuningCurveDriftingBarParameters();
 		PrintLog("TuningCurveDriftingBarDialog - user hit OK\n");
 		tunType$ := tunTypeDriftingBar$;
+        
+        'Reset dialog OK button text on Select dialog, and note which experiment to run
+        DlgValue$(-1,"Run Drifting Bar");
+        TuningCurveScriptDialogAllowOK% := 1;  'Prepare to enable OK button
+        TuningCurveScriptDialogChanged%(-1);  'Enables "OK" button, -1 is sham input
+        
 		if tunContext$ = tunContextDAQ$ then
             ' djs 2/4/2011 We return 1 - that's the workaround			iReturn% := 0;
             iReturn% := 1;
@@ -673,6 +775,10 @@ func TuningCurveDriftingBarDialog%()
 		else
 			iReturn% := 2;
 		endif;
+        'Reset dialog OK button text on Select dialog, and note we need to pick an expt.
+        DlgValue$(-1,"Select Expt.");
+        TuningCurveScriptDialogAllowOK% := 0;  'Prepare to disable OK button
+        TuningCurveScriptDialogChanged%(-1);  'Disables "OK" button, -1 is sham input
 	endif;
     PrintLog("Return value is %d\n", iReturn%);
 	return iReturn%;
@@ -718,6 +824,12 @@ func TuningCurveCRGMDialog%()
 	if i% = 1 then
 		SaveTuningCurveCRGMParameters();
 		tunType$ := tunTypeCRG$;
+        
+        'Reset dialog OK button text on Select dialog, and note which experiment to run
+        DlgValue$(-1,"Run CRGs");
+        TuningCurveScriptDialogAllowOK% := 1;  'Prepare to enable OK button
+        TuningCurveScriptDialogChanged%(-1);  'Enables "OK" button, -1 is sham input
+        
 		if tunContext$ = tunContextDAQ$ then
             ' djs 2/4/2011 We return 1 - that's the workaround			iReturn% := 0;
             iReturn% := 1;
@@ -732,6 +844,10 @@ func TuningCurveCRGMDialog%()
 		else
 			iReturn% := 2;
 		endif;
+        'Reset dialog OK button text on Select dialog, and note we need to pick an expt.
+        DlgValue$(-1,"Select Expt.");
+        TuningCurveScriptDialogAllowOK% := 0;  'Prepare to disable OK button
+        TuningCurveScriptDialogChanged%(-1);  'Disables "OK" button, -1 is sham input
 	endif;
 
 	return iReturn%;
@@ -956,6 +1072,51 @@ end
 'end
 '
 
+func TunOptoDialog%()
+	var iReturn% := 1;
+	var i%;
+    var labels$[3];
+    labels$[0] := "Opto Off First";
+    labels$[1] := "Opto On First";
+    labels$[2] := "Random First";
+	GetTunOptoParameters();
+	DlgCreate("Optogenetics Parameters");
+    
+    DlgReal(1, "PreStimulus Opto On (s)",0,10);
+    DlgReal(2, "PostStimulus Opto On (s)",0,10);
+    DlgCheck(3, "Keep Opto on between stims");
+    DlgReal(4, "Opto Voltage Out (s)",0.0002,5); '.0002 is the minimum value that will give any change at all (to 1 in a 15-bit range) on the DAC
+    DlgList(5, "Order of blocks",labels$,3);
+    DlgCheck(6, "Record control box voltage");
+    DlgCheck(7, "Record stimulator");
+
+	i% := DlgShow(tunPreStimOptoTime,tunPostStimOptoTime,tunOptoStaysOn%,tunOptoVoltageOut,tunOptoStartState%,tunRecOptoBox%,tunRecStimulator%);
+	' If i% is 1 the user hit "OK". If its 0, user hit "Cancel". 
+	' When user hits OK we always save the parameters, and when user hits Cancel we don't.
+    ' 
+    ' djs 2/4/2011
+    ' Spike2 bug workaround implemented. The return value from this function (when in DAQ context this
+    ' dialog is called from a DlgButton in another dialog) should make the parent dialog close, as if 
+    ' the OK button were hit. Bug in Spike2 v6 means this doesn't work right - the parent dialog will 
+    ' close but its variables are not updated prior to doing so.... so any changes to the parent dialog
+    ' are not seen in the subsequent expt, they're not saved in the registry, etc. Workaround is to return
+    ' something > 0 here. The parent dialog will continue to display, and the user has to hit OK on that 
+    ' before things proceed. 
+    'tunMaximalDiam := tunAreaMaxDiam;  This won't do anything unless FIXSTIM is updated to allow crosshairs
+	if i% = 1 then
+		SaveTunOptoParameters();
+        if tunOptoStartState% = 2 then
+            tunOptoState% := round(Rand());
+        else
+            tunOptoState% := tunOptoStartState%;
+        endif;
+        'printlog("Opto start state is %d\n",tunOptoState%);  'yep, works
+	endif;
+    
+	return iReturn%;
+end;
+
+
 
 func GratingParametersDialog2%(label$, &param$, &statparam$, &x, &y, &w, &h, &iw, &ih, &contrast%, &sf, &tf, &ori, &phase, &cv$, &pattern$, &aperture$)
 'func GratingParametersDialog2%()    
@@ -1022,6 +1183,7 @@ func GratingParametersDialog2%(label$, &param$, &statparam$, &x, &y, &w, &h, &iw
         
         i% := DlgShow(x, y, w, h, iw, ih, contrast%, sf, tf, ori, phase, icvl%, ipl%, ial%);
         Convert180(phase);
+        
         
     wend;
       
