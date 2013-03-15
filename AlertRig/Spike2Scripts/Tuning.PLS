@@ -1,8 +1,10 @@
-; $Id: Tuning.PLS,v 1.10 2011-11-16 00:48:00 jeff Exp $
+; $Id: Tuning.PLS,v 1.11 2013-03-15 18:37:12 jeff Exp $
 ;
 
                 SET      0.010 1 0     ;Get rate & scaling OK
                 VAR    V2=0            ;V2 logs whether the sequencer is in use for SafeSampleKey
+                                       ;V3 determines whether juicer is open-high or open-low
+                                       ;V4 is a voltage out variable for setting level on the opto
 
 
 ; zero out all trigger lines, close juicer
@@ -82,3 +84,13 @@
 0062            DIGOUT [.......0]      ;Close juicer valve
 0063 JDONE:     MOVI   V2,0            ;Log that sequencer is not in use
 0064            HALT                   ;End of this sequence section
+
+0065 OPTOON: 'O MOVI   V2,1            ;Log that sequencer is in use
+0066            DAC    0,V4            ;Set DAC0 to the value in V4
+0067            MOVI   V2,0            ;Log that sequencer is not in use
+0068            HALT                   ;End of this sequence section
+
+0069 OPTOOFF: 'o MOVI  V2,1            ;Log that sequencer is in use
+0070            DAC    0,0             ;Set DAC0 to the value in V4
+0071            MOVI   V2,0            ;Log that sequencer is not in use
+0072            HALT                   ;End of this sequence section
