@@ -1,4 +1,4 @@
-' $Id: AcuteTuningDialogs.s2s,v 1.10 2013-03-15 18:40:40 jeff Exp $
+' $Id: AcuteTuningDialogs.s2s,v 1.11 2013-03-15 23:28:29 devel Exp $
 '
 ' This file contains dialog functions for the alert tuning script Tuning.s2s.
 #include "../../Spike2Util/UsreyUtil.s2s"
@@ -1085,7 +1085,7 @@ func TunOptoDialog%()
     DlgReal(1, "PreStimulus Opto On (s)",0,10);
     DlgReal(2, "PostStimulus Opto On (s)",0,10);
     DlgCheck(3, "Keep Opto on between stims");
-    DlgReal(4, "Opto Voltage Out (s)",0.0002,5); '.0002 is the minimum value that will give any change at all (to 1 in a 15-bit range) on the DAC
+    DlgReal(4, "Opto Voltage Out (V)",0.0002,5); '.0002 is the minimum value that will give any change at all (to 1 in a 15-bit range) on the DAC
     DlgList(5, "Order of blocks",labels$,3);
     DlgCheck(6, "Record control box voltage");
     DlgCheck(7, "Record stimulator");
