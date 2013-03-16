@@ -1,5 +1,5 @@
-' $Id: AcuteTuning.s2s,v 1.37 2013-03-16 01:33:30 jeff Exp $
-const tunCVSID$ := "$Id: AcuteTuning.s2s,v 1.37 2013-03-16 01:33:30 jeff Exp $";
+' $Id: AcuteTuning.s2s,v 1.38 2013-03-16 02:01:14 devel Exp $
+const tunCVSID$ := "$Id: AcuteTuning.s2s,v 1.38 2013-03-16 02:01:14 devel Exp $";
 
 var TuningCurveScriptDialogAllowOK%;  'allows OK to button to work on main dialog
 
@@ -68,6 +68,7 @@ var tunContinuousPorts%[16];
 
 'Variables for creating rasters
 var memChanRasterTriggers%;  'a memory channel that holds raster triggers
+var memChanRasterTriggersOpto%;  'a memory channel that holds raster trigger for the opto state
 var memChanBetterTextMark%;  'a memory channel that mimics the textmark channel, but with better temporal fidelity
 var handlePSTH%[16];         'a list of PSTH handles
 var stimCodes%[4];           'For the raster textmark channel; we'll only use index 0 but the textmark requires a 4-length vector
@@ -96,6 +97,7 @@ var tunTriggerHack% := 1;
 
 var memorychannel% := 28;
 var memorychannel2% := 29;
+var memorychannelopto% := 45;  'avoiding textmarks
 'var memorychannelvisible% := 0;  'unused...?
 
 
@@ -543,7 +545,12 @@ func IdleProcessing%()
             'Set stimCodes[0] to hold the index of the current stimulus
             stimCodes%[0] := tunValuesIndices%[nTrialsCompleted%]; 'nTrialsCompleted has not yet been incremented, so this is right
             'log stimulus start time in pseudotextmark channel and for raster triggering
-            view(DataWindow%).MemSetItem(memChanRasterTriggers%,0,tStimOn,stimCodes%[],Str$(tunValues[tunValuesIndices%[nTrialsCompleted%]]));
+            if tunOptoState% = 0 then
+                view(DataWindow%).MemSetItem(memChanRasterTriggers%,0,tStimOn,stimCodes%[],Str$(tunValues[tunValuesIndices%[nTrialsCompleted%]]));
+            else
+                view(DataWindow%).MemSetItem(memChanRasterTriggersOpto%,0,tStimOn,stimCodes%[],Str$(tunValues[tunValuesIndices%[nTrialsCompleted%]]));
+            endif;
+            
             view(DataWindow%).MemSetItem(memChanBetterTextMark%,0,tStimOn,stimCodes%[],Str$(tunValues[tunValuesIndices%[nTrialsCompleted%]]));
             
             ' Process spikes
@@ -633,7 +640,12 @@ func IdleProcessing%()
                 'Set stimCodes[0] to hold the index of the current stimulus
                 stimCodes%[0] := tunValuesIndices%[nTrialsCompleted%]; 'nTrialsCompleted has not yet been incremented, so this is right
                 'log stimulus start time in pseudotextmark channel and for raster triggering
-                view(DataWindow%).MemSetItem(memChanRasterTriggers%,0,tStimOn,stimCodes%[],Str$(tunValues[tunValuesIndices%[nTrialsCompleted%]]));
+                if tunOptoState% = 0 then
+                    view(DataWindow%).MemSetItem(memChanRasterTriggers%,0,tStimOn,stimCodes%[],Str$(tunValues[tunValuesIndices%[nTrialsCompleted%]]));
+                else
+                    view(DataWindow%).MemSetItem(memChanRasterTriggersOpto%,0,tStimOn,stimCodes%[],Str$(tunValues[tunValuesIndices%[nTrialsCompleted%]]));
+                endif;
+                
                 view(DataWindow%).MemSetItem(memChanBetterTextMark%,0,tStimOn,stimCodes%[],Str$(tunValues[tunValuesIndices%[nTrialsCompleted%]]));            
                 
                 ' Process spikes
@@ -703,6 +715,7 @@ func IdleProcessing%()
         endcase        
         
         view(datawindow%).MemSave(memChanRasterTriggers%,memorychannel%,0,1);
+        view(datawindow%).MemSave(memChanRasterTriggersOpto%,memorychannelopto%,0,1);
         view(datawindow%).MemSave(memChanBetterTextMark%,memorychannel2%,0,1);
         
             
@@ -768,7 +781,7 @@ proc PlotSpikes(t1, t2, vOnOff%, x, index%)
             view(handlePSTH%[i%]).windowtitle$("Electrode " + Str$(tunWavemarkPorts%[i%]+1) + myTitle2$ + Str$(tunValues[tunValuesIndices%[nTrialsCompleted%]]));  'Rename single-stim histogram
         else
             'update the raster even if there are no spikes on this trial
-            view(handlePSTH%[i%+8]).process(0,view(-1).maxtime(),1,1,0,MemChanRasterTriggers%,rasterTotal,rasterPre,stimCodes%[0]);  'Update single-stim histogram        
+            view(handlePSTH%[i%+8]).process(0,view(-1).maxtime(),1,1,0,MemChanRasterTriggersOpto%,rasterTotal,rasterPre,stimCodes%[0]);  'Update single-stim histogram        
             'And update the title, to indicate which stimulus it is
             view(handlePSTH%[i%+8]).windowtitle$("Electrode " + Str$(tunWavemarkPorts%[i%]+1) + " Opto On " + myTitle2$ + Str$(tunValues[tunValuesIndices%[nTrialsCompleted%]]));  'Rename single-stim histogram
         endif
@@ -808,6 +821,7 @@ proc PlotSpikes(t1, t2, vOnOff%, x, index%)
 			ArrConst(fftData[], View(PSTHWindow%[i%]).[]);
 			ArrFFT(fftData[], 4);
             View(TuningWindow%[i%]).XYAddData(3, x, fftData[1]);  'I think?
+            tunF1Sum[i%][index%] += fftData[1];  'not sure i care
         endcase
         
 	next
@@ -881,6 +895,11 @@ proc InitializeWindows()
     'chanshow(MemChanRasterTriggers%);
     
     'Create textmark channel to hold onset times of stimuli
+    memChanRasterTriggersOpto% := MemChan(8, 25); 'Create textmarker channel for stimtype
+    ChanTitle$(MemChanRasterTriggersOpto%,"RasterTriggersOpto"); 'give it a title, could be useful if channel is saved
+    chanhide(MemChanRasterTriggersOpto%); 'hide the memchan, don't need to see it.
+    
+    'Create textmark channel to hold onset times of stimuli
     memChanBetterTextMark% := MemChan(8, 25); 'Create textmarker channel for stimtype
     ChanTitle$(memChanBetterTextMark%,"PseudoTextMark"); 'give it a title, could be useful if channel is saved
     'chanhide(memChanBetterTextMark%); 'hide the memchan, don't need to see it.    
@@ -908,7 +927,7 @@ proc InitializeWindows()
         View(handlePSTH%[i%]).WindowVisible(1);  'make window visible
         
         if tunDoOpto% = 1 then  'Create raster/PSTH result view for each electrode, opto-on
-            handlePSTH%[i%+8] := View(DataWindow%).SetPsth(tunWavemarkPorts%[i%]+1,histBins%,histBinWidth,rasterPre,memChanRasterTriggers%,3);  '3 makes rasters and scales to spikes per second
+            handlePSTH%[i%+8] := View(DataWindow%).SetPsth(tunWavemarkPorts%[i%]+1,histBins%,histBinWidth,rasterPre,memChanRasterTriggersOpto%,3);  '3 makes rasters and scales to spikes per second
             View(handlePSTH%[i%+8]).windowtitle$("No Data");  'name gets changed later
             View(handlePSTH%[i%+8]).Window(histOptoL, i%*WindowStep, histOptoR, (i%+1)*WindowStep);  'size window as above, squeeze in
             View(handlePSTH%[i%+8]).WindowVisible(1);  'make window visible
@@ -1220,6 +1239,7 @@ func Stop%()
     
     view(dataWindow%);
     MemSave(memChanRasterTriggers%,memorychannel%,0,1);  'final update of memory channel
+    MemSave(memChanRasterTriggersOpto%,memorychannelopto%,0,1);  'final update of memory channel
     MemSave(memChanBetterTextMark%,memorychannel2%,0,1);  'final update of memory channel
     
     ExportChanList();
@@ -1668,10 +1688,10 @@ func InvestigateRasters%(i%)
     
     if tunDoOpto% = 1 then
         'create the raster
-        view(handlePSTH%[t%+8]).process(0,view(-1).maxtime(),1,1,0,MemChanRasterTriggers%,rasterTotal,rasterPre,v%);  'Update single-stim histogram        
+        view(handlePSTH%[t%+8]).process(0,view(-1).maxtime(),1,1,0,MemChanRasterTriggersOpto%,rasterTotal,rasterPre,v%);  'Update single-stim histogram        
         'And update the title, to indicate which stimulus it is
         view(handlePSTH%[t%+8]).windowtitle$("Electrode " + Str$(tunWavemarkPorts%[t%]+1) + " Opto On " + myTitle2$ + Str$(tunValues[v%]));  'Rename single-stim histogram
-
+    endif;
     
     return 1;
 end;
