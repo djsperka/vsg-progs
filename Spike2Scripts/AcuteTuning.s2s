@@ -1,5 +1,5 @@
-' $Id: AcuteTuning.s2s,v 1.36 2013-03-16 01:31:26 jeff Exp $
-const tunCVSID$ := "$Id: AcuteTuning.s2s,v 1.36 2013-03-16 01:31:26 jeff Exp $";
+' $Id: AcuteTuning.s2s,v 1.37 2013-03-16 01:33:30 jeff Exp $
+const tunCVSID$ := "$Id: AcuteTuning.s2s,v 1.37 2013-03-16 01:33:30 jeff Exp $";
 
 var TuningCurveScriptDialogAllowOK%;  'allows OK to button to work on main dialog
 
@@ -1665,7 +1665,14 @@ func InvestigateRasters%(i%)
     view(handlePSTH%[t%]).process(0,view(-1).maxtime(),1,1,0,MemChanRasterTriggers%,rasterTotal,rasterPre,v%);  'Update single-stim histogram        
     'And update the title, to indicate which stimulus it is
     view(handlePSTH%[t%]).windowtitle$("Electrode " + Str$(tunWavemarkPorts%[t%]+1) + myTitle2$ + Str$(tunValues[v%]));  'Rename single-stim histogram
+    
+    if tunDoOpto% = 1 then
+        'create the raster
+        view(handlePSTH%[t%+8]).process(0,view(-1).maxtime(),1,1,0,MemChanRasterTriggers%,rasterTotal,rasterPre,v%);  'Update single-stim histogram        
+        'And update the title, to indicate which stimulus it is
+        view(handlePSTH%[t%+8]).windowtitle$("Electrode " + Str$(tunWavemarkPorts%[t%]+1) + " Opto On " + myTitle2$ + Str$(tunValues[v%]));  'Rename single-stim histogram
 
+    
     return 1;
 end;
 
