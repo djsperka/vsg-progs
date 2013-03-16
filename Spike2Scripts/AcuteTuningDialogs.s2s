@@ -1,4 +1,4 @@
-' $Id: AcuteTuningDialogs.s2s,v 1.11 2013-03-15 23:28:29 devel Exp $
+' $Id: AcuteTuningDialogs.s2s,v 1.12 2013-03-16 01:31:26 jeff Exp $
 '
 ' This file contains dialog functions for the alert tuning script Tuning.s2s.
 #include "../../Spike2Util/UsreyUtil.s2s"
@@ -118,8 +118,8 @@ var tunOptoStaysOn%;
 var tunOptoVoltageOut;
 var tunOptoStartState%;  'essentially an index, 0 = off first, 1 = on first (those are logical), 2 = random
 var tunOptoState% := 0;  'current opto state, will toggle, can set here in dialog box
-var tunRecOptoBox% := 0;      'record the output from the opto box?
-var tunRecStimulator% := 0;   'record the stimulator?
+'var tunRecOptoBox% := 0;      'record the output from the opto box?
+'var tunRecStimulator% := 0;   'record the stimulator?
 
 ' Strings that hold grating parameters
 var tunGratingParams$;
@@ -354,8 +354,8 @@ proc GetTunOptoParameters()
     tunOptoStaysOn% := GetIntRegistryValue%(key$, "OptoStaysOn", tunOptoStaysOn%);
     tunOptoVoltageOut := GetFloatRegistryValue(key$, "OptoVoltageOut", tunOptoVoltageOut);
     tunOptoStartState% := GetIntRegistryValue%(key$, "OptoStartState", tunOptoStartState%);
-    tunRecOptoBox% := GetIntRegistryValue%(key$, "RecOptoBox", tunRecOptoBox%);
-    tunRecStimulator% := GetIntRegistryValue%(key$, "RecStimulator", tunRecStimulator%);
+    'tunRecOptoBox% := GetIntRegistryValue%(key$, "RecOptoBox", tunRecOptoBox%);
+    'tunRecStimulator% := GetIntRegistryValue%(key$, "RecStimulator", tunRecStimulator%);
 
 end;
 
@@ -367,8 +367,8 @@ proc SaveTunOptoParameters()
     SetIntRegistryValue(key$, "OptoStaysOn", tunOptoStaysOn%);
     SetFloatRegistryValue(key$, "OptoVoltageOut", tunOptoVoltageOut);
     SetIntRegistryValue(key$, "OptoStartState", tunOptoStartState%);
-    SetIntRegistryValue(key$, "RecOptoBox", tunRecOptoBox%);
-    SetIntRegistryValue(key$, "RecStimulator", tunRecStimulator%);
+    'SetIntRegistryValue(key$, "RecOptoBox", tunRecOptoBox%);
+    'SetIntRegistryValue(key$, "RecStimulator", tunRecStimulator%);
 end;
 
 
@@ -1087,10 +1087,10 @@ func TunOptoDialog%()
     DlgCheck(3, "Keep Opto on between stims");
     DlgReal(4, "Opto Voltage Out (V)",0.0002,5); '.0002 is the minimum value that will give any change at all (to 1 in a 15-bit range) on the DAC
     DlgList(5, "Order of blocks",labels$,3);
-    DlgCheck(6, "Record control box voltage");
-    DlgCheck(7, "Record stimulator");
+    'DlgCheck(6, "Record control box voltage");
+    'DlgCheck(7, "Record stimulator");
 
-	i% := DlgShow(tunPreStimOptoTime,tunPostStimOptoTime,tunOptoStaysOn%,tunOptoVoltageOut,tunOptoStartState%,tunRecOptoBox%,tunRecStimulator%);
+	i% := DlgShow(tunPreStimOptoTime,tunPostStimOptoTime,tunOptoStaysOn%,tunOptoVoltageOut,tunOptoStartState%);',tunRecOptoBox%,tunRecStimulator%);
 	' If i% is 1 the user hit "OK". If its 0, user hit "Cancel". 
 	' When user hits OK we always save the parameters, and when user hits Cancel we don't.
     ' 
