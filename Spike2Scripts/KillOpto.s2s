@@ -4,12 +4,16 @@
 #include "../../Spike2Util/MiscUtilities.s2s"
 #include "UsreyDAQ.s2s"
 
+var DataWindow%;
 
 SampleTextMark(200); 'we might have to have A channel to start sampling
-SampleSequencer(script$ + "Tuning.pls");
+SampleSequencer(script$ + "UseOpto.pls");
 SampleMode(1); 'Continuous sampling (whatevs)
 
+DataWindow% := FileNew(0);
+View(DataWindow%).WindowVisible(0);
+
 SampleStart(0); 'Start sampling
-SafeSampleKey("o");
+SafeSampleKey("U");
 SampleStop();
 halt;
