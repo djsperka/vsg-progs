@@ -1,5 +1,5 @@
-' $Id: AcuteTuning.s2s,v 1.35 2013-03-15 23:28:04 devel Exp $
-const tunCVSID$ := "$Id: AcuteTuning.s2s,v 1.35 2013-03-15 23:28:04 devel Exp $";
+' $Id: AcuteTuning.s2s,v 1.36 2013-03-16 01:31:26 jeff Exp $
+const tunCVSID$ := "$Id: AcuteTuning.s2s,v 1.36 2013-03-16 01:31:26 jeff Exp $";
 
 var TuningCurveScriptDialogAllowOK%;  'allows OK to button to work on main dialog
 
@@ -26,6 +26,7 @@ var tunBackgroundGrayLevel% := 128; ' Background gray level
 var tunDoOpto%;                     ' New, 1 if doing optogenetics
 var tunDoF12% := 1;                 ' compute f1 and f2. 
 var tunMSeqLocation$ := "D:\\work\\AlertRig\\stim\\MSequenceTerms";  'location of M-Seq file
+var tunRecStimulator% := 0;   'record the stimulator?
 
 ' These will be set by the tuning curve choice
 var tunNAdvances%;		' Number of times stim will advance during one repeat
@@ -108,6 +109,7 @@ proc GetTuningCurveScriptParameters()
     'tunBackgroundColor$ := GetStringRegistryValue$(key$, "BackgroundColor", tunBackgroundColor$);
     tunBackgroundGrayLevel% := GetIntRegistryValue%(key$, "BackgroundGrayLevel", tunBackgroundGrayLevel%);
     tunDoOpto% := GetIntRegistryValue%(key$, "DoOpto", tunDoOpto%);
+    tunRecStimulator% := GetIntRegistryValue%(key$, "RecStimulator", tunRecStimulator%);
 end;
 
 proc SaveTuningCurveScriptParameters()
@@ -120,6 +122,7 @@ proc SaveTuningCurveScriptParameters()
     'SetStringRegistryValue(key$, "BackgroundColor", tunBackgroundColor$);
     SetIntRegistryValue(key$, "BackgroundGrayLevel", tunBackgroundGrayLevel%);
     SetIntRegistryValue(key$, "DoOpto", tunDoOpto%);
+    SetIntRegistryValue(key$, "RecStimulator", tunRecStimulator%);
 end;
 
 
@@ -165,37 +168,38 @@ func TuningCurveScriptDialog%()
 	DlgCreate("Tuning Curve Parameters", 50, 10, 40);
     DlgButton(0,"         Quit         ");
     DlgButton(1,"     Select Expt.     ");        
-	DlgGroup("Common Parameters", 1, 1, 38, 5);
+	DlgGroup("Common Parameters", 1, 1, 38, 6);
 	DlgReal(1, "Stimulus Duration(s):", .1, 100, 20, 2);  'new, allow really long stimuli
     DlgReal(2, "InterTrial Time(s):", .1, 100, 20, 3);  'new, allow really long stimuli
 	DlgReal(3, "InterBlock Time(s):", 0, 100, 20, 4);  'new, allow really long stimuli
     DlgInteger(4, "Background Gray Level (0-255):", 0, 255, 20, 5);  'new, allow all grays
+    DlgCheck(5, "Record Stimulator?", 2,6);
 	'DlgList(3, "Background color:", bcl$, 3, 20, 4);  'updated as new dialog number
     
-    DlgGroup("Grating Parameters", 1, 6, 38, 2);
-    DlgButton(tundlgGratingParametersButton%, "Grating Parameters", TunDlgGratingMaster%, 2, 7);
+    DlgGroup("Grating Parameters", 1, 7, 38, 2);
+    DlgButton(tundlgGratingParametersButton%, "Grating Parameters", TunDlgGratingMaster%, 2, 8);
     
-    DlgGroup("Optogenetics", 1, 8, 38, 3);
-    DlgCheck(5,"Opto On",2,9);
-    DlgButton(tundlgOptogeneticsButton%, "Optogenetics Parameters", TunOptoDialog%, 2, 10);
+    DlgGroup("Optogenetics", 1, 9, 38, 3);
+    DlgCheck(6,"Opto On",2,10);
+    DlgButton(tundlgOptogeneticsButton%, "Optogenetics Parameters", TunOptoDialog%, 2, 11);
     
-    DlgGroup("Individual Tuning Curve Types", 1, 11, 38, 7);
-	DlgButton(tundlgOrientationButton%, "Orientation", TuningCurveOrientationDialog%, 2, 12);
-	DlgButton(tundlgContrastButton%, "Contrast", TuningCurveContrastDialog%, 2, 13);
-	DlgButton(tundlgSpatialButton%, "Spatial Freq", TuningCurveSpatialDialog%, 2, 14);
-	DlgButton(tundlgTemporalButton%, "Temporal Freq", TuningCurveTemporalDialog%, 2, 15);
-	DlgButton(tundlgAreaButton%, "Area", TuningCurveAreaDialog%, 2, 16);
-    DlgButton(tundlgNullTestButton%, "Null Test", TuningCurveNullTestDialog%, 2, 17);
+    DlgGroup("Individual Tuning Curve Types", 1, 12, 38, 7);
+	DlgButton(tundlgOrientationButton%, "Orientation", TuningCurveOrientationDialog%, 2, 13);
+	DlgButton(tundlgContrastButton%, "Contrast", TuningCurveContrastDialog%, 2, 14);
+	DlgButton(tundlgSpatialButton%, "Spatial Freq", TuningCurveSpatialDialog%, 2, 15);
+	DlgButton(tundlgTemporalButton%, "Temporal Freq", TuningCurveTemporalDialog%, 2, 16);
+	DlgButton(tundlgAreaButton%, "Area", TuningCurveAreaDialog%, 2, 17);
+    DlgButton(tundlgNullTestButton%, "Null Test", TuningCurveNullTestDialog%, 2, 18);
     
     
-    DlgGroup("Non-Grating Stimuli", 1, 18, 38, 3);
-    DlgButton(tundlgDriftingBarButton%, "Drifting Bars", TuningCurveDriftingBarDialog%, 2, 19);
-    DlgButton(tundlgCRGMButton%, "CRGs", TuningCurveCRGMDialog%, 2, 20);
+    DlgGroup("Non-Grating Stimuli", 1, 19, 38, 3);
+    DlgButton(tundlgDriftingBarButton%, "Drifting Bars", TuningCurveDriftingBarDialog%, 2, 20);
+    DlgButton(tundlgCRGMButton%, "CRGs", TuningCurveCRGMDialog%, 2, 21);
     
     DlgAllow(0xffff, 0, TuningCurveScriptDialogChanged%);
     
     'i%:=DlgShow(tunStimulusDuration, tunInterTrialTime, ibcl%);  'new, for reduced dialog
-    i%:=DlgShow(tunStimulusDuration, tunInterTrialTime, tunInterBlockTime, tunBackgroundGrayLevel%, tunDoOpto%);  'now using background gray level
+    i%:=DlgShow(tunStimulusDuration, tunInterTrialTime, tunInterBlockTime, tunBackgroundGrayLevel%, tunRecStimulator%, tunDoOpto%);  'now using background gray level
     
     ' djs 4-1-09
     ' Spike2 v6 change. DlgShow will return the button number when a button on the dialog is hit and the corresponding
@@ -216,6 +220,10 @@ func TuningCurveScriptDialog%()
     'PrintLog("Tuning Curve Parameters Dialog - return from DlgShow is %d\n", i%);
     '	if i%=tundlgOrientationButton% or i%=tundlgContrastButton% or i%=tundlgSpatialButton% or i%=tundlgTemporalButton% or i%=tundlgAreaButton% then
     if i% = 1 then
+        
+        if tunDoOpto% = 0 then  'it will be useful to make sure that tunOptoState% is 0 if we're not at all doin Opto
+            tunOptoState% := 0;
+        endif;
         
         if tunCRGMFirstTerm% > tunCRGMNumTerms% - 100 - (tunStimulusDuration*dataScreenHz) then
             Message("Error!  Duration was changed and CRG first term is not legal!  Quitting!");
@@ -272,6 +280,7 @@ var FrameChannel%;
 var StimChannel%;
 var StimChangeChannel%;
 var ReadyChannel%;
+var StimulatorChannel%;
 
 ' xy windows for plotting (TuningWindow) and PSTH. 
 var TuningWindow%[16];	' one for each wavemark channel
@@ -325,6 +334,7 @@ YChannel% := 22;
 StimChannel% := 25;
 ReadyChannel% := 27;            ' Look for ready signal on port 2 (same as fixpt). 
 FrameChannel% := 19;
+StimulatorChannel% := 18;
 
 ' Fetch electrode information. 
 tunNWavemarks% := GetWavemarkPorts%(tunWavemarkPorts%[]);
@@ -537,7 +547,7 @@ func IdleProcessing%()
             view(DataWindow%).MemSetItem(memChanBetterTextMark%,0,tStimOn,stimCodes%[],Str$(tunValues[tunValuesIndices%[nTrialsCompleted%]]));
             
             ' Process spikes
-            PlotSpikes(tStimOn, tNow, 1, GetPlotXCoord(nTrialsCompleted%), nTrialsCompleted%);
+            PlotSpikes(tStimOn, tNow, tunOptoState%+1, GetPlotXCoord(nTrialsCompleted%), nTrialsCompleted%);
             
             ' Now wait until stim is off
             ChangeStateTo(stateWaitForStimOff%, tNow);
@@ -579,7 +589,7 @@ func IdleProcessing%()
             Yield();
             
             ' Process spikes
-            PlotSpikes(tStimOn, tNow, 1, GetPlotXCoord(nTrialsCompleted%), nTrialsCompleted%);
+            PlotSpikes(tStimOn, tNow, tunOptoState%+1, GetPlotXCoord(nTrialsCompleted%), nTrialsCompleted%);
             
             'Advance
             'SafeSampleKey("a");
@@ -627,7 +637,7 @@ func IdleProcessing%()
                 view(DataWindow%).MemSetItem(memChanBetterTextMark%,0,tStimOn,stimCodes%[],Str$(tunValues[tunValuesIndices%[nTrialsCompleted%]]));            
                 
                 ' Process spikes
-                PlotSpikes(tStimOn, tNow, 1, GetPlotXCoord(nTrialsCompleted%), nTrialsCompleted%);
+                PlotSpikes(tStimOn, tNow, tunOptoState%+1, GetPlotXCoord(nTrialsCompleted%), nTrialsCompleted%);
 
                 tLastTrigger := tRise;
                 'ChangeStateTo(stateTrialCompleted%, tRise);
@@ -738,25 +748,35 @@ proc PlotSpikes(t1, t2, vOnOff%, x, index%)
         'tunRateCum[i%] := tunRateCum[i%] + rate;  
         'if tunRateCum[i%] >= 0 then  
 		if rate >= 0 then
-			if vOnOff% = 1 then
+            View(TuningWindow%[i%]).XYAddData(vOnOff%, x, rate);    ' channel 1 is opto-off; channel 2 is opto-on
+			'if vOnOff% = 1 then
 				' this is signal
                 'PrintLog("%d Count %f\n", i%, rate*(t2-t1));
-				View(TuningWindow%[i%]).XYAddData(1, x, rate);    ' channel 1 is data; channel 2 is background
+				'View(TuningWindow%[i%]).XYAddData(1, x, rate);    ' channel 1 is data; channel 2 is background
                 'Grr.  Deleting data will make this hard.
                 'View(TuningWindow%[i%]).XYSort(1,1);  'sort by x
                 'View(TuningWindow%[i%]).XYDelete(1,index2%);  'delete the last entry for this value
                 'View(TuningWindow%[i%]).XYAddData(1, x, tunRateCum[i%]/(index%+1));    ' channel 1 is data; channel 2 is background
-			endif
+			'endif
 			' NOTE: IGNORING BACKGROUND HERE FOR THE TIME BEING. 
 	    endif 
         
-        'update the raster even if there are no spikes on this trial
-        view(handlePSTH%[i%]).process(0,view(-1).maxtime(),1,1,0,MemChanRasterTriggers%,rasterTotal,rasterPre,stimCodes%[0]);  'Update single-stim histogram        
-        'And update the title, to indicate which stimulus it is
-        view(handlePSTH%[i%]).windowtitle$("Electrode " + Str$(tunWavemarkPorts%[i%]+1) + myTitle2$ + Str$(tunValues[tunValuesIndices%[nTrialsCompleted%]]));  'Rename single-stim histogram
+        if vOnOff% = 1 then
+            'update the raster even if there are no spikes on this trial
+            view(handlePSTH%[i%]).process(0,view(-1).maxtime(),1,1,0,MemChanRasterTriggers%,rasterTotal,rasterPre,stimCodes%[0]);  'Update single-stim histogram        
+            'And update the title, to indicate which stimulus it is
+            view(handlePSTH%[i%]).windowtitle$("Electrode " + Str$(tunWavemarkPorts%[i%]+1) + myTitle2$ + Str$(tunValues[tunValuesIndices%[nTrialsCompleted%]]));  'Rename single-stim histogram
+        else
+            'update the raster even if there are no spikes on this trial
+            view(handlePSTH%[i%+8]).process(0,view(-1).maxtime(),1,1,0,MemChanRasterTriggers%,rasterTotal,rasterPre,stimCodes%[0]);  'Update single-stim histogram        
+            'And update the title, to indicate which stimulus it is
+            view(handlePSTH%[i%+8]).windowtitle$("Electrode " + Str$(tunWavemarkPorts%[i%]+1) + " Opto On " + myTitle2$ + Str$(tunValues[tunValuesIndices%[nTrialsCompleted%]]));  'Rename single-stim histogram
+        endif
         
-        
-        if tunDoF12% = 1 and vOnOff% = 1 then
+            
+            
+        docase
+        case tunDoF12% = 1 and vOnOff% = 1 then
             ' Process for each cycle of the stimulus. A single cycle of the stim takes 1/tf
 			View(PSTHWindow%[i%]);
 			Process(t1, t2, 1, 1);
@@ -773,12 +793,22 @@ proc PlotSpikes(t1, t2, vOnOff%, x, index%)
             'View(TuningWindow%[i%]).XYDelete(2,index2%);  'delete the last entry for this value
             'View(TuningWindow%[i%]).XYDelete(3,index2%);  'delete the last entry for this value
             View(TuningWindow%[i%]).XYAddData(2, x, fftData[1]);
-            View(TuningWindow%[i%]).XYAddData(3, x, fftData[2]);
+            'View(TuningWindow%[i%]).XYAddData(3, x, fftData[2]);
             'View(TuningWindow%[i%]).XYAddData(2, x, tunF1Cum[i%]/(index%+1));
             'View(TuningWindow%[i%]).XYAddData(3, x, tunF2Cum[i%]/(index%+1));
             tunF1Sum[i%][index%] += fftData[1];
-            tunF2Sum[i%][index%] += fftData[2];
-        endif
+            'tunF2Sum[i%][index%] += fftData[2];
+        case tunDoF12% = 1 and vOnOff% = 2 then
+            ' Process for each cycle of the stimulus. A single cycle of the stim takes 1/tf
+			View(PSTHWindow%[i%]);
+			Process(t1, t2, 1, 1);
+			for tSweep := t1+1/tunTF to t2-1/tunTF step 1/tunTF do 
+				Process(tSweep, tSweep+1/tunTF, 0, 1);
+			next
+			ArrConst(fftData[], View(PSTHWindow%[i%]).[]);
+			ArrFFT(fftData[], 4);
+            View(TuningWindow%[i%]).XYAddData(3, x, fftData[1]);  'I think?
+        endcase
         
 	next
 end;
@@ -814,6 +844,22 @@ proc InitializeWindows()
     var i%;
     var WindowStep;
     var ch1%, ch2%;
+    var tunL, tunR, histL, histR, histOptoL, histOptoR;
+    
+    'set tunL, etc.
+    if tunDoOpto% = 0 then
+        tunl := 50;
+        tunr := 75;
+        histL := 75;
+        histR := 100;
+    else
+        tunl := 50;
+        tunr := 66;
+        histL := 66;
+        histR := 83;
+        histOptoL := 83;
+        histOptoR := 100;
+    endif;
     
     
     ' Get tf of stim
@@ -847,7 +893,7 @@ proc InitializeWindows()
     endif
     for i% := 0 to tunNWavemarks%-1 do
         TuningWindow%[i%] := FileNew(12);
-        Window(50, i%*WindowStep, 75, (i%+1)*WindowStep);
+        Window(tunL, i%*WindowStep, tunR, (i%+1)*WindowStep);
         ChanTitle$(0, "Spikes/s");
         TuningCurveLabels(tunWavemarkPorts%[i%]);
         WindowVisible(1);        
@@ -858,17 +904,26 @@ proc InitializeWindows()
         histBins% := rasterTotal/histBinWidth;  'and number of bins
         handlePSTH%[i%] := View(DataWindow%).SetPsth(tunWavemarkPorts%[i%]+1,histBins%,histBinWidth,rasterPre,memChanRasterTriggers%,3);  '3 makes rasters and scales to spikes per second
         View(handlePSTH%[i%]).windowtitle$("No Data");  'name gets changed later
-        View(handlePSTH%[i%]).Window(75, i%*WindowStep, 100, (i%+1)*WindowStep);  'size window as above, squeeze in
+        View(handlePSTH%[i%]).Window(histL, i%*WindowStep, histR, (i%+1)*WindowStep);  'size window as above, squeeze in
         View(handlePSTH%[i%]).WindowVisible(1);  'make window visible
+        
+        if tunDoOpto% = 1 then  'Create raster/PSTH result view for each electrode, opto-on
+            handlePSTH%[i%+8] := View(DataWindow%).SetPsth(tunWavemarkPorts%[i%]+1,histBins%,histBinWidth,rasterPre,memChanRasterTriggers%,3);  '3 makes rasters and scales to spikes per second
+            View(handlePSTH%[i%+8]).windowtitle$("No Data");  'name gets changed later
+            View(handlePSTH%[i%+8]).Window(histOptoL, i%*WindowStep, histOptoR, (i%+1)*WindowStep);  'size window as above, squeeze in
+            View(handlePSTH%[i%+8]).WindowVisible(1);  'make window visible
+        endif
+        
         FrontView(DataWindow%);  'bring main window back to front to avoid view is not a time view shit
-
         
         ' Create psth window if f1 and f2 analysis needed
         if tunDoF12% = 1 then
             
             ch1% := View(TuningWindow%[i%]).XYSetChan(0);   ' Used to plot f1
             View(TuningWindow%[i%]).XYColour(ch1%, 16);
-            ch2% := View(TuningWindow%[i%]).XYSetChan(0);   ' used to plot f2
+            'ch2% := View(TuningWindow%[i%]).XYSetChan(0);   ' used to plot f2
+            'View(TuningWindow%[i%]).XYColour(ch2%, 38);
+            ch2% := View(TuningWindow%[i%]).XYSetChan(0);   ' appropriating this to plot f1 of opto-on
             View(TuningWindow%[i%]).XYColour(ch2%, 38);
             LogStatus("InitializeWindows", "Channel " + str$(i%+1) + " " + str$(ch1%) + " " + str$(ch2%));
             'PSTHWindow%[i%] := View(DataWindow%).SetPSTH(i%+1, 16, 1 /(tunTF*16), 0, 0, 3);
@@ -1059,25 +1114,20 @@ proc CreateSampleConfiguration()
 	SampleTitle$(FrameChannel%,"Frame");
     
     
-    ' Before assigning Electrode channels, check values of tunRecOptoBox%, tunRecStimulator% to make sure
-    ' there are no channel conflicts; if Opto is being used, just block off both ADC5 and ADC6
-    ' if stimulator is being used, only block off ADC7, could be useful outside of Opto scenarios
-    ' Opto box efference copy will be on ADC5
-    ' Stimulator efference copy will be on ADC6
-    docase
-    case tunRecOptoBox% > 0  and tunDoOpto% > 0 then  'obviously if we're not doing opto then we're not recording the opto box
-        if tunNWavemarks% > 5 then
-            message("Only 5 'trodes can be recorded with the opto box efference copy!  Reducing to 5!");
-            tunNWaveMarks% := 5;
-            tunNContinuous% := 5;
-        endif
-    case tunRecStimulator% > 0 then
-        if tunNWavemarks% > 6 then
-            message("Only 6 'trodes can be recorded with the stimulator efference copy!  Reducing to 6!");
-            tunNWaveMarks% := 6;
-            tunNContinuous% := 6;
-        endif
-    endcase
+    ' Before assigning Electrode channels, check value of tunRecOptoBox% to make sure
+    ' there are no channel conflicts; if Opto is being used, just block off ADC6
+    ' Opto box efference copy will be on ADC6
+    ' Note that this ability has been killed due to the fact that the opto box doesn't actually output
+    ' the value under analog control.  We could split an efference copy but it seems useless.
+    ' Not fully tested before being abandoned.
+    'if tunRecOptoBox% > 0  and tunDoOpto% > 0 then  'obviously if we're not doing opto then we're not recording the opto box
+    '    if tunNWavemarks% > 6 then
+    '        message("Only 6 'trodes can be recorded with the opto box efference copy!  Reducing to 6!");
+    '        tunNWaveMarks% := 6;
+    '        tunNContinuous% := 6;
+    '    endif
+    'endif
+    
     
     
     ' Electrodes: wavemark/continuous
@@ -1113,16 +1163,16 @@ proc CreateSampleConfiguration()
     next
     
     
-    'Set channel for Opto box efference copy, if needed
-    if tunRecOptoBox% > 0 then
-        SampleWaveform(13, 5, 1000);  'there are a possible 7 'trodes in ADC0-ADC6; here 5 is port ADC5, 13 is channel: port 5 + 7 'trodes + 1 (because channel numbering starts at 1), 1kHz sampling should be fine
-        SampleTitle$(13, "Opto voltage");
-    endif;
+    'Set channel for Opto box efference copy, if needed - turned off because opto box won't output for the analog input
+    'if tunRecOptoBox% > 0 then
+    '    SampleWaveform(13, 5, 1000);  'there are a possible 7 'trodes in ADC0-ADC6; here 5 is port ADC5, 13 is channel: port 5 + 7 'trodes + 1 (because channel numbering starts at 1), 1kHz sampling should be fine
+    '    SampleTitle$(13, "Opto voltage");
+    'endif;
     
-    'Set channel for stimulator efference copy, if needed
+    'Set channel for stimulator efference copy, if needed, as an event input
     if tunRecStimulator% > 0 then
-        SampleWaveform(14, 6, 1000);  'there are a possible 7 'trodes in ADC0-ADC6; here 6 is port ADC6, 14 is channel: port 6 + 7 'trodes + 1 (because channel numbering starts at 1), 1kHz sampling should be fine
-        SampleTitle$(14, "Stimulator");
+        SampleEvent(StimulatorChannel%,0,2,20);
+        SampleTitle$(StimulatorChannel%, "Stimulator Copy");
     endif;
     
  
