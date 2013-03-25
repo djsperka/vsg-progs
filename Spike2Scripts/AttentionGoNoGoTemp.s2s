@@ -1,4 +1,4 @@
-' $Id: AttentionGoNoGoTemp.s2s,v 1.5 2013-03-04 23:38:38 devel Exp $
+' $Id: AttentionGoNoGoTemp.s2s,v 1.6 2013-03-25 19:11:11 jeff Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -973,15 +973,8 @@ func IdleProcessing%()
                 SafeSampleKey("S");
                 ChangeStateTo(stateWaitForStimOn%, tNow);
             endif
-        else 'if fixation fails, begin abort, check to see if it is a FA
-            if Answer%(xEye, yEye) <> 0 then  'if it's in response window, quit while you're ahead
-                PrintLog("stateWaitForStimOn: in response window, aborting trial.\n");
-                FAIsResponse% := 1;
-                ChangeStateTo(stateAbort%,tNow);
-                SampleText("Fixation broken, False Alarm, trial aborted");
-            else  'keep checking
-                ChangeStateTo(stateCheckFalseAlarm%, tNow);
-            endif;
+        else 'go back to waiting for acquisition
+            changeStateTo(stateWaitForAcquisition%, tNow);
         endcase
         
     case iState% = stateWaitForStimOn% then
@@ -1189,7 +1182,7 @@ func IdleProcessing%()
         
     case iState% = stateWaitForAnswer% then
         'getPreciseTiming := 1;  'we need precise timing here, stay in while loop until we get eye movements we expect
-        if tNow - tStateStart > attTimeToAnswer then  'no response
+        if tNow - tStateStart > attTimeToAnswer then  'no response in answer window
             if trialContrastUpDown% > 0 then 'GO trial, expected response
                 SafeSampleKey("X");  'turn off animation
                 PrintLog("stateWaitForAnswer: no response on go trial, miss\n");
@@ -1200,7 +1193,7 @@ func IdleProcessing%()
                 endif;
                 ChangeStateTo(stateMiss%, tNow); 'go to miss penalty
                 SafeSampleKey("a");
-            else
+            else  'NO-GO trial, this is correct rejection
                 SafeSampleKey("X");  'turn off animation
                 PrintLog("stateWaitForAnswer: no response on no-go trial, correct rejection\n");
                 if trialType% = trialtypeAttendToward% then
@@ -1211,7 +1204,7 @@ func IdleProcessing%()
                 Reward%();
                 ChangeStateTo(stateTrialCompletedWaitForBlank%, tNow);
             endif;
-        else
+        else  'we are still in the response window
             ' When fixation is first broken we turn off the stim and distractor. 
             ' That test is done separately from the test for an answer. Also set up 
             ' a var to tell us whether the stim has been turned off. 
@@ -1225,69 +1218,76 @@ func IdleProcessing%()
             '    endif
             'endif
             
-            iAnswer% := Answer%(xEye, yEye);
-            if iAnswer% = 1 or iAnswer% = -1 then
-                ' Got an answer. Record marker for correct/incorrect answer
-                docase
-                case iAnswer% = expectedAnswer% then
-                'if trialContrastUpDown% = 1 then 'it's a GO trial
-                    ' Hit                    
-                    attCountAllTrialsCorrect% += 1;
-                    attInterTrialTime2 := attInterTrialTime;
-                    'SampleText("+");
+            if Looking%(xEye, yEye) = 0 then
+                iAnswer% := Answer%(xEye, yEye);
+                if iAnswer% = 1 or iAnswer% = -1 then
+                    ' Got an answer. Record marker for correct/incorrect answer
                     docase
-                    case trialType% = trialtypeAttendToward% and trialContrastUpDown% = 1 then
-                        attCountTowardTrialsCorrect% += 1;
-                        SampleText("Hit, Attend Toward, Contrast Up",tNow);
-                    case trialType% = trialtypeAttendAway% and trialContrastUpDown% = 1 then
-                        attCountAwayTrialsCorrect% += 1;
-                        SampleText("Hit, Attend Away, Contrast Up",tNow);
-                    else
-                        PrintLog("ERROR: Unknown trial type (" + str$(trialType%) + "\n");
+                    case iAnswer% = expectedAnswer% then
+                    'if trialContrastUpDown% = 1 then 'it's a GO trial
+                        ' Hit                    
+                        attCountAllTrialsCorrect% += 1;
+                        attInterTrialTime2 := attInterTrialTime;
+                        'SampleText("+");
+                        docase
+                        case trialType% = trialtypeAttendToward% and trialContrastUpDown% = 1 then
+                            attCountTowardTrialsCorrect% += 1;
+                            SampleText("Hit, Attend Toward, Contrast Up",tNow);
+                        case trialType% = trialtypeAttendAway% and trialContrastUpDown% = 1 then
+                            attCountAwayTrialsCorrect% += 1;
+                            SampleText("Hit, Attend Away, Contrast Up",tNow);
+                        else
+                            PrintLog("ERROR: Unknown trial type (" + str$(trialType%) + "\n");
+                        endcase
+                        'getPreciseTiming := 0;
+                        Reward%();
+                        ChangeStateTo(stateTrialCompletedWaitForBlank%, tNow);
+                        SafeSampleKey("X");
+                    case iAnswer% = -expectedAnswer% then
+                    'if trialContrastUpDown% = 1 then 'it's a GO trial
+                        ' Saccade to wrong grating                    
+                        attCountAllTrialsIncorrect% += 1;
+                        attInterTrialTime2 := attInterTrialTime + attMissPenalty;
+                        'SampleText("+");
+                        docase
+                        case trialType% = trialtypeAttendToward% and trialContrastUpDown% = 1 then
+                            attCountTowardTrialsIncorrect% += 1;
+                            SampleText("Miss, Attend Toward, Moved To Wrong Grating, Contrast Up",tNow);
+                        case trialType% = trialtypeAttendAway% and trialContrastUpDown% = 1 then
+                            attCountAwayTrialsIncorrect% += 1;
+                            SampleText("Miss, Attend Away, Moved To Wrong Grating, Contrast Up",tNow);
+                        else
+                            PrintLog("ERROR: Unknown trial type (" + str$(trialType%) + "\n");
+                        endcase
+                        'getPreciseTiming := 0;
+                        ChangeStateTo(stateTrialCompletedWaitForBlank%, tNow);
+                        SafeSampleKey("X");
+                    else  'it's a NO-GO trial, and we got an answer
+                        'SampleText("-");
+                        attCountAllTrialsIncorrect% += 1;
+                        attInterTrialTime2 := attInterTrialTime + attMissPenalty;
+                        docase
+                        case trialType% = trialtypeAttendToward% and trialContrastUpDown% = 1 then
+                            attCountTowardTrialsIncorrect% += 1;
+                            SampleText("False Alarm, Attend Toward",tNow);
+                        case trialType% = trialtypeAttendAway% and trialContrastUpDown% = 1 then
+                            attCountAwayTrialsIncorrect% += 1;
+                            SampleText("False Alarm, Attend Away",tNow);
+                        else
+                            PrintLog("ERROR: Unknown trial type (" + str$(trialType%) + "\n");
+                        endcase
+                        'getPreciseTiming := 0;
+                        Yield(.01);    ' necessary so that the SampleText and SafeSampleKey below don't land on the same time (makes extraction difficult)
+                        FAIsResponse% := 1;
+                        ChangeStateTo(stateAbort%,tNow);
+                        'SafeSampleKey("X");  'this is done in stateAbort%
                     endcase
-                    'getPreciseTiming := 0;
-                    Reward%();
-                    ChangeStateTo(stateTrialCompletedWaitForBlank%, tNow);
-                    SafeSampleKey("X");
-                case iAnswer% = -expectedAnswer% then
-                'if trialContrastUpDown% = 1 then 'it's a GO trial
-                    ' Saccade to wrong grating                    
-                    attCountAllTrialsIncorrect% += 1;
-                    attInterTrialTime2 := attInterTrialTime + attMissPenalty;
-                    'SampleText("+");
-                    docase
-                    case trialType% = trialtypeAttendToward% and trialContrastUpDown% = 1 then
-                        attCountTowardTrialsIncorrect% += 1;
-                        SampleText("Miss, Attend Toward, Moved To Wrong Grating, Contrast Up",tNow);
-                    case trialType% = trialtypeAttendAway% and trialContrastUpDown% = 1 then
-                        attCountAwayTrialsIncorrect% += 1;
-                        SampleText("Miss, Attend Away, Moved To Wrong Grating, Contrast Up",tNow);
-                    else
-                        PrintLog("ERROR: Unknown trial type (" + str$(trialType%) + "\n");
-                    endcase
-                    'getPreciseTiming := 0;
-                    ChangeStateTo(stateTrialCompletedWaitForBlank%, tNow);
-                    SafeSampleKey("X");
-                else  'it's a NO-GO trial, and we got an answer
-                    'SampleText("-");
-                    attCountAllTrialsIncorrect% += 1;
-                    attInterTrialTime2 := attInterTrialTime + attMissPenalty;
-                    docase
-                    case trialType% = trialtypeAttendToward% and trialContrastUpDown% = 1 then
-                        attCountTowardTrialsIncorrect% += 1;
-                        SampleText("False Alarm, Attend Toward",tNow);
-                    case trialType% = trialtypeAttendAway% and trialContrastUpDown% = 1 then
-                        attCountAwayTrialsIncorrect% += 1;
-                        SampleText("False Alarm, Attend Away",tNow);
-                    else
-                        PrintLog("ERROR: Unknown trial type (" + str$(trialType%) + "\n");
-                    endcase
-                    'getPreciseTiming := 0;
-                    Yield(.01);    ' necessary so that the SampleText and SafeSampleKey below don't land on the same time (makes extraction difficult)
-                    FAIsResponse% := 1;
-                    ChangeStateTo(stateAbort%,tNow);
-                    'SafeSampleKey("X");  'this is done in stateAbort%
-                endcase
+                else  'not looking, but no answer
+                    if trialContrastUpDown% = 0 then 'NO-GO trial, out of fixation window before end of response window is abort/FA
+                        ChangeStateTo(stateCheckFalseAlarm%, tNow);  'either a false alarm or an abort, decide based on attFalseAlarmCheckWindow
+                    endif
+                    'if it's a GO trial, eye may not have reached answer window yet, just check for an answer next time around the idle loop
+                endif
             endif
         endif
         
