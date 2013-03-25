@@ -1,4 +1,4 @@
-' $Id: AttentionGoNoGoTemp.s2s,v 1.6 2013-03-25 19:11:11 jeff Exp $
+' $Id: AttentionGoNoGoTemp.s2s,v 1.7 2013-03-25 21:09:49 devel Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -1283,7 +1283,7 @@ func IdleProcessing%()
                         'SafeSampleKey("X");  'this is done in stateAbort%
                     endcase
                 else  'not looking, but no answer
-                    if trialContrastUpDown% = 0 then 'NO-GO trial, out of fixation window before end of response window is abort/FA
+                    if trialContrastUpDown% < 0 then 'NO-GO trial, out of fixation window before end of response window is abort/FA
                         ChangeStateTo(stateCheckFalseAlarm%, tNow);  'either a false alarm or an abort, decide based on attFalseAlarmCheckWindow
                     endif
                     'if it's a GO trial, eye may not have reached answer window yet, just check for an answer next time around the idle loop
