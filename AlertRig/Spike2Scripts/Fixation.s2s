@@ -1,4 +1,4 @@
-' $Id: Fixation.s2s,v 1.35 2012-07-23 18:04:45 jeff Exp $
+' $Id: Fixation.s2s,v 1.36 2013-03-27 22:43:46 devel Exp $
 ' Update 11/8/11 Jeff, includes SafeSampleKey and multi-juicer updates
 
 #include "../../Spike2Util/UsreyUtil.s2s"
@@ -36,6 +36,7 @@ var fixBackgroundColor$;			' Background color for stim
 var fixCalibrationFlag%;			' 1 for calibration run
 var fixCalibrationOffset;			' degree offset for calibration dots
 var fixAlwaysLooking% := 0;
+var fixPendingCalMode% := 0;        ' Set when user hits Horizontal, Vertical, Corners, or Center key. See UpdateCalMode().
 var fixInterleaveLED%;              'If 1, interleave fixation LED with fixation point
 var fixSimultaneousLED%;
 var fixSaveData%;                   'If 1, save data to fixSaveDataName$;
@@ -300,6 +301,12 @@ func IdleProcessing%()
                 LogStatus("VSGWait", "Got falling edge of ready trigger");
                 ChangeStateTo(stateStartTrial%, tNow);
                 stayInLoop% := 1;  'Once VSG is ready, don't wait to start the trial
+                
+                ' For calibration runs, set up first fixpt position prior to first trial. 
+                ' After this, this call is made AFTER each trial is done. 
+                if fixCalibrationFlag% = 1 then
+                    DoCalibrationSampleKeys();
+                endif
             endif;
             
             
@@ -310,16 +317,11 @@ func IdleProcessing%()
             ' Enter state 1
             if Pause% = 0 then
                 nTrialsStarted% += 1;
-                iStimIndex% := (iStimIndex% + 1) mod 8;
                 
-                ' calibration run does not require a separate trigger - the setting of the seqvar does the trick. 
-                if fixCalibrationFlag% = 1 then
-                    DoSampleKey();
-                else
-                    SafeSampleKey("H");
-                endif
+                 ' djs - calibration x,y are set at trial end. 
+                SafeSampleKey("F");
                 if fixSimultaneousLED% = 1 then
-                    SafeSampleKey("F");
+                    SafeSampleKey("L");
                 endif
                 
                 iState% := stateWaitForStim%;
@@ -385,9 +387,9 @@ func IdleProcessing%()
             
             ' Turn off stimulus
             DrawStim(0);
-            SafeSampleKey("L");
+            SafeSampleKey("X");
             if fixSimultaneousLED% = 1 then
-                SafeSampleKey("G");
+                SafeSampleKey("M");
             endif
             ChangeStateTo(stateWaitForBlank%, tNow);            
             
@@ -404,11 +406,15 @@ func IdleProcessing%()
                     LogStatus("WaitForBlank", "Stim off trig");
                     if fixSuccess% = 0 then
                         ChangeStateTo(stateFailure%, tTrigger);
-                        stayInLoop% := 1;  'No reason to wait, go straight to failure
                     else
                         ChangeStateTo(stateSuccess%, tTrigger);
-                        stayInLoop% := 1;  'No reason to wait, go straight to success
                     endif;
+                    
+                    ' calibration run: advance tells stim program what x,y is next.
+                    if fixCalibrationFlag% = 1 then
+                        DoCalibrationSampleKeys();
+                    endif
+                    
                 else
                     ' this should never happen!
                     Message("Wrong trig edge in stateWaitForBlank!");
@@ -471,7 +477,7 @@ func IdleProcessing%()
                 nLEDTrialsStarted% += 1;
                 'iStimIndex% := (iStimIndex% + 1) mod 8;
                 
-                SafeSampleKey("F");
+                SafeSampleKey("L");
                 
                 ChangeStateTo(stateWaitForLEDAcquisition%, tNow);
                 
@@ -495,7 +501,7 @@ func IdleProcessing%()
                 
                 ' Failed. Turn off stim and try again.
                 ' Turn off stimulus immediately
-                SafeSampleKey("G");
+                SafeSampleKey("M");
                 ChangeStateTo(stateLEDFailure%, tNow);
                 stayInLoop% := 1;  'No reason to wait
             endif
@@ -505,7 +511,7 @@ func IdleProcessing%()
             ' Waiting for fixation....
             if InFixationWindow%(xEye, yEye) <= 0 then
                 ' Turn off stimulus immediately
-                SafeSampleKey("G");
+                SafeSampleKey("M");
                 ChangeStateTo(stateLEDFailure%, tNow);
                 stayInLoop% := 1;  'No reason to wait
             else
@@ -513,7 +519,7 @@ func IdleProcessing%()
                 if tNow - tStateStart >= fixFixationDuration then
                     
                     ' Turn off stimulus immediately
-                    SafeSampleKey("G");
+                    SafeSampleKey("M");
                     ' Fixation. Reward. New trial.
                     ChangeStateTo(stateLEDSuccess%, tNow);
                     stayInLoop% := 1;  'No reason to wait
@@ -591,11 +597,15 @@ func IdleProcessing%()
 end;
 
 
-proc DoSampleKey()
+proc DoCalibrationSampleKeys()
 	var iSeqVar% := 0;
-	iSeqVar% := (3 + iStimY%[iStimIndex%]*16 + iStimX%[iStimIndex%]*4) * 256;
+    UpdateCalMode();
+    iStimIndex% := (iStimIndex% + 1) mod 8;         
+	iSeqVar% := ((iStimY%[iStimIndex%]*16 + iStimX%[iStimIndex%]*4) * 256) + 0xc3;
 	SampleSeqVar(1, iSeqVar%);
 	SafeSampleKey("S");
+    'Message(str$(iStimX%[iStimIndex%]) + "," + str$(iStimY%[iStimIndex%]));
+    'LogStatus("DoCalibrationSampleKeys", "iStimIndex,x,y,seqvar " + str$(iStimIndex%) + "," + str$(iStimX%[iStimIndex%]) + "," + str$(iStimY%[iStimIndex%]) + "," + str$(iSeqVar%));
 end;
 
 proc UpdateToolbarText()
@@ -758,13 +768,15 @@ proc InitializeToolbar()
 	ToolbarSet(7,"Horizontal", Horizontal%);
 	ToolbarSet(8,"Vertical", Vertical%);
 	ToolbarSet(9,"Corners", Corners%);
-	ToolbarSet(10,"Quit",Quit%);
+    ToolbarSet(10,"Center", Center%);
+	ToolbarSet(11,"Quit",Quit%);
 	ToolbarEnable(2,0);
 	ToolbarEnable(4,0);
 	ToolbarEnable(5,0);
 	ToolbarEnable(7,0);
 	ToolbarEnable(8,0);
 	ToolbarEnable(9,0);
+	ToolbarEnable(10,0);
 	Toolbar("Go", 0x3ff);
 
 end;
@@ -805,9 +817,6 @@ func Start%()
 
 
 	if fixCalibrationFlag% = 0 then
-
-		' Initialize the stimulus locator
-		Center%();
 
 		' Use distractors? 
 		if fixStimulusFlag% = 1 then
@@ -865,7 +874,7 @@ func Start%()
 		Horizontal%();
 
 		Extras$ := " -b " + fixBackgroundColor$ + " -d " + GetDistanceToScreenMM$() + " -C " + str$(fixCalibrationOffset);
-		CommandLine$ := "cmd /k " + bin$ + "\\Calibration " + FixationArg$ + Extras$;
+		CommandLine$ := "cmd /k " + bin$ + "\\Fixation " + FixationArg$ + Extras$;
 
 	endif
 
@@ -883,6 +892,7 @@ func Start%()
 	ToolbarEnable(8,1);
 	ToolbarEnable(9,1);
 	ToolbarEnable(10,1);
+	ToolbarEnable(11,1);
 	View(DataWindow%);
 	Yield(.1);
 	return 1;
@@ -997,54 +1007,76 @@ end;
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
+
+' When user hits one of the direction buttons (Horizontal, Vertical, Corners, Center), a flag is set to indicate
+' a pending mode change. The mode isn't changed immediately. If we did that in the middle of a trial, the idle 
+' function may think that the target is at a position DIFFERENT than the one its really at. This function is called
+' from DoCalSampleKeys, which is called at a "safe" time (between trials), to ensure that the stim program and this
+' script have the same notion of where the target is on screen. 
+
+proc UpdateCalMode()
+    if fixPendingCalMode% = 0 then return; endif
+        
+    docase
+    case fixPendingCalMode% = 1 then        ' horizontal
+        iStimX%[0] := 1; iStimY%[0] := 2;
+        iStimX%[1] := 1; iStimY%[1] := 2;
+        iStimX%[2] := 2; iStimY%[2] := 2;
+        iStimX%[3] := 2; iStimY%[3] := 2;
+        iStimX%[4] := 3; iStimY%[4] := 2;
+        iStimX%[5] := 3; iStimY%[5] := 2;
+        iStimX%[6] := 2; iStimY%[6] := 2;
+        iStimX%[7] := 2; iStimY%[7] := 2;
+    case fixPendingCalMode% = 2 then        ' vertical
+        iStimX%[0] := 2; iStimY%[0] := 1;
+        iStimX%[1] := 2; iStimY%[1] := 1;
+        iStimX%[2] := 2; iStimY%[2] := 2;
+        iStimX%[3] := 2; iStimY%[3] := 2;
+        iStimX%[4] := 2; iStimY%[4] := 3;
+        iStimX%[5] := 2; iStimY%[5] := 3;
+        iStimX%[6] := 2; iStimY%[6] := 2;
+        iStimX%[7] := 2; iStimY%[7] := 2;
+    case fixPendingCalMode% = 3 then        ' corners
+        iStimX%[0] := 1; iStimY%[0] := 1;
+        iStimX%[1] := 1; iStimY%[1] := 1;
+        iStimX%[2] := 3; iStimY%[2] := 1;
+        iStimX%[3] := 3; iStimY%[3] := 1;
+        iStimX%[4] := 3; iStimY%[4] := 3;
+        iStimX%[5] := 3; iStimY%[5] := 3;
+        iStimX%[6] := 1; iStimY%[6] := 3;
+        iStimX%[7] := 1; iStimY%[7] := 3;
+    case fixPendingCalMode% = 4 then    ' center
+        iStimX%[0] := 2; iStimY%[0] := 2;
+        iStimX%[1] := 2; iStimY%[1] := 2;
+        iStimX%[2] := 2; iStimY%[2] := 2;
+        iStimX%[3] := 2; iStimY%[3] := 2;
+        iStimX%[4] := 2; iStimY%[4] := 2;
+        iStimX%[5] := 2; iStimY%[5] := 2;
+        iStimX%[6] := 2; iStimY%[6] := 2;
+        iStimX%[7] := 2; iStimY%[7] := 2;        
+    endcase    
+    fixPendingCalMode% := 0;
+    
+    return;
+end;
+    
 func Horizontal%()
-	iStimX%[0] := 1; iStimY%[0] := 2;
-	iStimX%[1] := 1; iStimY%[1] := 2;
-	iStimX%[2] := 2; iStimY%[2] := 2;
-	iStimX%[3] := 2; iStimY%[3] := 2;
-	iStimX%[4] := 3; iStimY%[4] := 2;
-	iStimX%[5] := 3; iStimY%[5] := 2;
-	iStimX%[6] := 2; iStimY%[6] := 2;
-	iStimX%[7] := 2; iStimY%[7] := 2;
+    fixPendingCalMode% := 1;
 	return 1;
 end;
-
+          
 func Vertical%()
-	iStimX%[0] := 2; iStimY%[0] := 1;
-	iStimX%[1] := 2; iStimY%[1] := 1;
-	iStimX%[2] := 2; iStimY%[2] := 2;
-	iStimX%[3] := 2; iStimY%[3] := 2;
-	iStimX%[4] := 2; iStimY%[4] := 3;
-	iStimX%[5] := 2; iStimY%[5] := 3;
-	iStimX%[6] := 2; iStimY%[6] := 2;
-	iStimX%[7] := 2; iStimY%[7] := 2;
-	return 1;
+    fixPendingCalMode% := 2;    
+  	return 1;
 end;
 
 func Corners%()
-	iStimX%[0] := 1; iStimY%[0] := 1;
-	iStimX%[1] := 1; iStimY%[1] := 1;
-	iStimX%[2] := 3; iStimY%[2] := 1;
-	iStimX%[3] := 3; iStimY%[3] := 1;
-	iStimX%[4] := 3; iStimY%[4] := 3;
-	iStimX%[5] := 3; iStimY%[5] := 3;
-	iStimX%[6] := 1; iStimY%[6] := 3;
-	iStimX%[7] := 1; iStimY%[7] := 3;
+    fixPendingCalMode% := 3;
 	return 1;
 end;
 
 func Center%()
-	iStimX%[0] := 2; iStimY%[0] := 2;
-	iStimX%[1] := 2; iStimY%[1] := 2;
-	iStimX%[2] := 2; iStimY%[2] := 2;
-	iStimX%[3] := 2; iStimY%[3] := 2;
-	iStimX%[4] := 2; iStimY%[4] := 2;
-	iStimX%[5] := 2; iStimY%[5] := 2;
-	iStimX%[6] := 2; iStimY%[6] := 2;
-	iStimX%[7] := 2; iStimY%[7] := 2;
+    fixPendingCalMode% := 4;
 	return 1;
 end;
-
-
-
 
