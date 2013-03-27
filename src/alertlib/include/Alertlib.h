@@ -639,7 +639,10 @@ namespace alert
 
 
 		std::string getKey() const { return m_key; };
+		int inVal() const { return m_in_val; };
+		int inMask() const { return m_in_mask; };
 		int outMask() const { return m_out_mask; };
+		int outVal() const { return m_out_val; };
 	protected:
 		std::string m_key;
 		int m_in_mask;
@@ -732,7 +735,6 @@ namespace alert
 							break;
 						}
 					}
-//					std::cout << "current " << std::hex << current << " matched " << m_input_matched << std::endl;
 				}
 				m_in_last = current;
 				bValue = (m_input_matched >= 0);
