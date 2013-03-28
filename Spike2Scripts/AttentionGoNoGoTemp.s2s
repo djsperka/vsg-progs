@@ -1,4 +1,4 @@
-' $Id: AttentionGoNoGoTemp.s2s,v 1.7 2013-03-25 21:09:49 devel Exp $
+' $Id: AttentionGoNoGoTemp.s2s,v 1.8 2013-03-28 01:28:08 jeff Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -55,6 +55,7 @@ var attBlockAlternate%;
 var attNoBlockRand%;  'if 1, don't do blocked randomization
 var attTrainingContrastCheck%:=0;
 var attTrainingContrastPct%:=0;
+var attAnsWindowIsGrating%:=0;
 var randBlockOrderVar%;     'this will be 0 or 1, and will determine whether we start attend-toward or attend-away
 randBlockOrderVar% := round(rand(0.0)); 'just set it right now, may need 0.0 to properly seed random number generator
 
@@ -95,6 +96,7 @@ const attdlgCircleDiameterDiff% := 17;
 const attdlgLollipopContrast% := 18;
 const attdlgLollipopStickContrast% := 19;
 const attdlgLollipopStickGap := 20;
+const attdlgUseAnsWindow% := 21;
 
 ' constants for timing dialog
 const atttimingdlgFixationCueMinTime% := 2;
@@ -342,7 +344,8 @@ func AttentionScriptDialog%()
 	DlgReal(9, "Max dContrast (oct)", 0, 10, 22, 10);
 	DlgReal(10, "Min dContrast (oct)", 0, 10, 22, 11);
     DlgInteger(11, "N contrast levels", 1, 10, 22, 12);
-    DlgReal(12, "Ans. window rad. (deg)", 0.01, 10, 22, 13);
+    'DlgCheck(attdlgUseAnsWindow%, "Answer window = grating",2,13);  'too many to use..., keeping it, but...
+    DlgReal(12, "Ans. window rad. (deg)", 0, 10, 22, 13);
 	DlgCheck(attdlgTrainingContrastCheck%, "Training Contrast", 2, 14);
 	DlgInteger(attdlgTrainingContrastPct%, "Training Contrast(%)", 0, 100, 22, 15);
     DlgButton(2, "Colors", ColorsDialog%, 1, 16);
@@ -362,6 +365,13 @@ func AttentionScriptDialog%()
     attLollipopContrast%, attLollipopStickContrast%, attCueLineGap);
 	if i% = 1 then
         '	attBackgroundColor$ := bcl$[ibcl%];
+        'Secret hidden check, if answer point radius is 0 it will use the grating size
+        if attAnswerPointWindowRadius = 0 then
+            attAnsWindowIsGrating% := 1;
+        else
+            attAnsWindowIsGrating% := 0;
+        endif;
+        
         if attMinContChange > attMaxContChange then
             message("The maximum contrast change must be MORE than the minimum!  Swapping!");
             tempWhoops := attMinContChange;
@@ -785,12 +795,23 @@ func Answer%(EyePosX, EyePosY)
     var ans% := 0;
     var ansptRadius;
     ansptRadius := Pow(attAnswerPointWindowRadius,2);
-    'Top response location
+    docase
+    case attAnsWindowIsGrating% = 1 then
+        'Top response location
+        if (Pow(EyePosX-upX,2) + Pow(EyePosY-(upY),2)) <= Pow(upW/2,2) then ans% := 1; endif  'just assuming upW = upH!
+        'Bottom response location
+        if (Pow(EyePosX-downX,2) + Pow(EyePosY-(downY),2)) <= Pow(downW/2,2) then ans% := -1; endif  'just assuming downW = downH!
+    else
+        'Top response location
+        if (Pow(EyePosX-upX,2) + Pow(EyePosY-(upY),2)) <= ansptRadius then ans% := 1; endif
+        'Bottom response location
+        if (Pow(EyePosX-downX,2) + Pow(EyePosY-(downY),2)) <= ansptRadius then ans% := -1; endif
+    endcase
+    
+    'old
 	'if (Pow(EyePosX-FixationX,2) + Pow(EyePosY-(FixationY+attAnswerPointOffset),2)) <= ansptRadius then ans% := 1; endif
-    if (Pow(EyePosX-upX,2) + Pow(EyePosY-(upY),2)) <= upW/2 then ans% := 1; endif  'just assuming upW = upH!
-    'Bottom response location
 	'if (Pow(EyePosX-FixationX,2) + Pow(EyePosY-(FixationY-attAnswerPointOffset),2)) <= ansptRadius then ans% := -1; endif
-    if (Pow(EyePosX-downX,2) + Pow(EyePosY-(downY),2)) <= downW/2 then ans% := -1; endif  'just assuming downW = downH!
+
 	return ans%;
 end;
 
@@ -1560,8 +1581,10 @@ proc InitializeWindows()
     for index% := 0 to 35 do
         'FixWindowX[index%] := FixationX + attAnswerPointWindowRadius * Cos(index% * twopi/36.0);
 		'FixWindowY[index%] := FixationY + attAnswerPointOffset + attAnswerPointWindowRadius * Sin(index% * twopi/36.0);
-        FixWindowX[index%] := upX + (upW/2) * Cos(index% * twopi/36.0);
-		FixWindowY[index%] := upY + (upH/2) * Sin(index% * twopi/36.0);
+        'FixWindowX[index%] := upX + (upW/2) * Cos(index% * twopi/36.0);
+		'FixWindowY[index%] := upY + (upH/2) * Sin(index% * twopi/36.0);
+        FixWindowX[index%] := upX + attAnswerPointWindowRadius * Cos(index% * twopi/36.0);
+		FixWindowY[index%] := upY + attAnswerPointWindowRadius * Sin(index% * twopi/36.0);
 	next;
     iAnswerWindowChannel1% := XYSetChan(0);
     XYColour(iAnswerWindowChannel1%,13);
@@ -1573,8 +1596,10 @@ proc InitializeWindows()
 
 '    'Second window
     for index% := 0 to 35 do
-		FixWindowX[index%] := downX + (downW/2) * Cos(index% * twopi/36.0);
-		FixWindowY[index%] := downY + (downH/2) * Sin(index% * twopi/36.0);
+		'FixWindowX[index%] := downX + (downW/2) * Cos(index% * twopi/36.0);
+		'FixWindowY[index%] := downY + (downH/2) * Sin(index% * twopi/36.0);
+        FixWindowX[index%] := downX + attAnswerPointWindowRadius * Cos(index% * twopi/36.0);
+		FixWindowY[index%] := downY + attAnswerPointWindowRadius * Sin(index% * twopi/36.0);
 		'FixWindowY[index%] := FixationY - attAnswerPointOffset + attAnswerPointWindowRadius * Sin(index% * twopi/36.0);
 	next;
     iAnswerWindowChannel2% := XYSetChan(0);
