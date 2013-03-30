@@ -1,6 +1,6 @@
 
 
-const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.55 2013-01-31 23:10:31 jeff Exp $";
+const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.56 2013-03-30 23:48:19 jeff Exp $";
 
 
 ' Hello again
@@ -377,7 +377,7 @@ proc CreateStimulusOrder()
     nExistingBlocks% := DealStimuliToBlocks%(dhdContrastValues[],dhNValues%,nExistingBlocks%,dhNContrastLevels%,dhMinDContrast,dhMaxDContrast,dhContrastLogProgression%);
     ArrAdd(dhdContrastValues[],dhCoreContrast);  'Put it in terms of absolute contrast, not change in contrast
     'Assign donut diameter values
-    nExistingBlocks% := DealStimuliToBlocks%(dhDonutDiamValues[],dhNValues%,nExistingBlocks%,dhNDonutDiameters%,dhMinDonutDiameter,dhMaxDonutDiameter,dhDiameterLogProgression%);
+    nExistingBlocks% := DealStimuliToBlocks%(dhDonutDiamValues[],dhNValues%,nExistingBlocks%,dhNDonutDiameters%,dhMinDonutOuterDiameter,dhMaxDonutOuterDiameter,dhDiameterLogProgression%);
     'Assign core orientation values
     nExistingBlocks% := DealStimuliToBlocks%(dhCenterOriValues[],dhNValues%,nExistingBlocks%,dhNCoreOrientations%,dhMinCoreOrientation,dhMaxCoreOrientation,0);
     
@@ -668,6 +668,7 @@ func Start%()
     var correctContrast%;
     var wrongContrast%;
     var maximumChoicePointDur := 100;  '100 seconds
+    var dhLOffset;  'x offset for left stimulus, allows us to shove the L stimulus off the screen in one condition
     
 	
 	SampleStart(0); 'Start sampling
@@ -709,12 +710,19 @@ func Start%()
         wrongContrast% := dhWrongCPContrast%;
     endcase
     
+    if dhMoveLStimOffScreen% = 1 then
+        dhLOffset := 30;  'that ought to do it
+    else
+        dhLOffset := dhXOffset;  'otherwise put it where it is expected, opposite the right stimulus
+    endif
+    
+    
     Print("%s,%s,",coreScreen$,donutScreen$);  'Specifies which item is on which screen (hopefully syntax is right)
     Print("answerpoints,%d,%d,%f\n",correctContrast%,wrongContrast%,maximumChoicePointDur); 'line 1 continued, choice point info
     Print("%s\n",coreParam$);  'core-stim-spec
-    Print("%f,%f,%f,%f\n",FixationX-dhXOffset,FixationY+dhYOffset,FixationX+dhXOffset,FixationY+dhYOffset);  'xL,yL,xR,yR master
+    Print("%f,%f,%f,%f\n",FixationX-dhLOffset,FixationY+dhYOffset,FixationX+dhXOffset,FixationY+dhYOffset);  'xL,yL,xR,yR master
     Print("%s\n",donutParam$);  'donut-stim-spec
-    Print("%f,%f,%f,%f\n",FixationX-dhXOffset,FixationY+dhYOffset,FixationX+dhXOffset,FixationY+dhYOffset);  'xL,yL,xR,yR slave, same as master            
+    Print("%f,%f,%f,%f\n",FixationX-dhLOffset,FixationY+dhYOffset,FixationX+dhXOffset,FixationY+dhYOffset);  'xL,yL,xR,yR slave, same as master            
     'Print("%f,%f,%f,%f,%f\n",dhDelayBeforeDContrast,dhDurAfterDContrast,dhCoreContrast,dhNGrids%,dhGridDur);  't2,t3,contrast_base, number of grids, grid duration    t2,t3 gridDur in s
     Print("%f,%f,%f,%f,%f\n",dhDelayBeforeDContrast,dhDurAfterDContrast,dhCoreContrast,dhGridTF,dhGridDur);  't2,t3,contrast_base, grid temporal frequency, grid total duration    t2,t3 gridDur in s
     Print("%s\n",dhT1ValuesStringified$); 't1_0,t1_1,t1_2,...           per-trial t1 values in seconds
@@ -956,7 +964,9 @@ proc WriteParameterFile()
     Print("Initial Phase              : %d\n",dhInitialPhase%);
     Print("Donut Contrast             : %f\n",dhDonutContrast);
     Print("Base Core Contrast         : %f\n",dhCoreContrast);  'base
-    Print("Core diameter              : %f\n",dhCoreDiameter);
+    Print("Core inner diameter        : %f\n",dhCoreInnerDiameter);
+    Print("Core outer diameter        : %f\n",dhCoreOuterDiameter);
+    Print("Donut inner diameter       : %f\n",dhDonutInnerDiameter);
     Print("Donut Orientation          : %f\n",dhDonutOrientation);
            
     
@@ -982,7 +992,7 @@ proc WriteParameterFile()
     Print("\n");
     
     Print("Parameter                  : Donut Outer Diameter Area\n");
-    Print("Min,Max,#Steps,LogIf1    : %f,%f,%d,%d\n", dhMinDonutDiameter, dhMaxDonutDiameter, dhNDonutDiameters%, dhDiameterLogProgression%);
+    Print("Min,Max,#Steps,LogIf1    : %f,%f,%d,%d\n", dhMinDonutOuterDiameter, dhMaxDonutOuterDiameter, dhNDonutDiameters%, dhDiameterLogProgression%);
     Print("Values: " + dhDonutDiamValuesStringified$ + "\n");
     Print("\n");
 
