@@ -49,15 +49,18 @@ var dhMinDContrast;
 var dhMaxDContrast;
 var dhNContrastLevels%;
 var dhContrastLogProgression%;
-var dhCoreDiameter;
-var dhMinDonutDiameter;
-var dhMaxDonutDiameter;
+var dhCoreInnerDiameter;
+var dhCoreOuterDiameter;
+var dhDonutInnerDiameter;
+var dhMinDonutOuterDiameter;
+var dhMaxDonutOuterDiameter;
 var dhNDonutDiameters%;
 var dhDiameterLogProgression%;
 var dhDonutOrientation;
 var dhMinCoreOrientation;
 var dhMaxCoreOrientation;
 var dhNCoreOrientations%;
+var dhMoveLStimOffScreen%;
 
 'Crosshair dialog variables 
 var dhXHairInnerRadiusOffset;
@@ -71,6 +74,7 @@ var dhXHairTicOuterOffset;
 var dhIsHuman%; ' If set eye signals ignored - subject presumed to be looking always.
 var dhUseJoystick%;  ' If 1 AND dhIsHuman% = 0, then joystick response is expected, ignored if dhIsHuman% is 0
                      ' If 2 or 3 AND dhIsHuman% = 0, then saccade response is expected (3 is training, only target response allowed)
+var tempUseJoystick%;  'set so that we can enable/disable the "shove left grating off screen" option
 var dhUseMaintainMode%;  ' If 1, maintain fixation point on screen through stimuli, if zero, force "restart" on each stimulus
 var dhMaintainFixation;	' Time required to hold fixation for reward (stim OFF)
 var dhAcquisitionTime;		' Time allowed to acquire fixation
@@ -148,15 +152,18 @@ proc GetDonutHuntGratingParameters()
     dhMaxDContrast := GetFloatRegistryValue(key$, "MaxDContrast", dhMaxDContrast);
     dhNContrastLevels% := GetIntRegistryValue%(key$, "NContrastLevels", dhNContrastLevels%);
     dhContrastLogProgression% := GetIntRegistryValue%(key$, "ContrastLogProgression", dhContrastLogProgression%);
-    dhCoreDiameter := GetFloatRegistryValue(key$, "CoreDiameter", dhCoreDiameter);
-    dhMinDonutDiameter := GetFloatRegistryValue(key$, "MinDonutDiameter", dhMinDonutDiameter);
-    dhMaxDonutDiameter := GetFloatRegistryValue(key$, "MaxDonutDiameter", dhMaxDonutDiameter);
+    dhCoreInnerDiameter := GetFloatRegistryValue(key$, "CoreInnerDiameter", dhCoreInnerDiameter);
+    dhCoreOuterDiameter := GetFloatRegistryValue(key$, "CoreOuterDiameter", dhCoreOuterDiameter);
+    dhDonutInnerDiameter := GetFloatRegistryValue(key$, "DonutInnerDiameter", dhDonutInnerDiameter);
+    dhMinDonutOuterDiameter := GetFloatRegistryValue(key$, "MinDonutOuterDiameter", dhMinDonutOuterDiameter);
+    dhMaxDonutOuterDiameter := GetFloatRegistryValue(key$, "MaxDonutOuterDiameter", dhMaxDonutOuterDiameter);
     dhNDonutDiameters% := GetIntRegistryValue%(key$, "NDonutDiameters", dhNDonutDiameters%);
     dhDiameterLogProgression% := GetIntRegistryValue%(key$, "DiameterLogProgression", dhDiameterLogProgression%);
     dhDonutOrientation := GetFloatRegistryValue(key$, "DonutOrientation", dhDonutOrientation);
     dhMinCoreOrientation := GetFloatRegistryValue(key$, "MinCoreOrientation", dhMinCoreOrientation);
     dhMaxCoreOrientation := GetFloatRegistryValue(key$, "MaxCoreOrientation", dhMaxCoreOrientation);
     dhNCoreOrientations% := GetIntRegistryValue%(key$, "NCoreOrientations", dhNCoreOrientations%);
+    dhMoveLStimOffScreen% := GetIntRegistryValue%(key$, "MoveLStimOffScreen", dhMoveLStimOffScreen%);
     
 end
 
@@ -177,15 +184,18 @@ proc SaveDonutHuntGratingParameters()
     SetFloatRegistryValue(key$, "MaxDContrast", dhMaxDContrast);
     SetIntRegistryValue(key$, "NContrastLevels", dhNContrastLevels%);
     SetIntRegistryValue(key$, "ContrastLogProgression", dhContrastLogProgression%);
-    SetFloatRegistryValue(key$, "CoreDiameter", dhCoreDiameter);
-    SetFloatRegistryValue(key$, "MinDonutDiameter", dhMinDonutDiameter);
-    SetFloatRegistryValue(key$, "MaxDonutDiameter", dhMaxDonutDiameter);
+    SetFloatRegistryValue(key$, "CoreInnerDiameter", dhCoreInnerDiameter);
+    SetFloatRegistryValue(key$, "CoreOuterDiameter", dhCoreOuterDiameter);
+    SetFloatRegistryValue(key$, "DonutInnerDiameter", dhDonutInnerDiameter);
+    SetFloatRegistryValue(key$, "MinDonutOuterDiameter", dhMinDonutOuterDiameter);
+    SetFloatRegistryValue(key$, "MaxDonutOuterDiameter", dhMaxDonutOuterDiameter);
     SetIntRegistryValue(key$, "NDonutDiameters", dhNDonutDiameters%);
     SetIntRegistryValue(key$, "DiameterLogProgression", dhDiameterLogProgression%);
     SetFloatRegistryValue(key$, "DonutOrientation", dhDonutOrientation);
     SetFloatRegistryValue(key$, "MinCoreOrientation", dhMinCoreOrientation);
     SetFloatRegistryValue(key$, "MaxCoreOrientation", dhMaxCoreOrientation);
     SetIntRegistryValue(key$, "NCoreOrientations", dhNCoreOrientations%);
+    SetIntRegistryValue(key$, "MoveLStimOffScreen", dhMoveLStimOffScreen%);
     
 end
 
@@ -427,6 +437,8 @@ func DonutHuntMainDialogChanged%(item%)
         DlgEnable(1,-dhSelectSEQFileButton%);
     endif;
     
+    tempUseJoystick% := DlgValue(14);  'On any change, just get the current value of the joystick/saccade variable 
+    
     return 1;
 end
 
@@ -436,6 +448,7 @@ func DonutHuntGratingDialog%()
     var i%;
     var allOK% := 0;
     var param$;
+    var dhDiameters[5];
     
     'Disable the calling dialog's OK button, in case invalid numbers are entered
     '(On the first call it will be disabled anyway)
@@ -444,85 +457,107 @@ func DonutHuntGratingDialog%()
     ' Fetch parameters from registry    
     GetDonutHuntGratingParameters();    
     
+    'consolidate some variables into array to allow over 20 arguments on one dialog
+    'Only restrictions are that the values passed out of DlgShow have to be consecutive, same
+    'variable type, and the same number as the size of the array
+    dhDiameters[0] := dhCoreInnerDiameter;
+    dhDiameters[1] := dhCoreOuterDiameter;
+    dhDiameters[2] := dhDonutInnerDiameter;
+    dhDiameters[3] := dhMinDonutOuterDiameter;
+    dhDiameters[4] := dhMaxDonutOuterDiameter;
+    
     'Hold value of dhYOffset from registry, we will display and change a temporary value
     dhYOffsetTemp := dhYOffset;
     
     ' Generate the dialog    
-    DlgCreate("Donut Hunt Dialog",0,0,60,19);
+    DlgCreate("Donut Hunt Dialog",0,0,60,20);
     
-    'Common grating parameters
+    'Common grating parameters 
     DlgGroup("Common Grating Parameters",1,1,58,4);
     DlgReal(1,6,0,100,23,2);  'X offset, floor at 0 because we are reflecting
     DlgText("X Offset (deg)",2,2);
     DlgReal(2,6,-100,100,23,3);  'Y Offset, negative values legal
     DlgText("Y Offset (deg)",2,3);
-    DlgReal(3,6,0,100,52,2);  'Spatial freq
+    DlgCheck(3, "Shove L stim off screen", 2, 4);
+    DlgReal(4,6,0,100,52,2);  'Spatial freq
     DlgText("Spatial Freq. (cyc/deg)",31,2);
-    DlgReal(4,6,0,100,52,3);  'Temporal freq
+    DlgReal(5,6,0,100,52,3);  'Temporal freq
     DlgText("Temporal Freq. (cyc/s)",31,3);
-    DlgInteger(5,6,0,360,52,4);  'Init phase
+    DlgInteger(6,6,0,360,52,4);  'Init phase
     DlgText("Initial Phase (deg)",31,4);
    
     'Contrast parameters
     DlgGroup("Contrast Parameters",1,5,58,5);
-    DlgReal(6,6,0.1,100,52,6);  'Donut contrast
+    DlgReal(7,6,0.1,100,52,6);  'Donut contrast
     DlgText("Donut contrast",31,6);
-    DlgReal(7,6,0.1,100,23,6);  'Core contrast
+    DlgReal(8,6,0.1,100,23,6);  'Core contrast
     DlgText("Core base contrast",2,6);
-    DlgReal(8,6,0.1,100,23,7);  'Minimum change core contrast
+    DlgReal(9,6,0.1,100,23,7);  'Minimum change core contrast
     DlgText("Min core cont. change",2,7);
-    DlgReal(9,6,0.1,100,23,8);  'Maximum change core contrast
+    DlgReal(10,6,0.1,100,23,8);  'Maximum change core contrast
     DlgText("Max core cont. change",2,8);
-    DlgInteger(10,6,0,100,23,9);  'Number of contrast levels
+    DlgInteger(11,6,0,100,23,9);  'Number of contrast levels
     DlgText("# contrast levels",2,9);
-    DlgCheck(11, "Contrast Log Progression", 31, 9);
+    DlgCheck(12, "Contrast Log Progression", 31, 9);
     
     'Diameter parameters
-    DlgGroup("Diameter Parameters",1,10,58,4);
-    DlgReal(12,6,0,100,52,11);  'Core diameter
-    DlgText("Core diameter (deg)",31,11);
-    DlgReal(13,6,0,100,23,11);  'Minimum donut diameter
-    DlgText("Min donut diam. (deg)",2,11);
-    DlgReal(14,6,0,100,23,12);  'Maximum donut diameter
-    DlgText("Max donut diam. (deg)",2,12);
-    DlgInteger(15,6,0,100,23,13);  'Number of donut sizes
-    DlgText("# donut sizes",2,13);
-    DlgCheck(16, "Donut Size Log Progression", 31, 13);
+    DlgGroup("Diameter Parameters",1,10,58,5);
+    DlgReal(13,6,0,100,23,11);  'Minimum donut outer diameter
+    DlgText("Donut inner diam (deg)",2,11);
+    DlgReal(14,6,0,100,52,11);  'Core outer diameter
+    DlgText("Core inner diam (deg)",31,11);
+    DlgReal(15,6,0,100,52,12);  'Core outer diameter
+    DlgText("Core outer diam (deg)",31,12);
+    DlgReal(16,6,0,100,23,12);  'Minimum donut outer diameter
+    DlgText("Min donut out diam (deg)",2,12);
+    DlgReal(17,6,0,100,23,13);  'Maximum donut outer diameter
+    DlgText("Max donut out diam (deg)",2,13);
+    DlgInteger(18,6,0,100,23,14);  'Number of donut sizes
+    DlgText("# donut outer diams",2,14);
+    DlgCheck(19, "Donut Size Log Progression", 31, 14);
     
     
     'Orientation parameters
-    DlgGroup("Orientation Parameters",1,14,58,4);
-    DlgReal(17,6,0,360,52,15);  'Donut Orientation
-    DlgText("Donut Orientation (deg)",31,15);
-    DlgReal(18,6,0,360,23,15);  'Minimum Core orientation
-    DlgText("Min Core orient. (deg)",2,15);
-    DlgReal(19,6,0,360,23,16);  'Maximum Core prientation
-    DlgText("Max Core orient. (deg)",2,16);
-    DlgInteger(20,6,0,100,23,17);  'Number of orientations
-    DlgText("# orientations",2,17);
+    DlgGroup("Orientation Parameters",1,15,58,4);
+    DlgReal(20,6,0,360,52,16);  'Donut Orientation
+    DlgText("Donut Orientation (deg)",31,16);
+    DlgReal(21,6,0,360,23,16);  'Minimum Core orientation
+    DlgText("Min Core orient. (deg)",2,16);
+    DlgReal(22,6,0,360,23,17);  'Maximum Core prientation
+    DlgText("Max Core orient. (deg)",2,17);
+    DlgInteger(23,6,0,100,23,18);  'Number of orientations
+    DlgText("# orientations",2,18);
     
     DlgAllow(0xffff, 0, DonutHuntGratingDialogChanged%);    
     
     
     ' Show the dialog. 
-    i%:=DlgShow(dhXOffset,dhYOffsetTemp,dhSpatialFreq,dhTemporalFreq,dhInitialPhase%,dhDonutContrast,dhCoreContrast,
-    dhMinDContrast,dhMaxDContrast,dhNContrastLevels%,dhContrastLogProgression%,dhCoreDiameter,
-    dhMinDonutDiameter,dhMaxDonutDiameter,dhNDonutDiameters%,dhDiameterLogProgression%,dhDonutOrientation,
+    i%:=DlgShow(dhXOffset,dhYOffsetTemp,dhMoveLStimOffScreen%,dhSpatialFreq,dhTemporalFreq,dhInitialPhase%,dhDonutContrast,dhCoreContrast,
+    dhMinDContrast,dhMaxDContrast,dhNContrastLevels%,dhContrastLogProgression%,dhDiameters[],dhNDonutDiameters%,dhDiameterLogProgression%,dhDonutOrientation,
     dhMinCoreOrientation,dhMaxCoreOrientation,dhNCoreOrientations%);
 
     
     ' If user hit OK then check a couple of parameters
 	if i% = 1 then
-        'it's dummyproofing!
+        
+        'populate consolidated variables from array
+        dhCoreInnerDiameter := dhDiameters[0];
+        dhCoreOuterDiameter := dhDiameters[1];
+        dhDonutInnerDiameter := dhDiameters[2];
+        dhMinDonutOuterDiameter := dhDiameters[3];
+        dhMaxDonutOuterDiameter := dhDiameters[4];
+        
+        'it's dummyproofing time!
         docase
         case dhCoreContrast + dhMaxDContrast > 100 then
             message("Error!  The baseline core contrast plus maximum contrast add up to more than 100!");
         case dhMinDContrast > dhMaxDContrast then
             message("Error!  The min contrast is greater than the max contrast!");
-        case dhCoreDiameter > dhMinDonutDiameter then
-            message("Error!  The diameter of the core is greater than the smallest diameter of the donut!");
-        case dhMinDonutDiameter > dhMaxDonutDiameter then    
-            message("Error!  The min donut diameter of the core is greater than the max donut diameter!");
+        'this one is actually OK now, Ben wants this ability
+        'case dhCoreOuterDiameter > dhMinDonutOuterDiameter then
+            'message("Error!  The diameter of the core is greater than the smallest diameter of the donut!");
+        case dhMinDonutOuterDiameter > dhMaxDonutOuterDiameter then    
+            message("Error!  The min outer donut diameter is greater than the max outer donut diameter!");
         else
             allOK% := 1;
         endcase;            
@@ -543,9 +578,9 @@ func DonutHuntGratingDialog%()
         dhYOffset := dhYOffsetTemp;
         
         'Encode and save Core and Donut parameters (not Master/Slave specific, we'll assign that when we come to it)
-        param$ := EncodeGratingParameters$(0,0,dhCoreDiameter,dhCoreDiameter,0,0,dhCoreContrast,dhSpatialFreq,dhTemporalFreq,0,dhInitialPhase%,"b","s","e");
+        param$ := EncodeGratingParameters$(0,0,dhCoreOuterDiameter,dhCoreOuterDiameter,dhCoreInnerDiameter,dhCoreInnerDiameter,dhCoreContrast,dhSpatialFreq,dhTemporalFreq,0,dhInitialPhase%,"b","s","e");
         SaveGratingParameters("Core", param$);  'this saves core        
-        param$ := EncodeGratingParameters$(0,0,dhMinDonutDiameter,dhMinDonutDiameter,dhCoreDiameter,dhCoreDiameter,dhDonutContrast,dhSpatialFreq,dhTemporalFreq,dhDonutOrientation,dhInitialPhase%,"b","s","e");
+        param$ := EncodeGratingParameters$(0,0,dhMinDonutOuterDiameter,dhMinDonutOuterDiameter,dhDonutInnerDiameter,dhDonutInnerDiameter,dhDonutContrast,dhSpatialFreq,dhTemporalFreq,dhDonutOrientation,dhInitialPhase%,"b","s","e");
         SaveGratingParameters("Donut", param$);  'this saves core 
         
         'printlog("The y offset is %f\n",dhYOffset); 'just checking
@@ -564,9 +599,15 @@ func DonutHuntGratingDialogChanged%(item%)
         if dhIsHuman% = 1 then
             DlgValue(2,0);  'force Y offset to 0, don't let it change
             DlgEnable(0,2);
+            DlgValue(3,0);  'force "shove" dialog to 0
+            DlgEnable(0,3);  'and don't let it change for humans
         else
             DlgValue(2,dhYOffset);  'set initial Y offset to saved value, let it change
             DlgEnable(1,2);
+            if tempUseJoystick% > 0 then 'if there is any task at all
+                DlgValue(3,0);  'force "shove" dialog to 0
+                DlgEnable(0,3);  'and don't let it change
+            endif
         endif;
     endif;
     return 1;  'if we don't return 1, we can't freaking change anything.
