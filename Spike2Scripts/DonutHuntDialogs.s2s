@@ -460,9 +460,9 @@ func DonutHuntGratingDialog%()
     'consolidate some variables into array to allow over 20 arguments on one dialog
     'Only restrictions are that the values passed out of DlgShow have to be consecutive, same
     'variable type, and the same number as the size of the array
-    dhDiameters[0] := dhCoreInnerDiameter;
-    dhDiameters[1] := dhCoreOuterDiameter;
-    dhDiameters[2] := dhDonutInnerDiameter;
+    dhDiameters[0] := dhDonutInnerDiameter;
+    dhDiameters[1] := dhCoreInnerDiameter;
+    dhDiameters[2] := dhCoreOuterDiameter;
     dhDiameters[3] := dhMinDonutOuterDiameter;
     dhDiameters[4] := dhMaxDonutOuterDiameter;
     
@@ -541,9 +541,9 @@ func DonutHuntGratingDialog%()
 	if i% = 1 then
         
         'populate consolidated variables from array
-        dhCoreInnerDiameter := dhDiameters[0];
-        dhCoreOuterDiameter := dhDiameters[1];
-        dhDonutInnerDiameter := dhDiameters[2];
+        dhDonutInnerDiameter := dhDiameters[0];
+        dhCoreInnerDiameter := dhDiameters[1];
+        dhCoreOuterDiameter := dhDiameters[2];
         dhMinDonutOuterDiameter := dhDiameters[3];
         dhMaxDonutOuterDiameter := dhDiameters[4];
         
