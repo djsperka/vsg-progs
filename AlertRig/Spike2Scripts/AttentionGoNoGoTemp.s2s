@@ -1,4 +1,4 @@
-' $Id: AttentionGoNoGoTemp.s2s,v 1.10 2013-05-10 20:27:20 jeff Exp $
+' $Id: AttentionGoNoGoTemp.s2s,v 1.11 2013-05-10 20:55:12 devel Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -1763,6 +1763,7 @@ func Stop%()
     fn$ := fn$ + ".mat";
     FileSaveAs(fn$,100,0,"",0,"UseSName=0"); 'Do not overwrite the .mat file - should have a different name and if it doesn't that is a red flag    
     
+    WriteParameterFile();
     
     ' update statistics
     'AttentionExtract%(-1, -1);
