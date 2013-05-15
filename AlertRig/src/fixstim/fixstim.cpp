@@ -1,4 +1,4 @@
-/* $Id: fixstim.cpp,v 1.12 2013-01-08 23:30:37 devel Exp $ */
+/* $Id: fixstim.cpp,v 1.13 2013-05-15 18:52:06 devel Exp $ */
 
 #include <iostream>
 #include <fstream>
@@ -34,6 +34,10 @@ bool f_dumpStimSetsOnly = false;
 COLOR_TYPE f_background = { gray, {0.5, 0.5, 0.5}};
 ARContrastFixationPointSpec f_fixpt;
 ARGratingSpec f_grating;
+ARGratingSpec f_grating2;
+bool have_second = false;
+ARGratingSpec f_grating3;
+bool have_third = false;
 StimSet *f_pStimSet = NULL;			// This is for master in dualVSG mode
 int f_iDistanceToScreenMM = -1;
 TriggerVector triggers;
@@ -54,7 +58,7 @@ int main (int argc, char *argv[])
 	int status;
 
 	// Check input arguments
-	status = prargs(argc, argv, prargs_callback, "f:b:d:avg:s:C:T:S:O:A:P:R:B:H:Zp:G:D:w", 'F');
+	status = prargs(argc, argv, prargs_callback, "f:b:d:avg:s:C:T:S:O:A:P:R:B:H:Zp:G:D:wJ:", 'F');
 	if (status)
 	{
 		return -1;
@@ -252,10 +256,32 @@ int prargs_callback(int c, string& arg)
 		}
 		break;
 	case 's':
-		if (parse_grating(arg, f_grating)) 
+		if (!have_stim)
+		{
+			if (parse_grating(arg, f_grating)) 
+				errflg++;
+			else 
+				have_stim = true;
+		}
+		else if (!have_second)
+		{
+			if (parse_grating(arg, f_grating2)) 
+				errflg++;
+			else 
+				have_second = true;
+		}
+		else if (!have_third)
+		{
+			if (parse_grating(arg, f_grating3)) 
+				errflg++;
+			else 
+				have_third = true;
+		}
+		else
+		{
 			errflg++;
-		else 
-			have_stim = true;
+			cerr << "Error - max of 3 gratings (-s) on command line." << endl;
+		}
 		break;
 	case 'p':
 		if (parse_integer(arg, f_pulse))
@@ -485,6 +511,23 @@ int prargs_callback(int c, string& arg)
 				}
 
 			}
+			break;
+		}
+	case 'J':
+		{
+			// Henry's Attention expt. 
+			// Arg should be a sequence of comma-separated numbers. There are 5 numbers per trial,
+			// - Base contrast
+			// - Up contrast
+			// - integer indicating which stim changes contrast. 0, 1, ... in order that "-s" was specified
+			// - initial phase of grating
+			// - time to contrast change from grating onset (sec)
+			// 
+			// If the arg does not have a multiple of 5 numbers, an error is thrown and we quit. 
+			// 
+
+			cerr << "Got attention arg: " << arg << endl;
+
 			break;
 		}
 	case 0:
