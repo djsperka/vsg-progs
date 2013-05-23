@@ -1,4 +1,4 @@
-' $Id: AttentionGoNoGoTemp.s2s,v 1.12 2013-05-15 01:47:03 jeff Exp $
+' $Id: AttentionGoNoGoTemp.s2s,v 1.13 2013-05-23 20:34:17 jeff Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -17,6 +17,8 @@ var attNumberOfBlocks%;
 var attTrialsPerBlock%;
 var attEasyTrialsPerBlock%;
 var attCatchTrialPercentage;  'this really could be an integer, but whatevs
+var attUncatchTrialPercentage;
+var attDoUncatch%;
 var attNoGoTrialPercentage;  'ditto
 var attBackgroundColor$;
 var attBackgroundRed% := 0;
@@ -103,6 +105,7 @@ const attdlgLollipopStickGap := 20;
 'const attdlgUseAnsWindow% := 21;  'not used
 const attdlgOnlyOneCatch% := 21;
 const attdlgOneCatchContrast% := 22;
+const attdlgDoUncatch% := 23;
 
 ' constants for timing dialog
 const atttimingdlgFixationCueMinTime% := 2;
@@ -166,6 +169,7 @@ proc GetAttentionScriptParameters()
 	Profile(key$, "NumberOfBlocks", 1, attNumberOfBlocks%);
 	Profile(key$, "TrialsPerBlock", 1, attTrialsPerBlock%);
     Profile(key$, "EasyTrialsPerBlock", 1, attEasyTrialsPerBlock%);
+    Profile(key$, "DoUncatch", 1, attDoUncatch%);
 	Profile(key$, "CatchTrialPercentage", "0.0", stmp$);
     attCatchTrialPercentage := val(stmp$);
     Profile(key$, "NoGoTrialPercentage", "0.0", stmp$);
@@ -279,6 +283,7 @@ proc SaveAttentionScriptParameters()
 	Profile(key$, "NumberOfBlocks", attNumberOfBlocks%);
 	Profile(key$, "TrialsPerBlock", attTrialsPerBlock%);
     Profile(key$, "EasyTrialsPerBlock", attEasyTrialsPerBlock%);
+    Profile(key$, "DoUncatch", attDoUncatch%);
 	Profile(key$, "CatchTrialPercentage", str$(attCatchTrialPercentage));
     Profile(key$, "NoGoTrialPercentage", str$(attNoGoTrialPercentage));
 	Profile(key$, "BlockAlternate", attBlockAlternate%);
@@ -340,6 +345,7 @@ func AttentionScriptDialog%()
     var tempTotal;  'friggin integer math
     var tempWhoops;
     var threeints%[3];
+    var twoints%[2];
     
     GetAttentionScriptParameters();
     
@@ -347,16 +353,19 @@ func AttentionScriptDialog%()
     threeints%[0] := attNumberOfBlocks%;
     threeints%[1] := attTrialsPerBlock%;
     threeints%[2] := attEasyTrialsPerBlock%;
+    twoints%[0] := attBlockAlternate%;
+    twoints%[1] := attNoBlockRand%;
     
 	DlgCreate("Attention Training Parameters", 25, 10);
-    DlgGroup("Blocks", 1, 1, 34, 8);
+    DlgGroup("Blocks", 1, 1, 34, 9);
 	DlgInteger(1, "Number of Blocks:", 1, 1000, 22, 2);
 	DlgInteger(2, "Reg. Trials per block:", 1, 1000, 22, 3);
     DlgInteger(3, "Easy Trials per block:", 1, 1000, 22, 4);
 	DlgReal(4, "Catch Trial pct (0-100)", 0, 100, 22, 5);
-    DlgReal(5, "No-Go Trial pct (0-100)", 0, 100, 22, 6);
-	DlgCheck(6, "Alternate cue type by block", 2, 7);
-    DlgCheck(7, "Do NOT randomize by block", 2, 8);
+    DlgCheck(attdlgDoUncatch%, "Use 'Uncatch' trials at same %age", 2, 6);
+    DlgReal(5, "No-Go Trial pct (0-100)", 0, 100, 22, 7);
+	DlgCheck(6, "Alternate cue type by block", 2, 8);
+    DlgCheck(7, "Do NOT randomize by block", 2, 9);
     
     'for this dialog group we have to use DlgText because CED justifies the text all the way left in DlgInteger, etc.
     DlgGroup("Contrast",36,1,34,10);
@@ -382,16 +391,37 @@ func AttentionScriptDialog%()
     DlgReal(attdlgLollipopStickGap, "Lollipop stick gap", 0, 10, 22, 17);
     DlgAllow(0, 0, AttentionScriptDialogChanged%);
 	i%:=DlgShow(threeints%[], attCatchTrialPercentage, attNoGoTrialPercentage, 
-    attBlockAlternate%, attNoBlockRand%, attContrastBase%, attMaxContChange, attMinContChange, attNContLevels%,
+    twoints%[], attContrastBase%, attMaxContChange, attMinContChange, attNContLevels%,
     attAnswerPointWindowRadius, attTrainingContrastCheck%, attTrainingContrastPct%, 
     attLollipopCheck%, attCueLinePct, attCircleDiameterDiff, 
-    attLollipopContrast%, attLollipopStickContrast%, attCueLineGap, attOnlyOneCatch%, attOneCatchContrast%);
+    attLollipopContrast%, attLollipopStickContrast%, attCueLineGap, attOnlyOneCatch%, 
+    attOneCatchContrast%, attDoUncatch%);
 	if i% = 1 then
         '	attBackgroundColor$ := bcl$[ibcl%];
         'Cheating on number of entries in dialog box
         attNumberOfBlocks% := threeints%[0];
         attTrialsPerBlock% := threeints%[1];
         attEasyTrialsPerBlock% := threeints%[2];
+        attBlockAlternate% := twoints%[0];
+        attNoBlockRand% := twoints%[1];
+        
+        
+        'If we are doing the Uncatch trials, set UncatchTrialPercentage to 2x CatchTrialPercentage
+        'The logic here is:  case rand < catch, then catch; case rand < uncatch, then uncatch
+        'When uncatch = catch, there will be no uncatch; when uncatch = 2x catch, there will be the
+        'same number of each.
+        if attDoUncatch% = 1 and attOnlyOneCatch% = 1 then
+            attUncatchTrialPercentage := 2*attCatchTrialPercentage;
+        else
+            attUncatchTrialPercentage := attCatchTrialPercentage;
+        endif;
+        'sanity check
+        if attUncatchTrialPercentage > 100 then
+            message("Error: Catch Trials + Uncatch Trials > 100%!!!");
+            Quit%();
+        endif;
+        
+        
         
         'Secret hidden check, if answer point radius is 0 it will use the grating size
         if attAnswerPointWindowRadius = 0 then
@@ -497,6 +527,7 @@ func AttentionScriptDialogChanged%(item%)
         DlgEnable(DlgValue(attdlgTrainingContrastCheck%), attdlgTrainingContrastPct%);
     case item% = attdlgOnlyOneCatch% then
         DlgEnable(DlgValue(attdlgOnlyOneCatch%), attdlgOneCatchContrast%);
+        DlgEnable(DlgValue(attdlgOnlyOneCatch%), attdlgDoUncatch%);
     case item% = attdlgLollipopCheck% then
         DlgEnable(DlgValue(attdlgLollipopCheck%), attdlgCircleDiameterDiff%);
         DlgEnable(DlgValue(attdlgLollipopCheck%), attdlgCueLinePct%);
@@ -507,6 +538,7 @@ func AttentionScriptDialogChanged%(item%)
         DlgEnable(attLollipopCheck%, attdlgCircleDiameterDiff%);
         DlgEnable(attLollipopCheck%, attdlgCueLinePct%);
         DlgEnable(attLollipopCheck%, attdlgLollipopContrast%);
+        DlgEnable(attOnlyOneCatch%, attdlgDoUncatch%);
     endcase
     return status%;
 end
@@ -1998,8 +2030,8 @@ Proc CreateContrastList(&c$,cList%[],&vList%[],&udList%[])
                     cList%[totalCount%] := attContrastBase%;  'fill cList%[] with the base contrast
                     c$ := c$ + Str$(attContrastBase%) + "," + Str$(attContrastBase%) + "," + "0,";  'fill c$ with no-go trial
                 else    
-                    
-                    if (Rand()*100 < attCatchTrialPercentage) then 'catch trial
+                    docase
+                    case (Rand()*100 < attCatchTrialPercentage) then 'catch trial
                         vList%[totalCount%] := 0;  'catch = invalid
                         if attOnlyOneCatch% = 0 then  'if we are doing a tuning curve over catch trials
                             cList%[totalCount%] := attContrastList[attCatchTrialOrder%[catchCount%]];
@@ -2016,7 +2048,14 @@ Proc CreateContrastList(&c$,cList%[],&vList%[],&udList%[])
                             udList%[totalCount%] := 1;   'the first half are up contrast
                             c$ := c$ + "0," + Str$(attContrastBase%) + "," + Str$(attOneCatchContrast%) + ",";  'fill c$ with up catch trial, there is only one contrast
                         endif;
-                        catchCount% += 1;  
+                        catchCount% += 1;
+                    case (Rand()*100 < attUncatchTrialPercentage) then 'uncatch trial
+                        'this is guaranteed to go along with attOnlyOneCatch% = 1
+                        vList%[totalCount%] := 1;  'catch = valid
+                        cList%[totalCount%] := attOneCatchContrast%;  'there is only one contrast
+                        udList%[totalCount%] := 1;   'the first half are up contrast
+                        c$ := c$ + "0," + Str$(attContrastBase%) + "," + Str$(attOneCatchContrast%) + ",";  'fill c$ with up catch trial, there is only one contrast
+                        
                     else  'valid trial
                         vList%[totalCount%] := 1;  'valid
                         cList%[totalCount%] := attContrastList[attTrialOrder%[stdCount%]];
@@ -2029,7 +2068,7 @@ Proc CreateContrastList(&c$,cList%[],&vList%[],&udList%[])
                             c$ := c$ + "0," + Str$(attContrastBase%) + "," + Str$(attContrastList[attTrialOrder%[stdCount%]]) + ",";  'fill c$ with up std trial
                         'endif;
                         stdCount% += 1;
-                    endif;
+                    endcase;
                 endif;
             endif;
             totalCount% += 1;
