@@ -1,4 +1,4 @@
-' $Id: AttentionGoNoGoTemp.s2s,v 1.13 2013-05-23 20:34:17 jeff Exp $
+' $Id: AttentionGoNoGoTemp.s2s,v 1.14 2013-05-23 21:09:42 devel Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -1726,7 +1726,7 @@ end;
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 proc CreateSampleConfiguration()
 	var index;
-    '	SampleClear(); 'Set standard sampling state
+    SampleClear(); 'Set standard sampling state
     '	SampleAutoFile(0); 'Enable automatic file naming
 	SampleAutoComment(0); 'Prompt for comment after sampling
 	SampleAutoCommit(60); 'Seconds between each file commit
