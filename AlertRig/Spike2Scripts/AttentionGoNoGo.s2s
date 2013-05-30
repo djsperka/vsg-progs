@@ -1,4 +1,4 @@
-' $Id: AttentionGoNoGo.s2s,v 1.4 2013-05-23 20:34:17 jeff Exp $
+' $Id: AttentionGoNoGo.s2s,v 1.5 2013-05-30 17:33:31 jeff Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -736,8 +736,8 @@ iScript% := AttentionScriptDialog%();
 if iScript% = 1 then
     FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 3);
     FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 1);
-    SampleAutoName$(dataCellName$ + "_atn_000");
-    SampleAutoFile(1);
+    'SampleAutoName$(dataCellName$ + "_atn_000");
+    'SampleAutoFile(1);
 else
 	PrintLog("User cancel - exit gracefully\n");
 	Halt;
@@ -1691,8 +1691,13 @@ end;
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 proc CreateSampleConfiguration()
 	var index;
-    '	SampleClear(); 'Set standard sampling state
+    SampleClear(); 'Set standard sampling state
     '	SampleAutoFile(0); 'Enable automatic file naming
+    FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 3);
+    FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 1);
+    SampleAutoName$(dataCellName$ + "_atn_000");
+    SampleAutoFile(1);
+    
 	SampleAutoComment(0); 'Prompt for comment after sampling
 	SampleAutoCommit(60); 'Seconds between each file commit
     
@@ -2198,3 +2203,19 @@ proc WriteParameterFile()
 	FileClose(0);
 
 end;
+
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'Calculates initial phase given params
+func GetInitialPhase%(phaseAtCC%,tempFreq,dur)
+    'phases in degrees (integer)
+    'temporal frequency in Hz
+    'duration in seconds
+    var Po%;
+    Po% := phaseAtCC% - (360*((tempFreq*dur)mod 1));
+    if Po% < 0 then
+        Po% := 360 + Po%;
+    endif;
+    return Po%;
+    
+end

@@ -1,4 +1,4 @@
-' $Id: AttentionGoNoGoTemp.s2s,v 1.15 2013-05-24 16:22:25 jeff Exp $
+' $Id: AttentionGoNoGoTemp.s2s,v 1.16 2013-05-30 17:33:31 jeff Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -1728,7 +1728,8 @@ proc CreateSampleConfiguration()
 	var index;
     SampleClear(); 'Set standard sampling state
     '	SampleAutoFile(0); 'Enable automatic file naming
-    
+    FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 3);
+    FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 1);
     SampleAutoName$(dataCellName$ + "_atn_000");
     SampleAutoFile(1);
     
