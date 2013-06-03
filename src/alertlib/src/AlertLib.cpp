@@ -917,6 +917,14 @@ ARFixationPointSpec::ARFixationPointSpec(const ARFixationPointSpec& fixpt) : ARS
 	d = fixpt.d;
 }
 
+ARFixationPointSpec::ARFixationPointSpec(const ARContrastFixationPointSpec& fixpt) : ARSpec(fixpt)
+{
+	x = fixpt.x;
+	y = fixpt.y;
+	color = fixpt.color;
+	d = fixpt.d;
+}
+
 ARFixationPointSpec& ARFixationPointSpec::operator=(const ARFixationPointSpec& fixpt)
 {
 	if (this != &fixpt)

@@ -106,6 +106,36 @@ with one of white, black, gray, red, green or blue, or as a custom color by givi
 an rgb triplet (r/g/b), where each of r, g, and b are integers in [0, 255]. 
 
 
+Attention Stimulus
+
+This stimulus is designed for Henry's attention experiment. The stimulus is a pair
+of gratings (actually 1, 2 or 3 can be displayed). For each trial the gratings are 
+started with a specified phase, and a time-to-contrast-change. The calling script
+can specify each trial in such a way that the contrast change happens when the 
+gratings are at a chosen spatial phase by choosing the initial phase and the time-
+to-contrast change. To specify this type of stimulus, use the -J option:
+
+-J sec_max,fix_0,init_phase_0,sec_to_chg_0,base_con_0,chg_con_0,off_bits_0[,...]
+
+where the first parameter applies to all trials:
+
+sec_max - max in seconds that the stim remains after contrast change; same for all
+          trials
+
+the remaining parameters come in groups of 6, one for each trial. The sampling 
+trigger "a" advances to the next stim. The per-trial parameters are:
+fix_0    - fixation color, can be red,blue,green,r,g,b,or an rgb triplet specified
+           as r/g/b e.g. 122/124/200
+init_phase_0 - initial spatial phase for all gratings
+sec_to_chg_0 - seconds to display gratings at base contrast
+base_con_0   - base contrast
+chg_con_0    - contrast to change to after sec_to_chg_0
+off_bits_0   - each bit set means that stim is OFF for this trial; 1=first stim off,
+               2=second stim off, 4=third stim off, ...
+
+
+
+
 
 Grating specification
 

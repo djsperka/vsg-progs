@@ -344,14 +344,49 @@ private:
 };
 
 
+// struct for holding parameters of a single attention trial
+#define ATTPARAMS_MAX_CONTRASTS 16
+struct AttParams
+{
+	COLOR_TYPE color;
+	double dInitialPhase;
+	double dTimeToCC;
+	int iBaseContrast[ATTPARAMS_MAX_CONTRASTS];
+	int iChangeContrast[ATTPARAMS_MAX_CONTRASTS];
+	int iWhich;
+	int iOffBits;
+};
+
+// helper function for loading params from a comma-separated string
+int parse_attparams(const string& s, vector<struct AttParams>& vec, double& tCC);
+
 class AttentionStimSet: public StimSet
 {
 public:
-	AttentionStimSet();
-	virtual int num_pages() {return 3;};
+	AttentionStimSet(ARContrastFixationPointSpec& fixpt, double tCC, alert::ARGratingSpec& g0, vector<AttParams>& params);
+	AttentionStimSet(ARContrastFixationPointSpec& fixpt, double tCC, alert::ARGratingSpec& g0, alert::ARGratingSpec& g1, vector<AttParams>& params);
+	AttentionStimSet(ARContrastFixationPointSpec& fixpt, double tCC, alert::ARGratingSpec& g0, alert::ARGratingSpec& g1, alert::ARGratingSpec& g2, vector<AttParams>& params);
+	virtual int num_pages() {return 4;};
 	virtual int num_overlay_pages() {return 0;};
 	virtual int init(ARvsg& vsg, std::vector<int> pages);
 	virtual int handle_trigger(std::string& s);
 	virtual std::string toString() const;
 private:
+	int drawCurrent();
+	alert::ARContrastFixationPointSpec m_fixpt;
+	double m_tCC;
+	alert::ARGratingSpec m_g0;
+	alert::ARGratingSpec m_g00;
+	alert::ARGratingSpec m_g1;
+	alert::ARGratingSpec m_g11;
+	alert::ARGratingSpec m_g2;
+	alert::ARGratingSpec m_g22;
+	int m_nGratings;
+	vector<struct AttParams> m_vecParams;
+	unsigned int m_current;
+	int m_pageBlank;
+	int m_pageFixpt;
+	int m_pageStim;
+	int m_pageChg;
 };
+
