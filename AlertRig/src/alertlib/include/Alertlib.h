@@ -362,11 +362,13 @@ namespace alert
 
 	// Fixation Point Spec
 
+	class ARContrastFixationPointSpec;
 	class ARFixationPointSpec: public ARSpec
 	{
 	public:
 		ARFixationPointSpec() {};
 		ARFixationPointSpec(const ARFixationPointSpec& fixpt);
+		ARFixationPointSpec(const ARContrastFixationPointSpec& fixpt);
 		~ARFixationPointSpec() {};
 		ARFixationPointSpec& operator=(const ARFixationPointSpec& fixpt);
 		double x, y;

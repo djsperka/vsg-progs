@@ -1230,3 +1230,276 @@ int CounterphaseStimSet::handle_trigger(std::string& s)
 	}
 	return status;
 }
+
+// helper function for loading params from a comma-separated string
+int parse_attparams(const string& s, vector<struct AttParams>& vec, double& tCC)
+{
+	int status = 0;
+	struct AttParams params;
+	vector<string> tokens;
+	tokenize(s, tokens, ",");
+	if (tokens.size() % 6 == 1)
+	{
+		istringstream iss;
+		vector<string>::const_iterator it = tokens.begin();
+		if (parse_double(*it, tCC))
+		{
+			cerr << "Error reading tCC - time to contrast change (" << *it << ")" << endl;
+			return 1;
+		}
+		it++;
+		while (it != tokens.end())
+		{
+			if (parse_color(*it, params.color))
+			{
+				cerr << "Error reading color: " << *it << endl;
+				status = 1;
+				break;
+			}
+			it++;
+			iss.str(*it);
+			if (parse_double(*it, params.dInitialPhase))
+			{
+				cerr << "Error reading initial phase: " << *it << endl;
+				status = 1;
+				break;
+			}
+			it++;
+			if (parse_double(*it, params.dTimeToCC))
+			{
+				cerr << "Error reading time to CC: " << *it;
+				status = 1;
+				break;
+			}
+			it++;
+			if (parse_integer(*it, params.iBaseContrast))
+			{
+				cerr << "Error reading base contrast: " << *it;
+				status = 1;
+				break;
+			}
+			it++;
+			if (parse_integer(*it, params.iChangeContrast))
+			{
+				cerr << "Error reading change contrast: " << *it;
+				status = 1;
+				break;
+			}
+			it++;
+			if (parse_integer(*it, params.iWhich))
+			{
+				cerr << "Error reading which stim chg: " << *it;
+				status = 1;
+				break;
+			}
+			it++;
+			vec.push_back(params);
+		}
+	}
+	return status;
+}
+
+AttentionStimSet::AttentionStimSet(ARContrastFixationPointSpec& fixpt, double tCC, alert::ARGratingSpec& g0, vector<AttParams>& params)
+: m_fixpt(fixpt)
+, m_tCC(tCC)
+, m_g0(g0)
+, m_g00(g0)
+, m_nGratings(1)
+, m_vecParams(params)
+, m_current(0)
+{};
+
+AttentionStimSet::AttentionStimSet(ARContrastFixationPointSpec& fixpt, double tCC, alert::ARGratingSpec& g0, alert::ARGratingSpec& g1, vector<AttParams>& params)
+: m_fixpt(fixpt)
+, m_tCC(tCC)
+, m_g0(g0)
+, m_g00(g0)
+, m_g1(g1)
+, m_g11(g1)
+, m_nGratings(2)
+, m_vecParams(params)
+, m_current(0)
+{};
+
+AttentionStimSet::AttentionStimSet(ARContrastFixationPointSpec& fixpt, double tCC, alert::ARGratingSpec& g0, alert::ARGratingSpec& g1, alert::ARGratingSpec& g2, vector<AttParams>& params)
+: m_fixpt(fixpt)
+, m_tCC(tCC)
+, m_g0(g0)
+, m_g00(g0)
+, m_g1(g1)
+, m_g11(g1)
+, m_g2(g2)
+, m_g22(g2)
+, m_nGratings(3)
+, m_vecParams(params)
+, m_current(0)
+{};
+
+int AttentionStimSet::init(ARvsg& vsg, std::vector<int> pages)
+{
+	int status = 0;
+	m_pageBlank = pages[0];
+	m_pageFixpt = pages[1];
+	m_pageStim = pages[2];
+	m_pageChg = pages[3];
+
+	m_g0.init(vsg, 40);
+	m_g00.init(vsg, 40);
+	if (m_nGratings>1) 
+	{
+		m_g1.init(vsg, 40);
+		m_g11.init(vsg, 40);
+	}
+	if (m_nGratings>2) 
+	{
+		m_g2.init(vsg, 40);
+		m_g22.init(vsg, 40);
+	}
+	m_fixpt.init(2);
+	m_fixpt.setContrast(100);
+
+	status = drawCurrent();
+
+	return status;
+}
+
+int AttentionStimSet::drawCurrent()
+{
+	int status = 0;
+	int page = vsgGetZoneDisplayPage(vsgVIDEOPAGE);
+	if (m_current >= m_vecParams.size())
+		return 1;
+
+	// Set color of fixpt...
+	m_fixpt.color = m_vecParams[m_current].color;
+
+	// Stim page
+	vsgSetDrawPage(vsgVIDEOPAGE, m_pageStim, vsgBACKGROUND);
+	m_g0.setContrast(m_vecParams[m_current].iBaseContrast);
+	m_g0.setSpatialPhase(m_vecParams[m_current].dInitialPhase);
+	m_g0.draw();
+	if (m_nGratings > 1)
+	{
+		m_g1.setContrast(m_vecParams[m_current].iBaseContrast);
+		m_g1.setSpatialPhase(m_vecParams[m_current].dInitialPhase);
+		m_g1.draw();
+	}
+	if (m_nGratings > 2)
+	{
+		m_g2.setContrast(m_vecParams[m_current].iBaseContrast);
+		m_g2.setSpatialPhase(m_vecParams[m_current].dInitialPhase);
+		m_g2.draw();
+	}
+	m_fixpt.draw();
+
+	// Stim page, this one with contrast change
+	vsgSetDrawPage(vsgVIDEOPAGE, m_pageChg, vsgBACKGROUND);
+	if (m_vecParams[m_current].iWhich == 0)
+		m_g00.setContrast(m_vecParams[m_current].iChangeContrast);
+	else
+		m_g00.setContrast(m_vecParams[m_current].iBaseContrast);
+	m_g00.setSpatialPhase(m_vecParams[m_current].dInitialPhase);
+	m_g00.draw();
+	if (m_nGratings > 1)
+	{
+		if (m_vecParams[m_current].iWhich == 1)
+			m_g11.setContrast(m_vecParams[m_current].iChangeContrast);
+		else
+			m_g11.setContrast(m_vecParams[m_current].iBaseContrast);
+		m_g11.setSpatialPhase(m_vecParams[m_current].dInitialPhase);
+		m_g11.draw();
+	}
+	if (m_nGratings > 2)
+	{
+		if (m_vecParams[m_current].iWhich == 2)
+			m_g22.setContrast(m_vecParams[m_current].iChangeContrast);
+		else
+			m_g22.setContrast(m_vecParams[m_current].iBaseContrast);
+		m_g22.setSpatialPhase(m_vecParams[m_current].dInitialPhase);
+		m_g22.draw();
+	}
+	m_fixpt.draw();
+
+	// plain fixpt page
+	vsgSetDrawPage(vsgVIDEOPAGE, m_pageFixpt, vsgBACKGROUND);
+	m_fixpt.draw();
+
+	// blank page
+	vsgSetDrawPage(vsgVIDEOPAGE, m_pageBlank, vsgBACKGROUND);
+	vsgPresent();
+
+	// Setup page cycling
+	VSGCYCLEPAGEENTRY cycle[32767];
+	cycle[0].Frames = (WORD)(m_vecParams[m_current].dTimeToCC * 1000000.0 /vsgGetSystemAttribute(vsgFRAMETIME));
+	cycle[0].Page = m_pageStim + vsgTRIGGERPAGE;
+	cycle[0].Xpos = cycle[0].Ypos = 0;
+	cycle[0].Stop = 0;
+	cycle[1].Frames = (WORD)(m_tCC * 1000000.0 /vsgGetSystemAttribute(vsgFRAMETIME));
+	cycle[1].Page = m_pageChg + vsgTRIGGERPAGE;
+	cycle[1].Xpos = cycle[1].Ypos = 0;
+	cycle[1].Stop = 0;
+	cycle[2].Frames = 1;
+	cycle[2].Page = 0 + vsgTRIGGERPAGE;
+	cycle[2].Xpos = cycle[2].Ypos = 0;
+	cycle[2].Stop = 1;
+	vsgPageCyclingSetup(3, &cycle[0]);
+
+	return status;
+}
+
+int AttentionStimSet::handle_trigger(std::string& s)
+{
+	int status = 0;
+
+	if (s == "F")
+	{
+		vsgSetDrawPage(vsgVIDEOPAGE, m_pageFixpt, vsgNOCLEAR);
+		status = 1;
+	}
+	else if (s == "S")
+	{
+		// TODO: Reset spatial freq?
+		if (m_nGratings > 0)
+		{
+			m_g0.select();
+			vsgObjResetDriftPhase();
+			m_g00.select();
+			vsgObjResetDriftPhase();
+		}
+		if (m_nGratings > 1)
+		{
+			m_g1.select();
+			vsgObjResetDriftPhase();
+			m_g11.select();
+			vsgObjResetDriftPhase();
+		}
+		if (m_nGratings > 2)
+		{
+			m_g2.select();
+			vsgObjResetDriftPhase();
+			m_g22.select();
+			vsgObjResetDriftPhase();
+		}
+		vsgSetSynchronisedCommand(vsgSYNC_PRESENT, vsgCYCLEPAGEENABLE, 0);
+		status = 1;
+	}
+	else if (s == "a")
+	{
+		m_current++;
+		if (m_current == m_vecParams.size()) m_current = 0;
+		drawCurrent();
+	}
+	else if (s == "X")
+	{
+		vsgSetCommand(vsgCYCLEPAGEDISABLE);
+		vsgSetDrawPage(vsgVIDEOPAGE, m_pageBlank, vsgNOCLEAR);
+		status = 1;
+	}
+	return status;
+}
+
+
+std::string AttentionStimSet::toString() const
+{
+	return string("not implemented");
+}

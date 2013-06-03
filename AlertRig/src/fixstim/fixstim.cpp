@@ -1,4 +1,4 @@
-/* $Id: fixstim.cpp,v 1.13 2013-05-15 18:52:06 devel Exp $ */
+/* $Id: fixstim.cpp,v 1.14 2013-06-03 22:59:07 devel Exp $ */
 
 #include <iostream>
 #include <fstream>
@@ -34,10 +34,11 @@ bool f_dumpStimSetsOnly = false;
 COLOR_TYPE f_background = { gray, {0.5, 0.5, 0.5}};
 ARContrastFixationPointSpec f_fixpt;
 ARGratingSpec f_grating;
-ARGratingSpec f_grating2;
-bool have_second = false;
-ARGratingSpec f_grating3;
-bool have_third = false;
+vector<ARGratingSpec> f_vecGratings;
+//ARGratingSpec f_grating2;
+//bool have_second = false;
+//ARGratingSpec f_grating3;
+//bool have_third = false;
 StimSet *f_pStimSet = NULL;			// This is for master in dualVSG mode
 int f_iDistanceToScreenMM = -1;
 TriggerVector triggers;
@@ -256,26 +257,12 @@ int prargs_callback(int c, string& arg)
 		}
 		break;
 	case 's':
-		if (!have_stim)
+		if (parse_grating(arg, f_grating)) 
 		{
-			if (parse_grating(arg, f_grating)) 
-				errflg++;
-			else 
-				have_stim = true;
-		}
-		else if (!have_second)
-		{
-			if (parse_grating(arg, f_grating2)) 
-				errflg++;
-			else 
-				have_second = true;
-		}
-		else if (!have_third)
-		{
-			if (parse_grating(arg, f_grating3)) 
-				errflg++;
-			else 
-				have_third = true;
+			cerr << "Error in grating input: " << arg << endl;
+			errflg++;
+		else 
+			f_vecGratings.push_back(f_grating);
 		}
 		else
 		{
@@ -516,18 +503,53 @@ int prargs_callback(int c, string& arg)
 	case 'J':
 		{
 			// Henry's Attention expt. 
-			// Arg should be a sequence of comma-separated numbers. There are 5 numbers per trial,
+			// Arg should be a sequence of comma-separated numbers. 
+			// The first number is the time-after-contrast change number. This is the same for all trials. 
+			// After that, there should be 6 numbers per trial,
+			// - fixpt color
 			// - Base contrast
 			// - Up contrast
 			// - integer indicating which stim changes contrast. 0, 1, ... in order that "-s" was specified
 			// - initial phase of grating
 			// - time to contrast change from grating onset (sec)
+			// - stim OFF bitflag, int. If bit N set, then the corresponding stim is NOT on for this trial.
+			//   0 = all stim on; 1 = first stim NOT on; 2 = second stim NOT on; etc. 
 			// 
-			// If the arg does not have a multiple of 5 numbers, an error is thrown and we quit. 
 			// 
-
-			cerr << "Got attention arg: " << arg << endl;
-
+			double tCC;
+			vector<AttParams> vec;
+			if (parse_attparams(arg, vec, tCC))
+			{
+				cerr << "Error in input." << endl;
+				errflg++;
+			}
+			else
+			{
+				if (have_fixpt)
+				{
+					if (have_third)
+					{
+						f_pStimSet = new AttentionStimSet(f_fixpt, tCC, f_grating, f_grating2, f_grating3, vec);
+					}
+					else if (have_second)
+					{
+						f_pStimSet = new AttentionStimSet(f_fixpt, tCC, f_grating, f_grating2, vec);
+					}
+					else if (have_stim)
+					{
+						f_pStimSet = new AttentionStimSet(f_fixpt, tCC, f_grating, vec);
+					}
+					else
+					{
+						cerr << "Error in input for Attention stim - no gratings specified!" << endl;
+						errflg++;
+					}
+				}
+				else
+				{
+					cerr << "Error input for Attention stim - no fixpt specified!" << endl;
+				}
+			}
 			break;
 		}
 	case 0:
