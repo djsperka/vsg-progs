@@ -47,6 +47,7 @@ the grating specification using the "-s" option
                             phase transition, and phase0 is the spatial phase
                             of the grating. The temporal frequency (drift velocity)
                             of the grating spec is ignored (and is set to 0).
+-Z <x0,y0,x1,y1,x2,y2,...> Grating position tuning curve. Grating at (x0,y0), then (x1,y1), ...
 
 
 Contrast Reversing Grating Stimulus
