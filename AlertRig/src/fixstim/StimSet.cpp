@@ -214,7 +214,22 @@ std::string CRGStimSet::toString() const
 	return oss.str();
 }
 
-
+std::string PositionStimSet::toString() const
+{
+	std::ostringstream oss;
+	oss << "Position StimSet" << endl;
+	if (m_bHaveFixpt)
+	{
+		oss << "  fixation point: " << m_fixpt << endl;
+	}
+	else
+	{
+		oss << "  fixation point: NONE" << endl;
+	}
+	oss <<     "  grating       : " << m_grating << endl;
+	oss << "  Number of positions: " << m_positions.size()/2 << endl;
+	return oss.str();
+}
 
 int StimSet::init(std::vector<int> pages)
 {
@@ -709,6 +724,94 @@ int AreaStimSet::handle_trigger(std::string& s)
 	}
 	return status;
 }
+
+
+
+int PositionStimSet::init(ARvsg& vsg, std::vector<int> pages)
+{
+	int status = 0;
+	m_pages[0] = pages[0];
+	m_pages[1] = pages[1];
+	m_contrast = m_grating.contrast;
+	m_iterator = m_positions.begin();
+	vsgSetDrawPage(vsgVIDEOPAGE, m_pages[1], vsgBACKGROUND);
+	vsgSetDrawPage(vsgVIDEOPAGE, m_pages[0], vsgBACKGROUND);
+	m_current_page = 0;
+	m_grating.init(vsg, 40);
+	m_grating.setContrast(0);
+	m_grating.x = *m_iterator++;
+	m_grating.y = *m_iterator;
+	m_grating.draw();
+	if (m_bHaveFixpt)
+	{
+		m_fixpt.init(vsg, 2);
+		m_fixpt.setContrast(0);
+		m_fixpt.draw();
+	}
+	vsgPresent();
+	return status;
+}
+
+int PositionStimSet::handle_trigger(std::string& s)
+{
+	int status = 0;
+	if (s == "F")
+	{
+		if (m_bHaveFixpt)
+		{
+			m_fixpt.setContrast(100);
+			status = 1;
+		}
+	}
+	else if (s == "S")
+	{
+		m_grating.select();
+		vsgObjResetDriftPhase();
+		m_grating.setContrast(m_contrast);
+		status = 1;
+	}
+	else if (s == "s")
+	{
+		m_grating.setContrast(0);
+		status = 1;
+	}
+	else if (s == "a")
+	{
+		// increment iterator, reset to beginning if at end
+		m_iterator++;
+		if (m_iterator == m_positions.end())
+		{
+			cerr << "at end of positions, back to beginning." << endl;
+			m_iterator = m_positions.begin();
+		}
+
+		// Change current page and clear it. Note that this is not the page currently in view.
+		// Set the sf and draw the grating, then draw the fixpt. 
+		m_current_page = 1 - m_current_page;
+		vsgSetDrawPage(vsgVIDEOPAGE, m_pages[m_current_page], vsgBACKGROUND);
+		m_grating.x = *m_iterator++;
+		m_grating.y = *m_iterator;
+		cerr << "Position " << m_grating.x << ", " << m_grating.y << endl;
+		m_grating.draw();
+		if (m_bHaveFixpt)
+		{
+			m_fixpt.draw();
+		}
+		vsgSetZoneDisplayPage(vsgVIDEOPAGE, m_pages[m_current_page]);
+		status = 0;
+	}
+	else if (s == "X")
+	{
+		m_fixpt.setContrast(0);
+		m_grating.setContrast(0);
+		status = 1;
+	}
+	return status;
+}
+
+
+
+
 
 
 
