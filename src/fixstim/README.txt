@@ -108,31 +108,49 @@ an rgb triplet (r/g/b), where each of r, g, and b are integers in [0, 255].
 
 Attention Stimulus
 
-This stimulus is designed for Henry's attention experiment. The stimulus is a pair
-of gratings (actually 1, 2 or 3 can be displayed). For each trial the gratings are 
-started with a specified phase, and a time-to-contrast-change. The calling script
-can specify each trial in such a way that the contrast change happens when the 
-gratings are at a chosen spatial phase by choosing the initial phase and the time-
-to-contrast change. To specify this type of stimulus, use the -J option:
+This stimulus is designed for Henry's attention experiment. The stimulus is a set
+of gratings (I've tested with up to 6 and it works fine). 
 
--J sec_max,fix_0,init_phase_0,sec_to_chg_0,base_con_0,chg_con_0,off_bits_0[,...]
+The gratings can be specified to start with a specific spatial phase at onset (when
+it first appears on the screen). 
+
+Any (or all) of the stimuli may have a contrast change at a specified time after onset.
+
+With clever figuring, one can arrange for the contrast change to occur at a specific 
+phase. The program knows nothing of this - it will arrange for the contrast change 
+to occur at the time specified. It is up to the caller to make sure that the drift
+velocity, initial phase and the time-to-contrast-change will lead to the intended 
+phase at contrast change time. 
+
+To specify this type of stimulus, use the -J option:
+
+-J sec_max,fix_color_0,init_phase_0,sec_to_chg_0,off_bits_0,base_0_0,chg_0_0,base_0_1,chg_0_1,....
 
 where the first parameter applies to all trials:
 
 sec_max - max in seconds that the stim remains after contrast change; same for all
           trials
 
-the remaining parameters come in groups of 6, one for each trial. The sampling 
-trigger "a" advances to the next stim. The per-trial parameters are:
+the remaining parameters come in groups, one for each trial. The size of each group
+depends on the number of stimuli specified (-s) on the command line PRIOR TO THE -J
+flag. The sampling trigger "a" advances to the next stim parameter group. 
+
+The per-trial parameters are:
+
 fix_0    - fixation color, can be red,blue,green,r,g,b,or an rgb triplet specified
            as r/g/b e.g. 122/124/200
 init_phase_0 - initial spatial phase for all gratings
 sec_to_chg_0 - seconds to display gratings at base contrast
-base_con_0   - base contrast
-chg_con_0    - contrast to change to after sec_to_chg_0
 off_bits_0   - each bit set means that stim is OFF for this trial; 1=first stim off,
                2=second stim off, 4=third stim off, ...
+base_0_0   - base contrast, trial 0, stim 0
+chg_0_0    - contrast to change to after sec_to_chg_0, trial 0, stim 0
+base_0_1   - base contrast, trial 0, stim 1
+chg_0_1    - contrast to change to after sec_to_chg_0, trial 0, stim 1
+...        - more. 
 
+For a stim with N gratings and M trials, there should be a total of 1 + M*(4 + N*2)
+comma-separated parameters following the -J. 
 
 
 

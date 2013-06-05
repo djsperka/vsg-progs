@@ -1232,13 +1232,14 @@ int CounterphaseStimSet::handle_trigger(std::string& s)
 }
 
 // helper function for loading params from a comma-separated string
-int parse_attparams(const string& s, vector<struct AttParams>& vec, double& tCC)
+int parse_attparams(const string& s, int nstim, vector<struct AttParams>& vec, double& tCC)
 {
+	int i;
 	int status = 0;
 	struct AttParams params;
 	vector<string> tokens;
 	tokenize(s, tokens, ",");
-	if (tokens.size() % 6 == 1)
+	if (tokens.size() % (4+nstim*2) == 1)
 	{
 		istringstream iss;
 		vector<string>::const_iterator it = tokens.begin();
@@ -1250,6 +1251,10 @@ int parse_attparams(const string& s, vector<struct AttParams>& vec, double& tCC)
 		it++;
 		while (it != tokens.end())
 		{
+			// each pass through this loop will pickup the parameters for a single trial. 
+			// The color, init phase, time to cc, and off bits are followed by a contrast 
+			// pair for each stim.
+
 			if (parse_color(*it, params.color))
 			{
 				cerr << "Error reading color: " << *it << endl;
@@ -1272,91 +1277,76 @@ int parse_attparams(const string& s, vector<struct AttParams>& vec, double& tCC)
 				break;
 			}
 			it++;
-			if (parse_integer(*it, params.iBaseContrast))
+			if (parse_integer(*it, params.iOffBits))
 			{
-				cerr << "Error reading base contrast: " << *it;
+				cerr << "Error reading off bits: " << *it;
 				status = 1;
 				break;
 			}
 			it++;
-			if (parse_integer(*it, params.iChangeContrast))
+
+			// Pick up contrast pairs. Clear the vector that holds the pairs first, so we
+			// don't just append the current trials' pairs to last trials' pairs. 
+			params.contrastPairs.clear();
+			for (i=0; i<nstim; i++)
 			{
-				cerr << "Error reading change contrast: " << *it;
-				status = 1;
-				break;
+				int iBase, iChg;
+				if (parse_integer(*it, iBase))
+				{
+					cerr << "Error reading base contrast: " << *it << endl;
+					status = 1;
+					return 1;
+				}
+				it++;
+				if (parse_integer(*it, iChg))
+				{
+					cerr << "Error reading chg contrast: " << *it << endl;
+					status = 1;
+					return 1;
+				}
+				it++;
+				params.contrastPairs.push_back(std::pair<int, int>(iBase, iChg));
 			}
-			it++;
-			if (parse_integer(*it, params.iWhich))
-			{
-				cerr << "Error reading which stim chg: " << *it;
-				status = 1;
-				break;
-			}
-			it++;
 			vec.push_back(params);
 		}
 	}
 	return status;
 }
 
-AttentionStimSet::AttentionStimSet(ARContrastFixationPointSpec& fixpt, double tCC, alert::ARGratingSpec& g0, vector<AttParams>& params)
+AttentionStimSet::AttentionStimSet(ARContrastFixationPointSpec& fixpt, double tCC, std::vector<alert::ARGratingSpec>& vecGratings, vector<AttParams>& params)
 : m_fixpt(fixpt)
 , m_tCC(tCC)
-, m_g0(g0)
-, m_g00(g0)
-, m_nGratings(1)
+, m_vecGratings(vecGratings)
+, m_vecGratingsCC(vecGratings)
 , m_vecParams(params)
 , m_current(0)
 {};
 
-AttentionStimSet::AttentionStimSet(ARContrastFixationPointSpec& fixpt, double tCC, alert::ARGratingSpec& g0, alert::ARGratingSpec& g1, vector<AttParams>& params)
-: m_fixpt(fixpt)
-, m_tCC(tCC)
-, m_g0(g0)
-, m_g00(g0)
-, m_g1(g1)
-, m_g11(g1)
-, m_nGratings(2)
-, m_vecParams(params)
-, m_current(0)
-{};
-
-AttentionStimSet::AttentionStimSet(ARContrastFixationPointSpec& fixpt, double tCC, alert::ARGratingSpec& g0, alert::ARGratingSpec& g1, alert::ARGratingSpec& g2, vector<AttParams>& params)
-: m_fixpt(fixpt)
-, m_tCC(tCC)
-, m_g0(g0)
-, m_g00(g0)
-, m_g1(g1)
-, m_g11(g1)
-, m_g2(g2)
-, m_g22(g2)
-, m_nGratings(3)
-, m_vecParams(params)
-, m_current(0)
-{};
 
 int AttentionStimSet::init(ARvsg& vsg, std::vector<int> pages)
 {
 	int status = 0;
+	int nlevels;
 	m_pageBlank = pages[0];
 	m_pageFixpt = pages[1];
 	m_pageStim = pages[2];
 	m_pageChg = pages[3];
 
-	m_g0.init(vsg, 40);
-	m_g00.init(vsg, 40);
-	if (m_nGratings>1) 
-	{
-		m_g1.init(vsg, 40);
-		m_g11.init(vsg, 40);
-	}
-	if (m_nGratings>2) 
-	{
-		m_g2.init(vsg, 40);
-		m_g22.init(vsg, 40);
-	}
-	m_fixpt.init(2);
+	// divvy up levels. There are only about 250 levels available but fixpt takes 2...
+	m_fixpt.init(vsg, 2);
 	m_fixpt.setContrast(100);
+
+	if (m_vecGratings.size() < 4) nlevels = 40;
+	else
+	{
+		nlevels = 247/m_vecGratings.size()/2;
+	}
+	cerr << "Number of levels per stim" << nlevels << endl;
+	for (unsigned int i=0; i<m_vecGratings.size(); i++)
+	{
+		m_vecGratings[i].init(vsg, nlevels);
+		m_vecGratingsCC[i].init(vsg, nlevels);
+	}
 
 	status = drawCurrent();
 
@@ -1375,48 +1365,37 @@ int AttentionStimSet::drawCurrent()
 
 	// Stim page
 	vsgSetDrawPage(vsgVIDEOPAGE, m_pageStim, vsgBACKGROUND);
-	m_g0.setContrast(m_vecParams[m_current].iBaseContrast);
-	m_g0.setSpatialPhase(m_vecParams[m_current].dInitialPhase);
-	m_g0.draw();
-	if (m_nGratings > 1)
+	for (unsigned int i=0; i<m_vecGratings.size(); i++)
 	{
-		m_g1.setContrast(m_vecParams[m_current].iBaseContrast);
-		m_g1.setSpatialPhase(m_vecParams[m_current].dInitialPhase);
-		m_g1.draw();
-	}
-	if (m_nGratings > 2)
-	{
-		m_g2.setContrast(m_vecParams[m_current].iBaseContrast);
-		m_g2.setSpatialPhase(m_vecParams[m_current].dInitialPhase);
-		m_g2.draw();
+		// Check if this stim has an off bit set.
+		if (m_vecParams[m_current].iOffBits & (1 << i))
+		{
+			m_vecGratings[i].setContrast(0);
+		}
+		else
+		{
+			m_vecGratings[i].setContrast(m_vecParams[m_current].contrastPairs[i].first);
+		}
+		m_vecGratings[i].setSpatialPhase(m_vecParams[m_current].dInitialPhase);
+		m_vecGratings[i].draw();
 	}
 	m_fixpt.draw();
 
 	// Stim page, this one with contrast change
 	vsgSetDrawPage(vsgVIDEOPAGE, m_pageChg, vsgBACKGROUND);
-	if (m_vecParams[m_current].iWhich == 0)
-		m_g00.setContrast(m_vecParams[m_current].iChangeContrast);
-	else
-		m_g00.setContrast(m_vecParams[m_current].iBaseContrast);
-	m_g00.setSpatialPhase(m_vecParams[m_current].dInitialPhase);
-	m_g00.draw();
-	if (m_nGratings > 1)
+	for (unsigned int i=0; i<m_vecGratingsCC.size(); i++)
 	{
-		if (m_vecParams[m_current].iWhich == 1)
-			m_g11.setContrast(m_vecParams[m_current].iChangeContrast);
+		// Check if this stim has an off bit set.
+		if (m_vecParams[m_current].iOffBits & (1 << i))
+		{
+			m_vecGratingsCC[i].setContrast(0);
+		}
 		else
-			m_g11.setContrast(m_vecParams[m_current].iBaseContrast);
-		m_g11.setSpatialPhase(m_vecParams[m_current].dInitialPhase);
-		m_g11.draw();
-	}
-	if (m_nGratings > 2)
-	{
-		if (m_vecParams[m_current].iWhich == 2)
-			m_g22.setContrast(m_vecParams[m_current].iChangeContrast);
-		else
-			m_g22.setContrast(m_vecParams[m_current].iBaseContrast);
-		m_g22.setSpatialPhase(m_vecParams[m_current].dInitialPhase);
-		m_g22.draw();
+		{
+			m_vecGratingsCC[i].setContrast(m_vecParams[m_current].contrastPairs[i].second);
+		}
+		m_vecGratingsCC[i].setSpatialPhase(m_vecParams[m_current].dInitialPhase);
+		m_vecGratingsCC[i].draw();
 	}
 	m_fixpt.draw();
 
@@ -1458,26 +1437,11 @@ int AttentionStimSet::handle_trigger(std::string& s)
 	}
 	else if (s == "S")
 	{
-		// TODO: Reset spatial freq?
-		if (m_nGratings > 0)
+		for (unsigned int i=0; i<m_vecGratings.size(); i++)
 		{
-			m_g0.select();
+			m_vecGratings[i].select();
 			vsgObjResetDriftPhase();
-			m_g00.select();
-			vsgObjResetDriftPhase();
-		}
-		if (m_nGratings > 1)
-		{
-			m_g1.select();
-			vsgObjResetDriftPhase();
-			m_g11.select();
-			vsgObjResetDriftPhase();
-		}
-		if (m_nGratings > 2)
-		{
-			m_g2.select();
-			vsgObjResetDriftPhase();
-			m_g22.select();
+			m_vecGratingsCC[i].select();
 			vsgObjResetDriftPhase();
 		}
 		vsgSetSynchronisedCommand(vsgSYNC_PRESENT, vsgCYCLEPAGEENABLE, 0);
