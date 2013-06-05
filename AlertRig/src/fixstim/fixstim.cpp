@@ -1,4 +1,4 @@
-/* $Id: fixstim.cpp,v 1.14 2013-06-03 22:59:07 devel Exp $ */
+/* $Id: fixstim.cpp,v 1.15 2013-06-05 00:07:37 devel Exp $ */
 
 #include <iostream>
 #include <fstream>
@@ -253,7 +253,6 @@ int prargs_callback(int c, string& arg)
 			{
 				f_pStimSet = new FixptGratingStimSet(f_fixpt, f_grating);
 			}
-			break;
 		}
 		break;
 	case 's':
@@ -261,14 +260,9 @@ int prargs_callback(int c, string& arg)
 		{
 			cerr << "Error in grating input: " << arg << endl;
 			errflg++;
+		}
 		else 
 			f_vecGratings.push_back(f_grating);
-		}
-		else
-		{
-			errflg++;
-			cerr << "Error - max of 3 gratings (-s) on command line." << endl;
-		}
 		break;
 	case 'p':
 		if (parse_integer(arg, f_pulse))
@@ -517,8 +511,8 @@ int prargs_callback(int c, string& arg)
 			// 
 			// 
 			double tCC;
-			vector<AttParams> vec;
-			if (parse_attparams(arg, vec, tCC))
+			vector<AttParams> vecInput;
+			if (parse_attparams(arg, f_vecGratings.size(), vecInput, tCC))
 			{
 				cerr << "Error in input." << endl;
 				errflg++;
@@ -527,17 +521,9 @@ int prargs_callback(int c, string& arg)
 			{
 				if (have_fixpt)
 				{
-					if (have_third)
+					if (f_vecGratings.size() > 0)
 					{
-						f_pStimSet = new AttentionStimSet(f_fixpt, tCC, f_grating, f_grating2, f_grating3, vec);
-					}
-					else if (have_second)
-					{
-						f_pStimSet = new AttentionStimSet(f_fixpt, tCC, f_grating, f_grating2, vec);
-					}
-					else if (have_stim)
-					{
-						f_pStimSet = new AttentionStimSet(f_fixpt, tCC, f_grating, vec);
+						f_pStimSet = new AttentionStimSet(f_fixpt, tCC, f_vecGratings, vecInput);
 					}
 					else
 					{
