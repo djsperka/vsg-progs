@@ -1,4 +1,4 @@
-/* $Id: fixstim.cpp,v 1.15 2013-06-05 00:07:37 devel Exp $ */
+/* $Id: fixstim.cpp,v 1.16 2013-06-05 20:43:50 devel Exp $ */
 
 #include <iostream>
 #include <fstream>
@@ -59,7 +59,7 @@ int main (int argc, char *argv[])
 	int status;
 
 	// Check input arguments
-	status = prargs(argc, argv, prargs_callback, "f:b:d:avg:s:C:T:S:O:A:P:R:B:H:Zp:G:D:wJ:", 'F');
+	status = prargs(argc, argv, prargs_callback, "f:b:d:avg:s:C:T:S:O:A:P:R:B:H:zp:G:D:wJ:Z:", 'F');
 	if (status)
 	{
 		return -1;
@@ -218,7 +218,7 @@ int prargs_callback(int c, string& arg)
 	case 'a':
 		f_binaryTriggers = false;
 		break;
-	case 'Z':
+	case 'z':
 		f_dumpStimSetsOnly = true;
 		break;
 	case 'v':
@@ -262,7 +262,10 @@ int prargs_callback(int c, string& arg)
 			errflg++;
 		}
 		else 
+		{
+			have_stim = true;
 			f_vecGratings.push_back(f_grating);
+		}
 		break;
 	case 'p':
 		if (parse_integer(arg, f_pulse))
@@ -275,6 +278,7 @@ int prargs_callback(int c, string& arg)
 	case 'A':
 	case 'H':
 	case 'P':
+	case 'Z':
 		{
 			vector<double> tuning_parameters;
 			int nsteps;
@@ -328,6 +332,11 @@ int prargs_callback(int c, string& arg)
 							{
 								f_pStimSet = new CounterphaseStimSet(f_grating, tuning_parameters, tf, bStepTW);
 							}
+							break;
+						}
+					case 'Z':
+						{
+							f_pStimSet = create_stimset<PositionStimSet>(have_fixpt, f_fixpt, f_grating, tuning_parameters);
 							break;
 						}
 					default:
