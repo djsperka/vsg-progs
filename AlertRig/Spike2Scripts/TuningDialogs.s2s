@@ -1,4 +1,4 @@
-' $Id: TuningDialogs.s2s,v 1.14 2012-04-30 18:08:15 jeff Exp $
+' $Id: TuningDialogs.s2s,v 1.15 2013-06-06 19:01:34 jeff Exp $
 '
 ' This file contains dialog functions for the alert tuning script Tuning.s2s.
 #include "../../Spike2Util/UsreyUtil.s2s"
@@ -17,7 +17,8 @@ const tunTypeArea$ := "A";
 const tunTypeDonut$ := "H";  '(H)ole in stimulus
 const tunTypeBerliner$ := "B";
 const tunTypeBoxODonuts$ := "G";  '(G)rid of stimuli
-const tunTypeXPos$ := "X";  
+const tunTypeXPos$ := "X";
+const tunTypeXYPos$ := "Z";
 const tunTypeDots$ := "D";
 const tunTypeDisparity$ := "DX";
 const tunTypeCRG$ := "R";
@@ -89,12 +90,20 @@ var tunAreaMinDiam;		' min diameter
 var tunAreaMaxDiam;		' max diameter
 var tunAreaProgression%;
 
-' X Position next
+' X/XY Position next
 var tunXPosNSteps%;			' # steps in X position tuning curve
 var tunXPosNRepeats%;		' # repeats in X position tuning curve
 var tunXPosMinXPos;		' min position
 var tunXPosMaxXPos;		' max position
 var tunXPosProgression%;
+var tunXYPosNXSteps%;			' # steps in X position tuning curve
+var tunXYPosNRepeats%;		' # repeats in X position tuning curve
+var tunXYPosMinXPos;		' min position
+var tunXYPosMaxXPos;		' max position
+var tunXYPosProgression%;
+var tunXYPosNYSteps%;			' # steps in Y position tuning curve
+var tunXYPosMinYPos;		' min position
+var tunXYPosMaxYPos;		' max position
 
 ' Donuts - use same vars as area. There is one additional var - the optimal value index.
 var tunDonutOptimalIndex%:=0;		' step index where area stim stops growing and donut stim starts
@@ -358,6 +367,37 @@ proc SaveTuningCurveXPosParameters()
     SetFloatRegistryValue(key$, "MaxXPos", tunXPosMaxXPos);
     SetIntRegistryValue(key$, "Progression", tunXPosProgression%);
 end;
+
+
+proc GetTuningCurveXYPosParameters()
+	var stmp$;
+	var key$;
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Tuning\\XYPos";
+    
+    tunXYPosNXSteps% := GetIntRegistryValue%(key$, "NXSteps", tunXYPosNXSteps%);
+    tunXYPosNRepeats% := GetIntRegistryValue%(key$, "NRepeats", tunXYPosNRepeats%);
+    tunXYPosMinXPos := GetFloatRegistryValue(key$, "MinXPos", tunXYPosMinXPos);
+    tunXYPosMaxXPos := GetFloatRegistryValue(key$, "MaxXPos", tunXYPosMaxXPos);
+    tunXYPosProgression% := GetIntRegistryValue%(key$, "Progression", tunXYPosProgression%);
+    tunXYPosNYSteps% := GetIntRegistryValue%(key$, "NYSteps", tunXYPosNYSteps%);
+    tunXYPosMinYPos := GetFloatRegistryValue(key$, "MinYPos", tunXYPosMinYPos);
+    tunXYPosMaxYPos := GetFloatRegistryValue(key$, "MaxYPos", tunXYPosMaxYPos);
+end;
+
+proc SaveTuningCurveXYPosParameters()
+	var key$;
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Tuning\\XYPos";
+
+    SetIntRegistryValue(key$, "NXSteps", tunXYPosNXSteps%);
+    SetIntRegistryValue(key$, "NRepeats", tunXYPosNRepeats%);
+    SetFloatRegistryValue(key$, "MinXPos", tunXYPosMinXPos);
+    SetFloatRegistryValue(key$, "MaxXPos", tunXYPosMaxXPos);
+    SetIntRegistryValue(key$, "Progression", tunXYPosProgression%);
+    SetIntRegistryValue(key$, "NYSteps", tunXYPosNYSteps%);
+    SetFloatRegistryValue(key$, "MinYPos", tunXYPosMinYPos);
+    SetFloatRegistryValue(key$, "MaxYPos", tunXYPosMaxYPos);
+end;
+
 
 proc GetTuningCurveDisparityParameters()
 	var stmp$;
@@ -925,78 +965,108 @@ end;
 func TuningCurveXPosDialog%()
 	var iReturn% := 0;
 	var i%;
-	GetTuningCurveXPosParameters();
-	DlgCreate("XPos Tuning Curve Parameters");
-	DlgInteger(1, "Number of Steps", 1, 100);
-	'DlgInteger(2, "Number of Repeats", 1, 1000);
-	DlgReal(3, "Min X Position", -14, 14);
-	DlgReal(4, "Max X Position", -14, 14);
-    'DlgCheck(5, "Random Progression");
-    if tunBoxODonutsCurrentCurve% = 0 then
-        DlgInteger(2, "Number of Repeats", 1, 1000);
-        DlgCheck(5, "Random Progression");
-    else
-        DlgInteger(2, "----------------", 1, 1);
-        DlgCheck(5, "----------------");
-    endif;
     
-    
-    
-    
-	i% := DlgShow(tunXPosNSteps%, tunXPosNRepeats%, tunXPosMinXPos, tunXPosMaxXPos, tunXPosProgression%);
-	' If i% is 1 the user hit "OK". If its 0, user hit "Cancel". 
-	' When user hits OK we always save the parameters, and when user hits Cancel we don't.
-    ' 
-    ' djs 2/4/2011
-    ' Spike2 bug workaround implemented. The return value from this function (when in DAQ context this
-    ' dialog is called from a DlgButton in another dialog) should make the parent dialog close, as if 
-    ' the OK button were hit. Bug in Spike2 v6 means this doesn't work right - the parent dialog will 
-    ' close but its variables are not updated prior to doing so.... so any changes to the parent dialog
-    ' are not seen in the subsequent expt, they're not saved in the registry, etc. Workaround is to return
-    ' something > 0 here. The parent dialog will continue to display, and the user has to hit OK on that 
-    ' before things proceed. 
-    'tunMaximalDiam := tunAreaMaxDiam;  This won't do anything unless FIXSTIM is updated to allow crosshairs
-	if i% = 1 then
-		SaveTuningCurveXPosParameters();
-'		PrintLog("TuningCurveAreaDialog - user hit OK\n");
-		tunType$ := tunTypeXPos$;
+    'This function is now complicated because fixstim has XY tuning while dualstim only has X tuning
+    'Because XY tuning is a superset of X tuning there does not seem to be much reason to have a separate
+    'button, so that means this button needs to change between XY tuning and X tuning depending on the
+    'context.  But that's doable.
+    if DlgValue(10) = 1 then  'if it's a dualstim scenario, use X position
         
-        'Change text on Box O' Donuts/CRG dialog box, if we're calling from there.
-        'Oh, and update tuning types we are going to use.
-        docase
-        case tunBoxODonutsCurrentCurve% = 1 then
-            tunType1$ := tunTypeXPos$;
-            tunCurve1Text$ := "Tuning Curve 1 is X POSITION";
-            DlgValue$(updateCurve1Text%, tunCurve1Text$);
-            tunBoxODonutsCurrentCurve% := 2;  'update current curve 
-            DlgEnable(0,-tundlgXPosButton%);  'So we don't pick X position again
-        case tunBoxODonutsCurrentCurve% = 2 then
-            tunType2$ := tunTypeXPos$;
-            tunCurve2Text$ := "Tuning Curve 2 is X POSITION";
-            DlgValue$(updateCurve2Text%, tunCurve2Text$);
-            tunBoxODonutsCurrentCurve% := 3;  'update current curve 
-            DlgEnable(0,-tundlgXPosButton%);  'So we don't pick X position again
-            TuningCurveBoxODonutsDialogChanged%(-1);  'Enables "OK" button, -1 is sham input
-        case tunCRGCurrentCurve% = 1 then
-            tunCRGCurrentCurve% := 2;
-            tunType1$ := tunTypeXPos$;
-            if DlgValue(5) = 0 then  'if CRG is on master, then tuning curve selected is on slave
-                tunCurve1Text$ := "Tuning Curve on Slave is X POSITION";
+        GetTuningCurveXPosParameters();
+        DlgCreate("XPos Tuning Curve Parameters");
+        DlgInteger(1, "Number of Steps", 1, 100);
+        'DlgInteger(2, "Number of Repeats", 1, 1000);
+        DlgReal(3, "Min X Position", -14, 14);
+        DlgReal(4, "Max X Position", -14, 14);
+        'DlgCheck(5, "Random Progression");
+        if tunBoxODonutsCurrentCurve% = 0 then
+            DlgInteger(2, "Number of Repeats", 1, 1000);
+            DlgCheck(5, "Random Progression");
+        else
+            DlgInteger(2, "----------------", 1, 1);
+            DlgCheck(5, "----------------");
+        endif;
+
+        
+        i% := DlgShow(tunXPosNSteps%, tunXPosNRepeats%, tunXPosMinXPos, tunXPosMaxXPos, tunXPosProgression%);
+        ' If i% is 1 the user hit "OK". If its 0, user hit "Cancel". 
+        ' When user hits OK we always save the parameters, and when user hits Cancel we don't.
+        
+        if i% = 1 then
+            SaveTuningCurveXPosParameters();
+            '		PrintLog("TuningCurveAreaDialog - user hit OK\n");
+            tunType$ := tunTypeXPos$;
+            
+            'Change text on Box O' Donuts/CRG dialog box, if we're calling from there.
+            'Oh, and update tuning types we are going to use.
+            docase
+            case tunBoxODonutsCurrentCurve% = 1 then
+                tunType1$ := tunTypeXPos$;
+                tunCurve1Text$ := "Tuning Curve 1 is X POSITION";
+                DlgValue$(updateCurve1Text%, tunCurve1Text$);
+                tunBoxODonutsCurrentCurve% := 2;  'update current curve 
+                DlgEnable(0,-tundlgXPosButton%);  'So we don't pick X position again
+            case tunBoxODonutsCurrentCurve% = 2 then
+                tunType2$ := tunTypeXPos$;
+                tunCurve2Text$ := "Tuning Curve 2 is X POSITION";
+                DlgValue$(updateCurve2Text%, tunCurve2Text$);
+                tunBoxODonutsCurrentCurve% := 3;  'update current curve 
+                DlgEnable(0,-tundlgXPosButton%);  'So we don't pick X position again
+                TuningCurveBoxODonutsDialogChanged%(-1);  'Enables "OK" button, -1 is sham input
+            case tunCRGCurrentCurve% = 1 then
+                tunCRGCurrentCurve% := 2;
+                tunType1$ := tunTypeXPos$;
+                if DlgValue(5) = 0 then  'if CRG is on master, then tuning curve selected is on slave
+                    tunCurve1Text$ := "Tuning Curve on Slave is X POSITION";
+                else
+                    tunCurve1Text$ := "Tuning Curve on Master is X POSITION";
+                endif;
+                DlgValue$(updateCurve1Text%, tunCurve1Text$);
+                TuningCurveCRGDialogChanged%(-1);  'Enables "OK" button, -1 is sham input
+            endcase;
+            
+            
+            if tunContext$ = tunContextDAQ$ then
+                ' djs 2/4/2011 We return 1 - that's the workaround			iReturn% := 0;
+                iReturn% := 1;
             else
-                tunCurve1Text$ := "Tuning Curve on Master is X POSITION";
+                iReturn% := 1;
             endif;
-            DlgValue$(updateCurve1Text%, tunCurve1Text$);
-            TuningCurveCRGDialogChanged%(-1);  'Enables "OK" button, -1 is sham input
-        endcase;
+        endif;
+    else 'if it's a fixstim scenario, use XY position
         
+        GetTuningCurveXYPosParameters();
+        DlgCreate("XYPos Tuning Curve Parameters");
+        DlgInteger(1, "Number of Repeats", 1, 1000);
+        DlgInteger(2, "Number of X Steps", 0, 100);
+        DlgReal(3, "Min X Position", -14, 14);
+        DlgReal(4, "Max X Position", -14, 14);
+        DlgInteger(5, "Number of Y Steps", 0, 100);
+        DlgReal(6, "Min Y Position", -14, 14);
+        DlgReal(7, "Max Y Position", -14, 14);
+        DlgCheck(8, "Random Progression");
         
-		if tunContext$ = tunContextDAQ$ then
-            ' djs 2/4/2011 We return 1 - that's the workaround			iReturn% := 0;
-            iReturn% := 1;
-		else
-			iReturn% := 1;
-		endif;
-	endif;
+        DlgAllow(0xffff, 0, TuningCurveXYPosDialogChanged%);
+        
+        i% := DlgShow(tunXYPosNRepeats%, tunXYPosNXSteps%, tunXYPosMinXPos, tunXYPosMaxXPos, tunXYPosNYSteps%, tunXYPosMinYPos, tunXYPosMaxYPos, tunXYPosProgression%);
+        ' If i% is 1 the user hit "OK". If its 0, user hit "Cancel". 
+        ' When user hits OK we always save the parameters, and when user hits Cancel we don't.
+        
+        if i% = 1 then
+            SaveTuningCurveXYPosParameters();
+            '		PrintLog("TuningCurveAreaDialog - user hit OK\n");
+            tunType$ := tunTypeXYPos$;
+               
+            
+            if tunContext$ = tunContextDAQ$ then
+                ' djs 2/4/2011 We return 1 - that's the workaround			iReturn% := 0;
+                iReturn% := 1;
+            else
+                iReturn% := 1;
+            endif;
+        endif;
+    endif;    
+        
 	if i% = 0 then
 '		PrintLog("TuningCurveAreaDialog - user hit Cancel\n");
 		tunType$ := tunTypeNone$;
@@ -1009,6 +1079,25 @@ func TuningCurveXPosDialog%()
     
 	return iReturn%;
 end;
+
+
+
+func TuningCurveXYPosDialogChanged%(item%) 
+    if DlgValue(2) = 0 then  'If no X variation
+        DlgEnable(0,4); 'disable X Max
+    else
+        DlgEnable(1,4); 'enable X Max
+    endif
+    if DlgValue(5) = 0 then  'If no Y variation
+        DlgEnable(0,7); 'disable Y Max
+    else
+        DlgEnable(1,7); 'enable Y Max
+    endif
+    return 1;
+end
+
+
+
 
 
 func TuningCurveDisparityDialog%()
@@ -2157,7 +2246,7 @@ func TuningCurveScriptDialogChanged%(item%)
         DlgValue$(-tundlgSpatialButton%, "Spatial Freq");
         DlgValue$(-tundlgTemporalButton%, "Temporal Freq");
         DlgValue$(-tundlgAreaButton%, "Area");
-        DlgValue$(-tundlgXPosButton%, "X Position");
+        DlgValue$(-tundlgXPosButton%, "XY Position");
     endif;
     if DlgValue(10) = 1 then  'If dual VSG, allow donuts and Berliners and disparity and CRG
         DlgEnable(1,-tundlgDonutButton%,-tundlgBerlinerButton%,-tundlgBoxODonutsButton%,-tundlgCRGButton%,-tundlgDisparityButton%);
