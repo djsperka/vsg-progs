@@ -1,7 +1,7 @@
-' $Id: Tuning.s2s,v 1.63 2013-06-06 19:04:51 jeff Exp $
+' $Id: Tuning.s2s,v 1.64 2013-06-06 23:30:20 jeff Exp $
 ' Update 11/8/11 Jeff, includes multi-juicer updates
 
-const tunCVSID$ := "$Id: Tuning.s2s,v 1.63 2013-06-06 19:04:51 jeff Exp $";
+const tunCVSID$ := "$Id: Tuning.s2s,v 1.64 2013-06-06 23:30:20 jeff Exp $";
 
 
 
@@ -53,6 +53,9 @@ var XYWindow%;			'
 var iStimChannel%;	' channel number for stimulus in xy window
 var iStimWindowChannel%;' channel number for stimulus window in xy window
 var iMonitorChannel%;	' channel number for monitor position display in xy window
+var XYDotSize%[200];  'holds size of each dot for XY coordinate plot
+var XYDataCount%[200];  'holds number of presentations at each XY coordinate
+var XYSpikeRate[200];  'hold cumulative "rate" ( = rate on trial 1 + rate on trial 2 ...) at each XY coordinate
 
 ' Display stuff
 var FixWindowX[36],FixWindowY[36];	' points for displaying fixation window in xy view
@@ -276,7 +279,7 @@ func IdleProcessing%()
         if Looking%(xEye, yEye) = 1 then
             LogStatus("WaitForAcquisition", "Eye in fixation window; request stim");
             docase
-            case TunType$ = tunTypeBoxODonuts$ or TunType$ = tunTypeCRG$ then
+            case TunType$ = tunTypeBoxODonuts$ or TunType$ = tunTypeCRG$ or TunType$ = tunTypeXYPos$ then
                 GetPlotXYCoord(nTrialsCompleted%,xval,yval,xind%,yind%);  'fill xval, yval
                 SampleText("T," + str$(xval) + ",T2," + str$(yval));  'Just a guess at what will work
             else
@@ -382,6 +385,9 @@ func IdleProcessing%()
                 case TunType$ = tunTypeCRG$ then
                     GetPlotXYCoord(nTrialsCompleted%,xval,yval,xind%,yind%);  'fill xval, yval
                     PlotSpikes(tStimOn, tNow, 1, yval, nTrialsCompleted%);  'yes, yval
+                case TunType$ = tunTypeXYPos$ then
+                    GetPlotXYCoord(nTrialsCompleted%,xval,yval,xind%,yind%);  'fill xval, yval
+                    PlotDots(tStimOn, tNow, xind%, yind%); 
                 else
                     PlotSpikes(tStimOn, tNow, 1, GetPlotXCoord(nTrialsCompleted%), nTrialsCompleted%);
                 endcase;                
@@ -532,6 +538,39 @@ func GetPlotXYCoord(nTrials%,&xval,&yval,&xind%,&yind%)  'new for Box O' Donuts
     xind% := tun1ValuesIndices%[nTrials%];  'at time of writing, xind is not used (may as well put it in)
     yind% := tun2ValuesIndices%[nTrials%];  'but yind is used in PlotSpikes2TunCurves
 end;
+
+
+proc PlotDots(t1,t2,xind%,yind%)
+    var rate;
+    var count%;
+    var i%;
+    var j%;
+    var k%;
+    var ind%;
+    var maxdot;
+    var temp[200];  'this holds the average
+    'get index to which channel is current
+    ind% := yind% + (xind%*(tunXYPosNYSteps%+1));
+    'for i% := 0 to tunNWavemarks%-1 do ...for now I want this to work for one electrode before trying to do multiples
+    rate := View(DataWindow%).Count(i%+1, t1, t2)/(t2-t1);
+    XYSpikeRate[ind%] += rate;  'add in the current rate
+    XYDataCount%[ind%] += 1;   'increment the counter
+    'now determine the dot size - make 0 = 0, make biggest dot = 50
+    ArrConst(temp[],XYSpikeRate[]);  'fill temp with "rate"
+    ArrDiv(temp[],XYDataCount%[]);   'divide by number of trials at each point to get actual rate, divide by zero should be OK and just give no change (so still 0)
+    maxdot := temp[Max(temp)];  'get value of maximum rate
+    ArrConst(XYDotSize%[],temp[]);  'put actual rate into dot size variable 
+    ArrMul(XYDotSize%,50/maxdot);   'multiply by factor to make max rate = 50
+    for j% := 0 to tunXYPosNXSteps% do
+        for k% := 0 to tunXYPosNYSteps% do
+            XYDrawMode(count%,2,XYDotSize%[count%]);  'set size of dots to proper size
+            count% += 1;
+        next;
+    next;
+
+    'end;
+end;
+
 
 proc PlotSpikes(t1, t2, vOnOff%, x, index%)
 	var rate;
@@ -704,7 +743,11 @@ proc InitializeWindows()
 end;
 
 proc TuningCurveLabels(iport%)
-
+    
+    var i%;  'looping variables to set XY channels for XY position tuning plot
+    var j%;
+    var count%;
+    
     var s$;
     s$ := "Port " + str$(iport%);
 	docase
@@ -763,8 +806,19 @@ proc TuningCurveLabels(iport%)
         WindowTitle$("XY Position Tuning - " + s$);
         XTitle$("X Position");
         ChanTitle$(0,"Y Position");  'Not an intuitive way to change the y title: ChanTitle$(0,...)
-        XRange(tunXYPosMinXPos, tunXYPosMaxXPos);
-        YRange(-1,tunXYPosMinYPos, tunXYPosMaxYPos);  'again, X and Y not the same.  Grr.  -1 for all channels
+        XRange(tunXYPosMinXPos-1, tunXYPosMaxXPos+1);
+        YRange(-1,tunXYPosMinYPos-1, tunXYPosMaxYPos+1);  'again, X and Y not the same.  Grr.  -1 for all channels
+        'set up channels, one for each point in the grid
+        count% := 0;
+        for i% := 0 to tunXYPosNXSteps% do
+            for j% := 0 to tunXYPosNYSteps% do
+                XYSetChan(count%,1); 'create a channel with only one data point
+                XYAddData(count%,tun1Values[i%],tun2values[j%]);  'put in a data point at the correct x,y coordinate
+                XYDrawMode(count%,1,0);  'set draw mode to dots
+                XYDrawMode(count%,2,0);  'set size of dots to invisible, will change later
+                count% += 1;
+            next;
+        next;
         
         
     case tunType$ = tunTypeDisparity$ then
