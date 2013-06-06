@@ -1,7 +1,7 @@
-' $Id: Tuning.s2s,v 1.62 2013-06-06 19:01:34 jeff Exp $
+' $Id: Tuning.s2s,v 1.63 2013-06-06 19:04:51 jeff Exp $
 ' Update 11/8/11 Jeff, includes multi-juicer updates
 
-const tunCVSID$ := "$Id: Tuning.s2s,v 1.62 2013-06-06 19:01:34 jeff Exp $";
+const tunCVSID$ := "$Id: Tuning.s2s,v 1.63 2013-06-06 19:04:51 jeff Exp $";
 
 
 
@@ -956,7 +956,6 @@ proc CreateSampleConfiguration()
         printlog("Y values are %s\n",tun2ValuesStringified$);
         tunValuesStringified$ := InterleaveStrings$(tun1ValuesStringified$,tun2ValuesStringified$);
         printlog("XY values are %s\n",tunValuesStringified$);
-        halt;
         
     case tunType$ = tunTypeDisparity$ then 
         SampleAutoName$(dataCellName$ + "_disparity_000");
