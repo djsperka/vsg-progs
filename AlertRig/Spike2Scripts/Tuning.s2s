@@ -1,7 +1,7 @@
-' $Id: Tuning.s2s,v 1.61 2012-04-30 18:08:15 jeff Exp $
+' $Id: Tuning.s2s,v 1.62 2013-06-06 19:01:34 jeff Exp $
 ' Update 11/8/11 Jeff, includes multi-juicer updates
 
-const tunCVSID$ := "$Id: Tuning.s2s,v 1.61 2012-04-30 18:08:15 jeff Exp $";
+const tunCVSID$ := "$Id: Tuning.s2s,v 1.62 2013-06-06 19:01:34 jeff Exp $";
 
 
 
@@ -709,141 +709,150 @@ proc TuningCurveLabels(iport%)
     s$ := "Port " + str$(iport%);
 	docase
         
-        case tunType$ = tunTypeDots$ then
-
-			WindowTitle$("Dots, Orientation Tuning - " + s$);
-			XUnits$("Orientation (degrees)");
-			ChanTitle$(1, "Chan 1");
-            XRange(tunDotsMinOrientation, tunDotsMaxOrientation);
+    case tunType$ = tunTypeDots$ then
         
-		case tunType$ = tunTypeContrast$ then
-
-			WindowTitle$("Contrast Tuning - " + s$);
-			XUnits$("Contrast (%)");
-			ChanTitle$(1, "Chan 1");
-			XRange(tunContrastMinContrast, tunContrastMaxContrast);
-
-		case tunType$ = tunTypeOrientation$ then
-
-			WindowTitle$("Orientation Tuning - " + s$);
-			XUnits$("Orientation (degrees)");
-			ChanTitle$(1, "Chan 1");
-			XRange(tunOriMinOrientation, tunOriMaxOrientation);
-
-		case tunType$ = tunTypeSpatial$ then
-
-			WindowTitle$("Spatial Frequency Tuning - " + s$);
-			XUnits$("Spatial Frequency");
-			ChanTitle$(1, "Chan 1");
-			XRange(tunSpatialMinSF, tunSpatialMaxSF);
-	
-		case tunType$ = tunTypeTemporal$ then
-
-			WindowTitle$("Temporal Frequency Tuning - " + s$);
-			XUnits$("Temporal Frequency");
-			ChanTitle$(1, "Chan 1");
-			XRange(tunTemporalMinTF, tunTemporalMaxTF);
-
-		case tunType$ = tunTypeArea$ then
-
-			WindowTitle$("Aperture Area Tuning - " + s$);
-			XUnits$("Aperture Diameter");
-			ChanTitle$(1, "Chan 1");
+        WindowTitle$("Dots, Orientation Tuning - " + s$);
+        XUnits$("Orientation (degrees)");
+        ChanTitle$(1, "Chan 1");
+        XRange(tunDotsMinOrientation, tunDotsMaxOrientation);
+        
+    case tunType$ = tunTypeContrast$ then
+        
+        WindowTitle$("Contrast Tuning - " + s$);
+        XUnits$("Contrast (%)");
+        ChanTitle$(1, "Chan 1");
+        XRange(tunContrastMinContrast, tunContrastMaxContrast);
+        
+    case tunType$ = tunTypeOrientation$ then
+        
+        WindowTitle$("Orientation Tuning - " + s$);
+        XUnits$("Orientation (degrees)");
+        ChanTitle$(1, "Chan 1");
+        XRange(tunOriMinOrientation, tunOriMaxOrientation);
+        
+    case tunType$ = tunTypeSpatial$ then
+        
+        WindowTitle$("Spatial Frequency Tuning - " + s$);
+        XUnits$("Spatial Frequency");
+        ChanTitle$(1, "Chan 1");
+        XRange(tunSpatialMinSF, tunSpatialMaxSF);
+        
+    case tunType$ = tunTypeTemporal$ then
+        
+        WindowTitle$("Temporal Frequency Tuning - " + s$);
+        XUnits$("Temporal Frequency");
+        ChanTitle$(1, "Chan 1");
+        XRange(tunTemporalMinTF, tunTemporalMaxTF);
+        
+    case tunType$ = tunTypeArea$ then
+        
+        WindowTitle$("Aperture Area Tuning - " + s$);
+        XUnits$("Aperture Diameter");
+        ChanTitle$(1, "Chan 1");
+        XRange(tunAreaMinDiam, tunAreaMaxDiam);
+        
+    case tunType$ = tunTypeXPos$ then
+        
+        WindowTitle$("X Position Tuning - " + s$);
+        XUnits$("X Position");
+        ChanTitle$(1, "Chan 1");
+        XRange(tunXPosMinXPos, tunXPosMaxXPos);
+        
+    case tunType$ = tunTypeXYPos$ then
+        
+        WindowTitle$("XY Position Tuning - " + s$);
+        XTitle$("X Position");
+        ChanTitle$(0,"Y Position");  'Not an intuitive way to change the y title: ChanTitle$(0,...)
+        XRange(tunXYPosMinXPos, tunXYPosMaxXPos);
+        YRange(-1,tunXYPosMinYPos, tunXYPosMaxYPos);  'again, X and Y not the same.  Grr.  -1 for all channels
+        
+        
+    case tunType$ = tunTypeDisparity$ then
+        
+        WindowTitle$("Disparity Tuning - " + s$);
+        XUnits$("Disparity (deg)");
+        ChanTitle$(1, "Chan 1");
+        XRange(2*tunDisparityCenterXPos-tunDisparityMaxXPos, tunDisparityMaxXPos);
+        
+    case tunType$ = tunTypeDonut$ then
+        
+        WindowTitle$("Donut Area Tuning - " + s$);
+        XUnits$("Outer Diameter");
+        ChanTitle$(1, "Chan 1");
+        XRange(tunAreaMinDiam, tunAreaMaxDiam);
+        
+    case tunType$ = tunTypeBerliner$ then
+        
+        WindowTitle$("Berliner Procedure - " + s$);
+        XUnits$("Stim Type");
+        ChanTitle$(1, "Chan 1");
+        XRange(0,5);
+        
+    case tunType$ = tunTypeBoxODonuts$ then  
+        
+        WindowTitle$("Box O' Donuts Procedure - " + s$);
+        docase
+        case tunType1$ = tunTypeContrast$ then
+            XUnits$("Contrast (%)");
+            XRange(tunContrastMinContrast, tunContrastMaxContrast);
+        case tunType1$ = tunTypeOrientation$ then
+            XUnits$("Orientation (degrees)");
+            XRange(tunOriMinOrientation, tunOriMaxOrientation);
+        case tunType1$ = tunTypeSpatial$ then
+            XUnits$("Spatial Frequency");
+            XRange(tunSpatialMinSF, tunSpatialMaxSF);
+        case tunType1$ = tunTypeTemporal$ then
+            XUnits$("Temporal Frequency");
+            XRange(tunTemporalMinTF, tunTemporalMaxTF);
+        case tunType1$ = tunTypeArea$ then
+            XUnits$("Aperture Diameter");
             XRange(tunAreaMinDiam, tunAreaMaxDiam);
-        
-        case tunType$ = tunTypeXPos$ then
-
-			WindowTitle$("X Position Tuning - " + s$);
-			XUnits$("X Position");
-			ChanTitle$(1, "Chan 1");
+        case tunType1$ = tunTypeXPos$ then
+            XUnits$("X Position");
             XRange(tunXPosMinXPos, tunXPosMaxXPos);
+        endcase
+        ChanTitle$(1, "Chan 1");
         
-        case tunType$ = tunTypeDisparity$ then
-
-			WindowTitle$("Disparity Tuning - " + s$);
-			XUnits$("Disparity (deg)");
-			ChanTitle$(1, "Chan 1");
-			XRange(2*tunDisparityCenterXPos-tunDisparityMaxXPos, tunDisparityMaxXPos);
+    case tunType$ = tunTypeCRG$ then  'I don't know if Ben will use this much, I'm going to go rogue and use the SECOND (tuning curve) for the X axis
         
-		case tunType$ = tunTypeDonut$ then
-
-			WindowTitle$("Donut Area Tuning - " + s$);
-			XUnits$("Outer Diameter");
-			ChanTitle$(1, "Chan 1");
+        WindowTitle$("Contrast Reversing Grating Procedure - " + s$);
+        docase
+        case tunType1$ = tunTypeContrast$ then  'note that here tunType1$ is the SECOND...
+            XUnits$("Contrast (%)");
+            XRange(tunContrastMinContrast, tunContrastMaxContrast);
+        case tunType1$ = tunTypeOrientation$ then
+            XUnits$("Orientation (degrees)");
+            XRange(tunOriMinOrientation, tunOriMaxOrientation);
+        case tunType1$ = tunTypeSpatial$ then
+            XUnits$("Spatial Frequency");
+            XRange(tunSpatialMinSF, tunSpatialMaxSF);
+        case tunType1$ = tunTypeTemporal$ then
+            XUnits$("Temporal Frequency");
+            XRange(tunTemporalMinTF, tunTemporalMaxTF);
+        case tunType1$ = tunTypeArea$ then
+            XUnits$("Aperture Diameter");
             XRange(tunAreaMinDiam, tunAreaMaxDiam);
+        case tunType1$ = tunTypeXPos$ then
+            XUnits$("X Position");
+            XRange(tunXPosMinXPos, tunXPosMaxXPos);
+        case tunType1$ = tunTypeBlank$ then
+            XUnits$("Blank");
+            XRange(-1, 1);
+        case tunType1$ = tunTypeGratingOnly$ then
+            XUnits$("Grating Off(0)/On(100)");
+            XRange(0, 100);
+        case tunType1$ = tunTypeCRG$ then
+            XUnits$("CRG Secondary Off(0)/On(1)");
+            XRange(0, 1);
+        endcase
+        ChanTitle$(1, "Chan 1");
         
-        case tunType$ = tunTypeBerliner$ then
-
-			WindowTitle$("Berliner Procedure - " + s$);
-			XUnits$("Stim Type");
-			ChanTitle$(1, "Chan 1");
-			XRange(0,5);
+    else
         
-        case tunType$ = tunTypeBoxODonuts$ then  
-
-            WindowTitle$("Box O' Donuts Procedure - " + s$);
-            docase
-            case tunType1$ = tunTypeContrast$ then
-                XUnits$("Contrast (%)");
-                XRange(tunContrastMinContrast, tunContrastMaxContrast);
-            case tunType1$ = tunTypeOrientation$ then
-                XUnits$("Orientation (degrees)");
-                XRange(tunOriMinOrientation, tunOriMaxOrientation);
-            case tunType1$ = tunTypeSpatial$ then
-                XUnits$("Spatial Frequency");
-                XRange(tunSpatialMinSF, tunSpatialMaxSF);
-            case tunType1$ = tunTypeTemporal$ then
-                XUnits$("Temporal Frequency");
-                XRange(tunTemporalMinTF, tunTemporalMaxTF);
-            case tunType1$ = tunTypeArea$ then
-                XUnits$("Aperture Diameter");
-                XRange(tunAreaMinDiam, tunAreaMaxDiam);
-            case tunType1$ = tunTypeXPos$ then
-                XUnits$("X Position");
-                XRange(tunXPosMinXPos, tunXPosMaxXPos);
-            endcase
-			ChanTitle$(1, "Chan 1");
+        Message("TuningCurveLabels Error - unknown value for tunType$: " + tunType$);
         
-        case tunType$ = tunTypeCRG$ then  'I don't know if Ben will use this much, I'm going to go rogue and use the SECOND (tuning curve) for the X axis
-
-            WindowTitle$("Contrast Reversing Grating Procedure - " + s$);
-            docase
-            case tunType1$ = tunTypeContrast$ then  'note that here tunType1$ is the SECOND...
-                XUnits$("Contrast (%)");
-                XRange(tunContrastMinContrast, tunContrastMaxContrast);
-            case tunType1$ = tunTypeOrientation$ then
-                XUnits$("Orientation (degrees)");
-                XRange(tunOriMinOrientation, tunOriMaxOrientation);
-            case tunType1$ = tunTypeSpatial$ then
-                XUnits$("Spatial Frequency");
-                XRange(tunSpatialMinSF, tunSpatialMaxSF);
-            case tunType1$ = tunTypeTemporal$ then
-                XUnits$("Temporal Frequency");
-                XRange(tunTemporalMinTF, tunTemporalMaxTF);
-            case tunType1$ = tunTypeArea$ then
-                XUnits$("Aperture Diameter");
-                XRange(tunAreaMinDiam, tunAreaMaxDiam);
-            case tunType1$ = tunTypeXPos$ then
-                XUnits$("X Position");
-                XRange(tunXPosMinXPos, tunXPosMaxXPos);
-            case tunType1$ = tunTypeBlank$ then
-                XUnits$("Blank");
-                XRange(-1, 1);
-            case tunType1$ = tunTypeGratingOnly$ then
-                XUnits$("Grating Off(0)/On(100)");
-                XRange(0, 100);
-            case tunType1$ = tunTypeCRG$ then
-                XUnits$("CRG Secondary Off(0)/On(1)");
-                XRange(0, 1);
-            endcase
-            ChanTitle$(1, "Chan 1");
-        
-		else
-
-			Message("TuningCurveLabels Error - unknown value for tunType$: " + tunType$);
-
 	endcase;
-
+    
 end;
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 proc CreateSampleConfiguration()
@@ -911,6 +920,44 @@ proc CreateSampleConfiguration()
         GetRepeatedParameterProgression%(tunXPosNSteps%+1, tunXPosNRepeats%, tunValues[], tunValuesIndices%[], tunXPosMinXPos, tunXPosMaxXPos, 0, tunXPosProgression%);  'Note - linear spacing for position, not log
         tunNValues% := (tunXPosNSteps%+1)*tunXPosNRepeats%;
         tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%);   
+    case tunType$ = tunTypeXYPos$ then 
+        SampleAutoName$(dataCellName$ + "_xypos_000");
+        
+        'for tun1, use X
+        if tunXYPosNXSteps% = 0 then  'this allows for no x movement
+            tun1Values[0] := tunXYPosMinXPos;
+            tun1ValuesIndices%[0] := 1;
+        else
+            GetRepeatedParameterProgression%(tunXYPosNXSteps%+1, 1, tun1Values[], tun1ValuesIndices%[], tunXYPosMinXPos, tunXYPosMaxXPos, 0, 0);
+        endif;
+        tun1NValues% := (tunXYPosNXSteps%+1);
+        
+        'for tun2, use Y
+        if tunXYPosNYSteps% = 0 then  'this allows for no y movement
+            tun2Values[0] := tunXYPosMinYPos;
+            tun2ValuesIndices%[0] := 1;
+        else
+            GetRepeatedParameterProgression%(tunXYPosNYSteps%+1, 1, tun2Values[], tun2ValuesIndices%[], tunXYPosMinYPos, tunXYPosMaxYPos, 0, 0);
+        endif;
+        tun2NValues% := (tunXYPosNYSteps%+1);       
+        
+        tunNRepeats% := tunXYPosNRepeats%;   
+        tunNAdvances% := tun1NValues%*tun2NValues%-1;  'this gives the correct number of advances
+        tunNValues% := tun1NValues%*tun2NValues%*tunXYPosNRepeats%;  'now used in idle loop instead of (tunNAdvances%+1)*tunNRepeats
+        
+        'Now we need to grid the values out into two appropriate tunValues and tunValuesIndices (the randomizer bit)
+        GridStimuli(tun1Values[],tun2Values[],tun1NValues%,tun2NValues%,tun1ValuesIndices%[],tun2ValuesIndices%[],tunXYPosProgression%,tunXYPosNRepeats%);         
+        
+        'StringifyProgression$ will work just fine on tun1/2Values and tun1/2ValuesIndices
+        tun1ValuesStringified$ := StringifyProgression$(tun1NValues%*tun2NValues%*tunXYPosNRepeats%, tun1Values[], tun1ValuesIndices%[]);
+        tun2ValuesStringified$ := StringifyProgression$(tun1NValues%*tun2NValues%*tunXYPosNRepeats%, tun2Values[], tun2ValuesIndices%[]);
+        
+        printlog("X values are %s\n",tun1ValuesStringified$);
+        printlog("Y values are %s\n",tun2ValuesStringified$);
+        tunValuesStringified$ := InterleaveStrings$(tun1ValuesStringified$,tun2ValuesStringified$);
+        printlog("XY values are %s\n",tunValuesStringified$);
+        halt;
+        
     case tunType$ = tunTypeDisparity$ then 
         SampleAutoName$(dataCellName$ + "_disparity_000");
         tunNAdvances% := tunDisparityNSteps%;
@@ -963,7 +1010,7 @@ proc CreateSampleConfiguration()
             tun1NValues% := (tunAreaNSteps%+1);
             temp1$ := "_area";
         case tuntype1$ = tunTypeXPos$ then
-            GetRepeatedParameterProgression%(tunXPosNSteps%+1, 1, tun1Values[], tun1ValuesIndices%[], tunXPosMinXPos, tunXPosMaxXPos, 1, 0);
+            GetRepeatedParameterProgression%(tunXPosNSteps%+1, 1, tun1Values[], tun1ValuesIndices%[], tunXPosMinXPos, tunXPosMaxXPos, 0, 0);
             tun1NValues% := (tunXPosNSteps%+1);
             temp1$ := "_xpos";
         endcase;
@@ -990,7 +1037,7 @@ proc CreateSampleConfiguration()
             tun2NValues% := (tunAreaNSteps%+1);
             temp2$ := "_area";
         case tuntype2$ = tunTypeXPos$ then
-            GetRepeatedParameterProgression%(tunXPosNSteps%+1, 1, tun2Values[], tun2ValuesIndices%[], tunXPosMinXPos, tunXPosMaxXPos, 1, 0);
+            GetRepeatedParameterProgression%(tunXPosNSteps%+1, 1, tun2Values[], tun2ValuesIndices%[], tunXPosMinXPos, tunXPosMaxXPos, 0, 0);
             tun2NValues% := (tunXPosNSteps%+1);
             temp2$ := "_xpos";
         endcase;
@@ -1325,6 +1372,15 @@ proc WriteParameterFile()
 			Print("Min,Max,#Steps,#Repeats: %f,%f,%d,%d\n", tunXPosMinXPos, tunXPosMaxXPos, tunXPosNSteps%, tunXPosNRepeats%);
 			Print("Values: " + tunValuesStringified$ + "\n");
             Print("\n");
+        
+        case tunType$ = tunTypeXYPos$ then
+
+			Print("Type:                  : XY Position\n");
+            Print("MinX,MaxX,#XSteps,#Repeats: %f,%f,%d,%d\n", tunXYPosMinXPos, tunXYPosMaxXPos, tunXYPosNXSteps%, tunXPosNRepeats%);
+            Print("MinY,MaxY,#YSteps,#Repeats: %f,%f,%d,%d\n", tunXYPosMinYPos, tunXYPosMaxYPos, tunXYPosNYSteps%, tunXPosNRepeats%);
+            Print("XValues: " + tun1ValuesStringified$ + "\n");
+            Print("YValues: " + tun2ValuesStringified$ + "\n");
+            Print("\n");        
         
         case tunType$ = tunTypeDisparity$ then
 
@@ -1736,6 +1792,10 @@ func Start%()
             'based on tunDualTuningType%, allows dual to produce tuning curve on both, only master, or only slave
             ClearMasterOrSlaveIfNecessary(SGrat$,SGratParam$,SlaveIndicator$,TunCurveSArg$,SValues$,MGrat$,MGratParam$,MasterIndicator$,TunCurveMArg$,MValues$);  
         endif;
+        
+    case tunType$ = tunTypeXYPos$ then
+        tunCurveMArg$ := " -Z ";
+        'tunDoRivalry cannot be 1 in this case because dualstim does not have this function
         
     case tunType$ = tunTypeDisparity$ then
         if tunDisparityOnMaster% = 1 then
