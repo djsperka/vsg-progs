@@ -1,7 +1,7 @@
-' $Id: Tuning.s2s,v 1.64 2013-06-06 23:30:20 jeff Exp $
+' $Id: Tuning.s2s,v 1.65 2013-06-07 00:29:58 devel Exp $
 ' Update 11/8/11 Jeff, includes multi-juicer updates
 
-const tunCVSID$ := "$Id: Tuning.s2s,v 1.64 2013-06-06 23:30:20 jeff Exp $";
+const tunCVSID$ := "$Id: Tuning.s2s,v 1.65 2013-06-07 00:29:58 devel Exp $";
 
 
 
@@ -542,7 +542,7 @@ end;
 
 proc PlotDots(t1,t2,xind%,yind%)
     var rate;
-    var count%;
+    var count% := 1;
     var i%;
     var j%;
     var k%;
@@ -553,20 +553,24 @@ proc PlotDots(t1,t2,xind%,yind%)
     ind% := yind% + (xind%*(tunXYPosNYSteps%+1));
     'for i% := 0 to tunNWavemarks%-1 do ...for now I want this to work for one electrode before trying to do multiples
     rate := View(DataWindow%).Count(i%+1, t1, t2)/(t2-t1);
+    printlog("Current rate is %f\n",rate);
     XYSpikeRate[ind%] += rate;  'add in the current rate
     XYDataCount%[ind%] += 1;   'increment the counter
     'now determine the dot size - make 0 = 0, make biggest dot = 50
     ArrConst(temp[],XYSpikeRate[]);  'fill temp with "rate"
     ArrDiv(temp[],XYDataCount%[]);   'divide by number of trials at each point to get actual rate, divide by zero should be OK and just give no change (so still 0)
     maxdot := temp[Max(temp)];  'get value of maximum rate
-    ArrConst(XYDotSize%[],temp[]);  'put actual rate into dot size variable 
-    ArrMul(XYDotSize%,50/maxdot);   'multiply by factor to make max rate = 50
-    for j% := 0 to tunXYPosNXSteps% do
-        for k% := 0 to tunXYPosNYSteps% do
-            XYDrawMode(count%,2,XYDotSize%[count%]);  'set size of dots to proper size
-            count% += 1;
+    if maxdot > 0 then
+        ArrConst(XYDotSize%[],temp[]);  'put actual rate into dot size variable 
+        ArrMul(XYDotSize%,50/maxdot);   'multiply by factor to make max rate = 50
+        printlog("Dotsize is %f\n",XYDotSize%);
+        for j% := 0 to tunXYPosNXSteps% do
+            for k% := 0 to tunXYPosNYSteps% do
+                View(TuningWindow%[i%]).XYDrawMode(count%+1,2,XYDotSize%[count%-1]);  'set size of dots to proper size, I'm not sure why channel has to be count+1...?
+                count% += 1;
+            next;
         next;
-    next;
+    endif;
 
     'end;
 end;
@@ -809,14 +813,12 @@ proc TuningCurveLabels(iport%)
         XRange(tunXYPosMinXPos-1, tunXYPosMaxXPos+1);
         YRange(-1,tunXYPosMinYPos-1, tunXYPosMaxYPos+1);  'again, X and Y not the same.  Grr.  -1 for all channels
         'set up channels, one for each point in the grid
-        count% := 0;
         for i% := 0 to tunXYPosNXSteps% do
             for j% := 0 to tunXYPosNYSteps% do
-                XYSetChan(count%,1); 'create a channel with only one data point
+                count% := XYSetChan(0,1); 'create a channel with only one data point, return
                 XYAddData(count%,tun1Values[i%],tun2values[j%]);  'put in a data point at the correct x,y coordinate
                 XYDrawMode(count%,1,0);  'set draw mode to dots
-                XYDrawMode(count%,2,0);  'set size of dots to invisible, will change later
-                count% += 1;
+                XYDrawMode(count%,2,5);  'set size of dots to invisible, will change later
             next;
         next;
         
