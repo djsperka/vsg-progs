@@ -1,4 +1,4 @@
-/* $Id: fixstim.cpp,v 1.16 2013-06-05 20:43:50 devel Exp $ */
+/* $Id: fixstim.cpp,v 1.17 2013-06-14 23:58:56 devel Exp $ */
 
 #include <iostream>
 #include <fstream>
@@ -35,6 +35,7 @@ COLOR_TYPE f_background = { gray, {0.5, 0.5, 0.5}};
 ARContrastFixationPointSpec f_fixpt;
 ARGratingSpec f_grating;
 vector<ARGratingSpec> f_vecGratings;
+vector<AttentionCue> f_vecAttentionCues;
 //ARGratingSpec f_grating2;
 //bool have_second = false;
 //ARGratingSpec f_grating3;
@@ -59,7 +60,7 @@ int main (int argc, char *argv[])
 	int status;
 
 	// Check input arguments
-	status = prargs(argc, argv, prargs_callback, "f:b:d:avg:s:C:T:S:O:A:P:R:B:H:zp:G:D:wJ:Z:", 'F');
+	status = prargs(argc, argv, prargs_callback, "f:b:d:avg:s:C:T:S:O:A:P:R:B:H:zp:G:D:wJ:Z:Q:", 'F');
 	if (status)
 	{
 		return -1;
@@ -503,6 +504,15 @@ int prargs_callback(int c, string& arg)
 			}
 			break;
 		}
+	case 'Q':
+		{
+			if (parse_attcues(arg, f_vecGratings.size(), f_vecAttentionCues))
+			{
+				cerr << "Error in input." << endl;
+				errflg++;
+			}
+			break;
+		}
 	case 'J':
 		{
 			// Henry's Attention expt. 
@@ -532,7 +542,14 @@ int prargs_callback(int c, string& arg)
 				{
 					if (f_vecGratings.size() > 0)
 					{
-						f_pStimSet = new AttentionStimSet(f_fixpt, tCC, f_vecGratings, vecInput);
+						if (f_vecAttentionCues.size() == 0)
+						{
+							f_pStimSet = new AttentionStimSet(f_fixpt, tCC, f_vecGratings, vecInput);
+						}
+						else
+						{
+							f_pStimSet = new AttentionStimSet(f_fixpt, tCC, f_vecGratings, f_vecAttentionCues, vecInput);
+						}
 					}
 					else
 					{

@@ -1334,8 +1334,39 @@ int CounterphaseStimSet::handle_trigger(std::string& s)
 	return status;
 }
 
+int parse_attcues(const string& s, int nstim, vector<AttentionCue>& vecCues)
+{
+	COLOR_TYPE color;
+	double rdiff;
+	int i;
+	vector<string> tokens;
+	istringstream iss;
+	tokenize(s, tokens, ",");
+	if (tokens.size() % (nstim*2) == 0)
+	{
+		for (i=0; i<nstim; i++)
+		{
+			if (parse_double(tokens[i*2], rdiff) || parse_color(tokens[i*2+1], color))
+			{
+				cerr << "Error reading attention cues (" << s << ")" << endl;
+				return 1;
+			}
+			vecCues.push_back(AttentionCue(rdiff, color));
+		}
+	}
+	else
+	{
+		cerr << "Error reading attention cues (" << s << ") Expecting " << nstim*2 << " args, 2 for each stim." << endl;
+		return 1;
+	}
+	return 0;
+}
+
+
+
+
 // helper function for loading params from a comma-separated string
-int parse_attparams(const string& s, int nstim, vector<struct AttParams>& vec, double& tCC)
+int parse_attparams(const string& s, int nstim, vector<struct AttParams>& vecTrialParams, double& tCC)
 {
 	int i;
 	int status = 0;
@@ -1352,6 +1383,7 @@ int parse_attparams(const string& s, int nstim, vector<struct AttParams>& vec, d
 			return 1;
 		}
 		it++;
+
 		while (it != tokens.end())
 		{
 			// each pass through this loop will pickup the parameters for a single trial. 
@@ -1410,8 +1442,13 @@ int parse_attparams(const string& s, int nstim, vector<struct AttParams>& vec, d
 				it++;
 				params.contrastPairs.push_back(std::pair<int, int>(iBase, iChg));
 			}
-			vec.push_back(params);
+			vecTrialParams.push_back(params);
 		}
+	}
+	else
+	{
+		cerr << "Error reading attention parameters. Check command line args." << endl;
+		status = 1;
 	}
 	return status;
 }
@@ -1425,6 +1462,25 @@ AttentionStimSet::AttentionStimSet(ARContrastFixationPointSpec& fixpt, double tC
 , m_current(0)
 {};
 
+
+AttentionStimSet::AttentionStimSet(ARContrastFixationPointSpec& fixpt, double tCC, vector<alert::ARGratingSpec>& vecGratings, vector<AttentionCue>& vecCuePairs, vector<AttParams>& params)
+: m_fixpt(fixpt)
+, m_tCC(tCC)
+, m_vecGratings(vecGratings)
+, m_vecGratingsCC(vecGratings)
+, m_vecParams(params)
+, m_current(0)
+{
+	for (unsigned int i=0; i<vecCuePairs.size(); i++)
+	{
+		ARContrastCircleSpec circle;
+		circle.x = m_vecGratings[i].x;
+		circle.y = m_vecGratings[i].y;
+		circle.d = m_vecGratings[i].w + vecCuePairs[i].first*2;
+		circle.color = vecCuePairs[i].second;
+		m_vecCues.push_back(circle);
+	}
+};
 
 int AttentionStimSet::init(ARvsg& vsg, std::vector<int> pages)
 {
@@ -1442,9 +1498,13 @@ int AttentionStimSet::init(ARvsg& vsg, std::vector<int> pages)
 	if (m_vecGratings.size() < 4) nlevels = 40;
 	else
 	{
-		nlevels = 247/m_vecGratings.size()/2;
+		nlevels = (247 - m_vecCues.size()*2)/m_vecGratings.size()/2;
 	}
 	cerr << "Number of levels per stim" << nlevels << endl;
+	for (unsigned int i=0; i<m_vecCues.size(); i++)
+	{
+		m_vecCues[i].init(vsg, 2);
+	}
 	for (unsigned int i=0; i<m_vecGratings.size(); i++)
 	{
 		m_vecGratings[i].init(vsg, nlevels);
@@ -1482,6 +1542,18 @@ int AttentionStimSet::drawCurrent()
 		m_vecGratings[i].setSpatialPhase(m_vecParams[m_current].dInitialPhase);
 		m_vecGratings[i].draw();
 	}
+	for (unsigned int i=0; i<m_vecCues.size(); i++)
+	{
+		// Check if this stim has an off bit set.
+		if (m_vecParams[m_current].iOffBits & (1 << i))
+		{
+			// do nothing
+		}
+		else
+		{
+			m_vecCues[i].draw();
+		}
+	}
 	m_fixpt.draw();
 
 	// Stim page, this one with contrast change
@@ -1500,10 +1572,34 @@ int AttentionStimSet::drawCurrent()
 		m_vecGratingsCC[i].setSpatialPhase(m_vecParams[m_current].dInitialPhase);
 		m_vecGratingsCC[i].draw();
 	}
+	for (unsigned int i=0; i<m_vecCues.size(); i++)
+	{
+		// Check if this stim has an off bit set.
+		if (m_vecParams[m_current].iOffBits & (1 << i))
+		{
+			// do nothing
+		}
+		else
+		{
+			m_vecCues[i].draw();
+		}
+	}
 	m_fixpt.draw();
 
 	// plain fixpt page
 	vsgSetDrawPage(vsgVIDEOPAGE, m_pageFixpt, vsgBACKGROUND);
+	for (unsigned int i=0; i<m_vecCues.size(); i++)
+	{
+		// Check if this stim has an off bit set.
+		if (m_vecParams[m_current].iOffBits & (1 << i))
+		{
+			// do nothing
+		}
+		else
+		{
+			m_vecCues[i].draw();
+		}
+	}
 	m_fixpt.draw();
 
 	// blank page
