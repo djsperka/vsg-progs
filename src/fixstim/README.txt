@@ -117,6 +117,12 @@ it first appears on the screen).
 
 Any (or all) of the stimuli may have a contrast change at a specified time after onset.
 
+Each stimuli grating can have a companion cue circle drawn (see -Q below). The colors and
+diameter (relative to the enclosed grating) can be specified. The cue circles are drawn 
+with the fixation point - hence they appear on the fixpt page as well as the stimuli 
+pages (before and after contrast change). Cue circles are not drawn if their corresponding
+stimulus grating is switched OFF for a given trial. 
+
 With clever figuring, one can arrange for the contrast change to occur at a specific 
 phase. The program knows nothing of this - it will arrange for the contrast change 
 to occur at the time specified. It is up to the caller to make sure that the drift
@@ -153,6 +159,19 @@ chg_0_1    - contrast to change to after sec_to_chg_0, trial 0, stim 1
 For a stim with N gratings and M trials, there should be a total of 1 + M*(4 + N*2)
 comma-separated parameters following the -J. 
 
+
+To specify the cue circles, use the -Q option:
+
+-Q rad_extra_0,color_0,radius_extra_1,color_1,...
+
+where the parameters are:
+
+radius_extra_0 - radius of circle is this plus the radius of corresponding grating
+color_0 - color of circle
+
+The -Q option must come after all gratings have been specified (-s, once for each 
+grating) and before the -J option. The cues may be omitted, but if they are used, 
+then they must be specified for each grating. 
 
 
 
