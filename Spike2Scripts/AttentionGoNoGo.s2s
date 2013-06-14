@@ -1,4 +1,4 @@
-' $Id: AttentionGoNoGo.s2s,v 1.6 2013-06-14 16:23:38 jeff Exp $
+' $Id: AttentionGoNoGo.s2s,v 1.7 2013-06-14 18:26:41 devel Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -58,8 +58,8 @@ var attFalseAlarmWaitTime;
 var attFalseAlarmCheckWindow;
 var attBlockAlternate%;
 var attNoBlockRand%;  'if 1, don't do blocked randomization
-var attTrainingContrastCheck%:=0;
-var attTrainingContrastPct%:=0;
+'var attTrainingContrastCheck%:=0;
+'var attTrainingContrastPct%:=0;
 var randBlockOrderVar%;     'this will be 0 or 1, and will determine whether we start attend-toward or attend-away
 randBlockOrderVar% := round(rand(0.0)); 'just set it right now, may need 0.0 to properly seed random number generator
 
@@ -97,10 +97,10 @@ var attOneCatchContrast% := 0;
 
 ' constants for dialog and check function - start with 10 because there are 9 dialog entries prior
 ' sure, it would be great if all the dialog numbers were done like this, but they ain't, and time is time
-const attdlgTrainingContrastCheck% := 13;
-const attdlgTrainingContrastPct% := 14;
-const attdlgPhaseCheck% := 15;
-const attdlgPhaseDeg% := 16;
+'const attdlgTrainingContrastCheck% := 13;
+'const attdlgTrainingContrastPct% := 14;
+const attdlgPhaseCheck% := 13;
+const attdlgPhaseDeg% := 14;
 'const attdlgLollipopCheck% := 14;  'these constant values obviously don't fly anymore, so if we bring it back re-assign them
 'const attdlgCueLinePct% := 15;
 'const attdlgCircleDiameterDiff% := 16;
@@ -108,11 +108,11 @@ const attdlgPhaseDeg% := 16;
 'const attdlgLollipopStickContrast% := 18;
 'const attdlgLollipopStickGap := 19;
 'const attdlgUseAnsWindow% := 20;
-const attdlgOnlyOneCatch% := 17;
-const attdlgOneCatchContrast% := 18;
-const attdlgDoUncatch% := 19;
-const attdlgNumPatches% := 20;
-const attdlgGetGP% := 21;
+const attdlgOnlyOneCatch% := 15;
+const attdlgOneCatchContrast% := 16;
+const attdlgDoUncatch% := 17;
+const attdlgNumPatches% := 18;
+const attdlgGetGP% := 19;
 
 ' constants for timing dialog
 const atttimingdlgFixationCueMinTime% := 2;
@@ -201,8 +201,8 @@ proc GetAttentionScriptParameters()
 	attNoGoTrialPercentage := val(stmp$);
 	Profile(key$, "BlockAlternate", 1, attBlockAlternate%);
     Profile(key$, "NoBlockRand", 1, attNoBlockRand%);
-	Profile(key$, "TrainingContrastCheck", 0, attTrainingContrastCheck%);
-	Profile(key$, "TrainingContrastPct", 0, attTrainingContrastPct%);
+	'Profile(key$, "TrainingContrastCheck", 0, attTrainingContrastCheck%);
+	'Profile(key$, "TrainingContrastPct", 0, attTrainingContrastPct%);
     Profile(key$, "OnlyOneCatch", 0, attOnlyOneCatch%);
     Profile(key$, "OneCatchContrast", 0, attOneCatchContrast%);
 	Profile(key$, "BackgroundColor", "gray", attBackgroundColor$);
@@ -321,8 +321,8 @@ proc SaveAttentionScriptParameters()
     Profile(key$, "NoGoTrialPercentage", str$(attNoGoTrialPercentage));
 	Profile(key$, "BlockAlternate", attBlockAlternate%);
     Profile(key$, "NoBlockRand", attNoBlockRand%);
-	Profile(key$, "TrainingContrastCheck", attTrainingContrastCheck%);
-	Profile(key$, "TrainingContrastPct", attTrainingContrastPct%);
+	'Profile(key$, "TrainingContrastCheck", attTrainingContrastCheck%);
+	'Profile(key$, "TrainingContrastPct", attTrainingContrastPct%);
     Profile(key$, "OnlyOneCatch", attOnlyOneCatch%);
     Profile(key$, "OneCatchContrast", attOneCatchContrast%);
 	Profile(key$, "BackgroundColor", attBackgroundColor$);
@@ -407,8 +407,8 @@ func AttentionScriptDialog%()
 	DlgReal(10, "", 0, 10, 56, 4);  DlgText("Min dContrast (oct)",37,4);
     DlgInteger(11, "", 1, 10, 56, 5);  DlgText("N contrast levels",37,5);
     DlgReal(12, "", 0, 10, 56, 6);  DlgText("Ans. window rad. (deg)",37,6);
-	DlgCheck(attdlgTrainingContrastCheck%, "Training Contrast", 37, 7);
-	DlgInteger(attdlgTrainingContrastPct%, "", 0, 100, 56, 8);  DlgText("Training Contrast(%)",37,8);
+	'DlgCheck(attdlgTrainingContrastCheck%, "Training Contrast", 37, 7);
+	'DlgInteger(attdlgTrainingContrastPct%, "", 0, 100, 56, 8);  DlgText("Training Contrast(%)",37,8);
     DlgCheck(attdlgOnlyOneCatch%, "Use only one catch value", 37,9);
     DlgInteger(attdlgOneCatchContrast%,"",0,100,56,10);  DlgText("Single Catch Cont (%)",37,10);
 
@@ -433,8 +433,9 @@ func AttentionScriptDialog%()
     DlgAllow(0, 0, AttentionScriptDialogChanged%);
 	i%:=DlgShow(attNumberOfBlocks%, attTrialsPerBlock%, attEasyTrialsPerBlock%, attCatchTrialPercentage, attNoGoTrialPercentage, 
     attBlockAlternate%, attNoBlockRand%, attContrastBase%, attMaxContChange, attMinContChange, attNContLevels%,
-    attAnswerPointWindowRadius, attTrainingContrastCheck%, attTrainingContrastPct%, attPhaseCheck%, 
-    attPhaseDeg%, fiveints%[]);
+    attAnswerPointWindowRadius, attPhaseCheck%, attPhaseDeg%, fiveints%[]);
+    'attAnswerPointWindowRadius, attTrainingContrastCheck%, attTrainingContrastPct%, attPhaseCheck%, 
+    'attPhaseDeg%, fiveints%[]);
     'attLollipopCheck%, attCueLinePct, attCircleDiameterDiff, 
     'attLollipopContrast%, attLollipopStickContrast%, attCueLineGap);
     
@@ -557,8 +558,8 @@ end
 func AttentionScriptDialogChanged%(item%)
     var status% := 1;
     docase
-    case item% = attdlgTrainingContrastCheck% then
-        DlgEnable(DlgValue(attdlgTrainingContrastCheck%), attdlgTrainingContrastPct%);
+    'case item% = attdlgTrainingContrastCheck% then
+        'DlgEnable(DlgValue(attdlgTrainingContrastCheck%), attdlgTrainingContrastPct%);
     case item% = attdlgOnlyOneCatch% then
         DlgEnable(DlgValue(attdlgOnlyOneCatch%), attdlgOneCatchContrast%);
         DlgEnable(DlgValue(attdlgOnlyOneCatch%), attdlgDoUncatch%);
@@ -569,7 +570,7 @@ func AttentionScriptDialogChanged%(item%)
 '        DlgEnable(DlgValue(attdlgLollipopCheck%), attdlgCueLinePct%);
 '        DlgEnable(DlgValue(attdlgLollipopCheck%), attdlgLollipopContrast%);
     case item% = 0 then
-        DlgEnable(attTrainingContrastCheck%, attdlgTrainingContrastPct%);
+        'DlgEnable(attTrainingContrastCheck%, attdlgTrainingContrastPct%);
         DlgEnable(attPhaseCheck%, attPhaseDeg%);
         DlgEnable(attOnlyOneCatch%, attdlgOneCatchContrast%);
         DlgEnable(attOnlyOneCatch%, attdlgDoUncatch%);
@@ -1857,11 +1858,11 @@ proc CreateSampleConfiguration()
 	SampleComment$(FrameTriggerChannel%,"Frame");
 	SampleTitle$(FrameTriggerChannel%,"Frame");
     
- 	SampleEvent(FixationPointChannel%,1,2,3600); 'Trigger channel, level
+ 	SampleEvent(FixationPointChannel%,2,2,3600); 'Trigger channel, level
 	SampleComment$(FixationPointChannel%,"Fixation");
 	SampleTitle$(FixationPointChannel%,"Fixation");
 	
-	SampleEvent(StimChannel%,2,2,3600); 'Trigger channel, level
+	SampleEvent(StimChannel%,3,2,3600); 'Trigger channel, level
 	SampleComment$(StimChannel%,"Stim");
 	SampleTitle$(StimChannel%,"Stim");
 	
@@ -1886,7 +1887,8 @@ proc CreateSampleConfiguration()
     
 	SampleTextMark(200);  'increase number of allowed characters, 1 is so stingy!
     
-	SampleSequencer(script$ + "Attention.pls");
+	'SampleSequencer(script$ + "Attention.pls");
+    SampleSequencer(script$ + "Tuning.pls");
 	SampleOptimise(2,2,2,2,50);  'Set optimise mode (do this last)
 	SampleMode(1); 'Continuous sampling
 end;
@@ -1949,7 +1951,7 @@ func Stop%()
 	ToolbarSet(0,"");
     
 	' Tell stim app to shut down
-	SafeSampleKey("q");
+	SafeSampleKey("Q");
 	Yield(.1);
 	SampleStop();
     
@@ -2100,10 +2102,10 @@ func Start%()
     endif;
 	CreateContrastList(Contrast$,attContrastList%,attChangeList%,attValidList%,attAttendList%,attHazardList,attOffBitsList%);  'Fills Contrast$ with the big ol' list, plus some vars to make it easier on us all   
     'Extras$ := " -b " + attBackgroundColor$ + " -d " + GetDistanceToScreenMM$() + " -A " + str$(attAnswerPointOffset) + " -D " + str$(attAnswerPointDiameter) + lolSpec$;  'answer points on
-    Extras$ := " -b " + attBackgroundColor$ + " -d " + GetDistanceToScreenMM$() + " -N ";' + lolSpec$;  'answer points off, lollipop spec off as well
-    if attTrainingContrastCheck% = 1 then
-        Extras$ := Extras$ + " -T " + str$(attTrainingContrastPct%);
-    endif
+    Extras$ := " -b " + attBackgroundColor$ + " -d " + GetDistanceToScreenMM$(); '+ " -N ";' + lolSpec$;  'answer points off, lollipop spec off as well
+    'if attTrainingContrastCheck% = 1 then
+    '    Extras$ := Extras$ + " -T " + str$(attTrainingContrastPct%);
+    'endif
     
     'Hardcode the choice points to be red no matter what
     'Turns out that for the attention program the color in the fixation argument sets the color of the choice
@@ -2113,7 +2115,8 @@ func Start%()
 	
 	'CommandLine$ := "cmd /c " + bin$ + "\\dAttention " + FixationArg$ + Extras$ + Distractors$;
 	'CommandLine$ := "cmd /k " + bin$ + "\\Attention " + FixationArg$ + Extras$ + Stim$ + Contrast$;
-    CommandLine$ := "cmd /k " + bin$ + "\\Attention -F " + specFileName$;
+    'CommandLine$ := "cmd /k " + bin$ + "\\Attention -F " + specFileName$;
+    CommandLine$ := "cmd /k " + bin$ + "\\fixstim -F " + specFileName$;
     
     'open a file to write the trial-by-trial specs for the VSG
     specHandle% := FileOpen(specFileName$, 8, 1);
@@ -2318,7 +2321,8 @@ Proc CreateContrastList(&c$,&cList%[],&chgList%[],&vList%[],&attList%[],&hazList
                 endif;
             endif;
             totalCount% += 1;
-        next;        
+        next; 
+        blockCount% += 1;
     next;
     c$ := Left$(c$,len(c$)-1); 'remove trailing comma from the list
 end;
@@ -2536,8 +2540,8 @@ proc WriteParameterFile()
     Print("Min contrast change   : %f\n", attMinContChange);
     Print("N Contrast levels   : %d\n", attNContLevels%);
     Print("Answer point window radius   : %f\n", attAnswerPointWindowRadius);
-    Print("Use Training Contrast?   : %d\n", attTrainingContrastCheck%);
-    Print("Training contrast   : %d\n", attTrainingContrastPct%);
+    'Print("Use Training Contrast?   : %d\n", attTrainingContrastCheck%);
+    'Print("Training contrast   : %d\n", attTrainingContrastPct%);
     Print("Set phase at contrast change?   : %d\n", attPhaseCheck%);
     Print("Phase at contrast change   : %d\n", attPhaseDeg% );
     Print("Number of Distractors     : %d\n", attNumPatches%);
@@ -2609,9 +2613,11 @@ proc UpdateTrialSpecString(&c$,attdir%,chgdir%,base%,chg%,haz,phase%,off%)
     case attdir% = 3 then
         col$ := "blue";
     case attdir% = 4 then
-        col$ := "255/255/0";
+        col$ := "green";  'temporary because below line is not working
+        'col$ := "255/255/0";  'yellow, not working!
     case attdir% = 5 then
-        col$ := "255/0/255";
+        col$ := "blue";  'temporary because below line is not working
+        'col$ := "255/0/255";  'fuschia, not working!
     'case attdir% = 6 then  'only if we up the number of distracters
     '    col$ := "0/255/255";   
     endcase
