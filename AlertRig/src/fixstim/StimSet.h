@@ -377,13 +377,17 @@ struct AttParams
 	int iOffBits;
 };
 
+typedef std::pair<double, COLOR_TYPE> AttentionCue;
+
 // helper function for loading params from a comma-separated string
-int parse_attparams(const string& s, int nstim, vector<struct AttParams>& vec, double& tCC);
+int parse_attparams(const string& s, int nstim, vector<struct AttParams>& vecTrialParams, double& tCC);
+int parse_attcues(const string& s, int nstim, vector<AttentionCue>& vecCues);
 
 class AttentionStimSet: public StimSet
 {
 public:
 	AttentionStimSet(ARContrastFixationPointSpec& fixpt, double tCC, vector<alert::ARGratingSpec>& vecGratings, vector<AttParams>& params);
+	AttentionStimSet(ARContrastFixationPointSpec& fixpt, double tCC, vector<alert::ARGratingSpec>& vecGratings, vector<AttentionCue>& vecCuePairs, vector<AttParams>& params);
 	virtual int num_pages() {return 4;};
 	virtual int num_overlay_pages() {return 0;};
 	virtual int init(ARvsg& vsg, std::vector<int> pages);
@@ -396,6 +400,7 @@ private:
 	vector<alert::ARGratingSpec> m_vecGratings;
 	vector<alert::ARGratingSpec> m_vecGratingsCC;
 	vector<struct AttParams> m_vecParams;
+	vector<alert::ARContrastCircleSpec> m_vecCues;
 	unsigned int m_current;
 	int m_pageBlank;
 	int m_pageFixpt;
