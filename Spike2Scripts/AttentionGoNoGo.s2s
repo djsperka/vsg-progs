@@ -1,9 +1,10 @@
-' $Id: AttentionGoNoGo.s2s,v 1.5 2013-05-30 17:33:31 jeff Exp $
+' $Id: AttentionGoNoGo.s2s,v 1.6 2013-06-14 16:23:38 jeff Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
 #include "UsreyFixationPoint.s2s"
 #include "UsreyDAQ.s2s"
+
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 '
@@ -20,6 +21,8 @@ var attCatchTrialPercentage;
 var attUncatchTrialPercentage;
 var attDoUncatch%;
 var attNoGoTrialPercentage;
+var attNumPatches%;  'how many stimulus patches on the screen?
+var attGetGPFromMainStim%;  'check box variable, should we get the distractor grating parameters (except for XY position) from the main stimulus?
 var attBackgroundColor$;
 var attBackgroundRed% := 0;
 var attBackgroundGreen% := 0;
@@ -108,7 +111,8 @@ const attdlgPhaseDeg% := 16;
 const attdlgOnlyOneCatch% := 17;
 const attdlgOneCatchContrast% := 18;
 const attdlgDoUncatch% := 19;
-
+const attdlgNumPatches% := 20;
+const attdlgGetGP% := 21;
 
 ' constants for timing dialog
 const atttimingdlgFixationCueMinTime% := 2;
@@ -147,22 +151,38 @@ var attCatchTrialOrder%[attMaxTrl%]; 'this variable will hold the index to attCo
 var attTrial[attMaxTrl%];       'this variable is really only here because GetRepeatedParameterProgression wants to fill it; we will ignore it
 var attCurrTrialIndex%;         'We'll need to keep track of the current trial index
 var attContrastList%[attMaxTrl%];  'A list of which contrast is being used on each trial, filled by CreateContrastList
-var attUpDownList%[attMaxTrl%];    '1 if using increase in contrast, -1 if using decrease on each trial, filled by CreateContrastList
+var attChangeList%[attMaxTrl%];  'A list of which stimulus patch (1 = main, 2 = dist1, 3 = dist2, etc.) changes
 var attValidList%[attMaxTrl%];     '1 if valid, 0 if catch trial, filled by CreateContrastList
+var attAttendList%[attMaxTrl%];  'A list of which stimulus patch (1 = main, 2 = dist1, 3 = dist2, etc.) is being attended
 var attHazardList[attMaxTrl%];     'holds hazard times, now pre-calculated
+var attOffBitsList%[attMaxTrl%];  'A list of which stimulus patches are off for this trial, in a bit sum, 1 = main, 2 = dist1, 4 = dist2, etc.
 var thisContrast%;                 'for sampletexty stuff
 var FAIsResponse%;              'if 1, use "response abort", otherwise use regular abort
 var expectedAnswer%;            'keeps track of expected answer, saves a bunch of redundant code
 
+
 'we need to explicitly know the position of the gratings to place the answer windows on the gratings
-var upX;
-var upY;
-var upW;
-var upH;
-var downX;
-var downY;
-var downW;
-var downH;
+var mainX;  'the main grating patch is expected to be the one located over the receptive field
+var mainY;
+var mainW;
+var mainH;
+var dist1X;  'there are also four possible distracters, these are set in config
+var dist1Y;
+var dist1W;
+var dist1H;
+var dist2X; 
+var dist2Y;
+var dist2W;
+var dist2H;
+var dist3X; 
+var dist3Y;
+var dist3W;
+var dist3H;
+var dist4X; 
+var dist4Y;
+var dist4W;
+var dist4H;
+
 
 proc GetAttentionScriptParameters()
 	var stmp$;
@@ -173,6 +193,8 @@ proc GetAttentionScriptParameters()
 	Profile(key$, "TrialsPerBlock", 1, attTrialsPerBlock%);
     Profile(key$, "EasyTrialsPerBlock", 1, attEasyTrialsPerBlock%);
     Profile(key$, "DoUncatch", 1, attDoUncatch%);
+    Profile(key$, "NumPatches", 1, attNumPatches%);
+    Profile(key$, "GetGPFromMainStim", 1, attGetGPFromMainStim%);
 	Profile(key$, "CatchTrialPercentage", "0.0", stmp$);
 	attCatchTrialPercentage := val(stmp$);
     Profile(key$, "NoGoTrialPercentage", "0.0", stmp$);
@@ -184,6 +206,8 @@ proc GetAttentionScriptParameters()
     Profile(key$, "OnlyOneCatch", 0, attOnlyOneCatch%);
     Profile(key$, "OneCatchContrast", 0, attOneCatchContrast%);
 	Profile(key$, "BackgroundColor", "gray", attBackgroundColor$);
+    
+    
     
     if InStr(attBackgroundColor$, "(") = 1 then
         if ParseColor%(attBackgroundColor$, attBackgroundRed%, attBackgroundGreen%, attBackgroundBlue%) <> 0 then
@@ -286,10 +310,13 @@ proc SaveAttentionScriptParameters()
 	var stmp$;
 	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\AttentionGNG";
     
+    
 	Profile(key$, "NumberOfBlocks", attNumberOfBlocks%);
 	Profile(key$, "TrialsPerBlock", attTrialsPerBlock%);
     Profile(key$, "EasyTrialsPerBlock", attEasyTrialsPerBlock%);
     Profile(key$, "DoUncatch", attDoUncatch%);
+    Profile(key$, "NumPatches", attNumPatches%);
+    Profile(key$, "GetGPFromMainStim", attGetGPFromMainStim%);
 	Profile(key$, "CatchTrialPercentage", str$(attCatchTrialPercentage));
     Profile(key$, "NoGoTrialPercentage", str$(attNoGoTrialPercentage));
 	Profile(key$, "BlockAlternate", attBlockAlternate%);
@@ -352,7 +379,15 @@ func AttentionScriptDialog%()
     var tempNBlocks%;
     var tempTotal;  'friggin integer math
     var tempWhoops;
+    var fiveints%[5];
+    
 	GetAttentionScriptParameters();
+    
+    fiveints%[0] := attOnlyOneCatch%;
+    fiveints%[1] := attOneCatchContrast%;
+    fiveints%[2] := attDoUncatch%;
+    fiveints%[3] := attNumPatches%;
+    fiveints%[4] := attGetGPFromMainStim%;
     
 	DlgCreate("Attention Training Parameters", 25, 10);
     DlgGroup("Blocks", 1, 1, 34, 9);
@@ -382,8 +417,12 @@ func AttentionScriptDialog%()
     DlgCheck(attdlgPhaseCheck%, "Set phase at contrast change", 2, 11);
 	DlgInteger(attdlgPhaseDeg%, "Phase at cc (deg)", 0, 360, 22, 12);
     
-    DlgButton(2, "Colors", ColorsDialog%, 38, 12);
-    DlgButton(3, "Timing", TimingDialog%, 56, 12);
+    DlgGroup("Number of Stimuli", 36, 11, 34, 3);
+    DlgInteger(attdlgNumPatches%, 10, 1, 5, 58, 12); DlgText("Num of grating patches",37,12);
+    DlgCheck(attdlgGetGP%, "Get distracter params from main stim", 37, 13);
+    
+    DlgButton(2, "Colors", ColorsDialog%, 2, 13);
+    DlgButton(3, "Timing", TimingDialog%, 20, 13);
     'DlgGroup("Lollipops", 1, 18, 34, 7);
     'DlgCheck(attdlgLollipopCheck%, "Use lollipop cues", 2, 19);
     'DlgReal(attdlgCueLinePct%, "Cue line %", 0, 100, 22, 20);
@@ -395,12 +434,20 @@ func AttentionScriptDialog%()
 	i%:=DlgShow(attNumberOfBlocks%, attTrialsPerBlock%, attEasyTrialsPerBlock%, attCatchTrialPercentage, attNoGoTrialPercentage, 
     attBlockAlternate%, attNoBlockRand%, attContrastBase%, attMaxContChange, attMinContChange, attNContLevels%,
     attAnswerPointWindowRadius, attTrainingContrastCheck%, attTrainingContrastPct%, attPhaseCheck%, 
-    attPhaseDeg%, attOnlyOneCatch%, attOneCatchContrast%, attDoUncatch%);
+    attPhaseDeg%, fiveints%[]);
     'attLollipopCheck%, attCueLinePct, attCircleDiameterDiff, 
     'attLollipopContrast%, attLollipopStickContrast%, attCueLineGap);
     
 	if i% = 1 then
         '	attBackgroundColor$ := bcl$[ibcl%];
+        
+        'put fiveints values back into variables
+        attOnlyOneCatch% := fiveints%[0];
+        attOneCatchContrast% := fiveints%[1];
+        attDoUncatch% := fiveints%[2];
+        attNumPatches% := fiveints%[3];
+        attGetGPFromMainStim% := fiveints%[4];
+        
         
         'If we are doing the Uncatch trials, set UncatchTrialPercentage to 2x CatchTrialPercentage
         'The logic here is:  case rand < catch, then catch; case rand < uncatch, then uncatch
@@ -423,18 +470,23 @@ func AttentionScriptDialog%()
             attMinContChange := attMaxContChange;
             attMaxContChange := tempWhoops;
         endif;
+        
 		SaveAttentionScriptParameters();
+        
+        'if we aren't alternating cues by block, then "easy" trials don't make any sense
+        'I'm doing this after the parameter save so that the actual Easy Trials value sticks around as default in this event
+        if attBlockAlternate% = 0 then
+            attEasyTrialsPerBlock% := 0;
+        endif;
         
         'get contrast list
         if attNContLevels% > 1 then
             GetLogProgression(attContrastBase%*(pow(2,attMinContChange)),attContrastBase%*(pow(2,attMaxContChange)),attNContLevels%-1,attContrastList[0:attNContLevels%]);  'levels above base
-            'GetLogProgression(attContrastBase%/(pow(2,attMaxContChange)),attContrastBase%/(pow(2,attMinContChange)),attNContLevels%-1,attContrastList[attNContLevels%:attNContLevels%]);  'levels below base, in *ascending* order
             Arrconst(attContrastList[attNContLevels%:attNContLevels%],attContrastBase%);  'for no-go, assign the second half of stimuli as identical to the base contrast
             round(attContrastList[]);  'we can only use integer values in the VSG call
         else
             'if only one value is requested, this will crash GetLogProgression, so just do it manually
             attContrastList[0] := attContrastBase%*(pow(2,attMaxContChange));
-            'attContrastList[1] := attContrastBase%/(pow(2,attMaxContChange));
             attContrastList[1] := attContrastBase%;  'for go/no-go, use the base, not a down contrast
                         
             message("Note that only one contrast level was requested, using MAX as actual value!");
@@ -442,7 +494,6 @@ func AttentionScriptDialog%()
         
         'get number of trials to run, which is hypothetical "max" number for both test trials and catch trials regardless of catch/test percentage
         tempTotal := attNumberOfBlocks%*attTrialsPerBlock%;  'total number of non-"easy" trials
-        'tempNBlocks% := ceil(tempTotal/(attNContLevels%*2));  'total number of times we have to repeat the tuning curve to reach the total number of trials
         tempNBlocks% := ceil(tempTotal/(attNContLevels%));  'MAXIMUM number of times we have to repeat the tuning curve to reach the total number of trials, if 0 no-go trials
         
         printlog("number of contrast levels is %d and tempnblocks is %d\n",attNContLevels%,tempNBlocks%);
@@ -452,10 +503,8 @@ func AttentionScriptDialog%()
         'First step - create a list of contrasts as normal in a temporary variable, but only include "go" contrasts 
         if attNoBlockRand% = 0 then
             'get trial order, attTrialOrder%[] will hold indices into attContrastList[] for all trials
-            'GetRepeatedParameterProgression%(attNContLevels%*2,tempNBlocks%,attTrial[],attTrialOrder%[],0,(attNContLevels%*2)-1,0,1);  'this has Go and No-go contrasts
             GetRepeatedParameterProgression%(attNContLevels%,tempNBlocks%,attTrial[],attTrialOrder%[],0,(attNContLevels%)-1,0,1);  'this has only Go contrasts
         else 'Henry sez just do true random
-            'Rand(attTrialOrder%[0:attNContLevels%*2*tempNBlocks%],(attNContLevels%*2)); 'this has Go and No-go contrasts
             Rand(attTrialOrder%[0:attNContLevels%*tempNBlocks%],attNContLevels%);  'this has only the Go contrast
         endif;   
 
@@ -465,7 +514,7 @@ func AttentionScriptDialog%()
         
         ''Commented out - useful for testing the creation of the trial order
         'var Contrast$;
-        'CreateContrastList(Contrast$,attContrastList%,attValidList%,attUpDownList%);
+        'CreateContrastList(Contrast$,attContrastList%,attChangeList%,attValidList%,attAttendList%,attHazardList,attOffBitsList%);
         'var specFileName$:="E:\\AttentionSpecFile.txt";
         'var specHandle%;
         'specHandle% := FileOpen(specFileName$, 8, 1);
@@ -476,7 +525,6 @@ func AttentionScriptDialog%()
         'printlog("Temp trial order list is %d\n",attTrialOrderTemp%[0:attNumberOfBlocks%*(attTrialsPerBlock%+attEasyTrialsPerBlock%)]);
         'printlog("Contrast list is %d\n",attContrastList%[0:attNumberOfBlocks%*(attTrialsPerBlock%+attEasyTrialsPerBlock%)]);
         'printlog("Valid list is %d\n",attValidList%[0:attNumberOfBlocks%*(attTrialsPerBlock%+attEasyTrialsPerBlock%)]);
-        'printlog("UpDown list is %d\n",attUpDownList%[0:attNumberOfBlocks%*(attTrialsPerBlock%+attEasyTrialsPerBlock%)]);
         'printlog("contrasts are %d\n",attContrastList[]);
         'halt();
 	endif;
@@ -711,8 +759,11 @@ var XYWindow%;			'
 var iStimChannel%;	' channel number for stimulus in xy window
 var iFixationWindowChannel%;' channel number for fixation window in xy window
 var iMonitorChannel%;	' channel number for monitor position display in xy window
-var iAnswerWindowChannel1%;  'channel number for upper answer window display in xy window
-var iAnswerWindowChannel2%;  'channel number for lower answer window display in XY window
+var iAnswerWindowChannelMain%;  'channel number for main stimulus answer window display in xy window
+var iAnswerWindowChannelDist1%;  'channel number for distracter 1 answer window display in XY window
+var iAnswerWindowChannelDist2%;  'channel number for distracter 2 answer window display in XY window
+var iAnswerWindowChannelDist3%;  'channel number for distracter 3 answer window display in XY window
+var iAnswerWindowChannelDist4%;  'channel number for distracter 4 answer window display in XY window
 
 ' Display stuff
 var FixWindowX[36],FixWindowY[36];	' points for displaying fixation window in xy view
@@ -730,15 +781,9 @@ endif
 
 
 
-' run parameters script....
-GetAttentionScriptParameters();
+' run dialog
 iScript% := AttentionScriptDialog%();
-if iScript% = 1 then
-    FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 3);
-    FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 1);
-    'SampleAutoName$(dataCellName$ + "_atn_000");
-    'SampleAutoFile(1);
-else
+if iScript% <> 1 then
 	PrintLog("User cancel - exit gracefully\n");
 	Halt;
 endif;
@@ -846,13 +891,22 @@ end;
 func Answer%(EyePosX, EyePosY)
     var ans% := 0;
     var ansptRadius;
-    ansptRadius := Pow(attAnswerPointWindowRadius,2);
-    'Top response location
-	'if (Pow(EyePosX-FixationX,2) + Pow(EyePosY-(FixationY+attAnswerPointOffset),2)) <= ansptRadius then ans% := 1; endif
-    if (Pow(EyePosX-upX,2) + Pow(EyePosY-(upY),2)) <= upW then ans% := 1; endif  'just assuming upW = upH!
-    'Bottom response location
-	'if (Pow(EyePosX-FixationX,2) + Pow(EyePosY-(FixationY-attAnswerPointOffset),2)) <= ansptRadius then ans% := -1; endif
-    if (Pow(EyePosX-downX,2) + Pow(EyePosY-(downY),2)) <= downW then ans% := -1; endif  'just assuming downW = downH!
+    'ansptRadius := Pow(attAnswerPointWindowRadius,2);  'answer point radius is now the size of the grating
+    
+    'note that in the case statement, we will not consider grating patches that don't exist - see how smart we are!
+    docase
+    case (Pow(EyePosX-mainX,2) + Pow(EyePosY-(mainY),2)) <= mainW then 'Looking at main grating location, just assuming mainW = mainH!
+        ans% := 1;
+    case (Pow(EyePosX-dist1X,2) + Pow(EyePosY-(dist1Y),2)) <= dist1W and attNumPatches% > 1 then 'Looking at distracter 1 location, just assuming dist1W = dist1H!
+        ans% := -1;
+    case (Pow(EyePosX-dist2X,2) + Pow(EyePosY-(dist2Y),2)) <= dist2W and attNumPatches% > 2 then 'Looking at distracter 2 location, just assuming dist2W = dist2H!
+        ans% := -2;
+    case (Pow(EyePosX-dist3X,2) + Pow(EyePosY-(dist3Y),2)) <= dist3W and attNumPatches% > 3 then 'Looking at distracter 3 location, just assuming dist3W = dist3H!
+        ans% := -3;
+    case (Pow(EyePosX-dist4X,2) + Pow(EyePosY-(dist4Y),2)) <= dist4W and attNumPatches% > 4 then 'Looking at distracter 4 location, just assuming dist4W = dist4H!
+        ans% := -4;
+    endcase;
+    
 	return ans%;
 end;
 
@@ -916,12 +970,15 @@ var nBlocksCompleted%:=0;
 var iAnswer%;
 var isStimDistractorOff% := 0;
 var trialCatch%;
-var trialContrastUpDown%;
+var trialIsTarget%;
+var trialAttendLoc%;
 var trialHazardFunctionTime;
 
 func IdleProcessing%()
     'var getPreciseTiming := 1;
 	var iStatus% := 1;	
+    var tempanswer%;
+    var temptext$;
     
     'while getPreciseTiming = 1 do 
     
@@ -975,24 +1032,19 @@ func IdleProcessing%()
         'SafeSampleKey("W");
         docase
         case trialType% = trialtypeAttendToward% then
-            'PrintLog("stateWhitePointFixation: Request cue F - AttendToward\n");
-            PrintLog("Request cue F - AttendToward\n");
-            SafeSampleKey("F");
             attCountTowardTrials% += 1;
         case trialType% = trialtypeAttendAway% then
-            'PrintLog("stateWhitePointFixation: Request cue G - AttendAway\n");
-            PrintLog("Request cue G - AttendAway\n");
-            SafeSampleKey("G");
             attCountAwayTrials% += 1;
         else
             PrintLog("ERROR: Unknown trial type (" + str$(trialType%) + "\n");
         endcase
+        PrintLog("Request Fixation Point\n");
+        SafeSampleKey("F");
         ChangeStateTo(stateWaitForFixPtOn%, tNow);
         
         
     case iState% = stateWaitForFixPtOn% then
         tTrigger := NextTime(FixationPointChannel%, tLast, vTrigger);
-        'tTrigger := NextTime(FrameTriggerChannel%, tLast, vTrigger);
         if tTrigger > tLast then
             ' Fixation point is up
             PrintLog("stateWaitForFixPtOn: signal received. " + str$(tTrigger) + "\n");
@@ -1003,7 +1055,7 @@ func IdleProcessing%()
             else
                 SampleText("Fixation point on, Attend Away",tTrigger);
             endif;
-            DrawStim(1);	' actually this draws the location of the fixpt.
+            DrawStim(1);	' this draws the location of the fixpt.
         endif
         
         
@@ -1012,7 +1064,6 @@ func IdleProcessing%()
         ' Waiting for eye to fall inside of fixation window
         if Looking%(xEye, yEye) = 1 then
             PrintLog("stateWaitForAcquisition: eye in fixation window.\n");
-            'ChangeStateTo(stateWhitePointFixation%, tNow);
             ChangeStateTo(stateHoldFixationToStimOn%, tNow);
             SampleText("Fixation Acquired",tNow);
             'getPreciseTiming := 0;
@@ -1035,27 +1086,40 @@ func IdleProcessing%()
                 SafeSampleKey("S");
                 ChangeStateTo(stateWaitForStimOn%, tNow);
             endif
-        else 'if fixation fails, begin abort, check to see if it is a FA
-            if Answer%(xEye, yEye) <> 0 then  'if it's in response window, quit while you're ahead
-                PrintLog("stateWaitForStimOn: in response window, aborting trial.\n");
-                FAIsResponse% := 1;
-                ChangeStateTo(stateAbort%,tNow);
-                SampleText("Fixation broken, False Alarm, trial aborted");
-            else  'keep checking
+        else 'if fixation fails before stim on, begin abort, check to see if it is a FA
+            tempanswer% := Answer%(xEye, yEye);
+            if tempanswer% < 0 then  'adjust tempanswer to correspond to trialAttendLoc syntax
+                tempanswer% := -tempanswer%+1;
+            endif;
+            if tempanswer% <> 0 then  'if it's in a response window, quit while you're ahead
+                docase
+                case tempanswer% = trialAttendLoc% then 'answer in "attend toward" window
+                    PrintLog("stateWaitForStimOn: in attend toward response window, aborting trial.\n");
+                    FAIsResponse% := 1;
+                    ChangeStateTo(stateAbort%, tNow);
+                    SampleText(Print$("Fixation broken, False Alarm to location %d (attend toward window) before stimulus on, trial aborted",tempanswer%),tNow);
+                case tempanswer% = -1 then 'answer in "attend away" = "down" window
+                    PrintLog("stateWaitForStimOn: in attend away response window, aborting trial.\n");
+                    FAIsResponse% := 1;
+                    ChangeStateTo(stateAbort%, tNow);
+                    SampleText(Print$("Fixation broken, False Alarm to location %d (attend away window) before stimulus on, trial aborted",tempanswer%),tNow);    
+                endcase;
+            else  'keep checking until false alarm check window is closed
                 ChangeStateTo(stateCheckFalseAlarm%, tNow);
+                temptext$ := "before stimulus on";
             endif;
         endcase
         
     case iState% = stateWaitForStimOn% then
         tTrigger := NextTime(StimChannel%, tLast, vTrigger);
-        'tTrigger := NextTime(FrameTriggerChannel%, tLast, vTrigger);
         if tTrigger > tLast and vTrigger = 0 then
             ' gratings et al are up
             PrintLog("stateWaitForStimOn: stim is up.\n");
             tStimOn := tTrigger;
             tLastTrigger := tTrigger;
             ChangeStateTo(stateHoldFixationToCC%, tTrigger);
-            SampleText("Stimulus on, Base contrast " + Str$(attContrastBase%) + ", hazard dur " + Str$(trialHazardFunctionTime),tTrigger);
+            SampleText("Stimulus on, Base contrast " + Str$(attContrastBase%) + ", hazard dur " + Str$(trialHazardFunctionTime)
+            + "attend location " + Str$(trialAttendLoc%) + "change location " + Str$(trialIsTarget%) + "change contrast " + Str$(thisContrast%),tTrigger);
         endif
         
         
@@ -1066,9 +1130,21 @@ func IdleProcessing%()
         PrintLog("stateAbort: send X key.\n");
         SafeSampleKey("X");
         
-        view(XYWindow%).XYColour(iAnswerWindowChannel1%,13);  'Force up answer window to blue
-        view(XYWindow%).XYColour(iAnswerWindowChannel2%,13);  'Force down answer window to blue
         view(XYWindow%).XYColour(iFixationWindowChannel%,13);  'Force fixation window to blue
+        view(XYWindow%).XYColour(iAnswerWindowChannelMain%,13);  'Force main stimulus answer window to blue
+        if attNumPatches% > 1 then
+            view(XYWindow%).XYColour(iAnswerWindowChannelDist1%,13);  'Force distracter1 answer window to blue
+        endif;
+        if attNumPatches% > 2 then
+            view(XYWindow%).XYColour(iAnswerWindowChannelDist2%,13);  'Force distracter2 answer window to blue
+        endif;
+        if attNumPatches% > 3 then
+            view(XYWindow%).XYColour(iAnswerWindowChannelDist3%,13);  'Force distracter3 answer window to blue
+        endif;
+        if attNumPatches% > 4 then
+            view(XYWindow%).XYColour(iAnswerWindowChannelDist4%,13);  'Force distracter4 answer window to blue
+        endif;
+        
         
         ' tally up aborted trials, right now not distinguishing between response aborts and regular aborts
         attCountAllTrialsAbort% += 1;
@@ -1089,8 +1165,6 @@ func IdleProcessing%()
         
         ' we just wait for fix point off signal in this case. 
         tTrigger := NextTime(FixationPointChannel%, tLast, vTrigger);
-        'tTrigger := NextTime(FrameTriggerChannel%, tLast, vTrigger);
-        'if tTrigger > tLast and vTrigger = 1 then
         if tTrigger > tLast then
             ' Fixation point is off
             PrintLog("stateWaitForBlank: Fix pt is off.\n");
@@ -1101,10 +1175,9 @@ func IdleProcessing%()
                 'advance on false alarm
                 SafeSampleKey("a");  'this is the only place to get into stateFalseAlarmWait, so advance here is fine
             else                
-                'ChangeStateTo(stateAbortWait%, tTrigger);
                 ChangeStateTo(stateAbortWait%, tStateStart);  'don't update time, "credits" for time served
             endif;
-            DrawStim(0);	' actually this draws the location of the fixpt.
+            DrawStim(0);	' this undraws the location of the fixpt.
         endif
         
     case iState% = stateAbortWait% then
@@ -1119,17 +1192,21 @@ func IdleProcessing%()
     case iState% = stateCheckFalseAlarm% then
         
         if tNow - tStateStart < attFalseAlarmCheckWindow then
+            tempanswer% := Answer% (xEye, yEye);
+            if tempanswer% < 0 then  'adjust tempanswer to correspond to trialAttendLoc syntax
+                tempanswer% := -tempanswer%+1;
+            endif;
             docase
-            case Answer% (xEye, yEye) = 1 then 'answer in "attend toward" = "up" window
+            case tempanswer% = trialAttendLoc% then 'answer in "attend toward" window
                 PrintLog("stateCheckFalseAlarm: in attend toward response window, aborting trial.\n");
                 FAIsResponse% := 1;
                 ChangeStateTo(stateAbort%, tNow);
-                SampleText("Fixation broken, False Alarm in attend toward window, trial aborted");
-            case Answer% (xEye, yEye) = -1 then 'answer in "attend away" = "down" window
+                SampleText(Print$("Fixation broken, False Alarm to location %d (attend toward window) %s, trial aborted",tempanswer%,temptext$),tNow);
+            case tempanswer% = -1 then 'answer in "attend away" = "down" window
                 PrintLog("stateCheckFalseAlarm: in attend away response window, aborting trial.\n");
                 FAIsResponse% := 1;
                 ChangeStateTo(stateAbort%, tNow);
-                SampleText("Fixation broken, False Alarm in attend away window, trial aborted");    
+                SampleText(Print$("Fixation broken, False Alarm to location %d (attend away window) %s, trial aborted",tempanswer%,temptext$),tNow);    
             endcase;
         else 'credit the animal for time served on the abort if it's not a response
             PrintLog("stateCheckFalseAlarm: no response in window, aborting trial.\n");
@@ -1145,142 +1222,147 @@ func IdleProcessing%()
             ChangeStateTo(stateTrialCompleted%, tNow);
         endif        
         
-        
+        '?!?!?! note major changes necessary here because we are no longer using a trigger to implement contrast change - now is animation!
     case iState% = stateHoldFixationToCC% then
         
         docase            
         case Looking%(xEye, yEye) = 0 then  'begin abort procedure, check to see if it's a FA
+            tempanswer% := Answer% (xEye, yEye);
+            if tempanswer% < 0 then  'adjust tempanswer to correspond to trialAttendLoc syntax
+                tempanswer% := -tempanswer%+1;
+            endif;
             docase
-            case Answer% (xEye, yEye) = 1 then 'answer in "attend toward" = "up" window
+            case tempanswer% = trialAttendLoc% then 'answer in "attend toward" window
                 PrintLog("stateHoldFixationToCC: in attend toward response window, aborting trial.\n");
                 FAIsResponse% := 1;
                 ChangeStateTo(stateAbort%, tNow);
-                SampleText("Fixation broken, False Alarm in attend toward window, trial aborted");
-            case Answer% (xEye, yEye) = -1 then 'answer in "attend away" = "down" window
+                SampleText(Print$("Fixation broken, False Alarm to location %d (attend toward window) during stimulus, trial aborted",tempanswer%),tNow);
+            case tempanswer% = -1 then 'answer in "attend away" = "down" window
                 PrintLog("stateHoldFixationToCC: in attend away response window, aborting trial.\n");
                 FAIsResponse% := 1;
                 ChangeStateTo(stateAbort%, tNow);
-                SampleText("Fixation broken, False Alarm in attend away window, trial aborted");        
-            'if Answer%(xEye, yEye) <> 0 then  'if it's in response window, quit while you're ahead
-            '    PrintLog("stateHoldFixationToCC: in response window, aborting trial.\n");
-            '    FAIsResponse% := 1;
-            '    ChangeStateTo(stateAbort%,tNow);
-            '    SampleText("Fixation broken, False Alarm, trial aborted");
+                SampleText(Print$("Fixation broken, False Alarm to location %d (attend away window) during stimulus, trial aborted",tempanswer%),tNow);           
             else  'keep checking
                 ChangeStateTo(stateCheckFalseAlarm%, tNow);
+                temptext$ := "during stimulus";
             endcase;
             
         else 
             if (tNow - tStateStart) > (trialHazardFunctionTime) then
-                ' turn off stimulus and advance it
-                PrintLog("stateHoldFixationToCC: request contrast change\n");
+                ' we no longer turn off stimulus and advance it, but we DO allow response now
+                isStimDistractorOff% := 0;
+                ChangeStateTo(stateWaitForAnswer%, tNow);
+                'This docase sets the color of the changed location to red on the "monitor screen"
+                docase
+                case trialIsTarget% = 0 then
+                    view(XYWindow%).XYColour(iFixationWindowChannel%,16);  'Change fixation window to red
+                case trialIsTarget% = 1 then
+                    view(XYWindow%).XYColour(iAnswerWindowChannelMain%,16);  'Change main window to red
+                case trialIsTarget% = 2 then
+                    view(XYWindow%).XYColour(iAnswerWindowChannelDist1%,16);  'Change dist1 window to red
+                case trialIsTarget% = 3 then
+                    view(XYWindow%).XYColour(iAnswerWindowChannelDist2%,16);  'Change dist2 window to red
+                case trialIsTarget% = 4 then
+                    view(XYWindow%).XYColour(iAnswerWindowChannelDist3%,16);  'Change dist3 window to red
+                case trialIsTarget% = 5 then
+                    view(XYWindow%).XYColour(iAnswerWindowChannelDist4%,16);  'Change dist4 window to red
+                endcase
+                'This docase does the appropriate SampleTexting
                 docase
                 case trialType% = trialtypeAttendToward% then
-                    if trialContrastUpDown% > 0 then
+                    if trialIsTarget% > 0 then
                         if trialCatch% = 0 then
-                            SafeSampleKey("C");
+                            Sampletext("Contrast Change, Level " + Str$(thisContrast%) + ", Attend Toward",tTrigger);
                         else
-                            SafeSampleKey("D");
+                            Sampletext("Contrast Change, Level " + Str$(thisContrast%) + ", Attend Toward (catch)",tTrigger);
                         endif
                     else
-                        if trialCatch% = 0 then
-                            SafeSampleKey("c");
-                        else
-                            SafeSampleKey("d");
-                        endif
+                        Sampletext("Attend Toward, No Contrast Change",tTrigger);
                     endif
                 case trialType% = trialtypeAttendAway% then
-                    if trialContrastUpDown% > 0 then
+                    if trialIsTarget% > 0 then
                         if trialCatch% = 0 then
-                            SafeSampleKey("D");
+                            Sampletext("Contrast Change, Level " + Str$(thisContrast%) + ", Attend Away",tTrigger);
                         else
-                            SafeSampleKey("C");
+                            Sampletext("Contrast Change, Level " + Str$(thisContrast%) + ", Attend Away (catch)",tTrigger);
                         endif
                     else
-                        if trialCatch% = 0 then
-                            SafeSampleKey("d");
-                        else
-                            SafeSampleKey("c");
-                        endif
+                        Sampletext("Attend Away, No Contrast Change",tTrigger);
                     endif
                 else
-                    PrintLog("ERROR! Unknown blocktype!!!\n");
-                endcase;
-                
-                ' Now wait until contrast change trigger is received
-                ChangeStateTo(stateWaitForContrastChange%, tNow);
-                
+                    PrintLog("ERROR! Unknown blocktype!!!\n");    
+                endcase
             endif
             
         endcase
         
-    case iState% = stateWaitForContrastChange% then
-        tTrigger := NextTime(StimChangeChannel%, tLast, vTrigger);
-        'tTrigger := NextTime(FrameTriggerChannel%, tLast, vTrigger);
-        docase
-        case tTrigger > tLast and vTrigger = 0 then
-            PrintLog("stateWaitForContrastChange: got it.\n");
-            tLastTrigger := tTrigger;
-            isStimDistractorOff% := 0;
-            ChangeStateTo(stateWaitForAnswer%, tNow);
-            docase
-            case trialType% = trialtypeAttendToward% then
-                if trialContrastUpDown% > 0 then
-                    if trialCatch% = 0 then
-                        view(XYWindow%).XYColour(iAnswerWindowChannel1%,16);  'Change up answer window to red
-                        Sampletext("Contrast Change Up, Level " + Str$(thisContrast%) + ", Attend Toward",tTrigger);
-                    else
-                        view(XYWindow%).XYColour(iAnswerWindowChannel2%,16);  'Change down answer window to red
-                        Sampletext("Contrast Change Up, Level " + Str$(thisContrast%) + ", Attend Toward (catch)",tTrigger);
-                    endif
-                else
-                    view(XYWindow%).XYColour(iFixationWindowChannel%,16);  'Change fixation window to red
-                    Sampletext("No Contrast Change",tTrigger);
-                endif
-            case trialType% = trialtypeAttendAway% then
-                if trialContrastUpDown% > 0 then
-                    if trialCatch% = 0 then
-                        view(XYWindow%).XYColour(iAnswerWindowChannel2%,16);  'Change down answer window to red
-                        Sampletext("Contrast Change Up, Level " + Str$(thisContrast%) + ", Attend Away",tTrigger);
-                    else
-                        view(XYWindow%).XYColour(iAnswerWindowChannel1%,16);  'Change up answer window to red
-                        Sampletext("Contrast Change Up, Level " + Str$(thisContrast%) + ", Attend Away (catch)",tTrigger);
-                    endif
-                else
-                    view(XYWindow%).XYColour(iFixationWindowChannel%,16);  'Change fixation window to red
-                    Sampletext("No Contrast Change",tTrigger);
-                endif
-            else
-                PrintLog("ERROR! Unknown blocktype!!!\n");
-            endcase;
-            
-        case Looking%(xEye, yEye) = 0 then  'begin abort procedure, check to see if it is a FA
-            docase
-            case Answer% (xEye, yEye) = 1 then 'answer in "attend toward" = "up" window
-                PrintLog("stateWaitForContrastChange: in attend toward response window, aborting trial.\n");
-                FAIsResponse% := 1;
-                ChangeStateTo(stateAbort%, tNow);
-                SampleText("Fixation broken, False Alarm in attend toward window, trial aborted");
-            case Answer% (xEye, yEye) = -1 then 'answer in "attend away" = "down" window
-                PrintLog("stateWaitForContrastChange: in attend away response window, aborting trial.\n");
-                FAIsResponse% := 1;
-                ChangeStateTo(stateAbort%, tNow);
-                SampleText("Fixation broken, False Alarm in attend away window, trial aborted");        
-            'if Answer%(xEye, yEye) <> 0 then  'if it's in response window, quit while you're ahead
-            '    PrintLog("stateHoldFixationToCC: in response window, aborting trial.\n");
-            '    FAIsResponse% := 1;
-            '    ChangeStateTo(stateAbort%,tNow);
-            '    SampleText("Fixation broken, False Alarm, trial aborted");
-            else  'keep checking
-                ChangeStateTo(stateCheckFalseAlarm%, tNow);
-            endcase;
-            
-        endcase;
+'    case iState% = stateWaitForContrastChange% then
+'        tTrigger := NextTime(StimChangeChannel%, tLast, vTrigger);
+'        'tTrigger := NextTime(FrameTriggerChannel%, tLast, vTrigger);
+'        docase
+'        case tTrigger > tLast and vTrigger = 0 then
+'            PrintLog("stateWaitForContrastChange: got it.\n");
+'            tLastTrigger := tTrigger;
+'            isStimDistractorOff% := 0;
+'            ChangeStateTo(stateWaitForAnswer%, tNow);
+'            docase
+'            case trialType% = trialtypeAttendToward% then
+'                if trialIsTarget% > 0 then
+'                    if trialCatch% = 0 then
+'                        view(XYWindow%).XYColour(iAnswerWindowChannel1%,16);  'Change up answer window to red
+'                        Sampletext("Contrast Change Up, Level " + Str$(thisContrast%) + ", Attend Toward",tTrigger);
+'                    else
+'                        view(XYWindow%).XYColour(iAnswerWindowChannel2%,16);  'Change down answer window to red
+'                        Sampletext("Contrast Change Up, Level " + Str$(thisContrast%) + ", Attend Toward (catch)",tTrigger);
+'                    endif
+'                else
+'                    view(XYWindow%).XYColour(iFixationWindowChannel%,16);  'Change fixation window to red
+'                    Sampletext("No Contrast Change",tTrigger);
+'                endif
+'            case trialType% = trialtypeAttendAway% then
+'                if trialIsTarget% > 0 then
+'                    if trialCatch% = 0 then
+'                        view(XYWindow%).XYColour(iAnswerWindowChannel2%,16);  'Change down answer window to red
+'                        Sampletext("Contrast Change Up, Level " + Str$(thisContrast%) + ", Attend Away",tTrigger);
+'                    else
+'                        view(XYWindow%).XYColour(iAnswerWindowChannel1%,16);  'Change up answer window to red
+'                        Sampletext("Contrast Change Up, Level " + Str$(thisContrast%) + ", Attend Away (catch)",tTrigger);
+'                    endif
+'                else
+'                    view(XYWindow%).XYColour(iFixationWindowChannel%,16);  'Change fixation window to red
+'                    Sampletext("No Contrast Change",tTrigger);
+'                endif
+'            else
+'                PrintLog("ERROR! Unknown blocktype!!!\n");
+'            endcase;
+'            
+'        case Looking%(xEye, yEye) = 0 then  'begin abort procedure, check to see if it is a FA
+'            docase
+'            case Answer% (xEye, yEye) = 1 then 'answer in "attend toward" = "up" window
+'                PrintLog("stateWaitForContrastChange: in attend toward response window, aborting trial.\n");
+'                FAIsResponse% := 1;
+'                ChangeStateTo(stateAbort%, tNow);
+'                SampleText("Fixation broken, False Alarm in attend toward window, trial aborted");
+'            case Answer% (xEye, yEye) = -1 then 'answer in "attend away" = "down" window
+'                PrintLog("stateWaitForContrastChange: in attend away response window, aborting trial.\n");
+'                FAIsResponse% := 1;
+'                ChangeStateTo(stateAbort%, tNow);
+'                SampleText("Fixation broken, False Alarm in attend away window, trial aborted");        
+'            'if Answer%(xEye, yEye) <> 0 then  'if it's in response window, quit while you're ahead
+'            '    PrintLog("stateHoldFixationToCC: in response window, aborting trial.\n");
+'            '    FAIsResponse% := 1;
+'            '    ChangeStateTo(stateAbort%,tNow);
+'            '    SampleText("Fixation broken, False Alarm, trial aborted");
+'            else  'keep checking
+'                ChangeStateTo(stateCheckFalseAlarm%, tNow);
+'            endcase;
+'            
+'        endcase;
         
     case iState% = stateWaitForAnswer% then
         'getPreciseTiming := 1;  'we need precise timing here, stay in while loop until we get eye movements we expect
         if tNow - tStateStart > attTimeToAnswer then  'no response
-            if trialContrastUpDown% > 0 then 'GO trial, expected response
+            if trialIsTarget% > 0 then 'GO trial, expected response
                 SafeSampleKey("X");  'turn off animation
                 PrintLog("stateWaitForAnswer: no response on go trial, miss\n");
                 if trialType% = trialtypeAttendToward% then
@@ -1298,6 +1380,7 @@ func IdleProcessing%()
                 else
                     SampleText("Correct Rejection, Attend Away",tNow);
                 endif;
+                attInterTrialTime2 := attInterTrialTime;
                 Reward%();
                 ChangeStateTo(stateTrialCompletedWaitForBlank%, tNow);
             endif;
@@ -1315,20 +1398,20 @@ func IdleProcessing%()
             endif
             
             iAnswer% := Answer%(xEye, yEye);
-            if iAnswer% = 1 or iAnswer% = -1 then
+            if iAnswer% <> 0 then
                 ' Got an answer. Record marker for correct/incorrect answer
                 docase
                 case iAnswer% = expectedAnswer% then
-                'if trialContrastUpDown% = 1 then 'it's a GO trial
+                'if trialIsTarget% = 1 then 'it's a GO trial
                     ' Hit                    
                     attCountAllTrialsCorrect% += 1;
                     attInterTrialTime2 := attInterTrialTime;
                     'SampleText("+");
                     docase
-                    case trialType% = trialtypeAttendToward% and trialContrastUpDown% = 1 then
+                    case trialType% = trialtypeAttendToward% then
                         attCountTowardTrialsCorrect% += 1;
                         SampleText("Hit, Attend Toward, Contrast Up",tNow);
-                    case trialType% = trialtypeAttendAway% and trialContrastUpDown% = 1 then
+                    case trialType% = trialtypeAttendAway% then
                         attCountAwayTrialsCorrect% += 1;
                         SampleText("Hit, Attend Away, Contrast Up",tNow);
                     else
@@ -1338,17 +1421,17 @@ func IdleProcessing%()
                     Reward%();
                     ChangeStateTo(stateTrialCompletedWaitForBlank%, tNow);
                     SafeSampleKey("X");
-                case iAnswer% = -expectedAnswer% then
-                'if trialContrastUpDown% = 1 then 'it's a GO trial
+                case iAnswer% <> expectedAnswer% and expectedAnswer% <> 0 then
+                    'it's a GO trial
                     ' Saccade to wrong grating                    
                     attCountAllTrialsIncorrect% += 1;
                     attInterTrialTime2 := attInterTrialTime + attMissPenalty;
                     'SampleText("+");
                     docase
-                    case trialType% = trialtypeAttendToward% and trialContrastUpDown% = 1 then
+                    case trialType% = trialtypeAttendToward% then
                         attCountTowardTrialsIncorrect% += 1;
                         SampleText("Miss, Attend Toward, Moved To Wrong Grating, Contrast Up",tNow);
-                    case trialType% = trialtypeAttendAway% and trialContrastUpDown% = 1 then
+                    case trialType% = trialtypeAttendAway% then
                         attCountAwayTrialsIncorrect% += 1;
                         SampleText("Miss, Attend Away, Moved To Wrong Grating, Contrast Up",tNow);
                     else
@@ -1362,10 +1445,10 @@ func IdleProcessing%()
                     attCountAllTrialsIncorrect% += 1;
                     attInterTrialTime2 := attInterTrialTime + attMissPenalty;
                     docase
-                    case trialType% = trialtypeAttendToward% and trialContrastUpDown% = 1 then
+                    case trialType% = trialtypeAttendToward% then
                         attCountTowardTrialsIncorrect% += 1;
                         SampleText("False Alarm, Attend Toward",tNow);
-                    case trialType% = trialtypeAttendAway% and trialContrastUpDown% = 1 then
+                    case trialType% = trialtypeAttendAway% then
                         attCountAwayTrialsIncorrect% += 1;
                         SampleText("False Alarm, Attend Away",tNow);
                     else
@@ -1432,8 +1515,19 @@ func IdleProcessing%()
         
         
     case iState% = stateTrialCompleted% then
-        view(XYWindow%).XYColour(iAnswerWindowChannel1%,13);  'Force up answer window to blue
-        view(XYWindow%).XYColour(iAnswerWindowChannel2%,13);  'Force down answer window to blue
+        view(XYWindow%).XYColour(iAnswerWindowChannelMain%,13);  'Force main answer window to blue
+        if attNumPatches% > 1 then
+            view(XYWindow%).XYColour(iAnswerWindowChannelDist1%,13);  'Force distracter1 answer window to blue
+        endif;
+        if attNumPatches% > 2 then
+            view(XYWindow%).XYColour(iAnswerWindowChannelDist2%,13);  'Force distracter2 answer window to blue
+        endif;
+        if attNumPatches% > 3 then
+            view(XYWindow%).XYColour(iAnswerWindowChannelDist3%,13);  'Force distracter3 answer window to blue
+        endif;
+        if attNumPatches% > 4 then
+            view(XYWindow%).XYColour(iAnswerWindowChannelDist4%,13);  'Force distracter4 answer window to blue
+        endif;
         view(XYWindow%).XYColour(iFixationWindowChannel%,13);  'Force fixation window to blue
         PrintLog("Trial completed.\n");
         nTrialsCompleted% += 1;
@@ -1484,7 +1578,7 @@ proc PrepareTrial()
 	PrintLog("Prepare trial: ");
     
 	if attBlockAlternate% = 0 then
-		if (Rand(0.0) < 0.5) then
+		if attAttendList%[attCurrTrialIndex%] = 1 then
 			trialType% := trialtypeAttendToward%;
 			PrintLog("Trial type: attend-toward\n");
 		else
@@ -1492,32 +1586,20 @@ proc PrepareTrial()
 			PrintLog("Trial type: attend-away\n");
 		endif
 	else
-		if trialType% = trialtypeAttendToward% then
+		if attAttendList%[attCurrTrialIndex%] = 1 then
+            trialType% := trialtypeAttendToward%;
 			PrintLog("Trial type: attend-toward (for this entire block)\n");
 		else
+            trialType% := trialtypeAttendAway%;
 			PrintLog("Trial type: attend-away (for this entire block)\n");
 		endif
 	endif
     
     ' Fixation time is a random number between attFixationMinTime and attFixationMaxTime. 
-    ' Notedy-note: the ability to assign this as a variable number is expected to go bye-bye when the animation is implemented
     attFixationTime := Rand(attFixationCueMaxTime - attFixationCueMinTime, attFixationCueMinTime);
     PrintLog("Fixation time " + str$(attFixationTime) + "\n");
-	
-    if nTrialsCompleted% < attEasyTrialsPerBlock% then  'it's an "easy" trial, give minimum hazard time
-        
-        'Set hazard time to minimum on "easy" trials
-        trialHazardFunctionTime := attHazardMinTime;
-        
-    else  'do a regular trial, get random hazard time
-
-        ' hazard function - compute time from fixation to contrast change. Make sure hazard time is not greater than cutoff time.
-        trialHazardFunctionTime := RandExp(attHazardExpMeanTime, attHazardMinTime);
-        if trialHazardFunctionTime > attHazardCutoffTime then
-            trialHazardFunctionTime := attHazardCutoffTime;
-        endif
-
-    endif;
+    
+    trialHazardFunctionTime := attHazardList[attCurrTrialIndex%];  'hazard time has been pre-calculated
     
     'Determine if trial is catch trial
     trialCatch% := 1-attValidList%[attCurrTrialIndex%];
@@ -1525,52 +1607,60 @@ proc PrepareTrial()
         PrintLog("CATCH\n");
     endif;
     
-    'Determine if contrast is up or down
-    trialContrastUpDown% := attUpDownList%[attCurrTrialIndex%];
+    'Determine if contrast is changing (target) or not (nontarget)
+'    if attContrastList%[attCurrTrialIndex%] = attContrastBase% then
+'        trialIsTarget% := 0; 
+'    else
+'        trialIsTarget% := 1;
+'    endif;
+    trialIsTarget% := attChangeList%[attCurrTrialIndex%];  'this tells me not only whether the contrast is changing, but WHICH patch
+    trialAttendLoc% := attAttendList%[attCurrTrialIndex%];  'this is the attend location
     
     'Record actual contrast level on this trial
     thisContrast% := attContrastList%[attCurrTrialIndex%];
     
     'Calculate expected answer
-    docase
-    case trialType% = trialtypeAttendToward% then
-        if trialContrastUpDown% > 0 then
-            if trialCatch% = 0 then
-                expectedAnswer% := 1;
-            else
-                expectedAnswer% := -1;
-            endif
-        else
-            expectedAnswer% := 0;
-        endif
-    case trialType% = trialtypeAttendAway% then
-        if trialContrastUpDown% > 0 then
-            if trialCatch% = 0 then
-                expectedAnswer% := -1;
-            else
-                expectedAnswer% := 1;
-            endif
-        else
-            expectedAnswer% := 0;
-        endif
+    if trialIsTarget% > 2 then
+        expectedAnswer% := trialIsTarget%;
     else
-        PrintLog("ERROR! Unknown blocktype!!!\n");
-    endcase;
+        expectedAnswer% := -trialIsTarget%+1;
+    endif;
+    
+'    docase
+'    case trialType% = trialtypeAttendToward% then
+'        if trialIsTarget% > 0 then
+'            if trialCatch% = 0 then
+'                expectedAnswer% := 1;
+'            else
+'                expectedAnswer% := -1;
+'            endif
+'        else
+'            expectedAnswer% := 0;
+'        endif
+'    case trialType% = trialtypeAttendAway% then
+'        if trialIsTarget% > 0 then
+'            if trialCatch% = 0 then
+'                expectedAnswer% := -1;
+'            else
+'                expectedAnswer% := 1;
+'            endif
+'        else
+'            expectedAnswer% := 0;
+'        endif
+'    else
+'        PrintLog("ERROR! Unknown blocktype!!!\n");
+'    endcase;
     
 end
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 proc PrepareBlock()
-	PrintLog("Preparing block: ");
-	' when blocksCompleted% is even, this is attend-toward
-	' Modified: The above is done only when attBlockAlternate% is non zero. Otherwise its random trial-by-trial 
-	' cue type. 
-	if attBlockAlternate% <>0 then
-		if ((nBlocksCompleted%+randBlockOrderVar%) mod 2) = 0 then
-			trialType% := trialtypeAttendToward%;
+    'This function used to do more, but now that all stimuli are determined in advance, it just kinda does some printlogging now
+	PrintLog("Block starting: "); 
+	if attBlockAlternate% <> 0 then
+		if attAttendList%[attCurrTrialIndex%] = 1 then
 			PrintLog("Attend-toward ");
 		else
-			trialType% := trialtypeAttendAway%;
 			PrintLog("Attend-away ");
 		endif
 	else
@@ -1580,7 +1670,7 @@ proc PrepareBlock()
     'reset block-specific variables
 	ntrialsCompleted% := 0;
 	nTrialsStarted% := 0;
-	nTrialsAborted% :=0;		' 
+	nTrialsAborted% :=0; 
 end
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
@@ -1640,38 +1730,99 @@ proc InitializeWindows()
     
     
     'get locations of stimuli so that answer windows overlap them
-    ParseGratingParametersBrief%(GetGratingParameters$("Stimulus"),upX,upY,upW,upH); 
-    ParseGratingParametersBrief%(GetGratingParameters$("Distractor1"),downX,downY,downW,downH);   
+    ParseGratingParametersBrief%(GetGratingParameters$("Stimulus"),mainX,mainY,mainW,mainH); 
+    ParseGratingParametersBrief%(GetGratingParameters$("Distractor1"),dist1X,dist1Y,dist1W,dist1H);
+    ParseGratingParametersBrief%(GetGratingParameters$("Distractor2"),dist2X,dist2Y,dist2W,dist2H); 
+    ParseGratingParametersBrief%(GetGratingParameters$("Distractor3"),dist3X,dist3Y,dist3W,dist3H); 
+    ParseGratingParametersBrief%(GetGratingParameters$("Distractor4"),dist4X,dist4Y,dist4W,dist4H);     
+    
+    'Not sure if Henry wants this feature
+    'If we are getting our grating parameters from the main stimulus, get ONLY the X and Y position and NOT the width/height, match W/H to main grating
+    if attGetGPFromMainStim% = 1 then
+        dist1W := mainW;
+        dist1H := mainH;
+        dist2W := mainW;
+        dist2H := mainH;
+        dist3W := mainW;
+        dist3H := mainH;
+        dist4W := mainW;
+        dist4H := mainH;
+    endif;
+    
     
     'Create new channels in the XY view to display the answer windows
     'reuse FixationX, FixationY
-    'First window
+    'Main stimulus window
     for index% := 0 to 35 do
-        'FixWindowX[index%] := FixationX + attAnswerPointWindowRadius * Cos(index% * twopi/36.0);
-		'FixWindowY[index%] := FixationY + attAnswerPointOffset + attAnswerPointWindowRadius * Sin(index% * twopi/36.0);
-        FixWindowX[index%] := upX + upW * Cos(index% * twopi/36.0);
-		FixWindowY[index%] := upY + upH * Sin(index% * twopi/36.0);
+        FixWindowX[index%] := mainX + mainW * Cos(index% * twopi/36.0);
+		FixWindowY[index%] := mainY + mainH * Sin(index% * twopi/36.0);
 	next;
-    iAnswerWindowChannel1% := XYSetChan(0);
-    XYColour(iAnswerWindowChannel1%,13);
-	XYDrawMode(iAnswerWindowChannel1%,2,1);
-	XYJoin(iAnswerWindowChannel1%,1);
+    iAnswerWindowChannelMain% := XYSetChan(0);
+    XYColour(iAnswerWindowChannelMain%,13);
+	XYDrawMode(iAnswerWindowChannelMain%,2,1);
+	XYJoin(iAnswerWindowChannelMain%,1);
 	'Draw the answer window
-	XYAddData(iAnswerWindowChannel1%, FixWindowX[], FixWindowY[]);
+	XYAddData(iAnswerWindowChannelMain%, FixWindowX[], FixWindowY[]);
     
 
-'    'Second window
-    for index% := 0 to 35 do
-        FixWindowX[index%] := downX + downW * Cos(index% * twopi/36.0);
-		FixWindowY[index%] := downY + downH * Sin(index% * twopi/36.0);
-		'FixWindowY[index%] := FixationY - attAnswerPointOffset + attAnswerPointWindowRadius * Sin(index% * twopi/36.0);
-	next;
-    iAnswerWindowChannel2% := XYSetChan(0);
-    XYColour(iAnswerWindowChannel2%,13);
-	XYDrawMode(iAnswerWindowChannel2%,2,1);
-	XYJoin(iAnswerWindowChannel2%,1);
-	'Draw the answer window
-	XYAddData(iAnswerWindowChannel2%, FixWindowX[], FixWindowY[]);
+    'Distracter1 window
+    if attNumPatches% > 1 then
+        for index% := 0 to 35 do
+            FixWindowX[index%] := dist1X + dist1W * Cos(index% * twopi/36.0);
+            FixWindowY[index%] := dist1Y + dist1H * Sin(index% * twopi/36.0);
+        next;
+        iAnswerWindowChannelDist1% := XYSetChan(0);
+        XYColour(iAnswerWindowChannelDist1%,13);
+        XYDrawMode(iAnswerWindowChannelDist1%,2,1);
+        XYJoin(iAnswerWindowChannelDist1%,1);
+        'Draw the answer window
+        XYAddData(iAnswerWindowChannelDist1%, FixWindowX[], FixWindowY[]);
+    endif;
+       
+    'Distracter2 window
+    if attNumPatches% > 2 then
+        for index% := 0 to 35 do
+            FixWindowX[index%] := dist2X + dist2W * Cos(index% * twopi/36.0);
+            FixWindowY[index%] := dist2Y + dist2H * Sin(index% * twopi/36.0);
+        next;
+        iAnswerWindowChannelDist2% := XYSetChan(0);
+        XYColour(iAnswerWindowChannelDist2%,13);
+        XYDrawMode(iAnswerWindowChannelDist2%,2,1);
+        XYJoin(iAnswerWindowChannelDist2%,1);
+        'Draw the answer window
+        XYAddData(iAnswerWindowChannelDist2%, FixWindowX[], FixWindowY[]);
+    endif;    
+    
+    'Distracter3 window
+    if attNumPatches% > 3 then
+        for index% := 0 to 35 do
+            FixWindowX[index%] := dist3X + dist3W * Cos(index% * twopi/36.0);
+            FixWindowY[index%] := dist3Y + dist3H * Sin(index% * twopi/36.0);
+        next;
+        iAnswerWindowChannelDist3% := XYSetChan(0);
+        XYColour(iAnswerWindowChannelDist3%,13);
+        XYDrawMode(iAnswerWindowChannelDist3%,2,1);
+        XYJoin(iAnswerWindowChannelDist3%,1);
+        'Draw the answer window
+        XYAddData(iAnswerWindowChannelDist3%, FixWindowX[], FixWindowY[]);
+    endif;
+    
+    'Distracter4 window
+    if attNumPatches% > 4 then
+        for index% := 0 to 35 do
+            FixWindowX[index%] := dist4X + dist4W * Cos(index% * twopi/36.0);
+            FixWindowY[index%] := dist4Y + dist4H * Sin(index% * twopi/36.0);
+        next;
+        iAnswerWindowChannelDist4% := XYSetChan(0);
+        XYColour(iAnswerWindowChannelDist4%,13);
+        XYDrawMode(iAnswerWindowChannelDist4%,2,1);
+        XYJoin(iAnswerWindowChannelDist4%,1);
+        'Draw the answer window
+        XYAddData(iAnswerWindowChannelDist4%, FixWindowX[], FixWindowY[]);
+    endif;    
+    
+    
+    
     
 	'Create a new channel in the XY view to display the fixation point
 	iStimChannel% := XYSetChan(0);
@@ -1692,11 +1843,11 @@ end;
 proc CreateSampleConfiguration()
 	var index;
     SampleClear(); 'Set standard sampling state
-    '	SampleAutoFile(0); 'Enable automatic file naming
+
     FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 3);
     FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 1);
     SampleAutoName$(dataCellName$ + "_atn_000");
-    SampleAutoFile(1);
+    SampleAutoFile(1);  'Enable automatic file naming
     
 	SampleAutoComment(0); 'Prompt for comment after sampling
 	SampleAutoCommit(60); 'Seconds between each file commit
@@ -1770,7 +1921,16 @@ func ReplaceGratingColorVector$(gspec$, cvspec$)
     return s$;
 end
 
-
+' Replace the X and Y positions in the grating spec with new XY positions but leave the rest (including W/H) the same
+func ReplaceGratingXY$(sSpec$,x,y);
+    var s$;
+    var i1%, i2%;
+    i1% := InStr(sSpec$, ",");  'get first comma position
+    i2% := InStr(sSpec$, ",", i1%+1);  'get second comma position
+    s$ := Str$(x) + "," + Str$(y) + "," + Right$(sSpec$,Len(sSpec$)-i2%);  'and put the X and Y values in front
+    return s$;
+end    
+    
 ' Used to hard-quit from toolbar. This will close data files without saving!!! 
 ' It is important that this function be disabled once sampling is started!!!
 
@@ -1843,7 +2003,14 @@ func Start%()
 	'var Contrast$;  'made global so that WriteParameterFile can use it
     var ttemp;
     var stimSpec$;
-    var distSpec$;
+    var dist1Spec$;
+    var dist2Spec$;
+    var dist3Spec$;
+    var dist4Spec$;
+    var xTemp;
+    var yTemp;
+    var wTemp;
+    var hTemp;
     var lolSpec$;  'LOLlerskates!  ROFLcopter!
     var x;
     var i%;
@@ -1861,7 +2028,37 @@ func Start%()
     PrintLog("ttemp " + str$(ttemp) + " tlast " + str$(tLast) + "\n");
     
     stimSpec$ := GetGratingParameters$("Stimulus");
-    distSpec$ := GetGratingParameters$("Distractor1");
+    ParseGratingParametersBrief%(stimSpec$, xTemp, yTemp, wTemp, hTemp);  'we may as well just do this every time - 90+% of the time we will anyway, and why put it in the if statements four times?
+    if attNumPatches% > 1 then
+        if attGetGPFromMainStim% = 1 then
+            dist1Spec$ := ReplaceGratingXY$(stimSpec$,xTemp,yTemp);
+        else
+            dist1Spec$ := GetGratingParameters$("Distractor1");
+        endif;
+    endif;
+    if attNumPatches% > 2 then
+        if attGetGPFromMainStim% = 1 then
+            dist2Spec$ := ReplaceGratingXY$(stimSpec$,xTemp,yTemp);
+        else
+            dist2Spec$ := GetGratingParameters$("Distractor2");
+        endif;
+    endif;
+    if attNumPatches% > 3 then
+        if attGetGPFromMainStim% = 1 then
+            dist3Spec$ := ReplaceGratingXY$(stimSpec$,xTemp,yTemp);
+        else
+            dist3Spec$ := GetGratingParameters$("Distractor3");
+        endif;
+    endif;
+    if attNumPatches% > 4 then
+        if attGetGPFromMainStim% = 1 then
+            dist4Spec$ := ReplaceGratingXY$(stimSpec$,xTemp,yTemp);
+        else
+            dist4Spec$ := GetGratingParameters$("Distractor4");
+        endif;
+    endif;
+    
+    
     if attCustomGratingColorCheck% = 1 then
         var f$, t$;
         f$ := EncodeColor$(attCustomGratingColorStimFrom%[0], attCustomGratingColorStimFrom%[1], attCustomGratingColorStimFrom%[2]);
@@ -1869,7 +2066,18 @@ func Start%()
         stimSpec$ := ReplaceGratingColorVector$(stimSpec$, f$ + "-" + t$);
         f$ := EncodeColor$(attCustomGratingColorDistractorFrom%[0], attCustomGratingColorDistractorFrom%[1], attCustomGratingColorDistractorFrom%[2]);
         t$ := EncodeColor$(attCustomGratingColorDistractorTo%[0], attCustomGratingColorDistractorTo%[1], attCustomGratingColorDistractorTo%[2]);
-        distSpec$ := ReplaceGratingColorVector$(distSpec$, f$ + "-" + t$);
+        if attNumPatches% > 1 then
+            dist1Spec$ := ReplaceGratingColorVector$(dist1Spec$, f$ + "-" + t$);
+        endif;
+        if attNumPatches% > 2 then
+            dist2Spec$ := ReplaceGratingColorVector$(dist2Spec$, f$ + "-" + t$);
+        endif;
+        if attNumPatches% > 3 then
+            dist3Spec$ := ReplaceGratingColorVector$(dist3Spec$, f$ + "-" + t$);
+        endif;
+        if attNumPatches% > 4 then
+            dist4Spec$ := ReplaceGratingColorVector$(dist4Spec$, f$ + "-" + t$);
+        endif;
     endif
     'if attLollipopCheck% = 1 then
     '    lolSpec$ := " -L -c " + str$(attCircleDiameterDiff) + " -p " + str$(attLollipopContrast%) + " -l " + str$(attCueLinePct/100) + " -G " + str$(attCueLineGap) + " -P " + str$(attLollipopStickContrast%);
@@ -1877,9 +2085,20 @@ func Start%()
     '    lolSpec$ := "";
     'endif
     
-	Stim$ := " -g " + distSpec$ + " -s " + stimSpec$;  
-	'Contrast$ := " -t " + str$(round(attContrastBase%/pow(2,attMinContChange))) + "," + str$(attContrastBase%) + "," + str$(round(attContrastBase%*pow(2,attMaxContChange)));  'this will change once tuning curves are in, at least a bit
-	CreateContrastList(Contrast$,attContrastList%,attValidList%,attUpDownList%,attHazardList);  'Fills Contrast$ with the big ol' list, plus some vars to make it easier on us all 
+	Stim$ := " -s " + stimSpec$;  
+    if attNumPatches% > 1 then
+            Stim$ := Stim$ + " -s " + dist1Spec$;
+    endif;
+    if attNumPatches% > 2 then
+            Stim$ := Stim$ + " -s " + dist2Spec$;
+    endif;
+    if attNumPatches% > 3 then
+            Stim$ := Stim$ + " -s " + dist3Spec$;
+    endif;
+    if attNumPatches% > 4 then
+            Stim$ := Stim$ + " -s " + dist4Spec$;
+    endif;
+	CreateContrastList(Contrast$,attContrastList%,attChangeList%,attValidList%,attAttendList%,attHazardList,attOffBitsList%);  'Fills Contrast$ with the big ol' list, plus some vars to make it easier on us all   
     'Extras$ := " -b " + attBackgroundColor$ + " -d " + GetDistanceToScreenMM$() + " -A " + str$(attAnswerPointOffset) + " -D " + str$(attAnswerPointDiameter) + lolSpec$;  'answer points on
     Extras$ := " -b " + attBackgroundColor$ + " -d " + GetDistanceToScreenMM$() + " -N ";' + lolSpec$;  'answer points off, lollipop spec off as well
     if attTrainingContrastCheck% = 1 then
@@ -1972,74 +2191,128 @@ end;
 '
 '======= CreateContrastList =======
 'Fill input variable c$ with the long-form contrast specifier for the Attention experiment
-'and cList%[] with the actual contrast to be used on each trial
-'and vList%[] with ones if valid and zeros for each trial
-'and udList%[] with 1 if contrast change is increase and -1 if contrast change is decrease
-'and hazList%[] with the required hazard time (time to contrast change) for each trial...adding, but y'know I can't really do this untilI have a feel for what the command line call is...
+'and cList%[] with the actual contrast (at change) to be used on each trial - note that if this is equal to attContrastBase% then the trial is a non-target trial
+'and chgList%[] with the stimulus location that is changed (new)
+'and vList%[] with ones if valid and zeros for invalid trials
+'and attList%[] for which stimulus is being attended (new)
+'and hazList[] with the required hazard time (time to contrast change) for each trial (new)
+'and offList%[] with a series of off-bits (1=stim 1 off, 2 = dist1 off, 4 = dist2 off, etc.) (new, probably not used later but nice to have in case)
 'Creating all of these here (including easy trials) allows us to just blast through once we get to the actual experiment
 'without too much counting going on.
-Proc CreateContrastList(&c$,cList%[],&vList%[],&udList%[],&hazList[])
+Proc CreateContrastList(&c$,&cList%[],&chgList%[],&vList%[],&attList%[],&hazList[],&offList%[])
     var i%;
     var j%;
+    var tempInvalid%;  'holds number of invalid stimulus patch 
     var stdCount%;  'a counter for standard (i.e. "valid") trials, index into attTrialOrder%[]
     var catchCount%;  'a counter for catch trials
     var totalCount%;  'the current index of the xList% variables
+    var blockCount%;
+    var attDirection%;
+    var alloff%;  'this is for the bitwise "off" indicator
     
-    c$ := " -t ";
+    'calculate the value of alloff%, this is bitwise indicator if all stimuli are shut off
+    'this is simply 2^0 + 2^1 + 2^2 ... + 2^(n-1), which is (2^n)-1
+    alloff% := pow(2,attNumPatches%)-1;
+    
+    
+    c$ := " -J " + Str$(attTimeToAnswer) + ",";  'put in the first two elements of the specifier string, the -J and the post-CC time
        
     for i% := 1 to attNumberOfBlocks% do
+        
+        'If we are alternating by block, set attDirection% here, otherwise we set it on a trial-by-trial basis
+        if attBlockAlternate% <> 0 then
+            if ((blockCount%+randBlockOrderVar%) mod 2) = 0 then
+                attDirection% := 1;  'Attend main stimulus
+            else
+                attDirection% := Floor(Rand(attNumPatches%-1,2));  'choose a random stim to attend that is not the main
+            endif
+        endif
+        
         for j% := 1 to attTrialsPerBlock%+attEasyTrialsPerBlock% do
-            if j% <= attEasyTrialsPerBlock% then
+            
+            'if we are NOT alternating by block, choose a direction on each trial
+            if attBlockAlternate% = 0 then
+                if (Rand(0.0) < 0.5) then
+                    attDirection% := 1;  'Attend main stimulus
+                else
+                    attDirection% := Floor(Rand(attNumPatches%-1,2));  'choose a random stim to attend that is not the main
+                endif
+            endif;
+            
+            if j% <= attEasyTrialsPerBlock% then  'Note that Easy trials will now only happen if the attend directions are blocked
                 vList%[totalCount%] := 1;  'all easy trials are valid
-                udList%[totalCount%] := 1;  'up contrast
-                'cList%[totalCount%] := attContrastList[attNContLevels%-1];  'fill cList%[] with the highest contrast
-                'c$ := c$ + "0," + Str$(attContrastBase%) + "," + Str$(attContrastList[attNContLevels%-1]) + ",";  'fill c$ with easy, up trial
+                chgList%[totalCount%] := attDirection%;  'set stimulus that changes
+                attList%[totalCount%] := attDirection%;  'set direction of attention
                 cList%[totalCount%] := 100;  'change easy trials to 100% contrast
-                c$ := c$ + "0," + Str$(attContrastBase%) + "," + Str$(100) + ",";  'fill c$ with easy, up trial at 100% contrast
+                hazList[totalCount%] := attHazardMinTime;  'don't calculate a hazard time, just use the minimum
+                offList%[totalCount%] := alloff% - Pow(2,attDirection%-1);  'turn off all stimuli but the attended one
+                'insert easy trial with 100% contrast
+                UpdateTrialSpecString(c$,attDirection%,attDirection%,attContrastBase%,100,attHazardMinTime,attPhaseDeg%,alloff%-Pow(2,attDirection%-1));
             else 'regular trial
                 if (Rand()*100 < attNoGoTrialPercentage) then 'NoGo trial
                     vList%[totalCount%] := 1;  'all no-go trials are valid
-                    udList%[totalCount%] := -1;  '"down" contrast, which now indicates no-go
+                    chgList%[totalCount%] := 0;  'no stimulus changes, it's a no-go -- note that we cannot pass 0 to UpdateTrialSpecString, though, so pass the attend direction
+                    attList%[totalCount%] := attDirection%;  'set direction of attention
                     cList%[totalCount%] := attContrastBase%;  'fill cList%[] with the base contrast
-                    c$ := c$ + Str$(attContrastBase%) + "," + Str$(attContrastBase%) + "," + "0,";  'fill c$ with no-go trial
+                    trialHazardFunctionTime := RandExp(attHazardExpMeanTime, attHazardMinTime);
+                    if trialHazardFunctionTime > attHazardCutoffTime then
+                        trialHazardFunctionTime := attHazardCutoffTime;
+                    endif;
+                    hazList[totalCount%] := trialHazardFunctionTime;  'set hazard function time
+                    offList%[totalCount%] := 0;  'show all grating patches
+                    'insert no-go trial
+                    UpdateTrialSpecString(c$,attDirection%,attDirection%,attContrastBase%,attContrastBase%,trialHazardFunctionTime,attPhaseDeg%,0);
                 else    
                     docase
                     case (Rand()*100 < attCatchTrialPercentage) then 'catch trial
                         vList%[totalCount%] := 0;  'catch = invalid
+                        attList%[totalCount%] := attDirection%;  'set direction of attention
+                        trialHazardFunctionTime := RandExp(attHazardExpMeanTime, attHazardMinTime);
+                        if trialHazardFunctionTime > attHazardCutoffTime then
+                            trialHazardFunctionTime := attHazardCutoffTime;
+                        endif;
+                        hazList[totalCount%] := trialHazardFunctionTime;  'set hazard function time
+                        offList%[totalCount%] := 0;  'show all grating patches
+                        tempInvalid% := ceil(rand(attNumPatches%,0));  'select a random patch for invalid stimuli
+                        while tempInvalid% = attDirection% do  'it's not catch if it's the attended patch, try again
+                            tempInvalid% := ceil(rand(attNumPatches%,0));  'yes, this is technically ugly but much easier to code than a method guaranteed to get a result in one shot
+                        wend;
+                        chgList%[totalCount%] := tempInvalid%;  'set stimulus that changes
                         if attOnlyOneCatch% = 0 then  'if we are doing a tuning curve over catch trials
                             cList%[totalCount%] := attContrastList[attCatchTrialOrder%[catchCount%]];
-                            'commenting out this IF because in the No-Go experiment the first half will never execute
-                            'if attCatchTrialOrder%[catchCount%] >= attNContLevels% then  'use index to determine whether contrast change is up or down
-                            '    udList%[totalCount%] := -1;  'the second half are down contrast
-                            '    c$ := c$ + Str$(attContrastList[attCatchTrialOrder%[catchCount%]]) + "," + Str$(attContrastBase%) + "," + "0,";  'fill c$ with down catch trial
-                            'else
-                            udList%[totalCount%] := 1;   'the first half are up contrast
-                            c$ := c$ + "0," + Str$(attContrastBase%) + "," + Str$(attContrastList[attCatchTrialOrder%[catchCount%]]) + ",";  'fill c$ with up catch trial
-                            'endif;
                         else  'if we are doing only one catch trial (note the commented stuff above is not re-included)
                             cList%[totalCount%] := attOneCatchContrast%;  'there is only one contrast
-                            udList%[totalCount%] := 1;   'the first half are up contrast
-                            c$ := c$ + "0," + Str$(attContrastBase%) + "," + Str$(attOneCatchContrast%) + ",";  'fill c$ with up catch trial, there is only one contrast
                         endif;
+                        'insert catch trial
+                        UpdateTrialSpecString(c$,attDirection%,tempInvalid%,attContrastBase%,cList%[totalCount%],trialHazardFunctionTime,attPhaseDeg%,0);
                         catchCount% += 1;  
                     case (Rand()*100 < attUncatchTrialPercentage) then 'uncatch trial
                         'this is guaranteed to go along with attOnlyOneCatch% = 1
-                        vList%[totalCount%] := 1;  'catch = valid
+                        vList%[totalCount%] := 1;  'uncatch = valid
                         cList%[totalCount%] := attOneCatchContrast%;  'there is only one contrast
-                        udList%[totalCount%] := 1;   'the first half are up contrast
-                        c$ := c$ + "0," + Str$(attContrastBase%) + "," + Str$(attOneCatchContrast%) + ",";  'fill c$ with up catch trial, there is only one contrast
-
+                        attList%[totalCount%] := attDirection%;  'set direction of attention
+                        trialHazardFunctionTime := RandExp(attHazardExpMeanTime, attHazardMinTime);
+                        if trialHazardFunctionTime > attHazardCutoffTime then
+                            trialHazardFunctionTime := attHazardCutoffTime;
+                        endif;
+                        hazList[totalCount%] := trialHazardFunctionTime;  'set hazard function time
+                        offList%[totalCount%] := 0;  'show all grating patches
+                        chgList%[totalCount%] := attDirection%;  'set stimulus that changes
+                        'insert uncatch trial
+                        UpdateTrialSpecString(c$,attDirection%,attDirection%,attContrastBase%,cList%[totalCount%],trialHazardFunctionTime,attPhaseDeg%,0);
                     else  'valid trial
                         vList%[totalCount%] := 1;  'valid
                         cList%[totalCount%] := attContrastList[attTrialOrder%[stdCount%]];
-                        'commenting out this IF because in the No-Go experiment the first half will never execute
-                        'if attTrialOrder%[stdCount%] >= attNContLevels% then  'use index to determine whether contrast change is up or down
-                        '    udList%[totalCount%] := -1;  'the second half are down contrast
-                        '    c$ := c$ + Str$(attContrastList[attTrialOrder%[stdCount%]]) + "," + Str$(attContrastBase%) + "," + "0,";  'fill c$ with down std trial
-                        'else
-                            udList%[totalCount%] := 1;   'the first half are up contrast
-                            c$ := c$ + "0," + Str$(attContrastBase%) + "," + Str$(attContrastList[attTrialOrder%[stdCount%]]) + ",";  'fill c$ with up std trial
-                        'endif;
+                        attList%[totalCount%] := attDirection%;  'set direction of attention
+                        trialHazardFunctionTime := RandExp(attHazardExpMeanTime, attHazardMinTime);
+                        if trialHazardFunctionTime > attHazardCutoffTime then
+                            trialHazardFunctionTime := attHazardCutoffTime;
+                        endif;
+                        hazList[totalCount%] := trialHazardFunctionTime;  'set hazard function time
+                        offList%[totalCount%] := 0;  'show all grating patches
+                        chgList%[totalCount%] := attDirection%;  'set stimulus that changes
+                        'insert uncatch trial
+                        UpdateTrialSpecString(c$,attDirection%,attDirection%,attContrastBase%,cList%[totalCount%],trialHazardFunctionTime,attPhaseDeg%,0);
                         stdCount% += 1;
                     endcase;
                 endif;
@@ -2136,26 +2409,98 @@ proc WriteParameterFile()
 	Print("Type: sine (s)/square (q)       : %s\n", Tstimp$);
         
     ' write distractor parameters
-    Print("\nDistractor\n");  'Master grating
-	Print("-------------------\n\n");
-    Tstimstr$ := GetGratingParameters$("Distractor1");
-    ReadSetup(",",",",",",",",",");
-	i% := ReadStr(Tstimstr$, Tstimx$, Tstimy$, Tstimw$, Tstimh$, Tstimiw$, Tstimih$, Tstimcontrast$, Tstimsf$, Tstimtf$, Tstimorientation$, Tstimphase$, Tstimcv$, Tstimp$, Tstimap$);
-	Print("Position (x, degrees)           : %s\n", Tstimx$);
-	Print("Position (y, degrees)           : %s\n", Tstimy$);
-	Print("Width (degrees)                 : %s\n", Tstimw$);
-	Print("Height (degrees)                : %s\n", Tstimh$);
-    Print("Inner Width (degrees)           : %s\n", Tstimiw$);
-	Print("Inner Height (degrees)          : %s\n", Tstimih$);
-	Print("Color: b/w(b),lms-cone(l,m,s)   : %s\n", Tstimcv$);
-    Print("Temporal frequency              : %s\n", Tstimtf$);
-	Print("Spatial frequency               : %s\n", Tstimsf$);
-	Print("Orientation (degrees)           : %s\n", Tstimorientation$);
-    Print("Initial Phase (degrees)         : %f\n", phase);
-	Print("Contrast (%%)                    : %s\n", Tstimcontrast$);
-	Print("Aperture: ellipse(e)/square(q)  : %s\n", Tstimap$);
-	Print("Type: sine (s)/square (q)       : %s\n", Tstimp$);
-    
+    if attNumPatches% > 1 then
+        Print("\nDistractor1\n");  'Distractor grating
+        Print("-------------------\n\n");
+        Tstimstr$ := GetGratingParameters$("Distractor1");
+        ReadSetup(",",",",",",",",",");
+        i% := ReadStr(Tstimstr$, Tstimx$, Tstimy$, Tstimw$, Tstimh$, Tstimiw$, Tstimih$, Tstimcontrast$, Tstimsf$, Tstimtf$, Tstimorientation$, Tstimphase$, Tstimcv$, Tstimp$, Tstimap$);
+        Print("Position (x, degrees)           : %s\n", Tstimx$);
+        Print("Position (y, degrees)           : %s\n", Tstimy$);
+        if attGetGPFromMainStim% = 0 then
+            Print("Width (degrees)                 : %s\n", Tstimw$);
+            Print("Height (degrees)                : %s\n", Tstimh$);
+            Print("Inner Width (degrees)           : %s\n", Tstimiw$);
+            Print("Inner Height (degrees)          : %s\n", Tstimih$);
+            Print("Color: b/w(b),lms-cone(l,m,s)   : %s\n", Tstimcv$);
+            Print("Temporal frequency              : %s\n", Tstimtf$);
+            Print("Spatial frequency               : %s\n", Tstimsf$);
+            Print("Orientation (degrees)           : %s\n", Tstimorientation$);
+            Print("Initial Phase (degrees)         : %f\n", phase);
+            Print("Contrast (%%)                    : %s\n", Tstimcontrast$);
+            Print("Aperture: ellipse(e)/square(q)  : %s\n", Tstimap$);
+            Print("Type: sine (s)/square (q)       : %s\n", Tstimp$);
+        endif;
+    endif;
+    if attNumPatches% > 2 then
+        Print("\nDistractor2\n");  'Distractor grating
+        Print("-------------------\n\n");
+        Tstimstr$ := GetGratingParameters$("Distractor2");
+        ReadSetup(",",",",",",",",",");
+        i% := ReadStr(Tstimstr$, Tstimx$, Tstimy$, Tstimw$, Tstimh$, Tstimiw$, Tstimih$, Tstimcontrast$, Tstimsf$, Tstimtf$, Tstimorientation$, Tstimphase$, Tstimcv$, Tstimp$, Tstimap$);
+        Print("Position (x, degrees)           : %s\n", Tstimx$);
+        Print("Position (y, degrees)           : %s\n", Tstimy$);
+        if attGetGPFromMainStim% = 0 then
+            Print("Width (degrees)                 : %s\n", Tstimw$);
+            Print("Height (degrees)                : %s\n", Tstimh$);
+            Print("Inner Width (degrees)           : %s\n", Tstimiw$);
+            Print("Inner Height (degrees)          : %s\n", Tstimih$);
+            Print("Color: b/w(b),lms-cone(l,m,s)   : %s\n", Tstimcv$);
+            Print("Temporal frequency              : %s\n", Tstimtf$);
+            Print("Spatial frequency               : %s\n", Tstimsf$);
+            Print("Orientation (degrees)           : %s\n", Tstimorientation$);
+            Print("Initial Phase (degrees)         : %f\n", phase);
+            Print("Contrast (%%)                    : %s\n", Tstimcontrast$);
+            Print("Aperture: ellipse(e)/square(q)  : %s\n", Tstimap$);
+            Print("Type: sine (s)/square (q)       : %s\n", Tstimp$);
+        endif;
+    endif;
+    if attNumPatches% > 3 then
+        Print("\nDistractor3\n");  'Distractor grating
+        Print("-------------------\n\n");
+        Tstimstr$ := GetGratingParameters$("Distractor3");
+        ReadSetup(",",",",",",",",",");
+        i% := ReadStr(Tstimstr$, Tstimx$, Tstimy$, Tstimw$, Tstimh$, Tstimiw$, Tstimih$, Tstimcontrast$, Tstimsf$, Tstimtf$, Tstimorientation$, Tstimphase$, Tstimcv$, Tstimp$, Tstimap$);
+        Print("Position (x, degrees)           : %s\n", Tstimx$);
+        Print("Position (y, degrees)           : %s\n", Tstimy$);
+        if attGetGPFromMainStim% = 0 then
+            Print("Width (degrees)                 : %s\n", Tstimw$);
+            Print("Height (degrees)                : %s\n", Tstimh$);
+            Print("Inner Width (degrees)           : %s\n", Tstimiw$);
+            Print("Inner Height (degrees)          : %s\n", Tstimih$);
+            Print("Color: b/w(b),lms-cone(l,m,s)   : %s\n", Tstimcv$);
+            Print("Temporal frequency              : %s\n", Tstimtf$);
+            Print("Spatial frequency               : %s\n", Tstimsf$);
+            Print("Orientation (degrees)           : %s\n", Tstimorientation$);
+            Print("Initial Phase (degrees)         : %f\n", phase);
+            Print("Contrast (%%)                    : %s\n", Tstimcontrast$);
+            Print("Aperture: ellipse(e)/square(q)  : %s\n", Tstimap$);
+            Print("Type: sine (s)/square (q)       : %s\n", Tstimp$);
+        endif;
+    endif;
+    if attNumPatches% > 4 then
+        Print("\nDistractor4\n");  'Distractor grating
+        Print("-------------------\n\n");
+        Tstimstr$ := GetGratingParameters$("Distractor4");
+        ReadSetup(",",",",",",",",",");
+        i% := ReadStr(Tstimstr$, Tstimx$, Tstimy$, Tstimw$, Tstimh$, Tstimiw$, Tstimih$, Tstimcontrast$, Tstimsf$, Tstimtf$, Tstimorientation$, Tstimphase$, Tstimcv$, Tstimp$, Tstimap$);
+        Print("Position (x, degrees)           : %s\n", Tstimx$);
+        Print("Position (y, degrees)           : %s\n", Tstimy$);
+        if attGetGPFromMainStim% = 0 then
+            Print("Width (degrees)                 : %s\n", Tstimw$);
+            Print("Height (degrees)                : %s\n", Tstimh$);
+            Print("Inner Width (degrees)           : %s\n", Tstimiw$);
+            Print("Inner Height (degrees)          : %s\n", Tstimih$);
+            Print("Color: b/w(b),lms-cone(l,m,s)   : %s\n", Tstimcv$);
+            Print("Temporal frequency              : %s\n", Tstimtf$);
+            Print("Spatial frequency               : %s\n", Tstimsf$);
+            Print("Orientation (degrees)           : %s\n", Tstimorientation$);
+            Print("Initial Phase (degrees)         : %f\n", phase);
+            Print("Contrast (%%)                    : %s\n", Tstimcontrast$);
+            Print("Aperture: ellipse(e)/square(q)  : %s\n", Tstimap$);
+            Print("Type: sine (s)/square (q)       : %s\n", Tstimp$);
+        endif;
+    endif;
     
     
 	Print("\nExperimental parameters\n");
@@ -2195,6 +2540,13 @@ proc WriteParameterFile()
     Print("Training contrast   : %d\n", attTrainingContrastPct%);
     Print("Set phase at contrast change?   : %d\n", attPhaseCheck%);
     Print("Phase at contrast change   : %d\n", attPhaseDeg% );
+    Print("Number of Distractors     : %d\n", attNumPatches%);
+    Print("Get distractor params from main stim?     : %d\n", attGetGPFromMainStim%);
+    Print("Use only one catch contrast?     : %d\n", attOnlyOneCatch%);
+    Print("Value of only catch contrast   : %d\n", attOneCatchContrast%);
+    Print("Do 'uncatch'     : %d\n", attDoUncatch%);
+    
+    
     
     Print("Values: " + Contrast$ + "\n");
     Print("\n");
@@ -2218,4 +2570,113 @@ func GetInitialPhase%(phaseAtCC%,tempFreq,dur)
     endif;
     return Po%;
     
+end
+
+
+func GetStimulusTF(stim%)
+    var gr$;
+    var x, y, w, h, iw, ih, sf, tf, ori, phase;
+    var contrast%;
+    var cv$, pattern$, aperture$;
+    docase
+    case stim% = 1 then
+        gr$ := GetGratingParameters$("Stimulus");
+    case stim% = 2 then
+        gr$ := GetGratingParameters$("Distractor1");
+    case stim% = 3 then
+        gr$ := GetGratingParameters$("Distractor2");
+    case stim% = 4 then
+        gr$ := GetGratingParameters$("Distractor3");
+    case stim% = 5 then
+        gr$ := GetGratingParameters$("Distractor4");  
+    endcase;    
+    ParseGratingParameters%(gr$, x, y, w, h, iw, ih, contrast%, sf, tf, ori, phase, cv$, pattern$, aperture$);
+    LogStatus("GetStimulusTF", "TF=" + str$(tf));
+    return tf;
+end
+
+
+proc UpdateTrialSpecString(&c$,attdir%,chgdir%,base%,chg%,haz,phase%,off%)
+    var col$;
+    'order of colors is red, green, blue, yellow, fuschia, (aqua)
+    'aqua is currently not legal because we can only have four distracters maximum
+    'but hey, who knows if we will ever change that
+    docase
+    case attdir% = 1 then
+        col$ := "red";
+    case attdir% = 2 then
+        col$ := "green";
+    case attdir% = 3 then
+        col$ := "blue";
+    case attdir% = 4 then
+        col$ := "255/255/0";
+    case attdir% = 5 then
+        col$ := "255/0/255";
+    'case attdir% = 6 then  'only if we up the number of distracters
+    '    col$ := "0/255/255";   
+    endcase
+    c$ := c$ + col$ + ",";  'add color spec
+    
+    'get temporal frequency of the changing grating
+    var tf;
+    var initphase%;
+    if attGetGPFromMainStim% = 1 then  'use main value if we're getting values from main
+        tf := GetStimulusTF(1);
+    else
+        tf := GetStimulusTF(chgdir%);  'or actual changing value if not
+    endif;
+    initphase% := GetInitialPhase%(phase%,tf,haz);
+    c$ := c$ + Str$(initphase%) + ",";  'add initial phase
+    
+    c$ := c$ + Str$(haz) + ",";  'add hazard time
+    
+    c$ := c$ + Str$(off%) + ",";  'add offbits
+    
+    'now go through the base and change contrasts
+    var k%;
+   for k% := 1 to attNumPatches% do
+        if k% = chgdir% then  'do base and change
+            c$ := c$ + Str$(base%) + "," + Str$(chg%) + ",";
+        else 'do base and base
+            c$ := c$ + Str$(base%) + "," + Str$(base%) + ",";
+        endif;
+    next;  
+    
+end
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+' ParseGratingParameters%(gr$, &x, &y, &w, &h, &contrast%, &sf, &tf, &ori, &phase, &cv$, &pattern$, &aperture$)
+' 
+' Given a grating parameter list, parse the individual values in to the given variable list. 
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+func ParseGratingParameters%(gr$, &x, &y, &w, &h, &iw, &ih, &contrast%, &sf, &tf, &ori, &phase, &cv$, &pattern$, &aperture$)
+    var status% := 0;
+    var n%;
+    var str1$, str2$, str3$, str4$, str5$, str6$, str7$, str8$;
+    var str9$, str10$, str11$, str12$, str13$, str14$;
+	ReadSetup("", "", "", "", ",");
+    'Do initial read to determine how many variables are present
+    n% := ReadStr(gr$, str1$, str2$, str3$, str4$, str5$, str6$, str7$, str8$, str9$, str10$, str11$, str12$, str13$, str14$);
+    
+    docase
+    case n% = 8 or n% = 9 or n% = 12 then
+        'If the read gets 8 (no phase or strings), 9 (no strings) or 12 (everything) variables this is the correct read
+        n% := ReadStr(gr$, x, y, w, h, contrast%, sf, tf, ori, phase, cv$, pattern$, aperture$);
+    case n% = 11 then
+        'If there are 11 variables read (strings, no phase) the correct read omits phase
+        n% := ReadStr(gr$, x, y, w, h, contrast%, sf, tf, ori, cv$, pattern$, aperture$); 
+    case n% = 14 then
+        'If 14 parameters are present, inner width and outer width are set
+        n% := ReadStr(gr$, x, y, w, h, iw, ih, contrast%, sf, tf, ori, phase, cv$, pattern$, aperture$);
+    else
+        
+    endcase; 
+    ReadSetup();
+    if n% < 11 then 'Return -1 as status if there is no cv$/pattern$/aperture$
+        status% := -1; 'otherwise return 0 if cv$/pattern$/aperture$ are present
+                       'there is currently no return scheme to indicate that phase is present
+    endif;
+    return status%;
 end
