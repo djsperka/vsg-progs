@@ -1,4 +1,4 @@
-' $Id: AttentionGoNoGo.s2s,v 1.9 2013-06-18 17:35:57 devel Exp $
+' $Id: AttentionGoNoGo.s2s,v 1.10 2013-06-18 20:42:31 jeff Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -493,6 +493,11 @@ func AttentionScriptDialog%()
         endif;
         
 		SaveAttentionScriptParameters();
+        
+        'After saving parameters, set phase to -1 if we are not controlling it
+        if attPhaseCheck% = 0 then
+            attPhaseDeg% := -1;
+        endif;
         
         'if we aren't alternating cues by block, then "easy" trials don't make any sense
         'I'm doing this after the parameter save so that the actual Easy Trials value sticks around as default in this event
@@ -2689,7 +2694,14 @@ proc UpdateTrialSpecString(&c$,attdir%,chgdir%,base%,chg%,haz,phase%,off%)
     else
         tf := GetStimulusTF(chgdir%);  'or actual changing value if not
     endif;
-    initphase% := GetInitialPhase%(phase%,tf,haz);
+    
+    'set phase
+    if phase% < 0 then
+        initphase% := 0;
+    else
+        initphase% := GetInitialPhase%(phase%,tf,haz);
+    endif;
+    
     c$ := c$ + Str$(initphase%) + ",";  'add initial phase
     
     c$ := c$ + Str$(haz) + ",";  'add hazard time
