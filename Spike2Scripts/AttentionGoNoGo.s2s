@@ -1,4 +1,4 @@
-' $Id: AttentionGoNoGo.s2s,v 1.10 2013-06-18 20:42:31 jeff Exp $
+' $Id: AttentionGoNoGo.s2s,v 1.11 2013-06-18 21:36:42 devel Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -12,7 +12,7 @@
 '
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
-'	Vars that control the Attention script. 
+'	Vars that control the Attention script 
 
 var attNumberOfBlocks%;
 var attTrialsPerBlock%;
