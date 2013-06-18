@@ -1,4 +1,4 @@
-' $Id: AttentionGoNoGo.s2s,v 1.8 2013-06-18 01:52:25 jeff Exp $
+' $Id: AttentionGoNoGo.s2s,v 1.9 2013-06-18 17:35:57 devel Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -1424,6 +1424,7 @@ func IdleProcessing%()
             iAnswer% := Answer%(xEye, yEye);
             if iAnswer% <> 0 then
                 ' Got an answer. Record marker for correct/incorrect answer
+                printlog("Got answer %d with expected answer %d\n",iAnswer%,expectedAnswer%);
                 docase
                 case iAnswer% = expectedAnswer% then
                 'if trialIsTarget% = 1 then 'it's a GO trial
@@ -1644,11 +1645,13 @@ proc PrepareTrial()
     thisContrast% := attContrastList%[attCurrTrialIndex%];
     
     'Calculate expected answer
-    if trialIsTarget% > 2 then
+    if trialIsTarget% < 2 then
         expectedAnswer% := trialIsTarget%;
     else
         expectedAnswer% := -trialIsTarget%+1;
     endif;
+    
+    printlog("Trial is target value is %d and expected answer is %d\n",trialisTarget%,expectedAnswer%);
     
 '    docase
 '    case trialType% = trialtypeAttendToward% then
