@@ -1,4 +1,4 @@
-' $Id: AttentionGoNoGo.s2s,v 1.13 2013-06-21 19:03:20 devel Exp $
+' $Id: AttentionGoNoGo.s2s,v 1.14 2013-06-21 20:57:16 jeff Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -428,7 +428,7 @@ func AttentionScriptDialog%()
     
     DlgGroup("Phase", 1, 10, 34, 3);
     DlgCheck(attdlgPhaseCheck%, "Set phase at contrast change", 2, 11);
-	DlgInteger(attdlgPhaseDeg%, "Phase at cc (deg)", 0, 360, 22, 12);
+	DlgInteger(attdlgPhaseDeg%, 7, 0, 360, 27, 12);  DlgText("Phase at cc (deg, 0 = white)",2,12);
     
     DlgGroup("Number of Stimuli", 36, 11, 34, 3);
     DlgInteger(attdlgNumPatches%, 10, 1, 5, 58, 12); DlgText("Num of grating patches",37,12);
@@ -2626,11 +2626,21 @@ func GetInitialPhase%(phaseAtCC%,tempFreq,dur)
     
     deg := (360*((tempFreq*dur)mod 1));
     deg% := round(deg);  'this corrects to nearest degree, non-explicit conversion of real to int results in a floor operation
-    Po% := phaseAtCC% - deg%;
+    
+    'This is the way you would THINK it would work
+    'Po% := phaseAtCC% - deg%;
     'Po% := phaseAtCC% - (360*((tempFreq*dur)mod 1));
-    if Po% < 0 then
-        Po% := 360 + Po%;
+    'if Po% < 0 then
+    '    Po% := Po% + 360;
+    'endif;
+    
+    'This is the way it actually works, because the grating drifts "backwards" - that is to say that if the grating
+    'starts at 150 degrees and drifts through 30 degrees, the final grating position is 120 degrees, not 180 degrees.  
+    Po% := phaseAtCC% + deg%;
+    if Po% <= 360 then
+        Po% := Po% - 360;
     endif;
+        
     'printlog("Requested initial phase is %d\n",Po%);
     return Po%;
     
