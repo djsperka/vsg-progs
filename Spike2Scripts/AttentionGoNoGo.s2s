@@ -1,4 +1,4 @@
-' $Id: AttentionGoNoGo.s2s,v 1.12 2013-06-19 17:49:50 devel Exp $
+' $Id: AttentionGoNoGo.s2s,v 1.13 2013-06-21 19:03:20 devel Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -1630,7 +1630,7 @@ proc PrepareTrial()
     PrintLog("Fixation time " + str$(attFixationTime) + "\n");
     
     trialHazardFunctionTime := attHazardList[attCurrTrialIndex%];  'hazard time has been pre-calculated
-    
+
     'Determine if trial is catch trial
     trialCatch% := 1-attValidList%[attCurrTrialIndex%];
     if trialCatch% = 1 then
@@ -1656,7 +1656,7 @@ proc PrepareTrial()
         expectedAnswer% := -trialIsTarget%+1;
     endif;
     
-    printlog("Trial is target value is %d and expected answer is %d\n",trialisTarget%,expectedAnswer%);
+    'printlog("Trial is target value is %d and expected answer is %d\n",trialisTarget%,expectedAnswer%);
     
 '    docase
 '    case trialType% = trialtypeAttendToward% then
@@ -2708,7 +2708,7 @@ proc UpdateTrialSpecString(&c$,attdir%,chgdir%,base%,chg%,haz,phase%,off%)
     else
         initphase% := GetInitialPhase%(phase%,tf,haz);
     endif;
-    
+
     c$ := c$ + Str$(initphase%) + ",";  'add initial phase
     
     c$ := c$ + Str$(haz) + ",";  'add hazard time
