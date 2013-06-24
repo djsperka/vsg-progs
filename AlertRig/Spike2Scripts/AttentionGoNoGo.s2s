@@ -1,4 +1,4 @@
-' $Id: AttentionGoNoGo.s2s,v 1.14 2013-06-21 20:57:16 jeff Exp $
+' $Id: AttentionGoNoGo.s2s,v 1.15 2013-06-24 19:38:24 devel Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -1906,7 +1906,7 @@ proc CreateSampleConfiguration()
 	SampleTitle$(ReadyChannel%,"VSG Ready");
     
     ' Set up channels for sampling electrodes.
-    CreateElectrodeSamplingConfiguration(1, 11);
+    CreateElectrodeSamplingConfiguration2(1, 11);
 	
 	SampleWaveform(XChannel%,14,1000);
 	SampleTitle$(XChannel%,"Eye X");
