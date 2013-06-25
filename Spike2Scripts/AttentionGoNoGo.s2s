@@ -1,4 +1,4 @@
-' $Id: AttentionGoNoGo.s2s,v 1.15 2013-06-24 19:38:24 devel Exp $
+' $Id: AttentionGoNoGo.s2s,v 1.16 2013-06-25 00:18:42 jeff Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -1148,7 +1148,7 @@ func IdleProcessing%()
             tLastTrigger := tTrigger;
             ChangeStateTo(stateHoldFixationToCC%, tTrigger);
             SampleText("Stimulus on, Base contrast " + Str$(attContrastBase%) + ", hazard dur " + Str$(trialHazardFunctionTime)
-            + "attend location " + Str$(trialAttendLoc%) + "change location " + Str$(trialIsTarget%) + "change contrast " + Str$(thisContrast%),tTrigger);
+            + ", attend location " + Str$(trialAttendLoc%) + ", change location " + Str$(trialIsTarget%) + ", change contrast " + Str$(thisContrast%),tTrigger);
         endif
         
         
@@ -1301,22 +1301,22 @@ func IdleProcessing%()
                 case trialType% = trialtypeAttendToward% then
                     if trialIsTarget% > 0 then
                         if trialCatch% = 0 then
-                            Sampletext("Contrast Change, Level " + Str$(thisContrast%) + ", Attend Toward",tTrigger);
+                            Sampletext("Contrast Change, Level " + Str$(thisContrast%) + ", Attend Toward",tTrigger+trialHazardFunctionTime);
                         else
-                            Sampletext("Contrast Change, Level " + Str$(thisContrast%) + ", Attend Toward (catch)",tTrigger);
+                            Sampletext("Contrast Change, Level " + Str$(thisContrast%) + ", Attend Toward (catch)",tTrigger+trialHazardFunctionTime);
                         endif
                     else
-                        Sampletext("Attend Toward, No Contrast Change",tTrigger);
+                        Sampletext("Attend Toward, No Contrast Change",tTrigger+trialHazardFunctionTime);
                     endif
                 case trialType% = trialtypeAttendAway% then
                     if trialIsTarget% > 0 then
                         if trialCatch% = 0 then
-                            Sampletext("Contrast Change, Level " + Str$(thisContrast%) + ", Attend Away",tTrigger);
+                            Sampletext("Contrast Change, Level " + Str$(thisContrast%) + ", Attend Away",tTrigger+trialHazardFunctionTime);
                         else
-                            Sampletext("Contrast Change, Level " + Str$(thisContrast%) + ", Attend Away (catch)",tTrigger);
+                            Sampletext("Contrast Change, Level " + Str$(thisContrast%) + ", Attend Away (catch)",tTrigger+trialHazardFunctionTime);
                         endif
                     else
-                        Sampletext("Attend Away, No Contrast Change",tTrigger);
+                        Sampletext("Attend Away, No Contrast Change",tTrigger+trialHazardFunctionTime);
                     endif
                 else
                     PrintLog("ERROR! Unknown blocktype!!!\n");    
@@ -1420,7 +1420,7 @@ func IdleProcessing%()
             if isStimDistractorOff% = 0 then
                 if Looking%(xEye, yEye) = 0 then
                     SafeSampleKey("s");
-                    SampleText("Fixation broken during response window",tNow);
+                    'SampleText("Fixation broken during response window",tNow);
                     PrintLog("stateWaitForAnswer: fix broken - turn off stim\n");
                     isStimDistractorOff% := 1;
                 endif
@@ -1906,7 +1906,7 @@ proc CreateSampleConfiguration()
 	SampleTitle$(ReadyChannel%,"VSG Ready");
     
     ' Set up channels for sampling electrodes.
-    CreateElectrodeSamplingConfiguration2(1, 11);
+    CreateElectrodeSamplingConfiguration(1, 11);
 	
 	SampleWaveform(XChannel%,14,1000);
 	SampleTitle$(XChannel%,"Eye X");
