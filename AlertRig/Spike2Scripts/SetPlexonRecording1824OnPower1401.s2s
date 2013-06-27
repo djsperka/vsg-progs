@@ -1,0 +1,27 @@
+'SetPlexonRecording1824OnPower1401.s2s - a script designed to be automatically opened
+'with a new instance of Spike2 for linked-1401 recording with the Plexon electrode
+'
+'This script will set up the sampling configuration on the Power1401 with 5 WaveMarks and
+'24 LFP channels, then start sampling contingent on a trigger.  This script is not intended
+'to do anything else.  Once recording is ready to go, the user will run the experiment from
+'the Spike2 instance controlling the Micro1401 mark II - the trigger will start sampling on
+'both 1401s simultaneously and there will be nothing left to do on this Spike2 instance except
+'stop sampling once the whole thing is done.
+
+#include "../../Spike2Util/UsreyUtil.s2s"  'this should include ElectrodeUtilities and everything else needed
+
+var key$;
+key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Temp\\Filenumber";
+
+FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 3);
+FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 1);
+SampleAutoName$(dataCellName$ + "_atn_power_" + Str$(GetIntRegistryValue%(key$, "fn", 0)));
+SampleAutoFile(1);  'Enable automatic file naming
+SampleAutoComment(0); 'Prompt for comment after sampling
+SampleAutoCommit(60); 'Seconds between each file commit
+
+CreatePlexonSamplingConfiguration1824Power(); 'Note that for right now the ONLY Plexon configuration is 18 WaveMark/24 LFP (maximal WMs for 24 LFPs, trust me)
+
+SampleOptimise(0,1,2,0,0,0,0);  'for the Micro 1401 mk II: manually set sampling timing, group channels with same ideal rate, Power1401, unused, unused, do not disable for compatibility, no burst mode
+
+SampleStart(1);  'set sampling to start on a trigger
