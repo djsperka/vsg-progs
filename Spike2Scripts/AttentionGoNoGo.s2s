@@ -1,4 +1,4 @@
-' $Id: AttentionGoNoGo.s2s,v 1.16 2013-06-25 00:18:42 jeff Exp $
+' $Id: AttentionGoNoGo.s2s,v 1.17 2013-06-27 21:37:04 jeff Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -1906,21 +1906,34 @@ proc CreateSampleConfiguration()
 	SampleTitle$(ReadyChannel%,"VSG Ready");
     
     ' Set up channels for sampling electrodes.
-    CreateElectrodeSamplingConfiguration(1, 11);
+    if UsePlexon% = 1 then  'call Plexon setup function, this will ONLY set up the sampling configuration for the Micro1401 mark II.  The Power1401 will be set up from its own dedicated script in its dedicated Spike2 instance
+        CreatePlexonSamplingConfiguration1824Micro(); 'Note that for right now the ONLY Plexon configuration is 18 WaveMark/24 LFP (maximal WMs for 24 LFPs, trust me)
+    else  'just set up the channels as expected
+        CreateElectrodeSamplingConfiguration(1, 11);
+    endif;
 	
+    ' Set up eye channels whether using Plexon or not
 	SampleWaveform(XChannel%,14,1000);
 	SampleTitle$(XChannel%,"Eye X");
 	SampleWaveform(YChannel%,15,1000);
 	SampleTitle$(YChannel%,"Eye Y");
     
-	SampleWaveform(NumberOfElectrodes%+10, 6, 1000);
-	SampleTitle$(NumberOfElectrodes%+10, "PD");
+    'I don't know what this is, but it's a problem for Plexon configs
+    if UsePlexon% = 0 then  'Kill it if we're using the Plexon
+        SampleWaveform(NumberOfElectrodes%+10, 6, 1000);
+        SampleTitle$(NumberOfElectrodes%+10, "PD");
+    endif;
+    
     
 	SampleTextMark(200);  'increase number of allowed characters, 1 is so stingy!
     
 	'SampleSequencer(script$ + "Attention.pls");
     SampleSequencer(script$ + "Tuning.pls");
-	SampleOptimise(2,2,2,2,50);  'Set optimise mode (do this last)
+    if UsePlexon% = 1 then  'Set optimise mode (do this last, so it's outside of the CreatePlexonSamplingConfiguration... functions)
+        SampleOptimise(0,1,4,0,0,0,0);  'for the Micro 1401 mk II: manually set sampling timing, group channels with same ideal rate, micro1401, unused, unused, do not disable for compatibility, no burst mode
+    else
+        SampleOptimise(2,2,2,2,50);  'otherwise: full optimize timing, channels may have different rates, Power1401 (lowest common denominator, so eh), low usPerTime of 2, high usPerTime of 50
+    endif;
 	SampleMode(1); 'Continuous sampling
 end;
 
@@ -2051,7 +2064,25 @@ func Start%()
     var specHandle%;
     var CueCirc$;
 	
-	SampleStart(0); 'Start sampling
+    'start sampling
+    if UsePlexon% = 1 then
+        SampleStart(1);  'set sampling to start on a trigger
+        
+        'write current file number to registry
+        var key$;
+        var fn$;
+        var fn%;
+        fn$ := FileName$(4);  'get trailing numbers from current filename
+        fn% := val(fn$);
+        key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Temp\\Filenumber";
+        SetIntRegistryValue(key$, "fn", fn%);
+        
+        'Start the Power1401!
+        progrun("sonview.exe /M SetPlexonRecording1824OnPower1401.s2s");  'run the program, .s2s file is on default path by design
+    else
+    	SampleStart(0); 'Start sampling now
+    endif;
+    
 	' Set Sequencer Variable #3 based on juicer type 
     SetJuicerSequencerVariable%();
     ' Clear any trigger bits on digout lines.
