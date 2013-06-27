@@ -1,7 +1,7 @@
-' $Id: Tuning.s2s,v 1.65 2013-06-07 00:29:58 devel Exp $
+' $Id: Tuning.s2s,v 1.66 2013-06-27 21:37:35 jeff Exp $
 ' Update 11/8/11 Jeff, includes multi-juicer updates
 
-const tunCVSID$ := "$Id: Tuning.s2s,v 1.65 2013-06-07 00:29:58 devel Exp $";
+const tunCVSID$ := "$Id: Tuning.s2s,v 1.66 2013-06-27 21:37:35 jeff Exp $";
 
 
 
@@ -1214,18 +1214,25 @@ proc CreateSampleConfiguration()
 	SampleTitle$(FrameSlaveChannel%,"Frame-Slave");
     
     
-    ' Electrodes: wavemark/continuous
-    ' 12/6/2010
-    ' Wavemark channels will be channels # 1-N, waveform N+1 - N+1+M, where there are N wavemark channels
-    ' and M waveform channels. 
-    for i% := 0 to tunNWavemarks%-1 do
-		SampleWaveMark(i% + 1, tunWavemarkPorts%[i%], 2000, 34, 15, 28000); ' chan, port, event rate, points, pre-trigger, rate
-		SampleTitle$(i% + 1, "WMrk " + str$(tunWavemarkPorts%[i%])); 
-	next
-    for i% := 0 to tunNContinuous%-1 do
-        SampleWaveform(tunNWavemarks% + i% + 1, tunContinuousPorts%[i%], 20000);
-        SampleTitle$(tunNWavemarks% + i% + 1, "Cont " + str$(tunContinuousPorts%[i%]));
-    next
+    
+    ' Set up channels for sampling electrodes.
+    if UsePlexon% = 1 then  'call Plexon setup function, this will ONLY set up the sampling configuration for the Micro1401 mark II.  The Power1401 will be set up from its own dedicated script in its dedicated Spike2 instance
+        CreatePlexonSamplingConfiguration1824Micro(); 'Note that for right now the ONLY Plexon configuration is 18 WaveMark/24 LFP (maximal WMs for 24 LFPs, trust me)
+    else
+        ' Electrodes: wavemark/continuous
+        ' 12/6/2010
+        ' Wavemark channels will be channels # 1-N, waveform N+1 - N+1+M, where there are N wavemark channels
+        ' and M waveform channels. 
+        for i% := 0 to tunNWavemarks%-1 do
+            SampleWaveMark(i% + 1, tunWavemarkPorts%[i%], 2000, 34, 15, 28000); ' chan, port, event rate, points, pre-trigger, rate
+            SampleTitle$(i% + 1, "WMrk " + str$(tunWavemarkPorts%[i%])); 
+        next
+        for i% := 0 to tunNContinuous%-1 do
+            SampleWaveform(tunNWavemarks% + i% + 1, tunContinuousPorts%[i%], 20000);
+            SampleTitle$(tunNWavemarks% + i% + 1, "Cont " + str$(tunContinuousPorts%[i%]));
+        next
+    endif;
+    
         
 	SampleWaveform(XChannel%, GetEyeXPort%(), 1000);
 	SampleTitle$(XChannel%,"Eye X");
@@ -1233,7 +1240,11 @@ proc CreateSampleConfiguration()
 	SampleTitle$(YChannel%,"Eye Y");
     
 	SampleSequencer(script$ + "Tuning.pls");
-	SampleOptimise(2,2,2,2,50);  'Set optimise mode (do this last)
+	if UsePlexon% = 1 then  'Set optimise mode (do this last, so it's outside of the CreatePlexonSamplingConfiguration... functions)
+        SampleOptimise(0,1,4,0,0,0,0);  'for the Micro 1401 mk II: manually set sampling timing, group channels with same ideal rate, micro1401, unused, unused, do not disable for compatibility, no burst mode
+    else
+        SampleOptimise(2,2,2,2,50);  'otherwise: full optimize timing, channels may have different rates, Power1401 (lowest common denominator, so eh), low usPerTime of 2, high usPerTime of 50
+    endif;
 	SampleMode(1); 'Continuous sampling
 end;
 
@@ -1704,7 +1715,24 @@ func Start%()
     
     
 	
-	SampleStart(0); 'Start sampling
+	'start sampling
+    if UsePlexon% = 1 then
+        SampleStart(1);  'set sampling to start on a trigger
+        
+        'write current file number to registry
+        'var key$;  'in Tuning, key$ is already defined
+        var fn$;
+        var fn%;
+        fn$ := FileName$(4);  'get trailing numbers from current filename
+        fn% := val(fn$);
+        key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Temp\\Filenumber";
+        SetIntRegistryValue(key$, "fn", fn%);
+        
+        'Start the Power1401!
+        progrun("sonview.exe /M SetPlexonRecording1824OnPower1401.s2s");  'run the program, .s2s file is on default path by design
+    else
+    	SampleStart(0); 'Start sampling now
+    endif;
 	' Set Sequencer Variable #3 based on juicer type 
     SetJuicerSequencerVariable%();
     ' Clear any trigger bits on digout lines.
