@@ -1,4 +1,4 @@
-' $Id: AttentionGoNoGo.s2s,v 1.17 2013-06-27 21:37:04 jeff Exp $
+' $Id: AttentionGoNoGo.s2s,v 1.18 2013-06-28 21:25:18 jeff Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -890,10 +890,15 @@ end;
 '
 proc InitializeToolbar()
     
+    
 	View(App(8)).WindowVisible(0);	'Hide the standard sample bar
 	ToolbarVisible(1);
 	UpdateToolbarText();
-	ToolbarSet(1,"Sample start",Start%);
+    if UsePlexon% = 1 then
+        ToolbarSet(1,"StartPlexon",StartPlexon%);
+    else
+        ToolbarSet(1,"Sample start",Start%);
+    endif;
 	ToolbarSet(2,"Sample stop", Stop%);
 	ToolbarSet(3,"Juice", Reward%);
 	ToolbarSet(4,"Pause stimuli",PauseStimuli%);
@@ -2008,15 +2013,23 @@ func Stop%()
     ExportChanList(); 
     chanToExport%[1] := 30;  'channels to export go in elements 1:...'30 is the textmark channel
     chanToExport%[2] := 31;  '31 is the keyboard channel
-    for i% := 0 to NumWavemarkPorts% do
-        chanToExport%[i%+3] := i%+1;  'wavemark channels are in order
-    next;
-    chanToExport%[0] := 2+i%;  'total number of channels goes in element 0
+    if UsePlexon% = 1 then  'use hardcoded Plexon values - 18 WaveMarks and 24 LFPs for now, on the micro it's 
+        for i% := 0 to 12 do
+            chanToExport%[i%+3] := i%+1;  'wavemark channels are in order
+        next;
+        chanToExport%[0] := 2+i%;  'total number of channels goes in element 0
+    else
+        for i% := 0 to NumWavemarkPorts% do
+            chanToExport%[i%+3] := i%+1;  'wavemark channels are in order
+        next;
+        chanToExport%[0] := 2+i%;  'total number of channels goes in element 0
+    endif;
+    
     ExportChanList(0,view(datawindow%).maxtime(),chanToExport%[]);
     
     'Code for putting other various channels into the Matlab extraction, Ben doesn't want them but they will be useful for other code    
-    '    ExportChanList(0,maxtime(),XChannel%);  'Eye position channel, X
-    '    ExportChanList(0,maxtime(),YChannel%);  'Eye position channel, Y
+    ExportChanList(0,maxtime(),XChannel%);  'Eye position channel, X
+    ExportChanList(0,maxtime(),YChannel%);  'Eye position channel, Y
     'for i% := 0 to NumWavemarkPorts%-1 do
     '    ExportChanList(0,maxtime(),i%+1);  'Wavemark channel(s)
     'next;
@@ -2038,6 +2051,44 @@ func Stop%()
 	'ProgRun(bin$ + "\\ClearTrigger",0);
     
 end;
+
+
+
+func StartPlexon%()
+    
+    SampleStart(1);  'set sampling to start on a trigger
+        
+    'write current file number to registry
+    var key$;
+    var fn$;
+    var fn%;
+    fn$ := FileName$(4);  'get trailing numbers from current filename
+    fn% := val(fn$);
+    printlog("Filename is %s and digits are %d\n",fn$,fn%);
+    key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Temp\\Filenumber";
+    SetIntRegistryValue(key$, "fn", fn%);
+    
+    
+    'Start the Power1401!  This is a bit cumbersome, and I'm not sure it's transferable, but it's a start, perhaps.
+    var fp$;  'to hold current file path
+    var fp2$;  'to hold destination file path
+    fp$ := FilePath$();  'get current file path
+    printlog("%s\n",fp$);  'and tell the world what it was
+    FilePathSet("F:/work/AlertRig/Spike2Scripts");  'change the file path
+    fp2$ := FilePath$();  'read out to allow verification
+    printlog("%s\n",fp2$);  'by telling the world about it (hint: it works)
+    
+    progrun("sonview.exe /M SetPlexonRecording1824OnPower1401.s2s");  'run the program, .s2s file is now on default path by design
+    
+    FilePathSet(fp$);  'change the file path back to what it was
+    fp$ := FilePath$();  'read out to allow verification
+    printlog("%s\n",fp$); 'and tell the world to verify
+    
+    ToolbarSet(1,"Sample start",Start%);  'change button 1 on the toolbar, this may not work
+    
+    return 1; 'stay in toolbar
+    
+end
 
 
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
@@ -2066,19 +2117,32 @@ func Start%()
 	
     'start sampling
     if UsePlexon% = 1 then
-        SampleStart(1);  'set sampling to start on a trigger
+'        SampleStart(1);  'set sampling to start on a trigger
+'        
+'        'write current file number to registry
+'        var key$;
+'        var fn$;
+'        var fn%;
+'        fn$ := FileName$(4);  'get trailing numbers from current filename
+'        fn% := val(fn$);
+'        key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Temp\\Filenumber";
+'        SetIntRegistryValue(key$, "fn", fn%);
+'        
+'        
+'        'Start the Power1401!  This is a bit cumbersome, and I'm not sure it's transferable, but it's a start, perhaps.
+'        var fp$;  'to hold current file path
+'        var fp2$;  'to hold destination file path
+'        fp$ := FilePath$();  'get current file path
+'        printlog("%s\n",fp$);  'and tell the world what it was
+'        FilePathSet("F:/work/AlertRig/Spike2Scripts");  'change the file path
+'        fp2$ := FilePath$();  'read out to allow verification
+'        printlog("%s\n",fp2$);  'by telling the world about it (hint: it works)
+'        progrun("sonview.exe /M SetPlexonRecording1824OnPower1401.s2s");  'run the program, .s2s file is now on default path by design
+'        FilePathSet(fp$);  'change the file path back to what it was
+'        fp$ := FilePath$();  'read out to allow verification
+'        printlog("%s\n",fp$); 'and tell the world to verify
         
-        'write current file number to registry
-        var key$;
-        var fn$;
-        var fn%;
-        fn$ := FileName$(4);  'get trailing numbers from current filename
-        fn% := val(fn$);
-        key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Temp\\Filenumber";
-        SetIntRegistryValue(key$, "fn", fn%);
         
-        'Start the Power1401!
-        progrun("sonview.exe /M SetPlexonRecording1824OnPower1401.s2s");  'run the program, .s2s file is on default path by design
     else
     	SampleStart(0); 'Start sampling now
     endif;
