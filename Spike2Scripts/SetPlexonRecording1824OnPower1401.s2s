@@ -10,18 +10,115 @@
 
 #include "../../Spike2Util/UsreyUtil.s2s"  'this should include ElectrodeUtilities and everything else needed
 
-var key$;
-key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Temp\\Filenumber";
+var DataWindow%;
 
-FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 3);
-FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 1);
-SampleAutoName$(dataCellName$ + "_atn_power_" + Str$(GetIntRegistryValue%(key$, "fn", 0)));
-SampleAutoFile(1);  'Enable automatic file naming
-SampleAutoComment(0); 'Prompt for comment after sampling
-SampleAutoCommit(60); 'Seconds between each file commit
+InitializeToolbar();  'puts the function into the toolbar
 
-CreatePlexonSamplingConfiguration1824Power(); 'Note that for right now the ONLY Plexon configuration is 18 WaveMark/24 LFP (maximal WMs for 24 LFPs, trust me)
 
-SampleOptimise(0,1,2,0,0,0,0);  'for the Micro 1401 mk II: manually set sampling timing, group channels with same ideal rate, Power1401, unused, unused, do not disable for compatibility, no burst mode
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+' InitializeToolbar - prepare toolbar buttons. Note that the idle processing function (ToolbarSet(0, blah, blah)) is 
+' not set here. That's done when the user hits the start button.
+'
+proc InitializeToolbar()
+    
+    'Open the data sampling window, normally this is done in its own function but as we're not really doing much else...
+	DataWindow% := FileNew(0,4);
+	Window(0,48,100,95);
+	View(DataWindow%).WindowVisible(1);
+    
+    
+	View(App(8)).WindowVisible(0);	'Hide the standard sample bar
+	ToolbarVisible(1);
+	'UpdateToolbarText();
+	ToolbarSet(1,"Sample start",Start%);
+	ToolbarSet(2,"Sample stop", Stop%);
+	ToolbarSet(3,"Quit",Quit%);
+    ToolbarEnable(2,0);
+	Toolbar("Go",0x3ff);
+    
+end;
 
-SampleStart(1);  'set sampling to start on a trigger
+func Start%()
+
+    var key$;
+    key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Temp\\Filenumber";
+    
+    FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 3);
+    FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 1);
+    printlog("File will be %s\n",dataCellName$ + "_atn_power_" + Str$(GetIntRegistryValue%(key$, "fn", 0)));
+    SampleAutoName$(dataCellName$ + "_atn_power_" + Str$(GetIntRegistryValue%(key$, "fn", 0)));
+    SampleAutoFile(1);  'Enable automatic file naming
+    SampleAutoComment(0); 'Prompt for comment after sampling
+    SampleAutoCommit(60); 'Seconds between each file commit
+    
+    CreatePlexonSamplingConfiguration1824Power(); 'Note that for right now the ONLY Plexon configuration is 18 WaveMark/24 LFP (maximal WMs for 24 LFPs, trust me)
+    
+    SampleOptimise(0,1,2,0,0,0,0);  'for the Micro 1401 mk II: manually set sampling timing, group channels with same ideal rate, Power1401, unused, unused, do not disable for compatibility, no burst mode
+    
+    SampleStart(1);  'set sampling to start on a trigger
+    
+    
+    ToolbarEnable(2,1);
+	ToolbarEnable(1,0);
+	ToolbarEnable(3,0);
+	View(DataWindow%);
+	Yield(.1);
+    return 1;
+    
+    
+end    
+    
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func Stop%()
+    var i%, mylen%;
+    var fn$;
+    var chanToExport%[30];
+    
+	' Disable idle process func, don't think this is necessary because we won't have an idle function
+	'ToolbarSet(0,"");
+    
+    
+    View(DataWindow%);
+    ExportChanList(); 
+    'textmark and keyboard channels aren't important here
+    'chanToExport%[1] := 30;  'channels to export go in elements 1:...'30 is the textmark channel
+    'chanToExport%[2] := 31;  '31 is the keyboard channel
+    
+    'This file can only be running the 18/24 config, which is 5 WMs followed by 24 LFPs
+    for i% := 0 to 4 do
+        chanToExport%[i%+1] := i%+1;  'wavemark channels are in order
+    next;
+    for i% := 0 to 23 do
+        chanToExport%[i%+6] := i%+6;  'LFP channels are in order
+    next;
+    chanToExport%[0] := 29;  'total number of channels goes in element 0
+    ExportChanList(0,view(datawindow%).maxtime(),chanToExport%[]);
+    
+    'Code for putting other various channels into the Matlab extraction, Ben doesn't want them but they will be useful for other code    
+    '    ExportChanList(0,maxtime(),XChannel%);  'Eye position channel, X
+    '    ExportChanList(0,maxtime(),YChannel%);  'Eye position channel, Y
+    'for i% := 0 to NumWavemarkPorts%-1 do
+    '    ExportChanList(0,maxtime(),i%+1);  'Wavemark channel(s)
+    'next;
+    
+    
+    fn$ := FileName$();  'get current file name
+    mylen% := Len(fn$);
+    fn$ := Left$(fn$,mylen%-4);
+    fn$ := fn$ + ".mat";
+    FileSaveAs(fn$,100,0,"",0,"UseSName=0"); 'Do not overwrite the .mat file - should have a different name and if it doesn't that is a red flag    
+    
+    
+end;
+
+
+
+' Used to hard-quit from toolbar. This will close data files without saving!!! 
+' It is important that this function be disabled once sampling is started!!!
+
+func Quit%()
+	FileClose(-1,-1);
+	return 0;
+end;
