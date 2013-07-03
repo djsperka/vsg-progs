@@ -25,8 +25,9 @@ printlog("Key is %s\n",key$);
     
 FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 3);
 FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 1);
-printlog("File will be %s\n",dataCellName$ + "_atn_power_" + Str$(GetIntRegistryValue%(key$, "fn", 0)));
-SampleAutoName$(dataCellName$ + "_atn_power_" + Str$(GetIntRegistryValue%(key$, "fn", 0)));
+'printlog("File will be %s\n",dataCellName$ + "_atn_power_" + Str$(GetIntRegistryValue%(key$, "fn", 0)));
+'SampleAutoName$(dataCellName$ + "_atn_power_" + Str$(GetIntRegistryValue%(key$, "fn", 0)));
+SampleAutoName$(dataCellName$ + "_atnPOWER_000");  'NOTE: maximum of 13 characters!!!
 SampleAutoFile(1);  'Enable automatic file naming
 SampleAutoComment(0); 'Prompt for comment after sampling
 SampleAutoCommit(60); 'Seconds between each file commit
@@ -49,7 +50,7 @@ proc InitializeToolbar()
 	View(App(8)).WindowVisible(0);	'Hide the standard sample bar
 	ToolbarVisible(1);
 	'UpdateToolbarText();
-	ToolbarSet(1,"Sample start",Start%);
+	ToolbarSet(1,"Start FIRST",Start%);
 	ToolbarSet(2,"Sample stop", Stop%);
 	ToolbarSet(3,"Quit",Quit%);
     ToolbarEnable(2,0);
