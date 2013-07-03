@@ -1,4 +1,4 @@
-' $Id: AttentionGoNoGo.s2s,v 1.19 2013-07-03 18:43:25 devel Exp $
+' $Id: AttentionGoNoGo.s2s,v 1.20 2013-07-03 22:48:48 devel Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -830,17 +830,34 @@ FixationPointChannel% := 24;
 StimChannel% := 25;
 StimChangeChannel% := 26;
 ReadyChannel% := 27;
-CreateSampleConfiguration();
 
 
-' Initialize extraction
-'AttentionExtractInit%(-1, "");
+'If we are not using the Plexon (and thus linking the two 1401s together, just use the standard order of operations:
+'1) create sampling configuration, 2) Initialize windows, 3) Initialize/run toolbar.
+'However, if we are linking the 1401s we have to do this in a different order, because we have to open up the second
+'instance of Spike 2 BEFORE setting up the sampling configuration/windows on the first instance.  Doing this in the
+'wrong order results in a non-fatal error in the second Spike2 instance indicating that the file which is preparing
+'to be recorded in the first instance cannot be accessed, despite no explicit attempt to access any such thing.
+'Hence, for the Plexon setups, we first initialize the toolbar, which has a specialty button "Start Plexon".  StartPlexon%()
+'launches the second instance and the associated script, and both scripts move forward independently to create their own
+'sampling configuration, initialize their own windows and are ready to have sampling started.  Note well that sampling
+'must be started on the POWER 1401 (the second, non-dominant instance of Spike2) FIRST and on the MICRO 1401 (the first, 
+'dominant instance of Spike 2) SECOND.  Starting sampling on the Micro will run the VSG program (Fixstim) which gives
+'the sampling trigger and sets the experiment in motion.
+if UsePlexon% = 0 then
+    CreateSampleConfiguration();
 
-' Get display windows ready
-InitializeWindows();
+    ' Initialize extraction
+    'AttentionExtractInit%(-1, "");
 
-' Prepare the toolbar buttons
-InitializeToolbar();
+    ' Get display windows ready
+    InitializeWindows();
+
+    ' Prepare the toolbar buttons
+    InitializeToolbar();
+else
+    InitializeToolbar();
+endif;
 
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
@@ -1887,8 +1904,12 @@ proc CreateSampleConfiguration()
 
     FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 3);
     FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 1);
-    SampleAutoName$(dataCellName$ + "_atn_000");
-    autoNameTemplate$ := SampleAutoName$();  'to retrieve sample name, this must be called AFTER setting ::rolls eyes::
+    if UsePlexon% = 0 then
+        SampleAutoName$(dataCellName$ + "_atn_000");  'NOTE: maximum of 13 characters!!!
+    else
+        SampleAutoName$(dataCellName$ + "_atnMICRO_000");  'NOTE: maximum of 13 characters!!!
+    endif;
+    'autoNameTemplate$ := SampleAutoName$();  'to retrieve sample name, this must be called AFTER setting ::rolls eyes::
     SampleAutoFile(1);  'Enable automatic file naming
     
 	SampleAutoComment(0); 'Prompt for comment after sampling
@@ -2061,19 +2082,6 @@ end;
 
 func StartPlexon%()
     
-    SampleStart(1);  'set sampling to start on a trigger
-        
-    'write current file number to registry
-    var key$;
-    var fn$;
-    var fn%;
-    'fn$ := FileName$(3);  'get trailing numbers from current filename
-    fn% := val(Right$(autoNameTemplate$,3));
-    printlog("Filename is %s and digits are %d\n",autoNameTemplate$,fn%);
-    key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Temp\\Filenumber";
-    printlog("Key is %s\n",key$);
-    SetIntRegistryValue(key$, "fn", fn%);
-    
     
     'Start the Power1401!  This is a bit cumbersome, and I'm not sure it's transferable, but it's a start, perhaps.
     var fp$;  'to hold current file path
@@ -2084,13 +2092,21 @@ func StartPlexon%()
     fp2$ := FilePath$();  'read out to allow verification
     printlog("%s\n",fp2$);  'by telling the world about it (hint: it works)
     
-    progrun("sonview.exe /M SetPlexonRecording1824OnPower1401.s2s");  'run the program, .s2s file is now on default path by design
+    progrun("sonview.exe /M /u2 SetPlexonRecording1824OnPower1401.s2s");  'run the program, .s2s file is now on default path by design
     
     FilePathSet(fp$);  'change the file path back to what it was
     fp$ := FilePath$();  'read out to allow verification
     printlog("%s\n",fp$); 'and tell the world to verify
     
-    ToolbarSet(1,"Sample start",Start%);  'change button 1 on the toolbar, this may not work
+    ToolbarSet(1,"Start SECOND",Start%);  'change button 1 on the toolbar, this may not work
+    
+    
+    
+    'These two functions are not done before initializing the toolbar in dual-1401 mode
+    CreateSampleConfiguration();
+
+    ' Get display windows ready
+    InitializeWindows();    
     
     return 1; 'stay in toolbar
     
@@ -2123,32 +2139,7 @@ func Start%()
 	
     'start sampling
     if UsePlexon% = 1 then
-'        SampleStart(1);  'set sampling to start on a trigger
-'        
-'        'write current file number to registry
-'        var key$;
-'        var fn$;
-'        var fn%;
-'        fn$ := FileName$(4);  'get trailing numbers from current filename
-'        fn% := val(fn$);
-'        key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Temp\\Filenumber";
-'        SetIntRegistryValue(key$, "fn", fn%);
-'        
-'        
-'        'Start the Power1401!  This is a bit cumbersome, and I'm not sure it's transferable, but it's a start, perhaps.
-'        var fp$;  'to hold current file path
-'        var fp2$;  'to hold destination file path
-'        fp$ := FilePath$();  'get current file path
-'        printlog("%s\n",fp$);  'and tell the world what it was
-'        FilePathSet("F:/work/AlertRig/Spike2Scripts");  'change the file path
-'        fp2$ := FilePath$();  'read out to allow verification
-'        printlog("%s\n",fp2$);  'by telling the world about it (hint: it works)
-'        progrun("sonview.exe /M SetPlexonRecording1824OnPower1401.s2s");  'run the program, .s2s file is now on default path by design
-'        FilePathSet(fp$);  'change the file path back to what it was
-'        fp$ := FilePath$();  'read out to allow verification
-'        printlog("%s\n",fp$); 'and tell the world to verify
-        
-        
+        SampleStart(1);  'set sampling to start on a trigger     
     else
     	SampleStart(0); 'Start sampling now
     endif;
