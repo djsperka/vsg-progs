@@ -1,4 +1,4 @@
-' $Id: AttentionGoNoGo.s2s,v 1.18 2013-06-28 21:25:18 jeff Exp $
+' $Id: AttentionGoNoGo.s2s,v 1.19 2013-07-03 18:43:25 devel Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -187,6 +187,7 @@ var dist4Y;
 var dist4W;
 var dist4H;
 
+var autoNameTemplate$;
 
 proc GetAttentionScriptParameters()
 	var stmp$;
@@ -1020,9 +1021,12 @@ func IdleProcessing%()
     
     tNow := MaxTime();
     
-    xEye := ChanMeasure(XChannel%,2,tNow-.001,tNow-.006)*DegreesPerVoltX;
-    yEye := ChanMeasure(YChannel%,2,tNow-.001,tNow-.006)*DegreesPerVoltY;
-    
+    'get eye position, but don't check if tNow is small enough that we would give a negative value to ChanMeasure
+    if tNow > .006 then
+        xEye := ChanMeasure(XChannel%,2,tNow-.001,tNow-.006)*DegreesPerVoltX;
+        yEye := ChanMeasure(YChannel%,2,tNow-.001,tNow-.006)*DegreesPerVoltY;
+    endif;
+        
     ' Don't update display every time....
     if tNow-tLastUpdate > .005 then
         View(XYWindow%).XYAddData(1,xEye,yEye);
@@ -1884,6 +1888,7 @@ proc CreateSampleConfiguration()
     FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 3);
     FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 1);
     SampleAutoName$(dataCellName$ + "_atn_000");
+    autoNameTemplate$ := SampleAutoName$();  'to retrieve sample name, this must be called AFTER setting ::rolls eyes::
     SampleAutoFile(1);  'Enable automatic file naming
     
 	SampleAutoComment(0); 'Prompt for comment after sampling
@@ -2062,10 +2067,11 @@ func StartPlexon%()
     var key$;
     var fn$;
     var fn%;
-    fn$ := FileName$(4);  'get trailing numbers from current filename
-    fn% := val(fn$);
-    printlog("Filename is %s and digits are %d\n",fn$,fn%);
+    'fn$ := FileName$(3);  'get trailing numbers from current filename
+    fn% := val(Right$(autoNameTemplate$,3));
+    printlog("Filename is %s and digits are %d\n",autoNameTemplate$,fn%);
     key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Temp\\Filenumber";
+    printlog("Key is %s\n",key$);
     SetIntRegistryValue(key$, "fn", fn%);
     
     
