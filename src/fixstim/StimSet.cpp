@@ -1453,9 +1453,9 @@ int parse_attparams(const string& s, int nstim, vector<struct AttParams>& vecTri
 	return status;
 }
 
-AttentionStimSet::AttentionStimSet(ARContrastFixationPointSpec& fixpt, double tCC, std::vector<alert::ARGratingSpec>& vecGratings, vector<AttParams>& params)
+AttentionStimSet::AttentionStimSet(ARContrastFixationPointSpec& fixpt, double tMax, std::vector<alert::ARGratingSpec>& vecGratings, vector<AttParams>& params)
 : m_fixpt(fixpt)
-, m_tCC(tCC)
+, m_tMax(tMax)
 , m_vecGratings(vecGratings)
 , m_vecGratingsCC(vecGratings)
 , m_vecParams(params)
@@ -1463,9 +1463,9 @@ AttentionStimSet::AttentionStimSet(ARContrastFixationPointSpec& fixpt, double tC
 {};
 
 
-AttentionStimSet::AttentionStimSet(ARContrastFixationPointSpec& fixpt, double tCC, vector<alert::ARGratingSpec>& vecGratings, vector<AttentionCue>& vecCuePairs, vector<AttParams>& params)
+AttentionStimSet::AttentionStimSet(ARContrastFixationPointSpec& fixpt, double tMax, vector<alert::ARGratingSpec>& vecGratings, vector<AttentionCue>& vecCuePairs, vector<AttParams>& params)
 : m_fixpt(fixpt)
-, m_tCC(tCC)
+, m_tMax(tMax)
 , m_vecGratings(vecGratings)
 , m_vecGratingsCC(vecGratings)
 , m_vecParams(params)
@@ -1540,6 +1540,8 @@ int AttentionStimSet::drawCurrent()
 			m_vecGratings[i].setContrast(m_vecParams[m_current].contrastPairs[i].first);
 		}
 		m_vecGratings[i].setSpatialPhase(m_vecParams[m_current].dInitialPhase);
+		m_vecGratings[i].select();
+		vsgObjResetDriftPhase();
 		m_vecGratings[i].draw();
 	}
 	for (unsigned int i=0; i<m_vecCues.size(); i++)
@@ -1570,6 +1572,8 @@ int AttentionStimSet::drawCurrent()
 			m_vecGratingsCC[i].setContrast(m_vecParams[m_current].contrastPairs[i].second);
 		}
 		m_vecGratingsCC[i].setSpatialPhase(m_vecParams[m_current].dInitialPhase);
+		m_vecGratings[i].select();
+		vsgObjResetDriftPhase();
 		m_vecGratingsCC[i].draw();
 	}
 	for (unsigned int i=0; i<m_vecCues.size(); i++)
@@ -1612,7 +1616,7 @@ int AttentionStimSet::drawCurrent()
 	cycle[0].Page = m_pageStim + vsgTRIGGERPAGE;
 	cycle[0].Xpos = cycle[0].Ypos = 0;
 	cycle[0].Stop = 0;
-	cycle[1].Frames = (WORD)(m_tCC * 1000000.0 /vsgGetSystemAttribute(vsgFRAMETIME));
+	cycle[1].Frames = (WORD)(m_tMax * 1000000.0 /vsgGetSystemAttribute(vsgFRAMETIME));
 	cycle[1].Page = m_pageChg + vsgTRIGGERPAGE;
 	cycle[1].Xpos = cycle[1].Ypos = 0;
 	cycle[1].Stop = 0;
@@ -1639,8 +1643,10 @@ int AttentionStimSet::handle_trigger(std::string& s)
 		for (unsigned int i=0; i<m_vecGratings.size(); i++)
 		{
 			m_vecGratings[i].select();
+			vsgObjSetSpatialPhase(m_vecParams[m_current].dInitialPhase);
 			vsgObjResetDriftPhase();
 			m_vecGratingsCC[i].select();
+			vsgObjSetSpatialPhase(m_vecParams[m_current].dInitialPhase);
 			vsgObjResetDriftPhase();
 		}
 		vsgSetSynchronisedCommand(vsgSYNC_PRESENT, vsgCYCLEPAGEENABLE, 0);

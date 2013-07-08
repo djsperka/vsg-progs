@@ -380,14 +380,14 @@ struct AttParams
 typedef std::pair<double, COLOR_TYPE> AttentionCue;
 
 // helper function for loading params from a comma-separated string
-int parse_attparams(const string& s, int nstim, vector<struct AttParams>& vecTrialParams, double& tCC);
+int parse_attparams(const string& s, int nstim, vector<struct AttParams>& vecTrialParams, double& tMax);
 int parse_attcues(const string& s, int nstim, vector<AttentionCue>& vecCues);
 
 class AttentionStimSet: public StimSet
 {
 public:
-	AttentionStimSet(ARContrastFixationPointSpec& fixpt, double tCC, vector<alert::ARGratingSpec>& vecGratings, vector<AttParams>& params);
-	AttentionStimSet(ARContrastFixationPointSpec& fixpt, double tCC, vector<alert::ARGratingSpec>& vecGratings, vector<AttentionCue>& vecCuePairs, vector<AttParams>& params);
+	AttentionStimSet(ARContrastFixationPointSpec& fixpt, double tMax, vector<alert::ARGratingSpec>& vecGratings, vector<AttParams>& params);
+	AttentionStimSet(ARContrastFixationPointSpec& fixpt, double tMax, vector<alert::ARGratingSpec>& vecGratings, vector<AttentionCue>& vecCuePairs, vector<AttParams>& params);
 	virtual int num_pages() {return 4;};
 	virtual int num_overlay_pages() {return 0;};
 	virtual int init(ARvsg& vsg, std::vector<int> pages);
@@ -396,7 +396,7 @@ public:
 private:
 	int drawCurrent();
 	alert::ARContrastFixationPointSpec m_fixpt;
-	double m_tCC;
+	double m_tMax;
 	vector<alert::ARGratingSpec> m_vecGratings;
 	vector<alert::ARGratingSpec> m_vecGratingsCC;
 	vector<struct AttParams> m_vecParams;
