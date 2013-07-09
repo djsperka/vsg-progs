@@ -1,4 +1,4 @@
-' $Id: KrubTuning.s2s,v 1.6 2012-03-26 16:43:20 jeff Exp $
+' $Id: KrubTuning.s2s,v 1.7 2013-07-09 18:13:35 jeff Exp $
 '
 '
 
@@ -118,15 +118,20 @@ proc CreateSampleConfiguration()
 
     for i% := 1 to tunNChannels% do
         SampleWaveMark(i%, i%-1, 2000, 34, 15, 28000); ' chan, port, event rate, points, pre-trigger, rate
-        SampleTitle$(i%, "Trode " + Str$(i%-1));
+        SampleTitle$(i%, "Spike " + Str$(i%-1));
+    next
+
+    for i% := 1 to tunNChannels% do
+        SampleWaveform(i%+5, i%-1, 28000); ' chan, port, event rate, points, pre-trigger, rate
+        SampleTitle$(i%+5, "WF " + Str$(i%-1));
     next
 
     SampleEvent(tunChanTrigger%, 1, 2, 1000); 
     SampleTitle$(tunChanTrigger%, "Terms");
-    
+
     'Make textmark channel for easier data extraction
-    SampleTextMark(200);  'Channel 30 is textmark channel    
-    
+    SampleTextMark(200);  'Channel 30 is textmark channel 
+
     
     ' There is no sequencer script in use
 	'SampleSequencer(script$ + "KrubTuning.pls");
@@ -443,8 +448,8 @@ func Idle%()
         if FindPulseDown%(tunChanTrigger%, tStateStart, tStimStart, tPulseUp) = 1 then
             ChangeStateTo(stateNoStim%, tPulseUp);
             LogStatus("NoStim", "Pulse at " + str$(tPulseUp));
-            ChangeStateTo(stateStimON%, tStimStart);
-            SampleText("STIMON " + Str$(iStimCounter%+1),tStimStart); 'Record start time, which stimulus#
+        ChangeStateTo(stateStimON%, tStimStart);
+        SampleText("STIMON " + Str$(iStimCounter%+1),tStimStart); 'Record start time, which stimulus#
         endif
         
     case iState% = stateStimON% then
