@@ -1,4 +1,4 @@
-' $Id: AttentionGoNoGo.s2s,v 1.20 2013-07-03 22:48:48 devel Exp $
+' $Id: AttentionGoNoGo.s2s,v 1.21 2013-07-09 23:31:47 jeff Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -17,6 +17,7 @@
 var attNumberOfBlocks%;
 var attTrialsPerBlock%;
 var attEasyTrialsPerBlock%;
+var distracterOffForEasy%;
 var attCatchTrialPercentage;
 var attUncatchTrialPercentage;
 var attDoUncatch%;
@@ -117,6 +118,7 @@ const attdlgNumPatches% := 20;
 const attdlgGetGP% := 21;
 const attdlgUseCueCircles% := 22;
 const attdlgCueCircleExtraRadius% := 23;
+const attdlgDistracterOffForEasy% := 24;
 
 ' constants for timing dialog
 const atttimingdlgFixationCueMinTime% := 2;
@@ -197,6 +199,7 @@ proc GetAttentionScriptParameters()
 	Profile(key$, "NumberOfBlocks", 1, attNumberOfBlocks%);
 	Profile(key$, "TrialsPerBlock", 1, attTrialsPerBlock%);
     Profile(key$, "EasyTrialsPerBlock", 1, attEasyTrialsPerBlock%);
+    Profile(key$, "DistracterOffForEasy", 1, distracterOffForEasy%);
     Profile(key$, "DoUncatch", 1, attDoUncatch%);
     Profile(key$, "NumPatches", 1, attNumPatches%);
     Profile(key$, "GetGPFromMainStim", 1, attGetGPFromMainStim%);
@@ -322,6 +325,7 @@ proc SaveAttentionScriptParameters()
 	Profile(key$, "NumberOfBlocks", attNumberOfBlocks%);
 	Profile(key$, "TrialsPerBlock", attTrialsPerBlock%);
     Profile(key$, "EasyTrialsPerBlock", attEasyTrialsPerBlock%);
+    Profile(key$, "DistracterOffForEasy", distracterOffForEasy%);
     Profile(key$, "DoUncatch", attDoUncatch%);
     Profile(key$, "NumPatches", attNumPatches%);
     Profile(key$, "GetGPFromMainStim", attGetGPFromMainStim%);
@@ -404,15 +408,16 @@ func AttentionScriptDialog%()
     'twoints%[1] := attCueCircleExtraRadius%;
     
 	DlgCreate("Attention Training Parameters", 25, 10);
-    DlgGroup("Blocks", 1, 1, 34, 9);
+    DlgGroup("Blocks", 1, 1, 34, 10);
 	DlgInteger(1, "Number of Blocks:", 1, 1000, 22, 2);
 	DlgInteger(2, "Reg. Trials per block:", 1, 1000, 22, 3);
     DlgInteger(3, "Easy Trials per block:", 1, 1000, 22, 4);
-	DlgReal(4, "Catch Trial pct (0-100)", 0, 100, 22, 5);
-    DlgCheck(attdlgDoUncatch%, "Use 'Uncatch' trials at same %age", 2, 6);
-    DlgReal(5, "No-Go Trial pct (0-100)", 0, 100, 22, 7);
-	DlgCheck(6, "Alternate cue type by block", 2, 8);
-    DlgCheck(7, "Do NOT randomize by block", 2, 9);
+    DlgCheck(attdlgDistracterOffForEasy%, "Distracter Off for Easy Trials", 2, 5);
+	DlgReal(4, "Catch Trial pct (0-100)", 0, 100, 22, 6);
+    DlgCheck(attdlgDoUncatch%, "Use 'Uncatch' trials at same %age", 2, 7);
+    DlgReal(5, "No-Go Trial pct (0-100)", 0, 100, 22, 8);
+	DlgCheck(6, "Alternate cue type by block", 2, 9);
+    DlgCheck(7, "Do NOT randomize by block", 2, 10);
     
     'Moving this group to the right, so we have to use DlgText because otherwise CED justifies the text all the way left
     DlgGroup("Contrast",36,1,34,10);
@@ -427,17 +432,17 @@ func AttentionScriptDialog%()
     DlgInteger(attdlgOneCatchContrast%,"",0,100,56,10);  DlgText("Single Catch Cont (%)",37,10);
 
     
-    DlgGroup("Phase", 1, 10, 34, 3);
-    DlgCheck(attdlgPhaseCheck%, "Set phase at contrast change", 2, 11);
-	DlgInteger(attdlgPhaseDeg%, 7, 0, 360, 27, 12);  DlgText("Phase at cc (deg, 0 = white)",2,12);
+    DlgGroup("Phase", 1, 11, 34, 3);
+    DlgCheck(attdlgPhaseCheck%, "Set phase at contrast change", 2, 12);
+	DlgInteger(attdlgPhaseDeg%, 7, 0, 360, 27, 12);  DlgText("Phase at cc (deg, 0 = white)",2,13);
     
     DlgGroup("Number of Stimuli", 36, 11, 34, 3);
     DlgInteger(attdlgNumPatches%, 10, 1, 5, 58, 12); DlgText("Num of grating patches",37,12);
     DlgCheck(attdlgGetGP%, "Get distracter params from main stim", 37, 13);
     
-    DlgGroup("Cue Circles", 1, 13, 34, 3);
-    DlgCheck(attdlgUseCueCircles%, "Use Cue Circles", 2, 14);
-	DlgReal(attdlgCueCircleExtraRadius%, "Cue extra radius (deg)", 0, 5, 22, 15);
+    DlgGroup("Cue Circles", 1, 14, 34, 3);
+    DlgCheck(attdlgUseCueCircles%, "Use Cue Circles", 2, 15);
+	DlgReal(attdlgCueCircleExtraRadius%, "Cue extra radius (deg)", 0, 5, 22, 16);
     
     DlgButton(2, "Colors", ColorsDialog%, 2+36, 15);
     DlgButton(3, "Timing", TimingDialog%, 20+36, 15);
@@ -452,7 +457,7 @@ func AttentionScriptDialog%()
 	i%:=DlgShow(attNumberOfBlocks%, attTrialsPerBlock%, attEasyTrialsPerBlock%, attCatchTrialPercentage, attNoGoTrialPercentage, 
     attBlockAlternate%, attNoBlockRand%, attContrastBase%, attMaxContChange, attMinContChange, attNContLevels%,
     attAnswerPointWindowRadius, attTrainingContrastCheck%, attTrainingContrastPct%, attPhaseCheck%, attPhaseDeg%, fiveints%[], 
-    attUseCueCircles%,attCueCircleExtraRadius);
+    attUseCueCircles%,attCueCircleExtraRadius,distracterOffForEasy%);
     
     'attLollipopCheck%, attCueLinePct, attCircleDiameterDiff, 
     'attLollipopContrast%, attLollipopStickContrast%, attCueLineGap);
@@ -2391,9 +2396,16 @@ Proc CreateContrastList(&c$,&cList%[],&chgList%[],&vList%[],&attList%[],&hazList
                 attList%[totalCount%] := attDirection%;  'set direction of attention
                 cList%[totalCount%] := 100;  'change easy trials to 100% contrast
                 hazList[totalCount%] := attHazardMinTime;  'don't calculate a hazard time, just use the minimum
-                offList%[totalCount%] := alloff% - Pow(2,attDirection%-1);  'turn off all stimuli but the attended one
-                'insert easy trial with 100% contrast
-                UpdateTrialSpecString(c$,attDirection%,attDirection%,attContrastBase%,100,attHazardMinTime,attPhaseDeg%,alloff%-Pow(2,attDirection%-1));
+                if distracterOffForEasy% = 1 then
+                    offList%[totalCount%] := alloff% - Pow(2,attDirection%-1);  'turn off all stimuli but the attended one
+                    'insert easy trial with 100% contrast
+                    UpdateTrialSpecString(c$,attDirection%,attDirection%,attContrastBase%,100,attHazardMinTime,attPhaseDeg%,alloff%-Pow(2,attDirection%-1));
+                else
+                    offList%[totalCount%] := 0;  'show all grating patches                
+                    'insert easy trial with 100% contrast
+                    UpdateTrialSpecString(c$,attDirection%,attDirection%,attContrastBase%,100,attHazardMinTime,attPhaseDeg%,0);
+                endif;
+              
             else 'regular trial
                 if (Rand()*100 < attNoGoTrialPercentage) then 'NoGo trial
                     vList%[totalCount%] := 1;  'all no-go trials are valid
@@ -2674,6 +2686,7 @@ proc WriteParameterFile()
     Print("Number of blocks   : %d\n", attNumberOfBlocks%);
     Print("Trials per block   : %d\n", attTrialsPerBlock%);
     Print("Easy trials per block   : %d\n", attEasyTrialsPerBlock%);
+    Print("Distracter off for easy trials?   : %d\n", distracterOffForEasy%);
     Print("Catch trial percentage   : %f\n", attCatchTrialPercentage);
     Print("No-go trial percentage   : %f\n", attNoGoTrialPercentage);
     Print("Alternate Cue Type by block?   : %d\n", attBlockAlternate%);
