@@ -1,4 +1,4 @@
-' $Id: AttentionGoNoGo.s2s,v 1.22 2013-07-10 01:26:40 devel Exp $
+' $Id: AttentionGoNoGo.s2s,v 1.23 2013-07-10 18:15:50 jeff Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -1906,6 +1906,8 @@ end;
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 proc CreateSampleConfiguration()
 	var index;
+    var key$;
+    key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Temp\\Filepref";
     SampleClear(); 'Set standard sampling state
 
     FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 3);
@@ -1914,6 +1916,7 @@ proc CreateSampleConfiguration()
         SampleAutoName$(dataCellName$ + "_atn_000");  'NOTE: maximum of 13 characters!!!
     else
         SampleAutoName$(dataCellName$ + "_atnMICRO_000");  'NOTE: maximum of 13 characters!!!
+        SetStringRegistryValue(key$, "pref", "atn");
     endif;
     'autoNameTemplate$ := SampleAutoName$();  'to retrieve sample name, this must be called AFTER setting ::rolls eyes::
     SampleAutoFile(1);  'Enable automatic file naming
