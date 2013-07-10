@@ -27,14 +27,15 @@ SampleOptimise(0,1,2,0,0,0,0);  'for the Power 1401: manually set sampling timin
 
 
 
-key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Temp\\Filenumber";
-printlog("Key is %s\n",key$);
+key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Temp\\Filepref";
+'printlog("Key is %s\n",key$);
     
 FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 3);
 FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 1);
 'printlog("File will be %s\n",dataCellName$ + "_atn_power_" + Str$(GetIntRegistryValue%(key$, "fn", 0)));
 'SampleAutoName$(dataCellName$ + "_atn_power_" + Str$(GetIntRegistryValue%(key$, "fn", 0)));
-SampleAutoName$(dataCellName$ + "_atnPOWER_000");  'NOTE: maximum of 13 characters!!!
+'SampleAutoName$(dataCellName$ + "_atnPOWER_000");  'NOTE: maximum of 13 characters!!!
+SampleAutoName$(dataCellName$ + "_" + GetStringRegistryValue$(key$, "pref", "") + "POWER_000"); 'NOTE: maximum of 13 characters!!!
 SampleAutoFile(1);  'Enable automatic file naming
 SampleAutoComment(0); 'Prompt for comment after sampling
 SampleAutoCommit(60); 'Seconds between each file commit
