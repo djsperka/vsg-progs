@@ -12,9 +12,16 @@
 
 var DataWindow%;
 var key$;
+'const SynchChannel% := 28;  '28 overwrites, whatevs, only for testing
 
+SampleClear();
 
 CreatePlexonSamplingConfiguration1824Power(); 'Note that for right now the ONLY Plexon configuration is 18 WaveMark/24 LFP (maximal WMs for 24 LFPs, trust me)
+
+'For synchronization test, will overwrite one data channel
+'SampleEvent(SynchChannel%,1,2,3600); 'Synch channel, level
+'SampleComment$(SynchChannel%,"Synch");
+'SampleTitle$(SynchChannel%,"Synch");
 
 SampleOptimise(0,1,2,0,0,0,0);  'for the Power 1401: manually set sampling timing, group channels with same ideal rate, Power1401, unused, unused, do not disable for compatibility, no burst mode
 
