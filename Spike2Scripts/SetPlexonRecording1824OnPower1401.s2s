@@ -51,6 +51,7 @@ proc InitializeToolbar()
     
     'Open the data sampling window, normally this is done in its own function but as we're not really doing much else...
 	DataWindow% := FileNew(0,4);
+    printlog("datawindow is %d\n",dataWindow%);
 	Window(0,48,100,95);
 	View(DataWindow%).WindowVisible(1);
     
