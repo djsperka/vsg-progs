@@ -1,4 +1,4 @@
-' $Id: AttentionGoNoGo.s2s,v 1.21 2013-07-09 23:31:47 jeff Exp $
+' $Id: AttentionGoNoGo.s2s,v 1.22 2013-07-10 01:26:40 devel Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -782,6 +782,7 @@ var XChannel%;
 var YChannel%;
 
 var FrameTriggerChannel%;
+var SynchChannel%;
 var FixationPointChannel%;
 var StimChannel%;
 var StimChangeChannel%;
@@ -835,7 +836,7 @@ FixationPointChannel% := 24;
 StimChannel% := 25;
 StimChangeChannel% := 26;
 ReadyChannel% := 27;
-
+SynchChannel% := 28;
 
 'If we are not using the Plexon (and thus linking the two 1401s together, just use the standard order of operations:
 '1) create sampling configuration, 2) Initialize windows, 3) Initialize/run toolbar.
@@ -1924,6 +1925,12 @@ proc CreateSampleConfiguration()
 	SampleEvent(FrameTriggerChannel%,0,2,3600); 'Trigger channel, level
 	SampleComment$(FrameTriggerChannel%,"Frame");
 	SampleTitle$(FrameTriggerChannel%,"Frame");
+    
+    ' Synch channel for checking synchronization.  Synch is good down to the microsecond.  Have to change 
+' Edit->Edit Preferences->Sampling->Event Ports 0 and 1 on rear digital... to unchecked or it won't work    
+'   SampleEvent(SynchChannel%,1,2,3600); 'Synch channel, level
+'	SampleComment$(SynchChannel%,"Synch");
+'	SampleTitle$(SynchChannel%,"Synch");
     
  	SampleEvent(FixationPointChannel%,2,2,3600); 'Trigger channel, level
 	SampleComment$(FixationPointChannel%,"Fixation");
