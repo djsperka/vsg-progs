@@ -1,4 +1,4 @@
-' $Id: KrubTuningDialogs.s2s,v 1.5 2011-06-07 18:26:28 devel Exp $
+' $Id: KrubTuningDialogs.s2s,v 1.6 2013-07-16 20:38:27 jeff Exp $
 
 #include "../../Spike2Util/LogUtilities.s2s"
 #include "../../Spike2Util/MiscUtilities.s2s"
@@ -13,6 +13,15 @@
 ' spike2 is smart about it and only includes the file once. 
 '
 '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+'nifty OK button off/on
+var KrubTuningDialogAllowOK%;
+
+'cooling
+var DoCooling%;
+var NFreezeControls%;
+const dlgCooling% := 1;
+const dlgNFreeze% := 2;
 
 ' Colors
 var tunBGColor$[3];
@@ -91,6 +100,8 @@ proc GetKrubTuningParameters()
     tunTFMin := GetFloatRegistryValue(key$, "TFMin", tunTFMin);
     tunTFMax := GetFloatRegistryValue(key$, "TFMax", tunTFMax);
     tunRandomProgression% := GetIntRegistryValue%(key$, "RandomProgression", tunRandomProgression%);
+    DoCooling% := GetIntRegistryValue%(key$, "DoCooling", DoCooling%);
+    NFreezeControls% := GetIntRegistryValue%(key$, "NFreezeControls", NFreezeControls%);
     
     return;
 end
@@ -112,6 +123,8 @@ proc SaveKrubTuningParameters()
     SetFloatRegistryValue(key$, "TFMin", tunTFMin);
     SetFloatRegistryValue(key$, "TFMax", tunTFMax);
     SetIntRegistryValue(key$, "RandomProgression", tunRandomProgression%);
+    SetIntRegistryValue(key$, "DoCooling", DoCooling%);
+    SetIntRegistryValue(key$, "NFreezeControls", NFreezeControls%);
     
     return;
 end
@@ -123,23 +136,53 @@ end
 func KrubTuningDialog%()
     var status%;
     
+    KrubTuningDialogAllowOK% := 0;  'Disable OK button to start, force selection of experiment
+    
     GetKrubTuningParameters();
     
     DlgCreate("Select Tuning Curve Type");
+    DlgButton(1,"               OK               ");  'rename "OK" button with a long enough name to allow space to rename it when it is active
     DlgButton(tuntypeOri%, "Orientation", TunDlgOrientation%, 1, 1);
     DlgButton(tuntypeDom%, "Contrast", TunDlgContrast%, 1, 2);
     DlgButton(tuntypeSF%, "Spatial Frequency", TunDlgSF%, 1, 3);
     DlgButton(tuntypeTF%, "Temporal Frequency", TunDlgTF%, 1, 4);
-'    DlgButton(105, "Area", TunDlgArea%, 1, 5);
-'    DlgButton(106, "XY", TunDlgXY%, 1, 6);
-    status% := DlgShow();    
+    DlgCheck(dlgCooling%, "Use Cooling Chip",1,5);
+    DlgInteger(dlgNFreeze%, 2, 0, 2, 2, 6); DlgText("Number of Freeze Controls",4,6);
+    '    DlgButton(105, "Area", TunDlgArea%, 1, 5);
+    '    DlgButton(106, "XY", TunDlgXY%, 1, 6);
+    
+    DlgAllow(0xffff, 0, KrubTuningDialogChanged%);
+    
+    
+    status% := DlgShow(DoCooling%, NFreezeControls%);    
     if status% <> 0 then
         tunBGColorCurrent$ := tunBGColor$[tunBGColorIndex%];
         SaveKrubTuningParameters();
     endif
     
+    
+    
     return status%;
 end
+
+
+'
+'
+'===== KrubTuningDialogChanged =====
+
+' This function is initially called with a "0" input
+func KrubTuningDialogChanged%(item%) 
+    'This disables the "OK" button (though it will have different labels) until an experiment is selected
+    if KrubTuningDialogAllowOK% = 1 then
+        DlgEnable(1,-1);  'enable "OK" 
+    else
+        DlgEnable(0,-1);  'Otherwise disable "OK"
+    endif;
+    
+    return 1;
+end
+
+
 
 
 func TunDlgOrientation%()
@@ -166,11 +209,21 @@ func TunDlgOrientation%()
     docase
     case status% = 0 then 
         status% := 1;
+        'Reset dialog OK button text on Select dialog
+        DlgValue$(-1,"OK");
+        KrubTuningDialogAllowOK% := 0;  'Prepare to disable OK button
+        KrubTuningDialogChanged%(-1);  'Enables "OK" button, -1 is sham input
     case status% = 1 then
-        status% := 0;
+        'status% := 0;  'would close calling dialog, do not do this now that we are verifying expt type
         tuntypeSelected% := tuntypeOri%;
         tunExptTypeFileLabel$ := "ori";
         tunExptTypeLabel$ := "Orientation";
+        
+        'Reset dialog OK button text on Select dialog, and note which experiment to run
+        DlgValue$(-1,"Run Orientation");
+        KrubTuningDialogAllowOK% := 1;  'Prepare to enable OK button
+        KrubTuningDialogChanged%(-1);  'Enables "OK" button, -1 is sham input
+        
         nParams% := (tunNSteps%+1)*tunNRepeats%;
         if GetRepeatedParameterProgression%(tunNSteps%+1, tunNRepeats%, tunParameterValues[0:nParams%], tunParameterIndices%[0:nParams%], tunOriMin, tunOriMax, 0, tunRandomProgression%) <> 0 then
             ' TODO: Make sure dialog limits values to this never happens!
@@ -198,10 +251,12 @@ func TunDlgOrientationGrating%()
     ndisable% := 1;
     disable%[0] := 8;
     tunGratingParams$ := GetGratingParameters$("Stimulus");
+    'printlog("before grating params are %s\n",tunGratingParams$);
     i% := GratingParametersDialog%(label$, tunGratingParams$, disable%[], ndisable%, x, y, w, h, contrast%, sf, tf, ori, mo$, pattern$, aperture$);
     if i% = 1 then
         SaveGratingParameters("Stimulus", tunGratingParams$);
     endif
+    'printlog("after grating params are %s\n",tunGratingParams$);
     return 1;
 end
 
@@ -233,12 +288,22 @@ func TunDlgContrast%()
     docase
     case status% = 0 then 
         status% := 1;
+        'Reset dialog OK button text on Select dialog
+        DlgValue$(-1,"OK");
+        KrubTuningDialogAllowOK% := 0;  'Prepare to disable OK button
+        KrubTuningDialogChanged%(-1);  'Enables "OK" button, -1 is sham input
     case status% = 1 then
-        status% := 0;
+        'status% := 0;  'would close calling dialog, do not do this now that we are verifying expt type
         tuntypeSelected% := tuntypeDom%;
         nParams% := (tunNSteps%+1)*tunNRepeats%;
         tunExptTypeFileLabel$ := "dom";
         tunExptTypeLabel$ := "Contrast";
+        
+        'Reset dialog OK button text on Select dialog, and note which experiment to run
+        DlgValue$(-1,"Run Contrast");
+        KrubTuningDialogAllowOK% := 1;  'Prepare to enable OK button
+        KrubTuningDialogChanged%(-1);  'Enables "OK" button, -1 is sham input
+        
         'if GetRepeatedParameterProgression%(tunNSteps%+1, tunNRepeats%, tunParameterValues[0:nParams%], tunParameterIndices%[0:nParams%], tunContrastMin, tunContrastMax, 1, tunRandomProgression%) <> 0 then
         if GetRepeatedParameterProgression%(tunNSteps%+1, tunNRepeats%, tunParameterValues[0:nParams%], tunParameterIndices%[0:nParams%], tunContrastMin, tunContrastMax, tunLinLogIndex%, tunRandomProgression%) <> 0 then    
             'if GetRepeatedParameterProgression%(tunNSteps%+1, tunNRepeats%, tunParameterValues[0:tunNSteps%+1], tunParameterIndices%[0:tunNSteps%+1], tunContrastMin, tunContrastMax, 1, tunRandomProgression%) <> 0 then
@@ -300,11 +365,21 @@ func TunDlgSF%()
     docase
     case status% = 0 then 
         status% := 1;
+        'Reset dialog OK button text on Select dialog
+        DlgValue$(-1,"OK");
+        KrubTuningDialogAllowOK% := 0;  'Prepare to disable OK button
+        KrubTuningDialogChanged%(-1);  'Enables "OK" button, -1 is sham input
     case status% = 1 then
-        status% := 0;
+        'status% := 0;  'would close calling dialog, do not do this now that we are verifying expt type
         tuntypeSelected% := tuntypeSF%;
         tunExptTypeFileLabel$ := "sf";
         tunExptTypeLabel$ := "Spatial Frequency";
+        
+        'Reset dialog OK button text on Select dialog, and note which experiment to run
+        DlgValue$(-1,"Run Spatial Frequency");
+        KrubTuningDialogAllowOK% := 1;  'Prepare to enable OK button
+        KrubTuningDialogChanged%(-1);  'Enables "OK" button, -1 is sham input
+        
         nParams% := (tunNSteps%+1)*tunNRepeats%;
         if GetRepeatedParameterProgression%(tunNSteps%+1, tunNRepeats%, tunParameterValues[0:nParams%], tunParameterIndices%[0:nParams%], tunSFMin, tunSFMax, tunLinLogIndex%, tunRandomProgression%) <> 0 then
         'if GetRepeatedParameterProgression%(tunNSteps%+1, tunNRepeats%, tunParameterValues[0:nParams%], tunParameterIndices%[0:nParams%], tunSFMin, tunSFMax, 1, tunRandomProgression%) <> 0 then
@@ -365,11 +440,21 @@ func TunDlgTF%()
     docase
     case status% = 0 then 
         status% := 1;
+        'Reset dialog OK button text on Select dialog
+        DlgValue$(-1,"OK");
+        KrubTuningDialogAllowOK% := 0;  'Prepare to disable OK button
+        KrubTuningDialogChanged%(-1);  'Enables "OK" button, -1 is sham input
     case status% = 1 then
-        status% := 0;
+        'status% := 0;  'would close calling dialog, do not do this now that we are verifying expt type
         tuntypeSelected% := tuntypeTF%;
         tunExptTypeFileLabel$ := "tf";
         tunExptTypeLabel$ := "Temporal Frequency";
+        
+        'Reset dialog OK button text on Select dialog, and note which experiment to run
+        DlgValue$(-1,"Run Temporal Frequency");
+        KrubTuningDialogAllowOK% := 1;  'Prepare to enable OK button
+        KrubTuningDialogChanged%(-1);  'Enables "OK" button, -1 is sham input
+        
         nParams% := (tunNSteps%+1)*tunNRepeats%;
         if GetRepeatedParameterProgression%(tunNSteps%+1, tunNRepeats%, tunParameterValues[0:nParams%], tunParameterIndices%[0:nParams%], tunTFMin, tunTFMax, tunLinLogIndex%, tunRandomProgression%) <> 0 then
         'if GetRepeatedParameterProgression%(tunNSteps%+1, tunNRepeats%, tunParameterValues[0:nParams%], tunParameterIndices%[0:nParams%], tunTFMin, tunTFMax, 1, tunRandomProgression%) <> 0 then
@@ -404,3 +489,179 @@ func TunDlgTFGrating%()
 end
 
 
+
+'=======New Horizontal Cursor========
+
+Func MoveCursor%();          'Start of function newcursor%
+    
+    DlgCreate("New Target Temperature"); 
+    DlgReal(1, "New Target Temperature", 0, 100, 0, 0);
+    ok% := DlgShow(TargetTemperature);
+    if ok% = 1 then
+        HCursor(CursorNum%,TargetTemperature);  'move cursor
+        SaveKrubCoolingParameters();  'save it to registry
+    endif;
+    
+    return 1                    'Returns control to the user
+end
+
+'=======Pump Settings================
+
+Func AutoPump%();
+
+
+    DlgCreate("Algorithm Setup");                                      'Sets up the dialog box
+    DlgList(1,"Algorithm Status","On|Off");                            'Lists On or Off. On is considered option 1 and off option 2, this fact is used in the DoCase below
+    DlgInteger(2,"Arbitrary pumpspeed", 0,100,0,0,5);                  'Allows user to input an integer                              'Allows user to input an integer
+    DlgReal(3, "Time to calc temp using slope", 0, 100, 0, 0);
+    DlgReal(4, "dTfactor", 0, 1000, 0, 0);
+    DlgReal(5, "Ln factor", 0, 1000, 0, 0);
+    DlgInteger(6, "Maximum Pump Speed", 0, 95, 0, 0);
+    DlgButton(0,"Cancel");                                             'Cancel button, if pressed, values don't change
+    DlgButton(1,"OK");  
+    ok% := DlgShow(PumpStatus%,pumpspeed1, timeslope, dtfactor, lnfactor, maxspeed);  'makes sure that values only change if Ok is pressed
+    if ok% = 1 then
+        ToolbarEnable(6,PumpStatus%);  'This will disable the manual pump speed if automatic pump speed is set    
+        SaveKrubCoolingParameters();  'save values to registry
+    endif;
+    
+    return 1
+end
+
+'=======Freeze Control================             ' Adjusts the maximum speed based on the coldest chip temperature.
+Func FC1%();
+
+    DlgCreate("Freeze Control");
+    DlgList(1, "Freeze Control", "On|Off");
+    DlgReal(2, "Critical Temp1", 0, 40, 0, 0);
+    DlgReal(3, "Temp1 MaxSpeed Percentage", 0, 100, 0 , 0);
+    DlgReal(4, "Critical Temp2", 0, 40, 0, 0);
+    DlgReal(5, "Temp2 MaxSpeed Percentage", 0, 100, 0, 0);
+    DlgReal(6, "Critical Temp3", 0, 40, 0, 0);
+    DlgReal(7, "Temp3 MaxSpeed Percentage", 0, 100, 0, 0);
+    DlgReal(8, "Shutoff Temp", 0, 40, 0, 0);
+    DlgButton(0, "Cancel");
+    DlgButton(1,"OK");
+    ok%:=DlgShow(FCStatus%,CT1,T1Perc,CT2,T2Perc,CT3,T3Perc,KillTemp);
+    if ok% = 1 then   
+        SaveKrubCoolingParameters();  'save values to registry
+    endif;
+    
+    return 1
+end
+
+
+'=======Freeze Control================             ' Adjusts the maximum speed based on the coldest chip temperature.
+Func FC2%();
+
+    DlgCreate("Freeze Control");
+    DlgList(1, "Freeze Control", "On|Off");
+    DlgReal(2, "Critical Temp1", 0, 40, 0, 0);
+    DlgReal(3, "Temp1 MaxSpeed Percentage", 0, 100, 0 , 0);
+    DlgReal(4, "Critical Temp2", 0, 40, 0, 0);
+    DlgReal(5, "Temp2 MaxSpeed Percentage", 0, 100, 0, 0);
+    DlgReal(6, "Critical Temp3", 0, 40, 0, 0);
+    DlgReal(7, "Temp3 MaxSpeed Percentage", 0, 100, 0, 0);
+    DlgReal(8, "Shutoff Temp", 0, 40, 0, 0);
+    DlgButton(0, "Cancel");
+    DlgButton(1,"OK");
+    ok%:=DlgShow(FCStatus2%,CT12,T1Perc2,CT22,T2Perc2,CT32,T3Perc2,KillTemp2);
+    if ok% = 1 then   
+        SaveKrubCoolingParameters();  'save values to registry
+    endif;
+    
+    return 1
+end
+
+
+'=======Set Pump Speed===============
+'JJ - this will only have an effect if the pump is set to OFF.   If pump is set to ON, the algorithm will override 
+Func ManualPump%();
+    
+    DlgCreate("Set Pump Speed");
+    DlgInteger(1,"Pump speed", 0,100,0,0,5);
+    DlgButton(0,"Cancel");                     'Cancel button, if pressed, values don't change
+    DlgButton(1,"OK");  
+    ok% := DlgShow(speedinput);                'makes sure that values only change if Ok is pressed
+    if ok% = 1 then   
+        amp:=speedinput;  'directly change speed next idle loop
+        SaveKrubCoolingParameters();  'save values to registry
+    endif;    
+
+    return 1
+end
+
+
+'This function actually covers 4 different dialogs, but it's just easier to do it this way
+proc GetKrubCoolingParameters()
+	var stmp$;
+	var key$;
+	key$ := GetRigName$() + "\\" + GetCurrentConfiguration$() + "\\Cooling";
+    
+    TargetTemperature := GetFloatRegistryValue(key$, "TargetTemperature", TargetTemperature);
+    PumpStatus% := GetIntRegistryValue%(key$, "PumpStatus", PumpStatus%);
+    pumpspeed1 := GetFloatRegistryValue(key$, "pumpspeed1", pumpspeed1);
+    timeslope := GetFloatRegistryValue(key$, "timeslope", timeslope);
+    dtfactor := GetFloatRegistryValue(key$, "dtfactor", dtfactor);
+    lnfactor := GetFloatRegistryValue(key$, "lnfactor",lnfactor);
+    maxspeed := GetFloatRegistryValue(key$, "maxspeed", maxspeed);
+    
+    FCStatus% := GetIntRegistryValue%(key$, "FCStatus", FCStatus%);
+    CT1 := GetFloatRegistryValue(key$, "CT1", CT1);
+    T1Perc := GetFloatRegistryValue(key$, "T1Perc", T1Perc);
+    CT2 := GetFloatRegistryValue(key$, "CT2", CT2);
+    T2Perc := GetFloatRegistryValue(key$, "T2Perc",T2Perc);
+    CT3 := GetFloatRegistryValue(key$, "CT3", CT3);
+    T3Perc := GetFloatRegistryValue(key$, "T3Perc",T3Perc);
+    KillTemp := GetFloatRegistryValue(key$, "KillTemp", KillTemp);
+    
+    FCStatus2% := GetIntRegistryValue%(key$, "FCStatus2", FCStatus2%);
+    CT12 := GetFloatRegistryValue(key$, "CT12", CT12);
+    T1Perc2 := GetFloatRegistryValue(key$, "T1Perc2", T1Perc2);
+    CT22 := GetFloatRegistryValue(key$, "CT22", CT22);
+    T2Perc2 := GetFloatRegistryValue(key$, "T2Perc2",T2Perc2);
+    CT32 := GetFloatRegistryValue(key$, "CT32", CT32);
+    T3Perc2 := GetFloatRegistryValue(key$, "T3Perc2",T3Perc2);
+    KillTemp2 := GetFloatRegistryValue(key$, "KillTemp2", KillTemp2);
+    
+    speedinput := GetFloatRegistryValue(key$, "speedinput", speedinput);
+    
+    return;
+end
+
+'This function actually covers 4 different dialogs, but it's just easier to do it this way
+proc SaveKrubCoolingParameters()
+	var stmp$;
+	var key$;
+	key$ := GetRigName$() + "\\" + GetCurrentConfiguration$() + "\\Cooling";
+    
+    SetFloatRegistryValue(key$, "TargetTemperature", TargetTemperature);
+    SetIntRegistryValue(key$, "PumpStatus", PumpStatus%);
+    SetFloatRegistryValue(key$, "pumpspeed1", pumpspeed1);
+    SetFloatRegistryValue(key$, "timeslope", timeslope);
+    SetFloatRegistryValue(key$, "dtfactor", dtfactor);
+    SetFloatRegistryValue(key$, "lnfactor",lnfactor);
+    SetFloatRegistryValue(key$, "maxspeed", maxspeed);
+    
+    SetIntRegistryValue(key$, "FCStatus", FCStatus%);
+    SetFloatRegistryValue(key$, "CT1", CT1);
+    SetFloatRegistryValue(key$, "T1Perc", T1Perc);
+    SetFloatRegistryValue(key$, "CT2", CT2);
+    SetFloatRegistryValue(key$, "T2Perc",T2Perc);
+    SetFloatRegistryValue(key$, "CT3", CT3);
+    SetFloatRegistryValue(key$, "T3Perc",T3Perc);
+    SetFloatRegistryValue(key$, "KillTemp", KillTemp);
+    
+    SetIntRegistryValue(key$, "FCStatus2", FCStatus2%);
+    SetFloatRegistryValue(key$, "CT12", CT12);
+    SetFloatRegistryValue(key$, "T1Perc2", T1Perc2);
+    SetFloatRegistryValue(key$, "CT22", CT22);
+    SetFloatRegistryValue(key$, "T2Perc2",T2Perc2);
+    SetFloatRegistryValue(key$, "CT32", CT32);
+    SetFloatRegistryValue(key$, "T3Perc2",T3Perc2);
+    SetFloatRegistryValue(key$, "KillTemp2", KillTemp2);
+    
+    SetFloatRegistryValue(key$, "speedinput", speedinput);
+    
+    return;
+end

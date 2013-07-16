@@ -80,10 +80,11 @@ func GratingParametersDialog%(label$, &param$, disable%[], ndisable%, &x, &y, &w
 
     ' If the passed params$ is non-empty, then parse it before opening the dialog. 
     if Len(param$)>0 then
-        if ParseGratingParameters%(param$, x, y, w, h, contrast%, sf, tf, ori, mo$, pattern$, aperture$) = 0 then
-            FindMatchedStringIndex%(mo$, mor$[], 2, 0);
-            FindMatchedStringIndex%(pattern$, pl$[], 2, 0);
-            FindMatchedStringIndex%(aperture$, al$, 3, 0);
+        if ParseGratingParameters%(param$, x, y, w, h, contrast%, sf, tf, ori, mo$, pattern$, aperture$) = 11 then
+            imor% := FindMatchedStringIndex%(mo$, mor$[], 2, 0);
+            ipl% := FindMatchedStringIndex%(pattern$, pl$[], 2, 0);
+            ial% := FindMatchedStringIndex%(aperture$, al$, 3, 0);
+            'printlog("%d %d %d\n",imor%,ipl%,ial%);
         endif
     endif
 
