@@ -1,4 +1,4 @@
-' $Id: KrubTuning.s2s,v 1.8 2013-07-16 20:38:27 jeff Exp $
+' $Id: KrubTuning.s2s,v 1.9 2013-07-17 16:27:18 jeff Exp $
 '
 '
 
@@ -196,10 +196,12 @@ proc CreateSampleConfiguration()
         SampleComment$(tunChanPump%, "PumpSpeed");
         SampleCalibrate(tunChanPump%, "RPM", 10, 0);  'scale 10, offset 0 is how it is set in original sampling configuration
         
+        
         'Cooling Chip channel
         SampleWaveform(tunChanCoolingChip%,2,100);
         SampleTitle$(tunChanCoolingChip%, "SC_Chip");
         SampleCalibrate(tunChanCoolingChip%, "C", 10, 0);  'scale 10, offset 0 is how it is set in original sampling configuration
+        
         
         if NFreezeControls% > 0 then
             'Freeze Control channel 1
@@ -373,9 +375,19 @@ func Start%()
     View(tunWindowData%);  
     
     ' If cooling, set up a Horizontal Cursor on the cooling chip channel 
+    ' and change the YRange of the temperature channels
     if DoCooling% = 1 then
         CursorNum% := HCursorNew(tunChanCoolingChip%,TargetTemperature);
         ToolbarEnable(4,1);  'and allow us to move the cursor
+    
+        YRange(tunChanPump%,0,100);  'Set Y range on pump speed channel
+        YRange(tunChanCoolingChip%,15,35);  'Set Y range, in degrees C, on cooling chip channel
+        if NFreezeControls% > 0 then
+            YRange(tunChanFreezeControl1%,15,35); 'Set Y range, in degrees C, on FC1 channel
+        endif;
+        if NFreezeControls% > 1 then
+            YRange(tunChanFreezeControl2%,15,35); 'Set Y range, in degrees C, on FC2 channel
+        endif;
     endif
     
     
