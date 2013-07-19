@@ -312,8 +312,11 @@ int ARvsg::init(int screenDistanceMM, COLOR_TYPE i_bg,  bool bUseLockFile, bool 
 				cerr << "Cannot get trival for background color " << m_background_color << endl;
 				status = 2;
 			}
-			//vsgPaletteSet(m_background_level, m_background_level, &background);
+
+			// Set up triggers and present. A single pulse on DOUT0.
+			vsgObjSetTriggers(vsgTRIG_ONPRESENT, 0, 0);
 			vsgPresent();
+
 			vsgSetBackgroundColour(&background);
 			cout << "Background color set to " << background.a << "," << background.b << "," << background.c << endl;
 		}
