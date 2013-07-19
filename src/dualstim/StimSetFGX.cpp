@@ -181,7 +181,7 @@ int StimSetFGX::setup_cycling(int firstpage, int secondpage, int lastpage)
 		cycle[2].Stop = 1;
 
 		status = vsgPageCyclingSetup(3, &cycle[0]);
-		cout << "StimSetFGX: Page cycling ready status=" << status << "  frames delay/on=" << get_frames_delay() << "/" << get_frames_on() << endl;
+		//cout << "StimSetFGX: Page cycling ready status=" << status << "  frames delay/on=" << get_frames_delay() << "/" << get_frames_on() << endl;
 	}
 	else
 	{
@@ -190,7 +190,7 @@ int StimSetFGX::setup_cycling(int firstpage, int secondpage, int lastpage)
 		cycle[1].Stop = 1;
 
 		status = vsgPageCyclingSetup(2, &cycle[0]);
-		cout << "StimSetFGX: Page cycling ready status=" << status << "  frames delay=" << get_frames_delay() << endl;	
+		//cout << "StimSetFGX: Page cycling ready status=" << status << "  frames delay=" << get_frames_delay() << endl;	
 	}
 	status = 0;
 	return status;
@@ -212,7 +212,7 @@ int StimSetFGX::setup_fixpt_cycling(int firstpage, int fixptpage)
 	cycle[1].Stop = 1;
 
 	status = vsgPageCyclingSetup(2, &cycle[0]);
-	cout << "StimSetFGX: Page cycling ready for fixpt, status=" << status << "  frames delay=" << get_frames_fixpt_delay() << endl;
+	//cout << "StimSetFGX: Page cycling ready for fixpt, status=" << status << "  frames delay=" << get_frames_fixpt_delay() << endl;
 
 	return status;
 }
