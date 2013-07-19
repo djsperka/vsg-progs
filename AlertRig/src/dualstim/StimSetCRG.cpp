@@ -199,7 +199,7 @@ int StimSetCRG::setup_cycling(int firstpage, int stim1page, int stim0page, int l
 	cycle[s.length()+1].Stop = 1;
 
 	status = vsgPageCyclingSetup(s.length()+2, &cycle[0]);
-	cout << "StimSetCRG: Page cycling ready status=" << status << " seq length = " << s.length() << "  frames delay/on=" << get_frames_delay() << "/" << count << endl;
+	//cout << "StimSetCRG: Page cycling ready status=" << status << " seq length = " << s.length() << "  frames delay/on=" << get_frames_delay() << "/" << count << endl;
 	return status;
 }
 
