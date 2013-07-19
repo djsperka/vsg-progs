@@ -911,7 +911,7 @@ int CRGStimSet::init(ARvsg& vsg, std::vector<int> pages)
 
 
 	vsgPageCyclingSetup(index + 2, &cycle[0]);
-	cerr << "Page cycling ready, " << index << " terms" << endl;
+	//cerr << "Page cycling ready, " << index << " terms" << endl;
 
 	return status;
 }
@@ -1165,7 +1165,7 @@ void CBarStimSet::prepareCycling(double ori)
 	cycle[stepsPerSide*2].Stop = 1;
 
 	vsgPageCyclingSetup(stepsPerSide*2+1, &cycle[0]);
-	cerr << "Page cycling ready" << endl;
+	//cerr << "Page cycling ready" << endl;
 
 }
 
