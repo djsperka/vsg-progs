@@ -1,4 +1,4 @@
-' $Id: KrubTuning.s2s,v 1.9 2013-07-17 16:27:18 jeff Exp $
+' $Id: KrubTuning.s2s,v 1.10 2013-07-22 21:23:01 jeff Exp $
 '
 '
 
@@ -362,13 +362,7 @@ end;
 ' stim will be picked up.
 
 func Start%()
-    var cmd$;
-    var i%;
-    var h%;
-    var s$;
-    var screenWidth;
-    var x, y, w, h, contrast%, sf, tf, ori, mo$, pattern$, aperture$;
-    var stimfile$, quitfile$;
+
     
     ' Start sampling
     SampleStart(0);
@@ -390,60 +384,28 @@ func Start%()
         endif;
     endif
     
+    if OnlyRecordDuringStimulus% = 1 then 'this is the original mode, where we start the stimulus immediately now that sampling has started
     
-    ' Set idle here - before vsg launches so we cannot miss the ready signal. 
-    ToolbarEnable(3,1); ' stop
-    ToolbarEnable(2,0); ' start
-    ToolbarEnable(1,0); ' quit
-    ToolbarSet(0, "", Idle%);
-    
-    ' Before generating command file, fetch the base grating parameters.
-    ParseGratingParameters%(tunGratingParams$, x, y, w, h, contrast%, sf, tf, ori, mo$, pattern$, aperture$);
-    
-    ' Delete old stim file if there is one sitting there. 
-    stimfile$ := tunStimFolder$ + "\\stim.txt";
-    quitfile$ := tunStimFolder$ + "\\quit.txt";
-    FileDelete(stimfile$);
-    FileDelete(quitfile$);
-    
-    ' Open text file
-    h% := FileOpen(stimfile$, 8, 1);
-    if h% < 0 then
-        LogError("Start", "Cannot open text file!");
-        halt;
-    endif
-    
-    ' Write header
-    screenWidth := GetKrubScreenWidth%()/10.0;
-    Print("header,%.1f,%s,%d,1,%d,%d,%d\n", screenWidth, GetAcuteDistanceToScreenMM$(), GetKrubMaskType%(), GetKrubTriggerSqPixels%(), GetKrubTriggerSqFrames%(), GetKrubBgColor%());
-    
-    ' Ready pulses (2)
-    Print("ready,2\n");
-    
-    ' Stim/blank/blank for each stim 
-    for i% := 0 to ((tunNSteps%+1)*tunNRepeats%)-1 do
-        docase 
-        case tuntypeSelected% = tuntypeOri% then
-            s$ := EncodeGratingParameters$(x, y, w, h, contrast%, sf, tf, tunParameterValues[tunParameterIndices%[i%]], mo$, pattern$, aperture$);
-        case tuntypeSelected% = tuntypeDom% then
-            s$ := EncodeGratingParameters$(x, y, w, h, tunParameterValues[tunParameterIndices%[i%]], sf, tf, ori, mo$, pattern$, aperture$);
-        case tuntypeSelected% = tuntypeSF% then
-            s$ := EncodeGratingParameters$(x, y, w, h, contrast%, tunParameterValues[tunParameterIndices%[i%]], tf, ori, mo$, pattern$, aperture$);
-        case tuntypeSelected% = tuntypeTF% then
-            s$ := EncodeGratingParameters$(x, y, w, h, contrast%, sf, tunParameterValues[tunParameterIndices%[i%]], ori, mo$, pattern$, aperture$);
-        else
-            LogError("Start", "Unknown tuning curve type (" + str$(tuntypeSelected%) + ")");
-            halt;
-        endcase
+        ' Set idle here - before vsg launches so we cannot miss the ready signal. 
+        ToolbarEnable(3,1); ' stop
+        ToolbarEnable(2,0); ' start
+        ToolbarEnable(1,0); ' quit
+        ToolbarSet(0, "", Idle%);
         
-        View(h%).Print("grating," + s$ + "," + str$(tunStimTime) + "\n");
-        View(h%).Print("tblank," + str$(tunBlankTime) + "\n");
-        View(h%).Print("tblank,0.5\n");
+        WriteStimFileToStartPresentation();
         
-    next
+    else 'change toolbar "start" to allow us to select a tuning curve, recording is already started
+        
+        ToolbarSet(2,"Select Stimuli",KrubTuningDialog2%);
+        
+        ' Set idle here - before vsg launches so we cannot miss the ready signal. 
+        ToolbarEnable(3,1); ' stop recording
+        ToolbarEnable(2,1); ' select stimuli
+        ToolbarEnable(1,0); ' quit
+        ToolbarSet(0, "", Idle%);
+        
+    endif;
     
-    ' Close file
-    FileClose();
     
     
     return 1;
@@ -745,8 +707,14 @@ func Idle%()
         
     case iState% = stateDone% then
         
-        Stop%();
-        status% := 1;
+        if OnlyRecordDuringStimulus% = 1 then        
+            Stop%();
+            status% := 1;
+        else
+            ToolbarEnable(2,1); ' allow select stimuli again
+            ChangeStateTo(stateStartup%, tNow);
+        endif;
+        
         
     else
         
@@ -772,3 +740,65 @@ end;
 '        View(window%).Count(chan%, t1, t2)/(t2-t1);
 '    endif
 'end
+
+
+proc WriteStimFileToStartPresentation()
+    var cmd$;
+    var i%;
+    var h%;
+    var s$;
+    var screenWidth;
+    var x, y, w, h, contrast%, sf, tf, ori, mo$, pattern$, aperture$;
+    var stimfile$, quitfile$;
+    
+    
+    ' Before generating command file, fetch the base grating parameters.
+    ParseGratingParameters%(tunGratingParams$, x, y, w, h, contrast%, sf, tf, ori, mo$, pattern$, aperture$);
+    
+    ' Delete old stim file if there is one sitting there. 
+    stimfile$ := tunStimFolder$ + "\\stim.txt";
+    quitfile$ := tunStimFolder$ + "\\quit.txt";
+    FileDelete(stimfile$);
+    FileDelete(quitfile$);
+    
+    ' Open text file
+    h% := FileOpen(stimfile$, 8, 1);
+    if h% < 0 then
+        LogError("Start", "Cannot open text file!");
+        halt;
+    endif
+    
+    ' Write header
+    screenWidth := GetKrubScreenWidth%()/10.0;
+    Print("header,%.1f,%s,%d,1,%d,%d,%d\n", screenWidth, GetAcuteDistanceToScreenMM$(), GetKrubMaskType%(), GetKrubTriggerSqPixels%(), GetKrubTriggerSqFrames%(), GetKrubBgColor%());
+    
+    ' Ready pulses (2)
+    Print("ready,2\n");
+    
+    ' Stim/blank/blank for each stim 
+    for i% := 0 to ((tunNSteps%+1)*tunNRepeats%)-1 do
+        docase 
+        case tuntypeSelected% = tuntypeOri% then
+            s$ := EncodeGratingParameters$(x, y, w, h, contrast%, sf, tf, tunParameterValues[tunParameterIndices%[i%]], mo$, pattern$, aperture$);
+        case tuntypeSelected% = tuntypeDom% then
+            s$ := EncodeGratingParameters$(x, y, w, h, tunParameterValues[tunParameterIndices%[i%]], sf, tf, ori, mo$, pattern$, aperture$);
+        case tuntypeSelected% = tuntypeSF% then
+            s$ := EncodeGratingParameters$(x, y, w, h, contrast%, tunParameterValues[tunParameterIndices%[i%]], tf, ori, mo$, pattern$, aperture$);
+        case tuntypeSelected% = tuntypeTF% then
+            s$ := EncodeGratingParameters$(x, y, w, h, contrast%, sf, tunParameterValues[tunParameterIndices%[i%]], ori, mo$, pattern$, aperture$);
+        else
+            LogError("Start", "Unknown tuning curve type (" + str$(tuntypeSelected%) + ")");
+            halt;
+        endcase
+        
+        View(h%).Print("grating," + s$ + "," + str$(tunStimTime) + "\n");
+        View(h%).Print("tblank," + str$(tunBlankTime) + "\n");
+        View(h%).Print("tblank,0.5\n");
+        
+    next
+    
+    ' Close file
+    FileClose();
+    
+    
+end
