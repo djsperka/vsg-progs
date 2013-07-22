@@ -1,4 +1,4 @@
-' $Id: KrubTuning.s2s,v 1.10 2013-07-22 21:23:01 jeff Exp $
+' $Id: KrubTuning.s2s,v 1.11 2013-07-22 22:39:53 jeff Exp $
 '
 '
 
@@ -97,7 +97,7 @@ if KrubTuningDialog%() = 0 then
     halt;
 endif
 
-if tuntypeSelected% = tuntypeNone% then
+if tuntypeSelected% = tuntypeNone% and OnlyRecordDuringStimulus% = 1 then
     Message("No tuning type selected!");
     halt;
 endif
@@ -240,29 +240,29 @@ proc InitializeWindows()
     View(tunWindowData%).WindowVisible(1);
     View(tunWindowData%).Window(0,33,100,100);
     
-    ' Create results plot for each channel
-    for i% := 1 to tunNChannels% do
-        ' open xy window to display tuning results
-        tunResultXYWindow%[i%] := FileNew(12);
-        ' position in upper-right quadrant of screen
-        Window(50, 0, 100, 50);  'adjust this?
-        ' first channel is signal. specify color etc
-        XYDrawMode(0,5,1);  '0 ignored, set automtic axis range mode, axes set to update with new data
-        XYSort(1,1);  'sort by x-value
-        XYJoin(1,1);  'Join, do not connect first to last
-    '    WindowVisible(1);  
-        XYColour(1,16); ' I have no idea what color 16 is
-        ChanTitle$(1, "Signal");  'Sets title of channel 1
-        XYSetChan(0); ' create second channel. The first channel is automatically created with the FileNew(12) call.
-        XYColour(2,12); ' no idea what color 12 is either
-        ChanTitle$(2, "Bkgd");  'Sets title of channel 2
-        'Create labels
-        ChanTitle$(0, "Spikes/s");  ' y axis label
-        TuningCurveLabels(tuntypeSelected%);
-        tempTitle$ := WindowTitle$();
-        WindowTitle$(tempTitle$ + ", Electrode " + Str$(i%));
-        WindowVisible(1);  'XY plot starts out invisible, make it visible
-    next;
+'    ' Create results plot for each channel
+'    for i% := 1 to tunNChannels% do
+'        ' open xy window to display tuning results
+'        tunResultXYWindow%[i%] := FileNew(12);
+'        ' position in upper-right quadrant of screen
+'        Window(50, 0, 100, 50);  'adjust this?
+'        ' first channel is signal. specify color etc
+'        XYDrawMode(0,5,1);  '0 ignored, set automtic axis range mode, axes set to update with new data
+'        XYSort(1,1);  'sort by x-value
+'        XYJoin(1,1);  'Join, do not connect first to last
+'    '    WindowVisible(1);  
+'        XYColour(1,16); ' I have no idea what color 16 is
+'        ChanTitle$(1, "Signal");  'Sets title of channel 1
+'        XYSetChan(0); ' create second channel. The first channel is automatically created with the FileNew(12) call.
+'        XYColour(2,12); ' no idea what color 12 is either
+'        ChanTitle$(2, "Bkgd");  'Sets title of channel 2
+'        'Create labels
+'        ChanTitle$(0, "Spikes/s");  ' y axis label
+'        TuningCurveLabels(tuntypeSelected%);
+'        tempTitle$ := WindowTitle$();
+'        WindowTitle$(tempTitle$ + ", Electrode " + Str$(i%));
+'        WindowVisible(1);  'XY plot starts out invisible, make it visible
+'    next;
     
     SaveParameterFile();
 end
@@ -621,7 +621,7 @@ func Idle%()
         docase 
         case FindPulseDown%(tunChanTrigger%, tStateStart, tPulseDn, tPulseUp) = 1 then
             ChangeStateTo(stateWaitForReadyPulse2%, tPulseUp);   ' start time in new state will be up time of first pulse
-        case tNow-tStateStart > tReadyPulseTimeout then
+        case tNow-tStateStart > tReadyPulseTimeout and OnlyRecordDuringStimulus% = 1 then
             Message("Did not see first ready pulse from vis stim application. Check that it is running, and that the trigger device is ready.");
             ChangeStateTo(stateDone%, tNow);
         endcase
@@ -713,6 +713,8 @@ func Idle%()
         else
             ToolbarEnable(2,1); ' allow select stimuli again
             ChangeStateTo(stateStartup%, tNow);
+            iStimCounter% := 0;
+            iBlankCounter% := 0;
         endif;
         
         
@@ -751,7 +753,9 @@ proc WriteStimFileToStartPresentation()
     var x, y, w, h, contrast%, sf, tf, ori, mo$, pattern$, aperture$;
     var stimfile$, quitfile$;
     
-    
+
+    SetTuningCurveLabels();  'set up tuning curve labels once we're ready to start recording
+
     ' Before generating command file, fetch the base grating parameters.
     ParseGratingParameters%(tunGratingParams$, x, y, w, h, contrast%, sf, tf, ori, mo$, pattern$, aperture$);
     
@@ -801,4 +805,36 @@ proc WriteStimFileToStartPresentation()
     FileClose();
     
     
+end
+
+
+Proc SetTuningCurveLabels()
+
+var i%;
+var tempTitle$;
+
+    ' Create results plot for each channel
+    for i% := 1 to tunNChannels% do
+        ' open xy window to display tuning results
+        tunResultXYWindow%[i%] := FileNew(12);
+        ' position in upper-right quadrant of screen
+        Window(50, 0, 100, 50);  'adjust this?
+        ' first channel is signal. specify color etc
+        XYDrawMode(0,5,1);  '0 ignored, set automtic axis range mode, axes set to update with new data
+        XYSort(1,1);  'sort by x-value
+        XYJoin(1,1);  'Join, do not connect first to last
+    '    WindowVisible(1);  
+        XYColour(1,16); ' I have no idea what color 16 is
+        ChanTitle$(1, "Signal");  'Sets title of channel 1
+        XYSetChan(0); ' create second channel. The first channel is automatically created with the FileNew(12) call.
+        XYColour(2,12); ' no idea what color 12 is either
+        ChanTitle$(2, "Bkgd");  'Sets title of channel 2
+        'Create labels
+        ChanTitle$(0, "Spikes/s");  ' y axis label
+        TuningCurveLabels(tuntypeSelected%);
+        tempTitle$ := WindowTitle$();
+        WindowTitle$(tempTitle$ + ", Electrode " + Str$(i%));
+        WindowVisible(1);  'XY plot starts out invisible, make it visible
+next;
+
 end
