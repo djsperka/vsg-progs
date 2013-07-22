@@ -1,4 +1,4 @@
-' $Id: KrubTuningDialogs.s2s,v 1.7 2013-07-22 21:23:01 jeff Exp $
+' $Id: KrubTuningDialogs.s2s,v 1.8 2013-07-22 22:39:53 jeff Exp $
 
 #include "../../Spike2Util/LogUtilities.s2s"
 #include "../../Spike2Util/MiscUtilities.s2s"
@@ -24,6 +24,7 @@ var OnlyRecordDuringStimulus%;
 const dlgCooling% := 1;
 const dlgNFreeze% := 2;
 const dlgStartMode% := 3;
+var isTuning1%;
 
 ' Colors
 var tunBGColor$[3];
@@ -142,6 +143,7 @@ func KrubTuningDialog%()
     KrubTuningDialogAllowOK% := 0;  'Disable OK button to start, force selection of experiment
     
     GetKrubTuningParameters();
+    isTuning1% := 1;  'Note that we're using dialog 1!
     
     DlgCreate("Select Tuning Curve Type");
     DlgButton(1,"               OK               ");  'rename "OK" button with a long enough name to allow space to rename it when it is active
@@ -176,7 +178,7 @@ end
 
 ' This function is initially called with a "0" input
 func KrubTuningDialogChanged%(item%) 
-    
+    printlog("only once\n");
     if DlgValue(3) = 1 then 'if we are only recording during the stimulus period, force selection of stimulus
         DlgEnable(1,-tuntypeOri%);
         DlgEnable(1,-tuntypeDom%);
@@ -214,6 +216,7 @@ func KrubTuningDialog2%()  'this is the same as KrubTuning Dialog, but it has on
     KrubTuningDialogAllowOK% := 0;  'Disable OK button to start, force selection of experiment
     
     GetKrubTuningParameters();
+    isTuning1% := 0;  'Note that we're using dialog 2!
     
     DlgCreate("Select Tuning Curve Type");
     DlgButton(1,"               OK               ");  'rename "OK" button with a long enough name to allow space to rename it when it is active
@@ -285,7 +288,11 @@ func TunDlgOrientation%()
         'Reset dialog OK button text on Select dialog
         DlgValue$(-1,"OK");
         KrubTuningDialogAllowOK% := 0;  'Prepare to disable OK button
-        KrubTuningDialogChanged%(-1);  'Enables "OK" button, -1 is sham input
+        if isTuning1% = 1 then
+            KrubTuningDialogChanged%(-1);  'Enables "OK" button, -1 is sham input
+        else
+            KrubTuningDialog2Changed%(-1);  'Enables "OK" button, -1 is sham input
+        endif;
     case status% = 1 then
         'status% := 0;  'would close calling dialog, do not do this now that we are verifying expt type
         tuntypeSelected% := tuntypeOri%;
@@ -295,7 +302,11 @@ func TunDlgOrientation%()
         'Reset dialog OK button text on Select dialog, and note which experiment to run
         DlgValue$(-1,"Run Orientation");
         KrubTuningDialogAllowOK% := 1;  'Prepare to enable OK button
-        KrubTuningDialogChanged%(-1);  'Enables "OK" button, -1 is sham input
+        if isTuning1% = 1 then
+            KrubTuningDialogChanged%(-1);  'Enables "OK" button, -1 is sham input
+        else
+            KrubTuningDialog2Changed%(-1);  'Enables "OK" button, -1 is sham input
+        endif;
         
         nParams% := (tunNSteps%+1)*tunNRepeats%;
         if GetRepeatedParameterProgression%(tunNSteps%+1, tunNRepeats%, tunParameterValues[0:nParams%], tunParameterIndices%[0:nParams%], tunOriMin, tunOriMax, 0, tunRandomProgression%) <> 0 then
@@ -364,7 +375,11 @@ func TunDlgContrast%()
         'Reset dialog OK button text on Select dialog
         DlgValue$(-1,"OK");
         KrubTuningDialogAllowOK% := 0;  'Prepare to disable OK button
-        KrubTuningDialogChanged%(-1);  'Enables "OK" button, -1 is sham input
+        if isTuning1% = 1 then
+            KrubTuningDialogChanged%(-1);  'Enables "OK" button, -1 is sham input
+        else
+            KrubTuningDialog2Changed%(-1);  'Enables "OK" button, -1 is sham input
+        endif;
     case status% = 1 then
         'status% := 0;  'would close calling dialog, do not do this now that we are verifying expt type
         tuntypeSelected% := tuntypeDom%;
@@ -375,7 +390,11 @@ func TunDlgContrast%()
         'Reset dialog OK button text on Select dialog, and note which experiment to run
         DlgValue$(-1,"Run Contrast");
         KrubTuningDialogAllowOK% := 1;  'Prepare to enable OK button
-        KrubTuningDialogChanged%(-1);  'Enables "OK" button, -1 is sham input
+        if isTuning1% = 1 then
+            KrubTuningDialogChanged%(-1);  'Enables "OK" button, -1 is sham input
+        else
+            KrubTuningDialog2Changed%(-1);  'Enables "OK" button, -1 is sham input
+        endif;
         
         'if GetRepeatedParameterProgression%(tunNSteps%+1, tunNRepeats%, tunParameterValues[0:nParams%], tunParameterIndices%[0:nParams%], tunContrastMin, tunContrastMax, 1, tunRandomProgression%) <> 0 then
         if GetRepeatedParameterProgression%(tunNSteps%+1, tunNRepeats%, tunParameterValues[0:nParams%], tunParameterIndices%[0:nParams%], tunContrastMin, tunContrastMax, tunLinLogIndex%, tunRandomProgression%) <> 0 then    
@@ -441,7 +460,11 @@ func TunDlgSF%()
         'Reset dialog OK button text on Select dialog
         DlgValue$(-1,"OK");
         KrubTuningDialogAllowOK% := 0;  'Prepare to disable OK button
-        KrubTuningDialogChanged%(-1);  'Enables "OK" button, -1 is sham input
+        if isTuning1% = 1 then
+            KrubTuningDialogChanged%(-1);  'Enables "OK" button, -1 is sham input
+        else
+            KrubTuningDialog2Changed%(-1);  'Enables "OK" button, -1 is sham input
+        endif;
     case status% = 1 then
         'status% := 0;  'would close calling dialog, do not do this now that we are verifying expt type
         tuntypeSelected% := tuntypeSF%;
@@ -451,7 +474,11 @@ func TunDlgSF%()
         'Reset dialog OK button text on Select dialog, and note which experiment to run
         DlgValue$(-1,"Run Spatial Frequency");
         KrubTuningDialogAllowOK% := 1;  'Prepare to enable OK button
-        KrubTuningDialogChanged%(-1);  'Enables "OK" button, -1 is sham input
+        if isTuning1% = 1 then
+            KrubTuningDialogChanged%(-1);  'Enables "OK" button, -1 is sham input
+        else
+            KrubTuningDialog2Changed%(-1);  'Enables "OK" button, -1 is sham input
+        endif;
         
         nParams% := (tunNSteps%+1)*tunNRepeats%;
         if GetRepeatedParameterProgression%(tunNSteps%+1, tunNRepeats%, tunParameterValues[0:nParams%], tunParameterIndices%[0:nParams%], tunSFMin, tunSFMax, tunLinLogIndex%, tunRandomProgression%) <> 0 then
@@ -516,7 +543,11 @@ func TunDlgTF%()
         'Reset dialog OK button text on Select dialog
         DlgValue$(-1,"OK");
         KrubTuningDialogAllowOK% := 0;  'Prepare to disable OK button
-        KrubTuningDialogChanged%(-1);  'Enables "OK" button, -1 is sham input
+        if isTuning1% = 1 then
+            KrubTuningDialogChanged%(-1);  'Enables "OK" button, -1 is sham input
+        else
+            KrubTuningDialog2Changed%(-1);  'Enables "OK" button, -1 is sham input
+        endif;
     case status% = 1 then
         'status% := 0;  'would close calling dialog, do not do this now that we are verifying expt type
         tuntypeSelected% := tuntypeTF%;
@@ -526,7 +557,11 @@ func TunDlgTF%()
         'Reset dialog OK button text on Select dialog, and note which experiment to run
         DlgValue$(-1,"Run Temporal Frequency");
         KrubTuningDialogAllowOK% := 1;  'Prepare to enable OK button
-        KrubTuningDialogChanged%(-1);  'Enables "OK" button, -1 is sham input
+        if isTuning1% = 1 then
+            KrubTuningDialogChanged%(-1);  'Enables "OK" button, -1 is sham input
+        else
+            KrubTuningDialog2Changed%(-1);  'Enables "OK" button, -1 is sham input
+        endif;
         
         nParams% := (tunNSteps%+1)*tunNRepeats%;
         if GetRepeatedParameterProgression%(tunNSteps%+1, tunNRepeats%, tunParameterValues[0:nParams%], tunParameterIndices%[0:nParams%], tunTFMin, tunTFMax, tunLinLogIndex%, tunRandomProgression%) <> 0 then
