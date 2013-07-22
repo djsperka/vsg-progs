@@ -1,4 +1,4 @@
-' $Id: KrubTuningDialogs.s2s,v 1.6 2013-07-16 20:38:27 jeff Exp $
+' $Id: KrubTuningDialogs.s2s,v 1.7 2013-07-22 21:23:01 jeff Exp $
 
 #include "../../Spike2Util/LogUtilities.s2s"
 #include "../../Spike2Util/MiscUtilities.s2s"
@@ -17,11 +17,13 @@
 'nifty OK button off/on
 var KrubTuningDialogAllowOK%;
 
-'cooling
+'cooling/continuous recording
 var DoCooling%;
 var NFreezeControls%;
+var OnlyRecordDuringStimulus%;
 const dlgCooling% := 1;
 const dlgNFreeze% := 2;
+const dlgStartMode% := 3;
 
 ' Colors
 var tunBGColor$[3];
@@ -102,7 +104,7 @@ proc GetKrubTuningParameters()
     tunRandomProgression% := GetIntRegistryValue%(key$, "RandomProgression", tunRandomProgression%);
     DoCooling% := GetIntRegistryValue%(key$, "DoCooling", DoCooling%);
     NFreezeControls% := GetIntRegistryValue%(key$, "NFreezeControls", NFreezeControls%);
-    
+    OnlyRecordDuringStimulus% := GetIntRegistryValue%(key$, "OnlyRecordDuringStimulus", OnlyRecordDuringStimulus%);
     return;
 end
 
@@ -125,6 +127,7 @@ proc SaveKrubTuningParameters()
     SetIntRegistryValue(key$, "RandomProgression", tunRandomProgression%);
     SetIntRegistryValue(key$, "DoCooling", DoCooling%);
     SetIntRegistryValue(key$, "NFreezeControls", NFreezeControls%);
+    SetIntRegistryValue(key$, "OnlyRecordDuringStimulus", OnlyRecordDuringStimulus%);
     
     return;
 end
@@ -148,13 +151,14 @@ func KrubTuningDialog%()
     DlgButton(tuntypeTF%, "Temporal Frequency", TunDlgTF%, 1, 4);
     DlgCheck(dlgCooling%, "Use Cooling Chip",1,5);
     DlgInteger(dlgNFreeze%, 2, 0, 2, 2, 6); DlgText("Number of Freeze Controls",4,6);
+    DlgCheck(dlgStartMode%, "Only Record During Stimulus Period",1,7);
     '    DlgButton(105, "Area", TunDlgArea%, 1, 5);
     '    DlgButton(106, "XY", TunDlgXY%, 1, 6);
     
     DlgAllow(0xffff, 0, KrubTuningDialogChanged%);
     
     
-    status% := DlgShow(DoCooling%, NFreezeControls%);    
+    status% := DlgShow(DoCooling%, NFreezeControls%,OnlyRecordDuringStimulus%);    
     if status% <> 0 then
         tunBGColorCurrent$ := tunBGColor$[tunBGColorIndex%];
         SaveKrubTuningParameters();
@@ -172,8 +176,28 @@ end
 
 ' This function is initially called with a "0" input
 func KrubTuningDialogChanged%(item%) 
+    
+    if DlgValue(3) = 1 then 'if we are only recording during the stimulus period, force selection of stimulus
+        DlgEnable(1,-tuntypeOri%);
+        DlgEnable(1,-tuntypeDom%);
+        DlgEnable(1,-tuntypeSF%);
+        DlgEnable(1,-tuntypeTF%);
+    else
+        DlgEnable(0,-tuntypeOri%);
+        DlgEnable(0,-tuntypeDom%);
+        DlgEnable(0,-tuntypeSF%);
+        DlgEnable(0,-tuntypeTF%);
+        DlgValue$(-1,"Select Tuning Later");
+    endif;
+    
+    'if the value that was just selected is "only record during stimulus period" by default turn off OK 
+    if item% = 3 then
+        KrubTuningDialogAllowOK% := 0;
+    endif;
+    
+        
     'This disables the "OK" button (though it will have different labels) until an experiment is selected
-    if KrubTuningDialogAllowOK% = 1 then
+    if KrubTuningDialogAllowOK% = 1 or DlgValue(3) = 0 then
         DlgEnable(1,-1);  'enable "OK" 
     else
         DlgEnable(0,-1);  'Otherwise disable "OK"
@@ -183,6 +207,55 @@ func KrubTuningDialogChanged%(item%)
 end
 
 
+
+func KrubTuningDialog2%()  'this is the same as KrubTuning Dialog, but it has only the tuning options, no other options
+    var status%;
+    
+    KrubTuningDialogAllowOK% := 0;  'Disable OK button to start, force selection of experiment
+    
+    GetKrubTuningParameters();
+    
+    DlgCreate("Select Tuning Curve Type");
+    DlgButton(1,"               OK               ");  'rename "OK" button with a long enough name to allow space to rename it when it is active
+    DlgButton(tuntypeOri%, "Orientation", TunDlgOrientation%, 1, 1);
+    DlgButton(tuntypeDom%, "Contrast", TunDlgContrast%, 1, 2);
+    DlgButton(tuntypeSF%, "Spatial Frequency", TunDlgSF%, 1, 3);
+    DlgButton(tuntypeTF%, "Temporal Frequency", TunDlgTF%, 1, 4);
+    '    DlgButton(105, "Area", TunDlgArea%, 1, 5);
+    '    DlgButton(106, "XY", TunDlgXY%, 1, 6);
+    
+    DlgAllow(0xffff, 0, KrubTuningDialog2Changed%);
+    
+    
+    status% := DlgShow();    
+    if status% <> 0 then
+        tunBGColorCurrent$ := tunBGColor$[tunBGColorIndex%];
+        SaveKrubTuningParameters();
+        ToolbarEnable(2,0); ' disallow select stimuli
+        WriteStimFileToStartPresentation();  'start stimuli
+    endif
+    
+    
+    
+    return status%;
+end
+
+'
+'
+'===== KrubTuningDialog2Changed =====
+
+' This function is initially called with a "0" input
+func KrubTuningDialog2Changed%(item%) 'this is the easy version, just enable/disable the OK button
+        
+    'This disables the "OK" button (though it will have different labels) until an experiment is selected
+    if KrubTuningDialogAllowOK% = 1 then
+        DlgEnable(1,-1);  'enable "OK" 
+    else
+        DlgEnable(0,-1);  'Otherwise disable "OK"
+    endif;
+    
+    return 1;
+end
 
 
 func TunDlgOrientation%()
