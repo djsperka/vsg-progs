@@ -1,4 +1,4 @@
-' $Id: KrubTuning.s2s,v 1.11 2013-07-22 22:39:53 jeff Exp $
+' $Id: KrubTuning.s2s,v 1.12 2013-08-27 16:59:39 jeff Exp $
 '
 '
 
@@ -780,16 +780,17 @@ proc WriteStimFileToStartPresentation()
     Print("ready,2\n");
     
     ' Stim/blank/blank for each stim 
+    ' Encoding Y in the negative, which will make the placement make sense on the Krub screen
     for i% := 0 to ((tunNSteps%+1)*tunNRepeats%)-1 do
         docase 
         case tuntypeSelected% = tuntypeOri% then
-            s$ := EncodeGratingParameters$(x, y, w, h, contrast%, sf, tf, tunParameterValues[tunParameterIndices%[i%]], mo$, pattern$, aperture$);
+            s$ := EncodeGratingParameters$(x, -y, w, h, contrast%, sf, tf, tunParameterValues[tunParameterIndices%[i%]], mo$, pattern$, aperture$);
         case tuntypeSelected% = tuntypeDom% then
-            s$ := EncodeGratingParameters$(x, y, w, h, tunParameterValues[tunParameterIndices%[i%]], sf, tf, ori, mo$, pattern$, aperture$);
+            s$ := EncodeGratingParameters$(x, -y, w, h, tunParameterValues[tunParameterIndices%[i%]], sf, tf, ori, mo$, pattern$, aperture$);
         case tuntypeSelected% = tuntypeSF% then
-            s$ := EncodeGratingParameters$(x, y, w, h, contrast%, tunParameterValues[tunParameterIndices%[i%]], tf, ori, mo$, pattern$, aperture$);
+            s$ := EncodeGratingParameters$(x, -y, w, h, contrast%, tunParameterValues[tunParameterIndices%[i%]], tf, ori, mo$, pattern$, aperture$);
         case tuntypeSelected% = tuntypeTF% then
-            s$ := EncodeGratingParameters$(x, y, w, h, contrast%, sf, tunParameterValues[tunParameterIndices%[i%]], ori, mo$, pattern$, aperture$);
+            s$ := EncodeGratingParameters$(x, -y, w, h, contrast%, sf, tunParameterValues[tunParameterIndices%[i%]], ori, mo$, pattern$, aperture$);
         else
             LogError("Start", "Unknown tuning curve type (" + str$(tuntypeSelected%) + ")");
             halt;
