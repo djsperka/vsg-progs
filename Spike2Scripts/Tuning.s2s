@@ -1,7 +1,7 @@
-' $Id: Tuning.s2s,v 1.68 2013-09-12 17:36:48 jeff Exp $
+' $Id: Tuning.s2s,v 1.69 2013-09-12 18:18:51 jeff Exp $
 ' Update 11/8/11 Jeff, includes multi-juicer updates
 
-const tunCVSID$ := "$Id: Tuning.s2s,v 1.68 2013-09-12 17:36:48 jeff Exp $";
+const tunCVSID$ := "$Id: Tuning.s2s,v 1.69 2013-09-12 18:18:51 jeff Exp $";
 
 
 
@@ -82,6 +82,22 @@ var tInterTrialTime := 0;	' Time spent waiting between trials (i.e. after screen
 var tRise, tFall;
 var tKludge := 0.06;    ' Add to Fixation time to account for stim sequence. Ugly hack, admittedly, but one does what one must. 
 
+
+'button stuff
+var button1Press;
+var button2Press;
+var button1Release;
+var button2Release;
+var button1Thresh := 1.1;  'crossing level (downwards) for button 1, this is LEFT button
+var button2Thresh := 2.0;  'crossing level (upwards) for button 2, this is RIGHT button
+var buttonHysteresis := 0.05; 'how much noise we're allowing in the steady state voltage level; this may be high
+var buttonMinTime := 0.005;  'five millisecond minimum
+var buttonTime;  'the time of the most recent button event
+var buttonStatus%;  'if 0, all buttons up, if 1, LEFT button currently pressed, if 2, RIGHT button currently pressed
+var buttonDuringXHair%;
+var buttonDuringSequence%;
+var buttonError%;
+var tButtonStart;   ' start time on button check
 
 ' Constants for states
 const stateStartTrial%:=0;		' Start trial state
@@ -277,6 +293,13 @@ func IdleProcessing%()
 	if tNow-tLastUpdate > .005 then
 		View(XYWindow%).XYAddData(1,xEye,yEye);
 		tLastUpdate := tNow;
+        'if we're collecting a rivalry button, do it here
+        if tunButtonCollect% = 1 then
+            buttonError% := WhichButton%(tButtonStart,tNow,buttonStatus%,buttonTime);
+            if buttonError% = -1 then
+                FlushButton(tButtonStart,tNow,buttonStatus%,buttonTime);  'flush out all button events on error
+            endif;
+        endif;
 	endif
 
 	docase 
@@ -2512,4 +2535,254 @@ func CheckSeqFile%(fileIn$,&nFlips%);
     
     return lineCount%-1;
     
+end
+
+
+
+func WhichButton%(&startT,endT,&bStatus%,&buttonT)
+	'Determine which button is pressed, if any
+    'Read the button channel, of course
+    'Note - another very ad-hoc function, which assumes lots of variables we know exist
+    'Man, this function does a lot of stuff, hopefully it will all be useful 
+    
+    
+    'Clear the button press arrays
+    button1Press := -1;
+    button2Press := -1;
+    button1Release := -1;
+    button2Release := -1;
+
+    'Each check will return -1 if there are no events of that type, time of event if there is one
+    'Check for button 1 (left) press
+    button1Press := ChanSearch(ButtonChannel%,8,startT+tic,endT,button1Thresh,buttonHysteresis,buttonMinTime);
+    
+    'Check for button 1 (left) release
+    button1Release := ChanSearch(ButtonChannel%,7,startT+tic,endT,button1Thresh,buttonHysteresis,buttonMinTime); 
+    
+    'Check for button 2 (right) press
+    button2Press := ChanSearch(ButtonChannel%,7,startT+tic,endT,button2Thresh,buttonHysteresis,buttonMinTime);
+    
+    'Check for button 2 (right) release
+    button2Release := ChanSearch(ButtonChannel%,8,startT+tic,endT,button2Thresh,buttonHysteresis,buttonMinTime);
+    
+    'OK, I'm trying to take out the startT := endT lines when nothing happens - it's possible things are being missed
+    'due to buttonMinTime and then skipped because the tiem moves forward.
+    
+    'Now do a whole bunch of checking to make sure there aren't any errors, update startT and bStatus% if necessary,
+    'and hopefully return success
+    'This is all nice and complicated, but thorough check and a response matrix of all possible press combos suggests
+    'that every contingency is dealt with.  Even under most error conditions it returns a value.  I need to consider
+    'what happens in the case that something goes wrong...a flush might not work depending on return values/states and
+    'what is expected.
+    docase
+    case button1Press = -1 and button2Press = -1 and button1Release = -1 and button2Release = -1 then 'nothing happened on this check
+        'startT := endT;
+        buttonT := -1;
+        return 1;
+    case bStatus% = 0 then  'initial status is no button pressed
+        'check for either button press
+        docase
+        case button1Press = -1 and button2Press = -1 then  'no button pressed
+            'startT := endT;  'no change
+            buttonT := -1;
+            docase
+            case button1Release > -1 then
+                printlog("Error!  Button 1 release occurred without a recorded press!\n");
+                startT := button1Release;  'fast-forward to time of "false" release
+                buttonT := startT;
+                return -1;
+            case button2Release > -1 then
+                printlog("Error!  Button 2 release occurred without a recorded press!\n");
+                startT := button2Release;  'fast-forward to time of "false" release
+                buttonT := startT;
+                return -1;  
+            else
+                return 1;  'success, no change
+            endcase
+        case button1Press > -1 and button2Press > -1 then  'both buttons pressed!
+            if button1Press < button2Press then
+                bStatus% := 1;  'consider it a button 1 press
+                startT := button1Press;
+                buttonT := startT;
+                printlog("Recorded button 1 press at " + Str$(startT) + "\n");
+                SampleText("Button 1 pressed",startT);
+                docase 
+                case button1Release > -1 and button1Release < button1Press then
+                    printlog("Error!  Button 1 release occurred before Button 1 press when initial status was no button pressed!\n");
+                    return -1;
+                case button2Release > -1 and button2Release < button1Press then
+                    printlog("Error!  Button 2 release occurred before Button 1 press when initial status was no button pressed!\n");
+                    return -1;  
+                else
+                    return 1
+                endcase;
+            else  'button2Press > button1Press
+                bStatus% := 2;  'consider it a button 2 press
+                startT := button2Press;
+                buttonT := startT;
+                printlog("Recorded button 2 press at " + Str$(startT) + "\n");
+                SampleText("Button 2 pressed",startT);
+                docase 
+                case button1Release > -1 and button1Release < button2Press then
+                    printlog("Error!  Button 1 release occurred before Button 2 press when initial status was no button pressed!\n");
+                    return -1;
+                case button2Release > -1 and button2Release < button2Press then
+                    printlog("Error!  Button 2 release occurred before Button 2 press when initial status was no button pressed!\n");
+                    return -1;  
+                else
+                    return 1
+                endcase;
+            endif;
+        case button1Press > -1 then  'no button 2 press, would trigger prior case
+            bStatus% := 1;  'it's a button 1 press
+            startT := button1Press;
+            buttonT := startT;
+            printlog("Recorded button 1 press at " + Str$(startT) + "\n");
+            SampleText("Button 1 pressed",startT);
+            docase 
+            case button1Release > -1 and button1Release < button1Press then
+                printlog("Error!  Button 1 release occurred before Button 1 press when initial status was no button pressed!\n");
+                return -1;
+            case button2Release > -1 and button2Release < button1Press then
+                printlog("Error!  Button 2 release occurred before Button 1 press when initial status was no button pressed!\n");
+                return -1;  
+            else
+                return 1
+            endcase;
+        case button2Press > -1 then  'no button 1 press, would trigger prior case
+            bStatus% := 2;  'it's a button 2 press
+            startT := button2Press;
+            buttonT := startT;
+            printlog("Recorded button 2 press at " + Str$(startT) + "\n");
+            SampleText("Button 2 pressed",startT);
+            docase 
+            case button1Release > -1 and button1Release < button2Press then
+                printlog("Error!  Button 1 release occurred before Button 2 press when initial status was no button pressed!\n");
+                return -1;
+            case button2Release > -1 and button2Release < button2Press then
+                printlog("Error!  Button 2 release occurred before Button 2 press when initial status was no button pressed!\n");
+                return -1;  
+            else
+                return 1
+            endcase;
+        else
+            printlog("Error - shouldn't ever get in here!\n"); 'logically all states should be accounted for, but just in case
+            startT := max(button1Press,button2Press,button1Release,button2Release);  'just clear it all out
+            buttonT := startT;
+            docase  'And set the button status based on the last recorded event
+            case startT = button1Release or startT = button2Release then
+                bStatus% := 0;
+            case startT = button1Press then
+                bStatus% := 1;
+            case startT = button2Press then
+                bStatus% := 2;
+            endcase;
+            return -1;
+        endcase;
+            
+    case bStatus% = 1 then  'initial status is LEFT button pressed
+        'check for left button release
+        docase
+        case button1Release > -1 then
+            bStatus% := 0;  'Button is released
+            startT := button1Release;
+            buttonT := startT;
+            printlog("Recorded button 1 release at " + Str$(startT) + "\n");
+            SampleText("Button 1 released",startT);
+        case button1Press > -1 or button2Press > -1 or button2Release > -1 then
+            printlog("Error!  Recorded something other than button 1 release when button 1 believed to be pressed!\n");
+            startT := max(button1Press,button2Press,button2Release);
+            buttonT := startT;
+            docase
+            case startT = button1Press then
+                bStatus% := 1;
+            case startT = button2Press then
+                bStatus% := 2;
+            case startT = button2Release then
+                bStatus% := 0;
+            endcase;
+            return -1;
+        else
+            'startT := endT;  'no change 
+            buttonT := -1;            
+        endcase;
+        
+        'check for crazy errors
+        docase
+        case button1Press > -1 and button1Press < button1Release then
+            printlog("Error!  Button 1 press occurred before release when initial status was Button 1 down!\n");
+            return -1;
+        case button2Press > -1 and button2Press < button1Release then
+            printlog("Error!  Button 2 press occurred before Button 1 release when initial status was Button 1 down!\n");
+            return -1;
+        case button2Release > -1 and button2Release < button1Release then   
+            printlog("Error!  Button 2 release occurred before Button 1 release when initial status was Button 1 down!\n");
+            return -1;
+        case button1Release = -1 and (button1Press > -1 or button2Press > -1 or button2Release > -1) then
+            printlog("Error!  Button 1 release expected, another event detected!\n");
+            return -1;
+        else
+            return 1;  'success
+        endcase;
+    
+    case bStatus% = 2 then  'initial status is RIGHT button pressed
+        'check for right button release
+        docase
+        case button2Release > -1 then
+            bStatus% := 0;  'Button is released
+            startT := button2Release;
+            buttonT := startT;
+            printlog("Recorded button 2 release at " + Str$(startT) + "\n");
+            SampleText("Button 2 released",startT);
+        case button1Press > -1 or button2Press > -1 or button1Release > -1 then
+            printlog("Error!  Recorded something other than button 2 release when button 2 believed to be pressed!\n");
+            startT := max(button1Press,button2Press,button1Release);
+            buttonT := startT;
+            docase
+            case startT = button1Press then
+                bStatus% := 1;
+            case startT = button2Press then
+                bStatus% := 2;
+            case startT = button1Release then
+                bStatus% := 0;
+            endcase;
+            return -1;
+        else
+            'startT := endT;  'no change
+            buttonT := -1;            
+        endcase;
+        
+        'check for crazy errors
+        docase
+        case button2Press > -1 and button2Press < button2Release then
+            printlog("Error!  Button 2 press occurred before release when initial status was Button 2 down!\n");
+            return -1;
+        case button1Press > -1 and button1Press < button2Release then
+            printlog("Error!  Button 1 press occurred before Button 2 release when initial status was Button 2 down!\n");
+            return -1;
+        case button1Release > -1 and button1Release < button2Release then   
+            printlog("Error!  Button 1 release occurred before Button 2 release when initial status was Button 2 down!\n");
+            return -1;
+        case button2Release = -1 and (button1Press > -1 or button2Press > -1 or button1Release > -1) then
+            printlog("Error!  Button 2 release expected, another event detected!\n");
+            return -1;
+        else
+            return 1;  'success
+        endcase;
+        
+    endcase;
+    
+
+end;
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+proc FlushButton(&startT,endT,&bStatus%,&buttonT)
+    'Used to flush out the status of the button until all button events are in the past relative to endT (typically tNow)
+    'Useful in the case of a button error, to just clear out and start over
+    while buttonT > -1 do
+        WhichButton%(startT,endT,bStatus%,buttonT);
+    wend;
+    printlog("Button Flush complete at " + Str$(endT) + "\n");
+    'When this is done we will have no idea when the last event occured or necessarily what it was, but bStatus% 
+    'ought to be correct for time endT and we will be ready to try reading the button again.
 end
