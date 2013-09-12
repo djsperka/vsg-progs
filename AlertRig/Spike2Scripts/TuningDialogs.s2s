@@ -1,4 +1,4 @@
-' $Id: TuningDialogs.s2s,v 1.16 2013-09-12 17:36:48 jeff Exp $
+' $Id: TuningDialogs.s2s,v 1.17 2013-09-12 22:09:42 devel Exp $
 '
 ' This file contains dialog functions for the alert tuning script Tuning.s2s.
 #include "../../Spike2Util/UsreyUtil.s2s"
@@ -2120,7 +2120,7 @@ func TuningCurveScriptDialog%()
 	DlgGroup("Common Parameters", 1, 1, 52, 10);
 	DlgReal(1, "Acquire Fixation time(s):", 1, 1000, 40, 2);
     DlgReal(2, "Acquire Fixation penalty(s):", .01, 10, 40, 3);
-	DlgReal(3, "Stimulus duration(s):", .1, 10, 40, 4);
+	DlgReal(3, "Stimulus duration(s):", .1, 60, 40, 4);
     DlgReal(4, "During-Stim fixation break penalty(s):", .01, 10, 40, 5);
     DlgReal(5, "Intertrial interval(s):", .01, 10, 40, 6);
 	DlgReal(6, "Maintain fixation after stim(s):", .1, 10, 40, 7);
