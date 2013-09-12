@@ -1,4 +1,4 @@
-' $Id: TuningDialogs.s2s,v 1.15 2013-06-06 19:01:34 jeff Exp $
+' $Id: TuningDialogs.s2s,v 1.16 2013-09-12 17:36:48 jeff Exp $
 '
 ' This file contains dialog functions for the alert tuning script Tuning.s2s.
 #include "../../Spike2Util/UsreyUtil.s2s"
@@ -216,7 +216,7 @@ var TunCurveMArg$:="";            'holds type of tuning curve on Master
 var TunCurveSArg$:="";            'holds type of tuning curve on slave
 var TunCurveS2Arg$:="";           'holds second type of tuning curve on slave, for Box O' Donuts
 var tunNoCardSync%;               'allows us to turn off card synching for Dualstim
-
+var tunButtonCollect%;            'Collect button data for rivalry?
 
 ' These will be set by the tuning curve choice
 var tunNAdvances%;		' Number of times stim will advance during one repeat
@@ -2038,6 +2038,7 @@ proc GetTuningCurveScriptParameters()
     tunXHairTicInnerOffset := GetFloatRegistryValue(key$, "XHairTicInnerOffset", tunXHairTicInnerOffset);
     tunXHairTicOuterOffset := GetFloatRegistryValue(key$, "XHairTicOuterOffset", tunXHairTicOuterOffset);
     tunXHairNumGridDivisions% := GetIntRegistryValue%(key$, "XHairNumGridDivisions", tunXHairNumGridDivisions%);
+    tunButtonCollect% := GetIntRegistryValue%(key$, "ButtonCollect", tunButtonCollect%);
     
 end;
 
@@ -2063,6 +2064,7 @@ proc SaveTuningCurveScriptParameters()
     SetFloatRegistryValue(key$, "XHairTicInnerOffset", tunXHairTicInnerOffset);
     SetFloatRegistryValue(key$, "XHairTicOuterOffset", tunXHairTicOuterOffset);
     SetIntRegistryValue(key$, "XHairNumGridDivisions", tunXHairNumGridDivisions%);
+    SetIntRegistryValue(key$, "ButtonCollect", tunButtonCollect%);
     PrintLog("Saved DoRivalry=%d\n", tunDoRivalry%);
 end;
 
@@ -2137,6 +2139,7 @@ func TuningCurveScriptDialog%()
     
     DlgCheck(13, "Maintain Fixpt between trials", 2, 14);
     DlgCheck(14, "Stationary",2,15);
+    DlgCheck(15, "Use Rivalry Button", 35,15);
     DlgButton(tundlgXHairButton%, " Crosshairs  ", UpdateTuningXHairDialog%, 1, 16);
     updateXHairText% := DlgText(tunXHairText$, 15, 16);
 	DlgGroup("Individual Tuning Curve Types", 1, 17, 52, 5);
@@ -2158,12 +2161,12 @@ func TuningCurveScriptDialog%()
         i%:=DlgShow(tunAcquisitionTime, tunAcqFailTime, tunFixationDuration, tunHoldFailTime, 
         tunStdInterTrialTime, tunMaintainFixation, tunMaintainFailTime,
         ibcl%, JuiceRewardMS%, tunDoRivalry%, tunNoCardSync%, 
-        tunDualTuningType%, tunUseMaintainMode%, tunSetStationary%);
+        tunDualTuningType%, tunUseMaintainMode%, tunSetStationary%, tunButtonCollect%);
     else
         i%:=DlgShow(tunAcquisitionTime, tunAcqFailTime, tunFixationDuration, tunHoldFailTime, 
         tunStdInterTrialTime, tunMaintainFixation, tunMaintainFailTime, 
         ibcl%, JuicePerReward%, tunDoRivalry%, tunNoCardSync%, 
-        tunDualTuningType%, tunUseMaintainMode%, tunSetStationary%);
+        tunDualTuningType%, tunUseMaintainMode%, tunSetStationary%, tunButtonCollect%);
     endif;
     
     
