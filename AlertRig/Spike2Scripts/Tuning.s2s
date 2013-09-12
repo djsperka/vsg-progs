@@ -1,7 +1,7 @@
-' $Id: Tuning.s2s,v 1.69 2013-09-12 18:18:51 jeff Exp $
+' $Id: Tuning.s2s,v 1.70 2013-09-12 22:06:33 devel Exp $
 ' Update 11/8/11 Jeff, includes multi-juicer updates
 
-const tunCVSID$ := "$Id: Tuning.s2s,v 1.69 2013-09-12 18:18:51 jeff Exp $";
+const tunCVSID$ := "$Id: Tuning.s2s,v 1.70 2013-09-12 22:06:33 devel Exp $";
 
 
 
@@ -2554,17 +2554,18 @@ func WhichButton%(&startT,endT,&bStatus%,&buttonT)
 
     'Each check will return -1 if there are no events of that type, time of event if there is one
     'Check for button 1 (left) press
-    button1Press := ChanSearch(ButtonChannel%,8,startT+tic,endT,button1Thresh,buttonHysteresis,buttonMinTime);
+    button1Press := View(DataWindow%).ChanSearch(ButtonChannel%,8,startT+tic,endT,button1Thresh,buttonHysteresis,buttonMinTime);
     
     'Check for button 1 (left) release
-    button1Release := ChanSearch(ButtonChannel%,7,startT+tic,endT,button1Thresh,buttonHysteresis,buttonMinTime); 
+    button1Release := View(DataWindow%).ChanSearch(ButtonChannel%,7,startT+tic,endT,button1Thresh,buttonHysteresis,buttonMinTime); 
     
     'Check for button 2 (right) press
-    button2Press := ChanSearch(ButtonChannel%,7,startT+tic,endT,button2Thresh,buttonHysteresis,buttonMinTime);
+    button2Press := View(DataWindow%).ChanSearch(ButtonChannel%,7,startT+tic,endT,button2Thresh,buttonHysteresis,buttonMinTime);
     
     'Check for button 2 (right) release
-    button2Release := ChanSearch(ButtonChannel%,8,startT+tic,endT,button2Thresh,buttonHysteresis,buttonMinTime);
+    button2Release := View(DataWindow%).ChanSearch(ButtonChannel%,8,startT+tic,endT,button2Thresh,buttonHysteresis,buttonMinTime);
     
+        
     'OK, I'm trying to take out the startT := endT lines when nothing happens - it's possible things are being missed
     'due to buttonMinTime and then skipped because the tiem moves forward.
     
@@ -2582,7 +2583,7 @@ func WhichButton%(&startT,endT,&bStatus%,&buttonT)
     case bStatus% = 0 then  'initial status is no button pressed
         'check for either button press
         docase
-        case button1Press = -1 and button2Press = -1 then  'no button pressed
+        case button1Press <= -1 and button2Press <= -1 then  'no button pressed
             'startT := endT;  'no change
             buttonT := -1;
             docase
