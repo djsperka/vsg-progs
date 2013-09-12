@@ -1,7 +1,7 @@
-' $Id: Tuning.s2s,v 1.67 2013-07-10 18:14:37 jeff Exp $
+' $Id: Tuning.s2s,v 1.68 2013-09-12 17:36:48 jeff Exp $
 ' Update 11/8/11 Jeff, includes multi-juicer updates
 
-const tunCVSID$ := "$Id: Tuning.s2s,v 1.67 2013-07-10 18:14:37 jeff Exp $";
+const tunCVSID$ := "$Id: Tuning.s2s,v 1.68 2013-09-12 17:36:48 jeff Exp $";
 
 
 
@@ -43,6 +43,8 @@ var StimChangeChannel%;
 var ReadyChannel%;
 var FixationPointSlaveChannel%;
 var StimSlaveChannel%;
+var ButtonChannel%;
+var ButtonPort%;
 
 ' xy windows for plotting (TuningWindow) and PSTH. 
 var TuningWindow%[16];	' one for each wavemark channel
@@ -183,6 +185,8 @@ FixationPointSlaveChannel% := 28;
 StimSlaveChannel% := 29;
 FrameChannel% := 19;
 FrameSlaveChannel% := 20;
+ButtonChannel% := 23;
+ButtonPort% := 5;  'This appears to be correct
 
 ' Fetch electrode information. 
 if UsePlexon% = 0 then
@@ -1341,6 +1345,11 @@ proc CreateSampleConfiguration()
 	SampleComment$(FrameSlaveChannel%,"Frame-Slave");
 	SampleTitle$(FrameSlaveChannel%,"Frame-Slave");
     
+    if tunButtonCollect% = 1 then
+        SampleWaveform(ButtonChannel%,ButtonPort%,10000);  'Giving 0.1 ms resolution for now
+        SampleComment$(ButtonChannel%,"Raw Button");
+        SampleTitle$(ButtonChannel%,"Raw Button");
+    endif;    
     
     
     ' Set up channels for sampling electrodes.
