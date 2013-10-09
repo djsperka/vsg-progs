@@ -1,4 +1,4 @@
-' $Id: AttentionGoNoGo.s2s,v 1.23 2013-07-10 18:15:50 jeff Exp $
+' $Id: AttentionGoNoGo.s2s,v 1.24 2013-10-09 20:37:30 devel Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -1042,12 +1042,12 @@ func IdleProcessing%()
     
     'getPreciseTiming := 0;  'don't get precise timing unless we ask to (if 0, return control to windows after each idle loop iteration)
     
-    tNow := MaxTime();
+    tNow := View(DataWindow%).MaxTime();
     
     'get eye position, but don't check if tNow is small enough that we would give a negative value to ChanMeasure
     if tNow > .006 then
-        xEye := ChanMeasure(XChannel%,2,tNow-.001,tNow-.006)*DegreesPerVoltX;
-        yEye := ChanMeasure(YChannel%,2,tNow-.001,tNow-.006)*DegreesPerVoltY;
+        xEye := View(DataWindow%).ChanMeasure(XChannel%,2,tNow-.001,tNow-.006)*DegreesPerVoltX;
+        yEye := View(DataWindow%).ChanMeasure(YChannel%,2,tNow-.001,tNow-.006)*DegreesPerVoltY;
     endif;
         
     ' Don't update display every time....
@@ -1061,7 +1061,7 @@ func IdleProcessing%()
     case iState% = stateVSGWait% then
         
         ' Waiting for VSG to indicate it is ready. The indication is a pulse (up, then down, 1 frame apart) on port 6.
-        tTrigger := NextTime(ReadyChannel%, tLast, vTrigger);
+        tTrigger := View(DataWindow%).NextTime(ReadyChannel%, tLast, vTrigger);
         if tTrigger > tLastTrigger and vTrigger = 0 then
             PrintLog("state stateVSGWait: Got leading edge of trigger\n");
             tLastTrigger := tTrigger;
@@ -1071,7 +1071,7 @@ func IdleProcessing%()
     case iState% = stateVSGWaitConfirm% then
         
         ' Waiting for VSG to confirm it is ready. The downward side of the pulse is expected...
-        tTrigger := NextTime(ReadyChannel%, tLastTrigger, vTrigger);
+        tTrigger := View(DataWindow%).NextTime(ReadyChannel%, tLastTrigger, vTrigger);
         if tTrigger > tLastTrigger and vTrigger = 1 then
             PrintLog("state stateVSGWaitConfirm: Got trailing edge of trigger\n");
             tLastTrigger := tTrigger;
@@ -1105,7 +1105,7 @@ func IdleProcessing%()
         
         
     case iState% = stateWaitForFixPtOn% then
-        tTrigger := NextTime(FixationPointChannel%, tLast, vTrigger);
+        tTrigger := View(DataWindow%).NextTime(FixationPointChannel%, tLast, vTrigger);
         if tTrigger > tLast then
             ' Fixation point is up
             PrintLog("stateWaitForFixPtOn: signal received. " + str$(tTrigger) + "\n");
@@ -1172,7 +1172,7 @@ func IdleProcessing%()
         endcase
         
     case iState% = stateWaitForStimOn% then
-        tTrigger := NextTime(StimChannel%, tLast, vTrigger);
+        tTrigger := View(DataWindow%).NextTime(StimChannel%, tLast, vTrigger);
         if tTrigger > tLast and vTrigger = 0 then
             ' gratings et al are up
             PrintLog("stateWaitForStimOn: stim is up.\n");
@@ -1225,7 +1225,7 @@ func IdleProcessing%()
     case iState% = stateWaitForBlank% then
         
         ' we just wait for fix point off signal in this case. 
-        tTrigger := NextTime(FixationPointChannel%, tLast, vTrigger);
+        tTrigger := View(DataWindow%).NextTime(FixationPointChannel%, tLast, vTrigger);
         if tTrigger > tLast then
             ' Fixation point is off
             PrintLog("stateWaitForBlank: Fix pt is off.\n");
@@ -1528,7 +1528,7 @@ func IdleProcessing%()
     case iState% = stateTrialCompletedWaitForBlank% then
         
         ' we just wait for fix point off signal in this case. 
-        tTrigger := NextTime(FixationPointChannel%, tLast, vTrigger);
+        tTrigger := View(DataWindow%).NextTime(FixationPointChannel%, tLast, vTrigger);
         'tTrigger := NextTime(FrameTriggerChannel%, tLast, vTrigger);
         'if tTrigger > tLast and vTrigger = 1 then
         if tTrigger > tLast then
