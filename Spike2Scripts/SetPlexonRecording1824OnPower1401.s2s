@@ -144,6 +144,7 @@ func Stop%()
     
     
     fn$ := FileName$();  'get current file name
+    printlog("file name is %s\n",fn$);
     mylen% := Len(fn$);
     fn$ := Left$(fn$,mylen%-4);
     fn$ := fn$ + ".mat";

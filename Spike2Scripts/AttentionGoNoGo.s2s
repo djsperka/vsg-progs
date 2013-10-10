@@ -1,4 +1,4 @@
-' $Id: AttentionGoNoGo.s2s,v 1.25 2013-10-10 20:51:33 jeff Exp $
+' $Id: AttentionGoNoGo.s2s,v 1.26 2013-10-10 22:10:44 devel Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -1929,7 +1929,7 @@ proc CreateSampleConfiguration()
     if UsePlexon% = 0 then
         SampleAutoName$(dataCellName$ + "_atn_000");  'NOTE: maximum of 13 characters!!!
     else
-        EqualizeSMRFilenumbers(dataPathRoot$,"_atnMICRO_000","_atnPOWER_000");
+        EqualizeSMRFilenumbers(dataPathRoot$,dataCellName$+"_atnMICRO_000",dataCellName$+"_atnPOWER_000");
         SampleAutoName$(dataCellName$ + "_atnMICRO_000");  'NOTE: maximum of 13 characters!!!
         SetStringRegistryValue(key$, "pref", "atn");
     endif;
@@ -2092,6 +2092,7 @@ func Stop%()
     
     
     fn$ := FileName$();  'get current file name
+    printlog("file name is %s\n",fn$);
     mylen% := Len(fn$);
     fn$ := Left$(fn$,mylen%-4);
     fn$ := fn$ + ".mat";
@@ -2963,6 +2964,7 @@ case numMicro% > numPower% then
         FileOpen(pTemplate$+numMicro$+".smr",8,1);
         Print("Fake file");
         FileClose(0);  'Closes file that has been written
+        printlog("Wrote fake file %s\n",pTemplate$+numMicro$+".smr");
     else
         FileClose(0);  'Closes file that was opened that we didn't expect to find
         message("Something has gone wrong in Automatic File Naming!  Your filenames may not match up!");
@@ -2973,6 +2975,7 @@ case numPower% > numMicro% then
         FileOpen(mTemplate$+numPower$+".smr",8,1);
         Print("Fake file");
         FileClose(0);  'Closes file that has been written
+        printlog("Wrote fake file %s\n",mTemplate$+numPower$+".smr");
     else
         FileClose(0);  'Closes file that was opened that we didn't expect to find
         message("Something has gone wrong in Automatic File Naming!  Your filenames may not match up!");
