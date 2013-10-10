@@ -55,6 +55,20 @@ proc InitializeToolbar()
 	Window(0,48,100,95);
 	View(DataWindow%).WindowVisible(1);
     
+    'Get the name of the most recent .s2r resource file, if any, and determine whether we are to use it
+    var key$;
+    var fn$;
+    'var useSpikeTemplate%;  'not used
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\AttentionGNG";
+	Profile(key$, "powerS2Rfile", "x", fn$);
+    'Profile(key$, "useSpikeTemplate", 0, useSpikeTemplate%);  'not used
+    
+    'Apply the ,s2r resource file to the current data window, which will apply the spike shape templates
+    'if useSpikeTemplate% = 1 and fn$ <> "x" then  'now, not putting in a checkbox, Henry sayd let it load every time
+    if fn$ <> "x" then
+        FileApplyResource(fn$);
+    endif
+    
     
 	View(App(8)).WindowVisible(0);	'Hide the standard sample bar
 	ToolbarVisible(1);
@@ -135,6 +149,12 @@ func Stop%()
     fn$ := fn$ + ".mat";
     FileSaveAs(fn$,100,0,"",0,"UseSName=0"); 'Do not overwrite the .mat file - should have a different name and if it doesn't that is a red flag    
     
+    ' Save most recent .s2r file name to registry
+    fn$ := Left$(fn$,mylen%-4);
+    fn$ := fn$ + ".s2r";
+    var key$;
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\AttentionGNG";
+	Profile(key$, "powerS2Rfile", fn$);
     
 end;
 
