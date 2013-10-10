@@ -1,4 +1,4 @@
-' $Id: AttentionGoNoGo.s2s,v 1.24 2013-10-09 20:37:30 devel Exp $
+' $Id: AttentionGoNoGo.s2s,v 1.25 2013-10-10 20:51:33 jeff Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -165,7 +165,7 @@ var attOffBitsList%[attMaxTrl%];  'A list of which stimulus patches are off for 
 var thisContrast%;                 'for sampletexty stuff
 var FAIsResponse%;              'if 1, use "response abort", otherwise use regular abort
 var expectedAnswer%;            'keeps track of expected answer, saves a bunch of redundant code
-
+'var useSpikeTemplate%;          'not sure where to put it, allows us to load up the most recent spike template, not used
 
 'we need to explicitly know the position of the gratings to place the answer windows on the gratings
 var mainX;  'the main grating patch is expected to be the one located over the receptive field
@@ -520,8 +520,9 @@ func AttentionScriptDialog%()
             'if only one value is requested, this will crash GetLogProgression, so just do it manually
             attContrastList[0] := attContrastBase%*(pow(2,attMaxContChange));
             attContrastList[1] := attContrastBase%;  'for go/no-go, use the base, not a down contrast
-                        
-            message("Note that only one contrast level was requested, using MAX as actual value!");
+            
+            'Henry does not want this warning
+            'message("Note that only one contrast level was requested, using MAX as actual value!");
         endif;
         
         'get number of trials to run, which is hypothetical "max" number for both test trials and catch trials regardless of catch/test percentage
@@ -1759,9 +1760,22 @@ end
 proc InitializeWindows()
     
 	'Open the data sampling window
-	DataWindow% := FileNew(0,4);
+	DataWindow% := FileNew(0,4);  'show spike shape setup dialog
 	Window(0,48,100,95);
 	View(DataWindow%).WindowVisible(1);
+    
+    'Get the name of the most recent .s2r resource file, if any
+    var key$;
+    var fn$;
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\AttentionGNG";
+	Profile(key$, "microS2Rfile", "x", fn$);
+    
+    'Apply the ,s2r resource file to the current data window, which will apply the spike shape templates
+    'if useSpikeTemplate% = 1 and fn$ <> "x" then
+    if fn$ <> "x" then  'OK, Henry says no checkbox necessary, just load up every time 
+        FileApplyResource(fn$);
+    endif
+
     
 	'Open an XY view to display eye position
 	XYWindow% := FileNew(12);
@@ -1915,6 +1929,7 @@ proc CreateSampleConfiguration()
     if UsePlexon% = 0 then
         SampleAutoName$(dataCellName$ + "_atn_000");  'NOTE: maximum of 13 characters!!!
     else
+        EqualizeSMRFilenumbers(dataPathRoot$,"_atnMICRO_000","_atnPOWER_000");
         SampleAutoName$(dataCellName$ + "_atnMICRO_000");  'NOTE: maximum of 13 characters!!!
         SetStringRegistryValue(key$, "pref", "atn");
     endif;
@@ -2085,6 +2100,12 @@ func Stop%()
     ' Write parameter file
 	WriteParameterFile();
     
+    ' Save most recent .s2r file name to registry
+    fn$ := Left$(fn$,mylen%-4);
+    fn$ := fn$ + ".s2r";
+    var key$;
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\AttentionGNG";
+	Profile(key$, "microS2Rfile", fn$);
     
     ' update statistics
     'AttentionExtract%(-1, -1);
@@ -2887,4 +2908,108 @@ func ParseGratingParameters%(gr$, &x, &y, &w, &h, &iw, &ih, &contrast%, &sf, &tf
                        'there is currently no return scheme to indicate that phase is present
     endif;
     return status%;
+end
+
+
+
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+' EqualizeSMRFilenumbers(dataPath$,mTemplate$,pTemplate$)
+' 
+' A function that searches the data path for files with auto-naming conventions (i.e. 001-999)
+' created during Plexon recordings (one Micro file, one Power file) and, if the two 
+' highest-numbered files do not have the same number (e.g. if there was a record/save error),
+' will create a dummy file to equalize the numbers.  This will ensure that subsequent auto-naming
+' goes as planned.
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func EqualizeSMRFilenumbers(dataPath$,mTemplate$,pTemplate$)
+
+var oldDir$;
+var micro$;
+var power$;
+var ret%;
+var ret2%;
+var numMicro$;
+var numPower$;
+var numMicro%;
+var numPower%;
+var writeNum%;
+var check%;
+
+oldDir$ := FilePath$();  'Get currrent directory
+FilePathSet(dataPath$);  'move to data directory
+
+'get highest-numbered micro/power file names
+ret% := FileList(micro$,0,mTemplate$+"*");
+ret2% := FileList(power$,0,pTemplate$+"*");
+
+if ret% > 0 then
+    numMicro$ := HighestValue$(ret%,mTemplate$);
+    numMicro% := Val(numMicro$);  'This looks inefficient, but having numMicro$ as a string saves several lines later
+endif
+
+if ret2% > 0 then
+    numPower$ := HighestValue$(ret%,pTemplate$);
+    numPower% := Val(numPower$);
+endif
+
+printlog("micro = %d power = %d\n",numMicro%,numPower%);
+
+docase
+case numMicro% > numPower% then
+    check% := FileOpen(pTemplate$+numMicro$+".smr",8,0);  'check for existence
+    if check% < 0 then 'file does not exist, this is expected, create dummy file
+        FileOpen(pTemplate$+numMicro$+".smr",8,1);
+        Print("Fake file");
+        FileClose(0);  'Closes file that has been written
+    else
+        FileClose(0);  'Closes file that was opened that we didn't expect to find
+        message("Something has gone wrong in Automatic File Naming!  Your filenames may not match up!");
+    endif
+case numPower% > numMicro% then
+    check% := FileOpen(mTemplate$+numPower$+".smr",8,0);  'check for existence
+    if check% < 0 then 'file does not exist, this is expected, create dummy file
+        FileOpen(mTemplate$+numPower$+".smr",8,1);
+        Print("Fake file");
+        FileClose(0);  'Closes file that has been written
+    else
+        FileClose(0);  'Closes file that was opened that we didn't expect to find
+        message("Something has gone wrong in Automatic File Naming!  Your filenames may not match up!");
+    endif
+endcase
+
+FilePathSet(oldDir$);  'go back to where we started
+    
+end
+
+
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+' out$ = HighestValue$(nVals%,template$)
+' 
+' This is a subfunction for EqualizeSMRFilenumbers(), needed only because we don't know how many
+' files will be in the data directory, by calling a new function we can make the array to hold
+' the filenames the correct size (can't initialize an array to a variable, but CAN to an input
+' argument.  Go figure.
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func HighestValue$(nVals%,template$)
+    var myArray$[nVals%];
+    var out$;
+    var highest%;
+    var temp$;
+    var temp%;
+    var i%;
+    'Get the complete file list
+    FileList(myArray$[],0,Template$+"*");
+    for i% := 0 to nVals%-1 do
+        temp$ := Mid$(myArray$[i%],Len(template$)+1,3);
+        temp% := Val(temp$);
+        if temp% > highest% then
+            highest% := temp%;
+            out$ := temp$;
+        endif;
+    next
+    return out$;    
 end
