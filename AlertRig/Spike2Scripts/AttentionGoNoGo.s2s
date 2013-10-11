@@ -1,4 +1,4 @@
-' $Id: AttentionGoNoGo.s2s,v 1.26 2013-10-10 22:10:44 devel Exp $
+' $Id: AttentionGoNoGo.s2s,v 1.27 2013-10-11 18:50:58 devel Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -1761,6 +1761,7 @@ proc InitializeWindows()
     
 	'Open the data sampling window
 	DataWindow% := FileNew(0,4);  'show spike shape setup dialog
+    printlog("datawindow is %d\n",dataWindow%);
 	Window(0,48,100,95);
 	View(DataWindow%).WindowVisible(1);
     
@@ -1929,7 +1930,7 @@ proc CreateSampleConfiguration()
     if UsePlexon% = 0 then
         SampleAutoName$(dataCellName$ + "_atn_000");  'NOTE: maximum of 13 characters!!!
     else
-        EqualizeSMRFilenumbers(dataPathRoot$,dataCellName$+"_atnMICRO_000",dataCellName$+"_atnPOWER_000");
+        'EqualizeSMRFilenumbers(dataPathRoot$ + "\\" + dataDataSet$,dataCellName$+"_atnMICRO_",dataCellName$+"_atnPOWER_");
         SampleAutoName$(dataCellName$ + "_atnMICRO_000");  'NOTE: maximum of 13 characters!!!
         SetStringRegistryValue(key$, "pref", "atn");
     endif;
@@ -2927,8 +2928,8 @@ end
 func EqualizeSMRFilenumbers(dataPath$,mTemplate$,pTemplate$)
 
 var oldDir$;
-var micro$;
-var power$;
+var micro$[2];
+var power$[2];
 var ret%;
 var ret2%;
 var numMicro$;
@@ -2936,52 +2937,92 @@ var numPower$;
 var numMicro%;
 var numPower%;
 var writeNum%;
+var maxNum%;
+var thisNum$;
 var check%;
+var i%;
 
 oldDir$ := FilePath$();  'Get currrent directory
 FilePathSet(dataPath$);  'move to data directory
-
+    
+    
 'get highest-numbered micro/power file names
-ret% := FileList(micro$,0,mTemplate$+"*");
-ret2% := FileList(power$,0,pTemplate$+"*");
+ret% := FileList(micro$[],0,mTemplate$+"*");
+ret2% := FileList(power$[],0,pTemplate$+"*");
 
+    
 if ret% > 0 then
     numMicro$ := HighestValue$(ret%,mTemplate$);
     numMicro% := Val(numMicro$);  'This looks inefficient, but having numMicro$ as a string saves several lines later
 endif
 
 if ret2% > 0 then
-    numPower$ := HighestValue$(ret%,pTemplate$);
+    numPower$ := HighestValue$(ret2%,pTemplate$);
     numPower% := Val(numPower$);
 endif
 
-printlog("micro = %d power = %d\n",numMicro%,numPower%);
-
-docase
-case numMicro% > numPower% then
-    check% := FileOpen(pTemplate$+numMicro$+".smr",8,0);  'check for existence
-    if check% < 0 then 'file does not exist, this is expected, create dummy file
-        FileOpen(pTemplate$+numMicro$+".smr",8,1);
+'printlog("micro = %d power = %d\n",numMicro%,numPower%);
+    
+'docase
+'case numMicro% > numPower% then
+'    check% := FileOpen(pTemplate$+numMicro$+".smr",8,0);  'check for existence
+'    if check% < 0 then 'file does not exist, this is expected, create dummy file
+'        FileOpen(pTemplate$+numMicro$+".smr",8,1);
+'        Print("Fake file");
+'        FileClose(0);  'Closes file that has been written
+'        printlog("Wrote fake file %s\n",pTemplate$+numMicro$+".smr");
+'    else
+'        FileClose(0);  'Closes file that was opened that we didn't expect to find
+'        message("Something has gone wrong in Automatic File Naming!  Your filenames may not match up!");
+'    endif
+'case numPower% > numMicro% then
+'    check% := FileOpen(mTemplate$+numPower$+".smr",8,0);  'check for existence
+'    if check% < 0 then 'file does not exist, this is expected, create dummy file
+'        FileOpen(mTemplate$+numPower$+".smr",8,1);
+'        Print("Fake file");
+'        FileClose(0);  'Closes file that has been written
+'        printlog("Wrote fake file %s\n",mTemplate$+numPower$+".smr");
+'    else
+'        FileClose(0);  'Closes file that was opened that we didn't expect to find
+'        message("Something has gone wrong in Automatic File Naming!  Your filenames may not match up!");
+'    endif
+'endcase
+    
+if numMicro% > numPower% then
+    maxNum% := numMicro%;
+else
+    maxNum% := numPower%;
+endif;
+    
+for i% := 0 to maxNum% do
+    docase
+    case i% < 10 then
+        thisNum$ := "00" + str$(i%);
+    case i% < 100 then
+        thisNum$ := "0" + str$(i%);
+    else
+        thisNum$ := str$(i%);
+    endcase
+        
+    check% := FileOpen(pTemplate$+thisNum$+".smr",8,0);  'check for existence of power file
+    if check% < 0 then 'file does not exist, create dummy file
+        FileOpen(pTemplate$+thisNum$+".smr",8,1);
         Print("Fake file");
         FileClose(0);  'Closes file that has been written
-        printlog("Wrote fake file %s\n",pTemplate$+numMicro$+".smr");
-    else
-        FileClose(0);  'Closes file that was opened that we didn't expect to find
-        message("Something has gone wrong in Automatic File Naming!  Your filenames may not match up!");
+        printlog("Wrote fake file %s\n",pTemplate$+thisNum$+".smr");
     endif
-case numPower% > numMicro% then
-    check% := FileOpen(mTemplate$+numPower$+".smr",8,0);  'check for existence
-    if check% < 0 then 'file does not exist, this is expected, create dummy file
-        FileOpen(mTemplate$+numPower$+".smr",8,1);
+    check% := FileOpen(mTemplate$+thisNum$+".smr",8,0);  'check for existence of micro file
+    if check% < 0 then 'file does not exist, create dummy file
+        FileOpen(mTemplate$+thisNum$+".smr",8,1);
         Print("Fake file");
         FileClose(0);  'Closes file that has been written
-        printlog("Wrote fake file %s\n",mTemplate$+numPower$+".smr");
-    else
-        FileClose(0);  'Closes file that was opened that we didn't expect to find
-        message("Something has gone wrong in Automatic File Naming!  Your filenames may not match up!");
+        printlog("Wrote fake file %s\n",mTemplate$+thisNum$+".smr");
     endif
-endcase
-
+        
+next;
+    
+    
+    
 FilePathSet(oldDir$);  'go back to where we started
     
 end
@@ -3005,7 +3046,7 @@ func HighestValue$(nVals%,template$)
     var temp%;
     var i%;
     'Get the complete file list
-    FileList(myArray$[],0,Template$+"*");
+    FileList(myArray$[],0,template$+"*");
     for i% := 0 to nVals%-1 do
         temp$ := Mid$(myArray$[i%],Len(template$)+1,3);
         temp% := Val(temp$);
