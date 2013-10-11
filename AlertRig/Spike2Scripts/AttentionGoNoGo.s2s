@@ -1,4 +1,4 @@
-' $Id: AttentionGoNoGo.s2s,v 1.27 2013-10-11 18:50:58 devel Exp $
+' $Id: AttentionGoNoGo.s2s,v 1.28 2013-10-11 21:35:36 jeff Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -1930,7 +1930,7 @@ proc CreateSampleConfiguration()
     if UsePlexon% = 0 then
         SampleAutoName$(dataCellName$ + "_atn_000");  'NOTE: maximum of 13 characters!!!
     else
-        'EqualizeSMRFilenumbers(dataPathRoot$ + "\\" + dataDataSet$,dataCellName$+"_atnMICRO_",dataCellName$+"_atnPOWER_");
+        EqualizeSMRFilenumbers(dataPathRoot$ + "\\" + dataDataSet$,dataCellName$+"_atnMICRO_",dataCellName$+"_atnPOWER_");
         SampleAutoName$(dataCellName$ + "_atnMICRO_000");  'NOTE: maximum of 13 characters!!!
         SetStringRegistryValue(key$, "pref", "atn");
     endif;
@@ -3009,7 +3009,9 @@ for i% := 0 to maxNum% do
         FileOpen(pTemplate$+thisNum$+".smr",8,1);
         Print("Fake file");
         FileClose(0);  'Closes file that has been written
-        printlog("Wrote fake file %s\n",pTemplate$+thisNum$+".smr");
+            printlog("Wrote fake file %s\n",pTemplate$+thisNum$+".smr");
+    else
+        FileClose(0);  'if the file exists, just close the file
     endif
     check% := FileOpen(mTemplate$+thisNum$+".smr",8,0);  'check for existence of micro file
     if check% < 0 then 'file does not exist, create dummy file
@@ -3017,6 +3019,8 @@ for i% := 0 to maxNum% do
         Print("Fake file");
         FileClose(0);  'Closes file that has been written
         printlog("Wrote fake file %s\n",mTemplate$+thisNum$+".smr");
+    else
+        FileClose(0);  'if the file exists, just close the file
     endif
         
 next;
