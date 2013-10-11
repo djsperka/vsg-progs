@@ -1,4 +1,4 @@
-' $Id: TuningDialogs.s2s,v 1.17 2013-09-12 22:09:42 devel Exp $
+' $Id: TuningDialogs.s2s,v 1.18 2013-10-11 21:36:37 jeff Exp $
 '
 ' This file contains dialog functions for the alert tuning script Tuning.s2s.
 #include "../../Spike2Util/UsreyUtil.s2s"
@@ -209,6 +209,7 @@ var tunMaintainFailTime := 2.0;	' Wait time after breaking fixation during maint
 var tunStdInterTrialTime := 2.0;    'Standard intertrial time
 var tunDoRivalry% := 0;          ' If checked, run for the rivalry rig
 var tunDoF12% := 1;                 ' compute f1 and f2. 
+var tunDoTuningHist% := 1;          'do tuning histograms?
 var tunSetStationary% := 0;         'do stationary?
 var tunXHairText$;                  'holds whether crosshairs are on or off
 var updateXHairText%;             'Gets the item number of a DlgText object for update
@@ -2039,7 +2040,8 @@ proc GetTuningCurveScriptParameters()
     tunXHairTicOuterOffset := GetFloatRegistryValue(key$, "XHairTicOuterOffset", tunXHairTicOuterOffset);
     tunXHairNumGridDivisions% := GetIntRegistryValue%(key$, "XHairNumGridDivisions", tunXHairNumGridDivisions%);
     tunButtonCollect% := GetIntRegistryValue%(key$, "ButtonCollect", tunButtonCollect%);
-    
+    tunDoTuningHist% := GetIntRegistryValue%(key$, "DoTuningHist", tunDoTuningHist%);
+     
 end;
 
 proc SaveTuningCurveScriptParameters()
@@ -2065,6 +2067,8 @@ proc SaveTuningCurveScriptParameters()
     SetFloatRegistryValue(key$, "XHairTicOuterOffset", tunXHairTicOuterOffset);
     SetIntRegistryValue(key$, "XHairNumGridDivisions", tunXHairNumGridDivisions%);
     SetIntRegistryValue(key$, "ButtonCollect", tunButtonCollect%);
+    SetIntRegistryValue(key$, "DoTuningHist", tunDoTuningHist%);
+
     PrintLog("Saved DoRivalry=%d\n", tunDoRivalry%);
 end;
 
@@ -2139,7 +2143,8 @@ func TuningCurveScriptDialog%()
     
     DlgCheck(13, "Maintain Fixpt between trials", 2, 14);
     DlgCheck(14, "Stationary",2,15);
-    DlgCheck(15, "Use Rivalry Button", 35,15);
+    DlgCheck(15, "Make Histograms", 35,14);
+    DlgCheck(16, "Use Rivalry Button", 35,15);
     DlgButton(tundlgXHairButton%, " Crosshairs  ", UpdateTuningXHairDialog%, 1, 16);
     updateXHairText% := DlgText(tunXHairText$, 15, 16);
 	DlgGroup("Individual Tuning Curve Types", 1, 17, 52, 5);
@@ -2161,12 +2166,12 @@ func TuningCurveScriptDialog%()
         i%:=DlgShow(tunAcquisitionTime, tunAcqFailTime, tunFixationDuration, tunHoldFailTime, 
         tunStdInterTrialTime, tunMaintainFixation, tunMaintainFailTime,
         ibcl%, JuiceRewardMS%, tunDoRivalry%, tunNoCardSync%, 
-        tunDualTuningType%, tunUseMaintainMode%, tunSetStationary%, tunButtonCollect%);
+        tunDualTuningType%, tunUseMaintainMode%, tunSetStationary%, tunDoTuningHist%, tunButtonCollect%);
     else
         i%:=DlgShow(tunAcquisitionTime, tunAcqFailTime, tunFixationDuration, tunHoldFailTime, 
         tunStdInterTrialTime, tunMaintainFixation, tunMaintainFailTime, 
         ibcl%, JuicePerReward%, tunDoRivalry%, tunNoCardSync%, 
-        tunDualTuningType%, tunUseMaintainMode%, tunSetStationary%, tunButtonCollect%);
+        tunDualTuningType%, tunUseMaintainMode%, tunSetStationary%, tunDoTuningHist%, tunButtonCollect%);
     endif;
     
     

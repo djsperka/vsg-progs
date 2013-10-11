@@ -1,7 +1,7 @@
-' $Id: Tuning.s2s,v 1.70 2013-09-12 22:06:33 devel Exp $
+' $Id: Tuning.s2s,v 1.71 2013-10-11 21:36:37 jeff Exp $
 ' Update 11/8/11 Jeff, includes multi-juicer updates
 
-const tunCVSID$ := "$Id: Tuning.s2s,v 1.70 2013-09-12 22:06:33 devel Exp $";
+const tunCVSID$ := "$Id: Tuning.s2s,v 1.71 2013-10-11 21:36:37 jeff Exp $";
 
 
 
@@ -443,19 +443,22 @@ func IdleProcessing%()
                 DefaultReward();
                 
                 ' Process Spikes
-                docase
-                case TunType$ = tunTypeBoxODonuts$ then
-                    GetPlotXYCoord(nTrialsCompleted%,xval,yval,xind%,yind%);  'fill xval, yval
-                    PlotSpikes2TunCurves(tStimOn, tNow, 1, xval, yind%);
-                case TunType$ = tunTypeCRG$ then
-                    GetPlotXYCoord(nTrialsCompleted%,xval,yval,xind%,yind%);  'fill xval, yval
-                    PlotSpikes(tStimOn, tNow, 1, yval, nTrialsCompleted%);  'yes, yval
-                case TunType$ = tunTypeXYPos$ then
-                    GetPlotXYCoord(nTrialsCompleted%,xval,yval,xind%,yind%);  'fill xval, yval
-                    PlotDots(tStimOn, tNow, xind%, yind%); 
-                else
-                    PlotSpikes(tStimOn, tNow, 1, GetPlotXCoord(nTrialsCompleted%), nTrialsCompleted%);
-                endcase;                
+                if tunDoTuningHist% = 1 then
+                    docase
+                    case TunType$ = tunTypeBoxODonuts$ then
+                        GetPlotXYCoord(nTrialsCompleted%,xval,yval,xind%,yind%);  'fill xval, yval
+                        PlotSpikes2TunCurves(tStimOn, tNow, 1, xval, yind%);
+                    case TunType$ = tunTypeCRG$ then
+                        GetPlotXYCoord(nTrialsCompleted%,xval,yval,xind%,yind%);  'fill xval, yval
+                        PlotSpikes(tStimOn, tNow, 1, yval, nTrialsCompleted%);  'yes, yval
+                    case TunType$ = tunTypeXYPos$ then
+                        GetPlotXYCoord(nTrialsCompleted%,xval,yval,xind%,yind%);  'fill xval, yval
+                        PlotDots(tStimOn, tNow, xind%, yind%); 
+                    else
+                        PlotSpikes(tStimOn, tNow, 1, GetPlotXCoord(nTrialsCompleted%), nTrialsCompleted%);
+                    endcase; 
+                endif;
+                
 
                 ' Now wait until stim is off
                 ChangeStateTo(stateWaitForStimOff%, tNow);
@@ -747,29 +750,32 @@ proc InitializeWindows()
     XRange(0, 30);
 	View(DataWindow%).WindowVisible(1);
     
-	' open xy window to display tuning results    
-    if tunNWavemarks% > 0 then
-        WindowStep := 100/tunNWavemarks%;
-    endif
-    for i% := 0 to tunNWavemarks%-1 do
-        TuningWindow%[i%] := FileNew(12);
-        Window(50, i%*WindowStep, 100, (i%+1)*WindowStep);
-        ChanTitle$(0, "Spikes/s");
-        TuningCurveLabels(tunWavemarkPorts%[i%]);
-        WindowVisible(1);
-        
-        ' Create psth window if f1 and f2 analysis needed
-        if tunDoF12% = 1 then
+	' open xy window to display tuning results
+    if tunDoTuningHist% = 1 then
+        if tunNWavemarks% > 0 then
+            WindowStep := 100/tunNWavemarks%;
+        endif
+        for i% := 0 to tunNWavemarks%-1 do
+            TuningWindow%[i%] := FileNew(12);
+            Window(50, i%*WindowStep, 100, (i%+1)*WindowStep);
+            ChanTitle$(0, "Spikes/s");
+            TuningCurveLabels(tunWavemarkPorts%[i%]);
+            WindowVisible(1);
             
-            ch1% := View(TuningWindow%[i%]).XYSetChan(0);   ' Used to plot f1
-            XYColour(ch1%, 25);
-            ch2% := View(TuningWindow%[i%]).XYSetChan(0);   ' used to plot f2
-            XYColour(ch2%, 30);
-            LogStatus("InitializeWindows", "Channel " + str$(i%+1) + " " + str$(ch1%) + " " + str$(ch2%));
-            PSTHWindow%[i%] := View(DataWindow%).SetPSTH(i%+1, 16, 1 /(tunTF*16), 0, 0, 3);
-            View(PSTHWindow%[i%]).WindowVisible(0);
-        endif        
-    next
+            ' Create psth window if f1 and f2 analysis needed
+            if tunDoF12% = 1 then
+                
+                ch1% := View(TuningWindow%[i%]).XYSetChan(0);   ' Used to plot f1
+                XYColour(ch1%, 25);
+                ch2% := View(TuningWindow%[i%]).XYSetChan(0);   ' used to plot f2
+                XYColour(ch2%, 30);
+                LogStatus("InitializeWindows", "Channel " + str$(i%+1) + " " + str$(ch1%) + " " + str$(ch2%));
+                PSTHWindow%[i%] := View(DataWindow%).SetPSTH(i%+1, 16, 1 /(tunTF*16), 0, 0, 3);
+                View(PSTHWindow%[i%]).WindowVisible(0);
+            endif        
+        next
+    endif;
+    
 
 	'Open an XY view to display eye position
 	XYWindow% := FileNew(12);
