@@ -1,4 +1,4 @@
-' $Id: AttentionGoNoGo.s2s,v 1.29 2013-10-11 22:58:28 devel Exp $
+' $Id: AttentionGoNoGo.s2s,v 1.30 2013-10-14 19:20:23 devel Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -1933,7 +1933,7 @@ proc CreateSampleConfiguration()
     if UsePlexon% = 0 then
         SampleAutoName$(dataCellName$ + "_atn_000");  'NOTE: maximum of 13 characters!!!
     else
-        'EqualizeSMRFilenumbers(dataPathRoot$ + "\\" + dataDataSet$,dataCellName$+"_atnMICRO_",dataCellName$+"_atnPOWER_");
+        EqualizeSMRFilenumbers(dataPathRoot$ + "\\" + dataDataSet$,dataCellName$+"_atnMICRO_",dataCellName$+"_atnPOWER_");
         SampleAutoName$(dataCellName$ + "_atnMICRO_000");  'NOTE: maximum of 13 characters!!!
         SetStringRegistryValue(key$, "pref", "atn");
     endif;
@@ -2136,6 +2136,13 @@ func StartPlexon%()
     fp2$ := FilePath$();  'read out to allow verification
     printlog("%s\n",fp2$);  'by telling the world about it (hint: it works)
     
+    'These two functions are not done before initializing the toolbar in dual-1401 mode
+    'Must run this BEFORE the PROGRUN command, because both this sequence AND SetPlexon...
+    'access the same directory, and this was causing conflicts because they were running
+    'simultaneously.  Here, CreateSampleConfiguration is done accessing the directory before
+    'SetPlexon... is started, and everything is kosher.
+    CreateSampleConfiguration();
+    
     progrun("sonview.exe /M /u2 SetPlexonRecording1824OnPower1401.s2s");  'run the program, .s2s file is now on default path by design
     
     FilePathSet(fp$);  'change the file path back to what it was
@@ -2147,7 +2154,7 @@ func StartPlexon%()
     
     
     'These two functions are not done before initializing the toolbar in dual-1401 mode
-    CreateSampleConfiguration();
+    'CreateSampleConfiguration();
 
     ' Get display windows ready
     InitializeWindows();    
@@ -2950,7 +2957,7 @@ var i%;
 
 oldDir$ := FilePath$();  'Get currrent directory
 FilePathSet(dataPath$);  'move to data directory
-
+printlog("Old dir is %s, current dir is %s, supposed to go to %s\n",oldDir$,FilePath$(),dataPath$);
     
 'get highest-numbered micro/power file names
 ret% := FileList(micro$,0,mTemplate$+"*");
@@ -2958,12 +2965,14 @@ ret2% := FileList(power$,0,pTemplate$+"*");
 
     
 if ret% > 0 then
-    numMicro$ := HighestValue$(ret%,mTemplate$);
+    'numMicro$ := HighestValue$(ret%,mTemplate$);
+    HighestValue(ret%,mTemplate$,numMicro$);
     numMicro% := Val(numMicro$);  'This looks inefficient, but having numMicro$ as a string saves several lines later
 endif
 
 if ret2% > 0 then
-    numPower$ := HighestValue$(ret2%,pTemplate$);
+    'numPower$ := HighestValue$(ret2%,pTemplate$);
+    HighestValue(ret%,mTemplate$,numPower$);
     numPower% := Val(numPower$);
 endif
 
@@ -2979,7 +2988,7 @@ endif;
     
 printlog("MaxNum is %d\n",mymaxNum%);  
     
-mymaxNum% := 3; 
+'mymaxNum% := 3; 'testing
     
 for i% := 0 to mymaxNum% do
     docase
@@ -3029,9 +3038,9 @@ end
 ' the filenames the correct size (can't initialize an array to a variable, but CAN to an input
 ' argument.  Go figure.
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-func HighestValue$(nVals%,template$)
+proc HighestValue(nVals%,template$,&myout$)
     var myArray$[nVals%];
-    var myout$;
+    'var myout$;
     var highest%;
     var temp$;
     var temp%;
@@ -3040,14 +3049,14 @@ func HighestValue$(nVals%,template$)
     'Get the complete file list
     h% := FileList(myArray$[],0,template$+"*");
     printlog("How many is %d\n",h%);
-'    for i% := 0 to nVals%-1 do
-'        temp$ := Mid$(myArray$[i%],Len(template$)+1,3);
-'        temp% := Val(temp$);
-'        if temp% > highest% then
-'            highest% := temp%;
-'            myout$ := temp$;
-'        endif;
-'    next
-    return myout$;      
+    for i% := 0 to nVals%-1 do
+        temp$ := Mid$(myArray$[i%],Len(template$)+1,3);
+        temp% := Val(temp$);
+        if temp% > highest% then
+            highest% := temp%;
+            myout$ := temp$;
+        endif;
+    next
+    'return myout$;      
 end
 
