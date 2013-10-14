@@ -1,7 +1,7 @@
-' $Id: Tuning.s2s,v 1.72 2013-10-11 22:58:10 devel Exp $
+' $Id: Tuning.s2s,v 1.73 2013-10-14 21:50:31 jeff Exp $
 ' Update 11/8/11 Jeff, includes multi-juicer updates
 
-const tunCVSID$ := "$Id: Tuning.s2s,v 1.72 2013-10-11 22:58:10 devel Exp $";
+const tunCVSID$ := "$Id: Tuning.s2s,v 1.73 2013-10-14 21:50:31 jeff Exp $";
 
 
 
@@ -520,7 +520,7 @@ func IdleProcessing%()
                 endif;
                 
                 docase
-                case TunType$ = tunTypeBoxODonuts$ or TunType$ = tunTypeCRG$ then
+                case TunType$ = tunTypeBoxODonuts$ or TunType$ = tunTypeCRG$ or TunType$ = tunTypeXYPos$ then
                     GetPlotXYCoord(nTrialsCompleted%,xval,yval,xind%,yind%);  'fill xval, yval
                     SampleText("T," + str$(xval) + ",T2," + str$(yval));  'Just a guess at what will work
                 else
@@ -638,7 +638,7 @@ proc PlotDots(t1,t2,xind%,yind%)
         printlog("Dotsize is %f\n",XYDotSize%);
         for j% := 0 to tunXYPosNXSteps% do
             for k% := 0 to tunXYPosNYSteps% do
-               ' View(TuningWindow%[i%]).XYDrawMode(count%+1,2,XYDotSize%[count%-1]);  'set size of dots to proper size, I'm not sure why channel has to be count+1...?
+                View(TuningWindow%[i%]).XYDrawMode(count%+1,2,XYDotSize%[count%-1]);  'set size of dots to proper size, I'm not sure why channel has to be count+1...?
                 count% += 1;
             next;
         next;
@@ -749,22 +749,6 @@ proc InitializeWindows()
 	Window(0,48,50,95);
     XRange(0, 30);
 	View(DataWindow%).WindowVisible(1);
-    
-    'Get the name of the most recent .s2r resource file, if any, only if using Plexon
-    if UsePlexon% = 1 then
-        var key$;
-        var fn$;
-        key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\AttentionGNG";
-        Profile(key$, "microS2Rfile", "x", fn$);
-        
-        'Apply the ,s2r resource file to the current data window, which will apply the spike shape templates
-        'if useSpikeTemplate% = 1 and fn$ <> "x" then
-        if fn$ <> "x" then  'OK, Henry says no checkbox necessary, just load up every time 
-            FileApplyResource(fn$);
-        endif
-    endif;
-    
-    
     
 	' open xy window to display tuning results
     if tunDoTuningHist% = 1 then
@@ -1503,16 +1487,6 @@ func Stop%()
 	TotalTrials% += nTrialsStarted%;
 	TotalRewards% += nTrialsCompleted%;
 	SaveDailyTotals();
-    
-    if UsePlexon% = 1 then
-        ' Save most recent .s2r file name to registry...this currently looks in the AttentionGNG folder
-        fn$ := Left$(fn$,mylen%-4);
-        fn$ := fn$ + ".s2r";
-        var key$;
-        key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\AttentionGNG";
-        Profile(key$, "microS2Rfile", fn$);
-    endif;
-    
     
     ' Figure out max F1 values
     if tunDoF12% = 1 then
