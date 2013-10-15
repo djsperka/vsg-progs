@@ -1,7 +1,7 @@
-' $Id: Tuning.s2s,v 1.73 2013-10-14 21:50:31 jeff Exp $
+' $Id: Tuning.s2s,v 1.74 2013-10-15 19:56:04 jeff Exp $
 ' Update 11/8/11 Jeff, includes multi-juicer updates
 
-const tunCVSID$ := "$Id: Tuning.s2s,v 1.73 2013-10-14 21:50:31 jeff Exp $";
+const tunCVSID$ := "$Id: Tuning.s2s,v 1.74 2013-10-15 19:56:04 jeff Exp $";
 
 
 
@@ -1009,6 +1009,7 @@ proc CreateSampleConfiguration()
         if UsePlexon% = 0 then
             SampleAutoName$(dataCellName$ + "_dots_000");  'NOTE: maximum of 13 characters!!!
         else
+            EqualizeSMRFilenumbers(dataPathRoot$ + "\\" + dataDataSet$,dataCellName$+"_dotMICRO_",dataCellName$+"_dotPOWER_");
             SampleAutoName$(dataCellName$ + "_dotMICRO_000");  'NOTE: maximum of 13 characters!!!
             SetStringRegistryValue(key$, "pref", "dot");
         endif;
@@ -1022,6 +1023,7 @@ proc CreateSampleConfiguration()
         if UsePlexon% = 0 then
             SampleAutoName$(dataCellName$ + "_con_000");  'NOTE: maximum of 13 characters!!!
         else
+            EqualizeSMRFilenumbers(dataPathRoot$ + "\\" + dataDataSet$,dataCellName$+"_conMICRO_",dataCellName$+"_conPOWER_");
             SampleAutoName$(dataCellName$ + "_conMICRO_000");  'NOTE: maximum of 13 characters!!!
             SetStringRegistryValue(key$, "pref", "con");
         endif;
@@ -1035,6 +1037,7 @@ proc CreateSampleConfiguration()
         if UsePlexon% = 0 then
             SampleAutoName$(dataCellName$ + "_ori_000");  'NOTE: maximum of 13 characters!!!
         else
+            EqualizeSMRFilenumbers(dataPathRoot$ + "\\" + dataDataSet$,dataCellName$+"_oriMICRO_",dataCellName$+"_oriPOWER_");
             SampleAutoName$(dataCellName$ + "_oriMICRO_000");  'NOTE: maximum of 13 characters!!!
             SetStringRegistryValue(key$, "pref", "ori");
         endif;
@@ -1048,6 +1051,7 @@ proc CreateSampleConfiguration()
         if UsePlexon% = 0 then
             SampleAutoName$(dataCellName$ + "_spa_000");  'NOTE: maximum of 13 characters!!!
         else
+            EqualizeSMRFilenumbers(dataPathRoot$ + "\\" + dataDataSet$,dataCellName$+"_spaMICRO_",dataCellName$+"_spaPOWER_");
             SampleAutoName$(dataCellName$ + "_spaMICRO_000");  'NOTE: maximum of 13 characters!!!
             SetStringRegistryValue(key$, "pref", "spa");
         endif;
@@ -1061,6 +1065,7 @@ proc CreateSampleConfiguration()
         if UsePlexon% = 0 then
             SampleAutoName$(dataCellName$ + "_tem_000");  'NOTE: maximum of 13 characters!!!
         else
+            EqualizeSMRFilenumbers(dataPathRoot$ + "\\" + dataDataSet$,dataCellName$+"_temMICRO_",dataCellName$+"_temPOWER_");
             SampleAutoName$(dataCellName$ + "_temMICRO_000");  'NOTE: maximum of 13 characters!!!
             SetStringRegistryValue(key$, "pref", "tem");
         endif;
@@ -1074,6 +1079,7 @@ proc CreateSampleConfiguration()
         if UsePlexon% = 0 then
             SampleAutoName$(dataCellName$ + "_area_000");  'NOTE: maximum of 13 characters!!!
         else
+            EqualizeSMRFilenumbers(dataPathRoot$ + "\\" + dataDataSet$,dataCellName$+"_areMICRO_",dataCellName$+"_arePOWER_");
             SampleAutoName$(dataCellName$ + "_areMICRO_000");  'NOTE: maximum of 13 characters!!!
             SetStringRegistryValue(key$, "pref", "are");
         endif;
@@ -1087,6 +1093,7 @@ proc CreateSampleConfiguration()
         if UsePlexon% = 0 then
             SampleAutoName$(dataCellName$ + "_xpos_000");  'NOTE: maximum of 13 characters!!!
         else
+            EqualizeSMRFilenumbers(dataPathRoot$ + "\\" + dataDataSet$,dataCellName$+"_xpsMICRO_",dataCellName$+"_xpsPOWER_");
             SampleAutoName$(dataCellName$ + "_xpsMICRO_000");  'NOTE: maximum of 13 characters!!!
             SetStringRegistryValue(key$, "pref", "xps");
         endif;
@@ -1100,6 +1107,7 @@ proc CreateSampleConfiguration()
         if UsePlexon% = 0 then
             SampleAutoName$(dataCellName$ + "_xypos_000");  'NOTE: maximum of 13 characters!!!
         else
+            EqualizeSMRFilenumbers(dataPathRoot$ + "\\" + dataDataSet$,dataCellName$+"_xypMICRO_",dataCellName$+"_xypPOWER_");
             SampleAutoName$(dataCellName$ + "_xypMICRO_000");  'NOTE: maximum of 13 characters!!!
             SetStringRegistryValue(key$, "pref", "xyp");
         endif;
@@ -1142,6 +1150,7 @@ proc CreateSampleConfiguration()
         if UsePlexon% = 0 then
             SampleAutoName$(dataCellName$ + "_disprity_000");  'NOTE: maximum of 13 characters!!!
         else
+            EqualizeSMRFilenumbers(dataPathRoot$ + "\\" + dataDataSet$,dataCellName$+"_disMICRO_",dataCellName$+"_disPOWER_");
             SampleAutoName$(dataCellName$ + "_disMICRO_000");  'NOTE: maximum of 13 characters!!!
             SetStringRegistryValue(key$, "pref", "dis");
         endif;
@@ -1156,6 +1165,7 @@ proc CreateSampleConfiguration()
         if UsePlexon% = 0 then
             SampleAutoName$(dataCellName$ + "_donut_000");  'NOTE: maximum of 13 characters!!!
         else
+            EqualizeSMRFilenumbers(dataPathRoot$ + "\\" + dataDataSet$,dataCellName$+"_donMICRO_",dataCellName$+"_donPOWER_");
             SampleAutoName$(dataCellName$ + "_donMICRO_000");  'NOTE: maximum of 13 characters!!!
             SetStringRegistryValue(key$, "pref", "don");
         endif;
@@ -1173,6 +1183,7 @@ proc CreateSampleConfiguration()
         if UsePlexon% = 0 then
             SampleAutoName$(dataCellName$ + "_berliner_000");  'NOTE: maximum of 13 characters!!!
         else
+            EqualizeSMRFilenumbers(dataPathRoot$ + "\\" + dataDataSet$,dataCellName$+"_berMICRO_",dataCellName$+"_berPOWER_");
             SampleAutoName$(dataCellName$ + "_berMICRO_000");  'NOTE: maximum of 13 characters!!!
             SetStringRegistryValue(key$, "pref", "ber");
         endif;
@@ -1243,6 +1254,7 @@ proc CreateSampleConfiguration()
         if UsePlexon% = 0 then
             SampleAutoName$(dataCellName$ + "_boxodonuts" + temp1$ + temp2$ + "_000");  'NOTE: maximum of 13 characters!!!
         else
+            EqualizeSMRFilenumbers(dataPathRoot$ + "\\" + dataDataSet$,dataCellName$+"_boxodonuts" + temp1$ + temp2$ + "MICRO_",dataCellName$+"_boxodonuts" + temp1$ + temp2$ + "POWER_");  
             SampleAutoName$(dataCellName$ + "_boxodonuts" + temp1$ + temp2$ + "MICRO_000");  'NOTE: maximum of 13 characters!!!
             SetStringRegistryValue(key$, "pref", "_boxodonuts" + temp1$ + temp2$);  'this is too long and shouldn't work, but it's always been like this and Ben hasn't complained...
         endif;
@@ -1898,6 +1910,12 @@ func StartPlexon%()
     fp2$ := FilePath$();  'read out to allow verification
     printlog("%s\n",fp2$);  'by telling the world about it (hint: it works)
     
+    'Must run this BEFORE the PROGRUN command, because both this sequence AND SetPlexon...
+    'access the same directory, and this was causing conflicts because they were running
+    'simultaneously.  Here, CreateSampleConfiguration is done accessing the directory before
+    'SetPlexon... is started, and everything is kosher.
+    CreateSampleConfiguration();    
+    
     progrun("sonview.exe /M /u2 SetPlexonRecording1824OnPower1401.s2s");  'run the program, .s2s file is now on default path by design
     
     FilePathSet(fp$);  'change the file path back to what it was
@@ -1906,10 +1924,6 @@ func StartPlexon%()
     
     ToolbarSet(1,"Start SECOND",Start%);  'change button 1 on the toolbar, this may not work
     
-    
-    
-    'These two functions are not done before initializing the toolbar in dual-1401 mode
-    CreateSampleConfiguration();
 
     ' Get display windows ready
     InitializeWindows();    
