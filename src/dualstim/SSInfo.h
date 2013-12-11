@@ -15,6 +15,7 @@ private:
 	vector<double> m_coreXY;
 	vector<double> m_donutXY;
 	bool m_bCoreIsMaster;
+	bool m_bDanish;
 	double m_t2, m_t3;
 	int m_cbase;
 	vector<double> m_vecT1;
@@ -29,11 +30,12 @@ private:
 	int m_iCSameAnswerPointContrast;
 	double m_tAnswerPoint;
 public:
-	SSInfo() {};
+	SSInfo() : m_bDanish(false) {};
 	SSInfo(const SSInfo& ss) : 
 			m_coreGrating(ss.m_coreGrating), 
 			m_donutGrating(ss.m_donutGrating), 
 			m_coreXY(ss.m_coreXY), m_donutXY(ss.m_donutXY),
+			m_bCoreIsMaster(ss.m_bCoreIsMaster), m_bDanish(ss.m_bDanish),
 			m_t2(ss.m_t2), m_t3(ss.m_t3), m_cbase(ss.m_cbase),
 			m_vecT1(ss.m_vecT1), 
 			m_vecCUp(ss.m_vecCUp),
@@ -50,6 +52,7 @@ public:
 	};
 	~SSInfo() {};
 	const bool getCoreIsMaster() const { return m_bCoreIsMaster; };
+	const bool getIsDanish() const { return m_bDanish; };
 	const ARGratingSpec& getCoreGrating() const { return m_coreGrating; };
 	const ARGratingSpec& getDonutGrating() const { return m_donutGrating; };
 	const double getTFHC() const { return m_tfHC; };
@@ -207,6 +210,10 @@ public:
 							cerr << "Error in input at first line: first line should start with \"master,slave\" or \"slave,master\"." << endl;
 							return false;
 						}
+					}
+					else if (vtokens[i][0] == 'D' || vtokens[i][i] == 'd')
+					{
+						ssinfo.m_bDanish = true;
 					}
 					else
 					{

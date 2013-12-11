@@ -1,4 +1,4 @@
-/* $Id: dualstim.cpp,v 1.11 2012-08-20 22:22:09 devel Exp $ */
+/* $Id: dualstim.cpp,v 1.12 2013-12-11 19:52:46 devel Exp $ */
 
 #include <iostream>
 #include <fstream>
@@ -388,15 +388,34 @@ int prargs_callback(int c, string& arg)
 			}
 
 			// Make sure to assign the "core" and "donut" correctly! 
-			if (pssinfo->getCoreIsMaster())
+			if (pssinfo->getIsDanish())
 			{
-				f_pstimset = (StimSetBase *)new StimSetFGGXCore(pssinfo);
-				f_pstimsetSlave = (StimSetBase *)new StimSetFGGXDonut(pssinfo, f_dSlaveXOffset, f_dSlaveYOffset);
+				cerr << "Danish stim" << endl;
+				if (pssinfo->getCoreIsMaster())
+				{
+					cerr << "Core is master" << endl;
+					f_pstimset = (StimSetBase *)new StimSetFGGXDanish(pssinfo);
+					f_pstimsetSlave = (StimSetBase *)new StimSetFGX();
+				}
+				else
+				{
+					cerr << "Core is slave" << endl;
+					f_pstimsetSlave = (StimSetBase *)new StimSetFGGXDanish(pssinfo, f_dSlaveXOffset, f_dSlaveYOffset);
+					f_pstimset = (StimSetBase *)new StimSetFGX();
+				}
 			}
 			else
 			{
-				f_pstimsetSlave = (StimSetBase *)new StimSetFGGXCore(pssinfo, f_dSlaveXOffset, f_dSlaveYOffset);
-				f_pstimset = (StimSetBase *)new StimSetFGGXDonut(pssinfo);
+				if (pssinfo->getCoreIsMaster())
+				{
+					f_pstimset = (StimSetBase *)new StimSetFGGXCore(pssinfo);
+					f_pstimsetSlave = (StimSetBase *)new StimSetFGGXDonut(pssinfo, f_dSlaveXOffset, f_dSlaveYOffset);
+				}
+				else
+				{
+					f_pstimsetSlave = (StimSetBase *)new StimSetFGGXCore(pssinfo, f_dSlaveXOffset, f_dSlaveYOffset);
+					f_pstimset = (StimSetBase *)new StimSetFGGXDonut(pssinfo);
+				}
 			}
 			if (have_fixpt) f_pstimset->set_fixpt(fixpt);
 			if (have_xhair) f_pstimset->set_xhair(xhair);
