@@ -1212,7 +1212,7 @@ int ARGratingSpec::draw(bool useTransOnHigher)
 }
 
 
-int ARGratingSpec::draw(long mode)
+int ARGratingSpec::draw(long mode, int apertureLevel)
 {
 	int status=0;
 	int ipen;
@@ -1224,8 +1224,12 @@ int ARGratingSpec::draw(long mode)
 	// assign pixel levels (vsgObjSetPixels). Note also that the contrast is initially set to 100% by the call to 
 	// vsgObjSetDefaults().
 
-	if (mode == vsgTRANSONHIGHER) ipen = 255;
-	else ipen = 0;
+	if (apertureLevel >= 0) ipen = apertureLevel;
+	else
+	{
+		if (mode == vsgTRANSONHIGHER) ipen = 255;
+		else ipen = 0;
+	}
 
 	if (mode == vsgTRANSONHIGHER || mode == vsgTRANSONLOWER)
 	{
