@@ -464,7 +464,7 @@ namespace alert
 		// actual grating is drawn with the mode supplied and vsgCENTREXY. 
 		// This function has a long and tortured history, so its usage is a little tricky. There's lots
 		// of ways to get a circular grating and this is one. If using 
-		virtual int draw(long drawMode);		// 
+		virtual int draw(long drawMode, int apertureLevel = -1);		// 
 
 		// This just calls draw(true)
 		virtual int draw();
