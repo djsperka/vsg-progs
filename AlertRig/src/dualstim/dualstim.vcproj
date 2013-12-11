@@ -217,6 +217,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\StimSetFGGXDanish.cpp"
+				>
+			</File>
+			<File
 				RelativePath=".\StimSetFGGXDonut.cpp"
 				>
 			</File>
