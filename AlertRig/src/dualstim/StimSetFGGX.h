@@ -66,3 +66,16 @@ public:
 	virtual int handle_trigger(std::string& s);
 	virtual int init(ARvsg& vsg);
 };
+
+class StimSetFGGXDanish: public StimSetFGGX
+{
+private:
+	virtual void per_trial_predraw_updates();
+protected:
+	virtual void draw_pages(bool updates_only);
+public:
+	StimSetFGGXDanish(shared_ptr<SSInfo> pssinfo, double xOffset=0.0, double yOffset=0.0);
+	~StimSetFGGXDanish() {};
+	virtual int handle_trigger(std::string& s);
+	virtual int init(ARvsg& vsg);
+};
