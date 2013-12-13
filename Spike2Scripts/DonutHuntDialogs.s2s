@@ -32,7 +32,10 @@ var dhDoCRG%;
 var dhNRepeatsPerCRG%;
 var dhNFramesPerTurn%;
 var dhCRGFilename$;
-var dhShowDonutOnMaster%;
+var dhShowDonutOnMaster%;  'This will be 0 = donut on master/center on slave
+                           '             1 = donut on slave/center on master
+                           '             2 = danish (donut+center) on master
+                           '             3 = danish (donut+center) on slave 
 var dhGridTF; 
 var dhGridDur; 
 
@@ -315,12 +318,20 @@ func DonutHuntMainDialog%()
     var status% := 0;  
     var j%;
     var dhResponseList$[4];
+    var dhMasterSlaveList$[4];
 
     ' Set dhResponseList$[]
     dhResponseList$[0] := "No response";
     dhResponseList$[1] := "Joystick";
     dhResponseList$[2] := "Saccade";
     dhResponseList$[3] := "Saccade (Training)";
+    
+    ' Set dhMasterSlaveList$[]
+    dhMasterSlaveList$[0] := "Donut on Master";
+    dhMasterSlaveList$[1] := "Donut on Slave";
+    dhMasterSlaveList$[2] := "Danish on Master";
+    dhMasterSlaveList$[3] := "Danish on Slave";
+    
     
     ' Fetch parameters from registry    
     GetDonutHuntMainParameters();  
@@ -339,7 +350,8 @@ func DonutHuntMainDialog%()
     DlgButton(dhXHairButton%,"       Crosshairs       ",DonutHuntXHairDialog%,2,2);
     DlgButton(dhGratingButton%,"Grating Parameters",DonutHuntGratingDialog%,2,3);
     DlgButton(dhFixationButton%,"Fixation",DonutHuntFixationDialog%,23,2);
-    DlgCheck(12,"Show Donut On Master",35,1);
+    'DlgCheck(12,"Show Donut On Master",35,1);
+    Dlglist(12,18,dhMasterSlaveList$[],4,35,1);
     DlgCheck(13,"Always Looking",35,3);
     
 

@@ -1,6 +1,6 @@
 
 
-const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.56 2013-03-30 23:48:19 jeff Exp $";
+const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.57 2013-12-13 18:00:34 jeff Exp $";
 
 
 ' Hello again
@@ -689,13 +689,20 @@ func Start%()
     donutParam$ := GetGratingParameters$("Donut");  'this grabs donut
     
     'Assign master and slave screens
-    if dhShowDonutOnMaster% = 1 then
-        donutScreen$ := "Master";
+    docase
+    case dhShowDonutOnMaster% = 0 then
         coreScreen$ := "Slave";
-    else
+        donutScreen$ := "Master";
+    case dhShowDonutOnMaster% = 1 then
         coreScreen$ := "Master";
         donutScreen$ := "Slave";
-    endif;
+    case dhShowDonutOnMaster% = 2 then
+        coreScreen$ := "Master";
+        donutScreen$ := "Danish";
+    case dhShowDonutOnMaster% = 3 then
+        coreScreen$ := "Slave";
+        donutScreen$ := "Danish";        
+    endcase;
     
     'determine how to do the contrast of the choice points
     docase
@@ -927,11 +934,16 @@ proc WriteParameterFile()
 	Print("General information\n");
 	Print("-------------------\n\n");
 	Print("Distance to screen (MM)    : %s\n", GetDistanceToScreenMM$());
-    if dhShowDonutOnMaster% = 1 then
+    docase
+    case dhShowDonutOnMaster% = 0 then
         Print("Core is on SLAVE, Donut is on MASTER\n");
-    else
+    case dhShowDonutOnMaster% = 1 then
         Print("Core is on MASTER, Donut is on SLAVE\n");
-    endif;
+    case dhShowDonutOnMaster% = 2 then
+        Print("Core is on MASTER, Donut is on MASTER ('Danish')\n");
+    case dhShowDonutOnMaster% = 3 then
+        Print("Core is on SLAVE, Donut is on SLAVE ('Danish')\n");
+    endcase;
 
 
 	' write fixpoint parameters
