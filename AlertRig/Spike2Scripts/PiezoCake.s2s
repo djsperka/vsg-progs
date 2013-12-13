@@ -21,7 +21,7 @@ var msRampDur := 10;  'for right now, just use 10 ms, no dialog
 var ticksPerRamp;  'how many sequencer ticks per ramp
 var rampSlope;   'ramp slope, float (in DAC units per sequencer tick)
 var rampSlope%;  'ramp slope, integer, for sequencer variable (in DAC units per sequencer tick)
-var voltageMax := 10;  'for right now, no dialog, just use 10
+var voltageStep := 9;  'for right now, no dialog, just use 9 (max input to Krub 20X amp)
 var voltageInDACUnits%;
 var maxVolts := 10;  'this is the maximum voltage of the Power1401, Krub machine is modified to +-10V
 var vScale;
@@ -137,7 +137,7 @@ func Start%()
     
     ' Do timing calculations/DAC calculations, set sequencer variables
     ' Note that this will have to be done multiple times (subfunction?) once tuning curves happen
-    voltageInDACUnits% := vdac32%(voltageMax,vScale,0); 'not putting offset in a variable, I don't anticipate using it
+    voltageInDACUnits% := vdac32%(voltageStep,vScale,0); 'not putting offset in a variable, I don't anticipate using it
     SampleSeqVar(5,voltageInDACUnits%);  'Set upwards voltage (5) in DAC units
     SampleSeqVar(6,-voltageInDACUnits%);  'Set downwards voltage (6) in DAC units, negative!
     msPerSeqTick := SampleSeqClock();  'Get the tick period in milliseconds
