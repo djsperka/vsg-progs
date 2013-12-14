@@ -17,16 +17,28 @@ var tunWindowData%;
 
 ' DAC and ramp timing variables
 var msPerSeqTick;
+
+''
 var msRampDur := 10;  'for right now, just use 10 ms, no dialog
+''
+
 var ticksPerRamp;  'how many sequencer ticks per ramp
 var rampSlope;   'ramp slope, float (in DAC units per sequencer tick)
 var rampSlope%;  'ramp slope, integer, for sequencer variable (in DAC units per sequencer tick)
-var voltageStep := 9;  'for right now, no dialog, just use 9 (max input to Krub 20X amp)
+
+''
+var voltageStep := 1;  'for right now, no dialog, just use 9 (max input to Krub 20X amp)
+''
+
 var voltageInDACUnits%;
 var maxVolts := 10;  'this is the maximum voltage of the Power1401, Krub machine is modified to +-10V
 var vScale;
 vScale := maxVolts/5;  'this sets the voltage scaling for vdac32% below
+
+''
 var msPlateauDur := 2000;  'for right now, just use 2 seconds, no dialog
+''
+
 var ticksPerPlateau;  'how many sequencer ticks in the plateau
 var ticksPerPlateau%;  'integer version for sequencer variable
 
@@ -95,7 +107,7 @@ proc CreateSampleConfiguration()
     
 
     ' There is only a sequencer script in use if doing cooling
-    SampleSequencer("C:\\Documents and Settings\\Krubitzer Lab\\Desktop\\Mary\\PiezoCake.pls");  'must get absolute location...
+    SampleSequencer("C:\\CED Tuning\\AlertRig\\Spike2Scripts\\PiezoCake.pls");  'must get absolute location
     ' get correct location of sequencer script
     
     
@@ -137,19 +149,22 @@ func Start%()
     
     ' Do timing calculations/DAC calculations, set sequencer variables
     ' Note that this will have to be done multiple times (subfunction?) once tuning curves happen
-    voltageInDACUnits% := vdac32%(voltageStep,vScale,0); 'not putting offset in a variable, I don't anticipate using it
+voltageInDACUnits% := vdac32%(voltageStep,vScale,0); 'not putting offset in a variable, I don't anticipate using it
+printlog("voltage step is %d\n",voltageInDACUnits%);
     SampleSeqVar(5,voltageInDACUnits%);  'Set upwards voltage (5) in DAC units
     SampleSeqVar(6,-voltageInDACUnits%);  'Set downwards voltage (6) in DAC units, negative!
-    msPerSeqTick := SampleSeqClock();  'Get the tick period in milliseconds
+msPerSeqTick := SampleSeqClock(1);  'Get the tick period in milliseconds
+printlog("ms per tick is %f\n",msPerSeqTick);
     ticksPerRamp := msRampDur/msPerSeqTick;  'Get the number of ticks per ramp
     rampSlope := voltageInDACUnits%/ticksPerRamp;  'get ramp slope in DAC units per tick, floating point
     rampSlope% := rampSlope;  'And put into integer variable
-    SampleSeqVar(7,rampSlope%);  'Set ramp slope (7) in DAC units per sequencer tick, integer
+SampleSeqVar(7,rampSlope%);  'Set ramp slope (7) in DAC units per sequencer tick, integer
+printlog("ramp slope is %d\n",rampSlope%);
     ticksPerPlateau := msPlateauDur/msPerSeqTick;  'Get the number of ticks per plateau
     ticksPerPlateau% := ticksPerPlateau;  'and convert to integer
     ticksPerPlateau% := ticksPerPlateau% - 3;  'subtract three ticks to account for three sequencer steps (TICKS, MOVI, DELAY)
     SampleSeqVar(8,ticksPerPlateau%);  'Set plateau duration (8) in sequencer ticks
-
+printlog("ticks per plateau is %d\n",ticksPerPlateau%);
     
     ' Set idle here - before vsg launches so we cannot miss the ready signal. 
     ToolbarEnable(3,1); ' stop
