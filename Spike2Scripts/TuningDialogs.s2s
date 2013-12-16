@@ -1,4 +1,4 @@
-' $Id: TuningDialogs.s2s,v 1.18 2013-10-11 21:36:37 jeff Exp $
+' $Id: TuningDialogs.s2s,v 1.19 2013-12-16 23:38:13 jeff Exp $
 '
 ' This file contains dialog functions for the alert tuning script Tuning.s2s.
 #include "../../Spike2Util/UsreyUtil.s2s"
@@ -1812,7 +1812,7 @@ func GratingParametersDialogMaster%(label$, &param$, &statparam$, &x, &y, &w, &h
         DlgReal(5, "Inner Width:", 0, 30);
         DlgReal(6, "Inner Height:", 0, 30);
         DlgInteger(7, "Contrast(%):", -100, 100);
-        DlgReal(8, "Spatial Freq:", .1, 10);
+        DlgReal(8, "Spatial Freq:", .01, 10);
         DlgReal(9, "Temporal Freq:", 0, 10);
         DlgReal(10, "Orientation (degrees):", -360, 360);
         DlgReal(11, "Initial Phase (deg, 0 = white at center)", 0, 360);
@@ -1889,7 +1889,7 @@ func GratingParametersDialogSlave%(label$, &param$, &statparam$, &x, &y, &w, &h,
         DlgReal(5, "Inner Width:", 0, 30);
         DlgReal(6, "Inner Height:", 0, 30);
         DlgInteger(7, "Contrast(%):", -100, 100);
-        DlgReal(8, "Spatial Freq:", .1, 10);
+        DlgReal(8, "Spatial Freq:", .01, 10);
         DlgReal(9, "Temporal Freq:", 0, 10);
         DlgReal(10, "Orientation (degrees):", -360, 360);
         DlgReal(11, "Initial Phase (deg, 0 = white at center)", 0, 360);
