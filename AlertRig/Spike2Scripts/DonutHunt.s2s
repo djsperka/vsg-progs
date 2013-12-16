@@ -1,6 +1,6 @@
 
 
-const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.57 2013-12-13 18:00:34 jeff Exp $";
+const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.58 2013-12-16 23:55:16 jeff Exp $";
 
 
 ' Hello again
@@ -1023,6 +1023,17 @@ func IdleProcessing%()
     var joystickVoltage;
     var saccadeResp%;
     var respTime;
+    'There are two triggers on both the Frame and FrameSlave channels, one to indicate the start of the delay
+    'period, and another 10 ms later (don't know why the second, but it's there).  We just need to note that
+    'these have happened and then move on.  They should be synched, so FrameChannel% will suffice
+    'FrameChannel% NO LONGER suffices, because Danishes do not put triggers on both Frame and FrameSlave, only
+    'the active one
+    var tempChannel%;
+    if dhShowDonutOnMaster% = 3 then  'determine which channel should have the triggers and search accordingly
+        tempChannel% := FrameSlaveChannel%;
+    else
+        tempChannel% := FrameChannel%;
+    endif;
     
     'if no time has passed, wait 1 ms and try again
 	tTemp := View(DataWindow%).MaxTime();
@@ -1258,13 +1269,10 @@ func IdleProcessing%()
         endif;         
         
         
-    'There are two triggers on both the Frame and FrameSlave channels, one to indicate the start of the delay
-    'period, and another 10 ms later (don't know why the second, but it's there).  We just need to note that
-    'these have happened and then move on.  They should be synched, so FrameChannel% will suffice
     'combined logic
     case iState% = stateWaitOnsetTrigger% then   
         'pulseFound% := View(DataWindow%).FindPulseUp%(FrameChannel%, tLastTrigger, tRise, tFall);
-        if View(DataWindow%).FindRisingEdge%(StimChannel%, tLastTrigger, tTrigger) = 0 then
+        if View(DataWindow%).FindRisingEdge%(tempChannel%, tLastTrigger, tTrigger) = 0 then
             tLastTrigger := tTrigger + 0.1; 'There is a double-pulse (~10 ms gap) on the Frame Channel, the 0.1 seconds skips that
             ChangeStateTo(stateWaitStimStart%, tNow);
         endif;
@@ -1272,7 +1280,7 @@ func IdleProcessing%()
         
     'combined logic    
     case iState% = stateWaitStimStart% then
-        pulseFound% := View(DataWindow%).FindPulseUp%(FrameChannel%, tLastTrigger, tRise, tFall);
+        pulseFound% := View(DataWindow%).FindPulseUp%(tempChannel%, tLastTrigger, tRise, tFall);
         if pulseFound% = 1 then
             SampleText("T,"+str$(GetLR(nTrialsCompleted%))+","+str$(dhCoreContrast)+","+str$(GetContrast(nTrialsCompleted%))+","+str$(GetDiam(nTrialsCompleted%))+","+str$(GetOri(nTrialsCompleted%)),tRise);
             LogStatus("StartSequence", "Stim sequence started at " + str$(tRise)); 
@@ -1287,7 +1295,7 @@ func IdleProcessing%()
         
     'human logic
     case iState% = stateWaitContrastChange% then
-        pulseFound% := View(DataWindow%).FindPulseUp%(FrameChannel%, tLastTrigger, tRise, tFall);
+        pulseFound% := View(DataWindow%).FindPulseUp%(tempChannel%, tLastTrigger, tRise, tFall);
         if pulseFound% = 1 then
             SampleText("CC",tRise);  'don't really need to indicate the trial type
             LogStatus("ContrastChange", "Contrast Change occured at " + str$(tRise)); 
@@ -1298,7 +1306,7 @@ func IdleProcessing%()
         
     'human logic    
     case iState% = stateWaitStimOffset% then
-        pulseFound% := View(DataWindow%).FindPulseUp%(FrameChannel%, tLastTrigger, tRise, tFall);
+        pulseFound% := View(DataWindow%).FindPulseUp%(tempChannel%, tLastTrigger, tRise, tFall);
         if pulseFound% = 1 then
             nMaskTriggersFound% += 1; 
             tLastTrigger := tFall;  
@@ -1415,7 +1423,7 @@ func IdleProcessing%()
             SafeSampleKey("X");  'turn off fixpt on joystick failure
             ChangeStateTo(stateCheckStimOff%, tNow); 'jump to combined logic
         else 
-            pulseFound% := View(DataWindow%).FindPulseUp%(FrameChannel%, tLastTrigger, tRise, tFall);
+            pulseFound% := View(DataWindow%).FindPulseUp%(tempChannel%, tLastTrigger, tRise, tFall);
             if pulseFound% = 1 then
                 SampleText("CC",tRise);  'don't really need to indicate the trial type
                 LogStatus("ContrastChange", "Contrast Change occured at " + str$(tRise)); 
@@ -1442,7 +1450,7 @@ func IdleProcessing%()
             SafeSampleKey("X");  'turn off fixpt on joystick failure
             ChangeStateTo(stateCheckStimOff%, tNow); 'jump to combined logic
         else
-            pulseFound% := View(DataWindow%).FindPulseUp%(FrameChannel%, tLastTrigger, tRise, tFall);
+            pulseFound% := View(DataWindow%).FindPulseUp%(tempChannel%, tLastTrigger, tRise, tFall);
             if pulseFound% = 1 then
                 nMaskTriggersFound% += 1; 
                 tLastTrigger := tFall;
