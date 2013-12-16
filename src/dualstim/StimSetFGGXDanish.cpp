@@ -453,6 +453,12 @@ int StimSetFGGXDanish::handle_trigger(std::string& s)
 		vsgObjResetDriftPhase();
 		grating(1).setContrast(cup);
 
+		grating(2).select();
+		vsgObjResetDriftPhase();
+
+		grating(3).select();
+		vsgObjResetDriftPhase();
+
 		if (has_fixpt() && m_pssinfo->getUseAnswerPoints())
 		{
 			int cSame, cUp;
