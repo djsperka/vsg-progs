@@ -1,8 +1,6 @@
 #include "StimSetFGGX.h"
 #include <iostream>
 #include <cstdlib>
-//#include <windows.h>
-//#include <process.h>
 #include "AlertUtil.h"
 #include "stopwatch.h"
 using namespace std;
@@ -12,27 +10,11 @@ static const int f_nlevels = 20;
 #undef USE_GRIDS
 
 
-StimSetFGGXDanish::StimSetFGGXDanish(shared_ptr<SSInfo> pssinfo, double xOffset, double yOffset) 
+StimSetFGGXNull::StimSetFGGXNull(shared_ptr<SSInfo> pssinfo, double xOffset, double yOffset) 
 : StimSetFGGX(pssinfo, xOffset, yOffset)
 {
  	double x, y;
 	double diam;
-	ARGratingSpec g0 = m_pssinfo->getCoreGrating();
-	ARGratingSpec g1 = m_pssinfo->getCoreGrating();
-	set_grating(g0, xOffset, yOffset);
-	set_grating(g1, xOffset, yOffset);
-
-	ARGratingSpec g2 = m_pssinfo->getDonutGrating();
-	m_pssinfo->getDonutXY(0, x, y);
-	g2.x = x;
-	g2.y = y;
-	set_grating(g2, xOffset, yOffset);
-
-	ARGratingSpec g3 = m_pssinfo->getDonutGrating();
-	m_pssinfo->getDonutXY(1, x, y);
-	g3.x = x;
-	g3.y = y;
-	set_grating(g3, xOffset, yOffset);
 
 #if USE_GRIDS
 	m_pssinfo->getCoreXY(0, x, y);
@@ -70,24 +52,7 @@ StimSetFGGXDanish::StimSetFGGXDanish(shared_ptr<SSInfo> pssinfo, double xOffset,
 #endif
 }
 
-
-void StimSetFGGXDanish::per_trial_predraw_updates()
-{
-	double ori;
-	double diam;
-	m_pssinfo->getOri(m_itrial, ori);
-	grating(0).orientation = ori;
-	grating(1).orientation = ori;
-
-	m_pssinfo->getDiam(m_itrial, diam);
-	grating(2).w = diam;
-	grating(2).h = diam;
-	grating(3).w = diam;
-	grating(3).h = diam;
-}
-
-
-int StimSetFGGXDanish::init(ARvsg& vsg)
+int StimSetFGGXNull::init(ARvsg& vsg)
 {	
 	int status = 0;
 	vsg.select();
@@ -110,10 +75,6 @@ int StimSetFGGXDanish::init(ARvsg& vsg)
 			m_ap1.init(vsg, 2);
 		}
 	}
-	grating(0).init(vsg, f_nlevels);
-	grating(1).init(vsg, f_nlevels);
-	grating(2).init(vsg, f_nlevels);
-	grating(3).init(vsg, f_nlevels);
 
 #if USE_GRIDS
 	m_grid0.init(vsg, 3);
@@ -123,15 +84,8 @@ int StimSetFGGXDanish::init(ARvsg& vsg)
 	m_cb1.init(vsg, 2);
 #endif
 
-	Stopwatch w;
-
-	w.split("start");
 	draw_scratch_pages();	// xhair and fixpt on scratch page 0'
-	w.split("draw_scratch_pages");
 	draw_pages(true);
-	w.split("draw_pages");
-
-	cout << "init pages" << endl << w << endl;
 
 	return status;
 }
@@ -140,13 +94,11 @@ int StimSetFGGXDanish::init(ARvsg& vsg)
 
 
 // bDrawAllPages==true means all pages drawn; for updates set to false (then only pages that change are drawn)
-void StimSetFGGXDanish::draw_pages(bool bDrawAllPages)
+void StimSetFGGXNull::draw_pages(bool bDrawAllPages)
 {
 	int savepage;
 	double x, y;
 	int lr;
-	Stopwatch w;
-	w.split("Start");
 
 	// Before any drawing, save the current display page
 	savepage = vsgGetZoneDisplayPage(vsgVIDEOPAGE);
@@ -170,8 +122,7 @@ void StimSetFGGXDanish::draw_pages(bool bDrawAllPages)
 		xhair().setContrast(0);
 	if (has_fixpt())
 		fixpt().setContrast(0);
-	grating(0).contrast = 0;
-	grating(1).contrast = 0;
+
 #if USE_GRIDS
 	m_grid0.setContrast(0);
 	m_grid1.setContrast(0);
@@ -180,7 +131,6 @@ void StimSetFGGXDanish::draw_pages(bool bDrawAllPages)
 	m_cb1.setContrast(0);
 #endif
 
-	w.split("contrast, pretrial done.");
 	if (bDrawAllPages)
 	{
 		// Page 0 and 1 - clear to bkgd, draw xhair on 1
@@ -190,69 +140,13 @@ void StimSetFGGXDanish::draw_pages(bool bDrawAllPages)
 		{
 			xhair().draw();
 		}
-		//vsgPresent();
-		w.split("1,2 done");
 
 		// page 2-n, copy scratch page
 		for (int i=2; i<(m_firstgridpage + m_ngridpages); i++)
 			copy_scratch_page(i);
-		//vsgPresent();
-		w.split("copied sp 2-8");
 
 		vsgSetDrawPage(vsgVIDEOPAGE, 3, vsgNOCLEAR);
-
-		// draw donuts first
-		grating(2).draw();
-		grating(3).draw();
-
-		// gratings
-		m_pssinfo->getCoreXY(0, x, y);
-		grating(0).x = x;
-		grating(0).y = y;
-		grating(0).draw();
-		m_pssinfo->getCoreXY(1, x, y);
-		grating(0).x = x;
-		grating(0).y = y;
-		grating(0).draw();
-		//vsgPresent();
-
-		w.split("page 3 gratings done.");
 		vsgSetDrawPage(vsgVIDEOPAGE, 4, vsgNOCLEAR);
-
-		// draw donuts first
-		grating(2).draw();
-		grating(3).draw();
-
-		// Need to know which grating will have the contrast change. That will be grating(1).
-		m_pssinfo->getLR(m_itrial, lr);
-		if (lr == 0)
-		{
-			// left grating will have contrast change. 
-			m_pssinfo->getCoreXY(0, x, y);
-			grating(1).x = x;
-			grating(1).y = y;
-			grating(1).draw();
-
-			m_pssinfo->getCoreXY(1, x, y);
-			grating(0).x = x;
-			grating(0).y = y;
-			grating(0).draw();
-		}
-		else
-		{
-			m_pssinfo->getCoreXY(0, x, y);
-			grating(0).x = x;
-			grating(0).y = y;
-			grating(0).draw();
-
-			// right grating will have contrast change. 
-			m_pssinfo->getCoreXY(1, x, y);
-			grating(1).x = x;
-			grating(1).y = y;
-			grating(1).draw();
-		}
-		//vsgPresent();
-		w.split("page 4 gratings done.");
 
 		// grids
 #if	USE_GRIDS
@@ -308,58 +202,7 @@ void StimSetFGGXDanish::draw_pages(bool bDrawAllPages)
 	{
 
 		copy_scratch_page(3);
-
-		// draw donuts first
-		grating(2).draw();
-		grating(3).draw();
-
-		// now holes
-		m_pssinfo->getCoreXY(0, x, y);
-		grating(0).x = x;
-		grating(0).y = y;
-		grating(0).draw();
-		m_pssinfo->getCoreXY(1, x, y);
-		grating(0).x = x;
-		grating(0).y = y;
-		grating(0).draw();
-		w.split("page 3 gratings done.");
-
 		copy_scratch_page(4);
-
-		// draw donuts first
-		grating(2).draw();
-		grating(3).draw();
-
-		// Need to know which grating will have the contrast change. That will be grating(1).
-		m_pssinfo->getLR(m_itrial, lr);
-		if (lr == 0)
-		{
-			// left grating will have contrast change. 
-			m_pssinfo->getCoreXY(0, x, y);
-			grating(1).x = x;
-			grating(1).y = y;
-			grating(1).draw();
-
-			m_pssinfo->getCoreXY(1, x, y);
-			grating(0).x = x;
-			grating(0).y = y;
-			grating(0).draw();
-		}
-		else
-		{
-			m_pssinfo->getCoreXY(0, x, y);
-			grating(0).x = x;
-			grating(0).y = y;
-			grating(0).draw();
-
-			// right grating will have contrast change. 
-			m_pssinfo->getCoreXY(1, x, y);
-			grating(1).x = x;
-			grating(1).y = y;
-			grating(1).draw();
-		}
-		//vsgPresent();
-		w.split("page 4 gratings done.");
 
 #if USE_GRIDS
 		vsgSetDrawPage(vsgVIDEOPAGE, m_firstgridpage+m_ngridpages, vsgBACKGROUND);
@@ -402,7 +245,6 @@ void StimSetFGGXDanish::draw_pages(bool bDrawAllPages)
 
 	vsgSetDrawPage(vsgVIDEOPAGE, savepage, vsgNOCLEAR);
 	vsgPresent();
-	w.split("end");
 
 	return;
 }
@@ -410,7 +252,7 @@ void StimSetFGGXDanish::draw_pages(bool bDrawAllPages)
 
 
 
-int StimSetFGGXDanish::handle_trigger(std::string& s)
+int StimSetFGGXNull::handle_trigger(std::string& s)
 {
 	int status = 0;
 	if (s == "F")
@@ -443,20 +285,6 @@ int StimSetFGGXDanish::handle_trigger(std::string& s)
 		m_cb0.setContrast(100);
 		m_cb1.setContrast(100);
 #endif
-
-		grating(0).select();
-		vsgObjResetDriftPhase();
-		grating(0).setContrast(cbase);
-
-		grating(1).select();
-		vsgObjResetDriftPhase();
-		grating(1).setContrast(cup);
-
-		grating(2).select();
-		vsgObjResetDriftPhase();
-
-		grating(3).select();
-		vsgObjResetDriftPhase();
 
 		if (has_fixpt() && m_pssinfo->getUseAnswerPoints())
 		{
@@ -504,14 +332,6 @@ int StimSetFGGXDanish::handle_trigger(std::string& s)
 			xhair().setContrast(100);
 			fixpt().setContrast(100);
 
-			grating(0).select();
-			vsgObjResetDriftPhase();
-			grating(0).setContrast(100);
-
-			grating(1).select();
-			vsgObjResetDriftPhase();
-			grating(1).setContrast(100);
-
 #if USE_GRIDS
 			m_grid0.setContrast(100);
 			m_grid1.setContrast(100);
@@ -542,12 +362,8 @@ int StimSetFGGXDanish::handle_trigger(std::string& s)
 			status = 1;
 		}
 	}
-	else if (s == "E")
-	{
-		cout << "grating(0): " << (long)grating(0).handle() << ":" << grating(0) << endl;
-		cout << "grating(1): " << (long)grating(1).handle() << ":" << grating(1) << endl;
-		status = 0;
-	}
 	return status;
 }
+
+
 

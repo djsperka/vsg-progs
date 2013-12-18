@@ -1,4 +1,4 @@
-/* $Id: dualstim.cpp,v 1.12 2013-12-11 19:52:46 devel Exp $ */
+/* $Id: dualstim.cpp,v 1.13 2013-12-18 18:40:39 devel Exp $ */
 
 #include <iostream>
 #include <fstream>
@@ -395,13 +395,13 @@ int prargs_callback(int c, string& arg)
 				{
 					cerr << "Core is master" << endl;
 					f_pstimset = (StimSetBase *)new StimSetFGGXDanish(pssinfo);
-					f_pstimsetSlave = (StimSetBase *)new StimSetFGX();
+					f_pstimsetSlave = (StimSetBase *)new StimSetFGGXNull(pssinfo, f_dSlaveXOffset, f_dSlaveYOffset);
 				}
 				else
 				{
 					cerr << "Core is slave" << endl;
 					f_pstimsetSlave = (StimSetBase *)new StimSetFGGXDanish(pssinfo, f_dSlaveXOffset, f_dSlaveYOffset);
-					f_pstimset = (StimSetBase *)new StimSetFGX();
+					f_pstimset = (StimSetBase *)new StimSetFGGXNull(pssinfo);
 				}
 			}
 			else
