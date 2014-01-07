@@ -58,4 +58,8 @@ rem CBar
 rem ..\..\bin\fixstim -a -v -b black -d 500 -G aaa
 
 rem dots color,x,y,diam,speed,density,dotsize,angle1,angle2,...
-..\..\bin\fixstim -a -v -b gray -p 2 -d 500 -f 0,0,1,green -D white,5,5,10,1,10,2,0,45,90
+rem ..\..\bin\fixstim -a -v -b gray -p 2 -d 500 -f 0,0,1,green -D white,5,5,10,1,10,2,0,45,90
+
+rem danish
+rem ..\..\bin\fixstim -a -v -b gray -p 2 -d 500 -f 0,0,1,green -s 0,0,6,6,4,4,100,.2,1,135,b,s,e -s 0,0,4,4,0,0,100,.2,1,45,b,s,e -H 6.0,7.0,8.0
+..\..\bin\dfixstim -a -v -b gray -p 2 -d 500 -f 0,0,1,green -s 0,0,6,6,4,4,100,.2,1,135,b,s,e -H 6.0,7.0,8.0

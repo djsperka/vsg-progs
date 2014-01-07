@@ -19,6 +19,38 @@ std::string StimSet::toString() const
 	return oss.str();
 }
 
+std::string DanishStimSet::toString() const
+{
+	unsigned int i;
+	std::ostringstream oss;
+	oss << "Danish StimSet" << endl;
+	if (m_bHaveFixpt)
+	{
+		oss << "  fixation point: " << m_fixpt << endl;
+	}
+	else
+	{
+		oss << "  fixation point: NONE" << endl;
+	}
+	if (m_bHaveHole)
+	{
+		oss << "  grating hole  : " << m_hole << endl;
+	}
+	else
+	{
+		oss << "  grating hole  : NONE" << endl;
+	}
+	oss <<     "  grating donut : " << m_grating << endl;
+	oss << "  donut outer diameters: ";
+	for (i=0; i<m_ods.size(); i++)
+	{
+		if (i>0) oss << ", ";
+		oss << m_ods[i];
+	}
+	oss << endl;
+	return oss.str();
+}
+
 std::string TFStimSet::toString() const
 {
 	unsigned int i;
@@ -810,6 +842,107 @@ int PositionStimSet::handle_trigger(std::string& s)
 }
 
 
+int DanishStimSet::init(ARvsg& vsg, std::vector<int> pages)
+{
+	int status = 0;
+	m_pages[0] = pages[0];
+	m_pages[1] = pages[1];
+	cout << "Pages " << m_pages[0] << ", " << m_pages[1] << endl;
+	m_contrast = m_grating.contrast;
+	m_iterator = m_ods.begin();
+
+	// INit hole first, then donut
+	// DRawing must be in reverse order - draw donut first, then hole. 
+	if (m_bHaveHole) m_hole.init(vsg, 40);
+	m_grating.init(vsg, 40);
+
+	vsgSetDrawPage(vsgVIDEOPAGE, m_pages[1], vsgBACKGROUND);
+	vsgSetDrawPage(vsgVIDEOPAGE, m_pages[0], vsgBACKGROUND);
+	m_current_page = 0;
+	m_grating.setContrast(0);
+	m_grating.w = m_grating.h = *m_iterator;
+	m_grating.draw();
+	if (m_bHaveHole)
+	{
+		m_holeContrast = m_hole.contrast;
+		m_hole.setContrast(0);
+		m_hole.draw();
+	}
+	if (m_bHaveFixpt)
+	{
+		m_fixpt.init(vsg, 2);
+		m_fixpt.setContrast(0);
+		m_fixpt.draw();
+	}
+	vsgPresent();
+	return status;
+}
+
+int DanishStimSet::handle_trigger(std::string& s)
+{
+	int status = 0;
+	if (s == "F")
+	{
+		if (m_bHaveFixpt)
+		{
+			m_fixpt.setContrast(100);
+			status = 1;
+		}
+	}
+	else if (s == "S")
+	{
+		m_grating.select();
+		vsgObjResetDriftPhase();
+		if (m_bHaveHole)
+		{
+			m_hole.select();
+			vsgObjResetDriftPhase();
+		}
+		m_grating.setContrast(m_contrast);
+		m_hole.setContrast(m_holeContrast);
+		status = 1;
+	}
+	else if (s == "s")
+	{
+		// toggle donut contrast
+		if (m_grating.contrast == 0) m_grating.setContrast(m_contrast);
+		else m_grating.setContrast(0);
+		status = 1;
+	}
+	else if (s == "a")
+	{
+		// increment iterator, reset to beginning if at end
+		m_iterator++;
+		if (m_iterator == m_ods.end())
+		{
+			cerr << "at end of diameters, back to beginning." << endl;
+			m_iterator = m_ods.begin();
+		}
+		cerr << "DIAMETER " << *m_iterator << endl;
+
+		// Change current page and clear it. Note that this is not the page currently in view.
+		// Set the sf and draw the grating, then draw the fixpt. 
+		m_current_page = 1 - m_current_page;
+		vsgSetDrawPage(vsgVIDEOPAGE, m_pages[m_current_page], vsgBACKGROUND);
+		m_grating.w = m_grating.h = *m_iterator;
+		m_grating.draw();
+		if (m_bHaveHole) m_hole.draw();
+		if (m_bHaveFixpt)
+		{
+			//m_fixpt.setContrast(0);
+			m_fixpt.draw();
+		}
+		status = 1;
+	}
+	else if (s == "X")
+	{
+		m_fixpt.setContrast(0);
+		m_grating.setContrast(0);
+		if (m_bHaveHole) m_hole.setContrast(0);
+		status = 1;
+	}
+	return status;
+}
 
 
 
