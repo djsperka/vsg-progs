@@ -1,4 +1,4 @@
-/* $Id: fixstim.cpp,v 1.17 2013-06-14 23:58:56 devel Exp $ */
+/* $Id: fixstim.cpp,v 1.18 2014-01-07 20:36:49 devel Exp $ */
 
 #include <iostream>
 #include <fstream>
@@ -213,6 +213,8 @@ int prargs_callback(int c, string& arg)
 	static bool have_g = false;
 	static bool have_d = false;
 	static bool bStepTW = false;
+	static alert::ARGratingSpec hole;
+	static bool have_hole = false;
 
 	switch(c)
 	{
@@ -277,8 +279,8 @@ int prargs_callback(int c, string& arg)
 	case 'S':
 	case 'C':
 	case 'A':
-	case 'H':
 	case 'P':
+	case 'H':
 	case 'Z':
 		{
 			vector<double> tuning_parameters;
@@ -319,6 +321,29 @@ int prargs_callback(int c, string& arg)
 					case 'A':
 						{
 							f_pStimSet = create_stimset<AreaStimSet>(have_fixpt, f_fixpt, f_grating, tuning_parameters);
+							break;
+						}
+					case 'H':
+						{
+							// must have two gratings specified, it is assumed that the first is the donut, second is the hole. 
+							if (have_fixpt)
+							{
+								if (f_vecGratings.size() == 2)
+									f_pStimSet = new DanishStimSet(f_fixpt, f_vecGratings[0], f_vecGratings[1], tuning_parameters);
+								else
+									f_pStimSet = new DanishStimSet(f_fixpt, f_vecGratings[0], tuning_parameters);
+							}
+							else
+							{
+								if (f_vecGratings.size() == 2)
+								{
+									f_pStimSet = new DanishStimSet(f_vecGratings[0], f_vecGratings[1], tuning_parameters);
+								}
+								else
+								{
+									f_pStimSet = new DanishStimSet(f_vecGratings[0], tuning_parameters);
+								}
+							}
 							break;
 						}
 					case 'P':
