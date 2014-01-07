@@ -366,6 +366,33 @@ private:
 };
 
 
+class DanishStimSet: public StimSet
+{
+public:
+	DanishStimSet(alert::ARContrastFixationPointSpec& f, alert::ARGratingSpec& g, std::vector<double> parameters) : StimSet(), m_fixpt(f), m_grating(g), m_bHaveFixpt(true), m_ods(parameters), m_current_page(-1), m_bHaveHole(false) {};
+	DanishStimSet(alert::ARGratingSpec& g, std::vector<double> parameters) : StimSet(), m_grating(g), m_bHaveFixpt(false), m_ods(parameters), m_current_page(-1), m_bHaveHole(false) {};
+	DanishStimSet(alert::ARContrastFixationPointSpec& f, alert::ARGratingSpec& g, alert::ARGratingSpec& hole, std::vector<double> parameters) : StimSet(), m_fixpt(f), m_grating(g), m_bHaveFixpt(true), m_ods(parameters), m_hole(hole), m_bHaveHole(true), m_current_page(-1) {};
+	DanishStimSet(alert::ARGratingSpec& g, alert::ARGratingSpec& hole, std::vector<double> parameters) : StimSet(), m_grating(g), m_bHaveFixpt(false), m_ods(parameters), m_hole(hole), m_bHaveHole(true), m_current_page(-1) {};
+	virtual int num_pages() {return 2;};
+	virtual int num_overlay_pages() {return 0;};
+	virtual int init(ARvsg& vsg, std::vector<int> pages);
+	virtual int handle_trigger(std::string& s);
+	virtual std::string toString() const;
+private:
+	int m_pages[2];
+	int m_current_page;		// page flipping. This is the page currently displayed when handle_trigger is called. 
+	int m_contrast;
+	std::vector<double> m_ods;	// outer diameters
+	std::vector<double>::const_iterator m_iterator;
+	alert::ARGratingSpec m_grating;
+	alert::ARContrastFixationPointSpec m_fixpt;
+	bool m_bHaveFixpt;
+	alert::ARGratingSpec m_hole;
+	bool m_bHaveHole;
+	int m_holeContrast;
+};
+
+
 // struct for holding parameters of a single attention trial
 #define ATTPARAMS_MAX_CONTRASTS 16
 struct AttParams

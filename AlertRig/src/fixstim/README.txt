@@ -8,6 +8,11 @@ fixstim - Displays a fixation point and a stimulus. The fixation point is
 
 Command Line options:
 
+-F <filename>      command line arguments can be written to an ascii text file
+                   and specified on the command line like this. The file will be
+                   read and processed as if its contents were on the command line.
+                   This is useful when tuning curve commands are longer than the 
+                   windows limit for command line args.
 -a		Use ascii triggers. This is useful for testing - 
 		you can simulate triggers with keystrokes; no need for Spike2.
 -v		Verbose. Might write more msgs, might not. 
@@ -48,21 +53,37 @@ the grating specification using the "-s" option
                             of the grating. The temporal frequency (drift velocity)
                             of the grating spec is ignored (and is set to 0).
 -Z <x0,y0,x1,y1,x2,y2,...> Grating position tuning curve. Grating at (x0,y0), then (x1,y1), ...
+-H <od0,od1,od2,...> Danish tuning curve. "od" is outer diameter of donut. See below. 
+
+
+Danish stimulus
+
+A danish is a stimulus with a "donut" shaped grating and an optional "hole" grating.
+To specify the gratings, use two "-s" grating specs on the command line prior to the 
+"-H" specification of the diameters. The first grating specified is the donut; the
+second is the hole. The diameters specified after "-H" are the outer diameters of the 
+donut grating. There is no requirement that the donut and hole be concentric, and the 
+donut doesn't even need to be a donut - it can be an ordinary grating. 
+
+This stimulus has an on/off trigger "s" for the donut grating. After the stimulus is 
+displayed it can be toggled on/off with the "s" trigger. The frame trigger line can be
+used to determine the onset/offset of the donut. 
+
+Example: 
+fixstim -a -v -b gray -p 2 -d 500 -f 0,0,1,green -s 0,0,6,6,4,4,100,.2,1,135,b,s,e \
+                                                 -s 0,0,4,4,0,0,100,.2,1,45,b,s,e \
+                                                 -H 6.0,7.0,8.0
+
+Here, the first stim (donut) has an inner diameter of 4, outer diameter will be
+6, 7, 8 as the trials advance. 
 
 
 Contrast Reversing Grating Stimulus
 
 To specify a contrast reversing grating stimulus, first give a grating 
-specification using the "-s" option AND a filename containing the sequence 
-(as a series of 0's and 1's, with NO OTHER CHARACTERS), and either the -R or -B 
+specification using the "-s" option, and either the -R or -B 
 options:
 
--F <sequence_file>    sequence_file is the path to an ascii text file 
-                      containing the sequence as a series of 0's and 1's. 
-                      The grating specified with "-s" is taken as the "1", and 
-                      the same grating with its contrast reversed is taken as 
-                      the "0". The temporal frequency of the given grating 
-                      specification is ignored (it is set to 0). 
 -R frames_per_term,first_term,n_terms[,contrast0,contrast1,contrast2,...] 
                       Each of these three values is an integer. The sequence 
                       terms are numbered starting at 0. It is an error to 
