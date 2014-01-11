@@ -42,6 +42,37 @@ var msPlateauDur := 2000;  'for right now, just use 2 seconds, no dialog
 var ticksPerPlateau;  'how many sequencer ticks in the plateau
 var ticksPerPlateau%;  'integer version for sequencer variable
 
+var nRepeats%;
+var ISI;
+var orientationIndex%;
+var whiskerIndex%;
+var oriList$[4];
+var whiskerList$[32];
+var completeRepeats%;
+
+
+'set orientation list
+oriList$[0] := "0";
+oriList$[1] := "90";
+oriList$[2] := "180";
+oriList$[3] := "270";
+
+'set whisker list
+whiskerList$[0] := "NV1"; whiskerList$[1] := "NV2"; whiskerList$[2] := "A0"; whiskerList$[3] := "A1";
+whiskerList$[4] := "A2"; whiskerList$[5] := "alpha"; whiskerList$[6] := "B1"; whiskerList$[7] := "B2";
+whiskerList$[8] := "B3"; whiskerList$[9] := "B4"; whiskerList$[10] := "beta"; whiskerList$[11] := "C0";
+whiskerList$[12] := "C1"; whiskerList$[13] := "C2"; whiskerList$[14] := "C3"; whiskerList$[15] := "C4";
+whiskerList$[16] := "C5"; whiskerList$[17] := "C6"; whiskerList$[18] := "D0"; whiskerList$[19] := "D1";
+whiskerList$[20] := "D2"; whiskerList$[21] := "D3"; whiskerList$[22] := "D4"; whiskerList$[23] := "D5";
+whiskerList$[24] := "D6"; whiskerList$[25] := "G1"; whiskerList$[26] := "G2"; whiskerList$[27] := "G3";
+whiskerList$[28] := "G4"; whiskerList$[29] := "G5"; whiskerList$[30] := "G6"; whiskerList$[31] := "FBP";
+
+
+
+' First, call the dialog 
+PiezoDialog%();
+
+
 ' Initialize logging
 LogInit(1);
 
@@ -216,6 +247,9 @@ const stateWaitForRampUp%       :=  2;
 const stateWaitForPlateau%      :=  3;
 const stateWaitForRampDown%     :=  4;
 const stateWaitForV0%           :=  5;
+const stateStartTrial%          :=  6;
+const stateISI%                 :=  7;
+const stateStartDelay%          := 98;
 const stateDone%                := 99;
 var iState% := stateStartup%;              ' This holds the current state
 var iDummy% := 0;
@@ -237,6 +271,18 @@ func Idle%()
     case iState% = stateStartup% then
         
         LogStatus("stateStartup", "Starting up.");
+        'Indicate type of stimulus at start of experiment
+        SampleText("Whisker = " + whiskerList$[whiskerIndex%] + ", Orientation = " + oriList$[orientationIndex%]);
+        ChangeStateTo(stateStartDelay%, tNow);
+    
+    case iState% = stateStartDelay% then
+        if tNow > 0.5 then  'just don't start right away, give things time (0.5 seconds) to settle in
+            ChangeStateTo(stateStartTrial%, tNow);
+        endif;
+        
+    case iState% = stateStartTrial% then
+        printlog("Starting piezo pulse at %f\n",tNow);
+        SampleKey("P");  'starts "positive" ramp.  Here we'll allow negative values, so we'll only use "P"
         ChangeStateTo(stateWaitForRampUp%, tNow);
         
     case iState% = stateWaitForRampUp% then
@@ -244,7 +290,8 @@ func Idle%()
         temp% := SampleSeqVar(1);  '#1 is up ramp start time, in sequencer ticks
         if temp% > 0 then
             temp := temp%;  'get out of integer
-            eventTime := temp*msPerSeqTick/1000; 'this is absolute time of the event
+            eventTime := temp*msPerSeqTick/2000; 'this is absolute time of the event
+            printlog("Time of ramp start is %f\n",eventTime);
             SampleText("Ramp On",eventTime);
             ChangeStateTo(stateWaitForPlateau%, tNow);
         endif
@@ -254,31 +301,56 @@ func Idle%()
         temp% := SampleSeqVar(2);  '#2 is plateau start time, in sequencer ticks
         if temp% > 0 then
             temp := temp%;  'get out of integer
-            eventTime := temp*msPerSeqTick/1000; 'this is absolute time of the event
+            eventTime := temp*msPerSeqTick/2000; 'this is absolute time of the event
+            printlog("Time of plateau is %f\n",eventTime);
             SampleText("Plateau",eventTime);
             ChangeStateTo(stateWaitForRampDown%, tNow);
         endif
+        
+    'The transition between these two states is not happening.  Dunno why.
+        
         
     case iState% = stateWaitForRampDown% then
         ' Check that down ramp has started, if so, simply note the time and move on
         temp% := SampleSeqVar(3);  '#3 is down ramp start time, in sequencer ticks
         if temp% > 0 then
             temp := temp%;  'get out of integer
-            eventTime := temp*msPerSeqTick/1000; 'this is absolute time of the event
+            eventTime := temp*msPerSeqTick/2000; 'this is absolute time of the event
+            printlog("Time of ramp down start is %f\n",eventTime);
             SampleText("Ramp Off",eventTime);
             ChangeStateTo(stateWaitForV0%, tNow);
         endif
         
     case iState% = stateWaitForV0% then
-        ' Check that down ramp has started, if so, simply note the time and move on
+        ' Check that voltage=0 has been reached, if so, simply note the time and move on
         temp% := SampleSeqVar(4);  '#4 is voltage=0 time, in sequencer ticks
         if temp% > 0 then
             temp := temp%;  'get out of integer
-            eventTime := temp*msPerSeqTick/1000; 'this is absolute time of the event
+            eventTime := temp*msPerSeqTick/2000; 'this is absolute time of the event
+            printlog("Time of V0 is %f\n",eventTime);
             SampleText("Voltage 0",eventTime);
-            ChangeStateTo(stateWaitForRampUp%, tNow);
+            'increment repeats and check for completion
+            completeRepeats% += 1;
+            if completeRepeats% >= nRepeats% then
+                printlog("Experiment complete!\n");
+                ChangeStateTo(stateDone%, tNow);
+            else
+                printlog("ISI starting at %f\n",tNow);
+                ChangeStateTo(stateISI%, tNow);
+            endif;
         endif
-     
+        
+        
+    case iState% = stateISI% then
+        if tNow > tStateStart + ISI then
+            printlog("ISI over at %f\n",tNow);
+            ChangeStateTo(stateStartTrial%, tNow);
+        endif;
+        
+        
+    case iState% = stateDone% then      
+        Stop%();
+        
         
     else
         
@@ -333,4 +405,63 @@ else
     endif;
 endif;
 return v32%;
+end
+
+
+
+
+proc GetPiezoParameters()
+	var stmp$;
+	var key$;
+	key$ := GetRigName$() + "\\" + GetCurrentConfiguration$() + "\\Piezo";
+    
+    voltageStep := GetFloatRegistryValue(key$, "voltageStep", voltageStep);
+    msPlateauDur := GetFloatRegistryValue(key$, "msPlateauDur", msPlateauDur);
+    msRampDur := GetFloatRegistryValue(key$, "msRampDur", msRampDur);
+    ISI := GetFloatRegistryValue(key$, "ISI", ISI);
+    nRepeats% := GetIntRegistryValue%(key$, "nRepeats", nRepeats%);
+    orientationIndex% := GetIntRegistryValue%(key$, "orientationIndex", orientationIndex%);
+    whiskerIndex% := GetIntRegistryValue%(key$, "whiskerIndex", whiskerIndex%);    
+    
+    return;
+end
+
+proc SavePiezoParameters()
+	var stmp$;
+	var key$;
+	key$ := GetRigName$() + "\\" + GetCurrentConfiguration$() + "\\Piezo";
+    
+    SetFloatRegistryValue(key$, "voltageStep", voltageStep);
+    SetFloatRegistryValue(key$, "msPlateauDur", msPlateauDur);
+    SetFloatRegistryValue(key$, "msRampDur", msRampDur);
+    SetFloatRegistryValue(key$, "ISI", ISI);
+    SetIntRegistryValue(key$, "nRepeats", nRepeats%);
+    SetIntRegistryValue(key$, "orientationIndex", orientationIndex%);
+    SetIntRegistryValue(key$, "whiskerIndex", whiskerIndex%); 
+    
+    return;
+end
+
+
+func PiezoDialog%()
+    var status%;
+
+    
+    GetPiezoParameters();
+    DlgCreate("PiezoElectric Dialog",0,0,46,6);
+    DlgReal(1,5,-9,9,18,1); DlgText("Voltage Step",2,1);
+    DlgReal(2,5,1,10000,18,2); DlgText("Plateau time (ms)",2,2);
+    DlgReal(3,5,0.1,1000,40,2); DlgText("Ramp time (ms)",26,2);
+    DlgInteger(4,5,1,10000,18,3); DlgText("Number of repeats",2,3);
+    DlgReal(5,5,0.1,100,40,3); DlgText("ISI (seconds)",26,3);
+    DlgList(6,8,oriList$[],8,15,4); DlgText("Orientation",2,4);
+    DlgList(7,8,whiskerList$[],32,37,4); DlgText("Whisker",26,4);
+    
+    status% := DlgShow(voltageStep,msPlateauDur,msRampDur,nRepeats%,ISI,orientationIndex%,whiskerIndex%);
+    
+    if status% <> 0 then
+        SavePiezoParameters();
+    endif
+    
+    return status%;
 end
