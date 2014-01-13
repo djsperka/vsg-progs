@@ -139,6 +139,7 @@ proc CreateSampleConfiguration()
 
     ' There is only a sequencer script in use if doing cooling
     SampleSequencer("C:\\CED Tuning\\AlertRig\\Spike2Scripts\\PiezoCake.pls");  'must get absolute location
+    'SampleSequencer("F:\\work\\AlertRig\\Spike2Scripts\\PiezoCake.pls");  'Usrey lab for testing
     ' get correct location of sequencer script
     
     
@@ -187,12 +188,12 @@ printlog("voltage step is %d\n",voltageInDACUnits%);
 'msPerSeqTick := SampleSeqClock(1);  'Get the tick period in milliseconds, this is not correct for converting TICKS
 msPerSeqTick := SampleUsPerTime()/1000;
 printlog("ms per tick is %f\n",msPerSeqTick);
-    ticksPerRamp := msRampDur/msPerSeqTick;  'Get the number of ticks per ramp
+    ticksPerRamp := msRampDur/SampleSeqClock(1);  'Get the number of ticks per ramp
     rampSlope := voltageInDACUnits%/ticksPerRamp;  'get ramp slope in DAC units per tick, floating point
     rampSlope% := rampSlope;  'And put into integer variable
 SampleSeqVar(7,rampSlope%);  'Set ramp slope (7) in DAC units per sequencer tick, integer
 printlog("ramp slope is %d\n",rampSlope%);
-    ticksPerPlateau := msPlateauDur/msPerSeqTick;  'Get the number of ticks per plateau
+    ticksPerPlateau := msPlateauDur/SampleSeqClock(1);  'Get the number of ticks per plateau
     ticksPerPlateau% := ticksPerPlateau;  'and convert to integer
     ticksPerPlateau% := ticksPerPlateau% - 3;  'subtract three ticks to account for three sequencer steps (TICKS, MOVI, DELAY)
     SampleSeqVar(8,ticksPerPlateau%);  'Set plateau duration (8) in sequencer ticks
@@ -293,6 +294,7 @@ func Idle%()
             temp := temp%;  'get out of integer
             eventTime := temp*msPerSeqTick/1000; 'this is absolute time of the event
             printlog("Time of ramp start is %f\n",eventTime);
+            yield(0.03);  'yielding 30 ms to try to get the timing right.  Seems to work!
             SampleText("Ramp On",eventTime);
             ChangeStateTo(stateWaitForPlateau%, tNow);
         endif
@@ -304,6 +306,7 @@ func Idle%()
             temp := temp%;  'get out of integer
             eventTime := temp*msPerSeqTick/1000; 'this is absolute time of the event
             printlog("Time of plateau is %f\n",eventTime);
+            yield(0.03);  'yielding 30 ms to try to get the timing right.  Seems to work!
             SampleText("Plateau",eventTime);
             ChangeStateTo(stateWaitForRampDown%, tNow);
         endif
@@ -318,6 +321,7 @@ func Idle%()
             temp := temp%;  'get out of integer
             eventTime := temp*msPerSeqTick/1000; 'this is absolute time of the event
             printlog("Time of ramp down start is %f\n",eventTime);
+            yield(0.03);  'yielding 30 ms to try to get the timing right.  Seems to work!
             SampleText("Ramp Off",eventTime);
             ChangeStateTo(stateWaitForV0%, tNow);
         endif
@@ -329,6 +333,7 @@ func Idle%()
             temp := temp%;  'get out of integer
             eventTime := temp*msPerSeqTick/1000; 'this is absolute time of the event
             printlog("Time of V0 is %f\n",eventTime);
+            yield(0.03);  'yielding 30 ms to try to get the timing right.  Seems to work!
             SampleText("Voltage 0",eventTime);
             'increment repeats and check for completion
             completeRepeats% += 1;
