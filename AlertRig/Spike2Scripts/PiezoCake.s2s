@@ -184,7 +184,8 @@ voltageInDACUnits% := vdac32%(voltageStep,vScale,0); 'not putting offset in a va
 printlog("voltage step is %d\n",voltageInDACUnits%);
     SampleSeqVar(5,voltageInDACUnits%);  'Set upwards voltage (5) in DAC units
     SampleSeqVar(6,-voltageInDACUnits%);  'Set downwards voltage (6) in DAC units, negative!
-msPerSeqTick := SampleSeqClock(1);  'Get the tick period in milliseconds
+'msPerSeqTick := SampleSeqClock(1);  'Get the tick period in milliseconds, this is not correct for converting TICKS
+msPerSeqTick := SampleUsPerTime()/1000;
 printlog("ms per tick is %f\n",msPerSeqTick);
     ticksPerRamp := msRampDur/msPerSeqTick;  'Get the number of ticks per ramp
     rampSlope := voltageInDACUnits%/ticksPerRamp;  'get ramp slope in DAC units per tick, floating point
@@ -290,7 +291,7 @@ func Idle%()
         temp% := SampleSeqVar(1);  '#1 is up ramp start time, in sequencer ticks
         if temp% > 0 then
             temp := temp%;  'get out of integer
-            eventTime := temp*msPerSeqTick/2000; 'this is absolute time of the event
+            eventTime := temp*msPerSeqTick/1000; 'this is absolute time of the event
             printlog("Time of ramp start is %f\n",eventTime);
             SampleText("Ramp On",eventTime);
             ChangeStateTo(stateWaitForPlateau%, tNow);
@@ -301,7 +302,7 @@ func Idle%()
         temp% := SampleSeqVar(2);  '#2 is plateau start time, in sequencer ticks
         if temp% > 0 then
             temp := temp%;  'get out of integer
-            eventTime := temp*msPerSeqTick/2000; 'this is absolute time of the event
+            eventTime := temp*msPerSeqTick/1000; 'this is absolute time of the event
             printlog("Time of plateau is %f\n",eventTime);
             SampleText("Plateau",eventTime);
             ChangeStateTo(stateWaitForRampDown%, tNow);
@@ -315,7 +316,7 @@ func Idle%()
         temp% := SampleSeqVar(3);  '#3 is down ramp start time, in sequencer ticks
         if temp% > 0 then
             temp := temp%;  'get out of integer
-            eventTime := temp*msPerSeqTick/2000; 'this is absolute time of the event
+            eventTime := temp*msPerSeqTick/1000; 'this is absolute time of the event
             printlog("Time of ramp down start is %f\n",eventTime);
             SampleText("Ramp Off",eventTime);
             ChangeStateTo(stateWaitForV0%, tNow);
@@ -326,7 +327,7 @@ func Idle%()
         temp% := SampleSeqVar(4);  '#4 is voltage=0 time, in sequencer ticks
         if temp% > 0 then
             temp := temp%;  'get out of integer
-            eventTime := temp*msPerSeqTick/2000; 'this is absolute time of the event
+            eventTime := temp*msPerSeqTick/1000; 'this is absolute time of the event
             printlog("Time of V0 is %f\n",eventTime);
             SampleText("Voltage 0",eventTime);
             'increment repeats and check for completion

@@ -24,7 +24,7 @@
 0007        'n  MOVI   OnStart,0       ;clear timing variables, idle loop will expect
 0008            MOVI   OnEnd,0         ;them to be filled one by one
 0009            MOVI   OffStart,0      ;reset cannot be done at EXIT or Spike2 misses values
-0010            MOVI   OffEnd,0        ;so you lose 4 clock ticks after 'P - cope with it
+0010            MOVI   OffEnd,0        ;so you lose 4 clock ticks after 'n - cope with it
 0011            RAMP   0,Voltage2,RampSlp ;start negative ramp
 0012            TICKS  OnStart         ;note time ramp to plateau starts
 0013            JUMP   WAITUP          ;jump to common code
