@@ -1,4 +1,4 @@
-' $Id: AttentionGoNoGo.s2s,v 1.33 2014-01-15 01:38:47 jeff Exp $
+' $Id: AttentionGoNoGo.s2s,v 1.34 2014-01-15 01:50:22 devel Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -2078,12 +2078,12 @@ func Stop%()
         for i% := 0 to 12 do
             chanToExport%[i%+4] := i%+1;  'wavemark channels are in order
         next;
-        chanToExport%[0] := 2+i%;  'total number of channels goes in element 0
+        chanToExport%[0] := 3+i%;  'total number of channels goes in element 0
     else
         for i% := 0 to NumWavemarkPorts% do
             chanToExport%[i%+4] := i%+1;  'wavemark channels are in order
         next;
-        chanToExport%[0] := 2+i%;  'total number of channels goes in element 0
+        chanToExport%[0] := 3+i%;  'total number of channels goes in element 0
     endif;
     
     ExportChanList(0,view(datawindow%).maxtime(),chanToExport%[]);
