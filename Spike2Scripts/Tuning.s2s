@@ -1,7 +1,7 @@
-' $Id: Tuning.s2s,v 1.74 2013-10-15 19:56:04 jeff Exp $
+' $Id: Tuning.s2s,v 1.75 2014-01-15 00:54:50 jeff Exp $
 ' Update 11/8/11 Jeff, includes multi-juicer updates
 
-const tunCVSID$ := "$Id: Tuning.s2s,v 1.74 2013-10-15 19:56:04 jeff Exp $";
+const tunCVSID$ := "$Id: Tuning.s2s,v 1.75 2014-01-15 00:54:50 jeff Exp $";
 
 
 
@@ -1461,14 +1461,15 @@ func Stop%()
     ExportChanList(); 
     chanToExport%[1] := 30;  'channels to export go in elements 1:...'30 is the textmark channel
     chanToExport%[2] := 31;  '31 is the keyboard channel
+    chanToExport%[3] := 25;  '25 is the stim channel
     if UsePlexon% = 1 then  'use hardcoded Plexon values - 18 WaveMarks and 24 LFPs for now, on the micro it's 
         for i% := 0 to 12 do
-            chanToExport%[i%+3] := i%+1;  'wavemark channels are in order
+            chanToExport%[i%+4] := i%+1;  'wavemark channels are in order
         next;
         chanToExport%[0] := 2+i%;  'total number of channels goes in element 0
     else
         for i% := 0 to NumWavemarkPorts% do
-            chanToExport%[i%+3] := i%+1;  'wavemark channels are in order
+            chanToExport%[i%+4] := i%+1;  'wavemark channels are in order
         next;
         chanToExport%[0] := 2+i%;  'total number of channels goes in element 0
     endif;
