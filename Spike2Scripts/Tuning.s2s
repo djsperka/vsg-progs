@@ -1,7 +1,7 @@
-' $Id: Tuning.s2s,v 1.75 2014-01-15 00:54:50 jeff Exp $
+' $Id: Tuning.s2s,v 1.76 2014-01-15 01:50:53 devel Exp $
 ' Update 11/8/11 Jeff, includes multi-juicer updates
 
-const tunCVSID$ := "$Id: Tuning.s2s,v 1.75 2014-01-15 00:54:50 jeff Exp $";
+const tunCVSID$ := "$Id: Tuning.s2s,v 1.76 2014-01-15 01:50:53 devel Exp $";
 
 
 
@@ -1466,12 +1466,12 @@ func Stop%()
         for i% := 0 to 12 do
             chanToExport%[i%+4] := i%+1;  'wavemark channels are in order
         next;
-        chanToExport%[0] := 2+i%;  'total number of channels goes in element 0
+        chanToExport%[0] := 3+i%;  'total number of channels goes in element 0
     else
         for i% := 0 to NumWavemarkPorts% do
             chanToExport%[i%+4] := i%+1;  'wavemark channels are in order
         next;
-        chanToExport%[0] := 2+i%;  'total number of channels goes in element 0
+        chanToExport%[0] := 3+i%;  'total number of channels goes in element 0
     endif;
     
     ExportChanList(0,view(datawindow%).maxtime(),chanToExport%[]);
