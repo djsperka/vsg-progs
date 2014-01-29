@@ -1,4 +1,4 @@
-' $Id: Config.s2s,v 1.32 2012-04-11 20:36:17 jeff Exp $
+' $Id: Config.s2s,v 1.33 2014-01-29 18:05:07 jeff Exp $
 
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "UsreyGratings.s2s"
@@ -76,7 +76,19 @@ proc GratingDialog(type$)
             SaveGratingParameters(type$, gr$);
         endif
     else
-        message("Warning!|No grating parameters are defined for " + type$ + "!\nYou can set initial parameters from Tuning!");
+        'Tuning no longer allows this!
+        'message("Warning!|No grating parameters are defined for " + type$ + "!\nYou can set initial parameters from Tuning!");
+        
+        'Instead, just grab the "Stimulus" parameters
+        message("Warning!|No grating parameters are defined for " + type$ + "!\nTaking initial parameters from the Stimulus grating!");
+        gr$ := GetGratingParameters$("Stimulus");
+        if gr$ <> "" then
+            if GratingParametersDialog%(type$, gr$, disable%, ndisable%, x, y, w, h, iw, ih, contrast%, sf, tf, orientation, phase, cv$, p$, ap$) = 1 then
+                SaveGratingParameters(type$, gr$);
+            endif
+        else
+            message("Warning!|No grating parameters are defined for Stimulus grating!\nYou can set initial parameters from Tuning!");
+        endif
     endif
     
 end;

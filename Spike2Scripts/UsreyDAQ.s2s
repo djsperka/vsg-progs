@@ -23,6 +23,7 @@ var EyeXPort%;                  ' Port horizontal eye signal connected to
 var EyeYPort%;                  ' Port vertical eye signal connected to
 var JoystickPort%;              ' Port joystick is connected to
 var JuicerType%;                ' Type of juicer
+var pReward := 1;               ' Probability of reward
 'var WavemarkPorts%[16];
 'var NumWavemarkPorts%;
 'var ContinuousPorts%[16];
@@ -120,12 +121,16 @@ end
 
 'This is the overarching reward function that should be called to get a default reward
 func DefaultReward()
-    if JuicerType% = 1 then  'open-high juicer, dispense based on ms
-        DeliverRewardMS(JuiceRewardMS%);
-    else
-        if JuicerType% = 2 then  'open-low juicer, dispense based on number of hits
-            DeliverRewardNum%(JuicePerReward%);
+    if pReward >= Rand() then
+        if JuicerType% = 1 then  'open-high juicer, dispense based on ms
+            DeliverRewardMS(JuiceRewardMS%);
+        else
+            if JuicerType% = 2 then  'open-low juicer, dispense based on number of hits
+                DeliverRewardNum%(JuicePerReward%);
+            endif;
         endif;
+    else
+        LogStatus("Trial complete", "Random reward not granted!");
     endif;
 end
 
@@ -289,14 +294,15 @@ func DAQParametersDialog%()
 	DlgReal(2, "Degrees/Volt (X):", 0, 100);
 	DlgReal(3, "Degrees/Volt (Y):", 0, 100);
 	DlgInteger(4, "Eye Coil Sampling Freq (Hz):", 1, 20000);
-	DlgInteger(5, "Juice per reward:", 0, 10, 0, 0, 1);
-    DlgInteger(6, "Juice Reward ms:", 0, 1000);
-    DlgList(7, "Juicer Open State:",juicerList2$,2);
-    DlgInteger(8, "Eye X Port", 0, 15);
-    DlgInteger(9, "Eye Y Port", 0, 15);
-    DlgInteger(10, "Joystick Port", 0, 15);
+    DlgReal(5, "Reward Prob (0-1):", 0, 1);
+	DlgInteger(6, "Juice per reward:", 0, 10, 0, 0, 1);
+    DlgInteger(7, "Juice Reward ms:", 0, 1000);
+    DlgList(8, "Juicer Open State:",juicerList2$,2);
+    DlgInteger(9, "Eye X Port", 0, 15);
+    DlgInteger(10, "Eye Y Port", 0, 15);
+    DlgInteger(11, "Joystick Port", 0, 15);
 	iReturn% := DlgShow(NumberOfElectrodes%, DegreesPerVoltX, DegreesPerVoltY, 
-                        EyeCoilSamplingFrequency%, JuicePerReward%, JuiceRewardMS%,
+                        EyeCoilSamplingFrequency%, pReward, JuicePerReward%, JuiceRewardMS%,
                         JuicerIndexDecremented%, EyeXPort%, EyeYPort%, JoystickPort%);
 
 	if iReturn% = 1 then
@@ -316,6 +322,7 @@ proc GetDAQParameters()
     DegreesPerVoltY := GetFloatRegistryValue(key$, "DegreesPerVoltY", 0.0);
     EyeCoilSamplingFrequency% := GetIntRegistryValue%(key$, "EyeCoilSamplingFrequency", 1000);
     NumberOfElectrodes% := GetIntRegistryValue%(key$, "NumberOfElectrodes", 1);
+    pReward := GetFloatRegistryValue(key$, "pReward", 1);
     JuicePerReward% := GetIntRegistryValue%(key$, "JuicePerReward", 1);
     JuiceRewardMS% := GetIntRegistryValue%(key$, "JuiceRewardMS", JuiceRewardMS%);
     JuicerIndex% := GetIntRegistryValue%(key$, "JuicerIndex", JuicerIndex%);
@@ -332,6 +339,7 @@ proc SaveDAQParameters()
 	key$ := GetRigName$() + "\\" + GetCurrentConfiguration$() + "\\DAQ";
     SetStringRegistryValue(key$, "DegreesPerVoltX", str$(DegreesPerVoltX));
 	SetStringRegistryValue(key$, "DegreesPerVoltY", str$(DegreesPerVoltY));
+    SetFloatRegistryValue(key$, "pReward", pReward);
 	SetIntRegistryValue(key$, "EyeCoilSamplingFrequency", EyeCoilSamplingFrequency%);
 	SetIntRegistryValue(key$, "NumberOfElectrodes", NumberOfElectrodes%);
 	SetIntRegistryValue(key$, "JuicePerReward", JuicePerReward%);
