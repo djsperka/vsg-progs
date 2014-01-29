@@ -1,7 +1,7 @@
-' $Id: Tuning.s2s,v 1.76 2014-01-15 01:50:53 devel Exp $
+' $Id: Tuning.s2s,v 1.77 2014-01-29 18:06:54 jeff Exp $
 ' Update 11/8/11 Jeff, includes multi-juicer updates
 
-const tunCVSID$ := "$Id: Tuning.s2s,v 1.76 2014-01-15 01:50:53 devel Exp $";
+const tunCVSID$ := "$Id: Tuning.s2s,v 1.77 2014-01-29 18:06:54 jeff Exp $";
 
 
 
@@ -1340,6 +1340,20 @@ proc CreateSampleConfiguration()
         else
             tun2ValuesStringified$ := StringifyProgression$(tun1NValues%*tun2NValues%*tunCRGNRepeats%, tun2Values[], tun2ValuesIndices%[]);
         endif;
+    case tunType$ = tunTypeDanish$ then 
+        'SampleAutoName$(dataCellName$ + "_dots_000");
+        if UsePlexon% = 0 then
+            SampleAutoName$(dataCellName$ + "_dan_000");  'NOTE: maximum of 13 characters!!!
+        else
+            EqualizeSMRFilenumbers(dataPathRoot$ + "\\" + dataDataSet$,dataCellName$+"_danMICRO_",dataCellName$+"_danPOWER_");
+            SampleAutoName$(dataCellName$ + "_danMICRO_000");  'NOTE: maximum of 13 characters!!!
+            SetStringRegistryValue(key$, "pref", "dot");
+        endif;
+        tunNAdvances% := tunDanishNSteps%;
+        tunNRepeats% := tunDanishNRepeats%;
+        GetRepeatedParameterProgression%(tunDanishNSteps%+1, tunDanishNRepeats%, tunValues[], tunValuesIndices%[], tunDanishMinOuterDiameter, tunDanishMaxOuterDiameter, 1, tunDanishProgression%);  
+        tunNValues% := (tunDanishNSteps%+1)*tunDanishNRepeats%;
+        tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%);         
     else    
         'SampleAutoName$(dataCellName$ + "_tun_000");
         if UsePlexon% = 0 then
@@ -1570,7 +1584,7 @@ proc WriteParameterFile()
     Print("Temporal frequency              : %s\n", Tstimtf$);
 	Print("Spatial frequency               : %s\n", Tstimsf$);
 	Print("Orientation (degrees)           : %s\n", Tstimorientation$);
-    Print("Initial Phase (degrees)         : %f\n", phase);
+    Print("Initial Phase (degrees)         : %f\n", Tstimphase$);
 	Print("Contrast (%%)                    : %s\n", Tstimcontrast$);
 	Print("Aperture: ellipse(e)/square(q)  : %s\n", Tstimap$);
 	Print("Type: sine (s)/square (q)       : %s\n", Tstimp$);
@@ -1591,13 +1605,33 @@ proc WriteParameterFile()
         Print("Temporal frequency              : %s\n", Tstimtf$);
         Print("Spatial frequency               : %s\n", Tstimsf$);
         Print("Orientation (degrees)           : %s\n", Tstimorientation$);
-        Print("Initial Phase (degrees)         : %f\n", phase);
+        Print("Initial Phase (degrees)         : %f\n", Tstimphase$);
         Print("Contrast (%%)                    : %s\n", Tstimcontrast$);
         Print("Aperture: ellipse(e)/square(q)  : %s\n", Tstimap$);
         Print("Type: sine (s)/square (q)       : %s\n", Tstimp$);  
     endif;        
     
-    
+    if tunType$ = tunTypeDanish$ then  'Do donut grating only if we're using it
+        Print("\Donut Stimulus\n");  'Donut grating
+        Print("-------------------\n\n");
+        Tstimstr$ := GetGratingParameters$("Distractor1");
+        ReadSetup(",",",",",",",",",");
+        i% := ReadStr(Tstimstr$, Tstimx$, Tstimy$, Tstimw$, Tstimh$, Tstimiw$, Tstimih$, Tstimcontrast$, Tstimsf$, Tstimtf$, Tstimorientation$, Tstimphase$, Tstimcv$, Tstimp$, Tstimap$);
+        Print("Position (x, degrees)           : %s\n", Tstimx$);
+        Print("Position (y, degrees)           : %s\n", Tstimy$);
+        Print("Width (degrees)                 : %s\n", Tstimw$);
+        Print("Height (degrees)                : %s\n", Tstimh$);
+        Print("Inner Width (degrees)           : %s\n", Tstimiw$);
+        Print("Inner Height (degrees)          : %s\n", Tstimih$);
+        Print("Color: b/w(b),lms-cone(l,m,s)   : %s\n", Tstimcv$);
+        Print("Temporal frequency              : %s\n", Tstimtf$);
+        Print("Spatial frequency               : %s\n", Tstimsf$);
+        Print("Orientation (degrees)           : %s\n", Tstimorientation$);
+        Print("Initial Phase (degrees)         : %f\n", Tstimphase$);
+        Print("Contrast (%%)                    : %s\n", Tstimcontrast$);
+        Print("Aperture: ellipse(e)/square(q)  : %s\n", Tstimap$);
+        Print("Type: sine (s)/square (q)       : %s\n", Tstimp$);  
+    endif;
     
 	Print("\nExperimental parameters\n");
 	Print("-------------------------\n\n");
@@ -1871,7 +1905,15 @@ proc WriteParameterFile()
 			Print("Type:                  : Dots\n");
 			Print("Min,Max,#Steps,#Repeats: %f,%f,%d,%d\n", tunDotsMinOrientation, tunDotsMaxOrientation, tunDotsNSteps%, tunDotsNRepeats%);
 			Print("Values: " + tunValuesStringified$ + "\n");
-			Print("\n");
+            Print("\n");
+        
+        case tunType$ = tunTypeDanish$ then
+
+			Print("Type:                  : Danish\n");
+			Print("Min,Max,#Steps,#Repeats: %f,%f,%d,%d\n", tunDanishMinOuterDiameter, tunDanishMaxOuterDiameter, tunDanishNSteps%, tunDanishNRepeats%);
+			Print("Values: " + tunValuesStringified$ + "\n");
+            Print("\n");        
+        
 		else
 
 			Print("TuningCurve Error - unknown value for tunType$: %s\n", tunType$);
@@ -1948,8 +1990,10 @@ func Start%()
     var StimDur$:="";
     var MGrat$:=" -s ";
     var SGrat$:=" -s ";
+    var DGrat$:="";
     var MGratParam$:="";
 	var SGratParam$:="";
+    var DGratParam$:="";  'for donut stimulus, uses Distractor1
     var MasterIndicator$:="";  'Do not use Master Indicator
     var SlaveIndicator$:="";  'or Slave Indicator for fixstim, set if needed
     var KlugeArg$:=" -H ";  'this is for a Jerry-rigged "hole" in Box O' Donuts slave stimuli 
@@ -2288,6 +2332,12 @@ func Start%()
                   + Str$(tunDotsX) + "," + Str$(tunDotsY) + "," + Str$(tunDotsDiameter) + "," 
                   + Str$(tunDotsSpeed) + "," + Str$(tunDotsDensity) + "," + Str$(tunDotsSize%) + ",";
         MValues$ := MValues$ + tunValuesStringified$;
+        
+    case tunType$ = tunTypeDanish$ then
+        TunCurveMArg$ := " -H ";
+        'Only set DGrat/DGratParam if we're using them
+        DGrat$ := " -s ";
+        DGratParam$ := GetGratingParameters$("Distractor1");
         
     else
 
