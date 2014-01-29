@@ -124,7 +124,7 @@ func GratingParametersDialog%(label$, &param$, disable%[], ndisable%, &x, &y, &w
     DlgReal(5, "Inner Width:", 0, 30);
 	DlgReal(6, "Inner Height:", 0, 30);
 	DlgInteger(7, "Contrast(%):", -100, 100);
-	DlgReal(8, "Spatial Freq:", .1, 10);
+	DlgReal(8, "Spatial Freq:", .01, 10);
 	DlgReal(9, "Temporal Freq:", 0, 10);
 	DlgReal(10, "Orientation (degrees):", 0, 360);
     DlgReal(11, "Initial Phase (deg, 0 = white at center)", -360, 360);
