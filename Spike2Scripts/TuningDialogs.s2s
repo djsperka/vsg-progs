@@ -1,4 +1,4 @@
-' $Id: TuningDialogs.s2s,v 1.19 2013-12-16 23:38:13 jeff Exp $
+' $Id: TuningDialogs.s2s,v 1.20 2014-01-29 18:06:28 jeff Exp $
 '
 ' This file contains dialog functions for the alert tuning script Tuning.s2s.
 #include "../../Spike2Util/UsreyUtil.s2s"
@@ -24,6 +24,8 @@ const tunTypeDisparity$ := "DX";
 const tunTypeCRG$ := "R";
 const tunTypeBlank$ := "BLANK";
 const tunTypeGratingOnly$ := "GO";
+const tunTypeDanish$ := "DN";
+const tunTypeDSS$ := "DSS";
 var tunType$:=tunTypeNone$;
 var tunType1$:=tunTypeNone$;  'for first of two tuning curves, if Box O' Donuts, or for non-CRG curve in CRG scenarios
 var tunType2$:=tunTypeNone$;  'for second of two tuning curves, if Box O' Donuts
@@ -50,6 +52,8 @@ const tundlgSelectSEQFileButton% := 21;
 const tundlgBlankButton% := 22;
 const tundlgGratingOnlyButton% := 23;
 const tundlgCRG2Button% := 24;  'This is for CRG on SECOND screen
+const tundlgDanishButton% := 25;
+const tundlgDSSButton% := 26;
 
 ' A note about "steps". 
 ' The dialogs ask for a number of "steps". A step is a transition from one stimulus
@@ -178,6 +182,22 @@ var tunCRGNSeq2%;               ' will hold the number of sequences in the seque
 var tunCRGNFlips1%;             ' number of flips per sequence in file 1 (note that nFlips is a bit of a misnomer...it's really the number of frame-blocks)
 var tunCRGNFlips2%;             ' number of flips per sequence in file 2
 var tunCRGSecsPerSeq:=0;        ' length of a sequence in seconds, to be compared to stim duration in tuning curve, not saved to registry
+
+
+' Danishes
+var tunDanishNSteps%;           ' # steps in outer diameter tuning curve
+var tunDanishNRepeats%;         ' # repeats in outer diameter tuning curve
+var tunDanishMinOuterDiameter;  ' min outer diameter
+var tunDanishMaxOuterDiameter;  ' max outer diameter
+var tunDanishProgression%;      ' if 1, progression is random
+var tunDanishIncludeBlank%;     ' if 1, include "blank" (that is, zero-size donut) in tuning curve
+
+
+'Dynamic Surround Suppression
+var tunDSSNTrials%;             ' # of trials (one trial is made of N periods)
+var tunDSSNPeriods%;            ' # of flash + blank periods
+var tunDSSNBlanks%;             ' # of blank periods, the remainder are flashes
+var tunDSSNFlashesPerReward%;   ' # of flashes per each reward
 
 
 ' Strings that hold grating parameters
@@ -540,6 +560,50 @@ proc SaveTuningCurveCRGParameters()
     SetStringRegistryValue(key$, "CRGSeqFile", tunCRGSeqFile$);
 end;
 
+
+
+proc GetTuningCurveDanishParameters()
+	var key$;
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Tuning\\Danish";
+    tunDanishNSteps% := GetIntRegistryValue%(key$, "DanishNSteps", tunDanishNSteps%);
+    tunDanishNRepeats% := GetIntRegistryValue%(key$, "DanishNRepeats", tunDanishNRepeats%);
+    tunDanishMinOuterDiameter := GetFloatRegistryValue(key$, "DanishMinOuterDiameter", tunDanishMinOuterDiameter);
+    tunDanishMaxOuterDiameter := GetFloatRegistryValue(key$, "DanishMaxOuterDiameter", tunDanishMaxOuterDiameter);
+    tunDanishProgression% := GetIntRegistryValue%(key$, "DanishProgression", tunDanishProgression%);
+    tunDanishIncludeBlank% := GetIntRegistryValue%(key$, "DanishIncludeBlank", tunDanishIncludeBlank%);
+end;
+
+
+proc SaveTuningCurveDanishParameters()
+	var key$;
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Tuning\\Danish";
+    SetIntRegistryValue(key$, "DanishNSteps", tunDanishNSteps%);
+    SetIntRegistryValue(key$, "DanishNRepeats", tunDanishNRepeats%);
+    SetFloatRegistryValue(key$, "DanishMinOuterDiameter", tunDanishMinOuterDiameter);
+    SetFloatRegistryValue(key$, "DanishMaxOuterDiameter", tunDanishMaxOuterDiameter);
+    SetIntRegistryValue(key$, "DanishProgression", tunDanishProgression%);
+    SetIntRegistryValue(key$, "DanishIncludeBlank", tunDanishIncludeBlank%);
+end;
+
+
+proc GetTuningCurveDSSParameters()
+	var key$;
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Tuning\\DSS";
+    tunDSSNPeriods% := GetIntRegistryValue%(key$, "DSSNPeriods", tunDSSNPeriods%);
+    tunDSSNBlanks% := GetIntRegistryValue%(key$, "DSSNBlanks", tunDSSNBlanks%);
+    tunDSSNFlashesPerReward% := GetIntRegistryValue%(key$, "DSSNFlashesPerReward", tunDSSNFlashesPerReward%);
+    tunDSSNTrials% := GetIntRegistryValue%(key$, "DSSNTrials", tunDSSNTrials%);
+end;
+
+
+proc SaveTuningCurveDSSParameters()
+	var key$;
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Tuning\\DSS";
+    SetIntRegistryValue(key$, "DSSNPeriods", tunDSSNPeriods%);
+    SetIntRegistryValue(key$, "DSSNBlanks", tunDSSNBlanks%);
+    SetIntRegistryValue(key$, "DSSNFlashesPerReward", tunDSSNFlashesPerReward%);
+    SetIntRegistryValue(key$, "DSSNTrials", tunDSSNTrials%);
+end;
 
 
 
@@ -1722,6 +1786,173 @@ end
 
 
 
+
+' This function is initially called with a "0" input, which forces the 1, 3, 4 dialogs to be disabled
+' Of course, this could just be done with a DlgEnable call at the point of dialog creation.  There
+' doesn't seem to be any plan to un-disable those dialogs when the enabled dialog is changed.
+'func TuningCurveDanishDialogChanged%(item%)    
+    'if item% = 0 then
+    '    DlgEnable(0, 1, 3, 4);
+    'endif   
+    'return 1;
+'end
+
+func TuningCurveDanishDialog%()
+	var iReturn% := 0;
+	var i%;
+    var sValues$;
+    var iValue%:=0;
+    var result[1000];
+    var indices%[1000];
+    
+	GetTuningCurveDanishParameters();
+    
+    
+	DlgCreate("Danish Tuning Curve Parameters");
+	DlgInteger(1, "Number of Steps", 2, 100);
+    'DlgInteger(1, "Number of Stimuli", 1, 100);
+	DlgInteger(2, "Number of Repeats", 1, 1000);
+	DlgReal(3, "Min Outer Diameter", 0.1, 100);
+	DlgReal(4, "Max Outer Diameter", 0.1, 100);
+	DlgCheck(5, "Random Progression");
+    DlgCheck(6, "Include Blank");
+    DlgButton(151, "Core Grating", TunDlgGratingMaster%);
+    DlgButton(152, "Donut Grating", TunDlgGratingDonut%);
+    DlgButton(153, "Core Vals -> Donut", TunCoreValsToDonut%);
+    DlgButton(154, "Donut Vals -> Core", TunDonutValsToCore%);
+    'DlgAllow(0xffff, 0, TuningCurveDanishDialogChanged%);
+	
+    i% := DlgShow(tunDanishNSteps%, tunDanishNRepeats%, tunDanishMinOuterDiameter, tunDanishMaxOuterDiameter, tunDanishProgression%, tunDanishIncludeBlank%);
+    
+    'for now, no dummy-proofing
+
+
+	' If i% is 1 the user hit "OK". If its 0, user hit "Cancel". 
+	' When user hits OK we always save the parameters, and when user hits Cancel we don't.
+    ' 
+    ' djs 2/4/2011
+    ' Spike2 bug workaround implemented. The return value from this function (when in DAQ context this
+    ' dialog is called from a DlgButton in another dialog) should make the parent dialog close, as if 
+    ' the OK button were hit. Bug in Spike2 v6 means this doesn't work right - the parent dialog will 
+    ' close but its variables are not updated prior to doing so.... so any changes to the parent dialog
+    ' are not seen in the subsequent expt, they're not saved in the registry, etc. Workaround is to return
+    ' something > 0 here. The parent dialog will continue to display, and the user has to hit OK on that 
+    ' before things proceed. 
+	if i% = 1 then
+		SaveTuningCurveDanishParameters();
+		tunType$ := tunTypeDanish$;
+		if tunContext$ = tunContextDAQ$ then
+            ' djs 2/4/2011 We return 1 - that's the workaround			iReturn% := 0;
+            iReturn% := 1;
+		else
+			iReturn% := 1;
+		endif;
+	endif;
+	if i% = 0 then
+		tunType$ := tunTypeNone$;
+		if tunContext$ = tunContextDAQ$ then
+			iReturn% := 1;
+		else
+			iReturn% := 2;
+		endif;
+	endif;
+    
+	return iReturn%;
+end;
+
+
+
+' This function is initially called with a "0" input, which forces the 1, 3, 4 dialogs to be disabled
+' Of course, this could just be done with a DlgEnable call at the point of dialog creation.  There
+' doesn't seem to be any plan to un-disable those dialogs when the enabled dialog is changed.
+'func TuningCurveDSSDialogChanged%(item%)    
+'    if item% = 0 then
+'        DlgEnable(0, 1, 3, 4);
+'    endif   
+'    return 1;
+'end
+
+func TuningCurveDSSDialog%()
+	var iReturn% := 0;
+	var i%;
+    var sValues$;
+    var iValue%:=0;
+    var result[1000];
+    var indices%[1000];
+    
+	GetTuningCurveDSSParameters();
+    
+    ' Before we proceed, we must generate a list of choices for the optimal diameter. These are based on the most recent run of Area tuning
+    ' Note that there are nsteps+1 values. 
+    
+    'GetRepeatedParameterProgression%(tunAreaNSteps%+1, 1, result[], indices%[], tunAreaMinDiam, tunAreaMaxDiam, 1, tunAreaProgression%);
+    'sValues$ := GetRealArrayAsStringSep$(result[0:tunAreaNSteps%+1], indices%[0:tunAreaNSteps%+1], "|");
+    
+    'We want the default maximal value to be the largest value available when we open the dialog
+    'so set tunBerlinerMaximalIndex% appropriately
+    'tunBerlinerMaximalIndex% := tunAreaNSteps%;
+    
+    'Define tunBerlinerNSteps%, because we are no longer doing a tuning curve.
+    'tunBerlinerNSteps% := 6;
+    
+	DlgCreate("DSS Parameters");
+    DlgInteger(1, "Number of Trials", 1, 1000);
+	DlgInteger(2, "Number of Surround Flashes/Blanks", 1, 1000);
+	DlgInteger(3, "Number of 'Blank' Flashes", 0, 500);
+	DlgInteger(4, "Number of Flashes per Reward",  1, 100);
+    DlgButton(151, "Core Grating", TunDlgGratingMaster%);
+    DlgButton(152, "Donut Grating", TunDlgGratingDonut%);
+    DlgButton(153, "Core Vals -> Donut", TunCoreValsToDonut%);
+    DlgButton(154, "Donut Vals -> Slave", TunDonutValsToCore%);
+    'DlgAllow(0xffff, 0, TuningCurveDSSDialogChanged%);
+	'i% := DlgShow(tunAreaNSteps%, tunAreaNRepeats%, tunAreaMinDiam, tunAreaMaxDiam, tunAreaProgression%, tunDonutOptimalIndex%, tunBerlinerMaximalIndex%);
+    i% := DlgShow(tunDSSNTrials%,tunDSSNPeriods%, tunDSSNBlanks%, tunDSSNFlashesPerReward%);
+    
+  
+    ' Can't allow too many blanks
+    if tunDSSNBlanks%*10 > tunDSSNPeriods% then
+        i% := 0;  'Treat this as a "cancel"
+        message("Oops!|A maximum of 1/10 of stimuli can be flashes\nTry again!");
+    endif;
+    
+	' If i% is 1 the user hit "OK". If its 0, user hit "Cancel". 
+	' When user hits OK we always save the parameters, and when user hits Cancel we don't.
+    ' 
+    ' djs 2/4/2011
+    ' Spike2 bug workaround implemented. The return value from this function (when in DAQ context this
+    ' dialog is called from a DlgButton in another dialog) should make the parent dialog close, as if 
+    ' the OK button were hit. Bug in Spike2 v6 means this doesn't work right - the parent dialog will 
+    ' close but its variables are not updated prior to doing so.... so any changes to the parent dialog
+    ' are not seen in the subsequent expt, they're not saved in the registry, etc. Workaround is to return
+    ' something > 0 here. The parent dialog will continue to display, and the user has to hit OK on that 
+    ' before things proceed. 
+	if i% = 1 then
+		SaveTuningCurveDSSParameters();
+		tunType$ := tunTypeDSS$;
+		if tunContext$ = tunContextDAQ$ then
+            ' djs 2/4/2011 We return 1 - that's the workaround			iReturn% := 0;
+            iReturn% := 1;
+		else
+			iReturn% := 1;
+		endif;
+	endif;
+	if i% = 0 then
+		tunType$ := tunTypeNone$;
+		if tunContext$ = tunContextDAQ$ then
+			iReturn% := 1;
+		else
+			iReturn% := 2;
+		endif;
+	endif;
+    
+	return iReturn%;
+end;
+
+
+
+
+
+
 func TunDlgGratingMaster%()
     
     var x, y, w, h, iw, ih, sf, tf, ori, phase;
@@ -1762,6 +1993,25 @@ func TunDlgGratingSlave%()
     return 1;
 end
 
+
+func TunDlgGratingDonut%()
+    
+    var x, y, w, h, iw, ih, sf, tf, ori, phase;
+    var contrast%;
+    var param$, cv$, pattern$, aperture$;
+    var label$;
+    var i%;
+    var tunGratingParamsStat$;
+    
+    tunGratingParams$ := GetGratingParameters$("Distractor1");
+    i% := GratingParametersDialogDonut%(label$, tunGratingParams$, tunGratingParamsStat$, x, y, w, h, iw, ih, contrast%, sf, tf, ori, phase, cv$, pattern$, aperture$);
+    if i% = 1 then
+        SaveGratingParameters("Distractor1", tunGratingParams$);
+        'SaveGratingParameters("StatStimulus", tunGratingParamsStat$);
+    endif
+    
+    return 1;
+end
 
 
 func GratingParametersDialogMaster%(label$, &param$, &statparam$, &x, &y, &w, &h, &iw, &ih, &contrast%, &sf, &tf, &ori, &phase, &cv$, &pattern$, &aperture$)
@@ -1919,6 +2169,163 @@ func GratingParametersDialogSlave%(label$, &param$, &statparam$, &x, &y, &w, &h,
 end;
 
 
+func GratingParametersDialogCore%(label$, &param$, &statparam$, &x, &y, &w, &h, &iw, &ih, &contrast%, &sf, &tf, &ori, &phase, &cv$, &pattern$, &aperture$)
+    
+	var i% := 15;  'That's right, 15, which is the button that we want to use for copying parameters over
+    
+	var ColorVectorList$[5];
+	var cvl$[5];
+	var icvl% := 0;
+    var icvlS% := 0;
+	ColorVectorList$[0]:="Black/White";	cvl$[0]:="b";
+	ColorVectorList$[1]:="L cone";		cvl$[1]:="l";
+	ColorVectorList$[2]:="M cone";		cvl$[2]:="m";
+	ColorVectorList$[3]:="S cone";		cvl$[3]:="s";
+	ColorVectorList$[4]:="Custom";		cvl$[4]:="custom";
+    
+	var PatternList$[2];
+	var pl$[2];
+	var ipl% := 0;
+    var iplS% := 0;
+	PatternList$[0]:="Sine";	pl$[0]:="s";
+	PatternList$[1]:="Square";	pl$[1]:="q";
+    
+	var ApertureList$[2];
+	var al$[2];
+	var ial% := 0;
+    var ialS% := 0;
+	ApertureList$[0]:="Ellipse";	al$[0]:="e";
+	ApertureList$[1]:="Rectangle";	al$[1]:="r";
+    
+    while i% = 15 do
+        
+        ' If the passed param$ is non-empty, then parse it before opening the dialog. 
+        if Len(param$)>0 then
+            if ParseGratingParameters%(param$, x, y, w, h, iw, ih, contrast%, sf, tf, ori, phase, cv$, pattern$, aperture$) = 0 then
+                icvl% := FindMatchedStringIndex%(cv$, cvl$[], 2, 0);
+                ipl% := FindMatchedStringIndex%(pattern$, pl$[], 2, 0);
+                ial% := FindMatchedStringIndex%(aperture$, al$, 3, 0);
+            endif
+        endif
+        
+        DlgCreate("Grating parameters: " + label$, 25, 11);
+        '    DlgAllow(0, 0, GratingParametersDialogDoubleCheck%);
+        DlgReal(1, "X:", -40, 40);
+        DlgReal(2, "Y:", -40, 40);
+        DlgReal(3, "Outer Width:", .1, 30);
+        DlgReal(4, "Outer Height:", .1, 30);
+        DlgReal(5, "Inner Width:", 0, 30);
+        DlgReal(6, "Inner Height:", 0, 30);
+        DlgInteger(7, "Contrast(%):", -100, 100);
+        DlgReal(8, "Spatial Freq:", .01, 10);
+        DlgReal(9, "Temporal Freq:", 0, 10);
+        DlgReal(10, "Orientation (degrees):", -360, 360);
+        DlgReal(11, "Initial Phase (deg, 0 = white at center)", 0, 360);
+        DlgList(12, "Color:", ColorVectorList$[]);
+        DlgList(13, "Pattern:", PatternList$[]);
+        DlgList(14, "Aperture:", ApertureList$[]);
+        DlgButton(15, "Copy from Donut", TunCopyDonutVals%(param$));
+        
+        i% := DlgShow(x, y, w, h, iw, ih, contrast%, sf, tf, ori, phase, icvl%, ipl%, ial%);
+        Convert180(phase);
+        
+    wend;
+      
+	if i%=1 then
+		cv$ := cvl$[icvl%];
+		pattern$ := pl$[ipl%];
+		aperture$ := al$[ial%];
+        if w > iw and h > ih then  'don't let inner dimensions of donut be larger than outer
+            ' save parameters, not using static but easier to just leave it in
+            param$ := EncodeGratingParameters$(x, y, w, h, iw, ih, contrast%, sf, tf, ori, phase, cv$, pattern$, aperture$);
+            statparam$ := EncodeGratingParameters$(x, y, w, h, iw, ih, contrast%, sf, 0, ori, phase, cv$, pattern$, aperture$);  'hardcoded zero TF
+        else
+            message("Inner diameters cannot be greater than outer diameters!  Try Again!");
+        endif;
+    endif
+    return i%;
+end;
+
+
+
+func GratingParametersDialogDonut%(label$, &param$, &statparam$, &x, &y, &w, &h, &iw, &ih, &contrast%, &sf, &tf, &ori, &phase, &cv$, &pattern$, &aperture$)
+    
+	var i% := 15;  'That's right, 15, which is the button that we want to use for copying parameters over
+    
+	var ColorVectorList$[5];
+	var cvl$[5];
+	var icvl% := 0;
+    var icvlS% := 0;
+	ColorVectorList$[0]:="Black/White";	cvl$[0]:="b";
+	ColorVectorList$[1]:="L cone";		cvl$[1]:="l";
+	ColorVectorList$[2]:="M cone";		cvl$[2]:="m";
+	ColorVectorList$[3]:="S cone";		cvl$[3]:="s";
+	ColorVectorList$[4]:="Custom";		cvl$[4]:="custom";
+    
+	var PatternList$[2];
+	var pl$[2];
+	var ipl% := 0;
+    var iplS% := 0;
+	PatternList$[0]:="Sine";	pl$[0]:="s";
+	PatternList$[1]:="Square";	pl$[1]:="q";
+    
+	var ApertureList$[2];
+	var al$[2];
+	var ial% := 0;
+    var ialS% := 0;
+	ApertureList$[0]:="Ellipse";	al$[0]:="e";
+	ApertureList$[1]:="Rectangle";	al$[1]:="r";
+    
+    while i% = 15 do
+        
+        ' If the passed param$ is non-empty, then parse it before opening the dialog. 
+        if Len(param$)>0 then
+            if ParseGratingParameters%(param$, x, y, w, h, iw, ih, contrast%, sf, tf, ori, phase, cv$, pattern$, aperture$) = 0 then
+                icvl% := FindMatchedStringIndex%(cv$, cvl$[], 2, 0);
+                ipl% := FindMatchedStringIndex%(pattern$, pl$[], 2, 0);
+                ial% := FindMatchedStringIndex%(aperture$, al$, 3, 0);
+            endif
+        endif
+        
+        DlgCreate("Grating parameters: " + label$, 25, 11);
+        '    DlgAllow(0, 0, GratingParametersDialogDoubleCheck%);
+        DlgReal(1, "X:", -40, 40);
+        DlgReal(2, "Y:", -40, 40);
+        DlgReal(3, "Outer Width:", .1, 30);
+        DlgReal(4, "Outer Height:", .1, 30);
+        DlgReal(5, "Inner Width:", 0, 30);
+        DlgReal(6, "Inner Height:", 0, 30);
+        DlgInteger(7, "Contrast(%):", -100, 100);
+        DlgReal(8, "Spatial Freq:", .01, 10);
+        DlgReal(9, "Temporal Freq:", 0, 10);
+        DlgReal(10, "Orientation (degrees):", -360, 360);
+        DlgReal(11, "Initial Phase (deg, 0 = white at center)", 0, 360);
+        DlgList(12, "Color:", ColorVectorList$[]);
+        DlgList(13, "Pattern:", PatternList$[]);
+        DlgList(14, "Aperture:", ApertureList$[]);
+        DlgButton(15, "Copy From Core", TunCopyMasterVals%(param$));
+        
+        i% := DlgShow(x, y, w, h, iw, ih, contrast%, sf, tf, ori, phase, icvl%, ipl%, ial%);
+        Convert180(phase);
+        
+    wend;
+    
+	if i%=1 then
+		cv$ := cvl$[icvl%];
+		pattern$ := pl$[ipl%];
+		aperture$ := al$[ial%];
+        if w > iw and h > ih then  'don't let inner dimensions of donut be larger than outer
+            ' save parameters, not using static but easier to just leave it in
+            param$ := EncodeGratingParameters$(x, y, w, h, iw, ih, contrast%, sf, tf, ori, phase, cv$, pattern$, aperture$);
+            statparam$ := EncodeGratingParameters$(x, y, w, h, iw, ih, contrast%, sf, 0, ori, phase, cv$, pattern$, aperture$);  'hardcoded zero TF
+        else
+            message("Inner diameters cannot be greater than outer diameters!  Try Again!");
+        endif;
+    endif;
+    return i%;
+end;
+
+
 
 func TunCopySlaveVals%(&param$)
 
@@ -1932,6 +2339,14 @@ end
 func TunCopyMasterVals%(&param$)
 
     param$ := GetGratingParameters$("Stimulus");
+
+    return 1;
+end
+
+
+func TunCopyDonutVals%(&param$)
+    'Simply using "Distractor1" rather than making a separate "Donut" grating, can change if it's a problem
+    param$ := GetGratingParameters$("Distractor1");
 
     return 1;
 end
@@ -1975,8 +2390,36 @@ func TunSlaveValsToMaster%()
 end
 
 
+func TunCoreValsToDonut%()
+    
+    var x, y, w, h, iw, ih;
+    var contrast%;
+    var sf, tf, ori, phase;
+    var cv$, pattern$, aperture$;
+    
+    var tempParams$;
+    
+    tempParams$ := GetGratingParameters$("Stimulus");
+    SaveGratingParameters("Distractor1", tempParams$);
+    
+    return 1;
+end
 
 
+func TunDonutValsToCore%()
+    
+    var x, y, w, h, iw, ih;
+    var contrast%;
+    var sf, tf, ori, phase;
+    var cv$, pattern$, aperture$;
+    
+    var tempParams$;
+    
+    tempParams$ := GetGratingParameters$("Distractor1");
+    SaveGratingParameters("Stimulus", tempParams$);
+    
+    return 1;
+end
 
 
 func TuningXHairDialog%()
@@ -2147,7 +2590,7 @@ func TuningCurveScriptDialog%()
     DlgCheck(16, "Use Rivalry Button", 35,15);
     DlgButton(tundlgXHairButton%, " Crosshairs  ", UpdateTuningXHairDialog%, 1, 16);
     updateXHairText% := DlgText(tunXHairText$, 15, 16);
-	DlgGroup("Individual Tuning Curve Types", 1, 17, 52, 5);
+	DlgGroup("Individual Tuning Curve Types", 1, 17, 52, 6);
 	DlgButton(tundlgOrientationButton%, " Orientation  ", TuningCurveOrientationDialog%, 2, 18); 'Note that labels for Orientation-Area are superceded 
 	DlgButton(tundlgContrastButton%, "     Contrast     ", TuningCurveContrastDialog%, 18, 18);  'by TuningCurveScriptDialogChanged% even upon opening 
 	DlgButton(tundlgSpatialButton%, "Spatial Freq", TuningCurveSpatialDialog%, 2, 19);           'the dialog (i.e. whatever label is here is unused)
@@ -2158,8 +2601,10 @@ func TuningCurveScriptDialog%()
     DlgButton(tundlgBerlinerButton%, "    Berliners!    ", TuningCurveBerlinerDialog%, 18, 20);
     DlgButton(tundlgBoxODonutsButton%, " Box O' Donuts ", TuningCurveBoxODonutsDialog%, 36, 20);
     DlgButton(tundlgDotsButton%, "     Dots!     ", TuningCurveDotsDialog%, 2, 21);
-    DlgButton(tundlgCRGButton%, "      CRaGs      ",TuningCurveCRGDialog%, 18, 21);
+    DlgButton(tundlgCRGButton%,"      CRaGs      ",TuningCurveCRGDialog%, 18, 21);
     DlgButton(tundlgDisparityButton%, "      Disparity      ", TuningCurveDisparityDialog%, 36, 21);
+    DlgButton(tundlgDanishButton%, "  Danishes!  ", TuningCurveDanishDialog%, 2, 22);
+    DlgButton(tundlgDSSButton%,"        DSS        ",TuningCurveDSSDialog%, 18, 22);
     DlgAllow(0xffff, 0, TuningCurveScriptDialogChanged%);
 	
     if JuicerType% = 1 then
@@ -2246,8 +2691,10 @@ func TuningCurveScriptDialogChanged%(item%)
         'Also disable card synch functions, dual tuning listbox
         DlgEnable(0,11); 'card synch
         DlgEnable(0,12); 'dual tuning listbox
-        'But do allow Dots
+        'But do allow Dots, Danish, DSS
         DlgEnable(1,-tundlgDotsButton%);
+        DlgEnable(1,-tundlgDanishButton%);
+        DlgEnable(1,-tundlgDSSButton%);
         'Also, change labels on buttons to reflect the monocular aspect of not using dual VSG
         DlgValue$(-tundlgOrientationButton%, " Orientation  ");
         DlgValue$(-tundlgContrastButton%, "     Contrast     ");
@@ -2261,8 +2708,10 @@ func TuningCurveScriptDialogChanged%(item%)
         'Also allow turning off card synch, dual tuning listbox
         DlgEnable(1,11);  'card synch
         DlgEnable(1,12);  'dual tuning listbox
-        'But don't allow Dots
+        'But don't allow Dots, Danish, DSS
         DlgEnable(0,-tundlgDotsButton%);
+        DlgEnable(0,-tundlgDanishButton%);
+        DlgEnable(0,-tundlgDSSButton%);
         'Also, change labels on buttons to reflect the binocular aspect of using dual VSG
         docase 
             case DlgValue(12) = 0 then
