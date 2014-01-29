@@ -1,7 +1,7 @@
-' $Id: Tuning.s2s,v 1.77 2014-01-29 18:06:54 jeff Exp $
+' $Id: Tuning.s2s,v 1.78 2014-01-29 18:57:24 jeff Exp $
 ' Update 11/8/11 Jeff, includes multi-juicer updates
 
-const tunCVSID$ := "$Id: Tuning.s2s,v 1.77 2014-01-29 18:06:54 jeff Exp $";
+const tunCVSID$ := "$Id: Tuning.s2s,v 1.78 2014-01-29 18:57:24 jeff Exp $";
 
 
 
@@ -431,7 +431,7 @@ func IdleProcessing%()
                 
                 ' djs If NoMaintain was chosen, then turn EVERYTHING off (stim and fixpt) now.
                 ' Otherwise just turn off stim. 
-                if tunUseMaintainMode% = 1 then
+                if tunUseMaintainMode% >= 1 then
                     SafeSampleKey("s");
                 else
                     SafeSampleKey("X");
@@ -488,7 +488,7 @@ func IdleProcessing%()
             Stop%();
             iStatus% := 0;
         else
-            if tunUseMaintainMode% = 1 then
+            if tunUseMaintainMode% >= 1 then
                 ChangeStateTo(stateMaintainFixation%, tNow);
             else
                 'tInterTrialTime := tunMaintainFailTime;
@@ -511,13 +511,16 @@ func IdleProcessing%()
 
                 LogStatus("MaintainFixation", "success");
                 
-                if JuicerType% = 1 then  'open-high juicer, dispense based on ms
-                    DeliverReward();
-                else
-                    if JuicerType% = 2 then  'open-low juicer, dispense based on number of hits
-                        DeliverRewardNumber();
+                if tunUseMaintainMode% = 2 then  'Only give juice if requested in original dialog
+                    if JuicerType% = 1 then  'open-high juicer, dispense based on ms
+                        DeliverReward();
+                    else
+                        if JuicerType% = 2 then  'open-low juicer, dispense based on number of hits
+                            DeliverRewardNumber();
+                        endif;
                     endif;
                 endif;
+                
                 
                 docase
                 case TunType$ = tunTypeBoxODonuts$ or TunType$ = tunTypeCRG$ or TunType$ = tunTypeXYPos$ then
@@ -2367,7 +2370,7 @@ func Start%()
     
     docase
     case tunType$ = tunTypeBoxODonuts$ then    
-        if tunUseMaintainMode% = 1 then  'if fixation point stays on, extraction is version 6
+        if tunUseMaintainMode% >= 1 then  'if fixation point stays on, extraction is version 6
             SampleText("Tuning,6," + str$(Len(cmdLine$)));
         else 'value is 0, fixation point goes off, extraction is version 7
             SampleText("Tuning,7," + str$(Len(cmdLine$)));

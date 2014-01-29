@@ -1,4 +1,4 @@
-' $Id: TuningDialogs.s2s,v 1.20 2014-01-29 18:06:28 jeff Exp $
+' $Id: TuningDialogs.s2s,v 1.21 2014-01-29 18:57:24 jeff Exp $
 '
 ' This file contains dialog functions for the alert tuning script Tuning.s2s.
 #include "../../Spike2Util/UsreyUtil.s2s"
@@ -1816,7 +1816,7 @@ func TuningCurveDanishDialog%()
 	DlgReal(4, "Max Outer Diameter", 0.1, 100);
 	DlgCheck(5, "Random Progression");
     DlgCheck(6, "Include Blank");
-    DlgButton(151, "Core Grating", TunDlgGratingMaster%);
+    DlgButton(151, "Core Grating", TunDlgGratingCore%);
     DlgButton(152, "Donut Grating", TunDlgGratingDonut%);
     DlgButton(153, "Core Vals -> Donut", TunCoreValsToDonut%);
     DlgButton(154, "Donut Vals -> Core", TunDonutValsToCore%);
@@ -1903,7 +1903,7 @@ func TuningCurveDSSDialog%()
     DlgButton(151, "Core Grating", TunDlgGratingMaster%);
     DlgButton(152, "Donut Grating", TunDlgGratingDonut%);
     DlgButton(153, "Core Vals -> Donut", TunCoreValsToDonut%);
-    DlgButton(154, "Donut Vals -> Slave", TunDonutValsToCore%);
+    DlgButton(154, "Donut Vals -> Core", TunDonutValsToCore%);
     'DlgAllow(0xffff, 0, TuningCurveDSSDialogChanged%);
 	'i% := DlgShow(tunAreaNSteps%, tunAreaNRepeats%, tunAreaMinDiam, tunAreaMaxDiam, tunAreaProgression%, tunDonutOptimalIndex%, tunBerlinerMaximalIndex%);
     i% := DlgShow(tunDSSNTrials%,tunDSSNPeriods%, tunDSSNBlanks%, tunDSSNFlashesPerReward%);
@@ -1988,6 +1988,26 @@ func TunDlgGratingSlave%()
     if i% = 1 then
         SaveGratingParameters("SlaveStimulus", tunGratingParams$);
         SaveGratingParameters("StatSlaveStimulus", tunGratingParamsStat$);
+    endif
+    
+    return 1;
+end
+
+
+func TunDlgGratingCore%()
+    
+    var x, y, w, h, iw, ih, sf, tf, ori, phase;
+    var contrast%;
+    var param$, cv$, pattern$, aperture$;
+    var label$;
+    var i%;
+    var tunGratingParamsStat$;
+    
+    tunGratingParams$ := GetGratingParameters$("Stimulus");
+    i% := GratingParametersDialogCore%(label$, tunGratingParams$, tunGratingParamsStat$, x, y, w, h, iw, ih, contrast%, sf, tf, ori, phase, cv$, pattern$, aperture$);
+    if i% = 1 then
+        SaveGratingParameters("Stimulus", tunGratingParams$);
+        SaveGratingParameters("StatStimulus", tunGratingParamsStat$);
     endif
     
     return 1;
@@ -2224,7 +2244,7 @@ func GratingParametersDialogCore%(label$, &param$, &statparam$, &x, &y, &w, &h, 
         DlgList(12, "Color:", ColorVectorList$[]);
         DlgList(13, "Pattern:", PatternList$[]);
         DlgList(14, "Aperture:", ApertureList$[]);
-        DlgButton(15, "Copy from Donut", TunCopyDonutVals%(param$));
+        DlgButton(15, "Copy from Donut!", TunCopyDonutVals%(param$));
         
         i% := DlgShow(x, y, w, h, iw, ih, contrast%, sf, tf, ori, phase, icvl%, ipl%, ial%);
         Convert180(phase);
@@ -2303,7 +2323,7 @@ func GratingParametersDialogDonut%(label$, &param$, &statparam$, &x, &y, &w, &h,
         DlgList(12, "Color:", ColorVectorList$[]);
         DlgList(13, "Pattern:", PatternList$[]);
         DlgList(14, "Aperture:", ApertureList$[]);
-        DlgButton(15, "Copy From Core", TunCopyMasterVals%(param$));
+        DlgButton(15, "Copy From Core", TunCopyCoreVals%(param$));
         
         i% := DlgShow(x, y, w, h, iw, ih, contrast%, sf, tf, ori, phase, icvl%, ipl%, ial%);
         Convert180(phase);
@@ -2345,8 +2365,37 @@ end
 
 
 func TunCopyDonutVals%(&param$)
+    var x, y, w, h, iw, ih;
+    var contrast%;
+    var sf, tf, ori, phase;
+    var cv$, pattern$, aperture$;
     'Simply using "Distractor1" rather than making a separate "Donut" grating, can change if it's a problem
     param$ := GetGratingParameters$("Distractor1");
+    ParseGratingParameters%(param$, x, y, w, h, iw, ih, contrast%, sf, tf, ori, phase, cv$, pattern$, aperture$);
+    w := iw;  'set grating width to make a core that fits inside the donut, of zero inner diameter
+    h := ih;
+    iw := 0;
+    ih := 0;
+    param$ := EncodeGratingParameters$(x, y, w, h, iw, ih, contrast%, sf, tf, ori, phase, cv$, pattern$, aperture$);
+
+
+    return 1;
+end
+
+func TunCopyCoreVals%(&param$)
+    
+    var x, y, w, h, iw, ih;
+    var contrast%;
+    var sf, tf, ori, phase;
+    var cv$, pattern$, aperture$;    
+    
+    param$ := GetGratingParameters$("Stimulus");
+    ParseGratingParameters%(param$, x, y, w, h, iw, ih, contrast%, sf, tf, ori, phase, cv$, pattern$, aperture$);
+    iw := w;  'set grating width to make a donut that surrounds the core, of arbitrary width
+    ih := h;
+    w := iw+1;
+    h := ih+1;
+    param$ := EncodeGratingParameters$(x, y, w, h, iw, ih, contrast%, sf, tf, ori, phase, cv$, pattern$, aperture$);
 
     return 1;
 end
@@ -2400,6 +2449,12 @@ func TunCoreValsToDonut%()
     var tempParams$;
     
     tempParams$ := GetGratingParameters$("Stimulus");
+    ParseGratingParameters%(tempParams$, x, y, w, h, iw, ih, contrast%, sf, tf, ori, phase, cv$, pattern$, aperture$);
+    iw := w;  'set grating width to make a donut that surrounds the core, of arbitrary width
+    ih := h;
+    w := iw+1;
+    h := ih+1;
+    tempParams$ := EncodeGratingParameters$(x, y, w, h, iw, ih, contrast%, sf, tf, ori, phase, cv$, pattern$, aperture$);
     SaveGratingParameters("Distractor1", tempParams$);
     
     return 1;
@@ -2416,6 +2471,12 @@ func TunDonutValsToCore%()
     var tempParams$;
     
     tempParams$ := GetGratingParameters$("Distractor1");
+    ParseGratingParameters%(tempParams$, x, y, w, h, iw, ih, contrast%, sf, tf, ori, phase, cv$, pattern$, aperture$);
+    w := iw;  'set grating width to make a core that fits inside the donut, of zero inner diameter
+    h := ih;
+    iw := 0;
+    ih := 0;
+    tempParams$ := EncodeGratingParameters$(x, y, w, h, iw, ih, contrast%, sf, tf, ori, phase, cv$, pattern$, aperture$);
     SaveGratingParameters("Stimulus", tempParams$);
     
     return 1;
@@ -2548,6 +2609,10 @@ func TuningCurveScriptDialog%()
     dualType$[0] := "Dual Tuning";
     dualType$[1] := "Master only";
     dualType$[2] := "Slave only";
+    var maintainList$[3];
+    maintainList$[0] := "No";
+    maintainList$[1] := "Yes";
+    maintainList$[2] := "Yes+Rwd";
     
 	for i%:=0 to 2 do
 		if tunBackgroundColor$ = bcl$[i%] then
@@ -2584,7 +2649,8 @@ func TuningCurveScriptDialog%()
     DlgCheck(11, "Select to turn off card sync", 25, 12);
     DlgList(12, "Dual Tuning Configuration:", dualType$, 3, 25, 13);
     
-    DlgCheck(13, "Maintain Fixpt between trials", 2, 14);
+    'DlgCheck(13, "Maintain Fixpt between trials", 2, 14);  'change this to a list
+    DlgList(13, 11, maintainList$, 3, 3, 14); DlgText("Maintain Fixpt btwn trls", 15, 14);
     DlgCheck(14, "Stationary",2,15);
     DlgCheck(15, "Make Histograms", 35,14);
     DlgCheck(16, "Use Rivalry Button", 35,15);
