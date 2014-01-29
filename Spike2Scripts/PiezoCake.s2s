@@ -127,10 +127,10 @@ proc CreateSampleConfiguration()
     next
     
     'In case one day Deepa wants waveforms
-    'for i% := 1 to tunNChannels% do
-    '    SampleWaveform(i%+5, i%-1, 28000); ' chan, port, event rate, points, pre-trigger, rate
-    '    SampleTitle$(i%+5, "WF " + Str$(i%-1));
-    'next
+    for i% := 1 to tunNChannels% do
+        SampleWaveform(i%+5, i%-1, 28000); ' chan, port, event rate, points, pre-trigger, rate
+        SampleTitle$(i%+5, "WF " + Str$(i%-1));
+    next
 
 
     'Make textmark channel for easier data extraction
