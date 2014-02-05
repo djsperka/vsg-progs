@@ -1,7 +1,7 @@
-' $Id: Tuning.s2s,v 1.79 2014-02-05 18:47:55 jeff Exp $
+' $Id: Tuning.s2s,v 1.80 2014-02-05 22:16:06 jeff Exp $
 ' Update 11/8/11 Jeff, includes multi-juicer updates
 
-const tunCVSID$ := "$Id: Tuning.s2s,v 1.79 2014-02-05 18:47:55 jeff Exp $";
+const tunCVSID$ := "$Id: Tuning.s2s,v 1.80 2014-02-05 22:16:06 jeff Exp $";
 
 
 
@@ -981,6 +981,13 @@ proc TuningCurveLabels(iport%)
         endcase
         ChanTitle$(1, "Chan 1");
         
+    case tunType$ = tunTypeDanish$ then
+        
+        WindowTitle$("Danish Area Tuning - " + s$);
+        XUnits$("Outer Diameter");
+        ChanTitle$(1, "Chan 1");
+        XRange(tunDanishMinOuterDiameter, tunDanishMaxOuterDiameter);
+        
     else
         
         Message("TuningCurveLabels Error - unknown value for tunType$: " + tunType$);
@@ -1343,6 +1350,8 @@ proc CreateSampleConfiguration()
         else
             tun2ValuesStringified$ := StringifyProgression$(tun1NValues%*tun2NValues%*tunCRGNRepeats%, tun2Values[], tun2ValuesIndices%[]);
         endif;
+        
+        
     case tunType$ = tunTypeDanish$ then 
         'SampleAutoName$(dataCellName$ + "_dots_000");
         if UsePlexon% = 0 then
@@ -1354,9 +1363,15 @@ proc CreateSampleConfiguration()
         endif;
         tunNAdvances% := tunDanishNSteps%;
         tunNRepeats% := tunDanishNRepeats%;
-        GetRepeatedParameterProgression%(tunDanishNSteps%+1, tunDanishNRepeats%, tunValues[], tunValuesIndices%[], tunDanishMinOuterDiameter, tunDanishMaxOuterDiameter, 1, tunDanishProgression%);  
+        if tunDanishIncludeBlank% = 0 then
+            GetRepeatedParameterProgression%(tunDanishNSteps%+1, tunDanishNRepeats%, tunValues[], tunValuesIndices%[], tunDanishMinOuterDiameter, tunDanishMaxOuterDiameter, 1, tunDanishProgression%); 
+        else  'include blank, include one blank of "0" per tuning cycle, 0 will result in no donut being drawn
+            GetRepeatedParameterProgressionWithConstant%(tunDanishNSteps%+1, 1, 0, tunDanishNRepeats%, tunValues[], tunValuesIndices%[], tunDanishMinOuterDiameter, tunDanishMaxOuterDiameter, 1, tunDanishProgression%); 
+        endif        
         tunNValues% := (tunDanishNSteps%+1)*tunDanishNRepeats%;
-        tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%);         
+        tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%);  
+        
+        
     else    
         'SampleAutoName$(dataCellName$ + "_tun_000");
         if UsePlexon% = 0 then
@@ -2340,7 +2355,7 @@ func Start%()
         TunCurveMArg$ := " -H ";
         'Only set DGrat/DGratParam if we're using them
         DGrat$ := " -s ";
-        DGratParam$ := GetGratingParameters$("Distractor1");
+        DGratParam$ := GetGratingParameters$("Distractor1");  'the donut - this goes FIRST
         
     else
 
@@ -2354,7 +2369,7 @@ func Start%()
     'Build command line, any values that are unnecessary will be empty, so the build should work no matter what type of command line is required
     cmdLine$ := Opener$ + ProgName$ + FixationArg$ + XHairArg$ + BGColor$ + Dist2Screen$ + TriggerPort$ + Verbose$; 'prelim stuff
     cmdLine$ := cmdLine$ + RefrLock$ + OffsetFile$ + StimDur$;  'Dual VSG stuff
-    cmdLine$ := cmdLine$ + MasterIndicator$ + MGrat$ + MGratParam$ + +DGrat$ + DGratParam$ + TunCurveMArg$ + MValues$;  'Master grating stuff
+    cmdLine$ := cmdLine$ + MasterIndicator$ + DGrat$ + DGratParam$ + MGrat$ + MGratParam$ + TunCurveMArg$ + MValues$;  'Master grating stuff
     cmdLine$ := cmdLine$ + SlaveIndicator$ + SGrat$ + SGratParam$ + TunCurveSArg$ + SValues$;  'Slave grating stuff
     cmdLine$ := cmdLine$ + TunCurveS2Arg$ + S2Values$;  'Second slave parameters (for Box O' Donuts, more possible)
     'Note that building with empty defaults means if we don't fill something (e.g. DualInd$ for fixstim) all is OK
