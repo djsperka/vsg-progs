@@ -1,7 +1,7 @@
-' $Id: Tuning.s2s,v 1.80 2014-02-05 22:16:06 jeff Exp $
+' $Id: Tuning.s2s,v 1.81 2014-02-05 22:31:41 devel Exp $
 ' Update 11/8/11 Jeff, includes multi-juicer updates
 
-const tunCVSID$ := "$Id: Tuning.s2s,v 1.80 2014-02-05 22:16:06 jeff Exp $";
+const tunCVSID$ := "$Id: Tuning.s2s,v 1.81 2014-02-05 22:31:41 devel Exp $";
 
 
 
@@ -1365,10 +1365,12 @@ proc CreateSampleConfiguration()
         tunNRepeats% := tunDanishNRepeats%;
         if tunDanishIncludeBlank% = 0 then
             GetRepeatedParameterProgression%(tunDanishNSteps%+1, tunDanishNRepeats%, tunValues[], tunValuesIndices%[], tunDanishMinOuterDiameter, tunDanishMaxOuterDiameter, 1, tunDanishProgression%); 
+            tunNValues% := (tunDanishNSteps%+1)*tunDanishNRepeats%;
         else  'include blank, include one blank of "0" per tuning cycle, 0 will result in no donut being drawn
             GetRepeatedParameterProgressionWithConstant%(tunDanishNSteps%+1, 1, 0, tunDanishNRepeats%, tunValues[], tunValuesIndices%[], tunDanishMinOuterDiameter, tunDanishMaxOuterDiameter, 1, tunDanishProgression%); 
+            tunNValues% := (tunDanishNSteps%+2)*tunDanishNRepeats%;
         endif        
-        tunNValues% := (tunDanishNSteps%+1)*tunDanishNRepeats%;
+        
         tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%);  
         
         
