@@ -1,7 +1,7 @@
-' $Id: Tuning.s2s,v 1.78 2014-01-29 18:57:24 jeff Exp $
+' $Id: Tuning.s2s,v 1.79 2014-02-05 18:47:55 jeff Exp $
 ' Update 11/8/11 Jeff, includes multi-juicer updates
 
-const tunCVSID$ := "$Id: Tuning.s2s,v 1.78 2014-01-29 18:57:24 jeff Exp $";
+const tunCVSID$ := "$Id: Tuning.s2s,v 1.79 2014-02-05 18:47:55 jeff Exp $";
 
 
 
@@ -2354,7 +2354,7 @@ func Start%()
     'Build command line, any values that are unnecessary will be empty, so the build should work no matter what type of command line is required
     cmdLine$ := Opener$ + ProgName$ + FixationArg$ + XHairArg$ + BGColor$ + Dist2Screen$ + TriggerPort$ + Verbose$; 'prelim stuff
     cmdLine$ := cmdLine$ + RefrLock$ + OffsetFile$ + StimDur$;  'Dual VSG stuff
-    cmdLine$ := cmdLine$ + MasterIndicator$ + MGrat$ + MGratParam$ + TunCurveMArg$ + MValues$;  'Master grating stuff
+    cmdLine$ := cmdLine$ + MasterIndicator$ + MGrat$ + MGratParam$ + +DGrat$ + DGratParam$ + TunCurveMArg$ + MValues$;  'Master grating stuff
     cmdLine$ := cmdLine$ + SlaveIndicator$ + SGrat$ + SGratParam$ + TunCurveSArg$ + SValues$;  'Slave grating stuff
     cmdLine$ := cmdLine$ + TunCurveS2Arg$ + S2Values$;  'Second slave parameters (for Box O' Donuts, more possible)
     'Note that building with empty defaults means if we don't fill something (e.g. DualInd$ for fixstim) all is OK
