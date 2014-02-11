@@ -1,7 +1,7 @@
-' $Id: Tuning.s2s,v 1.81 2014-02-05 22:31:41 devel Exp $
+' $Id: Tuning.s2s,v 1.82 2014-02-11 01:12:17 jeff Exp $
 ' Update 11/8/11 Jeff, includes multi-juicer updates
 
-const tunCVSID$ := "$Id: Tuning.s2s,v 1.81 2014-02-05 22:31:41 devel Exp $";
+const tunCVSID$ := "$Id: Tuning.s2s,v 1.82 2014-02-11 01:12:17 jeff Exp $";
 
 
 
@@ -325,6 +325,7 @@ func IdleProcessing%()
         LogStatus("StartTrial", "Request fixpt");
         SafeSampleKey("F");
         ChangeStateTo(stateWaitForFixPtOn%, tNow);
+        
     
     case iState% = stateWaitForFixPtOn% then
     
@@ -351,7 +352,10 @@ func IdleProcessing%()
                 SampleText("T," + str$(GetPlotXCoord(nTrialsCompleted%)));
             endcase;
             
-            SafeSampleKey("S");
+            SafeSampleKey("S");  'request stimulus
+            if tunType$ = tunTypeDSS$ and tunDSSCurrPeriod% = 0 then  'initialize DSS stimulus if necessary
+                InitializeDSSTrial(tNow);
+            endif;
             'iHoldCount% := 0;  'disimplemented
             ChangeStateTo(stateWaitForStimTrigger%, tNow);
         else 
@@ -430,12 +434,15 @@ func IdleProcessing%()
                 LogStatus("HoldFixation", "Turn off and advance stimulus.");
                 
                 ' djs If NoMaintain was chosen, then turn EVERYTHING off (stim and fixpt) now.
-                ' Otherwise just turn off stim. 
-                if tunUseMaintainMode% >= 1 then
-                    SafeSampleKey("s");
-                else
-                    SafeSampleKey("X");
-                endif;
+                ' Otherwise just turn off stim.
+                docase    
+                case tunUseMaintainMode% = 1 then
+                    SafeSampleKey("?");  'Turn off grating, also turn off core on danish (code tbd)
+                case tunUseMaintainMode% >= 2 then
+                    SafeSampleKey("s");  'Turn off grating, will leave core on danish
+                else  'tunUseMaintainMode% is 0
+                    SafeSampleKey("X");  'Turn off all
+                endcase;
                 
                 Yield();
                 
@@ -462,7 +469,58 @@ func IdleProcessing%()
 
                 ' Now wait until stim is off
                 ChangeStateTo(stateWaitForStimOff%, tNow);
+                
+                
+            else  'if fixation is maintained, and the stimulus is not over, and we are doing dynamic surround suppression...
+                if tunType$ = tunTypeDSS$ and tNow > tunNextDSSTime then 'if it's time to do something
+                    if tunDSSIsOn% = 1 then
+                        SafeSampleKey("s");  'turn donut off
+                        tunDSSIsOn% := 0;  'reset
+                        
+                        'determine if it is time for a reward
+                        'This will give reward after first, and every nth flash, (for last flash, reward will come when stimulus is turned off)
+                        'if tunDSSFlashesUntilReward% = 0 or tunDSSCurrPeriod% = tunDSSNPeriods% then
+                        if tunDSSFlashesUntilReward% = 0 then    
+                            DefaultReward();
+                            tunDSSFlashesUntilReward% := tunDSSNFlashesPerReward%-1;  'reset flashes count
+                        else
+                            tunDSSFlashesUntilReward% := tunDSSFlashesUntilReward% - 1;  'decrement flashes count
+                        endif;
+                        
+                        'determine time of next change
+                        tunNextDSSTime := tNow + tunDSSDuration; 'when we turn back on
+                        tunDSSCurrPeriod% += 1;  'increment current period
+                        'if there are any blanks, add more duration
+                        while tunDSSFlashOrBlank%[tunDSSCurrPeriod%] = 0  and tunDSSCurrPeriod% < tunDSSNPeriods% do  '0 is blank
+                            tunNextDSSTime := tunNextDSSTime + tunDSSDuration + tunDSSDuration;
+                            tunDSSCurrPeriod% += 1;  'increment current period
+                        wend
 
+                    else 'if donut is currently off
+                        if tunDSSCurrPeriod% = tunDSSNPeriods% then
+                            tunFixationDuration := 0;  'Allow trial to finish
+                        else 
+                            SafeSampleKey("s");  'turn donut on
+                            tunDSSIsOn% := 1;  'reset
+                            tunNextDSSTime := tNow + tunDSSDuration;
+                        endif
+                    endif
+                    
+                    
+                    'tunDSSDuration
+                    'tunDSSIsOn%
+                    'tunNextDSSTime
+                    'tunDSSFlashOrBlank%[1000]
+                    'tunDSSFlashesUntilReward%
+                    'tunDSSCurrPeriod%
+                    'tunDSSNFlashesPerReward%
+                    'tunDSSNPeriods%
+                    
+                    
+                    
+                endif
+                
+                
             endif
 
         endif
@@ -511,7 +569,7 @@ func IdleProcessing%()
 
                 LogStatus("MaintainFixation", "success");
                 
-                if tunUseMaintainMode% = 2 then  'Only give juice if requested in original dialog
+                if tunUseMaintainMode% = 3 then  'Only give juice if requested in original dialog
                     if JuicerType% = 1 then  'open-high juicer, dispense based on ms
                         DeliverReward();
                     else
@@ -753,6 +811,12 @@ proc InitializeWindows()
     XRange(0, 30);
 	View(DataWindow%).WindowVisible(1);
     
+    'Inelegant hack - can't really do tuning histograms for DSS (no tuning), but don't want to interfere with dialog
+    if tunType$ = tunTypeDSS$ then
+        tunDoTuningHist% := 0;
+    endif
+    
+    
 	' open xy window to display tuning results
     if tunDoTuningHist% = 1 then
         if tunNWavemarks% > 0 then
@@ -988,6 +1052,15 @@ proc TuningCurveLabels(iport%)
         ChanTitle$(1, "Chan 1");
         XRange(tunDanishMinOuterDiameter, tunDanishMaxOuterDiameter);
         
+'But there's no tuning curve for DSS!  At least right now...        
+'    case tunType$ = tunTypeDSS$ then
+'        
+'        WindowTitle$("Danish Area Tuning - " + s$);
+'        XUnits$("Outer Diameter");
+'        ChanTitle$(1, "Chan 1");
+'        XRange(tunDanishMinOuterDiameter, tunDanishMaxOuterDiameter);        
+        
+        
     else
         
         Message("TuningCurveLabels Error - unknown value for tunType$: " + tunType$);
@@ -1000,6 +1073,7 @@ proc CreateSampleConfiguration()
 	var i%;
     var temp1$;
     var temp2$;
+    var od;
     var key$;
 	SampleClear(); 'Set standard sampling state
 '	SampleAutoFile(0); 'Enable automatic file naming
@@ -1359,7 +1433,7 @@ proc CreateSampleConfiguration()
         else
             EqualizeSMRFilenumbers(dataPathRoot$ + "\\" + dataDataSet$,dataCellName$+"_danMICRO_",dataCellName$+"_danPOWER_");
             SampleAutoName$(dataCellName$ + "_danMICRO_000");  'NOTE: maximum of 13 characters!!!
-            SetStringRegistryValue(key$, "pref", "dot");
+            SetStringRegistryValue(key$, "pref", "dan");
         endif;
         tunNAdvances% := tunDanishNSteps%;
         tunNRepeats% := tunDanishNRepeats%;
@@ -1373,6 +1447,22 @@ proc CreateSampleConfiguration()
         
         tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%);  
         
+    case tunType$ = tunTypeDSS$ then
+        if UsePlexon% = 0 then
+            SampleAutoName$(dataCellName$ + "_dss_000");  'NOTE: maximum of 13 characters!!!
+        else
+            EqualizeSMRFilenumbers(dataPathRoot$ + "\\" + dataDataSet$,dataCellName$+"_dssMICRO_",dataCellName$+"_dssPOWER_");
+            SampleAutoName$(dataCellName$ + "_dssMICRO_000");  'NOTE: maximum of 13 characters!!!
+            SetStringRegistryValue(key$, "pref", "dss");
+        endif;
+        
+        tunNValues% := tunDSSNTrials%;
+        od := GetDonutOD();  'get the outer diameter of the donut
+        'ArrConst(tunValues[0],od); 'only need to assign the outer diameter for index 0, that's all we'll access
+        tunValues[0] := od;  'weird - the above line doesn't work due to "incompatible procedure types"!
+        ArrConst(tunValuesIndices%[0:tunValuesIndices%],0);  'fill tunValuesIndices% with 0 to index tunValues (should be zeroes but whatever) 
+        
+        tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%); 
         
     else    
         'SampleAutoName$(dataCellName$ + "_tun_000");
@@ -1631,7 +1721,7 @@ proc WriteParameterFile()
         Print("Type: sine (s)/square (q)       : %s\n", Tstimp$);  
     endif;        
     
-    if tunType$ = tunTypeDanish$ then  'Do donut grating only if we're using it
+    if tunType$ = tunTypeDanish$ or tunType$ = tunTypeDSS$ then  'Do donut grating only if we're using it
         Print("\Donut Stimulus\n");  'Donut grating
         Print("-------------------\n\n");
         Tstimstr$ := GetGratingParameters$("Distractor1");
@@ -1932,6 +2022,12 @@ proc WriteParameterFile()
 			Print("Type:                  : Danish\n");
 			Print("Min,Max,#Steps,#Repeats: %f,%f,%d,%d\n", tunDanishMinOuterDiameter, tunDanishMaxOuterDiameter, tunDanishNSteps%, tunDanishNRepeats%);
 			Print("Values: " + tunValuesStringified$ + "\n");
+            Print("\n"); 
+        
+        case tunType$ = tunTypeDanish$ then
+
+			Print("Type:                  : DSS\n");
+			Print("#Trials,#Flashes,#Blanks,#FlashesPerReward: %d,%d,%d,%d\n", tunDSSNTrials%, tunDSSNPeriods%, tunDSSNBlanks%, tunDSSNFlashesPerReward%);
             Print("\n");        
         
 		else
@@ -1959,6 +2055,44 @@ func GetStimulusTF()
     LogStatus("GetStimulusTF", "TF=" + str$(tf));
     return tf;
 end
+
+
+
+' Gets the outer diameter of the current stimulus. 
+' Make sure to call this only after all user dialogs have been completed (so you know that the stim parameters will not change)
+' Please note that although this is called "outer diameter" it is actually returning the width - width and height
+' are the same in all cases right now.
+
+func GetDonutOD()
+    var gr$;
+    var x, y, w, h, iw, ih, sf, tf, ori, phase;
+    var contrast%;
+    var cv$, pattern$, aperture$;
+	gr$ := GetGratingParameters$("Distractor1");
+    ParseGratingParameters%(gr$, x, y, w, h, iw, ih, contrast%, sf, tf, ori, phase, cv$, pattern$, aperture$);
+    LogStatus("GetDonutOD", "OD=" + str$(w));
+    return w;
+end
+
+
+
+
+'This is to get ready for each DSS "Trial", which is a series of donut flashes/blanks
+'We will NOT re-initialize if the entire number of flashes is not completed
+func InitializeDSSTrial(tNow)
+    
+    tunFixationDuration := 1000000000;  'We will not allow to break out of DSS stimulus until it is over
+    tunDSSCurrPeriod% := 0;  ' current period is yet to start
+    tunDSSFlashesUntilReward% := 0;  ' reward will come now
+    tunDSSIsOn% := 1;  'donut will start in ON state
+    ArrConst(tunDSSFlashOrBlank%[0:tunDSSNPeriods%-tunDSSNBlanks%],1);  'fill with correct number of flashes == 1
+    ArrConst(tunDSSFlashOrBlank%[tunDSSNPeriods%-tunDSSNBlanks%:tunDSSNBlanks%],0);  'fill with correct number of blanks == 0
+    Shuffle%(tunDSSNPeriods%, tunDSSFlashOrBlank%[]);  'And shuffle
+    tunNextDSSTime := tNow + tunDSSDuration;
+    
+end
+
+
 
 
 func StartPlexon%()
@@ -2358,6 +2492,12 @@ func Start%()
         'Only set DGrat/DGratParam if we're using them
         DGrat$ := " -s ";
         DGratParam$ := GetGratingParameters$("Distractor1");  'the donut - this goes FIRST
+        
+    case tunType$ = tunTypeDSS$ then
+        TunCurveMArg$ := " -H ";
+        'Only set DGrat/DGratParam if we're using them
+        DGrat$ := " -s ";
+        DGratParam$ := GetGratingParameters$("Distractor1");  'the donut - this goes FIRST        
         
     else
 
