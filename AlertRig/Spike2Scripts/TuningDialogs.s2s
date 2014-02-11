@@ -1,4 +1,4 @@
-' $Id: TuningDialogs.s2s,v 1.21 2014-01-29 18:57:24 jeff Exp $
+' $Id: TuningDialogs.s2s,v 1.22 2014-02-11 01:12:17 jeff Exp $
 '
 ' This file contains dialog functions for the alert tuning script Tuning.s2s.
 #include "../../Spike2Util/UsreyUtil.s2s"
@@ -198,6 +198,12 @@ var tunDSSNTrials%;             ' # of trials (one trial is made of N periods)
 var tunDSSNPeriods%;            ' # of flash + blank periods
 var tunDSSNBlanks%;             ' # of blank periods, the remainder are flashes
 var tunDSSNFlashesPerReward%;   ' # of flashes per each reward
+var tunDSSCurrPeriod%;          ' counts current period
+var tunDSSFlashesUntilReward%;  ' how many flashes until we get a reward?
+var tunDSSFlashOrBlank%[1000];  'is current "flash" a flash or a blank?
+var tunDSSDuration;             'how long is each flash, will take from "fixation duration"
+var tunDSSIsOn%;                'keep track of current state
+var tunNextDSSTime;             'when is the next flip?
 
 
 ' Strings that hold grating parameters
@@ -2609,10 +2615,11 @@ func TuningCurveScriptDialog%()
     dualType$[0] := "Dual Tuning";
     dualType$[1] := "Master only";
     dualType$[2] := "Slave only";
-    var maintainList$[3];
+    var maintainList$[4];
     maintainList$[0] := "No";
-    maintainList$[1] := "Yes";
-    maintainList$[2] := "Yes+Rwd";
+    maintainList$[1] := "FixOnly";
+    maintainList$[2] := "All";
+    maintainList$[3] := "All+Rwd";
     
 	for i%:=0 to 2 do
 		if tunBackgroundColor$ = bcl$[i%] then
@@ -2650,7 +2657,7 @@ func TuningCurveScriptDialog%()
     DlgList(12, "Dual Tuning Configuration:", dualType$, 3, 25, 13);
     
     'DlgCheck(13, "Maintain Fixpt between trials", 2, 14);  'change this to a list
-    DlgList(13, 11, maintainList$, 3, 3, 14); DlgText("Maintain Fixpt btwn trls", 15, 14);
+    DlgList(13, 11, maintainList$, 4, 3, 14); DlgText("Maintain Fixpt btwn trls", 15, 14);
     DlgCheck(14, "Stationary",2,15);
     DlgCheck(15, "Make Histograms", 35,14);
     DlgCheck(16, "Use Rivalry Button", 35,15);
@@ -2708,10 +2715,16 @@ func TuningCurveScriptDialog%()
 		tunBackgroundColor$ := bcl$[ibcl%];
 		SaveTuningCurveScriptParameters();
         SaveDAQParameters();  'Now saving DAQ parameters because juicer variables can change
+        tunDSSDuration := tunFixationDuration;  'just setting this no matter what, not much reason to put in an IF
 		if tunContext$ = tunContextDAQ$ then 
             iReturn% := 1;
 		else iReturn% := 1;
 		endif;
+        
+        'do not allow incorrect maintain mode - 1 is only legal for danishes
+        if tunUseMaintainMode% = 1 and tunType$ <> tunTypeDanish$ then
+            tunUseMaintainMode% := 2;
+        endif;
         
         'check to make sure that the box for the crosshairs and stimuli do not overlap
         'this would work if it only got the maximum value of the size of the stimuli
