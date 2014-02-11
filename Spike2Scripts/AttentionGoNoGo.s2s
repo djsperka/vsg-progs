@@ -1,4 +1,4 @@
-' $Id: AttentionGoNoGo.s2s,v 1.34 2014-01-15 01:50:22 devel Exp $
+' $Id: AttentionGoNoGo.s2s,v 1.35 2014-02-11 01:31:24 jeff Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -2184,6 +2184,10 @@ func Start%()
     var specHandle%;
     var CueCirc$;
 	
+    'hard code pReward to 1, per Henry
+    pReward := 1;
+    
+    
     'start sampling
     if UsePlexon% = 1 then
         SampleStart(1);  'set sampling to start on a trigger     
