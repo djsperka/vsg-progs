@@ -1,7 +1,7 @@
-' $Id: Tuning.s2s,v 1.82 2014-02-11 01:12:17 jeff Exp $
+' $Id: Tuning.s2s,v 1.83 2014-02-12 18:23:17 devel Exp $
 ' Update 11/8/11 Jeff, includes multi-juicer updates
 
-const tunCVSID$ := "$Id: Tuning.s2s,v 1.82 2014-02-11 01:12:17 jeff Exp $";
+const tunCVSID$ := "$Id: Tuning.s2s,v 1.83 2014-02-12 18:23:17 devel Exp $";
 
 
 
@@ -115,6 +115,7 @@ const stateVSGWaitConfirm%:=11;		' waif for vsg to send ready signal #2
 const stateTrialCompleted%:=12;		' trial has been completed successfully
 const stateDone%:=13;	
 const stateWaitForStimTrigger% := 14; ' Rising edge indicating start of stim sequence
+const stateWaitForStimOffDSS%:=15;		' Wait for stimulus return trigger (off) during DSS sequence
 var iState% := stateVSGWait%;	' present state
 
 var nTrialsStarted%:=0;
@@ -376,6 +377,7 @@ func IdleProcessing%()
             tStimSequence := tTrigger;      ' TODO remove tStimOn ref above - see stateWaitForStimOn
             tLastTrigger := tTrigger;
             ChangeStateTo(stateHoldFixation%, tTrigger);
+            
         endif
 
         
@@ -468,7 +470,11 @@ func IdleProcessing%()
                 
 
                 ' Now wait until stim is off
-                ChangeStateTo(stateWaitForStimOff%, tNow);
+                if tunType$ = tunTypeDSS$ then
+                    ChangeStateTo(stateWaitForStimOffDSS%, tNow);  'must look at Fixation channel in this case
+                else
+                    ChangeStateTo(stateWaitForStimOff%, tNow);
+                endif;
                 
                 
             else  'if fixation is maintained, and the stimulus is not over, and we are doing dynamic surround suppression...
@@ -499,23 +505,13 @@ func IdleProcessing%()
                     else 'if donut is currently off
                         if tunDSSCurrPeriod% = tunDSSNPeriods% then
                             tunFixationDuration := 0;  'Allow trial to finish
+                            tunDSSCurrPeriod% := 0;  'Allow next trial to initialize
                         else 
-                            SafeSampleKey("s");  'turn donut on
+                            SafeSampleKey("S");  'turn donut on
                             tunDSSIsOn% := 1;  'reset
                             tunNextDSSTime := tNow + tunDSSDuration;
                         endif
-                    endif
-                    
-                    
-                    'tunDSSDuration
-                    'tunDSSIsOn%
-                    'tunNextDSSTime
-                    'tunDSSFlashOrBlank%[1000]
-                    'tunDSSFlashesUntilReward%
-                    'tunDSSCurrPeriod%
-                    'tunDSSNFlashesPerReward%
-                    'tunDSSNPeriods%
-                    
+                    endif                    
                     
                     
                 endif
@@ -534,6 +530,17 @@ func IdleProcessing%()
             tLastTrigger := tTrigger;
             ChangeStateTo(stateTrialCompleted%, tNow);
         endif
+        
+    case iState% = stateWaitForStimOffDSS% then
+
+        if View(DataWindow%).FindFallingEdge%(FixationPointChannel%, tLast, tTrigger) = 1 then
+            ' Advance
+            SafeSampleKey("a");
+
+            tLastTrigger := tTrigger;
+            ChangeStateTo(stateTrialCompleted%, tNow);
+        endif   
+        
 
     case iState% = stateTrialCompleted% then
         
@@ -1460,9 +1467,13 @@ proc CreateSampleConfiguration()
         od := GetDonutOD();  'get the outer diameter of the donut
         'ArrConst(tunValues[0],od); 'only need to assign the outer diameter for index 0, that's all we'll access
         tunValues[0] := od;  'weird - the above line doesn't work due to "incompatible procedure types"!
-        ArrConst(tunValuesIndices%[0:tunValuesIndices%],0);  'fill tunValuesIndices% with 0 to index tunValues (should be zeroes but whatever) 
+        ArrConst(tunValuesIndices%[0:tunNValues%],0);  'fill tunValuesIndices% with 0 to index tunNValues% (should be zeroes but whatever) 
         
         tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%); 
+        
+        'hard code pReward to 1, logic is different for DSS
+        pReward := 1;
+        tunUseMaintainMode% := 0;  'also hard code tunUseMaintainMode%, this could be 1 once that's implemented, but NOT 2/3
         
     else    
         'SampleAutoName$(dataCellName$ + "_tun_000");
