@@ -1,4 +1,4 @@
-' $Id: TuningDialogs.s2s,v 1.22 2014-02-11 01:12:17 jeff Exp $
+' $Id: TuningDialogs.s2s,v 1.23 2014-04-24 22:34:37 jeff Exp $
 '
 ' This file contains dialog functions for the alert tuning script Tuning.s2s.
 #include "../../Spike2Util/UsreyUtil.s2s"
@@ -2617,7 +2617,7 @@ func TuningCurveScriptDialog%()
     dualType$[2] := "Slave only";
     var maintainList$[4];
     maintainList$[0] := "No";
-    maintainList$[1] := "FixOnly";
+    maintainList$[1] := "FixOnly";  'for right now...1/2 are the same!
     maintainList$[2] := "All";
     maintainList$[3] := "All+Rwd";
     
