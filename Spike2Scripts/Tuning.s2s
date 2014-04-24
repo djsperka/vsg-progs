@@ -1,7 +1,7 @@
-' $Id: Tuning.s2s,v 1.83 2014-02-12 18:23:17 devel Exp $
+' $Id: Tuning.s2s,v 1.84 2014-04-24 22:34:37 jeff Exp $
 ' Update 11/8/11 Jeff, includes multi-juicer updates
 
-const tunCVSID$ := "$Id: Tuning.s2s,v 1.83 2014-02-12 18:23:17 devel Exp $";
+const tunCVSID$ := "$Id: Tuning.s2s,v 1.84 2014-04-24 22:34:37 jeff Exp $";
 
 
 
@@ -439,9 +439,9 @@ func IdleProcessing%()
                 ' Otherwise just turn off stim.
                 docase    
                 case tunUseMaintainMode% = 1 then
-                    SafeSampleKey("?");  'Turn off grating, also turn off core on danish (code tbd)
+                    SafeSampleKey("s");  'Turn off grating, also turn off core on danish (code now unclear - what does -s do?)
                 case tunUseMaintainMode% >= 2 then
-                    SafeSampleKey("s");  'Turn off grating, will leave core on danish
+                    SafeSampleKey("s");  'Turn off grating, will leave core on danish  (code now unclear - what does -s do?)
                 else  'tunUseMaintainMode% is 0
                     SafeSampleKey("X");  'Turn off all
                 endcase;
