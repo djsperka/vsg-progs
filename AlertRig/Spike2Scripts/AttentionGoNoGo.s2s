@@ -1,4 +1,4 @@
-' $Id: AttentionGoNoGo.s2s,v 1.37 2014-04-26 03:34:36 jeff Exp $
+' $Id: AttentionGoNoGo.s2s,v 1.38 2014-04-26 21:39:57 devel Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -526,6 +526,7 @@ func AttentionScriptDialog%()
         attNoChangeCondition% := fourmoreints%[2];
         attSwapCueCircle% := fourmoreints%[3];         
         
+
         'put twoints values back into variables
         'attUseCueCircles% := twoints%[0];
         'attCueCircleExtraRadius% := twoints%[1];
@@ -1764,6 +1765,7 @@ proc PrepareTrial()
 			PrintLog("Trial type: attend-away (for this entire block)\n");
 		endif
 	endif
+       
     
     ' Fixation time is a random number between attFixationMinTime and attFixationMaxTime. 
     attFixationTime := Rand(attFixationCueMaxTime - attFixationCueMinTime, attFixationCueMinTime);
@@ -1878,11 +1880,13 @@ proc InitializeWindows()
         var fn$;
         key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\AttentionGNG";
         Profile(key$, "microS2Rfile", "x", fn$);
+        printlog("S2R file name %s was retrieved from registry\n",fn$);
         
         'Apply the ,s2r resource file to the current data window, which will apply the spike shape templates
         'if useSpikeTemplate% = 1 and fn$ <> "x" then
         if fn$ <> "x" then  'OK, Henry says no checkbox necessary, just load up every time 
             FileApplyResource(fn$);
+            printlog("S2R file name %s was loaded using FileApplyResource\n",fn$);
         endif
     endif;
     
@@ -2166,6 +2170,9 @@ func Stop%()
 	' Disable idle process func
 	ToolbarSet(0,"");
     
+    ' Save the current resource file - might be causing problems
+    'FileSaveResource(1);   
+    
 	' Tell stim app to shut down
 	SafeSampleKey("Q");
 	Yield(.1);
@@ -2220,6 +2227,7 @@ func Stop%()
         var key$;
         key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\AttentionGNG";
         Profile(key$, "microS2Rfile", fn$);
+        printlog("S2R file name %s was saved to registry\n",fn$);
     endif;
     
     
@@ -2522,7 +2530,7 @@ Proc CreateContrastList(&c$,&cList%[],&chgList%[],&vList%[],&attList%[],&hazList
             else
                 attColor% := Floor(Rand(attNumPatches%-1,2));  'choose a random stim to attend that is not the main
             endif
-        case attBlockAlternate% = 2 then  'randomize by block, choose a random stimulus to attend for each block, all stims have equal probability (for now)
+        case attBlockAlternate% = 1 then  'randomize by block, choose a random stimulus to attend for each block, all stims have equal probability (for now)
             attColor% := Floor(Rand(attNumPatches%,1));  'offset by 1 so the value comes out 1:N instead of 0:N-1
         endcase
         
@@ -2559,7 +2567,7 @@ Proc CreateContrastList(&c$,&cList%[],&chgList%[],&vList%[],&attList%[],&hazList
             else 'regular trial
                 'if we are cue-swapping, select set of cue circles
                 if attSwapCueCircle% = 1 then
-                    cueCircleRotation% := Floor(Rand(attNumPatches%));  '0 for no rotation, 1 for cycle forward 1, etc.
+                    cueCircleRotation% := Floor(Rand(attNumPatches%,0));  '0 for no rotation, 1 for cycle forward 1, etc.
                 endif
                 rotList%[totalCount%] := cueCircleRotation%;  'set which rotation is being used, will be 0 if swapping is off
                 
