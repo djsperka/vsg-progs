@@ -1,4 +1,4 @@
-/* $Id: fixstim.cpp,v 1.18 2014-01-07 20:36:49 devel Exp $ */
+/* $Id: fixstim.cpp,v 1.19 2014-04-29 16:40:23 devel Exp $ */
 
 #include <iostream>
 #include <fstream>
@@ -259,7 +259,12 @@ int prargs_callback(int c, string& arg)
 		}
 		break;
 	case 's':
-		if (parse_grating(arg, f_grating)) 
+		if (f_vecGratings.size() == 8)
+		{
+			cerr << "Maximum number of gratings(8) reached." << endl;
+			errflg++;
+		}
+		else if (parse_grating(arg, f_grating)) 
 		{
 			cerr << "Error in grating input: " << arg << endl;
 			errflg++;
