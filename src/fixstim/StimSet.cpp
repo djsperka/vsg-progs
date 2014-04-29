@@ -912,6 +912,20 @@ int DanishStimSet::handle_trigger(std::string& s)
 		else m_hole.setContrast(0);
 		status = 1;
 	}
+	else if (s == "u")
+	{
+		// toggle donut contrast ONLY
+		if (m_grating.contrast == 0) m_grating.setContrast(m_contrast);
+		else m_grating.setContrast(0);
+		status = 1;
+	}
+	else if (s == "v")
+	{
+		// toggle hole contrast ONLY
+		if (m_hole.contrast == 0) m_hole.setContrast(m_holeContrast);
+		else m_hole.setContrast(0);
+		status = 1;
+	}
 	else if (s == "a")
 	{
 		// increment iterator, reset to beginning if at end

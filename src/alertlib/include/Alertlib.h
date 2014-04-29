@@ -88,6 +88,7 @@ int parse_number_list(std::string s, std::vector<double>& number_list);
 int parse_number_list(std::vector<std::string>& tokens, std::vector<double>& number_list);
 int parse_xy(std::string s, double& x, double& y);
 int parse_triplet(std::string s, double& d1, double& d2, double &d3);
+int parse_sequence(std::string s, std::string& seq);
 void tokenize(const std::string& str, std::vector<std::string>& tokens, const std::string& delimiters);
 void make_argv(const std::string& str, int &argc, char **argv);
 void make_argv(std::vector<std::string>tokens, int& argc, char** argv);
