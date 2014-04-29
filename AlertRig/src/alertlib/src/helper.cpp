@@ -3,6 +3,7 @@
 #include <vector>
 #include <string>
 #include <sstream>
+#include <fstream>
 
 #ifdef _DEBUG
 #pragma comment(lib, "dalert.lib")
@@ -753,6 +754,39 @@ int parse_number_list(vector<string>& tokens, vector<double>& number_list)
 	}
 	return 0;
 }
+
+
+// input string is a filename or a character string. 
+// If a filename the arg should be file=filename, contents should be a character string. 
+// sequence strings should be 10101010-ish, no commas. 
+// No restriction on characters allowed. 
+int parse_sequence(std::string s, std::string& seq)
+{
+	int status = 0;
+	std::size_t found = s.find_first_of("=");
+	seq.clear();
+	if (found == std::string::npos)
+	{
+		// expecting sequence on command line. Just copy the string
+		seq = s;
+	}
+	else
+	{
+		std::ifstream input(s.substr(found+1).c_str());
+		if (!input)
+		{
+			cerr << "Cannot open file \"" << s.substr(found+1) << "\"" << endl;
+			status = 1;
+		}
+		else
+		{
+			input >> seq;
+		}
+	}
+	cerr << "Loaded " << seq.length() << " terms." << endl;
+	return status;
+}
+
 
 
 int get_color(COLOR_TYPE c, VSGTRIVAL& trival)

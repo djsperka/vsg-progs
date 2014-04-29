@@ -1,4 +1,4 @@
-/* $Id: fixstim.cpp,v 1.19 2014-04-29 16:40:23 devel Exp $ */
+/* $Id: fixstim.cpp,v 1.20 2014-04-29 22:02:05 devel Exp $ */
 
 #include <iostream>
 #include <fstream>
@@ -60,7 +60,7 @@ int main (int argc, char *argv[])
 	int status;
 
 	// Check input arguments
-	status = prargs(argc, argv, prargs_callback, "f:b:d:avg:s:C:T:S:O:A:P:R:B:H:zp:G:D:wJ:Z:Q:", 'F');
+	status = prargs(argc, argv, prargs_callback, "f:b:d:avg:s:C:T:S:O:A:P:R:B:L:e:H:zp:G:D:wJ:Z:Q:", 'F');
 	if (status)
 	{
 		return -1;
@@ -164,6 +164,8 @@ void init_triggers()
 	triggers.addTrigger(new CallbackTrigger("s", 0x4, 0x0, 0x4, 0x0, callback));
 	triggers.addTrigger(new CallbackTrigger("X", 0x6, 0x0, 0x6, 0x0, callback));
 	triggers.addTrigger(new CallbackTrigger("a", 0x8, 0x8|AR_TRIGGER_TOGGLE, 0x8, 0x8|AR_TRIGGER_TOGGLE, callback));
+	triggers.addTrigger(new CallbackTrigger("u", 0x10, 0x10|AR_TRIGGER_TOGGLE, 0x8, 0x8|AR_TRIGGER_TOGGLE, callback));
+	triggers.addTrigger(new CallbackTrigger("v", 0x20, 0x20|AR_TRIGGER_TOGGLE, 0x8, 0x8|AR_TRIGGER_TOGGLE, callback));
 
 	// quit trigger
 	triggers.addTrigger(new QuitTrigger("q", 0x10, 0x10, 0xff, 0x0, 0));
@@ -176,7 +178,7 @@ int callback(int &output, const CallbackTrigger* ptrig)
 	int ival=1;
 	string key = ptrig->getKey();
 
-	if (key == "S" || key == "F" || key=="X" || key=="a" || key=="s")
+	if (key == "S" || key == "F" || key=="X" || key=="a" || key=="s" || key=="u" || key=="v")
 	{
 		ival = f_pStimSet->handle_trigger(key);
 	}
@@ -215,6 +217,7 @@ int prargs_callback(int c, string& arg)
 	static bool bStepTW = false;
 	static alert::ARGratingSpec hole;
 	static bool have_hole = false;
+	static bool have_sequence = false;	// command-line sequence of page numbers 0,1...
 
 	switch(c)
 	{
@@ -442,6 +445,24 @@ int prargs_callback(int c, string& arg)
 						}
 					}
 				}
+			}
+			break;
+		}
+	case 'e':
+		{
+			string seq;
+
+			// Either a sequence of integers 0,1,... (might be more numbers if -L arg given and there are more than two colors)
+			// or same thing in an ascii text file
+			if (parse_sequence(arg, seq))
+			{
+				have_sequence = true;
+				cerr << "Error - bad sequence format (-e)." << endl;
+				errflg++;
+			}
+			else
+			{
+				cerr << "Got sequence " << seq << endl;
 			}
 			break;
 		}
