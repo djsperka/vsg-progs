@@ -905,8 +905,11 @@ int DanishStimSet::handle_trigger(std::string& s)
 	else if (s == "s")
 	{
 		// toggle donut contrast
+		// djs Also toggle hole contrast
 		if (m_grating.contrast == 0) m_grating.setContrast(m_contrast);
 		else m_grating.setContrast(0);
+		if (m_hole.contrast == 0) m_hole.setContrast(m_holeContrast);
+		else m_hole.setContrast(0);
 		status = 1;
 	}
 	else if (s == "a")
@@ -1477,7 +1480,7 @@ int parse_attcues(const string& s, int nstim, vector<AttentionCue>& vecCues)
 	tokenize(s, tokens, ",");
 	if (tokens.size() % (nstim*2) == 0)
 	{
-		for (i=0; i<nstim; i++)
+		for (i=0; i<tokens.size()/nstim; i++)
 		{
 			if (parse_double(tokens[i*2], rdiff) || parse_color(tokens[i*2+1], color))
 			{
@@ -1607,9 +1610,10 @@ AttentionStimSet::AttentionStimSet(ARContrastFixationPointSpec& fixpt, double tM
 	for (unsigned int i=0; i<vecCuePairs.size(); i++)
 	{
 		ARContrastCircleSpec circle;
-		circle.x = m_vecGratings[i].x;
-		circle.y = m_vecGratings[i].y;
-		circle.d = m_vecGratings[i].w + vecCuePairs[i].first*2;
+		int indGrating = i % m_vecGratings.size();
+		circle.x = m_vecGratings[indGrating].x;
+		circle.y = m_vecGratings[indGrating].y;
+		circle.d = m_vecGratings[indGrating].w + vecCuePairs[i].first*2;
 		circle.color = vecCuePairs[i].second;
 		m_vecCues.push_back(circle);
 	}
@@ -1677,7 +1681,14 @@ int AttentionStimSet::drawCurrent()
 		vsgObjResetDriftPhase();
 		m_vecGratings[i].draw();
 	}
-	for (unsigned int i=0; i<m_vecCues.size(); i++)
+
+	// Draw cue circles.
+	// One for each grating, but the set of cues used are taken from 
+	// (iOffBits & 0xff00) >> 8
+
+	int iCueBase = (m_vecParams[m_current].iOffBits & 0xff00) >> 8;
+
+	for (unsigned int i=0; i<m_vecGratings.size(); i++)
 	{
 		// Check if this stim has an off bit set.
 		if (m_vecParams[m_current].iOffBits & (1 << i))
@@ -1686,7 +1697,7 @@ int AttentionStimSet::drawCurrent()
 		}
 		else
 		{
-			m_vecCues[i].draw();
+			m_vecCues[iCueBase*m_vecGratings.size() + i].draw();
 		}
 	}
 	m_fixpt.draw();
@@ -1709,7 +1720,7 @@ int AttentionStimSet::drawCurrent()
 		vsgObjResetDriftPhase();
 		m_vecGratingsCC[i].draw();
 	}
-	for (unsigned int i=0; i<m_vecCues.size(); i++)
+	for (unsigned int i=0; i<m_vecGratings.size(); i++)
 	{
 		// Check if this stim has an off bit set.
 		if (m_vecParams[m_current].iOffBits & (1 << i))
@@ -1718,14 +1729,14 @@ int AttentionStimSet::drawCurrent()
 		}
 		else
 		{
-			m_vecCues[i].draw();
+			m_vecCues[iCueBase*m_vecGratings.size() + i].draw();
 		}
 	}
 	m_fixpt.draw();
 
 	// plain fixpt page
 	vsgSetDrawPage(vsgVIDEOPAGE, m_pageFixpt, vsgBACKGROUND);
-	for (unsigned int i=0; i<m_vecCues.size(); i++)
+	for (unsigned int i=0; i<m_vecGratings.size(); i++)
 	{
 		// Check if this stim has an off bit set.
 		if (m_vecParams[m_current].iOffBits & (1 << i))
@@ -1734,7 +1745,7 @@ int AttentionStimSet::drawCurrent()
 		}
 		else
 		{
-			m_vecCues[i].draw();
+			m_vecCues[iCueBase*m_vecGratings.size() + i].draw();
 		}
 	}
 	m_fixpt.draw();

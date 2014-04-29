@@ -62,4 +62,6 @@ rem ..\..\bin\fixstim -a -v -b gray -p 2 -d 500 -f 0,0,1,green -D white,5,5,10,1
 
 rem danish
 rem ..\..\bin\fixstim -a -v -b gray -p 2 -d 500 -f 0,0,1,green -s 0,0,6,6,4,4,100,.2,1,135,b,s,e -s 0,0,4,4,0,0,100,.2,1,45,b,s,e -H 6.0,7.0,8.0
-..\..\bin\dfixstim -a -v -b gray -p 2 -d 500 -f 0,0,1,green -s 0,0,6,6,4,4,100,.2,1,135,b,s,e -H 6.0,7.0,8.0
+rem ..\..\bin\fixstim -a -v -b gray -p 2 -d 500 -f 0,0,.25,green -s 0,0,6,6,4,4,100,.2,1,135,b,s,e -H 6.0,7.0,8.0
+
+..\..\bin\fixstim -a -f 0,0,0.2,blue -b gray -d 800 -p 2  -v  -s 3.0,3.0,10.0,10.0,5.0,5.0,100,1.00,5.00,160.0,0.0,b,s,e -s 3.0,3.0,2.0,2.0,0.0,0.0,100,1.00,5.00,250.0,0.0,b,s,e -H 10,10

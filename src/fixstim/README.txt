@@ -194,6 +194,17 @@ The -Q option must come after all gratings have been specified (-s, once for eac
 grating) and before the -J option. The cues may be omitted, but if they are used, 
 then they must be specified for each grating. 
 
+There may be multiple sets of cues specified - if so the number of cues specified 
+must be an exact multiple of gratings specified (e.g. if 2 gratings specified, 
+you can specify 2, 4, 6, ... cues, but not 3, 5, 7...). 
+
+When multiple sets of cues are specified, each set is used together in a single
+trial. Specify the set to use in the 'off_bits' arg for the trial. The second byte
+of off_bits is treated as an integer. If it is 0, then we use the first set
+of cues specified (the default). If it is 1 (off_bits = 256), then the second set
+of cues is used. Note that bits in the low-order byte indicate which stimuli should
+be turned OFF. 
+
 
 
 Grating specification
