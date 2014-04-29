@@ -54,6 +54,9 @@ rem crg, using msequence, short one.
 rem ..\..\bin\fixstim -a -v -d 500 -s 0,0,5,5,100,.2,1,45,b,s,e -F ..\..\stim\MSequenceTerms -B 1,100,5
 rem ..\..\bin\fixstim -a -v -d 500 -s 0,0,5,5,100,.2,1,45,b,s,e -F ..\..\stim\MSequenceTerms -B 2,100,5
 
+rem command-line entered sequence
+..\..\bin\fixstim -a -v -d 500 -s 0,0,5,5,100,.2,1,45,b,s,e -e 10101010 -B 2,100,5
+
 rem CBar
 rem ..\..\bin\fixstim -a -v -b black -d 500 -G aaa
 
@@ -64,4 +67,4 @@ rem danish
 rem ..\..\bin\fixstim -a -v -b gray -p 2 -d 500 -f 0,0,1,green -s 0,0,6,6,4,4,100,.2,1,135,b,s,e -s 0,0,4,4,0,0,100,.2,1,45,b,s,e -H 6.0,7.0,8.0
 rem ..\..\bin\fixstim -a -v -b gray -p 2 -d 500 -f 0,0,1,green -s 0,0,6,6,4,4,100,.2,1,135,b,s,e -H 6.0,7.0,8.0
 rem test what happens when outer diameter is same as inner diameter.
-..\..\bin\fixstim -a -v -b gray -p 2 -d 500 -f 0,0,1,green -s 0,0,6,6,4,4,100,.2,1,135,b,s,e -s 0,0,4,4,0,0,100,.2,1,45,b,s,e -H 6.0,4.0
+rem ..\..\bin\fixstim -a -v -b gray -p 2 -d 500 -f 0,0,1,green -s 0,0,6,6,4,4,100,.2,1,135,b,s,e -s 0,0,4,4,0,0,100,.2,1,45,b,s,e -H 6.0,4.0
