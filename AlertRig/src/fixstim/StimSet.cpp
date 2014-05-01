@@ -1,4 +1,6 @@
 #include "StimSet.h"
+#include "AlertLib.h"
+#include "AlertUtil.h"
 #include <iostream>
 #define _USE_MATH_DEFINES
 #include <cmath>
@@ -245,6 +247,28 @@ std::string CRGStimSet::toString() const
 	oss << "  Number of terms: " << m_seq.length() << " Balanced? " << (m_balanced ? "Y" : "N") << "Frames per term: " << m_fpt << endl;
 	return oss.str();
 }
+
+std::string FlashStimSet::toString() const
+{
+	std::ostringstream oss;
+	oss << "Flash StimSet" << endl;
+	if (m_bHaveFixpt)
+	{
+		oss << "  fixation point: " << m_fixpt << endl;
+	}
+	else
+	{
+		oss << "  fixation point: NONE" << endl;
+	}
+	oss << "  Colors: " << endl;
+	for (std::vector<COLOR_TYPE>::const_iterator it = m_colors.begin(); it != m_colors.end(); it++)
+	{
+		oss << *it << endl;
+	}
+	oss << "  Number of terms: " << m_seq.length() << " Balanced? " << (m_balanced ? "Y" : "N") << "Frames per term: " << m_fpt << endl;
+	return oss.str();
+}
+
 
 std::string PositionStimSet::toString() const
 {
@@ -962,10 +986,178 @@ int DanishStimSet::handle_trigger(std::string& s)
 }
 
 
+FlashStimSet::FlashStimSet(alert::ARContrastFixationPointSpec& f, std::vector< COLOR_TYPE >& colors, int frames_per_term, const std::string& sequence, bool balanced)
+: m_colors(colors)
+, m_fixpt(f)
+, m_bHaveFixpt(true)
+, m_fpt(frames_per_term)
+, m_balanced(balanced)
+{
+	m_seq.assign(sequence);
+}
+
+FlashStimSet::FlashStimSet(std::vector< COLOR_TYPE >& colors, int frames_per_term, const std::string& sequence, bool balanced)
+: m_colors(colors)
+, m_bHaveFixpt(false)
+, m_fpt(frames_per_term)
+, m_balanced(balanced)
+{
+	m_seq.assign(sequence);
+}
+
+FlashStimSet::FlashStimSet(alert::ARContrastFixationPointSpec& f, int frames_per_term, const std::string& sequence, bool balanced)
+: m_fixpt(f)
+, m_bHaveFixpt(true)
+, m_fpt(frames_per_term)
+, m_balanced(balanced)
+{
+	COLOR_TYPE ctBlack = { black, { 0, 0, 0 }};
+	COLOR_TYPE ctWhite = { white, { 1, 1, 1 }};
+	m_colors.push_back(ctBlack);
+	m_colors.push_back(ctWhite);
+	m_seq.assign(sequence);
+}
+
+FlashStimSet::FlashStimSet(int frames_per_term, const std::string& sequence, bool balanced)
+: m_bHaveFixpt(false)
+, m_fpt(frames_per_term)
+, m_balanced(balanced)
+{
+	COLOR_TYPE ctBlack = { black, { 0, 0, 0 }};
+	COLOR_TYPE ctWhite = { white, { 1, 1, 1 }};
+	m_colors.push_back(ctBlack);
+	m_colors.push_back(ctWhite);
+	m_seq.assign(sequence);
+}
+
+
+int FlashStimSet::init(ARvsg& vsg, std::vector<int> pages)
+{
+	VSGCYCLEPAGEENTRY cycle[32768];
+	int status = 0;
+	unsigned int index;
+	int pageBlank = vsgGetZoneDisplayPage(vsgVIDEOPAGE);
+	PIXEL_LEVEL level;
+
+	if (m_bHaveFixpt)
+	{
+		m_fixpt.init(vsg, 2);
+		m_fixpt.setContrast(0);
+	}
+
+	// For each page (constructor ensures that number of pages is one more than number of colors)
+	// Last page is blank page with fixpt only. 
+	// create object, allocate a single pixel level, set level to color, clear page to color. 
+
+	for (unsigned int i = 1; i<pages.size(); i++)
+	{
+		vsg.request_single(level);
+		arutil_color_to_palette(m_colors[i-1], level);
+		cerr << "Page " << pages[i] << " color " << m_colors[i-1] << " level " << level << endl;
+		vsgSetDrawPage(vsgVIDEOPAGE, pages[i], level);
+		if (m_bHaveFixpt)
+		{
+			m_fixpt.draw();
+		}
+	}
+	m_pageBlank = pages[0];
+	cerr << "Page " << pages[0] << " color " << vsg.background_color() << " level " << vsgBACKGROUND << endl;
+	vsgSetDrawPage(vsgVIDEOPAGE, pages[0], vsgBACKGROUND);
+	if (m_bHaveFixpt)
+	{
+		m_fixpt.draw();
+	}
+	vsgPresent();
+
+	// Prepare page cycling
+	for (index = 0; index < m_seq.length(); index++)
+	{
+		int iPage = (int)(m_seq[index] - '0') + 1;
+		//cerr << "Term " << index << " on page " << pages[iPage] << endl;
+		cycle[index].Frames = m_fpt;
+		cycle[index].Page = pages[iPage] + vsgTRIGGERPAGE;
+		cycle[index].Stop = 0;
+	}
+
+	// Note that in balanced case we have to assume there are just two colors being used. 
+	// Also, note that pages[0] is "blank", and pages[1],pages[2] are the first and 
+	// second color, respectively. 
+	if (m_balanced && pages.size()==3)
+	{
+		unsigned int len = m_seq.length();
+		for (index = 0; index < m_seq.length(); index++)
+		{
+			cycle[len + index].Frames = m_fpt;
+			cycle[len + index].Page = (m_seq[index] == '0' ? pages[2] : pages[1]) + vsgTRIGGERPAGE;
+			cycle[len + index].Stop = 0;
+		}
+		index = len*2;
+	}
+	cycle[index].Frames = m_fpt;
+	cycle[index].Page = pages[0] + vsgTRIGGERPAGE;
+	cycle[index].Stop = 0;
+
+	cycle[index+1].Page = pages[0] + vsgTRIGGERPAGE;
+	cycle[index+1].Stop = 1;
+
+
+	vsgPageCyclingSetup(index + 2, &cycle[0]);
+	cerr << "Page cycling ready, " << index << " terms" << endl;
+
+	return status;
+}
+
+int FlashStimSet::handle_trigger(std::string& s)
+{
+	int status = 0;
+	if (s == "F")
+	{
+		if (m_bHaveFixpt)
+		{
+			//vsgSetDrawPage(vsgVIDEOPAGE, m_pageBlank, vsgNOCLEAR);
+			m_fixpt.setContrast(100);
+			status = 1;
+		}
+	}
+	else if (s == "S")
+	{
+		vsgSetSynchronisedCommand(vsgSYNC_PRESENT, vsgCYCLEPAGEENABLE, 0);
+		status = 1;
+	}
+	else if (s == "a")
+	{
+	}
+	else if (s == "X")
+	{
+		if (m_bHaveFixpt)
+		{
+			m_fixpt.setContrast(0);
+		}
+		vsgSetSynchronisedCommand(vsgSYNC_PRESENT, vsgCYCLEPAGEDISABLE, 0);
+		vsgSetDrawPage(vsgVIDEOPAGE, m_pageBlank, vsgNOCLEAR);
+		status = 1;
+	}
+	return status;
+}
 
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//==================================================
 CRGStimSet::CRGStimSet(alert::ARContrastFixationPointSpec& f, alert::ARGratingSpec& g, int frames_per_term, const std::string& sequence, bool balanced) : m_grating1(g), m_grating0(g), m_fixpt(f), m_bHaveFixpt(true), m_fpt(frames_per_term), m_balanced(balanced)
 { 
 	m_seq.assign(sequence); 
@@ -1488,7 +1680,7 @@ int parse_attcues(const string& s, int nstim, vector<AttentionCue>& vecCues)
 {
 	COLOR_TYPE color;
 	double rdiff;
-	int i;
+	unsigned int i;
 	vector<string> tokens;
 	istringstream iss;
 	tokenize(s, tokens, ",");

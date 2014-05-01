@@ -78,6 +78,27 @@ Here, the first stim (donut) has an inner diameter of 4, outer diameter will be
 6, 7, 8 as the trials advance. 
 
 
+
+How to specify sequences
+
+The Contrast Reversing Grating Stimulus and the Full Field Flash stimulus
+each rely on a sequence. By default the full msequence is used, but you can 
+specify another sequence with the -e argument. It has two forms:
+
+-e 01...
+-e f=filename.txt
+
+In the first form, the sequence is an ASCII string. The elements of the string 
+must be compatible with the stimulus you specify. In the case of the full field
+flash stimulus, the elements of the sequence must match the number of colors
+specified. In other words, if your -L argument specifies 3 colors, then your 
+sequence must only consist of the characters '0', '1', and '2'.
+
+For both of these stimuli, the -e argument is optional. Fixstim will use the msequence 
+if no other sequence is specified. 
+
+
+
 Contrast Reversing Grating Stimulus
 
 To specify a contrast reversing grating stimulus, first give a grating 
@@ -102,6 +123,25 @@ options:
                       terms shown in the complete sequence is 2*n_terms. 
                       If a list of contrast values are given, the behavior is the 
                       same as that for -R above.
+
+
+Full Screen Flash Stimulus
+
+To specify a full screen flash stimulus (which will cycle through full screen colors),
+use the -L option:
+
+-L frames_per_term
+-L frames_per_term,color0,color1,...
+-L frames_per_term,first_term,number_of_terms
+-L frames_per_term,first_term,number_of_terms,color0,color1,...
+
+In all cases, the sequence used is the msequence (the default) or a user-specified sequence (-e). 
+
+The sequence must be a string of ASCII characters consisting of 0,1,... up to the number of colors
+specified. NO COMMAS OR OTHER SEPARATORS! If no colors are specified, then color0=black and 
+color1=white; in that case, the sequence must consist of 0 and 1.
+
+If first_term and number_of_terms are not specified, then the entire sequence is used. 
 
 
 Drifting Bar Stimulus
