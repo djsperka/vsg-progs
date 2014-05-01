@@ -15,7 +15,7 @@ bool f_pedantic = true;
 void vval(char *name, CComVariant& value);
 
 
-int aslserial_connect(string configfile)
+int aslserial_connect(string configfile, long comPort=2)
 {
 	int status = 0;
 
@@ -42,7 +42,6 @@ int aslserial_connect(string configfile)
 		char* strStreaming = "0";
 		CString strUpdateRate = "240";
 		CString strBaudRate = "57600";
-		long comPort = 2;	// Hopefully this means COM2
 		CComBSTR bstrFile;
 		VARIANT_BOOL eyeheadIntegration = VARIANT_FALSE;
 		long baudRate, updateRate, itemCount;
