@@ -38,6 +38,7 @@ ARContrastFixationPointSpec f_fixpts[10];	// first 9 are for master, 10th is for
 
 PIXEL_LEVEL f_fixation_level;
 string f_szConfigFile;
+long f_lComPort = 2;
 bool f_bRivalry = false;
 string f_szOffsetFile;
 TriggerVector triggers;
@@ -141,7 +142,7 @@ int _tmain(int argc, TCHAR* argv[], TCHAR* envp[])
 	{
 		cout << "Connecting to ASL controller...." << endl;
 
-		if (aslserial_connect(f_szConfigFile))
+		if (aslserial_connect(f_szConfigFile, f_lComPort))
 		{
 			cerr << "Failed to connect to ASL serial port." << endl;
 			return 1;
@@ -179,16 +180,19 @@ int _tmain(int argc, TCHAR* argv[], TCHAR* envp[])
 				idisplay = 0;
 				if (!aslserial_get(&idot, &xdat, &f_fSlaveXOffset, &f_fSlaveYOffset))
 				{
-					if (idot != lastidot)
+					if (idot > 0 && idot < 10)
 					{
-						idisplay = 1;
-						cerr << "Dot " << idot << endl; 
+						if (idot != lastidot)
+						{
+							idisplay = 1;
+							cerr << "Dot " << idot << endl; 
 
-						// change dot on screen here
-						if (lastidot > 0) f_fixpts[lastidot-1].setContrast(0);
-						if (idot > 0) f_fixpts[idot-1].setContrast(100);
-						vsgPresent();
-						lastidot = idot;
+							// change dot on screen here
+							if (lastidot > 0) f_fixpts[lastidot-1].setContrast(0);
+							if (idot > 0) f_fixpts[idot-1].setContrast(100);
+							vsgPresent();
+							lastidot = idot;
+						}
 					}
 				}
 
@@ -356,10 +360,11 @@ int args(int argc, char **argv)
 	bool have_offset = false;
 	string s;
 	int c;
+	int i;
 	extern char *optarg;
 	extern int optind;
 	int errflg = 0;
-	while ((c = getopt(argc, argv, "f:b:hd:vC:i:r:vB")) != -1)
+	while ((c = getopt(argc, argv, "f:b:hd:vC:i:r:vBc:")) != -1)
 	{
 		switch (c) 
 		{
@@ -382,6 +387,11 @@ int args(int argc, char **argv)
 			s.assign(optarg);
 			if (parse_distance(s, f_screenDistanceMM)) errflg++;
 			else have_d=true;
+			break;
+		case 'c':
+			s.assign(optarg);
+			if (parse_integer(s, i)) errflg++;
+			else f_lComPort = (long)i;
 			break;
 		case 'C':
 			s.assign(optarg);
