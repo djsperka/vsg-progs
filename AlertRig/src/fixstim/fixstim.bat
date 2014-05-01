@@ -55,7 +55,14 @@ rem ..\..\bin\fixstim -a -v -d 500 -s 0,0,5,5,100,.2,1,45,b,s,e -F ..\..\stim\MS
 rem ..\..\bin\fixstim -a -v -d 500 -s 0,0,5,5,100,.2,1,45,b,s,e -F ..\..\stim\MSequenceTerms -B 2,100,5
 
 rem command-line entered sequence
-..\..\bin\fixstim -a -v -d 500 -s 0,0,5,5,100,.2,1,45,b,s,e -e 10101010 -B 2,100,5
+rem ..\..\bin\fixstim -a -v -d 500 -s 0,0,5,5,100,.2,1,45,b,s,e -e 1010101 -B 2,100,5
+rem ..\..\bin\fixstim -a -v -d 500 -s 0,0,5,5,100,.2,1,45,b,s,e -e f=d:/work/AlertRig/src/fixstim/ZZZsequence-test.txt -B 2,100,5
+rem ..\..\bin\fixstim -a -v -d 500 -s 0,0,5,5,100,.2,1,45,b,s,e -e f=d:/work/AlertRig/src/fixstim/sequence-test.txt -B 2,100,5
+rem ..\..\bin\fixstim -a -v -d 500 -s 0,0,5,5,100,.2,1,45,b,s,e -e 101010 -L 40
+rem ..\..\bin\fixstim -a -v -d 500 -f 0,0,1.0,green -s 0,0,5,5,100,.2,1,45,b,s,e -e 101010 -L 40
+rem ..\..\bin\fixstim -a -v -d 500 -s 0,0,5,5,100,.2,1,45,b,s,e -e f=d:/work/AlertRig/src/fixstim/sequence-test.txt -L 40
+rem ..\..\bin\fixstim -a -v -d 500 -s 0,0,5,5,100,.2,1,45,b,s,e -e f=d:/work/AlertRig/src/fixstim/sequence-test.txt -L 40
+..\..\bin\fixstim -a -v -d 500 -f 0,0,1,(255/255/0) -s 0,0,5,5,100,.2,1,45,b,s,e -e 012012012 -L 40,red,green,blue
 
 rem CBar
 rem ..\..\bin\fixstim -a -v -b black -d 500 -G aaa
