@@ -269,6 +269,29 @@ private:
 	bool m_balanced;
 };
 
+class FlashStimSet: public StimSet
+{
+public:
+	FlashStimSet(alert::ARContrastFixationPointSpec& f, std::vector< COLOR_TYPE >& colors, int frames_per_term, const std::string& sequence, bool balanced = false);
+	FlashStimSet(std::vector< COLOR_TYPE >& colors, int frames_per_term, const std::string& sequence, bool balanced = false);
+	FlashStimSet(alert::ARContrastFixationPointSpec& f, int frames_per_term, const std::string& sequence, bool balanced = false);
+	FlashStimSet(int frames_per_term, const std::string& sequence, bool balanced = false);
+	virtual int num_pages() {return 1+m_colors.size();};
+	virtual int num_overlay_pages() {return 0;};
+	virtual int init(ARvsg& vsg, std::vector<int> pages);
+	virtual int handle_trigger(std::string& s);
+	virtual std::string toString() const;
+private:
+	vector<COLOR_TYPE> m_colors;
+	alert::ARContrastFixationPointSpec m_fixpt;
+	bool m_bHaveFixpt;
+	int m_fpt;
+	std::string m_seq;
+	bool m_balanced;
+	int m_pageBlank;
+};
+
+
 class CBarStimSet: public StimSet
 {
 public:

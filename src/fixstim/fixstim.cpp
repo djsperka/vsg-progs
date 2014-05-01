@@ -1,4 +1,4 @@
-/* $Id: fixstim.cpp,v 1.20 2014-04-29 22:02:05 devel Exp $ */
+/* $Id: fixstim.cpp,v 1.21 2014-05-01 19:38:17 devel Exp $ */
 
 #include <iostream>
 #include <fstream>
@@ -218,6 +218,7 @@ int prargs_callback(int c, string& arg)
 	static alert::ARGratingSpec hole;
 	static bool have_hole = false;
 	static bool have_sequence = false;	// command-line sequence of page numbers 0,1...
+	static string the_sequence;			// see above.
 
 	switch(c)
 	{
@@ -412,8 +413,18 @@ int prargs_callback(int c, string& arg)
 				list.erase(list.begin());	// erase first three elements
 				list.erase(list.begin());
 				list.erase(list.begin());
-				sequence = get_msequence();
-				nterms = strlen(sequence);
+
+				// If command line has a sequence "-e" argument, the use it; otherwise use the default msequence.
+				if (!have_sequence)
+				{
+					sequence = get_msequence();
+					nterms = strlen(sequence);
+				}
+				else
+				{
+					sequence = the_sequence.c_str();
+					nterms = the_sequence.length();
+				}
 
 				// Check that sequence args work with this sequence file
 				if (nterms > 0 && first > -1 && (first+length < nterms))
@@ -448,21 +459,163 @@ int prargs_callback(int c, string& arg)
 			}
 			break;
 		}
+	case 'L':
+		{
+			// frames_per_term - assumes 0/1 and B/W; use entire sequence
+			// frames_per_term,color0,color1,... - use entire sequence with these colors
+			// frames_per_term,first_term(0...),nterms - assumes 0/1 and B/W
+			// frames_per_term,first_term(0...),nterms,color0,color1,color2... - can have up to 9 colors
+			// If fixpt is configured, then it is used. 
+			// If sequence was not specified on command line by now, msequence is used! 
+			// In other words, must specify "-e" before "-L", otherwise you get the mesequence
+
+			int first, length, fpt, nterms;
+			const char *sequence = NULL;
+			string seq;
+			vector<string> tokens;
+
+			if (!have_sequence)
+			{
+				sequence = get_msequence();
+				nterms = strlen(sequence);
+			}
+			else
+			{
+				sequence = the_sequence.c_str();
+				nterms = the_sequence.length();
+			}
+
+			tokenize(arg, tokens, ",");
+			if (tokens.size() == 1)
+			{
+				if (parse_integer(tokens[0], fpt))
+				{
+					cerr << "Error in flash spec (-L): first arg must be an integer (fpt)." << endl;
+					errflg++;
+					break;
+				}
+				else
+				{
+					seq.assign(sequence);	// use the whole sequence
+					if (have_fixpt)
+					{
+						f_pStimSet = new FlashStimSet(f_fixpt, fpt, seq);
+					}
+					else
+					{
+						f_pStimSet = new FlashStimSet(fpt, seq);
+					}
+				}
+			}
+			else if (tokens.size() < 3)
+			{
+				cerr << "Error in Flash arg (-L): must specify fpt,first,nterms[[color0,color1[,color2...]]]" << endl;
+				errflg++;
+			}
+			else
+			{
+				// first token must be an integer.
+				// If second token is an integer, then the third must also be an integer. Any remaining tokens must be colors.
+				// If the second token is NOT an integer, then all remaining tokens must be colors (and entire sequence is used).
+				if (parse_integer(tokens[0], fpt))
+				{
+					cerr << "Error in Flash arg (-L): must specify fpt,first,nterms[[color0,color1[,color2...]]]" << endl;
+					errflg++;
+				}
+				else
+				{
+					unsigned int first_color_index;
+
+					// If command line has a sequence "-e" argument, the use it; otherwise use the default msequence.
+					if (!have_sequence)
+					{
+						sequence = get_msequence();
+						nterms = strlen(sequence);
+					}
+					else
+					{
+						sequence = the_sequence.c_str();
+						nterms = the_sequence.length();
+					}
+					if (parse_integer(tokens[1], first) || parse_integer(tokens[2], length))
+					{
+						first = 0;
+						nterms = length = strlen(sequence);
+						first_color_index = 1;
+					}
+					else
+					{
+						first_color_index = 3;
+					}
+
+					// Check that sequence args work with this sequence
+					if (nterms > 0 && first > -1 && (first+length <= nterms))
+					{
+						seq.assign(&sequence[first], length);
+					}
+					else
+					{
+						cerr << "Error in flash spec: check sequence length and first,nterms args." << endl;
+						errflg++;
+						break;
+					}
+
+					// now parse colors if necessary
+					if (first_color_index < tokens.size())
+					{
+						vector<COLOR_TYPE> colors;
+						COLOR_TYPE color;
+						for (unsigned int i = first_color_index; i<tokens.size(); i++)
+						{
+							if (parse_color(tokens[i], color))
+							{
+								cerr << "Error in flash spec: bad color format at token " << i << ":" << tokens[i] << endl;
+								errflg++;
+							}
+							else
+							{
+								colors.push_back(color);
+							}
+						}
+						if (have_fixpt)
+						{
+							f_pStimSet = new FlashStimSet(f_fixpt, colors, fpt, seq);
+						}
+						else
+						{
+							f_pStimSet = new FlashStimSet(colors, fpt, seq);
+						}
+					}
+					else
+					{
+						if (have_fixpt)
+						{
+							f_pStimSet = new FlashStimSet(f_fixpt, fpt, seq);
+						}
+						else
+						{
+							f_pStimSet = new FlashStimSet(fpt, seq);
+						}
+					}
+				}
+			}
+			break;
+		}
 	case 'e':
 		{
 			string seq;
 
 			// Either a sequence of integers 0,1,... (might be more numbers if -L arg given and there are more than two colors)
 			// or same thing in an ascii text file
-			if (parse_sequence(arg, seq))
+			if (parse_sequence(arg, the_sequence))
 			{
-				have_sequence = true;
 				cerr << "Error - bad sequence format (-e)." << endl;
 				errflg++;
 			}
 			else
 			{
-				cerr << "Got sequence " << seq << endl;
+				have_sequence = true;
+				cerr << "Got sequence of " << the_sequence.length() << " terms." << endl;
 			}
 			break;
 		}
