@@ -773,14 +773,14 @@ int parse_sequence(std::string s, std::string& seq)
 	else
 	{
 		std::ifstream input(s.substr(found+1).c_str());
-		if (!input)
+		if (input.is_open())
 		{
-			cerr << "Cannot open file \"" << s.substr(found+1) << "\"" << endl;
-			status = 1;
+			input >> seq;
 		}
 		else
 		{
-			input >> seq;
+			cerr << "Cannot open file \"" << s.substr(found+1) << "\"" << endl;
+			status = 1;
 		}
 	}
 	cerr << "Loaded " << seq.length() << " terms." << endl;
@@ -895,14 +895,14 @@ int parse_aperture(std::string s, APERTURE_TYPE& a)
 }
 
 
-int parse_distance(std::string s, int& dist)
+int parse_integer(std::string s, int& i)
 {
 	int status=0;
 	istringstream iss(s);
-	iss >> dist;
+	iss >> i;
 	if (!iss) 
 	{
-		cerr << "bad distance: " << s << endl;
+		cerr << "bad integer: " << s << endl;
 		status=1;
 	}
 	return status;
@@ -942,9 +942,9 @@ int parse_xy(std::string s, double& x, double& y)
 }
 
 
-int parse_integer(std::string s, int& i)
+int parse_distance(std::string s, int& i)
 {
-	return parse_distance(s, i);
+	return parse_integer(s, i);
 }
 
 int parse_double(std::string s, double& d)
