@@ -1686,7 +1686,7 @@ int parse_attcues(const string& s, int nstim, vector<AttentionCue>& vecCues)
 	tokenize(s, tokens, ",");
 	if (tokens.size() % (nstim*2) == 0)
 	{
-		for (i=0; i<tokens.size()/nstim; i++)
+		for (i=0; i<tokens.size()/2; i++)
 		{
 			if (parse_double(tokens[i*2], rdiff) || parse_color(tokens[i*2+1], color))
 			{
