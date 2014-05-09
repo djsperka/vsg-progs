@@ -1,4 +1,4 @@
-; $Id: Tuning.PLS,v 1.12 2014-05-09 17:53:21 jeff Exp $
+; $Id: Tuning.PLS,v 1.13 2014-05-09 21:28:17 devel Exp $
 ;
 
                 SET      0.010 1 0     ;Get rate & scaling OK
@@ -41,13 +41,13 @@
 0025            MOVI   V2,0            ;Log that sequencer is not in use
 0026            HALT                   ;End of this sequence section
 
-0027 TOGGHOLE: 'u MOVI V2,1            ;Log that sequencer is in use
-0028            DIGOUT [...i....]      ;Signals the tuned parameter to advance
+0027 TOGGHOLE: 'v MOVI V2,1            ;Log that sequencer is in use
+0028            DIGOUT [..i.....]      ;Signals the tuned parameter to advance
 0029            MOVI   V2,0            ;Log that sequencer is not in use
 0030            HALT                   ;End of this sequence section
 
-0031 TOGDONUT: 'v MOVI V2,1            ;Log that sequencer is in use
-0032            DIGOUT [..i.....]      ;Signals the tuned parameter to advance
+0031 TOGDONUT: 'u MOVI V2,1            ;Log that sequencer is in use
+0032            DIGOUT [.i......]      ;Signals the tuned parameter to advance, this doesn't work
 0033            MOVI   V2,0            ;Log that sequencer is not in use
 0034            HALT                   ;End of this sequence section
 
