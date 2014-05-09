@@ -1,7 +1,7 @@
-' $Id: Tuning.s2s,v 1.84 2014-04-24 22:34:37 jeff Exp $
+' $Id: Tuning.s2s,v 1.85 2014-05-09 17:46:01 jeff Exp $
 ' Update 11/8/11 Jeff, includes multi-juicer updates
 
-const tunCVSID$ := "$Id: Tuning.s2s,v 1.84 2014-04-24 22:34:37 jeff Exp $";
+const tunCVSID$ := "$Id: Tuning.s2s,v 1.85 2014-05-09 17:46:01 jeff Exp $";
 
 
 
@@ -439,9 +439,9 @@ func IdleProcessing%()
                 ' Otherwise just turn off stim.
                 docase    
                 case tunUseMaintainMode% = 1 then
-                    SafeSampleKey("s");  'Turn off grating, also turn off core on danish (code now unclear - what does -s do?)
+                    SafeSampleKey("s");  'Turn off donut, also turn off core on danish
                 case tunUseMaintainMode% >= 2 then
-                    SafeSampleKey("s");  'Turn off grating, will leave core on danish  (code now unclear - what does -s do?)
+                    SafeSampleKey("v");  'Toggle donut only, will leave core on danish 
                 else  'tunUseMaintainMode% is 0
                     SafeSampleKey("X");  'Turn off all
                 endcase;
@@ -480,7 +480,8 @@ func IdleProcessing%()
             else  'if fixation is maintained, and the stimulus is not over, and we are doing dynamic surround suppression...
                 if tunType$ = tunTypeDSS$ and tNow > tunNextDSSTime then 'if it's time to do something
                     if tunDSSIsOn% = 1 then
-                        SafeSampleKey("s");  'turn donut off
+                        'SafeSampleKey("s");  'turn donut off
+                        SafeSampleKey("v");  'toggle donut off
                         tunDSSIsOn% := 0;  'reset
                         
                         'determine if it is time for a reward
@@ -507,7 +508,8 @@ func IdleProcessing%()
                             tunFixationDuration := 0;  'Allow trial to finish
                             tunDSSCurrPeriod% := 0;  'Allow next trial to initialize
                         else 
-                            SafeSampleKey("S");  'turn donut on
+                            'SafeSampleKey("S");  'turn donut on
+                            SafeSampleKey("v");  'toggle donut on
                             tunDSSIsOn% := 1;  'reset
                             tunNextDSSTime := tNow + tunDSSDuration;
                         endif
