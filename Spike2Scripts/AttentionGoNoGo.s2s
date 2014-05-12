@@ -1,4 +1,4 @@
-' $Id: AttentionGoNoGo.s2s,v 1.38 2014-04-26 21:39:57 devel Exp $
+' $Id: AttentionGoNoGo.s2s,v 1.39 2014-05-12 21:13:58 jeff Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -181,10 +181,28 @@ var attAttendList%[attMaxTrl%];  'A list of which stimulus patch (1 = main, 2 = 
 var attHazardList[attMaxTrl%];     'holds hazard times, now pre-calculated
 var attOffBitsList%[attMaxTrl%];  'A list of which stimulus patches are off for this trial, in a bit sum, 1 = main, 2 = dist1, 4 = dist2, etc.
 var attRotationList%[attMaxTrl%]; 'A list of which rotation is being used for this trial
+var attFixColor%[attMaxTrl%];     'A list of which color fixation point (as a number) is being used for this trial
 var thisContrast%;                 'for sampletexty stuff
+var fixColor$;                  'more sampletexty stuff
 var FAIsResponse%;              'if 1, use "response abort", otherwise use regular abort
 var expectedAnswer%;            'keeps track of expected answer, saves a bunch of redundant code
 'var useSpikeTemplate%;          'not sure where to put it, allows us to load up the most recent spike template, not used
+'For fixation/cue colors, use a master list so we don't get a bunch of values redefined, and have to change them all if a change is made
+var masterColorList$[5];  'human readable
+var masterColorListVSG$[5];  'VSG readable
+
+masterColorList$[0] := "red";
+masterColorListVSG$[0] := "red";
+masterColorList$[1] := "green";
+masterColorListVSG$[1] := "green";
+masterColorList$[2] := "cyan";
+masterColorListVSG$[2] := "(0/255/255)";
+masterColorList$[3] := "yellow";
+masterColorListVSG$[3] := "(255/255/0)";
+masterColorList$[4] := "magenta";
+masterColorListVSG$[5] := "(255/0/255)";
+
+
 
 'we need to explicitly know the position of the gratings to place the answer windows on the gratings
 var mainX;  'the main grating patch is expected to be the one located over the receptive field
@@ -1288,7 +1306,7 @@ func IdleProcessing%()
             tStimOn := tTrigger;
             tLastTrigger := tTrigger;
             ChangeStateTo(stateHoldFixationToCC%, tTrigger);
-            SampleText("Stimulus on, Base contrast " + Str$(attContrastBase%) + ", hazard dur " + Str$(trialHazardFunctionTime)
+            SampleText("Stimulus on, Fixation color " + fixColor$ + ", Base contrast " + Str$(attContrastBase%) + ", hazard dur " + Str$(trialHazardFunctionTime)
             + ", attend location " + Str$(trialAttendLoc%) + ", change location " + Str$(trialIsTarget%) + ", change contrast " + Str$(thisContrast%),tTrigger);
         endif
         
@@ -1787,6 +1805,7 @@ proc PrepareTrial()
 '    endif;
     trialIsTarget% := attChangeList%[attCurrTrialIndex%];  'this tells me not only whether the contrast is changing, but WHICH patch
     trialAttendLoc% := attAttendList%[attCurrTrialIndex%];  'this is the attend location
+    fixColor$ := masterColorList$[attFixColor%[attCurrTrialIndex%]-1];
     
     'Record actual contrast level on this trial
     thisContrast% := attContrastList%[attCurrTrialIndex%];
@@ -2398,7 +2417,7 @@ func Start%()
     if attNumPatches% > 4 then
             Stim$ := Stim$ + " -s " + dist4Spec$;
     endif;
-	CreateContrastList(Contrast$,attContrastList%,attChangeList%,attValidList%,attAttendList%,attHazardList,attOffBitsList%,attRotationList%);  'Fills Contrast$ with the big ol' list, plus some vars to make it easier on us all   
+	CreateContrastList(Contrast$,attContrastList%,attChangeList%,attValidList%,attAttendList%,attHazardList,attOffBitsList%,attRotationList%,attFixColor%);  'Fills Contrast$ with the big ol' list, plus some vars to make it easier on us all   
     'Extras$ := " -b " + attBackgroundColor$ + " -d " + GetDistanceToScreenMM$() + " -A " + str$(attAnswerPointOffset) + " -D " + str$(attAnswerPointDiameter) + lolSpec$;  'answer points on
     Extras$ := " -b " + attBackgroundColor$ + " -d " + GetDistanceToScreenMM$(); '+ " -N ";' + lolSpec$;  'answer points off, lollipop spec off as well
     'if attTrainingContrastCheck% = 1 then
@@ -2498,9 +2517,11 @@ end;
 'and attList%[] for which stimulus is being attended (new)
 'and hazList[] with the required hazard time (time to contrast change) for each trial (new)
 'and offList%[] with a series of off-bits (1=stim 1 off, 2 = dist1 off, 4 = dist2 off, etc.) (new, probably not used later but nice to have in case)
+'and rotList%[] with a series of rotation values
+'and fixColor%[] with the current fixation color
 'Creating all of these here (including easy trials) allows us to just blast through once we get to the actual experiment
 'without too much counting going on.
-Proc CreateContrastList(&c$,&cList%[],&chgList%[],&vList%[],&attList%[],&hazList[],&offList%[],&rotList%[])
+Proc CreateContrastList(&c$,&cList%[],&chgList%[],&vList%[],&attList%[],&hazList[],&offList%[],&rotList%[],&fixColor%[])
     var i%;
     var j%;
     var tempInvalid%;  'holds number of invalid stimulus patch 
@@ -2545,6 +2566,8 @@ Proc CreateContrastList(&c$,&cList%[],&chgList%[],&vList%[],&attList%[],&hazList
                 endif
             endif;
             
+            fixColor%[totalCount%] := attColor%;  'this is the color of the fixation point, which is the same regardless of attention/valid/etc.  It's kind of ground truth and everythign builds from there.            
+            
             if j% <= attEasyTrialsPerBlock% then  'Note that Easy trials will now only happen if the attend directions are blocked
                 attDirection% := attColor%;  'no tricks here, we won't rotate cue circles on "easy" trials
                 vList%[totalCount%] := 1;  'all easy trials are valid
@@ -2557,11 +2580,11 @@ Proc CreateContrastList(&c$,&cList%[],&chgList%[],&vList%[],&attList%[],&hazList
                     offList%[totalCount%] := alloff% - Pow(2,attDirection%-1);  'turn off all stimuli but the attended one
                     'insert easy trial with 100% contrast
                     'note that for easy trials cueCircleRotation is 0 by definition, but just keeping this so the logic is consistent
-                    UpdateTrialSpecString(c$,attColor%,attDirection%,attContrastBase%,100,attHazardMinTime,attPhaseDeg%,alloff%-Pow(2,attDirection%-1)+(256*cueCircleRotation%));  
+                    UpdateTrialSpecString(c$,attColor%,attDirection%,attContrastBase%,100,attHazardMinTime,attPhaseDeg%,alloff%-Pow(2,attDirection%-1)+(256*cueCircleRotation%),masterColorListVSG$);  
                 else
                     offList%[totalCount%] := 0;  'show all grating patches                
                     'insert easy trial with 100% contrast
-                    UpdateTrialSpecString(c$,attColor%,attDirection%,attContrastBase%,100,attHazardMinTime,attPhaseDeg%,0+(256*cueCircleRotation%));
+                    UpdateTrialSpecString(c$,attColor%,attDirection%,attContrastBase%,100,attHazardMinTime,attPhaseDeg%,0+(256*cueCircleRotation%),masterColorListVSG$);
                 endif;
               
             else 'regular trial
@@ -2589,7 +2612,7 @@ Proc CreateContrastList(&c$,&cList%[],&chgList%[],&vList%[],&attList%[],&hazList
                     hazList[totalCount%] := trialHazardFunctionTime;  'set hazard function time
                     offList%[totalCount%] := 0;  'show all grating patches
                     'insert no-go trial
-                    UpdateTrialSpecString(c$,attColor%,attDirection%,attContrastBase%,attContrastBase%,trialHazardFunctionTime,attPhaseDeg%,0+(256*cueCircleRotation%));
+                    UpdateTrialSpecString(c$,attColor%,attDirection%,attContrastBase%,attContrastBase%,trialHazardFunctionTime,attPhaseDeg%,0+(256*cueCircleRotation%),masterColorListVSG$);
                 else    
                     docase
                     case (Rand()*100 < attCatchTrialPercentage) then 'catch trial
@@ -2612,7 +2635,7 @@ Proc CreateContrastList(&c$,&cList%[],&chgList%[],&vList%[],&attList%[],&hazList
                             cList%[totalCount%] := attOneCatchContrast%;  'there is only one contrast
                         endif;
                         'insert catch trial
-                        UpdateTrialSpecString(c$,attColor%,tempInvalid%,attContrastBase%,cList%[totalCount%],trialHazardFunctionTime,attPhaseDeg%,0+(256*cueCircleRotation%));
+                        UpdateTrialSpecString(c$,attColor%,tempInvalid%,attContrastBase%,cList%[totalCount%],trialHazardFunctionTime,attPhaseDeg%,0+(256*cueCircleRotation%),masterColorListVSG$);
                         catchCount% += 1;  
                     case (Rand()*100 < attUncatchTrialPercentage) then 'uncatch trial
                         'this is guaranteed to go along with attOnlyOneCatch% = 1
@@ -2626,7 +2649,7 @@ Proc CreateContrastList(&c$,&cList%[],&chgList%[],&vList%[],&attList%[],&hazList
                         offList%[totalCount%] := 0;  'show all grating patches
                         chgList%[totalCount%] := attDirection%;  'set stimulus that changes
                         'insert uncatch trial
-                        UpdateTrialSpecString(c$,attColor%,attDirection%,attContrastBase%,cList%[totalCount%],trialHazardFunctionTime,attPhaseDeg%,0+(256*cueCircleRotation%));
+                        UpdateTrialSpecString(c$,attColor%,attDirection%,attContrastBase%,cList%[totalCount%],trialHazardFunctionTime,attPhaseDeg%,0+(256*cueCircleRotation%),masterColorListVSG$);
                     else  'valid trial
                         vList%[totalCount%] := 1;  'valid
                         cList%[totalCount%] := attContrastList[attTrialOrder%[stdCount%]];
@@ -2638,7 +2661,7 @@ Proc CreateContrastList(&c$,&cList%[],&chgList%[],&vList%[],&attList%[],&hazList
                         offList%[totalCount%] := 0;  'show all grating patches
                         chgList%[totalCount%] := attDirection%;  'set stimulus that changes
                         'insert uncatch trial
-                        UpdateTrialSpecString(c$,attColor%,attDirection%,attContrastBase%,cList%[totalCount%],trialHazardFunctionTime,attPhaseDeg%,0+(256*cueCircleRotation%));
+                        UpdateTrialSpecString(c$,attColor%,attDirection%,attContrastBase%,cList%[totalCount%],trialHazardFunctionTime,attPhaseDeg%,0+(256*cueCircleRotation%),masterColorListVSG$);
                         stdCount% += 1;
                     endcase;
                 endif;
@@ -2875,8 +2898,11 @@ proc WriteParameterFile()
     Print("Do 'uncatch'     : %d\n", attDoUncatch%);
     Print("Use cue circles?    : %d\n", attUseCueCircles%);
     Print("Cue Circle extra radius    : %f\n", attCueCircleExtraRadius);
-    
-    
+    Print("Random Block Cycling     : %d\n", attRandomBlockCycling%);
+    Print("No Change Condition    : %d\n", attNoChangeCondition%);
+    Print("Swap Cue Circle    : %d\n", attSwapCueCircle%);  
+            
+
     
     Print("Values: " + Contrast$ + "\n");
     Print("\n");
@@ -2943,7 +2969,7 @@ func GetStimulusTF(stim%)
 end
 
 
-proc UpdateTrialSpecString(&c$,attdir%,chgdir%,base%,chg%,haz,phase%,off%)
+proc UpdateTrialSpecString(&c$,attdir%,chgdir%,base%,chg%,haz,phase%,off%,colListVSG$[])
     var col$;
     var trainbase%;
     
@@ -2958,20 +2984,21 @@ proc UpdateTrialSpecString(&c$,attdir%,chgdir%,base%,chg%,haz,phase%,off%)
     'order of colors is red, green, cyan, yellow, magenta
     'These colors have to be in the same order as the ones specified in CreateCueCircleColorSets$!
     'Here we are setting the fixation color
-    docase
-    case attdir% = 1 then
-        col$ := "red";
-    case attdir% = 2 then
-        col$ := "green";
-    case attdir% = 3 then
-        col$ := "(0/255/255)";  'cyan
-    case attdir% = 4 then
-        'col$ := "green";  'temporary because below line is not working
-        col$ := "(255/255/0)";  'yellow, apparently parens are the proper syntax
-    case attdir% = 5 then
-        'col$ := "blue";  'temporary because below line is not working
-        col$ := "(255/0/255)";  'fuschia, apparently parens are the proper syntax  
-    endcase
+'    docase
+'    case attdir% = 1 then
+'        col$ := "red";
+'    case attdir% = 2 then
+'        col$ := "green";
+'    case attdir% = 3 then
+'        col$ := "(0/255/255)";  'cyan
+'    case attdir% = 4 then
+'        'col$ := "green";  'temporary because below line is not working
+'        col$ := "(255/255/0)";  'yellow, apparently parens are the proper syntax
+'    case attdir% = 5 then
+'        'col$ := "blue";  'temporary because below line is not working
+'        col$ := "(255/0/255)";  'magenta, apparently parens are the proper syntax  
+'    endcase
+    col$ := colListVSG$[attdir%-1]; 'replaces above case statement
     c$ := c$ + col$ + ",";  'add color spec
     
     'get temporal frequency of the changing grating
