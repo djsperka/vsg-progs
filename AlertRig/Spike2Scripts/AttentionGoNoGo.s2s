@@ -1,4 +1,4 @@
-' $Id: AttentionGoNoGo.s2s,v 1.39 2014-05-12 21:13:58 jeff Exp $
+' $Id: AttentionGoNoGo.s2s,v 1.40 2014-05-13 20:35:16 jeff Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -200,7 +200,7 @@ masterColorListVSG$[2] := "(0/255/255)";
 masterColorList$[3] := "yellow";
 masterColorListVSG$[3] := "(255/255/0)";
 masterColorList$[4] := "magenta";
-masterColorListVSG$[5] := "(255/0/255)";
+masterColorListVSG$[4] := "(255/0/255)";
 
 
 
