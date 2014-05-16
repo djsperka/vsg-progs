@@ -1,4 +1,4 @@
-' $Id: AttentionGoNoGo.s2s,v 1.41 2014-05-16 18:05:08 jeff Exp $
+' $Id: AttentionGoNoGo.s2s,v 1.42 2014-05-16 19:05:14 devel Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -956,14 +956,14 @@ endif;
 
 
 ' Assign channel numbers for eye X,Y and trigger. 
-XChannel% := 21;
-YChannel% := 22;
-FrameTriggerChannel% := 23;
-FixationPointChannel% := 24;
-StimChannel% := 25;
-StimChangeChannel% := 26;
-ReadyChannel% := 27;
-SynchChannel% := 28;
+XChannel% := 23;
+YChannel% := 24;
+FrameTriggerChannel% := 25;
+FixationPointChannel% := 26;
+StimChannel% := 27;
+StimChangeChannel% := 28;
+ReadyChannel% := 29;
+SynchChannel% := 32;
 
 'If we are not using the Plexon (and thus linking the two 1401s together, just use the standard order of operations:
 '1) create sampling configuration, 2) Initialize windows, 3) Initialize/run toolbar.
@@ -2209,7 +2209,7 @@ func Stop%()
     ExportChanList(); 
     chanToExport%[1] := 30;  'channels to export go in elements 1:...'30 is the textmark channel
     chanToExport%[2] := 31;  '31 is the keyboard channel
-    chanToExport%[3] := 25;  '25 is the stim channel
+    chanToExport%[3] := StimChannel%;  'stim channel
     docase
     case UsePlexon% = 1 then  'use hardcoded Plexon values - 18 WaveMarks and 24 LFPs for now, on the micro it's 
         for i% := 0 to 12 do
@@ -2223,6 +2223,7 @@ func Stop%()
         for i% := 14 to 21 do
             chanToExport%[i%+4] := i%+3;  'wavemark channels are in order, but we're skipping eye channels
         next;
+        chanToExport%[0] := 3+i%;  'total number of channels goes in element 0
     else
         for i% := 0 to NumWavemarkPorts% do
             chanToExport%[i%+4] := i%+1;  'wavemark channels are in order
