@@ -1,4 +1,4 @@
-' $Id: AttentionGoNoGo.s2s,v 1.40 2014-05-13 20:35:16 jeff Exp $
+' $Id: AttentionGoNoGo.s2s,v 1.41 2014-05-16 18:05:08 jeff Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -2101,11 +2101,14 @@ proc CreateSampleConfiguration()
 	SampleTitle$(ReadyChannel%,"VSG Ready");
     
     ' Set up channels for sampling electrodes.
-    if UsePlexon% = 1 then  'call Plexon setup function, this will ONLY set up the sampling configuration for the Micro1401 mark II.  The Power1401 will be set up from its own dedicated script in its dedicated Spike2 instance
+    docase
+    case UsePlexon% = 1 then  'call Plexon setup function, this will ONLY set up the sampling configuration for the Micro1401 mark II.  The Power1401 will be set up from its own dedicated script in its dedicated Spike2 instance
         CreatePlexonSamplingConfiguration1824Micro(); 'Note that for right now the ONLY Plexon configuration is 18 WaveMark/24 LFP (maximal WMs for 24 LFPs, trust me)
+    case UsePlexon7WM15CN% = 1 then  'call 7 wavemark, 15 continuous setup
+        CreateElectrodeSamplingConfiguration7WM15CN();
     else  'just set up the channels as expected
         CreateElectrodeSamplingConfiguration(1, 11);
-    endif;
+    endcase;
 	
     ' Set up eye channels whether using Plexon or not
 	SampleWaveform(XChannel%,14,1000);
@@ -2114,7 +2117,7 @@ proc CreateSampleConfiguration()
 	SampleTitle$(YChannel%,"Eye Y");
     
     'I don't know what this is, but it's a problem for Plexon configs
-    if UsePlexon% = 0 then  'Kill it if we're using the Plexon
+    if UsePlexon% = 0 and UsePlexon7WM15CN% = 0 then  'Kill it if we're using the Plexon
         SampleWaveform(NumberOfElectrodes%+10, 6, 1000);
         SampleTitle$(NumberOfElectrodes%+10, "PD");
     endif;
@@ -2207,17 +2210,25 @@ func Stop%()
     chanToExport%[1] := 30;  'channels to export go in elements 1:...'30 is the textmark channel
     chanToExport%[2] := 31;  '31 is the keyboard channel
     chanToExport%[3] := 25;  '25 is the stim channel
-    if UsePlexon% = 1 then  'use hardcoded Plexon values - 18 WaveMarks and 24 LFPs for now, on the micro it's 
+    docase
+    case UsePlexon% = 1 then  'use hardcoded Plexon values - 18 WaveMarks and 24 LFPs for now, on the micro it's 
         for i% := 0 to 12 do
             chanToExport%[i%+4] := i%+1;  'wavemark channels are in order
         next;
         chanToExport%[0] := 3+i%;  'total number of channels goes in element 0
+    case UsePlexon7WM15CN% = 1 then  'use hardcoded Plexon values - 7 WaveMarks and 15 LFPs
+        for i% := 0 to 13 do
+            chanToExport%[i%+4] := i%+1;  'wavemark channels are in order
+        next;
+        for i% := 14 to 21 do
+            chanToExport%[i%+4] := i%+3;  'wavemark channels are in order, but we're skipping eye channels
+        next;
     else
         for i% := 0 to NumWavemarkPorts% do
             chanToExport%[i%+4] := i%+1;  'wavemark channels are in order
         next;
         chanToExport%[0] := 3+i%;  'total number of channels goes in element 0
-    endif;
+    endcase;
     
     ExportChanList(0,view(datawindow%).maxtime(),chanToExport%[]);
     
