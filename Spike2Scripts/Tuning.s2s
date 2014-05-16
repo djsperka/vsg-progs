@@ -1,7 +1,7 @@
-' $Id: Tuning.s2s,v 1.86 2014-05-16 18:05:08 jeff Exp $
+' $Id: Tuning.s2s,v 1.87 2014-05-16 19:04:41 devel Exp $
 ' Update 11/8/11 Jeff, includes multi-juicer updates
 
-const tunCVSID$ := "$Id: Tuning.s2s,v 1.86 2014-05-16 18:05:08 jeff Exp $";
+const tunCVSID$ := "$Id: Tuning.s2s,v 1.87 2014-05-16 19:04:41 devel Exp $";
 
 
 
@@ -193,16 +193,29 @@ endif;
 
 
 ' Assign channel numbers for eye X,Y and trigger. 
-XChannel% := 21;
-YChannel% := 22;
-FixationPointChannel% := 24;
-StimChannel% := 25;
-ReadyChannel% := 27;            ' Look for ready signal on port 2 (same as fixpt). 
-FixationPointSlaveChannel% := 28;
-StimSlaveChannel% := 29;
-FrameChannel% := 19;
-FrameSlaveChannel% := 20;
-ButtonChannel% := 23;
+'here are old values
+'XChannel% := 21;
+'YChannel% := 22;
+'FixationPointChannel% := 24;
+'StimChannel% := 25;
+'ReadyChannel% := 27;            ' Look for ready signal on port 2 (same as fixpt). 
+'FixationPointSlaveChannel% := 28;
+'StimSlaveChannel% := 29;
+'FrameChannel% := 19;
+'FrameSlaveChannel% := 20;
+'ButtonChannel% := 23;
+
+XChannel% := 25;
+YChannel% := 26;
+FixationPointChannel% := 28;
+StimChannel% := 29;
+ReadyChannel% := 33;            ' Look for ready signal on port 2 (same as fixpt). 
+FixationPointSlaveChannel% := 34;
+StimSlaveChannel% := 35;
+FrameChannel% := 36;
+FrameSlaveChannel% := 37;
+ButtonChannel% := 27;
+
 ButtonPort% := 5;  'This appears to be correct
 
 ' Fetch electrode information. 
@@ -1092,6 +1105,7 @@ proc CreateSampleConfiguration()
     var od;
     var key$;
 	SampleClear(); 'Set standard sampling state
+    SampleChannels(64);  '32 does not work, we need more!
 '	SampleAutoFile(0); 'Enable automatic file naming
 	SampleAutoComment(0); 'Prompt for comment after sampling
 	SampleAutoCommit(60); 'Seconds between each file commit
@@ -1571,6 +1585,7 @@ proc CreateSampleConfiguration()
         SampleOptimise(2,2,2,2,50);  'otherwise: full optimize timing, channels may have different rates, Power1401 (lowest common denominator, so eh), low usPerTime of 2, high usPerTime of 50
     endif;
 	SampleMode(1); 'Continuous sampling
+    
 end;
 
 ' Used to hard-quit from toolbar. This will close data files without saving!!! 
@@ -1608,7 +1623,7 @@ func Stop%()
     ExportChanList(); 
     chanToExport%[1] := 30;  'channels to export go in elements 1:...'30 is the textmark channel
     chanToExport%[2] := 31;  '31 is the keyboard channel
-    chanToExport%[3] := 25;  '25 is the stim channel
+    chanToExport%[3] := StimChannel%;  'stim channel
     docase
     case UsePlexon% = 1 then  'use hardcoded Plexon values - 18 WaveMarks and 24 LFPs for now, on the micro it's 
         for i% := 0 to 12 do
@@ -1622,6 +1637,7 @@ func Stop%()
         for i% := 14 to 21 do
             chanToExport%[i%+4] := i%+3;  'wavemark channels are in order, but we're skipping eye channels
         next;
+        chanToExport%[0] := 3+i%;  'total number of channels goes in element 0
     else
         for i% := 0 to NumWavemarkPorts% do
             chanToExport%[i%+4] := i%+1;  'wavemark channels are in order
