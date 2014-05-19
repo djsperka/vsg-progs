@@ -38,6 +38,7 @@ var dhShowDonutOnMaster%;  'This will be 0 = donut on master/center on slave
                            '             3 = danish (donut+center) on slave 
 var dhGridTF; 
 var dhGridDur; 
+var dhDonutConstant%;
 
 'Grating dialog variables
 var dhXOffset;
@@ -55,6 +56,10 @@ var dhContrastLogProgression%;
 var dhCoreInnerDiameter;
 var dhCoreOuterDiameter;
 var dhDonutInnerDiameter;
+var dhDonutOuterDiameter;
+var dhDonutWidth;
+var dhMinDonutInnerDiameter;
+var dhMaxDonutInnerDiameter;
 var dhMinDonutOuterDiameter;
 var dhMaxDonutOuterDiameter;
 var dhNDonutDiameters%;
@@ -114,6 +119,8 @@ proc GetDonutHuntMainParameters()
     dhUseJoystick% := GetIntRegistryValue%(key$, "UseJoystick", dhUseJoystick%);
     dhResponseWindow := GetFloatRegistryValue(key$, "ResponseWindow", dhResponseWindow);
     dhChoicePointRadius := GetFloatRegistryValue(key$, "ChoicePointRadius", dhChoicePointRadius);
+    dhDonutConstant% := GetIntRegistryValue%(key$, "DonutConstant", dhDonutConstant%);
+    
     
 end;
 
@@ -136,6 +143,7 @@ proc SaveDonutHuntMainParameters()
     SetIntRegistryValue(key$, "UseJoystick", dhUseJoystick%);
     SetFloatRegistryValue(key$, "ResponseWindow", dhResponseWindow);
     SetFloatRegistryValue(key$, "ChoicePointRadius", dhChoicePointRadius);
+    SetIntRegistryValue(key$, "DonutConstant", dhDonutConstant%);
 
 end;
 
@@ -158,6 +166,10 @@ proc GetDonutHuntGratingParameters()
     dhCoreInnerDiameter := GetFloatRegistryValue(key$, "CoreInnerDiameter", dhCoreInnerDiameter);
     dhCoreOuterDiameter := GetFloatRegistryValue(key$, "CoreOuterDiameter", dhCoreOuterDiameter);
     dhDonutInnerDiameter := GetFloatRegistryValue(key$, "DonutInnerDiameter", dhDonutInnerDiameter);
+    dhDonutOuterDiameter := GetFloatRegistryValue(key$, "DonutOuterDiameter", dhDonutOuterDiameter);
+    dhDonutWidth := GetFloatRegistryValue(key$, "DonutWidth", dhDonutWidth);
+    dhMinDonutInnerDiameter := GetFloatRegistryValue(key$, "MinDonutInnerDiameter", dhMinDonutInnerDiameter);
+    dhMaxDonutInnerDiameter := GetFloatRegistryValue(key$, "MaxDonutInnerDiameter", dhMaxDonutInnerDiameter);  
     dhMinDonutOuterDiameter := GetFloatRegistryValue(key$, "MinDonutOuterDiameter", dhMinDonutOuterDiameter);
     dhMaxDonutOuterDiameter := GetFloatRegistryValue(key$, "MaxDonutOuterDiameter", dhMaxDonutOuterDiameter);
     dhNDonutDiameters% := GetIntRegistryValue%(key$, "NDonutDiameters", dhNDonutDiameters%);
@@ -190,6 +202,10 @@ proc SaveDonutHuntGratingParameters()
     SetFloatRegistryValue(key$, "CoreInnerDiameter", dhCoreInnerDiameter);
     SetFloatRegistryValue(key$, "CoreOuterDiameter", dhCoreOuterDiameter);
     SetFloatRegistryValue(key$, "DonutInnerDiameter", dhDonutInnerDiameter);
+    SetFloatRegistryValue(key$, "DonutOuterDiameter", dhDonutOuterDiameter);
+    SetFloatRegistryValue(key$, "DonutWidth", dhDonutWidth);
+    SetFloatRegistryValue(key$, "MinDonutInnerDiameter", dhMinDonutInnerDiameter);
+    SetFloatRegistryValue(key$, "MaxDonutInnerDiameter", dhMaxDonutInnerDiameter);
     SetFloatRegistryValue(key$, "MinDonutOuterDiameter", dhMinDonutOuterDiameter);
     SetFloatRegistryValue(key$, "MaxDonutOuterDiameter", dhMaxDonutOuterDiameter);
     SetIntRegistryValue(key$, "NDonutDiameters", dhNDonutDiameters%);
@@ -319,6 +335,7 @@ func DonutHuntMainDialog%()
     var j%;
     var dhResponseList$[4];
     var dhMasterSlaveList$[4];
+    var dhDonutConstantList$[3];
 
     ' Set dhResponseList$[]
     dhResponseList$[0] := "No response";
@@ -332,6 +349,10 @@ func DonutHuntMainDialog%()
     dhMasterSlaveList$[2] := "Danish on Master";
     dhMasterSlaveList$[3] := "Danish on Slave";
     
+    ' Set dhDonutConstantList$[]
+    dhDonutConstantList$[0] := "Donut Inner Diameter is fixed";
+    dhDonutConstantList$[1] := "Donut Outer Diameter is fixed";
+    dhDonutConstantList$[2] := "Donut Width is fixed";
     
     ' Fetch parameters from registry    
     GetDonutHuntMainParameters();  
@@ -352,8 +373,8 @@ func DonutHuntMainDialog%()
     DlgButton(dhFixationButton%,"Fixation",DonutHuntFixationDialog%,23,2);
     'DlgCheck(12,"Show Donut On Master",35,1);
     Dlglist(12,18,dhMasterSlaveList$[],4,35,1);
-    DlgCheck(13,"Always Looking",35,3);
-    
+    DlgCheck(13,"Always Looking",35,2);
+    DlgList(17,30,dhDonutConstantList$,3,24,3);
 
     
     'Timing/Masker parameters
@@ -394,7 +415,8 @@ func DonutHuntMainDialog%()
     
     ' Show the dialog. 
     i%:=DlgShow(dhNRepeats%,dhMinStimDelay,dhRandStimDelay,dhDelayBeforeDContrast,dhDurAfterDContrast,
-    dhGridTF,dhGridDur,dhDoCRG%,dhNRepeatsPerCRG%,dhNFramesPerTurn%,dhCRGFilename$,dhShowDonutOnMaster%,alwaysLooking%,dhUseJoystick%,dhResponseWindow,dhChoicePointRadius);
+    dhGridTF,dhGridDur,dhDoCRG%,dhNRepeatsPerCRG%,dhNFramesPerTurn%,dhCRGFilename$,dhShowDonutOnMaster%,
+    alwaysLooking%,dhUseJoystick%,dhResponseWindow,dhChoicePointRadius,dhDonutConstant%);
 
     
     
@@ -461,6 +483,7 @@ func DonutHuntGratingDialog%()
     var allOK% := 0;
     var param$;
     var dhDiameters[5];
+    var dc%;
     
     'Disable the calling dialog's OK button, in case invalid numbers are entered
     '(On the first call it will be disabled anyway)
@@ -472,11 +495,28 @@ func DonutHuntGratingDialog%()
     'consolidate some variables into array to allow over 20 arguments on one dialog
     'Only restrictions are that the values passed out of DlgShow have to be consecutive, same
     'variable type, and the same number as the size of the array
-    dhDiameters[0] := dhDonutInnerDiameter;
-    dhDiameters[1] := dhCoreInnerDiameter;
-    dhDiameters[2] := dhCoreOuterDiameter;
-    dhDiameters[3] := dhMinDonutOuterDiameter;
-    dhDiameters[4] := dhMaxDonutOuterDiameter;
+    dc% := DlgValue(17);  'get value from  caller dialog
+    docase
+    case dc% = 0 then
+        dhDiameters[0] := dhDonutInnerDiameter;
+        dhDiameters[1] := dhCoreInnerDiameter;
+        dhDiameters[2] := dhCoreOuterDiameter;
+        dhDiameters[3] := dhMinDonutOuterDiameter;
+        dhDiameters[4] := dhMaxDonutOuterDiameter;
+    case dc% = 1 then
+        dhDiameters[0] := dhDonutOuterDiameter;
+        dhDiameters[1] := dhCoreInnerDiameter;
+        dhDiameters[2] := dhCoreOuterDiameter;
+        dhDiameters[3] := dhMinDonutInnerDiameter;
+        dhDiameters[4] := dhMaxDonutInnerDiameter;
+    case dc% = 2 then
+        dhDiameters[0] := dhDonutWidth;
+        dhDiameters[1] := dhCoreInnerDiameter;
+        dhDiameters[2] := dhCoreOuterDiameter;
+        dhDiameters[3] := dhMinDonutInnerDiameter;
+        dhDiameters[4] := dhMaxDonutInnerDiameter;
+    endcase
+    
     
     'Hold value of dhYOffset from registry, we will display and change a temporary value
     dhYOffsetTemp := dhYOffset;
@@ -514,18 +554,47 @@ func DonutHuntGratingDialog%()
     
     'Diameter parameters
     DlgGroup("Diameter Parameters",1,10,58,5);
-    DlgReal(13,6,0,100,23,11);  'Minimum donut outer diameter
-    DlgText("Donut inner diam (deg)",2,11);
-    DlgReal(14,6,0,100,52,11);  'Core outer diameter
-    DlgText("Core inner diam (deg)",31,11);
-    DlgReal(15,6,0,100,52,12);  'Core outer diameter
-    DlgText("Core outer diam (deg)",31,12);
-    DlgReal(16,6,0,100,23,12);  'Minimum donut outer diameter
-    DlgText("Min donut out diam (deg)",2,12);
-    DlgReal(17,6,0,100,23,13);  'Maximum donut outer diameter
-    DlgText("Max donut out diam (deg)",2,13);
-    DlgInteger(18,6,0,100,23,14);  'Number of donut sizes
-    DlgText("# donut outer diams",2,14);
+    docase
+    case dc% = 0 then
+        DlgReal(13,6,0,100,23,11);  'Donut inner diameter
+        DlgText("Donut inner diam (deg)",2,11);
+        DlgReal(14,6,0,100,52,11);  'Core outer diameter
+        DlgText("Core inner diam (deg)",31,11);
+        DlgReal(15,6,0,100,52,12);  'Core outer diameter
+        DlgText("Core outer diam (deg)",31,12);
+        DlgReal(16,6,0,100,23,12);  'Minimum donut outer diameter
+        DlgText("Min donut out diam (deg)",2,12);
+        DlgReal(17,6,0,100,23,13);  'Maximum donut outer diameter
+        DlgText("Max donut out diam (deg)",2,13);
+        DlgInteger(18,6,0,100,23,14);  'Number of donut sizes
+        DlgText("# donut outer diams",2,14);
+    case dc% = 1 then
+        DlgReal(13,6,0,100,23,11);  'Donut outer diameter
+        DlgText("Donut outer diam (deg)",2,11);
+        DlgReal(14,6,0,100,52,11);  'Core outer diameter
+        DlgText("Core inner diam (deg)",31,11);
+        DlgReal(15,6,0,100,52,12);  'Core outer diameter
+        DlgText("Core outer diam (deg)",31,12);
+        DlgReal(16,6,0,100,23,12);  'Minimum donut inner diameter
+        DlgText("Min donut in diam (deg)",2,12);
+        DlgReal(17,6,0,100,23,13);  'Maximum donut inner diameter
+        DlgText("Max donut in diam (deg)",2,13);
+        DlgInteger(18,6,0,100,23,14);  'Number of donut sizes
+        DlgText("# donut inner diams",2,14);
+    case dc% = 2 then
+        DlgReal(13,6,0,100,23,11);  'Donut width
+        DlgText("Donut width (deg)",2,11);
+        DlgReal(14,6,0,100,52,11);  'Core outer diameter
+        DlgText("Core inner diam (deg)",31,11);
+        DlgReal(15,6,0,100,52,12);  'Core outer diameter
+        DlgText("Core outer diam (deg)",31,12);
+        DlgReal(16,6,0,100,23,12);  'Minimum donut inner diameter
+        DlgText("Min donut in diam (deg)",2,12);
+        DlgReal(17,6,0,100,23,13);  'Maximum donut inner diameter
+        DlgText("Max donut in diam (deg)",2,13);
+        DlgInteger(18,6,0,100,23,14);  'Number of donut sizes
+        DlgText("# donut inner diams",2,14);
+    endcase
     DlgCheck(19, "Donut Size Log Progression", 31, 14);
     
     
@@ -553,11 +622,27 @@ func DonutHuntGratingDialog%()
 	if i% = 1 then
         
         'populate consolidated variables from array
-        dhDonutInnerDiameter := dhDiameters[0];
-        dhCoreInnerDiameter := dhDiameters[1];
-        dhCoreOuterDiameter := dhDiameters[2];
-        dhMinDonutOuterDiameter := dhDiameters[3];
-        dhMaxDonutOuterDiameter := dhDiameters[4];
+        docase
+        case dc% = 0 then
+            dhDonutInnerDiameter := dhDiameters[0];
+            dhCoreInnerDiameter := dhDiameters[1];
+            dhCoreOuterDiameter := dhDiameters[2];
+            dhMinDonutOuterDiameter := dhDiameters[3];
+            dhMaxDonutOuterDiameter := dhDiameters[4];
+        case dc% = 1 then
+            dhDonutOuterDiameter := dhDiameters[0];
+            dhCoreInnerDiameter := dhDiameters[1];
+            dhCoreOuterDiameter := dhDiameters[2];
+            dhMinDonutInnerDiameter := dhDiameters[3];
+            dhMaxDonutInnerDiameter := dhDiameters[4];
+        case dc% = 2 then
+            dhDonutWidth := dhDiameters[0];
+            dhCoreInnerDiameter := dhDiameters[1];
+            dhCoreOuterDiameter := dhDiameters[2];
+            dhMinDonutInnerDiameter := dhDiameters[3];
+            dhMaxDonutInnerDiameter := dhDiameters[4];
+        endcase
+        
         
         'it's dummyproofing time!
         docase
@@ -568,8 +653,10 @@ func DonutHuntGratingDialog%()
         'this one is actually OK now, Ben wants this ability
         'case dhCoreOuterDiameter > dhMinDonutOuterDiameter then
             'message("Error!  The diameter of the core is greater than the smallest diameter of the donut!");
-        case dhMinDonutOuterDiameter > dhMaxDonutOuterDiameter then    
+        case dc% = 0 and dhMinDonutOuterDiameter > dhMaxDonutOuterDiameter then    
             message("Error!  The min outer donut diameter is greater than the max outer donut diameter!");
+        case dc% > 0 and dhMinDonutInnerDiameter > dhMaxDonutInnerDiameter then    
+            message("Error!  The min inner donut diameter is greater than the max inner donut diameter!");    
         else
             allOK% := 1;
         endcase;            
@@ -591,9 +678,17 @@ func DonutHuntGratingDialog%()
         
         'Encode and save Core and Donut parameters (not Master/Slave specific, we'll assign that when we come to it)
         param$ := EncodeGratingParameters$(0,0,dhCoreOuterDiameter,dhCoreOuterDiameter,dhCoreInnerDiameter,dhCoreInnerDiameter,dhCoreContrast,dhSpatialFreq,dhTemporalFreq,0,dhInitialPhase%,"b","s","e");
-        SaveGratingParameters("Core", param$);  'this saves core        
-        param$ := EncodeGratingParameters$(0,0,dhMinDonutOuterDiameter,dhMinDonutOuterDiameter,dhDonutInnerDiameter,dhDonutInnerDiameter,dhDonutContrast,dhSpatialFreq,dhTemporalFreq,dhDonutOrientation,dhInitialPhase%,"b","s","e");
-        SaveGratingParameters("Donut", param$);  'this saves core 
+        SaveGratingParameters("Core", param$);  'this saves core
+        docase
+        case dc% = 0 then
+            param$ := EncodeGratingParameters$(0,0,dhMinDonutOuterDiameter,dhMinDonutOuterDiameter,dhDonutInnerDiameter,dhDonutInnerDiameter,dhDonutContrast,dhSpatialFreq,dhTemporalFreq,dhDonutOrientation,dhInitialPhase%,"b","s","e");
+        case dc% = 1 then
+            param$ := EncodeGratingParameters$(0,0,dhDonutOuterDiameter,dhDonutOuterDiameter,dhMinDonutInnerDiameter,dhMinDonutInnerDiameter,dhDonutContrast,dhSpatialFreq,dhTemporalFreq,dhDonutOrientation,dhInitialPhase%,"b","s","e");
+        case dc% = 2 then
+            param$ := EncodeGratingParameters$(0,0,dhMinDonutInnerDiameter+dhDonutWidth,dhMinDonutInnerDiameter+dhDonutWidth,dhMinDonutInnerDiameter,dhMinDonutInnerDiameter,dhDonutContrast,dhSpatialFreq,
+                                               dhTemporalFreq,dhDonutOrientation,dhInitialPhase%,"b","s","e");    
+        endcase
+        SaveGratingParameters("Donut", param$);  'this saves donut 
         
         'printlog("The y offset is %f\n",dhYOffset); 'just checking
       

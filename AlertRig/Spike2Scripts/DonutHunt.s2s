@@ -1,6 +1,6 @@
 
 
-const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.58 2013-12-16 23:55:16 jeff Exp $";
+const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.59 2014-05-19 22:07:31 jeff Exp $";
 
 
 ' Hello again
@@ -114,12 +114,14 @@ var WrongY;
 var dhT1Values[1000];  'Value of randomized time between button press and stimulus onset
 var dhLRValues[1000];  'Will be 0 for left and 1 for right, but DealStimuliToBlocks uses floats
 var dhdContrastValues[1000];  'Change in contrast, will need to be integerized
-var dhDonutDiamValues[1000];  'Donut Diameter values
+var dhDonutDiamValues[1000];  'Donut Diameter values (outer)
+var dhDonutDiamValues2[1000];  'Donut Diameter values (inner)
 var dhCenterOriValues[1000];  'Center orientation values
 var dhNValues%;  'Number of total values, if greater than 1000, uh-oh
 var dhStimulusIndices%[1000];  'like tunValuesIndices%[], random order to index the Values arrays; we only need one
 var dhdContrastValuesStringified$;  
-var dhDonutDiamValuesStringified$;
+var dhDonutDiamValuesStringified$;  'these will be for outer
+var dhDonutDiamValuesStringified2$; 'these will be for inner
 var dhCenterOriValuesStringified$;
 var dhLRValuesStringified$;
 var dhT1ValuesStringified$;
@@ -377,7 +379,18 @@ proc CreateStimulusOrder()
     nExistingBlocks% := DealStimuliToBlocks%(dhdContrastValues[],dhNValues%,nExistingBlocks%,dhNContrastLevels%,dhMinDContrast,dhMaxDContrast,dhContrastLogProgression%);
     ArrAdd(dhdContrastValues[],dhCoreContrast);  'Put it in terms of absolute contrast, not change in contrast
     'Assign donut diameter values
-    nExistingBlocks% := DealStimuliToBlocks%(dhDonutDiamValues[],dhNValues%,nExistingBlocks%,dhNDonutDiameters%,dhMinDonutOuterDiameter,dhMaxDonutOuterDiameter,dhDiameterLogProgression%);
+    docase
+    case dhDonutConstant% = 0 then
+        nExistingBlocks% := DealStimuliToBlocks%(dhDonutDiamValues[],dhNValues%,nExistingBlocks%,dhNDonutDiameters%,dhMinDonutOuterDiameter,dhMaxDonutOuterDiameter,dhDiameterLogProgression%);
+        ArrConst(dhDonutDiamValues2[],dhDonutInnerDiameter);
+    case dhDonutConstant% = 1 then
+        nExistingBlocks% := DealStimuliToBlocks%(dhDonutDiamValues2[],dhNValues%,nExistingBlocks%,dhNDonutDiameters%,dhMinDonutInnerDiameter,dhMaxDonutInnerDiameter,dhDiameterLogProgression%);
+        ArrConst(dhDonutDiamValues[],dhDonutOuterDiameter);
+    case dhDonutConstant% = 2 then
+        nExistingBlocks% := DealStimuliToBlocks%(dhDonutDiamValues2[],dhNValues%,nExistingBlocks%,dhNDonutDiameters%,dhMinDonutInnerDiameter,dhMaxDonutInnerDiameter,dhDiameterLogProgression%);        
+        ArrConst(dhDonutDiamValues[],dhDonutDiamValues2[]);  'put inner values into outer values
+        ArrAdd(dhDonutDiamValues[],dhDonutWidth);  'create value for donut outer based on inner plus width
+    endcase
     'Assign core orientation values
     nExistingBlocks% := DealStimuliToBlocks%(dhCenterOriValues[],dhNValues%,nExistingBlocks%,dhNCoreOrientations%,dhMinCoreOrientation,dhMaxCoreOrientation,0);
     
@@ -413,6 +426,7 @@ proc CreateStimulusOrder()
         'I don't know if I need to stringify anything, and if so if it has to be done here...
         dhdContrastValuesStringified$ := dhdContrastValuesStringified$ + Comma$ + StringifyProgression$(dhNValues%, dhdContrastValues[], temp%[]);
         dhDonutDiamValuesStringified$ := dhDonutDiamValuesStringified$ + Comma$ + StringifyProgression$(dhNValues%, dhDonutDiamValues[], temp%[]);
+        dhDonutDiamValuesStringified2$ := dhDonutDiamValuesStringified2$ + Comma$ + StringifyProgression$(dhNValues%, dhDonutDiamValues2[], temp%[]);
         dhCenterOriValuesStringified$ := dhCenterOriValuesStringified$ + Comma$ + StringifyProgression$(dhNValues%, dhCenterOriValues[], temp%[]);
         'dhLRValuesStringified$ := dhLRValuesStringified$ + Comma$ + StringifyProgressionLR$(dhNValues%, dhLRValues[], dhStimulusIndices%[]);  'this is L/R, not 0/1, dan's VSG uses 0/1 after all
         dhLRValuesStringified$ := dhLRValuesStringified$ + Comma$ + StringifyProgression$(dhNValues%, dhLRValues[], temp%[]);  'this is 0/1 NOTE THAT 0 CORRESPONDS TO LEFT ON THE NON-REVERSED SCREEN!
@@ -737,6 +751,7 @@ func Start%()
     Print("%s\n",dhLRValuesStringified$);  'LR_0,LR_1,...               per-trial values for which stim on master screen changes contrast. 0(1) = Left(Right)
     Print("%s\n",dhCenterOriValuesStringified$);  'Ori_0,Ori_1,...              per-trial values for ori of gratings on master screen
     Print("%s\n",dhDonutDiamValuesStringified$);  'Diam_0,Diam_1,...       per-trial outer diameter values for donuts on slave screen
+    Print("%s\n",dhDonutDiamValuesStringified2$);  'Diam_0,Diam_1,...       per-trial inner diameter values for donuts on slave screen
     ' close spec file
 	FileClose(0);
 
