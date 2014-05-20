@@ -1,4 +1,4 @@
-' $Id: AttentionGoNoGo.s2s,v 1.42 2014-05-16 19:05:14 devel Exp $
+' $Id: AttentionGoNoGo.s2s,v 1.43 2014-05-20 02:48:06 jeff Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -750,9 +750,9 @@ func ColorsDialog%()
     'put defaults into fiveints%[]
     fiveints%[0] := attCueCircleContrastStim%;
     fiveints%[1] := attCueCircleContrastD1%;
-    fiveints%[2] := attCueCircleContrastD2%;
-    fiveints%[3] := attCueCircleContrastD3%;
-    fiveints%[4] := attCueCircleContrastD4%;
+    fiveints%[2] := attCueCircleContrastD2%;  'D2-D4 are currently constrained to be identical by the dialog-changed function,
+    fiveints%[3] := attCueCircleContrastD3%;  'but the old syntax still works so it's much easier to change back, if desired,
+    fiveints%[4] := attCueCircleContrastD4%;  'just undo the changes (noted) in the dialog-changed function.
     
 	GetAttentionScriptParameters();
 	bcl$[0] := "gray";
@@ -816,10 +816,10 @@ func ColorsDialog%()
         
         'unpack the cue circle contrasts
         attCueCircleContrastStim% := fiveints%[0];
-        attCueCircleContrastD1% := fiveints%[1];
-        attCueCircleContrastD2% := fiveints%[2];
+        attCueCircleContrastD1% := fiveints%[1];  
+        attCueCircleContrastD2% := fiveints%[2];  'don't need to change old version, the dialog-changed function fixes it
         attCueCircleContrastD3% := fiveints%[3];
-        attCueCircleContrastD4% := fiveints%[4];      
+        attCueCircleContrastD4% := fiveints%[4];         
         
         'if the background is not gray, set cue circles to full contrast, if you want to change contrast of cue circles
         'but use a different color background the you will have to adapt FadeColorToGray$()
@@ -836,7 +836,8 @@ func ColorsDialog%()
 end;
 
 func ColorsDialogChanged%(item%)
-    var status% := 1;
+    var status% := 1;    
+    
     if item% = 0 or item% = attcolorsdlgBackgroundColor% then
         docase
         case DlgValue(attcolorsdlgBackgroundColor%) = 3 then
@@ -854,9 +855,9 @@ func ColorsDialogChanged%(item%)
             DlgEnable(0, attcolorsdlgBackgroundBlue%);
             DlgEnable(1, attcolorsdlgCueContrastStim%);  'Allow changing cue circle contrast if background is gray
             DlgEnable(1, attcolorsdlgCueContrastD1%);
-            DlgEnable(1, attcolorsdlgCueContrastD2%);
-            DlgEnable(1, attcolorsdlgCueContrastD3%);
-            DlgEnable(1, attcolorsdlgCueContrastD4%);
+'            DlgEnable(1, attcolorsdlgCueContrastD2%);
+'            DlgEnable(1, attcolorsdlgCueContrastD3%);
+'            DlgEnable(1, attcolorsdlgCueContrastD4%);
         else
             DlgEnable(0, attcolorsdlgBackgroundRed%);
             DlgEnable(0, attcolorsdlgBackgroundGreen%);
@@ -882,6 +883,18 @@ func ColorsDialogChanged%(item%)
         DlgEnable(DlgValue(attcolorsdlgCustomGratingColorCheck%), attcolorsdlgCustomGratingColorDistractorToRed%);
         DlgEnable(DlgValue(attcolorsdlgCustomGratingColorCheck%), attcolorsdlgCustomGratingColorDistractorToGreen%);
         DlgEnable(DlgValue(attcolorsdlgCustomGratingColorCheck%), attcolorsdlgCustomGratingColorDistractorToBlue%);
+    endif
+    
+    'If we decide to make the different invalid cue circles have different contrasts, get rid of this
+    'if statement altogether and uncomment three commented lines above.
+    if item% = 0 or item% = attcolorsdlgCueContrastD1% then
+        'Currently, just don't allow these to change
+        DlgEnable(0, attcolorsdlgCueContrastD2%);
+        DlgEnable(0, attcolorsdlgCueContrastD3%);
+        DlgEnable(0, attcolorsdlgCueContrastD4%);
+        DlgValue(attcolorsdlgCueContrastD2%,DlgValue(attcolorsdlgCueContrastD1%));  'update the other values to whatever the d1 value is
+        DlgValue(attcolorsdlgCueContrastD3%,DlgValue(attcolorsdlgCueContrastD1%));
+        DlgValue(attcolorsdlgCueContrastD4%,DlgValue(attcolorsdlgCueContrastD1%));
     endif
     
     return status%;
@@ -2587,7 +2600,8 @@ Proc CreateContrastList(&c$,&cList%[],&chgList%[],&vList%[],&attList%[],&hazList
                 attList%[totalCount%] := attDirection%;  'set direction of attention
                 cList%[totalCount%] := 100;  'change easy trials to 100% contrast
                 hazList[totalCount%] := attHazardMinTime;  'don't calculate a hazard time, just use the minimum
-                rotList%[totalCount%] := 0;  'no rotation on easy trials
+                'rotList%[totalCount%] := 0;  'no rotation on easy trials
+                rotList%[totalCount%] := attNumPatches%*(attColor%-1);  'no rotation on easy trials, but get cue circle contrast correct
                 if distracterOffForEasy% = 1 then
                     offList%[totalCount%] := alloff% - Pow(2,attDirection%-1);  'turn off all stimuli but the attended one
                     'insert easy trial with 100% contrast
@@ -2604,7 +2618,8 @@ Proc CreateContrastList(&c$,&cList%[],&chgList%[],&vList%[],&attList%[],&hazList
                 if attSwapCueCircle% = 1 then
                     cueCircleRotation% := Floor(Rand(attNumPatches%,0));  '0 for no rotation, 1 for cycle forward 1, etc.
                 endif
-                rotList%[totalCount%] := cueCircleRotation%;  'set which rotation is being used, will be 0 if swapping is off
+                'rotList%[totalCount%] := cueCircleRotation%;
+                rotList%[totalCount%] := cueCircleRotation% + (attNumPatches%*(attColor%-1));  'set which rotation is being used, will be 0 if swapping is off
                 
                 'determine stimulus being attended (i.e., which stimulus has the same cue circle color as the fixation point)
                 attDirection% := attColor% + cueCircleRotation%;  'add in the rotation
@@ -3187,6 +3202,13 @@ func CreateCueCircleColorSets$()
     var D3RGB%[3];
     var D4RGB%[3];
     
+    var RGBColors%[5][3];
+    var ContrastList%[5];    
+    var i%;
+    var j%;
+    var k%;
+    var x%;
+    var y%;
     
     'assign RGB colors for cue circles
     'These colors have to be in the same order as the ones specified in UpdateTrialSpecString!
@@ -3198,7 +3220,7 @@ func CreateCueCircleColorSets$()
     D1RGB%[0] := 0;
     D1RGB%[1] := 1;
     D1RGB%[2] := 0;
-    'Distractor1 cue color is cyan, DO NOT USE BLUE as this conflicts with blue fixation point (which means no contrast change)
+    'Distractor2 cue color is cyan, DO NOT USE BLUE as this conflicts with blue fixation point (which means no contrast change)
     D2RGB%[0] := 0;
     D2RGB%[1] := 1;
     D2RGB%[2] := 1;
@@ -3211,91 +3233,162 @@ func CreateCueCircleColorSets$()
     D4RGB%[1] := 0;
     D4RGB%[2] := 1;
     
+    'assign RGB colors for cue circles
+    'These colors have to be in the same order as the ones specified in UpdateTrialSpecString!
+    'Stim over receptive field cue color is red
+    RGBColors%[0][0] := 1;
+    RGBColors%[0][1] := 0;
+    RGBColors%[0][2] := 0;
+    'Distractor1 cue color is green
+    RGBColors%[1][0] := 0;
+    RGBColors%[1][1] := 1;
+    RGBColors%[1][2] := 0;
+    'Distractor2 cue color is cyan, DO NOT USE BLUE as this conflicts with blue fixation point (which means no contrast change)
+    RGBColors%[2][0] := 0;
+    RGBColors%[2][1] := 1;
+    RGBColors%[2][2] := 1;
+    'Distractor3 cue color is yellow
+    RGBColors%[3][0] := 1;
+    RGBColors%[3][1] := 1;
+    RGBColors%[3][2] := 0;
+    'Distractor4 cue color is magenta
+    RGBColors%[4][0] := 1;
+    RGBColors%[4][1] := 0;
+    RGBColors%[4][2] := 1;
     
-    'Put in cue circle opener and first cue circle, which always happens
-    CueCirc$ := "-Q " + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(stimRGB%[],attCueCircleContrastStim%);
+    'assign contrasts
+    ContrastList%[0] := attCueCircleContrastStim%;
+    ContrastList%[1] := attCueCircleContrastD1%;
+    ContrastList%[2] := attCueCircleContrastD2%;
+    ContrastList%[3] := attCueCircleContrastD3%;
+    ContrastList%[4] := attCueCircleContrastD4%;
     
-    docase
-    case attNumPatches% = 2 then
-        CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D1RGB%[],attCueCircleContrastD1%);  'Add D1
-        'end of first cue color circle set, rotate if attSwapCueCircle is 1
-        if attSwapCueCircle% = 1 then
-            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D1RGB%[],attCueCircleContrastD1%);  'Add D1
-            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(stimRGB%[],attCueCircleContrastStim%);  'Add Stim
-        endif
-        
-    case attNumPatches% = 3 then
-        CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D1RGB%[],attCueCircleContrastD1%);  'Add D1
-        CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D2RGB%[],attCueCircleContrastD2%);  'Add D2
-        'end of first cue color circle set, rotate if attSwapCueCircle is 1
-        if attSwapCueCircle% = 1 then
-            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D2RGB%[],attCueCircleContrastD2%);  'Add D2
-            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(stimRGB%[],attCueCircleContrastStim%);  'Add Stim
-            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D1RGB%[],attCueCircleContrastD1%);  'Add D1
-            'end of second cue color circle set, rotate
-            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D1RGB%[],attCueCircleContrastD1%);  'Add D1
-            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D2RGB%[],attCueCircleContrastD2%);  'Add D2
-            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(stimRGB%[],attCueCircleContrastStim%);  'Add Stim
-        endif
-        
-    case attNumPatches% = 4 then
-        CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D1RGB%[],attCueCircleContrastD1%);  'Add D1
-        CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D2RGB%[],attCueCircleContrastD2%);  'Add D2
-        CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D3RGB%[],attCueCircleContrastD3%);  'Add D3
-        'end of first cue color circle set, rotate if attSwapCueCircle is 1
-        if attSwapCueCircle% = 1 then
-            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D3RGB%[],attCueCircleContrastD3%);  'Add D3
-            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(stimRGB%[],attCueCircleContrastStim%);  'Add Stim
-            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D1RGB%[],attCueCircleContrastD1%);  'Add D1
-            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D2RGB%[],attCueCircleContrastD2%);  'Add D2
-            'end of second cue color circle set, rotate
-            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D2RGB%[],attCueCircleContrastD2%);  'Add D2
-            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D3RGB%[],attCueCircleContrastD3%);  'Add D3
-            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(stimRGB%[],attCueCircleContrastStim%);  'Add Stim
-            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D1RGB%[],attCueCircleContrastD1%);  'Add D1
-            'end of third cue color circle set, rotate
-            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D1RGB%[],attCueCircleContrastD1%);  'Add D1
-            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D2RGB%[],attCueCircleContrastD2%);  'Add D2
-            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D3RGB%[],attCueCircleContrastD3%);  'Add D3
-            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(stimRGB%[],attCueCircleContrastStim%);  'Add Stim
-        endif
-        
-    case attNumPatches% = 5 then   
-        CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D1RGB%[],attCueCircleContrastD1%);  'Add D1
-        CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D2RGB%[],attCueCircleContrastD2%);  'Add D2
-        CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D3RGB%[],attCueCircleContrastD3%);  'Add D3
-        CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D4RGB%[],attCueCircleContrastD4%);  'Add D4
-        'end of first cue color circle set, rotate if attSwapCueCircle is 1
-        if attSwapCueCircle% = 1 then
-            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D4RGB%[],attCueCircleContrastD4%);  'Add D4
-            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(stimRGB%[],attCueCircleContrastStim%);  'Add Stim
-            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D1RGB%[],attCueCircleContrastD1%);  'Add D1
-            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D2RGB%[],attCueCircleContrastD2%);  'Add D2
-            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D3RGB%[],attCueCircleContrastD3%);  'Add D3
-            'end of second cue color circle set, rotate
-            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D3RGB%[],attCueCircleContrastD3%);  'Add D3
-            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D4RGB%[],attCueCircleContrastD4%);  'Add D4
-            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(stimRGB%[],attCueCircleContrastStim%);  'Add Stim
-            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D1RGB%[],attCueCircleContrastD1%);  'Add D1
-            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D2RGB%[],attCueCircleContrastD2%);  'Add D2
-            'end of third cue color circle set, rotate
-            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D2RGB%[],attCueCircleContrastD2%);  'Add D2
-            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D3RGB%[],attCueCircleContrastD3%);  'Add D3
-            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D4RGB%[],attCueCircleContrastD4%);  'Add D4
-            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(stimRGB%[],attCueCircleContrastStim%);  'Add Stim
-            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D1RGB%[],attCueCircleContrastD1%);  'Add D1
-            'end of fourth cue color circle set, rotate
-            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D1RGB%[],attCueCircleContrastD1%);  'Add D1
-            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D2RGB%[],attCueCircleContrastD2%);  'Add D2
-            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D3RGB%[],attCueCircleContrastD3%);  'Add D3
-            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D4RGB%[],attCueCircleContrastD4%);  'Add D4
-            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(stimRGB%[],attCueCircleContrastStim%);  'Add Stim
-        endif
-    endcase;
-
+    'This is crazy-ass code that I can't even explain but it works.
+    'What you get is Cue Circles for red valid (followed by rotations of red-valid if applicable), then Cue Circles for green valid (followed by rotations of green-valid if applicable)...
+    CueCirc$ := "-Q ";  'starter
+    for i% := 0 to attNumPatches%-1 do
+        for j% := 0 to attNumPatches%-1 do
+            if i% + j% > 0 then  'this puts the comma in, but not in front of the very first entry where it would be a syntax error
+                CueCirc$ := CueCirc$ + ",";
+            endif;
+            'This section determines the correct index into the contrast list.  Contrasts are rotated
+            x% := j% - i%;
+            if x% < 0 then
+                x% := attNumPatches% + x%;
+            endif
+            'This section writes the radius (always the same) and the color, based on the color list and the requested, rotated contrast
+            'This means that contrast 0 (the "valid" contrast) is always paired with the color that is the same color as the fixation point
+            CueCirc$ := CueCirc$ + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(RGBColors%[j%][0:3],ContrastList%[x%]);     
+        next
+        'NOW, if we are ALSO doing swap cue circle, we have to create a series of rotations where the valid contrast remains
+        'paired with the valid color, but the valid color moves position
+        for j% := 1 to attNumPatches%-1 do
+            if attSwapCueCircle% = 1 then
+                for k% := 0 to attNumPatches%-1 do  'robust to 0, does not execute
+                    y% := k% - j%;
+                    if y% < 0 then
+                        y% := attNumPatches% + y%;
+                    endif
+                    'This section determines the correct index into the contrast list.  Contrasts are rotated
+                    x% := y% - i%;
+                    if x% < 0 then
+                        x% := attNumPatches% + x%;
+                    endif
+                    CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(RGBColors%[y%][0:3],ContrastList%[x%]);
+                next
+            endif
+        next        
+    next
     
     'put in closing space
     CueCirc$ := CueCirc$ + " ";
+    
+    
+    
+'    'Put in cue circle opener and first cue circle, which always happens
+'    CueCirc$ := "-Q " + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(stimRGB%[],attCueCircleContrastStim%);
+'    
+'    docase
+'    case attNumPatches% = 2 then
+'        CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D1RGB%[],attCueCircleContrastD1%);  'Add D1
+'        'end of first cue color circle set, rotate if attSwapCueCircle is 1
+'        if attSwapCueCircle% = 1 then
+'            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D1RGB%[],attCueCircleContrastD1%);  'Add D1
+'            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(stimRGB%[],attCueCircleContrastStim%);  'Add Stim
+'        endif
+'        
+'    case attNumPatches% = 3 then
+'        CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D1RGB%[],attCueCircleContrastD1%);  'Add D1
+'        CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D2RGB%[],attCueCircleContrastD2%);  'Add D2
+'        'end of first cue color circle set, rotate if attSwapCueCircle is 1
+'        if attSwapCueCircle% = 1 then
+'            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D2RGB%[],attCueCircleContrastD2%);  'Add D2
+'            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(stimRGB%[],attCueCircleContrastStim%);  'Add Stim
+'            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D1RGB%[],attCueCircleContrastD1%);  'Add D1
+'            'end of second cue color circle set, rotate
+'            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D1RGB%[],attCueCircleContrastD1%);  'Add D1
+'            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D2RGB%[],attCueCircleContrastD2%);  'Add D2
+'            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(stimRGB%[],attCueCircleContrastStim%);  'Add Stim
+'        endif
+'        
+'    case attNumPatches% = 4 then
+'        CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D1RGB%[],attCueCircleContrastD1%);  'Add D1
+'        CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D2RGB%[],attCueCircleContrastD2%);  'Add D2
+'        CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D3RGB%[],attCueCircleContrastD3%);  'Add D3
+'        'end of first cue color circle set, rotate if attSwapCueCircle is 1
+'        if attSwapCueCircle% = 1 then
+'            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D3RGB%[],attCueCircleContrastD3%);  'Add D3
+'            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(stimRGB%[],attCueCircleContrastStim%);  'Add Stim
+'            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D1RGB%[],attCueCircleContrastD1%);  'Add D1
+'            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D2RGB%[],attCueCircleContrastD2%);  'Add D2
+'            'end of second cue color circle set, rotate
+'            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D2RGB%[],attCueCircleContrastD2%);  'Add D2
+'            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D3RGB%[],attCueCircleContrastD3%);  'Add D3
+'            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(stimRGB%[],attCueCircleContrastStim%);  'Add Stim
+'            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D1RGB%[],attCueCircleContrastD1%);  'Add D1
+'            'end of third cue color circle set, rotate
+'            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D1RGB%[],attCueCircleContrastD1%);  'Add D1
+'            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D2RGB%[],attCueCircleContrastD2%);  'Add D2
+'            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D3RGB%[],attCueCircleContrastD3%);  'Add D3
+'            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(stimRGB%[],attCueCircleContrastStim%);  'Add Stim
+'        endif
+'        
+'    case attNumPatches% = 5 then   
+'        CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D1RGB%[],attCueCircleContrastD1%);  'Add D1
+'        CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D2RGB%[],attCueCircleContrastD2%);  'Add D2
+'        CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D3RGB%[],attCueCircleContrastD3%);  'Add D3
+'        CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D4RGB%[],attCueCircleContrastD4%);  'Add D4
+'        'end of first cue color circle set, rotate if attSwapCueCircle is 1
+'        if attSwapCueCircle% = 1 then
+'            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D4RGB%[],attCueCircleContrastD4%);  'Add D4
+'            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(stimRGB%[],attCueCircleContrastStim%);  'Add Stim
+'            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D1RGB%[],attCueCircleContrastD1%);  'Add D1
+'            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D2RGB%[],attCueCircleContrastD2%);  'Add D2
+'            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D3RGB%[],attCueCircleContrastD3%);  'Add D3
+'            'end of second cue color circle set, rotate
+'            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D3RGB%[],attCueCircleContrastD3%);  'Add D3
+'            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D4RGB%[],attCueCircleContrastD4%);  'Add D4
+'            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(stimRGB%[],attCueCircleContrastStim%);  'Add Stim
+'            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D1RGB%[],attCueCircleContrastD1%);  'Add D1
+'            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D2RGB%[],attCueCircleContrastD2%);  'Add D2
+'            'end of third cue color circle set, rotate
+'            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D2RGB%[],attCueCircleContrastD2%);  'Add D2
+'            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D3RGB%[],attCueCircleContrastD3%);  'Add D3
+'            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D4RGB%[],attCueCircleContrastD4%);  'Add D4
+'            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(stimRGB%[],attCueCircleContrastStim%);  'Add Stim
+'            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D1RGB%[],attCueCircleContrastD1%);  'Add D1
+'            'end of fourth cue color circle set, rotate
+'            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D1RGB%[],attCueCircleContrastD1%);  'Add D1
+'            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D2RGB%[],attCueCircleContrastD2%);  'Add D2
+'            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D3RGB%[],attCueCircleContrastD3%);  'Add D3
+'            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D4RGB%[],attCueCircleContrastD4%);  'Add D4
+'            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(stimRGB%[],attCueCircleContrastStim%);  'Add Stim
+'        endif
+'    endcase;
+'
+'    
+'    'put in closing space
+'    CueCirc$ := CueCirc$ + " ";
     
     return CueCirc$;
 end
