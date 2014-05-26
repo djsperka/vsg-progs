@@ -1,4 +1,4 @@
-' $Id: AttentionGoNoGo.s2s,v 1.44 2014-05-26 17:31:44 jeff Exp $
+' $Id: AttentionGoNoGo.s2s,v 1.45 2014-05-26 17:43:50 jeff Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -886,7 +886,7 @@ func ColorsDialogChanged%(item%)
     endif
     
     'If we decide to make the different invalid cue circles have different contrasts, get rid of this
-    'if statement altogether and uncomment three commented lines above.
+    'if statement altogether and uncomment three commented lines above.  
     if item% = 0 or item% = attcolorsdlgCueContrastD1% then
         'Currently, just don't allow these to change
         DlgEnable(0, attcolorsdlgCueContrastD2%);
