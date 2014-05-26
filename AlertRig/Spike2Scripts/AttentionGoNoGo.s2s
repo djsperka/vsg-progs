@@ -1,4 +1,4 @@
-' $Id: AttentionGoNoGo.s2s,v 1.43 2014-05-20 02:48:06 jeff Exp $
+' $Id: AttentionGoNoGo.s2s,v 1.44 2014-05-26 17:31:44 jeff Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -2606,11 +2606,13 @@ Proc CreateContrastList(&c$,&cList%[],&chgList%[],&vList%[],&attList%[],&hazList
                     offList%[totalCount%] := alloff% - Pow(2,attDirection%-1);  'turn off all stimuli but the attended one
                     'insert easy trial with 100% contrast
                     'note that for easy trials cueCircleRotation is 0 by definition, but just keeping this so the logic is consistent
-                    UpdateTrialSpecString(c$,attColor%,attDirection%,attContrastBase%,100,attHazardMinTime,attPhaseDeg%,alloff%-Pow(2,attDirection%-1)+(256*cueCircleRotation%),masterColorListVSG$);  
+                    'UpdateTrialSpecString(c$,attColor%,attDirection%,attContrastBase%,100,attHazardMinTime,attPhaseDeg%,alloff%-Pow(2,attDirection%-1)+(256*cueCircleRotation%),masterColorListVSG$);  
+                    UpdateTrialSpecString(c$,attColor%,attDirection%,attContrastBase%,100,attHazardMinTime,attPhaseDeg%,alloff%-Pow(2,attDirection%-1)+(256*rotList%[totalCount%]),masterColorListVSG$);  
                 else
                     offList%[totalCount%] := 0;  'show all grating patches                
                     'insert easy trial with 100% contrast
-                    UpdateTrialSpecString(c$,attColor%,attDirection%,attContrastBase%,100,attHazardMinTime,attPhaseDeg%,0+(256*cueCircleRotation%),masterColorListVSG$);
+                    'UpdateTrialSpecString(c$,attColor%,attDirection%,attContrastBase%,100,attHazardMinTime,attPhaseDeg%,0+(256*cueCircleRotation%),masterColorListVSG$);
+                    UpdateTrialSpecString(c$,attColor%,attDirection%,attContrastBase%,100,attHazardMinTime,attPhaseDeg%,0+(256*rotList%[totalCount%]),masterColorListVSG$);
                 endif;
               
             else 'regular trial
@@ -2639,7 +2641,8 @@ Proc CreateContrastList(&c$,&cList%[],&chgList%[],&vList%[],&attList%[],&hazList
                     hazList[totalCount%] := trialHazardFunctionTime;  'set hazard function time
                     offList%[totalCount%] := 0;  'show all grating patches
                     'insert no-go trial
-                    UpdateTrialSpecString(c$,attColor%,attDirection%,attContrastBase%,attContrastBase%,trialHazardFunctionTime,attPhaseDeg%,0+(256*cueCircleRotation%),masterColorListVSG$);
+                    'UpdateTrialSpecString(c$,attColor%,attDirection%,attContrastBase%,attContrastBase%,trialHazardFunctionTime,attPhaseDeg%,0+(256*cueCircleRotation%),masterColorListVSG$);
+                    UpdateTrialSpecString(c$,attColor%,attDirection%,attContrastBase%,attContrastBase%,trialHazardFunctionTime,attPhaseDeg%,0+(256*rotList%[totalCount%]),masterColorListVSG$);
                 else    
                     docase
                     case (Rand()*100 < attCatchTrialPercentage) then 'catch trial
@@ -2662,7 +2665,8 @@ Proc CreateContrastList(&c$,&cList%[],&chgList%[],&vList%[],&attList%[],&hazList
                             cList%[totalCount%] := attOneCatchContrast%;  'there is only one contrast
                         endif;
                         'insert catch trial
-                        UpdateTrialSpecString(c$,attColor%,tempInvalid%,attContrastBase%,cList%[totalCount%],trialHazardFunctionTime,attPhaseDeg%,0+(256*cueCircleRotation%),masterColorListVSG$);
+                        'UpdateTrialSpecString(c$,attColor%,tempInvalid%,attContrastBase%,cList%[totalCount%],trialHazardFunctionTime,attPhaseDeg%,0+(256*cueCircleRotation%),masterColorListVSG$);
+                        UpdateTrialSpecString(c$,attColor%,tempInvalid%,attContrastBase%,cList%[totalCount%],trialHazardFunctionTime,attPhaseDeg%,0+(256*rotList%[totalCount%]),masterColorListVSG$);
                         catchCount% += 1;  
                     case (Rand()*100 < attUncatchTrialPercentage) then 'uncatch trial
                         'this is guaranteed to go along with attOnlyOneCatch% = 1
@@ -2676,7 +2680,8 @@ Proc CreateContrastList(&c$,&cList%[],&chgList%[],&vList%[],&attList%[],&hazList
                         offList%[totalCount%] := 0;  'show all grating patches
                         chgList%[totalCount%] := attDirection%;  'set stimulus that changes
                         'insert uncatch trial
-                        UpdateTrialSpecString(c$,attColor%,attDirection%,attContrastBase%,cList%[totalCount%],trialHazardFunctionTime,attPhaseDeg%,0+(256*cueCircleRotation%),masterColorListVSG$);
+                        'UpdateTrialSpecString(c$,attColor%,attDirection%,attContrastBase%,cList%[totalCount%],trialHazardFunctionTime,attPhaseDeg%,0+(256*cueCircleRotation%),masterColorListVSG$);
+                        UpdateTrialSpecString(c$,attColor%,attDirection%,attContrastBase%,cList%[totalCount%],trialHazardFunctionTime,attPhaseDeg%,0+(256*rotList%[totalCount%]),masterColorListVSG$);
                     else  'valid trial
                         vList%[totalCount%] := 1;  'valid
                         cList%[totalCount%] := attContrastList[attTrialOrder%[stdCount%]];
@@ -2688,7 +2693,8 @@ Proc CreateContrastList(&c$,&cList%[],&chgList%[],&vList%[],&attList%[],&hazList
                         offList%[totalCount%] := 0;  'show all grating patches
                         chgList%[totalCount%] := attDirection%;  'set stimulus that changes
                         'insert uncatch trial
-                        UpdateTrialSpecString(c$,attColor%,attDirection%,attContrastBase%,cList%[totalCount%],trialHazardFunctionTime,attPhaseDeg%,0+(256*cueCircleRotation%),masterColorListVSG$);
+                        'UpdateTrialSpecString(c$,attColor%,attDirection%,attContrastBase%,cList%[totalCount%],trialHazardFunctionTime,attPhaseDeg%,0+(256*cueCircleRotation%),masterColorListVSG$);
+                        UpdateTrialSpecString(c$,attColor%,attDirection%,attContrastBase%,cList%[totalCount%],trialHazardFunctionTime,attPhaseDeg%,0+(256*rotList%[totalCount%]),masterColorListVSG$);
                         stdCount% += 1;
                     endcase;
                 endif;
