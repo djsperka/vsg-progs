@@ -23,6 +23,7 @@ private:
 	vector<int> m_vecLR;
 	vector<double> m_vecOri;
 	vector<double> m_vecDiam;
+	vector<double> m_vecInnerDiam;
 	double m_tfHC;		// temporal freq of hi-contrast grids
 	double m_tHC;		// sec (total) for the grids
 	bool m_bUseAnswerPoints;
@@ -42,6 +43,7 @@ public:
 			m_vecLR(ss.m_vecLR),
 			m_vecOri(ss.m_vecOri),
 			m_vecDiam(ss.m_vecDiam),
+			m_vecInnerDiam(ss.m_vecInnerDiam),
 			m_tfHC(ss.m_tfHC),
 			m_tHC(ss.m_tHC),
 			m_bUseAnswerPoints(ss.m_bUseAnswerPoints),
@@ -128,6 +130,14 @@ public:
 	{
 		bool b = true;
 		if (trial > -1 && trial < (int)m_vecDiam.size()) diam = m_vecDiam[trial];
+		else b = false;
+		return b;
+	};
+
+	bool getInnerDiam(int trial, double& diam) const 
+	{
+		bool b = true;
+		if (trial > -1 && trial < (int)m_vecInnerDiam.size()) diam = m_vecInnerDiam[trial];
 		else b = false;
 		return b;
 	};
@@ -385,6 +395,18 @@ public:
 			cerr << "Got " << ssinfo.m_vecDiam.size() << " Diam values." << endl;
 		}
 
+		getline(in, s);
+		if (!in.good() || parse_number_list(s, ssinfo.m_vecInnerDiam))
+		{
+			cerr << "Error in input: expecting comma-separated list of inner diam values on line 12." << endl;
+			return false;
+		}
+		else
+		{
+			cerr << "Got " << ssinfo.m_vecInnerDiam.size() << " Inner Diam values." << endl;
+		}
+
+
 		// Verify that the per-trial lines all have the same number of elements
 		unsigned int n = ssinfo.m_vecT1.size();
 		if (ssinfo.m_vecCUp.size() != n)
@@ -405,6 +427,11 @@ public:
 		if (ssinfo.m_vecDiam.size() != n)
 		{
 			cerr << "Error in input: There are " << n << " values for t1, but " << ssinfo.m_vecDiam.size() << " values for Diam." << endl;
+			return false;
+		}
+		if (ssinfo.m_vecInnerDiam.size() != n)
+		{
+			cerr << "Error in input: There are " << n << " values for t1, but " << ssinfo.m_vecInnerDiam.size() << " values for Inner Diam." << endl;
 			return false;
 		}
 
