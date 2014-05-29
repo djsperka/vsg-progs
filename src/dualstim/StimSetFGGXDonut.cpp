@@ -74,6 +74,11 @@ void StimSetFGGXDonut::per_trial_predraw_updates()
 	grating(0).h = diam;
 	grating(1).w = diam;
 	grating(1).h = diam;
+	m_pssinfo->getInnerDiam(m_itrial, diam);
+	grating(0).wd = diam;
+	grating(0).hd = diam;
+	grating(1).wd = diam;
+	grating(1).hd = diam;
 }
 
 
