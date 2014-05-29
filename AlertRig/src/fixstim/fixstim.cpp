@@ -1,4 +1,4 @@
-/* $Id: fixstim.cpp,v 1.21 2014-05-01 19:38:17 devel Exp $ */
+/* $Id: fixstim.cpp,v 1.22 2014-05-29 21:01:00 devel Exp $ */
 
 #include <iostream>
 #include <fstream>
@@ -111,6 +111,10 @@ int main (int argc, char *argv[])
 	vsgSetZoneDisplayPage(vsgVIDEOPAGE, 1);
 	ARvsg::instance().ready_pulse(100, f_pulse);
 
+	// reset all triggers if using binary triggers
+	if (f_binaryTriggers) triggers.reset(vsgIOReadDigitalIn());
+
+
 	// All right, start monitoring triggers........
 	int last_output_trigger=0;
 	long input_trigger = 0;
@@ -164,8 +168,8 @@ void init_triggers()
 	triggers.addTrigger(new CallbackTrigger("s", 0x4, 0x0, 0x4, 0x0, callback));
 	triggers.addTrigger(new CallbackTrigger("X", 0x6, 0x0, 0x6, 0x0, callback));
 	triggers.addTrigger(new CallbackTrigger("a", 0x8, 0x8|AR_TRIGGER_TOGGLE, 0x8, 0x8|AR_TRIGGER_TOGGLE, callback));
-	triggers.addTrigger(new CallbackTrigger("u", 0x10, 0x10|AR_TRIGGER_TOGGLE, 0x8, 0x8|AR_TRIGGER_TOGGLE, callback));
-	triggers.addTrigger(new CallbackTrigger("v", 0x20, 0x20|AR_TRIGGER_TOGGLE, 0x8, 0x8|AR_TRIGGER_TOGGLE, callback));
+	triggers.addTrigger(new CallbackTrigger("u", 0x20, 0x20|AR_TRIGGER_TOGGLE, 0x10, 0x10|AR_TRIGGER_TOGGLE, callback));
+	triggers.addTrigger(new CallbackTrigger("v", 0x40, 0x40|AR_TRIGGER_TOGGLE, 0x20, 0x20|AR_TRIGGER_TOGGLE, callback));
 
 	// quit trigger
 	triggers.addTrigger(new QuitTrigger("q", 0x10, 0x10, 0xff, 0x0, 0));
