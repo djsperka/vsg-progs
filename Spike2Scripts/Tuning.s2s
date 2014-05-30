@@ -1,7 +1,7 @@
-' $Id: Tuning.s2s,v 1.87 2014-05-16 19:04:41 devel Exp $
+' $Id: Tuning.s2s,v 1.88 2014-05-30 18:07:14 devel Exp $
 ' Update 11/8/11 Jeff, includes multi-juicer updates
 
-const tunCVSID$ := "$Id: Tuning.s2s,v 1.87 2014-05-16 19:04:41 devel Exp $";
+const tunCVSID$ := "$Id: Tuning.s2s,v 1.88 2014-05-30 18:07:14 devel Exp $";
 
 
 
@@ -551,6 +551,15 @@ func IdleProcessing%()
 
             tLastTrigger := tTrigger;
             ChangeStateTo(stateTrialCompleted%, tNow);
+        else
+            if tunType$ = tunTypeDanish$ and tunUseMaintainMode% >= 2 and View(DataWindow%).FindRisingEdge%(FrameChannel%, tLast, tTrigger) then
+                ' Advance, in specific case that we are doing danishes and maintaining the core - there will not be a falling edge on the stim channel in this case
+                SafeSampleKey("a");
+
+                tLastTrigger := tTrigger;
+                ChangeStateTo(stateTrialCompleted%, tNow);
+            endif
+            
         endif
         
     case iState% = stateWaitForStimOffDSS% then
