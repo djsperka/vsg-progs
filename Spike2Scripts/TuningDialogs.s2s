@@ -1,4 +1,4 @@
-' $Id: TuningDialogs.s2s,v 1.23 2014-04-24 22:34:37 jeff Exp $
+' $Id: TuningDialogs.s2s,v 1.24 2014-05-30 18:07:14 devel Exp $
 '
 ' This file contains dialog functions for the alert tuning script Tuning.s2s.
 #include "../../Spike2Util/UsreyUtil.s2s"
@@ -2616,10 +2616,10 @@ func TuningCurveScriptDialog%()
     dualType$[1] := "Master only";
     dualType$[2] := "Slave only";
     var maintainList$[4];
-    maintainList$[0] := "No";
+    maintainList$[0] := "Nothing";
     maintainList$[1] := "FixOnly";  'for right now...1/2 are the same!
-    maintainList$[2] := "All";
-    maintainList$[3] := "All+Rwd";
+    maintainList$[2] := "Core+Fix";
+    maintainList$[3] := "C+F+Rwd";
     
 	for i%:=0 to 2 do
 		if tunBackgroundColor$ = bcl$[i%] then
@@ -2657,7 +2657,7 @@ func TuningCurveScriptDialog%()
     DlgList(12, "Dual Tuning Configuration:", dualType$, 3, 25, 13);
     
     'DlgCheck(13, "Maintain Fixpt between trials", 2, 14);  'change this to a list
-    DlgList(13, 11, maintainList$, 4, 3, 14); DlgText("Maintain Fixpt btwn trls", 15, 14);
+    DlgList(13, 11, maintainList$, 4, 3, 14); DlgText("Maintain what btwn trls", 15, 14);
     DlgCheck(14, "Stationary",2,15);
     DlgCheck(15, "Make Histograms", 35,14);
     DlgCheck(16, "Use Rivalry Button", 35,15);
@@ -2721,9 +2721,15 @@ func TuningCurveScriptDialog%()
 		else iReturn% := 1;
 		endif;
         
-        'do not allow incorrect maintain mode - 1 is only legal for danishes
-        if tunUseMaintainMode% = 1 and tunType$ <> tunTypeDanish$ then
-            tunUseMaintainMode% := 2;
+        'do not allow incorrect maintain mode - 2&3 are only legal for danishes
+        if tunUseMaintainMode% > 1 and tunType$ <> tunTypeDanish$ and tunType$ <> tunTypeDSS$ then
+            tunUseMaintainMode% := 1;
+            message("You cannot maintain core unless this is a Danish/DSS scenario, only maintaining fixation point!");
+        endif;
+        'furthermore...
+        if tunUseMaintainMode% > 1 and tunType$ = tunTypeDanish$ then
+            message("Maintain core is currently BROKEN for Danishes.  Sorry, not maintaining core.");
+            tunUseMaintainMode% := 1;
         endif;
         
         'check to make sure that the box for the crosshairs and stimuli do not overlap
