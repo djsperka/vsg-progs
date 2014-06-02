@@ -1,4 +1,4 @@
-' $Id: AttentionGoNoGo.s2s,v 1.45 2014-05-26 17:43:50 jeff Exp $
+' $Id: AttentionGoNoGo.s2s,v 1.46 2014-06-02 18:26:05 jeff Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -253,15 +253,7 @@ proc GetAttentionScriptParameters()
 	Profile(key$, "TrainingContrastPct", 0, attTrainingContrastPct%);
     Profile(key$, "OnlyOneCatch", 0, attOnlyOneCatch%);
     Profile(key$, "OneCatchContrast", 0, attOneCatchContrast%);
-	Profile(key$, "BackgroundColor", "gray", attBackgroundColor$);
-    
-    
-    
-    if InStr(attBackgroundColor$, "(") = 1 then
-        if ParseColor%(attBackgroundColor$, attBackgroundRed%, attBackgroundGreen%, attBackgroundBlue%) <> 0 then
-            attBackgroundColor$ := "gray";
-        endif
-    endif
+
     
     Profile(key$, "ContrastBase", 50, attContrastBase%);
 	'Profile(key$, "ContrastMax", 80, attMaxContChange);  ;now reals, have to do pull a string and convert
@@ -283,6 +275,83 @@ proc GetAttentionScriptParameters()
     
 	Profile(key$, "AnswerPointWindowRadius", "2.0", stmp$);
 	attAnswerPointWindowRadius := val(stmp$);
+   
+    Profile(key$, "RandomBlockCycling", 0, attRandomBlockCycling%);
+    Profile(key$, "NoChangeCondition", 0, attNoChangeCondition%);
+    Profile(key$, "SwapCueCircle", 0, attSwapCueCircle%);
+
+    
+	'Profile(key$, "LollipopCheck", 0, attLollipopCheck%);
+	'Profile(key$, "CueLinePct", "100.0", stmp$);
+    'attCueLinePct := val(stmp$);
+    'Profile(key$, "CircleDiameterDiff", "0.1", stmp$);
+    'attCircleDiameterDiff := val(stmp$);
+    'Profile(key$, "LollipopContrast", 100, attLollipopContrast%);
+    'Profile(key$, "LollipopStickContrast", 100, attLollipopStickContrast%);
+	'Profile(key$, "CueLineGap", "0.5", stmp$);
+    'attCueLineGap := val(stmp$);
+    
+    Profile(key$, "DoPhase", 1, attPhaseCheck%);
+    Profile(key$, "PhaseDeg", 1, attPhaseDeg%);
+    
+end;
+
+proc SaveAttentionScriptParameters()
+	var key$;
+	var stmp$;
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\AttentionGNG";
+    
+    
+	Profile(key$, "NumberOfBlocks", attNumberOfBlocks%);
+	Profile(key$, "TrialsPerBlock", attTrialsPerBlock%);
+    Profile(key$, "EasyTrialsPerBlock", attEasyTrialsPerBlock%);
+    Profile(key$, "DistracterOffForEasy", distracterOffForEasy%);
+    Profile(key$, "DoUncatch", attDoUncatch%);
+    Profile(key$, "NumPatches", attNumPatches%);
+    Profile(key$, "GetGPFromMainStim", attGetGPFromMainStim%);
+    Profile(key$, "UseCueCircles", attUseCueCircles%);
+    Profile(key$, "CueCircleExtraRadius", str$(attCueCircleExtraRadius));
+	Profile(key$, "CatchTrialPercentage", str$(attCatchTrialPercentage));
+    Profile(key$, "NoGoTrialPercentage", str$(attNoGoTrialPercentage));
+	Profile(key$, "BlockAlternate", attBlockAlternate%);
+    Profile(key$, "NoBlockRand", attSelectRandomContrastEachTrial%);
+	Profile(key$, "TrainingContrastCheck", attTrainingContrastCheck%);
+	Profile(key$, "TrainingContrastPct", attTrainingContrastPct%);
+    Profile(key$, "OnlyOneCatch", attOnlyOneCatch%);
+    Profile(key$, "OneCatchContrast", attOneCatchContrast%);
+	Profile(key$, "ContrastBase", attContrastBase%);
+	Profile(key$, "ContrastMax", str$(attMaxContChange));
+	Profile(key$, "ContrastMin", str$(attMinContChange));
+    Profile(key$, "NContrastLevels", attNContLevels%);
+	Profile(key$, "AnswerPointDiameter", str$(attAnswerPointDiameter));
+	Profile(key$, "AnswerPointOffset", str$(attAnswerPointOffset));
+	Profile(key$, "AnswerPointWindowRadius", str$(attAnswerPointWindowRadius));
+    Profile(key$, "RandomBlockCycling", attRandomBlockCycling%);
+    Profile(key$, "NoChangeCondition", attNoChangeCondition%);
+    Profile(key$, "SwapCueCircle", attSwapCueCircle%);    
+
+    
+	'Profile(key$, "LollipopCheck", attLollipopCheck%);
+	'Profile(key$, "CueLinePct", str$(attCueLinePct));
+    'Profile(key$, "CircleDiameterDiff", str$(attCircleDiameterDiff));
+    'Profile(key$, "LollipopContrast", attLollipopContrast%);
+    'Profile(key$, "LollipopContrast", attLollipopContrast%);
+    'Profile(key$, "LollipopStickContrast", attLollipopStickContrast%);
+	'Profile(key$, "CueLineGap", str$(attCueLineGap));
+    
+    Profile(key$, "DoPhase", attPhaseCheck%);
+    Profile(key$, "PhaseDeg", attPhaseDeg%);
+
+    
+end;
+
+
+
+proc GetTimingDialogParameters()
+	var stmp$;
+	var key$;
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\AttentionGNG";
+    
     
 	Profile(key$, "FixationCueMinTime", "1.0", stmp$);
 	attFixationCueMinTime := val(stmp$);
@@ -323,15 +392,52 @@ proc GetAttentionScriptParameters()
     Profile(key$, "FalseAlarmCheckWindow", "1.0", stmp$);
 	attFalseAlarmCheckWindow := val(stmp$);
     
+end;
+
+proc SaveTimingDialogParameters()
+	var key$;
+	var stmp$;
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\AttentionGNG";
     
+	Profile(key$, "FixationCueMinTime", str$(attFixationCueMinTime));
+	Profile(key$, "FixationCueMaxTime", str$(attFixationCueMaxTime));
+    '	Profile(key$, "WhitePointTime", str$(attWhitePointTime));
+	Profile(key$, "HazardMinTime", str$(attHazardMinTime));
+	Profile(key$, "HazardExpMeanTime", str$(attHazardExpMeanTime));
+    Profile(key$, "HazardCutoffTime", str$(attHazardCutoffTime));
+	Profile(key$, "AcquisitionTime", str$(attAcquisitionTime));
+	Profile(key$, "AbortWaitTime", str$(attAbortWaitTime));
+    Profile(key$, "MissPenalty", str$(attMissPenalty));
+    Profile(key$, "FalseAlarmWaitTime", str$(attFalseAlarmWaitTime));
+    Profile(key$, "FalseAlarmCheckWindow", str$(attFalseAlarmCheckWindow));
+	Profile(key$, "InterTrialTime", str$(attInterTrialTime));
+	Profile(key$, "TimeToAnswer", str$(attTimeToAnswer));
+    
+end;
+
+
+
+proc GetColorsDialogParameters()
+	var stmp$;
+	var key$;
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\AttentionGNG";
+    
+
+	Profile(key$, "BackgroundColor", "gray", attBackgroundColor$);
+    
+    
+    if InStr(attBackgroundColor$, "(") = 1 then
+        if ParseColor%(attBackgroundColor$, attBackgroundRed%, attBackgroundGreen%, attBackgroundBlue%) <> 0 then
+            attBackgroundColor$ := "gray";
+        endif
+    endif
+    
+
     Profile(key$, "CueCircleContrastStim", 0, attCueCircleContrastStim%);
     Profile(key$, "CueCircleContrastD1", 0, attCueCircleContrastD1%);
     Profile(key$, "CueCircleContrastD2", 0, attCueCircleContrastD2%);
     Profile(key$, "CueCircleContrastD3", 0, attCueCircleContrastD3%);
     Profile(key$, "CueCircleContrastD4", 0, attCueCircleContrastD4%);
-    Profile(key$, "RandomBlockCycling", 0, attRandomBlockCycling%);
-    Profile(key$, "NoChangeCondition", 0, attNoChangeCondition%);
-    Profile(key$, "SwapCueCircle", 0, attSwapCueCircle%);
     Profile(key$, "CustomGratingColorsCheck", 0, attCustomGratingColorCheck%);
     Profile(key$, "CustomGratingColorsStimFromRed", 0, attCustomGratingColorStimFrom%[0]);
     Profile(key$, "CustomGratingColorsStimFromGreen", 0, attCustomGratingColorStimFrom%[1]);
@@ -346,73 +452,20 @@ proc GetAttentionScriptParameters()
     Profile(key$, "CustomGratingColorsDistractorToGreen", 255, attCustomGratingColorDistractorTo%[1]);
     Profile(key$, "CustomGratingColorsDistractorToBlue", 255, attCustomGratingColorDistractorTo%[2]);
     
-	'Profile(key$, "LollipopCheck", 0, attLollipopCheck%);
-	'Profile(key$, "CueLinePct", "100.0", stmp$);
-    'attCueLinePct := val(stmp$);
-    'Profile(key$, "CircleDiameterDiff", "0.1", stmp$);
-    'attCircleDiameterDiff := val(stmp$);
-    'Profile(key$, "LollipopContrast", 100, attLollipopContrast%);
-    'Profile(key$, "LollipopStickContrast", 100, attLollipopStickContrast%);
-	'Profile(key$, "CueLineGap", "0.5", stmp$);
-    'attCueLineGap := val(stmp$);
-    
-    Profile(key$, "DoPhase", 1, attPhaseCheck%);
-    Profile(key$, "PhaseDeg", 1, attPhaseDeg%);
-    
 end;
 
-proc SaveAttentionScriptParameters()
+proc SaveColorsDialogParameters()
 	var key$;
 	var stmp$;
 	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\AttentionGNG";
     
-    
-	Profile(key$, "NumberOfBlocks", attNumberOfBlocks%);
-	Profile(key$, "TrialsPerBlock", attTrialsPerBlock%);
-    Profile(key$, "EasyTrialsPerBlock", attEasyTrialsPerBlock%);
-    Profile(key$, "DistracterOffForEasy", distracterOffForEasy%);
-    Profile(key$, "DoUncatch", attDoUncatch%);
-    Profile(key$, "NumPatches", attNumPatches%);
-    Profile(key$, "GetGPFromMainStim", attGetGPFromMainStim%);
-    Profile(key$, "UseCueCircles", attUseCueCircles%);
-    Profile(key$, "CueCircleExtraRadius", str$(attCueCircleExtraRadius));
-	Profile(key$, "CatchTrialPercentage", str$(attCatchTrialPercentage));
-    Profile(key$, "NoGoTrialPercentage", str$(attNoGoTrialPercentage));
-	Profile(key$, "BlockAlternate", attBlockAlternate%);
-    Profile(key$, "NoBlockRand", attSelectRandomContrastEachTrial%);
-	Profile(key$, "TrainingContrastCheck", attTrainingContrastCheck%);
-	Profile(key$, "TrainingContrastPct", attTrainingContrastPct%);
-    Profile(key$, "OnlyOneCatch", attOnlyOneCatch%);
-    Profile(key$, "OneCatchContrast", attOneCatchContrast%);
+
 	Profile(key$, "BackgroundColor", attBackgroundColor$);
-	Profile(key$, "ContrastBase", attContrastBase%);
-	Profile(key$, "ContrastMax", str$(attMaxContChange));
-	Profile(key$, "ContrastMin", str$(attMinContChange));
-    Profile(key$, "NContrastLevels", attNContLevels%);
-	Profile(key$, "FixationCueMinTime", str$(attFixationCueMinTime));
-	Profile(key$, "FixationCueMaxTime", str$(attFixationCueMaxTime));
-    '	Profile(key$, "WhitePointTime", str$(attWhitePointTime));
-	Profile(key$, "HazardMinTime", str$(attHazardMinTime));
-	Profile(key$, "HazardExpMeanTime", str$(attHazardExpMeanTime));
-    Profile(key$, "HazardCutoffTime", str$(attHazardCutoffTime));
-	Profile(key$, "AcquisitionTime", str$(attAcquisitionTime));
-	Profile(key$, "AbortWaitTime", str$(attAbortWaitTime));
-    Profile(key$, "MissPenalty", str$(attMissPenalty));
-    Profile(key$, "FalseAlarmWaitTime", str$(attFalseAlarmWaitTime));
-    Profile(key$, "FalseAlarmCheckWindow", str$(attFalseAlarmCheckWindow));
-	Profile(key$, "InterTrialTime", str$(attInterTrialTime));
-	Profile(key$, "TimeToAnswer", str$(attTimeToAnswer));
-	Profile(key$, "AnswerPointDiameter", str$(attAnswerPointDiameter));
-	Profile(key$, "AnswerPointOffset", str$(attAnswerPointOffset));
-	Profile(key$, "AnswerPointWindowRadius", str$(attAnswerPointWindowRadius));
     Profile(key$, "CueCircleContrastStim", attCueCircleContrastStim%);
     Profile(key$, "CueCircleContrastD1", attCueCircleContrastD1%);
     Profile(key$, "CueCircleContrastD2", attCueCircleContrastD2%);
     Profile(key$, "CueCircleContrastD3", attCueCircleContrastD3%);
-    Profile(key$, "CueCircleContrastD4", attCueCircleContrastD4%);
-    Profile(key$, "RandomBlockCycling", attRandomBlockCycling%);
-    Profile(key$, "NoChangeCondition", attNoChangeCondition%);
-    Profile(key$, "SwapCueCircle", attSwapCueCircle%);    
+    Profile(key$, "CueCircleContrastD4", attCueCircleContrastD4%);  
     Profile(key$, "CustomGratingColorsCheck", attCustomGratingColorCheck%);
     Profile(key$, "CustomGratingColorsStimFromRed", attCustomGratingColorStimFrom%[0]);
     Profile(key$, "CustomGratingColorsStimFromGreen", attCustomGratingColorStimFrom%[1]);
@@ -426,20 +479,13 @@ proc SaveAttentionScriptParameters()
     Profile(key$, "CustomGratingColorsDistractorToRed", attCustomGratingColorDistractorTo%[0]);
     Profile(key$, "CustomGratingColorsDistractorToGreen", attCustomGratingColorDistractorTo%[1]);
     Profile(key$, "CustomGratingColorsDistractorToBlue", attCustomGratingColorDistractorTo%[2]);
-    
-	'Profile(key$, "LollipopCheck", attLollipopCheck%);
-	'Profile(key$, "CueLinePct", str$(attCueLinePct));
-    'Profile(key$, "CircleDiameterDiff", str$(attCircleDiameterDiff));
-    'Profile(key$, "LollipopContrast", attLollipopContrast%);
-    'Profile(key$, "LollipopContrast", attLollipopContrast%);
-    'Profile(key$, "LollipopStickContrast", attLollipopStickContrast%);
-	'Profile(key$, "CueLineGap", str$(attCueLineGap));
-    
-    Profile(key$, "DoPhase", attPhaseCheck%);
-    Profile(key$, "PhaseDeg", attPhaseDeg%);
 
     
 end;
+
+
+
+
 
 func AttentionScriptDialog%()
 	var i%;
@@ -693,6 +739,8 @@ end
 func TimingDialog%()
     var i%;
     
+    GetTimingDialogParameters();
+    
 	DlgCreate("Attention timing", 25, 10);
 	DlgReal(1, "Acquisition time(s):", .01, 10);
 	DlgReal(atttimingdlgFixationCueMinTime%, "Fixation cue min time(s):", .01, 10);
@@ -717,6 +765,9 @@ func TimingDialog%()
             message("Reducing window to be equal to Abort Wait Time!");
             attFalseAlarmCheckWindow := attAbortWaitTime;
         endif;
+        
+        SaveTimingDialogParameters();
+        
     endif;
     return 1;
 end
@@ -747,6 +798,9 @@ func ColorsDialog%()
 	var bcl$[4];
 	var ibcl%:=0;
     var fiveints%[5];
+    
+    GetColorsDialogParameters();
+    
     'put defaults into fiveints%[]
     fiveints%[0] := attCueCircleContrastStim%;
     fiveints%[1] := attCueCircleContrastD1%;
@@ -830,6 +884,10 @@ func ColorsDialog%()
             attCueCircleContrastD3% := 128;
             attCueCircleContrastD4% := 128;
         endif
+        
+        
+        SaveColorsDialogParameters();
+        
 	endif
     
 	return 1;
@@ -1899,7 +1957,7 @@ end
 
 
 proc InitializeWindows()
-    
+    CreateContrastList(Contrast$,attContrastList%,attChangeList%,attValidList%,attAttendList%,attHazardList,attOffBitsList%,attRotationList%,attFixColor%);
 	'Open the data sampling window
 	DataWindow% := FileNew(0,4);  'show spike shape setup dialog
     printlog("datawindow is %d\n",dataWindow%);
@@ -2601,7 +2659,7 @@ Proc CreateContrastList(&c$,&cList%[],&chgList%[],&vList%[],&attList%[],&hazList
                 cList%[totalCount%] := 100;  'change easy trials to 100% contrast
                 hazList[totalCount%] := attHazardMinTime;  'don't calculate a hazard time, just use the minimum
                 'rotList%[totalCount%] := 0;  'no rotation on easy trials
-                rotList%[totalCount%] := attNumPatches%*(attColor%-1);  'no rotation on easy trials, but get cue circle contrast correct
+                rotList%[totalCount%] := attNumPatches%*(attColor%-1);  'no rotation on easy trials, but get cue circle contrast correct             
                 if distracterOffForEasy% = 1 then
                     offList%[totalCount%] := alloff% - Pow(2,attDirection%-1);  'turn off all stimuli but the attended one
                     'insert easy trial with 100% contrast
@@ -2621,8 +2679,7 @@ Proc CreateContrastList(&c$,&cList%[],&chgList%[],&vList%[],&attList%[],&hazList
                     cueCircleRotation% := Floor(Rand(attNumPatches%,0));  '0 for no rotation, 1 for cycle forward 1, etc.
                 endif
                 'rotList%[totalCount%] := cueCircleRotation%;
-                rotList%[totalCount%] := cueCircleRotation% + (attNumPatches%*(attColor%-1));  'set which rotation is being used, will be 0 if swapping is off
-                
+                rotList%[totalCount%] := cueCircleRotation% + (attNumPatches%*(attColor%-1));  'set which rotation is being used, will be 0 if swapping is off               
                 'determine stimulus being attended (i.e., which stimulus has the same cue circle color as the fixation point)
                 attDirection% := attColor% + cueCircleRotation%;  'add in the rotation
                 if attDirection% > attNumPatches% then  'get the modulus if necessary
