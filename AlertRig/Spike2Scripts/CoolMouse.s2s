@@ -1,4 +1,4 @@
-' $Id: CoolMouse.s2s,v 1.19 2011-11-16 00:48:00 jeff Exp $
+' $Id: CoolMouse.s2s,v 1.20 2014-06-30 20:22:32 devel Exp $
 ' Update 11/8/11 Jeff, includes SafeSampleKey and multi-juicer updates
 
 #include "../../Spike2util\UsreyUtil.s2s"
@@ -43,10 +43,10 @@ endif
 
 
 ' Assign channel numbers for eye X,Y and trigger. 
-XChannel% := GetNumberOfElectrodes%() + 1;
-YChannel% := GetNumberOfElectrodes%() + 2;
-TriggerChannel% := GetNumberOfElectrodes%() + 3;
-ReadyChannel% := GetNumberOfElectrodes%() + 4;
+XChannel% := 21;
+YChannel% := 22;
+TriggerChannel% := 23;
+ReadyChannel% := 24;
 CreateSampleConfiguration();
 
 
@@ -111,14 +111,18 @@ func IdleProcessing%()
 
 	docase 
 		case iState% = stateVSGWait% then
-
+        
+        ' HACK skip wait state!!!!! djs 2/8/2012
+        
+        ChangeStateTo(stateStartTrial%, tNow);
+        
 			' Waiting for VSG to indicate it is ready. The indication is a pulse (up, then down, 1 frame apart) on port 6.
-			tTrigger := NextTime(ReadyChannel%, tLast, vTrigger);
-			if tTrigger > tLastTrigger and vTrigger = 0 then
-				PrintLog("state stateVSGWait: Got leading edge of trigger\n");
-				tLastTrigger := tTrigger;
-				ChangeStateTo(stateVSGWaitConfirm%, tTrigger);
-			endif;
+			'tTrigger := NextTime(ReadyChannel%, tLast, vTrigger);
+			'if tTrigger > tLastTrigger and vTrigger = 0 then
+		'		PrintLog("state stateVSGWait: Got leading edge of trigger at " + str$(tTrigger) + "\n");
+	'			tLastTrigger := tTrigger;
+'				ChangeStateTo(stateVSGWaitConfirm%, tTrigger);
+'			endif;
 
 		case iState% = stateVSGWaitConfirm% then
 
@@ -280,7 +284,7 @@ proc CreateSampleConfiguration()
 	SampleEvent(ReadyChannel%, 1, 2, 3600); 'Trigger channel, level
 	SampleComment$(ReadyChannel%,"VSG Ready");
 	SampleTitle$(ReadyChannel%,"VSG Ready");
-
+    
 	'EYE COIL CHANNELS. Last # is sampling freq in Hz. 
 	SampleWaveform(XChannel%, GetEyeXPort%(), 1000);
 	SampleTitle$(XChannel%,"Eye X");
