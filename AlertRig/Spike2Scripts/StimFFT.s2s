@@ -1,0 +1,354 @@
+
+'StimFFT - a little script to collect one channel of data, control a stimulator, do FFT on the results
+#include "../../Spike2Util/UsreyUtil.s2s"  'might need this
+
+
+var iScript%;
+
+var tNow;
+var tStateStart;
+var tPreOn;
+var tPreOff;
+var tPostOn;
+var tPostOff;
+var count%;
+
+var nRepeats%;
+var sfftPrePostDur;
+var sfftStimulationDur;
+var sfftRecoveryDur;
+
+var dataChannel% := 1;
+var dataWindow%;
+var sfftOnePrePeriodWindow%;
+var sfftAllPrePeriodWindow%;
+var sfftOnePostPeriodWindow%;
+var sfftAllPostPeriodWindow%;
+
+var iState%;
+var stateStart% := 1;
+var statePreStim% := 2;
+var stateStim% := 3;
+var statePostStim% := 4;
+var stateWaitForPreStim% := 5;
+var stateDone% := 6;
+
+' run dialog
+iScript% := StimDialog%();  'the dialog box will open an input file (inputFileHandle%)
+if iScript% <> 1 then
+	PrintLog("User cancel - exit gracefully\n");
+	Halt;
+endif;
+
+
+'Create Sample Configuration
+CreateSampleConfiguration();
+
+' Get display windows ready
+InitializeWindows();
+
+' Prepare the toolbar buttons
+InitializeToolbar();
+
+
+func StimDialog%()
+    var i%;
+    
+    GetStimDialogParameters();
+    
+	DlgCreate("StimFFT Parameters", 25, 10);
+	DlgInteger(1, "Number of Repeats:", 1, 1000);
+	DlgReal(2, "Pre/Post analysis period (s):", .01, 1000);
+	DlgReal(3, "Stimulation dead period (s):", .01, 100);  'dead period is 10 ms, stimulator control pulse width is 5 ms, no real need to do SafeSampleKey
+    DlgReal(4, "Recovery period (s):", .01, 1000); 
+
+    'DlgAllow(0, 0, StimDialogChanged%);
+    
+    i% := DlgShow(nRepeats%,sfftPrePostDur,sfftStimulationDur,sfftRecoveryDur);
+  
+    SaveStimDialogParameters();
+
+    return 1;
+end
+
+
+proc GetStimDialogParameters()
+	var stmp$;
+	var key$;
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\StimFFT";
+    
+	nRepeats% := GetIntRegistryValue%(key$, "nRepeats", nRepeats%);
+    sfftPrePostDur := GetFloatRegistryValue(key$, "PrePostDur", sfftPrePostDur);
+    sfftStimulationDur := GetFloatRegistryValue(key$, "StimulationDur", sfftStimulationDur);
+    sfftRecoveryDur := GetFloatRegistryValue(key$, "RecoveryDur", sfftRecoveryDur);
+end;
+
+proc SaveStimDialogParameters()
+	var key$;
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\StimFFT";
+    SetIntRegistryValue(key$, "nRepeats", nRepeats%);
+    SetFloatRegistryValue(key$, "PrePostDur",  sfftPrePostDur);
+    SetFloatRegistryValue(key$, "StimulationDur", sfftStimulationDur);
+    SetfloatRegistryValue(key$, "RecoveryDur", sfftRecoveryDur);
+end;
+
+
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+proc CreateSampleConfiguration()
+	var index;
+    var key$;
+    key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Temp\\Filepref";
+    SampleClear(); 'Set standard sampling state
+
+    FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 3);
+    FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 1);
+    
+    SampleAutoName$(dataCellName$ + "_sfft_000");  'NOTE: maximum of 13 characters!!!
+    SampleAutoFile(1);  'Enable automatic file naming
+    
+	SampleAutoComment(0); 'Prompt for comment after sampling
+	SampleAutoCommit(60); 'Seconds between each file commit
+    
+    SampleWaveform(DataChannel%, 0, 2000);
+	SampleTitle$(DataChannel%, "Data");
+    
+	SampleTextMark(200);  'increase number of allowed characters, 1 is so stingy!
+    
+    SampleSequencer(script$ + "StimFFT.pls");
+
+    SampleOptimise(2,2,2,2,50);  'otherwise: full optimize timing, channels may have different rates, Power1401 (lowest common denominator, so eh), low usPerTime of 2, high usPerTime of 50
+
+	SampleMode(1); 'Continuous sampling
+end;
+
+
+
+proc InitializeWindows()
+
+	'Open the data sampling window
+	dataWindow% := FileNew(0,4);  'show spike shape setup dialog
+    printlog("datawindow is %d\n",dataWindow%);
+	Window(0,48,100,95);
+	View(dataWindow%).WindowVisible(1);
+    
+    'set up windows to hold the various FFT analyses
+    sfftOnePrePeriodWindow% := SetPower(DataChannel%,128,0);  'FFT size of 128? (64 bins?), for now no window but if Henry wants Hanning or Hamming then update
+    sfftAllPrePeriodWindow% := SetPower(DataChannel%,128,0);
+    sfftOnePostPeriodWindow% := SetPower(DataChannel%,128,0);
+    sfftAllPostPeriodWindow% := SetPower(DataChannel%,128,0);
+    View(sfftOnePrePeriodWindow%).WindowTitle$("Most Recent Prestimulus Window");  'give all a title
+    View(sfftAllPrePeriodWindow%).WindowTitle$("All Prestimulus Windows"); 
+    View(sfftOnePostPeriodWindow%).WindowTitle$("Most Recent Poststimulus Window"); 
+    View(sfftAllPostPeriodWindow%).WindowTitle$("All Poststimulus Windows"); 
+    View(sfftOnePrePeriodWindow%).Window(0,0,25,48);  'arrange windows - this should hopefully be decent
+    View(sfftAllPrePeriodWindow%).Window(50,0,75,48); 
+    View(sfftOnePostPeriodWindow%).Window(25,0,50,48); 
+    View(sfftAllPostPeriodWindow%).Window(75,0,100,48);
+    View(sfftOnePrePeriodWindow%).WindowVisible(1);  'set all to visible
+    View(sfftAllPrePeriodWindow%).WindowVisible(1); 
+    View(sfftOnePostPeriodWindow%).WindowVisible(1); 
+    View(sfftAllPostPeriodWindow%).WindowVisible(1);
+    
+end;
+
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+' InitializeToolbar - prepare toolbar buttons. Note that the idle processing function (ToolbarSet(0, blah, blah)) is 
+' not set here. That's done when the user hits the start button.
+'
+proc InitializeToolbar()
+    
+    
+	View(App(8)).WindowVisible(0);	'Hide the standard sample bar
+	ToolbarVisible(1);
+
+    ToolbarSet(1,"Sample start",Start%);
+	ToolbarSet(2,"Sample stop", Stop%);
+	ToolbarSet(3,"Quit",Quit%);
+	ToolbarEnable(1,1);
+    ToolbarEnable(2,0);
+    ToolbarEnable(3,1);
+	Toolbar("Go",0x3ff);
+    
+end;
+
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func Start%()
+
+    'start sampling
+    SampleStart(0); 'Start sampling now
+    
+    iState% := stateStart%;  'set initial state for the idle loop    
+    
+	ToolbarSet(0,"",IdleProcessing%);	'Enable the IdleProcessing function
+	ToolbarEnable(2,1);
+	ToolbarEnable(1,0);
+	'ToolbarEnable(3,0);  'allow stop function to run anytime?
+	View(DataWindow%);
+	Yield(.1);
+    return 1;
+end;
+
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func Stop%()
+    var i%, mylen%;
+    var fn$;
+    var chanToExport%[30];
+    
+	' Disable idle process func
+	ToolbarSet(0,"");  
+    
+	SampleStop();
+    
+    
+    View(DataWindow%);
+    ExportChanList(); 
+    chanToExport%[1] := 30;  'channels to export go in elements 1:...'30 is the textmark channel
+    chanToExport%[2] := DataChannel%;  'stim channel
+    chanToExport%[0] := 2;  'export two channels
+    
+    ExportChanList(0,view(datawindow%).maxtime(),chanToExport%[]); 
+    
+    fn$ := FileName$();  'get current file name
+    printlog("file name is %s\n",fn$);
+    mylen% := Len(fn$);
+    fn$ := Left$(fn$,mylen%-4);
+    fn$ := fn$ + ".mat";
+    FileSaveAs(fn$,100,0,"",0,"UseSName=0"); 'Do not overwrite the .mat file - should have a different name and if it doesn't that is a red flag    
+    
+    ' Write parameter file
+	WriteParameterFile();
+    
+end;
+
+
+' Used to hard-quit from toolbar. This will close data files without saving!!! 
+' It is important that this function be disabled once sampling is started!!!
+
+func Quit%()
+	FileClose(-1,-1);
+	return 0;
+end;
+
+
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+proc WriteParameterFile()
+	var parFileName$;
+	var parFileBase$;
+	var parHandle%;
+    var tempPrimary$;
+    var tempSecondary$;
+
+	' get filename for parfile (data file + "par" extension) and open it
+	View(DataWindow%);
+	parFileBase$ := FileName$(1) + FileName$(2) + FileName$(3) + FileName$(4);
+	parFileName$ := parFileBase$ + ".par";
+	PrintLog("par filename is " + parFileName$ + "\n");
+	parHandle% := FileOpen(parFileName$, 8, 1);
+
+	' write general info - eye coil gains, dist to screen
+	Print("Parameters for %s\n\n", parFileBase$);
+
+	Print("General information\n");
+	Print("-------------------\n\n");
+	Print("Number of Repeats            : %d\n", nRepeats%);
+	Print("Pre/Post Analysis Period (s) : %f\n", sfftPrePostDur);
+	Print("Stimulation Duration     (s) : %f\n", sfftStimulationDur);
+	Print("Recovery Duration        (s) : %f\n", sfftRecoveryDur);
+
+    Print("\n");
+
+	' close parfile
+	FileClose(0);
+
+end;
+
+
+
+func IdleProcessing%()
+	var iStatus% := 1;	
+    
+    tNow := View(DataWindow%).MaxTime();
+
+    docase 
+    case iState% = stateStart% then
+        
+        'just let recording stabilize?
+        if tNow > 3 then
+            tPreOn := tNow;
+            SampleText("Prestimulus Period Begins",tNow);
+            ChangeStateTo(statePreStim%, tNow);
+        endif;
+        
+    case iState% = statePreStim% then
+        
+        if tNow > tStateStart + sfftPrePostDur then
+            tPreOff := tPreOn + sfftPrePostDur;
+            SampleText("Stimulation Period Begins",tNow);
+            SampleKey("S");  'actually start the stimulator, the digout pulse will turn off automatically in 5 ms
+            ChangeStateTo(stateStim%, tNow);
+        endif;
+        
+    case iState% = stateStim% then 
+        
+        if tNow > tStateStart + sfftStimulationDur then
+            tPostOn := tNow;
+            SampleText("Poststimulus Period Begins",tNow);
+            ChangeStateTo(statePostStim%, tNow);
+        endif;
+        
+    case iState% = statePostStim% then  
+        
+        if tNow > tStateStart + sfftPrePostDur then
+            tPostOff := tPostOn + sfftPrePostDur;
+            count% += 1;  'increment count of stim periods
+            'do processing of FFT windows
+            view(sfftOnePrePeriodWindow%).process(tPreOn,tPreOff,1,1);
+            view(sfftAllPrePeriodWindow%).process(tPreOn,tPreOff,0,1);  'Same thing, just don't clear
+            view(sfftOnePostPeriodWindow%).process(tPostOn,tPostOff,1,1);
+            view(sfftAllPostPeriodWindow%).process(tPostOn,tPostOff,0,1);  'Same thing, just don't clear
+            
+            if count% < nRepeats% then
+                SampleText("Recovery Period Begins",tNow);
+                ChangeStateTo(stateWaitForPreStim%, tNow);
+            else
+                SampleText("Protocol Complete",tNow);
+                ChangeStateTo(stateDone%, tNow);
+            endif;
+        endif;
+        
+    case iState% = stateWaitForPreStim% then
+        
+        if tNow > tStateStart + sfftRecoveryDur then
+            SampleText("Prestimulus Period Begins",tNow);
+            ChangeStateTo(statePreStim%, tNow);
+        endif;
+        
+    case iState% = stateDone% then
+        
+        Stop%();
+        iStatus% := 0;
+        
+    else
+        
+        ' Unknown state!
+        Message("Unknown state=" + str$(iState%));
+        halt;
+        
+    endcase;
+    
+    
+	return iStatus%;
+end;
+
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+proc ChangeStateTo(stateTo%, tStart)
+	iState% := stateTo%;
+	if tStart > 0 then tStateStart := tStart; endif;
+end;
