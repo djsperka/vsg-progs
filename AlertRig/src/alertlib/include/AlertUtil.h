@@ -1,3 +1,6 @@
+#if !defined(_ALERTUTIL_H_)
+#define _ALERTUTIL_H_
+
 #include "Alertlib.h"
 #include <vector>
 #include <string>
@@ -16,3 +19,5 @@ int arutil_draw_aperture(ARGratingSpec& gr, int overlayPage);
 int arutil_load_mseq(char **ppseq, string& filename, int iOrder=15);
 int arutil_load_sequence(string& s, string& filename);
 int arutil_load_sequences(vector<string>& sequences, string& filename);
+
+#endif

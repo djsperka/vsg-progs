@@ -1,4 +1,4 @@
-' $Id: TuningDialogs.s2s,v 1.24 2014-05-30 18:07:14 devel Exp $
+' $Id: TuningDialogs.s2s,v 1.25 2015-05-12 17:15:19 devel Exp $
 '
 ' This file contains dialog functions for the alert tuning script Tuning.s2s.
 #include "../../Spike2Util/UsreyUtil.s2s"
@@ -30,6 +30,8 @@ var tunType$:=tunTypeNone$;
 var tunType1$:=tunTypeNone$;  'for first of two tuning curves, if Box O' Donuts, or for non-CRG curve in CRG scenarios
 var tunType2$:=tunTypeNone$;  'for second of two tuning curves, if Box O' Donuts
 var tunDualTuningType%;  'Determines whether, on dual tuning, both (0), Master (1), or Slave (2) screen varies.
+var tunUseFile%;        ' Overall variables so we don't have to check 7 different ones in the main file.
+var tunTuningFile$;     ' Location of tuning file
 
 const tunContextDAQ$ := "DAQ";
 const tunContextConfig$ := "Config";
@@ -54,6 +56,7 @@ const tundlgGratingOnlyButton% := 23;
 const tundlgCRG2Button% := 24;  'This is for CRG on SECOND screen
 const tundlgDanishButton% := 25;
 const tundlgDSSButton% := 26;
+const tundlgSelectTuningFileButton% := 27;
 
 ' A note about "steps". 
 ' The dialogs ask for a number of "steps". A step is a transition from one stimulus
@@ -65,6 +68,8 @@ var tunOriNRepeats%;		' # repeats in ori tuning curve
 var tunOriMinOrientation;	' min orientation
 var tunOriMaxOrientation;	' max orientation
 var tunOriProgression%;
+var tunOriUseFile%;
+var tunOriTuningFile$;
 
 ' Contrast next
 var tunContrastNSteps%;			' # steps in contrast tuning curve
@@ -72,6 +77,8 @@ var tunContrastNRepeats%;		' # repeats in contrast tuning curve
 var tunContrastMinContrast;		' min contrast
 var tunContrastMaxContrast;		' max contrast
 var tunContrastProgression%;
+var tunContrastUseFile%;
+var tunContrastTuningFile$;
 
 ' Spatial next
 var tunSpatialNSteps%;			' # steps in spatial freq tuning curve
@@ -79,6 +86,8 @@ var tunSpatialNRepeats%;		' # repeats in spatial freq tuning curve
 var tunSpatialMinSF;			' min SF
 var tunSpatialMaxSF;			' max SF
 var tunSpatialProgression%;
+var tunSpatialUseFile%;
+var tunSpatialTuningFile$;
 
 ' Temporal next
 var tunTemporalNSteps%;			' # steps in temporal tuning curve
@@ -86,6 +95,8 @@ var tunTemporalNRepeats%;		' # repeats in temporal tuning curve
 var tunTemporalMinTF;		' min TF
 var tunTemporalMaxTF;		' max TF
 var tunTemporalProgression%;
+var tunTemporalUseFile%;
+var tunTemporalTuningFile$;
 
 ' Area next
 var tunAreaNSteps%;			' # steps in area tuning curve
@@ -93,6 +104,8 @@ var tunAreaNRepeats%;		' # repeats in area tuning curve
 var tunAreaMinDiam;		' min diameter
 var tunAreaMaxDiam;		' max diameter
 var tunAreaProgression%;
+var tunAreaUseFile%;
+var tunAreaTuningFile$;
 
 ' X/XY Position next
 var tunXPosNSteps%;			' # steps in X position tuning curve
@@ -109,11 +122,12 @@ var tunXYPosNYSteps%;			' # steps in Y position tuning curve
 var tunXYPosMinYPos;		' min position
 var tunXYPosMaxYPos;		' max position
 
+
 ' Donuts - use same vars as area. There is one additional var - the optimal value index.
 var tunDonutOptimalIndex%:=0;		' step index where area stim stops growing and donut stim starts
 var tunDonutOptimalDiam;
 var tunDonutProgression%;
-
+var tunDonutCoreOnSlave% := 0;
 
 ' Berliners - also use same variables as Area.  Use optimal value index from Donuts.  Add maximal value index
 var tunDonutOptimalDiamPlusOne;
@@ -122,6 +136,7 @@ var tunBerlinerMaximalDiam;
 var tunBerlinerNSteps%;
 var tunBerlinerNRepeats% := 3;  'just putting in 3 repeats for now
 var tunBerlinerProgression%;
+var tunBerlinerCoreOnSlave% := 0;
 
 ' Box O' Donuts
 'var tunUseHoleKluge%;               'will be set by tuning dialogs if we are putting a hole in the stimulus
@@ -276,8 +291,14 @@ var tunContinuousPorts%[16];
 
 ' Hold sum of F1 values. Each channel (up to 16) has values saved according to the index of the tuning value
 ' Rely on the fact that arrays are initialized with 0s in Spike2. 
-var tunF1Sum[16][tunMaxTrials%];
+var tunF1Sum[16][tunMaxTrials%];  'see, this isn't really a sum, it's a matrix that holds all the values
 var tunF2Sum[16][tunMaxTrials%];
+var tunF0ActualSum[16][tunMaxTrials%];  'these are really sums
+var tunF1ActualSum[16][tunMaxTrials%];  
+var tunF2ActualSum[16][tunMaxTrials%];
+var tunF0Count%[16][tunMaxTrials%];  'use these to allow us to calculate averages instead of putting every single value on the plot
+var tunF1Count%[16][tunMaxTrials%]; 
+var tunF2Count%[16][tunMaxTrials%];
 var tunTF;              ' Will need to use this during FFT analysis. Use at your own risk....
 
 
@@ -291,6 +312,8 @@ proc GetTuningCurveOrientationParameters()
     tunOriMinOrientation := GetFloatRegistryValue(key$, "MinOrientation", tunOriMinOrientation);
     tunOriMaxOrientation := GetFloatRegistryValue(key$, "MaxOrientation", tunOriMaxOrientation);
     tunOriProgression% := GetIntRegistryValue%(key$, "Progression", tunOriProgression%);
+    tunOriUseFile% := GetIntRegistryValue%(key$, "UseFile", tunOriUseFile%);
+    tunOriTuningFile$ := GetStringRegistryValue$(key$, "TuningFile", tunOriTuningFile$);
 end;
 
 proc SaveTuningCurveOrientationParameters()
@@ -301,6 +324,8 @@ proc SaveTuningCurveOrientationParameters()
     SetFloatRegistryValue(key$, "MinOrientation", tunOriMinOrientation);
     SetFloatRegistryValue(key$, "MaxOrientation", tunOriMaxOrientation);
     SetIntRegistryValue(key$, "Progression", tunOriProgression%);
+    SetIntRegistryValue(key$, "UseFile", tunOriUseFile%);
+    SetStringRegistryValue(key$, "TuningFile", tunOriTuningFile$);
 end;
 
 proc GetTuningCurveContrastParameters()
@@ -313,6 +338,8 @@ proc GetTuningCurveContrastParameters()
     tunContrastMinContrast := GetFloatRegistryValue(key$, "MinContrast", tunContrastMinContrast);
     tunContrastMaxContrast := GetFloatRegistryValue(key$, "MaxContrast", tunContrastMaxContrast);
     tunContrastProgression% := GetIntRegistryValue%(key$, "Progression", tunContrastProgression%);
+    tunContrastUseFile% := GetIntRegistryValue%(key$, "UseFile", tunContrastUseFile%);
+    tunContrastTuningFile$ := GetStringRegistryValue$(key$, "TuningFile", tunContrastTuningFile$);
 end;
 
 proc SaveTuningCurveContrastParameters()
@@ -323,6 +350,8 @@ proc SaveTuningCurveContrastParameters()
     SetFloatRegistryValue(key$, "MinContrast", tunContrastMinContrast);
     SetFloatRegistryValue(key$, "MaxContrast", tunContrastMaxContrast);
     SetIntRegistryValue(key$, "Progression", tunContrastProgression%);
+    SetIntRegistryValue(key$, "UseFile", tunContrastUseFile%);
+    SetStringRegistryValue(key$, "TuningFile", tunContrastTuningFile$);
 end;
 
 proc GetTuningCurveSpatialParameters()
@@ -335,6 +364,8 @@ proc GetTuningCurveSpatialParameters()
     tunSpatialMinSF := GetFloatRegistryValue(key$, "MinSF", tunSpatialMinSF);
     tunSpatialMaxSF := GetFloatRegistryValue(key$, "MaxSF", tunSpatialMaxSF);
     tunSpatialProgression% := GetIntRegistryValue%(key$, "Progression", tunSpatialProgression%);
+    tunSpatialUseFile% := GetIntRegistryValue%(key$, "UseFile", tunSpatialUseFile%);
+    tunSpatialTuningFile$ := GetStringRegistryValue$(key$, "TuningFile", tunSpatialTuningFile$);
 end;
 
 proc SaveTuningCurveSpatialParameters()
@@ -346,6 +377,8 @@ proc SaveTuningCurveSpatialParameters()
     SetFloatRegistryValue(key$, "MinSF", tunSpatialMinSF);
     SetFloatRegistryValue(key$, "MaxSF", tunSpatialMaxSF);
     SetIntRegistryValue(key$, "Progression", tunSpatialProgression%);
+    SetIntRegistryValue(key$, "UseFile", tunSpatialUseFile%);
+    SetStringRegistryValue(key$, "TuningFile", tunSpatialTuningFile$);
 end;
 
 proc GetTuningCurveTemporalParameters()
@@ -358,6 +391,8 @@ proc GetTuningCurveTemporalParameters()
     tunTemporalMinTF := GetFloatRegistryValue(key$, "MinTF", tunTemporalMinTF);
     tunTemporalMaxTF := GetFloatRegistryValue(key$, "MaxTF", tunTemporalMaxTF);
     tunTemporalProgression% := GetIntRegistryValue%(key$, "Progression", tunTemporalProgression%);
+    tunTemporalUseFile% := GetIntRegistryValue%(key$, "UseFile", tunTemporalUseFile%);
+    tunTemporalTuningFile$ := GetStringRegistryValue$(key$, "TuningFile", tunTemporalTuningFile$);
 end;
 
 proc SaveTuningCurveTemporalParameters()
@@ -369,6 +404,8 @@ proc SaveTuningCurveTemporalParameters()
     SetFloatRegistryValue(key$, "MinTF", tunTemporalMinTF);
     SetFloatRegistryValue(key$, "MaxTF", tunTemporalMaxTF);
     SetIntRegistryValue(key$, "Progression", tunTemporalProgression%);
+    SetIntRegistryValue(key$, "UseFile", tunTemporalUseFile%);
+    SetStringRegistryValue(key$, "TuningFile", tunTemporalTuningFile$);
 end;
 
 
@@ -467,13 +504,17 @@ proc GetTuningCurveAreaParameters()
     tunAreaMinDiam := GetFloatRegistryValue(key$, "MinDiam", tunAreaMinDiam);
     tunAreaMaxDiam := GetFloatRegistryValue(key$, "MaxDiam", tunAreaMaxDiam);
     tunAreaProgression% := GetIntRegistryValue%(key$, "Progression", tunAreaProgression%);
+    tunAreaUseFile% := GetIntRegistryValue%(key$, "UseFile", tunAreaUseFile%);
+    tunAreaTuningFile$ := GetStringRegistryValue$(key$, "TuningFile", tunAreaTuningFile$);
     tunDonutOptimalIndex% := GetIntRegistryValue%(key$, "OptimalIndex", tunDonutOptimalIndex%);
     tunDonutProgression% := GetIntRegistryValue%(key$, "DonutProgression", tunDonutProgression%);
+    tunDonutCoreOnSlave% := GetIntRegistryValue%(key$, "DonutCoreOnSlave", tunDonutCoreOnSlave%);
     tunBerlinerMaximalIndex% := GetIntRegistryValue%(key$, "MaximalIndexBerliner", tunBerlinerMaximalIndex%);
     tunBerlinerMaximalDiam := GetFloatRegistryValue(key$, "MaximalDiamBerliner", tunBerlinerMaximalDiam);
     tunBerlinerNSteps% := GetIntRegistryValue%(key$, "NStepsBerliner", tunBerlinerNSteps%);
     tunBerlinerNRepeats% := GetIntRegistryValue%(key$, "NRepeatsDiamBerliner", tunBerlinerNRepeats%);
     tunBerlinerProgression% := GetIntRegistryValue%(key$, "BerlinerProgression", tunBerlinerProgression%);
+    tunBerlinerCoreOnSlave% := GetIntRegistryValue%(key$, "BerlinerCoreOnSlave", tunBerlinerCoreOnSlave%);
     tunMasterFollowsCurve1% := GetIntRegistryValue%(key$, "MasterFollowsCurve1", tunMasterFollowsCurve1%); 
     tunBoxODonutsProgression% := GetIntRegistryValue%(key$, "BoxODonutsProgression", tunBoxODonutsProgression%);
     tunBoxODonutsNRepeats% := GetIntRegistryValue%(key$, "BoxODonutsNRepeats", tunBoxODonutsNRepeats%);
@@ -488,8 +529,11 @@ proc SaveTuningCurveAreaParameters()
     SetFloatRegistryValue(key$, "MinDiam", tunAreaMinDiam);
     SetFloatRegistryValue(key$, "MaxDiam", tunAreaMaxDiam);
     SetIntRegistryValue(key$, "Progression", tunAreaProgression%);
+    SetIntRegistryValue(key$, "UseFile", tunAreaUseFile%);
+    SetStringRegistryValue(key$, "TuningFile", tunAreaTuningFile$);
     SetIntRegistryValue(key$, "OptimalIndex", tunDonutOptimalIndex%);
     SetIntRegistryValue(key$, "DonutProgression", tunDonutProgression%);
+    SetIntRegistryValue(key$, "DonutCoreOnSlave", tunDonutCoreOnSlave%);
     SetIntRegistryValue(key$, "MaximalIndexBerliner", tunBerlinerMaximalIndex%);
     SetFloatRegistryValue(key$, "MaximalDiamBerliner", tunBerlinerMaximalDiam);
     SetIntRegistryValue(key$, "NStepsBerliner", tunBerlinerNSteps%);
@@ -497,6 +541,7 @@ proc SaveTuningCurveAreaParameters()
     SetIntRegistryValue(key$, "BerlinerProgression", tunBerlinerProgression%);
     SetIntRegistryValue(key$, "MasterFollowsCurve1", tunMasterFollowsCurve1%);
     SetIntRegistryValue(key$, "BoxODonutsProgression", tunBoxODonutsProgression%);
+    SetIntRegistryValue(key$, "BerlinerCoreOnSlave", tunBerlinerCoreOnSlave%);
     SetIntRegistryValue(key$, "BoxODonutsNRepeats", tunBoxODonutsNRepeats%);
 end;
 
@@ -626,6 +671,9 @@ func TuningCurveOrientationDialog%()
 	DlgReal(3, "Min Orientation (deg)", 0, 360);
 	DlgReal(4, "Max Orientation (deg)", 0, 360);
 	'DlgCheck(5, "Random Progression");
+    DlgCheck(6, "Use File For Tuning Values");
+    DlgString(7,40,255,"",3);  'for visual confirmation of selected seq file
+    DlgButton(tundlgSelectTuningFileButton%, " Select Tuning File ", SelectTuningFile%, 2, 8);
     if tunBoxODonutsCurrentCurve% = 0 then
         DlgInteger(2, "Number of Repeats", 1, 1000);
         DlgCheck(5, "Random Progression");
@@ -633,8 +681,9 @@ func TuningCurveOrientationDialog%()
         DlgInteger(2, "----------------", 1, 1);
         DlgCheck(5, "----------------");
     endif;
+    DlgAllow(0xffff, 0, TuningCurveGenericDialogChanged%);
     
-	i% := DlgShow(tunOriNSteps%, tunOriNRepeats%, tunOriMinOrientation, tunOriMaxOrientation, tunOriProgression%);
+	i% := DlgShow(tunOriNSteps%, tunOriNRepeats%, tunOriMinOrientation, tunOriMaxOrientation, tunOriProgression%, tunOriUseFile%, tunOriTuningFile$);
 
 	' If i% is 1 the user hit "OK". If its 0, user hit "Cancel". 
 	' When user hits OK we alwaus save the parameters, and when user hits Cancel we don't.
@@ -650,6 +699,8 @@ func TuningCurveOrientationDialog%()
 		SaveTuningCurveOrientationParameters();
 		PrintLog("TuningCurveOrientationDialog - user hit OK\n");
 		tunType$ := tunTypeOrientation$;
+        tunUseFile% := tunOriUseFile%;
+        tunTuningFile$ := tunOriTuningFile$;
         
         'Change text on Box O' Donuts/CRG dialog box, if we're calling from there.
         docase
@@ -711,6 +762,9 @@ func TuningCurveContrastDialog%()
 	DlgReal(3, "Min Contrast (%)", 0.1, 100);
 	DlgReal(4, "Max Contrast (%)", 0.1, 100);
 	'DlgCheck(5, "Random Progression");
+    DlgCheck(6, "Use File For Tuning Values");
+    DlgString(7,40,255,"",3);  'for visual confirmation of selected seq file
+    DlgButton(tundlgSelectTuningFileButton%, " Select Tuning File ", SelectTuningFile%, 2, 8);
     if tunBoxODonutsCurrentCurve% = 0 then
         DlgInteger(2, "Number of Repeats", 1, 1000);
         DlgCheck(5, "Random Progression");
@@ -718,8 +772,9 @@ func TuningCurveContrastDialog%()
         DlgInteger(2, "----------------", 1, 1);
         DlgCheck(5, "----------------");
     endif;
+    DlgAllow(0xffff, 0, TuningCurveGenericDialogChanged%);
 
-	i% := DlgShow(tunContrastNSteps%, tunContrastNRepeats%, tunContrastMinContrast, tunContrastMaxContrast, tunContrastProgression%);
+	i% := DlgShow(tunContrastNSteps%, tunContrastNRepeats%, tunContrastMinContrast, tunContrastMaxContrast, tunContrastProgression%, tunContrastUseFile%, tunContrastTuningFile$);
 	' If i% is 1 the user hit "OK". If its 0, user hit "Cancel". 
 	' When user hits OK we alwaus save the parameters, and when user hits Cancel we don't.
     ' djs 2/4/2011
@@ -734,6 +789,8 @@ func TuningCurveContrastDialog%()
 		SaveTuningCurveContrastParameters();
 '		PrintLog("TuningCurveContrastDialog - user hit OK\n");
 		tunType$ := tunTypeContrast$;
+        tunUseFile% := tunContrastUseFile%;
+        tunTuningFile$ := tunContrastTuningFile$;
         
         'Change text on Box O' Donuts/CRG dialog box, if we're calling from there.
         docase
@@ -793,6 +850,9 @@ func TuningCurveSpatialDialog%()
 	DlgReal(3, "Min SF", .01, 100);
 	DlgReal(4, "Max SF", .01, 100);
 	'DlgCheck(5, "Random Progression");
+    DlgCheck(6, "Use File For Tuning Values");
+    DlgString(7,40,255,"",3);  'for visual confirmation of selected seq file
+    DlgButton(tundlgSelectTuningFileButton%, " Select Tuning File ", SelectTuningFile%, 2, 8);
     if tunBoxODonutsCurrentCurve% = 0 then
         DlgInteger(2, "Number of Repeats", 1, 1000);
         DlgCheck(5, "Random Progression");
@@ -800,8 +860,9 @@ func TuningCurveSpatialDialog%()
         DlgInteger(2, "----------------", 1, 1);
         DlgCheck(5, "----------------");
     endif;
+    DlgAllow(0xffff, 0, TuningCurveGenericDialogChanged%);
 
-	i% := DlgShow(tunSpatialNSteps%, tunSpatialNRepeats%, tunSpatialMinSF, tunSpatialMaxSF, tunSpatialProgression%);
+	i% := DlgShow(tunSpatialNSteps%, tunSpatialNRepeats%, tunSpatialMinSF, tunSpatialMaxSF, tunSpatialProgression%, tunSpatialUseFile%, tunSpatialTuningFile$);
 	' If i% is 1 the user hit "OK". If its 0, user hit "Cancel". 
 	' When user hits OK we alwaus save the parameters, and when user hits Cancel we don't.
     ' djs 2/4/2011
@@ -816,6 +877,8 @@ func TuningCurveSpatialDialog%()
 		SaveTuningCurveSpatialParameters();
 '		PrintLog("TuningCurveSpatialDialog - user hit OK\n");
 		tunType$ := tunTypeSpatial$;
+        tunUseFile% := tunSpatialUseFile%;
+        tunTuningFile$ := tunSpatialTuningFile$;
         
         'Change text on Box O' Donuts/CRG dialog box, if we're calling from there.
         docase
@@ -875,6 +938,9 @@ func TuningCurveTemporalDialog%()
 	DlgReal(3, "Min TF", 0, 100);
 	DlgReal(4, "Max TF", 0, 100);
 	'DlgCheck(5, "Random Progression");
+    DlgCheck(6, "Use File For Tuning Values");
+    DlgString(7,40,255,"",3);  'for visual confirmation of selected seq file
+    DlgButton(tundlgSelectTuningFileButton%, " Select Tuning File ", SelectTuningFile%, 2, 8);
     if tunBoxODonutsCurrentCurve% = 0 then
         DlgInteger(2, "Number of Repeats", 1, 1000);
         DlgCheck(5, "Random Progression");
@@ -882,8 +948,9 @@ func TuningCurveTemporalDialog%()
         DlgInteger(2, "----------------", 1, 1);
         DlgCheck(5, "----------------");
     endif;
+    DlgAllow(0xffff, 0, TuningCurveGenericDialogChanged%);
 
-	i% := DlgShow(tunTemporalNSteps%, tunTemporalNRepeats%, tunTemporalMinTF, tunTemporalMaxTF, tunTemporalProgression%);
+	i% := DlgShow(tunTemporalNSteps%, tunTemporalNRepeats%, tunTemporalMinTF, tunTemporalMaxTF, tunTemporalProgression%, tunTemporalUseFile%, tunTemporalTuningFile$);
 	' If i% is 1 the user hit "OK". If its 0, user hit "Cancel". 
 	' When user hits OK we alwaus save the parameters, and when user hits Cancel we don't.
     ' djs 2/4/2011
@@ -898,6 +965,8 @@ func TuningCurveTemporalDialog%()
 		SaveTuningCurveTemporalParameters();
 '		PrintLog("TuningCurveTemporalDialog - user hit OK\n");
 		tunType$ := tunTypeTemporal$;
+        tunUseFile% := tunTemporalUseFile%;
+        tunTuningFile$ := tunTemporalTuningFile$;
         
         'Change text on Box O' Donuts/CRG dialog box, if we're calling from there.
         docase
@@ -957,6 +1026,9 @@ func TuningCurveAreaDialog%()
 	DlgReal(3, "Min Diameter", 0.1, 100);
 	DlgReal(4, "Max Diameter", 0.1, 100);
 	'DlgCheck(5, "Random Progression");
+    DlgCheck(6, "Use File For Tuning Values");
+    DlgString(7,40,255,"",3);  'for visual confirmation of selected seq file
+    DlgButton(tundlgSelectTuningFileButton%, " Select Tuning File ", SelectTuningFile%, 2, 8);
     if tunBoxODonutsCurrentCurve% = 0 then
         DlgInteger(2, "Number of Repeats", 1, 1000);
         DlgCheck(5, "Random Progression");
@@ -964,9 +1036,10 @@ func TuningCurveAreaDialog%()
         DlgInteger(2, "----------------", 1, 1);
         DlgCheck(5, "----------------");
     endif;
+    DlgAllow(0xffff, 0, TuningCurveGenericDialogChanged%);
     
     
-	i% := DlgShow(tunAreaNSteps%, tunAreaNRepeats%, tunAreaMinDiam, tunAreaMaxDiam, tunAreaProgression%);
+	i% := DlgShow(tunAreaNSteps%, tunAreaNRepeats%, tunAreaMinDiam, tunAreaMaxDiam, tunAreaProgression%, tunAreaUseFile%, tunAreaTuningFile$);
 	' If i% is 1 the user hit "OK". If its 0, user hit "Cancel". 
 	' When user hits OK we always save the parameters, and when user hits Cancel we don't.
     ' 
@@ -983,6 +1056,8 @@ func TuningCurveAreaDialog%()
 		SaveTuningCurveAreaParameters();
 '		PrintLog("TuningCurveAreaDialog - user hit OK\n");
 		tunType$ := tunTypeArea$;
+        tunUseFile% := tunAreaUseFile%;
+        tunTuningFile$ := tunAreaTuningFile$;
         
         'Change text on Box O' Donuts/CRG dialog box, if we're calling from there.
         docase
@@ -1265,6 +1340,10 @@ func TuningCurveDonutDialog%()
     var iValue%:=0;
     var result[1000];
     var indices%[1000];
+    var mylist$[2];
+    mylist$[0] := "Master";
+    mylist$[1] := "Slave";
+
     
 	GetTuningCurveAreaParameters();
     
@@ -1281,12 +1360,13 @@ func TuningCurveDonutDialog%()
 	DlgReal(4, "Max Diameter", 0.1, 100);
 	DlgCheck(5, "Random Progression");
     DlgList(6, "Optimal diameter", sValues$);
+    DlgList(7, "Core is on:", mylist$[]);
     DlgButton(151, "Master Grating", TunDlgGratingMaster%);
     DlgButton(152, "Slave Grating", TunDlgGratingSlave%);
     DlgButton(153, "Master Vals -> Slave", TunMasterValsToSlave%);
     DlgButton(154, "Slave Vals -> Master", TunSlaveValsToMaster%);
     DlgAllow(0xffff, 0, TuningCurveDonutDialogChanged%);
-	i% := DlgShow(tunAreaNSteps%, tunAreaNRepeats%, tunAreaMinDiam, tunAreaMaxDiam, tunDonutProgression%, tunDonutOptimalIndex%);
+	i% := DlgShow(tunAreaNSteps%, tunAreaNRepeats%, tunAreaMinDiam, tunAreaMaxDiam, tunDonutProgression%, tunDonutOptimalIndex%, tunDonutCoreOnSlave%);
     tunDonutOptimalDiam := result[tunDonutOptimalIndex%];
     
 	' If i% is 1 the user hit "OK". If its 0, user hit "Cancel". 
@@ -1341,13 +1421,17 @@ func TuningCurveBerlinerDialog%()
     var iValue%:=0;
     var result[1000];
     var indices%[1000];
+    var mylist$[2];
+    mylist$[0] := "Master";
+    mylist$[1] := "Slave";
+
     
 	GetTuningCurveAreaParameters();
     
     ' Before we proceed, we must generate a list of choices for the optimal diameter. These are based on the most recent run of Area tuning
     ' Note that there are nsteps+1 values. 
-    
-    GetRepeatedParameterProgression%(tunAreaNSteps%+1, 1, result[], indices%[], tunAreaMinDiam, tunAreaMaxDiam, 1, tunAreaProgression%);
+
+    GetRepeatedParameterProgression%(tunAreaNSteps%+1, 1, result[], indices%[], tunAreaMinDiam, tunAreaMaxDiam, 1, 0);
     sValues$ := GetRealArrayAsStringSep$(result[0:tunAreaNSteps%+1], indices%[0:tunAreaNSteps%+1], "|");
     
     'We want the default maximal value to be the largest value available when we open the dialog
@@ -1366,13 +1450,14 @@ func TuningCurveBerlinerDialog%()
 	DlgCheck(5, "Random Progression");
     DlgList(6, "Optimal diameter", sValues$);
     DlgList(7, "Maximal diameter", sValues$);
+    DlgList(8, "Core is on:", mylist$[]);
     DlgButton(151, "Master Grating", TunDlgGratingMaster%);
     DlgButton(152, "Slave Grating", TunDlgGratingSlave%);
     DlgButton(153, "Master Vals -> Slave", TunMasterValsToSlave%);
     DlgButton(154, "Slave Vals -> Master", TunSlaveValsToMaster%);
     DlgAllow(0xffff, 0, TuningCurveBerlinerDialogChanged%);
 	'i% := DlgShow(tunAreaNSteps%, tunAreaNRepeats%, tunAreaMinDiam, tunAreaMaxDiam, tunAreaProgression%, tunDonutOptimalIndex%, tunBerlinerMaximalIndex%);
-    i% := DlgShow(tunBerlinerNSteps%, tunBerlinerNRepeats%, tunAreaMinDiam, tunAreaMaxDiam, tunBerlinerProgression%, tunDonutOptimalIndex%, tunBerlinerMaximalIndex%);
+    i% := DlgShow(tunBerlinerNSteps%, tunBerlinerNRepeats%, tunAreaMinDiam, tunAreaMaxDiam, tunBerlinerProgression%, tunDonutOptimalIndex%, tunBerlinerMaximalIndex%, tunBerlinerCoreOnSlave%);
     
     tunMaximalDiam := tunAreaMaxDiam;
     tunSlaveMaximalDiam := result[tunBerlinerMaximalIndex%];
@@ -1429,6 +1514,7 @@ end;
 ' This function is initially called with a "0" input, no function decided yet
 ' Second tuning curve and OK should be disabled until first curve/second curve
 ' are selected
+' There are now TWO different callback for BoxODonuts depending on whether there is a second screen or not - this is the second screen version
 func TuningCurveBoxODonutsDialogChanged%(item%)    
     'This re-enables any disabled buttons if the Box O' Donuts dialog is cancelled
     if item% = 0 then
@@ -1438,6 +1524,8 @@ func TuningCurveBoxODonutsDialogChanged%(item%)
         DlgEnable(1,-tundlgTemporalButton%);
         DlgEnable(1,-tundlgAreaButton%);
         DlgEnable(1,-tundlgXPosButton%);
+
+        
     endif;  
     if tunBoxODonutsCurrentCurve% = 3 then
         DlgEnable(1,-1);  'enable "OK" if both curves have been selected
@@ -1447,6 +1535,37 @@ func TuningCurveBoxODonutsDialogChanged%(item%)
     
     return 1;
 end
+
+
+' This function is initially called with a "0" input, no function decided yet
+' Second tuning curve and OK should be disabled until first curve/second curve
+' are selected
+' There are now TWO different callback for BoxODonuts depending on whether there is a second screen or not - this is the one screen version
+func TuningCurveBoxODonutsDialogChanged2%(item%)    
+    'This re-enables any disabled buttons if the Box O' Donuts dialog is cancelled
+    if item% = 0 then
+        DlgEnable(1,-tundlgOrientationButton%);
+        DlgEnable(1,-tundlgContrastButton%);
+        DlgEnable(1,-tundlgSpatialButton%);
+        DlgEnable(1,-tundlgTemporalButton%);
+        DlgEnable(1,-tundlgAreaButton%);
+        DlgEnable(1,-tundlgXPosButton%);
+        DlgEnable(0,3);  'Disable master follows curve 1 checkbox
+        DlgEnable(0,-151);  'Disable all two-screen buttons
+        DlgEnable(0,-152);
+        DlgEnable(0,-153);
+        DlgEnable(0,-154);
+        
+    endif;  
+    if tunBoxODonutsCurrentCurve% = 3 then
+        DlgEnable(1,-1);  'enable "OK" if both curves have been selected
+    else
+        DlgEnable(0,-1);  'Otherwise disable "OK"
+    endif;
+    
+    return 1;
+end
+
 
 
 func TuningCurveBoxODonutsDialog%()
@@ -1482,7 +1601,12 @@ func TuningCurveBoxODonutsDialog%()
     DlgButton(152, "Slave Grating", TunDlgGratingSlave%);
     DlgButton(153, "Master Vals -> Slave", TunMasterValsToSlave%);
     DlgButton(154, "Slave Vals -> Master", TunSlaveValsToMaster%);
-    DlgAllow(0xffff, 0, TuningCurveBoxODonutsDialogChanged%);
+    if DlgValue(10) = 1 then
+        DlgAllow(0xffff, 0, TuningCurveBoxODonutsDialogChanged%);
+    else
+        DlgAllow(0xffff, 0, TuningCurveBoxODonutsDialogChanged2%);
+    endif;
+    
     
     i% := DlgShow(tunBoxODonutsNRepeats%,tunBoxODonutsProgression%,tunMasterFollowsCurve1%);
     
@@ -1655,7 +1779,7 @@ func TuningCurveCRGDialog%()
     DlgInteger(2,"# of frames per turn",1,1000,30,2);
     DlgCheck(3, "Random Progression", 2, 3);
     DlgButton(tundlgSelectSEQFileButton%,   "Select Sequence File", SelectSEQFile%,49,3);
-    DlgString(4,40,20,"",50,2);  'for visual confirmation of selected seq file
+    DlgString(4,40,255,"",50,2);  'for visual confirmation of selected seq file
     
     
     
@@ -2615,11 +2739,18 @@ func TuningCurveScriptDialog%()
     dualType$[0] := "Dual Tuning";
     dualType$[1] := "Master only";
     dualType$[2] := "Slave only";
-    var maintainList$[4];
+    var maintainList$[5];
     maintainList$[0] := "Nothing";
-    maintainList$[1] := "FixOnly";  'for right now...1/2 are the same!
-    maintainList$[2] := "Core+Fix";
-    maintainList$[3] := "C+F+Rwd";
+    maintainList$[1] := "FixOnly";  
+    maintainList$[2] := "Fix+Rwd";
+    maintainList$[3] := "Core+Fix";
+    maintainList$[4] := "C+F+Rwd";
+    'these are for the addition of the stationary function to the standard tuning curves
+    var x, y, w, h, iw, ih;
+    var contrast%;
+    var sf, tf, ori, phase;
+    var cv$, pattern$, aperture$;
+    var tempParams$;
     
 	for i%:=0 to 2 do
 		if tunBackgroundColor$ = bcl$[i%] then
@@ -2657,7 +2788,7 @@ func TuningCurveScriptDialog%()
     DlgList(12, "Dual Tuning Configuration:", dualType$, 3, 25, 13);
     
     'DlgCheck(13, "Maintain Fixpt between trials", 2, 14);  'change this to a list
-    DlgList(13, 11, maintainList$, 4, 3, 14); DlgText("Maintain what btwn trls", 15, 14);
+    DlgList(13, 11, maintainList$, 5, 3, 14); DlgText("Maintain what btwn trls", 15, 14);
     DlgCheck(14, "Stationary",2,15);
     DlgCheck(15, "Make Histograms", 35,14);
     DlgCheck(16, "Use Rivalry Button", 35,15);
@@ -2722,14 +2853,14 @@ func TuningCurveScriptDialog%()
 		endif;
         
         'do not allow incorrect maintain mode - 2&3 are only legal for danishes
-        if tunUseMaintainMode% > 1 and tunType$ <> tunTypeDanish$ and tunType$ <> tunTypeDSS$ then
-            tunUseMaintainMode% := 1;
+        if tunUseMaintainMode% > 2 and tunType$ <> tunTypeDanish$ and tunType$ <> tunTypeDSS$ then
+            tunUseMaintainMode% := tunUseMaintainMode%-2;
             message("You cannot maintain core unless this is a Danish/DSS scenario, only maintaining fixation point!");
         endif;
         'furthermore...
-        if tunUseMaintainMode% > 1 and tunType$ = tunTypeDanish$ then
+        if tunUseMaintainMode% > 2 and tunType$ = tunTypeDanish$ then
             message("Maintain core is currently BROKEN for Danishes.  Sorry, not maintaining core.");
-            tunUseMaintainMode% := 1;
+            tunUseMaintainMode% := tunUseMaintainMode%-2;
         endif;
         
         'check to make sure that the box for the crosshairs and stimuli do not overlap
@@ -2752,6 +2883,18 @@ func TuningCurveScriptDialog%()
             endif;
         endif;  
         
+        'check to see if tunSetStationary is set for the "standard" tuning curves
+        if tunSetStationary% = 1 then
+            'Check for one of the five "standard" tuning curves that are not temporal - obviously stationary does not work with temporal tuning curves
+            if tunType$ = tunTypeOrientation$ or tunType$ = tunTypeContrast$ or tunType$ = tunTypeSpatial$ or tunType$ = tunTypeArea$ or tunType$ = tunTypeXYPos$ then
+                tempParams$ := GetGratingParameters$("Stimulus");
+                ParseGratingParameters%(tempParams$, x, y, w, h, iw, ih, contrast%, sf, tf, ori, phase, cv$, pattern$, aperture$);
+                tempParams$ := EncodeGratingParameters$(x, y, w, h, iw, ih, contrast%, sf, 0, ori, phase, cv$, pattern$, aperture$);  'hardcoded zero TF
+                SaveGratingParameters("StatStimulus", tempParams$);
+            endif;
+        endif
+        
+        
 	endif;
 	if i% = 0 then
 		'PrintLog("Tuning Curve Parameters dialog - user hit Cancel, tunType=" + tunType$ + "\n");
@@ -2772,7 +2915,8 @@ end;
 
 func TuningCurveScriptDialogChanged%(item%) 
     if DlgValue(10) = 0 then  'If single VSG, do not allow Donuts or Berliners or disparity or CRG
-        DlgEnable(0,-tundlgDonutButton%,-tundlgBerlinerButton%,-tundlgBoxODonutsButton%,-tundlgCRGButton%,-tundlgDisparityButton%);
+        'DlgEnable(0,-tundlgDonutButton%,-tundlgBerlinerButton%,-tundlgBoxODonutsButton%,-tundlgCRGButton%,-tundlgDisparityButton%); 'old version
+        DlgEnable(0,-tundlgDonutButton%,-tundlgBerlinerButton%,-tundlgCRGButton%,-tundlgDisparityButton%);  'allow boxOdonuts for single screen now
         'Also disable card synch functions, dual tuning listbox
         DlgEnable(0,11); 'card synch
         DlgEnable(0,12); 'dual tuning listbox
@@ -2789,7 +2933,8 @@ func TuningCurveScriptDialogChanged%(item%)
         DlgValue$(-tundlgXPosButton%, "XY Position");
     endif;
     if DlgValue(10) = 1 then  'If dual VSG, allow donuts and Berliners and disparity and CRG
-        DlgEnable(1,-tundlgDonutButton%,-tundlgBerlinerButton%,-tundlgBoxODonutsButton%,-tundlgCRGButton%,-tundlgDisparityButton%);
+        'DlgEnable(1,-tundlgDonutButton%,-tundlgBerlinerButton%,-tundlgBoxODonutsButton%,-tundlgCRGButton%,-tundlgDisparityButton%);  'old version
+        DlgEnable(1,-tundlgDonutButton%,-tundlgBerlinerButton%,-tundlgCRGButton%,-tundlgDisparityButton%);  'allow boxOdonuts for single screen now
         'Also allow turning off card synch, dual tuning listbox
         DlgEnable(1,11);  'card synch
         DlgEnable(1,12);  'dual tuning listbox
@@ -2907,6 +3052,43 @@ func SelectSEQFile%()
     
 end;
 
+
+
+func SelectTuningFile%()
+    'This generic function ought to work for any of the dialogs where we allow the selection of a tuning file
+
+    var status% := 1;
+    var direc$;
+    var fh0%;
+    
+    direc$ := FilePath$();  'get current directory
+    fh0%:=FileOpen(direc$+"*.txt",1,0,"Please select a tuning file");  'Find a tuning file
+    direc$ := FileName$(0);  'Get full path of selected file
+    FileClose(fh0%);  'Just close the file, we're not using it
+    DlgValue$(7,direc$);  'Place filename into dialog item 7 of calling dialog
+
+	return status%;  'return 1 so calling dialog doesn't close
+    
+end;
+
+
+func TuningCurveGenericDialogChanged%(item%)
+    'This single dialog changed function can be used for ALL the tuning dialogs that allow file-based tuning curves
+    '(at least currently) because they all have the same structure and therefore the same dialog positions to allow/disallow
+    if DlgValue(6) = 0 then  'If we are not using a tuning file
+        DlgEnable(0,7);  'disable the string box with the text file name (button still works)
+        DlgEnable(1,1);  'enable nSteps, min, and max
+        DlgEnable(1,3);
+        DlgEnable(1,4);
+    endif;
+    if DlgValue(6) = 1 then
+        DlgEnable(1,7);  'enable the string box with the text file name
+        DlgEnable(0,1);  'disable nSteps, min, and max
+        DlgEnable(0,3);
+        DlgEnable(0,4);
+    endif;
+    return 1;
+end
 
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''

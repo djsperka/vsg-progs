@@ -27,13 +27,27 @@ var txSlaveOutputHandle := -1;      ' output file for slave CRG pulse times. Onl
 
 var txIState% := txstateStart%;
 
-var txChanFixpt% := 24;
-var txChanStim% := 25;
-var txChanStimChg% := 26;
-var txChanFixptSlave% := 28;
-var txChanStimSlave% := 29;
-var txChanFrame% := 19;
-var txChanFrameSlave% := 20;
+
+' djs 10/10/2014
+' Modified channel numbers in the script. These channel numbers are for data files collected PRIOR TO 10/1/2014
+' 
+'var txChanFixpt% := 24;
+'var txChanStim% := 25;
+'var txChanFixptSlave% := 28;
+'var txChanStimSlave% := 29;
+'var txChanFrame% := 19;
+'var txChanFrameSlave% := 20;
+
+' These channel numbers are valid for data files collected AFTER 10/1/2014
+var txChanFixpt% := 42;
+var txChanStim% := 43;
+var txChanFixptSlave% := 46;
+var txChanStimSlave% := 47;
+var txChanFrame% := 41;
+var txChanFrameSlave% := 45;
+
+
+
 
 ' Trial vars
 var tS;     ' onset time of stim
@@ -274,7 +288,28 @@ proc FlushTrial()
             else
                 s$ := Print$("%f %f %f %f %f %f\n", params[iCurrentParam%], params2[iCurrentParam%], tPM[1], tPM[2], tPS[1], tPS[2]);
         endif;
-    case txVersion% = 6 or txVersion% = 7 or txVersion% = 8 then
+    case txVersion% = 6 or txVersion% = 7 then
+        ' CRG type. Master and/or Slave has CRG pulses to be fetched.
+        ' The output files should already be opened!
+        if FindStimPulses%(txChanFrame%, tS, tE, tPM[]) <> 1 then
+            PrintLog("ERROR: Cannot find master stim pulses in window from %f - %f\n", tS, tE);
+            return;
+        else
+            tS := tPM[1];
+            tE := tPM[2];
+        endif
+        
+        if FindStimPulses%(txChanFrameSlave%, tSSlave, tESlave, tPS[]) <> 1 then
+            PrintLog("ERROR: Cannot find slave stim pulses in window from %f - %f\n", tS, tE);
+            return;
+        else
+            tSSlave := tPS[1];
+            tESlave := tPS[2];
+        endif
+            
+        s$ := Print$("%f %f %f %f %f %f\n", params[iCurrentParam%], params2[iCurrentParam%], tS, tE, tSSlave, tESlave);
+        
+    case txVersion% = 8 then
         ' CRG type. Master and/or Slave has CRG pulses to be fetched.
         ' The output files should already be opened!
         if txIsMasterCRG% = 1 then
@@ -282,14 +317,6 @@ proc FlushTrial()
             s$ := GetRealArrayNAsString$(pulses[1:npulses%-1], npulses%-1);
             View(LogHandle()).Print("%s\n", s$);
             View(txMasterOutputHandle).Print("%s\n", s$);
-        else
-            if FindStimPulses%(txChanFrame%, tS, tE, tPM[]) <> 1 then
-                PrintLog("ERROR: Cannot find master stim pulses in window from %f - %f\n", tS, tE);
-                return;
-            else
-                tS := tPM[1];
-                tE := tPM[2];
-            endif
         endif
         
         if txIsSlaveCRG% = 1 then
@@ -297,17 +324,10 @@ proc FlushTrial()
             s$ := GetRealArrayNAsString$(pulses[1:npulses%-1], npulses%-1);
             View(LogHandle()).Print("%s\n", s$);
             View(txSlaveOutputHandle).Print("%s\n", s$);
-        else
-            if FindStimPulses%(txChanFrameSlave%, tSSlave, tESlave, tPS[]) <> 1 then
-                PrintLog("ERROR: Cannot find master stim pulses in window from %f - %f\n", tS, tE);
-                return;
-            else
-                tSSlave := tPS[1];
-                tESlave := tPS[2];
-            endif
         endif
             
         s$ := Print$("%f %f %f %f %f %f\n", params[iCurrentParam%], params2[iCurrentParam%], tS, tE, tSSlave, tESlave);
+        
         
     else
         if txIsTwoCurves% = 0 then
@@ -355,6 +375,11 @@ proc GetTuningVersion(&version%, &isDual%)
             iStatus% := 1;
         endcase
     wend
+    
+    ' ugly hack, in a hurry. VErsion 9 is always dual.
+    if version% = 8 then
+        isDual% := 1;
+    endif
     s$ := Print$("Version %d isDual=%d", version%, isDual%);
     LogStatus("GetTuningVersion", s$);
 end
@@ -414,7 +439,7 @@ func TuningExtract%(tStart, tStop)
     docase
     case txVersion% = 1 or txVersion% = 2 or txVersion% = 4 then
         
-        sIgnore$ := "0FJQR+";
+        sIgnore$ := "0FJQR+V";
         tFound := NextKey(txTLast, sFound$, sIgnore$);
         while tFound >= 0 and (txTStop < 0 or (txTStop > 0 and tFound <= txTStop)) and txIState% <> txstateError% do
 

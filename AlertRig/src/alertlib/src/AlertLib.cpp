@@ -27,11 +27,40 @@ std::ostream& operator<<(std::ostream& out, const ARGratingSpec& args)
 	return out;
 }
 
+std::ostream& operator<<(std::ostream& out, const alert::ARXhairSpec& arx)
+{
+	out << arx.x << "," << arx.y << "," << arx.ri << "," << arx.ro << "," << arx.nc << "," << arx.r1 << "," << arx.r2;
+	return out;
+}
+
 std::ostream& operator<<(std::ostream& out, const Trigger& t)
 {
 	out << t.toString();
 	return out;
 }
+
+void TriggerFunc::operator()(Trigger* pitem)
+{
+	bool bTest=false;
+	if (m_binary) bTest = pitem->checkBinary(m_itrigger);
+	else bTest = pitem->checkAscii(m_skey);
+
+	if (bTest)
+	{
+		int i;
+		m_triggers_matched.append(pitem->getKey());
+		i = pitem->execute(m_otrigger);
+		if (m_verbose) cout << "Trigger " << pitem->getKey() << " execute: " << std::hex << i << endl;
+		m_ideferred = i;
+		if (i > 0) m_present = true;
+		else if (i < 0) 
+		{
+			m_present = true;
+			m_quit = true;
+		}
+	}
+};
+
 
 
 ARvsg& ARvsg::instance() 
@@ -58,6 +87,12 @@ ARvsg& ARvsg::slave()
 	static ARvsg slave(false, true);
 	return slave; 
 };
+
+int ARvsg::setViewDistMM(int screenDistanceMM)
+{
+	vsgSetViewDistMM(screenDistanceMM);
+	return 0;
+}
 
 COLOR_TYPE ARvsg::background_color() 
 { 
@@ -91,7 +126,7 @@ double ARvsg::getScreenWidthDegrees()
 
 ARvsg::ARvsg(bool bMaster, bool bSlave) : m_initialized(false), m_is_master(bMaster), m_is_slave(bSlave), m_device_handle(-999), m_next_available_level(0)
 {
-	cout << "ARvsg::ARvsg(" << bMaster << ", " << bSlave << ")" << endl;
+	cout << "Instantiate ARvsg, master? " << (bMaster ? "YES" : "NO") << ", slave? " << (bSlave ? "YES" : "NO") << endl;
 }
 
 ARvsg::~ARvsg()
@@ -211,12 +246,12 @@ int ARvsg::init(int screenDistanceMM, COLOR_TYPE i_bg,  bool bUseLockFile, bool 
 			string s;
 			if (!GetRegVSGConfig(s))
 			{
-				cout << "Initialize VSG using currently selected configuration (see VSG Desktop)" << endl;
+				cout << "ARvsg::init(): using currently selected VSG configuration (see VSG Desktop)" << endl;
 				m_device_handle = vsgInit("");
 			}
 			else
 			{
-				cout << "Initialize VSG using configuration file \"" << s << "\"" << endl;
+				cout << "ARvsg::init(): using VSG configuration file \"" << s << "\"" << endl;
 				m_device_handle = vsgInit(const_cast<char *>(s.c_str()));
 			}
 		}
@@ -230,7 +265,7 @@ int ARvsg::init(int screenDistanceMM, COLOR_TYPE i_bg,  bool bUseLockFile, bool 
 			}
 			else
 			{
-				cout << "Initialize Master VSG using configuration file \"" << s << "\"" << endl;
+				cout << "ARvsg::init(): master is using configuration file \"" << s << "\"" << endl;
 				m_device_handle = vsgInit(const_cast<char *>(s.c_str()));
 			}
 		}
@@ -244,7 +279,7 @@ int ARvsg::init(int screenDistanceMM, COLOR_TYPE i_bg,  bool bUseLockFile, bool 
 			}
 			else
 			{
-				cout << "Initialize Slave VSG using configuration file \"" << s << "\"" << endl;
+				cout << "ARvsg::init(): slave is using configuration file \"" << s << "\"" << endl;
 				if (bSlaveSynch)
 				{
 					m_device_handle = vsgAdvancedInit(const_cast<char *>(s.c_str()), vsgADVINITSLAVEVIDEO);
@@ -283,11 +318,12 @@ int ARvsg::init(int screenDistanceMM, COLOR_TYPE i_bg,  bool bUseLockFile, bool 
 			request_single(m_background_level);
 			if (get_color(m_background_color, background))
 			{
-				cerr << "Cannot get trival for background color " << m_background_color << endl;
+				cerr << "ARvsg::init(): Cannot get trival for background color " << m_background_color << endl;
 				status = 2;
 			}
 			arutil_color_to_palette(m_background_color, m_background_level);
-			cout << "Background level " << m_background_level << " color set to " << m_background_color.color.a << "," << m_background_color.color.b << "," << m_background_color.color.c << endl;
+			cout << "ARvsg::init(): Screen distance = " << screenDistanceMM << ", will use PIXEL units." << endl;
+			cout << "ARvsg::init(): Background level " << m_background_level << " color set to " << m_background_color.color.a << "," << m_background_color.color.b << "," << m_background_color.color.c << endl;
 		}
 		else
 		{
@@ -300,7 +336,8 @@ int ARvsg::init(int screenDistanceMM, COLOR_TYPE i_bg,  bool bUseLockFile, bool 
 
 			m_background_color = i_bg;
 			// this level gets used later, but we request it now to insure we get level 0
-			request_single(m_background_level);
+			//request_single(m_background_level);
+			m_background_level = 250;	// djs HACK HACK HACK
 
 			// Create single dummy object and assign it a level
 			m_handle = vsgObjCreate();
@@ -318,7 +355,8 @@ int ARvsg::init(int screenDistanceMM, COLOR_TYPE i_bg,  bool bUseLockFile, bool 
 			vsgPresent();
 
 			vsgSetBackgroundColour(&background);
-			cout << "Background color set to " << background.a << "," << background.b << "," << background.c << endl;
+			cout << "ARvsg::init(): Screen distance = " << screenDistanceMM << ", will use DEGREE units." << endl;
+			cout << "ARvsg::init(): Background level " << m_background_level << " color set to " << m_background_color.color.a << "," << m_background_color.color.b << "," << m_background_color.color.c << endl;
 		}
 	}
 	return status;
@@ -450,7 +488,7 @@ void ARvsg::clear(int ipage)
 	// djs 4-30-2010 
 	// modify this to set the display page to the just-cleared page. Not sure why the vsgPresent() was here before. 
 	vsgSetZoneDisplayPage(vsgVIDEOPAGE, ipage);
-	//vsgPresent();
+	vsgPresent();
 }
 
 void ARvsg::clear()
@@ -463,9 +501,12 @@ void ARvsg::ready_pulse(int wait_msecs, unsigned int which_bit)
 	// Issue "ready" triggers to spike2.
 	// These commands pulse spike2 port 6. 
 	Sleep(wait_msecs);
+	vsgFrameSync();
 	vsgIOWriteDigitalOut(0xff, which_bit);
-	Sleep(10);
+	vsgFrameSync();
+	//Sleep(10);
 	vsgIOWriteDigitalOut(0, which_bit);
+	vsgFrameSync();
 }
 
 
@@ -1329,7 +1370,8 @@ int ARGratingSpec::draw(long mode, int apertureLevel)
 
 int ARGratingSpec::drawBackground()
 {
-	vsgSetPen1(getVSG().background_level());
+	vsgSetPen1(vsgBACKGROUND);
+	//vsgSetPen1(getVSG().background_level());
 	vsgSetDrawMode(vsgCENTREXY);
 	if (this->aperture == ellipse)
 	{

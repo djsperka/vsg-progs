@@ -5,6 +5,7 @@
 #include "getopt.h"
 #undef __GNU_LIBRARY__
 
+#include "snet.h"
 #include "vsgv8.h"
 #include "Alertlib.h"
 #include "AlertUtil.h"
@@ -45,6 +46,7 @@ bool f_bFixationOn = false;
 TriggerVector triggers;
 bool f_bUseLockFile = true;
 int f_pulse = 0x40;		// default pulse on bit 7
+int f_sleepMS = 100;
 
 double f_vsgWidthPixels;
 double f_vsgHeightPixels;
@@ -101,6 +103,8 @@ int main(int argc, char **argv)
 	// loop forever until 'q' is hit on keyboard or a quit signal is received on digition IO lines
 	while(!bQuit)
 	{
+		Sleep(f_sleepMS);
+
 		// get cursor position if mouse is on.
 		// Convert to degrees outside the if(bMouseOn) because arrow keys may have moved position.
 		if (bMouseOn)
@@ -649,10 +653,18 @@ int args(int argc, char **argv)
 	extern char *optarg;
 	extern int optind;
 	int errflg = 0;
-	while ((c = getopt(argc, argv, "Dd:avg:f:Ab:np:")) != -1)
+	while ((c = getopt(argc, argv, "Dd:avg:f:Ab:np:S:")) != -1)
 	{
 		switch (c) 
 		{
+		case 'S':
+			s.assign(optarg);
+			if (parse_integer(s, f_sleepMS))
+			{
+				cerr << "Error in sleepMS arg, must be integer: " << s << endl;
+				errflg++;
+			}
+			break;
 		case 'A':
 			f_alert = true;
 			break;
