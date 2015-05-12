@@ -1,5 +1,5 @@
-' $Id: AcuteTuning.s2s,v 1.39 2015-05-12 17:15:18 devel Exp $
-const tunCVSID$ := "$Id: AcuteTuning.s2s,v 1.39 2015-05-12 17:15:18 devel Exp $";
+' $Id: AcuteTuning.s2s,v 1.40 2015-05-12 22:52:20 devel Exp $
+const tunCVSID$ := "$Id: AcuteTuning.s2s,v 1.40 2015-05-12 22:52:20 devel Exp $";
 
 'var TuningCurveScriptDialogAllowOK%;  'allows OK to button to work on main dialog
 
@@ -926,7 +926,7 @@ proc CreateSampleConfiguration()
             ShuffleAndExpand(tunFileLen%,tunNRepeats%,tunValuesIndices%[],tunOriProgression%);
         else
             tunNAdvances% := tunOriNSteps%;
-            GetRepeatedParameterProgression%(tunOriNSteps%+1, tunNRepeats%, tunValues[], tunValuesIndices%[], tunOriMinOrientation, tunOriMaxOrientation, 1, tunOriProgression%);
+            GetRepeatedParameterProgression%(tunOriNSteps%+1, tunNRepeats%, tunValues[], tunValuesIndices%[], tunOriMinOrientation, tunOriMaxOrientation, 0, tunOriProgression%);
         endif;
         tunNValues% := (tunNAdvances%+1)*tunNRepeats%;  
         tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%);
@@ -950,7 +950,7 @@ proc CreateSampleConfiguration()
             ShuffleAndExpand(tunFileLen%,tunNRepeats%,tunValuesIndices%[],tunTemporalProgression%);
         else
             tunNAdvances% := tunTemporalNSteps%;
-            GetRepeatedParameterProgression%(tunTemporalNSteps%+1, tunNRepeats%, tunValues[], tunValuesIndices%[], tunTemporalMinTF, tunTemporalMaxTF, 1, tunTemporalProgression%);
+            GetRepeatedParameterProgression%(tunTemporalNSteps%+1, tunNRepeats%, tunValues[], tunValuesIndices%[], tunTemporalMinTF, tunTemporalMaxTF, 0, tunTemporalProgression%);
         endif;
         tunNValues% := (tunNAdvances%+1)*tunNRepeats%;  
         tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%);
