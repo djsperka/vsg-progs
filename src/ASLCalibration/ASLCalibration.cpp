@@ -44,6 +44,7 @@ string f_szOffsetFile;
 TriggerVector triggers;
 bool f_binaryTriggers = true;
 bool f_bypassPhaseI = false;	// only valid when doing rivalry
+int f_iquit = 0;
 
 int init_calibration();
 void usage();
@@ -81,19 +82,38 @@ CWinApp theApp;
 
 using namespace std;
 
+
+// handler for interrupts. Cleanly close serial port and exit.
+
+BOOL CtrlHandler(DWORD ctrlType)
+{
+	BOOL retval = TRUE;
+	switch(ctrlType)
+	{
+	case CTRL_C_EVENT:
+		cerr << "Got ctrl-C." << endl;
+		break;
+	case CTRL_BREAK_EVENT:
+		cerr << "Got ctrl-BREAK." << endl;
+		break;
+	case CTRL_CLOSE_EVENT:
+		cerr << "Got ctrl-CLOSE." << endl;
+		break;
+	default:
+		cerr << "Got sig: " << ctrlType << endl;
+		break;
+	}
+	aslserial_disconnect();
+	ARvsg::instance().release_lock();
+	f_iquit = 1;
+	return retval;
+}
+
+
 int _tmain(int argc, TCHAR* argv[], TCHAR* envp[])
 {
 	long spike2_output_bits = 0;
-	int idot;
-	int xdat;
-	int lastxdat = 0;
-	int ijuice;
-	int iquit;
 	int lastidot=-1;
-	int ioffset = 0;
-	int idisplay = 0;
-	bool bOffsetFileWritten = false;
-	bool bOffsetReceived = false;
 	int last_output_trigger=0;
 	long input_trigger = 0;
 	string s;
@@ -113,6 +133,9 @@ int _tmain(int argc, TCHAR* argv[], TCHAR* envp[])
 		}
 	}
 
+
+	// signal handler
+	SetConsoleCtrlHandler( (PHANDLER_ROUTINE) CtrlHandler, true);
 
 	// COM initialzation
 	CoInitialize(NULL);
@@ -171,21 +194,39 @@ int _tmain(int argc, TCHAR* argv[], TCHAR* envp[])
 			// calibration uses phase I and phase II. In Rivalry calibration we can bypass phase I (useful
 			// for testing) by using the "-B" command line arg in conjunction with the "-r filename" arg. 
 
-			iquit = 0;
-			while (!iquit)
+			bool bquit = false;
+			bool bstarted = false;
+			int idot;
+			int iserial;
+			int lastidot = -1;
+			int input_trigger;
+			int last_output_trigger = 0;
+
+			while (!bquit)
 			{
-				ijuice = 0;
-				iquit = 0;
-				ioffset = 0;
-				idisplay = 0;
-				if (!aslserial_get(&idot, &xdat, &f_fSlaveXOffset, &f_fSlaveYOffset))
+				iserial = aslserial_getDotNumber(&idot);
+				if (iserial < 0)
 				{
-					if (idot > 0 && idot < 10)
+					cerr << "Error in asiserial_getDotNumber!" << endl;
+					bquit = true;
+				}
+				else if (iserial>0)
+				{
+					cerr << "No new serial data available." << endl;
+				}
+				else 
+				{
+					if (bstarted && idot == 0)
 					{
+						cerr << "Exiting calibration loop (calibration finished or dialog closed)" << endl;
+						bquit = true;
+					}
+					else if (idot > 0 && idot < 10)
+					{
+						bstarted = true;
 						if (idot != lastidot)
 						{
-							idisplay = 1;
-							cerr << "Dot " << idot << endl; 
+							cerr << "Switch to dot " << idot << endl; 
 
 							// change dot on screen here
 							if (lastidot > 0) f_fixpts[lastidot-1].setContrast(0);
@@ -196,6 +237,7 @@ int _tmain(int argc, TCHAR* argv[], TCHAR* envp[])
 					}
 				}
 
+#if 0
 				input_trigger = vsgIOReadDigitalIn();
 				TriggerFunc	tf = std::for_each(triggers.begin(), triggers.end(), 
 					(f_binaryTriggers ? TriggerFunc(input_trigger, last_output_trigger) : TriggerFunc(s, last_output_trigger)));
@@ -203,6 +245,7 @@ int _tmain(int argc, TCHAR* argv[], TCHAR* envp[])
 				// Now analyze input trigger
 			 	
 				if (tf.quit()) break;
+#endif
 
 				Sleep(100);
 			}
@@ -229,7 +272,7 @@ int init_calibration()
 	// Init vsg for single vsg usage
 	if (!f_bRivalry)
 	{
-		if (ARvsg::instance().init(f_screenDistanceMM, f_background))
+		if (ARvsg::instance().init(f_screenDistanceMM, f_background, false))
 		{
 			cerr << "VSG init failed!" << endl;
 			return 1;

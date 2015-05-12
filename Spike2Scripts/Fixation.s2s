@@ -1,4 +1,4 @@
-' $Id: Fixation.s2s,v 1.36 2013-03-27 22:43:46 devel Exp $
+' $Id: Fixation.s2s,v 1.37 2015-05-12 17:15:19 devel Exp $
 ' Update 11/8/11 Jeff, includes SafeSampleKey and multi-juicer updates
 
 #include "../../Spike2Util/UsreyUtil.s2s"
@@ -659,8 +659,14 @@ proc CreateSampleConfiguration()
 
     ' Set up channels for sampling electrodes.
     CreateElectrodeSamplingConfiguration(1, 11);
-
-	SampleSequencer(script$ + "Fixation.pls");
+    
+    ' different pls file if remote
+    if GetUseRemoteStimulus%() = 0 then
+        SampleSequencer(script$ + "Fixation.pls");
+    else
+        SampleSequencer(script$ + "Tuning.pls");
+    endif
+        
 	SampleOptimise(2, 2, 2, 2, 50);  'Set optimise mode (do this last)
 	SampleMode(1); 'Continuous sampling
 end;
@@ -806,16 +812,26 @@ func Start%()
 	var FixationPoint$;
 	var Extras$;
 	var Distractors$:="";
+    var DistractorFlag$ := " -g ";  ' -k for fixstim/remote
+    var DistractorFixstimFlag$ := "";
+    var Invocation$;                ' initialized below
 	
 	SampleStart(0); 'Start sampling
+    
 	' Set Sequencer Variable #3 based on juicer type 
     SetJuicerSequencerVariable%();
-    ' Clear any trigger bits on digout lines.
-    SafeSampleKey("0");
     
 	GetFixationScriptParameters();
 
-
+    ' some stuff depends on whether this is a remote session
+    if GetUseRemoteStimulus%() = 1 then
+        DistractorFlag$ := " -k ";
+        DistractorFixstimFlag$ := " -K ";
+        Invocation$ := "cmd /c " + GetBinDir$(1) + "remote " + GetRemoteStimulusIP$() + " " + GetRemoteStimulusPort$() + " fixstim -p 7 ";
+    else
+        Invocation$ := "cmd /c " + GetBinDir$(1) + "Fixation ";
+    endif
+    
 	if fixCalibrationFlag% = 0 then
 
 		' Use distractors? 
@@ -824,7 +840,7 @@ func Start%()
 			if Len(Extras$) = 0 then
 				Message("Warning! Use stimulus flag is set, but stimulus grating is not configured!");
 			else
-				Distractors$ += " -g " + Extras$;
+				Distractors$ += DistractorFlag$ + Extras$;
 			endif
 		endif
 		
@@ -833,7 +849,7 @@ func Start%()
 			if Len(Extras$) = 0 then
 				Message("Warning! Use distractor 1 flag is set, but distractor 1 grating is not configured!");
 			else
-				Distractors$ += " -g " + Extras$;
+				Distractors$ += DistractorFlag$ + Extras$;
 			endif
 		endif
 		
@@ -842,7 +858,7 @@ func Start%()
 			if Len(Extras$) = 0 then
 				Message("Warning! Use distractor 2 flag is set, but distractor 2 grating is not configured!");
 			else
-				Distractors$ += " -g " + Extras$;
+				Distractors$ += DistractorFlag$ + Extras$;
 			endif
 		endif
 		
@@ -851,7 +867,7 @@ func Start%()
 			if Len(Extras$) = 0 then
 				Message("Warning! Use distractor 3 flag is set, but distractor 3 grating is not configured!");
 			else
-				Distractors$ += " -g " + Extras$;
+				Distractors$ += DistractorFlag$ + Extras$;
 			endif
 		endif
 		
@@ -860,13 +876,13 @@ func Start%()
 			if Len(Extras$) = 0 then
 				Message("Warning! Use distractor 4 flag is set, but distractor 4 grating is not configured!");
 			else
-				Distractors$ += " -g " + Extras$;
+				Distractors$ += DistractorFlag$ + Extras$;
 			endif
 		endif
 		
-		Extras$ := " -b " + fixBackgroundColor$ + " -d " + GetDistanceToScreenMM$();
+		Extras$ := " -b " + fixBackgroundColor$ + " -d " + GetDistanceToScreenMM$(); 
 		
-		CommandLine$ := "cmd /k " + bin$ + "\\Fixation " + FixationArg$ + Extras$ + Distractors$;
+		CommandLine$ := Invocation$ + FixationArg$ + Extras$ + Distractors$ + DistractorFixstimFlag$;
 		
 		'CommandLine$ :=bin$ + "\\dFixation " + FixationPoint$ + Distractors$ + Extras$;
 	else
@@ -879,7 +895,7 @@ func Start%()
 	endif
 
 	'Begin the stimulus program. It will take a few seconds for the VSG to initialize.
-	PrintLog(CommandLine$+"\n");
+	LogStatus("Start%()", CommandLine$);
 	StimHandle% := ProgRun(CommandLine$,1);
 	if StimHandle% <0 then Message("Could not start stimulus."); halt; endif
 '	Yield(5);	'Wait a few seconds to make sure the VSG has time to initialize.
@@ -933,7 +949,7 @@ func Stop%()
     
     
 	s$ := Print$("Trial#/Total %d/%d Success/Failure %d/%d", nTrialsStarted%, fixNumberOfTrials%, nTrialsSuccess%, nTrialsFail%);
-	PrintLog(s$);
+	LogStatus("Stop%()", s$);
     
     if fixSaveData% = 1 then
         View(DataWindow%);

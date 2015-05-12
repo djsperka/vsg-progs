@@ -4,6 +4,7 @@
 #include <conio.h>
 #include "vsgv8.h"
 #include "Alertlib.h"
+#include "windows.h"
 
 #ifdef _DEBUG
 #pragma comment(lib, "dalert.lib")
@@ -15,12 +16,28 @@
 
 bool f_binaryTriggers = true;
 bool f_dio = false;
+bool f_bUseLock = true;
+bool f_quit = false;
 using namespace std;
 using namespace alert;
 
 int args(int argc, char **argv);
 
 #define IS_VISAGE (vsgGetSystemAttribute(vsgDEVICECLASS)==7)
+
+BOOL CtrlHandler( DWORD fdwCtrlType ) 
+{ 
+  switch( fdwCtrlType ) 
+  { 
+    // Handle the CTRL-C signal. 
+    case CTRL_C_EVENT: 
+		f_quit = true;
+	    printf( "Ctrl-C event\n\n" );
+		return( TRUE );
+	default:
+		return FALSE;
+  }
+}
 
 int args(int argc, char **argv)
 {	
@@ -29,7 +46,7 @@ int args(int argc, char **argv)
 	extern char *optarg;
 	extern int optind;
 	int errflg = 0;
-	while ((c = getopt(argc, argv, "ad")) != -1)
+	while ((c = getopt(argc, argv, "adn")) != -1)
 	{
 		switch (c) 
 		{
@@ -38,6 +55,9 @@ int args(int argc, char **argv)
 			break;
 		case 'd':
 			f_dio = true;
+			break;
+		case 'n':
+			f_bUseLock = false;
 			break;
 		default:
 			errflg++;
@@ -53,14 +73,15 @@ int args(int argc, char **argv)
 void DisplayState(long DigState)
 {
 	cout << "VSG digital IO Input bits:" << endl;
-	cout << "Bit 0: "<<(DigState&vsgDIG0)/vsgDIG0<<endl;
-	cout << "Bit 1: "<<(DigState&vsgDIG1)/vsgDIG1<<endl;
-	cout << "Bit 2: "<<(DigState&vsgDIG2)/vsgDIG2<<endl;
-	cout << "Bit 3: "<<(DigState&vsgDIG3)/vsgDIG3<<endl;
-	cout << "Bit 4: "<<(DigState&vsgDIG4)/vsgDIG4<<endl;
-	cout << "Bit 5: "<<(DigState&vsgDIG5)/vsgDIG5<<endl;
-	cout << "Bit 6: "<<(DigState&vsgDIG6)/vsgDIG6<<endl;
-	cout << "Bit 7: "<<(DigState&vsgDIG7)/vsgDIG7<<endl;
+	cout << "vsgDIG0: "<<(DigState&vsgDIG0)/vsgDIG0<<endl;
+	cout << "vsgDIG1: "<<(DigState&vsgDIG1)/vsgDIG1<<endl;
+	cout << "vsgDIG2: "<<(DigState&vsgDIG2)/vsgDIG2<<endl;
+	cout << "vsgDIG3: "<<(DigState&vsgDIG3)/vsgDIG3<<endl;
+	cout << "vsgDIG4: "<<(DigState&vsgDIG4)/vsgDIG4<<endl;
+	cout << "vsgDIG5: "<<(DigState&vsgDIG5)/vsgDIG5<<endl;
+	cout << "vsgDIG6: "<<(DigState&vsgDIG6)/vsgDIG6<<endl;
+	cout << "vsgDIG7: "<<(DigState&vsgDIG7)/vsgDIG7<<endl;
+	cout << "vsgDIG8: "<<(DigState&vsgDIG8)/vsgDIG8<<endl;
 	if (f_binaryTriggers)
 	{
 		cout << "waiting for binary trigger...." << endl;
@@ -71,15 +92,18 @@ void DisplayState(long DigState)
 	}
 }
 
+
 int main(int argc, char *argv[])
 {
 	COLOR_TYPE g = { gray, {0.5, 0.5, 0.5} };
 	long diginState, lastDiginState;
 
+	SetConsoleCtrlHandler( (PHANDLER_ROUTINE) CtrlHandler, TRUE );
+
 	if (args(argc, argv))
 		return -1;
 
-	if (ARvsg::instance().init(1000, g))
+	if (ARvsg::instance().init(1000, g, f_bUseLock))
 	{
 		cerr << "Error initializing vsg." << endl;
 		return(-1);
@@ -98,7 +122,7 @@ int main(int argc, char *argv[])
 
 	if (f_binaryTriggers)
 	{
-		while(TRUE)
+		while(!f_quit)
 		{
 			// Read digital input bits. Our cabling aligns the 1401's DIGOUT and VSG's digital input
 			// bits in the following way. 
@@ -125,7 +149,7 @@ int main(int argc, char *argv[])
 				{
 					if (IS_VISAGE)
 					{
-						vsgSetTriggerOptions(vsgTRIGOPT_PRESENT, 0, vsgTRIG_OUTPUTMARKER, 0.5, 0, diginState << 1, 0x1FE);
+						vsgSetTriggerOptions(vsgTRIGOPT_PRESENT, 0, vsgTRIG_OUTPUTMARKER, 0.5, 0, diginState, 0x1FE);
 					}
 					else
 					{

@@ -1,4 +1,4 @@
-'$Id: Joystick.s2s,v 1.6 2010-08-20 01:18:45 devel Exp $
+'$Id: Joystick.s2s,v 1.7 2015-05-12 17:15:19 devel Exp $
 '
 ' This file contains utilities for using the joystick on the alert2 rig. 
 
@@ -159,6 +159,7 @@ func GetJoystickPosition%(&v)
     else
         
         s% := GetJoystickVoltage%(v);
+        'printlog("voltage is %f, jsLeftHigh is %f and jsRightLow is %f\n",v,jsLeftHigh,jsRightLow);
         if s% = 0 then
             
             docase
@@ -229,6 +230,40 @@ proc JoystickConfigDialog()
     
     return;
 end
+
+
+func JoystickConfigDialog%()   'This is only mildly different from the proc of same name (minus the %) above, 
+                               'but to call this from a dialog button it has to be an integer function
+    var volts:=0.0;
+    var iUseJoystick% := 0;
+    var iNoGaps% := 0;
+    var iJoystickChannel% := 0;
+    var status%;
+    
+    DlgCreate("Joystick Configuration", 40, 40);
+    DlgAllow(0, 0, JoystickDialogCheck%);
+    DlgReal(1, "Voltage", -5, 5);
+    DlgCheck(2, "Use Joystick");
+    DlgInteger(3, "Joystick Channel", 0, 29);
+    DlgCheck(4, "No gaps");
+    DlgButton(100, "Left Hi", JoystickConfigLeftHigh%, 1, 5); 
+    DlgButton(101, "Ctr Low", JoystickConfigCenterLow%, 1, 6); 
+    DlgButton(102, "Ctr Hi", JoystickConfigCenterHigh%, 1, 7); 
+    DlgButton(103, "Right Low", JoystickConfigRightLow%, 1, 8); 
+    jsDlgLeftHighTextItem% := DlgText(str$(jsLeftHigh), 20, 5, 4);
+    jsDlgCenterLowTextItem% := DlgText(str$(jsCenterLow), 20, 6, 4);
+    jsDlgCenterHighTextItem% := DlgText(str$(jsCenterHigh), 20, 7, 4);
+    jsDlgRightLowTextItem% := DlgText(str$(jsRightLow), 20, 8, 4);
+
+    status% := DlgShow(volts, iUseJoystick%, iJoystickChannel%, iNoGaps%);
+    
+    if status% = 1 then
+        PrintLog("Status = 1\n");
+    endif
+    
+    return 1;  'return of >0 allows calling dialog to remain open, return 1 whether the dialog is OKed or cancelled.
+end
+
 
 func JoystickDialogCheck%(item%)
     var status% := 1;

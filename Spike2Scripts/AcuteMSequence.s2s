@@ -1,4 +1,4 @@
-' $Id: AcuteMSequence.s2s,v 1.18 2012-08-09 16:43:39 devel Exp $
+' $Id: AcuteMSequence.s2s,v 1.19 2015-05-12 17:15:18 devel Exp $
 '
 ' AcuteMSequence.s2s
 '
@@ -196,8 +196,8 @@ proc CreateSampleConfiguration()
     for i% := 0 to amsNWavemarks%-1 do
         SampleWaveMark(amsWavemarkPorts%[i%]+1, amsWavemarkPorts%[i%], 2000, 34, 15, 28000); ' chan, port, event rate, points, pre-trigger, rate
 		SampleTitle$(amsWavemarkPorts%[i%]+1, "WMrk " + str$(amsWavemarkPorts%[i%]));
-        if amsWavemarkPorts%[i%] > 6 then
-            message("The rig should only be set up to collect data from Ports 0-6!  Quitting!");
+        if amsWavemarkPorts%[i%] > 7 then
+            message("The rig should only be set up to collect data from Ports 0-7!  Quitting!");
             'This message comes up because of the non-collapsed (i.e. non-continuous) channel numbers.  There is a "hack" a few lines below
             'which sets the continuous waveforms to live on channels numbered 7 greater than the corresponding WaveMark channel.  We can get
             'away with this because the Thomas system which feeds into the CED has only 7 electrode channels which are fed to Ports 0-6 on
@@ -210,8 +210,8 @@ proc CreateSampleConfiguration()
         endif;
 	next
     for i% := 0 to amsNContinuous%-1 do
-        SampleWaveform(amsContinuousPorts%[i%]+8, amsContinuousPorts%[i%], 20000);  'this hack only works because wavemark chans are limited to channels 1-7
-        SampleTitle$(amsContinuousPorts%[i%]+8, "Cont " + str$(amsContinuousPorts%[i%]));
+        SampleWaveform(amsContinuousPorts%[i%]+9, amsContinuousPorts%[i%], 20000);  'this hack only works because wavemark chans are limited to channels 1-7
+        SampleTitle$(amsContinuousPorts%[i%]+9, "Cont " + str$(amsContinuousPorts%[i%]));
     next
     
 
@@ -240,15 +240,16 @@ proc InitializeWindows()
     View(amsWindowData%).WindowVisible(1);
     View(amsWindowData%).Window(0,50,100,100);
     
-    if amsNWavemarks% > 0 then
-        for i% :=1 to amsNWavemarks% do
-            AutoCorr% :=View(amsWindowData%).SetEvtCrl(amsWavemarkPorts%[i%-1]+1, 60, .0005, .015, amsWavemarkPorts%[i%-1]+1);
-            View(AutoCorr%).ProcessAuto(5, 0, 1, 5);
-            View(AutoCorr%).Window((i%-1)*(100/amsNWavemarks%), 0, i%*(100/amsNWavemarks%), 33);
-            View(AutoCorr%).WindowVisible(1);
-            View(AutoCorr%).WindowTitle$("Channel "+str$(amsWavemarkPorts%[i%-1]+1)+" AutoCorr");
-        next
-    endif
+'Henry wants Autocorr windows gone, they are automatically processed, shouldn't show up anywhere else, I hope.   
+'    if amsNWavemarks% > 0 then
+'        for i% :=1 to amsNWavemarks% do
+'            AutoCorr% :=View(amsWindowData%).SetEvtCrl(amsWavemarkPorts%[i%-1]+1, 60, .0005, .015, amsWavemarkPorts%[i%-1]+1);
+'            View(AutoCorr%).ProcessAuto(5, 0, 1, 5);
+'            View(AutoCorr%).Window((i%-1)*(100/amsNWavemarks%), 0, i%*(100/amsNWavemarks%), 33);
+'            View(AutoCorr%).WindowVisible(1);
+'            View(AutoCorr%).WindowTitle$("Channel "+str$(amsWavemarkPorts%[i%-1]+1)+" AutoCorr");
+'        next
+'    endif
     
     SaveParameterFile();
 end
@@ -294,6 +295,7 @@ func Start%()
     
     ' Start message server
     amsHandleMsgSvr:=ProgRun(GetBinDir$(1) + "MsgSvr.exe", 0);
+    Yield();    ' Make sure server can start
     
     ' If the message server was already running (because of some failure or error) it will still have messages in it. We must
     ' clear those out by sending a special message "clear" via SendMessage. 
@@ -490,9 +492,9 @@ func CountSpikes%()
                 for index := 1 to amsNWavemarks% do 
                     SendMessage(BlockData$[index-1]);
                     BlockData$[index-1]:=str$(index);
-                    PercentComplete:=TriggerNumber/(32768*amsRepeats%);
-                    TimeLeft:=(TriggerTime/PercentComplete)-TriggerTime;
                 next
+                PercentComplete:=TriggerNumber/(32768*amsRepeats%);  'This line and the following line removed from
+                TimeLeft:=(TriggerTime/PercentComplete)-TriggerTime;  'FOR loop just above because they only need to be done once -jj
                 ToolbarText("M Sequence "+str$(100*PercentComplete)+"% complete. Estimated "+str$(TimeLeft)+" seconds left");
                 BlockIndex:=0;
             endif

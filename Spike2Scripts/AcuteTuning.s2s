@@ -1,7 +1,7 @@
-' $Id: AcuteTuning.s2s,v 1.38 2013-03-16 02:01:14 devel Exp $
-const tunCVSID$ := "$Id: AcuteTuning.s2s,v 1.38 2013-03-16 02:01:14 devel Exp $";
+' $Id: AcuteTuning.s2s,v 1.39 2015-05-12 17:15:18 devel Exp $
+const tunCVSID$ := "$Id: AcuteTuning.s2s,v 1.39 2015-05-12 17:15:18 devel Exp $";
 
-var TuningCurveScriptDialogAllowOK%;  'allows OK to button to work on main dialog
+'var TuningCurveScriptDialogAllowOK%;  'allows OK to button to work on main dialog
 
 #include "../../Spike2Util/ChannelUtilities.s2s"
 #include "../../Spike2Util/UsreyUtil.s2s"
@@ -18,20 +18,7 @@ var TuningCurveScriptDialogAllowOK%;  'allows OK to button to work on main dialo
 '
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
-var tunStimulusDuration := 3;      ' New, time for each stimulus to last, replaces tunFixationDuration
-var tunInterTrialTime := 1;        ' Time between stimuli 
-var tunInterBlockTime := 0;        ' New, time between blocks, important for opto
-'var tunBackgroundColor$ := "gray";	' background color for stim
-var tunBackgroundGrayLevel% := 128; ' Background gray level
-var tunDoOpto%;                     ' New, 1 if doing optogenetics
-var tunDoF12% := 1;                 ' compute f1 and f2. 
-var tunMSeqLocation$ := "D:\\work\\AlertRig\\stim\\MSequenceTerms";  'location of M-Seq file
-var tunRecStimulator% := 0;   'record the stimulator?
-
-' These will be set by the tuning curve choice
-var tunNAdvances%;		' Number of times stim will advance during one repeat
-var tunNRepeats%;		' Number of repeats
-
+' replace vars herezzzzzzzzzzzzzzzz
 
 ' This vector will hold the actual values to step through. Some are log steps, some are not. 
 ' The Indices array is the order to step through the values with: tunValues[tunValuesIndices%[0]], tunValues[tunValuesIndices%[1]], ...
@@ -46,17 +33,6 @@ var nTriggersExpected%;     'only for tunTypeCRG$
 var triggerCount%;
 
 
-'const tundlgXHairButton% := 8;
-const tundlgOrientationButton% := 9;
-const tundlgContrastButton% := 10;
-const tundlgSpatialButton% := 11;
-const tundlgTemporalButton% := 12;
-const tundlgAreaButton% := 13;
-const tundlgGratingParametersButton% := 14;
-const tundlgDriftingBarButton% := 15;
-const tundlgNullTestButton% := 16;
-const tundlgCRGMButton% := 17;
-const tundlgOptogeneticsButton% := 18;
 
 
 ' Wavemarks and continuous ports are specified elsewhere
@@ -101,173 +77,8 @@ var memorychannelopto% := 45;  'avoiding textmarks
 'var memorychannelvisible% := 0;  'unused...?
 
 
-proc GetTuningCurveScriptParameters()
-	var key$;
-	key$:= GetRigName$() + GetCurrentConfiguration$() + "\\Scripts\\Tuning";
-    
-    tunStimulusDuration := GetFloatRegistryValue(key$, "StimulusDuration", tunStimulusDuration);  'new
-    tunInterTrialTime := GetFloatRegistryValue(key$, "InterTrialTime", tunInterTrialTime);  'new
-    tunInterBlockTime := GetFloatRegistryValue(key$, "InterBlockTime", tunInterBlockTime);
-    'tunBackgroundColor$ := GetStringRegistryValue$(key$, "BackgroundColor", tunBackgroundColor$);
-    tunBackgroundGrayLevel% := GetIntRegistryValue%(key$, "BackgroundGrayLevel", tunBackgroundGrayLevel%);
-    tunDoOpto% := GetIntRegistryValue%(key$, "DoOpto", tunDoOpto%);
-    tunRecStimulator% := GetIntRegistryValue%(key$, "RecStimulator", tunRecStimulator%);
-end;
 
-proc SaveTuningCurveScriptParameters()
-	var key$;
-	key$:= GetRigName$() + GetCurrentConfiguration$() + "\\Scripts\\Tuning";
-    
-    SetFloatRegistryValue(key$, "StimulusDuration", tunStimulusDuration);
-    SetFloatRegistryValue(key$, "InterTrialTime", tunInterTrialTime);
-    SetFloatRegistryValue(key$, "InterBlockTime", tunInterBlockTime);
-    'SetStringRegistryValue(key$, "BackgroundColor", tunBackgroundColor$);
-    SetIntRegistryValue(key$, "BackgroundGrayLevel", tunBackgroundGrayLevel%);
-    SetIntRegistryValue(key$, "DoOpto", tunDoOpto%);
-    SetIntRegistryValue(key$, "RecStimulator", tunRecStimulator%);
-end;
-
-
-' TuningCurveScriptDialog
-' This dialog uses two global variables, tunContext$ and tunType$. 
-' Set tunContext$ = tunContextConfig$ to run in the config scripts. The dialog 
-' and its children (TuningCurveOrientationDialog, etc) will behave as expected, 
-' allowing the user to set parameters and saving them in the registry. Set 
-' tunContext$ = tunContextDAQ$ to run in a DAQ script. In this context you 
-' must check the return value of the dialog and (possibly) the value of 
-' tunType$. If the user hits Cancel in the main dialog, the return value is 0. 
-' If the user selects a subdialog and hits OK, the return value will be 1 and 
-' the value of tunType$ will be one of (tunTypeOrientation$, tunTypeContrast$, 
-' tunTypeSpatial$, tunTypeTemporal$). Here, proceed directly to DAQ. If the 
-' user Hits Cancel from the subdialog, then they return to the main dialog. If 
-' they hit OK from the main dialog, then the return value is 1, but 
-' tunType$ = tunTypeNone$. 
-
-
-func TuningCurveScriptDialog%()
-	var i%;
-	var iReturn%;
-    var tempParam$;
-    var tempPhase;
-    var boxOK% := 1;  'do the stimulus/crosshairs boxes overlap?
-    
-    TuningCurveScriptDialogAllowOK% := 0;  'Disable OK button to start, force selection of experiment
-    
-	GetTuningCurveScriptParameters();
-    GetTunOptoParameters();  'We must get these or the user has to open the opto dialog every time.
-'	var bcl$[3];
-'	var ibcl%:=0;
-'	bcl$[0] := "gray";
-'	bcl$[1] := "black";
-'	bcl$[2] := "white";
-'	for i%:=0 to 2 do
-'		if tunBackgroundColor$ = bcl$[i%] then
-'			ibcl% := i%;
-'		endif
-'	next;
-    
-
-	DlgCreate("Tuning Curve Parameters", 50, 10, 40);
-    DlgButton(0,"         Quit         ");
-    DlgButton(1,"     Select Expt.     ");        
-	DlgGroup("Common Parameters", 1, 1, 38, 6);
-	DlgReal(1, "Stimulus Duration(s):", .1, 100, 20, 2);  'new, allow really long stimuli
-    DlgReal(2, "InterTrial Time(s):", .1, 100, 20, 3);  'new, allow really long stimuli
-	DlgReal(3, "InterBlock Time(s):", 0, 100, 20, 4);  'new, allow really long stimuli
-    DlgInteger(4, "Background Gray Level (0-255):", 0, 255, 20, 5);  'new, allow all grays
-    DlgCheck(5, "Record Stimulator?", 2,6);
-	'DlgList(3, "Background color:", bcl$, 3, 20, 4);  'updated as new dialog number
-    
-    DlgGroup("Grating Parameters", 1, 7, 38, 2);
-    DlgButton(tundlgGratingParametersButton%, "Grating Parameters", TunDlgGratingMaster%, 2, 8);
-    
-    DlgGroup("Optogenetics", 1, 9, 38, 3);
-    DlgCheck(6,"Opto On",2,10);
-    DlgButton(tundlgOptogeneticsButton%, "Optogenetics Parameters", TunOptoDialog%, 2, 11);
-    
-    DlgGroup("Individual Tuning Curve Types", 1, 12, 38, 7);
-	DlgButton(tundlgOrientationButton%, "Orientation", TuningCurveOrientationDialog%, 2, 13);
-	DlgButton(tundlgContrastButton%, "Contrast", TuningCurveContrastDialog%, 2, 14);
-	DlgButton(tundlgSpatialButton%, "Spatial Freq", TuningCurveSpatialDialog%, 2, 15);
-	DlgButton(tundlgTemporalButton%, "Temporal Freq", TuningCurveTemporalDialog%, 2, 16);
-	DlgButton(tundlgAreaButton%, "Area", TuningCurveAreaDialog%, 2, 17);
-    DlgButton(tundlgNullTestButton%, "Null Test", TuningCurveNullTestDialog%, 2, 18);
-    
-    
-    DlgGroup("Non-Grating Stimuli", 1, 19, 38, 3);
-    DlgButton(tundlgDriftingBarButton%, "Drifting Bars", TuningCurveDriftingBarDialog%, 2, 20);
-    DlgButton(tundlgCRGMButton%, "CRGs", TuningCurveCRGMDialog%, 2, 21);
-    
-    DlgAllow(0xffff, 0, TuningCurveScriptDialogChanged%);
-    
-    'i%:=DlgShow(tunStimulusDuration, tunInterTrialTime, ibcl%);  'new, for reduced dialog
-    i%:=DlgShow(tunStimulusDuration, tunInterTrialTime, tunInterBlockTime, tunBackgroundGrayLevel%, tunRecStimulator%, tunDoOpto%);  'now using background gray level
-    
-    ' djs 4-1-09
-    ' Spike2 v6 change. DlgShow will return the button number when a button on the dialog is hit and the corresponding
-    ' function returns 0. In this case those buttons open the various tuning type sub dialogs (orientation, area, etc). 
-    ' In the last version, DlgShow would return the same value that the subdialog's function returned, and the code here
-    ' was set up to behave accordingly. When the user hits the Cancel button in the subdialog everything still remains
-    ' the same. 
-    
-    ' djs 2-4-2011
-    ' Spike2v6 bug (see TuningDialogs.s2s) workaround requires that the tuning type dialogs return something > 0. 
-    ' That will mean that closing any of those dialogs will not cause the main dialog (this one) to close automatically. 
-    ' When it did close automatically the return value from DlgShow above was the same as the button that caused
-    ' the close. Now, that button is NOT causing the close, so the return value is going to be 1 (not the button number). 
-    ' In addition, the return value from this function needs to change because we now assume that the user will have
-    ' to hit OK on this dialog to start the experiment. Thus, make sure that the return value from this function is 1
-    ' when user hits OK and 0 when user hits Cancel. Also, do not save script parameters when user hits Cancel.
-    
-    'PrintLog("Tuning Curve Parameters Dialog - return from DlgShow is %d\n", i%);
-    '	if i%=tundlgOrientationButton% or i%=tundlgContrastButton% or i%=tundlgSpatialButton% or i%=tundlgTemporalButton% or i%=tundlgAreaButton% then
-    if i% = 1 then
-        
-        if tunDoOpto% = 0 then  'it will be useful to make sure that tunOptoState% is 0 if we're not at all doin Opto
-            tunOptoState% := 0;
-        endif;
-        
-        if tunCRGMFirstTerm% > tunCRGMNumTerms% - 100 - (tunStimulusDuration*dataScreenHz) then
-            Message("Error!  Duration was changed and CRG first term is not legal!  Quitting!");
-            i% := 0;
-        else
-            SaveTuningCurveScriptParameters();
-            if tunContext$ = tunContextDAQ$ then 
-                iReturn% := 1;
-            else iReturn% := 1;
-            endif;
-        endif;
-        
-	endif;
-	if i% = 0 then
-		'PrintLog("Tuning Curve Parameters dialog - user hit Cancel, tunType=" + tunType$ + "\n");
-		if tunContext$ = tunContextDAQ$ then 
-			if tunType$ <> tunTypeNone$ then 
-				iReturn% := 0;
-				'SaveTuningCurveScriptParameters();
-			else iReturn% := 0;
-		 	endif;
-		else
-			iReturn% := 2;		' The calling/main dialog would close if we returned 0
-		endif;
-	endif;
-	return iReturn%;
-end;
-
-
-' This function is initially called with a "0" input
-func TuningCurveScriptDialogChanged%(item%) 
-    'This disables the "OK" button (though it will have different labels) until an experiment is selected
-    if TuningCurveScriptDialogAllowOK% = 1 then
-        DlgEnable(1,-1);  'enable "OK" 
-    else
-        DlgEnable(0,-1);  'Otherwise disable "OK"
-    endif;
-    
-    return 1;
-end
-
-
+' replace hereZZZZZZZZZZZZZZZZZZZZZZZZZZ
 
 ' Overall script control vars
 var Pause% := 0;
@@ -420,7 +231,7 @@ var nTrialsCompleted%:=0;
 var nTrialsAborted% :=0;		' 
 
 var stimOffTime;
-
+var tOpt;
 var pulseFound%;
 var tic;  'Set a tick value equal to the duration of one clock tick in seconds, used to prevent finding
           'the same "pulse" twice
@@ -472,6 +283,9 @@ func IdleProcessing%()
         
     case iState% = stateStartOpto% then
         SafeSampleKey("O");  'turn on opto
+        tOpt := View(DataWindow%).MaxTime();
+        'printlog("OptoOn at %f\n",tOpt);
+        SampleText("OptoOn",tOpt);
         ChangeStateTo(stateWaitOptoPrestim%, tNow);
         
         
@@ -554,7 +368,7 @@ func IdleProcessing%()
             view(DataWindow%).MemSetItem(memChanBetterTextMark%,0,tStimOn,stimCodes%[],Str$(tunValues[tunValuesIndices%[nTrialsCompleted%]]));
             
             ' Process spikes
-            PlotSpikes(tStimOn, tNow, tunOptoState%+1, GetPlotXCoord(nTrialsCompleted%), nTrialsCompleted%);
+            PlotSpikes(tStimOn, tNow, tunOptoState%+1, nTrialsCompleted%);
             
             ' Now wait until stim is off
             ChangeStateTo(stateWaitForStimOff%, tNow);
@@ -596,7 +410,7 @@ func IdleProcessing%()
             Yield();
             
             ' Process spikes
-            PlotSpikes(tStimOn, tNow, tunOptoState%+1, GetPlotXCoord(nTrialsCompleted%), nTrialsCompleted%);
+            PlotSpikes(tStimOn, tNow, tunOptoState%+1, nTrialsCompleted%);
             
             'Advance
             'SafeSampleKey("a");
@@ -649,7 +463,7 @@ func IdleProcessing%()
                 view(DataWindow%).MemSetItem(memChanBetterTextMark%,0,tStimOn,stimCodes%[],Str$(tunValues[tunValuesIndices%[nTrialsCompleted%]]));            
                 
                 ' Process spikes
-                PlotSpikes(tStimOn, tNow, tunOptoState%+1, GetPlotXCoord(nTrialsCompleted%), nTrialsCompleted%);
+                PlotSpikes(tStimOn, tNow, tunOptoState%+1, nTrialsCompleted%);
 
                 tLastTrigger := tRise;
                 'ChangeStateTo(stateTrialCompleted%, tRise);
@@ -694,6 +508,9 @@ func IdleProcessing%()
         
     case iState% = stateTurnOffOpto% then
         SafeSampleKey("o");  'turn it off
+        tOpt := View(DataWindow%).MaxTime();
+        'printlog("OptoOff at %f\n",tOpt);
+        SampleText("OptoOff",tOpt);
         ChangeStateTo(stateTrialCompleted%,tNow);        
         
         
@@ -706,7 +523,9 @@ func IdleProcessing%()
             Stop%();
             iStatus% := 0;
         case (nTrialsCompleted% mod (tunNAdvances%+1)) = 0 then 'toggle tunOptoState at the end of a block, use interblock time
-            tunOptoState% := 1-tunOptoState%;
+            if tunDoOpto% = 1 then
+                tunOptoState% := 1-tunOptoState%;  'but only toggle if we're actually doing opto
+            endif;
             tInterTrialTime := tunInterTrialTime + tunInterBlockTime;
             ChangeStateTo(stateInterTrialInterval%, tNow);
         else
@@ -747,14 +566,28 @@ func GetPlotXCoord(nTrials%)
 end;
 
 
-proc PlotSpikes(t1, t2, vOnOff%, x, index%)
+func GetPlotXIndex%(nTrials%)
+    return tunValuesIndices%[nTrials%];
+end;
+
+
+
+proc PlotSpikes(t1, t2, vOnOff%, index%)
 	var rate;
     var i%;
     var tSweep;
     var fftData[16];        ' size of this array should be same as number of bins! 
+    var x;  'the x value to plot
+    var xind%;  'the x value index
     'var index2%;
     
+    'vOnOff% is a switch that allows us to plot (in this case) opto-on and opto-off with different colors
+    
+    x := GetPlotXCoord(index%);
+    xind% := GetPlotXIndex%(index%);  'for keeping an average...may be difficult to implement
+    
     'index2% := ArrFindFloat%(tunValues[],x);  'this is going to correspond to the index of the XYPlot that will be deleted/updated
+    'actually, xind% should do this more easily.
     
 	for i% := 0 to tunNWavemarks%-1 do
 		rate := View(DataWindow%).Count(i%+1, t1, t2)/(t2-t1);
@@ -787,9 +620,8 @@ proc PlotSpikes(t1, t2, vOnOff%, x, index%)
         endif
         
             
-            
-        docase
-        case tunDoF12% = 1 and vOnOff% = 1 then
+        'do F1 if requested, F2 not currently done
+        if tunDoF12% = 1 then
             ' Process for each cycle of the stimulus. A single cycle of the stim takes 1/tf
 			View(PSTHWindow%[i%]);
 			Process(t1, t2, 1, 1);
@@ -799,30 +631,27 @@ proc PlotSpikes(t1, t2, vOnOff%, x, index%)
 			ArrConst(fftData[], View(PSTHWindow%[i%]).[]);
 			ArrFFT(fftData[], 4); 
             
+            docase
+            case vOnOff% = 1 then
+                View(TuningWindow%[i%]).XYAddData(3, x, fftData[1]);
+                tunF1Sum[i%][index%] += fftData[1];
+            case vOnOff% = 2 then
+                View(TuningWindow%[i%]).XYAddData(4, x, fftData[1]);  
+                tunF1Sum[i%][index%] += fftData[1];
+            endcase
             'tunF1Cum[i%] += fftdata[1];
             'tunF2Cum[i%] += fftdata[2];
             'View(TuningWindow%[i%]).XYSort(2,1);  'sort by x
             'View(TuningWindow%[i%]).XYSort(3,1);  'sort by x
             'View(TuningWindow%[i%]).XYDelete(2,index2%);  'delete the last entry for this value
             'View(TuningWindow%[i%]).XYDelete(3,index2%);  'delete the last entry for this value
-            View(TuningWindow%[i%]).XYAddData(2, x, fftData[1]);
+            
             'View(TuningWindow%[i%]).XYAddData(3, x, fftData[2]);
             'View(TuningWindow%[i%]).XYAddData(2, x, tunF1Cum[i%]/(index%+1));
             'View(TuningWindow%[i%]).XYAddData(3, x, tunF2Cum[i%]/(index%+1));
-            tunF1Sum[i%][index%] += fftData[1];
-            'tunF2Sum[i%][index%] += fftData[2];
-        case tunDoF12% = 1 and vOnOff% = 2 then
-            ' Process for each cycle of the stimulus. A single cycle of the stim takes 1/tf
-			View(PSTHWindow%[i%]);
-			Process(t1, t2, 1, 1);
-			for tSweep := t1+1/tunTF to t2-1/tunTF step 1/tunTF do 
-				Process(tSweep, tSweep+1/tunTF, 0, 1);
-			next
-			ArrConst(fftData[], View(PSTHWindow%[i%]).[]);
-			ArrFFT(fftData[], 4);
-            View(TuningWindow%[i%]).XYAddData(3, x, fftData[1]);  'I think?
-            tunF1Sum[i%][index%] += fftData[1];  'not sure i care
-        endcase
+            
+            'tunF2Sum[i%][index%] += fftData[2];      
+        endif
         
 	next
 end;
@@ -1004,6 +833,15 @@ proc TuningCurveLabels(iport%)
 			ChanTitle$(1, "Chan 1");
 			XRange(tunAreaMinDiam, tunAreaMaxDiam);
         
+		case tunType$ = tunTypeID$ then
+        
+            myTitle$ := s$ + " - ID = ";
+            myTitle2$ := " - ID = ";
+			WindowTitle$("Inner Diameter Tuning - " + s$);
+			XUnits$("Inner Diameter");
+			ChanTitle$(1, "Chan 1");
+			XRange(tunIDMinDiam, tunIDMaxDiam);
+        
         case tunType$ = tunTypeDriftingBar$ then
         
             myTitle$ := s$ + " - Bar Orientation = ";
@@ -1040,6 +878,7 @@ end;
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 proc CreateSampleConfiguration()
 	var i%;
+
 	SampleClear(); 'Set standard sampling state
 '	SampleAutoFile(0); 'Enable automatic file naming
 	SampleAutoComment(0); 'Prompt for comment after sampling
@@ -1048,42 +887,96 @@ proc CreateSampleConfiguration()
     ' Set path for new data files, and for those saved automatically
     FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 3);
     FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 1);
+    
+    'read tuning file, if one is specified
+    if tunUseFile% = 1 then
+        var tunFileLen%;
+        var eof%:=1;
+        readsetup(",","	 ","","","	");  'Standard read setup
+        FileOpen(tunTuningFile$,8,0);  'open specified file
+        while eof% > 0 do
+            eof% := read(tunValues[tunFileLen%]);  'read to end of file, must put each value on a new line to count number of stimuli in a block
+            tunFileLen%+=1;  'increment tuning file length
+        wend
+        tunFileLen%-=1;  'decrement tuning file length because we increment when we find EOF.
+        FileClose();  'close the file
+    endif
+    
+    
     docase
         
     case tunType$ = tunTypeContrast$ then 
         SampleAutoName$(dataCellName$ + "_con_000");
-        tunNAdvances% := tunContrastNSteps%;
         tunNRepeats% := tunContrastNRepeats%*(1+tunDoOpto%);  'double number of blocks if doing optogenetics
-        GetRepeatedParameterProgression%(tunContrastNSteps%+1, tunNRepeats%, tunValues[], tunValuesIndices%[], tunContrastMinContrast, tunContrastMaxContrast, 1, tunContrastProgression%);
-        tunNValues% := (tunContrastNSteps%+1)*tunContrastNRepeats%*(1+tunDoOpto%);  'double number of blocks if doing optogenetics
+        if tunUseFile% = 1 then
+            tunNAdvances% := tunFileLen%-1;
+            ShuffleAndExpand(tunFileLen%,tunNRepeats%,tunValuesIndices%[],tunContrastProgression%);
+        else
+            tunNAdvances% := tunContrastNSteps%;
+            GetRepeatedParameterProgression%(tunContrastNSteps%+1, tunNRepeats%, tunValues[], tunValuesIndices%[], tunContrastMinContrast, tunContrastMaxContrast, 1, tunContrastProgression%);
+        endif;
+        'tunNValues% := (tunContrastNSteps%+1)*tunContrastNRepeats%*(1+tunDoOpto%);  'double number of blocks if doing optogenetics
+        tunNValues% := (tunNAdvances%+1)*tunNRepeats%;  'shorter, should work the same as above commented line, keeping old line for contrast only just in case...
         tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%);
     case tunType$ = tunTypeOrientation$ then 
         SampleAutoName$(dataCellName$ + "_ori_000");
-        tunNAdvances% := tunOriNSteps%;
-        tunNRepeats% := tunOriNRepeats%*(1+tunDoOpto%);
-        GetRepeatedParameterProgression%(tunOriNSteps%+1, tunNRepeats%, tunValues[], tunValuesIndices%[], tunOriMinOrientation, tunOriMaxOrientation, 0, tunOriProgression%);
-        tunNValues% := (tunOriNSteps%+1)*tunOriNRepeats%*(1+tunDoOpto%);
+        tunNRepeats% := tunOriNRepeats%*(1+tunDoOpto%);  'double number of blocks if doing optogenetics
+        if tunUseFile% = 1 then
+            tunNAdvances% := tunFileLen%-1;
+            ShuffleAndExpand(tunFileLen%,tunNRepeats%,tunValuesIndices%[],tunOriProgression%);
+        else
+            tunNAdvances% := tunOriNSteps%;
+            GetRepeatedParameterProgression%(tunOriNSteps%+1, tunNRepeats%, tunValues[], tunValuesIndices%[], tunOriMinOrientation, tunOriMaxOrientation, 1, tunOriProgression%);
+        endif;
+        tunNValues% := (tunNAdvances%+1)*tunNRepeats%;  
         tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%);
     case tunType$ = tunTypeSpatial$ then 
         SampleAutoName$(dataCellName$ + "_spa_000");
-        tunNAdvances% := tunSpatialNSteps%;
-        tunNRepeats% := tunSpatialNRepeats%*(1+tunDoOpto%);
-        GetRepeatedParameterProgression%(tunSpatialNSteps%+1, tunNRepeats%, tunValues[], tunValuesIndices%[], tunSpatialMinSF, tunSpatialMaxSF, 1, tunSpatialProgression%);        
-        tunNValues% := (tunSpatialNSteps%+1)*tunSpatialNRepeats%*(1+tunDoOpto%);
+        tunNRepeats% := tunSpatialNRepeats%*(1+tunDoOpto%);  'double number of blocks if doing optogenetics
+        if tunUseFile% = 1 then
+            tunNAdvances% := tunFileLen%-1;
+            ShuffleAndExpand(tunFileLen%,tunNRepeats%,tunValuesIndices%[],tunSpatialProgression%);
+        else
+            tunNAdvances% := tunSpatialNSteps%;
+            GetRepeatedParameterProgression%(tunSpatialNSteps%+1, tunNRepeats%, tunValues[], tunValuesIndices%[], tunSpatialMinSF, tunSpatialMaxSF, 1, tunSpatialProgression%);
+        endif;
+        tunNValues% := (tunNAdvances%+1)*tunNRepeats%;  
         tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%);
     case tunType$ = tunTypeTemporal$ then 
         SampleAutoName$(dataCellName$ + "_tem_000");
-        tunNAdvances% := tunTemporalNSteps%;
-        tunNRepeats% := tunTemporalNRepeats%*(1+tunDoOpto%);
-        GetRepeatedParameterProgression%(tunTemporalNSteps%+1, tunNRepeats%, tunValues[], tunValuesIndices%[], tunTemporalMinTF, tunTemporalMaxTF, 1, tunTemporalProgression%);
-        tunNValues% := (tunTemporalNSteps%+1)*tunTemporalNRepeats%*(1+tunDoOpto%);
+        tunNRepeats% := tunTemporalNRepeats%*(1+tunDoOpto%);  'double number of blocks if doing optogenetics
+        if tunUseFile% = 1 then
+            tunNAdvances% := tunFileLen%-1;
+            ShuffleAndExpand(tunFileLen%,tunNRepeats%,tunValuesIndices%[],tunTemporalProgression%);
+        else
+            tunNAdvances% := tunTemporalNSteps%;
+            GetRepeatedParameterProgression%(tunTemporalNSteps%+1, tunNRepeats%, tunValues[], tunValuesIndices%[], tunTemporalMinTF, tunTemporalMaxTF, 1, tunTemporalProgression%);
+        endif;
+        tunNValues% := (tunNAdvances%+1)*tunNRepeats%;  
         tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%);
     case tunType$ = tunTypeArea$ then 
         SampleAutoName$(dataCellName$ + "_area_000");
-        tunNAdvances% := tunAreaNSteps%;
-        tunNRepeats% := tunAreaNRepeats%*(1+tunDoOpto%);
-        GetRepeatedParameterProgression%(tunAreaNSteps%+1, tunNRepeats%, tunValues[], tunValuesIndices%[], tunAreaMinDiam, tunAreaMaxDiam, 1, tunAreaProgression%);
-        tunNValues% := (tunAreaNSteps%+1)*tunAreaNRepeats%*(1+tunDoOpto%);
+        tunNRepeats% := tunAreaNRepeats%*(1+tunDoOpto%);  'double number of blocks if doing optogenetics
+        if tunUseFile% = 1 then
+            tunNAdvances% := tunFileLen%-1;
+            ShuffleAndExpand(tunFileLen%,tunNRepeats%,tunValuesIndices%[],tunAreaProgression%);
+        else
+            tunNAdvances% := tunAreaNSteps%;
+            GetRepeatedParameterProgression%(tunAreaNSteps%+1, tunNRepeats%, tunValues[], tunValuesIndices%[], tunAreaMinDiam, tunAreaMaxDiam, 1, tunAreaProgression%);
+        endif;
+        tunNValues% := (tunNAdvances%+1)*tunNRepeats%;  
+        tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%);
+    case tunType$ = tunTypeID$ then 
+        SampleAutoName$(dataCellName$ + "_id_000");
+        tunNRepeats% := tunIDNRepeats%*(1+tunDoOpto%);  'double number of blocks if doing optogenetics
+        if tunUseFile% = 1 then
+            tunNAdvances% := tunFileLen%-1;
+            ShuffleAndExpand(tunFileLen%,tunNRepeats%,tunValuesIndices%[],tunIDProgression%);
+        else
+            tunNAdvances% := tunIDNSteps%;
+            GetRepeatedParameterProgression%(tunIDNSteps%+1, tunNRepeats%, tunValues[], tunValuesIndices%[], tunIDMinDiam, tunIDMaxDiam, 1, tunIDProgression%);
+        endif;
+        tunNValues% := (tunNAdvances%+1)*tunNRepeats%;  
         tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%);
     case tunType$ = tunTypeDriftingBar$ then 
         SampleAutoName$(dataCellName$ + "_bar_000");
@@ -1094,10 +987,15 @@ proc CreateSampleConfiguration()
         tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%);
     case tunType$ = tunTypeNullTest$ then 
         SampleAutoName$(dataCellName$ + "_nulltest_000");
-        tunNAdvances% := tunNullTestNSteps%;
-        tunNRepeats% := tunNullTestNRepeats%*(1+tunDoOpto%);
-        GetRepeatedParameterProgression%(tunNullTestNSteps%+1, tunNRepeats%, tunValues[], tunValuesIndices%[], tunNullTestMinPhase, tunNullTestMaxPhase, 0, tunNullTestProgression%);
-        tunNValues% := (tunNullTestNSteps%+1)*tunNullTestNRepeats%*(1+tunDoOpto%);
+        tunNRepeats% := tunNullTestNRepeats%*(1+tunDoOpto%);  'double number of blocks if doing optogenetics
+        if tunUseFile% = 1 then
+            tunNAdvances% := tunFileLen%-1;
+            ShuffleAndExpand(tunFileLen%,tunNRepeats%,tunValuesIndices%[],tunNullTestProgression%);
+        else
+            tunNAdvances% := tunNullTestNSteps%;
+            GetRepeatedParameterProgression%(tunNullTestNSteps%+1, tunNRepeats%, tunValues[], tunValuesIndices%[], tunNullTestMinPhase, tunNullTestMaxPhase, 1, tunNullTestProgression%);
+        endif;
+        tunNValues% := (tunNAdvances%+1)*tunNRepeats%;  
         tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%);
     case tunType$ = tunTypeCRG$ then 
         SampleAutoName$(dataCellName$ + "_crg_000");
@@ -1160,8 +1058,12 @@ proc CreateSampleConfiguration()
         'Trying here to avoid collapsing channel numbers
         SampleWaveMark(tunWavemarkPorts%[i%]+1, tunWavemarkPorts%[i%], 2000, 34, 15, 28000); ' chan, port, event rate, points, pre-trigger, rate
 		SampleTitle$(tunWavemarkPorts%[i%]+1, "WMrk " + str$(tunWavemarkPorts%[i%]));
-        if tunWavemarkPorts%[i%] > 6 then
-            message("The rig should only be set up to collect data from Ports 0-6!  Quitting!");
+        
+        ' djs 7-29-2014 Hack to allow all 8 ports. See djs comments. 
+' djs        if tunWavemarkPorts%[i%] > 6 then
+        if tunWavemarkPorts%[i%] > 7 then
+' djs            message("The rig should only be set up to collect data from Ports 0-6!  Quitting!");
+            message("The rig should only be set up to collect data from Ports 0-7!  Quitting!");
             'This message comes up because of the non-collapsed (i.e. non-continuous) channel numbers.  There is a "hack" a few lines below
             'which sets the continuous waveforms to live on channels numbered 7 greater than the corresponding WaveMark channel.  We can get
             'away with this because the Thomas system which feeds into the CED has only 7 electrode channels which are fed to Ports 0-6 on
@@ -1177,8 +1079,10 @@ proc CreateSampleConfiguration()
         'SampleWaveform(tunNWavemarks% + i% + 1, tunContinuousPorts%[i%], 20000);
         'SampleTitle$(tunNWavemarks% + i% + 1, "Cont " + str$(tunContinuousPorts%[i%]));
         'Trying here to avoid collapsing channel numbers
-        SampleWaveform(tunContinuousPorts%[i%]+8, tunContinuousPorts%[i%], 20000);  'this hack only works because wavemark chans are limited to channels 1-7
-        SampleTitle$(tunContinuousPorts%[i%]+8, "Cont " + str$(tunContinuousPorts%[i%]));
+'djs        SampleWaveform(tunContinuousPorts%[i%]+8, tunContinuousPorts%[i%], 20000);  'this hack only works because wavemark chans are limited to channels 1-7
+'djs        SampleTitle$(tunContinuousPorts%[i%]+8, "Cont " + str$(tunContinuousPorts%[i%]));
+        SampleWaveform(tunContinuousPorts%[i%]+9, tunContinuousPorts%[i%], 20000);  'this hack only works because wavemark chans are limited to channels 1-7
+        SampleTitle$(tunContinuousPorts%[i%]+9, "Cont " + str$(tunContinuousPorts%[i%]));
     next
     
     
@@ -1387,6 +1291,13 @@ proc WriteParameterFile()
 			Print("Values: " + tunValuesStringified$ + "\n");
             Print("\n");
         
+		case tunType$ = tunTypeID$ then
+
+			Print("Type:                  : Inner Diameter\n");
+			Print("Min,Max,#Steps,#Repeats: %f,%f,%d,%d\n", tunIDMinDiam, tunIDMaxDiam, tunIDNSteps%, tunIDNRepeats%);
+			Print("Values: " + tunValuesStringified$ + "\n");
+            Print("\n");
+        
         case tunType$ = tunTypeDriftingBar$ then
 
 			Print("Type:                  : DriftingBar\n");
@@ -1504,6 +1415,11 @@ func Start%()
         
         'Tune$ := Dual$ + " -A " + Values$;
         Tune$ := " -A " + Values$;
+        
+    case tunType$ = tunTypeID$ then
+        
+        'Tune$ := Dual$ + " -A " + Values$;
+        Tune$ := " -I " + Values$;
         
     case tunType$ = tunTypeNullTest$ then
         if tunNullTestStepFunc% = 0 then
