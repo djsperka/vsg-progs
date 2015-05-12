@@ -25,7 +25,9 @@ bool f_binaryTriggers = true;
 bool f_verbose = false;
 COLOR_TYPE f_background = { gray, {0, 0, 0}};
 int f_screenDistanceMM = 0;
+int f_pulse = 0x40;
 ARContrastFixationPointSpec f_fp;
+ARContrastFixationPointSpec f_target;
 vector<ARContrastFixationPointSpec*> f_targets;
 vector<int> f_vecTargetOrder;
 vector<int>::const_iterator f_iterator;
@@ -55,19 +57,19 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
+	// Initialize the target order iterator
+	f_iterator = f_vecTargetOrder.begin();
+
 	init_pages();
 
 	init_triggers();
 
 	// Issue "ready" triggers to spike2.
-	// These commands pulse spike2 port 6. 
 
-	ARvsg::instance().ready_pulse();
+	ARvsg::instance().ready_pulse(f_pulse);
 
 	f_triggers.reset(vsgIOReadDigitalIn());
 
-	// Initialize the target order iterator
-	f_iterator = f_vecTargetOrder.begin();
 
 	// All right, start monitoring triggers........
 	string s;
@@ -86,12 +88,19 @@ int main(int argc, char **argv)
 			(f_binaryTriggers ? TriggerFunc(vsgIOReadDigitalIn(), last_output_trigger) : TriggerFunc(s, last_output_trigger)));
 
 		// Now analyze input trigger
-	 	
+
 		if (tf.quit()) break;
 		else if (tf.present())
 		{	
 			last_output_trigger = tf.output_trigger();
-			vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, tf.output_trigger(), 0);
+			if (IS_VISAGE)
+			{
+				vsgSetTriggerOptions(vsgTRIGOPT_PRESENT, 0, vsgTRIG_OUTPUTMARKER, 0.5, 0, tf.output_trigger() << 1, 0x1FE);
+			}
+			else
+			{
+				vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, tf.output_trigger(), 0);
+			}
 			vsgPresent();
 		}
 	}
@@ -99,6 +108,20 @@ int main(int argc, char **argv)
 	ARvsg::instance().clear();
 
 	return 0;
+}
+
+void update_page()
+{
+	vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgBACKGROUND);
+	f_fp.setContrast(0);
+	f_fp.draw();
+
+	f_target.x = f_targets[*f_iterator]->x;
+	f_target.y = f_targets[*f_iterator]->y;
+	f_target.d = f_targets[*f_iterator]->d;
+	f_target.color = f_targets[*f_iterator]->color;
+	f_target.setContrast(0);
+	f_target.draw();
 }
 
 
@@ -112,23 +135,9 @@ void init_pages()
 		cerr << "VSG video initialization failed!" << endl;
 	}
 
-	vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgBACKGROUND);
-
 	f_fp.init(2);
-	f_fp.setContrast(0);
-	f_fp.draw();
-
-	for (unsigned int i=0; i<f_targets.size(); i++)
-	{
-		if (f_verbose) 
-		{
-			cout << "Target " << i << " : " << *f_targets[i] << endl;
-		}
-		f_targets[i]->init(2);
-		f_targets[i]->setContrast(0);
-		f_targets[i]->draw();
-	}
-	
+	f_target.init(2);
+	update_page();
 	vsgPresent();
 }
 
@@ -160,18 +169,15 @@ int callback(int &output, const CallbackTrigger* ptrig)
 	{
 		f_iterator++;
 		if (f_iterator == f_vecTargetOrder.end()) f_iterator = f_vecTargetOrder.begin();
+		update_page();
 	}
 	else if (key == "s")
 	{
-		f_targets[*f_iterator]->setContrast(0);
-		for (vector<int>::iterator iter = f_vecTargetOrder.begin(); iter < f_vecTargetOrder.end(); iter++)
-		{
-			f_targets[*iter]->setContrast(0);
-		}
+		f_target.setContrast(0);
 	}
 	else if (key == "S")
 	{
-		f_targets[*f_iterator]->setContrast(100);
+		f_target.setContrast(100);
 	}
 	else if (key == "F")
 	{
@@ -196,12 +202,20 @@ int args(int argc, char **argv)
 	int errflg = 0;
 	ARContrastFixationPointSpec *pspec;
 
-	while ((c = getopt(argc, argv, "avf:t:b:d:ho:")) != -1)
+	while ((c = getopt(argc, argv, "avf:t:b:d:ho:p:")) != -1)
 	{
 		switch (c) 
 		{
 		case 'a':
 			f_binaryTriggers = false;
+			break;
+		case 'p':
+			s.assign(optarg);
+			if (parse_integer(s, f_pulse))
+			{
+				cerr << "Error in pulse line spec (" << s << ")" << endl;
+				errflg++;
+			}
 			break;
 		case 'v':
 			f_verbose = true;

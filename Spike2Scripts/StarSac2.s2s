@@ -1,7 +1,7 @@
-' $Id: StarSac2.s2s,v 1.6 2011-11-16 00:48:00 jeff Exp $
+' $Id: StarSac2.s2s,v 1.7 2015-05-12 17:15:19 devel Exp $
 ' Update 11/8/11 Jeff, includes SafeSampleKey and multi-juicer updates
 
-const starCVSID$ := "$Id: StarSac2.s2s,v 1.6 2011-11-16 00:48:00 jeff Exp $";
+const starCVSID$ := "$Id: StarSac2.s2s,v 1.7 2015-05-12 17:15:19 devel Exp $";
 
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "../../Spike2Util/MiscUtilities.s2s"
@@ -18,7 +18,11 @@ const starCVSID$ := "$Id: StarSac2.s2s,v 1.6 2011-11-16 00:48:00 jeff Exp $";
 '	Vars that control the alert msequence script. 
 '
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+var starAlwaysLooking% := 0;    ' Leave = 0 for normal use, set to 1 for testing only!!!
+
 var starFixationDuration;			' Time required to maintain fixation, seconds
+var starFixationDurationMin;		' Time required to maintain fixation, seconds (min of range)
+var starFixationDurationMax;		' Time required to maintain fixation, seconds (max of range)
 var starAcquisitionTime;			' Time allowed to acquire target before fail trial, seconds
 var starInterTrialTime;				' Blank time following a trial (both successful and failed), seconds
 var starAnswerTime;					' time to move to answer window, seconds
@@ -26,7 +30,6 @@ var starNumTargets%;				' number of targets to use
 var starUseStimulusXY% := 1;
 var starTargetX := 5.0;
 var starTargetY := 0.0;
-var starTargetRotation := 0.0;
 var starNumSmall% := 0;
 var starNumPerBlock% := 1;
 var starNumBlocks% := 1;
@@ -55,15 +58,12 @@ const MAXEYETRACECOLORS% := 12;
 var starEyeTraceColors%[MAXEYETRACECOLORS%];    ' These are used to draw colors
 
 
-' For continuous fixpt
-var starMinFixationTime := 1;
-var starMaxFixationTime := 2.5;
-var starVariableFixationTime;
 
 proc GetStarStimScriptParameters()
 	var key$;
     key$ := GetRegistryKey$(1) + "\\Scripts\\StarStim";
-	starFixationDuration := GetFloatRegistryValue(key$, "FixationDuration", starFixationDuration);
+	starFixationDurationMin := GetFloatRegistryValue(key$, "FixationDurationMin", starFixationDurationMin);
+	starFixationDurationMax := GetFloatRegistryValue(key$, "FixationDurationMax", starFixationDurationMax);
 	starAcquisitionTime := GetFloatRegistryValue(key$, "AcquisitionTime", starAcquisitionTime);
 	starInterTrialTime := GetFloatRegistryValue(key$, "InterTrialTime", starInterTrialTime);
     starAnswerTime := GetFloatRegistryValue(key$, "AnswerTime", starAnswerTime);
@@ -73,7 +73,7 @@ proc GetStarStimScriptParameters()
     starUseStimulusXY% := GetIntRegistryValue%(key$, "UseStimulusXY", starUseStimulusXY%);
     starTargetX := GetFloatRegistryValue(key$, "TargetX", starTargetX);
     starTargetY := GetFloatRegistryValue(key$, "TargetY", starTargetY);
-    starTargetRotation := GetFloatRegistryValue(key$, "TargetRotation", starTargetRotation);
+    'starTargetRotation := GetFloatRegistryValue(key$, "TargetRotation", starTargetRotation);
     starXAxis% := GetIntRegistryValue%(key$, "XAxis", starXAxis%);
     starXNumPerSide% := GetIntRegistryValue%(key$, "XNumPerSide", starXNumPerSide%);
     starXOffset := GetFloatRegistryValue(key$, "XOffset", starXOffset);
@@ -89,7 +89,8 @@ end;
 proc SaveStarStimScriptParameters()
 	var key$;
     key$ := GetRegistryKey$(1) + "\\Scripts\\StarStim";
-	SetFloatRegistryValue(key$, "FixationDuration", starFixationDuration);
+	SetFloatRegistryValue(key$, "FixationDurationMin", starFixationDurationMin);
+	SetFloatRegistryValue(key$, "FixationDurationMax", starFixationDurationMax);
 	SetFloatRegistryValue(key$, "AcquisitionTime", starAcquisitionTime);
 	SetFloatRegistryValue(key$, "InterTrialTime", starInterTrialTime);
     SetFloatRegistryValue(key$, "AnswerTime", starAnswerTime);
@@ -99,7 +100,7 @@ proc SaveStarStimScriptParameters()
     SetIntRegistryValue(key$, "UseStimulusXY", starUseStimulusXY%);
     SetFloatRegistryValue(key$, "TargetX", starTargetX);
     SetFloatRegistryValue(key$, "TargetY", starTargetY);
-    SetFloatRegistryValue(key$, "TargetRotation", starTargetRotation);
+    'SetFloatRegistryValue(key$, "TargetRotation", starTargetRotation);
     SetIntRegistryValue(key$, "XAxis", starXAxis%);
     SetIntRegistryValue(key$, "XNumPerSide", starXNumPerSide%);
     SetFloatRegistryValue(key$, "XOffset", starXOffset);
@@ -118,25 +119,26 @@ func StarStimScriptDialog%()
 	var i%;
 	GetStarStimScriptParameters();
 	DlgCreate("StarStim Script Parameters", 25, 10);
-	DlgReal(1, "Fixation duration(s):", .01, 10);
-	DlgReal(2, "Acquisition time(s):", .01, 10);
-	DlgReal(3, "Intertrial time(s):", .01, 10);
-	DlgReal(4, "Answer time(s):", .01, 10);
-	DlgInteger(5, "Number of targets:", 1, 9);
-    DlgInteger(6, "Number of blocks", 1, 50);
-    DlgInteger(7, "Num each targ per block", 1, 10);
-    DlgCheck(8, "Use stimulus position?");
-    DlgReal(9, "Target X", -20.0, 20.0);
-    DlgReal(10, "Target Y", -20.0, 20.0);
-    DlgReal(11, "Rotation(deg)", 0.0, 360.0);
+	DlgReal(1, "Fixation duration min(s):", .01, 10);
+	DlgReal(2, "Fixation duration max(s):", .01, 10);
+	DlgReal(3, "Acquisition time(s):", .01, 10);
+	DlgReal(4, "Intertrial time(s):", .01, 10);
+	DlgReal(5, "Answer time(s):", .01, 10);
+	DlgInteger(6, "Number of targets:", 1, 99);
+    DlgInteger(7, "Number of blocks", 1, 50);
+    DlgInteger(8, "Num each targ per block", 1, 10);
+    DlgCheck(9, "Use stimulus position?");
+    DlgReal(10, "Target X", -20.0, 20.0);
+    DlgReal(11, "Target Y", -20.0, 20.0);
+    'DlgReal(12, "Rotation(deg)", 0.0, 360.0);
     DlgCheck(12, "Keep fixpt on?");
     DlgReal(13, "Min small reward time", 0, 10);
     DlgReal(14, "Max small reward time", 0, 10);
     DlgInteger(15, "Juice per small reward", 0, 10, 0, 0, 1);
     DlgButton(101, "SmallArea", StarStimSmallAreaDialog%);
     DlgAllow(0xffff, 0, StarStimScriptDialogChanged%);
-	i%:=DlgShow(starFixationDuration, starAcquisitionTime, starInterTrialTime, starAnswerTime, starNumTargets%, 
-    starNumBlocks%, starNumPerBlock%, starUseStimulusXY%, starTargetX, starTargetY, starTargetRotation,
+	i%:=DlgShow(starFixationDurationMin, starFixationDurationMax, starAcquisitionTime, starInterTrialTime, starAnswerTime, starNumTargets%, 
+    starNumBlocks%, starNumPerBlock%, starUseStimulusXY%, starTargetX, starTargetY,
     starKeepFixptOn%, starMinSmallRewardDelta, starMaxSmallRewardDelta, starJuicePerSmallReward%);
 	if i% = 1 then
 		SaveStarStimScriptParameters();
@@ -147,10 +149,10 @@ end;
 func StarStimScriptDialogChanged%(item%)
     docase
     case item% = 0 then
-        DlgEnable(1-starUseStimulusXY%, 9, 10);
+        DlgEnable(1-starUseStimulusXY%, 10, 11);
         DlgEnable(starKeepFixptOn%, 13, 14, 15);
-    case item% = 8 then
-        DlgEnable(1-DlgValue(8), 9, 10);
+    case item% = 9 then
+        DlgEnable(1-DlgValue(9), 10, 11);
     case item% = 12 then
         DlgEnable(DlgValue(12), 13, 14, 15);
     endcase
@@ -239,21 +241,6 @@ starEyeTraceColors%[8] := 22;
 starEyeTraceColors%[9] := 26;
 starEyeTraceColors%[10] := 27;
 starEyeTraceColors%[11] := 39;
-
-'starEyeTraceColors%[0] := 17;
-'starEyeTraceColors%[1] := 14;
-'starEyeTraceColors%[2] := 15;
-'starEyeTraceColors%[3] := 21;
-'starEyeTraceColors%[4] := 33;
-'starEyeTraceColors%[5] := 16;
-'starEyeTraceColors%[6] := 1;
-'starEyeTraceColors%[7] := 9;
-'starEyeTraceColors%[8] := 20;
-'starEyeTraceColors%[9] := 18;
-'starEyeTraceColors%[10] := 4;
-'starEyeTraceColors%[11] := 11;
-'starEyeTraceColors%[12] := 13;
-'
 
 ' Assign channel numbers for eye X,Y and trigger. 
 XChannel% := 21;
@@ -350,8 +337,8 @@ func IdleProcessing%()
     case iState% = stateStartTrial% then
 
         nTrialsStarted% += 1;
-        starVariableFixationTime := Rand(starMaxFixationTime-starMinFixationTime, starMinFixationTime);
-        LogStatus("StartTrial", "Start trial " + str$(nTrialsStarted%) + " Fix time " + str$(starVariableFixationTime));
+        starFixationDuration := Rand(starFixationDurationMax-starFixationDurationMin, starFixationDurationMin);
+        LogStatus("StartTrial", "Start trial " + str$(nTrialsStarted%) + " Fix time " + str$(starFixationDuration));
         SafeSampleKey("F");
         ChangeStateTo(stateWaitForFixPtOn%, tNow);
 
@@ -421,7 +408,7 @@ func IdleProcessing%()
                 tNextSmallReward := tNow + GetSmallRewardDelta();
             endif
             
-            if tNow - tStateStart >= starVariableFixationTime then
+            if tNow - tStateStart >= starFixationDuration then
                 
                 LogStatus("HoldFixation", "Request target at " + str$(tNow));
                 ChangeStateTo(stateShowStim%, tNow);
@@ -465,7 +452,7 @@ func IdleProcessing%()
         endif
         
         ' We can have a small reward here
-        if fixBrokenThisTrial% = 0 and tNow > tNextSmallReward then
+        if starKeepFixptOn% = 1 and fixBrokenThisTrial% = 0 and tNow > tNextSmallReward then
             RewardSmall%();
             tNextSmallReward := tNow + GetSmallRewardDelta();
         endif
@@ -494,7 +481,7 @@ func IdleProcessing%()
             
         else
             
-            if fixBrokenThisTrial% = 0 and tNow > tNextSmallReward then
+            if starKeepFixptOn% = 1 and fixBrokenThisTrial% = 0 and tNow > tNextSmallReward then
                 RewardSmall%();
                 tNextSmallReward := tNow + GetSmallRewardDelta();
             endif
@@ -634,10 +621,6 @@ proc CreateSampleConfiguration()
 	FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 1, 1);
 	SampleAutoName$(dataCellName$ + "_star_000");
 	SampleAutoFile(1);
-	PrintLog("dataPathRoot=" + dataPathRoot$ + "\n");
-	PrintLog("dataDataSet=" + dataDataSet$ + "\n");
-	PrintLog("AutoFile status " + str$(SampleAutoFile()) + "\n");
-    
     
     ' Text marks make extraction easier
     SampleTextMark(128);
@@ -657,7 +640,7 @@ proc CreateSampleConfiguration()
 
 
 	' channel to look for ready signal from vsg
-	SampleEvent(ReadyChannel%,6,2,3600); 'Trigger channel, level
+	SampleEvent(ReadyChannel%, 0, 2, 3600); 'Trigger channel, level
 	SampleComment$(ReadyChannel%,"VSG Ready");
 	SampleTitle$(ReadyChannel%,"VSG Ready");
     
@@ -958,7 +941,7 @@ func Start%()
     endif
     
     ' Remaining command line args
-	Extras$ += GetFixationArg$() + " -b gray -d " + GetDistanceToScreenMM$();
+	Extras$ += GetFixationArg$() + " -p 2 -b gray -d " + GetDistanceToScreenMM$();
 
 	
 	SampleStart(0); 'Start sampling
@@ -1102,7 +1085,7 @@ end
 func InFixationWindow%(EyePosX,EyePosY)
 	var i% := 0;
 	'Determine if the eye position is within the fixation window
-	if (Pow(EyePosX-FixationX, 2) + Pow(EyePosY-FixationY, 2)) <= Pow(WindowRadius,2) then 
+	if (starAlwaysLooking% = 1 or Pow(EyePosX-FixationX, 2) + Pow(EyePosY-FixationY, 2)) <= Pow(WindowRadius,2) then 
 		i% := 1;
 	endif
 	return i%;
@@ -1115,7 +1098,7 @@ func InTargetWindow%(EyePosX,EyePosY)
 	x := starTargetPositions[starTargetOrder%[iTargetPoint%]][0];
 	y := starTargetPositions[starTargetOrder%[iTargetPoint%]][1];
 	'Determine if the eye position is within the answer window
-	if (Pow(EyePosX-x, 2) + Pow(EyePosY-y, 2)) <= Pow(WindowRadius,2) then 
+	if (starAlwaysLooking% = 1 or Pow(EyePosX-x, 2) + Pow(EyePosY-y, 2)) <= Pow(WindowRadius,2) then 
 		i% := 1;
 	endif
 	return i%;

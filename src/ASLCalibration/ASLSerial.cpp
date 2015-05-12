@@ -9,7 +9,7 @@ long f_dotIndex[1] = {-1};
 long f_xdatIndex[1] = {-1};
 long f_horzIndex[1] = {-1};
 long f_vertIndex[1] = {-1};
-bool f_pedantic = true;
+bool f_pedantic = false;
 
 
 void vval(char *name, CComVariant& value);
@@ -189,6 +189,16 @@ int aslserial_disconnect()
 	return status;
 }
 
+int aslserial_getDotNumber(int *pdotnumber)
+{
+	int xdat;
+	float xoffset, yoffset;
+	return aslserial_get(pdotnumber, &xdat, &xoffset, &yoffset);
+}
+
+// return -1 on failure to read serial port, 
+// return 0 on success
+// return 1 on serial port unavailable
 int aslserial_get(int *pdotnumber, int *pxdat, float *pxoffset, float *pyoffset)
 {
 	int status = -1;
@@ -205,74 +215,23 @@ int aslserial_get(int *pdotnumber, int *pxdat, float *pxoffset, float *pyoffset)
 		CString strError = bsError;
 		cerr << "Error reading data from ASL serial connection: " << strError << endl;
 	}
-
-	if (bAvailable == VARIANT_TRUE)
+	else if (bAvailable == VARIANT_TRUE)
 	{
 		CComVariant value;
 		SafeArrayGetElement(items, f_dotIndex, &value);
 		if (f_pedantic) vval("dot", value);
 		*pdotnumber = value.iVal;
 		VariantClear(&value); // prevent memory leak
-#if 0
-		SafeArrayGetElement(items, f_xdatIndex, &value);
-		if (f_pedantic) vval("xdat", value);
-		*pxdat = value.iVal;
-		VariantClear(&value); // prevent memory leak
-		SafeArrayGetElement(items, f_horzIndex, &value);
-		if (f_pedantic) vval("xoffset", value);
-		*pxoffset = value.fltVal;
-		VariantClear(&value); // prevent memory leak
-		SafeArrayGetElement(items, f_vertIndex, &value);
-		if (f_pedantic) vval("yoffset", value);
-		*pyoffset = value.fltVal;
-		VariantClear(&value); // prevent memory leak
-#else
 		*pxdat = 0;
 		*pxoffset = 0;
 		*pyoffset = 0;
-#endif
+		SafeArrayDestroy(items);
 
 		status = 0;
-		f_pedantic = false;
-#if 0
-		for (long i=0; i < count; i++)
-		{
-			SafeArrayGetElement(items, &i, &value);
-			cout << "Item " << i << " : ";
-			switch (value.vt)
-			{
-			case VT_UI1:
-				cout << "VT_UI1 : " << value.bVal << endl;
-				break;
-			case VT_I1:
-				cout << "VT_I1 : " << value.cVal << endl;
-				break;
-			case VT_UI2:
-				cout << "VT_UI2 : " << value.uiVal << endl;
-				break;
-			case VT_I2:
-				cout << "VT_I2 : " << value.iVal << endl;
-				break;
-			default:
-				cout << " ??? type ???" << endl;
-				break;
-			}
-			VariantClear(&value); // prevent memory leak
-		}
-		for (long i=0; i < count; i++)
-		{
-			// Print value
-			SafeArrayGetElement(items, &i, &value);
-			value.ChangeType(VT_BSTR);
-			CString str = value.bstrVal;
-			VariantClear(&value); // prevent memory leak
-
-			cout << i << " str=" << str << endl;
-		}
-#endif	
-
-		// Clean up
-		SafeArrayDestroy(items);
+	}
+	else
+	{
+		status = 1;
 	}
 	return status;
 }

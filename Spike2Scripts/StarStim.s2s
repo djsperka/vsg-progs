@@ -1,6 +1,6 @@
-' $Id: StarStim.s2s,v 1.10 2013-02-25 22:25:04 devel Exp $
+' $Id: StarStim.s2s,v 1.11 2015-05-12 17:15:19 devel Exp $
 ' Update 11/8/11 Jeff, includes multi-juicer updates
-const starCVSID$ := "$Id: StarStim.s2s,v 1.10 2013-02-25 22:25:04 devel Exp $";
+const starCVSID$ := "$Id: StarStim.s2s,v 1.11 2015-05-12 17:15:19 devel Exp $";
 
 '========================================================================
 '
@@ -487,15 +487,15 @@ proc CreateSampleConfiguration()
     SampleTextMark(128);
     
 	'Channel recording definitions
-	SampleEvent(FixationChannel%, 2, 2, 3600);
+	SampleEvent(FixationChannel%, 1, 2, 3600);
 	SampleComment$(FixationChannel%, "FixPt");
 	SampleTitle$(FixationChannel%, "FixPt");
 
-	SampleEvent(StimChannel%, 3, 2, 3600);
+	SampleEvent(StimChannel%, 2, 2, 3600);
 	SampleComment$(StimChannel%, "Stim");
 	SampleTitle$(StimChannel%, "Stim");
 
-	SampleEvent(ChangeChannel%, 4, 2, 3600); 'Trigger channel, level
+	SampleEvent(ChangeChannel%, 3, 2, 3600); 'Trigger channel, level
 	SampleComment$(ChangeChannel%, "Advance");
 	SampleTitle$(ChangeChannel%, "Advance");
 

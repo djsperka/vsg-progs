@@ -1,4 +1,4 @@
-' $Id: AcuteTuningDialogs.s2s,v 1.12 2013-03-16 01:31:26 jeff Exp $
+' $Id: AcuteTuningDialogs.s2s,v 1.13 2015-05-12 17:15:18 devel Exp $
 '
 ' This file contains dialog functions for the alert tuning script Tuning.s2s.
 #include "../../Spike2Util/UsreyUtil.s2s"
@@ -6,6 +6,37 @@
 #include "../../Spike2Util/MiscUtilities.s2s"
 #include "UsreyGratings.s2s"
 
+var TuningCurveScriptDialogAllowOK%;  'allows OK to button to work on main dialog - see AcuteTuning.pls
+
+var tunStimulusDuration := 3;      ' New, time for each stimulus to last, replaces tunFixationDuration
+var tunInterTrialTime := 1;        ' Time between stimuli 
+var tunInterBlockTime := 0;        ' New, time between blocks, important for opto
+'var tunBackgroundColor$ := "gray";	' background color for stim
+var tunBackgroundGrayLevel% := 128; ' Background gray level
+var tunDoOpto%;                     ' New, 1 if doing optogenetics
+var tunDoF12% := 1;                 ' compute f1 and f2. 
+var tunMSeqLocation$ := "D:\\work\\AlertRig\\stim\\MSequenceTerms";  'location of M-Seq file
+var tunRecStimulator% := 0;   'record the stimulator?
+
+' These will be set by the tuning curve choice
+var tunNAdvances%;		' Number of times stim will advance during one repeat
+var tunNRepeats%;		' Number of repeats
+var tunUseFile%;        ' Overall variables so we don't have to check 7 different ones in the main file.
+var tunTuningFile$;     ' Location of tuning file
+
+'const tundlgXHairButton% := 8;
+const tundlgOrientationButton% := 9;
+const tundlgContrastButton% := 10;
+const tundlgSpatialButton% := 11;
+const tundlgTemporalButton% := 12;
+const tundlgAreaButton% := 13;
+const tundlgGratingParametersButton% := 14;
+const tundlgDriftingBarButton% := 15;
+const tundlgNullTestButton% := 16;
+const tundlgCRGMButton% := 17;
+const tundlgOptogeneticsButton% := 18;
+const tundlgIDButton% := 19;
+const tundlgSelectTuningFileButton% := 20;
 
 
 const tunTypeNone$ := "None";
@@ -17,6 +48,7 @@ const tunTypeArea$ := "A";
 const tunTypeDriftingBar$ := "G";
 const tunTypeNullTest$ := "P";  'This is P for counterPhase reversal, I guess
 const tunTypeCRG$ := "R"; 'cRg, I guess
+const tunTypeID$ := "I";    ' inner diameter tuning
 'const tunTypeDonut$ := "H";
 'const tunTypeBerliner$ := "B";
 var tunType$:=tunTypeNone$;
@@ -24,7 +56,6 @@ var tunType$:=tunTypeNone$;
 const tunContextDAQ$ := "DAQ";
 const tunContextConfig$ := "Config";
 var tunContext$ := tunContextConfig$;
-
 
 ' A note about "steps". 
 ' The dialogs ask for a number of "steps". A step is a transition from one stimulus
@@ -36,6 +67,8 @@ var tunOriNRepeats%;		' # repeats in ori tuning curve
 var tunOriMinOrientation;	' min orientation
 var tunOriMaxOrientation;	' max orientation
 var tunOriProgression%;
+var tunOriUseFile%;
+var tunOriTuningFile$;
 
 ' Contrast next
 var tunContrastNSteps%;			' # steps in contrast tuning curve
@@ -43,6 +76,8 @@ var tunContrastNRepeats%;		' # repeats in contrast tuning curve
 var tunContrastMinContrast;		' min contrast
 var tunContrastMaxContrast;		' max contrast
 var tunContrastProgression%;
+var tunContrastUseFile%;
+var tunContrastTuningFile$;
 
 ' Spatial next
 var tunSpatialNSteps%;			' # steps in spatial freq tuning curve
@@ -50,6 +85,8 @@ var tunSpatialNRepeats%;		' # repeats in spatial freq tuning curve
 var tunSpatialMinSF;			' min SF
 var tunSpatialMaxSF;			' max SF
 var tunSpatialProgression%;
+var tunSpatialUseFile%;
+var tunSpatialTuningFile$;
 
 ' Temporal next
 var tunTemporalNSteps%;			' # steps in temporal tuning curve
@@ -57,6 +94,8 @@ var tunTemporalNRepeats%;		' # repeats in temporal tuning curve
 var tunTemporalMinTF;		' min TF
 var tunTemporalMaxTF;		' max TF
 var tunTemporalProgression%;
+var tunTemporalUseFile%;
+var tunTemporalTuningFile$;
 
 ' Area next
 var tunAreaNSteps%;			' # steps in area tuning curve
@@ -64,6 +103,17 @@ var tunAreaNRepeats%;		' # repeats in area tuning curve
 var tunAreaMinDiam;		' min diameter
 var tunAreaMaxDiam;		' max diameter
 var tunAreaProgression%;
+var tunAreaUseFile%;
+var tunAreaTuningFile$;
+
+' InnerDiameter next
+var tunIDNSteps%;			' # steps in area tuning curve
+var tunIDNRepeats%;		' # repeats in area tuning curve
+var tunIDMinDiam;		' min diameter
+var tunIDMaxDiam;		' max diameter
+var tunIDProgression%;
+var tunIDUseFile%;
+var tunIDTuningFile$;
 
 ' Null Test next
 var tunNullTestNSteps%;			' # steps in area tuning curve
@@ -73,6 +123,8 @@ var tunNullTestMaxPhase;		' max phase
 var tunNullTestProgression%;
 var tunNullTestTF;              ' Transition frequency
 var tunNullTestStepFunc%;        ' If 1, use a step function in time, if 0, use smooth sine function in time
+var tunNullTestUseFile%;
+var tunNullTestTuningFile$;
 
 ' These are specific to the individual tuning curve types - drifting bar
 var tunBarNSteps%;		' # steps in drifting bar tuning curve
@@ -97,19 +149,6 @@ var tunCRGMFirstTerm%;      ' what term to start with?
 const tunCRGMNumTerms% := 32767;  'this is correct
 var tunCRGMBalanced%;       ' if 1, balance presentation
 
-' Donuts - use same vars as area. There is one additional var - the optimal value index.
-'var tunDonutOptimalIndex%:=0;		' step index where area stim stops growing and donut stim starts
-'var tunDonutOptimalDiam;
-'var tunDonutProgression%;
-
-
-' Berliners - also use same variables as Area.  Use optimal value index from Donuts.  Add maximal value index
-'var tunDonutOptimalDiamPlusOne;
-'var tunBerlinerMaximalIndex%:=0;    ' index for "maximal" size
-'var tunBerlinerMaximalDiam;
-'var tunBerlinerNSteps%;
-'var tunBerlinerNRepeats% := 3;  'just putting in 3 repeats for now
-'var tunBerlinerProgression%;
 
 ' Optogenetics variables
 var tunPreStimOptoTime;
@@ -123,18 +162,182 @@ var tunOptoState% := 0;  'current opto state, will toggle, can set here in dialo
 
 ' Strings that hold grating parameters
 var tunGratingParams$;
-'var tunGratingParamsSlave$;
 
-' Crosshair display variables
-'var tunUseXHairs%;                'Do we use crosshairs?
-'var tunXHairInnerRadiusOffset;    'Inner diameter of inner grid ring
-'var tunXHairMiddleRadiusOffset;   'Outer diameter of inner grid ring/Inner diameter of outer grid ring
-'var tunXHairOuterRadiusOffset;    'Outer diameter of outer grid ring
-'var tunXHairNumGridDivisions%;    'Number of divisions in the grid rings
-'var tunXHairTicInnerOffset;       'Inner extent of 0/90/180/270 ticks
-'var tunXHairTicOuterOffset;       'Outer extent of 0/90/180/270 ticks
-'var tunMaximalDiam;
-'var tunSlaveMaximalDiam;
+
+
+
+
+
+proc GetTuningCurveScriptParameters()
+	var key$;
+	key$:= GetRigName$() + GetCurrentConfiguration$() + "\\Scripts\\Tuning";
+    
+    tunStimulusDuration := GetFloatRegistryValue(key$, "StimulusDuration", tunStimulusDuration);  'new
+    tunInterTrialTime := GetFloatRegistryValue(key$, "InterTrialTime", tunInterTrialTime);  'new
+    tunInterBlockTime := GetFloatRegistryValue(key$, "InterBlockTime", tunInterBlockTime);
+    'tunBackgroundColor$ := GetStringRegistryValue$(key$, "BackgroundColor", tunBackgroundColor$);
+    tunBackgroundGrayLevel% := GetIntRegistryValue%(key$, "BackgroundGrayLevel", tunBackgroundGrayLevel%);
+    tunDoOpto% := GetIntRegistryValue%(key$, "DoOpto", tunDoOpto%);
+    tunRecStimulator% := GetIntRegistryValue%(key$, "RecStimulator", tunRecStimulator%);
+end;
+
+proc SaveTuningCurveScriptParameters()
+	var key$;
+	key$:= GetRigName$() + GetCurrentConfiguration$() + "\\Scripts\\Tuning";
+    
+    SetFloatRegistryValue(key$, "StimulusDuration", tunStimulusDuration);
+    SetFloatRegistryValue(key$, "InterTrialTime", tunInterTrialTime);
+    SetFloatRegistryValue(key$, "InterBlockTime", tunInterBlockTime);
+    'SetStringRegistryValue(key$, "BackgroundColor", tunBackgroundColor$);
+    SetIntRegistryValue(key$, "BackgroundGrayLevel", tunBackgroundGrayLevel%);
+    SetIntRegistryValue(key$, "DoOpto", tunDoOpto%);
+    SetIntRegistryValue(key$, "RecStimulator", tunRecStimulator%);
+end;
+
+
+' TuningCurveScriptDialog
+' This dialog uses two global variables, tunContext$ and tunType$. 
+' Set tunContext$ = tunContextConfig$ to run in the config scripts. The dialog 
+' and its children (TuningCurveOrientationDialog, etc) will behave as expected, 
+' allowing the user to set parameters and saving them in the registry. Set 
+' tunContext$ = tunContextDAQ$ to run in a DAQ script. In this context you 
+' must check the return value of the dialog and (possibly) the value of 
+' tunType$. If the user hits Cancel in the main dialog, the return value is 0. 
+' If the user selects a subdialog and hits OK, the return value will be 1 and 
+' the value of tunType$ will be one of (tunTypeOrientation$, tunTypeContrast$, 
+' tunTypeSpatial$, tunTypeTemporal$). Here, proceed directly to DAQ. If the 
+' user Hits Cancel from the subdialog, then they return to the main dialog. If 
+' they hit OK from the main dialog, then the return value is 1, but 
+' tunType$ = tunTypeNone$. 
+
+
+func TuningCurveScriptDialog%()
+	var i%;
+	var iReturn%;
+    var tempParam$;
+    var tempPhase;
+    var boxOK% := 1;  'do the stimulus/crosshairs boxes overlap?
+    
+    TuningCurveScriptDialogAllowOK% := 0;  'Disable OK button to start, force selection of experiment
+    
+	GetTuningCurveScriptParameters();
+    GetTunOptoParameters();  'We must get these or the user has to open the opto dialog every time.
+'	var bcl$[3];
+'	var ibcl%:=0;
+'	bcl$[0] := "gray";
+'	bcl$[1] := "black";
+'	bcl$[2] := "white";
+'	for i%:=0 to 2 do
+'		if tunBackgroundColor$ = bcl$[i%] then
+'			ibcl% := i%;
+'		endif
+'	next;
+    
+
+	DlgCreate("Tuning Curve Parameters", 50, 10, 40);
+    DlgButton(0,"         Quit         ");
+    DlgButton(1,"     Select Expt.     ");        
+	DlgGroup("Common Parameters", 1, 1, 38, 6);
+	DlgReal(1, "Stimulus Duration(s):", .1, 100, 20, 2);  'new, allow really long stimuli
+    DlgReal(2, "InterTrial Time(s):", .1, 100, 20, 3);  'new, allow really long stimuli
+	DlgReal(3, "InterBlock Time(s):", 0, 100, 20, 4);  'new, allow really long stimuli
+    DlgInteger(4, "Background Gray Level (0-255):", 0, 255, 20, 5);  'new, allow all grays
+    DlgCheck(5, "Record Stimulator?", 2,6);
+	'DlgList(3, "Background color:", bcl$, 3, 20, 4);  'updated as new dialog number
+    
+    DlgGroup("Grating Parameters", 1, 7, 38, 2);
+    DlgButton(tundlgGratingParametersButton%, "Grating Parameters", TunDlgGratingMaster%, 2, 8);
+    
+    DlgGroup("Optogenetics", 1, 9, 38, 3);
+    DlgCheck(6,"Opto On",2,10);
+    DlgButton(tundlgOptogeneticsButton%, "Optogenetics Parameters", TunOptoDialog%, 2, 11);
+    
+    DlgGroup("Individual Tuning Curve Types", 1, 12, 38, 8);
+	DlgButton(tundlgOrientationButton%, "Orientation", TuningCurveOrientationDialog%, 2, 13);
+	DlgButton(tundlgContrastButton%, "Contrast", TuningCurveContrastDialog%, 2, 14);
+	DlgButton(tundlgSpatialButton%, "Spatial Freq", TuningCurveSpatialDialog%, 2, 15);
+	DlgButton(tundlgTemporalButton%, "Temporal Freq", TuningCurveTemporalDialog%, 2, 16);
+	DlgButton(tundlgAreaButton%, "Area", TuningCurveAreaDialog%, 2, 17);
+    DlgButton(tundlgNullTestButton%, "Null Test", TuningCurveNullTestDialog%, 2, 18);
+	DlgButton(tundlgIDButton%, "InnerDiam", TuningCurveIDDialog%, 2, 19);
+    
+    
+    DlgGroup("Non-Grating Stimuli", 1, 20, 38, 3);
+    DlgButton(tundlgDriftingBarButton%, "Drifting Bars", TuningCurveDriftingBarDialog%, 2, 21);
+    DlgButton(tundlgCRGMButton%, "CRGs", TuningCurveCRGMDialog%, 2, 22);
+    
+    DlgAllow(0xffff, 0, TuningCurveScriptDialogChanged%);
+    
+    'i%:=DlgShow(tunStimulusDuration, tunInterTrialTime, ibcl%);  'new, for reduced dialog
+    i%:=DlgShow(tunStimulusDuration, tunInterTrialTime, tunInterBlockTime, tunBackgroundGrayLevel%, tunRecStimulator%, tunDoOpto%);  'now using background gray level
+    
+    ' djs 4-1-09
+    ' Spike2 v6 change. DlgShow will return the button number when a button on the dialog is hit and the corresponding
+    ' function returns 0. In this case those buttons open the various tuning type sub dialogs (orientation, area, etc). 
+    ' In the last version, DlgShow would return the same value that the subdialog's function returned, and the code here
+    ' was set up to behave accordingly. When the user hits the Cancel button in the subdialog everything still remains
+    ' the same. 
+    
+    ' djs 2-4-2011
+    ' Spike2v6 bug (see TuningDialogs.s2s) workaround requires that the tuning type dialogs return something > 0. 
+    ' That will mean that closing any of those dialogs will not cause the main dialog (this one) to close automatically. 
+    ' When it did close automatically the return value from DlgShow above was the same as the button that caused
+    ' the close. Now, that button is NOT causing the close, so the return value is going to be 1 (not the button number). 
+    ' In addition, the return value from this function needs to change because we now assume that the user will have
+    ' to hit OK on this dialog to start the experiment. Thus, make sure that the return value from this function is 1
+    ' when user hits OK and 0 when user hits Cancel. Also, do not save script parameters when user hits Cancel.
+    
+    'PrintLog("Tuning Curve Parameters Dialog - return from DlgShow is %d\n", i%);
+    '	if i%=tundlgOrientationButton% or i%=tundlgContrastButton% or i%=tundlgSpatialButton% or i%=tundlgTemporalButton% or i%=tundlgAreaButton% then
+    if i% = 1 then
+        
+        if tunDoOpto% = 0 then  'it will be useful to make sure that tunOptoState% is 0 if we're not at all doin Opto
+            tunOptoState% := 0;
+        endif;
+        
+        if tunCRGMFirstTerm% > tunCRGMNumTerms% - 100 - (tunStimulusDuration*dataScreenHz) then
+            Message("Error!  Duration was changed and CRG first term is not legal!  Quitting!");
+            i% := 0;
+        else
+            SaveTuningCurveScriptParameters();
+            if tunContext$ = tunContextDAQ$ then 
+                iReturn% := 1;
+            else iReturn% := 1;
+            endif;
+        endif;
+        
+	endif;
+	if i% = 0 then
+		'PrintLog("Tuning Curve Parameters dialog - user hit Cancel, tunType=" + tunType$ + "\n");
+		if tunContext$ = tunContextDAQ$ then 
+			if tunType$ <> tunTypeNone$ then 
+				iReturn% := 0;
+				'SaveTuningCurveScriptParameters();
+			else iReturn% := 0;
+		 	endif;
+		else
+			iReturn% := 2;		' The calling/main dialog would close if we returned 0
+		endif;
+	endif;
+	return iReturn%;
+end;
+
+
+' This function is initially called with a "0" input
+func TuningCurveScriptDialogChanged%(item%) 
+    'This disables the "OK" button (though it will have different labels) until an experiment is selected
+    if TuningCurveScriptDialogAllowOK% = 1 then
+        DlgEnable(1,-1);  'enable "OK" 
+    else
+        DlgEnable(0,-1);  'Otherwise disable "OK"
+    endif;
+    
+    return 1;
+end
+
+
+
+
 
 
 proc GetTuningCurveOrientationParameters()
@@ -145,6 +348,8 @@ proc GetTuningCurveOrientationParameters()
     tunOriProgression% := GetIntRegistryValue%(key$, "Progression", tunOriProgression%);
     tunOriMinOrientation := GetFloatRegistryValue(key$, "MinOrientation", tunOriMinOrientation);
     tunOriMaxOrientation := GetFloatRegistryValue(key$, "MaxOrientation", tunOriMaxOrientation);
+    tunOriUseFile% := GetIntRegistryValue%(key$, "UseFile", tunOriUseFile%);
+    tunOriTuningFile$ := GetStringRegistryValue$(key$, "TuningFile", tunOriTuningFile$);
 end;
 
 proc SaveTuningCurveOrientationParameters()
@@ -155,6 +360,8 @@ proc SaveTuningCurveOrientationParameters()
     SetIntRegistryValue(key$, "Progression", tunOriProgression%);
     SetFloatRegistryValue(key$, "MinOrientation", tunOriMinOrientation);
     SetFloatRegistryValue(key$, "MaxOrientation", tunOriMaxOrientation);
+    SetIntRegistryValue(key$, "UseFile", tunOriUseFile%);
+    SetStringRegistryValue(key$, "TuningFile", tunOriTuningFile$);
 end;
 
 proc GetTuningCurveContrastParameters()
@@ -167,6 +374,8 @@ proc GetTuningCurveContrastParameters()
     tunContrastProgression% := GetIntRegistryValue%(key$, "Progression", tunContrastProgression%);
     tunContrastMinContrast := GetFloatRegistryValue(key$, "MinContrast", tunContrastMinContrast);
     tunContrastMaxContrast := GetFloatRegistryValue(key$, "MaxContrast", tunContrastMaxContrast);
+    tunContrastUseFile% := GetIntRegistryValue%(key$, "UseFile", tunContrastUseFile%);
+    tunContrastTuningFile$ := GetStringRegistryValue$(key$, "TuningFile", tunContrastTuningFile$);
 end;
 
 proc SaveTuningCurveContrastParameters()
@@ -177,6 +386,8 @@ proc SaveTuningCurveContrastParameters()
     SetIntRegistryValue(key$, "Progression", tunContrastProgression%);
     SetFloatRegistryValue(key$, "MinContrast", tunContrastMinContrast);
     SetFloatRegistryValue(key$, "MaxContrast", tunContrastMaxContrast);
+    SetIntRegistryValue(key$, "UseFile", tunContrastUseFile%);
+    SetStringRegistryValue(key$, "TuningFile", tunContrastTuningFile$);
 end;
 
 proc GetTuningCurveSpatialParameters()
@@ -189,6 +400,8 @@ proc GetTuningCurveSpatialParameters()
     tunSpatialProgression% := GetIntRegistryValue%(key$, "Progression", tunSpatialProgression%);
     tunSpatialMinSF := GetFloatRegistryValue(key$, "MinSF", tunSpatialMinSF);
     tunSpatialMaxSF := GetFloatRegistryValue(key$, "MaxSF", tunSpatialMaxSF);
+    tunSpatialUseFile% := GetIntRegistryValue%(key$, "UseFile", tunSpatialUseFile%);
+    tunSpatialTuningFile$ := GetStringRegistryValue$(key$, "TuningFile", tunSpatialTuningFile$);
 end;
 
 proc SaveTuningCurveSpatialParameters()
@@ -200,6 +413,8 @@ proc SaveTuningCurveSpatialParameters()
     SetIntRegistryValue(key$, "Progression", tunSpatialProgression%);
     SetFloatRegistryValue(key$, "MinSF", tunSpatialMinSF);
     SetFloatRegistryValue(key$, "MaxSF", tunSpatialMaxSF);
+    SetIntRegistryValue(key$, "UseFile", tunSpatialUseFile%);
+    SetStringRegistryValue(key$, "TuningFile", tunSpatialTuningFile$);
 end;
 
 proc GetTuningCurveTemporalParameters()
@@ -212,6 +427,8 @@ proc GetTuningCurveTemporalParameters()
     tunTemporalProgression% := GetIntRegistryValue%(key$, "Progression", tunTemporalProgression%);
     tunTemporalMinTF := GetFloatRegistryValue(key$, "MinTF", tunTemporalMinTF);
     tunTemporalMaxTF := GetFloatRegistryValue(key$, "MaxTF", tunTemporalMaxTF);
+    tunTemporalUseFile% := GetIntRegistryValue%(key$, "UseFile", tunTemporalUseFile%);
+    tunTemporalTuningFile$ := GetStringRegistryValue$(key$, "TuningFile", tunTemporalTuningFile$);
 end;
 
 proc SaveTuningCurveTemporalParameters()
@@ -223,6 +440,8 @@ proc SaveTuningCurveTemporalParameters()
     SetIntRegistryValue(key$, "Progression", tunTemporalProgression%);
     SetFloatRegistryValue(key$, "MinTF", tunTemporalMinTF);
     SetFloatRegistryValue(key$, "MaxTF", tunTemporalMaxTF);
+    SetIntRegistryValue(key$, "UseFile", tunTemporalUseFile%);
+    SetStringRegistryValue(key$, "TuningFile", tunTemporalTuningFile$);
 end;
 
 proc GetTuningCurveAreaParameters()
@@ -235,12 +454,8 @@ proc GetTuningCurveAreaParameters()
     tunAreaProgression% := GetIntRegistryValue%(key$, "Progression", tunAreaProgression%);
     tunAreaMinDiam := GetFloatRegistryValue(key$, "MinDiam", tunAreaMinDiam);
     tunAreaMaxDiam := GetFloatRegistryValue(key$, "MaxDiam", tunAreaMaxDiam);
-'    tunDonutOptimalIndex% := GetIntRegistryValue%(key$, "OptimalIndex", tunDonutOptimalIndex%);
-'    tunBerlinerMaximalIndex% := GetIntRegistryValue%(key$, "MaximalIndexBerliner", tunBerlinerMaximalIndex%);
-'    tunBerlinerMaximalDiam := GetFloatRegistryValue(key$, "MaximalDiamBerliner", tunBerlinerMaximalDiam);
-'    tunBerlinerNSteps% := GetIntRegistryValue%(key$, "NStepsBerliner", tunBerlinerNSteps%);
-'    tunBerlinerNRepeats% := GetIntRegistryValue%(key$, "NRepeatsDiamBerliner", tunBerlinerNRepeats%);
-'    tunBerlinerProgression% := GetIntRegistryValue%(key$, "BerlinerProgression", tunBerlinerProgression%);
+    tunAreaUseFile% := GetIntRegistryValue%(key$, "UseFile", tunAreaUseFile%);
+    tunAreaTuningFile$ := GetStringRegistryValue$(key$, "TuningFile", tunAreaTuningFile$);
 end;
 
 proc SaveTuningCurveAreaParameters()
@@ -252,12 +467,36 @@ proc SaveTuningCurveAreaParameters()
     SetIntRegistryValue(key$, "Progression", tunAreaProgression%);
     SetFloatRegistryValue(key$, "MinDiam", tunAreaMinDiam);
     SetFloatRegistryValue(key$, "MaxDiam", tunAreaMaxDiam);
-'    SetIntRegistryValue(key$, "OptimalIndex", tunDonutOptimalIndex%);
-'    SetIntRegistryValue(key$, "MaximalIndexBerliner", tunBerlinerMaximalIndex%);
-'    SetFloatRegistryValue(key$, "MaximalDiamBerliner", tunBerlinerMaximalDiam);
-'    SetIntRegistryValue(key$, "NStepsBerliner", tunBerlinerNSteps%);
-'    SetIntRegistryValue(key$, "NRepeatsDiamBerliner", tunBerlinerNRepeats%);
-'    SetIntRegistryValue(key$, "BerlinerProgression", tunBerlinerProgression%);
+    SetIntRegistryValue(key$, "UseFile", tunAreaUseFile%);
+    SetStringRegistryValue(key$, "TuningFile", tunAreaTuningFile$);
+end;
+
+
+proc GetTuningCurveIDParameters()
+	var stmp$;
+	var key$;
+	key$:= GetRigName$() + GetCurrentConfiguration$() + "\\Scripts\\Tuning\\ID";
+
+    tunIDNSteps% := GetIntRegistryValue%(key$, "NSteps", tunIDNSteps%);
+    tunIDNRepeats% := GetIntRegistryValue%(key$, "NRepeats", tunIDNRepeats%);
+    tunIDProgression% := GetIntRegistryValue%(key$, "Progression", tunIDProgression%);
+    tunIDMinDiam := GetFloatRegistryValue(key$, "MinDiam", tunIDMinDiam);
+    tunIDMaxDiam := GetFloatRegistryValue(key$, "MaxDiam", tunIDMaxDiam);
+    tunIDUseFile% := GetIntRegistryValue%(key$, "UseFile", tunIDUseFile%);
+    tunIDTuningFile$ := GetStringRegistryValue$(key$, "TuningFile", tunIDTuningFile$);
+end;
+
+proc SaveTuningCurveIDParameters()
+	var key$;
+	key$:= GetRigName$() + GetCurrentConfiguration$() + "\\Scripts\\Tuning\\ID";
+
+    SetIntRegistryValue(key$, "NSteps", tunIDNSteps%);
+    SetIntRegistryValue(key$, "NRepeats", tunIDNRepeats%);
+    SetIntRegistryValue(key$, "Progression", tunIDProgression%);
+    SetFloatRegistryValue(key$, "MinDiam", tunIDMinDiam);
+    SetFloatRegistryValue(key$, "MaxDiam", tunIDMaxDiam);
+    SetIntRegistryValue(key$, "UseFile", tunIDUseFile%);
+    SetStringRegistryValue(key$, "TuningFile", tunIDTuningFile$);
 end;
 
 
@@ -273,6 +512,8 @@ proc GetTuningCurveNullTestParameters()
     tunNullTestMinPhase := GetFloatRegistryValue(key$, "MinPhase", tunNullTestMinPhase);
     tunNullTestMaxPhase := GetFloatRegistryValue(key$, "MaxPhase", tunNullTestMaxPhase);
     tunNullTestTF := GetFloatRegistryValue(key$, "TransitionFreq", tunNullTestTF);
+    tunIDUseFile% := GetIntRegistryValue%(key$, "UseFile", tunNullTestUseFile%);
+    tunIDTuningFile$ := GetStringRegistryValue$(key$, "TuningFile", tunNullTestTuningFile$);
 end;
 
 proc SaveTuningCurveNullTestParameters()
@@ -286,6 +527,8 @@ proc SaveTuningCurveNullTestParameters()
     SetFloatRegistryValue(key$, "MinPhase", tunNullTestMinPhase);
     SetFloatRegistryValue(key$, "MaxPhase", tunNullTestMaxPhase);
     SetFloatRegistryValue(key$, "TransitionFreq", tunNullTestTF);
+    SetIntRegistryValue(key$, "UseFile", tunNullTestUseFile%);
+    SetStringRegistryValue(key$, "TuningFile", tunNullTestTuningFile$);
 end;
 
 
@@ -382,7 +625,12 @@ func TuningCurveOrientationDialog%()
 	DlgReal(3, "Min Orientation (deg)", 0, 360);
 	DlgReal(4, "Max Orientation (deg)", 0, 360);
 	DlgCheck(5, "Random Progression");
-	i% := DlgShow(tunOriNSteps%, tunOriNRepeats%, tunOriMinOrientation, tunOriMaxOrientation, tunOriProgression%);
+    DlgCheck(6, "Use File For Tuning Values");
+    DlgString(7,40,255,"",3);  'for visual confirmation of selected seq file
+    DlgButton(tundlgSelectTuningFileButton%, " Select Tuning File ", SelectTuningFile%, 2, 8);
+    DlgAllow(0xffff, 0, TuningCurveGenericDialogChanged%);
+    
+	i% := DlgShow(tunOriNSteps%, tunOriNRepeats%, tunOriMinOrientation, tunOriMaxOrientation, tunOriProgression%, tunOriUseFile%, tunOriTuningFile$);
 
 	' If i% is 1 the user hit "OK". If its 0, user hit "Cancel". 
 	' When user hits OK we alwaus save the parameters, and when user hits Cancel we don't.
@@ -398,6 +646,8 @@ func TuningCurveOrientationDialog%()
 		SaveTuningCurveOrientationParameters();
 		PrintLog("TuningCurveOrientationDialog - user hit OK\n");
 		tunType$ := tunTypeOrientation$;
+        tunUseFile% := tunOriUseFile%;
+        tunTuningFile$ := tunOriTuningFile$;
         
         'Reset dialog OK button text on Select dialog, and note which experiment to run
         DlgValue$(-1,"Run Orientation");
@@ -436,12 +686,16 @@ func TuningCurveContrastDialog%()
 	GetTuningCurveContrastParameters();
 	DlgCreate("Contrast Tuning Curve Parameters");
 	DlgInteger(1, "Number of Steps", 2, 99);
-	DlgInteger(2, "Number of Repeats", 1, 30);
+	DlgInteger(2, "Number of Repeats", 1, 500);
 	DlgReal(3, "Min Contrast (%)", 0.1, 100);
 	DlgReal(4, "Max Contrast (%)", 0.1, 100);
 	DlgCheck(5, "Random Progression");
-
-	i% := DlgShow(tunContrastNSteps%, tunContrastNRepeats%, tunContrastMinContrast, tunContrastMaxContrast, tunContrastProgression%);
+    DlgCheck(6, "Use File For Tuning Values");
+    DlgString(7,40,255,"",3);  'for visual confirmation of selected seq file
+    DlgButton(tundlgSelectTuningFileButton%, " Select Tuning File ", SelectTuningFile%, 2, 8);
+    DlgAllow(0xffff, 0, TuningCurveGenericDialogChanged%);
+    
+	i% := DlgShow(tunContrastNSteps%, tunContrastNRepeats%, tunContrastMinContrast, tunContrastMaxContrast, tunContrastProgression%, tunContrastUseFile%, tunContrastTuningFile$);
 	' If i% is 1 the user hit "OK". If its 0, user hit "Cancel". 
 	' When user hits OK we alwaus save the parameters, and when user hits Cancel we don't.
     ' djs 2/4/2011
@@ -456,6 +710,8 @@ func TuningCurveContrastDialog%()
 		SaveTuningCurveContrastParameters();
 '		PrintLog("TuningCurveContrastDialog - user hit OK\n");
 		tunType$ := tunTypeContrast$;
+        tunUseFile% := tunContrastUseFile%;
+        tunTuningFile$ := tunContrastTuningFile$;
         
         'Reset dialog OK button text on Select dialog, and note which experiment to run
         DlgValue$(-1,"Run Contrast");
@@ -496,8 +752,12 @@ func TuningCurveSpatialDialog%()
 	DlgReal(3, "Min SF", .01, 100);
 	DlgReal(4, "Max SF", .01, 100);
 	DlgCheck(5, "Random Progression");
-
-	i% := DlgShow(tunSpatialNSteps%, tunSpatialNRepeats%, tunSpatialMinSF, tunSpatialMaxSF, tunSpatialProgression%);
+    DlgCheck(6, "Use File For Tuning Values");
+    DlgString(7,40,255,"",3);  'for visual confirmation of selected seq file
+    DlgButton(tundlgSelectTuningFileButton%, " Select Tuning File ", SelectTuningFile%, 2, 8);
+    DlgAllow(0xffff, 0, TuningCurveGenericDialogChanged%);
+    
+	i% := DlgShow(tunSpatialNSteps%, tunSpatialNRepeats%, tunSpatialMinSF, tunSpatialMaxSF, tunSpatialProgression%, tunSpatialUseFile%, tunSpatialTuningFile$);
 	' If i% is 1 the user hit "OK". If its 0, user hit "Cancel". 
 	' When user hits OK we alwaus save the parameters, and when user hits Cancel we don't.
     ' djs 2/4/2011
@@ -512,6 +772,8 @@ func TuningCurveSpatialDialog%()
 		SaveTuningCurveSpatialParameters();
 '		PrintLog("TuningCurveSpatialDialog - user hit OK\n");
 		tunType$ := tunTypeSpatial$;
+        tunUseFile% := tunSpatialUseFile%;
+        tunTuningFile$ := tunSpatialTuningFile$;
         
         'Reset dialog OK button text on Select dialog, and note which experiment to run
         DlgValue$(-1,"Run Spatial");
@@ -552,8 +814,12 @@ func TuningCurveTemporalDialog%()
 	DlgReal(3, "Min TF", 0, 100);
 	DlgReal(4, "Max TF", 0, 100);
 	DlgCheck(5, "Random Progression");
-
-	i% := DlgShow(tunTemporalNSteps%, tunTemporalNRepeats%, tunTemporalMinTF, tunTemporalMaxTF, tunTemporalProgression%);
+    DlgCheck(6, "Use File For Tuning Values");
+    DlgString(7,40,255,"",3);  'for visual confirmation of selected seq file
+    DlgButton(tundlgSelectTuningFileButton%, " Select Tuning File ", SelectTuningFile%, 2, 8);
+    DlgAllow(0xffff, 0, TuningCurveGenericDialogChanged%);
+    
+	i% := DlgShow(tunTemporalNSteps%, tunTemporalNRepeats%, tunTemporalMinTF, tunTemporalMaxTF, tunTemporalProgression%, tunTemporalUseFile%, tunTemporalTuningFile$);
 	' If i% is 1 the user hit "OK". If its 0, user hit "Cancel". 
 	' When user hits OK we alwaus save the parameters, and when user hits Cancel we don't.
     ' djs 2/4/2011
@@ -568,6 +834,8 @@ func TuningCurveTemporalDialog%()
 		SaveTuningCurveTemporalParameters();
 '		PrintLog("TuningCurveTemporalDialog - user hit OK\n");
 		tunType$ := tunTypeTemporal$;
+        tunUseFile% := tunTemporalUseFile%;
+        tunTuningFile$ := tunTemporalTuningFile$;
         
         'Reset dialog OK button text on Select dialog, and note which experiment to run
         DlgValue$(-1,"Run Temporal");
@@ -604,12 +872,16 @@ func TuningCurveAreaDialog%()
 	GetTuningCurveAreaParameters();
 	DlgCreate("Area Tuning Curve Parameters");
 	DlgInteger(1, "Number of Steps", 2, 99);
-	DlgInteger(2, "Number of Repeats", 1, 30);
+	DlgInteger(2, "Number of Repeats", 1, 100);
 	DlgReal(3, "Min Diameter", 0.1, 100);
 	DlgReal(4, "Max Diameter", 0.1, 100);
 	DlgCheck(5, "Random Progression");
-
-	i% := DlgShow(tunAreaNSteps%, tunAreaNRepeats%, tunAreaMinDiam, tunAreaMaxDiam, tunAreaProgression%);
+    DlgCheck(6, "Use File For Tuning Values");
+    DlgString(7,40,255,"",3);  'for visual confirmation of selected seq file
+    DlgButton(tundlgSelectTuningFileButton%, " Select Tuning File ", SelectTuningFile%, 2, 8);
+    DlgAllow(0xffff, 0, TuningCurveGenericDialogChanged%);
+    
+	i% := DlgShow(tunAreaNSteps%, tunAreaNRepeats%, tunAreaMinDiam, tunAreaMaxDiam, tunAreaProgression%, tunAreaUseFile%, tunAreaTuningFile$);
 	' If i% is 1 the user hit "OK". If its 0, user hit "Cancel". 
 	' When user hits OK we always save the parameters, and when user hits Cancel we don't.
     ' 
@@ -626,9 +898,75 @@ func TuningCurveAreaDialog%()
 		SaveTuningCurveAreaParameters();
 '		PrintLog("TuningCurveAreaDialog - user hit OK\n");
 		tunType$ := tunTypeArea$;
+        tunUseFile% := tunAreaUseFile%;
+        tunTuningFile$ := tunAreaTuningFile$;
         
         'Reset dialog OK button text on Select dialog, and note which experiment to run
         DlgValue$(-1,"Run Area");
+        TuningCurveScriptDialogAllowOK% := 1;  'Prepare to enable OK button
+        TuningCurveScriptDialogChanged%(-1);  'Enables "OK" button, -1 is sham input
+        
+		if tunContext$ = tunContextDAQ$ then
+            ' djs 2/4/2011 We return 1 - that's the workaround			iReturn% := 0;
+            iReturn% := 1;
+		else
+			iReturn% := 1;
+		endif;
+	endif;
+	if i% = 0 then
+'		PrintLog("TuningCurveAreaDialog - user hit Cancel\n");
+		tunType$ := tunTypeNone$;
+		if tunContext$ = tunContextDAQ$ then
+			iReturn% := 1;
+		else
+			iReturn% := 2;
+		endif;
+        'Reset dialog OK button text on Select dialog, and note we need to pick an expt.
+        DlgValue$(-1,"Select Expt.");
+        TuningCurveScriptDialogAllowOK% := 0;  'Prepare to disable OK button
+        TuningCurveScriptDialogChanged%(-1);  'Disables "OK" button, -1 is sham input
+	endif;
+    
+	return iReturn%;
+end;
+
+func TuningCurveIDDialog%()
+	var iReturn% := 0;
+	var i%;
+	GetTuningCurveIDParameters();
+	DlgCreate("ID Tuning Curve Parameters");
+	DlgInteger(1, "Number of Steps", 2, 99);
+	DlgInteger(2, "Number of Repeats", 1, 30);
+	DlgReal(3, "Min Diameter", 0.1, 100);
+	DlgReal(4, "Max Diameter", 0.1, 100);
+	DlgCheck(5, "Random Progression");
+    DlgCheck(6, "Use File For Tuning Values");
+    DlgString(7,40,255,"",3);  'for visual confirmation of selected seq file
+    DlgButton(tundlgSelectTuningFileButton%, " Select Tuning File ", SelectTuningFile%, 2, 8);
+    DlgAllow(0xffff, 0, TuningCurveGenericDialogChanged%);
+    
+	i% := DlgShow(tunIDNSteps%, tunIDNRepeats%, tunIDMinDiam, tunIDMaxDiam, tunIDProgression%, tunIDUseFile%, tunIDTuningFile$);
+	' If i% is 1 the user hit "OK". If its 0, user hit "Cancel". 
+	' When user hits OK we always save the parameters, and when user hits Cancel we don't.
+    ' 
+    ' djs 2/4/2011
+    ' Spike2 bug workaround implemented. The return value from this function (when in DAQ context this
+    ' dialog is called from a DlgButton in another dialog) should make the parent dialog close, as if 
+    ' the OK button were hit. Bug in Spike2 v6 means this doesn't work right - the parent dialog will 
+    ' close but its variables are not updated prior to doing so.... so any changes to the parent dialog
+    ' are not seen in the subsequent expt, they're not saved in the registry, etc. Workaround is to return
+    ' something > 0 here. The parent dialog will continue to display, and the user has to hit OK on that 
+    ' before things proceed. 
+    'tunMaximalDiam := tunAreaMaxDiam;  This won't do anything unless FIXSTIM is updated to allow crosshairs
+	if i% = 1 then
+		SaveTuningCurveIDParameters();
+'		PrintLog("TuningCurveAreaDialog - user hit OK\n");
+		tunType$ := tunTypeID$;
+        tunUseFile% := tunIDUseFile%;
+        tunTuningFile$ := tunIDTuningFile$;
+        
+        'Reset dialog OK button text on Select dialog, and note which experiment to run
+        DlgValue$(-1,"Run InnerDiam");
         TuningCurveScriptDialogAllowOK% := 1;  'Prepare to enable OK button
         TuningCurveScriptDialogChanged%(-1);  'Enables "OK" button, -1 is sham input
         
@@ -671,8 +1009,12 @@ func TuningCurveNullTestDialog%()
     DlgReal(5, "Transition Frequency (Hz)", 0.1,100);
 	DlgCheck(6, "Random Progression");
     DlgCheck(7, "Step Function in Time");
-
-	i% := DlgShow(tunNullTestNSteps%, tunNullTestNRepeats%, tunNullTestMinPhase, tunNullTestMaxPhase, tunNullTestTF, tunNullTestProgression%, tunNullTestStepFunc%);
+    DlgCheck(8, "Use File For Tuning Values");
+    DlgString(9,40,255,"",3);  'for visual confirmation of selected seq file
+    DlgButton(tundlgSelectTuningFileButton%, " Select Tuning File ", SelectTuningFileNullTest%, 2, 10);
+    DlgAllow(0xffff, 0, TuningCurveNullTestDialogChanged%);
+    
+	i% := DlgShow(tunNullTestNSteps%, tunNullTestNRepeats%, tunNullTestMinPhase, tunNullTestMaxPhase, tunNullTestTF, tunNullTestProgression%, tunNullTestStepFunc%, tunNullTestUseFile%, tunNullTestTuningFile$);
 	' If i% is 1 the user hit "OK". If its 0, user hit "Cancel". 
 	' When user hits OK we always save the parameters, and when user hits Cancel we don't.
     ' 
@@ -689,6 +1031,8 @@ func TuningCurveNullTestDialog%()
 		SaveTuningCurveNullTestParameters();
 '		PrintLog("TuningCurveAreaDialog - user hit OK\n");
 		tunType$ := tunTypeNullTest$;
+        tunUseFile% := tunNullTestUseFile%;
+        tunTuningFile$ := tunNullTestTuningFile$;
         
         'Reset dialog OK button text on Select dialog, and note which experiment to run
         DlgValue$(-1,"Run Null Test");
@@ -853,184 +1197,6 @@ func TuningCurveCRGMDialog%()
 	return iReturn%;
 end;
 
-' This function is initially called with a "0" input, which forces the 1-5 dialogs to be disabled
-' Of course, this could just be done with a DlgEnable call at the point of dialog creation.  There
-' doesn't seem to be any plan to un-disable those dialogs when the enabled dialog is changed.
-'func TuningCurveDonutDialogChanged%(item%)
-'    if item% = 0 then
-'        DlgEnable(0, 1, 2, 3, 4);
-'    endif    
-'    return 1;
-'end
-'
-'func TuningCurveDonutDialog%()
-'	var iReturn% := 0;
-'	var i%;
-'    var sValues$;
-'    var iValue%:=0;
-'    var result[1000];
-'    var indices%[1000];
-'    
-'	GetTuningCurveAreaParameters();
-'    
-'    ' Before we proceed, we must generate a list of choices for the optimal diameter. 
-'    ' Note that there are nsteps+1 values. 
-'    
-'    GetRepeatedParameterProgression%(tunAreaNSteps%+1, 1, result[], indices%[], tunAreaMinDiam, tunAreaMaxDiam, 1, 0);
-'    sValues$ := GetRealArrayAsStringSep$(result[0:tunAreaNSteps%+1], indices%[0:tunAreaNSteps%+1], "|");
-'    
-'	DlgCreate("Donut Tuning Curve Parameters");
-'	DlgInteger(1, "Number of Steps", 2, 100);
-'	DlgInteger(2, "Number of Repeats", 1, 1000);
-'	DlgReal(3, "Min Diameter", 0.1, 100);
-'	DlgReal(4, "Max Diameter", 0.1, 100);
-'	DlgCheck(5, "Random Progression");
-'    DlgList(6, "Optimal diameter", sValues$);
-'    DlgButton(151, "Master Grating", TunDlgGratingMaster%);
-'    DlgButton(152, "Slave Grating", TunDlgGratingSlave%);
-'    DlgButton(153, "Master Vals -> Slave", TunMasterValsToSlave%);
-'    DlgButton(154, "Slave Vals -> Master", TunSlaveValsToMaster%);
-'    DlgAllow(0xffff, 0, TuningCurveDonutDialogChanged%);
-'	i% := DlgShow(tunAreaNSteps%, tunAreaNRepeats%, tunAreaMinDiam, tunAreaMaxDiam, tunDonutProgression%, tunDonutOptimalIndex%);
-'    tunDonutOptimalDiam := result[tunDonutOptimalIndex%];
-'    
-'	' If i% is 1 the user hit "OK". If its 0, user hit "Cancel". 
-'	' When user hits OK we always save the parameters, and when user hits Cancel we don't.
-'    ' 
-'    ' djs 2/4/2011
-'    ' Spike2 bug workaround implemented. The return value from this function (when in DAQ context this
-'    ' dialog is called from a DlgButton in another dialog) should make the parent dialog close, as if 
-'    ' the OK button were hit. Bug in Spike2 v6 means this doesn't work right - the parent dialog will 
-'    ' close but its variables are not updated prior to doing so.... so any changes to the parent dialog
-'    ' are not seen in the subsequent expt, they're not saved in the registry, etc. Workaround is to return
-'    ' something > 0 here. The parent dialog will continue to display, and the user has to hit OK on that 
-'    ' before things proceed. 
-'    tunMaximalDiam := result[tunDonutOptimalIndex%];
-'    tunSlaveMaximalDiam := tunAreaMaxDiam;
-'	if i% = 1 then
-'		SaveTuningCurveAreaParameters();
-'		tunType$ := tunTypeDonut$;
-'		if tunContext$ = tunContextDAQ$ then
-'            ' djs 2/4/2011 We return 1 - that's the workaround			iReturn% := 0;
-'            iReturn% := 1;
-'		else
-'			iReturn% := 1;
-'		endif;
-'	endif;
-'	if i% = 0 then
-'		tunType$ := tunTypeNone$;
-'		if tunContext$ = tunContextDAQ$ then
-'			iReturn% := 1;
-'		else
-'			iReturn% := 2;
-'		endif;
-'	endif;
-'    
-'	return iReturn%;
-'end;
-'
-' This function is initially called with a "0" input, which forces the 1, 3, 4 dialogs to be disabled
-' Of course, this could just be done with a DlgEnable call at the point of dialog creation.  There
-' doesn't seem to be any plan to un-disable those dialogs when the enabled dialog is changed.
-'func TuningCurveBerlinerDialogChanged%(item%)    
-'    if item% = 0 then
-'        DlgEnable(0, 1, 3, 4);
-'    endif   
-'    return 1;
-'end
-'
-'func TuningCurveBerlinerDialog%()
-'	var iReturn% := 0;
-'	var i%;
-'    var sValues$;
-'    var iValue%:=0;
-'    var result[1000];
-'    var indices%[1000];
-'    
-'	GetTuningCurveAreaParameters();
-'    
-'    ' Before we proceed, we must generate a list of choices for the optimal diameter. These are based on the most recent run of Area tuning
-'    ' Note that there are nsteps+1 values. 
-'    
-'    GetRepeatedParameterProgression%(tunAreaNSteps%+1, 1, result[], indices%[], tunAreaMinDiam, tunAreaMaxDiam, 1, tunAreaProgression%);
-'    sValues$ := GetRealArrayAsStringSep$(result[0:tunAreaNSteps%+1], indices%[0:tunAreaNSteps%+1], "|");
-'    
-'    'We want the default maximal value to be the largest value available when we open the dialog
-'    'so set tunBerlinerMaximalIndex% appropriately
-'    tunBerlinerMaximalIndex% := tunAreaNSteps%;
-'    
-'    'Define tunBerlinerNSteps%, because we are no longer doing a tuning curve.
-'    tunBerlinerNSteps% := 6;
-'    
-'	DlgCreate("Berliner Tuning Curve Parameters");
-'	'DlgInteger(1, "Number of Steps", 2, 100);
-'    DlgInteger(1, "Number of Stimuli", 2, 100);
-'	DlgInteger(2, "Number of Repeats", 1, 1000);
-'	DlgReal(3, "Min Diameter", 0.1, 100);
-'	DlgReal(4, "Max Diameter", 0.1, 100);
-'	DlgCheck(5, "Random Progression");
-'    DlgList(6, "Optimal diameter", sValues$);
-'    DlgList(7, "Maximal diameter", sValues$);
-'    DlgButton(151, "Master Grating", TunDlgGratingMaster%);
-'    DlgButton(152, "Slave Grating", TunDlgGratingSlave%);
-'    DlgButton(153, "Master Vals -> Slave", TunMasterValsToSlave%);
-'    DlgButton(154, "Slave Vals -> Master", TunSlaveValsToMaster%);
-'    DlgAllow(0xffff, 0, TuningCurveBerlinerDialogChanged%);
-'	'i% := DlgShow(tunAreaNSteps%, tunAreaNRepeats%, tunAreaMinDiam, tunAreaMaxDiam, tunAreaProgression%, tunDonutOptimalIndex%, tunBerlinerMaximalIndex%);
-'    i% := DlgShow(tunBerlinerNSteps%, tunBerlinerNRepeats%, tunAreaMinDiam, tunAreaMaxDiam, tunBerlinerProgression%, tunDonutOptimalIndex%, tunBerlinerMaximalIndex%);
-'    
-'    tunMaximalDiam := tunAreaMaxDiam;
-'    tunSlaveMaximalDiam := result[tunBerlinerMaximalIndex%];
-'    ' Don't let the user screw this up by selecting incompatible values
-'    if tunBerlinerMaximalIndex% > tunDonutOptimalIndex%+1 then
-'        tunDonutOptimalDiam := result[tunDonutOptimalIndex%];
-'        tunDonutOptimalDiamPlusOne := result[tunDonutOptimalIndex%+1];
-'        tunBerlinerMaximalDiam := result[tunBerlinerMaximalIndex%];
-'    else
-'        i% := 0;  'Treat this as a "cancel"
-'        if tunBerlinerMaximalIndex% > tunDonutOptimalIndex% then
-'            message("Oops!|The maximal index was only one value greater than the optimal index!\nThis would result in 'near facilitation' and 'far suppression'\nstimuli being identical!\n\nI know you didn't want that, so try again!");
-'        else
-'            message("Oops!|The maximal index was not greater than the optimal index!\n\nI know you didn't want that, so try again!");
-'        endif;
-'    endif;
-'    
-'	' If i% is 1 the user hit "OK". If its 0, user hit "Cancel". 
-'	' When user hits OK we always save the parameters, and when user hits Cancel we don't.
-'    ' 
-'    ' djs 2/4/2011
-'    ' Spike2 bug workaround implemented. The return value from this function (when in DAQ context this
-'    ' dialog is called from a DlgButton in another dialog) should make the parent dialog close, as if 
-'    ' the OK button were hit. Bug in Spike2 v6 means this doesn't work right - the parent dialog will 
-'    ' close but its variables are not updated prior to doing so.... so any changes to the parent dialog
-'    ' are not seen in the subsequent expt, they're not saved in the registry, etc. Workaround is to return
-'    ' something > 0 here. The parent dialog will continue to display, and the user has to hit OK on that 
-'    ' before things proceed. 
-'	if i% = 1 then
-'		SaveTuningCurveAreaParameters();
-'		tunType$ := tunTypeBerliner$;
-'		if tunContext$ = tunContextDAQ$ then
-'            ' djs 2/4/2011 We return 1 - that's the workaround			iReturn% := 0;
-'            iReturn% := 1;
-'		else
-'			iReturn% := 1;
-'		endif;
-'	endif;
-'	if i% = 0 then
-'		tunType$ := tunTypeNone$;
-'		if tunContext$ = tunContextDAQ$ then
-'			iReturn% := 1;
-'		else
-'			iReturn% := 2;
-'		endif;
-'	endif;
-'    
-'	return iReturn%;
-'end;
-'
-
-
-
 func TunDlgGratingMaster%()
     
     var x, y, w, h, iw, ih, sf, tf, ori, phase;
@@ -1168,8 +1334,8 @@ func GratingParametersDialog2%(label$, &param$, &statparam$, &x, &y, &w, &h, &iw
         DlgReal(5, "Inner Width:", 0, 100);
         DlgReal(6, "Inner Height:", 0, 100);
         DlgInteger(7, "Contrast(%):", -100, 100);
-        DlgReal(8, "Spatial Freq:", .1, 10);
-        DlgReal(9, "Temporal Freq:", 0, 10);
+        DlgReal(8, "Spatial Freq:", .01, 10);
+        DlgReal(9, "Temporal Freq:", 0, 32);
         DlgReal(10, "Orientation (degrees):", -360, 360);
         DlgReal(11, "Initial Phase (deg, 0 = white at center)", 0, 360);
         DlgList(12, "Color:", ColorVectorList$[]);
@@ -1199,6 +1365,83 @@ func GratingParametersDialog2%(label$, &param$, &statparam$, &x, &y, &w, &h, &iw
     endif
     return i%;
 end;
+
+
+func SelectTuningFile%()
+    'This generic function ought to work for any of the dialogs where we allow the selection of a tuning file
+
+    var status% := 1;
+    var direc$;
+    var fh0%;
+    
+    direc$ := FilePath$();  'get current directory
+    fh0%:=FileOpen(direc$+"*.txt",1,0,"Please select a tuning file");  'Find a tuning file
+    direc$ := FileName$(0);  'Get full path of selected file
+    FileClose(fh0%);  'Just close the file, we're not using it
+    DlgValue$(7,direc$);  'Place filename into dialog item 7 of calling dialog
+
+	return status%;  'return 1 so calling dialog doesn't close
+    
+end;
+
+func SelectTuningFileNullTest%()
+    'This generic function ought to work for any of the dialogs where we allow the selection of a tuning file
+    'This is the same as the regular file, but the string dialog entry is in a different location for the null test.
+    'It would have been really cool to have this function take an argument, but I tried that and it automatically ran
+    'the function without the button being pressed as soon as the parent dialog was open, so that's a no-go.
+
+    var status% := 1;
+    var direc$;
+    var fh0%;
+    
+    direc$ := FilePath$();  'get current directory
+    fh0%:=FileOpen(direc$+"*.txt",1,0,"Please select a tuning file");  'Find a tuning file
+    direc$ := FileName$(0);  'Get full path of selected file
+    FileClose(fh0%);  'Just close the file, we're not using it
+    DlgValue$(9,direc$);  'Place filename into dialog item 9 of calling dialog
+
+	return status%;  'return 1 so calling dialog doesn't close
+    
+end;
+
+
+func TuningCurveGenericDialogChanged%(item%)
+    'This single dialog changed function can be used for almost ALL the acute tuning dialogs that allow file-based tuning curves
+    '(at least currently) because they all have the same structure and therefore the same dialog positions to allow/disallow
+    if DlgValue(6) = 0 then  'If we are not using a tuning file
+        DlgEnable(0,7);  'disable the string box with the text file name (button still works)
+        DlgEnable(1,1);  'enable nSteps, min, and max
+        DlgEnable(1,3);
+        DlgEnable(1,4);
+    endif;
+    if DlgValue(6) = 1 then
+        DlgEnable(1,7);  'enable the string box with the text file name
+        DlgEnable(0,1);  'disable nSteps, min, and max
+        DlgEnable(0,3);
+        DlgEnable(0,4);
+    endif;
+    return 1;
+end
+
+
+func TuningCurveNullTestDialogChanged%(item%)
+    'The Null Test dialog has extra entries below, moving the tested checkbox to position 8 and the DlgString to 9
+    if DlgValue(8) = 0 then  'If we are not using a tuning file
+        DlgEnable(0,9);  'disable the string box with the text file name (button still works)
+        DlgEnable(1,1);  'enable nSteps, min, and max
+        DlgEnable(1,3);
+        DlgEnable(1,4);
+    endif;
+    if DlgValue(8) = 1 then
+        DlgEnable(1,9);  'enable the string box with the text file name
+        DlgEnable(0,1);  'disable nSteps, min, and max
+        DlgEnable(0,3);
+        DlgEnable(0,4);
+    endif;
+    return 1;
+end
+
+
 '
 'func GratingParametersDialogSlave%(label$, &param$, &statparam$, &x, &y, &w, &h, &contrast%, &sf, &tf, &ori, &phase, &cv$, &pattern$, &aperture$)
 '    
