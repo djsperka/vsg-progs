@@ -4,7 +4,7 @@
 #include <string>
 #include <sstream>
 #include <fstream>
-
+#include <boost/algorithm/string.hpp>
 #ifdef _DEBUG
 #pragma comment(lib, "dalert.lib")
 #else
@@ -16,6 +16,7 @@
 
 using namespace std;
 using namespace alert;
+using namespace boost::algorithm;
 
 int parse_fixation_point(const std::string& s, alert::ARFixationPointSpec& afp)
 {
@@ -788,6 +789,26 @@ int parse_sequence(std::string s, std::string& seq)
 }
 
 
+// trim, remove quotes (if they enclose the string), and trim again.
+int parse_string(std::string s, std::string& s2)
+{
+	s2 = s;
+
+	// trim
+	trim(s2);
+
+	// remove enclosing quotes. If a leading quote is found it is removed. 
+	// Same for trailing quote. If you get one and not the other, just one is 
+	// removed. 
+    trim_left_if(s2,is_any_of("\"'"));
+    trim_right_if(s2,is_any_of("\"'"));
+
+	// trim again
+	trim(s2);
+
+	return 0;
+}
+
 
 int get_color(COLOR_TYPE c, VSGTRIVAL& trival)
 {
@@ -903,6 +924,19 @@ int parse_integer(std::string s, int& i)
 	if (!iss) 
 	{
 		cerr << "bad integer: " << s << endl;
+		status=1;
+	}
+	return status;
+}
+
+int parse_ulong(std::string s, unsigned long& l)
+{
+	int status=0;
+	istringstream iss(s);
+	iss >> l;
+	if (!iss) 
+	{
+		cerr << "bad unsigned long: " << s << endl;
 		status=1;
 	}
 	return status;
@@ -1082,7 +1116,7 @@ int tokenize_response_file(char *filename, vector<string> &tokens)
  * On successful handling of all args prargs will return 0. 
  */
 
-int prargs(int argc, char **argv, process_args_func pfunc, char *options, int response_file_char)
+int prargs(int argc, char **argv, process_args_func pfunc, const char *options, int response_file_char, prargs_handler* handler)
 {
 	string s;
 	int c;
@@ -1095,9 +1129,9 @@ int prargs(int argc, char **argv, process_args_func pfunc, char *options, int re
 	int status = 0;
 
 	// Check that pfunc is not null, then test for response file.
-	if (!pfunc)
+	if (!pfunc && !handler)
 	{
-		cerr << "prargs: process_args_func is NULL." << endl;
+		cerr << "prargs: process_args_func and handler is NULL. Must provide a handler for args!" << endl;
 		return -1;
 	}
 
@@ -1135,6 +1169,7 @@ int prargs(int argc, char **argv, process_args_func pfunc, char *options, int re
 
 
 	// Now process them with getopt.
+	optind = 0;
 	while (!stop_processing && (c = getopt(local_argc, local_argv, options)) != -1)
 	{
 		stringstream ss;
@@ -1143,12 +1178,16 @@ int prargs(int argc, char **argv, process_args_func pfunc, char *options, int re
 		case '?':
 			ss.clear();
 			ss << (char)c;
-			cerr << "unknown arg letter (" << ss.str() << ")" << endl;
+			cerr << "unknown arg letter (" << ss.str() << ") optind " << optind << endl;
+			status = -1;
+			stop_processing = true;
 			break;
 		default:
 			if (optarg)	s.assign(optarg);
 			else s.assign("");
-			if (status = pfunc(c, s))
+			if (pfunc) status = pfunc(c, s);
+			else if (handler) status = handler->process_arg(c, s);
+			if (status)
 				stop_processing = true;
 			break;
 		}
@@ -1159,7 +1198,8 @@ int prargs(int argc, char **argv, process_args_func pfunc, char *options, int re
 	if (c == -1 && !status)
 	{
 		s.assign("");
-		status = pfunc(0, s);
+		if (pfunc) status = pfunc(0, s);
+		else if (handler) status = handler->process_arg(0, s);
 	}
 
 	// free the space taken up by our version of the args

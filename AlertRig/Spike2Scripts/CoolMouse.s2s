@@ -1,4 +1,4 @@
-' $Id: CoolMouse.s2s,v 1.20 2014-06-30 20:22:32 devel Exp $
+' $Id: CoolMouse.s2s,v 1.21 2015-05-12 17:15:18 devel Exp $
 ' Update 11/8/11 Jeff, includes SafeSampleKey and multi-juicer updates
 
 #include "../../Spike2util\UsreyUtil.s2s"
@@ -12,6 +12,9 @@ var cmFixationDuration := 1.0;
 var cmMaintainFixation := 1.0;
 var cmTimeOutTime := 1.0;
 var cmAlwaysLooking% := 0;          ' testing only
+var cmRemoteGratingParametersFile$; ' initialized below
+var cmLocalGratingParametersFile$;  ' initialized below
+var cmUseGratingParametersFile% := 0;    ' only if remote is NOT 127.0.0.1
 
 ' Window handles and channel numbers
 var XChannel%,YChannel%;		' Channel number assigned to eye x and y
@@ -31,6 +34,18 @@ var windowX[36], windowY[36];
 var iStimX%[8];
 var iStimY%[8];
 var iStimIndex%;
+
+
+' Initialized logging
+LogInit(1);
+
+' initialize filenames for remote case. The filenames must be coordinated so that the 'remote' 
+' name is the filename as viewed from the remote machine. The 'local' name is the same
+' file but viewed from the local machine.
+
+cmRemoteGratingParametersFile$ := "s:\\cmouse-grating-parameters.txt";
+cmLocalGratingParametersFile$ := GetStimDir$(1) + "cmouse-grating-parameters.txt";
+
 
 
 ' Dialog
@@ -114,22 +129,24 @@ func IdleProcessing%()
         
         ' HACK skip wait state!!!!! djs 2/8/2012
         
-        ChangeStateTo(stateStartTrial%, tNow);
+        'ChangeStateTo(stateStartTrial%, tNow);
         
 			' Waiting for VSG to indicate it is ready. The indication is a pulse (up, then down, 1 frame apart) on port 6.
-			'tTrigger := NextTime(ReadyChannel%, tLast, vTrigger);
-			'if tTrigger > tLastTrigger and vTrigger = 0 then
-		'		PrintLog("state stateVSGWait: Got leading edge of trigger at " + str$(tTrigger) + "\n");
-	'			tLastTrigger := tTrigger;
-'				ChangeStateTo(stateVSGWaitConfirm%, tTrigger);
-'			endif;
+			tTrigger := NextTime(ReadyChannel%, tLast, vTrigger);
+			if tTrigger > tLastTrigger and vTrigger = 0 then
+				LogStatus("stateVSGWait", "Got leading edge of trigger at " + str$(tTrigger));
+				tLastTrigger := tTrigger;
+                ChangeStateTo(stateVSGWaitConfirm%, tTrigger);
+            else 
+                LogStatus("VSGWait", "no ready trig at " + str$(tNow));
+			endif;
 
 		case iState% = stateVSGWaitConfirm% then
 
 			' Waiting for VSG to confirm it is ready. The downward side of the pulse is expected...
 			tTrigger := NextTime(ReadyChannel%, tLastTrigger, vTrigger);
 			if tTrigger > tLastTrigger and vTrigger = 1 then
-				PrintLog("state stateVSGWaitConfirm: Got trailing edge of trigger\n");
+				LogStatus("stateVSGWaitConfirm", "Got trailing edge of trigger");
 				tLastTrigger := tTrigger;
 				ChangeStateTo(stateStartTrial%, tTrigger);
 			endif;
@@ -138,7 +155,7 @@ func IdleProcessing%()
 		case iState% = stateStartTrial% then
 
 			' Start trial. Put up fixation point.
-			PrintLog("stateStartTrial: Send F key\n");
+			LogStatus("stateStartTrial", "Send F key");
 			SafeSampleKey("F");
 			ChangeStateTo(stateWaitForFixPtOn%, tTrigger);
 		
@@ -147,7 +164,7 @@ func IdleProcessing%()
 			tTrigger := NextTime(TriggerChannel%, tLast, vTrigger);
 			if tTrigger > tLast and vTrigger = 0 then
 				' Fixation point is up
-				PrintLog("stateWaitForFixPtOn: signal received.\n");
+				LogStatus("stateWaitForFixPtOn", "Fixpt is on");
 				tLastTrigger := tTrigger;
 				ChangeStateTo(stateWaitForAcquisition%, tTrigger);
 				DrawStim(1);	' actually this draws the location of the fixpt.
@@ -157,12 +174,12 @@ func IdleProcessing%()
 
 			' Waiting for eye to fall inside of fixation window
 			if InFixationWindow%(xEye, yEye) = 1 then
-				PrintLog("stateWaitForAcquisition: eye in fixation window\n");
+				LogStatus("stateWaitForAcquisition", "eye in fixation window");
 				ChangeStateTo(stateHoldFixation%, tNow);
 			else 
 				if tNow - tStateStart > cmAcquisitionTime then
 					' failed to acquire target. 
-					PrintLog("stateWaitForAcquisition: failed.\n");
+					LogStatus("stateWaitForAcquisition", "failed.");
 					ChangeStateTo(stateAbort%, tNow);
 				endif
 			endif
@@ -171,7 +188,7 @@ func IdleProcessing%()
 
 			' Signal "X" turns off fixpt and stimulus. The next state 'stateWaitForBlank' only checks for 
 			' fixpt off. 
-			PrintLog("stateAbort: send f key.\n");
+			LogStatus("stateAbort", "send f key.");
 			SafeSampleKey("f");
 			ChangeStateTo(stateWaitForBlank%, tNow);
 
@@ -181,7 +198,7 @@ func IdleProcessing%()
 			tTrigger := NextTime(TriggerChannel%, tLast, vTrigger);
 			if tTrigger > tLast and vTrigger = 1 then
 				' Fixation point is off
-				PrintLog("stateWaitForBlank: Fix pt is off.\n");
+				LogStatus("stateWaitForBlank", "Fix pt is off.");
 				tLastTrigger := tTrigger;
 				ChangeStateTo(stateInterTrialInterval%, tTrigger);
 				DrawStim(0);	' actually this draws the location of the fixpt.
@@ -191,7 +208,7 @@ func IdleProcessing%()
 
 			if tNow - tStateStart > cmTimeOutTime then
 
-				PrintLog("stateInterTrialInterval: time out is done.\n");
+				LogStatus("stateInterTrialInterval", "time out is done.");
 				ChangeStateTo(stateStartTrial%, tNow);
 
 			endif
@@ -200,7 +217,7 @@ func IdleProcessing%()
 
 			if InFixationWindow%(xEye, yEye) = 0 then
 	       		
-				PrintLog("stateWaitForFixation: outside fixation window, aborting trial.\n");
+				LogStatus("stateWaitForFixation", "outside fixation window, aborting trial.");
 				ChangeStateTo(stateAbort%, tNow);
 
 			else 
@@ -209,7 +226,7 @@ func IdleProcessing%()
 
 					' update tStateStart
 					ChangeStateTo(stateMaintainFixation%, tNow);
-					PrintLog("stateWaitForFixation: successful trial.\n");
+					LogStatus("stateWaitForFixation", "successful trial.");
 	
 					' Reward
 					DefaultReward();
@@ -222,7 +239,7 @@ func IdleProcessing%()
 
 			if InFixationWindow%(xEye, yEye) = 0 then
 	       		
-				PrintLog("stateWaitForFixation: outside fixation window, aborting trial.\n");
+				LogStatus("stateWaitForFixation", "outside fixation window, aborting trial.");
 				ChangeStateTo(stateAbort%, tNow);
 
 			else 
@@ -231,7 +248,7 @@ func IdleProcessing%()
 
 					' update tStateStart
 					ChangeStateTo(stateMaintainFixation%, tNow);
-					PrintLog("stateMaintainFixation: again....\n");
+					LogStatus("stateMaintainFixation", "again....");
 	
 					' Reward
 					DefaultReward();
@@ -277,8 +294,8 @@ proc CreateSampleConfiguration()
     
 	'Channel recording definitions
 	SampleEvent(TriggerChannel%, 2, 2, 3600); 'Trigger channel, level
-	SampleComment$(TriggerChannel%, "Trigger");
-	SampleTitle$(TriggerChannel%, "Trigger");
+	SampleComment$(TriggerChannel%, "Fixpt");
+	SampleTitle$(TriggerChannel%, "Fixpt");
     
 	' channel to look for ready signal from vsg
 	SampleEvent(ReadyChannel%, 1, 2, 3600); 'Trigger channel, level
@@ -411,6 +428,9 @@ end;
 func Start%()
 	var CommandLine$;
 	var Extras$;
+    var RemoteArg$;
+    var remoteExtras$;
+    var i%;
     
 	SampleStart(0); 'Start sampling
     ' Set Sequencer Variable #3 based on juicer type 
@@ -418,31 +438,49 @@ func Start%()
     ' Clear any trigger bits on digout lines.
     SafeSampleKey("0");
 
-	Extras$ := " -b gray -p 2 -A " + GetFixationArg$() + " -d " + GetDistanceToScreenMM$() + " -g " + GetGratingParameters$("Stimulus");
-	CommandLine$ := "cmd /c " + bin$ + "\\cmouse" + Extras$;
-
-	'Begin the stimulus program. It will take a few seconds for the VSG to initialize.
-	PrintLog(CommandLine$+"\n");
+    Extras$ := " -b gray -p 2 -S 20 -A " + GetFixationArg$() + " -d " + GetDistanceToScreenMM$() + " -g " + GetGratingParameters$("Stimulus");
+    if GetUseRemoteStimulus%() = 1 then
+        
+        ' We only use remote parameters file if the remote is 192.168.x.x, not 127.0.0.1
+        if InStr(GetRemoteStimulusIP$(), "127.0.0.1") = 0 then
+            LogStatus("Start()", "Remote stimulus on a local port.");
+            cmUseGratingParametersFile% := 1;
+            RemoteExtras$ := " -r " + cmRemoteGratingParametersFile$;
+            
+            ' Clear remote grating parameters file before we start cmouse
+            i% := FileDelete(cmLocalGratingParametersFile$);
+            LogStatus("Start()", "delete " + cmLocalGratingParametersFile$ + " status " + str$(i%));
+        endif
+                
+        ' Command line in this case has remote ip and port...
+        RemoteArg$ := " " + GetRemoteStimulusIP$() + " " + GetRemoteStimulusPort$() + " cmouse ";
+       	CommandLine$ := "cmd /c " + bin$ + "\\remote " + RemoteArg$ + Extras$ + RemoteExtras$;
+    else
+       	CommandLine$ := "cmd /c " + bin$ + "\\cmouse" + Extras$;
+    endif;
+    
+	ToolbarSet(0,"",IdleProcessing%);	'Enable the IdleProcessing function
+	ToolbarEnable(2,1);
+	ToolbarEnable(1,0);
+	View(DataWindow%);
+	Yield(.1);
+    
+	'Begin the stimulus program.
+	LogStatus("Start()", CommandLine$);
 	StimHandle% := ProgRun(CommandLine$,1);
 	if StimHandle% <0 then 
 		Message("Could not start stimulus."); 
 		SampleStop();
 		halt; 
 	endif
-	Yield(5);	'Wait a few seconds to make sure the VSG has time to initialize.
 
-	ToolbarSet(0,"",IdleProcessing%);	'Enable the IdleProcessing function
-	ToolbarEnable(2,1);
-	ToolbarEnable(1,0);
-	View(DataWindow%);
-	Yield(.1);
 	return 1;	
 end;
 
 
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 func Stop%()
-
+    
 	' Disable idle process func
 	ToolbarSet(0,"");
 
@@ -450,12 +488,20 @@ func Stop%()
 	SafeSampleKey("q");
 	Yield(.1);
 	SampleStop();
-'	ProgKill(StimHandle%);
-'	while ProgStatus(StimHandle%) > 0 do
-'		Yield();
-'	wend
-'	ProgRun(bin$ + "\\ClearTrigger",0);
-
+    
+    ' if remote, check for updated stimulus
+    if GetUseRemoteStimulus%() = 1 then
+        if FileOpen(cmLocalGratingParametersFile$, 8, 0) < 0 then
+            LogError("Stop%()", "Cannot open registry parameters file. Saved grating parameters cannot be pushed to registry.");
+        else
+            var stmp$;
+            Read(stmp$);
+            LogStatus("Stop%()", "Got grating parameters from cmouse: " + stmp$);
+            FileClose();
+            SaveGratingParameters("Stimulus", stmp$);
+        endif
+    endif
+    return 0;
 end;
 
 

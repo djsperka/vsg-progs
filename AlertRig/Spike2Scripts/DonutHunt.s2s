@@ -1,6 +1,6 @@
 
 
-const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.59 2014-05-19 22:07:31 jeff Exp $";
+const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.60 2015-05-12 17:15:19 devel Exp $";
 
 
 ' Hello again
@@ -29,6 +29,7 @@ var pausing% := 0;  'This is used to determine if we just exited a pause, so we 
 
 ' Channel numbers and handles
 var StimHandle%;			' handle for stimulus application
+var StimHandleSlave%;			' handle for stimulus application
 var DataWindow%;		
 var FrameChannel%;
 var FrameSlaveChannel%;
@@ -644,12 +645,17 @@ end;
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 func Start%()
 	var cmdLine$;
+	var cmdLineM$;
+	var cmdLineS$;
     var Opener$;
+    var OpenerM$;
+    var OpenerS$;
     var ProgName$;
     var XHairArg$:="";  'Note that all variables are used to construct cmdLine$, if unused, must be empty
     var BGColor$;
     var Dist2Screen$;
     var TriggerPort$;
+    var TriggerArg$;
     var Verbose$:=" -v ";  'For now, verbose is always on
     var RefrLock$:="";
     var OffsetFile$:="";
@@ -672,9 +678,12 @@ func Start%()
     var CRGSecondaryArg$;
     var CRGSecondaryValues$;
     var specHandle%;
-    var specFileName$:="D:\\work\\DonutHuntSpecFile.txt";
+    var specFileNameM$:="D:\\work\\DonutHuntSpecFile.txt";
+    var specFileNameS$:="Z:\\work\\DonutHuntSpecFile.txt";
     'specFileName$:="E:\\DonutHuntSpecFile.txt";  'for testing, Jeff's computer
     var SpecFileArg$;
+    var SpecFileArgM$;
+    var SpecFileArgS$;
     var coreParam$;
     var donutParam$;
     var coreScreen$;
@@ -686,8 +695,13 @@ func Start%()
     
 	
 	SampleStart(0); 'Start sampling
+    
 	' Set Sequencer Variable #3 based on juicer type 
     SetJuicerSequencerVariable%();  'Do this so that SafeSampleKey below doesn't open juicer
+    
+    ' djs Set sequencer variable 5 to enable rivalry triggering
+    SampleSeqVar(5, 1);
+    
     ' Clear any trigger bits on digout lines.
     SafeSampleKey("0");
     
@@ -697,7 +711,7 @@ func Start%()
     GetDonutHuntXHairParameters();
     
     'open a file to write the trial-by-trial specs for the VSG
-    specHandle% := FileOpen(specFileName$, 8, 1);
+    specHandle% := FileOpen(specFileNameM$, 8, 1);
 	' write info
     coreParam$ := GetGratingParameters$("Core");  'this grabs core 
     donutParam$ := GetGratingParameters$("Donut");  'this grabs donut
@@ -762,12 +776,8 @@ func Start%()
     
     'Begin building the command line argument
     Opener$ := "cmd /k " + bin$;
-    
-    'DonutHunt is always dual-screen
-    RefrLock$ := " -K ";  'lock frame refresh on the two screens
-    'RefrLock$ := "";  'Dan sez refresh lock probably doesn't matter, nope, now Dan sez do it for kicks and all
-    
-    ProgName$ := "\\dualstim.exe "; 'set program name for dual VSG
+    OpenerM$ := "cmd /k " + bin$ + "\\fixstim.exe ";
+    OpenerS$ := "cmd /k " + bin$ + "\\fixstim.exe -c 192.168.1.2:7000 ";
     
     ' Fetch the offset filename
     key$ := GetRegistryKey$(1) + "\\Rivalry";
@@ -796,15 +806,23 @@ func Start%()
     'Turn on verbose
     Verbose$ := " -v ";   
     
+    ' Trigger arg
+    TriggerArg$ := " -V 128,FS ";
+    
     'Set the Spec file
-    SpecFileArg$ := " -P " + specFileName$;
+    SpecFileArgM$ := " -I " + specFileNameM$;
+    SpecFileArgS$ := " -U " + specFileNameS$;
     
 
     'Build command line, any values that are unnecessary will be empty, so the build should work no matter what type of command line is required
     cmdLine$ := Opener$ + ProgName$ + FixationArg$ + XHairArg$ + BGColor$ + Dist2Screen$ + TriggerPort$ + Verbose$; 'prelim stuff
     cmdLine$ := cmdLine$ + RefrLock$ + OffsetFile$ + StimDur$;  'Dual VSG stuff
     cmdLine$ := cmdLine$ + SpecFileArg$;  'specification file
-
+    
+    cmdLineM$ := OpenerM$ + FixationArg$ + XHairArg$ + BGColor$ + Dist2Screen$ + TriggerPort$ + TriggerArg$ + Verbose$ + SpecFileArgM$;
+    cmdLineS$ := OpenerS$ + FixationArg$ + XHairArg$ + BGColor$ + Dist2Screen$ + TriggerPort$ + TriggerArg$ + Verbose$ + SpecFileArgS$;
+    
+    
     ' Record initial text marks. The command line may need to be broken into pieces.
     ' For tuning: Version 6,7 are always box--o-donuts
     ' Version 8 is CRG.
@@ -830,11 +848,16 @@ func Start%()
     
     
 	'Begin the stimulus program. It will take a few seconds for the VSG to initialize.
-	PrintLog(cmdLine$+"\n");
+    PrintLog("Master: " + cmdLineM$ + "\n");
+    PrintLog("Slave: " + cmdLineS$ + "\n");
     printlog("num advances is %d and num repeats is %d\n",dhNValues%,dhNRepeats%);
     dhNValues% := dhNValues%*dhNRepeats%;  'Idle loop uses dhNValues as a stopping guide, but we need the number of repeats
-	StimHandle% := ProgRun(cmdLine$,1);
+    
+    
+    StimHandle% := ProgRun(cmdLineM$, 1);       
+    StimHandleSlave% := ProgRun(cmdLineS$, 1);
 	if StimHandle% <0 then Message("Could not start stimulus."); halt; endif
+    if StimHandleSlave% < 0 then Message("Could not start slave stimulus."); halt; endif
 	
 	ToolbarSet(0,"",IdleProcessing%);	'Enable the IdleProcessing function
 	ToolbarEnable(2,1);
@@ -859,7 +882,7 @@ func Stop%()
 	ToolbarSet(0,"");
 
 	' Tell stim app to shut down
-    SafeSampleKey("X");
+    ' Extraneous X SafeSampleKey("X");
 	SafeSampleKey("Q");
 	Yield(.1);
 	SampleStop();
@@ -1489,6 +1512,12 @@ func IdleProcessing%()
                     MonkeySuccess% := 1;  'this trial was correct, only fixation required
                     nTrialsCompleted% += 1;
                     SafeSampleKey("X");  'Turns off blank page, do this BEFORE advancing stimulus!
+                    
+                    ' djs Update toolbarText here. All other cases its handled in another state....
+                    pctCorrect := round(1000*nCorrect%/nTrialsCompleted%)/10;
+                    printlog("number of trials completed is %d\n",nTrialsCompleted%);
+                    ToolbarText(str$(nTrialsCompleted%) + "/" + str$(dhNValues%) + " trials completed, " + Str$(pctCorrect) + "% correct.");
+ 
                     ChangeStateTo(stateCheckStimOff%, tNow); 'jump to combined logic
                 case dhUseJoystick% = 1 then  'use joystick for response
                     SampleText("Off" + Str$(nMaskTriggersFound%),tRise);  'tRise will carry over from most recent FindPulseUp% call

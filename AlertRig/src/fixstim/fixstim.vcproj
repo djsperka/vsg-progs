@@ -21,6 +21,7 @@
 			OutputDirectory="$(SolutionDir)$(ConfigurationName)"
 			IntermediateDirectory="$(ConfigurationName)"
 			ConfigurationType="1"
+			UseOfMFC="2"
 			CharacterSet="1"
 			>
 			<Tool
@@ -41,7 +42,7 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
-				AdditionalIncludeDirectories="&quot;C:\Program Files\Cambridge Research Systems\VSGV8\Windows\Win32\MSVC\INCLUDE&quot;;../alertlib/include"
+				AdditionalIncludeDirectories="../../include;&quot;C:\Program Files\Cambridge Research Systems\VSGV8\Windows\Win32\MSVC\INCLUDE&quot;;../alertlib/include;&quot;C:\Program Files\Applied Science Laboratories\DLL&quot;"
 				PreprocessorDefinitions="WIN32;_DEBUG;_CONSOLE"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
@@ -63,7 +64,7 @@
 				Name="VCLinkerTool"
 				OutputFile="..\..\bin\d$(ProjectName).exe"
 				LinkIncremental="2"
-				AdditionalLibraryDirectories="../alertlib/lib;&quot;C:\Program Files\Cambridge Research Systems\VSGV8\Windows\Win32\MSVC\LIB&quot;"
+				AdditionalLibraryDirectories="../alertlib/lib;..\..\lib;&quot;C:\Program Files\Cambridge Research Systems\VSGV8\Windows\Win32\MSVC\LIB&quot;;D:\src\boost_1_55_0\stage\lib"
 				GenerateDebugInformation="true"
 				SubSystem="1"
 				TargetMachine="1"
@@ -95,6 +96,7 @@
 			OutputDirectory="$(SolutionDir)$(ConfigurationName)"
 			IntermediateDirectory="$(ConfigurationName)"
 			ConfigurationType="1"
+			UseOfMFC="2"
 			CharacterSet="1"
 			WholeProgramOptimization="1"
 			>
@@ -117,7 +119,7 @@
 				Name="VCCLCompilerTool"
 				Optimization="2"
 				EnableIntrinsicFunctions="true"
-				AdditionalIncludeDirectories="&quot;C:\Program Files\Cambridge Research Systems\VSGV8\Windows\Win32\MSVC\INCLUDE&quot;;../alertlib/include"
+				AdditionalIncludeDirectories="../../include;&quot;C:\Program Files\Cambridge Research Systems\VSGV8\Windows\Win32\MSVC\INCLUDE&quot;;../alertlib/include;&quot;C:\Program Files\Applied Science Laboratories\DLL&quot;"
 				PreprocessorDefinitions="WIN32;NDEBUG;_CONSOLE"
 				RuntimeLibrary="2"
 				EnableFunctionLevelLinking="true"
@@ -138,7 +140,7 @@
 				Name="VCLinkerTool"
 				OutputFile="..\..\bin\$(ProjectName).exe"
 				LinkIncremental="1"
-				AdditionalLibraryDirectories="../alertlib/lib;&quot;C:\Program Files\Cambridge Research Systems\VSGV8\Windows\Win32\MSVC\LIB&quot;"
+				AdditionalLibraryDirectories="../alertlib/lib;..\..\lib;&quot;C:\Program Files\Cambridge Research Systems\VSGV8\Windows\Win32\MSVC\LIB&quot;;D:\src\boost_1_55_0\stage\lib"
 				GenerateDebugInformation="true"
 				SubSystem="1"
 				OptimizeReferences="2"
@@ -177,7 +179,79 @@
 			UniqueIdentifier="{4FC737F1-C7A5-4376-A066-2A32D752A2FF}"
 			>
 			<File
+				RelativePath=".\ASLSerial.cpp"
+				>
+				<FileConfiguration
+					Name="Debug|Win32"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						UsePrecompiledHeader="2"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|Win32"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						UsePrecompiledHeader="2"
+					/>
+				</FileConfiguration>
+			</File>
+			<File
+				RelativePath=".\AttentionStimSet.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\CalibrationUStim.cpp"
+				>
+				<FileConfiguration
+					Name="Debug|Win32"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						UsePrecompiledHeader="2"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|Win32"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						UsePrecompiledHeader="2"
+					/>
+				</FileConfiguration>
+			</File>
+			<File
+				RelativePath=".\CMouseUStim.cpp"
+				>
+			</File>
+			<File
 				RelativePath=".\DotStimSet.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\EQStimSet.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\FGGXCoreStimSet.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\FGGXDanishStimSet.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\FGGXDonutStimSet.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\FGGXNullStimSet.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\FGGXStimSet.cpp"
 				>
 			</File>
 			<File
@@ -189,15 +263,39 @@
 				>
 			</File>
 			<File
+				RelativePath=".\FixUStim.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\MultiParameterFXGStimSet.cpp"
+				>
+			</File>
+			<File
 				RelativePath=".\README.txt"
 				>
+			</File>
+			<File
+				RelativePath=".\stdafx.cpp"
+				>
+				<FileConfiguration
+					Name="Release|Win32"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+						UsePrecompiledHeader="1"
+					/>
+				</FileConfiguration>
 			</File>
 			<File
 				RelativePath=".\StimSet.cpp"
 				>
 			</File>
 			<File
-				RelativePath=".\StimSet.h"
+				RelativePath=".\StimSetCRG.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\UStim.cpp"
 				>
 			</File>
 		</Filter>
@@ -207,15 +305,67 @@
 			UniqueIdentifier="{93995380-89BD-4b04-88EB-625FBE52EBFB}"
 			>
 			<File
+				RelativePath=".\ASLSerial.h"
+				>
+			</File>
+			<File
+				RelativePath=".\AttentionStimSet.h"
+				>
+			</File>
+			<File
+				RelativePath=".\CalibrationUStim.h"
+				>
+			</File>
+			<File
+				RelativePath=".\CMouseUStim.h"
+				>
+			</File>
+			<File
+				RelativePath=".\EQStimSet.h"
+				>
+			</File>
+			<File
+				RelativePath=".\FGGXStimSet.h"
+				>
+			</File>
+			<File
 				RelativePath=".\FixptGratingStimSet.h"
 				>
 			</File>
 			<File
-				RelativePath=".\StimParameterList.h"
+				RelativePath=".\FixUStim.h"
+				>
+			</File>
+			<File
+				RelativePath=".\FXGStimParameterList.h"
+				>
+			</File>
+			<File
+				RelativePath=".\MultiParameterFXGStimSet.h"
+				>
+			</File>
+			<File
+				RelativePath=".\SSInfo.h"
+				>
+			</File>
+			<File
+				RelativePath=".\stdafx.h"
+				>
+			</File>
+			<File
+				RelativePath=".\StimSet.h"
 				>
 			</File>
 			<File
 				RelativePath=".\StimSet2.h"
+				>
+			</File>
+			<File
+				RelativePath=".\StimSetCRG.h"
+				>
+			</File>
+			<File
+				RelativePath=".\UStim.h"
 				>
 			</File>
 		</Filter>

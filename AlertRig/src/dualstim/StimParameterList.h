@@ -53,6 +53,7 @@ public:
 	}
 
 private:
+	void set_initial_parameters();
 	vector<double> m_vec;
 	vector<double>::const_iterator m_iter;
 };

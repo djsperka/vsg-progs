@@ -75,6 +75,7 @@ int parse_pattern(std::string s, PATTERN_TYPE& p);
 int parse_aperture(std::string s, APERTURE_TYPE& a);
 int parse_distance(std::string s, int& dist);
 int parse_integer(std::string s, int& i);
+int parse_ulong(std::string s, unsigned long& l);
 int parse_double(std::string s, double& d);
 int parse_int_list(std::string s, std::vector<int>& list);
 int parse_int_list(std::vector<std::string>& tokens, std::vector<int>& list);
@@ -89,6 +90,7 @@ int parse_number_list(std::vector<std::string>& tokens, std::vector<double>& num
 int parse_xy(std::string s, double& x, double& y);
 int parse_triplet(std::string s, double& d1, double& d2, double &d3);
 int parse_sequence(std::string s, std::string& seq);
+int parse_string(std::string s, std::string& scleaned);
 void tokenize(const std::string& str, std::vector<std::string>& tokens, const std::string& delimiters);
 void make_argv(const std::string& str, int &argc, char **argv);
 void make_argv(std::vector<std::string>tokens, int& argc, char** argv);
@@ -120,8 +122,23 @@ const char* get_msequence();
  */
 
 typedef int (*process_args_func)(int option, std::string& arg);
-int prargs(int argc, char **argv, process_args_func pfunc, char *options, int response_file_char=0);
+
+// Alternate, for when you want the callback to be in a class. 
+class prargs_handler
+{
+public:
+	virtual int process_arg(int option, std::string& arg) = 0;
+};
+
+
+
+int prargs(int argc, char **argv, process_args_func pfunc, const char *options, int response_file_char=0, prargs_handler* handler = 0);
+
 int tokenize_response_file(char *filename, std::vector<std::string> &tokens);
+
+
+
+
 
 // convenient operators
 std::ostream& operator<<(std::ostream& out, const COLOR_TYPE& c);
@@ -155,6 +172,7 @@ namespace alert
 	public:
 		~ARvsg();
 		int init(int screenDistanceMM, COLOR_TYPE i_bg, bool bUseLockFile=true, bool bSlaveSynch = false);
+		int setViewDistMM(int screenDistanceMM);
 
 		// This function initializes all pages to background color. That color is set as 
 		// level 0 - this func does not use vsgBACKGROUND. This func should be used if 
@@ -210,6 +228,7 @@ namespace alert
 		int request_single(PIXEL_LEVEL& level);
 		int request_range(int num, PIXEL_LEVEL& first);
 		int remaining();
+		void reset_available_levels() { m_next_available_level = 0; };
 
 	private:
 		ARvsg(bool bMaster=false, bool bSlave=false);
@@ -632,7 +651,8 @@ namespace alert
 		{
 			if (!m_btoggleIn)
 			{
-				m_in_last = (~input) & m_in_mask;
+				// why is this "~ here? m_in_last = (~input) & m_in_mask;
+				m_in_last = input&m_in_mask;
 			}
 			else
 			{
@@ -790,8 +810,8 @@ namespace alert
 	class TFunctor 
 	{
 	public:
-		virtual int operator()(int &output, const FunctorCallbackTrigger* ptrig)=0;  // call using operator "()"
-		virtual int call(int &output, const FunctorCallbackTrigger* ptrig)=0;        // call using function "Call"	
+		//virtual int operator()(int &output, const FunctorCallbackTrigger* ptrig)=0;
+		virtual int callback(int &output, const FunctorCallbackTrigger* ptrig)=0;
 	};
 
 
@@ -811,11 +831,11 @@ namespace alert
          { pt2Object = _pt2Object;  fpt=_fpt; };
 
       // override operator "()"
-      virtual int operator()(int &output, const FunctorCallbackTrigger* ptrig)
-       { return (*pt2Object.*fpt)(output, ptrig);};              // execute member function
+//      virtual int operator()(int &output, const FunctorCallbackTrigger* ptrig)
+ //      { return (*pt2Object.*fpt)(output, ptrig);};              // execute member function
 
       // override function "Call"
-      virtual int call(int &output, const FunctorCallbackTrigger* ptrig)
+      virtual int callback(int &output, const FunctorCallbackTrigger* ptrig)
         { return (*pt2Object.*fpt)(output, ptrig);};             // execute member function
    };
 
@@ -829,7 +849,7 @@ namespace alert
 		virtual int execute(int& output)
 		{
 			setMarker(output);
-			return (*m_pfunc)(output, this);
+			return m_pfunc->callback(output, this);
 		};
 	
 		virtual std::string toString() const
@@ -1015,6 +1035,7 @@ namespace alert
 		virtual int execute(int& output)
 		{
 			setMarker(output);
+			vsgSetCommand(vsgCYCLEPAGEDISABLE);
 			vsgSetDrawPage(vsgVIDEOPAGE, m_page, vsgNOCLEAR);
 			return -1;
 		};
@@ -1252,16 +1273,18 @@ namespace alert
 	class TriggerFunc
 	{
 	public:
-		TriggerFunc(std::string key, int otrigger) : m_binary(false), m_skey(key), m_present(false), m_otrigger(otrigger), m_page(-1), m_quit(false), m_ideferred(0) {};
-		TriggerFunc(int itrigger, int otrigger) : m_binary(true), m_itrigger(itrigger), m_present(false), m_otrigger(otrigger), m_page(-1), m_quit(false), m_ideferred(0) {};
+		TriggerFunc(std::string key, int otrigger, bool verbose=false) : m_binary(false), m_skey(key), m_present(false), m_otrigger(otrigger), m_page(-1), m_quit(false), m_ideferred(0), m_verbose(verbose) {};
+		TriggerFunc(int itrigger, int otrigger, bool verbose=false) : m_binary(true), m_itrigger(itrigger), m_present(false), m_otrigger(otrigger), m_page(-1), m_quit(false), m_ideferred(0), m_verbose(verbose) {};
 
 		int page() { return m_page; };
 		bool present() { return m_present; };
 		int output_trigger() { return m_otrigger; };
 		bool quit() { return m_quit; };
 		int deferred() { return m_ideferred; };
+		const std::string& triggers_matched() { return m_triggers_matched; };
 
-		virtual void operator()(Trigger* pitem)
+		virtual void operator()(Trigger* pitem);
+		/*
 		{
 			bool bTest=false;
 			if (m_binary) bTest = pitem->checkBinary(m_itrigger);
@@ -1270,6 +1293,7 @@ namespace alert
 			if (bTest)
 			{
 				int i;
+				if (m_verbose) cout << "Trigger " << pitem->getKey() << " execute..." << endl;
 				i = pitem->execute(m_otrigger);
 				m_ideferred = i;
 				if (i > 0) m_present = true;
@@ -1280,6 +1304,7 @@ namespace alert
 				}
 			}
 		};
+		*/
 	protected:
 		bool m_quit;
 		bool m_binary;	// if true, do a binary trigger test. Otherwise do ascii
@@ -1289,6 +1314,8 @@ namespace alert
 		int m_otrigger;	// if m_present is true, this is the output trigger value
 		int m_page;
 		int m_ideferred;	// flag set to indicate deferred processing of some sort is needed.
+		bool m_verbose;
+		std::string m_triggers_matched;
 	};
 
 
@@ -1353,6 +1380,7 @@ namespace alert
 // Operators for these
 std::ostream& operator<<(std::ostream& out, const alert::ARFixationPointSpec& arfps);
 std::ostream& operator<<(std::ostream& out, const alert::ARGratingSpec& args);
+std::ostream& operator<<(std::ostream& out, const alert::ARXhairSpec& arx);
 std::ostream& operator<<(std::ostream& out, const alert::Trigger& t);
 
 // instead of input operators, methods

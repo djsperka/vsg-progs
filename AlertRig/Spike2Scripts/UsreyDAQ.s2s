@@ -24,6 +24,9 @@ var EyeYPort%;                  ' Port vertical eye signal connected to
 var JoystickPort%;              ' Port joystick is connected to
 var JuicerType%;                ' Type of juicer
 var pReward := 1;               ' Probability of reward
+var UseRemoteStimulus% := 0;     ' if checked, send stim commands to ip.port below
+var RemoteStimulusIP$ := "192.168.1.2";
+var RemoteStimulusPort$ := "7000";
 'var WavemarkPorts%[16];
 'var NumWavemarkPorts%;
 'var ContinuousPorts%[16];
@@ -301,9 +304,13 @@ func DAQParametersDialog%()
     DlgInteger(9, "Eye X Port", 0, 15);
     DlgInteger(10, "Eye Y Port", 0, 15);
     DlgInteger(11, "Joystick Port", 0, 15);
+    DlgCheck(12, "Use Remote Stimulus");
+    DlgString(13, "Remote ip", 21);
+    DlgString(14, "Remote port", 5);
+    DlgAllow(0xffff, 0, DAQParametersDialogChanged%);
 	iReturn% := DlgShow(NumberOfElectrodes%, DegreesPerVoltX, DegreesPerVoltY, 
                         EyeCoilSamplingFrequency%, pReward, JuicePerReward%, JuiceRewardMS%,
-                        JuicerIndexDecremented%, EyeXPort%, EyeYPort%, JoystickPort%);
+                        JuicerIndexDecremented%, EyeXPort%, EyeYPort%, JoystickPort%, UseRemoteStimulus%, RemoteStimulusIP$, RemoteStimulusPort$);
 
 	if iReturn% = 1 then
         JuicerIndex% := JuicerIndexDecremented% + 1; 'Correct JuicerIndex%
@@ -312,6 +319,16 @@ func DAQParametersDialog%()
 	endif
 	return iReturn%;
 end;
+
+func DAQParametersDialogChanged%(item%)    
+    docase 
+    case item% = 0 then
+        DlgEnable(UseRemoteStimulus%, 13, 14);
+    case item% = 12 then
+        DlgEnable(DlgValue(12), 13, 14);
+    endcase
+    return 1;
+end
 
 
 	
@@ -329,8 +346,12 @@ proc GetDAQParameters()
     EyeXPort% := GetIntRegistryValue%(key$, "EyeXPort", 14);
     EyeYPort% := GetIntRegistryValue%(key$, "EyeYPort", 15);
     JoystickPort% := GetIntRegistryValue%(key$, "JoystickPort", 13);
+    UseRemoteStimulus% := GetIntRegistryValue%(key$, "UseRemoteStimulus", 0);
+    RemoteStimulusIP$ := GetStringRegistryValue$(key$, "RemoteStimulusIP", "192.168.1.2");
+    RemoteStimulusPort$ := GetStringRegistryValue$(key$, "RemoteStimulusPort", "7000");
     GetElectrodeParameters();
 end;
+
 
 proc SaveDAQParameters()
     var key$;
@@ -348,8 +369,23 @@ proc SaveDAQParameters()
     SetIntRegistryValue(key$, "EyeXPort", EyeXPort%);
     SetIntRegistryValue(key$, "EyeYPort", EyeYPort%);
     SetIntRegistryValue(key$, "JoystickPort", JoystickPort%);
+    SetIntRegistryValue(key$, "UseRemoteStimulus", UseRemoteStimulus%);
+    SetStringRegistryValue(key$, "RemoteStimulusIP", RemoteStimulusIP$);
+    SetStringRegistryValue(key$, "RemoteStimulusPort", RemoteStimulusPort$);
     SaveElectrodeParameters();
 end;
+
+func GetUseRemoteStimulus%()
+    return UseRemoteStimulus%;
+end
+
+func GetRemoteStimulusIP$()
+    return RemoteStimulusIP$;
+end
+
+func GetRemoteStimulusPort$()
+    return RemoteStimulusPort$;
+end
 
 
 func GetJuicerType%()

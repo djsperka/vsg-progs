@@ -1,4 +1,4 @@
-' $Id: AttentionGoNoGo.s2s,v 1.46 2014-06-02 18:26:05 jeff Exp $
+' $Id: AttentionGoNoGo.s2s,v 1.47 2015-05-12 17:15:18 devel Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -55,6 +55,8 @@ var attAcquisitionTime;
 var attInterTrialTime;
 var attInterTrialTime2;
 var attTimeToAnswer;
+var attTimeToAnswerPerTrial;  'filled on a trial-to-trial basis because the value is different for no-change trials
+var attNoChangeDuration;
 var attAbortWaitTime;
 var attMissPenalty;
 var attFalseAlarmWaitTime;
@@ -72,7 +74,7 @@ var attCueCircleContrastD2%;
 var attCueCircleContrastD3%;
 var attCueCircleContrastD4%;
 
-var attRandomBlockCycling%;
+var attStartBlock%;
 var attNoChangeCondition%;
 var attSwapCueCircle%;
 
@@ -105,11 +107,24 @@ var attCountAwayTrials% := 0;
 var attCountAwayTrialsCorrect% := 0;
 var attCountAwayTrialsIncorrect% := 0;
 var attCountAwayTrialsAbort% := 0;
+var attNoChangeAwayTrials% := 0;
+var attCountNoChangeTrials% := 0;
+var attCountNoChangeTrialsCorrect% := 0;
+var attCountNoChangeTrialsIncorrect% := 0;
+var attCountNoChangeTrialsAbort% := 0;
 var attOnlyOneCatch% := 0;
 var attOneCatchContrast% := 0;
+var attUseLowReward% := 0;
+var attLowReward% := 0;
+
+
+var lowRewardMS%;
+var origRewardMS%;
+
 
 ' constants for dialog and check function - start with 10 because there are 9 dialog entries prior
 ' sure, it would be great if all the dialog numbers were done like this, but they ain't, and time is time
+const attdlgAnsWindowRadius% := 12;
 const attdlgTrainingContrastCheck% := 13;
 const attdlgTrainingContrastPct% := 14;
 const attdlgPhaseCheck% := 15;
@@ -129,9 +144,11 @@ const attdlgGetGP% := 21;
 const attdlgUseCueCircles% := 22;
 const attdlgCueCircleExtraRadius% := 23;
 const attdlgDistracterOffForEasy% := 24;
-const attdlgRandomBlockCycling% := 25;
+const attdlgStartBlock% := 25;
 const attdlgNoChangeCondition% := 26;
 const attdlgSwapCueCircle% := 27;
+const attdlgUseLowReward% := 28;
+const attdlgLowReward% := 29;
 
 ' constants for timing dialog
 const atttimingdlgFixationCueMinTime% := 2;
@@ -188,20 +205,21 @@ var FAIsResponse%;              'if 1, use "response abort", otherwise use regul
 var expectedAnswer%;            'keeps track of expected answer, saves a bunch of redundant code
 'var useSpikeTemplate%;          'not sure where to put it, allows us to load up the most recent spike template, not used
 'For fixation/cue colors, use a master list so we don't get a bunch of values redefined, and have to change them all if a change is made
-var masterColorList$[5];  'human readable
-var masterColorListVSG$[5];  'VSG readable
+var masterColorList$[6];  'human readable, updated to hold 6 (1 on-RF, 4 distractor, 1 No-change)
+var masterColorListVSG$[6];  'VSG readable
 
 masterColorList$[0] := "red";
 masterColorListVSG$[0] := "red";
 masterColorList$[1] := "green";
 masterColorListVSG$[1] := "green";
 masterColorList$[2] := "cyan";
-masterColorListVSG$[2] := "(0/255/255)";
+masterColorListVSG$[2] := "(0/255/255)"; 'parens are the proper syntax for inserting the the color list on the command line
 masterColorList$[3] := "yellow";
 masterColorListVSG$[3] := "(255/255/0)";
 masterColorList$[4] := "magenta";
 masterColorListVSG$[4] := "(255/0/255)";
-
+masterColorList$[5] := "blue";
+masterColorListVSG$[5] := "blue";
 
 
 'we need to explicitly know the position of the gratings to place the answer windows on the gratings
@@ -276,9 +294,12 @@ proc GetAttentionScriptParameters()
 	Profile(key$, "AnswerPointWindowRadius", "2.0", stmp$);
 	attAnswerPointWindowRadius := val(stmp$);
    
-    Profile(key$, "RandomBlockCycling", 0, attRandomBlockCycling%);
     Profile(key$, "NoChangeCondition", 0, attNoChangeCondition%);
     Profile(key$, "SwapCueCircle", 0, attSwapCueCircle%);
+    
+    Profile(key$, "UseLowReward", 0, attUseLowReward%);
+    Profile(key$, "LowReward", 0, attLowReward%);
+
 
     
 	'Profile(key$, "LollipopCheck", 0, attLollipopCheck%);
@@ -326,9 +347,10 @@ proc SaveAttentionScriptParameters()
 	Profile(key$, "AnswerPointDiameter", str$(attAnswerPointDiameter));
 	Profile(key$, "AnswerPointOffset", str$(attAnswerPointOffset));
 	Profile(key$, "AnswerPointWindowRadius", str$(attAnswerPointWindowRadius));
-    Profile(key$, "RandomBlockCycling", attRandomBlockCycling%);
     Profile(key$, "NoChangeCondition", attNoChangeCondition%);
-    Profile(key$, "SwapCueCircle", attSwapCueCircle%);    
+    Profile(key$, "SwapCueCircle", attSwapCueCircle%);  
+    Profile(key$, "UseLowReward", attUseLowReward%);
+    Profile(key$, "LowReward", attLowReward%);    
 
     
 	'Profile(key$, "LollipopCheck", attLollipopCheck%);
@@ -380,6 +402,9 @@ proc GetTimingDialogParameters()
 	Profile(key$, "TimeToAnswer", "1.0", stmp$);
 	attTimeToAnswer := val(stmp$);
     
+    Profile(key$, "NoChangeDuration", "1.0", stmp$);
+	attNoChangeDuration := val(stmp$);
+    
 	Profile(key$, "AbortWaitTime", "1.0", stmp$);
 	attAbortWaitTime := val(stmp$);
     
@@ -412,6 +437,7 @@ proc SaveTimingDialogParameters()
     Profile(key$, "FalseAlarmCheckWindow", str$(attFalseAlarmCheckWindow));
 	Profile(key$, "InterTrialTime", str$(attInterTrialTime));
 	Profile(key$, "TimeToAnswer", str$(attTimeToAnswer));
+    Profile(key$, "NoChangeDuration", str$(attNoChangeDuration));
     
 end;
 
@@ -493,15 +519,25 @@ func AttentionScriptDialog%()
     var tempTotal;  'friggin integer math
     var tempWhoops;
     var fiveints%[5];
-    var fourmoreints%[6];
+    var sixmoreints%[6];
     var blockAlternateList$[3];
+    var blockStartList$[7];
     
     blockAlternateList$[0] := "Randomize cue type by trial";
     blockAlternateList$[1] := "Randomize cue type by block";
     blockAlternateList$[2] := "Alternate cue type by block";
     
+    blockStartList$[0] := "Start Block: Random";
+    blockStartList$[1] := "Start Block: Attend-Toward";
+    blockStartList$[2] := "Start Block: Distracter 1";
+    blockStartList$[3] := "Start Block: Distracter 2";
+    blockStartList$[4] := "Start Block: Distracter 3";
+    blockStartList$[5] := "Start Block: Distracter 4";
+    blockStartList$[6] := "Start Block: No Change";
     
 	GetAttentionScriptParameters();
+    GetColorsDialogParameters();  'we need to GET the parameters here, even though we may not use any of them...but we WILL use backgroundColor$, that's why
+    GetTimingDialogParameters();  'this too...
     
     fiveints%[0] := attOnlyOneCatch%;
     fiveints%[1] := attOneCatchContrast%;
@@ -509,10 +545,12 @@ func AttentionScriptDialog%()
     fiveints%[3] := attNumPatches%;
     fiveints%[4] := attGetGPFromMainStim%;
     
-    fourmoreints%[0] := distracterOffForEasy%;
-    fourmoreints%[1] := attRandomBlockCycling%;
-    fourmoreints%[2] := attNoChangeCondition%;
-    fourmoreints%[3] := attSwapCueCircle%;    
+    sixmoreints%[0] := distracterOffForEasy%;
+    sixmoreints%[1] := attStartBlock%;
+    sixmoreints%[2] := attNoChangeCondition%;
+    sixmoreints%[3] := attSwapCueCircle%; 
+    sixmoreints%[4] := attUseLowReward%;
+    sixmoreints%[5] := attLowReward%;
     
 
     
@@ -528,7 +566,7 @@ func AttentionScriptDialog%()
 	'DlgCheck(6, "Alternate cue type by block", 2, 9);
     DlgList(6, 30, blockAlternateList$[], 3, 4, 9);
     DlgCheck(7, "Select random contrast each trial", 2, 10);  '"Do NOT randomize by block"
-    DlgCheck(attdlgRandomBlockCycling%, "THIS DOES NOTHING", 2, 11);  'I put it in, don't want to take it out just because it does nothing, in principle it can be repurposed easier than it can be removed (the whole fourmoreints thing)
+    DlgList(attdlgStartBlock%, 30, blockStartList$, 7, 4, 11);  'I put it in, don't want to take it out just because it does nothing, in principle it can be repurposed easier than it can be removed (the whole fourmoreints thing)
     
     'Moving this group to the right, so we have to use DlgText because otherwise CED justifies the text all the way left
     DlgGroup("Contrast",36,1,34,11);
@@ -536,7 +574,7 @@ func AttentionScriptDialog%()
 	DlgReal(9, "", 0, 10, 56, 3);  DlgText("Max dContrast (oct)",37,3);
 	DlgReal(10, "", 0, 10, 56, 4);  DlgText("Min dContrast (oct)",37,4);
     DlgInteger(11, "", 1, 10, 56, 5);  DlgText("N contrast levels",37,5);
-    DlgReal(12, "", 0, 10, 56, 6);  DlgText("Ans. window rad. (deg)",37,6);
+    DlgReal(attdlgAnsWindowRadius%, "", 0, 10, 56, 6);  DlgText("Ans. window rad. (deg)",37,6);
 	DlgCheck(attdlgTrainingContrastCheck%, "Training Contrast", 37, 7);
 	DlgInteger(attdlgTrainingContrastPct%, "", 0, 100, 56, 8);  DlgText("Training Contrast(%)",37,8);
     DlgCheck(attdlgOnlyOneCatch%, "Use only one catch value", 37,9);
@@ -556,8 +594,12 @@ func AttentionScriptDialog%()
     DlgCheck(attdlgSwapCueCircle%, "Swap Cue Circles (if used)", 2, 17);
 	DlgReal(attdlgCueCircleExtraRadius%, "Cue extra radius (deg)", 0, 5, 22, 18);
     
-    DlgButton(2, "Colors", ColorsDialog%, 2+36, 16);
-    DlgButton(3, "Timing", TimingDialog%, 20+36, 16);
+    DlgGroup("Reward", 36, 15, 34, 3);
+    DlgCheck(attdlgUseLowReward%, "Use Low Reward For No-Change Trls", 37, 16);
+    DlgInteger(attdlgLowReward%, 10, 1, 1000, 58, 17); DlgText("Low Reward (ms)",37,17);
+    
+    DlgButton(2, "Colors", ColorsDialog%, 2+36, 19);
+    DlgButton(3, "Timing", TimingDialog%, 20+36, 19);
     'DlgGroup("Lollipops", 1, 18, 34, 7);
     'DlgCheck(attdlgLollipopCheck%, "Use lollipop cues", 2, 19);
     'DlgReal(attdlgCueLinePct%, "Cue line %", 0, 100, 22, 20);
@@ -569,7 +611,7 @@ func AttentionScriptDialog%()
 	i%:=DlgShow(attNumberOfBlocks%, attTrialsPerBlock%, attEasyTrialsPerBlock%, attCatchTrialPercentage, attNoGoTrialPercentage, 
     attBlockAlternate%, attSelectRandomContrastEachTrial%, attContrastBase%, attMaxContChange, attMinContChange, attNContLevels%,
     attAnswerPointWindowRadius, attTrainingContrastCheck%, attTrainingContrastPct%, attPhaseCheck%, attPhaseDeg%, fiveints%[], 
-    attUseCueCircles%,attCueCircleExtraRadius,fourmoreints%);
+    attUseCueCircles%,attCueCircleExtraRadius,sixmoreints%);
     
     'attLollipopCheck%, attCueLinePct, attCircleDiameterDiff, 
     'attLollipopContrast%, attLollipopStickContrast%, attCueLineGap);
@@ -584,13 +626,44 @@ func AttentionScriptDialog%()
         attNumPatches% := fiveints%[3];
         attGetGPFromMainStim% := fiveints%[4];
         
-        'put fourmoreints values back into variables
-        distracterOffForEasy% := fourmoreints%[0];
-        attRandomBlockCycling% := fourmoreints%[1];
-        attNoChangeCondition% := fourmoreints%[2];
-        attSwapCueCircle% := fourmoreints%[3];         
+        'put sixmoreints values back into variables
+        distracterOffForEasy% := sixmoreints%[0];
+        attStartBlock% := sixmoreints%[1];
+        attNoChangeCondition% := sixmoreints%[2];
+        attSwapCueCircle% := sixmoreints%[3];         
+        attUseLowReward% := sixmoreints%[4];
+        attLowReward% := sixmoreints%[5];
         
-
+        'Check values of attStartBlock% for legality
+        docase
+        case attStartBlock% = 6 then
+            if attNoChangeCondition% = 0 then
+                message("Error: No Change was selected as the start block, but 'No Change' is OFF!!!");
+                Quit%();
+            endif
+        case attStartBlock% > 1 and attNumPatches% < attStartBlock% then
+            message("Error: The requested start block is for an undefined distracter!!!  Check 'number of patches'!");
+            Quit%();
+        endcase
+        
+        'randBlockOrderVar is a variable which allows us to alternate between attend-toward and random attend-away blocks
+        'and indicates which comes first.  But if we set a start block, then we know which comes first, so override it
+        docase
+        case attStartBlock% = 1 then
+            randBlockOrderVar% := 1;
+        case attStartBlock% > 1 then
+            randBlockOrderVar% := 0;
+        endcase
+        
+        
+        'set low reward if we are using it
+        if attUseLowReward% = 1 then
+            lowRewardMS% := attLowReward%;
+        else
+            lowRewardMS% := origRewardMS%;
+        endif;
+        
+        
         'put twoints values back into variables
         'attUseCueCircles% := twoints%[0];
         'attCueCircleExtraRadius% := twoints%[1];
@@ -708,6 +781,7 @@ end
 
 func AttentionScriptDialogChanged%(item%)
     var status% := 1;
+    
     docase
     case item% = attdlgTrainingContrastCheck% then
         DlgEnable(DlgValue(attdlgTrainingContrastCheck%), attdlgTrainingContrastPct%);
@@ -722,12 +796,16 @@ func AttentionScriptDialogChanged%(item%)
         '        DlgEnable(DlgValue(attdlgLollipopCheck%), attdlgLollipopContrast%);
     case item% = attdlgUseCueCircles% then
         DlgEnable(DlgValue(attdlgUseCueCircles%), attdlgCueCircleExtraRadius%);
+    case item% = attdlgUseLowReward% then
+        DlgEnable(DlgValue(attdlgUseLowReward%), attdlgLowReward%);
     case item% = 0 then
         DlgEnable(attTrainingContrastCheck%, attdlgTrainingContrastPct%);
         DlgEnable(attPhaseCheck%, attPhaseDeg%);
         DlgEnable(attOnlyOneCatch%, attdlgOneCatchContrast%);
         DlgEnable(attOnlyOneCatch%, attdlgDoUncatch%);
         DlgEnable(attdlgUseCueCircles%, attdlgCueCircleExtraRadius%);
+        DlgEnable(DlgValue(attdlgUseLowReward%), attdlgLowReward%);
+        DlgEnable(0,attdlgAnsWindowRadius%);  'Turn off answer window radius, it is currently unused
 '        DlgEnable(attLollipopCheck%, attdlgCircleDiameterDiff%);
 '        DlgEnable(attLollipopCheck%, attdlgCueLinePct%);
 '        DlgEnable(attLollipopCheck%, attdlgLollipopContrast%);
@@ -749,15 +827,16 @@ func TimingDialog%()
 	DlgReal(atttimingdlgHazardExpMeanTime%, "Hazard exp mean time(s):", 0, 10);
 	DlgReal(atttimingdlgHazardCutoffTime%, "Hazard cutoff time(s):", 0, 10);
 	DlgReal(7, "Time to answer(s):", 0.01, 10.0);
-	DlgReal(8, "Intertrial time(s):", .01, 10);
-	DlgReal(9, "Abort wait time(s):", .01, 10);
-    DlgReal(10, "False Alarm penalty time(s):", .01, 100);  'I'll let that be really really long
-    DlgReal(11, "False Alarm check window(s): ", .01, 1);
-    DlgReal(12, "Miss penalty time(s): ", 0, 100);
+    DlgReal(8, "No-Change duration(s):", 0.2, 10.0);
+	DlgReal(9, "Intertrial time(s):", .01, 10);
+	DlgReal(10, "Abort wait time(s):", .01, 10);
+    DlgReal(11, "False Alarm penalty time(s):", .01, 100);  'I'll let that be really really long
+    DlgReal(12, "False Alarm check window(s): ", .01, 1);
+    DlgReal(13, "Miss penalty time(s): ", 0, 100);
     
     DlgAllow(0, 0, TimingDialogChanged%);
 	i%:=DlgShow(attAcquisitionTime, attFixationCueMinTime, attFixationCueMaxTime, 
-    attHazardMinTime, attHazardExpMeanTime, attHazardCutoffTime, attTimeToAnswer, 
+    attHazardMinTime, attHazardExpMeanTime, attHazardCutoffTime, attTimeToAnswer, attNoChangeDuration,
     attInterTrialTime, attAbortWaitTime,attFalseAlarmWaitTime,attFalseAlarmCheckWindow,attMissPenalty);
     if i% = 1 then
         if attAbortWaitTime < attFalseAlarmCheckWindow then
@@ -1013,7 +1092,13 @@ if Len(dataDataSet$) = 0 then
 	halt;
 endif
 
-
+'we're going to muck with reward so that Henry can have a "high reward" and a "low reward"
+'I hate to do it this way, but I think that the alternative of doing it in the config is even
+'worse.  This way, we simply override the config value, but only for the low-reward state. 
+'For the high-reward state we still use the config value.  It's not pretty, but it keeps
+'everything from cascading into a comedy of errors in other scripts.
+'get original reward value from config
+origRewardMS% := GetJuiceRewardMS%();
 
 ' run dialog
 iScript% := AttentionScriptDialog%();
@@ -1072,33 +1157,53 @@ endif;
 proc UpdateToolbarText()
     
 	var s$;
-	var allpct$ := "--";
-	var towpct$ := "--";
-    var awapct$ := "--";
+	var allPct$ := "--";
+	var towardPct$ := "--";
+    var awayPct$ := "--";
+    var noChangePct$ := "--";
     var num, den, pct;
     
     if (attCountAllTrials% > 0) then
         num := attCountAllTrialsCorrect%;
         den := attCountAllTrials%;
         pct := num/den*100;
-		allpct$ := print$("%2.0f", pct);
+		allPct$ := print$("%2.0f", pct);
 	endif
 	if (attCountTowardTrials% > 0) then
         num := attCountTowardTrialsCorrect%;
         den := attCountTowardTrials%;
         pct := num/den*100;
-		towpct$ := print$("%2.0f", pct);
+		towardPct$ := print$("%2.0f", pct);
 	endif
 	if (attCountAwayTrials% > 0) then
         num := attCountAwayTrialsCorrect%;
         den := attCountAwayTrials%;
         pct := num/den*100;
-		awapct$ := print$("%2.0f", pct);
+		awayPct$ := print$("%2.0f", pct);
 	endif
-	s$ := Print$("Tallies count/correct/incorrect/aborted (correct%%): ALL %d/%d/%d/%d (%s%%) TOWARD %d/%d/%d/%d (%s%%) AWAY %d/%d/%d/%d (%s%%)", 
-    attCountAllTrials%, attCountAllTrialsCorrect%, attCountAllTrialsIncorrect%, attCountAllTrialsAbort%, allpct$,
-    attCountTowardTrials%, attCountTowardTrialsCorrect%, attCountTowardTrialsIncorrect%, attCountTowardTrialsAbort%, towpct$,
-    attCountAwayTrials%, attCountAwayTrialsCorrect%, attCountAwayTrialsIncorrect%, attCountAwayTrialsAbort%, awapct$);
+    if (attCountNoChangeTrials% > 0) then
+        num := attCountNoChangeTrialsCorrect%;
+        den := attCountNoChangeTrials%;
+        pct := num/den*100;
+		noChangePct$ := print$("%2.0f", pct);
+	endif
+    
+
+    'only print stats for conditions that have occurred
+    s$ := "Tallies count/correct/incorrect/aborted (correct%%):";
+    if attCountAllTrials% > 0 or attCountAllTrialsAbort% > 0 then  
+        s$ := s$ + Print$(" ALL %d/%d/%d/%d (%s%%)",attCountAllTrials%, attCountAllTrialsCorrect%, attCountAllTrialsIncorrect%, attCountAllTrialsAbort%, allPct$);
+    endif
+    if attCountTowardTrials% > 0 or attCountTowardTrialsAbort% > 0 then
+        s$ := s$ + Print$(" TOWARD %d/%d/%d/%d (%s%%)",attCountTowardTrials%, attCountTowardTrialsCorrect%, attCountTowardTrialsIncorrect%, attCountTowardTrialsAbort%, towardPct$);
+    endif;
+    if attCountAwayTrials% > 0 or attCountAwayTrialsAbort% > 0 then
+        s$ := s$ + Print$(" AWAY %d/%d/%d/%d (%s%%)",attCountAwayTrials%, attCountAwayTrialsCorrect%, attCountAwayTrialsIncorrect%, attCountAwayTrialsAbort%, awayPct$);
+    endif
+    if attCountNoChangeTrials% > 0 or attCountNoChangeTrialsAbort% > 0 then
+        s$ := s$ + Print$(" NOCHANGE %d/%d/%d/%d (%s%%)",attCountNoChangeTrials%, attCountNoChangeTrialsCorrect%, attCountNoChangeTrialsIncorrect%, attCountNoChangeTrialsAbort%, noChangePct$);
+    endif
+
     
 	ToolbarText(s$);
     
@@ -1218,6 +1323,7 @@ var iState% := stateVSGWait%;	' present state
 
 const trialtypeAttendToward% := 100;
 const trialtypeAttendAway% := 101;
+const trialtypeNoChange% := 102;
 var trialType%;
 var nTrialsStarted%:=0;
 var nTrialsCompleted%:=0;
@@ -1294,6 +1400,8 @@ func IdleProcessing%()
             attCountTowardTrials% += 1;
         case trialType% = trialtypeAttendAway% then
             attCountAwayTrials% += 1;
+        case trialType% = trialtypeNoChange% then
+            attCountNoChangeTrials% += 1;
         else
             PrintLog("ERROR: Unknown trial type (" + str$(trialType%) + "\n");
         endcase
@@ -1309,11 +1417,14 @@ func IdleProcessing%()
             PrintLog("stateWaitForFixPtOn: signal received. " + str$(tTrigger) + "\n");
             tLastTrigger := tTrigger;
             ChangeStateTo(stateWaitForAcquisition%, tTrigger);
-            if trialType% = trialtypeAttendToward% then
+            docase
+            case trialType% = trialtypeAttendToward% then
                 SampleText("Fixation point on, Attend Toward",tTrigger);
-            else
+            case trialType% = trialtypeAttendAway% then
                 SampleText("Fixation point on, Attend Away",tTrigger);
-            endif;
+            case trialType% = trialtypeNoChange% then 
+                SampleText("Fixation point on, No Change",tTrigger);
+            endcase;
             DrawStim(1);	' this draws the location of the fixpt.
         endif
         
@@ -1406,12 +1517,19 @@ func IdleProcessing%()
         
         
         ' tally up aborted trials, right now not distinguishing between response aborts and regular aborts
+        ' but we also have to decrement "all trials" because this messes with the percentages
         attCountAllTrialsAbort% += 1;
+        attCountAllTrials% -= 1;
         docase
         case trialType% = trialtypeAttendToward% then
             attCountTowardTrialsAbort% += 1;
+            attCountTowardTrials% -= 1;
         case trialType% = trialtypeAttendAway% then
             attCountAwayTrialsAbort% += 1;
+            attCountAwayTrials% -= 1;
+        case trialType% = trialtypeNoChange% then
+            attCountNoChangeTrialsAbort% += 1;
+            attCountNoChangeTrials% -= 1;
         else 
             PrintLog("ERROR: Unknown trial type (" + str$(trialType%) + "\n");
         endcase
@@ -1548,6 +1666,8 @@ func IdleProcessing%()
                     else
                         Sampletext("Attend Away, No Contrast Change",tTrigger+trialHazardFunctionTime);
                     endif
+                case trialType% = trialtypeNoChange% then  
+                    Sampletext("No Change, No Contrast Change",tTrigger+trialHazardFunctionTime);
                 else
                     PrintLog("ERROR! Unknown blocktype!!!\n");    
                 endcase
@@ -1620,25 +1740,34 @@ func IdleProcessing%()
         
     case iState% = stateWaitForAnswer% then
         'getPreciseTiming := 1;  'we need precise timing here, stay in while loop until we get eye movements we expect
-        if tNow - tStateStart > attTimeToAnswer then  'no response
+        if tNow - tStateStart > attTimeToAnswerPerTrial then  'no response
             if trialIsTarget% > 0 then 'GO trial, expected response
                 SafeSampleKey("X");  'turn off animation
                 PrintLog("stateWaitForAnswer: no response on go trial, miss\n");
-                if trialType% = trialtypeAttendToward% then
+                docase
+                case trialType% = trialtypeAttendToward% then
+                    attCountTowardTrialsIncorrect% += 1;
                     SampleText("Miss, Attend Toward",tNow);
-                else
+                case trialType% = trialtypeAttendAway% then
+                    attCountAwayTrialsIncorrect% += 1;
                     SampleText("Miss, Attend Away",tNow);
-                endif;
+                endcase;
                 ChangeStateTo(stateMiss%, tNow); 'go to miss penalty
                 SafeSampleKey("a");
             else
                 SafeSampleKey("X");  'turn off animation
                 PrintLog("stateWaitForAnswer: no response on no-go trial, correct rejection\n");
-                if trialType% = trialtypeAttendToward% then
+                docase
+                case trialType% = trialtypeAttendToward% then
+                    attCountTowardTrialsCorrect% += 1;
                     SampleText("Correct Rejection, Attend Toward",tNow);
-                else
+                case trialType% = trialtypeAttendAway% then
+                    attCountAwayTrialsCorrect% += 1;
                     SampleText("Correct Rejection, Attend Away",tNow);
-                endif;
+                case trialType% = trialtypeNoChange% then
+                    attCountNoChangeTrialsCorrect% += 1;
+                    SampleText("Correct Rejection, No Change",tNow);
+                endcase;
                 attInterTrialTime2 := attInterTrialTime;
                 Reward%();
                 ChangeStateTo(stateTrialCompletedWaitForBlank%, tNow);
@@ -1674,6 +1803,8 @@ func IdleProcessing%()
                     case trialType% = trialtypeAttendAway% then
                         attCountAwayTrialsCorrect% += 1;
                         SampleText("Hit, Attend Away, Contrast Up",tNow);
+                    case trialType% = trialtypeNoChange% then
+                        PrintLog("ERROR: No-Change trial, expectedAnswer should be zero but was " + str$(expectedAnswer%) + "\n");
                     else
                         PrintLog("ERROR: Unknown trial type (" + str$(trialType%) + "\n");
                     endcase
@@ -1694,6 +1825,8 @@ func IdleProcessing%()
                     case trialType% = trialtypeAttendAway% then
                         attCountAwayTrialsIncorrect% += 1;
                         SampleText("Miss, Attend Away, Moved To Wrong Grating, Contrast Up",tNow);
+                    case trialType% = trialtypeNoChange% then
+                        PrintLog("ERROR: No-Change trial, expectedAnswer should be zero but was " + str$(expectedAnswer%) + "\n");
                     else
                         PrintLog("ERROR: Unknown trial type (" + str$(trialType%) + "\n");
                     endcase
@@ -1711,6 +1844,9 @@ func IdleProcessing%()
                     case trialType% = trialtypeAttendAway% then
                         attCountAwayTrialsIncorrect% += 1;
                         SampleText("False Alarm, Attend Away",tNow);
+                    case trialType% = trialtypeNoChange% then
+                        attCountNoChangeTrialsIncorrect% += 1;
+                        SampleText("False Alarm, No Change",tNow);
                     else
                         PrintLog("ERROR: Unknown trial type (" + str$(trialType%) + "\n");
                     endcase
@@ -1838,21 +1974,35 @@ proc PrepareTrial()
 	PrintLog("Prepare trial: ");
     
 	if attBlockAlternate% = 0 then
-		if attAttendList%[attCurrTrialIndex%] = 1 then
+        docase
+		case attAttendList%[attCurrTrialIndex%] = 1 then
 			trialType% := trialtypeAttendToward%;
 			PrintLog("Trial type: attend-toward\n");
+            JuiceRewardMS% := origRewardMS%; 'set reward at trial prep, this will then be good for the reward on this trial, if any.
+        case attAttendList%[attCurrTrialIndex%] = 6 then  
+            trialType% := trialtypeNoChange%;
+            JuiceRewardMS% := lowRewardMS%;  'use low reward for no-change trials
+			PrintLog("Trial type: no-change\n");    
 		else
 			trialType% := trialtypeAttendAway%;
+            JuiceRewardMS% := origRewardMS%;
 			PrintLog("Trial type: attend-away\n");
-		endif
+		endcase
 	else
-		if attAttendList%[attCurrTrialIndex%] = 1 then
+        docase
+		case attAttendList%[attCurrTrialIndex%] = 1 then
             trialType% := trialtypeAttendToward%;
+            JuiceRewardMS% := origRewardMS%;
 			PrintLog("Trial type: attend-toward (for this entire block)\n");
+        case attAttendList%[attCurrTrialIndex%] = 6 then  
+            trialType% := trialtypeNoChange%;
+            JuiceRewardMS% := lowRewardMS%;  'use low reward for no-change trials
+			PrintLog("Trial type: no-change (for this entire block)\n");     
 		else
             trialType% := trialtypeAttendAway%;
+            JuiceRewardMS% := origRewardMS%;
 			PrintLog("Trial type: attend-away (for this entire block)\n");
-		endif
+		endcase
 	endif
        
     
@@ -1860,7 +2010,15 @@ proc PrepareTrial()
     attFixationTime := Rand(attFixationCueMaxTime - attFixationCueMinTime, attFixationCueMinTime);
     PrintLog("Fixation time " + str$(attFixationTime) + "\n");
     
-    trialHazardFunctionTime := attHazardList[attCurrTrialIndex%];  'hazard time has been pre-calculated
+    ' Set hazard function time and time to answer per trial
+    if trialType% = trialTypeNoChange% then
+        trialHazardFunctionTime := 0.1;  'for no-change trials, set hazard time to 0.1, this is hard coded
+        attTimeToAnswerPerTrial := attNoChangeDuration - 0.1;  'the 0.1 is the hardcoded hazard time, the remainder is answer window
+    else
+        trialHazardFunctionTime := attHazardList[attCurrTrialIndex%];  'hazard time has been pre-calculated for regular trials
+        attTimeToAnswerPerTrial := attTimeToAnswer;  'Use the standard time to answer
+    endif
+    
 
     'Determine if trial is catch trial
     trialCatch% := 1-attValidList%[attCurrTrialIndex%];
@@ -1957,7 +2115,7 @@ end
 
 
 proc InitializeWindows()
-    CreateContrastList(Contrast$,attContrastList%,attChangeList%,attValidList%,attAttendList%,attHazardList,attOffBitsList%,attRotationList%,attFixColor%);
+    'CreateContrastList(Contrast$,attContrastList%,attChangeList%,attValidList%,attAttendList%,attHazardList,attOffBitsList%,attRotationList%,attFixColor%);
 	'Open the data sampling window
 	DataWindow% := FileNew(0,4);  'show spike shape setup dialog
     printlog("datawindow is %d\n",dataWindow%);
@@ -2188,10 +2346,10 @@ proc CreateSampleConfiguration()
 	SampleTitle$(YChannel%,"Eye Y");
     
     'I don't know what this is, but it's a problem for Plexon configs
-    if UsePlexon% = 0 and UsePlexon7WM15CN% = 0 then  'Kill it if we're using the Plexon
-        SampleWaveform(NumberOfElectrodes%+10, 6, 1000);
-        SampleTitle$(NumberOfElectrodes%+10, "PD");
-    endif;
+'    if UsePlexon% = 0 and UsePlexon7WM15CN% = 0 then  'Kill it if we're using the Plexon
+'        SampleWaveform(NumberOfElectrodes%+10, 6, 1000);
+'        SampleTitle$(NumberOfElectrodes%+10, "PD");
+'    endif;
     
     
 	SampleTextMark(200);  'increase number of allowed characters, 1 is so stingy!
@@ -2208,7 +2366,7 @@ end;
 
 
 
-' Get grating p[arameters from registry AlertRig\\(config)\\Gratings\\type$
+' Get grating parameters from registry AlertRig\\(config)\\Gratings\\type$
 func GetGratingParameters$(type$)
 	var key$;
 	var stmp$;
@@ -2607,6 +2765,7 @@ end;
 Proc CreateContrastList(&c$,&cList%[],&chgList%[],&vList%[],&attList%[],&hazList[],&offList%[],&rotList%[],&fixColor%[])
     var i%;
     var j%;
+    var k%;
     var tempInvalid%;  'holds number of invalid stimulus patch 
     var stdCount%;  'a counter for standard (i.e. "valid") trials, index into attTrialOrder%[]
     var catchCount%;  'a counter for catch trials
@@ -2616,6 +2775,27 @@ Proc CreateContrastList(&c$,&cList%[],&chgList%[],&vList%[],&attList%[],&hazList
     var attColor%;
     var alloff%;  'this is for the bitwise "off" indicator
     var cueCircleRotation% := 0;
+    
+    var blockTypes%[6];  'These are only used if we are "alternating" blocks and simultaneously using a no-change condition
+    var btIndices%[6];  'index, for the shuffle
+    var nBlockTypes%;
+    var blockTypeIndex% := 0;
+    
+    
+    'preliminaries for no-change condition, which messes with numbering because the number of distractors is variable
+    if attNoChangeCondition% = 1 then    
+        'If we are asked to "alternate" blocks and to use a No-Change condition, here's the protocol:
+        'Create a list of legal block numbers (1 = on-RF, 2-5 = existing distractors, 6 = no-change)
+        for i% := 0 to attNumPatches%-1 do
+            blockTypes%[i%] := i%+1;
+        next
+        blockTypes%[attNumPatches%] := 6;  'no change value is hardcoded
+        'printlog("original blocktype is %d\n",blockTypes%[]);
+        'and shuffle the list
+        Shuffle%(attNumPatches%+1,btIndices%[]);
+        'printlog("shuffled blocktype is %d\n",blockTypes%[]);
+    endif
+    
     
     'calculate the value of alloff%, this is bitwise indicator if all stimuli are shut off
     'this is simply 2^0 + 2^1 + 2^2 ... + 2^(n-1), which is (2^n)-1
@@ -2627,67 +2807,118 @@ Proc CreateContrastList(&c$,&cList%[],&chgList%[],&vList%[],&attList%[],&hazList
     for i% := 1 to attNumberOfBlocks% do
         
         'If we are alternating by block or randomizing by block, set attDirection% here, otherwise we set it on a trial-by-trial basis
-        docase        
-        case attBlockAlternate% = 2 then  'alternate by block, every other block is on receptive field, blocks off RF are randomly selected
-            if ((blockCount%+randBlockOrderVar%) mod 2) = 0 then
+        docase 
+        'if randomizing by trial do nothing, this is dealt with later
+        case attBlockAlternate% = 0 then
+        'if a start block is specified and it is the first block, use that start block
+        case i% = 1 and attStartBlock% > 0 then
+            attColor% := attStartBlock%; 
+            'Also, for the alternate+no change condition, get starting block index, because this cycles
+            if attBlockAlternate% = 2 and attNoChangeCondition% = 1 then 
+                for k% := 0 to len(btIndices%[])-1 do
+                    if attStartBlock% = blockTypes%[btIndices%[k%]] then
+                        blockTypeIndex% := k%+1;
+                        'and cycle back to index zero if we go past the end
+                        if blockTypeIndex% > attNumPatches% then  'attNumPatches% is right because there are attNumPatches%+1 total legal indices
+                            blockTypeIndex% := 0;
+                        endif;
+                    endif
+                next
+            endif
+        'if randomizing by block without a no-change, select random stim to attend (block > 1 or start block not specified)
+        case attBlockAlternate% = 1 and attNoChangeCondition% = 0 then  'randomize by block, choose a random stimulus to attend for each block, all stims have equal probability
+            attColor% := Floor(Rand(attNumPatches%,1));  'offset by 1 so the value comes out 1:N instead of 0:N-1    
+        'if randomizing by block with a no-change, select random stim to attend (block > 1 or start block not specified)    
+        case attBlockAlternate% = 1 and attNoChangeCondition% = 1 then  'randomize by block, choose a random stimulus to attend for each block, all stims including no-change have equal probability 
+            attColor% := blockTypes%[btIndices%[Floor(Rand(attNumPatches%+1,0))]];  'do not offset by one, we are shuffling indices
+        'if alternating without a no-change condition, every other block is on RF...note that randBlockOrderVar is appropriately changed above (in dialog code) if attStartOrder is set  
+        case attBlockAlternate% = 2 and attNoChangeCondition% = 0 then  'alternate by block, every other block is on receptive field, blocks off RF are randomly selected
+            if ((blockCount%+randBlockOrderVar%) mod 2) = 1 then
                 attColor% := 1;  'Attend main stimulus
             else
                 attColor% := Floor(Rand(attNumPatches%-1,2));  'choose a random stim to attend that is not the main
             endif
-        case attBlockAlternate% = 1 then  'randomize by block, choose a random stimulus to attend for each block, all stims have equal probability (for now)
-            attColor% := Floor(Rand(attNumPatches%,1));  'offset by 1 so the value comes out 1:N instead of 0:N-1
+        'if alternating with a no-change condition, Henry wants to cycle through blocks, starting with attend-toward unless otherwise specified
+        case attBlockAlternate% = 2 and attNoChangeCondition% = 1 then 
+            'select a starting block from the list of legal starting blocks using an index
+            attColor% := blockTypes%[btIndices%[blockTypeIndex%]]; 'this should put the randomization back in
+            'update blockTypeIndex%
+            blockTypeIndex% += 1;
+            'and cycle back to index zero if we go past the end
+            if blockTypeIndex% > attNumPatches% then  'attNumPatches% is right because there are attNumPatches%+1 total legal indices
+                blockTypeIndex% := 0;
+            endif;
         endcase
         
+        
         for j% := 1 to attTrialsPerBlock%+attEasyTrialsPerBlock% do
-            
             'if we are NOT alternating by block, choose a direction on each trial
-            if attBlockAlternate% = 0 then
+            docase
+            case attBlockAlternate% = 0 and attNoChangeCondition% = 0 then
                 if (Rand(0.0) < 0.5) then
                     attColor% := 1;  'Attend main stimulus, this happens half the time
                 else
                     attColor% := Floor(Rand(attNumPatches%-1,2));  'choose a random stim to attend that is not the main
                 endif
-            endif;
+            case attBlockAlternate% = 0 and attNoChangeCondition% = 1 then
+                attColor% := blockTypes%[btIndices%[Floor(Rand(attNumPatches%+1,0))]];  'choose a straight-up random color, unless Hank sez otherwise
+            endcase;
             
-            fixColor%[totalCount%] := attColor%;  'this is the color of the fixation point, which is the same regardless of attention/valid/etc.  It's kind of ground truth and everythign builds from there.            
+            fixColor%[totalCount%] := attColor%;  'this is the color of the fixation point, which is the same regardless of attention/valid/etc.  It's kind of ground truth and everything builds from there.            
             
             if j% <= attEasyTrialsPerBlock% then  'Note that Easy trials will now only happen if the attend directions are blocked
                 attDirection% := attColor%;  'no tricks here, we won't rotate cue circles on "easy" trials
                 vList%[totalCount%] := 1;  'all easy trials are valid
-                chgList%[totalCount%] := attDirection%;  'set stimulus that changes
-                attList%[totalCount%] := attDirection%;  'set direction of attention
-                cList%[totalCount%] := 100;  'change easy trials to 100% contrast
                 hazList[totalCount%] := attHazardMinTime;  'don't calculate a hazard time, just use the minimum
-                'rotList%[totalCount%] := 0;  'no rotation on easy trials
-                rotList%[totalCount%] := attNumPatches%*(attColor%-1);  'no rotation on easy trials, but get cue circle contrast correct             
-                if distracterOffForEasy% = 1 then
-                    offList%[totalCount%] := alloff% - Pow(2,attDirection%-1);  'turn off all stimuli but the attended one
-                    'insert easy trial with 100% contrast
-                    'note that for easy trials cueCircleRotation is 0 by definition, but just keeping this so the logic is consistent
-                    'UpdateTrialSpecString(c$,attColor%,attDirection%,attContrastBase%,100,attHazardMinTime,attPhaseDeg%,alloff%-Pow(2,attDirection%-1)+(256*cueCircleRotation%),masterColorListVSG$);  
-                    UpdateTrialSpecString(c$,attColor%,attDirection%,attContrastBase%,100,attHazardMinTime,attPhaseDeg%,alloff%-Pow(2,attDirection%-1)+(256*rotList%[totalCount%]),masterColorListVSG$);  
+                rotList%[totalCount%] := 0;  'no rotation on easy trials
+                'rotList%[totalCount%] := attNumPatches%*(attColor%-1);  'no rotation on easy trials, but get cue circle contrast correct 
+                if attDirection% <> 6 then 'for all blocks that are not no-change blocks, do this
+                    chgList%[totalCount%] := attDirection%;  'set stimulus that changes
+                    attList%[totalCount%] := attDirection%;  'set direction of attention
+                    cList%[totalCount%] := 100;  'change easy trials to 100% contrast            
+                    if distracterOffForEasy% = 1 then
+                        offList%[totalCount%] := alloff% - Pow(2,attDirection%-1);  'turn off all stimuli but the attended one
+                        'insert easy trial with 100% contrast
+                        'note that for easy trials cueCircleRotation is 0 by definition, but just keeping this so the logic is consistent
+                        'UpdateTrialSpecString(c$,attColor%,attDirection%,attContrastBase%,100,attHazardMinTime,attPhaseDeg%,alloff%-Pow(2,attDirection%-1)+(256*cueCircleRotation%),masterColorListVSG$);  
+                        UpdateTrialSpecString(c$,attColor%,attDirection%,attContrastBase%,100,attHazardMinTime,attPhaseDeg%,alloff%-Pow(2,attDirection%-1)+(256*rotList%[totalCount%]),masterColorListVSG$);  
+                    else
+                        offList%[totalCount%] := 0;  'show all grating patches                
+                        'insert easy trial with 100% contrast
+                        'UpdateTrialSpecString(c$,attColor%,attDirection%,attContrastBase%,100,attHazardMinTime,attPhaseDeg%,0+(256*cueCircleRotation%),masterColorListVSG$);
+                        UpdateTrialSpecString(c$,attColor%,attDirection%,attContrastBase%,100,attHazardMinTime,attPhaseDeg%,0+(256*rotList%[totalCount%]),masterColorListVSG$);
+                    endif;
                 else
-                    offList%[totalCount%] := 0;  'show all grating patches                
-                    'insert easy trial with 100% contrast
-                    'UpdateTrialSpecString(c$,attColor%,attDirection%,attContrastBase%,100,attHazardMinTime,attPhaseDeg%,0+(256*cueCircleRotation%),masterColorListVSG$);
-                    UpdateTrialSpecString(c$,attColor%,attDirection%,attContrastBase%,100,attHazardMinTime,attPhaseDeg%,0+(256*rotList%[totalCount%]),masterColorListVSG$);
+                    chgList%[totalCount%] := 0;  'no stimulus changes
+                    cList%[totalCount%] := attContrastBase%;  'fill cList%[] with the base contrast
+                    attList%[totalCount%] := attDirection%;  'set direction of attention, we still need to do this
+                    offList%[totalCount%] := 0;  'show all grating patches
+                    'insert no-go trial
+                    'UpdateTrialSpecString(c$,attColor%,attDirection%,attContrastBase%,attContrastBase%,trialHazardFunctionTime,attPhaseDeg%,0+(256*cueCircleRotation%),masterColorListVSG$);
+                    UpdateTrialSpecString(c$,attColor%,attDirection%,attContrastBase%,attContrastBase%,trialHazardFunctionTime,attPhaseDeg%,0+(256*rotList%[totalCount%]),masterColorListVSG$);
                 endif;
+                
               
             else 'regular trial
                 'if we are cue-swapping, select set of cue circles
                 if attSwapCueCircle% = 1 then
                     cueCircleRotation% := Floor(Rand(attNumPatches%,0));  '0 for no rotation, 1 for cycle forward 1, etc.
                 endif
-                'rotList%[totalCount%] := cueCircleRotation%;
-                rotList%[totalCount%] := cueCircleRotation% + (attNumPatches%*(attColor%-1));  'set which rotation is being used, will be 0 if swapping is off               
+                rotList%[totalCount%] := cueCircleRotation%;
+                'rotList%[totalCount%] := cueCircleRotation% + (attNumPatches%*(attColor%-1));  'set which rotation is being used, will be 0 if swapping is off               
                 'determine stimulus being attended (i.e., which stimulus has the same cue circle color as the fixation point)
-                attDirection% := attColor% + cueCircleRotation%;  'add in the rotation
-                if attDirection% > attNumPatches% then  'get the modulus if necessary
-                    attDirection% := attDirection% mod attNumPatches%; 
-                endif
-                attList%[totalCount%] := attDirection%;  'set direction of attention
+                if attColor% = 6 then 'on a no-change trial, just set direction to the arbitrary 6
+                    attDirection% := 6;  
+                else 'on a regular trial, add rotation
+                    attDirection% := attColor% + cueCircleRotation%;  'add in the rotation
+                    if attDirection% > attNumPatches% then  'get the modulus if necessary
+                        attDirection% := attDirection% mod attNumPatches%; 
+                    endif
+                endif;
                 
-                if (Rand()*100 < attNoGoTrialPercentage) then 'NoGo trial
+                attList%[totalCount%] := attDirection%;  'set direction of attention, same for regular or no-change trials
+                
+                if (Rand()*100 < attNoGoTrialPercentage) and attDirection% <> 6 then 'NoGo trial, don't do this on no-change trials, even though I guess it's the same thing
                     vList%[totalCount%] := 1;  'all no-go trials are valid
                     chgList%[totalCount%] := 0;  'no stimulus changes, it's a no-go -- note that we cannot pass 0 to UpdateTrialSpecString, though, so pass the attend direction
                     cList%[totalCount%] := attContrastBase%;  'fill cList%[] with the base contrast
@@ -2702,6 +2933,19 @@ Proc CreateContrastList(&c$,&cList%[],&chgList%[],&vList%[],&attList%[],&hazList
                     UpdateTrialSpecString(c$,attColor%,attDirection%,attContrastBase%,attContrastBase%,trialHazardFunctionTime,attPhaseDeg%,0+(256*rotList%[totalCount%]),masterColorListVSG$);
                 else    
                     docase
+                    case attDirection% = 6 then  'no-change trial, these are the same as no-go trials, but with a different fix color
+                        vList%[totalCount%] := 1;  'all no-go trials are valid
+                        chgList%[totalCount%] := 0;  'no stimulus changes, it's a no-go -- note that we cannot pass 0 to UpdateTrialSpecString, though, so pass the attend direction
+                        cList%[totalCount%] := attContrastBase%;  'fill cList%[] with the base contrast
+                        trialHazardFunctionTime := RandExp(attHazardExpMeanTime, attHazardMinTime);
+                        if trialHazardFunctionTime > attHazardCutoffTime then
+                            trialHazardFunctionTime := attHazardCutoffTime;
+                        endif;
+                        hazList[totalCount%] := trialHazardFunctionTime;  'set hazard function time
+                        offList%[totalCount%] := 0;  'show all grating patches
+                        'insert no-go trial
+                        'UpdateTrialSpecString(c$,attColor%,attDirection%,attContrastBase%,attContrastBase%,trialHazardFunctionTime,attPhaseDeg%,0+(256*cueCircleRotation%),masterColorListVSG$);
+                        UpdateTrialSpecString(c$,attColor%,attDirection%,attContrastBase%,attContrastBase%,trialHazardFunctionTime,attPhaseDeg%,0+(256*rotList%[totalCount%]),masterColorListVSG$);
                     case (Rand()*100 < attCatchTrialPercentage) then 'catch trial
                         vList%[totalCount%] := 0;  'catch = invalid
                         trialHazardFunctionTime := RandExp(attHazardExpMeanTime, attHazardMinTime);
@@ -2953,6 +3197,7 @@ proc WriteParameterFile()
     Print("Mean Hazard time (s)   : %f\n", attHazardExpMeanTime);
     Print("Hazard Cutoff time (s)   : %f\n", attHazardCutoffTime);
     Print("Time to answer (s)   : %f\n", attTimeToAnswer);
+    Print("No Change Duration (s)   : %f\n", attNoChangeDuration);
     Print("Intertrial time (s)   : %f\n", attInterTrialTime);
     Print("Abort penalty time (s)   : %f\n", attAbortWaitTime);
     Print("False Alarm penalty time (s)   : %f\n", attFalseAlarmWaitTime);
@@ -2976,7 +3221,7 @@ proc WriteParameterFile()
     Print("Max contrast change   : %f\n", attMaxContChange);
     Print("Min contrast change   : %f\n", attMinContChange);
     Print("N Contrast levels   : %d\n", attNContLevels%);
-    Print("Answer point window radius   : %f\n", attAnswerPointWindowRadius);
+    'Print("Answer point window radius   : %f\n", attAnswerPointWindowRadius);  'currently not used
     Print("Use Training Contrast?   : %d\n", attTrainingContrastCheck%);
     Print("Training contrast   : %d\n", attTrainingContrastPct%);
     Print("Set phase at contrast change?   : %d\n", attPhaseCheck%);
@@ -2988,7 +3233,7 @@ proc WriteParameterFile()
     Print("Do 'uncatch'     : %d\n", attDoUncatch%);
     Print("Use cue circles?    : %d\n", attUseCueCircles%);
     Print("Cue Circle extra radius    : %f\n", attCueCircleExtraRadius);
-    Print("Random Block Cycling     : %d\n", attRandomBlockCycling%);
+    Print("Start Block     : %d\n", attStartBlock%);
     Print("No Change Condition    : %d\n", attNoChangeCondition%);
     Print("Swap Cue Circle    : %d\n", attSwapCueCircle%);  
             
@@ -3071,24 +3316,10 @@ proc UpdateTrialSpecString(&c$,attdir%,chgdir%,base%,chg%,haz,phase%,off%,colLis
     endif;
     
     
-    'order of colors is red, green, cyan, yellow, magenta
-    'These colors have to be in the same order as the ones specified in CreateCueCircleColorSets$!
-    'Here we are setting the fixation color
-'    docase
-'    case attdir% = 1 then
-'        col$ := "red";
-'    case attdir% = 2 then
-'        col$ := "green";
-'    case attdir% = 3 then
-'        col$ := "(0/255/255)";  'cyan
-'    case attdir% = 4 then
-'        'col$ := "green";  'temporary because below line is not working
-'        col$ := "(255/255/0)";  'yellow, apparently parens are the proper syntax
-'    case attdir% = 5 then
-'        'col$ := "blue";  'temporary because below line is not working
-'        col$ := "(255/0/255)";  'magenta, apparently parens are the proper syntax  
-'    endcase
-    col$ := colListVSG$[attdir%-1]; 'replaces above case statement
+    'order of colors is red, [green, cyan, yellow, magenta], (blue) ... [distractors] (no-change)
+    'This comes form the same color list, so they do correspond
+    'printlog("attdir is %d\n",attdir%);
+    col$ := colListVSG$[attdir%-1]; 
     c$ := c$ + col$ + ",";  'add color spec
     
     'get temporal frequency of the changing grating
@@ -3326,132 +3557,133 @@ func CreateCueCircleColorSets$()
     ContrastList%[3] := attCueCircleContrastD3%;
     ContrastList%[4] := attCueCircleContrastD4%;
     
-    'This is crazy-ass code that I can't even explain but it works.
-    'What you get is Cue Circles for red valid (followed by rotations of red-valid if applicable), then Cue Circles for green valid (followed by rotations of green-valid if applicable)...
-    CueCirc$ := "-Q ";  'starter
-    for i% := 0 to attNumPatches%-1 do
-        for j% := 0 to attNumPatches%-1 do
-            if i% + j% > 0 then  'this puts the comma in, but not in front of the very first entry where it would be a syntax error
-                CueCirc$ := CueCirc$ + ",";
-            endif;
-            'This section determines the correct index into the contrast list.  Contrasts are rotated
-            x% := j% - i%;
-            if x% < 0 then
-                x% := attNumPatches% + x%;
-            endif
-            'This section writes the radius (always the same) and the color, based on the color list and the requested, rotated contrast
-            'This means that contrast 0 (the "valid" contrast) is always paired with the color that is the same color as the fixation point
-            CueCirc$ := CueCirc$ + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(RGBColors%[j%][0:3],ContrastList%[x%]);     
-        next
-        'NOW, if we are ALSO doing swap cue circle, we have to create a series of rotations where the valid contrast remains
-        'paired with the valid color, but the valid color moves position
-        for j% := 1 to attNumPatches%-1 do
-            if attSwapCueCircle% = 1 then
-                for k% := 0 to attNumPatches%-1 do  'robust to 0, does not execute
-                    y% := k% - j%;
-                    if y% < 0 then
-                        y% := attNumPatches% + y%;
-                    endif
-                    'This section determines the correct index into the contrast list.  Contrasts are rotated
-                    x% := y% - i%;
-                    if x% < 0 then
-                        x% := attNumPatches% + x%;
-                    endif
-                    CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(RGBColors%[y%][0:3],ContrastList%[x%]);
-                next
-            endif
-        next        
-    next
-    
-    'put in closing space
-    CueCirc$ := CueCirc$ + " ";
-    
-    
-    
-'    'Put in cue circle opener and first cue circle, which always happens
-'    CueCirc$ := "-Q " + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(stimRGB%[],attCueCircleContrastStim%);
-'    
-'    docase
-'    case attNumPatches% = 2 then
-'        CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D1RGB%[],attCueCircleContrastD1%);  'Add D1
-'        'end of first cue color circle set, rotate if attSwapCueCircle is 1
-'        if attSwapCueCircle% = 1 then
-'            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D1RGB%[],attCueCircleContrastD1%);  'Add D1
-'            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(stimRGB%[],attCueCircleContrastStim%);  'Add Stim
-'        endif
-'        
-'    case attNumPatches% = 3 then
-'        CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D1RGB%[],attCueCircleContrastD1%);  'Add D1
-'        CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D2RGB%[],attCueCircleContrastD2%);  'Add D2
-'        'end of first cue color circle set, rotate if attSwapCueCircle is 1
-'        if attSwapCueCircle% = 1 then
-'            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D2RGB%[],attCueCircleContrastD2%);  'Add D2
-'            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(stimRGB%[],attCueCircleContrastStim%);  'Add Stim
-'            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D1RGB%[],attCueCircleContrastD1%);  'Add D1
-'            'end of second cue color circle set, rotate
-'            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D1RGB%[],attCueCircleContrastD1%);  'Add D1
-'            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D2RGB%[],attCueCircleContrastD2%);  'Add D2
-'            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(stimRGB%[],attCueCircleContrastStim%);  'Add Stim
-'        endif
-'        
-'    case attNumPatches% = 4 then
-'        CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D1RGB%[],attCueCircleContrastD1%);  'Add D1
-'        CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D2RGB%[],attCueCircleContrastD2%);  'Add D2
-'        CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D3RGB%[],attCueCircleContrastD3%);  'Add D3
-'        'end of first cue color circle set, rotate if attSwapCueCircle is 1
-'        if attSwapCueCircle% = 1 then
-'            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D3RGB%[],attCueCircleContrastD3%);  'Add D3
-'            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(stimRGB%[],attCueCircleContrastStim%);  'Add Stim
-'            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D1RGB%[],attCueCircleContrastD1%);  'Add D1
-'            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D2RGB%[],attCueCircleContrastD2%);  'Add D2
-'            'end of second cue color circle set, rotate
-'            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D2RGB%[],attCueCircleContrastD2%);  'Add D2
-'            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D3RGB%[],attCueCircleContrastD3%);  'Add D3
-'            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(stimRGB%[],attCueCircleContrastStim%);  'Add Stim
-'            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D1RGB%[],attCueCircleContrastD1%);  'Add D1
-'            'end of third cue color circle set, rotate
-'            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D1RGB%[],attCueCircleContrastD1%);  'Add D1
-'            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D2RGB%[],attCueCircleContrastD2%);  'Add D2
-'            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D3RGB%[],attCueCircleContrastD3%);  'Add D3
-'            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(stimRGB%[],attCueCircleContrastStim%);  'Add Stim
-'        endif
-'        
-'    case attNumPatches% = 5 then   
-'        CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D1RGB%[],attCueCircleContrastD1%);  'Add D1
-'        CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D2RGB%[],attCueCircleContrastD2%);  'Add D2
-'        CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D3RGB%[],attCueCircleContrastD3%);  'Add D3
-'        CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D4RGB%[],attCueCircleContrastD4%);  'Add D4
-'        'end of first cue color circle set, rotate if attSwapCueCircle is 1
-'        if attSwapCueCircle% = 1 then
-'            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D4RGB%[],attCueCircleContrastD4%);  'Add D4
-'            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(stimRGB%[],attCueCircleContrastStim%);  'Add Stim
-'            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D1RGB%[],attCueCircleContrastD1%);  'Add D1
-'            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D2RGB%[],attCueCircleContrastD2%);  'Add D2
-'            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D3RGB%[],attCueCircleContrastD3%);  'Add D3
-'            'end of second cue color circle set, rotate
-'            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D3RGB%[],attCueCircleContrastD3%);  'Add D3
-'            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D4RGB%[],attCueCircleContrastD4%);  'Add D4
-'            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(stimRGB%[],attCueCircleContrastStim%);  'Add Stim
-'            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D1RGB%[],attCueCircleContrastD1%);  'Add D1
-'            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D2RGB%[],attCueCircleContrastD2%);  'Add D2
-'            'end of third cue color circle set, rotate
-'            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D2RGB%[],attCueCircleContrastD2%);  'Add D2
-'            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D3RGB%[],attCueCircleContrastD3%);  'Add D3
-'            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D4RGB%[],attCueCircleContrastD4%);  'Add D4
-'            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(stimRGB%[],attCueCircleContrastStim%);  'Add Stim
-'            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D1RGB%[],attCueCircleContrastD1%);  'Add D1
-'            'end of fourth cue color circle set, rotate
-'            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D1RGB%[],attCueCircleContrastD1%);  'Add D1
-'            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D2RGB%[],attCueCircleContrastD2%);  'Add D2
-'            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D3RGB%[],attCueCircleContrastD3%);  'Add D3
-'            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D4RGB%[],attCueCircleContrastD4%);  'Add D4
-'            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(stimRGB%[],attCueCircleContrastStim%);  'Add Stim
-'        endif
-'    endcase;
-'
+'    'This is crazy-ass code that I can't even explain but it works.
+'    'Actually, NO, IT DOESN'T WORK.  So there.
+'    'What you get is Cue Circles for red valid (followed by rotations of red-valid if applicable), then Cue Circles for green valid (followed by rotations of green-valid if applicable)...
+'    CueCirc$ := "-Q ";  'starter
+'    for i% := 0 to attNumPatches%-1 do
+' 
+'        if i% > 0 then  'this puts the comma in, but not in front of the very first entry where it would be a syntax error
+'            CueCirc$ := CueCirc$ + ",";
+'        endif;
+'        'This section determines the correct index into the contrast list.  Contrasts are rotated
+''        x% := j% - i%;
+''        if x% < 0 then
+''            x% := attNumPatches% + x%;
+''        endif
+'        'This section writes the radius (always the same) and the color, based on the color list and the requested, rotated contrast
+'        'This means that contrast 0 (the "valid" contrast) is always paired with the color that is the same color as the fixation point
+'        CueCirc$ := CueCirc$ + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(RGBColors%[i%][0:3],ContrastList%[i%]);     
+'    next
+'        'NOW, if we are ALSO doing swap cue circle, we have to create a series of rotations where the valid contrast remains
+'        'paired with the valid color, but the valid color moves position
+'        for j% := 1 to attNumPatches%-1 do
+'            if attSwapCueCircle% = 1 then
+'                for k% := 0 to attNumPatches%-1 do  'robust to 0, does not execute
+'                    y% := k% - j%;
+'                    if y% < 0 then
+'                        y% := attNumPatches% + y%;
+'                    endif
+'                    'This section determines the correct index into the contrast list.  Contrasts are rotated
+'                    x% := y% - i%;
+'                    if x% < 0 then
+'                        x% := attNumPatches% + x%;
+'                    endif
+'                    CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(RGBColors%[y%][0:3],ContrastList%[x%]);
+'                next
+'            endif
+'        next        
+'    'next
 '    
 '    'put in closing space
 '    CueCirc$ := CueCirc$ + " ";
+    
+    
+    
+    'Put in cue circle opener and first cue circle, which always happens
+    CueCirc$ := "-Q " + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(stimRGB%[],attCueCircleContrastStim%);
+    
+    docase
+    case attNumPatches% = 2 then
+        CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D1RGB%[],attCueCircleContrastD1%);  'Add D1
+        'end of first cue color circle set, rotate if attSwapCueCircle is 1
+        if attSwapCueCircle% = 1 then
+            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D1RGB%[],attCueCircleContrastD1%);  'Add D1
+            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(stimRGB%[],attCueCircleContrastStim%);  'Add Stim
+        endif
+        
+    case attNumPatches% = 3 then
+        CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D1RGB%[],attCueCircleContrastD1%);  'Add D1
+        CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D2RGB%[],attCueCircleContrastD2%);  'Add D2
+        'end of first cue color circle set, rotate if attSwapCueCircle is 1
+        if attSwapCueCircle% = 1 then
+            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D2RGB%[],attCueCircleContrastD2%);  'Add D2
+            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(stimRGB%[],attCueCircleContrastStim%);  'Add Stim
+            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D1RGB%[],attCueCircleContrastD1%);  'Add D1
+            'end of second cue color circle set, rotate
+            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D1RGB%[],attCueCircleContrastD1%);  'Add D1
+            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D2RGB%[],attCueCircleContrastD2%);  'Add D2
+            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(stimRGB%[],attCueCircleContrastStim%);  'Add Stim
+        endif
+        
+    case attNumPatches% = 4 then
+        CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D1RGB%[],attCueCircleContrastD1%);  'Add D1
+        CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D2RGB%[],attCueCircleContrastD2%);  'Add D2
+        CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D3RGB%[],attCueCircleContrastD3%);  'Add D3
+        'end of first cue color circle set, rotate if attSwapCueCircle is 1
+        if attSwapCueCircle% = 1 then
+            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D3RGB%[],attCueCircleContrastD3%);  'Add D3
+            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(stimRGB%[],attCueCircleContrastStim%);  'Add Stim
+            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D1RGB%[],attCueCircleContrastD1%);  'Add D1
+            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D2RGB%[],attCueCircleContrastD2%);  'Add D2
+            'end of second cue color circle set, rotate
+            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D2RGB%[],attCueCircleContrastD2%);  'Add D2
+            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D3RGB%[],attCueCircleContrastD3%);  'Add D3
+            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(stimRGB%[],attCueCircleContrastStim%);  'Add Stim
+            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D1RGB%[],attCueCircleContrastD1%);  'Add D1
+            'end of third cue color circle set, rotate
+            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D1RGB%[],attCueCircleContrastD1%);  'Add D1
+            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D2RGB%[],attCueCircleContrastD2%);  'Add D2
+            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D3RGB%[],attCueCircleContrastD3%);  'Add D3
+            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(stimRGB%[],attCueCircleContrastStim%);  'Add Stim
+        endif
+        
+    case attNumPatches% = 5 then   
+        CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D1RGB%[],attCueCircleContrastD1%);  'Add D1
+        CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D2RGB%[],attCueCircleContrastD2%);  'Add D2
+        CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D3RGB%[],attCueCircleContrastD3%);  'Add D3
+        CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D4RGB%[],attCueCircleContrastD4%);  'Add D4
+        'end of first cue color circle set, rotate if attSwapCueCircle is 1
+        if attSwapCueCircle% = 1 then
+            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D4RGB%[],attCueCircleContrastD4%);  'Add D4
+            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(stimRGB%[],attCueCircleContrastStim%);  'Add Stim
+            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D1RGB%[],attCueCircleContrastD1%);  'Add D1
+            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D2RGB%[],attCueCircleContrastD2%);  'Add D2
+            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D3RGB%[],attCueCircleContrastD3%);  'Add D3
+            'end of second cue color circle set, rotate
+            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D3RGB%[],attCueCircleContrastD3%);  'Add D3
+            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D4RGB%[],attCueCircleContrastD4%);  'Add D4
+            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(stimRGB%[],attCueCircleContrastStim%);  'Add Stim
+            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D1RGB%[],attCueCircleContrastD1%);  'Add D1
+            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D2RGB%[],attCueCircleContrastD2%);  'Add D2
+            'end of third cue color circle set, rotate
+            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D2RGB%[],attCueCircleContrastD2%);  'Add D2
+            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D3RGB%[],attCueCircleContrastD3%);  'Add D3
+            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D4RGB%[],attCueCircleContrastD4%);  'Add D4
+            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(stimRGB%[],attCueCircleContrastStim%);  'Add Stim
+            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D1RGB%[],attCueCircleContrastD1%);  'Add D1
+            'end of fourth cue color circle set, rotate
+            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D1RGB%[],attCueCircleContrastD1%);  'Add D1
+            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D2RGB%[],attCueCircleContrastD2%);  'Add D2
+            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D3RGB%[],attCueCircleContrastD3%);  'Add D3
+            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(D4RGB%[],attCueCircleContrastD4%);  'Add D4
+            CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(stimRGB%[],attCueCircleContrastStim%);  'Add Stim
+        endif
+    endcase;
+
+    
+    'put in closing space
+    CueCirc$ := CueCirc$ + " ";
     
     return CueCirc$;
 end
