@@ -39,7 +39,7 @@ proc CreateSampleConfiguration()
     SampleAutoName$("EEG_000");
 	SampleAutoFile(1);
 
-    SampleWaveform(1, 2, 1000);
+    SampleWaveform(1, 7, 1000);
     SampleTitle$(1, "EEG Port2");
     
     SampleOptimise(2, 2, 2, 2, 50);  'Set optimise mode (do this last)
