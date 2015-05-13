@@ -1,7 +1,7 @@
-' $Id: StarSac2.s2s,v 1.7 2015-05-12 17:15:19 devel Exp $
+' $Id: StarSac2.s2s,v 1.8 2015-05-13 18:23:11 devel Exp $
 ' Update 11/8/11 Jeff, includes SafeSampleKey and multi-juicer updates
 
-const starCVSID$ := "$Id: StarSac2.s2s,v 1.7 2015-05-12 17:15:19 devel Exp $";
+const starCVSID$ := "$Id: StarSac2.s2s,v 1.8 2015-05-13 18:23:11 devel Exp $";
 
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "../../Spike2Util/MiscUtilities.s2s"

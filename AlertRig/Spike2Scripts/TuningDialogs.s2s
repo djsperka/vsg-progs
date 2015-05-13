@@ -1,4 +1,4 @@
-' $Id: TuningDialogs.s2s,v 1.25 2015-05-12 17:15:19 devel Exp $
+' $Id: TuningDialogs.s2s,v 1.26 2015-05-13 18:29:50 devel Exp $
 '
 ' This file contains dialog functions for the alert tuning script Tuning.s2s.
 #include "../../Spike2Util/UsreyUtil.s2s"
@@ -32,6 +32,10 @@ var tunType2$:=tunTypeNone$;  'for second of two tuning curves, if Box O' Donuts
 var tunDualTuningType%;  'Determines whether, on dual tuning, both (0), Master (1), or Slave (2) screen varies.
 var tunUseFile%;        ' Overall variables so we don't have to check 7 different ones in the main file.
 var tunTuningFile$;     ' Location of tuning file
+var tunUseFile1%;        ' for first of two tuning curves, if Box o' Donuts
+var tunTuningFile1$;
+var tunUseFile2%;        ' for second of two tuning curves, if Box o' Donuts
+var tunTuningFile2$;
 
 const tunContextDAQ$ := "DAQ";
 const tunContextConfig$ := "Config";
@@ -706,12 +710,16 @@ func TuningCurveOrientationDialog%()
         docase
         case tunBoxODonutsCurrentCurve% = 1 then
             tunType1$ := tunTypeOrientation$;
+            tunUseFile1% := tunOriUseFile%;
+            tunTuningFile1$ := tunOriTuningFile$;
             tunCurve1Text$ := "Tuning Curve 1 is ORIENTATION";
             DlgValue$(updateCurve1Text%, tunCurve1Text$);
             tunBoxODonutsCurrentCurve% := 2;  'update current curve 
             DlgEnable(0,-tundlgOrientationButton%);  'So we don't pick orientation again
         case tunBoxODonutsCurrentCurve% = 2 then
             tunType2$ := tunTypeOrientation$;
+            tunUseFile2% := tunOriUseFile%;
+            tunTuningFile2$ := tunOriTuningFile$;
             tunCurve2Text$ := "Tuning Curve 2 is ORIENTATION";
             DlgValue$(updateCurve2Text%, tunCurve2Text$);
             tunBoxODonutsCurrentCurve% := 3;  'update current curve 
@@ -796,12 +804,16 @@ func TuningCurveContrastDialog%()
         docase
         case tunBoxODonutsCurrentCurve% = 1 then
             tunType1$ := tunTypeContrast$;
+            tunUseFile1% := tunContrastUseFile%;
+            tunTuningFile1$ := tunContrastTuningFile$;
             tunCurve1Text$ := "Tuning Curve 1 is CONTRAST";
             DlgValue$(updateCurve1Text%, tunCurve1Text$);
             tunBoxODonutsCurrentCurve% := 2;  'update current curve 
             DlgEnable(0,-tundlgContrastButton%);  'So we don't pick contrast again
         case tunBoxODonutsCurrentCurve% = 2 then
             tunType2$ := tunTypeContrast$;
+            tunUseFile2% := tunContrastUseFile%;
+            tunTuningFile2$ := tunContrastTuningFile$;
             tunCurve2Text$ := "Tuning Curve 2 is CONTRAST";
             DlgValue$(updateCurve2Text%, tunCurve2Text$);
             tunBoxODonutsCurrentCurve% := 3;  'update current curve 
@@ -884,12 +896,16 @@ func TuningCurveSpatialDialog%()
         docase
         case tunBoxODonutsCurrentCurve% = 1 then
             tunType1$ := tunTypeSpatial$;
+            tunUseFile1% := tunSpatialUseFile%;
+            tunTuningFile1$ := tunSpatialTuningFile$;
             tunCurve1Text$ := "Tuning Curve 1 is SPATIAL FREQ";
             DlgValue$(updateCurve1Text%, tunCurve1Text$);
             tunBoxODonutsCurrentCurve% := 2;  'update current curve 
             DlgEnable(0,-tundlgSpatialButton%);  'So we don't pick spatial frequency again
         case tunBoxODonutsCurrentCurve% = 2 then
             tunType2$ := tunTypeSpatial$;
+            tunUseFile2% := tunSpatialUseFile%;
+            tunTuningFile2$ := tunSpatialTuningFile$;
             tunCurve2Text$ := "Tuning Curve 2 is SPATIAL FREQ";
             DlgValue$(updateCurve2Text%, tunCurve2Text$);
             tunBoxODonutsCurrentCurve% := 3;  'update current curve 
@@ -972,12 +988,16 @@ func TuningCurveTemporalDialog%()
         docase
         case tunBoxODonutsCurrentCurve% = 1 then
             tunType1$ := tunTypeTemporal$;
+            tunUseFile1% := tunTemporalUseFile%;
+            tunTuningFile1$ := tunTemporalTuningFile$;
             tunCurve1Text$ := "Tuning Curve 1 is TEMPORAL FREQ";
             DlgValue$(updateCurve1Text%, tunCurve1Text$);
             tunBoxODonutsCurrentCurve% := 2;  'update current curve 
             DlgEnable(0,-tundlgTemporalButton%);  'So we don't pick temporal frequency again
         case tunBoxODonutsCurrentCurve% = 2 then
             tunType2$ := tunTypeTemporal$;
+            tunUseFile2% := tunTemporalUseFile%;
+            tunTuningFile2$ := tunTemporalTuningFile$;
             tunCurve2Text$ := "Tuning Curve 2 is TEMPORAL FREQ";
             DlgValue$(updateCurve2Text%, tunCurve2Text$);
             tunBoxODonutsCurrentCurve% := 3;  'update current curve 
@@ -1063,12 +1083,16 @@ func TuningCurveAreaDialog%()
         docase
         case tunBoxODonutsCurrentCurve% = 1 then
             tunType1$ := tunTypeArea$;
+            tunUseFile1% := tunAreaUseFile%;
+            tunTuningFile1$ := tunAreaTuningFile$;
             tunCurve1Text$ := "Tuning Curve 1 is AREA";
             DlgValue$(updateCurve1Text%, tunCurve1Text$);
             tunBoxODonutsCurrentCurve% := 2;  'update current curve 
             DlgEnable(0,-tundlgAreaButton%);  'So we don't pick area again
         case tunBoxODonutsCurrentCurve% = 2 then
             tunType2$ := tunTypeArea$;
+            tunUseFile2% := tunAreaUseFile%;
+            tunTuningFile2$ := tunAreaTuningFile$;
             tunCurve2Text$ := "Tuning Curve 2 is AREA";
             DlgValue$(updateCurve2Text%, tunCurve2Text$);
             tunBoxODonutsCurrentCurve% := 3;  'update current curve 

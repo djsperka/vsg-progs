@@ -1,4 +1,4 @@
-' $Id: KrubTuning.s2s,v 1.12 2013-08-27 16:59:39 jeff Exp $
+' $Id: KrubTuning.s2s,v 1.13 2015-05-13 18:20:27 devel Exp $
 '
 '
 
@@ -771,6 +771,8 @@ proc WriteStimFileToStartPresentation()
         LogError("Start", "Cannot open text file!");
         halt;
     endif
+    
+    GetAcuteDataParameters();  'this line became necessary somewhere along the line...perhaps Spike2 7.12?
     
     ' Write header
     screenWidth := GetKrubScreenWidth%()/10.0;
