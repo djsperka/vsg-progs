@@ -1,4 +1,4 @@
-' $Id: AttentionGoNoGo.s2s,v 1.48 2015-05-13 17:00:56 devel Exp $
+' $Id: AttentionGoNoGo.s2s,v 1.49 2015-05-13 22:00:04 devel Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
