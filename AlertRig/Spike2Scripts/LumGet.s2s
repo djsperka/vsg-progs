@@ -10,7 +10,7 @@ var sFilename$;
 var v;
 var triggers[100];
 var ntriggers% := 0;
-const trigChan% := 3;
+const trigChan% := 2;
 const spikChan% := 1;
 var tLast;
 var tNext;
