@@ -1,7 +1,7 @@
-' $Id: Tuning.s2s,v 1.89 2015-05-12 17:15:19 devel Exp $
+' $Id: Tuning.s2s,v 1.90 2015-05-13 18:28:48 devel Exp $
 ' Update 11/8/11 Jeff, includes multi-juicer updates
 
-const tunCVSID$ := "$Id: Tuning.s2s,v 1.89 2015-05-12 17:15:19 devel Exp $";
+const tunCVSID$ := "$Id: Tuning.s2s,v 1.90 2015-05-13 18:28:48 devel Exp $";
 
 
 
@@ -1272,6 +1272,8 @@ proc CreateSampleConfiguration()
     var temp2$;
     var od;
     var key$;
+    var eof% := 1;
+    
 	SampleClear(); 'Set standard sampling state
     SampleChannels(64);  '32 does not work, we need more!
 '	SampleAutoFile(0); 'Enable automatic file naming
@@ -1285,7 +1287,7 @@ proc CreateSampleConfiguration()
     'read tuning file, if one is specified
     if tunUseFile% = 1 then
         var tunFileLen%;
-        var eof%:=1;
+        eof%:=1;
         readsetup(",","	 ","","","	");  'Standard read setup
         FileOpen(tunTuningFile$,8,0);  'open specified file
         while eof% > 0 do
@@ -1295,6 +1297,37 @@ proc CreateSampleConfiguration()
         tunFileLen%-=1;  'decrement tuning file length because we increment when we find EOF.
         FileClose();  'close the file
     endif
+    
+    
+    'read tuning file for box'o'donuts curve 1, if one is specified
+    if tunUseFile1% = 1 then
+        var tun1FileLen%;
+        eof%:=1;
+        readsetup(",","	 ","","","	");  'Standard read setup
+        FileOpen(tunTuningFile1$,8,0);  'open specified file
+        while eof% > 0 do
+            eof% := read(tun1Values[tun1FileLen%]);  'read to end of file, must put each value on a new line to count number of stimuli in a block
+            tun1FileLen%+=1;  'increment tuning file length
+        wend
+        tun1FileLen%-=1;  'decrement tuning file length because we increment when we find EOF.
+        FileClose();  'close the file
+    endif
+    
+    
+    'read tuning file for box'o'donuts curve 2, if one is specified
+    if tunUseFile2% = 1 then
+        var tun2FileLen%;
+        eof%:=1;
+        readsetup(",","	 ","","","	");  'Standard read setup
+        FileOpen(tunTuningFile2$,8,0);  'open specified file
+        while eof% > 0 do
+            eof% := read(tun2Values[tun2FileLen%]);  'read to end of file, must put each value on a new line to count number of stimuli in a block
+            tun2FileLen%+=1;  'increment tuning file length
+        wend
+        tun2FileLen%-=1;  'decrement tuning file length because we increment when we find EOF.
+        FileClose();  'close the file
+    endif
+    
     
     key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Temp\\Filepref";
     
@@ -1355,7 +1388,7 @@ proc CreateSampleConfiguration()
             ShuffleAndExpand(tunFileLen%,tunNRepeats%,tunValuesIndices%[],tunOriProgression%);
         else
             tunNAdvances% := tunOriNSteps%;
-            GetRepeatedParameterProgression%(tunOriNSteps%+1, tunNRepeats%, tunValues[], tunValuesIndices%[], tunOriMinOrientation, tunOriMaxOrientation, 1, tunOriProgression%);
+            GetRepeatedParameterProgression%(tunOriNSteps%+1, tunNRepeats%, tunValues[], tunValuesIndices%[], tunOriMinOrientation, tunOriMaxOrientation, 0, tunOriProgression%);
         endif;
         tunNValues% := (tunNAdvances%+1)*tunNRepeats%;  
         tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%);
@@ -1393,7 +1426,7 @@ proc CreateSampleConfiguration()
             ShuffleAndExpand(tunFileLen%,tunNRepeats%,tunValuesIndices%[],tunTemporalProgression%);
         else
             tunNAdvances% := tunTemporalNSteps%;
-            GetRepeatedParameterProgression%(tunTemporalNSteps%+1, tunNRepeats%, tunValues[], tunValuesIndices%[], tunTemporalMinTF, tunTemporalMaxTF, 1, tunTemporalProgression%);
+            GetRepeatedParameterProgression%(tunTemporalNSteps%+1, tunNRepeats%, tunValues[], tunValuesIndices%[], tunTemporalMinTF, tunTemporalMaxTF, 0, tunTemporalProgression%);
         endif;
         tunNValues% := (tunNAdvances%+1)*tunNRepeats%;  
         tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%);
@@ -1524,26 +1557,52 @@ proc CreateSampleConfiguration()
         
         'here we can do a GRPP for each of the two tuning curves (using one repeat, one repeat only) to get the values
         'then we have to randomize (or not) before stringifying
+        
         docase
         case tuntype1$ = tunTypeContrast$ then
-            GetRepeatedParameterProgression%(tunContrastNSteps%+1, 1, tun1Values[], tun1ValuesIndices%[], tunContrastMinContrast, tunContrastMaxContrast, 1, 0);
-            tun1NValues% := (tunContrastNSteps%+1);
+            if tunUseFile1% = 1 then
+                ShuffleAndExpand(tun1FileLen%,1,tun1ValuesIndices%[],0);
+                tun1NValues% := tun1FileLen%;
+            else                
+                GetRepeatedParameterProgression%(tunContrastNSteps%+1, 1, tun1Values[], tun1ValuesIndices%[], tunContrastMinContrast, tunContrastMaxContrast, 1, 0);
+                tun1NValues% := (tunContrastNSteps%+1);
+            endif;
             temp1$ := "_con";
         case tuntype1$ = tunTypeOrientation$ then
-            GetRepeatedParameterProgression%(tunOriNSteps%+1, 1, tun1Values[], tun1ValuesIndices%[], tunOriMinOrientation, tunOriMaxOrientation, 0, 0); 
-            tun1NValues% := (tunOriNSteps%+1);    
+            if tunUseFile1% = 1 then
+                ShuffleAndExpand(tun1FileLen%,1,tun1ValuesIndices%[],0);
+                tun1NValues% := tun1FileLen%;
+            else
+                GetRepeatedParameterProgression%(tunOriNSteps%+1, 1, tun1Values[], tun1ValuesIndices%[], tunOriMinOrientation, tunOriMaxOrientation, 0, 0); 
+                tun1NValues% := (tunOriNSteps%+1); 
+            endif;            
             temp1$ := "_ori";            
         case tuntype1$ = tunTypeSpatial$ then
-            GetRepeatedParameterProgression%(tunSpatialNSteps%+1, 1, tun1Values[], tun1ValuesIndices%[], tunSpatialMinSF, tunSpatialMaxSF, 1, 0);
-            tun1NValues% := (tunSpatialNSteps%+1);
+            if tunUseFile1% = 1 then
+                ShuffleAndExpand(tun1FileLen%,1,tun1ValuesIndices%[],0);
+                tun1NValues% := tun1FileLen%;
+            else
+                GetRepeatedParameterProgression%(tunSpatialNSteps%+1, 1, tun1Values[], tun1ValuesIndices%[], tunSpatialMinSF, tunSpatialMaxSF, 1, 0);
+                tun1NValues% := (tunSpatialNSteps%+1);
+            endif;
             temp1$ := "_spa";
         case tuntype1$ = tunTypeTemporal$ then
-            GetRepeatedParameterProgression%(tunTemporalNSteps%+1, 1, tun1Values[], tun1ValuesIndices%[], tunTemporalMinTF, tunTemporalMaxTF, 1, 0);
-            tun1NValues% := (tunTemporalNSteps%+1);
+            if tunUseFile1% = 1 then
+                ShuffleAndExpand(tun1FileLen%,1,tun1ValuesIndices%[],0);
+                tun1NValues% := tun1FileLen%;
+            else
+                GetRepeatedParameterProgression%(tunTemporalNSteps%+1, 1, tun1Values[], tun1ValuesIndices%[], tunTemporalMinTF, tunTemporalMaxTF, 1, 0);
+                tun1NValues% := (tunTemporalNSteps%+1);
+            endif;
             temp1$ := "_tem";
         case tuntype1$ = tunTypeArea$ then
-            GetRepeatedParameterProgression%(tunAreaNSteps%+1, 1, tun1Values[], tun1ValuesIndices%[], tunAreaMinDiam, tunAreaMaxDiam, 1, 0);
-            tun1NValues% := (tunAreaNSteps%+1);
+            if tunUseFile1% = 1 then
+                ShuffleAndExpand(tun1FileLen%,1,tun1ValuesIndices%[],0);
+                tun1NValues% := tun1FileLen%;
+            else
+                GetRepeatedParameterProgression%(tunAreaNSteps%+1, 1, tun1Values[], tun1ValuesIndices%[], tunAreaMinDiam, tunAreaMaxDiam, 1, 0);
+                tun1NValues% := (tunAreaNSteps%+1);
+            endif;
             temp1$ := "_area";
         case tuntype1$ = tunTypeXPos$ then
             GetRepeatedParameterProgression%(tunXPosNSteps%+1, 1, tun1Values[], tun1ValuesIndices%[], tunXPosMinXPos, tunXPosMaxXPos, 0, 0);
@@ -1553,24 +1612,49 @@ proc CreateSampleConfiguration()
         
         docase
         case tuntype2$ = tunTypeContrast$ then
-            GetRepeatedParameterProgression%(tunContrastNSteps%+1, 1, tun2Values[], tun2ValuesIndices%[], tunContrastMinContrast, tunContrastMaxContrast, 1, 0);
-            tun2NValues% := (tunContrastNSteps%+1); 
+            if tunUseFile2% = 1 then
+                ShuffleAndExpand(tun2FileLen%,1,tun2ValuesIndices%[],0);
+                tun2NValues% := tun2FileLen%;
+            else
+                GetRepeatedParameterProgression%(tunContrastNSteps%+1, 1, tun2Values[], tun2ValuesIndices%[], tunContrastMinContrast, tunContrastMaxContrast, 1, 0);
+                tun2NValues% := (tunContrastNSteps%+1); 
+            endif;
             temp2$ := "_con";
         case tuntype2$ = tunTypeOrientation$ then
-            GetRepeatedParameterProgression%(tunOriNSteps%+1, 1, tun2Values[], tun2ValuesIndices%[], tunOriMinOrientation, tunOriMaxOrientation, 0, 0);
-            tun2NValues% := (tunOriNSteps%+1);  
+            if tunUseFile2% = 1 then
+                ShuffleAndExpand(tun2FileLen%,1,tun2ValuesIndices%[],0);
+                tun2NValues% := tun2FileLen%;
+            else
+                GetRepeatedParameterProgression%(tunOriNSteps%+1, 1, tun2Values[], tun2ValuesIndices%[], tunOriMinOrientation, tunOriMaxOrientation, 0, 0);
+                tun2NValues% := (tunOriNSteps%+1);
+            endif;            
             temp2$ := "_ori";            
         case tuntype2$ = tunTypeSpatial$ then
-            GetRepeatedParameterProgression%(tunSpatialNSteps%+1, 1, tun2Values[], tun2ValuesIndices%[], tunSpatialMinSF, tunSpatialMaxSF, 1, 0);
-            tun2NValues% := (tunSpatialNSteps%+1);
+            if tunUseFile2% = 1 then
+                ShuffleAndExpand(tun2FileLen%,1,tun2ValuesIndices%[],0);
+                tun2NValues% := tun2FileLen%;
+            else
+                GetRepeatedParameterProgression%(tunSpatialNSteps%+1, 1, tun2Values[], tun2ValuesIndices%[], tunSpatialMinSF, tunSpatialMaxSF, 1, 0);
+                tun2NValues% := (tunSpatialNSteps%+1);
+            endif;
             temp2$ := "_spa";
         case tuntype2$ = tunTypeTemporal$ then
-            GetRepeatedParameterProgression%(tunTemporalNSteps%+1, 1, tun2Values[], tun2ValuesIndices%[], tunTemporalMinTF, tunTemporalMaxTF, 1, 0);
-            tun2NValues% := (tunTemporalNSteps%+1);
+            if tunUseFile2% = 1 then
+                ShuffleAndExpand(tun2FileLen%,1,tun2ValuesIndices%[],0);
+                tun2NValues% := tun2FileLen%;
+            else
+                GetRepeatedParameterProgression%(tunTemporalNSteps%+1, 1, tun2Values[], tun2ValuesIndices%[], tunTemporalMinTF, tunTemporalMaxTF, 1, 0);
+                tun2NValues% := (tunTemporalNSteps%+1);
+            endif;
             temp2$ := "_tem";
         case tuntype2$ = tunTypeArea$ then
-            GetRepeatedParameterProgression%(tunAreaNSteps%+1, 1, tun2Values[], tun2ValuesIndices%[], tunAreaMinDiam, tunAreaMaxDiam, 1, 0);
-            tun2NValues% := (tunAreaNSteps%+1);
+            if tunUseFile2% = 1 then
+                ShuffleAndExpand(tun2FileLen%,1,tun2ValuesIndices%[],0);
+                tun2NValues% := tun2FileLen%;
+            else
+                GetRepeatedParameterProgression%(tunAreaNSteps%+1, 1, tun2Values[], tun2ValuesIndices%[], tunAreaMinDiam, tunAreaMaxDiam, 1, 0);
+                tun2NValues% := (tunAreaNSteps%+1);
+            endif;
             temp2$ := "_area";
         case tuntype2$ = tunTypeXPos$ then
             GetRepeatedParameterProgression%(tunXPosNSteps%+1, 1, tun2Values[], tun2ValuesIndices%[], tunXPosMinXPos, tunXPosMaxXPos, 0, 0);
