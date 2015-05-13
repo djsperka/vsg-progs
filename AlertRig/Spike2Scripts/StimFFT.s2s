@@ -110,7 +110,7 @@ proc CreateSampleConfiguration()
 	SampleAutoComment(0); 'Prompt for comment after sampling
 	SampleAutoCommit(60); 'Seconds between each file commit
     
-    SampleWaveform(DataChannel%, 0, 2000);
+    SampleWaveform(DataChannel%, 7, 2000);
 	SampleTitle$(DataChannel%, "Data");
     
 	SampleTextMark(200);  'increase number of allowed characters, 1 is so stingy!
@@ -133,10 +133,10 @@ proc InitializeWindows()
 	View(dataWindow%).WindowVisible(1);
     
     'set up windows to hold the various FFT analyses
-    sfftOnePrePeriodWindow% := SetPower(DataChannel%,128,0);  'FFT size of 128? (64 bins?), for now no window but if Henry wants Hanning or Hamming then update
-    sfftAllPrePeriodWindow% := SetPower(DataChannel%,128,0);
-    sfftOnePostPeriodWindow% := SetPower(DataChannel%,128,0);
-    sfftAllPostPeriodWindow% := SetPower(DataChannel%,128,0);
+    sfftOnePrePeriodWindow% := SetPower(DataChannel%,4096,0);  'FFT size of 128? (64 bins?), for now no window but if Henry wants Hanning or Hamming then update
+    sfftAllPrePeriodWindow% := SetPower(DataChannel%,4096,0);
+    sfftOnePostPeriodWindow% := SetPower(DataChannel%,4096,0);
+    sfftAllPostPeriodWindow% := SetPower(DataChannel%,4096,0);
     View(sfftOnePrePeriodWindow%).WindowTitle$("Most Recent Prestimulus Window");  'give all a title
     View(sfftAllPrePeriodWindow%).WindowTitle$("All Prestimulus Windows"); 
     View(sfftOnePostPeriodWindow%).WindowTitle$("Most Recent Poststimulus Window"); 
