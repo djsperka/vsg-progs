@@ -1,7 +1,7 @@
-' $Id: Tuning.s2s,v 1.90 2015-05-13 18:28:48 devel Exp $
+' $Id: Tuning.s2s,v 1.91 2015-05-13 22:12:44 devel Exp $
 ' Update 11/8/11 Jeff, includes multi-juicer updates
 
-const tunCVSID$ := "$Id: Tuning.s2s,v 1.90 2015-05-13 18:28:48 devel Exp $";
+const tunCVSID$ := "$Id: Tuning.s2s,v 1.91 2015-05-13 22:12:44 devel Exp $";
 
 
 
