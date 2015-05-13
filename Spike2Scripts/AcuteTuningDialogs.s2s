@@ -1,4 +1,4 @@
-' $Id: AcuteTuningDialogs.s2s,v 1.14 2015-05-12 22:53:38 devel Exp $
+' $Id: AcuteTuningDialogs.s2s,v 1.15 2015-05-13 21:57:51 devel Exp $
 '
 ' This file contains dialog functions for the alert tuning script Tuning.s2s.
 #include "../../Spike2Util/UsreyUtil.s2s"
