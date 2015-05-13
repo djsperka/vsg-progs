@@ -1,4 +1,4 @@
-; $Id: Tuning.PLS,v 1.14 2015-05-12 17:15:19 devel Exp $
+; $Id: Tuning.PLS,v 1.15 2015-05-13 18:26:16 devel Exp $
 ;
 
                 SET      0.010 1 0     ;Get rate & scaling OK
