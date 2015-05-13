@@ -1,4 +1,4 @@
-' $Id: ContrastReverse.s2s,v 1.10 2011-11-16 00:48:00 jeff Exp $
+' $Id: ContrastReverse.s2s,v 1.11 2015-05-13 22:07:39 devel Exp $
 ' Update 11/8/11 Jeff, includes SafeSampleKey and multi-juicer updates
 
 #include "../../Spike2util/UsreyUtil.s2s"
@@ -186,11 +186,11 @@ func CRGStimulusDialog%()
     var type$ := "Stimulus";
     
 	gr$ := GetGratingParameters$(type$);
-	if gr$ <> "" then
-        if GratingParametersDialog%(type$, gr$, disable%, ndisable%, x, y, w, h, contrast%, sf, tf, orientation, phase, cv$, p$, ap$) = 1 then
-            SaveGratingParameters(type$, gr$);
-        endif
-    endif
+'djs	if gr$ <> "" then
+'        if GratingParametersDialog%(type$, gr$, disable%, ndisable%, x, y, w, h, contrast%, sf, tf, orientation, phase, cv$, p$, ap$) = 1 then
+'            SaveGratingParameters(type$, gr$);
+'        endif
+'    endif
     return 1;
 end;
 
