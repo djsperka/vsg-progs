@@ -1,4 +1,4 @@
-' $Id: Fixation.s2s,v 1.37 2015-05-12 17:15:19 devel Exp $
+' $Id: Fixation.s2s,v 1.38 2015-05-13 22:05:05 devel Exp $
 ' Update 11/8/11 Jeff, includes SafeSampleKey and multi-juicer updates
 
 #include "../../Spike2Util/UsreyUtil.s2s"
@@ -659,10 +659,10 @@ proc CreateSampleConfiguration()
 
     ' Set up channels for sampling electrodes.
     CreateElectrodeSamplingConfiguration(1, 11);
-    
+
     ' different pls file if remote
     if GetUseRemoteStimulus%() = 0 then
-        SampleSequencer(script$ + "Fixation.pls");
+	SampleSequencer(script$ + "Fixation.pls");
     else
         SampleSequencer(script$ + "Tuning.pls");
     endif
@@ -831,7 +831,7 @@ func Start%()
     else
         Invocation$ := "cmd /c " + GetBinDir$(1) + "Fixation ";
     endif
-    
+
 	if fixCalibrationFlag% = 0 then
 
 		' Use distractors? 
@@ -880,7 +880,7 @@ func Start%()
 			endif
 		endif
 		
-		Extras$ := " -b " + fixBackgroundColor$ + " -d " + GetDistanceToScreenMM$(); 
+		Extras$ := " -b " + fixBackgroundColor$ + " -d " + GetDistanceToScreenMM$();
 		
 		CommandLine$ := Invocation$ + FixationArg$ + Extras$ + Distractors$ + DistractorFixstimFlag$;
 		

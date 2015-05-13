@@ -289,7 +289,7 @@ if caTrainingOptions% > 2 then
             nUniqueCues% += 1;
         endif
     next
-    'here is the bit that assigns caWhichLocationChanges%[] - this will help us determine if it is a catch trial or not
+        'here is the bit that assigns caWhichLocationChanges%[] - this will help us determine if it is a catch trial or not
     for j% := 0 to caNumberOfTrials%-1 do  'THIS needs to start at 0
         docase
         case (caContrast1Init[j%] <> caContrast1Final[j%]) and (caContrast2Init[j%] <> caContrast2Final[j%]) then
@@ -518,7 +518,7 @@ func TimingDialogChanged%(item%)
         if DlgValue(caTimingDlgRequireFixation%) = 1 then
             DlgEnable(1,caTimingDlgAcquisitionTime%);  'enable acquisition time
         else
-            DlgEnable(0,caTimingDlgAcquisitionTime%);  'disable acquisition time
+        DlgEnable(0,caTimingDlgAcquisitionTime%);  'disable acquisition time
         endif;
         DlgEnable(0,caTimingDlgAbortWait%);  'disable abort wait time
         DlgEnable(0,caTimingDlgFAPenalty%);  'disable FA penalty
@@ -537,7 +537,7 @@ func TimingDialogChanged%(item%)
         
     case DlgValue(caTimingDlgTrainingOptions%) >= 3 then   'note that the logic here hasn't been fully worked out
         if DlgValue(caTimingDlgRequireFixation%) = 1 then
-            DlgEnable(1,caTimingDlgAcquisitionTime%);  'enable acquisition time
+        DlgEnable(1,caTimingDlgAcquisitionTime%);  'enable acquisition time
         else
             DlgEnable(0,caTimingDlgAcquisitionTime%);  'disable acquisition time
         endif;
@@ -1350,9 +1350,9 @@ func IdleProcessing%()
             view(XYWindow%).XYColour(iFixationWindowChannel%,13);  'Force fixation window to blue
             'answer windows
             if caTrainingOptions% > 2 then
-                view(XYWindow%).XYColour(iAnswerWindowChannelMain%,13);  'Force main stimulus answer window to blue
-                view(XYWindow%).XYColour(iAnswerWindowChannelDist1%,13);  'Force distracter1 answer window to blue
-            endif;
+            view(XYWindow%).XYColour(iAnswerWindowChannelMain%,13);  'Force main stimulus answer window to blue
+            view(XYWindow%).XYColour(iAnswerWindowChannelDist1%,13);  'Force distracter1 answer window to blue
+        endif;
         endif;
         
         
@@ -1656,7 +1656,7 @@ func IdleProcessing%()
             Stop%();
             iStatus% := 0;
         else
-            ChangeStateTo(stateWaitForJoystickInCenter%, tNow);
+        ChangeStateTo(stateWaitForJoystickInCenter%, tNow);
         endif;
         
         
