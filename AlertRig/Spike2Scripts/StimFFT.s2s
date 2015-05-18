@@ -110,7 +110,7 @@ proc CreateSampleConfiguration()
 	SampleAutoComment(0); 'Prompt for comment after sampling
 	SampleAutoCommit(60); 'Seconds between each file commit
     
-    SampleWaveform(DataChannel%, 7, 2000);
+    SampleWaveform(DataChannel%, 7, 20000);
 	SampleTitle$(DataChannel%, "Data");
     
 	SampleTextMark(200);  'increase number of allowed characters, 1 is so stingy!
