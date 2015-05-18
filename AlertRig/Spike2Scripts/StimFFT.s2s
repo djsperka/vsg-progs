@@ -134,9 +134,13 @@ proc InitializeWindows()
     
     'set up windows to hold the various FFT analyses
     sfftOnePrePeriodWindow% := SetPower(DataChannel%,16384,0);  'Henry wants maximum FFT size, for now no window but if Henry wants Hanning or Hamming then update
+    YAxisAttrib(-1,3);  'Apparently, this must be done here, and once for each channel.  Whatevs.
     sfftAllPrePeriodWindow% := SetPower(DataChannel%,16384,0);
+    YAxisAttrib(-1,3);
     sfftOnePostPeriodWindow% := SetPower(DataChannel%,16384,0);
+    YAxisAttrib(-1,3);
     sfftAllPostPeriodWindow% := SetPower(DataChannel%,16384,0);
+    YAxisAttrib(-1,3);
     View(sfftOnePrePeriodWindow%).WindowTitle$("Most Recent Prestimulus Window");  'give all a title
     View(sfftAllPrePeriodWindow%).WindowTitle$("All Prestimulus Windows"); 
     View(sfftOnePostPeriodWindow%).WindowTitle$("Most Recent Poststimulus Window"); 
@@ -153,10 +157,8 @@ proc InitializeWindows()
     View(sfftAllPrePeriodWindow%).XRange(1,100); 
     View(sfftOnePostPeriodWindow%).XRange(1,100); 
     View(sfftAllPostPeriodWindow%).XRange(1,100);
-    YAxisAttrib(sfftOnePrePeriodWindow%,3);  'update Y-axis to be logarithmic ****NOTE
-    YAxisAttrib(sfftAllPrePeriodWindow%,3);  '**** I'm not sure this will work!  The YAxisAttrib
-    YAxisAttrib(sfftOnePostPeriodWindow%,3); 'function asks for a CHANNEL SPECIFIER, whereas this
-    YAxisAttrib(sfftAllPostPeriodWindow%,3); 'is a WINDOW specifier.  Could go south or not work.
+    
+
     
 end;
 
