@@ -133,10 +133,10 @@ proc InitializeWindows()
 	View(dataWindow%).WindowVisible(1);
     
     'set up windows to hold the various FFT analyses
-    sfftOnePrePeriodWindow% := SetPower(DataChannel%,4096,0);  'FFT size of 128? (64 bins?), for now no window but if Henry wants Hanning or Hamming then update
-    sfftAllPrePeriodWindow% := SetPower(DataChannel%,4096,0);
-    sfftOnePostPeriodWindow% := SetPower(DataChannel%,4096,0);
-    sfftAllPostPeriodWindow% := SetPower(DataChannel%,4096,0);
+    sfftOnePrePeriodWindow% := SetPower(DataChannel%,16384,0);  'Henry wants maximum FFT size, for now no window but if Henry wants Hanning or Hamming then update
+    sfftAllPrePeriodWindow% := SetPower(DataChannel%,16384,0);
+    sfftOnePostPeriodWindow% := SetPower(DataChannel%,16384,0);
+    sfftAllPostPeriodWindow% := SetPower(DataChannel%,16384,0);
     View(sfftOnePrePeriodWindow%).WindowTitle$("Most Recent Prestimulus Window");  'give all a title
     View(sfftAllPrePeriodWindow%).WindowTitle$("All Prestimulus Windows"); 
     View(sfftOnePostPeriodWindow%).WindowTitle$("Most Recent Poststimulus Window"); 
@@ -149,6 +149,14 @@ proc InitializeWindows()
     View(sfftAllPrePeriodWindow%).WindowVisible(1); 
     View(sfftOnePostPeriodWindow%).WindowVisible(1); 
     View(sfftAllPostPeriodWindow%).WindowVisible(1);
+    View(sfftOnePrePeriodWindow%).XRange(1,100);  'change axes to only show 1 to 100 Hz
+    View(sfftAllPrePeriodWindow%).XRange(1,100); 
+    View(sfftOnePostPeriodWindow%).XRange(1,100); 
+    View(sfftAllPostPeriodWindow%).XRange(1,100);
+    YAxisAttrib(sfftOnePrePeriodWindow%,3);  'update Y-axis to be logarithmic ****NOTE
+    YAxisAttrib(sfftAllPrePeriodWindow%,3);  '**** I'm not sure this will work!  The YAxisAttrib
+    YAxisAttrib(sfftOnePostPeriodWindow%,3); 'function asks for a CHANNEL SPECIFIER, whereas this
+    YAxisAttrib(sfftAllPostPeriodWindow%,3); 'is a WINDOW specifier.  Could go south or not work.
     
 end;
 
