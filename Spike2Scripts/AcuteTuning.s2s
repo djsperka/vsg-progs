@@ -1,5 +1,5 @@
-' $Id: AcuteTuning.s2s,v 1.41 2015-05-13 21:57:13 devel Exp $
-const tunCVSID$ := "$Id: AcuteTuning.s2s,v 1.41 2015-05-13 21:57:13 devel Exp $";
+' $Id: AcuteTuning.s2s,v 1.42 2015-05-20 16:38:09 devel Exp $
+const tunCVSID$ := "$Id: AcuteTuning.s2s,v 1.42 2015-05-20 16:38:09 devel Exp $";
 
 'var TuningCurveScriptDialogAllowOK%;  'allows OK to button to work on main dialog
 
@@ -1309,6 +1309,14 @@ proc WriteParameterFile()
 
 			Print("Type:                  : Null Test Counterphase Gratings\n");
 			Print("Min,Max,#Steps,#Repeats: %f,%f,%d,%d\n", tunNullTestMinPhase, tunNullTestMaxPhase, tunNullTestNSteps%, tunNullTestNRepeats%);
+			Print("Values: " + tunValuesStringified$ + "\n");
+            Print("\n");
+        
+        case tunType$ = tunTypeCRG$ then
+
+            Print("Type:                           : CRG\n");
+            Print("FramesPerTerm,MSeqStart,Balanced: %d,%d,%d\n", tunCRGMFramesPerTurn%, tunCRGMFirstTerm%, tunCRGMBalanced%);
+			Print("Min,Max,#Steps,#Repeats         : %f,%f,%d,%d\n", tunCRGMMinContrast, tunCRGMMaxContrast, tunCRGMNSteps%, tunCRGMNRepeats%);
 			Print("Values: " + tunValuesStringified$ + "\n");
             Print("\n");
         
