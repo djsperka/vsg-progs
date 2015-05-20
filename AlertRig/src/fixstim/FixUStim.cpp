@@ -1,8 +1,10 @@
-/* $Id: FixUStim.cpp,v 1.1 2015-05-12 17:27:00 devel Exp $*/
+/* $Id: FixUStim.cpp,v 1.2 2015-05-20 18:53:54 devel Exp $*/
 
 #include "FixUStim.h"
 #include <iostream>
+#include <boost/algorithm/string.hpp>
 using namespace std;
+using namespace boost::algorithm;
 using namespace boost::filesystem;
 
 const string FixUStim::m_allowedArgs("ab:d:e:f:g:h:k:p:s:vzA:B:C:D:G:H:I:J:KL:M:NO:Q:R:S:T:U:V:W:Y:Z:");
@@ -1012,27 +1014,39 @@ int FixUStim::process_arg(int c, std::string& arg)
 
 				// open file, read line-by-line and parse
 				string line;
+				int linenumber = 0;
+				int cuecount = 0;
 				ifstream myfile(arg.c_str());
 				if (myfile.is_open())
 				{
 					while (getline(myfile, line))
 					{
 						struct EQParams e;
-						if (parse_eqparams(line, m_vecGratings.size(), e))
+						trim(line);
+						linenumber++;
+						if (line.length() == 0 || line[0] == '#')
+						{
+							// skip empty lines and those that start with '#'
+						}
+						else if (parse_eqparams(line, m_vecGratings.size(), e))
+						{
+							cerr << "parse failed on line " << linenumber << ": " << line << endl;
 							errflg++;	// this will stop processing, eventually.
+						}
 						else
 						{
 							if (m_verbose) cerr << "Got cue file " << e.cueFile << endl;
 							if (exists(path(e.cueFile))) 
 							{
-								cerr << " Found cue file at absolute path " << path(e.cueFile) << endl;
+								cuecount++;
+								if (m_verbose) cerr << " Found cue file at absolute path " << path(e.cueFile) << endl;
 							}
 							else 
 							{
 								cerr << " Absolute path " << path(e.cueFile) << " not found." << endl;
 								if (exists(m_pathCues / e.cueFile))
 								{
-									cerr << " Found cue file at path relative to config file " << (m_pathCues / e.cueFile) << endl;
+									if (m_verbose) cerr << " Found cue file at path relative to config file " << (m_pathCues / e.cueFile) << endl;
 									e.cueFile = (m_pathCues / e.cueFile).make_preferred().string();
 								}
 								else 
@@ -1045,6 +1059,7 @@ int FixUStim::process_arg(int c, std::string& arg)
 						}
 					}
 					myfile.close();
+					cerr << "Read " << linenumber << " lines from config file, found " << cuecount << " cues." << endl;
 					m_pStimSet = new EQStimSet(m_fixpt, m_vecGratings, vecEQParams);
 				}
 			}
