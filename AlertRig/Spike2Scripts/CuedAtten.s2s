@@ -1385,12 +1385,11 @@ func IdleProcessing%()
         case trialType% = trialtypeAttendAway% then
             caCountAwayTrialsAbort% += 1;
         else 
-            PrintLog("ERROR: Unknown trial type (" + str$(trialType%) + "\n");
+            PrintLog("ERROR: Unknown trial type (" + str$(trialType%) + ")\n");
         endcase
         
         ' move on
         ChangeStateTo(stateWaitForBlank%, tStateStart);  'don't update time, carry forward
-        
         
         
     case iState% = stateWaitForBlank% then
