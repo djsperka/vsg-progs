@@ -1182,9 +1182,9 @@ func IdleProcessing%()
                 PrintLog("stateHoldJoystickInRight: failed, fixpt off\n");
                 ChangeStateTo(stateTrainingFixPtOff%, tNow);
                 joystickHasBeenCentered% := 1;  'joystick centered before criterion time
-            case caTrainingOptions% > 2 then  'I think this should be an abort
+            case caTrainingOptions% > 2 then  'I think this should be an abort, but don't go to stateAbort because no fixation point is up and StateWaitForBlank will never end
                 PrintLog("stateHoldJoystickInRight: failed.\n");
-                ChangeStateTo(stateAbort%, tNow);
+                ChangeStateTo(stateAbortWait%, tNow);  'go directly to StateAbortWait, do not need to turn off fixation point
                 joystickHasBeenCentered% := 1;  'joystick centered before criterion time
             endcase
         endif;
