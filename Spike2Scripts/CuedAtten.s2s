@@ -164,6 +164,7 @@ var tStimOn:=-1;	    ' time that stim was turned on. Used to measure spike rates
 var iState%;
 var tempanswer%;
 var thisContrast%; 'for now just making everything compile
+var joystickHasBeenCentered%;
 
 ' Constants for states
 const stateStartTrial%:=0;		        ' Start trial state
@@ -1064,6 +1065,7 @@ func IdleProcessing%()
         if tTrigger > tLastTrigger and vTrigger = 0 then
             PrintLog("state stateVSGWait: Got leading edge of trigger\n");
             tLastTrigger := tTrigger;
+            joystickHasBeenCentered% := 1;  'allow animal to press right at any time
             ChangeStateTo(stateVSGWaitConfirm%, tTrigger);
         endif;
         
@@ -1081,8 +1083,14 @@ func IdleProcessing%()
         
         tempanswer% := Answer%(JoyChannel%,tNow);
         'printlog("Joystick is in position %d\n",tempanswer% );
-        if tempanswer% = 2 then  'if joystick is in center
-            PrintLog("state stateWaitForJoystickInCenter: Joystick is in center\n");
+        if tempanswer% = 2 or joystickHasBeenCentered% = 1 then  'if joystick is in center, or has previously been centered
+            'Allow dual report, but either case will advance the state
+            if joystickHasBeenCentered% = 1 then
+                PrintLog("state stateWaitForJoystickInCenter: Joystick has previously been centered\n");
+            endif;
+            if tempanswer% = 2 then
+                PrintLog("state stateWaitForJoystickInCenter: Joystick is in center\n");
+            endif;
             docase
             case caTrainingOptions% = 0 then
                 ChangeStateTo(stateWaitForJoystickInRight%,tNow);
@@ -1093,6 +1101,7 @@ func IdleProcessing%()
             case caTrainingOptions% > 2 then
                 ChangeStateTo(stateWaitForJoystickInRight%,tNow);  'Animal will need to move joystick first, then trial starts
             endcase
+            joystickHasBeenCentered% := 0;  'Reset to not-been-centered default
         endif;
         
         
@@ -1104,6 +1113,7 @@ func IdleProcessing%()
         if caRequireFixation% = 1 and caTrainingOptions% = 2 and Looking%(xEye, yEye) <> 1 then
             PrintLog("stateWaitForJoystickInRight: failed, broke fixation\n");
             ChangeStateTo(stateAbort%, tNow);
+            joystickHasBeenCentered% := 1;  'presumably joystick has not gone right yet
         endif;
         tempanswer% := Answer%(JoyChannel%,tNow);
         if tempanswer% = 3 then  'if joystick is in right
@@ -1126,6 +1136,7 @@ func IdleProcessing%()
             if tNow - tStateStart > caFixAlternationTime then  'turn off fixation on failure to get joystick
                 PrintLog("stateWaitForJoystickInRight: failed, fixpt time is over\n");
                 ChangeStateTo(stateTrainingFixPtOff%, tNow);
+                joystickHasBeenCentered% := 1;  'presumably joystick has not gone right yet
             endif;
         endif
         
@@ -1166,12 +1177,15 @@ func IdleProcessing%()
             case caTrainingOptions% = 1 then  'simply start over for very early training (<1 is not legal here)
                 PrintLog("stateHoldJoystickInRight: failed.\n");
                 ChangeStateTo(stateTrialCompletedPause%,tNow);
+                'Joystick has been centered, but DO NOT indicate so - for reward-on-lever we need to ensure the timing is right, start everything fresh after ITI
             case caTrainingOptions% = 2 then  'turn off fixation point and start again
                 PrintLog("stateHoldJoystickInRight: failed, fixpt off\n");
                 ChangeStateTo(stateTrainingFixPtOff%, tNow);
+                joystickHasBeenCentered% := 1;  'joystick centered before criterion time
             case caTrainingOptions% > 2 then  'I think this should be an abort
                 PrintLog("stateHoldJoystickInRight: failed.\n");
                 ChangeStateTo(stateAbort%, tNow);
+                joystickHasBeenCentered% := 1;  'joystick centered before criterion time
             endcase
         endif;
         
@@ -1191,8 +1205,10 @@ func IdleProcessing%()
             PrintLog("stateWaitForJoystickInCenterAndReward: Joystick in center, reward\n");
             if caTrainingOptions% = 2 then
                 ChangeStateTo(stateTrainingFixPtOff%,tNow);
+                joystickHasBeenCentered% := 1;  'joystick centered
             else
                 ChangeStateTo(stateTrialCompletedPause%,tNow);
+                'Joystick has been centered, but DO NOT indicate so - for reward-on-lever we need to ensure the timing is right, start everything fresh after ITI
             endif;
         endif;        
         
@@ -1251,8 +1267,10 @@ func IdleProcessing%()
             SampleText("Fixation Acquired",tNow);
             if caTrainingOptions% = 2 then  'there are no stimuli for training
                 ChangeStateTo(stateWaitForJoystickInRight%, tNow);
+                joystickHasBeenCentered% := 1;  'joystick not moved right yet
             else
                 ChangeStateTo(stateHoldFixationToStimOn%, tNow);
+                'joystick is in right for this state, so it has not been centered
             endif
             'getPreciseTiming := 0;
         else 
@@ -1283,11 +1301,13 @@ func IdleProcessing%()
                     FAIsResponse% := 1;
                     ChangeStateTo(stateAbort%, tNow);
                     SampleText(Print$("Joystick not held, False Alarm response before stimulus on, trial aborted"),tNow);
+                    joystickHasBeenCentered% := 1;  'joystick centered by FA
                 case tempanswer% = 1 then 'overshot
                     PrintLog("stateWaitForStimOn: joystick moved to left, aborting trial.\n");
                     FAIsResponse% := 1;
                     ChangeStateTo(stateAbort%, tNow);
-                    SampleText(Print$("Joystick not held, False Alarm response all the way to left before stimulus on, trial aborted"),tNow);    
+                    SampleText(Print$("Joystick not held, False Alarm response all the way to left before stimulus on, trial aborted"),tNow);  
+                    joystickHasBeenCentered% := 1;  'joystick centered by FA - overshot is centering
                 endcase;
             case Looking%(xEye, yEye) = 0 and caRequireFixation% = 1 then  'no joystick move, but a fixation break
                 PrintLog("stateWaitForStimOn: failure to hold fixation, aborting trial.\n");
@@ -1297,6 +1317,7 @@ func IdleProcessing%()
             else  'keep checking until false alarm check window is closed, joystick is in intermediate state
                 ChangeStateTo(stateCheckFalseAlarm%, tNow);
                 temptext$ := "before stimulus on";
+                'will check to see if joystick is centered later
             endcase;
         endif
         
@@ -1397,6 +1418,15 @@ func IdleProcessing%()
         
     case iState% = stateAbortWait% then
         
+        'If joystick has not been centered, allow any centering here to count
+        if joystickHasBeenCentered% = 0 then
+            tempanswer% := Answer%(JoyChannel%,tNow);
+            'printlog("Joystick is in position %d\n",tempanswer% );
+            if tempanswer% = 2 then
+                joystickHasBeenCentered% := 1;
+            endif
+        endif
+        
         if tNow - tStateStart > caAbortWaitTime then
             PrintLog("stateAbortWait: time out is done.\n");
             ChangeStateTo(stateWaitForJoystickInCenter%, tNow);
@@ -1414,11 +1444,13 @@ func IdleProcessing%()
                 FAIsResponse% := 1;
                 ChangeStateTo(stateAbort%, tNow);
                 SampleText(Print$("Joystick not held, False Alarm response before stimulus on, trial aborted"),tNow);
+                joystickHasBeenCentered% := 1;  'joystick centered by FA
             case tempanswer% = 1 then 'overshot
                 PrintLog("stateCheckFalseAlarm: joystick moved to left, aborting trial.\n");
                 FAIsResponse% := 1;
                 ChangeStateTo(stateAbort%, tNow);
-                SampleText(Print$("Joystick not held, False Alarm response all the way to left before stimulus on, trial aborted"),tNow);    
+                SampleText(Print$("Joystick not held, False Alarm response all the way to left before stimulus on, trial aborted"),tNow); 
+                joystickHasBeenCentered% := 1;  'joystick centered by FA - overshot is centering
             endcase;
         else 'credit the animal for time served on the abort if it's not a response
             PrintLog("stateCheckFalseAlarm: no response in window, aborting trial.\n");
@@ -1446,19 +1478,22 @@ func IdleProcessing%()
                 FAIsResponse% := 1;
                 ChangeStateTo(stateAbort%, tNow);
                 SampleText(Print$("False Alarm before contrast change, trial aborted"),tNow);
+                joystickHasBeenCentered% := 1;  'joystick centered by FA
             case tempanswer% = 1 then 'answer and overshot
                 PrintLog("stateHoldFixationToCC: false alarm and overshot before contrast change, aborting trial.\n");
                 FAIsResponse% := 1;
                 ChangeStateTo(stateAbort%, tNow);
-                SampleText(Print$("False Alarm and overshot before contrast change, trial aborted"),tNow); 
+                SampleText(Print$("False Alarm and overshot before contrast change, trial aborted"),tNow);
+                joystickHasBeenCentered% := 1;  'joystick centered by FA - overshot is centering
             case Looking%(xEye, yEye) = 0 and caRequireFixation% = 1 then  'no joystick move, but a fixation break
                 PrintLog("stateHoldFixationToCC: failure to hold fixation, aborting trial.\n");
                 FAIsResponse% := 0;  'not a false alarm, just a fixation break
                 ChangeStateTo(stateAbort%, tNow);
-                SampleText(Print$("failure to hold fixaiton to contrast change, trial aborted"),tNow); 
+                SampleText(Print$("failure to hold fixation to contrast change, trial aborted"),tNow); 
             else  'keep checking, joystick is in intermediate position
                 ChangeStateTo(stateCheckFalseAlarm%, tNow);
                 temptext$ := "before contrast change";
+                'will check for centering later
             endcase;
             
         else 
@@ -1520,6 +1555,7 @@ func IdleProcessing%()
                 endif;
                 ChangeStateTo(stateMiss%, tNow); 'go to miss penalty
                 SafeSampleKey("a");  'advance stimulus, won't happen anywhere else
+                'joystick is not yet centered
             else
                 PrintLog("stateWaitForAnswer: no response on no-go trial, correct rejection\n");
                 if trialType% = trialtypeAttendToward% then
@@ -1530,6 +1566,7 @@ func IdleProcessing%()
                 caInterTrialTime2 := GetInterTrialTime(caInterTrialTime,caInterTrialTimeRand);
                 Reward%();
                 ChangeStateTo(stateTrialCompletedWaitForBlank%, tNow);  'stateTrialCompletedWaitForBlank will advance
+                'joystick is not yet centered
             endif;
         else
             'Stimulus is still on, response window is still open...
@@ -1546,9 +1583,11 @@ func IdleProcessing%()
                 if iAnswer% = 2 then
                     printlog("Got answer\n");
                     caIsOvershot$ := "";  'back to center, all good
+                    joystickHasBeenCentered% := 1;  'joystick centered by answer
                 else
                     printlog("Got answer, overshot\n");
                     caIsOvershot$ := ", Overshot";  'over center, note overshot
+                    joystickHasBeenCentered% := 1;  'joystick centered by FA - overshot is centering
                 endif
                 
                 docase
@@ -1614,6 +1653,15 @@ func IdleProcessing%()
         
         
     case iState% = stateMiss% then
+        
+        'If joystick has not been centered, allow any centering here to count
+        if joystickHasBeenCentered% = 0 then
+            tempanswer% := Answer%(JoyChannel%,tNow);
+            'printlog("Joystick is in position %d\n",tempanswer% );
+            if tempanswer% = 2 then
+                joystickHasBeenCentered% := 1;
+            endif
+        endif
         
         if tNow - tStateStart > caMissPenalty then
             
