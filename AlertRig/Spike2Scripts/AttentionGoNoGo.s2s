@@ -1,9 +1,10 @@
-' $Id: AttentionGoNoGo.s2s,v 1.49 2015-05-13 22:00:04 devel Exp $
+' $Id: AttentionGoNoGo.s2s,v 1.50 2015-06-08 22:50:40 devel Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
 #include "UsreyFixationPoint.s2s"
 #include "UsreyDAQ.s2s"
+#include "UsreyGratings.s2s"  'not sure why we didn't just do this from the start...
 
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
@@ -77,6 +78,14 @@ var attCueCircleContrastD4%;
 var attStartBlock%;
 var attNoChangeCondition%;
 var attSwapCueCircle%;
+var attCueCircleStrokeWidth%;
+var attUseFlashers%;
+var attFlasherGratingParams$;
+var attFlasherDur; 
+var attFlasherTemporalBuffer;
+var attFlasherSpatialBuffer;
+var attFlasherHazardValue;
+
 
 var attCustomGratingColorCheck%;
 var attCustomGratingColorStimFrom%[3];
@@ -121,6 +130,9 @@ var attLowReward% := 0;
 var lowRewardMS%;
 var origRewardMS%;
 
+const maxFlashers% := 10;  'use a maximum of 10 flashers
+var flasherTimes[maxFlashers%];  'hold flasher times
+
 
 ' constants for dialog and check function - start with 10 because there are 9 dialog entries prior
 ' sure, it would be great if all the dialog numbers were done like this, but they ain't, and time is time
@@ -149,6 +161,8 @@ const attdlgNoChangeCondition% := 26;
 const attdlgSwapCueCircle% := 27;
 const attdlgUseLowReward% := 28;
 const attdlgLowReward% := 29;
+const attdlgCueCircleStrokeWidth% := 30;
+const attdlgUseFlashers% := 31;
 
 ' constants for timing dialog
 const atttimingdlgFixationCueMinTime% := 2;
@@ -257,6 +271,7 @@ proc GetAttentionScriptParameters()
     Profile(key$, "DistracterOffForEasy", 1, distracterOffForEasy%);
     Profile(key$, "DoUncatch", 1, attDoUncatch%);
     Profile(key$, "NumPatches", 1, attNumPatches%);
+    Profile(key$, "UseFlashers", 1, attUseFlashers%);
     Profile(key$, "GetGPFromMainStim", 1, attGetGPFromMainStim%);
     Profile(key$, "UseCueCircles", 1, attUseCueCircles%);
     Profile(key$, "CueCircleExtraRadius", "0.0", stmp$);
@@ -296,6 +311,7 @@ proc GetAttentionScriptParameters()
    
     Profile(key$, "NoChangeCondition", 0, attNoChangeCondition%);
     Profile(key$, "SwapCueCircle", 0, attSwapCueCircle%);
+    Profile(key$, "CueCircleStrokeWidth", 0, attCueCircleStrokeWidth%);
     
     Profile(key$, "UseLowReward", 0, attUseLowReward%);
     Profile(key$, "LowReward", 0, attLowReward%);
@@ -329,6 +345,7 @@ proc SaveAttentionScriptParameters()
     Profile(key$, "DistracterOffForEasy", distracterOffForEasy%);
     Profile(key$, "DoUncatch", attDoUncatch%);
     Profile(key$, "NumPatches", attNumPatches%);
+    Profile(key$, "UseFlashers", attUseFlashers%);
     Profile(key$, "GetGPFromMainStim", attGetGPFromMainStim%);
     Profile(key$, "UseCueCircles", attUseCueCircles%);
     Profile(key$, "CueCircleExtraRadius", str$(attCueCircleExtraRadius));
@@ -349,6 +366,7 @@ proc SaveAttentionScriptParameters()
 	Profile(key$, "AnswerPointWindowRadius", str$(attAnswerPointWindowRadius));
     Profile(key$, "NoChangeCondition", attNoChangeCondition%);
     Profile(key$, "SwapCueCircle", attSwapCueCircle%);  
+    Profile(key$, "CueCircleStrokeWidth", attCueCircleStrokeWidth%);
     Profile(key$, "UseLowReward", attUseLowReward%);
     Profile(key$, "LowReward", attLowReward%);    
 
@@ -519,7 +537,7 @@ func AttentionScriptDialog%()
     var tempTotal;  'friggin integer math
     var tempWhoops;
     var fiveints%[5];
-    var sixmoreints%[6];
+    var eightmoreints%[8];
     var blockAlternateList$[3];
     var blockStartList$[7];
     
@@ -545,12 +563,14 @@ func AttentionScriptDialog%()
     fiveints%[3] := attNumPatches%;
     fiveints%[4] := attGetGPFromMainStim%;
     
-    sixmoreints%[0] := distracterOffForEasy%;
-    sixmoreints%[1] := attStartBlock%;
-    sixmoreints%[2] := attNoChangeCondition%;
-    sixmoreints%[3] := attSwapCueCircle%; 
-    sixmoreints%[4] := attUseLowReward%;
-    sixmoreints%[5] := attLowReward%;
+    eightmoreints%[0] := distracterOffForEasy%;
+    eightmoreints%[1] := attStartBlock%;
+    eightmoreints%[2] := attNoChangeCondition%;
+    eightmoreints%[3] := attSwapCueCircle%; 
+    eightmoreints%[4] := attUseLowReward%;
+    eightmoreints%[5] := attLowReward%;
+    eightmoreints%[6] := attCueCircleStrokeWidth%;
+    eightmoreints%[7] := attUseFlashers%;
     
 
     
@@ -584,22 +604,27 @@ func AttentionScriptDialog%()
     DlgGroup("Phase", 1, 12, 34, 3);
     DlgCheck(attdlgPhaseCheck%, "Set phase at contrast change", 2, 13);
 	DlgInteger(attdlgPhaseDeg%, 7, 0, 360, 27, 14);  DlgText("Phase at cc (deg, 0 = white)",2,14);
+    DlgCheck(attdlgUseFlashers%, "Use Flashers", 2, 15);
     
-    DlgGroup("Number of Stimuli", 36, 12, 34, 3);
+    DlgGroup("Stimuli", 36, 12, 34, 4);
     DlgInteger(attdlgNumPatches%, 10, 1, 5, 58, 13); DlgText("Num of grating patches",37,13);
     DlgCheck(attdlgGetGP%, "Get distracter params from main stim", 37, 14);
+    DlgCheck(attdlgUseFlashers%, "Use Flashers", 37, 15);
     
-    DlgGroup("Cue Circles", 1, 15, 34, 4);
+    DlgGroup("Cue Circles", 1, 15, 34, 5);
     DlgCheck(attdlgUseCueCircles%, "Use Cue Circles", 2, 16);
     DlgCheck(attdlgSwapCueCircle%, "Swap Cue Circles (if used)", 2, 17);
 	DlgReal(attdlgCueCircleExtraRadius%, "Cue extra radius (deg)", 0, 5, 22, 18);
+    DlgInteger(attdlgCueCircleStrokeWidth%, 4, 0, 20, 30, 19); DlgText("Cue Circle Stroke Width (integer)",2,19);
     
-    DlgGroup("Reward", 36, 15, 34, 3);
-    DlgCheck(attdlgUseLowReward%, "Use Low Reward For No-Change Trls", 37, 16);
-    DlgInteger(attdlgLowReward%, 10, 1, 1000, 58, 17); DlgText("Low Reward (ms)",37,17);
     
-    DlgButton(2, "Colors", ColorsDialog%, 2+36, 19);
-    DlgButton(3, "Timing", TimingDialog%, 20+36, 19);
+    DlgGroup("Reward", 36, 16, 34, 3);
+    DlgCheck(attdlgUseLowReward%, "Use Low Reward For No-Change Trls", 37, 17);
+    DlgInteger(attdlgLowReward%, 10, 1, 1000, 58, 18); DlgText("Low Reward (ms)",37,18);
+    
+    DlgButton(2, "Colors", ColorsDialog%, 2+36, 20);
+    DlgButton(3, "Timing", TimingDialog%, 11+36, 20);  
+    DlgButton(4, "Flashers", CallDlgGratingFlashers%, 21+36, 20);  'temporarily directs to TimingDialog%
     'DlgGroup("Lollipops", 1, 18, 34, 7);
     'DlgCheck(attdlgLollipopCheck%, "Use lollipop cues", 2, 19);
     'DlgReal(attdlgCueLinePct%, "Cue line %", 0, 100, 22, 20);
@@ -611,7 +636,7 @@ func AttentionScriptDialog%()
 	i%:=DlgShow(attNumberOfBlocks%, attTrialsPerBlock%, attEasyTrialsPerBlock%, attCatchTrialPercentage, attNoGoTrialPercentage, 
     attBlockAlternate%, attSelectRandomContrastEachTrial%, attContrastBase%, attMaxContChange, attMinContChange, attNContLevels%,
     attAnswerPointWindowRadius, attTrainingContrastCheck%, attTrainingContrastPct%, attPhaseCheck%, attPhaseDeg%, fiveints%[], 
-    attUseCueCircles%,attCueCircleExtraRadius,sixmoreints%);
+    attUseCueCircles%,attCueCircleExtraRadius,eightmoreints%);
     
     'attLollipopCheck%, attCueLinePct, attCircleDiameterDiff, 
     'attLollipopContrast%, attLollipopStickContrast%, attCueLineGap);
@@ -627,12 +652,14 @@ func AttentionScriptDialog%()
         attGetGPFromMainStim% := fiveints%[4];
         
         'put sixmoreints values back into variables
-        distracterOffForEasy% := sixmoreints%[0];
-        attStartBlock% := sixmoreints%[1];
-        attNoChangeCondition% := sixmoreints%[2];
-        attSwapCueCircle% := sixmoreints%[3];         
-        attUseLowReward% := sixmoreints%[4];
-        attLowReward% := sixmoreints%[5];
+        distracterOffForEasy% := eightmoreints%[0];
+        attStartBlock% := eightmoreints%[1];
+        attNoChangeCondition% := eightmoreints%[2];
+        attSwapCueCircle% := eightmoreints%[3];
+        attUseLowReward% := eightmoreints%[4];
+        attLowReward% := eightmoreints%[5];
+        attCueCircleStrokeWidth% := eightmoreints%[6];
+        attUseFlashers% := eightmoreints%[7];
         
         'Check values of attStartBlock% for legality
         docase
@@ -798,6 +825,8 @@ func AttentionScriptDialogChanged%(item%)
         DlgEnable(DlgValue(attdlgUseCueCircles%), attdlgCueCircleExtraRadius%);
     case item% = attdlgUseLowReward% then
         DlgEnable(DlgValue(attdlgUseLowReward%), attdlgLowReward%);
+    case item% = attdlgUseFlashers% then
+        DlgEnable(DlgValue(attdlgUseFlashers%),-4);
     case item% = 0 then
         DlgEnable(attTrainingContrastCheck%, attdlgTrainingContrastPct%);
         DlgEnable(attPhaseCheck%, attPhaseDeg%);
@@ -806,6 +835,7 @@ func AttentionScriptDialogChanged%(item%)
         DlgEnable(attdlgUseCueCircles%, attdlgCueCircleExtraRadius%);
         DlgEnable(DlgValue(attdlgUseLowReward%), attdlgLowReward%);
         DlgEnable(0,attdlgAnsWindowRadius%);  'Turn off answer window radius, it is currently unused
+        DlgEnable(DlgValue(attdlgUseFlashers%),-4);
 '        DlgEnable(attLollipopCheck%, attdlgCircleDiameterDiff%);
 '        DlgEnable(attLollipopCheck%, attdlgCueLinePct%);
 '        DlgEnable(attLollipopCheck%, attdlgLollipopContrast%);
@@ -1256,15 +1286,15 @@ func Answer%(EyePosX, EyePosY)
     
     'note that in the case statement, we will not consider grating patches that don't exist - see how smart we are!
     docase
-    case (Pow(EyePosX-mainX,2) + Pow(EyePosY-(mainY),2)) <= mainW then 'Looking at main grating location, just assuming mainW = mainH!
+    case (Pow(EyePosX-mainX,2) + Pow(EyePosY-(mainY),2)) <= Pow(mainW,2) then 'Looking at main grating location, just assuming mainW = mainH!
         ans% := 1;
-    case (Pow(EyePosX-dist1X,2) + Pow(EyePosY-(dist1Y),2)) <= dist1W and attNumPatches% > 1 then 'Looking at distracter 1 location, just assuming dist1W = dist1H!
+    case (Pow(EyePosX-dist1X,2) + Pow(EyePosY-(dist1Y),2)) <= Pow(dist1W,2) and attNumPatches% > 1 then 'Looking at distracter 1 location, just assuming dist1W = dist1H!
         ans% := -1;
-    case (Pow(EyePosX-dist2X,2) + Pow(EyePosY-(dist2Y),2)) <= dist2W and attNumPatches% > 2 then 'Looking at distracter 2 location, just assuming dist2W = dist2H!
+    case (Pow(EyePosX-dist2X,2) + Pow(EyePosY-(dist2Y),2)) <= Pow(dist2W,2) and attNumPatches% > 2 then 'Looking at distracter 2 location, just assuming dist2W = dist2H!
         ans% := -2;
-    case (Pow(EyePosX-dist3X,2) + Pow(EyePosY-(dist3Y),2)) <= dist3W and attNumPatches% > 3 then 'Looking at distracter 3 location, just assuming dist3W = dist3H!
+    case (Pow(EyePosX-dist3X,2) + Pow(EyePosY-(dist3Y),2)) <= Pow(dist3W,2) and attNumPatches% > 3 then 'Looking at distracter 3 location, just assuming dist3W = dist3H!
         ans% := -3;
-    case (Pow(EyePosX-dist4X,2) + Pow(EyePosY-(dist4Y),2)) <= dist4W and attNumPatches% > 4 then 'Looking at distracter 4 location, just assuming dist4W = dist4H!
+    case (Pow(EyePosX-dist4X,2) + Pow(EyePosY-(dist4Y),2)) <= Pow(dist4W,2) and attNumPatches% > 4 then 'Looking at distracter 4 location, just assuming dist4W = dist4H!
         ans% := -4;
     endcase;
     
@@ -2365,15 +2395,15 @@ proc CreateSampleConfiguration()
 end;
 
 
-
+'''This is now covered by #include UsreyGratings
 ' Get grating parameters from registry AlertRig\\(config)\\Gratings\\type$
-func GetGratingParameters$(type$)
-	var key$;
-	var stmp$;
-	key$ := "AlertRig\\" + GetCurrentConfiguration$() + "\\Gratings";
-	Profile(key$, type$, "", stmp$);
-	return stmp$;
-end;
+'func GetGratingParameters$(type$)
+'	var key$;
+'	var stmp$;
+'	key$ := "AlertRig\\" + GetCurrentConfiguration$() + "\\Gratings";
+'	Profile(key$, type$, "", stmp$);
+'	return stmp$;
+'end;
 
 ' Replace the color vector spec in a grating with the specified value
 func ReplaceGratingColorVector$(gspec$, cvspec$)
@@ -2558,12 +2588,13 @@ func Start%()
     var specFileName$:="F:\\work\\AttentionSpecFile.txt";
     var specHandle%;
     var CueCirc$;  'this begins blank, if we don't use cue circles then it won't get filled
+    'var tOff;  'holds the offset time for calculation of flasher times
     
 	
     'hard code pReward to 1, per Henry
     pReward := 1;
     
-
+  
     'start sampling
     if UsePlexon% = 1 then
         SampleStart(1);  'set sampling to start on a trigger     
@@ -2658,7 +2689,29 @@ func Start%()
     if attNumPatches% > 4 then
             Stim$ := Stim$ + " -s " + dist4Spec$;
     endif;
+    
 	CreateContrastList(Contrast$,attContrastList%,attChangeList%,attValidList%,attAttendList%,attHazardList,attOffBitsList%,attRotationList%,attFixColor%);  'Fills Contrast$ with the big ol' list, plus some vars to make it easier on us all   
+    
+    'NOT DONE ---- where does this GO?  Probably needs to be 2-D because we have a list for each trial   
+    'attHazardList[] is not created until CreateContrastList so that's the earliest we can run this.
+    'It could go inside CreateContrastList or come after, mostly depending on syntax for the spec file.
+'    'Get times of flashers, if necessary.  Do this when the hazard value (for contrast change) is being calculated
+'    tOff := attFlasherTemporalBuffer;  'set first offset to the time of the buffer
+'    if attUseFlashers% = 1 then
+'        while i% < maxFlashers% do
+'            temp := RandExp(attFlasherHazardValue,tOff);  'get random value with mean distribution of rMean and min of tOff
+'            if temp <= tMax then  'if random value is less than max time
+'                times[i%] := temp;  'put random value into times list
+'                i% := i% + 1;  'increment i%
+'                tOff := temp;  'change offset, could be a buffer here as well if needed
+'                'tOff := temp + attFlasherDur + attFlasherTemporalBuffer;  'Option to offset with temporal buffer, also option to not allow temporal overlap
+'            else 'if the "next" time is after the max time
+'                i% := maxi% + 1;  'break the loop
+'            endif
+'        wend
+'    endif;
+    
+    
     'Extras$ := " -b " + attBackgroundColor$ + " -d " + GetDistanceToScreenMM$() + " -A " + str$(attAnswerPointOffset) + " -D " + str$(attAnswerPointDiameter) + lolSpec$;  'answer points on
     Extras$ := " -b " + attBackgroundColor$ + " -d " + GetDistanceToScreenMM$(); '+ " -N ";' + lolSpec$;  'answer points off, lollipop spec off as well
     'if attTrainingContrastCheck% = 1 then
@@ -3017,16 +3070,17 @@ end;
 ' This version will work for all possible variable list lengths - with/without phase/cv/pattern/aperture/inner/outer
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
-func ParseGratingParametersBrief%(gr$, &x, &y, &w, &h)
-    var status% := 0;
-    var n%;
-	ReadSetup("", "", "", "", ",");
-	n% := ReadStr(gr$, x, y, w, h);
-    ReadSetup();
-    if n% <> 4 then status% := -1; endif;
-    return n%;
-end
-
+'''This is now covered by #include UsreyGratings
+'func ParseGratingParametersBrief%(gr$, &x, &y, &w, &h)
+'    var status% := 0;
+'    var n%;
+'	ReadSetup("", "", "", "", ",");
+'	n% := ReadStr(gr$, x, y, w, h);
+'    ReadSetup();
+'    if n% <> 4 then status% := -1; endif;
+'    return n%;
+'end
+'
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 proc WriteParameterFile()
@@ -3363,36 +3417,36 @@ end
 ' 
 ' Given a grating parameter list, parse the individual values in to the given variable list. 
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-
-func ParseGratingParameters%(gr$, &x, &y, &w, &h, &iw, &ih, &contrast%, &sf, &tf, &ori, &phase, &cv$, &pattern$, &aperture$)
-    var status% := 0;
-    var n%;
-    var str1$, str2$, str3$, str4$, str5$, str6$, str7$, str8$;
-    var str9$, str10$, str11$, str12$, str13$, str14$;
-	ReadSetup("", "", "", "", ",");
-    'Do initial read to determine how many variables are present
-    n% := ReadStr(gr$, str1$, str2$, str3$, str4$, str5$, str6$, str7$, str8$, str9$, str10$, str11$, str12$, str13$, str14$);
-    
-    docase
-    case n% = 8 or n% = 9 or n% = 12 then
-        'If the read gets 8 (no phase or strings), 9 (no strings) or 12 (everything) variables this is the correct read
-        n% := ReadStr(gr$, x, y, w, h, contrast%, sf, tf, ori, phase, cv$, pattern$, aperture$);
-    case n% = 11 then
-        'If there are 11 variables read (strings, no phase) the correct read omits phase
-        n% := ReadStr(gr$, x, y, w, h, contrast%, sf, tf, ori, cv$, pattern$, aperture$); 
-    case n% = 14 then
-        'If 14 parameters are present, inner width and outer width are set
-        n% := ReadStr(gr$, x, y, w, h, iw, ih, contrast%, sf, tf, ori, phase, cv$, pattern$, aperture$);
-    else
-        
-    endcase; 
-    ReadSetup();
-    if n% < 11 then 'Return -1 as status if there is no cv$/pattern$/aperture$
-        status% := -1; 'otherwise return 0 if cv$/pattern$/aperture$ are present
-                       'there is currently no return scheme to indicate that phase is present
-    endif;
-    return status%;
-end
+'''This is now covered by #include UsreyGratings
+'func ParseGratingParameters%(gr$, &x, &y, &w, &h, &iw, &ih, &contrast%, &sf, &tf, &ori, &phase, &cv$, &pattern$, &aperture$)
+'    var status% := 0;
+'    var n%;
+'    var str1$, str2$, str3$, str4$, str5$, str6$, str7$, str8$;
+'    var str9$, str10$, str11$, str12$, str13$, str14$;
+'	ReadSetup("", "", "", "", ",");
+'    'Do initial read to determine how many variables are present
+'    n% := ReadStr(gr$, str1$, str2$, str3$, str4$, str5$, str6$, str7$, str8$, str9$, str10$, str11$, str12$, str13$, str14$);
+'    
+'    docase
+'    case n% = 8 or n% = 9 or n% = 12 then
+'        'If the read gets 8 (no phase or strings), 9 (no strings) or 12 (everything) variables this is the correct read
+'        n% := ReadStr(gr$, x, y, w, h, contrast%, sf, tf, ori, phase, cv$, pattern$, aperture$);
+'    case n% = 11 then
+'        'If there are 11 variables read (strings, no phase) the correct read omits phase
+'        n% := ReadStr(gr$, x, y, w, h, contrast%, sf, tf, ori, cv$, pattern$, aperture$); 
+'    case n% = 14 then
+'        'If 14 parameters are present, inner width and outer width are set
+'        n% := ReadStr(gr$, x, y, w, h, iw, ih, contrast%, sf, tf, ori, phase, cv$, pattern$, aperture$);
+'    else
+'        
+'    endcase; 
+'    ReadSetup();
+'    if n% < 11 then 'Return -1 as status if there is no cv$/pattern$/aperture$
+'        status% := -1; 'otherwise return 0 if cv$/pattern$/aperture$ are present
+'                       'there is currently no return scheme to indicate that phase is present
+'    endif;
+'    return status%;
+'end
 
 
 
@@ -3601,7 +3655,9 @@ func CreateCueCircleColorSets$()
     
     
     'Put in cue circle opener and first cue circle, which always happens
-    CueCirc$ := "-Q " + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(stimRGB%[],attCueCircleContrastStim%);
+    CueCirc$ := "-Q " + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(stimRGB%[],attCueCircleContrastStim%);  'This is for old version of cue circle call (as of 6/5/15)
+    'This is for new version of cue circle call, adding stroke width, whenever it gets implemented
+    'CueCirc$ := "-Q " + Str$(attCueCircleExtraRadius) + "," + Str$(attCueCircleStrokeWidth%) + "," + FadeColorToGray$(stimRGB%[],attCueCircleContrastStim%);  
     
     docase
     case attNumPatches% = 2 then
@@ -3686,4 +3742,165 @@ func CreateCueCircleColorSets$()
     CueCirc$ := CueCirc$ + " ";
     
     return CueCirc$;
+end
+
+
+
+func CallDlgGratingFlashers%()
+    
+    var x, y, w, h, iw, ih, sf, tf, ori, phase;
+    var contrast%;
+    var param$, cv$, pattern$, aperture$;
+    var label$;
+    var i%;
+    
+    attFlasherGratingParams$ := GetGratingParameters$("Flasher");
+    i% := GratingParametersDialogFlashers%(label$, attFlasherGratingParams$, x, y, w, h, iw, ih, contrast%, sf, tf, ori, phase, cv$, pattern$, aperture$);
+    if i% = 1 then
+        SaveGratingParameters("Flasher", attFlasherGratingParams$);
+    endif
+    
+    return 1;
+end;
+
+
+func GratingParametersDialogFlashers%(label$, &param$, &x, &y, &w, &h, &iw, &ih, &contrast%, &sf, &tf, &ori, &phase, &cv$, &pattern$, &aperture$)
+    
+	var i% := 50;  'That's right, 15, which is the button that we want to use for copying parameters over
+    
+	var ColorVectorList$[5];
+	var cvl$[5];
+	var icvl% := 0;
+    var icvlS% := 0;
+	ColorVectorList$[0]:="Black/White";	cvl$[0]:="b";
+	ColorVectorList$[1]:="L cone";		cvl$[1]:="l";
+	ColorVectorList$[2]:="M cone";		cvl$[2]:="m";
+	ColorVectorList$[3]:="S cone";		cvl$[3]:="s";
+	ColorVectorList$[4]:="Custom";		cvl$[4]:="custom";
+    
+	var PatternList$[2];
+	var pl$[2];
+	var ipl% := 0;
+    var iplS% := 0;
+	PatternList$[0]:="Sine";	pl$[0]:="s";
+	PatternList$[1]:="Square";	pl$[1]:="q";
+    
+	var ApertureList$[2];
+	var al$[2];
+	var ial% := 0;
+    var ialS% := 0;
+	ApertureList$[0]:="Ellipse";	al$[0]:="e";
+	ApertureList$[1]:="Rectangle";	al$[1]:="r";
+    
+    GetFlasherDialogParameters();
+    
+    while i% = 50 do
+        
+        ' If the passed param$ is non-empty, then parse it before opening the dialog. 
+        if Len(param$)>0 then
+            if ParseGratingParameters%(param$, x, y, w, h, iw, ih, contrast%, sf, tf, ori, phase, cv$, pattern$, aperture$) = 0 then
+                icvl% := FindMatchedStringIndex%(cv$, cvl$[], 2, 0);
+                ipl% := FindMatchedStringIndex%(pattern$, pl$[], 2, 0);
+                ial% := FindMatchedStringIndex%(aperture$, al$, 3, 0);
+            endif
+        endif
+        
+        DlgCreate("Flasher Grating parameters: " + label$, 25, 11);
+        '    DlgAllow(0, 0, GratingParametersDialogDoubleCheck%);
+        'DlgReal(1, "X:", -40, 40);
+        'DlgReal(2, "Y:", -40, 40);
+        DlgReal(1, "Outer Width:", .1, 30);  'before button x/y values for dialog elements are not necessary
+        DlgReal(2, "Outer Height:", .1, 30);
+        DlgReal(3, "Inner Width:", 0, 30);
+        DlgReal(4, "Inner Height:", 0, 30);
+        DlgInteger(5, "Contrast(%):", -100, 100);
+        DlgReal(6, "Spatial Freq:", .01, 10);
+        DlgReal(7, "Temporal Freq:", 0, 10);
+        DlgReal(8, "Orientation (degrees):", -360, 360);
+        DlgReal(9, "Initial Phase (deg, 0 = white at center)", 0, 360);
+        DlgList(10, "Color:", ColorVectorList$[]);
+        DlgList(11, "Pattern:", PatternList$[]);
+        DlgList(12, "Aperture:", ApertureList$[]);
+        DlgButton(50, "Copy from Master", TunCopyMasterVals%(param$), 2, 13); 'after the button, use x/y values so button can offset grating params from flasher params
+        DlgReal(13, "Flasher Duration (s):", .01, 3, 42, 14);
+        DlgReal(14, "Temporal Buffer (s):", .01, 3, 42, 15);
+        DlgReal(15, "Spatial Buffer (deg):", .01, 10, 42, 16);
+        DlgReal(16, "Hazard Value:", .01, 1000, 42, 17);  'don't know what reasonable values for this will be yet
+        
+        i% := DlgShow(w, h, iw, ih, contrast%, sf, tf, ori, phase, icvl%, ipl%, ial%, attFlasherDur, attFlasherTemporalBuffer, attFlasherSpatialBuffer, attFlasherHazardValue);
+        Convert180(phase);
+        
+    wend;
+      
+	if i%=1 then
+		cv$ := cvl$[icvl%];
+		pattern$ := pl$[ipl%];
+		aperture$ := al$[ial%];
+        if w > iw and h > ih then  'don't let inner dimensions of donut be larger than outer
+            ' save parameters
+            param$ := EncodeGratingParameters$(x, y, w, h, iw, ih, contrast%, sf, tf, ori, phase, cv$, pattern$, aperture$);
+        else
+            message("Inner diameters cannot be greater than outer diameters!  Try Again!");
+        endif;
+        SaveFlasherDialogParameters();
+    endif
+    return i%;
+end;
+
+
+func TunCopyMasterVals%(&param$)
+
+    param$ := GetGratingParameters$("Stimulus");
+
+    return 1;
+end;
+
+
+proc GetFlasherDialogParameters()
+	var stmp$;
+	var key$;
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\AttentionGNG";
+    
+
+	Profile(key$, "FlasherDur", "1.0", stmp$);
+	attFlasherDur := val(stmp$);
+    
+    Profile(key$, "FlasherTemporalBuffer", "1.0", stmp$);
+	attFlasherTemporalBuffer := val(stmp$);
+    
+    Profile(key$, "FlasherSpatialBuffer", "1.0", stmp$);
+	attFlasherSpatialBuffer := val(stmp$);
+    
+    Profile(key$, "FlasherHazardValue", "1.0", stmp$);
+	attFlasherHazardValue := val(stmp$);
+
+end;
+
+proc SaveFlasherDialogParameters()
+	var key$;
+	var stmp$;
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\AttentionGNG";
+    
+	Profile(key$, "FlasherDur", str$(attFlasherDur));
+    Profile(key$, "FlasherTemporalBuffer", str$(attFlasherTemporalBuffer));
+    Profile(key$, "FlasherSpatialBuffer", str$(attFlasherSpatialBuffer));
+    Profile(key$, "FlasherHazardValue", str$(attFlasherHazardValue));
+    
+end;
+
+
+'Returns 1 if the patch extends out of bounds, 0 if it does not
+func OutOfBounds%(x,y,width,height,xmin,xmax,ymin,ymax)
+    var out;
+    docase
+    case x + width > xmax then
+        out := 1;
+    case x - width < xmin then
+        out := 1;
+    case y + height > ymax then
+        out := 1;
+    case y - height <ymin then
+        out := 1;
+    endcase
+    return out;
 end
