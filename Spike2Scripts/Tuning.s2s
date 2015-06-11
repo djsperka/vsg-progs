@@ -1,7 +1,7 @@
-' $Id: Tuning.s2s,v 1.91 2015-05-13 22:12:44 devel Exp $
+' $Id: Tuning.s2s,v 1.92 2015-06-11 00:41:01 devel Exp $
 ' Update 11/8/11 Jeff, includes multi-juicer updates
 
-const tunCVSID$ := "$Id: Tuning.s2s,v 1.91 2015-05-13 22:12:44 devel Exp $";
+const tunCVSID$ := "$Id: Tuning.s2s,v 1.92 2015-06-11 00:41:01 devel Exp $";
 
 
 
@@ -1878,7 +1878,11 @@ proc CreateSampleConfiguration()
     case UsePlexon% = 1 then  'call Plexon setup function, this will ONLY set up the sampling configuration for the Micro1401 mark II.  The Power1401 will be set up from its own dedicated script in its dedicated Spike2 instance
         CreatePlexonSamplingConfiguration1824Micro(); 'Note that for right now the ONLY Plexon configuration is 18 WaveMark/24 LFP (maximal WMs for 24 LFPs, trust me)
     case UsePlexon7WM15CN% = 1 then  'call 7 wavemark, 15 continuous setup
-        CreateElectrodeSamplingConfiguration7WM15CN();        
+        CreateElectrodeSamplingConfiguration7WM15CN(); 
+    case UsePlexon15WF15WF2k% = 1 then  'call 15 waveform, 15 waveform@2k setup
+        CreateElectrodeSamplingConfiguration15WF15WF2k();
+    case UsePlexon24WF% = 1 then
+        CreateElectrodeSamplingConfiguration24WF();        
     else
         ' Electrodes: wavemark/continuous
         ' 12/6/2010
@@ -1901,11 +1905,14 @@ proc CreateSampleConfiguration()
 	SampleTitle$(YChannel%,"Eye Y");
     
 	SampleSequencer(script$ + "Tuning.pls");
-	if UsePlexon% = 1 then  'Set optimise mode (do this last, so it's outside of the CreatePlexonSamplingConfiguration... functions)
+	docase
+    case UsePlexon% = 1 then  'Set optimise mode (do this last, so it's outside of the CreatePlexonSamplingConfiguration... functions)
         SampleOptimise(0,1,4,0,0,0,0);  'for the Micro 1401 mk II: manually set sampling timing, group channels with same ideal rate, micro1401, unused, unused, do not disable for compatibility, no burst mode
+    case UsePlexon15WF15WF2k% = 1 or UsePlexon24WF% = 1 then 
+        SampleOptimise(2,2,9,1,50,0,1);  'for big-data, need to set for burst mode, Power1401-3 setting is not clear because help does not list it.  9?  8 for micro1401-3?
     else
         SampleOptimise(2,2,2,2,50);  'otherwise: full optimize timing, channels may have different rates, Power1401 (lowest common denominator, so eh), low usPerTime of 2, high usPerTime of 50
-    endif;
+    endcase;
 	SampleMode(1); 'Continuous sampling
     
 end;
