@@ -1,4 +1,4 @@
-' $Id: AttentionGoNoGo.s2s,v 1.51 2015-06-11 00:04:59 devel Exp $
+' $Id: AttentionGoNoGo.s2s,v 1.52 2015-06-11 00:25:42 devel Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -2365,6 +2365,8 @@ proc CreateSampleConfiguration()
         CreatePlexonSamplingConfiguration1824Micro(); 'Note that for right now the ONLY Plexon configuration is 18 WaveMark/24 LFP (maximal WMs for 24 LFPs, trust me)
     case UsePlexon7WM15CN% = 1 then  'call 7 wavemark, 15 continuous setup
         CreateElectrodeSamplingConfiguration7WM15CN();
+    case UsePlexon15WF15WF2k% = 1 then  'call 15 waveform, 15 waveform@2k setup
+        CreateElectrodeSamplingConfiguration15WF15WF2k();
     else  'just set up the channels as expected
         CreateElectrodeSamplingConfiguration(1, 11);
     endcase;
