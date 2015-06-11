@@ -1,4 +1,4 @@
-' $Id: AttentionGoNoGo.s2s,v 1.52 2015-06-11 00:25:42 devel Exp $
+' $Id: AttentionGoNoGo.s2s,v 1.53 2015-06-11 00:41:01 devel Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -2367,6 +2367,8 @@ proc CreateSampleConfiguration()
         CreateElectrodeSamplingConfiguration7WM15CN();
     case UsePlexon15WF15WF2k% = 1 then  'call 15 waveform, 15 waveform@2k setup
         CreateElectrodeSamplingConfiguration15WF15WF2k();
+    case UsePlexon24WF% = 1 then
+        CreateElectrodeSamplingConfiguration24WF();
     else  'just set up the channels as expected
         CreateElectrodeSamplingConfiguration(1, 11);
     endcase;
@@ -2391,7 +2393,7 @@ proc CreateSampleConfiguration()
     docase
     case UsePlexon% = 1 then  'Set optimise mode (do this last, so it's outside of the CreatePlexonSamplingConfiguration... functions)
         SampleOptimise(0,1,4,0,0,0,0);  'for the Micro 1401 mk II: manually set sampling timing, group channels with same ideal rate, micro1401, unused, unused, do not disable for compatibility, no burst mode
-    case UsePlexon15WF15WF2k% = 1 then 
+    case UsePlexon15WF15WF2k% = 1 or UsePlexon24WF% = 1 then 
         SampleOptimise(2,2,9,1,50,0,1);  'for big-data, need to set for burst mode, Power1401-3 setting is not clear because help does not list it.  9?  8 for micro1401-3?
     else
         SampleOptimise(2,2,2,2,50);  'otherwise: full optimize timing, channels may have different rates, Power1401 (lowest common denominator, so eh), low usPerTime of 2, high usPerTime of 50
