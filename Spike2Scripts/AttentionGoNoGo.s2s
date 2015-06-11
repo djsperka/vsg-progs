@@ -1,4 +1,4 @@
-' $Id: AttentionGoNoGo.s2s,v 1.50 2015-06-08 22:50:40 devel Exp $
+' $Id: AttentionGoNoGo.s2s,v 1.51 2015-06-11 00:04:59 devel Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -2386,11 +2386,14 @@ proc CreateSampleConfiguration()
     
 	'SampleSequencer(script$ + "Attention.pls");
     SampleSequencer(script$ + "Tuning.pls");
-    if UsePlexon% = 1 then  'Set optimise mode (do this last, so it's outside of the CreatePlexonSamplingConfiguration... functions)
+    docase
+    case UsePlexon% = 1 then  'Set optimise mode (do this last, so it's outside of the CreatePlexonSamplingConfiguration... functions)
         SampleOptimise(0,1,4,0,0,0,0);  'for the Micro 1401 mk II: manually set sampling timing, group channels with same ideal rate, micro1401, unused, unused, do not disable for compatibility, no burst mode
+    case UsePlexon15WF15WF2k% = 1 then 
+        SampleOptimise(2,2,9,1,50,0,1);  'for big-data, need to set for burst mode, Power1401-3 setting is not clear because help does not list it.  9?  8 for micro1401-3?
     else
         SampleOptimise(2,2,2,2,50);  'otherwise: full optimize timing, channels may have different rates, Power1401 (lowest common denominator, so eh), low usPerTime of 2, high usPerTime of 50
-    endif;
+    endcase;
 	SampleMode(1); 'Continuous sampling
 end;
 
@@ -3889,17 +3892,66 @@ proc SaveFlasherDialogParameters()
 end;
 
 
+'Returns 1 if the two patches overlap, 0 if they do not.  Overlap includes a buffer region if BUFFER is non-zero
+'Overlap goes to extremes of simplicity in computing (because doing it properly turns out to be VERY DIFFICULT)
+'and models potentially elliptical gratings as...rectangles.  The basic effects of this simplification will be:
+'1A) The effective buffer will be somewhat larger than the requested buffer
+'1B) Tangent/near-tangent gratings will be considered to overlap unless their centers have the same X or Y values
+'    (but we weren't TRYING to get tangent gratings, so that's not a biggie)
+func Overlap%(x,y,width,height,x2,y2,width2,height2,buffer)
+    var overlap;
+    var dist;
+    
+    
+    'Check X
+    dist := width/2 + width2/2 + buffer; 'this is how far apart the X centers must be, width values are diameters
+    'printlog("X Dist is %f\n",dist);
+    if abs(x-x2) < dist then
+        overlap += 1;
+    endif;
+    
+    'Check Y
+    dist := height/2 + height2/2 + buffer; 'this is how far apart the Y centers must be, height values are diameters
+    'printlog("Y Dist is %f\n",dist);
+    if abs(y-y2) < dist then
+        overlap += 1;
+    endif;
+    
+    if overlap = 2 then  'if both x and y overlap, then the rectangles overlap
+        return 1;
+    else
+        return 0;
+    endif;
+    
+end
+
+
 'Returns 1 if the patch extends out of bounds, 0 if it does not
-func OutOfBounds%(x,y,width,height,xmin,xmax,ymin,ymax)
+func OutOfBounds%(x,y,width,height)
     var out;
+    var d2s$;
+    var d2s; 
+    var screenXmm := 400;  'this is a typical screen
+    var screenYmm := 300;
+    var xmax;
+    var ymax;
+    
+    d2s$ := GetDistanceToScreenMM$();
+    d2s := val(d2s$);
+    'printlog("Distance to screen is %f\n",d2s);
+    
+    xmax := ATan((screenXmm/2)/d2s)*180/(4.0*ATan(1.0));  'maximum x in degrees
+    ymax := ATan((screenYmm/2)/d2s)*180/(4.0*ATan(1.0));  'maximum y in degrees
+    'printlog("Max x is %f degrees and max y is %f degrees\n",xmax,ymax);
+    
     docase
-    case x + width > xmax then
+    case x + width/2 > xmax then
         out := 1;
-    case x - width < xmin then
+    case x - width/2 < -xmax then 'assume screen is symmetrical
         out := 1;
-    case y + height > ymax then
+    case y + height/2 > ymax then
         out := 1;
-    case y - height <ymin then
+    case y - height/2 < -ymax then 'assume screen is symmetrical
         out := 1;
     endcase
     return out;
