@@ -1571,7 +1571,7 @@ func IdleProcessing%()
             'Stimulus is still on, response window is still open...
             iAnswer% := Answer%(JoyChannel%,tNow);  'get answer
             docase
-            case Looking%(xEye, yEye) = 0 then  'if fixation broken, abort
+            case Looking%(xEye, yEye) = 0 and caRequireFixation% = 1 then  'if fixation broken, abort
                 SafeSampleKey("s");
                 SampleText("Fixation broken during response window",tNow);
                 PrintLog("stateWaitForAnswer: fix broken - turn off stim\n");
