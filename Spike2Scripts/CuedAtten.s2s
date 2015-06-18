@@ -7,6 +7,7 @@
 #include "UsreyDAQ.s2s"
 #include "Joystick.s2s"
 
+
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 '
 ' 	CuedAtten script dialog START
@@ -215,6 +216,7 @@ var trialCatch%;
 var trialIsTarget%;
 var trialAttendLoc%;
 var trialHazardFunctionTime;
+
 
 ' Check for valid data file path
 if Len(dataDataSet$) = 0 then
@@ -425,11 +427,16 @@ func TimingDialog%()
     var i%;
     const nOpts% := 4;
     var trainingOptionsList$[nOpts%];
+    var fixationOptionsList$[3];
     
     trainingOptionsList$[0] := "Reward for lever";    '"Lever - Instant Reward - Release - Wait ITI";
     trainingOptionsList$[1] := "Reward for lever - hold - release";   '"Lever - Hold - Release - Reward - Wait ITI";
     trainingOptionsList$[2] := "Fixation training";    '"FixPt ON: Lever - Hold - Release - Reward - Wait ITI";
     trainingOptionsList$[3] := "Under input file control";
+    
+    fixationOptionsList$[0] := "Fixation:  None"; 
+    fixationOptionsList$[1] := "Fixation:  Require Fixation"; 
+    fixationOptionsList$[2] := "Fixation:  Monitor Eye Position";
     
     GetTimingDialogParameters();
     
@@ -445,7 +452,8 @@ func TimingDialog%()
     DlgList(caTimingDlgTrainingOptions%, 60, trainingOptionsList$[], nOpts%);
     DlgReal(caTimingDlgTrainingHoldTime%, "Joystick Hold Time To Reward(s): ", .01, 10);
     DlgReal(caTimingDlgFixAlternationTime%, "Fixation Point On/Off Time (training)(s): ", .01, 10);
-    DlgCheck(caTimingDlgRequireFixation%, "Require Fixation",50);
+    'DlgCheck(caTimingDlgRequireFixation%, "Require Fixation",50);
+    DlgList(caTimingDlgRequireFixation%, 60, fixationOptionsList$[], 3);
     DlgCheck(caTimingDlgReturnForReward%, "Return for Reward",50);
     DlgInteger(caTimingDlgStartTrial%, "Start Trial",1,caMaxTrl%); 
     
@@ -464,11 +472,17 @@ func TimingDialog%()
             message("Reducing window to be equal to Abort Wait Time!");
             caFalseAlarmCheckWindow := caAbortWaitTime;
         endif;
-        
+
         SaveTimingDialogParameters();
         
+        'Change value of caRequireFixation to -1 if it is 2, because that's what the code expects.
+        if caRequireFixation% = 2 then
+            caRequireFixation% := -1;
+        endif;
+        
         'force fixation requirement to 0 (no) if scenario definitely doesn't use fixation
-        if caTrainingOptions% < 2 then
+        'but don't do this if caRequireFixation is -1 (monitoring eyes only)
+        if caTrainingOptions% < 2 and caRequireFixation% = 1 then
             caRequireFixation% := 0;
         endif;
         
@@ -655,7 +669,8 @@ proc CreateSampleConfiguration()
     CreateElectrodeSamplingConfiguration(1, 11);
     'endcase;
 	
-    if caRequireFixation% > 0 then  'don't set up eye channels unless we are looking at eye position
+    if caRequireFixation% <> 0 then  'don't set up eye channels unless we are looking at eye position
+        'caRequireFixation% of -1 means watch fixation but don't require Looking%()
         ' Set up eye channels 
         SampleWaveform(XChannel%,14,1000);
         SampleTitle$(XChannel%,"Eye X");
@@ -687,7 +702,7 @@ proc InitializeWindows()
 	Window(0,48,100,95);
 	View(DataWindow%).WindowVisible(1);
     
-    if caRequireFixation% > 0 or caTrainingOptions% > 2 then
+    if caRequireFixation% <> 0 or caTrainingOptions% > 2 then
         
         'Open an XY view to display eye position
         XYWindow% := FileNew(12);
@@ -702,7 +717,7 @@ proc InitializeWindows()
     endif
     
     
-    if caRequireFixation% > 0 then  'don't set up eye windows unless we are looking at eye position, training step 3 or later
+    if caRequireFixation% <> 0 then  'don't set up eye windows unless we are looking at eye position, training step 3 or later
         
         
         'Calcuate the fixation window
@@ -998,7 +1013,7 @@ func Stop%()
     ExportChanList(0,view(datawindow%).maxtime(),chanToExport%[]);
     
     'Code for putting other various channels into the Matlab extraction, Ben doesn't want them but they will be useful for other code    
-    if caRequireFixation% > 0 then  'eye position channel only if used
+    if caRequireFixation% <> 0 then  'eye position channel only if used
         ExportChanList(0,maxtime(),XChannel%);  'Eye position channel, X
         ExportChanList(0,maxtime(),YChannel%);  'Eye position channel, Y
     endif;
@@ -1040,7 +1055,7 @@ func IdleProcessing%()
     tNow := View(DataWindow%).MaxTime();
     
     'only check eye position if we are in a training/standard condition that has eye channels
-    if caRequireFixation% > 0 then
+    if caRequireFixation% <> 0 then
         
         'get eye position, but don't check if tNow is small enough that we would give a negative value to ChanMeasure
         if tNow > .006 then
@@ -1286,7 +1301,7 @@ func IdleProcessing%()
         
         ' Eye must remain inside of fixation window and joystick must remain to right
         tempanswer% := Answer%(JoyChannel%,tNow);
-        if (Looking%(xEye, yEye) = 1 or caRequireFixation% = 0) and tempanswer% = 3 then  'if eye position is OK AND joystick position is OK, wait for caFixationTime and start stimulus
+        if (Looking%(xEye, yEye) = 1 or caRequireFixation% < 1) and tempanswer% = 3 then  'if eye position is OK AND joystick position is OK, wait for caFixationTime and start stimulus
             if tNow - tStateStart > caFixationTime then
                 PrintLog("stateHoldFixationToStimOn: Success. Gratings up...\n");
                 SafeSampleKey("S");  'request animation
@@ -1340,7 +1355,7 @@ func IdleProcessing%()
         ' fixpt off. 
         PrintLog("stateTrainingFixPtOff: send X key.\n");
         SafeSampleKey("X");
-        if caRequireFixation% = 1 then    
+        if caRequireFixation% <> 0 then    
             view(XYWindow%).XYColour(iFixationWindowChannel%,13);  'Force fixation window to blue
         endif
         
@@ -1367,7 +1382,7 @@ func IdleProcessing%()
         PrintLog("stateAbort: send X key.\n");
         SafeSampleKey("X");
         
-        if caRequireFixation% = 1 then 
+        if caRequireFixation% <> 0 then 
             view(XYWindow%).XYColour(iFixationWindowChannel%,13);  'Force fixation window to blue
             'answer windows
             if caTrainingOptions% > 2 then
@@ -1408,7 +1423,7 @@ func IdleProcessing%()
             else                
                 ChangeStateTo(stateAbortWait%, tStateStart);  'don't update time, "credits" for time served
             endif;
-            if caRequireFixation% = 1 then
+            if caRequireFixation% <> 0 then
                 DrawStim(0);	' this undraws the location of the fixpt.
             endif;
         endif
@@ -1644,7 +1659,7 @@ func IdleProcessing%()
             'advance
             SafeSampleKey("a");
             ChangeStateTo(stateTrialCompletedPause%, tTrigger);
-            if caRequireFixation% = 1 then
+            if caRequireFixation% <> 0 then
                 DrawStim(0);	' this undraws the location of the fixpt.
             endif;
         endif
@@ -1767,6 +1782,7 @@ end;
 ' Simpler version than the full-blown one, as it doesn't return all values. 
 ' This version will work for all possible variable list lengths - with/without phase/cv/pattern/aperture/inner/outer
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
 
 func ParseGratingParametersBrief%(gr$, &x, &y, &w, &h)
     var status% := 0;
@@ -2088,3 +2104,6 @@ func GetInterTrialTime(kTime,rTime)
     addTime := rand(rTime,0);
     return addTime + kTime;
 end;
+
+
+
