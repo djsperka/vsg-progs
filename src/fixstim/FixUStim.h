@@ -1,4 +1,4 @@
-/* $Id: FixUStim.h,v 1.1 2015-05-12 17:27:00 devel Exp $*/
+/* $Id: FixUStim.h,v 1.2 2015-07-06 19:09:23 devel Exp $*/
 #ifndef _FIXUSTIM_H_
 #define _FIXUSTIM_H_
 
@@ -47,6 +47,7 @@ private:
 	std::vector<alert::ARGratingSpec> m_vecGratings;
 	std::vector<alert::ARGratingSpec> m_vecDistractors;
 	std::vector<AttentionCue> m_vecAttentionCues;
+	FlashyParamVectorVector m_vecFlashies;
 	StimSet *m_pStimSet;
 	bool m_bUsingMultiParameterStimSet;
 	int m_iDistanceToScreenMM;

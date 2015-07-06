@@ -14,6 +14,15 @@
 using namespace std;
 using namespace alert;
 
+COLOR_TYPE default_red = {red, {1, 0, 0}};
+
+ARFixationPointSpec::ARFixationPointSpec()
+: x(0)
+, y(0)
+, d(1)
+, color(default_red) 
+{};
+
 std::ostream& operator<<(std::ostream& out, const ARFixationPointSpec& arfps)
 {
 	out << arfps.x << ", " << arfps.y << "," << arfps.d << "," << arfps.color;
@@ -1068,7 +1077,7 @@ int ARContrastFixationPointSpec::drawOverlay()
 	return 0;
 }
 
-ARContrastCircleSpec::ARContrastCircleSpec(const ARContrastCircleSpec& c) : ARContrastFixationPointSpec(c)
+ARContrastCircleSpec::ARContrastCircleSpec(const ARContrastCircleSpec& c) : ARContrastFixationPointSpec(c), linewidth(c.linewidth)
 {
 }
 
@@ -1077,6 +1086,7 @@ ARContrastCircleSpec& ARContrastCircleSpec::operator=(const ARContrastCircleSpec
 	if (this != &c)
 	{
 		ARContrastFixationPointSpec::operator=(c);
+		this->linewidth = c.linewidth;
 	}
 	return *this;
 }
@@ -1107,7 +1117,9 @@ int ARContrastCircleSpec::draw()
 	if (!status)
 	{
 		vsgSetPen1(getFirstLevel());
-		vsgSetDrawMode(vsgCENTREXY + vsgPIXELPEN);
+		vsgSetPenSize(this->linewidth, this->linewidth);
+		vsgSetDrawMode(vsgCENTREXY + vsgSOLIDPEN);
+//		vsgSetDrawMode(vsgCENTREXY + vsgPIXELPEN);
 		vsgDrawOval(x, -1*y, d, d);
 	}
 	return status;

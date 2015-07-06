@@ -1,4 +1,4 @@
-/* $Id: FixUStim.cpp,v 1.2 2015-05-20 18:53:54 devel Exp $*/
+/* $Id: FixUStim.cpp,v 1.3 2015-07-06 19:09:23 devel Exp $*/
 
 #include "FixUStim.h"
 #include <iostream>
@@ -7,7 +7,7 @@ using namespace std;
 using namespace boost::algorithm;
 using namespace boost::filesystem;
 
-const string FixUStim::m_allowedArgs("ab:d:e:f:g:h:k:p:s:vzA:B:C:D:G:H:I:J:KL:M:NO:Q:R:S:T:U:V:W:Y:Z:");
+const string FixUStim::m_allowedArgs("ab:d:e:f:g:h:j:k:p:s:vzA:B:C:D:G:H:I:J:KL:M:NO:Q:R:S:T:U:V:W:Y:Z:");
 
 FixUStim::FixUStim(bool bStandAlone)
 : UStim()
@@ -193,15 +193,8 @@ void FixUStim::init_triggers(TSpecificFunctor<FixUStim>* pfunctor)
 	triggers().addTrigger(new FunctorCallbackTrigger("u", 0x20, 0x20|AR_TRIGGER_TOGGLE, 0x10, 0x10|AR_TRIGGER_TOGGLE, pfunctor));
 	triggers().addTrigger(new FunctorCallbackTrigger("v", 0x40, 0x40|AR_TRIGGER_TOGGLE, 0x20, 0x20|AR_TRIGGER_TOGGLE, pfunctor));
 
-	// hack
-	triggers().addTrigger(new FunctorCallbackTrigger("1", 0, 0, 0, 0, pfunctor));
-	triggers().addTrigger(new FunctorCallbackTrigger("2", 0, 0, 0, 0, pfunctor));
-	triggers().addTrigger(new FunctorCallbackTrigger("3", 0, 0, 0, 0, pfunctor));
-	triggers().addTrigger(new FunctorCallbackTrigger("4", 0, 0, 0, 0, pfunctor));
-	triggers().addTrigger(new FunctorCallbackTrigger("5", 0, 0, 0, 0, pfunctor));
-	triggers().addTrigger(new FunctorCallbackTrigger("6", 0, 0, 0, 0, pfunctor));
-	triggers().addTrigger(new FunctorCallbackTrigger("7", 0, 0, 0, 0, pfunctor));
-
+	// For UStim-specific testing. The UStim should handle this trigger and do whatever. Ascii only trigger.
+	triggers().addTrigger(new FunctorCallbackTrigger("A", 0, 0, 0, 0, pfunctor));
 
 	// quit trigger
 	triggers().addTrigger(new QuitTrigger("q", 0x10, 0x10, 0xff, 0x0, 0));
@@ -225,7 +218,7 @@ int FixUStim::process_arg(int c, std::string& arg)
 	static bool have_d = false;
 	static bool have_sequence = false;	// command-line sequence of page numbers 0,1...
 	static string the_sequence;			// see above.
-	static int errflg = 0;
+//	static int errflg = 0;
 
 	// This is a loooooong stanza. Be patient.
 	switch(c)
@@ -240,10 +233,10 @@ int FixUStim::process_arg(int c, std::string& arg)
 		m_verbose = true;
 		break;
 	case 'b': 
-		if (parse_color(arg, m_background)) errflg++; 
+		if (parse_color(arg, m_background)) m_errflg++; 
 		break;
 	case 'd':
-		if (parse_distance(arg, m_iDistanceToScreenMM)) errflg++;
+		if (parse_distance(arg, m_iDistanceToScreenMM)) m_errflg++;
 		else have_d=true;
 		break;
 	case 'V':
@@ -262,19 +255,19 @@ int FixUStim::process_arg(int c, std::string& arg)
 			if (pos)
 			{
 				m_sTriggeredTriggers = arg.substr(pos);
-				if (parse_ulong(arg.substr(0, pos), m_ulTriggerArmed)) errflg++;
+				if (parse_ulong(arg.substr(0, pos), m_ulTriggerArmed)) m_errflg++;
 				else m_bPresentOnTrigger = true;
 			}
 			else
 			{
 				m_sTriggeredTriggers = "";
-				if (parse_ulong(arg, m_ulTriggerArmed)) errflg++;
+				if (parse_ulong(arg, m_ulTriggerArmed)) m_errflg++;
 				else m_bPresentOnTrigger = true;
 			}
 			break;
 		}
 	case 'f':
-		if (parse_fixation_point(arg, m_fixpt)) errflg++;
+		if (parse_fixation_point(arg, m_fixpt)) m_errflg++;
 		else 
 		{
 			have_fixpt = true;
@@ -284,7 +277,7 @@ int FixUStim::process_arg(int c, std::string& arg)
 		if (parse_xhair(arg, m_xhair)) 
 		{
 			cerr << "Error in xhair arg: " << arg << endl;
-			errflg++;
+			m_errflg++;
 		}
 		else
 		{
@@ -292,7 +285,7 @@ int FixUStim::process_arg(int c, std::string& arg)
 		}
 		break;
 	case 'g':
-		if (parse_grating(arg, m_grating)) errflg++;
+		if (parse_grating(arg, m_grating)) m_errflg++;
 		else 
 		{
 			if (!have_fixpt)
@@ -313,12 +306,12 @@ int FixUStim::process_arg(int c, std::string& arg)
 		if (m_vecGratings.size() == 8)
 		{
 			cerr << "Maximum number of gratings(8) reached." << endl;
-			errflg++;
+			m_errflg++;
 		}
 		else if (parse_grating(arg, m_grating)) 
 		{
 			cerr << "Error in grating input: " << arg << endl;
-			errflg++;
+			m_errflg++;
 		}
 		else 
 		{
@@ -330,12 +323,12 @@ int FixUStim::process_arg(int c, std::string& arg)
 		if (m_vecDistractors.size() == 8)
 		{
 			cerr << "Maximum number of distractors(8) reached." << endl;
-			errflg++;
+			m_errflg++;
 		}
 		else if (parse_grating(arg, m_grating)) 
 		{
 			cerr << "Error in grating input: " << arg << endl;
-			errflg++;
+			m_errflg++;
 		}
 		else 
 		{
@@ -344,7 +337,7 @@ int FixUStim::process_arg(int c, std::string& arg)
 		break;
 	case 'p':
 		if (parse_integer(arg, m_pulse))
-			errflg++;
+			m_errflg++;
 		break;
 	case 'N':
 		// Stim set without grating; fixpt (and xhair) only
@@ -388,13 +381,13 @@ int FixUStim::process_arg(int c, std::string& arg)
 			vector<double> tuning_parameters;
 			int nsteps;
 
-			if (parse_tuning_list(arg, tuning_parameters, nsteps)) errflg++;
+			if (parse_tuning_list(arg, tuning_parameters, nsteps)) m_errflg++;
 			else 
 			{
 				if (!have_stim)
 				{
 					cerr << "Error - must pass template grating stimulus with \"-s\" before passing tuning parameters." << endl;
-					errflg++;
+					m_errflg++;
 				}
 				else
 				{
@@ -432,13 +425,13 @@ int FixUStim::process_arg(int c, std::string& arg)
 			vector<double> tuning_parameters;
 			int nsteps;
 
-			if (parse_tuning_list(arg, tuning_parameters, nsteps)) errflg++;
+			if (parse_tuning_list(arg, tuning_parameters, nsteps)) m_errflg++;
 			else 
 			{
 				if (!have_stim)
 				{
 					cerr << "Error - must pass template grating stimulus with \"-s\" before passing tuning parameters." << endl;
-					errflg++;
+					m_errflg++;
 				}
 				else
 				{
@@ -451,7 +444,7 @@ int FixUStim::process_arg(int c, std::string& arg)
 					if (!m_bUsingMultiParameterStimSet)
 					{
 						cerr << "Error - Cannot mix COASTXKMP with other stim types!" << endl;
-						errflg++;
+						m_errflg++;
 					}
 					else
 					{
@@ -484,7 +477,7 @@ int FixUStim::process_arg(int c, std::string& arg)
 							break;
 						default:
 							cerr << "Unhandled varying stim parameter type (" << (char)c << ")" << endl;
-							errflg++;
+							m_errflg++;
 						}
 						if (plist) pmulti->push_back(plist);
 					}
@@ -504,12 +497,12 @@ int FixUStim::process_arg(int c, std::string& arg)
 			if (!have_stim)
 			{
 				cerr << "Error - must specify a grating stim (-s) before specifying a CRG stimulus." << endl;
-				errflg++;
+				m_errflg++;
 			}
 			else if (parse_tuning_list(arg, list, iunused) || list.size() < 3)
 			{
 				cerr << "Bad format in repeating arg. Should be at least 3 ints: frames_per_term,first_term(0...),nterms[,contrast0,contrast1,...]" << endl;
-				errflg++;
+				m_errflg++;
 			}
 			else
 			{
@@ -598,7 +591,7 @@ int FixUStim::process_arg(int c, std::string& arg)
 				if (parse_integer(tokens[0], fpt))
 				{
 					cerr << "Error in flash spec (-L): first arg must be an integer (fpt)." << endl;
-					errflg++;
+					m_errflg++;
 					break;
 				}
 				else
@@ -617,7 +610,7 @@ int FixUStim::process_arg(int c, std::string& arg)
 			else if (tokens.size() < 3)
 			{
 				cerr << "Error in Flash arg (-L): must specify fpt,first,nterms[[color0,color1[,color2...]]]" << endl;
-				errflg++;
+				m_errflg++;
 			}
 			else
 			{
@@ -627,7 +620,7 @@ int FixUStim::process_arg(int c, std::string& arg)
 				if (parse_integer(tokens[0], fpt))
 				{
 					cerr << "Error in Flash arg (-L): must specify fpt,first,nterms[[color0,color1[,color2...]]]" << endl;
-					errflg++;
+					m_errflg++;
 				}
 				else
 				{
@@ -663,7 +656,7 @@ int FixUStim::process_arg(int c, std::string& arg)
 					else
 					{
 						cerr << "Error in flash spec: check sequence length and first,nterms args." << endl;
-						errflg++;
+						m_errflg++;
 						break;
 					}
 
@@ -677,7 +670,7 @@ int FixUStim::process_arg(int c, std::string& arg)
 							if (parse_color(tokens[i], color))
 							{
 								cerr << "Error in flash spec: bad color format at token " << i << ":" << tokens[i] << endl;
-								errflg++;
+								m_errflg++;
 							}
 							else
 							{
@@ -717,7 +710,7 @@ int FixUStim::process_arg(int c, std::string& arg)
 			if (parse_sequence(arg, the_sequence))
 			{
 				cerr << "Error - bad sequence format (-e)." << endl;
-				errflg++;
+				m_errflg++;
 			}
 			else
 			{
@@ -738,20 +731,20 @@ int FixUStim::process_arg(int c, std::string& arg)
 			if (tokens.size() < 2)
 			{
 				cerr << "Bad format for CRG stim. Expecting \"-R frames_per_term,filename[,i1,i2,i3...]\", got \"" << arg << "\"." << endl;
-				errflg++;
+				m_errflg++;
 			}
 			else if (parse_integer(tokens[0], ifpt))
 			{
 				cerr << "Bad format for CRG frames_per_term. Expecting \"-R frames_per_term,filename[,i1,i2,i3...]\", got \"" << arg << "\"." << endl;
-				errflg++;
+				m_errflg++;
 			}
 			else if (arutil_load_sequences(sequences, tokens[1]))
 			{
 				cerr << "Error loading sequences for CRG stim. Check format of stim file \"" << tokens[1] << "\"" << endl;
-				errflg++;
+				m_errflg++;
 			}
 
-			if (!errflg)
+			if (!m_errflg)
 			{
 				tokens.erase(tokens.begin());
 				tokens.erase(tokens.begin());
@@ -761,7 +754,7 @@ int FixUStim::process_arg(int c, std::string& arg)
 					if (parse_int_list(tokens, order))
 					{
 						cerr << "Error in sequence order list. Expecting fpt,filename,i0,i1,i2,... where iN are integers." << endl;
-						errflg++;
+						m_errflg++;
 					}
 				}
 				else
@@ -779,7 +772,7 @@ int FixUStim::process_arg(int c, std::string& arg)
 			if (!have_stim)
 			{
 				cerr << "Error - must pass template grating stimulus with \"-s\" before passing CRG sequence parameters." << endl;
-				errflg++;
+				m_errflg++;
 			}
 
 			// Check that all sequences are the same length. 
@@ -788,11 +781,11 @@ int FixUStim::process_arg(int c, std::string& arg)
 				if (it->length() != sequences.begin()->length())
 				{
 					cerr << "Error - all sequences are not the same length (" << sequences.begin()->length() << "). Check sequence file." << endl;
-					errflg++;
+					m_errflg++;
 				}
 			}
 
-			if (!errflg)
+			if (!m_errflg)
 			{
 				if (!have_fixpt && !have_xhair)
 					m_pStimSet = new StimSetCRG(m_grating, ifpt, sequences, order);
@@ -813,7 +806,7 @@ int FixUStim::process_arg(int c, std::string& arg)
 			if (parse_color(tokens[0], color))
 			{
 				cerr << "Error - first parameter in bar list spec must be a color (" << tokens[0] << ")." << endl;
-				errflg++;
+				m_errflg++;
 			}
 			else
 			{
@@ -823,7 +816,7 @@ int FixUStim::process_arg(int c, std::string& arg)
 			if (parse_number_list(tokens, tuning_parameters) || tuning_parameters.size() <= 3)
 			{
 				cerr << "Error - cannot parse drifting bar parameters color,width,height,deg_per_sec,ori1,ori2,..." << endl;
-				errflg++;
+				m_errflg++;
 			}
 			else
 			{
@@ -849,7 +842,7 @@ int FixUStim::process_arg(int c, std::string& arg)
 			if (parse_color(tokens[0], color))
 			{
 				cerr << "Error - first parameter in bar list spec must be a color (" << tokens[0] << ")." << endl;
-				errflg++;
+				m_errflg++;
 			}
 			else
 			{
@@ -859,7 +852,7 @@ int FixUStim::process_arg(int c, std::string& arg)
 			if (parse_number_list(tokens, tuning_parameters) || tuning_parameters.size() <= 6)
 			{
 				cerr << "Error - cannot parse dots parameters: color,x,y,diam,speed,density,dotsize,angle1,angle2,..." << endl;
-				errflg++;
+				m_errflg++;
 			}
 			else
 			{
@@ -900,7 +893,7 @@ int FixUStim::process_arg(int c, std::string& arg)
 			if (!SSInfo::load(arg, *pssinfo))
 			{
 				cerr << "Error parsing stim set info file " << arg << endl;
-				errflg++;
+				m_errflg++;
 			}
 
 			// Make sure to assign the "core" and "donut" correctly! 
@@ -943,7 +936,27 @@ int FixUStim::process_arg(int c, std::string& arg)
 			if (parse_attcues(arg, m_vecGratings.size(), m_vecAttentionCues))
 			{
 				cerr << "Error in input." << endl;
-				errflg++;
+				m_errflg++;
+			}
+			else
+			{
+				cerr << "Read " << m_vecAttentionCues.size() << " attention cues." << endl;
+				dump_attcues(m_vecAttentionCues);
+			}
+			break;
+		}
+	case 'j':
+		{
+			cerr << "parse flashies" << endl;
+			if (parse_flashyparams(arg, m_vecFlashies))
+			{
+				cerr << "Error in flashy params input: " << arg << endl;
+				m_errflg++;
+			}
+			else
+			{
+				cerr << "Read " << m_vecFlashies.size() << " flashies. Should be same as # of trials." << endl;
+				dump_flashyparams(m_vecFlashies);
 			}
 			break;
 		}
@@ -963,32 +976,79 @@ int FixUStim::process_arg(int c, std::string& arg)
 			//   0 = all stim on; 1 = first stim NOT on; 2 = second stim NOT on; etc. 
 			// 
 			// 
-			double tCC;
+			double tMax;
 			vector<AttParams> vecInput;
-			if (parse_attparams(arg, m_vecGratings.size(), vecInput, tCC))
+			if (parse_attparams(arg, m_vecGratings.size(), vecInput, tMax))
 			{
 				cerr << "Error in input." << endl;
-				errflg++;
+				m_errflg++;
 			}
 			else
 			{
+				cerr << "Read " << vecInput.size() << " trials for Attention" << endl;
 				if (have_fixpt)
 				{
 					if (m_vecGratings.size() > 0)
 					{
 						if (m_vecAttentionCues.size() == 0)
 						{
-							m_pStimSet = new AttentionStimSet(m_fixpt, tCC, m_vecGratings, vecInput);
+							if (m_vecFlashies.size() > 0)
+							{
+								if (m_vecFlashies.size() == vecInput.size())
+								{
+									if (checkFlashyTimes(vecInput, m_vecFlashies, tMax) == 0)
+									{
+										m_pStimSet = new AttentionStimSet(m_fixpt, tMax, m_vecGratings, vecInput, m_vecDistractors, m_vecFlashies);
+									}
+									else
+									{
+										cerr << "Error in input for Attention stim: Flashies must start/end before end of trial." << endl;
+										m_errflg++;
+									}
+								}
+								else
+								{
+									cerr << "Error in input for Attention stim: There are flashies configured for " << m_vecFlashies.size() << " trials, but " << vecInput.size() << " trials are configured. These should be the same." << endl;
+									m_errflg++;
+								}
+							}
+							else
+							{
+								m_pStimSet = new AttentionStimSet(m_fixpt, tMax, m_vecGratings, vecInput);
+							}
 						}
 						else
 						{
-							m_pStimSet = new AttentionStimSet(m_fixpt, tCC, m_vecGratings, m_vecAttentionCues, vecInput);
+							if (m_vecFlashies.size() > 0)
+							{
+								if (m_vecFlashies.size() == vecInput.size())
+								{
+									if (checkFlashyTimes(vecInput, m_vecFlashies, tMax) == 0)
+									{
+										m_pStimSet = new AttentionStimSet(m_fixpt, tMax, m_vecGratings, m_vecAttentionCues, vecInput, m_vecDistractors, m_vecFlashies);
+									}
+									else
+									{
+										cerr << "Error in input for Attention stim: Flashies must start/end before end of trial." << endl;
+										m_errflg++;
+									}
+								}
+								else
+								{
+									cerr << "Error in input for Attention stim: There are flashies configured for " << m_vecFlashies.size() << " trials, but " << vecInput.size() << " trials are configured. These should be the same." << endl;
+									m_errflg++;
+								}
+							}
+							else
+							{
+								m_pStimSet = new AttentionStimSet(m_fixpt, tMax, m_vecGratings, m_vecAttentionCues, vecInput);
+							}
 						}
 					}
 					else
 					{
 						cerr << "Error in input for Attention stim - no gratings specified!" << endl;
-						errflg++;
+						m_errflg++;
 					}
 				}
 				else
@@ -1005,7 +1065,7 @@ int FixUStim::process_arg(int c, std::string& arg)
 			if (!exists(p))
 			{
 				cerr << "Error: Cue file does not exist: " << arg;
-				errflg++;
+				m_errflg++;
 			}
 			else
 			{
@@ -1031,7 +1091,7 @@ int FixUStim::process_arg(int c, std::string& arg)
 						else if (parse_eqparams(line, m_vecGratings.size(), e))
 						{
 							cerr << "parse failed on line " << linenumber << ": " << line << endl;
-							errflg++;	// this will stop processing, eventually.
+							m_errflg++;	// this will stop processing, eventually.
 						}
 						else
 						{
@@ -1052,7 +1112,7 @@ int FixUStim::process_arg(int c, std::string& arg)
 								else 
 								{
 									cerr << " Relative path " << (m_pathCues / e.cueFile) << " not found." << endl;
-									errflg++;
+									m_errflg++;
 								}
 							}
 							vecEQParams.push_back(e);
@@ -1070,20 +1130,20 @@ int FixUStim::process_arg(int c, std::string& arg)
 			if (!m_pStimSet)
 			{
 				cerr << "Error - you must specify a fixpt or a stimset (COASTg...)" << endl;
-				errflg++;
+				m_errflg++;
 			}
 			break;
 		}
 	default:
 		{
 			cerr << "Unknown option - " << (char)c << endl;
-			errflg++;
+			m_errflg++;
 			break;
 		}
 	}
 
 
-	return errflg;
+	return m_errflg;
 }
 
 MultiParameterFXGStimSet* FixUStim::create_multiparameter_stimset(bool bHaveFixpt, ARContrastFixationPointSpec& fixpt, bool bHaveXhair, ARXhairSpec& xhair, ARGratingSpec& grating)
