@@ -120,37 +120,37 @@ public:
 
 	ARGratingSpec& grating() 
 	{ 
-		BOOST_ASSERT(m_gratings.size() > 0);
+		BOOST_ASSERT(m_gratings.size() > (unsigned int)0);
 		return m_gratings[0]; 
 	};
 
 	const ARGratingSpec& grating() const 
 	{ 
-		BOOST_ASSERT(m_gratings.size() > 0);
+		BOOST_ASSERT(m_gratings.size() > (unsigned int)0);
 		return m_gratings[0]; 
 	};
 
 	ARGratingSpec& grating(int i)
 	{
-		BOOST_ASSERT(m_gratings.size() > i);
+		BOOST_ASSERT(m_gratings.size() > (unsigned int)i);
 		return m_gratings[i];
 	};
 
 	const ARGratingSpec& grating(int i) const
 	{
-		BOOST_ASSERT(m_gratings.size() > i);
+		BOOST_ASSERT(m_gratings.size() > (unsigned int)i);
 		return m_gratings[i];
 	};
 
 	int contrast(int i) const
 	{
-		BOOST_ASSERT(m_contrasts.size() > i);
+		BOOST_ASSERT(m_contrasts.size() > (unsigned int)i);
 		return m_contrasts[i];
 	}
 
 	int distractor_contrast(int i) const
 	{
-		BOOST_ASSERT(m_distractor_contrasts.size() > i);
+		BOOST_ASSERT(m_distractor_contrasts.size() > (unsigned int)i);
 		return m_distractor_contrasts[i];
 	}
 
@@ -181,13 +181,13 @@ public:
 
 	ARGratingSpec& distractor(int i)
 	{
-		BOOST_ASSERT(m_distractors.size() > i);
+		BOOST_ASSERT(m_distractors.size() > (unsigned int)i);
 		return m_distractors[i];
 	};
 
 	const ARGratingSpec& distractor(int i) const
 	{
-		BOOST_ASSERT(m_distractors.size() > i);
+		BOOST_ASSERT(m_distractors.size() > (unsigned int)i);
 		return m_distractors[i];
 	};
 

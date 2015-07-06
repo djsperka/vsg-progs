@@ -386,7 +386,7 @@ namespace alert
 	class ARFixationPointSpec: public ARSpec
 	{
 	public:
-		ARFixationPointSpec() {};
+		ARFixationPointSpec();
 		ARFixationPointSpec(const ARFixationPointSpec& fixpt);
 		ARFixationPointSpec(const ARContrastFixationPointSpec& fixpt);
 		~ARFixationPointSpec() {};
@@ -403,7 +403,7 @@ namespace alert
 	class ARContrastFixationPointSpec: public ARFixationPointSpec
 	{
 	public:
-		ARContrastFixationPointSpec() {};
+		ARContrastFixationPointSpec(): ARFixationPointSpec() {};
 		ARContrastFixationPointSpec(const ARContrastFixationPointSpec& fixpt) : ARFixationPointSpec(fixpt) {};
 		~ARContrastFixationPointSpec() {};
 		ARContrastFixationPointSpec& operator=(const ARContrastFixationPointSpec& fixpt);
@@ -418,12 +418,13 @@ namespace alert
 	class ARContrastCircleSpec: public ARContrastFixationPointSpec
 	{
 	public:
-		ARContrastCircleSpec() {};
+		ARContrastCircleSpec(): ARContrastFixationPointSpec(), linewidth(1) {};
 		ARContrastCircleSpec(const ARContrastCircleSpec& c);
 		~ARContrastCircleSpec() {};
 		ARContrastCircleSpec& operator=(const ARContrastCircleSpec& c);
 		int draw();
 		int drawOverlay();
+		int linewidth;
 	};
 
 
