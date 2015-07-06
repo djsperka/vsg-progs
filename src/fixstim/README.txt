@@ -245,6 +245,48 @@ of cues specified (the default). If it is 1 (off_bits = 256), then the second se
 of cues is used. Note that bits in the low-order byte indicate which stimuli should
 be turned OFF. 
 
+Flashies
+
+Flashies are gratings that flash on/off during an attention trial. In order to use you must
+specify gratings with "-k". The first gratings so specified is referred to as index "0" in 
+flashy configs, the second grating is referred to as "1", and so on. 
+
+All spatio-temporal parameters for the grating (except for x,y and w,h) are preserved.
+
+The flashy arg format is going to be hard to write up. An explanation may work better.
+
+-j <flashy config for first trial>,<flashy config for second trial>,...
+
+The flashy config for each trial looks like this:
+
+NF,f0,x0,y0,w0,h0,on0,off0,f1,x1,y1,w1,h1,on1,off1,...
+
+NF = of flashies to be shown this trial
+f0 = index of first flashy for this trial
+x0,y0 = position of first flashy
+w0,h0 = width, height of first flashy
+on0 = time (measured from stim onset) that flashy should turn ON
+off0 = time (measured from stim onset) that flashy should turn OFF
+
+If there are NO FLASHIES for a trial, then use NF=0 and nothing else for that trial. The
+next value should be NF for the next trial.
+
+Example: Here is a flashy config for 4 trials. Assume that there are 4 "-k" gratings specified.
+
+-j 2,0,-6,7,1,1,.5,1.0,1,-4,7,1,1,1.1,1.5,4,0,-6,7,1,1,.5,.8,1,-4,7,1,1,.9,1.2,2,4,7,1,1,1.5,1.7,3,6,7,1,1,1.8,1.9,0,3,0,-6,7,1,1,.5,1,1,-4,7,1,1,1.5,2.5,2,4,7,1,1,3.0,3.5
+
+Breaking this down the individual trials look like this:
+
+2, 0,-6,7,1,1,.5,1.0, 1,-4,7,1,1,1.1,1.5,
+4, 0,-6,7,1,1,.5,.8,  1,-4,7,1,1,.9,1.2,  2,4,7,1,1,1.5,1.7,  3,6,7,1,1,1.8,1.9,
+0,
+3, 0,-6,7,1,1,.5,1,   1,-4,7,1,1,1.5,2.5, 2,4,7,1,1,3.0,3.5
+
+The first trial has two flashies, the second has 4. The third trial has no flashies, and the 4th has 3. 
+
+
+
+
 
 
 Grating specification
