@@ -1,7 +1,7 @@
-' $Id: Tuning.s2s,v 1.92 2015-06-11 00:41:01 devel Exp $
+' $Id: Tuning.s2s,v 1.93 2015-07-07 20:46:11 devel Exp $
 ' Update 11/8/11 Jeff, includes multi-juicer updates
 
-const tunCVSID$ := "$Id: Tuning.s2s,v 1.92 2015-06-11 00:41:01 devel Exp $";
+const tunCVSID$ := "$Id: Tuning.s2s,v 1.93 2015-07-07 20:46:11 devel Exp $";
 
 
 
@@ -3175,6 +3175,13 @@ end;
 Func StringifyProgression$(n%, vec[], ind%[])
 	var s$;
 	var i%;
+    
+    if n% > tunMaxTrials% then
+        message("You have requested " + Str$(n%) + " trials, max is " + Str$(tunMaxTrials%) + "!  Quitting!");
+        halt
+    endif;
+    
+    
 	for i% := 0 to n%-1 do
 		if i% > 0 then 
 			s$ += ",";
