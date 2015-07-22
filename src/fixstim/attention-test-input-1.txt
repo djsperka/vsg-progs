@@ -1,0 +1,23 @@
+# Big red fixation point, gray background, etc
+ -f 0,0,1.0,red  -b gray -d 813
+# there are two stimuli, one above, one below the fixpt.
+ -s 0.0,4.0,2.0,2.0,0.0,0.0,100,1.00,5.00,0.0,0.0,b,s,e 
+ -s 0.0,-4.0,2.0,2.0,0.0,0.0,100,1.00,5.00,90.0,0.0,b,s,e 
+# 4 distractors, along the top of the screen
+ -k -6.0,7.0,2.0,2.0,0.0,0.0,100,1.00,5.00,120.0,0.0,b,s,e 
+ -k -3.0,7.0,2.0,2.0,0.0,0.0,100,1.00,5.00,100.0,0.0,b,s,e 
+ -k 3.0,7.0,2.0,2.0,0.0,0.0,100,1.00,5.00,80.0,0.0,b,s,e 
+ -k 6.0,7.0,2.0,2.0,0.0,0.0,100,1.00,5.00,60.0,0.0,b,s,e 
+# cue circles. One for each of the stim
+ -Q .5,2,(255/0/255),.5,2,(0/255/0)
+# the flashy arg
+# 
+# trial 1 - two flashies prior to the CC
+# trial 2 - two flashies prior to the CC, two after the CC
+# trial 3 - no flashies
+# trial 4 - one flashy prior, one straddle, one after the CC
+# 4,0,-6,7,1,1,.5,1.0,1,-4,7,1,1,1.1,1.5,4,0,-6,7,1,1,.5,.8,1,-4,7,1,1,.9,1.2,2,4,7,1,1,1.5,1.7,3,6,7,1,1,1.8,1.9
+ -j 2,0,-6,7,1,1,.5,1.0,1,-4,7,1,1,1.1,1.5,4,0,-6,7,1,1,.5,.8,1,-4,7,1,1,.9,1.2,2,4,7,1,1,1.5,1.7,3,6,7,1,1,1.8,1.9,0,3,0,-6,7,1,1,.5,1,1,-4,7,1,1,1.5,2.5,2,4,7,1,1,3.0,3.5
+#and the attention arg. 8 trials, each with change at 2.0s, 1s max time
+ -J 2,red,0,2.0,0,50,100,50,100,red,0,2.0,0,100,50,50,100,blue,0,2.0,0,100,50,50,100,green,0,2.0,0,100,50,50,100
+#,red,0,2.0,0,50,100,100,50,red,0,2.0,0,50,100,50,100,green,0,2.0,0,50,100,50,100,green,0,2.0,0,100,50,50,100,green,0,2.0,0,50,100,100,50,green,0,2.0,0,50,100,50,100
