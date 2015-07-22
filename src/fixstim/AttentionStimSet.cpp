@@ -460,38 +460,41 @@ int AttentionStimSet::drawCurrent()
 
 	// distractor flashy pages, if any. For each configured flashy, there will be two additional
 	// pages. One will be with the pre-CC stim, and one with the post-CC stim. 
-	if (m_current >= m_vecFlashies.size())
+	if (m_vecFlashies.size() > 0)
 	{
-		cerr << "ERROR: Must have flashy configuration for each trial!" << endl;
-	}
-	else
-	{
-		for (unsigned int iflashy=0; iflashy<m_vecFlashies[m_current].size(); iflashy++)
+		if (m_current >= m_vecFlashies.size())
 		{
-			const FlashyParams& params = m_vecFlashies[m_current].at(iflashy);
+			cerr << "ERROR: Must have flashy configuration for each trial!" << endl;
+		}
+		else
+		{
+			for (unsigned int iflashy=0; iflashy<m_vecFlashies[m_current].size(); iflashy++)
+			{
+				const FlashyParams& params = m_vecFlashies[m_current].at(iflashy);
 
-			// clear page for regular (pre-CC) stim and flashy
-			cerr << "Configure page " << m_pageD + 2*iflashy << " for flashy " << iflashy << endl;
-			vsgSetDrawPage(vsgVIDEOPAGE, m_pageD + 2*iflashy, vsgBACKGROUND);
+				// clear page for regular (pre-CC) stim and flashy
+				cerr << "Configure page " << m_pageD + 2*iflashy << " for flashy " << iflashy << endl;
+				vsgSetDrawPage(vsgVIDEOPAGE, m_pageD + 2*iflashy, vsgBACKGROUND);
 
-			// draw stuff on this page
-			draw_stim_gratings(false, m_vecParams.at(m_current));
-			draw_cues(m_vecParams.at(m_current));
-			draw_flashy(params);
-			draw_fixpt();
+				// draw stuff on this page
+				draw_stim_gratings(false, m_vecParams.at(m_current));
+				draw_cues(m_vecParams.at(m_current));
+				draw_flashy(params);
+				draw_fixpt();
 
-			// Now make the page with the CC and the flashy
-			cerr << "Configure page " << m_pageD + 2*iflashy + 1 << " for flashy " << iflashy << endl;
-			vsgSetDrawPage(vsgVIDEOPAGE, m_pageD + 2*iflashy + 1, vsgBACKGROUND);
+				// Now make the page with the CC and the flashy
+				cerr << "Configure page " << m_pageD + 2*iflashy + 1 << " for flashy " << iflashy << endl;
+				vsgSetDrawPage(vsgVIDEOPAGE, m_pageD + 2*iflashy + 1, vsgBACKGROUND);
 
-			// and draw stuff for CC+flashy page
-			draw_stim_gratings(true, m_vecParams.at(m_current));
-			draw_cues(m_vecParams.at(m_current));
-			draw_flashy(params);
-			draw_fixpt();
+				// and draw stuff for CC+flashy page
+				draw_stim_gratings(true, m_vecParams.at(m_current));
+				draw_cues(m_vecParams.at(m_current));
+				draw_flashy(params);
+				draw_fixpt();
 
-		}  // loop over flashies for this trial
-	}	// 	if (m_vecFlashies.size() > m_current)
+			}  // loop over flashies for this trial
+		}	// 	if (m_vecFlashies.size() > m_current)
+	}
 
 	// blank page
 	cerr << "Configure page " << m_pageBlank << " background only" << endl;
@@ -504,12 +507,10 @@ int AttentionStimSet::drawCurrent()
 
 
 
-#if 0
 	// When there are no flashies, setting up the animation is simple and 
 	// straightforward. 
-	// TODO: fold this into same logic as the case with flashies. 
 
-	if (m_vecFlashies[m_current].size() == 0)
+	if (m_vecFlashies.size() == 0)
 	{
 		cycle[0].Frames = SECONDS_TO_FRAMES(m_vecParams[m_current].dTimeToCC);
 		cycle[0].Page = m_pageStim + vsgTRIGGERPAGE;   // trigger at onset of stim
@@ -524,169 +525,178 @@ int AttentionStimSet::drawCurrent()
 		cycle[2].Xpos = cycle[2].Ypos = 0;
 		cycle[2].Stop = 1;
 		vsgPageCyclingSetup(3, &cycle[0]);
+
+
+		cerr << "Cycling: count=3" << endl;
+		for (int i=0; i<3; i++)
+		{
+			cerr << i << ": page=" << (cycle[i].Page & vsgTRIGGERPAGE ? cycle[i].Page-vsgTRIGGERPAGE : cycle[i].Page) << " Frames=" << cycle[i].Frames << endl;
+		}
+
+
 	}
 	else
 	{
-		
-#endif
 
-	// Once more, with flashies
-	int count = 0;	    // count of steps in animation, i.e. elements of cycle[]  
-	unsigned int iflashy = 0;    // index of flashy in the flashies for current trial
-	double tconfig = 0; // time of the last frame configured
-	const double dTimeToCC = m_vecParams[m_current].dTimeToCC;    // convenience
+		// Once more, with flashies
+		int count = 0;	    // count of steps in animation, i.e. elements of cycle[]  
+		unsigned int iflashy = 0;    // index of flashy in the flashies for current trial
+		double tconfig = 0; // time of the last frame configured
+		const double dTimeToCC = m_vecParams[m_current].dTimeToCC;    // convenience
 
 
-	// Now iterate through each flashy in this trial. 
-	// The var 'tconfig' is the time (measured from the stim onset, in sec) that the 
-	// animation has been configured to. There are 'count' elements of the cycle[]
-	// array configured; the last one cycle[count-1] takes us to time 'tconfig'.
-	//
-	// For each flashy, we will configure a "gap", where there is no flashy, and then 
-	// the flashy itself. The "gap" may have no frames (i.e. there is really no gap).
-	// We check the "gap" and the period of the flashy to see if the contrast change happens.
-	//
-	// WARNING: this is where the assumption of NO OVERLAP comes into play. We do NOT look at the 
-	// start time of the NEXT flashy, which we'd do if we wanted to see if there were overlap.
-	// We DO check whether the CC happens during the display of this flashy.
-	//
-	// The var m_pageD is the first page containing the flashies and stim/cues/etc.
-	// The first flashy is on m_pageD with the pre-CC stim/cues/fixpt, and m_pageD+1
-	// 
-	// At each step in the loop,
-	// tconfig = the amount of time that has been configured (i.e. the elements of cycle[] get us this far)
+		// Now iterate through each flashy in this trial. 
+		// The var 'tconfig' is the time (measured from the stim onset, in sec) that the 
+		// animation has been configured to. There are 'count' elements of the cycle[]
+		// array configured; the last one cycle[count-1] takes us to time 'tconfig'.
+		//
+		// For each flashy, we will configure a "gap", where there is no flashy, and then 
+		// the flashy itself. The "gap" may have no frames (i.e. there is really no gap).
+		// We check the "gap" and the period of the flashy to see if the contrast change happens.
+		//
+		// WARNING: this is where the assumption of NO OVERLAP comes into play. We do NOT look at the 
+		// start time of the NEXT flashy, which we'd do if we wanted to see if there were overlap.
+		// We DO check whether the CC happens during the display of this flashy.
+		//
+		// The var m_pageD is the first page containing the flashies and stim/cues/etc.
+		// The first flashy is on m_pageD with the pre-CC stim/cues/fixpt, and m_pageD+1
+		// 
+		// At each step in the loop,
+		// tconfig = the amount of time that has been configured (i.e. the elements of cycle[] get us this far)
 
-	for (iflashy = 0; iflashy < m_vecFlashies.at(m_current).size(); iflashy++)
-	{
-		const struct flashy_params& flashyParams = m_vecFlashies.at(m_current).at(iflashy);
-		int page = 0;
-		int frames = 0;
-
-		// is there a gap between tconfig and the onset of the flashy? 
-		// If so, then we will create an entry in cycle[] to display the stim page without a flashy.
-		// Beware, the stim page may be with or without CC.
-
-		if (SECONDS_TO_FRAMES(flashyParams.ton - tconfig) > 0)
+		for (iflashy = 0; iflashy < m_vecFlashies.at(m_current).size(); iflashy++)
 		{
-			// There is a gap between tconfig and the onset time of the flashy.
-			// If the flashy starts before the CC, then the gap is m_pageStim
-			// If the flashy starts after the CC, and tconfig is at or after the CC, then the gap is m_pageChg
-			// Otherwise, the gap encompasses the CC.
-			if (SECONDS_TO_FRAMES(dTimeToCC - flashyParams.ton) >= 0)
+			const struct flashy_params& flashyParams = m_vecFlashies.at(m_current).at(iflashy);
+			int page = 0;
+			int frames = 0;
+
+			// is there a gap between tconfig and the onset of the flashy? 
+			// If so, then we will create an entry in cycle[] to display the stim page without a flashy.
+			// Beware, the stim page may be with or without CC.
+
+			if (SECONDS_TO_FRAMES(flashyParams.ton - tconfig) > 0)
 			{
-				// flashy starts at or before the CC, so page is m_pageStim for the whole gap
-				cycle[count].Frames = (WORD)SECONDS_TO_FRAMES(flashyParams.ton - tconfig);
-				cycle[count].Page = m_pageStim;
+				// There is a gap between tconfig and the onset time of the flashy.
+				// If the flashy starts before the CC, then the gap is m_pageStim
+				// If the flashy starts after the CC, and tconfig is at or after the CC, then the gap is m_pageChg
+				// Otherwise, the gap encompasses the CC.
+				if (SECONDS_TO_FRAMES(dTimeToCC - flashyParams.ton) >= 0)
+				{
+					// flashy starts at or before the CC, so page is m_pageStim for the whole gap
+					cycle[count].Frames = (WORD)SECONDS_TO_FRAMES(flashyParams.ton - tconfig);
+					cycle[count].Page = m_pageStim;
+					cycle[count].Xpos = cycle[count].Ypos = 0;
+					cycle[count].Stop = 0;
+					count++;
+				}
+				else if (SECONDS_TO_FRAMES(tconfig - dTimeToCC) >= 0)
+				{
+					// tconfig is beyond the CC, so page is m_pageChg for the whole gap
+					cycle[count].Frames = (WORD)SECONDS_TO_FRAMES(flashyParams.ton - tconfig);
+					cycle[count].Page = m_pageChg;
+					cycle[count].Xpos = cycle[count].Ypos = 0;
+					cycle[count].Stop = 0;
+					count++;
+				}
+				else
+				{
+					// tconfig is prior to CC, so the gap encompasses the CC
+					cycle[count].Frames = (WORD)SECONDS_TO_FRAMES(dTimeToCC - tconfig);
+					cycle[count].Page = m_pageStim;
+					cycle[count].Xpos = cycle[count].Ypos = 0;
+					cycle[count].Stop = 0;
+					count++;
+					cycle[count].Frames = (WORD)SECONDS_TO_FRAMES(flashyParams.ton - dTimeToCC);
+					cycle[count].Page = m_pageChg + vsgTRIGGERPAGE;		// trigger at CC
+					cycle[count].Xpos = cycle[count].Ypos = 0;
+					cycle[count].Stop = 0;
+					count++;
+				}
+				tconfig = flashyParams.ton;
+			}
+			
+			// Now we configure the cycling for the flashy itself. 
+			// tconfig is at the start of the flashy.
+			// Similar to the gap case above, the possibilities are
+			// Entire flashy is before the CC
+			// Entire flashy is at or after the CC
+			// The flashy spans the CC.
+			
+			if (SECONDS_TO_FRAMES(dTimeToCC - flashyParams.toff) >= 0)
+			{
+				cycle[count].Frames = (WORD)SECONDS_TO_FRAMES(flashyParams.toff - flashyParams.ton);
+				cycle[count].Page = m_pageD + 2*iflashy + vsgTRIGGERPAGE;
 				cycle[count].Xpos = cycle[count].Ypos = 0;
 				cycle[count].Stop = 0;
 				count++;
 			}
-			else if (SECONDS_TO_FRAMES(tconfig - dTimeToCC) >= 0)
+			else if (SECONDS_TO_FRAMES(flashyParams.ton - dTimeToCC) >= 0)
 			{
-				// tconfig is beyond the CC, so page is m_pageChg for the whole gap
-				cycle[count].Frames = (WORD)SECONDS_TO_FRAMES(flashyParams.ton - tconfig);
-				cycle[count].Page = m_pageChg;
+				cycle[count].Frames = (WORD)SECONDS_TO_FRAMES(flashyParams.toff - flashyParams.ton);
+				cycle[count].Page = m_pageD + 2*iflashy + 1 + vsgTRIGGERPAGE;
 				cycle[count].Xpos = cycle[count].Ypos = 0;
 				cycle[count].Stop = 0;
 				count++;
 			}
 			else
 			{
-				// tconfig is prior to CC, so the gap encompasses the CC
-				cycle[count].Frames = (WORD)SECONDS_TO_FRAMES(dTimeToCC - tconfig);
-				cycle[count].Page = m_pageStim;
+	//			cerr << "Spanning flashy at count " << count << endl;
+				cycle[count].Frames = (WORD)SECONDS_TO_FRAMES(dTimeToCC - flashyParams.ton);
+				cycle[count].Page = m_pageD + 2*iflashy + vsgTRIGGERPAGE;
 				cycle[count].Xpos = cycle[count].Ypos = 0;
 				cycle[count].Stop = 0;
 				count++;
-				cycle[count].Frames = (WORD)SECONDS_TO_FRAMES(flashyParams.ton - dTimeToCC);
-				cycle[count].Page = m_pageChg + vsgTRIGGERPAGE;		// trigger at CC
+				cycle[count].Frames = (WORD)SECONDS_TO_FRAMES(flashyParams.toff - dTimeToCC);
+				cycle[count].Page = m_pageD + 2*iflashy + 1 + vsgTRIGGERPAGE;
 				cycle[count].Xpos = cycle[count].Ypos = 0;
 				cycle[count].Stop = 0;
 				count++;
 			}
-			tconfig = flashyParams.ton;
+			tconfig = flashyParams.toff;
 		}
-		
-		// Now we configure the cycling for the flashy itself. 
-		// tconfig is at the start of the flashy.
-		// Similar to the gap case above, the possibilities are
-		// Entire flashy is before the CC
-		// Entire flashy is at or after the CC
-		// The flashy spans the CC.
-		
-		if (SECONDS_TO_FRAMES(dTimeToCC - flashyParams.toff) >= 0)
+				
+		// After the loop there may be a gap between tconfig and tMax
+		// The CC may fall in this gap!			
+
+		if (SECONDS_TO_FRAMES(tconfig - dTimeToCC) >= 0)
 		{
-			cycle[count].Frames = (WORD)SECONDS_TO_FRAMES(flashyParams.toff - flashyParams.ton);
-			cycle[count].Page = m_pageD + 2*iflashy + vsgTRIGGERPAGE;
-			cycle[count].Xpos = cycle[count].Ypos = 0;
-			cycle[count].Stop = 0;
-			count++;
-		}
-		else if (SECONDS_TO_FRAMES(flashyParams.ton - dTimeToCC) >= 0)
-		{
-			cycle[count].Frames = (WORD)SECONDS_TO_FRAMES(flashyParams.toff - flashyParams.ton);
-			cycle[count].Page = m_pageD + 2*iflashy + 1 + vsgTRIGGERPAGE;
+			// entire gap is after the cc. Special case when the start of
+			// this gap is at dTimeToCC -- have to issue trigger
+			cycle[count].Frames = (WORD)SECONDS_TO_FRAMES(m_tMax - (tconfig - dTimeToCC));
+			cycle[count].Page = m_pageChg + ((SECONDS_TO_FRAMES(tconfig - dTimeToCC) == 0) ? 1 : 0);
 			cycle[count].Xpos = cycle[count].Ypos = 0;
 			cycle[count].Stop = 0;
 			count++;
 		}
 		else
 		{
-//			cerr << "Spanning flashy at count " << count << endl;
-			cycle[count].Frames = (WORD)SECONDS_TO_FRAMES(dTimeToCC - flashyParams.ton);
-			cycle[count].Page = m_pageD + 2*iflashy + vsgTRIGGERPAGE;
+			// split the gap
+			cycle[count].Frames = (WORD)SECONDS_TO_FRAMES(dTimeToCC - tconfig);
+			cycle[count].Page = m_pageStim;
 			cycle[count].Xpos = cycle[count].Ypos = 0;
 			cycle[count].Stop = 0;
 			count++;
-			cycle[count].Frames = (WORD)SECONDS_TO_FRAMES(flashyParams.toff - dTimeToCC);
-			cycle[count].Page = m_pageD + 2*iflashy + 1 + vsgTRIGGERPAGE;
+			cycle[count].Frames = (WORD)SECONDS_TO_FRAMES(m_tMax);
+			cycle[count].Page = m_pageChg + vsgTRIGGERPAGE;
 			cycle[count].Xpos = cycle[count].Ypos = 0;
 			cycle[count].Stop = 0;
 			count++;
 		}
-		tconfig = flashyParams.toff;
-	}
-			
-	// After the loop there may be a gap between tconfig and tMax
-	// The CC may fall in this gap!			
+		cycle[count].Page = 0 + vsgTRIGGERPAGE;            // trigger when stim ends (blank screen onset)
+		cycle[count].Xpos = cycle[count].Ypos = 0;
+		cycle[count].Stop = 1;
+		cycle[count].Frames = 1;
+		count++;
+		
+		vsgPageCyclingSetup(count, &cycle[0]);
 
-	if (SECONDS_TO_FRAMES(tconfig - dTimeToCC) >= 0)
-	{
-		// entire gap is after the cc. Special case when the start of
-		// this gap is at dTimeToCC -- have to issue trigger
-		cycle[count].Frames = (WORD)SECONDS_TO_FRAMES(m_tMax - (tconfig - dTimeToCC));
-		cycle[count].Page = m_pageChg + ((SECONDS_TO_FRAMES(tconfig - dTimeToCC) == 0) ? 1 : 0);
-		cycle[count].Xpos = cycle[count].Ypos = 0;
-		cycle[count].Stop = 0;
-		count++;
+		cerr << "Cycling: count=" << count << endl;
+		for (int i=0; i<count; i++)
+		{
+			cerr << i << ": page=" << (cycle[i].Page & vsgTRIGGERPAGE ? cycle[i].Page-vsgTRIGGERPAGE : cycle[i].Page) << " Frames=" << cycle[i].Frames << endl;
+		}
 	}
-	else
-	{
-		// split the gap
-		cycle[count].Frames = (WORD)SECONDS_TO_FRAMES(dTimeToCC - tconfig);
-		cycle[count].Page = m_pageStim;
-		cycle[count].Xpos = cycle[count].Ypos = 0;
-		cycle[count].Stop = 0;
-		count++;
-		cycle[count].Frames = (WORD)SECONDS_TO_FRAMES(m_tMax);
-		cycle[count].Page = m_pageChg + vsgTRIGGERPAGE;
-		cycle[count].Xpos = cycle[count].Ypos = 0;
-		cycle[count].Stop = 0;
-		count++;
-	}
-	cycle[count].Page = 0 + vsgTRIGGERPAGE;            // trigger when stim ends (blank screen onset)
-	cycle[count].Xpos = cycle[count].Ypos = 0;
-	cycle[count].Stop = 1;
-	cycle[count].Frames = 1;
-	count++;
-	
-	vsgPageCyclingSetup(count, &cycle[0]);
 
-	cerr << "Cycling: count=" << count << endl;
-	for (int i=0; i<count; i++)
-	{
-		cerr << i << ": page=" << (cycle[i].Page & vsgTRIGGERPAGE ? cycle[i].Page-vsgTRIGGERPAGE : cycle[i].Page) << " Frames=" << cycle[i].Frames << endl;
-	}
 
 
 	return status;
