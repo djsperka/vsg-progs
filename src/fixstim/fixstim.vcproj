@@ -387,6 +387,10 @@
 			RelativePath=".\attention-test-input-1.txt"
 			>
 		</File>
+		<File
+			RelativePath=".\attention-test-input-2.txt"
+			>
+		</File>
 	</Files>
 	<Globals>
 	</Globals>
