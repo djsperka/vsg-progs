@@ -1,4 +1,4 @@
-' $Id: AttentionGoNoGo.s2s,v 1.53 2015-06-11 00:41:01 devel Exp $
+' $Id: AttentionGoNoGo.s2s,v 1.54 2015-07-22 22:33:02 devel Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -102,6 +102,7 @@ var attCustomGratingColorDistractorTo%[3];
 var attPhaseCheck%;
 var attPhaseDeg%;
 var Contrast$;
+var Flashers$;
 
 ' Counter vars for attention script
 var attCountAllTrials% := 0;
@@ -129,9 +130,34 @@ var attLowReward% := 0;
 
 var lowRewardMS%;
 var origRewardMS%;
-
-const maxFlashers% := 10;  'use a maximum of 10 flashers
-var flasherTimes[maxFlashers%];  'hold flasher times
+const screenXmm := 400;
+const screenYmm := 300;
+var screenXmax;  'these are the borders of the screen in visual degrees
+var screenYmax;
+var xT;  'target x
+var yT;  'target y
+var wT;  'target width
+var hT;  'target height
+var xD1; 'distracter 1, etc.
+var yD1;
+var wD1;
+var hD1;
+var xD2;
+var yD2;
+var wD2;
+var hD2;
+var xD3;
+var yD3;
+var wD3;
+var hD3;
+var xD4;
+var yD4;
+var wD4;
+var hD4;
+var xF1; 'flasher 1, the x and y won't really be used but we need them to take dummy values from ParseGratingParametersBrief
+var yF1;
+var wF1;
+var hF1;
 
 
 ' constants for dialog and check function - start with 10 because there are 9 dialog entries prior
@@ -213,6 +239,8 @@ var attHazardList[attMaxTrl%];     'holds hazard times, now pre-calculated
 var attOffBitsList%[attMaxTrl%];  'A list of which stimulus patches are off for this trial, in a bit sum, 1 = main, 2 = dist1, 4 = dist2, etc.
 var attRotationList%[attMaxTrl%]; 'A list of which rotation is being used for this trial
 var attFixColor%[attMaxTrl%];     'A list of which color fixation point (as a number) is being used for this trial
+var attBlockList%[attMaxTrl%];    'A list of which block a trial comes in - this is relative, useful for equalizing hazard times etc. across blocks
+var attEasyList%[attMaxTrl%];     '1 if the trial is an easy trial, 0 if not - need to keep track of this because there are no flashers on easy trials
 var thisContrast%;                 'for sampletexty stuff
 var fixColor$;                  'more sampletexty stuff
 var FAIsResponse%;              'if 1, use "response abort", otherwise use regular abort
@@ -221,6 +249,12 @@ var expectedAnswer%;            'keeps track of expected answer, saves a bunch o
 'For fixation/cue colors, use a master list so we don't get a bunch of values redefined, and have to change them all if a change is made
 var masterColorList$[6];  'human readable, updated to hold 6 (1 on-RF, 4 distractor, 1 No-change)
 var masterColorListVSG$[6];  'VSG readable
+const attMaxFlashers% := 30;  'use a maximum of 30 flashers per trial
+var flasherTimes[attMaxTrl%][attMaxFlashers%];  'hold flasher times, this is 2-d because we can have multiple per trial
+var flasherX[attMaxTrl%][attMaxFlashers%];  'hold flasher x position
+var flasherY[attMaxTrl%][attMaxFlashers%];  'hold flasher y position
+var flasherCount%[attMaxTrl%];  'hold number of flashers on each trial
+var flasherCountThisTrial%;  'keep track of number of flashers played on the current trial
 
 masterColorList$[0] := "red";
 masterColorListVSG$[0] := "red";
@@ -556,6 +590,7 @@ func AttentionScriptDialog%()
 	GetAttentionScriptParameters();
     GetColorsDialogParameters();  'we need to GET the parameters here, even though we may not use any of them...but we WILL use backgroundColor$, that's why
     GetTimingDialogParameters();  'this too...
+    GetFlasherDialogParameters(); 'and this...
     
     fiveints%[0] := attOnlyOneCatch%;
     fiveints%[1] := attOneCatchContrast%;
@@ -766,7 +801,7 @@ func AttentionScriptDialog%()
         
         ''Commented out - useful for testing the creation of the trial order
         'var Contrast$;
-        'CreateContrastList(Contrast$,attContrastList%,attChangeList%,attValidList%,attAttendList%,attHazardList,attOffBitsList%);
+        'CreateContrastList(Contrast$,Flashers$,attContrastList%,attChangeList%,attValidList%,attAttendList%,attHazardList,attOffBitsList%,attRotationList%,attFixColor%,attBlockList%,attEasyList%,flasherTimes,flasherX,flasherY,flasherCount%);
         'var specFileName$:="E:\\AttentionSpecFile.txt";
         'var specHandle%;
         'specHandle% := FileOpen(specFileName$, 8, 1);
@@ -1371,6 +1406,7 @@ func IdleProcessing%()
 	var iStatus% := 1;	
     var tempanswer%;
     var temptext$;
+    var CCHappened%;
     
     'while getPreciseTiming = 1 do 
     
@@ -1629,8 +1665,16 @@ func IdleProcessing%()
             ChangeStateTo(stateTrialCompleted%, tNow);
         endif        
         
-        '?!?!?! note major changes necessary here because we are no longer using a trigger to implement contrast change - now is animation!
+        
     case iState% = stateHoldFixationToCC% then
+        
+        'Check to see if there was a trigger
+        tTrigger := NextTime(StimChangeChannel%, tLast, vTrigger);
+        if tTrigger > tLast and vTrigger = 0 then  'only look at rising edge
+            tLastTrigger := tTrigger;
+            'put in a sample text for Flashers, sample text for CC will be done below
+            CCHappened% := TagTriggerWithSampletext%(tLastTrigger,tStimOn,attCurrTrialIndex%,flasherCountThisTrial%);
+        endif;
         
         docase            
         case Looking%(xEye, yEye) = 0 then  'begin abort procedure, check to see if it's a FA
@@ -1655,7 +1699,9 @@ func IdleProcessing%()
             endcase;
             
         else 
-            if (tNow - tStateStart) > (trialHazardFunctionTime) then
+            if CCHappened% = 1 then
+            'if (tNow - tStateStart) > (trialHazardFunctionTime) then
+                CCHappened% := 0;  'reset, shouldn't matter
                 ' we no longer turn off stimulus and advance it, but we DO allow response now
                 isStimDistractorOff% := 0;
                 ChangeStateTo(stateWaitForAnswer%, tNow);
@@ -1770,6 +1816,17 @@ func IdleProcessing%()
         
     case iState% = stateWaitForAnswer% then
         'getPreciseTiming := 1;  'we need precise timing here, stay in while loop until we get eye movements we expect
+        'Check to see if there was a trigger, this only is relevant in this state if there are Flashers
+        if attUseFlashers% = 1 then
+            tTrigger := NextTime(StimChangeChannel%, tLast, vTrigger);
+            if tTrigger > tLast and vTrigger = 0 then  'only look at rising edge
+                tLastTrigger := tTrigger;
+                'put in a sample text based on which flasher this trigger was representing
+                TagTriggerWithSampletext%(tLastTrigger,tStimOn,attCurrTrialIndex%,flasherCountThisTrial%);
+            endif;
+        endif;
+        
+        
         if tNow - tStateStart > attTimeToAnswerPerTrial then  'no response
             if trialIsTarget% > 0 then 'GO trial, expected response
                 SafeSampleKey("X");  'turn off animation
@@ -2076,6 +2133,12 @@ proc PrepareTrial()
         expectedAnswer% := -trialIsTarget%+1;
     endif;
     
+    'reset trial flasher count
+    if attUseFlashers% = 1 then
+        flasherCountThisTrial% := 0;
+    endif;
+    
+    
     'printlog("Trial is target value is %d and expected answer is %d\n",trialisTarget%,expectedAnswer%);
     
 '    docase
@@ -2145,7 +2208,32 @@ end
 
 
 proc InitializeWindows()
-    'CreateContrastList(Contrast$,attContrastList%,attChangeList%,attValidList%,attAttendList%,attHazardList,attOffBitsList%,attRotationList%,attFixColor%);
+    'this first bit is just getting testing values
+    var stimSpec$;
+    var dist1Spec$;
+    var flasherSpec$;
+    'get all these grating parameters
+    stimSpec$ := GetGratingParameters$("Stimulus");
+    ParseGratingParametersBrief%(stimSpec$, xT, yT, wT, hT);  'we may as well just do this every time - 90+% of the time we will anyway, and why put it in the if statements four times?
+    if attNumPatches% > 1 then
+        if attGetGPFromMainStim% = 1 then
+            ParseGratingParametersBrief%(GetGratingParameters$("Distractor1"), xT, yT, wT, hT);
+            dist1Spec$ := ReplaceGratingXY$(stimSpec$,xT,yT);
+            ParseGratingParametersBrief%(dist1Spec$, xD1, yD1, wD1, hD1);  'for helping placement of flashers, etc.
+        else
+            dist1Spec$ := GetGratingParameters$("Distractor1");
+            ParseGratingParametersBrief%(dist1Spec$, xD1, yD1, wD1, hD1);
+        endif;
+    endif;
+    flasherSpec$ := GetGratingParameters$("Flasher");
+    ParseGratingParametersBrief%(flasherSpec$, xF1, yF1, wF1, hF1);
+    'run ScreenBounds to get max size of x/y on screen, to be used to make flashers in random locations
+    ScreenBounds(screenXmm,screenYmm,screenXmax,screenYmax);
+    CreateContrastList(Contrast$,Flashers$,attContrastList%,attChangeList%,attValidList%,attAttendList%,attHazardList,attOffBitsList%,attRotationList%,attFixColor%,attBlockList%,attEasyList%,flasherTimes,flasherX,flasherY,flasherCount%);
+    printlog("Contrast list is %s\n",Contrast$);
+    printlog("Flasher list is %s\n",Flashers$);
+    halt;
+    
 	'Open the data sampling window
 	DataWindow% := FileNew(0,4);  'show spike shape setup dialog
     printlog("datawindow is %d\n",dataWindow%);
@@ -2585,10 +2673,7 @@ func Start%()
     var dist2Spec$;
     var dist3Spec$;
     var dist4Spec$;
-    var xTemp;
-    var yTemp;
-    var wTemp;
-    var hTemp;
+    var flasherSpec$;
     var lolSpec$;  'LOLlerskates!  ROFLcopter!
     var x;
     var i%;
@@ -2625,37 +2710,45 @@ func Start%()
     
     'get all these grating parameters
     stimSpec$ := GetGratingParameters$("Stimulus");
-    ParseGratingParametersBrief%(stimSpec$, xTemp, yTemp, wTemp, hTemp);  'we may as well just do this every time - 90+% of the time we will anyway, and why put it in the if statements four times?
+    ParseGratingParametersBrief%(stimSpec$, xT, yT, wT, hT);  'we may as well just do this every time - 90+% of the time we will anyway, and why put it in the if statements four times?
     if attNumPatches% > 1 then
         if attGetGPFromMainStim% = 1 then
-            ParseGratingParametersBrief%(GetGratingParameters$("Distractor1"), xTemp, yTemp, wTemp, hTemp);
-            dist1Spec$ := ReplaceGratingXY$(stimSpec$,xTemp,yTemp);
+            ParseGratingParametersBrief%(GetGratingParameters$("Distractor1"), xT, yT, wT, hT);
+            dist1Spec$ := ReplaceGratingXY$(stimSpec$,xT,yT);
+            ParseGratingParametersBrief%(dist1Spec$, xD1, yD1, wD1, hD1);  'for helping placement of flashers, etc.
         else
             dist1Spec$ := GetGratingParameters$("Distractor1");
+            ParseGratingParametersBrief%(dist1Spec$, xD1, yD1, wD1, hD1);
         endif;
     endif;
     if attNumPatches% > 2 then
         if attGetGPFromMainStim% = 1 then
-            ParseGratingParametersBrief%(GetGratingParameters$("Distractor2"), xTemp, yTemp, wTemp, hTemp);
-            dist2Spec$ := ReplaceGratingXY$(stimSpec$,xTemp,yTemp);
+            ParseGratingParametersBrief%(GetGratingParameters$("Distractor2"), xT, yT, wT, hT);
+            dist2Spec$ := ReplaceGratingXY$(stimSpec$,xT,yT);
+            ParseGratingParametersBrief%(dist1Spec$, xD2, yD2, wD2, hD2);
         else
             dist2Spec$ := GetGratingParameters$("Distractor2");
+            ParseGratingParametersBrief%(dist1Spec$, xD2, yD2, wD2, hD2);
         endif;
     endif;
     if attNumPatches% > 3 then
         if attGetGPFromMainStim% = 1 then
-            ParseGratingParametersBrief%(GetGratingParameters$("Distractor3"), xTemp, yTemp, wTemp, hTemp);
-            dist3Spec$ := ReplaceGratingXY$(stimSpec$,xTemp,yTemp);
+            ParseGratingParametersBrief%(GetGratingParameters$("Distractor3"), xT, yT, wT, hT);
+            dist3Spec$ := ReplaceGratingXY$(stimSpec$,xT,yT);
+            ParseGratingParametersBrief%(dist1Spec$, xD3, yD3, wD3, hD3);
         else
             dist3Spec$ := GetGratingParameters$("Distractor3");
+            ParseGratingParametersBrief%(dist1Spec$, xD3, yD3, wD3, hD3);
         endif;
     endif;
     if attNumPatches% > 4 then
         if attGetGPFromMainStim% = 1 then
-            ParseGratingParametersBrief%(GetGratingParameters$("Distractor4"), xTemp, yTemp, wTemp, hTemp);
-            dist4Spec$ := ReplaceGratingXY$(stimSpec$,xTemp,yTemp);
+            ParseGratingParametersBrief%(GetGratingParameters$("Distractor4"), xT, yT, wT, hT);
+            dist4Spec$ := ReplaceGratingXY$(stimSpec$,xT,yT);
+            ParseGratingParametersBrief%(dist1Spec$, xD4, yD4, wD4, hD4);
         else
             dist4Spec$ := GetGratingParameters$("Distractor4");
+            ParseGratingParametersBrief%(dist1Spec$, xD4, yD4, wD4, hD4);
         endif;
     endif;
 
@@ -2697,26 +2790,21 @@ func Start%()
             Stim$ := Stim$ + " -s " + dist4Spec$;
     endif;
     
-	CreateContrastList(Contrast$,attContrastList%,attChangeList%,attValidList%,attAttendList%,attHazardList,attOffBitsList%,attRotationList%,attFixColor%);  'Fills Contrast$ with the big ol' list, plus some vars to make it easier on us all   
+    if attUseFlashers% = 1 then
+        flasherSpec$ := GetGratingParameters$("Flasher");
+        ParseGratingParametersBrief%(flasherSpec$, xF1, yF1, wF1, hF1);
+        Stim$ := Stim$ + " -k " + flasherSpec$;  'This specifies flasher #0, the VSG side software allows more flasher gratings to be spec'ed but as of now we will only use one
+    endif;
     
-    'NOT DONE ---- where does this GO?  Probably needs to be 2-D because we have a list for each trial   
-    'attHazardList[] is not created until CreateContrastList so that's the earliest we can run this.
-    'It could go inside CreateContrastList or come after, mostly depending on syntax for the spec file.
-'    'Get times of flashers, if necessary.  Do this when the hazard value (for contrast change) is being calculated
-'    tOff := attFlasherTemporalBuffer;  'set first offset to the time of the buffer
-'    if attUseFlashers% = 1 then
-'        while i% < maxFlashers% do
-'            temp := RandExp(attFlasherHazardValue,tOff);  'get random value with mean distribution of rMean and min of tOff
-'            if temp <= tMax then  'if random value is less than max time
-'                times[i%] := temp;  'put random value into times list
-'                i% := i% + 1;  'increment i%
-'                tOff := temp;  'change offset, could be a buffer here as well if needed
-'                'tOff := temp + attFlasherDur + attFlasherTemporalBuffer;  'Option to offset with temporal buffer, also option to not allow temporal overlap
-'            else 'if the "next" time is after the max time
-'                i% := maxi% + 1;  'break the loop
-'            endif
-'        wend
-'    endif;
+    
+    'run ScreenBounds to get max size of x/y on screen, to be used to make flashers in random locations
+    ScreenBounds(screenXmm,screenYmm,screenXmax,screenYmax);
+    
+    'Fills Contrast$/Flashers$ with the big ol' list, plus some vars to make it easier on us all
+	CreateContrastList(Contrast$,Flashers$,attContrastList%,attChangeList%,attValidList%,attAttendList%,attHazardList,attOffBitsList%,attRotationList%,attFixColor%,attBlockList%,attEasyList%,flasherTimes,flasherX,flasherY,flasherCount%);     
+
+    
+
     
     
     'Extras$ := " -b " + attBackgroundColor$ + " -d " + GetDistanceToScreenMM$() + " -A " + str$(attAnswerPointOffset) + " -D " + str$(attAnswerPointDiameter) + lolSpec$;  'answer points on
@@ -2739,7 +2827,11 @@ func Start%()
     'open a file to write the trial-by-trial specs for the VSG
     specHandle% := FileOpen(specFileName$, 8, 1);
     'print to spec file
-    Print("%s %s %s %s %s",FixationArg$,Extras$,Stim$,CueCirc$,Contrast$);  'file should be everything starting from FixationArg$ on
+    if attUseFlashers% = 1 then
+        Print("%s %s %s %s %s %s",FixationArg$,Extras$,Stim$,CueCirc$,Contrast$,Flashers$);  'file should be everything starting from FixationArg$ on, use flashers
+    else
+        Print("%s %s %s %s %s",FixationArg$,Extras$,Stim$,CueCirc$,Contrast$);  'file should be everything starting from FixationArg$ on
+    endif;    
     'close spec file
 	FileClose(0);
     
@@ -2820,12 +2912,19 @@ end;
 'and offList%[] with a series of off-bits (1=stim 1 off, 2 = dist1 off, 4 = dist2 off, etc.) (new, probably not used later but nice to have in case)
 'and rotList%[] with a series of rotation values
 'and fixColor%[] with the current fixation color
+'and blockList%[] with the current block value (0 for first block, 1 for second block, etc., resets once all unique blocks are used [could call this an uberblock])
+'and flashTimes[][] with the times of the flashers
+'and flashX[][] with the x location of the flashers
+'and flashY[][] with the y location of the flashers
+'and flashN[] with the number of flashers per trial
 'Creating all of these here (including easy trials) allows us to just blast through once we get to the actual experiment
 'without too much counting going on.
-Proc CreateContrastList(&c$,&cList%[],&chgList%[],&vList%[],&attList%[],&hazList[],&offList%[],&rotList%[],&fixColor%[])
+Proc CreateContrastList(&c$,&f$,&cList%[],&chgList%[],&vList%[],&attList%[],&hazList[],&offList%[],&rotList%[],&fixColor%[],&blockList%[],&easyList%[],&flashTimes[][],&flashX[][],&flashY[][],&flashN%[])
     var i%;
+    var ii%;
     var j%;
     var k%;
+    var timesLoop%;
     var tempInvalid%;  'holds number of invalid stimulus patch 
     var stdCount%;  'a counter for standard (i.e. "valid") trials, index into attTrialOrder%[]
     var catchCount%;  'a counter for catch trials
@@ -2840,6 +2939,17 @@ Proc CreateContrastList(&c$,&cList%[],&chgList%[],&vList%[],&attList%[],&hazList
     var btIndices%[6];  'index, for the shuffle
     var nBlockTypes%;
     var blockTypeIndex% := 0;
+    
+    'variables for allowing blocks to have the same list of hazard times
+    var randHazValList[attTrialsPerBlock%];  'allows us to reassign hazard values, "rand" because we're going to shuffle it
+    var randHazValInd%[attTrialsPerBlock%];  'with flashers as well, we need to scramble indices
+    var randHazIndex%;  'index into randHazValList
+    var firstBlockType%;  'lets us know if this is the first block type
+    var firstRun := 1;  'for some housekeeping on UpdateFlasherSpecString
+    var tempFlashTimes[attMaxFlashers%][attTrialsPerBlock%];
+    var tempFlashX[attMaxFlashers%][attTrialsPerBlock%];
+    var tempFlashY[attMaxFlashers%][attTrialsPerBlock%];
+    var tempNFlashPerTrial%[attTrialsPerBlock%];
     
     
     'preliminaries for no-change condition, which messes with numbering because the number of distractors is variable
@@ -2863,7 +2973,8 @@ Proc CreateContrastList(&c$,&cList%[],&chgList%[],&vList%[],&attList%[],&hazList
     
     
     c$ := " -J " + Str$(attTimeToAnswer) + ",";  'put in the first two elements of the specifier string, the -J and the post-CC time
-       
+    f$ := " -j ";  'Flasher list is led by a lower case -j
+    
     for i% := 1 to attNumberOfBlocks% do
         
         'If we are alternating by block or randomizing by block, set attDirection% here, otherwise we set it on a trial-by-trial basis
@@ -2910,6 +3021,28 @@ Proc CreateContrastList(&c$,&cList%[],&chgList%[],&vList%[],&attList%[],&hazList
             endif;
         endcase
         
+        'get color of first block type (only on first block, obviously) to allow reset of randomizing hazard variables
+        if i% = 1 then
+            firstBlockType% := attColor%;
+        endif;
+        
+        'reset variables as necessary, at the beginning of each block
+        'also, create lists of flasher times and locations
+        randHazIndex% := 0;  'reset this at the beginning of each block
+        if attColor% = firstBlockType% then 'the block has cycled back to the beginning
+            ArrConst(randHazValList[],0);  'reset list of hazard times
+            if attUseFlashers% = 1 then
+                ArrConst(tempFlashTimes[][],0);  'reset list of flash times (dim 1 per flasher, dim 2 per trial)
+                ArrConst(tempFlashX[][],0);  'reset list of flash X pos
+                ArrConst(tempFlashY[][],0);  'reset list of flash Y pos                
+            endif;
+        else
+            Shuffle%(attTrialsPerBlock%,randHazValInd%[]);  'shuffle indices, can be used for flasher properties as well
+        endif;
+        'need to update flasher spec string on every trial, use unshuffled (or shuffled) indices
+        'UpdateFlasherSpecString(&f$,numFlashers%,x[],y[],onset[],dur,firstRun)
+        'have to set firstRun to 0 after running it once
+        
         
         for j% := 1 to attTrialsPerBlock%+attEasyTrialsPerBlock% do
             'if we are NOT alternating by block, choose a direction on each trial
@@ -2929,9 +3062,13 @@ Proc CreateContrastList(&c$,&cList%[],&chgList%[],&vList%[],&attList%[],&hazList
             if j% <= attEasyTrialsPerBlock% then  'Note that Easy trials will now only happen if the attend directions are blocked
                 attDirection% := attColor%;  'no tricks here, we won't rotate cue circles on "easy" trials
                 vList%[totalCount%] := 1;  'all easy trials are valid
+                easyList%[totalCount%] := 1;  'all easy trials are easy
+                blockList%[totalCount%] := attColor%;  'remember block for potential use in making flashers
                 hazList[totalCount%] := attHazardMinTime;  'don't calculate a hazard time, just use the minimum
+                flashN%[totalCount%] := 0;  'no flashers on easy trials, this is redundant since it should be 0 to start, but...
                 rotList%[totalCount%] := 0;  'no rotation on easy trials
                 'rotList%[totalCount%] := attNumPatches%*(attColor%-1);  'no rotation on easy trials, but get cue circle contrast correct 
+                UpdateFlasherSpecString(f$,0,flashX[totalCount%][],flashY[totalCount%][],flashTimes[totalCount%][],0,firstRun);  'On easy trials, num of flashers is zero, remainder of function does not run
                 if attDirection% <> 6 then 'for all blocks that are not no-change blocks, do this
                     chgList%[totalCount%] := attDirection%;  'set stimulus that changes
                     attList%[totalCount%] := attDirection%;  'set direction of attention
@@ -2939,13 +3076,11 @@ Proc CreateContrastList(&c$,&cList%[],&chgList%[],&vList%[],&attList%[],&hazList
                     if distracterOffForEasy% = 1 then
                         offList%[totalCount%] := alloff% - Pow(2,attDirection%-1);  'turn off all stimuli but the attended one
                         'insert easy trial with 100% contrast
-                        'note that for easy trials cueCircleRotation is 0 by definition, but just keeping this so the logic is consistent
-                        'UpdateTrialSpecString(c$,attColor%,attDirection%,attContrastBase%,100,attHazardMinTime,attPhaseDeg%,alloff%-Pow(2,attDirection%-1)+(256*cueCircleRotation%),masterColorListVSG$);  
+                        'note that for easy trials cueCircleRotation is 0 by definition, but just keeping this so the logic is consistent 
                         UpdateTrialSpecString(c$,attColor%,attDirection%,attContrastBase%,100,attHazardMinTime,attPhaseDeg%,alloff%-Pow(2,attDirection%-1)+(256*rotList%[totalCount%]),masterColorListVSG$);  
                     else
                         offList%[totalCount%] := 0;  'show all grating patches                
                         'insert easy trial with 100% contrast
-                        'UpdateTrialSpecString(c$,attColor%,attDirection%,attContrastBase%,100,attHazardMinTime,attPhaseDeg%,0+(256*cueCircleRotation%),masterColorListVSG$);
                         UpdateTrialSpecString(c$,attColor%,attDirection%,attContrastBase%,100,attHazardMinTime,attPhaseDeg%,0+(256*rotList%[totalCount%]),masterColorListVSG$);
                     endif;
                 else
@@ -2954,18 +3089,17 @@ Proc CreateContrastList(&c$,&cList%[],&chgList%[],&vList%[],&attList%[],&hazList
                     attList%[totalCount%] := attDirection%;  'set direction of attention, we still need to do this
                     offList%[totalCount%] := 0;  'show all grating patches
                     'insert no-go trial
-                    'UpdateTrialSpecString(c$,attColor%,attDirection%,attContrastBase%,attContrastBase%,trialHazardFunctionTime,attPhaseDeg%,0+(256*cueCircleRotation%),masterColorListVSG$);
-                    UpdateTrialSpecString(c$,attColor%,attDirection%,attContrastBase%,attContrastBase%,trialHazardFunctionTime,attPhaseDeg%,0+(256*rotList%[totalCount%]),masterColorListVSG$);
+                    UpdateTrialSpecString(c$,attColor%,attDirection%,attContrastBase%,attContrastBase%,attHazardMinTime,attPhaseDeg%,0+(256*rotList%[totalCount%]),masterColorListVSG$);
                 endif;
                 
               
             else 'regular trial
+                easyList%[totalCount%] := 0;  'all regular trials are not easy
                 'if we are cue-swapping, select set of cue circles
                 if attSwapCueCircle% = 1 then
                     cueCircleRotation% := Floor(Rand(attNumPatches%,0));  '0 for no rotation, 1 for cycle forward 1, etc.
                 endif
-                rotList%[totalCount%] := cueCircleRotation%;
-                'rotList%[totalCount%] := cueCircleRotation% + (attNumPatches%*(attColor%-1));  'set which rotation is being used, will be 0 if swapping is off               
+                rotList%[totalCount%] := cueCircleRotation%;            
                 'determine stimulus being attended (i.e., which stimulus has the same cue circle color as the fixation point)
                 if attColor% = 6 then 'on a no-change trial, just set direction to the arbitrary 6
                     attDirection% := 6;  
@@ -2978,18 +3112,52 @@ Proc CreateContrastList(&c$,&cList%[],&chgList%[],&vList%[],&attList%[],&hazList
                 
                 attList%[totalCount%] := attDirection%;  'set direction of attention, same for regular or no-change trials
                 
-                if (Rand()*100 < attNoGoTrialPercentage) and attDirection% <> 6 then 'NoGo trial, don't do this on no-change trials, even though I guess it's the same thing
-                    vList%[totalCount%] := 1;  'all no-go trials are valid
-                    chgList%[totalCount%] := 0;  'no stimulus changes, it's a no-go -- note that we cannot pass 0 to UpdateTrialSpecString, though, so pass the attend direction
-                    cList%[totalCount%] := attContrastBase%;  'fill cList%[] with the base contrast
+                'hazard function time is set the same under every case
+                if (attColor% = firstBlockType% and attBlockAlternate% = 2) or attBlockAlternate% < 2 then
+                    'if we're NOT shuffling block type, or if it's a "first-type" block, get a new hazard time
                     trialHazardFunctionTime := RandExp(attHazardExpMeanTime, attHazardMinTime);
                     if trialHazardFunctionTime > attHazardCutoffTime then
                         trialHazardFunctionTime := attHazardCutoffTime;
                     endif;
+                    'create a set of flasher times and locations (also number) for this trial only
+                    if attUseFlashers% = 1 then
+                        'create flasher times
+                        CreateFlasherTimes(tempFlashTimes[][randHazIndex%],tempNFlashPerTrial%[randHazIndex%],trialHazardFunctionTime,attTimeToAnswer);
+                        flashN%[totalCount%] := tempNFlashPerTrial%[randHazIndex%];  'set flasher count for use in main loop
+                        for timesLoop% := 0 to attMaxFlashers%-1 do
+                            flashTimes[totalCount%][timesLoop%] := tempFlashTimes[timesLoop%][randHazIndex%];  'set flasher times for use in main loop
+                        next;
+                        'create flasher locations (not done)
+                        CreateFlasherLocations(flashN%[totalCount%],tempFlashX[][randHazIndex%],tempFlashY[][randHazIndex%]);
+                        for timesLoop% := 0 to attMaxFlashers%-1 do
+                            flashX[totalCount%][timesLoop%] := tempFlashX[timesLoop%][randHazIndex%];
+                            flashY[totalCount%][timesLoop%] := tempFlashY[timesLoop%][randHazIndex%];
+                        next;
+                    endif;
                     hazList[totalCount%] := trialHazardFunctionTime;  'set hazard function time
+                    randHazValList[randHazIndex%] := trialHazardFunctionTime;  'put it into the random list
+                    randHazIndex% += 1;  'increment the index
+                else
+                    'get flasher count/time/location from previous calculation, randomizing order
+                    flashN%[totalCount%] := tempNFlashPerTrial%[randHazValInd%[randHazIndex%]];  'set flasher count for use in main loop
+                    for timesLoop% := 0 to attMaxFlashers%-1 do
+                        flashTimes[totalCount%][timesLoop%] := tempFlashTimes[timesLoop%][randHazValInd%[randHazIndex%]];  'set flasher times for use in main loop
+                        flashX[totalCount%][timesLoop%] := tempFlashX[timesLoop%][randHazValInd%[randHazIndex%]];
+                        flashY[totalCount%][timesLoop%] := tempFlashY[timesLoop%][randHazValInd%[randHazIndex%]];
+                    next;
+                    trialHazardFunctionTime := randHazValList[randHazValInd%[randHazIndex%]];
+                    hazList[totalCount%] := trialHazardFunctionTime;  'set hazard function time, from shuffled list of prior values
+                    randHazIndex% += 1;  'increment the index
+                endif;
+                UpdateFlasherSpecString(f$,flashN%[totalCount%],flashX[totalCount%][],flashY[totalCount%][],flashTimes[totalCount%][],attFlasherDur,firstRun);
+                
+                
+                if (Rand()*100 < attNoGoTrialPercentage) and attDirection% <> 6 then 'NoGo trial, don't do this on no-change trials, even though I guess it's the same thing
+                    vList%[totalCount%] := 1;  'all no-go trials are valid
+                    chgList%[totalCount%] := 0;  'no stimulus changes, it's a no-go -- note that we cannot pass 0 to UpdateTrialSpecString, though, so pass the attend direction
+                    cList%[totalCount%] := attContrastBase%;  'fill cList%[] with the base contrast
                     offList%[totalCount%] := 0;  'show all grating patches
                     'insert no-go trial
-                    'UpdateTrialSpecString(c$,attColor%,attDirection%,attContrastBase%,attContrastBase%,trialHazardFunctionTime,attPhaseDeg%,0+(256*cueCircleRotation%),masterColorListVSG$);
                     UpdateTrialSpecString(c$,attColor%,attDirection%,attContrastBase%,attContrastBase%,trialHazardFunctionTime,attPhaseDeg%,0+(256*rotList%[totalCount%]),masterColorListVSG$);
                 else    
                     docase
@@ -2997,22 +3165,11 @@ Proc CreateContrastList(&c$,&cList%[],&chgList%[],&vList%[],&attList%[],&hazList
                         vList%[totalCount%] := 1;  'all no-go trials are valid
                         chgList%[totalCount%] := 0;  'no stimulus changes, it's a no-go -- note that we cannot pass 0 to UpdateTrialSpecString, though, so pass the attend direction
                         cList%[totalCount%] := attContrastBase%;  'fill cList%[] with the base contrast
-                        trialHazardFunctionTime := RandExp(attHazardExpMeanTime, attHazardMinTime);
-                        if trialHazardFunctionTime > attHazardCutoffTime then
-                            trialHazardFunctionTime := attHazardCutoffTime;
-                        endif;
-                        hazList[totalCount%] := trialHazardFunctionTime;  'set hazard function time
                         offList%[totalCount%] := 0;  'show all grating patches
                         'insert no-go trial
-                        'UpdateTrialSpecString(c$,attColor%,attDirection%,attContrastBase%,attContrastBase%,trialHazardFunctionTime,attPhaseDeg%,0+(256*cueCircleRotation%),masterColorListVSG$);
                         UpdateTrialSpecString(c$,attColor%,attDirection%,attContrastBase%,attContrastBase%,trialHazardFunctionTime,attPhaseDeg%,0+(256*rotList%[totalCount%]),masterColorListVSG$);
                     case (Rand()*100 < attCatchTrialPercentage) then 'catch trial
                         vList%[totalCount%] := 0;  'catch = invalid
-                        trialHazardFunctionTime := RandExp(attHazardExpMeanTime, attHazardMinTime);
-                        if trialHazardFunctionTime > attHazardCutoffTime then
-                            trialHazardFunctionTime := attHazardCutoffTime;
-                        endif;
-                        hazList[totalCount%] := trialHazardFunctionTime;  'set hazard function time
                         offList%[totalCount%] := 0;  'show all grating patches
                         'select a random patch that is not the attended direction
                         tempInvalid% := ceil(rand(attNumPatches%,0));  'select a random patch for invalid stimuli
@@ -3026,35 +3183,22 @@ Proc CreateContrastList(&c$,&cList%[],&chgList%[],&vList%[],&attList%[],&hazList
                             cList%[totalCount%] := attOneCatchContrast%;  'there is only one contrast
                         endif;
                         'insert catch trial
-                        'UpdateTrialSpecString(c$,attColor%,tempInvalid%,attContrastBase%,cList%[totalCount%],trialHazardFunctionTime,attPhaseDeg%,0+(256*cueCircleRotation%),masterColorListVSG$);
                         UpdateTrialSpecString(c$,attColor%,tempInvalid%,attContrastBase%,cList%[totalCount%],trialHazardFunctionTime,attPhaseDeg%,0+(256*rotList%[totalCount%]),masterColorListVSG$);
                         catchCount% += 1;  
                     case (Rand()*100 < attUncatchTrialPercentage) then 'uncatch trial
                         'this is guaranteed to go along with attOnlyOneCatch% = 1
                         vList%[totalCount%] := 1;  'uncatch = valid
                         cList%[totalCount%] := attOneCatchContrast%;  'there is only one contrast
-                        trialHazardFunctionTime := RandExp(attHazardExpMeanTime, attHazardMinTime);
-                        if trialHazardFunctionTime > attHazardCutoffTime then
-                            trialHazardFunctionTime := attHazardCutoffTime;
-                        endif;
-                        hazList[totalCount%] := trialHazardFunctionTime;  'set hazard function time
                         offList%[totalCount%] := 0;  'show all grating patches
                         chgList%[totalCount%] := attDirection%;  'set stimulus that changes
                         'insert uncatch trial
-                        'UpdateTrialSpecString(c$,attColor%,attDirection%,attContrastBase%,cList%[totalCount%],trialHazardFunctionTime,attPhaseDeg%,0+(256*cueCircleRotation%),masterColorListVSG$);
                         UpdateTrialSpecString(c$,attColor%,attDirection%,attContrastBase%,cList%[totalCount%],trialHazardFunctionTime,attPhaseDeg%,0+(256*rotList%[totalCount%]),masterColorListVSG$);
                     else  'valid trial
                         vList%[totalCount%] := 1;  'valid
                         cList%[totalCount%] := attContrastList[attTrialOrder%[stdCount%]];
-                        trialHazardFunctionTime := RandExp(attHazardExpMeanTime, attHazardMinTime);
-                        if trialHazardFunctionTime > attHazardCutoffTime then
-                            trialHazardFunctionTime := attHazardCutoffTime;
-                        endif;
-                        hazList[totalCount%] := trialHazardFunctionTime;  'set hazard function time
                         offList%[totalCount%] := 0;  'show all grating patches
                         chgList%[totalCount%] := attDirection%;  'set stimulus that changes
                         'insert uncatch trial
-                        'UpdateTrialSpecString(c$,attColor%,attDirection%,attContrastBase%,cList%[totalCount%],trialHazardFunctionTime,attPhaseDeg%,0+(256*cueCircleRotation%),masterColorListVSG$);
                         UpdateTrialSpecString(c$,attColor%,attDirection%,attContrastBase%,cList%[totalCount%],trialHazardFunctionTime,attPhaseDeg%,0+(256*rotList%[totalCount%]),masterColorListVSG$);
                         stdCount% += 1;
                     endcase;
@@ -3066,6 +3210,111 @@ Proc CreateContrastList(&c$,&cList%[],&chgList%[],&vList%[],&attList%[],&hazList
     next;
     c$ := Left$(c$,len(c$)-1); 'remove trailing comma from the list
 end;
+
+
+'
+'
+'======= CreateFlasherTimes =======
+'Fill input variable times[] with the flasher times and nFlashers% with the count of flashers
+Proc CreateFlasherTimes(&times[],&nFlashers%,hazTime,respWindow)
+    var tOff;
+    var i%;
+    var temp;
+    var tMax;
+    
+    
+    tMax := hazTime + respWindow;
+    tOff := attFlasherTemporalBuffer;  'set first offset to the time of the buffer
+    while i% < attMaxFlashers% do
+        'get random value with mean distribution which takes into account the buffers (so that attFlasherHazardValue is very ~= Hz of the stimulus) and min of tOff
+        temp := RandExp(attFlasherHazardValue-attFlasherTemporalBuffer-attFlasherDur,tOff);  
+        if temp <= tMax then  'if random value is less than max time
+            if abs(temp-hazTime) > 0.1 then  'if the flasher time does not overlap with the contrast change
+                times[i%] := temp;  'put random value into times list
+                i% += 1;  'increment i%
+                nFlashers% += 1;  'increment count of flashers
+                tOff := temp + attFlasherDur + attFlasherTemporalBuffer;  'change offset, option to offset with temporal buffer, also option to not allow temporal overlap
+            else
+                'printlog("Rejected overlapping flasher at %f\n",temp);
+            endif
+        else 'if the "next" time is after the max time
+            i% := attMaxFlashers% + 1;  'break the loop
+        endif
+    wend
+    
+end  
+    
+'
+'
+'======= CreateFlasherLocations =======
+'Will create locations for each flasher on a given trial
+Proc CreateFlasherLocations(nFlashers%,&x[],&y[])
+    var i%;
+    var isOverlap%;
+    var breakCount%;
+    var xBound;
+    var yBound;
+    
+    xBound := screenXmax-wF1-attFlasherSpatialBuffer;
+    yBound := screenYmax-hF1-attFlasherSpatialBuffer;
+    
+printlog("screenXmax is %f and wF1 is %f and attFlasherSpatialBuffer is %f\n",screenXmax,wF1,attFlasherSpatialBuffer);    
+    
+    'Locations of our non-flasher stimuli have been set in Start%
+    
+    'For each flasher time
+    for i% := 0 to nFlashers%-1 do
+        
+        breakCount% := 0;
+        isOverlap% := 1;  'force while loop to execute at least once
+        
+        'select a random location within the bounds of the screen
+        while breakCount% < 10000 and isOverlap% > 0 do
+            
+             isOverlap% := 0;  'Reset or you'll never get out of the loop!
+            
+            'reassign the X, Y values randomly, use bounds of screen
+            x[i%] := Rand(2*xBound,-xBound);
+            y[i%] := Rand(2*yBound,-yBound);
+        
+            'One check for the target patch
+            isOverlap% := isOverlap% + Overlap%(x[i%], y[i%], wF1, hF1, xT, yT, wT, hT, attFlasherSpatialBuffer);
+            
+            'Then several checks against potential distracter patches
+            if attNumPatches% > 1 then
+                'use xD1, yD1, wD1, hD1
+                isOverlap% := isOverlap% + Overlap%(x[i%], y[i%], wF1, hF1, xD1, yD1, wD1, hD1, attFlasherSpatialBuffer);
+            endif;
+            if attNumPatches% > 2 then
+                isOverlap% := isOverlap% + Overlap%(x[i%], y[i%], wF1, hF1, xD2, yD2, wD2, hD2, attFlasherSpatialBuffer);
+            endif;
+            if attNumPatches% > 3 then
+                isOverlap% := isOverlap% + Overlap%(x[i%], y[i%], wF1, hF1, xD3, yD3, wD3, hD3, attFlasherSpatialBuffer);
+            endif;
+            if attNumPatches% > 4 then
+                isOverlap% := isOverlap% + Overlap%(x[i%], y[i%], wF1, hF1, xD4, yD4, wD4, hD4, attFlasherSpatialBuffer);
+            endif;
+            
+            'And the location of the fixation point
+            'FixationX, FixationY, and FixationDiameter ought to be available variables
+            isOverlap% := isOverlap% + Overlap%(x[i%], y[i%], wF1, hF1, FixationX, FixationY, FixationDiameter, FixationDiameter, attFlasherSpatialBuffer);
+            
+            'increment breakCount% so we don't get stuck
+            breakCount% += 1;
+            
+        wend;
+        
+        if breakCount% = 10000 then
+            message("Could not find a legal location for flasher after 10000 tries!\nProbably no legal position exists!\nCheck settings of flasher/target/distractors!  Quitting!");
+            halt;  'haven't started sampling yet, so halt should be fine
+        endif;
+        
+    next
+    
+    
+end
+
+
 
 
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
@@ -3266,6 +3515,18 @@ proc WriteParameterFile()
     Print("Miss penalty time (s)   : %f\n", attMissPenalty);
     
     
+    if attUseFlashers% = 1 then
+        Print("\nFlasher parameters\n");
+        Print("-------------------------\n\n");
+        Print("Flasher Duration (s)   : %f\n", attFlasherDur);
+        Print("Flasher Temporal Buffer (s)   : %f\n", attFlasherTemporalBuffer);
+        Print("Flasher Spatial Buffer (deg)   : %f\n", attFlasherSpatialBuffer);
+        Print("Flasher Hazard Value (s)   : %f\n", attFlasherHazardValue);
+    endif;
+    
+    
+    
+    
 	Print("\nTuning parameters\n");
 	Print("-------------------\n\n");    
     'Print("Min,Max,#Steps,#Repeats: %f,%f,%d,%d\n", tunContrastMinContrast, tunContrastMaxContrast, tunContrastNSteps%, tunContrastNRepeats%);
@@ -3321,7 +3582,7 @@ func GetInitialPhase%(phaseAtCC%,tempFreq,dur)
     
     deg := (360*((tempFreq*dur)mod 1));
     deg% := round(deg);  'this corrects to nearest degree, non-explicit conversion of real to int results in a floor operation
-    
+
     'This is the way you would THINK it would work
     'Po% := phaseAtCC% - deg%;
     'Po% := phaseAtCC% - (360*((tempFreq*dur)mod 1));
@@ -3332,7 +3593,7 @@ func GetInitialPhase%(phaseAtCC%,tempFreq,dur)
     'This is the way it actually works, because the grating drifts "backwards" - that is to say that if the grating
     'starts at 150 degrees and drifts through 30 degrees, the final grating position is 120 degrees, not 180 degrees.  
     Po% := phaseAtCC% + deg%;
-    if Po% <= 360 then
+    if Po% >= 360 then
         Po% := Po% - 360;
     endif;
         
@@ -3417,6 +3678,33 @@ proc UpdateTrialSpecString(&c$,attdir%,chgdir%,base%,chg%,haz,phase%,off%,colLis
     next;  
     
 end
+
+
+proc UpdateFlasherSpecString(&f$,numFlashers%,x[],y[],onset[],dur,&fR)
+    var ind%;
+    
+    if fR = 0 then  'check if it's the first run, return this variable
+        f$ := f$ + ",";  'if not the first run, put in initial comma
+    else
+        fR := 0;  'or reset fR on first run!
+    endif;
+    
+    f$ := f$ + Str$(numFlashers%);  'add number of flashers on this trial
+    
+    'if there are no flashers, do not specify location, etc.
+    while numFlashers% > 0 do
+        f$ := f$ + ",0,";  'We are only using one flasher, index 0
+        f$ := f$ + Str$(x[ind%]) + ",";  'add x position for this flasher
+        f$ := f$ + Str$(y[ind%]) + ",";  'add y position for this flasher
+        f$ := f$ + Str$(onset[ind%]) + ",";  'add onset for this flasher
+        f$ := f$ + Str$(onset[ind%]+dur);  'add offset for this flasher
+        ind% += 1;  'increment index
+        numFlashers% -= 1; 'decrement numFlashers%
+    wend
+    
+    
+end
+
 
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 '
@@ -3617,54 +3905,12 @@ func CreateCueCircleColorSets$()
     ContrastList%[2] := attCueCircleContrastD2%;
     ContrastList%[3] := attCueCircleContrastD3%;
     ContrastList%[4] := attCueCircleContrastD4%;
-    
-'    'This is crazy-ass code that I can't even explain but it works.
-'    'Actually, NO, IT DOESN'T WORK.  So there.
-'    'What you get is Cue Circles for red valid (followed by rotations of red-valid if applicable), then Cue Circles for green valid (followed by rotations of green-valid if applicable)...
-'    CueCirc$ := "-Q ";  'starter
-'    for i% := 0 to attNumPatches%-1 do
-' 
-'        if i% > 0 then  'this puts the comma in, but not in front of the very first entry where it would be a syntax error
-'            CueCirc$ := CueCirc$ + ",";
-'        endif;
-'        'This section determines the correct index into the contrast list.  Contrasts are rotated
-''        x% := j% - i%;
-''        if x% < 0 then
-''            x% := attNumPatches% + x%;
-''        endif
-'        'This section writes the radius (always the same) and the color, based on the color list and the requested, rotated contrast
-'        'This means that contrast 0 (the "valid" contrast) is always paired with the color that is the same color as the fixation point
-'        CueCirc$ := CueCirc$ + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(RGBColors%[i%][0:3],ContrastList%[i%]);     
-'    next
-'        'NOW, if we are ALSO doing swap cue circle, we have to create a series of rotations where the valid contrast remains
-'        'paired with the valid color, but the valid color moves position
-'        for j% := 1 to attNumPatches%-1 do
-'            if attSwapCueCircle% = 1 then
-'                for k% := 0 to attNumPatches%-1 do  'robust to 0, does not execute
-'                    y% := k% - j%;
-'                    if y% < 0 then
-'                        y% := attNumPatches% + y%;
-'                    endif
-'                    'This section determines the correct index into the contrast list.  Contrasts are rotated
-'                    x% := y% - i%;
-'                    if x% < 0 then
-'                        x% := attNumPatches% + x%;
-'                    endif
-'                    CueCirc$ := CueCirc$ + "," + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(RGBColors%[y%][0:3],ContrastList%[x%]);
-'                next
-'            endif
-'        next        
-'    'next
-'    
-'    'put in closing space
-'    CueCirc$ := CueCirc$ + " ";
-    
-    
+        
     
     'Put in cue circle opener and first cue circle, which always happens
-    CueCirc$ := "-Q " + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(stimRGB%[],attCueCircleContrastStim%);  'This is for old version of cue circle call (as of 6/5/15)
+    'CueCirc$ := "-Q " + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(stimRGB%[],attCueCircleContrastStim%);  'This is for old version of cue circle call (as of 6/5/15)
     'This is for new version of cue circle call, adding stroke width, whenever it gets implemented
-    'CueCirc$ := "-Q " + Str$(attCueCircleExtraRadius) + "," + Str$(attCueCircleStrokeWidth%) + "," + FadeColorToGray$(stimRGB%[],attCueCircleContrastStim%);  
+    CueCirc$ := "-Q " + Str$(attCueCircleExtraRadius) + "," + Str$(attCueCircleStrokeWidth%) + "," + FadeColorToGray$(stimRGB%[],attCueCircleContrastStim%);  
     
     docase
     case attNumPatches% = 2 then
@@ -3832,7 +4078,7 @@ func GratingParametersDialogFlashers%(label$, &param$, &x, &y, &w, &h, &iw, &ih,
         DlgReal(13, "Flasher Duration (s):", .01, 3, 42, 14);
         DlgReal(14, "Temporal Buffer (s):", .01, 3, 42, 15);
         DlgReal(15, "Spatial Buffer (deg):", .01, 10, 42, 16);
-        DlgReal(16, "Hazard Value:", .01, 1000, 42, 17);  'don't know what reasonable values for this will be yet
+        DlgReal(16, "Hazard Value (s/flasher):", .01, 1000, 42, 17);  'don't know what reasonable values for this will be yet
         
         i% := DlgShow(w, h, iw, ih, contrast%, sf, tf, ori, phase, icvl%, ipl%, ial%, attFlasherDur, attFlasherTemporalBuffer, attFlasherSpatialBuffer, attFlasherHazardValue);
         Convert180(phase);
@@ -3930,33 +4176,57 @@ func Overlap%(x,y,width,height,x2,y2,width2,height2,buffer)
 end
 
 
-'Returns 1 if the patch extends out of bounds, 0 if it does not
-func OutOfBounds%(x,y,width,height)
-    var out;
+'Returns max limits (in degrees in variables xmax, ymax) for the screen, used to constrain random x/y position
+'use 400 for width and 300 for height unless otherwise specified
+'when using recall that width/height definitions are total w/h and distance from the center point is width/2
+proc ScreenBounds(scrXmm,scrYmm,&xmax,&ymax)
     var d2s$;
     var d2s; 
-    var screenXmm := 400;  'this is a typical screen
-    var screenYmm := 300;
-    var xmax;
-    var ymax;
     
     d2s$ := GetDistanceToScreenMM$();
     d2s := val(d2s$);
     'printlog("Distance to screen is %f\n",d2s);
     
-    xmax := ATan((screenXmm/2)/d2s)*180/(4.0*ATan(1.0));  'maximum x in degrees
-    ymax := ATan((screenYmm/2)/d2s)*180/(4.0*ATan(1.0));  'maximum y in degrees
+    xmax := ATan((scrXmm/2)/d2s)*180/(4.0*ATan(1.0));  'maximum x in degrees
+    ymax := ATan((scrYmm/2)/d2s)*180/(4.0*ATan(1.0));  'maximum y in degrees
     'printlog("Max x is %f degrees and max y is %f degrees\n",xmax,ymax);
     
+end
+
+'This function places a SampleText to indicate the onset/location of flashers or the time of the contrast change
+'Since these are on the same channel, it just looks for the nearest expected time to the known trigger.
+'Since there is a buffer of 100 ms between any onset, there should be no difficulty, but I will have the
+'SampleText indicate a possible problem if the timing is off by more than, say, 2ms
+func TagTriggerWithSampletext%(triggerTime,tStimOn,trialCount%,&flasherCount%)
+    var cc%;  'did contrast change happen?
+    var fTime;  'expected time of next flasher
+    var ccTime; 'expected time of contrast change
+    var diffF;
+    var diffCC;
+    
+    fTime := tStimOn + flasherTimes[trialCount%][flasherCount%];
+    ccTime := tStimOn + attHazardList[trialCount%];
+    
+    diffF := abs(fTime - triggerTime);
+    diffCC := abs(ccTime - triggerTime);
+    
     docase
-    case x + width/2 > xmax then
-        out := 1;
-    case x - width/2 < -xmax then 'assume screen is symmetrical
-        out := 1;
-    case y + height/2 > ymax then
-        out := 1;
-    case y - height/2 < -ymax then 'assume screen is symmetrical
-        out := 1;
+    case diffF > .005 and diffCC > .005 then
+        'if tolerance > 5 ms, sampletext an error
+        SampleText("Error - trigger time not recognized!",triggerTime);
+    case diffF < diffCC and diffF > 0.02 then
+        SampleText("Flasher X = " + Str$(flasherX[trialCount%][flasherCount%]) + " Y = " + Str$(flasherY[trialCount%][flasherCount%]) + " Note, trigger time more than 2ms off!",triggerTime);
+        flasherCount% += 1;
+    case diffCC < diffF and diffCC > 0.02 then
+        cc% := 1;
+    case diffF < diffCC then
+        SampleText("Flasher X = " + Str$(flasherX[trialCount%][flasherCount%]) + " Y = " + Str$(flasherY[trialCount%][flasherCount%]),triggerTime);
+        flasherCount% += 1;
+    case diffCC < diffF then
+        cc% := 1;
+    else
+        message("Trigger was exactly halfway between expected Flasher and Contrast Change.  This should never happen.  Argh.");
     endcase
-    return out;
+    
+    return cc%;
 end
