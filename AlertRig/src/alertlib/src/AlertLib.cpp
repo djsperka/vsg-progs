@@ -610,8 +610,10 @@ void ARObject::init(int numlevels)
 	}
 	else if (numlevels>1)
 	{
-		getVSG().request_range(numlevels, level);
-		init(level, numlevels);
+		if (getVSG().request_range(numlevels, level))
+			cerr << "Error in init: request_range failed to return " << numlevels << " levels." << endl;
+		else
+			init(level, numlevels);
 	}
 	else if (numlevels==1)
 	{

@@ -399,7 +399,7 @@ int AttentionStimSet::init(ARvsg& vsg, std::vector<int> pages)
 	m_fixpt.init(vsg, 2);
 	m_fixpt.setContrast(100);
 
-	nlevels = 245/(m_vecGratings.size()*2 + m_vecDistractors.size());
+	nlevels = (245 - 2*m_vecCues.size())/(m_vecGratings.size()*2 + m_vecDistractors.size());
 #if 0
 	if (m_vecGratings.size() < 4) nlevels = 40;
 	else
@@ -407,7 +407,7 @@ int AttentionStimSet::init(ARvsg& vsg, std::vector<int> pages)
 		nlevels = (247 - m_vecCues.size()*2)/m_vecGratings.size()/2;
 	}
 #endif
-	cerr << "Number of levels per stim" << nlevels << endl;
+	cerr << "Number of levels per stim " << nlevels << endl;
 	for (unsigned int i=0; i<m_vecCues.size(); i++)
 	{
 		cerr << "Init cue " << i << " linewidth " << m_vecCues[i].linewidth << endl;
