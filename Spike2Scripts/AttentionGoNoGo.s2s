@@ -1,4 +1,4 @@
-' $Id: AttentionGoNoGo.s2s,v 1.55 2015-07-22 23:00:03 devel Exp $
+' $Id: AttentionGoNoGo.s2s,v 1.56 2015-07-23 19:31:42 devel Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -85,6 +85,8 @@ var attFlasherDur;
 var attFlasherTemporalBuffer;
 var attFlasherSpatialBuffer;
 var attFlasherHazardValue;
+var attFlasherWidth;
+var attFlasherHeight;
 
 
 var attCustomGratingColorCheck%;
@@ -1668,14 +1670,6 @@ func IdleProcessing%()
         
     case iState% = stateHoldFixationToCC% then
         
-        'Check to see if there was a trigger
-        tTrigger := NextTime(StimChangeChannel%, tLast, vTrigger);
-        if tTrigger > tLast and vTrigger = 0 then  'only look at rising edge
-            tLastTrigger := tTrigger;
-            'put in a sample text for Flashers, sample text for CC will be done below
-            CCHappened% := TagTriggerWithSampletext%(tLastTrigger,tStimOn,attCurrTrialIndex%,flasherCountThisTrial%);
-        endif;
-        
         docase            
         case Looking%(xEye, yEye) = 0 then  'begin abort procedure, check to see if it's a FA
             tempanswer% := Answer% (xEye, yEye);
@@ -1699,9 +1693,7 @@ func IdleProcessing%()
             endcase;
             
         else 
-            if CCHappened% = 1 then
-            'if (tNow - tStateStart) > (trialHazardFunctionTime) then
-                CCHappened% := 0;  'reset, shouldn't matter
+            if (tNow - tStateStart) > (trialHazardFunctionTime) then
                 ' we no longer turn off stimulus and advance it, but we DO allow response now
                 isStimDistractorOff% := 0;
                 ChangeStateTo(stateWaitForAnswer%, tNow);
@@ -1742,14 +1734,98 @@ func IdleProcessing%()
                     else
                         Sampletext("Attend Away, No Contrast Change",tTrigger+trialHazardFunctionTime);
                     endif
-                case trialType% = trialtypeNoChange% then  
-                    Sampletext("No Change, No Contrast Change",tTrigger+trialHazardFunctionTime);
                 else
                     PrintLog("ERROR! Unknown blocktype!!!\n");    
                 endcase
             endif
             
-        endcase
+        endcase        
+        
+        
+'    case iState% = stateHoldFixationToCC% then
+'        
+'        'Check to see if there was a trigger
+'        tTrigger := NextTime(FrameTriggerChannel%, tLast, vTrigger);
+'        if tTrigger > tLast and vTrigger = 0 then  'only look at rising edge
+'            tLastTrigger := tTrigger;
+'            'put in a sample text for Flashers, sample text for CC will be done below
+'            CCHappened% := TagTriggerWithSampletext%(tLastTrigger,tStimOn,attCurrTrialIndex%,flasherCountThisTrial%);
+'        endif;
+'        
+'        docase            
+'        case Looking%(xEye, yEye) = 0 then  'begin abort procedure, check to see if it's a FA
+'            tempanswer% := Answer% (xEye, yEye);
+'            if tempanswer% < 0 then  'adjust tempanswer to correspond to trialAttendLoc syntax
+'                tempanswer% := -tempanswer%+1;
+'            endif;
+'            docase
+'            case tempanswer% = trialAttendLoc% then 'answer in "attend toward" window
+'                PrintLog("stateHoldFixationToCC: in attend toward response window, aborting trial.\n");
+'                FAIsResponse% := 1;
+'                ChangeStateTo(stateAbort%, tNow);
+'                SampleText(Print$("Fixation broken, False Alarm to location %d (attend toward window) during stimulus, trial aborted",tempanswer%),tNow);
+'            case tempanswer% = -1 then 'answer in "attend away" = "down" window
+'                PrintLog("stateHoldFixationToCC: in attend away response window, aborting trial.\n");
+'                FAIsResponse% := 1;
+'                ChangeStateTo(stateAbort%, tNow);
+'                SampleText(Print$("Fixation broken, False Alarm to location %d (attend away window) during stimulus, trial aborted",tempanswer%),tNow);           
+'            else  'keep checking
+'                ChangeStateTo(stateCheckFalseAlarm%, tNow);
+'                temptext$ := "during stimulus";
+'            endcase;
+'            
+'        else 
+'            if CCHappened% = 1 then
+'            'if (tNow - tStateStart) > (trialHazardFunctionTime) then
+'                CCHappened% := 0;  'reset, shouldn't matter
+'                ' we no longer turn off stimulus and advance it, but we DO allow response now
+'                isStimDistractorOff% := 0;
+'                ChangeStateTo(stateWaitForAnswer%, tNow);
+'                'This docase sets the color of the changed location to red on the "monitor screen"
+'                docase
+'                case trialIsTarget% = 0 then
+'                    view(XYWindow%).XYColour(iFixationWindowChannel%,16);  'Change fixation window to red
+'                case trialIsTarget% = 1 then
+'                    view(XYWindow%).XYColour(iAnswerWindowChannelMain%,16);  'Change main window to red
+'                case trialIsTarget% = 2 then
+'                    view(XYWindow%).XYColour(iAnswerWindowChannelDist1%,16);  'Change dist1 window to red
+'                case trialIsTarget% = 3 then
+'                    view(XYWindow%).XYColour(iAnswerWindowChannelDist2%,16);  'Change dist2 window to red
+'                case trialIsTarget% = 4 then
+'                    view(XYWindow%).XYColour(iAnswerWindowChannelDist3%,16);  'Change dist3 window to red
+'                case trialIsTarget% = 5 then
+'                    view(XYWindow%).XYColour(iAnswerWindowChannelDist4%,16);  'Change dist4 window to red
+'                endcase
+'                'This docase does the appropriate SampleTexting
+'                docase
+'                case trialType% = trialtypeAttendToward% then
+'                    if trialIsTarget% > 0 then
+'                        if trialCatch% = 0 then
+'                            Sampletext("Contrast Change, Level " + Str$(thisContrast%) + ", Attend Toward",tTrigger+trialHazardFunctionTime);
+'                        else
+'                            Sampletext("Contrast Change, Level " + Str$(thisContrast%) + ", Attend Toward (catch)",tTrigger+trialHazardFunctionTime);
+'                        endif
+'                    else
+'                        Sampletext("Attend Toward, No Contrast Change",tTrigger+trialHazardFunctionTime);
+'                    endif
+'                case trialType% = trialtypeAttendAway% then
+'                    if trialIsTarget% > 0 then
+'                        if trialCatch% = 0 then
+'                            Sampletext("Contrast Change, Level " + Str$(thisContrast%) + ", Attend Away",tTrigger+trialHazardFunctionTime);
+'                        else
+'                            Sampletext("Contrast Change, Level " + Str$(thisContrast%) + ", Attend Away (catch)",tTrigger+trialHazardFunctionTime);
+'                        endif
+'                    else
+'                        Sampletext("Attend Away, No Contrast Change",tTrigger+trialHazardFunctionTime);
+'                    endif
+'                case trialType% = trialtypeNoChange% then  
+'                    Sampletext("No Change, No Contrast Change",tTrigger+trialHazardFunctionTime);
+'                else
+'                    PrintLog("ERROR! Unknown blocktype!!!\n");    
+'                endcase
+'            endif
+'            
+'        endcase
         
 '    case iState% = stateWaitForContrastChange% then
 '        tTrigger := NextTime(StimChangeChannel%, tLast, vTrigger);
@@ -1818,7 +1894,7 @@ func IdleProcessing%()
         'getPreciseTiming := 1;  'we need precise timing here, stay in while loop until we get eye movements we expect
         'Check to see if there was a trigger, this only is relevant in this state if there are Flashers
         if attUseFlashers% = 1 then
-            tTrigger := NextTime(StimChangeChannel%, tLast, vTrigger);
+            tTrigger := NextTime(FrameTriggerChannel%, tLast, vTrigger);
             if tTrigger > tLast and vTrigger = 0 then  'only look at rising edge
                 tLastTrigger := tTrigger;
                 'put in a sample text based on which flasher this trigger was representing
@@ -2679,6 +2755,9 @@ func Start%()
     var i%;
     var specFileName$:="F:\\work\\AttentionSpecFile.txt";
     var specHandle%;
+    var spec2FileBase$;
+    var spec2FileName$;
+    var spec2Handle%;
     var CueCirc$;  'this begins blank, if we don't use cue circles then it won't get filled
     'var tOff;  'holds the offset time for calculation of flasher times
     
@@ -2848,6 +2927,21 @@ func Start%()
         SampleText(Mid$(CommandLine$, i%, 100));
     next
     
+    'Save the spec file in a secondary, permanent location
+    ' get filename for parfile (data file + "par" extension) and open it
+	View(DataWindow%);
+	spec2FileBase$ := FileName$(1) + FileName$(2) + FileName$(3) + FileName$(4);
+    'added specfile write because this is not retained anywhere, for debug and in case of crash
+    spec2FileName$ := spec2FileBase$ + ".spc";
+	PrintLog("spec filename is " + specFileName$ + "\n");
+	spec2Handle% := FileOpen(spec2FileName$, 8, 1);
+    if attUseFlashers% = 1 then
+        Print("%s %s %s %s %s %s",FixationArg$,Extras$,Stim$,CueCirc$,Contrast$,Flashers$);  'file should be everything starting from FixationArg$ on, use flashers
+    else
+        Print("%s %s %s %s %s",FixationArg$,Extras$,Stim$,CueCirc$,Contrast$);  'file should be everything starting from FixationArg$ on
+    endif; 
+    ' close specfile
+	FileClose(0);
     
 	'Begin the stimulus program. It will take a few seconds for the VSG to initialize.
 	PrintLog(CommandLine$+"\n");
@@ -2959,6 +3053,8 @@ Proc CreateContrastList(&c$,&f$,&cList%[],&chgList%[],&vList%[],&attList%[],&haz
     var tempFlashY[attMaxFlashers%][attTrialsPerBlock%];
     var tempNFlashPerTrial%[attTrialsPerBlock%];
     
+    'Get Flasher dialog parameters, gets width and height
+    GetFlasherDialogParameters();
     
     'preliminaries for no-change condition, which messes with numbering because the number of distractors is variable
     if attNoChangeCondition% = 1 then    
@@ -3076,7 +3172,7 @@ Proc CreateContrastList(&c$,&f$,&cList%[],&chgList%[],&vList%[],&attList%[],&haz
                 flashN%[totalCount%] := 0;  'no flashers on easy trials, this is redundant since it should be 0 to start, but...
                 rotList%[totalCount%] := 0;  'no rotation on easy trials
                 'rotList%[totalCount%] := attNumPatches%*(attColor%-1);  'no rotation on easy trials, but get cue circle contrast correct 
-                UpdateFlasherSpecString(f$,0,flashX[totalCount%][],flashY[totalCount%][],flashTimes[totalCount%][],0,firstRun);  'On easy trials, num of flashers is zero, remainder of function does not run
+                UpdateFlasherSpecString(f$,0,flashX[totalCount%][],flashY[totalCount%][],attFlasherWidth,attFlasherHeight,flashTimes[totalCount%][],0,firstRun);  'On easy trials, num of flashers is zero, remainder of function does not run
                 if attDirection% <> 6 then 'for all blocks that are not no-change blocks, do this
                     chgList%[totalCount%] := attDirection%;  'set stimulus that changes
                     attList%[totalCount%] := attDirection%;  'set direction of attention
@@ -3157,7 +3253,7 @@ Proc CreateContrastList(&c$,&f$,&cList%[],&chgList%[],&vList%[],&attList%[],&haz
                     hazList[totalCount%] := trialHazardFunctionTime;  'set hazard function time, from shuffled list of prior values
                     randHazIndex% += 1;  'increment the index
                 endif;
-                UpdateFlasherSpecString(f$,flashN%[totalCount%],flashX[totalCount%][],flashY[totalCount%][],flashTimes[totalCount%][],attFlasherDur,firstRun);
+                UpdateFlasherSpecString(f$,flashN%[totalCount%],flashX[totalCount%][],flashY[totalCount%][],attFlasherWidth,attFlasherHeight,flashTimes[totalCount%][],attFlasherDur,firstRun);
                 
                 
                 if (Rand()*100 < attNoGoTrialPercentage) and attDirection% <> 6 then 'NoGo trial, don't do this on no-change trials, even though I guess it's the same thing
@@ -3574,6 +3670,7 @@ proc WriteParameterFile()
 
 	' close parfile
 	FileClose(0);
+    
 
 end;
 
@@ -3688,7 +3785,7 @@ proc UpdateTrialSpecString(&c$,attdir%,chgdir%,base%,chg%,haz,phase%,off%,colLis
 end
 
 
-proc UpdateFlasherSpecString(&f$,numFlashers%,x[],y[],onset[],dur,&fR)
+proc UpdateFlasherSpecString(&f$,numFlashers%,x[],y[],w,h,onset[],dur,&fR)
     var ind%;
     
     if fR = 0 then  'check if it's the first run, return this variable
@@ -3704,6 +3801,8 @@ proc UpdateFlasherSpecString(&f$,numFlashers%,x[],y[],onset[],dur,&fR)
         f$ := f$ + ",0,";  'We are only using one flasher, index 0
         f$ := f$ + Str$(x[ind%]) + ",";  'add x position for this flasher
         f$ := f$ + Str$(y[ind%]) + ",";  'add y position for this flasher
+        f$ := f$ + Str$(w) + ",";  'add width for this flasher
+        f$ := f$ + Str$(h) + ",";  'add height for this flasher
         f$ := f$ + Str$(onset[ind%]) + ",";  'add onset for this flasher
         f$ := f$ + Str$(onset[ind%]+dur);  'add offset for this flasher
         ind% += 1;  'increment index
@@ -4088,7 +4187,7 @@ func GratingParametersDialogFlashers%(label$, &param$, &x, &y, &w, &h, &iw, &ih,
         DlgReal(15, "Spatial Buffer (deg):", .01, 10, 42, 16);
         DlgReal(16, "Hazard Value (s/flasher):", .01, 1000, 42, 17);  'don't know what reasonable values for this will be yet
         
-        i% := DlgShow(w, h, iw, ih, contrast%, sf, tf, ori, phase, icvl%, ipl%, ial%, attFlasherDur, attFlasherTemporalBuffer, attFlasherSpatialBuffer, attFlasherHazardValue);
+        i% := DlgShow(attFlasherWidth, attFlasherHeight, iw, ih, contrast%, sf, tf, ori, phase, icvl%, ipl%, ial%, attFlasherDur, attFlasherTemporalBuffer, attFlasherSpatialBuffer, attFlasherHazardValue);
         Convert180(phase);
         
     wend;
@@ -4097,9 +4196,9 @@ func GratingParametersDialogFlashers%(label$, &param$, &x, &y, &w, &h, &iw, &ih,
 		cv$ := cvl$[icvl%];
 		pattern$ := pl$[ipl%];
 		aperture$ := al$[ial%];
-        if w > iw and h > ih then  'don't let inner dimensions of donut be larger than outer
+        if attFlasherWidth > iw and attFlasherHeight > ih then  'don't let inner dimensions of donut be larger than outer
             ' save parameters
-            param$ := EncodeGratingParameters$(x, y, w, h, iw, ih, contrast%, sf, tf, ori, phase, cv$, pattern$, aperture$);
+            param$ := EncodeGratingParameters$(x, y, attFlasherWidth, attFlasherHeight, iw, ih, contrast%, sf, tf, ori, phase, cv$, pattern$, aperture$);
         else
             message("Inner diameters cannot be greater than outer diameters!  Try Again!");
         endif;
@@ -4134,6 +4233,12 @@ proc GetFlasherDialogParameters()
     
     Profile(key$, "FlasherHazardValue", "1.0", stmp$);
 	attFlasherHazardValue := val(stmp$);
+    
+    Profile(key$, "FlasherWidth", "1.0", stmp$);
+	attFlasherWidth := val(stmp$);
+    
+    Profile(key$, "FlasherHeight", "1.0", stmp$);
+	attFlasherHeight := val(stmp$);
 
 end;
 
@@ -4146,6 +4251,8 @@ proc SaveFlasherDialogParameters()
     Profile(key$, "FlasherTemporalBuffer", str$(attFlasherTemporalBuffer));
     Profile(key$, "FlasherSpatialBuffer", str$(attFlasherSpatialBuffer));
     Profile(key$, "FlasherHazardValue", str$(attFlasherHazardValue));
+    Profile(key$, "FlasherWidth", str$(attFlasherWidth));
+    Profile(key$, "FlasherHeight", str$(attFlasherHeight));
     
 end;
 
