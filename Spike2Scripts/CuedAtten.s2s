@@ -58,19 +58,20 @@ var caCountAwayTrialsAbort% := 0;
 
 ' constants for timing dialog
 const caTimingDlgAcquisitionTime% := 1;
-const caTimingDlgITI% := 2;
-const caTimingDlgInterTrialTimeRand% := 3;
-const caTimingDlgAbortWait% := 4;
-const caTimingDlgFAPenalty% := 5;
-const caTimingDlgFAWindow% := 6;
-const caTimingDlgMissPenalty% := 7;
-const caTimingDlgJoyRight% := 8;
-const caTimingDlgTrainingOptions% := 9;
-const caTimingDlgTrainingHoldTime% := 10;
-const caTimingDlgFixAlternationTime% := 11;
-const caTimingDlgRequireFixation% := 12;
-const caTimingDlgReturnForReward% := 13;
-const caTimingDlgStartTrial% := 14;
+const caTimingDlgHoldFixationTime% := 2;
+const caTimingDlgITI% := 3;
+const caTimingDlgInterTrialTimeRand% := 4;
+const caTimingDlgAbortWait% := 5;
+const caTimingDlgFAPenalty% := 6;
+const caTimingDlgFAWindow% := 7;
+const caTimingDlgMissPenalty% := 8;
+const caTimingDlgJoyRight% := 9;
+const caTimingDlgTrainingOptions% := 10;
+const caTimingDlgTrainingHoldTime% := 11;
+const caTimingDlgFixAlternationTime% := 12;
+const caTimingDlgRequireFixation% := 13;
+const caTimingDlgReturnForReward% := 14;
+const caTimingDlgStartTrial% := 15;
 
 'const caTimingDlgCycleTrials% := 15;  'Not used
 
@@ -396,6 +397,8 @@ proc GetTimingDialogParameters()
 	caTrainingOptions% := val(stmp$);
     Profile(key$, "InterTrialTimeRand", "1.0", stmp$);
 	caInterTrialTimeRand := val(stmp$);
+    Profile(key$, "FixationTime", "1.0", stmp$);
+	caFixationTime := val(stmp$);
     
     
 end;
@@ -418,6 +421,7 @@ proc SaveTimingDialogParameters()
     Profile(key$, "ReturnForReward", str$(caReturnForReward%));
     Profile(key$, "TrainingOptions", str$(caTrainingOptions%));
     Profile(key$, "InterTrialTimeRand", str$(caInterTrialTimeRand));
+    Profile(key$, "FixationTime", str$(caFixationTime));
     
 end;
 
@@ -442,15 +446,16 @@ func TimingDialog%()
     
 	DlgCreate("Attention timing", 25, 10);
 	DlgReal(caTimingDlgAcquisitionTime%, "Acquisition time(s):", .01, 10);
+    DlgReal(caTimingDlgHoldFixationTime%, "Fixation Hold time(s):", .01, 10);
 	DlgReal(caTimingDlgITI%, "Intertrial time(s):", .01, 10);
     DlgReal(caTimingDlgInterTrialTimeRand%, "Random ITI additional time(s):", 0, 10);
-	DlgReal(caTimingDlgAbortWait%, "Abort wait time(s):", .01, 10);
+	DlgReal(caTimingDlgAbortWait%, "Abort penalty time(s):", .01, 10);
     DlgReal(caTimingDlgFAPenalty%, "False Alarm penalty time(s):", .01, 100);  'I'll let that be really really long
     DlgReal(caTimingDlgFAWindow%, "False Alarm check window(s): ", .01, 10);
     DlgReal(caTimingDlgMissPenalty%, "Miss penalty time(s): ", 0, 100);
     DlgReal(caTimingDlgJoyRight%, "Joystick Right Threshold (V): ", 0, 3);
     DlgList(caTimingDlgTrainingOptions%, 60, trainingOptionsList$[], nOpts%);
-    DlgReal(caTimingDlgTrainingHoldTime%, "Joystick Hold Time To Reward(s): ", .01, 10);
+    DlgReal(caTimingDlgTrainingHoldTime%, "Joystick Hold Time To Reward/Stimulus(s): ", .01, 10);
     DlgReal(caTimingDlgFixAlternationTime%, "Fixation Point On/Off Time (training)(s): ", .01, 10);
     'DlgCheck(caTimingDlgRequireFixation%, "Require Fixation",50);
     DlgList(caTimingDlgRequireFixation%, 60, fixationOptionsList$[], 3);
@@ -463,7 +468,7 @@ func TimingDialog%()
     
     DlgAllow(0, 0, TimingDialogChanged%);
     
-    i% := DlgShow(caAcquisitionTime,caInterTrialTime,caInterTrialTimeRand,caAbortWaitTime,caFalseAlarmWaitTime,caFalseAlarmCheckWindow,caMissPenalty,caJoyRight,caTrainingOptions%,
+    i% := DlgShow(caAcquisitionTime,caFixationTime,caInterTrialTime,caInterTrialTimeRand,caAbortWaitTime,caFalseAlarmWaitTime,caFalseAlarmCheckWindow,caMissPenalty,caJoyRight,caTrainingOptions%,
                   caTrainingHoldTime,caFixAlternationTime,caRequireFixation%,caReturnForReward%,caStartTrial%);
     
     if i% = 1 then
@@ -505,6 +510,7 @@ func TimingDialogChanged%(item%)
     docase
     case DlgValue(caTimingDlgTrainingOptions%) = 0 then
         DlgEnable(0,caTimingDlgAcquisitionTime%);  'disable acquisition time
+        DlgEnable(0,caTimingDlgHoldFixationTime%);  'disable hold fixation time
         DlgEnable(0,caTimingDlgAbortWait%);  'disable abort wait time
         DlgEnable(0,caTimingDlgFAPenalty%);  'disable FA penalty
         DlgEnable(0,caTimingDlgFAWindow%);  'disable FA check window
@@ -518,6 +524,7 @@ func TimingDialogChanged%(item%)
         DlgEnable(0,-2);  'disable loading input file
     case DlgValue(caTimingDlgTrainingOptions%) = 1 then
         DlgEnable(0,caTimingDlgAcquisitionTime%);  'disable acquisition time
+        DlgEnable(0,caTimingDlgHoldFixationTime%);  'disable hold fixation time
         DlgEnable(0,caTimingDlgAbortWait%);  'disable abort wait time
         DlgEnable(0,caTimingDlgFAPenalty%);  'disable FA penalty
         DlgEnable(0,caTimingDlgFAWindow%);  'disable FA check window
@@ -532,8 +539,10 @@ func TimingDialogChanged%(item%)
     case DlgValue(caTimingDlgTrainingOptions%) = 2 then
         if DlgValue(caTimingDlgRequireFixation%) = 1 then
             DlgEnable(1,caTimingDlgAcquisitionTime%);  'enable acquisition time
+            DlgEnable(1,caTimingDlgHoldFixationTime%);  'enable hold fixation time
         else
-        DlgEnable(0,caTimingDlgAcquisitionTime%);  'disable acquisition time
+            DlgEnable(0,caTimingDlgAcquisitionTime%);  'disable acquisition time
+            DlgEnable(0,caTimingDlgHoldFixationTime%);  'disable hold fixation time
         endif;
         DlgEnable(0,caTimingDlgAbortWait%);  'disable abort wait time
         DlgEnable(0,caTimingDlgFAPenalty%);  'disable FA penalty
@@ -552,9 +561,11 @@ func TimingDialogChanged%(item%)
         
     case DlgValue(caTimingDlgTrainingOptions%) >= 3 then   'note that the logic here hasn't been fully worked out
         if DlgValue(caTimingDlgRequireFixation%) = 1 then
-        DlgEnable(1,caTimingDlgAcquisitionTime%);  'enable acquisition time
+            DlgEnable(1,caTimingDlgAcquisitionTime%);  'enable acquisition time
+            DlgEnable(1,caTimingDlgHoldFixationTime%);  'enable hold fixation time
         else
             DlgEnable(0,caTimingDlgAcquisitionTime%);  'disable acquisition time
+            DlgEnable(0,caTimingDlgHoldFixationTime%);  'disable hold fixation time
         endif;
         DlgEnable(1,caTimingDlgAbortWait%);  'enable abort wait time
         DlgEnable(1,caTimingDlgFAPenalty%);  'enable FA penalty
@@ -1469,7 +1480,7 @@ func IdleProcessing%()
         else 'credit the animal for time served on the abort if it's not a response
             PrintLog("stateCheckFalseAlarm: no response in window, aborting trial.\n");
             ChangeStateTo(stateAbort%, tNow-caFalseAlarmCheckWindow); 
-            SampleText("Fixation broken, no response, trial aborted");
+            SampleText("Fixation broken, no response, trial aborted",tNow);
         endif;
         
         
