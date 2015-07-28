@@ -30,6 +30,7 @@ Command Line options:
 		lines which are pulsed when the application is ready to receive triggers. 
 		In Spike2, the ports correspond to bit numbers in this arg - hence "-p 2"
 		will pulse port 1 on the 1401. 
+[ old version in use on AcuteRig, not used on alert rigs - see -P ]
 -w		Use step temporal waveform, not sinusoid (default) for counterphase tuning. 
 		Ignored for all other types. Must be issued before the "-P" arg!
 
@@ -48,8 +49,9 @@ the grating specification using the "-s" option
 -A <area0,area1,...>    Area tuning curve
 -S <sf0,sf1,...>    Spatial frequency tuning curve
 -T <tf0,tf1,...>    Temporal frequency tuning curve
--P <tf,phase0,phase1,...>   Counterphase tuning curve. tf is the frequency of the 
-                            phase transition, and phase0 is the spatial phase
+-P <tf,s|q,phase0,phase1,...>   Counterphase tuning curve. tf is the frequency of the 
+                            phase transition, and "s"("q") indicates that the transition 
+                            should be a sin (square) wave. Phase0 is the initial spatial phase
                             of the grating. The temporal frequency (drift velocity)
                             of the grating spec is ignored (and is set to 0).
 -Z <x0,y0,x1,y1,x2,y2,...> Grating position tuning curve. Grating at (x0,y0), then (x1,y1), ...

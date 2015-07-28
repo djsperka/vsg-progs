@@ -391,6 +391,10 @@
 			RelativePath=".\attention-test-input-2.txt"
 			>
 		</File>
+		<File
+			RelativePath=".\counterphase-test-input-1.txt"
+			>
+		</File>
 	</Files>
 	<Globals>
 	</Globals>

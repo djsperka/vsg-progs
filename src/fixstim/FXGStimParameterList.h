@@ -369,6 +369,41 @@ protected:
 	vector< pair<double, double> >::const_iterator m_iter;
 };
 
+// Parameter value list for grating initial phase
+
+class StimPhaseList: public FXGStimParameterList
+{
+public:
+	StimPhaseList(vector<double> phases) : FXGStimParameterList(), m_vec(phases) { m_iter = m_vec.begin(); };
+	StimPhaseList(const StimPhaseList& list) : FXGStimParameterList(), m_vec(list.m_vec)
+	{
+		m_iter = m_vec.begin();
+	}
+	virtual ~StimPhaseList() {};
+	virtual StimPhaseList *clone() const
+	{
+		return new StimPhaseList(*this);
+	}
+	virtual bool advance(FXGStimSet* pstimset)
+	{
+		m_iter++;
+		if (m_iter == m_vec.end()) m_iter = m_vec.begin();
+		return set_current_parameter(pstimset);
+	}
+
+	virtual bool set_current_parameter(FXGStimSet* pstimset)
+	{
+		pstimset->grating().phase = *m_iter;
+		return true;
+	}
+
+private:
+	vector<double> m_vec;
+	vector<double>::const_iterator m_iter;
+};
+
+
+
 
 class GratingXYList: public StimXYList
 {
