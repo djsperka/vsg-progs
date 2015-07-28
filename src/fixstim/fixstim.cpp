@@ -1,4 +1,4 @@
-/* $Id: fixstim.cpp,v 1.23 2015-05-12 17:19:32 devel Exp $*/
+/* $Id: fixstim.cpp,v 1.24 2015-07-28 20:20:29 devel Exp $*/
 #include <iostream>
 #include <fstream>
 #include <string>
@@ -112,8 +112,6 @@ BOOL CtrlHandler( DWORD fdwCtrlType )
 		return FALSE;
   }
 }
-
-
 
 
 int main (int argc, char *argv[])

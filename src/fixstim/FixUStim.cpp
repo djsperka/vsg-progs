@@ -1,4 +1,4 @@
-/* $Id: FixUStim.cpp,v 1.3 2015-07-06 19:09:23 devel Exp $*/
+/* $Id: FixUStim.cpp,v 1.4 2015-07-28 20:20:29 devel Exp $*/
 
 #include "FixUStim.h"
 #include <iostream>
@@ -7,7 +7,7 @@ using namespace std;
 using namespace boost::algorithm;
 using namespace boost::filesystem;
 
-const string FixUStim::m_allowedArgs("ab:d:e:f:g:h:j:k:p:s:vzA:B:C:D:G:H:I:J:KL:M:NO:Q:R:S:T:U:V:W:Y:Z:");
+const string FixUStim::m_allowedArgs("ab:d:e:f:g:h:j:k:p:s:vzA:B:C:D:G:H:I:J:KL:M:NO:P:Q:R:S:T:U:V:W:Y:Z:");
 
 FixUStim::FixUStim(bool bStandAlone)
 : UStim()
@@ -410,6 +410,82 @@ int FixUStim::process_arg(int c, std::string& arg)
 							m_pStimSet = new DanishStimSet(m_vecGratings[0], tuning_parameters);
 						}
 					}
+				}
+			}
+			break;
+		}
+	case 'P':
+		{
+			vector<double> tuning_parameters;
+			int nsteps;
+			double tf;
+			vector<string> tokens;
+			istringstream iss;
+			bool bSquareWave = false;
+
+			// format expected: -P tf,s|q,phase0,phase1,...
+			// s = sin wave, q=square wave
+			tokenize(arg, tokens, ",");
+
+			iss.clear();
+			iss.str(tokens[0]);
+			iss >> tf;
+			if (!iss) 
+			{
+				cerr << "bad tuning value: first token (TF) should be a double. " << tokens[0] << endl;
+				m_errflg++;
+			}
+			else
+			{
+				if (tokens[1] == string("q") || tokens[1] == string("Q") || tokens[1] == string("s") || tokens[1] == string("S"))
+				{
+					bSquareWave = false;
+					if (tokens[1] == string("q") || tokens[1] == string("Q"))
+						bSquareWave = true;
+					tokens.erase(tokens.begin());
+					tokens.erase(tokens.begin());
+
+					if (parse_tuning_list(tokens, tuning_parameters, nsteps)) m_errflg++;
+					else 
+					{
+						if (!have_stim)
+						{
+							cerr << "Error - must pass template grating stimulus with \"-s\" before passing tuning parameters." << endl;
+							m_errflg++;
+						}
+						else
+						{
+							if (!m_pStimSet)
+							{
+								if (have_fixpt)
+								{
+									if (have_xhair)
+									{
+										m_pStimSet = new CounterphaseStimSet(m_fixpt, m_xhair, m_grating, tuning_parameters, tf, bSquareWave);
+									}
+									else
+									{
+										m_pStimSet = new CounterphaseStimSet(m_fixpt, m_grating, tuning_parameters, tf, bSquareWave);
+									}
+								}
+								else
+								{
+									m_pStimSet = new CounterphaseStimSet(m_grating, tuning_parameters, tf, bSquareWave);
+								}
+								m_bUsingMultiParameterStimSet = false;
+							}
+							else
+							{
+								cerr << "Error - Cannot mix counterphase stim with other stim types!" << endl;
+								m_errflg++;
+							}
+						}
+					}
+				}
+				else
+				{
+					cerr << "bad tuning value: second token should be s or q." << endl;
+					m_errflg++;
 				}
 			}
 			break;
