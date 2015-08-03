@@ -1,7 +1,7 @@
-' $Id: Tuning.s2s,v 1.93 2015-07-07 20:46:11 devel Exp $
+' $Id: Tuning.s2s,v 1.94 2015-08-03 17:51:27 devel Exp $
 ' Update 11/8/11 Jeff, includes multi-juicer updates
 
-const tunCVSID$ := "$Id: Tuning.s2s,v 1.93 2015-07-07 20:46:11 devel Exp $";
+const tunCVSID$ := "$Id: Tuning.s2s,v 1.94 2015-08-03 17:51:27 devel Exp $";
 
 
 
@@ -1257,6 +1257,15 @@ proc TuningCurveLabels(iport%)
 '        ChanTitle$(1, "Chan 1");
 '        XRange(tunDanishMinOuterDiameter, tunDanishMaxOuterDiameter);        
         
+    case tunType$ = tunTypeNullTest$ then
+        
+        'myTitle$ := s$ + " - Phase = ";  'these may not apply to tuning
+        'myTitle2$ := " - Phase = ";
+        WindowTitle$("Null Test Counterphase Tuning - " + s$);
+        XUnits$("Phase (degrees)");
+        ChanTitle$(1, "Chan 1");
+        XRange(tunNullTestMinPhase, tunNullTestMaxPhase);        
+        
         
     else
         
@@ -1449,6 +1458,25 @@ proc CreateSampleConfiguration()
         endif;
         tunNValues% := (tunNAdvances%+1)*tunNRepeats%;  
         tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%);
+    case tunType$ = tunTypeNullTest$ then 
+        'SampleAutoName$(dataCellName$ + "_nulltest_000");
+        if UsePlexon% = 0 then
+            SampleAutoName$(dataCellName$ + "_nulltest_000");  'NOTE: maximum of 13 characters!!!
+        else
+            EqualizeSMRFilenumbers(dataPathRoot$ + "\\" + dataDataSet$,dataCellName$+"_nulMICRO_",dataCellName$+"_nulPOWER_");
+            SampleAutoName$(dataCellName$ + "_nulMICRO_000");  'NOTE: maximum of 13 characters!!!
+            SetStringRegistryValue(key$, "pref", "nul");
+        endif;
+        tunNRepeats% := tunNullTestNRepeats%;
+        if tunUseFile% = 1 then
+            tunNAdvances% := tunFileLen%-1;
+            ShuffleAndExpand(tunFileLen%,tunNRepeats%,tunValuesIndices%[],tunNullTestProgression%);
+        else
+            tunNAdvances% := tunNullTestNSteps%;
+            GetRepeatedParameterProgression%(tunNullTestNSteps%+1, tunNRepeats%, tunValues[], tunValuesIndices%[], tunNullTestMinPhase, tunNullTestMaxPhase, 1, tunNullTestProgression%);
+        endif;
+        tunNValues% := (tunNAdvances%+1)*tunNRepeats%;  
+        tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%);    
     case tunType$ = tunTypeXPos$ then 
         'SampleAutoName$(dataCellName$ + "_xpos_000");
         if UsePlexon% = 0 then
@@ -2196,6 +2224,13 @@ proc WriteParameterFile()
 			Print("Values: " + tunValuesStringified$ + "\n");
             Print("\n");
         
+        case tunType$ = tunTypeNullTest$ then
+
+			Print("Type:                  : Null Test Counterphase Gratings\n");
+			Print("Min,Max,#Steps,#Repeats: %f,%f,%d,%d\n", tunNullTestMinPhase, tunNullTestMaxPhase, tunNullTestNSteps%, tunNullTestNRepeats%);
+			Print("Values: " + tunValuesStringified$ + "\n");
+            Print("\n");
+        
         case tunType$ = tunTypeXPos$ then
 
 			Print("Type:                  : X Position\n");
@@ -2453,8 +2488,14 @@ func GetStimulusTF()
     var x, y, w, h, iw, ih, sf, tf, ori, phase;
     var contrast%;
     var cv$, pattern$, aperture$;
-	gr$ := GetGratingParameters$("Stimulus");
-    ParseGratingParameters%(gr$, x, y, w, h, iw, ih, contrast%, sf, tf, ori, phase, cv$, pattern$, aperture$);
+    
+	if tunType$ = tunTypeNullTest$ then 'get the temporal frequency of the counterphase shift, grating does not drift
+        tf := tunNullTestTF;
+    else  'get the temporal frequency of the grating
+    	gr$ := GetGratingParameters$("Stimulus");
+        ParseGratingParameters%(gr$, x, y, w, h, iw, ih, contrast%, sf, tf, ori, phase, cv$, pattern$, aperture$);
+    endif;
+    
     LogStatus("GetStimulusTF", "TF=" + str$(tf));
     return tf;
 end
@@ -2981,7 +3022,14 @@ func Start%()
         TunCurveMArg$ := " -H ";
         'Only set DGrat/DGratParam if we're using them
         DGrat$ := " -s ";
-        DGratParam$ := GetGratingParameters$("Distractor1");  'the donut - this goes FIRST        
+        DGratParam$ := GetGratingParameters$("Distractor1");  'the donut - this goes FIRST    
+        
+    case tunType$ = tunTypeNullTest$ then
+        if tunNullTestStepFunc% = 0 then
+            TunCurveMArg$ := " -P " + Str$(tunNullTestTF) + ",s,";
+        else
+            TunCurveMArg$ := " -P " + Str$(tunNullTestTF) + ",q,";
+        endif;        
         
     else
 
