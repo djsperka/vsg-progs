@@ -1,4 +1,4 @@
-' $Id: AttentionGoNoGo.s2s,v 1.56 2015-07-23 19:31:42 devel Exp $
+' $Id: AttentionGoNoGo.s2s,v 1.57 2015-08-03 21:09:54 devel Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -1555,7 +1555,8 @@ func IdleProcessing%()
             PrintLog("stateWaitForStimOn: stim is up.\n");
             tStimOn := tTrigger;
             tLastTrigger := tTrigger;
-            ChangeStateTo(stateHoldFixationToCC%, tTrigger);
+            'ChangeStateTo(stateHoldFixationToCC%, tTrigger);
+            ChangeStateTo(stateWaitForContrastChange%, tTrigger);  'new version
             SampleText("Stimulus on, Fixation color " + fixColor$ + ", Base contrast " + Str$(attContrastBase%) + ", hazard dur " + Str$(trialHazardFunctionTime)
             + ", attend location " + Str$(trialAttendLoc%) + ", change location " + Str$(trialIsTarget%) + ", change contrast " + Str$(thisContrast%),tTrigger);
         endif
@@ -1827,68 +1828,68 @@ func IdleProcessing%()
 '            
 '        endcase
         
-'    case iState% = stateWaitForContrastChange% then
-'        tTrigger := NextTime(StimChangeChannel%, tLast, vTrigger);
-'        'tTrigger := NextTime(FrameTriggerChannel%, tLast, vTrigger);
-'        docase
-'        case tTrigger > tLast and vTrigger = 0 then
-'            PrintLog("stateWaitForContrastChange: got it.\n");
-'            tLastTrigger := tTrigger;
-'            isStimDistractorOff% := 0;
-'            ChangeStateTo(stateWaitForAnswer%, tNow);
-'            docase
-'            case trialType% = trialtypeAttendToward% then
-'                if trialIsTarget% > 0 then
-'                    if trialCatch% = 0 then
-'                        view(XYWindow%).XYColour(iAnswerWindowChannel1%,16);  'Change up answer window to red
-'                        Sampletext("Contrast Change Up, Level " + Str$(thisContrast%) + ", Attend Toward",tTrigger);
-'                    else
-'                        view(XYWindow%).XYColour(iAnswerWindowChannel2%,16);  'Change down answer window to red
-'                        Sampletext("Contrast Change Up, Level " + Str$(thisContrast%) + ", Attend Toward (catch)",tTrigger);
-'                    endif
-'                else
-'                    view(XYWindow%).XYColour(iFixationWindowChannel%,16);  'Change fixation window to red
-'                    Sampletext("No Contrast Change",tTrigger);
-'                endif
-'            case trialType% = trialtypeAttendAway% then
-'                if trialIsTarget% > 0 then
-'                    if trialCatch% = 0 then
-'                        view(XYWindow%).XYColour(iAnswerWindowChannel2%,16);  'Change down answer window to red
-'                        Sampletext("Contrast Change Up, Level " + Str$(thisContrast%) + ", Attend Away",tTrigger);
-'                    else
-'                        view(XYWindow%).XYColour(iAnswerWindowChannel1%,16);  'Change up answer window to red
-'                        Sampletext("Contrast Change Up, Level " + Str$(thisContrast%) + ", Attend Away (catch)",tTrigger);
-'                    endif
-'                else
-'                    view(XYWindow%).XYColour(iFixationWindowChannel%,16);  'Change fixation window to red
-'                    Sampletext("No Contrast Change",tTrigger);
-'                endif
-'            else
-'                PrintLog("ERROR! Unknown blocktype!!!\n");
-'            endcase;
-'            
-'        case Looking%(xEye, yEye) = 0 then  'begin abort procedure, check to see if it is a FA
-'            docase
-'            case Answer% (xEye, yEye) = 1 then 'answer in "attend toward" = "up" window
-'                PrintLog("stateWaitForContrastChange: in attend toward response window, aborting trial.\n");
-'                FAIsResponse% := 1;
-'                ChangeStateTo(stateAbort%, tNow);
-'                SampleText("Fixation broken, False Alarm in attend toward window, trial aborted");
-'            case Answer% (xEye, yEye) = -1 then 'answer in "attend away" = "down" window
-'                PrintLog("stateWaitForContrastChange: in attend away response window, aborting trial.\n");
-'                FAIsResponse% := 1;
-'                ChangeStateTo(stateAbort%, tNow);
-'                SampleText("Fixation broken, False Alarm in attend away window, trial aborted");        
-'            'if Answer%(xEye, yEye) <> 0 then  'if it's in response window, quit while you're ahead
-'            '    PrintLog("stateHoldFixationToCC: in response window, aborting trial.\n");
-'            '    FAIsResponse% := 1;
-'            '    ChangeStateTo(stateAbort%,tNow);
-'            '    SampleText("Fixation broken, False Alarm, trial aborted");
-'            else  'keep checking
-'                ChangeStateTo(stateCheckFalseAlarm%, tNow);
-'            endcase;
-'            
-'        endcase;
+    case iState% = stateWaitForContrastChange% then
+        tTrigger := NextTime(StimChangeChannel%, tLast, vTrigger);
+        'tTrigger := NextTime(FrameTriggerChannel%, tLast, vTrigger);
+        docase
+        case tTrigger > tLast and vTrigger = 0 then
+            PrintLog("stateWaitForContrastChange: got it.\n");
+            tLastTrigger := tTrigger;
+            isStimDistractorOff% := 0;
+            ChangeStateTo(stateWaitForAnswer%, tNow);
+            docase
+            case trialType% = trialtypeAttendToward% then
+                if trialIsTarget% > 0 then
+                    if trialCatch% = 0 then
+                        view(XYWindow%).XYColour(iAnswerWindowChannel1%,16);  'Change up answer window to red
+                        Sampletext("Contrast Change Up, Level " + Str$(thisContrast%) + ", Attend Toward",tTrigger);
+                    else
+                        view(XYWindow%).XYColour(iAnswerWindowChannel2%,16);  'Change down answer window to red
+                        Sampletext("Contrast Change Up, Level " + Str$(thisContrast%) + ", Attend Toward (catch)",tTrigger);
+                    endif
+                else
+                    view(XYWindow%).XYColour(iFixationWindowChannel%,16);  'Change fixation window to red
+                    Sampletext("No Contrast Change",tTrigger);
+                endif
+            case trialType% = trialtypeAttendAway% then
+                if trialIsTarget% > 0 then
+                    if trialCatch% = 0 then
+                        view(XYWindow%).XYColour(iAnswerWindowChannel2%,16);  'Change down answer window to red
+                        Sampletext("Contrast Change Up, Level " + Str$(thisContrast%) + ", Attend Away",tTrigger);
+                    else
+                        view(XYWindow%).XYColour(iAnswerWindowChannel1%,16);  'Change up answer window to red
+                        Sampletext("Contrast Change Up, Level " + Str$(thisContrast%) + ", Attend Away (catch)",tTrigger);
+                    endif
+                else
+                    view(XYWindow%).XYColour(iFixationWindowChannel%,16);  'Change fixation window to red
+                    Sampletext("No Contrast Change",tTrigger);
+                endif
+            else
+                PrintLog("ERROR! Unknown blocktype!!!\n");
+            endcase;
+            
+        case Looking%(xEye, yEye) = 0 then  'begin abort procedure, check to see if it is a FA
+            docase
+            case Answer% (xEye, yEye) = 1 then 'answer in "attend toward" = "up" window
+                PrintLog("stateWaitForContrastChange: in attend toward response window, aborting trial.\n");
+                FAIsResponse% := 1;
+                ChangeStateTo(stateAbort%, tNow);
+                SampleText("Fixation broken, False Alarm in attend toward window, trial aborted");
+            case Answer% (xEye, yEye) = -1 then 'answer in "attend away" = "down" window
+                PrintLog("stateWaitForContrastChange: in attend away response window, aborting trial.\n");
+                FAIsResponse% := 1;
+                ChangeStateTo(stateAbort%, tNow);
+                SampleText("Fixation broken, False Alarm in attend away window, trial aborted");        
+            'if Answer%(xEye, yEye) <> 0 then  'if it's in response window, quit while you're ahead
+            '    PrintLog("stateHoldFixationToCC: in response window, aborting trial.\n");
+            '    FAIsResponse% := 1;
+            '    ChangeStateTo(stateAbort%,tNow);
+            '    SampleText("Fixation broken, False Alarm, trial aborted");
+            else  'keep checking
+                ChangeStateTo(stateCheckFalseAlarm%, tNow);
+            endcase;
+            
+        endcase;
         
     case iState% = stateWaitForAnswer% then
         'getPreciseTiming := 1;  'we need precise timing here, stay in while loop until we get eye movements we expect
