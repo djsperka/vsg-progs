@@ -1,4 +1,4 @@
-' $Id: TuningDialogs.s2s,v 1.27 2015-05-13 22:13:22 devel Exp $
+' $Id: TuningDialogs.s2s,v 1.28 2015-08-03 17:51:27 devel Exp $
 '
 ' This file contains dialog functions for the alert tuning script Tuning.s2s.
 #include "../../Spike2Util/UsreyUtil.s2s"
@@ -26,6 +26,7 @@ const tunTypeBlank$ := "BLANK";
 const tunTypeGratingOnly$ := "GO";
 const tunTypeDanish$ := "DN";
 const tunTypeDSS$ := "DSS";
+const tunTypeNullTest$ := "NULL";
 var tunType$:=tunTypeNone$;
 var tunType1$:=tunTypeNone$;  'for first of two tuning curves, if Box O' Donuts, or for non-CRG curve in CRG scenarios
 var tunType2$:=tunTypeNone$;  'for second of two tuning curves, if Box O' Donuts
@@ -60,7 +61,8 @@ const tundlgGratingOnlyButton% := 23;
 const tundlgCRG2Button% := 24;  'This is for CRG on SECOND screen
 const tundlgDanishButton% := 25;
 const tundlgDSSButton% := 26;
-const tundlgSelectTuningFileButton% := 27;
+const tundlgNullTestButton% := 27;
+const tundlgSelectTuningFileButton% := 28;
 
 ' A note about "steps". 
 ' The dialogs ask for a number of "steps". A step is a transition from one stimulus
@@ -223,6 +225,19 @@ var tunDSSFlashOrBlank%[1000];  'is current "flash" a flash or a blank?
 var tunDSSDuration;             'how long is each flash, will take from "fixation duration"
 var tunDSSIsOn%;                'keep track of current state
 var tunNextDSSTime;             'when is the next flip?
+
+
+
+'Null Test
+var tunNullTestNSteps%;         ' # steps in null test tuning curve
+var tunNullTestNRepeats%;       ' # repeats in null test tuning curve
+var tunNullTestMinPhase;        ' minimum phase
+var tunNullTestMaxPhase;        ' maximum phase
+var tunNullTestTF;              ' temporal frequency of the contrast reversal
+var tunNullTestProgression%;    ' if 1, progression is random
+var tunNullTestStepFunc%;
+var tunNullTestUseFile%;
+var tunNullTestTuningFile$;
 
 
 ' Strings that hold grating parameters
@@ -660,6 +675,37 @@ proc SaveTuningCurveDSSParameters()
     SetIntRegistryValue(key$, "DSSNTrials", tunDSSNTrials%);
 end;
 
+
+proc GetTuningCurveNullTestParameters()
+	var stmp$;
+	var key$;
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Tuning\\NullTest";
+    
+    tunNullTestNSteps% := GetIntRegistryValue%(key$, "NSteps", tunNullTestNSteps%);
+    tunNullTestNRepeats% := GetIntRegistryValue%(key$, "NRepeats", tunNullTestNRepeats%);
+    tunNullTestProgression% := GetIntRegistryValue%(key$, "Progression", tunNullTestProgression%);
+    tunNullTestStepFunc% := GetIntRegistryValue%(key$, "StepFunc", tunNullTestStepFunc%);
+    tunNullTestMinPhase := GetFloatRegistryValue(key$, "MinPhase", tunNullTestMinPhase);
+    tunNullTestMaxPhase := GetFloatRegistryValue(key$, "MaxPhase", tunNullTestMaxPhase);
+    tunNullTestTF := GetFloatRegistryValue(key$, "TransitionFreq", tunNullTestTF);
+    tunNullTestUseFile% := GetIntRegistryValue%(key$, "UseFile", tunNullTestUseFile%);
+    tunNullTestTuningFile$ := GetStringRegistryValue$(key$, "TuningFile", tunNullTestTuningFile$);
+end;
+
+proc SaveTuningCurveNullTestParameters()
+	var key$;
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Tuning\\NullTest";
+
+    SetIntRegistryValue(key$, "NSteps", tunNullTestNSteps%);
+    SetIntRegistryValue(key$, "NRepeats", tunNullTestNRepeats%);
+    SetIntRegistryValue(key$, "Progression", tunNullTestProgression%);
+    SetIntRegistryValue(key$, "StepFunc", tunNullTestStepFunc%);
+    SetFloatRegistryValue(key$, "MinPhase", tunNullTestMinPhase);
+    SetFloatRegistryValue(key$, "MaxPhase", tunNullTestMaxPhase);
+    SetFloatRegistryValue(key$, "TransitionFreq", tunNullTestTF);
+    SetIntRegistryValue(key$, "UseFile", tunNullTestUseFile%);
+    SetStringRegistryValue(key$, "TuningFile", tunNullTestTuningFile$);
+end;
 
 
 '------------ END Read/write tuning curve parameters to the registry ------------
@@ -2104,7 +2150,110 @@ end;
 
 
 
+func TuningCurveNullTestDialog%()
+	var iReturn% := 0;
+	var i%;
+	GetTuningCurveNullTestParameters();
+	DlgCreate("Null Test Tuning Curve Parameters");
+	DlgInteger(1, "Number of Steps", 2, 99);
+	DlgInteger(2, "Number of Repeats", 1, 30);
+	DlgReal(3, "Start Phase", 0, 360);
+	DlgReal(4, "End Phase", 0, 360);
+    DlgReal(5, "Transition Frequency (Hz)", 0.1,100);
+	DlgCheck(6, "Random Progression");
+    DlgCheck(7, "Step Function in Time");
+    DlgCheck(8, "Use File For Tuning Values");
+    DlgString(9,40,255,"",3);  'for visual confirmation of selected seq file
+    DlgButton(tundlgSelectTuningFileButton%, " Select Tuning File ", SelectTuningFileNullTest%, 2, 10);
+    DlgAllow(0xffff, 0, TuningCurveNullTestDialogChanged%);
+    
+	i% := DlgShow(tunNullTestNSteps%, tunNullTestNRepeats%, tunNullTestMinPhase, tunNullTestMaxPhase, tunNullTestTF, tunNullTestProgression%, tunNullTestStepFunc%, tunNullTestUseFile%, tunNullTestTuningFile$);
+	' If i% is 1 the user hit "OK". If its 0, user hit "Cancel". 
+	' When user hits OK we always save the parameters, and when user hits Cancel we don't.
+    ' 
+    ' djs 2/4/2011
+    ' Spike2 bug workaround implemented. The return value from this function (when in DAQ context this
+    ' dialog is called from a DlgButton in another dialog) should make the parent dialog close, as if 
+    ' the OK button were hit. Bug in Spike2 v6 means this doesn't work right - the parent dialog will 
+    ' close but its variables are not updated prior to doing so.... so any changes to the parent dialog
+    ' are not seen in the subsequent expt, they're not saved in the registry, etc. Workaround is to return
+    ' something > 0 here. The parent dialog will continue to display, and the user has to hit OK on that 
+    ' before things proceed. 
+    'tunMaximalDiam := tunAreaMaxDiam;  This won't do anything unless FIXSTIM is updated to allow crosshairs
+	if i% = 1 then
+		SaveTuningCurveNullTestParameters();
+'		PrintLog("TuningCurveAreaDialog - user hit OK\n");
+		tunType$ := tunTypeNullTest$;
+        tunUseFile% := tunNullTestUseFile%;
+        tunTuningFile$ := tunNullTestTuningFile$;
+        
+        'Reset dialog OK button text on Select dialog, and note which experiment to run
+        'DlgValue$(-1,"Run Null Test");
+        'TuningCurveScriptDialogAllowOK% := 1;  'Prepare to enable OK button
+        'TuningCurveScriptDialogChanged%(-1);  'Enables "OK" button, -1 is sham input
+        
+		if tunContext$ = tunContextDAQ$ then
+            ' djs 2/4/2011 We return 1 - that's the workaround			iReturn% := 0;
+            iReturn% := 1;
+		else
+			iReturn% := 1;
+		endif;
+	endif;
+	if i% = 0 then
+'		PrintLog("TuningCurveNullTestDialog - user hit Cancel\n");
+		tunType$ := tunTypeNone$;
+		if tunContext$ = tunContextDAQ$ then
+			iReturn% := 1;
+		else
+			iReturn% := 2;
+		endif;
+        'Reset dialog OK button text on Select dialog, and note we need to pick an expt.
+        'DlgValue$(-1,"Select Expt.");
+        'TuningCurveScriptDialogAllowOK% := 0;  'Prepare to disable OK button
+        'TuningCurveScriptDialogChanged%(-1);  'Disables "OK" button, -1 is sham input
+	endif;
+    
+	return iReturn%;
+end;
 
+
+func TuningCurveNullTestDialogChanged%(item%)
+    'The Null Test dialog has extra entries below, moving the tested checkbox to position 8 and the DlgString to 9
+    if DlgValue(8) = 0 then  'If we are not using a tuning file
+        DlgEnable(0,9);  'disable the string box with the text file name (button still works)
+        DlgEnable(1,1);  'enable nSteps, min, and max
+        DlgEnable(1,3);
+        DlgEnable(1,4);
+    endif;
+    if DlgValue(8) = 1 then
+        DlgEnable(1,9);  'enable the string box with the text file name
+        DlgEnable(0,1);  'disable nSteps, min, and max
+        DlgEnable(0,3);
+        DlgEnable(0,4);
+    endif;
+    return 1;
+end
+
+
+func SelectTuningFileNullTest%()
+    'This generic function ought to work for any of the dialogs where we allow the selection of a tuning file
+    'This is the same as the regular file, but the string dialog entry is in a different location for the null test.
+    'It would have been really cool to have this function take an argument, but I tried that and it automatically ran
+    'the function without the button being pressed as soon as the parent dialog was open, so that's a no-go.
+
+    var status% := 1;
+    var direc$;
+    var fh0%;
+    
+    direc$ := FilePath$();  'get current directory
+    fh0%:=FileOpen(direc$+"*.txt",1,0,"Please select a tuning file");  'Find a tuning file
+    direc$ := FileName$(0);  'Get full path of selected file
+    FileClose(fh0%);  'Just close the file, we're not using it
+    DlgValue$(9,direc$);  'Place filename into dialog item 9 of calling dialog
+
+	return status%;  'return 1 so calling dialog doesn't close
+    
+end;
 
 
 func TunDlgGratingMaster%()
@@ -2833,6 +2982,7 @@ func TuningCurveScriptDialog%()
     DlgButton(tundlgDisparityButton%, "      Disparity      ", TuningCurveDisparityDialog%, 36, 21);
     DlgButton(tundlgDanishButton%, "  Danishes!  ", TuningCurveDanishDialog%, 2, 22);
     DlgButton(tundlgDSSButton%,"        DSS        ",TuningCurveDSSDialog%, 18, 22);
+    DlgButton(tundlgNullTestButton%,"      Null Test     ",TuningCurveNullTestDialog%, 36, 22);
     DlgAllow(0xffff, 0, TuningCurveScriptDialogChanged%);
 	
     if JuicerType% = 1 then
@@ -2944,10 +3094,11 @@ func TuningCurveScriptDialogChanged%(item%)
         'Also disable card synch functions, dual tuning listbox
         DlgEnable(0,11); 'card synch
         DlgEnable(0,12); 'dual tuning listbox
-        'But do allow Dots, Danish, DSS
+        'But do allow Dots, Danish, DSS, Null Test
         DlgEnable(1,-tundlgDotsButton%);
         DlgEnable(1,-tundlgDanishButton%);
         DlgEnable(1,-tundlgDSSButton%);
+        DlgEnable(1,-tundlgNullTestButton%);
         'Also, change labels on buttons to reflect the monocular aspect of not using dual VSG
         DlgValue$(-tundlgOrientationButton%, " Orientation  ");
         DlgValue$(-tundlgContrastButton%, "     Contrast     ");
@@ -2962,10 +3113,11 @@ func TuningCurveScriptDialogChanged%(item%)
         'Also allow turning off card synch, dual tuning listbox
         DlgEnable(1,11);  'card synch
         DlgEnable(1,12);  'dual tuning listbox
-        'But don't allow Dots, Danish, DSS
+        'But don't allow Dots, Danish, DSS, Null test
         DlgEnable(0,-tundlgDotsButton%);
         DlgEnable(0,-tundlgDanishButton%);
         DlgEnable(0,-tundlgDSSButton%);
+        DlgEnable(0,-tundlgNullTestButton%);
         'Also, change labels on buttons to reflect the binocular aspect of using dual VSG
         docase 
             case DlgValue(12) = 0 then
