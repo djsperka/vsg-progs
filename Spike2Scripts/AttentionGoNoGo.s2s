@@ -1,4 +1,4 @@
-' $Id: AttentionGoNoGo.s2s,v 1.58 2015-08-03 21:51:22 devel Exp $
+' $Id: AttentionGoNoGo.s2s,v 1.59 2015-08-03 23:51:22 devel Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -4319,7 +4319,11 @@ func TagTriggerWithSampletext%(triggerTime,tStimOn,trialCount%,&flasherCount%)
     var diffF;
     var diffCC;
     
-    fTime := tStimOn + flasherTimes[trialCount%][flasherCount%];
+    if flasherTimes[trialCount%][flasherCount%] > 0 then
+        fTime := tStimOn + flasherTimes[trialCount%][flasherCount%];
+    else
+        fTime := 9999999; 'there is no flasher, this will make diffF huge
+    endif;
     ccTime := tStimOn + attHazardList[trialCount%];
     
     diffF := abs(fTime - triggerTime);
@@ -4329,10 +4333,10 @@ func TagTriggerWithSampletext%(triggerTime,tStimOn,trialCount%,&flasherCount%)
     case diffF > .005 and diffCC > .005 then
         'if tolerance > 5 ms, sampletext an error
         SampleText("Error - trigger time not recognized!",triggerTime);
-    case diffF < diffCC and diffF > 0.02 then
+    case diffF < diffCC and diffF > 0.002 then
         SampleText("Flasher X = " + Str$(flasherX[trialCount%][flasherCount%]) + " Y = " + Str$(flasherY[trialCount%][flasherCount%]) + " Note, trigger time more than 2ms off!",triggerTime);
         flasherCount% += 1;
-    case diffCC < diffF and diffCC > 0.02 then
+    case diffCC < diffF and diffCC > 0.002 then
         cc% := 1;
     case diffF < diffCC then
         SampleText("Flasher X = " + Str$(flasherX[trialCount%][flasherCount%]) + " Y = " + Str$(flasherY[trialCount%][flasherCount%]),triggerTime);
