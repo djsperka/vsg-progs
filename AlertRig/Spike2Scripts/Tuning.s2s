@@ -1,7 +1,7 @@
-' $Id: Tuning.s2s,v 1.94 2015-08-03 17:51:27 devel Exp $
+' $Id: Tuning.s2s,v 1.95 2015-08-03 22:10:27 devel Exp $
 ' Update 11/8/11 Jeff, includes multi-juicer updates
 
-const tunCVSID$ := "$Id: Tuning.s2s,v 1.94 2015-08-03 17:51:27 devel Exp $";
+const tunCVSID$ := "$Id: Tuning.s2s,v 1.95 2015-08-03 22:10:27 devel Exp $";
 
 
 
@@ -1473,10 +1473,10 @@ proc CreateSampleConfiguration()
             ShuffleAndExpand(tunFileLen%,tunNRepeats%,tunValuesIndices%[],tunNullTestProgression%);
         else
             tunNAdvances% := tunNullTestNSteps%;
-            GetRepeatedParameterProgression%(tunNullTestNSteps%+1, tunNRepeats%, tunValues[], tunValuesIndices%[], tunNullTestMinPhase, tunNullTestMaxPhase, 1, tunNullTestProgression%);
+            GetRepeatedParameterProgression%(tunNullTestNSteps%+1, tunNRepeats%, tunValues[], tunValuesIndices%[], tunNullTestMinPhase, tunNullTestMaxPhase, 0, tunNullTestProgression%);
         endif;
         tunNValues% := (tunNAdvances%+1)*tunNRepeats%;  
-        tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%);    
+        tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%); 
     case tunType$ = tunTypeXPos$ then 
         'SampleAutoName$(dataCellName$ + "_xpos_000");
         if UsePlexon% = 0 then
