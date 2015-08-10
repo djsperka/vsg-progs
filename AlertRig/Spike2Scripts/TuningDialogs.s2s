@@ -1,4 +1,4 @@
-' $Id: TuningDialogs.s2s,v 1.30 2015-08-10 20:53:47 devel Exp $
+' $Id: TuningDialogs.s2s,v 1.31 2015-08-10 20:59:51 devel Exp $
 '
 ' This file contains dialog functions for the alert tuning script Tuning.s2s.
 #include "../../Spike2Util/UsreyUtil.s2s"
@@ -3067,9 +3067,9 @@ func TuningCurveScriptDialog%()
                 SaveGratingParameters("StatStimulus", tempParams$);
             else
                 if tunDoRivalry% = 1 then
-                    message("The Stationary option is not defined for Dual VSG.  If you wish to change this, see your local programmer.  Quitting.");
+                    message("The Stationary option is not defined for Dual VSG.  If you wish to change this, \nsee your local programmer.  Quitting.");
                 else
-                    message("The Stationary option is not defined for tuning type '" + tunType$ + "'.  If you wish to change this, see your local programmer.  Quitting.");
+                    message("The Stationary option is not defined for tuning type '" + tunType$ + "'.  If you wish to change this, \nsee your local programmer.  Quitting.");
                 endif;
                 iReturn% := 0;
             endif;
