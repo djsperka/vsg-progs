@@ -1,4 +1,4 @@
-' $Id: TuningDialogs.s2s,v 1.28 2015-08-03 17:51:27 devel Exp $
+' $Id: TuningDialogs.s2s,v 1.29 2015-08-10 19:57:24 devel Exp $
 '
 ' This file contains dialog functions for the alert tuning script Tuning.s2s.
 #include "../../Spike2Util/UsreyUtil.s2s"
@@ -3060,7 +3060,7 @@ func TuningCurveScriptDialog%()
         'check to see if tunSetStationary is set for the "standard" tuning curves
         if tunSetStationary% = 1 then
             'Check for one of the five "standard" tuning curves that are not temporal - obviously stationary does not work with temporal tuning curves
-            if tunType$ = tunTypeOrientation$ or tunType$ = tunTypeContrast$ or tunType$ = tunTypeSpatial$ or tunType$ = tunTypeArea$ or tunType$ = tunTypeXYPos$ then
+            if tunType$ = tunTypeOrientation$ or tunType$ = tunTypeContrast$ or tunType$ = tunTypeSpatial$ or tunType$ = tunTypeArea$ or tunType$ = tunTypeXYPos$ or tunType$ = tunTypeBoxODonuts$ then
                 tempParams$ := GetGratingParameters$("Stimulus");
                 ParseGratingParameters%(tempParams$, x, y, w, h, iw, ih, contrast%, sf, tf, ori, phase, cv$, pattern$, aperture$);
                 tempParams$ := EncodeGratingParameters$(x, y, w, h, iw, ih, contrast%, sf, 0, ori, phase, cv$, pattern$, aperture$);  'hardcoded zero TF
