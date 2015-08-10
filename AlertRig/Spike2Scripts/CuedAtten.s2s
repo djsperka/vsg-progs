@@ -27,6 +27,7 @@ var caAcquisitionTime;
 var caInterTrialTime;
 var caInterTrialTime2;
 var caAbortWaitTime;
+var caAbort2WaitTime;
 var caMissPenalty;
 var caFalseAlarmWaitTime;
 var caFalseAlarmCheckWindow;
@@ -40,6 +41,7 @@ var caBackgroundColor$ := "gray";  'for now just hardcoding the bg color, if we 
 var caStartTrial% := 1;
 'var caCycleTrials%;  'when we get to the bottom do we go back to the top of the slide, do we turn, do we stop, do we go for a ride?  (Sadly, this is not used because Evan didn't want it.)
 var caInterTrialTimeRand; 
+var caTextCallbackItemNumber%;
 
 'Counter vars for attention script  ?? Probably adjust this
 var caCountAllTrials% := 0;
@@ -62,16 +64,17 @@ const caTimingDlgHoldFixationTime% := 2;
 const caTimingDlgITI% := 3;
 const caTimingDlgInterTrialTimeRand% := 4;
 const caTimingDlgAbortWait% := 5;
-const caTimingDlgFAPenalty% := 6;
-const caTimingDlgFAWindow% := 7;
-const caTimingDlgMissPenalty% := 8;
-const caTimingDlgJoyRight% := 9;
-const caTimingDlgTrainingOptions% := 10;
-const caTimingDlgTrainingHoldTime% := 11;
-const caTimingDlgFixAlternationTime% := 12;
-const caTimingDlgRequireFixation% := 13;
-const caTimingDlgReturnForReward% := 14;
-const caTimingDlgStartTrial% := 15;
+const caTimingDlgAbort2Wait% := 6;
+const caTimingDlgFAPenalty% := 7;
+const caTimingDlgFAWindow% := 8;
+const caTimingDlgMissPenalty% := 9;
+const caTimingDlgJoyRight% := 10;
+const caTimingDlgTrainingOptions% := 11;
+const caTimingDlgTrainingHoldTime% := 12;
+const caTimingDlgFixAlternationTime% := 13;
+const caTimingDlgRequireFixation% := 14;
+const caTimingDlgReturnForReward% := 15;
+const caTimingDlgStartTrial% := 16;
 
 'const caTimingDlgCycleTrials% := 15;  'Not used
 
@@ -211,6 +214,7 @@ var trialType%;
 var nTrialsStarted%:=0;
 var nTrialsCompleted%:=0;
 var nTrialsAborted% :=0;		' 
+var abortIsPostCC% := 0;
 var nBlocksCompleted%:=0;
 var iAnswer%;
 var trialCatch%;
@@ -263,9 +267,10 @@ if caTrainingOptions% > 2 then
     '        caCueOn[j%],caCueOff[j%],caStimOn[j%],caContrastChange[j%],caStimOff[j%],caContrast1Init[j%],caContrast1Final[j%],caContrast2Init[j%],caContrast2Final[j%],caAttendLoc%[j%],caCorrectResponse%[j%],caCueFile$[j%]); 
     '    next
     
-    'Close the input file (opened by the dialog box), but get the filename first, we'll pass that to the VSG
-    view(inputFileHandle%);
-    specFileName$ := FileName$();  'This is the full path and filename
+    ''Close the input file (opened by the dialog box), but get the filename first, we'll pass that to the VSG
+    ''view(inputFileHandle%);
+    ''specFileName$ := FileName$();  'This is the full path and filename
+    'Close the input file opened by the dialog box
     FileClose();
     
     
@@ -377,6 +382,8 @@ proc GetTimingDialogParameters()
 	caInterTrialTime := val(stmp$);
 	Profile(key$, "AbortWaitTime", "1.0", stmp$);
 	caAbortWaitTime := val(stmp$);
+    Profile(key$, "Abort2WaitTime", "1.0", stmp$);
+	caAbort2WaitTime := val(stmp$);
     Profile(key$, "MissPenalty", "1.0", stmp$);
 	caMissPenalty := val(stmp$);
     Profile(key$, "FalseAlarmWaitTime", "1.0", stmp$);
@@ -399,7 +406,8 @@ proc GetTimingDialogParameters()
 	caInterTrialTimeRand := val(stmp$);
     Profile(key$, "FixationTime", "1.0", stmp$);
 	caFixationTime := val(stmp$);
-    
+    Profile(key$, "SpecFileName", "none", stmp$);
+    specFileName$ := stmp$;
     
 end;
 
@@ -410,6 +418,7 @@ proc SaveTimingDialogParameters()
     
 	Profile(key$, "AcquisitionTime", str$(caAcquisitionTime));
 	Profile(key$, "AbortWaitTime", str$(caAbortWaitTime));
+    Profile(key$, "Abort2WaitTime", str$(caAbort2WaitTime));
     Profile(key$, "MissPenalty", str$(caMissPenalty));
     Profile(key$, "FalseAlarmWaitTime", str$(caFalseAlarmWaitTime));
     Profile(key$, "FalseAlarmCheckWindow", str$(caFalseAlarmCheckWindow));
@@ -422,6 +431,8 @@ proc SaveTimingDialogParameters()
     Profile(key$, "TrainingOptions", str$(caTrainingOptions%));
     Profile(key$, "InterTrialTimeRand", str$(caInterTrialTimeRand));
     Profile(key$, "FixationTime", str$(caFixationTime));
+    Profile(key$, "SpecFileName", specFileName$);
+    
     
 end;
 
@@ -432,6 +443,7 @@ func TimingDialog%()
     const nOpts% := 4;
     var trainingOptionsList$[nOpts%];
     var fixationOptionsList$[3];
+    var tempAW;
     
     trainingOptionsList$[0] := "Reward for lever";    '"Lever - Instant Reward - Release - Wait ITI";
     trainingOptionsList$[1] := "Reward for lever - hold - release";   '"Lever - Hold - Release - Reward - Wait ITI";
@@ -450,6 +462,7 @@ func TimingDialog%()
 	DlgReal(caTimingDlgITI%, "Intertrial time(s):", .01, 10);
     DlgReal(caTimingDlgInterTrialTimeRand%, "Random ITI additional time(s):", 0, 10);
 	DlgReal(caTimingDlgAbortWait%, "Abort penalty time(s):", .01, 10);
+    DlgReal(caTimingDlgAbort2Wait%, "Abort penalty time post-CC(s):", .01, 10);
     DlgReal(caTimingDlgFAPenalty%, "False Alarm penalty time(s):", .01, 100);  'I'll let that be really really long
     DlgReal(caTimingDlgFAWindow%, "False Alarm check window(s): ", .01, 10);
     DlgReal(caTimingDlgMissPenalty%, "Miss penalty time(s): ", 0, 100);
@@ -460,22 +473,25 @@ func TimingDialog%()
     'DlgCheck(caTimingDlgRequireFixation%, "Require Fixation",50);
     DlgList(caTimingDlgRequireFixation%, 60, fixationOptionsList$[], 3);
     DlgCheck(caTimingDlgReturnForReward%, "Return for Reward",50);
-    DlgInteger(caTimingDlgStartTrial%, "Start Trial",1,caMaxTrl%); 
+    DlgInteger(caTimingDlgStartTrial%, "Start Trial",1,caMaxTrl%);
     
-    DlgButton(2, "Select An Input File", OpenInputFile%,2,caTimingDlgRequireFixation%+3);
-    DlgButton(3, "Fixation Point Dialog", FixationPointDialog%,2,caTimingDlgRequireFixation%+4);
+    caTextCallbackItemNumber% := DlgText("Text!",2,caTimingDlgRequireFixation%+3,60);
+    DlgButton(2, "Use Above Input File", UseInputFile%,2,caTimingDlgRequireFixation%+4);
+    DlgButton(3, "Select An Input File", OpenInputFile%,2,caTimingDlgRequireFixation%+5);
+    DlgButton(4, "Fixation Point Dialog", FixationPointDialog%,2,caTimingDlgRequireFixation%+6);
     
     
     DlgAllow(0, 0, TimingDialogChanged%);
     
-    i% := DlgShow(caAcquisitionTime,caFixationTime,caInterTrialTime,caInterTrialTimeRand,caAbortWaitTime,caFalseAlarmWaitTime,caFalseAlarmCheckWindow,caMissPenalty,caJoyRight,caTrainingOptions%,
+    i% := DlgShow(caAcquisitionTime,caFixationTime,caInterTrialTime,caInterTrialTimeRand,caAbortWaitTime,caAbort2WaitTime,caFalseAlarmWaitTime,caFalseAlarmCheckWindow,caMissPenalty,caJoyRight,caTrainingOptions%,
                   caTrainingHoldTime,caFixAlternationTime,caRequireFixation%,caReturnForReward%,caStartTrial%);
     
     if i% = 1 then
-        if caAbortWaitTime < caFalseAlarmCheckWindow then
-            message("False Alarm Check Window is longer than Abort Wait Time!");
-            message("Reducing window to be equal to Abort Wait Time!");
-            caFalseAlarmCheckWindow := caAbortWaitTime;
+        tempAW := min(caAbortWaitTime,caAbort2WaitTime);
+        if tempAW < caFalseAlarmCheckWindow then
+            message("False Alarm Check Window is longer than shortest Abort Wait Time!");
+            message("Reducing window to be equal to shortest Abort Wait Time!");
+            caFalseAlarmCheckWindow := tempAW;
         endif;
 
         SaveTimingDialogParameters();
@@ -512,6 +528,7 @@ func TimingDialogChanged%(item%)
         DlgEnable(0,caTimingDlgAcquisitionTime%);  'disable acquisition time
         DlgEnable(0,caTimingDlgHoldFixationTime%);  'disable hold fixation time
         DlgEnable(0,caTimingDlgAbortWait%);  'disable abort wait time
+        DlgEnable(0,caTimingDlgAbort2Wait%);  'disable abort2 wait time
         DlgEnable(0,caTimingDlgFAPenalty%);  'disable FA penalty
         DlgEnable(0,caTimingDlgFAWindow%);  'disable FA check window
         DlgEnable(0,caTimingDlgMissPenalty%);  'disable miss penalty
@@ -521,11 +538,15 @@ func TimingDialogChanged%(item%)
         DlgEnable(0,caTimingDlgReturnForReward%);  'disable return for reward check box - can't return for reward here, it's immediate
         DlgEnable(0,caTimingDlgStartTrial%);  'disable start trial for non-input-file scenarios
         DlgEnable(1,-1);  'enable "OK"
-        DlgEnable(0,-2);  'disable loading input file
+        DlgEnable(0,-2);  'disable using current input file
+        DlgEnable(0,-3);  'disable loading input file
+        DlgEnable(0,caTextCallbackItemNumber%);  'disable text display of control file
+        DlgValue$(caTextCallbackItemNumber%,"Control File Not Applicable");
     case DlgValue(caTimingDlgTrainingOptions%) = 1 then
         DlgEnable(0,caTimingDlgAcquisitionTime%);  'disable acquisition time
         DlgEnable(0,caTimingDlgHoldFixationTime%);  'disable hold fixation time
         DlgEnable(0,caTimingDlgAbortWait%);  'disable abort wait time
+        DlgEnable(0,caTimingDlgAbort2Wait%);  'disable abort2 wait time
         DlgEnable(0,caTimingDlgFAPenalty%);  'disable FA penalty
         DlgEnable(0,caTimingDlgFAWindow%);  'disable FA check window
         DlgEnable(0,caTimingDlgMissPenalty%);  'disable miss penalty
@@ -535,7 +556,10 @@ func TimingDialogChanged%(item%)
         DlgEnable(1,caTimingDlgReturnForReward%);  'enable return for reward check box
         DlgEnable(0,caTimingDlgStartTrial%);  'disable start trial for non-input-file scenarios
         DlgEnable(1,-1);  'enable "OK"
-        DlgEnable(0,-2);  'disable loading input file
+        DlgEnable(0,-2);  'disable using current input file
+        DlgEnable(0,-3);  'disable loading input file
+        DlgEnable(0,caTextCallbackItemNumber%);  'disable text display of control file
+        DlgValue$(caTextCallbackItemNumber%,"Control File Not Applicable");
     case DlgValue(caTimingDlgTrainingOptions%) = 2 then
         if DlgValue(caTimingDlgRequireFixation%) = 1 then
             DlgEnable(1,caTimingDlgAcquisitionTime%);  'enable acquisition time
@@ -545,6 +569,7 @@ func TimingDialogChanged%(item%)
             DlgEnable(0,caTimingDlgHoldFixationTime%);  'disable hold fixation time
         endif;
         DlgEnable(0,caTimingDlgAbortWait%);  'disable abort wait time
+        DlgEnable(0,caTimingDlgAbort2Wait%);  'disable abort2 wait time
         DlgEnable(0,caTimingDlgFAPenalty%);  'disable FA penalty
         DlgEnable(0,caTimingDlgFAWindow%);  'disable FA check window
         DlgEnable(0,caTimingDlgMissPenalty%);  'disable miss penalty
@@ -554,8 +579,10 @@ func TimingDialogChanged%(item%)
         DlgEnable(1,caTimingDlgReturnForReward%);  'enable return for reward check box
         DlgEnable(0,caTimingDlgStartTrial%);  'disable start trial for non-input-file scenarios
         DlgEnable(1,-1);  'enable "OK"
-        DlgEnable(0,-2);  'disable loading input file
-        
+        DlgEnable(0,-2);  'disable using current input file
+        DlgEnable(0,-3);  'disable loading input file
+        DlgEnable(0,caTextCallbackItemNumber%);  'disable text display of control file
+        DlgValue$(caTextCallbackItemNumber%,"Control File Not Applicable");
         'note that the logic past training stage 3 (dlg value 2) hasn't been worked out yet because training details are not complete
         'but at least here's the framework for the final training stages        
         
@@ -568,6 +595,7 @@ func TimingDialogChanged%(item%)
             DlgEnable(0,caTimingDlgHoldFixationTime%);  'disable hold fixation time
         endif;
         DlgEnable(1,caTimingDlgAbortWait%);  'enable abort wait time
+        DlgEnable(1,caTimingDlgAbort2Wait%);  'enable abort2 wait time
         DlgEnable(1,caTimingDlgFAPenalty%);  'enable FA penalty
         DlgEnable(1,caTimingDlgFAWindow%);  'enable FA check window
         DlgEnable(1,caTimingDlgMissPenalty%);  'enable miss penalty
@@ -583,15 +611,28 @@ func TimingDialogChanged%(item%)
         else
             DlgEnable(1,-1);  'enable "OK"
         endif;
-        DlgEnable(1,-2);  'enable loading input file
+        DlgEnable(1,-2);  'enable using current input file
+        DlgEnable(1,-3);  'enable loading input file
+        DlgEnable(1,caTextCallbackItemNumber%);  'enable text display of control file
+        DlgValue$(caTextCallbackItemNumber%,"Control File: " + specFileName$);
     endcase
     
     return status%;
 end
 
 
+
+func UseInputFile%()
+    inputFileHandle% := FileOpen(specFileName$,8,0);  'open a text file (8) for reading only (0), could specify directory to start in
+    TimingDialogChanged%(-12345);   'doesn't matter what we pass it, just need to run it   
+    return 1;  'We'll just assume the user didn't cancel - we could in principle use a DialogChanged function to gate the OK button on the main dialog, but c'mon
+end;
+
+
 func OpenInputFile%()
-    inputFileHandle% := FileOpen("*",8,0,"Select Input File");  'open a text file (8) for reading only (0), could specify directory to start in
+    inputFileHandle% := FileOpen("*",8,0,"Select New Input File");  'open a text file (8) for reading only (0), could specify directory to start in
+    view(inputFileHandle%);  'get the filename first, we'll pass that to the VSG, use for display on the dialog
+    specFileName$ := FileName$();  'This is the full path and filename
     TimingDialogChanged%(-12345);   'doesn't matter what we pass it, just need to run it   
     return 1;  'We'll just assume the user didn't cancel - we could in principle use a DialogChanged function to gate the OK button on the main dialog, but c'mon
 end;
@@ -1062,687 +1103,703 @@ func IdleProcessing%()
 	var iStatus% := 1;	
     var tempanswer%;
     var temptext$;
+    var nextStateImmed% := 1;
     
-    tNow := View(DataWindow%).MaxTime();
     
-    'only check eye position if we are in a training/standard condition that has eye channels
-    if caRequireFixation% <> 0 then
+    while nextStateImmed% = 1 do
+        nextStateImmed% := 0;  'don't run immediately again unless we ask    
+        tNow := View(DataWindow%).MaxTime();
         
-        'get eye position, but don't check if tNow is small enough that we would give a negative value to ChanMeasure
-        if tNow > .006 then
-            xEye := View(DataWindow%).ChanMeasure(XChannel%,2,tNow-.001,tNow-.006)*DegreesPerVoltX;
-            yEye := View(DataWindow%).ChanMeasure(YChannel%,2,tNow-.001,tNow-.006)*DegreesPerVoltY;
-        endif;
-        
-        ' Don't update eye position display every time....
-        if tNow-tLastUpdate > .005 then
-            View(XYWindow%).XYAddData(1,xEye,yEye);
-            tLastUpdate := tNow;
+        'only check eye position if we are in a training/standard condition that has eye channels
+        if caRequireFixation% <> 0 then
+            
+            'get eye position, but don't check if tNow is small enough that we would give a negative value to ChanMeasure
+            if tNow > .006 then
+                xEye := View(DataWindow%).ChanMeasure(XChannel%,2,tNow-.001,tNow-.006)*DegreesPerVoltX;
+                yEye := View(DataWindow%).ChanMeasure(YChannel%,2,tNow-.001,tNow-.006)*DegreesPerVoltY;
+            endif;
+            
+            ' Don't update eye position display every time....
+            if tNow-tLastUpdate > .005 then
+                View(XYWindow%).XYAddData(1,xEye,yEye);
+                tLastUpdate := tNow;
+            endif
         endif
-    endif
-    
-    
-    
-    docase 
-    case iState% = stateVSGWait% then
         
-        ' Waiting for VSG to indicate it is ready. The indication is a pulse (up, then down, 1 frame apart) on port 6.
-        tTrigger := View(DataWindow%).NextTime(ReadyChannel%, tLastTrigger, vTrigger);
-        if tTrigger > tLastTrigger and vTrigger = 0 then
-            PrintLog("state stateVSGWait: Got leading edge of trigger\n");
-            tLastTrigger := tTrigger;
-            joystickHasBeenCentered% := 1;  'allow animal to press right at any time
-            ChangeStateTo(stateVSGWaitConfirm%, tTrigger);
-        endif;
         
-    case iState% = stateVSGWaitConfirm% then
         
-        ' Waiting for VSG to confirm it is ready. The downward side of the pulse is expected...
-        tTrigger := View(DataWindow%).NextTime(ReadyChannel%, tLastTrigger, vTrigger);
-        if tTrigger > tLastTrigger and vTrigger = 1 then
-            PrintLog("state stateVSGWaitConfirm: Got trailing edge of trigger\n");
-            tLastTrigger := tTrigger;
-            ChangeStateTo(stateWaitForJoystickInCenter%, tTrigger);
-        endif;
-        
-    case iState% = stateWaitForJoystickInCenter% then
-        
-        tempanswer% := Answer%(JoyChannel%,tNow);
-        'printlog("Joystick is in position %d\n",tempanswer% );
-        if tempanswer% = 2 or joystickHasBeenCentered% = 1 then  'if joystick is in center, or has previously been centered
-            'Allow dual report, but either case will advance the state
-            if joystickHasBeenCentered% = 1 then
-                PrintLog("state stateWaitForJoystickInCenter: Joystick has previously been centered\n");
+        docase 
+        case iState% = stateVSGWait% then
+            
+            ' Waiting for VSG to indicate it is ready. The indication is a pulse (up, then down, 1 frame apart) on port 6.
+            tTrigger := View(DataWindow%).NextTime(ReadyChannel%, tLastTrigger, vTrigger);
+            if tTrigger > tLastTrigger and vTrigger = 0 then
+                PrintLog("state stateVSGWait: Got leading edge of trigger\n");
+                tLastTrigger := tTrigger;
+                joystickHasBeenCentered% := 1;  'allow animal to press right at any time
+                ChangeStateTo(stateVSGWaitConfirm%, tTrigger);
             endif;
-            if tempanswer% = 2 then
-                PrintLog("state stateWaitForJoystickInCenter: Joystick is in center\n");
+            
+        case iState% = stateVSGWaitConfirm% then
+            
+            ' Waiting for VSG to confirm it is ready. The downward side of the pulse is expected...
+            tTrigger := View(DataWindow%).NextTime(ReadyChannel%, tLastTrigger, vTrigger);
+            if tTrigger > tLastTrigger and vTrigger = 1 then
+                PrintLog("state stateVSGWaitConfirm: Got trailing edge of trigger\n");
+                tLastTrigger := tTrigger;
+                ChangeStateTo(stateWaitForJoystickInCenter%, tTrigger);
             endif;
-            docase
-            case caTrainingOptions% = 0 then
-                ChangeStateTo(stateWaitForJoystickInRight%,tNow);
-            case caTrainingOptions% = 1 then   
-                ChangeStateTo(stateWaitForJoystickInRight%,tNow);
-            case caTrainingOptions% = 2 then  'don't require acquisition until the fixpt is actually ON
-                ChangeStateTo(stateStartTrial%,tNow);
-            case caTrainingOptions% > 2 then
-                ChangeStateTo(stateWaitForJoystickInRight%,tNow);  'Animal will need to move joystick first, then trial starts
-            endcase
-            joystickHasBeenCentered% := 0;  'Reset to not-been-centered default
-        endif;
-        
-        
-    case iState% = stateWaitForJoystickInRight% then  'note that except for the "blinking fixation" training stage, in all
-        'other stages the program will wait here for the joystick.  As of now
-        'there are no lazy penalties being imagined
-        'printlog("Joystick is in position %d\n",Answer%(JoyChannel%,tNow));
-        'check to make sure fixation has been maintained, if required. ONLY required here under training v.2 (fixation training)
-        if caRequireFixation% = 1 and caTrainingOptions% = 2 and Looking%(xEye, yEye) <> 1 then
-            PrintLog("stateWaitForJoystickInRight: failed, broke fixation\n");
-            ChangeStateTo(stateAbort%, tNow);
-            joystickHasBeenCentered% := 1;  'presumably joystick has not gone right yet
-        endif;
-        tempanswer% := Answer%(JoyChannel%,tNow);
-        if tempanswer% = 3 then  'if joystick is in right
-            PrintLog("stateWaitForJoystickInRight: Joystick in right\n");
-            docase
-            case caTrainingOptions% = 0 then
-                caInterTrialTime2 := GetInterTrialTime(caInterTrialTime,caInterTrialTimeRand);
-                Reward%();
-                ChangeStateTo(stateTrialCompletedPause%,tNow);
-            case caTrainingOptions% = 1 then   
-                ChangeStateTo(stateHoldJoystickInRight%,tNow);
-            case caTrainingOptions% = 2 then  'if fixation is required to be held, that is done below.
-                ChangeStateTo(stateHoldJoystickInRight%,tNow);
-            case caTrainingOptions% > 2 then
-                ChangeStateTo(stateHoldJoystickInRight%,tNow);
-            endcase
-        endif;
-        if caTrainingOptions% = 2 then
-            'check to see if flashing fixation point should turn off due to the time it has been up
-            if tNow - tStateStart > caFixAlternationTime then  'turn off fixation on failure to get joystick
-                PrintLog("stateWaitForJoystickInRight: failed, fixpt time is over\n");
-                ChangeStateTo(stateTrainingFixPtOff%, tNow);
+            
+        case iState% = stateWaitForJoystickInCenter% then
+            
+            tempanswer% := Answer%(JoyChannel%,tNow);
+            'printlog("Joystick is in position %d\n",tempanswer% );
+            if tempanswer% = 2 or joystickHasBeenCentered% = 1 then  'if joystick is in center, or has previously been centered
+                'Allow dual report, but either case will advance the state
+                if joystickHasBeenCentered% = 1 then
+                    PrintLog("state stateWaitForJoystickInCenter: Joystick has previously been centered\n");
+                endif;
+                if tempanswer% = 2 then
+                    PrintLog("state stateWaitForJoystickInCenter: Joystick is in center\n");
+                endif;
+                docase
+                case caTrainingOptions% = 0 then
+                    ChangeStateTo(stateWaitForJoystickInRight%,tNow);
+                case caTrainingOptions% = 1 then   
+                    ChangeStateTo(stateWaitForJoystickInRight%,tNow);
+                case caTrainingOptions% = 2 then  'don't require acquisition until the fixpt is actually ON
+                    ChangeStateTo(stateStartTrial%,tNow);
+                case caTrainingOptions% > 2 then
+                    ChangeStateTo(stateWaitForJoystickInRight%,tNow);  'Animal will need to move joystick first, then trial starts
+                endcase
+                joystickHasBeenCentered% := 0;  'Reset to not-been-centered default
+            endif;
+            
+            
+        case iState% = stateWaitForJoystickInRight% then  'note that except for the "blinking fixation" training stage, in all
+            'other stages the program will wait here for the joystick.  As of now
+            'there are no lazy penalties being imagined
+            'printlog("Joystick is in position %d\n",Answer%(JoyChannel%,tNow));
+            'check to make sure fixation has been maintained, if required. ONLY required here under training v.2 (fixation training)
+            if caRequireFixation% = 1 and caTrainingOptions% = 2 and Looking%(xEye, yEye) <> 1 then
+                PrintLog("stateWaitForJoystickInRight: failed, broke fixation\n");
+                ChangeStateTo(stateAbort%, tNow);
                 joystickHasBeenCentered% := 1;  'presumably joystick has not gone right yet
             endif;
-        endif
-        
-        
-    case iState% = stateHoldJoystickInRight% then 
-        
-        if caRequireFixation% = 1 and caTrainingOptions% = 2 and Looking%(xEye, yEye) <> 1 then
-            PrintLog("stateHoldJoystickInRight: failed, broke fixation\n");
-            ChangeStateTo(stateAbort%, tNow);
-        endif;
-        
-        tempanswer% := Answer%(JoyChannel%,tNow);
-        if tempanswer% = 3 then  'if joystick is still in right
-            if tNow - tStateStart > caTrainingHoldTime then
-                caInterTrialTime2 := GetInterTrialTime(caInterTrialTime,caInterTrialTimeRand);
+            tempanswer% := Answer%(JoyChannel%,tNow);
+            if tempanswer% = 3 then  'if joystick is in right
+                PrintLog("stateWaitForJoystickInRight: Joystick in right\n");
                 docase
-                case caTrainingOptions% <= 2 then 'for early training, this goes to the reward pathway
-                    if caReturnForReward% = 0 then 'reward immediately
-                        Reward%();
-                        PrintLog("stateHoldJoystickInRight: Immediate Reward\n");
-                        if caTrainingOptions% = 2 then
-                            ChangeStateTo(stateTrainingFixPtOff%,tNow);
-                        else
-                            ChangeStateTo(stateTrialCompletedPause%,tNow);
-                        endif;
-                    else
-                        PrintLog("stateHoldJoystickInRight: Waiting for return to center\n");
-                        ChangeStateTo(stateWaitForJoystickInCenterAndReward%,tNow);
-                    endif
-                case caTrainingOptions% > 2 then 'but for later experiments, this initiates the trial
-                    PrintLog("stateHoldJoystickInRight: Starting Trial\n");
-                    ChangeStateTo(stateStartTrial%,tNow);  'turn on fixpt and start trial
+                case caTrainingOptions% = 0 then
+                    caInterTrialTime2 := GetInterTrialTime(caInterTrialTime,caInterTrialTimeRand);
+                    Reward%();
+                    ChangeStateTo(stateTrialCompletedPause%,tNow);
+                case caTrainingOptions% = 1 then   
+                    ChangeStateTo(stateHoldJoystickInRight%,tNow);
+                case caTrainingOptions% = 2 then  'if fixation is required to be held, that is done below.
+                    ChangeStateTo(stateHoldJoystickInRight%,tNow);
+                case caTrainingOptions% > 2 then
+                    ChangeStateTo(stateHoldJoystickInRight%,tNow);
                 endcase
             endif;
-        else 'do not give reward if joystick not held long enough, but do not assess any penalty
-            caInterTrialTime2 := GetInterTrialTime(caInterTrialTime,caInterTrialTimeRand);
-            docase
-            case caTrainingOptions% = 1 then  'simply start over for very early training (<1 is not legal here)
-                PrintLog("stateHoldJoystickInRight: failed.\n");
-                ChangeStateTo(stateTrialCompletedPause%,tNow);
-                'Joystick has been centered, but DO NOT indicate so - for reward-on-lever we need to ensure the timing is right, start everything fresh after ITI
-            case caTrainingOptions% = 2 then  'turn off fixation point and start again
-                PrintLog("stateHoldJoystickInRight: failed, fixpt off\n");
-                ChangeStateTo(stateTrainingFixPtOff%, tNow);
-                joystickHasBeenCentered% := 1;  'joystick centered before criterion time
-            case caTrainingOptions% > 2 then  'I think this should be an abort, but don't go to stateAbort because no fixation point is up and StateWaitForBlank will never end
-                PrintLog("stateHoldJoystickInRight: failed.\n");
-                ChangeStateTo(stateAbortWait%, tNow);  'go directly to StateAbortWait, do not need to turn off fixation point
-                joystickHasBeenCentered% := 1;  'joystick centered before criterion time
-            endcase
-        endif;
-        
-        
-        
-    case iState% = stateWaitForJoystickInCenterAndReward% then
-        
-        if caRequireFixation% = 1 and caTrainingOptions% = 2 and Looking%(xEye, yEye) <> 1 then  'caTrainingOptions MUST be 2 if caRequireFixation is 1, but I added the check here for consistency
-            PrintLog("stateWaitForJoystickInRight: failed, broke fixation\n");
-            ChangeStateTo(stateAbort%, tNow);
-        endif;        
-        
-        tempanswer% := Answer%(JoyChannel%,tNow);
-        'printlog("Joystick is in position %d\n",tempanswer% );
-        if tempanswer% = 2 then  'if joystick is in center
-            Reward%();
-            PrintLog("stateWaitForJoystickInCenterAndReward: Joystick in center, reward\n");
             if caTrainingOptions% = 2 then
-                ChangeStateTo(stateTrainingFixPtOff%,tNow);
-                joystickHasBeenCentered% := 1;  'joystick centered
-            else
-                ChangeStateTo(stateTrialCompletedPause%,tNow);
-                'Joystick has been centered, but DO NOT indicate so - for reward-on-lever we need to ensure the timing is right, start everything fresh after ITI
+                'check to see if flashing fixation point should turn off due to the time it has been up
+                if tNow - tStateStart > caFixAlternationTime then  'turn off fixation on failure to get joystick
+                    PrintLog("stateWaitForJoystickInRight: failed, fixpt time is over\n");
+                    ChangeStateTo(stateTrainingFixPtOff%, tNow);
+                    joystickHasBeenCentered% := 1;  'presumably joystick has not gone right yet
+                endif;
+            endif
+            
+            
+        case iState% = stateHoldJoystickInRight% then 
+            
+            if caRequireFixation% = 1 and caTrainingOptions% = 2 and Looking%(xEye, yEye) <> 1 then
+                PrintLog("stateHoldJoystickInRight: failed, broke fixation\n");
+                ChangeStateTo(stateAbort%, tNow);
             endif;
-        endif;        
-        
-        
-        
-    case iState% = stateStartTrial% then
-        
-        ' Start trial. Put up fixation point.
-        UpdateToolbarText();
-        PrepareTrial();
-        printlog("Starting trial #%d\n",caCurrTrialIndex%+1);
-        caCountAllTrials% += 1;
-        'SafeSampleKey("W");
-        docase
-        case trialType% = trialtypeAttendToward% then
-            caCountTowardTrials% += 1;
-        case trialType% = trialtypeAttendAway% then
-            caCountAwayTrials% += 1;
-        else
-            PrintLog("ERROR: Unknown trial type (" + str$(trialType%) + "\n");
-        endcase
-        PrintLog("stateStartTrial: Request Fixation Point\n");
-        SafeSampleKey("F");
-        ChangeStateTo(stateWaitForFixPtOn%, tNow);
-        
-        
-    case iState% = stateWaitForFixPtOn% then
-        tTrigger := View(DataWindow%).NextTime(FixationPointChannel%, tStateStart, vTrigger);
-        if tTrigger > tStateStart then
-            ' Fixation point is up
-            PrintLog("stateWaitForFixPtOn: signal received. " + str$(tTrigger) + "\n");
-            tLastTrigger := tTrigger;
-            if caRequireFixation% = 1 then
-                ChangeStateTo(stateWaitForAcquisition%, tTrigger);
-                DrawStim(1);	' this draws the location of the fixpt.
+            
+            tempanswer% := Answer%(JoyChannel%,tNow);
+            if tempanswer% = 3 then  'if joystick is still in right
+                if tNow - tStateStart > caTrainingHoldTime then
+                    caInterTrialTime2 := GetInterTrialTime(caInterTrialTime,caInterTrialTimeRand);
+                    docase
+                    case caTrainingOptions% <= 2 then 'for early training, this goes to the reward pathway
+                        if caReturnForReward% = 0 then 'reward immediately
+                            Reward%();
+                            PrintLog("stateHoldJoystickInRight: Immediate Reward\n");
+                            if caTrainingOptions% = 2 then
+                                ChangeStateTo(stateTrainingFixPtOff%,tNow);
+                            else
+                                ChangeStateTo(stateTrialCompletedPause%,tNow);
+                            endif;
+                        else
+                            PrintLog("stateHoldJoystickInRight: Waiting for return to center\n");
+                            ChangeStateTo(stateWaitForJoystickInCenterAndReward%,tNow);
+                        endif
+                    case caTrainingOptions% > 2 then 'but for later experiments, this initiates the trial
+                        PrintLog("stateHoldJoystickInRight: Starting Trial\n");
+                        ChangeStateTo(stateStartTrial%,tNow);  'turn on fixpt and start trial
+                        nextStateImmed% := 1;  'start trial ASAP
+                    endcase
+                endif;
+            else 'do not give reward if joystick not held long enough, but do not assess any penalty
+                caInterTrialTime2 := GetInterTrialTime(caInterTrialTime,caInterTrialTimeRand);
+                docase
+                case caTrainingOptions% = 1 then  'simply start over for very early training (<1 is not legal here)
+                    PrintLog("stateHoldJoystickInRight: failed.\n");
+                    ChangeStateTo(stateTrialCompletedPause%,tNow);
+                    'Joystick has been centered, but DO NOT indicate so - for reward-on-lever we need to ensure the timing is right, start everything fresh after ITI
+                case caTrainingOptions% = 2 then  'turn off fixation point and start again
+                    PrintLog("stateHoldJoystickInRight: failed, fixpt off\n");
+                    ChangeStateTo(stateTrainingFixPtOff%, tNow);
+                    joystickHasBeenCentered% := 1;  'joystick centered before criterion time
+                case caTrainingOptions% > 2 then  'I think this should be an abort, but don't go to stateAbort because no fixation point is up and StateWaitForBlank will never end
+                    PrintLog("stateHoldJoystickInRight: failed.\n");
+                    ChangeStateTo(stateAbortWait%, tNow);  'go directly to StateAbortWait, do not need to turn off fixation point
+                    joystickHasBeenCentered% := 1;  'joystick centered before criterion time
+                endcase
+            endif;
+            
+            
+            
+        case iState% = stateWaitForJoystickInCenterAndReward% then
+            
+            if caRequireFixation% = 1 and caTrainingOptions% = 2 and Looking%(xEye, yEye) <> 1 then  'caTrainingOptions MUST be 2 if caRequireFixation is 1, but I added the check here for consistency
+                PrintLog("stateWaitForJoystickInRight: failed, broke fixation\n");
+                ChangeStateTo(stateAbort%, tNow);
+            endif;        
+            
+            tempanswer% := Answer%(JoyChannel%,tNow);
+            'printlog("Joystick is in position %d\n",tempanswer% );
+            if tempanswer% = 2 then  'if joystick is in center
+                Reward%();
+                PrintLog("stateWaitForJoystickInCenterAndReward: Joystick in center, reward\n");
+                if caTrainingOptions% = 2 then
+                    ChangeStateTo(stateTrainingFixPtOff%,tNow);
+                    joystickHasBeenCentered% := 1;  'joystick centered
+                else
+                    ChangeStateTo(stateTrialCompletedPause%,tNow);
+                    'Joystick has been centered, but DO NOT indicate so - for reward-on-lever we need to ensure the timing is right, start everything fresh after ITI
+                endif;
+            endif;        
+            
+            
+            
+        case iState% = stateStartTrial% then
+            
+            ' Start trial. Put up fixation point.
+            UpdateToolbarText();
+            PrepareTrial();
+            printlog("Starting trial #%d\n",caCurrTrialIndex%+1);
+            caCountAllTrials% += 1;
+            'SafeSampleKey("W");
+            docase
+            case trialType% = trialtypeAttendToward% then
+                caCountTowardTrials% += 1;
+            case trialType% = trialtypeAttendAway% then
+                caCountAwayTrials% += 1;
             else
-                if caTrainingOptions% = 2 then  'this is normal, wait for joystick move to right
-                    ChangeStateTo(stateWaitForJoystickInRight%, tTrigger);
-                else  'if we are presenting stimuli with NO eyetracker, wait for the normal fixation period then start stimuli
+                PrintLog("ERROR: Unknown trial type (" + str$(trialType%) + "\n");
+            endcase
+            PrintLog("stateStartTrial: Request Fixation Point\n");
+            SafeSampleKey("F");
+            ChangeStateTo(stateWaitForFixPtOn%, tNow);
+            
+            
+        case iState% = stateWaitForFixPtOn% then
+            tTrigger := View(DataWindow%).NextTime(FixationPointChannel%, tStateStart, vTrigger);
+            if tTrigger > tStateStart then
+                ' Fixation point is up
+                PrintLog("stateWaitForFixPtOn: signal received. " + str$(tTrigger) + "\n");
+                tLastTrigger := tTrigger;
+                if caRequireFixation% = 1 then
+                    ChangeStateTo(stateWaitForAcquisition%, tTrigger);
+                    DrawStim(1);	' this draws the location of the fixpt.
+                else
+                    if caTrainingOptions% = 2 then  'this is normal, wait for joystick move to right
+                        ChangeStateTo(stateWaitForJoystickInRight%, tTrigger);
+                    else  'if we are presenting stimuli with NO eyetracker, wait for the normal fixation period then start stimuli
+                        ChangeStateTo(stateHoldFixationToStimOn%, tNow);
+                    endif;
+                endif;
+                if trialType% = trialtypeAttendToward% then
+                    SampleText("Fixation point on, Attend Toward",tTrigger);
+                else
+                    SampleText("Fixation point on, Attend Away",tTrigger);
+                endif;
+            endif
+            
+            
+        case iState% = stateWaitForAcquisition% then
+            'getPreciseTiming := 1;
+            ' Waiting for eye to fall inside of fixation window
+            if Looking%(xEye, yEye) = 1 then
+                PrintLog("stateWaitForAcquisition: eye in fixation window.\n");
+                SampleText("Fixation Acquired",tNow);
+                if caTrainingOptions% = 2 then  'there are no stimuli for training
+                    ChangeStateTo(stateWaitForJoystickInRight%, tNow);
+                    joystickHasBeenCentered% := 1;  'joystick not moved right yet
+                else
                     ChangeStateTo(stateHoldFixationToStimOn%, tNow);
+                    'joystick is in right for this state, so it has not been centered
+                endif
+                'getPreciseTiming := 0;
+            else 
+                if tNow - tStateStart > caAcquisitionTime then  'simple abort on failure to acquire
+                    PrintLog("stateWaitForAcquisition: failed.\n");
+                    ChangeStateTo(stateAbort%, tNow);
+                    'getPreciseTiming := 0;
+                endif
+            endif
+            
+            
+        case iState% = stateHoldFixationToStimOn% then  'by "stim" here we mean "animation"
+            
+            ' Eye must remain inside of fixation window and joystick must remain to right
+            tempanswer% := Answer%(JoyChannel%,tNow);
+            if (Looking%(xEye, yEye) = 1 or caRequireFixation% < 1) and tempanswer% = 3 then  'if eye position is OK AND joystick position is OK, wait for caFixationTime and start stimulus
+                if tNow - tStateStart > caFixationTime then
+                    PrintLog("stateHoldFixationToStimOn: Success. Gratings up...\n");
+                    SafeSampleKey("S");  'request animation
+                    ChangeStateTo(stateWaitForStimOn%, tNow);
+                endif
+            else 'if fixation/joystick hold fails before stim on, begin abort, check to see if it is a FA
+                docase
+                case tempanswer% = 2 or tempanswer% = 1 then  'if a response=2 (OR an overshot=1!) has occurred, quit while you're ahead
+                    docase
+                    case tempanswer% = 2 then 'return to center
+                        PrintLog("stateWaitForStimOn: joystick returned to center, aborting trial.\n");
+                        FAIsResponse% := 1;
+                        ChangeStateTo(stateAbort%, tNow);
+                        SampleText(Print$("Joystick not held, False Alarm response before stimulus on, trial aborted"),tNow);
+                        joystickHasBeenCentered% := 1;  'joystick centered by FA
+                    case tempanswer% = 1 then 'overshot
+                        PrintLog("stateWaitForStimOn: joystick moved to left, aborting trial.\n");
+                        FAIsResponse% := 1;
+                        ChangeStateTo(stateAbort%, tNow);
+                        SampleText(Print$("Joystick not held, False Alarm response all the way to left before stimulus on, trial aborted"),tNow);  
+                        joystickHasBeenCentered% := 1;  'joystick centered by FA - overshot is centering
+                    endcase;
+                case Looking%(xEye, yEye) = 0 and caRequireFixation% = 1 then  'no joystick move, but a fixation break
+                    PrintLog("stateWaitForStimOn: failure to hold fixation, aborting trial.\n");
+                    FAIsResponse% := 0;  'not a false alarm, just a fixation break
+                    ChangeStateTo(stateAbort%, tNow);
+                    SampleText(Print$("failure to hold fixation to stim on, trial aborted"),tNow); 
+                else  'keep checking until false alarm check window is closed, joystick is in intermediate state
+                    ChangeStateTo(stateCheckFalseAlarm%, tNow);
+                    temptext$ := "before stimulus on";
+                    'will check to see if joystick is centered later
+                endcase;
+            endif
+            
+            
+        case iState% = stateWaitForStimOn% then  'by "stim" here we mean "animation"
+            tTrigger := View(DataWindow%).NextTime(StimChannel%, tLastTrigger, vTrigger);
+            if tTrigger > tLastTrigger and vTrigger = 0 then
+                'animation is up
+                PrintLog("stateWaitForStimOn: animation has begun.\n");
+                tStimOn := tTrigger;
+                tLastTrigger := tTrigger;
+                ChangeStateTo(stateHoldFixationToCC%, tTrigger);
+                SampleText("Animation on", tTrigger);
+            endif
+            
+            
+        case iState% = stateTrainingFixPtOff% then 
+            
+            ' Signal "X" turns off fixpt and stimulus. The next state 'stateWaitForBlank' only checks for 
+            ' fixpt off. 
+            PrintLog("stateTrainingFixPtOff: send X key.\n");
+            SafeSampleKey("X");
+            if caRequireFixation% <> 0 then    
+                view(XYWindow%).XYColour(iFixationWindowChannel%,13);  'Force fixation window to blue
+            endif
+            
+            ChangeStateTo(stateWaitForBlankTraining%, tNow);
+            
+            
+        case iState% = stateWaitForBlankTraining% then
+            
+            ' we just wait for fix point off signal in this case. 
+            tTrigger := View(DataWindow%).NextTime(FixationPointChannel%, tLastTrigger, vTrigger);
+            if tTrigger > tLastTrigger then
+                ' Fixation point is off
+                PrintLog("stateWaitForBlankTraining: Fix pt is off.\n");
+                tLastTrigger := tTrigger; 
+                ChangeStateTo(stateTrainingWait%, tNow);                
+            endif
+            
+            
+            
+        case iState% = stateAbort% then
+            
+            ' Signal "X" turns off fixpt and stimulus. The next state 'stateWaitForBlank' only checks for 
+            ' fixpt off. 
+            PrintLog("stateAbort: send X key.\n");
+            SafeSampleKey("X");
+            
+            if caRequireFixation% <> 0 then 
+                view(XYWindow%).XYColour(iFixationWindowChannel%,13);  'Force fixation window to blue
+                'answer windows
+                if caTrainingOptions% > 2 then
+                    view(XYWindow%).XYColour(iAnswerWindowChannelMain%,13);  'Force main stimulus answer window to blue
+                    view(XYWindow%).XYColour(iAnswerWindowChannelDist1%,13);  'Force distracter1 answer window to blue
                 endif;
             endif;
-            if trialType% = trialtypeAttendToward% then
-                SampleText("Fixation point on, Attend Toward",tTrigger);
-            else
-                SampleText("Fixation point on, Attend Away",tTrigger);
-            endif;
-        endif
-        
-        
-    case iState% = stateWaitForAcquisition% then
-        'getPreciseTiming := 1;
-        ' Waiting for eye to fall inside of fixation window
-        if Looking%(xEye, yEye) = 1 then
-            PrintLog("stateWaitForAcquisition: eye in fixation window.\n");
-            SampleText("Fixation Acquired",tNow);
-            if caTrainingOptions% = 2 then  'there are no stimuli for training
-                ChangeStateTo(stateWaitForJoystickInRight%, tNow);
-                joystickHasBeenCentered% := 1;  'joystick not moved right yet
-            else
-                ChangeStateTo(stateHoldFixationToStimOn%, tNow);
-                'joystick is in right for this state, so it has not been centered
-            endif
-            'getPreciseTiming := 0;
-        else 
-            if tNow - tStateStart > caAcquisitionTime then  'simple abort on failure to acquire
-                PrintLog("stateWaitForAcquisition: failed.\n");
-                ChangeStateTo(stateAbort%, tNow);
-                'getPreciseTiming := 0;
-            endif
-        endif
-        
-        
-    case iState% = stateHoldFixationToStimOn% then  'by "stim" here we mean "animation"
-        
-        ' Eye must remain inside of fixation window and joystick must remain to right
-        tempanswer% := Answer%(JoyChannel%,tNow);
-        if (Looking%(xEye, yEye) = 1 or caRequireFixation% < 1) and tempanswer% = 3 then  'if eye position is OK AND joystick position is OK, wait for caFixationTime and start stimulus
-            if tNow - tStateStart > caFixationTime then
-                PrintLog("stateHoldFixationToStimOn: Success. Gratings up...\n");
-                SafeSampleKey("S");  'request animation
-                ChangeStateTo(stateWaitForStimOn%, tNow);
-            endif
-        else 'if fixation/joystick hold fails before stim on, begin abort, check to see if it is a FA
+            
+            
+            ' tally up aborted trials, right now not distinguishing between response aborts and regular aborts
+            caCountAllTrialsAbort% += 1;
             docase
-            case tempanswer% = 2 or tempanswer% = 1 then  'if a response=2 (OR an overshot=1!) has occurred, quit while you're ahead
+            case trialType% = trialtypeAttendToward% then
+                caCountTowardTrialsAbort% += 1;
+            case trialType% = trialtypeAttendAway% then
+                caCountAwayTrialsAbort% += 1;
+            else 
+                PrintLog("ERROR: Unknown trial type (" + str$(trialType%) + ")\n");
+            endcase
+            
+            ' move on
+            ChangeStateTo(stateWaitForBlank%, tStateStart);  'don't update time, carry forward
+            
+            
+        case iState% = stateWaitForBlank% then
+            
+            ' we just wait for fix point off signal in this case. 
+            tTrigger := View(DataWindow%).NextTime(FixationPointChannel%, tLastTrigger, vTrigger);
+            if tTrigger > tLastTrigger then
+                ' Fixation point is off
+                PrintLog("stateWaitForBlank: Fix pt is off.\n");
+                tLastTrigger := tTrigger;
+                if FAIsResponse% = 1 then
+                    FAIsResponse% := 0;
+                    ChangeStateTo(stateFalseAlarmWait%, tTrigger);
+                    'advance on false alarm
+                    SafeSampleKey("a");  'this is the only place to get into stateFalseAlarmWait, so advance here is fine
+                else                
+                    ChangeStateTo(stateAbortWait%, tStateStart);  'don't update time, "credits" for time served
+                endif;
+                if caRequireFixation% <> 0 then
+                    DrawStim(0);	' this undraws the location of the fixpt.
+                endif;
+            endif
+            
+            
+            
+        case iState% = stateAbortWait% then
+            
+            'If joystick has not been centered, allow any centering here to count
+            if joystickHasBeenCentered% = 0 then
+                tempanswer% := Answer%(JoyChannel%,tNow);
+                'printlog("Joystick is in position %d\n",tempanswer% );
+                if tempanswer% = 2 then
+                    joystickHasBeenCentered% := 1;
+                endif
+            endif
+            
+            if abortIsPostCC% = 0 then
+                if tNow - tStateStart > caAbortWaitTime then
+                    PrintLog("stateAbortWait: time out is done.\n");
+                    ChangeStateTo(stateWaitForJoystickInCenter%, tNow);
+                endif
+            else
+                if tNow - tStateStart > caAbort2WaitTime then
+                    PrintLog("stateAbortWait: time out is done (post-CC abort).\n");
+                    ChangeStateTo(stateWaitForJoystickInCenter%, tNow);
+                    abortIsPostCC% := 0;
+                endif
+            endif
+            
+            
+            
+            
+        case iState% = stateCheckFalseAlarm% then
+            
+            if tNow - tStateStart < caFalseAlarmCheckWindow then
+                tempanswer% := Answer%(JoyChannel%,tNow);
                 docase
                 case tempanswer% = 2 then 'return to center
-                    PrintLog("stateWaitForStimOn: joystick returned to center, aborting trial.\n");
+                    PrintLog("stateCheckFalseAlarm: joystick returned to center, aborting trial.\n");
                     FAIsResponse% := 1;
                     ChangeStateTo(stateAbort%, tNow);
                     SampleText(Print$("Joystick not held, False Alarm response before stimulus on, trial aborted"),tNow);
                     joystickHasBeenCentered% := 1;  'joystick centered by FA
                 case tempanswer% = 1 then 'overshot
-                    PrintLog("stateWaitForStimOn: joystick moved to left, aborting trial.\n");
+                    PrintLog("stateCheckFalseAlarm: joystick moved to left, aborting trial.\n");
                     FAIsResponse% := 1;
                     ChangeStateTo(stateAbort%, tNow);
-                    SampleText(Print$("Joystick not held, False Alarm response all the way to left before stimulus on, trial aborted"),tNow);  
+                    SampleText(Print$("Joystick not held, False Alarm response all the way to left before stimulus on, trial aborted"),tNow); 
                     joystickHasBeenCentered% := 1;  'joystick centered by FA - overshot is centering
                 endcase;
-            case Looking%(xEye, yEye) = 0 and caRequireFixation% = 1 then  'no joystick move, but a fixation break
-                PrintLog("stateWaitForStimOn: failure to hold fixation, aborting trial.\n");
-                FAIsResponse% := 0;  'not a false alarm, just a fixation break
-                ChangeStateTo(stateAbort%, tNow);
-                SampleText(Print$("failure to hold fixation to stim on, trial aborted"),tNow); 
-            else  'keep checking until false alarm check window is closed, joystick is in intermediate state
-                ChangeStateTo(stateCheckFalseAlarm%, tNow);
-                temptext$ := "before stimulus on";
-                'will check to see if joystick is centered later
-            endcase;
-        endif
-        
-        
-    case iState% = stateWaitForStimOn% then  'by "stim" here we mean "animation"
-        tTrigger := View(DataWindow%).NextTime(StimChannel%, tLastTrigger, vTrigger);
-        if tTrigger > tLastTrigger and vTrigger = 0 then
-            'animation is up
-            PrintLog("stateWaitForStimOn: animation has begun.\n");
-            tStimOn := tTrigger;
-            tLastTrigger := tTrigger;
-            ChangeStateTo(stateHoldFixationToCC%, tTrigger);
-            SampleText("Animation on", tTrigger);
-        endif
-        
-        
-    case iState% = stateTrainingFixPtOff% then 
-        
-        ' Signal "X" turns off fixpt and stimulus. The next state 'stateWaitForBlank' only checks for 
-        ' fixpt off. 
-        PrintLog("stateTrainingFixPtOff: send X key.\n");
-        SafeSampleKey("X");
-        if caRequireFixation% <> 0 then    
-            view(XYWindow%).XYColour(iFixationWindowChannel%,13);  'Force fixation window to blue
-        endif
-        
-        ChangeStateTo(stateWaitForBlankTraining%, tNow);
-        
-        
-    case iState% = stateWaitForBlankTraining% then
-        
-        ' we just wait for fix point off signal in this case. 
-        tTrigger := View(DataWindow%).NextTime(FixationPointChannel%, tLastTrigger, vTrigger);
-        if tTrigger > tLastTrigger then
-            ' Fixation point is off
-            PrintLog("stateWaitForBlankTraining: Fix pt is off.\n");
-            tLastTrigger := tTrigger; 
-            ChangeStateTo(stateTrainingWait%, tNow);                
-        endif
-        
-        
-        
-    case iState% = stateAbort% then
-        
-        ' Signal "X" turns off fixpt and stimulus. The next state 'stateWaitForBlank' only checks for 
-        ' fixpt off. 
-        PrintLog("stateAbort: send X key.\n");
-        SafeSampleKey("X");
-        
-        if caRequireFixation% <> 0 then 
-            view(XYWindow%).XYColour(iFixationWindowChannel%,13);  'Force fixation window to blue
-            'answer windows
-            if caTrainingOptions% > 2 then
-            view(XYWindow%).XYColour(iAnswerWindowChannelMain%,13);  'Force main stimulus answer window to blue
-            view(XYWindow%).XYColour(iAnswerWindowChannelDist1%,13);  'Force distracter1 answer window to blue
-        endif;
-        endif;
-        
-        
-        ' tally up aborted trials, right now not distinguishing between response aborts and regular aborts
-        caCountAllTrialsAbort% += 1;
-        docase
-        case trialType% = trialtypeAttendToward% then
-            caCountTowardTrialsAbort% += 1;
-        case trialType% = trialtypeAttendAway% then
-            caCountAwayTrialsAbort% += 1;
-        else 
-            PrintLog("ERROR: Unknown trial type (" + str$(trialType%) + ")\n");
-        endcase
-        
-        ' move on
-        ChangeStateTo(stateWaitForBlank%, tStateStart);  'don't update time, carry forward
-        
-        
-    case iState% = stateWaitForBlank% then
-        
-        ' we just wait for fix point off signal in this case. 
-        tTrigger := View(DataWindow%).NextTime(FixationPointChannel%, tLastTrigger, vTrigger);
-        if tTrigger > tLastTrigger then
-            ' Fixation point is off
-            PrintLog("stateWaitForBlank: Fix pt is off.\n");
-            tLastTrigger := tTrigger;
-            if FAIsResponse% = 1 then
-                FAIsResponse% := 0;
-                ChangeStateTo(stateFalseAlarmWait%, tTrigger);
-                'advance on false alarm
-                SafeSampleKey("a");  'this is the only place to get into stateFalseAlarmWait, so advance here is fine
-            else                
-                ChangeStateTo(stateAbortWait%, tStateStart);  'don't update time, "credits" for time served
+            else 'credit the animal for time served on the abort if it's not a response
+                PrintLog("stateCheckFalseAlarm: no response in window, aborting trial.\n");
+                ChangeStateTo(stateAbort%, tNow-caFalseAlarmCheckWindow); 
+                SampleText("Fixation broken, no response, trial aborted",tNow);
             endif;
-            if caRequireFixation% <> 0 then
-                DrawStim(0);	' this undraws the location of the fixpt.
-            endif;
-        endif
-        
-        
-        
-    case iState% = stateAbortWait% then
-        
-        'If joystick has not been centered, allow any centering here to count
-        if joystickHasBeenCentered% = 0 then
-            tempanswer% := Answer%(JoyChannel%,tNow);
-            'printlog("Joystick is in position %d\n",tempanswer% );
-            if tempanswer% = 2 then
-                joystickHasBeenCentered% := 1;
-            endif
-        endif
-        
-        if tNow - tStateStart > caAbortWaitTime then
-            PrintLog("stateAbortWait: time out is done.\n");
-            ChangeStateTo(stateWaitForJoystickInCenter%, tNow);
-        endif
-        
-        
-        
-    case iState% = stateCheckFalseAlarm% then
-        
-        if tNow - tStateStart < caFalseAlarmCheckWindow then
-            tempanswer% := Answer%(JoyChannel%,tNow);
-            docase
-            case tempanswer% = 2 then 'return to center
-                PrintLog("stateCheckFalseAlarm: joystick returned to center, aborting trial.\n");
-                FAIsResponse% := 1;
-                ChangeStateTo(stateAbort%, tNow);
-                SampleText(Print$("Joystick not held, False Alarm response before stimulus on, trial aborted"),tNow);
-                joystickHasBeenCentered% := 1;  'joystick centered by FA
-            case tempanswer% = 1 then 'overshot
-                PrintLog("stateCheckFalseAlarm: joystick moved to left, aborting trial.\n");
-                FAIsResponse% := 1;
-                ChangeStateTo(stateAbort%, tNow);
-                SampleText(Print$("Joystick not held, False Alarm response all the way to left before stimulus on, trial aborted"),tNow); 
-                joystickHasBeenCentered% := 1;  'joystick centered by FA - overshot is centering
-            endcase;
-        else 'credit the animal for time served on the abort if it's not a response
-            PrintLog("stateCheckFalseAlarm: no response in window, aborting trial.\n");
-            ChangeStateTo(stateAbort%, tNow-caFalseAlarmCheckWindow); 
-            SampleText("Fixation broken, no response, trial aborted",tNow);
-        endif;
-        
-        
-    case iState% = stateFalseAlarmWait% then
-        
-        if tNow - tStateStart > caFalseAlarmWaitTime then
-            PrintLog("stateFalseAlarmWait: time out is done.\n");
-            ChangeStateTo(stateTrialCompleted%, tNow);
-        endif        
-        
-        
-    case iState% = stateHoldFixationToCC% then
-        
-        tempanswer% := Answer%(JoyChannel%,tNow);
-        docase            
-        case (Looking%(xEye, yEye) = 0 and caRequireFixation% = 1) or tempanswer% <> 3 then  'if fixation broken/joystick moved, begin abort procedure, check to see if it's a FA
-            docase
-            case tempanswer% = 2 then 'answer
-                PrintLog("stateHoldFixationToCC: false alarm before contrast change, aborting trial.\n");
-                FAIsResponse% := 1;
-                ChangeStateTo(stateAbort%, tNow);
-                SampleText(Print$("False Alarm before contrast change, trial aborted"),tNow);
-                joystickHasBeenCentered% := 1;  'joystick centered by FA
-            case tempanswer% = 1 then 'answer and overshot
-                PrintLog("stateHoldFixationToCC: false alarm and overshot before contrast change, aborting trial.\n");
-                FAIsResponse% := 1;
-                ChangeStateTo(stateAbort%, tNow);
-                SampleText(Print$("False Alarm and overshot before contrast change, trial aborted"),tNow);
-                joystickHasBeenCentered% := 1;  'joystick centered by FA - overshot is centering
-            case Looking%(xEye, yEye) = 0 and caRequireFixation% = 1 then  'no joystick move, but a fixation break
-                PrintLog("stateHoldFixationToCC: failure to hold fixation, aborting trial.\n");
-                FAIsResponse% := 0;  'not a false alarm, just a fixation break
-                ChangeStateTo(stateAbort%, tNow);
-                SampleText(Print$("failure to hold fixation to contrast change, trial aborted"),tNow); 
-            else  'keep checking, joystick is in intermediate position
-                ChangeStateTo(stateCheckFalseAlarm%, tNow);
-                temptext$ := "before contrast change";
-                'will check for centering later
-            endcase;
             
-        else 
-            if (tNow - tStateStart) > (trialHazardFunctionTime) then
-                ' we no longer turn off stimulus and advance it, but we DO allow response now
-                ChangeStateTo(stateWaitForAnswer%, tStateStart+trialHazardFunctionTime);  'this will be the precise time rather than the "noticed" time
-                'This docase sets the color of the changed location to red on the "monitor screen"
-                docase
-                case trialIsTarget% = 0 then
-                    view(XYWindow%).XYColour(iFixationWindowChannel%,16);  'Change fixation window to red
-                case trialIsTarget% = 1 then
-                    view(XYWindow%).XYColour(iAnswerWindowChannelMain%,16);  'Change main window to red
-                case trialIsTarget% = 2 then
-                    view(XYWindow%).XYColour(iAnswerWindowChannelDist1%,16);  'Change dist1 window to red
-                endcase
-                'This docase does the appropriate SampleTexting
-                docase
-                case trialType% = trialtypeAttendToward% then
-                    if trialIsTarget% > 0 then
-                        if trialCatch% = 0 then
-                            Sampletext("Contrast Change, Level " + Str$(thisContrast%) + ", Attend Toward",tTrigger+trialHazardFunctionTime);
-                        else
-                            Sampletext("Contrast Change, Level " + Str$(thisContrast%) + ", Attend Toward (catch)",tTrigger+trialHazardFunctionTime);
-                        endif
-                    else
-                        Sampletext("Attend Toward, No Contrast Change",tTrigger+trialHazardFunctionTime);
-                    endif
-                case trialType% = trialtypeAttendAway% then
-                    if trialIsTarget% > 0 then
-                        if trialCatch% = 0 then
-                            Sampletext("Contrast Change, Level " + Str$(thisContrast%) + ", Attend Away",tTrigger+trialHazardFunctionTime);
-                        else
-                            Sampletext("Contrast Change, Level " + Str$(thisContrast%) + ", Attend Away (catch)",tTrigger+trialHazardFunctionTime);
-                        endif
-                    else
-                        Sampletext("Attend Away, No Contrast Change",tTrigger+trialHazardFunctionTime);
-                    endif
-                else
-                    'if there are no-attend conditions, they will go in here.
-                    PrintLog("ERROR! Unknown blocktype!!!\n");    'could change this, if it's ever relevant
-                    Sampletext("Contrast Change, no-attend condition",tTrigger+trialHazardFunctionTime);
-                endcase
-            endif
             
-        endcase
-        
-        
-        
-    case iState% = stateWaitForAnswer% then
-        'getPreciseTiming := 1;  'we need precise timing here, stay in while loop until we get eye movements we expect
-        if tNow - tStimOn > totalStimDur then  'no response, stimulus over, at this point we don't care where the eye position is
-            SafeSampleKey("X");  'turn off animation (also kills fixation point, animation is probably already off here)
-            if trialIsTarget% > 0 then 'GO trial, expected response
-                PrintLog("stateWaitForAnswer: no response on go trial, miss\n");
-                if trialType% = trialtypeAttendToward% then
-                    SampleText("Miss, Attend Toward",tNow);
-                else
-                    SampleText("Miss, Attend Away",tNow);
-                endif;
-                ChangeStateTo(stateMiss%, tNow); 'go to miss penalty
-                SafeSampleKey("a");  'advance stimulus, won't happen anywhere else
-                'joystick is not yet centered
-            else
-                PrintLog("stateWaitForAnswer: no response on no-go trial, correct rejection\n");
-                if trialType% = trialtypeAttendToward% then
-                    SampleText("Correct Rejection, Attend Toward",tNow);
-                else
-                    SampleText("Correct Rejection, Attend Away",tNow);
-                endif;
-                caInterTrialTime2 := GetInterTrialTime(caInterTrialTime,caInterTrialTimeRand);
-                Reward%();
-                ChangeStateTo(stateTrialCompletedWaitForBlank%, tNow);  'stateTrialCompletedWaitForBlank will advance
-                'joystick is not yet centered
-            endif;
-        else
-            'Stimulus is still on, response window is still open...
-            iAnswer% := Answer%(JoyChannel%,tNow);  'get answer
-            docase
-            case Looking%(xEye, yEye) = 0 and caRequireFixation% = 1 then  'if fixation broken, abort
-                SafeSampleKey("s");
-                SampleText("Fixation broken during response window",tNow);
-                PrintLog("stateWaitForAnswer: fix broken - turn off stim\n");
-                ChangeStateTo(stateAbort%, tNow);
-                
-            case iAnswer% = 2 or iAnswer% = 1 then
-                ' Got an answer. Record marker for correct/incorrect answer
-                if iAnswer% = 2 then
-                    printlog("Got answer\n");
-                    caIsOvershot$ := "";  'back to center, all good
-                    joystickHasBeenCentered% := 1;  'joystick centered by answer
-                else
-                    printlog("Got answer, overshot\n");
-                    caIsOvershot$ := ", Overshot";  'over center, note overshot
+        case iState% = stateFalseAlarmWait% then
+            
+            if tNow - tStateStart > caFalseAlarmWaitTime then
+                PrintLog("stateFalseAlarmWait: time out is done.\n");
+                ChangeStateTo(stateTrialCompleted%, tNow);
+            endif        
+            
+            
+        case iState% = stateHoldFixationToCC% then
+            
+            tempanswer% := Answer%(JoyChannel%,tNow);
+            docase            
+            case (Looking%(xEye, yEye) = 0 and caRequireFixation% = 1) or tempanswer% <> 3 then  'if fixation broken/joystick moved, begin abort procedure, check to see if it's a FA
+                docase
+                case tempanswer% = 2 then 'answer
+                    PrintLog("stateHoldFixationToCC: false alarm before contrast change, aborting trial.\n");
+                    FAIsResponse% := 1;
+                    ChangeStateTo(stateAbort%, tNow);
+                    SampleText(Print$("False Alarm before contrast change, trial aborted"),tNow);
+                    joystickHasBeenCentered% := 1;  'joystick centered by FA
+                case tempanswer% = 1 then 'answer and overshot
+                    PrintLog("stateHoldFixationToCC: false alarm and overshot before contrast change, aborting trial.\n");
+                    FAIsResponse% := 1;
+                    ChangeStateTo(stateAbort%, tNow);
+                    SampleText(Print$("False Alarm and overshot before contrast change, trial aborted"),tNow);
                     joystickHasBeenCentered% := 1;  'joystick centered by FA - overshot is centering
+                case Looking%(xEye, yEye) = 0 and caRequireFixation% = 1 then  'no joystick move, but a fixation break
+                    PrintLog("stateHoldFixationToCC: failure to hold fixation, aborting trial.\n");
+                    FAIsResponse% := 0;  'not a false alarm, just a fixation break
+                    ChangeStateTo(stateAbort%, tNow);
+                    SampleText(Print$("failure to hold fixation to contrast change, trial aborted"),tNow); 
+                else  'keep checking, joystick is in intermediate position
+                    ChangeStateTo(stateCheckFalseAlarm%, tNow);
+                    temptext$ := "before contrast change";
+                    'will check for centering later
+                endcase;
+                
+            else 
+                if (tNow - tStateStart) > (trialHazardFunctionTime) then
+                    ' we no longer turn off stimulus and advance it, but we DO allow response now
+                    ChangeStateTo(stateWaitForAnswer%, tStateStart+trialHazardFunctionTime);  'this will be the precise time rather than the "noticed" time
+                    'This docase sets the color of the changed location to red on the "monitor screen"
+                    docase
+                    case trialIsTarget% = 0 then
+                        view(XYWindow%).XYColour(iFixationWindowChannel%,16);  'Change fixation window to red
+                    case trialIsTarget% = 1 then
+                        view(XYWindow%).XYColour(iAnswerWindowChannelMain%,16);  'Change main window to red
+                    case trialIsTarget% = 2 then
+                        view(XYWindow%).XYColour(iAnswerWindowChannelDist1%,16);  'Change dist1 window to red
+                    endcase
+                    'This docase does the appropriate SampleTexting
+                    docase
+                    case trialType% = trialtypeAttendToward% then
+                        if trialIsTarget% > 0 then
+                            if trialCatch% = 0 then
+                                Sampletext("Contrast Change, Level " + Str$(thisContrast%) + ", Attend Toward",tTrigger+trialHazardFunctionTime);
+                            else
+                                Sampletext("Contrast Change, Level " + Str$(thisContrast%) + ", Attend Toward (catch)",tTrigger+trialHazardFunctionTime);
+                            endif
+                        else
+                            Sampletext("Attend Toward, No Contrast Change",tTrigger+trialHazardFunctionTime);
+                        endif
+                    case trialType% = trialtypeAttendAway% then
+                        if trialIsTarget% > 0 then
+                            if trialCatch% = 0 then
+                                Sampletext("Contrast Change, Level " + Str$(thisContrast%) + ", Attend Away",tTrigger+trialHazardFunctionTime);
+                            else
+                                Sampletext("Contrast Change, Level " + Str$(thisContrast%) + ", Attend Away (catch)",tTrigger+trialHazardFunctionTime);
+                            endif
+                        else
+                            Sampletext("Attend Away, No Contrast Change",tTrigger+trialHazardFunctionTime);
+                        endif
+                    else
+                        'if there are no-attend conditions, they will go in here.
+                        PrintLog("ERROR! Unknown blocktype!!!\n");    'could change this, if it's ever relevant
+                        Sampletext("Contrast Change, no-attend condition",tTrigger+trialHazardFunctionTime);
+                    endcase
                 endif
                 
-                docase
-                case trialIsTarget% > 0 then  'this is a GO trial, so this is a hit
-                    SafeSampleKey("X");  'turn off stimulus first thing
-                    caCountAllTrialsCorrect% += 1;
-                    caInterTrialTime2 := GetInterTrialTime(caInterTrialTime,caInterTrialTimeRand);
-                    docase
-                    case trialType% = trialtypeAttendToward% then
-                        caCountTowardTrialsCorrect% += 1;
-                        SampleText("Hit, Attend Toward" + caIsOvershot$,tNow);
-                    case trialType% = trialtypeAttendAway% then
-                        caCountAwayTrialsCorrect% += 1;
-                        SampleText("Hit, Attend Away" + caIsOvershot$,tNow);
-                    else
-                        PrintLog("ERROR: Unknown trial type (" + str$(trialType%) + "\n");
-                        SampleText("Hit, Unknown trial type" + caIsOvershot$,tNow);
-                    endcase
-                    'getPreciseTiming := 0;
-                    Reward%();
-                    ChangeStateTo(stateTrialCompletedWaitForBlank%, tNow); 
-                else  'it's a NO-GO trial, and we got an answer
-                    'stimulus will be turned off in stateAbort, do not give "X"
-                    caCountAllTrialsIncorrect% += 1;
-                    caInterTrialTime2 := GetInterTrialTime(caInterTrialTime,caInterTrialTimeRand) + caMissPenalty;
-                    docase
-                    case trialType% = trialtypeAttendToward% then
-                        caCountTowardTrialsIncorrect% += 1;
-                        SampleText("False Alarm, Attend Toward" + caIsOvershot$,tNow);
-                    case trialType% = trialtypeAttendAway% then
-                        caCountAwayTrialsIncorrect% += 1;
-                        SampleText("False Alarm, Attend Away" + caIsOvershot$,tNow);
-                    else
-                        PrintLog("ERROR: Unknown trial type (" + str$(trialType%) + "\n");
-                        SampleText("False Alarm, Unknown trial type" + caIsOvershot$,tNow);
-                    endcase
-                    'getPreciseTiming := 0;
-                    FAIsResponse% := 1;
-                    ChangeStateTo(stateAbort%,tNow);  
-                    
-                endcase
             endcase
-        endif
-        
-        
-        
-    case iState% = stateTrialCompletedWaitForBlank% then
-        
-        ' we just wait for fix point off signal in this case. 
-        tTrigger := View(DataWindow%).NextTime(FixationPointChannel%, tLastTrigger, vTrigger);
-        if tTrigger > tLastTrigger then
-            ' Fixation point is off
-            PrintLog("stateTrialCompleteWaitForBlank: Fix pt is off.\n");
-            tLastTrigger := tTrigger;
-            'advance
-            SafeSampleKey("a");
-            ChangeStateTo(stateTrialCompletedPause%, tTrigger);
-            if caRequireFixation% <> 0 then
-                DrawStim(0);	' this undraws the location of the fixpt.
-            endif;
-        endif
-        
-        
-        
-    case iState% = stateMiss% then
-        
-        'If joystick has not been centered, allow any centering here to count
-        if joystickHasBeenCentered% = 0 then
-            tempanswer% := Answer%(JoyChannel%,tNow);
-            'printlog("Joystick is in position %d\n",tempanswer% );
-            if tempanswer% = 2 then
-                joystickHasBeenCentered% := 1;
+            
+            
+            
+        case iState% = stateWaitForAnswer% then
+            'getPreciseTiming := 1;  'we need precise timing here, stay in while loop until we get eye movements we expect
+            if tNow - tStimOn > totalStimDur then  'no response, stimulus over, at this point we don't care where the eye position is
+                SafeSampleKey("X");  'turn off animation (also kills fixation point, animation is probably already off here)
+                if trialIsTarget% > 0 then 'GO trial, expected response
+                    PrintLog("stateWaitForAnswer: no response on go trial, miss\n");
+                    if trialType% = trialtypeAttendToward% then
+                        SampleText("Miss, Attend Toward",tNow);
+                    else
+                        SampleText("Miss, Attend Away",tNow);
+                    endif;
+                    ChangeStateTo(stateMiss%, tNow); 'go to miss penalty
+                    SafeSampleKey("a");  'advance stimulus, won't happen anywhere else
+                    'joystick is not yet centered
+                else
+                    PrintLog("stateWaitForAnswer: no response on no-go trial, correct rejection\n");
+                    if trialType% = trialtypeAttendToward% then
+                        SampleText("Correct Rejection, Attend Toward",tNow);
+                    else
+                        SampleText("Correct Rejection, Attend Away",tNow);
+                    endif;
+                    caInterTrialTime2 := GetInterTrialTime(caInterTrialTime,caInterTrialTimeRand);
+                    Reward%();
+                    ChangeStateTo(stateTrialCompletedWaitForBlank%, tNow);  'stateTrialCompletedWaitForBlank will advance
+                    'joystick is not yet centered
+                endif;
+            else
+                'Stimulus is still on, response window is still open...
+                iAnswer% := Answer%(JoyChannel%,tNow);  'get answer
+                docase
+                case Looking%(xEye, yEye) = 0 and caRequireFixation% = 1 then  'if fixation broken, abort
+                    SafeSampleKey("s");
+                    SampleText("Fixation broken during response window",tNow);
+                    PrintLog("stateWaitForAnswer: fix broken - turn off stim\n");
+                    ChangeStateTo(stateAbort%, tNow);
+                    abortIsPostCC% := 1;
+                    
+                case iAnswer% = 2 or iAnswer% = 1 then
+                    ' Got an answer. Record marker for correct/incorrect answer
+                    if iAnswer% = 2 then
+                        printlog("Got answer\n");
+                        caIsOvershot$ := "";  'back to center, all good
+                        joystickHasBeenCentered% := 1;  'joystick centered by answer
+                    else
+                        printlog("Got answer, overshot\n");
+                        caIsOvershot$ := ", Overshot";  'over center, note overshot
+                        joystickHasBeenCentered% := 1;  'joystick centered by FA - overshot is centering
+                    endif
+                    
+                    docase
+                    case trialIsTarget% > 0 then  'this is a GO trial, so this is a hit
+                        SafeSampleKey("X");  'turn off stimulus first thing
+                        caCountAllTrialsCorrect% += 1;
+                        caInterTrialTime2 := GetInterTrialTime(caInterTrialTime,caInterTrialTimeRand);
+                        docase
+                        case trialType% = trialtypeAttendToward% then
+                            caCountTowardTrialsCorrect% += 1;
+                            SampleText("Hit, Attend Toward" + caIsOvershot$,tNow);
+                        case trialType% = trialtypeAttendAway% then
+                            caCountAwayTrialsCorrect% += 1;
+                            SampleText("Hit, Attend Away" + caIsOvershot$,tNow);
+                        else
+                            PrintLog("ERROR: Unknown trial type (" + str$(trialType%) + "\n");
+                            SampleText("Hit, Unknown trial type" + caIsOvershot$,tNow);
+                        endcase
+                        'getPreciseTiming := 0;
+                        Reward%();
+                        ChangeStateTo(stateTrialCompletedWaitForBlank%, tNow); 
+                    else  'it's a NO-GO trial, and we got an answer
+                        'stimulus will be turned off in stateAbort, do not give "X"
+                        caCountAllTrialsIncorrect% += 1;
+                        caInterTrialTime2 := GetInterTrialTime(caInterTrialTime,caInterTrialTimeRand) + caMissPenalty;
+                        docase
+                        case trialType% = trialtypeAttendToward% then
+                            caCountTowardTrialsIncorrect% += 1;
+                            SampleText("False Alarm, Attend Toward" + caIsOvershot$,tNow);
+                        case trialType% = trialtypeAttendAway% then
+                            caCountAwayTrialsIncorrect% += 1;
+                            SampleText("False Alarm, Attend Away" + caIsOvershot$,tNow);
+                        else
+                            PrintLog("ERROR: Unknown trial type (" + str$(trialType%) + "\n");
+                            SampleText("False Alarm, Unknown trial type" + caIsOvershot$,tNow);
+                        endcase
+                        'getPreciseTiming := 0;
+                        FAIsResponse% := 1;
+                        ChangeStateTo(stateAbort%,tNow);  
+                        abortIsPostCC% := 1;
+                        
+                    endcase
+                endcase
             endif
-        endif
-        
-        if tNow - tStateStart > caMissPenalty then
             
-            PrintLog("stateMiss: penalty time is done.\n");
-            ChangeStateTo(stateTrialCompleted%, tNow);
             
-        endif
-        
-    case iState% = stateTrainingWait% then
-        if tNow - tStateStart > caFixAlternationTime then
             
-            PrintLog("stateTrainingWait: 'fixation off' time done.\n");
-            ChangeStateTo(stateTrialCompleted%, tNow);
+        case iState% = stateTrialCompletedWaitForBlank% then
             
-        endif 
-        
-        
-    case iState% = stateTrialCompletedPause% then
-        'The time that the program stays in this state is the caInterTrialTime plus any miss penalty, if applicable
-        if tNow - tStateStart > caInterTrialTime2 then  
+            ' we just wait for fix point off signal in this case. 
+            tTrigger := View(DataWindow%).NextTime(FixationPointChannel%, tLastTrigger, vTrigger);
+            if tTrigger > tLastTrigger then
+                ' Fixation point is off
+                PrintLog("stateTrialCompleteWaitForBlank: Fix pt is off.\n");
+                tLastTrigger := tTrigger;
+                'advance
+                SafeSampleKey("a");
+                ChangeStateTo(stateTrialCompletedPause%, tTrigger);
+                if caRequireFixation% <> 0 then
+                    DrawStim(0);	' this undraws the location of the fixpt.
+                endif;
+            endif
             
-            PrintLog("stateTrialCompletedPause: inter-trial time is done.\n");
-            ChangeStateTo(stateTrialCompleted%, tNow);
             
-        endif        
-        
-        
-    case iState% = stateTrialCompleted% then
-        if caTrainingOptions% > 2 then
-            'No answer windows in this joystick scenario
-            view(XYWindow%).XYColour(iAnswerWindowChannelMain%,13);  'Force main answer window to blue
-            view(XYWindow%).XYColour(iAnswerWindowChannelDist1%,13);  'Force distracter1 answer window to blue
-            view(XYWindow%).XYColour(iFixationWindowChannel%,13);  'Force fixation window to blue
-        endif;
-        
-        PrintLog("Trial #%d completed.\n",caCurrTrialIndex%+1);
-        nTrialsCompleted% += 1;
-        caCurrTrialIndex% += 1;
-        if nTrialsCompleted% = caNumberOfTrials% then
-            Stop%();
-            iStatus% := 0;
+            
+        case iState% = stateMiss% then
+            
+            'If joystick has not been centered, allow any centering here to count
+            if joystickHasBeenCentered% = 0 then
+                tempanswer% := Answer%(JoyChannel%,tNow);
+                'printlog("Joystick is in position %d\n",tempanswer% );
+                if tempanswer% = 2 then
+                    joystickHasBeenCentered% := 1;
+                endif
+            endif
+            
+            if tNow - tStateStart > caMissPenalty then
+                
+                PrintLog("stateMiss: penalty time is done.\n");
+                ChangeStateTo(stateTrialCompleted%, tNow);
+                
+            endif
+            
+        case iState% = stateTrainingWait% then
+            if tNow - tStateStart > caFixAlternationTime then
+                
+                PrintLog("stateTrainingWait: 'fixation off' time done.\n");
+                ChangeStateTo(stateTrialCompleted%, tNow);
+                
+            endif 
+            
+            
+        case iState% = stateTrialCompletedPause% then
+            'The time that the program stays in this state is the caInterTrialTime plus any miss penalty, if applicable
+            if tNow - tStateStart > caInterTrialTime2 then  
+                
+                PrintLog("stateTrialCompletedPause: inter-trial time is done.\n");
+                ChangeStateTo(stateTrialCompleted%, tNow);
+                
+            endif        
+            
+            
+        case iState% = stateTrialCompleted% then
+            if caTrainingOptions% > 2 then
+                'No answer windows in this joystick scenario
+                view(XYWindow%).XYColour(iAnswerWindowChannelMain%,13);  'Force main answer window to blue
+                view(XYWindow%).XYColour(iAnswerWindowChannelDist1%,13);  'Force distracter1 answer window to blue
+                view(XYWindow%).XYColour(iFixationWindowChannel%,13);  'Force fixation window to blue
+            endif;
+            
+            PrintLog("Trial #%d completed.\n",caCurrTrialIndex%+1);
+            nTrialsCompleted% += 1;
+            caCurrTrialIndex% += 1;
+            if nTrialsCompleted% = caNumberOfTrials% then
+                Stop%();
+                iStatus% := 0;
+            else
+                ChangeStateTo(stateWaitForJoystickInCenter%, tNow);
+            endif;
+            
+            
         else
-        ChangeStateTo(stateWaitForJoystickInCenter%, tNow);
-        endif;
+            
+            ' Unknown state!
+            Message("Unknown state=" + str$(iState%));
+            halt;
+            
+        endcase;
         
-        
-    else
-        
-        ' Unknown state!
-        Message("Unknown state=" + str$(iState%));
-        halt;
-        
-    endcase;
-    
-    tLast := tNow;
-    'wend;
+        tLast := tNow;
+    wend;
     
     return iStatus%;
 end;
@@ -1958,6 +2015,7 @@ proc WriteParameterFile()
     Print("Intertrial time (s)   : %f\n", caInterTrialTime);
     Print("Random Intertrial time (s)   : %f\n", caInterTrialTimeRand);
     Print("Abort penalty time (s)   : %f\n", caAbortWaitTime);
+    Print("Abort penalty time (post-CC) (s)   : %f\n", caAbort2WaitTime);
     Print("False Alarm penalty time (s)   : %f\n", caFalseAlarmWaitTime);
     Print("False Alarm check window (s)   : %f\n", caFalseAlarmCheckWindow);
     Print("Miss penalty time (s)   : %f\n", caMissPenalty);
