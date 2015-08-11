@@ -42,6 +42,7 @@ var caStartTrial% := 1;
 'var caCycleTrials%;  'when we get to the bottom do we go back to the top of the slide, do we turn, do we stop, do we go for a ride?  (Sadly, this is not used because Evan didn't want it.)
 var caInterTrialTimeRand; 
 var caTextCallbackItemNumber%;
+var caSpecFileOpen%;
 
 'Counter vars for attention script  ?? Probably adjust this
 var caCountAllTrials% := 0;
@@ -271,6 +272,7 @@ if caTrainingOptions% > 2 then
     ''view(inputFileHandle%);
     ''specFileName$ := FileName$();  'This is the full path and filename
     'Close the input file opened by the dialog box
+    View(inputFileHandle%);
     FileClose();
     
     
@@ -623,16 +625,38 @@ end
 
 
 func UseInputFile%()
+    'We need to do this, otherwise a second click on the button will make the OK button go gray and force a cancel (because subsequent FileOpen commands return negative)
+    if caSpecFileOpen% = 1 then 'if a spec file is open, close it
+        View(inputFileHandle%);
+        FileClose();
+        caSpecFileOpen% := 0;
+    endif;
     inputFileHandle% := FileOpen(specFileName$,8,0);  'open a text file (8) for reading only (0), could specify directory to start in
+    if inputFileHandle% >= 0 then
+        caSpecFileOpen% := 1; 'keep track of fact that spec file has been opened
+    else
+        message("Failed to open input file!")
+    endif
     TimingDialogChanged%(-12345);   'doesn't matter what we pass it, just need to run it   
     return 1;  'We'll just assume the user didn't cancel - we could in principle use a DialogChanged function to gate the OK button on the main dialog, but c'mon
 end;
 
 
 func OpenInputFile%()
+    'We need to do this, otherwise a second click on the button will make the OK button go gray and force a cancel (because subsequent FileOpen commands return negative)
+    if caSpecFileOpen% = 1 then 'if a spec file is open, close it
+        View(inputFileHandle%);
+        FileClose();
+        caSpecFileOpen% := 0;
+    endif;
     inputFileHandle% := FileOpen("*",8,0,"Select New Input File");  'open a text file (8) for reading only (0), could specify directory to start in
-    view(inputFileHandle%);  'get the filename first, we'll pass that to the VSG, use for display on the dialog
-    specFileName$ := FileName$();  'This is the full path and filename
+    if inputFileHandle% >= 0 then
+        caSpecFileOpen% := 1;  'keep track of fact that spec file has been opened
+        view(inputFileHandle%);  'get the filename, we'll pass that to the VSG, use for display on the dialog
+        specFileName$ := FileName$();  'This is the full path and filename
+    else
+        message("Failed to open input file!")
+    endif
     TimingDialogChanged%(-12345);   'doesn't matter what we pass it, just need to run it   
     return 1;  'We'll just assume the user didn't cancel - we could in principle use a DialogChanged function to gate the OK button on the main dialog, but c'mon
 end;
@@ -934,9 +958,9 @@ func Start%()
     jsCenterLow := -0.35;
     
     'set YRange for JoyChannel, XRange for everything
-    YRange(JoyChannel%,-0.75,0.75);
     View(DataWindow%).XRange(-1,8);  'I think this will set the x-axis to scroll, with an 8-second width 
-    
+    'View(DataWindow%).YRange(JoyChannel%,-0.75,0.75);  'HAVE TO USE VIEW(DATAWINDOW).YRANGE, NOT YRANGE.  UGH.
+    View(DataWindow%).YRange(JoyChannel%,0,1);
     
     'get all these grating parameters
     stimSpec$ := GetGratingParameters$("Stimulus");
