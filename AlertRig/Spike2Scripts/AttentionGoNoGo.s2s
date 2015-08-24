@@ -1,4 +1,4 @@
-' $Id: AttentionGoNoGo.s2s,v 1.59 2015-08-03 23:51:22 devel Exp $
+' $Id: AttentionGoNoGo.s2s,v 1.60 2015-08-24 17:35:30 devel Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -1410,6 +1410,16 @@ func IdleProcessing%()
     var temptext$;
     var CCHappened%;
     
+    'The trick here is that sometimes sampling isn't caught up on all channels.  MaxTime() may return a lower
+    'value than MaxTime(ChanN%). When we find a trigger and try to place a TextMark, SampleText will do an internal
+    'call to MaxTime() - no channel # - to determine whether to place it at the requested time or at MaxTime().
+    'In some instances, this has resulted in the TextMark being placed earlier than the event which caused it.
+    'We are now explicitly checking for this - if we find it, we have to avoid updating tLast and continue checking
+    'in order to not miss the trigger AND to put the TextMark at the right time.
+    'Note that we will ONLY do the additional check in instances where a timed TextMark is being placed at the 
+    'time of the trigger.
+    var updateTLast% := 1;  'due to trigger issues, we may not always update tLast (but we usually will)
+    
     'while getPreciseTiming = 1 do 
     
     'getPreciseTiming := 0;  'don't get precise timing unless we ask to (if 0, return control to windows after each idle loop iteration)
@@ -1481,19 +1491,23 @@ func IdleProcessing%()
     case iState% = stateWaitForFixPtOn% then
         tTrigger := View(DataWindow%).NextTime(FixationPointChannel%, tLast, vTrigger);
         if tTrigger > tLast then
-            ' Fixation point is up
-            PrintLog("stateWaitForFixPtOn: signal received. " + str$(tTrigger) + "\n");
-            tLastTrigger := tTrigger;
-            ChangeStateTo(stateWaitForAcquisition%, tTrigger);
-            docase
-            case trialType% = trialtypeAttendToward% then
-                SampleText("Fixation point on, Attend Toward",tTrigger);
-            case trialType% = trialtypeAttendAway% then
-                SampleText("Fixation point on, Attend Away",tTrigger);
-            case trialType% = trialtypeNoChange% then 
-                SampleText("Fixation point on, No Change",tTrigger);
-            endcase;
-            DrawStim(1);	' this draws the location of the fixpt.
+            if tTrigger < MaxTime() then
+                ' Fixation point is up
+                PrintLog("stateWaitForFixPtOn: signal received. " + str$(tTrigger) + "\n");
+                tLastTrigger := tTrigger;
+                ChangeStateTo(stateWaitForAcquisition%, tTrigger);
+                docase
+                case trialType% = trialtypeAttendToward% then
+                    SampleText("Fixation point on, Attend Toward",tTrigger);
+                case trialType% = trialtypeAttendAway% then
+                    SampleText("Fixation point on, Attend Away",tTrigger);
+                case trialType% = trialtypeNoChange% then 
+                    SampleText("Fixation point on, No Change",tTrigger);
+                endcase;
+                DrawStim(1);	' this draws the location of the fixpt.
+            else
+                updateTLast% := 0;  'waiting for sampling to catch up
+            endif;
         endif
         
         
@@ -1551,13 +1565,17 @@ func IdleProcessing%()
     case iState% = stateWaitForStimOn% then
         tTrigger := View(DataWindow%).NextTime(StimChannel%, tLast, vTrigger);
         if tTrigger > tLast and vTrigger = 0 then
-            ' gratings et al are up
-            PrintLog("stateWaitForStimOn: stim is up.\n");
-            tStimOn := tTrigger;
-            tLastTrigger := tTrigger;
-            ChangeStateTo(stateHoldFixationToCC%, tTrigger);
-            SampleText("Stimulus on, Fixation color " + fixColor$ + ", Base contrast " + Str$(attContrastBase%) + ", hazard dur " + Str$(trialHazardFunctionTime)
-            + ", attend location " + Str$(trialAttendLoc%) + ", change location " + Str$(trialIsTarget%) + ", change contrast " + Str$(thisContrast%),tTrigger);
+            if tTrigger < MaxTime() then
+                ' gratings et al are up
+                PrintLog("stateWaitForStimOn: stim is up.\n");
+                tStimOn := tTrigger;
+                tLastTrigger := tTrigger;
+                ChangeStateTo(stateHoldFixationToCC%, tTrigger);
+                SampleText("Stimulus on, Fixation color " + fixColor$ + ", Base contrast " + Str$(attContrastBase%) + ", hazard dur " + Str$(trialHazardFunctionTime)
+                + ", attend location " + Str$(trialAttendLoc%) + ", change location " + Str$(trialIsTarget%) + ", change contrast " + Str$(thisContrast%),tTrigger);
+            else
+                updateTLast% := 0;  'waiting for sampling to catch up
+            endif;
         endif
         
         
@@ -1747,9 +1765,13 @@ func IdleProcessing%()
 '        'Check to see if there was a trigger
 '        tTrigger := NextTime(FrameTriggerChannel%, tLast, vTrigger);
 '        if tTrigger > tLast and vTrigger = 0 then  'only look at rising edge
-'            tLastTrigger := tTrigger;
-'            'put in a sample text for Flashers, sample text for CC will be done below
-'            CCHappened% := TagTriggerWithSampletext%(tLastTrigger,tStimOn,attCurrTrialIndex%,flasherCountThisTrial%);
+'            if tTrigger < MaxTime() then
+'               tLastTrigger := tTrigger;
+'               'put in a sample text for Flashers, sample text for CC will be done below
+'                CCHappened% := TagTriggerWithSampletext%(tLastTrigger,tStimOn,attCurrTrialIndex%,flasherCountThisTrial%);
+'            else
+'                updateTLast% := 0;  'waiting for sampling to catch up
+'            endif;
 '        endif;
 '        
 '        docase            
@@ -1801,25 +1823,25 @@ func IdleProcessing%()
 '                case trialType% = trialtypeAttendToward% then
 '                    if trialIsTarget% > 0 then
 '                        if trialCatch% = 0 then
-'                            Sampletext("Contrast Change, Level " + Str$(thisContrast%) + ", Attend Toward",tTrigger+trialHazardFunctionTime);
+'                            Sampletext("Contrast Change, Level " + Str$(thisContrast%) + ", Attend Toward",tLastTrigger);
 '                        else
-'                            Sampletext("Contrast Change, Level " + Str$(thisContrast%) + ", Attend Toward (catch)",tTrigger+trialHazardFunctionTime);
+'                            Sampletext("Contrast Change, Level " + Str$(thisContrast%) + ", Attend Toward (catch)",tLastTrigger);
 '                        endif
 '                    else
-'                        Sampletext("Attend Toward, No Contrast Change",tTrigger+trialHazardFunctionTime);
+'                        Sampletext("Attend Toward, No Contrast Change",tLastTrigger);
 '                    endif
 '                case trialType% = trialtypeAttendAway% then
 '                    if trialIsTarget% > 0 then
 '                        if trialCatch% = 0 then
-'                            Sampletext("Contrast Change, Level " + Str$(thisContrast%) + ", Attend Away",tTrigger+trialHazardFunctionTime);
+'                            Sampletext("Contrast Change, Level " + Str$(thisContrast%) + ", Attend Away",tLastTrigger);
 '                        else
-'                            Sampletext("Contrast Change, Level " + Str$(thisContrast%) + ", Attend Away (catch)",tTrigger+trialHazardFunctionTime);
+'                            Sampletext("Contrast Change, Level " + Str$(thisContrast%) + ", Attend Away (catch)",tLastTrigger);
 '                        endif
 '                    else
-'                        Sampletext("Attend Away, No Contrast Change",tTrigger+trialHazardFunctionTime);
+'                        Sampletext("Attend Away, No Contrast Change",tLastTrigger);
 '                    endif
 '                case trialType% = trialtypeNoChange% then  
-'                    Sampletext("No Change, No Contrast Change",tTrigger+trialHazardFunctionTime);
+'                    Sampletext("No Change, No Contrast Change",tLastTrigger);
 '                else
 '                    PrintLog("ERROR! Unknown blocktype!!!\n");    
 '                endcase
@@ -1896,9 +1918,13 @@ func IdleProcessing%()
         if attUseFlashers% = 1 then
             tTrigger := NextTime(FrameTriggerChannel%, tLast, vTrigger);
             if tTrigger > tLast and vTrigger = 0 then  'only look at rising edge
-                tLastTrigger := tTrigger;
-                'put in a sample text based on which flasher this trigger was representing
-                TagTriggerWithSampletext%(tLastTrigger,tStimOn,attCurrTrialIndex%,flasherCountThisTrial%);
+                if tTrigger < MaxTime() then
+                    tLastTrigger := tTrigger;
+                    'put in a sample text based on which flasher this trigger was representing
+                    TagTriggerWithSampletext%(tLastTrigger,tStimOn,attCurrTrialIndex%,flasherCountThisTrial%);
+                else
+                    updateTLast% := 0;  'waiting for sampling to catch up
+                endif;
             endif;
         endif;
         
@@ -2117,7 +2143,11 @@ func IdleProcessing%()
         
     endcase;
     
-    tLast := tNow;
+    
+    if updateTLast% = 1 then 
+        tLast := tNow;
+    endif;
+    
     'wend;
     
 	return iStatus%;
