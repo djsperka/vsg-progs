@@ -1,4 +1,4 @@
-' $Id: AttentionGoNoGo.s2s,v 1.60 2015-08-24 17:35:30 devel Exp $
+' $Id: AttentionGoNoGo.s2s,v 1.61 2015-08-24 17:38:41 devel Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -400,6 +400,7 @@ proc SaveAttentionScriptParameters()
 	Profile(key$, "AnswerPointDiameter", str$(attAnswerPointDiameter));
 	Profile(key$, "AnswerPointOffset", str$(attAnswerPointOffset));
 	Profile(key$, "AnswerPointWindowRadius", str$(attAnswerPointWindowRadius));
+    'Profile(key$, "AnswerPointWindowRadius", str$(1.5));
     Profile(key$, "NoChangeCondition", attNoChangeCondition%);
     Profile(key$, "SwapCueCircle", attSwapCueCircle%);  
     Profile(key$, "CueCircleStrokeWidth", attCueCircleStrokeWidth%);
