@@ -1,4 +1,4 @@
-' $Id: AttentionGoNoGo.s2s,v 1.61 2015-08-24 17:38:41 devel Exp $
+' $Id: AttentionGoNoGo.s2s,v 1.62 2015-08-25 00:55:33 devel Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -2315,6 +2315,7 @@ end
 
 
 proc InitializeWindows()
+    
 '    'this first bit is just getting testing values for machines that don't have a 1401
 '    var stimSpec$;
 '    var dist1Spec$;
@@ -2339,7 +2340,7 @@ proc InitializeWindows()
 '    CreateContrastList(Contrast$,Flashers$,attContrastList%,attChangeList%,attValidList%,attAttendList%,attHazardList,attOffBitsList%,attRotationList%,attFixColor%,attBlockList%,attEasyList%,flasherTimes,flasherX,flasherY,flasherCount%);
 '    printlog("Contrast list is %s\n",Contrast$);
 '    printlog("Flasher list is %s\n",Flashers$);
-'    halt;
+'    halt;  'No-1401 halt
     
 	'Open the data sampling window
 	DataWindow% := FileNew(0,4);  'show spike shape setup dialog
@@ -3357,6 +3358,7 @@ Proc CreateFlasherTimes(&times[],&nFlashers%,hazTime,respWindow)
     var temp;
     var tMax;
     
+    nFlashers% := 0;  'Reset this value every time we calculate a new set of flashers, otherwise we can repeat and cause all sorts of problems
     
     tMax := hazTime + respWindow;
     tOff := attFlasherTemporalBuffer;  'set first offset to the time of the buffer
@@ -3393,7 +3395,9 @@ Proc CreateFlasherLocations(nFlashers%,&x[],&y[])
     xBound := screenXmax-wF1-attFlasherSpatialBuffer;
     yBound := screenYmax-hF1-attFlasherSpatialBuffer;
     
-printlog("screenXmax is %f and wF1 is %f and attFlasherSpatialBuffer is %f\n",screenXmax,wF1,attFlasherSpatialBuffer);    
+'Testing    
+'printlog("screenXmax is %f and wF1 is %f and attFlasherSpatialBuffer is %f\n",screenXmax,wF1,attFlasherSpatialBuffer);    
+'printlog("Flasher count is %d\n",nFlashers%); 
     
     'Locations of our non-flasher stimuli have been set in Start%
     
