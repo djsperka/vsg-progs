@@ -447,6 +447,7 @@ func TimingDialog%()
     var fixationOptionsList$[3];
     var tempAW;
     
+    
     trainingOptionsList$[0] := "Reward for lever";    '"Lever - Instant Reward - Release - Wait ITI";
     trainingOptionsList$[1] := "Reward for lever - hold - release";   '"Lever - Hold - Release - Reward - Wait ITI";
     trainingOptionsList$[2] := "Fixation training";    '"FixPt ON: Lever - Hold - Release - Reward - Wait ITI";
@@ -977,7 +978,8 @@ func Start%()
 
     
     'set fixation argument
-    FixationArg$ := " -f " + str$(FixationX) + "," + str$(FixationY) + "," + str$(FixationDiameter) + "," + FixationColor$;
+    'FixationArg$ := " -f " + str$(FixationX) + "," + str$(FixationY) + "," + str$(FixationDiameter) + "," + FixationColor$;
+    'this line is just the explicit action of the function below!
 	
     'Get the fixation point parameters, these are put directly into FixationArg$
     GetFixationPointParameters();   
@@ -1129,6 +1131,14 @@ func IdleProcessing%()
     var temptext$;
     var nextStateImmed% := 1;
     
+    'The trick here is that sometimes sampling isn't caught up on all channels.  MaxTime() may return a lower
+    'value than MaxTime(ChanN%). When we find a trigger and try to place a TextMark, SampleText will do an internal
+    'call to MaxTime() - no channel # - to determine whether to place it at the requested time or at MaxTime().
+    'In some instances, this has resulted in the TextMark being placed earlier than the event which caused it.
+    'We are now explicitly checking for this - if we find it, we have to avoid updating tLast and continue checking
+    'in order to not miss the trigger AND to put the TextMark at the right time.
+    'Note that we will ONLY do the additional check in instances where a timed TextMark is being placed at the 
+    'time of the trigger.
     
     while nextStateImmed% = 1 do
         nextStateImmed% := 0;  'don't run immediately again unless we ask    
@@ -1334,23 +1344,25 @@ func IdleProcessing%()
         case iState% = stateWaitForFixPtOn% then
             tTrigger := View(DataWindow%).NextTime(FixationPointChannel%, tStateStart, vTrigger);
             if tTrigger > tStateStart then
-                ' Fixation point is up
-                PrintLog("stateWaitForFixPtOn: signal received. " + str$(tTrigger) + "\n");
-                tLastTrigger := tTrigger;
-                if caRequireFixation% = 1 then
-                    ChangeStateTo(stateWaitForAcquisition%, tTrigger);
-                    DrawStim(1);	' this draws the location of the fixpt.
-                else
-                    if caTrainingOptions% = 2 then  'this is normal, wait for joystick move to right
-                        ChangeStateTo(stateWaitForJoystickInRight%, tTrigger);
-                    else  'if we are presenting stimuli with NO eyetracker, wait for the normal fixation period then start stimuli
-                        ChangeStateTo(stateHoldFixationToStimOn%, tNow);
+                if tTrigger < MaxTime() then  'don't need to change way tLast is updates because we search from tStateStart
+                    ' Fixation point is up
+                    PrintLog("stateWaitForFixPtOn: signal received. " + str$(tTrigger) + "\n");
+                    tLastTrigger := tTrigger;
+                    if caRequireFixation% = 1 then
+                        ChangeStateTo(stateWaitForAcquisition%, tTrigger);
+                        DrawStim(1);	' this draws the location of the fixpt.
+                    else
+                        if caTrainingOptions% = 2 then  'this is normal, wait for joystick move to right
+                            ChangeStateTo(stateWaitForJoystickInRight%, tTrigger);
+                        else  'if we are presenting stimuli with NO eyetracker, wait for the normal fixation period then start stimuli
+                            ChangeStateTo(stateHoldFixationToStimOn%, tNow);
+                        endif;
                     endif;
-                endif;
-                if trialType% = trialtypeAttendToward% then
-                    SampleText("Fixation point on, Attend Toward",tTrigger);
-                else
-                    SampleText("Fixation point on, Attend Away",tTrigger);
+                    if trialType% = trialtypeAttendToward% then
+                        SampleText("Fixation point on, Attend Toward",tTrigger);
+                    else
+                        SampleText("Fixation point on, Attend Away",tTrigger);
+                    endif;
                 endif;
             endif
             
@@ -1421,12 +1433,15 @@ func IdleProcessing%()
         case iState% = stateWaitForStimOn% then  'by "stim" here we mean "animation"
             tTrigger := View(DataWindow%).NextTime(StimChannel%, tLastTrigger, vTrigger);
             if tTrigger > tLastTrigger and vTrigger = 0 then
-                'animation is up
-                PrintLog("stateWaitForStimOn: animation has begun.\n");
-                tStimOn := tTrigger;
-                tLastTrigger := tTrigger;
-                ChangeStateTo(stateHoldFixationToCC%, tTrigger);
-                SampleText("Animation on", tTrigger);
+                if tTrigger < MaxTime() then  'here we don't change the procedure for tLast because we are searching from tLastTrigger, which is changed locally
+                    'animation is up
+                    PrintLog("stateWaitForStimOn: animation has begun.\n");
+                    tStimOn := tTrigger;
+                    tLastTrigger := tTrigger;
+                    ChangeStateTo(stateHoldFixationToCC%, tTrigger);
+                    SampleText("Animation on", tTrigger);
+                endif;
+                
             endif
             
             
@@ -1821,8 +1836,9 @@ func IdleProcessing%()
             halt;
             
         endcase;
-        
+         
         tLast := tNow;
+        
     wend;
     
     return iStatus%;
