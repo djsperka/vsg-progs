@@ -255,6 +255,9 @@ flashy configs, the second grating is referred to as "1", and so on.
 
 All spatio-temporal parameters for the grating (except for x,y and w,h) are preserved.
 
+================================================================================
+THE FLASHY ARG "-j" MUST COME BEFORE THE ATTENTION ARG "-J" ON THE COMMAND LINE!
+================================================================================
 The flashy arg format is going to be hard to write up. An explanation may work better.
 
 -j <flashy config for first trial>,<flashy config for second trial>,...

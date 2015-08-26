@@ -468,6 +468,7 @@ int AttentionStimSet::drawCurrent()
 		}
 		else
 		{
+			cerr << "Configure pages for " << m_vecFlashies[m_current].size() << " flashies." << endl;
 			for (unsigned int iflashy=0; iflashy<m_vecFlashies[m_current].size(); iflashy++)
 			{
 				const FlashyParams& params = m_vecFlashies[m_current].at(iflashy);
