@@ -1,4 +1,4 @@
-' $Id: AttentionGoNoGo.s2s,v 1.62 2015-08-25 00:55:33 devel Exp $
+' $Id: AttentionGoNoGo.s2s,v 1.63 2015-08-26 21:11:41 devel Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -1492,7 +1492,7 @@ func IdleProcessing%()
     case iState% = stateWaitForFixPtOn% then
         tTrigger := View(DataWindow%).NextTime(FixationPointChannel%, tLast, vTrigger);
         if tTrigger > tLast then
-            if tTrigger < MaxTime() then
+            if tTrigger < View(DataWindow%).MaxTime() then
                 ' Fixation point is up
                 PrintLog("stateWaitForFixPtOn: signal received. " + str$(tTrigger) + "\n");
                 tLastTrigger := tTrigger;
@@ -1566,7 +1566,7 @@ func IdleProcessing%()
     case iState% = stateWaitForStimOn% then
         tTrigger := View(DataWindow%).NextTime(StimChannel%, tLast, vTrigger);
         if tTrigger > tLast and vTrigger = 0 then
-            if tTrigger < MaxTime() then
+            if tTrigger < View(DataWindow%).MaxTime() then
                 ' gratings et al are up
                 PrintLog("stateWaitForStimOn: stim is up.\n");
                 tStimOn := tTrigger;
@@ -1766,7 +1766,7 @@ func IdleProcessing%()
 '        'Check to see if there was a trigger
 '        tTrigger := NextTime(FrameTriggerChannel%, tLast, vTrigger);
 '        if tTrigger > tLast and vTrigger = 0 then  'only look at rising edge
-'            if tTrigger < MaxTime() then
+'            if tTrigger < View(DataWindow%).MaxTime() then
 '               tLastTrigger := tTrigger;
 '               'put in a sample text for Flashers, sample text for CC will be done below
 '                CCHappened% := TagTriggerWithSampletext%(tLastTrigger,tStimOn,attCurrTrialIndex%,flasherCountThisTrial%);
@@ -1850,68 +1850,7 @@ func IdleProcessing%()
 '            
 '        endcase
         
-'    case iState% = stateWaitForContrastChange% then
-'        tTrigger := NextTime(StimChangeChannel%, tLast, vTrigger);
-'        'tTrigger := NextTime(FrameTriggerChannel%, tLast, vTrigger);
-'        docase
-'        case tTrigger > tLast and vTrigger = 0 then
-'            PrintLog("stateWaitForContrastChange: got it.\n");
-'            tLastTrigger := tTrigger;
-'            isStimDistractorOff% := 0;
-'            ChangeStateTo(stateWaitForAnswer%, tNow);
-'            docase
-'            case trialType% = trialtypeAttendToward% then
-'                if trialIsTarget% > 0 then
-'                    if trialCatch% = 0 then
-'                        view(XYWindow%).XYColour(iAnswerWindowChannel1%,16);  'Change up answer window to red
-'                        Sampletext("Contrast Change Up, Level " + Str$(thisContrast%) + ", Attend Toward",tTrigger);
-'                    else
-'                        view(XYWindow%).XYColour(iAnswerWindowChannel2%,16);  'Change down answer window to red
-'                        Sampletext("Contrast Change Up, Level " + Str$(thisContrast%) + ", Attend Toward (catch)",tTrigger);
-'                    endif
-'                else
-'                    view(XYWindow%).XYColour(iFixationWindowChannel%,16);  'Change fixation window to red
-'                    Sampletext("No Contrast Change",tTrigger);
-'                endif
-'            case trialType% = trialtypeAttendAway% then
-'                if trialIsTarget% > 0 then
-'                    if trialCatch% = 0 then
-'                        view(XYWindow%).XYColour(iAnswerWindowChannel2%,16);  'Change down answer window to red
-'                        Sampletext("Contrast Change Up, Level " + Str$(thisContrast%) + ", Attend Away",tTrigger);
-'                    else
-'                        view(XYWindow%).XYColour(iAnswerWindowChannel1%,16);  'Change up answer window to red
-'                        Sampletext("Contrast Change Up, Level " + Str$(thisContrast%) + ", Attend Away (catch)",tTrigger);
-'                    endif
-'                else
-'                    view(XYWindow%).XYColour(iFixationWindowChannel%,16);  'Change fixation window to red
-'                    Sampletext("No Contrast Change",tTrigger);
-'                endif
-'            else
-'                PrintLog("ERROR! Unknown blocktype!!!\n");
-'            endcase;
-'            
-'        case Looking%(xEye, yEye) = 0 then  'begin abort procedure, check to see if it is a FA
-'            docase
-'            case Answer% (xEye, yEye) = 1 then 'answer in "attend toward" = "up" window
-'                PrintLog("stateWaitForContrastChange: in attend toward response window, aborting trial.\n");
-'                FAIsResponse% := 1;
-'                ChangeStateTo(stateAbort%, tNow);
-'                SampleText("Fixation broken, False Alarm in attend toward window, trial aborted");
-'            case Answer% (xEye, yEye) = -1 then 'answer in "attend away" = "down" window
-'                PrintLog("stateWaitForContrastChange: in attend away response window, aborting trial.\n");
-'                FAIsResponse% := 1;
-'                ChangeStateTo(stateAbort%, tNow);
-'                SampleText("Fixation broken, False Alarm in attend away window, trial aborted");        
-'            'if Answer%(xEye, yEye) <> 0 then  'if it's in response window, quit while you're ahead
-'            '    PrintLog("stateHoldFixationToCC: in response window, aborting trial.\n");
-'            '    FAIsResponse% := 1;
-'            '    ChangeStateTo(stateAbort%,tNow);
-'            '    SampleText("Fixation broken, False Alarm, trial aborted");
-'            else  'keep checking
-'                ChangeStateTo(stateCheckFalseAlarm%, tNow);
-'            endcase;
-'            
-'        endcase;
+
         
     case iState% = stateWaitForAnswer% then
         'getPreciseTiming := 1;  'we need precise timing here, stay in while loop until we get eye movements we expect
@@ -1919,7 +1858,7 @@ func IdleProcessing%()
         if attUseFlashers% = 1 then
             tTrigger := NextTime(FrameTriggerChannel%, tLast, vTrigger);
             if tTrigger > tLast and vTrigger = 0 then  'only look at rising edge
-                if tTrigger < MaxTime() then
+                if tTrigger < View(DataWindow%).MaxTime() then
                     tLastTrigger := tTrigger;
                     'put in a sample text based on which flasher this trigger was representing
                     TagTriggerWithSampletext%(tLastTrigger,tStimOn,attCurrTrialIndex%,flasherCountThisTrial%);
@@ -2696,10 +2635,10 @@ func Stop%()
     ExportChanList(0,view(datawindow%).maxtime(),chanToExport%[]);
     
     'Code for putting other various channels into the Matlab extraction, Ben doesn't want them but they will be useful for other code    
-    ExportChanList(0,maxtime(),XChannel%);  'Eye position channel, X
-    ExportChanList(0,maxtime(),YChannel%);  'Eye position channel, Y
+    ExportChanList(0,View(DataWindow%).maxtime(),XChannel%);  'Eye position channel, X
+    ExportChanList(0,View(DataWindow%).maxtime(),YChannel%);  'Eye position channel, Y
     'for i% := 0 to NumWavemarkPorts%-1 do
-    '    ExportChanList(0,maxtime(),i%+1);  'Wavemark channel(s)
+    '    ExportChanList(0,View(DataWindow%).maxtime(),i%+1);  'Wavemark channel(s)
     'next;
     
     
@@ -2947,7 +2886,7 @@ func Start%()
     specHandle% := FileOpen(specFileName$, 8, 1);
     'print to spec file
     if attUseFlashers% = 1 then
-        Print("%s %s %s %s %s %s",FixationArg$,Extras$,Stim$,CueCirc$,Contrast$,Flashers$);  'file should be everything starting from FixationArg$ on, use flashers
+        Print("%s %s %s %s %s %s",FixationArg$,Extras$,Stim$,CueCirc$,Flashers$,Contrast$);  'file should be everything starting from FixationArg$ on, use flashers, Flashers$ must come before Contrast$!
     else
         Print("%s %s %s %s %s",FixationArg$,Extras$,Stim$,CueCirc$,Contrast$);  'file should be everything starting from FixationArg$ on
     endif;    
@@ -4364,14 +4303,16 @@ func TagTriggerWithSampletext%(triggerTime,tStimOn,trialCount%,&flasherCount%)
     diffF := abs(fTime - triggerTime);
     diffCC := abs(ccTime - triggerTime);
     
+printlog("*** Tag Trigger - Flasher count is %d, expected flasher time is %f, expected ccTime is %f, trigger time is %f, delta was %f\n",flasherCount%,fTime,ccTime,triggerTime,Min(diffF,diffCC));    
+    
     docase
-    case diffF > .005 and diffCC > .005 then
+    case diffF > .05 and diffCC > .05 then
         'if tolerance > 5 ms, sampletext an error
         SampleText("Error - trigger time not recognized!",triggerTime);
-    case diffF < diffCC and diffF > 0.002 then
+    case diffF < diffCC and diffF > 0.05 then
         SampleText("Flasher X = " + Str$(flasherX[trialCount%][flasherCount%]) + " Y = " + Str$(flasherY[trialCount%][flasherCount%]) + " Note, trigger time more than 2ms off!",triggerTime);
         flasherCount% += 1;
-    case diffCC < diffF and diffCC > 0.002 then
+    case diffCC < diffF and diffCC > 0.05 then
         cc% := 1;
     case diffF < diffCC then
         SampleText("Flasher X = " + Str$(flasherX[trialCount%][flasherCount%]) + " Y = " + Str$(flasherY[trialCount%][flasherCount%]),triggerTime);
