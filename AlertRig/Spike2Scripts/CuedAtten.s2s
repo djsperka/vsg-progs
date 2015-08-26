@@ -1092,10 +1092,10 @@ func Stop%()
     
     'Code for putting other various channels into the Matlab extraction, Ben doesn't want them but they will be useful for other code    
     if caRequireFixation% <> 0 then  'eye position channel only if used
-        ExportChanList(0,maxtime(),XChannel%);  'Eye position channel, X
-        ExportChanList(0,maxtime(),YChannel%);  'Eye position channel, Y
+        ExportChanList(0,view(datawindow%).maxtime(),XChannel%);  'Eye position channel, X
+        ExportChanList(0,view(datawindow%).maxtime(),YChannel%);  'Eye position channel, Y
     endif;
-    ExportChanList(0,maxtime(),JoyChannel%);  'Joystick Channel always
+    ExportChanList(0,view(datawindow%).maxtime(),JoyChannel%);  'Joystick Channel always
     
     
     
