@@ -512,7 +512,6 @@ func TimingDialog%()
         
         'we actually have to do this no matter what, because the default fixation dialog doesn't assign FixationColor$, but the Get function does
         GetFixationPointParameters();    'fills FixationX,FixationY,FixationColor$,FixationDiameter
-        
         return 1;
     else
         Printlog("Timing Dialog was cancelled!\n");
@@ -978,11 +977,12 @@ func Start%()
 
     
     'set fixation argument
-    'FixationArg$ := " -f " + str$(FixationX) + "," + str$(FixationY) + "," + str$(FixationDiameter) + "," + FixationColor$;
+    FixationArg$ := " -f " + str$(FixationX) + "," + str$(FixationY) + "," + str$(FixationDiameter) + "," + FixationColor$;
     'this line is just the explicit action of the function below!
 	
     'Get the fixation point parameters, these are put directly into FixationArg$
-    GetFixationPointParameters();   
+    'GetFixationPointParameters();  
+
     
     ' djs Construct beginning of command line, up to the program arguments. 
     Opener$ := "cmd /k " + GetBinDir$(1) + "fixstim.exe ";
@@ -1007,6 +1007,7 @@ func Start%()
         'CommandLine$ := "cmd /k " + bin$ + "\\fixstim " + FixationArg$ + Extras$ + Stim$ + " -W " + specFileName$;  'Here we need the spec file name
         CommandLine$ := Opener$ + FixationArg$ + Extras$ + Stim$ + " -W " + specFileName$;  'Here we need the spec file name
         'message(CommandLine$);
+        'printlog("Command line is %s\n", CommandLine$);
         'Quit%();
     endcase
     
