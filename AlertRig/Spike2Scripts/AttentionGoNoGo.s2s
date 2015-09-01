@@ -1,4 +1,4 @@
-' $Id: AttentionGoNoGo.s2s,v 1.63 2015-08-26 21:11:41 devel Exp $
+' $Id: AttentionGoNoGo.s2s,v 1.64 2015-09-01 18:25:10 devel Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -3303,8 +3303,8 @@ Proc CreateFlasherTimes(&times[],&nFlashers%,hazTime,respWindow)
     tOff := attFlasherTemporalBuffer;  'set first offset to the time of the buffer
     while i% < attMaxFlashers% do
         'get random value with mean distribution which takes into account the buffers (so that attFlasherHazardValue is very ~= Hz of the stimulus) and min of tOff
-        temp := RandExp(attFlasherHazardValue-attFlasherTemporalBuffer-attFlasherDur,tOff);  
-        if temp <= tMax then  'if random value is less than max time
+        temp := RandExp(attFlasherHazardValue,tOff);  'improved logic!
+        if (temp + attFlasherDur + attFlasherTemporalBuffer) <= tMax then  'if random value is less than max time
             if abs(temp-hazTime) > 0.1 then  'if the flasher time does not overlap with the contrast change
                 times[i%] := temp;  'put random value into times list
                 i% += 1;  'increment i%
@@ -4292,6 +4292,12 @@ func TagTriggerWithSampletext%(triggerTime,tStimOn,trialCount%,&flasherCount%)
     var ccTime; 'expected time of contrast change
     var diffF;
     var diffCC;
+    var diffEOW;
+    
+    'don't tag the very first trigger that coincides with the stim onset
+    if triggerTime - tStimOn < 0.005 then
+        return cc%;  'instead return and indicate CC has not happened
+    endif;
     
     if flasherTimes[trialCount%][flasherCount%] > 0 then
         fTime := tStimOn + flasherTimes[trialCount%][flasherCount%];
@@ -4302,13 +4308,17 @@ func TagTriggerWithSampletext%(triggerTime,tStimOn,trialCount%,&flasherCount%)
     
     diffF := abs(fTime - triggerTime);
     diffCC := abs(ccTime - triggerTime);
+    diffEOW := abs((ccTime + attTimeToAnswer) - triggerTime);
     
-printlog("*** Tag Trigger - Flasher count is %d, expected flasher time is %f, expected ccTime is %f, trigger time is %f, delta was %f\n",flasherCount%,fTime,ccTime,triggerTime,Min(diffF,diffCC));    
+'printlog("*** Tag Trigger - Flasher count is %d, expected flasher time is %f, expected ccTime is %f, trigger time is %f, delta was %f\n",flasherCount%,fTime,ccTime,triggerTime,Min(diffF,diffCC));    
     
     docase
-    case diffF > .05 and diffCC > .05 then
-        'if tolerance > 5 ms, sampletext an error
-        SampleText("Error - trigger time not recognized!",triggerTime);
+    case diffF > .05 and diffCC > .05 then  'if tolerance > 50 ms (eeek!), sampletext an error or end-of-window
+        if diffEOW < .1 then 'use big tolerance for end of window
+            SampleText("End of response window",triggerTime);
+        else
+            SampleText("Error - trigger time not recognized!",triggerTime);
+        endif;
     case diffF < diffCC and diffF > 0.05 then
         SampleText("Flasher X = " + Str$(flasherX[trialCount%][flasherCount%]) + " Y = " + Str$(flasherY[trialCount%][flasherCount%]) + " Note, trigger time more than 2ms off!",triggerTime);
         flasherCount% += 1;
