@@ -3,6 +3,13 @@
 using namespace std;
 
 
+double get_fconfig(VSGCYCLEPAGEENTRY* cycle, int count)
+{
+	double f=0;
+	for (int i=0; i<count; i++)
+		f += FRAMES_TO_SECONDS(cycle[i].Frames);
+	return f;
+}
 
 
 
@@ -154,6 +161,7 @@ int parse_flashyparams(const string& s, FlashyParamVectorVector& vecFlashyParamV
 	int tcount=0;
 	int nf;
 	int status = 0;
+	double ton, toff;
 	FlashyParams params;
 	FlashyParamVector vecFPTrial;
 	vector<string> tokens;
@@ -180,8 +188,8 @@ int parse_flashyparams(const string& s, FlashyParamVectorVector& vecFlashyParamV
 						parse_double(tokens.at(itoken + 1 + iflash*7 + 2), params.y) ||
 						parse_double(tokens.at(itoken + 1 + iflash*7 + 3), params.w) ||
 						parse_double(tokens.at(itoken + 1 + iflash*7 + 4), params.h) ||
-						parse_double(tokens.at(itoken + 1 + iflash*7 + 5), params.ton) ||
-						parse_double(tokens.at(itoken + 1 + iflash*7 + 6), params.toff))
+						parse_double(tokens.at(itoken + 1 + iflash*7 + 5), ton) ||
+						parse_double(tokens.at(itoken + 1 + iflash*7 + 6), toff))
 					{
 						cerr << "Error parsing trial " << tcount+1 << " flash# " << iflash << endl;
 						status = 1;
@@ -189,6 +197,8 @@ int parse_flashyparams(const string& s, FlashyParamVectorVector& vecFlashyParamV
 					}
 					else
 					{
+						params.fon = SECONDS_TO_FRAMES(ton);
+						params.foff = SECONDS_TO_FRAMES(toff);
 						vecFPTrial.push_back(params);
 					}
 				}
@@ -196,21 +206,21 @@ int parse_flashyparams(const string& s, FlashyParamVectorVector& vecFlashyParamV
 				// Check that the flashies do NOT overlap with one another. 
 				if (!status)
 				{
-					double t = -1;
+					int f = -1;
 					for (FlashyParamVector::const_iterator it = vecFPTrial.begin(); !status && it != vecFPTrial.end(); it++)
 					{
-						if (it->ton < t)
+						if (it->fon < f)
 						{
 							cerr << "Error parsing flashies for trial " << vecFlashyParamVector.size() << ": flashy overlap." << endl;
 							status = 1;
 						}
-						else if (it->ton > it->toff)
+						else if (it->fon > it->foff)
 						{
 							cerr << "Error parsing flashies for trial " << vecFlashyParamVector.size() << ": flashy off before on." << endl;
 							status = 1;
 						}
 						else
-							t = it->toff;
+							f = it->foff;
 					}
 				}
 
@@ -237,7 +247,7 @@ void my_dump_flashyparamvector(FlashyParamVector vec)
 	int i=0;
 	for (FlashyParamVector::iterator it = vec.begin(); it != vec.end(); it++)
 	{
-		cout << i << ": " << it->nk << ":" << it->x << "," << it->y << "," << it->w << "," << it->h << "," << it->ton << "," << it->toff << endl;
+		cout << i << ": " << it->nk << ":" << it->x << "," << it->y << "," << it->w << "," << it->h << "," << it->fon << "," << it->foff << endl;
 		i++;
 	}
 }
@@ -254,29 +264,32 @@ int checkFlashyTimes(const vector<AttParams>& vecInput, const FlashyParamVectorV
 	{
 		for (unsigned int itrial = 0; !status && itrial<vecInput.size(); itrial++)
 		{
-			double tLast = 0.0;
-			double dTimeToCC = vecInput.at(itrial).dTimeToCC;
+			//double tLast = 0.0;
+			//double dTimeToCC = vecInput.at(itrial).dTimeToCC;
+			int fLast = 0;
+			int fMax = SECONDS_TO_FRAMES(tMax);
+			int fToCC = SECONDS_TO_FRAMES(vecInput.at(itrial).dTimeToCC);
 			for (unsigned int j=0; !status && j<vecFlashies.at(itrial).size(); j++)
 			{
 				const FlashyParams& params = vecFlashies.at(itrial).at(j);
-				if (params.toff < params.ton)
+				if (params.foff < params.fon)
 				{
-					cerr << "checkFlashyTimes: trial " << itrial << " flashy# " << j << " flashy on " << params.ton << " off " << params.toff << " must be longer than 0s." << endl;
+					cerr << "checkFlashyTimes: trial " << itrial << " flashy# " << j << " flashy on " << params.fon << " off " << params.foff << " must be longer than 0s." << endl;
 					status = 1;
 				}
-				else if (params.ton < tLast)
+				else if (params.fon < fLast)
 				{
 					cerr << "checkFlashyTimes: trial " << itrial << " flashy# " << j << " overlaps previous." << endl;
 					status = 1;
 				}
-				else if ((params.toff - dTimeToCC) > tMax)
+				else if ((params.foff - fToCC) > fMax)
 				{
 					cerr << "checkFlashyTimes: trial " << itrial << " flashy# " << j << " goes beyond tMax for this trial." << endl;
 					status = 1;
 				}
 
 				// now make sure last flashy doesn't go past tMax
-				tLast = params.toff;
+				fLast = params.foff;
 			}
 		}
 	}
@@ -542,8 +555,11 @@ int AttentionStimSet::drawCurrent()
 		// Once more, with flashies
 		int count = 0;	    // count of steps in animation, i.e. elements of cycle[]  
 		unsigned int iflashy = 0;    // index of flashy in the flashies for current trial
-		double tconfig = 0; // time of the last frame configured
+		//double tconfig = 0; // time of the last frame configured
+		int fconfig = 0;
 		const double dTimeToCC = m_vecParams[m_current].dTimeToCC;    // convenience
+		const int iFramesToCC = SECONDS_TO_FRAMES(m_vecParams[m_current].dTimeToCC);
+		const int iFramesToTMax = SECONDS_TO_FRAMES(m_tMax);
 
 
 		// Now iterate through each flashy in this trial. 
@@ -564,6 +580,7 @@ int AttentionStimSet::drawCurrent()
 		// 
 		// At each step in the loop,
 		// tconfig = the amount of time that has been configured (i.e. the elements of cycle[] get us this far)
+		// fconfig = number of frames that have been configured this far
 
 		for (iflashy = 0; iflashy < m_vecFlashies.at(m_current).size(); iflashy++)
 		{
@@ -571,29 +588,33 @@ int AttentionStimSet::drawCurrent()
 			int page = 0;
 			int frames = 0;
 
-			// is there a gap between tconfig and the onset of the flashy? 
+			// is there a gap between fconfig and the onset of the flashy? 
 			// If so, then we will create an entry in cycle[] to display the stim page without a flashy.
 			// Beware, the stim page may be with or without CC.
 
-			if (SECONDS_TO_FRAMES(flashyParams.ton - tconfig) > 0)
+			//if (SECONDS_TO_FRAMES(flashyParams.ton - tconfig) > 0)
+			if (flashyParams.fon > fconfig)
 			{
 				// There is a gap between tconfig and the onset time of the flashy.
 				// If the flashy starts before the CC, then the gap is m_pageStim
 				// If the flashy starts after the CC, and tconfig is at or after the CC, then the gap is m_pageChg
 				// Otherwise, the gap encompasses the CC.
-				if (SECONDS_TO_FRAMES(dTimeToCC - flashyParams.ton) >= 0)
+				//if (SECONDS_TO_FRAMES(dTimeToCC - flashyParams.ton) >= 0)
+				if (iFramesToCC >= flashyParams.fon)
 				{
 					// flashy starts at or before the CC, so page is m_pageStim for the whole gap
-					cycle[count].Frames = (WORD)SECONDS_TO_FRAMES(flashyParams.ton - tconfig);
+					cycle[count].Frames = (WORD)(flashyParams.fon - fconfig);
 					cycle[count].Page = m_pageStim;
 					cycle[count].Xpos = cycle[count].Ypos = 0;
 					cycle[count].Stop = 0;
 					count++;
 				}
-				else if (SECONDS_TO_FRAMES(tconfig - dTimeToCC) >= 0)
+				//else if (SECONDS_TO_FRAMES(tconfig - dTimeToCC) >= 0)
+				else if (fconfig >= iFramesToCC)
 				{
 					// tconfig is beyond the CC, so page is m_pageChg for the whole gap
-					cycle[count].Frames = (WORD)SECONDS_TO_FRAMES(flashyParams.ton - tconfig);
+					//cycle[count].Frames = (WORD)SECONDS_TO_FRAMES(flashyParams.ton - tconfig);
+					cycle[count].Frames = (WORD)(flashyParams.fon - fconfig);
 					cycle[count].Page = m_pageChg;
 					cycle[count].Xpos = cycle[count].Ypos = 0;
 					cycle[count].Stop = 0;
@@ -601,19 +622,28 @@ int AttentionStimSet::drawCurrent()
 				}
 				else
 				{
-					// tconfig is prior to CC, so the gap encompasses the CC
-					cycle[count].Frames = (WORD)SECONDS_TO_FRAMES(dTimeToCC - tconfig);
-					cycle[count].Page = m_pageStim;
-					cycle[count].Xpos = cycle[count].Ypos = 0;
-					cycle[count].Stop = 0;
-					count++;
-					cycle[count].Frames = (WORD)SECONDS_TO_FRAMES(flashyParams.ton - dTimeToCC);
+					// tconfig is prior to the CC so the gap encompasses the CC
+					// There is a special case where fconfig is now at the CC - then the entire gap is after.
+					//cycle[count].Frames = (WORD)SECONDS_TO_FRAMES(dTimeToCC - tconfig);
+					if (fconfig < iFramesToCC)
+					{
+						cycle[count].Frames = (WORD)(iFramesToCC - fconfig);
+						cycle[count].Page = m_pageStim;
+						cycle[count].Xpos = cycle[count].Ypos = 0;
+						cycle[count].Stop = 0;
+						count++;
+					}
+
+					//cycle[count].Frames = (WORD)SECONDS_TO_FRAMES(flashyParams.ton - dTimeToCC);
+					cycle[count].Frames = (WORD)(flashyParams.fon - iFramesToCC);
 					cycle[count].Page = m_pageChg + vsgTRIGGERPAGE;		// trigger at CC
 					cycle[count].Xpos = cycle[count].Ypos = 0;
 					cycle[count].Stop = 0;
 					count++;
 				}
-				tconfig = flashyParams.ton;
+				//tconfig = flashyParams.ton;
+				//tconfig = get_fconfig(cycle, count);
+				fconfig = flashyParams.fon;
 			}
 			
 			// Now we configure the cycling for the flashy itself. 
@@ -623,17 +653,21 @@ int AttentionStimSet::drawCurrent()
 			// Entire flashy is at or after the CC
 			// The flashy spans the CC.
 			
-			if (SECONDS_TO_FRAMES(dTimeToCC - flashyParams.toff) >= 0)
+			//if (SECONDS_TO_FRAMES(dTimeToCC - flashyParams.toff) >= 0)
+			if (iFramesToCC >= flashyParams.foff)
 			{
-				cycle[count].Frames = (WORD)SECONDS_TO_FRAMES(flashyParams.toff - flashyParams.ton);
+				//cycle[count].Frames = (WORD)SECONDS_TO_FRAMES(flashyParams.toff - flashyParams.ton);
+				cycle[count].Frames = (WORD)(flashyParams.foff - flashyParams.fon);
 				cycle[count].Page = m_pageD + 2*iflashy + vsgTRIGGERPAGE;
 				cycle[count].Xpos = cycle[count].Ypos = 0;
 				cycle[count].Stop = 0;
 				count++;
 			}
-			else if (SECONDS_TO_FRAMES(flashyParams.ton - dTimeToCC) >= 0)
+			//else if (SECONDS_TO_FRAMES(flashyParams.ton - dTimeToCC) >= 0)
+			else if (flashyParams.fon >= iFramesToCC)
 			{
-				cycle[count].Frames = (WORD)SECONDS_TO_FRAMES(flashyParams.toff - flashyParams.ton);
+				//cycle[count].Frames = (WORD)SECONDS_TO_FRAMES(flashyParams.toff - flashyParams.ton);
+				cycle[count].Frames = (WORD)(flashyParams.foff - flashyParams.fon);
 				cycle[count].Page = m_pageD + 2*iflashy + 1 + vsgTRIGGERPAGE;
 				cycle[count].Xpos = cycle[count].Ypos = 0;
 				cycle[count].Stop = 0;
@@ -641,30 +675,37 @@ int AttentionStimSet::drawCurrent()
 			}
 			else
 			{
-	//			cerr << "Spanning flashy at count " << count << endl;
-				cycle[count].Frames = (WORD)SECONDS_TO_FRAMES(dTimeToCC - flashyParams.ton);
+				cerr << "Spanning flashy at count " << count << " flashy " << flashyParams.fon << "-" << flashyParams.foff << ", CC " << iFramesToCC << endl;
+				//cycle[count].Frames = (WORD)SECONDS_TO_FRAMES(dTimeToCC - flashyParams.ton);
+				cycle[count].Frames = (WORD)(iFramesToCC - flashyParams.fon);
 				cycle[count].Page = m_pageD + 2*iflashy + vsgTRIGGERPAGE;
 				cycle[count].Xpos = cycle[count].Ypos = 0;
 				cycle[count].Stop = 0;
 				count++;
-				cycle[count].Frames = (WORD)SECONDS_TO_FRAMES(flashyParams.toff - dTimeToCC);
+				//cycle[count].Frames = (WORD)SECONDS_TO_FRAMES(flashyParams.toff - dTimeToCC);
+				cycle[count].Frames = (WORD)(flashyParams.foff - iFramesToCC);
 				cycle[count].Page = m_pageD + 2*iflashy + 1 + vsgTRIGGERPAGE;
 				cycle[count].Xpos = cycle[count].Ypos = 0;
 				cycle[count].Stop = 0;
 				count++;
 			}
-			tconfig = flashyParams.toff;
+			//tconfig = flashyParams.toff;
+			//tconfig = get_fconfig(cycle, count);
+			fconfig = flashyParams.foff;
 		}
 				
 		// After the loop there may be a gap between tconfig and tMax
 		// The CC may fall in this gap!			
 
-		if (SECONDS_TO_FRAMES(tconfig - dTimeToCC) >= 0)
+		//if (SECONDS_TO_FRAMES(tconfig - dTimeToCC) >= 0)
+		if (fconfig >= iFramesToCC)
 		{
 			// entire gap is after the cc. Special case when the start of
 			// this gap is at dTimeToCC -- have to issue trigger
-			cycle[count].Frames = (WORD)SECONDS_TO_FRAMES(m_tMax - (tconfig - dTimeToCC));
-			cycle[count].Page = m_pageChg + ((SECONDS_TO_FRAMES(tconfig - dTimeToCC) == 0) ? 1 : 0);
+			//cycle[count].Frames = (WORD)SECONDS_TO_FRAMES(m_tMax - (tconfig - dTimeToCC));
+			cycle[count].Frames = iFramesToTMax - (fconfig - iFramesToCC);
+			//cycle[count].Page = m_pageChg + ((SECONDS_TO_FRAMES(tconfig - dTimeToCC) == 0) ? vsgTRIGGERPAGE : 0);
+			cycle[count].Page = m_pageChg + ((fconfig == iFramesToCC) ? vsgTRIGGERPAGE : 0);
 			cycle[count].Xpos = cycle[count].Ypos = 0;
 			cycle[count].Stop = 0;
 			count++;
@@ -672,12 +713,14 @@ int AttentionStimSet::drawCurrent()
 		else
 		{
 			// split the gap
-			cycle[count].Frames = (WORD)SECONDS_TO_FRAMES(dTimeToCC - tconfig);
+			//cycle[count].Frames = (WORD)SECONDS_TO_FRAMES(dTimeToCC - tconfig);
+			cycle[count].Frames = (WORD)(iFramesToCC - fconfig);
 			cycle[count].Page = m_pageStim;
 			cycle[count].Xpos = cycle[count].Ypos = 0;
 			cycle[count].Stop = 0;
 			count++;
-			cycle[count].Frames = (WORD)SECONDS_TO_FRAMES(m_tMax);
+			//cycle[count].Frames = (WORD)SECONDS_TO_FRAMES(m_tMax);
+			cycle[count].Frames = (WORD)(iFramesToTMax);
 			cycle[count].Page = m_pageChg + vsgTRIGGERPAGE;
 			cycle[count].Xpos = cycle[count].Ypos = 0;
 			cycle[count].Stop = 0;

@@ -30,7 +30,8 @@ typedef struct flashy_params
 {
 	int nk;	// distractor number to use, index [0,...,distractor.size-1]
 	double x, y, w, h;
-	double ton, toff;
+	//double ton, toff;
+	int fon, foff;	// ton and toff converted to frames. 
 } FlashyParams;
 
 typedef vector<struct flashy_params> FlashyParamVector;
@@ -43,8 +44,8 @@ int checkFlashyTimes(const vector<AttParams>& vecInput, const FlashyParamVectorV
 
 // note = WORD is unsigned short. The cast here makes all conversions positive numbers. Bad when using as a test.
 //#define SECONDS_TO_FRAMES(t) ((WORD)((t) * 1000000.0 /vsgGetSystemAttribute(vsgFRAMETIME)))
-#define SECONDS_TO_FRAMES(t) ((t) * 1000000.0 /vsgGetSystemAttribute(vsgFRAMETIME))
-
+#define SECONDS_TO_FRAMES(t) (int)((t) * 1000000.0 /vsgGetSystemAttribute(vsgFRAMETIME))
+#define FRAMES_TO_SECONDS(n) ((n) * vsgGetSystemAttribute(vsgFRAMETIME)/1000000.0)
 
 class AttentionStimSet: public StimSet
 {
