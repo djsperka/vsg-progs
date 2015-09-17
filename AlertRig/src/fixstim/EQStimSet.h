@@ -13,6 +13,9 @@ struct EQParams
 	double tE;			// stim off
 	int iAL, iCR;	// attend location, correct response (unused here)
 	std::vector<std::pair<int, int> > contrastPairs;
+	ARContrastFixationPointSpec *fixpt;
+	ARGratingSpec *g0;
+	ARGratingSpec *g1;
 };
 
 int parse_eqparams(const string& s, int nstim, struct EQParams& params);

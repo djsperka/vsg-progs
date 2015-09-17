@@ -263,13 +263,19 @@ namespace alert
 		void init(ARvsg& vsg, PIXEL_LEVEL first, int numlevels);
 		void init(int numlevels);
 		void init(ARvsg& vsg, int numlevels);
+		// copy VSGObject stuff only - handle, levels, etc. 
+		// Use this when one obj is already init'd, but you want
+		// to draw another. 
+		void init(const ARObject& obj);
 		void destroy();
 		int select();
 		virtual void setContrast(int contrast);
-		VSGOBJHANDLE handle();
-		bool initialized();
-		PIXEL_LEVEL getFirstLevel();
-		int getNumLevels();
+		VSGOBJHANDLE handle() const;
+		bool initialized() const;
+		PIXEL_LEVEL getFirstLevel() const;
+		int getNumLevels() const;
+		bool getUseMaster() const { return m_use_master; };
+		bool getUseSlave() const { return m_use_slave; };
 		ARObject& operator=(const ARObject& obj);
 	protected:
 		ARvsg& getVSG();
