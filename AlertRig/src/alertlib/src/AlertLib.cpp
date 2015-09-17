@@ -654,28 +654,38 @@ void ARObject::init(PIXEL_LEVEL first, int numlevels)
 	cout << "init obj(" << (int)m_handle << ") on level " << first << ", with " << numlevels << " levels" << endl;
 }
 
+void ARObject::init(const ARObject& obj)
+{
+	m_initialized = obj.initialized();
+	m_handle = obj.handle();
+	m_first = obj.getFirstLevel();
+	m_numlevels = obj.getNumLevels();
+	m_use_master = obj.getUseMaster();
+	m_use_slave = obj.getUseSlave();
+}
+
 void ARObject::setContrast(int contrast) 
 { 
 	select(); 
 	vsgObjSetContrast(contrast); 
 };
 
-VSGOBJHANDLE ARObject::handle() 
+VSGOBJHANDLE ARObject::handle() const 
 { 
 	return m_handle; 
 };
 
-bool ARObject::initialized() 
+bool ARObject::initialized() const 
 { 
 	return m_initialized; 
 };
 
-PIXEL_LEVEL ARObject::getFirstLevel() 
+PIXEL_LEVEL ARObject::getFirstLevel() const 
 { 
 	return m_first; 
 };
 
-int ARObject::getNumLevels() 
+int ARObject::getNumLevels() const 
 { 
 	return m_numlevels; 
 };
