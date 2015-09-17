@@ -1,6 +1,8 @@
 #include "EQStimSet.h"
 #include <iostream>
+#include <boost/algorithm/string.hpp>
 using namespace std;
+using namespace boost;
 
 VSGLUTBUFFER f_palImage;	// loaded from image
 VSGLUTBUFFER f_palHW;	// loaded from hardware
@@ -37,8 +39,19 @@ int parse_eqparams(const string& s, int nstim, struct EQParams& params)
 	int i, inext;
 	int status = 1;
 	int nexpect = 8+2*nstim;
+	vector<string> piped;
 	vector<string> tokens;
-	tokenize(s, tokens, "\t");
+
+	tokenize(s, piped, "|");
+	cerr << "piped has " << piped.size() << endl;
+	params.fixpt = (ARContrastFixationPointSpec *)NULL;
+	params.g0 = (ARGratingSpec *)NULL;
+	params.g1 = (ARGratingSpec *)NULL;
+
+
+	// Parse first part of arg. This was the original arg, and is everything before the first "|"
+
+	tokenize(piped[0], tokens, "\t");
 	if (tokens.size() != nexpect)
 	{
 		cerr << "Error in eq param: expecting " << nexpect << " tokens, got " << tokens.size() << ": " << s << endl;
@@ -80,7 +93,62 @@ int parse_eqparams(const string& s, int nstim, struct EQParams& params)
 	}
 	
 	parse_string(tokens[inext+2], params.cueFile);
-	
+
+
+	// Now parse each of the remaining items in piped
+	if (piped.size() > 1)
+	{
+		ARContrastFixationPointSpec fixpt;
+		string s = trim_copy(piped[1]);
+		if (s.length() > 0)
+		{
+			if (parse_fixation_point(s, fixpt))
+			{
+				cerr << "Error in fixation point arg:" << s << ":" << endl;
+				return 1;
+			}
+			else 
+			{
+				params.fixpt = new ARContrastFixationPointSpec(fixpt);
+			}
+		}
+	}
+
+	if (piped.size() > 2)
+	{
+		ARGratingSpec grating;
+		string s = trim_copy(piped[2]);
+		if (s.length() > 0)
+		{
+			if (parse_grating(s, grating))
+			{
+				cerr << "Error in first grating arg: " << s <<  ":" << endl;
+				return 1;
+			}
+			else 
+			{
+				params.g0 = new ARGratingSpec(grating);
+			}
+		}
+	}
+
+	if (piped.size() > 3)
+	{
+		ARGratingSpec grating;
+		string s = trim_copy(piped[3]);
+		if (s.length() > 0)
+		{
+			if (parse_grating(s, grating))
+			{
+				cerr << "Error in second grating arg: " << s <<  ":" << endl;
+				return 1;
+			}
+			else 
+			{
+				params.g1 = new ARGratingSpec(grating);
+			}
+		}
+	}
 	return 0;
 }
 
@@ -115,8 +183,6 @@ int EQStimSet::init(ARvsg& vsg, std::vector<int> pages)
 
 	// divvy up levels. There are only about 250 levels available but fixpt takes 2...
 	// test - snag 40 levels for loaded images.......
-	PIXEL_LEVEL level;
-	int i;
 	vsg.request_range(40, m_levelImage);
 
 	fixpt().init(vsg, 2);
@@ -140,13 +206,22 @@ int EQStimSet::drawCurrent()
 	int i;
 	int nstim = count()/2;
 	int status = 0;
+	ARContrastFixationPointSpec *pfixpt;
+	ARGratingSpec *pg0Before, *pg0After;
+	ARGratingSpec *pg1Before, *pg1After;
+	ARGratingSpec g0Before, g0After;
+	ARGratingSpec g1Before, g1After;
+	const struct EQParams * pparams;		// pointer to current of current params, convenience
+
 	int page = vsgGetZoneDisplayPage(vsgVIDEOPAGE);
 	if (m_current >= m_vecParams.size())
 		return 1;
+	else
+		pparams = &m_vecParams.at(m_current);
 
 	// vsgDrawImage needs a char* not const char*
 	char filename[1024];
-	strncpy(filename, m_vecParams.at(m_current).cueFile.c_str(), sizeof(filename));
+	strncpy_s(filename, 1024, pparams->cueFile.c_str(), sizeof(filename));
 	filename[1023] = 0;
 
 	// load palette
@@ -165,55 +240,127 @@ int EQStimSet::drawCurrent()
 		}
 	}
 	vsgPaletteWrite((VSGLUTBUFFER*)f_palImage, 0, 32);
-	
+
+	// Decide what stuff to draw
+	if (pparams->fixpt)
+	{
+		pfixpt = pparams->fixpt;
+		pfixpt->init(fixpt());
+	}
+	else
+	{
+		pfixpt = &fixpt();
+	}
+
+	if (pparams->g0)
+	{
+		g0Before = *pparams->g0;
+		g0Before.init(grating(0));
+		pg0Before = &g0Before;
+		g0After = *pparams->g0;
+		g0After.init(grating(1));
+		pg0After = &g0After;
+	}
+	else
+	{
+		pg0Before = &grating(0);
+		pg0After = &grating(1);
+	}
+
+	if (pparams->g1)
+	{
+		g1Before = *pparams->g1;
+		g1Before.init(grating(2));
+		pg1Before = &g1Before;
+		g1After = *pparams->g1;
+		g1After.init(grating(3));
+		pg1After = &g1After;
+	}
+	else
+	{
+		pg1Before = &grating(2);
+		pg1After = &grating(3);
+	}
+
+	// Set contrasts
+#if MORE_THAN_2_GRATINGS
 	for (i=0; i<nstim; i++)
 	{
-		grating(i * nstim).setContrast(m_vecParams[m_current].contrastPairs[i].first);
-		grating(i * nstim + 1).setContrast(m_vecParams[m_current].contrastPairs[i].second);
+		grating(i * nstim).setContrast(pparams->contrastPairs[i].first);
+		grating(i * nstim + 1).setContrast(pparams->contrastPairs[i].second);
 	}
+#else
+	pg0Before->setContrast(pparams->contrastPairs[0].first);
+	pg0After->setContrast(pparams->contrastPairs[0].second);
+	pg1Before->setContrast(pparams->contrastPairs[1].first);
+	pg1After->setContrast(pparams->contrastPairs[1].second);
+#endif
+
+
+
 
 	// fixpt page
 	vsgSetDrawPage(vsgVIDEOPAGE, m_pageFixpt, vsgBACKGROUND);
-	fixpt().draw();
+	pfixpt->draw();
 
 	// fixpt + cue page
 	vsgSetDrawPage(vsgVIDEOPAGE, m_pageFixptCue, vsgBACKGROUND);
-	vsgDrawImage(vsgBMPPICTURE, 0, 0, filename);
-	fixpt().draw();
+	vsgDrawImage(vsgBMPPICTURE, pfixpt->x, pfixpt->y, filename);
+	pfixpt->draw();
 
 	// fixpt + cue + stim
 	vsgSetDrawPage(vsgVIDEOPAGE, m_pageFixptCueStim, vsgBACKGROUND);
-	vsgDrawImage(vsgBMPPICTURE, 0, 0, filename);
+	vsgDrawImage(vsgBMPPICTURE, pfixpt->x, pfixpt->y, filename);
+#if MORE_THAN_2_GRATINGS
 	for (i=0; i<nstim; i++)
 	{
 		grating(i*nstim).draw();	// stim, not CC partners
 	}
-	fixpt().draw();
+#else
+	pg0Before->draw();
+	pg1Before->draw();
+#endif
+	pfixpt->draw();
 
 	// fixpt + cue + stimCC
 	vsgSetDrawPage(vsgVIDEOPAGE, m_pageFixptCueStimCC, vsgBACKGROUND);
-	vsgDrawImage(vsgBMPPICTURE, 0, 0, filename);
+	vsgDrawImage(vsgBMPPICTURE, pfixpt->x, pfixpt->y, filename);
+#if MORE_THAN_2_GRATINGS
 	for (i=0; i<nstim; i++)
 	{
 		grating(i*nstim + 1).draw();	// stim, not CC partners
 	}
-	fixpt().draw();
+#else
+	pg0After->draw();
+	pg1After->draw();
+#endif
+	pfixpt->draw();
 
 	// fixpt + stim
 	vsgSetDrawPage(vsgVIDEOPAGE, m_pageFixptStim, vsgBACKGROUND);
+#if MORE_THAN_2_GRATINGS
 	for (i=0; i<nstim; i++)
 	{
 		grating(i*nstim).draw();	// stim, not CC partners
 	}
-	fixpt().draw();
+#else
+	pg0Before->draw();
+	pg1Before->draw();
+#endif
+	pfixpt->draw();
 
 	// fixpt + stimCC
 	vsgSetDrawPage(vsgVIDEOPAGE, m_pageFixptStimCC, vsgBACKGROUND);
+#if MORE_THAN_2_GRATINGS
 	for (i=0; i<nstim; i++)
 	{
 		grating(i*nstim + 1).draw();	// stim, not CC partners
 	}
-	fixpt().draw();
+#else
+	pg0After->draw();
+	pg1After->draw();
+#endif
+	pfixpt->draw();
 
 	// blank page
 	vsgSetDrawPage(vsgVIDEOPAGE, m_pageBlank, vsgBACKGROUND);
@@ -221,11 +368,11 @@ int EQStimSet::drawCurrent()
 
 
 	// Setup page cycling
-	int nQ0 = m_vecParams.at(m_current).tQ0 * 1000000.0 /vsgGetSystemAttribute(vsgFRAMETIME);
-	int nQ1 = m_vecParams.at(m_current).tQ1 * 1000000.0 /vsgGetSystemAttribute(vsgFRAMETIME);
-	int nS = m_vecParams.at(m_current).tS * 1000000.0 /vsgGetSystemAttribute(vsgFRAMETIME);
-	int nCC = m_vecParams.at(m_current).tCC * 1000000.0 /vsgGetSystemAttribute(vsgFRAMETIME);
-	int nE = m_vecParams.at(m_current).tE * 1000000.0 /vsgGetSystemAttribute(vsgFRAMETIME);
+	int nQ0 = (int)(pparams->tQ0 * 1000000.0 /vsgGetSystemAttribute(vsgFRAMETIME));
+	int nQ1 = (int)(pparams->tQ1 * 1000000.0 /vsgGetSystemAttribute(vsgFRAMETIME));
+	int nS = (int)(pparams->tS * 1000000.0 /vsgGetSystemAttribute(vsgFRAMETIME));
+	int nCC = (int)(pparams->tCC * 1000000.0 /vsgGetSystemAttribute(vsgFRAMETIME));
+	int nE = (int)(pparams->tE * 1000000.0 /vsgGetSystemAttribute(vsgFRAMETIME));
 	int iCycle = 0;	// keeps position during setup below
 	VSGCYCLEPAGEENTRY cycle[32767];
 
@@ -366,7 +513,7 @@ int EQStimSet::handle_trigger(std::string& s)
 	}
 	else if (s == "S")
 	{
-		for (unsigned int i=0; i<count(); i++)
+		for (int i=0; i<count(); i++)
 		{
 			grating(i).select();
 			vsgObjSetSpatialPhase(grating(i).phase);
