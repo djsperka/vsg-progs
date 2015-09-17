@@ -615,7 +615,7 @@ int AttentionStimSet::drawCurrent()
 					// tconfig is beyond the CC, so page is m_pageChg for the whole gap
 					//cycle[count].Frames = (WORD)SECONDS_TO_FRAMES(flashyParams.ton - tconfig);
 					cycle[count].Frames = (WORD)(flashyParams.fon - fconfig);
-					cycle[count].Page = m_pageChg;
+					cycle[count].Page = m_pageChg + (fconfig == iFramesToCC ? vsgTRIGGERPAGE : 0);
 					cycle[count].Xpos = cycle[count].Ypos = 0;
 					cycle[count].Stop = 0;
 					count++;
