@@ -588,6 +588,8 @@ int AttentionStimSet::drawCurrent()
 			int page = 0;
 			int frames = 0;
 
+			cerr << "fconfig " << fconfig << " CC " << iFramesToCC << " ton " << flashyParams.fon << " foff " << flashyParams.foff << endl;
+
 			// is there a gap between fconfig and the onset of the flashy? 
 			// If so, then we will create an entry in cycle[] to display the stim page without a flashy.
 			// Beware, the stim page may be with or without CC.
