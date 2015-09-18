@@ -392,7 +392,23 @@
 			>
 		</File>
 		<File
+			RelativePath=".\attspan.txt"
+			>
+		</File>
+		<File
+			RelativePath=".\attspan2.txt"
+			>
+		</File>
+		<File
 			RelativePath=".\counterphase-test-input-1.txt"
+			>
+		</File>
+		<File
+			RelativePath=".\watt.txt"
+			>
+		</File>
+		<File
+			RelativePath=".\wattd.txt"
 			>
 		</File>
 	</Files>
