@@ -1,4 +1,4 @@
-' $Id: AttentionGoNoGo.s2s,v 1.64 2015-09-01 18:25:10 devel Exp $
+' $Id: AttentionGoNoGo.s2s,v 1.65 2015-09-23 19:26:18 devel Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -1492,7 +1492,7 @@ func IdleProcessing%()
     case iState% = stateWaitForFixPtOn% then
         tTrigger := View(DataWindow%).NextTime(FixationPointChannel%, tLast, vTrigger);
         if tTrigger > tLast then
-            if tTrigger < View(DataWindow%).MaxTime() then
+            if tTrigger < tNow then    'View(DataWindow%).MaxTime() then  'try using tNow to avoid rare double-catch
                 ' Fixation point is up
                 PrintLog("stateWaitForFixPtOn: signal received. " + str$(tTrigger) + "\n");
                 tLastTrigger := tTrigger;
@@ -1566,7 +1566,7 @@ func IdleProcessing%()
     case iState% = stateWaitForStimOn% then
         tTrigger := View(DataWindow%).NextTime(StimChannel%, tLast, vTrigger);
         if tTrigger > tLast and vTrigger = 0 then
-            if tTrigger < View(DataWindow%).MaxTime() then
+            if tTrigger < tNow then         'View(DataWindow%).MaxTime() then   'try using tNow to avoid rare double-catch
                 ' gratings et al are up
                 PrintLog("stateWaitForStimOn: stim is up.\n");
                 tStimOn := tTrigger;
@@ -1766,7 +1766,7 @@ func IdleProcessing%()
 '        'Check to see if there was a trigger
 '        tTrigger := NextTime(FrameTriggerChannel%, tLast, vTrigger);
 '        if tTrigger > tLast and vTrigger = 0 then  'only look at rising edge
-'            if tTrigger < View(DataWindow%).MaxTime() then
+'            if tTrigger < tNow then      'View(DataWindow%).MaxTime() then  'try using tNow to avoid rare double-catch
 '               tLastTrigger := tTrigger;
 '               'put in a sample text for Flashers, sample text for CC will be done below
 '                CCHappened% := TagTriggerWithSampletext%(tLastTrigger,tStimOn,attCurrTrialIndex%,flasherCountThisTrial%);
@@ -1858,7 +1858,7 @@ func IdleProcessing%()
         if attUseFlashers% = 1 then
             tTrigger := NextTime(FrameTriggerChannel%, tLast, vTrigger);
             if tTrigger > tLast and vTrigger = 0 then  'only look at rising edge
-                if tTrigger < View(DataWindow%).MaxTime() then
+                if tTrigger < tNow then     'View(DataWindow%).MaxTime() then   'try using tNow to avoid rare double-catch
                     tLastTrigger := tTrigger;
                     'put in a sample text based on which flasher this trigger was representing
                     TagTriggerWithSampletext%(tLastTrigger,tStimOn,attCurrTrialIndex%,flasherCountThisTrial%);
