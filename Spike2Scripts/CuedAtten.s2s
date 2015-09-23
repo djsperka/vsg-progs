@@ -305,6 +305,7 @@ if caTrainingOptions% > 2 then
         docase
         case (caContrast1Init[j%] <> caContrast1Final[j%]) and (caContrast2Init[j%] <> caContrast2Final[j%]) then
             message("On trial #%d, BOTH gratings change contrast, this is not currently allowed!  Quitting!",j%);
+            halt;
         case caContrast1Init[j%] <> caContrast1Final[j%] then
             caWhichLocationChanges%[j%] := 1;
         case caContrast2Init[j%] <> caContrast2Final[j%] then
@@ -315,6 +316,7 @@ if caTrainingOptions% > 2 then
         'For now, I am not allowing an undefined attend location (e.g. "no attend"). However "no attend" is ready to go in PrepareTrial in case this changes
         if caAttendLoc%[j%] <> 1 and caAttendLoc%[j%] <> 2 then
             message("On trial #%d, there is no defined attend location, this is not currently allowed!  Quitting!",j%);
+            halt;
         endif;
     next
     
