@@ -1,7 +1,7 @@
-' $Id: Tuning.s2s,v 1.95 2015-08-03 22:10:27 devel Exp $
+' $Id: Tuning.s2s,v 1.96 2015-09-30 23:23:10 devel Exp $
 ' Update 11/8/11 Jeff, includes multi-juicer updates
 
-const tunCVSID$ := "$Id: Tuning.s2s,v 1.95 2015-08-03 22:10:27 devel Exp $";
+const tunCVSID$ := "$Id: Tuning.s2s,v 1.96 2015-09-30 23:23:10 devel Exp $";
 
 
 
@@ -2117,7 +2117,7 @@ proc WriteParameterFile()
     Print("Temporal frequency              : %s\n", Tstimtf$);
 	Print("Spatial frequency               : %s\n", Tstimsf$);
 	Print("Orientation (degrees)           : %s\n", Tstimorientation$);
-    Print("Initial Phase (degrees)         : %f\n", Tstimphase$);
+    Print("Initial Phase (degrees)         : %s\n", Tstimphase$);
 	Print("Contrast (%%)                    : %s\n", Tstimcontrast$);
 	Print("Aperture: ellipse(e)/square(q)  : %s\n", Tstimap$);
 	Print("Type: sine (s)/square (q)       : %s\n", Tstimp$);
