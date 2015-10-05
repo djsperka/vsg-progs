@@ -35,6 +35,7 @@ var caTrainingOptions%;
 var caTrainingHoldTime;
 var caFixAlternationTime;
 var caRequireFixation%;
+var caAllowFixationBreakAfterCC%;
 var caReturnForReward%;
 var inputFileHandle% := -1;  'start negative, requires user to open an input file
 var caBackgroundColor$ := "gray";  'for now just hardcoding the bg color, if we need it we can put this back in from AttenGNG
@@ -446,7 +447,7 @@ func TimingDialog%()
     var i%;
     const nOpts% := 4;
     var trainingOptionsList$[nOpts%];
-    var fixationOptionsList$[3];
+    var fixationOptionsList$[4];
     var tempAW;
     
     
@@ -457,7 +458,8 @@ func TimingDialog%()
     
     fixationOptionsList$[0] := "Fixation:  None"; 
     fixationOptionsList$[1] := "Fixation:  Require Fixation"; 
-    fixationOptionsList$[2] := "Fixation:  Monitor Eye Position";
+    fixationOptionsList$[2] := "Fixation:  Require Fixation Until CC";
+    fixationOptionsList$[3] := "Fixation:  Monitor Eye Position Only";
     
     GetTimingDialogParameters();
     
@@ -501,14 +503,23 @@ func TimingDialog%()
 
         SaveTimingDialogParameters();
         
-        'Change value of caRequireFixation to -1 if it is 2, because that's what the code expects.
-        if caRequireFixation% = 2 then
+        'Change value of caRequireFixation to -1 if it is 3 (monitor eye position only), because that's what the code expects.
+        if caRequireFixation% = 3 then
             caRequireFixation% := -1;
         endif;
         
+        'If we only require fixation until contrast change
+        if caRequireFixation% = 2 then
+            caAllowFixationBreakAfterCC% := 1;  'allow break after CC
+            caRequireFixation% := 1;  'set require fixation to 1 as expected
+        else
+            caAllowFixationBreakAfterCC% := 0;  'don't allow break after CC, will only do anything if fixation is otherwise required
+        endif;
+        
+        
         'force fixation requirement to 0 (no) if scenario definitely doesn't use fixation
         'but don't do this if caRequireFixation is -1 (monitoring eyes only)
-        if caTrainingOptions% < 2 and caRequireFixation% = 1 then
+        if caTrainingOptions% < 2 and (caRequireFixation% = 1 or caRequireFixation% = 2) then
             caRequireFixation% := 0;
         endif;
         
@@ -1694,7 +1705,7 @@ func IdleProcessing%()
                 'Stimulus is still on, response window is still open...
                 iAnswer% := Answer%(JoyChannel%,tNow);  'get answer
                 docase
-                case Looking%(xEye, yEye) = 0 and caRequireFixation% = 1 then  'if fixation broken, abort
+                case Looking%(xEye, yEye) = 0 and caRequireFixation% = 1 and caAllowFixationBreakAfterCC% = 0 then  'if fixation broken, abort
                     SafeSampleKey("s");
                     SampleText("Fixation broken during response window",tNow);
                     PrintLog("stateWaitForAnswer: fix broken - turn off stim\n");
