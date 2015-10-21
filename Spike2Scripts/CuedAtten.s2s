@@ -1684,13 +1684,13 @@ func IdleProcessing%()
                         caCountAllTrialsIncorrect% += 1;
                         caCountRightTrialsIncorrect% += 1;
                         caInterTrialTime2 := GetInterTrialTime(caInterTrialTime,caInterTrialTimeRand) + caMissPenalty;
-                        SampleText("Miss, Response Right, Expected Response Left",tNow);
+                        SampleText("Miss, Response Left, Expected Response Right",tNow);
                         ChangeStateTo(stateTrialCompletedWaitForBlank%, tNow);
                     case tempanswer% = 3 and trialAttendLoc% = 1 then 'left expected, response to right
                         caCountAllTrialsIncorrect% += 1;
                         caCountLeftTrialsIncorrect% += 1;
                         caInterTrialTime2 := GetInterTrialTime(caInterTrialTime,caInterTrialTimeRand) + caMissPenalty;
-                        SampleText("Miss, Response Left, Expected Response Right",tNow);
+                        SampleText("Miss, Response Right, Expected Response Left",tNow);
                         ChangeStateTo(stateTrialCompletedWaitForBlank%, tNow);
                     endcase
                 case joystickInStartPosition% = 0 and tempanswer% = 2 then 'FA in GNG
@@ -1908,8 +1908,9 @@ func IdleProcessing%()
                         joystickHasBeenCentered% := 0;  'joystick not centered
                     endif
                     SafeSampleKey("X");  'turn off stimulus first thing
+                    'printlog("trialAttendLoc is %d\n",trialAttendLoc%);  'just for testing
                     docase
-                    case tempanswer% = 3 and trialAttendLoc% = 3 then  'right expected, response to right
+                    case iAnswer% = 3 and trialAttendLoc% = 3 then  'right expected, response to right
                         caCountAllTrialsCorrect% += 1;
                         caCountRightTrialsCorrect% += 1;
                         caInterTrialTime2 := GetInterTrialTime(caInterTrialTime,caInterTrialTimeRand);
@@ -1917,7 +1918,7 @@ func IdleProcessing%()
                         'getPreciseTiming := 0;
                         Reward%();
                         ChangeStateTo(stateTrialCompletedWaitForBlank%, tNow); 
-                    case tempanswer% = 1 and trialAttendLoc% = 1 then 'left expected, response to left
+                    case iAnswer% = 1 and trialAttendLoc% = 1 then 'left expected, response to left
                         caCountAllTrialsCorrect% += 1;
                         caCountLeftTrialsCorrect% += 1;
                         caInterTrialTime2 := GetInterTrialTime(caInterTrialTime,caInterTrialTimeRand);
@@ -1925,17 +1926,17 @@ func IdleProcessing%()
                         'getPreciseTiming := 0;
                         Reward%();
                         ChangeStateTo(stateTrialCompletedWaitForBlank%, tNow); 
-                    case tempanswer% = 1 and trialAttendLoc% = 3 then 'right expected, response to left
+                    case iAnswer% = 1 and trialAttendLoc% = 3 then 'right expected, response to left
                         caCountAllTrialsIncorrect% += 1;
                         caCountRightTrialsIncorrect% += 1;
                         caInterTrialTime2 := GetInterTrialTime(caInterTrialTime,caInterTrialTimeRand) + caMissPenalty;
-                        SampleText("Miss, Response Right, Expected Response Left",tNow);
+                        SampleText("Miss, Response Left, Expected Response Right",tNow);
                         ChangeStateTo(stateTrialCompletedWaitForBlank%, tNow);
-                    case tempanswer% = 3 and trialAttendLoc% = 1 then 'left expected, response to right
+                    case iAnswer% = 3 and trialAttendLoc% = 1 then 'left expected, response to right
                         caCountAllTrialsIncorrect% += 1;
                         caCountLeftTrialsIncorrect% += 1;
                         caInterTrialTime2 := GetInterTrialTime(caInterTrialTime,caInterTrialTimeRand) + caMissPenalty;
-                        SampleText("Miss, Response Left, Expected Response Right",tNow);
+                        SampleText("Miss, Response Right, Expected Response Left",tNow);
                         ChangeStateTo(stateTrialCompletedWaitForBlank%, tNow);
                     endcase
                 endcase                
@@ -2439,9 +2440,9 @@ end;
 func JoyInStartPosition%(pos%)
     var sp%;
     docase
-    case caTrainingOptions% <= 2 and pos% = 3 then  'For all "regular" experiments (GNG), the start position is "right"
+    case caTrainingOptions% <= 3 and pos% = 3 then  'For all "regular" experiments (GNG), the start position is "right"
         sp% := 1;
-    case caTrainingOptions% = 3 and pos% = 2 then  'For cue image forced choice experiments, the start position is "center"
+    case caTrainingOptions% = 4 and pos% = 2 then  'For cue image forced choice experiments, the start position is "center"
         sp% := 1
     case pos% = 0 then
         sp% := 1;  'If the joystick is in an "intermediate position" just call that "still in start position"
