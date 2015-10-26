@@ -1,4 +1,4 @@
-' $Id: AttentionGoNoGo.s2s,v 1.65 2015-09-23 19:26:18 devel Exp $
+' $Id: AttentionGoNoGo.s2s,v 1.66 2015-10-26 21:35:15 devel Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -1687,93 +1687,7 @@ func IdleProcessing%()
         endif        
         
         
-    case iState% = stateHoldFixationToCC% then
-        
-        docase            
-        case Looking%(xEye, yEye) = 0 then  'begin abort procedure, check to see if it's a FA
-            tempanswer% := Answer% (xEye, yEye);
-            if tempanswer% < 0 then  'adjust tempanswer to correspond to trialAttendLoc syntax
-                tempanswer% := -tempanswer%+1;
-            endif;
-            docase
-            case tempanswer% = trialAttendLoc% then 'answer in "attend toward" window
-                PrintLog("stateHoldFixationToCC: in attend toward response window, aborting trial.\n");
-                FAIsResponse% := 1;
-                ChangeStateTo(stateAbort%, tNow);
-                SampleText(Print$("Fixation broken, False Alarm to location %d (attend toward window) during stimulus, trial aborted",tempanswer%),tNow);
-            case tempanswer% = -1 then 'answer in "attend away" = "down" window
-                PrintLog("stateHoldFixationToCC: in attend away response window, aborting trial.\n");
-                FAIsResponse% := 1;
-                ChangeStateTo(stateAbort%, tNow);
-                SampleText(Print$("Fixation broken, False Alarm to location %d (attend away window) during stimulus, trial aborted",tempanswer%),tNow);           
-            else  'keep checking
-                ChangeStateTo(stateCheckFalseAlarm%, tNow);
-                temptext$ := "during stimulus";
-            endcase;
-            
-        else 
-            if (tNow - tStateStart) > (trialHazardFunctionTime) then
-                ' we no longer turn off stimulus and advance it, but we DO allow response now
-                isStimDistractorOff% := 0;
-                ChangeStateTo(stateWaitForAnswer%, tNow);
-                'This docase sets the color of the changed location to red on the "monitor screen"
-                docase
-                case trialIsTarget% = 0 then
-                    view(XYWindow%).XYColour(iFixationWindowChannel%,16);  'Change fixation window to red
-                case trialIsTarget% = 1 then
-                    view(XYWindow%).XYColour(iAnswerWindowChannelMain%,16);  'Change main window to red
-                case trialIsTarget% = 2 then
-                    view(XYWindow%).XYColour(iAnswerWindowChannelDist1%,16);  'Change dist1 window to red
-                case trialIsTarget% = 3 then
-                    view(XYWindow%).XYColour(iAnswerWindowChannelDist2%,16);  'Change dist2 window to red
-                case trialIsTarget% = 4 then
-                    view(XYWindow%).XYColour(iAnswerWindowChannelDist3%,16);  'Change dist3 window to red
-                case trialIsTarget% = 5 then
-                    view(XYWindow%).XYColour(iAnswerWindowChannelDist4%,16);  'Change dist4 window to red
-                endcase
-                'This docase does the appropriate SampleTexting
-                docase
-                case trialType% = trialtypeAttendToward% then
-                    if trialIsTarget% > 0 then
-                        if trialCatch% = 0 then
-                            Sampletext("Contrast Change, Level " + Str$(thisContrast%) + ", Attend Toward",tTrigger+trialHazardFunctionTime);
-                        else
-                            Sampletext("Contrast Change, Level " + Str$(thisContrast%) + ", Attend Toward (catch)",tTrigger+trialHazardFunctionTime);
-                        endif
-                    else
-                        Sampletext("Attend Toward, No Contrast Change",tTrigger+trialHazardFunctionTime);
-                    endif
-                case trialType% = trialtypeAttendAway% then
-                    if trialIsTarget% > 0 then
-                        if trialCatch% = 0 then
-                            Sampletext("Contrast Change, Level " + Str$(thisContrast%) + ", Attend Away",tTrigger+trialHazardFunctionTime);
-                        else
-                            Sampletext("Contrast Change, Level " + Str$(thisContrast%) + ", Attend Away (catch)",tTrigger+trialHazardFunctionTime);
-                        endif
-                    else
-                        Sampletext("Attend Away, No Contrast Change",tTrigger+trialHazardFunctionTime);
-                    endif
-                else
-                    PrintLog("ERROR! Unknown blocktype!!!\n");    
-                endcase
-            endif
-            
-        endcase        
-        
-        
 '    case iState% = stateHoldFixationToCC% then
-'        
-'        'Check to see if there was a trigger
-'        tTrigger := NextTime(FrameTriggerChannel%, tLast, vTrigger);
-'        if tTrigger > tLast and vTrigger = 0 then  'only look at rising edge
-'            if tTrigger < tNow then      'View(DataWindow%).MaxTime() then  'try using tNow to avoid rare double-catch
-'               tLastTrigger := tTrigger;
-'               'put in a sample text for Flashers, sample text for CC will be done below
-'                CCHappened% := TagTriggerWithSampletext%(tLastTrigger,tStimOn,attCurrTrialIndex%,flasherCountThisTrial%);
-'            else
-'                updateTLast% := 0;  'waiting for sampling to catch up
-'            endif;
-'        endif;
 '        
 '        docase            
 '        case Looking%(xEye, yEye) = 0 then  'begin abort procedure, check to see if it's a FA
@@ -1798,9 +1712,7 @@ func IdleProcessing%()
 '            endcase;
 '            
 '        else 
-'            if CCHappened% = 1 then
-'            'if (tNow - tStateStart) > (trialHazardFunctionTime) then
-'                CCHappened% := 0;  'reset, shouldn't matter
+'            if (tNow - tStateStart) > (trialHazardFunctionTime) then
 '                ' we no longer turn off stimulus and advance it, but we DO allow response now
 '                isStimDistractorOff% := 0;
 '                ChangeStateTo(stateWaitForAnswer%, tNow);
@@ -1824,31 +1736,119 @@ func IdleProcessing%()
 '                case trialType% = trialtypeAttendToward% then
 '                    if trialIsTarget% > 0 then
 '                        if trialCatch% = 0 then
-'                            Sampletext("Contrast Change, Level " + Str$(thisContrast%) + ", Attend Toward",tLastTrigger);
+'                            Sampletext("Contrast Change, Level " + Str$(thisContrast%) + ", Attend Toward",tTrigger+trialHazardFunctionTime);
 '                        else
-'                            Sampletext("Contrast Change, Level " + Str$(thisContrast%) + ", Attend Toward (catch)",tLastTrigger);
+'                            Sampletext("Contrast Change, Level " + Str$(thisContrast%) + ", Attend Toward (catch)",tTrigger+trialHazardFunctionTime);
 '                        endif
 '                    else
-'                        Sampletext("Attend Toward, No Contrast Change",tLastTrigger);
+'                        Sampletext("Attend Toward, No Contrast Change",tTrigger+trialHazardFunctionTime);
 '                    endif
 '                case trialType% = trialtypeAttendAway% then
 '                    if trialIsTarget% > 0 then
 '                        if trialCatch% = 0 then
-'                            Sampletext("Contrast Change, Level " + Str$(thisContrast%) + ", Attend Away",tLastTrigger);
+'                            Sampletext("Contrast Change, Level " + Str$(thisContrast%) + ", Attend Away",tTrigger+trialHazardFunctionTime);
 '                        else
-'                            Sampletext("Contrast Change, Level " + Str$(thisContrast%) + ", Attend Away (catch)",tLastTrigger);
+'                            Sampletext("Contrast Change, Level " + Str$(thisContrast%) + ", Attend Away (catch)",tTrigger+trialHazardFunctionTime);
 '                        endif
 '                    else
-'                        Sampletext("Attend Away, No Contrast Change",tLastTrigger);
+'                        Sampletext("Attend Away, No Contrast Change",tTrigger+trialHazardFunctionTime);
 '                    endif
-'                case trialType% = trialtypeNoChange% then  
-'                    Sampletext("No Change, No Contrast Change",tLastTrigger);
 '                else
 '                    PrintLog("ERROR! Unknown blocktype!!!\n");    
 '                endcase
 '            endif
 '            
-'        endcase
+'        endcase        
+        
+        
+    case iState% = stateHoldFixationToCC% then
+        
+        'Check to see if there was a trigger
+        tTrigger := NextTime(FrameTriggerChannel%, tLast, vTrigger);
+        if tTrigger > tLast and vTrigger = 0 then  'only look at rising edge
+            if tTrigger < tNow then      'View(DataWindow%).MaxTime() then  'try using tNow to avoid rare double-catch
+               tLastTrigger := tTrigger;
+               'put in a sample text for Flashers, sample text for CC will be done below
+                CCHappened% := TagTriggerWithSampletext%(tLastTrigger,tStimOn,attCurrTrialIndex%,flasherCountThisTrial%);
+            else
+                updateTLast% := 0;  'waiting for sampling to catch up
+            endif;
+        endif;
+        
+        docase            
+        case Looking%(xEye, yEye) = 0 then  'begin abort procedure, check to see if it's a FA
+            tempanswer% := Answer% (xEye, yEye);
+            if tempanswer% < 0 then  'adjust tempanswer to correspond to trialAttendLoc syntax
+                tempanswer% := -tempanswer%+1;
+            endif;
+            docase
+            case tempanswer% = trialAttendLoc% then 'answer in "attend toward" window
+                PrintLog("stateHoldFixationToCC: in attend toward response window, aborting trial.\n");
+                FAIsResponse% := 1;
+                ChangeStateTo(stateAbort%, tNow);
+                SampleText(Print$("Fixation broken, False Alarm to location %d (attend toward window) during stimulus, trial aborted",tempanswer%),tNow);
+            case tempanswer% = -1 then 'answer in "attend away" = "down" window
+                PrintLog("stateHoldFixationToCC: in attend away response window, aborting trial.\n");
+                FAIsResponse% := 1;
+                ChangeStateTo(stateAbort%, tNow);
+                SampleText(Print$("Fixation broken, False Alarm to location %d (attend away window) during stimulus, trial aborted",tempanswer%),tNow);           
+            else  'keep checking
+                ChangeStateTo(stateCheckFalseAlarm%, tNow);
+                temptext$ := "during stimulus";
+            endcase;
+            
+        else 
+            if CCHappened% = 1 then
+            'if (tNow - tStateStart) > (trialHazardFunctionTime) then
+                CCHappened% := 0;  'reset, shouldn't matter
+                ' we no longer turn off stimulus and advance it, but we DO allow response now
+                isStimDistractorOff% := 0;
+                ChangeStateTo(stateWaitForAnswer%, tNow);
+                'This docase sets the color of the changed location to red on the "monitor screen"
+                docase
+                case trialIsTarget% = 0 then
+                    view(XYWindow%).XYColour(iFixationWindowChannel%,16);  'Change fixation window to red
+                case trialIsTarget% = 1 then
+                    view(XYWindow%).XYColour(iAnswerWindowChannelMain%,16);  'Change main window to red
+                case trialIsTarget% = 2 then
+                    view(XYWindow%).XYColour(iAnswerWindowChannelDist1%,16);  'Change dist1 window to red
+                case trialIsTarget% = 3 then
+                    view(XYWindow%).XYColour(iAnswerWindowChannelDist2%,16);  'Change dist2 window to red
+                case trialIsTarget% = 4 then
+                    view(XYWindow%).XYColour(iAnswerWindowChannelDist3%,16);  'Change dist3 window to red
+                case trialIsTarget% = 5 then
+                    view(XYWindow%).XYColour(iAnswerWindowChannelDist4%,16);  'Change dist4 window to red
+                endcase
+                'This docase does the appropriate SampleTexting
+                docase
+                case trialType% = trialtypeAttendToward% then
+                    if trialIsTarget% > 0 then
+                        if trialCatch% = 0 then
+                            Sampletext("Contrast Change, Level " + Str$(thisContrast%) + ", Attend Toward",tLastTrigger);
+                        else
+                            Sampletext("Contrast Change, Level " + Str$(thisContrast%) + ", Attend Toward (catch)",tLastTrigger);
+                        endif
+                    else
+                        Sampletext("Attend Toward, No Contrast Change",tLastTrigger);
+                    endif
+                case trialType% = trialtypeAttendAway% then
+                    if trialIsTarget% > 0 then
+                        if trialCatch% = 0 then
+                            Sampletext("Contrast Change, Level " + Str$(thisContrast%) + ", Attend Away",tLastTrigger);
+                        else
+                            Sampletext("Contrast Change, Level " + Str$(thisContrast%) + ", Attend Away (catch)",tLastTrigger);
+                        endif
+                    else
+                        Sampletext("Attend Away, No Contrast Change",tLastTrigger);
+                    endif
+                case trialType% = trialtypeNoChange% then  
+                    Sampletext("No Change, No Contrast Change",tLastTrigger);
+                else
+                    PrintLog("ERROR! Unknown blocktype!!!\n");    
+                endcase
+            endif
+            
+        endcase
         
 
         
