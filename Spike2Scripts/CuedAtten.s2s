@@ -932,7 +932,7 @@ proc InitializeToolbar()
 	ToolbarSet(3,"Juice", Reward%);
 	ToolbarSet(4,"Pause stimuli",PauseStimuli%);
 	ToolbarSet(5,"Resume stimuli",ResumeStimuli%);
-    '	ToolbarSet(6,"Exp Parameters",%);
+    ToolbarSet(6,"Adjust Joystick",JoystickConfigDialog%);
 	ToolbarSet(7,"Quit",Quit%);
 	ToolbarEnable(2,0);
 	ToolbarEnable(4,0);
@@ -982,6 +982,7 @@ func Start%()
     
     'Set value of right/left joystick
     GetJoystickParameters();  'now we run the joystick functions from Sperka, should work smoothly
+    DisplayJoystickParameters();
 '    jsRightLow := caJoyRight;  'Just set this brute force from the dialog box
 '    jsCenterHigh := caJoyRight;
 '    jsLeftHigh := -caJoyRight;  'And set this to the same value - this will probably not be great due to the nonlinearity of the joystick.
@@ -1885,11 +1886,13 @@ func IdleProcessing%()
                     PrintLog("stateWaitForAnswer: no response on left trial, miss\n");
                     SampleText("Miss, Left Response Expected",tNow);
                     ChangeStateTo(stateMiss%, tNow); 'go to miss penalty
+                    caInterTrialTime2 := GetInterTrialTime(caInterTrialTime,caInterTrialTimeRand) + caMissPenalty;
                     caCountLeftTrialsIncorrect% += 1;
                 else
                     PrintLog("stateWaitForAnswer: no response on right trial, miss\n");
                     SampleText("Miss, Right Response Expected",tNow);
                     ChangeStateTo(stateMiss%, tNow); 'go to miss penalty
+                    caInterTrialTime2 := GetInterTrialTime(caInterTrialTime,caInterTrialTimeRand) + caMissPenalty;
                     caCountRightTrialsIncorrect% += 1;
                 endif;
             else
@@ -1978,7 +1981,7 @@ func IdleProcessing%()
                 endif
             endif
             
-            if tNow - tStateStart > caMissPenalty then
+            if tNow - tStateStart > caInterTrialTime2 then  'ITI includes miss penalty
                 
                 PrintLog("stateMiss: penalty time is done.\n");
                 ChangeStateTo(stateTrialCompleted%, tNow);
