@@ -78,13 +78,13 @@ const caTimingDlgAbort2Wait% := 6;
 const caTimingDlgFAPenalty% := 7;
 const caTimingDlgFAWindow% := 8;
 const caTimingDlgMissPenalty% := 9;
-const caTimingDlgJoyRight% := 10;
-const caTimingDlgTrainingOptions% := 11;
-const caTimingDlgTrainingHoldTime% := 12;
-const caTimingDlgFixAlternationTime% := 13;
-const caTimingDlgRequireFixation% := 14;
-const caTimingDlgReturnForReward% := 15;
-const caTimingDlgStartTrial% := 16;
+'const caTimingDlgJoyRight% := 10;
+const caTimingDlgTrainingOptions% := 10;
+const caTimingDlgTrainingHoldTime% := 11;
+const caTimingDlgFixAlternationTime% := 12;
+const caTimingDlgRequireFixation% := 13;
+const caTimingDlgReturnForReward% := 14;
+const caTimingDlgStartTrial% := 15;
 
 'const caTimingDlgCycleTrials% := 15;  'Not used
 
@@ -485,7 +485,7 @@ func TimingDialog%()
     DlgReal(caTimingDlgFAPenalty%, "False Alarm penalty time(s):", .01, 100);  'I'll let that be really really long
     DlgReal(caTimingDlgFAWindow%, "False Alarm check window(s): ", .01, 10);
     DlgReal(caTimingDlgMissPenalty%, "Miss penalty time(s): ", 0, 100);
-    DlgReal(caTimingDlgJoyRight%, "Joystick Right Threshold (V): ", 0, 3);
+    'DlgReal(caTimingDlgJoyRight%, "Joystick Right Threshold (V): ", 0, 3);
     DlgList(caTimingDlgTrainingOptions%, 60, trainingOptionsList$[], nOpts%);
     DlgReal(caTimingDlgTrainingHoldTime%, "Joystick Hold Time To Reward/Stimulus(s): ", .01, 10);
     DlgReal(caTimingDlgFixAlternationTime%, "Fixation Point On/Off Time (training)(s): ", .01, 10);
@@ -498,14 +498,18 @@ func TimingDialog%()
     DlgButton(2, "Use Above Input File", UseInputFile%,2,caTimingDlgRequireFixation%+4);
     DlgButton(3, "Select An Input File", OpenInputFile%,2,caTimingDlgRequireFixation%+5);
     DlgButton(4, "Fixation Point Dialog", FixationPointDialog%,2,caTimingDlgRequireFixation%+6);
-    
+    DlgButton(5, "Joystick Dialog", JoystickConfigDialog%,2,caTimingDlgRequireFixation%+7);
     
     DlgAllow(0, 0, TimingDialogChanged%);
     
-    i% := DlgShow(caAcquisitionTime,caFixationTime,caInterTrialTime,caInterTrialTimeRand,caAbortWaitTime,caAbort2WaitTime,caFalseAlarmWaitTime,caFalseAlarmCheckWindow,caMissPenalty,caJoyRight,caTrainingOptions%,
+    'i% := DlgShow(caAcquisitionTime,caFixationTime,caInterTrialTime,caInterTrialTimeRand,caAbortWaitTime,caAbort2WaitTime,caFalseAlarmWaitTime,caFalseAlarmCheckWindow,caMissPenalty,caJoyRight,caTrainingOptions%,
+    '              caTrainingHoldTime,caFixAlternationTime,caRequireFixation%,caReturnForReward%,caStartTrial%);
+    
+    i% := DlgShow(caAcquisitionTime,caFixationTime,caInterTrialTime,caInterTrialTimeRand,caAbortWaitTime,caAbort2WaitTime,caFalseAlarmWaitTime,caFalseAlarmCheckWindow,caMissPenalty,caTrainingOptions%,
                   caTrainingHoldTime,caFixAlternationTime,caRequireFixation%,caReturnForReward%,caStartTrial%);
     
-    if i% = 1 then
+    if i% = 1 then        
+        
         tempAW := min(caAbortWaitTime,caAbort2WaitTime);
         if tempAW < caFalseAlarmCheckWindow then
             message("False Alarm Check Window is longer than shortest Abort Wait Time!");
@@ -538,7 +542,7 @@ func TimingDialog%()
         'we actually have to do this no matter what, because the default fixation dialog doesn't assign FixationColor$, but the Get function does
         GetFixationPointParameters();    'fills FixationX,FixationY,FixationColor$,FixationDiameter
         return 1;
-    else
+    else   
         Printlog("Timing Dialog was cancelled!\n");
         return 0;
     endif;
@@ -977,10 +981,11 @@ func Start%()
     View(DataWindow%).ChanOffset(JoyChannel%,-2.55);  'try this value, looks pretty good
     
     'Set value of right/left joystick
-    jsRightLow := caJoyRight;  'Just set this brute force from the dialog box
-    jsCenterHigh := caJoyRight;
-    jsLeftHigh := -0.35;  'And set this by true-true brute force by just plain setting it - right now Left is not really an option, joystick throw is about 0.5+
-    jsCenterLow := -0.35;
+    GetJoystickParameters();  'now we run the joystick functions from Sperka, should work smoothly
+'    jsRightLow := caJoyRight;  'Just set this brute force from the dialog box
+'    jsCenterHigh := caJoyRight;
+'    jsLeftHigh := -caJoyRight;  'And set this to the same value - this will probably not be great due to the nonlinearity of the joystick.
+'    jsCenterLow := -caJoyRight;
     
     'set YRange for JoyChannel, XRange for everything
     View(DataWindow%).XRange(-1,8);  'I think this will set the x-axis to scroll, with an 8-second width 
