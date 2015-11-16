@@ -1,4 +1,4 @@
-' $Id: AttentionGoNoGo.s2s,v 1.66 2015-10-26 21:35:15 devel Exp $
+' $Id: AttentionGoNoGo.s2s,v 1.67 2015-11-16 17:00:55 devel Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -1856,7 +1856,7 @@ func IdleProcessing%()
         'getPreciseTiming := 1;  'we need precise timing here, stay in while loop until we get eye movements we expect
         'Check to see if there was a trigger, this only is relevant in this state if there are Flashers
         if attUseFlashers% = 1 then
-            tTrigger := NextTime(FrameTriggerChannel%, tLast, vTrigger);
+            tTrigger := View(DataWindow%).NextTime(FrameTriggerChannel%, tLast, vTrigger);
             if tTrigger > tLast and vTrigger = 0 then  'only look at rising edge
                 if tTrigger < tNow then     'View(DataWindow%).MaxTime() then   'try using tNow to avoid rare double-catch
                     tLastTrigger := tTrigger;
@@ -1992,7 +1992,7 @@ func IdleProcessing%()
         
         ' we just wait for fix point off signal in this case. 
         tTrigger := View(DataWindow%).NextTime(FixationPointChannel%, tLast, vTrigger);
-        'tTrigger := NextTime(FrameTriggerChannel%, tLast, vTrigger);
+        'tTrigger := View(DataWindow%).NextTime(FrameTriggerChannel%, tLast, vTrigger);
         'if tTrigger > tLast and vTrigger = 1 then
         if tTrigger > tLast then
             ' Fixation point is off
@@ -2007,8 +2007,8 @@ func IdleProcessing%()
 '    case iState% = stateNoResponse% then
 '        
 '        ' we just wait for fix point off signal in this case. 
-'        tTrigger := NextTime(FixationPointChannel%, tLast, vTrigger);
-'        'tTrigger := NextTime(FrameTriggerChannel%, tLast, vTrigger);
+'        tTrigger := View(DataWindow%).NextTime(FixationPointChannel%, tLast, vTrigger);
+'        'tTrigger := View(DataWindow%).NextTime(FrameTriggerChannel%, tLast, vTrigger);
 '        'if tTrigger > tLast and vTrigger = 1 then
 '        if tTrigger > tLast then
 '            ' Fixation point is off
