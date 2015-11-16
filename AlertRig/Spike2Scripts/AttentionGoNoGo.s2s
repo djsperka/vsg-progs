@@ -1,4 +1,4 @@
-' $Id: AttentionGoNoGo.s2s,v 1.67 2015-11-16 17:00:55 devel Exp $
+' $Id: AttentionGoNoGo.s2s,v 1.68 2015-11-16 18:03:40 devel Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -1764,7 +1764,7 @@ func IdleProcessing%()
     case iState% = stateHoldFixationToCC% then
         
         'Check to see if there was a trigger
-        tTrigger := NextTime(FrameTriggerChannel%, tLast, vTrigger);
+        tTrigger := View(DataWindow%).NextTime(FrameTriggerChannel%, tLast, vTrigger);
         if tTrigger > tLast and vTrigger = 0 then  'only look at rising edge
             if tTrigger < tNow then      'View(DataWindow%).MaxTime() then  'try using tNow to avoid rare double-catch
                tLastTrigger := tTrigger;
