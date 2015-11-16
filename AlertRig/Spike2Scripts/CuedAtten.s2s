@@ -326,7 +326,7 @@ if caTrainingOptions% > 2 then
             caWhichLocationChanges%[j%] := 0; 
         endcase
         'For now, I am not allowing an undefined attend location (e.g. "no attend"). However "no attend" is ready to go in PrepareTrial in case this changes
-        if caAttendLoc%[j%] <> 1 and caAttendLoc%[j%] <> 2 then
+        if caAttendLoc%[j%] <> 1 and caAttendLoc%[j%] <> 2 and caAttendLoc%[j%] <> 3 then
             message("On trial #%d, there is no defined attend location, this is not currently allowed!  Quitting!",j%);
             halt;
         endif;
