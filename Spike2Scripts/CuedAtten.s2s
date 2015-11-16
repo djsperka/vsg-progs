@@ -1659,7 +1659,8 @@ func IdleProcessing%()
             docase            
             case (Looking%(xEye, yEye) = 0 and caRequireFixation% = 1) or joystickInStartPosition% = 0 then  'if fixation broken/joystick moved, begin abort procedure, check to see if it's a FA
                 docase
-                case joystickInStartPosition% = 0 and caTrainingOptions% = 4 and tNow >= trialEarlyGoTime then  'for image cue response training, if answer is allowed before "contrast change" and answer has occurred in appropriate window
+                'for image cue response training, if answer is allowed before "contrast change" and answer has occurred in appropriate window
+                case joystickInStartPosition% = 0 and caTrainingOptions% = 4 and tNow >= trialEarlyGoTime + tStateStart then  
                     ' Got an answer. Record marker for correct/incorrect answer
                     if tempanswer% = 3 then
                         printlog("Response Right\n");
