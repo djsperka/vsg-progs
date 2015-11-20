@@ -1,4 +1,4 @@
-' $Id: AcuteTuningDialogs.s2s,v 1.16 2015-08-03 17:50:56 devel Exp $
+' $Id: AcuteTuningDialogs.s2s,v 1.17 2015-11-20 00:08:44 devel Exp $
 '
 ' This file contains dialog functions for the alert tuning script Tuning.s2s.
 #include "../../Spike2Util/UsreyUtil.s2s"
@@ -1342,10 +1342,14 @@ func GratingParametersDialog2%(label$, &param$, &statparam$, &x, &y, &w, &h, &iw
         DlgList(13, "Pattern:", PatternList$[]);
         DlgList(14, "Aperture:", ApertureList$[]);
         'DlgButton(13, "Copy from Slave", TunCopySlaveVals%(param$));
-        if firstRun = 0 then  'prevent phase from being overwritten the first time the function is called
-            phase := tempPhase;
-        endif;
-        firstRun := 0;      
+        
+        'Tucker complained about the phase not saving.  It actually appears that it should have been.
+        'Also, this code did nothing because firstRun is set to 1 at the top of the function.
+        'Also, what was this code supposed to be doing in the first place?  It makes zero sense.
+'        if firstRun = 0 then  'prevent phase from being overwritten the first time the function is called
+'            phase := tempPhase;
+'        endif;
+'        firstRun := 0;      
         
         i% := DlgShow(x, y, w, h, iw, ih, contrast%, sf, tf, ori, phase, icvl%, ipl%, ial%);
         Convert180(phase);
