@@ -1,5 +1,5 @@
-' $Id: AcuteTuning.s2s,v 1.42 2015-05-20 16:38:09 devel Exp $
-const tunCVSID$ := "$Id: AcuteTuning.s2s,v 1.42 2015-05-20 16:38:09 devel Exp $";
+' $Id: AcuteTuning.s2s,v 1.43 2015-11-20 00:08:04 devel Exp $
+const tunCVSID$ := "$Id: AcuteTuning.s2s,v 1.43 2015-11-20 00:08:04 devel Exp $";
 
 'var TuningCurveScriptDialogAllowOK%;  'allows OK to button to work on main dialog
 
@@ -1243,7 +1243,7 @@ proc WriteParameterFile()
     Print("Temporal frequency              : %s\n", Tstimtf$);
 	Print("Spatial frequency               : %s\n", Tstimsf$);
 	Print("Orientation (degrees)           : %s\n", Tstimorientation$);
-    Print("Initial Phase (degrees)         : %f\n", phase);
+    Print("Initial Phase (degrees)         : %f\n", Tstimphase$);
 	Print("Contrast (%%)                    : %s\n", Tstimcontrast$);
 	Print("Aperture: ellipse(e)/square(q)  : %s\n", Tstimap$);
 	Print("Type: sine (s)/square (q)       : %s\n", Tstimp$);
