@@ -197,7 +197,7 @@ const stateVSGWait%:=10;		        ' wait for vsg to send ready signal #1
 const stateVSGWaitConfirm%:=11;		    ' waif for vsg to send ready signal #2
 const stateTrialCompleted%:=12;		    ' trial has been completed successfully
 'const stateDone%:=13;	
-const stateWaitForBlank%:=14;
+const StateAbortWaitForBlank%:=14;
 'const stateBlockCompleted%:=16;
 'const stateStartBlock%:=17;
 const stateTrialCompletedWaitForBlank% := 18;
@@ -1566,10 +1566,10 @@ func IdleProcessing%()
             
             
             ' move on
-            ChangeStateTo(stateWaitForBlank%, tStateStart);  'don't update time, carry forward
+            ChangeStateTo(StateAbortWaitForBlank%, tStateStart);  'don't update time, carry forward
             
             
-        case iState% = stateWaitForBlank% then
+        case iState% = StateAbortWaitForBlank% then
             
             ' we just wait for fix point off signal in this case. 
             tTrigger := View(DataWindow%).NextTime(FixationPointChannel%, tLastTrigger, vTrigger);
@@ -1889,12 +1889,14 @@ func IdleProcessing%()
                     ChangeStateTo(stateMiss%, tNow); 'go to miss penalty
                     caInterTrialTime2 := GetInterTrialTime(caInterTrialTime,caInterTrialTimeRand) + caMissPenalty;
                     caCountLeftTrialsIncorrect% += 1;
+                    SafeSampleKey("a");  'advance stimulus, won't happen anywhere else
                 else
                     PrintLog("stateWaitForAnswer: no response on right trial, miss\n");
                     SampleText("Miss, Right Response Expected",tNow);
                     ChangeStateTo(stateMiss%, tNow); 'go to miss penalty
                     caInterTrialTime2 := GetInterTrialTime(caInterTrialTime,caInterTrialTimeRand) + caMissPenalty;
                     caCountRightTrialsIncorrect% += 1;
+                    SafeSampleKey("a");  'advance stimulus, won't happen anywhere else
                 endif;
             else
                 'Stimulus is still on, response window is still open...
