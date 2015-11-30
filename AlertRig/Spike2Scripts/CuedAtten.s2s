@@ -234,6 +234,7 @@ var trialIsTarget%;
 var trialAttendLoc%;
 var trialHazardFunctionTime;
 var trialEarlyGoTime;
+var trialCueName$;
 
 
 ' Check for valid data file path
@@ -1496,7 +1497,7 @@ func IdleProcessing%()
                     tStimOn := tTrigger;
                     tLastTrigger := tTrigger;
                     ChangeStateTo(stateHoldFixationToCC%, tTrigger);
-                    SampleText("Animation on", tTrigger);
+                    SampleText("Animation on, cue image is "+trialCueName$, tTrigger);
                 endif;
                 
             endif
@@ -2303,6 +2304,7 @@ proc PrepareTrial()
         trialHazardFunctionTime := caContrastChange[caCurrTrialIndex%];  'hazard time has been pre-calculated  
         totalStimDur := caStimOff[caCurrTrialIndex%];  'stimulus duration has been pre-calculated 
         trialEarlyGoTime := caAlternateGoTime[caCurrTrialIndex%];  'Early go time
+        trialCueName$ := caCueFile$[caCurrTrialIndex%];  'name of trial cue
         'if trialEarlyGoTime should be ignored, set it to later than the trial end and forget it
         if trialEarlyGoTime <= 0 or trialEarlyGoTime > trialHazardFunctionTime then
             trialEarlyGoTime := trialHazardFunctionTime+totalStimDur;
