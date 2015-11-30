@@ -1497,7 +1497,7 @@ func IdleProcessing%()
                     tStimOn := tTrigger;
                     tLastTrigger := tTrigger;
                     ChangeStateTo(stateHoldFixationToCC%, tTrigger);
-                    SampleText("Animation on, cue image is "+trialCueName$, tTrigger);
+                    SampleText("Animation on, Trial #" + str$(caCurrTrialIndex%+1) + ", cue image is "+trialCueName$, tTrigger);
                 endif;
                 
             endif
@@ -2305,6 +2305,12 @@ proc PrepareTrial()
         totalStimDur := caStimOff[caCurrTrialIndex%];  'stimulus duration has been pre-calculated 
         trialEarlyGoTime := caAlternateGoTime[caCurrTrialIndex%];  'Early go time
         trialCueName$ := caCueFile$[caCurrTrialIndex%];  'name of trial cue
+        'cut out the directory structure, because it makes the sample text unreadable in real time
+        'this doesn't work because Spike2 SIMPLY CAN'T SEE the backslash.
+        while instr(trialCueName$,"\\") > 0 do
+            trialCueName$ := right$(trialCueName$,len(trialCueName$)-instr(trialCueName$,"\\"));
+        wend
+        
         'if trialEarlyGoTime should be ignored, set it to later than the trial end and forget it
         if trialEarlyGoTime <= 0 or trialEarlyGoTime > trialHazardFunctionTime then
             trialEarlyGoTime := trialHazardFunctionTime+totalStimDur;
