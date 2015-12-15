@@ -1,5 +1,5 @@
-' $Id: AcuteTuning.s2s,v 1.45 2015-12-15 02:39:40 devel Exp $
-const tunCVSID$ := "$Id: AcuteTuning.s2s,v 1.45 2015-12-15 02:39:40 devel Exp $";
+' $Id: AcuteTuning.s2s,v 1.46 2015-12-15 17:15:26 devel Exp $
+const tunCVSID$ := "$Id: AcuteTuning.s2s,v 1.46 2015-12-15 17:15:26 devel Exp $";
 
 'var TuningCurveScriptDialogAllowOK%;  'allows OK to button to work on main dialog
 
@@ -1057,21 +1057,34 @@ proc CreateSampleConfiguration()
 	SampleTitle$(ReadyChannel%,"VSG Ready");
     
     
-    'Set level channel for opto efference copy, replace frame channel because we won't use it
-'    if tunOptoUsePulse% = 1 then
-'        SampleEvent(OptoEfferenceChannel%,0,2,50);  'on event port 0
-'        SampleComment$(OptoEfferenceChannel%,"Opto Copy");
-'        SampleTitle$(OptoEfferenceChannel%, "Opto Copy");
-'    else
-        SampleEvent(FrameChannel%, 0, 2, 3600);
-        SampleComment$(FrameChannel%,"Frame");
-        SampleTitle$(FrameChannel%,"Frame");
-'    endif;
+
+    SampleEvent(FrameChannel%, 0, 2, 3600);
+    SampleComment$(FrameChannel%,"Frame");
+    SampleTitle$(FrameChannel%,"Frame");
+
     
-    
+    'The below three channels are used for optogenetics and temperature recording
+    'Unfortunately, it's not terribly simple to get these in and still allow the same system that 
+    'works for the collection of N electrodes.  If these are used, the USER must (for now) make
+    'sure that they do not use more than 6 electrodes.
+    'It would be nice to have these as level channels on event inputs, but that does not fly with the VSG box.
     if tunOptoUsePulse% = 1 then
-        SampleWaveform(2,5,5000);  'on adc5
-        SampleTitle$(2, "Opto Copy");
+        SampleWaveform(8,7,5000);  'on adc7
+        SampleTitle$(8, "Opto Copy");
+    endif;
+    
+    if tunUseTemperature% = 1 then
+        SampleWaveform(7,6,5000);  'on adc6
+        SampleTitle$(7, "Temperature");
+        ChanUnits$(7,"Deg C");
+        'ChanScale(7,???);  'this will allow us to get the temperature right
+        'ChanOffset(7,???);
+    endif;
+    
+    'Set channel for stimulator efference copy, if needed, as a waveform
+    if tunRecStimulator% > 0 then
+        SampleWaveform(7,6,5000);  'also on adc6, cannot be used at same time as Temperature
+        SampleTitle$(7, "Stimulator Copy");
     endif;
     
     
@@ -1143,19 +1156,6 @@ proc CreateSampleConfiguration()
     '    SampleWaveform(13, 5, 1000);  'there are a possible 7 'trodes in ADC0-ADC6; here 5 is port ADC5, 13 is channel: port 5 + 7 'trodes + 1 (because channel numbering starts at 1), 1kHz sampling should be fine
     '    SampleTitle$(13, "Opto voltage");
     'endif;
-    
-    
-    
-    
-    
-    'Set channel for stimulator efference copy, if needed, as an event input
-    if tunRecStimulator% > 0 then
-        SampleEvent(StimulatorChannel%,0,2,20);  'on event port 0
-        SampleComment$(StimulatorChannel%,"Stimulator Copy");
-        SampleTitle$(StimulatorChannel%, "Stimulator Copy");
-    endif;
-    
-    
    
     
     
