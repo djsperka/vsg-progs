@@ -1,5 +1,5 @@
-' $Id: AcuteTuning.s2s,v 1.43 2015-11-20 00:08:04 devel Exp $
-const tunCVSID$ := "$Id: AcuteTuning.s2s,v 1.43 2015-11-20 00:08:04 devel Exp $";
+' $Id: AcuteTuning.s2s,v 1.44 2015-12-15 00:24:02 devel Exp $
+const tunCVSID$ := "$Id: AcuteTuning.s2s,v 1.44 2015-12-15 00:24:02 devel Exp $";
 
 'var TuningCurveScriptDialogAllowOK%;  'allows OK to button to work on main dialog
 
@@ -94,6 +94,9 @@ var StimChannel%;
 var StimChangeChannel%;
 var ReadyChannel%;
 var StimulatorChannel%;
+var OptoEfferenceChannel%;
+var LaserDiodeChannel%;
+var SequencerPeriodMS;
 
 ' xy windows for plotting (TuningWindow) and PSTH. 
 var TuningWindow%[16];	' one for each wavemark channel
@@ -148,6 +151,8 @@ StimChannel% := 25;
 ReadyChannel% := 27;            ' Look for ready signal on port 2 (same as fixpt). 
 FrameChannel% := 19;
 StimulatorChannel% := 18;
+OptoEfferenceChannel% := 23;
+
 
 ' Fetch electrode information. 
 tunNWavemarks% := GetWavemarkPorts%(tunWavemarkPorts%[]);
@@ -222,6 +227,8 @@ const stateCheckTurnOnOpto%:=21;
 const stateCheckTurnOffOpto%:=22;
 const stateTurnOffOpto%:=23;
 const stateWaitOptoPoststim%:=24;
+const statePulsedOpto%:=25;
+const stateWaitPulsedOpto%:=26;
 
 
 var iState% := stateVSGWait%;	' present state
@@ -272,13 +279,32 @@ func IdleProcessing%()
         case tunDoOpto% = 0 or tunOptoState% = 0 then 'if this is not an opto trial, just start it
             ChangeStateTo(stateStartTrial%, tNow);
             printlog("Not an opto trial, doOpto = %d, optoState = %d, time = %f\n",tunDoOpto%,tunOptoState%,tNow);
+        case tunOptoUsePulse% = 1 then  'it is a pulsed opto trial, the sequencer will time this
+            ChangeStateTo(statePulsedOpto%,tNow);
         case tunOptoStaysOn% = 1 and (nTrialsCompleted% mod (tunNAdvances%+1)) <> 0 then 'this is for when we're keeping the opto on and it's mid block
             ChangeStateTo(stateStartTrial%, tNow);
             printlog("Opto is already on, OptoStaysOn = %d, TrialsComplete = %d, time = %f\n",tunOptoStaysOn%,(nTrialsCompleted% mod (tunNAdvances%+1)),tNow);
-        else 'otherwise it is an opto trial and we need to turn opto on
+        else 'otherwise it is a wraparound opto trial and we need to turn opto on
             ChangeStateTo(stateStartOpto%, tNow);
             printlog("Turning Opto On at time = %f\n",tNow);
         endcase
+        
+        
+    case iState% = statePulsedOpto% then
+        SafeSampleKey("P");  'start pulsed opto, the whole sequence is controlled by the sequencer
+        tOpt := View(DataWindow%).MaxTime();
+        SampleText("T," + str$(GetPlotXCoord(nTrialsCompleted%)));
+        ChangeStateTo(stateWaitPulsedOpto%, tNow);
+        
+        
+    case iState% = stateWaitPulsedOpto% then 'wait for sequencer-controlled timing to complete
+        if tNow > tStateStart + tunStimulusDuration + 0.1 then 'wait an extra tenth of a second just in case
+            ChangeStateTo(stateTrialCompleted%,tNow);
+            'the "X" is not necessary as the pulsed opto sequence does the stimulus-off.  But maybe somebody someday will want to SEE the "X"...can uncomment if so
+            'SafeSampleKey("X"); 
+            'Advance, this we DO have to do
+            SafeSampleKey("a");
+        endif;
         
         
     case iState% = stateStartOpto% then
@@ -523,8 +549,8 @@ func IdleProcessing%()
             Stop%();
             iStatus% := 0;
         case (nTrialsCompleted% mod (tunNAdvances%+1)) = 0 then 'toggle tunOptoState at the end of a block, use interblock time
-            if tunDoOpto% = 1 then
-                tunOptoState% := 1-tunOptoState%;  'but only toggle if we're actually doing opto
+            if tunDoOpto% = 1 and dontToggleOpto% = 0 then
+                tunOptoState% := 1-tunOptoState%;  'but only toggle if we're actually doing opto, and we haven't been told to not toggle opto
             endif;
             tInterTrialTime := tunInterTrialTime + tunInterBlockTime;
             ChangeStateTo(stateInterTrialInterval%, tNow);
@@ -1045,6 +1071,13 @@ proc CreateSampleConfiguration()
     '    endif
     'endif
     
+    'if we are recording the laser output, turn off any electrode channels
+    if tunLaserDiode% = 1 then
+        tunNWavemarks% := 0;  'no wavemarks!
+        tunNContinuous% := 0;  'no continuous!
+        SampleWaveform(1,0,50000);  'on waveform port 0
+        SampleTitle$(1,"Diode output (laser)");
+    endif;
     
     
     ' Electrodes: wavemark/continuous
@@ -1092,13 +1125,25 @@ proc CreateSampleConfiguration()
     '    SampleTitle$(13, "Opto voltage");
     'endif;
     
+    'Set level channel for opto efference copy
+    if tunDoOpto% = 1 then
+        SampleEvent(OptoEfferenceChannel%,0,2,50);  'on event port 0
+        SampleComment$(OptoEfferenceChannel%,"Opto Copy");
+        SampleTitle$(OptoEfferenceChannel%, "Opto Copy");
+    endif;
+    
+    
+    
     'Set channel for stimulator efference copy, if needed, as an event input
     if tunRecStimulator% > 0 then
-        SampleEvent(StimulatorChannel%,0,2,20);
+        SampleEvent(StimulatorChannel%,0,2,20);  'on event port 0
+        SampleComment$(StimulatorChannel%,"Stimulator Copy");
         SampleTitle$(StimulatorChannel%, "Stimulator Copy");
     endif;
     
- 
+    
+   
+    
     
     
 	SampleSequencer(script$ + "Tuning.pls");
@@ -1372,10 +1417,22 @@ func Start%()
     var tunBarStr$;
     var tunCRGBal$;
     var tunCRGNumTerms%;
+    'vars for opto setup
     var voltageInteger%;
+    var stimRemaining;
+    stimRemaining := tunStimulusDuration;
+    var tempNPulses%;
+    var tempCount%;
+    var tempSeqVarValue;
+    var tempSeqVarValue%;
+    
+    
 '    var XHairArg$;
 	
 	SampleStart(0); 'Start sampling
+    
+    SequencerPeriodMS := SampleSeqClock(1);  'Get the clock period of the sequencer, in MS, must do this after starting sampling
+    
 	SafeSampleKey("0");
     
     if tunDoOpto% = 1 then
@@ -1384,6 +1441,62 @@ func Start%()
         'I sure thought I read.  Use vdac32% to get the right value.
         voltageInteger% := vdac32%(tunOptoVoltageOut, 1, 0);
         SampleSeqVar(4,voltageInteger%);
+        
+        
+        'If pulsing, because the user could have changed the duration of the stimulus after setting the opto
+        'parameters, we need to check the parameters again (even though the opto dialog box did it already)
+        if tunOptoUsePulse% = 1 then
+            stimRemaining := stimRemaining - tunPulsedOptoOnset;  'duration of stimulus after onset delay
+            stimRemaining := stimRemaining - tunPulsedOptoWidth;  'duration of stimulus after first opto pulse
+            if stimRemaining < 0 then  'if first pulse will extend beyond stimulus duration
+                tunOptoNPulses% := 0;  'turn off opto by using no pulses
+                'tell user they blew it
+                Message("The first opto pulse will extend beyond the stimulus!  Quitting!!!");
+                Quit%();
+            else
+                tempNPulses% := tunOptoNPulses% - 1;  'how many more pulses are left?
+                tempCount% := 1;  'temporary successful pulse count
+                while tempNPulses% > 0 do
+                    stimRemaining := stimRemaining - tunPulsedOptoWidth - tunPulsedOptoIPI;  'subtract duration of one more pulse+IPI
+                    if stimRemaining < 0 then  'if this pulse will extend beyond stimulus duration
+                        Message("Due to stimulus length, only " + Str$(tempCount%) + " pulses can be completed!");
+                        tunOptoNPulses% := tempCount%;  'only use this many pulses if user does not recalculate
+                        stimRemaining := stimRemaining + tunPulsedOptoWidth + tunPulsedOptoIPI;  'add back duration of one more pulse+IPI, gets actual stimulus duration remaining
+                        tempNPulses% := 0;  'break while
+                    else  'if this pulse is OK
+                        tempCount% += 1;  'increment temporary successful pulse count
+                    endif;
+                    tempNPulses% -= 1;  'decrement temporary pulse count remaining
+                wend
+            endif;
+        endif;
+        
+        'If pulsing, set sample sequencer variables
+        if tunOptoUsePulse% = 1 then  'yes, this is the same "if" as above, just seems cleaner this way
+            SampleSeqVar(6,tunOptoNPulses%);  'set number of pulses
+            
+            'For below calculations, the standard numbers we are getting are in seconds, sequencer period is in MS (because that's how it comes)
+            
+            tempSeqVarValue := tunPulsedOptoWidth*1000/SequencerPeriodMS;  'do math in float
+            tempSeqVarValue% := tempSeqVarValue-1;  'now convert to integer, subtract one tick for sequencer instructions
+            SampleSeqVar(7,tempSeqVarValue%);  'set duration of pulse in clock ticks
+            
+            tempSeqVarValue := tunPulsedOptoIPI*1000/SequencerPeriodMS;  'do math in float
+            tempSeqVarValue% := tempSeqVarValue-3;  'now convert to integer, subtract three ticks for sequencer instructions
+            SampleSeqVar(8,tempSeqVarValue%);  'set interpulse interval in clock ticks
+            
+            tempSeqVarValue := tunPulsedOptoOnset*1000/SequencerPeriodMS;  'do math in float
+            tempSeqVarValue% := tempSeqVarValue-1;  'now convert to integer, subtract one tick for sequencer instructions
+            SampleSeqVar(9,tempSeqVarValue%);  'set pre-pulse stimulus duration in clock ticks
+            
+            tempSeqVarValue := stimRemaining*1000/SequencerPeriodMS;  'do math in float
+            tempSeqVarValue% := tempSeqVarValue-2;  'now convert to integer, subtract two ticks for sequencer instructions
+            SampleSeqVar(10,tempSeqVarValue%);  'set post-pulse stimulus duration in clock ticks
+        endif;
+        
+        
+        
+        
     endif;
     
     
