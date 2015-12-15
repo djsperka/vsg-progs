@@ -1,4 +1,4 @@
-' $Id: AcuteTuningDialogs.s2s,v 1.18 2015-12-15 00:24:22 devel Exp $
+' $Id: AcuteTuningDialogs.s2s,v 1.19 2015-12-15 17:15:47 devel Exp $
 '
 ' This file contains dialog functions for the alert tuning script Tuning.s2s.
 #include "../../Spike2Util/UsreyUtil.s2s"
@@ -19,6 +19,7 @@ var tunMSeqLocation$ := "D:\\work\\AlertRig\\stim\\MSequenceTerms";  'location o
 var tunRecStimulator% := 0;   'record the stimulator?
 var tunOptoUsePulse% := 0;  'Are we using a "pulsing stimulation"?
 var tunLaserDiode% := 0;  'Are we recording the output of the laser using a photodiode?
+var tunUseTemperature%;
 
 ' These will be set by the tuning curve choice
 var tunNAdvances%;		' Number of times stim will advance during one repeat
@@ -190,6 +191,7 @@ proc GetTuningCurveScriptParameters()
     tunBackgroundGrayLevel% := GetIntRegistryValue%(key$, "BackgroundGrayLevel", tunBackgroundGrayLevel%);
     tunDoOpto% := GetIntRegistryValue%(key$, "DoOpto", tunDoOpto%);
     tunRecStimulator% := GetIntRegistryValue%(key$, "RecStimulator", tunRecStimulator%);
+    tunUseTemperature% := GetIntRegistryValue%(key$, "UseTemperature", tunUseTemperature%);
 end;
 
 proc SaveTuningCurveScriptParameters()
@@ -203,6 +205,7 @@ proc SaveTuningCurveScriptParameters()
     SetIntRegistryValue(key$, "BackgroundGrayLevel", tunBackgroundGrayLevel%);
     SetIntRegistryValue(key$, "DoOpto", tunDoOpto%);
     SetIntRegistryValue(key$, "RecStimulator", tunRecStimulator%);
+    SetIntRegistryValue(key$, "UseTemperature", tunUseTemperature%);
 end;
 
 
@@ -253,7 +256,8 @@ func TuningCurveScriptDialog%()
     DlgReal(2, "InterTrial Time(s):", .1, 100, 20, 3);  'new, allow really long stimuli
 	DlgReal(3, "InterBlock Time(s):", 0, 100, 20, 4);  'new, allow really long stimuli
     DlgInteger(4, "Background Gray Level (0-255):", 0, 255, 20, 5);  'new, allow all grays
-    DlgCheck(5, "Record Stimulator?", 2,6);
+    'DlgCheck(5, "Record Stimulator?", 2,6);
+    DlgCheck(5, "Record Temperature?", 2,6);
 	'DlgList(3, "Background color:", bcl$, 3, 20, 4);  'updated as new dialog number
     
     DlgGroup("Grating Parameters", 1, 7, 38, 2);
@@ -280,7 +284,10 @@ func TuningCurveScriptDialog%()
     DlgAllow(0xffff, 0, TuningCurveScriptDialogChanged%);
     
     'i%:=DlgShow(tunStimulusDuration, tunInterTrialTime, ibcl%);  'new, for reduced dialog
-    i%:=DlgShow(tunStimulusDuration, tunInterTrialTime, tunInterBlockTime, tunBackgroundGrayLevel%, tunRecStimulator%, tunDoOpto%);  'now using background gray level
+    'should be regular, allows us to record the stimulator
+    'i%:=DlgShow(tunStimulusDuration, tunInterTrialTime, tunInterBlockTime, tunBackgroundGrayLevel%, tunRecStimulator%, tunDoOpto%);  'now using background gray level
+    'replaces tunRecStimulator with tunUseTemperature, probably will only be used for a short period of time
+    i%:=DlgShow(tunStimulusDuration, tunInterTrialTime, tunInterBlockTime, tunBackgroundGrayLevel%, tunUseTemperature%, tunDoOpto%);  'now using background gray level
     
     ' djs 4-1-09
     ' Spike2 v6 change. DlgShow will return the button number when a button on the dialog is hit and the corresponding
@@ -336,7 +343,7 @@ end;
 
 ' This function is initially called with a "0" input
 func TuningCurveScriptDialogChanged%(item%) 
-    DlgEnable(0,5);  'this is a temporary disable because the opto box input may conflict
+    'DlgEnable(0,5);  'this is a temporary disable because the opto box input may conflict
                      'with the required event channel (12/7/15)  In principle we will learn
                      'what we need to learn and then get rid of this sometime 12/15 or 1/16 -jj
     'This disables the "OK" button (though it will have different labels) until an experiment is selected
