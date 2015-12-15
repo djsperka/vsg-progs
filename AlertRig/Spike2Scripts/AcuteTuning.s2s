@@ -1,5 +1,5 @@
-' $Id: AcuteTuning.s2s,v 1.44 2015-12-15 00:24:02 devel Exp $
-const tunCVSID$ := "$Id: AcuteTuning.s2s,v 1.44 2015-12-15 00:24:02 devel Exp $";
+' $Id: AcuteTuning.s2s,v 1.45 2015-12-15 02:39:40 devel Exp $
+const tunCVSID$ := "$Id: AcuteTuning.s2s,v 1.45 2015-12-15 02:39:40 devel Exp $";
 
 'var TuningCurveScriptDialogAllowOK%;  'allows OK to button to work on main dialog
 
@@ -295,6 +295,7 @@ func IdleProcessing%()
         tOpt := View(DataWindow%).MaxTime();
         SampleText("T," + str$(GetPlotXCoord(nTrialsCompleted%)));
         ChangeStateTo(stateWaitPulsedOpto%, tNow);
+        printlog("Started opto trial at %f\n",tNow);
         
         
     case iState% = stateWaitPulsedOpto% then 'wait for sequencer-controlled timing to complete
@@ -304,6 +305,9 @@ func IdleProcessing%()
             'SafeSampleKey("X"); 
             'Advance, this we DO have to do
             SafeSampleKey("a");
+            nTrialsCompleted% += 1;  'trial is complete
+            SampleSeqVar(6,tunOptoNPulses%);  'reset number of pulses, otherwise bad stuff happens on trial #2
+            printlog("Completed opto trial at %f\n",tNow);
         endif;
         
         
@@ -1052,9 +1056,24 @@ proc CreateSampleConfiguration()
 	SampleComment$(ReadyChannel%,"VSG Ready");
 	SampleTitle$(ReadyChannel%,"VSG Ready");
     
-	SampleEvent(FrameChannel%, 0, 2, 3600);
-	SampleComment$(FrameChannel%,"Frame");
-	SampleTitle$(FrameChannel%,"Frame");
+    
+    'Set level channel for opto efference copy, replace frame channel because we won't use it
+'    if tunOptoUsePulse% = 1 then
+'        SampleEvent(OptoEfferenceChannel%,0,2,50);  'on event port 0
+'        SampleComment$(OptoEfferenceChannel%,"Opto Copy");
+'        SampleTitle$(OptoEfferenceChannel%, "Opto Copy");
+'    else
+        SampleEvent(FrameChannel%, 0, 2, 3600);
+        SampleComment$(FrameChannel%,"Frame");
+        SampleTitle$(FrameChannel%,"Frame");
+'    endif;
+    
+    
+    if tunOptoUsePulse% = 1 then
+        SampleWaveform(2,5,5000);  'on adc5
+        SampleTitle$(2, "Opto Copy");
+    endif;
+    
     
     
     ' Before assigning Electrode channels, check value of tunRecOptoBox% to make sure
@@ -1125,12 +1144,7 @@ proc CreateSampleConfiguration()
     '    SampleTitle$(13, "Opto voltage");
     'endif;
     
-    'Set level channel for opto efference copy
-    if tunDoOpto% = 1 then
-        SampleEvent(OptoEfferenceChannel%,0,2,50);  'on event port 0
-        SampleComment$(OptoEfferenceChannel%,"Opto Copy");
-        SampleTitle$(OptoEfferenceChannel%, "Opto Copy");
-    endif;
+    
     
     
     
@@ -1441,7 +1455,7 @@ func Start%()
         'I sure thought I read.  Use vdac32% to get the right value.
         voltageInteger% := vdac32%(tunOptoVoltageOut, 1, 0);
         SampleSeqVar(4,voltageInteger%);
-        
+        printlog("Voltage integer is %d\n",voltageInteger%);
         
         'If pulsing, because the user could have changed the duration of the stimulus after setting the opto
         'parameters, we need to check the parameters again (even though the opto dialog box did it already)
@@ -1474,24 +1488,28 @@ func Start%()
         'If pulsing, set sample sequencer variables
         if tunOptoUsePulse% = 1 then  'yes, this is the same "if" as above, just seems cleaner this way
             SampleSeqVar(6,tunOptoNPulses%);  'set number of pulses
-            
+            printlog("Opto N pulses is %d\n",tunOptoNPulses%);
             'For below calculations, the standard numbers we are getting are in seconds, sequencer period is in MS (because that's how it comes)
             
             tempSeqVarValue := tunPulsedOptoWidth*1000/SequencerPeriodMS;  'do math in float
             tempSeqVarValue% := tempSeqVarValue-1;  'now convert to integer, subtract one tick for sequencer instructions
             SampleSeqVar(7,tempSeqVarValue%);  'set duration of pulse in clock ticks
+            printlog("Opto width is %d\n",tempSeqVarValue%);
             
             tempSeqVarValue := tunPulsedOptoIPI*1000/SequencerPeriodMS;  'do math in float
             tempSeqVarValue% := tempSeqVarValue-3;  'now convert to integer, subtract three ticks for sequencer instructions
             SampleSeqVar(8,tempSeqVarValue%);  'set interpulse interval in clock ticks
+            printlog("Opto IPI width is %d\n",tempSeqVarValue%);
             
             tempSeqVarValue := tunPulsedOptoOnset*1000/SequencerPeriodMS;  'do math in float
             tempSeqVarValue% := tempSeqVarValue-1;  'now convert to integer, subtract one tick for sequencer instructions
             SampleSeqVar(9,tempSeqVarValue%);  'set pre-pulse stimulus duration in clock ticks
+            printlog("Opto onset is %d\n",tempSeqVarValue%);
             
             tempSeqVarValue := stimRemaining*1000/SequencerPeriodMS;  'do math in float
             tempSeqVarValue% := tempSeqVarValue-2;  'now convert to integer, subtract two ticks for sequencer instructions
             SampleSeqVar(10,tempSeqVarValue%);  'set post-pulse stimulus duration in clock ticks
+            printlog("Opto remaining time is %d\n",tempSeqVarValue%);
         endif;
         
         
