@@ -1,11 +1,16 @@
-; $Id: Tuning.PLS,v 1.15 2015-05-13 18:26:16 devel Exp $
+; $Id: Tuning.PLS,v 1.16 2015-12-15 00:24:46 devel Exp $
 ;
 
                 SET      0.010 1 0     ;Get rate & scaling OK
                 VAR    V2=0            ;V2 logs whether the sequencer is in use for SafeSampleKey
                                        ;V3 determines whether juicer is open-high or open-low
                                        ;V4 is a voltage out variable for setting level on the opto
-
+                                       ;V5 is used for rivalry, indicates time of stimulus change
+                                       ;V6 is the number of pulses, for pulsed optogenetics
+                                       ;V7 is the duration of the pulse, for pulsed optogenetics
+                                       ;V8 is the interpulse interval, for pulsed optogenetics
+                                       ;V9 is the pre-pulse stimulus duration, for pulsed opto
+                                       ;V10 is the post-pulse stimulus duration, for pulsed opto
 
 ; zero out all trigger lines, close juicer
 0000 ZERO:   '0 MOVI   V2,1            ;Log that sequencer is in use
@@ -112,12 +117,29 @@
 0082 JDONE:     MOVI   V2,0            ;Log that sequencer is not in use
 0083            HALT                   ;End of this sequence section
 
+; Simple optogenetics, just blanketing the stimulus 
 0084 OPTOON: 'O MOVI   V2,1            ;Log that sequencer is in use
 0085            DAC    0,V4            ;Set DAC0 to the value in V4
 0086            MOVI   V2,0            ;Log that sequencer is not in use
 0087            HALT                   ;End of this sequence section
 
 0088 OPTOOFF: 'o MOVI  V2,1            ;Log that sequencer is in use
-0089            DAC    0,0             ;Set DAC0 to the value in V4
+0089            DAC    0,0             ;Set DAC0 to 0
 0090            MOVI   V2,0            ;Log that sequencer is not in use
 0091            HALT                   ;End of this sequence section
+
+; Complicated optogenetics, pulsing
+0092 PULSOPTO: 'P MOVI V2,1            ;Log that sequencer is in use
+0093              DIGOUT [.....1..]    ;Signals the stimuli on
+0094              DELAY  V9            ;Wait until first pulse on, subtract 1 tick
+0095 PULSEON:     DAC    0,V4          ;Set DAC0 to the value in V4
+0096              DELAY  V7            ;Wait until pulse off time, subtract 1 tick
+0097              DAC    0,0           ;Set DAC0 to 0
+0098              DBNZ   V6,PULSEIPI   ;Decrement #pulses, go to IPI if more
+0099              JUMP   PULSEXIT      ;Jump to wait/exit from pulse/stim
+0100 PULSEIPI:    DELAY  V8            ;Wait through IPI, subtract 3 ticks
+0101              JUMP   PULSEON       ;Start next pulse
+0102 PULSEXIT:    DELAY  V10           ;Wait until stim should go off, subtract 2 ticks
+0103              DIGOUT [.....0..]    ;Signals the stimuli off
+0023              MOVI   V2,0          ;Log that sequencer is not in use
+0024              HALT                 ;End of this sequence section

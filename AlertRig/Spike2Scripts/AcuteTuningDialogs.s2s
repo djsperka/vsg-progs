@@ -1,4 +1,4 @@
-' $Id: AcuteTuningDialogs.s2s,v 1.17 2015-11-20 00:08:44 devel Exp $
+' $Id: AcuteTuningDialogs.s2s,v 1.18 2015-12-15 00:24:22 devel Exp $
 '
 ' This file contains dialog functions for the alert tuning script Tuning.s2s.
 #include "../../Spike2Util/UsreyUtil.s2s"
@@ -17,6 +17,8 @@ var tunDoOpto%;                     ' New, 1 if doing optogenetics
 var tunDoF12% := 1;                 ' compute f1 and f2. 
 var tunMSeqLocation$ := "D:\\work\\AlertRig\\stim\\MSequenceTerms";  'location of M-Seq file
 var tunRecStimulator% := 0;   'record the stimulator?
+var tunOptoUsePulse% := 0;  'Are we using a "pulsing stimulation"?
+var tunLaserDiode% := 0;  'Are we recording the output of the laser using a photodiode?
 
 ' These will be set by the tuning curve choice
 var tunNAdvances%;		' Number of times stim will advance during one repeat
@@ -157,8 +159,17 @@ var tunOptoStaysOn%;
 var tunOptoVoltageOut;
 var tunOptoStartState%;  'essentially an index, 0 = off first, 1 = on first (those are logical), 2 = random
 var tunOptoState% := 0;  'current opto state, will toggle, can set here in dialog box
+var dontToggleOpto% := 0;  'by default, toggle opto on every block
 'var tunRecOptoBox% := 0;      'record the output from the opto box?
 'var tunRecStimulator% := 0;   'record the stimulator?
+var tunOptoNPulses%;
+var tunPulsedOptoOnset;
+var tunPulsedOptoWidth;
+var tunPulsedOptoIPI;
+var tunPulsedOptoOnsetClockSteps%;
+var tunPulsedOptoOffsetClockSteps%;
+var tunPulsedOptoWidthClockSteps%;
+var tunPulsedOptoIPIClockSteps%;
 
 ' Strings that hold grating parameters
 var tunGratingParams$;
@@ -325,6 +336,9 @@ end;
 
 ' This function is initially called with a "0" input
 func TuningCurveScriptDialogChanged%(item%) 
+    DlgEnable(0,5);  'this is a temporary disable because the opto box input may conflict
+                     'with the required event channel (12/7/15)  In principle we will learn
+                     'what we need to learn and then get rid of this sometime 12/15 or 1/16 -jj
     'This disables the "OK" button (though it will have different labels) until an experiment is selected
     if TuningCurveScriptDialogAllowOK% = 1 then
         DlgEnable(1,-1);  'enable "OK" 
@@ -597,6 +611,14 @@ proc GetTunOptoParameters()
     tunOptoStaysOn% := GetIntRegistryValue%(key$, "OptoStaysOn", tunOptoStaysOn%);
     tunOptoVoltageOut := GetFloatRegistryValue(key$, "OptoVoltageOut", tunOptoVoltageOut);
     tunOptoStartState% := GetIntRegistryValue%(key$, "OptoStartState", tunOptoStartState%);
+    tunOptoUsePulse% := GetIntRegistryValue%(key$, "OptoUsePulse", tunOptoUsePulse%);
+    tunLaserDiode% := GetIntRegistryValue%(key$, "LaserDiode", tunLaserDiode%);
+    tunOptoNPulses% := GetIntRegistryValue%(key$, "OptoNPulses", tunOptoNPulses%);
+    tunPulsedOptoOnset := GetFloatRegistryValue(key$, "PulsedOptoOnset", tunPulsedOptoOnset);
+    tunPulsedOptoWidth := GetFloatRegistryValue(key$, "PulsedOptoWidth", tunPulsedOptoWidth);
+    tunPulsedOptoIPI := GetFloatRegistryValue(key$, "PulsedOptoIPI", tunPulsedOptoIPI);
+    
+    
     'tunRecOptoBox% := GetIntRegistryValue%(key$, "RecOptoBox", tunRecOptoBox%);
     'tunRecStimulator% := GetIntRegistryValue%(key$, "RecStimulator", tunRecStimulator%);
 
@@ -610,6 +632,13 @@ proc SaveTunOptoParameters()
     SetIntRegistryValue(key$, "OptoStaysOn", tunOptoStaysOn%);
     SetFloatRegistryValue(key$, "OptoVoltageOut", tunOptoVoltageOut);
     SetIntRegistryValue(key$, "OptoStartState", tunOptoStartState%);
+    SetIntRegistryValue(key$, "OptoUsePulse", tunOptoUsePulse%);
+    SetIntRegistryValue(key$, "LaserDiode", tunLaserDiode%);
+    SetIntRegistryValue(key$, "OptoNPulses", tunOptoNPulses%);
+    SetFloatRegistryValue(key$, "PulsedOptoOnset", tunPulsedOptoOnset);
+    SetFloatRegistryValue(key$, "PulsedOptoWidth", tunPulsedOptoWidth);
+    SetFloatRegistryValue(key$, "PulsedOptoIPI", tunPulsedOptoIPI);
+    
     'SetIntRegistryValue(key$, "RecOptoBox", tunRecOptoBox%);
     'SetIntRegistryValue(key$, "RecStimulator", tunRecStimulator%);
 end;
@@ -1241,23 +1270,42 @@ end
 func TunOptoDialog%()
 	var iReturn% := 1;
 	var i%;
-    var labels$[3];
+    var labels$[4];
+    var stimdur;
+    var tempNPulses%;
+    var tempCount%;
+    stimdur := dlgvalue(1);  'get stimulus duration value from calling (main) dialog, limit opto period based on this
+    
     labels$[0] := "Opto Off First";
     labels$[1] := "Opto On First";
     labels$[2] := "Random First";
+    labels$[3] := "Opto On All Blocks";
 	GetTunOptoParameters();
 	DlgCreate("Optogenetics Parameters");
+    DlgGroup("Common Parameters", 1, 1, 38, 5);
+    DlgReal(1, "Opto Voltage Out (V)",0.0002,5,20,2); '.0002 is the minimum value that will give any change at all (to 1 in a 15-bit range) on the DAC
+    DlgList(2, "Order of blocks",labels$,4,20,3);
+    DlgCheck(3, "Use pulsing opto",2,4);
+    DlgCheck(4, "Record Laser Diode",2,5);
+    DlgGroup("Wrap-Around Opto", 1, 6, 38, 4);
+    DlgReal(5, "PreStimulus Opto On (s)",0,10,20,7);
+    DlgReal(6, "PostStimulus Opto On (s)",0,10,20,8);
+    DlgCheck(7, "Keep Opto on between stims",2,9);
+    DlgGroup("Pulsing Opto", 1, 10, 38, 5);
+    DlgInteger(8, "Opto # Pulses ",0,1000,20,11);
+    DlgReal(9, "Opto Period Onset (s)",0,stimdur,20,12);
+    DlgReal(10, "Opto Pulse Width (s)",0,stimdur,20,13);
+    DlgReal(11, "Opto Interpulse Interval (s)",0,100,20,14);
     
-    DlgReal(1, "PreStimulus Opto On (s)",0,10);
-    DlgReal(2, "PostStimulus Opto On (s)",0,10);
-    DlgCheck(3, "Keep Opto on between stims");
-    DlgReal(4, "Opto Voltage Out (V)",0.0002,5); '.0002 is the minimum value that will give any change at all (to 1 in a 15-bit range) on the DAC
-    DlgList(5, "Order of blocks",labels$,3);
     'DlgCheck(6, "Record control box voltage");
     'DlgCheck(7, "Record stimulator");
-
-	i% := DlgShow(tunPreStimOptoTime,tunPostStimOptoTime,tunOptoStaysOn%,tunOptoVoltageOut,tunOptoStartState%);',tunRecOptoBox%,tunRecStimulator%);
-	' If i% is 1 the user hit "OK". If its 0, user hit "Cancel". 
+    
+    DlgAllow(0xffff, 0, TunOptoDialogChanged%);    
+    
+	'i% := DlgShow(tunPreStimOptoTime,tunPostStimOptoTime,tunOptoStaysOn%,tunOptoVoltageOut,tunOptoStartState%);',tunRecOptoBox%,tunRecStimulator%);
+	'changing order with bigger dialog - note that with addition of the dialogChanged function the above will not be terribly relevant ever again
+    i% := DlgShow(tunOptoVoltageOut,tunOptoStartState%,tunOptoUsePulse%,tunLaserDiode%,tunPreStimOptoTime,tunPostStimOptoTime,tunOptoStaysOn%,tunOptoNPulses%,tunPulsedOptoOnset,tunPulsedOptoWidth,tunPulsedOptoIPI);
+    ' If i% is 1 the user hit "OK". If its 0, user hit "Cancel". 
 	' When user hits OK we always save the parameters, and when user hits Cancel we don't.
     ' 
     ' djs 2/4/2011
@@ -1271,16 +1319,78 @@ func TunOptoDialog%()
     'tunMaximalDiam := tunAreaMaxDiam;  This won't do anything unless FIXSTIM is updated to allow crosshairs
 	if i% = 1 then
 		SaveTunOptoParameters();
-        if tunOptoStartState% = 2 then
+        docase
+        case tunOptoStartState% = 3 then
+            dontToggleOpto% := 1;
+            tunOptoState% := 1;
+        case tunOptoStartState% = 2 then
             tunOptoState% := round(Rand());
         else
             tunOptoState% := tunOptoStartState%;
-        endif;
+        endcase;
         'printlog("Opto start state is %d\n",tunOptoState%);  'yep, works
+        
+        'do temporary calculation to make sure all pulses will occur during the stimulus
+        'unfortunately we will have to do this AGAIN once the script starts because the user could change the stimulus duration after the opto parameters
+        'fortunately, the calculation is the same and it all worked on the first try
+        if tunOptoUsePulse% = 1 then
+            stimdur := stimdur - tunPulsedOptoOnset;  'duration of stimulus after onset delay
+            stimdur := stimdur - tunPulsedOptoWidth;  'duration of stimulus after first opto pulse
+            if stimdur < 0 then  'if first pulse will extend beyond stimulus duration
+                tunOptoNPulses% := 0;  'turn off opto by using no pulses
+                'tell user to try again
+                Message("The first opto pulse will extend beyond the stimulus!  There will be no pulses!  Please try again!");
+            else
+                tempNPulses% := tunOptoNPulses% - 1;  'how many more pulses are left?
+                tempCount% := 1;  'temporary successful pulse count
+                while tempNPulses% > 0 do
+                    stimdur := stimdur - tunPulsedOptoWidth - tunPulsedOptoIPI;  'subtract duration of one more pulse+IPI
+                    if stimdur < 0 then  'if this pulse will extend beyond stimulus duration
+                        Message("Due to stimulus length, only " + Str$(tempCount%) + " pulses can be completed!  You may try again!");
+                        tunOptoNPulses% := tempCount%;  'only use this many pulses if user does not recalculate
+                        tempNPulses% := 0;  'break while
+                    else  'if this pulse is OK
+                        tempCount% += 1;  'increment temporary successful pulse count
+                    endif;
+                    tempNPulses% -= 1;  'decrement temporary pulse count remaining
+                wend
+                
+            endif;
+            
+        endif;
+        
+        
+        
 	endif;
     
 	return iReturn%;
 end;
+
+
+
+' This function is initially called with a "0" input
+func TunOptoDialogChanged%(item%) 
+    if DlgValue(3) = 1 then
+        DlgEnable(1,8);  'enable pulsing dialog values 
+        DlgEnable(1,9);
+        DlgEnable(1,10);
+        DlgEnable(1,11);
+        DlgEnable(0,5);  'disable wrap-around dialog values 
+        DlgEnable(0,6);
+        DlgEnable(0,7);
+    else
+        DlgEnable(0,8);  'disable pulsing dialog values 
+        DlgEnable(0,9);
+        DlgEnable(0,10);
+        DlgEnable(0,11);
+        DlgEnable(1,5);  'enable wrap-around dialog values 
+        DlgEnable(1,6);
+        DlgEnable(1,7);
+    endif;
+    
+    return 1;
+end
+
 
 
 
