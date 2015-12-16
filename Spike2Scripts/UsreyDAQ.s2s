@@ -293,7 +293,7 @@ func DAQParametersDialog%()
     
     
 	DlgCreate("DAQ parameters");
-	DlgInteger(1, "Number of Electrodes:", 1, 7, 0, 0, 1);
+	DlgInteger(1, "Number of Electrodes:", 1, 16, 0, 0, 1);
 	DlgReal(2, "Degrees/Volt (X):", 0, 100);
 	DlgReal(3, "Degrees/Volt (Y):", 0, 100);
 	DlgInteger(4, "Eye Coil Sampling Freq (Hz):", 1, 20000);
