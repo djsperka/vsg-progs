@@ -44,6 +44,7 @@ var caStartTrial% := 1;
 var caInterTrialTimeRand; 
 var caTextCallbackItemNumber%;
 var caSpecFileOpen%;
+var caInitialDeadTime;
 
 'Counter vars for attention script  ?? Probably adjust this
 var caCountAllTrials% := 0;
@@ -85,6 +86,7 @@ const caTimingDlgFixAlternationTime% := 12;
 const caTimingDlgRequireFixation% := 13;
 const caTimingDlgReturnForReward% := 14;
 const caTimingDlgStartTrial% := 15;
+const caTimingDlgInitialDeadTime% := 16;
 
 'const caTimingDlgCycleTrials% := 15;  'Not used
 
@@ -120,6 +122,7 @@ var caIsOvershot$;
 
 ' Overall script control vars
 var Pause% := 0;
+'var caAudibleElectrode% := 0;  'looks like this will not work
 
 ' Channel numbers and handles
 var StimHandle%;			' handle for stimulus application
@@ -218,6 +221,7 @@ const stateTrainingFixPtOff% := 32;
 const stateWaitForBlankTraining% := 33;
 const stateTrainingWait% := 34;
 const stateWaitForAnswerFC% := 35;
+const stateInitialDeadTime% := 36;
 
 const trialtypeAttendToward% := 100;
 const trialtypeAttendAway% := 101;
@@ -425,6 +429,10 @@ proc GetTimingDialogParameters()
 	caFixationTime := val(stmp$);
     Profile(key$, "SpecFileName", "none", stmp$);
     specFileName$ := stmp$;
+    Profile(key$, "InitialDeadTime", "0.0", stmp$);
+	caInitialDeadTime := val(stmp$);
+    
+    
     
 end;
 
@@ -449,6 +457,7 @@ proc SaveTimingDialogParameters()
     Profile(key$, "InterTrialTimeRand", str$(caInterTrialTimeRand));
     Profile(key$, "FixationTime", str$(caFixationTime));
     Profile(key$, "SpecFileName", specFileName$);
+    Profile(key$, "InitialDeadTime", str$(caInitialDeadTime));
     
     
 end;
@@ -494,12 +503,13 @@ func TimingDialog%()
     DlgList(caTimingDlgRequireFixation%, 60, fixationOptionsList$[], 4);
     DlgCheck(caTimingDlgReturnForReward%, "Return for Reward",50);
     DlgInteger(caTimingDlgStartTrial%, "Start Trial",1,caMaxTrl%);
+    DlgReal(caTimingDlgInitialDeadTime%, "Initial Dead Time (s): ", 0, 100);
     
-    caTextCallbackItemNumber% := DlgText("Text!",2,caTimingDlgRequireFixation%+3,60);
-    DlgButton(2, "Use Above Input File", UseInputFile%,2,caTimingDlgRequireFixation%+4);
-    DlgButton(3, "Select An Input File", OpenInputFile%,2,caTimingDlgRequireFixation%+5);
-    DlgButton(4, "Fixation Point Dialog", FixationPointDialog%,2,caTimingDlgRequireFixation%+6);
-    DlgButton(5, "Joystick Dialog", JoystickConfigDialog%,2,caTimingDlgRequireFixation%+7);
+    caTextCallbackItemNumber% := DlgText("Text!",2,caTimingDlgRequireFixation%+5,60);
+    DlgButton(2, "Use Above Input File", UseInputFile%,2,caTimingDlgRequireFixation%+6);
+    DlgButton(3, "Select An Input File", OpenInputFile%,2,caTimingDlgRequireFixation%+7);
+    DlgButton(4, "Fixation Point Dialog", FixationPointDialog%,2,caTimingDlgRequireFixation%+8);
+    DlgButton(5, "Joystick Dialog", JoystickConfigDialog%,2,caTimingDlgRequireFixation%+9);
     
     DlgAllow(0, 0, TimingDialogChanged%);
     
@@ -507,7 +517,7 @@ func TimingDialog%()
     '              caTrainingHoldTime,caFixAlternationTime,caRequireFixation%,caReturnForReward%,caStartTrial%);
     
     i% := DlgShow(caAcquisitionTime,caFixationTime,caInterTrialTime,caInterTrialTimeRand,caAbortWaitTime,caAbort2WaitTime,caFalseAlarmWaitTime,caFalseAlarmCheckWindow,caMissPenalty,caTrainingOptions%,
-                  caTrainingHoldTime,caFixAlternationTime,caRequireFixation%,caReturnForReward%,caStartTrial%);
+                  caTrainingHoldTime,caFixAlternationTime,caRequireFixation%,caReturnForReward%,caStartTrial%,caInitialDeadTime);
     
     if i% = 1 then        
         
@@ -1214,8 +1224,18 @@ func IdleProcessing%()
             if tTrigger > tLastTrigger and vTrigger = 1 then
                 PrintLog("state stateVSGWaitConfirm: Got trailing edge of trigger\n");
                 tLastTrigger := tTrigger;
-                ChangeStateTo(stateWaitForJoystickInCenter%, tTrigger);
+                ChangeStateTo(stateInitialDeadTime%, tTrigger);
             endif;
+            
+            
+        case iState% = stateInitialDeadTime% then
+            'waiting through an initial dead period that Evan wants before the first stimulus
+            if tNow - tStateStart > caInitialDeadTime then
+                ChangeStateTo(stateWaitForJoystickInCenter%, tNow);
+                nextStateImmed% := 1;
+            endif;
+            
+            
             
         case iState% = stateWaitForJoystickInCenter% then
             
@@ -2472,5 +2492,24 @@ func JoyInStartPosition%(pos%)
 end
 
 
+
+
+'There actually does not appear to be a way to do this...
+'So, this is how you would go about designing a dialog to select
+'the electrode, but since we can't really route anything to a DAC...
+'func SelectElectrodeForAudio%()
+'    var temp%;
+'    var trode%;
+'    
+'    DlgCreate("Choose Electrode",0,0,0,1.5);
+'    DlgInteger(1,"Choose Electrode",0,100);
+'    temp% := DlgShow(trode%);
+'    
+'    if temp% = 1 then 'if user selects OK
+'        caAudibleElectrode% := trode%;
+'    endif;
+'    
+'    return 1;
+'end
 
 
