@@ -44,6 +44,18 @@ end;
 
 
 
+'We can no longer populate a grating in a new configuration using Tuning - I don't know when this capability
+'was taken away, but it was probably long ago.  This function allows us to access the existing Stimulus grating
+'in the default configuration as a starting point.
+func GetDefaultGratingParameters$(type$)
+    var key$;
+	var stmp$;
+	key$ := "AlertRig\default\Gratings";
+	return GetStringRegistryValue$(key$, type$, "");
+end;
+
+
+
 ' GratingParametersDialog%
 '
 ' Presents a dialog to edit grating parameters. You can disable certain pieces of the dialog to prevent changes to those values. If the 
