@@ -4,7 +4,7 @@
 'This works amazingly well.  Since it has to look through ~150 files it does take about 5 seconds or so, but that's
 'SO worth it.
 
-#include "Directories.s2s"
+#include "../../Spike2Util/Directories.s2s"
 
 var i%;  'just to hold the return of the dialog
 var j%;  'looping variable
