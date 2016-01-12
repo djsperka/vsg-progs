@@ -46,7 +46,7 @@ var caTextCallbackItemNumber%;
 var caSpecFileOpen%;
 var caInitialDeadTime;
 
-'Counter vars for attention script  ?? Probably adjust this
+'Counter vars for attention script 
 var caCountAllTrials% := 0;
 var caCountAllTrialsCorrect% := 0;
 var caCountAllTrialsIncorrect% := 0;
@@ -67,6 +67,10 @@ var caCountLeftTrials% := 0;
 var caCountLeftTrialsCorrect% := 0;
 var caCountLeftTrialsIncorrect% := 0;
 var caCountLeftTrialsAbort% := 0;
+var caCountNontargetTrials% := 0;
+var caCountNontargetTrialsCorrect% := 0;
+var caCountNontargetTrialsIncorrect% := 0;
+var caCountNontargetTrialsAbort% := 0;
 
 
 ' constants for timing dialog
@@ -235,7 +239,8 @@ var nBlocksCompleted%:=0;
 var iAnswer%;
 var trialCatch%;
 var trialIsTarget%;
-var trialAttendLoc%;
+var trialAttendLoc%;  'This value is actually unused (at least right now)!
+var trialResponseDirection%;  'because we shouldn't really call this "attend loc" even if we get that value from the attend location position in the control file.
 var trialHazardFunctionTime;
 var trialEarlyGoTime;
 var trialCueName$;
@@ -1392,12 +1397,16 @@ func IdleProcessing%()
                 else
                     PrintLog("ERROR: Unknown trial type (" + str$(trialType%) + "\n");
                 endcase
-            else
+            else 'forced choice
                 docase
-                case trialAttendLoc% = 1 then
+                case trialResponseDirection% = 1 then
                     caCountLeftTrials% += 1;
-                else 
+                case trialResponseDirection% = 3 then
                     caCountRightTrials% += 1;
+                case trialResponseDirection% = 0 then
+                    caCountNontargetTrials% += 1;
+                else
+                    printlog("ERROR: Unknown response direction!\n");
                 endcase
             endif;
             
@@ -1577,12 +1586,17 @@ func IdleProcessing%()
                 else 
                     PrintLog("ERROR: Unknown trial type (" + str$(trialType%) + ")\n");
                 endcase
-            else
-                if trialAttendLoc% = 1 then  'response expected left
+            else 'forced choice
+                docase
+                case trialResponseDirection% = 1 then  'response expected left
                     caCountLeftTrialsAbort% += 1;
-                else
+                case trialResponseDirection% = 3 then  'response expected right
                     caCountRightTrialsAbort% += 1;
-                endif;
+                case trialResponseDirection% = 0 then  'no response expected
+                    caCountNontargetTrialsAbort% += 1; 
+                else
+                    printlog("Error: Unknown response direction!\n");
+                endcase;
             endif;
             
             
@@ -1692,7 +1706,7 @@ func IdleProcessing%()
                     endif
                     SafeSampleKey("X");  'turn off stimulus first thing
                     docase
-                    case tempanswer% = 3 and trialAttendLoc% = 3 then  'right expected, response to right
+                    case tempanswer% = 3 and trialResponseDirection% = 3 then  'right expected, response to right
                         caCountAllTrialsCorrect% += 1;
                         caCountRightTrialsCorrect% += 1;
                         caInterTrialTime2 := GetInterTrialTime(caInterTrialTime,caInterTrialTimeRand);
@@ -1700,7 +1714,7 @@ func IdleProcessing%()
                         'getPreciseTiming := 0;
                         Reward%();
                         ChangeStateTo(stateTrialCompletedWaitForBlank%, tNow); 
-                    case tempanswer% = 1 and trialAttendLoc% = 1 then 'left expected, response to left
+                    case tempanswer% = 1 and trialResponseDirection% = 1 then 'left expected, response to left
                         caCountAllTrialsCorrect% += 1;
                         caCountLeftTrialsCorrect% += 1;
                         caInterTrialTime2 := GetInterTrialTime(caInterTrialTime,caInterTrialTimeRand);
@@ -1708,18 +1722,30 @@ func IdleProcessing%()
                         'getPreciseTiming := 0;
                         Reward%();
                         ChangeStateTo(stateTrialCompletedWaitForBlank%, tNow); 
-                    case tempanswer% = 1 and trialAttendLoc% = 3 then 'right expected, response to left
+                    case tempanswer% = 1 and trialResponseDirection% = 3 then 'right expected, response to left
                         caCountAllTrialsIncorrect% += 1;
                         caCountRightTrialsIncorrect% += 1;
                         caInterTrialTime2 := GetInterTrialTime(caInterTrialTime,caInterTrialTimeRand) + caMissPenalty;
                         SampleText("Miss, Response Left, Expected Response Right",tNow);
                         ChangeStateTo(stateTrialCompletedWaitForBlank%, tNow);
-                    case tempanswer% = 3 and trialAttendLoc% = 1 then 'left expected, response to right
+                    case tempanswer% = 3 and trialResponseDirection% = 1 then 'left expected, response to right
                         caCountAllTrialsIncorrect% += 1;
                         caCountLeftTrialsIncorrect% += 1;
                         caInterTrialTime2 := GetInterTrialTime(caInterTrialTime,caInterTrialTimeRand) + caMissPenalty;
                         SampleText("Miss, Response Right, Expected Response Left",tNow);
                         ChangeStateTo(stateTrialCompletedWaitForBlank%, tNow);
+                    case tempanswer% = 1 and trialResponseDirection% = 0 then 'no response expected, response to left
+                        caCountAllTrialsIncorrect% += 1;
+                        caCountNontargetTrialsIncorrect% += 1;
+                        caInterTrialTime2 := GetInterTrialTime(caInterTrialTime,caInterTrialTimeRand) + caMissPenalty;
+                        SampleText("FA, Response Left, Expected No Response",tNow);
+                        ChangeStateTo(stateTrialCompletedWaitForBlank%, tNow);
+                    case tempanswer% = 3 and trialResponseDirection% = 0 then 'no response expected, response to right
+                        caCountAllTrialsIncorrect% += 1;
+                        caCountNontargetTrialsIncorrect% += 1;
+                        caInterTrialTime2 := GetInterTrialTime(caInterTrialTime,caInterTrialTimeRand) + caMissPenalty;
+                        SampleText("FA, Response Right, Expected No Response",tNow);
+                        ChangeStateTo(stateTrialCompletedWaitForBlank%, tNow);    
                     endcase
                 case joystickInStartPosition% = 0 and tempanswer% = 2 then 'FA in GNG
                     PrintLog("stateHoldFixationToCC: false alarm before contrast change, aborting trial.\n");
@@ -1761,7 +1787,7 @@ func IdleProcessing%()
                     ' we no longer turn off stimulus and advance it, but we DO allow response now
                     if caTrainingOptions% <= 3 then
                         ChangeStateTo(stateWaitForAnswer%, tStateStart+trialHazardFunctionTime);  'this will be the precise time rather than the "noticed" time
-                    else
+                    else 'forced choice
                         ChangeStateTo(stateWaitForAnswerFC%, tStateStart+trialHazardFunctionTime);  'this will be the precise time rather than the "noticed" time
                     endif;
                     
@@ -1776,7 +1802,7 @@ func IdleProcessing%()
                     endcase
                     'This docase does the appropriate SampleTexting
                     docase
-                    case trialType% = trialtypeAttendToward% then
+                    case trialType% = trialtypeAttendToward% and caTrainingOptions% <= 3 then
                         if trialIsTarget% > 0 then
                             if trialCatch% = 0 then
                                 Sampletext("Contrast Change, Level " + Str$(thisContrast%) + ", Attend Toward",tTrigger+trialHazardFunctionTime);
@@ -1786,7 +1812,7 @@ func IdleProcessing%()
                         else
                             Sampletext("Attend Toward, No Contrast Change",tTrigger+trialHazardFunctionTime);
                         endif
-                    case trialType% = trialtypeAttendAway% then
+                    case trialType% = trialtypeAttendAway% and caTrainingOptions% <= 3 then
                         if trialIsTarget% > 0 then
                             if trialCatch% = 0 then
                                 Sampletext("Contrast Change, Level " + Str$(thisContrast%) + ", Attend Away",tTrigger+trialHazardFunctionTime);
@@ -1796,10 +1822,30 @@ func IdleProcessing%()
                         else
                             Sampletext("Attend Away, No Contrast Change",tTrigger+trialHazardFunctionTime);
                         endif
+                    case trialType% = trialtypeNoAttend% and caTrainingOptions% <= 3 then
+                        if trialIsTarget% > 0 then
+                            if trialCatch% = 0 then
+                                Sampletext("Contrast Change, Level " + Str$(thisContrast%) + ", No Attend ",tTrigger+trialHazardFunctionTime);
+                            else
+                                Sampletext("Contrast Change, Level " + Str$(thisContrast%) + ", No Attend (catch)",tTrigger+trialHazardFunctionTime);
+                            endif
+                        else
+                            Sampletext("No Attend, No Contrast Change",tTrigger+trialHazardFunctionTime);
+                        endif    
+                    case caTrainingOptions% = 4 then
+                        if trialIsTarget% > 0 then
+                            if trialCatch% = 0 then
+                                Sampletext("Contrast Change, Level " + Str$(thisContrast%),tTrigger+trialHazardFunctionTime);
+                            else
+                                Sampletext("Contrast Change, Level " + Str$(thisContrast%) + ", (catch)",tTrigger+trialHazardFunctionTime);
+                            endif
+                        else
+                            Sampletext("No Contrast Change",tTrigger+trialHazardFunctionTime);
+                        endif    
                     else
                         'if there are no-attend conditions, they will go in here.
                         PrintLog("ERROR! Unknown blocktype!!!\n");    'could change this, if it's ever relevant
-                        Sampletext("Contrast Change, no-attend condition",tTrigger+trialHazardFunctionTime);
+                        Sampletext("Unknown attend condition!!!",tTrigger+trialHazardFunctionTime);
                     endcase
                 endif
                 
@@ -1823,11 +1869,14 @@ func IdleProcessing%()
                     'joystick is not yet centered
                 else
                     PrintLog("stateWaitForAnswer: no response on no-go trial, correct rejection\n");
-                    if trialType% = trialtypeAttendToward% then
+                    docase
+                    case trialType% = trialtypeAttendToward% then
                         SampleText("Correct Rejection, Attend Toward",tNow);
-                    else
+                    case trialType% = trialtypeAttendAway% then
                         SampleText("Correct Rejection, Attend Away",tNow);
-                    endif;
+                    case trialType% = trialtypeNoAttend% then
+                        SampleText("Correct Rejection, No Attend Direction",tNow);    
+                    endcase;
                     caInterTrialTime2 := GetInterTrialTime(caInterTrialTime,caInterTrialTimeRand);
                     Reward%();
                     ChangeStateTo(stateTrialCompletedWaitForBlank%, tNow);  'stateTrialCompletedWaitForBlank will advance
@@ -1868,6 +1917,9 @@ func IdleProcessing%()
                         case trialType% = trialtypeAttendAway% then
                             caCountAwayTrialsCorrect% += 1;
                             SampleText("Hit, Attend Away" + caIsOvershot$,tNow);
+                        case trialType% = trialtypeNoAttend% then
+                            caCountAwayTrialsCorrect% += 1;
+                            SampleText("Hit,  No Attend Direction" + caIsOvershot$,tNow);    
                         else
                             PrintLog("ERROR: Unknown trial type (" + str$(trialType%) + "\n");
                             SampleText("Hit, Unknown trial type" + caIsOvershot$,tNow);
@@ -1886,6 +1938,9 @@ func IdleProcessing%()
                         case trialType% = trialtypeAttendAway% then
                             caCountAwayTrialsIncorrect% += 1;
                             SampleText("False Alarm, Attend Away" + caIsOvershot$,tNow);
+                        case trialType% = trialtypeNoAttend% then
+                            caCountAwayTrialsIncorrect% += 1;
+                            SampleText("False Alarm, No Attend Direction" + caIsOvershot$,tNow);
                         else
                             PrintLog("ERROR: Unknown trial type (" + str$(trialType%) + "\n");
                             SampleText("False Alarm, Unknown trial type" + caIsOvershot$,tNow);
@@ -1904,21 +1959,30 @@ func IdleProcessing%()
             
             if tNow - tStimOn > totalStimDur then  'no response, stimulus over, at this point we don't care where the eye position is
                 SafeSampleKey("X");  'turn off animation (also kills fixation point, animation is probably already off here)
-                if trialAttendLoc% = 1 then 'expected response left
+                docase
+                case trialResponseDirection% = 1 then 'expected response left
                     PrintLog("stateWaitForAnswer: no response on left trial, miss\n");
                     SampleText("Miss, Left Response Expected",tNow);
                     ChangeStateTo(stateMiss%, tNow); 'go to miss penalty
                     caInterTrialTime2 := GetInterTrialTime(caInterTrialTime,caInterTrialTimeRand) + caMissPenalty;
                     caCountLeftTrialsIncorrect% += 1;
                     SafeSampleKey("a");  'advance stimulus, won't happen anywhere else
-                else
+                case trialResponseDirection% = 3 then 'expected response right
                     PrintLog("stateWaitForAnswer: no response on right trial, miss\n");
                     SampleText("Miss, Right Response Expected",tNow);
                     ChangeStateTo(stateMiss%, tNow); 'go to miss penalty
                     caInterTrialTime2 := GetInterTrialTime(caInterTrialTime,caInterTrialTimeRand) + caMissPenalty;
                     caCountRightTrialsIncorrect% += 1;
                     SafeSampleKey("a");  'advance stimulus, won't happen anywhere else
-                endif;
+                case trialResponseDirection% = 0 then 'expected no response, correct rejection
+                    PrintLog("stateWaitForAnswer: no response on no-target trial, correct rejection\n");
+                    SampleText("Correct Rejection, No Response Expected",tNow);
+                    caCountAllTrialsCorrect% += 1;
+                    caCountNontargetTrialsCorrect% += 1;
+                    caInterTrialTime2 := GetInterTrialTime(caInterTrialTime,caInterTrialTimeRand);
+                    Reward%();
+                    ChangeStateTo(stateTrialCompletedWaitForBlank%, tNow); 
+                endcase;
             else
                 'Stimulus is still on, response window is still open...
                 iAnswer% := Answer%(JoyChannel%,tNow);  'get answer
@@ -1940,9 +2004,9 @@ func IdleProcessing%()
                         joystickHasBeenCentered% := 0;  'joystick not centered
                     endif
                     SafeSampleKey("X");  'turn off stimulus first thing
-                    'printlog("trialAttendLoc is %d\n",trialAttendLoc%);  'just for testing
+                    'printlog("trialResponseDirection is %d\n",trialResponseDirection%);  'just for testing
                     docase
-                    case iAnswer% = 3 and trialAttendLoc% = 3 then  'right expected, response to right
+                    case iAnswer% = 3 and trialResponseDirection% = 3 then  'right expected, response to right
                         caCountAllTrialsCorrect% += 1;
                         caCountRightTrialsCorrect% += 1;
                         caInterTrialTime2 := GetInterTrialTime(caInterTrialTime,caInterTrialTimeRand);
@@ -1950,7 +2014,7 @@ func IdleProcessing%()
                         'getPreciseTiming := 0;
                         Reward%();
                         ChangeStateTo(stateTrialCompletedWaitForBlank%, tNow); 
-                    case iAnswer% = 1 and trialAttendLoc% = 1 then 'left expected, response to left
+                    case iAnswer% = 1 and trialResponseDirection% = 1 then 'left expected, response to left
                         caCountAllTrialsCorrect% += 1;
                         caCountLeftTrialsCorrect% += 1;
                         caInterTrialTime2 := GetInterTrialTime(caInterTrialTime,caInterTrialTimeRand);
@@ -1958,18 +2022,30 @@ func IdleProcessing%()
                         'getPreciseTiming := 0;
                         Reward%();
                         ChangeStateTo(stateTrialCompletedWaitForBlank%, tNow); 
-                    case iAnswer% = 1 and trialAttendLoc% = 3 then 'right expected, response to left
+                    case iAnswer% = 1 and trialResponseDirection% = 3 then 'right expected, response to left
                         caCountAllTrialsIncorrect% += 1;
                         caCountRightTrialsIncorrect% += 1;
                         caInterTrialTime2 := GetInterTrialTime(caInterTrialTime,caInterTrialTimeRand) + caMissPenalty;
                         SampleText("Miss, Response Left, Expected Response Right",tNow);
                         ChangeStateTo(stateTrialCompletedWaitForBlank%, tNow);
-                    case iAnswer% = 3 and trialAttendLoc% = 1 then 'left expected, response to right
+                    case iAnswer% = 3 and trialResponseDirection% = 1 then 'left expected, response to right
                         caCountAllTrialsIncorrect% += 1;
                         caCountLeftTrialsIncorrect% += 1;
                         caInterTrialTime2 := GetInterTrialTime(caInterTrialTime,caInterTrialTimeRand) + caMissPenalty;
                         SampleText("Miss, Response Right, Expected Response Left",tNow);
                         ChangeStateTo(stateTrialCompletedWaitForBlank%, tNow);
+                    case iAnswer% = 1 and trialResponseDirection% = 0 then 'no response expected, response to left
+                        caCountAllTrialsIncorrect% += 1;
+                        caCountNontargetTrialsIncorrect% += 1;
+                        caInterTrialTime2 := GetInterTrialTime(caInterTrialTime,caInterTrialTimeRand) + caMissPenalty;
+                        SampleText("FA, Response Left, Expected No Response",tNow);
+                        ChangeStateTo(stateTrialCompletedWaitForBlank%, tNow);
+                    case iAnswer% = 3 and trialResponseDirection% = 0 then 'no response expected, response to right
+                        caCountAllTrialsIncorrect% += 1;
+                        caCountNontargetTrialsIncorrect% += 1;
+                        caInterTrialTime2 := GetInterTrialTime(caInterTrialTime,caInterTrialTimeRand) + caMissPenalty;
+                        SampleText("FA, Response Right, Expected No Response",tNow);
+                        ChangeStateTo(stateTrialCompletedWaitForBlank%, tNow); 
                     endcase
                 endcase                
             endif;
@@ -2146,6 +2222,7 @@ proc UpdateToolbarText()
 	var allpct$ := "--";
 	var towpct$ := "--";
     var awapct$ := "--";
+    var ntpct$ := "--";
     var num, den, pct;
     
     if (caCountAllTrials% > 0) then
@@ -2184,10 +2261,21 @@ proc UpdateToolbarText()
             pct := num/den*100;
             awapct$ := print$("%2.0f", pct);
         endif
+        if (caCountNontargetTrials% > 0) then
+            num := caCountNontargetTrialsCorrect%;
+            den := caCountNontargetTrials%;
+            pct := num/den*100;
+            ntpct$ := print$("%2.0f", pct);
+        endif
         s$ := Print$("Tallies count/correct/incorrect/aborted (correct%%): ALL %d/%d/%d/%d (%s%%) LEFT %d/%d/%d/%d (%s%%) RIGHT %d/%d/%d/%d (%s%%)", 
         caCountAllTrials%, caCountAllTrialsCorrect%, caCountAllTrialsIncorrect%, caCountAllTrialsAbort%, allpct$,
         caCountLeftTrials%, caCountLeftTrialsCorrect%, caCountLeftTrialsIncorrect%, caCountLeftTrialsAbort%, towpct$,
         caCountRightTrials%, caCountRightTrialsCorrect%, caCountRightTrialsIncorrect%, caCountRightTrialsAbort%, awapct$);
+        'only note nontargets if they exist
+        if (caCountNontargetTrials% > 0) then
+            s$ := s$ + Print$(" NONTARGET %d/%d/%d/%d (%s%%)",
+            caCountNontargetTrials%, caCountNontargetTrialsCorrect%, caCountNontargetTrialsIncorrect%, caCountNontargetTrialsAbort%, ntpct$);
+        endif;
     endif;
     
     
@@ -2348,8 +2436,8 @@ proc PrepareTrial()
                 trialType% := trialtypeNoAttend%;
                 trialAttendLoc% := 0;
             endcase
-        else
-            trialAttendLoc% := caAttendLoc%[caCurrTrialIndex%];  'just use trialAttendLoc% to hold required direction
+        else 'forced choice
+            trialResponseDirection% := caAttendLoc%[caCurrTrialIndex%];  'use trialResponseDirection% to hold required direction
         endif
         
         
