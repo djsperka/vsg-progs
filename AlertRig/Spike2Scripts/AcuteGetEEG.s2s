@@ -2,7 +2,7 @@
 ' an FFT. Data sampling starts immediately when script started. After data taking 
 ' complete, opens 'File Save' dialog. 
 '
-' Hard-coded to use input port 2 - this is set in the sampling configuration file, 
+' Hard-coded to use input port 7 - this is set in the sampling configuration file, 
 ' eeg.s2c. 
 
 #include "../../Spike2Util/UsreyUtil.s2s"
@@ -27,6 +27,9 @@ View(hData%);
 
 proc CreateSampleConfiguration()
     
+    'set the port (not channel #) where EEG will be acquired
+    const EEG_PORT% := 7;
+    
     var i%;
     
 	SampleClear(); 'Set standard sampling state
@@ -38,8 +41,9 @@ proc CreateSampleConfiguration()
     FilePathSet(GetDataPathRoot$() + "\\" + GetDataSetName$(), 1);
     SampleAutoName$("EEG_000");
 	SampleAutoFile(1);
-
-    SampleWaveform(1, 7, 1000);
+    
+    SampleWaveform(1, EEG_PORT%, 1000);
+    
     SampleTitle$(1, "EEG Port2");
     
     SampleOptimise(2, 2, 2, 2, 50);  'Set optimise mode (do this last)
