@@ -1,4 +1,4 @@
-' $Id: AttentionGoNoGo.s2s,v 1.68 2015-11-16 18:03:40 devel Exp $
+' $Id: AttentionGoNoGo.s2s,v 1.69 2016-01-19 22:21:59 devel Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -699,6 +699,7 @@ func AttentionScriptDialog%()
         attCueCircleStrokeWidth% := eightmoreints%[6];
         attUseFlashers% := eightmoreints%[7];
         
+        
         'Check values of attStartBlock% for legality
         docase
         case attStartBlock% = 6 then
@@ -760,6 +761,12 @@ func AttentionScriptDialog%()
         'After saving parameters, set phase to -1 if we are not controlling it
         if attPhaseCheck% = 0 then
             attPhaseDeg% := -1;
+        endif;
+        
+        'After saving parameters, ensure no hang if catch trials are requested for a single patch
+        if attNumPatches% = 1 and attCatchTrialPercentage > 0 then
+            attCatchTrialPercentage := 0;
+            message("You have tried to have a non-zero percentage of catch trials, but there is only one patch.\nNo catch trial is possible, so percentage of catch trials is being set to zero!");
         endif;
         
         'if we aren't alternating cues by block, then "easy" trials don't make any sense
@@ -3186,7 +3193,7 @@ Proc CreateContrastList(&c$,&f$,&cList%[],&chgList%[],&vList%[],&attList%[],&haz
                 endif;
                 
                 attList%[totalCount%] := attDirection%;  'set direction of attention, same for regular or no-change trials
-                
+                            
                 'hazard function time is set the same under every case
                 if (attColor% = firstBlockType% and attBlockAlternate% = 2) or attBlockAlternate% < 2 then
                     'if we're NOT shuffling block type, or if it's a "first-type" block, get a new hazard time
@@ -3226,7 +3233,6 @@ Proc CreateContrastList(&c$,&f$,&cList%[],&chgList%[],&vList%[],&attList%[],&haz
                 endif;
                 UpdateFlasherSpecString(f$,flashN%[totalCount%],flashX[totalCount%][],flashY[totalCount%][],attFlasherWidth,attFlasherHeight,flashTimes[totalCount%][],attFlasherDur,firstRun);
                 
-                
                 if (Rand()*100 < attNoGoTrialPercentage) and attDirection% <> 6 then 'NoGo trial, don't do this on no-change trials, even though I guess it's the same thing
                     vList%[totalCount%] := 1;  'all no-go trials are valid
                     chgList%[totalCount%] := 0;  'no stimulus changes, it's a no-go -- note that we cannot pass 0 to UpdateTrialSpecString, though, so pass the attend direction
@@ -3241,14 +3247,26 @@ Proc CreateContrastList(&c$,&f$,&cList%[],&chgList%[],&vList%[],&attList%[],&haz
                         chgList%[totalCount%] := 0;  'no stimulus changes, it's a no-go -- note that we cannot pass 0 to UpdateTrialSpecString, though, so pass the attend direction
                         cList%[totalCount%] := attContrastBase%;  'fill cList%[] with the base contrast
                         offList%[totalCount%] := 0;  'show all grating patches
-                        'insert no-go trial
+                        'insert no-go trial  
                         UpdateTrialSpecString(c$,attColor%,attDirection%,attContrastBase%,attContrastBase%,trialHazardFunctionTime,attPhaseDeg%,0+(256*rotList%[totalCount%]),masterColorListVSG$);
                     case (Rand()*100 < attCatchTrialPercentage) then 'catch trial
                         vList%[totalCount%] := 0;  'catch = invalid
                         offList%[totalCount%] := 0;  'show all grating patches
                         'select a random patch that is not the attended direction
-                        tempInvalid% := ceil(rand(attNumPatches%,0));  'select a random patch for invalid stimuli
+                        tempInvalid% := ceil(rand(attNumPatches%,0));  'select a random patch for invalid stimuli                          
                         while tempInvalid% = attDirection% do  'it's not catch if it's the attended patch, try again
+                            if attNumPatches% = 1 then
+                                message("This combination of settings will hang a while loop!  Quitting!");
+                                'Just some notes - I want to catch this earlier, but maybe another way to break here will come up
+                                'in the future.  The problem essentially is that you can't ask for a catch trial if there is only
+                                'one stimulus on the screen - there's no alternate stimulus to have a contrast change.  Again, I
+                                'think there was only one circumstance where this request could be made and I'll try to catch it
+                                'at the level of the dialog box, but if it happens again at least this will give a clue to what's
+                                'going on.  (Random hangs are hard to track down.)
+                                stop%();
+                                quit%();
+                                halt'
+                            endif;
                             tempInvalid% := ceil(rand(attNumPatches%,0));  'yes, this is technically ugly but much easier to code than a method guaranteed to get a result in one shot
                         wend;
                         chgList%[totalCount%] := tempInvalid%;  'set stimulus that changes
@@ -3280,7 +3298,7 @@ Proc CreateContrastList(&c$,&f$,&cList%[],&chgList%[],&vList%[],&attList%[],&haz
                 endif;
             endif;
             totalCount% += 1;
-        next; 
+        next;        
         blockCount% += 1;
     next;
     c$ := Left$(c$,len(c$)-1); 'remove trailing comma from the list
@@ -3715,7 +3733,7 @@ proc UpdateTrialSpecString(&c$,attdir%,chgdir%,base%,chg%,haz,phase%,off%,colLis
     else
         trainbase% := base%;  'by default we will use the same base
     endif;
-    
+                            
     
     'order of colors is red, [green, cyan, yellow, magenta], (blue) ... [distractors] (no-change)
     'This comes form the same color list, so they do correspond
@@ -3729,17 +3747,18 @@ proc UpdateTrialSpecString(&c$,attdir%,chgdir%,base%,chg%,haz,phase%,off%,colLis
     if attGetGPFromMainStim% = 1 then  'use main value if we're getting values from main
         tf := GetStimulusTF(1);  '1 is Stimulus1 
     else
+        
         tf := GetStimulusTF(chgdir%);  'or actual changing value if not
                                        '2 is Distracter1, 3 is Distracter2, etc.
     endif;
-    
+
     'set phase
     if phase% < 0 then
         initphase% := 0;
     else
         initphase% := GetInitialPhase%(phase%,tf,haz);
     endif;
-
+    
     c$ := c$ + Str$(initphase%) + ",";  'add initial phase
     
     c$ := c$ + Str$(haz) + ",";  'add hazard time
@@ -3748,6 +3767,7 @@ proc UpdateTrialSpecString(&c$,attdir%,chgdir%,base%,chg%,haz,phase%,off%,colLis
     
     'now go through the base and change contrasts
     var k%;
+    
    for k% := 1 to attNumPatches% do
         if k% = chgdir% then  'do base and change
             c$ := c$ + Str$(base%) + "," + Str$(chg%) + ",";
@@ -3755,7 +3775,7 @@ proc UpdateTrialSpecString(&c$,attdir%,chgdir%,base%,chg%,haz,phase%,off%,colLis
             c$ := c$ + Str$(trainbase%) + "," + Str$(trainbase%) + ",";
         endif;
     next;  
-    
+
 end
 
 
