@@ -1,5 +1,5 @@
-' $Id: AcuteTuning.s2s,v 1.46 2015-12-15 17:15:26 devel Exp $
-const tunCVSID$ := "$Id: AcuteTuning.s2s,v 1.46 2015-12-15 17:15:26 devel Exp $";
+' $Id: AcuteTuning.s2s,v 1.47 2016-01-19 18:37:22 devel Exp $
+const tunCVSID$ := "$Id: AcuteTuning.s2s,v 1.47 2016-01-19 18:37:22 devel Exp $";
 
 'var TuningCurveScriptDialogAllowOK%;  'allows OK to button to work on main dialog
 
@@ -1069,21 +1069,18 @@ proc CreateSampleConfiguration()
     'sure that they do not use more than 6 electrodes.
     'It would be nice to have these as level channels on event inputs, but that does not fly with the VSG box.
     if tunOptoUsePulse% = 1 then
-        SampleWaveform(8,7,5000);  'on adc7
-        SampleTitle$(8, "Opto Copy");
+        SampleWaveform(7,6,5000);  'on adc7
+        SampleTitle$(7, "Opto Copy");
     endif;
     
     if tunUseTemperature% = 1 then
-        SampleWaveform(7,6,5000);  'on adc6
-        SampleTitle$(7, "Temperature");
-        ChanUnits$(7,"Deg C");
-        'ChanScale(7,???);  'this will allow us to get the temperature right
-        'ChanOffset(7,???);
+        SampleWaveform(6,5,5000);  'on adc6
+        SampleTitle$(6, "Temperature");
     endif;
     
     'Set channel for stimulator efference copy, if needed, as a waveform
     if tunRecStimulator% > 0 then
-        SampleWaveform(7,6,5000);  'also on adc6, cannot be used at same time as Temperature
+        SampleWaveform(7,6,5000);  'also on adc6, cannot be used at same time as Opto Copy
         SampleTitle$(7, "Stimulator Copy");
     endif;
     
@@ -1252,7 +1249,10 @@ func Stop%()
     '    next
     'next
     
-    InvestigateRastersDialog%();
+    if tunNWavemarks% > 0 then
+        InvestigateRastersDialog%();
+    endif;
+    
     
 end;
 
@@ -1449,6 +1449,12 @@ func Start%()
     
 	SafeSampleKey("0");
     
+    if tunUseTemperature% = 1 then  
+        ChanUnits$(7,"Deg C");
+        ChanScale(7,10);  'this will allow us to get the temperature right
+        ChanOffset(7,20);
+    endif;        
+    
     if tunDoOpto% = 1 then
         'set sequencer variable 4 for opto voltage
         'Please note that the input for this has to be a 32-bit variable, not a 16-bit like
@@ -1460,6 +1466,8 @@ func Start%()
         'If pulsing, because the user could have changed the duration of the stimulus after setting the opto
         'parameters, we need to check the parameters again (even though the opto dialog box did it already)
         if tunOptoUsePulse% = 1 then
+            
+            
             stimRemaining := stimRemaining - tunPulsedOptoOnset;  'duration of stimulus after onset delay
             stimRemaining := stimRemaining - tunPulsedOptoWidth;  'duration of stimulus after first opto pulse
             if stimRemaining < 0 then  'if first pulse will extend beyond stimulus duration
