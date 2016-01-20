@@ -787,15 +787,18 @@ proc CreateSampleConfiguration()
     'case UsePlexon7WM15CN% = 1 then  'call 7 wavemark, 15 continuous setup
     '    CreateElectrodeSamplingConfiguration7WM15CN();
     'else  'just set up the channels as expected
-    CreateElectrodeSamplingConfiguration(1, 11);
+    GetElectrodeParameters();
+    'printlog("num wavemark ports = %d and num continuous ports = %d\n",numWavemarkPorts%,numContinuousPorts%); 
+    'CreateElectrodeSamplingConfiguration(1, 11);
+    CreateElectrodeSamplingConfiguration(1, 1+numWavemarkPorts%);  'updated to have continuous channels start where wavemark channels leave off.
     'endcase;
 	
     if caRequireFixation% <> 0 then  'don't set up eye channels unless we are looking at eye position
         'caRequireFixation% of -1 means watch fixation but don't require Looking%()
         ' Set up eye channels 
-        SampleWaveform(XChannel%,14,1000);
+        SampleWaveform(XChannel%,GetEyeXPort%(),1000);
         SampleTitle$(XChannel%,"Eye X");
-        SampleWaveform(YChannel%,15,1000);
+        SampleWaveform(YChannel%,GetEyeYPort%(),1000);
         SampleTitle$(YChannel%,"Eye Y");
     endif;
     
@@ -1238,6 +1241,7 @@ func IdleProcessing%()
             if tNow - tStateStart > caInitialDeadTime then
                 ChangeStateTo(stateWaitForJoystickInCenter%, tNow);
                 nextStateImmed% := 1;
+                SampleText("Dead Time Over",tNow);
             endif;
             
             
