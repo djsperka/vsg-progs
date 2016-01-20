@@ -301,9 +301,9 @@ func DAQParametersDialog%()
 	DlgInteger(6, "Juice per reward:", 0, 10, 0, 0, 1);
     DlgInteger(7, "Juice Reward ms:", 0, 1000);
     DlgList(8, "Juicer Open State:",juicerList2$,2);
-    DlgInteger(9, "Eye X Port", 0, 15);
-    DlgInteger(10, "Eye Y Port", 0, 15);
-    DlgInteger(11, "Joystick Port", 0, 15);
+    DlgInteger(9, "Eye X Port", 0, 23);
+    DlgInteger(10, "Eye Y Port", 0, 23);
+    DlgInteger(11, "Joystick Port", 0, 23);
     DlgCheck(12, "Use Remote Stimulus");
     DlgString(13, "Remote ip", 21);
     DlgString(14, "Remote port", 5);
