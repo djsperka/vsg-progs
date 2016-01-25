@@ -1,4 +1,4 @@
-; $Id: Tuning.PLS,v 1.16 2015-12-15 00:24:46 devel Exp $
+; $Id: Tuning.PLS,v 1.17 2016-01-25 20:32:43 devel Exp $
 ;
 
                 SET      0.010 1 0     ;Get rate & scaling OK
@@ -24,8 +24,8 @@
 
 0007 FIXON:  'F MOVI   V2,1            ;Log that sequencer is in use
 0008            DIGOUT [......1.]      ;Signals the fixation point on
-0010            BEQ    V5,1,VWAIT
-0009            MOVI   V2,0            ;Log that sequencer is not in use
+0009            BEQ    V5,1,VWAIT
+0010            MOVI   V2,0            ;Log that sequencer is not in use
 0011            HALT                   ;End of this sequence section
 
 0012 FIXOFF: 'f MOVI   V2,1            ;Log that sequencer is in use
@@ -35,8 +35,8 @@
 
 0016 STIMON: 'S MOVI   V2,1            ;Log that sequencer is in use
 0017            DIGOUT [.....1..]      ;Signals the stimuli on
-0019            BEQ    V5,1,VWAIT
-0018            MOVI   V2,0            ;Log that sequencer is not in use
+0018            BEQ    V5,1,VWAIT
+0019            MOVI   V2,0            ;Log that sequencer is not in use
 0020            HALT                   ;End of this sequence section
 
 0021 STIMOFF: 's MOVI  V2,1            ;Log that sequencer is in use
@@ -49,97 +49,99 @@
 ;0028            BEQ    V5,1,VWAIT     ;no branch for triggering, cmdline to fixstim should 
 ;                     ;omit 'a' from V arg, e.g. "-V 128,FS" , not "-V 128,FSa" or "-V 128"
 0027            MOVI   V2,0            ;Log that sequencer is not in use
-0029            HALT                   ;End of this sequence section
+0028            HALT                   ;End of this sequence section
 
-0030 TOGGHOLE: 'v MOVI V2,1            ;Log that sequencer is in use
-0031            DIGOUT [..i.....]      ;Signals the tuned parameter to advance
-0032            MOVI   V2,0            ;Log that sequencer is not in use
-0033            HALT                   ;End of this sequence section
+0029 TOGGHOLE: 'v MOVI V2,1            ;Log that sequencer is in use
+0030            DIGOUT [..i.....]      ;Signals the tuned parameter to advance
+0031            MOVI   V2,0            ;Log that sequencer is not in use
+0032            HALT                   ;End of this sequence section
 
-0034 TOGDONUT: 'u MOVI V2,1            ;Log that sequencer is in use
-0035            DIGOUT [.i......]      ;Signals the tuned parameter to advance, this doesn't work
-0036            MOVI   V2,0            ;Log that sequencer is not in use
-0037            HALT                   ;End of this sequence section
+0033 TOGDONUT: 'u MOVI V2,1            ;Log that sequencer is in use
+0034            DIGOUT [.i......]      ;Signals the tuned parameter to advance, this doesn't work
+0035            MOVI   V2,0            ;Log that sequencer is not in use
+0036            HALT                   ;End of this sequence section
 
-0038 QUIT:   'Q MOVI   V2,1            ;Log that sequencer is in use
-0039            DIGOUT [...1....]      ;tells stim we are finished. Program should exit.
-0040            MOVI   V2,0            ;Log that sequencer is not in use
-0041            HALT                   ;End of this sequence section
+0037 QUIT:   'Q MOVI   V2,1            ;Log that sequencer is in use
+0038            DIGOUT [...1....]      ;tells stim we are finished. Program should exit.
+0039            MOVI   V2,0            ;Log that sequencer is not in use
+0040            HALT                   ;End of this sequence section
 
-0042 CLEAR:  'X MOVI   V2,1            ;Log that sequencer is in use
-0043            DIGOUT [.....00.]      ;Clears fixation and stim triggers
+0041 CLEAR:  'X MOVI   V2,1            ;Log that sequencer is in use
+0042            DIGOUT [.....00.]      ;Clears fixation and stim triggers
 ;0045            BEQ    V5,1,VWAIT      ; no branch for triggering, cmdline to fixstim should 
 ;                       ;omit 'X' from V arg, e.g. "-V 128,FS" , not "-V 128,FSX" or "-V 128"
-0044            MOVI   V2,0            ;Log that sequencer is not in use
-0046            HALT                   ;End of this sequence section
+0043            MOVI   V2,0            ;Log that sequencer is not in use
+0044            HALT                   ;End of this sequence section
 
-0047 VWAIT:     WAIT   [......11]
-0048 TRIGGER: 'V MOVI  V2,1            ;Log that sequencer is in use
-0049            DIGOUT [1.......]      ;Trigger to present stim chg.
-0050            DELAY  ms(50)
+0045 VWAIT:     WAIT   [......11]
+0046 TRIGGER: 'V MOVI  V2,1            ;Log that sequencer is in use
+0047            DIGOUT [1.......]      ;Trigger to present stim chg.
+0048            DELAY  ms(50)
 ;0050            DELAY  ms(100)
-0051            DIGOUT [0.......]
-0052            MOVI   V2,0            ;Log that sequencer is not in use
-0053            HALT                   ;End of this sequence section
+0049            DIGOUT [0.......]
+0050            MOVI   V2,0            ;Log that sequencer is not in use
+0051            HALT                   ;End of this sequence section
 
 
 ; Reward
-0054 REW:    'R MOVI   V2,1            ;Log that sequencer is in use
-0055            BLT    V3,1,REWHI      ;Branch, if V3 is 0, go to REWHI
-0056            DIGOUT [.......1]      ;Assert that juicer is closed
-0057            DIGOUT [.......0]      ;Downward pulse delivers juice
-0058            DELAY  s(0.005)-1      ;Delay for 5 ms for adequate pulse width
-0059            DIGOUT [.......1]      ;End downward pulse, juicer will close on its own
-0060            JUMP   RDONE           ;Jump over REWHI to a HALT
-0061 REWHI:     BLE    V1,0,RDONE      ;Skip if V1 is <= 0
-0062            MULI   V1,ms(1)        ;convert V1 from ms to clock ticks
-0063            DIGOUT [.......0]      ;Assert that juicer is closed
-0064            DIGOUT [.......1]      ;Voltage High delivers juice
-0065            DELAY  V1              ;Delay V1 ms, duration of reward
-0066            DIGOUT [.......0]      ;Close juicer valve
-0067 RDONE:     MOVI   V2,0            ;Log that sequencer is not in use
-0068            HALT                   ;End of this sequence section
+0052 REW:    'R MOVI   V2,1            ;Log that sequencer is in use
+0053            BLT    V3,1,REWHI      ;Branch, if V3 is 0, go to REWHI
+0054            DIGOUT [.......1]      ;Assert that juicer is closed
+0055            DIGOUT [.......0]      ;Downward pulse delivers juice
+0056            DELAY  s(0.005)-1      ;Delay for 5 ms for adequate pulse width
+0057            DIGOUT [.......1]      ;End downward pulse, juicer will close on its own
+0058            JUMP   RDONE           ;Jump over REWHI to a HALT
+0059 REWHI:     BLE    V1,0,RDONE      ;Skip if V1 is <= 0
+0060            MULI   V1,ms(1)        ;convert V1 from ms to clock ticks
+0061            DIGOUT [.......0]      ;Assert that juicer is closed
+0062            DIGOUT [.......1]      ;Voltage High delivers juice
+0063            DELAY  V1              ;Delay V1 ms, duration of reward
+0064            DIGOUT [.......0]      ;Close juicer valve
+0065 RDONE:     MOVI   V2,0            ;Log that sequencer is not in use
+0066            HALT                   ;End of this sequence section
 
 ; Reward, compatible with 'J'uicer command from Farran's rig, just do same thing as 'R'
-0069 JCR:    'J MOVI   V2,1            ;Log that sequencer is in use
-0070            BLT    V3,1,JCRHI      ;Branch, if V3 is 0, go to JCRHI
-0071            DIGOUT [.......1]      ;Assert that juicer is closed
-0072            DIGOUT [.......0]      ;Downward pulse delivers juice
-0073            DELAY  s(0.005)-1      ;Delay for 5 ms for adequate pulse width
-0074            DIGOUT [.......1]      ;End downward pulse, juicer will close on its own
-0075            JUMP   JDONE           ;Jump over JCRHI to a HALT
-0076 JCRHI:     BLE    V1,0,JDONE      ;Skip if V1 is <= 0
-0077            MULI   V1,ms(1)        ;convert V1 from ms to clock ticks
-0078            DIGOUT [.......0]      ;Assert that juicer is closed
-0079            DIGOUT [.......1]      ;Voltage High delivers juice
-0080            DELAY  V1              ;Delay V1 ms, duration of reward
-0081            DIGOUT [.......0]      ;Close juicer valve
-0082 JDONE:     MOVI   V2,0            ;Log that sequencer is not in use
-0083            HALT                   ;End of this sequence section
+0067 JCR:    'J MOVI   V2,1            ;Log that sequencer is in use
+0068            BLT    V3,1,JCRHI      ;Branch, if V3 is 0, go to JCRHI
+0069            DIGOUT [.......1]      ;Assert that juicer is closed
+0070            DIGOUT [.......0]      ;Downward pulse delivers juice
+0071            DELAY  s(0.005)-1      ;Delay for 5 ms for adequate pulse width
+0072            DIGOUT [.......1]      ;End downward pulse, juicer will close on its own
+0073            JUMP   JDONE           ;Jump over JCRHI to a HALT
+0074 JCRHI:     BLE    V1,0,JDONE      ;Skip if V1 is <= 0
+0075            MULI   V1,ms(1)        ;convert V1 from ms to clock ticks
+0076            DIGOUT [.......0]      ;Assert that juicer is closed
+0077            DIGOUT [.......1]      ;Voltage High delivers juice
+0078            DELAY  V1              ;Delay V1 ms, duration of reward
+0079            DIGOUT [.......0]      ;Close juicer valve
+0080 JDONE:     MOVI   V2,0            ;Log that sequencer is not in use
+0081            HALT                   ;End of this sequence section
 
 ; Simple optogenetics, just blanketing the stimulus 
-0084 OPTOON: 'O MOVI   V2,1            ;Log that sequencer is in use
-0085            DAC    0,V4            ;Set DAC0 to the value in V4
-0086            MOVI   V2,0            ;Log that sequencer is not in use
-0087            HALT                   ;End of this sequence section
+0082 OPTOON: 'O MOVI   V2,1            ;Log that sequencer is in use
+0083            DAC    0,V4            ;Set DAC0 to the value in V4
+0084            MOVI   V2,0            ;Log that sequencer is not in use
+0085            HALT                   ;End of this sequence section
 
-0088 OPTOOFF: 'o MOVI  V2,1            ;Log that sequencer is in use
-0089            DAC    0,0             ;Set DAC0 to 0
-0090            MOVI   V2,0            ;Log that sequencer is not in use
-0091            HALT                   ;End of this sequence section
+0086 OPTOOFF: 'o MOVI  V2,1            ;Log that sequencer is in use
+0087            DAC    0,0             ;Set DAC0 to 0
+0088            MOVI   V2,0            ;Log that sequencer is not in use
+0089            HALT                   ;End of this sequence section
 
 ; Complicated optogenetics, pulsing
-0092 PULSOPTO: 'P MOVI V2,1            ;Log that sequencer is in use
-0093              DIGOUT [.....1..]    ;Signals the stimuli on
-0094              DELAY  V9            ;Wait until first pulse on, subtract 1 tick
-0095 PULSEON:     DAC    0,V4          ;Set DAC0 to the value in V4
-0096              DELAY  V7            ;Wait until pulse off time, subtract 1 tick
-0097              DAC    0,0           ;Set DAC0 to 0
-0098              DBNZ   V6,PULSEIPI   ;Decrement #pulses, go to IPI if more
-0099              JUMP   PULSEXIT      ;Jump to wait/exit from pulse/stim
-0100 PULSEIPI:    DELAY  V8            ;Wait through IPI, subtract 3 ticks
-0101              JUMP   PULSEON       ;Start next pulse
-0102 PULSEXIT:    DELAY  V10           ;Wait until stim should go off, subtract 2 ticks
-0103              DIGOUT [.....0..]    ;Signals the stimuli off
-0023              MOVI   V2,0          ;Log that sequencer is not in use
-0024              HALT                 ;End of this sequence section
+0090 PULSOPTO: 'P MOVI V2,1            ;Log that sequencer is in use
+0091            DIGOUT [.....1..]      ;Signals the stimuli on
+0092            DELAY  V9              ;Wait until first pulse on, subtract 1 tick
+0093 PULSEON:   DAC    0,V4            ;Set DAC0 to the value in V4
+0094            MARK   1               ;Mark onset of laser on digital marker channel
+0095            DELAY  V7              ;Wait until pulse off time, subtract 2 ticks
+0096            DAC    0,0             ;Set DAC0 to 0
+0097            MARK   0               ;Mark offset of laser on digital marker channel
+0098            DBNZ   V6,PULSEIPI     ;Decrement #pulses, go to IPI if more
+0099            JUMP   PULSEXIT        ;Jump to wait/exit from pulse/stim
+0100 PULSEIPI:  DELAY  V8              ;Wait through IPI, subtract 3 ticks
+0101            JUMP   PULSEON         ;Start next pulse
+0102 PULSEXIT:  DELAY  V10             ;Wait until stim should go off, subtract 3 ticks
+0103            DIGOUT [.....0..]      ;Signals the stimuli off
+0104            MOVI   V2,0            ;Log that sequencer is not in use
+0105            HALT                   ;End of this sequence section
