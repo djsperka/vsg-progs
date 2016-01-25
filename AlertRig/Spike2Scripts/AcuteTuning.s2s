@@ -1,5 +1,5 @@
-' $Id: AcuteTuning.s2s,v 1.47 2016-01-19 18:37:22 devel Exp $
-const tunCVSID$ := "$Id: AcuteTuning.s2s,v 1.47 2016-01-19 18:37:22 devel Exp $";
+' $Id: AcuteTuning.s2s,v 1.48 2016-01-25 20:32:01 devel Exp $
+const tunCVSID$ := "$Id: AcuteTuning.s2s,v 1.48 2016-01-25 20:32:01 devel Exp $";
 
 'var TuningCurveScriptDialogAllowOK%;  'allows OK to button to work on main dialog
 
@@ -1044,8 +1044,16 @@ proc CreateSampleConfiguration()
     
     SampleAutoFile(1);
     
-    ' Text marks make extraction easier
+    'Text marks make extraction easier
     SampleTextMark(200);
+    
+    'Add a digital marker channel (channel 32 by default) for pulsing optogenetics
+    'Will record a '1' for laser on and a '0' for laser off
+    if tunOptoUsePulse% = 1 then
+        SampleDigMark(20);  '20 Hz should be plenty high for an expected sustained rate
+        SampleTitle$(32,"Laser On/Off");
+    endif
+    
     
 	'Channel recording definitions
 	SampleEvent(StimChannel%,3,2,3600); 'Trigger channel, level
@@ -1457,8 +1465,7 @@ func Start%()
     
     if tunDoOpto% = 1 then
         'set sequencer variable 4 for opto voltage
-        'Please note that the input for this has to be a 32-bit variable, not a 16-bit like
-        'I sure thought I read.  Use vdac32% to get the right value.
+        'Please note that the input for this has to be a 32-bit variable. Use vdac32% to get the right value.
         voltageInteger% := vdac32%(tunOptoVoltageOut, 1, 0);
         SampleSeqVar(4,voltageInteger%);
         printlog("Voltage integer is %d\n",voltageInteger%);
@@ -1500,7 +1507,7 @@ func Start%()
             'For below calculations, the standard numbers we are getting are in seconds, sequencer period is in MS (because that's how it comes)
             
             tempSeqVarValue := tunPulsedOptoWidth*1000/SequencerPeriodMS;  'do math in float
-            tempSeqVarValue% := tempSeqVarValue-1;  'now convert to integer, subtract one tick for sequencer instructions
+            tempSeqVarValue% := tempSeqVarValue-2;  'now convert to integer, subtract two ticks for sequencer instructions
             SampleSeqVar(7,tempSeqVarValue%);  'set duration of pulse in clock ticks
             printlog("Opto width is %d\n",tempSeqVarValue%);
             
@@ -1515,7 +1522,7 @@ func Start%()
             printlog("Opto onset is %d\n",tempSeqVarValue%);
             
             tempSeqVarValue := stimRemaining*1000/SequencerPeriodMS;  'do math in float
-            tempSeqVarValue% := tempSeqVarValue-2;  'now convert to integer, subtract two ticks for sequencer instructions
+            tempSeqVarValue% := tempSeqVarValue-3;  'now convert to integer, subtract three ticks for sequencer instructions
             SampleSeqVar(10,tempSeqVarValue%);  'set post-pulse stimulus duration in clock ticks
             printlog("Opto remaining time is %d\n",tempSeqVarValue%);
         endif;
