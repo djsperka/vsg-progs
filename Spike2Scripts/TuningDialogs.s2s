@@ -1,4 +1,4 @@
-' $Id: TuningDialogs.s2s,v 1.31 2015-08-10 20:59:51 devel Exp $
+' $Id: TuningDialogs.s2s,v 1.32 2016-01-26 17:58:52 devel Exp $
 '
 ' This file contains dialog functions for the alert tuning script Tuning.s2s.
 #include "../../Spike2Util/UsreyUtil.s2s"
@@ -261,6 +261,7 @@ var tunFixationDuration := 2.0;	' Time required to hold fixation for reward (sti
 var tunUseMaintainMode% := 1;  ' If 1, maintain fixation point on screen through stimuli, if zero, force "restart" on each stimulus
 var tunMaintainFixation := 2.0;	' Time required to hold fixation for reward (stim OFF)
 var tunAcquisitionTime := 1.0;		' Time allowed to acquire fixation
+var tunStimulusOnsetDelay := 0;     ' Time of stimulus onset delay following acquisition 
 var tunBackgroundColor$ := "gray";	' background color for stim
 var tunAcqFailTime := 2.0;			' Wait time after acquisition failure
 var tunHoldFailTime := 2.0;			' Wait time after failure to hold fixation (not on the first time after acquisition)
@@ -2832,6 +2833,7 @@ proc GetTuningCurveScriptParameters()
     tunUseMaintainMode% := GetIntRegistryValue%(key$, "UseMaintainMode", tunUseMaintainMode%);
 	tunMaintainFixation := GetFloatRegistryValue(key$, "MaintainFixation", tunMaintainFixation);
     tunAcquisitionTime := GetFloatRegistryValue(key$, "AcquisitionTime", tunAcquisitionTime);
+    tunStimulusOnsetDelay := GetFloatRegistryValue(key$, "StimulusOnsetDelay", tunStimulusOnsetDelay);
     tunAcqFailTime := GetFloatRegistryValue(key$, "AcqFailTime", tunAcqFailTime);
     tunHoldFailTime := GetFloatRegistryValue(key$, "HoldFailTime", tunHoldFailTime);
     tunMaintainFailTime := GetFloatRegistryValue(key$, "MaintainFailTime", tunMaintainFailTime);
@@ -2859,6 +2861,7 @@ proc SaveTuningCurveScriptParameters()
     SetIntRegistryValue(key$, "UseMaintainMode", tunUseMaintainMode%);
 	SetFloatRegistryValue(key$, "MaintainFixation", tunMaintainFixation);
     SetFloatRegistryValue(key$, "AcquisitionTime", tunAcquisitionTime);
+    SetFloatRegistryValue(key$, "StimulusOnsetDelay", tunStimulusOnsetDelay);
     SetFloatRegistryValue(key$, "AcqFailTime", tunAcqFailTime);
     SetFloatRegistryValue(key$, "HoldFailTime", tunHoldFailTime);
     SetFloatRegistryValue(key$, "MaintainFailTime", tunMaintainFailTime);
@@ -2943,55 +2946,56 @@ func TuningCurveScriptDialog%()
 	DlgGroup("Common Parameters", 1, 1, 52, 10);
 	DlgReal(1, "Acquire Fixation time(s):", 1, 1000, 40, 2);
     DlgReal(2, "Acquire Fixation penalty(s):", .01, 10, 40, 3);
-	DlgReal(3, "Stimulus duration(s):", .1, 60, 40, 4);
-    DlgReal(4, "During-Stim fixation break penalty(s):", .01, 10, 40, 5);
-    DlgReal(5, "Intertrial interval(s):", .01, 10, 40, 6);
-	DlgReal(6, "Maintain fixation after stim(s):", .1, 10, 40, 7);
-	DlgReal(7, "Maintain fixation after stim penalty(s):", .01, 10, 40, 8);
-	DlgList(8, "Background color:", bcl$, 3, 34, 9);
+    DlgReal(3, "Stimulus onset delay(s):", 0, 10, 40, 4);
+	DlgReal(4, "Stimulus duration(s):", .1, 60, 40, 5);
+    DlgReal(5, "During-Stim fixation break penalty(s):", .01, 10, 40, 6);
+    DlgReal(6, "Intertrial interval(s):", .01, 10, 40, 7);
+	DlgReal(7, "Maintain fixation after stim(s):", .1, 10, 40, 8);
+	DlgReal(8, "Maintain fixation after stim penalty(s):", .01, 10, 40, 9);
+	DlgList(9, "Background color:", bcl$, 3, 34, 10);
     if JuicerType% = 1 then
-        DlgInteger(9, "Juicer open dur. (ms):", 1, 2000, 40, 10);
+        DlgInteger(10, "Juicer open dur. (ms):", 1, 2000, 40, 11);
     else  'JuicerResult should only be 2, other values should not allow access to dialog box
-        DlgInteger(9, "Num. juicer pulses:", 1, 20, 40, 10);
+        DlgInteger(10, "Num. juicer pulses:", 1, 20, 40, 11);
     endif;   
     'juicer duration / n repeats dialog here?  Have to write values to DAQ parameters if changed, disable if not correct for juicer? 
-    DlgGroup("Dual VSG Options", 1, 11, 52, 3);
-    DlgCheck(10, "Use Dual VSG", 2, 12);
-    DlgCheck(11, "Select to turn off card sync", 25, 12);
-    DlgList(12, "Dual Tuning Configuration:", dualType$, 3, 25, 13);
+    DlgGroup("Dual VSG Options", 1, 12, 52, 3);
+    DlgCheck(11, "Use Dual VSG", 2, 13);
+    DlgCheck(12, "Select to turn off card sync", 25, 13);
+    DlgList(13, "Dual Tuning Configuration:", dualType$, 3, 25, 14);
     
     'DlgCheck(13, "Maintain Fixpt between trials", 2, 14);  'change this to a list
-    DlgList(13, 11, maintainList$, 5, 3, 14); DlgText("Maintain what btwn trls", 15, 14);
-    DlgCheck(14, "Stationary",2,15);
-    DlgCheck(15, "Make Histograms", 35,14);
-    DlgCheck(16, "Use Rivalry Button", 35,15);
-    DlgButton(tundlgXHairButton%, " Crosshairs  ", UpdateTuningXHairDialog%, 1, 16);
-    updateXHairText% := DlgText(tunXHairText$, 15, 16);
-	DlgGroup("Individual Tuning Curve Types", 1, 17, 52, 6);
-	DlgButton(tundlgOrientationButton%, " Orientation  ", TuningCurveOrientationDialog%, 2, 18); 'Note that labels for Orientation-Area are superceded 
-	DlgButton(tundlgContrastButton%, "     Contrast     ", TuningCurveContrastDialog%, 18, 18);  'by TuningCurveScriptDialogChanged% even upon opening 
-	DlgButton(tundlgSpatialButton%, "Spatial Freq", TuningCurveSpatialDialog%, 2, 19);           'the dialog (i.e. whatever label is here is unused)
-	DlgButton(tundlgTemporalButton%, "Temporal Freq", TuningCurveTemporalDialog%, 18, 19);
-	DlgButton(tundlgAreaButton%, "         Area         ", TuningCurveAreaDialog%, 36, 18);
-    DlgButton(tundlgXPosButton%, "     X Position     ", TuningCurveXPosDialog%, 36, 19);
-	DlgButton(tundlgDonutButton%, "   Donuts!   ", TuningCurveDonutDialog%, 2, 20);
-    DlgButton(tundlgBerlinerButton%, "    Berliners!    ", TuningCurveBerlinerDialog%, 18, 20);
-    DlgButton(tundlgBoxODonutsButton%, " Box O' Donuts ", TuningCurveBoxODonutsDialog%, 36, 20);
-    DlgButton(tundlgDotsButton%, "     Dots!     ", TuningCurveDotsDialog%, 2, 21);
-    DlgButton(tundlgCRGButton%,"      CRaGs      ",TuningCurveCRGDialog%, 18, 21);
-    DlgButton(tundlgDisparityButton%, "      Disparity      ", TuningCurveDisparityDialog%, 36, 21);
-    DlgButton(tundlgDanishButton%, "  Danishes!  ", TuningCurveDanishDialog%, 2, 22);
-    DlgButton(tundlgDSSButton%,"        DSS        ",TuningCurveDSSDialog%, 18, 22);
-    DlgButton(tundlgNullTestButton%,"      Null Test     ",TuningCurveNullTestDialog%, 36, 22);
+    DlgList(14, 11, maintainList$, 5, 3, 15); DlgText("Maintain what btwn trls", 15, 15);
+    DlgCheck(15, "Stationary",2,16);
+    DlgCheck(16, "Make Histograms", 35,15);
+    DlgCheck(17, "Use Rivalry Button", 35,16);
+    DlgButton(tundlgXHairButton%, " Crosshairs  ", UpdateTuningXHairDialog%, 1, 17);
+    updateXHairText% := DlgText(tunXHairText$, 15, 17);
+	DlgGroup("Individual Tuning Curve Types", 1, 18, 52, 6);
+	DlgButton(tundlgOrientationButton%, " Orientation  ", TuningCurveOrientationDialog%, 2, 19); 'Note that labels for Orientation-Area are superceded 
+	DlgButton(tundlgContrastButton%, "     Contrast     ", TuningCurveContrastDialog%, 18, 19);  'by TuningCurveScriptDialogChanged% even upon opening 
+	DlgButton(tundlgSpatialButton%, "Spatial Freq", TuningCurveSpatialDialog%, 2, 20);           'the dialog (i.e. whatever label is here is unused)
+	DlgButton(tundlgTemporalButton%, "Temporal Freq", TuningCurveTemporalDialog%, 18, 20);
+	DlgButton(tundlgAreaButton%, "         Area         ", TuningCurveAreaDialog%, 36, 19);
+    DlgButton(tundlgXPosButton%, "     X Position     ", TuningCurveXPosDialog%, 36, 20);
+	DlgButton(tundlgDonutButton%, "   Donuts!   ", TuningCurveDonutDialog%, 2, 21);
+    DlgButton(tundlgBerlinerButton%, "    Berliners!    ", TuningCurveBerlinerDialog%, 18, 21);
+    DlgButton(tundlgBoxODonutsButton%, " Box O' Donuts ", TuningCurveBoxODonutsDialog%, 36, 21);
+    DlgButton(tundlgDotsButton%, "     Dots!     ", TuningCurveDotsDialog%, 2, 22);
+    DlgButton(tundlgCRGButton%,"      CRaGs      ",TuningCurveCRGDialog%, 18, 22);
+    DlgButton(tundlgDisparityButton%, "      Disparity      ", TuningCurveDisparityDialog%, 36, 22);
+    DlgButton(tundlgDanishButton%, "  Danishes!  ", TuningCurveDanishDialog%, 2, 23);
+    DlgButton(tundlgDSSButton%,"        DSS        ",TuningCurveDSSDialog%, 18, 23);
+    DlgButton(tundlgNullTestButton%,"      Null Test     ",TuningCurveNullTestDialog%, 36, 23);
     DlgAllow(0xffff, 0, TuningCurveScriptDialogChanged%);
 	
     if JuicerType% = 1 then
-        i%:=DlgShow(tunAcquisitionTime, tunAcqFailTime, tunFixationDuration, tunHoldFailTime, 
+        i%:=DlgShow(tunAcquisitionTime, tunAcqFailTime, tunStimulusOnsetDelay, tunFixationDuration, tunHoldFailTime, 
         tunStdInterTrialTime, tunMaintainFixation, tunMaintainFailTime,
         ibcl%, JuiceRewardMS%, tunDoRivalry%, tunNoCardSync%, 
         tunDualTuningType%, tunUseMaintainMode%, tunSetStationary%, tunDoTuningHist%, tunButtonCollect%);
     else
-        i%:=DlgShow(tunAcquisitionTime, tunAcqFailTime, tunFixationDuration, tunHoldFailTime, 
+        i%:=DlgShow(tunAcquisitionTime, tunAcqFailTime, tunStimulusOnsetDelay, tunFixationDuration, tunHoldFailTime, 
         tunStdInterTrialTime, tunMaintainFixation, tunMaintainFailTime, 
         ibcl%, JuicePerReward%, tunDoRivalry%, tunNoCardSync%, 
         tunDualTuningType%, tunUseMaintainMode%, tunSetStationary%, tunDoTuningHist%, tunButtonCollect%);
@@ -3095,12 +3099,12 @@ end;
 
 
 func TuningCurveScriptDialogChanged%(item%) 
-    if DlgValue(10) = 0 then  'If single VSG, do not allow Donuts or Berliners or disparity or CRG
+    if DlgValue(11) = 0 then  'If single VSG, do not allow Donuts or Berliners or disparity or CRG
         'DlgEnable(0,-tundlgDonutButton%,-tundlgBerlinerButton%,-tundlgBoxODonutsButton%,-tundlgCRGButton%,-tundlgDisparityButton%); 'old version
         DlgEnable(0,-tundlgDonutButton%,-tundlgBerlinerButton%,-tundlgCRGButton%,-tundlgDisparityButton%);  'allow boxOdonuts for single screen now
         'Also disable card synch functions, dual tuning listbox
-        DlgEnable(0,11); 'card synch
-        DlgEnable(0,12); 'dual tuning listbox
+        DlgEnable(0,12); 'card synch
+        DlgEnable(0,13); 'dual tuning listbox
         'But do allow Dots, Danish, DSS, Null Test
         DlgEnable(1,-tundlgDotsButton%);
         DlgEnable(1,-tundlgDanishButton%);
@@ -3114,12 +3118,12 @@ func TuningCurveScriptDialogChanged%(item%)
         DlgValue$(-tundlgAreaButton%, "Area");
         DlgValue$(-tundlgXPosButton%, "XY Position");
     endif;
-    if DlgValue(10) = 1 then  'If dual VSG, allow donuts and Berliners and disparity and CRG
+    if DlgValue(11) = 1 then  'If dual VSG, allow donuts and Berliners and disparity and CRG
         'DlgEnable(1,-tundlgDonutButton%,-tundlgBerlinerButton%,-tundlgBoxODonutsButton%,-tundlgCRGButton%,-tundlgDisparityButton%);  'old version
         DlgEnable(1,-tundlgDonutButton%,-tundlgBerlinerButton%,-tundlgCRGButton%,-tundlgDisparityButton%);  'allow boxOdonuts for single screen now
         'Also allow turning off card synch, dual tuning listbox
-        DlgEnable(1,11);  'card synch
-        DlgEnable(1,12);  'dual tuning listbox
+        DlgEnable(1,12);  'card synch
+        DlgEnable(1,13);  'dual tuning listbox
         'But don't allow Dots, Danish, DSS, Null test
         DlgEnable(0,-tundlgDotsButton%);
         DlgEnable(0,-tundlgDanishButton%);
@@ -3127,21 +3131,21 @@ func TuningCurveScriptDialogChanged%(item%)
         DlgEnable(0,-tundlgNullTestButton%);
         'Also, change labels on buttons to reflect the binocular aspect of using dual VSG
         docase 
-            case DlgValue(12) = 0 then
+            case DlgValue(13) = 0 then
                 DlgValue$(-tundlgOrientationButton%, " D Orientation ");
                 DlgValue$(-tundlgContrastButton%, "    D Contrast    ");
                 DlgValue$(-tundlgSpatialButton%, "D Spatial Freq");
                 DlgValue$(-tundlgTemporalButton%, "D Temporal Freq");
                 DlgValue$(-tundlgAreaButton%, "D Area");
                 DlgValue$(-tundlgXPosButton%, "D X Position");
-            case DlgValue(12) = 1 then
+            case DlgValue(13) = 1 then
                 DlgValue$(-tundlgOrientationButton%, " M Orientation ");
                 DlgValue$(-tundlgContrastButton%, "    M Contrast    ");
                 DlgValue$(-tundlgSpatialButton%, "M Spatial Freq");
                 DlgValue$(-tundlgTemporalButton%, "M Temporal Freq");
                 DlgValue$(-tundlgAreaButton%, "M Area");
                 DlgValue$(-tundlgXPosButton%, "M X Position");
-            case DlgValue(12) = 2 then
+            case DlgValue(13) = 2 then
                 DlgValue$(-tundlgOrientationButton%, " S Orientation ");
                 DlgValue$(-tundlgContrastButton%, "    S Contrast    ");
                 DlgValue$(-tundlgSpatialButton%, "S Spatial Freq");
@@ -3150,13 +3154,13 @@ func TuningCurveScriptDialogChanged%(item%)
                 DlgValue$(-tundlgXPosButton%, "S X Position");
         endcase;
     endif;
-    if DlgValue(13) = 0 then 'disable maintain mode timing if not using maintain mode
-        DlgEnable(0,6);
+    if DlgValue(14) = 0 then 'disable maintain mode timing if not using maintain mode
         DlgEnable(0,7);
+        DlgEnable(0,8);
     endif;
-    if DlgValue(13) = 1 then 'enable maintain mode timing if using maintain mode
-        DlgEnable(1,6);
+    if DlgValue(14) = 1 then 'enable maintain mode timing if using maintain mode
         DlgEnable(1,7);
+        DlgEnable(1,8);
     endif;
     return 1;
 end
