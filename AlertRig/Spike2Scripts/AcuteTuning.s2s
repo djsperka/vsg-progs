@@ -1,5 +1,5 @@
-' $Id: AcuteTuning.s2s,v 1.48 2016-01-25 20:32:01 devel Exp $
-const tunCVSID$ := "$Id: AcuteTuning.s2s,v 1.48 2016-01-25 20:32:01 devel Exp $";
+' $Id: AcuteTuning.s2s,v 1.49 2016-01-26 01:23:43 devel Exp $
+const tunCVSID$ := "$Id: AcuteTuning.s2s,v 1.49 2016-01-26 01:23:43 devel Exp $";
 
 'var TuningCurveScriptDialogAllowOK%;  'allows OK to button to work on main dialog
 
@@ -943,11 +943,18 @@ proc CreateSampleConfiguration()
             ShuffleAndExpand(tunFileLen%,tunNRepeats%,tunValuesIndices%[],tunContrastProgression%);
         else
             tunNAdvances% := tunContrastNSteps%;
-            GetRepeatedParameterProgression%(tunContrastNSteps%+1, tunNRepeats%, tunValues[], tunValuesIndices%[], tunContrastMinContrast, tunContrastMaxContrast, 1, tunContrastProgression%);
+            if tunNAdvances% > 0 then
+                GetRepeatedParameterProgression%(tunContrastNSteps%+1, tunNRepeats%, tunValues[], tunValuesIndices%[], tunContrastMinContrast, tunContrastMaxContrast, 1, tunContrastProgression%);
+            else  'cannot run GRPP on a value of 0 steps, simply use minimum value
+                tunValues[0] := tunContrastMinContrast;
+                tunValuesIndices%[0] := 0;
+            endif;
         endif;
         'tunNValues% := (tunContrastNSteps%+1)*tunContrastNRepeats%*(1+tunDoOpto%);  'double number of blocks if doing optogenetics
         tunNValues% := (tunNAdvances%+1)*tunNRepeats%;  'shorter, should work the same as above commented line, keeping old line for contrast only just in case...
         tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%);
+        printlog("tunvaluesstringified is %s\n",tunValuesStringified$);
+        halt
     case tunType$ = tunTypeOrientation$ then 
         SampleAutoName$(dataCellName$ + "_ori_000");
         tunNRepeats% := tunOriNRepeats%*(1+tunDoOpto%);  'double number of blocks if doing optogenetics
@@ -956,7 +963,12 @@ proc CreateSampleConfiguration()
             ShuffleAndExpand(tunFileLen%,tunNRepeats%,tunValuesIndices%[],tunOriProgression%);
         else
             tunNAdvances% := tunOriNSteps%;
-            GetRepeatedParameterProgression%(tunOriNSteps%+1, tunNRepeats%, tunValues[], tunValuesIndices%[], tunOriMinOrientation, tunOriMaxOrientation, 0, tunOriProgression%);
+            if tunNAdvances% > 0 then
+                GetRepeatedParameterProgression%(tunOriNSteps%+1, tunNRepeats%, tunValues[], tunValuesIndices%[], tunOriMinOrientation, tunOriMaxOrientation, 0, tunOriProgression%);
+            else  'cannot run GRPP on a value of 0 steps, simply use minimum value
+                tunValues[0] := tunOriMinOrientation;
+                tunValuesIndices%[0] := 0;
+            endif;
         endif;
         tunNValues% := (tunNAdvances%+1)*tunNRepeats%;  
         tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%);
@@ -968,7 +980,12 @@ proc CreateSampleConfiguration()
             ShuffleAndExpand(tunFileLen%,tunNRepeats%,tunValuesIndices%[],tunSpatialProgression%);
         else
             tunNAdvances% := tunSpatialNSteps%;
-            GetRepeatedParameterProgression%(tunSpatialNSteps%+1, tunNRepeats%, tunValues[], tunValuesIndices%[], tunSpatialMinSF, tunSpatialMaxSF, 1, tunSpatialProgression%);
+            if tunNAdvances% > 0 then
+                GetRepeatedParameterProgression%(tunSpatialNSteps%+1, tunNRepeats%, tunValues[], tunValuesIndices%[], tunSpatialMinSF, tunSpatialMaxSF, 1, tunSpatialProgression%);
+            else  'cannot run GRPP on a value of 0 steps, simply use minimum value
+                tunValues[0] := tunSpatialMinSF;
+                tunValuesIndices%[0] := 0;
+            endif;
         endif;
         tunNValues% := (tunNAdvances%+1)*tunNRepeats%;  
         tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%);
@@ -980,7 +997,12 @@ proc CreateSampleConfiguration()
             ShuffleAndExpand(tunFileLen%,tunNRepeats%,tunValuesIndices%[],tunTemporalProgression%);
         else
             tunNAdvances% := tunTemporalNSteps%;
-            GetRepeatedParameterProgression%(tunTemporalNSteps%+1, tunNRepeats%, tunValues[], tunValuesIndices%[], tunTemporalMinTF, tunTemporalMaxTF, 0, tunTemporalProgression%);
+            if tunNAdvances% > 0 then
+                GetRepeatedParameterProgression%(tunTemporalNSteps%+1, tunNRepeats%, tunValues[], tunValuesIndices%[], tunTemporalMinTF, tunTemporalMaxTF, 0, tunTemporalProgression%);
+            else  'cannot run GRPP on a value of 0 steps, simply use minimum value
+                tunValues[0] := tunTemporalMinTF;
+                tunValuesIndices%[0] := 0;
+            endif;
         endif;
         tunNValues% := (tunNAdvances%+1)*tunNRepeats%;  
         tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%);
@@ -992,7 +1014,12 @@ proc CreateSampleConfiguration()
             ShuffleAndExpand(tunFileLen%,tunNRepeats%,tunValuesIndices%[],tunAreaProgression%);
         else
             tunNAdvances% := tunAreaNSteps%;
-            GetRepeatedParameterProgression%(tunAreaNSteps%+1, tunNRepeats%, tunValues[], tunValuesIndices%[], tunAreaMinDiam, tunAreaMaxDiam, 1, tunAreaProgression%);
+            if tunNAdvances% > 0 then
+                GetRepeatedParameterProgression%(tunAreaNSteps%+1, tunNRepeats%, tunValues[], tunValuesIndices%[], tunAreaMinDiam, tunAreaMaxDiam, 1, tunAreaProgression%);
+            else  'cannot run GRPP on a value of 0 steps, simply use minimum value
+                tunValues[0] := tunAreaMinDiam;
+                tunValuesIndices%[0] := 0;
+            endif;
         endif;
         tunNValues% := (tunNAdvances%+1)*tunNRepeats%;  
         tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%);
@@ -1004,7 +1031,12 @@ proc CreateSampleConfiguration()
             ShuffleAndExpand(tunFileLen%,tunNRepeats%,tunValuesIndices%[],tunIDProgression%);
         else
             tunNAdvances% := tunIDNSteps%;
-            GetRepeatedParameterProgression%(tunIDNSteps%+1, tunNRepeats%, tunValues[], tunValuesIndices%[], tunIDMinDiam, tunIDMaxDiam, 1, tunIDProgression%);
+            if tunNAdvances% > 0 then
+                GetRepeatedParameterProgression%(tunIDNSteps%+1, tunNRepeats%, tunValues[], tunValuesIndices%[], tunIDMinDiam, tunIDMaxDiam, 1, tunIDProgression%);
+            else  'cannot run GRPP on a value of 0 steps, simply use minimum value
+                tunValues[0] := tunIDMinDiam;
+                tunValuesIndices%[0] := 0;
+            endif;
         endif;
         tunNValues% := (tunNAdvances%+1)*tunNRepeats%;  
         tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%);
@@ -1023,7 +1055,12 @@ proc CreateSampleConfiguration()
             ShuffleAndExpand(tunFileLen%,tunNRepeats%,tunValuesIndices%[],tunNullTestProgression%);
         else
             tunNAdvances% := tunNullTestNSteps%;
-            GetRepeatedParameterProgression%(tunNullTestNSteps%+1, tunNRepeats%, tunValues[], tunValuesIndices%[], tunNullTestMinPhase, tunNullTestMaxPhase, 1, tunNullTestProgression%);
+            if tunNAdvances% > 0 then
+                GetRepeatedParameterProgression%(tunNullTestNSteps%+1, tunNRepeats%, tunValues[], tunValuesIndices%[], tunNullTestMinPhase, tunNullTestMaxPhase, 1, tunNullTestProgression%);
+            else  'cannot run GRPP on a value of 0 steps, simply use minimum value
+                tunValues[0] := tunNullTestMinPhase;
+                tunValuesIndices%[0] := 0;
+            endif;
         endif;
         tunNValues% := (tunNAdvances%+1)*tunNRepeats%;  
         tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%);
@@ -1051,7 +1088,7 @@ proc CreateSampleConfiguration()
     'Will record a '1' for laser on and a '0' for laser off
     if tunOptoUsePulse% = 1 then
         SampleDigMark(20);  '20 Hz should be plenty high for an expected sustained rate
-        SampleTitle$(32,"Laser On/Off");
+        SampleTitle$(32,"Laser On");
     endif
     
     
@@ -1078,7 +1115,7 @@ proc CreateSampleConfiguration()
     'It would be nice to have these as level channels on event inputs, but that does not fly with the VSG box.
     if tunOptoUsePulse% = 1 then
         SampleWaveform(7,6,5000);  'on adc7
-        SampleTitle$(7, "Opto Copy");
+        SampleTitle$(7, "OptoCopy");
     endif;
     
     if tunUseTemperature% = 1 then
@@ -1392,7 +1429,31 @@ proc WriteParameterFile()
 			Print("TuningCurve Error - unknown value for tunType$: %s\n", tunType$);
 
 	endcase;
-
+    
+    if tunDoOpto% = 1 then
+        Print("\nOptogenetics parameters\n");
+        Print("-------------------------\n\n");
+        if tunLaserDiode% = 1 then
+            Print("Laser Diode recorded\n");
+        endif;
+        Print("Opto Voltage Out: %f\n", tunOptoVoltageOut);
+        var label$[4]; 
+        label$[0] := "Opto Off First";
+        label$[1] := "Opto On First";
+        label$[2] := "Random First";
+        label$[3] := "Opto On All Blocks";
+        Print("Order of blocks : %s\n", label$[tunOptoStartState%]);
+        if tunOptoUsePulse% = 1 then
+            Print("Pulsing Opto selected\n");
+            Print("Opto#Pulses,OptoPeriodOnset,OptoPulseWidth,OptoInterpulseInterval: %d,%f,%f,%f\n",tunOptoNPulses%,tunPulsedOptoOnset,tunPulsedOptoWidth,tunPulsedOptoIPI);
+        else
+            Print("Wraparound Opto selected\n");
+            Print("PreStimulusOptoOn,PostStimulusOptoOn,KeepOptoOnBetweenStims: %f,%f,%d\n",tunPreStimOptoTime,tunPostStimOptoTime,tunOptoStaysOn%);
+        endif;
+        
+    endif;
+    
+    
 	' close parfile
 	FileClose(0);
 
