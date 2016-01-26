@@ -1,5 +1,5 @@
-' $Id: AcuteTuning.s2s,v 1.49 2016-01-26 01:23:43 devel Exp $
-const tunCVSID$ := "$Id: AcuteTuning.s2s,v 1.49 2016-01-26 01:23:43 devel Exp $";
+' $Id: AcuteTuning.s2s,v 1.50 2016-01-26 01:30:51 devel Exp $
+const tunCVSID$ := "$Id: AcuteTuning.s2s,v 1.50 2016-01-26 01:30:51 devel Exp $";
 
 'var TuningCurveScriptDialogAllowOK%;  'allows OK to button to work on main dialog
 
@@ -953,8 +953,6 @@ proc CreateSampleConfiguration()
         'tunNValues% := (tunContrastNSteps%+1)*tunContrastNRepeats%*(1+tunDoOpto%);  'double number of blocks if doing optogenetics
         tunNValues% := (tunNAdvances%+1)*tunNRepeats%;  'shorter, should work the same as above commented line, keeping old line for contrast only just in case...
         tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%);
-        printlog("tunvaluesstringified is %s\n",tunValuesStringified$);
-        halt
     case tunType$ = tunTypeOrientation$ then 
         SampleAutoName$(dataCellName$ + "_ori_000");
         tunNRepeats% := tunOriNRepeats%*(1+tunDoOpto%);  'double number of blocks if doing optogenetics
