@@ -45,6 +45,7 @@ var caInterTrialTimeRand;
 var caTextCallbackItemNumber%;
 var caSpecFileOpen%;
 var caInitialDeadTime;
+var caEEGSignals%;
 
 'Counter vars for attention script 
 var caCountAllTrials% := 0;
@@ -91,6 +92,7 @@ const caTimingDlgRequireFixation% := 13;
 const caTimingDlgReturnForReward% := 14;
 const caTimingDlgStartTrial% := 15;
 const caTimingDlgInitialDeadTime% := 16;
+const caTimingDlgEEGSignals% := 17;
 
 'const caTimingDlgCycleTrials% := 15;  'Not used
 
@@ -436,6 +438,8 @@ proc GetTimingDialogParameters()
     specFileName$ := stmp$;
     Profile(key$, "InitialDeadTime", "0.0", stmp$);
 	caInitialDeadTime := val(stmp$);
+    Profile(key$, "EEGSignals", "0", stmp$);
+    caEEGSignals% := val(stmp$);
     
     
     
@@ -463,7 +467,7 @@ proc SaveTimingDialogParameters()
     Profile(key$, "FixationTime", str$(caFixationTime));
     Profile(key$, "SpecFileName", specFileName$);
     Profile(key$, "InitialDeadTime", str$(caInitialDeadTime));
-    
+    Profile(key$, "EEGSignals", str$(caEEGSignals%));
     
 end;
 
@@ -509,12 +513,13 @@ func TimingDialog%()
     DlgCheck(caTimingDlgReturnForReward%, "Return for Reward",50);
     DlgInteger(caTimingDlgStartTrial%, "Start Trial",1,caMaxTrl%);
     DlgReal(caTimingDlgInitialDeadTime%, "Initial Dead Time (s): ", 0, 100);
+    DlgCheck(caTimingDlgEEGSignals%, "Send EEG signals");
     
-    caTextCallbackItemNumber% := DlgText("Text!",2,caTimingDlgRequireFixation%+5,60);
-    DlgButton(2, "Use Above Input File", UseInputFile%,2,caTimingDlgRequireFixation%+6);
-    DlgButton(3, "Select An Input File", OpenInputFile%,2,caTimingDlgRequireFixation%+7);
-    DlgButton(4, "Fixation Point Dialog", FixationPointDialog%,2,caTimingDlgRequireFixation%+8);
-    DlgButton(5, "Joystick Dialog", JoystickConfigDialog%,2,caTimingDlgRequireFixation%+9);
+    caTextCallbackItemNumber% := DlgText("Text!",2,caTimingDlgRequireFixation%+6,60);
+    DlgButton(2, "Use Above Input File", UseInputFile%,2,caTimingDlgRequireFixation%+7);
+    DlgButton(3, "Select An Input File", OpenInputFile%,2,caTimingDlgRequireFixation%+8);
+    DlgButton(4, "Fixation Point Dialog", FixationPointDialog%,2,caTimingDlgRequireFixation%+9);
+    DlgButton(5, "Joystick Dialog", JoystickConfigDialog%,2,caTimingDlgRequireFixation%+10);
     
     DlgAllow(0, 0, TimingDialogChanged%);
     
@@ -522,7 +527,7 @@ func TimingDialog%()
     '              caTrainingHoldTime,caFixAlternationTime,caRequireFixation%,caReturnForReward%,caStartTrial%);
     
     i% := DlgShow(caAcquisitionTime,caFixationTime,caInterTrialTime,caInterTrialTimeRand,caAbortWaitTime,caAbort2WaitTime,caFalseAlarmWaitTime,caFalseAlarmCheckWindow,caMissPenalty,caTrainingOptions%,
-                  caTrainingHoldTime,caFixAlternationTime,caRequireFixation%,caReturnForReward%,caStartTrial%,caInitialDeadTime);
+                  caTrainingHoldTime,caFixAlternationTime,caRequireFixation%,caReturnForReward%,caStartTrial%,caInitialDeadTime,caEEGSignals%);
     
     if i% = 1 then        
         
@@ -1055,7 +1060,17 @@ func Start%()
         'This command line is not yet tested, but looks to be about right
         'CommandLine$ := "cmd /k " + bin$ + "\\fixstim -F " + FixationArg$ + Extras$ + Stim$ + " -W " + specFileName$;  'Here we need the spec file name
         'CommandLine$ := "cmd /k " + bin$ + "\\fixstim " + FixationArg$ + Extras$ + Stim$ + " -W " + specFileName$;  'Here we need the spec file name
+        
+        ' djs 1-26-16
+        ' Modify command line below when user wants EEG signals sent from the VSG app. The extra stuff is appended to the filename argument
+        ' given with "-W". The extra argument is an ip address and a port number. When the EEG is on the local machine, the ip is 
+        ' 127.0.0.1. The port number is always 1234. 
+        
         CommandLine$ := Opener$ + FixationArg$ + Extras$ + Stim$ + " -W " + specFileName$;  'Here we need the spec file name
+        if caEEGSignals% = 1 then
+            CommandLine$ += ",127.0.0.1:1234";
+        endif
+        
         'message(CommandLine$);
         'printlog("Command line is %s\n", CommandLine$);
         'Quit%();
