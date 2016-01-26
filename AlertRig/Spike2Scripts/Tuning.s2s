@@ -1,7 +1,7 @@
-' $Id: Tuning.s2s,v 1.96 2015-09-30 23:23:10 devel Exp $
+' $Id: Tuning.s2s,v 1.97 2016-01-26 17:58:52 devel Exp $
 ' Update 11/8/11 Jeff, includes multi-juicer updates
 
-const tunCVSID$ := "$Id: Tuning.s2s,v 1.96 2015-09-30 23:23:10 devel Exp $";
+const tunCVSID$ := "$Id: Tuning.s2s,v 1.97 2016-01-26 17:58:52 devel Exp $";
 
 
 
@@ -119,12 +119,13 @@ const stateAbort%:=7;			' Failed trial state
 const stateMaintainFixation%:=8;	' Maintaining fixation (stim off period)
 const stateInterTrialInterval%:=9;	' time out after failed trial
 const stateVSGWait%:=10;		' wait for vsg to send ready signal #1
-const stateVSGWaitConfirm%:=11;		' waif for vsg to send ready signal #2
+const stateVSGWaitConfirm%:=11;		' wait for vsg to send ready signal #2
 const stateTrialCompleted%:=12;		' trial has been completed successfully
 const stateDone%:=13;	
 const stateWaitForStimTrigger% := 14; ' Rising edge indicating start of stim sequence
 const stateWaitForStimOffDSS%:=15;		' Wait for stimulus return trigger (off) during DSS sequence
 const stateInterTrialIntervalFixAlreadyUp%:=16;  'use intertrial interval after giving fixation reward in maintain fixation mode
+const stateWaitStimulusOnsetDelay%:=17;  'if there is a stimulus onset delay, wait for the correct time
 var iState% := stateVSGWait%;	' present state
 
 var nTrialsStarted%:=0;
@@ -416,21 +417,26 @@ func IdleProcessing%()
 
         ' Waiting for eye to fall inside of fixation window
         if Looking%(xEye, yEye) = 1 then
-            LogStatus("WaitForAcquisition", "Eye in fixation window; request stim");
-            docase
-            case TunType$ = tunTypeBoxODonuts$ or TunType$ = tunTypeCRG$ or TunType$ = tunTypeXYPos$ then
-                GetPlotXYCoord(nTrialsCompleted%,xval,yval,xind%,yind%);  'fill xval, yval
-                SampleText("T," + str$(xval) + ",T2," + str$(yval));  'Just a guess at what will work
+            if tunStimulusOnsetDelay = 0 then
+                LogStatus("WaitForAcquisition", "Eye in fixation window; request stim");
+                docase
+                case TunType$ = tunTypeBoxODonuts$ or TunType$ = tunTypeCRG$ or TunType$ = tunTypeXYPos$ then
+                    GetPlotXYCoord(nTrialsCompleted%,xval,yval,xind%,yind%);  'fill xval, yval
+                    SampleText("T," + str$(xval) + ",T2," + str$(yval));  'Just a guess at what will work
+                else
+                    SampleText("T," + str$(GetPlotXCoord(nTrialsCompleted%)));
+                endcase;
+                
+                SafeSampleKey("S");  'request stimulus
+                if tunType$ = tunTypeDSS$ and tunDSSCurrPeriod% = 0 then  'initialize DSS stimulus if necessary
+                    InitializeDSSTrial(tNow);
+                endif;
+                'iHoldCount% := 0;  'disimplemented
+                ChangeStateTo(stateWaitForStimTrigger%, tNow);
             else
-                SampleText("T," + str$(GetPlotXCoord(nTrialsCompleted%)));
-            endcase;
-            
-            SafeSampleKey("S");  'request stimulus
-            if tunType$ = tunTypeDSS$ and tunDSSCurrPeriod% = 0 then  'initialize DSS stimulus if necessary
-                InitializeDSSTrial(tNow);
+                LogStatus("WaitForAcquisition", "Eye in fixation window; wait through onset delay");
+                ChangeStateTo(stateWaitStimulusOnsetDelay%, tNow);
             endif;
-            'iHoldCount% := 0;  'disimplemented
-            ChangeStateTo(stateWaitForStimTrigger%, tNow);
         else 
             if tNow - tStateStart > tunAcquisitionTime then
                 ' failed to acquire target. 
@@ -439,7 +445,38 @@ func IdleProcessing%()
                 ChangeStateTo(stateAbort%, tNow);
             endif
         endif
-
+        
+        
+    case iState% = stateWaitStimulusOnsetDelay% then
+        'make sure eye stays in fixation window
+        if Looking%(xEye, yEye) = 1 then
+            'if it's time to start the stimulus
+            if tNow - tStateStart > tunStimulusOnsetDelay then
+                LogStatus("WaitStimulusOnsetDelay", "Eye in fixation window, onset delay complete; request stim");
+                docase
+                case TunType$ = tunTypeBoxODonuts$ or TunType$ = tunTypeCRG$ or TunType$ = tunTypeXYPos$ then
+                    GetPlotXYCoord(nTrialsCompleted%,xval,yval,xind%,yind%);  'fill xval, yval
+                    SampleText("T," + str$(xval) + ",T2," + str$(yval));  'Just a guess at what will work
+                else
+                    SampleText("T," + str$(GetPlotXCoord(nTrialsCompleted%)));
+                endcase;
+                
+                SafeSampleKey("S");  'request stimulus
+                if tunType$ = tunTypeDSS$ and tunDSSCurrPeriod% = 0 then  'initialize DSS stimulus if necessary
+                    InitializeDSSTrial(tNow);
+                endif;
+                'iHoldCount% := 0;  'disimplemented
+                ChangeStateTo(stateWaitForStimTrigger%, tNow);
+            endif;
+        else 
+            ' failed to hold fixation through onset delay 
+            tInterTrialTime := tunAcqFailTime;
+            LogStatus("WaitStimulusOnsetDelay", "Failed to maintain fixation through delay.");
+            ChangeStateTo(stateAbort%, tNow);
+        endif
+        
+        
+        
     case iState% = stateWaitForStimTrigger% then
 
         ' DJS 2015-02-16 Change from tLast to tStateStart.
