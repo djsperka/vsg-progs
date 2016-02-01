@@ -1,4 +1,4 @@
-' $Id: AttentionGoNoGo.s2s,v 1.70 2016-02-01 22:17:28 devel Exp $
+' $Id: AttentionGoNoGo.s2s,v 1.71 2016-02-01 23:02:10 devel Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -3357,6 +3357,8 @@ Proc CreateFlasherLocations(nFlashers%,&x[],&y[])
 'Testing    
 'printlog("screenXmax is %f and wF1 is %f and attFlasherSpatialBuffer is %f\n",screenXmax,wF1,attFlasherSpatialBuffer);    
 'printlog("Flasher count is %d\n",nFlashers%); 
+'printlog("xbound is %f and ybound is %f\n",xBound,yBound);
+'printlog("Flasher max dist is %f\n",attFlasherMaxDist); 
     
     'Locations of our non-flasher stimuli have been set in Start%
     
@@ -3370,11 +3372,10 @@ Proc CreateFlasherLocations(nFlashers%,&x[],&y[])
         isInBounds% := 0; 
         
         'select a random location within the bounds of the screen
-        while breakCount% < 10000 and isOverlap% > 0 and isInBounds% < 0 do
+        while breakCount% < 10000 and (isOverlap% > 0 or isInBounds% < 1) do
             
-            'Reset or you'll never get out of the loop!
-            isOverlap% := 0;  
-            'This does not have to be done for isInBounds% because it does a single check rather than the additive check for isOverlap%
+            isOverlap% := 0;  'Reset or you'll never get out of the loop!
+            'isInBounds% := 0;  'Reset?
             
             'reassign the X, Y values randomly, use bounds of screen
             x[i%] := Rand(2*xBound,-xBound);
@@ -3405,7 +3406,7 @@ Proc CreateFlasherLocations(nFlashers%,&x[],&y[])
             'And check to see if it is within the bounds that are set - here we actually will use
             'Overlap%() to see if it overlaps the bounds (rather than writing a new function)
             isInBounds% := Overlap%(x[i%], y[i%], wF1, hF1, xT, yT, 2*(attFlasherMaxDist-wF1), 2*(attFlasherMaxDist-hF1), 0);  'use zero spatial buffer
-            
+            'printlog("isOverlap is %d and isInBounds is %d\n",isOverlap%,isInBounds%);
             'increment breakCount% so we don't get stuck
             breakCount% += 1;
             
@@ -3415,7 +3416,7 @@ Proc CreateFlasherLocations(nFlashers%,&x[],&y[])
             message("Could not find a legal location for flasher after 10000 tries!\nProbably no legal position exists!\nCheck settings of flasher/target/distractors!  Quitting!");
             halt;  'haven't started sampling yet, so halt should be fine
         endif;
-        
+        'printlog("Location of flasher is x %f    y %f\n",x[i%],y[i%]);
     next
     
     
