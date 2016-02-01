@@ -1,4 +1,4 @@
-' $Id: AttentionGoNoGo.s2s,v 1.69 2016-01-19 22:21:59 devel Exp $
+' $Id: AttentionGoNoGo.s2s,v 1.70 2016-02-01 22:17:28 devel Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -84,6 +84,7 @@ var attFlasherGratingParams$;
 var attFlasherDur; 
 var attFlasherTemporalBuffer;
 var attFlasherSpatialBuffer;
+var attFlasherMaxDist;
 var attFlasherHazardValue;
 var attFlasherWidth;
 var attFlasherHeight;
@@ -3345,6 +3346,7 @@ end
 Proc CreateFlasherLocations(nFlashers%,&x[],&y[])
     var i%;
     var isOverlap%;
+    var isInBounds%;  'technically a "box" around the main grating
     var breakCount%;
     var xBound;
     var yBound;
@@ -3362,12 +3364,17 @@ Proc CreateFlasherLocations(nFlashers%,&x[],&y[])
     for i% := 0 to nFlashers%-1 do
         
         breakCount% := 0;
-        isOverlap% := 1;  'force while loop to execute at least once
+        
+        'force while loop to execute at least once
+        isOverlap% := 1;  
+        isInBounds% := 0; 
         
         'select a random location within the bounds of the screen
-        while breakCount% < 10000 and isOverlap% > 0 do
+        while breakCount% < 10000 and isOverlap% > 0 and isInBounds% < 0 do
             
-             isOverlap% := 0;  'Reset or you'll never get out of the loop!
+            'Reset or you'll never get out of the loop!
+            isOverlap% := 0;  
+            'This does not have to be done for isInBounds% because it does a single check rather than the additive check for isOverlap%
             
             'reassign the X, Y values randomly, use bounds of screen
             x[i%] := Rand(2*xBound,-xBound);
@@ -3391,9 +3398,13 @@ Proc CreateFlasherLocations(nFlashers%,&x[],&y[])
                 isOverlap% := isOverlap% + Overlap%(x[i%], y[i%], wF1, hF1, xD4, yD4, wD4, hD4, attFlasherSpatialBuffer);
             endif;
             
-            'And the location of the fixation point
+            'Check the location of the fixation point
             'FixationX, FixationY, and FixationDiameter ought to be available variables
             isOverlap% := isOverlap% + Overlap%(x[i%], y[i%], wF1, hF1, FixationX, FixationY, FixationDiameter, FixationDiameter, attFlasherSpatialBuffer);
+            
+            'And check to see if it is within the bounds that are set - here we actually will use
+            'Overlap%() to see if it overlaps the bounds (rather than writing a new function)
+            isInBounds% := Overlap%(x[i%], y[i%], wF1, hF1, xT, yT, 2*(attFlasherMaxDist-wF1), 2*(attFlasherMaxDist-hF1), 0);  'use zero spatial buffer
             
             'increment breakCount% so we don't get stuck
             breakCount% += 1;
@@ -3617,6 +3628,7 @@ proc WriteParameterFile()
         Print("Flasher Duration (s)   : %f\n", attFlasherDur);
         Print("Flasher Temporal Buffer (s)   : %f\n", attFlasherTemporalBuffer);
         Print("Flasher Spatial Buffer (deg)   : %f\n", attFlasherSpatialBuffer);
+        Print("Flasher Max Distance From Main Grating (deg)   : %f\n", attFlasherMaxDist);
         Print("Flasher Hazard Value (s)   : %f\n", attFlasherHazardValue);
     endif;
     
@@ -4179,9 +4191,10 @@ func GratingParametersDialogFlashers%(label$, &param$, &x, &y, &w, &h, &iw, &ih,
         DlgReal(13, "Flasher Duration (s):", .01, 3, 42, 14);
         DlgReal(14, "Temporal Buffer (s):", .01, 3, 42, 15);
         DlgReal(15, "Spatial Buffer (deg):", .01, 10, 42, 16);
-        DlgReal(16, "Hazard Value (s/flasher):", .01, 1000, 42, 17);  'don't know what reasonable values for this will be yet
+        DlgReal(16, "Max distance from main grating (deg):", 1, 30, 42, 17);
+        DlgReal(17, "Hazard Value (s/flasher):", .01, 1000, 42, 18);  'don't know what reasonable values for this will be yet
         
-        i% := DlgShow(attFlasherWidth, attFlasherHeight, iw, ih, contrast%, sf, tf, ori, phase, icvl%, ipl%, ial%, attFlasherDur, attFlasherTemporalBuffer, attFlasherSpatialBuffer, attFlasherHazardValue);
+        i% := DlgShow(attFlasherWidth, attFlasherHeight, iw, ih, contrast%, sf, tf, ori, phase, icvl%, ipl%, ial%, attFlasherDur, attFlasherTemporalBuffer, attFlasherSpatialBuffer, attFlasherMaxDist, attFlasherHazardValue);
         Convert180(phase);
         
     wend;
@@ -4225,6 +4238,9 @@ proc GetFlasherDialogParameters()
     Profile(key$, "FlasherSpatialBuffer", "1.0", stmp$);
 	attFlasherSpatialBuffer := val(stmp$);
     
+    Profile(key$, "FlasherMaxDist", "1.0", stmp$);
+	attFlasherMaxDist := val(stmp$);
+    
     Profile(key$, "FlasherHazardValue", "1.0", stmp$);
 	attFlasherHazardValue := val(stmp$);
     
@@ -4244,6 +4260,7 @@ proc SaveFlasherDialogParameters()
 	Profile(key$, "FlasherDur", str$(attFlasherDur));
     Profile(key$, "FlasherTemporalBuffer", str$(attFlasherTemporalBuffer));
     Profile(key$, "FlasherSpatialBuffer", str$(attFlasherSpatialBuffer));
+    Profile(key$, "FlasherMaxDist", str$(attFlasherMaxDist));
     Profile(key$, "FlasherHazardValue", str$(attFlasherHazardValue));
     Profile(key$, "FlasherWidth", str$(attFlasherWidth));
     Profile(key$, "FlasherHeight", str$(attFlasherHeight));
