@@ -1,4 +1,4 @@
-' $Id: AttentionGoNoGo.s2s,v 1.71 2016-02-01 23:02:10 devel Exp $
+' $Id: AttentionGoNoGo.s2s,v 1.72 2016-02-01 23:40:06 devel Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -3375,7 +3375,7 @@ Proc CreateFlasherLocations(nFlashers%,&x[],&y[])
         while breakCount% < 10000 and (isOverlap% > 0 or isInBounds% < 1) do
             
             isOverlap% := 0;  'Reset or you'll never get out of the loop!
-            'isInBounds% := 0;  'Reset?
+            isInBounds% := 0;  'Reset
             
             'reassign the X, Y values randomly, use bounds of screen
             x[i%] := Rand(2*xBound,-xBound);
@@ -3406,7 +3406,22 @@ Proc CreateFlasherLocations(nFlashers%,&x[],&y[])
             'And check to see if it is within the bounds that are set - here we actually will use
             'Overlap%() to see if it overlaps the bounds (rather than writing a new function)
             isInBounds% := Overlap%(x[i%], y[i%], wF1, hF1, xT, yT, 2*(attFlasherMaxDist-wF1), 2*(attFlasherMaxDist-hF1), 0);  'use zero spatial buffer
-            'printlog("isOverlap is %d and isInBounds is %d\n",isOverlap%,isInBounds%);
+
+            'The flasher is also legal if it is in the box surrounding any distracter patch
+            if attNumPatches% > 1 then
+                'use xD1, yD1
+                isInBounds% := isInBounds% + Overlap%(x[i%], y[i%], wF1, hF1, xD1, yD1, 2*(attFlasherMaxDist-wF1), 2*(attFlasherMaxDist-hF1), 0);
+            endif;
+            if attNumPatches% > 2 then
+                isInBounds% := isInBounds% + Overlap%(x[i%], y[i%], wF1, hF1, xD2, yD2, 2*(attFlasherMaxDist-wF1), 2*(attFlasherMaxDist-hF1), 0);
+            endif;
+            if attNumPatches% > 3 then
+                isInBounds% := isInBounds% + Overlap%(x[i%], y[i%], wF1, hF1, xD3, yD3, 2*(attFlasherMaxDist-wF1), 2*(attFlasherMaxDist-hF1), 0);
+            endif;
+            if attNumPatches% > 4 then
+                isInBounds% := isInBounds% + Overlap%(x[i%], y[i%], wF1, hF1, xD4, yD4, 2*(attFlasherMaxDist-wF1), 2*(attFlasherMaxDist-hF1), 0);
+            endif;
+            
             'increment breakCount% so we don't get stuck
             breakCount% += 1;
             
