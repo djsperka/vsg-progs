@@ -1,5 +1,5 @@
-' $Id: AcuteTuning.s2s,v 1.50 2016-01-26 01:30:51 devel Exp $
-const tunCVSID$ := "$Id: AcuteTuning.s2s,v 1.50 2016-01-26 01:30:51 devel Exp $";
+' $Id: AcuteTuning.s2s,v 1.51 2016-02-01 19:56:54 devel Exp $
+const tunCVSID$ := "$Id: AcuteTuning.s2s,v 1.51 2016-02-01 19:56:54 devel Exp $";
 
 'var TuningCurveScriptDialogAllowOK%;  'allows OK to button to work on main dialog
 
@@ -276,10 +276,14 @@ func IdleProcessing%()
         
     case iState% = stateCheckTurnOnOpto% then
         docase
-        case tunDoOpto% = 0 or tunOptoState% = 0 then 'if this is not an opto trial, just start it
+        case tunDoOpto% = 0 then 'if this is not an opto trial, just start it
             ChangeStateTo(stateStartTrial%, tNow);
             printlog("Not an opto trial, doOpto = %d, optoState = %d, time = %f\n",tunDoOpto%,tunOptoState%,tNow);
-        case tunOptoUsePulse% = 1 then  'it is a pulsed opto trial, the sequencer will time this
+        case tunOptoUsePulse% = 1 and tunOptoState% = 0 then 'if this is a pulsed opto scenario, but not an opto trial, just start it
+            'This is the same as the above step, separated to make the logic of the case statement easier
+            ChangeStateTo(stateStartTrial%, tNow);
+            printlog("Not an opto trial, doOpto = %d, optoState = %d, time = %f\n",tunDoOpto%,tunOptoState%,tNow);
+        case tunOptoUsePulse% = 1 and tunOptoState% = 1 then  'it is a pulsed opto trial, the sequencer will time this
             ChangeStateTo(statePulsedOpto%,tNow);
         case tunOptoStaysOn% = 1 and (nTrialsCompleted% mod (tunNAdvances%+1)) <> 0 then 'this is for when we're keeping the opto on and it's mid block
             ChangeStateTo(stateStartTrial%, tNow);
@@ -312,10 +316,18 @@ func IdleProcessing%()
         
         
     case iState% = stateStartOpto% then
-        SafeSampleKey("O");  'turn on opto
-        tOpt := View(DataWindow%).MaxTime();
-        'printlog("OptoOn at %f\n",tOpt);
-        SampleText("OptoOn",tOpt);
+        if tunOptoState% = 1 then 'this is an opto-on trial
+            SafeSampleKey("O");  'turn on opto
+            tOpt := View(DataWindow%).MaxTime();
+            'printlog("OptoOn at %f\n",tOpt);
+            SampleText("OptoOn",tOpt);
+        else 'this is an opto-off trial
+            SafeSampleKey("N");  'don't turn on opto
+            tOpt := View(DataWindow%).MaxTime();
+            'printlog("OptoOn at %f\n",tOpt);
+            SampleText("NoOpto",tOpt);
+        endif;
+        
         ChangeStateTo(stateWaitOptoPrestim%, tNow);
         
         
@@ -517,7 +529,7 @@ func IdleProcessing%()
     case iState% = stateCheckTurnOffOpto% then
         nTrialsCompleted% += 1;  'trial is complete, change of count here makes logic easier 
         docase
-        case tunDoOpto% = 0 or tunOptoState% = 0 then 'if this is not an opto trial, trial is complete
+        case tunDoOpto% = 0 or (tunOptoState% = 0 and tunOptoUsePulse% = 1) then 'if this is not an opto trial, trial is complete
             ChangeStateTo(stateTrialCompleted%, tStateStart);
             printlog("Trial complete, Not an opto trial, doOpto = %d, optoState = %d, time = %f\n",tunDoOpto%,tunOptoState%,tStateStart);
         case tunOptoStaysOn% = 1 and (nTrialsCompleted% mod (tunNAdvances%+1)) <> 0 then 'this is for when we're keeping the opto on and it's mid block
@@ -537,10 +549,18 @@ func IdleProcessing%()
         
         
     case iState% = stateTurnOffOpto% then
-        SafeSampleKey("o");  'turn it off
-        tOpt := View(DataWindow%).MaxTime();
-        'printlog("OptoOff at %f\n",tOpt);
-        SampleText("OptoOff",tOpt);
+        if tunOptoState% = 1 then
+            SafeSampleKey("o");  'turn it off
+            tOpt := View(DataWindow%).MaxTime();
+            'printlog("OptoOff at %f\n",tOpt);
+            SampleText("OptoOff",tOpt);
+        else
+            SafeSampleKey("n");  'turn it off
+            tOpt := View(DataWindow%).MaxTime();
+            'printlog("OptoOff at %f\n",tOpt);
+            SampleText("NoOptoSoNoOff",tOpt);
+        endif;
+        
         ChangeStateTo(stateTrialCompleted%,tNow);        
         
         
