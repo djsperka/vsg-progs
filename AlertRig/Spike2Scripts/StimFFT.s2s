@@ -17,6 +17,8 @@ var nRepeats%;
 var sfftPrePostDur;
 var sfftStimulationDur;
 var sfftRecoveryDur;
+var sfftPulseDuration;
+var sfftDoTrigger%;
 
 var dataChannel% := 1;
 var dataWindow%;
@@ -53,6 +55,9 @@ InitializeToolbar();
 
 func StimDialog%()
     var i%;
+    var doTrigger$[2];
+    doTrigger$[0] := "Give 5 ms trigger pulse";
+    doTrigger$[1] := "Remain high thru stim period";
     
     GetStimDialogParameters();
     
@@ -61,12 +66,20 @@ func StimDialog%()
 	DlgReal(2, "Pre/Post analysis period (s):", .01, 1000);
 	DlgReal(3, "Stimulation dead period (s):", .01, 100);  'dead period is 10 ms, stimulator control pulse width is 5 ms, no real need to do SafeSampleKey
     DlgReal(4, "Recovery period (s):", .01, 1000); 
+    DlgList(5, 30, doTrigger$[], 2);
 
     'DlgAllow(0, 0, StimDialogChanged%);
     
-    i% := DlgShow(nRepeats%,sfftPrePostDur,sfftStimulationDur,sfftRecoveryDur);
+    i% := DlgShow(nRepeats%,sfftPrePostDur,sfftStimulationDur,sfftRecoveryDur,sfftDoTrigger%);
   
     SaveStimDialogParameters();
+    
+    if sfftDoTrigger% = 0 then
+        sfftPulseDuration := 0.005;  '5 ms pulse
+    else
+        sfftPulseDuration := sfftStimulationDur;  'stay high throughout
+    endif;
+    
 
     return 1;
 end
@@ -81,6 +94,7 @@ proc GetStimDialogParameters()
     sfftPrePostDur := GetFloatRegistryValue(key$, "PrePostDur", sfftPrePostDur);
     sfftStimulationDur := GetFloatRegistryValue(key$, "StimulationDur", sfftStimulationDur);
     sfftRecoveryDur := GetFloatRegistryValue(key$, "RecoveryDur", sfftRecoveryDur);
+    sfftDoTrigger% := GetIntRegistryValue%(key$, "DoTrigger", sfftDoTrigger%);
 end;
 
 proc SaveStimDialogParameters()
@@ -90,6 +104,7 @@ proc SaveStimDialogParameters()
     SetFloatRegistryValue(key$, "PrePostDur",  sfftPrePostDur);
     SetFloatRegistryValue(key$, "StimulationDur", sfftStimulationDur);
     SetfloatRegistryValue(key$, "RecoveryDur", sfftRecoveryDur);
+    SetIntRegistryValue(key$, "DoTrigger", sfftDoTrigger%);
 end;
 
 
@@ -187,9 +202,16 @@ end;
 
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 func Start%()
-
+    
+    var tempSeqVarValue;
+    var tempSeqVarValue%;
+    var SequencerPeriodMS;
+    
     'start sampling
     SampleStart(0); 'Start sampling now
+    
+    SequencerPeriodMS := SampleSeqClock(1);  'Get the clock period of the sequencer, in MS, must do this after starting sampling
+    
     
     iState% := stateStart%;  'set initial state for the idle loop    
     
@@ -197,6 +219,13 @@ func Start%()
 	ToolbarEnable(2,1);
 	ToolbarEnable(1,0);
 	'ToolbarEnable(3,0);  'allow stop function to run anytime?
+    
+    tempSeqVarValue := sfftPulseDuration*1000/SequencerPeriodMS;  'do math in float
+    tempSeqVarValue% := tempSeqVarValue;  'now convert to integer
+    SampleSeqVar(1,tempSeqVarValue%);  'set pre-pulse stimulus duration in clock ticks
+    'printlog("Pulse Duration is %d\n",tempSeqVarValue%);
+    
+    
 	View(DataWindow%);
 	Yield(.1);
     return 1;
@@ -270,7 +299,15 @@ proc WriteParameterFile()
 	Print("Pre/Post Analysis Period (s) : %f\n", sfftPrePostDur);
 	Print("Stimulation Duration     (s) : %f\n", sfftStimulationDur);
 	Print("Recovery Duration        (s) : %f\n", sfftRecoveryDur);
-
+    
+    if sfftDoTrigger% = 0 then
+        Print("Trigger mode, pulse is 5 ms in duration\n");
+    else
+        Print("Pulse Duration           (s) : %f\n", sfftStimulationDur);
+    endif;
+    
+    
+    
     Print("\n");
 
 	' close parfile
