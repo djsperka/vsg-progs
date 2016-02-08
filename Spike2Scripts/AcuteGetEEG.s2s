@@ -28,7 +28,7 @@ View(hData%);
 proc CreateSampleConfiguration()
     
     'set the port (not channel #) where EEG will be acquired
-    const EEG_PORT% := 7;
+    const EEGPORT% := 7;
     
     var i%;
     
@@ -42,7 +42,7 @@ proc CreateSampleConfiguration()
     SampleAutoName$("EEG_000");
 	SampleAutoFile(1);
     
-    SampleWaveform(1, EEG_PORT%, 1000);
+    SampleWaveform(1, EEGPORT%, 1000);
     
     SampleTitle$(1, "EEG Port2");
     
