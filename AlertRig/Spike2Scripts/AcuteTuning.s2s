@@ -1,5 +1,5 @@
-' $Id: AcuteTuning.s2s,v 1.52 2016-02-09 00:54:15 devel Exp $
-const tunCVSID$ := "$Id: AcuteTuning.s2s,v 1.52 2016-02-09 00:54:15 devel Exp $";
+' $Id: AcuteTuning.s2s,v 1.53 2016-02-09 01:07:06 devel Exp $
+const tunCVSID$ := "$Id: AcuteTuning.s2s,v 1.53 2016-02-09 01:07:06 devel Exp $";
 
 'var TuningCurveScriptDialogAllowOK%;  'allows OK to button to work on main dialog
 
@@ -687,7 +687,7 @@ proc PlotSpikes(t1, t2, vOnOff%, index%)
             
             'update the rasters
             view(handlePSTH%[i%+16]).process(0,view(-1).maxtime(),1,1,0,31,0.5,preEvent,mCd1%); 'stimuli with opto
-            view(handlePSTH%[i%+24]).process(0,view(-1).maxtime(),1,1,0,31,0.5,preEvent,mCd1%); 'stimuli with no opto
+            view(handlePSTH%[i%+24]).process(0,view(-1).maxtime(),1,1,0,31,0.5,preEvent,mCd2%); 'stimuli with no opto
             'update the titles
             view(handlePSTH%[i%+16]).windowtitle$("Electrode " + Str$(tunWavemarkPorts%[i%]+1) + " Opto On");
             view(handlePSTH%[i%+24]).windowtitle$("Electrode " + Str$(tunWavemarkPorts%[i%]+1) + " Opto Off");
@@ -1898,7 +1898,7 @@ func InvestigateRasters%(i%)
         
         'update the rasters
         view(handlePSTH%[t%+16]).process(0,view(-1).maxtime(),1,1,0,31,0.5,preEvent,mCd1%); 'stimuli with opto
-        view(handlePSTH%[t%+24]).process(0,view(-1).maxtime(),1,1,0,31,0.5,preEvent,mCd1%); 'stimuli with no opto
+        view(handlePSTH%[t%+24]).process(0,view(-1).maxtime(),1,1,0,31,0.5,preEvent,mCd2%); 'stimuli with no opto
         'update the titles
         view(handlePSTH%[t%+16]).windowtitle$("Electrode " + Str$(tunWavemarkPorts%[t%]+1) + " Opto On");
         view(handlePSTH%[t%+24]).windowtitle$("Electrode " + Str$(tunWavemarkPorts%[t%]+1) + " Opto Off");
