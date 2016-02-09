@@ -1,5 +1,5 @@
-' $Id: AcuteTuning.s2s,v 1.51 2016-02-01 19:56:54 devel Exp $
-const tunCVSID$ := "$Id: AcuteTuning.s2s,v 1.51 2016-02-01 19:56:54 devel Exp $";
+' $Id: AcuteTuning.s2s,v 1.52 2016-02-09 00:54:15 devel Exp $
+const tunCVSID$ := "$Id: AcuteTuning.s2s,v 1.52 2016-02-09 00:54:15 devel Exp $";
 
 'var TuningCurveScriptDialogAllowOK%;  'allows OK to button to work on main dialog
 
@@ -46,13 +46,14 @@ var tunContinuousPorts%[16];
 var memChanRasterTriggers%;  'a memory channel that holds raster triggers
 var memChanRasterTriggersOpto%;  'a memory channel that holds raster trigger for the opto state
 var memChanBetterTextMark%;  'a memory channel that mimics the textmark channel, but with better temporal fidelity
-var handlePSTH%[16];         'a list of PSTH handles
+var handlePSTH%[32];         'a list of PSTH handles
 var stimCodes%[4];           'For the raster textmark channel; we'll only use index 0 but the textmark requires a 4-length vector
 var rasterTotal;  'total duration for raster
 var rasterPre := .2;  'Hard coded for now, will change if necessary
 var rasterPost := 0;  'No post-stim for now, but this will facilitate a change in the future
 var histBinWidth := 0.05;  'Just throwing out 50 ms as a number
 var histBins%;
+var histBins2%;
 var myTitle$;
 var myTitle2$;
 var trodes[10];  'global, for creating rasters at the end
@@ -629,6 +630,9 @@ proc PlotSpikes(t1, t2, vOnOff%, index%)
     var fftData[16];        ' size of this array should be same as number of bins! 
     var x;  'the x value to plot
     var xind%;  'the x value index
+    var mCd1%;
+    var mCd2%;
+    var preEvent;
     'var index2%;
     
     'vOnOff% is a switch that allows us to plot (in this case) opto-on and opto-off with different colors
@@ -668,6 +672,26 @@ proc PlotSpikes(t1, t2, vOnOff%, index%)
             'And update the title, to indicate which stimulus it is
             view(handlePSTH%[i%+8]).windowtitle$("Electrode " + Str$(tunWavemarkPorts%[i%]+1) + " Opto On " + myTitle2$ + Str$(tunValues[tunValuesIndices%[nTrialsCompleted%]]));  'Rename single-stim histogram
         endif
+        
+        'do Scotty rasters, these are gated so we can do them on every trial and not worry about it
+        if tunDoOpto% = 1 then
+            if tunOptoUsePulse% = 1 then
+                mCd1% := Asc("P");
+                mCd2% := Asc("S");
+                preEvent := 0;
+            else
+                mCd1% := Asc("o");
+                mCd2% := Asc("n");
+                preEvent := tunPreStimOptoTime + 0.5;
+            endif;
+            
+            'update the rasters
+            view(handlePSTH%[i%+16]).process(0,view(-1).maxtime(),1,1,0,31,0.5,preEvent,mCd1%); 'stimuli with opto
+            view(handlePSTH%[i%+24]).process(0,view(-1).maxtime(),1,1,0,31,0.5,preEvent,mCd1%); 'stimuli with no opto
+            'update the titles
+            view(handlePSTH%[i%+16]).windowtitle$("Electrode " + Str$(tunWavemarkPorts%[i%]+1) + " Opto On");
+            view(handlePSTH%[i%+24]).windowtitle$("Electrode " + Str$(tunWavemarkPorts%[i%]+1) + " Opto Off");
+        endif;
         
             
         'do F1 if requested, F2 not currently done
@@ -810,6 +834,20 @@ proc InitializeWindows()
             View(handlePSTH%[i%+8]).windowtitle$("No Data");  'name gets changed later
             View(handlePSTH%[i%+8]).Window(histOptoL, i%*WindowStep, histOptoR, (i%+1)*WindowStep);  'size window as above, squeeze in
             View(handlePSTH%[i%+8]).WindowVisible(1);  'make window visible
+            
+            'Make PSTH for Scotty
+            histBins2% := rasterTotal/.005;  'hard code to 5 ms
+            'This one is for opto-on stimuli
+            handlePSTH%[i%+16] := View(DataWindow%).SetPsth(tunWavemarkPorts%[i%]+1,histBins2%,.005,rasterPre,StimChannel%,1);  '1 enables spikes per second
+            View(handlePSTH%[i%+16]).windowtitle$("No Data");  'name gets changed later
+            View(handlePSTH%[i%+16]).WindowVisible(1);  'make window visible
+            'but not sizing this, just let it be whatever
+            
+            'this one is for opto-off stimuli
+            handlePSTH%[i%+24] := View(DataWindow%).SetPsth(tunWavemarkPorts%[i%]+1,histBins2%,.005,rasterPre,StimChannel%,1);  '1 enables spikes per second
+            View(handlePSTH%[i%+24]).windowtitle$("No Data");  'name gets changed later
+            View(handlePSTH%[i%+24]).WindowVisible(1);  'make window visible
+            
         endif
         
         FrontView(DataWindow%);  'bring main window back to front to avoid view is not a time view shit
@@ -828,6 +866,9 @@ proc InitializeWindows()
             PSTHWindow%[i%] := View(DataWindow%).SetPSTH(tunWavemarkPorts%[i%]+1, 16, 1 /(tunTF*16), 0, 0, 3);  'must use index to tWMP%[] now that channel #s correspond to port #s (+1)
             View(PSTHWindow%[i%]).WindowVisible(0);
         endif        
+        
+        
+        
     next
 
 end;
@@ -1825,6 +1866,9 @@ func InvestigateRasters%(i%)
     var t%;
     var v%;
     var WindowStep;
+    var mCd1%;
+    var mCd2%;
+    var preEvent;
     
     WindowStep := 100/tunNWavemarks%;
     t% := DlgValue(1);
@@ -1840,6 +1884,26 @@ func InvestigateRasters%(i%)
         view(handlePSTH%[t%+8]).process(0,view(-1).maxtime(),1,1,0,MemChanRasterTriggersOpto%,rasterTotal,rasterPre,v%);  'Update single-stim histogram        
         'And update the title, to indicate which stimulus it is
         view(handlePSTH%[t%+8]).windowtitle$("Electrode " + Str$(tunWavemarkPorts%[t%]+1) + " Opto On " + myTitle2$ + Str$(tunValues[v%]));  'Rename single-stim histogram
+        
+        'do Scotty rasters, these are gated so we can do them on every trial and not worry about it
+        if tunOptoUsePulse% = 1 then
+            mCd1% := Asc("P");
+            mCd2% := Asc("S");
+            preEvent := 0;
+        else
+            mCd1% := Asc("o");
+            mCd2% := Asc("n");
+            preEvent := tunPreStimOptoTime + 0.5;
+        endif;
+        
+        'update the rasters
+        view(handlePSTH%[t%+16]).process(0,view(-1).maxtime(),1,1,0,31,0.5,preEvent,mCd1%); 'stimuli with opto
+        view(handlePSTH%[t%+24]).process(0,view(-1).maxtime(),1,1,0,31,0.5,preEvent,mCd1%); 'stimuli with no opto
+        'update the titles
+        view(handlePSTH%[t%+16]).windowtitle$("Electrode " + Str$(tunWavemarkPorts%[t%]+1) + " Opto On");
+        view(handlePSTH%[t%+24]).windowtitle$("Electrode " + Str$(tunWavemarkPorts%[t%]+1) + " Opto Off");
+        
+        
     endif;
     
     return 1;
