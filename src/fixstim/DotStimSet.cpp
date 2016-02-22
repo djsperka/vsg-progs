@@ -1,9 +1,10 @@
-#include "StimSet.h"
+#define _USE_MATH_DEFINES
+#include <cmath>
 #include <windows.h>
 #include <process.h>
 #include <iostream>
-#define _USE_MATH_DEFINES
-#include <cmath>
+
+#include "StimSet.h"
 
 #include "AlertUtil.h"
 using namespace std;

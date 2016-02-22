@@ -25,5 +25,8 @@ public:
     ~ClientNetwork(void);
 
 	int receivePackets(char *);
+
+	// added by djs
+	int sendMessage(char * buffer, int bufSize);
 };
 
