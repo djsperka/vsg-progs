@@ -1,4 +1,4 @@
-/* $Id: FixUStim.h,v 1.2 2015-07-06 19:09:23 devel Exp $*/
+/* $Id: FixUStim.h,v 1.3 2016-02-22 21:27:39 devel Exp $*/
 #ifndef _FIXUSTIM_H_
 #define _FIXUSTIM_H_
 
@@ -22,7 +22,7 @@ class FixUStim: public UStim, public prargs_handler
 {
 public:
 	FixUStim(bool bStandAlone = false);
-	virtual ~FixUStim() {};
+	virtual ~FixUStim();
 
 	bool parse(int argc, char **argv);
 	void run_stim(alert::ARvsg& vsg);

@@ -33,8 +33,8 @@ ClientNetwork::ClientNetwork(char *server_addr, char *server_port)
 
 	
     //resolve server address and port 
-    iResult = getaddrinfo("127.0.0.1", DEFAULT_PORT, &hints, &result);
-	//iResult = getaddrinfo((server_addr ? server_addr : "127.0.0.1"), server_port, &hints, &result);
+    //iResult = getaddrinfo("127.0.0.1", DEFAULT_PORT, &hints, &result);
+	iResult = getaddrinfo((server_addr ? server_addr : "127.0.0.1"), server_port, &hints, &result);
 
     if( iResult != 0 ) 
     {
@@ -108,6 +108,8 @@ ClientNetwork::ClientNetwork(char *server_addr, char *server_port)
 
 ClientNetwork::~ClientNetwork(void)
 {
+	closesocket(ConnectSocket);
+	WSACleanup();
 }
 
 int ClientNetwork::receivePackets(char * recvbuf) 
@@ -123,4 +125,16 @@ int ClientNetwork::receivePackets(char * recvbuf)
     }
 
     return iResult;
+}
+
+int ClientNetwork::sendMessage(char *buffer, int bufsiz)
+{
+	iResult = NetworkServices::sendMessage(ConnectSocket, buffer, bufsiz);
+    if ( iResult == 0 )
+    {
+		printf("ClientNetwork::Connection closed\n");
+        closesocket(ConnectSocket);
+        WSACleanup();
+    }
+	return iResult;
 }

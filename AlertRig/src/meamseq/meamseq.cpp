@@ -23,7 +23,8 @@ using namespace alert;
 
 
 
-VSGCYCLEPAGEENTRY mpos[32768];
+// VSGCYCLEPAGEENTRY mpos[32768];
+VSGCYCLEPAGEENTRY *mpos = NULL;
 
 int f_iRows=16;
 int f_iCols=16;
@@ -218,6 +219,9 @@ int load_mseq(string& filename)
 			istatus=3;
 			cerr << "Expected " << f_nterms << " terms in seq. Found " << strlen(f_sequence) << ". Check mseq file." << endl;
 		}
+		else
+			cerr << "Loaded " << f_nterms << " from seq file " << filename << endl;
+
 		fclose(fp);
 	}
 
@@ -376,6 +380,8 @@ int main(int argc, char **argv)
 				Sleep(100);
 			}
 		}
+
+		if (mpos) free(mpos);	// cleanup
 	}
 
 
@@ -534,6 +540,11 @@ void prepare_cycling()
 	h = vsgGetScreenHeightPixels();
 	M = (int)pow(2.0f, (float)f_iOrder) - 1;
 
+	// Allocate page cycle structure
+	mpos = (VSGCYCLEPAGEENTRY *)calloc(M+1, sizeof(VSGCYCLEPAGEENTRY));
+	memset(mpos, 0, sizeof(VSGCYCLEPAGEENTRY)*(M+1));
+
+
 	for (iterm=0; iterm<M; iterm++)
 	{
 		irow = (iterm % p)*f_iRows + iterm/(p*f_iRows);
@@ -559,6 +570,7 @@ void prepare_cycling()
 	mpos[M].ovPage = NO_APERTURE_PAGE;
 	mpos[M].Stop = 1;
 
+	cerr << "Max cycling pages " << vsgGetSystemAttribute(vsgPAGECYCLEARRAYSIZE) << endl;
 	vsgPageCyclingSetup(M+1, mpos);
 
 	if (f_bSuperHack)

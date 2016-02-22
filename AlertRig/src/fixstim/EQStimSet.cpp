@@ -1,3 +1,4 @@
+#include "ClientNetwork.h"
 #include "EQStimSet.h"
 #include <iostream>
 #include <boost/algorithm/string.hpp>
@@ -152,12 +153,20 @@ int parse_eqparams(const string& s, int nstim, struct EQParams& params)
 	return 0;
 }
 
+void sendEEGSignal(int ival, ClientNetwork& client)
+{
+	char msg[48];
+	int len;
+	len = sprintf(msg, "<TRIGGER>%d</TRIGGER>", ival);
+	client.sendMessage(msg, len);
+	return;
+}
 
-
-EQStimSet::EQStimSet(ARContrastFixationPointSpec& fixpt, std::vector<alert::ARGratingSpec>& vecGratings, vector<EQParams>& params)
+EQStimSet::EQStimSet(ARContrastFixationPointSpec& fixpt, std::vector<alert::ARGratingSpec>& vecGratings, vector<EQParams>& params, const char *pIPPort)
 : FXMultiGStimSet(fixpt)
 , m_vecParams(params)
 , m_current(0)
+, m_pEEGClient(NULL)
 {
 	vector<alert::ARGratingSpec>::iterator it = vecGratings.begin();
 	while (it != vecGratings.end())
@@ -166,7 +175,27 @@ EQStimSet::EQStimSet(ARContrastFixationPointSpec& fixpt, std::vector<alert::ARGr
 		set_grating(*it);	// contrast changed partner
 		it++;
 	}
+
+	if (pIPPort)
+	{
+		vector<string> strs;
+		char ip[16];
+		char port[8];
+		boost::split(strs, pIPPort, boost::is_any_of(":"));
+		if (strs.size() == 2)
+		{
+			strcpy(ip, strs[0].c_str());
+			strcpy(port, strs[1].c_str());
+			m_pEEGClient = new ClientNetwork(ip, port);
+		}
+	}
 };
+
+EQStimSet::~EQStimSet()
+{
+	if (m_pEEGClient)
+		delete m_pEEGClient;
+}
 
 int EQStimSet::init(ARvsg& vsg, std::vector<int> pages)
 {
@@ -508,6 +537,8 @@ int EQStimSet::handle_trigger(std::string& s)
 	int status = 0;
 	if (s == "F")
 	{
+		if (m_pEEGClient)
+			sendEEGSignal(1, *m_pEEGClient);
 		vsgSetDrawPage(vsgVIDEOPAGE, m_pageFixpt, vsgNOCLEAR);
 		status = 1;
 	}
@@ -519,6 +550,8 @@ int EQStimSet::handle_trigger(std::string& s)
 			vsgObjSetSpatialPhase(grating(i).phase);
 			vsgObjResetDriftPhase();
 		}
+		if (m_pEEGClient)
+			sendEEGSignal(2, *m_pEEGClient);
 		vsgSetSynchronisedCommand(vsgSYNC_PRESENT, vsgCYCLEPAGEENABLE, 0);
 		status = 1;
 	}
@@ -537,6 +570,8 @@ int EQStimSet::handle_trigger(std::string& s)
 //		palDiff();
 		vsgSetCommand(vsgCYCLEPAGEDISABLE);
 		vsgSetDrawPage(vsgVIDEOPAGE, m_pageBlank, vsgNOCLEAR);
+		if (m_pEEGClient)
+			sendEEGSignal(3, *m_pEEGClient);
 		status = 1;
 	}
 	else if (s.at(0) > '0' && s.at(0) < '8')
