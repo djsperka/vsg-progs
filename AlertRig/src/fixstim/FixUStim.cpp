@@ -1,4 +1,4 @@
-/* $Id: FixUStim.cpp,v 1.4 2015-07-28 20:20:29 devel Exp $*/
+/* $Id: FixUStim.cpp,v 1.5 2016-02-22 21:27:39 devel Exp $*/
 
 #include "FixUStim.h"
 #include <iostream>
@@ -29,6 +29,11 @@ FixUStim::FixUStim(bool bStandAlone)
 	m_background.type = gray;
 	m_background.color.a = m_background.color.b = m_background.color.c = 0.5;
 };
+
+FixUStim::~FixUStim()
+{
+	delete m_pStimSet;
+}
 
 bool FixUStim::parse(int argc, char **argv)
 {
@@ -1137,10 +1142,32 @@ int FixUStim::process_arg(int c, std::string& arg)
 	case 'W':
 		{
 			// argument is a filename. The path is taken as the root path for stimuli.
-			path p(arg);
+			// 1/21/16 djs
+			// Argument expanded to allow an ip:port specification for the StarStim EEG program 'Nic'
+			// That prog has a tcp server (accepts connections on port 1234) that we will put timing
+			// markers into at stim onset/offset. 
+			// The arg is now this:
+			//
+			// -W /path/to/file[,ip:port]
+			// 
+
+			vector<string> argStrings;
+			const char *pIPPort = (char *)NULL;	// non-NULL when ip:port arg given
+
+			boost::split(argStrings, arg, boost::is_any_of(","));
+			//cout << "* size of the vector: " << argStrings.size() << endl;    
+			//for (size_t i = 0; i < argStrings.size(); i++)
+			//    cout << argStrings[i] << endl;
+			if (argStrings.size() > 1)
+			{
+				pIPPort = argStrings[1].c_str();
+			}
+
+
+			path p(argStrings[0]);
 			if (!exists(p))
 			{
-				cerr << "Error: Cue file does not exist: " << arg;
+				cerr << "Error: Cue file does not exist: " << argStrings[0];
 				m_errflg++;
 			}
 			else
@@ -1152,7 +1179,7 @@ int FixUStim::process_arg(int c, std::string& arg)
 				string line;
 				int linenumber = 0;
 				int cuecount = 0;
-				ifstream myfile(arg.c_str());
+				std::ifstream myfile(argStrings[0].c_str());
 				if (myfile.is_open())
 				{
 					while (getline(myfile, line))
@@ -1196,7 +1223,7 @@ int FixUStim::process_arg(int c, std::string& arg)
 					}
 					myfile.close();
 					cerr << "Read " << linenumber << " lines from config file, found " << cuecount << " cues." << endl;
-					m_pStimSet = new EQStimSet(m_fixpt, m_vecGratings, vecEQParams);
+					m_pStimSet = new EQStimSet(m_fixpt, m_vecGratings, vecEQParams, pIPPort);
 				}
 			}
 			break;
