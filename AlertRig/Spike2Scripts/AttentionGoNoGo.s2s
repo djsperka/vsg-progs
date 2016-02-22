@@ -1,4 +1,4 @@
-' $Id: AttentionGoNoGo.s2s,v 1.73 2016-02-22 22:15:19 devel Exp $
+' $Id: AttentionGoNoGo.s2s,v 1.74 2016-02-22 22:47:14 devel Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -1887,7 +1887,25 @@ func IdleProcessing%()
         
         
         if tNow - tStateStart > attTimeToAnswerPerTrial then  'no response
-            if trialIsTarget% > 0 then 'GO trial, expected response
+            docase
+            case attCatchIsNoGo% = 1 and trialCatch% = 1 then  'catch-as-no-go trial, this is correct
+                SafeSampleKey("X");  'turn off animation
+                PrintLog("stateWaitForAnswer: no response on catch-as-no-go trial, correct rejection\n");
+                docase
+                case trialType% = trialtypeAttendToward% then
+                    attCountTowardTrialsCorrect% += 1;
+                    SampleText("Correct Rejection, Catch-As-No-Go, Attend Toward",tNow);
+                case trialType% = trialtypeAttendAway% then
+                    attCountAwayTrialsCorrect% += 1;
+                    SampleText("Correct Rejection, Catch-As-No-Go, Attend Away",tNow);
+                case trialType% = trialtypeNoChange% then
+                    attCountNoChangeTrialsCorrect% += 1;
+                    SampleText("Correct Rejection, Catch-As-No-Go, No Change",tNow);
+                endcase;
+                attInterTrialTime2 := attInterTrialTime;
+                Reward%();
+                ChangeStateTo(stateTrialCompletedWaitForBlank%, tNow);
+            case trialIsTarget% > 0 then  'GO trial, expected response
                 SafeSampleKey("X");  'turn off animation
                 PrintLog("stateWaitForAnswer: no response on go trial, miss\n");
                 docase
@@ -1917,7 +1935,7 @@ func IdleProcessing%()
                 attInterTrialTime2 := attInterTrialTime;
                 Reward%();
                 ChangeStateTo(stateTrialCompletedWaitForBlank%, tNow);
-            endif;
+            endcase;
         else
             ' When fixation is first broken we turn off the stim and distractor. 
             ' That test is done separately from the test for an answer. Also set up 
@@ -3701,6 +3719,7 @@ proc WriteParameterFile()
     Print("Use only one catch contrast?     : %d\n", attOnlyOneCatch%);
     Print("Value of only catch contrast   : %d\n", attOneCatchContrast%);
     Print("Do 'uncatch'     : %d\n", attDoUncatch%);
+    Print("Do Catch-Trials-As-No-Go     : %d\n", attCatchIsNoGo%);
     Print("Use cue circles?    : %d\n", attUseCueCircles%);
     Print("Cue Circle extra radius    : %f\n", attCueCircleExtraRadius);
     Print("Start Block     : %d\n", attStartBlock%);
