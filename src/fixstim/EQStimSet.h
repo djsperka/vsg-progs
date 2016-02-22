@@ -4,6 +4,8 @@
 #include "StimSet.h"
 #include <string>
 
+class ClientNetwork;
+
 struct EQParams
 {
 	std::string cueFile;
@@ -23,7 +25,8 @@ int parse_eqparams(const string& s, int nstim, struct EQParams& params);
 class EQStimSet: public FXMultiGStimSet
 {
 public:
-	EQStimSet(ARContrastFixationPointSpec& fixpt, vector<alert::ARGratingSpec>& vecGratings, std::vector<EQParams>& params);
+	EQStimSet(ARContrastFixationPointSpec& fixpt, vector<alert::ARGratingSpec>& vecGratings, std::vector<EQParams>& params, const char *pIPPort);
+	virtual ~EQStimSet();
 	virtual int num_pages() {return 7;};
 	virtual int num_overlay_pages() {return 0;};
 	virtual int init(ARvsg& vsg, std::vector<int> pages);
@@ -41,6 +44,8 @@ private:
 	int m_pageFixptStim;
 	int m_pageFixptStimCC;
 	PIXEL_LEVEL m_levelImage;
+	ClientNetwork *m_pEEGClient;
+	bool m_bEEGClient;
 };
 
 #endif
