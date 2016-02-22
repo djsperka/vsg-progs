@@ -1,4 +1,4 @@
-' $Id: AttentionGoNoGo.s2s,v 1.72 2016-02-01 23:40:06 devel Exp $
+' $Id: AttentionGoNoGo.s2s,v 1.73 2016-02-22 22:15:19 devel Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -129,6 +129,7 @@ var attOnlyOneCatch% := 0;
 var attOneCatchContrast% := 0;
 var attUseLowReward% := 0;
 var attLowReward% := 0;
+var attCatchIsNoGo% := 0;
 
 
 var lowRewardMS%;
@@ -192,6 +193,7 @@ const attdlgUseLowReward% := 28;
 const attdlgLowReward% := 29;
 const attdlgCueCircleStrokeWidth% := 30;
 const attdlgUseFlashers% := 31;
+const attdlgCatchIsNoGo% := 32;
 
 ' constants for timing dialog
 const atttimingdlgFixationCueMinTime% := 2;
@@ -352,6 +354,8 @@ proc GetAttentionScriptParameters()
     
     Profile(key$, "UseLowReward", 0, attUseLowReward%);
     Profile(key$, "LowReward", 0, attLowReward%);
+    
+    Profile(key$, "CatchIsNoGo", 0, attCatchIsNoGo%);
 
 
     
@@ -406,7 +410,8 @@ proc SaveAttentionScriptParameters()
     Profile(key$, "SwapCueCircle", attSwapCueCircle%);  
     Profile(key$, "CueCircleStrokeWidth", attCueCircleStrokeWidth%);
     Profile(key$, "UseLowReward", attUseLowReward%);
-    Profile(key$, "LowReward", attLowReward%);    
+    Profile(key$, "LowReward", attLowReward%);  
+    Profile(key$, "CatchIsNoGo", attCatchIsNoGo%);    
 
     
 	'Profile(key$, "LollipopCheck", attLollipopCheck%);
@@ -575,7 +580,7 @@ func AttentionScriptDialog%()
     var tempTotal;  'friggin integer math
     var tempWhoops;
     var fiveints%[5];
-    var eightmoreints%[8];
+    var ninemoreints%[9];
     var blockAlternateList$[3];
     var blockStartList$[7];
     
@@ -602,14 +607,15 @@ func AttentionScriptDialog%()
     fiveints%[3] := attNumPatches%;
     fiveints%[4] := attGetGPFromMainStim%;
     
-    eightmoreints%[0] := distracterOffForEasy%;
-    eightmoreints%[1] := attStartBlock%;
-    eightmoreints%[2] := attNoChangeCondition%;
-    eightmoreints%[3] := attSwapCueCircle%; 
-    eightmoreints%[4] := attUseLowReward%;
-    eightmoreints%[5] := attLowReward%;
-    eightmoreints%[6] := attCueCircleStrokeWidth%;
-    eightmoreints%[7] := attUseFlashers%;
+    ninemoreints%[0] := distracterOffForEasy%;
+    ninemoreints%[1] := attStartBlock%;
+    ninemoreints%[2] := attNoChangeCondition%;
+    ninemoreints%[3] := attSwapCueCircle%; 
+    ninemoreints%[4] := attUseLowReward%;
+    ninemoreints%[5] := attLowReward%;
+    ninemoreints%[6] := attCueCircleStrokeWidth%;
+    ninemoreints%[7] := attUseFlashers%;
+    ninemoreints%[8] := attCatchIsNoGo%;
     
 
     
@@ -657,13 +663,15 @@ func AttentionScriptDialog%()
     DlgInteger(attdlgCueCircleStrokeWidth%, 4, 0, 20, 30, 19); DlgText("Cue Circle Stroke Width (integer)",2,19);
     
     
-    DlgGroup("Reward", 36, 16, 34, 3);
+    DlgGroup("Reward", 36, 16, 34, 4);
     DlgCheck(attdlgUseLowReward%, "Use Low Reward For No-Change Trls", 37, 17);
     DlgInteger(attdlgLowReward%, 10, 1, 1000, 58, 18); DlgText("Low Reward (ms)",37,18);
+    DlgCheck(attdlgCatchIsNoGo%, "Treat Catch as No-Go", 37, 19);
     
-    DlgButton(2, "Colors", ColorsDialog%, 2+36, 20);
-    DlgButton(3, "Timing", TimingDialog%, 11+36, 20);  
-    DlgButton(4, "Flashers", CallDlgGratingFlashers%, 21+36, 20);  'temporarily directs to TimingDialog%
+    
+    DlgButton(2, "Colors", ColorsDialog%, 2+36, 21);
+    DlgButton(3, "Timing", TimingDialog%, 11+36, 21);  
+    DlgButton(4, "Flashers", CallDlgGratingFlashers%, 21+36, 21);  'temporarily directs to TimingDialog%
     'DlgGroup("Lollipops", 1, 18, 34, 7);
     'DlgCheck(attdlgLollipopCheck%, "Use lollipop cues", 2, 19);
     'DlgReal(attdlgCueLinePct%, "Cue line %", 0, 100, 22, 20);
@@ -675,7 +683,7 @@ func AttentionScriptDialog%()
 	i%:=DlgShow(attNumberOfBlocks%, attTrialsPerBlock%, attEasyTrialsPerBlock%, attCatchTrialPercentage, attNoGoTrialPercentage, 
     attBlockAlternate%, attSelectRandomContrastEachTrial%, attContrastBase%, attMaxContChange, attMinContChange, attNContLevels%,
     attAnswerPointWindowRadius, attTrainingContrastCheck%, attTrainingContrastPct%, attPhaseCheck%, attPhaseDeg%, fiveints%[], 
-    attUseCueCircles%,attCueCircleExtraRadius,eightmoreints%);
+    attUseCueCircles%,attCueCircleExtraRadius,ninemoreints%);
     
     'attLollipopCheck%, attCueLinePct, attCircleDiameterDiff, 
     'attLollipopContrast%, attLollipopStickContrast%, attCueLineGap);
@@ -691,14 +699,15 @@ func AttentionScriptDialog%()
         attGetGPFromMainStim% := fiveints%[4];
         
         'put sixmoreints values back into variables
-        distracterOffForEasy% := eightmoreints%[0];
-        attStartBlock% := eightmoreints%[1];
-        attNoChangeCondition% := eightmoreints%[2];
-        attSwapCueCircle% := eightmoreints%[3];
-        attUseLowReward% := eightmoreints%[4];
-        attLowReward% := eightmoreints%[5];
-        attCueCircleStrokeWidth% := eightmoreints%[6];
-        attUseFlashers% := eightmoreints%[7];
+        distracterOffForEasy% := ninemoreints%[0];
+        attStartBlock% := ninemoreints%[1];
+        attNoChangeCondition% := ninemoreints%[2];
+        attSwapCueCircle% := ninemoreints%[3];
+        attUseLowReward% := ninemoreints%[4];
+        attLowReward% := ninemoreints%[5];
+        attCueCircleStrokeWidth% := ninemoreints%[6];
+        attUseFlashers% := ninemoreints%[7];
+        attCatchIsNoGo% := ninemoreints%[8];
         
         
         'Check values of attStartBlock% for legality
@@ -1970,17 +1979,25 @@ func IdleProcessing%()
                     'getPreciseTiming := 0;
                     ChangeStateTo(stateTrialCompletedWaitForBlank%, tNow);
                     SafeSampleKey("X");
-                else  'it's a NO-GO trial, and we got an answer
+                else  'it's a NO-GO or catch-as-No-Go trial, and we got an answer
                     'SampleText("-");
                     attCountAllTrialsIncorrect% += 1;
                     attInterTrialTime2 := attInterTrialTime + attMissPenalty;
                     docase
                     case trialType% = trialtypeAttendToward% then
                         attCountTowardTrialsIncorrect% += 1;
-                        SampleText("False Alarm, Attend Toward",tNow);
+                        if attCatchIsNoGo% = 1 and trialCatch% = 1 then
+                            SampleText("False Alarm on Catch-as-No-Go, Attend Toward",tNow);
+                        else
+                            SampleText("False Alarm, Attend Toward",tNow);
+                        endif;
                     case trialType% = trialtypeAttendAway% then
                         attCountAwayTrialsIncorrect% += 1;
-                        SampleText("False Alarm, Attend Away",tNow);
+                        if attCatchIsNoGo% = 1 and trialCatch% = 1 then
+                            SampleText("False Alarm on Catch-as-No-Go, Attend Away",tNow);
+                        else
+                            SampleText("False Alarm, Attend Away",tNow);
+                        endif;
                     case trialType% = trialtypeNoChange% then
                         attCountNoChangeTrialsIncorrect% += 1;
                         SampleText("False Alarm, No Change",tNow);
@@ -2164,7 +2181,11 @@ proc PrepareTrial()
     'Determine if trial is catch trial
     trialCatch% := 1-attValidList%[attCurrTrialIndex%];
     if trialCatch% = 1 then
-        PrintLog("CATCH\n");
+        if attCatchIsNoGo% = 0 then
+            PrintLog("CATCH\n");
+        else
+            PrintLog("CATCH - will be treated as No-Go\n");
+        endif;
     endif;
     
     'Determine if contrast is changing (target) or not (nontarget)
@@ -2181,11 +2202,14 @@ proc PrepareTrial()
     thisContrast% := attContrastList%[attCurrTrialIndex%];
     
     'Calculate expected answer
-    if trialIsTarget% < 2 then
+    docase
+    case attCatchIsNoGo% = 1 and trialCatch% = 1 then
+        expectedAnswer% := 0;  'force expectedAnswer% to 0 (no-go) for catch trials when requested
+    case trialIsTarget% < 2 then
         expectedAnswer% := trialIsTarget%;
     else
         expectedAnswer% := -trialIsTarget%+1;
-    endif;
+    endcase;
     
     'reset trial flasher count
     if attUseFlashers% = 1 then
