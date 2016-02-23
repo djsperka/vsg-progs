@@ -1,4 +1,4 @@
-' $Id: AttentionGoNoGo.s2s,v 1.74 2016-02-22 22:47:14 devel Exp $
+' $Id: AttentionGoNoGo.s2s,v 1.75 2016-02-23 18:59:31 devel Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -1886,9 +1886,9 @@ func IdleProcessing%()
         endif;
         
         
-        if tNow - tStateStart > attTimeToAnswerPerTrial then  'no response
+        if tNow - tStateStart > attTimeToAnswerPerTrial then  'no response, answer window is over
             docase
-            case attCatchIsNoGo% = 1 and trialCatch% = 1 then  'catch-as-no-go trial, this is correct
+            case attCatchIsNoGo% = 1 and trialCatch% = 1 and isStimDistractorOff% = 0 then  'catch-as-no-go trial, this is correct
                 SafeSampleKey("X");  'turn off animation
                 PrintLog("stateWaitForAnswer: no response on catch-as-no-go trial, correct rejection\n");
                 docase
@@ -1905,6 +1905,9 @@ func IdleProcessing%()
                 attInterTrialTime2 := attInterTrialTime;
                 Reward%();
                 ChangeStateTo(stateTrialCompletedWaitForBlank%, tNow);
+            case attCatchIsNoGo% = 1 and trialCatch% = 1 and isStimDistractorOff% = 1 then  'catch-as-no-go trial, fixation broken but no response, this is an abort
+                ChangeStateTo(stateAbort%, tNow);
+                PrintLog("stateWaitForAnswer: fixation break on catch-as-no-go trial, abort\n");
             case trialIsTarget% > 0 then  'GO trial, expected response
                 SafeSampleKey("X");  'turn off animation
                 PrintLog("stateWaitForAnswer: no response on go trial, miss\n");
@@ -1937,8 +1940,8 @@ func IdleProcessing%()
                 ChangeStateTo(stateTrialCompletedWaitForBlank%, tNow);
             endcase;
         else
-            ' When fixation is first broken we turn off the stim and distractor. 
-            ' That test is done separately from the test for an answer. Also set up 
+            ' When fixation is first broken we turn off the stim and distractor. Fixation remains up.
+            ' The test for fixation is done separately from the test for an answer. Also set up 
             ' a var to tell us whether the stim has been turned off. 
             if isStimDistractorOff% = 0 then
                 if Looking%(xEye, yEye) = 0 then
@@ -2028,6 +2031,12 @@ func IdleProcessing%()
                     ChangeStateTo(stateAbort%,tNow);
                     'SafeSampleKey("X");
                 endcase
+            else 'there is no answer
+                if isStimDistractorOff% = 1 and trialType% = trialtypeNoChange% then 'if fixation has been broken
+                    'normally we will wait to see if the animal DOES respond, but if there is no contrast change, this is a fixation break                    
+                    ChangeStateTo(stateAbort%, tNow); 
+                    SampleText("Fixation broken, no response, trial aborted");
+                endif
             endif
         endif
         
@@ -2187,6 +2196,7 @@ proc PrepareTrial()
     PrintLog("Fixation time " + str$(attFixationTime) + "\n");
     
     ' Set hazard function time and time to answer per trial
+    ' Note that the trialHazardFunction time must be set in CreateContrastList because the value of this variable is not used in *creating the animation*
     if trialType% = trialTypeNoChange% then
         trialHazardFunctionTime := 0.1;  'for no-change trials, set hazard time to 0.1, this is hard coded
         attTimeToAnswerPerTrial := attNoChangeDuration - 0.1;  'the 0.1 is the hardcoded hazard time, the remainder is answer window
@@ -3290,6 +3300,7 @@ Proc CreateContrastList(&c$,&f$,&cList%[],&chgList%[],&vList%[],&attList%[],&haz
                         chgList%[totalCount%] := 0;  'no stimulus changes, it's a no-go -- note that we cannot pass 0 to UpdateTrialSpecString, though, so pass the attend direction
                         cList%[totalCount%] := attContrastBase%;  'fill cList%[] with the base contrast
                         offList%[totalCount%] := 0;  'show all grating patches
+                        hazList[totalCount%] := 0.1;  'This value needs to be changed - it's a hard code 0.1
                         'insert no-go trial  
                         UpdateTrialSpecString(c$,attColor%,attDirection%,attContrastBase%,attContrastBase%,trialHazardFunctionTime,attPhaseDeg%,0+(256*rotList%[totalCount%]),masterColorListVSG$);
                     case (Rand()*100 < attCatchTrialPercentage) then 'catch trial
