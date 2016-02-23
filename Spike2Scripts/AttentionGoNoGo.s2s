@@ -1,4 +1,4 @@
-' $Id: AttentionGoNoGo.s2s,v 1.75 2016-02-23 18:59:31 devel Exp $
+' $Id: AttentionGoNoGo.s2s,v 1.76 2016-02-23 19:30:29 devel Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -3067,6 +3067,7 @@ Proc CreateContrastList(&c$,&f$,&cList%[],&chgList%[],&vList%[],&attList%[],&haz
     var attColor%;
     var alloff%;  'this is for the bitwise "off" indicator
     var cueCircleRotation% := 0;
+    var trialDur;
     
     var blockTypes%[6];  'These are only used if we are "alternating" blocks and simultaneously using a no-change condition
     var btIndices%[6];  'index, for the shuffle
@@ -3257,7 +3258,12 @@ Proc CreateContrastList(&c$,&f$,&cList%[],&chgList%[],&vList%[],&attList%[],&haz
                     'create a set of flasher times and locations (also number) for this trial only
                     if attUseFlashers% = 1 then
                         'create flasher times
-                        CreateFlasherTimes(tempFlashTimes[][randHazIndex%],tempNFlashPerTrial%[randHazIndex%],trialHazardFunctionTime,attTimeToAnswer);
+                        if attDirection% = 6 then
+                            trialDur := attNoChangeDuration;
+                        else
+                            trialDur := attTimeToAnswer;
+                        endif;
+                        CreateFlasherTimes(tempFlashTimes[][randHazIndex%],tempNFlashPerTrial%[randHazIndex%],trialHazardFunctionTime,trialDur);
                         flashN%[totalCount%] := tempNFlashPerTrial%[randHazIndex%];  'set flasher count for use in main loop
                         for timesLoop% := 0 to attMaxFlashers%-1 do
                             flashTimes[totalCount%][timesLoop%] := tempFlashTimes[timesLoop%][randHazIndex%];  'set flasher times for use in main loop
@@ -3302,7 +3308,7 @@ Proc CreateContrastList(&c$,&f$,&cList%[],&chgList%[],&vList%[],&attList%[],&haz
                         offList%[totalCount%] := 0;  'show all grating patches
                         hazList[totalCount%] := 0.1;  'This value needs to be changed - it's a hard code 0.1
                         'insert no-go trial  
-                        UpdateTrialSpecString(c$,attColor%,attDirection%,attContrastBase%,attContrastBase%,trialHazardFunctionTime,attPhaseDeg%,0+(256*rotList%[totalCount%]),masterColorListVSG$);
+                        UpdateTrialSpecString(c$,attColor%,attDirection%,attContrastBase%,attContrastBase%,hazList[totalCount%],attPhaseDeg%,0+(256*rotList%[totalCount%]),masterColorListVSG$);
                     case (Rand()*100 < attCatchTrialPercentage) then 'catch trial
                         vList%[totalCount%] := 0;  'catch = invalid
                         offList%[totalCount%] := 0;  'show all grating patches
