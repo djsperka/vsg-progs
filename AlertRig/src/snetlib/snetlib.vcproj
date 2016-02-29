@@ -21,8 +21,8 @@
 	<Configurations>
 		<Configuration
 			Name="Debug|Win32"
-			OutputDirectory="$(SolutionDir)$(ConfigurationName)"
-			IntermediateDirectory="$(ConfigurationName)"
+			OutputDirectory="$(SolutionDir)\..\lib"
+			IntermediateDirectory="build\$(PlatformName)\$(ConfigurationName)"
 			ConfigurationType="4"
 			CharacterSet="1"
 			>
@@ -31,6 +31,9 @@
 			/>
 			<Tool
 				Name="VCCustomBuildTool"
+				Description="Copying header files..."
+				CommandLine="copy *.h $(SolutionDir)\..\include&#x0D;&#x0A;"
+				Outputs="$(SolutuionDir)\..\include\snet.h"
 			/>
 			<Tool
 				Name="VCXMLDataGeneratorTool"
@@ -49,6 +52,7 @@
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="3"
 				UsePrecompiledHeader="0"
+				AssemblerListingLocation="$(IntDir)/"
 				WarningLevel="3"
 				DebugInformationFormat="4"
 			/>
@@ -63,72 +67,7 @@
 			/>
 			<Tool
 				Name="VCLibrarianTool"
-				OutputFile="..\..\lib\dsnet.lib"
-			/>
-			<Tool
-				Name="VCALinkTool"
-			/>
-			<Tool
-				Name="VCXDCMakeTool"
-			/>
-			<Tool
-				Name="VCBscMakeTool"
-			/>
-			<Tool
-				Name="VCFxCopTool"
-			/>
-			<Tool
-				Name="VCPostBuildEventTool"
-			/>
-		</Configuration>
-		<Configuration
-			Name="Release|Win32"
-			OutputDirectory="$(SolutionDir)$(ConfigurationName)"
-			IntermediateDirectory="$(ConfigurationName)"
-			ConfigurationType="4"
-			CharacterSet="1"
-			WholeProgramOptimization="1"
-			>
-			<Tool
-				Name="VCPreBuildEventTool"
-			/>
-			<Tool
-				Name="VCCustomBuildTool"
-				CommandLine="copy *.h ..\..\include&#x0D;&#x0A;"
-				Outputs="..\..\include\snet.h"
-			/>
-			<Tool
-				Name="VCXMLDataGeneratorTool"
-			/>
-			<Tool
-				Name="VCWebServiceProxyGeneratorTool"
-			/>
-			<Tool
-				Name="VCMIDLTool"
-			/>
-			<Tool
-				Name="VCCLCompilerTool"
-				Optimization="2"
-				EnableIntrinsicFunctions="true"
-				PreprocessorDefinitions="WIN32;NDEBUG;_LIB"
-				RuntimeLibrary="2"
-				EnableFunctionLevelLinking="true"
-				UsePrecompiledHeader="0"
-				WarningLevel="3"
-				DebugInformationFormat="3"
-			/>
-			<Tool
-				Name="VCManagedResourceCompilerTool"
-			/>
-			<Tool
-				Name="VCResourceCompilerTool"
-			/>
-			<Tool
-				Name="VCPreLinkEventTool"
-			/>
-			<Tool
-				Name="VCLibrarianTool"
-				OutputFile="..\..\lib\snet.lib"
+				OutputFile="$(OutDir)\dsnet.lib"
 			/>
 			<Tool
 				Name="VCALinkTool"
@@ -148,8 +87,8 @@
 		</Configuration>
 		<Configuration
 			Name="Debug|x64"
-			OutputDirectory="$(SolutionDir)$(PlatformName)\$(ConfigurationName)"
-			IntermediateDirectory="$(PlatformName)\$(ConfigurationName)"
+			OutputDirectory="$(SolutionDir)\..\lib64"
+			IntermediateDirectory="build\$(PlatformName)\$(ConfigurationName)"
 			ConfigurationType="4"
 			CharacterSet="1"
 			>
@@ -158,6 +97,9 @@
 			/>
 			<Tool
 				Name="VCCustomBuildTool"
+				Description="Copying header files..."
+				CommandLine="copy *.h $(SolutionDir)\..\include&#x0D;&#x0A;"
+				Outputs="$(SolutuionDir)\..\include\snet.h"
 			/>
 			<Tool
 				Name="VCXMLDataGeneratorTool"
@@ -177,6 +119,7 @@
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="3"
 				UsePrecompiledHeader="0"
+				AssemblerListingLocation="$(IntDir)/"
 				WarningLevel="3"
 				DebugInformationFormat="3"
 			/>
@@ -191,7 +134,74 @@
 			/>
 			<Tool
 				Name="VCLibrarianTool"
-				OutputFile="..\..\lib\dsnet.lib"
+				OutputFile="$(OutDir)\dsnet.lib"
+			/>
+			<Tool
+				Name="VCALinkTool"
+			/>
+			<Tool
+				Name="VCXDCMakeTool"
+			/>
+			<Tool
+				Name="VCBscMakeTool"
+			/>
+			<Tool
+				Name="VCFxCopTool"
+			/>
+			<Tool
+				Name="VCPostBuildEventTool"
+			/>
+		</Configuration>
+		<Configuration
+			Name="Release|Win32"
+			OutputDirectory="$(SolutionDir)\..\lib"
+			IntermediateDirectory="build\$(PlatformName)\$(ConfigurationName)"
+			ConfigurationType="4"
+			CharacterSet="1"
+			WholeProgramOptimization="1"
+			>
+			<Tool
+				Name="VCPreBuildEventTool"
+			/>
+			<Tool
+				Name="VCCustomBuildTool"
+				Description="Copying header files..."
+				CommandLine="copy *.h $(SolutionDir)\..\include&#x0D;&#x0A;"
+				Outputs="$(SolutuionDir)\..\include\snet.h"
+			/>
+			<Tool
+				Name="VCXMLDataGeneratorTool"
+			/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+			/>
+			<Tool
+				Name="VCCLCompilerTool"
+				Optimization="2"
+				EnableIntrinsicFunctions="true"
+				PreprocessorDefinitions="WIN32;NDEBUG;_LIB"
+				RuntimeLibrary="2"
+				EnableFunctionLevelLinking="true"
+				UsePrecompiledHeader="0"
+				AssemblerListingLocation="$(IntDir)/"
+				WarningLevel="3"
+				DebugInformationFormat="3"
+			/>
+			<Tool
+				Name="VCManagedResourceCompilerTool"
+			/>
+			<Tool
+				Name="VCResourceCompilerTool"
+			/>
+			<Tool
+				Name="VCPreLinkEventTool"
+			/>
+			<Tool
+				Name="VCLibrarianTool"
+				OutputFile="$(OutDir)\snet.lib"
 			/>
 			<Tool
 				Name="VCALinkTool"
@@ -211,8 +221,8 @@
 		</Configuration>
 		<Configuration
 			Name="Release|x64"
-			OutputDirectory="$(SolutionDir)$(PlatformName)\$(ConfigurationName)"
-			IntermediateDirectory="$(PlatformName)\$(ConfigurationName)"
+			OutputDirectory="$(SolutionDir)\..\lib64"
+			IntermediateDirectory="build\$(PlatformName)\$(ConfigurationName)"
 			ConfigurationType="4"
 			CharacterSet="1"
 			WholeProgramOptimization="1"
@@ -222,8 +232,9 @@
 			/>
 			<Tool
 				Name="VCCustomBuildTool"
-				CommandLine="copy *.h ..\..\include&#x0D;&#x0A;"
-				Outputs="..\..\include\snet.h"
+				Description="Copying header files..."
+				CommandLine="copy *.h $(SolutionDir)\..\include&#x0D;&#x0A;"
+				Outputs="$(SolutuionDir)\..\include\snet.h"
 			/>
 			<Tool
 				Name="VCXMLDataGeneratorTool"
@@ -243,6 +254,7 @@
 				RuntimeLibrary="2"
 				EnableFunctionLevelLinking="true"
 				UsePrecompiledHeader="0"
+				AssemblerListingLocation="$(IntDir)/"
 				WarningLevel="3"
 				DebugInformationFormat="3"
 			/>
@@ -257,7 +269,7 @@
 			/>
 			<Tool
 				Name="VCLibrarianTool"
-				OutputFile="..\..\lib\snet.lib"
+				OutputFile="$(OutDir)\snet.lib"
 			/>
 			<Tool
 				Name="VCALinkTool"
