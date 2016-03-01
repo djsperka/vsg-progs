@@ -1,4 +1,4 @@
-' $Id: Attention.s2s,v 1.44 2013-02-28 18:19:51 devel Exp $
+' $Id: Attention.s2s,v 1.45 2016-03-01 00:44:24 devel Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -1550,7 +1550,7 @@ func ReplaceGratingColorVector$(gspec$, cvspec$)
     var i%;
     ' i1% and i2% are the index positions of the 8th and 9th commas
     PrintLog(gspec$ + "\n");
-    for i% := 1 to 7 do
+    for i% := 1 to 10 do
         index% := InStr(gspec$, ",", index%+1);
         PrintLog("%d index %d\n", i%, index%);
     next;
