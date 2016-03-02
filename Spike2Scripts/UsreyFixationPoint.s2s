@@ -7,6 +7,8 @@
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
 #include "../../Spike2Util/RigName.s2s"
+#include "../../Spike2util/UsreyUtil.s2s"
+
 
 var WindowRadius;
 var FixationX, FixationY;
