@@ -1035,8 +1035,8 @@ func IdleProcessing%()
         
         'get eye position, but don't check if tNow is small enough that we would give a negative value to ChanMeasure
         if tNow > .006 then
-            xEye := View(DataWindow%).ChanMeasure(XChannel%,2,tNow-.001,tNow-.006)*DegreesPerVoltX;
-            yEye := View(DataWindow%).ChanMeasure(YChannel%,2,tNow-.001,tNow-.006)*DegreesPerVoltY;
+            xEye := View(DataWindow%).ChanMeasure(XChannel%,2,tNow-.006,tNow-.001)*DegreesPerVoltX;
+            yEye := View(DataWindow%).ChanMeasure(YChannel%,2,tNow-.006,tNow-.001)*DegreesPerVoltY;
         endif;
         
         ' Don't update eye position display every time....

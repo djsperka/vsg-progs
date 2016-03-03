@@ -1,6 +1,6 @@
 
 
-const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.62 2015-05-13 22:03:47 devel Exp $";
+const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.63 2016-03-03 00:16:45 devel Exp $";
 
 
 ' Hello again
@@ -1092,8 +1092,8 @@ func IdleProcessing%()
     
     'Get eye position
     if dhIsHuman% = 0 then
-        xEye := View(DataWindow%).ChanMeasure(XChannel%,2,tNow-.001,tNow-.006)*DegreesPerVoltX;
-        yEye := View(DataWindow%).ChanMeasure(YChannel%,2,tNow-.001,tNow-.006)*DegreesPerVoltY;
+        xEye := View(DataWindow%).ChanMeasure(XChannel%,2,tNow-.006,tNow-.001)*DegreesPerVoltX;
+        yEye := View(DataWindow%).ChanMeasure(YChannel%,2,tNow-.006,tNow-.001)*DegreesPerVoltY;
         
         ' Get and display joystick voltage and position
         if dhUseJoystick% = 1 then

@@ -14,6 +14,7 @@
 '
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
+
 '	Vars that control the Attention script 
 
 const caMaxTrl% := 5000;  'should be enough, yes?
@@ -36,6 +37,9 @@ var caTrainingHoldTime;
 var caFixAlternationTime;
 var caRequireFixation%;
 var caAllowFixationBreakAfterCC%;
+'var caAllowSaccadeResponse%;  'this was a proposed intermediate step that Evan decided was unnecessary
+var caRequireSaccadeResponse%;
+var caAdditionalWindowRadius;
 var caReturnForReward%;
 var inputFileHandle% := -1;  'start negative, requires user to open an input file
 var caBackgroundColor$ := "gray";  'for now just hardcoding the bg color, if we need it we can put this back in from AttenGNG
@@ -89,10 +93,11 @@ const caTimingDlgTrainingOptions% := 10;
 const caTimingDlgTrainingHoldTime% := 11;
 const caTimingDlgFixAlternationTime% := 12;
 const caTimingDlgRequireFixation% := 13;
-const caTimingDlgReturnForReward% := 14;
-const caTimingDlgStartTrial% := 15;
-const caTimingDlgInitialDeadTime% := 16;
-const caTimingDlgEEGSignals% := 17;
+const caTimingDlgAdditionalWindowRadius% := 14;
+const caTimingDlgReturnForReward% := 15;
+const caTimingDlgStartTrial% := 16;
+const caTimingDlgInitialDeadTime% := 17;
+const caTimingDlgEEGSignals% := 18;
 
 'const caTimingDlgCycleTrials% := 15;  'Not used
 
@@ -118,6 +123,13 @@ var caAlternateGoTime[caMaxTrl%];  'time at which a response changes from an int
 'note that if AttendLoc and CorrectResponse are the same, the trial is valid.  (Barring possible 0/other entry in Response, but not accounting for that until it happens)
 'Note that for the time being this is actually not used because it is a go/no-go design
 var caCueFile$[caMaxTrl%];  'location of cue file
+var b1$[caMaxTrl%];  'file read variable, will ignore
+var b2$[caMaxTrl%];  'file read variable, will ignore
+var b3$[caMaxTrl%];  'file read variable, will ignore
+var caFileFixParams$[caMaxTrl%];  'input file fixation parameters
+var caFileGrating1Params$[caMaxTrl%];  'input file grating 1 parameters
+var caFileGrating2Params$[caMaxTrl%];  'input file grating 2 parameters
+
 var caWhichLocationChanges%[caMaxTrl%];  'we will determine which location (if any) changes, 1 = "target", 2 = "distractor1", 0 = "none"
 
 var caFixationTime;  'not yet filled, probably do that in PrepareTrial
@@ -228,6 +240,8 @@ const stateWaitForBlankTraining% := 33;
 const stateTrainingWait% := 34;
 const stateWaitForAnswerFC% := 35;
 const stateInitialDeadTime% := 36;
+const stateCheckFalseAlarmSaccade% := 37;
+const stateWaitForAnswerSaccade% := 38;
 
 const trialtypeAttendToward% := 100;
 const trialtypeAttendAway% := 101;
@@ -266,106 +280,116 @@ endif;
 'parse input file, but only if an input file exists (training options 3 and 4)
 if caTrainingOptions% > 2 then
     
-    readsetup(",","	 ","","","	"); 'Hard separator is a comma
-    'Soft separators are spaces and tabs
-    'No delimiter is set for the start of a string
-    'No delimiter is set for the end of a string
-    'The hard separator character for strings that have no start delimiter is set to a tab
-    'This combo will gracefully deal with multiple tabs anywhere and any number
-    'of leading (but NOT trailing) spaces
-    var eof% := 1;
-    var j%;
-    while eof% > 0 do  'the nice thing about READ is that when we tack junk onto the end of the line, we don't have to rewrite this code, anything left over on the line is just skipped, second call to read starts at beginning of second line 
-        eof% := read(caCueOn[j%],caCueOff[j%],caStimOn[j%],caContrastChange[j%],caStimOff[j%],
-        caContrast1Init[j%],caContrast1Final[j%],caContrast2Init[j%],caContrast2Final[j%],
-        caAttendLoc%[j%],caAlternateGoTime[j%],caCueFile$[j%]);  
-        j%+=1;  'increment count
-    wend
-    'We still need to use caAttendLoc and caCorrectResponse
-    
-    caNumberOfTrials% := j%-1;  'we need to decrement for the final increment because the final read will "fail", but not decrement for the penultimate increment because j% is a zero-based index
-    
-    'This works, but the read REQUIRES a tab after the filename, can't parse the other stuff if not - or put filename at end!
-    'These lines are just to check a successful read of the input file
-    '    for j% := 0 to 2 do
-    '        printlog("Cue On = %f, Cue Off = %f, Stim On = %f, Contrast Change Time = %f, Stim Off = %f, C1Init = %f, C1Final = %f, C2Init = %f, C2Final = %f, AttendLoc = %d, Correct Response = %d, Cue File = %s\n",
-    '        caCueOn[j%],caCueOff[j%],caStimOn[j%],caContrastChange[j%],caStimOff[j%],caContrast1Init[j%],caContrast1Final[j%],caContrast2Init[j%],caContrast2Final[j%],caAttendLoc%[j%],caAlternateGoTime[j%],caCueFile$[j%]); 
-    '    next
-    
-    ''Close the input file (opened by the dialog box), but get the filename first, we'll pass that to the VSG
-    ''view(inputFileHandle%);
-    ''specFileName$ := FileName$();  'This is the full path and filename
-    'Close the input file opened by the dialog box
-    View(inputFileHandle%);
-    FileClose();
-    
-    
-    'Do initial dummyproofing of requested cue images - we will also dummyproof the contrast changes here
-    'First, consolidate the list of images
-    var nUniqueCues% := 1;  'we'll start with one unique cue file, and go from there
-    var uniqueCueFile$[caMaxTrl%];
-    var jj%;  'another looping variable
-    var found := 0;
-    uniqueCueFile$[0] := caCueFile$[0];  'just put the first one in.
-    for j% := 1 to caNumberOfTrials%-1 do  'don't need to start at 0, first file is unique by definition
-        'here is the bit that consolidates the images
-        found := 0;
-        jj% := 0;
-        while jj% <= nUniqueCues%-1 do
-            if caCueFile$[j%] = uniqueCueFile$[jj%] then  'we've already got this one
-                found := 1;
-                jj% := nUniqueCues%;  'break the while loop
-            else
-                jj% += 1;
-            endif
+    'the input file should be open already - the TimingDialog%() opens it via 
+    if caSpecFileOpen% = 0 then
+        
+        PrintLog("Error - spec file is not open, but should be - exitting gracefully\n");
+        message("Error - the spec file is not open, but should be!  Quitting!");
+        Halt;
+        
+    else 'read the input file
+
+        readsetup(",","	 ","","","	"); 'Hard separator is a comma
+        'Soft separators are spaces and tabs
+        'No delimiter is set for the start of a string
+        'No delimiter is set for the end of a string
+        'The hard separator character for strings that have no start delimiter is set to a tab
+        'This combo will gracefully deal with multiple tabs anywhere and any number
+        'of leading (but NOT trailing) spaces
+        var eof% := 1;
+        var j%;
+        while eof% > 0 do  'the nice thing about READ is that when we tack junk onto the end of the line, we don't have to rewrite this code, anything left over on the line is just skipped, second call to read starts at beginning of second line 
+            eof% := read(caCueOn[j%],caCueOff[j%],caStimOn[j%],caContrastChange[j%],caStimOff[j%],
+            caContrast1Init[j%],caContrast1Final[j%],caContrast2Init[j%],caContrast2Final[j%],
+            caAttendLoc%[j%],caAlternateGoTime[j%],caCueFile$[j%],b1$[j%],caFileFixParams$[j%],b2$[j%],caFileGrating1Params$[j%],b3$[j%],caFileGrating2Params$[j%]);  
+            j%+=1;  'increment count
         wend
-        if found = 0 then 
-            uniqueCueFile$[nUniqueCues%] := caCueFile$[j%];
-            nUniqueCues% += 1;
-        endif
-    next
+        'We still need to use caAttendLoc and caCorrectResponse
+        
+        caNumberOfTrials% := j%-1;  'we need to decrement for the final increment because the final read will "fail", but not decrement for the penultimate increment because j% is a zero-based index
+        
+        'This works, but the read REQUIRES a tab after the filename, can't parse the other stuff if not - or put filename at end!
+        'These lines are just to check a successful read of the input file
+        '    for j% := 0 to 2 do
+        '        printlog("Cue On = %f, Cue Off = %f, Stim On = %f, Contrast Change Time = %f, Stim Off = %f, C1Init = %f, C1Final = %f, C2Init = %f, C2Final = %f, AttendLoc = %d, Correct Response = %d, Cue File = %s\n",
+        '        caCueOn[j%],caCueOff[j%],caStimOn[j%],caContrastChange[j%],caStimOff[j%],caContrast1Init[j%],caContrast1Final[j%],caContrast2Init[j%],caContrast2Final[j%],caAttendLoc%[j%],caAlternateGoTime[j%],caCueFile$[j%]); 
+        '    next
+        
+        ''Close the input file (opened by the dialog box), but get the filename first, we'll pass that to the VSG
+        ''view(inputFileHandle%);
+        ''specFileName$ := FileName$();  'This is the full path and filename
+        'Close the input file opened by the dialog box
+        View(inputFileHandle%);
+        FileClose();
+        
+        
+        'Do initial dummyproofing of requested cue images - we will also dummyproof the contrast changes here
+        'First, consolidate the list of images
+        var nUniqueCues% := 1;  'we'll start with one unique cue file, and go from there
+        var uniqueCueFile$[caMaxTrl%];
+        var jj%;  'another looping variable
+        var found := 0;
+        uniqueCueFile$[0] := caCueFile$[0];  'just put the first one in.
+        for j% := 1 to caNumberOfTrials%-1 do  'don't need to start at 0, first file is unique by definition
+            'here is the bit that consolidates the images
+            found := 0;
+            jj% := 0;
+            while jj% <= nUniqueCues%-1 do
+                if caCueFile$[j%] = uniqueCueFile$[jj%] then  'we've already got this one
+                    found := 1;
+                    jj% := nUniqueCues%;  'break the while loop
+                else
+                    jj% += 1;
+                endif
+            wend
+            if found = 0 then 
+                uniqueCueFile$[nUniqueCues%] := caCueFile$[j%];
+                nUniqueCues% += 1;
+            endif
+        next
         'here is the bit that assigns caWhichLocationChanges%[] - this will help us determine if it is a catch trial or not
-    for j% := 0 to caNumberOfTrials%-1 do  'THIS needs to start at 0
-        docase
-        case (caContrast1Init[j%] <> caContrast1Final[j%]) and (caContrast2Init[j%] <> caContrast2Final[j%]) then
-            message("On trial #%d, BOTH gratings change contrast, this is not currently allowed!  Quitting!",j%);
-            halt;
-        case caContrast1Init[j%] <> caContrast1Final[j%] then
-            caWhichLocationChanges%[j%] := 1;
-        case caContrast2Init[j%] <> caContrast2Final[j%] then
-            caWhichLocationChanges%[j%] := 2; 
-        else
-            caWhichLocationChanges%[j%] := 0; 
-        endcase
-        'For now, I am not allowing an undefined attend location (e.g. "no attend"). However "no attend" is ready to go in PrepareTrial in case this changes
-        if caAttendLoc%[j%] <> 1 and caAttendLoc%[j%] <> 2 and caAttendLoc%[j%] <> 3 then
-            message("On trial #%d, there is no defined attend location, this is not currently allowed!  Quitting!",j%);
-            halt;
-        endif;
-    next
-    
-    
-    'Second make sure all images have the .bmp extension
-    for j% := 0 to nUniqueCues%-1 do
-        if Right$(uniqueCueFile$[j%],4) <> ".bmp" then
-            message("The cue image '%s' is not a .bmp!  Quitting!",uniqueCueFile$[j%]);
-            halt;
-        endif
-    next
-    'Third, make sure all files exist...I don't know if there is a good way of doing this outside of opening them!
-    'However, we only have to open one instance of each cue - the unique list - so that should save lots of time
-    var openSuccess%;
-    for j% := 0 to nUniqueCues%-1 do
-        openSuccess% := FileOpen(uniqueCueFile$[j%],9);
-        if openSuccess% > 0 then 'just close it
-            view(openSuccess%);
-            FileClose();
-        else
-            message("The cue image '%s' does not exist!  Quitting!",uniqueCueFile$[j%]);
-            halt;
-        endif
-    next
-    
+        for j% := 0 to caNumberOfTrials%-1 do  'THIS needs to start at 0
+            docase
+            case (caContrast1Init[j%] <> caContrast1Final[j%]) and (caContrast2Init[j%] <> caContrast2Final[j%]) then
+                message("On trial #%d, BOTH gratings change contrast, this is not currently allowed!  Quitting!",j%);
+                halt;
+            case caContrast1Init[j%] <> caContrast1Final[j%] then
+                caWhichLocationChanges%[j%] := 1;
+            case caContrast2Init[j%] <> caContrast2Final[j%] then
+                caWhichLocationChanges%[j%] := 2; 
+            else
+                caWhichLocationChanges%[j%] := 0; 
+            endcase
+            'For now, I am not allowing an undefined attend location (e.g. "no attend"). However "no attend" is ready to go in PrepareTrial in case this changes
+            if caAttendLoc%[j%] <> 1 and caAttendLoc%[j%] <> 2 and caAttendLoc%[j%] <> 3 then
+                message("On trial #%d, there is no defined attend location, this is not currently allowed!  Quitting!",j%);
+                halt;
+            endif;
+        next
+        
+        
+        'Second make sure all images have the .bmp extension
+        for j% := 0 to nUniqueCues%-1 do
+            if Right$(uniqueCueFile$[j%],4) <> ".bmp" then
+                message("The cue image '%s' is not a .bmp!  Quitting!",uniqueCueFile$[j%]);
+                halt;
+            endif
+        next
+        'Third, make sure all files exist...I don't know if there is a good way of doing this outside of opening them!
+        'However, we only have to open one instance of each cue - the unique list - so that should save lots of time
+        var openSuccess%;
+        for j% := 0 to nUniqueCues%-1 do
+            openSuccess% := FileOpen(uniqueCueFile$[j%],9);
+            if openSuccess% > 0 then 'just close it
+                view(openSuccess%);
+                FileClose();
+            else
+                message("The cue image '%s' does not exist!  Quitting!",uniqueCueFile$[j%]);
+                halt;
+            endif
+        next
+        
+    endif
 endif
 
 
@@ -426,6 +450,8 @@ proc GetTimingDialogParameters()
 	caJoyRight := val(stmp$); 
     Profile(key$, "RequireFixation", "1.0", stmp$);
 	caRequireFixation% := val(stmp$);
+    Profile(key$, "AdditionalWindowRadius", "1.0", stmp$);
+	caAdditionalWindowRadius := val(stmp$);
     Profile(key$, "ReturnForReward", "1.0", stmp$);
 	caReturnForReward% := val(stmp$);
     Profile(key$, "TrainingOptions", "0.0", stmp$);
@@ -461,6 +487,7 @@ proc SaveTimingDialogParameters()
     Profile(key$, "FixAlternationTime", str$(caFixAlternationTime));
     Profile(key$, "JoyRight", str$(caJoyRight));
     Profile(key$, "RequireFixation", str$(caRequireFixation%));
+    Profile(key$, "AdditionalWindowRadius", str$(caAdditionalWindowRadius));
     Profile(key$, "ReturnForReward", str$(caReturnForReward%));
     Profile(key$, "TrainingOptions", str$(caTrainingOptions%));
     Profile(key$, "InterTrialTimeRand", str$(caInterTrialTimeRand));
@@ -477,7 +504,7 @@ func TimingDialog%()
     var i%;
     const nOpts% := 5;
     var trainingOptionsList$[nOpts%];
-    var fixationOptionsList$[4];
+    var fixationOptionsList$[6];
     var tempAW;
     
     
@@ -490,7 +517,9 @@ func TimingDialog%()
     fixationOptionsList$[0] := "Fixation:  None"; 
     fixationOptionsList$[1] := "Fixation:  Require Fixation"; 
     fixationOptionsList$[2] := "Fixation:  Require Fixation Until CC";
-    fixationOptionsList$[3] := "Fixation:  Monitor Eye Position Only";
+    'fixationOptionsList$[3] := "Fixation:  Allow Saccade Response";  'this was an intermediate step Evan decided was unnecessary
+    fixationOptionsList$[3] := "Fixation:  Require Saccade Response";
+    fixationOptionsList$[4] := "Fixation:  Monitor Eye Position Only";
     
     GetTimingDialogParameters();
     
@@ -509,17 +538,18 @@ func TimingDialog%()
     DlgReal(caTimingDlgTrainingHoldTime%, "Joystick Hold Time To Reward/Stimulus(s): ", .01, 10);
     DlgReal(caTimingDlgFixAlternationTime%, "Fixation Point On/Off Time (training)(s): ", .01, 10);
     'DlgCheck(caTimingDlgRequireFixation%, "Require Fixation",50);
-    DlgList(caTimingDlgRequireFixation%, 60, fixationOptionsList$[], 4);
+    DlgList(caTimingDlgRequireFixation%, 60, fixationOptionsList$[], 6);
+    DlgReal(caTimingDlgAdditionalWindowRadius%, "Additional Eye Window Radius (deg)",-10,10);
     DlgCheck(caTimingDlgReturnForReward%, "Return for Reward",50);
     DlgInteger(caTimingDlgStartTrial%, "Start Trial",1,caMaxTrl%);
     DlgReal(caTimingDlgInitialDeadTime%, "Initial Dead Time (s): ", 0, 100);
     DlgCheck(caTimingDlgEEGSignals%, "Send EEG signals");
     
-    caTextCallbackItemNumber% := DlgText("Text!",2,caTimingDlgRequireFixation%+6,60);
-    DlgButton(2, "Use Above Input File", UseInputFile%,2,caTimingDlgRequireFixation%+7);
-    DlgButton(3, "Select An Input File", OpenInputFile%,2,caTimingDlgRequireFixation%+8);
-    DlgButton(4, "Fixation Point Dialog", FixationPointDialog%,2,caTimingDlgRequireFixation%+9);
-    DlgButton(5, "Joystick Dialog", JoystickConfigDialog%,2,caTimingDlgRequireFixation%+10);
+    caTextCallbackItemNumber% := DlgText("Text!",2,caTimingDlgRequireFixation%+7,60);
+    DlgButton(2, "Use Above Input File", UseInputFile%,2,caTimingDlgRequireFixation%+8);
+    DlgButton(3, "Select An Input File", OpenInputFile%,2,caTimingDlgRequireFixation%+9);
+    DlgButton(4, "Fixation Point Dialog", FixationPointDialog%,2,caTimingDlgRequireFixation%+10);
+    DlgButton(5, "Joystick Dialog", JoystickConfigDialog%,2,caTimingDlgRequireFixation%+11);
     
     DlgAllow(0, 0, TimingDialogChanged%);
     
@@ -527,7 +557,7 @@ func TimingDialog%()
     '              caTrainingHoldTime,caFixAlternationTime,caRequireFixation%,caReturnForReward%,caStartTrial%);
     
     i% := DlgShow(caAcquisitionTime,caFixationTime,caInterTrialTime,caInterTrialTimeRand,caAbortWaitTime,caAbort2WaitTime,caFalseAlarmWaitTime,caFalseAlarmCheckWindow,caMissPenalty,caTrainingOptions%,
-                  caTrainingHoldTime,caFixAlternationTime,caRequireFixation%,caReturnForReward%,caStartTrial%,caInitialDeadTime,caEEGSignals%);
+                  caTrainingHoldTime,caFixAlternationTime,caRequireFixation%,caAdditionalWindowRadius,caReturnForReward%,caStartTrial%,caInitialDeadTime,caEEGSignals%);
     
     if i% = 1 then        
         
@@ -540,13 +570,23 @@ func TimingDialog%()
 
         SaveTimingDialogParameters();
         
-        'Change value of caRequireFixation to -1 if it is 3 (monitor eye position only), because that's what the code expects.
-        if caRequireFixation% = 3 then
+        'Change value of caRequireFixation to -1 if it is 5 (monitor eye position only), because that's what the code expects.
+        if caRequireFixation% = 4 then
             caRequireFixation% := -1;
         endif;
         
-        'If we only require fixation until contrast change
-        if caRequireFixation% = 2 then
+        'Change value of caRequireSaccadeResponse based on caRequireFixation result
+        docase
+        case caRequireFixation% = 3 then
+            caRequireSaccadeResponse% := 1;
+        'case caRequireFixation% = 3 then  'this was an intermediate step that Evan decided was unnecessary
+        '    caAllowSaccadeResponse% := 1;
+        else
+            caAdditionalWindowRadius := 0;  'do not display additional stimulus window size if saccade response is not applicable, parameters have already been saved so if this was changed it will save in registry
+        endcase;
+        
+        'If we only require fixation until contrast change, or if we allow/expect a saccade response
+        if caRequireFixation% > 1 then
             caAllowFixationBreakAfterCC% := 1;  'allow break after CC
             caRequireFixation% := 1;  'set require fixation to 1 as expected
         else
@@ -561,7 +601,7 @@ func TimingDialog%()
         endif;
         
         'we actually have to do this no matter what, because the default fixation dialog doesn't assign FixationColor$, but the Get function does
-        GetFixationPointParameters();    'fills FixationX,FixationY,FixationColor$,FixationDiameter
+        GetFixationPointParameters();    'fills FixationX,FixationY,FixationColor$,FixationDiameter, WindowRadius
         return 1;
     else   
         Printlog("Timing Dialog was cancelled!\n");
@@ -669,6 +709,12 @@ func TimingDialogChanged%(item%)
         DlgValue$(caTextCallbackItemNumber%,"Control File: " + specFileName$);
     endcase
     
+    if DlgValue(caTimingDlgRequireFixation%) = 3 or DlgValue(caTimingDlgRequireFixation%) = 4 then
+        DlgEnable(1,caTimingDlgAdditionalWindowRadius%); 'enable additional radius entry
+    else
+        DlgEnable(0,caTimingDlgAdditionalWindowRadius%); 'disable additional radius entry
+    endif;
+    
     return status%;
 end
 
@@ -770,10 +816,14 @@ proc CreateSampleConfiguration()
     SampleComment$(StimChannel%,"Stim");
     SampleTitle$(StimChannel%,"Stim");
     
-    printlog("Joy channel is %d and joystick port is %d\n", JoyChannel%, GetJoystickPort%());
-    var ok%;
-    ok%:=SampleWaveform(JoyChannel%, GetJoystickPort%(), 1000);
-	SampleTitle$(JoyChannel%, "Joy");
+    'Create joystick channel, but only if the joystick is actually present
+    if caRequireSaccadeResponse% = 0 then  
+        printlog("Joy channel is %d and joystick port is %d\n", JoyChannel%, GetJoystickPort%());
+        var ok%;
+        ok%:=SampleWaveform(JoyChannel%, GetJoystickPort%(), 1000);
+        SampleTitle$(JoyChannel%, "Joy");
+    endif;
+    
     
     
     if ok% < 0 then
@@ -825,6 +875,10 @@ end;
 
 proc InitializeWindows()
     
+    var index%;
+    var twopi;
+    twopi := 2.0*4.0*ATan(1.0);
+    
 	'Open the data sampling window
 	DataWindow% := FileNew(0,4);  'show spike shape setup dialog
     printlog("datawindow is %d\n",dataWindow%);
@@ -846,14 +900,11 @@ proc InitializeWindows()
     endif
     
     
-    if caRequireFixation% <> 0 then  'don't set up eye windows unless we are looking at eye position, training step 3 or later
-        
+    if caRequireFixation% <> 0 or caTrainingOptions% > 2 then  'don't set up eye windows unless we are looking at eye position, training step 3 or later
+        'this will set up a window to display the fixpt, fixwindow, and monitor position if eyes are being tracked
+        'OR for more advanced experiments regardless of eyetracking
         
         'Calcuate the fixation window
-        var index%;
-        var twopi;
-        twopi := 2.0*4.0*ATan(1.0);
-        
         for index% := 0 to 35 do
             FixWindowX[index%] := FixationX + WindowRadius * Cos(index% * twopi/36.0);
             FixWindowY[index%] := FixationY + WindowRadius * Sin(index% * twopi/36.0);
@@ -883,11 +934,23 @@ proc InitializeWindows()
     endif;
     
     
-    'Evan wants answer windows which tell him which stimulus will change, even though the eyes should remain at fixation   
+    'Evan wants answer windows which tell him which stimulus will change, even though the eyes should remain at fixation 
+    'This sets up answer window displays regardless of whether the eyes are being tracked    
     if caTrainingOptions% > 2 then
         'get locations of stimuli so that answer windows overlap them
         ParseGratingParametersBrief%(GetGratingParameters$("Stimulus"),mainX,mainY,mainW,mainH); 
         ParseGratingParametersBrief%(GetGratingParameters$("Distractor1"),dist1X,dist1Y,dist1W,dist1H);
+        
+        'change window radius, this will apply both to display window and answer window
+        mainW := mainW + caAdditionalWindowRadius;
+        mainH := mainH + caAdditionalWindowRadius;
+        dist1W := dist1W + caAdditionalWindowRadius;
+        dist1H := dist1H + caAdditionalWindowRadius;
+        
+        if mainW <= 0 or mainH <= 0 or dist1W <= 0 or dist1H <= 0 then
+            message("One of the grating window sizes has been adjusted to be less than zero!  Quitting!");
+            Quit%();
+        endif;
         
         
         'Create new channels in the XY view to display the answer windows
@@ -917,15 +980,17 @@ proc InitializeWindows()
         'Draw the answer window
         XYAddData(iAnswerWindowChannelDist1%, FixWindowX[], FixWindowY[]);
         
-        if caRequireFixation% = 0 then
-            'Create a new channel in the XY view to display the "fixation" window even though there is no fixation (if there is fixation this was displayed above)
-            iFixationWindowChannel% := XYSetChan(0);
-            XYColour(iFixationWindowChannel%,13);
-            XYDrawMode(iFixationWindowChannel%,2,1);
-            XYJoin(iFixationWindowChannel%,1);
-            'Draw the fixation window
-            XYAddData(iFixationWindowChannel%, FixWindowX[], FixWindowY[]);
-        endif;
+        
+'The logic here seems bizarre, and unlikely to be correct anyway.  Changed above if statement to do this above if necessary.      
+'        if caRequireFixation% = 0 then
+'            'Create a new channel in the XY view to display the "fixation" window even though there is no fixation (if there is fixation this was displayed above)
+'            iFixationWindowChannel% := XYSetChan(0);
+'            XYColour(iFixationWindowChannel%,13);
+'            XYDrawMode(iFixationWindowChannel%,2,1);
+'            XYJoin(iFixationWindowChannel%,1);
+'            'Draw the fixation window
+'            XYAddData(iFixationWindowChannel%, FixWindowX[], FixWindowY[]);
+'        endif;
                 
         
     endif;
@@ -1215,8 +1280,8 @@ func IdleProcessing%()
             
             'get eye position, but don't check if tNow is small enough that we would give a negative value to ChanMeasure
             if tNow > .006 then
-                xEye := View(DataWindow%).ChanMeasure(XChannel%,2,tNow-.001,tNow-.006)*DegreesPerVoltX;
-                yEye := View(DataWindow%).ChanMeasure(YChannel%,2,tNow-.001,tNow-.006)*DegreesPerVoltY;
+                xEye := View(DataWindow%).ChanMeasure(XChannel%,2,tNow-.006,tNow-.001)*DegreesPerVoltX;
+                yEye := View(DataWindow%).ChanMeasure(YChannel%,2,tNow-.006,tNow-.001)*DegreesPerVoltY;
             endif;
             
             ' Don't update eye position display every time....
@@ -1254,9 +1319,16 @@ func IdleProcessing%()
         case iState% = stateInitialDeadTime% then
             'waiting through an initial dead period that Evan wants before the first stimulus
             if tNow - tStateStart > caInitialDeadTime then
-                ChangeStateTo(stateWaitForJoystickInCenter%, tNow);
-                nextStateImmed% := 1;
-                SampleText("Dead Time Over",tNow);
+                if caRequireSaccadeResponse% = 1 then
+                    'if we require a saccade response, skip the joystick centering step, joystick will not be used
+                    ChangeStateTo(stateStartTrial%, tNow);
+                    nextStateImmed% := 1;
+                    SampleText("Dead Time Over",tNow);
+                else
+                    ChangeStateTo(stateWaitForJoystickInCenter%, tNow);
+                    nextStateImmed% := 1;
+                    SampleText("Dead Time Over",tNow);
+                endif;
             endif;
             
             
@@ -1273,6 +1345,7 @@ func IdleProcessing%()
                 if tempanswer% = 2 then
                     PrintLog("state stateWaitForJoystickInCenter: Joystick is in center\n");
                 endif;
+                
                 docase
                 case caTrainingOptions% = 0 then
                     ChangeStateTo(stateWaitForJoystickInRight%,tNow);
@@ -1281,7 +1354,7 @@ func IdleProcessing%()
                 case caTrainingOptions% = 2 then  'don't require acquisition until the fixpt is actually ON
                     ChangeStateTo(stateStartTrial%,tNow);
                 case caTrainingOptions% = 3 then
-                    ChangeStateTo(stateWaitForJoystickInRight%,tNow);  'Animal will need to move joystick first, then trial starts
+                    ChangeStateTo(stateWaitForJoystickInRight%,tNow);  'Animal will need to move joystick first, then trial starts   
                 case caTrainingOptions% = 4 then  'cue image forced choice needs joystick to start in center, don't require acquisition until the fixpt is actually ON
                     ChangeStateTo(stateStartTrial%,tNow);    
                 endcase
@@ -1405,6 +1478,7 @@ func IdleProcessing%()
             UpdateToolbarText();
             PrepareTrial();
             printlog("Starting trial #%d\n",caCurrTrialIndex%+1);
+            SampleText("Trial "+Str$(caCurrTrialIndex%+1),tNow);
             caCountAllTrials% += 1;
             'SafeSampleKey("W");
             if caTrainingOptions% <= 3 then 
@@ -1649,7 +1723,7 @@ func IdleProcessing%()
         case iState% = stateAbortWait% then
             
             'If joystick has not been centered, allow any centering here to count
-            if joystickHasBeenCentered% = 0 then
+            if joystickHasBeenCentered% = 0 and caRequireSaccadeResponse% = 0 then   'don't bother if we are using saccade response
                 tempanswer% := Answer%(JoyChannel%,tNow);
                 'printlog("Joystick is in position %d\n",tempanswer% );
                 if tempanswer% = 2 then
@@ -1670,6 +1744,14 @@ func IdleProcessing%()
                 endif
             endif
             
+            
+            
+        case iState% = stateFalseAlarmWait% then
+            
+            if tNow - tStateStart > caFalseAlarmWaitTime then
+                PrintLog("stateFalseAlarmWait: time out is done.\n");
+                ChangeStateTo(stateTrialCompleted%, tNow);
+            endif      
             
             
             
@@ -1698,12 +1780,28 @@ func IdleProcessing%()
             endif;
             
             
-        case iState% = stateFalseAlarmWait% then
+        case iState% = stateCheckFalseAlarmSaccade% then
             
-            if tNow - tStateStart > caFalseAlarmWaitTime then
-                PrintLog("stateFalseAlarmWait: time out is done.\n");
-                ChangeStateTo(stateTrialCompleted%, tNow);
-            endif        
+            if tNow - tStateStart < caFalseAlarmCheckWindow then
+                tempanswer% := EyeAnswer%(xEye,yEye);
+                docase
+                case tempanswer% = 1 then 'response to target
+                    PrintLog("stateCheckFalseAlarmSaccade: response to target, aborting trial.\n");
+                    FAIsResponse% := 1;
+                    ChangeStateTo(stateAbort%, tNow);
+                    SampleText(Print$("False Alarm saccade to target before stimulus on, trial aborted"),tNow);
+                case tempanswer% = -1 then 'overshot
+                    PrintLog("stateCheckFalseAlarmSaccade: response to distractor, aborting trial.\n");
+                    FAIsResponse% := 1;
+                    ChangeStateTo(stateAbort%, tNow);
+                    SampleText(Print$("False Alarm saccade to distractor before stimulus on, trial aborted"),tNow); 
+                endcase;
+            else 'credit the animal for time served on the abort if it's not a response
+                PrintLog("stateCheckFalseAlarmSaccade: no response in temporal window, aborting trial.\n");
+                ChangeStateTo(stateAbort%, tNow-caFalseAlarmCheckWindow); 
+                SampleText("Fixation broken, no response, trial aborted",tNow);
+            endif;
+                  
             
             
         case iState% = stateHoldFixationToCC% then
@@ -1713,7 +1811,13 @@ func IdleProcessing%()
             docase            
             case (Looking%(xEye, yEye) = 0 and caRequireFixation% = 1) or joystickInStartPosition% = 0 then  'if fixation broken/joystick moved, begin abort procedure, check to see if it's a FA
                 docase
-                'for image cue response training, if answer is allowed before "contrast change" and answer has occurred in appropriate window
+                'for saccade response, check for false alarm
+                case Looking%(xEye, yEye) = 0 and caRequireFixation% = 1 and caRequireSaccadeResponse% = 1 then  'fixation break, possible saccade FA response
+                    PrintLog("stateHoldFixationToCC: failure to hold fixation, checking for saccade FA, aborting trial.\n");
+                    'FAIsResponse% := 0;  'not a false alarm, just a fixation break
+                    ChangeStateTo(stateCheckFalseAlarmSaccade%, tNow);
+                    SampleText(Print$("failure to hold fixation to contrast change, checking for saccade FA, trial aborted"),tNow);   
+                'for image cue response training, if answer is allowed before "contrast change" and answer has occurred in appropriate window                    
                 case joystickInStartPosition% = 0 and caTrainingOptions% = 4 and tNow >= trialEarlyGoTime + tStateStart then  
                     ' Got an answer. Record marker for correct/incorrect answer
                     if tempanswer% = 3 then
@@ -1790,7 +1894,7 @@ func IdleProcessing%()
                     ChangeStateTo(stateAbort%, tNow);
                     SampleText(Print$("False Alarm (right) before contrast change, trial aborted"),tNow);
                     joystickHasBeenCentered% := 0;  'joystick not centered   
-                case Looking%(xEye, yEye) = 0 and caRequireFixation% = 1 then  'no joystick move, but a fixation break
+                case Looking%(xEye, yEye) = 0 and caRequireFixation% = 1 and caRequireSaccadeResponse% = 0 then  'no joystick move, but a fixation break
                     PrintLog("stateHoldFixationToCC: failure to hold fixation, aborting trial.\n");
                     FAIsResponse% := 0;  'not a false alarm, just a fixation break
                     ChangeStateTo(stateAbort%, tNow);
@@ -1804,11 +1908,14 @@ func IdleProcessing%()
             else 
                 if (tNow - tStateStart) > (trialHazardFunctionTime) then
                     ' we no longer turn off stimulus and advance it, but we DO allow response now
-                    if caTrainingOptions% <= 3 then
+                    docase
+                    case caTrainingOptions% <= 3 and caRequireSaccadeResponse% = 0 then  'use joystick response
                         ChangeStateTo(stateWaitForAnswer%, tStateStart+trialHazardFunctionTime);  'this will be the precise time rather than the "noticed" time
+                    case caTrainingOptions% <= 3 and caRequireSaccadeResponse% = 1 then  'use saccade response   
+                        ChangeStateTo(stateWaitForAnswerSaccade%, tStateStart+trialHazardFunctionTime);  'this will be the precise time rather than the "noticed" time
                     else 'forced choice
                         ChangeStateTo(stateWaitForAnswerFC%, tStateStart+trialHazardFunctionTime);  'this will be the precise time rather than the "noticed" time
-                    endif;
+                    endcase;
                     
                     'This docase sets the color of the changed location to red on the "monitor screen"
                     docase
@@ -1873,7 +1980,7 @@ func IdleProcessing%()
             
             
         case iState% = stateWaitForAnswer% then
-            'getPreciseTiming := 1;  'we need precise timing here, stay in while loop until we get eye movements we expect
+            'getPreciseTiming := 1;  'do we need precise timing here??
             if tNow - tStimOn > totalStimDur then  'no response, stimulus over, at this point we don't care where the eye position is
                 SafeSampleKey("X");  'turn off animation (also kills fixation point, animation is probably already off here)
                 if trialIsTarget% > 0 then 'GO trial, expected response
@@ -1972,6 +2079,127 @@ func IdleProcessing%()
                     endcase
                 endcase
             endif
+            
+            
+        case iState% = stateWaitForAnswerSaccade% then
+            'getPreciseTiming := 1;  'do we need precise timing here?? If so, stay in while loop until we get eye movements we expect
+            if tNow - tStimOn > totalStimDur then  'no response, stimulus over, at this point we don't care where the eye position is
+                SafeSampleKey("X");  'turn off animation (also kills fixation point, animation is probably already off here)
+                if trialIsTarget% > 0 then 'GO trial, expected response
+                    PrintLog("stateWaitForAnswer: no response on go trial, miss\n");
+                    if trialType% = trialtypeAttendToward% then
+                        SampleText("Miss, Attend Toward",tNow);
+                    else
+                        SampleText("Miss, Attend Away",tNow);
+                    endif;
+                    ChangeStateTo(stateMiss%, tNow); 'go to miss penalty
+                    SafeSampleKey("a");  'advance stimulus, won't happen anywhere else
+                    'joystick is not yet centered
+                else
+                    PrintLog("stateWaitForAnswer: no response on no-go trial, correct rejection\n");
+                    docase
+                    case trialType% = trialtypeAttendToward% then
+                        SampleText("Correct Rejection, Attend Toward",tNow);
+                    case trialType% = trialtypeAttendAway% then
+                        SampleText("Correct Rejection, Attend Away",tNow);
+                    case trialType% = trialtypeNoAttend% then
+                        SampleText("Correct Rejection, No Attend Direction",tNow);    
+                    endcase;
+                    caInterTrialTime2 := GetInterTrialTime(caInterTrialTime,caInterTrialTimeRand);
+                    Reward%();
+                    ChangeStateTo(stateTrialCompletedWaitForBlank%, tNow);  'stateTrialCompletedWaitForBlank will advance
+                    'joystick is not yet centered
+                endif;
+            else
+                'Stimulus is still on, response window is still open...
+                iAnswer% := EyeAnswer%(xEye, yEye);  'get answer
+                docase
+'                case Looking%(xEye, yEye) = 0 and caRequireFixation% = 1 and caAllowFixationBreakAfterCC% = 0 then  'if fixation broken, abort
+'                    SafeSampleKey("s");
+'                    SampleText("Fixation broken during response window",tNow);
+'                    PrintLog("stateWaitForAnswer: fix broken - turn off stim\n");
+'                    ChangeStateTo(stateAbort%, tNow);
+'                    abortIsPostCC% := 1;
+                    
+                case iAnswer% = 1 or iAnswer% = -1 then
+                    ' Got an answer. Record marker for correct/incorrect answer
+                    if iAnswer% = 1 then
+                        printlog("Saccade to main grating\n");
+                    else
+                        printlog("Saccade to distractor grating\n");
+                    endif
+                    
+                    docase
+                    case trialIsTarget% > 0 then  'there is a contrast change
+                        SafeSampleKey("X");  'turn off stimulus first thing
+                        caCountAllTrialsCorrect% += 1;
+                        docase
+                        case (trialIsTarget% = 1 and iAnswer% = 1) or (trialIsTarget% = 2 and iAnswer% = -1) then  'hit
+                            docase
+                            case trialType% = trialtypeAttendToward% then
+                                caCountTowardTrialsCorrect% += 1;
+                                SampleText("Hit, Attend Toward",tNow);
+                            case trialType% = trialtypeAttendAway% then
+                                caCountAwayTrialsCorrect% += 1;
+                                SampleText("Hit, Attend Away",tNow);
+                            case trialType% = trialtypeNoAttend% then
+                                caCountAwayTrialsCorrect% += 1;
+                                SampleText("Hit,  No Attend Direction",tNow);    
+                            else
+                                PrintLog("ERROR: Unknown trial type (" + str$(trialType%) + "\n");
+                                SampleText("Hit, Unknown trial type",tNow);
+                            endcase
+                            Reward%();
+                            ChangeStateTo(stateTrialCompletedWaitForBlank%, tNow); 
+                            caInterTrialTime2 := GetInterTrialTime(caInterTrialTime,caInterTrialTimeRand);
+                        else 'miss
+                            caCountAllTrialsIncorrect% += 1;
+                            docase
+                            case trialType% = trialtypeAttendToward% then
+                                caCountTowardTrialsIncorrect% += 1;
+                                SampleText("Miss, Attend Toward",tNow);
+                            case trialType% = trialtypeAttendAway% then
+                                caCountAwayTrialsIncorrect% += 1;
+                                SampleText("Miss, Attend Away",tNow);
+                            case trialType% = trialtypeNoAttend% then
+                                caCountAwayTrialsIncorrect% += 1;
+                                SampleText("Miss,  No Attend Direction",tNow);    
+                            else
+                                PrintLog("ERROR: Unknown trial type (" + str$(trialType%) + "\n");
+                                SampleText("Hit, Unknown trial type",tNow);
+                            endcase
+                            ChangeStateTo(stateMiss%, tNow); 'go to miss penalty
+                            SafeSampleKey("a");  'advance stimulus, won't happen anywhere else
+                            caInterTrialTime2 := GetInterTrialTime(caInterTrialTime,caInterTrialTimeRand) + caMissPenalty;
+                        endcase 
+                 
+                    else  'it's a NO-GO trial, and we got an answer, this is a FA
+                        'stimulus will be turned off in stateAbort, do not give "X"
+                        caCountAllTrialsIncorrect% += 1;
+                        caInterTrialTime2 := GetInterTrialTime(caInterTrialTime,caInterTrialTimeRand) + caMissPenalty;
+                        docase
+                        case trialType% = trialtypeAttendToward% then
+                            caCountTowardTrialsIncorrect% += 1;
+                            SampleText("False Alarm, Attend Toward",tNow);
+                        case trialType% = trialtypeAttendAway% then
+                            caCountAwayTrialsIncorrect% += 1;
+                            SampleText("False Alarm, Attend Away",tNow);
+                        case trialType% = trialtypeNoAttend% then
+                            caCountAwayTrialsIncorrect% += 1;
+                            SampleText("False Alarm, No Attend Direction",tNow);
+                        else
+                            PrintLog("ERROR: Unknown trial type (" + str$(trialType%) + "\n");
+                            SampleText("False Alarm, Unknown trial type",tNow);
+                        endcase
+                        'getPreciseTiming := 0;
+                        FAIsResponse% := 1;
+                        ChangeStateTo(stateAbort%,tNow);  
+                        abortIsPostCC% := 1;
+                        
+                    endcase
+                endcase
+            endif            
+            
             
             
         case iState% = stateWaitForAnswerFC% then            
@@ -2092,7 +2320,7 @@ func IdleProcessing%()
         case iState% = stateMiss% then
             
             'If joystick has not been centered, allow any centering here to count
-            if joystickHasBeenCentered% = 0 then
+            if joystickHasBeenCentered% = 0 and caRequireSaccadeResponse% = 0 then 'don't bother if we are using saccade response
                 tempanswer% := Answer%(JoyChannel%,tNow);
                 'printlog("Joystick is in position %d\n",tempanswer% );
                 if tempanswer% = 2 then
@@ -2137,11 +2365,19 @@ func IdleProcessing%()
             PrintLog("Trial #%d completed.\n",caCurrTrialIndex%+1);
             nTrialsCompleted% += 1;
             caCurrTrialIndex% += 1;
+            if caTrainingOptions% > 2 then 'note that if this is a "hog", we can find a way to update only when the window actually changes
+                UpdateOnScreenPositions();  'with trial advanced, update locations of fixpt/stimuli if they might change
+            endif;
             if nTrialsCompleted% = caNumberOfTrials% then
                 Stop%();
                 iStatus% := 0;
             else
-                ChangeStateTo(stateWaitForJoystickInCenter%, tNow);
+                if caRequireSaccadeResponse% = 1 then
+                    'if we require a saccade response, skip the joystick centering step, joystick will not be used
+                    ChangeStateTo(stateStartTrial%, tNow);
+                else
+                    ChangeStateTo(stateWaitForJoystickInCenter%, tNow);
+                endif;
             endif;
             
             
@@ -2333,64 +2569,71 @@ proc WriteParameterFile()
 	Print("Reward size (ms)           : %d\n", GetJuiceRewardMS%());
 	'Print("Background color           : %s\n", tunBackgroundColor$);
     
-	' write fixpoint parameters
-	Print("\nFixation point\n");
-	Print("-------------------\n\n");
-	Print("Window radius              : %f\n", WindowRadius);
-	Print("Position (x, degrees)      : %f\n", FixationX);
-	Print("Position (y, degrees)      : %f\n", FixationY);
-	Print("Diameter (degrees)         : %f\n", FixationDiameter);
-	Print("Color                      : %s\n", FixationColor$);
     
-	' write stimulus parameters
-	var Tstimstr$;
-	var Tstimx$, Tstimy$, Tstimw$, Tstimh$, Tstimiw$, Tstimih$, Tstimcontrast$, Tstimsf$, Tstimtf$, Tstimorientation$, Tstimphase$, Tstimcv$, Tstimp$, Tstimap$;
-	var i%;
-	var Tstepsize;
-    var phase;
-    Print("\nStimulus\n");  'Master grating
-	Print("-------------------\n\n");
-	Tstimstr$ := GetGratingParameters$("Stimulus");
-	ReadSetup(",",",",",",",",",");
-	i% := ReadStr(Tstimstr$, Tstimx$, Tstimy$, Tstimw$, Tstimh$, Tstimiw$, Tstimih$, Tstimcontrast$, Tstimsf$, Tstimtf$, Tstimorientation$, Tstimphase$, Tstimcv$, Tstimp$, Tstimap$);
-	Print("Position (x, degrees)           : %s\n", Tstimx$);
-	Print("Position (y, degrees)           : %s\n", Tstimy$);
-	Print("Width (degrees)                 : %s\n", Tstimw$);
-	Print("Height (degrees)                : %s\n", Tstimh$);
-    Print("Inner Width (degrees)           : %s\n", Tstimiw$);
-	Print("Inner Height (degrees)          : %s\n", Tstimih$);
-	Print("Color: b/w(b),lms-cone(l,m,s)   : %s\n", Tstimcv$);
-    Print("Temporal frequency              : %s\n", Tstimtf$);
-	Print("Spatial frequency               : %s\n", Tstimsf$);
-	Print("Orientation (degrees)           : %s\n", Tstimorientation$);
-    Print("Initial Phase (degrees)         : %f\n", phase);
-	Print("Contrast (%%)                    : %s\n", Tstimcontrast$);
-	Print("Aperture: ellipse(e)/square(q)  : %s\n", Tstimap$);
-	Print("Type: sine (s)/square (q)       : %s\n", Tstimp$);
+    if caTrainingOptions% > 2 then 'this is the input file, parameters are in the input file
+        
+        Print("Input file                 : %s\n", specFileName$);
+        
+    else  'write parameters from registry
+        
+        ' write fixpoint parameters
+        Print("\nFixation point\n");
+        Print("-------------------\n\n");
+        Print("Window radius              : %f\n", WindowRadius);
+        Print("Position (x, degrees)      : %f\n", FixationX);
+        Print("Position (y, degrees)      : %f\n", FixationY);
+        Print("Diameter (degrees)         : %f\n", FixationDiameter);
+        Print("Color                      : %s\n", FixationColor$);
+        
+        ' write stimulus parameters
+        var Tstimstr$;
+        var Tstimx$, Tstimy$, Tstimw$, Tstimh$, Tstimiw$, Tstimih$, Tstimcontrast$, Tstimsf$, Tstimtf$, Tstimorientation$, Tstimphase$, Tstimcv$, Tstimp$, Tstimap$;
+        var i%;
+        var Tstepsize;
+        var phase;
+        Print("\nStimulus\n");  'Master grating
+        Print("-------------------\n\n");
+        Tstimstr$ := GetGratingParameters$("Stimulus");
+        ReadSetup(",",",",",",",",",");
+        i% := ReadStr(Tstimstr$, Tstimx$, Tstimy$, Tstimw$, Tstimh$, Tstimiw$, Tstimih$, Tstimcontrast$, Tstimsf$, Tstimtf$, Tstimorientation$, Tstimphase$, Tstimcv$, Tstimp$, Tstimap$);
+        Print("Position (x, degrees)           : %s\n", Tstimx$);
+        Print("Position (y, degrees)           : %s\n", Tstimy$);
+        Print("Width (degrees)                 : %s\n", Tstimw$);
+        Print("Height (degrees)                : %s\n", Tstimh$);
+        Print("Inner Width (degrees)           : %s\n", Tstimiw$);
+        Print("Inner Height (degrees)          : %s\n", Tstimih$);
+        Print("Color: b/w(b),lms-cone(l,m,s)   : %s\n", Tstimcv$);
+        Print("Temporal frequency              : %s\n", Tstimtf$);
+        Print("Spatial frequency               : %s\n", Tstimsf$);
+        Print("Orientation (degrees)           : %s\n", Tstimorientation$);
+        Print("Initial Phase (degrees)         : %f\n", phase);
+        Print("Contrast (%%)                    : %s\n", Tstimcontrast$);
+        Print("Aperture: ellipse(e)/square(q)  : %s\n", Tstimap$);
+        Print("Type: sine (s)/square (q)       : %s\n", Tstimp$);
+        
+        ' write distractor parameters
+        
+        Print("\nDistractor1\n");  'Distractor grating
+        Print("-------------------\n\n");
+        Tstimstr$ := GetGratingParameters$("Distractor1");
+        ReadSetup(",",",",",",",",",");
+        i% := ReadStr(Tstimstr$, Tstimx$, Tstimy$, Tstimw$, Tstimh$, Tstimiw$, Tstimih$, Tstimcontrast$, Tstimsf$, Tstimtf$, Tstimorientation$, Tstimphase$, Tstimcv$, Tstimp$, Tstimap$);
+        Print("Position (x, degrees)           : %s\n", Tstimx$);
+        Print("Position (y, degrees)           : %s\n", Tstimy$);
+        Print("Width (degrees)                 : %s\n", Tstimw$);
+        Print("Height (degrees)                : %s\n", Tstimh$);
+        Print("Inner Width (degrees)           : %s\n", Tstimiw$);
+        Print("Inner Height (degrees)          : %s\n", Tstimih$);
+        Print("Color: b/w(b),lms-cone(l,m,s)   : %s\n", Tstimcv$);
+        Print("Temporal frequency              : %s\n", Tstimtf$);
+        Print("Spatial frequency               : %s\n", Tstimsf$);
+        Print("Orientation (degrees)           : %s\n", Tstimorientation$);
+        Print("Initial Phase (degrees)         : %f\n", phase);
+        Print("Contrast (%%)                    : %s\n", Tstimcontrast$);
+        Print("Aperture: ellipse(e)/square(q)  : %s\n", Tstimap$);
+        Print("Type: sine (s)/square (q)       : %s\n", Tstimp$);
     
-    ' write distractor parameters
-    
-    Print("\nDistractor1\n");  'Distractor grating
-    Print("-------------------\n\n");
-    Tstimstr$ := GetGratingParameters$("Distractor1");
-    ReadSetup(",",",",",",",",",");
-    i% := ReadStr(Tstimstr$, Tstimx$, Tstimy$, Tstimw$, Tstimh$, Tstimiw$, Tstimih$, Tstimcontrast$, Tstimsf$, Tstimtf$, Tstimorientation$, Tstimphase$, Tstimcv$, Tstimp$, Tstimap$);
-    Print("Position (x, degrees)           : %s\n", Tstimx$);
-    Print("Position (y, degrees)           : %s\n", Tstimy$);
-    Print("Width (degrees)                 : %s\n", Tstimw$);
-    Print("Height (degrees)                : %s\n", Tstimh$);
-    Print("Inner Width (degrees)           : %s\n", Tstimiw$);
-    Print("Inner Height (degrees)          : %s\n", Tstimih$);
-    Print("Color: b/w(b),lms-cone(l,m,s)   : %s\n", Tstimcv$);
-    Print("Temporal frequency              : %s\n", Tstimtf$);
-    Print("Spatial frequency               : %s\n", Tstimsf$);
-    Print("Orientation (degrees)           : %s\n", Tstimorientation$);
-    Print("Initial Phase (degrees)         : %f\n", phase);
-    Print("Contrast (%%)                    : %s\n", Tstimcontrast$);
-    Print("Aperture: ellipse(e)/square(q)  : %s\n", Tstimap$);
-    Print("Type: sine (s)/square (q)       : %s\n", Tstimp$);
-    
-    
+    endif;
     
     
     
@@ -2424,6 +2667,8 @@ end;
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 proc PrepareTrial()
+    
+     
     
 	PrintLog("Prepare trial: ");
     
@@ -2485,6 +2730,9 @@ proc PrepareTrial()
         else  'this would be a no-attend trial, but since it changes I guess it can't be a catch
             trialCatch% := 0;
         endcase
+        
+        
+        
         
         
     endif
@@ -2552,7 +2800,12 @@ func Answer%(chan%,now)
     var v;
     'v := ChanValue(chan%,now);
     'printlog("voltage is %f\n",v);
-    ans% := GetJoystickPosition%(v);    
+    if ChanKind(chan%) > 0 then  'if the channel does not exist, return 0
+        ans% := GetJoystickPosition%(v);   
+    else
+        ans% := 0;
+    endif;
+        
     
     if ans% = -1 then
         printlog("There has been an error in reading the joystick!  GetJoystickPosition% has returned -1!\n");
@@ -2567,6 +2820,22 @@ func Answer%(chan%,now)
     '3 if joystick is right
     '0 if joystick is in undefined position (between left/center or between center/right)
     '-1 on error
+end;
+
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'This is the same function normally referred to as "Answer%()" but since for this script that was changed to a joystick
+'function, here we will call it EyeAnswer%()
+func EyeAnswer%(EyePosX, EyePosY)
+    var ans% := 0;
+    docase
+    case (Pow(EyePosX-mainX,2) + Pow(EyePosY-(mainY),2)) <= Pow(mainW,2) then 'Looking at main grating location, just assuming mainW = mainH!
+        ans% := 1;
+    case (Pow(EyePosX-dist1X,2) + Pow(EyePosY-(dist1Y),2)) <= Pow(dist1W,2) then 'Looking at distracter 1 location, just assuming dist1W = dist1H!
+        ans% := -1;
+    endcase;
+    
+	return ans%;
 end;
 
 
@@ -2586,6 +2855,8 @@ end;
 func JoyInStartPosition%(pos%)
     var sp%;
     docase
+    case caRequireSaccadeResponse% then 'during Require Saccade Response scenarios the joystick is absent, by default return 1 as if "joystick" is "ready"
+        sp% := 1;
     case caTrainingOptions% <= 3 and pos% = 3 then  'For all "regular" experiments (GNG), the start position is "right"
         sp% := 1;
     case caTrainingOptions% = 4 and pos% = 2 then  'For cue image forced choice experiments, the start position is "center"
@@ -2601,22 +2872,87 @@ end
 
 
 
-'There actually does not appear to be a way to do this...
-'So, this is how you would go about designing a dialog to select
-'the electrode, but since we can't really route anything to a DAC...
-'func SelectElectrodeForAudio%()
-'    var temp%;
-'    var trode%;
-'    
-'    DlgCreate("Choose Electrode",0,0,0,1.5);
-'    DlgInteger(1,"Choose Electrode",0,100);
-'    temp% := DlgShow(trode%);
-'    
-'    if temp% = 1 then 'if user selects OK
-'        caAudibleElectrode% := trode%;
-'    endif;
-'    
-'    return 1;
-'end
-
+'This function allows up to update the onscreen position of fixation and stimulus windows, as well as values for eye position windows
+'Note that there is no point to running this function if caTrainingOptions% is not 3 or higher (= control file) because the position
+'of the stimuli wold not change
+proc UpdateOnScreenPositions()
+    var index%;
+    var twopi;
+    twopi := 2.0*4.0*ATan(1.0);
+    var trash;  'Explained below 
+    
+    printlog("Updating on-screen windows, eye position windows\n");
+    
+    '***Update fixation point window - this should hopefully be fast
+    '***Note that updating this will also affect Looking%()
+    'Update fixpt parameters
+    if b1$[caCurrTrialIndex%] = "" then 'this trial uses the fixation point from the dialogs
+        'Get default fixpt parameters
+        GetFixationPointParameters();    'fills FixationX,FixationY,FixationColor$,FixationDiameter, WindowRadius
+    else 'this trial uses a custom fixation point specified in the control file
+        'Get fixpt parameters for this trial
+        'There is an extra argument in the call to ParseGratingParametersBrief(), "trash" will return 0 because
+        'the function expects to read a number, not a string.  However, we don't need to know the value of the
+        'string (it holds the color of the fixation point) because we never use it.  Also, FixationDiameter will
+        'not be used, but since we CAN read it, we ought to.
+        ParseGratingParametersBrief%(caFileFixParams$[caCurrTrialIndex%],FixationX,FixationY,FixationDiameter,trash);
+    endif;
+    'Recalcuate the fixation window regardless
+    for index% := 0 to 35 do
+        FixWindowX[index%] := FixationX + WindowRadius * Cos(index% * twopi/36.0);
+        FixWindowY[index%] := FixationY + WindowRadius * Sin(index% * twopi/36.0);
+    next;
+    'Delete the old fixation window data regardless
+    View(XYWindow%).XYDelete(iFixationWindowChannel%);
+    'Redraw current fixation window data regardless
+    View(XYWindow%).XYAddData(iFixationWindowChannel%, FixWindowX[], FixWindowY[]);
+    
+    
+    '***Do the same thing for both stimuli
+    
+    'Update stimulus 1 parameters
+    if b2$[caCurrTrialIndex%] = "" then 'this trial uses the fixation point from the dialogs
+        'Get default stim1 parameters
+        ParseGratingParametersBrief%(GetGratingParameters$("Stimulus"),mainX,mainY,mainW,mainH); 
+    else 'this trial uses a custom fixation point specified in the control file
+        'Get stim1 parameters for this trial
+        ParseGratingParametersBrief%(caFileGrating1Params$[caCurrTrialIndex%],mainX,mainY,mainW,mainH);
+    endif;
+    'change window radius
+    mainW := mainW + caAdditionalWindowRadius;
+    mainH := mainH + caAdditionalWindowRadius;
+    'Recalcuate the fixation window regardless
+    for index% := 0 to 35 do
+        FixWindowX[index%] := mainX + mainW * Cos(index% * twopi/36.0);
+        FixWindowY[index%] := mainY + mainH * Sin(index% * twopi/36.0);
+    next;
+    'Delete the old fixation window data regardless
+    View(XYWindow%).XYDelete(iAnswerWindowChannelMain%);
+    'Redraw current fixation window data regardless
+    View(XYWindow%).XYAddData(iAnswerWindowChannelMain%, FixWindowX[], FixWindowY[]);
+     
+    
+    'Update stimulus 2 parameters
+    if b3$[caCurrTrialIndex%] = "" then 'this trial uses the fixation point from the dialogs
+        'Get default stim2 parameters
+        ParseGratingParametersBrief%(GetGratingParameters$("Distractor1"),dist1X,dist1Y,dist1W,dist1H); 
+    else 'this trial uses a custom fixation point specified in the control file
+        'Get stim1 parameters for this trial
+        ParseGratingParametersBrief%(caFileGrating2Params$[caCurrTrialIndex%],dist1X,dist1Y,dist1W,dist1H);
+    endif;
+    'change window radius
+    dist1W := dist1W + caAdditionalWindowRadius;
+    dist1H := dist1H + caAdditionalWindowRadius;
+    'Recalcuate the fixation window regardless
+    for index% := 0 to 35 do
+        FixWindowX[index%] := dist1X + dist1W * Cos(index% * twopi/36.0);
+        FixWindowY[index%] := dist1Y + dist1H * Sin(index% * twopi/36.0);
+    next;
+    'Delete the old fixation window data regardless
+    View(XYWindow%).XYDelete(iAnswerWindowChannelDist1%);
+    'Redraw current fixation window data regardless
+    View(XYWindow%).XYAddData(iAnswerWindowChannelDist1%, FixWindowX[], FixWindowY[]);
+       
+    
+end
 

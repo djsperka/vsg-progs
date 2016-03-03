@@ -1,7 +1,7 @@
-' $Id: StarSac2.s2s,v 1.8 2015-05-13 18:23:11 devel Exp $
+' $Id: StarSac2.s2s,v 1.9 2016-03-03 00:16:45 devel Exp $
 ' Update 11/8/11 Jeff, includes SafeSampleKey and multi-juicer updates
 
-const starCVSID$ := "$Id: StarSac2.s2s,v 1.8 2015-05-13 18:23:11 devel Exp $";
+const starCVSID$ := "$Id: StarSac2.s2s,v 1.9 2016-03-03 00:16:45 devel Exp $";
 
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "../../Spike2Util/MiscUtilities.s2s"
@@ -310,8 +310,8 @@ func IdleProcessing%()
 	var iStatus% := 1;	' this is return value. value of 1 (0) continues (stops) processing
 	tNow := View(DataWindow%).MaxTime();
 
-	xEye := View(DataWindow%).ChanMeasure(XChannel%,2,tNow-.001,tNow-.006)*DegreesPerVoltX;
-	yEye := View(DataWindow%).ChanMeasure(YChannel%,2,tNow-.001,tNow-.006)*DegreesPerVoltY;
+	xEye := View(DataWindow%).ChanMeasure(XChannel%,2,tNow-.006,tNow-.001)*DegreesPerVoltX;
+	yEye := View(DataWindow%).ChanMeasure(YChannel%,2,tNow-.006,tNow-.001)*DegreesPerVoltY;
 
 	' Don't update display every time. 
 	' Note that this stim displays eye continuously, without erasing... 
