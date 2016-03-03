@@ -1,4 +1,4 @@
-' $Id: AttentionGoNoGo.s2s,v 1.78 2016-03-02 22:55:29 devel Exp $
+' $Id: AttentionGoNoGo.s2s,v 1.79 2016-03-03 01:50:14 devel Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -3248,13 +3248,18 @@ Proc CreateContrastList(&c$,&f$,&cList%[],&chgList%[],&vList%[],&attList%[],&haz
                 
                 attList%[totalCount%] := attDirection%;  'set direction of attention, same for regular or no-change trials
                             
-                'hazard function time is set the same under every case
+                'hazard function time is set the same under every case - except no-change
                 if (attColor% = firstBlockType% and attBlockAlternate% = 2) or attBlockAlternate% < 2 then
                     'if we're NOT shuffling block type, or if it's a "first-type" block, get a new hazard time
-                    trialHazardFunctionTime := RandExp(attHazardExpMeanTime, attHazardMinTime);
-                    if trialHazardFunctionTime > attHazardCutoffTime then
-                        trialHazardFunctionTime := attHazardCutoffTime;
+                    if attColor% = 6 then 'for no-change, hard code hazard function time to 0.1 seconds
+                        trialHazardFunctionTime := 0.1;
+                    else 'for all other types of trial, get a random hazard function time
+                        trialHazardFunctionTime := RandExp(attHazardExpMeanTime, attHazardMinTime);
+                        if trialHazardFunctionTime > attHazardCutoffTime then
+                            trialHazardFunctionTime := attHazardCutoffTime;
+                        endif;
                     endif;
+                    
                     'create a set of flasher times and locations (also number) for this trial only
                     if attUseFlashers% = 1 then
                         'create flasher times
@@ -3306,9 +3311,9 @@ Proc CreateContrastList(&c$,&f$,&cList%[],&chgList%[],&vList%[],&attList%[],&haz
                         chgList%[totalCount%] := 0;  'no stimulus changes, it's a no-go -- note that we cannot pass 0 to UpdateTrialSpecString, though, so pass the attend direction
                         cList%[totalCount%] := attContrastBase%;  'fill cList%[] with the base contrast
                         offList%[totalCount%] := 0;  'show all grating patches
-                        hazList[totalCount%] := 0.1;  'This value needs to be changed - it's a hard code 0.1
+                        'hazList[totalCount%] := 0.1;  'This value needs to be changed - it's a hard code 0.1...now assigned above, make sure it works and delete this line
                         'insert no-go trial  
-                        UpdateTrialSpecString(c$,attColor%,attDirection%,attContrastBase%,attContrastBase%,hazList[totalCount%],attPhaseDeg%,0+(256*rotList%[totalCount%]),masterColorListVSG$);
+                        UpdateTrialSpecString(c$,attColor%,attDirection%,attContrastBase%,attContrastBase%,trialHazardFunctionTime,attPhaseDeg%,0+(256*rotList%[totalCount%]),masterColorListVSG$);
                     case (Rand()*100 < attCatchTrialPercentage) then 'catch trial
                         vList%[totalCount%] := 0;  'catch = invalid
                         offList%[totalCount%] := 0;  'show all grating patches
