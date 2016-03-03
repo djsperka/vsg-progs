@@ -1,4 +1,4 @@
-/* $Id: FixUStim.cpp,v 1.5 2016-02-22 21:27:39 devel Exp $*/
+/* $Id: FixUStim.cpp,v 1.6 2016-03-03 22:16:28 devel Exp $*/
 
 #include "FixUStim.h"
 #include <iostream>
@@ -1022,7 +1022,7 @@ int FixUStim::process_arg(int c, std::string& arg)
 			else
 			{
 				cerr << "Read " << m_vecAttentionCues.size() << " attention cues." << endl;
-				dump_attcues(m_vecAttentionCues);
+				//dump_attcues(m_vecAttentionCues);
 			}
 			break;
 		}
@@ -1037,7 +1037,7 @@ int FixUStim::process_arg(int c, std::string& arg)
 			else
 			{
 				cerr << "Read " << m_vecFlashies.size() << " flashies. Should be same as # of trials." << endl;
-				dump_flashyparams(m_vecFlashies);
+				//dump_flashyparams(m_vecFlashies);
 			}
 			break;
 		}

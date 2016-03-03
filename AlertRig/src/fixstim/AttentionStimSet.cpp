@@ -25,7 +25,7 @@ int parse_attcues(const string& s, int nstim, vector<AttentionCue>& vecCues)
 	tokenize(s, tokens, ",");
 	if (tokens.size() % (nstim*3) == 0)
 	{
-		for (i=0; i<nstim; i++)
+		for (i=0; i<tokens.size()/3; i++)
 		{
 
 			// expect rdiff,linewidth,color
@@ -445,8 +445,14 @@ int AttentionStimSet::drawCurrent()
 {
 	int status = 0;
 	int page = vsgGetZoneDisplayPage(vsgVIDEOPAGE);
+
+	cerr << "Drawing pages for trial " << m_current << endl;
+
 	if (m_current >= m_vecParams.size())
+	{
+		cerr << "Error: m_current >= m_vecParams.size()" << endl;
 		return 1;
+	}
 
 	// Set color of fixpt...
 	m_fixpt.color = m_vecParams[m_current].color;
@@ -457,7 +463,7 @@ int AttentionStimSet::drawCurrent()
 	draw_stim_gratings(false, m_vecParams.at(m_current));
 	draw_cues(m_vecParams.at(m_current));
 	draw_fixpt();
-
+	
 	// Stim page, this one with contrast change
 	cerr << "Configure page " << m_pageChg << " post-CC stim only" << endl;
 	vsgSetDrawPage(vsgVIDEOPAGE, m_pageChg, vsgBACKGROUND);
@@ -541,7 +547,7 @@ int AttentionStimSet::drawCurrent()
 		vsgPageCyclingSetup(3, &cycle[0]);
 
 
-		cerr << "Cycling: count=3" << endl;
+		cerr << "Cycling: Using 3 pages" << endl;
 		for (int i=0; i<3; i++)
 		{
 			cerr << i << ": page=" << (cycle[i].Page & vsgTRIGGERPAGE ? cycle[i].Page-vsgTRIGGERPAGE : cycle[i].Page) << " Frames=" << cycle[i].Frames << endl;
@@ -588,7 +594,7 @@ int AttentionStimSet::drawCurrent()
 			int page = 0;
 			int frames = 0;
 
-			cerr << "fconfig " << fconfig << " CC " << iFramesToCC << " ton " << flashyParams.fon << " foff " << flashyParams.foff << endl;
+			cerr << "flashy " << iflashy << " frames configured " << fconfig << " CC " << iFramesToCC << " ton " << flashyParams.fon << " foff " << flashyParams.foff << endl;
 
 			// is there a gap between fconfig and the onset of the flashy? 
 			// If so, then we will create an entry in cycle[] to display the stim page without a flashy.
@@ -736,7 +742,7 @@ int AttentionStimSet::drawCurrent()
 		
 		vsgPageCyclingSetup(count, &cycle[0]);
 
-		cerr << "Cycling: count=" << count << endl;
+		cerr << "Cycling: Using " << count << " pages" << endl;
 		for (int i=0; i<count; i++)
 		{
 			cerr << i << ": page=" << (cycle[i].Page & vsgTRIGGERPAGE ? cycle[i].Page-vsgTRIGGERPAGE : cycle[i].Page) << " Frames=" << cycle[i].Frames << endl;
@@ -779,15 +785,21 @@ void AttentionStimSet::draw_cues(const struct AttParams& params)
 	// (iOffBits & 0xff00) >> 8
 	int iCueBase = (params.iOffBits & 0xff00) >> 8;
 
+	//cout << "iCueBase: " << ios::showbase << ios::internal << ios::hex << iCueBase << ios::dec << endl;
+
+	//cout << "There are " << m_vecCues.size() << " cues." << endl;
 	for (unsigned int i=0; i<m_vecGratings.size(); i++)
 	{
+		//cout << "cue " << i << " (params.iOffBits & (1 << i)) " << (params.iOffBits & (1 << i)) << endl;
 		// Check if this stim has an off bit set.
 		if (params.iOffBits & (1 << i))
 		{
+			//cout << "Nothing to do." << endl;
 			// do nothing
 		}
 		else
 		{
+			//cout << "Draw cue index " << (iCueBase*m_vecGratings.size() + i) << endl;
 			m_vecCues[iCueBase*m_vecGratings.size() + i].draw();
 		}
 	}
