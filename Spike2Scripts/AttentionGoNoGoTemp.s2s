@@ -1,4 +1,4 @@
-' $Id: AttentionGoNoGoTemp.s2s,v 1.17 2016-03-01 00:44:24 devel Exp $
+' $Id: AttentionGoNoGoTemp.s2s,v 1.18 2016-03-03 00:16:45 devel Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -951,8 +951,8 @@ func IdleProcessing%()
     
     tNow := MaxTime();
     
-    xEye := ChanMeasure(XChannel%,2,tNow-.001,tNow-.006)*DegreesPerVoltX;
-    yEye := ChanMeasure(YChannel%,2,tNow-.001,tNow-.006)*DegreesPerVoltY;
+    xEye := ChanMeasure(XChannel%,2,tNow-.006,tNow-.001)*DegreesPerVoltX;
+    yEye := ChanMeasure(YChannel%,2,tNow-.006,tNow-.001)*DegreesPerVoltY;
     
     ' Don't update display every time....
     if tNow-tLastUpdate > .005 then

@@ -1,7 +1,7 @@
-' $Id: TuningVisage.s2s,v 1.4 2011-11-16 00:48:00 jeff Exp $
+' $Id: TuningVisage.s2s,v 1.5 2016-03-03 00:16:45 devel Exp $
 ' Update 11/8/11 Jeff, includes multi-juicer updates
 
-const tunCVSID$ := "$Id: TuningVisage.s2s,v 1.4 2011-11-16 00:48:00 jeff Exp $";
+const tunCVSID$ := "$Id: TuningVisage.s2s,v 1.5 2016-03-03 00:16:45 devel Exp $";
 
 #include "../../Spike2Util/ChannelUtilities.s2s"
 #include "../../Spike2Util/UsreyUtil.s2s"
@@ -508,8 +508,8 @@ func IdleProcessing%()
     endif
     
     
-	xEye := View(DataWindow%).ChanMeasure(XChannel%,2,tNow-.001,tNow-.006)*DegreesPerVoltX;
-	yEye := View(DataWindow%).ChanMeasure(YChannel%,2,tNow-.001,tNow-.006)*DegreesPerVoltY;
+	xEye := View(DataWindow%).ChanMeasure(XChannel%,2,tNow-.006,tNow-.001)*DegreesPerVoltX;
+	yEye := View(DataWindow%).ChanMeasure(YChannel%,2,tNow-.006,tNow-.001)*DegreesPerVoltY;
 
 	' Don't update display every time....
 	if tNow-tLastUpdate > .005 then

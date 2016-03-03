@@ -1,4 +1,4 @@
-' $Id: Fixation.s2s,v 1.38 2015-05-13 22:05:05 devel Exp $
+' $Id: Fixation.s2s,v 1.39 2016-03-03 00:16:45 devel Exp $
 ' Update 11/8/11 Jeff, includes SafeSampleKey and multi-juicer updates
 
 #include "../../Spike2Util/UsreyUtil.s2s"
@@ -266,8 +266,8 @@ func IdleProcessing%()
     endif
     
 
-	xEye := ChanMeasure(XChannel%,2,tNow-.001,tNow-.006)*DegreesPerVoltX;
-	yEye := ChanMeasure(YChannel%,2,tNow-.001,tNow-.006)*DegreesPerVoltY;
+	xEye := ChanMeasure(XChannel%,2,tNow-.006,tNow-.001)*DegreesPerVoltX;
+	yEye := ChanMeasure(YChannel%,2,tNow-.006,tNow-.001)*DegreesPerVoltY;
 
 	' Don't update display every time....
 	if tNow-tLastUpdate > .005 then

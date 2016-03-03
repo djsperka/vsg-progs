@@ -1,4 +1,4 @@
-' $Id: AlertMSequence.s2s,v 1.16 2011-10-25 16:56:22 devel Exp $
+' $Id: AlertMSequence.s2s,v 1.17 2016-03-03 00:16:45 devel Exp $
 
 #include "../../Spike2Util/UsreyUtil.s2s"
 
@@ -202,8 +202,8 @@ func IdleProcessing%()
 	var iStatus% := 1;	' this is return value. value of 1 (0) continues (stops) processing
 	tNow := MaxTime();
 
-	xEye := ChanMeasure(XChannel%,2,tNow-.001,tNow-.006)*DegreesPerVoltX;
-	yEye := ChanMeasure(YChannel%,2,tNow-.001,tNow-.006)*DegreesPerVoltY;
+	xEye := ChanMeasure(XChannel%,2,tNow-.006,tNow-.001)*DegreesPerVoltX;
+	yEye := ChanMeasure(YChannel%,2,tNow-.006,tNow-.001)*DegreesPerVoltY;
 
 	' Don't update display every time....
 	if tNow-tLastUpdate > .005 then

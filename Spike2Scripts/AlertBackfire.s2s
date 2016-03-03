@@ -1,4 +1,7 @@
 ' $Log: not supported by cvs2svn $
+' Revision 1.10  2011/11/16 00:48:00  jeff
+' Update to dual juicer capability, moving majority of work to UsreyDAQ when possible
+'
 ' Revision 1.9  2011/11/14 22:38:45  jeff
 ' Dual juicer fix - moving sequencer variable assignment to after the start of sampling
 '
@@ -239,8 +242,8 @@ func IdleProcessing%()
     var i%;
 	tNow := MaxTime();
 
-	xEye := ChanMeasure(XChannel%,2,tNow-.001,tNow-.006)*DegreesPerVoltX;
-	yEye := ChanMeasure(YChannel%,2,tNow-.001,tNow-.006)*DegreesPerVoltY;
+	xEye := ChanMeasure(XChannel%,2,tNow-.006,tNow-.001)*DegreesPerVoltX;
+	yEye := ChanMeasure(YChannel%,2,tNow-.006,tNow-.001)*DegreesPerVoltY;
 
 	' Don't update display every time....
 	if tNow-tLastUpdate > .005 then

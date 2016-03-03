@@ -1,4 +1,4 @@
-' $Id: CoolerMouse.s2s,v 1.7 2011-10-25 17:23:19 devel Exp $
+' $Id: CoolerMouse.s2s,v 1.8 2016-03-03 00:16:45 devel Exp $
 '
 ' Eye X, Y - ADC input 14, 15 respectively
 ' VSG trigger - assumed on DIGIN byte 0.  *** THE 1401 SHOULD HAVE PREFERENCES 
@@ -163,8 +163,8 @@ func IdleProcessing%()
 
 	tNow := MaxTime();
 
-	xEye := ChanMeasure(XChannel%,2,tNow-.001,tNow-.006)*DegreesPerVoltX;
-	yEye := ChanMeasure(YChannel%,2,tNow-.001,tNow-.006)*DegreesPerVoltY;
+	xEye := ChanMeasure(XChannel%,2,tNow-.006,tNow-.001)*DegreesPerVoltX;
+	yEye := ChanMeasure(YChannel%,2,tNow-.006,tNow-.001)*DegreesPerVoltY;
 
 	' Don't update display every time....
 	if tNow-tLastUpdate > .005 then

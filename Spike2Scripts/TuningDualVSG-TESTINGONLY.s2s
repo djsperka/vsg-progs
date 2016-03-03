@@ -1,5 +1,5 @@
-' $Id: TuningDualVSG-TESTINGONLY.s2s,v 1.2 2011-10-07 21:01:38 jeff Exp $
-const tunCVSID$ := "$Id: TuningDualVSG-TESTINGONLY.s2s,v 1.2 2011-10-07 21:01:38 jeff Exp $";
+' $Id: TuningDualVSG-TESTINGONLY.s2s,v 1.3 2016-03-03 00:16:45 devel Exp $
+const tunCVSID$ := "$Id: TuningDualVSG-TESTINGONLY.s2s,v 1.3 2016-03-03 00:16:45 devel Exp $";
 
 
 
@@ -496,8 +496,8 @@ func IdleProcessing%()
     endif
     
     
-	xEye := View(DataWindow%).ChanMeasure(XChannel%,2,tNow-.001,tNow-.006)*DegreesPerVoltX;
-	yEye := View(DataWindow%).ChanMeasure(YChannel%,2,tNow-.001,tNow-.006)*DegreesPerVoltY;
+	xEye := View(DataWindow%).ChanMeasure(XChannel%,2,tNow-.006,tNow-.001)*DegreesPerVoltX;
+	yEye := View(DataWindow%).ChanMeasure(YChannel%,2,tNow-.006,tNow-.001)*DegreesPerVoltY;
 
 	' Don't update display every time....
 	if tNow-tLastUpdate > .005 then

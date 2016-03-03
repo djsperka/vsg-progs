@@ -1,6 +1,6 @@
-' $Id: StarStim.s2s,v 1.12 2015-05-13 18:24:03 devel Exp $
+' $Id: StarStim.s2s,v 1.13 2016-03-03 00:16:45 devel Exp $
 ' Update 11/8/11 Jeff, includes multi-juicer updates
-const starCVSID$ := "$Id: StarStim.s2s,v 1.12 2015-05-13 18:24:03 devel Exp $";
+const starCVSID$ := "$Id: StarStim.s2s,v 1.13 2016-03-03 00:16:45 devel Exp $";
 
 '========================================================================
 '
@@ -235,8 +235,8 @@ func IdleProcessing%()
 	var iStatus% := 1;	' this is return value. value of 1 (0) continues (stops) processing
 	tNow := MaxTime();
 
-	xEye := ChanMeasure(XChannel%,2,tNow-.001,tNow-.006)*DegreesPerVoltX;
-	yEye := ChanMeasure(YChannel%,2,tNow-.001,tNow-.006)*DegreesPerVoltY;
+	xEye := ChanMeasure(XChannel%,2,tNow-.006,tNow-.001)*DegreesPerVoltX;
+	yEye := ChanMeasure(YChannel%,2,tNow-.006,tNow-.001)*DegreesPerVoltY;
 
 	' Don't update display every time. 
 	' Note that this stim displays eye continuously, without erasing... 
