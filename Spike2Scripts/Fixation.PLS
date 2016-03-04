@@ -1,4 +1,4 @@
-; $Id: Fixation.PLS,v 1.10 2013-03-27 22:43:46 devel Exp $
+; $Id: Fixation.PLS,v 1.11 2016-03-04 22:55:20 devel Exp $
 
             SET      1.000 1 0     ;Get rate & scaling OK
             VAR    V2=0            ;V2 logs whether the sequencer is in use for SafeSampleKey
@@ -58,7 +58,7 @@ EN:     'N  MOVI   V2,1
 
 
 EQ:     'Q  MOVI   V2,1
-            DIGOUT [0100000.]
+            DIGOUT [0001000.]
             MOVI   V2,0
             HALT                   ;End of this sequence section
 
