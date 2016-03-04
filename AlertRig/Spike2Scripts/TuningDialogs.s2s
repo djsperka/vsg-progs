@@ -1,4 +1,4 @@
-' $Id: TuningDialogs.s2s,v 1.32 2016-01-26 17:58:52 devel Exp $
+' $Id: TuningDialogs.s2s,v 1.33 2016-03-04 22:52:04 devel Exp $
 '
 ' This file contains dialog functions for the alert tuning script Tuning.s2s.
 #include "../../Spike2Util/UsreyUtil.s2s"
@@ -277,7 +277,6 @@ var updateXHairText%;             'Gets the item number of a DlgText object for 
 var TunCurveMArg$:="";            'holds type of tuning curve on Master
 var TunCurveSArg$:="";            'holds type of tuning curve on slave
 var TunCurveS2Arg$:="";           'holds second type of tuning curve on slave, for Box O' Donuts
-var tunNoCardSync%;               'allows us to turn off card synching for Dualstim
 var tunButtonCollect%;            'Collect button data for rivalry?
 
 ' These will be set by the tuning curve choice
@@ -2961,14 +2960,14 @@ func TuningCurveScriptDialog%()
     'juicer duration / n repeats dialog here?  Have to write values to DAQ parameters if changed, disable if not correct for juicer? 
     DlgGroup("Dual VSG Options", 1, 12, 52, 3);
     DlgCheck(11, "Use Dual VSG", 2, 13);
-    DlgCheck(12, "Select to turn off card sync", 25, 13);
-    DlgList(13, "Dual Tuning Configuration:", dualType$, 3, 25, 14);
+    'DlgCheck(12, "Select to turn off card sync", 25, 13);
+    DlgList(12, "Dual Tuning Configuration:", dualType$, 3, 25, 14);
     
     'DlgCheck(13, "Maintain Fixpt between trials", 2, 14);  'change this to a list
-    DlgList(14, 11, maintainList$, 5, 3, 15); DlgText("Maintain what btwn trls", 15, 15);
-    DlgCheck(15, "Stationary",2,16);
-    DlgCheck(16, "Make Histograms", 35,15);
-    DlgCheck(17, "Use Rivalry Button", 35,16);
+    DlgList(13, 11, maintainList$, 5, 3, 15); DlgText("Maintain what btwn trls", 15, 15);
+    DlgCheck(14, "Stationary",2,16);
+    DlgCheck(15, "Make Histograms", 35,15);
+    DlgCheck(16, "Use Rivalry Button", 35,16);
     DlgButton(tundlgXHairButton%, " Crosshairs  ", UpdateTuningXHairDialog%, 1, 17);
     updateXHairText% := DlgText(tunXHairText$, 15, 17);
 	DlgGroup("Individual Tuning Curve Types", 1, 18, 52, 6);
@@ -2992,12 +2991,12 @@ func TuningCurveScriptDialog%()
     if JuicerType% = 1 then
         i%:=DlgShow(tunAcquisitionTime, tunAcqFailTime, tunStimulusOnsetDelay, tunFixationDuration, tunHoldFailTime, 
         tunStdInterTrialTime, tunMaintainFixation, tunMaintainFailTime,
-        ibcl%, JuiceRewardMS%, tunDoRivalry%, tunNoCardSync%, 
+        ibcl%, JuiceRewardMS%, tunDoRivalry%,  
         tunDualTuningType%, tunUseMaintainMode%, tunSetStationary%, tunDoTuningHist%, tunButtonCollect%);
     else
         i%:=DlgShow(tunAcquisitionTime, tunAcqFailTime, tunStimulusOnsetDelay, tunFixationDuration, tunHoldFailTime, 
         tunStdInterTrialTime, tunMaintainFixation, tunMaintainFailTime, 
-        ibcl%, JuicePerReward%, tunDoRivalry%, tunNoCardSync%, 
+        ibcl%, JuicePerReward%, tunDoRivalry%,  
         tunDualTuningType%, tunUseMaintainMode%, tunSetStationary%, tunDoTuningHist%, tunButtonCollect%);
     endif;
     
@@ -3103,8 +3102,7 @@ func TuningCurveScriptDialogChanged%(item%)
         'DlgEnable(0,-tundlgDonutButton%,-tundlgBerlinerButton%,-tundlgBoxODonutsButton%,-tundlgCRGButton%,-tundlgDisparityButton%); 'old version
         DlgEnable(0,-tundlgDonutButton%,-tundlgBerlinerButton%,-tundlgCRGButton%,-tundlgDisparityButton%);  'allow boxOdonuts for single screen now
         'Also disable card synch functions, dual tuning listbox
-        DlgEnable(0,12); 'card synch
-        DlgEnable(0,13); 'dual tuning listbox
+        DlgEnable(0,12); 'dual tuning listbox
         'But do allow Dots, Danish, DSS, Null Test
         DlgEnable(1,-tundlgDotsButton%);
         DlgEnable(1,-tundlgDanishButton%);
@@ -3122,8 +3120,7 @@ func TuningCurveScriptDialogChanged%(item%)
         'DlgEnable(1,-tundlgDonutButton%,-tundlgBerlinerButton%,-tundlgBoxODonutsButton%,-tundlgCRGButton%,-tundlgDisparityButton%);  'old version
         DlgEnable(1,-tundlgDonutButton%,-tundlgBerlinerButton%,-tundlgCRGButton%,-tundlgDisparityButton%);  'allow boxOdonuts for single screen now
         'Also allow turning off card synch, dual tuning listbox
-        DlgEnable(1,12);  'card synch
-        DlgEnable(1,13);  'dual tuning listbox
+        DlgEnable(1,12);  'dual tuning listbox
         'But don't allow Dots, Danish, DSS, Null test
         DlgEnable(0,-tundlgDotsButton%);
         DlgEnable(0,-tundlgDanishButton%);
@@ -3131,21 +3128,21 @@ func TuningCurveScriptDialogChanged%(item%)
         DlgEnable(0,-tundlgNullTestButton%);
         'Also, change labels on buttons to reflect the binocular aspect of using dual VSG
         docase 
-            case DlgValue(13) = 0 then
+            case DlgValue(12) = 0 then
                 DlgValue$(-tundlgOrientationButton%, " D Orientation ");
                 DlgValue$(-tundlgContrastButton%, "    D Contrast    ");
                 DlgValue$(-tundlgSpatialButton%, "D Spatial Freq");
                 DlgValue$(-tundlgTemporalButton%, "D Temporal Freq");
                 DlgValue$(-tundlgAreaButton%, "D Area");
                 DlgValue$(-tundlgXPosButton%, "D X Position");
-            case DlgValue(13) = 1 then
+            case DlgValue(12) = 1 then
                 DlgValue$(-tundlgOrientationButton%, " M Orientation ");
                 DlgValue$(-tundlgContrastButton%, "    M Contrast    ");
                 DlgValue$(-tundlgSpatialButton%, "M Spatial Freq");
                 DlgValue$(-tundlgTemporalButton%, "M Temporal Freq");
                 DlgValue$(-tundlgAreaButton%, "M Area");
                 DlgValue$(-tundlgXPosButton%, "M X Position");
-            case DlgValue(13) = 2 then
+            case DlgValue(12) = 2 then
                 DlgValue$(-tundlgOrientationButton%, " S Orientation ");
                 DlgValue$(-tundlgContrastButton%, "    S Contrast    ");
                 DlgValue$(-tundlgSpatialButton%, "S Spatial Freq");
@@ -3154,11 +3151,11 @@ func TuningCurveScriptDialogChanged%(item%)
                 DlgValue$(-tundlgXPosButton%, "S X Position");
         endcase;
     endif;
-    if DlgValue(14) = 0 then 'disable maintain mode timing if not using maintain mode
+    if DlgValue(13) = 0 then 'disable maintain mode timing if not using maintain mode
         DlgEnable(0,7);
         DlgEnable(0,8);
     endif;
-    if DlgValue(14) = 1 then 'enable maintain mode timing if using maintain mode
+    if DlgValue(13) = 1 then 'enable maintain mode timing if using maintain mode
         DlgEnable(1,7);
         DlgEnable(1,8);
     endif;

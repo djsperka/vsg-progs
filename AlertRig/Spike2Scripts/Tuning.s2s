@@ -1,7 +1,7 @@
-' $Id: Tuning.s2s,v 1.98 2016-03-02 22:56:55 devel Exp $
+' $Id: Tuning.s2s,v 1.99 2016-03-04 22:52:04 devel Exp $
 ' Update 11/8/11 Jeff, includes multi-juicer updates
 
-const tunCVSID$ := "$Id: Tuning.s2s,v 1.98 2016-03-02 22:56:55 devel Exp $";
+const tunCVSID$ := "$Id: Tuning.s2s,v 1.99 2016-03-04 22:52:04 devel Exp $";
 
 
 
@@ -2621,7 +2621,11 @@ func Start%()
     var OpenerM$;
     var OpenerS$;
     var ProgName$;
+    var ProgNameM$;
+    var ProgNameS$;
     var RemoteArg$:="";     'Extra arg needed if vsg is not on local machine...
+    var RemoteArgM$:="";     'Extra arg needed if vsg is not on local machine...
+    var RemoteArgS$:="";     'Extra arg needed if vsg is not on local machine...
     var XHairArg$:="";  'Note that all variables are used to construct cmdLine$, if unused, must be empty
     var BGColor$;
     var Dist2Screen$;
@@ -2682,7 +2686,9 @@ func Start%()
     
     ' Get remote args if needed
     if GetUseRemoteStimulus%() = 1 then
-        RemoteArg$ := " " + GetRemoteStimulusIP$() + " " + GetRemoteStimulusPort$() + " fixstim ";
+        RemoteArg$  := " " + GetRemoteStimulusIP$() + " " + GetRemoteStimulusPort$() + " fixstim ";
+        RemoteArgM$ := " " + GetRemoteStimulusIP$() + " " + GetRemoteStimulusPort$() + " fixstim ";
+        RemoteArgS$ := " " + GetSlaveStimulusIP$() + " " + GetSlaveStimulusPort$() + " fixstim ";
     endif;
     
     
@@ -2714,14 +2720,8 @@ func Start%()
         SGratParam$ := "";  'clear slave grating parameters, we won't use them
         
     else  'for rivalry (dualstim.exe), we need some extra commands that must be empty for a fixstim.exe call
-'        if tunNoCardSync% = 0 then
-'            RefrLock$ := " -K ";  'lock frame refresh on the two screens
-'        else
-'            RefrLock$ := "";  'do not lock frame refresh on the two screens
-'        endif;
-        
-'        ProgName$ := "\\dualstim.exe "; 'set program name for dual VSG
-        ProgName$ := "\\fixstim.exe "; 'set program name for dual VSG
+    
+        ProgName$ := "\\remote.exe ";
         
         ' Fetch the offset filename
         key$ := GetRegistryKey$(1) + "\\Rivalry";
@@ -3094,18 +3094,21 @@ func Start%()
         next
 
     else
-        fileM$ := dataPathRoot$ + "\\tunMaster.txt";
-        fileS$ := dataPathRoot$ + "\\tunSlave.txt";
+        fileM$ := GetDataPathRoot$() + "\\tunMaster.txt";
+        fileS$ := GetDataPathRoot$() + "\\tunSlave.txt";         ' Will change this below, once file has been created, to the "slave" version
         tailM$ := FixationArg$ + XHairArg$ + BGColor$ + Dist2Screen$ + TriggerPort$ + " -V 128,FS " + Verbose$ + DGrat$ + DGratParam$ + MGrat$ + MGratParam$ + TunCurveMArg$ + MValues$;
-        tailS$ := " -c 192.168.1.2:7000 " + FixationArg$ + XHairArg$ + BGColor$ + Dist2Screen$ + TriggerPort$ + " -n -V 128,FS " + Verbose$ + SGrat$ + SGratParam$ + TunCurveSArg$ + SValues$ + TunCurveS2Arg$ + S2Values$;
+        tailS$ := FixationArg$ + XHairArg$ + BGColor$ + Dist2Screen$ + TriggerPort$ + " -V 128,FS " + Verbose$ + SGrat$ + SGratParam$ + TunCurveSArg$ + SValues$ + TunCurveS2Arg$ + S2Values$;
         
         if createCmdTextFile%(fileM$, tailM$) <> 1 or createCmdTextFile%(fileS$, tailS$) <> 1 then
             Message("ERROR!|Cannot create tunMaster.txt or tunSlave.txt");
             halt;
         endif
+        fileS$ := GetDataPathRootSlave$() + "\\tunSlave.txt";         ' Will change this below, once file has been created, to the "slave" version
+        LogInfo("Master tuning parameters file: " + fileM$);
+        LogInfo("Slave tuning parameters file: " + fileS$);
         
-        cmdLineM$ := OpenerM$ + ProgName$ + "-F " + fileM$;
-        cmdLineS$ := OpenerS$ + ProgName$ + "-F " + fileS$;
+        cmdLineM$ := OpenerM$ + ProgName$ + RemoteArgM$ + " -F " + fileM$;
+        cmdLineS$ := OpenerS$ + ProgName$ + RemoteArgS$ + " -F " + fileS$;
         
         'cmdLineM$ := OpenerM$ + ProgName$ + FixationArg$ + XHairArg$ + BGColor$ + Dist2Screen$ + TriggerPort$ + " -V 128 " + Verbose$;
         'cmdLineM$ := cmdLineM$ + DGrat$ + DGratParam$ + MGrat$ + MGratParam$ + TunCurveMArg$ + MValues$;
