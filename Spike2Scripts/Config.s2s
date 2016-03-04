@@ -1,10 +1,9 @@
-' $Id: Config.s2s,v 1.34 2016-01-04 19:39:40 devel Exp $
+' $Id: Config.s2s,v 1.35 2016-03-04 23:07:39 devel Exp $
 
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "UsreyGratings.s2s"
 #include "UsreyDAQ.s2s"
 #include "UsreyFixationPoint.s2s"
-
 
 
 
