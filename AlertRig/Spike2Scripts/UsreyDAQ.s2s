@@ -27,6 +27,8 @@ var pReward := 1;               ' Probability of reward
 var UseRemoteStimulus% := 0;     ' if checked, send stim commands to ip.port below
 var RemoteStimulusIP$ := "192.168.1.2";
 var RemoteStimulusPort$ := "7000";
+var SlaveStimulusIP$ := "192.168.1.2";
+var SlaveStimulusPort$ := "7000";
 'var WavemarkPorts%[16];
 'var NumWavemarkPorts%;
 'var ContinuousPorts%[16];
@@ -307,10 +309,13 @@ func DAQParametersDialog%()
     DlgCheck(12, "Use Remote Stimulus");
     DlgString(13, "Remote ip", 21);
     DlgString(14, "Remote port", 5);
+    DlgString(15, "Slave ip", 21);
+    DlgString(16, "Slave port", 5);
     DlgAllow(0xffff, 0, DAQParametersDialogChanged%);
 	iReturn% := DlgShow(NumberOfElectrodes%, DegreesPerVoltX, DegreesPerVoltY, 
                         EyeCoilSamplingFrequency%, pReward, JuicePerReward%, JuiceRewardMS%,
-                        JuicerIndexDecremented%, EyeXPort%, EyeYPort%, JoystickPort%, UseRemoteStimulus%, RemoteStimulusIP$, RemoteStimulusPort$);
+                        JuicerIndexDecremented%, EyeXPort%, EyeYPort%, JoystickPort%, 
+                        UseRemoteStimulus%, RemoteStimulusIP$, RemoteStimulusPort$, SlaveStimulusIP$, SlaveStimulusPort$);
 
 	if iReturn% = 1 then
         JuicerIndex% := JuicerIndexDecremented% + 1; 'Correct JuicerIndex%
@@ -349,6 +354,8 @@ proc GetDAQParameters()
     UseRemoteStimulus% := GetIntRegistryValue%(key$, "UseRemoteStimulus", 0);
     RemoteStimulusIP$ := GetStringRegistryValue$(key$, "RemoteStimulusIP", "192.168.1.2");
     RemoteStimulusPort$ := GetStringRegistryValue$(key$, "RemoteStimulusPort", "7000");
+    SlaveStimulusIP$ := GetStringRegistryValue$(key$, "SlaveStimulusIP", "192.168.1.2");
+    SlaveStimulusPort$ := GetStringRegistryValue$(key$, "SlaveStimulusPort", "7000");
     GetElectrodeParameters();
 end;
 
@@ -372,6 +379,8 @@ proc SaveDAQParameters()
     SetIntRegistryValue(key$, "UseRemoteStimulus", UseRemoteStimulus%);
     SetStringRegistryValue(key$, "RemoteStimulusIP", RemoteStimulusIP$);
     SetStringRegistryValue(key$, "RemoteStimulusPort", RemoteStimulusPort$);
+    SetStringRegistryValue(key$, "SlaveStimulusIP", SlaveStimulusIP$);
+    SetStringRegistryValue(key$, "SlaveStimulusPort", SlaveStimulusPort$);
     SaveElectrodeParameters();
 end;
 
@@ -385,6 +394,14 @@ end
 
 func GetRemoteStimulusPort$()
     return RemoteStimulusPort$;
+end
+
+func GetSlaveStimulusIP$()
+    return SlaveStimulusIP$;
+end
+
+func GetSlaveStimulusPort$()
+    return SlaveStimulusPort$;
 end
 
 
