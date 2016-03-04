@@ -1,4 +1,4 @@
-' $Id: Fixation.s2s,v 1.39 2016-03-03 00:16:45 devel Exp $
+' $Id: Fixation.s2s,v 1.40 2016-03-04 23:08:45 devel Exp $
 ' Update 11/8/11 Jeff, includes SafeSampleKey and multi-juicer updates
 
 #include "../../Spike2Util/UsreyUtil.s2s"
@@ -661,11 +661,11 @@ proc CreateSampleConfiguration()
     CreateElectrodeSamplingConfiguration(1, 11);
 
     ' different pls file if remote
-    if GetUseRemoteStimulus%() = 0 then
-	SampleSequencer(script$ + "Fixation.pls");
-    else
-        SampleSequencer(script$ + "Tuning.pls");
-    endif
+'    if GetUseRemoteStimulus%() = 0 then
+        SampleSequencer(script$ + "Fixation.pls");
+ '   else
+  '      SampleSequencer(script$ + "Tuning.pls");
+   ' endif
         
 	SampleOptimise(2, 2, 2, 2, 50);  'Set optimise mode (do this last)
 	SampleMode(1); 'Continuous sampling
@@ -827,7 +827,7 @@ func Start%()
     if GetUseRemoteStimulus%() = 1 then
         DistractorFlag$ := " -k ";
         DistractorFixstimFlag$ := " -K ";
-        Invocation$ := "cmd /c " + GetBinDir$(1) + "remote " + GetRemoteStimulusIP$() + " " + GetRemoteStimulusPort$() + " fixstim -p 7 ";
+        Invocation$ := "cmd /c " + GetBinDir$(1) + "remote " + GetRemoteStimulusIP$() + " " + GetRemoteStimulusPort$() + " fixstim -p 2 ";
     else
         Invocation$ := "cmd /c " + GetBinDir$(1) + "Fixation ";
     endif
