@@ -50,6 +50,7 @@ var caTextCallbackItemNumber%;
 var caSpecFileOpen%;
 var caInitialDeadTime;
 var caEEGSignals%;
+var caAnswerWindowMin;
 
 'Counter vars for attention script 
 var caCountAllTrials% := 0;
@@ -98,6 +99,7 @@ const caTimingDlgReturnForReward% := 15;
 const caTimingDlgStartTrial% := 16;
 const caTimingDlgInitialDeadTime% := 17;
 const caTimingDlgEEGSignals% := 18;
+const caTimingDlgSaccadeAnswerWindow% := 19;
 
 'const caTimingDlgCycleTrials% := 15;  'Not used
 
@@ -202,6 +204,9 @@ var tempanswer%;
 var thisContrast%; 'for now just making everything compile
 var joystickHasBeenCentered%;
 var joystickInStartPosition%;
+var answerWindowTime;
+var answerWindowStart;
+var answerWindowWhich%;
 
 ' Constants for states
 const stateStartTrial%:=0;		        ' Start trial state
@@ -351,7 +356,7 @@ if caTrainingOptions% > 2 then
         for j% := 0 to caNumberOfTrials%-1 do  'THIS needs to start at 0
             docase
             case (caContrast1Init[j%] <> caContrast1Final[j%]) and (caContrast2Init[j%] <> caContrast2Final[j%]) then
-                message("On trial #%d, BOTH gratings change contrast, this is not currently allowed!  Quitting!",j%);
+                message("On trial #%d, BOTH gratings change contrast, this is not currently allowed!  Quitting!",j%+1);
                 halt;
             case caContrast1Init[j%] <> caContrast1Final[j%] then
                 caWhichLocationChanges%[j%] := 1;
@@ -466,7 +471,8 @@ proc GetTimingDialogParameters()
 	caInitialDeadTime := val(stmp$);
     Profile(key$, "EEGSignals", "0", stmp$);
     caEEGSignals% := val(stmp$);
-    
+    Profile(key$, "AnswerWindowMin", "0.0", stmp$);
+	caAnswerWindowMin := val(stmp$);
     
     
 end;
@@ -495,6 +501,7 @@ proc SaveTimingDialogParameters()
     Profile(key$, "SpecFileName", specFileName$);
     Profile(key$, "InitialDeadTime", str$(caInitialDeadTime));
     Profile(key$, "EEGSignals", str$(caEEGSignals%));
+    Profile(key$, "AnswerWindowMin", str$(caAnswerWindowMin));
     
 end;
 
@@ -538,18 +545,20 @@ func TimingDialog%()
     DlgReal(caTimingDlgTrainingHoldTime%, "Joystick Hold Time To Reward/Stimulus(s): ", .01, 10);
     DlgReal(caTimingDlgFixAlternationTime%, "Fixation Point On/Off Time (training)(s): ", .01, 10);
     'DlgCheck(caTimingDlgRequireFixation%, "Require Fixation",50);
-    DlgList(caTimingDlgRequireFixation%, 60, fixationOptionsList$[], 6);
+    DlgList(caTimingDlgRequireFixation%, 60, fixationOptionsList$[], 5);
     DlgReal(caTimingDlgAdditionalWindowRadius%, "Additional Eye Window Radius (deg)",-10,10);
     DlgCheck(caTimingDlgReturnForReward%, "Return for Reward",50);
     DlgInteger(caTimingDlgStartTrial%, "Start Trial",1,caMaxTrl%);
     DlgReal(caTimingDlgInitialDeadTime%, "Initial Dead Time (s): ", 0, 100);
     DlgCheck(caTimingDlgEEGSignals%, "Send EEG signals");
+    DlgReal(caTimingDlgSaccadeAnswerWindow%, "Saccade Answer Duration (s): ", 0, 100);
     
-    caTextCallbackItemNumber% := DlgText("Text!",2,caTimingDlgRequireFixation%+7,60);
-    DlgButton(2, "Use Above Input File", UseInputFile%,2,caTimingDlgRequireFixation%+8);
-    DlgButton(3, "Select An Input File", OpenInputFile%,2,caTimingDlgRequireFixation%+9);
-    DlgButton(4, "Fixation Point Dialog", FixationPointDialog%,2,caTimingDlgRequireFixation%+10);
-    DlgButton(5, "Joystick Dialog", JoystickConfigDialog%,2,caTimingDlgRequireFixation%+11);
+    
+    caTextCallbackItemNumber% := DlgText("Text!",2,caTimingDlgRequireFixation%+8,60);
+    DlgButton(2, "Use Above Input File", UseInputFile%,2,caTimingDlgRequireFixation%+9);
+    DlgButton(3, "Select An Input File", OpenInputFile%,2,caTimingDlgRequireFixation%+10);
+    DlgButton(4, "Fixation Point Dialog", FixationPointDialog%,2,caTimingDlgRequireFixation%+11);
+    DlgButton(5, "Joystick Dialog", JoystickConfigDialog%,2,caTimingDlgRequireFixation%+12);
     
     DlgAllow(0, 0, TimingDialogChanged%);
     
@@ -557,7 +566,7 @@ func TimingDialog%()
     '              caTrainingHoldTime,caFixAlternationTime,caRequireFixation%,caReturnForReward%,caStartTrial%);
     
     i% := DlgShow(caAcquisitionTime,caFixationTime,caInterTrialTime,caInterTrialTimeRand,caAbortWaitTime,caAbort2WaitTime,caFalseAlarmWaitTime,caFalseAlarmCheckWindow,caMissPenalty,caTrainingOptions%,
-                  caTrainingHoldTime,caFixAlternationTime,caRequireFixation%,caAdditionalWindowRadius,caReturnForReward%,caStartTrial%,caInitialDeadTime,caEEGSignals%);
+                  caTrainingHoldTime,caFixAlternationTime,caRequireFixation%,caAdditionalWindowRadius,caReturnForReward%,caStartTrial%,caInitialDeadTime,caEEGSignals%,caAnswerWindowMin);
     
     if i% = 1 then        
         
@@ -653,7 +662,7 @@ func TimingDialogChanged%(item%)
         DlgEnable(0,caTextCallbackItemNumber%);  'disable text display of control file
         DlgValue$(caTextCallbackItemNumber%,"Control File Not Applicable");
     case DlgValue(caTimingDlgTrainingOptions%) = 2 then
-        if DlgValue(caTimingDlgRequireFixation%) = 1 then
+        if DlgValue(caTimingDlgRequireFixation%) = 1 or DlgValue(caTimingDlgRequireFixation%) = 2 or DlgValue(caTimingDlgRequireFixation%) = 3 then
             DlgEnable(1,caTimingDlgAcquisitionTime%);  'enable acquisition time
             DlgEnable(1,caTimingDlgHoldFixationTime%);  'enable hold fixation time
         else
@@ -679,7 +688,7 @@ func TimingDialogChanged%(item%)
         'but at least here's the framework for the final training stages        
         
     case DlgValue(caTimingDlgTrainingOptions%) >= 3 then   'note that the logic here hasn't been fully worked out
-        if DlgValue(caTimingDlgRequireFixation%) = 1 then
+        if DlgValue(caTimingDlgRequireFixation%) = 1 or DlgValue(caTimingDlgRequireFixation%) = 2 or DlgValue(caTimingDlgRequireFixation%) = 3 then
             DlgEnable(1,caTimingDlgAcquisitionTime%);  'enable acquisition time
             DlgEnable(1,caTimingDlgHoldFixationTime%);  'enable hold fixation time
         else
@@ -711,8 +720,10 @@ func TimingDialogChanged%(item%)
     
     if DlgValue(caTimingDlgRequireFixation%) = 3 or DlgValue(caTimingDlgRequireFixation%) = 4 then
         DlgEnable(1,caTimingDlgAdditionalWindowRadius%); 'enable additional radius entry
+        DlgEnable(1,caTimingDlgSaccadeAnswerWindow%); 'enable saccade answer window entry
     else
         DlgEnable(0,caTimingDlgAdditionalWindowRadius%); 'disable additional radius entry
+        DlgEnable(0,caTimingDlgSaccadeAnswerWindow%); 'disable saccade answer window entry
     endif;
     
     return status%;
@@ -1226,7 +1237,9 @@ func Stop%()
         ExportChanList(0,view(datawindow%).maxtime(),XChannel%);  'Eye position channel, X
         ExportChanList(0,view(datawindow%).maxtime(),YChannel%);  'Eye position channel, Y
     endif;
-    ExportChanList(0,view(datawindow%).maxtime(),JoyChannel%);  'Joystick Channel always
+    if caRequireSaccadeResponse% = 0 then 
+        ExportChanList(0,view(datawindow%).maxtime(),JoyChannel%);  'Joystick Channel if it exists
+    endif;
     
     
     
@@ -1303,6 +1316,9 @@ func IdleProcessing%()
                 tLastTrigger := tTrigger;
                 joystickHasBeenCentered% := 1;  'allow animal to press right at any time
                 ChangeStateTo(stateVSGWaitConfirm%, tTrigger);
+                if caTrainingOptions% > 2 then 'get initial locations of fixpt/stimuli
+                    UpdateOnScreenPositions();  
+                endif;
             endif;
             
         case iState% = stateVSGWaitConfirm% then
@@ -1337,7 +1353,7 @@ func IdleProcessing%()
             
             tempanswer% := Answer%(JoyChannel%,tNow);
             'printlog("Joystick is in position %d\n",tempanswer% );
-            if tempanswer% = 2 or joystickHasBeenCentered% = 1 then  'if joystick is in center, or has previously been centered
+            if tempanswer% = 2 or joystickHasBeenCentered% = 1 or caRequireSaccadeResponse% = 1 then  'if joystick is in center, or has previously been centered
                 'Allow dual report, but either case will advance the state
                 if joystickHasBeenCentered% = 1 then
                     PrintLog("state stateWaitForJoystickInCenter: Joystick has previously been centered\n");
@@ -1353,6 +1369,8 @@ func IdleProcessing%()
                     ChangeStateTo(stateWaitForJoystickInRight%,tNow);
                 case caTrainingOptions% = 2 then  'don't require acquisition until the fixpt is actually ON
                     ChangeStateTo(stateStartTrial%,tNow);
+                case caTrainingOptions% = 3 and caRequireSaccadeResponse% = 1 then 'start trial on saccade-only experiments
+                    ChangeStateTo(stateStartTrial%,tNow); 
                 case caTrainingOptions% = 3 then
                     ChangeStateTo(stateWaitForJoystickInRight%,tNow);  'Animal will need to move joystick first, then trial starts   
                 case caTrainingOptions% = 4 then  'cue image forced choice needs joystick to start in center, don't require acquisition until the fixpt is actually ON
@@ -2083,7 +2101,7 @@ func IdleProcessing%()
             
         case iState% = stateWaitForAnswerSaccade% then
             'getPreciseTiming := 1;  'do we need precise timing here?? If so, stay in while loop until we get eye movements we expect
-            if tNow - tStimOn > totalStimDur then  'no response, stimulus over, at this point we don't care where the eye position is
+            if tNow - tStimOn > totalStimDur and answerWindowStart = 0 then  'no response, stimulus over, at this point we don't care where the eye position is
                 SafeSampleKey("X");  'turn off animation (also kills fixation point, animation is probably already off here)
                 if trialIsTarget% > 0 then 'GO trial, expected response
                     PrintLog("stateWaitForAnswer: no response on go trial, miss\n");
@@ -2093,6 +2111,7 @@ func IdleProcessing%()
                         SampleText("Miss, Attend Away",tNow);
                     endif;
                     ChangeStateTo(stateMiss%, tNow); 'go to miss penalty
+                    caInterTrialTime2 := GetInterTrialTime(caInterTrialTime,caInterTrialTimeRand) + caMissPenalty;
                     SafeSampleKey("a");  'advance stimulus, won't happen anywhere else
                     'joystick is not yet centered
                 else
@@ -2113,21 +2132,97 @@ func IdleProcessing%()
             else
                 'Stimulus is still on, response window is still open...
                 iAnswer% := EyeAnswer%(xEye, yEye);  'get answer
+                
+                'Do a preliminary check to update answerWindowTime if appropriate
+                if (iAnswer% = 1 or iAnswer% = -1) and caAnswerWindowMin > 0 then 'Saccade answer requires minimum time, set caAnswerWindowMin to 0 to skip minimum time
+                    ' Got an answer.  Update how long the eye has been in the response window
+                    if answerWindowStart = 0 then 'this is the first time we have noticed the eye in an answer window
+                        answerWindowWhich% := iAnswer%;  'note which window we are in
+                        answerWindowStart := tNow;  'note when the eye entered the window, duration in window is as yet still 0
+                        SampleText("Eye entered answer window",tNow);
+                    else 'we have noticed the eye in an answer window before
+                        if answerWindowWhich% = iAnswer% then  'if it was the same answer window as before
+                            answerWindowTime := tNow-answerWindowStart; 'update time spent in answer window
+                        else 'this is the second answer window we have entered, this is a miss
+                            SafeSampleKey("X");
+                            PrintLog("stateWaitForAnswer: two answer windows visited - turn off stim and consider a miss\n");
+                            caCountAllTrialsIncorrect% += 1;
+                            
+                            answerWindowStart := 0;  'reset all of the answer window variables
+                            answerWindowTime := 0;
+                            answerWindowWhich% := 0;
+                            
+                            docase
+                            case trialType% = trialtypeAttendToward% then
+                                caCountTowardTrialsIncorrect% += 1;
+                                SampleText("Miss, Two answer windows visited during response window, Attend Toward",tNow);
+                            case trialType% = trialtypeAttendAway% then
+                                caCountAwayTrialsIncorrect% += 1;
+                                SampleText("Miss, Two answer windows visited during response window, Attend Away",tNow);
+                            case trialType% = trialtypeNoAttend% then
+                                caCountAwayTrialsIncorrect% += 1;
+                                SampleText("Miss, Two answer windows visited during response window, No Attend Direction",tNow);    
+                            else
+                                PrintLog("ERROR: Unknown trial type (" + str$(trialType%) + "\n");
+                                SampleText("Hit, Unknown trial type",tNow);
+                            endcase
+                            ChangeStateTo(stateMiss%, tNow); 'go to miss penalty
+                            SafeSampleKey("a");  'advance stimulus, won't happen anywhere else
+                            caInterTrialTime2 := GetInterTrialTime(caInterTrialTime,caInterTrialTimeRand) + caMissPenalty;
+                        endif;
+                    endif;
+                endif;
+                
                 docase
+                    'we cannot do this step because fixation must be broken in order to respond
+                    'in the future if there are issues with the animal breaking fixation and
+                    'then NOT going to a response area we can revisit this somehow
 '                case Looking%(xEye, yEye) = 0 and caRequireFixation% = 1 and caAllowFixationBreakAfterCC% = 0 then  'if fixation broken, abort
 '                    SafeSampleKey("s");
 '                    SampleText("Fixation broken during response window",tNow);
 '                    PrintLog("stateWaitForAnswer: fix broken - turn off stim\n");
 '                    ChangeStateTo(stateAbort%, tNow);
 '                    abortIsPostCC% := 1;
+
+                case iAnswer% = 0 and answerWindowStart <> 0 then  'answer window has been visited and left
+                    'This is a miss
+                    SafeSampleKey("X");
+                    PrintLog("stateWaitForAnswer: answer window entered and left - turn off stim and consider a miss\n");
                     
-                case iAnswer% = 1 or iAnswer% = -1 then
-                    ' Got an answer. Record marker for correct/incorrect answer
+                    answerWindowStart := 0;  'reset all of the answer window variables
+                    answerWindowTime := 0;
+                    answerWindowWhich% := 0;
+                    
+                    caCountAllTrialsIncorrect% += 1;
+                    docase
+                    case trialType% = trialtypeAttendToward% then
+                        caCountTowardTrialsIncorrect% += 1;
+                        SampleText("Miss, answer window entered and left, Attend Toward",tNow);
+                    case trialType% = trialtypeAttendAway% then
+                        caCountAwayTrialsIncorrect% += 1;
+                        SampleText("Miss, answer window entered and left, Attend Away",tNow);
+                    case trialType% = trialtypeNoAttend% then
+                        caCountAwayTrialsIncorrect% += 1;
+                        SampleText("Miss, answer window entered and left, No Attend Direction",tNow);    
+                    else
+                        PrintLog("ERROR: Unknown trial type (" + str$(trialType%) + "\n");
+                        SampleText("Hit, Unknown trial type",tNow);
+                    endcase
+                    ChangeStateTo(stateMiss%, tNow); 'go to miss penalty
+                    SafeSampleKey("a");  'advance stimulus, won't happen anywhere else
+                    caInterTrialTime2 := GetInterTrialTime(caInterTrialTime,caInterTrialTimeRand) + caMissPenalty;
+                case (iAnswer% = 1 or iAnswer% = -1) and answerWindowTime >= caAnswerWindowMin then
+                    ' Got an answer. The eye has been in the response window for at least the minimum time. 
+                    ' Record marker for correct/incorrect answer
                     if iAnswer% = 1 then
                         printlog("Saccade to main grating\n");
                     else
                         printlog("Saccade to distractor grating\n");
                     endif
+                    
+                    answerWindowStart := 0;  'reset all of the answer window variables
+                    answerWindowTime := 0;
+                    answerWindowWhich% := 0;
                     
                     docase
                     case trialIsTarget% > 0 then  'there is a contrast change
