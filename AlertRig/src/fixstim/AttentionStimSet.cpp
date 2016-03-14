@@ -13,7 +13,7 @@ double get_fconfig(VSGCYCLEPAGEENTRY* cycle, int count)
 
 
 
-int parse_attcues(const string& s, int nstim, vector<AttentionCue>& vecCues)
+int parse_attcues(const string& s, int nstim, vector<AttentionCue>& vecCues, bool bCuePoints)
 {
 	COLOR_TYPE color;
 	double rdiff;
@@ -40,7 +40,9 @@ int parse_attcues(const string& s, int nstim, vector<AttentionCue>& vecCues)
 			acue.rdiff = rdiff;
 			acue.linewidth = linewidth;
 			acue.color = color;
+			acue.bCuePoint = bCuePoints;
 			vecCues.push_back(acue);
+
 		}
 	}
 	else
@@ -370,6 +372,17 @@ AttentionStimSet::AttentionStimSet(ARContrastFixationPointSpec& fixpt, double tM
 		circle.linewidth = vecCuePairs[i].linewidth;
 		circle.color = vecCuePairs[i].color;
 		m_vecCues.push_back(circle);
+
+		// set up cue point if needed
+		if (vecCuePairs[i].bCuePoint)
+		{
+			ARContrastFixationPointSpec f;
+			f.color = vecCuePairs[i].color;
+			f.d = fixpt.d;
+			f.x = m_vecGratings[indGrating].x;
+			f.y = m_vecGratings[indGrating].y;
+			m_vecCuePoints.push_back(f);
+		}
 	}
 };
 
@@ -393,6 +406,17 @@ AttentionStimSet::AttentionStimSet(ARContrastFixationPointSpec& fixpt, double tM
 		circle.linewidth = vecCuePairs[i].linewidth;
 		circle.color = vecCuePairs[i].color;
 		m_vecCues.push_back(circle);
+
+		// set up cue point if needed
+		if (vecCuePairs[i].bCuePoint)
+		{
+			ARContrastFixationPointSpec f;
+			f.color = vecCuePairs[i].color;
+			f.d = fixpt.d;
+			f.x = m_vecGratings[indGrating].x;
+			f.y = m_vecGratings[indGrating].y;
+			m_vecCuePoints.push_back(f);
+		}
 	}
 };
 
@@ -412,19 +436,23 @@ int AttentionStimSet::init(ARvsg& vsg, std::vector<int> pages)
 	m_fixpt.init(vsg, 2);
 	m_fixpt.setContrast(100);
 
-	nlevels = (245 - 2*m_vecCues.size())/(m_vecGratings.size()*2 + m_vecDistractors.size());
-#if 0
-	if (m_vecGratings.size() < 4) nlevels = 40;
-	else
-	{
-		nlevels = (247 - m_vecCues.size()*2)/m_vecGratings.size()/2;
-	}
-#endif
+
+	// Change level mult factor from 2 to 4 for cues to accomodate cue points. If no cue points this
+	// overestimates the number of levels. 
+	nlevels = (245 - 4*m_vecCues.size())/(m_vecGratings.size()*2 + m_vecDistractors.size());
+
 	cerr << "Number of levels per stim " << nlevels << endl;
 	for (unsigned int i=0; i<m_vecCues.size(); i++)
 	{
-		cerr << "Init cue " << i << " linewidth " << m_vecCues[i].linewidth << endl;
 		m_vecCues[i].init(vsg, 2);
+	}
+
+	// if there are any cue ponts, then there should be the same number
+	// of cues. We use the same levels for each to save on the overall number
+	// of vsg objects. 
+	for (unsigned int i=0; i<m_vecCuePoints.size(); i++)
+	{
+		m_vecCuePoints[i].init(m_vecCues[i]);
 	}
 	for (unsigned int i=0; i<m_vecGratings.size(); i++)
 	{
@@ -460,15 +488,15 @@ int AttentionStimSet::drawCurrent()
 	// Stim page
 	cerr << "Configure page " << m_pageStim << " pre-CC stim only" << endl;
 	vsgSetDrawPage(vsgVIDEOPAGE, m_pageStim, vsgBACKGROUND);
-	draw_stim_gratings(false, m_vecParams.at(m_current));
 	draw_cues(m_vecParams.at(m_current));
+	draw_stim_gratings(false, m_vecParams.at(m_current));
 	draw_fixpt();
 	
 	// Stim page, this one with contrast change
 	cerr << "Configure page " << m_pageChg << " post-CC stim only" << endl;
 	vsgSetDrawPage(vsgVIDEOPAGE, m_pageChg, vsgBACKGROUND);
-	draw_stim_gratings(true, m_vecParams.at(m_current));
 	draw_cues(m_vecParams.at(m_current));
+	draw_stim_gratings(true, m_vecParams.at(m_current));
 	draw_fixpt();
 
 	// plain fixpt page
@@ -497,8 +525,8 @@ int AttentionStimSet::drawCurrent()
 				vsgSetDrawPage(vsgVIDEOPAGE, m_pageD + 2*iflashy, vsgBACKGROUND);
 
 				// draw stuff on this page
-				draw_stim_gratings(false, m_vecParams.at(m_current));
 				draw_cues(m_vecParams.at(m_current));
+				draw_stim_gratings(false, m_vecParams.at(m_current));
 				draw_flashy(params);
 				draw_fixpt();
 
@@ -507,8 +535,8 @@ int AttentionStimSet::drawCurrent()
 				vsgSetDrawPage(vsgVIDEOPAGE, m_pageD + 2*iflashy + 1, vsgBACKGROUND);
 
 				// and draw stuff for CC+flashy page
-				draw_stim_gratings(true, m_vecParams.at(m_current));
 				draw_cues(m_vecParams.at(m_current));
+				draw_stim_gratings(true, m_vecParams.at(m_current));
 				draw_flashy(params);
 				draw_fixpt();
 
@@ -799,8 +827,11 @@ void AttentionStimSet::draw_cues(const struct AttParams& params)
 		}
 		else
 		{
-			//cout << "Draw cue index " << (iCueBase*m_vecGratings.size() + i) << endl;
 			m_vecCues[iCueBase*m_vecGratings.size() + i].draw();
+			if (m_vecCuePoints.size() >= iCueBase*m_vecGratings.size() + i)
+			{
+				m_vecCuePoints[iCueBase*m_vecGratings.size() + i].draw();
+			}
 		}
 	}
 

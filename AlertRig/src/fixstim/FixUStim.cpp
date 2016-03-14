@@ -1,4 +1,4 @@
-/* $Id: FixUStim.cpp,v 1.6 2016-03-03 22:16:28 devel Exp $*/
+/* $Id: FixUStim.cpp,v 1.7 2016-03-14 20:42:57 devel Exp $*/
 
 #include "FixUStim.h"
 #include <iostream>
@@ -7,7 +7,7 @@ using namespace std;
 using namespace boost::algorithm;
 using namespace boost::filesystem;
 
-const string FixUStim::m_allowedArgs("ab:d:e:f:g:h:j:k:p:s:vzA:B:C:D:G:H:I:J:KL:M:NO:P:Q:R:S:T:U:V:W:Y:Z:");
+const string FixUStim::m_allowedArgs("ab:d:e:f:g:h:j:k:q:p:s:vzA:B:C:D:G:H:I:J:KL:M:NO:P:Q:R:S:T:U:V:W:Y:Z:");
 
 FixUStim::FixUStim(bool bStandAlone)
 : UStim()
@@ -1013,8 +1013,9 @@ int FixUStim::process_arg(int c, std::string& arg)
 			break;
 		}
 	case 'Q':
+	case 'q':
 		{
-			if (parse_attcues(arg, m_vecGratings.size(), m_vecAttentionCues))
+			if (parse_attcues(arg, m_vecGratings.size(), m_vecAttentionCues, (c == 'q' ? true : false)))
 			{
 				cerr << "Error in input." << endl;
 				m_errflg++;
