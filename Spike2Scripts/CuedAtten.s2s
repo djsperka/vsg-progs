@@ -308,6 +308,7 @@ if caTrainingOptions% > 2 then
             caContrast1Init[j%],caContrast1Final[j%],caContrast2Init[j%],caContrast2Final[j%],
             caAttendLoc%[j%],caAlternateGoTime[j%],caCueFile$[j%],b1$[j%],caFileFixParams$[j%],b2$[j%],caFileGrating1Params$[j%],b3$[j%],caFileGrating2Params$[j%]);  
             j%+=1;  'increment count
+            'printlog("line is %d and caCueFile is %s\n",j%-1,caCueFile$[j%-1]);
         wend
         'We still need to use caAttendLoc and caCorrectResponse
         
