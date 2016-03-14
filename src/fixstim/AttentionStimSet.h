@@ -19,10 +19,11 @@ typedef struct attention_cue
 	double rdiff;
 	int linewidth;
 	COLOR_TYPE color;
+	bool bCuePoint;		// if true, will draw cue point in addition to cue circle
 } AttentionCue;
 
 int parse_attparams(const string& s, int nstim, vector<struct AttParams>& vecTrialParams, double& tMax);
-int parse_attcues(const string& s, int nstim, vector<AttentionCue>& vecCues);
+int parse_attcues(const string& s, int nstim, vector<AttentionCue>& vecCues, bool bCuePoints);
 void dump_attcues(const vector<AttentionCue>& vecCues);
 
 
@@ -72,6 +73,7 @@ private:
 	vector<alert::ARGratingSpec> m_vecGratingsCC;
 	vector<struct AttParams> m_vecParams;
 	vector<alert::ARContrastCircleSpec> m_vecCues;
+	vector<alert::ARContrastFixationPointSpec> m_vecCuePoints;
 	FlashyParamVectorVector  m_vecFlashies;		// one vector element per trial
 	vector<alert::ARGratingSpec> m_vecDistractors;
 	unsigned int m_current;

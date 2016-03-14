@@ -225,11 +225,16 @@ comma-separated parameters following the -J.
 
 To specify the cue circles, use the -Q option:
 
--Q rad_extra_0,color_0,radius_extra_1,color_1,...
+-Q rad_extra_0,linewidth_0,color_0,radius_extra_1,linewidth_1,color_1,...
+
+To specify cue circles with cue points (fixation points placed at center of circle, with 
+same diameter as the fixation point, and the same color as the corresponding cue
+circle), use the same args with the -q option. 
 
 where the parameters are:
 
 radius_extra_0 - radius of circle is this plus the radius of corresponding grating
+linewidth_0 - linewidth to use for cue circle, in pixels (s/b an integer)
 color_0 - color of circle
 
 The -Q option must come after all gratings have been specified (-s, once for each 
