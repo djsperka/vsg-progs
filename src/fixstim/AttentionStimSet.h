@@ -65,6 +65,7 @@ private:
 	int drawCurrent();
 	void draw_stim_gratings(bool bIsCC, const struct AttParams& params);
 	void draw_cues(const struct AttParams& params);
+	void draw_cue_points(const struct AttParams& params);
 	void draw_fixpt();
 	void draw_flashy(const FlashyParams& params);
 	alert::ARContrastFixationPointSpec m_fixpt;

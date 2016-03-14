@@ -600,6 +600,14 @@
 			>
 		</File>
 		<File
+			RelativePath=".\attention-test-input-3.txt"
+			>
+		</File>
+		<File
+			RelativePath=".\attention-test-input-4.txt"
+			>
+		</File>
+		<File
 			RelativePath=".\attspan.txt"
 			>
 		</File>

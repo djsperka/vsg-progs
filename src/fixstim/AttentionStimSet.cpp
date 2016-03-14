@@ -488,20 +488,23 @@ int AttentionStimSet::drawCurrent()
 	// Stim page
 	cerr << "Configure page " << m_pageStim << " pre-CC stim only" << endl;
 	vsgSetDrawPage(vsgVIDEOPAGE, m_pageStim, vsgBACKGROUND);
-	draw_cues(m_vecParams.at(m_current));
+	draw_cue_points(m_vecParams.at(m_current));
 	draw_stim_gratings(false, m_vecParams.at(m_current));
+	draw_cues(m_vecParams.at(m_current));
 	draw_fixpt();
 	
 	// Stim page, this one with contrast change
 	cerr << "Configure page " << m_pageChg << " post-CC stim only" << endl;
 	vsgSetDrawPage(vsgVIDEOPAGE, m_pageChg, vsgBACKGROUND);
-	draw_cues(m_vecParams.at(m_current));
+	draw_cue_points(m_vecParams.at(m_current));
 	draw_stim_gratings(true, m_vecParams.at(m_current));
+	draw_cues(m_vecParams.at(m_current));
 	draw_fixpt();
 
 	// plain fixpt page
 	cerr << "Configure page " << m_pageFixpt << " fixpt and cues, no stim" << endl;
 	vsgSetDrawPage(vsgVIDEOPAGE, m_pageFixpt, vsgBACKGROUND);
+	draw_cue_points(m_vecParams.at(m_current));
 	draw_cues(m_vecParams.at(m_current));
 	draw_fixpt();
 
@@ -525,8 +528,9 @@ int AttentionStimSet::drawCurrent()
 				vsgSetDrawPage(vsgVIDEOPAGE, m_pageD + 2*iflashy, vsgBACKGROUND);
 
 				// draw stuff on this page
-				draw_cues(m_vecParams.at(m_current));
+				draw_cue_points(m_vecParams.at(m_current));
 				draw_stim_gratings(false, m_vecParams.at(m_current));
+				draw_cues(m_vecParams.at(m_current));
 				draw_flashy(params);
 				draw_fixpt();
 
@@ -535,8 +539,9 @@ int AttentionStimSet::drawCurrent()
 				vsgSetDrawPage(vsgVIDEOPAGE, m_pageD + 2*iflashy + 1, vsgBACKGROUND);
 
 				// and draw stuff for CC+flashy page
-				draw_cues(m_vecParams.at(m_current));
+				draw_cue_points(m_vecParams.at(m_current));
 				draw_stim_gratings(true, m_vecParams.at(m_current));
+				draw_cues(m_vecParams.at(m_current));
 				draw_flashy(params);
 				draw_fixpt();
 
@@ -828,8 +833,34 @@ void AttentionStimSet::draw_cues(const struct AttParams& params)
 		else
 		{
 			m_vecCues[iCueBase*m_vecGratings.size() + i].draw();
-			if (m_vecCuePoints.size() >= iCueBase*m_vecGratings.size() + i)
+		}
+	}
+
+	return;
+}
+
+
+void AttentionStimSet::draw_cue_points(const struct AttParams& params)
+{
+	// Draw cue points
+	// One for each grating, but the set of cues used are taken from 
+	// (iOffBits & 0xff00) >> 8
+	int iCueBase = (params.iOffBits & 0xff00) >> 8;
+
+	for (unsigned int i=0; i<m_vecGratings.size(); i++)
+	{
+		//cout << "cue " << i << " (params.iOffBits & (1 << i)) " << (params.iOffBits & (1 << i)) << endl;
+		// Check if this stim has an off bit set.
+		if (params.iOffBits & (1 << i))
+		{
+			//cout << "Nothing to do." << endl;
+			// do nothing
+		}
+		else
+		{
+			if (m_vecCuePoints.size() > iCueBase*m_vecGratings.size() + i)
 			{
+				cout << "draw cue point " << i << endl;
 				m_vecCuePoints[iCueBase*m_vecGratings.size() + i].draw();
 			}
 		}
@@ -837,6 +868,8 @@ void AttentionStimSet::draw_cues(const struct AttParams& params)
 
 	return;
 }
+
+
 
 void AttentionStimSet::draw_fixpt()
 {
