@@ -1,4 +1,4 @@
-' $Id: AttentionGoNoGo.s2s,v 1.80 2016-03-14 21:46:42 devel Exp $
+' $Id: AttentionGoNoGo.s2s,v 1.81 2016-03-15 23:50:01 devel Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -583,6 +583,7 @@ func AttentionScriptDialog%()
     var ninemoreints%[9];
     var blockAlternateList$[3];
     var blockStartList$[7];
+    var cueCircleList$[3];
     
     blockAlternateList$[0] := "Randomize cue type by trial";
     blockAlternateList$[1] := "Randomize cue type by block";
@@ -595,6 +596,10 @@ func AttentionScriptDialog%()
     blockStartList$[4] := "Start Block: Distracter 3";
     blockStartList$[5] := "Start Block: Distracter 4";
     blockStartList$[6] := "Start Block: No Change";
+    
+    cueCircleList$[0] := "No Cue Circles";
+    cueCircleList$[1] := "Cue Circles";
+    cueCircleList$[2] := "Cue Circles + Cue Points";
     
 	GetAttentionScriptParameters();
     GetColorsDialogParameters();  'we need to GET the parameters here, even though we may not use any of them...but we WILL use backgroundColor$, that's why
@@ -657,7 +662,8 @@ func AttentionScriptDialog%()
     DlgCheck(attdlgUseFlashers%, "Use Flashers", 37, 15);
     
     DlgGroup("Cue Circles", 1, 15, 34, 5);
-    DlgCheck(attdlgUseCueCircles%, "Use Cue Circles", 2, 16);
+    'DlgCheck(attdlgUseCueCircles%, "Use Cue Circles", 2, 16);
+    DlgList(attdlgUseCueCircles%, 30, cueCircleList$[], 3, 4, 16);
     DlgCheck(attdlgSwapCueCircle%, "Swap Cue Circles (if used)", 2, 17);
 	DlgReal(attdlgCueCircleExtraRadius%, "Cue extra radius (deg)", 0, 5, 22, 18);
     DlgInteger(attdlgCueCircleStrokeWidth%, 4, 0, 20, 30, 19); DlgText("Cue Circle Stroke Width (integer)",2,19);
@@ -2814,7 +2820,7 @@ func Start%()
     PrintLog("ttemp " + str$(ttemp) + " tlast " + str$(tLast) + "\n");
     
     
-    if attUseCueCircles% = 1 then
+    if attUseCueCircles% > 0 then
         CueCirc$ := CreateCueCircleColorSets$();
     endif;
     
@@ -4049,6 +4055,7 @@ func CreateCueCircleColorSets$()
     var k%;
     var x%;
     var y%;
+    var cueFlag$;
     
     'assign RGB colors for cue circles
     'These colors have to be in the same order as the ones specified in UpdateTrialSpecString!
@@ -4102,12 +4109,22 @@ func CreateCueCircleColorSets$()
     ContrastList%[2] := attCueCircleContrastD2%;
     ContrastList%[3] := attCueCircleContrastD3%;
     ContrastList%[4] := attCueCircleContrastD4%;
-        
+    
+    'Set cue flag
+    docase
+    case attUseCueCircles% = 1 then
+        cueFlag$ := "-Q ";
+    case attUseCueCircles% = 2 then
+        cueFlag$ := "-q ";
+    else
+        message("Error!  UseCueCircles% holds an illegal value!  Quitting!");
+        quit%();
+    endcase
     
     'Put in cue circle opener and first cue circle, which always happens
     'CueCirc$ := "-Q " + Str$(attCueCircleExtraRadius) + "," + FadeColorToGray$(stimRGB%[],attCueCircleContrastStim%);  'This is for old version of cue circle call (as of 6/5/15)
     'This is for new version of cue circle call, adding stroke width, whenever it gets implemented
-    CueCirc$ := "-Q " + Str$(attCueCircleExtraRadius) + "," + Str$(attCueCircleStrokeWidth%) + "," + FadeColorToGray$(stimRGB%[],attCueCircleContrastStim%);  
+    CueCirc$ := cueFlag$ + Str$(attCueCircleExtraRadius) + "," + Str$(attCueCircleStrokeWidth%) + "," + FadeColorToGray$(stimRGB%[],attCueCircleContrastStim%);  
     
     docase
     case attNumPatches% = 2 then
