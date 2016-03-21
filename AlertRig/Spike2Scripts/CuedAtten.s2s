@@ -1187,7 +1187,8 @@ end;
 func Stop%()
     var i%, j%, mylen%;
     var fn$;
-    var chanToExport%[30];
+    var chanToExport%[50];
+    var totalChanToExport%;
     
 	' Disable idle process func
 	ToolbarSet(0,"");  
@@ -1210,6 +1211,10 @@ func Stop%()
     chanToExport%[1] := 30;  'channels to export go in elements 1:...'30 is the textmark channel
     chanToExport%[2] := 31;  '31 is the keyboard channel
     chanToExport%[3] := StimChannel%;  'stim channel
+    totalChanToExport% := 3;  'so far, three hardcoded channels to export
+    
+    
+    'Note that this commented section does NOT include an update to use the "totalChanToExport%" syntax and may no longer work as-is
     '    docase
     '    case UsePlexon% = 1 then  'use hardcoded Plexon values - 18 WaveMarks and 24 LFPs for now, on the micro it's 
     '        for i% := 0 to 12 do
@@ -1225,35 +1230,60 @@ func Stop%()
     '        next;
     '        chanToExport%[0] := 3+i%;  'total number of channels goes in element 0
     '    else
+    '    endcase;
+    
     for i% := 0 to NumWavemarkPorts%-1 do  'will not run if NumWavemarkPorts% is 0
-        chanToExport%[i%+4] := i%+1;  'wavemark channels are in order
+        totalChanToExport% += 1;  'increment number of channels to export
+        'chanToExport%[i%+4] := i%+1;  'wavemark channels are in order
+        chanToExport%[totalChanToExport%] := i%+1;  'wavemark channels are in order
     next;
     
     for j% := 0 to NumContinuousPorts%-1 do  'will not run if NumWavemarkPorts% is 0
-        chanToExport%[i%+j%+4] := j%+NumWavemarkPorts%+1;  'wavemark channels are in order
+        totalChanToExport% += 1;  'increment number of channels to export
+        'chanToExport%[i%+j%+4] := j%+NumWavemarkPorts%+1;  'wavemark channels are in order
+        chanToExport%[totalChanToExport%] := j%+NumWavemarkPorts%+1;  'wavemark channels are in order
     next;
     
-    chanToExport%[0] := 3+i%+j%;  'total number of channels goes in element 0
-    '    endcase;
     
-    ExportChanList(0,view(datawindow%).maxtime(),chanToExport%[]);
-    
-    'Code for putting other various channels into the Matlab extraction, Ben doesn't want them but they will be useful for other code    
+        'Code for putting other various channels into the Matlab extraction, Ben doesn't want them but they will be useful for other code    
     if caRequireFixation% <> 0 then  'eye position channel only if used
-        ExportChanList(0,view(datawindow%).maxtime(),XChannel%);  'Eye position channel, X
-        ExportChanList(0,view(datawindow%).maxtime(),YChannel%);  'Eye position channel, Y
+        'ExportChanList(0,view(datawindow%).maxtime(),XChannel%);  'Eye position channel, X
+        'ExportChanList(0,view(datawindow%).maxtime(),YChannel%);  'Eye position channel, Y
+        totalChanToExport% += 1;
+        chanToExport%[totalChanToExport%] := XChannel%;
+        totalChanToExport% += 1;
+        chanToExport%[totalChanToExport%] := YChannel%;
     endif;
     if caRequireSaccadeResponse% = 0 then 
-        ExportChanList(0,view(datawindow%).maxtime(),JoyChannel%);  'Joystick Channel if it exists
+        totalChanToExport% += 1;
+        chanToExport%[totalChanToExport%] := JoyChannel%;  'Joystick Channel if it exists
+        'ExportChanList(0,view(datawindow%).maxtime(),JoyChannel%);  'Joystick Channel if it exists
     endif;
     
+    'The first element in the chanToExport% variable must be the number of channels to be exported
+    'chanToExport%[0] := 3+i%+j%;  'total number of channels goes in element 0    
+    chanToExport%[0] := totalChanToExport%;
+    
+    'Update list of channels to export in one fell swoop
+    ExportChanList(0,view(datawindow%).maxtime(),chanToExport%[]);
+    
+
     
     
-    fn$ := FileName$();  'get current file name
-    printlog("file name is %s\n",fn$);
-    mylen% := Len(fn$);
-    fn$ := Left$(fn$,mylen%-4);
+    
+    'Old version, causes a double-period in Spike2 v.8 because of new four-letter extension
+'    fn$ := FileName$();  'get current file name
+'    printlog("file name is %s\n",fn$);
+'    mylen% := Len(fn$);
+'    fn$ := Left$(fn$,mylen%-4);
+'    fn$ := fn$ + ".mat";
+    
+    'New version, should work on all Spike2 versions
+    fn$ := FileName$(1) + FileName$(2) + FileName$(3) + FileName$(4);
     fn$ := fn$ + ".mat";
+    printlog("Matlab output file name is %s\n",fn$);
+    
+    
     FileSaveAs(fn$,100,0,"",0,"UseSName=0"); 'Do not overwrite the .mat file - should have a different name and if it doesn't that is a red flag    
     
     ' Write parameter file
