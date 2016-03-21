@@ -1185,7 +1185,7 @@ end;
 
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 func Stop%()
-    var i%, mylen%;
+    var i%, j%, mylen%;
     var fn$;
     var chanToExport%[30];
     
@@ -1225,10 +1225,15 @@ func Stop%()
     '        next;
     '        chanToExport%[0] := 3+i%;  'total number of channels goes in element 0
     '    else
-    for i% := 0 to NumWavemarkPorts% do
+    for i% := 0 to NumWavemarkPorts%-1 do  'will not run if NumWavemarkPorts% is 0
         chanToExport%[i%+4] := i%+1;  'wavemark channels are in order
     next;
-    chanToExport%[0] := 3+i%;  'total number of channels goes in element 0
+    
+    for j% := 0 to NumContinuousPorts%-1 do  'will not run if NumWavemarkPorts% is 0
+        chanToExport%[i%+j%+4] := j%+NumWavemarkPorts%+1;  'wavemark channels are in order
+    next;
+    
+    chanToExport%[0] := 3+i%+j%;  'total number of channels goes in element 0
     '    endcase;
     
     ExportChanList(0,view(datawindow%).maxtime(),chanToExport%[]);
