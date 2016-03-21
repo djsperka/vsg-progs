@@ -1,4 +1,4 @@
-' $Id: AttentionGoNoGo.s2s,v 1.81 2016-03-15 23:50:01 devel Exp $
+' $Id: AttentionGoNoGo.s2s,v 1.82 2016-03-21 22:15:05 devel Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -2672,48 +2672,52 @@ func Stop%()
 		Yield();
 	wend
     
-    View(DataWindow%);
-    ExportChanList(); 
-    chanToExport%[1] := 30;  'channels to export go in elements 1:...'30 is the textmark channel
-    chanToExport%[2] := 31;  '31 is the keyboard channel
-    chanToExport%[3] := StimChannel%;  'stim channel
-    docase
-    case UsePlexon% = 1 then  'use hardcoded Plexon values - 18 WaveMarks and 24 LFPs for now, on the micro it's 
-        for i% := 0 to 12 do
-            chanToExport%[i%+4] := i%+1;  'wavemark channels are in order
-        next;
-        chanToExport%[0] := 3+i%;  'total number of channels goes in element 0
-    case UsePlexon7WM15CN% = 1 then  'use hardcoded Plexon values - 7 WaveMarks and 15 LFPs
-        for i% := 0 to 13 do
-            chanToExport%[i%+4] := i%+1;  'wavemark channels are in order
-        next;
-        for i% := 14 to 21 do
-            chanToExport%[i%+4] := i%+3;  'wavemark channels are in order, but we're skipping eye channels
-        next;
-        chanToExport%[0] := 3+i%;  'total number of channels goes in element 0
-    else
-        for i% := 0 to NumWavemarkPorts% do
-            chanToExport%[i%+4] := i%+1;  'wavemark channels are in order
-        next;
-        chanToExport%[0] := 3+i%;  'total number of channels goes in element 0
-    endcase;
     
-    ExportChanList(0,view(datawindow%).maxtime(),chanToExport%[]);
-    
-    'Code for putting other various channels into the Matlab extraction, Ben doesn't want them but they will be useful for other code    
-    ExportChanList(0,View(DataWindow%).maxtime(),XChannel%);  'Eye position channel, X
-    ExportChanList(0,View(DataWindow%).maxtime(),YChannel%);  'Eye position channel, Y
-    'for i% := 0 to NumWavemarkPorts%-1 do
-    '    ExportChanList(0,View(DataWindow%).maxtime(),i%+1);  'Wavemark channel(s)
-    'next;
-    
-    
-    fn$ := FileName$();  'get current file name
-    printlog("file name is %s\n",fn$);
-    mylen% := Len(fn$);
-    fn$ := Left$(fn$,mylen%-4);
-    fn$ := fn$ + ".mat";
-    FileSaveAs(fn$,100,0,"",0,"UseSName=0"); 'Do not overwrite the .mat file - should have a different name and if it doesn't that is a red flag    
+    '''As of now, Henry does not want there to be .mat file output on attenGNG (3/21/16 jj)   
+    '''Note that I've updated the syntax here in other code to make sure the eye channels
+    '''actually come out, check CuedAtten.s2s for details
+'    View(DataWindow%);
+'    ExportChanList(); 
+'    chanToExport%[1] := 30;  'channels to export go in elements 1:...'30 is the textmark channel
+'    chanToExport%[2] := 31;  '31 is the keyboard channel
+'    chanToExport%[3] := StimChannel%;  'stim channel
+'    docase
+'    case UsePlexon% = 1 then  'use hardcoded Plexon values - 18 WaveMarks and 24 LFPs for now, on the micro it's 
+'        for i% := 0 to 12 do
+'            chanToExport%[i%+4] := i%+1;  'wavemark channels are in order
+'        next;
+'        chanToExport%[0] := 3+i%;  'total number of channels goes in element 0
+'    case UsePlexon7WM15CN% = 1 then  'use hardcoded Plexon values - 7 WaveMarks and 15 LFPs
+'        for i% := 0 to 13 do
+'            chanToExport%[i%+4] := i%+1;  'wavemark channels are in order
+'        next;
+'        for i% := 14 to 21 do
+'            chanToExport%[i%+4] := i%+3;  'wavemark channels are in order, but we're skipping eye channels
+'        next;
+'        chanToExport%[0] := 3+i%;  'total number of channels goes in element 0
+'    else
+'        for i% := 0 to NumWavemarkPorts% do
+'            chanToExport%[i%+4] := i%+1;  'wavemark channels are in order
+'        next;
+'        chanToExport%[0] := 3+i%;  'total number of channels goes in element 0
+'    endcase;
+'    
+'    ExportChanList(0,view(datawindow%).maxtime(),chanToExport%[]);
+'    
+'    'Code for putting other various channels into the Matlab extraction, Ben doesn't want them but they will be useful for other code    
+'    ExportChanList(0,View(DataWindow%).maxtime(),XChannel%);  'Eye position channel, X
+'    ExportChanList(0,View(DataWindow%).maxtime(),YChannel%);  'Eye position channel, Y
+'    'for i% := 0 to NumWavemarkPorts%-1 do
+'    '    ExportChanList(0,View(DataWindow%).maxtime(),i%+1);  'Wavemark channel(s)
+'    'next;
+'    
+'    
+'    fn$ := FileName$();  'get current file name
+'    printlog("file name is %s\n",fn$);
+'    mylen% := Len(fn$);
+'    fn$ := Left$(fn$,mylen%-4);
+'    fn$ := fn$ + ".mat";
+'    FileSaveAs(fn$,100,0,"",0,"UseSName=0"); 'Do not overwrite the .mat file - should have a different name and if it doesn't that is a red flag    
     
     ' Write parameter file
 	WriteParameterFile();
