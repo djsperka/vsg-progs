@@ -1,4 +1,4 @@
-' $Id: AttentionGoNoGo.s2s,v 1.82 2016-03-21 22:15:05 devel Exp $
+' $Id: AttentionGoNoGo.s2s,v 1.83 2016-03-22 17:03:52 devel Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "AttentionExtractFunctions.s2s"
@@ -1362,6 +1362,30 @@ func Answer%(EyePosX, EyePosY)
 	return ans%;
 end;
 
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func LookingAtCuePoint%(EyePosX, EyePosY, windowRadius)
+    'this function is essentially Answer% except with a variable window radius
+    var ans% := 0;
+    'ansptRadius := Pow(attAnswerPointWindowRadius,2);  'answer point radius is now the size of the grating
+    
+    'note that in the case statement, we will not consider grating patches that don't exist - see how smart we are!
+    docase
+    case (Pow(EyePosX-mainX,2) + Pow(EyePosY-(mainY),2)) <= Pow(windowRadius,2) then 'Looking at main grating cue dot
+        ans% := 1;
+    case (Pow(EyePosX-dist1X,2) + Pow(EyePosY-(dist1Y),2)) <= Pow(windowRadius,2) and attNumPatches% > 1 then 'Looking at distracter 1 cue dot
+        ans% := -1;
+    case (Pow(EyePosX-dist2X,2) + Pow(EyePosY-(dist2Y),2)) <= Pow(windowRadius,2) and attNumPatches% > 2 then 'Looking at distracter 2 cue dot
+        ans% := -2;
+    case (Pow(EyePosX-dist3X,2) + Pow(EyePosY-(dist3Y),2)) <= Pow(windowRadius,2) and attNumPatches% > 3 then 'Looking at distracter 3 cue dot
+        ans% := -3;
+    case (Pow(EyePosX-dist4X,2) + Pow(EyePosY-(dist4Y),2)) <= Pow(windowRadius,2) and attNumPatches% > 4 then 'Looking at distracter 4 cue dot
+        ans% := -4;
+    endcase;
+    
+	return ans%;
+end;
+
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 func Reward%()
     DefaultReward();
@@ -1538,18 +1562,24 @@ func IdleProcessing%()
     case iState% = stateWaitForAcquisition% then
         'getPreciseTiming := 1;
         ' Waiting for eye to fall inside of fixation window
-        if Looking%(xEye, yEye) = 1 then
+        docase
+        case Looking%(xEye, yEye) = 1 then
             PrintLog("stateWaitForAcquisition: eye in fixation window.\n");
             ChangeStateTo(stateHoldFixationToStimOn%, tNow);
             SampleText("Fixation Acquired",tNow);
             'getPreciseTiming := 0;
+        case attUseCueCircles% = 2 and LookingAtCuePoint%(xEye, yEye, 1) <> 0 then  'using a hardcoded radius of 1 degree, only check if we are using cue circles
+            'Simple abort on acquisition of cue point instead of fixpt.  Note that IF fixpt window and cue point windows overlap, priority is given to the fixpt window...
+            PrintLog("stateWaitForAcquisition: eye in cue circle window, aborting trial.\n");
+            ChangeStateTo(stateAbort%, tNow);
+            SampleText("Animal Fixated Cue Circle, Trial Aborted",tNow);
         else 
             if tNow - tStateStart > attAcquisitionTime then  'simple abort on failure to acquire
                 PrintLog("stateWaitForAcquisition: failed.\n");
                 ChangeStateTo(stateAbort%, tNow);
                 'getPreciseTiming := 0;
             endif
-        endif
+        endcase
         
         
     case iState% = stateHoldFixationToStimOn% then
