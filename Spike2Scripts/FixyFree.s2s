@@ -1,0 +1,881 @@
+
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+' FixyFree - a program that will allow the presentation of stimuli relative to the
+'            animal's eye position with a very relaxed fixation requirement (eye
+'            position on screen)
+'
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+#include "../../Spike2Util/UsreyUtil.s2s"
+#include "AttentionExtractFunctions.s2s"
+#include "UsreyFixationPoint.s2s"
+#include "UsreyDAQ.s2s"
+#include "UsreyGratings.s2s"
+
+
+'''''''''' Variables ''''''''''
+
+const screenXmm := 400;
+const screenYmm := 300;
+var screenXmax;  'these are the borders of the screen in visual degrees
+var screenYmax;
+var lowRewardMS%;
+var origRewardMS%;
+var autoNameTemplate$;
+var backgroundColor$ := "black";
+
+' Channel numbers and handles
+var StimHandle%;	' handle for stimulus application
+var DataWindow%;		 
+var XChannel%;
+var YChannel%;
+var iFixationWindowChannel%;
+var iStimChannel%;
+var iMonitorChannel%;
+
+var FrameTriggerChannel%;
+var SynchChannel%;
+var FixationPointChannel%;
+'var StimChannel%;            'commenting out channels we don't need...yet
+'var StimChangeChannel%;
+var ReadyChannel%;
+var XYWindow%;	
+
+' Display stuff
+var FixWindowX[36],FixWindowY[36];	' points for displaying fixation window in xy view
+var windowX[36], windowY[36];
+
+
+' Timing variables
+var tNow:=0;		' latest time for which there are values recorded. Used in IdleProcessing
+var tLast:=-1;		' last time we checked for a trigger. 
+var xEye, yEye;		' eye positions
+var tLastUpdate:=-1;	' last time view was updated
+var vTrigger;		' set by NextTime to indicate trigger transition
+var tStateStart:=-1;	' time that present state started. Used to measure wait time, fixation time, etc. 
+var tLastTrigger:=-1;	' last trigger time. New triggers have to be greater than this
+var tTrigger:=-1;	' temp var for newly discovered trigger times
+var fxfRewardTime;   'how long to wait to get reward
+var fxfRewardCount%;  'how many rewards given out?
+var fxfHazardExpMeanTime;   'Hazard
+var fxfHazardMinTime;
+
+' Constants for states
+const stateVSGWait% := 10;		        ' wait for vsg to send ready signal #1
+const stateVSGWaitConfirm% := 11;		' wait for vsg to send ready signal #2
+const stateWaitForEyesOnScreen% := 12;  ' Wait for eyes to go onto screen
+const stateStartTrial% := 13;           ' Put up fixation point with eyes on screen
+const stateWaitForFixPtOn% := 14;       ' Verify fixation point actually gets on screen
+const stateWaitForReward% := 15;        ' While eyes on screen, wait for reward
+const stateAbort% := 16;                ' If eyes are taken off screen, remove fixation point
+const stateWaitForBlank% := 17;         ' Verify removal of fixation point
+var iState% := stateVSGWait%;	' present state
+
+
+
+
+
+'''''''''' Preliminaries ''''''''''
+
+
+' Check for valid data file path
+if Len(dataDataSet$) = 0 then
+	Message("No data set is selected! Edit Data parameters...");
+	' Might be nice to open the dialog here....
+	halt;
+endif;
+
+
+'get original reward value from config
+origRewardMS% := GetJuiceRewardMS%();
+
+
+' Assign channel numbers for eye X,Y and trigger. 
+XChannel% := 23;
+YChannel% := 24;
+FrameTriggerChannel% := 25;
+FixationPointChannel% := 26;
+'StimChannel% := 27;
+'StimChangeChannel% := 28;
+ReadyChannel% := 29;
+SynchChannel% := 32;
+
+if FixyFreeDialog%() = 0 then
+    halt;
+endif
+
+
+'If we are not using the Plexon (and thus linking the two 1401s together, just use the standard order of operations:
+'1) create sampling configuration, 2) Initialize windows, 3) Initialize/run toolbar.
+'However, if we are linking the 1401s we have to do this in a different order, because we have to open up the second
+'instance of Spike 2 BEFORE setting up the sampling configuration/windows on the first instance.  Doing this in the
+'wrong order results in a non-fatal error in the second Spike2 instance indicating that the file which is preparing
+'to be recorded in the first instance cannot be accessed, despite no explicit attempt to access any such thing.
+'Hence, for the Plexon setups, we first initialize the toolbar, which has a specialty button "Start Plexon".  StartPlexon%()
+'launches the second instance and the associated script, and both scripts move forward independently to create their own
+'sampling configuration, initialize their own windows and are ready to have sampling started.  Note well that sampling
+'must be started on the POWER 1401 (the second, non-dominant instance of Spike2) FIRST and on the MICRO 1401 (the first, 
+'dominant instance of Spike 2) SECOND.  Starting sampling on the Micro will run the VSG program (Fixstim) which gives
+'the sampling trigger and sets the experiment in motion.
+if UsePlexon% = 0 then
+    CreateSampleConfiguration();
+
+    ' Get display windows ready
+    InitializeWindows();
+
+    ' Prepare the toolbar buttons
+    InitializeToolbar();
+else
+    InitializeToolbar();
+endif;
+
+
+
+
+
+
+
+'Still plenty to do to get this up and running - At the very least:
+'InitializeToolbar
+'Idle Processing
+'Start
+'Stop
+'Quit?
+'
+'Also we need to override the fixation point values to make it huge
+'I guess we'd probably use some sort of hazard time to determine when to reward?
+'
+'Obviously we will eventually need to set up a dialog, get and set registry values, etc.
+'but that doesn't need to happen before we can demonstrably make this work on a basic level.
+
+
+
+
+
+'''''''''' Functions ''''''''''
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func Reward%()
+    DefaultReward();
+    'No sample text, just use 'R' from keyboard channel
+	return 1;
+end;
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func Looking%(EyePosX,EyePosY)
+	'Determine if the eye position is within the fixation window
+	if (Pow(EyePosX-FixationX,2) + Pow(EyePosY-FixationY,2)) <= Pow(WindowRadius,2) then return 1; else return 0; endif
+end;
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func LookingScreen%(EyePosX,EyePosY)
+	'Determine if the eye position is on the screen, note that a rectangular window requires different code than a circular window
+    if abs(EyePosX) <= screenXmax and abs(EyePosY) <= screenYmax then return 1; else return 0; endif;
+end;
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'Returns max limits (in degrees in variables xmax, ymax) for the screen
+'when using recall that width/height definitions are total w/h and distance from the center point is width/2
+proc ScreenBounds(scrXmm,scrYmm,&xmax,&ymax)
+    var d2s$;
+    var d2s; 
+    
+    d2s$ := GetDistanceToScreenMM$();
+    d2s := val(d2s$);
+    'printlog("Distance to screen is %f\n",d2s);
+    
+    xmax := ATan((scrXmm/2)/d2s)*180/(4.0*ATan(1.0));  'maximum x in degrees
+    ymax := ATan((scrYmm/2)/d2s)*180/(4.0*ATan(1.0));  'maximum y in degrees
+    'printlog("Max x is %f degrees and max y is %f degrees\n",xmax,ymax);
+    
+end
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+proc CreateSampleConfiguration()
+	var index;
+    var key$;
+    key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Temp\\Filepref";
+    SampleClear(); 'Set standard sampling state
+
+    FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 3);
+    FilePathSet(dataPathRoot$ + "\\" + dataDataSet$, 1);
+    if UsePlexon% = 0 then
+        SampleAutoName$(dataCellName$ + "_fxf_000");  'NOTE: maximum of 13 characters!!!
+    else
+        EqualizeSMRFilenumbers(dataPathRoot$ + "\\" + dataDataSet$,dataCellName$+"_fxfMICRO_",dataCellName$+"_fxfPOWER_");
+        SampleAutoName$(dataCellName$ + "_fxfMICRO_000");  'NOTE: maximum of 13 characters!!!
+        SetStringRegistryValue(key$, "pref", "fxf");
+    endif;
+    'autoNameTemplate$ := SampleAutoName$();  'to retrieve sample name, this must be called AFTER setting ::rolls eyes::
+    SampleAutoFile(1);  'Enable automatic file naming
+    
+	SampleAutoComment(0); 'Prompt for comment after sampling
+	SampleAutoCommit(60); 'Seconds between each file commit
+    
+	'Channel recording definitions
+	SampleEvent(FrameTriggerChannel%,0,2,3600); 'Trigger channel, level
+	SampleComment$(FrameTriggerChannel%,"Frame");
+	SampleTitle$(FrameTriggerChannel%,"Frame");
+    
+    ' Synch channel for checking synchronization.  Synch is good down to the microsecond.  Have to change 
+' Edit->Edit Preferences->Sampling->Event Ports 0 and 1 on rear digital... to unchecked or it won't work    
+'   SampleEvent(SynchChannel%,1,2,3600); 'Synch channel, level
+'	SampleComment$(SynchChannel%,"Synch");
+'	SampleTitle$(SynchChannel%,"Synch");
+    
+ 	SampleEvent(FixationPointChannel%,2,2,3600); 'Trigger channel, level
+	SampleComment$(FixationPointChannel%,"Fixation");
+	SampleTitle$(FixationPointChannel%,"Fixation");
+    
+'for now, no stim channels on fixyfree	
+'	SampleEvent(StimChannel%,3,2,3600); 'Trigger channel, level
+'	SampleComment$(StimChannel%,"Stim");
+'	SampleTitle$(StimChannel%,"Stim");
+'	
+'	SampleEvent(StimChangeChannel%,4,2,3600); 'Trigger channel, level
+'	SampleComment$(StimChangeChannel%,"Stim Chg.");
+'	SampleTitle$(StimChangeChannel%,"Stim Chg.");
+	
+	SampleEvent(ReadyChannel%,6,2,3600); 'Trigger channel, level
+	SampleComment$(ReadyChannel%,"VSG Ready");
+	SampleTitle$(ReadyChannel%,"VSG Ready");
+    
+    ' Set up channels for sampling electrodes.
+    docase
+    case UsePlexon% = 1 then  'call Plexon setup function, this will ONLY set up the sampling configuration for the Micro1401 mark II.  The Power1401 will be set up from its own dedicated script in its dedicated Spike2 instance
+        CreatePlexonSamplingConfiguration1824Micro(); 'Note that for right now the ONLY Plexon configuration is 18 WaveMark/24 LFP (maximal WMs for 24 LFPs, trust me)
+    case UsePlexon7WM15CN% = 1 then  'call 7 wavemark, 15 continuous setup
+        CreateElectrodeSamplingConfiguration7WM15CN();
+    case UsePlexon15WF15WF2k% = 1 then  'call 15 waveform, 15 waveform@2k setup
+        CreateElectrodeSamplingConfiguration15WF15WF2k();
+    case UsePlexon24WF% = 1 then
+        CreateElectrodeSamplingConfiguration24WF();
+    else  'just set up the channels as expected
+        CreateElectrodeSamplingConfiguration(1, 11);
+    endcase;
+	
+    ' Set up eye channels whether using Plexon or not
+	SampleWaveform(XChannel%,14,1000);
+	SampleTitle$(XChannel%,"Eye X");
+	SampleWaveform(YChannel%,15,1000);
+	SampleTitle$(YChannel%,"Eye Y");
+    
+    'I don't know what this is, but it's a problem for Plexon configs
+'    if UsePlexon% = 0 and UsePlexon7WM15CN% = 0 then  'Kill it if we're using the Plexon
+'        SampleWaveform(NumberOfElectrodes%+10, 6, 1000);
+'        SampleTitle$(NumberOfElectrodes%+10, "PD");
+'    endif;
+    
+    
+	SampleTextMark(200);  'increase number of allowed characters, 1 is so stingy!
+    
+    SampleSequencer(script$ + "Tuning.pls");  'tuning will work, for now just need fixon and fixoff
+    docase
+    case UsePlexon% = 1 then  'Set optimise mode (do this last, so it's outside of the CreatePlexonSamplingConfiguration... functions)
+        SampleOptimise(0,1,4,0,0,0,0);  'for the Micro 1401 mk II: manually set sampling timing, group channels with same ideal rate, micro1401, unused, unused, do not disable for compatibility, no burst mode
+    case UsePlexon15WF15WF2k% = 1 or UsePlexon24WF% = 1 then 
+        SampleOptimise(2,2,9,1,50,0,1);  'for big-data, need to set for burst mode, Power1401-3 setting is not clear because help does not list it.  9?  8 for micro1401-3?
+    else
+        SampleOptimise(2,2,2,2,50);  'otherwise: full optimize timing, channels may have different rates, Power1401 (lowest common denominator, so eh), low usPerTime of 2, high usPerTime of 50
+    endcase;
+    
+	SampleMode(1); 'Continuous sampling
+end;
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+proc InitializeWindows()
+    
+    'Note that this function has been pared down more severely than others because it's not clear how the
+    'best way to build it up (for future presentations of movable gratings, etc.) is.  For training this
+    'will be fine, but there will likely be a decent amount of work to be done here for a final product.
+    
+    'run ScreenBounds to get max size of x/y on screen
+    ScreenBounds(screenXmm,screenYmm,screenXmax,screenYmax);
+    
+	'Open the data sampling window
+	DataWindow% := FileNew(0,4);  'show spike shape setup dialog, only opens if there are WaveMark channels in the sampling config
+    printlog("datawindow is %d\n",dataWindow%);
+	Window(0,48,100,95);
+	View(DataWindow%).WindowVisible(1);
+    
+    if UsePlexon% = 1 then
+        'Get the name of the most recent .s2r resource file, if any
+        var key$;
+        var fn$;
+        key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\AttentionGNG";
+        Profile(key$, "microS2Rfile", "x", fn$);
+        printlog("S2R file name %s was retrieved from registry\n",fn$);
+        
+        'Apply the ,s2r resource file to the current data window, which will apply the spike shape templates
+        'if useSpikeTemplate% = 1 and fn$ <> "x" then
+        if fn$ <> "x" then  'OK, Henry says no checkbox necessary, just load up every time 
+            FileApplyResource(fn$);
+            printlog("S2R file name %s was loaded using FileApplyResource\n",fn$);
+        endif
+    endif;
+    
+
+	'Open an XY view to display eye position
+	XYWindow% := FileNew(12);
+	XRange(-30,30);
+	YRange(-2,-30,30);
+	XYDrawMode(0,5,0);
+	WindowVisible(1);
+	Window(0, 0, 100, 47);
+	XYColour(1,16);
+	XYSize(1,-1);
+    
+    
+'	'Calcuate the fixation window
+'	var index%;
+'	var twopi;
+'	twopi := 2.0*4.0*ATan(1.0);
+'	
+'	for index% := 0 to 35 do
+'		FixWindowX[index%] := FixationX + WindowRadius * Cos(index% * twopi/36.0);
+'		FixWindowY[index%] := FixationY + WindowRadius * Sin(index% * twopi/36.0);
+'	next;
+    
+'	'Create a new channel in the XY view to display the fixation window
+'	iFixationWindowChannel% := XYSetChan(0);
+'	XYColour(iFixationWindowChannel%,13);
+'	XYDrawMode(iFixationWindowChannel%,2,1);
+'	XYJoin(iFixationWindowChannel%,1);
+'	'Draw the fixation window
+'	XYAddData(iFixationWindowChannel%, FixWindowX[], FixWindowY[]);
+    
+
+
+	'Create a new channel in the XY view to display the fixation point
+	iStimChannel% := XYSetChan(0);
+    
+	'Create a new channel in the XY view to show the monitor's location
+	iMonitorChannel% := XYSetChan(0);
+	XYColour(iMonitorChannel%,13);
+	XYDrawMode(iMonitorChannel%,3,1);
+	XYJoin(iMonitorChannel%,2);
+	XYAddData(iMonitorChannel%,-screenXmax,-screenYmax);
+	XYAddData(iMonitorChannel%,screenXmax,-screenYmax);
+	XYAddData(iMonitorChannel%,screenXmax,screenYmax);
+	XYAddData(iMonitorChannel%,-screenXmax,screenYmax);
+    
+end;
+
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+' InitilizeToolbar - prepare toolbar buttons. Note that the idle processing function (ToolbarSet(0, blah, blah)) is 
+' not set here. That's done when the user hits the start button.
+'
+proc InitializeToolbar()
+    
+    
+	View(App(8)).WindowVisible(0);	'Hide the standard sample bar
+	ToolbarVisible(1);
+	UpdateToolbarText();  
+    if UsePlexon% = 1 then
+        ToolbarSet(1,"StartPlexon",StartPlexon%);
+    else
+        ToolbarSet(1,"Sample start",Start%);
+    endif;
+	ToolbarSet(2,"Sample stop", Stop%);
+	ToolbarSet(3,"Juice", Reward%);
+	'ToolbarSet(4,"Pause stimuli",PauseStimuli%);
+	'ToolbarSet(5,"Resume stimuli",ResumeStimuli%);
+    'ToolbarSet(6,"Exp Parameters",%);
+	ToolbarSet(4,"Quit",Quit%);
+	ToolbarEnable(2,0);
+	'ToolbarEnable(4,0);
+	'ToolbarEnable(5,0);
+	Toolbar("Go",0x3ff);
+    
+end;
+
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func StartPlexon%()
+    
+    
+    'Start the Power1401!  This is a bit cumbersome, and I'm not sure it's transferable, but it's a start, perhaps.
+    var fp$;  'to hold current file path
+    var fp2$;  'to hold destination file path
+    fp$ := FilePath$();  'get current file path
+    printlog("%s\n",fp$);  'and tell the world what it was
+    FilePathSet("F:/work/AlertRig/Spike2Scripts");  'change the file path
+    fp2$ := FilePath$();  'read out to allow verification
+    printlog("%s\n",fp2$);  'by telling the world about it (hint: it works)
+    
+    'These two functions are not done before initializing the toolbar in dual-1401 mode
+    'Must run this BEFORE the PROGRUN command, because both this sequence AND SetPlexon...
+    'access the same directory, and this was causing conflicts because they were running
+    'simultaneously.  Here, CreateSampleConfiguration is done accessing the directory before
+    'SetPlexon... is started, and everything is kosher.
+    CreateSampleConfiguration();
+    
+    progrun("sonview.exe /M /u2 SetPlexonRecording1824OnPower1401.s2s");  'run the program, .s2s file is now on default path by design
+    
+    FilePathSet(fp$);  'change the file path back to what it was
+    fp$ := FilePath$();  'read out to allow verification
+    printlog("%s\n",fp$); 'and tell the world to verify
+    
+    ToolbarSet(1,"Start SECOND",Start%);  'change button 1 on the toolbar, this may not work
+
+    ' Get display windows ready
+    InitializeWindows();    
+    
+    return 1; 'stay in toolbar
+    
+end
+
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func Start%()
+	var CommandLine$;
+	var Extras$;
+	var Tune$;
+	var Stim$:="";
+	'var Contrast$;  'made global so that WriteParameterFile can use it
+    var ttemp;
+    var stimSpec$;
+    var dist1Spec$;
+    var dist2Spec$;
+    var dist3Spec$;
+    var dist4Spec$;
+    var flasherSpec$;
+    var lolSpec$;  'LOLlerskates!  ROFLcopter!
+    var x;
+    var i%;
+    var specFileName$:="F:\\work\\AttentionSpecFile.txt";
+    var specHandle%;
+    var spec2FileBase$;
+    var spec2FileName$;
+    var spec2Handle%;
+    var CueCirc$;  'this begins blank, if we don't use cue circles then it won't get filled
+    'var tOff;  'holds the offset time for calculation of flasher times
+    
+	
+    'hard code pReward to 1, per Henry
+    pReward := 1;
+    
+  
+    'start sampling
+    if UsePlexon% = 1 then
+        SampleStart(1);  'set sampling to start on a trigger     
+    else
+    	SampleStart(0); 'Start sampling now
+    endif;
+    
+	' Set Sequencer Variable #3 based on juicer type 
+    SetJuicerSequencerVariable%();
+    ' Clear any trigger bits on digout lines.
+    SafeSampleKey("0");
+    ttemp := View(DataWindow%).MaxTime();
+    Yield();
+    tLast := View(DataWindow%).MaxTime();
+    PrintLog("ttemp " + str$(ttemp) + " tlast " + str$(tLast) + "\n");
+    
+    
+    
+    'get all these grating parameters
+    'disabling grating parameters for now, won't be using them, except for one standard just to pass something to the VSG - it might get angry, no point in tempting it.
+    stimSpec$ := GetGratingParameters$("Stimulus");
+'    ParseGratingParametersBrief%(stimSpec$, xT, yT, wT, hT);  'we may as well just do this every time - 90+% of the time we will anyway, and why put it in the if statements four times?
+'    if attNumPatches% > 1 then
+'        if attGetGPFromMainStim% = 1 then
+'            ParseGratingParametersBrief%(GetGratingParameters$("Distractor1"), xT, yT, wT, hT);
+'            dist1Spec$ := ReplaceGratingXY$(stimSpec$,xT,yT);
+'            ParseGratingParametersBrief%(dist1Spec$, xD1, yD1, wD1, hD1);  'for helping placement of flashers, etc.
+'        else
+'            dist1Spec$ := GetGratingParameters$("Distractor1");
+'            ParseGratingParametersBrief%(dist1Spec$, xD1, yD1, wD1, hD1);
+'        endif;
+'    endif;
+    
+    Stim$ := " -s " + stimSpec$;  
+'    if attNumPatches% > 1 then
+'            Stim$ := Stim$ + " -s " + dist1Spec$;
+'    endif;
+    
+    
+    'run ScreenBounds to get max size of x/y on screen, now done in InitializeWindows because the max size needs to be known there
+    'ScreenBounds(screenXmm,screenYmm,screenXmax,screenYmax);
+    
+   
+    Extras$ := " -b " + backgroundColor$ + " -d " + GetDistanceToScreenMM$(); 
+
+    
+    'Hardcode the fixation point
+    fixationColor$ := "gray";
+    FixationX := 0;
+    FixationY := 0;
+    FixationDiameter := screenXmax + screenYmax;  'this is dumb, but ought to work, as in "be plenty big".  Monitors are basically rectangular.
+    FixationArg$ := " -f " + str$(FixationX) + "," + str$(FixationY) + "," + str$(FixationDiameter) + fixationColor$;
+	    
+    
+    ' djs Update this to use remote stim when configured
+    if GetUseRemoteStimulus%() = 1 then
+        CommandLine$ := "cmd /k " + GetBinDir$(1) + "remote.exe " + GetRemoteStimulusIP$() + " " + GetRemoteStimulusPort$() + " fixstim -F " + specFileName$;
+    else
+        CommandLine$ := "cmd /k " + GetBinDir$(1) + "fixstim.exe -F " + specFileName$;
+    endif
+    
+    
+    'open a file to write the trial-by-trial specs for the VSG
+    specHandle% := FileOpen(specFileName$, 8, 1);
+
+    Print("%s %s %s %s %s",FixationArg$,Extras$,Stim$,"-C 0,0,0,0");  'this fakes a contrast tuning curve.  For now the program is designed to never "advance", so it's cool
+   
+    'close spec file
+	FileClose(0);
+    
+    'Print the parameters
+    for i% := 1 to Len(CommandLine$) step 100 do
+        SampleText(Mid$(CommandLine$, i%, 100));
+    next
+    
+'    'Save the spec file in a secondary, permanent location
+'    ' get filename for parfile (data file + "par" extension) and open it
+'	View(DataWindow%);
+'	spec2FileBase$ := FileName$(1) + FileName$(2) + FileName$(3) + FileName$(4);
+'    'added specfile write because this is not retained anywhere, for debug and in case of crash
+'    spec2FileName$ := spec2FileBase$ + ".spc";
+'	PrintLog("spec filename is " + specFileName$ + "\n");
+'	spec2Handle% := FileOpen(spec2FileName$, 8, 1);
+'    if attUseFlashers% = 1 then
+'        Print("%s %s %s %s %s %s",FixationArg$,Extras$,Stim$,CueCirc$,Contrast$,Flashers$);  'file should be everything starting from FixationArg$ on, use flashers
+'    else
+'        Print("%s %s %s %s %s",FixationArg$,Extras$,Stim$,CueCirc$,Contrast$);  'file should be everything starting from FixationArg$ on
+'    endif; 
+'    ' close specfile
+'	FileClose(0);
+    
+	'Begin the stimulus program. It will take a few seconds for the VSG to initialize.
+	PrintLog(CommandLine$+"\n");
+	StimHandle% := ProgRun(CommandLine$,1);
+	if StimHandle% <0 then Message("Could not start stimulus."); halt; endif
+	'Yield(5);	'Wait a few seconds to make sure the VSG has time to initialize.
+	
+	ToolbarSet(0,"",IdleProcessing%);	'Enable the IdleProcessing function
+	ToolbarEnable(2,1);
+	ToolbarEnable(1,0);
+	View(DataWindow%);
+	Yield(.1);
+    return 1;
+end;
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func Stop%()
+    var i%, mylen%;
+    var fn$;
+    var chanToExport%[30];
+    
+	' Disable idle process func
+	ToolbarSet(0,"");  
+    
+	' Tell stim app to shut down
+	SafeSampleKey("Q");
+	Yield(.1);
+	SampleStop();
+    
+	ProgKill(StimHandle%);
+	while ProgStatus(StimHandle%) > 0 do
+		Yield();
+	wend
+    
+    
+   
+    ' Write parameter file
+	'WriteParameterFile();
+    
+    if UsePlexon% = 1 then
+        ' Save most recent .s2r file name to registry
+        fn$ := Left$(fn$,mylen%-4);
+        fn$ := fn$ + ".s2r";
+        var key$;
+        key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\AttentionGNG";
+        Profile(key$, "microS2Rfile", fn$);
+        printlog("S2R file name %s was saved to registry\n",fn$);
+    endif;
+    
+    
+    ' update statistics
+    'AttentionExtract%(-1, -1);
+    
+	'ProgRun(bin$ + "\\ClearTrigger",0);
+    
+end;
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+' Used to hard-quit from toolbar. This will close data files without saving!!! 
+' It is important that this function be disabled once sampling is started!!!
+
+func Quit%()
+	FileClose(-1,-1);
+	return 0;
+end;
+
+
+
+
+
+
+
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func IdleProcessing%()
+
+	var iStatus% := 1;	
+    var tempanswer%;
+    var temptext$;
+    var CCHappened%;
+    
+    'The trick here is that sometimes sampling isn't caught up on all channels.  MaxTime() may return a lower
+    'value than MaxTime(ChanN%). When we find a trigger and try to place a TextMark, SampleText will do an internal
+    'call to MaxTime() - no channel # - to determine whether to place it at the requested time or at MaxTime().
+    'In some instances, this has resulted in the TextMark being placed earlier than the event which caused it.
+    'We are now explicitly checking for this - if we find it, we have to avoid updating tLast and continue checking
+    'in order to not miss the trigger AND to put the TextMark at the right time.
+    'Note that we will ONLY do the additional check in instances where a timed TextMark is being placed at the 
+    'time of the trigger.
+    var updateTLast% := 1;  'due to trigger issues, we may not always update tLast (but we usually will)
+    
+    'while getPreciseTiming = 1 do 
+    
+    
+    tNow := View(DataWindow%).MaxTime();
+    
+    'get eye position, but don't check if tNow is small enough that we would give a negative value to ChanMeasure
+    if tNow > .006 then
+        xEye := View(DataWindow%).ChanMeasure(XChannel%,2,tNow-.006,tNow-.001)*DegreesPerVoltX;
+        yEye := View(DataWindow%).ChanMeasure(YChannel%,2,tNow-.006,tNow-.001)*DegreesPerVoltY;
+    endif;
+        
+    ' Don't update display every time....
+    if tNow-tLastUpdate > .005 then
+        View(XYWindow%).XYAddData(1,xEye,yEye);
+        tLastUpdate := tNow;
+    endif
+    
+    
+    docase 
+    case iState% = stateVSGWait% then
+        
+        ' Waiting for VSG to indicate it is ready. The indication is a pulse (up, then down, 1 frame apart) on port 6.
+        tTrigger := View(DataWindow%).NextTime(ReadyChannel%, tLast, vTrigger);
+        if tTrigger > tLastTrigger and vTrigger = 0 then
+            PrintLog("state stateVSGWait: Got leading edge of trigger\n");
+            tLastTrigger := tTrigger;
+            ChangeStateTo(stateVSGWaitConfirm%, tTrigger);
+        endif;
+        
+    case iState% = stateVSGWaitConfirm% then
+        
+        ' Waiting for VSG to confirm it is ready. The downward side of the pulse is expected...
+        tTrigger := View(DataWindow%).NextTime(ReadyChannel%, tLastTrigger, vTrigger);
+        if tTrigger > tLastTrigger and vTrigger = 1 then
+            PrintLog("state stateVSGWaitConfirm: Got trailing edge of trigger\n");
+            tLastTrigger := tTrigger;
+            ChangeStateTo(stateStartTrial%, tTrigger);
+        endif;
+        
+        
+    case iState% = stateWaitForEyesOnScreen% then
+        
+        if LookingScreen%(xEye, yEye) = 1 then
+            PrintLog("stateWaitForEyesOnScreen: eyes on screen.\n");
+            ChangeStateTo(stateStartTrial%, tNow);
+            SampleText("Eyes On Screen",tNow);
+        endif;
+        
+        
+        
+    case iState% = stateStartTrial% then
+        
+        ' Start trial. Put up fixation point.
+        'UpdateToolbarText();
+        'PrepareTrial();
+        if LookingScreen%(xEye, yEye) = 1 then
+            PrintLog("Request Fixation Point\n");
+            SafeSampleKey("F");
+            ChangeStateTo(stateWaitForFixPtOn%, tNow);
+        else
+            PrintLog("stateStartTrial: eyes off screen.\n");
+            ChangeStateTo(stateWaitForEyesOnScreen%, tNow);  'no need to abort, the fixation point never got up
+            SampleText("Eyes Off Screen",tNow);
+        endif;
+        
+        
+        
+    case iState% = stateWaitForFixPtOn% then
+        tTrigger := View(DataWindow%).NextTime(FixationPointChannel%, tLast, vTrigger);
+        if tTrigger > tLast then
+            if tTrigger < tNow then    'View(DataWindow%).MaxTime() then  'try using tNow to avoid rare double-catch
+                ' Fixation point is up
+                PrintLog("stateWaitForFixPtOn: signal received. " + str$(tTrigger) + "\n");
+                tLastTrigger := tTrigger;
+                ChangeStateTo(stateWaitForReward%, tTrigger);
+                SampleText("Fixation point on",tTrigger);
+                DrawStim(1);	' this draws the location of the fixpt.
+            else
+                updateTLast% := 0;  'waiting for sampling to catch up
+            endif;
+        endif
+        
+        
+    case iState% = stateWaitForReward% then
+        if LookingScreen%(xEye, yEye) = 1 then
+            if tNow - tStateStart > fxfRewardTime then
+                PrintLog("Request Fixation Point\n");
+                Reward%();
+                fxfRewardCount% += 1;  'increment reward count
+                UpdateToolbarText();
+                ChangeStateTo(stateWaitForReward%, tNow);  'Change state to SAME state
+            endif;
+            
+        else
+            PrintLog("stateWaitForReward: eyes off screen.\n");
+            ChangeStateTo(stateAbort%, tNow);
+            SampleText("Eyes Off Screen",tNow);
+        endif;
+        
+        
+    case iState% = stateAbort% then
+        
+        ' Signal "X" turns off fixpt and stimulus. The next state 'stateWaitForBlank' only checks for 
+        ' fixpt off. 
+        PrintLog("stateAbort: send X key.\n");
+        SafeSampleKey("X");
+       
+        ' move on
+        ChangeStateTo(stateWaitForBlank%, tStateStart);  'don't update time, carry forward
+        
+        
+    case iState% = stateWaitForBlank% then
+        
+        ' we just wait for fix point off signal in this case. 
+        tTrigger := View(DataWindow%).NextTime(FixationPointChannel%, tLast, vTrigger);
+        if tTrigger > tLast then
+            ' Fixation point is off
+            PrintLog("stateWaitForBlank: Fix pt is off.\n");
+            tLastTrigger := tTrigger;               
+            ChangeStateTo(stateStartTrial%, tNow);  'don't update time, "credits" for time served
+            DrawStim(0);	' this undraws the location of the fixpt.
+        endif
+        
+        
+        
+    else
+        
+        ' Unknown state!
+        Message("Unknown state=" + str$(iState%));
+        halt;
+        
+    endcase;
+    
+    
+    if updateTLast% = 1 then 
+        tLast := tNow;
+    endif;
+    
+    'wend;
+    
+	return iStatus%;
+end;
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+proc ChangeStateTo(stateTo%, tStart)
+	iState% := stateTo%;
+	if tStart > 0 then tStateStart := tStart; endif;
+end;
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+' DrawStim
+' 
+' Draws stimulus in xy window (iDraw%==1) or blanks it (0). 
+proc DrawStim(iDraw%)
+    
+	if iDraw% > 0 then
+		var xstim, ystim;
+		xstim := FixationX;
+		ystim := FixationY;
+        
+		' Draw stimulus in xy window
+		View(XYWindow%).XYAddData(iStimChannel%, xstim, ystim);
+	else 
+		' erase the stim and the window from xy view
+		View(XYWindow%).XYDelete(iStimChannel%);
+	endif
+    
+end;
+
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+' UpdateToolbarText - Print tallies of trials in toolbar, super easy for now
+'
+
+proc UpdateToolbarText()
+    
+	var s$;
+
+    s$ := "Reward Count = " + Str$(fxfRewardCount%);
+
+	ToolbarText(s$);
+    
+end;
+
+
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+proc UpdateRewardTime()
+    
+    fxfRewardTime := RandExp(fxfHazardExpMeanTime, fxfHazardMinTime);
+    
+end
+
+
+
+
+func FixyFreeDialog%()
+	var i%;
+    
+	GetFixyFreeParameters();
+
+	DlgCreate("Attention Training Parameters", 25, 10);
+	DlgReal(1, "Minimum Reward Wait (s)", 0, 100);
+    DlgReal(2, "Random Reward Wait (s)", 0, 100);
+	 
+
+    'DlgAllow(0, 0, FixyFreeDialogChanged%);  'not used/written for now
+    
+	i%:=DlgShow(fxfHazardMinTime, fxfHazardExpMeanTime);
+    
+	if i% = 1 then
+		SaveFixyFreeParameters();
+        UpdateRewardTime();
+	endif;
+    
+	return i%;
+end;
+
+
+proc GetFixyFreeParameters()
+	var stmp$;
+	var key$;
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\FixyFree";
+
+    fxfHazardMinTime := GetFloatRegistryValue(key$, "HazardMinTime", fxfHazardMinTime);
+    fxfHazardExpMeanTime := GetFloatRegistryValue(key$, "HazardExpMeanTime", fxfHazardExpMeanTime);
+    
+end;
+
+
+proc SaveFixyFreeParameters()
+	var key$;
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\FixyFree";
+
+    SetFloatRegistryValue(key$, "HazardMinTime", fxfHazardMinTime);
+    SetFloatRegistryValue(key$, "HazardExpMeanTime", fxfHazardExpMeanTime);
+
+end;
