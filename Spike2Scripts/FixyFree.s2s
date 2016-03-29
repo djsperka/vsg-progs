@@ -24,7 +24,8 @@ var screenYmax;
 var lowRewardMS%;
 var origRewardMS%;
 var autoNameTemplate$;
-var backgroundColor$ := "black";
+'var backgroundColor$ := "black";
+var backgroundColor$ := "gray";  'it appears that black BG is not working for now
 
 ' Channel numbers and handles
 var StimHandle%;	' handle for stimulus application
@@ -446,7 +447,7 @@ func Start%()
     var lolSpec$;  'LOLlerskates!  ROFLcopter!
     var x;
     var i%;
-    var specFileName$:="F:\\work\\AttentionSpecFile.txt";
+    var specFileName$:="F:\\work\\FixyFreeSpecFile.txt";
     var specHandle%;
     var spec2FileBase$;
     var spec2FileName$;
@@ -506,11 +507,13 @@ func Start%()
 
     
     'Hardcode the fixation point
-    fixationColor$ := "gray";
+    'fixationColor$ := "gray";  'black BG not working right now
+    'fixationColor$ := "white";
+    fixationColor$ := "black";  'reverse logic
     FixationX := 0;
     FixationY := 0;
-    FixationDiameter := screenXmax + screenYmax;  'this is dumb, but ought to work, as in "be plenty big".  Monitors are basically rectangular.
-    FixationArg$ := " -f " + str$(FixationX) + "," + str$(FixationY) + "," + str$(FixationDiameter) + fixationColor$;
+    FixationDiameter := (screenXmax + screenYmax)*2;  'this is dumb, but ought to work, as in "be plenty big".  Monitors are basically rectangular.
+    FixationArg$ := " -f " + str$(FixationX) + "," + str$(FixationY) + "," + str$(FixationDiameter) + "," + fixationColor$;
 	    
     
     ' djs Update this to use remote stim when configured
@@ -524,7 +527,7 @@ func Start%()
     'open a file to write the trial-by-trial specs for the VSG
     specHandle% := FileOpen(specFileName$, 8, 1);
 
-    Print("%s %s %s %s %s",FixationArg$,Extras$,Stim$,"-C 0,0,0,0");  'this fakes a contrast tuning curve.  For now the program is designed to never "advance", so it's cool
+    Print("%s %s %s %s",FixationArg$,Extras$,Stim$,"-C 0,0,0,0");  'this fakes a contrast tuning curve.  For now the program is designed to never "advance", so it's cool
    
     'close spec file
 	FileClose(0);
@@ -676,7 +679,12 @@ func IdleProcessing%()
         if tTrigger > tLastTrigger and vTrigger = 1 then
             PrintLog("state stateVSGWaitConfirm: Got trailing edge of trigger\n");
             tLastTrigger := tTrigger;
-            ChangeStateTo(stateStartTrial%, tTrigger);
+            'ChangeStateTo(stateStartTrial%, tTrigger);
+            
+            'with the "reversed" logic we have to put the fixpt UP before we can "take it down"
+            'the easiest thing to do appears to be to just put it up and go to stateWaitForBlank...even though it's technically the other way around.
+            SafeSampleKey("F");
+            ChangeStateTo(stateWaitForBlank%, tTrigger);
         endif;
         
         
@@ -696,8 +704,11 @@ func IdleProcessing%()
         'UpdateToolbarText();
         'PrepareTrial();
         if LookingScreen%(xEye, yEye) = 1 then
-            PrintLog("Request Fixation Point\n");
-            SafeSampleKey("F");
+'            PrintLog("Request Fixation Point\n");
+'            SafeSampleKey("F");
+'            ChangeStateTo(stateWaitForFixPtOn%, tNow);
+            PrintLog("Remove Fixation Point\n");
+            SafeSampleKey("X");  'abort removes fixation point, allows gray BG
             ChangeStateTo(stateWaitForFixPtOn%, tNow);
         else
             PrintLog("stateStartTrial: eyes off screen.\n");
@@ -707,16 +718,30 @@ func IdleProcessing%()
         
         
         
-    case iState% = stateWaitForFixPtOn% then
+    case iState% = stateWaitForFixPtOn% then  'note that this is OFF not ON with logic reversed
         tTrigger := View(DataWindow%).NextTime(FixationPointChannel%, tLast, vTrigger);
+'        if tTrigger > tLast then
+'            if tTrigger < tNow then    'View(DataWindow%).MaxTime() then  'try using tNow to avoid rare double-catch
+'                ' Fixation point is up
+'                PrintLog("stateWaitForFixPtOn: signal received. " + str$(tTrigger) + "\n");
+'                tLastTrigger := tTrigger;
+'                ChangeStateTo(stateWaitForReward%, tTrigger);
+'                SampleText("Fixation point on",tTrigger);
+'                DrawStim(1);	' this draws the location of the fixpt.
+'                
+'            else
+'                updateTLast% := 0;  'waiting for sampling to catch up
+'            endif;
+'        endif
         if tTrigger > tLast then
             if tTrigger < tNow then    'View(DataWindow%).MaxTime() then  'try using tNow to avoid rare double-catch
-                ' Fixation point is up
+                ' Fixation point is down
                 PrintLog("stateWaitForFixPtOn: signal received. " + str$(tTrigger) + "\n");
                 tLastTrigger := tTrigger;
                 ChangeStateTo(stateWaitForReward%, tTrigger);
-                SampleText("Fixation point on",tTrigger);
+                SampleText("Gray screen on",tTrigger);
                 DrawStim(1);	' this draws the location of the fixpt.
+                
             else
                 updateTLast% := 0;  'waiting for sampling to catch up
             endif;
@@ -730,6 +755,7 @@ func IdleProcessing%()
                 Reward%();
                 fxfRewardCount% += 1;  'increment reward count
                 UpdateToolbarText();
+                UpdateRewardTime();
                 ChangeStateTo(stateWaitForReward%, tNow);  'Change state to SAME state
             endif;
             
@@ -744,8 +770,11 @@ func IdleProcessing%()
         
         ' Signal "X" turns off fixpt and stimulus. The next state 'stateWaitForBlank' only checks for 
         ' fixpt off. 
+'        PrintLog("stateAbort: send X key.\n");
+'        SafeSampleKey("X");
+        
         PrintLog("stateAbort: send X key.\n");
-        SafeSampleKey("X");
+        SafeSampleKey("F");  'turn on fixation point, make screen black
        
         ' move on
         ChangeStateTo(stateWaitForBlank%, tStateStart);  'don't update time, carry forward
@@ -754,15 +783,27 @@ func IdleProcessing%()
     case iState% = stateWaitForBlank% then
         
         ' we just wait for fix point off signal in this case. 
+'        tTrigger := View(DataWindow%).NextTime(FixationPointChannel%, tLast, vTrigger);
+'        if tTrigger > tLast then
+'            ' Fixation point is off
+'            PrintLog("stateWaitForBlank: Fix pt is off.\n");
+'            tLastTrigger := tTrigger;               
+'            ChangeStateTo(stateStartTrial%, tNow);  'don't update time, "credits" for time served
+'            DrawStim(0);	' this undraws the location of the fixpt.
+'        endif
         tTrigger := View(DataWindow%).NextTime(FixationPointChannel%, tLast, vTrigger);
         if tTrigger > tLast then
-            ' Fixation point is off
-            PrintLog("stateWaitForBlank: Fix pt is off.\n");
-            tLastTrigger := tTrigger;               
-            ChangeStateTo(stateStartTrial%, tNow);  'don't update time, "credits" for time served
-            DrawStim(0);	' this undraws the location of the fixpt.
+            if tTrigger < tNow then    'View(DataWindow%).MaxTime() then  'try using tNow to avoid rare double-catch
+                ' Fixation point is up
+                PrintLog("stateWaitForBlank: signal received. " + str$(tTrigger) + "\n");
+                tLastTrigger := tTrigger;
+                ChangeStateTo(stateStartTrial%, tNow);
+                SampleText("Black screen on",tTrigger);
+                DrawStim(0);	' this draws the location of the fixpt.
+            else
+                updateTLast% := 0;  'waiting for sampling to catch up
+            endif;
         endif
-        
         
         
     else
