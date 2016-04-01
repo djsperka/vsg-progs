@@ -70,7 +70,7 @@ int parse_fixation_point(const std::string& s, alert::ARFixationPointSpec& afp)
 		}
 		else
 		{
-			afp.color.type = red;
+			afp.color.setType(red);
 		}
 	}
 
@@ -323,7 +323,7 @@ int parse_xhair(const std::string& s, alert::ARXhairSpec& axh)
 
 std::ostream& operator<<(std::ostream& out, const COLOR_TYPE& c)
 {
-	switch(c.type)
+	switch(c.type())
 	{
 	case black: out << "black"; break;
 	case white: out << "white"; break;
@@ -332,11 +332,12 @@ std::ostream& operator<<(std::ostream& out, const COLOR_TYPE& c)
 	case blue:	out << "blue";	break;
 	case gray:	out << "gray";	break;
 	case custom: 
-		out << "(" << (int)(c.color.a * 255) << "/" << (int)(c.color.b * 255) << "/" 
-			<< (int)(c.color.c * 255) << ")";
 		break;
 	default:	out << "unknown"; break;
 	}
+
+	out << "(" << (int)(c.trival().a * 255) << "/" << (int)(c.trival().b * 255) << "/" 
+		<< (int)(c.trival().c * 255) << ")";
 	return out;
 }
 
@@ -424,30 +425,30 @@ int parse_colorvector(std::string s, COLOR_VECTOR_TYPE& v)
 int parse_color(std::string s, COLOR_TYPE& c)
 {
 	int status=0;
-	if (s=="black" || s=="BLACK") c.type = black;
-	else if (s=="white" || s=="WHITE") c.type = white;
-	else if (s=="gray" || s=="GRAY") c.type = gray;
-	else if (s=="red" || s=="RED" || s=="r" || s=="R") c.type = red;
-	else if (s=="green" || s=="GREEN" || s=="g" || s=="G") c.type = green;
-	else if (s=="blue" || s=="BLUE" || s=="b" || s=="B") c.type = blue;
+	if (s=="black" || s=="BLACK") c.setType(black);
+	else if (s=="white" || s=="WHITE") c.setType(white);
+	else if (s=="gray" || s=="GRAY") c.setType(gray);
+	else if (s=="red" || s=="RED" || s=="r" || s=="R") c.setType(red);
+	else if (s=="green" || s=="GREEN" || s=="g" || s=="G") c.setType(green);
+	else if (s=="blue" || s=="BLUE" || s=="b" || s=="B") c.setType(blue);
 	else 
 	{
 		int n;
 		int r, g, b;
 		// try and parse a custom color vector
 		status=1;
-		c.type = unknown_color;
 		n = sscanf_s(s.c_str(), "(%d/%d/%d)", &r, &g, &b);
 		if (n==3)
 		{
 			if (r>=0 && r<256 && g>=0 && g<256 && b>=0 && b<256)
 			{
 				status = 0;
-				c.type = custom;
-				c.color.a = (double)r/255.0;
-				c.color.b = (double)g/255.0;
-				c.color.c = (double)b/255.0;
+				c.setCustom((double)r/255.0, (double)g/255.0, (double)b/255.0);
 			}
+		}
+		else
+		{
+			c.setType(unknown_color);
 		}
 	}
 	return status;
@@ -809,12 +810,13 @@ int parse_string(std::string s, std::string& s2)
 	return 0;
 }
 
-
+#if 0
 int get_color(COLOR_TYPE c, VSGTRIVAL& trival)
 {
 	int status=0;
+	COLOR_TYPE
 
-	switch(c.type)
+	switch(c.type())
 	{
 	case black:
 		trival.a=0;
@@ -855,6 +857,7 @@ int get_color(COLOR_TYPE c, VSGTRIVAL& trival)
 	
 	return status;
 }
+#endif
 
 
 int get_colorvector(COLOR_VECTOR_TYPE& cv, VSGTRIVAL& from, VSGTRIVAL& to)
@@ -995,6 +998,7 @@ int parse_double(std::string s, double& d)
 }
 
 
+#if 0
 
 void tokenize(const string& str, vector<string>& tokens, const string& delimiters = " ")
 {
@@ -1013,6 +1017,79 @@ void tokenize(const string& str, vector<string>& tokens, const string& delimiter
         pos = str.find_first_of(delimiters, lastPos);
     }
 }
+#else
+
+// djs - Update tokenize to handle quoted strings e.g. "this is a string"
+void tokenize(const string& str, vector<string>& tokens, const string& delimiters = " ")
+{
+//	size_t split(char *buffer, char *argv[], size_t argv_size)
+//{
+	string::const_iterator it = str.begin();
+	string::const_iterator itStartOfToken;
+    int c;
+    enum states { IN_DELIM, IN_WORD, IN_STRING } state = IN_DELIM;
+
+//	cout << "Tokenize str>>" << str << "<<" << endl;
+    for (it = str.begin(); it != str.end(); it++) 
+	{
+        c = (unsigned char) *it;
+
+//		cout << "char " << *it << " state " << state << endl;
+
+		switch (state) {
+        case IN_DELIM:
+			if (delimiters.find_first_of(c) < string::npos) 
+			{
+                continue;
+			}
+
+            if (c == '"') 
+			{
+                state = IN_STRING;
+                itStartOfToken = it + 1; 
+//				cout << "start of string" << endl;
+                continue;
+            }
+            state = IN_WORD;
+            itStartOfToken = it;
+//			cout << "Start of word" << endl;
+            continue;
+
+        case IN_STRING:
+            if (c == '"') 
+			{
+				tokens.push_back(string(itStartOfToken, it));
+//				cout << "end of string: " << string(itStartOfToken, it) << endl;
+				state = IN_DELIM;
+            }
+            continue;
+
+        case IN_WORD:
+			if (delimiters.find_first_of(c) == string::npos) 
+			{
+                continue;
+			}
+			else
+			{
+				tokens.push_back(string(itStartOfToken, it));
+				state = IN_DELIM;
+//				cout << "end of word: " << string(itStartOfToken, it) << endl;
+            }
+            continue;
+        }
+    }
+
+    if (state != IN_DELIM)
+	{
+		tokens.push_back(string(itStartOfToken, str.end()));
+//		cout << "end of token at end of input: " << string(itStartOfToken, str.end()) << endl;
+	}
+//	cout << "done." << endl;
+    return;
+}
+
+#endif
+
 
 void make_argv(std::ifstream& ifs, int& argc, char **argv)
 {

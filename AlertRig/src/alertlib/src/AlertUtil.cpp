@@ -15,32 +15,16 @@ int arutil_color_to_overlay_palette(ARFixationPointSpec& fp, PIXEL_LEVEL level)
 int arutil_color_to_overlay_palette(COLOR_TYPE ct, PIXEL_LEVEL level)
 {
 	int status=0;
-	VSGTRIVAL c;
-	if (get_color(ct, c))
-	{
-		cerr << "Cannot get trival for fp color " << ct << endl;
-		status = 2;
-	}
-	else
-	{
-		vsgPaletteWriteOverlayCols((VSGLUTBUFFER*)&c, level, 1);
-	}
+	VSGTRIVAL c = ct.trival();
+	vsgPaletteWriteOverlayCols((VSGLUTBUFFER*)&c, level, 1);
 	return status;
 }
 
 int arutil_color_to_palette(COLOR_TYPE ct, PIXEL_LEVEL level)
 {
 	int status=0;
-	VSGTRIVAL c;
-	if (get_color(ct, c))
-	{
-		cerr << "Cannot get trival for color " << ct << endl;
-		status = 2;
-	}
-	else
-	{
-		vsgPaletteSet(level, level, &c);
-	}
+	VSGTRIVAL c = ct.trival();
+	vsgPaletteSet(level, level, &c);
 	return status;
 }
 
