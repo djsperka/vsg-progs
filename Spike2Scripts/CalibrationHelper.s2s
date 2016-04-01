@@ -1,0 +1,26 @@
+' $Id: CalibrationHelper.s2s,v 1.1 2016-04-01 22:12:44 devel Exp $
+
+const slvCVSID$ := "$Id: CalibrationHelper.s2s,v 1.1 2016-04-01 22:12:44 devel Exp $";
+
+#include "UsreyDAQ.s2s"
+#include "UsreyFixationPoint.s2s"
+#include "../../Spike2Util/LogUtilities.s2s"
+#include "../../Spike2Util/UsreyUtil.s2s"
+
+var cmd$; 
+var h%;
+
+LogInit(1);
+
+if GetUseRemoteStimulus%() = 1 then
+    cmd$ := "cmd /c " + GetBinDir$(1) + "remote.exe " + GetRemoteStimulusIP$() + " " + GetRemoteStimulusPort$() + 
+    " calibration -b gray " + GetFixationArg$() + " -d " + GetDistanceToScreenMM$() + 
+'    " -c 2 -C 8 -i \\\"C:/Users/Pub\ lic/test.xml\\\"";
+    " -c " + str$(GetCalibrationCOMPort%()) + 
+    " -C " + str$(GetCalibrationOffsetDegrees()) + 
+    " -i \\\"" + GetCalibrationConfigFile$() + "\\\"";
+    LogStatus("CalibrationHelper", cmd$);
+    h% := ProgRun(cmd$, 1);
+else
+    LogStatus("CalibrationHelper", "This rig is not configured to use remote stimulus.");
+endif
