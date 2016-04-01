@@ -1,4 +1,4 @@
-/* $Id: FixUStim.cpp,v 1.7 2016-03-14 20:42:57 devel Exp $*/
+/* $Id: FixUStim.cpp,v 1.8 2016-04-01 22:24:44 devel Exp $*/
 
 #include "FixUStim.h"
 #include <iostream>
@@ -7,7 +7,7 @@ using namespace std;
 using namespace boost::algorithm;
 using namespace boost::filesystem;
 
-const string FixUStim::m_allowedArgs("ab:d:e:f:g:h:j:k:q:p:s:vzA:B:C:D:G:H:I:J:KL:M:NO:P:Q:R:S:T:U:V:W:Y:Z:");
+const string FixUStim::m_allowedArgs("ab:d:e:f:g:h:j:k:q:p:s:vy:zA:B:C:D:G:H:I:J:KL:M:NO:P:Q:R:S:T:U:V:W:Y:Z:");
 
 FixUStim::FixUStim(bool bStandAlone)
 : UStim()
@@ -26,8 +26,7 @@ FixUStim::FixUStim(bool bStandAlone)
 , m_bClient(false)
 , m_errflg(0)
 {
-	m_background.type = gray;
-	m_background.color.a = m_background.color.b = m_background.color.c = 0.5;
+	m_background.setType(gray);
 };
 
 FixUStim::~FixUStim()
@@ -69,7 +68,9 @@ void FixUStim::run_stim(alert::ARvsg& vsg)
 	}
 	else
 	{
+		VSGTRIVAL c = m_background.trival();
 		vsg.setViewDistMM(m_iDistanceToScreenMM);
+		vsg.setBackgroundColor(m_background);
 	}
 
 	// clear all dig outputs
@@ -502,6 +503,7 @@ int FixUStim::process_arg(int c, std::string& arg)
 	case 'A':
 	case 'Z':
 	case 'M':
+	case 'y':
 		{
 			vector<double> tuning_parameters;
 			int nsteps;
@@ -511,8 +513,12 @@ int FixUStim::process_arg(int c, std::string& arg)
 			{
 				if (!have_stim)
 				{
-					cerr << "Error - must pass template grating stimulus with \"-s\" before passing tuning parameters." << endl;
-					m_errflg++;
+					// If no stim configured, create stim set with fixpt and/or xhair.
+					if (!m_pStimSet)
+					{
+						m_pStimSet = create_multiparameter_stimset(have_fixpt, m_fixpt, have_xhair, m_xhair);
+						m_bUsingMultiParameterStimSet = true;
+					}
 				}
 				else
 				{
@@ -521,47 +527,49 @@ int FixUStim::process_arg(int c, std::string& arg)
 						m_pStimSet = create_multiparameter_stimset(have_fixpt, m_fixpt, have_xhair, m_xhair, m_grating);
 						m_bUsingMultiParameterStimSet = true;
 					}
+				}
+				if (!m_bUsingMultiParameterStimSet)
+				{
+					cerr << "Error - Cannot mix COASTXKMP with other stim types!" << endl;
+					m_errflg++;
+				}
+				else
+				{
+					MultiParameterFXGStimSet* pmulti = static_cast<MultiParameterFXGStimSet*>(m_pStimSet);
 
-					if (!m_bUsingMultiParameterStimSet)
+					// Create a stim parameter set
+					FXGStimParameterList *plist = NULL;
+					switch(c)
 					{
-						cerr << "Error - Cannot mix COASTXKMP with other stim types!" << endl;
+					case 'C':
+						plist = new StimContrastList(tuning_parameters);
+						break;
+					case 'O':
+						plist = new StimOrientationList(tuning_parameters);
+						break;
+					case 'A':
+						plist = new StimAreaList(tuning_parameters);
+						break;
+					case 'S':
+						plist = new StimSFList(tuning_parameters);
+						break;
+					case 'T':
+						plist = new StimTFList(tuning_parameters);
+						break;
+					case 'Z':
+						plist = new GratingXYList(tuning_parameters);
+						break;
+					case 'M':
+						plist = new StimHoleList(tuning_parameters);
+						break;
+					case 'y':
+						plist = new FixptXYList(tuning_parameters);
+						break;
+					default:
+						cerr << "Unhandled varying stim parameter type (" << (char)c << ")" << endl;
 						m_errflg++;
 					}
-					else
-					{
-						MultiParameterFXGStimSet* pmulti = static_cast<MultiParameterFXGStimSet*>(m_pStimSet);
-
-						// Create a stim parameter set
-						FXGStimParameterList *plist = NULL;
-						switch(c)
-						{
-						case 'C':
-							plist = new StimContrastList(tuning_parameters);
-							break;
-						case 'O':
-							plist = new StimOrientationList(tuning_parameters);
-							break;
-						case 'A':
-							plist = new StimAreaList(tuning_parameters);
-							break;
-						case 'S':
-							plist = new StimSFList(tuning_parameters);
-							break;
-						case 'T':
-							plist = new StimTFList(tuning_parameters);
-							break;
-						case 'Z':
-							plist = new GratingXYList(tuning_parameters);
-							break;
-						case 'M':
-							plist = new StimHoleList(tuning_parameters);
-							break;
-						default:
-							cerr << "Unhandled varying stim parameter type (" << (char)c << ")" << endl;
-							m_errflg++;
-						}
-						if (plist) pmulti->push_back(plist);
-					}
+					if (plist) pmulti->push_back(plist);
 				}
 			}
 			break;
@@ -1249,6 +1257,30 @@ int FixUStim::process_arg(int c, std::string& arg)
 
 	return m_errflg;
 }
+
+
+MultiParameterFXGStimSet* FixUStim::create_multiparameter_stimset(bool bHaveFixpt, ARContrastFixationPointSpec& fixpt, bool bHaveXhair, ARXhairSpec& xhair)
+{
+	MultiParameterFXGStimSet* pstimset = NULL;
+	ARContrastFixationPointSpec f(fixpt);
+	ARXhairSpec h(xhair);
+	if (bHaveFixpt && !bHaveXhair)
+	{
+		pstimset = new MultiParameterFXGStimSet(f);
+	}
+	else if (bHaveFixpt && bHaveXhair)
+	{
+		pstimset = new MultiParameterFXGStimSet(f, h);
+	}
+	else
+	{
+		pstimset = new MultiParameterFXGStimSet();
+	}
+	return pstimset;
+}
+
+
+
 
 MultiParameterFXGStimSet* FixUStim::create_multiparameter_stimset(bool bHaveFixpt, ARContrastFixationPointSpec& fixpt, bool bHaveXhair, ARXhairSpec& xhair, ARGratingSpec& grating)
 {
