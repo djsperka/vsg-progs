@@ -467,6 +467,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\StarUStim.cpp"
+				>
+			</File>
+			<File
 				RelativePath=".\stdafx.cpp"
 				>
 				<FileConfiguration
@@ -562,6 +566,10 @@
 			</File>
 			<File
 				RelativePath=".\SSInfo.h"
+				>
+			</File>
+			<File
+				RelativePath=".\StarUStim.h"
 				>
 			</File>
 			<File
