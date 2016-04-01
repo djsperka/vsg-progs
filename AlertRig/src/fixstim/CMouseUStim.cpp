@@ -1,4 +1,4 @@
-/* $Id: CMouseUStim.cpp,v 1.1 2015-05-12 17:26:59 devel Exp $*/
+/* $Id: CMouseUStim.cpp,v 1.2 2016-04-01 22:24:10 devel Exp $*/
 
 #include "CMouseUStim.h"
 #include "RegHelper.h"
@@ -14,6 +14,7 @@ const string CMouseUStim::m_allowedArgs("ab:d:f:g:p:vADS:r:");
 CMouseUStim::CMouseUStim()
 : UStim()
 , m_screenDistanceMM(-1)
+, m_background(gray)
 , m_binaryTriggers(true)
 , m_verbose(false)
 , m_alert(false)
@@ -22,8 +23,6 @@ CMouseUStim::CMouseUStim()
 , m_bFixationOn(false)
 , m_bUseRegDump(false)
 {
-	m_background.type = gray;
-	m_background.color.a = m_background.color.b = m_background.color.c = 0.5;
 };
 
 
@@ -76,6 +75,7 @@ void CMouseUStim::run_stim(alert::ARvsg& vsg)
 
 	// set screen distance
 	vsg.setViewDistMM(m_screenDistanceMM);
+	vsg.setBackgroundColor(m_background);
 
 	// clear all dig outputs
 	vsgIOWriteDigitalOut(0, 0xff);
@@ -199,8 +199,7 @@ void CMouseUStim::run_stim(alert::ARvsg& vsg)
 					{
 						if (luminance >= 0 && luminance <= 1)
 						{
-							c.type = custom;
-							c.color.a = c.color.b = c.color.c = luminance;
+							c.setCustom(luminance);
 							arutil_color_to_overlay_palette(c, 1);
 						}
 						else
@@ -346,7 +345,7 @@ void CMouseUStim::run_stim(alert::ARvsg& vsg)
 						bQuit = true;
 
 						// in case background luminance was changed, set it back to mean gray.
-						c.type = gray;
+						c.setType(gray);
 						arutil_color_to_overlay_palette(c, 1);
 					}
 					else
@@ -361,7 +360,7 @@ void CMouseUStim::run_stim(alert::ARvsg& vsg)
 					bQuit = true;
 
 					// in case background luminance was changed, set it back to mean gray.
-					c.type = gray;
+					c.setType(gray);
 					arutil_color_to_overlay_palette(c, 1);
 					break;
 				}
@@ -706,7 +705,7 @@ int CMouseUStim::process_arg(int c, std::string& arg)
 					cerr << "No fixpt specs supplied (-f): using default values." << endl;
 					m_fixpt.x = m_fixpt.y = 0;
 					m_fixpt.d = 0.5;
-					m_fixpt.color.type = red;
+					m_fixpt.color.setType(red);
 				}
 
 				if (!have_grating)
