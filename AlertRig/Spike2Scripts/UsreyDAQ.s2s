@@ -14,6 +14,9 @@
 var DistanceToScreenMM$;		' Distance to screen in MM 
 var DegreesPerVoltX;			' Conversion factor from ADC to visual degrees
 var DegreesPerVoltY;			' Conversion factor from ADC to visual degrees
+var CalibrationOffsetDegrees;   ' Calibration dots are this many degrees offset in x,y from (0,0)
+var CalibrationComPort%;        ' COM port to use for calibration (connection to ASL 'Serial Out')
+var CalibrationConfigFile$;     ' path to xml file for calibration config. Can be same as regular config file for eye tracker.
 var EyeCoilSamplingFrequency%;		' Frequency to sample eye coil at
 var NumberOfElectrodes%;		' Number of electrodes (i.e. wavemark inputs) in use
 var JuicePerReward%;			' Number of juice squirts per reward
@@ -104,6 +107,18 @@ end
 
 func GetDegreesPerVoltY()
     return DegreesPerVoltY;
+end
+
+func GetCalibrationOffsetDegrees()
+    return CalibrationOffsetDegrees;
+end
+
+func GetCalibrationCOMPort%()
+    return CalibrationComPort%; 
+end
+
+func GetCalibrationConfigFile$()
+    return CalibrationConfigFile$;
 end
 
 func GetNumberOfElectrodes%()
@@ -197,86 +212,6 @@ Proc SafeSampleKey(s$)
 end
 
 
-'func GetWavemarkPorts%(ports%[])
-'    docase
-'    case Len(ports%[]) < NumWavemarkPorts% then 
-'        return -1;    ' array not large enough
-'    case NumWavemarkPorts% = 0 then
-'        return 0;
-'    else
-'        ArrConst(ports%[0:NumWavemarkPorts%], WavemarkPorts%[0:NumWavemarkPorts%]);
-'        return NumWavemarkPorts%;
-'    endcase
-'end
-
-'func GetContinuousPorts%(ports%[])
-'    docase
-'    case Len(ports%[]) < NumContinuousPorts% then 
-'        return -1;    ' array not large enough
-'    case NumContinuousPorts% = 0 then
-'        return 0;
-'    else
-'        ArrConst(ports%[0:NumContinuousPorts%], ContinuousPorts%[0:NumContinuousPorts%]);
-'        return NumContinuousPorts%;
-'    endcase
-'end
-
-'func GetWavemarkPorts$()
-'    var s$ := "";
-'    var i%;
-'    var count% := 0;
-'    for i% := 0 to NumWavemarkPorts%-1 do
-'        s$ += str$(WavemarkPorts%[i%]);
-'        if i% < NumWavemarkPorts%-1 then
-'            s$ += ",";
-'        endif
-'    next
-'    return s$;
-'end
-
-'func GetContinuousPorts$()
-'    var s$ := "";
-'    var i%;
-'    for i% := 0 to NumContinuousPorts%-1 do
-'        s$ += str$(ContinuousPorts%[i%]);
-'        if i% < NumContinuousPorts%-1 then
-'            s$ += ",";
-'        endif
-'    next
-'    return s$;
-'end
-
-'func ElectrodesDialog%()
-'    var wm%[16];
-'    var cn%[16];
-'    var i%;
-'    GetElectrodeParameters();
-'    ArrConst(wm%[], 0);
-'    ArrConst(cn%[], 0);
-'    for i% := 0 to NumContinuousPorts%-1 do
-'        cn%[ContinuousPorts%[i%]] := 1;
-'    next
-'    for i% := 0 to NumWavemarkPorts%-1 do
-'        wm%[WavemarkPorts%[i%]] := 1;
-'    next
-'    if WMCNPortDialog%("Electrode Configuration", wm%[], cn%[]) = 1 then
-'        NumWavemarkPorts% := 0;
-'        NumContinuousPorts% := 0;
-'        for i% := 0 to Len(wm%[])-1 do
-'            if wm%[i%] = 1 then
-'                WavemarkPorts%[NumWavemarkPorts%] := i%;
-'                NumWavemarkPorts% += 1;
-'            endif
-'            if cn%[i%] = 1 then
-'                ContinuousPorts%[NumContinuousPorts%] := i%;
-'                NumContinuousPorts% += 1;
-'            endif
-'        next
-'        SaveElectrodeParameters();
-'    endif
-'    return 1;
-'end;
-
 
 func DAQParametersDialog%()
 
@@ -298,21 +233,24 @@ func DAQParametersDialog%()
 	DlgInteger(1, "Number of Electrodes:", 1, 16, 0, 0, 1);
 	DlgReal(2, "Degrees/Volt (X):", 0, 100);
 	DlgReal(3, "Degrees/Volt (Y):", 0, 100);
-	DlgInteger(4, "Eye Coil Sampling Freq (Hz):", 1, 20000);
-    DlgReal(5, "Reward Prob (0-1):", 0, 1);
-	DlgInteger(6, "Juice per reward:", 0, 10, 0, 0, 1);
-    DlgInteger(7, "Juice Reward ms:", 0, 1000);
-    DlgList(8, "Juicer Open State:",juicerList2$,2);
-    DlgInteger(9, "Eye X Port", 0, 23);
-    DlgInteger(10, "Eye Y Port", 0, 23);
-    DlgInteger(11, "Joystick Port", 0, 23);
-    DlgCheck(12, "Use Remote Stimulus");
-    DlgString(13, "Remote ip", 21);
-    DlgString(14, "Remote port", 5);
-    DlgString(15, "Slave ip", 21);
-    DlgString(16, "Slave port", 5);
+    DlgReal(4, "Calibration offset(deg)", 0.1, 100);
+    DlgInteger(5, "Calibration COM port", 1, 16);
+	DlgInteger(6, "Eye Coil Sampling Freq (Hz):", 1, 20000);
+    DlgReal(7, "Reward Prob (0-1):", 0, 1);
+	DlgInteger(8, "Juice per reward:", 0, 10, 0, 0, 1);
+    DlgInteger(9, "Juice Reward ms:", 0, 1000);
+    DlgList(10, "Juicer Open State:",juicerList2$,2);
+    DlgInteger(11, "Eye X Port", 0, 31);
+    DlgInteger(12, "Eye Y Port", 0, 31);
+    DlgInteger(13, "Joystick Port", 0, 31);
+    DlgCheck(14, "Use Remote Stimulus");
+    DlgString(15, "Remote ip", 21);
+    DlgString(16, "Remote port", 5);
+    DlgString(17, "Slave ip", 21);
+    DlgString(18, "Slave port", 5);
     DlgAllow(0xffff, 0, DAQParametersDialogChanged%);
 	iReturn% := DlgShow(NumberOfElectrodes%, DegreesPerVoltX, DegreesPerVoltY, 
+                        CalibrationOffsetDegrees, CalibrationComPort%,
                         EyeCoilSamplingFrequency%, pReward, JuicePerReward%, JuiceRewardMS%,
                         JuicerIndexDecremented%, EyeXPort%, EyeYPort%, JoystickPort%, 
                         UseRemoteStimulus%, RemoteStimulusIP$, RemoteStimulusPort$, SlaveStimulusIP$, SlaveStimulusPort$);
@@ -342,6 +280,9 @@ proc GetDAQParameters()
 	key$ := GetRigName$() + "\\" + GetCurrentConfiguration$() + "\\DAQ";
     DegreesPerVoltX := GetFloatRegistryValue(key$, "DegreesPerVoltX", 0.0);
     DegreesPerVoltY := GetFloatRegistryValue(key$, "DegreesPerVoltY", 0.0);
+    CalibrationOffsetDegrees := GetFloatRegistryValue(key$, "CalibrationOffsetDegrees", 8);
+    CalibrationComPort% := GetIntRegistryValue%(key$, "CalibrationComPort", 2);
+    CalibrationConfigFile$ := GetStringRegistryValue$(key$, "CalibrationConfigFile", "NONE_SELECTED");
     EyeCoilSamplingFrequency% := GetIntRegistryValue%(key$, "EyeCoilSamplingFrequency", 1000);
     NumberOfElectrodes% := GetIntRegistryValue%(key$, "NumberOfElectrodes", 1);
     pReward := GetFloatRegistryValue(key$, "pReward", 1);
@@ -367,6 +308,9 @@ proc SaveDAQParameters()
 	key$ := GetRigName$() + "\\" + GetCurrentConfiguration$() + "\\DAQ";
     SetStringRegistryValue(key$, "DegreesPerVoltX", str$(DegreesPerVoltX));
 	SetStringRegistryValue(key$, "DegreesPerVoltY", str$(DegreesPerVoltY));
+    SetFloatRegistryValue(key$, "CalibrationOffsetDegrees", CalibrationOffsetDegrees);
+    SetIntRegistryValue(key$, "CalibrationComPort", CalibrationComPort%);
+    SetStringRegistryValue(key$, "CalibrationConfigFile", CalibrationConfigFile$);
     SetFloatRegistryValue(key$, "pReward", pReward);
 	SetIntRegistryValue(key$, "EyeCoilSamplingFrequency", EyeCoilSamplingFrequency%);
 	SetIntRegistryValue(key$, "NumberOfElectrodes", NumberOfElectrodes%);
