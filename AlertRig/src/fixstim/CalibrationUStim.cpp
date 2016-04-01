@@ -50,6 +50,8 @@ void CalibrationUStim::run_stim(alert::ARvsg& vsg)
 	}
 
 	// connect to asl box via serial port
+	cerr << "Open ASL serial port at COM" << m_lComPort << endl;
+	cerr << "Using config file " << m_szConfigFile << endl;
 	if (aslserial_connect(m_szConfigFile, m_lComPort))
 	{
 		cerr << "Failed to connect to ASL serial port." << endl;
@@ -213,7 +215,7 @@ int CalibrationUStim::process_arg(int c, std::string& arg)
 	static bool have_i=false;
 	static bool have_offset = false;
 
-	cout << "process_arg " << c << " arg " << arg << " f_errflg " << f_errflg << endl;
+	//cout << "process_arg " << c << " arg " << arg << " f_errflg " << f_errflg << endl;
 
 	switch (c) 
 	{
