@@ -211,7 +211,7 @@ bool GetRegFixpt(double& fixX, double& fixY, double &fixD, COLOR_TYPE& fixC)
 			{
 				// Note that the color index stored refers to that used
 				// in spike2. We add 3 to it to get the alertlib's index. 
-				fixC.type = (COLOR_ENUM)(icolor+3);
+				fixC.setType((COLOR_ENUM)(icolor+3));
 			}
 
 			// Close the open key

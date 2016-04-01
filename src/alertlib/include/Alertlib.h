@@ -55,11 +55,32 @@ typedef struct color_vector_struct
 	VSGTRIVAL to;
 } COLOR_VECTOR_TYPE;
 
+/*
 typedef struct color_struct
 {
 	COLOR_ENUM type;
 	VSGTRIVAL color;
 } COLOR_TYPE;
+*/
+
+class COLOR_TYPE
+{
+	COLOR_ENUM m_type;
+	VSGTRIVAL m_color;
+
+public:
+	COLOR_TYPE();
+	COLOR_TYPE(COLOR_ENUM t);
+	COLOR_TYPE(const COLOR_TYPE& ct);
+	virtual ~COLOR_TYPE() {};
+	COLOR_TYPE& operator=(const COLOR_TYPE& ct);
+	COLOR_TYPE& operator=(const COLOR_ENUM &t);
+	COLOR_ENUM type() const { return m_type; };
+	VSGTRIVAL trival() const { return m_color; };
+	void setType(COLOR_ENUM t);
+	void setCustom(double a, double b, double c);
+	void setCustom(double abc);
+};
 
 typedef struct xywh_struct 
 {
@@ -68,7 +89,7 @@ typedef struct xywh_struct
 
 // useful helper functions
 int parse_color(std::string s, COLOR_TYPE& c);
-int get_color(COLOR_TYPE c, VSGTRIVAL& trival);
+// SEE COLOR_TYPE::trival() int get_color(COLOR_TYPE c, VSGTRIVAL& trival);
 int get_colorvector(COLOR_VECTOR_TYPE& cv, VSGTRIVAL& from, VSGTRIVAL& to);
 int parse_colorvector(std::string s, COLOR_VECTOR_TYPE& v);
 int parse_pattern(std::string s, PATTERN_TYPE& p);
@@ -216,6 +237,7 @@ namespace alert
 		 */
 		void select();
 
+		void setBackgroundColor(const COLOR_TYPE& c);
 		COLOR_TYPE background_color();
 		PIXEL_LEVEL background_level();
 		long getScreenHeightPixels();
@@ -232,7 +254,7 @@ namespace alert
 
 	private:
 		ARvsg(bool bMaster=false, bool bSlave=false);
-		ARvsg(ARvsg const&) {};
+		ARvsg(ARvsg const&): m_background_level(-1) {};
 		ARvsg& operator=(ARvsg const&) {};
 		bool m_initialized;
 		bool m_is_master;

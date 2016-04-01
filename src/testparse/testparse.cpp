@@ -28,7 +28,8 @@ int main (int argc, char *argv[])
 	string s;
 	int istatus;
 	ARGratingSpec grating;
-	while ((c = getopt(argc, argv, "g:")) != -1)
+#if 0
+	while ((c = getopt(argc, argv, "g:q:")) != -1)
 	{
 		switch (c) 
 		{
@@ -37,11 +38,36 @@ int main (int argc, char *argv[])
 			istatus = parse_grating(s, grating);
 			cout << (istatus==0 ? "OK : " : "ERR: ") << grating << endl;
 			break;
+		case 'q':
+			{
+#endif
+				int i;
+				int iargc;
+				char *iargv[100] = {0};
+
+				s.clear();
+				for (i=0; i<argc; i++)
+				{
+					s.append(string(argv[i]));
+					s.append(" ");
+				}
+				cout << "Test tokenize..." << endl;
+				cout << s << endl;
+				make_argv(s, iargc, iargv);
+				cout << "Results:" << endl;
+				for (i=0; i<iargc; i++)
+				{
+					cout << i << ">>" << iargv[i] << "<<" << endl;
+				}
+#if 0
+				break;
+			}
 		default:
 			cout << "Unknown option " << c << endl;
 			break;
 		}
 	}
+#endif
 	return 0;
 }
 

@@ -14,7 +14,96 @@
 using namespace std;
 using namespace alert;
 
-COLOR_TYPE default_red = {red, {1, 0, 0}};
+static COLOR_TYPE default_red(red);
+
+COLOR_TYPE::COLOR_TYPE()
+{
+	m_type = gray;
+	m_color.a = m_color.b = m_color.c = .5;
+};
+
+COLOR_TYPE::COLOR_TYPE(COLOR_ENUM t)
+{
+	setType(t);
+}
+
+void COLOR_TYPE::setType(COLOR_ENUM t)
+{
+	switch(t)
+	{
+	case white:
+		m_type = white;
+		m_color.a = m_color.b = m_color.c = 1;
+		break;
+	case gray:
+		m_type = gray;
+		m_color.a = m_color.b = m_color.c = .5;
+		break;
+	case red:
+		m_type = red;
+		m_color.a = 1;
+		m_color.b = m_color.c = 0;
+		break;
+	case green:
+		m_type = green;
+		m_color.b = 1;
+		m_color.a = m_color.c = 0;
+		break;
+	case blue:
+		m_type = blue;
+		m_color.c = 1;
+		m_color.a = m_color.b = 0;
+		break;
+	case custom:
+		m_type = custom;
+		m_color.a = m_color.b = m_color.c = 0;
+		break;
+	case unknown_color:
+	case black:
+	default:
+		m_type = black;
+		m_color.a = m_color.b = m_color.c = 0;
+		break;
+	}
+}
+
+
+void COLOR_TYPE::setCustom(double a, double b, double c)
+{
+	m_type = custom;
+	m_color.a = a;
+	m_color.b = b;
+	m_color.c = c;
+}
+
+void COLOR_TYPE::setCustom(double abc)
+{
+	m_type = custom;
+	m_color.a = m_color.b = m_color.c = abc;
+}	
+
+
+COLOR_TYPE::COLOR_TYPE(const COLOR_TYPE &ct)
+: m_type(ct.type())
+, m_color(ct.trival())
+{};
+
+COLOR_TYPE& COLOR_TYPE::operator=(const COLOR_TYPE& ct)
+{
+	if (this == &ct) return *this;
+	m_type = ct.type();
+	m_color = ct.trival();
+	return *this;
+};
+
+COLOR_TYPE& COLOR_TYPE::operator=(const COLOR_ENUM &t)
+{
+	setType(t);
+	return *this;
+}
+
+
+
 
 ARFixationPointSpec::ARFixationPointSpec()
 : x(0)
@@ -133,7 +222,7 @@ double ARvsg::getScreenWidthDegrees()
 	return m_widthDegrees; 
 };
 
-ARvsg::ARvsg(bool bMaster, bool bSlave) : m_initialized(false), m_is_master(bMaster), m_is_slave(bSlave), m_device_handle(-999), m_next_available_level(0)
+ARvsg::ARvsg(bool bMaster, bool bSlave) : m_initialized(false), m_is_master(bMaster), m_is_slave(bSlave), m_background_level(-1), m_device_handle(-999), m_next_available_level(0)
 {
 	cout << "Instantiate ARvsg, master? " << (bMaster ? "YES" : "NO") << ", slave? " << (bSlave ? "YES" : "NO") << endl;
 }
@@ -220,6 +309,14 @@ void ARvsg::select()
 	vsgInitSelectDevice(m_device_handle);
 }
 
+void ARvsg::setBackgroundColor(const COLOR_TYPE& c)
+{
+	m_background_color = c;
+	if (m_background_level < 0)
+		request_single(m_background_level);
+	arutil_color_to_palette(m_background_color, m_background_level);
+	vsgSetBackgroundColour(&c.trival());
+}
 
 int ARvsg::init(int screenDistanceMM, COLOR_TYPE i_bg,  bool bUseLockFile, bool bSlaveSynch)
 {
@@ -307,7 +404,7 @@ int ARvsg::init(int screenDistanceMM, COLOR_TYPE i_bg,  bool bUseLockFile, bool 
 			return 1;
 		}
 
-		Sleep(2000);
+		Sleep(500);
 		m_initialized = true;
 
 		/*
@@ -325,14 +422,9 @@ int ARvsg::init(int screenDistanceMM, COLOR_TYPE i_bg,  bool bUseLockFile, bool 
 			m_widthPixels = vsgGetScreenWidthPixels();
 			m_background_color = i_bg;
 			request_single(m_background_level);
-			if (get_color(m_background_color, background))
-			{
-				cerr << "ARvsg::init(): Cannot get trival for background color " << m_background_color << endl;
-				status = 2;
-			}
 			arutil_color_to_palette(m_background_color, m_background_level);
 			cout << "ARvsg::init(): Screen distance = " << screenDistanceMM << ", will use PIXEL units." << endl;
-			cout << "ARvsg::init(): Background level " << m_background_level << " color set to " << m_background_color.color.a << "," << m_background_color.color.b << "," << m_background_color.color.c << endl;
+			cout << "ARvsg::init(): Background level " << m_background_level << " color set to " << m_background_color << endl;
 		}
 		else
 		{
@@ -344,6 +436,7 @@ int ARvsg::init(int screenDistanceMM, COLOR_TYPE i_bg,  bool bUseLockFile, bool 
 			vsgUnitToUnit(vsgPIXELUNIT, m_widthPixels, vsgDEGREEUNIT, &m_widthDegrees);
 
 			m_background_color = i_bg;
+			background = m_background_color.trival();
 			// this level gets used later, but we request it now to insure we get level 0
 			//request_single(m_background_level);
 			m_background_level = 250;	// djs HACK HACK HACK
@@ -352,20 +445,15 @@ int ARvsg::init(int screenDistanceMM, COLOR_TYPE i_bg,  bool bUseLockFile, bool 
 			m_handle = vsgObjCreate();
 			vsgObjSetPixelLevels(m_background_level, 1);
 			
-			// The background level was obtained in the init() call.
-			if (get_color(m_background_color, background))
-			{
-				cerr << "Cannot get trival for background color " << m_background_color << endl;
-				status = 2;
-			}
-
 			// Set up triggers and present. A single pulse on DOUT0.
 			vsgObjSetTriggers(vsgTRIG_ONPRESENT, 0, 0);
 			vsgPresent();
 
 			vsgSetBackgroundColour(&background);
 			cout << "ARvsg::init(): Screen distance = " << screenDistanceMM << ", will use DEGREE units." << endl;
-			cout << "ARvsg::init(): Background level " << m_background_level << " color set to " << m_background_color.color.a << "," << m_background_color.color.b << "," << m_background_color.color.c << endl;
+			cout << "ARvsg::init(): Background level " << m_background_level << " color set to " << m_background_color << endl;
+			vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgBACKGROUND);
+			vsgPresent();
 		}
 	}
 	return status;
@@ -386,21 +474,15 @@ int ARvsg::init_overlay()
 	else 
 	{		
 		vsgSetCommand(vsgOVERLAYMASKMODE);
-		if (get_color(m_background_color, background))
+		background = m_background_color.trival();
+
+		// Get the number of overlay pages, then clear them all. 
+		int npages = vsgGetSystemAttribute(vsgNUMOVERLAYPAGES);
+		cout << "There are " << npages << " overlay pages." << endl;
+		vsgPaletteWriteOverlayCols((VSGLUTBUFFER*)&background, 1, 1);
+		for (int i=npages-1; i>=0; i--)
 		{
-			cerr << "Cannot get trival for background color " << m_background_color << endl;
-			status = 2;
-		}
-		else
-		{
-			// Get the number of overlay pages, then clear them all. 
-			int npages = vsgGetSystemAttribute(vsgNUMOVERLAYPAGES);
-			cout << "There are " << npages << " overlay pages." << endl;
-			vsgPaletteWriteOverlayCols((VSGLUTBUFFER*)&background, 1, 1);
-			for (int i=npages-1; i>=0; i--)
-			{
-				vsgSetDrawPage(vsgOVERLAYPAGE, i, 1);
-			}
+			vsgSetDrawPage(vsgOVERLAYPAGE, i, 1);
 		}
 	}
 	return status;
@@ -433,12 +515,7 @@ int ARvsg::init_video_pages(voidfunc func_before_objects, voidfunc func_after_ob
 		// set background color, er colour, in palette
 		// We'll set the vsgBACKGROUND color later, after the vsgObject is created. 
 		// The background level was obtained in the init() call.
-		if (get_color(m_background_color, background))
-		{
-			cerr << "Cannot get trival for background color " << m_background_color << endl;
-			status = 2;
-		}
-
+		background = m_background_color.trival();
 
 		VSGLUTBUFFER buffer;
 		for(i=0; i<256; i++) buffer[i] = background;
@@ -904,20 +981,9 @@ int ARContrastRectangleSpec::draw()
 
 	select();
 
-	if (get_color(this->color, to))
-	{
-		cerr << "Cannot get color trival for point: " << this->color << endl;
-		status=1;
-	}
-	else if (get_color(getVSG().background_color(), from))
-	{
-		cerr << "Cannot get background color trival for point: " << getVSG().background_color() << endl;
-		status=1;
-	}
-	else 
-	{
-		vsgObjSetColourVector(&from, &to, vsgUNIPOLAR);
-	}
+	to = this->color.trival();
+	from = getVSG().background_color().trival();
+	vsgObjSetColourVector(&from, &to, vsgUNIPOLAR);
 
 	if (!status)
 	{
@@ -941,20 +1007,9 @@ int ARMultiContrastRectangleSpec::draw()
 
 	select();
 	vsgSetDrawMode(vsgSOLIDFILL);
-	if (get_color(this->color, to))
-	{
-		cerr << "Cannot get color trival for point: " << this->color << endl;
-		status=1;
-	}
-	else if (get_color(getVSG().background_color(), from))
-	{
-		cerr << "Cannot get background color trival for point: " << getVSG().background_color() << endl;
-		status=1;
-	}
-	else 
-	{
-		vsgObjSetColourVector(&from, &to, vsgUNIPOLAR);
-	}
+	to = this->color.trival();
+	from = getVSG().background_color().trival();
+	vsgObjSetColourVector(&from, &to, vsgUNIPOLAR);
 
 	if (!status)
 	{
@@ -1017,18 +1072,10 @@ int ARFixationPointSpec::draw()
 int ARFixationPointSpec::drawOverlay()
 {
 	int status=0;
-	VSGTRIVAL c;
-	if (get_color(this->color, c))
-	{
-		cerr << "Cannot get color for fix pt: " << this->color << endl;
-		status=1;
-	}
-	else
-	{
-		vsgPaletteWriteOverlayCols((VSGLUTBUFFER *)&c, 2, 1);
-		vsgSetPen1(2);	// overlay page transparent
-		vsgDrawOval(x, -1*y, d, d);
-	}
+	VSGTRIVAL c = this->color.trival();
+	vsgPaletteWriteOverlayCols((VSGLUTBUFFER *)&c, 2, 1);
+	vsgSetPen1(2);	// overlay page transparent
+	vsgDrawOval(x, -1*y, d, d);
 	return status;
 }
 
@@ -1058,20 +1105,9 @@ int ARContrastFixationPointSpec::draw()
 
 	select();
 
-	if (get_color(this->color, to))
-	{
-		cerr << "Cannot get color trival for point: " << this->color << endl;
-		status=1;
-	}
-	else if (get_color(getVSG().background_color(), from))
-	{
-		cerr << "Cannot get background color trival for point: " << getVSG().background_color() << endl;
-		status=1;
-	}
-	else 
-	{
-		vsgObjSetColourVector(&from, &to, vsgUNIPOLAR);
-	}
+	to = this->color.trival();
+	from = getVSG().background_color().trival();
+	vsgObjSetColourVector(&from, &to, vsgUNIPOLAR);
 
 	if (!status)
 	{
@@ -1110,21 +1146,9 @@ int ARContrastCircleSpec::draw()
 	VSGTRIVAL from, to;
 
 	select();
-
-	if (get_color(this->color, to))
-	{
-		cerr << "Cannot get color trival for point: " << this->color << endl;
-		status=1;
-	}
-	else if (get_color(getVSG().background_color(), from))
-	{
-		cerr << "Cannot get background color trival for point: " << getVSG().background_color() << endl;
-		status=1;
-	}
-	else 
-	{
-		vsgObjSetColourVector(&from, &to, vsgUNIPOLAR);
-	}
+	to = this->color.trival();
+	from = getVSG().background_color().trival();
+	vsgObjSetColourVector(&from, &to, vsgUNIPOLAR);
 
 	if (!status)
 	{
@@ -1178,20 +1202,9 @@ int ARContrastLineSpec::draw()
 
 	select();
 
-	if (get_color(this->color, to))
-	{
-		cerr << "Cannot get color trival for point: " << this->color << endl;
-		status=1;
-	}
-	else if (get_color(getVSG().background_color(), from))
-	{
-		cerr << "Cannot get background color trival for point: " << getVSG().background_color() << endl;
-		status=1;
-	}
-	else 
-	{
-		vsgObjSetColourVector(&from, &to, vsgUNIPOLAR);
-	}
+	to = this->color.trival();
+	from = getVSG().background_color().trival();
+	vsgObjSetColourVector(&from, &to, vsgUNIPOLAR);
 
 	if (!status)
 	{
