@@ -1,4 +1,4 @@
-/* $Id: fixstim.cpp,v 1.24 2015-07-28 20:20:29 devel Exp $*/
+/* $Id: fixstim.cpp,v 1.25 2016-04-01 22:23:35 devel Exp $*/
 #include <iostream>
 #include <fstream>
 #include <string>
@@ -33,6 +33,7 @@
 #include "FixUStim.h"
 #include "CMouseUStim.h"
 #include "CalibrationUStim.h"
+#include "StarUStim.h"
 
 using namespace std;
 using namespace alert;
@@ -59,7 +60,7 @@ bool f_bPresentOnTrigger = false;
 string f_sTriggeredTriggers;
 DWORD f_ulTriggerArmed = vsgDIG1;
 bool f_bUseLock = false;
-COLOR_TYPE f_background = { gray, {0.5, 0.5, 0.5}};
+COLOR_TYPE f_background(gray);
 ARContrastFixationPointSpec f_fixpt;
 ARGratingSpec f_grating;
 ARXhairSpec f_xhair;
@@ -231,6 +232,21 @@ void serverLoop(void * arg)
 					else
 					{
 						cerr << "serverLoop(): CalibrationUStim could not parse args." << endl;
+					}
+				}
+				else if (sargs.find("starstim") == 0)
+				{
+					StarUStim starustim;
+					if (starustim.parses(sargs))
+					{
+						cerr << "serverLoop(): starting starstim stimulus..." << endl;
+						starustim.run_stim(ARvsg::instance());
+						ARvsg::instance().clear();
+						cout << "serverLoop(): starstim stimulus done." << endl;
+					}
+					else
+					{
+						cerr << "serverLoop(): StarUStim could not parse args." << endl;
 					}
 				}
 				else
