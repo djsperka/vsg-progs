@@ -1,12 +1,13 @@
-' $Id: StarSac2.s2s,v 1.9 2016-03-03 00:16:45 devel Exp $
+' $Id: StarSac2.s2s,v 1.10 2016-04-01 21:59:54 devel Exp $
 ' Update 11/8/11 Jeff, includes SafeSampleKey and multi-juicer updates
 
-const starCVSID$ := "$Id: StarSac2.s2s,v 1.9 2016-03-03 00:16:45 devel Exp $";
+const starCVSID$ := "$Id: StarSac2.s2s,v 1.10 2016-04-01 21:59:54 devel Exp $";
 
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "../../Spike2Util/MiscUtilities.s2s"
 #include "../../Spike2Util/TrialBlockGen.s2s"
 #include "../../Spike2Util/ChannelUtilities.s2s"
+#include "../../Spike2Util/Directories.s2s"
 #include "UsreyGratings.s2s"
 #include "UsreyFixationPoint.s2s"
 #include "UsreyDAQ.s2s"
@@ -640,9 +641,10 @@ proc CreateSampleConfiguration()
 
 
 	' channel to look for ready signal from vsg
-	SampleEvent(ReadyChannel%, 0, 2, 3600); 'Trigger channel, level
-	SampleComment$(ReadyChannel%,"VSG Ready");
-	SampleTitle$(ReadyChannel%,"VSG Ready");
+	SampleEvent(ReadyChannel%, 1, 2, 3600); 'Trigger channel, level
+	SampleComment$(ReadyChannel%,"Ready");
+	SampleTitle$(ReadyChannel%,"Ready");
+    
     
     ' Electrode config
     for i% := 0 to starNWavemarks%-1 do
@@ -660,7 +662,7 @@ proc CreateSampleConfiguration()
 	SampleWaveform(YChannel%, GetEyeYPort%(), 1000);
 	SampleTitle$(YChannel%, "Eye Y");
 
-	SampleSequencer(script$ + "StarStim.pls");
+	SampleSequencer(script$ + "Tuning.pls");
 	SampleOptimise(2, 2, 2, 2, 50);  'Set optimise mode (do this last)
 	SampleMode(1); 'Continuous sampling
 end;
@@ -950,7 +952,7 @@ func Start%()
     ' Clear any trigger bits on digout lines.
     SafeSampleKey("0");      
     
-	CommandLine$ := "cmd /k " + bin$ + "\\StarStim " + TargetArg$ + Extras$;
+	CommandLine$ := "cmd /k " + GetBinDir$(1) + "remote " + GetRemoteStimulusIP$() + " " + GetRemoteStimulusPort$() +  " starstim " + TargetArg$ + Extras$;
     
     
     ' Record initial text marks
