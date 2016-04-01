@@ -1,4 +1,4 @@
-; $Id: Tuning.PLS,v 1.18 2016-02-01 19:56:54 devel Exp $
+; $Id: Tuning.PLS,v 1.19 2016-04-01 22:07:42 devel Exp $
 ;
 
                 SET      0.010 1 0     ;Get rate & scaling OK
@@ -149,3 +149,13 @@
 0105            DIGOUT [.....0..]      ;Signals the stimuli off
 0106            MOVI   V2,0            ;Log that sequencer is not in use
 0107            HALT                   ;End of this sequence section
+
+
+; LED commands for fixation LED
+LEDON:  'L  MOVI   V2,1            ;Log that sequencer is in use
+            DIGLOW [1.......]      ;Turn on LED - don't know which digout yet
+            JUMP   LDONE           ;Jump over LEDOFF to a HALT
+LEDOFF: 'M  MOVI   V2,1            ;Log that sequencer is in use
+            DIGLOW [0.......]      ;Turn off LED - don't know which digout yet
+LDONE:      MOVI   V2,0            ;Log that sequencer is not in use
+            HALT                   ;End of this sequence section
