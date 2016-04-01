@@ -1,4 +1,4 @@
-/* $Id: FixUStim.h,v 1.3 2016-02-22 21:27:39 devel Exp $*/
+/* $Id: FixUStim.h,v 1.4 2016-04-01 22:24:44 devel Exp $*/
 #ifndef _FIXUSTIM_H_
 #define _FIXUSTIM_H_
 
@@ -71,6 +71,7 @@ private:
 
 
 	template <class T> StimSet* create_stimset(bool bHaveFixpt, ARContrastFixationPointSpec& fixpt, bool bHaveXhair, ARXhairSpec& xhair, ARGratingSpec& grating, vector<double> params);
+	MultiParameterFXGStimSet* create_multiparameter_stimset(bool bHaveFixpt, ARContrastFixationPointSpec& fixpt, bool bHaveXhair, ARXhairSpec& xhair);
 	MultiParameterFXGStimSet* create_multiparameter_stimset(bool bHaveFixpt, ARContrastFixationPointSpec& fixpt, bool bHaveXhair, ARXhairSpec& xhair, ARGratingSpec& grating);
 	void init_triggers(TSpecificFunctor<FixUStim>* pfunctor);
 

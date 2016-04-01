@@ -1519,10 +1519,8 @@ FlashStimSet::FlashStimSet(alert::ARContrastFixationPointSpec& f, int frames_per
 , m_fpt(frames_per_term)
 , m_balanced(balanced)
 {
-	COLOR_TYPE ctBlack = { black, { 0, 0, 0 }};
-	COLOR_TYPE ctWhite = { white, { 1, 1, 1 }};
-	m_colors.push_back(ctBlack);
-	m_colors.push_back(ctWhite);
+	m_colors.push_back(COLOR_TYPE(black));
+	m_colors.push_back(COLOR_TYPE(white));
 	m_seq.assign(sequence);
 }
 
@@ -1531,10 +1529,8 @@ FlashStimSet::FlashStimSet(int frames_per_term, const std::string& sequence, boo
 , m_fpt(frames_per_term)
 , m_balanced(balanced)
 {
-	COLOR_TYPE ctBlack = { black, { 0, 0, 0 }};
-	COLOR_TYPE ctWhite = { white, { 1, 1, 1 }};
-	m_colors.push_back(ctBlack);
-	m_colors.push_back(ctWhite);
+	m_colors.push_back(COLOR_TYPE(black));
+	m_colors.push_back(COLOR_TYPE(white));
 	m_seq.assign(sequence);
 }
 
