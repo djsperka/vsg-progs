@@ -1,7 +1,8 @@
-' $Id: Fixation.s2s,v 1.40 2016-03-04 23:08:45 devel Exp $
+' $Id: Fixation.s2s,v 1.41 2016-04-01 22:03:36 devel Exp $
 ' Update 11/8/11 Jeff, includes SafeSampleKey and multi-juicer updates
 
 #include "../../Spike2Util/UsreyUtil.s2s"
+#include "../../Spike2Util/ChannelUtilities.s2s"
 #include "UsreyDAQ.s2s"
 #include "UsreyFixationPoint.s2s"
 
@@ -33,6 +34,7 @@ var fixDistractor2Flag%; 			' Tells stim to use distractor1 (1) or not (0)
 var fixDistractor3Flag%; 			' Tells stim to use distractor1 (1) or not (0)
 var fixDistractor4Flag%; 			' Tells stim to use distractor1 (1) or not (0)
 var fixBackgroundColor$;			' Background color for stim
+var fixDualStim%;                   ' 1 for dual stim on Joe's rig
 var fixCalibrationFlag%;			' 1 for calibration run
 var fixCalibrationOffset;			' degree offset for calibration dots
 var fixAlwaysLooking% := 0;
@@ -71,6 +73,8 @@ proc GetFixationScriptParameters()
     Profile(key$, "SaveData", 0, fixSaveData%);
 	Profile(key$, "CalibrationOffset", "5.0", stmp$);
 	fixCalibrationOffset := val(stmp$);
+    Profile(key$, "DualStim", "0", stmp$);
+    fixDualStim% := val(stmp$);
 end;
  	
 proc SaveFixationScriptParameters()
@@ -93,6 +97,7 @@ proc SaveFixationScriptParameters()
     Profile(key$, "SimultaneousLED", fixSimultaneousLED%);
     Profile(key$, "SaveData", fixSaveData%);
 	Profile(key$, "CalibrationOffset", str$(fixCalibrationOffset));
+    Profile(key$, "DualStim", str$(fixDualStim%));
 end;
 
 
@@ -124,12 +129,13 @@ func FixationScriptDialog%()
 	DlgCheck(11, "Use distractor 2?");
 	DlgCheck(12, "Use distractor 3?");
 	DlgCheck(13, "Use distractor 4?");
-	DlgCheck(14, "Calibration run?");
-	DlgReal(15, "Calibration offset (deg):", 0, 10);
-    DlgCheck(16, "Always looking?");
+    DlgCheck(14, "Dual stim?");
+	DlgCheck(15, "Calibration run?");
+	DlgReal(16, "Calibration offset (deg):", 0, 10);
+    DlgCheck(17, "Always looking?");
 	i%:=DlgShow(fixFixationDuration, fixAcquisitionTime, fixInterTrialTime, fixNumberOfTrials%, ibcl%, fixInterleaveLED%,
     fixSimultaneousLED%,fixSaveData%, fixStimulusFlag%, fixDistractor1Flag%, fixDistractor2Flag%, fixDistractor3Flag%, fixDistractor4Flag%, 
-    fixCalibrationFlag%, fixCalibrationOffset, fixAlwaysLooking%);
+    fixDualStim%, fixCalibrationFlag%, fixCalibrationOffset, fixAlwaysLooking%);
 	if i% = 1 then
 		fixBackgroundColor$ := bcl$[ibcl%];
 		SaveFixationScriptParameters();
@@ -153,12 +159,15 @@ var XChannel%,YChannel%;		' Channel number assigned to eye x and y
 var keyboardChannel%:=31;       'this is the number of the keyboard channel
 var TriggerChannel%;			' Channel number assigned to vsg trigger input (i.e. trigger sent by vsg)
 var ReadyChannel%;			' channel number for VSG ready pulse signal
+var TriggerSlaveChannel%;			' Channel number assigned to vsg trigger input (i.e. trigger sent by vsg)
+var ReadySlaveChannel%;			' channel number for VSG ready pulse signal
 var DataWindow%;	' time view
 var XYWindow%;		' window with eye pos shown
 var iStimChannel%;	' channel number for stimulus in xy window
 var iStimWindowChannel%;' channel number for stimulus window in xy window
 var iMonitorChannel%;	' channel number for monitor position display in xy window
 var StimHandle%;	' handle for stimulus application
+var StimHandleSlave%;	' handle for slave stimulus application
 ' Experimental control
 var Pause%:=0;		' When 1, expt is paused - no idle processing done
 
@@ -167,9 +176,9 @@ var Pause%:=0;		' When 1, expt is paused - no idle processing done
 var FixWindowX[36],FixWindowY[36];	' points for displaying fixation window in xy view
 var windowX[36], windowY[36];
 ' Stimulus location stuff
-var iStimX%[8];
-var iStimY%[8];
-var iStimIndex%;
+var iStimX%[9];
+var iStimY%[9];
+var iStimIndex% := 1;
 
 
 ' init logging so msgs appear in LogWindow
@@ -198,6 +207,8 @@ XChannel% := 21;
 YChannel% := 22;
 TriggerChannel% := 23;
 ReadyChannel% := 24;
+TriggerSlaveChannel% := 25;
+ReadySlaveChannel% := 26;
 CreateSampleConfiguration();
 
 
@@ -257,6 +268,8 @@ var fixSuccess% := 0;
 func IdleProcessing%()
 	var iStatus% := 1;	' this is return value. value of 1 (0) continues (stops) processing
     var stayInLoop% := 1;
+    var pulseFound%, pulseFoundSlave%;
+    var tRise, tFall;
     
 	tNow := MaxTime();
     
@@ -286,30 +299,38 @@ func IdleProcessing%()
             
         case iState% = stateVSGWait% then
             
-            ' Waiting for VSG to indicate it is ready. The indication is a pulse (up, then down, 1 frame apart) on port 6.
-            tTrigger := NextTime(ReadyChannel%, tStateStart, vTrigger);
-            if tTrigger > tLastTrigger and vTrigger = 0 then
-                LogStatus("VSGWait", "Got leading edge of ready trigger");
-                ChangeStateTo(stateVSGWaitConfirm%, tTrigger);
-            endif;
+            pulseFound% := View(DataWindow%).FindPulseUp%(ReadyChannel%, tLastTrigger+View(DataWindow%).BinSize(), tRise, tFall);
+        
+            if fixDualStim% = 0 then
+                if pulseFound% = 1 then
+                    LogStatus("VSGWait", "Got Ready Pulse from VSG at " + str$(tRise));
+                    Yield(1.0);
+                    tLastTrigger := tFall;
+                    ChangeStateTo(stateStartTrial%, tFall);
+                else
+                    if pulseFound% = 0 then  'if a (short) "false" trigger is found, update tLastTrigger so we don't see it again
+                        LogStatus("VSGWait", "Got FALSE Ready Pulse from VSG at " + str$(tRise));
+                        tLastTrigger := tFall;
+                    endif;
+                endif;
+            else
+                pulseFoundSlave% := View(DataWindow%).FindPulseUp%(ReadySlaveChannel%, tLastTrigger+View(DataWindow%).BinSize(), tRise, tFall);
+                if pulseFound% = 1 and pulseFoundSlave% = 1 then
+                    LogStatus("VSGWait", "Got SLAVE Ready Pulse from VSG at " + str$(tRise));
+                    Yield(1.0);
+                    tLastTrigger := tFall;
+                    ChangeStateTo(stateStartTrial%, tFall);
+                else
+                    ' TODO - do this for slave also
+                    if pulseFound% = 0 then  'if a (short) "false" trigger is found, update tLastTrigger so we don't see it again
+                        LogStatus("VSGWait", "Got FALSE Ready Pulse from VSG at " + str$(tRise));
+                        tLastTrigger := tFall;
+                    endif;
+                endif;
+            endif
             
-        case iState% = stateVSGWaitConfirm% then
-            
-            ' Waiting for VSG to confirm it is ready. The downward side of the pulse is expected...
-            tTrigger := NextTime(ReadyChannel%, tStateStart, vTrigger);
-            if tTrigger > tStateStart and vTrigger = 1 then
-                LogStatus("VSGWait", "Got falling edge of ready trigger");
-                ChangeStateTo(stateStartTrial%, tNow);
-                stayInLoop% := 1;  'Once VSG is ready, don't wait to start the trial
-                
-                ' For calibration runs, set up first fixpt position prior to first trial. 
-                ' After this, this call is made AFTER each trial is done. 
-                if fixCalibrationFlag% = 1 then
-                    DoCalibrationSampleKeys();
-                endif
-            endif;
-            
-            
+            stayInLoop% := 0;   ' exit loop; need a gap in between pulse and F
+                          
         case iState% = stateStartTrial% then
             
             ' initial state on startup. 
@@ -410,10 +431,8 @@ func IdleProcessing%()
                         ChangeStateTo(stateSuccess%, tTrigger);
                     endif;
                     
-                    ' calibration run: advance tells stim program what x,y is next.
-                    if fixCalibrationFlag% = 1 then
-                        DoCalibrationSampleKeys();
-                    endif
+                    ' calibration run: Update next x,y for eye window, send "a".
+                    AdvanceCalibrationPoint();
                     
                 else
                     ' this should never happen!
@@ -596,16 +615,11 @@ func IdleProcessing%()
 
 end;
 
-
-proc DoCalibrationSampleKeys()
-	var iSeqVar% := 0;
-    UpdateCalMode();
-    iStimIndex% := (iStimIndex% + 1) mod 8;         
-	iSeqVar% := ((iStimY%[iStimIndex%]*16 + iStimX%[iStimIndex%]*4) * 256) + 0xc3;
-	SampleSeqVar(1, iSeqVar%);
-	SafeSampleKey("S");
-    'Message(str$(iStimX%[iStimIndex%]) + "," + str$(iStimY%[iStimIndex%]));
-    'LogStatus("DoCalibrationSampleKeys", "iStimIndex,x,y,seqvar " + str$(iStimIndex%) + "," + str$(iStimX%[iStimIndex%]) + "," + str$(iStimY%[iStimIndex%]) + "," + str$(iSeqVar%));
+proc AdvanceCalibrationPoint()
+    if fixDualStim% = 1 then
+        iStimIndex% := (iStimIndex% + 1) mod 9;         
+        SafeSampleKey("a");
+    endif
 end;
 
 proc UpdateToolbarText()
@@ -650,7 +664,18 @@ proc CreateSampleConfiguration()
 	SampleEvent(ReadyChannel%, 1, 2, 3600); 'Trigger channel, level
 	SampleComment$(ReadyChannel%,"VSG Ready");
 	SampleTitle$(ReadyChannel%,"VSG Ready");
+    
+    if fixDualStim% = 1 then
+        SampleEvent(TriggerSlaveChannel%, 4, 2, 3600); 'Trigger channel, level
+        SampleComment$(TriggerSlaveChannel%, "Trigger-slave");
+        SampleTitle$(TriggerSlaveChannel%, "Trigger-slave");
 
+        SampleEvent(ReadySlaveChannel%, 5, 2, 3600); 'Trigger channel, level
+        SampleComment$(ReadySlaveChannel%,"VSG Ready-slave");
+        SampleTitle$(ReadySlaveChannel%,"VSG Ready-slave");
+    endif
+    
+    
 	'EYE COIL CHANNELS. Last # is sampling freq in Hz. 
 	SampleWaveform(XChannel%, GetEyeXPort%(), 1000);
 	SampleTitle$(XChannel%,"Eye X");
@@ -662,9 +687,9 @@ proc CreateSampleConfiguration()
 
     ' different pls file if remote
 '    if GetUseRemoteStimulus%() = 0 then
-        SampleSequencer(script$ + "Fixation.pls");
+'        SampleSequencer(script$ + "Fixation.pls");
  '   else
-  '      SampleSequencer(script$ + "Tuning.pls");
+        SampleSequencer(script$ + "Tuning.pls");
    ' endif
         
 	SampleOptimise(2, 2, 2, 2, 50);  'Set optimise mode (do this last)
@@ -763,26 +788,17 @@ end;
 '
 proc InitializeToolbar()
 
-	View(App(8)).WindowVisible(0);	'Hide the standard sample bar
+	'View(App(8)).WindowVisible(0);	'Hide the standard sample bar
 	ToolbarVisible(1);
 	ToolbarSet(1,"Sample start",Start%);
 	ToolbarSet(2,"Sample stop", Stop%);
 	ToolbarSet(3,"Juice",DefaultReward%);
 	ToolbarSet(4,"Pause stimuli",PauseStimuli%);
 	ToolbarSet(5,"Resume stimuli",ResumeStimuli%);
-	ToolbarSet(6,"Exp Parameters",FixationScriptDialog%);
-	ToolbarSet(7,"Horizontal", Horizontal%);
-	ToolbarSet(8,"Vertical", Vertical%);
-	ToolbarSet(9,"Corners", Corners%);
-    ToolbarSet(10,"Center", Center%);
-	ToolbarSet(11,"Quit",Quit%);
+	ToolbarSet(6,"Quit",Quit%);
 	ToolbarEnable(2,0);
 	ToolbarEnable(4,0);
 	ToolbarEnable(5,0);
-	ToolbarEnable(7,0);
-	ToolbarEnable(8,0);
-	ToolbarEnable(9,0);
-	ToolbarEnable(10,0);
 	Toolbar("Go", 0x3ff);
 
 end;
@@ -809,13 +825,16 @@ end;
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 func Start%()
 	var CommandLine$;
+    var CommandLineSlave$;
 	var FixationPoint$;
+    var DualTrigger$ := "";
 	var Extras$;
 	var Distractors$:="";
     var DistractorFlag$ := " -g ";  ' -k for fixstim/remote
     var DistractorFixstimFlag$ := "";
     var Invocation$;                ' initialized below
-	
+	var InvocationSlave$;
+    
 	SampleStart(0); 'Start sampling
     
 	' Set Sequencer Variable #3 based on juicer type 
@@ -829,7 +848,16 @@ func Start%()
         DistractorFixstimFlag$ := " -K ";
         Invocation$ := "cmd /c " + GetBinDir$(1) + "remote " + GetRemoteStimulusIP$() + " " + GetRemoteStimulusPort$() + " fixstim -p 2 ";
     else
-        Invocation$ := "cmd /c " + GetBinDir$(1) + "Fixation ";
+        Invocation$ := "cmd /c " + GetBinDir$(1) + "fixstim ";
+    endif
+    
+    if fixDualStim% = 1 then
+        InvocationSlave$ := "cmd /c " + GetBinDir$(1) + "remote " + GetSlaveStimulusIP$() + " " + GetSlaveStimulusPort$() + " fixstim -p 2 ";
+        DualTrigger$ := " -V 128,FS ";
+        ' djs Set sequencer variable 5 if this is rivalry
+        SampleSeqVar(5, 1);
+    else
+        SampleSeqVar(5, 0);
     endif
 
 	if fixCalibrationFlag% = 0 then
@@ -882,15 +910,21 @@ func Start%()
 		
 		Extras$ := " -b " + fixBackgroundColor$ + " -d " + GetDistanceToScreenMM$();
 		
-		CommandLine$ := Invocation$ + FixationArg$ + Extras$ + Distractors$ + DistractorFixstimFlag$;
+		CommandLine$ := Invocation$ + FixationArg$ + Extras$ + DualTrigger$ + Distractors$ + DistractorFixstimFlag$;
+        CommandLineSlave$ := InvocationSlave$ + FixationArg$ + Extras$ + DualTrigger$ + Distractors$ + DistractorFixstimFlag$;
 		
 		'CommandLine$ :=bin$ + "\\dFixation " + FixationPoint$ + Distractors$ + Extras$;
 	else
-
-		Horizontal%();
-
-		Extras$ := " -b " + fixBackgroundColor$ + " -d " + GetDistanceToScreenMM$() + " -C " + str$(fixCalibrationOffset);
-		CommandLine$ := "cmd /k " + bin$ + "\\Fixation " + FixationArg$ + Extras$;
+        var calLocations$;
+        calLocations$ := Print$(" -y %.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f ",
+        -fixCalibrationOffset, fixCalibrationOffset, 0, fixCalibrationOffset, fixCalibrationOffset, fixCalibrationOffset, 
+        -fixCalibrationOffset, 0, 0, 0, fixCalibrationOffset, 0, 
+        -fixCalibrationOffset, -fixCalibrationOffset, 0, -fixCalibrationOffset, fixCalibrationOffset, -fixCalibrationOffset);
+        
+        Extras$ := Print$("-b %s -d %s %s ", fixBackgroundColor$, GetDistanceToScreenMM$(), FixationArg$);
+        
+		CommandLine$ := Invocation$ + Extras$ + DualTrigger$ + calLocations$;
+		CommandLineSlave$ := InvocationSlave$ + Extras$ + DualTrigger$ + calLocations$;
 
 	endif
 
@@ -898,17 +932,16 @@ func Start%()
 	LogStatus("Start%()", CommandLine$);
 	StimHandle% := ProgRun(CommandLine$,1);
 	if StimHandle% <0 then Message("Could not start stimulus."); halt; endif
-'	Yield(5);	'Wait a few seconds to make sure the VSG has time to initialize.
-
+    
+    if fixDualStim% = 1 then
+        StimHandleSlave% := ProgRun(CommandLineSlave$, 1);
+        if StimHandleSlave% <0 then Message("Could not start slave stimulus."); halt; endif
+    endif
+    
 	ToolbarSet(0,"",IdleProcessing%);	'Enable the IdleProcessing function
 	ToolbarEnable(2,1);
 	ToolbarEnable(1,0);
-	ToolbarEnable(6,0);
-	ToolbarEnable(7,1);
-	ToolbarEnable(8,1);
-	ToolbarEnable(9,1);
-	ToolbarEnable(10,1);
-	ToolbarEnable(11,1);
+	ToolbarEnable(6,1);
 	View(DataWindow%);
 	Yield(.1);
 	return 1;
@@ -931,23 +964,12 @@ func Stop%()
 	while ProgStatus(StimHandle%) > 0 do
 		Yield();
 	wend
-	'ProgRun(bin$ + "\\ClearTrigger",0);
 
 	' Increment daily totals and save then
 	TotalTrials% += (nTrialsStarted% + nLEDTrialsStarted%);
 	TotalRewards% += (nTrialsSuccess% + nLEDTrialsSuccess%);
 	SaveDailyTotals();
 
-	' Save data file
-	' djs 5-2-2005
-	' When autonaming is used, this is not necessary. In fact, the call to FileSave fails!
-	' Leaving the call out altogether makes it work. .. . . 
-	'View(DataWindow%);
-	'if FileSave() <> 0 then
-	'	Message("WARNING! Data file not saved!!!");
-	'endif
-    
-    
 	s$ := Print$("Trial#/Total %d/%d Success/Failure %d/%d", nTrialsStarted%, fixNumberOfTrials%, nTrialsSuccess%, nTrialsFail%);
 	LogStatus("Stop%()", s$);
     
@@ -986,7 +1008,11 @@ func GetStimX()
 	if fixCalibrationFlag% = 0 then
 		xstim := FixationX;
 	else
-		xstim := fixCalibrationOffset * (iStimX%[iStimIndex%]-2);
+        docase
+        case iStimIndex% = 1 or iStimIndex% = 4 or iStimIndex% = 7 then xstim := -fixCalibrationOffset;
+        case iStimIndex% = 2 or iStimIndex% = 5 or iStimIndex% = 8 then xstim := 0;
+        case iStimIndex% = 3 or iStimIndex% = 6 or iStimIndex% = 9 then xstim := fixCalibrationOffset;
+        endcase        
 	endif
 	return xstim;
 end;
@@ -996,7 +1022,11 @@ func GetStimY()
 	if fixCalibrationFlag% = 0 then
 		ystim := FixationY;
 	else
-		ystim := fixCalibrationOffset * (iStimY%[iStimIndex%]-2);
+        docase
+        case iStimIndex% = 1 or iStimIndex% = 2 or iStimIndex% = 3 then ystim := fixCalibrationOffset;
+        case iStimIndex% = 4 or iStimIndex% = 5 or iStimIndex% = 6 then ystim := 0;
+        case iStimIndex% = 7 or iStimIndex% = 8 or iStimIndex% = 9 then ystim := -fixCalibrationOffset;
+        endcase        
 	endif
 	return ystim;
 end;
@@ -1030,69 +1060,50 @@ end;
 ' from DoCalSampleKeys, which is called at a "safe" time (between trials), to ensure that the stim program and this
 ' script have the same notion of where the target is on screen. 
 
-proc UpdateCalMode()
-    if fixPendingCalMode% = 0 then return; endif
-        
-    docase
-    case fixPendingCalMode% = 1 then        ' horizontal
-        iStimX%[0] := 1; iStimY%[0] := 2;
-        iStimX%[1] := 1; iStimY%[1] := 2;
-        iStimX%[2] := 2; iStimY%[2] := 2;
-        iStimX%[3] := 2; iStimY%[3] := 2;
-        iStimX%[4] := 3; iStimY%[4] := 2;
-        iStimX%[5] := 3; iStimY%[5] := 2;
-        iStimX%[6] := 2; iStimY%[6] := 2;
-        iStimX%[7] := 2; iStimY%[7] := 2;
-    case fixPendingCalMode% = 2 then        ' vertical
-        iStimX%[0] := 2; iStimY%[0] := 1;
-        iStimX%[1] := 2; iStimY%[1] := 1;
-        iStimX%[2] := 2; iStimY%[2] := 2;
-        iStimX%[3] := 2; iStimY%[3] := 2;
-        iStimX%[4] := 2; iStimY%[4] := 3;
-        iStimX%[5] := 2; iStimY%[5] := 3;
-        iStimX%[6] := 2; iStimY%[6] := 2;
-        iStimX%[7] := 2; iStimY%[7] := 2;
-    case fixPendingCalMode% = 3 then        ' corners
-        iStimX%[0] := 1; iStimY%[0] := 1;
-        iStimX%[1] := 1; iStimY%[1] := 1;
-        iStimX%[2] := 3; iStimY%[2] := 1;
-        iStimX%[3] := 3; iStimY%[3] := 1;
-        iStimX%[4] := 3; iStimY%[4] := 3;
-        iStimX%[5] := 3; iStimY%[5] := 3;
-        iStimX%[6] := 1; iStimY%[6] := 3;
-        iStimX%[7] := 1; iStimY%[7] := 3;
-    case fixPendingCalMode% = 4 then    ' center
-        iStimX%[0] := 2; iStimY%[0] := 2;
-        iStimX%[1] := 2; iStimY%[1] := 2;
-        iStimX%[2] := 2; iStimY%[2] := 2;
-        iStimX%[3] := 2; iStimY%[3] := 2;
-        iStimX%[4] := 2; iStimY%[4] := 2;
-        iStimX%[5] := 2; iStimY%[5] := 2;
-        iStimX%[6] := 2; iStimY%[6] := 2;
-        iStimX%[7] := 2; iStimY%[7] := 2;        
-    endcase    
-    fixPendingCalMode% := 0;
-    
-    return;
-end;
-    
-func Horizontal%()
-    fixPendingCalMode% := 1;
-	return 1;
-end;
-          
-func Vertical%()
-    fixPendingCalMode% := 2;    
-  	return 1;
-end;
-
-func Corners%()
-    fixPendingCalMode% := 3;
-	return 1;
-end;
-
-func Center%()
-    fixPendingCalMode% := 4;
-	return 1;
-end;
-
+'proc UpdateCalMode()
+'    if fixPendingCalMode% = 0 then return; endif
+'        
+'    docase
+'    case fixPendingCalMode% = 1 then        ' horizontal
+'        iStimX%[0] := 1; iStimY%[0] := 2;
+'        iStimX%[1] := 1; iStimY%[1] := 2;
+'        iStimX%[2] := 2; iStimY%[2] := 2;
+'        iStimX%[3] := 2; iStimY%[3] := 2;
+'        iStimX%[4] := 3; iStimY%[4] := 2;
+'        iStimX%[5] := 3; iStimY%[5] := 2;
+'        iStimX%[6] := 2; iStimY%[6] := 2;
+'        iStimX%[7] := 2; iStimY%[7] := 2;
+'    case fixPendingCalMode% = 2 then        ' vertical
+'        iStimX%[0] := 2; iStimY%[0] := 1;
+'        iStimX%[1] := 2; iStimY%[1] := 1;
+'        iStimX%[2] := 2; iStimY%[2] := 2;
+'        iStimX%[3] := 2; iStimY%[3] := 2;
+'        iStimX%[4] := 2; iStimY%[4] := 3;
+'        iStimX%[5] := 2; iStimY%[5] := 3;
+'        iStimX%[6] := 2; iStimY%[6] := 2;
+'        iStimX%[7] := 2; iStimY%[7] := 2;
+'    case fixPendingCalMode% = 3 then        ' corners
+'        iStimX%[0] := 1; iStimY%[0] := 1;
+'        iStimX%[1] := 1; iStimY%[1] := 1;
+'        iStimX%[2] := 3; iStimY%[2] := 1;
+'        iStimX%[3] := 3; iStimY%[3] := 1;
+'        iStimX%[4] := 3; iStimY%[4] := 3;
+'        iStimX%[5] := 3; iStimY%[5] := 3;
+'        iStimX%[6] := 1; iStimY%[6] := 3;
+'        iStimX%[7] := 1; iStimY%[7] := 3;
+'    case fixPendingCalMode% = 4 then    ' center
+'        iStimX%[0] := 2; iStimY%[0] := 2;
+'        iStimX%[1] := 2; iStimY%[1] := 2;
+'        iStimX%[2] := 2; iStimY%[2] := 2;
+'        iStimX%[3] := 2; iStimY%[3] := 2;
+'        iStimX%[4] := 2; iStimY%[4] := 2;
+'        iStimX%[5] := 2; iStimY%[5] := 2;
+'        iStimX%[6] := 2; iStimY%[6] := 2;
+'        iStimX%[7] := 2; iStimY%[7] := 2;        
+'    endcase    
+'    fixPendingCalMode% := 0;
+'    
+'    return;
+'end;
+'    
+'
