@@ -26,7 +26,14 @@ int aslserial_connect(string configfile, long comPort=2)
 	{
 		cerr << "Error creating COM Server ASLSerialOutLib2" << endl;
 		if (hr == S_OK) cerr << "S_OK" << endl;
-		else if (hr == REGDB_E_CLASSNOTREG) cerr << "REGDB_E_CLASSNOTREG" << endl;
+		else if (hr == REGDB_E_CLASSNOTREG) 
+		{
+			CComBSTR bsError;
+			gpISerialOutPort->GetLastError(&bsError);
+			CString strError = bsError;
+			cerr << "REGDB_E_CLASSNOTREG" << endl;
+			cerr << bsError << endl;
+		}
 		else if (hr == CLASS_E_NOAGGREGATION) cerr << "CLASS_E_NOAGGREGATION" << endl;
 		else if (hr == E_NOINTERFACE) cerr << "E_NOINTERFACE" << endl;
 		else cerr << "unknown error " << hr << endl;
