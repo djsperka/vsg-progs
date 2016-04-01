@@ -440,7 +440,7 @@ int callback(int &output, const CallbackTrigger* ptrig)
 	}
 	else if (key == "F")
 	{
-		get_color(m_background, from);
+		from = m_background.trival();
 		to.a = 1; to.b = to.c = 0;
 		m_spec_fixpt.select();
 		vsgObjSetColourVector(&from, &to, vsgUNIPOLAR);
@@ -467,7 +467,7 @@ int callback(int &output, const CallbackTrigger* ptrig)
 	}
 	else if (key == "G")
 	{
-		get_color(m_background, from);
+		from = m_background.trival();	
 		to.b = 1; to.a = to.c = 0;
 		m_spec_fixpt.select();
 		vsgObjSetColourVector(&from, &to, vsgUNIPOLAR);

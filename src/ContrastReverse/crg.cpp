@@ -217,7 +217,7 @@ void prepareOverlay()
 	VSGTRIVAL colorTrival;
 	VSGLUTBUFFER overlayLUT;
 	overlayLUT[1].a=overlayLUT[1].b=overlayLUT[1].c=.5;
-	get_color(f_fixpt.color, colorTrival);
+	colorTrival = f_fixpt.color.trival();
 	overlayLUT[2] = colorTrival;
 	vsgPaletteWriteOverlayCols((VSGLUTBUFFER*)&overlayLUT, 0, 3);
 
