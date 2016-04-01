@@ -261,13 +261,7 @@ int _tmain(int argc, TCHAR* argv[], TCHAR* envp[])
 int init_calibration()
 {
 	int status=0;
-	VSGTRIVAL fixation_color;
-
-	if (get_color(f_afp.color, fixation_color))
-	{
-		cerr << "Cannot get trival for fixation color " << f_afp.color << endl;
-		return 2;
-	}
+	VSGTRIVAL fixation_color = f_afp.color.trival();
 
 	// Init vsg for single vsg usage
 	if (!f_bRivalry)
