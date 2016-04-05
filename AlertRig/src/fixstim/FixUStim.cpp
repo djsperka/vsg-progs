@@ -1,4 +1,4 @@
-/* $Id: FixUStim.cpp,v 1.8 2016-04-01 22:24:44 devel Exp $*/
+/* $Id: FixUStim.cpp,v 1.9 2016-04-05 18:35:38 devel Exp $*/
 
 #include "FixUStim.h"
 #include <iostream>
@@ -7,7 +7,7 @@ using namespace std;
 using namespace boost::algorithm;
 using namespace boost::filesystem;
 
-const string FixUStim::m_allowedArgs("ab:d:e:f:g:h:j:k:q:p:s:vy:zA:B:C:D:G:H:I:J:KL:M:NO:P:Q:R:S:T:U:V:W:Y:Z:");
+const string FixUStim::m_allowedArgs("ab:d:e:f:g:h:j:k:q:p:s:vy:zA:B:C:D:G:H:I:J:KL:M:NO:P:Q:R:S:T:U:V:W:X:Y:Z:");
 
 FixUStim::FixUStim(bool bStandAlone)
 : UStim()
@@ -502,6 +502,7 @@ int FixUStim::process_arg(int c, std::string& arg)
 	case 'C':
 	case 'A':
 	case 'Z':
+	case 'X':
 	case 'M':
 	case 'y':
 		{
@@ -558,6 +559,9 @@ int FixUStim::process_arg(int c, std::string& arg)
 						break;
 					case 'Z':
 						plist = new GratingXYList(tuning_parameters);
+						break;
+					case 'X':
+						plist = new StimXList(tuning_parameters);
 						break;
 					case 'M':
 						plist = new StimHoleList(tuning_parameters);
