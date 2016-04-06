@@ -1,0 +1,148 @@
+'The idea behind this script is to allow me to quickly figure out where a variable is
+'within the Usrey code, which isn't always the easiest thing.
+
+'This works amazingly well.  Since it has to look through ~150 files it does take about 5 seconds or so, but that's
+'SO worth it.
+
+#include "../../Spike2Util/Directories.s2s"
+
+var i%;  'just to hold the return of the dialog
+var j%;  'looping variable
+var varName$;  'holds the name of the function to be found
+var ARLoc$; 'location of the AlertRig/Spike2Scripts
+var S2ULoc$;  'location of the Spike2Util folder
+var currPath$;  'we will hold the current path and switch back to it at the end of all
+var pathExist%;  'this variable will tell us whether our paths exist
+var numFiles%;  'will hold the number of files found in each Spike2 folder
+var existingFiles$[1000];  'will hold the names of files found in each Spike2 folder, 1000 should be super plenty
+var numMatchingFiles%;  'will hold the number of files which appear to hold this function
+var matchingFiles$[1000];  'If there are more than 20 matching files it must be a "local" function and finding it should not be an issue
+var numRead%;  'if negative, read was not successful, if 0, blank line was read
+var tempString$;
+var breakOut%;
+var check1%;
+var check2%;
+var fh%;  'file handle
+var outStr$;
+var count%;  'If there are more than 20 matching files it must be a "local" function and finding it should not be an issue
+
+''Get script and utilities directories
+ARLoc$ := GetScriptDir$(1);
+S2ULoc$ := GetUtilitiesDir$(1);
+
+'printlog("%s %s\n",ARLoc$,S2ULoc$);
+
+''Check for existence of folders on local machine - give error if folders are not found
+currPath$ := FilePath$(); 'get current path so we can switch back at the end
+'printlog("Curr path is %s\n",currPath$);  'echo current path
+
+
+pathExist% := FilePathSet(ARLoc$);  'try to change directory to AlertRig/Spike2Scripts folder
+if pathExist% < 0 then
+    Message("The requested AlertRig\\Spike2Scripts folder does not exist!  Quitting!");
+    FilePathSet(currPath$);  'set file path back
+    halt;
+endif;
+
+pathExist% := FilePathSet(S2ULoc$);  'try to change directory to Spike2Util folder
+if pathExist% < 0 then
+    Message("The requested Spike2Util folder does not exist!  Quitting!");
+    FilePathSet(currPath$);  'set file path back
+    halt;
+endif;
+
+
+''Create Dialog to get name of function to search for
+DlgCreate("Search Usrey Lab Scripts For Variable");
+DlgString(1,"Variable name (include %/$)",50);
+i% := DlgShow(varName$);
+
+
+
+''Only search if dialog is not canceled
+if i% = 1 then
+    'Preliminaries
+    'printlog("%s\n",varName$);  'echo entered function name
+    varName$ := LCase$(varName$);  'functions are not case sensitive, so we'll do everything in lowercase space
+    
+    'search AlertRig/Spike2Scripts folder 
+    FilePathSet(ARLoc$);
+    numFiles% := FileList(existingFiles$[],3);  'find .s2s files
+    'loop through .s2s files
+    for j% := 0 to numFiles%-1 do
+        fh% := FileOpen(existingFiles$[j%],8,0);
+        if fh% >= 0 then
+        numRead% := Read(tempString$);
+        breakOut% := 0;
+        while numRead% >= 0 and breakOut% = 0 do  'quit when end-of-file is reached, or a matching line is found
+            if numRead% > 0 then 'don't check on blank line
+                if len(tempString$) >= len(varName$) then 'don't check if it isn't long enough
+                    tempString$ := LCase$(tempString$);  'lowercase the string
+                    check1% := InStr(tempString$,varName$);
+                    if check1% > 0 then
+                        breakOut% := 1;
+                        matchingFiles$[numMatchingFiles%] := ARLoc$ + existingFiles$[j%];  'store name of file with match
+                        numMatchingFiles% += 1;  'increment number of matching files
+                    endif;
+                endif;
+            endif;
+            numRead% := Read(tempString$);
+        wend
+            FileClose();  'and close the thing
+        else
+            printlog("file " + existingFiles$[j%] + " not opened!\n");
+        endif;
+    next;
+    
+    
+    'search Spike2Util folder
+    FilePathSet(S2ULoc$);
+    numFiles% := FileList(existingFiles$[],3);  'find .s2s files
+    'loop through .s2s files
+    for j% := 0 to numFiles%-1 do
+        fh% := FileOpen(existingFiles$[j%],8,0);
+        if fh% >= 0 then
+        numRead% := Read(tempString$);
+        breakOut% := 0;
+        while numRead% >= 0 and breakOut% = 0 do  'quit when end-of-file is reached, or a matching line is found
+            if numRead% > 0 then 'don't check on blank line
+                if len(tempString$) >= len(varName$) then 'don't check if it isn't long enough
+                    tempString$ := LCase$(tempString$);  'lowercase the string
+                    check1% := InStr(tempString$,varName$);
+                    if check1% > 0 then
+                        breakOut% := 1;
+                        matchingFiles$[numMatchingFiles%] := ARLoc$ + existingFiles$[j%];  'store name of file with match
+                        numMatchingFiles% += 1;  'increment number of matching files
+                    endif;
+                endif;
+            endif;
+            numRead% := Read(tempString$);
+        wend
+            FileClose();  'and close the thing
+        else
+            printlog("file " + existingFiles$[j%] + " not opened!\n");
+        endif;
+    next;
+
+endif;
+
+
+''Set file path back to what it was when we started
+FilePathSet(currPath$);
+
+if numMatchingFiles% > 0 then
+    for j% := 1 to numMatchingFiles% do
+        if count% < 20 then
+            outStr$ := outStr$ + matchingFiles$[j%-1] + "\n";
+            count% += 1;
+            if count% = 20 then
+                outStr$ := outStr$ + "...truncated at 20...";
+            endif;
+        endif;
+    next;
+    Message(outStr$);
+else
+    Message("No matching functions found!\nPlease note that currently open functions cannot be checked!")
+endif;
+
+
