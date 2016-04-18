@@ -142,6 +142,7 @@ var caIsOvershot$;
 
 ' Overall script control vars
 var Pause% := 0;
+var advanceOnAbort% := 1;  'Evan now wants to advance on aborts.  Making this a variable (not in dialog) for easy switching back if necessary.
 'var caAudibleElectrode% := 0;  'looks like this will not work
 
 ' Channel numbers and handles
@@ -1423,6 +1424,7 @@ func IdleProcessing%()
             'check to make sure fixation has been maintained, if required. ONLY required here under training v.2 (fixation training)
             if caRequireFixation% = 1 and caTrainingOptions% = 2 and Looking%(xEye, yEye) <> 1 then
                 PrintLog("stateWaitForJoystickInRight: failed, broke fixation\n");
+                SampleText("Fixation broken before joystick moved to start trial, trial aborted",tNow);
                 ChangeStateTo(stateAbort%, tNow);
                 joystickHasBeenCentered% := 1;  'presumably joystick has not gone right yet
             endif;
@@ -1456,6 +1458,7 @@ func IdleProcessing%()
             
             if caRequireFixation% = 1 and caTrainingOptions% = 2 and Looking%(xEye, yEye) <> 1 then
                 PrintLog("stateHoldJoystickInRight: failed, broke fixation\n");
+                SampleText("Fixation broken while holding joystick to start trial, trial aborted",tNow);
                 ChangeStateTo(stateAbort%, tNow);
             endif;
             
@@ -1496,6 +1499,10 @@ func IdleProcessing%()
                     joystickHasBeenCentered% := 1;  'joystick centered before criterion time
                 case caTrainingOptions% > 2 then  'I think this should be an abort, but don't go to stateAbort because no fixation point is up and StateWaitForBlank will never end
                     PrintLog("stateHoldJoystickInRight: failed.\n");
+                    SampleText("Joystick not held to trial start, trial aborted",tNow);
+                    if advanceOnAbort% = 1 then
+                        SafeSampleKey("a");  'because this state skips stateAbort, we need to advance here (advance on abort is per Evan)
+                    endif;
                     ChangeStateTo(stateAbortWait%, tNow);  'go directly to StateAbortWait, do not need to turn off fixation point
                     joystickHasBeenCentered% := 1;  'joystick centered before criterion time
                 endcase
@@ -1507,6 +1514,7 @@ func IdleProcessing%()
             
             if caRequireFixation% = 1 and caTrainingOptions% = 2 and Looking%(xEye, yEye) <> 1 then  'caTrainingOptions MUST be 2 if caRequireFixation is 1, but I added the check here for consistency
                 PrintLog("stateWaitForJoystickInRight: failed, broke fixation\n");
+                SampleText("Fixation broken while waiting for joystick to center, trial aborted",tNow);
                 ChangeStateTo(stateAbort%, tNow);
             endif;        
             
@@ -1605,6 +1613,7 @@ func IdleProcessing%()
             else 
                 if tNow - tStateStart > caAcquisitionTime then  'simple abort on failure to acquire
                     PrintLog("stateWaitForAcquisition: failed.\n");
+                    SampleText("Failure to acquire fixation, trial aborted",tNow);
                     ChangeStateTo(stateAbort%, tNow);
                     'getPreciseTiming := 0;
                 endif
@@ -1631,31 +1640,31 @@ func IdleProcessing%()
                         PrintLog("stateWaitForStimOn: joystick returned to center, aborting trial.\n");
                         FAIsResponse% := 1;
                         ChangeStateTo(stateAbort%, tNow);
-                        SampleText(Print$("Joystick not held, False Alarm response before stimulus on, trial aborted"),tNow);
+                        SampleText("Joystick not held, False Alarm response before stimulus on, trial aborted",tNow);
                         joystickHasBeenCentered% := 1;  'joystick centered by FA
                     case tempanswer% = 1 then 'overshot or left
                         PrintLog("stateWaitForStimOn: joystick moved to left, aborting trial.\n");
                         FAIsResponse% := 1;
                         ChangeStateTo(stateAbort%, tNow);
                         if caTrainingOptions% = 4 then
-                            SampleText(Print$("Joystick not held, False Alarm response to left before stimulus on, trial aborted"),tNow); 
+                            SampleText("Joystick not held, False Alarm response to left before stimulus on, trial aborted",tNow); 
                             joystickHasBeenCentered% := 0;  'not centered in forced choice
                         else
-                            SampleText(Print$("Joystick not held, False Alarm response all the way to left before stimulus on, trial aborted"),tNow); 
+                            SampleText("Joystick not held, False Alarm response all the way to left before stimulus on, trial aborted",tNow); 
                             joystickHasBeenCentered% := 1;  'joystick centered by FA - overshot is centering
                         endif;
                     case tempanswer% = 3 then 'right, cannot currently be overshot because all GNG start in right, and overshot can only occur in GNG
                         PrintLog("stateWaitForStimOn: joystick moved to right, aborting trial.\n");
                         FAIsResponse% := 1;
                         ChangeStateTo(stateAbort%, tNow);
-                        SampleText(Print$("Joystick not held, False Alarm response to right before stimulus on, trial aborted"),tNow);  
+                        SampleText("Joystick not held, False Alarm response to right before stimulus on, trial aborted",tNow);  
                         joystickHasBeenCentered% := 0;  'not centered in forced choice
                     endcase;
                 case Looking%(xEye, yEye) = 0 and caRequireFixation% = 1 then  'no joystick move, but a fixation break
                     PrintLog("stateWaitForStimOn: failure to hold fixation, aborting trial.\n");
                     FAIsResponse% := 0;  'not a false alarm, just a fixation break
                     ChangeStateTo(stateAbort%, tNow);
-                    SampleText(Print$("failure to hold fixation to stim on, trial aborted"),tNow); 
+                    SampleText("Failure to hold fixation to stim on, trial aborted",tNow); 
                 else  'keep checking until false alarm check window is closed, joystick is in intermediate state
                     ChangeStateTo(stateCheckFalseAlarm%, tNow);
                     temptext$ := "before stimulus on";
@@ -1711,6 +1720,9 @@ func IdleProcessing%()
             ' fixpt off. 
             PrintLog("stateAbort: send X key.\n");
             SafeSampleKey("X");
+            if advanceOnAbort% = 1 then  'if we are advancing on abort, now would be the time.
+                SafeSampleKey("a");
+            endif;
             
             if caRequireFixation% <> 0 then 
                 view(XYWindow%).XYColour(iFixationWindowChannel%,13);  'Force fixation window to blue
@@ -1762,8 +1774,10 @@ func IdleProcessing%()
                 if FAIsResponse% = 1 then
                     FAIsResponse% := 0;
                     ChangeStateTo(stateFalseAlarmWait%, tTrigger);
-                    'advance on false alarm
-                    SafeSampleKey("a");  'this is the only place to get into stateFalseAlarmWait, so advance here is fine
+                    'advance on false alarm, but only if we didn't previously advance due to the abort.
+                    if advanceOnAbort% = 0 then
+                        SafeSampleKey("a");  'this is the only place to get into stateFalseAlarmWait, so advance here is fine
+                    endif;
                 else                
                     ChangeStateTo(stateAbortWait%, tStateStart);  'don't update time, "credits" for time served
                 endif;
@@ -1818,13 +1832,13 @@ func IdleProcessing%()
                     PrintLog("stateCheckFalseAlarm: joystick returned to center, aborting trial.\n");
                     FAIsResponse% := 1;
                     ChangeStateTo(stateAbort%, tNow);
-                    SampleText(Print$("Joystick not held, False Alarm response before stimulus on, trial aborted"),tNow);
+                    SampleText("Joystick not held, False Alarm response before stimulus on, trial aborted",tNow);
                     joystickHasBeenCentered% := 1;  'joystick centered by FA
                 case tempanswer% = 1 then 'overshot
                     PrintLog("stateCheckFalseAlarm: joystick moved to left, aborting trial.\n");
                     FAIsResponse% := 1;
                     ChangeStateTo(stateAbort%, tNow);
-                    SampleText(Print$("Joystick not held, False Alarm response all the way to left before stimulus on, trial aborted"),tNow); 
+                    SampleText("Joystick not held, False Alarm response all the way to left before stimulus on, trial aborted",tNow); 
                     joystickHasBeenCentered% := 1;  'joystick centered by FA - overshot is centering
                 endcase;
             else 'credit the animal for time served on the abort if it's not a response
@@ -1843,12 +1857,12 @@ func IdleProcessing%()
                     PrintLog("stateCheckFalseAlarmSaccade: response to target, aborting trial.\n");
                     FAIsResponse% := 1;
                     ChangeStateTo(stateAbort%, tNow);
-                    SampleText(Print$("False Alarm saccade to target before stimulus on, trial aborted"),tNow);
+                    SampleText("False Alarm saccade to target before stimulus on, trial aborted",tNow);
                 case tempanswer% = -1 then 'overshot
                     PrintLog("stateCheckFalseAlarmSaccade: response to distractor, aborting trial.\n");
                     FAIsResponse% := 1;
                     ChangeStateTo(stateAbort%, tNow);
-                    SampleText(Print$("False Alarm saccade to distractor before stimulus on, trial aborted"),tNow); 
+                    SampleText("False Alarm saccade to distractor before stimulus on, trial aborted",tNow); 
                 endcase;
             else 'credit the animal for time served on the abort if it's not a response
                 PrintLog("stateCheckFalseAlarmSaccade: no response in temporal window, aborting trial.\n");
@@ -1928,31 +1942,31 @@ func IdleProcessing%()
                     PrintLog("stateHoldFixationToCC: false alarm before contrast change, aborting trial.\n");
                     FAIsResponse% := 1;
                     ChangeStateTo(stateAbort%, tNow);
-                    SampleText(Print$("False Alarm before contrast change, trial aborted"),tNow);
+                    SampleText("False Alarm before contrast change, trial aborted",tNow);
                     joystickHasBeenCentered% := 1;  'joystick centered by FA
                 case joystickInStartPosition% = 0 and tempanswer% = 1 and caTrainingOptions% < 4 then 'answer and overshot in GNG
                     PrintLog("stateHoldFixationToCC: false alarm and overshot before contrast change, aborting trial.\n");
                     FAIsResponse% := 1;
                     ChangeStateTo(stateAbort%, tNow);
-                    SampleText(Print$("False Alarm and overshot before contrast change, trial aborted"),tNow);
+                    SampleText("False Alarm and overshot before contrast change, trial aborted",tNow);
                     joystickHasBeenCentered% := 1;  'joystick centered by FA - overshot is centering
                 case joystickInStartPosition% = 0 and tempanswer% = 1 then 'FA Left in forced choice
                     PrintLog("stateHoldFixationToCC: false alarm (left) before contrast change, aborting trial.\n");
                     FAIsResponse% := 1;
                     ChangeStateTo(stateAbort%, tNow);
-                    SampleText(Print$("False Alarm (left) before contrast change, trial aborted"),tNow);
+                    SampleText("False Alarm (left) before contrast change, trial aborted",tNow);
                     joystickHasBeenCentered% := 0;  'joystick not centered 
                 case joystickInStartPosition% = 0 and tempanswer% = 3 then 'FA Right in forced choice
                     PrintLog("stateHoldFixationToCC: false alarm (right) before contrast change, aborting trial.\n");
                     FAIsResponse% := 1;
                     ChangeStateTo(stateAbort%, tNow);
-                    SampleText(Print$("False Alarm (right) before contrast change, trial aborted"),tNow);
+                    SampleText("False Alarm (right) before contrast change, trial aborted",tNow);
                     joystickHasBeenCentered% := 0;  'joystick not centered   
                 case Looking%(xEye, yEye) = 0 and caRequireFixation% = 1 and caRequireSaccadeResponse% = 0 then  'no joystick move, but a fixation break
                     PrintLog("stateHoldFixationToCC: failure to hold fixation, aborting trial.\n");
                     FAIsResponse% := 0;  'not a false alarm, just a fixation break
                     ChangeStateTo(stateAbort%, tNow);
-                    SampleText(Print$("failure to hold fixation to contrast change, trial aborted"),tNow); 
+                    SampleText("Failure to hold fixation to contrast change, trial aborted",tNow); 
                 else  'keep checking, joystick is in intermediate position (this may never trigger following addition of "joystickInStartPosition" syntax)
                     ChangeStateTo(stateCheckFalseAlarm%, tNow);
                     temptext$ := "before contrast change";
@@ -3003,9 +3017,9 @@ end
 
 
 
-'This function allows up to update the onscreen position of fixation and stimulus windows, as well as values for eye position windows
+'This function allows us to update the onscreen position of fixation and stimulus windows, as well as values for eye position windows
 'Note that there is no point to running this function if caTrainingOptions% is not 3 or higher (= control file) because the position
-'of the stimuli wold not change
+'of the stimuli would not change
 proc UpdateOnScreenPositions()
     var index%;
     var twopi;
