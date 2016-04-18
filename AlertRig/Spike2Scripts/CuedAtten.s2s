@@ -1321,6 +1321,10 @@ func IdleProcessing%()
     'Note that we will ONLY do the additional check in instances where a timed TextMark is being placed at the 
     'time of the trigger.
     
+    'There are now only TWO locations where the stimulus advance can occur.  The standard one is in stateTrialCompleted%
+    'which advances obligatorily.  The other is in stateAbortWait%, which is only advanced when advanceOnAbort% is set.
+    'I believe that all routes go through one of these two states, and exactly one of these states.
+    
     while nextStateImmed% = 1 do
         nextStateImmed% := 0;  'don't run immediately again unless we ask    
         tNow := View(DataWindow%).MaxTime();
@@ -1502,20 +1506,6 @@ func IdleProcessing%()
                     SampleText("Joystick not held to trial start, trial aborted",tNow);
                     ChangeStateTo(stateAbortWait%, tNow);  'go directly to StateAbortWait, do not need to turn off fixation point
                     joystickHasBeenCentered% := 1;  'joystick centered before criterion time
-                    'if we are advancing on abort, advance, get everything caught up, make sure we don't go too far off end of trial list
-                    if advanceOnAbort% = 1 then
-                        SafeSampleKey("a");  'because this state skips stateAbort, we need to advance here (advance on abort is per Evan)
-                        PrintLog("Trial #%d completed.\n",caCurrTrialIndex%+1);
-                        nTrialsCompleted% += 1;
-                        caCurrTrialIndex% += 1;
-                        if caTrainingOptions% > 2 then 'note that if this is a "hog", we can find a way to update only when the window actually changes
-                            UpdateOnScreenPositions();  'with trial advanced, update locations of fixpt/stimuli if they might change
-                        endif;
-                        if nTrialsCompleted% = caNumberOfTrials% then
-                            Stop%();
-                            iStatus% := 0;
-                        endif;
-                    endif;
                 endcase
             endif;
             
@@ -1648,13 +1638,13 @@ func IdleProcessing%()
                 case joystickInStartPosition% = 0 then  'if a response has occurred, quit while you're ahead
                     docase
                     case tempanswer% = 2 then 'return to center (not applicable for forced choice)
-                        PrintLog("stateWaitForStimOn: joystick returned to center, aborting trial.\n");
+                        PrintLog("stateHoldFixationToStimOn: joystick returned to center, aborting trial.\n");
                         FAIsResponse% := 1;
                         ChangeStateTo(stateAbort%, tNow);
                         SampleText("Joystick not held, False Alarm response before stimulus on, trial aborted",tNow);
                         joystickHasBeenCentered% := 1;  'joystick centered by FA
                     case tempanswer% = 1 then 'overshot or left
-                        PrintLog("stateWaitForStimOn: joystick moved to left, aborting trial.\n");
+                        PrintLog("stateHoldFixationToStimOn: joystick moved to left, aborting trial.\n");
                         FAIsResponse% := 1;
                         ChangeStateTo(stateAbort%, tNow);
                         if caTrainingOptions% = 4 then
@@ -1665,14 +1655,14 @@ func IdleProcessing%()
                             joystickHasBeenCentered% := 1;  'joystick centered by FA - overshot is centering
                         endif;
                     case tempanswer% = 3 then 'right, cannot currently be overshot because all GNG start in right, and overshot can only occur in GNG
-                        PrintLog("stateWaitForStimOn: joystick moved to right, aborting trial.\n");
+                        PrintLog("stateHoldFixationToStimOn: joystick moved to right, aborting trial.\n");
                         FAIsResponse% := 1;
                         ChangeStateTo(stateAbort%, tNow);
                         SampleText("Joystick not held, False Alarm response to right before stimulus on, trial aborted",tNow);  
                         joystickHasBeenCentered% := 0;  'not centered in forced choice
                     endcase;
                 case Looking%(xEye, yEye) = 0 and caRequireFixation% = 1 then  'no joystick move, but a fixation break
-                    PrintLog("stateWaitForStimOn: failure to hold fixation, aborting trial.\n");
+                    PrintLog("stateHoldFixationToStimOn: failure to hold fixation, aborting trial.\n");
                     FAIsResponse% := 0;  'not a false alarm, just a fixation break
                     ChangeStateTo(stateAbort%, tNow);
                     SampleText("Failure to hold fixation to stim on, trial aborted",tNow); 
@@ -1771,20 +1761,7 @@ func IdleProcessing%()
             ' move on
             ChangeStateTo(StateAbortWaitForBlank%, tStateStart);  'don't update time, carry forward
             
-            ' check to see if we advance on abort, make sure we don't go beyond final trial
-            if advanceOnAbort% = 1 then  'if we are advancing on abort, now would be the time.
-                SafeSampleKey("a");
-                PrintLog("Trial #%d completed.\n",caCurrTrialIndex%+1);
-                nTrialsCompleted% += 1;
-                caCurrTrialIndex% += 1;
-                if caTrainingOptions% > 2 then 'note that if this is a "hog", we can find a way to update only when the window actually changes
-                    UpdateOnScreenPositions();  'with trial advanced, update locations of fixpt/stimuli if they might change
-                endif;
-                if nTrialsCompleted% = caNumberOfTrials% then
-                    Stop%();
-                    iStatus% := 0;
-                endif;
-            endif;
+            
             
             
         case iState% = StateAbortWaitForBlank% then
@@ -1798,10 +1775,7 @@ func IdleProcessing%()
                 if FAIsResponse% = 1 then
                     FAIsResponse% := 0;
                     ChangeStateTo(stateFalseAlarmWait%, tTrigger);
-                    'advance on false alarm, but only if we didn't previously advance due to the abort.
-                    if advanceOnAbort% = 0 then
-                        SafeSampleKey("a");  'this is the only place to get into stateFalseAlarmWait, so advance here is fine
-                    endif;
+                    'will advance at stateTrialCompleted
                 else                
                     ChangeStateTo(stateAbortWait%, tStateStart);  'don't update time, "credits" for time served
                 endif;
@@ -1836,6 +1810,20 @@ func IdleProcessing%()
                 endif
             endif
             
+            ' check to see if we advance on abort, make sure we don't go beyond final trial
+            if advanceOnAbort% = 1 then  'if we are advancing on abort, now would be the time.
+                SafeSampleKey("a");
+                PrintLog("Trial #%d completed.\n",caCurrTrialIndex%+1);
+                nTrialsCompleted% += 1;
+                caCurrTrialIndex% += 1;
+                if caTrainingOptions% > 2 then 'note that if this is a "hog", we can find a way to update only when the window actually changes
+                    UpdateOnScreenPositions();  'with trial advanced, update locations of fixpt/stimuli if they might change
+                endif;
+                if nTrialsCompleted% = caNumberOfTrials% then
+                    Stop%();
+                    iStatus% := 0;
+                endif;
+            endif;
             
             
         case iState% = stateFalseAlarmWait% then
@@ -1844,6 +1832,7 @@ func IdleProcessing%()
                 PrintLog("stateFalseAlarmWait: time out is done.\n");
                 ChangeStateTo(stateTrialCompleted%, tNow);
             endif      
+            
             
             
             
@@ -2083,7 +2072,7 @@ func IdleProcessing%()
                         SampleText("Miss, Attend Away",tNow);
                     endif;
                     ChangeStateTo(stateMiss%, tNow); 'go to miss penalty
-                    SafeSampleKey("a");  'advance stimulus, won't happen anywhere else
+                    'SafeSampleKey("a");  'advance stimulus, won't happen anywhere else
                     'joystick is not yet centered
                 else
                     PrintLog("stateWaitForAnswer: no response on no-go trial, correct rejection\n");
@@ -2186,7 +2175,7 @@ func IdleProcessing%()
                     endif;
                     ChangeStateTo(stateMiss%, tNow); 'go to miss penalty
                     caInterTrialTime2 := GetInterTrialTime(caInterTrialTime,caInterTrialTimeRand) + caMissPenalty;
-                    SafeSampleKey("a");  'advance stimulus, won't happen anywhere else
+                    'SafeSampleKey("a");  'advance stimulus, won't happen anywhere else
                     'joystick is not yet centered
                 else
                     PrintLog("stateWaitForAnswer: no response on no-go trial, correct rejection\n");
@@ -2241,7 +2230,7 @@ func IdleProcessing%()
                                 SampleText("Hit, Unknown trial type",tNow);
                             endcase
                             ChangeStateTo(stateMiss%, tNow); 'go to miss penalty
-                            SafeSampleKey("a");  'advance stimulus, won't happen anywhere else
+                            'SafeSampleKey("a");  'advance stimulus, won't happen anywhere else
                             caInterTrialTime2 := GetInterTrialTime(caInterTrialTime,caInterTrialTimeRand) + caMissPenalty;
                         endif;
                     endif;
@@ -2283,7 +2272,7 @@ func IdleProcessing%()
                         SampleText("Hit, Unknown trial type",tNow);
                     endcase
                     ChangeStateTo(stateMiss%, tNow); 'go to miss penalty
-                    SafeSampleKey("a");  'advance stimulus, won't happen anywhere else
+                    'SafeSampleKey("a");  'advance stimulus, won't happen anywhere else
                     caInterTrialTime2 := GetInterTrialTime(caInterTrialTime,caInterTrialTimeRand) + caMissPenalty;
                 case (iAnswer% = 1 or iAnswer% = -1) and answerWindowTime >= caAnswerWindowMin then
                     ' Got an answer. The eye has been in the response window for at least the minimum time. 
@@ -2338,7 +2327,7 @@ func IdleProcessing%()
                                 SampleText("Hit, Unknown trial type",tNow);
                             endcase
                             ChangeStateTo(stateMiss%, tNow); 'go to miss penalty
-                            SafeSampleKey("a");  'advance stimulus, won't happen anywhere else
+                            'SafeSampleKey("a");  'advance stimulus, won't happen anywhere else
                             caInterTrialTime2 := GetInterTrialTime(caInterTrialTime,caInterTrialTimeRand) + caMissPenalty;
                         endcase 
                  
@@ -2382,14 +2371,14 @@ func IdleProcessing%()
                     ChangeStateTo(stateMiss%, tNow); 'go to miss penalty
                     caInterTrialTime2 := GetInterTrialTime(caInterTrialTime,caInterTrialTimeRand) + caMissPenalty;
                     caCountLeftTrialsIncorrect% += 1;
-                    SafeSampleKey("a");  'advance stimulus, won't happen anywhere else
+                    'SafeSampleKey("a");  'advance stimulus, won't happen anywhere else
                 case trialResponseDirection% = 3 then 'expected response right
                     PrintLog("stateWaitForAnswer: no response on right trial, miss\n");
                     SampleText("Miss, Right Response Expected",tNow);
                     ChangeStateTo(stateMiss%, tNow); 'go to miss penalty
                     caInterTrialTime2 := GetInterTrialTime(caInterTrialTime,caInterTrialTimeRand) + caMissPenalty;
                     caCountRightTrialsIncorrect% += 1;
-                    SafeSampleKey("a");  'advance stimulus, won't happen anywhere else
+                    'SafeSampleKey("a");  'advance stimulus, won't happen anywhere else
                 case trialResponseDirection% = 0 then 'expected no response, correct rejection
                     PrintLog("stateWaitForAnswer: no response on no-target trial, correct rejection\n");
                     SampleText("Correct Rejection, No Response Expected",tNow);
@@ -2476,8 +2465,7 @@ func IdleProcessing%()
                 ' Fixation point is off
                 PrintLog("stateTrialCompleteWaitForBlank: Fix pt is off.\n");
                 tLastTrigger := tTrigger;
-                'advance
-                SafeSampleKey("a");
+                
                 ChangeStateTo(stateTrialCompletedPause%, tTrigger);
                 if caRequireFixation% <> 0 then
                     DrawStim(0);	' this undraws the location of the fixpt.
@@ -2532,6 +2520,8 @@ func IdleProcessing%()
             endif;
             
             PrintLog("Trial #%d completed.\n",caCurrTrialIndex%+1);
+            'advance
+            SafeSampleKey("a");
             nTrialsCompleted% += 1;
             caCurrTrialIndex% += 1;
             if caTrainingOptions% > 2 then 'note that if this is a "hog", we can find a way to update only when the window actually changes
