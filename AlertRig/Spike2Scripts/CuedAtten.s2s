@@ -1788,42 +1788,50 @@ func IdleProcessing%()
             
         case iState% = stateAbortWait% then
             
-            'If joystick has not been centered, allow any centering here to count
+            var tempWaitTime;
+            
+            if abortIsPostCC% = 0 then  'set abort wait time based on whether it was pre- or post-CC
+                tempWaitTime := caAbortWaitTime;
+            else
+                tempWaitTime := caAbort2WaitTime;
+            endif;
+            
+            'If joystick has not been centered, allow any centering here to count, check this every time
             if joystickHasBeenCentered% = 0 and caRequireSaccadeResponse% = 0 then   'don't bother if we are using saccade response
                 tempanswer% := Answer%(JoyChannel%,tNow);
                 'printlog("Joystick is in position %d\n",tempanswer% );
                 if tempanswer% = 2 then
                     joystickHasBeenCentered% := 1;
                 endif
-            endif
+            endif            
             
-            if abortIsPostCC% = 0 then
-                if tNow - tStateStart > caAbortWaitTime then
+            'if wait time is over
+            if tNow - tStateStart > tempWaitTime then
+                if abortIsPostCC% = 0 then
                     PrintLog("stateAbortWait: time out is done.\n");
                     ChangeStateTo(stateWaitForJoystickInCenter%, tNow);
-                endif
-            else
-                if tNow - tStateStart > caAbort2WaitTime then
+                else
                     PrintLog("stateAbortWait: time out is done (post-CC abort).\n");
                     ChangeStateTo(stateWaitForJoystickInCenter%, tNow);
                     abortIsPostCC% := 0;
                 endif
-            endif
-            
-            ' check to see if we advance on abort, make sure we don't go beyond final trial
-            if advanceOnAbort% = 1 then  'if we are advancing on abort, now would be the time.
-                SafeSampleKey("a");
-                PrintLog("Trial #%d completed.\n",caCurrTrialIndex%+1);
-                nTrialsCompleted% += 1;
-                caCurrTrialIndex% += 1;
-                if caTrainingOptions% > 2 then 'note that if this is a "hog", we can find a way to update only when the window actually changes
-                    UpdateOnScreenPositions();  'with trial advanced, update locations of fixpt/stimuli if they might change
-                endif;
-                if nTrialsCompleted% = caNumberOfTrials% then
-                    Stop%();
-                    iStatus% := 0;
+                
+                ' check to see if we advance on abort, make sure we don't go beyond final trial
+                if advanceOnAbort% = 1 then  'if we are advancing on abort, now would be the time.
+                    SafeSampleKey("a");
+                    PrintLog("Trial #%d completed.\n",caCurrTrialIndex%+1);
+                    nTrialsCompleted% += 1;
+                    caCurrTrialIndex% += 1;
+                    if caTrainingOptions% > 2 then 'note that if this is a "hog", we can find a way to update only when the window actually changes
+                        UpdateOnScreenPositions();  'with trial advanced, update locations of fixpt/stimuli if they might change
+                    endif;
+                    if nTrialsCompleted% = caNumberOfTrials% then
+                        Stop%();
+                        iStatus% := 0;
+                    endif;
                 endif;
             endif;
+            
             
             
         case iState% = stateFalseAlarmWait% then
