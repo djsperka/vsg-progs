@@ -1,7 +1,7 @@
-' $Id: Tuning.s2s,v 1.100 2016-03-21 22:15:05 devel Exp $
+' $Id: Tuning.s2s,v 1.101 2016-04-19 00:43:40 devel Exp $
 ' Update 11/8/11 Jeff, includes multi-juicer updates
 
-const tunCVSID$ := "$Id: Tuning.s2s,v 1.100 2016-03-21 22:15:05 devel Exp $";
+const tunCVSID$ := "$Id: Tuning.s2s,v 1.101 2016-04-19 00:43:40 devel Exp $";
 
 
 
@@ -28,6 +28,7 @@ const tunCVSID$ := "$Id: Tuning.s2s,v 1.100 2016-03-21 22:15:05 devel Exp $";
 
 ' Overall script control vars
 var Pause% := 0;
+var UseTwo1401s% := 0;
 
 ' Channel numbers and handles
 var StimHandle%;			' handle for stimulus application
@@ -253,6 +254,12 @@ ButtonChannel% := 27;
 ButtonPort% := 5;  'This appears to be correct
 
 ' Fetch electrode information. 
+if UsePlexon% = 1 or JoePlexon1% = 1 or JoePlexon2% = 1 then
+    UseTwo1401s% := 1;
+else
+    UseTwo1401s% := 0;
+endif;
+
 docase
 case UsePlexon% = 1 then
     tunNWavemarks% := 13;  '13 wavemarks on the micro for plexon
@@ -287,19 +294,19 @@ endcase;
 
 
 
-'If we are not using the Plexon (and thus linking the two 1401s together, just use the standard order of operations:
+'If we are not linking the two 1401s together, just use the standard order of operations:
 '1) create sampling configuration, 2) Initialize windows, 3) Initialize/run toolbar.
 'However, if we are linking the 1401s we have to do this in a different order, because we have to open up the second
 'instance of Spike 2 BEFORE setting up the sampling configuration/windows on the first instance.  Doing this in the
 'wrong order results in a non-fatal error in the second Spike2 instance indicating that the file which is preparing
 'to be recorded in the first instance cannot be accessed, despite no explicit attempt to access any such thing.
-'Hence, for the Plexon setups, we first initialize the toolbar, which has a specialty button "Start Plexon".  StartPlexon%()
+'Hence, for the dual-1401 setups, we first initialize the toolbar, which has a specialty button "Start Plexon".  StartPlexon%()
 'launches the second instance and the associated script, and both scripts move forward independently to create their own
 'sampling configuration, initialize their own windows and are ready to have sampling started.  Note well that sampling
-'must be started on the POWER 1401 (the second, non-dominant instance of Spike2) FIRST and on the MICRO 1401 (the first, 
-'dominant instance of Spike 2) SECOND.  Starting sampling on the Micro will run the VSG program (Fixstim) which gives
-'the sampling trigger and sets the experiment in motion.
-if UsePlexon% = 0 then
+'must be started on the POWER 1401/SLAVE 1401 (the second, non-dominant instance of Spike2) FIRST and on the 
+'MICRO 1401/MASTER 1401 (the first,  dominant instance of Spike 2) SECOND.  Starting sampling on the Micro will run 
+'the VSG program (Fixstim) which gives the sampling trigger and sets the experiment in motion.
+if UseTwo1401s% = 0 then
     CreateSampleConfiguration();
 
     ' Get display windows ready
@@ -767,7 +774,7 @@ proc InitializeToolbar()
 
 	View(App(8)).WindowVisible(0);	'Hide the standard sample bar
 	ToolbarVisible(1);
-    if UsePlexon% = 1 then
+    if UseTwo1401s% = 1 then
         ToolbarSet(1,"StartPlexon",StartPlexon%);
     else
         ToolbarSet(1,"Sample start",Start%);
@@ -1320,6 +1327,20 @@ proc CreateSampleConfiguration()
     var key$;
     var eof% := 1;
     
+    var masterTxt$;
+    var slaveTxt$;
+    
+    docase
+    case UseTwo1401s% = 1 and UsePlexon% = 1 then
+        masterTxt$ := "MICRO";
+        slaveTxt$ := "POWER";
+    case UseTwo1401s% = 1 and UsePlexon% = 0 then  'this would be for any two-1401 scenario for Joe
+        masterTxt$ := "MASTR";
+        slaveTxt$ := "SLAVE";
+    else
+        'do not need to set these variables
+    endcase
+    
 	SampleClear(); 'Set standard sampling state
     SampleChannels(64);  '32 does not work, we need more!
 '	SampleAutoFile(0); 'Enable automatic file naming
@@ -1380,28 +1401,30 @@ proc CreateSampleConfiguration()
     docase
         
     case tunType$ = tunTypeDots$ then 
-        'SampleAutoName$(dataCellName$ + "_dots_000");
-        if UsePlexon% = 0 then
-            SampleAutoName$(dataCellName$ + "_dots_000");  'NOTE: maximum of 13 characters!!!
-        else
-            EqualizeSMRFilenumbers(dataPathRoot$ + "\\" + dataDataSet$,dataCellName$+"_dotMICRO_",dataCellName$+"_dotPOWER_");
-            SampleAutoName$(dataCellName$ + "_dotMICRO_000");  'NOTE: maximum of 13 characters!!!
-            SetStringRegistryValue(key$, "pref", "dot");
-        endif;
+'        if UseTwo1401s% = 0 then
+'            SampleAutoName$(dataCellName$ + "_dots_000");  'NOTE: maximum of 13 characters!!!
+'        else
+'            EqualizeSMRFilenumbers(dataPathRoot$ + "\\" + dataDataSet$,dataCellName$+"_dotMICRO_",dataCellName$+"_dotPOWER_");
+'            SampleAutoName$(dataCellName$ + "_dotMICRO_000");  'NOTE: maximum of 13 characters!!!
+'            SetStringRegistryValue(key$, "pref", "dot");
+'        endif;
+        DoSampleAutoName(key$,"dots","dot",masterTxt$,slaveTxt$);
+        
         tunNAdvances% := tunDotsNSteps%;
         tunNRepeats% := tunDotsNRepeats%;
         GetRepeatedParameterProgression%(tunDotsNSteps%+1, tunDotsNRepeats%, tunValues[], tunValuesIndices%[], tunDotsMinOrientation, tunDotsMaxOrientation, 0, tunDotsProgression%);  'Note - linear spacing for orientation, not log
         tunNValues% := (tunDotsNSteps%+1)*tunDotsNRepeats%;
         tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%);        
     case tunType$ = tunTypeContrast$ then 
-        'SampleAutoName$(dataCellName$ + "_con_000");
-        if UsePlexon% = 0 then
-            SampleAutoName$(dataCellName$ + "_con_000");  'NOTE: maximum of 13 characters!!!
-        else
-            EqualizeSMRFilenumbers(dataPathRoot$ + "\\" + dataDataSet$,dataCellName$+"_conMICRO_",dataCellName$+"_conPOWER_");
-            SampleAutoName$(dataCellName$ + "_conMICRO_000");  'NOTE: maximum of 13 characters!!!
-            SetStringRegistryValue(key$, "pref", "con");
-        endif;
+'        if UseTwo1401s% = 0 then
+'            SampleAutoName$(dataCellName$ + "_con_000");  'NOTE: maximum of 13 characters!!!
+'        else
+'            EqualizeSMRFilenumbers(dataPathRoot$ + "\\" + dataDataSet$,dataCellName$+"_conMICRO_",dataCellName$+"_conPOWER_");
+'            SampleAutoName$(dataCellName$ + "_conMICRO_000");  'NOTE: maximum of 13 characters!!!
+'            SetStringRegistryValue(key$, "pref", "con");
+'        endif;
+        DoSampleAutoName(key$,"con","con",masterTxt$,slaveTxt$);
+        
         'this is the old way...might need to look back if the new way doesn't work!
         'tunNAdvances% := tunContrastNSteps%;  'this...
         'tunNRepeats% := tunContrastNRepeats%; '...and this are only used in a printlog statement
@@ -1420,14 +1443,15 @@ proc CreateSampleConfiguration()
         tunNValues% := (tunNAdvances%+1)*tunNRepeats%;  'shorter, should work the same as above commented line, keeping old line for contrast only just in case...
         tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%);
     case tunType$ = tunTypeOrientation$ then 
-        'SampleAutoName$(dataCellName$ + "_ori_000");
-        if UsePlexon% = 0 then
-            SampleAutoName$(dataCellName$ + "_ori_000");  'NOTE: maximum of 13 characters!!!
-        else
-            EqualizeSMRFilenumbers(dataPathRoot$ + "\\" + dataDataSet$,dataCellName$+"_oriMICRO_",dataCellName$+"_oriPOWER_");
-            SampleAutoName$(dataCellName$ + "_oriMICRO_000");  'NOTE: maximum of 13 characters!!!
-            SetStringRegistryValue(key$, "pref", "ori");
-        endif;
+'        if UseTwo1401s% = 0 then
+'            SampleAutoName$(dataCellName$ + "_ori_000");  'NOTE: maximum of 13 characters!!!
+'        else
+'            EqualizeSMRFilenumbers(dataPathRoot$ + "\\" + dataDataSet$,dataCellName$+"_oriMICRO_",dataCellName$+"_oriPOWER_");
+'            SampleAutoName$(dataCellName$ + "_oriMICRO_000");  'NOTE: maximum of 13 characters!!!
+'            SetStringRegistryValue(key$, "pref", "ori");
+'        endif;
+        DoSampleAutoName(key$,"ori","ori",masterTxt$,slaveTxt$);
+        
         tunNRepeats% := tunOriNRepeats%;  'double number of blocks if doing optogenetics
         if tunUseFile% = 1 then
             tunNAdvances% := tunFileLen%-1;
@@ -1439,14 +1463,15 @@ proc CreateSampleConfiguration()
         tunNValues% := (tunNAdvances%+1)*tunNRepeats%;  
         tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%);
     case tunType$ = tunTypeSpatial$ then 
-        'SampleAutoName$(dataCellName$ + "_spa_000");
-        if UsePlexon% = 0 then
-            SampleAutoName$(dataCellName$ + "_spa_000");  'NOTE: maximum of 13 characters!!!
-        else
-            EqualizeSMRFilenumbers(dataPathRoot$ + "\\" + dataDataSet$,dataCellName$+"_spaMICRO_",dataCellName$+"_spaPOWER_");
-            SampleAutoName$(dataCellName$ + "_spaMICRO_000");  'NOTE: maximum of 13 characters!!!
-            SetStringRegistryValue(key$, "pref", "spa");
-        endif;
+'        if UseTwo1401s% = 0 then
+'            SampleAutoName$(dataCellName$ + "_spa_000");  'NOTE: maximum of 13 characters!!!
+'        else
+'            EqualizeSMRFilenumbers(dataPathRoot$ + "\\" + dataDataSet$,dataCellName$+"_spaMICRO_",dataCellName$+"_spaPOWER_");
+'            SampleAutoName$(dataCellName$ + "_spaMICRO_000");  'NOTE: maximum of 13 characters!!!
+'            SetStringRegistryValue(key$, "pref", "spa");
+'        endif;
+        DoSampleAutoName(key$,"spa","spa",masterTxt$,slaveTxt$);
+        
         tunNRepeats% := tunSpatialNRepeats%;  'double number of blocks if doing optogenetics
         if tunUseFile% = 1 then
             tunNAdvances% := tunFileLen%-1;
@@ -1458,14 +1483,15 @@ proc CreateSampleConfiguration()
         tunNValues% := (tunNAdvances%+1)*tunNRepeats%;  
         tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%);
     case tunType$ = tunTypeTemporal$ then 
-        'SampleAutoName$(dataCellName$ + "_tem_000");
-        if UsePlexon% = 0 then
-            SampleAutoName$(dataCellName$ + "_tem_000");  'NOTE: maximum of 13 characters!!!
-        else
-            EqualizeSMRFilenumbers(dataPathRoot$ + "\\" + dataDataSet$,dataCellName$+"_temMICRO_",dataCellName$+"_temPOWER_");
-            SampleAutoName$(dataCellName$ + "_temMICRO_000");  'NOTE: maximum of 13 characters!!!
-            SetStringRegistryValue(key$, "pref", "tem");
-        endif;
+'        if UseTwo1401s% = 0 then
+'            SampleAutoName$(dataCellName$ + "_tem_000");  'NOTE: maximum of 13 characters!!!
+'        else
+'            EqualizeSMRFilenumbers(dataPathRoot$ + "\\" + dataDataSet$,dataCellName$+"_temMICRO_",dataCellName$+"_temPOWER_");
+'            SampleAutoName$(dataCellName$ + "_temMICRO_000");  'NOTE: maximum of 13 characters!!!
+'            SetStringRegistryValue(key$, "pref", "tem");
+'        endif;
+        DoSampleAutoName(key$,"tem","tem",masterTxt$,slaveTxt$);
+        
         tunNRepeats% := tunTemporalNRepeats%;  'double number of blocks if doing optogenetics
         if tunUseFile% = 1 then
             tunNAdvances% := tunFileLen%-1;
@@ -1477,14 +1503,15 @@ proc CreateSampleConfiguration()
         tunNValues% := (tunNAdvances%+1)*tunNRepeats%;  
         tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%);
     case tunType$ = tunTypeArea$ then 
-        'SampleAutoName$(dataCellName$ + "_area_000");
-        if UsePlexon% = 0 then
-            SampleAutoName$(dataCellName$ + "_area_000");  'NOTE: maximum of 13 characters!!!
-        else
-            EqualizeSMRFilenumbers(dataPathRoot$ + "\\" + dataDataSet$,dataCellName$+"_areMICRO_",dataCellName$+"_arePOWER_");
-            SampleAutoName$(dataCellName$ + "_areMICRO_000");  'NOTE: maximum of 13 characters!!!
-            SetStringRegistryValue(key$, "pref", "are");
-        endif;
+'        if UseTwo1401s% = 0 then
+'            SampleAutoName$(dataCellName$ + "_area_000");  'NOTE: maximum of 13 characters!!!
+'        else
+'            EqualizeSMRFilenumbers(dataPathRoot$ + "\\" + dataDataSet$,dataCellName$+"_areMICRO_",dataCellName$+"_arePOWER_");
+'            SampleAutoName$(dataCellName$ + "_areMICRO_000");  'NOTE: maximum of 13 characters!!!
+'            SetStringRegistryValue(key$, "pref", "are");
+'        endif;
+        DoSampleAutoName(key$,"area","are",masterTxt$,slaveTxt$);
+        
         tunNRepeats% := tunAreaNRepeats%;  'double number of blocks if doing optogenetics
         if tunUseFile% = 1 then
             tunNAdvances% := tunFileLen%-1;
@@ -1496,14 +1523,15 @@ proc CreateSampleConfiguration()
         tunNValues% := (tunNAdvances%+1)*tunNRepeats%;  
         tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%);
     case tunType$ = tunTypeNullTest$ then 
-        'SampleAutoName$(dataCellName$ + "_nulltest_000");
-        if UsePlexon% = 0 then
-            SampleAutoName$(dataCellName$ + "_nulltest_000");  'NOTE: maximum of 13 characters!!!
-        else
-            EqualizeSMRFilenumbers(dataPathRoot$ + "\\" + dataDataSet$,dataCellName$+"_nulMICRO_",dataCellName$+"_nulPOWER_");
-            SampleAutoName$(dataCellName$ + "_nulMICRO_000");  'NOTE: maximum of 13 characters!!!
-            SetStringRegistryValue(key$, "pref", "nul");
-        endif;
+'        if UseTwo1401s% = 0 then
+'            SampleAutoName$(dataCellName$ + "_nulltest_000");  'NOTE: maximum of 13 characters!!!
+'        else
+'            EqualizeSMRFilenumbers(dataPathRoot$ + "\\" + dataDataSet$,dataCellName$+"_nulMICRO_",dataCellName$+"_nulPOWER_");
+'            SampleAutoName$(dataCellName$ + "_nulMICRO_000");  'NOTE: maximum of 13 characters!!!
+'            SetStringRegistryValue(key$, "pref", "nul");
+'        endif;
+        DoSampleAutoName(key$,"nulltest","nul",masterTxt$,slaveTxt$);
+        
         tunNRepeats% := tunNullTestNRepeats%;
         if tunUseFile% = 1 then
             tunNAdvances% := tunFileLen%-1;
@@ -1515,28 +1543,30 @@ proc CreateSampleConfiguration()
         tunNValues% := (tunNAdvances%+1)*tunNRepeats%;  
         tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%); 
     case tunType$ = tunTypeXPos$ then 
-        'SampleAutoName$(dataCellName$ + "_xpos_000");
-        if UsePlexon% = 0 then
-            SampleAutoName$(dataCellName$ + "_xpos_000");  'NOTE: maximum of 13 characters!!!
-        else
-            EqualizeSMRFilenumbers(dataPathRoot$ + "\\" + dataDataSet$,dataCellName$+"_xpsMICRO_",dataCellName$+"_xpsPOWER_");
-            SampleAutoName$(dataCellName$ + "_xpsMICRO_000");  'NOTE: maximum of 13 characters!!!
-            SetStringRegistryValue(key$, "pref", "xps");
-        endif;
+'        if UseTwo1401s% = 0 then
+'            SampleAutoName$(dataCellName$ + "_xpos_000");  'NOTE: maximum of 13 characters!!!
+'        else
+'            EqualizeSMRFilenumbers(dataPathRoot$ + "\\" + dataDataSet$,dataCellName$+"_xpsMICRO_",dataCellName$+"_xpsPOWER_");
+'            SampleAutoName$(dataCellName$ + "_xpsMICRO_000");  'NOTE: maximum of 13 characters!!!
+'            SetStringRegistryValue(key$, "pref", "xps");
+'        endif;
+        DoSampleAutoName(key$,"xpos","xps",masterTxt$,slaveTxt$);
+        
         tunNAdvances% := tunXPosNSteps%;
         tunNRepeats% := tunXPosNRepeats%;
         GetRepeatedParameterProgression%(tunXPosNSteps%+1, tunXPosNRepeats%, tunValues[], tunValuesIndices%[], tunXPosMinXPos, tunXPosMaxXPos, 0, tunXPosProgression%);  'Note - linear spacing for position, not log
         tunNValues% := (tunXPosNSteps%+1)*tunXPosNRepeats%;
         tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%);   
     case tunType$ = tunTypeXYPos$ then 
-        'SampleAutoName$(dataCellName$ + "_xypos_000");
-        if UsePlexon% = 0 then
-            SampleAutoName$(dataCellName$ + "_xypos_000");  'NOTE: maximum of 13 characters!!!
-        else
-            EqualizeSMRFilenumbers(dataPathRoot$ + "\\" + dataDataSet$,dataCellName$+"_xypMICRO_",dataCellName$+"_xypPOWER_");
-            SampleAutoName$(dataCellName$ + "_xypMICRO_000");  'NOTE: maximum of 13 characters!!!
-            SetStringRegistryValue(key$, "pref", "xyp");
-        endif;
+'        if UseTwo1401s% = 0 then
+'            SampleAutoName$(dataCellName$ + "_xypos_000");  'NOTE: maximum of 13 characters!!!
+'        else
+'            EqualizeSMRFilenumbers(dataPathRoot$ + "\\" + dataDataSet$,dataCellName$+"_xypMICRO_",dataCellName$+"_xypPOWER_");
+'            SampleAutoName$(dataCellName$ + "_xypMICRO_000");  'NOTE: maximum of 13 characters!!!
+'            SetStringRegistryValue(key$, "pref", "xyp");
+'        endif;
+        DoSampleAutoName(key$,"xypos","xyp",masterTxt$,slaveTxt$);
+        
         'for tun1, use X
         if tunXYPosNXSteps% = 0 then  'this allows for no x movement
             tun1Values[0] := tunXYPosMinXPos;
@@ -1572,14 +1602,15 @@ proc CreateSampleConfiguration()
         printlog("XY values are %s\n",tunValuesStringified$);
         
     case tunType$ = tunTypeDisparity$ then 
-        'SampleAutoName$(dataCellName$ + "_disprity_000");
-        if UsePlexon% = 0 then
-            SampleAutoName$(dataCellName$ + "_disprity_000");  'NOTE: maximum of 13 characters!!!
-        else
-            EqualizeSMRFilenumbers(dataPathRoot$ + "\\" + dataDataSet$,dataCellName$+"_disMICRO_",dataCellName$+"_disPOWER_");
-            SampleAutoName$(dataCellName$ + "_disMICRO_000");  'NOTE: maximum of 13 characters!!!
-            SetStringRegistryValue(key$, "pref", "dis");
-        endif;
+'        if UseTwo1401s% = 0 then
+'            SampleAutoName$(dataCellName$ + "_disprity_000");  'NOTE: maximum of 13 characters!!!
+'        else
+'            EqualizeSMRFilenumbers(dataPathRoot$ + "\\" + dataDataSet$,dataCellName$+"_disMICRO_",dataCellName$+"_disPOWER_");
+'            SampleAutoName$(dataCellName$ + "_disMICRO_000");  'NOTE: maximum of 13 characters!!!
+'            SetStringRegistryValue(key$, "pref", "dis");
+'        endif;
+        DoSampleAutoName(key$,"disprity","dis",masterTxt$,slaveTxt$);
+        
         tunNAdvances% := tunDisparityNSteps%;
         tunNRepeats% := tunDisparityNRepeats%;
         GetRepeatedSymmetricParameterProgression%(tunDisparityNSteps%+1, tunDisparityNRepeats%, tunValues[], tunValuesIndices%[], tunDisparityCenterXPos, tunDisparityMaxXPos, 0, tunDisparityProgression%);  'linear spacing only
@@ -1587,14 +1618,15 @@ proc CreateSampleConfiguration()
         tunNValues% := (2*tunDisparityNSteps%+1)*tunDisparityNRepeats%;
         tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%);         
     case tunType$ = tunTypeDonut$ then 
-        'SampleAutoName$(dataCellName$ + "_donut_000");
-        if UsePlexon% = 0 then
-            SampleAutoName$(dataCellName$ + "_donut_000");  'NOTE: maximum of 13 characters!!!
-        else
-            EqualizeSMRFilenumbers(dataPathRoot$ + "\\" + dataDataSet$,dataCellName$+"_donMICRO_",dataCellName$+"_donPOWER_");
-            SampleAutoName$(dataCellName$ + "_donMICRO_000");  'NOTE: maximum of 13 characters!!!
-            SetStringRegistryValue(key$, "pref", "don");
-        endif;
+'        if UseTwo1401s% = 0 then
+'            SampleAutoName$(dataCellName$ + "_donut_000");  'NOTE: maximum of 13 characters!!!
+'        else
+'            EqualizeSMRFilenumbers(dataPathRoot$ + "\\" + dataDataSet$,dataCellName$+"_donMICRO_",dataCellName$+"_donPOWER_");
+'            SampleAutoName$(dataCellName$ + "_donMICRO_000");  'NOTE: maximum of 13 characters!!!
+'            SetStringRegistryValue(key$, "pref", "don");
+'        endif;
+        DoSampleAutoName(key$,"donut","don",masterTxt$,slaveTxt$);
+        
         tunNAdvances% := tunAreaNSteps%;
         tunNRepeats% := tunAreaNRepeats%;
         GetRepeatedParameterProgression%(tunAreaNSteps%+1, tunAreaNRepeats%, tunValues[], tunValuesIndices%[], tunAreaMinDiam, tunAreaMaxDiam, 1, tunDonutProgression%);
@@ -1605,14 +1637,15 @@ proc CreateSampleConfiguration()
         '    PrintLog("%d %f\n", i%, tunValues[tunValuesIndices%[i%]]);
         'next
     case tunType$ = tunTypeBerliner$ then 
-        'SampleAutoName$(dataCellName$ + "_berliner_000");
-        if UsePlexon% = 0 then
-            SampleAutoName$(dataCellName$ + "_berliner_000");  'NOTE: maximum of 13 characters!!!
-        else
-            EqualizeSMRFilenumbers(dataPathRoot$ + "\\" + dataDataSet$,dataCellName$+"_berMICRO_",dataCellName$+"_berPOWER_");
-            SampleAutoName$(dataCellName$ + "_berMICRO_000");  'NOTE: maximum of 13 characters!!!
-            SetStringRegistryValue(key$, "pref", "ber");
-        endif;
+'        if UseTwo1401s% = 0 then
+'            SampleAutoName$(dataCellName$ + "_berliner_000");  'NOTE: maximum of 13 characters!!!
+'        else
+'            EqualizeSMRFilenumbers(dataPathRoot$ + "\\" + dataDataSet$,dataCellName$+"_berMICRO_",dataCellName$+"_berPOWER_");
+'            SampleAutoName$(dataCellName$ + "_berMICRO_000");  'NOTE: maximum of 13 characters!!!
+'            SetStringRegistryValue(key$, "pref", "ber");
+'        endif;
+        DoSampleAutoName(key$,"berliner","ber",masterTxt$,slaveTxt$);
+        
         tunNAdvances% := tunBerlinerNSteps%-1;  'subtract one because tunBerlinerNSteps% is literal (that is, n stims)
         tunNRepeats% := tunBerlinerNRepeats%;
         GetRepeatedParameterProgression%(tunBerlinerNSteps%, tunBerlinerNRepeats%, tunValues[], tunValuesIndices%[], 1, tunBerlinerNSteps%, 0, tunBerlinerProgression%);
@@ -1726,15 +1759,15 @@ proc CreateSampleConfiguration()
             tun2NValues% := (tunXPosNSteps%+1);
             temp2$ := "_xpos";
         endcase;
-        
-        'SampleAutoName$(dataCellName$ + "_boxodonuts" + temp1$ + temp2$ + "_000");        
-        if UsePlexon% = 0 then
-            SampleAutoName$(dataCellName$ + "_boxodonuts" + temp1$ + temp2$ + "_000");  'NOTE: maximum of 13 characters!!!
-        else
-            EqualizeSMRFilenumbers(dataPathRoot$ + "\\" + dataDataSet$,dataCellName$+"_boxodonuts" + temp1$ + temp2$ + "MICRO_",dataCellName$+"_boxodonuts" + temp1$ + temp2$ + "POWER_");  
-            SampleAutoName$(dataCellName$ + "_boxodonuts" + temp1$ + temp2$ + "MICRO_000");  'NOTE: maximum of 13 characters!!!
-            SetStringRegistryValue(key$, "pref", "_boxodonuts" + temp1$ + temp2$);  'this is too long and shouldn't work, but it's always been like this and Ben hasn't complained...
-        endif;
+              
+'        if UseTwo1401s% = 0 then
+'            SampleAutoName$(dataCellName$ + "_boxodonuts" + temp1$ + temp2$ + "_000");  'NOTE: maximum of 13 characters!!!
+'        else
+'            EqualizeSMRFilenumbers(dataPathRoot$ + "\\" + dataDataSet$,dataCellName$+"_boxodonuts" + temp1$ + temp2$ + "MICRO_",dataCellName$+"_boxodonuts" + temp1$ + temp2$ + "POWER_");  
+'            SampleAutoName$(dataCellName$ + "_boxodonuts" + temp1$ + temp2$ + "MICRO_000");  'NOTE: maximum of 13 characters!!!
+'            SetStringRegistryValue(key$, "pref", "_boxodonuts" + temp1$ + temp2$);  'this is too long and shouldn't work, but it's always been like this and Ben hasn't complained...
+'        endif;
+        DoSampleAutoName(key$,"_boxodonuts" + temp1$ + temp2$,"_boxodonuts" + temp1$ + temp2$,masterTxt$,slaveTxt$);  'Note that this does not reflect the correct number of characters...it may not work properly?
         
         tunNRepeats% := tunBoxODonutsNRepeats%;   
         tunNAdvances% := tun1NValues%*tun2NValues%-1;  'this gives the correct number of advances
@@ -1795,13 +1828,14 @@ proc CreateSampleConfiguration()
             temp2$ := "_crg";
         endcase;
         
-        'SampleAutoName$(dataCellName$ + "_crg" + temp2$ + "_000"); 
-        if UsePlexon% = 0 then
-            SampleAutoName$(dataCellName$ + "_crg" + temp2$ + "_000");  'NOTE: maximum of 13 characters!!!
-        else
-            SampleAutoName$(dataCellName$ + "_crg" + temp2$ + "MICRO_000");  'NOTE: maximum of 13 characters!!!
-            SetStringRegistryValue(key$, "pref", "_crg" + temp2$);  'this is too long and shouldn't work, but it's always been like this and Ben hasn't complained...
-        endif;
+'        if UseTwo1401s% = 0 then
+'            SampleAutoName$(dataCellName$ + "_crg" + temp2$ + "_000");  'NOTE: maximum of 13 characters!!!
+'        else
+'            SampleAutoName$(dataCellName$ + "_crg" + temp2$ + "MICRO_000");  'NOTE: maximum of 13 characters!!!
+'            SetStringRegistryValue(key$, "pref", "_crg" + temp2$);  'this is too long and shouldn't work, but it's always been like this and Ben hasn't complained...
+'        endif;
+        DoSampleAutoName(key$,"_crg" + temp2$,"_crg" + temp2$,masterTxt$,slaveTxt$);
+        
         
         tunNRepeats% := tunCRGNRepeats%;
         tunNAdvances% := tun1NValues%*tun2NValues%-1;  'this gives the correct number of advances
@@ -1820,14 +1854,15 @@ proc CreateSampleConfiguration()
         
         
     case tunType$ = tunTypeDanish$ then 
-        'SampleAutoName$(dataCellName$ + "_dots_000");
-        if UsePlexon% = 0 then
-            SampleAutoName$(dataCellName$ + "_dan_000");  'NOTE: maximum of 13 characters!!!
-        else
-            EqualizeSMRFilenumbers(dataPathRoot$ + "\\" + dataDataSet$,dataCellName$+"_danMICRO_",dataCellName$+"_danPOWER_");
-            SampleAutoName$(dataCellName$ + "_danMICRO_000");  'NOTE: maximum of 13 characters!!!
-            SetStringRegistryValue(key$, "pref", "dan");
-        endif;
+'        if UseTwo1401s% = 0 then
+'            SampleAutoName$(dataCellName$ + "_dan_000");  'NOTE: maximum of 13 characters!!!
+'        else
+'            EqualizeSMRFilenumbers(dataPathRoot$ + "\\" + dataDataSet$,dataCellName$+"_danMICRO_",dataCellName$+"_danPOWER_");
+'            SampleAutoName$(dataCellName$ + "_danMICRO_000");  'NOTE: maximum of 13 characters!!!
+'            SetStringRegistryValue(key$, "pref", "dan");
+'        endif;
+        DoSampleAutoName(key$,"dan","dan",masterTxt$,slaveTxt$);
+        
         tunNAdvances% := tunDanishNSteps%;
         tunNRepeats% := tunDanishNRepeats%;
         if tunDanishIncludeBlank% = 0 then
@@ -1841,13 +1876,14 @@ proc CreateSampleConfiguration()
         tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%);  
         
     case tunType$ = tunTypeDSS$ then
-        if UsePlexon% = 0 then
-            SampleAutoName$(dataCellName$ + "_dss_000");  'NOTE: maximum of 13 characters!!!
-        else
-            EqualizeSMRFilenumbers(dataPathRoot$ + "\\" + dataDataSet$,dataCellName$+"_dssMICRO_",dataCellName$+"_dssPOWER_");
-            SampleAutoName$(dataCellName$ + "_dssMICRO_000");  'NOTE: maximum of 13 characters!!!
-            SetStringRegistryValue(key$, "pref", "dss");
-        endif;
+'        if UseTwo1401s% = 0 then
+'            SampleAutoName$(dataCellName$ + "_dss_000");  'NOTE: maximum of 13 characters!!!
+'        else
+'            EqualizeSMRFilenumbers(dataPathRoot$ + "\\" + dataDataSet$,dataCellName$+"_dssMICRO_",dataCellName$+"_dssPOWER_");
+'            SampleAutoName$(dataCellName$ + "_dssMICRO_000");  'NOTE: maximum of 13 characters!!!
+'            SetStringRegistryValue(key$, "pref", "dss");
+'        endif;
+        DoSampleAutoName(key$,"dss","dss",masterTxt$,slaveTxt$);
         
         tunNValues% := tunDSSNTrials%;
         od := GetDonutOD();  'get the outer diameter of the donut
@@ -1863,13 +1899,13 @@ proc CreateSampleConfiguration()
         
         
     else    
-        'SampleAutoName$(dataCellName$ + "_tun_000");
-        if UsePlexon% = 0 then
-            SampleAutoName$(dataCellName$ + "_tun_000");  'NOTE: maximum of 13 characters!!!
-        else
-            SampleAutoName$(dataCellName$ + "_tunMICRO_000");  'NOTE: maximum of 13 characters!!!
-            SetStringRegistryValue(key$, "pref", "tun");
-        endif;
+'        if UseTwo1401s% = 0 then
+'            SampleAutoName$(dataCellName$ + "_tun_000");  'NOTE: maximum of 13 characters!!!
+'        else
+'            SampleAutoName$(dataCellName$ + "_tunMICRO_000");  'NOTE: maximum of 13 characters!!!
+'            SetStringRegistryValue(key$, "pref", "tun");
+'        endif;
+        DoSampleAutoName(key$,"tun","tun",masterTxt$,slaveTxt$);
     endcase;
     
     
@@ -1947,7 +1983,12 @@ proc CreateSampleConfiguration()
     case UsePlexon15WF15WF2k% = 1 then  'call 15 waveform, 15 waveform@2k setup
         CreateElectrodeSamplingConfiguration15WF15WF2k();
     case UsePlexon24WF% = 1 then
-        CreateElectrodeSamplingConfiguration24WF();        
+        CreateElectrodeSamplingConfiguration24WF(); 
+    case JoePlexon1% = 1 then
+        CreateJoePlexon1SamplingConfigurationMaster();
+    case JoePlexon2% = 1 then
+        message("Electrode Configuration JoePlexon2 is not yet implemented!");
+        halt;
     else
         ' Electrodes: wavemark/continuous
         ' 12/6/2010
@@ -1973,6 +2014,8 @@ proc CreateSampleConfiguration()
 	docase
     case UsePlexon% = 1 then  'Set optimise mode (do this last, so it's outside of the CreatePlexonSamplingConfiguration... functions)
         SampleOptimise(0,1,4,0,0,0,0);  'for the Micro 1401 mk II: manually set sampling timing, group channels with same ideal rate, micro1401, unused, unused, do not disable for compatibility, no burst mode
+    case JoePlexon1% = 1 or JoePlexon2% = 1 then
+        SampleOptimise(0,1,4,0,0,0,0);  'copying the micro settings...not necessarily the be-all end-all, just trying to see if anything works
     case UsePlexon15WF15WF2k% = 1 or UsePlexon24WF% = 1 then 
         SampleOptimise(2,2,9,1,50,0,1);  'for big-data, need to set for burst mode, Power1401-3 setting is not clear because help does not list it.  9?  8 for micro1401-3?
     else
@@ -2588,7 +2631,16 @@ func StartPlexon%()
     var fp2$;  'to hold destination file path
     fp$ := FilePath$();  'get current file path
     printlog("%s\n",fp$);  'and tell the world what it was
-    FilePathSet("F:/work/AlertRig/Spike2Scripts");  'change the file path
+    var fpok%;
+    fpok% := FilePathSet("F:/work/AlertRig/Spike2Scripts");  'change the file path (Henry)
+    if fpok% <> 0 then
+        fpok% := FilePathSet("E:/work/AlertRig/Spike2Scripts");  'change the file path (Joe)
+    endif
+    if fpok% <> 0 then
+        message("Failed to find expected file structure in StartPlexon%()!  Quitting!");
+        halt;
+    endif
+        
     fp2$ := FilePath$();  'read out to allow verification
     printlog("%s\n",fp2$);  'by telling the world about it (hint: it works)
     
@@ -2598,7 +2650,17 @@ func StartPlexon%()
     'SetPlexon... is started, and everything is kosher.
     CreateSampleConfiguration();    
     
-    progrun("sonview.exe /M /u2 SetPlexonRecording1824OnPower1401.s2s");  'run the program, .s2s file is now on default path by design
+    docase
+    case UsePlexon% = 1 then
+        progrun("sonview.exe /M /u2 SetPlexonRecording1824OnPower1401.s2s");  'run the program, .s2s file is now on default path by design
+    case JoePlexon1% = 1 then
+        progrun("sonview.exe /M /u2 SetJoePlexon1RecordingOnSlave.s2s");  'run the program, .s2s file is now on default path by design
+    case JoePlexon2% = 1 then
+        message("Program to start slave 1401 not yet written for Joe2!  Quitting!");
+        halt; 
+        'This is what we should call the program, then we can just uncomment this line
+        'progrun("sonview.exe /M /u2 SetPlexonRecording1824OnPower1401.s2s");  'run the program, .s2s file is now on default path by design
+    endcase
     
     FilePathSet(fp$);  'change the file path back to what it was
     fp$ := FilePath$();  'read out to allow verification
@@ -2662,7 +2724,7 @@ func Start%()
     
 	
 	'start sampling
-    if UsePlexon% = 1 then
+    if UseTwo1401s% = 1 then
         SampleStart(1);  'set sampling to start on a trigger
     else
     	SampleStart(0); 'Start sampling now
@@ -3683,3 +3745,21 @@ proc FlushButton(&startT,endT,&bStatus%,&buttonT)
     'When this is done we will have no idea when the last event occured or necessarily what it was, but bStatus% 
     'ought to be correct for time endT and we will be ready to try reading the button again.
 end
+
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+proc DoSampleAutoName(key$,long$,short$,master$,slave$)
+    'This function will do the auto-naming of files.  It will take into account the setup of the system
+    '(if there are one or two 1401s, and whether this is a micro/power or master/slave relationship)
+    'The long$ name should be 8 characters or fewer
+    'The short$ name should be 3 character or fewer
+    
+    if UseTwo1401s% = 0 then
+        SampleAutoName$(dataCellName$ + "_" + long$ + "_000");  'NOTE: maximum of 13 characters!!!
+    else
+        EqualizeSMRFilenumbers(dataPathRoot$ + "\\" + dataDataSet$,dataCellName$+"_" + short$ + master$ + "_",dataCellName$+"_" + short$ + slave$ + "_");
+        SampleAutoName$(dataCellName$ + "_" + short$ + master$ + "_000");  'NOTE: maximum of 13 characters!!!
+        SetStringRegistryValue(key$, "pref", short$);
+    endif;    
+end
+
