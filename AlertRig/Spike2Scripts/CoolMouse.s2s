@@ -1,7 +1,7 @@
-' $Id: CoolMouse.s2s,v 1.22 2016-03-02 23:00:51 devel Exp $
+' $Id: CoolMouse.s2s,v 1.23 2016-04-22 21:48:08 devel Exp $
 ' Update 11/8/11 Jeff, includes SafeSampleKey and multi-juicer updates
 
-#include "../../Spike2util\UsreyUtil.s2s"
+#include "../../Spike2Util/UsreyUtil.s2s"
 #include "UsreyGratings.s2s"
 #include "UsreyDAQ.s2s"
 #include "UsreyFixationPoint.s2s"
@@ -137,8 +137,6 @@ func IdleProcessing%()
 				LogStatus("stateVSGWait", "Got leading edge of trigger at " + str$(tTrigger));
 				tLastTrigger := tTrigger;
                 ChangeStateTo(stateVSGWaitConfirm%, tTrigger);
-            else 
-                LogStatus("VSGWait", "no ready trig at " + str$(tNow));
 			endif;
 
 		case iState% = stateVSGWaitConfirm% then
