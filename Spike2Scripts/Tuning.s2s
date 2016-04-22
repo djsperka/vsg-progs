@@ -1,7 +1,7 @@
-' $Id: Tuning.s2s,v 1.101 2016-04-19 00:43:40 devel Exp $
+' $Id: Tuning.s2s,v 1.102 2016-04-22 21:46:45 devel Exp $
 ' Update 11/8/11 Jeff, includes multi-juicer updates
 
-const tunCVSID$ := "$Id: Tuning.s2s,v 1.101 2016-04-19 00:43:40 devel Exp $";
+const tunCVSID$ := "$Id: Tuning.s2s,v 1.102 2016-04-22 21:46:45 devel Exp $";
 
 
 
@@ -3175,6 +3175,14 @@ func Start%()
         
         cmdLineM$ := OpenerM$ + ProgName$ + RemoteArgM$ + " -F " + fileM$;
         cmdLineS$ := OpenerS$ + ProgName$ + RemoteArgS$ + " -F " + fileS$;
+        
+        'djs hack 4-22-2016
+        ' The -l ### arg (l as in ell, not one) specifies a delay, in ms, prior to fixstim issuing the ready pulse. 
+        ' I send it to the SLAVE so it waits until after sampling has started. This is not guaranteed to work - if the 
+        ' MASTER dallies long enough before issuing the trigger to start sampling, then this delay on the SLAVE may not 
+        ' be enough. A more robust, and complex, way to make it work would be to look for the MASTER ready pulse, and when
+        ' received, THEN start the slave fixstim program. Sounds like a lot of hassle to me. 
+        cmdLineS$ += " -l 500";
         
         'cmdLineM$ := OpenerM$ + ProgName$ + FixationArg$ + XHairArg$ + BGColor$ + Dist2Screen$ + TriggerPort$ + " -V 128 " + Verbose$;
         'cmdLineM$ := cmdLineM$ + DGrat$ + DGratParam$ + MGrat$ + MGratParam$ + TunCurveMArg$ + MValues$;
