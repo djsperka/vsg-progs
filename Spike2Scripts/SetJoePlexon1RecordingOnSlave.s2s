@@ -97,6 +97,7 @@ func Start%()
         
     SampleStart(1);  'set sampling to start on a trigger
     
+    XRange(0, 30);
     
     ToolbarEnable(2,1);
 	ToolbarEnable(1,0);
