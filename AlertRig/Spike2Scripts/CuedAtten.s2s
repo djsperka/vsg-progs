@@ -143,6 +143,7 @@ var caIsOvershot$;
 ' Overall script control vars
 var Pause% := 0;
 var advanceOnAbort% := 1;  'Evan now wants to advance on aborts.  Making this a variable (not in dialog) for easy switching back if necessary.
+var trialNotStarted%;
 'var caAudibleElectrode% := 0;  'looks like this will not work
 
 ' Channel numbers and handles
@@ -1312,6 +1313,7 @@ func IdleProcessing%()
     var temptext$;
     var nextStateImmed% := 1;
     
+    
     'The trick here is that sometimes sampling isn't caught up on all channels.  MaxTime() may return a lower
     'value than MaxTime(ChanN%). When we find a trigger and try to place a TextMark, SampleText will do an internal
     'call to MaxTime() - no channel # - to determine whether to place it at the requested time or at MaxTime().
@@ -1430,6 +1432,7 @@ func IdleProcessing%()
                 PrintLog("stateWaitForJoystickInRight: failed, broke fixation\n");
                 SampleText("Fixation broken before joystick moved to start trial, trial aborted",tNow);
                 ChangeStateTo(stateAbort%, tNow);
+                trialNotStarted% := 1;  'did not get to stateStartTrial before aborting, do not advance even if advancing on abort
                 joystickHasBeenCentered% := 1;  'presumably joystick has not gone right yet
             endif;
             tempanswer% := Answer%(JoyChannel%,tNow);
@@ -1464,6 +1467,7 @@ func IdleProcessing%()
                 PrintLog("stateHoldJoystickInRight: failed, broke fixation\n");
                 SampleText("Fixation broken while holding joystick to start trial, trial aborted",tNow);
                 ChangeStateTo(stateAbort%, tNow);
+                trialNotStarted% := 1;  'did not get to stateStartTrial before aborting, do not advance even if advancing on abort
             endif;
             
             tempanswer% := Answer%(JoyChannel%,tNow);
@@ -1505,6 +1509,7 @@ func IdleProcessing%()
                     PrintLog("stateHoldJoystickInRight: failed.\n");
                     SampleText("Joystick not held to trial start, trial aborted",tNow);
                     ChangeStateTo(stateAbortWait%, tNow);  'go directly to StateAbortWait, do not need to turn off fixation point
+                    trialNotStarted% := 1;  'did not get to stateStartTrial before aborting, do not advance even if advancing on abort
                     joystickHasBeenCentered% := 1;  'joystick centered before criterion time
                 endcase
             endif;
@@ -1817,7 +1822,7 @@ func IdleProcessing%()
                 endif
                 
                 ' check to see if we advance on abort, make sure we don't go beyond final trial
-                if advanceOnAbort% = 1 then  'if we are advancing on abort, now would be the time.
+                if advanceOnAbort% = 1 and trialNotStarted% = 0 then  'if we are advancing on abort, now would be the time.  Don't abort-advance if we never started the trial at all.
                     SafeSampleKey("a");
                     PrintLog("Trial #%d completed.\n",caCurrTrialIndex%+1);
                     nTrialsCompleted% += 1;
@@ -1829,6 +1834,8 @@ func IdleProcessing%()
                         Stop%();
                         iStatus% := 0;
                     endif;
+                else
+                    trialNotStarted% := 0;  'reset trialNotStarted
                 endif;
             endif;
             
