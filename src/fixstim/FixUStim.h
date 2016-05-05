@@ -1,4 +1,4 @@
-/* $Id: FixUStim.h,v 1.4 2016-04-01 22:24:44 devel Exp $*/
+/* $Id: FixUStim.h,v 1.5 2016-05-05 18:25:16 devel Exp $*/
 #ifndef _FIXUSTIM_H_
 #define _FIXUSTIM_H_
 
@@ -51,6 +51,7 @@ private:
 	StimSet *m_pStimSet;
 	bool m_bUsingMultiParameterStimSet;
 	int m_iDistanceToScreenMM;
+	int m_iReadyPulseDelay;
 	alert::TriggerVector m_triggers;
 	int m_pulse;
 	bool m_bDaemon;
