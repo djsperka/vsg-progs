@@ -1,4 +1,4 @@
-/* $Id: FixUStim.cpp,v 1.10 2016-05-05 18:12:47 devel Exp $*/
+/* $Id: FixUStim.cpp,v 1.11 2016-05-05 18:25:15 devel Exp $*/
 
 #include "FixUStim.h"
 #include "FXGStimParameterList.h"
@@ -8,7 +8,7 @@ using namespace std;
 using namespace boost::algorithm;
 using namespace boost::filesystem;
 
-const string FixUStim::m_allowedArgs("ab:d:e:f:g:h:j:k:q:p:s:vy:zA:B:C:D:E:G:H:I:J:KL:M:NO:P:Q:R:S:T:U:V:W:X:Y:Z:");
+const string FixUStim::m_allowedArgs("ab:d:e:f:g:h:j:k:l:q:p:s:vy:zA:B:C:D:E:G:H:I:J:KL:M:NO:P:Q:R:S:T:U:V:W:X:Y:Z:");
 
 FixUStim::FixUStim(bool bStandAlone)
 : UStim()
@@ -22,6 +22,7 @@ FixUStim::FixUStim(bool bStandAlone)
 , m_pStimSet(0)
 , m_bUsingMultiParameterStimSet(false)
 , m_iDistanceToScreenMM(-1)
+, m_iReadyPulseDelay(0)
 , m_pulse(0x40)
 , m_bDaemon(false)
 , m_bClient(false)
@@ -74,8 +75,10 @@ void FixUStim::run_stim(alert::ARvsg& vsg)
 		vsg.setBackgroundColor(m_background);
 	}
 
-	// clear all dig outputs
-	vsgIOWriteDigitalOut(0, 0xff);
+	// clear all dig outputs, and send pulse to start sampling on the 1401s (if needed)
+	vsgSetTriggerOptions(vsgTRIGOPT_PRESENT, 0, vsgTRIG_OUTPUTMARKER, 0.5, 0, 0, 0x1FE);
+	//vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, 0, 0);
+	//vsgIOWriteDigitalOut(0, 0xff);
 	vsgPresent();
 
 	// initialize triggers
@@ -112,6 +115,11 @@ void FixUStim::run_stim(alert::ARvsg& vsg)
 
 	// switch display back to first client page
 	vsgSetZoneDisplayPage(vsgVIDEOPAGE, pages[0]);
+
+	// delay ready pulse - might be useful for dual-vsg situations to make sure
+	// ready pulse doesn't come too early.
+	if (m_iReadyPulseDelay > 0)
+		Sleep(m_iReadyPulseDelay);
 	vsg.ready_pulse(100, m_pulse);
 
 	// reset all triggers if using binary triggers
@@ -245,6 +253,9 @@ int FixUStim::process_arg(int c, std::string& arg)
 	case 'd':
 		if (parse_distance(arg, m_iDistanceToScreenMM)) m_errflg++;
 		else have_d=true;
+		break;
+	case 'l':
+		if (parse_integer(arg, m_iReadyPulseDelay)) m_errflg++;
 		break;
 	case 'V':
 		{
