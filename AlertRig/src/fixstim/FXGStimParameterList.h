@@ -2,7 +2,7 @@
 #define _STIMPARAMETERLIST_H_
 
 #include "alertlib.h"
-#include "StimSet.h"
+#include "MultiParameterFXGStimSet.h"
 #include <vector>
 #include <cassert>
 
@@ -19,8 +19,8 @@ class FXGStimParameterList
 public:
 	FXGStimParameterList() {};
 	virtual ~FXGStimParameterList() {};
-	virtual bool advance(FXGStimSet* pstimset) = 0;
-	virtual bool set_current_parameter(FXGStimSet* pstimset) = 0;
+	virtual bool advance(MultiParameterFXGStimSet* pstimset) = 0;
+	virtual bool set_current_parameter(MultiParameterFXGStimSet* pstimset) = 0;
 	virtual FXGStimParameterList* clone() const = 0;
 };
 
@@ -40,14 +40,14 @@ public:
 	{
 		return new StimContrastList(*this);
 	}
-	virtual bool advance(FXGStimSet* pstimset)
+	virtual bool advance(MultiParameterFXGStimSet* pstimset)
 	{
 		m_iter++;
 		if (m_iter == m_vec.end()) m_iter = m_vec.begin();
 		return set_current_parameter(pstimset);
 	}
 
-	virtual bool set_current_parameter(FXGStimSet* pstimset)
+	virtual bool set_current_parameter(MultiParameterFXGStimSet* pstimset)
 	{
 		// Tell the stim set to save this contrast as its "good" contrast.
 		pstimset->setSavedContrast((int)*m_iter);
@@ -77,14 +77,14 @@ public:
 	{
 		return new StimOrientationList(*this);
 	}
-	virtual bool advance(FXGStimSet* pstimset)
+	virtual bool advance(MultiParameterFXGStimSet* pstimset)
 	{
 		m_iter++;
 		if (m_iter == m_vec.end()) m_iter = m_vec.begin();
 		return set_current_parameter(pstimset);
 	}
 
-	virtual bool set_current_parameter(FXGStimSet* pstimset)
+	virtual bool set_current_parameter(MultiParameterFXGStimSet* pstimset)
 	{
 		pstimset->grating().orientation = *m_iter;
 		return true;
@@ -110,14 +110,14 @@ public:
 	{
 		return new StimAreaList(*this);
 	}
-	virtual bool advance(FXGStimSet* pstimset)
+	virtual bool advance(MultiParameterFXGStimSet* pstimset)
 	{
 		m_iter++;
 		if (m_iter == m_vec.end()) m_iter = m_vec.begin();
 		return set_current_parameter(pstimset);
 	}
 
-	virtual bool set_current_parameter(FXGStimSet* pstimset)
+	virtual bool set_current_parameter(MultiParameterFXGStimSet* pstimset)
 	{
 		pstimset->grating().w = pstimset->grating().h = *m_iter;
 		return true;
@@ -143,14 +143,14 @@ public:
 	{
 		return new StimSFList(*this);
 	}
-	virtual bool advance(FXGStimSet* pstimset)
+	virtual bool advance(MultiParameterFXGStimSet* pstimset)
 	{
 		m_iter++;
 		if (m_iter == m_vec.end()) m_iter = m_vec.begin();
 		return set_current_parameter(pstimset);
 	}
 
-	virtual bool set_current_parameter(FXGStimSet* pstimset)
+	virtual bool set_current_parameter(MultiParameterFXGStimSet* pstimset)
 	{
 		pstimset->grating().sf = *m_iter;
 		return true;
@@ -176,14 +176,14 @@ public:
 	{
 		return new StimTFList(*this);
 	}
-	virtual bool advance(FXGStimSet* pstimset)
+	virtual bool advance(MultiParameterFXGStimSet* pstimset)
 	{
 		m_iter++;
 		if (m_iter == m_vec.end()) m_iter = m_vec.begin();
 		return set_current_parameter(pstimset);
 	}
 
-	virtual bool set_current_parameter(FXGStimSet* pstimset)
+	virtual bool set_current_parameter(MultiParameterFXGStimSet* pstimset)
 	{
 		pstimset->grating().select();
 		pstimset->grating().setTemporalFrequency(*m_iter);
@@ -217,14 +217,14 @@ public:
 		return new StimHoleList(*this);
 	}
 
-	virtual bool advance(FXGStimSet* pstimset)
+	virtual bool advance(MultiParameterFXGStimSet* pstimset)
 	{
 		m_iter++;
 		if (m_iter == m_vec.end()) m_iter = m_vec.begin();
 		return set_current_parameter(pstimset);
 	}
 
-	virtual bool set_current_parameter(FXGStimSet* pstimset)
+	virtual bool set_current_parameter(MultiParameterFXGStimSet* pstimset)
 	{
 		pstimset->grating().w = pstimset->grating().h = m_iter->first;
 		pstimset->grating().wd = pstimset->grating().hd = m_iter->second;
@@ -265,14 +265,14 @@ public:
 	{
 		return new StimXList(*this);
 	}
-	virtual bool advance(FXGStimSet* pstimset)
+	virtual bool advance(MultiParameterFXGStimSet* pstimset)
 	{
 		m_iter++;
 		if (m_iter == m_vec.end()) m_iter = m_vec.begin();
 		return set_current_parameter(pstimset);
 	}
 
-	virtual bool set_current_parameter(FXGStimSet* pstimset)
+	virtual bool set_current_parameter(MultiParameterFXGStimSet* pstimset)
 	{
 		pstimset->grating().x = *m_iter;
 		return true;
@@ -298,14 +298,14 @@ public:
 	{
 		return new StimYList(*this);
 	}
-	virtual bool advance(FXGStimSet* pstimset)
+	virtual bool advance(MultiParameterFXGStimSet* pstimset)
 	{
 		m_iter++;
 		if (m_iter == m_vec.end()) m_iter = m_vec.begin();
 		return set_current_parameter(pstimset);
 	}
 
-	virtual bool set_current_parameter(FXGStimSet* pstimset)
+	virtual bool set_current_parameter(MultiParameterFXGStimSet* pstimset)
 	{
 		pstimset->grating().y = *m_iter;
 		return true;
@@ -339,14 +339,14 @@ public:
 	virtual ~StimXYList() {};
 	virtual StimXYList *clone() const = 0;
 
-	virtual bool advance(FXGStimSet* pstimset)
+	virtual bool advance(MultiParameterFXGStimSet* pstimset)
 	{
 		m_iter++;
 		if (m_iter == m_vec.end()) m_iter = m_vec.begin();
 		return set_current_parameter(pstimset);
 	}
 
-	virtual bool set_current_parameter(FXGStimSet* pstimset) = 0;
+	virtual bool set_current_parameter(MultiParameterFXGStimSet* pstimset) = 0;
 
 	const vector< pair<double, double> >& getXY() const { return m_vec; };
 
@@ -384,14 +384,14 @@ public:
 	{
 		return new StimPhaseList(*this);
 	}
-	virtual bool advance(FXGStimSet* pstimset)
+	virtual bool advance(MultiParameterFXGStimSet* pstimset)
 	{
 		m_iter++;
 		if (m_iter == m_vec.end()) m_iter = m_vec.begin();
 		return set_current_parameter(pstimset);
 	}
 
-	virtual bool set_current_parameter(FXGStimSet* pstimset)
+	virtual bool set_current_parameter(MultiParameterFXGStimSet* pstimset)
 	{
 		pstimset->grating().phase = *m_iter;
 		return true;
@@ -422,7 +422,7 @@ public:
 		return new GratingXYList(*this);
 	}
 
-	virtual bool set_current_parameter(FXGStimSet* pstimset)
+	virtual bool set_current_parameter(MultiParameterFXGStimSet* pstimset)
 	{
 		pstimset->grating().x = m_iter->first;
 		pstimset->grating().y = m_iter->second;
@@ -449,7 +449,7 @@ public:
 		return new FixptXYList(*this);
 	}
 
-	virtual bool set_current_parameter(FXGStimSet* pstimset)
+	virtual bool set_current_parameter(MultiParameterFXGStimSet* pstimset)
 	{
 		if (pstimset->has_fixpt())
 		{
@@ -462,5 +462,35 @@ public:
 
 
 
+class StimDelayList: public FXGStimParameterList
+{
+public:
+	StimDelayList(vector<double> delays) : FXGStimParameterList(), m_vec(delays) { m_iter = m_vec.begin(); };
+	StimDelayList(const StimDelayList& list) : FXGStimParameterList(), m_vec(list.m_vec)
+	{
+		m_iter = m_vec.begin();
+	}
+	virtual ~StimDelayList() {};
+	virtual StimDelayList *clone() const
+	{
+		return new StimDelayList(*this);
+	}
+	virtual bool advance(MultiParameterFXGStimSet* pstimset)
+	{
+		m_iter++;
+		if (m_iter == m_vec.end()) m_iter = m_vec.begin();
+		return set_current_parameter(pstimset);
+	}
+
+	virtual bool set_current_parameter(MultiParameterFXGStimSet* pstimset)
+	{
+		pstimset->setCyclingDelay((int)(*m_iter));
+		return true;
+	}
+
+private:
+	vector<double> m_vec;
+	vector<double>::const_iterator m_iter;
+};
 
 #endif

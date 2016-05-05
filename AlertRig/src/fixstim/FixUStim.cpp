@@ -1,13 +1,14 @@
-/* $Id: FixUStim.cpp,v 1.9 2016-04-05 18:35:38 devel Exp $*/
+/* $Id: FixUStim.cpp,v 1.10 2016-05-05 18:12:47 devel Exp $*/
 
 #include "FixUStim.h"
+#include "FXGStimParameterList.h"
 #include <iostream>
 #include <boost/algorithm/string.hpp>
 using namespace std;
 using namespace boost::algorithm;
 using namespace boost::filesystem;
 
-const string FixUStim::m_allowedArgs("ab:d:e:f:g:h:j:k:q:p:s:vy:zA:B:C:D:G:H:I:J:KL:M:NO:P:Q:R:S:T:U:V:W:X:Y:Z:");
+const string FixUStim::m_allowedArgs("ab:d:e:f:g:h:j:k:q:p:s:vy:zA:B:C:D:E:G:H:I:J:KL:M:NO:P:Q:R:S:T:U:V:W:X:Y:Z:");
 
 FixUStim::FixUStim(bool bStandAlone)
 : UStim()
@@ -505,6 +506,7 @@ int FixUStim::process_arg(int c, std::string& arg)
 	case 'X':
 	case 'M':
 	case 'y':
+	case 'E':
 		{
 			vector<double> tuning_parameters;
 			int nsteps;
@@ -568,6 +570,9 @@ int FixUStim::process_arg(int c, std::string& arg)
 						break;
 					case 'y':
 						plist = new FixptXYList(tuning_parameters);
+						break;
+					case 'E':
+						plist = new StimDelayList(tuning_parameters);
 						break;
 					default:
 						cerr << "Unhandled varying stim parameter type (" << (char)c << ")" << endl;
