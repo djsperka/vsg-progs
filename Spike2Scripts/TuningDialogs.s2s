@@ -1,4 +1,4 @@
-' $Id: TuningDialogs.s2s,v 1.34 2016-04-11 22:34:58 devel Exp $
+' $Id: TuningDialogs.s2s,v 1.35 2016-05-15 21:04:07 devel Exp $
 '
 ' This file contains dialog functions for the alert tuning script Tuning.s2s.
 #include "../../Spike2Util/UsreyUtil.s2s"
@@ -27,6 +27,7 @@ const tunTypeGratingOnly$ := "GO";
 const tunTypeDanish$ := "DN";
 const tunTypeDSS$ := "DSS";
 const tunTypeNullTest$ := "NULL";
+const tunTypeLag$ := "LAG";
 var tunType$:=tunTypeNone$;
 var tunType1$:=tunTypeNone$;  'for first of two tuning curves, if Box O' Donuts, or for non-CRG curve in CRG scenarios
 var tunType2$:=tunTypeNone$;  'for second of two tuning curves, if Box O' Donuts
@@ -61,8 +62,10 @@ const tundlgGratingOnlyButton% := 23;
 const tundlgCRG2Button% := 24;  'This is for CRG on SECOND screen
 const tundlgDanishButton% := 25;
 const tundlgDSSButton% := 26;
-const tundlgNullTestButton% := 27;
+const tundlgNullTestANDLagButton% := 27;
 const tundlgSelectTuningFileButton% := 28;
+const tundlgLagButton% := 29;
+const tundlgOptogeneticsButton% := 30;
 
 ' A note about "steps". 
 ' The dialogs ask for a number of "steps". A step is a transition from one stimulus
@@ -240,6 +243,46 @@ var tunNullTestUseFile%;
 var tunNullTestTuningFile$;
 
 
+'Lag
+var tunLagNSteps%;			' # steps in temporal tuning curve
+var tunLagNRepeats%;		' # repeats in temporal tuning curve
+var tunLagMinLagFrames%;    ' min Lag, frames
+var tunLagMaxLagFrames%;	' max Lag, frames
+var tunLagMinLagFrames;     ' min Lag, frames, float for using GRPP
+var tunLagMaxLagFrames;	    ' max Lag, frames, float for using GRPP
+var tunLagMinLagMS;         ' min Lag, ms, for display
+var tunLagMaxLagMS;         ' max lag, ms, for display
+var tunLagProgression%;
+var tunLagUseFile%;
+var tunLagTuningFile$;
+var tunLagFrames1$;
+var tunLagFrames2$;
+var tunLagMasterIsLagged%;
+
+
+' Optogenetics variables
+var tunPreStimOptoTime;
+var tunPostStimOptoTime;
+var tunOptoStaysOn%;
+var tunOptoVoltageOut;
+var tunOptoStartState%;  'essentially an index, 0 = off first, 1 = on first (those are logical), 2 = random
+var tunOptoState% := 0;  'current opto state, will toggle, can set here in dialog box
+var dontToggleOpto% := 0;  'by default, toggle opto on every block
+'var tunRecOptoBox% := 0;      'record the output from the opto box?
+var tunOptoNPulses%;
+var tunPulsedOptoOnset;
+var tunPulsedOptoWidth;
+var tunPulsedOptoIPI;
+var tunPulsedOptoOnsetClockSteps%;
+var tunPulsedOptoOffsetClockSteps%;
+var tunPulsedOptoWidthClockSteps%;
+var tunPulsedOptoIPIClockSteps%;
+var tunDoOpto%;                     ' New, 1 if doing optogenetics
+'var tunRecStimulator% := 0;   'record the stimulator?
+var tunOptoUsePulse% := 0;  'Are we using a "pulsing stimulation"?
+var tunLaserDiode% := 0;  'Are we recording the output of the laser using a photodiode?
+var tunInterBlockTime := 0;        ' New, time between blocks, important for opto
+
 ' Strings that hold grating parameters
 var tunGratingParams$;
 var tunGratingParamsSlave$;
@@ -278,6 +321,10 @@ var TunCurveMArg$:="";            'holds type of tuning curve on Master
 var TunCurveSArg$:="";            'holds type of tuning curve on slave
 var TunCurveS2Arg$:="";           'holds second type of tuning curve on slave, for Box O' Donuts
 var tunButtonCollect%;            'Collect button data for rivalry?
+var tunUseLagDialog%;             'will be 1 if we are using the lag dialog
+var tunUseConstantLag%;           '0 = no constant lag, 1 = constant lag on master, 2 = constant lag on slave
+var tunConstantLagFrames%;
+var tunConstantLagMS$;
 
 ' These will be set by the tuning curve choice
 var tunNAdvances%;		' Number of times stim will advance during one repeat
@@ -706,6 +753,83 @@ proc SaveTuningCurveNullTestParameters()
     SetIntRegistryValue(key$, "UseFile", tunNullTestUseFile%);
     SetStringRegistryValue(key$, "TuningFile", tunNullTestTuningFile$);
 end;
+
+proc GetTuningCurveLagParameters()
+	var stmp$;
+	var key$;
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Tuning\\Lag";
+    
+    tunLagNSteps% := GetIntRegistryValue%(key$, "NSteps", tunLagNSteps%);
+    tunLagNRepeats% := GetIntRegistryValue%(key$, "NRepeats", tunLagNRepeats%);
+    tunLagMinLagFrames% := GetIntRegistryValue%(key$, "MinLag", tunLagMinLagFrames%);
+    tunLagMaxLagFrames% := GetIntRegistryValue%(key$, "MaxLag", tunLagMaxLagFrames%);
+    tunLagProgression% := GetIntRegistryValue%(key$, "Progression", tunLagProgression%);
+    tunLagUseFile% := GetIntRegistryValue%(key$, "UseFile", tunLagUseFile%);
+    tunLagTuningFile$ := GetStringRegistryValue$(key$, "TuningFile", tunLagTuningFile$);
+    tunLagMasterIsLagged% := GetIntRegistryValue%(key$, "MasterIsLagged", tunLagMasterIsLagged%);
+end;
+
+proc SaveTuningCurveLagParameters()
+	var key$;
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Tuning\\Lag";
+    SetIntRegistryValue(key$, "NSteps", tunLagNSteps%);
+    SetIntRegistryValue(key$, "NRepeats", tunLagNRepeats%);
+    SetIntRegistryValue(key$, "MinLag", tunLagMinLagFrames%);
+    SetIntRegistryValue(key$, "MaxLag", tunLagMaxLagFrames%);
+    SetIntRegistryValue(key$, "Progression", tunLagProgression%);
+    SetIntRegistryValue(key$, "UseFile", tunLagUseFile%);
+    SetStringRegistryValue(key$, "TuningFile", tunLagTuningFile$);
+    SetIntRegistryValue(key$, "MasterIsLagged", tunLagMasterIsLagged%);
+end;
+
+
+proc GetTunOptoParameters()
+	var stmp$;
+	var key$;
+	key$:= GetRigName$() + GetCurrentConfiguration$() + "\\Scripts\\Tuning\\Opto";
+    
+    tunPreStimOptoTime := GetFloatRegistryValue(key$, "PreStimOptoTime", tunPreStimOptoTime);
+    tunPostStimOptoTime := GetFloatRegistryValue(key$, "PostStimOptoTime", tunPostStimOptoTime);
+    tunOptoStaysOn% := GetIntRegistryValue%(key$, "OptoStaysOn", tunOptoStaysOn%);
+    tunOptoVoltageOut := GetFloatRegistryValue(key$, "OptoVoltageOut", tunOptoVoltageOut);
+    tunOptoStartState% := GetIntRegistryValue%(key$, "OptoStartState", tunOptoStartState%);
+    tunOptoUsePulse% := GetIntRegistryValue%(key$, "OptoUsePulse", tunOptoUsePulse%);
+    tunLaserDiode% := GetIntRegistryValue%(key$, "LaserDiode", tunLaserDiode%);
+    tunOptoNPulses% := GetIntRegistryValue%(key$, "OptoNPulses", tunOptoNPulses%);
+    tunPulsedOptoOnset := GetFloatRegistryValue(key$, "PulsedOptoOnset", tunPulsedOptoOnset);
+    tunPulsedOptoWidth := GetFloatRegistryValue(key$, "PulsedOptoWidth", tunPulsedOptoWidth);
+    tunPulsedOptoIPI := GetFloatRegistryValue(key$, "PulsedOptoIPI", tunPulsedOptoIPI);
+    tunInterBlockTime := GetFloatRegistryValue(key$, "InterBlockTime", tunInterBlockTime);
+    
+    
+    'tunRecOptoBox% := GetIntRegistryValue%(key$, "RecOptoBox", tunRecOptoBox%);
+    'tunRecStimulator% := GetIntRegistryValue%(key$, "RecStimulator", tunRecStimulator%);
+
+end;
+
+proc SaveTunOptoParameters()
+	var key$;
+	key$:= GetRigName$() + GetCurrentConfiguration$() + "\\Scripts\\Tuning\\Opto";
+    SetFloatRegistryValue(key$, "PreStimOptoTime", tunPreStimOptoTime);
+    SetFloatRegistryValue(key$, "PostStimOptoTime", tunPostStimOptoTime);
+    SetIntRegistryValue(key$, "OptoStaysOn", tunOptoStaysOn%);
+    SetFloatRegistryValue(key$, "OptoVoltageOut", tunOptoVoltageOut);
+    SetIntRegistryValue(key$, "OptoStartState", tunOptoStartState%);
+    SetIntRegistryValue(key$, "OptoUsePulse", tunOptoUsePulse%);
+    SetIntRegistryValue(key$, "LaserDiode", tunLaserDiode%);
+    SetIntRegistryValue(key$, "OptoNPulses", tunOptoNPulses%);
+    SetFloatRegistryValue(key$, "PulsedOptoOnset", tunPulsedOptoOnset);
+    SetFloatRegistryValue(key$, "PulsedOptoWidth", tunPulsedOptoWidth);
+    SetFloatRegistryValue(key$, "PulsedOptoIPI", tunPulsedOptoIPI);
+    SetFloatRegistryValue(key$, "InterBlockTime", tunInterBlockTime);
+    
+    'SetIntRegistryValue(key$, "RecOptoBox", tunRecOptoBox%);
+    'SetIntRegistryValue(key$, "RecStimulator", tunRecStimulator%);
+end;
+
+
+
+
 
 
 '------------ END Read/write tuning curve parameters to the registry ------------
@@ -1657,7 +1781,12 @@ func TuningCurveBoxODonutsDialog%()
     DlgCheck(2, "Random Progression", 2, 2);
     DlgCheck(3, "Master Follows Curve 1", 2, 3);
     
-    DlgGroup("Select Two Tuning Curve Types", 1, 4, 47, 6); 
+    if tunUseLagDialog% = 0 then  'do not show lag tuning for single-vsg
+        DlgGroup("Select Two Tuning Curve Types", 1, 4, 47, 6); 
+    else
+        DlgGroup("Select Two Tuning Curve Types", 1, 4, 59, 6); 
+    endif;
+    
     updateCurve1Text% := DlgText(tunCurve1Text$, 14, 5, 30);  'this is to keep track of selected tuning curve 1
     updateCurve2Text% := DlgText(tunCurve2Text$, 14, 6, 30);  'this is to keep track of selected tuning curve 2
     DlgButton(tundlgOrientationButton%, " Orientation  ", TuningCurveOrientationDialog%, 2, 8); 'Note that labels for Orientation-Area are superceded 
@@ -1666,6 +1795,11 @@ func TuningCurveBoxODonutsDialog%()
 	DlgButton(tundlgTemporalButton%, "Temporal Freq", TuningCurveTemporalDialog%, 18, 9);
 	DlgButton(tundlgAreaButton%, "Area", TuningCurveAreaDialog%, 36, 8);
     DlgButton(tundlgXPosButton%, "X Position", TuningCurveXPosDialog%, 36, 9);
+    if tunUseLagDialog% = 1 then  'only show lag tuning for dual-vsg
+        DlgButton(tundlgLagButton%, "Lag", TuningCurveNullTestANDLagDialog%, 50, 8);
+    endif;
+    
+    
     
     DlgButton(151, "Master Grating", TunDlgGratingMaster%);
     DlgButton(152, "Slave Grating", TunDlgGratingSlave%);
@@ -1852,8 +1986,8 @@ func TuningCurveCRGDialog%()
     DlgString(4,40,255,"",50,2);  'for visual confirmation of selected seq file
     
     
-    
-    DlgGroup("CRG Screen and Tuning Curve Type", 1, 4, 52, 7); 
+
+    DlgGroup("CRG Screen and Tuning Curve Type", 1, 4, 64, 7); 
     DlgList(5, "CRG is on:", mylist$[], 2, 3);
     updateCurve2Text% := DlgText(tunCurveCRGText$, 9, 6, 50);  'this keeps track of which screen holds CRG, 1/2 label got swapped, just rolling with it
     updateCurve1Text% := DlgText(tunCurveText$, 9, 7, 50);  'this is to keep track of selected tuning curve 
@@ -1867,6 +2001,7 @@ func TuningCurveCRGDialog%()
 	DlgButton(tundlgTemporalButton%, "Temporal Freq", TuningCurveTemporalDialog%, 18, 10);
 	DlgButton(tundlgAreaButton%, "         Area         ", TuningCurveAreaDialog%, 36, 9);
     DlgButton(tundlgXPosButton%, "     X Position     ", TuningCurveXPosDialog%, 36, 10);
+    DlgButton(tundlgLagButton%, "   Lag   ", TuningCurveNullTestANDLagDialog%, 55, 8);
     
     DlgButton(151, "Master Grating", TunDlgGratingMaster%);
     DlgButton(152, "Slave Grating", TunDlgGratingSlave%);
@@ -2150,71 +2285,208 @@ end;
 
 
 
-func TuningCurveNullTestDialog%()
-	var iReturn% := 0;
-	var i%;
-	GetTuningCurveNullTestParameters();
-	DlgCreate("Null Test Tuning Curve Parameters");
-	DlgInteger(1, "Number of Steps", 2, 99);
-	DlgInteger(2, "Number of Repeats", 1, 30);
-	DlgReal(3, "Start Phase", 0, 360);
-	DlgReal(4, "End Phase", 0, 360);
-    DlgReal(5, "Transition Frequency (Hz)", 0.1,100);
-	DlgCheck(6, "Random Progression");
-    DlgCheck(7, "Step Function in Time");
-    DlgCheck(8, "Use File For Tuning Values");
-    DlgString(9,40,255,"",3);  'for visual confirmation of selected seq file
-    DlgButton(tundlgSelectTuningFileButton%, " Select Tuning File ", SelectTuningFileNullTest%, 2, 10);
-    DlgAllow(0xffff, 0, TuningCurveNullTestDialogChanged%);
+func TuningCurveNullTestANDLagDialog%()
+    var iReturn% := 0;
+    var i%;
     
-	i% := DlgShow(tunNullTestNSteps%, tunNullTestNRepeats%, tunNullTestMinPhase, tunNullTestMaxPhase, tunNullTestTF, tunNullTestProgression%, tunNullTestStepFunc%, tunNullTestUseFile%, tunNullTestTuningFile$);
-	' If i% is 1 the user hit "OK". If its 0, user hit "Cancel". 
-	' When user hits OK we always save the parameters, and when user hits Cancel we don't.
-    ' 
-    ' djs 2/4/2011
-    ' Spike2 bug workaround implemented. The return value from this function (when in DAQ context this
-    ' dialog is called from a DlgButton in another dialog) should make the parent dialog close, as if 
-    ' the OK button were hit. Bug in Spike2 v6 means this doesn't work right - the parent dialog will 
-    ' close but its variables are not updated prior to doing so.... so any changes to the parent dialog
-    ' are not seen in the subsequent expt, they're not saved in the registry, etc. Workaround is to return
-    ' something > 0 here. The parent dialog will continue to display, and the user has to hit OK on that 
-    ' before things proceed. 
-    'tunMaximalDiam := tunAreaMaxDiam;  This won't do anything unless FIXSTIM is updated to allow crosshairs
-	if i% = 1 then
-		SaveTuningCurveNullTestParameters();
-'		PrintLog("TuningCurveAreaDialog - user hit OK\n");
-		tunType$ := tunTypeNullTest$;
-        tunUseFile% := tunNullTestUseFile%;
-        tunTuningFile$ := tunNullTestTuningFile$;
+    if tunUseLagDialog% = 0 then   'DlgValue(11) = 0 then  'run null test dialog
         
-        'Reset dialog OK button text on Select dialog, and note which experiment to run
-        'DlgValue$(-1,"Run Null Test");
-        'TuningCurveScriptDialogAllowOK% := 1;  'Prepare to enable OK button
-        'TuningCurveScriptDialogChanged%(-1);  'Enables "OK" button, -1 is sham input
+        GetTuningCurveNullTestParameters();
+        DlgCreate("Null Test Tuning Curve Parameters");
+        DlgInteger(1, "Number of Steps", 2, 99);
+        DlgInteger(2, "Number of Repeats", 1, 30);
+        DlgReal(3, "Start Phase", 0, 360);
+        DlgReal(4, "End Phase", 0, 360);
+        DlgReal(5, "Transition Frequency (Hz)", 0.1,100);
+        DlgCheck(6, "Random Progression");
+        DlgCheck(7, "Step Function in Time");
+        DlgCheck(8, "Use File For Tuning Values");
+        DlgString(9,40,255,"",3);  'for visual confirmation of selected seq file
+        DlgButton(tundlgSelectTuningFileButton%, " Select Tuning File ", SelectTuningFileNullTest%, 2, 10);
+        DlgAllow(0xffff, 0, TuningCurveNullTestDialogChanged%);
         
-		if tunContext$ = tunContextDAQ$ then
-            ' djs 2/4/2011 We return 1 - that's the workaround			iReturn% := 0;
-            iReturn% := 1;
-		else
-			iReturn% := 1;
-		endif;
-	endif;
-	if i% = 0 then
-'		PrintLog("TuningCurveNullTestDialog - user hit Cancel\n");
-		tunType$ := tunTypeNone$;
-		if tunContext$ = tunContextDAQ$ then
-			iReturn% := 1;
-		else
-			iReturn% := 2;
-		endif;
-        'Reset dialog OK button text on Select dialog, and note we need to pick an expt.
-        'DlgValue$(-1,"Select Expt.");
-        'TuningCurveScriptDialogAllowOK% := 0;  'Prepare to disable OK button
-        'TuningCurveScriptDialogChanged%(-1);  'Disables "OK" button, -1 is sham input
-	endif;
+        i% := DlgShow(tunNullTestNSteps%, tunNullTestNRepeats%, tunNullTestMinPhase, tunNullTestMaxPhase, tunNullTestTF, tunNullTestProgression%, tunNullTestStepFunc%, tunNullTestUseFile%, tunNullTestTuningFile$);
+        ' If i% is 1 the user hit "OK". If its 0, user hit "Cancel". 
+        ' When user hits OK we always save the parameters, and when user hits Cancel we don't.
+        ' 
+        ' djs 2/4/2011
+        ' Spike2 bug workaround implemented. The return value from this function (when in DAQ context this
+        ' dialog is called from a DlgButton in another dialog) should make the parent dialog close, as if 
+        ' the OK button were hit. Bug in Spike2 v6 means this doesn't work right - the parent dialog will 
+        ' close but its variables are not updated prior to doing so.... so any changes to the parent dialog
+        ' are not seen in the subsequent expt, they're not saved in the registry, etc. Workaround is to return
+        ' something > 0 here. The parent dialog will continue to display, and the user has to hit OK on that 
+        ' before things proceed. 
+        'tunMaximalDiam := tunAreaMaxDiam;  This won't do anything unless FIXSTIM is updated to allow crosshairs
+        if i% = 1 then
+            SaveTuningCurveNullTestParameters();
+            '		PrintLog("TuningCurveAreaDialog - user hit OK\n");
+            tunType$ := tunTypeNullTest$;
+            tunUseFile% := tunNullTestUseFile%;
+            tunTuningFile$ := tunNullTestTuningFile$;
+            
+            'Reset dialog OK button text on Select dialog, and note which experiment to run
+            'DlgValue$(-1,"Run Null Test");
+            'TuningCurveScriptDialogAllowOK% := 1;  'Prepare to enable OK button
+            'TuningCurveScriptDialogChanged%(-1);  'Enables "OK" button, -1 is sham input
+            
+            if tunContext$ = tunContextDAQ$ then
+                ' djs 2/4/2011 We return 1 - that's the workaround			iReturn% := 0;
+                iReturn% := 1;
+            else
+                iReturn% := 1;
+            endif;
+        endif;
+        if i% = 0 then
+            '		PrintLog("TuningCurveNullTestDialog - user hit Cancel\n");
+            tunType$ := tunTypeNone$;
+            if tunContext$ = tunContextDAQ$ then
+                iReturn% := 1;
+            else
+                iReturn% := 2;
+            endif;
+            'Reset dialog OK button text on Select dialog, and note we need to pick an expt.
+            'DlgValue$(-1,"Select Expt.");
+            'TuningCurveScriptDialogAllowOK% := 0;  'Prepare to disable OK button
+            'TuningCurveScriptDialogChanged%(-1);  'Disables "OK" button, -1 is sham input
+        endif;
+        
+        return iReturn%;
+        
+    else 'run Lag tuning dialog
+        
+        var checkint;  'checking to make sure the number of frames will work
+        
+        GetTuningCurveLagParameters();
+        DlgCreate("Lag Tuning Curve Parameters",0,0,62);
+        DlgInteger(1, "Number of Steps", 1, 100,30,1);
+        'DlgInteger(2, "Number of Repeats", 1, 10);
+        DlgInteger(3, "Min Lag (frames)", 0, 1000,30,3);
+        DlgInteger(4, "Max Lag (frames)", 0, 1000,30,4);
+        'DlgCheck(5, "Random Progression");
+        DlgCheck(6, "Use File For Tuning Values");
+        DlgString(7,40,255,"",3);  'for visual confirmation of selected seq file
+        DlgString(8,11,255,"",50,3);  DlgText("(ms)",45,3);
+        DlgString(9,11,255,"",50,4);  DlgText("(ms)",45,4);
+        DlgCheck(10,"Master Screen is Lagged",29,5);
+        DlgButton(tundlgSelectTuningFileButton%, " Select Tuning File ", SelectTuningFile%, 2, 8);
+        if tunBoxODonutsCurrentCurve% = 0 then
+            DlgInteger(2, "Number of Repeats", 1, 1000,30,2);
+            DlgCheck(5, "Random Progression");
+        else
+            DlgInteger(2, "----------------", 1, 1,30,2);
+            DlgCheck(5, "----------------");
+        endif;
+        DlgAllow(0xffff, 0, TuningCurveLagDialogChanged%);
+        
+        i% := DlgShow(tunLagNSteps%, tunLagNRepeats%, tunLagMinLagFrames%, tunLagMaxLagFrames%, tunLagProgression%, tunLagUseFile%, tunLagTuningFile$, tunLagFrames1$, tunLagFrames2$,tunLagMasterIsLagged%);
+        ' If i% is 1 the user hit "OK". If its 0, user hit "Cancel". 
+        ' When user hits OK we alwaus save the parameters, and when user hits Cancel we don't.
+        ' djs 2/4/2011
+        ' Spike2 bug workaround implemented. The return value from this function (when in DAQ context this
+        ' dialog is called from a DlgButton in another dialog) should make the parent dialog close, as if 
+        ' the OK button were hit. Bug in Spike2 v6 means this doesn't work right - the parent dialog will 
+        ' close but its variables are not updated prior to doing so.... so any changes to the parent dialog
+        ' are not seen in the subsequent expt, they're not saved in the registry, etc. Workaround is to return
+        ' something > 0 here. The parent dialog will continue to display, and the user has to hit OK on that 
+        ' before things proceed. 
+        
+        'First things first, check the lag to make sure it will work
+        if i% = 1 then
+            tunLagMinLagFrames := tunLagMinLagFrames%;  'prepare for non-integer math
+            tunLagMaxLagFrames := tunLagMaxLagFrames%;
+            checkint := frac((tunLagMaxLagFrames-tunLagMinLagFrames)/tunLagNSteps%);
+            'if lag will not work, note this and return as if canceled
+            if checkint <> 0 then     
+                message("The given number of steps will not create integer frame counts!  Try again!");
+                i% := 0;
+            endif;
+        endif;
+        
+        if i% = 1 then
+            SaveTuningCurveLagParameters();
+            '		PrintLog("TuningCurveLagDialog - user hit OK\n");
+            tunType$ := tunTypeLag$;
+            tunUseFile% := tunLagUseFile%;
+            tunTuningFile$ := tunLagTuningFile$;
+            
+            'Change text on Box O' Donuts/CRG dialog box, if we're calling from there.
+            docase
+            case tunBoxODonutsCurrentCurve% = 1 then
+                tunType1$ := tunTypeLag$;
+                tunUseFile1% := tunLagUseFile%;
+                tunTuningFile1$ := tunLagTuningFile$;
+                tunCurve1Text$ := "Tuning Curve 1 is LAG";
+                DlgValue$(updateCurve1Text%, tunCurve1Text$);
+                tunBoxODonutsCurrentCurve% := 2;  'update current curve 
+                DlgEnable(0,-tundlgLagButton%);  'So we don't pick lag again
+            case tunBoxODonutsCurrentCurve% = 2 then
+                tunType2$ := tunTypeLag$;
+                tunUseFile2% := tunLagUseFile%;
+                tunTuningFile2$ := tunLagTuningFile$;
+                tunCurve2Text$ := "Tuning Curve 2 is LAG";
+                DlgValue$(updateCurve2Text%, tunCurve2Text$);
+                tunBoxODonutsCurrentCurve% := 3;  'update current curve 
+                DlgEnable(0,-tundlgLagButton%);  'So we don't pick lag again
+                TuningCurveBoxODonutsDialogChanged%(-1);  'Enables "OK" button, -1 is sham input
+            case tunCRGCurrentCurve% = 1 then
+                tunCRGCurrentCurve% := 2;
+                tunType1$ := tunTypeLag$;
+                if DlgValue(5) = 0 then  'if CRG is on master, then tuning curve selected is on slave
+                    tunCurve1Text$ := "Tuning Curve on Slave is LAG";
+                else
+                    tunCurve1Text$ := "Tuning Curve on Master is LAG";
+                endif;
+                DlgValue$(updateCurve1Text%, tunCurve1Text$);
+                TuningCurveCRGDialogChanged%(-1);  'Enables "OK" button, -1 is sham input
+            endcase;
+            
+            
+            if tunContext$ = tunContextDAQ$ then
+                ' djs 2/4/2011 We return 1 - that's the workaround			iReturn% := 0;
+                iReturn% := 1;
+            else
+                iReturn% := 1;
+            endif;
+        endif;
+        if i% = 0 then
+            '		PrintLog("TuningCurveLagDialog - user hit Cancel\n");
+            tunType$ := tunTypeNone$;
+            if tunContext$ = tunContextDAQ$ then
+                iReturn% := 1;
+            else
+                iReturn% := 2;
+            endif;
+        endif;
+        
+        return iReturn%;
+    endif;
     
-	return iReturn%;
+        
 end;
+
+
+func TuningCurveLagDialogChanged%(item%)
+    'This single dialog changed function can be used for ALL the tuning dialogs that allow file-based tuning curves
+    '(at least currently) because they all have the same structure and therefore the same dialog positions to allow/disallow
+    DlgValue$(8,Str$(DlgValue(3)*1000/dataScreenHz));  'just set the text values of the frame to millisecond conversion every time
+    DlgValue$(9,Str$(DlgValue(4)*1000/dataScreenHz));
+    DlgEnable(0,8);  'Always disable millisecond conversion, we can't type here to get frame values
+    DlgEnable(0,9); 
+    if DlgValue(6) = 0 then  'If we are not using a tuning file
+        DlgEnable(0,7);  'disable the string box with the text file name (button still works)
+        DlgEnable(1,1);  'enable nSteps, min, and max
+        DlgEnable(1,3);
+        DlgEnable(1,4);
+    endif;
+    if DlgValue(6) = 1 then
+        DlgEnable(1,7);  'enable the string box with the text file name
+        DlgEnable(0,1);  'disable nSteps, min, and max
+        DlgEnable(0,3);
+        DlgEnable(0,4);
+    endif;
+    return 1;
+end
 
 
 func TuningCurveNullTestDialogChanged%(item%)
@@ -2849,7 +3121,8 @@ proc GetTuningCurveScriptParameters()
     tunXHairNumGridDivisions% := GetIntRegistryValue%(key$, "XHairNumGridDivisions", tunXHairNumGridDivisions%);
     tunButtonCollect% := GetIntRegistryValue%(key$, "ButtonCollect", tunButtonCollect%);
     tunDoTuningHist% := GetIntRegistryValue%(key$, "DoTuningHist", tunDoTuningHist%);
-     
+    tunUseConstantLag% := GetIntRegistryValue%(key$, "UseConstantLag", tunUseConstantLag%);
+    tunConstantLagFrames% := GetIntRegistryValue%(key$, "ConstantLagFrames", tunConstantLagFrames%);
 end;
 
 proc SaveTuningCurveScriptParameters()
@@ -2905,11 +3178,16 @@ func TuningCurveScriptDialog%()
     var tempPhase;
     var boxOK% := 1;  'do the stimulus/crosshairs boxes overlap?
 	GetTuningCurveScriptParameters();
+    GetTunOptoParameters();  'We must get these or the user has to open the opto dialog every time.
 	var bcl$[3];
 	bcl$[0] := "gray";
 	bcl$[1] := "black";
 	bcl$[2] := "white";
     var ibcl%:=0;
+    var constantLag$[3];
+    constantLag$[0] := "No Constant Lag";
+    constantLag$[1] := "Lag On Master";
+    constantLag$[2] := "Lag On Slave";
     var dualType$[3];
     dualType$[0] := "Dual Tuning";
     dualType$[1] := "Master only";
@@ -2926,6 +3204,7 @@ func TuningCurveScriptDialog%()
     var sf, tf, ori, phase;
     var cv$, pattern$, aperture$;
     var tempParams$;
+        
     
 	for i%:=0 to 2 do
 		if tunBackgroundColor$ = bcl$[i%] then
@@ -2958,46 +3237,55 @@ func TuningCurveScriptDialog%()
         DlgInteger(10, "Num. juicer pulses:", 1, 20, 40, 11);
     endif;   
     'juicer duration / n repeats dialog here?  Have to write values to DAQ parameters if changed, disable if not correct for juicer? 
-    DlgGroup("Dual VSG Options", 1, 12, 52, 3);
+    DlgGroup("Dual VSG Options", 1, 12, 52, 4);
     DlgCheck(11, "Use Dual VSG", 2, 13);
     'DlgCheck(12, "Select to turn off card sync", 25, 13);
-    DlgList(12, "Dual Tuning Configuration:", dualType$, 3, 25, 14);
+    DlgInteger(18, 2, 0, 50, 20, 13); DlgText("<-(Frames) Constant Lag (ms)->",22,13); DlgString(19,5,255,"",48,13);
+    DlgList(17, "Use Constant Lag?", constantLag$, 3, 25, 14); 
+    DlgList(12, "Dual Tuning Configuration:", dualType$, 3, 25, 15);
     
     'DlgCheck(13, "Maintain Fixpt between trials", 2, 14);  'change this to a list
-    DlgList(13, 11, maintainList$, 5, 3, 15); DlgText("Maintain what btwn trls", 15, 15);
-    DlgCheck(14, "Stationary",2,16);
-    DlgCheck(15, "Make Histograms", 35,15);
-    DlgCheck(16, "Use Rivalry Button", 35,16);
-    DlgButton(tundlgXHairButton%, " Crosshairs  ", UpdateTuningXHairDialog%, 1, 17);
-    updateXHairText% := DlgText(tunXHairText$, 15, 17);
-	DlgGroup("Individual Tuning Curve Types", 1, 18, 52, 6);
-	DlgButton(tundlgOrientationButton%, " Orientation  ", TuningCurveOrientationDialog%, 2, 19); 'Note that labels for Orientation-Area are superceded 
-	DlgButton(tundlgContrastButton%, "     Contrast     ", TuningCurveContrastDialog%, 18, 19);  'by TuningCurveScriptDialogChanged% even upon opening 
-	DlgButton(tundlgSpatialButton%, "Spatial Freq", TuningCurveSpatialDialog%, 2, 20);           'the dialog (i.e. whatever label is here is unused)
-	DlgButton(tundlgTemporalButton%, "Temporal Freq", TuningCurveTemporalDialog%, 18, 20);
-	DlgButton(tundlgAreaButton%, "         Area         ", TuningCurveAreaDialog%, 36, 19);
-    DlgButton(tundlgXPosButton%, "     X Position     ", TuningCurveXPosDialog%, 36, 20);
-	DlgButton(tundlgDonutButton%, "   Donuts!   ", TuningCurveDonutDialog%, 2, 21);
-    DlgButton(tundlgBerlinerButton%, "    Berliners!    ", TuningCurveBerlinerDialog%, 18, 21);
-    DlgButton(tundlgBoxODonutsButton%, " Box O' Donuts ", TuningCurveBoxODonutsDialog%, 36, 21);
-    DlgButton(tundlgDotsButton%, "     Dots!     ", TuningCurveDotsDialog%, 2, 22);
-    DlgButton(tundlgCRGButton%,"      CRaGs      ",TuningCurveCRGDialog%, 18, 22);
-    DlgButton(tundlgDisparityButton%, "      Disparity      ", TuningCurveDisparityDialog%, 36, 22);
-    DlgButton(tundlgDanishButton%, "  Danishes!  ", TuningCurveDanishDialog%, 2, 23);
-    DlgButton(tundlgDSSButton%,"        DSS        ",TuningCurveDSSDialog%, 18, 23);
-    DlgButton(tundlgNullTestButton%,"      Null Test     ",TuningCurveNullTestDialog%, 36, 23);
+    DlgList(13, 11, maintainList$, 5, 3, 16); DlgText("Maintain what btwn trls", 15, 16);
+    DlgCheck(14, "Stationary",2,17);
+    DlgCheck(15, "Make Histograms", 35,16);
+    DlgCheck(16, "Use Rivalry Button", 35,17);
+    DlgButton(tundlgXHairButton%, " Crosshairs  ", UpdateTuningXHairDialog%, 1, 18);
+    updateXHairText% := DlgText(tunXHairText$, 15, 18);
+    
+    DlgCheck(20,"Opto On",2,19);
+    DlgButton(tundlgOptogeneticsButton%, "Optogenetics Parameters", TunOptoDialog%, 18, 19);    
+    
+    
+	DlgGroup("Individual Tuning Curve Types", 1, 20, 52, 6);
+	DlgButton(tundlgOrientationButton%, " Orientation  ", TuningCurveOrientationDialog%, 2, 21); 'Note that labels for Orientation-Area are superceded 
+	DlgButton(tundlgContrastButton%, "     Contrast     ", TuningCurveContrastDialog%, 18, 21);  'by TuningCurveScriptDialogChanged% even upon opening 
+	DlgButton(tundlgSpatialButton%, "Spatial Freq", TuningCurveSpatialDialog%, 2, 22);           'the dialog (i.e. whatever label is here is unused)
+	DlgButton(tundlgTemporalButton%, "Temporal Freq", TuningCurveTemporalDialog%, 18, 22);
+	DlgButton(tundlgAreaButton%, "         Area         ", TuningCurveAreaDialog%, 36, 21);
+    DlgButton(tundlgXPosButton%, "     X Position     ", TuningCurveXPosDialog%, 36, 22);
+	DlgButton(tundlgDonutButton%, "   Donuts!   ", TuningCurveDonutDialog%, 2, 23);
+    DlgButton(tundlgBerlinerButton%, "    Berliners!    ", TuningCurveBerlinerDialog%, 18, 23);
+    DlgButton(tundlgBoxODonutsButton%, " Box O' Donuts ", TuningCurveBoxODonutsDialog%, 36, 23);
+    DlgButton(tundlgDotsButton%, "     Dots!     ", TuningCurveDotsDialog%, 2, 24);
+    DlgButton(tundlgCRGButton%,"      CRaGs      ",TuningCurveCRGDialog%, 18, 24);
+    DlgButton(tundlgDisparityButton%, "      Disparity      ", TuningCurveDisparityDialog%, 36, 24);
+    DlgButton(tundlgDanishButton%, "  Danishes!  ", TuningCurveDanishDialog%, 2, 25);
+    DlgButton(tundlgDSSButton%,"        DSS        ",TuningCurveDSSDialog%, 18, 25);
+    DlgButton(tundlgNullTestANDLagButton%,"      Null Test     ",TuningCurveNullTestANDLagDialog%, 36, 25);
     DlgAllow(0xffff, 0, TuningCurveScriptDialogChanged%);
 	
     if JuicerType% = 1 then
         i%:=DlgShow(tunAcquisitionTime, tunAcqFailTime, tunStimulusOnsetDelay, tunFixationDuration, tunHoldFailTime, 
         tunStdInterTrialTime, tunMaintainFixation, tunMaintainFailTime,
         ibcl%, JuiceRewardMS%, tunDoRivalry%,  
-        tunDualTuningType%, tunUseMaintainMode%, tunSetStationary%, tunDoTuningHist%, tunButtonCollect%);
+        tunDualTuningType%, tunUseMaintainMode%, tunSetStationary%, tunDoTuningHist%, tunButtonCollect%,
+        tunUseConstantLag%,tunConstantLagFrames%,tunConstantLagMS$,tunDoOpto%);
     else
         i%:=DlgShow(tunAcquisitionTime, tunAcqFailTime, tunStimulusOnsetDelay, tunFixationDuration, tunHoldFailTime, 
         tunStdInterTrialTime, tunMaintainFixation, tunMaintainFailTime, 
         ibcl%, JuicePerReward%, tunDoRivalry%,  
-        tunDualTuningType%, tunUseMaintainMode%, tunSetStationary%, tunDoTuningHist%, tunButtonCollect%);
+        tunDualTuningType%, tunUseMaintainMode%, tunSetStationary%, tunDoTuningHist%, tunButtonCollect%,
+        tunUseConstantLag%,tunConstantLagFrames%,tunConstantLagMS$,tunDoOpto%);
     endif;
     
     
@@ -3078,6 +3366,11 @@ func TuningCurveScriptDialog%()
             endif;
         endif
         
+        'just make sure we don't have trouble with constant lag if there is no dual tuning - may not be needed but still...
+        if tunDoRivalry% = 0 then
+            tunUseConstantLag% := 0;
+        endif;
+        
         
 	endif;
 	if i% = 0 then
@@ -3098,16 +3391,20 @@ end;
 
 
 func TuningCurveScriptDialogChanged%(item%) 
+    DlgValue$(19,Str$(DlgValue(18)*1000/dataScreenHz));  'just set the text values of the frame to millisecond conversion every time
+    DlgEnable(0,19);  'Always disable millisecond conversion, we can't type here to get frame values
     if DlgValue(11) = 0 then  'If single VSG, do not allow Donuts or Berliners or disparity or CRG
         'DlgEnable(0,-tundlgDonutButton%,-tundlgBerlinerButton%,-tundlgBoxODonutsButton%,-tundlgCRGButton%,-tundlgDisparityButton%); 'old version
         DlgEnable(0,-tundlgDonutButton%,-tundlgBerlinerButton%,-tundlgCRGButton%,-tundlgDisparityButton%);  'allow boxOdonuts for single screen now
         'Also disable card synch functions, dual tuning listbox
         DlgEnable(0,12); 'dual tuning listbox
+        DlgEnable(0,17); 'constant lag listbox
+        DlgEnable(0,18); 'constant lag frames box
         'But do allow Dots, Danish, DSS, Null Test
         DlgEnable(1,-tundlgDotsButton%);
         DlgEnable(1,-tundlgDanishButton%);
         DlgEnable(1,-tundlgDSSButton%);
-        DlgEnable(1,-tundlgNullTestButton%);
+        'DlgEnable(1,-tundlgNullTestANDLagButton%);  'this is now NullTest/Lag, don't enable/disable
         'Also, change labels on buttons to reflect the monocular aspect of not using dual VSG
         DlgValue$(-tundlgOrientationButton%, " Orientation  ");
         DlgValue$(-tundlgContrastButton%, "     Contrast     ");
@@ -3115,41 +3412,49 @@ func TuningCurveScriptDialogChanged%(item%)
         DlgValue$(-tundlgTemporalButton%, "Temporal Freq");
         DlgValue$(-tundlgAreaButton%, "Area");
         DlgValue$(-tundlgXPosButton%, "XY Position");
+        DlgValue$(-tundlgNullTestANDLagButton%, "      Null Test     ");
+        tunUseLagDialog% := 0;
     endif;
     if DlgValue(11) = 1 then  'If dual VSG, allow donuts and Berliners and disparity and CRG
         'DlgEnable(1,-tundlgDonutButton%,-tundlgBerlinerButton%,-tundlgBoxODonutsButton%,-tundlgCRGButton%,-tundlgDisparityButton%);  'old version
         DlgEnable(1,-tundlgDonutButton%,-tundlgBerlinerButton%,-tundlgCRGButton%,-tundlgDisparityButton%);  'allow boxOdonuts for single screen now
         'Also allow turning off card synch, dual tuning listbox
         DlgEnable(1,12);  'dual tuning listbox
+        DlgEnable(1,17); 'constant lag listbox
+        DlgEnable(1,18); 'constant lag frames box
         'But don't allow Dots, Danish, DSS, Null test
         DlgEnable(0,-tundlgDotsButton%);
         DlgEnable(0,-tundlgDanishButton%);
         DlgEnable(0,-tundlgDSSButton%);
-        DlgEnable(0,-tundlgNullTestButton%);
+        'DlgEnable(0,-tundlgNullTestANDLagButton%);  'this is now NullTest/Lag, don't enable/disable
         'Also, change labels on buttons to reflect the binocular aspect of using dual VSG
         docase 
-            case DlgValue(12) = 0 then
-                DlgValue$(-tundlgOrientationButton%, " D Orientation ");
-                DlgValue$(-tundlgContrastButton%, "    D Contrast    ");
-                DlgValue$(-tundlgSpatialButton%, "D Spatial Freq");
-                DlgValue$(-tundlgTemporalButton%, "D Temporal Freq");
-                DlgValue$(-tundlgAreaButton%, "D Area");
-                DlgValue$(-tundlgXPosButton%, "D X Position");
-            case DlgValue(12) = 1 then
-                DlgValue$(-tundlgOrientationButton%, " M Orientation ");
-                DlgValue$(-tundlgContrastButton%, "    M Contrast    ");
-                DlgValue$(-tundlgSpatialButton%, "M Spatial Freq");
-                DlgValue$(-tundlgTemporalButton%, "M Temporal Freq");
-                DlgValue$(-tundlgAreaButton%, "M Area");
-                DlgValue$(-tundlgXPosButton%, "M X Position");
-            case DlgValue(12) = 2 then
-                DlgValue$(-tundlgOrientationButton%, " S Orientation ");
-                DlgValue$(-tundlgContrastButton%, "    S Contrast    ");
-                DlgValue$(-tundlgSpatialButton%, "S Spatial Freq");
-                DlgValue$(-tundlgTemporalButton%, "S Temporal Freq");
-                DlgValue$(-tundlgAreaButton%, "S Area");
-                DlgValue$(-tundlgXPosButton%, "S X Position");
+        case DlgValue(12) = 0 then
+            DlgValue$(-tundlgOrientationButton%, " D Orientation ");
+            DlgValue$(-tundlgContrastButton%, "    D Contrast    ");
+            DlgValue$(-tundlgSpatialButton%, "D Spatial Freq");
+            DlgValue$(-tundlgTemporalButton%, "D Temporal Freq");
+            DlgValue$(-tundlgAreaButton%, "D Area");
+            DlgValue$(-tundlgXPosButton%, "D X Position");
+            DlgValue$(-tundlgNullTestANDLagButton%, "        Lag        ");
+        case DlgValue(12) = 1 then
+            DlgValue$(-tundlgOrientationButton%, " M Orientation ");
+            DlgValue$(-tundlgContrastButton%, "    M Contrast    ");
+            DlgValue$(-tundlgSpatialButton%, "M Spatial Freq");
+            DlgValue$(-tundlgTemporalButton%, "M Temporal Freq");
+            DlgValue$(-tundlgAreaButton%, "M Area");
+            DlgValue$(-tundlgXPosButton%, "M X Position");
+            DlgValue$(-tundlgNullTestANDLagButton%, "        Lag        ");
+        case DlgValue(12) = 2 then
+            DlgValue$(-tundlgOrientationButton%, " S Orientation ");
+            DlgValue$(-tundlgContrastButton%, "    S Contrast    ");
+            DlgValue$(-tundlgSpatialButton%, "S Spatial Freq");
+            DlgValue$(-tundlgTemporalButton%, "S Temporal Freq");
+            DlgValue$(-tundlgAreaButton%, "S Area");
+            DlgValue$(-tundlgXPosButton%, "S X Position");
+            DlgValue$(-tundlgNullTestANDLagButton%, "        Lag        ");
         endcase;
+        tunUseLagDialog% := 1;
     endif;
     if DlgValue(13) = 0 then 'disable maintain mode timing if not using maintain mode
         DlgEnable(0,7);
@@ -3161,6 +3466,137 @@ func TuningCurveScriptDialogChanged%(item%)
     endif;
     return 1;
 end
+
+
+
+
+func TunOptoDialog%()
+	var iReturn% := 1;
+	var i%;
+    var labels$[4];
+    var stimdur;
+    var tempNPulses%;
+    var tempCount%;
+    stimdur := dlgvalue(4);  'get stimulus duration value from calling (main) dialog, limit opto period based on this
+    
+    labels$[0] := "Opto Off First";
+    labels$[1] := "Opto On First";
+    labels$[2] := "Random First";
+    labels$[3] := "Opto On All Blocks";
+	GetTunOptoParameters();
+	DlgCreate("Optogenetics Parameters");
+    DlgGroup("Common Parameters", 1, 1, 38, 5);
+    DlgReal(1, "Opto Voltage Out (V)",0.0002,5,20,2); '.0002 is the minimum value that will give any change at all (to 1 in a 15-bit range) on the DAC
+    DlgList(2, "Order of blocks",labels$,4,20,3);
+    DlgReal(3, "InterBlock Time(s):", 0, 100, 20, 4);  'new, allow really long stimuli
+    DlgCheck(4, "Use pulsing opto",2,5);
+    DlgCheck(5, "Record Laser Diode",2,6);
+    DlgGroup("Wrap-Around Opto", 1, 7, 38, 4);
+    DlgReal(6, "PreStimulus Opto On (s)",0,10,20,8);
+    DlgReal(7, "PostStimulus Opto On (s)",0,10,20,9);
+    DlgCheck(8, "Keep Opto on between stims",2,10);
+    DlgGroup("Pulsing Opto", 1, 11, 38, 5);
+    DlgInteger(9, "Opto # Pulses ",0,1000,20,12);
+    DlgReal(10, "Opto Period Onset (s)",0,stimdur,20,13);
+    DlgReal(11, "Opto Pulse Width (s)",0,stimdur,20,14);
+    DlgReal(12, "Opto Interpulse Interval (s)",0,100,20,15);
+    
+    'DlgCheck(6, "Record control box voltage");
+    'DlgCheck(7, "Record stimulator");
+    
+    DlgAllow(0xffff, 0, TunOptoDialogChanged%);    
+    
+	'i% := DlgShow(tunPreStimOptoTime,tunPostStimOptoTime,tunOptoStaysOn%,tunOptoVoltageOut,tunOptoStartState%);',tunRecOptoBox%,tunRecStimulator%);
+	'changing order with bigger dialog - note that with addition of the dialogChanged function the above will not be terribly relevant ever again
+    i% := DlgShow(tunOptoVoltageOut,tunOptoStartState%,tunInterBlockTime,tunOptoUsePulse%,tunLaserDiode%,tunPreStimOptoTime,tunPostStimOptoTime,tunOptoStaysOn%,tunOptoNPulses%,tunPulsedOptoOnset,tunPulsedOptoWidth,tunPulsedOptoIPI);
+    ' If i% is 1 the user hit "OK". If its 0, user hit "Cancel". 
+	' When user hits OK we always save the parameters, and when user hits Cancel we don't.
+    ' 
+    ' djs 2/4/2011
+    ' Spike2 bug workaround implemented. The return value from this function (when in DAQ context this
+    ' dialog is called from a DlgButton in another dialog) should make the parent dialog close, as if 
+    ' the OK button were hit. Bug in Spike2 v6 means this doesn't work right - the parent dialog will 
+    ' close but its variables are not updated prior to doing so.... so any changes to the parent dialog
+    ' are not seen in the subsequent expt, they're not saved in the registry, etc. Workaround is to return
+    ' something > 0 here. The parent dialog will continue to display, and the user has to hit OK on that 
+    ' before things proceed. 
+    'tunMaximalDiam := tunAreaMaxDiam;  This won't do anything unless FIXSTIM is updated to allow crosshairs
+	if i% = 1 then
+		SaveTunOptoParameters();
+        docase
+        case tunOptoStartState% = 3 then
+            dontToggleOpto% := 1;
+            tunOptoState% := 1;
+        case tunOptoStartState% = 2 then
+            tunOptoState% := round(Rand());
+        else
+            tunOptoState% := tunOptoStartState%;
+        endcase;
+        'printlog("Opto start state is %d\n",tunOptoState%);  'yep, works
+        
+        'do temporary calculation to make sure all pulses will occur during the stimulus
+        'unfortunately we will have to do this AGAIN once the script starts because the user could change the stimulus duration after the opto parameters
+        'fortunately, the calculation is the same and it all worked on the first try
+        if tunOptoUsePulse% = 1 then
+            stimdur := stimdur - tunPulsedOptoOnset;  'duration of stimulus after onset delay
+            stimdur := stimdur - tunPulsedOptoWidth;  'duration of stimulus after first opto pulse
+            if stimdur < 0 then  'if first pulse will extend beyond stimulus duration
+                tunOptoNPulses% := 0;  'turn off opto by using no pulses
+                'tell user to try again
+                Message("The first opto pulse will extend beyond the stimulus!  There will be no pulses!  Please try again!");
+            else
+                tempNPulses% := tunOptoNPulses% - 1;  'how many more pulses are left?
+                tempCount% := 1;  'temporary successful pulse count
+                while tempNPulses% > 0 do
+                    stimdur := stimdur - tunPulsedOptoWidth - tunPulsedOptoIPI;  'subtract duration of one more pulse+IPI
+                    if stimdur < 0 then  'if this pulse will extend beyond stimulus duration
+                        Message("Due to stimulus length, only " + Str$(tempCount%) + " pulses can be completed!  You may try again!");
+                        tunOptoNPulses% := tempCount%;  'only use this many pulses if user does not recalculate
+                        tempNPulses% := 0;  'break while
+                    else  'if this pulse is OK
+                        tempCount% += 1;  'increment temporary successful pulse count
+                    endif;
+                    tempNPulses% -= 1;  'decrement temporary pulse count remaining
+                wend
+                
+            endif;
+            
+        endif;
+        
+        
+        
+	endif;
+    
+	return iReturn%;
+end;
+
+
+
+' This function is initially called with a "0" input
+func TunOptoDialogChanged%(item%) 
+    DlgEnable(0,5);  'Just straight up disable the laser diode recording
+    if DlgValue(4) = 1 then
+        DlgEnable(1,9);  'enable pulsing dialog values 
+        DlgEnable(1,10);
+        DlgEnable(1,11);
+        DlgEnable(1,12);
+        DlgEnable(0,6);  'disable wrap-around dialog values 
+        DlgEnable(0,7);
+        DlgEnable(0,8);
+    else
+        DlgEnable(0,9);  'disable pulsing dialog values 
+        DlgEnable(0,10);
+        DlgEnable(0,11);
+        DlgEnable(0,12);
+        DlgEnable(1,6);  'enable wrap-around dialog values 
+        DlgEnable(1,7);
+        DlgEnable(1,8);
+    endif;
+    
+    return 1;
+end
+
+
 
 
 
