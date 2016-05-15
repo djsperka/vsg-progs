@@ -1,7 +1,7 @@
-' $Id: Tuning.s2s,v 1.102 2016-04-22 21:46:45 devel Exp $
+' $Id: Tuning.s2s,v 1.103 2016-05-15 21:04:07 devel Exp $
 ' Update 11/8/11 Jeff, includes multi-juicer updates
 
-const tunCVSID$ := "$Id: Tuning.s2s,v 1.102 2016-04-22 21:46:45 devel Exp $";
+const tunCVSID$ := "$Id: Tuning.s2s,v 1.103 2016-05-15 21:04:07 devel Exp $";
 
 
 
@@ -46,6 +46,9 @@ var ReadyChannel%;
 var ReadySlaveChannel%;
 var FixationPointSlaveChannel%;
 var StimSlaveChannel%;
+var DigitalLaserChannel%;
+var OptoCopyChannel%;
+var SequencerPeriodMS;
 var ButtonChannel%;
 var ButtonPort%;
 
@@ -127,6 +130,15 @@ const stateWaitForStimTrigger% := 14; ' Rising edge indicating start of stim seq
 const stateWaitForStimOffDSS%:=15;		' Wait for stimulus return trigger (off) during DSS sequence
 const stateInterTrialIntervalFixAlreadyUp%:=16;  'use intertrial interval after giving fixation reward in maintain fixation mode
 const stateWaitStimulusOnsetDelay%:=17;  'if there is a stimulus onset delay, wait for the correct time
+const stateStartOpto%:=18;
+const stateWaitOptoPrestim%:=19;
+const stateCheckTurnOnOpto%:=20;
+const stateCheckTurnOffOpto%:=21;
+const stateTurnOffOpto%:=22;
+const stateWaitOptoPoststim%:=23;
+const statePulsedOpto%:=24;
+const stateWaitPulsedOpto%:=25;
+const stateRequestStimulus%:=26;
 var iState% := stateVSGWait%;	' present state
 
 var nTrialsStarted%:=0;
@@ -137,6 +149,7 @@ var tic;  'Set a tick value equal to the duration of one clock tick in seconds, 
           'the same "pulse" twice
 var pulseFound%;
 var pulseFoundSlave%;
+var tOpt;
 
 
 ' Init logging
@@ -239,6 +252,7 @@ YChannel% := 26;
 'StimSlaveChannel% := 35;
 'FrameChannel% := 36;
 'FrameSlaveChannel% := 37;
+
 ReadyChannel% := 40;
 FrameChannel% := 41;
 FixationPointChannel% := 42;
@@ -247,6 +261,8 @@ ReadySlaveChannel% := 44;
 FrameSlaveChannel% := 45;
 FixationPointSlaveChannel% := 46;
 StimSlaveChannel% := 47;
+DigitalLaserChannel% := 48;  'is 32 on Acute tuning, but let's not shove it in the midst of other stuff
+OptoCopyChannel% := 49;
 
 ' end djs 9-18-14
 
@@ -425,21 +441,24 @@ func IdleProcessing%()
         ' Waiting for eye to fall inside of fixation window
         if Looking%(xEye, yEye) = 1 then
             if tunStimulusOnsetDelay = 0 then
-                LogStatus("WaitForAcquisition", "Eye in fixation window; request stim");
-                docase
-                case TunType$ = tunTypeBoxODonuts$ or TunType$ = tunTypeCRG$ or TunType$ = tunTypeXYPos$ then
-                    GetPlotXYCoord(nTrialsCompleted%,xval,yval,xind%,yind%);  'fill xval, yval
-                    SampleText("T," + str$(xval) + ",T2," + str$(yval));  'Just a guess at what will work
-                else
-                    SampleText("T," + str$(GetPlotXCoord(nTrialsCompleted%)));
-                endcase;
+                'LogStatus("WaitForAcquisition", "Eye in fixation window; request stim");
+                'docase
+                'case TunType$ = tunTypeBoxODonuts$ or TunType$ = tunTypeCRG$ or TunType$ = tunTypeXYPos$ then
+                '    GetPlotXYCoord(nTrialsCompleted%,xval,yval,xind%,yind%);  'fill xval, yval
+                '    SampleText("T," + str$(xval) + ",T2," + str$(yval));  'Just a guess at what will work
+                'else
+                '    SampleText("T," + str$(GetPlotXCoord(nTrialsCompleted%)));
+                'endcase;
                 
-                SafeSampleKey("S");  'request stimulus
-                if tunType$ = tunTypeDSS$ and tunDSSCurrPeriod% = 0 then  'initialize DSS stimulus if necessary
-                    InitializeDSSTrial(tNow);
-                endif;
-                'iHoldCount% := 0;  'disimplemented
-                ChangeStateTo(stateWaitForStimTrigger%, tNow);
+                'SafeSampleKey("S");  'request stimulus
+                'if tunType$ = tunTypeDSS$ and tunDSSCurrPeriod% = 0 then  'initialize DSS stimulus if necessary
+                '    InitializeDSSTrial(tNow);
+                'endif;
+                ''iHoldCount% := 0;  'disimplemented
+                'ChangeStateTo(stateWaitForStimTrigger%, tNow);
+                LogStatus("WaitForAcquisition", "Eye in fixation window; checking opto status");
+                ChangeStateTo(stateCheckTurnOnOpto%, tNow);
+                
             else
                 LogStatus("WaitForAcquisition", "Eye in fixation window; wait through onset delay");
                 ChangeStateTo(stateWaitStimulusOnsetDelay%, tNow);
@@ -459,21 +478,23 @@ func IdleProcessing%()
         if Looking%(xEye, yEye) = 1 then
             'if it's time to start the stimulus
             if tNow - tStateStart > tunStimulusOnsetDelay then
-                LogStatus("WaitStimulusOnsetDelay", "Eye in fixation window, onset delay complete; request stim");
-                docase
-                case TunType$ = tunTypeBoxODonuts$ or TunType$ = tunTypeCRG$ or TunType$ = tunTypeXYPos$ then
-                    GetPlotXYCoord(nTrialsCompleted%,xval,yval,xind%,yind%);  'fill xval, yval
-                    SampleText("T," + str$(xval) + ",T2," + str$(yval));  'Just a guess at what will work
-                else
-                    SampleText("T," + str$(GetPlotXCoord(nTrialsCompleted%)));
-                endcase;
-                
-                SafeSampleKey("S");  'request stimulus
-                if tunType$ = tunTypeDSS$ and tunDSSCurrPeriod% = 0 then  'initialize DSS stimulus if necessary
-                    InitializeDSSTrial(tNow);
-                endif;
-                'iHoldCount% := 0;  'disimplemented
-                ChangeStateTo(stateWaitForStimTrigger%, tNow);
+                'LogStatus("WaitStimulusOnsetDelay", "Eye in fixation window, onset delay complete; request stim");
+                'docase
+                'case TunType$ = tunTypeBoxODonuts$ or TunType$ = tunTypeCRG$ or TunType$ = tunTypeXYPos$ then
+                '    GetPlotXYCoord(nTrialsCompleted%,xval,yval,xind%,yind%);  'fill xval, yval
+                '    SampleText("T," + str$(xval) + ",T2," + str$(yval));  'Just a guess at what will work
+                'else
+                '    SampleText("T," + str$(GetPlotXCoord(nTrialsCompleted%)));
+                'endcase;
+                ' 
+                'SafeSampleKey("S");  'request stimulus
+                'if tunType$ = tunTypeDSS$ and tunDSSCurrPeriod% = 0 then  'initialize DSS stimulus if necessary
+                '    InitializeDSSTrial(tNow);
+                'endif;
+                ''iHoldCount% := 0;  'disimplemented
+                'ChangeStateTo(stateWaitForStimTrigger%, tNow);
+                LogStatus("WaitForAcquisition", "Eye in fixation window; checking opto status");
+                ChangeStateTo(stateCheckTurnOnOpto%, tNow);
             endif;
         else 
             ' failed to hold fixation through onset delay 
@@ -482,7 +503,88 @@ func IdleProcessing%()
             ChangeStateTo(stateAbort%, tNow);
         endif
         
+    case iState% = stateCheckTurnOnOpto% then
+        docase
+        case tunDoOpto% = 0 then 'if this is not an opto trial, just start it
+            ChangeStateTo(stateRequestStimulus%, tNow);
+            printlog("Not an opto trial, doOpto = %d, optoState = %d, time = %f\n",tunDoOpto%,tunOptoState%,tNow);
+        case tunOptoUsePulse% = 1 and tunOptoState% = 0 then 'if this is a pulsed opto scenario, but not an opto trial, just start it
+            'This is the same as the above step, separated to make the logic of the case statement easier
+            ChangeStateTo(stateRequestStimulus%, tNow);
+            printlog("Not an opto trial, doOpto = %d, optoState = %d, time = %f\n",tunDoOpto%,tunOptoState%,tNow);
+        case tunOptoUsePulse% = 1 and tunOptoState% = 1 then  'it is a pulsed opto trial, the sequencer will time this
+            ChangeStateTo(statePulsedOpto%,tNow);
+        case tunOptoStaysOn% = 1 and (nTrialsCompleted% mod (tunNAdvances%+1)) <> 0 then 'this is for when we're keeping the opto on and it's mid block
+            ChangeStateTo(stateRequestStimulus%, tNow);
+            printlog("Opto is already on, OptoStaysOn = %d, TrialsComplete = %d, time = %f\n",tunOptoStaysOn%,(nTrialsCompleted% mod (tunNAdvances%+1)),tNow);
+        else 'otherwise it is a wraparound opto trial and we need to turn opto on
+            ChangeStateTo(stateStartOpto%, tNow);
+            printlog("Turning Opto On at time = %f\n",tNow);
+        endcase
         
+        
+    case iState% = stateStartOpto% then
+        if tunOptoState% = 1 then 'this is an opto-on trial
+            SafeSampleKey("O");  'turn on opto
+            tOpt := View(DataWindow%).MaxTime();
+            'printlog("OptoOn at %f\n",tOpt);
+            SampleText("OptoOn",tOpt);
+        else 'this is an opto-off trial
+            SafeSampleKey("N");  'don't turn on opto
+            tOpt := View(DataWindow%).MaxTime();
+            'printlog("OptoOn at %f\n",tOpt);
+            SampleText("NoOpto",tOpt);
+        endif;
+        
+        ChangeStateTo(stateWaitOptoPrestim%, tNow);
+        
+        
+    case iState% = stateWaitOptoPrestim% then
+        if tNow > tStateStart + tunPreStimOptoTime then
+            ChangeStateTo(stateRequestStimulus%, tNow);
+        endif;      
+        
+        
+    case iState% = statePulsedOpto% then
+        SafeSampleKey("P");  'start pulsed opto, the whole sequence is controlled by the sequencer, this does the "S" implicitly
+        tOpt := View(DataWindow%).MaxTime();
+        SampleText("T," + str$(GetPlotXCoord(nTrialsCompleted%)),tOpt);
+        printlog("Started opto trial at %f\n",tOpt);
+        'ChangeStateTo(stateWaitPulsedOpto%, tOpt);
+        ChangeStateTo(stateWaitForStimTrigger%, tOpt);
+        
+        
+'    case iState% = stateWaitPulsedOpto% then 'wait for sequencer-controlled timing to complete
+'        if tNow > tStateStart + tunStimulusDuration + 0.1 then 'wait an extra tenth of a second just in case
+'            ChangeStateTo(stateTrialCompleted%,tNow);
+'            'the "X" is not necessary as the pulsed opto sequence does the stimulus-off.  But maybe somebody someday will want to SEE the "X"...can uncomment if so
+'            'SafeSampleKey("X"); 
+'            'Advance, this we DO have to do
+'            SafeSampleKey("a");
+'            nTrialsCompleted% += 1;  'trial is complete
+'            SampleSeqVar(6,tunOptoNPulses%);  'reset number of pulses, otherwise bad stuff happens on trial #2
+'            printlog("Completed opto trial at %f\n",tNow);
+'        endif;        
+        
+        
+    case iState% = stateRequestStimulus% then
+
+        ' Start trial. Put up stimulus.
+        LogStatus("StartTrial", "Request stimulus");
+        docase
+        case TunType$ = tunTypeBoxODonuts$ or TunType$ = tunTypeCRG$ or TunType$ = tunTypeXYPos$ then
+            GetPlotXYCoord(nTrialsCompleted%,xval,yval,xind%,yind%);  'fill xval, yval
+            SampleText("T," + str$(xval) + ",T2," + str$(yval));  'Just a guess at what will work
+        else
+            SampleText("T," + str$(GetPlotXCoord(nTrialsCompleted%)));
+        endcase;
+         
+        SafeSampleKey("S");  'request stimulus
+        if tunType$ = tunTypeDSS$ and tunDSSCurrPeriod% = 0 then  'initialize DSS stimulus if necessary
+            InitializeDSSTrial(tNow);
+        endif;
+        'iHoldCount% := 0;  'disimplemented   
+        ChangeStateTo(stateWaitForStimTrigger%, tNow);        
         
     case iState% = stateWaitForStimTrigger% then
 
@@ -508,7 +610,26 @@ func IdleProcessing%()
 
         ' Signal "X" turns off fixpt and stimulus. The next state 'stateWaitForBlank' only checks for 
         ' fixpt off. 
-        SafeSampleKey("X");
+        docase
+        case tunOptoUsePulse% = 1 and tunOptoState% = 1 then  'it is a pulsed opto trial
+            'on a pulsed opto abort, we need to turn off the laser and break out of the opto loop
+            SampleKey("B");  'NOT SafeSampleKey - sequencer is in use and we're killing it anyway, by design
+        case tunDoOpto% = 1 and tunOptoUsePulse% = 0 then  'any other opto trial, kill opto on abort
+            if tunOptoState% = 1 then
+                SafeSampleKey("o");  'turn it off
+                tOpt := View(DataWindow%).MaxTime();
+                'printlog("OptoOff at %f\n",tOpt);
+                SampleText("OptoOff",tOpt);
+            else
+                SafeSampleKey("n");  'turn it off
+                tOpt := View(DataWindow%).MaxTime();
+                'printlog("OptoOff at %f\n",tOpt);
+                SampleText("NoOptoSoNoOff",tOpt);
+            endif;
+            SafeSampleKey("X");  'just turn off stimulus
+        else
+            SafeSampleKey("X");  'just turn off stimulus
+        endcase;
         ChangeStateTo(stateWaitForBlank%, tNow);
 
     case iState% = stateWaitForBlank% then
@@ -662,14 +783,14 @@ func IdleProcessing%()
             SafeSampleKey("a");
 
             tLastTrigger := tTrigger;
-            ChangeStateTo(stateTrialCompleted%, tNow);
+            ChangeStateTo(stateCheckTurnOffOpto%, tNow);
         else
             if tunType$ = tunTypeDanish$ and tunUseMaintainMode% >= 3 and View(DataWindow%).FindRisingEdge%(FrameChannel%, tLast, tTrigger) then
                 ' Advance, in specific case that we are doing danishes and maintaining the core - there will not be a falling edge on the stim channel in this case
                 SafeSampleKey("a");
 
                 tLastTrigger := tTrigger;
-                ChangeStateTo(stateTrialCompleted%, tNow);
+                ChangeStateTo(stateCheckTurnOffOpto%, tNow);
             endif
             
         endif
@@ -683,20 +804,69 @@ func IdleProcessing%()
             SafeSampleKey("a");
 
             tLastTrigger := tTrigger;
-            ChangeStateTo(stateTrialCompleted%, tNow);
+            ChangeStateTo(stateCheckTurnOffOpto%, tNow);
         endif   
+        
+        
+    case iState% = stateCheckTurnOffOpto% then
+        nTrialsCompleted% += 1;  'trial is complete, change of count here makes logic easier 
+        docase
+        case tunDoOpto% = 0 or (tunOptoState% = 0 and tunOptoUsePulse% = 1) then 'if this is not an opto trial, trial is complete
+            ChangeStateTo(stateTrialCompleted%, tStateStart);
+            printlog("Trial complete, Not an opto trial, doOpto = %d, optoState = %d, time = %f\n",tunDoOpto%,tunOptoState%,tStateStart);
+        case tunOptoStaysOn% = 1 and (nTrialsCompleted% mod (tunNAdvances%+1)) <> 0 then 'this is for when we're keeping the opto on and it's mid block
+            ChangeStateTo(stateTrialCompleted%, tStateStart);
+            printlog("Opto is staying on, OptoStaysOn = %d, TrialsComplete = %d, time = %f\n",tunOptoStaysOn%,(nTrialsCompleted% mod (tunNAdvances%+1)),tStateStart);
+        case tunOptoUsePulse% = 1 and tunOptoState% = 1 then  'it is a pulsed opto trial
+            printlog("Trial complete, Pulsed opto trial, time = %f\n",tStateStart);
+            SampleSeqVar(6,tunOptoNPulses%);  'reset number of pulses, otherwise bad stuff happens
+        else 'otherwise it is an opto trial and we need to turn opto off
+            ChangeStateTo(stateWaitOptoPoststim%, tStateStart);
+            printlog("Turning Opto Off at time = %f\n",tStateStart);
+        endcase
+        
+        
+        
+    case iState% = stateWaitOptoPoststim% then
+        if tNow > tStateStart + tunPostStimOptoTime then
+            ChangeStateTo(stateTurnOffOpto%, tNow);
+        endif;
+        
+        
+    case iState% = stateTurnOffOpto% then
+        if tunOptoState% = 1 then
+            SafeSampleKey("o");  'turn it off
+            tOpt := View(DataWindow%).MaxTime();
+            'printlog("OptoOff at %f\n",tOpt);
+            SampleText("OptoOff",tOpt);
+        else
+            SafeSampleKey("n");  'turn it off
+            tOpt := View(DataWindow%).MaxTime();
+            'printlog("OptoOff at %f\n",tOpt);
+            SampleText("NoOptoSoNoOff",tOpt);
+        endif;
+        
+        ChangeStateTo(stateTrialCompleted%,tNow); 
+        
         
 
     case iState% = stateTrialCompleted% then
         
-        nTrialsCompleted% += 1;         ' this state must be exited this time through!!!
+        'nTrialsCompleted% += 1;  'now done above in stateCheckTurnOffOpto%
         printlog("number of trials completed is %d\n",nTrialsCompleted%);
-		ToolbarText(str$(nTrialsCompleted%) + "/" + str$(tunNValues%) + " trials completed.");        
-		if nTrialsCompleted% = tunNValues% then
+		ToolbarText(str$(nTrialsCompleted%) + "/" + str$(tunNValues%) + " trials completed."); 
+        docase
+		case nTrialsCompleted% = tunNValues% then
             ' We're all done - appears to not reward on final trial.  How chintzy!
             ChangeStateTo(stateDone%, tNow);
             Stop%();
             iStatus% := 0;
+        case (nTrialsCompleted% mod (tunNAdvances%+1)) = 0 then 'toggle tunOptoState at the end of a block, use interblock time
+            if tunDoOpto% = 1 and dontToggleOpto% = 0 then
+                tunOptoState% := 1-tunOptoState%;  'but only toggle if we're actually doing opto, and we haven't been told to not toggle opto
+            endif;
+            tInterTrialTime := tunStdInterTrialTime + tunInterBlockTime;
+            ChangeStateTo(stateInterTrialInterval%, tNow);
         else
             if tunUseMaintainMode% >= 1 then
                 ChangeStateTo(stateMaintainFixation%, tNow);
@@ -705,7 +875,7 @@ func IdleProcessing%()
                 tInterTrialTime := tunStdInterTrialTime;
                 ChangeStateTo(stateInterTrialInterval%, tNow);
             endif
-        endif
+        endcase
             
     case iState% = stateMaintainFixation% then
 
@@ -1401,21 +1571,15 @@ proc CreateSampleConfiguration()
     docase
         
     case tunType$ = tunTypeDots$ then 
-'        if UseTwo1401s% = 0 then
-'            SampleAutoName$(dataCellName$ + "_dots_000");  'NOTE: maximum of 13 characters!!!
-'        else
-'            EqualizeSMRFilenumbers(dataPathRoot$ + "\\" + dataDataSet$,dataCellName$+"_dotMICRO_",dataCellName$+"_dotPOWER_");
-'            SampleAutoName$(dataCellName$ + "_dotMICRO_000");  'NOTE: maximum of 13 characters!!!
-'            SetStringRegistryValue(key$, "pref", "dot");
-'        endif;
         DoSampleAutoName(key$,"dots","dot",masterTxt$,slaveTxt$);
         
         tunNAdvances% := tunDotsNSteps%;
-        tunNRepeats% := tunDotsNRepeats%;
+        tunNRepeats% := tunDotsNRepeats%*(1+tunDoOpto%);  'double number of blocks if doing optogenetics
         GetRepeatedParameterProgression%(tunDotsNSteps%+1, tunDotsNRepeats%, tunValues[], tunValuesIndices%[], tunDotsMinOrientation, tunDotsMaxOrientation, 0, tunDotsProgression%);  'Note - linear spacing for orientation, not log
         tunNValues% := (tunDotsNSteps%+1)*tunDotsNRepeats%;
         tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%);        
     case tunType$ = tunTypeContrast$ then 
+        'this is the old way...might need to look back if the new way doesn't work!
 '        if UseTwo1401s% = 0 then
 '            SampleAutoName$(dataCellName$ + "_con_000");  'NOTE: maximum of 13 characters!!!
 '        else
@@ -1431,7 +1595,7 @@ proc CreateSampleConfiguration()
         'GetRepeatedParameterProgression%(tunContrastNSteps%+1, tunContrastNRepeats%, tunValues[], tunValuesIndices%[], tunContrastMinContrast, tunContrastMaxContrast, 1, tunContrastProgression%);
         'tunNValues% := (tunContrastNSteps%+1)*tunContrastNRepeats%;
         'tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%);
-        tunNRepeats% := tunContrastNRepeats%;  'double number of blocks if doing optogenetics
+        tunNRepeats% := tunContrastNRepeats%*(1+tunDoOpto%);  'double number of blocks if doing optogenetics
         if tunUseFile% = 1 then
             tunNAdvances% := tunFileLen%-1;
             ShuffleAndExpand(tunFileLen%,tunNRepeats%,tunValuesIndices%[],tunContrastProgression%);
@@ -1443,16 +1607,9 @@ proc CreateSampleConfiguration()
         tunNValues% := (tunNAdvances%+1)*tunNRepeats%;  'shorter, should work the same as above commented line, keeping old line for contrast only just in case...
         tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%);
     case tunType$ = tunTypeOrientation$ then 
-'        if UseTwo1401s% = 0 then
-'            SampleAutoName$(dataCellName$ + "_ori_000");  'NOTE: maximum of 13 characters!!!
-'        else
-'            EqualizeSMRFilenumbers(dataPathRoot$ + "\\" + dataDataSet$,dataCellName$+"_oriMICRO_",dataCellName$+"_oriPOWER_");
-'            SampleAutoName$(dataCellName$ + "_oriMICRO_000");  'NOTE: maximum of 13 characters!!!
-'            SetStringRegistryValue(key$, "pref", "ori");
-'        endif;
         DoSampleAutoName(key$,"ori","ori",masterTxt$,slaveTxt$);
         
-        tunNRepeats% := tunOriNRepeats%;  'double number of blocks if doing optogenetics
+        tunNRepeats% := tunOriNRepeats%*(1+tunDoOpto%);  'double number of blocks if doing optogenetics
         if tunUseFile% = 1 then
             tunNAdvances% := tunFileLen%-1;
             ShuffleAndExpand(tunFileLen%,tunNRepeats%,tunValuesIndices%[],tunOriProgression%);
@@ -1463,16 +1620,9 @@ proc CreateSampleConfiguration()
         tunNValues% := (tunNAdvances%+1)*tunNRepeats%;  
         tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%);
     case tunType$ = tunTypeSpatial$ then 
-'        if UseTwo1401s% = 0 then
-'            SampleAutoName$(dataCellName$ + "_spa_000");  'NOTE: maximum of 13 characters!!!
-'        else
-'            EqualizeSMRFilenumbers(dataPathRoot$ + "\\" + dataDataSet$,dataCellName$+"_spaMICRO_",dataCellName$+"_spaPOWER_");
-'            SampleAutoName$(dataCellName$ + "_spaMICRO_000");  'NOTE: maximum of 13 characters!!!
-'            SetStringRegistryValue(key$, "pref", "spa");
-'        endif;
         DoSampleAutoName(key$,"spa","spa",masterTxt$,slaveTxt$);
         
-        tunNRepeats% := tunSpatialNRepeats%;  'double number of blocks if doing optogenetics
+        tunNRepeats% := tunSpatialNRepeats%*(1+tunDoOpto%);  'double number of blocks if doing optogenetics
         if tunUseFile% = 1 then
             tunNAdvances% := tunFileLen%-1;
             ShuffleAndExpand(tunFileLen%,tunNRepeats%,tunValuesIndices%[],tunSpatialProgression%);
@@ -1483,16 +1633,9 @@ proc CreateSampleConfiguration()
         tunNValues% := (tunNAdvances%+1)*tunNRepeats%;  
         tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%);
     case tunType$ = tunTypeTemporal$ then 
-'        if UseTwo1401s% = 0 then
-'            SampleAutoName$(dataCellName$ + "_tem_000");  'NOTE: maximum of 13 characters!!!
-'        else
-'            EqualizeSMRFilenumbers(dataPathRoot$ + "\\" + dataDataSet$,dataCellName$+"_temMICRO_",dataCellName$+"_temPOWER_");
-'            SampleAutoName$(dataCellName$ + "_temMICRO_000");  'NOTE: maximum of 13 characters!!!
-'            SetStringRegistryValue(key$, "pref", "tem");
-'        endif;
         DoSampleAutoName(key$,"tem","tem",masterTxt$,slaveTxt$);
         
-        tunNRepeats% := tunTemporalNRepeats%;  'double number of blocks if doing optogenetics
+        tunNRepeats% := tunTemporalNRepeats%*(1+tunDoOpto%);  'double number of blocks if doing optogenetics
         if tunUseFile% = 1 then
             tunNAdvances% := tunFileLen%-1;
             ShuffleAndExpand(tunFileLen%,tunNRepeats%,tunValuesIndices%[],tunTemporalProgression%);
@@ -1503,16 +1646,9 @@ proc CreateSampleConfiguration()
         tunNValues% := (tunNAdvances%+1)*tunNRepeats%;  
         tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%);
     case tunType$ = tunTypeArea$ then 
-'        if UseTwo1401s% = 0 then
-'            SampleAutoName$(dataCellName$ + "_area_000");  'NOTE: maximum of 13 characters!!!
-'        else
-'            EqualizeSMRFilenumbers(dataPathRoot$ + "\\" + dataDataSet$,dataCellName$+"_areMICRO_",dataCellName$+"_arePOWER_");
-'            SampleAutoName$(dataCellName$ + "_areMICRO_000");  'NOTE: maximum of 13 characters!!!
-'            SetStringRegistryValue(key$, "pref", "are");
-'        endif;
         DoSampleAutoName(key$,"area","are",masterTxt$,slaveTxt$);
         
-        tunNRepeats% := tunAreaNRepeats%;  'double number of blocks if doing optogenetics
+        tunNRepeats% := tunAreaNRepeats%*(1+tunDoOpto%);  'double number of blocks if doing optogenetics
         if tunUseFile% = 1 then
             tunNAdvances% := tunFileLen%-1;
             ShuffleAndExpand(tunFileLen%,tunNRepeats%,tunValuesIndices%[],tunAreaProgression%);
@@ -1523,16 +1659,9 @@ proc CreateSampleConfiguration()
         tunNValues% := (tunNAdvances%+1)*tunNRepeats%;  
         tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%);
     case tunType$ = tunTypeNullTest$ then 
-'        if UseTwo1401s% = 0 then
-'            SampleAutoName$(dataCellName$ + "_nulltest_000");  'NOTE: maximum of 13 characters!!!
-'        else
-'            EqualizeSMRFilenumbers(dataPathRoot$ + "\\" + dataDataSet$,dataCellName$+"_nulMICRO_",dataCellName$+"_nulPOWER_");
-'            SampleAutoName$(dataCellName$ + "_nulMICRO_000");  'NOTE: maximum of 13 characters!!!
-'            SetStringRegistryValue(key$, "pref", "nul");
-'        endif;
         DoSampleAutoName(key$,"nulltest","nul",masterTxt$,slaveTxt$);
         
-        tunNRepeats% := tunNullTestNRepeats%;
+        tunNRepeats% := tunNullTestNRepeats%*(1+tunDoOpto%);  'double number of blocks if doing optogenetics
         if tunUseFile% = 1 then
             tunNAdvances% := tunFileLen%-1;
             ShuffleAndExpand(tunFileLen%,tunNRepeats%,tunValuesIndices%[],tunNullTestProgression%);
@@ -1542,29 +1671,35 @@ proc CreateSampleConfiguration()
         endif;
         tunNValues% := (tunNAdvances%+1)*tunNRepeats%;  
         tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%); 
+    case tunType$ = tunTypeLag$ then 
+        DoSampleAutoName(key$,"lag","lag",masterTxt$,slaveTxt$);
+        
+        'this is the old way...might need to look back if the new way doesn't work!
+        'tunNAdvances% := tunLagNSteps%;  'this...
+        'tunNRepeats% := tunLagNRepeats%; '...and this are only used in a printlog statement
+        'GetRepeatedParameterProgression%(tunLagNSteps%+1, tunLagNRepeats%, tunValues[], tunValuesIndices%[], tunLagMinLagFrames, tunLagMaxLagFrames, 0, tunLageProgression%);
+        'tunNValues% := (tunLagNSteps%+1)*tunLagNRepeats%;
+        'tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%);
+        tunNRepeats% := tunLagNRepeats%*(1+tunDoOpto%);  'double number of blocks if doing optogenetics
+        if tunUseFile% = 1 then
+            tunNAdvances% := tunFileLen%-1;
+            ShuffleAndExpand(tunFileLen%,tunNRepeats%,tunValuesIndices%[],tunLagProgression%);
+        else
+            tunNAdvances% := tunLagNSteps%;
+            GetRepeatedParameterProgression%(tunLagNSteps%+1, tunNRepeats%, tunValues[], tunValuesIndices%[], tunLagMinLagFrames, tunLagMaxLagFrames, 0, tunLagProgression%);
+        endif;
+        'tunNValues% := (tunLagNSteps%+1)*tunLagNRepeats%*(1+tunDoOpto%);  'double number of blocks if doing optogenetics
+        tunNValues% := (tunNAdvances%+1)*tunNRepeats%;  'shorter, should work the same as above commented line, keeping old line for contrast only just in case...
+        tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%);
     case tunType$ = tunTypeXPos$ then 
-'        if UseTwo1401s% = 0 then
-'            SampleAutoName$(dataCellName$ + "_xpos_000");  'NOTE: maximum of 13 characters!!!
-'        else
-'            EqualizeSMRFilenumbers(dataPathRoot$ + "\\" + dataDataSet$,dataCellName$+"_xpsMICRO_",dataCellName$+"_xpsPOWER_");
-'            SampleAutoName$(dataCellName$ + "_xpsMICRO_000");  'NOTE: maximum of 13 characters!!!
-'            SetStringRegistryValue(key$, "pref", "xps");
-'        endif;
         DoSampleAutoName(key$,"xpos","xps",masterTxt$,slaveTxt$);
         
         tunNAdvances% := tunXPosNSteps%;
-        tunNRepeats% := tunXPosNRepeats%;
+        tunNRepeats% := tunXPosNRepeats%*(1+tunDoOpto%);  'double number of blocks if doing optogenetics
         GetRepeatedParameterProgression%(tunXPosNSteps%+1, tunXPosNRepeats%, tunValues[], tunValuesIndices%[], tunXPosMinXPos, tunXPosMaxXPos, 0, tunXPosProgression%);  'Note - linear spacing for position, not log
         tunNValues% := (tunXPosNSteps%+1)*tunXPosNRepeats%;
         tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%);   
     case tunType$ = tunTypeXYPos$ then 
-'        if UseTwo1401s% = 0 then
-'            SampleAutoName$(dataCellName$ + "_xypos_000");  'NOTE: maximum of 13 characters!!!
-'        else
-'            EqualizeSMRFilenumbers(dataPathRoot$ + "\\" + dataDataSet$,dataCellName$+"_xypMICRO_",dataCellName$+"_xypPOWER_");
-'            SampleAutoName$(dataCellName$ + "_xypMICRO_000");  'NOTE: maximum of 13 characters!!!
-'            SetStringRegistryValue(key$, "pref", "xyp");
-'        endif;
         DoSampleAutoName(key$,"xypos","xyp",masterTxt$,slaveTxt$);
         
         'for tun1, use X
@@ -1585,7 +1720,7 @@ proc CreateSampleConfiguration()
         endif;
         tun2NValues% := (tunXYPosNYSteps%+1);       
         
-        tunNRepeats% := tunXYPosNRepeats%;   
+        tunNRepeats% := tunXYPosNRepeats%*(1+tunDoOpto%);  'double number of blocks if doing optogenetics   
         tunNAdvances% := tun1NValues%*tun2NValues%-1;  'this gives the correct number of advances
         tunNValues% := tun1NValues%*tun2NValues%*tunXYPosNRepeats%;  'now used in idle loop instead of (tunNAdvances%+1)*tunNRepeats
         
@@ -1602,33 +1737,19 @@ proc CreateSampleConfiguration()
         printlog("XY values are %s\n",tunValuesStringified$);
         
     case tunType$ = tunTypeDisparity$ then 
-'        if UseTwo1401s% = 0 then
-'            SampleAutoName$(dataCellName$ + "_disprity_000");  'NOTE: maximum of 13 characters!!!
-'        else
-'            EqualizeSMRFilenumbers(dataPathRoot$ + "\\" + dataDataSet$,dataCellName$+"_disMICRO_",dataCellName$+"_disPOWER_");
-'            SampleAutoName$(dataCellName$ + "_disMICRO_000");  'NOTE: maximum of 13 characters!!!
-'            SetStringRegistryValue(key$, "pref", "dis");
-'        endif;
         DoSampleAutoName(key$,"disprity","dis",masterTxt$,slaveTxt$);
         
         tunNAdvances% := tunDisparityNSteps%;
-        tunNRepeats% := tunDisparityNRepeats%;
+        tunNRepeats% := tunDisparityNRepeats%*(1+tunDoOpto%);  'double number of blocks if doing optogenetics
         GetRepeatedSymmetricParameterProgression%(tunDisparityNSteps%+1, tunDisparityNRepeats%, tunValues[], tunValuesIndices%[], tunDisparityCenterXPos, tunDisparityMaxXPos, 0, tunDisparityProgression%);  'linear spacing only
         'GetRepeatedSymmetricParameterProgression%(tunDisparityNSteps%+1, tunDisparityNRepeats%, tunValues[], tunValuesIndices%[], tunDisparityCenterXPos, tunDisparityMaxXPos, 1-tunDisparityLinear%, tunDisparityProgression%);  'allow log spacing
         tunNValues% := (2*tunDisparityNSteps%+1)*tunDisparityNRepeats%;
         tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%);         
     case tunType$ = tunTypeDonut$ then 
-'        if UseTwo1401s% = 0 then
-'            SampleAutoName$(dataCellName$ + "_donut_000");  'NOTE: maximum of 13 characters!!!
-'        else
-'            EqualizeSMRFilenumbers(dataPathRoot$ + "\\" + dataDataSet$,dataCellName$+"_donMICRO_",dataCellName$+"_donPOWER_");
-'            SampleAutoName$(dataCellName$ + "_donMICRO_000");  'NOTE: maximum of 13 characters!!!
-'            SetStringRegistryValue(key$, "pref", "don");
-'        endif;
         DoSampleAutoName(key$,"donut","don",masterTxt$,slaveTxt$);
         
         tunNAdvances% := tunAreaNSteps%;
-        tunNRepeats% := tunAreaNRepeats%;
+        tunNRepeats% := tunAreaNRepeats%*(1+tunDoOpto%);  'double number of blocks if doing optogenetics
         GetRepeatedParameterProgression%(tunAreaNSteps%+1, tunAreaNRepeats%, tunValues[], tunValuesIndices%[], tunAreaMinDiam, tunAreaMaxDiam, 1, tunDonutProgression%);
         tunNValues% := (tunAreaNSteps%+1)*tunAreaNRepeats%;
         tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%);
@@ -1637,17 +1758,10 @@ proc CreateSampleConfiguration()
         '    PrintLog("%d %f\n", i%, tunValues[tunValuesIndices%[i%]]);
         'next
     case tunType$ = tunTypeBerliner$ then 
-'        if UseTwo1401s% = 0 then
-'            SampleAutoName$(dataCellName$ + "_berliner_000");  'NOTE: maximum of 13 characters!!!
-'        else
-'            EqualizeSMRFilenumbers(dataPathRoot$ + "\\" + dataDataSet$,dataCellName$+"_berMICRO_",dataCellName$+"_berPOWER_");
-'            SampleAutoName$(dataCellName$ + "_berMICRO_000");  'NOTE: maximum of 13 characters!!!
-'            SetStringRegistryValue(key$, "pref", "ber");
-'        endif;
         DoSampleAutoName(key$,"berliner","ber",masterTxt$,slaveTxt$);
         
         tunNAdvances% := tunBerlinerNSteps%-1;  'subtract one because tunBerlinerNSteps% is literal (that is, n stims)
-        tunNRepeats% := tunBerlinerNRepeats%;
+        tunNRepeats% := tunBerlinerNRepeats%*(1+tunDoOpto%);  'double number of blocks if doing optogenetics
         GetRepeatedParameterProgression%(tunBerlinerNSteps%, tunBerlinerNRepeats%, tunValues[], tunValuesIndices%[], 1, tunBerlinerNSteps%, 0, tunBerlinerProgression%);
         tunNValues% := (tunBerlinerNSteps%)*tunBerlinerNRepeats%;
         tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%);
@@ -1706,6 +1820,15 @@ proc CreateSampleConfiguration()
             GetRepeatedParameterProgression%(tunXPosNSteps%+1, 1, tun1Values[], tun1ValuesIndices%[], tunXPosMinXPos, tunXPosMaxXPos, 0, 0);
             tun1NValues% := (tunXPosNSteps%+1);
             temp1$ := "_xpos";
+        case tuntype1$ = tunTypeLag$ then
+            if tunUseFile1% = 1 then
+                ShuffleAndExpand(tun1FileLen%,1,tun1ValuesIndices%[],0);
+                tun1NValues% := tun1FileLen%;
+            else                
+                GetRepeatedParameterProgression%(tunLagNSteps%+1, 1, tun1Values[], tun1ValuesIndices%[], tunLagMinLagFrames, tunLagMaxLagFrames, 0, 0);
+                tun1NValues% := (tunLagNSteps%+1);
+            endif;
+            temp1$ := "_lag";
         endcase;
         
         docase
@@ -1758,18 +1881,20 @@ proc CreateSampleConfiguration()
             GetRepeatedParameterProgression%(tunXPosNSteps%+1, 1, tun2Values[], tun2ValuesIndices%[], tunXPosMinXPos, tunXPosMaxXPos, 0, 0);
             tun2NValues% := (tunXPosNSteps%+1);
             temp2$ := "_xpos";
+        case tuntype2$ = tunTypeLag$ then
+            if tunUseFile2% = 1 then
+                ShuffleAndExpand(tun2FileLen%,1,tun2ValuesIndices%[],0);
+                tun2NValues% := tun2FileLen%;
+            else
+                GetRepeatedParameterProgression%(tunLagNSteps%+1, 1, tun2Values[], tun2ValuesIndices%[], tunLagMinLagFrames, tunLagMaxLagFrames, 0, 0);
+                tun2NValues% := (tunLagNSteps%+1); 
+            endif;
+            temp2$ := "_lag";
         endcase;
               
-'        if UseTwo1401s% = 0 then
-'            SampleAutoName$(dataCellName$ + "_boxodonuts" + temp1$ + temp2$ + "_000");  'NOTE: maximum of 13 characters!!!
-'        else
-'            EqualizeSMRFilenumbers(dataPathRoot$ + "\\" + dataDataSet$,dataCellName$+"_boxodonuts" + temp1$ + temp2$ + "MICRO_",dataCellName$+"_boxodonuts" + temp1$ + temp2$ + "POWER_");  
-'            SampleAutoName$(dataCellName$ + "_boxodonuts" + temp1$ + temp2$ + "MICRO_000");  'NOTE: maximum of 13 characters!!!
-'            SetStringRegistryValue(key$, "pref", "_boxodonuts" + temp1$ + temp2$);  'this is too long and shouldn't work, but it's always been like this and Ben hasn't complained...
-'        endif;
         DoSampleAutoName(key$,"_boxodonuts" + temp1$ + temp2$,"_boxodonuts" + temp1$ + temp2$,masterTxt$,slaveTxt$);  'Note that this does not reflect the correct number of characters...it may not work properly?
         
-        tunNRepeats% := tunBoxODonutsNRepeats%;   
+        tunNRepeats% := tunBoxODonutsNRepeats%*(1+tunDoOpto%);  'double number of blocks if doing optogenetics   
         tunNAdvances% := tun1NValues%*tun2NValues%-1;  'this gives the correct number of advances
         tunNValues% := tun1NValues%*tun2NValues%*tunBoxODonutsNRepeats%;  'now used in idle loop instead of (tunNAdvances%+1)*tunNRepeats
         
@@ -1814,6 +1939,10 @@ proc CreateSampleConfiguration()
             GetRepeatedParameterProgression%(tunXPosNSteps%+1, 1, tun2Values[], tun2ValuesIndices%[], tunXPosMinXPos, tunXPosMaxXPos, 1, 0);
             tun2NValues% := (tunXPosNSteps%+1);
             temp2$ := "_xpos";
+        case tuntype1$ = tunTypeLag$ then
+            GetRepeatedParameterProgression%(tunLagNSteps%+1, 1, tun2Values[], tun2ValuesIndices%[], tunLagMinLagFrames, tunLagMaxLagFrames, 0, 0);
+            tun2NValues% := (tunLagNSteps%+1);
+            temp2$ := "_lag";
         case tuntype1$ = tunTypeBlank$ then
             tun2NValues% := 1;
             temp2$ := "_blank";
@@ -1828,16 +1957,10 @@ proc CreateSampleConfiguration()
             temp2$ := "_crg";
         endcase;
         
-'        if UseTwo1401s% = 0 then
-'            SampleAutoName$(dataCellName$ + "_crg" + temp2$ + "_000");  'NOTE: maximum of 13 characters!!!
-'        else
-'            SampleAutoName$(dataCellName$ + "_crg" + temp2$ + "MICRO_000");  'NOTE: maximum of 13 characters!!!
-'            SetStringRegistryValue(key$, "pref", "_crg" + temp2$);  'this is too long and shouldn't work, but it's always been like this and Ben hasn't complained...
-'        endif;
         DoSampleAutoName(key$,"_crg" + temp2$,"_crg" + temp2$,masterTxt$,slaveTxt$);
         
         
-        tunNRepeats% := tunCRGNRepeats%;
+        tunNRepeats% := tunCRGNRepeats%*(1+tunDoOpto%);  'double number of blocks if doing optogenetics
         tunNAdvances% := tun1NValues%*tun2NValues%-1;  'this gives the correct number of advances
         tunNValues% := tun1NValues%*tun2NValues%*tunCRGNRepeats%;  'now used in idle loop instead of (tunNAdvances%+1)*tunNRepeats
         
@@ -1854,17 +1977,10 @@ proc CreateSampleConfiguration()
         
         
     case tunType$ = tunTypeDanish$ then 
-'        if UseTwo1401s% = 0 then
-'            SampleAutoName$(dataCellName$ + "_dan_000");  'NOTE: maximum of 13 characters!!!
-'        else
-'            EqualizeSMRFilenumbers(dataPathRoot$ + "\\" + dataDataSet$,dataCellName$+"_danMICRO_",dataCellName$+"_danPOWER_");
-'            SampleAutoName$(dataCellName$ + "_danMICRO_000");  'NOTE: maximum of 13 characters!!!
-'            SetStringRegistryValue(key$, "pref", "dan");
-'        endif;
         DoSampleAutoName(key$,"dan","dan",masterTxt$,slaveTxt$);
         
         tunNAdvances% := tunDanishNSteps%;
-        tunNRepeats% := tunDanishNRepeats%;
+        tunNRepeats% := tunDanishNRepeats%*(1+tunDoOpto%);  'double number of blocks if doing optogenetics
         if tunDanishIncludeBlank% = 0 then
             GetRepeatedParameterProgression%(tunDanishNSteps%+1, tunDanishNRepeats%, tunValues[], tunValuesIndices%[], tunDanishMinOuterDiameter, tunDanishMaxOuterDiameter, 1, tunDanishProgression%); 
             tunNValues% := (tunDanishNSteps%+1)*tunDanishNRepeats%;
@@ -1876,16 +1992,9 @@ proc CreateSampleConfiguration()
         tunValuesStringified$ := StringifyProgression$(tunNValues%, tunValues, tunValuesIndices%);  
         
     case tunType$ = tunTypeDSS$ then
-'        if UseTwo1401s% = 0 then
-'            SampleAutoName$(dataCellName$ + "_dss_000");  'NOTE: maximum of 13 characters!!!
-'        else
-'            EqualizeSMRFilenumbers(dataPathRoot$ + "\\" + dataDataSet$,dataCellName$+"_dssMICRO_",dataCellName$+"_dssPOWER_");
-'            SampleAutoName$(dataCellName$ + "_dssMICRO_000");  'NOTE: maximum of 13 characters!!!
-'            SetStringRegistryValue(key$, "pref", "dss");
-'        endif;
         DoSampleAutoName(key$,"dss","dss",masterTxt$,slaveTxt$);
         
-        tunNValues% := tunDSSNTrials%;
+        tunNValues% := tunDSSNTrials%;   '*(1+tunDoOpto%);  'double number of blocks if doing optogenetics?????  Not sure how that would work with DSS.  If it's ever a question we'll have to work that logic out, but it might not ever be...
         od := GetDonutOD();  'get the outer diameter of the donut
         'ArrConst(tunValues[0],od); 'only need to assign the outer diameter for index 0, that's all we'll access
         tunValues[0] := od;  'weird - the above line doesn't work due to "incompatible procedure types"!
@@ -1899,12 +2008,6 @@ proc CreateSampleConfiguration()
         
         
     else    
-'        if UseTwo1401s% = 0 then
-'            SampleAutoName$(dataCellName$ + "_tun_000");  'NOTE: maximum of 13 characters!!!
-'        else
-'            SampleAutoName$(dataCellName$ + "_tunMICRO_000");  'NOTE: maximum of 13 characters!!!
-'            SetStringRegistryValue(key$, "pref", "tun");
-'        endif;
         DoSampleAutoName(key$,"tun","tun",masterTxt$,slaveTxt$);
     endcase;
     
@@ -1964,6 +2067,22 @@ proc CreateSampleConfiguration()
 	SampleTitle$(StimSlaveChannel%,"Stim-Slave");
     
     
+    'Add a digital marker channel for pulsing optogenetics
+    'Do it for every opto, easy enough to add this into the wraparound calls in the PLS
+    'Will record a '1' for laser on and a '0' for laser off
+    if tunDoOpto% = 1 then
+        SampleDigMark(20);  '20 Hz should be plenty high for an expected sustained rate
+        SampleTitle$(DigitalLaserChannel%,"Laser On");
+    endif
+    
+    'Add a waveform channel for efference copy.  This can come from either the 1401 itself or
+    'from the stimulator, it doesn't really matter.
+    'It would be nice to have these as level channels on event inputs, but that does not fly with the VSG box. (Several months later, I do not know how to interpret that comment...jj)
+    if tunOptoUsePulse% = 1 then
+        SampleWaveform(OptoCopyChannel%,31,5000);  'on adc31, which is Henry's max, hardcoded for now
+        SampleTitle$(OptoCopyChannel%, "OptoCopy");
+    endif;
+    
     
     if tunButtonCollect% = 1 then
 '        SampleWaveform(ButtonChannel%,ButtonPort%,10000);  'Giving 0.1 ms resolution for now
@@ -1972,6 +2091,17 @@ proc CreateSampleConfiguration()
         SampleWaveform(ButtonChannel%, ButtonPort%, 1000);
         SampleTitle$(XChannel%,"V");
     endif;    
+    
+    
+    'if we are recording the laser output, turn off any electrode channels
+    'this will not happen currently, as the laser diode collection has been disabled at the dialog box
+    'If we re-implement this, test to see if it actually works as intended!
+    if tunLaserDiode% = 1 then
+        tunNWavemarks% := 0;  'no wavemarks!
+        tunNContinuous% := 0;  'no continuous!
+        SampleWaveform(1,0,50000);  'on waveform port 0
+        SampleTitle$(1,"Diode output (laser)");
+    endif;
     
     
     ' Set up channels for sampling electrodes.
@@ -2042,7 +2172,12 @@ func Stop%()
     
 	' Disable idle process func
 	ToolbarSet(0,"");
-
+    
+    'turn off opto just in case it might be on (it shouldn't, but...)
+    if tunDoOpto% = 1 then
+        SafeSampleKey("o");
+    endif;
+    
     ' Tell stim app to shut down.
     ' DJS - removed the 'X' sample key here. 
     ' In general this X cannot be seen by the vsg application if neither stim is up,
@@ -2557,7 +2692,31 @@ proc WriteParameterFile()
 			Print("TuningCurve Error - unknown value for tunType$: %s\n", tunType$);
 
 	endcase;
-
+    
+    if tunDoOpto% = 1 then
+        Print("\nOptogenetics parameters\n");
+        Print("-------------------------\n\n");
+        if tunLaserDiode% = 1 then
+            Print("Laser Diode recorded\n");
+        endif;
+        Print("Opto Voltage Out: %f\n", tunOptoVoltageOut);
+        var label$[4]; 
+        label$[0] := "Opto Off First";
+        label$[1] := "Opto On First";
+        label$[2] := "Random First";
+        label$[3] := "Opto On All Blocks";
+        Print("Order of blocks : %s\n", label$[tunOptoStartState%]);
+        if tunOptoUsePulse% = 1 then
+            Print("Pulsing Opto selected\n");
+            Print("Opto#Pulses,OptoPeriodOnset,OptoPulseWidth,OptoInterpulseInterval: %d,%f,%f,%f\n",tunOptoNPulses%,tunPulsedOptoOnset,tunPulsedOptoWidth,tunPulsedOptoIPI);
+        else
+            Print("Wraparound Opto selected\n");
+            Print("PreStimulusOptoOn,PostStimulusOptoOn,KeepOptoOnBetweenStims: %f,%f,%d\n",tunPreStimOptoTime,tunPostStimOptoTime,tunOptoStaysOn%);
+        endif;
+        
+    endif;    
+    
+    
 	' close parfile
 	FileClose(0);
 
@@ -2713,12 +2872,22 @@ func Start%()
     var SValues$:="";   
     var S2Values$:="";  'won't be used except for Box O' Donuts 
     var KlugeValues$:="";  'this is for a Jerry-rigged "hole" in Box O' Donuts slave stimuli
+    var MConstantLag$:="";  
+    var SConstantLag$:=""; 
     var key$;
     var i%;
     'var CRGPrimaryArg$;  'This is always "-R", hard code
     var CRGPrimaryValues$;
     var CRGSecondaryArg$;
     var CRGSecondaryValues$;
+    'vars for opto setup
+    var voltageInteger%;
+    var stimRemaining;
+    stimRemaining := tunFixationDuration;
+    var tempNPulses%;
+    var tempCount%;
+    var tempSeqVarValue;
+    var tempSeqVarValue%;
     
     
     
@@ -2741,6 +2910,76 @@ func Start%()
     SetJuicerSequencerVariable%();
     ' Clear any trigger bits on digout lines.
     SafeSampleKey("0");
+    
+    SequencerPeriodMS := SampleSeqClock(1);  'Get the clock period of the sequencer, in MS, must do this after starting sampling
+    
+    if tunDoOpto% = 1 then
+        'set sequencer variable 4 for opto voltage
+        'Please note that the input for this has to be a 32-bit variable. Use vdac32% to get the right value.
+        voltageInteger% := vdac32%(tunOptoVoltageOut, 1, 0);
+        SampleSeqVar(4,voltageInteger%);
+        printlog("Voltage integer is %d\n",voltageInteger%);
+        
+        'If pulsing, because the user could have changed the duration of the stimulus after setting the opto
+        'parameters, we need to check the parameters again (even though the opto dialog box did it already)
+        if tunOptoUsePulse% = 1 then
+            
+            
+            stimRemaining := stimRemaining - tunPulsedOptoOnset;  'duration of stimulus after onset delay
+            stimRemaining := stimRemaining - tunPulsedOptoWidth;  'duration of stimulus after first opto pulse
+            if stimRemaining < 0 then  'if first pulse will extend beyond stimulus duration
+                tunOptoNPulses% := 0;  'turn off opto by using no pulses
+                'tell user they blew it
+                Message("The first opto pulse will extend beyond the stimulus!  Quitting!!!");
+                Quit%();
+            else
+                tempNPulses% := tunOptoNPulses% - 1;  'how many more pulses are left?
+                tempCount% := 1;  'temporary successful pulse count
+                while tempNPulses% > 0 do
+                    stimRemaining := stimRemaining - tunPulsedOptoWidth - tunPulsedOptoIPI;  'subtract duration of one more pulse+IPI
+                    if stimRemaining < 0 then  'if this pulse will extend beyond stimulus duration
+                        Message("Due to stimulus length, only " + Str$(tempCount%) + " pulses can be completed!");
+                        tunOptoNPulses% := tempCount%;  'only use this many pulses if user does not recalculate
+                        stimRemaining := stimRemaining + tunPulsedOptoWidth + tunPulsedOptoIPI;  'add back duration of one more pulse+IPI, gets actual stimulus duration remaining
+                        tempNPulses% := 0;  'break while
+                    else  'if this pulse is OK
+                        tempCount% += 1;  'increment temporary successful pulse count
+                    endif;
+                    tempNPulses% -= 1;  'decrement temporary pulse count remaining
+                wend
+            endif;
+        endif;
+        
+        'If pulsing, set sample sequencer variables
+        if tunOptoUsePulse% = 1 then  'yes, this is the same "if" as above, just seems cleaner this way
+            SampleSeqVar(6,tunOptoNPulses%);  'set number of pulses
+            printlog("Opto N pulses is %d\n",tunOptoNPulses%);
+            'For below calculations, the standard numbers we are getting are in seconds, sequencer period is in MS (because that's how it comes)
+            
+            tempSeqVarValue := tunPulsedOptoWidth*1000/SequencerPeriodMS;  'do math in float
+            tempSeqVarValue% := tempSeqVarValue-2;  'now convert to integer, subtract two ticks for sequencer instructions
+            SampleSeqVar(7,tempSeqVarValue%);  'set duration of pulse in clock ticks
+            printlog("Opto width is %d\n",tempSeqVarValue%);
+            
+            tempSeqVarValue := tunPulsedOptoIPI*1000/SequencerPeriodMS;  'do math in float
+            tempSeqVarValue% := tempSeqVarValue-3;  'now convert to integer, subtract three ticks for sequencer instructions
+            SampleSeqVar(8,tempSeqVarValue%);  'set interpulse interval in clock ticks
+            printlog("Opto IPI width is %d\n",tempSeqVarValue%);
+            
+            tempSeqVarValue := tunPulsedOptoOnset*1000/SequencerPeriodMS;  'do math in float
+            tempSeqVarValue% := tempSeqVarValue-1;  'now convert to integer, subtract one tick for sequencer instructions
+            SampleSeqVar(9,tempSeqVarValue%);  'set pre-pulse stimulus duration in clock ticks
+            printlog("Opto onset is %d\n",tempSeqVarValue%);
+            
+            tempSeqVarValue := stimRemaining*1000/SequencerPeriodMS;  'do math in float
+            tempSeqVarValue% := tempSeqVarValue-3;  'now convert to integer, subtract three ticks for sequencer instructions
+            SampleSeqVar(10,tempSeqVarValue%);  'set post-pulse stimulus duration in clock ticks
+            printlog("Opto remaining time is %d\n",tempSeqVarValue%);
+        endif;
+        
+    endif;
+    
+    
     
     
     
@@ -2824,6 +3063,25 @@ func Start%()
     
     'Turn on verbose
     Verbose$ := " -v ";
+    
+    'Set constant lag, will only be used if needed
+    if tunType$ <> tunTypeLag$ and tunType1$ <> tunTypeLag$ and tunType2$ <> tunTypeLag$ then  'if we're NOT using a lag tuning curve anywhere....
+        tunLagMasterIsLagged% := -1; 'set this to a negative value to avoid any accidental counterfeit from the default value of this variable
+    endif;
+    docase
+    case tunUseConstantLag% = 1 and tunLagMasterIsLagged% <> 1 then  'master is constant, master does not have a lag tuning curve
+        MConstantLag$ := " -lagflag " + Str$(tunConstantLagFrames%);
+        SConstantLag$ := "";
+    case tunUseConstantLag% = 2 and tunLagMasterIsLagged% <> 0 then  'slave is constant, slave does not have a lag tuning curve
+        MConstantLag$ := "";
+        SConstantLag$ := " -lagflag " + Str$(tunConstantLagFrames%);
+    else  'don't use it, this includes both tunUseConstantLag% = 0 and instances where the lag tuning and constant lag are on the same monitor
+        MConstantLag$ := "";
+        SConstantLag$ := "";
+    endcase
+    
+    
+    
      
     'Get default tuning curve values - these may get changed!
     MValues$ := tunValuesStringified$;  
@@ -2893,6 +3151,19 @@ func Start%()
     case tunType$ = tunTypeXYPos$ then
         tunCurveMArg$ := " -Z ";
         'tunDoRivalry cannot be 1 in this case because dualstim does not have this function
+        
+    case tunType$ = tunTypeLag$ then
+        'tunDoRivalry will be 1
+        if tunLagMasterIsLagged% = 1 then
+            TunCurveMArg$ := " -lagflag "; 'do not know flag
+            TunCurveSArg$ := "-N ";  'no tuning curve
+        else
+            TunCurveMArg$ := " -N "; 'no tuning curve
+            TunCurveSArg$ := " -lagflag ";
+            SValues$ := MValues$;
+            MValues$ := "";
+        endif;
+        'won't do ClearMasterOrSlave... because there's no point in running lag tuning with an empty screen on the other side
         
     case tunType$ = tunTypeDisparity$ then
         if tunDisparityOnMaster% = 1 then
@@ -3162,8 +3433,8 @@ func Start%()
     else
         fileM$ := GetDataPathRoot$() + "\\tunMaster.txt";
         fileS$ := GetDataPathRoot$() + "\\tunSlave.txt";         ' Will change this below, once file has been created, to the "slave" version
-        tailM$ := FixationArg$ + XHairArg$ + BGColor$ + Dist2Screen$ + TriggerPort$ + " -V 128,FS " + Verbose$ + DGrat$ + DGratParam$ + MGrat$ + MGratParam$ + TunCurveMArg$ + MValues$;
-        tailS$ := FixationArg$ + XHairArg$ + BGColor$ + Dist2Screen$ + TriggerPort$ + " -V 128,FS " + Verbose$ + SGrat$ + SGratParam$ + TunCurveSArg$ + SValues$ + TunCurveS2Arg$ + S2Values$;
+        tailM$ := FixationArg$ + XHairArg$ + BGColor$ + Dist2Screen$ + TriggerPort$ + " -V 128,FS " + Verbose$ + DGrat$ + DGratParam$ + MGrat$ + MGratParam$ + TunCurveMArg$ + MValues$ + MConstantLag$;
+        tailS$ := FixationArg$ + XHairArg$ + BGColor$ + Dist2Screen$ + TriggerPort$ + " -V 128,FS " + Verbose$ + SGrat$ + SGratParam$ + TunCurveSArg$ + SValues$ + TunCurveS2Arg$ + S2Values$ + SConstantLag$;
         
         if createCmdTextFile%(fileM$, tailM$) <> 1 or createCmdTextFile%(fileS$, tailS$) <> 1 then
             Message("ERROR!|Cannot create tunMaster.txt or tunSlave.txt");
@@ -3771,3 +4042,37 @@ proc DoSampleAutoName(key$,long$,short$,master$,slave$)
     endif;    
 end
 
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+' The vdac32% function converts a value in user DAC units into an integer value
+'  (the result of the function) suitable for passing into a sequencer variable
+'  for use in the DAC, ADDAC, RAMP and OFFSET sequencer instructions. It mimics
+'  the vdac32() expression in the text sequence compiler.
+'
+' out     is the output value that you want to generate, in user DAC units.
+' scale   is the user DAC units corresponding to one volt on the actual DAC
+'         (or two volts for a ten-volt system). This is exactly the same as
+'         the DACscale field used with the SET or SDAC directives.
+' offset  is the user DAC units corresponding to zero volts output. This is
+'         exactly the same as the DACOffset field in SET or SDAC.
+'
+' If you want to use this function to calculate the slope for a ramp, use
+'  vdac32%(volts/sticks%(time)) for maximum accuracy.
+'
+func vdac32%(out, scale, offset)
+var v32;                                ' Real variable for the calculation
+out := out - offset;                    ' First compensate for offset
+v32 := ((out * (6553.6 / scale)) * 65536.0);   ' Floating point result
+var v32%;                               ' Integer value for the result
+if v32 > 2147483647.0 then              ' 2147483647 is the largest positive
+    v32% := 2147483647;                 '  integer value
+else
+    if v32 < -2147483647.0 then         ' -2147483648 is the lowest negative value
+        v32% := -2147483647;            '  but we have to stay one above that
+    else
+        v32% := round(v32);             ' We can be sure this will not overflow
+    endif;
+endif;
+return v32%;
+end
