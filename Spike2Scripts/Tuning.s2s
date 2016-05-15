@@ -1,7 +1,7 @@
-' $Id: Tuning.s2s,v 1.103 2016-05-15 21:04:07 devel Exp $
+' $Id: Tuning.s2s,v 1.104 2016-05-15 22:11:20 devel Exp $
 ' Update 11/8/11 Jeff, includes multi-juicer updates
 
-const tunCVSID$ := "$Id: Tuning.s2s,v 1.103 2016-05-15 21:04:07 devel Exp $";
+const tunCVSID$ := "$Id: Tuning.s2s,v 1.104 2016-05-15 22:11:20 devel Exp $";
 
 
 
@@ -614,6 +614,7 @@ func IdleProcessing%()
         case tunOptoUsePulse% = 1 and tunOptoState% = 1 then  'it is a pulsed opto trial
             'on a pulsed opto abort, we need to turn off the laser and break out of the opto loop
             SampleKey("B");  'NOT SafeSampleKey - sequencer is in use and we're killing it anyway, by design
+            SafeSampleKey("X");  'just turn off stimulus, follow up to get fixation channel down
         case tunDoOpto% = 1 and tunOptoUsePulse% = 0 then  'any other opto trial, kill opto on abort
             if tunOptoState% = 1 then
                 SafeSampleKey("o");  'turn it off
@@ -778,21 +779,38 @@ func IdleProcessing%()
 
     case iState% = stateWaitForStimOff% then
 
-        if View(DataWindow%).FindFallingEdge%(StimChannel%, tLast, tTrigger) = 1 then
-            ' Advance
-            SafeSampleKey("a");
-
-            tLastTrigger := tTrigger;
-            ChangeStateTo(stateCheckTurnOffOpto%, tNow);
-        else
-            if tunType$ = tunTypeDanish$ and tunUseMaintainMode% >= 3 and View(DataWindow%).FindRisingEdge%(FrameChannel%, tLast, tTrigger) then
-                ' Advance, in specific case that we are doing danishes and maintaining the core - there will not be a falling edge on the stim channel in this case
+        if tunOptoUsePulse% = 1 and tunOptoState% = 1 then  'it is a pulsed opto trial 
+            if View(DataWindow%).FindFallingEdge%(StimChannel%, tLastTrigger, tTrigger) = 1 then  'needs to be tLastTrigger if pulsing opto
+                ' Advance
                 SafeSampleKey("a");
-
+                
                 tLastTrigger := tTrigger;
                 ChangeStateTo(stateCheckTurnOffOpto%, tNow);
+            else
+                if tunType$ = tunTypeDanish$ and tunUseMaintainMode% >= 3 and View(DataWindow%).FindRisingEdge%(FrameChannel%, tLast, tTrigger) then
+                    ' Advance, in specific case that we are doing danishes and maintaining the core - there will not be a falling edge on the stim channel in this case
+                    SafeSampleKey("a");
+                    
+                    tLastTrigger := tTrigger;
+                    ChangeStateTo(stateCheckTurnOffOpto%, tNow);
+                endif
             endif
-            
+        else
+            if View(DataWindow%).FindFallingEdge%(StimChannel%, tLast, tTrigger) = 1 then
+                ' Advance
+                SafeSampleKey("a");
+                
+                tLastTrigger := tTrigger;
+                ChangeStateTo(stateCheckTurnOffOpto%, tNow);
+            else
+                if tunType$ = tunTypeDanish$ and tunUseMaintainMode% >= 3 and View(DataWindow%).FindRisingEdge%(FrameChannel%, tLast, tTrigger) then
+                    ' Advance, in specific case that we are doing danishes and maintaining the core - there will not be a falling edge on the stim channel in this case
+                    SafeSampleKey("a");
+                    
+                    tLastTrigger := tTrigger;
+                    ChangeStateTo(stateCheckTurnOffOpto%, tNow);
+                endif
+            endif
         endif
         
     case iState% = stateWaitForStimOffDSS% then
@@ -819,6 +837,7 @@ func IdleProcessing%()
             printlog("Opto is staying on, OptoStaysOn = %d, TrialsComplete = %d, time = %f\n",tunOptoStaysOn%,(nTrialsCompleted% mod (tunNAdvances%+1)),tStateStart);
         case tunOptoUsePulse% = 1 and tunOptoState% = 1 then  'it is a pulsed opto trial
             printlog("Trial complete, Pulsed opto trial, time = %f\n",tStateStart);
+            ChangeStateTo(stateTrialCompleted%, tStateStart);
             SampleSeqVar(6,tunOptoNPulses%);  'reset number of pulses, otherwise bad stuff happens
         else 'otherwise it is an opto trial and we need to turn opto off
             ChangeStateTo(stateWaitOptoPoststim%, tStateStart);
