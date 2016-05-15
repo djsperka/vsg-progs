@@ -1,4 +1,4 @@
-; $Id: Tuning.PLS,v 1.19 2016-04-01 22:07:42 devel Exp $
+; $Id: Tuning.PLS,v 1.20 2016-05-15 20:55:53 devel Exp $
 ;
 
                 SET      0.010 1 0     ;Get rate & scaling OK
@@ -120,42 +120,50 @@
 ; Simple optogenetics, just blanketing the stimulus 
 0082 OPTOON: 'O MOVI   V2,1            ;Log that sequencer is in use
 0083            DAC    0,V4            ;Set DAC0 to the value in V4
-0084            MOVI   V2,0            ;Log that sequencer is not in use
-0085            HALT                   ;End of this sequence section
+0084            MARK   1               ;Mark onset of laser on digital marker channel
+0085            MOVI   V2,0            ;Log that sequencer is not in use
+0086            HALT                   ;End of this sequence section
 
-0086 OPTOOFF: 'o MOVI  V2,1            ;Log that sequencer is in use
-0087            DAC    0,0             ;Set DAC0 to 0
-0088            MOVI   V2,0            ;Log that sequencer is not in use
-0089            HALT                   ;End of this sequence section
+0087 OPTOOFF: 'o MOVI  V2,1            ;Log that sequencer is in use
+0088            DAC    0,0             ;Set DAC0 to 0
+0089            MARK   0               ;Mark offset of laser on digital marker channel
+0090            MOVI   V2,0            ;Log that sequencer is not in use
+0091            HALT                   ;End of this sequence section
 
-0090 NOOPTO: 'N HALT                   ;Simply reserving this sequence to do nothing
+0092 NOOPTO: 'N HALT                   ;Simply reserving this sequence to do nothing
 
-0091 NOOPTOFF: 'n HALT                 ;Simply reserving this sequence to do nothing
+0093 NOOPTOFF: 'n HALT                 ;Simply reserving this sequence to do nothing
 
 ; Complicated optogenetics, pulsing
-0092 PULSOPTO: 'P MOVI V2,1            ;Log that sequencer is in use
-0093            DIGOUT [.....1..]      ;Signals the stimuli on
-0094            DELAY  V9              ;Wait until first pulse on, subtract 1 tick
-0095 PULSEON:   DAC    0,V4            ;Set DAC0 to the value in V4
-0096            MARK   1               ;Mark onset of laser on digital marker channel
-0097            DELAY  V7              ;Wait until pulse off time, subtract 2 ticks
-0098            DAC    0,0             ;Set DAC0 to 0
-0099            MARK   0               ;Mark offset of laser on digital marker channel
-0100            DBNZ   V6,PULSEIPI     ;Decrement #pulses, go to IPI if more
-0101            JUMP   PULSEXIT        ;Jump to wait/exit from pulse/stim
-0102 PULSEIPI:  DELAY  V8              ;Wait through IPI, subtract 3 ticks
-0103            JUMP   PULSEON         ;Start next pulse
-0104 PULSEXIT:  DELAY  V10             ;Wait until stim should go off, subtract 3 ticks
-0105            DIGOUT [.....0..]      ;Signals the stimuli off
-0106            MOVI   V2,0            ;Log that sequencer is not in use
-0107            HALT                   ;End of this sequence section
+0094 PULSOPTO: 'P MOVI V2,1            ;Log that sequencer is in use
+0095            DIGOUT [.....1..]      ;Signals the stimuli on
+0096            DELAY  V9              ;Wait until first pulse on, subtract 1 tick
+0097 PULSEON:   DAC    0,V4            ;Set DAC0 to the value in V4
+0098            MARK   1               ;Mark onset of laser on digital marker channel
+0099            DELAY  V7              ;Wait until pulse off time, subtract 2 ticks
+0100            DAC    0,0             ;Set DAC0 to 0
+0101            MARK   0               ;Mark offset of laser on digital marker channel
+0102            DBNZ   V6,PULSEIPI     ;Decrement #pulses, go to IPI if more
+0103            JUMP   PULSEXIT        ;Jump to wait/exit from pulse/stim
+0104 PULSEIPI:  DELAY  V8              ;Wait through IPI, subtract 3 ticks
+0105            JUMP   PULSEON         ;Start next pulse
+0106 PULSEXIT:  DELAY  V10             ;Wait until stim should go off, subtract 3 ticks
+0107            DIGOUT [.....0..]      ;Signals the stimuli off
+0108            MOVI   V2,0            ;Log that sequencer is not in use
+0109            HALT                   ;End of this sequence section
 
+; Abort for pulsing optgenetics, cannot use SafeSampleKey to call this
+0110 PULSABRT: 'B DAC  0,0             ;Set DAC0 to 0
+0111            MARK   0               ;Mark offset of laser on digital marker channel
+0112            DIGOUT [.....0..]      ;Signals the stimuli off
+0113            MOVI   V2,0            ;Log that sequencer is not in use
+0114            HALT                   ;End of this sequence section
 
 ; LED commands for fixation LED
-LEDON:  'L  MOVI   V2,1            ;Log that sequencer is in use
-            DIGLOW [1.......]      ;Turn on LED - don't know which digout yet
-            JUMP   LDONE           ;Jump over LEDOFF to a HALT
-LEDOFF: 'M  MOVI   V2,1            ;Log that sequencer is in use
-            DIGLOW [0.......]      ;Turn off LED - don't know which digout yet
-LDONE:      MOVI   V2,0            ;Log that sequencer is not in use
-            HALT                   ;End of this sequence section
+0115 LEDON:  'L MOVI   V2,1            ;Log that sequencer is in use
+0116            DIGLOW [1.......]      ;Turn on LED - don't know which digout yet
+0117            JUMP   LDONE           ;Jump over LEDOFF to a HALT
+0118 LEDOFF: 'M MOVI   V2,1            ;Log that sequencer is in use
+0119            DIGLOW [0.......]      ;Turn off LED - don't know which digout yet
+0120 LDONE:     MOVI   V2,0            ;Log that sequencer is not in use
+0121            HALT                   ;End of this sequence section
