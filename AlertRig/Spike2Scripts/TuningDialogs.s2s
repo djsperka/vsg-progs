@@ -1,4 +1,4 @@
-' $Id: TuningDialogs.s2s,v 1.35 2016-05-15 21:04:07 devel Exp $
+' $Id: TuningDialogs.s2s,v 1.36 2016-05-15 22:11:20 devel Exp $
 '
 ' This file contains dialog functions for the alert tuning script Tuning.s2s.
 #include "../../Spike2Util/UsreyUtil.s2s"
@@ -3123,6 +3123,8 @@ proc GetTuningCurveScriptParameters()
     tunDoTuningHist% := GetIntRegistryValue%(key$, "DoTuningHist", tunDoTuningHist%);
     tunUseConstantLag% := GetIntRegistryValue%(key$, "UseConstantLag", tunUseConstantLag%);
     tunConstantLagFrames% := GetIntRegistryValue%(key$, "ConstantLagFrames", tunConstantLagFrames%);
+    tunDoOpto% := GetIntRegistryValue%(key$, "DoOpto", tunDoOpto%);
+    
 end;
 
 proc SaveTuningCurveScriptParameters()
@@ -3150,6 +3152,7 @@ proc SaveTuningCurveScriptParameters()
     SetIntRegistryValue(key$, "XHairNumGridDivisions", tunXHairNumGridDivisions%);
     SetIntRegistryValue(key$, "ButtonCollect", tunButtonCollect%);
     SetIntRegistryValue(key$, "DoTuningHist", tunDoTuningHist%);
+    SetIntRegistryValue(key$, "DoOpto", tunDoOpto%);
 
     PrintLog("Saved DoRivalry=%d\n", tunDoRivalry%);
 end;
@@ -3179,6 +3182,15 @@ func TuningCurveScriptDialog%()
     var boxOK% := 1;  'do the stimulus/crosshairs boxes overlap?
 	GetTuningCurveScriptParameters();
     GetTunOptoParameters();  'We must get these or the user has to open the opto dialog every time.
+    docase 'And recalculate tunOptoState, in case the user doesn't click on opto parameters button
+    case tunOptoStartState% = 3 then
+        dontToggleOpto% := 1;
+        tunOptoState% := 1;
+    case tunOptoStartState% = 2 then
+        tunOptoState% := round(Rand());
+    else
+        tunOptoState% := tunOptoStartState%;
+    endcase;
 	var bcl$[3];
 	bcl$[0] := "gray";
 	bcl$[1] := "black";
