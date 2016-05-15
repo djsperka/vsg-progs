@@ -1,5 +1,5 @@
-' $Id: AcuteTuning.s2s,v 1.53 2016-02-09 01:07:06 devel Exp $
-const tunCVSID$ := "$Id: AcuteTuning.s2s,v 1.53 2016-02-09 01:07:06 devel Exp $";
+' $Id: AcuteTuning.s2s,v 1.54 2016-05-15 20:53:47 devel Exp $
+const tunCVSID$ := "$Id: AcuteTuning.s2s,v 1.54 2016-05-15 20:53:47 devel Exp $";
 
 'var TuningCurveScriptDialogAllowOK%;  'allows OK to button to work on main dialog
 
@@ -1143,9 +1143,9 @@ proc CreateSampleConfiguration()
     'Text marks make extraction easier
     SampleTextMark(200);
     
-    'Add a digital marker channel (channel 32 by default) for pulsing optogenetics
+    'Add a digital marker channel (channel 32 by default) for pulsing optogenetics (and wraparound, PLS updated)
     'Will record a '1' for laser on and a '0' for laser off
-    if tunOptoUsePulse% = 1 then
+    if tunDoOpto% = 1 then
         SampleDigMark(20);  '20 Hz should be plenty high for an expected sustained rate
         SampleTitle$(32,"Laser On");
     endif
