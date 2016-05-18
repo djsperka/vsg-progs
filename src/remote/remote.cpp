@@ -1,4 +1,4 @@
-/* $Id: remote.cpp,v 1.1 2015-05-12 17:27:01 devel Exp $*/
+/* $Id: remote.cpp,v 1.2 2016-05-18 19:36:46 devel Exp $*/
 #include <iostream>
 #include <fstream>
 #include <string>
@@ -35,7 +35,10 @@ int main(int argc, char **argv)
 		stringstream ss;
 
 		for (int i=3; i<argc; i++)
+		{
+			cout << i << ":" << argv[i] << endl;
 			ss << argv[i] << " ";
+		}
 
 		cout << "Got remainder: " << ss.str() << endl;
 

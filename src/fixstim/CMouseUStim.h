@@ -1,4 +1,4 @@
-/* $Id: CMouseUStim.h,v 1.1 2015-05-12 17:26:59 devel Exp $*/
+/* $Id: CMouseUStim.h,v 1.2 2016-05-18 19:36:46 devel Exp $*/
 
 #ifndef _CMOUSEUSTIM_H_
 #define _CMOUSEUSTIM_H_
@@ -35,7 +35,8 @@ private:
 	bool m_bFixationOn;
 	bool m_bUseRegDump;	// use a file to save stimulus parameters
 	std::string m_sRegDumpFile;
-
+	bool m_bMouseControl;	// if true (default), use mouse/keyboard to control aperture and grating parameters
+	int m_portClient;		// if mouse control is false, this is the port number to listen for a client	
 	double m_vsgWidthPixels;
 	double m_vsgHeightPixels;
 	double m_vsgWidthDegrees;
@@ -58,8 +59,12 @@ private:
 	void init_triggers(TSpecificFunctor<CMouseUStim>* pfunctor);
 	void overlay(bool bFixationOn, double fixX, double fixY, double fixD, double apertureX, double apertureY, double apertureDiameter);
 	int init_pages();
-
-
+	void doMouseKBLoop();
+	void doJSClientLoop();
+	void updateSF(double sf);
+	void updateTF(double tf);
+	void updateContrast(int contrast);
+	void updateOrientation(double ori);
 };
 
 #endif
