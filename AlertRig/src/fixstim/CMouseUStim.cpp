@@ -1,13 +1,19 @@
-/* $Id: CMouseUStim.cpp,v 1.2 2016-04-01 22:24:10 devel Exp $*/
+/* $Id: CMouseUStim.cpp,v 1.3 2016-05-18 19:36:46 devel Exp $*/
 
 #include "CMouseUStim.h"
 #include "RegHelper.h"
 #include <iostream>
 #include <fstream>
 #include <conio.h>
-using namespace std;
+#include <SFML/Network.hpp>
+#include <boost/property_tree/ptree.hpp>
+#include <boost/property_tree/json_parser.hpp>
+#include <exception>
 
-const string CMouseUStim::m_allowedArgs("ab:d:f:g:p:vADS:r:");
+using namespace std;
+using namespace boost;
+
+const string CMouseUStim::m_allowedArgs("ab:d:f:g:p:vADS:r:j:");
 
 
 
@@ -22,6 +28,8 @@ CMouseUStim::CMouseUStim()
 , m_sleepMS(100)
 , m_bFixationOn(false)
 , m_bUseRegDump(false)
+, m_bMouseControl(true)
+, m_portClient(0)
 {
 };
 
@@ -106,6 +114,115 @@ void CMouseUStim::run_stim(alert::ARvsg& vsg)
 	vsg.ready_pulse(100, m_pulse);
 
 
+
+	if (m_bMouseControl)
+	{
+		doMouseKBLoop();
+	}
+	else
+	{
+		doJSClientLoop();
+	}
+
+	// Have to turn off OVERLAYMASKMODE before leaving! The call to ARvsg::init_overlay enables
+	// mask mode, this will turn it off.
+	vsgSetCommand(vsgOVERLAYDISABLE);
+
+	return;
+}
+
+
+void CMouseUStim::doJSClientLoop()
+{
+	bool bQuit = false;
+	std::stringstream ss;
+
+	// Create UDP socket and bind it to  m_portClient
+	sf::UdpSocket socket;
+	socket.bind(m_portClient);
+	socket.setBlocking(false);
+
+	// Listen for stuff, sleep a little
+	while (!bQuit)
+	{
+		char buffer[1024];
+		std::size_t received = 0;
+		sf::IpAddress sender;
+		unsigned short port;
+		sf::Socket::Status status = socket.receive(buffer, sizeof(buffer), received, sender, port);
+		if (status == sf::Socket::Done)
+		{
+			std::cout << "Got status " << status << " with " << received << " bytes: " << string(buffer, received) << std::endl;
+
+			try
+			{
+				ss.str(string(buffer, received));
+				boost::property_tree::ptree pt;
+			    boost::property_tree::read_json(ss, pt);
+				string sCmd = pt.get<string>("cmd");
+				if (sCmd == "q")
+					bQuit = true;
+				else if (sCmd == "a")
+				{
+					double diam = pt.get<double>("value");
+					cout << "Aperture " << diam << endl;
+				}
+				else if (sCmd == "sf")
+				{
+					double sf = pt.get<double>("value");
+					cout << "SF " << sf << endl;
+					updateSF(sf);
+				}
+				else if (sCmd == "tf")
+				{
+					double tf = pt.get<double>("value");
+					cout << "TF " << tf << endl;
+					updateTF(tf);
+				}
+				else if (sCmd == "ori")
+				{
+					double ori = pt.get<double>("value");
+					cout << "ORI " << ori << endl;
+					updateOrientation(ori);
+				}
+				else if (sCmd == "contrast")
+				{
+					int contrast = pt.get<int>("value");
+					cout << "CONTRAST " << contrast << endl;
+					updateContrast(contrast);
+				}
+				else
+				{
+					cout << "unknown command: " << sCmd << endl;
+				}
+
+			}
+			catch (const boost::property_tree::json_parser::json_parser_error& e)
+			{
+				std::cout << "parse exception: " << e.what() << endl;
+			}
+			catch (const boost::property_tree::ptree_error& e)
+			{
+				std::cout << "exception: " << e.what() << endl;
+			}
+
+		}
+		else if (status == sf::Socket::NotReady)
+		{
+			Sleep(m_sleepMS);
+		}
+		else
+		{
+			std::cout << "Got status " << status << " from socket. Quitting." << endl;
+			bQuit = true;
+		}
+	}
+
+}
+
+
+void CMouseUStim::doMouseKBLoop()
+{
 	bool bUseManualTriggers = false;
 	bool bSendTrigger = false;
 	bool bMouseOn = true;
@@ -119,7 +236,7 @@ void CMouseUStim::run_stim(alert::ARvsg& vsg)
 	long lDigitalIO=0;
 	long lDigitalIOLast=0;
 	long last_output_trigger = 0;
-
+	
 	// loop forever until 'q' is hit on keyboard or a quit signal is received on digition IO lines
 	while(!bQuit)
 	{
@@ -558,11 +675,63 @@ void CMouseUStim::run_stim(alert::ARvsg& vsg)
 		}
 	}
 
-	// Have to turn off OVERLAYMASKMODE before leaving! The call to ARvsg::init_overlay enables
-	// mask mode, this will turn it off.
-	vsgSetCommand(vsgOVERLAYDISABLE);
+}
 
-	return;
+void CMouseUStim::updateSF(double sf)
+{
+	if (sf>0.005 && sf<100)
+	{
+		m_grating.sf = sf;
+		arutil_draw_grating_fullscreen(m_grating, 0);
+		vsgPresent();
+	}
+	else
+	{
+		cout << "Error in input: spatial freq must be a number between 0.005 and 100." << endl;
+	}
+}
+
+
+void CMouseUStim::updateContrast(int c)
+{
+	if (c>=0 && c<=100)
+	{
+		m_grating.setContrast(c);
+		arutil_draw_grating_fullscreen(m_grating, 0);
+		vsgPresent();
+	}
+	else
+	{
+		cout << "Error in input: Contrast must be between 0 and 100." << endl;
+	}
+}
+
+void CMouseUStim::updateTF(double tf)
+{
+	if (tf>=0 && tf<50)
+	{
+		m_grating.setTemporalFrequency(tf);
+		arutil_draw_grating_fullscreen(m_grating, 0);
+		vsgPresent();
+	}
+	else 
+	{
+		cout << "Error in input: Temporal freq must be between 0 and 50." << endl;
+	}
+}
+
+void CMouseUStim::updateOrientation(double ori)
+{
+	if (ori >=0 && ori <=360)
+	{
+		m_grating.orientation = ori;
+		arutil_draw_grating_fullscreen(m_grating, 0);
+		vsgPresent();
+	}
+	else
+	{
+		cout << "Error in input: Orientation must be a number between 0 and 360" << endl;
+	}
 }
 
 
@@ -647,6 +816,18 @@ int CMouseUStim::process_arg(int c, std::string& arg)
 			{
 				cerr << "Error in pulse arg: must be integer (0-7)." << endl;
 				errflg++;
+			}
+			break;
+		case 'j':
+			if (parse_integer(arg, m_portClient) || m_portClient < 1024)
+			{
+				cerr << "Error in client port number (-j): must be int > 1024." << endl;
+				errflg++;
+			}
+			else
+			{
+				cerr << "Got client port " << m_portClient << endl;
+				m_bMouseControl = false;
 			}
 			break;
 		case 'v':

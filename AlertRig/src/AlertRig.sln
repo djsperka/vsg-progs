@@ -191,6 +191,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "snetlib", "snetlib\snetlib.
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "remote", "remote\remote.vcproj", "{F1CD82AE-1C78-4F96-820B-EA5DA4F2B0D3}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "js1", "js1\js1.vcproj", "{D347A437-83BF-40B7-A467-784D938EF488}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -907,6 +909,18 @@ Global
 		{F1CD82AE-1C78-4F96-820B-EA5DA4F2B0D3}.Unicode Release|Win32.Build.0 = Release|Win32
 		{F1CD82AE-1C78-4F96-820B-EA5DA4F2B0D3}.Unicode Release|x64.ActiveCfg = Release|x64
 		{F1CD82AE-1C78-4F96-820B-EA5DA4F2B0D3}.Unicode Release|x64.Build.0 = Release|x64
+		{D347A437-83BF-40B7-A467-784D938EF488}.Debug|Win32.ActiveCfg = Debug|Win32
+		{D347A437-83BF-40B7-A467-784D938EF488}.Debug|Win32.Build.0 = Debug|Win32
+		{D347A437-83BF-40B7-A467-784D938EF488}.Debug|x64.ActiveCfg = Debug|Win32
+		{D347A437-83BF-40B7-A467-784D938EF488}.Release|Win32.ActiveCfg = Release|Win32
+		{D347A437-83BF-40B7-A467-784D938EF488}.Release|Win32.Build.0 = Release|Win32
+		{D347A437-83BF-40B7-A467-784D938EF488}.Release|x64.ActiveCfg = Release|Win32
+		{D347A437-83BF-40B7-A467-784D938EF488}.Unicode Debug|Win32.ActiveCfg = Debug|Win32
+		{D347A437-83BF-40B7-A467-784D938EF488}.Unicode Debug|Win32.Build.0 = Debug|Win32
+		{D347A437-83BF-40B7-A467-784D938EF488}.Unicode Debug|x64.ActiveCfg = Debug|Win32
+		{D347A437-83BF-40B7-A467-784D938EF488}.Unicode Release|Win32.ActiveCfg = Release|Win32
+		{D347A437-83BF-40B7-A467-784D938EF488}.Unicode Release|Win32.Build.0 = Release|Win32
+		{D347A437-83BF-40B7-A467-784D938EF488}.Unicode Release|x64.ActiveCfg = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
