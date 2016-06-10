@@ -154,7 +154,7 @@ bool GetRegFixpt(double& fixX, double& fixY, double &fixD, COLOR_TYPE& fixC)
 				else
 				{
 					// Get current configuration
-					szX = (std::string)regMyReg["FixationX"];
+					szX = (LPTSTR)regMyReg["FixationX"];
 					fixX = atof(szX.c_str());
 				}
 			}
@@ -170,7 +170,7 @@ bool GetRegFixpt(double& fixX, double& fixY, double &fixD, COLOR_TYPE& fixC)
 				else
 				{
 					// Get current configuration
-					szY = (std::string)regMyReg["FixationY"];
+					szY = (LPTSTR)regMyReg["FixationY"];
 					fixY = atof(szY.c_str());
 				}
 			}
@@ -186,7 +186,7 @@ bool GetRegFixpt(double& fixX, double& fixY, double &fixD, COLOR_TYPE& fixC)
 				else
 				{
 					// Get current configuration
-					szD = (std::string)regMyReg["FixationDiameter"];
+					szD = (LPTSTR)regMyReg["FixationDiameter"];
 					fixD = atof(szD.c_str());
 				}
 			}
@@ -337,7 +337,7 @@ bool GetRegString(const char *key, const char *value, std::string& s)
 		else
 		{
 			// Get the value
-			s = (std::string)regMyReg[value];
+			s = (LPTSTR)regMyReg[value];
 			b = true;
 		}
 		// Close the open key
