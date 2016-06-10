@@ -1,7 +1,8 @@
 #include "unic.h"
 
-unic::unic(QWidget *parent)
-	: QMainWindow(parent)
+unic::unic(QTcpSocket& socket, QWidget *parent)
+: QMainWindow(parent)
+, m_socket(socket)
 {
 	ui.setupUi(this);
 }

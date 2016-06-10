@@ -2,6 +2,7 @@
 #define UNIC_H
 
 #include <QtWidgets/QMainWindow>
+#include <QTcpSocket>
 #include "ui_unic.h"
 
 class unic : public QMainWindow
@@ -9,11 +10,12 @@ class unic : public QMainWindow
 	Q_OBJECT
 
 public:
-	unic(QWidget *parent = 0);
+	unic(QTcpSocket& socket, QWidget *parent = 0);
 	~unic();
 
 private:
 	Ui::unicClass ui;
+	QTcpSocket& m_socket;
 };
 
 #endif // UNIC_H
