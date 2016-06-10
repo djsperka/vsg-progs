@@ -103,6 +103,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "js2", "js2\js2.vcxproj", "{
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "jcmouse", "jcmouse\jcmouse.vcxproj", "{6120D27D-FC3C-44EF-A1E2-F3B4CB2008E2}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "unic", "unic\unic.vcxproj", "{B3004000-3585-4721-A706-331F99950CED}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -1067,6 +1069,28 @@ Global
 		{6120D27D-FC3C-44EF-A1E2-F3B4CB2008E2}.Unicode Release|x64.Build.0 = Release|x64
 		{6120D27D-FC3C-44EF-A1E2-F3B4CB2008E2}.Unicode Release|x86.ActiveCfg = Release|Win32
 		{6120D27D-FC3C-44EF-A1E2-F3B4CB2008E2}.Unicode Release|x86.Build.0 = Release|Win32
+		{B3004000-3585-4721-A706-331F99950CED}.Debug|Win32.ActiveCfg = Debug|Win32
+		{B3004000-3585-4721-A706-331F99950CED}.Debug|Win32.Build.0 = Debug|Win32
+		{B3004000-3585-4721-A706-331F99950CED}.Debug|x64.ActiveCfg = Debug|Win32
+		{B3004000-3585-4721-A706-331F99950CED}.Debug|x86.ActiveCfg = Debug|Win32
+		{B3004000-3585-4721-A706-331F99950CED}.Debug|x86.Build.0 = Debug|Win32
+		{B3004000-3585-4721-A706-331F99950CED}.Release|Win32.ActiveCfg = Release|Win32
+		{B3004000-3585-4721-A706-331F99950CED}.Release|Win32.Build.0 = Release|Win32
+		{B3004000-3585-4721-A706-331F99950CED}.Release|x64.ActiveCfg = Release|Win32
+		{B3004000-3585-4721-A706-331F99950CED}.Release|x86.ActiveCfg = Release|Win32
+		{B3004000-3585-4721-A706-331F99950CED}.Release|x86.Build.0 = Release|Win32
+		{B3004000-3585-4721-A706-331F99950CED}.Unicode Debug|Win32.ActiveCfg = Debug|Win32
+		{B3004000-3585-4721-A706-331F99950CED}.Unicode Debug|Win32.Build.0 = Debug|Win32
+		{B3004000-3585-4721-A706-331F99950CED}.Unicode Debug|x64.ActiveCfg = Release|Win32
+		{B3004000-3585-4721-A706-331F99950CED}.Unicode Debug|x64.Build.0 = Release|Win32
+		{B3004000-3585-4721-A706-331F99950CED}.Unicode Debug|x86.ActiveCfg = Debug|Win32
+		{B3004000-3585-4721-A706-331F99950CED}.Unicode Debug|x86.Build.0 = Debug|Win32
+		{B3004000-3585-4721-A706-331F99950CED}.Unicode Release|Win32.ActiveCfg = Release|Win32
+		{B3004000-3585-4721-A706-331F99950CED}.Unicode Release|Win32.Build.0 = Release|Win32
+		{B3004000-3585-4721-A706-331F99950CED}.Unicode Release|x64.ActiveCfg = Release|Win32
+		{B3004000-3585-4721-A706-331F99950CED}.Unicode Release|x64.Build.0 = Release|Win32
+		{B3004000-3585-4721-A706-331F99950CED}.Unicode Release|x86.ActiveCfg = Release|Win32
+		{B3004000-3585-4721-A706-331F99950CED}.Unicode Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
