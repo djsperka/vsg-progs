@@ -51,6 +51,7 @@ private:
 // passing a command file.
 	static const string m_allowedArgs;
 
+	void joystickPositionToVSGDrawDegrees(double joyX, double joyY, double *pvsgDegX, double *pvsgDegY);
 	void mousePixelsToVSGPixels(int pixMouseX, int pixMouseY, double* pvsgPixelsX, double* pvsgPixelsY);
 	void vsgPixelsToVSGDrawDegrees(int vsgPixX, int vsgPixY, double *pvsgDegX, double *pvsgDegY);
 	void mousePosToVSGDrawDegrees(int pixMouseX, int pixMouseY, double* pvsgDegX, double* pvsgDegY);
@@ -65,6 +66,7 @@ private:
 	void updateTF(double tf);
 	void updateContrast(int contrast);
 	void updateOrientation(double ori);
+	void updateGrating(int iPage);
 };
 
 #endif
