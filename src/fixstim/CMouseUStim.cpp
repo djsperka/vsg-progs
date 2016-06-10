@@ -136,11 +136,23 @@ void CMouseUStim::doJSClientLoop()
 {
 	bool bQuit = false;
 	std::stringstream ss;
+	int iPage = 1;
+	long last_output_trigger = 0;
+	double degVSGX, degVSGY;
 
-	// Create UDP socket and bind it to  m_portClient
-	sf::UdpSocket socket;
-	socket.bind(m_portClient);
-	socket.setBlocking(false);
+	// Create a server socket to accept new connections
+	sf::TcpListener listener;
+
+	// Listen to the given port for incoming connections
+	if (listener.listen(m_portClient) != sf::Socket::Done)
+		return;
+	std::cout << "Server is listening to port " << m_portClient << ", waiting for connections... " << std::endl;
+
+	// Wait for a connection
+	sf::TcpSocket socket;
+	if (listener.accept(socket) != sf::Socket::Done)
+		return;
+	std::cout << "Client connected: " << socket.getRemoteAddress() << std::endl;
 
 	// Listen for stuff, sleep a little
 	while (!bQuit)
@@ -148,11 +160,35 @@ void CMouseUStim::doJSClientLoop()
 		char buffer[1024];
 		std::size_t received = 0;
 		sf::IpAddress sender;
-		unsigned short port;
-		sf::Socket::Status status = socket.receive(buffer, sizeof(buffer), received, sender, port);
+
+		// read vsg io for fixation pt signal
+		if (m_alert)
+		{
+			TriggerFunc	tf = std::for_each(triggers().begin(), triggers().end(), TriggerFunc(vsgIOReadDigitalIn(), last_output_trigger));
+
+			if (tf.quit()) bQuit = true;
+			else if (tf.present())
+			{
+				// The use of vsgIODigitalWriteOut here means that the output triggers appear as-is at the 
+				// spike2 end. When we use vsgObjSetTriggers the bits are shifted left by one because the 
+				// VSG takes the lowest order output bit for itself, and when we output bit 0x1 it is sent
+				// on DOUT1 (not DOUT0).
+				last_output_trigger = tf.output_trigger();
+				vsgIOWriteDigitalOut(tf.output_trigger(), 0xff);
+			}
+		}
+
+		// flip overlay page, then draw aperture (and fixpt if needed).
+		iPage = 1 - iPage;
+		vsgSetDrawPage(vsgOVERLAYPAGE, iPage, 1);
+		overlay(true, m_fixpt.x, m_fixpt.y, m_fixpt.d, m_grating.x, -m_grating.y, m_grating.w);
+		vsgSetZoneDisplayPage(vsgOVERLAYPAGE, iPage);
+
+		// check if there's any msgs waiting...
+		sf::Socket::Status status = socket.receive(buffer, sizeof(buffer), received);
 		if (status == sf::Socket::Done)
 		{
-			std::cout << "Got status " << status << " with " << received << " bytes: " << string(buffer, received) << std::endl;
+			if (m_verbose) std::cout << "Got status " << status << " with " << received << " bytes: " << string(buffer, received) << std::endl;
 
 			try
 			{
@@ -165,35 +201,73 @@ void CMouseUStim::doJSClientLoop()
 				else if (sCmd == "a")
 				{
 					double diam = pt.get<double>("value");
-					cout << "Aperture " << diam << endl;
+					m_grating.w = m_grating.h = diam;
+					if (m_verbose) cout << "Aperture " << diam << endl;
 				}
 				else if (sCmd == "sf")
 				{
 					double sf = pt.get<double>("value");
-					cout << "SF " << sf << endl;
+					if (m_verbose) cout << "SF " << sf << endl;
 					updateSF(sf);
 				}
 				else if (sCmd == "tf")
 				{
 					double tf = pt.get<double>("value");
-					cout << "TF " << tf << endl;
+					if (m_verbose) cout << "TF " << tf << endl;
 					updateTF(tf);
 				}
 				else if (sCmd == "ori")
 				{
 					double ori = pt.get<double>("value");
-					cout << "ORI " << ori << endl;
+					if (m_verbose) cout << "ORI " << ori << endl;
 					updateOrientation(ori);
 				}
 				else if (sCmd == "contrast")
 				{
 					int contrast = pt.get<int>("value");
-					cout << "CONTRAST " << contrast << endl;
+					if (m_verbose) cout << "CONTRAST " << contrast << endl;
 					updateContrast(contrast);
+				}
+				else if (sCmd == "xy")
+				{
+					double x = pt.get<double>("x");
+					double y = pt.get<double>("y");
+					joystickPositionToVSGDrawDegrees(x, y, &degVSGX, &degVSGY);
+					if (m_verbose) cout << "xy " << x << "," << y << endl;
+				}
+				else if (sCmd == "mouse")
+				{
+					// The input to this command is assumed to be pixel coordinates for the mouse. 
+					// The first conversion below first maps or scales that pixel x,y to the equivalent 
+					// pixel position on the VSG screen. The second conversion changes it into visual 
+					// degrees. We flip the sign of the Ycoordinate in the grating spec (so it reflects the
+					// positive-up convention we use). 
+					double pixVSGMouseX, pixVSGMouseY;
+					double degVSGX, degVSGY;
+					int x = pt.get<int>("x");
+					int y = pt.get<int>("y");
+					if (x > (int)m_monWidthPixels) x = (int)m_monWidthPixels;
+					mousePixelsToVSGPixels(x, y, &pixVSGMouseX, &pixVSGMouseY);
+					vsgPixelsToVSGDrawDegrees((int)pixVSGMouseX, (int)pixVSGMouseY, &degVSGX, &degVSGY);
+					m_grating.x = degVSGX;
+					m_grating.y = -degVSGY;
+					if (m_verbose) cout << "mouse " << x << "," << y << " = " << degVSGX << "," << degVSGY << endl;
+				}
+				else if (sCmd == "grating")
+				{
+					cout << "Got grating: " << pt.get<string>("value") << endl;
+					if (parse_grating(pt.get<string>("value"), m_grating))
+					{
+						cerr << "Cannot parse grating arg: " << pt.get<string>("value") << endl;
+					}
+					else
+					{
+						updateGrating(iPage);
+					}
 				}
 				else
 				{
-					cout << "unknown command: " << sCmd << endl;
+					cout << "unknown command:" << sCmd << ":" << endl;
 				}
 
 			}
@@ -206,6 +280,10 @@ void CMouseUStim::doJSClientLoop()
 				std::cout << "exception: " << e.what() << endl;
 			}
 
+			ss.str("");
+			ss << m_grating;
+			socket.send(ss.str().c_str(), ss.str().size());
+
 		}
 		else if (status == sf::Socket::NotReady)
 		{
@@ -214,6 +292,7 @@ void CMouseUStim::doJSClientLoop()
 		else
 		{
 			std::cout << "Got status " << status << " from socket. Quitting." << endl;
+			std::cout << "Recieved " << received << " bytes: >>" << buffer << "<<" << endl;
 			bQuit = true;
 		}
 	}
@@ -735,6 +814,16 @@ void CMouseUStim::updateOrientation(double ori)
 }
 
 
+void CMouseUStim::updateGrating(int iPage)
+{
+	arutil_draw_grating_fullscreen(m_grating, 0);
+	vsgPresent();
+	vsgSetDrawPage(vsgOVERLAYPAGE, iPage, 1);
+	overlay(true, m_fixpt.x, m_fixpt.y, m_fixpt.d, m_grating.x, m_grating.y, m_grating.w);
+	vsgSetZoneDisplayPage(vsgOVERLAYPAGE, iPage);
+}
+
+
 
 void CMouseUStim::overlay(bool bFixationOn, double fixX, double fixY, double fixD, double apertureX, double apertureY, double apertureDiameter)
 {
@@ -914,7 +1003,12 @@ int CMouseUStim::process_arg(int c, std::string& arg)
 	return errflg;
 }
 
-
+void CMouseUStim::joystickPositionToVSGDrawDegrees(double joyX, double joyY, double *pvsgDegX, double *pvsgDegY)
+{
+	double vsgPixelsX = joyX / 100.0 * m_vsgWidthPixels / 2;
+	double vsgPixelsY = joyY / 100.0 * m_vsgHeightPixels / 2;
+	vsgPixelsToVSGDrawDegrees(vsgPixelsX, vsgPixelsY, pvsgDegX, pvsgDegY);
+}
 
 void CMouseUStim::mousePixelsToVSGPixels(int pixMouseX, int pixMouseY, double* pvsgPixelsX, double* pvsgPixelsY)
 {
@@ -958,6 +1052,4 @@ int CMouseUStim::init_screen_params()
 
 	return 0;
 }
-
-
 
