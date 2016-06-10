@@ -998,7 +998,7 @@ int FixUStim::process_arg(int c, std::string& arg)
 	case 'U':			// slave stim
 		{
 			FGGXStimSet* pss = (FGGXStimSet*)NULL;
-			shared_ptr<SSInfo> pssinfo(new SSInfo());
+			boost::shared_ptr<SSInfo> pssinfo(new SSInfo());
 			if (!SSInfo::load(arg, *pssinfo))
 			{
 				cerr << "Error parsing stim set info file " << arg << endl;
