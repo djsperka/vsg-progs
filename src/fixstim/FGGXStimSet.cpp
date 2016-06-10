@@ -5,7 +5,7 @@ static const int f_nlevels = 20;
 #undef USE_GRIDS
 #undef USE_SCRATCH 
 
-FGGXStimSet::FGGXStimSet(shared_ptr<SSInfo> pssinfo, bool bDonut, double xOffset, double yOffset) 
+FGGXStimSet::FGGXStimSet(boost::shared_ptr<SSInfo> pssinfo, bool bDonut, double xOffset, double yOffset) 
 : FXMultiGStimSet()
 , m_itrial(0)
 , m_ngridpages(7)
@@ -15,7 +15,7 @@ FGGXStimSet::FGGXStimSet(shared_ptr<SSInfo> pssinfo, bool bDonut, double xOffset
 	initialize(bDonut, xOffset, yOffset);
 }
 
-FGGXStimSet::FGGXStimSet(ARContrastFixationPointSpec& fixpt, shared_ptr<SSInfo> pssinfo, bool bDonut, double xOffset, double yOffset)
+FGGXStimSet::FGGXStimSet(ARContrastFixationPointSpec& fixpt, boost::shared_ptr<SSInfo> pssinfo, bool bDonut, double xOffset, double yOffset)
 : FXMultiGStimSet(fixpt)
 , m_itrial(0)
 , m_ngridpages(7)
@@ -25,7 +25,7 @@ FGGXStimSet::FGGXStimSet(ARContrastFixationPointSpec& fixpt, shared_ptr<SSInfo> 
 	initialize(bDonut, xOffset, yOffset);
 }
 
-FGGXStimSet::FGGXStimSet(ARContrastFixationPointSpec& fixpt, ARXhairSpec& xhair, shared_ptr<SSInfo> pssinfo, bool bDonut, double xOffset, double yOffset)
+FGGXStimSet::FGGXStimSet(ARContrastFixationPointSpec& fixpt, ARXhairSpec& xhair, boost::shared_ptr<SSInfo> pssinfo, bool bDonut, double xOffset, double yOffset)
 : FXMultiGStimSet(fixpt, xhair)
 , m_itrial(0)
 , m_ngridpages(7)
