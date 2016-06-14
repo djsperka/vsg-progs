@@ -70,4 +70,7 @@
   <ItemGroup>
     <ResourceCompile Include="unic.rc" />
   </ItemGroup>
+  <ItemGroup>
+    <Image Include="unic.ico" />
+  </ItemGroup>
 </Project>
