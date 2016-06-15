@@ -3,12 +3,12 @@
   <ImportGroup Label="PropertySheets" />
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup>
-    <OutDir>$(SolutionPath)\..\bin64\</OutDir>
+    <OutDir>$(SolutionPath)\..\..\bin64\</OutDir>
     <IntDir>build\$(Platform)\$(Configuration)\</IntDir>
   </PropertyGroup>
   <ItemDefinitionGroup>
     <ClCompile>
-      <AdditionalIncludeDirectories>$(SolutionPath)\include;$(BOOST_INCLUDE_PATH);$(VSG_INCLUDE_PATH)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionPath)\include;$(BOOST_INCLUDE_PATH);$(VSG_INCLUDE_PATH);$(ASL_INCLUDE_PATH)</AdditionalIncludeDirectories>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemGroup />
