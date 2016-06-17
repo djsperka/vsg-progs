@@ -2,13 +2,18 @@
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ImportGroup Label="PropertySheets" />
   <PropertyGroup Label="UserMacros" />
-  <PropertyGroup>
+  <PropertyGroup Condition="'$(Platform)'=='Win32'">
+    <OutDir>$(SolutionPath)\..\bin\</OutDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Platform)'=='x64'">
     <OutDir>$(SolutionPath)\..\..\bin64\</OutDir>
+  </PropertyGroup>
+  <PropertyGroup>
     <IntDir>build\$(Platform)\$(Configuration)\</IntDir>
   </PropertyGroup>
   <ItemDefinitionGroup>
     <ClCompile>
-      <AdditionalIncludeDirectories>$(SolutionPath)\include;$(BOOST_INCLUDE_PATH);$(VSG_INCLUDE_PATH);$(ASL_INCLUDE_PATH)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionPath)\include;$(BOOST_INCLUDE_PATH);$(VSG_INCLUDE_PATH);$(ASL_INCLUDE_PATH);$(QT_INCLUDE_PATH)</AdditionalIncludeDirectories>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemGroup />
