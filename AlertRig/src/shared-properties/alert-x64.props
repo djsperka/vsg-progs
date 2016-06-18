@@ -1,0 +1,18 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ImportGroup Label="PropertySheets" />
+  <PropertyGroup Label="UserMacros">
+    <VSGInclude>$(VSG_INCLUDE_PATH_64)</VSGInclude>
+    <BoostInclude>$(BOOST_INCLUDE_PATH_64)</BoostInclude>
+  </PropertyGroup>
+  <PropertyGroup />
+  <ItemDefinitionGroup />
+  <ItemGroup>
+    <BuildMacro Include="VSGInclude">
+      <Value>$(VSGInclude)</Value>
+    </BuildMacro>
+    <BuildMacro Include="BoostInclude">
+      <Value>$(BoostInclude)</Value>
+    </BuildMacro>
+  </ItemGroup>
+</Project>
