@@ -8,10 +8,5 @@
   <PropertyGroup Condition="'$(Platform)'=='x64'">
     <OutDir>$(SolutionDir)..\lib64\</OutDir>
   </PropertyGroup>
-  <ItemDefinitionGroup>
-    <ClCompile>
-      <AdditionalIncludeDirectories>$(SolutionPath)\include;$(BOOST_INCLUDE_PATH);$(VSG_INCLUDE_PATH);$(ASL_INCLUDE_PATH)</AdditionalIncludeDirectories>
-    </ClCompile>
-  </ItemDefinitionGroup>
   <ItemGroup />
 </Project>

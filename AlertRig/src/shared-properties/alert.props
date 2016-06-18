@@ -13,7 +13,7 @@
   </PropertyGroup>
   <ItemDefinitionGroup>
     <ClCompile>
-      <AdditionalIncludeDirectories>$(SolutionPath)\include;$(BOOST_INCLUDE_PATH);$(VSG_INCLUDE_PATH);$(ASL_INCLUDE_PATH);$(QT_INCLUDE_PATH)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionPath)\include;$(BoostInclude);$(VSGInclude);$(ASLInclude);$(QtInclude)</AdditionalIncludeDirectories>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemGroup />
