@@ -77,19 +77,19 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <TargetName>alert</TargetName>
-    <OutDir>$(SolutionPath)\..\lib\</OutDir>
+    <OutDir>$(SolutionDir)..\lib\</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <TargetName>alert</TargetName>
-    <OutDir>$(SolutionPath)\..\..\lib64\</OutDir>
+    <OutDir>$(SolutionDir)..\lib64\</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <TargetName>dalert</TargetName>
-    <OutDir>$(SolutionPath)\..\lib\</OutDir>
+    <OutDir>$(SolutionDir)..\lib\</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <TargetName>dalert</TargetName>
-    <OutDir>$(SolutionPath)\..\..\lib64\</OutDir>
+    <OutDir>$(SolutionDir)..\lib64\</OutDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <CustomBuildStep>
