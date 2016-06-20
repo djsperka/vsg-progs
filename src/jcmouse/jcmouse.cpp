@@ -11,16 +11,18 @@
 #include <vector>
 #include <boost/algorithm/string.hpp>
 #include <boost/lexical_cast.hpp>
-#include <SFML/Network.hpp>
+//#include <SFML/Network.hpp>
+#include <QtNetwork/QTcpSocket>
 
 using namespace boost;
 using namespace std;
 using namespace alert;
 
 bool f_verbose = false;
-vector< pair<sf::IpAddress, int> >f_servers;
+vector< pair<string, int> >f_servers;
 int f_sleepMS = 100;
-sf::TcpSocket f_sockets[2];	// No copy constructor for TcpSocket - cannot put in vector?!?
+QTcpSocket f_sockets[2];
+//sf::TcpSocket f_sockets[2];	// No copy constructor for TcpSocket - cannot put in vector?!?
 ARApertureGratingSpec f_gratings[2];
 double f_tfPrevious = 0;
 
@@ -436,23 +438,31 @@ void sendQuit()
 
 void sendCommands(const string& s)
 {
-	sf::Packet packet;
 	char buffer[128];
-	size_t received;
+	qint64 received;
 	for (unsigned int i = 0; i < f_servers.size(); i++)
 	{
-		f_sockets[i].send(s.c_str(), s.size());
-		sf::Socket::Status status = f_sockets[i].receive(buffer, 128, received);
-		if (status == sf::Socket::Done)
+		cout << "TODO: sendCommands " << s << endl;
+		if (f_sockets[i].isValid())
 		{
-			//cout << string(buffer, received) << endl;
-			if (parse_grating(string(buffer, received), f_gratings[i]))
+			f_sockets[i].write(s.c_str(), s.size());
+			// wait for response
+			if (f_sockets[i].waitForReadyRead())
 			{
-				cout << "Error in received grating spec: " << string(buffer, received) << endl;
+				received = f_sockets[i].read(buffer, 128);
+				if (received > 0)
+				{
+					if (parse_grating(string(buffer, received), f_gratings[i]))
+					{
+						cout << "Error in received grating spec: " << string(buffer, received) << endl;
+					}
+				}
+				else
+					cout << "send_commands - reply status " << received << endl;
 			}
 		}
 		else
-			cout << "send_commands - reply status " << status << endl;
+			cout << "jcmouse: socket closed " << f_servers.at(i).first << ":" << f_servers.at(i).second << endl;
 	}
 }
 
@@ -469,10 +479,9 @@ int process_args(int option, std::string& arg)
 		boost::split(strs, arg, boost::is_any_of(":"));
 		if (strs.size() == 2)
 		{
-			sf::IpAddress addr(strs[0]);
 			int port = lexical_cast<int>(strs[1]);
-			cout << "Got server pair " << addr << " + " << port << endl;
-			f_servers.push_back(pair<sf::IpAddress, int>(addr, port));
+			cout << "Got server pair " << strs[0] << " + " << port << endl;
+			f_servers.push_back(pair<string, int>(strs[0], port));
 		}
 		else
 		{
@@ -501,8 +510,9 @@ void init_servers()
 	for (unsigned int i = 0; i < f_servers.size(); i++)
 	{
 		// Connect to the server
-		cout << "Connect to server at " << f_servers.at(i).first.toString() << ":" << f_servers.at(i).second << "... ";
-		if (f_sockets[i].connect(f_servers.at(i).first, f_servers.at(i).second) != sf::Socket::Done)
+		cout << "Connect to server at " << f_servers.at(i).first << ":" << f_servers.at(i).second << "... ";
+		f_sockets[i].connectToHost(QString(f_servers.at(i).first.c_str()), f_servers.at(i).second);
+		if (!f_sockets[i].waitForConnected())
 		{
 			std::cout << "Error connecting to server." << endl;
 			return;
