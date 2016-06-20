@@ -1,7 +1,27 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ImportGroup Label="PropertySheets" />
-  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Label="UserMacros">
+    <VSGInclude Condition="'$(Platform)'=='x64'">$(VSG_INCLUDE_PATH_64)</VSGInclude>
+    <VSGInclude Condition="'$(Platform)'=='Win32'">$(VSG_INCLUDE_PATH)</VSGInclude>
+    <BoostInclude Condition="'$(Platform)'=='x64'">$(BOOST_INCLUDE_PATH_64)</BoostInclude>
+    <BoostInclude Condition="'$(Platform)'=='Win32'">$(BOOST_INCLUDE_PATH)</BoostInclude>
+    <QTInclude Condition="'$(Platform)'=='x64'">$(QT_INCLUDE_PATH_64)</QTInclude>
+    <QTInclude Condition="'$(Platform)'=='Win32'">$(QT_INCLUDE_PATH)</QTInclude>
+    <ASLInclude Condition="'$(Platform)'=='x64'">$(ASL_INCLUDE_PATH_64)</ASLInclude>
+    <ASLInclude Condition="'$(Platform)'=='Win32'">$(ASL_INCLUDE_PATH)</ASLInclude>
+    <AlertInclude>$(SolutionDir)include</AlertInclude>
+    <VSGLib Condition="'$(Platform)'=='x64'">$(VSG_LIB_PATH_64)</VSGLib>
+    <VSGLib Condition="'$(Platform)'=='Win32'">$(VSG_LIB_PATH)</VSGLib>
+    <BoostLib Condition="'$(Platform)'=='x64'">$(BOOST_LIB_PATH_64)</BoostLib>
+    <BoostLib Condition="'$(Platform)'=='Win32'">$(BOOST_LIB_PATH)</BoostLib>
+    <QTLib Condition="'$(Platform)'=='x64'">$(QT_LIB_PATH_64)</QTLib>
+    <QTLib Condition="'$(Platform)'=='Win32'">$(QT_LIB_PATH)</QTLib>
+    <ASLLib Condition="'$(Platform)'=='x64'">$(ASL_LIB_PATH_64)</ASLLib>
+    <ASLLib Condition="'$(Platform)'=='Win32'">$(ASL_LIB_PATH)</ASLLib>
+    <AlertLib Condition="'$(Platform)'=='x64'">$(SolutionDir)lib64</AlertLib>
+    <AlertLib Condition="'$(Platform)'=='Win32'">$(SolutionDir)lib</AlertLib>
+  </PropertyGroup>
   <PropertyGroup Condition="'$(Platform)'=='Win32'">
     <OutDir>$(SolutionPath)\..\bin\</OutDir>
   </PropertyGroup>
@@ -13,8 +33,11 @@
   </PropertyGroup>
   <ItemDefinitionGroup>
     <ClCompile>
-      <AdditionalIncludeDirectories>$(SolutionPath)\include;$(BoostInclude);$(VSGInclude);$(ASLInclude);$(QtInclude)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)\..\include;$(BoostInclude);$(VSGInclude);$(ASLInclude);$(QtInclude)</AdditionalIncludeDirectories>
     </ClCompile>
+    <Link>
+      <AdditionalLibraryDirectories>$(AlertLib);$(BoostLib);$(VSGLib);$(ASLLib);$(QtLib);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+    </Link>
   </ItemDefinitionGroup>
   <ItemGroup />
 </Project>
