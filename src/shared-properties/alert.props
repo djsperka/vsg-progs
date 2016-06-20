@@ -19,14 +19,17 @@
     <QTLib Condition="'$(Platform)'=='Win32'">$(QT_LIB_PATH)</QTLib>
     <ASLLib Condition="'$(Platform)'=='x64'">$(ASL_LIB_PATH_64)</ASLLib>
     <ASLLib Condition="'$(Platform)'=='Win32'">$(ASL_LIB_PATH)</ASLLib>
-    <AlertLib Condition="'$(Platform)'=='x64'">$(SolutionDir)lib64</AlertLib>
-    <AlertLib Condition="'$(Platform)'=='Win32'">$(SolutionDir)lib</AlertLib>
+    <AlertLib Condition="'$(Platform)'=='x64'">$(SolutionDir)..\lib64</AlertLib>
+    <AlertLib Condition="'$(Platform)'=='Win32'">$(SolutionDir)..\lib</AlertLib>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Platform)'=='Win32'">
-    <OutDir>$(SolutionPath)\..\bin\</OutDir>
+    <OutDir>$(SolutionDir)\..\bin\</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Platform)'=='x64'">
     <OutDir>$(SolutionPath)\..\..\bin64\</OutDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)'=='Debug'">
+   <TargetName>d$(ProjectName)</TargetName>
   </PropertyGroup>
   <PropertyGroup>
     <IntDir>build\$(Platform)\$(Configuration)\</IntDir>
@@ -37,6 +40,8 @@
     </ClCompile>
     <Link>
       <AdditionalLibraryDirectories>$(AlertLib);$(BoostLib);$(VSGLib);$(ASLLib);$(QtLib);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies Condition="'$(Configuration)'=='Release'">alert.lib;VSGV8.lib</AdditionalDependencies>
+      <AdditionalDependencies Condition="'$(Configuration)'=='Debug'">dalert.lib;VSGV8.lib</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup />
