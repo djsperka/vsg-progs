@@ -40,17 +40,6 @@ using namespace alert;
 using namespace boost;
 using namespace boost::filesystem;
 
-// libs
-
-#ifdef _DEBUG
-#pragma comment(lib, "dalert.lib")
-#pragma comment(lib, "dsnet.lib")
-#else
-#pragma comment(lib, "alert.lib")
-#pragma comment(lib, "snet.lib")
-#endif
-#pragma comment (lib, "vsgv8.lib")
-
 
 // globals
 bool f_binaryTriggers = true;

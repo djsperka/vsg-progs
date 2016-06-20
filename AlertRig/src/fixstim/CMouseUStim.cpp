@@ -5,11 +5,12 @@
 #include <iostream>
 #include <fstream>
 #include <conio.h>
-#include <SFML/Network.hpp>
+//#include <SFML/Network.hpp>
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/json_parser.hpp>
 #include <exception>
-#include <QTcpServer>
+#include <QtNetwork/QTcpServer>
+#include <QtNetwork/QTcpSocket>
 
 using namespace std;
 using namespace boost;
@@ -142,25 +143,34 @@ void CMouseUStim::doJSClientLoop()
 	double degVSGX, degVSGY;
 
 	// Create a server socket to accept new connections
-	sf::TcpListener listener;
+	//sf::TcpListener listener;
+	QTcpServer qtServer;
+	qtServer.listen(QHostAddress::Any, m_portClient);
 
 	// Listen to the given port for incoming connections
-	if (listener.listen(m_portClient) != sf::Socket::Done)
-		return;
+	//if (listener.listen(m_portClient) != sf::Socket::Done)
+	//	return;
 	std::cout << "Server is listening to port " << m_portClient << ", waiting for connections... " << std::endl;
 
 	// Wait for a connection
-	sf::TcpSocket socket;
-	if (listener.accept(socket) != sf::Socket::Done)
+	//sf::TcpSocket socket;
+	//if (listener.accept(socket) != sf::Socket::Done)
+	//	return;
+
+	if (!qtServer.waitForNewConnection(30000))
+	{
+		cerr << "Timeout waiting for client connection." << endl;
 		return;
-	std::cout << "Client connected: " << socket.getRemoteAddress() << std::endl;
+	}
+
+	QTcpSocket *pSocket = qtServer.nextPendingConnection();
+	std::cout << "Client connected: " << pSocket->peerAddress().toString().toStdString() << ":" << pSocket->peerPort() << std::endl;
 
 	// Listen for stuff, sleep a little
 	while (!bQuit)
 	{
 		char buffer[1024];
-		std::size_t received = 0;
-		sf::IpAddress sender;
+		qint64 received = 0;
 
 		// read vsg io for fixation pt signal
 		if (m_alert)
@@ -186,10 +196,14 @@ void CMouseUStim::doJSClientLoop()
 		vsgSetZoneDisplayPage(vsgOVERLAYPAGE, iPage);
 
 		// check if there's any msgs waiting...
-		sf::Socket::Status status = socket.receive(buffer, sizeof(buffer), received);
-		if (status == sf::Socket::Done)
+		if (!pSocket->isValid())
 		{
-			if (m_verbose) std::cout << "Got status " << status << " with " << received << " bytes: " << string(buffer, received) << std::endl;
+			std::cout << "Socket disconnected. Quitting." << endl;
+			bQuit = true;
+		}
+		else if (pSocket->bytesAvailable() > 0 && (received=pSocket->read(buffer, sizeof(buffer))) > 0)
+		{
+			if (m_verbose) std::cout << "Got " << received << " bytes: " << string(buffer, received) << std::endl;
 
 			try
 			{
@@ -283,18 +297,12 @@ void CMouseUStim::doJSClientLoop()
 
 			ss.str("");
 			ss << m_grating;
-			socket.send(ss.str().c_str(), ss.str().size());
+			pSocket->write(ss.str().c_str(), ss.str().size());
 
-		}
-		else if (status == sf::Socket::NotReady)
-		{
-			Sleep(m_sleepMS);
 		}
 		else
 		{
-			std::cout << "Got status " << status << " from socket. Quitting." << endl;
-			std::cout << "Recieved " << received << " bytes: >>" << buffer << "<<" << endl;
-			bQuit = true;
+			Sleep(m_sleepMS);
 		}
 	}
 
