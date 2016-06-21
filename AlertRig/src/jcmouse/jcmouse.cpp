@@ -13,6 +13,8 @@
 #include <boost/lexical_cast.hpp>
 //#include <SFML/Network.hpp>
 #include <QtNetwork/QTcpSocket>
+#include <QtNetwork/QHostAddress>
+#include <QtCore/QString>
 
 using namespace boost;
 using namespace std;
@@ -20,7 +22,7 @@ using namespace alert;
 
 bool f_verbose = false;
 vector< pair<string, int> >f_servers;
-int f_sleepMS = 100;
+int f_sleepMS = 10;
 QTcpSocket f_sockets[2];
 //sf::TcpSocket f_sockets[2];	// No copy constructor for TcpSocket - cannot put in vector?!?
 ARApertureGratingSpec f_gratings[2];
@@ -438,27 +440,30 @@ void sendQuit()
 
 void sendCommands(const string& s)
 {
-	char buffer[128];
-	qint64 received;
+	//char buffer[128];
+	//qint64 received;
 	for (unsigned int i = 0; i < f_servers.size(); i++)
 	{
-		cout << "TODO: sendCommands " << s << endl;
 		if (f_sockets[i].isValid())
 		{
 			f_sockets[i].write(s.c_str(), s.size());
+			f_sockets[i].waitForBytesWritten(1000);
 			// wait for response
-			if (f_sockets[i].waitForReadyRead())
+			if (f_sockets[i].waitForReadyRead(500))
 			{
-				received = f_sockets[i].read(buffer, 128);
-				if (received > 0)
+				//received = f_sockets[i].read(buffer, 128);
+				QByteArray ba = f_sockets[i].readAll();
+				if (ba.size() > 0)
 				{
-					if (parse_grating(string(buffer, received), f_gratings[i]))
+					if (parse_grating(ba.toStdString(), f_gratings[i]))
 					{
-						cout << "Error in received grating spec: " << string(buffer, received) << endl;
+						cout << "Error in received grating spec: " << ba.toStdString() << endl;
 					}
 				}
-				else
-					cout << "send_commands - reply status " << received << endl;
+			}
+			else
+			{
+				cout << "Ready Read timeout" << endl;
 			}
 		}
 		else
