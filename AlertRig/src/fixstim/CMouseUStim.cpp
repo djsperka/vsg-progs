@@ -167,6 +167,7 @@ void CMouseUStim::doJSClientLoop()
 	std::cout << "Client connected: " << pSocket->peerAddress().toString().toStdString() << ":" << pSocket->peerPort() << std::endl;
 
 	// Listen for stuff, sleep a little
+	int counter = 0;
 	while (!bQuit)
 	{
 		char buffer[1024];
@@ -201,8 +202,9 @@ void CMouseUStim::doJSClientLoop()
 			std::cout << "Socket disconnected. Quitting." << endl;
 			bQuit = true;
 		}
-		else if (pSocket->bytesAvailable() > 0 && (received=pSocket->read(buffer, sizeof(buffer))) > 0)
+		else if (pSocket->waitForReadyRead())
 		{
+			received = pSocket->read(buffer, sizeof(buffer));
 			if (m_verbose) std::cout << "Got " << received << " bytes: " << string(buffer, received) << std::endl;
 
 			try
