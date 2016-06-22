@@ -3,12 +3,14 @@
 #include "alertlib.h"
 #include <QHostAddress>
 #include <QFileSystemWatcher>
+#include <QFile>
 #include <QStringList>
 #include <QTcpSocket>
 #include <vector>
 #include <string>
 #include <boost/algorithm/string.hpp>
 #include <boost/lexical_cast.hpp>
+#include <iostream>
 
 using namespace boost;
 using namespace std;
@@ -16,8 +18,7 @@ using namespace std;
 
 QHostAddress f_nicHostAddress("127.0.0.1");
 quint16 f_nicHostPort = 1235;
-QFileSystemWatcher f_nicCommandFileWatcher;
-QStringList f_nicFilesToWatch;
+QString f_commandFile;
 QTcpSocket f_nicSocket;
 
 int process_args(int option, std::string& arg);
@@ -29,20 +30,19 @@ int main(int argc, char *argv[])
 	if (prargs(argc, argv, process_args, "s:f:"))
 		return -1;
 
-	// add paths to file system watcher. We'll connect signals from the watcher
-	// to our dialog
-	f_nicCommandFileWatcher.addPaths(f_nicFilesToWatch);
-
 	// open socket
+#if 0
 	f_nicSocket.connectToHost(f_nicHostAddress, f_nicHostPort);
 	if (!f_nicSocket.waitForConnected(10))
 	{
 		qCritical() << "Cannot connect to nic host at " << f_nicHostAddress << ":" << f_nicHostPort;
 		return -1;
 	}
+#endif
 
-	// 
-	unic w(f_nicSocket);
+	// instantiate dialog
+	unic w(f_commandFile, f_nicSocket);
+
 	w.show();
 	return a.exec();
 }
@@ -69,8 +69,19 @@ int process_args(int option, std::string& arg)
 		}
 		break;
 	case 'f':
-		f_nicFilesToWatch << QString(arg.c_str());
+	{
+		QFile f(arg.c_str());
+		if (!f.open(QIODevice::ReadWrite))
+		{
+			qCritical() << "Cannot open/create file " << arg.c_str();
+			errflg++;
+		}
+		else
+		{
+			f_commandFile = QString(arg.c_str());
+		}
 		break;
+	}
 	case 0:
 		break;
 	default:
