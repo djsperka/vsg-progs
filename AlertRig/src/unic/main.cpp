@@ -31,14 +31,12 @@ int main(int argc, char *argv[])
 		return -1;
 
 	// open socket
-#if 0
 	f_nicSocket.connectToHost(f_nicHostAddress, f_nicHostPort);
 	if (!f_nicSocket.waitForConnected(10))
 	{
 		qCritical() << "Cannot connect to nic host at " << f_nicHostAddress << ":" << f_nicHostPort;
 		return -1;
 	}
-#endif
 
 	// instantiate dialog
 	unic w(f_commandFile, f_nicSocket);
