@@ -31,7 +31,7 @@ void unic::buildStateMachine()
 	m_pMachine = new QStateMachine;
 
 	QState *sIdle = new QState(m_pMachine);
-	FileChangedState *sChanged = new FileChangedState(m_nicCommandFileWatcher.files().at(0), *m_socket);
+//	FileChangedState *sChanged = new FileChangedState(m_nicCommandFileWatcher.files().at(0), *m_socket);
 
 	sIdle->addTransition(&m_nicCommandFileWatcher, SIGNAL(fileChanged(const QString&)), sChanged);
 
@@ -57,15 +57,8 @@ void FileChangedState::onEntry(QEvent *event)
 		QList<QByteArray> list = ba.split('\n');
 		if (list.size() == 2)
 		{
-			psocket->write()
+//			psocket->write()
 		}
 	}
 }
-{
-	QTcpSocket *psocket;
-	QFile m_file;
-public:
-	FileChangedState(const QString& filename, QTcpSocket* socket);
-protected:
-	void onEntry(QEvent *event);
-};
+
