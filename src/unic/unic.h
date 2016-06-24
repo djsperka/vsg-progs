@@ -4,6 +4,7 @@
 #include <QtWidgets/QMainWindow>
 #include <QTcpSocket>
 #include <QFileSystemWatcher>
+#include <QStateMachine>
 #include "ui_unic.h"
 
 class unic : public QMainWindow
@@ -17,10 +18,31 @@ public:
 private:
 	Ui::unicClass ui;
 	QTcpSocket& m_socket;
+	QStateMachine *m_pMachine;
 	QFileSystemWatcher m_nicCommandFileWatcher;
+
+	void buildStateMachine();
 
 protected slots:
 	void fileChanged(const QString&);
+};
+
+class FileChangedState : public QState
+{
+	QTcpSocket *psocket;
+	QFile m_file;
+public:
+	FileChangedState(const QString& filename, QTcpSocket* socket);
+protected:
+	void onEntry(QEvent *event);
+};
+
+class StatusCommandState : public QState
+{
+public:
+	StatusCommandState(const QString& filename, QTcpSocket *socket);
+protected:
+	void onEntry(QEvent *event);
 };
 
 #endif // UNIC_H
