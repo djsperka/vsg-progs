@@ -4,6 +4,7 @@ tcpdumbserv::tcpdumbserv(QWidget *parent)
 	: QMainWindow(parent)
 {
 	ui.setupUi(this);
+	setCentralWidget(ui.plainTextEdit);
 	connect(&server, SIGNAL(newConnection()), this, SLOT(newConnection()));
 	server.listen(QHostAddress::Any, 9898);
 	ui.plainTextEdit->appendPlainText("Listening on port 9898");
