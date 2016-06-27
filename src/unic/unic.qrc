@@ -1,4 +1,5 @@
 <RCC>
-    <qresource prefix="unic">
+    <qresource prefix="/unic">
+        <file>mphone.jpg</file>
     </qresource>
 </RCC>

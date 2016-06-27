@@ -5,6 +5,8 @@
 #include <QTcpSocket>
 #include <QFileSystemWatcher>
 #include <QStateMachine>
+#include <QTimer>
+#include <QFile>
 #include "ui_unic.h"
 
 class unic : public QMainWindow
@@ -14,35 +16,23 @@ class unic : public QMainWindow
 public:
 	unic(const QString& commandFile, QTcpSocket& socket, QWidget *parent = 0);
 	~unic();
+	void message(const QString& msg);
 
 private:
 	Ui::unicClass ui;
 	QTcpSocket& m_socket;
 	QStateMachine *m_pMachine;
 	QFileSystemWatcher m_nicCommandFileWatcher;
+	QTimer m_timer;
+	QFile m_file;
 
 	void buildStateMachine();
 
 protected slots:
-	void fileChanged(const QString&);
+	void fileChangedStateEntered();
+	void timeoutStateEntered();
+	void statusStateEntered();
 };
 
-class FileChangedState : public QState
-{
-	QTcpSocket *psocket;
-	QFile m_file;
-public:
-	FileChangedState(const QString& filename, QTcpSocket* socket);
-protected:
-	void onEntry(QEvent *event);
-};
-
-class StatusCommandState : public QState
-{
-public:
-	StatusCommandState(const QString& filename, QTcpSocket *socket);
-protected:
-	void onEntry(QEvent *event);
-};
 
 #endif // UNIC_H
