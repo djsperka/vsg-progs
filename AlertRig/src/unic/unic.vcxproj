@@ -225,6 +225,7 @@
     <ResourceCompile Include="unic.rc" />
   </ItemGroup>
   <ItemGroup>
+    <Image Include="mphone.jpg" />
     <Image Include="unic.ico" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

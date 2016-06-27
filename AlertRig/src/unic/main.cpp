@@ -20,14 +20,41 @@ QHostAddress f_nicHostAddress("127.0.0.1");
 quint16 f_nicHostPort = 1235;
 QString f_commandFile;
 QTcpSocket f_nicSocket;
+unic *f_pUnic;
+bool f_bVerbose = false;
 
 int process_args(int option, std::string& arg);
+void messageHandler(QtMsgType type, const QMessageLogContext &context, const QString &msg);
+
+void messageHandler(QtMsgType type, const QMessageLogContext &context, const QString &msg)
+{
+	QString s;
+	QByteArray localMsg = msg.toLocal8Bit();
+	switch (type) {
+	case QtDebugMsg:
+		if (f_bVerbose) f_pUnic->message(QString("Debug: %1").arg(msg));
+		break;
+	case QtInfoMsg:
+		f_pUnic->message(QString("Info: %1").arg(msg));
+		break;
+	case QtWarningMsg:
+		f_pUnic->message(QString("Warning: %1").arg(msg));
+		break;
+	case QtCriticalMsg:
+		f_pUnic->message(QString("Critical: %1").arg(msg));
+		break;
+	case QtFatalMsg:
+		f_pUnic->message(QString("Fatal: %1").arg(msg));
+		abort();
+	}
+}
+
 
 int main(int argc, char *argv[])
 {
 	QApplication a(argc, argv);
 
-	if (prargs(argc, argv, process_args, "s:f:"))
+	if (prargs(argc, argv, process_args, "s:f:v"))
 		return -1;
 
 	// open socket
@@ -39,9 +66,10 @@ int main(int argc, char *argv[])
 	}
 
 	// instantiate dialog
-	unic w(f_commandFile, f_nicSocket);
-
-	w.show();
+	f_pUnic = new unic(f_commandFile, f_nicSocket);
+	qInstallMessageHandler(messageHandler);
+	f_pUnic->resize(600, 480);
+	f_pUnic->show();
 	return a.exec();
 }
 
@@ -52,13 +80,15 @@ int process_args(int option, std::string& arg)
 	vector<string> strs;
 	switch (option)
 	{
+	case 'v':
+		f_bVerbose = true;
+		break;
 	case 's':
 		boost::split(strs, arg, boost::is_any_of(":"));
 		if (strs.size() == 2)
 		{
 			f_nicHostAddress.setAddress(QString(strs[0].c_str()));
 			f_nicHostPort = lexical_cast<uint16_t>(strs[1]);
-			cout << "Got server pair " << strs[0] << " + " << strs[1] << endl;
 		}
 		else
 		{
@@ -76,6 +106,7 @@ int process_args(int option, std::string& arg)
 		}
 		else
 		{
+			f.close();
 			f_commandFile = QString(arg.c_str());
 		}
 		break;

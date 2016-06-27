@@ -72,5 +72,6 @@
   </ItemGroup>
   <ItemGroup>
     <Image Include="unic.ico" />
+    <Image Include="mphone.jpg" />
   </ItemGroup>
 </Project>
