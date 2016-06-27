@@ -19,7 +19,7 @@ protected slots:
 	void readyRead();
 
 private:
-	Ui::tcpdumbservClass ui;
+	Ui::tcpdumbserv ui;
 	QTcpServer server;
 	QTcpSocket* psocket;
 };
