@@ -7,6 +7,7 @@
 #include <QStateMachine>
 #include <QTimer>
 #include <QFile>
+#include <QMutex>
 #include "ui_unic.h"
 
 class unic : public QMainWindow
@@ -24,14 +25,20 @@ private:
 	QStateMachine *m_pMachine;
 	QFileSystemWatcher m_nicCommandFileWatcher;
 	QTimer m_timer;
+	QTimer m_timerReadStatusResponse;
+	QTimer m_timerSendStatusCommand;
 	QFile m_file;
+	QMutex m_socketMutex;	// for access to m_socket.
 
 	void buildStateMachine();
 
 protected slots:
 	void fileChangedStateEntered();
-	void timeoutStateEntered();
-	void statusStateEntered();
+	void idleStatusStateEntered();
+	void sendStatusCommandStateEntered();
+	void readStatusResponseStateEntered();
+	void readStatusTimeoutStateEntered();
+	
 };
 
 

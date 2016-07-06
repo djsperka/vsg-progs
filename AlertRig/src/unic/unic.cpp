@@ -65,50 +65,106 @@ void unic::buildStateMachine()
 {
 	m_pMachine = new QStateMachine;
 
-	// timer will be used to signal timeout while waiting for status from NIC. 
-	m_timer.setInterval(2000);
-	m_timer.setSingleShot(true);
+	// timer will be used to check status periodically. 
+	m_timerSendStatusCommand.setInterval(1000);
+	m_timerSendStatusCommand.setSingleShot(true);
 
-	// create states and add to machine
-	QState *sIdle = new QState(m_pMachine);
-	QState *sChanged = new QState(m_pMachine);
-	QState *sTimeout = new QState(m_pMachine);
-	QState *sStatus = new QState(m_pMachine);
+	// this timer is for waiting on status response
+	m_timerReadStatusResponse.setInterval(500);
+	m_timerReadStatusResponse.setSingleShot(true);
 
-	// there's stuff to do on entering these states
-	connect(sChanged, SIGNAL(entered()), this, SLOT(fileChangedStateEntered()));
-	connect(sTimeout, SIGNAL(entered()), this, SLOT(timeoutStateEntered()));
-	connect(sStatus, SIGNAL(entered()), this, SLOT(statusStateEntered()));
+	// Parent State - parent to two parallel state sets.
+	QState *sParent = new QState(QState::ParallelStates, m_pMachine);
+	m_pMachine->setInitialState(sParent);
+	QState *sCommandLoop = new QState(sParent);
+	QState *sStatusLoop = new QState(sParent);
 
-	// Initial state is Idle. Transition when file changes.
-	// The fileChangedStateEntered() slot will be called on entry to sChanged.
-	m_pMachine->setInitialState(sIdle);
+	// The command loop has two states. 
+	// One state set waits for changes in the command file. 
+	// When change is detected, read and send commands (see sChanged::onEntry)
+
+	QState *sIdle = new QState(sCommandLoop);
+	QState *sChanged = new QState(sCommandLoop);
+	sCommandLoop->setInitialState(sIdle);
+
+	// transitions
+
 	sIdle->addTransition(&m_nicCommandFileWatcher, SIGNAL(fileChanged(const QString&)), sChanged);
+	sChanged->addTransition(sIdle);
 
-	// After command is read and sent, status command is sent. When the reply comes, the socket
-	// emits readyRead() - which causes transition to sStatus. 
-	sChanged->addTransition(&m_socket, SIGNAL(readyRead()), sStatus);
+	// there's stuff to do on entering these sChanged state
 
-	// The timeout is another way out of sChanged.
-	sChanged->addTransition(&m_timer, SIGNAL(timeout()), sTimeout);
-	sTimeout->addTransition(sIdle);
+	connect(sChanged, SIGNAL(entered()), this, SLOT(fileChangedStateEntered()));
 
-	// sStatus transition back to Idle.
-	sStatus->addTransition(sIdle);
+
+	// The status loop has three states. The idle state is exited every
+	// timeout of the timer (which is started in sChillin::onEntry)
+
+	QState* sIdleStatus = new QState(sStatusLoop);
+	QState* sSendStatusCommand = new QState(sStatusLoop);
+	QState* sReadStatusResponse = new QState(sStatusLoop);
+	QState* sReadStatusTimeout = new QState(sStatusLoop);
+	sStatusLoop->setInitialState(sIdleStatus);
+
+	// transitions for status loop states
+
+	connect(sIdleStatus, SIGNAL(entered()), this, SLOT(idleStatusStateEntered()));
+	sIdleStatus->addTransition(&m_timerSendStatusCommand, SIGNAL(timeout()), sSendStatusCommand);
+	connect(sSendStatusCommand, SIGNAL(entered()), this, SLOT(sendStatusCommandStateEntered()));	// send status command, start m_timerReadStatusResponse;
+	sSendStatusCommand->addTransition(&m_socket, SIGNAL(readyRead()), sReadStatusResponse);
+	sReadStatusResponse->addTransition(sIdleStatus);
+	connect(sReadStatusResponse, SIGNAL(entered()), this, SLOT(readStatusResponseStateEntered()));
+	sSendStatusCommand->addTransition(&m_timerReadStatusResponse, SIGNAL(timeout()), sReadStatusTimeout);
+	connect(sReadStatusTimeout, SIGNAL(entered()), this, SLOT(readStatusTimeoutStateEntered()));
+	sReadStatusTimeout->addTransition(sIdleStatus);
+
 
 	m_pMachine->start();
 }
 
 
+void unic::idleStatusStateEntered()
+{
+	// start timer
+	m_timerSendStatusCommand.start();
+}
+
+void unic::sendStatusCommandStateEntered()
+{
+	char command[2];
+
+	qInfo() << "Sending status request...";
+
+	// get lock
+	m_socketMutex.lock();
+
+	// request status command
+	command[0] = 200;
+	command[1] = 0;
+	m_socket.write(command, 1);
+
+	// and the (empty) parameter list
+	command[0] = '\n';
+	m_socket.write(command, 1);
+
+	// unlock mutex
+	m_socketMutex.unlock();
+
+	// start timeout timer
+	m_timerReadStatusResponse.start();
+}
+
+
 // The readyRead() signal was emitted from the socket -- just read whatever is there. 
 
-void unic::statusStateEntered()
+void unic::readStatusResponseStateEntered()
 {
 	qInfo() << "Got status reply from NIC";
 
 	// read status
-	bool bOK;
+	m_socketMutex.lock();
 	QByteArray ba = m_socket.readAll();
+	m_socketMutex.unlock();
 
 	// status reply should be a single byte.
 	if (ba.size() == 1)
@@ -163,6 +219,9 @@ void unic::fileChangedStateEntered()
 					params = list.at(1).trimmed();
 					params.append('\n');
 
+					// get lock
+					m_socketMutex.lock();
+
 					// write command number as a single byte
 					qInfo() << "Sending command number: " << commandNumber;
 					m_socket.write(command, 1);
@@ -171,15 +230,8 @@ void unic::fileChangedStateEntered()
 					qInfo() << "Sending parameter list: " << params;
 					m_socket.write(params);
 
-					// request status
-					command[0] = 200;
-					command[1] = 0;
-					params.clear();
-					params.append('\n');
-					qInfo() << "Sending status request...";
-					m_socket.write(command, 1);
-					m_socket.write(params);
-					m_timer.start();
+					// unlock mutex
+					m_socketMutex.unlock();
 				}
 				else
 				{
@@ -201,7 +253,7 @@ void unic::fileChangedStateEntered()
 
 }
 
-void unic::timeoutStateEntered()
+void unic::readStatusTimeoutStateEntered()
 {
 	qWarning() << "Timeout waiting for NIC status reply.";
 }
