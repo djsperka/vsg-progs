@@ -1,6 +1,7 @@
 #include "unic.h"
 #include <QScrollBar>
 #include <QState>
+#include <QHostAddress>
 #include <map>
 
 using namespace std;
@@ -46,10 +47,11 @@ unic::unic(const QString& commandFile, QTcpSocket& socket, QWidget *parent)
 	ui.plainTextEditLog->setReadOnly(true);
 	ui.plainTextEditLog->verticalScrollBar()->setValue(ui.plainTextEditLog->verticalScrollBar()->maximum());
 
-	QPalette* palette = new QPalette();
-	palette->setBrush(QPalette::Base, *(new QBrush(*(new QPixmap(":/unic/mphone.jpg")))));
+	ui.labelNICServerIP->setText(QString("%1:%2").arg(socket.peerAddress().toString()).arg(socket.peerPort()));
 
-	ui.plainTextEditLog->setPalette(*palette);
+//	QPalette* palette = new QPalette();
+//	palette->setBrush(QPalette::Base, *(new QBrush(*(new QPixmap(":/unic/mphone.jpg")))));
+//	ui.plainTextEditLog->setPalette(*palette);
 
 	buildStateMachine();
 }
@@ -133,7 +135,7 @@ void unic::sendStatusCommandStateEntered()
 {
 	char command[2];
 
-	qInfo() << "Sending status request...";
+//	qInfo() << "Sending status request...";
 
 	// get lock
 	m_socketMutex.lock();
@@ -159,7 +161,7 @@ void unic::sendStatusCommandStateEntered()
 
 void unic::readStatusResponseStateEntered()
 {
-	qInfo() << "Got status reply from NIC";
+//	qInfo() << "Got status reply from NIC";
 
 	// read status
 	m_socketMutex.lock();
@@ -172,7 +174,8 @@ void unic::readStatusResponseStateEntered()
 		unsigned int status = (unsigned char)ba.at(0);
 		if (f_mapNICStatusStrings.count(status) == 1)
 		{
-			qInfo() << QString("NIC status (%1): %2").arg(status).arg(f_mapNICStatusStrings[status]);
+			//qInfo() << QString("NIC status (%1): %2").arg(status).arg(f_mapNICStatusStrings[status]);
+			ui.labelNICStatus->setText(QString("(%1): %2").arg(status).arg(f_mapNICStatusStrings[status]));
 		}
 		else
 		{
