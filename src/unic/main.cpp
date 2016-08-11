@@ -17,6 +17,7 @@ using namespace std;
 
 
 QHostAddress f_nicHostAddress("127.0.0.1");
+
 quint16 f_nicHostPort = 1235;
 QString f_commandFile;
 QTcpSocket f_nicSocket;
