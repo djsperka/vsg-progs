@@ -11,6 +11,8 @@
     <ASLInclude Condition="'$(Platform)'=='x64'">$(ASL_INCLUDE_PATH_64)</ASLInclude>
     <ASLInclude Condition="'$(Platform)'=='Win32'">$(ASL_INCLUDE_PATH)</ASLInclude>
     <AlertInclude>$(SolutionDir)include</AlertInclude>
+    <FTDIInclude Condition="'$(Platform)'=='x64'">$(FTDI_INCLUDE_PATH_64)</FTDIInclude>
+    <FTDIInclude Condition="'$(Platform)'=='Win32'">$(FTDI_INCLUDE_PATH)</FTDIInclude>
     <VSGLib Condition="'$(Platform)'=='x64'">$(VSG_LIB_PATH_64)</VSGLib>
     <VSGLib Condition="'$(Platform)'=='Win32'">$(VSG_LIB_PATH)</VSGLib>
     <BoostLib Condition="'$(Platform)'=='x64'">$(BOOST_LIB_PATH_64)</BoostLib>
@@ -21,6 +23,8 @@
     <ASLLib Condition="'$(Platform)'=='Win32'">$(ASL_LIB_PATH)</ASLLib>
     <AlertLib Condition="'$(Platform)'=='x64'">$(SolutionDir)..\lib64</AlertLib>
     <AlertLib Condition="'$(Platform)'=='Win32'">$(SolutionDir)..\lib</AlertLib>
+    <FTDILib Condition="'$(Platform)'=='x64'">$(FTDI_LIB_PATH_64)</FTDILib>
+    <FTDILib Condition="'$(Platform)'=='Win32'">$(FTDI_LIB_PATH)</FTDILib>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Platform)'=='Win32'">
     <OutDir>$(SolutionDir)\..\bin\</OutDir>
@@ -36,12 +40,12 @@
   </PropertyGroup>
   <ItemDefinitionGroup>
     <ClCompile>
-      <AdditionalIncludeDirectories>$(SolutionDir)\..\include;$(BoostInclude);$(VSGInclude);$(ASLInclude);$(QtInclude)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)\..\include;$(BoostInclude);$(VSGInclude);$(ASLInclude);$(QtInclude);$(FTDIInclude)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
-      <AdditionalLibraryDirectories>$(AlertLib);$(BoostLib);$(VSGLib);$(ASLLib);$(QtLib);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies Condition="'$(Configuration)'=='Release'">alert.lib;VSGV8.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalDependencies Condition="'$(Configuration)'=='Debug'">dalert.lib;VSGV8.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(AlertLib);$(BoostLib);$(VSGLib);$(ASLLib);$(QtLib);$(FTDILib);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies Condition="'$(Configuration)'=='Release'">alert.lib;VSGV8.lib;ftd2xx.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies Condition="'$(Configuration)'=='Debug'">dalert.lib;VSGV8.lib;ftd2xx.lib</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup />
