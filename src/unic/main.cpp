@@ -6,6 +6,8 @@
 #include <QFile>
 #include <QStringList>
 #include <QTcpSocket>
+#include <QLockFile>
+#include <QDir>
 #include <vector>
 #include <string>
 #include <boost/algorithm/string.hpp>
@@ -54,6 +56,14 @@ void messageHandler(QtMsgType type, const QMessageLogContext &context, const QSt
 int main(int argc, char *argv[])
 {
 	QApplication a(argc, argv);
+
+	// Check if application is already running...
+	QLockFile lockFile(QDir::temp().absoluteFilePath("unic.lock"));
+	lockFile.setStaleLockTime(0);
+	if (!lockFile.tryLock(100)) 
+	{
+		return 1;
+	}
 
 	if (prargs(argc, argv, process_args, "s:f:v"))
 		return -1;
