@@ -29,8 +29,13 @@ private:
 	QTimer m_timerSendStatusCommand;
 	QFile m_file;
 	QMutex m_socketMutex;	// for access to m_socket.
-
+	int m_lastNICStatus;
+	bool m_bStatusExpected;
+	int m_statusExpected;
 	void buildStateMachine();
+
+signals:
+	void nicStatusChangedSignal(int newStatus, int oldStatus);
 
 protected slots:
 	void fileChangedStateEntered();
@@ -38,7 +43,7 @@ protected slots:
 	void sendStatusCommandStateEntered();
 	void readStatusResponseStateEntered();
 	void readStatusTimeoutStateEntered();
-	
+	void nicStatusChanged(int newStatus, int oldStatus);	
 };
 
 

@@ -10,6 +10,8 @@ using namespace std;
 // CoreGUI TCP Server document dated 14 April, 2016
 
 static const std::pair<int, QString> arr[] = {
+	std::pair<int, QString>(-1, "NOT_CONNECTED"),
+	std::pair<int, QString>(0, "UNKNOWN"),
 	std::pair<int, QString>(230, "IDLE"),
 	std::pair<int, QString>(231, "EEG_ON"),
 	std::pair<int, QString>(232, "EEG_OFF"),
@@ -35,10 +37,22 @@ static const std::pair<int, QString> arr[] = {
 
 static std::map<int, QString> f_mapNICStatusStrings(arr, arr + sizeof(arr) / sizeof(arr[0]));
 
+static const std::pair<int, int> arr2[] = {
+	std::pair<int, int>(201, 248),	// start eeg
+	std::pair<int, int>(202, 232),	// stop eeg
+	std::pair<int, int>(203, 236),	// load template
+	std::pair<int, int>(204, 236),	// abort stim
+	std::pair<int, int>(205, 238),	// start stim
+	std::pair<int, int>(214, 230)
+};
+
+static std::map<int, int> f_mapNICExpectedResponses(arr2, arr2 + sizeof(arr2) / sizeof(arr2[0]));
+
 unic::unic(const QString& commandFile, QTcpSocket& socket, QWidget *parent)
 : QMainWindow(parent)
 , m_file(commandFile)
 , m_socket(socket)
+, m_lastNICStatus(0)
 {
 	m_nicCommandFileWatcher.addPath(commandFile);
 	ui.setupUi(this);
@@ -120,6 +134,8 @@ void unic::buildStateMachine()
 	connect(sReadStatusTimeout, SIGNAL(entered()), this, SLOT(readStatusTimeoutStateEntered()));
 	sReadStatusTimeout->addTransition(sIdleStatus);
 
+	// finally, set up slot to catch changes in nic status emitted by the status loop
+	connect(this, SIGNAL(nicStatusChangedSignal(int, int)), this, SLOT(nicStatusChanged(int, int)));
 
 	m_pMachine->start();
 }
@@ -172,6 +188,12 @@ void unic::readStatusResponseStateEntered()
 	if (ba.size() == 1)
 	{
 		unsigned int status = (unsigned char)ba.at(0);
+		if (status != m_lastNICStatus)
+		{
+			emit nicStatusChangedSignal(status, m_lastNICStatus);
+			m_lastNICStatus = status;
+		}
+
 		if (f_mapNICStatusStrings.count(status) == 1)
 		{
 			//qInfo() << QString("NIC status (%1): %2").arg(status).arg(f_mapNICStatusStrings[status]);
@@ -187,6 +209,24 @@ void unic::readStatusResponseStateEntered()
 		qWarning() << "Expecting single byte status response from NIC, but we got : " << ba << " length " << ba.size();
 	}
 }
+
+
+// nic status changed
+void unic::nicStatusChanged(int newStatus, int oldStatus)
+{
+	qDebug() << "Old status: " << f_mapNICStatusStrings[oldStatus] << " New status: " << f_mapNICStatusStrings[newStatus];
+
+	if (m_bStatusExpected)
+	{
+		if (newStatus == m_statusExpected)
+		{
+			qDebug() << "SUCCESS - GOT EXPECTED STATUS";
+			m_bStatusExpected = false;
+		}
+	}
+}
+
+
 
 // The command file has changed. Read and send command+parameters
 
@@ -224,6 +264,14 @@ void unic::fileChangedStateEntered()
 
 					// get lock
 					m_socketMutex.lock();
+
+					// do we expect a specific status after this command?
+					if (f_mapNICExpectedResponses.count(commandNumber) == 1)
+					{
+						m_bStatusExpected = true;
+						m_statusExpected = f_mapNICExpectedResponses[commandNumber];
+						qInfo() << "Expecting status " << f_mapNICStatusStrings[m_statusExpected];
+					}
 
 					// write command number as a single byte
 					qInfo() << "Sending command number: " << commandNumber;
