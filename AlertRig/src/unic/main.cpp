@@ -1,6 +1,7 @@
 #include "unic.h"
 #include <QtWidgets/QApplication>
 #include "alertlib.h"
+#include "ftd2xx.h"
 #include <QHostAddress>
 #include <QFileSystemWatcher>
 #include <QFile>
@@ -25,9 +26,23 @@ QString f_commandFile;
 QTcpSocket f_nicSocket;
 unic *f_pUnic;
 bool f_bVerbose = false;
+bool f_bUseFTDIChip = true;		// -z disables use of FTDI chip
+FT_HANDLE f_ftdiHandle;
+char f_cStimCurrentStatus = 0;
+
+// bits for ftdi output
+#define FTDI_BIT_COMMAND_RECEIVED 0x1
+#define FTDI_BIT_STATUS_OK 0x16
+#define FTDI_BIT_STIMULATING 0x4
+
 
 int process_args(int option, std::string& arg);
 void messageHandler(QtMsgType type, const QMessageLogContext &context, const QString &msg);
+
+// These are slots
+void gotFileChange();
+void gotStatusOK();
+void stimulationIsOn(bool);
 
 void messageHandler(QtMsgType type, const QMessageLogContext &context, const QString &msg)
 {
@@ -65,7 +80,7 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	if (prargs(argc, argv, process_args, "s:f:v"))
+	if (prargs(argc, argv, process_args, "s:f:vz"))
 		return -1;
 
 	// open socket
@@ -79,11 +94,93 @@ int main(int argc, char *argv[])
 	// instantiate dialog
 	f_pUnic = new unic(f_commandFile, f_nicSocket);
 	qInstallMessageHandler(messageHandler);
-	f_pUnic->resize(600, 480);
 	f_pUnic->show();
-	return a.exec();
+
+	// initialize ftdi chip 
+	if (f_bUseFTDIChip)
+	{
+		/* Initialize, open device, set bitbang mode */
+		if (FT_OK != FT_Open(0, &f_ftdiHandle)) {
+			qCritical() << "Cannot open FTDI USB-Serial device";
+			return 1;
+		}
+		if (FT_OK != FT_SetBitMode(f_ftdiHandle, FTDI_BIT_COMMAND_RECEIVED | FTDI_BIT_STATUS_OK | FTDI_BIT_STIMULATING, 1))
+		{
+			qCritical() << "Cannot set asynch bit-bang mode!";
+			FT_Close(f_ftdiHandle);
+			return 1;
+		}
+		FT_SetBaudRate(f_ftdiHandle, 600);
+
+		// connections for setting output bits
+		QObject::connect(f_pUnic, &unic::fileChangeDetected, gotFileChange);
+		QObject::connect(f_pUnic, &unic::commandStatusOK, gotStatusOK);
+		QObject::connect(f_pUnic, &unic::stimulationOn, stimulationIsOn);
+
+	}
+
+
+	// start event loop
+	a.exec();
+
+	// set outputs low, close ftdi chip
+	if (f_bUseFTDIChip)
+	{
+		char buffer[2];
+		DWORD written = 0;
+		buffer[0] = 0;
+		buffer[1] = 0;
+		FT_Write(f_ftdiHandle, buffer, 2, &written);
+		FT_Close(f_ftdiHandle);
+	}
+
+	return 0;
 }
 
+void gotFileChange()
+{
+	char buffer[2];
+	DWORD written = 0;
+	buffer[0] = FTDI_BIT_COMMAND_RECEIVED | f_cStimCurrentStatus;
+	buffer[1] = f_cStimCurrentStatus;
+
+	qDebug() << "gotFileChange()";
+	if (FT_OK != FT_Write(f_ftdiHandle, buffer, 2, &written))
+	{
+		qCritical() << "Error writing to ftdi device.";
+	}
+	return;
+}
+
+void gotStatusOK()
+{
+	char buffer[2];
+	DWORD written = 0;
+	buffer[0] = FTDI_BIT_STATUS_OK | f_cStimCurrentStatus;
+	buffer[1] = f_cStimCurrentStatus;
+
+	qDebug() << "gotStatusOK()";
+	if (FT_OK != FT_Write(f_ftdiHandle, buffer, 2, &written))
+	{
+		qCritical() << "Error writing to ftdi device.";
+	}
+	return;
+}
+
+void stimulationIsOn(bool on)
+{
+	char buffer[1];
+	DWORD written = 0;
+	if (on) f_cStimCurrentStatus = FTDI_BIT_STIMULATING;
+	else f_cStimCurrentStatus = 0;
+	buffer[0] = f_cStimCurrentStatus;
+	qDebug() << "stimulationIsOn(" << on << ")";
+	if (FT_OK != FT_Write(f_ftdiHandle, buffer, 1, &written))
+	{
+		qCritical() << "Error writing to ftdi device.";
+	}
+	return;
+}
 
 int process_args(int option, std::string& arg)
 {
@@ -93,6 +190,9 @@ int process_args(int option, std::string& arg)
 	{
 	case 'v':
 		f_bVerbose = true;
+		break;
+	case 'z':
+		f_bUseFTDIChip = false;
 		break;
 	case 's':
 		boost::split(strs, arg, boost::is_any_of(":"));

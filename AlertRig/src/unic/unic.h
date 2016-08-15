@@ -32,10 +32,14 @@ private:
 	int m_lastNICStatus;
 	bool m_bStatusExpected;
 	int m_statusExpected;
+	bool m_bStimulationIsOn;
 	void buildStateMachine();
 
 signals:
 	void nicStatusChangedSignal(int newStatus, int oldStatus);
+	void fileChangeDetected();
+	void commandStatusOK();
+	void stimulationOn(bool);
 
 protected slots:
 	void fileChangedStateEntered();

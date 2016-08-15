@@ -111,6 +111,7 @@ void unic::buildStateMachine()
 	// there's stuff to do on entering these sChanged state
 
 	connect(sChanged, SIGNAL(entered()), this, SLOT(fileChangedStateEntered()));
+	connect(sChanged, SIGNAL(entered()), this, SIGNAL(fileChangeDetected()));
 
 
 	// The status loop has three states. The idle state is exited every
@@ -222,7 +223,20 @@ void unic::nicStatusChanged(int newStatus, int oldStatus)
 		{
 			qDebug() << "SUCCESS - GOT EXPECTED STATUS";
 			m_bStatusExpected = false;
+			emit commandStatusOK();
 		}
+	}
+
+	if (m_bStimulationIsOn && newStatus == 236)
+	{
+		m_bStimulationIsOn = false;
+		emit stimulationOn(false);
+	}
+
+	if (newStatus == 238)
+	{
+		m_bStimulationIsOn = true;
+		emit stimulationOn(true);
 	}
 }
 
