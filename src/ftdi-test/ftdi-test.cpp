@@ -64,7 +64,7 @@ int main()
 		return 1;
 	}
 	FT_SetBitMode(handle, 0xff, 1);
-	FT_SetBaudRate(handle, 9600);  /* Actually 9600 * 16 */
+	FT_SetBaudRate(handle, 600);  /* Actually 9600 * 16 */
 
 	char buffer[2];
 	DWORD written = 0;
