@@ -44,8 +44,8 @@
     </ClCompile>
     <Link>
       <AdditionalLibraryDirectories>$(AlertLib);$(BoostLib);$(VSGLib);$(ASLLib);$(QtLib);$(FTDILib);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies Condition="'$(Configuration)'=='Release'">alert.lib;VSGV8.lib;ftd2xx.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalDependencies Condition="'$(Configuration)'=='Debug'">dalert.lib;VSGV8.lib;ftd2xx.lib</AdditionalDependencies>
+      <AdditionalDependencies Condition="'$(Configuration)'=='Release'">alert.lib;VSGV8.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies Condition="'$(Configuration)'=='Debug'">dalert.lib;VSGV8.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup />
