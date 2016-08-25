@@ -95,7 +95,7 @@ void DisplayState(long DigState)
 
 int main(int argc, char *argv[])
 {
-	COLOR_TYPE g = { gray, {0.5, 0.5, 0.5} };
+	COLOR_TYPE g(gray);
 	long diginState, lastDiginState;
 
 	SetConsoleCtrlHandler( (PHANDLER_ROUTINE) CtrlHandler, TRUE );
