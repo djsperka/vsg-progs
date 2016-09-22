@@ -133,8 +133,7 @@
       </Message>
     </PostBuildEvent>
     <CustomBuildStep>
-      <Command>copy /F /Y "d:\work\AlertRig\bin\fixstim.exe" "$(AlertBinPath)\fixstim.exe"
-copy /F /Y "d:\work\AlertRig\bin\remote.exe" "$(AlertBinPath)\remote.exe"</Command>
+      <Command>call aaDeploy.bat "fixstim.exe,remote.exe,CableTest.exe,unic.exe" $(TargetDir) $(ALERT_DEPLOYMENT_ROOT)$(AlertBinPath) $(TargetName)$(TargetExt)</Command>
       <Outputs>$(AlertBinPath)\$(TargetName)$(TargetExt)</Outputs>
       <Message>Performing Custom Build Step...</Message>
     </CustomBuildStep>
