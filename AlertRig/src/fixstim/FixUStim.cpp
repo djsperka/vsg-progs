@@ -1247,6 +1247,16 @@ int FixUStim::process_arg(int c, std::string& arg)
 									m_errflg++;
 								}
 							}
+							// check values of tCC, tC2, tC3, tE
+							if (e.tC2 > 0 || e.tC3 > 0)
+							{
+								if (e.tCC >= e.tC2 || e.tC2 >= e.tC3 || e.tC3 >= e.tE)
+								{
+									cerr << "Invalid sequence - require tCC < tC2 < tC3 < tE when tC2/tC3 values are present." << endl;
+									cerr << "Line number " << linenumber << ": tCC/tC2/tC3/tE: " << e.tCC << "/" << e.tC2 << "/" << e.tC3 << "/" << e.tE << endl;
+									m_errflg++;
+								}
+							}
 							vecEQParams.push_back(e);
 						}
 					}

@@ -154,12 +154,12 @@ public:
 		return m_distractor_contrasts[i];
 	}
 
-	int count() const
+	size_t count() const
 	{
 		return m_gratings.size();
 	};
 
-	int distractor_count() const
+	size_t distractor_count() const
 	{
 		return m_distractors.size();
 	};
@@ -465,7 +465,7 @@ public:
 	FlashStimSet(std::vector< COLOR_TYPE >& colors, int frames_per_term, const std::string& sequence, bool balanced = false);
 	FlashStimSet(alert::ARContrastFixationPointSpec& f, int frames_per_term, const std::string& sequence, bool balanced = false);
 	FlashStimSet(int frames_per_term, const std::string& sequence, bool balanced = false);
-	virtual int num_pages() {return 1+m_colors.size();};
+	virtual int num_pages() {return (int)(1+m_colors.size());};
 	virtual int num_overlay_pages() {return 0;};
 	virtual int init(ARvsg& vsg, std::vector<int> pages);
 	virtual int handle_trigger(std::string& s);

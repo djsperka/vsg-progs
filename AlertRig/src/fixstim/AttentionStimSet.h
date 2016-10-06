@@ -56,7 +56,7 @@ public:
 	AttentionStimSet(ARContrastFixationPointSpec& fixpt, double tMax, vector<alert::ARGratingSpec>& vecGratings, vector<AttParams>& params, vector<alert::ARGratingSpec>& vecDistractors, FlashyParamVectorVector& vecFlashies);
 	AttentionStimSet(ARContrastFixationPointSpec& fixpt, double tMax, vector<alert::ARGratingSpec>& vecGratings, vector<AttentionCue>& vecCuePairs, vector<AttParams>& params, vector<alert::ARGratingSpec>& vecDistractors, FlashyParamVectorVector& vecFlashies);
 	bool setFlashies(const vector<alert::ARGratingSpec>& vecGratings, const FlashyParamVectorVector& vecFlashies);
-	virtual int num_pages() {return 4 + m_vecDistractors.size();};
+	virtual int num_pages() {return (int)(4 + m_vecDistractors.size());};
 	virtual int num_overlay_pages() {return 0;};
 	virtual int init(ARvsg& vsg, std::vector<int> pages);
 	virtual int handle_trigger(std::string& s);
