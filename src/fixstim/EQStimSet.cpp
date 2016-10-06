@@ -34,12 +34,12 @@ void dumpPal()
 
 
 // parse string 
-// test.bmp,0,1,1.5,2,3,50,100,50,25
 int parse_eqparams(const string& s, int nstim, struct EQParams& params)
 {
 	int i, inext;
 	int status = 1;
 	int nexpect = 8+2*nstim;
+	int nexpectC3 = 10 + 4 * nstim;
 	vector<string> piped;
 	vector<string> tokens;
 
@@ -48,52 +48,100 @@ int parse_eqparams(const string& s, int nstim, struct EQParams& params)
 	params.fixpt = (ARContrastFixationPointSpec *)NULL;
 	params.g0 = (ARGratingSpec *)NULL;
 	params.g1 = (ARGratingSpec *)NULL;
+	params.tC2 = params.tC3 = 0;
 
 
 	// Parse first part of arg. This was the original arg, and is everything before the first "|"
 
 	tokenize(piped[0], tokens, "\t");
-	if (tokens.size() != nexpect)
+	if (tokens.size() == nexpect)
 	{
-		cerr << "Error in eq param: expecting " << nexpect << " tokens, got " << tokens.size() << ": " << s << endl;
-		return 1;
-	}
-
-	if (parse_double(tokens[0], params.tQ0) ||
-		parse_double(tokens[1], params.tQ1) ||
-		parse_double(tokens[2], params.tS) ||
-		parse_double(tokens[3], params.tCC) ||
-		parse_double(tokens[4], params.tE))
-	{
-		cerr << "Error in eq param: expecting double for params 0-4: " << s << endl;
-		return 1;
-	}
-
-	i = 0;
-	inext = 5;
-	while (i<nstim)
-	{
-		int c0, c1;
-		if (parse_integer(tokens[inext++], c0) ||
-			parse_integer(tokens[inext++], c1))
+		if (parse_double(tokens[0], params.tQ0) ||
+			parse_double(tokens[1], params.tQ1) ||
+			parse_double(tokens[2], params.tS) ||
+			parse_double(tokens[3], params.tCC) ||
+			parse_double(tokens[4], params.tE))
 		{
-			cerr << "Error in eq param: contrasts must be int: " << s << endl;
+			cerr << "Error in eq param: expecting double for params 0-4: " << s << endl;
 			return 1;
 		}
-		else
+		params.tC2 = params.tC3 = 0;
+		i = 0;
+		inext = 5;
+		while (i<nstim)
 		{
-			params.contrastPairs.push_back(pair<int, int>(c0, c1));
+			int c0, c1;
+			if (parse_integer(tokens[inext++], c0) ||
+				parse_integer(tokens[inext++], c1))
+			{
+				cerr << "Error in eq param: contrasts must be int: " << s << endl;
+				return 1;
+			}
+			else
+			{
+				//params.contrastPairs.push_back(pair<int, int>(c0, c1));
+				params.contrastTuples.push_back(boost::make_tuple(c0, c1, 0, 0));
+			}
+			i++;
 		}
-		i++;
-	}
 
-	if (parse_integer(tokens[inext], params.iAL) || parse_integer(tokens[inext+1], params.iCR))
+		if (parse_integer(tokens[inext], params.iAL) || parse_integer(tokens[inext + 1], params.iCR))
+		{
+			cerr << "Error in eq param: expect integer for attend location and correct response: " << s << endl;
+			return 1;
+		}
+
+		parse_string(tokens[inext + 2], params.cueFile);
+
+	}
+	else if (tokens.size() == nexpectC3)
 	{
-		cerr << "Error in eq param: expect integer for attend location and correct response: " << s << endl;
+		if (parse_double(tokens[0], params.tQ0) ||
+			parse_double(tokens[1], params.tQ1) ||
+			parse_double(tokens[2], params.tS) ||
+			parse_double(tokens[3], params.tCC) ||
+			parse_double(tokens[4], params.tC2) ||
+			parse_double(tokens[5], params.tC3) ||
+			parse_double(tokens[6], params.tE))
+		{
+			cerr << "Error in eq param: expecting double for params 0-7: " << s << endl;
+			return 1;
+		}
+		i = 0;
+		inext = 7;
+		while (i<nstim)
+		{
+			int c0, c1, c2, c3;
+			if (parse_integer(tokens[inext++], c0) ||
+				parse_integer(tokens[inext++], c1) ||
+				parse_integer(tokens[inext++], c2) ||
+				parse_integer(tokens[inext++], c3))
+			{
+				cerr << "Error in eq param: contrasts must be int: " << s << endl;
+				return 1;
+			}
+			else
+			{
+				params.contrastTuples.push_back(boost::make_tuple(c0, c1, c2, c3));
+			}
+			i++;
+		}
+
+		if (parse_integer(tokens[inext], params.iAL) || parse_integer(tokens[inext + 1], params.iCR))
+		{
+			cerr << "Error in eq param: expect integer for attend location and correct response: " << s << endl;
+			return 1;
+		}
+
+		parse_string(tokens[inext + 2], params.cueFile);
+
+	}
+	else
+	{
+		cerr << "Bad parameter line. Expected " << nexpect << " or " << nexpectC3 << " parameters." << endl;
 		return 1;
 	}
-	
-	parse_string(tokens[inext+2], params.cueFile);
+
 
 
 	// Now parse each of the remaining items in piped
@@ -157,7 +205,7 @@ void sendEEGSignal(int ival, ClientNetwork& client)
 {
 	char msg[48];
 	int len;
-	len = sprintf(msg, "<TRIGGER>%d</TRIGGER>", ival);
+	len = sprintf_s(msg, 48, "<TRIGGER>%d</TRIGGER>", ival);
 	client.sendMessage(msg, len);
 	return;
 }
@@ -173,6 +221,8 @@ EQStimSet::EQStimSet(ARContrastFixationPointSpec& fixpt, std::vector<alert::ARGr
 	{
 		set_grating(*it);
 		set_grating(*it);	// contrast changed partner
+		set_grating(*it);	// C2 grating
+		set_grating(*it);	// C3 grating
 		it++;
 	}
 
@@ -184,8 +234,8 @@ EQStimSet::EQStimSet(ARContrastFixationPointSpec& fixpt, std::vector<alert::ARGr
 		boost::split(strs, pIPPort, boost::is_any_of(":"));
 		if (strs.size() == 2)
 		{
-			strcpy(ip, strs[0].c_str());
-			strcpy(port, strs[1].c_str());
+			strcpy_s(ip, 16, strs[0].c_str());
+			strcpy_s(port, 8, strs[1].c_str());
 			m_pEEGClient = new ClientNetwork(ip, port);
 		}
 	}
@@ -200,7 +250,7 @@ EQStimSet::~EQStimSet()
 int EQStimSet::init(ARvsg& vsg, std::vector<int> pages)
 {
 	int status = 0;
-	int nlevels = 40; // default up to 6 gratings
+	size_t nlevels = 40; // default up to 6 gratings
 
 	m_pageBlank = pages[0];
 	m_pageFixpt = pages[1];
@@ -209,6 +259,8 @@ int EQStimSet::init(ARvsg& vsg, std::vector<int> pages)
 	m_pageFixptCueStimCC = pages[4];
 	m_pageFixptStim = pages[5];
 	m_pageFixptStimCC = pages[6];
+	m_pageFixptStimC2 = pages[7];
+	m_pageFixptStimC3 = pages[8];
 
 	// divvy up levels. There are only about 250 levels available but fixpt takes 2...
 	// test - snag 40 levels for loaded images.......
@@ -233,13 +285,13 @@ int EQStimSet::init(ARvsg& vsg, std::vector<int> pages)
 int EQStimSet::drawCurrent()
 {
 	int i;
-	int nstim = count()/2;
+	size_t nstim = count()/2;
 	int status = 0;
 	ARContrastFixationPointSpec *pfixpt;
-	ARGratingSpec *pg0Before, *pg0After;
-	ARGratingSpec *pg1Before, *pg1After;
-	ARGratingSpec g0Before, g0After;
-	ARGratingSpec g1Before, g1After;
+	ARGratingSpec *pg0Before, *pg0After, *pg0C2, *pg0C3;
+	ARGratingSpec *pg1Before, *pg1After, *pg1C2, *pg1C3;
+	ARGratingSpec g0Before, g0After, g0C2, g0C3;
+	ARGratingSpec g1Before, g1After, g1C2, g1C3;
 	const struct EQParams * pparams;		// pointer to current of current params, convenience
 
 	int page = vsgGetZoneDisplayPage(vsgVIDEOPAGE);
@@ -289,26 +341,54 @@ int EQStimSet::drawCurrent()
 		g0After = *pparams->g0;
 		g0After.init(grating(1));
 		pg0After = &g0After;
+		if (pparams->hasC2C3())
+		{
+			g0C2 = *pparams->g0;
+			g0C2.init(grating(2));
+			pg0C2 = &g0C2;
+			g0C3 = *pparams->g0;
+			g0C3.init(grating(3));
+			pg0C3 = &g0C3;
+		}
 	}
 	else
 	{
 		pg0Before = &grating(0);
 		pg0After = &grating(1);
+		if (pparams->hasC2C3())
+		{
+			pg0C2 = &grating(2);
+			pg0C3 = &grating(3);
+		}
 	}
 
 	if (pparams->g1)
 	{
 		g1Before = *pparams->g1;
-		g1Before.init(grating(2));
+		g1Before.init(grating(4));
 		pg1Before = &g1Before;
 		g1After = *pparams->g1;
-		g1After.init(grating(3));
+		g1After.init(grating(5));
 		pg1After = &g1After;
+		if (pparams->hasC2C3())
+		{
+			g1C2 = *pparams->g1;
+			g1C2.init(grating(6));
+			pg1C2 = &g1C2;
+			g1C3 = *pparams->g1;
+			g1C3.init(grating(7));
+			pg1C3 = &g1C3;
+		}
 	}
 	else
 	{
-		pg1Before = &grating(2);
-		pg1After = &grating(3);
+		pg1Before = &grating(4);
+		pg1After = &grating(5);
+		if (pparams->hasC2C3())
+		{
+			pg1C2 = &grating(6);
+			pg1C3 = &grating(7);
+		}
 	}
 
 	// Set contrasts
@@ -319,10 +399,21 @@ int EQStimSet::drawCurrent()
 		grating(i * nstim + 1).setContrast(pparams->contrastPairs[i].second);
 	}
 #else
-	pg0Before->setContrast(pparams->contrastPairs[0].first);
-	pg0After->setContrast(pparams->contrastPairs[0].second);
-	pg1Before->setContrast(pparams->contrastPairs[1].first);
-	pg1After->setContrast(pparams->contrastPairs[1].second);
+//tuple	pg0Before->setContrast(pparams->contrastPairs[0].first);
+//tuple	pg0After->setContrast(pparams->contrastPairs[0].second);
+//tuple	pg1Before->setContrast(pparams->contrastPairs[1].first);
+//tuple	pg1After->setContrast(pparams->contrastPairs[1].second);
+	pg0Before->setContrast(boost::get<0>(pparams->contrastTuples[0]));
+	pg0After->setContrast(boost::get<1>(pparams->contrastTuples[0]));
+	pg1Before->setContrast(boost::get<0>(pparams->contrastTuples[1]));
+	pg1After->setContrast(boost::get<1>(pparams->contrastTuples[1]));
+	if (pparams->hasC2C3())
+	{
+		pg0C2->setContrast(boost::get<2>(pparams->contrastTuples[0]));
+		pg0C3->setContrast(boost::get<3>(pparams->contrastTuples[0]));
+		pg1C2->setContrast(boost::get<2>(pparams->contrastTuples[1]));
+		pg1C3->setContrast(boost::get<3>(pparams->contrastTuples[1]));
+	}
 #endif
 
 
@@ -391,9 +482,23 @@ int EQStimSet::drawCurrent()
 #endif
 	pfixpt->draw();
 
+	// C2 and C3 pages are drawn only if tCC < tC2 < tC3 < tE
+	if (pparams->hasC2C3())
+	{
+		// fixpt + stimC2
+		vsgSetDrawPage(vsgVIDEOPAGE, m_pageFixptStimC2, vsgBACKGROUND);
+		pg0C2->draw();
+		pg1C2->draw();
+		pfixpt->draw();
+
+		vsgSetDrawPage(vsgVIDEOPAGE, m_pageFixptStimC3, vsgBACKGROUND);
+		pg0C3->draw();
+		pg1C3->draw();
+		pfixpt->draw();
+	}
+
 	// blank page
 	vsgSetDrawPage(vsgVIDEOPAGE, m_pageBlank, vsgBACKGROUND);
-
 
 
 	// Setup page cycling
@@ -401,6 +506,8 @@ int EQStimSet::drawCurrent()
 	int nQ1 = (int)(pparams->tQ1 * 1000000.0 /vsgGetSystemAttribute(vsgFRAMETIME));
 	int nS = (int)(pparams->tS * 1000000.0 /vsgGetSystemAttribute(vsgFRAMETIME));
 	int nCC = (int)(pparams->tCC * 1000000.0 /vsgGetSystemAttribute(vsgFRAMETIME));
+	int nC2 = (int)(pparams->tC2 * 1000000.0 / vsgGetSystemAttribute(vsgFRAMETIME));
+	int nC3 = (int)(pparams->tC3 * 1000000.0 / vsgGetSystemAttribute(vsgFRAMETIME));
 	int nE = (int)(pparams->tE * 1000000.0 /vsgGetSystemAttribute(vsgFRAMETIME));
 	int iCycle = 0;	// keeps position during setup below
 	VSGCYCLEPAGEENTRY cycle[32767];
@@ -445,12 +552,38 @@ int EQStimSet::drawCurrent()
 		cycle[iCycle].Stop = 0;
 		iCycle++;
 
-		// fixpt/stimCC on
-		cycle[iCycle].Frames = nE - nCC;
-		cycle[iCycle].Page = m_pageFixptStimCC + vsgTRIGGERPAGE;
-		cycle[iCycle].Xpos = cycle[iCycle].Ypos = 0;
-		cycle[iCycle].Stop = 0;
-		iCycle++;
+		if (!pparams->hasC2C3())
+		{
+			// fixpt/stimCC on
+			cycle[iCycle].Frames = nE - nCC;
+			cycle[iCycle].Page = m_pageFixptStimCC + vsgTRIGGERPAGE;
+			cycle[iCycle].Xpos = cycle[iCycle].Ypos = 0;
+			cycle[iCycle].Stop = 0;
+			iCycle++;
+		}
+		else
+		{
+			// fixpt/stimCC on
+			cycle[iCycle].Frames = nC2 - nCC;
+			cycle[iCycle].Page = m_pageFixptStimCC + vsgTRIGGERPAGE;
+			cycle[iCycle].Xpos = cycle[iCycle].Ypos = 0;
+			cycle[iCycle].Stop = 0;
+			iCycle++;
+
+			// fixpt/stimC2 on
+			cycle[iCycle].Frames = nC3 - nC2;
+			cycle[iCycle].Page = m_pageFixptStimC2 + vsgTRIGGERPAGE;
+			cycle[iCycle].Xpos = cycle[iCycle].Ypos = 0;
+			cycle[iCycle].Stop = 0;
+			iCycle++;
+
+			// fixpt/stimC3 on
+			cycle[iCycle].Frames = nE - nC3;
+			cycle[iCycle].Page = m_pageFixptStimC3 + vsgTRIGGERPAGE;
+			cycle[iCycle].Xpos = cycle[iCycle].Ypos = 0;
+			cycle[iCycle].Stop = 0;
+			iCycle++;
+		}
 
 		// back to blank and end
 		cycle[iCycle].Frames = 1;
@@ -475,12 +608,38 @@ int EQStimSet::drawCurrent()
 		cycle[iCycle].Stop = 0;
 		iCycle++;
 
-		// fixpt/stimCC on
-		cycle[iCycle].Frames = nE - nCC;
-		cycle[iCycle].Page = m_pageFixptStimCC + vsgTRIGGERPAGE;
-		cycle[iCycle].Xpos = cycle[iCycle].Ypos = 0;
-		cycle[iCycle].Stop = 0;
-		iCycle++;
+		if (!pparams->hasC2C3())
+		{
+			// fixpt/stimCC on
+			cycle[iCycle].Frames = nE - nCC;
+			cycle[iCycle].Page = m_pageFixptStimCC + vsgTRIGGERPAGE;
+			cycle[iCycle].Xpos = cycle[iCycle].Ypos = 0;
+			cycle[iCycle].Stop = 0;
+			iCycle++;
+		}
+		else
+		{
+			// fixpt/stimCC on
+			cycle[iCycle].Frames = nC2 - nCC;
+			cycle[iCycle].Page = m_pageFixptStimCC + vsgTRIGGERPAGE;
+			cycle[iCycle].Xpos = cycle[iCycle].Ypos = 0;
+			cycle[iCycle].Stop = 0;
+			iCycle++;
+
+			// fixpt/stimC2 on
+			cycle[iCycle].Frames = nC3 - nC2;
+			cycle[iCycle].Page = m_pageFixptStimC2 + vsgTRIGGERPAGE;
+			cycle[iCycle].Xpos = cycle[iCycle].Ypos = 0;
+			cycle[iCycle].Stop = 0;
+			iCycle++;
+
+			// fixpt/stimC3 on
+			cycle[iCycle].Frames = nE - nC3;
+			cycle[iCycle].Page = m_pageFixptStimC3 + vsgTRIGGERPAGE;
+			cycle[iCycle].Xpos = cycle[iCycle].Ypos = 0;
+			cycle[iCycle].Stop = 0;
+			iCycle++;
+		}
 
 		// back to blank and end
 		cycle[iCycle].Frames = 1;
@@ -512,12 +671,38 @@ int EQStimSet::drawCurrent()
 		cycle[iCycle].Stop = 0;
 		iCycle++;
 
-		// fixpt/stimCC on
-		cycle[iCycle].Frames = nE - nCC;
-		cycle[iCycle].Page = m_pageFixptStimCC + vsgTRIGGERPAGE;
-		cycle[iCycle].Xpos = cycle[iCycle].Ypos = 0;
-		cycle[iCycle].Stop = 0;
-		iCycle++;
+		if (!pparams->hasC2C3())
+		{
+			// fixpt/stimCC on
+			cycle[iCycle].Frames = nE - nCC;
+			cycle[iCycle].Page = m_pageFixptStimCC + vsgTRIGGERPAGE;
+			cycle[iCycle].Xpos = cycle[iCycle].Ypos = 0;
+			cycle[iCycle].Stop = 0;
+			iCycle++;
+		}
+		else
+		{
+			// fixpt/stimCC on
+			cycle[iCycle].Frames = nC2 - nCC;
+			cycle[iCycle].Page = m_pageFixptStimCC + vsgTRIGGERPAGE;
+			cycle[iCycle].Xpos = cycle[iCycle].Ypos = 0;
+			cycle[iCycle].Stop = 0;
+			iCycle++;
+
+			// fixpt/stimC2 on
+			cycle[iCycle].Frames = nC3 - nC2;
+			cycle[iCycle].Page = m_pageFixptStimC2 + vsgTRIGGERPAGE;
+			cycle[iCycle].Xpos = cycle[iCycle].Ypos = 0;
+			cycle[iCycle].Stop = 0;
+			iCycle++;
+
+			// fixpt/stimC3 on
+			cycle[iCycle].Frames = nE - nC3;
+			cycle[iCycle].Page = m_pageFixptStimC3 + vsgTRIGGERPAGE;
+			cycle[iCycle].Xpos = cycle[iCycle].Ypos = 0;
+			cycle[iCycle].Stop = 0;
+			iCycle++;
+		}
 
 		// back to blank and end
 		cycle[iCycle].Frames = 1;

@@ -425,7 +425,7 @@ AttentionStimSet::AttentionStimSet(ARContrastFixationPointSpec& fixpt, double tM
 int AttentionStimSet::init(ARvsg& vsg, std::vector<int> pages)
 {
 	int status = 0;
-	int nlevels;
+	size_t nlevels;
 	m_pageBlank = pages[0];
 	m_pageFixpt = pages[1];
 	m_pageStim = pages[2];

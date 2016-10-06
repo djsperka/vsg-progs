@@ -209,6 +209,7 @@
     <ClCompile Include="UStim.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="eqtest-1.bat" />
     <None Include="fixstim.bat" />
     <None Include="test-no-delay.bat" />
     <None Include="test-with-fixed-delay.bat" />
@@ -222,6 +223,13 @@
     <Text Include="attspan.txt" />
     <Text Include="attspan2.txt" />
     <Text Include="counterphase-test-input-1.txt" />
+    <Text Include="eq1.txt" />
+    <Text Include="eq11.txt" />
+    <Text Include="eq1f.txt" />
+    <Text Include="eq1fs.txt" />
+    <Text Include="eq1fsq.txt" />
+    <Text Include="eq1q.txt" />
+    <Text Include="eq1s.txt" />
     <Text Include="README.txt" />
     <Text Include="watt.txt" />
     <Text Include="wattd.txt" />

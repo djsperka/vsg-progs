@@ -1,1 +1,1 @@
-bin64\remote 127.0.0.1 7000 fixstim -a -v -b gray -p 2 -d 500 -f 0,0,1,green -s -5,0,6,6,0,0,100,.2,1,135,b,s,e -s 5,0,6,6,0,0,100,.2,1,135,b,s,e -W d:/work/AlertRig/eq1f.txt
+ %ALERT_DEPLOYMENT_ROOT%\bin64\remote 127.0.0.1 7000 fixstim -a -v -b gray -p 2 -d 500 -f 0,0,1,green -s -5,0,6,6,0,0,100,.2,1,135,b,s,e -s 5,0,6,6,0,0,100,.2,1,135,b,s,e -W %1%
