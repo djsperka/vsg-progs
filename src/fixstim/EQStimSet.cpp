@@ -44,7 +44,6 @@ int parse_eqparams(const string& s, int nstim, struct EQParams& params)
 	vector<string> tokens;
 
 	tokenize(s, piped, "|");
-	cerr << "piped has " << piped.size() << endl;
 	params.fixpt = (ARContrastFixationPointSpec *)NULL;
 	params.g0 = (ARGratingSpec *)NULL;
 	params.g1 = (ARGratingSpec *)NULL;
@@ -301,26 +300,30 @@ int EQStimSet::drawCurrent()
 		pparams = &m_vecParams.at(m_current);
 
 	// vsgDrawImage needs a char* not const char*
+	// Note that if the length is 0 then no image is drawn. In spec file use "none" (case does not matter)
 	char filename[1024];
 	strncpy_s(filename, 1024, pparams->cueFile.c_str(), sizeof(filename));
 	filename[1023] = 0;
 
 	// load palette
-	clearPalImage();
-	i = vsgImageGetPalette(0, filename, &f_palImage);
-	if (i)
+	if (strlen(filename))
 	{
-		switch (i)
+		clearPalImage();
+		i = vsgImageGetPalette(0, filename, &f_palImage);
+		if (i)
 		{
-		case vsgerrorERRORREADINGFILE: cerr << "get palette vsgerrorERRORREADINGFILE" << endl; break;
-		case vsgerrorUNSUPPORTEDIMAGETYPE: cerr << "get palette vsgerrorUNSUPPORTEDIMAGETYPE" << endl; break;
-		case vsgerrorUNSUPPORTEDBITMAPFORMAT: cerr << "get palette vsgerrorUNSUPPORTEDBITMAPFORMAT" << endl; break;
-		case vsgerrorOUTOFPCMEMORY: cerr << "get palette vsgerrorOUTOFPCMEMORY" << endl; break;
-		case vsgerrorIMAGEHASNOPALETTE: cerr << "get palette vsgerrorIMAGEHASNOPALETTE" << endl; break;
-		default: cerr << "get palette error: " << i << endl;
+			switch (i)
+			{
+			case vsgerrorERRORREADINGFILE: cerr << "get palette vsgerrorERRORREADINGFILE" << endl; break;
+			case vsgerrorUNSUPPORTEDIMAGETYPE: cerr << "get palette vsgerrorUNSUPPORTEDIMAGETYPE" << endl; break;
+			case vsgerrorUNSUPPORTEDBITMAPFORMAT: cerr << "get palette vsgerrorUNSUPPORTEDBITMAPFORMAT" << endl; break;
+			case vsgerrorOUTOFPCMEMORY: cerr << "get palette vsgerrorOUTOFPCMEMORY" << endl; break;
+			case vsgerrorIMAGEHASNOPALETTE: cerr << "get palette vsgerrorIMAGEHASNOPALETTE" << endl; break;
+			default: cerr << "get palette error: " << i << " filename " << pparams->cueFile << " len " << strlen(filename) << endl; break;
+			}
 		}
+		vsgPaletteWrite((VSGLUTBUFFER*)f_palImage, 0, 32);
 	}
-	vsgPaletteWrite((VSGLUTBUFFER*)f_palImage, 0, 32);
 
 	// Decide what stuff to draw
 	if (pparams->fixpt)
@@ -425,12 +428,12 @@ int EQStimSet::drawCurrent()
 
 	// fixpt + cue page
 	vsgSetDrawPage(vsgVIDEOPAGE, m_pageFixptCue, vsgBACKGROUND);
-	vsgDrawImage(vsgBMPPICTURE, pfixpt->x, pfixpt->y, filename);
+	if (strlen(filename)) vsgDrawImage(vsgBMPPICTURE, pfixpt->x, pfixpt->y, filename);
 	pfixpt->draw();
 
 	// fixpt + cue + stim
 	vsgSetDrawPage(vsgVIDEOPAGE, m_pageFixptCueStim, vsgBACKGROUND);
-	vsgDrawImage(vsgBMPPICTURE, pfixpt->x, pfixpt->y, filename);
+	if (strlen(filename)) vsgDrawImage(vsgBMPPICTURE, pfixpt->x, pfixpt->y, filename);
 #if MORE_THAN_2_GRATINGS
 	for (i=0; i<nstim; i++)
 	{
@@ -444,7 +447,7 @@ int EQStimSet::drawCurrent()
 
 	// fixpt + cue + stimCC
 	vsgSetDrawPage(vsgVIDEOPAGE, m_pageFixptCueStimCC, vsgBACKGROUND);
-	vsgDrawImage(vsgBMPPICTURE, pfixpt->x, pfixpt->y, filename);
+	if (strlen(filename)) vsgDrawImage(vsgBMPPICTURE, pfixpt->x, pfixpt->y, filename);
 #if MORE_THAN_2_GRATINGS
 	for (i=0; i<nstim; i++)
 	{
