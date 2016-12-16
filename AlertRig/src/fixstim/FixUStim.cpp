@@ -1228,14 +1228,22 @@ int FixUStim::process_arg(int c, std::string& arg)
 						else
 						{
 							if (m_verbose) cerr << "Got cue file " << e.cueFile << endl;
-							if (exists(path(e.cueFile))) 
+							if (boost::iequals(e.cueFile, std::string("none")))
+							{
+								if (m_verbose)
+								{
+									cerr << "None specified - will not display a cue for this trial." << endl;
+								}
+								e.cueFile.clear();
+							}
+							else if (exists(path(e.cueFile))) 
 							{
 								cuecount++;
 								if (m_verbose) cerr << " Found cue file at absolute path " << path(e.cueFile) << endl;
 							}
 							else 
 							{
-								cerr << " Absolute path " << path(e.cueFile) << " not found." << endl;
+								if (m_verbose) cerr << " Absolute path " << path(e.cueFile) << " not found." << endl;
 								if (exists(m_pathCues / e.cueFile))
 								{
 									if (m_verbose) cerr << " Found cue file at path relative to config file " << (m_pathCues / e.cueFile) << endl;
