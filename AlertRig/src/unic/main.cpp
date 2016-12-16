@@ -73,12 +73,12 @@ int main(int argc, char *argv[])
 	QApplication a(argc, argv);
 
 	// Check if application is already running...
-	QLockFile lockFile(QDir::temp().absoluteFilePath("unic.lock"));
-	lockFile.setStaleLockTime(0);
-	if (!lockFile.tryLock(100)) 
-	{
-		return 1;
-	}
+//	QLockFile lockFile(QDir::temp().absoluteFilePath("unic.lock"));
+//	lockFile.setStaleLockTime(0);
+//	if (!lockFile.tryLock(100)) 
+//	{
+//		return 1;
+//	}
 
 	if (prargs(argc, argv, process_args, "s:f:vz"))
 		return -1;
