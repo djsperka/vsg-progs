@@ -109,7 +109,7 @@
       </Message>
     </PostBuildEvent>
     <CustomBuildStep>
-      <Command>call aaDeploy.bat "fixstim.exe,remote.exe,CableTest.exe,unic.exe" $(TargetDir) $(AlertBinPath) $(TargetName)$(TargetExt)</Command>
+      <Command>call aaDeploy.bat "fixstim.exe,remote.exe,CableTest.exe,unic.exe" $(TargetDir) $(AlertBinPath) </Command>
       <Outputs>$(AlertBinPath)\$(TargetName)$(TargetExt)</Outputs>
       <Message>Performing Custom Build Step...</Message>
     </CustomBuildStep>
@@ -133,7 +133,7 @@
       </Message>
     </PostBuildEvent>
     <CustomBuildStep>
-      <Command>call aaDeploy.bat "fixstim.exe,remote.exe,CableTest.exe,unic.exe" $(TargetDir) $(AlertBinPath) $(TargetName)$(TargetExt)</Command>
+      <Command>call aaDeploy.bat "fixstim.exe,remote.exe,CableTest.exe,unic.exe" $(TargetDir) $(AlertBinPath)</Command>
       <Outputs>$(AlertBinPath)\$(TargetName)$(TargetExt)</Outputs>
       <Message>Performing Custom Build Step...</Message>
     </CustomBuildStep>
