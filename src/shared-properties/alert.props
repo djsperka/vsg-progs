@@ -25,8 +25,8 @@
     <AlertLib Condition="'$(Platform)'=='Win32'">$(SolutionDir)..\lib</AlertLib>
     <FTDILib Condition="'$(Platform)'=='x64'">$(FTDI_LIB_PATH_64)</FTDILib>
     <FTDILib Condition="'$(Platform)'=='Win32'">$(FTDI_LIB_PATH)</FTDILib>
-	<AlertBinPath Condition="'$(Platform)'=='x64'">$(ALERT_PATH)\bin64</AlertBinPath>
-	<AlertBinPath Condition="'$(Platform)'=='Win32'">$(ALERT_PATH)\bin</AlertBinPath>
+	<AlertBinPath Condition="'$(Platform)'=='x64'">$(ALERT_DEPLOYMENT_ROOT)\bin64</AlertBinPath>
+	<AlertBinPath Condition="'$(Platform)'=='Win32'">$(ALERT_DEPLOYMENT_ROOT)\bin</AlertBinPath>
 	<Deployables>$(OutDir)fixstim.exe,$(OutDir)remote.exe,$(OutDir)CableTest.exe</Deployables>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Platform)'=='Win32'">
