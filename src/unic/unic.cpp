@@ -6,6 +6,9 @@
 
 using namespace std;
 
+
+#undef USE_PARALLEL_STATES
+
 // status reply values. Taken from 
 // CoreGUI TCP Server document dated 14 April, 2016
 
@@ -81,6 +84,7 @@ void unic::buildStateMachine()
 {
 	m_pMachine = new QStateMachine;
 
+#ifdef USE_PARALLEL_STATES
 	// timer will be used to check status periodically. 
 	m_timerSendStatusCommand.setInterval(1000);
 	m_timerSendStatusCommand.setSingleShot(true);
@@ -137,6 +141,49 @@ void unic::buildStateMachine()
 
 	// finally, set up slot to catch changes in nic status emitted by the status loop
 	connect(this, SIGNAL(nicStatusChangedSignal(int, int)), this, SLOT(nicStatusChanged(int, int)));
+
+#else
+
+	QState *sCommandLoop = new QState(m_pMachine);
+	QState *sIdle = new QState(m_pMachine);
+	QState *sChanged = new QState(m_pMachine);
+
+	QState* sSendStatusCommand = new QState(m_pMachine);
+	QState* sReadStatusResponse = new QState(m_pMachine);
+	QState* sReadStatusTimeout = new QState(m_pMachine);
+
+	// this timer is for waiting on status response
+	m_timerReadStatusResponse.setInterval(500);
+	m_timerReadStatusResponse.setSingleShot(true);
+
+
+	m_pMachine->setInitialState(sIdle);
+
+	// transitions
+
+	sIdle->addTransition(&m_nicCommandFileWatcher, SIGNAL(fileChanged(const QString&)), sChanged);
+	sChanged->addTransition(sSendStatusCommand);
+
+	connect(sSendStatusCommand, SIGNAL(entered()), this, SLOT(sendStatusCommandStateEntered()));	// send status command, start m_timerReadStatusResponse;
+	sSendStatusCommand->addTransition(&m_socket, SIGNAL(readyRead()), sReadStatusResponse);
+	sReadStatusResponse->addTransition(sIdle);
+	connect(sReadStatusResponse, SIGNAL(entered()), this, SLOT(readStatusResponseStateEntered()));
+	sSendStatusCommand->addTransition(&m_timerReadStatusResponse, SIGNAL(timeout()), sReadStatusTimeout);
+	connect(sReadStatusTimeout, SIGNAL(entered()), this, SLOT(readStatusTimeoutStateEntered()));
+	sReadStatusTimeout->addTransition(sIdle);
+
+
+
+	// there's stuff to do on entering these sChanged state
+
+	connect(sChanged, SIGNAL(entered()), this, SLOT(fileChangedStateEntered()));
+	connect(sChanged, SIGNAL(entered()), this, SIGNAL(fileChangeDetected()));
+
+
+
+#endif
+
+
 
 	m_pMachine->start();
 }
@@ -208,6 +255,19 @@ void unic::readStatusResponseStateEntered()
 	else
 	{
 		qWarning() << "Expecting single byte status response from NIC, but we got : " << ba << " length " << ba.size();
+		for (unsigned int i = 0; i < ba.size(); i++)
+		{
+			unsigned int status = (unsigned char)ba.at(i);
+			if (f_mapNICStatusStrings.count(status) == 1)
+			{
+				//qInfo() << QString("NIC status (%1): %2").arg(status).arg(f_mapNICStatusStrings[status]);
+				ui.labelNICStatus->setText(QString("(%1): %2").arg(status).arg(f_mapNICStatusStrings[status]));
+			}
+			else
+			{
+				qWarning() << "Unknown status value from NIC: " << status;
+			}
+		}
 	}
 }
 
