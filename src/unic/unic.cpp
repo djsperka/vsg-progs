@@ -7,35 +7,37 @@
 using namespace std;
 
 
-#undef USE_PARALLEL_STATES
+#define USE_PARALLEL_STATES
 
 // status reply values. Taken from 
 // CoreGUI TCP Server document dated 14 April, 2016
 
 static const std::pair<int, QString> arr[] = {
-	std::pair<int, QString>(-1, "NOT_CONNECTED"),
-	std::pair<int, QString>(0, "UNKNOWN"),
-	std::pair<int, QString>(230, "IDLE"),
-	std::pair<int, QString>(231, "EEG_ON"),
-	std::pair<int, QString>(232, "EEG_OFF"),
-	std::pair<int, QString>(233, "TEMPLATE_NOT_LOADED"),
-	std::pair<int, QString>(234, "TEMPLATE_LOADING"),
-	std::pair<int, QString>(235, "TEMPLATE_LOADED"),
-	std::pair<int, QString>(236, "STIMULATION_READY"),
-	std::pair<int, QString>(237, "STIMULATION_RAMPUP"),
-	std::pair<int, QString>(238, "STIMULATION_FULL"),
-	std::pair<int, QString>(239, "STIMULATION_RAMPDOWN"),
-	std::pair<int, QString>(240, "STIMULATION_FINISHED"),
-	std::pair<int, QString>(241, "REMOTE_CONTROL_ALLOWED"),
-	std::pair<int, QString>(242, "REMOTE_CONTROL_REJECTED"),
-	std::pair<int, QString>(243, "STIMULATION_ABORTING"),
-	std::pair<int, QString>(244, "DEVICE_NOT_RESENT"),
-	std::pair<int, QString>(245, "PRE_EEG"),
-	std::pair<int, QString>(246, "POST_EEG"),
-	std::pair<int, QString>(247, "WAITING_FOR_SECOND_SHAM"),
-	std::pair<int, QString>(248, "EEG_RECORDING_ON"),
-	std::pair<int, QString>(249, "SYNCHRONIZING"),
-	std::pair<int, QString>(250, "VERSION_RECEIVED"),
+	std::pair<int, QString>(230, "REMOTE_CONTROL_ALLOWED"),
+	std::pair<int, QString>(231, "REMOTE_CONTROL_REJECTED"),
+	std::pair<int, QString>(232, "VERSION_RECEIVED"),
+	std::pair<int, QString>(233, "SYNCHRONIZING"),
+	std::pair<int, QString>(234, "IDLE"),
+	std::pair<int, QString>(235, "PROTOCOL_NOT_LOADED"),
+	std::pair<int, QString>(236, "PROTOCOL_LOADING"),
+	std::pair<int, QString>(237, "PROTOCOL_LOADED"),
+	std::pair<int, QString>(238, "PROTOCOL_RUNNING"),
+	std::pair<int, QString>(239, "PROTOCOL_ERROR"),
+	std::pair<int, QString>(240, "PROTOCOL_FINISHED"),
+	std::pair<int, QString>(241, "PROTOCOL_PAUSED"),
+	std::pair<int, QString>(242, "PROTOCOL_ABORTED"),
+	std::pair<int, QString>(243, "PROTOCOL_ABORTING"),
+	std::pair<int, QString>(244, "EEG_ON"),
+	std::pair<int, QString>(245, "EEG_OFF"),
+	std::pair<int, QString>(246, "STIMULATION_RAMPUP"),
+	std::pair<int, QString>(247, "STIMULATION_FULL"),
+	std::pair<int, QString>(248, "STIMULATION_RAMPDOWN"),
+	std::pair<int, QString>(249, "STIMULATION_FINISHED"),
+	std::pair<int, QString>(250, "WAITING_FOR_SECOND_SHAM"),
+	std::pair<int, QString>(251, "CHECK_IMPEDANCE"),
+	std::pair<int, QString>(252, "CHECK_IMPEDANCE_FINISHED"),
+	std::pair<int, QString>(253, "CHECK_IMPEDANCE_ABORTING"),
+	std::pair<int, QString>(254, "CHECK_IMPEDANCE_ABORTED")
 };
 
 static std::map<int, QString> f_mapNICStatusStrings(arr, arr + sizeof(arr) / sizeof(arr[0]));
@@ -92,6 +94,8 @@ void unic::buildStateMachine()
 	// this timer is for waiting on status response
 	m_timerReadStatusResponse.setInterval(500);
 	m_timerReadStatusResponse.setSingleShot(true);
+	m_timerReadProtocolStatusResponse.setInterval(500);
+	m_timerReadProtocolStatusResponse.setSingleShot(true);
 
 	// Parent State - parent to two parallel state sets.
 	QState *sParent = new QState(QState::ParallelStates, m_pMachine);
@@ -125,6 +129,9 @@ void unic::buildStateMachine()
 	QState* sSendStatusCommand = new QState(sStatusLoop);
 	QState* sReadStatusResponse = new QState(sStatusLoop);
 	QState* sReadStatusTimeout = new QState(sStatusLoop);
+	QState* sSendProtocolStatusCommand = new QState(sStatusLoop);
+	QState* sReadProtocolStatusResponse = new QState(sStatusLoop);
+	QState* sReadProtocolStatusTimeout = new QState(sStatusLoop);
 	sStatusLoop->setInitialState(sIdleStatus);
 
 	// transitions for status loop states
@@ -133,11 +140,19 @@ void unic::buildStateMachine()
 	sIdleStatus->addTransition(&m_timerSendStatusCommand, SIGNAL(timeout()), sSendStatusCommand);
 	connect(sSendStatusCommand, SIGNAL(entered()), this, SLOT(sendStatusCommandStateEntered()));	// send status command, start m_timerReadStatusResponse;
 	sSendStatusCommand->addTransition(&m_socket, SIGNAL(readyRead()), sReadStatusResponse);
-	sReadStatusResponse->addTransition(sIdleStatus);
+	sReadStatusResponse->addTransition(sSendProtocolStatusCommand);
 	connect(sReadStatusResponse, SIGNAL(entered()), this, SLOT(readStatusResponseStateEntered()));
 	sSendStatusCommand->addTransition(&m_timerReadStatusResponse, SIGNAL(timeout()), sReadStatusTimeout);
 	connect(sReadStatusTimeout, SIGNAL(entered()), this, SLOT(readStatusTimeoutStateEntered()));
 	sReadStatusTimeout->addTransition(sIdleStatus);
+
+	connect(sSendProtocolStatusCommand, SIGNAL(entered()), this, SLOT(sendProtocolStatusCommandStateEntered()));	// send protocol status command, start m_timerReadProtocolStatusResponse;
+	sSendProtocolStatusCommand->addTransition(&m_socket, SIGNAL(readyRead()), sReadProtocolStatusResponse);
+	sReadProtocolStatusResponse->addTransition(sIdleStatus);
+	connect(sReadProtocolStatusResponse, SIGNAL(entered()), this, SLOT(readProtocolStatusResponseStateEntered()));
+	sSendProtocolStatusCommand->addTransition(&m_timerReadProtocolStatusResponse, SIGNAL(timeout()), sReadProtocolStatusTimeout);
+	connect(sReadProtocolStatusTimeout, SIGNAL(entered()), this, SLOT(readProtocolStatusTimeoutStateEntered()));
+	sReadProtocolStatusTimeout->addTransition(sIdleStatus);
 
 	// finally, set up slot to catch changes in nic status emitted by the status loop
 	connect(this, SIGNAL(nicStatusChangedSignal(int, int)), this, SLOT(nicStatusChanged(int, int)));
@@ -220,6 +235,31 @@ void unic::sendStatusCommandStateEntered()
 	m_timerReadStatusResponse.start();
 }
 
+void unic::sendProtocolStatusCommandStateEntered()
+{
+	char command[2];
+
+	//	qInfo() << "Sending status request...";
+
+	// get lock
+	m_socketMutex.lock();
+
+	// request status command
+	command[0] = 201;
+	command[1] = 0;
+	m_socket.write(command, 1);
+
+	// and the (empty) parameter list
+	command[0] = '\n';
+	m_socket.write(command, 1);
+
+	// unlock mutex
+	m_socketMutex.unlock();
+
+	// start timeout timer
+	m_timerReadProtocolStatusResponse.start();
+}
+
 
 // The readyRead() signal was emitted from the socket -- just read whatever is there. 
 
@@ -271,12 +311,61 @@ void unic::readStatusResponseStateEntered()
 	}
 }
 
+void unic::readProtocolStatusResponseStateEntered()
+{
+	//	qInfo() << "Got status reply from NIC";
+
+	// read status
+	m_socketMutex.lock();
+	QByteArray ba = m_socket.readAll();
+	m_socketMutex.unlock();
+
+	// status reply should be a single byte.
+	if (ba.size() == 1)
+	{
+		unsigned int status = (unsigned char)ba.at(0);
+#if 0
+		if (status != m_lastNICStatus)
+		{
+			emit nicStatusChangedSignal(status, m_lastNICStatus);
+			m_lastNICStatus = status;
+		}
+#endif
+		if (f_mapNICStatusStrings.count(status) == 1)
+		{
+			//qInfo() << QString("NIC status (%1): %2").arg(status).arg(f_mapNICStatusStrings[status]);
+			ui.labelProtocolStatus->setText(QString("(%1): %2").arg(status).arg(f_mapNICStatusStrings[status]));
+		}
+		else
+		{
+			qWarning() << "Unknown protocol status value from NIC: " << status;
+		}
+	}
+	else
+	{
+		qWarning() << "Expecting single byte protocol status response from NIC, but we got : " << ba << " length " << ba.size();
+		for (unsigned int i = 0; i < ba.size(); i++)
+		{
+			unsigned int status = (unsigned char)ba.at(i);
+			if (f_mapNICStatusStrings.count(status) == 1)
+			{
+				//qInfo() << QString("NIC status (%1): %2").arg(status).arg(f_mapNICStatusStrings[status]);
+				ui.labelProtocolStatus->setText(QString("(%1): %2").arg(status).arg(f_mapNICStatusStrings[status]));
+			}
+			else
+			{
+				qWarning() << "Unknown status value from NIC: " << status;
+			}
+		}
+	}
+}
+
 
 // nic status changed
 void unic::nicStatusChanged(int newStatus, int oldStatus)
 {
 	qDebug() << "Old status: " << f_mapNICStatusStrings[oldStatus] << " New status: " << f_mapNICStatusStrings[newStatus];
-
+#if 0
 	if (m_bStatusExpected)
 	{
 		if (newStatus == m_statusExpected)
@@ -298,6 +387,7 @@ void unic::nicStatusChanged(int newStatus, int oldStatus)
 		m_bStimulationIsOn = true;
 		emit stimulationOn(true);
 	}
+#endif
 }
 
 
@@ -368,6 +458,10 @@ void unic::fileChangedStateEntered()
 				qWarning() << "Bad command number: should be an integer, got " << list.at(0).constData();
 			}
 		}
+		else
+		{
+			qWarning() << "Expecting 2 lines in file, got " << list.size();
+		}
 	}
 	else
 	{
@@ -377,10 +471,15 @@ void unic::fileChangedStateEntered()
 
 
 }
-
+ 
 void unic::readStatusTimeoutStateEntered()
 {
 	qWarning() << "Timeout waiting for NIC status reply.";
+}
+
+void unic::readProtocolStatusTimeoutStateEntered()
+{
+	qWarning() << "Timeout waiting for NIC protocol status reply.";
 }
 
 
