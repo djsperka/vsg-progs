@@ -26,6 +26,7 @@ private:
 	QFileSystemWatcher m_nicCommandFileWatcher;
 	QTimer m_timer;
 	QTimer m_timerReadStatusResponse;
+	QTimer m_timerReadProtocolStatusResponse;
 	QTimer m_timerSendStatusCommand;
 	QFile m_file;
 	QMutex m_socketMutex;	// for access to m_socket.
@@ -47,7 +48,10 @@ protected slots:
 	void sendStatusCommandStateEntered();
 	void readStatusResponseStateEntered();
 	void readStatusTimeoutStateEntered();
-	void nicStatusChanged(int newStatus, int oldStatus);	
+	void sendProtocolStatusCommandStateEntered();
+	void readProtocolStatusResponseStateEntered();
+	void readProtocolStatusTimeoutStateEntered();
+	void nicStatusChanged(int newStatus, int oldStatus);
 };
 
 
