@@ -1240,6 +1240,7 @@ ARGratingSpec::ARGratingSpec(const ARGratingSpec& g) : ARSpec(g)
 	cv = g.cv;
 	pattern = g.pattern;
 	aperture = g.aperture;
+	m_bDrawInitDone = false;
 }
 
 ARGratingSpec& ARGratingSpec::operator=(const ARGratingSpec& g)

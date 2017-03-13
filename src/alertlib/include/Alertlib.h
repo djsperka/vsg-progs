@@ -536,7 +536,7 @@ namespace alert
 	class ARApertureGratingSpec: public ARGratingSpec
 	{
 	public:
-		ARApertureGratingSpec() {};
+		ARApertureGratingSpec(): ARGratingSpec() {};
 		virtual ~ARApertureGratingSpec() {};
 		virtual int draw();
 	};
