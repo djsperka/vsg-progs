@@ -187,6 +187,19 @@ void MultiParameterFXGStimSet::setup_cycling()
 string MultiParameterFXGStimSet::toString() const
 {
 	string s;
+	cerr << "MultiParameterFXGStimSet: " << endl;
+	if (has_fixpt())
+		cerr << " Fixpt: " << fixpt() << endl;
+	else
+		cerr << " Fixpt: NONE" << endl;
+	if (has_grating())
+		cerr << " Grating: " << grating() << endl;
+	else
+		cerr << " Grating: NONE" << endl;
+	if (has_xhair())
+		cerr << " Xhair: " << xhair() << endl;
+	else
+		cerr << " Xhair: NONE" << endl;
 	return s;
 }
 
