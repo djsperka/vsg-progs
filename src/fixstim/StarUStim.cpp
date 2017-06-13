@@ -2,7 +2,7 @@
 
 #include "StarUStim.h"
 
-const string StarUStim::m_allowedArgs("avf:t:b:d:ho:p:");
+const string StarUStim::m_allowedArgs("avf:t:g:b:d:ho:p:");
 
 StarUStim::StarUStim()
 : UStim()
@@ -33,6 +33,8 @@ int StarUStim::process_arg(int c, std::string& arg)
 	static bool have_f=false;		// have fixation spec
 	static bool have_d=false;		// have screen dist
 	ARContrastFixationPointSpec *pspec;
+	ARGratingSpec *pgrating;
+
 	switch (c) 
 	{
 	case 'a':
@@ -52,11 +54,26 @@ int StarUStim::process_arg(int c, std::string& arg)
 		if (parse_fixation_point(arg, m_fixpt)) m_errflg++;
 		else have_f = true;
 		break;
+	case 'g':
+		pgrating = new ARGratingSpec();
+		if (!parse_grating(arg, *pgrating))
+		{
+			m_gratings.push_back(pgrating);
+			m_targets.push_back(make_pair(false, (unsigned int)(m_gratings.size() - 1)));
+		}
+		else
+		{
+			m_errflg++;
+			cerr << "Error in grating spec (" << arg << ")" << endl;
+			delete pgrating;
+		}
+		break;
 	case 't': 
 		pspec = new ARContrastFixationPointSpec();
 		if (!parse_fixation_point(arg, *pspec))
 		{
-			m_targets.push_back(pspec);
+			m_dots.push_back(pspec);
+			m_targets.push_back(make_pair(true, (unsigned int)(m_dots.size() - 1)));
 		}
 		else 
 		{
@@ -198,11 +215,23 @@ void StarUStim::init_triggers(TSpecificFunctor<StarUStim>* pfunctor)
 void StarUStim::update_page()
 {
 	vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgBACKGROUND);
-	m_fixpt.setContrast(0);
+
+	// fixpt is drawn at current contrast. 
+	// for "fixpt stays on" as target location changes, make sure the fixpt contrast remains at 100
+	// when this is called. 
+
 	m_fixpt.draw();
 
-	m_targets[*m_iterator]->setContrast(0);
-	m_targets[*m_iterator]->draw();
+	if (m_targets[*m_iterator].first)
+	{
+		m_dots[m_targets[*m_iterator].second]->setContrast(0);
+		m_dots[m_targets[*m_iterator].second]->draw();
+	}
+	else
+	{
+		m_gratings[m_targets[*m_iterator].second]->setContrast(0);
+		m_gratings[m_targets[*m_iterator].second]->draw();
+	}
 }
 
 
@@ -212,12 +241,26 @@ void StarUStim::init_pages()
 	m_iterator = m_vecTargetOrder.begin();
 
 	m_fixpt.init(2);
-	cerr << "init first target" << endl;
-	m_targets[0]->init(2);
-	for (int i=1; i<m_targets.size(); i++)
+	m_fixpt.setContrast(0);
+	if (m_dots.size() > 0)
 	{
-		cerr << "init target " << i << endl;
-		m_targets[i]->init(*m_targets[0]);
+		cerr << "init first target" << endl;
+		m_dots[0]->init(2);
+		for (unsigned int i = 1; i<m_dots.size(); i++)
+		{
+			cerr << "init target " << i << endl;
+			m_dots[i]->init(*m_dots[0]);
+		}
+	}
+	if (m_gratings.size() > 0)
+	{
+		cerr << "init first grating" << endl;
+		m_gratings[0]->init(30);
+		for (unsigned int i = 1; i < m_gratings.size(); i++)
+		{
+			cerr << "init grating " << i << endl;
+			m_gratings[i]->init(*m_gratings[0]);
+		}
 	}
 	cerr << "udpate page" << endl;
 	update_page();
@@ -238,11 +281,27 @@ int StarUStim::callback(int &output, const FunctorCallbackTrigger* ptrig)
 	}
 	else if (key == "s")
 	{
-		m_targets[*m_iterator]->setContrast(0);
+		if (m_targets[*m_iterator].first)
+		{
+			m_dots[m_targets[*m_iterator].second]->setContrast(0);
+		}
+		else
+		{
+			m_gratings[m_targets[*m_iterator].second]->setContrast(0);
+		}
+		//m_dots[*m_iterator]->setContrast(0);
 	}
 	else if (key == "S")
 	{
-		m_targets[*m_iterator]->setContrast(100);
+		if (m_targets[*m_iterator].first)
+		{
+			m_dots[m_targets[*m_iterator].second]->setContrast(100);
+		}
+		else
+		{
+			m_gratings[m_targets[*m_iterator].second]->setContrast(100);
+		}
+		//m_dots[*m_iterator]->setContrast(100);
 	}
 	else if (key == "F")
 	{
@@ -255,7 +314,15 @@ int StarUStim::callback(int &output, const FunctorCallbackTrigger* ptrig)
 	else if (key == "X")
 	{
 		m_fixpt.setContrast(0);
-		m_targets[*m_iterator]->setContrast(0);
+		if (m_targets[*m_iterator].first)
+		{
+			m_dots[m_targets[*m_iterator].second]->setContrast(0);
+		}
+		else
+		{
+			m_gratings[m_targets[*m_iterator].second]->setContrast(0);
+		}
+		//m_dots[*m_iterator]->setContrast(0);
 	}
 
 	return ival;
