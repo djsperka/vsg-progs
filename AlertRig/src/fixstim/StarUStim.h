@@ -6,6 +6,7 @@
 #include "alertlib.h"
 #include "AlertUtil.h"
 #include <vector>
+#include <algorithm>
 
 // Implementation of UStim interface for the starstim app.
 
@@ -27,7 +28,9 @@ private:
 	bool m_verbose;
 	COLOR_TYPE m_background;
 	alert::ARContrastFixationPointSpec m_fixpt;
-	vector<ARContrastFixationPointSpec*> m_targets;
+	vector<ARContrastFixationPointSpec*> m_dots;
+	vector<ARGratingSpec*> m_gratings;
+	vector< pair<bool, unsigned int> > m_targets;
 	vector<int> m_vecTargetOrder;
 	vector<int>::const_iterator m_iterator;
 	int m_iDistanceToScreenMM;
