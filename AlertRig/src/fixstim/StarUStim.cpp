@@ -11,6 +11,7 @@ StarUStim::StarUStim()
 , m_iDistanceToScreenMM(-1)
 , m_pulse(0x2)
 , m_errflg(0)
+, m_currentPage(1)
 {
 	m_background.setType(gray);
 };
@@ -214,7 +215,8 @@ void StarUStim::init_triggers(TSpecificFunctor<StarUStim>* pfunctor)
 
 void StarUStim::update_page()
 {
-	vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgBACKGROUND);
+	vsgSetDrawPage(vsgVIDEOPAGE, 1-m_currentPage, vsgBACKGROUND);
+	m_currentPage = 1 - m_currentPage;
 
 	// fixpt is drawn at current contrast. 
 	// for "fixpt stays on" as target location changes, make sure the fixpt contrast remains at 100

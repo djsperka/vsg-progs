@@ -37,6 +37,7 @@ private:
 	int m_pulse;
 	bool m_quit;
 	int m_errflg;
+	int m_currentPage;
 
 // These are the args allowed and which are handled by prargs. Do not use 'F' - it is reserved for 
 // passing a command file.
