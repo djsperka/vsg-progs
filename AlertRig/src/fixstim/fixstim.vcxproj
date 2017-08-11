@@ -217,6 +217,7 @@
     <None Include="test-with-varying-delay.bat" />
   </ItemGroup>
   <ItemGroup>
+    <Text Include="aaa-fixstim-testing.txt" />
     <Text Include="attention-test-input-1.txt" />
     <Text Include="attention-test-input-2.txt" />
     <Text Include="attention-test-input-3.txt" />
