@@ -24,13 +24,13 @@ void FGGXDanishStimSet::initialize(double xOffset, double yOffset)
 	m_pssinfo->getDonutXY(0, x, y);
 	g2.x = x;
 	g2.y = y;
-	set_grating(g2, xOffset, yOffset);
+	add_grating(g2, xOffset, yOffset);
 
 	ARGratingSpec g3 = m_pssinfo->getDonutGrating();
 	m_pssinfo->getDonutXY(1, x, y);
 	g3.x = x;
 	g3.y = y;
-	set_grating(g3, xOffset, yOffset);
+	add_grating(g3, xOffset, yOffset);
 }
 
 

@@ -13,9 +13,9 @@ void StimSetCRG::initialize(ARGratingSpec& g)
 	int c = g.contrast;
 	g.contrast = -1*c;
 	g.tf = 0;
-	set_grating(g);
+	add_grating(g);
 	g.contrast = c;
-	set_grating(g);
+	add_grating(g);
 }
 
 int StimSetCRG::init(ARvsg& vsg, std::vector<int> pages)

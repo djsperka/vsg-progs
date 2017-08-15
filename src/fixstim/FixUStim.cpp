@@ -233,6 +233,11 @@ int FixUStim::process_arg(int c, std::string& arg)
 	static bool have_d = false;
 	static bool have_sequence = false;	// command-line sequence of page numbers 0,1...
 	static string the_sequence;			// see above.
+
+	// These 'last_was' vars tell us how to assign a stim set when we receive one.
+	static bool last_was_fixpt = false;
+	static bool last_was_grating = false;
+	static bool last_was_distractor = false;
 //	static int errflg = 0;
 
 	// This is a loooooong stanza. Be patient.
@@ -289,6 +294,8 @@ int FixUStim::process_arg(int c, std::string& arg)
 		else 
 		{
 			have_fixpt = true;
+			last_was_fixpt = true;
+			last_was_grating = last_was_distractor = false;
 		}
 		break;
 	case 'h':
@@ -320,39 +327,6 @@ int FixUStim::process_arg(int c, std::string& arg)
 			}
 		}
 		break;
-	case 's':
-		if (m_vecGratings.size() == 8)
-		{
-			cerr << "Maximum number of gratings(8) reached." << endl;
-			m_errflg++;
-		}
-		else if (parse_grating(arg, m_grating)) 
-		{
-			cerr << "Error in grating input: " << arg << endl;
-			m_errflg++;
-		}
-		else 
-		{
-			have_stim = true;
-			m_vecGratings.push_back(m_grating);
-		}
-		break;
-	case 'k':
-		if (m_vecDistractors.size() == 8)
-		{
-			cerr << "Maximum number of distractors(8) reached." << endl;
-			m_errflg++;
-		}
-		else if (parse_grating(arg, m_grating)) 
-		{
-			cerr << "Error in grating input: " << arg << endl;
-			m_errflg++;
-		}
-		else 
-		{
-			m_vecDistractors.push_back(m_grating);
-		}
-		break;
 	case 'p':
 		if (parse_integer(arg, m_pulse))
 			m_errflg++;
@@ -372,25 +346,76 @@ int FixUStim::process_arg(int c, std::string& arg)
 			m_pStimSet = new FixptGratingStimSet(m_fixpt, m_xhair);
 		}
 		break;
+	case 's':
+		if (m_vecGratings.size() == 8)
+		{
+			cerr << "Maximum number of gratings(8) reached." << endl;
+			m_errflg++;
+		}
+		else if (parse_grating(arg, m_grating))
+		{
+			cerr << "Error in grating input: " << arg << endl;
+			m_errflg++;
+		}
+		else
+		{
+			have_stim = true;
+			last_was_grating = true;
+			last_was_fixpt = last_was_distractor = false;
+			m_vecGratings.push_back(m_grating);
+
+			if (m_bUsingMultiParameterStimSet)
+			{
+				MultiParameterFXMultiGStimSet* pmulti = static_cast<MultiParameterFXMultiGStimSet*>(m_pStimSet);
+				pmulti->add_grating(m_grating);
+			}
+		}
+		break;
+	case 'k':
+		if (m_vecDistractors.size() == 8)
+		{
+			cerr << "Maximum number of distractors(8) reached." << endl;
+			m_errflg++;
+		}
+		else if (parse_grating(arg, m_grating))
+		{
+			cerr << "Error in grating input: " << arg << endl;
+			m_errflg++;
+		}
+		else
+		{
+			last_was_distractor = true;
+			last_was_grating = last_was_fixpt = false;
+			m_vecDistractors.push_back(m_grating);
+
+			if (m_bUsingMultiParameterStimSet)
+			{
+				MultiParameterFXMultiGStimSet* pmulti = static_cast<MultiParameterFXMultiGStimSet*>(m_pStimSet);
+				pmulti->add_distractor(m_grating);
+			}
+		}
+		break;
 	case 'K':
 		{
-			FixptMultiGratingStimSet* pss = NULL;
-
+			//FixptMultiGratingStimSet* pss = NULL;
+			MultiParameterFXMultiGStimSet *pss = NULL;
 			// Stim set with gratings as distractors
 			if (!have_fixpt && !have_xhair)
 			{
-				pss = new FixptMultiGratingStimSet();
+				//pss = new FixptMultiGratingStimSet();
+				pss = new MultiParameterFXMultiGStimSet();
 			}
 			else if (!have_xhair)
 			{
-				pss = new FixptMultiGratingStimSet(m_fixpt);
+				//pss = new FixptMultiGratingStimSet(m_fixpt);
+				pss = new MultiParameterFXMultiGStimSet(m_fixpt);
 			}
 			else
 			{
-				pss = new FixptMultiGratingStimSet(m_fixpt, m_xhair);
+				pss = new MultiParameterFXMultiGStimSet(m_fixpt, m_xhair);
 			}
-			for (unsigned int i=0; i<m_vecGratings.size(); i++) pss->set_grating(m_vecGratings[i]);
-			for (unsigned int i=0; i<m_vecDistractors.size(); i++) pss->set_distractor(m_vecDistractors[i]);
+			for (unsigned int i=0; i<m_vecGratings.size(); i++) pss->add_grating(m_vecGratings[i]);
+			for (unsigned int i=0; i<m_vecDistractors.size(); i++) pss->add_distractor(m_vecDistractors[i]);
 			m_pStimSet = pss;
 			break;
 		}
@@ -432,82 +457,6 @@ int FixUStim::process_arg(int c, std::string& arg)
 			}
 			break;
 		}
-	case 'P':
-		{
-			vector<double> tuning_parameters;
-			int nsteps;
-			double tf;
-			vector<string> tokens;
-			istringstream iss;
-			bool bSquareWave = false;
-
-			// format expected: -P tf,s|q,phase0,phase1,...
-			// s = sin wave, q=square wave
-			tokenize(arg, tokens, ",");
-
-			iss.clear();
-			iss.str(tokens[0]);
-			iss >> tf;
-			if (!iss) 
-			{
-				cerr << "bad tuning value: first token (TF) should be a double. " << tokens[0] << endl;
-				m_errflg++;
-			}
-			else
-			{
-				if (tokens[1] == string("q") || tokens[1] == string("Q") || tokens[1] == string("s") || tokens[1] == string("S"))
-				{
-					bSquareWave = false;
-					if (tokens[1] == string("q") || tokens[1] == string("Q"))
-						bSquareWave = true;
-					tokens.erase(tokens.begin());
-					tokens.erase(tokens.begin());
-
-					if (parse_tuning_list(tokens, tuning_parameters, nsteps)) m_errflg++;
-					else 
-					{
-						if (!have_stim)
-						{
-							cerr << "Error - must pass template grating stimulus with \"-s\" before passing tuning parameters." << endl;
-							m_errflg++;
-						}
-						else
-						{
-							if (!m_pStimSet)
-							{
-								if (have_fixpt)
-								{
-									if (have_xhair)
-									{
-										m_pStimSet = new CounterphaseStimSet(m_fixpt, m_xhair, m_grating, tuning_parameters, tf, bSquareWave);
-									}
-									else
-									{
-										m_pStimSet = new CounterphaseStimSet(m_fixpt, m_grating, tuning_parameters, tf, bSquareWave);
-									}
-								}
-								else
-								{
-									m_pStimSet = new CounterphaseStimSet(m_grating, tuning_parameters, tf, bSquareWave);
-								}
-								m_bUsingMultiParameterStimSet = false;
-							}
-							else
-							{
-								cerr << "Error - Cannot mix counterphase stim with other stim types!" << endl;
-								m_errflg++;
-							}
-						}
-					}
-				}
-				else
-				{
-					cerr << "bad tuning value: second token should be s or q." << endl;
-					m_errflg++;
-				}
-			}
-			break;
-		}
 	case 'O':
 	case 'T':
 	case 'S':
@@ -522,26 +471,31 @@ int FixUStim::process_arg(int c, std::string& arg)
 			vector<double> tuning_parameters;
 			int nsteps;
 
+			// the first time one of these stim parameter lists is found we must create
+			// the stim set. On first creating it we have to account for any gratings and/or
+			// distractors that have been specified up to this point.
+
 			if (parse_tuning_list(arg, tuning_parameters, nsteps)) m_errflg++;
 			else 
 			{
-				if (!have_stim)
+				// If no stim configured, create stim set with fixpt and/or xhair.
+				if (!m_pStimSet)
 				{
-					// If no stim configured, create stim set with fixpt and/or xhair.
-					if (!m_pStimSet)
+					m_pStimSet = create_multiparameter_stimset(have_fixpt, m_fixpt, have_xhair, m_xhair);
+					m_bUsingMultiParameterStimSet = true;
+
+					MultiParameterFXMultiGStimSet* pmulti = static_cast<MultiParameterFXMultiGStimSet*>(m_pStimSet);
+
+					for (unsigned int i = 0; i < m_vecGratings.size(); i++)
 					{
-						m_pStimSet = create_multiparameter_stimset(have_fixpt, m_fixpt, have_xhair, m_xhair);
-						m_bUsingMultiParameterStimSet = true;
+						pmulti->add_grating(m_vecGratings.at(i));
+					}
+					for (unsigned int i = 0; i < m_vecDistractors.size(); i++)
+					{
+						pmulti->add_distractor(m_vecDistractors.at(i));
 					}
 				}
-				else
-				{
-					if (!m_pStimSet)
-					{
-						m_pStimSet = create_multiparameter_stimset(have_fixpt, m_fixpt, have_xhair, m_xhair, m_grating);
-						m_bUsingMultiParameterStimSet = true;
-					}
-				}
+
 				if (!m_bUsingMultiParameterStimSet)
 				{
 					cerr << "Error - Cannot mix COASTXKMP with other stim types!" << endl;
@@ -549,35 +503,39 @@ int FixUStim::process_arg(int c, std::string& arg)
 				}
 				else
 				{
-					MultiParameterFXGStimSet* pmulti = static_cast<MultiParameterFXGStimSet*>(m_pStimSet);
+					MultiParameterFXMultiGStimSet* pmulti = static_cast<MultiParameterFXMultiGStimSet*>(m_pStimSet);
+					int stimIndex;
+					if (last_was_fixpt) stimIndex = -1;
+					else if (last_was_grating) stimIndex = pmulti->count() - 1;
+					else stimIndex = pmulti->distractor_count() - 1;
 
 					// Create a stim parameter set
 					FXGStimParameterList *plist = NULL;
 					switch(c)
 					{
 					case 'C':
-						plist = new StimContrastList(tuning_parameters);
+						plist = new StimContrastList(tuning_parameters, stimIndex, last_was_distractor);
 						break;
 					case 'O':
-						plist = new StimOrientationList(tuning_parameters);
+						plist = new StimOrientationList(tuning_parameters, stimIndex, last_was_distractor);
 						break;
 					case 'A':
-						plist = new StimAreaList(tuning_parameters);
+						plist = new StimAreaList(tuning_parameters, stimIndex, last_was_distractor);
 						break;
 					case 'S':
-						plist = new StimSFList(tuning_parameters);
+						plist = new StimSFList(tuning_parameters, stimIndex, last_was_distractor);
 						break;
 					case 'T':
-						plist = new StimTFList(tuning_parameters);
+						plist = new StimTFList(tuning_parameters, stimIndex, last_was_distractor);
 						break;
 					case 'Z':
-						plist = new GratingXYList(tuning_parameters);
+						plist = new GratingXYList(tuning_parameters, stimIndex, last_was_distractor);
 						break;
 					case 'X':
-						plist = new StimXList(tuning_parameters);
+						plist = new StimXList(tuning_parameters, stimIndex, last_was_distractor);
 						break;
 					case 'M':
-						plist = new StimHoleList(tuning_parameters);
+						plist = new StimHoleList(tuning_parameters, stimIndex, last_was_distractor);
 						break;
 					case 'y':
 						plist = new FixptXYList(tuning_parameters);
@@ -589,11 +547,88 @@ int FixUStim::process_arg(int c, std::string& arg)
 						cerr << "Unhandled varying stim parameter type (" << (char)c << ")" << endl;
 						m_errflg++;
 					}
+					cerr << "push back par list index " << plist->index() << " isDistractor " << plist->isDistractor() << endl;
 					if (plist) pmulti->push_back(plist);
 				}
 			}
 			break;
 		}
+	case 'P':
+	{
+		vector<double> tuning_parameters;
+		int nsteps;
+		double tf;
+		vector<string> tokens;
+		istringstream iss;
+		bool bSquareWave = false;
+
+		// format expected: -P tf,s|q,phase0,phase1,...
+		// s = sin wave, q=square wave
+		tokenize(arg, tokens, ",");
+
+		iss.clear();
+		iss.str(tokens[0]);
+		iss >> tf;
+		if (!iss)
+		{
+			cerr << "bad tuning value: first token (TF) should be a double. " << tokens[0] << endl;
+			m_errflg++;
+		}
+		else
+		{
+			if (tokens[1] == string("q") || tokens[1] == string("Q") || tokens[1] == string("s") || tokens[1] == string("S"))
+			{
+				bSquareWave = false;
+				if (tokens[1] == string("q") || tokens[1] == string("Q"))
+					bSquareWave = true;
+				tokens.erase(tokens.begin());
+				tokens.erase(tokens.begin());
+
+				if (parse_tuning_list(tokens, tuning_parameters, nsteps)) m_errflg++;
+				else
+				{
+					if (!have_stim)
+					{
+						cerr << "Error - must pass template grating stimulus with \"-s\" before passing tuning parameters." << endl;
+						m_errflg++;
+					}
+					else
+					{
+						if (!m_pStimSet)
+						{
+							if (have_fixpt)
+							{
+								if (have_xhair)
+								{
+									m_pStimSet = new CounterphaseStimSet(m_fixpt, m_xhair, m_grating, tuning_parameters, tf, bSquareWave);
+								}
+								else
+								{
+									m_pStimSet = new CounterphaseStimSet(m_fixpt, m_grating, tuning_parameters, tf, bSquareWave);
+								}
+							}
+							else
+							{
+								m_pStimSet = new CounterphaseStimSet(m_grating, tuning_parameters, tf, bSquareWave);
+							}
+							m_bUsingMultiParameterStimSet = false;
+						}
+						else
+						{
+							cerr << "Error - Cannot mix counterphase stim with other stim types!" << endl;
+							m_errflg++;
+						}
+					}
+				}
+			}
+			else
+			{
+				cerr << "bad tuning value: second token should be s or q." << endl;
+				m_errflg++;
+			}
+		}
+		break;
+	}
 	case 'R':
 	case 'B':
 		{
@@ -1297,22 +1332,22 @@ int FixUStim::process_arg(int c, std::string& arg)
 }
 
 
-MultiParameterFXGStimSet* FixUStim::create_multiparameter_stimset(bool bHaveFixpt, ARContrastFixationPointSpec& fixpt, bool bHaveXhair, ARXhairSpec& xhair)
+MultiParameterFXMultiGStimSet* FixUStim::create_multiparameter_stimset(bool bHaveFixpt, ARContrastFixationPointSpec& fixpt, bool bHaveXhair, ARXhairSpec& xhair)
 {
-	MultiParameterFXGStimSet* pstimset = NULL;
+	MultiParameterFXMultiGStimSet* pstimset = NULL;
 	ARContrastFixationPointSpec f(fixpt);
 	ARXhairSpec h(xhair);
 	if (bHaveFixpt && !bHaveXhair)
 	{
-		pstimset = new MultiParameterFXGStimSet(f);
+		pstimset = new MultiParameterFXMultiGStimSet(f);
 	}
 	else if (bHaveFixpt && bHaveXhair)
 	{
-		pstimset = new MultiParameterFXGStimSet(f, h);
+		pstimset = new MultiParameterFXMultiGStimSet(f, h);
 	}
 	else
 	{
-		pstimset = new MultiParameterFXGStimSet();
+		pstimset = new MultiParameterFXMultiGStimSet();
 	}
 	return pstimset;
 }
@@ -1320,23 +1355,23 @@ MultiParameterFXGStimSet* FixUStim::create_multiparameter_stimset(bool bHaveFixp
 
 
 
-MultiParameterFXGStimSet* FixUStim::create_multiparameter_stimset(bool bHaveFixpt, ARContrastFixationPointSpec& fixpt, bool bHaveXhair, ARXhairSpec& xhair, ARGratingSpec& grating)
+MultiParameterFXMultiGStimSet* FixUStim::create_multiparameter_stimset(bool bHaveFixpt, ARContrastFixationPointSpec& fixpt, bool bHaveXhair, ARXhairSpec& xhair, ARGratingSpec& grating)
 {
-	MultiParameterFXGStimSet* pstimset = NULL;
+	MultiParameterFXMultiGStimSet* pstimset = NULL;
 	ARContrastFixationPointSpec f(fixpt);
 	ARGratingSpec g(grating);
 	ARXhairSpec h(xhair);
 	if (bHaveFixpt && !bHaveXhair)
 	{
-		pstimset = new MultiParameterFXGStimSet(g, f);
+		pstimset = new MultiParameterFXMultiGStimSet(g, f);
 	}
 	else if (bHaveFixpt && bHaveXhair)
 	{
-		pstimset = new MultiParameterFXGStimSet(g, f, h);
+		pstimset = new MultiParameterFXMultiGStimSet(g, f, h);
 	}
 	else
 	{
-		pstimset = new MultiParameterFXGStimSet(g);
+		pstimset = new MultiParameterFXMultiGStimSet(g);
 	}
 	return pstimset;
 }
