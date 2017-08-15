@@ -411,7 +411,7 @@ std::string PositionStimSet::toString() const
 }
 
 
-void FXMultiGStimSet::set_grating(const ARGratingSpec& grating, double xoffset, double yoffset)
+void FXMultiGStimSet::add_grating(const ARGratingSpec& grating, double xoffset, double yoffset)
 {
 	ARGratingSpec *temp = new ARGratingSpec(grating);
 	temp->x += xoffset;
@@ -421,7 +421,7 @@ void FXMultiGStimSet::set_grating(const ARGratingSpec& grating, double xoffset, 
 	return;
 }
 
-void FXMultiGStimSet::set_distractor(const ARGratingSpec& grating, double xoffset, double yoffset)
+void FXMultiGStimSet::add_distractor(const ARGratingSpec& grating, double xoffset, double yoffset)
 {
 	ARGratingSpec *temp = new ARGratingSpec(grating);
 	temp->x += xoffset;
@@ -431,6 +431,19 @@ void FXMultiGStimSet::set_distractor(const ARGratingSpec& grating, double xoffse
 	return;
 }
 
+void FXMultiGStimSet::setSavedContrast(int contrast, int index, bool bDistractor)
+{
+	if (!bDistractor)
+		if (index > -1 && index < count())
+			m_contrasts[index] = contrast;
+		else
+			cerr << "Bad index value for grating: " << index << endl;
+	else
+		if (index > -1 && index < distractor_count())
+			m_distractor_contrasts[index] = contrast;
+		else
+			cerr << "Bad index value for distractor: " << index << endl;
+}
 
 
 

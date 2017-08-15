@@ -44,8 +44,8 @@ void FGGXStimSet::initialize(bool bDonut, double xOffset, double yOffset)
 	{
 		ARGratingSpec g0 = m_pssinfo->getCoreGrating();
 		ARGratingSpec g1 = m_pssinfo->getCoreGrating();
-		set_grating(g0, xOffset, yOffset);
-		set_grating(g1, xOffset, yOffset);
+		add_grating(g0, xOffset, yOffset);
+		add_grating(g1, xOffset, yOffset);
 	}
 	else
 	{
@@ -53,11 +53,11 @@ void FGGXStimSet::initialize(bool bDonut, double xOffset, double yOffset)
 		m_pssinfo->getDonutXY(0, x, y);
 		g0.x = x;
 		g0.y = y;
-		set_grating(g0, xOffset, yOffset);
+		add_grating(g0, xOffset, yOffset);
 		m_pssinfo->getDonutXY(1, x, y);
 		g0.x = x;
 		g0.y = y;
-		set_grating(g0, xOffset, yOffset);
+		add_grating(g0, xOffset, yOffset);
 	}
 
 #if USE_GRIDS

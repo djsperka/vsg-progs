@@ -207,7 +207,8 @@ void MultiParameterFXGStimSet::set_initial_parameters()
 {
 	for (ptr_vector<FXGStimParameterList>::iterator it = begin(); it != end(); it++)
 	{
-		it->set_current_parameter(this);
+		assert(false);
+		//it->set_current_parameter(this);
 	}
 	return;
 }
@@ -216,7 +217,8 @@ void MultiParameterFXGStimSet::advance()
 {
 	for (ptr_vector<FXGStimParameterList>::iterator it = begin(); it != end(); it++)
 	{
-		it->advance(this);
+		assert(false);
+		//it->advance(this);
 	}
 	return;
 }

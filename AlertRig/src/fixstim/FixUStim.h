@@ -11,7 +11,7 @@
 #include "StimSetCRG.h"
 #include "FGGXStimSet.h"
 #include "AttentionStimSet.h"
-#include "MultiParameterFXGStimSet.h"
+#include "MultiParameterFXMultiGStimSet.h"
 #include <vector>
 #include <boost/filesystem.hpp>
 
@@ -72,8 +72,8 @@ private:
 
 
 	template <class T> StimSet* create_stimset(bool bHaveFixpt, ARContrastFixationPointSpec& fixpt, bool bHaveXhair, ARXhairSpec& xhair, ARGratingSpec& grating, vector<double> params);
-	MultiParameterFXGStimSet* create_multiparameter_stimset(bool bHaveFixpt, ARContrastFixationPointSpec& fixpt, bool bHaveXhair, ARXhairSpec& xhair);
-	MultiParameterFXGStimSet* create_multiparameter_stimset(bool bHaveFixpt, ARContrastFixationPointSpec& fixpt, bool bHaveXhair, ARXhairSpec& xhair, ARGratingSpec& grating);
+	MultiParameterFXMultiGStimSet* create_multiparameter_stimset(bool bHaveFixpt, ARContrastFixationPointSpec& fixpt, bool bHaveXhair, ARXhairSpec& xhair);
+	MultiParameterFXMultiGStimSet* create_multiparameter_stimset(bool bHaveFixpt, ARContrastFixationPointSpec& fixpt, bool bHaveXhair, ARXhairSpec& xhair, ARGratingSpec& grating);
 	void init_triggers(TSpecificFunctor<FixUStim>* pfunctor);
 
 

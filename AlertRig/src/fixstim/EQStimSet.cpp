@@ -218,10 +218,10 @@ EQStimSet::EQStimSet(ARContrastFixationPointSpec& fixpt, std::vector<alert::ARGr
 	vector<alert::ARGratingSpec>::iterator it = vecGratings.begin();
 	while (it != vecGratings.end())
 	{
-		set_grating(*it);
-		set_grating(*it);	// contrast changed partner
-		set_grating(*it);	// C2 grating
-		set_grating(*it);	// C3 grating
+		add_grating(*it);
+		add_grating(*it);	// contrast changed partner
+		add_grating(*it);	// C2 grating
+		add_grating(*it);	// C3 grating
 		it++;
 	}
 

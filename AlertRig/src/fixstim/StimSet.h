@@ -115,7 +115,7 @@ public:
 	const ptr_vector<ARGratingSpec>& gratings() const { return m_gratings; };
 	const ptr_vector<ARGratingSpec>& distractors() const { return m_distractors; };
 
-	virtual void set_grating(const ARGratingSpec& grating, double xoffset=0.0, double yoffset=0.0);
+	virtual void add_grating(const ARGratingSpec& grating, double xoffset=0.0, double yoffset=0.0);
 	virtual bool has_grating() const { return count()>0; };
 
 	ARGratingSpec& grating() 
@@ -164,7 +164,9 @@ public:
 		return m_distractors.size();
 	};
 
-	virtual void set_distractor(const ARGratingSpec& grating, double xoffset=0.0, double yoffset=0.0);
+	void setSavedContrast(int contrast, int index, bool bDistractor);
+
+	virtual void add_distractor(const ARGratingSpec& grating, double xoffset=0.0, double yoffset=0.0);
 	virtual bool has_distractor() const { return distractor_count()>0; };
 
 	ARGratingSpec& distractor() 
@@ -581,10 +583,10 @@ private:
 class DanishStimSet: public FXMultiGStimSet
 {
 public:
-	DanishStimSet(alert::ARContrastFixationPointSpec& f, alert::ARGratingSpec& g, std::vector<double> parameters) : FXMultiGStimSet(f), m_ods(parameters), m_current_page(-1) { set_grating(g); };
-	DanishStimSet(alert::ARGratingSpec& g, std::vector<double> parameters) : FXMultiGStimSet(), m_ods(parameters), m_current_page(-1) { set_grating(g); };
-	DanishStimSet(alert::ARContrastFixationPointSpec& f, alert::ARGratingSpec& g, alert::ARGratingSpec& hole, std::vector<double> parameters) : FXMultiGStimSet(f), m_ods(parameters), m_current_page(-1) { set_grating(g); set_grating(hole); };
-	DanishStimSet(alert::ARGratingSpec& g, alert::ARGratingSpec& hole, std::vector<double> parameters) : FXMultiGStimSet(), m_ods(parameters), m_current_page(-1) {set_grating(g); set_grating(hole); };
+	DanishStimSet(alert::ARContrastFixationPointSpec& f, alert::ARGratingSpec& g, std::vector<double> parameters) : FXMultiGStimSet(f), m_ods(parameters), m_current_page(-1) { add_grating(g); };
+	DanishStimSet(alert::ARGratingSpec& g, std::vector<double> parameters) : FXMultiGStimSet(), m_ods(parameters), m_current_page(-1) { add_grating(g); };
+	DanishStimSet(alert::ARContrastFixationPointSpec& f, alert::ARGratingSpec& g, alert::ARGratingSpec& hole, std::vector<double> parameters) : FXMultiGStimSet(f), m_ods(parameters), m_current_page(-1) { add_grating(g); add_grating(hole); };
+	DanishStimSet(alert::ARGratingSpec& g, alert::ARGratingSpec& hole, std::vector<double> parameters) : FXMultiGStimSet(), m_ods(parameters), m_current_page(-1) {add_grating(g); add_grating(hole); };
 	virtual int num_pages() {return 2;};
 	virtual int num_overlay_pages() {return 0;};
 	virtual int init(ARvsg& vsg, std::vector<int> pages);
