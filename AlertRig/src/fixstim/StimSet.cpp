@@ -452,7 +452,10 @@ int StimSet::init(std::vector<int> pages)
 	return init(ARvsg::instance(), pages);
 }
 
-
+void StimSet::cleanup(std::vector<int> pages)
+{
+	// no-op, override if needed
+}
 
 
 

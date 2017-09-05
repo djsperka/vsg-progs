@@ -197,6 +197,7 @@
     <ClCompile Include="FGGXStimSet.cpp" />
     <ClCompile Include="fixstim.cpp" />
     <ClCompile Include="FixUStim.cpp" />
+    <ClCompile Include="FXImageStimSet.cpp" />
     <ClCompile Include="MultiParameterFXGStimSet.cpp" />
     <ClCompile Include="MultiParameterFXMultiGStimSet.cpp" />
     <ClCompile Include="StarUStim.cpp" />
@@ -248,6 +249,7 @@
     <ClInclude Include="FixptGratingStimSet.h" />
     <ClInclude Include="FixUStim.h" />
     <ClInclude Include="FXGStimParameterList.h" />
+    <ClInclude Include="FXImageStimSet.h" />
     <ClInclude Include="MultiParameterFXGStimSet.h" />
     <ClInclude Include="MultiParameterFXMultiGStimSet.h" />
     <ClInclude Include="SSInfo.h" />

@@ -2,13 +2,14 @@
 
 #include "FixUStim.h"
 #include "FXGStimParameterList.h"
+#include "FXImageStimSet.h"
 #include <iostream>
 #include <boost/algorithm/string.hpp>
 using namespace std;
 using namespace boost::algorithm;
 using namespace boost::filesystem;
 
-const string FixUStim::m_allowedArgs("ab:d:e:f:g:h:j:k:l:q:p:s:vy:zA:B:C:D:E:G:H:I:J:KL:M:NO:P:Q:R:S:T:U:V:W:X:Y:Z:");
+const string FixUStim::m_allowedArgs("ab:d:e:f:g:h:i:j:k:l:q:p:s:vy:zA:B:C:D:E:G:H:I:J:KL:M:NO:P:Q:R:S:T:U:V:W:X:Y:Z:");
 
 FixUStim::FixUStim(bool bStandAlone)
 : UStim()
@@ -190,7 +191,8 @@ void FixUStim::run_stim(alert::ARvsg& vsg)
 		}
 		Sleep(10);
 	}
-
+	if (m_pStimSet)
+		m_pStimSet->cleanup(pages);
 	vsg.clear();
 
 	return ;
@@ -327,25 +329,61 @@ int FixUStim::process_arg(int c, std::string& arg)
 			}
 		}
 		break;
-	case 'p':
-		if (parse_integer(arg, m_pulse))
+	case 'i':
+	{
+		cerr << "Got image arg " << arg;
+		path p(arg);
+		if (!exists(p))
+		{
+			cerr << "Error: image list file does not exist: " << arg << endl;
 			m_errflg++;
-		break;
-	case 'N':
-		// Stim set without grating; fixpt (and xhair) only
-		if (!have_fixpt && !have_xhair)
-		{
-			m_pStimSet = new FixptGratingStimSet();
-		}
-		else if (!have_xhair)
-		{
-			m_pStimSet = new FixptGratingStimSet(m_fixpt);
 		}
 		else
 		{
-			m_pStimSet = new FixptGratingStimSet(m_fixpt, m_xhair);
+			cerr << "Found image list file " << arg << endl;
+
+			// open file, read line-by-line and parse
+			string line;
+			int linenumber = 0;
+			int imagecount = 0;
+			std::ifstream myfile(arg.c_str());
+			vector<string> images;
+			if (myfile.is_open())
+			{
+				while (getline(myfile, line))
+				{
+					cerr << "Found filename " << line << endl;
+					// verify file exists
+					path image(line);
+					if (exists(image))
+					{
+						cerr << "image file exists: " << image << endl;
+						images.push_back(line);
+					}
+					else
+					{
+						cerr << "image file DOES NOT EXIST: " << image << endl;
+					}
+				}
+				myfile.close();
+
+				if (have_fixpt)
+				{
+					m_pStimSet = new FXImageStimSet(m_fixpt, images);
+				}
+				else
+				{
+					m_pStimSet = new FXImageStimSet(images);
+				}
+			}
+			else
+			{
+				cerr << "Cannot open image list file " << arg << endl;
+				m_errflg++;
+			}
 		}
 		break;
+	}
 	case 's':
 		if (m_vecGratings.size() == 8)
 		{

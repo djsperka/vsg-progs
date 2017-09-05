@@ -31,6 +31,9 @@ public:
 	virtual int init(std::vector<int> pages);
 	virtual int init(ARvsg& vsg, std::vector<int> pages) = 0;
 
+	// clean up any messes created in init() - esp settings in VSG
+	virtual void cleanup(std::vector<int> pages);
+
 	// handle the trigger indicated by the string s. Do not call vsgPresent! return value of 
 	// 1 means vsgPresent() will be called. 
 	virtual int handle_trigger(std::string& s) = 0;
