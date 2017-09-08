@@ -264,6 +264,10 @@ int FixUStim::process_arg(int c, std::string& arg)
 	case 'l':
 		if (parse_integer(arg, m_iReadyPulseDelay)) m_errflg++;
 		break;
+	case 'p':
+		if (parse_integer(arg, m_pulse))
+			m_errflg++;
+		break;
 	case 'V':
 		{
 			// This arg should have a number representing the bit to be used as the trigger
