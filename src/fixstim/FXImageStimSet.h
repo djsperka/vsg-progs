@@ -12,6 +12,7 @@ private:
 	int m_pageBlank;
 	int m_pageFixpt;
 	int m_pageFixptStim;
+	PIXEL_LEVEL m_levelImage;
 
 	FXImageStimSet();		// no default constructor
 	int drawCurrent();		// draw current stimulus page. After this, switching to m_pageFixptStim will display next stim image
