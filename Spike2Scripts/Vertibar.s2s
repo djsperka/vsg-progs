@@ -1,4 +1,4 @@
-' $Id: Vertibar.s2s,v 1.4 2011-10-25 17:36:15 devel Exp $
+' $Id: Vertibar.s2s,v 1.4 2011/10/25 17:36:15 devel Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "PunctaciousDialog.s2s"

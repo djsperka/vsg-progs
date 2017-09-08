@@ -1,4 +1,4 @@
-; $Id: FixPlus.PLS,v 1.5 2011-11-16 00:48:00 jeff Exp $
+; $Id: FixPlus.PLS,v 1.5 2011/11/16 00:48:00 jeff Exp $
 
                 SET      1.000 1 0     ;1ms per seq step, DAC scale=1, DAC offset=0
                 VAR    V2=0            ;V2 logs whether the sequencer is in use for SafeSampleKey

@@ -1,4 +1,7 @@
-' $Log: not supported by cvs2svn $
+' $Log: AlertBackfire.s2s,v $
+' Revision 1.11  2016/03/03 00:16:44  devel
+' There has been a longstanding bug where the start and end times for a ChanMeasure looking at the eye channels are reversed. On Spike6 this does not cause any problem, but on Spike8 it now returns 0 instead of an actual eye position.  Now fixed for Spike8.  -jj
+'
 ' Revision 1.10  2011/11/16 00:48:00  jeff
 ' Update to dual juicer capability, moving majority of work to UsreyDAQ when possible
 '

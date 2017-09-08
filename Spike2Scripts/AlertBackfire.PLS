@@ -1,4 +1,7 @@
-; $Log: not supported by cvs2svn $
+; $Log: AlertBackfire.PLS,v $
+; Revision 1.3  2011/11/16 00:48:00  jeff
+; Update to dual juicer capability, moving majority of work to UsreyDAQ when possible
+;
 ; Revision 1.2  2011/11/09 17:55:35  jeff
 ; Update to allow use of open-high (variable open dur) OR open-low (constant open dur) juicers
 ;

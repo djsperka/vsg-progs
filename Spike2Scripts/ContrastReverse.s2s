@@ -1,4 +1,4 @@
-' $Id: ContrastReverse.s2s,v 1.12 2016-03-03 00:16:45 devel Exp $
+' $Id: ContrastReverse.s2s,v 1.12 2016/03/03 00:16:45 devel Exp $
 ' Update 11/8/11 Jeff, includes SafeSampleKey and multi-juicer updates
 
 #include "../../Spike2util/UsreyUtil.s2s"

@@ -1,4 +1,4 @@
-' $Id: Fixation.s2s,v 1.41 2016-04-01 22:03:36 devel Exp $
+' $Id: Fixation.s2s,v 1.41 2016/04/01 22:03:36 devel Exp $
 ' Update 11/8/11 Jeff, includes SafeSampleKey and multi-juicer updates
 
 #include "../../Spike2Util/UsreyUtil.s2s"

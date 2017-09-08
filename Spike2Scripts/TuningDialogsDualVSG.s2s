@@ -1,4 +1,4 @@
-' $Id: TuningDialogsDualVSG.s2s,v 1.2 2011-10-07 21:01:38 jeff Exp $
+' $Id: TuningDialogsDualVSG.s2s,v 1.2 2011/10/07 21:01:38 jeff Exp $
 '
 ' This file contains dialog functions for the alert tuning script Tuning.s2s.
 #include "../../Spike2Util/UsreyUtil.s2s"

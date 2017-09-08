@@ -1,4 +1,4 @@
-'$Id: Rivalry.s2s,v 1.24 2011-11-16 00:48:00 jeff Exp $
+'$Id: Rivalry.s2s,v 1.24 2011/11/16 00:48:00 jeff Exp $
 ' Update 11/8/11 Jeff, includes SafeSampleKey and multi-juicer updates
 
 #include "../../Spike2Util/TrialBlockGen.s2s"

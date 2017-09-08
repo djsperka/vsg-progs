@@ -1,5 +1,5 @@
-' $Id: AcuteTuning.s2s,v 1.54 2016-05-15 20:53:47 devel Exp $
-const tunCVSID$ := "$Id: AcuteTuning.s2s,v 1.54 2016-05-15 20:53:47 devel Exp $";
+' $Id: AcuteTuning.s2s,v 1.61 2017/06/19 19:58:57 devel Exp $
+const tunCVSID$ := "$Id: AcuteTuning.s2s,v 1.61 2017/06/19 19:58:57 devel Exp $";
 
 'var TuningCurveScriptDialogAllowOK%;  'allows OK to button to work on main dialog
 
@@ -70,7 +70,7 @@ var tunF2Cum[16];
 var tunRateCum[16];
 
 ' djs 10-19-11 trigger hack for Visage trigger bug.
-var tunTriggerHack% := 1;
+var tunTriggerHack% := 0;  'setting to 0 to read from stim channel due to RENDER trigger line hell
 
 var memorychannel% := 28;
 var memorychannel2% := 29;
@@ -98,6 +98,7 @@ var StimulatorChannel%;
 var OptoEfferenceChannel%;
 var LaserDiodeChannel%;
 var SequencerPeriodMS;
+var CameraTriggerChannel%;
 
 ' xy windows for plotting (TuningWindow) and PSTH. 
 var TuningWindow%[16];	' one for each wavemark channel
@@ -153,6 +154,7 @@ ReadyChannel% := 27;            ' Look for ready signal on port 2 (same as fixpt
 FrameChannel% := 19;
 StimulatorChannel% := 18;
 OptoEfferenceChannel% := 23;
+CameraTriggerChannel% := 26;
 
 
 ' Fetch electrode information. 
@@ -230,13 +232,30 @@ const stateTurnOffOpto%:=23;
 const stateWaitOptoPoststim%:=24;
 const statePulsedOpto%:=25;
 const stateWaitPulsedOpto%:=26;
-
+const stateWaitCameraTrigger%:=27;
+const stateWaitCameraBaselinePeriod%:=28;
 
 var iState% := stateVSGWait%;	' present state
 
 var nTrialsStarted%:=0;
 var nTrialsCompleted%:=0;
 var nTrialsAborted% :=0;		' 
+
+const cameraModeNone% := 0;
+const cameraModeWait% := 1;
+const cameraModeTrigger% := 2;
+
+var triggeredCamera% := 0;
+
+' ============================================================================ '
+' Serial Port constants
+' ============================================================================ '
+const serialCOMPort% := 1;
+const serialBaudRate% := 115200;
+const serialDataBits% := 8;
+const serialParity% := 0;
+const serialStopBits% := 1;
+const serialFlowCtrl% := 0;
 
 var stimOffTime;
 var tOpt;
@@ -256,23 +275,49 @@ func IdleProcessing%()
         return 1;
     endif
     
-    
 	docase 
     case iState% = stateVSGWait% then
         ' Waiting for VSG to indicate it is ready. The indication is a pulse (up, then down, 1 frame apart) on port 6.
         'if View(DataWindow%).FindPulseUp%(ReadyChannel%, -1, tRise, tFall) = 1 then
         pulseFound% := View(DataWindow%).FindPulseUp%(ReadyChannel%, tLastTrigger+tic, tRise, tFall);
-        if pulseFound% = 1 then
+        if pulseFound% = 1 or 1 = 1 then  'skip this step because we can't seem to find the ready pulse from Render
+            yield(0.5);  'this pause is because we can't find the ready pulse from Render
             LogStatus("VSGWait", "Got Ready Pulse from VSG at " + str$(tRise));
             Yield(1.0);
             tLastTrigger := tFall;
             ChangeStateTo(stateCheckTurnOnOpto%, tFall);
+            'if tunCameraMode% = cameraModeWait% then
+            '    ChangeStateTo(stateWaitCameraTrigger%, tFall);
+            'else
+            '    'ChangeStateTo(stateInterTrialInterval%, tFall);
+            '    ChangeStateTo(stateCheckTurnOnOpto%, tFall);
+            'endif;
         else
             if pulseFound% = 0 then  'if a (short) "false" trigger is found, update tLastTrigger so we don't see it again
                 LogStatus("VSGWait", "Got FALSE Ready Pulse from VSG at " + str$(tRise));
                 tLastTrigger := tFall;
             endif;
         endif;
+        
+        
+    case iState% = stateWaitCameraTrigger% then
+        if View(DataWindow%).FindPulseUp%(CameraTriggerChannel%, -1, tRise, tFall) = 1 then
+            LogStatus("CameraWait", "Got Shutter Pulse from Camera at " + str$(tRise));
+            tLastTrigger := tFall;
+            if tunCameraBaselinePeriod > 0 then
+                ChangeStateTo(stateWaitCameraBaselinePeriod%, tFall);
+            else
+                ChangeStateTo(stateCheckTurnOnOpto%, tFall);
+            endif;
+        endif;
+        
+        
+        
+    case iState% = stateWaitCameraBaselinePeriod% then  'note that this is a pretty sloppy way to do this, timewise.  However, Scottie will be using pulses to sync the camera so this is OK.
+        if tNow >= tStateStart + tunCameraBaselinePeriod then
+            ChangeStateTo(stateCheckTurnOnOpto%, tNow);
+        endif;
+        
         
         
     case iState% = stateCheckTurnOnOpto% then
@@ -588,17 +633,24 @@ func IdleProcessing%()
         view(datawindow%).MemSave(memChanRasterTriggersOpto%,memorychannelopto%,0,1);
         view(datawindow%).MemSave(memChanBetterTextMark%,memorychannel2%,0,1);
         
-            
+        triggeredCamera% := 0;
         
 
     case iState% = stateInterTrialInterval% then
-
+        ' HERE is where we write to the SerialPort        
+        'if (tNow - tStateStart) > (tInterTrialTime - tunCameraBaselinePeriod) then
+        '    if ((tunCameraMode% = cameraModeTrigger%) and (triggeredCamera% = 0)) then
+        '        var msg$;
+        '        msg$ := str$(tunValues[tunValuesIndices%[nTrialsCompleted%]]);                
+        '        SendSerialMsg(serialCOMPort%, msg$, "\n");
+        '        triggeredCamera% := 1;
+        '        samplekey("z");
+        '    endif
+        'endif
         if tNow - tStateStart > tInterTrialTime then
-
             ChangeStateTo(stateCheckTurnOnOpto%, tNow);
-
         endif
-
+        
     else
         
         ' Unknown state!
@@ -610,7 +662,17 @@ func IdleProcessing%()
 	tLast := tNow;
 	return iStatus%;
 end;
-
+' ============================================================================ '
+' Send a message to an open serial port and read an AWK reply
+' ============================================================================ '
+proc SendSerialMsg(port%, msg$, term$)
+    var buffer$;
+    SerialWrite(port%, msg$, term$);
+    SerialRead(port%, buffer$, term$);
+    if not (buffer$ = "AWK") then
+        PrintLog("[ERROR]: Failed to receive AWK from imaging acq machine\n");
+    endif
+end;
 
 func GetPlotXCoord(nTrials%)
     return tunValues[tunValuesIndices%[nTrials%]];
@@ -971,6 +1033,7 @@ proc CreateSampleConfiguration()
 	var i%;
 
 	SampleClear(); 'Set standard sampling state
+    SampleChannels(64);  '32 does not work, we need more!
 '	SampleAutoFile(0); 'Enable automatic file naming
 	SampleAutoComment(0); 'Prompt for comment after sampling
 	SampleAutoCommit(60); 'Seconds between each file commit
@@ -1152,20 +1215,42 @@ proc CreateSampleConfiguration()
     
     
 	'Channel recording definitions
-	SampleEvent(StimChannel%,3,2,3600); 'Trigger channel, level
+	'SampleEvent(StimChannel%,3,2,3600); 'Trigger channel, level
+    SampleEvent(StimChannel%,2,2,3600);  'temporary until we figure out the channels from Render, port 3 is normally correct
 	SampleComment$(StimChannel%,"Stim");
 	SampleTitle$(StimChannel%,"Stim");
     
-	SampleEvent(ReadyChannel%, 1, 2, 3600); 'Trigger channel, level
-	SampleComment$(ReadyChannel%,"VSG Ready");
+	'SampleEvent(ReadyChannel%, 1, 2, 3600); 'Trigger channel, level
+    'SampleEvent(ReadyChannel%, 2, 2, 3600); 'Trigger channel, level, moved to port 2 in order to allow port 1 (front of 1401) to carry camera signal
+	SampleEvent(ReadyChannel%, 3, 2, 3600);  'temporary until we figure out the channels from Render, port 2 is normally correct
+    SampleComment$(ReadyChannel%,"VSG Ready");
 	SampleTitle$(ReadyChannel%,"VSG Ready");
     
-    
-
     SampleEvent(FrameChannel%, 0, 2, 3600);
     SampleComment$(FrameChannel%,"Frame");
     SampleTitle$(FrameChannel%,"Frame");
-
+    
+    'Camera frame trigger channel
+    SampleEvent(CameraTriggerChannel%, 1, 2, 3600); 'Camera trigger channel, level
+	SampleComment$(CameraTriggerChannel%, "CamTrg");
+	SampleTitle$(CameraTriggerChannel%, "CamTrg");
+    
+'    SampleEvent(40,4,2,3600); 'Trigger channel, level
+'	SampleComment$(40,"4");
+'	SampleTitle$(40,"4");
+'    
+'    SampleEvent(41,5,2,3600); 'Trigger channel, level
+'	SampleComment$(41,"5");
+'	SampleTitle$(41,"5");
+'    
+'    SampleEvent(42,6,2,3600); 'Trigger channel, level
+'	SampleComment$(42,"6");
+'	SampleTitle$(42,"6");
+'    
+'    SampleEvent(43,7,2,3600); 'Trigger channel, level
+'	SampleComment$(43,"7");
+'	SampleTitle$(43,"7");
+    
     
     'The below three channels are used for optogenetics and temperature recording
     'Unfortunately, it's not terribly simple to get these in and still allow the same system that 
@@ -1238,7 +1323,7 @@ proc CreateSampleConfiguration()
             'before needing to reposition other channels anyway (this non-collapsed scheme would work up to a hard-coded 9 rather than 7 Ports).
             'So if you need to use Port 7/8, you'll need to change the hardcode here and for tunNContinuous% below to 8/9.  If you need
             'to go beyond Port 8, you'll have to either move some of the hardcoded pulse channels, or dump the non-collapsed numbering scheme. -jj
-            halt();
+            halt;
         endif;
 	next
     for i% := 0 to tunNContinuous%-1 do
@@ -1262,7 +1347,7 @@ proc CreateSampleConfiguration()
     
     
 	SampleSequencer(script$ + "Tuning.pls");
-	SampleOptimise(2,2,2,2,50);  'Set optimise mode (do this last)
+	SampleOptimise(2,2,Get1401Type%(),2,50);  'Set optimise mode (do this last)
 	SampleMode(1); 'Continuous sampling
 end;
 
@@ -1283,6 +1368,7 @@ func Stop%()
 	' Disable idle process func
 	ToolbarSet(0,"");
     
+    
     'turn off opto if it happens to be on
     SafeSampleKey("o");
     
@@ -1300,6 +1386,11 @@ func Stop%()
 	' Write parameter file
 	WriteParameterFile();
     
+    ' close serial port
+    if tunCameraMode% = cameraModeTrigger% then
+        SendSerialMsg(serialCOMPort%, "STOP", "\n");
+        SerialClose(serialCOMPort%);
+    endif
     
     view(dataWindow%);
     MemSave(memChanRasterTriggers%,memorychannel%,0,1);  'final update of memory channel
@@ -1357,7 +1448,24 @@ func Stop%()
         InvestigateRastersDialog%();
     endif;
     
+    'We are getting strange freezes, sometimes, for no apparent reason. The PAR, SMR, and MAT files are written
+    'but the S2R file is not written in these cases.  There is no explicit halt, so I am putting one in to see
+    'if that helps.  Well, the S2R file isn't written until the SMR is closed, so it makes sense that we don't
+    'get it on crashes.  I've got no idea what's going on, but at least this is worth a try.
+    halt;
     
+end;
+
+' ============================================================================ '
+' JSON formatted stimulus parameters for imaging DAQ machine
+' ============================================================================ '
+func GetParameterString$()
+    var paramString$;
+    paramString$ := "{\"stimulus_duration\": " + str$(tunStimulusDuration);
+    paramString$ := paramString$ + ", \"baseline_duration\": " + str$(tunCameraBaselinePeriod);
+    paramString$ := paramString$ + ", \"ntrial\": " + str$((tunOriNSteps% + 1) * tunOriNRepeats%);
+    paramString$ := paramString$ + "}";
+    return paramString$;
 end;
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
@@ -1406,7 +1514,7 @@ proc WriteParameterFile()
     Print("Temporal frequency              : %s\n", Tstimtf$);
 	Print("Spatial frequency               : %s\n", Tstimsf$);
 	Print("Orientation (degrees)           : %s\n", Tstimorientation$);
-    Print("Initial Phase (degrees)         : %f\n", Tstimphase$);
+    Print("Initial Phase (degrees)         : %s\n", Tstimphase$);
 	Print("Contrast (%%)                    : %s\n", Tstimcontrast$);
 	Print("Aperture: ellipse(e)/square(q)  : %s\n", Tstimap$);
 	Print("Type: sine (s)/square (q)       : %s\n", Tstimp$);
@@ -1415,6 +1523,7 @@ proc WriteParameterFile()
 	Print("\nExperimental parameters\n");
 	Print("-------------------------\n\n");
     Print("Stimulus Duration (s)  : %f\n", tunStimulusDuration);
+    Print("Intertrial Interval (s): %f\n", tunInterTrialTime);
 	Print("\nTuning parameters\n");
 	Print("-------------------\n\n");
 	docase 
@@ -1567,7 +1676,12 @@ func Start%()
     var tempCount%;
     var tempSeqVarValue;
     var tempSeqVarValue%;
-    
+    var tempBinDir$;
+
+    if tunCameraMode% = cameraModeTrigger% then
+        SerialOpen(serialCOMPort%, serialBaudRate%, serialDataBits%, serialParity%, serialStopBits%, serialFlowCtrl%);
+        SendSerialMsg(serialCOMPort%, GetParameterString$(), "\n");
+    endif
     
 '    var XHairArg$;
 	
@@ -1659,10 +1773,21 @@ func Start%()
     Stim$ := " -s " + GetGratingParameters$("Stimulus");    
 	Values$ := tunValuesStringified$;
     'Extras$ := " -b " + tunBackgroundColor$ + " -d " + GetAcuteDistanceToScreenMM$() + " -p 2 -v";
-    Extras$ := " -b " + tunBGStr$ + " -d " + GetAcuteDistanceToScreenMM$() + " -p 2 -v";
+    'Extras$ := " -b " + tunBGStr$ + " -d " + GetAcuteDistanceToScreenMM$() + " -p 2 -v";
+    Extras$ := " -b " + tunBGStr$ + " -d " + GetAcuteDistanceToScreenMM$() + " -p 4 -v";  'changed ready pulse (-p) to 4 so that it comes on port 2 - this is bitmapped, not linear mapped
+    
+    var preArgs$;
+    var jsonFilePre$;
+    jsonFilePre$ := FileName$(1) + FileName$(2) + FileName$(3) + FileName$(4);
     
     'By default, set ProgName$ to be FIXSTIM
-    ProgName$ := "\\fixstim.exe ";    
+    'ProgName$ := "\\fixstim.exe ";
+    'ProgName$ := "\\render_relay.exe ";
+    'bin$ := "C:\\Users\\Lab\\Dekstop\\render_relay";
+    ProgName$ := "C:\\Users\\Lab\\Desktop\\render_relay\\render_relay.exe ";
+    bin$ := "";
+    preArgs$ := "-ip 128.120.140.14 -prefix " + jsonFilePre$ + " ";
+    tempBinDir$ := bin$;
     
 	docase 
     case tunType$ = tunTypeContrast$ then
@@ -1671,9 +1796,35 @@ func Start%()
         Tune$ := " -C " + Values$;
 
     case tunType$ = tunTypeOrientation$ then
-
+        ' ==================================================================== '
+        ' NOTE: 20170410 PCA
+        var Flag$;
+        if tunOriUsePlaid% > 0 then            
+            ' we are overwriting the <bin$> directory here so that we can call
+            ' fixstim_mod, after the cmd text is created (<cmdline$>) we set
+            ' bin$ back to its original value so as not to upset any non-plaid
+            ' stimuli etc.
+            
+            'tempBinDir$ := bin$;
+            'bin$ := "C:\\Users\\Lab\\Desktop\\test\\";
+            'ProgName$ := "fixstim_mod.exe";
+            
+            ' verify location of fixstim_mod executable
+            'if FileOpen(bin$ + ProgName$, 9, 0) < 0 then
+            '    Message("Failed to locate executable: " + bin$ + ProgName$);
+            '    FileClose(0);
+            '    halt;
+            'else
+            '    FileClose(0);
+            'endif
+            
+            Flag$ := " -X "; ' -X is for plaids
+        else
+            Flag$ := " -O "; ' -O is for regular orientation
+        endif
         'Tune$ := Dual$ + " -O " + Values$;
-        Tune$ := " -O " + Values$;
+        Tune$ := Flag$ + Values$;
+        ' ==================================================================== '
 
     case tunType$ = tunTypeSpatial$ then
 
@@ -1733,10 +1884,19 @@ func Start%()
         Halt;
 
 	endcase;
-	
-    cmdLine$ := "cmd /k " + bin$ + ProgName$ + Extras$ + Stim$ + Tune$;
+    
+    cmdLine$ := "cmd /k " + bin$ + ProgName$ + preArgs$ + Extras$ + Stim$ + Tune$;
+    
+    ' ==================================================================== '
+    ' NOTE: 20170410 PCA
+    ' reset bin$ back to its original value so we don't screw anything
+    ' else up
+    bin$ := tempBinDir$;
+    ' ==================================================================== '
+    
     PrintLog(cmdLine$+"\n");
-    printlog("num advances is %d and num repeats is %d\n",tunNAdvances%,tunNRepeats%);
+    PrintLog("num advances is %d and num repeats is %d\n",tunNAdvances%,tunNRepeats%);
+    
     ' Record initial text marks. The command line may need to be broken into pieces. 
     if tunTriggerHack% = 0 then
         SampleText("Tuning,3," + str$(Len(cmdLine$)));  'not clear what this should be, if anything.
@@ -1752,9 +1912,10 @@ func Start%()
     
 	'Begin the stimulus program. It will take a few seconds for the VSG to initialize.
 	PrintLog(cmdLine$+"\n");
-    printlog("num advances is %d and num repeats is %d\n",tunNAdvances%,tunNRepeats%);
+    PrintLog("num advances is %d and num repeats is %d\n",tunNAdvances%,tunNRepeats%);
+    
 	StimHandle% := ProgRun(cmdLine$,1);
-	if StimHandle% <0 then Message("Could not start stimulus."); halt; endif
+	if StimHandle% < 0 then Message("Could not start stimulus."); halt; endif
 	
 	ToolbarSet(0,"",IdleProcessing%);	'Enable the IdleProcessing function
 	ToolbarEnable(2,1);

@@ -1,4 +1,4 @@
-' $Id: KrubTuningDialogs.s2s,v 1.8 2013-07-22 22:39:53 jeff Exp $
+' $Id: KrubTuningDialogs.s2s,v 1.8 2013/07/22 22:39:53 jeff Exp $
 
 #include "../../Spike2Util/LogUtilities.s2s"
 #include "../../Spike2Util/MiscUtilities.s2s"

@@ -1,6 +1,6 @@
 
 
-const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.63 2016-03-03 00:16:45 devel Exp $";
+const tunCVSID$ := "$Id: DonutHunt.s2s,v 1.63 2016/03/03 00:16:45 devel Exp $";
 
 
 ' Hello again

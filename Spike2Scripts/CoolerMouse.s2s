@@ -1,4 +1,4 @@
-' $Id: CoolerMouse.s2s,v 1.8 2016-03-03 00:16:45 devel Exp $
+' $Id: CoolerMouse.s2s,v 1.8 2016/03/03 00:16:45 devel Exp $
 '
 ' Eye X, Y - ADC input 14, 15 respectively
 ' VSG trigger - assumed on DIGIN byte 0.  *** THE 1401 SHOULD HAVE PREFERENCES 

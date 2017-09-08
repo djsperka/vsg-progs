@@ -1,4 +1,4 @@
-; $Id: ASLCalibration.pls,v 1.3 2011-06-22 19:19:34 devel Exp $
+; $Id: ASLCalibration.pls,v 1.3 2011/06/22 19:19:34 devel Exp $
 
             SET      0.010 1 0     ;Get rate & scaling OK
             DIGOUT [00000000]

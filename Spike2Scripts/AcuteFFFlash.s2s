@@ -1,4 +1,4 @@
-' $Id: AcuteFFFlash.s2s,v 1.2 2010-12-07 20:32:27 devel Exp $
+' $Id: AcuteFFFlash.s2s,v 1.2 2010/12/07 20:32:27 devel Exp $
 
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "UsreyGratings.s2s"

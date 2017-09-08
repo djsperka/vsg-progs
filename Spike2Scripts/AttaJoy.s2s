@@ -1,5 +1,5 @@
-' $Id: AttaJoy.s2s,v 1.39 2011-11-16 00:48:00 jeff Exp $
-const ajCVSID$ := "$Id: AttaJoy.s2s,v 1.39 2011-11-16 00:48:00 jeff Exp $";
+' $Id: AttaJoy.s2s,v 1.39 2011/11/16 00:48:00 jeff Exp $
+const ajCVSID$ := "$Id: AttaJoy.s2s,v 1.39 2011/11/16 00:48:00 jeff Exp $";
 
 ' Update 11/7/11 Jeff, includes SafeSampleKey and multi-juicer updates
 

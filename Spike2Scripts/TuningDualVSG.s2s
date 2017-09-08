@@ -1,5 +1,5 @@
-' $Id: TuningDualVSG.s2s,v 1.5 2016-03-03 00:16:45 devel Exp $
-const tunCVSID$ := "$Id: TuningDualVSG.s2s,v 1.5 2016-03-03 00:16:45 devel Exp $";
+' $Id: TuningDualVSG.s2s,v 1.5 2016/03/03 00:16:45 devel Exp $
+const tunCVSID$ := "$Id: TuningDualVSG.s2s,v 1.5 2016/03/03 00:16:45 devel Exp $";
 
 
 

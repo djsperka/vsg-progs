@@ -1,4 +1,7 @@
-; $Log: not supported by cvs2svn $
+; $Log: Calibration.pls,v $
+; Revision 1.2  2010/08/20 01:21:00  devel
+; Force initial state of digout lines to 0x1
+;
 ; Revision 1.1  2004-10-01 19:41:01  dan
 ; From production
 ;

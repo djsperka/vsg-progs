@@ -1,5 +1,5 @@
-' $Id: AttaJoyPulse.s2s,v 1.1 2010-08-20 01:15:49 devel Exp $
-const ajCVSID$ := "$Id: AttaJoyPulse.s2s,v 1.1 2010-08-20 01:15:49 devel Exp $";
+' $Id: AttaJoyPulse.s2s,v 1.1 2010/08/20 01:15:49 devel Exp $
+const ajCVSID$ := "$Id: AttaJoyPulse.s2s,v 1.1 2010/08/20 01:15:49 devel Exp $";
 
 #include "../../Spike2Util/TrialGenInterface.s2s"
 #include "../../Spike2Util/ChannelUtilities.s2s"

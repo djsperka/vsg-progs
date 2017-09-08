@@ -1,4 +1,4 @@
-' $Id: AcuteTuningDialogs.s2s,v 1.20 2016-01-26 01:23:43 devel Exp $
+' $Id: AcuteTuningDialogs.s2s,v 1.23 2017/06/19 19:56:46 devel Exp $
 '
 ' This file contains dialog functions for the alert tuning script Tuning.s2s.
 #include "../../Spike2Util/UsreyUtil.s2s"
@@ -11,6 +11,7 @@ var TuningCurveScriptDialogAllowOK%;  'allows OK to button to work on main dialo
 var tunStimulusDuration := 3;      ' New, time for each stimulus to last, replaces tunFixationDuration
 var tunInterTrialTime := 1;        ' Time between stimuli 
 var tunInterBlockTime := 0;        ' New, time between blocks, important for opto
+var tunCameraBaselinePeriod;       ' New, allows for camera to collect baseline period before stimuli begin
 'var tunBackgroundColor$ := "gray";	' background color for stim
 var tunBackgroundGrayLevel% := 128; ' Background gray level
 var tunDoOpto%;                     ' New, 1 if doing optogenetics
@@ -20,6 +21,9 @@ var tunRecStimulator% := 0;   'record the stimulator?
 var tunOptoUsePulse% := 0;  'Are we using a "pulsing stimulation"?
 var tunLaserDiode% := 0;  'Are we recording the output of the laser using a photodiode?
 var tunUseTemperature%;
+
+'var tunWaitForCameraTrigger%;
+var tunCameraMode%;
 
 ' These will be set by the tuning curve choice
 var tunNAdvances%;		' Number of times stim will advance during one repeat
@@ -72,6 +76,7 @@ var tunOriMaxOrientation;	' max orientation
 var tunOriProgression%;
 var tunOriUseFile%;
 var tunOriTuningFile$;
+var tunOriUsePlaid%;
 
 ' Contrast next
 var tunContrastNSteps%;			' # steps in contrast tuning curve
@@ -187,11 +192,15 @@ proc GetTuningCurveScriptParameters()
     tunStimulusDuration := GetFloatRegistryValue(key$, "StimulusDuration", tunStimulusDuration);  'new
     tunInterTrialTime := GetFloatRegistryValue(key$, "InterTrialTime", tunInterTrialTime);  'new
     tunInterBlockTime := GetFloatRegistryValue(key$, "InterBlockTime", tunInterBlockTime);
+    tunCameraBaselinePeriod := GetFloatRegistryValue(key$, "CameraBaselinePeriod", tunCameraBaselinePeriod);
     'tunBackgroundColor$ := GetStringRegistryValue$(key$, "BackgroundColor", tunBackgroundColor$);
     tunBackgroundGrayLevel% := GetIntRegistryValue%(key$, "BackgroundGrayLevel", tunBackgroundGrayLevel%);
     tunDoOpto% := GetIntRegistryValue%(key$, "DoOpto", tunDoOpto%);
     tunRecStimulator% := GetIntRegistryValue%(key$, "RecStimulator", tunRecStimulator%);
     tunUseTemperature% := GetIntRegistryValue%(key$, "UseTemperature", tunUseTemperature%);
+    
+    'tunWaitForCameraTrigger% := GetIntRegistryValue%(key$, "WaitForCameraTrigger", tunWaitForCameraTrigger%);
+    tunCameraMode% := GetIntRegistryValue%(key$, "CameraMode", tunCameraMode%);    
 end;
 
 proc SaveTuningCurveScriptParameters()
@@ -201,11 +210,15 @@ proc SaveTuningCurveScriptParameters()
     SetFloatRegistryValue(key$, "StimulusDuration", tunStimulusDuration);
     SetFloatRegistryValue(key$, "InterTrialTime", tunInterTrialTime);
     SetFloatRegistryValue(key$, "InterBlockTime", tunInterBlockTime);
+    SetFloatRegistryValue(key$, "CameraBaselinePeriod", tunCameraBaselinePeriod);
     'SetStringRegistryValue(key$, "BackgroundColor", tunBackgroundColor$);
     SetIntRegistryValue(key$, "BackgroundGrayLevel", tunBackgroundGrayLevel%);
     SetIntRegistryValue(key$, "DoOpto", tunDoOpto%);
     SetIntRegistryValue(key$, "RecStimulator", tunRecStimulator%);
     SetIntRegistryValue(key$, "UseTemperature", tunUseTemperature%);
+    
+    'SetIntRegistryValue(key$, "WaitForCameraTrigger", tunWaitForCameraTrigger%);
+    SetIntRegistryValue(key$, "CameraMode", tunCameraMode%);
 end;
 
 
@@ -231,6 +244,7 @@ func TuningCurveScriptDialog%()
     var tempParam$;
     var tempPhase;
     var boxOK% := 1;  'do the stimulus/crosshairs boxes overlap?
+    var dlgwid% := 45;  'Width of dialog
     
     TuningCurveScriptDialogAllowOK% := 0;  'Disable OK button to start, force selection of experiment
     
@@ -248,38 +262,43 @@ func TuningCurveScriptDialog%()
 '	next;
     
 
-	DlgCreate("Tuning Curve Parameters", 50, 10, 40);
+	DlgCreate("Tuning Curve Parameters", 50, 10, dlgwid%);
     DlgButton(0,"         Quit         ");
     DlgButton(1,"     Select Expt.     ");        
-	DlgGroup("Common Parameters", 1, 1, 38, 6);
-	DlgReal(1, "Stimulus Duration(s):", .1, 100, 20, 2);  'new, allow really long stimuli
-    DlgReal(2, "InterTrial Time(s):", .1, 100, 20, 3);  'new, allow really long stimuli
-	DlgReal(3, "InterBlock Time(s):", 0, 100, 20, 4);  'new, allow really long stimuli
-    DlgInteger(4, "Background Gray Level (0-255):", 0, 255, 20, 5);  'new, allow all grays
+	DlgGroup("Common Parameters", 1, 1, dlgwid%-2, 8);
+	DlgReal(1, "Stimulus Duration(s):", .1, 100, 0, 2);  'new, allow really long stimuli
+    DlgReal(2, "InterTrial Time(s):", .1, 100, 0, 3);  'new, allow really long stimuli
+	DlgReal(3, "InterBlock Time(s):", 0, 100, 0, 4);  'new, allow really long stimuli
+    DlgInteger(4, "Background Gray Level (0-255):", 0, 255, 0, 5);  'new, allow all grays
     'DlgCheck(5, "Record Stimulator?", 2,6);
     DlgCheck(5, "Record Temperature?", 2,6);
-	'DlgList(3, "Background color:", bcl$, 3, 20, 4);  'updated as new dialog number
+	'DlgList(3, "Background color:", bcl$, 3, 0, 4);  'updated as new dialog number
     
-    DlgGroup("Grating Parameters", 1, 7, 38, 2);
-    DlgButton(tundlgGratingParametersButton%, "Grating Parameters", TunDlgGratingMaster%, 2, 8);
+    'DlgCheck(6, "Wait For Camera Trigger?", 2,7);
+    DlgText("Camera mode: ", 2, 7);
+    DlgList(6, 12, "None|Wait|Trigger", 3, 31.2, 7);
+    DlgReal(7, "Camera Baseline Period(s):", 0, 1000, 0, 8);  'new, allow really long stimuli
     
-    DlgGroup("Optogenetics", 1, 9, 38, 3);
-    DlgCheck(6,"Opto On",2,10);
-    DlgButton(tundlgOptogeneticsButton%, "Optogenetics Parameters", TunOptoDialog%, 2, 11);
+    DlgGroup("Grating Parameters", 1, 9, dlgwid%-2, 2);
+    DlgButton(tundlgGratingParametersButton%, "Grating Parameters", TunDlgGratingMaster%, 2, 10);
     
-    DlgGroup("Individual Tuning Curve Types", 1, 12, 38, 8);
-	DlgButton(tundlgOrientationButton%, "Orientation", TuningCurveOrientationDialog%, 2, 13);
-	DlgButton(tundlgContrastButton%, "Contrast", TuningCurveContrastDialog%, 2, 14);
-	DlgButton(tundlgSpatialButton%, "Spatial Freq", TuningCurveSpatialDialog%, 2, 15);
-	DlgButton(tundlgTemporalButton%, "Temporal Freq", TuningCurveTemporalDialog%, 2, 16);
-	DlgButton(tundlgAreaButton%, "Area", TuningCurveAreaDialog%, 2, 17);
-    DlgButton(tundlgNullTestButton%, "Null Test", TuningCurveNullTestDialog%, 2, 18);
-	DlgButton(tundlgIDButton%, "InnerDiam", TuningCurveIDDialog%, 2, 19);
+    DlgGroup("Optogenetics", 1, 11, dlgwid%-2, 3);
+    DlgCheck(8,"Opto On",2,12);
+    DlgButton(tundlgOptogeneticsButton%, "Optogenetics Parameters", TunOptoDialog%, 2, 13);
+    
+    DlgGroup("Individual Tuning Curve Types", 1, 14, dlgwid%-2, 8);
+	DlgButton(tundlgOrientationButton%, "Orientation", TuningCurveOrientationDialog%, 2, 15);
+	DlgButton(tundlgContrastButton%, "Contrast", TuningCurveContrastDialog%, 2, 16);
+	DlgButton(tundlgSpatialButton%, "Spatial Freq", TuningCurveSpatialDialog%, 2, 17);
+	DlgButton(tundlgTemporalButton%, "Temporal Freq", TuningCurveTemporalDialog%, 2, 18);
+	DlgButton(tundlgAreaButton%, "Area", TuningCurveAreaDialog%, 2, 19);
+    DlgButton(tundlgNullTestButton%, "Null Test", TuningCurveNullTestDialog%, 2, 20);
+	DlgButton(tundlgIDButton%, "InnerDiam", TuningCurveIDDialog%, 2, 21);
     
     
-    DlgGroup("Non-Grating Stimuli", 1, 20, 38, 3);
-    DlgButton(tundlgDriftingBarButton%, "Drifting Bars", TuningCurveDriftingBarDialog%, 2, 21);
-    DlgButton(tundlgCRGMButton%, "CRGs", TuningCurveCRGMDialog%, 2, 22);
+    DlgGroup("Non-Grating Stimuli", 1, 22, dlgwid%-2, 3);
+    DlgButton(tundlgDriftingBarButton%, "Drifting Bars", TuningCurveDriftingBarDialog%, 2, 23);
+    DlgButton(tundlgCRGMButton%, "CRGs", TuningCurveCRGMDialog%, 2, 24);
     
     DlgAllow(0xffff, 0, TuningCurveScriptDialogChanged%);
     
@@ -287,7 +306,7 @@ func TuningCurveScriptDialog%()
     'should be regular, allows us to record the stimulator
     'i%:=DlgShow(tunStimulusDuration, tunInterTrialTime, tunInterBlockTime, tunBackgroundGrayLevel%, tunRecStimulator%, tunDoOpto%);  'now using background gray level
     'replaces tunRecStimulator with tunUseTemperature, probably will only be used for a short period of time
-    i%:=DlgShow(tunStimulusDuration, tunInterTrialTime, tunInterBlockTime, tunBackgroundGrayLevel%, tunUseTemperature%, tunDoOpto%);  'now using background gray level
+    i%:=DlgShow(tunStimulusDuration, tunInterTrialTime, tunInterBlockTime, tunBackgroundGrayLevel%, tunUseTemperature%, tunCameraMode%, tunCameraBaselinePeriod, tunDoOpto%);  'now using background gray level
     
     ' djs 4-1-09
     ' Spike2 v6 change. DlgShow will return the button number when a button on the dialog is hit and the corresponding
@@ -346,6 +365,10 @@ func TuningCurveScriptDialogChanged%(item%)
     'DlgEnable(0,5);  'this is a temporary disable because the opto box input may conflict
                      'with the required event channel (12/7/15)  In principle we will learn
                      'what we need to learn and then get rid of this sometime 12/15 or 1/16 -jj
+    
+    'This turns on and off the camera delay period with the use camera checkbox
+    DlgEnable(DlgValue(6) > 0,7);
+    
     'This disables the "OK" button (though it will have different labels) until an experiment is selected
     if TuningCurveScriptDialogAllowOK% = 1 then
         DlgEnable(1,-1);  'enable "OK" 
@@ -371,6 +394,7 @@ proc GetTuningCurveOrientationParameters()
     tunOriMaxOrientation := GetFloatRegistryValue(key$, "MaxOrientation", tunOriMaxOrientation);
     tunOriUseFile% := GetIntRegistryValue%(key$, "UseFile", tunOriUseFile%);
     tunOriTuningFile$ := GetStringRegistryValue$(key$, "TuningFile", tunOriTuningFile$);
+    tunOriUsePlaid% := GetIntRegistryValue%(key$, "UsePlaid", tunOriUsePlaid%);
 end;
 
 proc SaveTuningCurveOrientationParameters()
@@ -383,6 +407,7 @@ proc SaveTuningCurveOrientationParameters()
     SetFloatRegistryValue(key$, "MaxOrientation", tunOriMaxOrientation);
     SetIntRegistryValue(key$, "UseFile", tunOriUseFile%);
     SetStringRegistryValue(key$, "TuningFile", tunOriTuningFile$);
+    SetIntRegistryValue(key$, "UsePlaid", tunOriUsePlaid%);
 end;
 
 proc GetTuningCurveContrastParameters()
@@ -664,9 +689,12 @@ func TuningCurveOrientationDialog%()
     DlgCheck(6, "Use File For Tuning Values");
     DlgString(7,40,255,"",3);  'for visual confirmation of selected seq file
     DlgButton(tundlgSelectTuningFileButton%, " Select Tuning File ", SelectTuningFile%, 2, 8);
+    
+    DlgCheck(8, "Use plaids [grating orientation determines angle]", 0, 9);
+    
     DlgAllow(0xffff, 0, TuningCurveGenericDialogChanged%);
     
-	i% := DlgShow(tunOriNSteps%, tunOriNRepeats%, tunOriMinOrientation, tunOriMaxOrientation, tunOriProgression%, tunOriUseFile%, tunOriTuningFile$);
+	i% := DlgShow(tunOriNSteps%, tunOriNRepeats%, tunOriMinOrientation, tunOriMaxOrientation, tunOriProgression%, tunOriUseFile%, tunOriTuningFile$, tunOriUsePlaid%);
 
 	' If i% is 1 the user hit "OK". If its 0, user hit "Cancel". 
 	' When user hits OK we alwaus save the parameters, and when user hits Cancel we don't.

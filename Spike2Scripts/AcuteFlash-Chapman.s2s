@@ -1,4 +1,4 @@
-' $Id: AcuteFlash-Chapman.s2s,v 1.2 2012-10-23 21:06:13 devel Exp $
+' $Id: AcuteFlash-Chapman.s2s,v 1.2 2012/10/23 21:06:13 devel Exp $
 
 
 var hView,hExperiment;

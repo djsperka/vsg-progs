@@ -258,9 +258,9 @@ proc CreateSampleConfiguration()
     endcase;
 	
     ' Set up eye channels whether using Plexon or not
-	SampleWaveform(XChannel%,14,1000);
+	SampleWaveform(XChannel%,GetEyeXPort%(),1000);
 	SampleTitle$(XChannel%,"Eye X");
-	SampleWaveform(YChannel%,15,1000);
+	SampleWaveform(YChannel%,GetEyeYPort%(),1000);
 	SampleTitle$(YChannel%,"Eye Y");
     
     'I don't know what this is, but it's a problem for Plexon configs
@@ -448,6 +448,8 @@ func Start%()
     var x;
     var i%;
     var specFileName$:="F:\\work\\FixyFreeSpecFile.txt";
+    var specFileName2$ := "E:\\work\\FixyFreeSpecFile.txt";
+    var actualSpecFileName$;
     var specHandle%;
     var spec2FileBase$;
     var spec2FileName$;
@@ -514,23 +516,33 @@ func Start%()
     FixationY := 0;
     FixationDiameter := (screenXmax + screenYmax)*2;  'this is dumb, but ought to work, as in "be plenty big".  Monitors are basically rectangular.
     FixationArg$ := " -f " + str$(FixationX) + "," + str$(FixationY) + "," + str$(FixationDiameter) + "," + fixationColor$;
-	    
-    
-    ' djs Update this to use remote stim when configured
-    if GetUseRemoteStimulus%() = 1 then
-        CommandLine$ := "cmd /k " + GetBinDir$(1) + "remote.exe " + GetRemoteStimulusIP$() + " " + GetRemoteStimulusPort$() + " fixstim -F " + specFileName$;
-    else
-        CommandLine$ := "cmd /k " + GetBinDir$(1) + "fixstim.exe -F " + specFileName$;
-    endif
     
     
     'open a file to write the trial-by-trial specs for the VSG
     specHandle% := FileOpen(specFileName$, 8, 1);
+    if specHandle% < 0 then 'if the location for the first specfile doesn't work, try another location
+        specHandle% := FileOpen(specFileName2$, 8, 1);
+        actualSpecFileName$ := specFileName2$;  'just assume the second one works
+    else
+        actualSpecFileName$ := specFileName$;
+    endif;
+    
 
     Print("%s %s %s %s",FixationArg$,Extras$,Stim$,"-C 0,0,0,0");  'this fakes a contrast tuning curve.  For now the program is designed to never "advance", so it's cool
    
     'close spec file
-	FileClose(0);
+	FileClose(0);    
+    
+    
+    ' djs Update this to use remote stim when configured
+    if GetUseRemoteStimulus%() = 1 then
+        CommandLine$ := "cmd /k " + GetBinDir$(1) + "remote.exe " + GetRemoteStimulusIP$() + " " + GetRemoteStimulusPort$() + " fixstim -F " + actualSpecFileName$;
+    else
+        CommandLine$ := "cmd /k " + GetBinDir$(1) + "fixstim.exe -F " + actualSpecFileName$;
+    endif
+    
+    
+    
     
     'Print the parameters
     for i% := 1 to Len(CommandLine$) step 100 do
