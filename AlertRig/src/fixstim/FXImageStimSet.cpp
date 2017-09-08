@@ -12,12 +12,6 @@ FXImageStimSet::~FXImageStimSet()
 {
 }
 
-//FXImageStimSet::FXImageStimSet(ARContrastFixationPointSpec& fixpt)
-//	: FXStimSet(fixpt)
-//{
-//
-//}
-
 FXImageStimSet::FXImageStimSet(ARContrastFixationPointSpec& fixpt, const std::vector<std::string>& vecImages)
 	: FXStimSet(fixpt)
 	, m_images(vecImages)
@@ -31,12 +25,6 @@ FXImageStimSet::FXImageStimSet(const std::vector<std::string>& vecImages)
 {
 	m_iter = m_images.begin();
 }
-
-// djs - CHECK WHETHER THIS IS NEEDED, AND WHETHER ITERATOR BEHAVES AS EXPECTED AFTER IMAGES ADDED
-//void FXImageStimSet::addImages(const std::vector<std::string>& vecImages)
-//{
-//	m_images.insert(m_images.end(), vecImages.begin(), vecImages.end());
-//}
 
 std::string FXImageStimSet::toString() const
 {
@@ -59,16 +47,8 @@ int FXImageStimSet::init(ARvsg& vsg, std::vector<int> pages)
 	m_pageFixpt = pages[1];
 	m_pageFixptStim = pages[2];
 
-	VSGTRIVAL backgroundTrival = vsg.background_color().trival();
-	cerr << "pages " << m_pageBlank << " " << m_pageFixpt << " " << m_pageFixptStim << endl;
-	cerr << "background " << backgroundTrival.a << " " << backgroundTrival.b << " " << backgroundTrival.c << endl;
-
-//	status = vsgSetVideoMode(vsgTRUECOLOURMODE|vsgNOGAMMACORRECT);
-//	if (status < 0)
-//		cerr << "setvideomode status " << status << endl;
-
 	// get levels for image. Assuming 230 levels have been used in 'evert'.
-	vsg.request_range(230, m_levelImage);
+	vsg.request_range(235, m_levelImage);
 
 	if (has_fixpt())
 	{
@@ -83,8 +63,6 @@ int FXImageStimSet::init(ARvsg& vsg, std::vector<int> pages)
 
 void FXImageStimSet::cleanup(std::vector<int> pages)
 {
-	cerr << "cleanup" << endl;
-	vsgSetVideoMode(vsg8BITPALETTEMODE | vsgGAMMACORRECT);
 }
 
 
@@ -128,15 +106,13 @@ int FXImageStimSet::drawCurrent()
 
 	// fixpt page
 	vsgSetDrawPage(vsgVIDEOPAGE, m_pageFixpt, vsgBACKGROUND);
-//	vsgSetPen1(0x0f0f0f);
-//	vsgDrawRect(0, 0, vsgGetScreenWidthPixels(), vsgGetScreenHeightPixels());
 	if (has_fixpt())
+	{
 		fixpt().draw();
+	}
 
 	// fixpt + stim page
 	vsgSetDrawPage(vsgVIDEOPAGE, m_pageFixptStim, vsgBACKGROUND);
-//	vsgSetPen1(0x0f0f0f);
-//	vsgDrawRect(0, 0, vsgGetScreenWidthPixels(), vsgGetScreenHeightPixels());
 	if (m_iter != m_images.end())
 	{
 		char filename[1024];
@@ -163,31 +139,17 @@ int FXImageStimSet::drawCurrent()
 			vsgPaletteWrite((VSGLUTBUFFER*)palImage, 0, 230);
 
 		diStatus = vsgDrawImage(vsgBMPPICTURE, 0, 0, filename);
-
-#if 0
-		if (!ihack)
-		{
-//			vsgSetCommand(vsgDISABLELUTANIM);
-			vsgSetVideoMode(vsgTRUECOLOURMODE | vsgGAMMACORRECT);
-			diStatus = vsgDrawImage(vsgBMPPICTURE+vsgPALETTELOAD, 0, 0, filename);
-			cerr << "drawImage status " << diStatus << endl;
-			vsgSetVideoMode(mode);
-		}
-		else
-		{
-			diStatus = vsgDrawImage(vsgBMPPICTURE, 0, 0, filename);
-			cerr << "ihack drawImage status " << diStatus << endl;
-		}
-		//ihack = 1 - ihack;
-#endif
-
 	}
 	else
+	{
 		cerr << "NO IMAGE TO DRAW!" << endl;
-	if (has_fixpt()) fixpt().draw();
+	}
+
+	if (has_fixpt())
+	{
+		fixpt().draw();
+	}
 
 	vsgSetDrawPage(vsgVIDEOPAGE, m_pageBlank, vsgBACKGROUND);
-//	vsgSetPen1(0x0f0f0f);
-//	vsgDrawRect(0, 0, vsgGetScreenWidthPixels(), vsgGetScreenHeightPixels());
 	return status;
 }

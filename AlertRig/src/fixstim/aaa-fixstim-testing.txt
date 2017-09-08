@@ -26,6 +26,8 @@ remote.exe 127.0.0.1 7000 fixstim \
 							-h 0,0,3,5,8,16,1,2 \
 							-g 10,10,2,2,100,.2,1,45,b,s,e
 
+							** with xhair q trigger doesn't work. 
+							** '0' trigger, followed by 'Q' works. TODO
 
 These give the same result. Above using '-g' disallows tuning curves. 
 Its safe to just use '-s' always with gratings, even if they will not 
@@ -97,4 +99,22 @@ remote.exe 127.0.0.1 7000 fixstim \
 							-A 1,3,5 -C 10,25,50,100
 
 
-remote.exe 127.0.0.1 7000 fixstim -a -v -d 500 -f 0,0,.5,blue -s 6,0,5,5,100,.2,1,45,b,s,e -O 0,45,90,135,180 -T .25,.5,1,2,4 -s -6,0,5,5,100,.2,1,45,b,s,e -A 1,3,5 -C 10,25,50,100
+images - without and WITH fixpt
+remote.exe 127.0.0.1 7000 fixstim -a -v -d 500 -i c:/Users/Lab/Desktop/stimulus-images.txt
+remote.exe 127.0.0.1 7000 fixstim -a -v -d 500 -f 0,0,1,red -i c:/Users/Lab/Desktop/stimulus-images.txt
+
+images: stimulus-images.txt is a text file, each line has a full path to a single image file.
+image files MUST be bitmap images with embedded color palette. Use 230 colors - this will allow for more
+dynamic range. 
+
+MatlabScripts/evert.m 
+
+Matlab> evert('input.jpg', 'Color', 230, 'Output', 'input.bmp')
+
+** Note 230 colors used. This is kind of arbitrary, and assumes we are not using gratings in conjunction with the stimuli. 
+** This 230 color thing is limited to the images "-i" feature, and DOES NOT APPLY to Evan/Stacey stuff. 
+** The 230 is hardcoded into fixstim, can be changed, likely will be changed.
+**
+** Not every image looks great when doing this conversion! 
+
+
