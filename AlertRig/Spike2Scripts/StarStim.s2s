@@ -1,6 +1,6 @@
-' $Id: StarStim.s2s,v 1.13 2016-03-03 00:16:45 devel Exp $
+' $Id: StarStim.s2s,v 1.13 2016/03/03 00:16:45 devel Exp $
 ' Update 11/8/11 Jeff, includes multi-juicer updates
-const starCVSID$ := "$Id: StarStim.s2s,v 1.13 2016-03-03 00:16:45 devel Exp $";
+const starCVSID$ := "$Id: StarStim.s2s,v 1.13 2016/03/03 00:16:45 devel Exp $";
 
 '========================================================================
 '

@@ -1,6 +1,6 @@
-' $Id: RivalryDualVSG.s2s,v 1.21 2011-11-16 00:48:00 jeff Exp $
+' $Id: RivalryDualVSG.s2s,v 1.21 2011/11/16 00:48:00 jeff Exp $
 ' Update 11/8/11 Jeff, includes multi-juicer updates
-const rivCVSID$ := "$Id: RivalryDualVSG.s2s,v 1.21 2011-11-16 00:48:00 jeff Exp $";
+const rivCVSID$ := "$Id: RivalryDualVSG.s2s,v 1.21 2011/11/16 00:48:00 jeff Exp $";
 
 #include "../../Spike2Util/TrialBlockGen.s2s"
 #include "../../Spike2Util/ChannelUtilities.s2s"

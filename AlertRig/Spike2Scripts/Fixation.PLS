@@ -1,4 +1,4 @@
-; $Id: Fixation.PLS,v 1.11 2016-03-04 22:55:20 devel Exp $
+; $Id: Fixation.PLS,v 1.11 2016/03/04 22:55:20 devel Exp $
 
             SET      1.000 1 0     ;Get rate & scaling OK
             VAR    V2=0            ;V2 logs whether the sequencer is in use for SafeSampleKey

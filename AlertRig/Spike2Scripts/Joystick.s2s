@@ -1,4 +1,4 @@
-'$Id: Joystick.s2s,v 1.7 2015-05-12 17:15:19 devel Exp $
+'$Id: Joystick.s2s,v 1.9 2017/01/04 23:47:41 devel Exp $
 '
 ' This file contains utilities for using the joystick on the alert2 rig. 
 
@@ -15,7 +15,9 @@ var jsCenterLow := 2;
 var jsCenterHigh := 3;
 var jsRightLow := 4;
 var jsChannelNumber% := -999;
+var jsPortNumber% := 0;
 var jsIsInitialized% := 0;
+var joystickOffset;  'offset of joystick, will be saved to registry
 
 var jsDlgLeftHighTextItem%;
 var jsDlgCenterLowTextItem%;
@@ -23,6 +25,7 @@ var jsDlgCenterHighTextItem%;
 var jsDlgRightLowTextItem%;
 
 GetJoystickParameters();
+
 
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 '
@@ -43,6 +46,28 @@ end
 
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 '
+' InitJoystick2
+'
+' Scripts that use the joystick functions must indicate which input channel the 
+' joystick is connected to. This function must be called before calling the 
+' GetJoystickPosition() func or it will return JSError. 
+'
+' Same as InitJoystick, but also assigns port number
+' InitJoystick currently maintained in case anything still calls it.
+'
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+proc InitJoystick2(channel%,port%)
+    jsChannelNumber% := channel%;
+    jsPortNumber% := port%;
+    jsIsInitialized% := 1;
+    return;
+end
+
+
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
 ' GetJoystickParameters
 '
 ' Called automatically when this file is included in a script. No need to 
@@ -59,6 +84,7 @@ proc GetJoystickParameters()
     jsCenterLow := GetFloatRegistryValue(key$, "CenterLow", jsCenterLow);
     jsCenterHigh := GetFloatRegistryValue(key$, "CenterHigh", jsCenterHigh);
     jsRightLow := GetFloatRegistryValue(key$, "RightLow", jsRightLow);
+    joystickOffset := GetFloatRegistryValue(key$, "joystickOffset", joystickOffset);
     return;
 end
 
@@ -78,6 +104,7 @@ proc SaveJoystickParameters()
     SetFloatRegistryValue(key$, "CenterLow", jsCenterLow);
     SetFloatRegistryValue(key$, "CenterHigh", jsCenterHigh);
     SetFloatRegistryValue(key$, "RightLow", jsRightLow);
+    SetFloatRegistryValue(key$, "joystickOffset", joystickOffset);
     return;
 end
 
@@ -87,6 +114,7 @@ proc DisplayJoystickParameters()
     PrintLog("JSLeft  :       v < %f\n", jsLeftHigh);
     PrintLog("JSCenter:  %f < v < %f\n", jsCenterLow, jsCenterHigh);
     PrintLog("JSRight :  %f < v\n", jsRightLow);
+    PrintLog("Offset :  %f\n", joystickOffset);
     PrintLog("\n**************************************\n");
     return;
 end
@@ -234,10 +262,11 @@ end
 
 func JoystickConfigDialog%()   'This is only mildly different from the proc of same name (minus the %) above, 
                                'but to call this from a dialog button it has to be an integer function
-    var volts:=0.0;
+    
+    var volts:=0.0;  'please note that the value here is competely unused
     var iUseJoystick% := 0;
     var iNoGaps% := 0;
-    var iJoystickChannel% := 0;
+    var iJoystickChannel% := 0;  'please note that the value here is competely unused
     var status%;
     
     DlgCreate("Joystick Configuration", 40, 40);
@@ -254,6 +283,7 @@ func JoystickConfigDialog%()   'This is only mildly different from the proc of s
     jsDlgCenterLowTextItem% := DlgText(str$(jsCenterLow), 20, 6, 4);
     jsDlgCenterHighTextItem% := DlgText(str$(jsCenterHigh), 20, 7, 4);
     jsDlgRightLowTextItem% := DlgText(str$(jsRightLow), 20, 8, 4);
+    DlgButton(104, "Set Joystick Offset", SetJoystickOffset%, 1, 10); 
 
     status% := DlgShow(volts, iUseJoystick%, iJoystickChannel%, iNoGaps%);
     
@@ -283,8 +313,53 @@ func JoystickDialogCheck%(item%)
         PrintLog("value of no gaps check %d\n", DlgValue(4));        
         DlgEnable(1-DlgValue(4), -101, -103);
     endcase
+    if SampleStatus() > -1 then 'if we are currently sampling, or prepared to sample, don't allow calibration
+        DlgEnable(0,-104);
+    else
+        DlgEnable(1,-104);
+    endif;
     return status%;
 end
+
+
+func SetJoystickOffset%()
+    var jview%;
+    var currentVal;
+    if SampleStatus() > -1 then  'if we are currently sampling, or prepared to sample, don't allow calibration
+        message("This function cannot be used if sampling is currently occurring!");
+    else
+        'Get the current offset value
+        GetJoystickParameters();
+        
+        'Create sampling configuration with current port/channel
+        SampleWaveform(jsChannelNumber%,jsPortNumber%,5000); 
+        SampleCalibrate(jsChannelNumber%,"volt",1,joystickOffset);
+        'Start sampling, sample for about 5 seconds,
+        samplemode(1);   'sets continuous recording
+        jview% := FileNew(0,1+2+4);
+        SampleStart();   'start sampling
+        while view(jview%).maxtime() < 5 do
+            yield(1);
+        wend;
+        
+        'Get mean channel value
+        currentVal := ChanMeasure(jsChannelNumber%,2,0,5);
+        
+        'Stop sampling
+        SampleStop();
+        
+        'Adjust the offsets
+        joystickOffset := joystickOffset - currentVal;
+        
+        'Save the new offset values
+        SaveJoystickParameters();
+        
+        PrintLog("Joystick Offset :  %f\n", joystickOffset);
+        
+    endif
+    
+end
+
 
 
 func JoystickConfigLeftHigh%()

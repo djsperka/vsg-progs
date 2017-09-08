@@ -1,4 +1,4 @@
-' $Id: Punctacious.s2s,v 1.3 2011-09-01 18:38:54 djsperka Exp $
+' $Id: Punctacious.s2s,v 1.3 2011/09/01 18:38:54 djsperka Exp $
 '
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "PunctaciousDialog.s2s"

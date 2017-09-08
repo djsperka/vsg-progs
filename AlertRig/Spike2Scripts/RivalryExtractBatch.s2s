@@ -1,4 +1,4 @@
-' $Id: RivalryExtractBatch.s2s,v 1.1 2010-11-24 00:41:12 devel Exp $
+' $Id: RivalryExtractBatch.s2s,v 1.1 2010/11/24 00:41:12 devel Exp $
 
 #include "../../Spike2Util/BatchUtilities.s2s"
 #include "../../Spike2Util/FileUtilities.s2s"

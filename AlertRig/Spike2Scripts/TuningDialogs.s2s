@@ -1,4 +1,4 @@
-' $Id: TuningDialogs.s2s,v 1.36 2016-05-15 22:11:20 devel Exp $
+' $Id: TuningDialogs.s2s,v 1.43 2017/05/15 17:11:42 devel Exp $
 '
 ' This file contains dialog functions for the alert tuning script Tuning.s2s.
 #include "../../Spike2Util/UsreyUtil.s2s"
@@ -25,6 +25,7 @@ const tunTypeCRG$ := "R";
 const tunTypeBlank$ := "BLANK";
 const tunTypeGratingOnly$ := "GO";
 const tunTypeDanish$ := "DN";
+const tunTypeGonzago$ := "GZ";
 const tunTypeDSS$ := "DSS";
 const tunTypeNullTest$ := "NULL";
 const tunTypeLag$ := "LAG";
@@ -49,7 +50,7 @@ const tundlgContrastButton% := 10;
 const tundlgSpatialButton% := 11;
 const tundlgTemporalButton% := 12;
 const tundlgAreaButton% := 13;
-const tundlgDonutButton% := 14;
+const tundlgDonutANDGonzagoButton% := 14;
 const tundlgBerlinerButton% := 15;
 const tundlgBoxODonutsButton% := 16;
 const tundlgXPosButton% := 17;
@@ -88,6 +89,10 @@ var tunContrastMaxContrast;		' max contrast
 var tunContrastProgression%;
 var tunContrastUseFile%;
 var tunContrastTuningFile$;
+var tunContrastDualScreenCombo%;
+var tunContrastDualScreenComboRegistry%;  'we are saving a slightly different value in the registry - we need to disable this if not allowed, but we'd like to save the allowed value
+
+var tempDualValue%;  'This is the value of tunDualTuningType, but gathered from the dialog BEFORE the dialog is closed, used for setting DlgAllow only for the Contrast dialog (for now)
 
 ' Spatial next
 var tunSpatialNSteps%;			' # steps in spatial freq tuning curve
@@ -115,6 +120,9 @@ var tunAreaMaxDiam;		' max diameter
 var tunAreaProgression%;
 var tunAreaUseFile%;
 var tunAreaTuningFile$;
+var tunAreaDualScreenCombo%;
+var tunAreaDualScreenComboRegistry%;  'we are saving a slightly different value in the registry - we need to disable this if not allowed, but we'd like to save the allowed value
+
 
 ' X/XY Position next
 var tunXPosNSteps%;			' # steps in X position tuning curve
@@ -215,6 +223,20 @@ var tunDanishMinOuterDiameter;  ' min outer diameter
 var tunDanishMaxOuterDiameter;  ' max outer diameter
 var tunDanishProgression%;      ' if 1, progression is random
 var tunDanishIncludeBlank%;     ' if 1, include "blank" (that is, zero-size donut) in tuning curve
+
+
+
+' Gonzagos
+var tunGonzagoCoreContrastNSteps%;  ' # steps in core contrast tuning curve
+var tunGonzagoDonutAreaNSteps%;     ' # steps in outer diameter tuning curve
+var tunGonzagoNRepeats%;            ' # repeats of tuning curve
+var tunGonzagoMinOuterDiameter;     ' min outer diameter of donut
+var tunGonzagoMaxOuterDiameter;     ' max outer diameter of donut
+var tunGonzagoMinContrast;		    ' min contrast of core
+var tunGonzagoMaxContrast;		    ' max contrast of core
+var tunGonzagoProgression%;         ' if 1, progression is random
+'var tunGonzagoIncludeBlank%;        ' if 1, include "blank" (that is, zero-size donut) in tuning curve  (Gonzagos always include blanks in BOTH conditions)
+
 
 
 'Dynamic Surround Suppression
@@ -321,7 +343,8 @@ var TunCurveMArg$:="";            'holds type of tuning curve on Master
 var TunCurveSArg$:="";            'holds type of tuning curve on slave
 var TunCurveS2Arg$:="";           'holds second type of tuning curve on slave, for Box O' Donuts
 var tunButtonCollect%;            'Collect button data for rivalry?
-var tunUseLagDialog%;             'will be 1 if we are using the lag dialog
+var tunUseLagDialog%;             'will be 1 if we are using the lag dialog, 0 for null test
+var tunUseDonutDialog%;           'will be 1 if we are using the donut dialog, 0 for Gonzagos
 var tunUseConstantLag%;           '0 = no constant lag, 1 = constant lag on master, 2 = constant lag on slave
 var tunConstantLagFrames%;
 var tunConstantLagMS$;
@@ -336,6 +359,7 @@ var tunNRepeats%;		' Number of repeats
 ' tunF1Sum, tunF2Sum. 
 const tunMaxTrials% := 1000;
 var tunValues[tunMaxTrials%];
+var tunValues$[tunMaxTrials%];  'for reading the combo tuning file, there will be a '-' separator
 var tun1Values[tunMaxTrials%];
 var tun2Values[tunMaxTrials%];
 var tunValuesIndices%[tunMaxTrials%]; 
@@ -406,6 +430,7 @@ proc GetTuningCurveContrastParameters()
     tunContrastProgression% := GetIntRegistryValue%(key$, "Progression", tunContrastProgression%);
     tunContrastUseFile% := GetIntRegistryValue%(key$, "UseFile", tunContrastUseFile%);
     tunContrastTuningFile$ := GetStringRegistryValue$(key$, "TuningFile", tunContrastTuningFile$);
+    tunContrastDualScreenComboRegistry% := GetIntRegistryValue%(key$, "DualScreenCombo", tunContrastDualScreenComboRegistry%);
 end;
 
 proc SaveTuningCurveContrastParameters()
@@ -418,6 +443,7 @@ proc SaveTuningCurveContrastParameters()
     SetIntRegistryValue(key$, "Progression", tunContrastProgression%);
     SetIntRegistryValue(key$, "UseFile", tunContrastUseFile%);
     SetStringRegistryValue(key$, "TuningFile", tunContrastTuningFile$);
+    SetIntRegistryValue(key$, "DualScreenCombo", tunContrastDualScreenComboRegistry%);
 end;
 
 proc GetTuningCurveSpatialParameters()
@@ -572,6 +598,7 @@ proc GetTuningCurveAreaParameters()
     tunAreaProgression% := GetIntRegistryValue%(key$, "Progression", tunAreaProgression%);
     tunAreaUseFile% := GetIntRegistryValue%(key$, "UseFile", tunAreaUseFile%);
     tunAreaTuningFile$ := GetStringRegistryValue$(key$, "TuningFile", tunAreaTuningFile$);
+    tunAreaDualScreenComboRegistry% := GetIntRegistryValue%(key$, "DualScreenCombo", tunAreaDualScreenComboRegistry%);
     tunDonutOptimalIndex% := GetIntRegistryValue%(key$, "OptimalIndex", tunDonutOptimalIndex%);
     tunDonutProgression% := GetIntRegistryValue%(key$, "DonutProgression", tunDonutProgression%);
     tunDonutCoreOnSlave% := GetIntRegistryValue%(key$, "DonutCoreOnSlave", tunDonutCoreOnSlave%);
@@ -597,6 +624,7 @@ proc SaveTuningCurveAreaParameters()
     SetIntRegistryValue(key$, "Progression", tunAreaProgression%);
     SetIntRegistryValue(key$, "UseFile", tunAreaUseFile%);
     SetStringRegistryValue(key$, "TuningFile", tunAreaTuningFile$);
+    SetIntRegistryValue(key$, "DualScreenCombo", tunAreaDualScreenComboRegistry%);
     SetIntRegistryValue(key$, "OptimalIndex", tunDonutOptimalIndex%);
     SetIntRegistryValue(key$, "DonutProgression", tunDonutProgression%);
     SetIntRegistryValue(key$, "DonutCoreOnSlave", tunDonutCoreOnSlave%);
@@ -701,6 +729,42 @@ proc SaveTuningCurveDanishParameters()
     SetIntRegistryValue(key$, "DanishProgression", tunDanishProgression%);
     SetIntRegistryValue(key$, "DanishIncludeBlank", tunDanishIncludeBlank%);
 end;
+
+
+proc GetTuningCurveGonzagoParameters()
+	var key$;
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Tuning\\Gonzago";
+    'tunGonzagoNSteps% := GetIntRegistryValue%(key$, "GonzagoNSteps", tunGonzagoNSteps%);
+    tunGonzagoCoreContrastNSteps% := GetIntRegistryValue%(key$, "GonzagoCoreContrastNSteps", tunGonzagoCoreContrastNSteps% );
+    tunGonzagoDonutAreaNSteps% := GetIntRegistryValue%(key$, "GonzagoDonutAreaNSteps", tunGonzagoDonutAreaNSteps%);
+    tunGonzagoNRepeats% := GetIntRegistryValue%(key$, "GonzagoNRepeats", tunGonzagoNRepeats%);
+    tunGonzagoMinOuterDiameter := GetFloatRegistryValue(key$, "GonzagoMinOuterDiameter", tunGonzagoMinOuterDiameter);
+    tunGonzagoMaxOuterDiameter := GetFloatRegistryValue(key$, "GonzagoMaxOuterDiameter", tunGonzagoMaxOuterDiameter);
+    tunGonzagoMinContrast := GetFloatRegistryValue(key$, "GonzagoMinContrast", tunGonzagoMinContrast);
+    tunGonzagoMaxContrast := GetFloatRegistryValue(key$, "GonzagoMaxContrast", tunGonzagoMaxContrast);
+    tunGonzagoProgression% := GetIntRegistryValue%(key$, "GonzagoProgression", tunGonzagoProgression%);
+    'tunGonzagoIncludeBlank% := GetIntRegistryValue%(key$, "GonzagoIncludeBlank", tunGonzagoIncludeBlank%);
+
+    
+end;
+
+
+proc SaveTuningCurveGonzagoParameters()
+	var key$;
+	key$:="AlertRig\\" + GetCurrentConfiguration$() + "\\Scripts\\Tuning\\Gonzago";
+    'SetIntRegistryValue(key$, "GonzagoNSteps", tunGonzagoNSteps%);
+    SetIntRegistryValue(key$, "GonzagoCoreContrastNSteps", tunGonzagoCoreContrastNSteps% );
+    SetIntRegistryValue(key$, "GonzagoDonutAreaNSteps", tunGonzagoDonutAreaNSteps%);
+    SetIntRegistryValue(key$, "GonzagoNRepeats", tunGonzagoNRepeats%);
+    SetFloatRegistryValue(key$, "GonzagoMinOuterDiameter", tunGonzagoMinOuterDiameter);
+    SetFloatRegistryValue(key$, "GonzagoMaxOuterDiameter", tunGonzagoMaxOuterDiameter);
+    SetFloatRegistryValue(key$, "GonzagoMinContrast", tunGonzagoMinContrast);
+    SetFloatRegistryValue(key$, "GonzagoMaxContrast", tunGonzagoMaxContrast);
+    SetIntRegistryValue(key$, "GonzagoProgression", tunGonzagoProgression%);
+    'SetIntRegistryValue(key$, "GonzagoIncludeBlank", tunGonzagoIncludeBlank%);
+end;
+
+
 
 
 proc GetTuningCurveDSSParameters()
@@ -933,7 +997,23 @@ end;
 func TuningCurveContrastDialog%()
 	var iReturn% := 0;
 	var i%;
-	GetTuningCurveContrastParameters();
+    var hmm1%;
+    var hmm2%;
+    
+    GetTuningCurveContrastParameters();    
+    
+    'This determines whether the dual screen combo tuning controls are allowed 
+    hmm1% := DlgValue(11);
+    hmm2% := DlgValue(12);
+    if hmm1% = 1 and hmm2% = 0 then
+        tempDualValue% := 1;
+        tunContrastDualScreenCombo% := tunContrastDualScreenComboRegistry%;  'if it's allowed, set it to the registry value
+    else
+        tempDualValue% := 0;
+        tunContrastDualScreenCombo% := 0;  'Also, if it's not allowed, set it to 0
+    endif;
+    
+	
 	DlgCreate("Contrast Tuning Curve Parameters");
 	DlgInteger(1, "Number of Steps", 1, 100);
 	'DlgInteger(2, "Number of Repeats", 1, 10);
@@ -942,6 +1022,7 @@ func TuningCurveContrastDialog%()
 	'DlgCheck(5, "Random Progression");
     DlgCheck(6, "Use File For Tuning Values");
     DlgString(7,40,255,"",3);  'for visual confirmation of selected seq file
+    DlgCheck(8, "Do Dual-Screen Combo Tuning",2,9);
     DlgButton(tundlgSelectTuningFileButton%, " Select Tuning File ", SelectTuningFile%, 2, 8);
     if tunBoxODonutsCurrentCurve% = 0 then
         DlgInteger(2, "Number of Repeats", 1, 1000);
@@ -950,9 +1031,9 @@ func TuningCurveContrastDialog%()
         DlgInteger(2, "----------------", 1, 1);
         DlgCheck(5, "----------------");
     endif;
-    DlgAllow(0xffff, 0, TuningCurveGenericDialogChanged%);
+    DlgAllow(0xffff, 0, TuningCurveContrastDialogChanged%);
 
-	i% := DlgShow(tunContrastNSteps%, tunContrastNRepeats%, tunContrastMinContrast, tunContrastMaxContrast, tunContrastProgression%, tunContrastUseFile%, tunContrastTuningFile$);
+	i% := DlgShow(tunContrastNSteps%, tunContrastNRepeats%, tunContrastMinContrast, tunContrastMaxContrast, tunContrastProgression%, tunContrastUseFile%, tunContrastTuningFile$, tunContrastDualScreenCombo%);
 	' If i% is 1 the user hit "OK". If its 0, user hit "Cancel". 
 	' When user hits OK we alwaus save the parameters, and when user hits Cancel we don't.
     ' djs 2/4/2011
@@ -964,6 +1045,10 @@ func TuningCurveContrastDialog%()
     ' something > 0 here. The parent dialog will continue to display, and the user has to hit OK on that 
     ' before things proceed. 
 	if i% = 1 then
+        if tempDualValue% = 1 then 'save value in registry if we are allowed to change it
+            tunContrastDualScreenComboRegistry% := tunContrastDualScreenCombo%;
+        endif;
+        
 		SaveTuningCurveContrastParameters();
 '		PrintLog("TuningCurveContrastDialog - user hit OK\n");
 		tunType$ := tunTypeContrast$;
@@ -1021,6 +1106,30 @@ func TuningCurveContrastDialog%()
 
 	return iReturn%;
 end;
+
+
+func TuningCurveContrastDialogChanged%(item%)
+    'There is an update to ONLY the contrast dialog that requires a special dialog changed function 
+    
+    
+    DlgEnable(tempDualValue%,8);  'enable/disable dual screen combo based on if it should be allowed
+
+    
+    if DlgValue(6) = 0 then  'If we are not using a tuning file
+        DlgEnable(0,7);  'disable the string box with the text file name (button still works)
+        DlgEnable(1,1);  'enable nSteps, min, and max
+        DlgEnable(1,3);
+        DlgEnable(1,4);
+    endif;
+    if DlgValue(6) = 1 then
+        DlgEnable(1,7);  'enable the string box with the text file name
+        DlgEnable(0,1);  'disable nSteps, min, and max
+        DlgEnable(0,3);
+        DlgEnable(0,4);
+    endif;
+    return 1;
+end
+
 
 func TuningCurveSpatialDialog%()
 	var iReturn% := 0;
@@ -1209,7 +1318,23 @@ end;
 func TuningCurveAreaDialog%()
 	var iReturn% := 0;
 	var i%;
+    var hmm1%;
+    var hmm2%;
+    
 	GetTuningCurveAreaParameters();
+    
+    'This determines whether the dual screen combo tuning controls are allowed 
+    hmm1% := DlgValue(11);
+    hmm2% := DlgValue(12);
+    if hmm1% = 1 and hmm2% = 0 then
+        tempDualValue% := 1;
+        tunAreaDualScreenCombo% := tunAreaDualScreenComboRegistry%;  'if it's allowed, set it to the registry value
+    else
+        tempDualValue% := 0;
+        tunAreaDualScreenCombo% := 0;  'Also, if it's not allowed, set it to 0
+    endif;
+    
+    
 	DlgCreate("Area Tuning Curve Parameters");
 	DlgInteger(1, "Number of Steps", 1, 100);
 	'DlgInteger(2, "Number of Repeats", 1, 1000);
@@ -1218,6 +1343,7 @@ func TuningCurveAreaDialog%()
 	'DlgCheck(5, "Random Progression");
     DlgCheck(6, "Use File For Tuning Values");
     DlgString(7,40,255,"",3);  'for visual confirmation of selected seq file
+    DlgCheck(8, "Do Dual-Screen Combo Tuning",2,9);
     DlgButton(tundlgSelectTuningFileButton%, " Select Tuning File ", SelectTuningFile%, 2, 8);
     if tunBoxODonutsCurrentCurve% = 0 then
         DlgInteger(2, "Number of Repeats", 1, 1000);
@@ -1226,10 +1352,12 @@ func TuningCurveAreaDialog%()
         DlgInteger(2, "----------------", 1, 1);
         DlgCheck(5, "----------------");
     endif;
-    DlgAllow(0xffff, 0, TuningCurveGenericDialogChanged%);
+    DlgAllow(0xffff, 0, TuningCurveContrastDialogChanged%);  'Yes, that says CONTRAST.  I wrote the Contrast one special because
+                                                             'of the dual-screen combo tuning, and now area does the same.  The
+                                                             'dialog-changed functions are generic, so...
     
     
-	i% := DlgShow(tunAreaNSteps%, tunAreaNRepeats%, tunAreaMinDiam, tunAreaMaxDiam, tunAreaProgression%, tunAreaUseFile%, tunAreaTuningFile$);
+	i% := DlgShow(tunAreaNSteps%, tunAreaNRepeats%, tunAreaMinDiam, tunAreaMaxDiam, tunAreaProgression%, tunAreaUseFile%, tunAreaTuningFile$, tunAreaDualScreenCombo%);
 	' If i% is 1 the user hit "OK". If its 0, user hit "Cancel". 
 	' When user hits OK we always save the parameters, and when user hits Cancel we don't.
     ' 
@@ -1243,6 +1371,10 @@ func TuningCurveAreaDialog%()
     ' before things proceed. 
     'tunMaximalDiam := tunAreaMaxDiam;  This won't do anything unless FIXSTIM is updated to allow crosshairs
 	if i% = 1 then
+        if tempDualValue% = 1 then 'save value in registry if we are allowed to change it
+            tunAreaDualScreenComboRegistry% := tunAreaDualScreenCombo%;
+        endif;
+        
 		SaveTuningCurveAreaParameters();
 '		PrintLog("TuningCurveAreaDialog - user hit OK\n");
 		tunType$ := tunTypeArea$;
@@ -1300,6 +1432,8 @@ func TuningCurveAreaDialog%()
     
 	return iReturn%;
 end;
+
+
 
 
 func TuningCurveXPosDialog%()
@@ -1527,75 +1661,142 @@ func TuningCurveDonutDialogChanged%(item%)
     return 1;
 end
 
-func TuningCurveDonutDialog%()
-	var iReturn% := 0;
-	var i%;
+func TuningCurveDonutANDGonzagoDialog%()
+    
+    var iReturn% := 0;
+    var i%;
     var sValues$;
     var iValue%:=0;
     var result[1000];
     var indices%[1000];
     var mylist$[2];
-    mylist$[0] := "Master";
-    mylist$[1] := "Slave";
+    
+    if tunUseDonutDialog% = 0 then
 
+        GetTuningCurveGonzagoParameters();
+        
+        
+        DlgCreate("Gonzago Tuning Curve Parameters");
+        DlgInteger(1, "Number of Core Contrast Steps", 2, 100);
+        DlgInteger(2, "Number of Donut Area Steps", 2, 100);
+        DlgInteger(3, "Number of Repeats", 1, 1000);
+        DlgReal(4, "Min Core Contrast", 0.1, 100);
+        DlgReal(5, "Max Core Contrast", 0.1, 100);
+        DlgReal(6, "Min Donut Outer Diameter", 0.1, 100);
+        DlgReal(7, "Max Donut Outer Diameter", 0.1, 100);
+        DlgCheck(8, "Random Progression");
+        
+        DlgButton(151, "Core Grating", TunDlgGratingCore%);
+        DlgButton(152, "Donut Grating", TunDlgGratingDonut%);
+        DlgButton(153, "Core Vals -> Donut", TunCoreValsToDonut%);
+        DlgButton(154, "Donut Vals -> Core", TunDonutValsToCore%);
+        'DlgAllow(0xffff, 0, TuningCurveGonzagoDialogChanged%);
+        
+        i% := DlgShow(tunGonzagoCoreContrastNSteps%, tunGonzagoDonutAreaNSteps%, tunGonzagoNRepeats%, tunGonzagoMinContrast, tunGonzagoMaxContrast, tunGonzagoMinOuterDiameter, tunGonzagoMaxOuterDiameter, tunGonzagoProgression%);
+        
+        'for now, no dummy-proofing
+        
+        
+        ' If i% is 1 the user hit "OK". If its 0, user hit "Cancel". 
+        ' When user hits OK we always save the parameters, and when user hits Cancel we don't.
+        ' 
+        ' djs 2/4/2011
+        ' Spike2 bug workaround implemented. The return value from this function (when in DAQ context this
+        ' dialog is called from a DlgButton in another dialog) should make the parent dialog close, as if 
+        ' the OK button were hit. Bug in Spike2 v6 means this doesn't work right - the parent dialog will 
+        ' close but its variables are not updated prior to doing so.... so any changes to the parent dialog
+        ' are not seen in the subsequent expt, they're not saved in the registry, etc. Workaround is to return
+        ' something > 0 here. The parent dialog will continue to display, and the user has to hit OK on that 
+        ' before things proceed. 
+        if i% = 1 then
+            SaveTuningCurveGonzagoParameters();
+            tunType$ := tunTypeGonzago$;
+            tunType1$ := tunTypeContrast$;
+            tunType2$ := tunTypeArea$;
+            if tunContext$ = tunContextDAQ$ then
+                ' djs 2/4/2011 We return 1 - that's the workaround			iReturn% := 0;
+                iReturn% := 1;
+            else
+                iReturn% := 1;
+            endif;
+        endif;
+        if i% = 0 then
+            tunType$ := tunTypeNone$;
+            if tunContext$ = tunContextDAQ$ then
+                iReturn% := 1;
+            else
+                iReturn% := 2;
+            endif;
+        endif;
+        
+        return iReturn%;
+        
+    else
     
-	GetTuningCurveAreaParameters();
+        mylist$[0] := "Master";
+        mylist$[1] := "Slave";
+        
+        
+        GetTuningCurveAreaParameters();
+        
+        ' Before we proceed, we must generate a list of choices for the optimal diameter. 
+        ' Note that there are nsteps+1 values. 
+        
+        GetRepeatedParameterProgression%(tunAreaNSteps%+1, 1, result[], indices%[], tunAreaMinDiam, tunAreaMaxDiam, 1, 0);
+        sValues$ := GetRealArrayAsStringSep$(result[0:tunAreaNSteps%+1], indices%[0:tunAreaNSteps%+1], "|");
+        
+        DlgCreate("Donut Tuning Curve Parameters");
+        DlgInteger(1, "Number of Steps", 1, 100);
+        DlgInteger(2, "Number of Repeats", 1, 1000);
+        DlgReal(3, "Min Diameter", 0.1, 100);
+        DlgReal(4, "Max Diameter", 0.1, 100);
+        DlgCheck(5, "Random Progression");
+        DlgList(6, "Optimal diameter", sValues$);
+        DlgList(7, "Core is on:", mylist$[]);
+        DlgButton(151, "Master Grating", TunDlgGratingMaster%);
+        DlgButton(152, "Slave Grating", TunDlgGratingSlave%);
+        DlgButton(153, "Master Vals -> Slave", TunMasterValsToSlave%);
+        DlgButton(154, "Slave Vals -> Master", TunSlaveValsToMaster%);
+        DlgAllow(0xffff, 0, TuningCurveDonutDialogChanged%);
+        i% := DlgShow(tunAreaNSteps%, tunAreaNRepeats%, tunAreaMinDiam, tunAreaMaxDiam, tunDonutProgression%, tunDonutOptimalIndex%, tunDonutCoreOnSlave%);
+        tunDonutOptimalDiam := result[tunDonutOptimalIndex%];
+        
+        ' If i% is 1 the user hit "OK". If its 0, user hit "Cancel". 
+        ' When user hits OK we always save the parameters, and when user hits Cancel we don't.
+        ' 
+        ' djs 2/4/2011
+        ' Spike2 bug workaround implemented. The return value from this function (when in DAQ context this
+        ' dialog is called from a DlgButton in another dialog) should make the parent dialog close, as if 
+        ' the OK button were hit. Bug in Spike2 v6 means this doesn't work right - the parent dialog will 
+        ' close but its variables are not updated prior to doing so.... so any changes to the parent dialog
+        ' are not seen in the subsequent expt, they're not saved in the registry, etc. Workaround is to return
+        ' something > 0 here. The parent dialog will continue to display, and the user has to hit OK on that 
+        ' before things proceed. 
+        tunMaximalDiam := result[tunDonutOptimalIndex%];
+        tunSlaveMaximalDiam := tunAreaMaxDiam;
+        if i% = 1 then
+            SaveTuningCurveAreaParameters();
+            tunType$ := tunTypeDonut$;
+            if tunContext$ = tunContextDAQ$ then
+                ' djs 2/4/2011 We return 1 - that's the workaround			iReturn% := 0;
+                iReturn% := 1;
+            else
+                iReturn% := 1;
+            endif;
+        endif;
+        if i% = 0 then
+            tunType$ := tunTypeNone$;
+            if tunContext$ = tunContextDAQ$ then
+                iReturn% := 1;
+            else
+                iReturn% := 2;
+            endif;
+        endif;
+        
+        return iReturn%;
+        
+    endif;
     
-    ' Before we proceed, we must generate a list of choices for the optimal diameter. 
-    ' Note that there are nsteps+1 values. 
-    
-    GetRepeatedParameterProgression%(tunAreaNSteps%+1, 1, result[], indices%[], tunAreaMinDiam, tunAreaMaxDiam, 1, 0);
-    sValues$ := GetRealArrayAsStringSep$(result[0:tunAreaNSteps%+1], indices%[0:tunAreaNSteps%+1], "|");
-    
-	DlgCreate("Donut Tuning Curve Parameters");
-	DlgInteger(1, "Number of Steps", 1, 100);
-	DlgInteger(2, "Number of Repeats", 1, 1000);
-	DlgReal(3, "Min Diameter", 0.1, 100);
-	DlgReal(4, "Max Diameter", 0.1, 100);
-	DlgCheck(5, "Random Progression");
-    DlgList(6, "Optimal diameter", sValues$);
-    DlgList(7, "Core is on:", mylist$[]);
-    DlgButton(151, "Master Grating", TunDlgGratingMaster%);
-    DlgButton(152, "Slave Grating", TunDlgGratingSlave%);
-    DlgButton(153, "Master Vals -> Slave", TunMasterValsToSlave%);
-    DlgButton(154, "Slave Vals -> Master", TunSlaveValsToMaster%);
-    DlgAllow(0xffff, 0, TuningCurveDonutDialogChanged%);
-	i% := DlgShow(tunAreaNSteps%, tunAreaNRepeats%, tunAreaMinDiam, tunAreaMaxDiam, tunDonutProgression%, tunDonutOptimalIndex%, tunDonutCoreOnSlave%);
-    tunDonutOptimalDiam := result[tunDonutOptimalIndex%];
-    
-	' If i% is 1 the user hit "OK". If its 0, user hit "Cancel". 
-	' When user hits OK we always save the parameters, and when user hits Cancel we don't.
-    ' 
-    ' djs 2/4/2011
-    ' Spike2 bug workaround implemented. The return value from this function (when in DAQ context this
-    ' dialog is called from a DlgButton in another dialog) should make the parent dialog close, as if 
-    ' the OK button were hit. Bug in Spike2 v6 means this doesn't work right - the parent dialog will 
-    ' close but its variables are not updated prior to doing so.... so any changes to the parent dialog
-    ' are not seen in the subsequent expt, they're not saved in the registry, etc. Workaround is to return
-    ' something > 0 here. The parent dialog will continue to display, and the user has to hit OK on that 
-    ' before things proceed. 
-    tunMaximalDiam := result[tunDonutOptimalIndex%];
-    tunSlaveMaximalDiam := tunAreaMaxDiam;
-	if i% = 1 then
-		SaveTuningCurveAreaParameters();
-		tunType$ := tunTypeDonut$;
-		if tunContext$ = tunContextDAQ$ then
-            ' djs 2/4/2011 We return 1 - that's the workaround			iReturn% := 0;
-            iReturn% := 1;
-		else
-			iReturn% := 1;
-		endif;
-	endif;
-	if i% = 0 then
-		tunType$ := tunTypeNone$;
-		if tunContext$ = tunContextDAQ$ then
-			iReturn% := 1;
-		else
-			iReturn% := 2;
-		endif;
-	endif;
-    
-	return iReturn%;
 end;
 
 ' This function is initially called with a "0" input, which forces the 1, 3, 4 dialogs to be disabled
@@ -2194,6 +2395,7 @@ func TuningCurveDanishDialog%()
     
 	return iReturn%;
 end;
+
 
 
 
@@ -3124,6 +3326,7 @@ proc GetTuningCurveScriptParameters()
     tunUseConstantLag% := GetIntRegistryValue%(key$, "UseConstantLag", tunUseConstantLag%);
     tunConstantLagFrames% := GetIntRegistryValue%(key$, "ConstantLagFrames", tunConstantLagFrames%);
     tunDoOpto% := GetIntRegistryValue%(key$, "DoOpto", tunDoOpto%);
+    tunSetStationary% := GetIntRegistryValue%(key$, "SetStationary", tunSetStationary%);
     
 end;
 
@@ -3153,6 +3356,8 @@ proc SaveTuningCurveScriptParameters()
     SetIntRegistryValue(key$, "ButtonCollect", tunButtonCollect%);
     SetIntRegistryValue(key$, "DoTuningHist", tunDoTuningHist%);
     SetIntRegistryValue(key$, "DoOpto", tunDoOpto%);
+    SetIntRegistryValue(key$, "SetStationary", tunSetStationary%);
+    
 
     PrintLog("Saved DoRivalry=%d\n", tunDoRivalry%);
 end;
@@ -3275,7 +3480,7 @@ func TuningCurveScriptDialog%()
 	DlgButton(tundlgTemporalButton%, "Temporal Freq", TuningCurveTemporalDialog%, 18, 22);
 	DlgButton(tundlgAreaButton%, "         Area         ", TuningCurveAreaDialog%, 36, 21);
     DlgButton(tundlgXPosButton%, "     X Position     ", TuningCurveXPosDialog%, 36, 22);
-	DlgButton(tundlgDonutButton%, "   Donuts!   ", TuningCurveDonutDialog%, 2, 23);
+	DlgButton(tundlgDonutANDGonzagoButton%, "   Donuts!   ", TuningCurveDonutANDGonzagoDialog%, 2, 23);
     DlgButton(tundlgBerlinerButton%, "    Berliners!    ", TuningCurveBerlinerDialog%, 18, 23);
     DlgButton(tundlgBoxODonutsButton%, " Box O' Donuts ", TuningCurveBoxODonutsDialog%, 36, 23);
     DlgButton(tundlgDotsButton%, "     Dots!     ", TuningCurveDotsDialog%, 2, 24);
@@ -3374,6 +3579,9 @@ func TuningCurveScriptDialog%()
                 else
                     message("The Stationary option is not defined for tuning type '" + tunType$ + "'.  If you wish to change this, \nsee your local programmer.  Quitting.");
                 endif;
+                'if Stationary is set but cannot be used, undo the change in the registry
+                tunSetStationary% := 0;
+                SaveTuningCurveScriptParameters();
                 iReturn% := 0;
             endif;
         endif
@@ -3406,8 +3614,8 @@ func TuningCurveScriptDialogChanged%(item%)
     DlgValue$(19,Str$(DlgValue(18)*1000/dataScreenHz));  'just set the text values of the frame to millisecond conversion every time
     DlgEnable(0,19);  'Always disable millisecond conversion, we can't type here to get frame values
     if DlgValue(11) = 0 then  'If single VSG, do not allow Donuts or Berliners or disparity or CRG
-        'DlgEnable(0,-tundlgDonutButton%,-tundlgBerlinerButton%,-tundlgBoxODonutsButton%,-tundlgCRGButton%,-tundlgDisparityButton%); 'old version
-        DlgEnable(0,-tundlgDonutButton%,-tundlgBerlinerButton%,-tundlgCRGButton%,-tundlgDisparityButton%);  'allow boxOdonuts for single screen now
+        'DlgEnable(0,-tundlgDonutANDGonzagoButton%,-tundlgBerlinerButton%,-tundlgBoxODonutsButton%,-tundlgCRGButton%,-tundlgDisparityButton%); 'old version
+        DlgEnable(0,-tundlgBerlinerButton%,-tundlgCRGButton%,-tundlgDisparityButton%);  'allow boxOdonuts for single screen now
         'Also disable card synch functions, dual tuning listbox
         DlgEnable(0,12); 'dual tuning listbox
         DlgEnable(0,17); 'constant lag listbox
@@ -3425,11 +3633,13 @@ func TuningCurveScriptDialogChanged%(item%)
         DlgValue$(-tundlgAreaButton%, "Area");
         DlgValue$(-tundlgXPosButton%, "XY Position");
         DlgValue$(-tundlgNullTestANDLagButton%, "      Null Test     ");
+        DlgValue$(-tundlgDonutANDGonzagoButton%, "      Gonzagos!     ");
         tunUseLagDialog% := 0;
+        tunUseDonutDialog% := 0;
     endif;
     if DlgValue(11) = 1 then  'If dual VSG, allow donuts and Berliners and disparity and CRG
-        'DlgEnable(1,-tundlgDonutButton%,-tundlgBerlinerButton%,-tundlgBoxODonutsButton%,-tundlgCRGButton%,-tundlgDisparityButton%);  'old version
-        DlgEnable(1,-tundlgDonutButton%,-tundlgBerlinerButton%,-tundlgCRGButton%,-tundlgDisparityButton%);  'allow boxOdonuts for single screen now
+        'DlgEnable(1,-tundlgDonutANDGonzagoButton%,-tundlgBerlinerButton%,-tundlgBoxODonutsButton%,-tundlgCRGButton%,-tundlgDisparityButton%);  'old version
+        DlgEnable(1,-tundlgDonutANDGonzagoButton%,-tundlgBerlinerButton%,-tundlgCRGButton%,-tundlgDisparityButton%);  'allow boxOdonuts for single screen now
         'Also allow turning off card synch, dual tuning listbox
         DlgEnable(1,12);  'dual tuning listbox
         DlgEnable(1,17); 'constant lag listbox
@@ -3449,6 +3659,7 @@ func TuningCurveScriptDialogChanged%(item%)
             DlgValue$(-tundlgAreaButton%, "D Area");
             DlgValue$(-tundlgXPosButton%, "D X Position");
             DlgValue$(-tundlgNullTestANDLagButton%, "        Lag        ");
+            DlgValue$(-tundlgDonutANDGonzagoButton%, "       Donuts!      ");
         case DlgValue(12) = 1 then
             DlgValue$(-tundlgOrientationButton%, " M Orientation ");
             DlgValue$(-tundlgContrastButton%, "    M Contrast    ");
@@ -3457,6 +3668,7 @@ func TuningCurveScriptDialogChanged%(item%)
             DlgValue$(-tundlgAreaButton%, "M Area");
             DlgValue$(-tundlgXPosButton%, "M X Position");
             DlgValue$(-tundlgNullTestANDLagButton%, "        Lag        ");
+            DlgValue$(-tundlgDonutANDGonzagoButton%, "       Donuts!      ");
         case DlgValue(12) = 2 then
             DlgValue$(-tundlgOrientationButton%, " S Orientation ");
             DlgValue$(-tundlgContrastButton%, "    S Contrast    ");
@@ -3465,14 +3677,16 @@ func TuningCurveScriptDialogChanged%(item%)
             DlgValue$(-tundlgAreaButton%, "S Area");
             DlgValue$(-tundlgXPosButton%, "S X Position");
             DlgValue$(-tundlgNullTestANDLagButton%, "        Lag        ");
+            DlgValue$(-tundlgDonutANDGonzagoButton%, "       Donuts!      ");
         endcase;
         tunUseLagDialog% := 1;
+        tunUseDonutDialog% := 1;
     endif;
     if DlgValue(13) = 0 then 'disable maintain mode timing if not using maintain mode
         DlgEnable(0,7);
         DlgEnable(0,8);
     endif;
-    if DlgValue(13) = 1 then 'enable maintain mode timing if using maintain mode
+    if DlgValue(13) > 0 then 'enable maintain mode timing if using maintain mode
         DlgEnable(1,7);
         DlgEnable(1,8);
     endif;

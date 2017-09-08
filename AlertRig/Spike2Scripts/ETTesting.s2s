@@ -1,4 +1,4 @@
-' $Id: ETTesting.s2s,v 1.4 2011-10-25 17:25:44 devel Exp $
+' $Id: ETTesting.s2s,v 1.4 2011/10/25 17:25:44 devel Exp $
 
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "../../Spike2Util/MiscUtilities.s2s"

@@ -1,4 +1,4 @@
-' $Id: AttajoyAndreExtract.s2s,v 1.1 2010-12-16 22:23:58 devel Exp $
+' $Id: AttajoyAndreExtract.s2s,v 1.1 2010/12/16 22:23:58 devel Exp $
 
 #include "../../Spike2Util/FileUtilities.s2s"
 #include "../../Spike2Util/BatchUtilities.s2s"

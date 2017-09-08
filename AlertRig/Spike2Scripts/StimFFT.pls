@@ -1,4 +1,4 @@
-; $Id: StimFFT.pls,v 1.3 2016-02-04 23:49:19 devel Exp $
+; $Id: StimFFT.pls,v 1.3 2016/02/04 23:49:19 devel Exp $
 ;
 ;Super simple script, because it's not really doing very much
 

@@ -1,6 +1,7 @@
-' $Id: CoolMouse.s2s,v 1.23 2016-04-22 21:48:08 devel Exp $
+' $Id: CoolMouse.s2s,v 1.33 2017/05/31 01:33:25 devel Exp $
 ' Update 11/8/11 Jeff, includes SafeSampleKey and multi-juicer updates
 
+#include "../../Spike2Util/ChannelUtilities.s2s"
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "UsreyGratings.s2s"
 #include "UsreyDAQ.s2s"
@@ -15,6 +16,8 @@ var cmAlwaysLooking% := 0;          ' testing only
 var cmRemoteGratingParametersFile$; ' initialized below
 var cmLocalGratingParametersFile$;  ' initialized below
 var cmUseGratingParametersFile% := 0;    ' only if remote is NOT 127.0.0.1
+var cmFixationAlwaysUp% := 0;
+var cmCollectElectrodeData% := 0;
 
 ' Window handles and channel numbers
 var XChannel%,YChannel%;		' Channel number assigned to eye x and y
@@ -26,6 +29,10 @@ var iStimChannel%;	' channel number for stimulus in xy window
 var iStimWindowChannel%;' channel number for stimulus window in xy window
 var iMonitorChannel%;	' channel number for monitor position display in xy window
 var StimHandle%;	' handle for stimulus application
+var cmNWavemarks% := 0;
+var cmWavemarkPorts%[16];
+var cmNContinuous% := 0;
+var cmContinuousPorts%[16];
 
 ' Display stuff
 var FixWindowX[36],FixWindowY[36];	' points for displaying fixation window in xy view
@@ -47,6 +54,28 @@ cmRemoteGratingParametersFile$ := "s:\\cmouse-grating-parameters.txt";
 cmLocalGratingParametersFile$ := GetStimDir$(1) + "cmouse-grating-parameters.txt";
 
 
+'Note: this has been stolen from Tuning - Henry is having crashing problems and he believes that using the
+'standard recording setup abolishes them
+' Fetch electrode information. 
+docase
+case UsePlexon% = 1 then
+    cmNWavemarks% := 13;  '13 wavemarks on the micro for plexon
+    cmNContinuous% := 0;  'no continuous on the micro for plexon
+    var i%;
+    for i% := 0 to 12 do
+        cmWavemarkPorts%[i%] := i%;
+    next;
+case UsePlexon7WM15CN% = 1 then 
+    cmNWavemarks% := 7;  '7 wavemarks
+    cmNContinuous% := 15;  '15 continuous
+    for i% := 0 to 7 do
+        cmWavemarkPorts%[i%] := i%;
+    next;
+else
+    cmNWavemarks% := GetWavemarkPorts%(cmWavemarkPorts%[]);
+    cmNContinuous% := GetContinuousPorts%(cmContinuousPorts%[]);
+endcase;
+
 
 ' Dialog
 if CoolMouseDialog%() <> 1 then
@@ -62,6 +91,11 @@ XChannel% := 21;
 YChannel% := 22;
 TriggerChannel% := 23;
 ReadyChannel% := 24;
+
+ExcludedChans%[0] := 21;  'XChannel is lowest non-electrode channel used by this function
+ExcludedChans%[1] := 31;  'Keyboard (default) is highest non-electrode channel used by this function
+
+
 CreateSampleConfiguration();
 
 
@@ -84,6 +118,7 @@ var vTrigger;		' set by NextTime to indicate trigger transition
 var tStateStart:=-1;	' time that present state started. Used to measure wait time, fixation time, etc. 
 var tLastTrigger:=-1;	' last trigger time. New triggers have to be greater than this
 var tTrigger:=-1;	' temp var for newly discovered trigger times
+var tTrigger2:=-1;  'temp var for trigger times, used to check for infinitely narrow crosstalk
 var tStimOn:=-1;	' time that stim was turned on. Used to measure spike rates 
 
 
@@ -101,7 +136,8 @@ const stateInterTrialInterval%:=9;	' time out after failed trial
 const stateVSGWait%:=10;		' wait for vsg to send ready signal #1
 const stateVSGWaitConfirm%:=11;		' waif for vsg to send ready signal #2
 const stateTrialCompleted%:=12;		' trial has been completed successfully
-const stateDone%:=13;	
+const stateDone%:=13;
+const stateVerifyBlank% := 14;
 var iState% := stateVSGWait%;	' present state
 
 var nTrialsStarted%:=0;
@@ -112,10 +148,10 @@ var nTrialsAborted% :=0;		'
 
 func IdleProcessing%()
 	var iStatus% := 1;	
-	tNow := MaxTime();
+	tNow := View(DataWindow%).MaxTime();
 
-	xEye := ChanMeasure(XChannel%,2,tNow-.006,tNow-.001)*DegreesPerVoltX;
-	yEye := ChanMeasure(YChannel%,2,tNow-.006,tNow-.001)*DegreesPerVoltY;
+	xEye := View(DataWindow%).ChanMeasure(XChannel%,2,tNow-.006,tNow-.001)*DegreesPerVoltX;
+	yEye := View(DataWindow%).ChanMeasure(YChannel%,2,tNow-.006,tNow-.001)*DegreesPerVoltY;
 
 	' Don't update display every time....
 	if tNow-tLastUpdate > .005 then
@@ -132,7 +168,7 @@ func IdleProcessing%()
         'ChangeStateTo(stateStartTrial%, tNow);
         
 			' Waiting for VSG to indicate it is ready. The indication is a pulse (up, then down, 1 frame apart) on port 6.
-			tTrigger := NextTime(ReadyChannel%, tLast, vTrigger);
+			tTrigger := View(DataWindow%).NextTime(ReadyChannel%, tLast, vTrigger);
 			if tTrigger > tLastTrigger and vTrigger = 0 then
 				LogStatus("stateVSGWait", "Got leading edge of trigger at " + str$(tTrigger));
 				tLastTrigger := tTrigger;
@@ -142,7 +178,7 @@ func IdleProcessing%()
 		case iState% = stateVSGWaitConfirm% then
 
 			' Waiting for VSG to confirm it is ready. The downward side of the pulse is expected...
-			tTrigger := NextTime(ReadyChannel%, tLastTrigger, vTrigger);
+			tTrigger := View(DataWindow%).NextTime(ReadyChannel%, tLastTrigger, vTrigger);
 			if tTrigger > tLastTrigger and vTrigger = 1 then
 				LogStatus("stateVSGWaitConfirm", "Got trailing edge of trigger");
 				tLastTrigger := tTrigger;
@@ -159,8 +195,8 @@ func IdleProcessing%()
 		
 		case iState% = stateWaitForFixPtOn% then
 
-			tTrigger := NextTime(TriggerChannel%, tLast, vTrigger);
-			if tTrigger > tLast and vTrigger = 0 then
+			tTrigger := View(DataWindow%).NextTime(TriggerChannel%, tLast, vTrigger);
+			if tTrigger > tLast and vTrigger = 0 then 
 				' Fixation point is up
 				LogStatus("stateWaitForFixPtOn", "Fixpt is on");
 				tLastTrigger := tTrigger;
@@ -183,25 +219,83 @@ func IdleProcessing%()
 			endif
 
 		case iState% = stateAbort% then
-
-			' Signal "X" turns off fixpt and stimulus. The next state 'stateWaitForBlank' only checks for 
-			' fixpt off. 
-			LogStatus("stateAbort", "send f key.");
-			SafeSampleKey("f");
-			ChangeStateTo(stateWaitForBlank%, tNow);
-
+        
+            if cmFixationAlwaysUp% = 1 then
+                LogStatus("stateAbort", "Fixation always up, returning to waiting for acquisition.");
+                ChangeStateTo(stateWaitForAcquisition%, tNow);  'just go back to waiting for acquisition
+            else
+                ' Signal "X" turns off fixpt and stimulus. The next state 'stateWaitForBlank' only checks for 
+                ' fixpt off. 
+                LogStatus("stateAbort", "send f key.");
+                SafeSampleKey("f"); 
+                ChangeStateTo(stateWaitForBlank%, tNow);
+            endif;
+        
+        
 		case iState% = stateWaitForBlank% then
 
 			' we just wait for fix point off signal in this case. 
-			tTrigger := NextTime(TriggerChannel%, tLast, vTrigger);
+            tTrigger := View(DataWindow%).NextTime(TriggerChannel%, tLast, vTrigger);
+            'printlog("Value on trigger channel is %f\n",ChanValue(TriggerChannel%,tNow));
 			if tTrigger > tLast and vTrigger = 1 then
-				' Fixation point is off
-				LogStatus("stateWaitForBlank", "Fix pt is off.");
-				tLastTrigger := tTrigger;
-				ChangeStateTo(stateInterTrialInterval%, tTrigger);
-				DrawStim(0);	' actually this draws the location of the fixpt.
-			endif
-
+                ' Fixation point is off
+                tLastTrigger := tTrigger;
+            
+				'LogStatus("stateWaitForBlank", "Fix pt is off.");
+				'ChangeStateTo(stateInterTrialInterval%, tTrigger);
+                'DrawStim(0);	' actually this draws the location of the fixpt.
+     
+            ChangeStateTo(stateVerifyBlank%, tTrigger);
+            else
+                if tTrigger = -1 and vTrigger = 0 then
+                    'There is a path for the logic here to miss the blank - if there is crosstalk with a width but due to OS delays the actual blank happens before the recheck, we would get stuck here.  So don't.
+                    ChangeStateTo(stateInterTrialInterval%, tTrigger);
+                    LogStatus("stateWaitForBlank", "Blank occured while we were trying to identify crosstalk, move along!");
+                
+                endif
+            endif
+        
+        case iState% = stateVerifyBlank% then
+        
+            'Here we are making sure that the condition that triggered stateWaitForBlank was NOT a false trigger from crosstalk
+            'The major issue is that the crosstalk is sometimes 'infinitely narrow' - that is, the time of both the upwards and
+            'the downwards transitions is identical.  NextTime can't see both events in that case.
+            
+            tTrigger2 := View(DataWindow%).NextTime(TriggerChannel%, tLastTrigger, vTrigger);  'so check this value again, from the last trigger time
+            docase
+            case tTrigger2 = -1 and vTrigger = 0 then 'no event, channel is low, blank is verified, move forward as expected
+                ChangeStateTo(stateInterTrialInterval%, tTrigger);
+                LogStatus("stateVerifyBlank", "Fix pt is off.");
+                DrawStim(0);	' actually this draws the location of the fixpt.
+            case tTrigger2 = -1 and vTrigger = 1 then 'no event, but channel is high, this implies infinitely narrow crosstalk, go back to wait for blank
+                ChangeStateTo(stateWaitForBlank%, tTrigger); 'go back at the exact same time we came at, this should be OK
+                LogStatus("stateVerifyBlank", "Infinitely narrow crosstalk found, returning to stateWaitForBlank.");
+            case tTrigger2 > tLastTrigger and vTrigger = 0 then 'this is an event, but channel is high, implies crosstalk was not infinitely narrow, go back and wait for blank
+                ChangeStateTo(stateWaitForBlank%, tTrigger2);  'go back to find blanking signal, but move beyond spurious low-to-high transition
+                LogStatus("stateVerifyBlank", "Crosstalk found, returning to stateWaitForBlank.");
+            case tTrigger2 > tLastTrigger and vTrigger = 1 then 'this is an event with channel going low, this implies an initial infinitely narrow crosstalk followed by a true blank signal, move forward
+                ChangeStateTo(stateInterTrialInterval%, tTrigger2);  'use time of event found on this check
+                LogStatus("stateVerifyBlank", "Fix pt is off.");
+                DrawStim(0);	' actually this draws the location of the fixpt.
+            case tTrigger2 < 0 then 'negative error code, report error
+                message("Error!  Check Log!");
+                printlog("Error in stateVerifyBlank, message is: %s\n",Error$(tTrigger2));
+                Quit%();
+            case tTrigger2 < tLastTrigger then
+                message("Error!  tTrigger2 should not be less than tLastTrigger!");
+                printlog("Error in stateVerifyBlank, tTrigger2 returned a seemingly impossible value less than tLast! (%f)\n",tTrigger2);
+                Quit%(); 'hja edit 170517
+            case tTrigger2 = tLastTrigger then
+                message("Error!  tTrigger2 should not be equal to tLastTrigger!");
+                printlog("Error in stateVerifyBlank, tTrigger2 returned a seemingly impossible value equal to tLast! (%f)\n",tTrigger2);
+                Quit%();
+            else 
+                message("Error!  vTrigger is not 0 or 1");
+                printlog("Error in stateVerifyBlank, vTrigger returned a seemingly impossible value! (%f)\n",vTrigger);
+                Quit%();
+            endcase
+            
+            
 		case iState% = stateInterTrialInterval% then
 
 			if tNow - tStateStart > cmTimeOutTime then
@@ -282,6 +376,7 @@ end;
 proc CreateSampleConfiguration()
 	var index;
 	SampleClear(); 'Set standard sampling state
+    SampleChannels(64);  '32 does not work, we need more!
 	SampleAutoFile(0); 'Enable automatic file naming
     
 	' Set path for new data files
@@ -306,8 +401,47 @@ proc CreateSampleConfiguration()
 	SampleWaveform(YChannel%, GetEyeYPort%(), 1000);
 	SampleTitle$(YChannel%, "Eye Y");
     
+    
+    'Note: this has been stolen from Tuning - Henry is having crashing problems and he believes that using the
+    'standard recording setup abolishes them
+    ' Set up channels for sampling electrodes.
+    if cmCollectElectrodeData% = 1 then
+        var i%;
+        docase
+        case UsePlexon% = 1 then  'call Plexon setup function, this will ONLY set up the sampling configuration for the Micro1401 mark II.  The Power1401 will be set up from its own dedicated script in its dedicated Spike2 instance
+            CreatePlexonSamplingConfiguration1824Micro(); 'Note that for right now the ONLY Plexon configuration is 18 WaveMark/24 LFP (maximal WMs for 24 LFPs, trust me)
+        case UsePlexon7WM15CN% = 1 then  'call 7 wavemark, 15 continuous setup
+            CreateElectrodeSamplingConfiguration7WM15CN(); 
+        case UsePlexon15WF15WF2k% = 1 then  'call 15 waveform, 15 waveform@2k setup
+            CreateElectrodeSamplingConfiguration15WF15WF2k();
+        case UsePlexon24WF% = 1 then
+            CreateElectrodeSamplingConfiguration24WF(); 
+        case JoePlexon1% = 1 then
+            CreateJoePlexon1SamplingConfigurationMaster();
+        case JoePlexon2% = 1 then
+            message("Electrode Configuration JoePlexon2 is not yet implemented!");
+            halt;
+        else
+            ' Electrodes: wavemark/continuous
+            ' 12/6/2010
+            ' Wavemark channels will be channels # 1-N, waveform N+1 - N+1+M, where there are N wavemark channels
+            ' and M waveform channels. 
+            '        for i% := 0 to cmNWavemarks%-1 do
+            '            SampleWaveMark(i% + 1, cmWavemarkPorts%[i%], 2000, 34, 15, 28000); ' chan, port, event rate, points, pre-trigger, rate
+            '            SampleTitle$(i% + 1, "WMrk " + str$(cmWavemarkPorts%[i%])); 
+            '        next
+            '        for i% := 0 to cmNContinuous%-1 do
+            '            SampleWaveform(cmNWavemarks% + i% + 1, cmContinuousPorts%[i%], 20000);
+            '            SampleTitle$(cmNWavemarks% + i% + 1, "Cont " + str$(cmContinuousPorts%[i%]));
+            '        next
+            CreateElectrodeSamplingConfiguration32(1, 1+numWavemarkPorts%, ExcludedChans%);  'Allows a lot of channels while preventing accidentally re-defining a channel
+        endcase;
+    endif;
+    
+    
+    
 	SampleSequencer(script$ + "CoolMouse.pls");
-	SampleOptimise(2, 2, 2, 2, 50);  'Set optimise mode (do this last)
+	SampleOptimise(2, 2, Get1401Type%(), 2, 50);  'Set optimise mode (do this last)
 	SampleMode(1); 'Continuous sampling
 end;
 
@@ -546,6 +680,8 @@ proc GetCoolMouseParameters()
     cmFixationDuration := GetFloatRegistryValue(key$, "FixationDuration", cmFixationDuration);
     cmMaintainFixation := GetFloatRegistryValue(key$, "MaintainFixation", cmMaintainFixation);
     cmTimeOutTime := GetFloatRegistryValue(key$, "TimeOutTime", cmTimeOutTime);
+    cmFixationAlwaysUp%:= GetIntRegistryValue%(key$, "FixationAlwaysUp", cmFixationAlwaysUp%);
+    cmCollectElectrodeData% := GetIntRegistryValue%(key$, "CollectElectrodeData", cmCollectElectrodeData%);
 end
 
 proc SaveCoolMouseParameters()
@@ -555,6 +691,8 @@ proc SaveCoolMouseParameters()
     SetFloatRegistryValue(key$, "FixationDuration", cmFixationDuration);
     SetFloatRegistryValue(key$, "MaintainFixation", cmMaintainFixation);
     SetFloatRegistryValue(key$, "TimeOutTime", cmTimeOutTime);
+    SetIntRegistryValue(key$, "FixationAlwaysUp", cmFixationAlwaysUp%);
+    SetIntRegistryValue(key$, "CollectElectrodeData", cmCollectElectrodeData%);
 end
 
 
@@ -566,7 +704,9 @@ func CoolMouseDialog%()
     DlgReal(2, "Fixation Time", 0.01, 100.0);
     DlgReal(3, "Maintain Fixation Time", 0.01, 100.0);
     DlgReal(4, "Time Out Time", 0.01, 100.0);
-    status% := DlgShow(cmAcquisitionTime, cmFixationDuration, cmMaintainFixation, cmTimeOutTime);
+    DlgCheck(5, "Keep Fixation Point Up");
+    DlgCheck(6, "Sample From Electrodes");
+    status% := DlgShow(cmAcquisitionTime, cmFixationDuration, cmMaintainFixation, cmTimeOutTime, cmFixationAlwaysUp%, cmCollectElectrodeData%);
     if status% = 1 then
         SaveCoolMouseParameters();
     endif

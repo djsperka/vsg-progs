@@ -1,4 +1,4 @@
-' $Id: AlertMSequence.s2s,v 1.17 2016-03-03 00:16:45 devel Exp $
+' $Id: AlertMSequence.s2s,v 1.17 2016/03/03 00:16:45 devel Exp $
 
 #include "../../Spike2Util/UsreyUtil.s2s"
 

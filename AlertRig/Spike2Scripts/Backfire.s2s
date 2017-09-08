@@ -1,4 +1,7 @@
-' $Log: not supported by cvs2svn $
+' $Log: Backfire.s2s,v $
+' Revision 1.1  2006/03/02 23:02:46  dan
+' Initial add
+'
 
 
 var tLast := 0;

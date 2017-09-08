@@ -1,4 +1,4 @@
-; $Id: NewJuicer.pls,v 1.1 2011-02-03 00:42:46 devel Exp $
+; $Id: NewJuicer.pls,v 1.1 2011/02/03 00:42:46 devel Exp $
 ;
 ; Sequencer file to test Ben's new juicer. 
 ; The sequence EJ below (start with a keyboard "J") sends a positive-going 

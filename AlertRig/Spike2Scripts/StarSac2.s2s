@@ -1,7 +1,7 @@
-' $Id: StarSac2.s2s,v 1.10 2016-04-01 21:59:54 devel Exp $
+' $Id: StarSac2.s2s,v 1.25 2017/05/31 01:33:25 devel Exp $
 ' Update 11/8/11 Jeff, includes SafeSampleKey and multi-juicer updates
 
-const starCVSID$ := "$Id: StarSac2.s2s,v 1.10 2016-04-01 21:59:54 devel Exp $";
+const starCVSID$ := "$Id: StarSac2.s2s,v 1.25 2017/05/31 01:33:25 devel Exp $";
 
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "../../Spike2Util/MiscUtilities.s2s"
@@ -34,6 +34,10 @@ var starTargetY := 0.0;
 var starNumSmall% := 0;
 var starNumPerBlock% := 1;
 var starNumBlocks% := 1;
+var starMSPerRewardHit% := 25;
+var starUseDefaultTargetSize% := 1;
+var starTargetDiameter := 1.0;
+var starTargetIsGrating%;
 
 ' keep fixpt on stuff
 var starKeepFixptOn% := 1;
@@ -55,9 +59,26 @@ var starTargetPositions[MAXTARGETPOSITIONS%][2];
 var starNTargetPositions% := 0;
 var starNTargetOrder% := 0;
 var starTrialCounter% := 0;
+var starDoTargetGrid% := 0;
 const MAXEYETRACECOLORS% := 12;
 var starEyeTraceColors%[MAXEYETRACECOLORS%];    ' These are used to draw colors
 
+
+' Optogenetics variables - since we will only be using wraparound and not pulsed (at least, that's my understanding) much of this might be unnecessary
+var starPreStimOptoTime;
+var starPostStimOptoTime;
+var starMaxOptoTime;
+var starOptoVoltageOut;
+var starProbOfOpto;
+'var starRecOptoBox% := 0;      'record the output from the opto box?
+var starDoOpto%;                     ' New, 1 if doing optogenetics
+'var starRecStimulator% := 0;   'record the stimulator?
+var voltageInteger%;
+var starDoOptoThisTrial% ;  'will keep track of trial-by-trial opto
+var optoIsOn%;  'Keeps track of if the laser is actually on
+var starOptoOffMidStimTime;  'used to turn off the opto laser mid-stimulus, if required by the timing
+
+var smallAreaTextItemNumber%;
 
 
 proc GetStarStimScriptParameters()
@@ -85,6 +106,13 @@ proc GetStarStimScriptParameters()
     starJuicePerSmallReward% := GetIntRegistryValue%(key$, "JuicePerSmallReward", starJuicePerSmallReward%);
     starMinSmallRewardDelta := GetFloatRegistryValue(key$, "MinSmallRewardDelta", starMinSmallRewardDelta);
     starMaxSmallRewardDelta := GetFloatRegistryValue(key$, "MaxSmallRewardDelta", starMaxSmallRewardDelta);
+    starDoOpto% := GetIntRegistryValue%(key$, "DoOpto", starDoOpto%);
+    starMSPerRewardHit% := GetIntRegistryValue%(key$, "SmallRewardSize", starMSPerRewardHit%);
+    starUseDefaultTargetSize% := GetIntRegistryValue%(key$, "UseDefaultTargetSize", starUseDefaultTargetSize%);
+    starTargetDiameter := GetFloatRegistryValue(key$, "TargetDiameter", starTargetDiameter);
+    starDoTargetGrid% := GetIntRegistryValue%(key$, "DoTargetGrid", starDoTargetGrid%);
+    starTargetIsGrating% := GetIntRegistryValue%(key$, "TargetIsGrating", starTargetIsGrating%);
+    
 end;
  	
 proc SaveStarStimScriptParameters()
@@ -112,6 +140,12 @@ proc SaveStarStimScriptParameters()
     SetIntRegistryValue(key$, "JuicePerSmallReward", starJuicePerSmallReward%);
     SetFloatRegistryValue(key$, "MinSmallRewardDelta", starMinSmallRewardDelta);
     SetFloatRegistryValue(key$, "MaxSmallRewardDelta", starMaxSmallRewardDelta);
+    SetIntRegistryValue(key$, "DoOpto", starDoOpto%);
+    SetIntRegistryValue(key$, "SmallRewardSize", starMSPerRewardHit%);
+    SetIntRegistryValue(key$, "UseDefaultTargetSize", starUseDefaultTargetSize%);
+    SetFloatRegistryValue(key$, "TargetDiameter", starTargetDiameter);
+    SetIntRegistryValue(key$, "DoTargetGrid", starDoTargetGrid%);
+    SetIntRegistryValue(key$, "TargetIsGrating", starTargetIsGrating%);
 end;
 
 
@@ -119,7 +153,8 @@ end;
 func StarStimScriptDialog%()
 	var i%;
 	GetStarStimScriptParameters();
-	DlgCreate("StarStim Script Parameters", 25, 10);
+    GetStarStimOptoParameters();
+	DlgCreate("StarSac2 Script Parameters", 27, 10);
 	DlgReal(1, "Fixation duration min(s):", .01, 10);
 	DlgReal(2, "Fixation duration max(s):", .01, 10);
 	DlgReal(3, "Acquisition time(s):", .01, 10);
@@ -128,34 +163,89 @@ func StarStimScriptDialog%()
 	DlgInteger(6, "Number of targets:", 1, 99);
     DlgInteger(7, "Number of blocks", 1, 50);
     DlgInteger(8, "Num each targ per block", 1, 10);
-    DlgCheck(9, "Use stimulus position?");
-    DlgReal(10, "Target X", -20.0, 20.0);
-    DlgReal(11, "Target Y", -20.0, 20.0);
-    'DlgReal(12, "Rotation(deg)", 0.0, 360.0);
-    DlgCheck(12, "Keep fixpt on?");
-    DlgReal(13, "Min small reward time", 0, 10);
-    DlgReal(14, "Max small reward time", 0, 10);
-    DlgInteger(15, "Juice per small reward", 0, 10, 0, 0, 1);
-    DlgButton(101, "SmallArea", StarStimSmallAreaDialog%);
+    DlgCheck(9, "Use opto?");
+    DlgCheck(10, "Use stimulus position?");
+    DlgReal(11, "Target X", -20.0, 20.0);
+    DlgReal(12, "Target Y", -20.0, 20.0);
+    'DlgReal(13, "Rotation(deg)", 0.0, 360.0);
+    DlgCheck(13, "Keep fixpt on?");
+    DlgReal(14, "Min small reward time", 0, 10);
+    DlgReal(15, "Max small reward time", 0, 10);
+    DlgInteger(16, "Juice per small reward", 0, 10, 0, 0, 1);
+    DlgInteger(17, "Small reward size(ms)", 1, 200);
+    DlgCheck(18, "Use fixpt diameter for target");
+    DlgReal(19, "Target diameter", 0.1, 100);
+    smallAreaTextItemNumber% := DlgText("Text Here",2,20,25);
+    DlgCheck(20, "Use grating for target",2,21);
+    DlgButton(101, "SmallArea", StarStimSmallAreaDialog%,2,22);
+    DlgButton(102, "Opto Parameters", StarStimOptoDialog%,20,22);
     DlgAllow(0xffff, 0, StarStimScriptDialogChanged%);
 	i%:=DlgShow(starFixationDurationMin, starFixationDurationMax, starAcquisitionTime, starInterTrialTime, starAnswerTime, starNumTargets%, 
-    starNumBlocks%, starNumPerBlock%, starUseStimulusXY%, starTargetX, starTargetY,
-    starKeepFixptOn%, starMinSmallRewardDelta, starMaxSmallRewardDelta, starJuicePerSmallReward%);
+    starNumBlocks%, starNumPerBlock%, starDoOpto%, starUseStimulusXY%, starTargetX, starTargetY,
+    starKeepFixptOn%, starMinSmallRewardDelta, starMaxSmallRewardDelta, starJuicePerSmallReward%, starMSPerRewardHit%,
+    starUseDefaultTargetSize%, starTargetDiameter, starTargetIsGrating%);
 	if i% = 1 then
 		SaveStarStimScriptParameters();
+        
+        
+        'Adjust starPostStimOptoTime, which must not allow the opto time to go past the max time
+        if (starPreStimOptoTime + starPostStimOptoTime + starAnswerTime) > starMaxOptoTime then
+            starPostStimOptoTime := starMaxOptoTime - starAnswerTime - starPreStimOptoTime;
+        endif;
+        
+        'Set starOptoOffMidStimTime, which will allow us to cut the opto off mid-trial if required
+        if (starMaxOptoTime - starPreStimOptoTime) < starAnswerTime then
+            starOptoOffMidStimTime := starMaxOptoTime - starPreStimOptoTime;
+        else
+            starOptoOffMidStimTime := starAnswerTime + .1;  'this will simply prevent starOptoOffMidStimTime from having any effect if the requested time is true wraparound
+        endif;
+        
+        
+        
+        'Make sure that the pre-opto time is shorter than the min fixation time (if doing opto)
+        '(otherwise the request to turn on the opto might come before the fixation point)
+        if starDoOpto% = 1 and starFixationDurationMin <= starPreStimOptoTime then
+            message("The minimum fixation duration must be longer than the pre-stim opto time!  Quitting!");
+            halt;
+        endif;
+        
+        
+        
 	endif;
 	return i%;
 end;
 
 func StarStimScriptDialogChanged%(item%)
+    'set small area text string every time
+    var textStr$ := "SmallArea: X=";
+    if starXAxis% = 1 then
+        textStr$ := textStr$ + "on, Y=";
+    else
+        textStr$ := textStr$ + "off, Y=";
+    endif
+    if starYAxis% = 1 then
+        textStr$ := textStr$ + "on";
+    else
+        textStr$ := textStr$ + "off";
+    endif
+    DlgValue$(smallAreaTextItemNumber%,textStr$);
+    
     docase
     case item% = 0 then
-        DlgEnable(1-starUseStimulusXY%, 10, 11);
-        DlgEnable(starKeepFixptOn%, 13, 14, 15);
-    case item% = 9 then
-        DlgEnable(1-DlgValue(9), 10, 11);
-    case item% = 12 then
-        DlgEnable(DlgValue(12), 13, 14, 15);
+        DlgEnable(1-starUseStimulusXY%, 11, 12);
+        DlgEnable(starKeepFixptOn%, 14, 15, 16, 17);
+        DlgEnable(1-starUseDefaultTargetSize%, 19);
+        DlgEnable(1-DlgValue(20),18);  'disable target diameter = fixation point if target is grating
+        DlgEnable(1-DlgValue(20),19);
+    case item% = 10 then
+        DlgEnable(1-DlgValue(10), 11, 12);
+    case item% = 13 then
+        DlgEnable(DlgValue(13), 14, 15, 16, 17);
+    case item% = 18 then
+        DlgEnable(1-DlgValue(18), 19);
+    case item% = 20 then
+        DlgEnable(1-DlgValue(20),18);  'disable target diameter = fixation point if target is grating
+        DlgEnable(1-DlgValue(20),19);
     endcase
     return 1;
 end
@@ -170,8 +260,23 @@ func StarStimSmallAreaDialog%()
     DlgCheck(4, "Y-axis");
     DlgInteger(5, "Num per side", 0, 10);
     DlgReal(6, "Degree offset", 0.0, 5.0);
+    DlgCheck(7, "Use Grid");
     DlgAllow(0xffff, 0, StarStimSmallAreaDialogChanged%);
-    DlgShow(starXAxis%, starXNumPerSide%, starXOffset, starYAxis%, starYNumPerSide%, starYOffset);
+    DlgShow(starXAxis%, starXNumPerSide%, starXOffset, starYAxis%, starYNumPerSide%, starYOffset, starDoTargetGrid%);
+    
+    var textStr$ := "SmallArea: X=";
+    if starXAxis% = 1 then
+        textStr$ := textStr$ + "on, Y=";
+    else
+        textStr$ := textStr$ + "off, Y=";
+    endif
+    if starYAxis% = 1 then
+        textStr$ := textStr$ + "on";
+    else
+        textStr$ := textStr$ + "off";
+    endif
+    DlgValue$(smallAreaTextItemNumber%,textStr$);    
+    
     return 1;
 end
 
@@ -185,8 +290,92 @@ func StarStimSmallAreaDialogChanged%(item%)
     case item% = 4 then
         DlgEnable(DlgValue(4), 5, 6);
     endcase
+    if DlgValue(7) = 1 then 'If grid is selected, force both X and Y to be on
+        DlgEnable(1, 2, 3, 5, 6);  'Enable x/y entries
+        DlgValue(1,1);  'Force x checkbox to 1
+        DlgValue(4,1);  'Force y checkbox to 1
+    endif;
     return 1;
 end
+
+
+
+
+proc GetStarStimOptoParameters()
+	var stmp$;
+	var key$;
+	key$:= GetRigName$() + GetCurrentConfiguration$() + "\\Scripts\\StarStim\\Opto";
+    
+    starPreStimOptoTime := GetFloatRegistryValue(key$, "PreStimOptoTime", starPreStimOptoTime);
+    starPostStimOptoTime := GetFloatRegistryValue(key$, "PostStimOptoTime", starPostStimOptoTime);
+    starOptoVoltageOut := GetFloatRegistryValue(key$, "OptoVoltageOut", starOptoVoltageOut);
+    starMaxOptoTime := GetFloatRegistryValue(key$, "MaxOptoTime", starMaxOptoTime);
+    starProbOfOpto := GetFloatRegistryValue(key$, "ProbOfOpto", starProbOfOpto);    
+    
+    
+    'starRecOptoBox% := GetIntRegistryValue%(key$, "RecOptoBox", starRecOptoBox%);
+    'starRecStimulator% := GetIntRegistryValue%(key$, "RecStimulator", starRecStimulator%);
+
+end;
+
+proc SaveStarStimOptoParameters()
+	var key$;
+	key$:= GetRigName$() + GetCurrentConfiguration$() + "\\Scripts\\StarStim\\Opto";
+    SetFloatRegistryValue(key$, "PreStimOptoTime", starPreStimOptoTime);
+    SetFloatRegistryValue(key$, "PostStimOptoTime", starPostStimOptoTime);
+    SetFloatRegistryValue(key$, "OptoVoltageOut", starOptoVoltageOut);
+    SetFloatRegistryValue(key$, "MaxOptoTime", starMaxOptoTime);
+    SetFloatRegistryValue(key$, "ProbOfOpto", starProbOfOpto); 
+    
+    'SetIntRegistryValue(key$, "RecOptoBox", starRecOptoBox%);
+    'SetIntRegistryValue(key$, "RecStimulator", starRecStimulator%);
+end;
+
+
+func StarStimOptoDialog%()
+	var iReturn% := 1;
+	var i%;
+    var labels$[4];
+    var stimdur;
+    var tempNPulses%;
+    var tempCount%;
+    stimdur := dlgvalue(4);  'get stimulus duration value from calling (main) dialog, limit opto period based on this
+    
+    labels$[0] := "Opto Off First";
+    labels$[1] := "Opto On First";
+    labels$[2] := "Random First";
+    labels$[3] := "Opto On All Blocks";
+	GetStarStimOptoParameters();
+	DlgCreate("Optogenetics Parameters");
+    DlgReal(1, "Opto Voltage Out (V)",0.0002,5,50,1); '.0002 is the minimum value that will give any change at all (to 1 in a 15-bit range) on the DAC
+    DlgReal(2, "PreStimulus Opto On (s)",0,10,50,2);
+    DlgReal(3, "PostStimulus Opto On (s)",0,10,50,3);
+    DlgText("If max opto dur is less than post opto on, opto will turn off during stimulus",2,4);
+    DlgReal(4, "Maximum Opto Duration (s)",0,10,50,5);
+    DlgReal(5, "Probability of Opto on each trial (0-100)",0,100,50,7);
+
+    
+    'DlgCheck(6, "Record control box voltage");
+    'DlgCheck(7, "Record stimulator");
+     
+    
+    i% := DlgShow(starOptoVoltageOut,starPreStimOptoTime,starPostStimOptoTime,starMaxOptoTime,starProbOfOpto);
+    ' If i% is 1 the user hit "OK". If its 0, user hit "Cancel". 
+	' When user hits OK we always save the parameters, and when user hits Cancel we don't.
+
+    'starMaximalDiam := starAreaMaxDiam;  This won't do anything unless FIXSTIM is updated to allow crosshairs
+	if i% = 1 then
+		SaveStarStimOptoParameters();    
+	endif;
+    
+	return iReturn%;
+end;
+
+
+
+
+
+
 
 ' Window handles and channel numbers
 var XChannel%,YChannel%;		' Channel number assigned to eye x and y
@@ -217,6 +406,13 @@ var iStimY%[8];
 var iStimIndex%;
 
 LogInit(1);
+
+' Check if always looking flag is set. If so, issue a warning. 
+if starAlwaysLooking% = 1 then
+    if Query("Always looking is SET. Unset?") = 1 then
+        starAlwaysLooking% := 0;
+    endif
+endif
 
 ' Fetch electrode config
 starNWavemarks% := GetWavemarkPorts%(starWavemarkPorts%[]);
@@ -250,6 +446,11 @@ ReadyChannel% := 23;
 FixationChannel% := 24;
 StimChannel% := 25;
 ChangeChannel% := 26;
+
+ExcludedChans%[0] := 21;  'XChannel is lowest non-electrode channel used by this function
+ExcludedChans%[1] := 31;  'Keyboard (default) is highest non-electrode channel used by this function
+
+
 CreateSampleConfiguration();
 
 ' Get display windows ready
@@ -274,7 +475,9 @@ const stateAbortTime%				:= 12;
 const stateInterTrial%		 		:= 13;
 
 const stateVSGWait%					:= 14;		' wait for vsg to send ready signal #1
-const stateVSGWaitConfirm%			:= 15;		' waif for vsg to send ready signal #2
+const stateVSGWaitConfirm%			:= 15;		' wait for vsg to send ready signal #2
+const stateWaitThroughPreOpto%      := 16;      ' wait for pre-opto to finish, if opto trial
+const stateWaitForPostOpto%         := 17;      ' wait for post-opto to finish, and turn off laser
 
 
 var tNow:=0;		' latest time for which there are values recorded. Used in IdleProcessing
@@ -309,6 +512,9 @@ var fixBrokenThisTrial% := 0;   ' only valid for a few states TODO
 ' Run real time analysis here. 
 func IdleProcessing%()
 	var iStatus% := 1;	' this is return value. value of 1 (0) continues (stops) processing
+    var tOpt;
+    var tPostStimStart;  'will be useful for turning off "wraparound" opto after reward
+    var tStimOn;  'tLast does not work to find stim off if we have intervening steps in the state logic, which we do.
 	tNow := View(DataWindow%).MaxTime();
 
 	xEye := View(DataWindow%).ChanMeasure(XChannel%,2,tNow-.006,tNow-.001)*DegreesPerVoltX;
@@ -341,6 +547,19 @@ func IdleProcessing%()
         starFixationDuration := Rand(starFixationDurationMax-starFixationDurationMin, starFixationDurationMin);
         LogStatus("StartTrial", "Start trial " + str$(nTrialsStarted%) + " Fix time " + str$(starFixationDuration));
         SafeSampleKey("F");
+        
+        'determine if we are doing opto on this trial
+        if starDoOpto% = 1 then
+            if rand(100,0) < starProbOfOpto then
+                starDoOptoThisTrial% := 1;
+                starFixationDuration := starFixationDuration - starPreStimOptoTime;  'update fixation duration to not include pre-opto time
+                SampleText("Opto This Trial",tNow)
+            else
+                starDoOptoThisTrial% := 0;
+                SampleText("No Opto This Trial",tNow)
+            endif;
+        endif;
+        
         ChangeStateTo(stateWaitForFixPtOn%, tNow);
 
     case iState% = stateWaitForFixPtOn% then
@@ -384,6 +603,18 @@ func IdleProcessing%()
         DrawFix(0);
         DrawTarget(0);
         SafeSampleKey("X");
+        
+        'There are multiple places that can lead to an abort with opto laser still on
+        if optoIsOn% = 1 then
+            'turn off opto
+            SafeSampleKey("o");  'turn it off
+            tOpt := View(DataWindow%).MaxTime();
+            'printlog("OptoOff at %f\n",tOpt);
+            SampleText("OptoOff",tOpt);
+            optoIsOn% := 0;
+        endif;
+        
+        
         ChangeStateTo(stateWaitForFixPtOff%, tNow);
 
     case iState% = stateWaitForFixPtOff% then
@@ -410,14 +641,43 @@ func IdleProcessing%()
             endif
             
             if tNow - tStateStart >= starFixationDuration then
-                
-                LogStatus("HoldFixation", "Request target at " + str$(tNow));
-                ChangeStateTo(stateShowStim%, tNow);
+                if starDoOptoThisTrial% = 0 then
+                    LogStatus("HoldFixation", "Request target at " + str$(tNow));
+                    ChangeStateTo(stateShowStim%, tNow);
+                else
+                    LogStatus("HoldFixation", "Request opto on at " + str$(tNow));
+                    ChangeStateTo(stateWaitThroughPreOpto%, tNow);
+                    
+                    SafeSampleKey("O");  'turn on opto
+                    tOpt := View(DataWindow%).MaxTime();
+                    'printlog("OptoOn at %f\n",tOpt);
+                    SampleText("OptoOn",tOpt);
+                    optoIsOn% := 1;
+                    
+                endif;
 
             endif
 
         endif
+        
+        
+    case iState% = stateWaitThroughPreOpto% then
+        
+        if InFixationWindow%(xEye, yEye) <= 0 then
+            
+            LogStatus("HoldFixation", "Broken fixation at " + str$(tNow));
+            ChangeStateTo(stateAbort%, tNow);
+            fixBrokenThisTrial% := 1;
 
+        else
+            
+            if tNow - tStateStart >= starPreStimOptoTime then
+                LogStatus("HoldFixation", "Request target at " + str$(tNow));
+                ChangeStateTo(stateShowStim%, tNow);
+            endif;
+        endif;
+        
+        
     case iState% = stateShowStim% then
         
         ' Record stim pos
@@ -461,6 +721,7 @@ func IdleProcessing%()
         ' Check if stim target has come on finally.
         if View(DataWindow%).FindRisingEdge%(StimChannel%, tLast, tTrigger) = 0 then
             ChangeStateTo(stateWaitForAnswer%, tNow);
+            tStimOn := tNow;
             iStarPosColor% := GetEyeTraceColor%(starTargetOrder%[iTargetPoint%]);
             iStarPosChannel% := View(StarWindow%).XYSetChan(0, 0, 0, 1, iStarPosColor%);
             if iStarPosChannel% > 0 then
@@ -493,13 +754,28 @@ func IdleProcessing%()
             
             LogStatus("WaitForAnswer", "Got answer at " + str$(tNow));
             ChangeStateTo(stateSuccess%, tNow);
+            tPostStimStart := tNow;
 
         else
-
+            
+            'Turn off opto mid stream, if required
+            if tNow - tStateStart >= starOptoOffMidStimTime  and optoIsOn% = 1 then
+                LogStatus("WaitForAnswer", "Turning off laser at " + str$(tNow));
+                'do not change state
+                'turn off opto
+                SafeSampleKey("o");  'turn it off
+                tOpt := View(DataWindow%).MaxTime();
+                'printlog("OptoOff at %f\n",tOpt);
+                SampleText("OptoOff",tOpt);
+                optoIsOn% := 0;
+            endif;
+            
+            
             if tNow - tStateStart >= starAnswerTime then
                 
                 LogStatus("WaitForAnswer", "Timeout at " + str$(tNow));
                 ChangeStateTo(stateFailure%, tNow);
+                tPostStimStart := tNow;
 
             endif
 
@@ -513,9 +789,13 @@ func IdleProcessing%()
         SafeSampleKey("X");
         Yield();
         Reward%();
-        Yield(0.05);
-        AdvanceTarget();
-        ChangeStateTo(stateWaitForStimOff%, tNow);
+        if optoIsOn% = 1 then
+            ChangeStateTo(stateWaitForPostOpto%, tNow);
+        else
+            ChangeStateTo(stateWaitForStimOff%, tNow);
+            Yield(0.05);
+            AdvanceTarget();
+        endif;
 
     case iState% = stateFailure% then
 
@@ -527,10 +807,29 @@ func IdleProcessing%()
         else
             SafeSampleKey("X");
         endif
+        if optoIsOn% = 1 then
+            ChangeStateTo(stateWaitForPostOpto%, tNow);
+        else
+            ChangeStateTo(stateWaitForStimOff%, tNow);
+            Yield(0.05);
+            AdvanceTarget();
+        endif;
         
-        Yield(0.05);
-        AdvanceTarget();
-        ChangeStateTo(stateWaitForStimOff%, tNow);
+        
+    case iState% = stateWaitForPostOpto% then
+        if tNow - tPostStimStart > starPostStimOptoTime then
+            'turn off opto
+            SafeSampleKey("o");  'turn it off
+            tOpt := View(DataWindow%).MaxTime();
+            'printlog("OptoOff at %f\n",tOpt);
+            SampleText("OptoOff",tOpt);
+            optoIsOn% := 0;
+            Yield(0.05);
+            AdvanceTarget();  'must do this here, didn't get done in previous state (wanted to avoid the yield, get opto off promptly...)
+            ChangeStateTo(stateWaitForStimOff%, tNow);
+        endif;
+        
+        
 
     case iState% = stateWaitForStimOff% then
 
@@ -541,7 +840,7 @@ func IdleProcessing%()
         endif
         
         ' Wait for stim to be off
-        if View(DataWindow%).FindFallingEdge%(StimChannel%, tLast, tTrigger) = 1 then
+        if View(DataWindow%).FindFallingEdge%(StimChannel%, tStimOn, tTrigger) = 1 then
 
             if starKeepFixptOn% = 1 and fixBrokenThisTrial% = 0 then
                 DrawTarget(0);
@@ -613,6 +912,7 @@ end
 proc CreateSampleConfiguration()
 	var i%;
 	SampleClear(); 'Set standard sampling state
+    SampleChannels(64);  '32 does not work, we need more!
 '	SampleAutoFile(0); 'Enable automatic file naming
 	SampleAutoComment(0); 'Prompt for comment after sampling
 	SampleAutoCommit(60); 'Seconds between each file commit
@@ -647,14 +947,17 @@ proc CreateSampleConfiguration()
     
     
     ' Electrode config
-    for i% := 0 to starNWavemarks%-1 do
-		SampleWaveMark(i% + 1, starWavemarkPorts%[i%], 2000, 34, 15, 28000); ' chan, port, event rate, points, pre-trigger, rate
-		SampleTitle$(i% + 1, "WMrk " + str$(starWavemarkPorts%[i%])); 
-	next
-    for i% := 0 to starNContinuous%-1 do
-        SampleWaveform(starNContinuous% + i% + 1, starContinuousPorts%[i%], 20000);
-        SampleTitle$(starNContinuous% + i% + 1, "Cont " + str$(starContinuousPorts%[i%]));
-    next
+'    for i% := 0 to starNWavemarks%-1 do
+'		SampleWaveMark(i% + 1, starWavemarkPorts%[i%], 2000, 34, 15, 28000); ' chan, port, event rate, points, pre-trigger, rate
+'		SampleTitle$(i% + 1, "WMrk " + str$(starWavemarkPorts%[i%])); 
+'	next
+'    for i% := 0 to starNContinuous%-1 do
+'        SampleWaveform(starNContinuous% + i% + 1, starContinuousPorts%[i%], 20000);
+'        SampleTitle$(starNContinuous% + i% + 1, "Cont " + str$(starContinuousPorts%[i%]));
+'    next
+    'CreateElectrodeSamplingConfiguration(1, starNWavemarks%);  'Use new system, this will also use electrode names
+    CreateElectrodeSamplingConfiguration32(1, 1+numWavemarkPorts%, ExcludedChans%);  'Allows a lot of channels while preventing accidentally re-defining a channel
+
 
 	'EYE COIL CHANNELS. Last # is sampling freq in Hz. 
 	SampleWaveform(XChannel%, GetEyeXPort%(), 1000);
@@ -663,8 +966,19 @@ proc CreateSampleConfiguration()
 	SampleTitle$(YChannel%, "Eye Y");
 
 	SampleSequencer(script$ + "Tuning.pls");
-	SampleOptimise(2, 2, 2, 2, 50);  'Set optimise mode (do this last)
+	SampleOptimise(2, 2, Get1401Type%(), 2, 50);  'Set optimise mode (do this last)
 	SampleMode(1); 'Continuous sampling
+    
+    
+'    'Add a digital marker channel for pulsing optogenetics
+'    'Do it for every opto, easy enough to add this into the wraparound calls in the PLS
+'    'Will record a '1' for laser on and a '0' for laser off
+'    if starDoOpto% = 1 then
+'        SampleDigMark(20);  '20 Hz should be plenty high for an expected sustained rate
+'        SampleTitle$(DigitalLaserChannel%,"Laser On");
+'    endif
+    
+    
 end;
 
 
@@ -838,6 +1152,32 @@ func Targ$(x, y, d, c$)
     return " -t " + str$(x) + "," + str$(y) + "," + str$(d) + "," + c$ + " ";
 end
 
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+func TargGrating$(x, y)
+    'This function gets the current grating parameters, replaces the x and y location with the specified location, and returns
+    'the grating with the new location with the correct syntax for adding into the command line
+    var gr$;
+    var newgr$;
+    var NOTx; 
+    var NOTy;
+    var w;
+    var h;
+    var iw;
+    var ih;
+    var contrast%;
+    var sf;
+    var tf;
+    var ori;
+    var phase;
+    var cv$;
+    var pattern$;
+    var aperture$;
+    gr$ := GetGratingParameters$("Stimulus");
+    ParseGratingParameters%(gr$, NOTx, NOTy, w, h, iw, ih, contrast%, sf, tf, ori, phase, cv$, pattern$, aperture$);
+    newgr$ := EncodeGratingParameters$(x, y, w, h, iw, ih, contrast%, sf, tf, ori, phase, cv$, pattern$, aperture$);
+    return " -g " + newgr$ + " ";
+end
+
 
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 func Start%()
@@ -853,7 +1193,13 @@ func Start%()
     var length;
     var angstep;
     var i%;
+    var j%;
+    var gridX[(starXNumPerSide%*2)+1];
+    var gridY[(starYNumPerSide%*2)+1];
     GetFixationPointParameterValues(fpx, fpy, fpd, fpr);
+    if starUseDefaultTargetSize% = 0 then
+        fpd := starTargetDiameter;
+    endif
     
     ' generate target args. 
     if starUseStimulusXY% then
@@ -864,37 +1210,79 @@ func Start%()
         targy := starTargetY;
     endif
     
-    ' base target first
-    starTargetPositions[0][0] := targx;
-    starTargetPositions[0][1] := targy;
-    starNTargetPositions% := 1;
     
-    ' Small area targets on x-axis
-    if starXAxis% = 1 then
-        for i% := 1 to starXNumPerSide% do
-            starTargetPositions[starNTargetPositions%][0] := targx + i% * starXOffset;
-            starTargetPositions[starNTargetPositions%][1] := targy;
-            starNTargetPositions% += 1;
-            starTargetPositions[starNTargetPositions%][0] := targx - i% * starXOffset;
-            starTargetPositions[starNTargetPositions%][1] := targy;
-            starNTargetPositions% += 1;
+    if starDoTargetGrid% = 0 then
+        ' base target first
+        starTargetPositions[0][0] := targx;
+        starTargetPositions[0][1] := targy;
+        starNTargetPositions% := 1;
+        
+        ' Small area targets on x-axis
+        if starXAxis% = 1 then
+            for i% := 1 to starXNumPerSide% do
+                starTargetPositions[starNTargetPositions%][0] := targx + i% * starXOffset;
+                starTargetPositions[starNTargetPositions%][1] := targy;
+                starNTargetPositions% += 1;
+                starTargetPositions[starNTargetPositions%][0] := targx - i% * starXOffset;
+                starTargetPositions[starNTargetPositions%][1] := targy;
+                starNTargetPositions% += 1;
+            next
+        endif
+        
+        ' Small area targets on x-axis    
+        if starYAxis% = 1 then
+            for i% := 1 to starYNumPerSide% do
+                starTargetPositions[starNTargetPositions%][0] := targx;
+                starTargetPositions[starNTargetPositions%][1] := targy + i% * starYOffset;
+                starNTargetPositions% += 1;
+                starTargetPositions[starNTargetPositions%][0] := targx;
+                starTargetPositions[starNTargetPositions%][1] := targy - i% * starYOffset;
+                starNTargetPositions% += 1;
+            next
+        endif
+        
+        ' Total number of small area targets (includes the base target)
+        starNumSmall% := 1 + starXAxis% * starXNumPerSide% * 2 + starYAxis% * starYNumPerSide% * 2;
+        
+    else  'if we are doing a grid
+        count% := 0;
+        for i% := 0 to starXNumPerSide% do
+            if i% = 0 then
+                gridX[count%] := targx;
+                count% += 1;
+            else
+                gridX[count%] := targx + i% * starXOffset;
+                count% += 1;
+                gridX[count%] := targx - i% * starXOffset;
+                count% += 1;
+            endif                
+        next;
+
+        count% := 0;
+        for i% := 0 to starYNumPerSide% do
+            if i% = 0 then
+                gridY[count%] := targy;
+                count% += 1;
+            else
+                gridY[count%] := targy + i% * starYOffset;
+                count% += 1;
+                gridY[count%] := targy - i% * starYOffset;
+                count% += 1;
+            endif 
+        next; 
+        
+        starNTargetPositions% := 0;
+        for i% := 0 to (starXNumPerSide%*2) do
+            for j% := 0 to (starYNumPerSide%*2) do
+                starTargetPositions[starNTargetPositions%][0] := gridX[i%];
+                starTargetPositions[starNTargetPositions%][1] := gridY[j%];
+                starNTargetPositions% += 1;
+            next  
         next
-    endif
+        ' Total number of small area targets (includes the base target)
+        starNumSmall% := ((starXNumPerSide%*2)+1) * ((starYNumPerSide%*2)+1);
+    endif;
     
-    ' Small area targets on x-axis    
-    if starYAxis% = 1 then
-        for i% := 1 to starYNumPerSide% do
-            starTargetPositions[starNTargetPositions%][0] := targx;
-            starTargetPositions[starNTargetPositions%][1] := targy + i% * starYOffset;
-            starNTargetPositions% += 1;
-            starTargetPositions[starNTargetPositions%][0] := targx;
-            starTargetPositions[starNTargetPositions%][1] := targy - i% * starYOffset;
-            starNTargetPositions% += 1;
-        next
-    endif
-    
-    ' Total number of small area targets (includes the base target)
-    starNumSmall% := 1 + starXAxis% * starXNumPerSide% * 2 + starYAxis% * starYNumPerSide% * 2;
     
     LogInfo("targxy " + str$(targx) + ", " + str$(targy));
     
@@ -908,13 +1296,14 @@ func Start%()
     ' angstep is the angular diff between the targets
    	var twopi;
 	twopi := 2.0*4.0*ATan(1.0);
-    angstep := twopi / starNumTargets%;
+    'angstep := twopi / starNumTargets%;  'moved inside FOR loop below to allow starNumTargets to be 0
     
     
     ' rotate vec[] to get direction vec for each target. The base target is already saved in
     ' starTargetPositions, as are any additional small-area targets -- we use count% as the index
     ' into starTargetPositions for this reason. 
     for i% := 1 to starNumTargets%-1 do
+        angstep := twopi / starNumTargets%;
         starTargetPositions[starNTargetPositions%][0] := (vec[0] * cos(i% * angstep) - vec[1] * sin(i% * angstep)) * length + fpx;
         starTargetPositions[starNTargetPositions%][1] := (vec[0] * sin(i% * angstep) + vec[1] * cos(i% * angstep)) * length + fpy;
         
@@ -929,7 +1318,11 @@ func Start%()
     ' Generate target args for startstim program
     for i% := 0 to starNTargetPositions% -1 do
         LogInfo("target pos[" + str$(i%) + "] " + str$(starTargetPositions[i%][0]) + ", " + str$(starTargetPositions[i%][1]));
-        TargetArg$ += Targ$(starTargetPositions[i%][0], starTargetPositions[i%][1], fpd, starTargetColor$);
+        if starTargetIsGrating% = 0 then
+            TargetArg$ += Targ$(starTargetPositions[i%][0], starTargetPositions[i%][1], fpd, starTargetColor$);
+        else
+            TargetArg$ += TargGrating$(starTargetPositions[i%][0], starTargetPositions[i%][1]);
+        endif;
     next
     
     ' Randomize target order
@@ -953,6 +1346,17 @@ func Start%()
     SafeSampleKey("0");      
     
 	CommandLine$ := "cmd /k " + GetBinDir$(1) + "remote " + GetRemoteStimulusIP$() + " " + GetRemoteStimulusPort$() +  " starstim " + TargetArg$ + Extras$;
+    
+    
+    
+    if starDoOpto% = 1 then
+        'set sequencer variable 4 for opto voltage
+        'Please note that the input for this has to be a 32-bit variable. Use vdac32% to get the right value.
+        voltageInteger% := vdac32%(starOptoVoltageOut, 1, 0);
+        SampleSeqVar(4,voltageInteger%);
+        printlog("Voltage integer is %d\n",voltageInteger%);
+    endif;
+    
     
     
     ' Record initial text marks
@@ -1051,7 +1455,11 @@ func Stop%()
 	while ProgStatus(StimHandle%) > 0 do
 		Yield();
 	wend
-
+    
+    'turn off opto just in case it might be on (it shouldn't, but...)
+    if starDoOpto% = 1 then
+        SafeSampleKey("o");
+    endif;
 
 	WriteParameterFile();
 
@@ -1087,7 +1495,7 @@ end
 func InFixationWindow%(EyePosX,EyePosY)
 	var i% := 0;
 	'Determine if the eye position is within the fixation window
-	if (starAlwaysLooking% = 1 or Pow(EyePosX-FixationX, 2) + Pow(EyePosY-FixationY, 2)) <= Pow(WindowRadius,2) then 
+	if starAlwaysLooking% = 1 or (Pow(EyePosX-FixationX, 2) + Pow(EyePosY-FixationY, 2)) <= Pow(WindowRadius,2) then 
 		i% := 1;
 	endif
 	return i%;
@@ -1100,7 +1508,7 @@ func InTargetWindow%(EyePosX,EyePosY)
 	x := starTargetPositions[starTargetOrder%[iTargetPoint%]][0];
 	y := starTargetPositions[starTargetOrder%[iTargetPoint%]][1];
 	'Determine if the eye position is within the answer window
-	if (starAlwaysLooking% = 1 or Pow(EyePosX-x, 2) + Pow(EyePosY-y, 2)) <= Pow(WindowRadius,2) then 
+	if starAlwaysLooking% = 1 or (Pow(EyePosX-x, 2) + Pow(EyePosY-y, 2)) <= Pow(WindowRadius,2) then 
 		i% := 1;
 	endif
 	return i%;
@@ -1122,7 +1530,6 @@ end;
 '    because it would be a pain in the butt to code and would take up a lot of space on the
 '    dialog boxes.  Instead I have arbitrarily decided that for each hit, the
 '    "timed" juicer will deliver 200 ms of reward.  That value can be changed right here.
-var MSPerRewardHit% := 200;
 
 func Juice%()
     Reward%();
@@ -1132,7 +1539,7 @@ end;
 func Reward%()
     'Check juicer type and deliver reward
     if JuicerType% = 1 then  'open-high juicer, dispense based on ms
-        DeliverRewardMS(JuicePerReward%*MSPerRewardHit%);
+        DeliverRewardMS(GetJuicePerReward%()*GetJuiceRewardMS%());
     else
         if JuicerType% = 2 then  'open-low juicer, dispense based on number of hits
             DeliverRewardNumber();
@@ -1144,7 +1551,7 @@ end;
 func RewardSmall%()
     'Check juicer type and deliver reward
     if JuicerType% = 1 then  'open-high juicer, dispense based on ms
-        DeliverRewardMS(starJuicePerSmallReward%*MSPerRewardHit%);
+        DeliverRewardMS(starJuicePerSmallReward%*starMSPerRewardHit%);
     else
         if JuicerType% = 2 then  'open-low juicer, dispense based on number of hits
             DeliverRewardNum%(starJuicePerSmallReward%);
@@ -1199,6 +1606,26 @@ proc WriteParameterFile()
 	for i%:= 0 to starNTargetPositions%-1 do
 		Print("%3d (%6.2f, %6.2f) %4d %4d\n", i%, starTargetPositions[i%][0], starTargetPositions[i%][1], nTrialsSuccessByTarget%[i%], nTrialsFailByTarget%[i%]);
 	next;
+    if starXAxis% = 1 then
+        Print("\nSmall Area X: ON\n");
+        Print("NumPerSide         : %d\n",starXNumPerSide%);
+        Print("X Offset           : %f\n",starXOffset);
+    else
+        Print("\nSmall Area X: OFF\n");
+    endif
+    if starYAxis% = 1 then
+        Print("Small Area Y: ON\n");
+        Print("NumPerSide         : %d\n",starYNumPerSide%);
+        Print("Y Offset           : %f\n",starYOffset);
+    else
+        Print("Small Area Y: OFF\n");
+    endif
+    if starDoTargetGrid% = 1 then
+        Print("Small Area Use Target Grid: ON\n");
+    else
+        Print("Small Area Use Target Grid: OFF\n");
+    endif;
+
 
 	Print("\nExperimental parameters\n");
 	Print("-------------------------\n\n");
@@ -1207,7 +1634,24 @@ proc WriteParameterFile()
 	Print("Fixation time(s)       : %f\n", starFixationDuration);
 	Print("Answer time (s)        : %f\n", starAnswerTime);
 	Print("Inter trial time (s)   : %f\n", starInterTrialTime);
-
+    
+    
+    if starDoOpto% = 1 then
+        Print("\nOptogenetics parameters\n");
+        Print("-------------------------\n\n");
+'        if tunLaserDiode% = 1 then
+'            Print("Laser Diode recorded\n");
+'        endif;
+        Print("Opto Voltage Out: %f\n", starOptoVoltageOut);
+        Print("Pre Stim Opto Time: %f\n", starPreStimOptoTime);
+        Print("Post Stim Opto Time: %f\n", starPostStimOptoTime);
+        Print("Max Opto Time: %f\n", starMaxOptoTime);
+        Print("Probability Of Opto: %f\n", starProbOfOpto);
+        
+    endif;    
+    
+    
+    
 	' close parfile
 	FileClose(0);
 
@@ -1215,4 +1659,37 @@ end;
 
 
 
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'
+' The vdac32% function converts a value in user DAC units into an integer value
+'  (the result of the function) suitable for passing into a sequencer variable
+'  for use in the DAC, ADDAC, RAMP and OFFSET sequencer instructions. It mimics
+'  the vdac32() expression in the text sequence compiler.
+'
+' out     is the output value that you want to generate, in user DAC units.
+' scale   is the user DAC units corresponding to one volt on the actual DAC
+'         (or two volts for a ten-volt system). This is exactly the same as
+'         the DACscale field used with the SET or SDAC directives.
+' offset  is the user DAC units corresponding to zero volts output. This is
+'         exactly the same as the DACOffset field in SET or SDAC.
+'
+' If you want to use this function to calculate the slope for a ramp, use
+'  vdac32%(volts/sticks%(time)) for maximum accuracy.
+'
+func vdac32%(out, scale, offset)
+var v32;                                ' Real variable for the calculation
+out := out - offset;                    ' First compensate for offset
+v32 := ((out * (6553.6 / scale)) * 65536.0);   ' Floating point result
+var v32%;                               ' Integer value for the result
+if v32 > 2147483647.0 then              ' 2147483647 is the largest positive
+    v32% := 2147483647;                 '  integer value
+else
+    if v32 < -2147483647.0 then         ' -2147483648 is the lowest negative value
+        v32% := -2147483647;            '  but we have to stay one above that
+    else
+        v32% := round(v32);             ' We can be sure this will not overflow
+    endif;
+endif;
+return v32%;
+end
 

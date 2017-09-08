@@ -1,4 +1,4 @@
-; $Id: CoolMouse.pls,v 1.5 2011-11-16 00:48:00 jeff Exp $
+; $Id: CoolMouse.pls,v 1.5 2011/11/16 00:48:00 jeff Exp $
 ; Revision 1.4  2011/11/08 jeff
 ; Added multiple juicer functionality, SafeSampleKey means
 ; that individual calls do not have to close the juicer, also changed

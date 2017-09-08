@@ -1,4 +1,4 @@
-; $Id: Rivalry.pls,v 1.8 2011-11-16 00:48:00 jeff Exp $
+; $Id: Rivalry.pls,v 1.8 2011/11/16 00:48:00 jeff Exp $
 ; Revision 1.7  2011/11/08 jeff
 ; Added SafeSampleKey and multiple juicer functionality, SafeSampleKey means
 ; that individual calls do not have to close the juicer, also changed

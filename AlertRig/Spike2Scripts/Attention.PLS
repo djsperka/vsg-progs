@@ -1,4 +1,4 @@
-; $Id: Attention.PLS,v 1.8 2013-01-18 22:10:39 devel Exp $
+; $Id: Attention.PLS,v 1.8 2013/01/18 22:10:39 devel Exp $
 
             SET      1.000 1 0     ;Get rate & scaling OK
 

@@ -27,6 +27,7 @@ var EyeYPort%;                  ' Port vertical eye signal connected to
 var JoystickPort%;              ' Port joystick is connected to
 var JuicerType%;                ' Type of juicer
 var pReward := 1;               ' Probability of reward
+var this1401Type%;              ' Holds type of 1401
 var UseRemoteStimulus% := 0;     ' if checked, send stim commands to ip.port below
 var RemoteStimulusIP$ := "192.168.1.2";
 var RemoteStimulusPort$ := "7000";
@@ -37,6 +38,7 @@ var SlaveStimulusPort$ := "7000";
 'var ContinuousPorts%[16];
 'var NumContinuousPorts%;
 GetDAQParameters();
+this1401Type% := Determine1401Type%();
 
 ' Make sure Juicer information has been set, and set sequencer variable for juicer
 ' Quit if no juicer information has been set!
@@ -86,14 +88,26 @@ end
 
 
 func GetJoystickPort%()
+    if JoystickPort% = -1 then
+        message("Joystick port has been set to -1 (off) in Config->DAQ but the current script requires joystick!  Quitting!");
+        halt
+    endif
     return JoystickPort%;
 end
 
 func GetEyeXPort%()
+    if EyeXPort% = -1 then
+        message("EyeX port has been set to -1 (off) in Config->DAQ but the current script requires eyetracking!  Quitting!");
+        halt
+    endif
     return EyeXPort%;
 end
 
 func GetEyeYPort%()
+    if EyeYPort% = -1 then
+        message("EyeY port has been set to -1 (off) in Config->DAQ but the current script requires eyetracking!  Quitting!");
+        halt
+    endif
     return EyeYPort%;
 end
 
@@ -230,7 +244,7 @@ func DAQParametersDialog%()
     
     
 	DlgCreate("DAQ parameters");
-	DlgInteger(1, "Number of Electrodes:", 1, 16, 0, 0, 1);
+	DlgInteger(1, "Number of Electrodes:", 1, 32, 0, 0, 1);
 	DlgReal(2, "Degrees/Volt (X):", 0, 100);
 	DlgReal(3, "Degrees/Volt (Y):", 0, 100);
     DlgReal(4, "Calibration offset(deg)", 0.1, 100);
@@ -240,9 +254,9 @@ func DAQParametersDialog%()
 	DlgInteger(8, "Juice per reward:", 0, 10, 0, 0, 1);
     DlgInteger(9, "Juice Reward ms:", 0, 1000);
     DlgList(10, "Juicer Open State:",juicerList2$,2);
-    DlgInteger(11, "Eye X Port", 0, 31);
-    DlgInteger(12, "Eye Y Port", 0, 31);
-    DlgInteger(13, "Joystick Port", 0, 31);
+    DlgInteger(11, "Eye X Port", -1, 31);
+    DlgInteger(12, "Eye Y Port", -1, 31);
+    DlgInteger(13, "Joystick Port", -1, 31);
     DlgCheck(14, "Use Remote Stimulus");
     DlgString(15, "Remote ip", 21);
     DlgString(16, "Remote port", 5);
@@ -266,9 +280,9 @@ end;
 func DAQParametersDialogChanged%(item%)    
     docase 
     case item% = 0 then
-        DlgEnable(UseRemoteStimulus%, 13, 14);
-    case item% = 12 then
-        DlgEnable(DlgValue(12), 13, 14);
+        DlgEnable(UseRemoteStimulus%, 15, 16, 17, 18);
+    case item% = 14 then
+        DlgEnable(DlgValue(14), 15, 16, 17, 18);
     endcase
     return 1;
 end
@@ -376,7 +390,75 @@ func SetJuicerSequencerVariable%()
     
 end
 
+
+
+func Determine1401Type%()
+    'This function determines the type of 1401 connected and returns the appropriate value
+    'to be given to SampleOptimise().  If there is no 1401 connected, it will default to 
+    'Power1401-3.  If type is original Power1401, will default to 400-MHz type.
+    var h%;
+    var resp$;
     
+    h% := SampleStatus();
+    if h% >= 0 then  'if sampling is set up or started, do not open connection to 1401.  Calling the function at this point is an error, but should not be fatal
+        message("Get1401Type%%() was called while sampling was already setup or occurring!\nBy design this should not happen.  Contact Jeff.\nHowever, this error should not be fatal and sampling can continue.");
+        return 78;  'This will indicate an error - if we somehow subsequently call SampleOptimise (we shouldn't), kill things, this is a serious problem
+    endif  
+    
+    h% := U1401Open();  'opens a connection to the 1401, key here is that the return indicates the type of 1401
+    if h% < 0 then 'this is an error code, there is no 1401 detected
+        return 77;  'this value will indicate no 1401 at sample optimise step
+        'No connection close necessary
+    else
+        if h% = 3 then  'if unit is power1401, get type of ADC as well
+            U1401Write("INFO,S,20;");
+            U1401Read(resp$);  'resp will be "4" for 400 kHz and "6" for 625 kHz (value is conincidental, does not represent 100s of kHz)
+            if val(resp$) = 6 then
+                h% := 3625;  'this value will indicate the 625 kHz Power1401
+            endif;
+        endif
+        U1401Close();  'Close connection to 1401 to allow sampling
+        return h%;
+    endif
+
+end
+
+
+func Get1401Type%()
+    'This function should be called inside a SampleOptimise call to convert the 1401 type
+    'as returned by U1401Open to the correct type for the SampleOptimise call.  Too bad these
+    'types don't line up, or this function would be unnecessary.
+    var h%;
+    docase
+    case this1401Type% = 0 then
+        return 0;  'minimal 1401 (pre-Power1401, we do not have these)
+    case this1401Type% = 1 then
+        return 3;  '1401plus (we do not have these)
+    case this1401Type% = 2 then
+        return 6;  'micro1401 mkI 
+    case this1401Type% = 3 then
+        return 2;  'power1401, 400 MHz  
+    case this1401Type% = 3625 then
+        return 5;  'power1401, 625 MHz     
+    case this1401Type% = 4 then
+        return 4;  'micro1401 mkII   
+    case this1401Type% = 5 then
+        return 7;  'power1401 mkII 
+    case this1401Type% = 6 then
+        return 8;  'micro1401-3
+    case this1401Type% = 7 then
+        return 9;  'power1401-3
+    case this1401Type% = 77 then
+        message("No 1401 detected! Sample optimization set for Power1401-3!");
+        return 9;  'power1401-3  
+    case this1401Type% = 78 then  'this really shouldn't happen
+        message("Bad order of sampling setup/sample optimization calls.  Quitting!");
+        halt
+    endcase
+    
+end
+
+
 'proc GetElectrodeParameters()
 '	var key$;
 '    var s$;

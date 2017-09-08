@@ -1,4 +1,4 @@
-' $Id: AttaJoyExtractFunctions.s2s,v 1.4 2011-09-22 00:43:57 djsperka Exp $
+' $Id: AttaJoyExtractFunctions.s2s,v 1.4 2011/09/22 00:43:57 djsperka Exp $
 
 #include "ExtractionUtilities.s2s"
 #include "JoystickExtractFunctions.s2s"

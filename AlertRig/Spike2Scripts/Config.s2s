@@ -1,4 +1,4 @@
-' $Id: Config.s2s,v 1.35 2016-03-04 23:07:39 devel Exp $
+' $Id: Config.s2s,v 1.37 2017/05/31 01:33:25 devel Exp $
 
 #include "../../Spike2Util/UsreyUtil.s2s"
 #include "UsreyGratings.s2s"
@@ -1096,36 +1096,60 @@ end;
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
 func RigConfigDialog%(config$)
-
+    var dummy%[15];
+    var dummy2%;
+    
 	DlgCreate("Rig Configuration: " + config$, 25, 10, 40);
-	DlgGroup("Settings", 0, 1, 17, 12);
+	DlgGroup("Settings", 0, 1, 20, 13);
 	DlgButton(2, "Data", DataParametersDialog%, 2, 2);
 	DlgButton(3, "DAQ", DAQParametersDialog%, 2, 3);
     DlgButton(4, "Electrodes", ElectrodesDialog%, 2, 4);
-	DlgButton(5, "Daily", DailyTotalsDialog%, 2, 5);
-	DlgButton(6, "Fixation", FixationPointDialog%, 2, 6);
-	DlgButton(7, "Stimulus", StimulusDialog%, 2, 7);
-    DlgButton(8, "SlaveStimulus", SlaveStimulusDialog%, 2, 8);
-	DlgButton(9, "Distractor 1", Distractor1Dialog%, 2, 9);
-	DlgButton(10, "Distractor 2", Distractor2Dialog%, 2, 10);
-	DlgButton(11, "Distractor 3", Distractor3Dialog%, 2, 11);
-	DlgButton(12, "Distractor 4", Distractor4Dialog%, 2, 12);
-    
+    DlgButton(5, "Electrodes+Hz", ElectrodesDialogSetSampFreq%, 2, 5);
+	DlgButton(6, "Daily", DailyTotalsDialog%, 2, 6);
+	DlgButton(7, "Fixation", FixationPointDialog%, 2, 7);
+	DlgButton(8, "Stimulus", StimulusDialog%, 2, 8);
+    DlgButton(9, "SlaveStimulus", SlaveStimulusDialog%, 2, 9);
+	DlgButton(10, "Distractor 1", Distractor1Dialog%, 2, 10);
+	DlgButton(11, "Distractor 2", Distractor2Dialog%, 2, 11);
+	DlgButton(12, "Distractor 3", Distractor3Dialog%, 2, 12);
+	DlgButton(13, "Distractor 4", Distractor4Dialog%, 2, 13);
+    'DlgText("<--",17,4);
+    'DlgText("<--",17,5);
+    DlgLabel(14,"<--",17,4);
+    DlgLabel(15,"<--",17,5);
 
-	DlgGroup("Scripts", 18, 1, 20, 12);
-    DlgText("Script access from", 20, 3);
-    DlgText("Config has been", 20, 4);
-    DlgText("deprecated", 20, 5);
+	DlgGroup("Scripts", 21, 1, 20, 13);
+    DlgText("Script access from", 22, 3);
+    DlgText("Config has been", 22, 4);
+    DlgText("deprecated", 22, 5);
 	'DlgButton(13, "Fixation", FixationScriptDialog%, 20, 2);
 	'DlgButton(14, "Attention", AttentionScriptDialog%, 20, 3);
 	'DlgButton(15, "Tuning", TuningCurveScriptDialog%, 20, 4);
 	''DlgButton(16, "CoolerMouse", CoolerMouseScriptDialog%, 20, 5);  'removing this button as CoolerMouse has been ousted
 	'DlgButton(16, "MSequence", MSequenceScriptDialog%, 20, 6);
 	'DlgButton(17, "ContrastReverse", CRGScriptDialog%, 20, 7);
-
-	DlgShow();
+    
+    DlgAllow(0xffff, 0, RigConfigDialogChanged%);
+	DlgShow(dummy%[]);
 
 end;
+
+'This only runs the first time, and gets us the value currently being used.  The live "change" is actually done
+'from the WMCNPortDialog32%()/WMCNPortDialog32SetSampFreq%() functions
+func RigConfigDialogChanged%(item%)
+    if UseChanByChanSampRates% = 0 then
+        DlgValue$(14,"<--");
+        DlgValue$(15,"");
+    else
+        DlgValue$(14,"");
+        DlgValue$(15,"<--");
+    endif;
+    
+end
+
+
+
+
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 '

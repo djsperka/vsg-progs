@@ -1,7 +1,8 @@
-' $Id: StopSlaveFixstim.s2s,v 1.1 2015-05-12 17:39:08 devel Exp $
+' $Id: StopSlaveFixstim.s2s,v 1.2 2017/04/11 23:06:06 devel Exp $
 
-const slvCVSID$ := "$Id: StopSlaveFixstim.s2s,v 1.1 2015-05-12 17:39:08 devel Exp $";
+const slvCVSID$ := "$Id: StopSlaveFixstim.s2s,v 1.2 2017/04/11 23:06:06 devel Exp $";
 
+#include "../../Spike2Util/UsreyUtil.s2s"
 #include "UsreyDAQ.s2s"
 #include "../../Spike2Util/LogUtilities.s2s"
 

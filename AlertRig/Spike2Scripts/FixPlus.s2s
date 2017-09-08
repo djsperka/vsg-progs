@@ -1,5 +1,5 @@
 
-' $Id: FixPlus.s2s,v 1.12 2016-03-03 00:16:45 devel Exp $
+' $Id: FixPlus.s2s,v 1.12 2016/03/03 00:16:45 devel Exp $
 '
 ' FixPlus is a modified version of fixation for Corey. 
 ' Its same as fixation, but a stim appears during the fixation period. Uses attention.exe.
