@@ -7,6 +7,7 @@
 #include "AlertUtil.h"
 #include <vector>
 #include <algorithm>
+#include <boost/tuple/tuple.hpp>
 
 // Implementation of UStim interface for the starstim app.
 
@@ -30,7 +31,9 @@ private:
 	alert::ARContrastFixationPointSpec m_fixpt;
 	vector<ARContrastFixationPointSpec*> m_dots;
 	vector<ARGratingSpec*> m_gratings;
-	vector< pair<bool, unsigned int> > m_targets;
+	//vector< pair<bool, unsigned int> > m_targets;
+	vector< boost::tuple<bool, unsigned int, int> > m_targets;		//  < isFixpt, index in m_gratings/m_fixpt, contrast in spec (gratings only) > 
+
 	vector<int> m_vecTargetOrder;
 	vector<int>::const_iterator m_iterator;
 	int m_iDistanceToScreenMM;
