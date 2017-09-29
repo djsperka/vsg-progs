@@ -60,7 +60,8 @@ int StarUStim::process_arg(int c, std::string& arg)
 		if (!parse_grating(arg, *pgrating))
 		{
 			m_gratings.push_back(pgrating);
-			m_targets.push_back(make_pair(false, (unsigned int)(m_gratings.size() - 1)));
+			// m_targets.push_back(make_pair(false, (unsigned int)(m_gratings.size() - 1)));
+			m_targets.push_back(boost::make_tuple(false, (unsigned int)(m_gratings.size() - 1), pgrating->contrast));
 		}
 		else
 		{
@@ -74,7 +75,8 @@ int StarUStim::process_arg(int c, std::string& arg)
 		if (!parse_fixation_point(arg, *pspec))
 		{
 			m_dots.push_back(pspec);
-			m_targets.push_back(make_pair(true, (unsigned int)(m_dots.size() - 1)));
+			//m_targets.push_back(make_pair(true, (unsigned int)(m_dots.size() - 1)));
+			m_targets.push_back(boost::make_tuple(true, (unsigned int)(m_dots.size() - 1), 100));
 		}
 		else 
 		{
@@ -224,15 +226,19 @@ void StarUStim::update_page()
 
 	m_fixpt.draw();
 
-	if (m_targets[*m_iterator].first)
+	bool isFixpt = boost::get<0>(m_targets[*m_iterator]);
+	unsigned int index = boost::get<1>(m_targets[*m_iterator]);
+	int contrast = boost::get<2>(m_targets[*m_iterator]);
+
+	if (isFixpt)
 	{
-		m_dots[m_targets[*m_iterator].second]->setContrast(0);
-		m_dots[m_targets[*m_iterator].second]->draw();
+		m_dots[index]->setContrast(0);
+		m_dots[index]->draw();
 	}
 	else
 	{
-		m_gratings[m_targets[*m_iterator].second]->setContrast(0);
-		m_gratings[m_targets[*m_iterator].second]->draw();
+		m_gratings[index]->setContrast(0);
+		m_gratings[index]->draw();
 	}
 }
 
@@ -275,6 +281,11 @@ int StarUStim::callback(int &output, const FunctorCallbackTrigger* ptrig)
 {
 	int ival=1;
 	string key = ptrig->getKey();
+
+	bool isFixpt = boost::get<0>(m_targets[*m_iterator]);
+	unsigned int index = boost::get<1>(m_targets[*m_iterator]);
+	int contrast = boost::get<2>(m_targets[*m_iterator]);
+
 	if (key == "a")
 	{
 		m_iterator++;
@@ -283,27 +294,25 @@ int StarUStim::callback(int &output, const FunctorCallbackTrigger* ptrig)
 	}
 	else if (key == "s")
 	{
-		if (m_targets[*m_iterator].first)
+		if (isFixpt)
 		{
-			m_dots[m_targets[*m_iterator].second]->setContrast(0);
+			m_dots[index]->setContrast(0);
 		}
 		else
 		{
-			m_gratings[m_targets[*m_iterator].second]->setContrast(0);
+			m_gratings[index]->setContrast(0);
 		}
-		//m_dots[*m_iterator]->setContrast(0);
 	}
 	else if (key == "S")
 	{
-		if (m_targets[*m_iterator].first)
+		if (isFixpt)
 		{
-			m_dots[m_targets[*m_iterator].second]->setContrast(100);
+			m_dots[index]->setContrast(contrast);
 		}
 		else
 		{
-			m_gratings[m_targets[*m_iterator].second]->setContrast(100);
+			m_gratings[index]->setContrast(contrast);
 		}
-		//m_dots[*m_iterator]->setContrast(100);
 	}
 	else if (key == "F")
 	{
@@ -316,15 +325,14 @@ int StarUStim::callback(int &output, const FunctorCallbackTrigger* ptrig)
 	else if (key == "X")
 	{
 		m_fixpt.setContrast(0);
-		if (m_targets[*m_iterator].first)
+		if (isFixpt)
 		{
-			m_dots[m_targets[*m_iterator].second]->setContrast(0);
+			m_dots[index]->setContrast(0);
 		}
 		else
 		{
-			m_gratings[m_targets[*m_iterator].second]->setContrast(0);
+			m_gratings[index]->setContrast(0);
 		}
-		//m_dots[*m_iterator]->setContrast(0);
 	}
 
 	return ival;
