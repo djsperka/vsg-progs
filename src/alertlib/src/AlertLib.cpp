@@ -1378,6 +1378,8 @@ int ARGratingSpec::draw(long mode, int apertureLevel)
 	else
 	{
 		vsgSetDrawMode(vsgCENTREXY);
+		vsgSetPen1(getFirstLevel());
+		vsgSetPen2(getFirstLevel() + getNumLevels() - 1);
 		vsgDrawGrating(this->x, -1*this->y, this->w, this->h, this->orientation, this->sf);
 	}
 

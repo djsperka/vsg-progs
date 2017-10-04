@@ -18,6 +18,8 @@ When fixpt is present, it appears at 'F', disappears at 'f'/'X'
 When crosshairs are present, they are always present on screen. 
 
 remote.exe 127.0.0.1 7000 fixstim -a -v -d 500 -g 0,0,5,5,100,.2,1,45,b,s,e
+remote.exe 127.0.0.1 7000 fixstim -a -v -d 500 -g 0,0,5,5,100,.2,1,45,b,s,r
+
 remote.exe 127.0.0.1 7000 fixstim \ 
 							-a -v -d 500 -f 0,0,.5,red \
 							-g -2,-2,2,2,100,.2,1,45,b,s,e
