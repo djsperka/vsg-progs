@@ -264,6 +264,20 @@ void StarUStim::init_pages()
 
 	m_fixpt.init(2);
 	m_fixpt.setContrast(0);
+
+	// background grating?
+	if (m_pBackgroundGrating)
+	{
+		// adjust settings a bit
+		m_pBackgroundGrating->aperture = rectangle;
+		m_pBackgroundGrating->x = m_fixpt.x;
+		m_pBackgroundGrating->y = m_fixpt.y;
+
+		// get width and height correct using x,y and screen size
+		// make sure its large enough that the entire screen is covered
+
+
+	}
 	if (m_dots.size() > 0)
 	{
 		cerr << "init first target" << endl;
