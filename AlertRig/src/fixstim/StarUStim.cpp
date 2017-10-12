@@ -2,7 +2,7 @@
 
 #include "StarUStim.h"
 
-const string StarUStim::m_allowedArgs("avf:t:g:b:d:ho:p:");
+const string StarUStim::m_allowedArgs("avf:t:g:b:d:ho:p:B:");
 
 StarUStim::StarUStim()
 : UStim()
@@ -12,6 +12,7 @@ StarUStim::StarUStim()
 , m_pulse(0x2)
 , m_errflg(0)
 , m_currentPage(1)
+, m_pBackgroundGrating(NULL)
 {
 	m_background.setType(gray);
 };
@@ -54,6 +55,19 @@ int StarUStim::process_arg(int c, std::string& arg)
 	case 'f': 
 		if (parse_fixation_point(arg, m_fixpt)) m_errflg++;
 		else have_f = true;
+		break;
+	case 'B':
+		pgrating = new ARGratingSpec();
+		if (!parse_grating(arg, *pgrating))
+		{
+			m_pBackgroundGrating = pgrating;
+		}
+		else
+		{
+			m_errflg++;
+			cerr << "Error in background grating spec (" << arg << ")" << endl;
+			delete pgrating;
+		}
 		break;
 	case 'g':
 		pgrating = new ARGratingSpec();
