@@ -234,6 +234,12 @@ void StarUStim::update_page()
 	vsgSetDrawPage(vsgVIDEOPAGE, 1-m_currentPage, vsgBACKGROUND);
 	m_currentPage = 1 - m_currentPage;
 
+	// draw background grating if needed
+	if (m_pBackgroundGrating)
+	{
+		m_pBackgroundGrating->draw();
+	}
+
 	// fixpt is drawn at current contrast. 
 	// for "fixpt stays on" as target location changes, make sure the fixpt contrast remains at 100
 	// when this is called. 
@@ -275,7 +281,12 @@ void StarUStim::init_pages()
 
 		// get width and height correct using x,y and screen size
 		// make sure its large enough that the entire screen is covered
+		double d;
+		vsgUnit2Unit(vsgPIXELUNIT, vsgGetScreenWidthPixels(), vsgDEGREEUNIT, &d);
+		m_pBackgroundGrating->w = m_pBackgroundGrating->h = d;
+		m_pBackgroundGrating->wd = m_pBackgroundGrating->hd = 0;
 
+		m_pBackgroundGrating->init(30);
 
 	}
 	if (m_dots.size() > 0)
