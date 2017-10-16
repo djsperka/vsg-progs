@@ -1,5 +1,12 @@
 #include "BarUStim.h"
 
+#define BLANK_PAGE 0
+#define FIXPT_PAGE 1
+#define BAR_PAGE 2
+#define FIXPT_BAR_PAGE 3
+#define BAR_DOT_PAGE 4
+#define FIXPT_BAR_DOT_PAGE 5
+
 const string BarUStim::m_allowedArgs("avf:t:g:b:d:ho:p:B:");
 
 BarUStim::BarUStim()
@@ -229,43 +236,41 @@ void BarUStim::init_triggers(TSpecificFunctor<BarUStim>* pfunctor)
 
 void BarUStim::update_page()
 {
-	vsgSetDrawPage(vsgVIDEOPAGE, 1-m_currentPage, vsgBACKGROUND);
-	m_currentPage = 1 - m_currentPage;
-
-	// draw background grating if needed
-	if (m_pBackgroundGrating)
-	{
-		m_pBackgroundGrating->draw();
-	}
-
-	// fixpt is drawn at current contrast. 
-	// for "fixpt stays on" as target location changes, make sure the fixpt contrast remains at 100
-	// when this is called. 
-
-	m_fixpt.draw();
-
 	bool isFixpt = boost::get<0>(m_targets[*m_iterator]);
 	unsigned int index = boost::get<1>(m_targets[*m_iterator]);
 	int contrast = boost::get<2>(m_targets[*m_iterator]);
-
+	int currentPage = vsgGetCurrentDrawPage()
+	vsgSetDrawPage(vsgVIDEOPAGE, BAR_DOT_PAGE, vsgBACKGROUND);
+	if (m_pBackgroundGrating)
+		m_pBackgroundGrating->draw();
 	if (isFixpt)
 	{
-		m_dots[index]->setContrast(0);
+		m_dots[index]->setContrast(contrast);
 		m_dots[index]->draw();
 	}
 	else
 	{
-		m_gratings[index]->setContrast(0);
+		m_gratings[index]->setContrast(contrast);
 		m_gratings[index]->draw();
 	}
-}
 
-#define BLANK_PAGE 0
-#define FIXPT_PAGE 1
-#define BAR_PAGE 2
-#define FIXPT_BAR_PAGE 3
-#define BAR_DOT_PAGE 4
-#define FIXPT_BAR_DOT_PAGE 5
+	vsgSetDrawPage(vsgVIDEOPAGE, FIXPT_BAR_DOT_PAGE, vsgBACKGROUND);
+	if (m_pBackgroundGrating)
+		m_pBackgroundGrating->draw();
+	m_fixpt.draw();
+	if (isFixpt)
+	{
+		m_dots[index]->setContrast(contrast);
+		m_dots[index]->draw();
+	}
+	else
+	{
+		m_gratings[index]->setContrast(contrast);
+		m_gratings[index]->draw();
+	}
+
+	vsgSetDrawPage(vsgVIDEOPAGE, BLANK_PAGE, vsgNOCLEAR);
+}
 
 void BarUStim::init_pages()
 {
@@ -316,9 +321,6 @@ void BarUStim::init_pages()
 	if (m_pBackgroundGrating)
 		m_pBackgroundGrating->draw();
 	m_fixpt.draw();
-
-	vsgSetDrawPage(vsgVIDEOPAGE, BLANK_PAGE, vsgBACKGROUND);
-	vsgSetDrawPage(vsgVIDEOPAGE, BLANK_PAGE, vsgBACKGROUND);
 
 	cerr << "udpate page" << endl;
 	update_page();
