@@ -35,6 +35,7 @@
 #include "CalibrationUStim.h"
 #include "StarUStim.h"
 #include "BeatUStim.h"
+#include "BarUStim.h"
 
 using namespace std;
 using namespace alert;
@@ -237,6 +238,21 @@ void serverLoop(void * arg)
 					else
 					{
 						cerr << "serverLoop(): StarUStim could not parse args." << endl;
+					}
+				}
+				else if (sargs.find("barstim") == 0)
+				{
+					BarUStim barustim;
+					if (barustim.parses(sargs))
+					{
+						cerr << "serverLoop(): starting barstim stimulus..." << endl;
+						barustim.run_stim(ARvsg::instance());
+						ARvsg::instance().clear();
+						cout << "serverLoop(): barstim stimulus done." << endl;
+					}
+					else
+					{
+						cerr << "serverLoop(): BarUStim could not parse args." << endl;
 					}
 				}
 				else if (sargs.find("beat") == 0)
