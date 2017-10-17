@@ -79,6 +79,100 @@ int parse_fixation_point(const std::string& s, alert::ARFixationPointSpec& afp)
 }
 
 
+
+int parse_rectangle(const std::string& s, alert::ARRectangleSpec& ar)
+{
+	int status = 0;
+	vector<string> tokens;
+	tokenize(s, tokens, ",");
+
+	// Expected format for rectangle is 
+	// x,y,width,height,[orientation,]color
+	// If orientation is omitted, it is assumed to be 0.
+	// If color is omitted, it is assumed to be RED (configurable as a default?)
+	// x,y,width,height are required, parsed as floating point. 
+
+	if (tokens.size() < 4 || tokens.size() > 6)
+	{
+		status = 1;	// bad format
+	}
+	else
+	{
+		istringstream iss;
+		iss.str(tokens[0]);
+		iss >> ar.x;
+		if (!iss)
+		{
+			cerr << "bad x: " << tokens[0] << endl;
+			status = 1;
+		}
+		iss.str(tokens[1]);
+		iss.clear();
+		iss >> ar.y;
+		if (!iss)
+		{
+			cerr << "bad y: " << tokens[1] << endl;
+			status = 1;
+		}
+		iss.str(tokens[2]);
+		iss.clear();
+		iss >> ar.w;
+		if (!iss)
+		{
+			cerr << "bad width: " << tokens[2] << endl;
+			status = 1;
+		}
+		iss.str(tokens[3]);
+		iss.clear();
+		iss >> ar.h;
+		if (!iss)
+		{
+			cerr << "bad height: " << tokens[3] << endl;
+			status = 1;
+		}
+
+		// There can be 4, 5, or 6 tokens.
+		if (tokens.size() == 4)
+		{
+			ar.orientation = 0;
+			ar.color.setType(red);
+		}
+
+		if (tokens.size() > 4)
+		{
+			// the 5th token can be orientation or a color. 
+			iss.str(tokens[4]);
+			iss.clear();
+			iss >> ar.orientation;
+			if (!iss)
+			{
+				// has to be a color.
+				ar.orientation = 0;
+				if (parse_color(tokens[4], ar.color))
+				{
+					cerr << "bad orientation/color: " << tokens[4] << endl;
+					status = 1;
+				}
+			}
+		}
+
+		if (tokens.size() > 5)
+		{
+			ar.orientation = 0;
+			if (parse_color(tokens[5], ar.color))
+			{
+				cerr << "bad color: " << tokens[5] << endl;
+				status = 1;
+			}
+		}
+	}
+
+
+	return status;
+}
+
+
+
 int parse_grating(const std::string& s, alert::ARGratingSpec& ag)
 {
 	int status=0;
