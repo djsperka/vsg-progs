@@ -97,7 +97,6 @@ void CalibrationUStim::run_stim(alert::ARvsg& vsg)
 	int idot;
 	int iserial;
 	int lastidot = -1;
-	int input_trigger;
 	int last_output_trigger = 0;
 
 	while (!bquit)

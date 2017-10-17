@@ -18,7 +18,7 @@ int parse_attcues(const string& s, int nstim, vector<AttentionCue>& vecCues, boo
 	COLOR_TYPE color;
 	double rdiff;
 	int linewidth;
-	int i;
+	unsigned int i;
 	vector<string> tokens;
 	istringstream iss;
 	AttentionCue acue;
