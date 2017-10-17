@@ -970,7 +970,7 @@ int ARChessboardSpec::drawOverlay()
 int ARRectangleSpec::draw()
 {
 	vsgSetDrawMode(vsgCENTREXY + vsgSOLIDFILL);
-	vsgDrawBar(x, y, w, h, orientation);
+	vsgDrawBar(x, -y, w, h, orientation);
 	return 0;
 }
 
