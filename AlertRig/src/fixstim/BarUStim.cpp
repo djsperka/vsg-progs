@@ -7,7 +7,7 @@
 #define BAR_DOT_PAGE 4
 #define FIXPT_BAR_DOT_PAGE 5
 
-const string BarUStim::m_allowedArgs("avf:t:g:b:d:ho:p:B:");
+const string BarUStim::m_allowedArgs("avf:t:r:g:b:d:ho:p:B:");
 
 BarUStim::BarUStim()
 : UStim()
@@ -41,6 +41,7 @@ int BarUStim::process_arg(int c, std::string& arg)
 	static bool have_d=false;		// have screen dist
 	ARContrastFixationPointSpec *pspec;
 	ARGratingSpec *pgrating;
+	ARContrastRectangleSpec *prect;
 
 	switch (c) 
 	{
@@ -80,7 +81,7 @@ int BarUStim::process_arg(int c, std::string& arg)
 		{
 			m_gratings.push_back(pgrating);
 			// m_targets.push_back(make_pair(false, (unsigned int)(m_gratings.size() - 1)));
-			m_targets.push_back(boost::make_tuple(false, (unsigned int)(m_gratings.size() - 1), pgrating->contrast));
+			m_targets.push_back(boost::make_tuple(TargetType::grating, (unsigned int)(m_gratings.size() - 1), pgrating->contrast));
 		}
 		else
 		{
@@ -95,7 +96,7 @@ int BarUStim::process_arg(int c, std::string& arg)
 		{
 			m_dots.push_back(pspec);
 			//m_targets.push_back(make_pair(true, (unsigned int)(m_dots.size() - 1)));
-			m_targets.push_back(boost::make_tuple(true, (unsigned int)(m_dots.size() - 1), 100));
+			m_targets.push_back(boost::make_tuple(TargetType::fixpt, (unsigned int)(m_dots.size() - 1), 100));
 		}
 		else 
 		{
@@ -104,7 +105,21 @@ int BarUStim::process_arg(int c, std::string& arg)
 			delete(pspec);
 		}
 		break;
-	case 'b': 
+	case 'r':
+		prect = new ARContrastRectangleSpec();
+		if (!parse_rectangle(arg, *prect))
+		{
+			m_rectangles.push_back(prect);
+			m_targets.push_back(boost::make_tuple(TargetType::rectangle, (unsigned int)(m_rectangles.size() - 1), 100));
+		}
+		else
+		{
+			m_errflg++;
+			cerr << "Error in target spec (" << arg << ")" << endl;
+			delete(prect);
+		}
+		break;
+	case 'b':
 		if (parse_color(arg, m_background)) m_errflg++; 
 		break;
 	case 'd':
@@ -229,6 +244,12 @@ void BarUStim::init_triggers(TSpecificFunctor<BarUStim>* pfunctor)
 	triggers().addTrigger(new FunctorCallbackTrigger("s", 0x4, 0x0, 0x4, 0x0, pfunctor));
 	triggers().addTrigger(new FunctorCallbackTrigger("a", 0x8, 0x8|AR_TRIGGER_TOGGLE, 0x8, 0x8|AR_TRIGGER_TOGGLE, pfunctor));
 	triggers().addTrigger(new FunctorCallbackTrigger("X", 0x6, 0x0, 0x6, 0x0, pfunctor));
+	triggers().addTrigger(new FunctorCallbackTrigger("0", 0x6, 0x0, 0x6, 0x0, pfunctor));
+	triggers().addTrigger(new FunctorCallbackTrigger("1", 0x6, 0x0, 0x6, 0x0, pfunctor));
+	triggers().addTrigger(new FunctorCallbackTrigger("2", 0x6, 0x0, 0x6, 0x0, pfunctor));
+	triggers().addTrigger(new FunctorCallbackTrigger("3", 0x6, 0x0, 0x6, 0x0, pfunctor));
+	triggers().addTrigger(new FunctorCallbackTrigger("4", 0x6, 0x0, 0x6, 0x0, pfunctor));
+	triggers().addTrigger(new FunctorCallbackTrigger("5", 0x6, 0x0, 0x6, 0x0, pfunctor));
 	triggers().addTrigger(new QuitTrigger("q", 0x10, 0x10, 0xff, 0x0, 0));
 
 	return;
@@ -236,40 +257,51 @@ void BarUStim::init_triggers(TSpecificFunctor<BarUStim>* pfunctor)
 
 void BarUStim::update_page()
 {
-	bool isFixpt = boost::get<0>(m_targets[*m_iterator]);
+	TargetType t = boost::get<0>(m_targets[*m_iterator]);
 	unsigned int index = boost::get<1>(m_targets[*m_iterator]);
 	int contrast = boost::get<2>(m_targets[*m_iterator]);
-	int currentPage = vsgGetCurrentDrawPage()
+	VSGPAGEDESCRIPTOR descr;
+	vsgGetCurrentDrawPage(&descr);
 	vsgSetDrawPage(vsgVIDEOPAGE, BAR_DOT_PAGE, vsgBACKGROUND);
 	if (m_pBackgroundGrating)
 		m_pBackgroundGrating->draw();
-	if (isFixpt)
+	if (t == TargetType::fixpt)
 	{
 		m_dots[index]->setContrast(contrast);
 		m_dots[index]->draw();
 	}
-	else
+	else if (t == TargetType::grating)
 	{
 		m_gratings[index]->setContrast(contrast);
 		m_gratings[index]->draw();
+	}
+	else if (t == TargetType::rectangle)
+	{
+		m_rectangles[index]->setContrast(contrast);
+		m_rectangles[index]->draw();
 	}
 
 	vsgSetDrawPage(vsgVIDEOPAGE, FIXPT_BAR_DOT_PAGE, vsgBACKGROUND);
 	if (m_pBackgroundGrating)
 		m_pBackgroundGrating->draw();
 	m_fixpt.draw();
-	if (isFixpt)
+	if (t == TargetType::fixpt)
 	{
 		m_dots[index]->setContrast(contrast);
 		m_dots[index]->draw();
 	}
-	else
+	else if (t == TargetType::grating)
 	{
 		m_gratings[index]->setContrast(contrast);
 		m_gratings[index]->draw();
 	}
+	else if (t == TargetType::rectangle)
+	{
+		m_rectangles[index]->setContrast(contrast);
+		m_rectangles[index]->draw();
+	}
 
-	vsgSetDrawPage(vsgVIDEOPAGE, BLANK_PAGE, vsgNOCLEAR);
+	vsgSetDrawPage(descr.PageZone, descr.Page, vsgNOCLEAR);
 }
 
 void BarUStim::init_pages()
@@ -305,10 +337,18 @@ void BarUStim::init_pages()
 			m_gratings[i]->init(*m_gratings[0]);
 		}
 	}
+	if (m_rectangles.size() > 0)
+	{
+		cerr << "init first rectangle" << endl;
+		m_rectangles[0]->init(2);
+		for (unsigned int i = 1; i < m_rectangles.size(); i++)
+		{
+			cerr << "init rectangle " << i << endl;
+			m_rectangles[i]->init(*m_rectangles[0]);
+		}
+	}
 
 	// init pages except for those with stim - those are init'd in update_pages
-
-	vsgSetDrawPage(vsgVIDEOPAGE, BLANK_PAGE, vsgBACKGROUND);
 
 	vsgSetDrawPage(vsgVIDEOPAGE, FIXPT_PAGE, vsgBACKGROUND);
 	m_fixpt.draw();
@@ -322,6 +362,11 @@ void BarUStim::init_pages()
 		m_pBackgroundGrating->draw();
 	m_fixpt.draw();
 
+	// do this page past so it will be displayed initially. Note that update_page should leave
+	// the current draw page the same on exiting. 
+	vsgSetDrawPage(vsgVIDEOPAGE, BLANK_PAGE, vsgBACKGROUND);
+
+
 	cerr << "udpate page" << endl;
 	update_page();
 	vsgPresent();
@@ -334,7 +379,7 @@ int BarUStim::callback(int &output, const FunctorCallbackTrigger* ptrig)
 	int ival=1;
 	string key = ptrig->getKey();
 
-	bool isFixpt = boost::get<0>(m_targets[*m_iterator]);
+	TargetType t = boost::get<0>(m_targets[*m_iterator]);
 	unsigned int index = boost::get<1>(m_targets[*m_iterator]);
 	int contrast = boost::get<2>(m_targets[*m_iterator]);
 
@@ -346,45 +391,56 @@ int BarUStim::callback(int &output, const FunctorCallbackTrigger* ptrig)
 	}
 	else if (key == "s")
 	{
-		if (isFixpt)
-		{
-			m_dots[index]->setContrast(0);
-		}
-		else
-		{
-			m_gratings[index]->setContrast(0);
-		}
+		// page 4 or 5 have stim - subtract 2 to get same page without stim
+		VSGPAGEDESCRIPTOR descr;
+		vsgGetCurrentDrawPage(&descr);
+		if (descr.Page == 4 || descr.Page == 5)
+			vsgSetDrawPage(vsgVIDEOPAGE, descr.Page - 2, vsgNOCLEAR);
 	}
 	else if (key == "S")
 	{
-		if (isFixpt)
-		{
-			m_dots[index]->setContrast(contrast);
-		}
-		else
-		{
-			m_gratings[index]->setContrast(contrast);
-		}
+		// page 2 or 3 have fixpt+rect - add 2 to get same page with stim
+		// NOTE - "S" does not work from page 0 or 1!
+		VSGPAGEDESCRIPTOR descr;
+		vsgGetCurrentDrawPage(&descr);
+		if (descr.Page == 2 || descr.Page == 3)
+			vsgSetDrawPage(vsgVIDEOPAGE, descr.Page + 2, vsgNOCLEAR);
 	}
 	else if (key == "F")
 	{
-		m_fixpt.setContrast(100);
+		vsgSetDrawPage(vsgVIDEOPAGE, 3, vsgNOCLEAR);
 	}
 	else if (key == "f")
 	{
-		m_fixpt.setContrast(0);
+		vsgSetDrawPage(vsgVIDEOPAGE, 2, vsgNOCLEAR);
 	}
 	else if (key == "X")
 	{
-		m_fixpt.setContrast(0);
-		if (isFixpt)
-		{
-			m_dots[index]->setContrast(0);
-		}
-		else
-		{
-			m_gratings[index]->setContrast(0);
-		}
+		vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgNOCLEAR);
+	}
+	else if (key == "0")
+	{
+		vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgNOCLEAR);
+	}
+	else if (key == "1")
+	{
+		vsgSetDrawPage(vsgVIDEOPAGE, 1, vsgNOCLEAR);
+	}
+	else if (key == "2")
+	{
+		vsgSetDrawPage(vsgVIDEOPAGE, 2, vsgNOCLEAR);
+	}
+	else if (key == "3")
+	{
+		vsgSetDrawPage(vsgVIDEOPAGE, 3, vsgNOCLEAR);
+	}
+	else if (key == "4")
+	{
+		vsgSetDrawPage(vsgVIDEOPAGE, 4, vsgNOCLEAR);
+	}
+	else if (key == "5")
+	{
+		vsgSetDrawPage(vsgVIDEOPAGE, 5, vsgNOCLEAR);
 	}
 
 	return ival;
