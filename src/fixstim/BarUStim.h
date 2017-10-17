@@ -23,6 +23,8 @@ public:
 	// This acts as the callback function for the triggers
 	int callback(int &output, const FunctorCallbackTrigger* ptrig);
 
+	enum class TargetType { fixpt, rectangle, grating };
+
 private:
 	bool m_binaryTriggers;
 	bool m_verbose;
@@ -30,8 +32,9 @@ private:
 	alert::ARContrastFixationPointSpec m_fixpt;
 	vector<ARContrastFixationPointSpec*> m_dots;
 	vector<ARGratingSpec*> m_gratings;
+	vector<ARContrastRectangleSpec*> m_rectangles;
 	//vector< pair<bool, unsigned int> > m_targets;
-	vector< boost::tuple<bool, unsigned int, int> > m_targets;		//  < isFixpt, index in m_gratings/m_fixpt, contrast in spec (gratings only) > 
+	vector< boost::tuple<TargetType, unsigned int, int> > m_targets;		//  < fixpt/rect/grating, index in m_gratings/m_fixpt, contrast in spec (gratings only) > 
 
 	vector<int> m_vecTargetOrder;
 	vector<int>::const_iterator m_iterator;
