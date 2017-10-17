@@ -162,16 +162,16 @@ int BeatUStim::callback(int &output, const FunctorCallbackTrigger* ptrig)
 	{
 		// Setup page cycling
 		VSGCYCLEPAGEENTRY cycle[32767];
-		for (int i = 0; i < m_initial; i++)
+		for (unsigned int i = 0; i < m_initial; i++)
 		{
 			cycle[i].Frames = i+1;
 			cycle[i].Page = 0 + vsgTRIGGERPAGE;
 			cycle[i].Stop = 0;
 		}
 
-		for (int i = m_initial; i < (m_initial + m_period); i++)
+		for (unsigned int i = m_initial; i < (m_initial + m_period); i++)
 		{
-			cycle[i].Frames = m_gap;
+			cycle[i].Frames = (WORD)m_gap;
 			cycle[i].Page = 0 + vsgTRIGGERPAGE;
 			cycle[i].Stop = 0;
 		}

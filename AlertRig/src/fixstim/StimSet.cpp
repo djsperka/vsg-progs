@@ -179,9 +179,9 @@ std::string FixptMultiGratingStimSet::toString() const
 	else
 		oss << "  xhair: NONE" << endl;
 
-	for (int i = 0; i<count(); i++)
+	for (unsigned int i = 0; i<count(); i++)
 		oss << "   grating   : " << grating(i) << endl;
-	for (int i = 0; i < distractor_count(); i++)
+	for (unsigned int i = 0; i < distractor_count(); i++)
 		oss << "   distractor: " << distractor(i) << endl;
 
 	return oss.str();
