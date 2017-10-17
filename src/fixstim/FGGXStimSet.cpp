@@ -114,7 +114,6 @@ int FGGXStimSet::setup_cycling()
 	double t1, t2, t3;
 	int iIgnore1, iIgnore2;
 	double tAnswerPoints;
-	int nFramesPerGrid;
 	vector<int> pages;
 	int nGrids = 8;
 

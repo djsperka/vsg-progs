@@ -270,7 +270,7 @@ int EQStimSet::init(ARvsg& vsg, std::vector<int> pages)
 
 	if (count() > 6) nlevels = 200/count();
 	cerr << "Number of levels per grating " << nlevels << endl;
-	for (int i=0; i<count(); i++)
+	for (unsigned int i=0; i<count(); i++)
 	{
 		grating(i).init(vsg, nlevels);
 	}
@@ -732,7 +732,7 @@ int EQStimSet::handle_trigger(std::string& s)
 	}
 	else if (s == "S")
 	{
-		for (int i=0; i<count(); i++)
+		for (unsigned int i=0; i<count(); i++)
 		{
 			grating(i).select();
 			vsgObjSetSpatialPhase(grating(i).phase);
