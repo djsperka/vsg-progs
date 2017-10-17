@@ -96,6 +96,7 @@
       <Command>copy include\*.h $(SolutionDir)\..\include
 </Command>
       <Outputs>$(SolutionDir)\..\include\Alertlib.h;%(Outputs)</Outputs>
+      <Message>Copying header files...</Message>
     </CustomBuildStep>
     <ClCompile>
       <Optimization>MaxSpeed</Optimization>
@@ -167,6 +168,7 @@
       <Command>copy include\*.h $(SolutionDir)\..\include
 </Command>
       <Outputs>$(SolutionDir)\..\include\Alertlib.h;%(Outputs)</Outputs>
+      <Message>Copying header files...</Message>
     </CustomBuildStep>
     <ClCompile>
       <Optimization>Disabled</Optimization>
