@@ -103,8 +103,6 @@ COLOR_TYPE& COLOR_TYPE::operator=(const COLOR_ENUM &t)
 }
 
 
-
-
 ARFixationPointSpec::ARFixationPointSpec()
 : x(0)
 , y(0)
@@ -115,6 +113,12 @@ ARFixationPointSpec::ARFixationPointSpec()
 std::ostream& operator<<(std::ostream& out, const ARFixationPointSpec& arfps)
 {
 	out << arfps.x << ", " << arfps.y << "," << arfps.d << "," << arfps.color;
+	return out;
+}
+
+std::ostream& operator<<(std::ostream& out, const ARRectangleSpec& arrect)
+{
+	out << arrect.x << ", " << arrect.y << "," << arrect.w << "," << arrect.h << "," << arrect.color;
 	return out;
 }
 
@@ -573,7 +577,9 @@ void ARvsg::clear(int ipage)
 
 	// djs 4-30-2010 
 	// modify this to set the display page to the just-cleared page. Not sure why the vsgPresent() was here before. 
-	vsgSetZoneDisplayPage(vsgVIDEOPAGE, ipage);
+	// djs 10-17-2017 drive all outputs to zero on clear
+	vsgSetZoneDisplayPage(vsgVIDEOPAGE, ipage+vsgTRIGGERPAGE);
+	vsgSetTriggerOptions(vsgTRIGOPT_PRESENT, 0, vsgTRIG_OUTPUTMARKER, 0.5, 0, 0, 0x1FE);
 	vsgPresent();
 }
 
