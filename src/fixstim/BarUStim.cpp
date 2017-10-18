@@ -244,12 +244,6 @@ void BarUStim::init_triggers(TSpecificFunctor<BarUStim>* pfunctor)
 	triggers().addTrigger(new FunctorCallbackTrigger("s", 0x4, 0x0, 0x4, 0x0, pfunctor));
 	triggers().addTrigger(new FunctorCallbackTrigger("a", 0x8, 0x8|AR_TRIGGER_TOGGLE, 0x8, 0x8|AR_TRIGGER_TOGGLE, pfunctor));
 	triggers().addTrigger(new FunctorCallbackTrigger("X", 0x6, 0x0, 0x6, 0x0, pfunctor));
-	triggers().addTrigger(new FunctorCallbackTrigger("0", 0x6, 0x0, 0x6, 0x0, pfunctor));
-	triggers().addTrigger(new FunctorCallbackTrigger("1", 0x6, 0x0, 0x6, 0x0, pfunctor));
-	triggers().addTrigger(new FunctorCallbackTrigger("2", 0x6, 0x0, 0x6, 0x0, pfunctor));
-	triggers().addTrigger(new FunctorCallbackTrigger("3", 0x6, 0x0, 0x6, 0x0, pfunctor));
-	triggers().addTrigger(new FunctorCallbackTrigger("4", 0x6, 0x0, 0x6, 0x0, pfunctor));
-	triggers().addTrigger(new FunctorCallbackTrigger("5", 0x6, 0x0, 0x6, 0x0, pfunctor));
 	triggers().addTrigger(new QuitTrigger("q", 0x10, 0x10, 0xff, 0x0, 0));
 
 	return;
