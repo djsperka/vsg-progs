@@ -255,6 +255,7 @@ void BarUStim::update_page()
 	unsigned int index = boost::get<1>(m_targets[*m_iterator]);
 	int contrast = boost::get<2>(m_targets[*m_iterator]);
 	VSGPAGEDESCRIPTOR descr;
+	descr._StructSize = sizeof(VSGPAGEDESCRIPTOR);
 	vsgGetCurrentDrawPage(&descr);
 	vsgSetDrawPage(vsgVIDEOPAGE, BAR_DOT_PAGE, vsgBACKGROUND);
 	if (m_pBackgroundGrating)
@@ -308,39 +309,47 @@ void BarUStim::init_pages()
 	// background grating?
 	if (m_pBackgroundGrating)
 	{
+		cerr << "Initialize background grating: " << *m_pBackgroundGrating << endl;
 		m_pBackgroundGrating->init(30);
 	}
+	else
+		cerr << "No background grating." << endl;
 
 	if (m_dots.size() > 0)
 	{
-		cerr << "init first target" << endl;
+		cerr << "Initializing " << m_dots.size() << " target dots." << endl;
 		m_dots[0]->init(2);
 		for (unsigned int i = 1; i<m_dots.size(); i++)
 		{
-			cerr << "init target " << i << endl;
 			m_dots[i]->init(*m_dots[0]);
 		}
 	}
+	else
+		cerr << "No target dots." << endl;
+
 	if (m_gratings.size() > 0)
 	{
-		cerr << "init first grating" << endl;
+		cerr << "Initializing " << m_gratings.size() << " target gratings." << endl;
 		m_gratings[0]->init(30);
 		for (unsigned int i = 1; i < m_gratings.size(); i++)
 		{
-			cerr << "init grating " << i << endl;
 			m_gratings[i]->init(*m_gratings[0]);
 		}
 	}
+	else
+		cerr << "No target gratings." << endl;
+
 	if (m_rectangles.size() > 0)
 	{
-		cerr << "init first rectangle" << endl;
+		cerr << "Initializing " << m_rectangles.size() << " target rectangles." << endl;
 		m_rectangles[0]->init(2);
 		for (unsigned int i = 1; i < m_rectangles.size(); i++)
 		{
-			cerr << "init rectangle " << i << endl;
 			m_rectangles[i]->init(*m_rectangles[0]);
 		}
 	}
+	else
+		cerr << "No target rectangles." << endl;
 
 	// init pages except for those with stim - those are init'd in update_pages
 
@@ -360,10 +369,9 @@ void BarUStim::init_pages()
 	// the current draw page the same on exiting. 
 	vsgSetDrawPage(vsgVIDEOPAGE, BLANK_PAGE, vsgBACKGROUND);
 
-
-	cerr << "udpate page" << endl;
 	update_page();
 	vsgPresent();
+	cerr << "Ready for input triggers." << endl;
 }
 
 
@@ -372,6 +380,8 @@ int BarUStim::callback(int &output, const FunctorCallbackTrigger* ptrig)
 {
 	int ival=1;
 	string key = ptrig->getKey();
+	VSGPAGEDESCRIPTOR descr;
+	descr._StructSize = sizeof(VSGPAGEDESCRIPTOR);
 
 	TargetType t = boost::get<0>(m_targets[*m_iterator]);
 	unsigned int index = boost::get<1>(m_targets[*m_iterator]);
@@ -386,19 +396,27 @@ int BarUStim::callback(int &output, const FunctorCallbackTrigger* ptrig)
 	else if (key == "s")
 	{
 		// page 4 or 5 have stim - subtract 2 to get same page without stim
-		VSGPAGEDESCRIPTOR descr;
 		vsgGetCurrentDrawPage(&descr);
 		if (descr.Page == 4 || descr.Page == 5)
 			vsgSetDrawPage(vsgVIDEOPAGE, descr.Page - 2, vsgNOCLEAR);
+		else
+		{
+			cerr << "Cannot take down stim unless at a stim page" << endl;
+			ival = 0;
+		}
 	}
 	else if (key == "S")
 	{
 		// page 2 or 3 have fixpt+rect - add 2 to get same page with stim
 		// NOTE - "S" does not work from page 0 or 1!
-		VSGPAGEDESCRIPTOR descr;
 		vsgGetCurrentDrawPage(&descr);
 		if (descr.Page == 2 || descr.Page == 3)
 			vsgSetDrawPage(vsgVIDEOPAGE, descr.Page + 2, vsgNOCLEAR);
+		else
+		{
+			cerr << "Cannot present stim unless at a bar page" << endl;
+			ival = 0;
+		}
 	}
 	else if (key == "F")
 	{
@@ -406,7 +424,14 @@ int BarUStim::callback(int &output, const FunctorCallbackTrigger* ptrig)
 	}
 	else if (key == "f")
 	{
-		vsgSetDrawPage(vsgVIDEOPAGE, 2, vsgNOCLEAR);
+		vsgGetCurrentDrawPage(&descr);
+		if (descr.Page == 1 || descr.Page == 3 || descr.Page == 5)
+			vsgSetDrawPage(vsgVIDEOPAGE, descr.Page - 1, vsgNOCLEAR);
+		else
+		{
+			cerr << "no fixpt up - cannot take down" << endl;
+			ival = 0;
+		}
 	}
 	else if (key == "X")
 	{
