@@ -441,24 +441,57 @@ int AttentionStimSet::init(ARvsg& vsg, std::vector<int> pages)
 	// overestimates the number of levels. 
 	nlevels = (245 - 4*m_vecCues.size())/(m_vecGratings.size()*2 + m_vecDistractors.size());
 
-	cerr << "Number of levels per stim " << nlevels << endl;
+	cerr << "Number of levels per grating " << nlevels << endl;
+
+
+	// Below the cues and cue points share levels to save on the overall number of objects. 
+	// The cues come in groups where each one corresponds to a stimulus grating. If there are 3 stim gratings, 
+	// then the first cue corresponds to the first grating (uses its center point, and its radius is used for 
+	// determining the radius offset of the cue circle), the second cue corresponds to the second grating, 
+	// and the third cue corresponds to the third grating. After that, additional groups of cues correspond to 
+	// the first, second, and third grating in the same way. 
+	// The 'offBits' parameter for a given trial has the particular cue group encoded: The upper 8 bits are an 
+	// index into the list of cues. Thus, if 'offBits' is 0x400, the cue group [4] (the fifth one, since we use
+	// ordinary C indexing like we should) is used for that trial. 
+	// 
+	// The first group of cues is initialized (gets assigned a VSG object number, color levels) in the normal way. 
+	// Subsequent groups of cues (and all the cue points) are initialized to use the same object number and levels. 
+
+#if 0
+	cerr << "Initialize " << m_vecCues.size() << " cues." << endl;
 	for (unsigned int i=0; i<m_vecCues.size(); i++)
 	{
 		m_vecCues[i].init(vsg, 2);
 	}
+#else
+	cerr << "Initialize " << m_vecCues.size() << " cues." << endl;
+	for (unsigned int i = 0; i<m_vecGratings.size(); i++)
+	{
+		m_vecCues[i].init(vsg, 2);
+	}
+	for (unsigned int i = m_vecGratings.size(); i < m_vecCues.size(); i++)
+	{
+		cerr << "init cue " << i << " using cue " << (i % m_vecGratings.size()) << endl;
+		m_vecCues[i].init(m_vecCues[i % m_vecGratings.size()]);
+	}
+
+#endif
 
 	// if there are any cue ponts, then there should be the same number
 	// of cues. We use the same levels for each to save on the overall number
 	// of vsg objects. 
+	cerr << "Initialize " << m_vecCuePoints.size() << " cue points." << endl;
 	for (unsigned int i=0; i<m_vecCuePoints.size(); i++)
 	{
 		m_vecCuePoints[i].init(m_vecCues[i]);
 	}
+	cerr << "Initialize " << m_vecGratings.size() << " gratings." << endl;
 	for (unsigned int i=0; i<m_vecGratings.size(); i++)
 	{
 		m_vecGratings[i].init(vsg, nlevels);
 		m_vecGratingsCC[i].init(vsg, nlevels);
 	}
+	cerr << "Initialize " << m_vecDistractors.size() << " distractors." << endl;
 	for (unsigned int i=0; i<m_vecDistractors.size(); i++)
 	{
 		m_vecDistractors[i].init(vsg, nlevels);
