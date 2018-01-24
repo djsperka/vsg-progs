@@ -221,6 +221,9 @@
   <ItemGroup>
     <Text Include="aaa-fixstim-testing.txt" />
     <Text Include="aaa-starsac2-testing.txt" />
+    <Text Include="attention-test-cues-1.txt" />
+    <Text Include="attention-test-cues-2.txt" />
+    <Text Include="attention-test-cues-3.txt" />
     <Text Include="attention-test-input-1.txt" />
     <Text Include="attention-test-input-2.txt" />
     <Text Include="attention-test-input-3.txt" />
