@@ -13,7 +13,7 @@ double get_fconfig(VSGCYCLEPAGEENTRY* cycle, int count)
 
 
 
-int parse_attcues(const string& s, int nstim, vector<AttentionCue>& vecCues, bool bCuePoints)
+int parse_attcues(const string& s, int nstim, vector<AttentionCue>& vecCues)
 {
 	COLOR_TYPE color;
 	double rdiff;
@@ -40,14 +40,13 @@ int parse_attcues(const string& s, int nstim, vector<AttentionCue>& vecCues, boo
 			acue.rdiff = rdiff;
 			acue.linewidth = linewidth;
 			acue.color = color;
-			acue.bCuePoint = bCuePoints;
 			vecCues.push_back(acue);
 
 		}
 	}
 	else
 	{
-		cerr << "Error reading attention cues (" << s << ") Expecting " << nstim*2 << " args, 3 for each stim." << endl;
+		cerr << "Error reading attention cues (" << s << ") Expecting a multiple of " << nstim*3 << " args, 3 for each stim." << endl;
 		return 1;
 	}
 	return 0;
@@ -336,6 +335,8 @@ void dump_flashyparams(vector<FlashyParams>& vec);
 AttentionStimSet::AttentionStimSet(ARContrastFixationPointSpec& fixpt, double tMax, std::vector<alert::ARGratingSpec>& vecGratings, vector<AttParams>& params)
 : m_fixpt(fixpt)
 , m_tMax(tMax)
+, m_bUseCueCircles(false)
+, m_bUseCuePoints(false)
 , m_vecGratings(vecGratings)
 , m_vecGratingsCC(vecGratings)
 , m_vecParams(params)
@@ -345,6 +346,8 @@ AttentionStimSet::AttentionStimSet(ARContrastFixationPointSpec& fixpt, double tM
 AttentionStimSet::AttentionStimSet(ARContrastFixationPointSpec& fixpt, double tMax, std::vector<alert::ARGratingSpec>& vecGratings, vector<AttParams>& params, vector<alert::ARGratingSpec>& vecDistractors, FlashyParamVectorVector& vecFlashies)
 : m_fixpt(fixpt)
 , m_tMax(tMax)
+, m_bUseCueCircles(false)
+, m_bUseCuePoints(false)
 , m_vecGratings(vecGratings)
 , m_vecGratingsCC(vecGratings)
 , m_vecParams(params)
@@ -354,9 +357,11 @@ AttentionStimSet::AttentionStimSet(ARContrastFixationPointSpec& fixpt, double tM
 {};
 
 
-AttentionStimSet::AttentionStimSet(ARContrastFixationPointSpec& fixpt, double tMax, vector<alert::ARGratingSpec>& vecGratings, vector<AttentionCue>& vecCuePairs, vector<AttParams>& params)
+AttentionStimSet::AttentionStimSet(ARContrastFixationPointSpec& fixpt, double tMax, vector<alert::ARGratingSpec>& vecGratings, vector<AttentionCue>& vecCuePairs, bool bCueCircles, bool bCuePoints, vector<AttParams>& params)
 : m_fixpt(fixpt)
 , m_tMax(tMax)
+, m_bUseCueCircles(bCueCircles)
+, m_bUseCuePoints(bCuePoints)
 , m_vecGratings(vecGratings)
 , m_vecGratingsCC(vecGratings)
 , m_vecParams(params)
@@ -366,6 +371,8 @@ AttentionStimSet::AttentionStimSet(ARContrastFixationPointSpec& fixpt, double tM
 	{
 		ARContrastCircleSpec circle;
 		int indGrating = i % m_vecGratings.size();
+
+		// set up cue circle
 		circle.x = m_vecGratings[indGrating].x;
 		circle.y = m_vecGratings[indGrating].y;
 		circle.d = m_vecGratings[indGrating].w + vecCuePairs[i].rdiff*2;
@@ -373,22 +380,21 @@ AttentionStimSet::AttentionStimSet(ARContrastFixationPointSpec& fixpt, double tM
 		circle.color = vecCuePairs[i].color;
 		m_vecCues.push_back(circle);
 
-		// set up cue point if needed
-		if (vecCuePairs[i].bCuePoint)
-		{
-			ARContrastFixationPointSpec f;
-			f.color = vecCuePairs[i].color;
-			f.d = fixpt.d;
-			f.x = m_vecGratings[indGrating].x;
-			f.y = m_vecGratings[indGrating].y;
-			m_vecCuePoints.push_back(f);
-		}
+		// set up cue point
+		ARContrastFixationPointSpec f;
+		f.color = vecCuePairs[i].color;
+		f.d = fixpt.d;
+		f.x = m_vecGratings[indGrating].x;
+		f.y = m_vecGratings[indGrating].y;
+		m_vecCuePoints.push_back(f);
 	}
 };
 
-AttentionStimSet::AttentionStimSet(ARContrastFixationPointSpec& fixpt, double tMax, vector<alert::ARGratingSpec>& vecGratings, vector<AttentionCue>& vecCuePairs, vector<AttParams>& params, vector<alert::ARGratingSpec>& vecDistractors, FlashyParamVectorVector& vecFlashies)
+AttentionStimSet::AttentionStimSet(ARContrastFixationPointSpec& fixpt, double tMax, vector<alert::ARGratingSpec>& vecGratings, vector<AttentionCue>& vecCuePairs, bool bCueCircles, bool bCuePoints, vector<AttParams>& params, vector<alert::ARGratingSpec>& vecDistractors, FlashyParamVectorVector& vecFlashies)
 : m_fixpt(fixpt)
 , m_tMax(tMax)
+, m_bUseCueCircles(bCueCircles)
+, m_bUseCuePoints(bCuePoints)
 , m_vecGratings(vecGratings)
 , m_vecGratingsCC(vecGratings)
 , m_vecParams(params)
@@ -396,27 +402,26 @@ AttentionStimSet::AttentionStimSet(ARContrastFixationPointSpec& fixpt, double tM
 , m_vecFlashies(vecFlashies)
 , m_current(0)
 {
-	for (unsigned int i=0; i<vecCuePairs.size(); i++)
+	for (unsigned int i = 0; i<vecCuePairs.size(); i++)
 	{
 		ARContrastCircleSpec circle;
 		int indGrating = i % m_vecGratings.size();
+
+		// set up cue circle
 		circle.x = m_vecGratings[indGrating].x;
 		circle.y = m_vecGratings[indGrating].y;
-		circle.d = m_vecGratings[indGrating].w + vecCuePairs[i].rdiff*2;
+		circle.d = m_vecGratings[indGrating].w + vecCuePairs[i].rdiff * 2;
 		circle.linewidth = vecCuePairs[i].linewidth;
 		circle.color = vecCuePairs[i].color;
 		m_vecCues.push_back(circle);
 
-		// set up cue point if needed
-		if (vecCuePairs[i].bCuePoint)
-		{
-			ARContrastFixationPointSpec f;
-			f.color = vecCuePairs[i].color;
-			f.d = fixpt.d;
-			f.x = m_vecGratings[indGrating].x;
-			f.y = m_vecGratings[indGrating].y;
-			m_vecCuePoints.push_back(f);
-		}
+		// set up cue point
+		ARContrastFixationPointSpec f;
+		f.color = vecCuePairs[i].color;
+		f.d = fixpt.d;
+		f.x = m_vecGratings[indGrating].x;
+		f.y = m_vecGratings[indGrating].y;
+		m_vecCuePoints.push_back(f);
 	}
 };
 
@@ -457,13 +462,6 @@ int AttentionStimSet::init(ARvsg& vsg, std::vector<int> pages)
 	// The first group of cues is initialized (gets assigned a VSG object number, color levels) in the normal way. 
 	// Subsequent groups of cues (and all the cue points) are initialized to use the same object number and levels. 
 
-#if 0
-	cerr << "Initialize " << m_vecCues.size() << " cues." << endl;
-	for (unsigned int i=0; i<m_vecCues.size(); i++)
-	{
-		m_vecCues[i].init(vsg, 2);
-	}
-#else
 	cerr << "Initialize " << m_vecCues.size() << " cues." << endl;
 	for (unsigned int i = 0; i<m_vecGratings.size(); i++)
 	{
@@ -475,11 +473,7 @@ int AttentionStimSet::init(ARvsg& vsg, std::vector<int> pages)
 		m_vecCues[i].init(m_vecCues[i % m_vecGratings.size()]);
 	}
 
-#endif
-
-	// if there are any cue ponts, then there should be the same number
-	// of cues. We use the same levels for each to save on the overall number
-	// of vsg objects. 
+	// Initialize all cue points, even if they are not used. 
 	cerr << "Initialize " << m_vecCuePoints.size() << " cue points." << endl;
 	for (unsigned int i=0; i<m_vecCuePoints.size(); i++)
 	{
@@ -846,6 +840,8 @@ void AttentionStimSet::draw_stim_gratings(bool bIsCC, const struct AttParams& pa
 
 void AttentionStimSet::draw_cues(const struct AttParams& params)
 {
+	if (!m_bUseCueCircles) return;
+
 	// Draw cue circles.
 	// One for each grating, but the set of cues used are taken from 
 	// (iOffBits & 0xff00) >> 8
@@ -875,6 +871,8 @@ void AttentionStimSet::draw_cues(const struct AttParams& params)
 
 void AttentionStimSet::draw_cue_points(const struct AttParams& params)
 {
+	if (!m_bUseCuePoints) return;
+
 	// Draw cue points
 	// One for each grating, but the set of cues used are taken from 
 	// (iOffBits & 0xff00) >> 8

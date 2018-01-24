@@ -19,11 +19,10 @@ typedef struct attention_cue
 	double rdiff;
 	int linewidth;
 	COLOR_TYPE color;
-	bool bCuePoint;		// if true, will draw cue point in addition to cue circle
 } AttentionCue;
 
 int parse_attparams(const string& s, int nstim, vector<struct AttParams>& vecTrialParams, double& tMax);
-int parse_attcues(const string& s, int nstim, vector<AttentionCue>& vecCues, bool bCuePoints);
+int parse_attcues(const string& s, int nstim, vector<AttentionCue>& vecCues);
 void dump_attcues(const vector<AttentionCue>& vecCues);
 
 
@@ -52,9 +51,9 @@ class AttentionStimSet: public StimSet
 {
 public:
 	AttentionStimSet(ARContrastFixationPointSpec& fixpt, double tMax, vector<alert::ARGratingSpec>& vecGratings, vector<AttParams>& params);
-	AttentionStimSet(ARContrastFixationPointSpec& fixpt, double tMax, vector<alert::ARGratingSpec>& vecGratings, vector<AttentionCue>& vecCuePairs, vector<AttParams>& params);
+	AttentionStimSet(ARContrastFixationPointSpec& fixpt, double tMax, vector<alert::ARGratingSpec>& vecGratings, vector<AttentionCue>& vecCuePairs, bool bCueCircles, bool bCuePoints, vector<AttParams>& params);
 	AttentionStimSet(ARContrastFixationPointSpec& fixpt, double tMax, vector<alert::ARGratingSpec>& vecGratings, vector<AttParams>& params, vector<alert::ARGratingSpec>& vecDistractors, FlashyParamVectorVector& vecFlashies);
-	AttentionStimSet(ARContrastFixationPointSpec& fixpt, double tMax, vector<alert::ARGratingSpec>& vecGratings, vector<AttentionCue>& vecCuePairs, vector<AttParams>& params, vector<alert::ARGratingSpec>& vecDistractors, FlashyParamVectorVector& vecFlashies);
+	AttentionStimSet(ARContrastFixationPointSpec& fixpt, double tMax, vector<alert::ARGratingSpec>& vecGratings, vector<AttentionCue>& vecCuePairs, bool bCueCircles, bool bCuePoints, vector<AttParams>& params, vector<alert::ARGratingSpec>& vecDistractors, FlashyParamVectorVector& vecFlashies);
 	bool setFlashies(const vector<alert::ARGratingSpec>& vecGratings, const FlashyParamVectorVector& vecFlashies);
 	virtual int num_pages() {return (int)(4 + m_vecDistractors.size());};
 	virtual int num_overlay_pages() {return 0;};
@@ -70,6 +69,8 @@ private:
 	void draw_flashy(const FlashyParams& params);
 	alert::ARContrastFixationPointSpec m_fixpt;
 	double m_tMax;
+	bool m_bUseCueCircles;
+	bool m_bUseCuePoints;
 	vector<alert::ARGratingSpec> m_vecGratings;
 	vector<alert::ARGratingSpec> m_vecGratingsCC;
 	vector<struct AttParams> m_vecParams;
