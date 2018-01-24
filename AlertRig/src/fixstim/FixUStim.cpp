@@ -9,7 +9,7 @@ using namespace std;
 using namespace boost::algorithm;
 using namespace boost::filesystem;
 
-const string FixUStim::m_allowedArgs("ab:d:e:f:g:h:i:j:k:l:q:p:s:vy:zA:B:C:D:E:G:H:I:J:KL:M:NO:P:Q:R:S:T:U:V:W:X:Y:Z:");
+const string FixUStim::m_allowedArgs("ab:d:e:f:g:h:i:j:k:l:q:p:r:s:vy:zA:B:C:D:E:G:H:I:J:KL:M:NO:P:Q:R:S:T:U:V:W:X:Y:Z:");
 
 FixUStim::FixUStim(bool bStandAlone)
 : UStim()
@@ -240,6 +240,8 @@ int FixUStim::process_arg(int c, std::string& arg)
 	static bool last_was_fixpt = false;
 	static bool last_was_grating = false;
 	static bool last_was_distractor = false;
+	static bool bUseCueCircles = false;
+	static bool bUseCuePoints = false;
 //	static int errflg = 0;
 
 	// This is a loooooong stanza. Be patient.
@@ -1119,8 +1121,11 @@ int FixUStim::process_arg(int c, std::string& arg)
 		}
 	case 'Q':
 	case 'q':
+	case 'r':
 		{
-			if (parse_attcues(arg, m_vecGratings.size(), m_vecAttentionCues, (c == 'q' ? true : false)))
+			bUseCueCircles = (c == 'Q' || c == 'q');
+			bUseCuePoints = (c == 'q' || c == 'r');
+			if (parse_attcues(arg, m_vecGratings.size(), m_vecAttentionCues))
 			{
 				cerr << "Error in input." << endl;
 				m_errflg++;
@@ -1212,7 +1217,7 @@ int FixUStim::process_arg(int c, std::string& arg)
 								{
 									if (checkFlashyTimes(vecInput, m_vecFlashies, tMax) == 0)
 									{
-										m_pStimSet = new AttentionStimSet(m_fixpt, tMax, m_vecGratings, m_vecAttentionCues, vecInput, m_vecDistractors, m_vecFlashies);
+										m_pStimSet = new AttentionStimSet(m_fixpt, tMax, m_vecGratings, m_vecAttentionCues, bUseCueCircles, bUseCuePoints, vecInput, m_vecDistractors, m_vecFlashies);
 									}
 									else
 									{
@@ -1228,7 +1233,7 @@ int FixUStim::process_arg(int c, std::string& arg)
 							}
 							else
 							{
-								m_pStimSet = new AttentionStimSet(m_fixpt, tMax, m_vecGratings, m_vecAttentionCues, vecInput);
+								m_pStimSet = new AttentionStimSet(m_fixpt, tMax, m_vecGratings, m_vecAttentionCues, bUseCueCircles, bUseCuePoints, vecInput);
 							}
 						}
 					}
