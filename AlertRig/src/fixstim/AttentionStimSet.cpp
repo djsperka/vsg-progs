@@ -444,8 +444,14 @@ int AttentionStimSet::init(ARvsg& vsg, std::vector<int> pages)
 
 	// Change level mult factor from 2 to 4 for cues to accomodate cue points. If no cue points this
 	// overestimates the number of levels. 
-	nlevels = (245 - 4*m_vecCues.size())/(m_vecGratings.size()*2 + m_vecDistractors.size());
+	//nlevels = (245 - 4*m_vecCues.size())/(m_vecGratings.size()*2 + m_vecDistractors.size());
 
+	// If using cues, take 2 levels per stim for the cues. That's because the cue point AND cue circle use the
+	// same VSG object. If there are multiple sets of cues/points, they share the same set of VSG 
+	// objects. Thus, if there are 3 stim, and 18 sets of cues (54 in all), then we will only need 6 levels for 
+	// the cue objects.
+
+	nlevels = (245-((m_bUseCueCircles || m_bUseCuePoints) ? m_vecGratings.size()*2 : 0))/(m_vecGratings.size() * 2 + m_vecDistractors.size());
 	cerr << "Number of levels per grating " << nlevels << endl;
 
 
