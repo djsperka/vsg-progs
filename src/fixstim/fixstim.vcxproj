@@ -200,6 +200,7 @@
     <ClCompile Include="FixUStim.cpp" />
     <ClCompile Include="FXImageStimSet.cpp" />
     <ClCompile Include="MultiParameterFXMultiGStimSet.cpp" />
+    <ClCompile Include="QCycleUtil.cpp" />
     <ClCompile Include="StarUStim.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
@@ -224,6 +225,7 @@
     <Text Include="attention-test-cues-1.txt" />
     <Text Include="attention-test-cues-2.txt" />
     <Text Include="attention-test-cues-3.txt" />
+    <Text Include="attention-test-cues-onoff-1.txt" />
     <Text Include="attention-test-input-1.txt" />
     <Text Include="attention-test-input-2.txt" />
     <Text Include="attention-test-input-3.txt" />
@@ -256,6 +258,7 @@
     <ClInclude Include="FXGStimParameterList.h" />
     <ClInclude Include="FXImageStimSet.h" />
     <ClInclude Include="MultiParameterFXMultiGStimSet.h" />
+    <ClInclude Include="QCycleUtil.h" />
     <ClInclude Include="SSInfo.h" />
     <ClInclude Include="StarUStim.h" />
     <ClInclude Include="stdafx.h" />

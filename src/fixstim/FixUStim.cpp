@@ -9,7 +9,7 @@ using namespace std;
 using namespace boost::algorithm;
 using namespace boost::filesystem;
 
-const string FixUStim::m_allowedArgs("ab:d:e:f:g:h:i:j:k:l:q:p:r:s:vy:zA:B:C:D:E:G:H:I:J:KL:M:NO:P:Q:R:S:T:U:V:W:X:Y:Z:");
+const string FixUStim::m_allowedArgs("ab:d:e:f:g:h:i:j:k:l:m:q:p:r:s:vy:zA:B:C:D:E:G:H:I:J:KL:M:NO:P:Q:R:S:T:U:V:W:X:Y:Z:");
 
 FixUStim::FixUStim(bool bStandAlone)
 : UStim()
@@ -1152,6 +1152,20 @@ int FixUStim::process_arg(int c, std::string& arg)
 			}
 			break;
 		}
+	case 'm':
+		{
+			vector<InterleavedParams> vecInput;
+			if (parse_interleaved_params(arg, m_vecGratings.size(), vecInput))
+			{
+				cerr << "Error in input for interleaved params." << endl;
+			}
+			else
+			{
+				my_print_interleaved_trials(vecInput);
+				m_pStimSet = new AttentionStimSet(m_fixpt, m_vecGratings, m_vecAttentionCues, bUseCueCircles, bUseCuePoints, vecInput);
+			}
+		}
+		break;
 	case 'J':
 		{
 			// Henry's Attention expt. 

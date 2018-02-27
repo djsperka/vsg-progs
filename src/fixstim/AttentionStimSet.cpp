@@ -1,4 +1,5 @@
 #include "AttentionStimSet.h"
+#include "QCycleUtil.h"
 #include <algorithm>
 using namespace std;
 
@@ -304,33 +305,127 @@ int checkFlashyTimes(const vector<AttParams>& vecInput, const FlashyParamVectorV
 
 
 
-/*
-struct AttParams
+
+
+int parse_interleaved_params(const string& s, int nstim, vector<InterleavedParams>& params)
 {
-	COLOR_TYPE color;
-	double dInitialPhase;
-	double dTimeToCC;
-	std::vector<std::pair<int, int> > contrastPairs;
-	int iOffBits;
-};
+	int i;
+	int status = 0;
+	struct InterleavedParams trial;
+	vector<string> tokens;
+	tokenize(s, tokens, ",");
+	if (tokens.size() % (8 + nstim * 2) == 0)
+	{
+		istringstream iss;
+		vector<string>::const_iterator it = tokens.begin();
+		while (it != tokens.end())
+		{
+			// each pass through this loop will pickup the parameters for a single trial. 
 
-*/
+			if (parse_color(*it, trial.color))
+			{
+				cerr << "Error reading color: " << *it << endl;
+				status = 1;
+				break;
+			}
+			it++;
+			iss.str(*it);
+			if (parse_double(*it, trial.dInitialPhase))
+			{
+				cerr << "Error reading initial phase: " << *it << endl;
+				status = 1;
+				break;
+			}
+			it++;
+			if (parse_integer(*it, trial.iOffBits))
+			{
+				cerr << "Error reading off bits: " << *it;
+				status = 1;
+				break;
+			}
+			it++;
+			if (parse_double(*it, trial.times[0]))
+			{
+				cerr << "Error reading time to Q0: " << *it;
+				status = 1;
+				break;
+			}
+			it++;
+			if (parse_double(*it, trial.times[1]))
+			{
+				cerr << "Error reading time to Q1: " << *it;
+				status = 1;
+				break;
+			}
+			it++;
+			if (parse_double(*it, trial.times[2]))
+			{
+				cerr << "Error reading time to Stim: " << *it;
+				status = 1;
+				break;
+			}
+			it++;
+			if (parse_double(*it, trial.times[3]))
+			{
+				cerr << "Error reading time to CC: " << *it;
+				status = 1;
+				break;
+			}
+			it++;
+			if (parse_double(*it, trial.times[4]))
+			{
+				cerr << "Error reading time to End: " << *it;
+				status = 1;
+				break;
+			}
+			it++;
 
-/*
-typedef struct flashy_params
+			// Pick up contrast pairs. Clear the vector that holds the pairs first, so we
+			// don't just append the current trials' pairs to last trials' pairs. 
+			trial.contrastPairs.clear();
+			for (i = 0; i<nstim; i++)
+			{
+				int iBase, iChg;
+				if (parse_integer(*it, iBase))
+				{
+					cerr << "Error reading base contrast: " << *it << endl;
+					status = 1;
+					return 1;
+				}
+				it++;
+				if (parse_integer(*it, iChg))
+				{
+					cerr << "Error reading chg contrast: " << *it << endl;
+					status = 1;
+					return 1;
+				}
+				it++;
+				trial.contrastPairs.push_back(std::pair<int, int>(iBase, iChg));
+			}
+			params.push_back(trial);
+		}
+	}
+	else
+	{
+		cerr << "Error reading interleaved attention parameters. Check command line args." << endl;
+		status = 1;
+	}
+	return status;
+}
+
+void my_print_interleaved_params(const InterleavedParams& trial)
 {
-	int nk;	// distractor number to use, index [0,...,distractor.size-1]
-	double x, y, d;
-	double ton, toff;
-} FlashyParams;
+	std::cout << trial.color << " , " << trial.dInitialPhase << " , " << std::hex << trial.iOffBits << std::dec << trial.times[0] << "/" << trial.times[1] << "/" << trial.times[2] << "/" << trial.times[3] << "/" << trial.times[4] << " Pairs "; 
+	for (int i = 0; i < trial.contrastPairs.size(); i++)
+		std::cout << "(" << trial.contrastPairs[i].first << "," << trial.contrastPairs[i].second << ") ";
+	std::cout << std::endl;
+}
 
-typedef vector<struct flashy_params> FlashyParamVector;
-typedef vector< FlashyParamVector > FlashyParamVectorVector;
+void my_print_interleaved_trials(const vector<InterleavedParams>& trials)
+{
+	std::for_each(trials.begin(), trials.end(), my_print_interleaved_params);
+}
 
-// helper function for loading params from a comma-separated string
-int parse_flashyparams(const string& s, vector<FlashyParams>& vecFlashyParams);
-void dump_flashyparams(vector<FlashyParams>& vec);
-*/
 
 AttentionStimSet::AttentionStimSet(ARContrastFixationPointSpec& fixpt, double tMax, std::vector<alert::ARGratingSpec>& vecGratings, vector<AttParams>& params)
 : m_fixpt(fixpt)
@@ -425,6 +520,39 @@ AttentionStimSet::AttentionStimSet(ARContrastFixationPointSpec& fixpt, double tM
 	}
 };
 
+AttentionStimSet::AttentionStimSet(ARContrastFixationPointSpec& fixpt, vector<alert::ARGratingSpec>& vecGratings, vector<AttentionCue>& vecCuePairs, bool bCueCircles, bool bCuePoints, vector<InterleavedParams>& params)
+: m_fixpt(fixpt)
+, m_tMax(0)
+, m_bUseCueCircles(bCueCircles)
+, m_bUseCuePoints(bCuePoints)
+, m_vecGratings(vecGratings)
+, m_vecGratingsCC(vecGratings)
+, m_vecInterleaved(params)
+, m_current(0)
+{
+	for (unsigned int i = 0; i<vecCuePairs.size(); i++)
+	{
+		ARContrastCircleSpec circle;
+		int indGrating = i % m_vecGratings.size();
+
+		// set up cue circle
+		circle.x = m_vecGratings[indGrating].x;
+		circle.y = m_vecGratings[indGrating].y;
+		circle.d = m_vecGratings[indGrating].w + vecCuePairs[i].rdiff * 2;
+		circle.linewidth = vecCuePairs[i].linewidth;
+		circle.color = vecCuePairs[i].color;
+		m_vecCues.push_back(circle);
+
+		// set up cue point
+		ARContrastFixationPointSpec f;
+		f.color = vecCuePairs[i].color;
+		f.d = fixpt.d;
+		f.x = m_vecGratings[indGrating].x;
+		f.y = m_vecGratings[indGrating].y;
+		m_vecCuePoints.push_back(f);
+	}
+};
+
 
 
 int AttentionStimSet::init(ARvsg& vsg, std::vector<int> pages)
@@ -436,6 +564,14 @@ int AttentionStimSet::init(ARvsg& vsg, std::vector<int> pages)
 	m_pageStim = pages[2];
 	m_pageChg = pages[3];
 	m_pageD = max(max(max(m_pageBlank, m_pageFixpt), m_pageStim), m_pageChg) + 1;
+
+	if (m_vecInterleaved.size() > 0)
+	{
+		// When using interleaved, there are two additional pages
+		m_pageFixptQ = pages[4];
+		m_pageQStim = pages[5];
+		m_pageQStimCC = pages[6];
+	}
 
 	// divvy up levels. There are only about 250 levels available but fixpt takes 2...
 	m_fixpt.init(vsg, 2);
@@ -502,7 +638,26 @@ int AttentionStimSet::init(ARvsg& vsg, std::vector<int> pages)
 	return status;
 }
 
+int AttentionStimSet::num_pages() 
+{ 
+	if (m_vecInterleaved.empty())
+		return (int)(4 + m_vecDistractors.size());
+	else
+		return 7;
+};
+
+
+
 int AttentionStimSet::drawCurrent()
+{
+	if (!m_vecParams.empty())
+		return drawCurrentAttParams();
+	else
+		return drawCurrentInterleaved();
+}
+
+
+int AttentionStimSet::drawCurrentAttParams()
 {
 	int status = 0;
 	int page = vsgGetZoneDisplayPage(vsgVIDEOPAGE);
@@ -521,24 +676,24 @@ int AttentionStimSet::drawCurrent()
 	// Stim page
 	cerr << "Configure page " << m_pageStim << " pre-CC stim only" << endl;
 	vsgSetDrawPage(vsgVIDEOPAGE, m_pageStim, vsgBACKGROUND);
-	draw_cue_points(m_vecParams.at(m_current));
-	draw_stim_gratings(false, m_vecParams.at(m_current));
-	draw_cues(m_vecParams.at(m_current));
+	draw_cue_points(m_vecParams.at(m_current).iOffBits);
+	draw_stim_gratings(false, m_vecParams.at(m_current).iOffBits, m_vecParams.at(m_current).dInitialPhase, m_vecParams.at(m_current).contrastPairs);
+	draw_cues(m_vecParams.at(m_current).iOffBits);
 	draw_fixpt();
 	
 	// Stim page, this one with contrast change
 	cerr << "Configure page " << m_pageChg << " post-CC stim only" << endl;
 	vsgSetDrawPage(vsgVIDEOPAGE, m_pageChg, vsgBACKGROUND);
-	draw_cue_points(m_vecParams.at(m_current));
-	draw_stim_gratings(true, m_vecParams.at(m_current));
-	draw_cues(m_vecParams.at(m_current));
+	draw_cue_points(m_vecParams.at(m_current).iOffBits);
+	draw_stim_gratings(true, m_vecParams.at(m_current).iOffBits, m_vecParams.at(m_current).dInitialPhase, m_vecParams.at(m_current).contrastPairs);
+	draw_cues(m_vecParams.at(m_current).iOffBits);
 	draw_fixpt();
 
 	// plain fixpt page
 	cerr << "Configure page " << m_pageFixpt << " fixpt and cues, no stim" << endl;
 	vsgSetDrawPage(vsgVIDEOPAGE, m_pageFixpt, vsgBACKGROUND);
-	draw_cue_points(m_vecParams.at(m_current));
-	draw_cues(m_vecParams.at(m_current));
+	draw_cue_points(m_vecParams.at(m_current).iOffBits);
+	draw_cues(m_vecParams.at(m_current).iOffBits);
 	draw_fixpt();
 
 	// distractor flashy pages, if any. For each configured flashy, there will be two additional
@@ -561,9 +716,9 @@ int AttentionStimSet::drawCurrent()
 				vsgSetDrawPage(vsgVIDEOPAGE, m_pageD + 2*iflashy, vsgBACKGROUND);
 
 				// draw stuff on this page
-				draw_cue_points(m_vecParams.at(m_current));
-				draw_stim_gratings(false, m_vecParams.at(m_current));
-				draw_cues(m_vecParams.at(m_current));
+				draw_cue_points(m_vecParams.at(m_current).iOffBits);
+				draw_stim_gratings(false, m_vecParams.at(m_current).iOffBits, m_vecParams.at(m_current).dInitialPhase, m_vecParams.at(m_current).contrastPairs);
+				draw_cues(m_vecParams.at(m_current).iOffBits);
 				draw_flashy(params);
 				draw_fixpt();
 
@@ -572,9 +727,9 @@ int AttentionStimSet::drawCurrent()
 				vsgSetDrawPage(vsgVIDEOPAGE, m_pageD + 2*iflashy + 1, vsgBACKGROUND);
 
 				// and draw stuff for CC+flashy page
-				draw_cue_points(m_vecParams.at(m_current));
-				draw_stim_gratings(true, m_vecParams.at(m_current));
-				draw_cues(m_vecParams.at(m_current));
+				draw_cue_points(m_vecParams.at(m_current).iOffBits);
+				draw_stim_gratings(true, m_vecParams.at(m_current).iOffBits, m_vecParams.at(m_current).dInitialPhase, m_vecParams.at(m_current).contrastPairs);
+				draw_cues(m_vecParams.at(m_current).iOffBits);
 				draw_flashy(params);
 				draw_fixpt();
 
@@ -820,23 +975,122 @@ int AttentionStimSet::drawCurrent()
 	return status;
 }
 
-void AttentionStimSet::draw_stim_gratings(bool bIsCC, const struct AttParams& params)
+
+
+
+int AttentionStimSet::drawCurrentInterleaved()
+{
+	int status = 0;
+	int page = vsgGetZoneDisplayPage(vsgVIDEOPAGE);
+
+	cerr << "Drawing pages for trial " << m_current << endl;
+
+	if (m_current >= m_vecInterleaved.size())
+	{
+		cerr << "Error: m_current >= m_vecInterleaved.size()" << endl;
+		return 1;
+	}
+
+	// Set color of fixpt...
+	m_fixpt.color = m_vecInterleaved[m_current].color;
+
+	// plain fixpt page
+	cerr << "Configure page " << m_pageFixpt << " fixpt only" << endl;
+	vsgSetDrawPage(vsgVIDEOPAGE, m_pageFixpt, vsgBACKGROUND);
+	draw_fixpt();
+
+	// fixpt + cue(s) page
+	cerr << "Configure page " << m_pageFixptQ << " fixpt and cues" << endl;
+	vsgSetDrawPage(vsgVIDEOPAGE, m_pageFixptQ, vsgBACKGROUND);
+	draw_cue_points(m_vecInterleaved.at(m_current).iOffBits);
+	draw_cues(m_vecInterleaved.at(m_current).iOffBits);
+	draw_fixpt();
+
+	// Stim page, with cues
+	cerr << "Configure page " << m_pageQStim << " stim & cues" << endl;
+	vsgSetDrawPage(vsgVIDEOPAGE, m_pageQStim, vsgBACKGROUND);
+	draw_cue_points(m_vecInterleaved.at(m_current).iOffBits);
+	draw_stim_gratings(false, m_vecInterleaved.at(m_current).iOffBits, m_vecInterleaved.at(m_current).dInitialPhase, m_vecInterleaved.at(m_current).contrastPairs);
+	draw_cues(m_vecInterleaved.at(m_current).iOffBits);
+	draw_fixpt();
+
+	// StimCC page, with cues
+	cerr << "Configure page " << m_pageQStimCC << " stimCC & cues" << endl;
+	vsgSetDrawPage(vsgVIDEOPAGE, m_pageQStimCC, vsgBACKGROUND);
+	draw_cue_points(m_vecInterleaved.at(m_current).iOffBits);
+	draw_stim_gratings(true, m_vecInterleaved.at(m_current).iOffBits, m_vecInterleaved.at(m_current).dInitialPhase, m_vecInterleaved.at(m_current).contrastPairs);
+	draw_cues(m_vecInterleaved.at(m_current).iOffBits);
+	draw_fixpt();
+
+	// Stim page
+	cerr << "Configure page " << m_pageStim << " pre-CC stim only" << endl;
+	vsgSetDrawPage(vsgVIDEOPAGE, m_pageStim, vsgBACKGROUND);
+	draw_stim_gratings(false, m_vecInterleaved.at(m_current).iOffBits, m_vecInterleaved.at(m_current).dInitialPhase, m_vecInterleaved.at(m_current).contrastPairs);
+	draw_fixpt();
+
+	// Stim page, this one with contrast change
+	cerr << "Configure page " << m_pageChg << " post-CC stim only" << endl;
+	vsgSetDrawPage(vsgVIDEOPAGE, m_pageChg, vsgBACKGROUND);
+	draw_stim_gratings(true, m_vecInterleaved.at(m_current).iOffBits, m_vecInterleaved.at(m_current).dInitialPhase, m_vecInterleaved.at(m_current).contrastPairs);
+	draw_fixpt();
+
+	// blank page
+	cerr << "Configure page " << m_pageBlank << " background only" << endl;
+	vsgSetDrawPage(vsgVIDEOPAGE, m_pageBlank, vsgBACKGROUND);
+
+	vsgPresent();
+
+	// Setup page cycling
+	VSGCYCLEPAGEENTRY cycle[32767];
+	vector<unsigned int> pages;
+	pages.push_back(m_pageBlank);
+	pages.push_back(m_pageFixpt);
+	pages.push_back(m_pageFixptQ);
+	pages.push_back(m_pageQStim);
+	pages.push_back(m_pageQStimCC);
+	pages.push_back(m_pageStim);
+	pages.push_back(m_pageChg);
+
+	vector<double> times(m_vecInterleaved.at(m_current).times, m_vecInterleaved.at(m_current).times+5);
+	unsigned int nCycle = qCycle(cycle, times, pages);
+
+	vsgPageCyclingSetup(nCycle, &cycle[0]);
+
+	cerr << "Cycling: Using " << nCycle << " pages" << endl;
+	for (int i = 0; i<nCycle; i++)
+	{
+		cerr << i << ": page=" << (cycle[i].Page & vsgTRIGGERPAGE ? cycle[i].Page - vsgTRIGGERPAGE : cycle[i].Page) << " Frames=" << cycle[i].Frames << endl;
+	}
+
+	// 0. pgBlank
+	// 1. pgFix
+	// 2. pgFixQ
+	// 3. pgFixQStim
+	// 4. pgFixQStimCC
+	// 5. pgFixStim
+	// 6. pgFixStimCC
+
+
+	return status;
+}
+
+void AttentionStimSet::draw_stim_gratings(bool bIsCC, int iOffBits, double dInitialPhase, const std::vector<std::pair<int, int> >& contrastPairs)
 {
 	vector<alert::ARGratingSpec> *pvecGratings = (bIsCC ? &m_vecGratingsCC : &m_vecGratings);
 	for (unsigned int i=0; i<pvecGratings->size(); i++)
 	{
 		// Check if this stim has an off bit set.
-		if (params.iOffBits & (1 << i))
+		if (iOffBits & (1 << i))
 		{
 			(*pvecGratings)[i].setContrast(0);
 //			cerr << "draw_stim_gratings: stim is off." << endl;
 		}
 		else
 		{
-			(*pvecGratings)[i].setContrast(bIsCC ? params.contrastPairs[i].second : params.contrastPairs[i].first);
+			(*pvecGratings)[i].setContrast(bIsCC ? contrastPairs[i].second : contrastPairs[i].first);
 //			cerr << "draw_stim_gratings: contrast is " << (*pvecGratings)[i].contrast << endl;
 		}
-		(*pvecGratings)[i].setSpatialPhase(params.dInitialPhase);
+		(*pvecGratings)[i].setSpatialPhase(dInitialPhase);
 		(*pvecGratings)[i].select();
 		vsgObjResetDriftPhase();
 		(*pvecGratings)[i].draw();
@@ -844,23 +1098,23 @@ void AttentionStimSet::draw_stim_gratings(bool bIsCC, const struct AttParams& pa
 	return;
 }
 
-void AttentionStimSet::draw_cues(const struct AttParams& params)
+void AttentionStimSet::draw_cues(int iOffBits)
 {
 	if (!m_bUseCueCircles) return;
 
 	// Draw cue circles.
 	// One for each grating, but the set of cues used are taken from 
 	// (iOffBits & 0xff00) >> 8
-	int iCueBase = (params.iOffBits & 0xff00) >> 8;
+	int iCueBase = (iOffBits & 0xff00) >> 8;
 
 	//cout << "iCueBase: " << ios::showbase << ios::internal << ios::hex << iCueBase << ios::dec << endl;
 
 	//cout << "There are " << m_vecCues.size() << " cues." << endl;
 	for (unsigned int i=0; i<m_vecGratings.size(); i++)
 	{
-		//cout << "cue " << i << " (params.iOffBits & (1 << i)) " << (params.iOffBits & (1 << i)) << endl;
+		//cout << "cue " << i << " (iOffBits & (1 << i)) " << (iOffBits & (1 << i)) << endl;
 		// Check if this stim has an off bit set.
-		if (params.iOffBits & (1 << i))
+		if (iOffBits & (1 << i))
 		{
 			//cout << "Nothing to do." << endl;
 			// do nothing
@@ -875,20 +1129,20 @@ void AttentionStimSet::draw_cues(const struct AttParams& params)
 }
 
 
-void AttentionStimSet::draw_cue_points(const struct AttParams& params)
+void AttentionStimSet::draw_cue_points(int iOffBits)
 {
 	if (!m_bUseCuePoints) return;
 
 	// Draw cue points
 	// One for each grating, but the set of cues used are taken from 
 	// (iOffBits & 0xff00) >> 8
-	int iCueBase = (params.iOffBits & 0xff00) >> 8;
+	int iCueBase = (iOffBits & 0xff00) >> 8;
 
 	for (unsigned int i=0; i<m_vecGratings.size(); i++)
 	{
-		//cout << "cue " << i << " (params.iOffBits & (1 << i)) " << (params.iOffBits & (1 << i)) << endl;
+		//cout << "cue " << i << " (iOffBits & (1 << i)) " << (iOffBits & (1 << i)) << endl;
 		// Check if this stim has an off bit set.
-		if (params.iOffBits & (1 << i))
+		if (iOffBits & (1 << i))
 		{
 			//cout << "Nothing to do." << endl;
 			// do nothing
@@ -940,13 +1194,18 @@ int AttentionStimSet::handle_trigger(std::string& s)
 	}
 	else if (s == "S")
 	{
+		double dInitialPhase;
+		if (m_vecInterleaved.empty())
+			dInitialPhase = m_vecParams[m_current].dInitialPhase;
+		else
+			dInitialPhase = m_vecInterleaved[m_current].dInitialPhase;
 		for (unsigned int i=0; i<m_vecGratings.size(); i++)
 		{
 			m_vecGratings[i].select();
-			vsgObjSetSpatialPhase(m_vecParams[m_current].dInitialPhase);
+			vsgObjSetSpatialPhase(dInitialPhase);
 			vsgObjResetDriftPhase();
 			m_vecGratingsCC[i].select();
-			vsgObjSetSpatialPhase(m_vecParams[m_current].dInitialPhase);
+			vsgObjSetSpatialPhase(dInitialPhase);
 			vsgObjResetDriftPhase();
 		}
 		vsgSetSynchronisedCommand(vsgSYNC_PRESENT, vsgCYCLEPAGEENABLE, 0);
@@ -955,7 +1214,20 @@ int AttentionStimSet::handle_trigger(std::string& s)
 	else if (s == "a")
 	{
 		m_current++;
-		if (m_current == m_vecParams.size()) m_current = 0;
+		if (m_vecInterleaved.empty())
+		{
+			if (m_current == m_vecParams.size())
+			{
+				m_current = 0;
+			}
+		}
+		else
+		{
+			if (m_current == m_vecInterleaved.size())
+			{
+				m_current = 0;
+			}
+		}
 		drawCurrent();
 	}
 	else if (s == "X")
