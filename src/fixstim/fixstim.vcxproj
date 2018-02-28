@@ -230,6 +230,7 @@
     <Text Include="attention-test-input-2.txt" />
     <Text Include="attention-test-input-3.txt" />
     <Text Include="attention-test-input-4.txt" />
+    <Text Include="attention-test-interleaved-1.txt" />
     <Text Include="attspan.txt" />
     <Text Include="attspan2.txt" />
     <Text Include="counterphase-test-input-1.txt" />
