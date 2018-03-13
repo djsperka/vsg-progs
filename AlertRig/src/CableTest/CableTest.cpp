@@ -142,11 +142,11 @@ int main(int argc, char *argv[])
 
 			if (diginState!=lastDiginState)
 			{
-				cout << diginState << endl;
 				DisplayState(diginState);
 				lastDiginState=diginState;
 				if (!f_dio)
 				{
+					cout << "DINx bits, being written via vsg trigger output: " << std::hex << diginState << endl;
 					if (IS_VISAGE)
 					{
 						vsgSetTriggerOptions(vsgTRIGOPT_PRESENT, 0, vsgTRIG_OUTPUTMARKER, 0.5, 0, diginState, 0x1FE);
@@ -159,6 +159,7 @@ int main(int argc, char *argv[])
 				}
 				else
 				{
+					cout << "DINx bits, being written via vsgIOWriteDigitalOut: " << std::hex << diginState << endl;
 					vsgIOWriteDigitalOut(diginState, 0xff);
 				}
 			}
