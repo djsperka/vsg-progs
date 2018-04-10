@@ -93,6 +93,7 @@ private:
 	vector<struct AttParams> m_vecParams;
 	vector<alert::ARContrastCircleSpec> m_vecCues;
 	vector<alert::ARContrastFixationPointSpec> m_vecCuePoints;
+	vector<alert::ARContrastRectangleSpec> m_vecCueRects;
 	FlashyParamVectorVector  m_vecFlashies;		// one vector element per trial
 	vector<alert::ARGratingSpec> m_vecDistractors;
 	vector<InterleavedParams> m_vecInterleaved;

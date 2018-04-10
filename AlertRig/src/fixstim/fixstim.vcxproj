@@ -227,6 +227,7 @@
     <Text Include="attention-test-cues-3.txt" />
     <Text Include="attention-test-cues-4.txt" />
     <Text Include="attention-test-cues-onoff-1.txt" />
+    <Text Include="attention-test-cues-small-3.txt" />
     <Text Include="attention-test-input-1.txt" />
     <Text Include="attention-test-input-2.txt" />
     <Text Include="attention-test-input-3.txt" />

@@ -332,12 +332,13 @@ namespace alert
 	class ARRectangleSpec: public ARSpec
 	{
 	public:
-		ARRectangleSpec(): x(0), y(0), orientation(0) {};
-		~ARRectangleSpec() {};
+		ARRectangleSpec(DWORD mode=0): ARSpec(), x(0), y(0), orientation(0), drawmode(mode) {};
+		virtual ~ARRectangleSpec() {};
 		double x, y;	// Center
 		double w, h;	// width, height. Units depend on how vsg is initialized
 		double orientation;
 		COLOR_TYPE color;
+		DWORD drawmode;
 		virtual int draw();
 		virtual int drawOverlay();
 	};
