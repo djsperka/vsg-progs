@@ -3,6 +3,10 @@
 #include <algorithm>
 using namespace std;
 
+// this undef tells stim set to use (unfilled) rects instead of (filled) points for cue points
+#undef USE_CUE_POINTS
+
+
 
 double get_fconfig(VSGCYCLEPAGEENTRY* cycle, int count)
 {
@@ -475,6 +479,7 @@ AttentionStimSet::AttentionStimSet(ARContrastFixationPointSpec& fixpt, double tM
 		circle.color = vecCuePairs[i].color;
 		m_vecCues.push_back(circle);
 
+#ifdef USE_CUE_POINTS
 		// set up cue point
 		ARContrastFixationPointSpec f;
 		f.color = vecCuePairs[i].color;
@@ -482,6 +487,15 @@ AttentionStimSet::AttentionStimSet(ARContrastFixationPointSpec& fixpt, double tM
 		f.x = m_vecGratings[indGrating].x;
 		f.y = m_vecGratings[indGrating].y;
 		m_vecCuePoints.push_back(f);
+#else
+		ARContrastRectangleSpec r(vsgPIXELPEN);
+		r.color = vecCuePairs[i].color;
+		r.x = m_vecGratings[indGrating].x;
+		r.y = m_vecGratings[indGrating].y;
+		r.w = r.h = fixpt.d;
+		r.orientation = 0;
+		m_vecCueRects.push_back(r);
+#endif
 	}
 };
 
@@ -510,6 +524,7 @@ AttentionStimSet::AttentionStimSet(ARContrastFixationPointSpec& fixpt, double tM
 		circle.color = vecCuePairs[i].color;
 		m_vecCues.push_back(circle);
 
+#ifdef USE_CUE_POINTS
 		// set up cue point
 		ARContrastFixationPointSpec f;
 		f.color = vecCuePairs[i].color;
@@ -517,6 +532,16 @@ AttentionStimSet::AttentionStimSet(ARContrastFixationPointSpec& fixpt, double tM
 		f.x = m_vecGratings[indGrating].x;
 		f.y = m_vecGratings[indGrating].y;
 		m_vecCuePoints.push_back(f);
+#else
+		ARContrastRectangleSpec r(vsgPIXELPEN);
+		r.color = vecCuePairs[i].color;
+		r.x = m_vecGratings[indGrating].x;
+		r.y = m_vecGratings[indGrating].y;
+		r.w = r.h = fixpt.d;
+		r.orientation = 0;
+		m_vecCueRects.push_back(r);
+#endif
+
 	}
 };
 
@@ -543,6 +568,7 @@ AttentionStimSet::AttentionStimSet(ARContrastFixationPointSpec& fixpt, vector<al
 		circle.color = vecCuePairs[i].color;
 		m_vecCues.push_back(circle);
 
+#ifdef USE_CUE_POINTS
 		// set up cue point
 		ARContrastFixationPointSpec f;
 		f.color = vecCuePairs[i].color;
@@ -550,6 +576,17 @@ AttentionStimSet::AttentionStimSet(ARContrastFixationPointSpec& fixpt, vector<al
 		f.x = m_vecGratings[indGrating].x;
 		f.y = m_vecGratings[indGrating].y;
 		m_vecCuePoints.push_back(f);
+#else
+		ARContrastRectangleSpec r(vsgPIXELPEN);
+		r.color = vecCuePairs[i].color;
+		r.x = m_vecGratings[indGrating].x;
+		r.y = m_vecGratings[indGrating].y;
+		r.w = r.h = fixpt.d;
+		r.orientation = 0;
+		m_vecCueRects.push_back(r);
+#endif
+
+
 	}
 };
 
@@ -615,12 +652,21 @@ int AttentionStimSet::init(ARvsg& vsg, std::vector<int> pages)
 		m_vecCues[i].init(m_vecCues[i % m_vecGratings.size()]);
 	}
 
+#ifdef USE_CUE_POINTS
 	// Initialize all cue points, even if they are not used. 
 	cerr << "Initialize " << m_vecCuePoints.size() << " cue points." << endl;
 	for (unsigned int i=0; i<m_vecCuePoints.size(); i++)
 	{
 		m_vecCuePoints[i].init(m_vecCues[i]);
 	}
+#else
+	// Initialize all cue points, even if they are not used. 
+	cerr << "Initialize " << m_vecCueRects.size() << " cue rects." << endl;
+	for (unsigned int i = 0; i<m_vecCueRects.size(); i++)
+	{
+		m_vecCueRects[i].init(m_vecCues[i]);
+	}
+#endif
 	cerr << "Initialize " << m_vecGratings.size() << " gratings." << endl;
 	for (unsigned int i=0; i<m_vecGratings.size(); i++)
 	{
@@ -1149,11 +1195,19 @@ void AttentionStimSet::draw_cue_points(int iOffBits)
 		}
 		else
 		{
+#ifdef USE_CUE_POINTS
 			if (m_vecCuePoints.size() > iCueBase*m_vecGratings.size() + i)
 			{
 				cout << "draw cue point " << i << endl;
 				m_vecCuePoints[iCueBase*m_vecGratings.size() + i].draw();
 			}
+#else
+			if (m_vecCueRects.size() > iCueBase*m_vecGratings.size() + i)
+			{
+				cout << "draw cue rect " << i << endl;
+				m_vecCueRects[iCueBase*m_vecGratings.size() + i].draw();
+			}
+#endif
 		}
 	}
 
