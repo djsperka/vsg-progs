@@ -1,9 +1,10 @@
 # Big red fixation point, gray background, etc
- -f 0,0,1.0,red  -b gray -d 813 -a
+ -f 0,0,0.5,red  -b gray -d 813 -a
 # there are 4 stimuli, along the top of the screen
+# varying diameter meant to illustrate that if ratio (stim diam)/(stim diam) > 2*sqrt(2), you're OK. 
  -s -6.0,0.0,2.0,2.0,0.0,0.0,100,1.00,5.00,120.0,0.0,b,s,e 
- -s -3.0,0.0,2.0,2.0,0.0,0.0,100,1.00,5.00,100.0,0.0,b,s,e 
- -s 3.0,0.0,2.0,2.0,0.0,0.0,100,1.00,5.00,80.0,0.0,b,s,e 
+ -s -3.0,0.0,1.5,1.5,0.0,0.0,100,1.00,5.00,100.0,0.0,b,s,e 
+ -s 3.0,0.0,1.0,1.0,0.0,0.0,100,1.00,5.00,80.0,0.0,b,s,e 
  -s 6.0,0.0,2.0,2.0,0.0,0.0,100,1.00,5.00,60.0,0.0,b,s,e 
 # cue points ONLY (-r). One for each of the stim
  -r .5,4,(255/0/255),.5,3,(0/255/0),.5,2,(255/255/0),.5,1,(0/255/255)
