@@ -954,23 +954,22 @@ int ARChessboardSpec::draw()
 	return 0;
 }
 
-
 int ARChessboardSpec::drawOverlay()
 {
 	cerr << "ARChessboardSpec::drawOverlay() not implemented!" << endl;
 	return -1;
 }
 
-
-
-
-
-
-
 int ARRectangleSpec::draw()
 {
 	if (drawmode)
+	{
 		vsgSetDrawMode(drawmode);
+		if (drawmode & vsgSOLIDPEN)
+		{
+			vsgSetPenSize(linewidth, linewidth);
+		}
+	}
 	else
 		vsgSetDrawMode(vsgCENTREXY + vsgSOLIDFILL);
 	vsgDrawBar(x, -y, w, h, orientation);

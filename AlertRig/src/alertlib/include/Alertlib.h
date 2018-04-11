@@ -332,22 +332,22 @@ namespace alert
 	class ARRectangleSpec: public ARSpec
 	{
 	public:
-		ARRectangleSpec(DWORD mode=0): ARSpec(), x(0), y(0), orientation(0), drawmode(mode) {};
+		ARRectangleSpec(DWORD mode=0, DWORD line_width=1): ARSpec(), x(0), y(0), orientation(0), drawmode(mode), linewidth(line_width) {};
 		virtual ~ARRectangleSpec() {};
 		double x, y;	// Center
 		double w, h;	// width, height. Units depend on how vsg is initialized
 		double orientation;
 		COLOR_TYPE color;
 		DWORD drawmode;
+		DWORD linewidth;
 		virtual int draw();
 		virtual int drawOverlay();
 	};
 
-	
 	class ARContrastRectangleSpec: public ARRectangleSpec
 	{
 	public:
-		ARContrastRectangleSpec() {};
+		ARContrastRectangleSpec(DWORD mode=0, DWORD line_width = 1): ARRectangleSpec(mode, line_width) {};
 		~ARContrastRectangleSpec() {};
 		int draw();
 		int drawOverlay();

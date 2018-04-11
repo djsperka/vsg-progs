@@ -488,11 +488,11 @@ AttentionStimSet::AttentionStimSet(ARContrastFixationPointSpec& fixpt, double tM
 		f.y = m_vecGratings[indGrating].y;
 		m_vecCuePoints.push_back(f);
 #else
-		ARContrastRectangleSpec r(vsgPIXELPEN);
+		ARContrastRectangleSpec r(vsgSOLIDPEN, vecCuePairs[i].linewidth);
 		r.color = vecCuePairs[i].color;
 		r.x = m_vecGratings[indGrating].x;
 		r.y = m_vecGratings[indGrating].y;
-		r.w = r.h = fixpt.d;
+		r.w = r.h = 2*fixpt.d;
 		r.orientation = 0;
 		m_vecCueRects.push_back(r);
 #endif
@@ -533,11 +533,11 @@ AttentionStimSet::AttentionStimSet(ARContrastFixationPointSpec& fixpt, double tM
 		f.y = m_vecGratings[indGrating].y;
 		m_vecCuePoints.push_back(f);
 #else
-		ARContrastRectangleSpec r(vsgPIXELPEN);
+		ARContrastRectangleSpec r(vsgSOLIDPEN, vecCuePairs[i].linewidth);
 		r.color = vecCuePairs[i].color;
 		r.x = m_vecGratings[indGrating].x;
 		r.y = m_vecGratings[indGrating].y;
-		r.w = r.h = fixpt.d;
+		r.w = r.h = 2*fixpt.d;
 		r.orientation = 0;
 		m_vecCueRects.push_back(r);
 #endif
@@ -577,11 +577,11 @@ AttentionStimSet::AttentionStimSet(ARContrastFixationPointSpec& fixpt, vector<al
 		f.y = m_vecGratings[indGrating].y;
 		m_vecCuePoints.push_back(f);
 #else
-		ARContrastRectangleSpec r(vsgPIXELPEN);
+		ARContrastRectangleSpec r(vsgSOLIDPEN, vecCuePairs[i].linewidth);
 		r.color = vecCuePairs[i].color;
 		r.x = m_vecGratings[indGrating].x;
 		r.y = m_vecGratings[indGrating].y;
-		r.w = r.h = fixpt.d;
+		r.w = r.h = 2*fixpt.d;
 		r.orientation = 0;
 		m_vecCueRects.push_back(r);
 #endif
