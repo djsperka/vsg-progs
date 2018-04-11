@@ -78,6 +78,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <TargetName>alert</TargetName>
     <OutDir>$(SolutionDir)..\lib\</OutDir>
+    <CustomBuildAfterTargets>ClCompile</CustomBuildAfterTargets>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <TargetName>alert</TargetName>
