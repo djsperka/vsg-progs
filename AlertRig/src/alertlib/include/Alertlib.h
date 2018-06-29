@@ -97,6 +97,7 @@ int parse_aperture(std::string s, APERTURE_TYPE& a);
 int parse_distance(std::string s, int& dist);
 int parse_integer(std::string s, int& i);
 int parse_ulong(std::string s, unsigned long& l);
+int parse_uint(std::string s, unsigned int& l);
 int parse_double(std::string s, double& d);
 int parse_int_list(std::string s, std::vector<int>& list);
 int parse_int_list(std::vector<std::string>& tokens, std::vector<int>& list);
@@ -456,6 +457,21 @@ namespace alert
 		int linewidth;
 	};
 
+	// Circle, single pixel wide, visibility controlled by drawing it or not. No need to call init()
+	// and use a vsg object
+
+	class ARCircleSpec : public ARFixationPointSpec
+	{
+	public:
+		ARCircleSpec() : ARFixationPointSpec(), linewidth(1) {};
+		ARCircleSpec(const ARCircleSpec& c);
+		~ARCircleSpec() {};
+		ARCircleSpec& operator=(const ARCircleSpec& c);
+		int draw();
+		int drawOverlay();
+		int linewidth;
+	};
+
 
 	// Circle, single pixel wide, visibility controlled by contrast. 
 
@@ -477,10 +493,8 @@ namespace alert
 	// Grating spec
 	class ARGratingSpec: public ARSpec
 	{
-	private:
-		bool m_bDrawInitDone;
 	public:
-		ARGratingSpec() : m_bDrawInitDone(false), phase(0), wd(0), hd(0) {};
+		ARGratingSpec() : bDrawInitDone(false), phase(0), wd(0), hd(0) {};
 
 		// Copy constructor only copies grating parameters, not vsg object properties. 
 		// A grating initialize with this constructor must still be initialized, and it will 
@@ -500,6 +514,7 @@ namespace alert
 		PATTERN_TYPE pattern;
 		APERTURE_TYPE aperture;
 		COLOR_VECTOR_TYPE cv;
+		bool bDrawInitDone;
 
 		// reset spatial phase to the initial phase
 		virtual int resetSpatialPhase() { return setSpatialPhase(phase); };
