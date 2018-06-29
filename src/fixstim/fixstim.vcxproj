@@ -179,6 +179,7 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Use</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Use</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="AttentionCue.cpp" />
     <ClCompile Include="AttentionStimSet.cpp" />
     <ClCompile Include="BarUStim.cpp" />
     <ClCompile Include="BeatUStim.cpp" />
@@ -201,6 +202,7 @@
     <ClCompile Include="FXImageStimSet.cpp" />
     <ClCompile Include="MultiParameterFXMultiGStimSet.cpp" />
     <ClCompile Include="QCycleUtil.cpp" />
+    <ClCompile Include="SequencedAttentionStimSet.cpp" />
     <ClCompile Include="StarUStim.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
@@ -233,6 +235,8 @@
     <Text Include="attention-test-input-3.txt" />
     <Text Include="attention-test-input-4.txt" />
     <Text Include="attention-test-interleaved-1.txt" />
+    <Text Include="attention-test-seq-1-trials.txt" />
+    <Text Include="attention-test-seq-1.txt" />
     <Text Include="attspan.txt" />
     <Text Include="attspan2.txt" />
     <Text Include="counterphase-test-input-1.txt" />
@@ -249,6 +253,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ASLSerial.h" />
+    <ClInclude Include="AttentionCue.h" />
     <ClInclude Include="AttentionStimSet.h" />
     <ClInclude Include="BarUStim.h" />
     <ClInclude Include="BeatUStim.h" />
@@ -262,6 +267,7 @@
     <ClInclude Include="FXImageStimSet.h" />
     <ClInclude Include="MultiParameterFXMultiGStimSet.h" />
     <ClInclude Include="QCycleUtil.h" />
+    <ClInclude Include="SequencedAttentionStimSet.h" />
     <ClInclude Include="SSInfo.h" />
     <ClInclude Include="StarUStim.h" />
     <ClInclude Include="stdafx.h" />
