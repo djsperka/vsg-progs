@@ -2,6 +2,7 @@
 #define _ATTENTIONSTIMSET_H_
 
 #include "StimSet.h"
+#include "AttentionCue.h"
 
 // struct for holding parameters of a single attention trial
 #define ATTPARAMS_MAX_CONTRASTS 16
@@ -13,17 +14,8 @@ struct AttParams
 	std::vector<std::pair<int, int> > contrastPairs;
 	int iOffBits;
 };
-
-typedef struct attention_cue
-{
-	double rdiff;
-	int linewidth;
-	COLOR_TYPE color;
-} AttentionCue;
-
 int parse_attparams(const string& s, int nstim, vector<struct AttParams>& vecTrialParams, double& tMax);
-int parse_attcues(const string& s, int nstim, vector<AttentionCue>& vecCues);
-void dump_attcues(const vector<AttentionCue>& vecCues);
+
 
 
 typedef struct flashy_params
@@ -53,6 +45,8 @@ struct InterleavedParams
 
 int parse_interleaved_params(const string& s, int nstim, vector<InterleavedParams>& params);
 void my_print_interleaved_trials(const vector<InterleavedParams>& trials);
+
+int parse_contrast_params(const string& s, int nstim);
 
 
 // note = WORD is unsigned short. The cast here makes all conversions positive numbers. Bad when using as a test.
