@@ -1178,6 +1178,57 @@ int ARContrastCircleSpec::drawOverlay()
 }
 
 
+
+
+ARCircleSpec::ARCircleSpec(const ARCircleSpec& c) : ARFixationPointSpec(c), linewidth(c.linewidth)
+{
+}
+
+ARCircleSpec& ARCircleSpec::operator=(const ARCircleSpec& c)
+{
+	if (this != &c)
+	{
+		ARFixationPointSpec::operator=(c);
+		this->linewidth = c.linewidth;
+	}
+	return *this;
+}
+
+
+int ARCircleSpec::draw()
+{
+	int status = 0;
+	VSGTRIVAL from, to;
+
+	select();
+	to = this->color.trival();
+	from = getVSG().background_color().trival();
+	vsgObjSetColourVector(&from, &to, vsgUNIPOLAR);
+
+	if (!status)
+	{
+		vsgSetPen1(getFirstLevel());
+		vsgSetPenSize(this->linewidth, this->linewidth);
+		vsgSetDrawMode(vsgCENTREXY + vsgSOLIDPEN);
+		//		vsgSetDrawMode(vsgCENTREXY + vsgPIXELPEN);
+		vsgDrawOval(x, -1 * y, d, d);
+	}
+	return status;
+}
+
+// this function doesn't make sense. Should actually draw on the overlay, not draw clear. 
+int ARCircleSpec::drawOverlay()
+{
+	vsgSetPen1(0);
+	vsgDrawOval(x, -1 * y, d, d);
+	return 0;
+}
+
+
+
+
+
+
 ARContrastLineSpec::ARContrastLineSpec(const ARContrastLineSpec& line) : ARSpec(line)
 {
 	x0 = line.x0;
@@ -1248,7 +1299,7 @@ ARGratingSpec::ARGratingSpec(const ARGratingSpec& g) : ARSpec(g)
 	cv = g.cv;
 	pattern = g.pattern;
 	aperture = g.aperture;
-	m_bDrawInitDone = false;
+	bDrawInitDone = false;
 }
 
 ARGratingSpec& ARGratingSpec::operator=(const ARGratingSpec& g)
@@ -1332,7 +1383,7 @@ int ARGratingSpec::draw(long mode, int apertureLevel)
 		}
 	}
 
-	if (!m_bDrawInitDone)
+	if (!bDrawInitDone)
 	{
 		// Set object defauilts. setDefaults() sets contrast to 100% 
 		// -- this may not be what we want, so reset contrast to the 
@@ -1361,7 +1412,7 @@ int ARGratingSpec::draw(long mode, int apertureLevel)
 		}
 		vsgObjSetColourVector(&from, &to, vsgBIPOLAR);
 
-		m_bDrawInitDone = true;
+		bDrawInitDone = true;
 	}
 
 	vsgObjSetContrast(contrast);

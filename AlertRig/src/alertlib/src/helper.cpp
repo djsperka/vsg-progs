@@ -1039,6 +1039,19 @@ int parse_ulong(std::string s, unsigned long& l)
 	return status;
 }
 
+int parse_uint(std::string s, unsigned int& ui)
+{
+	int status = 0;
+	istringstream iss(s);
+	iss >> ui;
+	if (!iss)
+	{
+		cerr << "bad unsigned int: " << s << endl;
+		status = 1;
+	}
+	return status;
+}
+
 
 int parse_xy(std::string s, double& x, double& y)
 {
@@ -1122,7 +1135,6 @@ void tokenize(const string& str, vector<string>& tokens, const string& delimiter
 	string::const_iterator itStartOfToken;
     int c;
     enum states { IN_DELIM, IN_WORD, IN_STRING } state = IN_DELIM;
-
 //	cout << "Tokenize str>>" << str << "<<" << endl;
     for (it = str.begin(); it != str.end(); it++) 
 	{
@@ -1245,6 +1257,7 @@ void free_argv(int& argc, char **argv)
 
 int tokenize_response_file(char *filename, vector<string> &tokens)
 {
+	vector<string> tmpTokens;
 	int count=0;
 	ifstream ifs(filename);
 	string s;
