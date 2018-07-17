@@ -10,7 +10,7 @@ using namespace std;
 using namespace boost::algorithm;
 using namespace boost::filesystem;
 
-const string FixUStim::m_allowedArgs("ab:d:e:f:g:h:i:j:k:l:m:n:q:p:r:s:vy:zA:B:C:D:E:G:H:I:J:KL:M:NO:P:Q:R:S:T:U:V:W:X:Y:Z:");
+const string FixUStim::m_allowedArgs("ab:d:e:f:g:h:i:j:k:l:m:n:o:q:p:r:s:vy:zA:B:C:D:E:G:H:I:J:KL:M:NO:P:Q:R:S:T:U:V:W:X:Y:Z:");
 
 FixUStim::FixUStim(bool bStandAlone)
 	: UStim()
@@ -1180,6 +1180,21 @@ int FixUStim::process_arg(int c, std::string& arg)
 		{
 			cerr << "Parse OK, got " << trialSpecs.size() << " trials" << endl;
 			m_pStimSet = new SequencedAttentionStimSet(m_fixpt, m_vecGratings, m_vecAttentionCues, bUseCueCircles, bUseCuePoints, trialSpecs);
+		}
+		break;
+	}
+	case 'o':
+	{
+		vector<MelTrialSpec> trialSpecs;
+		cerr << "Parsing melaficent trials..." << endl;
+		if (parse_mel_params(arg, trialSpecs))
+		{
+			cerr << "Error in mel param input" << endl;
+		}
+		else
+		{
+			cerr << "Parse OK, got " << trialSpecs.size() << " trials" << endl;
+			m_pStimSet = new MelStimSet(m_fixpt, trialSpecs);
 		}
 		break;
 	}
