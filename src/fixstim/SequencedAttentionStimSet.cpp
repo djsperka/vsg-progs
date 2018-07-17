@@ -423,6 +423,8 @@ int parse_sequenced_params(const std::string& filename, unsigned int ngratings, 
 			{
 				switch(iTrialStep) {
 				case 0:
+
+					// The only thing we look for here is the word "trial"
 					// is there a trial pending - error
 					if (iTrialStep)
 					{
