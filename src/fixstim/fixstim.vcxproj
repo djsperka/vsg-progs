@@ -200,6 +200,7 @@
     <ClCompile Include="fixstim.cpp" />
     <ClCompile Include="FixUStim.cpp" />
     <ClCompile Include="FXImageStimSet.cpp" />
+    <ClCompile Include="MelStimSet.cpp" />
     <ClCompile Include="MultiParameterFXMultiGStimSet.cpp" />
     <ClCompile Include="QCycleUtil.cpp" />
     <ClCompile Include="SequencedAttentionStimSet.cpp" />
@@ -235,6 +236,9 @@
     <Text Include="attention-test-input-3.txt" />
     <Text Include="attention-test-input-4.txt" />
     <Text Include="attention-test-interleaved-1.txt" />
+    <Text Include="attention-test-mel-1-trials.txt" />
+    <Text Include="attention-test-mel-1.txt" />
+    <Text Include="attention-test-seq-1-bin.txt" />
     <Text Include="attention-test-seq-1-trials.txt" />
     <Text Include="attention-test-seq-1.txt" />
     <Text Include="attspan.txt" />
@@ -265,6 +269,7 @@
     <ClInclude Include="FixUStim.h" />
     <ClInclude Include="FXGStimParameterList.h" />
     <ClInclude Include="FXImageStimSet.h" />
+    <ClInclude Include="MelStimSet.h" />
     <ClInclude Include="MultiParameterFXMultiGStimSet.h" />
     <ClInclude Include="QCycleUtil.h" />
     <ClInclude Include="SequencedAttentionStimSet.h" />

@@ -1,0 +1,21 @@
+# Big red fixation point, gray background, etc
+ 
+-f 0,0,1.0,red  -b gray -d 813
+# there are 4 stimuli, along the top of the screen
+ 
+-s -6.0,7.0,2.0,2.0,0.0,0.0,100,1.00,5.00,120.0,0.0,b,s,e 
+ 
+-s -3.0,7.0,2.0,2.0,0.0,0.0,100,1.00,5.00,100.0,0.0,b,s,e 
+ 
+-s 3.0,7.0,2.0,2.0,0.0,0.0,100,1.00,5.00,80.0,0.0,b,s,e 
+ 
+-s 6.0,7.0,2.0,2.0,0.0,0.0,100,1.00,5.00,60.0,0.0,b,s,e 
+
+# cue circles ONLY (-Q). One for each of the stim
+ 
+-Q .5,2,(255/0/255),.5,2,(0/255/0),.5,2,(255/255/0),.5,2,(0/255/255)
+
+# specify input file containing trial sequences
+#
+
+-n d:\\work\\usrey\\src\\fixstim\\attention-test-seq-1-trials.txt
