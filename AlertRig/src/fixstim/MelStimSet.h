@@ -5,13 +5,19 @@
 #include <algorithm>
 
 // the ui is a frame number. The vector is a list of rectangles to be drawn on that frame
-typedef std::pair<unsigned int, vector<ARRectangleSpec> > FrameRectVec;
+// Its a pair, with a frame and a rect vec.
+typedef std::pair<unsigned int, vector<ARRectangleSpec> > FrameRectVecPair;
 
 typedef struct
 {
 	double xGridCenter, yGridCenter, wGrid, hGrid, oriDegrees;
-	vector<FrameRectVec> frv;
-	unsigned int lastFrame;	// all off on this frame
+} MelGridSpec;
+
+typedef struct
+{
+	vector<FrameRectVecPair> vecPairs;
+	unsigned int lastFrame;	// all off on this frame;
+	MelGridSpec grid;
 } MelTrialSpec;
 
 int parse_mel_params(const std::string& filename, vector<MelTrialSpec>& trialSpecs);
@@ -21,9 +27,15 @@ class MelStimSet : public StimSet
 {
 private:
 	ARFixationPointSpec m_fixpt;
+	vector<MelTrialSpec> m_trialSpecs;
+	PIXEL_LEVEL m_levelWhite;
+	unsigned int m_uiCurrentTrial;
+	std::vector<int> m_pagesAvailable;
+
+	int drawCurrent();
 
 public:
-	MelStimSet(const ARFixationPointSpec& fixpt) : m_fixpt(fixpt) {};
+	MelStimSet(const ARFixationPointSpec& fixpt, const vector<MelTrialSpec>& trialSpecs) : m_fixpt(fixpt), m_trialSpecs(trialSpecs), m_uiCurrentTrial(0) {};
 	virtual ~MelStimSet() {};
 
 	// subclasses should return the number of pages they will need.

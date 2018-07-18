@@ -2,37 +2,35 @@
 
 # caps DO not MATTER, all is converted to lower
 
-Grid 2,2,1,1,0
 
 Trial 1
-time 0.5s
+Grid 2,2,1,1,0
+time 0.5
 rect 0,0
 rect 1,1
 rect -1,-1
-time 1.0s
+time 1.0
 rect 1,0
 rect 2,1
 rect 0,-1
-time 2.0s
-end
-
-# grid can come after trial - e.g. to change orientation
+time 2.0 end
 
 Trial 2 
 Grid 2,2,1,1,0
-time 1.0s
+time 1.0
 rect -2,-2
 rect -2,-1
 rect -2,0
-time 2.0s
+time 2.0
 rect -1,-2
 rect -1,-1
 rect -1,0
-time 3.0s
+time 3.0
 rect 0,-2
 rect 0,-1
 rect 0,0
-time 4.0s
+time 4.0
 rect 1,-2
 rect 1,-1
 rect 1,0
+time 5.0 end
