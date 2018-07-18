@@ -1,10 +1,40 @@
 #include "MelStimSet.h"
 #include "AttentionStimSet.h"
+#include "AlertUtil.h"
 #include <boost/algorithm/string.hpp>
+#include <iostream>
+#include <algorithm>
+using namespace std;
 
 int MelStimSet::init(std::vector<int> pages)
 {
-	return 0;
+	m_pagesAvailable = pages;
+
+	// first page is always blank
+	vsgSetDrawPage(vsgVIDEOPAGE, m_pagesAvailable[0], vsgBACKGROUND);
+
+	// Initialize color for rects
+	m_levelWhite = ARvsg::instance().request_single();
+	arutil_color_to_palette(COLOR_TYPE(white), m_levelWhite);
+
+	// initialize fixpt
+	m_fixpt.init(2);
+
+	
+	return drawCurrent();
+}
+
+int MelStimSet::drawCurrent()
+{
+	int status = 0;
+	int pagesUsed = 1;	// DON'T MESS WITH THE FIRST PAGE
+
+	// loop over each pair. Assume fixpt always on.
+	for(auto frvpair: m_trialSpecs[m_uiCurrentTrial].vecPairs)
+	{
+		cerr << "drawCurrent: frames=" << frvpair.first << endl;
+	}
+	return status;
 }
 
 // handle the trigger indicated by the string s. Do not call vsgPresent! return value of 
@@ -16,13 +46,29 @@ int MelStimSet::handle_trigger(std::string& s)
 
 std::string MelStimSet::toString() const
 {
-	return std::string("MelStimSet: toString() not implemented.");
+	ostringstream oss;
+	oss << "MelStimSet: " << endl;
+	oss << "There are " << m_trialSpecs.size() << " trials";
+	for (auto ts : m_trialSpecs)
+	{
+		oss << "Trial" << endl;
+		for (auto frvpair : ts.vecPairs)
+		{
+			oss << " frame " << frvpair.first << endl;
+			for (auto w : frvpair.second)
+			{
+				oss << " rect " << w << endl;
+			}
+		}
+	}
+	return oss.str();
 }
 
 
 int parse_mel_params(const std::string& filename, vector<MelTrialSpec>& trialSpecs)
 {
 	int status = 0;
+	trialSpecs.clear();
 	std::ifstream myfile(filename.c_str());
 	if (myfile.is_open())
 	{
@@ -32,6 +78,14 @@ int parse_mel_params(const std::string& filename, vector<MelTrialSpec>& trialSpe
 		int iTrialStep = 0;
 		vector<string> tokens;
 		MelTrialSpec spec;
+		MelGridSpec grid;
+		FrameRectVecPair frvPair;
+		ARRectangleSpec rect;
+
+		// grid starts out with default values
+		grid.xGridCenter = grid.yGridCenter = 0;
+		grid.oriDegrees = 0;
+		grid.wGrid = grid.hGrid = 1;
 
 		while (!status && getline(myfile, line))
 		{
@@ -45,116 +99,146 @@ int parse_mel_params(const std::string& filename, vector<MelTrialSpec>& trialSpe
 				switch (iTrialStep) {
 				case 0:
 
-					// Can have grid or trial
-					if (string::npos != line.find("grid"))
-					{
-						cerr << "Found grid line: " << line << endl;
-					}
-					else if (string::npos != line.find("trial"))
+					// Expecting "trial"
+					if (string::npos != line.find("trial"))
 					{
 						cerr << "Start of trial found" << endl;
 						iTrialStep = 1;
 
 						// initialize trial spec
-						spec.xGridCenter = spec.yGridCenter = spec.wGrid = spec.hGrid = 0;
 						spec.lastFrame = 0;
-						spec.oriDegrees = 0;
-						spec.frv.clear();
+						spec.vecPairs.clear();
+						spec.grid = grid;
+						frvPair.first = 0;
+						frvPair.second.clear();
+					}
+					else
+					{
+						cerr << "Unexpected input at line " << linenumber << " - looking for \"trial\": " << line << endl;
+						status = 1;
 					}
 					break;
 
 				case 1:
-ZZZZZZZZZZZZZZZZZZZ					tokens.clear();
-					tokenize(line, tokens, ",");
-					if (tokens.size() == 3)
+					// at this point we expect a "grid" or "time" or "rect"
+					if (string::npos != line.find("grid"))
 					{
-						if (parse_color(tokens[0], spec.color))
+						cerr << "Found grid line: " << line << endl;
+
+						// update grid with these values. 
+						tokens.clear();
+						string gridarg(line.substr(line.find("grid") + 4));
+						boost::trim(gridarg);
+						tokenize(gridarg, tokens, ", ");
+						vector<double> vec;
+						int nsteps;	// unused
+
+						cerr << "Grid line split: second half " << gridarg << endl;
+						if (parse_tuning_list(tokens, vec, nsteps))
 						{
-							cerr << "Error reading color at line " << linenumber << ": " << tokens[0] << endl;
-							status = 1;
-							break;
+							cerr << "Error parsing grid line: " << line << endl;
 						}
-						if (parse_double(tokens[1], spec.initialPhase))
+						else
 						{
-							cerr << "Error reading initial phase at line " << linenumber << ": " << tokens[1] << endl;
-							status = 1;
-							break;
-						}
-						if (parse_integer(tokens[2], spec.offbits))
-						{
-							cerr << "Error reading off bits at line " << linenumber << ": " << tokens[2] << endl;
-							status = 1;
-							break;
+							if (vec.size() > 0)
+								grid.xGridCenter = vec[0];
+							if (vec.size() > 1)
+								grid.yGridCenter = vec[1];
+							if (vec.size() > 2)
+								grid.wGrid = vec[2];
+							if (vec.size() > 3)
+								grid.hGrid = vec[3];
+							if (vec.size() > 4)
+								grid.oriDegrees = vec[4];
+							if (vec.size() > 5)
+							{
+								cerr << "Error parsing grid at line " << linenumber << "  (expect <= 5 values): " << line << endl;
+								status = 1;
+							}
+							else
+							{
+								spec.grid = grid;
+							}
 						}
 
-						cerr << "Success! " << spec.color << ", " << spec.initialPhase << ", " << spec.offbits << endl;
-						iTrialStep = 2;
+						// do not change ste value - stay at 1
+
+					}
+					else if (string::npos != line.find("time"))
+					{
+						cerr << "Found time marker: " << endl;
+						tokens.clear();
+						tokenize(line, tokens, ", ");
+						if (tokens.size() > 1)
+						{
+							double t;
+							unsigned int frames = 0;
+							if (parse_double(tokens[1], t))
+							{
+								cerr << "Error parsing time at line " << linenumber << endl;
+								status = 1;
+							}
+							else
+							{
+								// The "time" line ends the last "time" block. Push that frvPair onto the
+								// current spec. 
+								spec.vecPairs.push_back(frvPair);
+								frvPair.second.clear();
+
+								if (tokens.size() == 2)
+								{
+									// save the number of frames in the frvPair placeholder 
+									frvPair.first = SECONDS_TO_FRAMES(t);
+								}
+								else
+								{
+									if (tokens.size() == 3 && boost::iequals(tokens[2], "end"))
+									{
+										// this signifies the end of the trial. 
+										// save the end frame in the current trial spec, and push the whole thing 
+										// onto the trialSpecs vector. Return to trialStep 0 - look for "trial"
+										spec.lastFrame = SECONDS_TO_FRAMES(t);
+										spec.grid = grid;
+										trialSpecs.push_back(spec);
+										iTrialStep = 0;
+									}
+									else
+									{
+										cerr << "Error in input at line " << linenumber << " - expecting time t [end]: " << line << endl;
+										status = 1;
+									}
+								}
+							}
+						}
+						else
+						{
+							cerr << "Error on line " << linenumber << " : expecting time value" << endl;
+							status = 1;
+						}
+					}
+					else if (string::npos != line.find("rect"))
+					{
+						cerr << "Found rect line: " << line << endl;
+						if (parse_rectangle(line.substr(line.find("rect") + 4), rect))
+						{
+							cerr << "Error parsing rect on line " << linenumber << ": " << line << endl;
+							status = 1;
+						}
+						else
+						{
+							frvPair.second.push_back(rect);
+						}
 					}
 					else
 					{
-						cerr << "Error reading first line of trial spec, expecting three tokens color,initphase,offbits at line " << linenumber << ": " << line << endl;
-					}
-					break;
-				case 2:
-					tokens.clear();
-					tokenize(line, tokens, ",");
-					if (tokens.size() == 3)
-					{
-						unsigned int index;
-						double t;
-						int contrast;
-
-						// index
-						if (tokens[0].at(0) == 'F') index = FixptIndex;
-						else if (tokens[0].at(0) == 'Q') index = CueIndex;
-						else if (tokens[0].at(0) == '*') index = EndIndex;
-						else if (parse_uint(tokens[0], index))
-						{
-							cerr << "Error reading stim index (expect \"F\", \"Q\", or 0<int<#gratings) line " << linenumber << ": " << tokens[0] << endl;
-							status = 1;
-							break;
-						}
-
-						// time
-						if (parse_double(tokens[1], t))
-						{
-							cerr << "Error reading time from second token at line " << linenumber << ": " << line << endl;
-							status = 1;
-							break;
-						}
-
-						if (parse_integer(tokens[2], contrast))
-						{
-							cerr << "Error reading contrast from third token at line " << linenumber << ": " << line << endl;
-							status = 1;
-							break;
-						}
-
-						// convert the time value to frames. 
-						unsigned long frames = SECONDS_TO_FRAMES(t);
-
-						// Add this bad boy to the map
-						spec.icpm.insert(make_pair(frames, ICPair(index, contrast)));
-
-						// If this was the end index, the trial is complete. 
-						// Push the map for this trial onto the vector of trial specs,
-						// and reset the step so we look for another "Trial" line. 
-						if (EndIndex == index)
-						{
-							cerr << "Finished parsing trial " << trialSpecs.size() + 1 << endl;
-							trialSpecs.push_back(spec);
-							iTrialStep = 0;
-						}
-					}
-					else
-					{
+						cerr << "Error input at line " << linenumber << " - expecting \"time\" or \"grid\" or \"rect\": " << line << endl;
 						status = 1;
-						cerr << "Error reading second line of trial spec, expecting three tokens [FQ01...],t,contrast at line " << linenumber << ": " << line << endl;
 					}
 					break;
 				default:
-					cerr << "Error - bad trial step!!! " << iTrialStep << endl;
+					cerr << "Error - unknown state " << iTrialStep << endl;
 					status = 1;
+					break;
 				}
 			}
 		}

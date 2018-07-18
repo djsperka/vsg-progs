@@ -4,6 +4,7 @@
 #include "FXGStimParameterList.h"
 #include "FXImageStimSet.h"
 #include "SequencedAttentionStimSet.h"
+#include "MelStimSet.h"
 #include <iostream>
 #include <boost/algorithm/string.hpp>
 using namespace std;

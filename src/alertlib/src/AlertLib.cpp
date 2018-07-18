@@ -112,7 +112,7 @@ ARFixationPointSpec::ARFixationPointSpec()
 
 std::ostream& operator<<(std::ostream& out, const ARFixationPointSpec& arfps)
 {
-	out << arfps.x << ", " << arfps.y << "," << arfps.d << "," << arfps.color;
+	out << arfps.x << "," << arfps.y << "," << arfps.d << "," << arfps.color;
 	return out;
 }
 

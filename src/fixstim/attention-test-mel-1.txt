@@ -1,5 +1,5 @@
 # Big red fixation point, gray background, etc
  
--f 0,0,1.0,red  -b gray -d 813 -a
+-f 0,0,1.0,red  -b gray -d 813 -a -v
 
 -o d:\\work\\usrey\\src\\fixstim\\attention-test-mel-1-trials.txt
