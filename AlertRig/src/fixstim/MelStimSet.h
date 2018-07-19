@@ -4,9 +4,24 @@
 #include <vector>
 #include <algorithm>
 
+
+typedef std::pair<COLOR_TYPE, ARContrastRectangleSpec* > ColorRectPair;
+
+class RectanglePool
+{
+	vector<ColorRectPair> m_vec;
+	RectanglePool() {};
+	static RectanglePool& instance() { static RectanglePool pool; return pool; };
+	vector<ColorRectPair>& vec() { return m_vec; };
+public:
+	virtual ~RectanglePool();
+	static ARContrastRectangleSpec *getRect(const COLOR_TYPE& c);
+};
+
+
 // the ui is a frame number. The vector is a list of rectangles to be drawn on that frame
 // Its a pair, with a frame and a rect vec.
-typedef std::pair<unsigned int, vector<ARRectangleSpec> > FrameRectVecPair;
+typedef std::pair<unsigned int, vector<ARContrastRectangleSpec> > FrameRectVecPair;
 
 typedef struct
 {
@@ -22,20 +37,27 @@ typedef struct
 
 int parse_mel_params(const std::string& filename, vector<MelTrialSpec>& trialSpecs);
 
+// The vector of pairs may have one with the same frame value as the frvPair supplied. If that's the case, append
+// the elements of frvPair to that pair. If not, push the frvPair onto vecPairs. 
+// This allows for rects being added at different positions in the trial spec. 
+void addOrAppendfrvPair(vector<FrameRectVecPair>& vecPairs, const FrameRectVecPair& frvPair);
 
 class MelStimSet : public StimSet
 {
 private:
-	ARFixationPointSpec m_fixpt;
+	ARContrastFixationPointSpec m_fixpt;
 	vector<MelTrialSpec> m_trialSpecs;
 	PIXEL_LEVEL m_levelWhite;
 	unsigned int m_uiCurrentTrial;
 	std::vector<int> m_pagesAvailable;
+	int m_pageFixpt;
+	int m_pageBlank;
 
 	int drawCurrent();
+	void applyTransform(ARContrastRectangleSpec& result, const ARContrastRectangleSpec& original, const MelGridSpec& grid);
 
 public:
-	MelStimSet(const ARFixationPointSpec& fixpt, const vector<MelTrialSpec>& trialSpecs) : m_fixpt(fixpt), m_trialSpecs(trialSpecs), m_uiCurrentTrial(0) {};
+	MelStimSet(const ARContrastFixationPointSpec& fixpt, const vector<MelTrialSpec>& trialSpecs) : m_fixpt(fixpt), m_trialSpecs(trialSpecs), m_uiCurrentTrial(0) {};
 	virtual ~MelStimSet() {};
 
 	// subclasses should return the number of pages they will need.
