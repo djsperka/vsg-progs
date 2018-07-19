@@ -82,6 +82,9 @@ public:
 	void setCustom(double abc);
 };
 
+bool operator==(const COLOR_TYPE& lhs, const COLOR_TYPE& rhs);
+
+
 typedef struct xywh_struct 
 {
 	double x, y, w, h;

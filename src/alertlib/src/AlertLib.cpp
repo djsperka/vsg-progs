@@ -102,6 +102,14 @@ COLOR_TYPE& COLOR_TYPE::operator=(const COLOR_ENUM &t)
 	return *this;
 }
 
+bool operator==(const COLOR_TYPE& lhs, const COLOR_TYPE& rhs)
+{
+	return (lhs.type() == rhs.type() && 
+		lhs.trival().a == rhs.trival().a &&
+		lhs.trival().b == rhs.trival().b &&
+		lhs.trival().c == rhs.trival().c);
+}
+
 
 ARFixationPointSpec::ARFixationPointSpec()
 : x(0)
@@ -118,7 +126,7 @@ std::ostream& operator<<(std::ostream& out, const ARFixationPointSpec& arfps)
 
 std::ostream& operator<<(std::ostream& out, const ARRectangleSpec& arrect)
 {
-	out << arrect.x << ", " << arrect.y << "," << arrect.w << "," << arrect.h << "," << arrect.color;
+	out << arrect.x << "," << arrect.y << "," << arrect.w << "," << arrect.h << "," << arrect.color;
 	return out;
 }
 
