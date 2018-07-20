@@ -148,7 +148,7 @@ int parse_rectangle(const std::string& s, alert::ARRectangleSpec& ar)
 			iss >> ar.orientation;
 			if (!iss)
 			{
-				cerr << "bad color: " << tokens[4] << endl;
+				cerr << "bad orientation: " << tokens[4] << endl;
 				status = 1;
 			}
 		}
