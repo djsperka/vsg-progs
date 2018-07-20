@@ -1,6 +1,52 @@
-# Grid is xCenter,yCenter,width,height,orientation(degrees)
+# This file lays out the trials in a "Mel Stim" 
+#
+# blank lines and lines that begin with "#" are ignored
+# Capitalization Does nOt matTER
+#
+# A trial starts with a "trial" line and is followed by "time" blocks and an optional "grid" line.
+# A "grid" line and "time" blocks can come in any order
+# "time" blocks can be broken into multiple pieces
+#
+# The "grid" line looks like this:
+# grid x,y,w,h,ori
+#
+# where
+#    x,y are the center of the grid; the position 0,0 in grid coordinates corresponds to this position in eye coords
+#    w,h are the width,height of each grid rectangle, in the same units that x,y are in 
+#    ori is the orientation of the grid. This is the angle that the x-axis of the grid makes with the screen's positive x-axis.
+#    Positive orientation angles run counter-clockwise from the screen's +x axis. 
+#
+#
+# The "time" block looks like this (*):
+# time t
+# rect u,v,a,b,rect-ori,color
+# <multiple rects allowed>
+#
+# (*) A trial is ended with a special time block:
+# time t end
+#
+# EACH TRIAL MUST END WITH ONE OF THESE SPECIAL TIME BLOCKS!
+# The end block has to be the last one in the file - put it after all rect lines for the trial (don't rely on sorting for the end)
+#
+# The "rect" line specifies a rect be drawn
+# rect u,v,a,b,rect-ori,color
+#
+# where
+#    u,v is the rect center in grid coordinates
+#    a,b are the width,height of the rect, in units of w,h - the grid rect size from the "grid" line (default = 1,1)
+#    rect-ori is the rect orientation in the grid system. (default 0) When the rect is drawn, this value is added to the orientation of the grid.
+#    color is the rect color. (default white)
+#
+# A rect that is aligned with the grid, and scale=1 can just use u,v:
+# rect 3,1
+#
+#
 
-# caps DO not MATTER, all is converted to lower
+
+# This trial has axis-aligned grid, with grid rects size 1,1
+# There is a vertical "stack" of 7 rects that move from left to right
+# Note the small gaps that appear between some of the rects at different steps
+
 
 Trial 1
 Grid 0,0,1,1,0
@@ -63,8 +109,74 @@ Rect 3,3
 Time 4.0 end
 
 
+# This trial is the same as the last trial, but the rects are scaled 1.1,1.1 to address
+# the gaps that appeared above. Note that the leading/trailing edges are not prefectly aligned
+# in different steps
 
-Trial 1
+
+Trial 1 - repeated with size 1.1
+Grid 0,0,1,1,0
+Time 0.5
+Rect -3,-3,1.1,1.1,0,(255/255/0)
+Rect -3,-2,1.1,1.1,0,(255/255/0)
+Rect -3,-1,1.1,1.1,0,(255/255/0)
+Rect -3,0,1.1,1.1,0,(255/255/0)
+Rect -3,1,1.1,1.1,0,(255/255/0)
+Rect -3,2,1.1,1.1,0,(255/255/0)
+Rect -3,3,1.1,1.1,0,(255/255/0)
+Time 1.0
+Rect -2,-3,1.1,1.1,0,(255/255/0)
+Rect -2,-2,1.1,1.1,0,(255/255/0)
+Rect -2,-1,1.1,1.1,0,(255/255/0)
+Rect -2,0,1.1,1.1,0,(255/255/0)
+Rect -2,1,1.1,1.1,0,(255/255/0)
+Rect -2,2,1.1,1.1,0,(255/255/0)
+Rect -2,3,1.1,1.1,0,(255/255/0)
+Time 1.5
+Rect -1,-3,1.1,1.1,0,(255/255/0)
+Rect -1,-2,1.1,1.1,0,(255/255/0)
+Rect -1,-1,1.1,1.1,0,(255/255/0)
+Rect -1,0,1.1,1.1,0,(255/255/0)
+Rect -1,1,1.1,1.1,0,(255/255/0)
+Rect -1,2,1.1,1.1,0,(255/255/0)
+Rect -1,3,1.1,1.1,0,(255/255/0)
+Time 2.0
+Rect 0,-3,1.1,1.1,0,(255/255/0)
+Rect 0,-2,1.1,1.1,0,(255/255/0)
+Rect 0,-1,1.1,1.1,0,(255/255/0)
+Rect 0,0,1.1,1.1,0,(255/255/0)
+Rect 0,1,1.1,1.1,0,(255/255/0)
+Rect 0,2,1.1,1.1,0,(255/255/0)
+Rect 0,3,1.1,1.1,0,(255/255/0)
+Time 2.5
+Rect 1,-3,1.1,1.1,0,(255/255/0)
+Rect 1,-2,1.1,1.1,0,(255/255/0)
+Rect 1,-1,1.1,1.1,0,(255/255/0)
+Rect 1,0,1.1,1.1,0,(255/255/0)
+Rect 1,1,1.1,1.1,0,(255/255/0)
+Rect 1,2,1.1,1.1,0,(255/255/0)
+Rect 1,3,1.1,1.1,0,(255/255/0)
+Time 3.0
+Rect 2,-3,1.1,1.1,0,(255/255/0)
+Rect 2,-2,1.1,1.1,0,(255/255/0)
+Rect 2,-1,1.1,1.1,0,(255/255/0)
+Rect 2,0,1.1,1.1,0,(255/255/0)
+Rect 2,1,1.1,1.1,0,(255/255/0)
+Rect 2,2,1.1,1.1,0,(255/255/0)
+Rect 2,3,1.1,1.1,0,(255/255/0)
+Time 3.5
+Rect 3,-3,1.1,1.1,0,(255/255/0)
+Rect 3,-2,1.1,1.1,0,(255/255/0)
+Rect 3,-1,1.1,1.1,0,(255/255/0)
+Rect 3,0,1.1,1.1,0,(255/255/0)
+Rect 3,1,1.1,1.1,0,(255/255/0)
+Rect 3,2,1.1,1.1,0,(255/255/0)
+Rect 3,3,1.1,1.1,0,(255/255/0)
+Time 4.0 end
+
+
+
+Trial 2
 Grid 0,0,1,1,45
 Time 0.5
 Rect -3,-3
@@ -123,6 +235,70 @@ Rect 3,1
 Rect 3,2
 Rect 3,3
 Time 4.0 end
+
+
+# same as last trial, but with the rects size 1.1
+
+Trial 2 with size 1.1
+Grid 0,0,1,1,45
+Time 0.5
+Rect -3,-3,1.1,1.1,0,(220/220/50)
+Rect -3,-2,1.1,1.1,0,(220/220/50)
+Rect -3,-1,1.1,1.1,0,(220/220/50)
+Rect -3,0,1.1,1.1,0,(220/220/50)
+Rect -3,1,1.1,1.1,0,(220/220/50)
+Rect -3,2,1.1,1.1,0,(220/220/50)
+Rect -3,3,1.1,1.1,0,(220/220/50)
+Time 1.0
+Rect -2,-3,1.1,1.1,0,(220/220/50)
+Rect -2,-2,1.1,1.1,0,(220/220/50)
+Rect -2,-1,1.1,1.1,0,(220/220/50)
+Rect -2,0,1.1,1.1,0,(220/220/50)
+Rect -2,1,1.1,1.1,0,(220/220/50)
+Rect -2,2,1.1,1.1,0,(220/220/50)
+Rect -2,3,1.1,1.1,0,(220/220/50)
+Time 1.5
+Rect -1,-3,1.1,1.1,0,(220/220/50)
+Rect -1,-2,1.1,1.1,0,(220/220/50)
+Rect -1,-1,1.1,1.1,0,(220/220/50)
+Rect -1,0,1.1,1.1,0,(220/220/50)
+Rect -1,1,1.1,1.1,0,(220/220/50)
+Rect -1,2,1.1,1.1,0,(220/220/50)
+Rect -1,3,1.1,1.1,0,(220/220/50)
+Time 2.0
+Rect 0,-3,1.1,1.1,0,(220/220/50)
+Rect 0,-2,1.1,1.1,0,(220/220/50)
+Rect 0,-1,1.1,1.1,0,(220/220/50)
+Rect 0,0,1.1,1.1,0,(220/220/50)
+Rect 0,1,1.1,1.1,0,(220/220/50)
+Rect 0,2,1.1,1.1,0,(220/220/50)
+Rect 0,3,1.1,1.1,0,(220/220/50)
+Time 2.5
+Rect 1,-3,1.1,1.1,0,(220/220/50)
+Rect 1,-2,1.1,1.1,0,(220/220/50)
+Rect 1,-1,1.1,1.1,0,(220/220/50)
+Rect 1,0,1.1,1.1,0,(220/220/50)
+Rect 1,1,1.1,1.1,0,(220/220/50)
+Rect 1,2,1.1,1.1,0,(220/220/50)
+Rect 1,3,1.1,1.1,0,(220/220/50)
+Time 3.0
+Rect 2,-3,1.1,1.1,0,(220/220/50)
+Rect 2,-2,1.1,1.1,0,(220/220/50)
+Rect 2,-1,1.1,1.1,0,(220/220/50)
+Rect 2,0,1.1,1.1,0,(220/220/50)
+Rect 2,1,1.1,1.1,0,(220/220/50)
+Rect 2,2,1.1,1.1,0,(220/220/50)
+Rect 2,3,1.1,1.1,0,(220/220/50)
+Time 3.5
+Rect 3,-3,1.1,1.1,0,(220/220/50)
+Rect 3,-2,1.1,1.1,0,(220/220/50)
+Rect 3,-1,1.1,1.1,0,(220/220/50)
+Rect 3,0,1.1,1.1,0,(220/220/50)
+Rect 3,1,1.1,1.1,0,(220/220/50)
+Rect 3,2,1.1,1.1,0,(220/220/50)
+Rect 3,3,1.1,1.1,0,(220/220/50)
+Time 4.0 end
+
 
 
 
@@ -186,8 +362,65 @@ Rect 3,2
 Rect 3,3
 Time 4.0 end
 
-
-
+Trial 3 with size 1.1
+Grid 0,0,1,1,90
+Time 0.5
+Rect -3,-3,1.1,1.1,0,(155/155/100)
+Rect -3,-2,1.1,1.1,0,(155/155/100)
+Rect -3,-1,1.1,1.1,0,(155/155/100)
+Rect -3,0,1.1,1.1,0,(155/155/100)
+Rect -3,1,1.1,1.1,0,(155/155/100)
+Rect -3,2,1.1,1.1,0,(155/155/100)
+Rect -3,3,1.1,1.1,0,(155/155/100)
+Time 1.0
+Rect -2,-3,1.1,1.1,0,(155/155/100)
+Rect -2,-2,1.1,1.1,0,(155/155/100)
+Rect -2,-1,1.1,1.1,0,(155/155/100)
+Rect -2,0,1.1,1.1,0,(155/155/100)
+Rect -2,1,1.1,1.1,0,(155/155/100)
+Rect -2,2,1.1,1.1,0,(155/155/100)
+Rect -2,3,1.1,1.1,0,(155/155/100)
+Time 1.5
+Rect -1,-3,1.1,1.1,0,(155/155/100)
+Rect -1,-2,1.1,1.1,0,(155/155/100)
+Rect -1,-1,1.1,1.1,0,(155/155/100)
+Rect -1,0,1.1,1.1,0,(155/155/100)
+Rect -1,1,1.1,1.1,0,(155/155/100)
+Rect -1,2,1.1,1.1,0,(155/155/100)
+Rect -1,3,1.1,1.1,0,(155/155/100)
+Time 2.0
+Rect 0,-3,1.1,1.1,0,(155/155/100)
+Rect 0,-2,1.1,1.1,0,(155/155/100)
+Rect 0,-1,1.1,1.1,0,(155/155/100)
+Rect 0,0,1.1,1.1,0,(155/155/100)
+Rect 0,1,1.1,1.1,0,(155/155/100)
+Rect 0,2,1.1,1.1,0,(155/155/100)
+Rect 0,3,1.1,1.1,0,(155/155/100)
+Time 2.5
+Rect 1,-3,1.1,1.1,0,(155/155/100)
+Rect 1,-2,1.1,1.1,0,(155/155/100)
+Rect 1,-1,1.1,1.1,0,(155/155/100)
+Rect 1,0,1.1,1.1,0,(155/155/100)
+Rect 1,1,1.1,1.1,0,(155/155/100)
+Rect 1,2,1.1,1.1,0,(155/155/100)
+Rect 1,3,1.1,1.1,0,(155/155/100)
+Time 3.0
+Rect 2,-3,1.1,1.1,0,(155/155/100)
+Rect 2,-2,1.1,1.1,0,(155/155/100)
+Rect 2,-1,1.1,1.1,0,(155/155/100)
+Rect 2,0,1.1,1.1,0,(155/155/100)
+Rect 2,1,1.1,1.1,0,(155/155/100)
+Rect 2,2,1.1,1.1,0,(155/155/100)
+Rect 2,3,1.1,1.1,0,(155/155/100)
+Time 3.5
+Rect 3,-3,1.1,1.1,0,(155/155/100)
+Rect 3,-2,1.1,1.1,0,(155/155/100)
+Rect 3,-1,1.1,1.1,0,(155/155/100)
+Rect 3,0,1.1,1.1,0,(155/155/100)
+Rect 3,1,1.1,1.1,0,(155/155/100)
+Rect 3,2,1.1,1.1,0,(155/155/100)
+Rect 3,3,1.1,1.1,0,(155/155/100)
+Time 4.0 end
 
 Trial 4
 Grid 0,0,1,1,135
@@ -249,6 +482,69 @@ Rect 3,2
 Rect 3,3
 Time 4.0 end
 
+
+Trial 4 with size 1.1
+Grid 0,0,1,1,135
+Time 0.5
+Rect -3,-3,1.1,1.1,0,(255/255/0)
+Rect -3,-2,1.1,1.1,0,(255/255/0)
+Rect -3,-1,1.1,1.1,0,(255/255/0)
+Rect -3,0,1.1,1.1,0,(255/255/0)
+Rect -3,1,1.1,1.1,0,(255/255/0)
+Rect -3,2,1.1,1.1,0,(255/255/0)
+Rect -3,3,1.1,1.1,0,(255/255/0)
+Time 1.0
+Rect -2,-3,1.1,1.1,0,(255/255/0)
+Rect -2,-2,1.1,1.1,0,(255/255/0)
+Rect -2,-1,1.1,1.1,0,(255/255/0)
+Rect -2,0,1.1,1.1,0,(255/255/0)
+Rect -2,1,1.1,1.1,0,(255/255/0)
+Rect -2,2,1.1,1.1,0,(255/255/0)
+Rect -2,3,1.1,1.1,0,(255/255/0)
+Time 1.5
+Rect -1,-3,1.1,1.1,0,(255/255/0)
+Rect -1,-2,1.1,1.1,0,(255/255/0)
+Rect -1,-1,1.1,1.1,0,(255/255/0)
+Rect -1,0,1.1,1.1,0,(255/255/0)
+Rect -1,1,1.1,1.1,0,(255/255/0)
+Rect -1,2,1.1,1.1,0,(255/255/0)
+Rect -1,3,1.1,1.1,0,(255/255/0)
+Time 2.0
+Rect 0,-3,1.1,1.1,0,(255/255/0)
+Rect 0,-2,1.1,1.1,0,(255/255/0)
+Rect 0,-1,1.1,1.1,0,(255/255/0)
+Rect 0,0,1.1,1.1,0,(255/255/0)
+Rect 0,1,1.1,1.1,0,(255/255/0)
+Rect 0,2,1.1,1.1,0,(255/255/0)
+Rect 0,3,1.1,1.1,0,(255/255/0)
+Time 2.5
+Rect 1,-3,1.1,1.1,0,(255/255/0)
+Rect 1,-2,1.1,1.1,0,(255/255/0)
+Rect 1,-1,1.1,1.1,0,(255/255/0)
+Rect 1,0,1.1,1.1,0,(255/255/0)
+Rect 1,1,1.1,1.1,0,(255/255/0)
+Rect 1,2,1.1,1.1,0,(255/255/0)
+Rect 1,3,1.1,1.1,0,(255/255/0)
+Time 3.0
+Rect 2,-3,1.1,1.1,0,(255/255/0)
+Rect 2,-2,1.1,1.1,0,(255/255/0)
+Rect 2,-1,1.1,1.1,0,(255/255/0)
+Rect 2,0,1.1,1.1,0,(255/255/0)
+Rect 2,1,1.1,1.1,0,(255/255/0)
+Rect 2,2,1.1,1.1,0,(255/255/0)
+Rect 2,3,1.1,1.1,0,(255/255/0)
+Time 3.5
+Rect 3,-3,1.1,1.1,0,(255/255/0)
+Rect 3,-2,1.1,1.1,0,(255/255/0)
+Rect 3,-1,1.1,1.1,0,(255/255/0)
+Rect 3,0,1.1,1.1,0,(255/255/0)
+Rect 3,1,1.1,1.1,0,(255/255/0)
+Rect 3,2,1.1,1.1,0,(255/255/0)
+Rect 3,3,1.1,1.1,0,(255/255/0)
+Time 4.0 end
+
+
+
 Trial 5
 Grid 0,0,1,1,180
 Time 0.5
@@ -309,102 +605,62 @@ Rect 3,2
 Rect 3,3
 Time 4.0 end
 
-
-
-Trial 1
-Grid 2,2,1,1,0
-time 0.5
-rect 0,0
-rect 1,1
-rect -1,-1
-time 1.0
-rect 1,0
-rect 2,1
-rect 0,-1
-time 2.0 end
-
-Trial 2 
-Grid 2,2,1,1,0
-time 4.0
-rect 1,-2
-rect 1,-1
-rect 1,0
-time 2.0
-rect -1,-2
-rect -1,-1
-rect -1,0
-time 1.0
-rect -2,-2
-rect -2,-1
-rect -2,0
-time 3.0
-rect 0,-2
-rect 0,-1
-rect 0,0
-
-# repeated time - should be appended to existing time
-time 2.0
-rect -4,-2
-rect -4,-1
-rect -4,0
-
-time 5.0 end
-
-Trial 3
-grid 3,3,1,1,45
-time 0.5
-rect -5,-2
-rect -5,-1
-rect -5,0
-rect -5,1
-rect -5,2
-time 1.0
-rect -4,-2
-rect -4,-1
-rect -4,0
-rect -4,1
-rect -4,2
-time 1.5
-rect -3,-2
-rect -3,-1
-rect -3,0
-rect -3,1
-rect -3,2
-time 2.0
-rect -2,-2
-rect -2,-1
-rect -2,0
-rect -2,1
-rect -2,2
-time 2.5
-rect -1,-2
-rect -1,-1
-rect -1,0
-rect -1,1
-rect -1,2
-time 3.0
-rect 0,-2
-rect 0,-1
-rect 0,0
-rect 0,1
-rect 0,2
-time 3.5
-rect 0,-2,1,1,1,blue
-rect 0,-1,1,1,1,blue
-rect 0,0,1,1,1,blue
-rect 0,1,1,1,1,blue
-rect 0,2,1,1,1,blue
-time 4.0
-rect 1,-2,1,1,1,green
-rect 1,-1,1,1,1,blue
-rect 1,0,1,1,1,red
-rect 1,1,1,1,1,(100/190/12)
-rect 1,2,1,1,1,(12/190/100)
-time 4.5
-rect 2,-2,1,1,1,blue
-rect 2,-1,1,1,1,blue
-rect 2,0,1,1,1,blue
-rect 2,1,1,1,1,blue
-rect 2,2,1,1,1,blue
-time 5.0 end
-
+Trial 5 with size 1.1
+Grid 0,0,1,1,180
+Time 0.5
+Rect -3,-3,1.1,1.1,0,gray
+Rect -3,-2,1.1,1.1,0,gray
+Rect -3,-1,1.1,1.1,0,gray
+Rect -3,0,1.1,1.1,0,gray
+Rect -3,1,1.1,1.1,0,gray
+Rect -3,2,1.1,1.1,0,gray
+Rect -3,3,1.1,1.1,0,gray
+Time 1.0
+Rect -2,-3,1.1,1.1,0,gray
+Rect -2,-2,1.1,1.1,0,gray
+Rect -2,-1,1.1,1.1,0,gray
+Rect -2,0,1.1,1.1,0,gray
+Rect -2,1,1.1,1.1,0,gray
+Rect -2,2,1.1,1.1,0,gray
+Rect -2,3,1.1,1.1,0,gray
+Time 1.5
+Rect -1,-3,1.1,1.1,0,gray
+Rect -1,-2,1.1,1.1,0,gray
+Rect -1,-1,1.1,1.1,0,gray
+Rect -1,0,1.1,1.1,0,gray
+Rect -1,1,1.1,1.1,0,gray
+Rect -1,2,1.1,1.1,0,gray
+Rect -1,3,1.1,1.1,0,gray
+Time 2.0
+Rect 0,-3,1.1,1.1,0,gray
+Rect 0,-2,1.1,1.1,0,gray
+Rect 0,-1,1.1,1.1,0,gray
+Rect 0,0,1.1,1.1,0,gray
+Rect 0,1,1.1,1.1,0,gray
+Rect 0,2,1.1,1.1,0,gray
+Rect 0,3,1.1,1.1,0,gray
+Time 2.5
+Rect 1,-3,1.1,1.1,0,gray
+Rect 1,-2,1.1,1.1,0,gray
+Rect 1,-1,1.1,1.1,0,gray
+Rect 1,0,1.1,1.1,0,gray
+Rect 1,1,1.1,1.1,0,gray
+Rect 1,2,1.1,1.1,0,gray
+Rect 1,3,1.1,1.1,0,gray
+Time 3.0
+Rect 2,-3,1.1,1.1,0,gray
+Rect 2,-2,1.1,1.1,0,gray
+Rect 2,-1,1.1,1.1,0,gray
+Rect 2,0,1.1,1.1,0,gray
+Rect 2,1,1.1,1.1,0,gray
+Rect 2,2,1.1,1.1,0,gray
+Rect 2,3,1.1,1.1,0,gray
+Time 3.5
+Rect 3,-3,1.1,1.1,0,gray
+Rect 3,-2,1.1,1.1,0,gray
+Rect 3,-1,1.1,1.1,0,gray
+Rect 3,0,1.1,1.1,0,gray
+Rect 3,1,1.1,1.1,0,gray
+Rect 3,2,1.1,1.1,0,gray
+Rect 3,3,1.1,1.1,0,gray
+Time 4.0 end

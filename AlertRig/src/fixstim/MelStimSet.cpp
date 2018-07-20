@@ -73,8 +73,8 @@ int MelStimSet::drawCurrent()
 	m_pageFixpt = page;
 	vsgSetDrawPage(vsgVIDEOPAGE, page, vsgBACKGROUND);	
 
-	cerr << "drawCurrent - start" << endl;
-	cerr << "drawCurrent - fixpt page " << m_pageFixpt << endl;
+	//cerr << "drawCurrent - start" << endl;
+	//cerr << "drawCurrent - fixpt page " << m_pageFixpt << endl;
 
 	// loop over each pair. Assume fixpt always on.
 	VSGCYCLEPAGEENTRY cycle[16];	// should  be plenty
@@ -154,9 +154,9 @@ void MelStimSet::applyTransform(ARContrastRectangleSpec& result, const ARContras
 	double y_scaled = (grid.yGridCenter + original.y * grid.hGrid);
 	result.x = x_scaled * ctheta - y_scaled * stheta;
 	result.y = x_scaled * stheta + y_scaled * ctheta;
-	result.w = grid.wGrid;
-	result.h = grid.hGrid;
-	result.orientation = grid.oriDegrees;
+	result.w = grid.wGrid * original.w;
+	result.h = grid.hGrid * original.h;
+	result.orientation = grid.oriDegrees + original.orientation;
 	return;
 }
 
@@ -209,19 +209,19 @@ std::string MelStimSet::toString() const
 	ostringstream oss;
 	oss << "MelStimSet: " << endl;
 	oss << "There are " << m_trialSpecs.size() << " trials";
-	for (auto ts : m_trialSpecs)
-	{
-		oss << "Trial" << endl;
-		for (auto frvpair : ts.vecPairs)
-		{
-			oss << " frame " << frvpair.first << endl;
-			for (auto w : frvpair.second)
-			{
-				oss << "  rect " << w << endl;
-			}
-		}
-		oss << " frame " << ts.lastFrame << " end" << endl;
-	}
+	//for (auto ts : m_trialSpecs)
+	//{
+	//	oss << "Trial" << endl;
+	//	for (auto frvpair : ts.vecPairs)
+	//	{
+	//		oss << " frame " << frvpair.first << endl;
+	//		for (auto w : frvpair.second)
+	//		{
+	//			oss << "  rect " << w << endl;
+	//		}
+	//	}
+	//	oss << " frame " << ts.lastFrame << " end" << endl;
+	//}
 	return oss.str();
 }
 
@@ -278,7 +278,7 @@ int parse_mel_params(const std::string& filename, vector<MelTrialSpec>& trialSpe
 					// Expecting "trial"
 					if (string::npos != line.find("trial"))
 					{
-						cerr << "Start of trial found" << endl;
+						//cerr << "Start of trial found" << endl;
 						iTrialStep = 1;
 
 						// initialize trial spec
@@ -299,7 +299,7 @@ int parse_mel_params(const std::string& filename, vector<MelTrialSpec>& trialSpe
 					// at this point we expect a "grid" or "time" or "rect"
 					if (string::npos != line.find("grid"))
 					{
-						cerr << "Found grid line: " << line << endl;
+						//cerr << "Found grid line: " << line << endl;
 
 						// update grid with these values. 
 						tokens.clear();
@@ -309,7 +309,7 @@ int parse_mel_params(const std::string& filename, vector<MelTrialSpec>& trialSpe
 						vector<double> vec;
 						int nsteps;	// unused
 
-						cerr << "Grid line split: second half " << gridarg << endl;
+						//cerr << "Grid line split: second half " << gridarg << endl;
 						if (parse_tuning_list(tokens, vec, nsteps))
 						{
 							cerr << "Error parsing grid line: " << line << endl;
@@ -342,7 +342,7 @@ int parse_mel_params(const std::string& filename, vector<MelTrialSpec>& trialSpe
 					}
 					else if (string::npos != line.find("time"))
 					{
-						cerr << "Found time marker: " << endl;
+						//cerr << "Found time marker: " << endl;
 						tokens.clear();
 						tokenize(line, tokens, ", ");
 						if (tokens.size() > 1)
@@ -396,7 +396,7 @@ int parse_mel_params(const std::string& filename, vector<MelTrialSpec>& trialSpe
 					}
 					else if (string::npos != line.find("rect"))
 					{
-						cerr << "Found rect line: " << line << endl;
+						//cerr << "Found rect line: " << line << endl;
 						if (parse_rectangle(line.substr(line.find("rect") + 4), rect))
 						{
 							cerr << "Error parsing rect on line " << linenumber << ": " << line << endl;
