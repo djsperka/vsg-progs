@@ -318,7 +318,8 @@ int SequencedAttentionStimSet::drawPageUsingPageVec(const PageVec& pv, int page,
 	if (bCuePoints) m_pCueHelper->draw_cue_points(offbits);
 	for (auto& icp : pv)
 	{
-		if (icp.first >= 0 && icp.first < 8 && !(offbits & (1 << icp.first)))
+		// Ignore offbits for gratings! 
+		if (icp.first >= 0 && icp.first < 8)
 		{
 			m_gratingHelpers[icp.first]->draw(initial_phase);
 		}
