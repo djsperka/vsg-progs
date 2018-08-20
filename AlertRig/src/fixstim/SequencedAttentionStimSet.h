@@ -122,7 +122,7 @@ typedef struct
 {
 	COLOR_TYPE color;
 	int offbits;
-	double initialPhase;
+	vector<double> initialPhase;
 	ICPairMap icpm;
 } AttentionSequenceTrialSpec;
 
@@ -151,7 +151,8 @@ private:
 	int drawCurrent();
 	void draw_fixpt();
 	bool findConfiguredPage(const PageVec& pv, const PageVecs& pagesConfigured, int& pageNumber);
-	int drawPageUsingPageVec(const PageVec& pv, int pagenum, int offbits, double initial_phase);
+	int drawPageUsingPageVec(const PageVec& pv, int page, int offbits, const vector<double>& initial_phase);
+	int drawPageUsingPageVec(const PageVec& pv, int page, int offbits, double initial_phase);
 	PageVec makePageVec();	// current values in fixpt, cue, gratings. 
 	vector<AttentionSequenceTrialSpec> m_trialSpecs;
 	alert::ARContrastFixationPointSpec m_fixpt;

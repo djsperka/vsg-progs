@@ -302,7 +302,16 @@ int SequencedAttentionStimSet::drawCurrent()
 	return 0;
 }
 
+
 int SequencedAttentionStimSet::drawPageUsingPageVec(const PageVec& pv, int page, int offbits, double initial_phase)
+{
+	vector<double> initialPhase;
+	for (int i = 0; i < m_gratingHelpers.size(); i++)
+		initialPhase.push_back(initial_phase);
+	return drawPageUsingPageVec(pv, page, offbits, initialPhase);
+}
+
+int SequencedAttentionStimSet::drawPageUsingPageVec(const PageVec& pv, int page, int offbits, const vector<double>& initial_phase)
 {
 	bool bFixpt = false;
 	bool bCues = false;
@@ -321,7 +330,7 @@ int SequencedAttentionStimSet::drawPageUsingPageVec(const PageVec& pv, int page,
 		// Ignore offbits for gratings! 
 		if (icp.first >= 0 && icp.first < 8)
 		{
-			m_gratingHelpers[icp.first]->draw(initial_phase);
+			m_gratingHelpers[icp.first]->draw(initial_phase.at(icp.first));
 		}
 	}
 	if (bCues) m_pCueHelper->draw_cues(offbits);
@@ -440,7 +449,7 @@ int parse_sequenced_params(const std::string& filename, unsigned int ngratings, 
 
 						// initialize trial spec
 						spec.color = COLOR_ENUM::unknown_color;
-						spec.initialPhase = 0;
+						spec.initialPhase.clear();
 						spec.offbits = 0;
 						spec.icpm.clear();
 					}
@@ -449,7 +458,7 @@ int parse_sequenced_params(const std::string& filename, unsigned int ngratings, 
 				case 1:
 					tokens.clear();
 					tokenize(line, tokens, ",");
-					if (tokens.size() == 3)
+					if (tokens.size() == 3 || tokens.size() == 2+ngratings)
 					{
 						if (parse_color(tokens[0], spec.color))
 						{
@@ -457,20 +466,56 @@ int parse_sequenced_params(const std::string& filename, unsigned int ngratings, 
 							status = 1;
 							break;
 						}
-						if (parse_double(tokens[1], spec.initialPhase))
+						if (parse_integer(tokens[1], spec.offbits))
 						{
-							cerr << "Error reading initial phase at line " << linenumber << ": " << tokens[1] << endl;
+							cerr << "Error reading off bits at line " << linenumber << ": " << tokens[1] << endl;
 							status = 1;
 							break;
 						}
-						if (parse_integer(tokens[2], spec.offbits))
+						if (tokens.size() == 3)
 						{
-							cerr << "Error reading off bits at line " << linenumber << ": " << tokens[2] << endl;
+							double phase;
+							if (parse_double(tokens[2], phase))
+							{
+								cerr << "Error reading initial phase at line " << linenumber << ": " << tokens[2] << endl;
+								status = 1;
+								break;
+							}
+							else
+							{
+								for (int i = 0; i < ngratings; i++)
+									spec.initialPhase.push_back(phase);
+							}
+						}
+						else if (tokens.size() == (2 + ngratings))
+						{
+							double phase;
+							for (int i = 2; i < 2 + ngratings; i++)
+							{
+								if (parse_double(tokens[i], phase))
+								{
+									cerr << "Error reading initial phase at line " << linenumber << ": " << tokens[i] << endl;
+									status = 1;
+									break;
+								}
+								else
+								{
+									spec.initialPhase.push_back(phase);
+								}
+							}
+						}
+						else
+						{
+							cerr << "Error reading initial phases at line " << linenumber << ": expecting a single phase, or one for each grating (" << ngratings << ")" << endl;
 							status = 1;
 							break;
 						}
 
-						cerr << "Success! " << spec.color << ", " << spec.initialPhase << ", " << spec.offbits << endl;
+						cerr << "Success! " << spec.color << ", " << spec.offbits << " : init phases (";
+						//std::for_each(pv.begin(), pv.end(), [=](const ICPair& icp) {std::cout << icp.first << "/" << icp.second << std::endl; });
+
+						for_each(spec.initialPhase.begin(), spec.initialPhase.end(), [=](double& ph) {cerr << " " << ph; });
+						cerr << " ]" << endl;
 						iTrialStep = 2;
 					}
 					else
