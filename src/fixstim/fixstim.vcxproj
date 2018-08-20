@@ -241,6 +241,8 @@
     <Text Include="attention-test-seq-1-bin.txt" />
     <Text Include="attention-test-seq-1-trials.txt" />
     <Text Include="attention-test-seq-1.txt" />
+    <Text Include="attention-test-seq-2-trials.txt" />
+    <Text Include="attention-test-seq-2.txt" />
     <Text Include="attspan.txt" />
     <Text Include="attspan2.txt" />
     <Text Include="counterphase-test-input-1.txt" />
