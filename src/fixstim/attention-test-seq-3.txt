@@ -4,13 +4,13 @@
 
 # there are 4 stimuli, along the top of the screen
  
--s -4.0,4.0,6.0,6.0,0.0,0.0,100,0.1,0.1,90.0,0.0,b,s,e 
+-s -4.0,4.0,6.0,6.0,0.0,0.0,100,0.1,0.01,90.0,0.0,b,s,e 
  
--s 4.0,4.0,6.0,6.0,0.0,0.0,100,0.1,0.1,90.0,0.0,b,s,e 
+-s 4.0,4.0,6.0,6.0,0.0,0.0,100,0.1,0.01,90.0,0.0,b,s,e 
  
--s 4.0,-4.0,6.0,6.0,0.0,0.0,100,0.1,0.1,90.0,0.0,b,s,e 
+-s 4.0,-4.0,6.0,6.0,0.0,0.0,100,0.1,0.01,90.0,0.0,b,s,e 
  
--s -4.0,-4.0,6.0,6.0,0.0,0.0,100,0.1,0.1,90.0,0.0,b,s,e 
+-s -4.0,-4.0,6.0,6.0,0.0,0.0,100,0.1,0.01,90.0,0.0,b,s,e 
 
 # cue circles ONLY (-Q). One for each of the stim
  
@@ -19,4 +19,4 @@
 # specify input file containing trial sequences
 #
 
--n d:\\work\\usrey\\src\\fixstim\\attention-test-seq-2-trials.txt
+-n d:\\work\\usrey\\src\\fixstim\\attention-test-seq-3-trials.txt
