@@ -68,8 +68,8 @@ PageVec SequencedAttentionStimSet::makePageVec()
 	for_each(m_gratingHelpers.begin(), m_gratingHelpers.end(), [&pv](GratingSequenceHelper *pgsh) { pv.push_back(pgsh->makeICPair());  });
 	std::sort(pv.begin(), pv.end());
 
-	cerr << "makePageVec" << endl;
-	std::for_each(pv.begin(), pv.end(), [=](const ICPair& icp) {std::cout << icp.first << "/" << icp.second << std::endl; });
+	//cerr << "makePageVec" << endl;
+	//std::for_each(pv.begin(), pv.end(), [=](const ICPair& icp) {std::cout << icp.first << "/" << icp.second << std::endl; });
 	return pv;
 }
 
@@ -164,13 +164,17 @@ int SequencedAttentionStimSet::drawCurrent()
 	VSGCYCLEPAGEENTRY cycle[16];	// should  be plenty
 	int ncycle = 0;
 
+	cerr << endl << endl << "Begin drawCurrent() - draw vsg pages and set up animation for trial" << endl;
+
+
 	// Set color of fixpt...
 	m_fixpt.color = m_trialSpecs[m_current].color;
 
 	// The helpers are used to maintain the status of objects during the creation of the sequence.
 	// Restore to values for blank page.
 
-	cerr << "number of pages " << vsgGetSystemAttribute(vsgNUMVIDEOPAGES) << " page size " << vsgGetSystemAttribute(vsgPAGEWIDTH) << "X" << vsgGetSystemAttribute(vsgPAGEHEIGHT) << endl;
+	//cerr << "number of pages " << vsgGetSystemAttribute(vsgNUMVIDEOPAGES) << " page size " << vsgGetSystemAttribute(vsgPAGEWIDTH) << "X" << vsgGetSystemAttribute(vsgPAGEHEIGHT) << endl;
+	
 	// Get page number
 	m_pageBlank = m_pages[pagesConfigured.size()];
 
@@ -208,14 +212,14 @@ int SequencedAttentionStimSet::drawCurrent()
 	// If its a new frame number, then we have to check if the current page has already been created. 
 	// 
 
-	cerr << "Begin scanning transitions for this trial...." << endl;
+	//cerr << "Begin scanning transitions for this trial...." << endl;
 	int f = 0;
 	for (auto frame_icpair : m_trialSpecs[m_current].icpm)
 	{
-		cerr << "Got frame/icpair " << frame_icpair.first << "/" << frame_icpair.second.first << "," << frame_icpair.second.second << endl;
+		//cerr << "Got frame/icpair " << frame_icpair.first << "/" << frame_icpair.second.first << "," << frame_icpair.second.second << endl;
 		if (frame_icpair.first == f)
 		{
-			cerr << "same frame number, update helpers..." << endl;
+			//cerr << "same frame number, update helpers..." << endl;
 			// Warn if index is EndIndex...
 			if (frame_icpair.second.first == EndIndex)
 			{
@@ -234,13 +238,13 @@ int SequencedAttentionStimSet::drawCurrent()
 			// Look in pageVecs to see if we've already created an identical page. 
 			// If we have we get back a VSG page number. 
 			// If we haven't then we must draw a new page and push the page number and page vec onto vector.
-			cerr << "new frame number, finish current page..." << endl;
+			//cerr << "new frame number, finish current page..." << endl;
 
 			pv = makePageVec();
 
 			if (!findConfiguredPage(pv, pagesConfigured, pageNumber))
 			{
-				cerr << "This page not found, create new page..." << endl;
+				//cerr << "This page not found, create new page..." << endl;
 
 				// draw page from page vec
 				if (pagesConfigured.size() == m_pages.size())
@@ -295,7 +299,7 @@ int SequencedAttentionStimSet::drawCurrent()
 	{
 		cerr << i << ": page=" << (cycle[i].Page & vsgTRIGGERPAGE ? cycle[i].Page - vsgTRIGGERPAGE : cycle[i].Page) << " Frames=" << cycle[i].Frames << endl;
 	}
-
+	cerr << "Done drawing pages for this trial." << endl << endl << endl;
 	vsgSetDrawPage(vsgVIDEOPAGE, m_pageBlank, vsgNOCLEAR);
 	vsgPresent();
 
@@ -444,7 +448,7 @@ int parse_sequenced_params(const std::string& filename, unsigned int ngratings, 
 					}
 					else
 					{
-						cerr << "Start of trial found" << endl;
+						//cerr << "Start of trial found" << endl;
 						iTrialStep = 1;
 
 						// initialize trial spec
@@ -511,11 +515,9 @@ int parse_sequenced_params(const std::string& filename, unsigned int ngratings, 
 							break;
 						}
 
-						cerr << "Success! " << spec.color << ", " << spec.offbits << " : init phases (";
-						//std::for_each(pv.begin(), pv.end(), [=](const ICPair& icp) {std::cout << icp.first << "/" << icp.second << std::endl; });
-
-						for_each(spec.initialPhase.begin(), spec.initialPhase.end(), [=](double& ph) {cerr << " " << ph; });
-						cerr << " ]" << endl;
+						//cerr << "Success! " << spec.color << ", " << spec.offbits << " : init phases [";
+						//for_each(spec.initialPhase.begin(), spec.initialPhase.end(), [=](double& ph) {cerr << " " << ph; });
+						//cerr << " ]" << endl;
 						iTrialStep = 2;
 					}
 					else
@@ -569,7 +571,7 @@ int parse_sequenced_params(const std::string& filename, unsigned int ngratings, 
 						// and reset the step so we look for another "Trial" line. 
 						if (EndIndex == index)
 						{
-							cerr << "Finished parsing trial " << trialSpecs.size() + 1 << endl;
+							//cerr << "Finished parsing trial " << trialSpecs.size() + 1 << endl;
 							trialSpecs.push_back(spec);
 							iTrialStep = 0;
 						}
@@ -729,10 +731,9 @@ void GratingSequenceHelper::draw(double initial_phase)
 		throw std::runtime_error("GratingSequenceHelper::draw cannot find grating with contrast required!");
 	else
 	{
-		cerr << "Drawing grating contrast " << contrast() << " handle " << it->second->handle() << endl;
-		it->second->setSpatialPhase(initial_phase);
-		it->second->select();
-		vsgObjResetDriftPhase();
+		cerr << "Drawing grating contrast " << contrast() << " init phase " << initial_phase << " handle " << it->second->handle() << endl;
+		it->second->phase = initial_phase;
+		it->second->resetDriftPhase();
 		it->second->draw();
 	}
 	return;
