@@ -522,7 +522,7 @@ namespace alert
 		// reset spatial phase to the initial phase
 		virtual int resetSpatialPhase() { return setSpatialPhase(phase); };
 
-		virtual int setSpatialPhase(double p) { select(); return vsgObjSetSpatialPhase(p); };
+		virtual int setSpatialPhase(double p) { phase = p;  select(); return vsgObjSetSpatialPhase(p); };
 
 		// If useTransOnHigher is true then the page should have been cleared with a LOW pixel level.
 		// If its false, then the grating is drawn as a rectangle.
