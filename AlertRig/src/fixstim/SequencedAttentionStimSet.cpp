@@ -127,11 +127,11 @@ int SequencedAttentionStimSet::init(ARvsg& vsg, std::vector<int> pages)
 		m_vecCueRects[i].init(m_vecCues[i]);
 	}
 
-	cerr << "Initialize " << m_vecGratings.size() << " gratings." << endl;
-	for (unsigned int i = 0; i<m_vecGratings.size(); i++)
-	{
-		m_vecGratings[i].init(vsg, nlevels);
-	}
+	//cerr << "Initialize " << m_vecGratings.size() << " gratings." << endl;
+	//for (unsigned int i = 0; i<m_vecGratings.size(); i++)
+	//{
+	//	m_vecGratings[i].init(vsg, nlevels);
+	//}
 
 	// create helpers. 
 	m_pFixptHelper = new FixptSequenceHelper(FixptIndex, 100, m_fixpt);
@@ -144,7 +144,7 @@ int SequencedAttentionStimSet::init(ARvsg& vsg, std::vector<int> pages)
 	cerr << "Initialize grating pool" << endl;
 	cerr << "Number of vsg objects " << vsgGetSystemAttribute(vsgNUMOBJECTS) << endl;
 	cerr << "Number of vsg pages   " << vsgGetSystemAttribute(vsgNUMVIDEOPAGES) << endl;
-	GratingPool::instance().populate(m_vecGratings.size(), nlevels);
+	GratingPool::instance().populate(2*m_vecGratings.size(), nlevels);
 
 	status = drawCurrent();
 
@@ -165,16 +165,15 @@ int SequencedAttentionStimSet::drawCurrent()
 	int ncycle = 0;
 
 	cerr << endl << endl << "Begin drawCurrent() - draw vsg pages and set up animation for trial" << endl;
-
+	cerr << "Flush unused gratings..." << endl;
+	for_each(m_gratingHelpers.begin(), m_gratingHelpers.end(), [](GratingSequenceHelper* phelper) { phelper->reset(); });
 
 	// Set color of fixpt...
 	m_fixpt.color = m_trialSpecs[m_current].color;
 
-	// The helpers are used to maintain the status of objects during the creation of the sequence.
-	// Restore to values for blank page.
+	// blank page =================
+	cerr << "Configure page " << m_pageBlank << " background only" << endl;
 
-	//cerr << "number of pages " << vsgGetSystemAttribute(vsgNUMVIDEOPAGES) << " page size " << vsgGetSystemAttribute(vsgPAGEWIDTH) << "X" << vsgGetSystemAttribute(vsgPAGEHEIGHT) << endl;
-	
 	// Get page number
 	m_pageBlank = m_pages[pagesConfigured.size()];
 
@@ -189,9 +188,9 @@ int SequencedAttentionStimSet::drawCurrent()
 
 	// draw the actual page
 	drawPageUsingPageVec(pv, m_pageBlank, 0, 0);
-	cerr << "Configured page " << m_pageBlank << " background only" << endl;
 
 	// fixpt only page ===========================================
+	cerr << "Configure page " << m_pageFixpt << " fixpt only" << endl;
 
 	// page number
 	m_pageFixpt = m_pages[pagesConfigured.size()];
@@ -203,7 +202,6 @@ int SequencedAttentionStimSet::drawCurrent()
 
 	// draw
 	drawPageUsingPageVec(pv, m_pageFixpt, 0, 0);
-	cerr << "Configured page " << m_pageFixpt << " fixpt only" << endl;
 
 	// Now loop over each transition time (be careful - can have multiple things at same time.
 	// The value of 'f' is always the last frame for which we've generated a transition. 
@@ -253,9 +251,9 @@ int SequencedAttentionStimSet::drawCurrent()
 					throw std::runtime_error("Cannot draw another page - too many transitions!");
 				}
 				pageNumber = m_pages[pagesConfigured.size()];
+				cerr << "Configure page " << pageNumber << endl;
 				drawPageUsingPageVec(pv, pageNumber, m_trialSpecs[m_current].offbits, m_trialSpecs[m_current].initialPhase);
 				pagesConfigured.push_back(make_pair(pageNumber, pv));
-				cerr << "Configured page " << pageNumber << endl;
 			}
 			else
 			{
@@ -538,11 +536,19 @@ int parse_sequenced_params(const std::string& filename, unsigned int ngratings, 
 						if (tokens[0].at(0) == 'F') index = FixptIndex;
 						else if (tokens[0].at(0) == 'Q') index = CueIndex;
 						else if (tokens[0].at(0) == '*') index = EndIndex;
-						else if (parse_uint(tokens[0], index))
+						else
 						{
-							cerr << "Error reading stim index (expect \"F\", \"Q\", or 0<int<#gratings) line " << linenumber << ": " << tokens[0] << endl;
-							status = 1;
-							break;
+							if (parse_uint(tokens[0], index))
+							{
+								cerr << "Error reading stim index (expect \"F\", \"Q\", or 0<int<#gratings) line " << linenumber << ": " << tokens[0] << endl;
+								status = 1;
+								break;
+							}
+							else if (index < 0 || index >= ngratings)
+							{
+								cerr << "Bad grating index (" << index << ") - expecting index in [0," << ngratings << ")";
+								status = 1;
+							}
 						}
 
 						// time
@@ -611,7 +617,7 @@ void GratingPool::populate(int n, int nlevels)
 {
 	ARGratingSpec *g;
 	cerr << "Populate grating pool with " << n << " gratings, each using " << nlevels << " levels" << endl;
-	for (int i = 0; i < 4; i++)
+	for (int i = 0; i < n; i++)
 	{
 		g = new ARGratingSpec();
 		g->init(nlevels);
@@ -667,17 +673,11 @@ void GratingSequenceHelper::reset()
 	// return all gratings to pool except for original
 	for (auto it = m_gratingMap.begin(); it != m_gratingMap.end(); )
 	{
-		if (it->first != m_defaultContrast)
-		{
-			GratingPool::instance().returnGrating(it->second);
-			it = m_gratingMap.erase(it);
-		}
-		else
-		{
-			it++;
-		}
+		cerr << "flushing grating handle " << it->second->handle() << " contrast " << it->first << endl;
+		GratingPool::instance().returnGrating(it->second);
+		it = m_gratingMap.erase(it);
 	}
-	setContrast(m_defaultContrast);
+	setContrast(0);
 }
 
 void GratingSequenceHelper::setContrastPriv()
