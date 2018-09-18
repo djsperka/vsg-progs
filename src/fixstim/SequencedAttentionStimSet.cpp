@@ -546,7 +546,7 @@ int parse_sequenced_params(const std::string& filename, unsigned int ngratings, 
 							}
 							else if (index < 0 || index >= ngratings)
 							{
-								cerr << "Bad grating index (" << index << ") - expecting index in [0," << ngratings << ")";
+								cerr << "Bad grating index (" << index << ") at line " << linenumber << " - expecting index in [0," << ngratings << ")";
 								status = 1;
 							}
 						}
