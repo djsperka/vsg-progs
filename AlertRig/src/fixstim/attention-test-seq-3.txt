@@ -19,4 +19,4 @@
 # specify input file containing trial sequences
 #
 
--n d:\\work\\usrey\\src\\fixstim\\attention-test-seq-3-trials.txt
+-n f:\\work\\AlertLib-dev\\src\\fixstim\\attention-test-seq-3-trials.txt
