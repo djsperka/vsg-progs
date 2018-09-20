@@ -34,6 +34,7 @@ public:
 
 	ARGratingSpec *getGrating();
 	void returnGrating(ARGratingSpec *);
+	void printPoolStatus();
 };
 
 

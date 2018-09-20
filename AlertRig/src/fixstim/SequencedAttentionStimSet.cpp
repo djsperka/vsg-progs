@@ -168,6 +168,11 @@ int SequencedAttentionStimSet::drawCurrent()
 	cerr << "Flush unused gratings..." << endl;
 	for_each(m_gratingHelpers.begin(), m_gratingHelpers.end(), [](GratingSequenceHelper* phelper) { phelper->reset(); });
 
+	cerr << "Pool status" << endl;
+	GratingPool::instance().printPoolStatus();
+
+
+
 	// Set color of fixpt...
 	m_fixpt.color = m_trialSpecs[m_current].color;
 
@@ -211,6 +216,20 @@ int SequencedAttentionStimSet::drawCurrent()
 	// 
 
 	//cerr << "Begin scanning transitions for this trial...." << endl;
+
+	// The loop below is over the elements of m_trialSpec[m_current].icpm
+	// .icpm is an ICPairMap, or std::multimap<unsigned int, ICPair>
+	// ICPair is std::pair< unsigned int, int >, the two items are index (0,1,...) of grating and contrast. 
+	// The key to the map is the frame number. 
+	// 
+	// We expect that as we iterate through the map, we'll get a blocks of 
+	// frame_icpair - which denote transitions that should occur at this 
+	// frame number. As new transitions are encountered, we call updateHelper(frame_icpair.second)
+	// The 'second' is the index/contrast pair. 
+	// 
+	// When the index is a grating, updateHelper calls setContrast on the helper itself. For a 
+	// GratingHelper, 
+
 	int f = 0;
 	for (auto frame_icpair : m_trialSpecs[m_current].icpm)
 	{
@@ -337,6 +356,8 @@ int SequencedAttentionStimSet::drawPageUsingPageVec(const PageVec& pv, int page,
 	}
 	if (bCues) m_pCueHelper->draw_cues(offbits);
 	if (bFixpt) m_pFixptHelper->draw(0);	// arg is ignored for fixpt.
+
+	GratingPool::instance().printPoolStatus();
 
 	return 0;
 }
@@ -657,13 +678,25 @@ void GratingPool::returnGrating(ARGratingSpec *pG)
 	}
 }
 
+
+void GratingPool::printPoolStatus()
+{
+	cerr << "not_in_use size " << not_in_use.size() << endl;
+	std::for_each(not_in_use.begin(), not_in_use.end(), [=](const ARGratingSpec* g) { std::cerr << "(" << g->handle() << "): " << *g << std::endl; });
+	cerr << "in_use size " << in_use.size() << endl;
+	std::for_each(in_use.begin(), in_use.end(), [=](const ARGratingSpec* g) { std::cerr << "(" << g->handle() << "): " << *g << std::endl; });
+}
+
+
+
+
 GratingSequenceHelper::GratingSequenceHelper(int index, int defaultContrast, const ARGratingSpec& grating)
 	: SequenceHelper(index, defaultContrast)
 	, m_defaultContrast(defaultContrast)
 {
 	m_gratingDefault = grating;
 	m_gratingDefault.setContrast(defaultContrast);
-	m_gratingMap.insert(make_pair(defaultContrast, &m_gratingDefault));
+	//m_gratingMap.insert(make_pair(defaultContrast, &m_gratingDefault));
 }
 
 GratingSequenceHelper::~GratingSequenceHelper() {};
