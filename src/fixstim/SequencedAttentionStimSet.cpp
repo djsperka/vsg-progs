@@ -357,7 +357,7 @@ int SequencedAttentionStimSet::drawPageUsingPageVec(const PageVec& pv, int page,
 	if (bCues) m_pCueHelper->draw_cues(offbits);
 	if (bFixpt) m_pFixptHelper->draw(0);	// arg is ignored for fixpt.
 
-	GratingPool::instance().printPoolStatus();
+	//GratingPool::instance().printPoolStatus();
 
 	return 0;
 }
@@ -638,12 +638,16 @@ void GratingPool::populate(int n, int nlevels)
 {
 	ARGratingSpec *g;
 	cerr << "Populate grating pool with " << n << " gratings, each using " << nlevels << " levels" << endl;
+	not_in_use.clear();
+	in_use.clear();
 	for (int i = 0; i < n; i++)
 	{
 		g = new ARGratingSpec();
 		g->init(nlevels);
 		not_in_use.push_back(g);
 	}
+	cerr << "Grating pool status:" << endl;
+	printPoolStatus();
 }
 
 ARGratingSpec *GratingPool::getGrating()
