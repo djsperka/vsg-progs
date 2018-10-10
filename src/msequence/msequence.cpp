@@ -31,7 +31,7 @@ int f_iLast;
 int f_iZoom = 4;
 int f_iOrder = 15;
 string f_sFilename;
-COLOR_TYPE f_background = { gray, {} };
+COLOR_TYPE f_background(gray);
 TriggerVector triggers;
 PageCyclingTrigger *f_ptrigCycling = NULL;
 bool f_outline = false;
