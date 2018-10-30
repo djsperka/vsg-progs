@@ -307,6 +307,7 @@ int FixUStim::process_arg(int c, std::string& arg)
 			have_fixpt = true;
 			last_was_fixpt = true;
 			last_was_grating = last_was_distractor = false;
+			m_vecFixpts.push_back(m_fixpt);					// this vector might be ignored by some (most) stim sets.
 		}
 		break;
 	case 'h':
@@ -1195,7 +1196,7 @@ int FixUStim::process_arg(int c, std::string& arg)
 		else
 		{
 			cerr << "Parse OK, got " << trialSpecs.size() << " trials" << endl;
-			m_pStimSet = new MelStimSet(m_fixpt, trialSpecs);
+			m_pStimSet = new MelStimSet(m_vecFixpts, trialSpecs);
 		}
 		break;
 	}

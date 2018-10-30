@@ -42,6 +42,7 @@ private:
 	bool m_bUseLock;
 	COLOR_TYPE m_background;
 	alert::ARContrastFixationPointSpec m_fixpt;
+	std::vector<alert::ARContrastFixationPointSpec> m_vecFixpts;
 	alert::ARGratingSpec m_grating;
 	alert::ARXhairSpec m_xhair;
 	std::vector<alert::ARGratingSpec> m_vecGratings;

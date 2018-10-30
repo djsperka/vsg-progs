@@ -45,7 +45,7 @@ void addOrAppendfrvPair(vector<FrameRectVecPair>& vecPairs, const FrameRectVecPa
 class MelStimSet : public StimSet
 {
 private:
-	ARContrastFixationPointSpec m_fixpt;
+	std::vector<ARContrastFixationPointSpec> m_vecFixpts;
 	vector<MelTrialSpec> m_trialSpecs;
 	PIXEL_LEVEL m_levelWhite;
 	unsigned int m_uiCurrentTrial;
@@ -57,7 +57,9 @@ private:
 	void applyTransform(ARContrastRectangleSpec& result, const ARContrastRectangleSpec& original, const MelGridSpec& grid);
 
 public:
-	MelStimSet(const ARContrastFixationPointSpec& fixpt, const vector<MelTrialSpec>& trialSpecs) : m_fixpt(fixpt), m_trialSpecs(trialSpecs), m_uiCurrentTrial(0) {};
+	MelStimSet(const ARContrastFixationPointSpec& fixpt, const vector<MelTrialSpec>& trialSpecs) : m_trialSpecs(trialSpecs), m_uiCurrentTrial(0) { m_vecFixpts.push_back(fixpt); };
+	MelStimSet(const std::vector<alert::ARContrastFixationPointSpec>& vecFixpt, const vector<MelTrialSpec>& trialSpecs) : m_vecFixpts(vecFixpt), m_trialSpecs(trialSpecs), m_uiCurrentTrial(0) {};
+	
 	virtual ~MelStimSet() {};
 
 	// subclasses should return the number of pages they will need.
