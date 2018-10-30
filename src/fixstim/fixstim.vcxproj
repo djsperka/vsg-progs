@@ -238,6 +238,8 @@
     <Text Include="attention-test-interleaved-1.txt" />
     <Text Include="attention-test-mel-1-trials.txt" />
     <Text Include="attention-test-mel-1.txt" />
+    <Text Include="attention-test-mel-2fixpt.txt" />
+    <Text Include="attention-test-mel-manyrect-trials.txt" />
     <Text Include="attention-test-seq-1-bin.txt" />
     <Text Include="attention-test-seq-1-trials.txt" />
     <Text Include="attention-test-seq-1.txt" />

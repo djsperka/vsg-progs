@@ -51,9 +51,10 @@ int MelStimSet::init(std::vector<int> pages)
 	PIXEL_LEVEL m_levelWhite;
 	ARvsg::instance().request_single(m_levelWhite);
 	cerr << "got dummy level " << m_levelWhite << endl;
-	cerr << "init fixpt" << endl;
-	m_fixpt.init(2);
-	m_fixpt.setContrast(100);
+	cerr << "There are " << m_vecFixpts.size() << " fixpts to init." << endl;
+	std::for_each(m_vecFixpts.begin(), m_vecFixpts.end(), [](alert::ARContrastFixationPointSpec& f) { f.init(2); f.setContrast(100); });
+	//m_fixpt.init(2);
+	//m_fixpt.setContrast(100);
 
 	// Initialize color for rects
 	//ARvsg::instance().request_single(m_levelWhite);
@@ -84,7 +85,8 @@ int MelStimSet::drawCurrent()
 		if (frvpair.first > frameLast)
 		{
 			// draw fixpt
-			m_fixpt.draw();
+			//m_fixpt.draw();
+			std::for_each(m_vecFixpts.begin(), m_vecFixpts.end(), [](alert::ARContrastFixationPointSpec& f) { f.draw(); });
 
 			// set up cycling element here. 
 			cycle[ncycle].Xpos = cycle[ncycle].Ypos = 0;
@@ -113,7 +115,8 @@ int MelStimSet::drawCurrent()
 	}
 
 	// draw fixpt
-	m_fixpt.draw();
+	//m_fixpt.draw();
+	std::for_each(m_vecFixpts.begin(), m_vecFixpts.end(), [](alert::ARContrastFixationPointSpec& f) { f.draw(); });
 
 	cycle[ncycle].Xpos = cycle[ncycle].Ypos = 0;
 	cycle[ncycle].Page = page + vsgTRIGGERPAGE;
@@ -340,8 +343,10 @@ int parse_mel_params(const std::string& filename, vector<MelTrialSpec>& trialSpe
 						// do not change ste value - stay at 1
 
 					}
-					else if (string::npos != line.find("time"))
+					else if (string::npos != line.find("time") || string::npos != line.find("frames"))
 					{
+						bool bFrames = (string::npos != line.find("frames"));
+
 						//cerr << "Found time marker: " << endl;
 						tokens.clear();
 						tokenize(line, tokens, ", ");
@@ -356,16 +361,18 @@ int parse_mel_params(const std::string& filename, vector<MelTrialSpec>& trialSpe
 							}
 							else
 							{
+								if (bFrames) frames = t;
+								else frames = SECONDS_TO_FRAMES(t);
+
 								// The "time" line ends the last "time" block. Push that frvPair onto the
 								// current spec. 
 								addOrAppendfrvPair(spec.vecPairs, frvPair);
-								//spec.vecPairs.push_back(frvPair);
 								frvPair.second.clear();
 
 								if (tokens.size() == 2)
 								{
 									// save the number of frames in the frvPair placeholder 
-									frvPair.first = SECONDS_TO_FRAMES(t);
+									frvPair.first = frames;
 								}
 								else
 								{
@@ -374,7 +381,7 @@ int parse_mel_params(const std::string& filename, vector<MelTrialSpec>& trialSpe
 										// this signifies the end of the trial. 
 										// save the end frame in the current trial spec, and push the whole thing 
 										// onto the trialSpecs vector. Return to trialStep 0 - look for "trial"
-										spec.lastFrame = SECONDS_TO_FRAMES(t);
+										spec.lastFrame = frames;
 										spec.grid = grid;
 										std::sort(spec.vecPairs.begin(), spec.vecPairs.end(), [](FrameRectVecPair& a, FrameRectVecPair& b) { return a.first < b.first; });
 										trialSpecs.push_back(spec);
@@ -382,7 +389,7 @@ int parse_mel_params(const std::string& filename, vector<MelTrialSpec>& trialSpe
 									}
 									else
 									{
-										cerr << "Error in input at line " << linenumber << " - expecting time t [end]: " << line << endl;
+										cerr << "Error in input at line " << linenumber << " - expecting time|frame t [end]: " << line << endl;
 										status = 1;
 									}
 								}
@@ -390,7 +397,7 @@ int parse_mel_params(const std::string& filename, vector<MelTrialSpec>& trialSpe
 						}
 						else
 						{
-							cerr << "Error on line " << linenumber << " : expecting time value" << endl;
+							cerr << "Error on line " << linenumber << " : expecting time|frame value" << endl;
 							status = 1;
 						}
 					}
