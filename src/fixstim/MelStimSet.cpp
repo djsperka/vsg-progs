@@ -4,11 +4,15 @@
 #include <boost/algorithm/string.hpp>
 #include <iostream>
 #include <algorithm>
+#include <chrono>
 
 #define _USE_MATH_DEFINES
 #include <math.h>
 
 using namespace std;
+
+
+
 
 RectanglePool::~RectanglePool()
 {
@@ -38,10 +42,26 @@ ARContrastRectangleSpec *RectanglePool::getRect(const COLOR_TYPE& c)
 }
 
 
+#ifdef HOST_PAGE_TEST
+void MelStimSet::cleanup(std::vector<int> pages)
+{
+	vsgPAGEDelete(m_hostPageHandle);
+}
+#else
+void MelStimSet::cleanup(std::vector<int> pages)
+{
+}
+#endif
 
 int MelStimSet::init(std::vector<int> pages)
 {
 	m_pagesAvailable = pages;
+
+#ifdef HOST_PAGE_TEST
+	// Create a page
+	m_hostPageHandle = vsgPAGECreate(vsgHOSTPAGE, vsgGetScreenWidthPixels(), vsgGetScreenHeightPixels(), vsg8BITPALETTEMODE);
+	cout << "page create handle " << m_hostPageHandle << endl;
+#endif
 
 	// first page is always blank
 	vsgSetDrawPage(vsgVIDEOPAGE, m_pagesAvailable[0], vsgBACKGROUND);
@@ -72,12 +92,47 @@ int MelStimSet::drawCurrent()
 	unsigned int nPages = 1;
 	int page = m_pagesAvailable[nPages++];
 	m_pageFixpt = page;
+
+#ifndef HOST_PAGE_TEST 
 	vsgSetDrawPage(vsgVIDEOPAGE, page, vsgBACKGROUND);	
+#else
+	// Draw on the host page
+	vsgSetDrawPage(vsgHOSTPAGE, m_hostPageHandle, vsgBACKGROUND);
+#endif
 
 	//cerr << "drawCurrent - start" << endl;
 	//cerr << "drawCurrent - fixpt page " << m_pageFixpt << endl;
 
-	// loop over each pair. Assume fixpt always on.
+	// Record start time
+	auto start = std::chrono::high_resolution_clock::now();
+
+
+
+	// The input file was parsed and separated into trials, and is saved
+	// as a vector<MelTrialSpec>. The MelTrialSpec consists of the grid spec
+	// that applies to the trial, a vector of these:
+	//
+	// typedef std::pair<unsigned int, vector<ARContrastRectangleSpec> > FrameRectVecPair;
+	//
+	// The first element of the pair is the frame number to which the vector of rects 'belongs' - 
+	// i.e. the frame number at which the list of rects should first appear. 
+	//
+	// The algorithm below is as follows:
+	// A blank page is prepared.
+	// for each FrameRectVecPair, test whether the frame number is different than the frame for which 
+	// the most recent page was written. (* I've changed the parse method so this should happen every 
+	// time - in other words, each FrameRectVecPair has a unique frame number, but the algorithm allows
+	// for multiple pairs to have the same frame number. 
+	// If the frame number is different, then the page currently being drawn is nearly complete, all that 
+	// remains is for its fixpt(s) to be drawn. They are drawn and the page is complete. The cycling array
+	// is updated with this page and its duration (which is known from the value of the frame for the 'current' 
+	// pair in the loop), and a new draw page is initialized and made the current draw page.
+	// Finally, the rects for the current element in the loop are drawn on the current draw page. 
+	// Note that the drawing step follows, and is separate from, the frame number test (which may or may
+	// not have forced the completion of the previous page). Thus if there are two or more FrameRectVecPairs
+	// that share the same frame number, their rectVec contents will all be drawn on the same page. 
+	// The fixpts are drawn after all rects for the page have been drawn, so they are always on top. 
+
 	VSGCYCLEPAGEENTRY cycle[16];	// should  be plenty
 	int ncycle = 0;
 	for(auto frvpair: m_trialSpecs[m_uiCurrentTrial].vecPairs)
@@ -88,6 +143,9 @@ int MelStimSet::drawCurrent()
 			//m_fixpt.draw();
 			std::for_each(m_vecFixpts.begin(), m_vecFixpts.end(), [](alert::ARContrastFixationPointSpec& f) { f.draw(); });
 
+			// Copy page
+
+
 			// set up cycling element here. 
 			cycle[ncycle].Xpos = cycle[ncycle].Ypos = 0;
 			cycle[ncycle].Page = page + vsgTRIGGERPAGE;
@@ -97,9 +155,35 @@ int MelStimSet::drawCurrent()
 
 			frameLast = frvpair.first;
 
+#ifdef HOST_PAGE_TEST
+
+			auto drawDone = std::chrono::high_resolution_clock::now();
+			// Blit(copy) the page to the VSG video area
+			vsgSetDrawPage(vsgVIDEOPAGE, page, vsgNOCLEAR);
+			vsgSetSpatialUnits(vsgPIXELUNIT);
+			vsgDrawMoveRect(vsgHOSTPAGE, m_hostPageHandle, 0, 0, vsgGetScreenWidthPixels(), vsgGetScreenHeightPixels(), 0, 0, vsgGetScreenWidthPixels(), vsgGetScreenHeightPixels());
+			vsgSetSpatialUnits(vsgDEGREEUNIT);
+			auto copyDone = std::chrono::high_resolution_clock::now();
+
+			// clear the host page and reset it as draw page
+			vsgSetDrawPage(vsgHOSTPAGE, m_hostPageHandle, vsgBACKGROUND);
+			auto clearDone = std::chrono::high_resolution_clock::now();
+
+			std::chrono::duration<double> elapsedDraw = drawDone - start;
+			std::chrono::duration<double> elapsedCopy = copyDone - drawDone;
+			std::chrono::duration<double> elapsedClear = clearDone - copyDone;
+			cout << "draw " << elapsedDraw.count() << " copy " << elapsedCopy.count() << " clear " << elapsedClear.count() << endl;
+			start = clearDone;
+
+			// Get a new page number for the next copy
+			page = m_pagesAvailable[nPages++];
+
+#else
 			// clear a new page
 			page = m_pagesAvailable[nPages++];
 			vsgSetDrawPage(vsgVIDEOPAGE, page, vsgBACKGROUND);
+#endif
+
 		}
 
 		// draw rects
@@ -117,6 +201,15 @@ int MelStimSet::drawCurrent()
 	// draw fixpt
 	//m_fixpt.draw();
 	std::for_each(m_vecFixpts.begin(), m_vecFixpts.end(), [](alert::ARContrastFixationPointSpec& f) { f.draw(); });
+
+
+#ifdef HOST_PAGE_TEST
+	// Blit(copy) the page to the VSG video area
+	vsgSetDrawPage(vsgVIDEOPAGE, page, vsgNOCLEAR);
+	vsgSetSpatialUnits(vsgPIXELUNIT);
+	vsgDrawMoveRect(vsgHOSTPAGE, m_hostPageHandle, 0, 0, vsgGetScreenWidthPixels(), vsgGetScreenHeightPixels(), 0, 0, vsgGetScreenWidthPixels(), vsgGetScreenHeightPixels());
+	vsgSetSpatialUnits(vsgDEGREEUNIT);
+#endif
 
 	cycle[ncycle].Xpos = cycle[ncycle].Ypos = 0;
 	cycle[ncycle].Page = page + vsgTRIGGERPAGE;
@@ -144,8 +237,13 @@ int MelStimSet::drawCurrent()
 	vsgSetDrawPage(vsgVIDEOPAGE, m_pageBlank, vsgNOCLEAR);
 	//vsgPresent();
 
+	// Record end time
+	auto finish = std::chrono::high_resolution_clock::now();
 
-	cerr << "drawCurrent: done." << endl;
+	// get duration
+	std::chrono::duration<double> elapsed = finish - start;
+
+	cerr << "drawCurrent: done. " << ncycle << " pages, " << m_trialSpecs[m_uiCurrentTrial].vecPairs.size() << " frame/rectvec pairs, Elapsed time: " << elapsed.count() << endl;
 	return status;
 }
 

@@ -4,6 +4,7 @@
 #include <vector>
 #include <algorithm>
 
+#define HOST_PAGE_TEST
 
 typedef std::pair<COLOR_TYPE, ARContrastRectangleSpec* > ColorRectPair;
 
@@ -53,6 +54,10 @@ private:
 	int m_pageFixpt;
 	int m_pageBlank;
 
+#ifdef HOST_PAGE_TEST
+	unsigned int m_hostPageHandle;
+#endif
+
 	int drawCurrent();
 	void applyTransform(ARContrastRectangleSpec& result, const ARContrastRectangleSpec& original, const MelGridSpec& grid);
 
@@ -82,7 +87,7 @@ public:
 	};
 
 	// clean up any messes created in init() - esp settings in VSG
-	virtual void cleanup(std::vector<int> pages) {};
+	virtual void cleanup(std::vector<int> pages);
 
 	// handle the trigger indicated by the string s. Do not call vsgPresent! return value of 
 	// 1 means vsgPresent() will be called. 
