@@ -4,6 +4,9 @@
 #include <vector>
 #include <algorithm>
 
+#define HOST_PAGE_TEST
+
+
 
 typedef std::pair<COLOR_TYPE, ARContrastRectangleSpec* > ColorRectPair;
 
@@ -23,6 +26,22 @@ public:
 // Its a pair, with a frame and a rect vec.
 typedef std::pair<unsigned int, vector<ARContrastRectangleSpec> > FrameRectVecPair;
 
+
+// Updated to allow for loading bmp images. 
+// Now we have a pair, where the first piece of it is a frame number, as before. 
+// The second part of the pair is a struct that contains a vector of rectangles (as before), and
+// a string that, if not null, contains a filename that is loaded with vsgImageDraw. The coords x,y are
+// used in that call (and are the point where the center of the image goes). 
+
+typedef struct 
+{
+	double x, y;
+	std::string filename;
+	vector<ARContrastRectangleSpec> vecRects;
+} MelFrame;
+typedef std::pair<unsigned int, MelFrame> MelFramePair;
+
+
 typedef struct
 {
 	double xGridCenter, yGridCenter, wGrid, hGrid, oriDegrees;
@@ -30,7 +49,7 @@ typedef struct
 
 typedef struct
 {
-	vector<FrameRectVecPair> vecPairs;
+	vector<MelFramePair> vecFrames;
 	unsigned int lastFrame;	// all off on this frame;
 	MelGridSpec grid;
 } MelTrialSpec;
@@ -52,6 +71,9 @@ private:
 	std::vector<int> m_pagesAvailable;
 	int m_pageFixpt;
 	int m_pageBlank;
+#ifdef HOST_PAGE_TEST
+	int m_hostPageHandle;
+#endif
 
 	int drawCurrent();
 	void applyTransform(ARContrastRectangleSpec& result, const ARContrastRectangleSpec& original, const MelGridSpec& grid);
@@ -82,7 +104,7 @@ public:
 	};
 
 	// clean up any messes created in init() - esp settings in VSG
-	virtual void cleanup(std::vector<int> pages) {};
+	virtual void cleanup(std::vector<int> pages);
 
 	// handle the trigger indicated by the string s. Do not call vsgPresent! return value of 
 	// 1 means vsgPresent() will be called. 

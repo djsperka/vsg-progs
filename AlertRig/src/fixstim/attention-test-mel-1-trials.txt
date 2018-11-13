@@ -47,10 +47,11 @@
 # There is a vertical "stack" of 7 rects that move from left to right
 # Note the small gaps that appear between some of the rects at different steps
 
-
+Folder c:\Users\Lab\Desktop\djs\cbmp
 Trial 1
-Grid 0,0,1,1,0
+Grid 0,0,16,16,0
 Time 0.5
+Bmp bowtie,0,0
 Rect -3,-3
 Rect -3,-2
 Rect -3,-1
@@ -59,6 +60,7 @@ Rect -3,1
 Rect -3,2
 Rect -3,3
 Time 1.0
+Bmp flower,0,0
 Rect -2,-3
 Rect -2,-2
 Rect -2,-1
@@ -67,6 +69,7 @@ Rect -2,1
 Rect -2,2
 Rect -2,3
 Time 1.5
+Bmp strawberries,0,0
 Rect -1,-3
 Rect -1,-2
 Rect -1,-1
@@ -75,6 +78,7 @@ Rect -1,1
 Rect -1,2
 Rect -1,3
 Time 2.0
+Bmp bowtie,0,0
 Rect 0,-3
 Rect 0,-2
 Rect 0,-1
@@ -83,6 +87,7 @@ Rect 0,1
 Rect 0,2
 Rect 0,3
 Time 2.5
+Bmp flower,0,0
 Rect 1,-3
 Rect 1,-2
 Rect 1,-1
@@ -91,6 +96,7 @@ Rect 1,1
 Rect 1,2
 Rect 1,3
 Time 3.0
+Bmp strawberries,0,0
 Rect 2,-3
 Rect 2,-2
 Rect 2,-1
@@ -99,6 +105,7 @@ Rect 2,1
 Rect 2,2
 Rect 2,3
 Time 3.5
+Bmp bowtie,0,0
 Rect 3,-3
 Rect 3,-2
 Rect 3,-1
@@ -115,7 +122,7 @@ Time 4.0 end
 
 
 Trial 1 - repeated with size 1.1
-Grid 0,0,1,1,0
+Grid 0,0,16,16,0
 Time 0.5
 Rect -3,-3,1.1,1.1,0,(255/255/0)
 Rect -3,-2,1.1,1.1,0,(255/255/0)
@@ -177,7 +184,7 @@ Time 4.0 end
 
 
 Trial 2
-Grid 0,0,1,1,45
+Grid 0,0,16,16,45
 Time 0.5
 Rect -3,-3
 Rect -3,-2
@@ -240,7 +247,7 @@ Time 4.0 end
 # same as last trial, but with the rects size 1.1
 
 Trial 2 with size 1.1
-Grid 0,0,1,1,45
+Grid 0,0,16,16,45
 Time 0.5
 Rect -3,-3,1.1,1.1,0,(220/220/50)
 Rect -3,-2,1.1,1.1,0,(220/220/50)
@@ -303,7 +310,7 @@ Time 4.0 end
 
 
 Trial 3
-Grid 0,0,1,1,90
+Grid 0,0,16,16,90
 Time 0.5
 Rect -3,-3
 Rect -3,-2
@@ -363,7 +370,7 @@ Rect 3,3
 Time 4.0 end
 
 Trial 3 with size 1.1
-Grid 0,0,1,1,90
+Grid 0,0,16,16,90
 Time 0.5
 Rect -3,-3,1.1,1.1,0,(155/155/100)
 Rect -3,-2,1.1,1.1,0,(155/155/100)
@@ -423,7 +430,7 @@ Rect 3,3,1.1,1.1,0,(155/155/100)
 Time 4.0 end
 
 Trial 4
-Grid 0,0,1,1,135
+Grid 0,0,16,16,135
 Time 0.5
 Rect -3,-3
 Rect -3,-2
@@ -484,7 +491,7 @@ Time 4.0 end
 
 
 Trial 4 with size 1.1
-Grid 0,0,1,1,135
+Grid 0,0,16,16,135
 Time 0.5
 Rect -3,-3,1.1,1.1,0,(255/255/0)
 Rect -3,-2,1.1,1.1,0,(255/255/0)
@@ -546,7 +553,7 @@ Time 4.0 end
 
 
 Trial 5
-Grid 0,0,1,1,180
+Grid 0,0,16,16,180
 Time 0.5
 Rect -3,-3
 Rect -3,-2
@@ -606,7 +613,7 @@ Rect 3,3
 Time 4.0 end
 
 Trial 5 with size 1.1
-Grid 0,0,1,1,180
+Grid 0,0,16,16,180
 Time 0.5
 Rect -3,-3,1.1,1.1,0,gray
 Rect -3,-2,1.1,1.1,0,gray

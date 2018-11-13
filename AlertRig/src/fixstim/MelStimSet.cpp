@@ -1,14 +1,18 @@
 #include "MelStimSet.h"
 #include "AttentionStimSet.h"
 #include "AlertUtil.h"
+#include "fetcher.h"
 #include <boost/algorithm/string.hpp>
+#include <boost/filesystem.hpp>
 #include <iostream>
 #include <algorithm>
+#include <chrono>
 
 #define _USE_MATH_DEFINES
 #include <math.h>
 
 using namespace std;
+
 
 RectanglePool::~RectanglePool()
 {
@@ -38,10 +42,26 @@ ARContrastRectangleSpec *RectanglePool::getRect(const COLOR_TYPE& c)
 }
 
 
+#ifdef HOST_PAGE_TEST
+void MelStimSet::cleanup(std::vector<int> pages)
+{
+	vsgPAGEDelete(m_hostPageHandle);
+}
+#else
+void MelStimSet::cleanup(std::vector<int> pages)
+{
+}
+#endif
 
 int MelStimSet::init(std::vector<int> pages)
 {
 	m_pagesAvailable = pages;
+
+#ifdef HOST_PAGE_TEST
+	// Create a page
+	m_hostPageHandle = vsgPAGECreate(vsgHOSTPAGE, vsgGetScreenWidthPixels(), vsgGetScreenHeightPixels(), vsg8BITPALETTEMODE);
+	cout << "page create handle " << m_hostPageHandle << endl;
+#endif
 
 	// first page is always blank
 	vsgSetDrawPage(vsgVIDEOPAGE, m_pagesAvailable[0], vsgBACKGROUND);
@@ -72,44 +92,123 @@ int MelStimSet::drawCurrent()
 	unsigned int nPages = 1;
 	int page = m_pagesAvailable[nPages++];
 	m_pageFixpt = page;
+
+#ifndef HOST_PAGE_TEST 
 	vsgSetDrawPage(vsgVIDEOPAGE, page, vsgBACKGROUND);	
+#else
+	// Draw on the host page
+	vsgSetDrawPage(vsgHOSTPAGE, m_hostPageHandle, vsgBACKGROUND);
+
+	// load image to this page
+	//vsgDrawImage(vsgPALETTELOAD, 0, 0, "d:\\work\\usrey\\src\\fixstim\\rect-test.bmp");
+#endif
 
 	//cerr << "drawCurrent - start" << endl;
 	//cerr << "drawCurrent - fixpt page " << m_pageFixpt << endl;
 
-	// loop over each pair. Assume fixpt always on.
+	// Record start time
+	auto start = std::chrono::high_resolution_clock::now();
+
+
+
+	// The input file was parsed and separated into trials, and is saved
+	// as a vector<MelTrialSpec>. The MelTrialSpec consists of the grid spec
+	// that applies to the trial, a vector of these:
+	//
+	// typedef std::pair<unsigned int, vector<ARContrastRectangleSpec> > FrameRectVecPair;
+	//
+	// The first element of the pair is the frame number to which the vector of rects 'belongs' - 
+	// i.e. the frame number at which the list of rects should first appear. 
+	//
+	// The algorithm below is as follows:
+	// A blank page is prepared.
+	// for each FrameRectVecPair, test whether the frame number is different than the frame for which 
+	// the most recent page was written. (* I've changed the parse method so this should happen every 
+	// time - in other words, each FrameRectVecPair has a unique frame number, but the algorithm allows
+	// for multiple pairs to have the same frame number. 
+	// If the frame number is different, then the page currently being drawn is nearly complete, all that 
+	// remains is for its fixpt(s) to be drawn. They are drawn and the page is complete. The cycling array
+	// is updated with this page and its duration (which is known from the value of the frame for the 'current' 
+	// pair in the loop), and a new draw page is initialized and made the current draw page.
+	// Finally, the rects for the current element in the loop are drawn on the current draw page. 
+	// Note that the drawing step follows, and is separate from, the frame number test (which may or may
+	// not have forced the completion of the previous page). Thus if there are two or more FrameRectVecPairs
+	// that share the same frame number, their rectVec contents will all be drawn on the same page. 
+	// The fixpts are drawn after all rects for the page have been drawn, so they are always on top. 
+
 	VSGCYCLEPAGEENTRY cycle[16];	// should  be plenty
 	int ncycle = 0;
-	for(auto frvpair: m_trialSpecs[m_uiCurrentTrial].vecPairs)
+	for(auto melpair: m_trialSpecs[m_uiCurrentTrial].vecFrames)
 	{
-		if (frvpair.first > frameLast)
+		if (melpair.first > frameLast)
 		{
 			// draw fixpt
 			//m_fixpt.draw();
-			std::for_each(m_vecFixpts.begin(), m_vecFixpts.end(), [](alert::ARContrastFixationPointSpec& f) { f.draw(); });
+			std::for_each(m_vecFixpts.begin(), m_vecFixpts.end(), [](alert::ARContrastFixationPointSpec& f) { cout << "Draw fixpt " << f << " levels " << f.getFirstLevel() << "/" << f.getNumLevels() << endl;  f.draw(); });
+
+			// Copy page
+
 
 			// set up cycling element here. 
 			cycle[ncycle].Xpos = cycle[ncycle].Ypos = 0;
 			cycle[ncycle].Page = page + vsgTRIGGERPAGE;
-			cycle[ncycle].Frames = frvpair.first - frameLast;
+			cycle[ncycle].Frames = melpair.first - frameLast;
 			cycle[ncycle].Stop = 0;
 			ncycle++;
 
-			frameLast = frvpair.first;
+			frameLast = melpair.first;
 
+#ifdef HOST_PAGE_TEST
+
+			auto drawDone = std::chrono::high_resolution_clock::now();
+			// Blit(copy) the page to the VSG video area
+			vsgSetDrawPage(vsgVIDEOPAGE, page, vsgNOCLEAR);
+			//vsgSetSpatialUnits(vsgPIXELUNIT);
+			vsgDrawMoveRect(vsgHOSTPAGE, m_hostPageHandle, 0, 0, vsgGetScreenWidthPixels(), vsgGetScreenHeightPixels(), 0, 0, vsgGetScreenWidthPixels(), vsgGetScreenHeightPixels());
+			//vsgSetSpatialUnits(vsgDEGREEUNIT);
+			auto copyDone = std::chrono::high_resolution_clock::now();
+
+			// clear the host page and reset it as draw page
+			vsgSetDrawPage(vsgHOSTPAGE, m_hostPageHandle, vsgBACKGROUND);
+
+			// If requested, load image to this page
+			// TODO - set up plan regarding palette, then change this call to not load palette. 
+			if (!melpair.second.filename.empty())
+			{
+				char f[256];	// huge, just to get a non-const char *
+				melpair.second.filename.copy(f, melpair.second.filename.size() + 1);
+				f[melpair.second.filename.size()] = '\0';
+				vsgDrawImage(vsgPALETTELOAD, melpair.second.x, melpair.second.y, f);
+			}
+
+			auto clearDone = std::chrono::high_resolution_clock::now();
+
+			std::chrono::duration<double> elapsedDraw = drawDone - start;
+			std::chrono::duration<double> elapsedCopy = copyDone - drawDone;
+			std::chrono::duration<double> elapsedClear = clearDone - copyDone;
+			cout << "draw " << elapsedDraw.count() << " copy " << elapsedCopy.count() << " clear " << elapsedClear.count() << endl;
+			start = clearDone;
+
+			// Get a new page number for the next copy
+			page = m_pagesAvailable[nPages++];
+
+#else
 			// clear a new page
 			page = m_pagesAvailable[nPages++];
 			vsgSetDrawPage(vsgVIDEOPAGE, page, vsgBACKGROUND);
+#endif
+
 		}
 
 		// draw rects
 		// different colored rects have to be unique objects
-		for (auto rect : frvpair.second)
+		for (auto rect : melpair.second.vecRects)
 		{
 			ARContrastRectangleSpec *drawrect = RectanglePool::getRect(rect.color);
 
 			// Assign coordinates (after transforming them)
 			applyTransform(*drawrect, rect, m_trialSpecs[m_uiCurrentTrial].grid);
+			cout << "drawrect " << *drawrect << endl;
 			drawrect->draw();
 		}
 	}
@@ -117,6 +216,15 @@ int MelStimSet::drawCurrent()
 	// draw fixpt
 	//m_fixpt.draw();
 	std::for_each(m_vecFixpts.begin(), m_vecFixpts.end(), [](alert::ARContrastFixationPointSpec& f) { f.draw(); });
+
+
+#ifdef HOST_PAGE_TEST
+	// Blit(copy) the page to the VSG video area
+	vsgSetDrawPage(vsgVIDEOPAGE, page, vsgNOCLEAR);
+	//vsgSetSpatialUnits(vsgPIXELUNIT);
+	vsgDrawMoveRect(vsgHOSTPAGE, m_hostPageHandle, 0, 0, vsgGetScreenWidthPixels(), vsgGetScreenHeightPixels(), 0, 0, vsgGetScreenWidthPixels(), vsgGetScreenHeightPixels());
+	//vsgSetSpatialUnits(vsgDEGREEUNIT);
+#endif
 
 	cycle[ncycle].Xpos = cycle[ncycle].Ypos = 0;
 	cycle[ncycle].Page = page + vsgTRIGGERPAGE;
@@ -144,8 +252,13 @@ int MelStimSet::drawCurrent()
 	vsgSetDrawPage(vsgVIDEOPAGE, m_pageBlank, vsgNOCLEAR);
 	//vsgPresent();
 
+	// Record end time
+	auto finish = std::chrono::high_resolution_clock::now();
 
-	cerr << "drawCurrent: done." << endl;
+	// get duration
+	std::chrono::duration<double> elapsed = finish - start;
+
+	cerr << "drawCurrent: done. " << ncycle << " pages, " << m_trialSpecs[m_uiCurrentTrial].vecFrames.size() << " frame/rectvec pairs, Elapsed time: " << elapsed.count() << endl;
 	return status;
 }
 
@@ -212,43 +325,57 @@ std::string MelStimSet::toString() const
 	ostringstream oss;
 	oss << "MelStimSet: " << endl;
 	oss << "There are " << m_trialSpecs.size() << " trials";
-	//for (auto ts : m_trialSpecs)
-	//{
-	//	oss << "Trial" << endl;
-	//	for (auto frvpair : ts.vecPairs)
-	//	{
-	//		oss << " frame " << frvpair.first << endl;
-	//		for (auto w : frvpair.second)
-	//		{
-	//			oss << "  rect " << w << endl;
-	//		}
-	//	}
-	//	oss << " frame " << ts.lastFrame << " end" << endl;
-	//}
 	return oss.str();
 }
 
 
-void addOrAppendfrvPair(vector<FrameRectVecPair>& vecPairs, const FrameRectVecPair& frvPair)
+//void addOrAppendfrvPair(vector<FrameRectVecPair>& vecPairs, const FrameRectVecPair& frvPair)
+//{
+//	// find the frame number if we can...
+//	auto it = std::find_if(vecPairs.begin(), vecPairs.end(), [&frvPair](FrameRectVecPair& p) { return p.first == frvPair.first; });
+//	if (it != vecPairs.end())
+//	{
+//		it->second.insert(std::end(it->second), std::begin(frvPair.second), std::end(frvPair.second));
+//	}
+//	else
+//	{
+//		vecPairs.push_back(frvPair);
+//	}
+//	return;
+//}
+
+
+using boost::filesystem::path;
+
+class MyPathMatcher : public PathMatcher<string>
 {
-	// find the frame number if we can...
-	auto it = std::find_if(vecPairs.begin(), vecPairs.end(), [&frvPair](FrameRectVecPair& p) { return p.first == frvPair.first; });
-	if (it != vecPairs.end())
+	string m_extension;
+public:
+	MyPathMatcher(const string& ext) : m_extension(ext) { to_lower(m_extension); };
+	bool operator()(const path& p, string& key)
 	{
-		it->second.insert(std::end(it->second), std::begin(frvPair.second), std::end(frvPair.second));
+		bool b = false;
+		//cerr << p.string() << endl;
+		if (to_lower_copy(p.extension().string()) == m_extension)
+		{
+			b = true;
+			key = p.stem().string();
+		}
+		return b;
 	}
-	else
-	{
-		vecPairs.push_back(frvPair);
-	}
-	return;
-}
+};
+
+
+
 
 int parse_mel_params(const std::string& filename, vector<MelTrialSpec>& trialSpecs)
 {
 	int status = 0;
 	trialSpecs.clear();
 	std::ifstream myfile(filename.c_str());
+	MyPathMatcher mpm(".bmp");
+	FetcherWithFunctor<string> withFunctor(mpm);
+
 	if (myfile.is_open())
 	{
 		// open file, read line-by-line and parse
@@ -258,7 +385,7 @@ int parse_mel_params(const std::string& filename, vector<MelTrialSpec>& trialSpe
 		vector<string> tokens;
 		MelTrialSpec spec;
 		MelGridSpec grid;
-		FrameRectVecPair frvPair;
+		MelFramePair melPair;
 		ARContrastRectangleSpec rect;
 
 		// grid starts out with default values
@@ -278,7 +405,7 @@ int parse_mel_params(const std::string& filename, vector<MelTrialSpec>& trialSpe
 				switch (iTrialStep) {
 				case 0:
 
-					// Expecting "trial"
+					// Expecting "trial" or "folder"
 					if (string::npos != line.find("trial"))
 					{
 						//cerr << "Start of trial found" << endl;
@@ -286,10 +413,19 @@ int parse_mel_params(const std::string& filename, vector<MelTrialSpec>& trialSpe
 
 						// initialize trial spec
 						spec.lastFrame = 0;
-						spec.vecPairs.clear();
+						spec.vecFrames.clear();
 						spec.grid = grid;
-						frvPair.first = 0;
-						frvPair.second.clear();
+						melPair.first = 0;
+						melPair.second.x = melPair.second.y = 0;
+						melPair.second.filename = std::string();
+						melPair.second.vecRects.clear();
+					}
+					else if (string::npos != line.find("folder"))
+					{
+						string folder(line.substr(line.find("folder") + 6));
+						boost::trim(folder);
+						cerr << "Got folder:" << folder << endl;
+						withFunctor.addFolder(folder);
 					}
 					else
 					{
@@ -299,7 +435,7 @@ int parse_mel_params(const std::string& filename, vector<MelTrialSpec>& trialSpe
 					break;
 
 				case 1:
-					// at this point we expect a "grid" or "time" or "rect"
+					// at this point we expect a "grid" or "time" or "frames" or "rect" or "bmp"
 					if (string::npos != line.find("grid"))
 					{
 						//cerr << "Found grid line: " << line << endl;
@@ -366,13 +502,17 @@ int parse_mel_params(const std::string& filename, vector<MelTrialSpec>& trialSpe
 
 								// The "time" line ends the last "time" block. Push that frvPair onto the
 								// current spec. 
-								addOrAppendfrvPair(spec.vecPairs, frvPair);
-								frvPair.second.clear();
+								spec.vecFrames.push_back(melPair);
+
+								// clear the placeholder
+								melPair.second.x = melPair.second.y = 0;
+								melPair.second.filename = std::string();
+								melPair.second.vecRects.clear();
 
 								if (tokens.size() == 2)
 								{
-									// save the number of frames in the frvPair placeholder 
-									frvPair.first = frames;
+									// save the number of frames in the melPair placeholder 
+									melPair.first = frames;
 								}
 								else
 								{
@@ -383,7 +523,7 @@ int parse_mel_params(const std::string& filename, vector<MelTrialSpec>& trialSpe
 										// onto the trialSpecs vector. Return to trialStep 0 - look for "trial"
 										spec.lastFrame = frames;
 										spec.grid = grid;
-										std::sort(spec.vecPairs.begin(), spec.vecPairs.end(), [](FrameRectVecPair& a, FrameRectVecPair& b) { return a.first < b.first; });
+										std::sort(spec.vecFrames.begin(), spec.vecFrames.end(), [](MelFramePair& a, MelFramePair& b) { return a.first < b.first; });
 										trialSpecs.push_back(spec);
 										iTrialStep = 0;
 									}
@@ -411,7 +551,33 @@ int parse_mel_params(const std::string& filename, vector<MelTrialSpec>& trialSpe
 						}
 						else
 						{
-							frvPair.second.push_back(rect);
+							melPair.second.vecRects.push_back(rect);
+						}
+					}
+					else if (string::npos != line.find("bmp"))
+					{
+						// expect 3 parameters:  key,x,y
+						tokens.clear();
+						string bmparg(line.substr(line.find("bmp") + 3));
+						boost::trim(bmparg);
+						tokenize(bmparg, tokens, ", ");
+						if (tokens.size() == 3)
+						{
+							string key = tokens[0];
+							// look up key in fetched list of images
+							if (withFunctor.count(key)>0)
+							{
+								melPair.second.filename = withFunctor.find(key)->second.string();
+							}
+							else
+							{
+								cerr << "Error in input at line " << linenumber << " - cannot find bmp using key " << key << " : " << line << endl;
+								status = 1;
+							}
+							if (parse_double(tokens[1], melPair.second.x) || parse_double(tokens[2], melPair.second.y))
+							{
+								cerr << "Error parsing x,y for bitmap image, at line " << linenumber << " : " << line << endl;
+							}
 						}
 					}
 					else
