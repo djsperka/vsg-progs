@@ -3,3 +3,13 @@
 ################################################################################
 
 /AlertRig/bin
+/AlertRig/include
+/AlertRig/lib
+/AlertRig/src/.vs/AlertRig/v15
+/AlertRig/src/alertlib/build/Win32
+/AlertRig/src/fixstim/build/Win32
+/.vs
+*.obj
+*.user
+build/
+*.filters

@@ -252,6 +252,7 @@
     <ClInclude Include="coneiso.h" />
     <ClInclude Include="include\Alertlib.h" />
     <ClInclude Include="include\AlertUtil.h" />
+    <ClInclude Include="include\fetcher.h" />
     <ClInclude Include="include\getopt.h" />
     <ClInclude Include="include\RegEntry.h" />
     <ClInclude Include="include\RegHelper.h" />
