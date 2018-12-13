@@ -14,12 +14,40 @@
 using namespace std;
 
 
+void dumpPalette(const std::string& s, VSGLUTBUFFER& buffer, int N, int startN)
+{
+	for (int i = startN; i<startN + N; i++)
+		cerr << s << "[" << i << "] " << buffer[i].a << ", " << buffer[i].b << ", " << buffer[i].c << endl;
+
+}
+
+void dumpHWPalette(const std::string& s, int N, int startN)
+{
+	VSGLUTBUFFER palVSG;
+	vsgPaletteRead(&palVSG);
+	dumpPalette(s, palVSG, N, startN);
+//	for (int i=startN; i<startN+N; i++)
+//		cerr << "palVSG[" << i << "] " << palVSG[i].a << ", " << palVSG[i].b << ", " << palVSG[i].c << endl;
+}
+
+
 RectanglePool::~RectanglePool()
 {
 	for (auto p : m_vec)
 	{
 		delete p.second;
 	}
+}
+
+void RectanglePool::reset()
+{
+	vector<ColorRectPair>& vec = RectanglePool::instance().vec();
+	for (auto p : vec)
+	{
+		vsgObjDestroy(p.second->handle());
+		delete p.second;
+	}
+	vec.clear();
 }
 
 ARContrastRectangleSpec *RectanglePool::getRect(const COLOR_TYPE& c)
@@ -34,6 +62,7 @@ ARContrastRectangleSpec *RectanglePool::getRect(const COLOR_TYPE& c)
 	else
 	{
 		rect = new ARContrastRectangleSpec();
+		cerr << "New rect, color " << c << endl;
 		rect->init(2);
 		rect->color = c;
 		vec.push_back(make_pair(c, rect));
@@ -46,6 +75,7 @@ ARContrastRectangleSpec *RectanglePool::getRect(const COLOR_TYPE& c)
 void MelStimSet::cleanup(std::vector<int> pages)
 {
 	vsgPAGEDelete(m_hostPageHandle);
+	RectanglePool::reset();
 }
 #else
 void MelStimSet::cleanup(std::vector<int> pages)
@@ -60,17 +90,29 @@ int MelStimSet::init(std::vector<int> pages)
 #ifdef HOST_PAGE_TEST
 	// Create a page
 	m_hostPageHandle = vsgPAGECreate(vsgHOSTPAGE, vsgGetScreenWidthPixels(), vsgGetScreenHeightPixels(), vsg8BITPALETTEMODE);
-	cout << "page create handle " << m_hostPageHandle << endl;
+	cerr << "Got host page handle " << m_hostPageHandle << endl;
 #endif
 
 	// first page is always blank
 	vsgSetDrawPage(vsgVIDEOPAGE, m_pagesAvailable[0], vsgBACKGROUND);
 	m_pageBlank = m_pagesAvailable[0];
 
-	// initialize fixpt
-	PIXEL_LEVEL m_levelWhite;
-	ARvsg::instance().request_single(m_levelWhite);
-	cerr << "got dummy level " << m_levelWhite << endl;
+	//PIXEL_LEVEL m_levelWhite;
+	//ARvsg::instance().request_single(m_levelWhite);
+	//cerr << "got dummy level " << m_levelWhite << endl;
+
+
+	// Initialize color table
+	PIXEL_LEVEL first;
+	ARvsg::instance().request_range(130, first);
+
+	//cerr << "First level is " << first << endl;
+	//arutil_color_to_palette(COLOR_TYPE(gray), first);
+	//arutil_color_to_palette(COLOR_TYPE(red), first+1);
+	//arutil_color_to_palette(COLOR_TYPE(white), first+2);
+	//arutil_color_to_palette(COLOR_TYPE(green), first+3);
+	//arutil_color_to_palette(COLOR_TYPE(blue), first+4);
+
 	cerr << "There are " << m_vecFixpts.size() << " fixpts to init." << endl;
 	std::for_each(m_vecFixpts.begin(), m_vecFixpts.end(), [](alert::ARContrastFixationPointSpec& f) { f.init(2); f.setContrast(100); });
 	//m_fixpt.init(2);
@@ -106,16 +148,15 @@ int MelStimSet::drawCurrent()
 	//cerr << "drawCurrent - start" << endl;
 	//cerr << "drawCurrent - fixpt page " << m_pageFixpt << endl;
 
-	// Record start time
-	auto start = std::chrono::high_resolution_clock::now();
-
-
-
 	// The input file was parsed and separated into trials, and is saved
 	// as a vector<MelTrialSpec>. The MelTrialSpec consists of the grid spec
-	// that applies to the trial, a vector of these:
+	// that applies to the trial, and a vector of these:
 	//
-	// typedef std::pair<unsigned int, vector<ARContrastRectangleSpec> > FrameRectVecPair;
+	// typedef std::pair<unsigned int, MelFrame > FrameRectVecPair;
+	//
+	// and a MelFrame is a couple of vectors:
+	//	vector<MelBmpSpec> vecBmps;
+	//	vector<ARContrastRectangleSpec> vecRects;
 	//
 	// The first element of the pair is the frame number to which the vector of rects 'belongs' - 
 	// i.e. the frame number at which the list of rects should first appear. 
@@ -140,14 +181,18 @@ int MelStimSet::drawCurrent()
 	int ncycle = 0;
 	for(auto melpair: m_trialSpecs[m_uiCurrentTrial].vecFrames)
 	{
+
+		// if the frame number differs from the last frame (it always should due to changes in parsing)
+		// then finish drawing this page by drawing fixpt(s) and updating the cycling array.
+
 		if (melpair.first > frameLast)
 		{
-			// draw fixpt
-			//m_fixpt.draw();
+			cerr << "Finish page " << page << endl;
+			dumpHWPalette("VSGpAL", 8, 0);
+			dumpHWPalette("VSGpal", 8, 123);
+
+			// draw fixpts
 			std::for_each(m_vecFixpts.begin(), m_vecFixpts.end(), [](alert::ARContrastFixationPointSpec& f) { cout << "Draw fixpt " << f << " levels " << f.getFirstLevel() << "/" << f.getNumLevels() << endl;  f.draw(); });
-
-			// Copy page
-
 
 			// set up cycling element here. 
 			cycle[ncycle].Xpos = cycle[ncycle].Ypos = 0;
@@ -158,57 +203,69 @@ int MelStimSet::drawCurrent()
 
 			frameLast = melpair.first;
 
-#ifdef HOST_PAGE_TEST
-
-			auto drawDone = std::chrono::high_resolution_clock::now();
-			// Blit(copy) the page to the VSG video area
-			vsgSetDrawPage(vsgVIDEOPAGE, page, vsgNOCLEAR);
-			//vsgSetSpatialUnits(vsgPIXELUNIT);
-			vsgDrawMoveRect(vsgHOSTPAGE, m_hostPageHandle, 0, 0, vsgGetScreenWidthPixels(), vsgGetScreenHeightPixels(), 0, 0, vsgGetScreenWidthPixels(), vsgGetScreenHeightPixels());
-			//vsgSetSpatialUnits(vsgDEGREEUNIT);
-			auto copyDone = std::chrono::high_resolution_clock::now();
-
-			// clear the host page and reset it as draw page
-			vsgSetDrawPage(vsgHOSTPAGE, m_hostPageHandle, vsgBACKGROUND);
-
-			// If requested, load image to this page
-			// TODO - set up plan regarding palette, then change this call to not load palette. 
-			if (!melpair.second.filename.empty())
-			{
-				char f[256];	// huge, just to get a non-const char *
-				melpair.second.filename.copy(f, melpair.second.filename.size() + 1);
-				f[melpair.second.filename.size()] = '\0';
-				vsgDrawImage(vsgPALETTELOAD, melpair.second.x, melpair.second.y, f);
-			}
-
-			auto clearDone = std::chrono::high_resolution_clock::now();
-
-			std::chrono::duration<double> elapsedDraw = drawDone - start;
-			std::chrono::duration<double> elapsedCopy = copyDone - drawDone;
-			std::chrono::duration<double> elapsedClear = clearDone - copyDone;
-			cout << "draw " << elapsedDraw.count() << " copy " << elapsedCopy.count() << " clear " << elapsedClear.count() << endl;
-			start = clearDone;
-
 			// Get a new page number for the next copy
 			page = m_pagesAvailable[nPages++];
+			cerr << "New page to draw " << page << endl;
 
-#else
 			// clear a new page
-			page = m_pagesAvailable[nPages++];
 			vsgSetDrawPage(vsgVIDEOPAGE, page, vsgBACKGROUND);
-#endif
+		}
 
+		// If requested, load images to this page
+		cerr << "Draw " << melpair.second.vecBmps.size() << " bmps on page " << page << endl;
+		for (auto bmp : melpair.second.vecBmps)
+		{
+			char f[256];
+			strcpy(f, bmp.filename.c_str());
+
+			cerr << "bmp file " << bmp.filename << endl;
+
+			if (bmp.copyPalette)
+			{
+				vsgSetDrawMode(vsgCENTREXY);
+				vsgDrawImage(0, bmp.x, bmp.y, f);
+				VSGLUTBUFFER palette;
+				vsgImageGetPalette(0, f, &palette);
+				vsgPaletteWrite((VSGLUTBUFFER*)palette, bmp.startCopyLevel, bmp.numCopyLevel);
+				cerr << "copy palette " << bmp.startCopyLevel << "/" << bmp.numCopyLevel << endl;
+				dumpPalette("imagePAL", palette, 8, 0);
+			}
+			else if (bmp.drawMode == vsgTRANSONSOURCE)
+			{
+				DWORD saveMode = vsgGetDrawMode();
+				vsgSetDrawMode(vsgCENTREXY | vsgTRANSONSOURCE);
+				vsgSetPen2(bmp.level);
+				vsgDrawImage(0, bmp.x, bmp.y, f);
+				vsgSetDrawMode(saveMode);
+				cerr << "transOnSource " << bmp.level << endl;
+			}
+			else if (bmp.drawMode == vsgTRANSONDEST)
+			{
+				DWORD saveMode = vsgGetDrawMode();
+				vsgSetDrawMode(vsgCENTREXY | vsgTRANSONDEST);
+				vsgSetPen2(bmp.level);
+				vsgDrawImage(0, bmp.x, bmp.y, f);
+				vsgSetDrawMode(saveMode);
+				cerr << "transOnDest " << bmp.level << endl;
+			}
+			else
+			{
+				vsgSetDrawMode(vsgCENTREXY);
+				vsgDrawImage(0, bmp.x, bmp.y, f);
+				cerr << "No draw mode" << endl;
+			}
 		}
 
 		// draw rects
 		// different colored rects have to be unique objects
+		cerr << "Draw " << melpair.second.vecRects.size() << " rects on page " << page << endl;
 		for (auto rect : melpair.second.vecRects)
 		{
 			ARContrastRectangleSpec *drawrect = RectanglePool::getRect(rect.color);
 
 			// Assign coordinates (after transforming them)
 			applyTransform(*drawrect, rect, m_trialSpecs[m_uiCurrentTrial].grid);
-			cout << "drawrect " << *drawrect << endl;
+			//cout << "drawrect " << *drawrect << endl;
 			drawrect->draw();
 		}
 	}
@@ -221,9 +278,7 @@ int MelStimSet::drawCurrent()
 #ifdef HOST_PAGE_TEST
 	// Blit(copy) the page to the VSG video area
 	vsgSetDrawPage(vsgVIDEOPAGE, page, vsgNOCLEAR);
-	//vsgSetSpatialUnits(vsgPIXELUNIT);
 	vsgDrawMoveRect(vsgHOSTPAGE, m_hostPageHandle, 0, 0, vsgGetScreenWidthPixels(), vsgGetScreenHeightPixels(), 0, 0, vsgGetScreenWidthPixels(), vsgGetScreenHeightPixels());
-	//vsgSetSpatialUnits(vsgDEGREEUNIT);
 #endif
 
 	cycle[ncycle].Xpos = cycle[ncycle].Ypos = 0;
@@ -250,26 +305,33 @@ int MelStimSet::drawCurrent()
 	}
 
 	vsgSetDrawPage(vsgVIDEOPAGE, m_pageBlank, vsgNOCLEAR);
-	//vsgPresent();
 
-	// Record end time
-	auto finish = std::chrono::high_resolution_clock::now();
+	//// Record end time
+	//auto finish = std::chrono::high_resolution_clock::now();
 
-	// get duration
-	std::chrono::duration<double> elapsed = finish - start;
+	//// get duration
+	//std::chrono::duration<double> elapsed = finish - start;
 
-	cerr << "drawCurrent: done. " << ncycle << " pages, " << m_trialSpecs[m_uiCurrentTrial].vecFrames.size() << " frame/rectvec pairs, Elapsed time: " << elapsed.count() << endl;
+	//cerr << "drawCurrent: done. " << ncycle << " pages, " << m_trialSpecs[m_uiCurrentTrial].vecFrames.size() << " frame/rectvec pairs, Elapsed time: " << elapsed.count() << endl;
+
 	return status;
 }
+
+// assume that the rectangle coords are grid coords. 
+// The unit square CENTERED at (0,0) is drawn from (0,0) to (1,1). 
+// With scaling, unit square is scaled by w,h. In pixel coords it is drawn shifted by 0.5,0.5
+// So we need to rotate the center point of the rect, and add the grid center to that. 
+// The vsg will rotate around the center point. 
+
 
 void MelStimSet::applyTransform(ARContrastRectangleSpec& result, const ARContrastRectangleSpec& original, const MelGridSpec& grid)
 {
 	double ctheta = cos(grid.oriDegrees * M_PI / 180.0);
 	double stheta = sin(grid.oriDegrees * M_PI / 180.0);
-	double x_scaled = (grid.xGridCenter + original.x * grid.wGrid);
-	double y_scaled = (grid.yGridCenter + original.y * grid.hGrid);
-	result.x = x_scaled * ctheta - y_scaled * stheta;
-	result.y = x_scaled * stheta + y_scaled * ctheta;
+	double x0 = grid.wGrid*(original.x + 0.5);
+	double y0 = grid.hGrid*(original.y + 0.5);
+	result.x = x0 * ctheta - y0 * stheta;
+	result.y = x0 * stheta + y0 * ctheta;
 	result.w = grid.wGrid * original.w;
 	result.h = grid.hGrid * original.h;
 	result.orientation = grid.oriDegrees + original.orientation;
@@ -366,6 +428,82 @@ public:
 };
 
 
+int parse_bmp_spec(const string& bmparg, const std::map<std::string, boost::filesystem::path>& fileMap, MelBmpSpec& bmpSpec)
+{
+	int status = 0;
+	vector<string> tokens;
+	tokenize(bmparg, tokens, ", ");
+	if (tokens.size() == 3 || tokens.size() == 5)
+	{
+		string key = tokens[0];
+		// look up key in fetched list of images
+		if (fileMap.count(key) > 0)
+		{
+			bmpSpec.filename = fileMap.find(key)->second.string();
+
+			if (parse_double(tokens[1], bmpSpec.x) || parse_double(tokens[2], bmpSpec.y))
+			{
+				cerr << "Error parsing x,y for bitmap image: " << bmparg << endl;
+				status = 1;
+			}
+			else
+			{
+				bmpSpec.copyPalette = false;
+				bmpSpec.drawMode = 0;
+				if (tokens.size() == 5)
+				{
+					// hack - accept two extra args:
+					// p,level = copy palette from 0 - (level-1)
+					// s,level = TRANSONSOURCE
+					// d,level = TRANSONDEST
+					DWORD l;
+					if (parse_ulong(tokens[4], l))
+					{
+						cerr << "Error parsing bmp level : " << bmparg << endl;
+						status = 1;
+					}
+					else
+					{
+						if (boost::iequals(tokens[3], "s"))
+						{
+							bmpSpec.copyPalette = false;
+							bmpSpec.drawMode = vsgTRANSONSOURCE;
+							bmpSpec.level = l;
+						}
+						else if (boost::iequals(tokens[3], "d"))
+						{
+							bmpSpec.copyPalette = false;
+							bmpSpec.drawMode = vsgTRANSONDEST;
+							bmpSpec.level = l;
+						}
+						else if (boost::iequals(tokens[3], "p"))
+						{
+							bmpSpec.copyPalette = true;
+							bmpSpec.startCopyLevel = 0;
+							bmpSpec.numCopyLevel = l;
+						}
+						else
+						{
+							cerr << "Error parsing bmp mode: " << bmparg << endl;
+							status = 1;
+						}
+					}
+				}
+			}
+		}
+		else
+		{
+			cerr << "Error - cannot find bmp using key " << key << " : " << bmparg << endl;
+			status = 1;
+		}
+	}
+	else
+	{
+		cerr << "Error in bmp input (expect 3 or 5 args): " << bmparg << endl;
+		status = 1;
+	}
+	return status;
+}
 
 
 int parse_mel_params(const std::string& filename, vector<MelTrialSpec>& trialSpecs)
@@ -416,8 +554,7 @@ int parse_mel_params(const std::string& filename, vector<MelTrialSpec>& trialSpe
 						spec.vecFrames.clear();
 						spec.grid = grid;
 						melPair.first = 0;
-						melPair.second.x = melPair.second.y = 0;
-						melPair.second.filename = std::string();
+						melPair.second.vecBmps.clear();
 						melPair.second.vecRects.clear();
 					}
 					else if (string::npos != line.find("folder"))
@@ -505,8 +642,7 @@ int parse_mel_params(const std::string& filename, vector<MelTrialSpec>& trialSpe
 								spec.vecFrames.push_back(melPair);
 
 								// clear the placeholder
-								melPair.second.x = melPair.second.y = 0;
-								melPair.second.filename = std::string();
+								melPair.second.vecBmps.clear();
 								melPair.second.vecRects.clear();
 
 								if (tokens.size() == 2)
@@ -541,7 +677,8 @@ int parse_mel_params(const std::string& filename, vector<MelTrialSpec>& trialSpe
 							status = 1;
 						}
 					}
-					else if (string::npos != line.find("rect"))
+//					else if (string::npos != line.find("rect"))
+					else if (0 == line.find("rect"))
 					{
 						//cerr << "Found rect line: " << line << endl;
 						if (parse_rectangle(line.substr(line.find("rect") + 4), rect))
@@ -560,24 +697,13 @@ int parse_mel_params(const std::string& filename, vector<MelTrialSpec>& trialSpe
 						tokens.clear();
 						string bmparg(line.substr(line.find("bmp") + 3));
 						boost::trim(bmparg);
-						tokenize(bmparg, tokens, ", ");
-						if (tokens.size() == 3)
+						MelBmpSpec bmpSpec;
+						if (!parse_bmp_spec(bmparg, withFunctor, bmpSpec))
+							melPair.second.vecBmps.push_back(bmpSpec);
+						else
 						{
-							string key = tokens[0];
-							// look up key in fetched list of images
-							if (withFunctor.count(key)>0)
-							{
-								melPair.second.filename = withFunctor.find(key)->second.string();
-							}
-							else
-							{
-								cerr << "Error in input at line " << linenumber << " - cannot find bmp using key " << key << " : " << line << endl;
-								status = 1;
-							}
-							if (parse_double(tokens[1], melPair.second.x) || parse_double(tokens[2], melPair.second.y))
-							{
-								cerr << "Error parsing x,y for bitmap image, at line " << linenumber << " : " << line << endl;
-							}
+							cerr << "Error parsing bmp spec at line " << linenumber << endl;
+							status = 1;
 						}
 					}
 					else

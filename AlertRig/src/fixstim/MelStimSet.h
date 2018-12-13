@@ -3,10 +3,14 @@
 #include "StimSet.h"
 #include <vector>
 #include <algorithm>
+#include <map>
+#include <boost/filesystem.hpp>
 
-#define HOST_PAGE_TEST
+//#define HOST_PAGE_TEST
 
 
+void dumpPalette(const std::string& s, VSGLUTBUFFER& buffer, int N, int startN=0);
+void dumpHWPalette(const std::string& s, int N, int startN=0);
 
 typedef std::pair<COLOR_TYPE, ARContrastRectangleSpec* > ColorRectPair;
 
@@ -19,12 +23,25 @@ class RectanglePool
 public:
 	virtual ~RectanglePool();
 	static ARContrastRectangleSpec *getRect(const COLOR_TYPE& c);
+	static void reset();	// delete vsg objects, empty pool
 };
 
 
 // the ui is a frame number. The vector is a list of rectangles to be drawn on that frame
 // Its a pair, with a frame and a rect vec.
 typedef std::pair<unsigned int, vector<ARContrastRectangleSpec> > FrameRectVecPair;
+
+
+typedef struct
+{
+	double x, y;
+	std::string filename;
+	DWORD drawMode;			// D = vsgCOPYONSOURCE, S = vsgCOPYONDEST
+	DWORD level;			// setPen2
+	bool copyPalette;		// if true, copy levels from image file to HW palette
+	DWORD startCopyLevel;	// first level to copy
+	DWORD numCopyLevel;		// copy this many levels
+} MelBmpSpec;
 
 
 // Updated to allow for loading bmp images. 
@@ -35,8 +52,7 @@ typedef std::pair<unsigned int, vector<ARContrastRectangleSpec> > FrameRectVecPa
 
 typedef struct 
 {
-	double x, y;
-	std::string filename;
+	vector<MelBmpSpec> vecBmps;
 	vector<ARContrastRectangleSpec> vecRects;
 } MelFrame;
 typedef std::pair<unsigned int, MelFrame> MelFramePair;
@@ -47,6 +63,7 @@ typedef struct
 	double xGridCenter, yGridCenter, wGrid, hGrid, oriDegrees;
 } MelGridSpec;
 
+
 typedef struct
 {
 	vector<MelFramePair> vecFrames;
@@ -54,6 +71,7 @@ typedef struct
 	MelGridSpec grid;
 } MelTrialSpec;
 
+int parse_bmp_spec(const string& bmparg, const std::map<std::string, boost::filesystem::path>& fileMap, MelBmpSpec& bmpSpec);
 int parse_mel_params(const std::string& filename, vector<MelTrialSpec>& trialSpecs);
 
 // The vector of pairs may have one with the same frame value as the frvPair supplied. If that's the case, append

@@ -1,0 +1,6 @@
+# Big red fixation point, gray background, etc
+# note negative screen distance (forces pixel units)
+ 
+-f 0,0,2,blue  -b gray -d 200 -a -v
+
+-o C:\\Users\\Lab\\source\\repos\\vsg-progs\\AlertRig\\src\\fixstim\\px16-trials-s.txt

@@ -1,0 +1,197 @@
+# This file lays out the trials in a "Mel Stim" 
+#
+# blank lines and lines that begin with "#" are ignored
+# Capitalization Does nOt matTER
+#
+# A trial starts with a "trial" line and is followed by "time" blocks and an optional "grid" line.
+# A "grid" line and "time" blocks can come in any order
+# "time" blocks can be broken into multiple pieces
+#
+# The "grid" line looks like this:
+# grid x,y,w,h,ori
+#
+# where
+#    x,y are the center of the grid; the position 0,0 in grid coordinates corresponds to this position in eye coords
+#    w,h are the width,height of each grid rectangle, in the same units that x,y are in 
+#    ori is the orientation of the grid. This is the angle that the x-axis of the grid makes with the screen's positive x-axis.
+#    Positive orientation angles run counter-clockwise from the screen's +x axis. 
+#
+#
+# The "time" block looks like this (*):
+# time t
+# rect u,v,a,b,rect-ori,color
+# <multiple rects allowed>
+#
+# (*) A trial is ended with a special time block:
+# time t end
+#
+# EACH TRIAL MUST END WITH ONE OF THESE SPECIAL TIME BLOCKS!
+# The end block has to be the last one in the file - put it after all rect lines for the trial (don't rely on sorting for the end)
+#
+# The "rect" line specifies a rect be drawn
+# rect u,v,a,b,rect-ori,color
+#
+# where
+#    u,v is the rect center in grid coordinates
+#    a,b are the width,height of the rect, in units of w,h - the grid rect size from the "grid" line (default = 1,1)
+#    rect-ori is the rect orientation in the grid system. (default 0) When the rect is drawn, this value is added to the orientation of the grid.
+#    color is the rect color. (default white)
+#
+# A rect that is aligned with the grid, and scale=1 can just use u,v:
+# rect 3,1
+#
+#
+
+
+# This trial has axis-aligned grid, with grid rects size 1,1
+# There is a vertical "stack" of 7 rects that move from left to right
+# Note the small gaps that appear between some of the rects at different steps
+
+Folder c:\Users\Lab\Desktop\djs\cbmp
+Trial 1
+Grid 0,0,16,16,0
+Time 0.5
+Bmp px16_on_cardinal_1,0,0
+Rect 0,0,7,7,0,gray
+Rect -3,-3
+Rect -3,-2
+Rect -3,-1
+Rect -3,0,1,1,0,(55/155/127)
+Rect -3,1
+Rect -3,2
+Rect -3,3
+Time 1.0
+Bmp px16_on_cardinal_2,0,0
+Rect 0,0,7,7,0,gray
+Rect -2,-3
+Rect -2,-2
+Rect -2,-1
+Rect -2,0,1,1,0,(55/155/127)
+Rect -2,1
+Rect -2,2
+Rect -2,3
+Time 1.5
+Bmp px16_on_cardinal_3,0,0
+Rect 0,0,7,7,0,gray
+Rect -1,-3
+Rect -1,-2
+Rect -1,-1
+Rect -1,0,1,1,0,(55/155/127)
+Rect -1,1
+Rect -1,2
+Rect -1,3
+Time 2.0
+Bmp px16_on_cardinal_4,0,0
+Rect 0,0,7,7,0,gray
+Rect 0,-3
+Rect 0,-2
+Rect 0,-1
+Rect 0,0,1,1,0,(55/155/127)
+Rect 0,1
+Rect 0,2
+Rect 0,3
+Time 2.5
+Bmp px16_on_cardinal_5,0,0
+Rect 0,0,7,7,0,gray
+Rect 1,-3
+Rect 1,-2
+Rect 1,-1
+Rect 1,0,1,1,0,(55/155/127)
+Rect 1,1
+Rect 1,2
+Rect 1,3
+Time 3.0
+Bmp px16_on_cardinal_6,0,0
+Rect 0,0,7,7,0,gray
+Rect 2,-3
+Rect 2,-2
+Rect 2,-1
+Rect 2,0,1,1,0,(55/155/127)
+Rect 2,1
+Rect 2,2
+Rect 2,3
+Time 3.5
+Bmp px16_on_cardinal_7,0,0
+Rect 0,0,7,7,0,gray
+Rect 3,-3
+Rect 3,-2
+Rect 3,-1
+Rect 3,0,1,1,0,(55/155/127)
+Rect 3,1
+Rect 3,2
+Rect 3,3
+Time 4.0 end
+
+Trial 2
+Grid 0,0,16,16,45
+Time 0.5
+Bmp px16_on_diagonal_1,0,0
+Rect 0,0,7,7,0,gray
+Rect -3,-3
+Rect -3,-2
+Rect -3,-1
+Rect -3,0,1,1,0,(55/155/127)
+Rect -3,1
+Rect -3,2
+Rect -3,3
+Time 3.0
+Bmp px16_on_diagonal_2,0,0
+Rect 0,0,7,7,0,gray
+Rect -2,-3
+Rect -2,-2
+Rect -2,-1
+Rect -2,0,1,1,0,(55/155/127)
+Rect -2,1
+Rect -2,2
+Rect -2,3
+Time 5.5
+Bmp px16_on_diagonal_3,0,0
+Rect 0,0,7,7,0,gray
+Rect -1,-3
+Rect -1,-2
+Rect -1,-1
+Rect -1,0,1,1,0,(55/155/127)
+Rect -1,1
+Rect -1,2
+Rect -1,3
+Time 8.0
+Bmp px16_on_diagonal_4,0,0
+Rect 0,0,7,7,0,gray
+Rect 0,-3
+Rect 0,-2
+Rect 0,-1
+Rect 0,0,1,1,0,(55/155/127)
+Rect 0,1
+Rect 0,2
+Rect 0,3
+Time 10.5
+Bmp px16_on_diagonal_5,0,0
+Rect 0,0,7,7,0,gray
+Rect 1,-3
+Rect 1,-2
+Rect 1,-1
+Rect 1,0,1,1,0,(55/155/127)
+Rect 1,1
+Rect 1,2
+Rect 1,3
+Time 13.0
+Bmp px16_on_diagonal_6,0,0
+Rect 0,0,7,7,0,gray
+Rect 2,-3
+Rect 2,-2
+Rect 2,-1
+Rect 2,0,1,1,0,(55/155/127)
+Rect 2,1
+Rect 2,2
+Rect 2,3
+Time 15.5
+Bmp px16_on_diagonal_7,0,0
+Rect 0,0,7,7,0,gray
+Rect 3,-3
+Rect 3,-2
+Rect 3,-1
+Rect 3,0,1,1,0,(55/155/127)
+Rect 3,1
+Rect 3,2
+Rect 3,3
+Time 18.0 end

@@ -51,7 +51,7 @@ Folder c:\Users\Lab\Desktop\djs\cbmp
 Trial 1
 Grid 0,0,16,16,0
 Time 0.5
-Bmp bowtie,0,0
+Bmp rect-boundary,0,0
 Rect -3,-3
 Rect -3,-2
 Rect -3,-1
@@ -60,7 +60,7 @@ Rect -3,1
 Rect -3,2
 Rect -3,3
 Time 1.0
-Bmp flower,0,0
+Bmp rect-boundary,0,0
 Rect -2,-3
 Rect -2,-2
 Rect -2,-1
@@ -69,7 +69,7 @@ Rect -2,1
 Rect -2,2
 Rect -2,3
 Time 1.5
-Bmp strawberries,0,0
+Bmp rect-boundary,0,0
 Rect -1,-3
 Rect -1,-2
 Rect -1,-1
@@ -78,7 +78,7 @@ Rect -1,1
 Rect -1,2
 Rect -1,3
 Time 2.0
-Bmp bowtie,0,0
+Bmp rect-boundary,0,0
 Rect 0,-3
 Rect 0,-2
 Rect 0,-1
@@ -87,7 +87,7 @@ Rect 0,1
 Rect 0,2
 Rect 0,3
 Time 2.5
-Bmp flower,0,0
+Bmp rect-boundary,0,0
 Rect 1,-3
 Rect 1,-2
 Rect 1,-1
@@ -96,7 +96,7 @@ Rect 1,1
 Rect 1,2
 Rect 1,3
 Time 3.0
-Bmp strawberries,0,0
+Bmp rect-boundary,0,0
 Rect 2,-3
 Rect 2,-2
 Rect 2,-1
@@ -105,7 +105,7 @@ Rect 2,1
 Rect 2,2
 Rect 2,3
 Time 3.5
-Bmp bowtie,0,0
+Bmp rect-boundary,0,0
 Rect 3,-3
 Rect 3,-2
 Rect 3,-1
