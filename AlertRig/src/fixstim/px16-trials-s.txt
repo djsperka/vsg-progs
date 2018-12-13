@@ -1,26 +1,17 @@
 # This file lays out the trials in a "Mel Stim" 
 #
 # blank lines and lines that begin with "#" are ignored
-# Capitalization Does nOt matTER
+# Capitalization Does nOt matTER EXCEPT FOR BMP FILENAMES! 
 #
-# A trial starts with a "trial" line and is followed by "time" blocks and an optional "grid" line.
-# A "grid" line and "time" blocks can come in any order
-# "time" blocks can be broken into multiple pieces
-#
-# The "grid" line looks like this:
-# grid x,y,w,h,ori
-#
-# where
-#    x,y are the center of the grid; the position 0,0 in grid coordinates corresponds to this position in eye coords
-#    w,h are the width,height of each grid rectangle, in the same units that x,y are in 
-#    ori is the orientation of the grid. This is the angle that the x-axis of the grid makes with the screen's positive x-axis.
-#    Positive orientation angles run counter-clockwise from the screen's +x axis. 
-#
+# A line that begins with "Folder" specifies a folder that contains bmp images to be used. 
+# The images should all reside in that folder, not in a subfolder, and all should have extension ".bmp"
+# When used, the basename of the bmp file (without the extension)
+# A trial starts with a "trial" line and is followed by "time" blocks, 
+# each of which has one or more bmp files specified. 
 #
 # The "time" block looks like this (*):
 # time t
-# rect u,v,a,b,rect-ori,color
-# <multiple rects allowed>
+# bmp basename,x,y[,X,n]
 #
 # (*) A trial is ended with a special time block:
 # time t end
@@ -28,24 +19,39 @@
 # EACH TRIAL MUST END WITH ONE OF THESE SPECIAL TIME BLOCKS!
 # The end block has to be the last one in the file - put it after all rect lines for the trial (don't rely on sorting for the end)
 #
-# The "rect" line specifies a rect be drawn
-# rect u,v,a,b,rect-ori,color
-#
-# where
-#    u,v is the rect center in grid coordinates
-#    a,b are the width,height of the rect, in units of w,h - the grid rect size from the "grid" line (default = 1,1)
-#    rect-ori is the rect orientation in the grid system. (default 0) When the rect is drawn, this value is added to the orientation of the grid.
-#    color is the rect color. (default white)
-#
-# A rect that is aligned with the grid, and scale=1 can just use u,v:
-# rect 3,1
+# A "bmp" line specified a bmp file to be drawn on the screen. 
+# The x,y is where the CENTER of the bmp is placed, in screen coords (vis degrees).
+# The additional characters [,X,n] may be omitted. If included, the allowed values of "X" are
+# P - copy color palette from this image to HW palette. The number is the number of levels to be copied.
+# S - TRANSONSOURCE - the number is a level number. If a pixel in the bmp file has that level number it is NOT drawn
+# D - TRANSONDEST - same as above, but if a pixel in the destination (whatever has already been drawn there) has that 
+#     level number the corresponding source pixel is NOT drawn. 
 #
 #
+#
+#
+# For the scheme we are using, where the STIMULUS bmp can contain pixels drawn at level 255, then the following sequence
+# draws a background image (and uses 128 levels of its palette), then overlays a stimulus image, ignoring any pixels in 
+# the stimulus bmp that are level 255
+# The files used will be 
+# c:\Users\Lab\Desktop\djs\cbmp\px16_on_cardinal_1.bmp and 
+# c:\Users\Lab\Desktop\djs\cbmp\s_px16_on_ang0_1.bmp
+#
+# Time 0.5
+# Bmp px16_on_cardinal_1,0,0,P,128
+# Bmp s_px16_on_ang0_1,0,0,S,255
+#
+#
+# IMPORTANT
+#
+# - Each trial will use the last "P" palette copy. In trial 1 below, notice that only the first bmp (at Time 0.5)
+#   has a "P,128" - to copy 128 levels from the bmp file to the hw palette. That palette will be used by everything that
+#   follows.
+# - Each of the stimulus bmp files uses "S,255" to indicate "TRANSONSOURCE" with level 255 -- meaning that pixels in
+#   the bmp file are NOT written to the vsg if they are at level 255. 
+# - The levels from 0-127 are available for use by the stimulus files. No need to copy the palette again. 
+# - The program assumes that NO MORE THAN 128 levels are to be copied. 
 
-
-# This trial has axis-aligned grid, with grid rects size 1,1
-# There is a vertical "stack" of 7 rects that move from left to right
-# Note the small gaps that appear between some of the rects at different steps
 
 Folder c:\Users\Lab\Desktop\djs\cbmp
 Trial 1
@@ -71,13 +77,3 @@ Time 6.5
 Bmp px16_on_cardinal_3,0,0
 Bmp s_px16_on_ang0_7,0,0,S,255
 Time 7.5 end
-
-Trial 2
-Time 0.5
-Bmp px16_on_cardinal_1,0,0,P,128
-Time 1.5
-Bmp px16_on_cardinal_2,0,0
-Time 2.5
-Bmp px16_on_cardinal_3,0,0
-Time 3.5 end
-
