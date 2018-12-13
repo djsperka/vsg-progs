@@ -255,9 +255,23 @@ namespace alert
 		int request_range(int num, PIXEL_LEVEL& first);
 		int remaining();
 		void reset_available_levels() { m_next_available_level = 0; };
-
+		VSGOBJHANDLE dummyObjectHandle() { return m_handle; };
 	private:
-		ARvsg(bool bMaster=false, bool bSlave=false);
+		ARvsg(bool bMaster=false, bool bSlave=false)
+			: m_initialized(false)
+			, m_is_master(bMaster)
+			, m_is_slave(bSlave)
+			, m_handle(0)
+			, m_background_level(-1)
+			, m_background_color(gray)
+			, m_heightPixels(0)
+			, m_widthPixels(0)
+			, m_heightDegrees(0)
+			, m_widthDegrees(0)
+			, m_device_handle(-999)
+			, m_next_available_level(0)
+		{};
+
 		ARvsg(ARvsg const&): m_background_level(-1) {};
 		ARvsg& operator=(ARvsg const&) {};
 		bool m_initialized;

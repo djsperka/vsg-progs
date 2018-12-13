@@ -234,11 +234,6 @@ double ARvsg::getScreenWidthDegrees()
 	return m_widthDegrees; 
 };
 
-ARvsg::ARvsg(bool bMaster, bool bSlave) : m_initialized(false), m_is_master(bMaster), m_is_slave(bSlave), m_background_level(-1), m_device_handle(-999), m_next_available_level(0)
-{
-	cout << "Instantiate ARvsg, master? " << (bMaster ? "YES" : "NO") << ", slave? " << (bSlave ? "YES" : "NO") << endl;
-}
-
 ARvsg::~ARvsg()
 { 
 	clear();
