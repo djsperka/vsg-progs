@@ -188,8 +188,6 @@ int MelStimSet::drawCurrent()
 		if (melpair.first > frameLast)
 		{
 			cerr << "Finish page " << page << endl;
-			dumpHWPalette("VSGpAL", 8, 0);
-			dumpHWPalette("VSGpal", 8, 123);
 
 			// draw fixpts
 			std::for_each(m_vecFixpts.begin(), m_vecFixpts.end(), [](alert::ARContrastFixationPointSpec& f) { cout << "Draw fixpt " << f << " levels " << f.getFirstLevel() << "/" << f.getNumLevels() << endl;  f.draw(); });
@@ -213,6 +211,10 @@ int MelStimSet::drawCurrent()
 
 		// If requested, load images to this page
 		cerr << "Draw " << melpair.second.vecBmps.size() << " bmps on page " << page << endl;
+
+		// Convert to using pixel units for drawing images....
+		vsgSetSpatialUnits(vsgPIXELUNIT);
+
 		for (auto bmp : melpair.second.vecBmps)
 		{
 			char f[256];
@@ -223,7 +225,7 @@ int MelStimSet::drawCurrent()
 			if (bmp.copyPalette)
 			{
 				vsgSetDrawMode(vsgCENTREXY);
-				vsgDrawImage(0, bmp.x, bmp.y, f);
+				vsgDrawImage(0, bmp.x, -bmp.y, f);
 				VSGLUTBUFFER palette;
 				vsgImageGetPalette(0, f, &palette);
 				vsgPaletteWrite((VSGLUTBUFFER*)palette, bmp.startCopyLevel, bmp.numCopyLevel);
@@ -235,7 +237,7 @@ int MelStimSet::drawCurrent()
 				DWORD saveMode = vsgGetDrawMode();
 				vsgSetDrawMode(vsgCENTREXY | vsgTRANSONSOURCE);
 				vsgSetPen2(bmp.level);
-				vsgDrawImage(0, bmp.x, bmp.y, f);
+				vsgDrawImage(0, bmp.x, -bmp.y, f);
 				vsgSetDrawMode(saveMode);
 				cerr << "transOnSource " << bmp.level << endl;
 			}
@@ -244,17 +246,19 @@ int MelStimSet::drawCurrent()
 				DWORD saveMode = vsgGetDrawMode();
 				vsgSetDrawMode(vsgCENTREXY | vsgTRANSONDEST);
 				vsgSetPen2(bmp.level);
-				vsgDrawImage(0, bmp.x, bmp.y, f);
+				vsgDrawImage(0, bmp.x, -bmp.y, f);
 				vsgSetDrawMode(saveMode);
 				cerr << "transOnDest " << bmp.level << endl;
 			}
 			else
 			{
 				vsgSetDrawMode(vsgCENTREXY);
-				vsgDrawImage(0, bmp.x, bmp.y, f);
+				vsgDrawImage(0, bmp.x, -bmp.y, f);
 				cerr << "No draw mode" << endl;
 			}
 		}
+		// Convert back to using degree units...
+		vsgSetSpatialUnits(vsgDEGREEUNIT);
 
 		// draw rects
 		// different colored rects have to be unique objects
@@ -407,14 +411,15 @@ std::string MelStimSet::toString() const
 //}
 
 
-using boost::filesystem::path;
+namespace fs = boost::filesystem;
 
 class MyPathMatcher : public PathMatcher<string>
 {
 	string m_extension;
+
 public:
 	MyPathMatcher(const string& ext) : m_extension(ext) { to_lower(m_extension); };
-	bool operator()(const path& p, string& key)
+	bool operator()(const fs::path& p, string& key)
 	{
 		bool b = false;
 		//cerr << p.string() << endl;
@@ -422,6 +427,17 @@ public:
 		{
 			b = true;
 			key = p.stem().string();
+
+			//// temp test
+			//fs::path tmppath = p;
+			//fs::path diffpath;
+			//while (tmppath != m_base) 
+			//{
+			//	diffpath = tmppath.stem() / diffpath;
+			//	tmppath = tmppath.parent_path();
+			//}
+			//cerr << "Got key " << key << "diffpath " << diffpath << endl;
+
 		}
 		return b;
 	}
@@ -438,7 +454,7 @@ int parse_bmp_spec(const string& bmparg, const std::map<std::string, boost::file
 		string key = tokens[0];
 		// look up key in fetched list of images
 		if (fileMap.count(key) > 0)
-		{
+		{ 
 			bmpSpec.filename = fileMap.find(key)->second.string();
 
 			if (parse_double(tokens[1], bmpSpec.x) || parse_double(tokens[2], bmpSpec.y))

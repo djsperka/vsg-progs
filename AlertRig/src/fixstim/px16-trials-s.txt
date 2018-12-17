@@ -4,14 +4,33 @@
 # Capitalization Does nOt matTER EXCEPT FOR BMP FILENAMES! 
 #
 # A line that begins with "Folder" specifies a folder that contains bmp images to be used. 
-# The images should all reside in that folder, not in a subfolder, and all should have extension ".bmp"
-# When used, the basename of the bmp file (without the extension)
+# The images should all reside in that folder, or in a subfolder, and all should have extension ".bmp"
+# When specifying a bmp file to use, give the part of the full file path (including extension) AFTER
+# the path on the "Folder" line. For example, if you have this file directory layout:
+#
+# c:\data\images
+# c:\data\images\bkgd   (this folder has bmp files with background images)
+# c:\data\images\stim   (this folder has bmp files with stim images)
+#
+# Now, if you use this line:
+#
+# Folder c:\data\images
+#
+# Then, when using a file named "c:\data\images\bkgd\file1.bmp", the bmp lines should look like this:
+#
+# bmp bkgd\file1.bmp,100,200,P,128
+#
+#
 # A trial starts with a "trial" line and is followed by "time" blocks, 
 # each of which has one or more bmp files specified. 
 #
 # The "time" block looks like this (*):
 # time t
-# bmp basename,x,y[,X,n]
+# bmp folder\filename.bmp,x,y[,X,n]
+#
+# Alternatively, use "frames" (from the start of the stim period) instead of time (in seconds from the start of the stim period)
+# frames n
+# bmp folder\filename.bmp
 #
 # (*) A trial is ended with a special time block:
 # time t end
@@ -19,8 +38,8 @@
 # EACH TRIAL MUST END WITH ONE OF THESE SPECIAL TIME BLOCKS!
 # The end block has to be the last one in the file - put it after all rect lines for the trial (don't rely on sorting for the end)
 #
-# A "bmp" line specified a bmp file to be drawn on the screen. 
-# The x,y is where the CENTER of the bmp is placed, in screen coords (vis degrees).
+# A "bmp" line specifies a bmp file to be drawn on the screen. 
+# The x,y is where the CENTER of the bmp is placed, in pixels - WITH POSITIVE Y "UP".
 # The additional characters [,X,n] may be omitted. If included, the allowed values of "X" are
 # P - copy color palette from this image to HW palette. The number is the number of levels to be copied.
 # S - TRANSONSOURCE - the number is a level number. If a pixel in the bmp file has that level number it is NOT drawn
@@ -37,9 +56,10 @@
 # c:\Users\Lab\Desktop\djs\cbmp\px16_on_cardinal_1.bmp and 
 # c:\Users\Lab\Desktop\djs\cbmp\s_px16_on_ang0_1.bmp
 #
+# Folder c:\Users\Lab\Desktop\djs\cbmp
 # Time 0.5
-# Bmp px16_on_cardinal_1,0,0,P,128
-# Bmp s_px16_on_ang0_1,0,0,S,255
+# Bmp px16_on_cardinal_1.bmp,0,0,P,128
+# Bmp s_px16_on_ang0_1.bmp,0,0,S,255
 #
 #
 # IMPORTANT
@@ -53,27 +73,27 @@
 # - The program assumes that NO MORE THAN 128 levels are to be copied. 
 
 
-Folder c:\Users\Lab\Desktop\djs\cbmp
+Folder c:\Users\Lab\Desktop\djs\mel
 Trial 1
-Time 0.5
-Bmp px16_on_cardinal_1,0,0,P,128
-Bmp s_px16_on_ang0_1,0,0,S,255
-Time 1.5
-Bmp px16_on_cardinal_2,0,0
-Bmp s_px16_on_ang0_2,0,0,S,255
-Time 2.5
-Bmp px16_on_cardinal_3,0,0
-Bmp s_px16_on_ang0_3,0,0,S,255
-Time 3.5
-Bmp px16_on_cardinal_3,0,0
-Bmp s_px16_on_ang0_4,0,0,S,255
-Time 4.5
-Bmp px16_on_cardinal_3,0,0
-Bmp s_px16_on_ang0_5,0,0,S,255
-Time 5.5
-Bmp px16_on_cardinal_3,0,0
-Bmp s_px16_on_ang0_6,0,0,S,255
-Time 6.5
-Bmp px16_on_cardinal_3,0,0
-Bmp s_px16_on_ang0_7,0,0,S,255
-Time 7.5 end
+Frames 120
+Bmp bkgd\px16_on_cardinal_1.bmp,400,300,P,128
+Bmp stim\s_px16_on_ang0_1.bmp,400,300,S,255
+Frames 240
+Bmp bkgd\px16_on_cardinal_2.bmp,400,300
+Bmp stim\s_px16_on_ang0_2.bmp,400,300,S,255
+Frames 360
+Bmp bkgd\px16_on_cardinal_3.bmp,400,300
+Bmp stim\s_px16_on_ang0_3.bmp,400,300,S,255
+Frames 480
+Bmp bkgd\px16_on_cardinal_4.bmp,400,300
+Bmp stim\s_px16_on_ang0_4.bmp,400,300,S,255
+Frames 600
+Bmp bkgd\px16_on_cardinal_5.bmp,400,300
+Bmp stim\s_px16_on_ang0_5.bmp,400,300,S,255
+Frames 720
+Bmp bkgd\px16_on_cardinal_6.bmp,400,300
+Bmp stim\s_px16_on_ang0_6.bmp,400,300,S,255
+Frames 840
+Bmp bkgd\px16_on_cardinal_7.bmp,400,300
+Bmp stim\s_px16_on_ang0_7.bmp,400,300,S,255
+Frames 960 end

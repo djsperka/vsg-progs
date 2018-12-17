@@ -78,7 +78,8 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <TargetName>alert</TargetName>
     <OutDir>$(SolutionDir)..\lib\</OutDir>
-    <CustomBuildAfterTargets>Lib</CustomBuildAfterTargets>
+    <CustomBuildAfterTargets>
+    </CustomBuildAfterTargets>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <TargetName>alert</TargetName>
@@ -87,7 +88,8 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <TargetName>dalert</TargetName>
     <OutDir>$(SolutionDir)..\lib\</OutDir>
-    <CustomBuildAfterTargets>Lib</CustomBuildAfterTargets>
+    <CustomBuildAfterTargets>
+    </CustomBuildAfterTargets>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <TargetName>dalert</TargetName>
@@ -95,10 +97,12 @@
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <CustomBuildStep>
-      <Command>copy include\*.h $(SolutionDir)\..\include
-</Command>
-      <Outputs>$(SolutionDir)\..\include\Alertlib.h;%(Outputs)</Outputs>
-      <Message>Copying header files...</Message>
+      <Command>
+      </Command>
+      <Outputs>
+      </Outputs>
+      <Message>
+      </Message>
     </CustomBuildStep>
     <ClCompile>
       <Optimization>MaxSpeed</Optimization>
@@ -127,6 +131,12 @@
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <OutputFile>.\Release/alertlib.bsc</OutputFile>
     </Bscmake>
+    <PreBuildEvent>
+      <Command>copy include\*.h $(SolutionDir)\..\include</Command>
+    </PreBuildEvent>
+    <PreBuildEvent>
+      <Message>Copying alertlib headers...</Message>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <CustomBuildStep>
@@ -167,10 +177,12 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <CustomBuildStep>
-      <Command>copy include\*.h $(SolutionDir)\..\include
-</Command>
-      <Outputs>$(SolutionDir)\..\include\Alertlib.h;%(Outputs)</Outputs>
-      <Message>Copying header files...</Message>
+      <Command>
+      </Command>
+      <Outputs>
+      </Outputs>
+      <Message>
+      </Message>
     </CustomBuildStep>
     <ClCompile>
       <Optimization>Disabled</Optimization>
@@ -199,6 +211,12 @@
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <OutputFile>.\Debug/alertlib.bsc</OutputFile>
     </Bscmake>
+    <PreBuildEvent>
+      <Command>copy include\*.h $(SolutionDir)\..\include</Command>
+    </PreBuildEvent>
+    <PreBuildEvent>
+      <Message>Copying alertlib headers...</Message>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <CustomBuildStep>
