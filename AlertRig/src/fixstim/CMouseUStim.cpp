@@ -5,15 +5,21 @@
 #include <iostream>
 #include <fstream>
 #include <conio.h>
-//#include <SFML/Network.hpp>
+
+
+// for json client - i.e. using cool mouse in dual-screen vsg. Ugh. 
+// when using, need these "Additional dependencies" under "Linker input"
+// Qt5Network.lib;Qt5Core.lib
+#ifdef DO_JSON_CLIENT
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/json_parser.hpp>
+using namespace boost;
 #include <exception>
 #include <QtNetwork/QTcpServer>
 #include <QtNetwork/QTcpSocket>
+#endif
 
 using namespace std;
-using namespace boost;
 
 const string CMouseUStim::m_allowedArgs("ab:d:f:g:p:vADS:r:j:");
 
@@ -133,6 +139,8 @@ void CMouseUStim::run_stim(alert::ARvsg& vsg)
 	return;
 }
 
+
+#ifdef DO_JSON_CLIENT
 
 void CMouseUStim::doJSClientLoop()
 {
@@ -309,6 +317,14 @@ void CMouseUStim::doJSClientLoop()
 	}
 
 }
+#else
+
+void CMouseUStim::doJSClientLoop()
+{
+}
+
+#endif
+
 
 
 void CMouseUStim::doMouseKBLoop()
