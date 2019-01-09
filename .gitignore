@@ -13,3 +13,6 @@
 *.user
 build/
 *.filters
+/AlertRig/bin64
+/AlertRig/lib64
+/AlertRig/src/CableTest/Release
