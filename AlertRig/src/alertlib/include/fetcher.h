@@ -93,7 +93,7 @@ class FetcherWithFunctor: public std::map<K, boost::filesystem::path>
 					diffpath = temppath.filename() / diffpath;
 					temppath = temppath.parent_path();
 				}
-				cout << "diff: " << diffpath.string() << std::endl;
+				//cout << "diff: " << diffpath.string() << std::endl;
 				if (m_pathMatcher(diffpath, key))
 				{
 					this->insert(make_pair(diffpath.string(), *dir));
