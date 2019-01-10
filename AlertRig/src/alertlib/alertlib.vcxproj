@@ -97,12 +97,10 @@
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <CustomBuildStep>
-      <Command>
-      </Command>
-      <Outputs>
-      </Outputs>
-      <Message>
-      </Message>
+      <Command>mkdir $(SolutionDir)..\include
+copy include\*.h $(SolutionDir)..\include</Command>
+      <Outputs>$(SolutionDir)\..\include\not_found.h</Outputs>
+      <Message>Copying alertlib header files...</Message>
     </CustomBuildStep>
     <ClCompile>
       <Optimization>MaxSpeed</Optimization>
@@ -140,9 +138,10 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <CustomBuildStep>
-      <Command>copy include\*.h $(SolutionDir)\..\include
-</Command>
-      <Outputs>$(SolutionDir)\..\include\Alertlib.h;%(Outputs)</Outputs>
+      <Command>mkdir $(SolutionDir)..\include
+copy include\*.h $(SolutionDir)..\include</Command>
+      <Outputs>$(SolutionDir)\..\include\not_found.h</Outputs>
+      <Message>Copying alertlib header files...</Message>
     </CustomBuildStep>
     <Midl>
       <TargetEnvironment>X64</TargetEnvironment>
@@ -177,12 +176,10 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <CustomBuildStep>
-      <Command>
-      </Command>
-      <Outputs>
-      </Outputs>
-      <Message>
-      </Message>
+      <Command>mkdir $(SolutionDir)..\include
+copy include\*.h $(SolutionDir)..\include</Command>
+      <Outputs>$(SolutionDir)\..\include\not_found.h</Outputs>
+      <Message>Copying alertlib header files...</Message>
     </CustomBuildStep>
     <ClCompile>
       <Optimization>Disabled</Optimization>
@@ -220,9 +217,10 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <CustomBuildStep>
-      <Command>copy include\*.h $(SolutionDir)\..\include
-</Command>
-      <Outputs>$(SolutionDir)\..\include\Alertlib.h;%(Outputs)</Outputs>
+      <Command>mkdir $(SolutionDir)..\include
+copy include\*.h $(SolutionDir)..\include</Command>
+      <Outputs>$(SolutionDir)\..\include\not_found.h</Outputs>
+      <Message>Copying alertlib header files...</Message>
     </CustomBuildStep>
     <Midl>
       <TargetEnvironment>X64</TargetEnvironment>
