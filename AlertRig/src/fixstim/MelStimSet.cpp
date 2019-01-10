@@ -177,7 +177,7 @@ int MelStimSet::drawCurrent()
 	// that share the same frame number, their rectVec contents will all be drawn on the same page. 
 	// The fixpts are drawn after all rects for the page have been drawn, so they are always on top. 
 
-	VSGCYCLEPAGEENTRY cycle[16];	// should  be plenty
+	VSGCYCLEPAGEENTRY cycle[32];	// should  be plenty
 	int ncycle = 0;
 	for(auto melpair: m_trialSpecs[m_uiCurrentTrial].vecFrames)
 	{
@@ -187,8 +187,6 @@ int MelStimSet::drawCurrent()
 
 		if (melpair.first > frameLast)
 		{
-			cerr << "Finish page " << page << endl;
-
 			// draw fixpts
 			std::for_each(m_vecFixpts.begin(), m_vecFixpts.end(), [](alert::ARContrastFixationPointSpec& f) { cout << "Draw fixpt " << f << " levels " << f.getFirstLevel() << "/" << f.getNumLevels() << endl;  f.draw(); });
 
@@ -198,6 +196,9 @@ int MelStimSet::drawCurrent()
 			cycle[ncycle].Frames = melpair.first - frameLast;
 			cycle[ncycle].Stop = 0;
 			ncycle++;
+
+			cerr << "Finished drawing page " << page << endl;
+
 
 			frameLast = melpair.first;
 

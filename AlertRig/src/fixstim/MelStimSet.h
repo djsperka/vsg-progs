@@ -104,7 +104,7 @@ public:
 
 	// subclasses should return the number of pages they will need.
 	virtual int num_pages() {
-		return 12;
+		return 32;
 	};
 
 	// subclasses should return the number of pages they will need.
