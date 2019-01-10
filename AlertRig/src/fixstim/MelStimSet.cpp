@@ -552,7 +552,7 @@ int parse_mel_params(const std::string& filename, vector<MelTrialSpec>& trialSpe
 			linenumber++;
 
 			boost::trim(line);
-			boost::to_lower(line);
+			// djs - eliminate to_lower on line
 
 			if (line.length() > 0 && line[0] != '#')
 			{
@@ -560,7 +560,7 @@ int parse_mel_params(const std::string& filename, vector<MelTrialSpec>& trialSpe
 				case 0:
 
 					// Expecting "trial" or "folder"
-					if (string::npos != line.find("trial"))
+					if (string::npos != boost::to_lower_copy(line).find("trial"))
 					{
 						//cerr << "Start of trial found" << endl;
 						iTrialStep = 1;
@@ -573,9 +573,9 @@ int parse_mel_params(const std::string& filename, vector<MelTrialSpec>& trialSpe
 						melPair.second.vecBmps.clear();
 						melPair.second.vecRects.clear();
 					}
-					else if (string::npos != line.find("folder"))
+					else if (string::npos != boost::to_lower_copy(line).find("folder"))
 					{
-						string folder(line.substr(line.find("folder") + 6));
+						string folder(line.substr(boost::to_lower_copy(line).find("folder") + 6));
 						boost::trim(folder);
 						cerr << "Got folder:" << folder << endl;
 						withFunctor.addFolder(folder);
@@ -589,13 +589,13 @@ int parse_mel_params(const std::string& filename, vector<MelTrialSpec>& trialSpe
 
 				case 1:
 					// at this point we expect a "grid" or "time" or "frames" or "rect" or "bmp"
-					if (string::npos != line.find("grid"))
+					if (string::npos != boost::to_lower_copy(line).find("grid"))
 					{
 						//cerr << "Found grid line: " << line << endl;
 
 						// update grid with these values. 
 						tokens.clear();
-						string gridarg(line.substr(line.find("grid") + 4));
+						string gridarg(line.substr(boost::to_lower_copy(line).find("grid") + 4));
 						boost::trim(gridarg);
 						tokenize(gridarg, tokens, ", ");
 						vector<double> vec;
@@ -632,9 +632,9 @@ int parse_mel_params(const std::string& filename, vector<MelTrialSpec>& trialSpe
 						// do not change ste value - stay at 1
 
 					}
-					else if (string::npos != line.find("time") || string::npos != line.find("frames"))
+					else if (string::npos != boost::to_lower_copy(line).find("time") || string::npos != boost::to_lower_copy(line).find("frames"))
 					{
-						bool bFrames = (string::npos != line.find("frames"));
+						bool bFrames = (string::npos != boost::to_lower_copy(line).find("frames"));
 
 						//cerr << "Found time marker: " << endl;
 						tokens.clear();
@@ -693,11 +693,10 @@ int parse_mel_params(const std::string& filename, vector<MelTrialSpec>& trialSpe
 							status = 1;
 						}
 					}
-//					else if (string::npos != line.find("rect"))
-					else if (0 == line.find("rect"))
+					else if (0 == boost::to_lower_copy(line).find("rect"))
 					{
 						//cerr << "Found rect line: " << line << endl;
-						if (parse_rectangle(line.substr(line.find("rect") + 4), rect))
+						if (parse_rectangle(boost::to_lower_copy(line).substr(boost::to_lower_copy(line).find("rect") + 4), rect))
 						{
 							cerr << "Error parsing rect on line " << linenumber << ": " << line << endl;
 							status = 1;
@@ -707,11 +706,11 @@ int parse_mel_params(const std::string& filename, vector<MelTrialSpec>& trialSpe
 							melPair.second.vecRects.push_back(rect);
 						}
 					}
-					else if (string::npos != line.find("bmp"))
+					else if (string::npos != boost::to_lower_copy(line).find("bmp"))
 					{
 						// expect 3 parameters:  key,x,y
 						tokens.clear();
-						string bmparg(line.substr(line.find("bmp") + 3));
+						string bmparg(line.substr(boost::to_lower_copy(line).find("bmp") + 3));
 						boost::trim(bmparg);
 						MelBmpSpec bmpSpec;
 						if (!parse_bmp_spec(bmparg, withFunctor, bmpSpec))
