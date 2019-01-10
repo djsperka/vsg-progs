@@ -97,7 +97,7 @@
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <CustomBuildStep>
-      <Command>"if not exist $(SolutionDir)..\include\NUL" mkdir $(SolutionDir)..\include
+      <Command>if not exist "$(SolutionDir)..\include\" mkdir $(SolutionDir)..\include
 copy include\*.h $(SolutionDir)..\include</Command>
       <Outputs>$(SolutionDir)\..\include\not_found.h</Outputs>
       <Message>Copying alertlib header files...</Message>
@@ -138,7 +138,7 @@ copy include\*.h $(SolutionDir)..\include</Command>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <CustomBuildStep>
-      <Command>"if not exist $(SolutionDir)..\include\NUL" mkdir $(SolutionDir)..\include
+      <Command>if not exist "$(SolutionDir)..\include\" mkdir $(SolutionDir)..\include
 copy include\*.h $(SolutionDir)..\include</Command>
       <Outputs>$(SolutionDir)\..\include\not_found.h</Outputs>
       <Message>Copying alertlib header files...</Message>
@@ -176,7 +176,7 @@ copy include\*.h $(SolutionDir)..\include</Command>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <CustomBuildStep>
-      <Command>"if not exist $(SolutionDir)..\include\NUL" mkdir $(SolutionDir)..\include
+      <Command>if not exist "$(SolutionDir)..\include\" mkdir $(SolutionDir)..\include
 copy include\*.h $(SolutionDir)..\include</Command>
       <Outputs>$(SolutionDir)\..\include\not_found.h</Outputs>
       <Message>Copying alertlib header files...</Message>
@@ -217,7 +217,7 @@ copy include\*.h $(SolutionDir)..\include</Command>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <CustomBuildStep>
-      <Command>"if not exist $(SolutionDir)..\include\NUL" mkdir $(SolutionDir)..\include
+      <Command>if not exist "$(SolutionDir)..\include\" mkdir $(SolutionDir)..\include
 copy include\*.h $(SolutionDir)..\include</Command>
       <Outputs>$(SolutionDir)\..\include\not_found.h</Outputs>
       <Message>Copying alertlib header files...</Message>
