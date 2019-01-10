@@ -99,7 +99,7 @@
     <CustomBuildStep>
       <Command>if not exist "$(SolutionDir)..\include\" mkdir $(SolutionDir)..\include
 copy include\*.h $(SolutionDir)..\include</Command>
-      <Outputs>$(SolutionDir)\..\include\not_found.h</Outputs>
+      <Outputs>$(SolutionDir)\not_found.h</Outputs>
       <Message>Copying alertlib header files...</Message>
     </CustomBuildStep>
     <ClCompile>
@@ -140,7 +140,7 @@ copy include\*.h $(SolutionDir)..\include</Command>
     <CustomBuildStep>
       <Command>if not exist "$(SolutionDir)..\include\" mkdir $(SolutionDir)..\include
 copy include\*.h $(SolutionDir)..\include</Command>
-      <Outputs>$(SolutionDir)\..\include\not_found.h</Outputs>
+      <Outputs>$(SolutionDir)\not_found.h</Outputs>
       <Message>Copying alertlib header files...</Message>
     </CustomBuildStep>
     <Midl>
@@ -178,7 +178,7 @@ copy include\*.h $(SolutionDir)..\include</Command>
     <CustomBuildStep>
       <Command>if not exist "$(SolutionDir)..\include\" mkdir $(SolutionDir)..\include
 copy include\*.h $(SolutionDir)..\include</Command>
-      <Outputs>$(SolutionDir)\..\include\not_found.h</Outputs>
+      <Outputs>$(SolutionDir)\not_found.h</Outputs>
       <Message>Copying alertlib header files...</Message>
     </CustomBuildStep>
     <ClCompile>
@@ -219,7 +219,7 @@ copy include\*.h $(SolutionDir)..\include</Command>
     <CustomBuildStep>
       <Command>if not exist "$(SolutionDir)..\include\" mkdir $(SolutionDir)..\include
 copy include\*.h $(SolutionDir)..\include</Command>
-      <Outputs>$(SolutionDir)\..\include\not_found.h</Outputs>
+      <Outputs>$(SolutionDir)\not_found.h</Outputs>
       <Message>Copying alertlib header files...</Message>
     </CustomBuildStep>
     <Midl>
