@@ -120,6 +120,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "afaguspaeo-1", "afaguspaeo\
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "iafaguspaeo", "iafaguspaeo\iafaguspaeo.vcxproj", "{FAC4D201-9645-4EB3-B8AA-D7450747A8B4}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ImgOver", "ImgOver\ImgOver.vcxproj", "{EBAD8213-A106-4DF5-8EFC-00F4C4C79CC8}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -1240,6 +1242,30 @@ Global
 		{FAC4D201-9645-4EB3-B8AA-D7450747A8B4}.Unicode Release|x64.Build.0 = Release|x64
 		{FAC4D201-9645-4EB3-B8AA-D7450747A8B4}.Unicode Release|x86.ActiveCfg = Release|Win32
 		{FAC4D201-9645-4EB3-B8AA-D7450747A8B4}.Unicode Release|x86.Build.0 = Release|Win32
+		{EBAD8213-A106-4DF5-8EFC-00F4C4C79CC8}.Debug|Win32.ActiveCfg = Debug|Win32
+		{EBAD8213-A106-4DF5-8EFC-00F4C4C79CC8}.Debug|Win32.Build.0 = Debug|Win32
+		{EBAD8213-A106-4DF5-8EFC-00F4C4C79CC8}.Debug|x64.ActiveCfg = Debug|x64
+		{EBAD8213-A106-4DF5-8EFC-00F4C4C79CC8}.Debug|x64.Build.0 = Debug|x64
+		{EBAD8213-A106-4DF5-8EFC-00F4C4C79CC8}.Debug|x86.ActiveCfg = Debug|Win32
+		{EBAD8213-A106-4DF5-8EFC-00F4C4C79CC8}.Debug|x86.Build.0 = Debug|Win32
+		{EBAD8213-A106-4DF5-8EFC-00F4C4C79CC8}.Release|Win32.ActiveCfg = Release|Win32
+		{EBAD8213-A106-4DF5-8EFC-00F4C4C79CC8}.Release|Win32.Build.0 = Release|Win32
+		{EBAD8213-A106-4DF5-8EFC-00F4C4C79CC8}.Release|x64.ActiveCfg = Release|x64
+		{EBAD8213-A106-4DF5-8EFC-00F4C4C79CC8}.Release|x64.Build.0 = Release|x64
+		{EBAD8213-A106-4DF5-8EFC-00F4C4C79CC8}.Release|x86.ActiveCfg = Release|Win32
+		{EBAD8213-A106-4DF5-8EFC-00F4C4C79CC8}.Release|x86.Build.0 = Release|Win32
+		{EBAD8213-A106-4DF5-8EFC-00F4C4C79CC8}.Unicode Debug|Win32.ActiveCfg = Debug|Win32
+		{EBAD8213-A106-4DF5-8EFC-00F4C4C79CC8}.Unicode Debug|Win32.Build.0 = Debug|Win32
+		{EBAD8213-A106-4DF5-8EFC-00F4C4C79CC8}.Unicode Debug|x64.ActiveCfg = Debug|x64
+		{EBAD8213-A106-4DF5-8EFC-00F4C4C79CC8}.Unicode Debug|x64.Build.0 = Debug|x64
+		{EBAD8213-A106-4DF5-8EFC-00F4C4C79CC8}.Unicode Debug|x86.ActiveCfg = Debug|Win32
+		{EBAD8213-A106-4DF5-8EFC-00F4C4C79CC8}.Unicode Debug|x86.Build.0 = Debug|Win32
+		{EBAD8213-A106-4DF5-8EFC-00F4C4C79CC8}.Unicode Release|Win32.ActiveCfg = Release|Win32
+		{EBAD8213-A106-4DF5-8EFC-00F4C4C79CC8}.Unicode Release|Win32.Build.0 = Release|Win32
+		{EBAD8213-A106-4DF5-8EFC-00F4C4C79CC8}.Unicode Release|x64.ActiveCfg = Release|x64
+		{EBAD8213-A106-4DF5-8EFC-00F4C4C79CC8}.Unicode Release|x64.Build.0 = Release|x64
+		{EBAD8213-A106-4DF5-8EFC-00F4C4C79CC8}.Unicode Release|x86.ActiveCfg = Release|Win32
+		{EBAD8213-A106-4DF5-8EFC-00F4C4C79CC8}.Unicode Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
