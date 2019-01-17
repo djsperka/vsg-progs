@@ -7,7 +7,7 @@
 #include <boost/filesystem.hpp>
 
 //#define HOST_PAGE_TEST
-#define HOST_PAGE_COPY
+//#define HOST_PAGE_COPY
 
 void dumpPalette(const std::string& s, VSGLUTBUFFER& buffer, int N, int startN=0);
 void dumpHWPalette(const std::string& s, int N, int startN=0);

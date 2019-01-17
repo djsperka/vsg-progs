@@ -351,28 +351,6 @@ int MelStimSet::drawCurrent()
 				vsgDrawImage(0, bmp.x, -bmp.y, f);
 				vsgSetDrawMode(saveMode);
 				cerr << "transOnSource " << bmp.level << endl;
-
-				unsigned char line[1024];
-				vsgReadPixelLine(0, -83, line, 83);
-				for (int i = 0; i < 83; i++)
-				{
-					cerr << " " << (unsigned int)line[i];
-					line[i] = 0;
-				}
-				cerr << endl;
-				vsgDrawPixelLine(0, -83, line, 83);
-				
-				//vsgReadPixelLine(0, 0, line, 1024);
-				//for (int j = 0; j < 16; j++)
-				//{
-				//	for (int i = 0; i < 64; i++)
-				//	{
-				//		cerr << (unsigned int)line[j * 64 + i] << " ";
-				//		line[j * 64 + i] = 0;
-				//	}
-				//	cerr << endl;
-				//}
-				//vsgDrawPixelLine(0, 0, line, 1024);
 			}
 			else if (bmp.drawMode == vsgTRANSONDEST)
 			{
