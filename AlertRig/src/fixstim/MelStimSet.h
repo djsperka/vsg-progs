@@ -7,7 +7,7 @@
 #include <boost/filesystem.hpp>
 
 //#define HOST_PAGE_TEST
-
+#define HOST_PAGE_COPY
 
 void dumpPalette(const std::string& s, VSGLUTBUFFER& buffer, int N, int startN=0);
 void dumpHWPalette(const std::string& s, int N, int startN=0);
@@ -89,12 +89,18 @@ private:
 	std::vector<int> m_pagesAvailable;
 	int m_pageFixpt;
 	int m_pageBlank;
+
 #ifdef HOST_PAGE_TEST
 	int m_hostPageHandle;
 #endif
+#ifdef HOST_PAGE_COPY
+	int m_hostPageHandle;
+#endif
+
 
 	int drawCurrent();
 	void applyTransform(ARContrastRectangleSpec& result, const ARContrastRectangleSpec& original, const MelGridSpec& grid);
+	void copyBmpFile(char *filename, const MelBmpSpec& bmp, int page);
 
 public:
 	MelStimSet(const ARContrastFixationPointSpec& fixpt, const vector<MelTrialSpec>& trialSpecs) : m_trialSpecs(trialSpecs), m_uiCurrentTrial(0) { m_vecFixpts.push_back(fixpt); };

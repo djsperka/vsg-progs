@@ -77,11 +77,18 @@ void MelStimSet::cleanup(std::vector<int> pages)
 	vsgPAGEDelete(m_hostPageHandle);
 	RectanglePool::reset();
 }
+#elif defined HOST_PAGE_COPY
+void MelStimSet::cleanup(std::vector<int> pages)
+{
+	vsgPAGEDelete(m_hostPageHandle);
+}
 #else
 void MelStimSet::cleanup(std::vector<int> pages)
 {
 }
 #endif
+
+
 
 int MelStimSet::init(std::vector<int> pages)
 {
@@ -92,6 +99,13 @@ int MelStimSet::init(std::vector<int> pages)
 	m_hostPageHandle = vsgPAGECreate(vsgHOSTPAGE, vsgGetScreenWidthPixels(), vsgGetScreenHeightPixels(), vsg8BITPALETTEMODE);
 	cerr << "Got host page handle " << m_hostPageHandle << endl;
 #endif
+
+#ifdef HOST_PAGE_COPY
+	// Create a page
+	m_hostPageHandle = vsgPAGECreate(vsgHOSTPAGE, vsgGetScreenWidthPixels(), vsgGetScreenHeightPixels(), vsg8BITPALETTEMODE);
+	cerr << "Got host page handle " << m_hostPageHandle << endl;
+#endif
+
 
 	// first page is always blank
 	vsgSetDrawPage(vsgVIDEOPAGE, m_pagesAvailable[0], vsgBACKGROUND);
@@ -125,6 +139,93 @@ int MelStimSet::init(std::vector<int> pages)
 	
 	return drawCurrent();
 }
+
+
+#ifdef HOST_PAGE_COPY
+void MelStimSet::copyBmpFile(char *f, const MelBmpSpec& bmp, int page)
+{
+	cerr << "copyBmpFile " << f << endl;
+	if (bmp.copyPalette)
+	{
+		vsgSetDrawMode(vsgCENTREXY);
+		vsgDrawImage(0, bmp.x, -bmp.y, f);
+		VSGLUTBUFFER palette;
+		vsgImageGetPalette(0, f, &palette);
+		vsgPaletteWrite((VSGLUTBUFFER*)palette, bmp.startCopyLevel, bmp.numCopyLevel);
+		cerr << "copy palette " << bmp.startCopyLevel << "/" << bmp.numCopyLevel << endl;
+		//dumpPalette("imagePAL", palette, 8, 0);
+		unsigned char line[128];
+		vsgReadPixelLine(0, 0, line, 128);
+		for (int i = 0; i < 128; i++)
+			cerr << (unsigned int)line[i] << " ";
+		cerr << endl;
+
+	}
+	else if (bmp.drawMode == vsgTRANSONSOURCE)
+	{
+		DWORD saveMode = vsgGetDrawMode();
+		double wImage, hImage;
+
+		// Draw on the host page
+		vsgSetDrawPage(vsgHOSTPAGE, m_hostPageHandle, vsgBACKGROUND);
+
+		// get image size
+		vsgImageGetSize(0, f, &wImage, &hImage);
+
+		// load image to the host page
+		vsgDrawImage(0, 0, 0, f);
+
+		// Blit(copy) the page to the VSG video area
+		vsgSetDrawPage(vsgVIDEOPAGE, page, vsgNOCLEAR);
+		vsgSetPen2(bmp.level);
+		vsgSetPen1(128);
+		vsgSetDrawMode(vsgCENTREXY | vsgTRANSONSOURCE);
+		vsgDrawMoveRect(vsgHOSTPAGE, m_hostPageHandle, 0, 0, wImage, hImage, bmp.x, bmp.y, wImage, hImage);
+		cerr << "copyBmpFile: transOnSource " << bmp.level << endl;
+
+		vsgSetDrawMode(saveMode);
+
+		//unsigned char line[1024];
+		//vsgReadPixelLine(0, -83, line, 83);
+		//for (int i = 0; i < 83; i++)
+		//{
+		//	cerr << " " << (unsigned int)line[i];
+		//	line[i] = 0;
+		//}
+		//cerr << endl;
+		//vsgDrawPixelLine(0, -83, line, 83);
+
+		//vsgReadPixelLine(0, 0, line, 1024);
+		//for (int j = 0; j < 16; j++)
+		//{
+		//	for (int i = 0; i < 64; i++)
+		//	{
+		//		cerr << (unsigned int)line[j * 64 + i] << " ";
+		//		line[j * 64 + i] = 0;
+		//	}
+		//	cerr << endl;
+		//}
+		//vsgDrawPixelLine(0, 0, line, 1024);
+	}
+	else if (bmp.drawMode == vsgTRANSONDEST)
+	{
+		DWORD saveMode = vsgGetDrawMode();
+		vsgSetDrawMode(vsgCENTREXY | vsgTRANSONDEST);
+		vsgSetPen2(bmp.level);
+		vsgDrawImage(0, bmp.x, -bmp.y, f);
+		vsgSetDrawMode(saveMode);
+		cerr << "transOnDest " << bmp.level << endl;
+	}
+	else
+	{
+		vsgSetDrawMode(vsgCENTREXY);
+		vsgDrawImage(0, bmp.x, -bmp.y, f);
+		cerr << "No draw mode" << endl;
+	}
+
+}
+#endif
+
 
 int MelStimSet::drawCurrent()
 {
@@ -223,6 +324,9 @@ int MelStimSet::drawCurrent()
 
 			cerr << "bmp file " << bmp.filename << endl;
 
+#ifdef HOST_PAGE_COPY
+			copyBmpFile(f, bmp, page);
+#else
 			if (bmp.copyPalette)
 			{
 				vsgSetDrawMode(vsgCENTREXY);
@@ -231,7 +335,13 @@ int MelStimSet::drawCurrent()
 				vsgImageGetPalette(0, f, &palette);
 				vsgPaletteWrite((VSGLUTBUFFER*)palette, bmp.startCopyLevel, bmp.numCopyLevel);
 				cerr << "copy palette " << bmp.startCopyLevel << "/" << bmp.numCopyLevel << endl;
-				dumpPalette("imagePAL", palette, 8, 0);
+				//dumpPalette("imagePAL", palette, 8, 0);
+				unsigned char line[128];
+				vsgReadPixelLine(0, 0, line, 128);
+				for (int i = 0; i < 128; i++)
+					cerr << (unsigned int)line[i] << " ";
+				cerr << endl;
+
 			}
 			else if (bmp.drawMode == vsgTRANSONSOURCE)
 			{
@@ -241,6 +351,28 @@ int MelStimSet::drawCurrent()
 				vsgDrawImage(0, bmp.x, -bmp.y, f);
 				vsgSetDrawMode(saveMode);
 				cerr << "transOnSource " << bmp.level << endl;
+
+				unsigned char line[1024];
+				vsgReadPixelLine(0, -83, line, 83);
+				for (int i = 0; i < 83; i++)
+				{
+					cerr << " " << (unsigned int)line[i];
+					line[i] = 0;
+				}
+				cerr << endl;
+				vsgDrawPixelLine(0, -83, line, 83);
+				
+				//vsgReadPixelLine(0, 0, line, 1024);
+				//for (int j = 0; j < 16; j++)
+				//{
+				//	for (int i = 0; i < 64; i++)
+				//	{
+				//		cerr << (unsigned int)line[j * 64 + i] << " ";
+				//		line[j * 64 + i] = 0;
+				//	}
+				//	cerr << endl;
+				//}
+				//vsgDrawPixelLine(0, 0, line, 1024);
 			}
 			else if (bmp.drawMode == vsgTRANSONDEST)
 			{
@@ -257,6 +389,7 @@ int MelStimSet::drawCurrent()
 				vsgDrawImage(0, bmp.x, -bmp.y, f);
 				cerr << "No draw mode" << endl;
 			}
+#endif
 		}
 		// Convert back to using degree units...
 		vsgSetSpatialUnits(vsgDEGREEUNIT);
