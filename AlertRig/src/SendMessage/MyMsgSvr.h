@@ -1,6 +1,6 @@
 // Machine generated IDispatch wrapper class(es) created with Add Class from Typelib Wizard
 
-#import "D:\\work\\AlertRig\\src\\MsgSvr\\Release\\MsgSvr.tlb" no_namespace
+#import <MsgSvr.tlb> no_namespace
 // MyMsgSvr wrapper class
 
 class MyMsgSvr : public COleDispatchDriver

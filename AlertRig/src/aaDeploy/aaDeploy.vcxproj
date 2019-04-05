@@ -21,7 +21,7 @@
   <PropertyGroup Label="Globals">
     <ProjectGuid>{040CBC15-2898-4005-B4CB-22A425791273}</ProjectGuid>
     <RootNamespace>aaDeploy</RootNamespace>
-    <WindowsTargetPlatformVersion>10.0.17134.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0.17763.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -133,7 +133,7 @@
       </Message>
     </PostBuildEvent>
     <CustomBuildStep>
-      <Command>call aaDeploy.bat "fixstim.exe,remote.exe,CableTest.exe" $(TargetDir) $(AlertBinPath)</Command>
+      <Command>call aaDeploy.bat "fixstim.exe,remote.exe,CableTest.exe,meamseq.exe,MsgSvr.exe,SendMessage.exe" $(TargetDir) $(AlertBinPath)</Command>
       <Outputs>$(AlertBinPath)\$(TargetName)$(TargetExt)</Outputs>
       <Message>Performing Custom Build Step...</Message>
     </CustomBuildStep>

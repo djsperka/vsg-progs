@@ -22,7 +22,7 @@
     <ProjectGuid>{332340D9-3650-471A-8E41-2EC60A668DDE}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>afaguspaeo</RootNamespace>
-    <WindowsTargetPlatformVersion>10.0.17134.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0.17763.0</WindowsTargetPlatformVersion>
     <ProjectName>afaguspaeo-1</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
