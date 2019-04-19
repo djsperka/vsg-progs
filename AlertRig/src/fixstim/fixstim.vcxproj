@@ -201,6 +201,7 @@
     <ClCompile Include="FixUStim.cpp" />
     <ClCompile Include="FXImageStimSet.cpp" />
     <ClCompile Include="MelStimSet.cpp" />
+    <ClCompile Include="MSequenceUStim.cpp" />
     <ClCompile Include="MultiParameterFXMultiGStimSet.cpp" />
     <ClCompile Include="QCycleUtil.cpp" />
     <ClCompile Include="SequencedAttentionStimSet.cpp" />
@@ -276,6 +277,7 @@
     <ClInclude Include="FXGStimParameterList.h" />
     <ClInclude Include="FXImageStimSet.h" />
     <ClInclude Include="MelStimSet.h" />
+    <ClInclude Include="MSequenceUStim.h" />
     <ClInclude Include="MultiParameterFXMultiGStimSet.h" />
     <ClInclude Include="QCycleUtil.h" />
     <ClInclude Include="SequencedAttentionStimSet.h" />

@@ -36,6 +36,7 @@
 #include "StarUStim.h"
 #include "BeatUStim.h"
 #include "BarUStim.h"
+#include "MSequenceUStim.h"
 
 using namespace std;
 using namespace alert;
@@ -268,6 +269,21 @@ void serverLoop(void * arg)
 					else
 					{
 						cerr << "serverLoop(): BeatUStim could not parse args." << endl;
+					}
+				}
+				else if (sargs.find("msequence") == 0)
+				{
+					MSequenceUStim msq;
+					if (msq.parses(sargs))
+					{
+						cerr << "serverLoop(): starting msequence stimulus..." << endl;
+						msq.run_stim(ARvsg::instance());
+						ARvsg::instance().clear();
+						cout << "serverLoop(): msequence stimulus done." << endl;
+					}
+					else
+					{
+						cerr << "serverLoop(): MSequenceUStim could not parse args." << endl;
 					}
 				}
 				else

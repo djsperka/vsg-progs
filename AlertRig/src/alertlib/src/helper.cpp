@@ -628,9 +628,9 @@ int parse_sequence_pair(std::string s, int& i_i1, int& i_i2)
 			cerr << "bad sequence pair: second term < first_term" << endl;
 			status = 1;
 		}
-		else if (i_i1 <= 0)
+		else if (i_i1 < 0)
 		{
-			cerr << "bad sequence pair: both terms must be > 0!" << endl;
+			cerr << "bad sequence pair: both terms must be >= 0!" << endl;
 			status = 1;
 		}
 	}
