@@ -1154,71 +1154,19 @@ namespace alert
 	{
 	public:
 		PageCyclingTrigger(std::string i_key, int n_repeats, PageCyclingTriggerCallbackFunc callback = NULL) : 
-		  Trigger(i_key, 0, 0, 0, 0), m_nrepeats(n_repeats), m_repeat_count(0), m_is_started(false), m_callback(callback) {};
+		  Trigger(i_key, 0, 0, 0, 0), m_nrepeats(n_repeats), m_repeat_count(0), m_is_started(false), m_start_pending(false), m_callback(callback) {};
 		~PageCyclingTrigger() {};
+		virtual bool checkAscii(std::string input);
+		virtual bool checkBinary(int input);
+		void started();
+		void stopped();
+		virtual int execute(int& output);
 
-		virtual bool checkAscii(std::string input)
-		{
-			return checkBinary(0);
-		};
-
-		virtual bool checkBinary(int input)
-		{
-			bool bValue = false;
-			if (m_is_started)
-			{
-				// check if cycling is still running. If not, then set bValue = true.
-				if (vsgGetSystemAttribute(vsgPAGECYCLINGSTATE) < 0)
-				{
-					m_repeat_count++;
-					bValue = true;
-				}
-			}
-			return bValue;
-		};
-
-		void started()
-		{
-			m_is_started = true;
-		}
-
-		void stopped()
-		{
-			m_is_started = false;
-		}
-
-		virtual int execute(int& output)
-		{
-			if (m_repeat_count < m_nrepeats)
-			{
-				if (m_callback)
-				{
-					if (m_callback(m_repeat_count))
-					{
-						m_is_started = false;
-					}
-					else 
-					{
-						setMarker(output);
-						vsgSetCommand(vsgCYCLEPAGEENABLE);
-					}
-				}
-				else
-				{
-					setMarker(output);
-					vsgSetCommand(vsgCYCLEPAGEENABLE);
-				}
-			}
-			else
-			{
-				m_is_started = false;
-			}
-			return 0;
-		};
 	protected:
 		int m_nrepeats;
 		int m_repeat_count;
 		bool m_is_started;
+		bool m_start_pending;
 		PageCyclingTriggerCallbackFunc m_callback;
 	};
 

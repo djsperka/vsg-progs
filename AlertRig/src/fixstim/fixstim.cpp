@@ -303,7 +303,7 @@ void serverLoop(void * arg)
 
 void init_globals()
 {
-	cout << "serverLoop(): clearing all vsg objects" << endl;
+	cout << "serverLoop(): clearing all vsg objects except dummy object (" << ARvsg::instance().dummyObjectHandle() << ")" << endl;
 	ARvsg::instance().reset_available_levels();
 	for (int i=1; i<vsgGetSystemAttribute(vsgNUMOBJECTS); i++) { if (i != ARvsg::instance().dummyObjectHandle()) vsgObjDestroy(i); }
 }

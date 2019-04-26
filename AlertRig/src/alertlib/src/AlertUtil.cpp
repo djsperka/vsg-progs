@@ -115,6 +115,8 @@ int arutil_draw_grating_fullscreen(ARGratingSpec& gr, int videoPage)
 		// Now draw
 		vsgSetDrawMode(vsgCENTREXY);
 		vsgDrawGrating(gr.x, -gr.y, 2*dWidth, 2*dHeight, gr.orientation, gr.sf);
+
+		cerr << "arutil_draw_grating_fullscreen: " << gr << endl;
 	}
 	else status = -1;
 	return status;

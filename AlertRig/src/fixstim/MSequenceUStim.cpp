@@ -3,7 +3,7 @@
 #include <iostream>
 using namespace std;
 
-const string MSequenceUStim::m_allowedArgs("t:r:c:o:vp:d:am:T:R:");
+const string MSequenceUStim::m_allowedArgs("t:r:c:o:vp:d:am:T:R:K");
 
 VSGCYCLEPAGEENTRY *f_mpos = NULL;
 
@@ -44,6 +44,7 @@ void MSequenceUStim::run_stim(alert::ARvsg& vsg)
 	vsgSetDrawMode(vsgSOLIDFILL);			// default is vsgCENTREXY! This makes it top-left-hand-corner origin
 	vsgSetCommand(vsgPALETTERAMP);
 	vsgSetCommand(vsgVIDEOCLEAR);
+	vsgSetCommand(vsgDISABLELUTANIM);
 
 	// specify pixel coords
 	vsgSetSpatialUnits(vsgPIXELUNIT);
@@ -121,6 +122,13 @@ void MSequenceUStim::run_stim(alert::ARvsg& vsg)
 	vsg.clear();
 
 	if (f_mpos) free(f_mpos);	// cleanup
+	vsgSetCommand(vsgOVERLAYDISABLE);
+	vsgSetDrawMode(vsgSOLIDFILL + vsgCENTREXY);
+	vsgSetDrawOrigin(vsgGetScreenWidthPixels()/2, vsgGetScreenHeightPixels()/2);
+	vsgSetSpatialUnits(vsgDEGREEUNIT);
+	vsgSetCommand(vsgVIDEOCLEAR);
+
+	cerr << "screen dist " << vsgGetViewDistMM() << endl;
 
 	return;
 
@@ -170,6 +178,10 @@ void MSequenceUStim::init_triggers(TSpecificFunctor<MSequenceUStim>* pfunctor)
 	triggers().addTrigger(new FunctorCallbackTrigger("a", 0x8, 0x8 | AR_TRIGGER_TOGGLE, 0x8, 0x8 | AR_TRIGGER_TOGGLE, pfunctor));
 	triggers().addTrigger(new FunctorCallbackTrigger("X", 0x6, 0x0, 0x6, 0x0, pfunctor));
 	triggers().addTrigger(new QuitTrigger("q", 0x10, 0x10, 0xff, 0x0, 0));
+
+	// Put quit trigger before cycling trigger
+	triggers().addTrigger(m_ptrigCycling = new PageCyclingTrigger("C", m_nRepeats));
+
 	return;
 }
 
@@ -182,10 +194,12 @@ int MSequenceUStim::callback(int &output, const FunctorCallbackTrigger* ptrig)
 	{
 		vsgSetCommand(vsgVIDEODRIFT + vsgOVERLAYDRIFT);			// allows us to move the offset of video memory
 		vsgSetCommand(vsgCYCLEPAGEENABLE);
+		m_ptrigCycling->started();
 	}
 	else if (key == "X")
 	{
 		vsgSetCommand(vsgCYCLEPAGEDISABLE);
+		m_ptrigCycling->stopped();
 		vsgSetZoneDisplayPage(vsgOVERLAYPAGE, NO_APERTURE_PAGE);
 	}
 
@@ -363,6 +377,13 @@ void MSequenceUStim::prepare_cycling()
 		f_mpos[iterm].Stop = 0;
 		f_mpos[iterm].Xpos = xterm;
 		f_mpos[iterm].Ypos = yterm;
+
+		if (m_verbose)
+		{
+			if (iterm % p == 0)
+			{
+			}
+		}
 	}
 	f_mpos[m_iLast].Page = 0 + vsgDUALPAGE + vsgTRIGGERPAGE;
 	f_mpos[m_iLast].ovPage = NO_APERTURE_PAGE;

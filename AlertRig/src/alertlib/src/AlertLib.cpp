@@ -171,6 +171,86 @@ void TriggerFunc::operator()(Trigger* pitem)
 	}
 };
 
+bool PageCyclingTrigger::checkAscii(std::string input)
+{
+	return checkBinary(0);
+};
+
+bool PageCyclingTrigger::checkBinary(int input)
+{
+	bool bValue = false;
+	if (m_start_pending)
+	{
+		int cyclingPage = vsgGetSystemAttribute(vsgPAGECYCLINGSTATE);
+		if (cyclingPage < 0)
+		{
+			std::cerr << "Page cycling trigger - start pending..." << std::endl;
+		}
+		else
+		{
+			std::cerr << "Page cycling trigger - started" << std::endl;
+			m_start_pending = false;
+			m_is_started = true;
+		}
+	}
+
+	if (m_is_started)
+	{
+		// check if cycling is still running. If not, then set bValue = true.
+		int cyclingPage = vsgGetSystemAttribute(vsgPAGECYCLINGSTATE);
+		if (cyclingPage < 0)
+		{
+			m_repeat_count++;
+			bValue = true;
+		}
+	}
+	return bValue;
+};
+
+void PageCyclingTrigger::started()
+{
+	m_start_pending = true;
+	//m_is_started = true;
+}
+
+void PageCyclingTrigger::stopped()
+{
+	m_is_started = false;
+	m_start_pending = false;
+	m_repeat_count = 0;
+}
+
+int PageCyclingTrigger::execute(int& output)
+{
+	std::cerr << "PageCyclingTrigger::execute repeat_count " << m_repeat_count << " nrepeats " << m_nrepeats << std::endl;
+	if (m_repeat_count < m_nrepeats)
+	{
+		if (m_callback)
+		{
+			if (m_callback(m_repeat_count))
+			{
+				m_is_started = false;
+			}
+			else
+			{
+				setMarker(output);
+				vsgSetCommand(vsgCYCLEPAGEENABLE);
+			}
+		}
+		else
+		{
+			std::cerr << "Re-enable cycling" << std::endl;
+			setMarker(output);
+			vsgSetCommand(vsgCYCLEPAGEENABLE);
+		}
+	}
+	else
+	{
+		std::cerr << "Done with all cycles" << std::endl;
+		m_is_started = false;
+	}
+	return 0;
+};
 
 
 ARvsg& ARvsg::instance() 

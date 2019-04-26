@@ -1,3 +1,5 @@
 .vs
 MsgSvr/Release
 SendMessage/Release
+ASLCalibration/x64
+ASLCalibration/Debug

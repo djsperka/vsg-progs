@@ -77,6 +77,7 @@ private:
 	int m_pulse;
 	int m_iFirst;
 	int m_iLast;
+	PageCyclingTrigger *m_ptrigCycling = NULL;
 
 	void init_triggers(TSpecificFunctor<MSequenceUStim>* pfunctor);
 	int load_mseq(string& filename);
