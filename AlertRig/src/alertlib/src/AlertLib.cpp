@@ -405,9 +405,73 @@ void ARvsg::setBackgroundColor(const COLOR_TYPE& c)
 	vsgSetBackgroundColour(&c.trival());
 }
 
+void ARvsg::reinit()
+{
+	// Clear all vsg objects
+	cerr << "ARvsg::reinit(): clearing all vsg objects" << endl;
+	for (int i = 1; i < vsgGetSystemAttribute(vsgNUMOBJECTS); i++) { vsgObjDestroy(i); }
+
+	// reclaim levels for our level manager
+	ARvsg::instance().reset_available_levels();
+
+	vsgSetCommand(vsgOVERLAYDISABLE);
+	//vsgSetCommand(vsgCYCLEPAGEDISABLE);
+	//vsgSetCommand(vsgCYCLELUTDISABLE);
+	//vsgSetCommand(vsgDISABLELUTANIM);
+	vsgSetDrawMode(vsgSOLIDFILL + vsgCENTREXY);
+	vsgSetSpatialUnits(vsgPIXELUNIT);
+	vsgSetDrawOrigin(vsgGetScreenWidthPixels() / 2, vsgGetScreenHeightPixels() / 2);
+
+
+	// I don't think we use the negative screen distance scheme anywhere. 
+	if (m_screenDistanceMM <= 0)
+	{
+		// djs 3-22-11
+		// spatial units are set to pixel units with the init() call. 
+		//vsgSetSpatialUnits(vsgPIXELUNIT);
+		m_heightPixels = vsgGetScreenHeightPixels();
+		m_widthPixels = vsgGetScreenWidthPixels();
+		request_single(m_background_level);
+		arutil_color_to_palette(m_background_color, m_background_level);
+		cout << "ARvsg::reinit(): Screen distance = " << m_screenDistanceMM << ", will use PIXEL units." << endl;
+		cout << "ARvsg::reinit(): Background level " << m_background_level << " color set to " << m_background_color << endl;
+	}
+	else
+	{
+		VSGTRIVAL background;
+
+		vsgSetViewDistMM(m_screenDistanceMM);
+		vsgSetSpatialUnits(vsgDEGREEUNIT);
+		m_heightPixels = vsgGetScreenHeightPixels();
+		m_widthPixels = vsgGetScreenWidthPixels();
+		vsgUnitToUnit(vsgPIXELUNIT, m_heightPixels, vsgDEGREEUNIT, &m_heightDegrees);
+		vsgUnitToUnit(vsgPIXELUNIT, m_widthPixels, vsgDEGREEUNIT, &m_widthDegrees);
+
+		background = m_background_color.trival();
+		// this level gets used later, but we request it now to insure we get level 0
+		//request_single(m_background_level);
+		m_background_level = 250;	// djs HACK HACK HACK
+
+		// Create single dummy object and assign it a level
+		m_handle = vsgObjCreate();
+		vsgObjSetPixelLevels(m_background_level, 1);
+		cout << "ARvsg::reinit(): Got dummy obj(" << m_handle << ")" << endl;
+
+		// Set up triggers and present. A single pulse on DOUT0.
+		vsgObjSetTriggers(vsgTRIG_ONPRESENT, 0, 0);
+		vsgPresent();
+
+		vsgSetBackgroundColour(&background);
+		cout << "ARvsg::reinit(): Screen distance = " << m_screenDistanceMM << ", will use DEGREE units." << endl;
+		cout << "ARvsg::reinit(): Background level " << m_background_level << " color set to " << m_background_color << endl;
+		vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgBACKGROUND);
+		vsgPresent();
+	}
+
+}
+
 int ARvsg::init(int screenDistanceMM, COLOR_TYPE i_bg,  bool bUseLockFile, bool bSlaveSynch)
 {
-	VSGTRIVAL background;
 	int status=0;
 	if (!m_initialized)
 	{
@@ -500,48 +564,53 @@ int ARvsg::init(int screenDistanceMM, COLOR_TYPE i_bg,  bool bUseLockFile, bool 
 
 		vsgInitSelectDevice(m_device_handle);
 
-		if (screenDistanceMM <= 0) 
-		{
-			// djs 3-22-11
-			// spatial units are set to pixel units with the init() call. 
-			//vsgSetSpatialUnits(vsgPIXELUNIT);
-			m_heightPixels = vsgGetScreenHeightPixels();
-			m_widthPixels = vsgGetScreenWidthPixels();
-			m_background_color = i_bg;
-			request_single(m_background_level);
-			arutil_color_to_palette(m_background_color, m_background_level);
-			cout << "ARvsg::init(): Screen distance = " << screenDistanceMM << ", will use PIXEL units." << endl;
-			cout << "ARvsg::init(): Background level " << m_background_level << " color set to " << m_background_color << endl;
-		}
-		else
-		{
-			vsgSetViewDistMM(screenDistanceMM);
-			vsgSetSpatialUnits(vsgDEGREEUNIT);
-			m_heightPixels = vsgGetScreenHeightPixels();
-			m_widthPixels = vsgGetScreenWidthPixels();
-			vsgUnitToUnit(vsgPIXELUNIT, m_heightPixels, vsgDEGREEUNIT, &m_heightDegrees);
-			vsgUnitToUnit(vsgPIXELUNIT, m_widthPixels, vsgDEGREEUNIT, &m_widthDegrees);
+		m_background_color = i_bg;
+		m_screenDistanceMM = screenDistanceMM;
 
-			m_background_color = i_bg;
-			background = m_background_color.trival();
-			// this level gets used later, but we request it now to insure we get level 0
-			//request_single(m_background_level);
-			m_background_level = 250;	// djs HACK HACK HACK
+		reinit();
 
-			// Create single dummy object and assign it a level
-			m_handle = vsgObjCreate();
-			vsgObjSetPixelLevels(m_background_level, 1);
-			
-			// Set up triggers and present. A single pulse on DOUT0.
-			vsgObjSetTriggers(vsgTRIG_ONPRESENT, 0, 0);
-			vsgPresent();
+		////if (screenDistanceMM <= 0) 
+		////{
+		////	// djs 3-22-11
+		////	// spatial units are set to pixel units with the init() call. 
+		////	//vsgSetSpatialUnits(vsgPIXELUNIT);
+		////	m_heightPixels = vsgGetScreenHeightPixels();
+		////	m_widthPixels = vsgGetScreenWidthPixels();
+		////	m_background_color = i_bg;
+		////	request_single(m_background_level);
+		////	arutil_color_to_palette(m_background_color, m_background_level);
+		////	cout << "ARvsg::init(): Screen distance = " << screenDistanceMM << ", will use PIXEL units." << endl;
+		////	cout << "ARvsg::init(): Background level " << m_background_level << " color set to " << m_background_color << endl;
+		////}
+		////else
+		////{
+		////	vsgSetViewDistMM(screenDistanceMM);
+		////	vsgSetSpatialUnits(vsgDEGREEUNIT);
+		////	m_heightPixels = vsgGetScreenHeightPixels();
+		////	m_widthPixels = vsgGetScreenWidthPixels();
+		////	vsgUnitToUnit(vsgPIXELUNIT, m_heightPixels, vsgDEGREEUNIT, &m_heightDegrees);
+		////	vsgUnitToUnit(vsgPIXELUNIT, m_widthPixels, vsgDEGREEUNIT, &m_widthDegrees);
 
-			vsgSetBackgroundColour(&background);
-			cout << "ARvsg::init(): Screen distance = " << screenDistanceMM << ", will use DEGREE units." << endl;
-			cout << "ARvsg::init(): Background level " << m_background_level << " color set to " << m_background_color << endl;
-			vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgBACKGROUND);
-			vsgPresent();
-		}
+		////	m_background_color = i_bg;
+		////	background = m_background_color.trival();
+		////	// this level gets used later, but we request it now to insure we get level 0
+		////	//request_single(m_background_level);
+		////	m_background_level = 250;	// djs HACK HACK HACK
+
+		////	// Create single dummy object and assign it a level
+		////	m_handle = vsgObjCreate();
+		////	vsgObjSetPixelLevels(m_background_level, 1);
+		////	
+		////	// Set up triggers and present. A single pulse on DOUT0.
+		////	vsgObjSetTriggers(vsgTRIG_ONPRESENT, 0, 0);
+		////	vsgPresent();
+
+		////	vsgSetBackgroundColour(&background);
+		////	cout << "ARvsg::init(): Screen distance = " << screenDistanceMM << ", will use DEGREE units." << endl;
+		////	cout << "ARvsg::init(): Background level " << m_background_level << " color set to " << m_background_color << endl;
+		////	vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgBACKGROUND);
+		////	vsgPresent();
+		////}
 	}
 	return status;
 }

@@ -197,6 +197,8 @@ namespace alert
 	public:
 		~ARvsg();
 		int init(int screenDistanceMM, COLOR_TYPE i_bg, bool bUseLockFile=true, bool bSlaveSynch = false);
+		void reinit();	// re-do init except for re-init of vsg. 
+
 		int setViewDistMM(int screenDistanceMM);
 
 		// This function initializes all pages to background color. That color is set as 
@@ -264,6 +266,7 @@ namespace alert
 			, m_handle(0)
 			, m_background_level(-1)
 			, m_background_color(gray)
+			, m_screenDistanceMM(0)
 			, m_heightPixels(0)
 			, m_widthPixels(0)
 			, m_heightDegrees(0)
@@ -272,7 +275,7 @@ namespace alert
 			, m_next_available_level(0)
 		{};
 
-		ARvsg(ARvsg const&): m_background_level(-1) {};
+		ARvsg(ARvsg const&);	// prohibited
 		ARvsg& operator=(ARvsg const&) {};
 		bool m_initialized;
 		bool m_is_master;
@@ -280,6 +283,7 @@ namespace alert
 		VSGOBJHANDLE m_handle;
 		PIXEL_LEVEL m_background_level;
 		COLOR_TYPE m_background_color;
+		int m_screenDistanceMM;
 		long m_heightPixels;
 		long m_widthPixels;
 		double m_heightDegrees;

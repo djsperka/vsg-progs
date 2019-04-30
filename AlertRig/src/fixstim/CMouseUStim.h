@@ -29,7 +29,9 @@ private:
 	bool m_verbose;
 	ARGratingSpec m_grating;
 	ARContrastFixationPointSpec m_fixpt;
+	bool m_bHaveFixpt;
 	bool m_alert;
+	bool m_allowq;
 	int m_pulse;
 	int m_sleepMS;
 	bool m_bFixationOn;
@@ -44,6 +46,8 @@ private:
 	double m_monWidthPixels;
 	double m_monHeightPixels;
 	double m_tfPrevious;
+	int m_gratingPage;			// for page flipping
+	int m_overlayPage;			// for page flipping the overlay
 
 
 
@@ -66,7 +70,10 @@ private:
 	void updateTF(double tf);
 	void updateContrast(int contrast);
 	void updateOrientation(double ori);
-	void updateGrating(int iPage);
+	void updateGrating();
+	void flip_draw_grating();
+	void flip_draw_overlay(bool bFixationOn, double fixX, double fixY, double fixD, double apertureX, double apertureY, double apertureDiameter);
+
 };
 
 #endif

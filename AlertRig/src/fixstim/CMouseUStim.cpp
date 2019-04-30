@@ -21,7 +21,7 @@ using namespace boost;
 
 using namespace std;
 
-const string CMouseUStim::m_allowedArgs("ab:d:f:g:p:vADS:r:j:");
+const string CMouseUStim::m_allowedArgs("ab:d:f:g:p:qvADS:r:j:");
 
 
 
@@ -31,15 +31,27 @@ CMouseUStim::CMouseUStim()
 , m_background(gray)
 , m_binaryTriggers(true)
 , m_verbose(false)
+, m_bHaveFixpt(false)
 , m_alert(false)
+, m_allowq(false)
 , m_pulse(0x40)
 , m_sleepMS(100)
 , m_bFixationOn(false)
 , m_bUseRegDump(false)
 , m_bMouseControl(true)
 , m_portClient(0)
+, m_gratingPage(1)
+, m_overlayPage(1)
 {
 };
+
+
+void CMouseUStim::flip_draw_grating()
+{
+	m_gratingPage = 1 - m_gratingPage;
+	cout << "flip_draw_grating, page " << m_gratingPage << ": " << m_grating << endl;
+	arutil_draw_grating_fullscreen(m_grating, m_gratingPage);
+}
 
 
 int CMouseUStim::init_pages()
@@ -47,9 +59,9 @@ int CMouseUStim::init_pages()
 	int status=0;
 	int islice=50;
 
-	vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgNOCLEAR);
+	//vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgNOCLEAR);
 	m_grating.init(islice);
-	arutil_draw_grating_fullscreen(m_grating, 0);
+	flip_draw_grating();
 	vsgPresent();
 
 	// initialize overlay pages
@@ -58,7 +70,8 @@ int CMouseUStim::init_pages()
 		cerr << "VSG overlay initialization failed!" << endl;
 		return 1;
 	}
-	arutil_color_to_overlay_palette(m_fixpt, 3);
+	if (m_bHaveFixpt)
+		arutil_color_to_overlay_palette(m_fixpt, 3);
 	arutil_draw_aperture(m_grating, 0);
 	arutil_draw_aperture(m_grating, 1);
 	vsgSetZoneDisplayPage(vsgOVERLAYPAGE, 0);
@@ -90,8 +103,8 @@ void CMouseUStim::run_stim(alert::ARvsg& vsg)
 	cout << "CMouseUStim: running." << endl;
 
 	// set screen distance
-	vsg.setViewDistMM(m_screenDistanceMM);
-	vsg.setBackgroundColor(m_background);
+	//vsg.setViewDistMM(m_screenDistanceMM);
+	//vsg.setBackgroundColor(m_background);
 
 	// clear all dig outputs
 	vsgIOWriteDigitalOut(0, 0xff);
@@ -199,10 +212,7 @@ void CMouseUStim::doJSClientLoop()
 		}
 
 		// flip overlay page, then draw aperture (and fixpt if needed).
-		iPage = 1 - iPage;
-		vsgSetDrawPage(vsgOVERLAYPAGE, iPage, 1);
-		overlay(true, m_fixpt.x, m_fixpt.y, m_fixpt.d, m_grating.x, -m_grating.y, m_grating.w);
-		vsgSetZoneDisplayPage(vsgOVERLAYPAGE, iPage);
+		flip_draw_overlay(true, m_fixpt.x, m_fixpt.y, m_fixpt.d, m_grating.x, -m_grating.y, m_grating.w);
 
 		// check if there's any msgs waiting...
 		if (!pSocket->isValid())
@@ -287,7 +297,7 @@ void CMouseUStim::doJSClientLoop()
 					}
 					else
 					{
-						updateGrating(iPage);
+						updateGrating();
 					}
 				}
 				else
@@ -363,7 +373,8 @@ void CMouseUStim::doMouseKBLoop()
 		// read vsg io for fixation pt signal
 		if (m_alert && !bUseManualTriggers)
 		{
-			TriggerFunc	tf = std::for_each(triggers().begin(), triggers().end(), TriggerFunc(vsgIOReadDigitalIn(), last_output_trigger));
+			int din = vsgIOReadDigitalIn();
+			TriggerFunc	tf = std::for_each(triggers().begin(), triggers().end(), TriggerFunc(din, last_output_trigger, true));
 
 			if (tf.quit()) bQuit = true;
 			else if (tf.present())
@@ -378,10 +389,7 @@ void CMouseUStim::doMouseKBLoop()
 		}
 
 		// flip overlay page, then draw aperture (and fixpt if needed).
-		iPage = 1 - iPage;
-		vsgSetDrawPage(vsgOVERLAYPAGE, iPage, 1);
-		overlay(m_bFixationOn, m_fixpt.x, m_fixpt.y, m_fixpt.d, degVSGMouseX, degVSGMouseY, m_grating.w);
-		vsgSetZoneDisplayPage(vsgOVERLAYPAGE, iPage);
+		flip_draw_overlay(m_bHaveFixpt && m_bFixationOn, m_fixpt.x, m_fixpt.y, m_fixpt.d, degVSGMouseX, degVSGMouseY, m_grating.w);
 
 		while (_kbhit() && !bQuit)
 		{
@@ -447,7 +455,7 @@ void CMouseUStim::doMouseKBLoop()
 						if (s>0.005 && s<100)
 						{
 							m_grating.sf = s;
-							arutil_draw_grating_fullscreen(m_grating, 0);
+							flip_draw_grating();
 							vsgPresent();
 						}
 						else
@@ -473,7 +481,7 @@ void CMouseUStim::doMouseKBLoop()
 						{
 							m_grating.setTemporalFrequency(d);
 							m_tfPrevious = 0;
-							arutil_draw_grating_fullscreen(m_grating, 0);
+							flip_draw_grating();
 							vsgPresent();
 						}
 						else 
@@ -493,7 +501,7 @@ void CMouseUStim::doMouseKBLoop()
 					double tmp = m_grating.tf;
 					m_grating.setTemporalFrequency(m_tfPrevious);
 					m_tfPrevious = tmp;
-					arutil_draw_grating_fullscreen(m_grating, 0);
+					flip_draw_grating();
 					vsgPresent();
 					break;
 				}
@@ -507,7 +515,7 @@ void CMouseUStim::doMouseKBLoop()
 						if (c>=0 && c<=100)
 						{
 							m_grating.setContrast(c);
-							arutil_draw_grating_fullscreen(m_grating, 0);
+							flip_draw_grating();
 							vsgPresent();
 						}
 						else
@@ -532,7 +540,7 @@ void CMouseUStim::doMouseKBLoop()
 						if (oo >=0 && oo <=360)
 						{
 							m_grating.orientation = oo;
-							arutil_draw_grating_fullscreen(m_grating, 0);
+							flip_draw_grating();
 							vsgPresent();
 						}
 						else
@@ -562,7 +570,7 @@ void CMouseUStim::doMouseKBLoop()
 			case 27:
 			case 'q':
 				{
-					if (!m_alert)
+					if (m_allowq)
 					{
 						COLOR_TYPE c;
 						bQuit = true;
@@ -788,7 +796,7 @@ void CMouseUStim::updateSF(double sf)
 	if (sf>0.005 && sf<100)
 	{
 		m_grating.sf = sf;
-		arutil_draw_grating_fullscreen(m_grating, 0);
+		flip_draw_grating();
 		vsgPresent();
 	}
 	else
@@ -803,7 +811,7 @@ void CMouseUStim::updateContrast(int c)
 	if (c>=0 && c<=100)
 	{
 		m_grating.setContrast(c);
-		arutil_draw_grating_fullscreen(m_grating, 0);
+		flip_draw_grating();
 		vsgPresent();
 	}
 	else
@@ -817,7 +825,7 @@ void CMouseUStim::updateTF(double tf)
 	if (tf>=0 && tf<50)
 	{
 		m_grating.setTemporalFrequency(tf);
-		arutil_draw_grating_fullscreen(m_grating, 0);
+		flip_draw_grating();
 		vsgPresent();
 	}
 	else 
@@ -831,7 +839,7 @@ void CMouseUStim::updateOrientation(double ori)
 	if (ori >=0 && ori <=360)
 	{
 		m_grating.orientation = ori;
-		arutil_draw_grating_fullscreen(m_grating, 0);
+		flip_draw_grating();
 		vsgPresent();
 	}
 	else
@@ -841,13 +849,11 @@ void CMouseUStim::updateOrientation(double ori)
 }
 
 
-void CMouseUStim::updateGrating(int iPage)
+void CMouseUStim::updateGrating()
 {
-	arutil_draw_grating_fullscreen(m_grating, 0);
+	flip_draw_grating();
 	vsgPresent();
-	vsgSetDrawPage(vsgOVERLAYPAGE, iPage, 1);
-	overlay(true, m_fixpt.x, m_fixpt.y, m_fixpt.d, m_grating.x, m_grating.y, m_grating.w);
-	vsgSetZoneDisplayPage(vsgOVERLAYPAGE, iPage);
+	flip_draw_overlay(true, m_fixpt.x, m_fixpt.y, m_fixpt.d, m_grating.x, m_grating.y, m_grating.w);
 }
 
 
@@ -870,20 +876,36 @@ void CMouseUStim::overlay(bool bFixationOn, double fixX, double fixY, double fix
 	}
 }
 
+void CMouseUStim::flip_draw_overlay(bool bFixationOn, double fixX, double fixY, double fixD, double apertureX, double apertureY, double apertureDiameter)
+{
+	m_overlayPage = 1 - m_overlayPage;
+	vsgSetDrawPage(vsgOVERLAYPAGE, m_overlayPage, 1);
 
+	// draw aperture (color 0 is clear)
+	vsgSetPen1(0);
+	vsgDrawOval(apertureX, apertureY, apertureDiameter, apertureDiameter);
 
+	if (bFixationOn)
+	{
+		vsgSetPen1(3);
 
+		// Draw the fixation point. Note that the y coord is reversed -- this is because the VSG draws everything with 
+		// the y axis positive-downward, whereas we always use y-axis positive upwards. Note that the aperture doesn't 
+		// require this change because its location is derived from the mouse position, which is already 
+		// positive-y-downward. 
+		vsgDrawOval(fixX, -fixY, fixD, fixD);
+	}
+	vsgSetZoneDisplayPage(vsgOVERLAYPAGE, m_overlayPage);
+}
 
 void CMouseUStim::init_triggers(TSpecificFunctor<CMouseUStim>* pfunctor)
 {
 	triggers().clear();
-
-	// Fixation point trigger
-	triggers().addTrigger(new FunctorCallbackTrigger("F", 0x2, 0x2, 0x4, 0x4, pfunctor));
-	triggers().addTrigger(new FunctorCallbackTrigger("f", 0x2, 0x0, 0x4, 0x0, pfunctor));
+	triggers().addTrigger(new FunctorCallbackTrigger("F", 0x2, 0x2, 0x2, 0x2, pfunctor));
+	triggers().addTrigger(new FunctorCallbackTrigger("F", 0x2, 0x0, 0x2, 0x0, pfunctor));
 
 	// quit trigger
-	triggers().addTrigger(new QuitTrigger("q", 0x80, 0x80, 0xff, 0x0, 0));
+	triggers().addTrigger(new QuitTrigger("q", 0x10, 0x10, 0xff, 0x0, 0));
 
 	return;
 }
@@ -905,7 +927,6 @@ int CMouseUStim::process_arg(int c, std::string& arg)
 {
 	static bool have_d=false;
 	static bool have_D = false;
-	static bool have_fixpt = false;
 	static bool have_grating = false;
 	static int errflg = 0;
 	
@@ -920,6 +941,9 @@ int CMouseUStim::process_arg(int c, std::string& arg)
 			break;
 		case 'A':
 			m_alert = true;
+			break;
+		case 'q':
+			m_allowq = true;
 			break;
 		case 'a':
 			m_binaryTriggers = false;
@@ -958,7 +982,7 @@ int CMouseUStim::process_arg(int c, std::string& arg)
 			break;
 		case 'f':
 			if (parse_fixation_point(arg, m_fixpt)) errflg++;
-			else have_fixpt = true;
+			else m_bHaveFixpt = true;
 			break;
 		case 'g':
 			if (parse_grating(arg, m_grating))
@@ -997,12 +1021,9 @@ int CMouseUStim::process_arg(int c, std::string& arg)
 					}
 				}
 
-				if (m_alert && !have_fixpt)
+				if (m_alert && !m_bHaveFixpt)
 				{
-					cerr << "No fixpt specs supplied (-f): using default values." << endl;
-					m_fixpt.x = m_fixpt.y = 0;
-					m_fixpt.d = 0.5;
-					m_fixpt.color.setType(red);
+					cerr << "No fixpt specs supplied (-f)." << endl;
 				}
 
 				if (!have_grating)

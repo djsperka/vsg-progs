@@ -43,8 +43,9 @@ void MSequenceUStim::run_stim(alert::ARvsg& vsg)
 	vsgSetDrawOrigin(0, 0);
 	vsgSetDrawMode(vsgSOLIDFILL);			// default is vsgCENTREXY! This makes it top-left-hand-corner origin
 	vsgSetCommand(vsgPALETTERAMP);
+	vsgSetPen2(0);
 	vsgSetCommand(vsgVIDEOCLEAR);
-	vsgSetCommand(vsgDISABLELUTANIM);
+	//vsgSetCommand(vsgDISABLELUTANIM);
 
 	// specify pixel coords
 	vsgSetSpatialUnits(vsgPIXELUNIT);
@@ -122,13 +123,11 @@ void MSequenceUStim::run_stim(alert::ARvsg& vsg)
 	vsg.clear();
 
 	if (f_mpos) free(f_mpos);	// cleanup
-	vsgSetCommand(vsgOVERLAYDISABLE);
-	vsgSetDrawMode(vsgSOLIDFILL + vsgCENTREXY);
-	vsgSetDrawOrigin(vsgGetScreenWidthPixels()/2, vsgGetScreenHeightPixels()/2);
-	vsgSetSpatialUnits(vsgDEGREEUNIT);
-	vsgSetCommand(vsgVIDEOCLEAR);
-
-	cerr << "screen dist " << vsgGetViewDistMM() << endl;
+	//vsgSetCommand(vsgOVERLAYDISABLE);
+	//vsgSetDrawMode(vsgSOLIDFILL + vsgCENTREXY);
+	//vsgSetDrawOrigin(vsgGetScreenWidthPixels()/2, vsgGetScreenHeightPixels()/2);
+	//vsgSetSpatialUnits(vsgDEGREEUNIT);
+	//vsgSetCommand(vsgVIDEOCLEAR);
 
 	return;
 

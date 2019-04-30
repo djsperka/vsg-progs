@@ -291,7 +291,8 @@ void serverLoop(void * arg)
 					cout << "serverLoop(): No handler for this command." << endl;
 				}
 
-				init_globals();
+				ARvsg::instance().reinit();
+
 				cout << "serverLoop(): waiting for message..." << endl;
 			}
 			Sleep(500);
