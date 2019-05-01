@@ -94,6 +94,13 @@ int MelStimSet::init(std::vector<int> pages)
 {
 	m_pagesAvailable = pages;
 
+
+#ifdef HOST_PAGE_AGAIN
+
+	m_hostPageHandle = vsgPAGECreate(vsgHOSTPAGE, vsgGetScreenWidthPixels()*2, vsgGetScreenHeightPixels()*2, vsg8BITPALETTEMODE);
+	cerr << "Got host page handle " << m_hostPageHandle << endl;
+
+#endif
 #ifdef HOST_PAGE_TEST
 	// Create a page
 	m_hostPageHandle = vsgPAGECreate(vsgHOSTPAGE, vsgGetScreenWidthPixels(), vsgGetScreenHeightPixels(), vsg8BITPALETTEMODE);
@@ -227,6 +234,37 @@ void MelStimSet::copyBmpFile(char *f, const MelBmpSpec& bmp, int page)
 #endif
 
 
+int MelStimSet::myDrawImage(int page, double x, double y, char *f)
+{
+	int st;
+	double imageWidth, imageHeight;
+	vsgImageGetSize(0, f, &imageWidth, &imageHeight);
+	cerr << "Image " << imageWidth << "x" << imageHeight << " " << f << endl;
+
+	// crude check for the need to copy sub-pixel-set. 
+	// Probably should test whether size and position and screen size cooperate to require it, 
+	// but this is quick and dirty and will do as all images are double width and double height. 
+	if (imageWidth > vsgGetScreenWidthPixels())
+	{
+
+		// Draw on the host page
+		vsgSetDrawPage(vsgHOSTPAGE, m_hostPageHandle, vsgBACKGROUND);
+
+		// load image to this page
+		vsgDrawImage(vsgPALETTELOAD, 0, 0, f);
+
+		// now move block to orig draw page
+		vsgSetDrawPage(vsgVIDEOPAGE, page, vsgNOCLEAR);
+		st = vsgDrawMoveRect(vsgHOSTPAGE, m_hostPageHandle, -x, -y, 1024, 768, 0, 0, 1024, 768);
+	}
+	else
+	{
+		st = vsgDrawImage(0, x, y, f);
+	}
+	return st;
+}
+
+
 int MelStimSet::drawCurrent()
 {
 	int status = 0;
@@ -328,13 +366,14 @@ int MelStimSet::drawCurrent()
 #ifdef HOST_PAGE_COPY
 			copyBmpFile(f, bmp, page);
 #else
+
 			if (bmp.copyPalette)
 			{
 				int st;
 				vsgSetDrawMode(vsgCENTREXY);
 
 				// check all the draw funcs
-				st = vsgDrawImage(0, bmp.x, -bmp.y, f);
+				st = myDrawImage(page, bmp.x, -bmp.y, f);
 				if (st) cerr << "ERROR drawing image file " << f << " at " << bmp.x << ", " << -bmp.y << ": " << st << endl;
 
 				VSGLUTBUFFER palette;
@@ -352,7 +391,7 @@ int MelStimSet::drawCurrent()
 				vsgSetDrawMode(vsgCENTREXY | vsgTRANSONSOURCE);
 				vsgSetPen2(bmp.level);
 				//cerr << "transOnSource " << bmp.level << endl;
-				st = vsgDrawImage(0, bmp.x, -bmp.y, f);
+				st = myDrawImage(page, bmp.x, -bmp.y, f);
 				if (st) cerr << "ERROR drawing image at " << bmp.x << ", " << -bmp.y << ": " << st << endl;
 				vsgSetDrawMode(saveMode);
 			}
@@ -363,7 +402,7 @@ int MelStimSet::drawCurrent()
 				vsgSetDrawMode(vsgCENTREXY | vsgTRANSONDEST);
 				vsgSetPen2(bmp.level);
 				//cerr << "transOnDest " << bmp.level << endl;
-				st = vsgDrawImage(0, bmp.x, -bmp.y, f);
+				st = myDrawImage(page, bmp.x, -bmp.y, f);
 				if (st) cerr << "ERROR drawing image at " << bmp.x << ", " << -bmp.y << ": " << st << endl;
 				vsgSetDrawMode(saveMode);
 			}
@@ -372,7 +411,7 @@ int MelStimSet::drawCurrent()
 				int st;
 				vsgSetDrawMode(vsgCENTREXY);
 				//cerr << "No draw mode" << endl;
-				st = vsgDrawImage(0, bmp.x, -bmp.y, f);
+				st = myDrawImage(page, bmp.x, -bmp.y, f);
 				if (st) cerr << "ERROR drawing image at " << bmp.x << ", " << -bmp.y << ": " << st << endl;
 			}
 #endif

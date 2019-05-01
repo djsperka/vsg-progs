@@ -8,6 +8,7 @@
 
 //#define HOST_PAGE_TEST
 //#define HOST_PAGE_COPY
+#define HOST_PAGE_AGAIN
 
 void dumpPalette(const std::string& s, VSGLUTBUFFER& buffer, int N, int startN=0);
 void dumpHWPalette(const std::string& s, int N, int startN=0);
@@ -97,9 +98,13 @@ private:
 #ifdef HOST_PAGE_COPY
 	int m_hostPageHandle;
 #endif
+#ifdef HOST_PAGE_AGAIN
+	int m_hostPageHandle;
+#endif
 
 
 	int drawCurrent();
+	int myDrawImage(int page, double x, double y, char *filename);
 	void applyTransform(ARContrastRectangleSpec& result, const ARContrastRectangleSpec& original, const MelGridSpec& grid);
 	void copyBmpFile(char *filename, const MelBmpSpec& bmp, int page);
 
