@@ -246,6 +246,7 @@ int MelStimSet::drawCurrent()
 	//vsgDrawImage(vsgPALETTELOAD, 0, 0, "d:\\work\\usrey\\src\\fixstim\\rect-test.bmp");
 #endif
 
+	cerr << "drawCurrent: trial " << m_trialSpecs[m_uiCurrentTrial].sName << endl;
 	//cerr << "drawCurrent - start" << endl;
 	//cerr << "drawCurrent - fixpt page " << m_pageFixpt << endl;
 
@@ -298,14 +299,14 @@ int MelStimSet::drawCurrent()
 			cycle[ncycle].Stop = 0;
 			ncycle++;
 
-			cerr << "Finished drawing page " << page << endl;
+			//cerr << "Finished drawing page " << page << endl;
 
 
 			frameLast = melpair.first;
 
 			// Get a new page number for the next copy
 			page = m_pagesAvailable[nPages++];
-			cerr << "New page to draw " << page << endl;
+			//cerr << "New page to draw " << page << endl;
 
 			// clear a new page
 			vsgSetDrawPage(vsgVIDEOPAGE, page, vsgBACKGROUND);
@@ -322,50 +323,57 @@ int MelStimSet::drawCurrent()
 			char f[256];
 			strcpy(f, bmp.filename.c_str());
 
-			cerr << "bmp file " << bmp.filename << endl;
+			//cerr << "bmp file " << bmp.filename << endl;
 
 #ifdef HOST_PAGE_COPY
 			copyBmpFile(f, bmp, page);
 #else
 			if (bmp.copyPalette)
 			{
+				int st;
 				vsgSetDrawMode(vsgCENTREXY);
-				vsgDrawImage(0, bmp.x, -bmp.y, f);
+
+				// check all the draw funcs
+				st = vsgDrawImage(0, bmp.x, -bmp.y, f);
+				if (st) cerr << "ERROR drawing image file " << f << " at " << bmp.x << ", " << -bmp.y << ": " << st << endl;
+
 				VSGLUTBUFFER palette;
-				vsgImageGetPalette(0, f, &palette);
-				vsgPaletteWrite((VSGLUTBUFFER*)palette, bmp.startCopyLevel, bmp.numCopyLevel);
-				cerr << "copy palette " << bmp.startCopyLevel << "/" << bmp.numCopyLevel << endl;
-				//dumpPalette("imagePAL", palette, 8, 0);
-				unsigned char line[128];
-				vsgReadPixelLine(0, 0, line, 128);
-				for (int i = 0; i < 128; i++)
-					cerr << (unsigned int)line[i] << " ";
-				cerr << endl;
+				st = vsgImageGetPalette(0, f, &palette);
+				if (st) cerr << "ERROR in vsgImageGetPalette: " << st << " file " << f << endl;
+
+				st = vsgPaletteWrite((VSGLUTBUFFER*)palette, bmp.startCopyLevel, bmp.numCopyLevel);
+				if (st) cerr << "ERROR in vsgPaletteWrite: " << st << endl;
 
 			}
 			else if (bmp.drawMode == vsgTRANSONSOURCE)
 			{
+				int st;
 				DWORD saveMode = vsgGetDrawMode();
 				vsgSetDrawMode(vsgCENTREXY | vsgTRANSONSOURCE);
 				vsgSetPen2(bmp.level);
-				vsgDrawImage(0, bmp.x, -bmp.y, f);
+				//cerr << "transOnSource " << bmp.level << endl;
+				st = vsgDrawImage(0, bmp.x, -bmp.y, f);
+				if (st) cerr << "ERROR drawing image at " << bmp.x << ", " << -bmp.y << ": " << st << endl;
 				vsgSetDrawMode(saveMode);
-				cerr << "transOnSource " << bmp.level << endl;
 			}
 			else if (bmp.drawMode == vsgTRANSONDEST)
 			{
+				int st;
 				DWORD saveMode = vsgGetDrawMode();
 				vsgSetDrawMode(vsgCENTREXY | vsgTRANSONDEST);
 				vsgSetPen2(bmp.level);
-				vsgDrawImage(0, bmp.x, -bmp.y, f);
+				//cerr << "transOnDest " << bmp.level << endl;
+				st = vsgDrawImage(0, bmp.x, -bmp.y, f);
+				if (st) cerr << "ERROR drawing image at " << bmp.x << ", " << -bmp.y << ": " << st << endl;
 				vsgSetDrawMode(saveMode);
-				cerr << "transOnDest " << bmp.level << endl;
 			}
 			else
 			{
+				int st;
 				vsgSetDrawMode(vsgCENTREXY);
-				vsgDrawImage(0, bmp.x, -bmp.y, f);
-				cerr << "No draw mode" << endl;
+				//cerr << "No draw mode" << endl;
+				st = vsgDrawImage(0, bmp.x, -bmp.y, f);
+				if (st) cerr << "ERROR drawing image at " << bmp.x << ", " << -bmp.y << ": " << st << endl;
 			}
 #endif
 		}
@@ -374,7 +382,7 @@ int MelStimSet::drawCurrent()
 
 		// draw rects
 		// different colored rects have to be unique objects
-		cerr << "Draw " << melpair.second.vecRects.size() << " rects on page " << page << endl;
+		//cerr << "Draw " << melpair.second.vecRects.size() << " rects on page " << page << endl;
 		for (auto rect : melpair.second.vecRects)
 		{
 			ARContrastRectangleSpec *drawrect = RectanglePool::getRect(rect.color);
@@ -414,21 +422,13 @@ int MelStimSet::drawCurrent()
 	// Set up page cycling
 	vsgPageCyclingSetup(ncycle, &cycle[0]);
 
-	cerr << "Cycling: Using " << ncycle << " pages" << endl;
-	for (int i = 0; i<ncycle; i++)
-	{
-		cerr << i << ": page=" << (cycle[i].Page & vsgTRIGGERPAGE ? cycle[i].Page - vsgTRIGGERPAGE : cycle[i].Page) << " Frames=" << cycle[i].Frames << endl;
-	}
+	//cerr << "Cycling: Using " << ncycle << " pages" << endl;
+	//for (int i = 0; i<ncycle; i++)
+	//{
+	//	cerr << i << ": page=" << (cycle[i].Page & vsgTRIGGERPAGE ? cycle[i].Page - vsgTRIGGERPAGE : cycle[i].Page) << " Frames=" << cycle[i].Frames << endl;
+	//}
 
 	vsgSetDrawPage(vsgVIDEOPAGE, m_pageBlank, vsgNOCLEAR);
-
-	//// Record end time
-	//auto finish = std::chrono::high_resolution_clock::now();
-
-	//// get duration
-	//std::chrono::duration<double> elapsed = finish - start;
-
-	//cerr << "drawCurrent: done. " << ncycle << " pages, " << m_trialSpecs[m_uiCurrentTrial].vecFrames.size() << " frame/rectvec pairs, Elapsed time: " << elapsed.count() << endl;
 
 	return status;
 }
@@ -668,16 +668,18 @@ int parse_mel_params(const std::string& filename, vector<MelTrialSpec>& trialSpe
 
 			if (line.length() > 0 && line[0] != '#')
 			{
+				size_t pos;
 				switch (iTrialStep) {
 				case 0:
 
 					// Expecting "trial" or "folder"
-					if (string::npos != boost::to_lower_copy(line).find("trial"))
+					if (string::npos != (pos = boost::to_lower_copy(line).find("trial")))
 					{
 						//cerr << "Start of trial found" << endl;
 						iTrialStep = 1;
 
 						// initialize trial spec
+						spec.sName = line.substr(pos + 5);
 						spec.lastFrame = 0;
 						spec.vecFrames.clear();
 						spec.grid = grid;

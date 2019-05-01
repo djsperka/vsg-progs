@@ -66,6 +66,7 @@ typedef struct
 
 typedef struct
 {
+	string sName;
 	vector<MelFramePair> vecFrames;
 	unsigned int lastFrame;	// all off on this frame;
 	MelGridSpec grid;
