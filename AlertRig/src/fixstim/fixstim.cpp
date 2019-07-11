@@ -38,6 +38,10 @@
 #include "BarUStim.h"
 #include "MSequenceUStim.h"
 
+#include <gst/gst.h>
+#include <gst/app/gstappsrc.h>
+
+
 using namespace std;
 using namespace alert;
 using namespace boost;
@@ -64,9 +68,7 @@ int f_iDistanceToScreenMM = -1;
 TriggerVector triggers;
 int f_pulse = 0x40;
 bool f_bDaemon = false;
-//bool f_bClient = false;
-//string f_sClientArgs;
-//bool f_bClientSendQuit = false;
+bool f_bStreamStimuli = false;
 int f_iDaemonPort = 0;
 string f_sDaemonHostIP = "127.0.0.1";
 bool f_quit = false;
@@ -78,7 +80,7 @@ int errflg = 0;
 
 // These are the args allowed and which are handled by prargs. Do not use 'F' - it is reserved for 
 // passing a command file.
-const char *f_allowedServerArgs = "vu:b:d:";
+const char *f_allowedServerArgs = "vu:b:d:g";
 
 // function prototypes
 
@@ -163,6 +165,13 @@ void serverLoop(void * arg)
 	const unsigned int bufLength = 8192;
 	string s;
 	char buffer[bufLength];
+
+	// Cleanup gstreamer stuff if necessary
+	if (f_bStreamStimuli)
+	{
+		cout << "Initialize gstreamer..." << endl;
+	}
+
 	try
 	{
 		while(!f_quit) 
@@ -300,6 +309,12 @@ void serverLoop(void * arg)
 	} catch (std::exception& e) {
 		cout << e.what() << endl;
 	}
+
+	// Cleanup gstreamer stuff if necessary
+	if (f_bStreamStimuli)
+	{
+		cout << "Cleaning up gstreamer..." << endl;
+	}
 }
 
 void init_globals()
@@ -347,6 +362,9 @@ int prargs_server_callback(int c, string& arg)
 	{
 	case 'v':
 		f_verbose = true;
+		break;
+	case 'g':
+		f_bStreamStimuli = true;
 		break;
 	case 'u':
 		{
