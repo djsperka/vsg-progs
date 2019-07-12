@@ -37,9 +37,7 @@
 #include "BeatUStim.h"
 #include "BarUStim.h"
 #include "MSequenceUStim.h"
-
-#include <gst/gst.h>
-#include <gst/app/gstappsrc.h>
+#include "fixgst.h"
 
 
 using namespace std;
@@ -169,7 +167,7 @@ void serverLoop(void * arg)
 	// Cleanup gstreamer stuff if necessary
 	if (f_bStreamStimuli)
 	{
-		cout << "Initialize gstreamer..." << endl;
+		fix_start_gstreamer();
 	}
 
 	try
@@ -314,6 +312,7 @@ void serverLoop(void * arg)
 	if (f_bStreamStimuli)
 	{
 		cout << "Cleaning up gstreamer..." << endl;
+		fix_stop_gstreamer();
 	}
 }
 
