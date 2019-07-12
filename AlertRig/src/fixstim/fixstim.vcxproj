@@ -57,18 +57,26 @@
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="PropertySheets">
     <Import Project="..\shared-properties\alert.props" />
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="G:\gstreamer\1.0\x86_64\share\vs\2010\libs\gstreamer-1.0.props" />
+    <Import Project="G:\gstreamer\1.0\x86_64\share\vs\2010\libs\gstreamer-app-1.0.props" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="PropertySheets">
     <Import Project="..\shared-properties\alert.props" />
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="G:\gstreamer\1.0\x86_64\share\vs\2010\libs\gstreamer-1.0.props" />
+    <Import Project="G:\gstreamer\1.0\x86_64\share\vs\2010\libs\gstreamer-app-1.0.props" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="PropertySheets">
     <Import Project="..\shared-properties\alert.props" />
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="G:\gstreamer\1.0\x86_64\share\vs\2010\libs\gstreamer-1.0.props" />
+    <Import Project="G:\gstreamer\1.0\x86_64\share\vs\2010\libs\gstreamer-app-1.0.props" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="PropertySheets">
     <Import Project="..\shared-properties\alert.props" />
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="G:\gstreamer\1.0\x86_64\share\vs\2010\libs\gstreamer-1.0.props" />
+    <Import Project="G:\gstreamer\1.0\x86_64\share\vs\2010\libs\gstreamer-app-1.0.props" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup>
@@ -197,6 +205,7 @@
     <ClCompile Include="FGGXDonutStimSet.cpp" />
     <ClCompile Include="FGGXNullStimSet.cpp" />
     <ClCompile Include="FGGXStimSet.cpp" />
+    <ClCompile Include="fixgst.cpp" />
     <ClCompile Include="fixstim.cpp" />
     <ClCompile Include="FixUStim.cpp" />
     <ClCompile Include="FXImageStimSet.cpp" />
@@ -272,6 +281,7 @@
     <ClInclude Include="CMouseUStim.h" />
     <ClInclude Include="EQStimSet.h" />
     <ClInclude Include="FGGXStimSet.h" />
+    <ClInclude Include="fixgst.h" />
     <ClInclude Include="FixptGratingStimSet.h" />
     <ClInclude Include="FixUStim.h" />
     <ClInclude Include="FXGStimParameterList.h" />
