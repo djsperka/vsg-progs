@@ -5,47 +5,120 @@
 #include <gst/app/gstappsrc.h>
 #include <stdint.h>
 #include <iostream>
+#include <chrono>
 using namespace std;
 
 #include "VSGV8.h"
 #include "Alertlib.h"
 
+const int f_WG = 320;
+const int f_HG = 240;
+uint8_t* f_prgb = NULL;		// entire rgb image
+uint8_t* f_pline = NULL;	// line of pixel values
+VSGLUTBUFFER f_lut;
+
+int counter = 0;
 int want = 1;
-uint16_t b_white[385 * 288];
-uint16_t b_black[385 * 288];
+//uint16_t b_white[385 * 288];
+//uint16_t b_black[385 * 288];
 bool _bQuit = false;
 bool gotImage = false;
 
-static void prepare_buffer(GstAppSrc* appsrc) {
+void vsgModes()
+{
+	int drawmode = vsgGetDrawMode();
+	int units = vsgGetSystemAttribute(vsgSPATIALUNITS);
+	string s;
+	if (drawmode & vsgCENTREXY) s += "CENTERXY ";
+	if (units & vsgPIXELUNIT) s += "PIXELS ";
+	if (units & vsgDEGREEUNIT) s += "DEGREES ";
+	cout << s << endl;
+}
 
-	static gboolean white = FALSE;
+
+static void prepare_buffer(GstAppSrc* appsrc) 
+{
 	static GstClockTime timestamp = 0;
 	GstBuffer *buffer;
 	guint size;
 	GstFlowReturn ret;
+	int irow, icol;
+	int istart, istep;
+	int W = vsgGetScreenWidthPixels();
+	int H = vsgGetScreenHeightPixels();
 
 	if (!want) return;
 	want = 0;
+	vsgModes();
 
-	// get current video page, save image
-	if (!gotImage)
+#if 1
+	vsgPaletteRead(&f_lut);
+
+	auto start_time = std::chrono::high_resolution_clock::now();
+	int ind;
+
+	// set up stepping/stride
+	if (counter == 0)
 	{
-		int savemode = vsgGetDrawMode();
-		vsgSetDrawMode(0);
-		int page = vsgGetZoneDisplayPage(vsgVIDEOPAGE);
-		//int status = vsgImageExport(vsgBMPPICTURE, 0, 0, vsgGetScreenWidthPixels(), vsgGetScreenHeightPixels(), "image.bmp");
-		int status = vsgImageExport(vsgBMPPICTURE, -vsgGetScreenWidthPixels()/2, -vsgGetScreenHeightPixels()/2, vsgGetScreenWidthPixels(), vsgGetScreenHeightPixels(), "image.bmp");
-		vsgSetDrawMode(savemode);
-		gotImage = true;
-		cout << "Saved image status " << status << endl;
+		istart = 0; 
+		istep = 1;
+	}
+	else
+	{
+		istart = counter % 5;
+		istep = 5;
 	}
 
+	for (irow = istart; irow < H; irow+=istep)
+	{
+		int units = vsgGetSystemAttribute(vsgSPATIALUNITS);
+		int mode = vsgGetDrawMode();
+		vsgSetDrawMode(0);
+		vsgSetSpatialUnits(vsgPIXELUNIT);
+		vsgReadPixelLine(-W/2, -H/2 + irow, f_pline, W);
 
-	size = 385 * 288 * 2;
+		//vsgReadPixelLine(0, irow*dx, f_pline, dy);
+		//vsgReadPixelLine(-dx, -dy, f_pline, W);
+		//int status = vsgReadPixelLine(0, -dy, f_pline, W);
+		//if (status) cout << "vsgReadPixel err " << status << endl;
+		vsgSetDrawMode(mode);
+		vsgSetSpatialUnits(units);
+		//vsgSetSpatialUnits(vsgDEGREEUNIT);
+		for (icol = 0; icol < W; icol++)
+		{
+			ind = (irow * W + icol) * 3;
+			f_prgb[ind]   = (uint8_t)(256*f_lut[f_pline[icol]].a);
+			f_prgb[ind+1] = (uint8_t)(256*f_lut[f_pline[icol]].b);
+			f_prgb[ind+2] = (uint8_t)(256*f_lut[f_pline[icol]].c);
+		}
+	}
+	counter++;
+	auto end_time = std::chrono::high_resolution_clock::now();
+	//cout << "ms " << (end_time - start_time) / std::chrono::milliseconds(1) << endl;
+#else
+	auto start_time = std::chrono::high_resolution_clock::now();
+	int ind;
+	for (irow = 0; irow < H; irow++)
+	{
+		//vsgReadPixelLine(0, irow, f_pline, W);
+		for (icol = 0; icol < W; icol++)
+		{
+			ind = (irow * W + icol) * 3;
+			f_prgb[ind] = (uint8_t)(counter%256);
+			f_prgb[ind + 1] = (uint8_t)((counter+100)%256);
+			f_prgb[ind + 2] = (uint8_t)((counter+200)%256);
+		}
+	}
+	counter++;
+	auto end_time = std::chrono::high_resolution_clock::now();
+	cout << "ms " << (end_time - start_time) / std::chrono::milliseconds(1) << endl;
 
-	buffer = gst_buffer_new_wrapped_full(GST_MEMORY_FLAG_READONLY, (gpointer)(white ? b_white : b_black), size, 0, size, NULL, NULL);
 
-	white = !white;
+
+#endif
+	size = W * H * 3;
+
+	buffer = gst_buffer_new_wrapped_full(GST_MEMORY_FLAG_READONLY, (gpointer)f_prgb, size, 0, size, NULL, NULL);
 
 	GST_BUFFER_PTS(buffer) = timestamp;
 	GST_BUFFER_DURATION(buffer) = gst_util_uint64_scale_int(1, GST_SECOND, 4);
@@ -58,21 +131,84 @@ static void prepare_buffer(GstAppSrc* appsrc) {
 		/* something wrong, stop pushing */
 		// g_main_loop_quit (loop);
 	}
+
+//
+//#if 0
+//	// get current video page, save image
+////	if (!gotImage)
+//	if (counter < 50)
+//	{
+//		int savemode = vsgGetDrawMode();
+//		int page = vsgGetZoneDisplayPage(vsgVIDEOPAGE);
+//		char filename[256];
+//
+//#endif
+//#if 0
+//		auto start_time = std::chrono::high_resolution_clock::now();
+//		//vsgSetDrawMode(vsgCENTREXY);
+//		vsgSetDrawMode(0);
+//		vsgSetSpatialUnits(vsgPIXELUNIT);
+//		//sprintf(filename, "h:\\image%03d.bmp", counter);
+//		sprintf(filename, "c:\\work\\img\\image%03d.bmp", counter);
+//		int status = vsgImageExport(vsgBMPPICTURE, 0, 0, vsgGetScreenWidthPixels(), vsgGetScreenHeightPixels(), filename);
+//		//int status = vsgImageExport(vsgBMPPICTURE, -vsgGetScreenWidthPixels()/2, -vsgGetScreenHeightPixels()/2, vsgGetScreenWidthPixels(), vsgGetScreenHeightPixels(), "image.bmp");
+//		if (!status) gotImage = true;
+//		counter++;
+//
+//		auto end_time = std::chrono::high_resolution_clock::now();
+//
+//		cout << "count " << counter << " page " << page << " status " << status << " ms " << (end_time - start_time) / std::chrono::milliseconds(1) << endl;
+//
+//
+//		//vsgSetSpatialUnits(vsgPIXELUNIT);
+//		//vsgImageExport(vsgBMPPICTURE, -400, -300, 800, 600, "c:\\Documents and Settings\\Lab\\Desktop\\check.bmp");
+//
+//
+//
+//
+//		vsgSetDrawMode(savemode);
+//#else
+//		auto start_time = std::chrono::high_resolution_clock::now();
+//		int i;
+//		char pixels[1024];
+//		for (i = 0; i < vsgGetScreenHeightPixels(); i++)
+//		{
+//			vsgReadPixelLine(0, i, pixels, vsgGetScreenWidthPixels());
+//		}
+//		auto end_time = std::chrono::high_resolution_clock::now();
+//		cout << "ms " << (end_time - start_time) / std::chrono::milliseconds(1) << endl;
+//#endif
+//	}
+//
+//
+//	size = vsgGetScreenWidthPixels() * vsgGetScreenHeightPixels() * 3;
+//
+//	buffer = gst_buffer_new_wrapped_full(GST_MEMORY_FLAG_READONLY, (gpointer)f_prgb, size, 0, size, NULL, NULL);
+//
+//	GST_BUFFER_PTS(buffer) = timestamp;
+//	GST_BUFFER_DURATION(buffer) = gst_util_uint64_scale_int(1, GST_SECOND, 1);
+//
+//	timestamp += GST_BUFFER_DURATION(buffer);
+//
+//	ret = gst_app_src_push_buffer(appsrc, buffer);
+//
+//	if (ret != GST_FLOW_OK) {
+//		/* something wrong, stop pushing */
+//		// g_main_loop_quit (loop);
+//	}
 }
 
 static void cb_need_data(GstElement *appsrc, guint unused_size, gpointer user_data) {
 	//prepare_buffer((GstAppSrc*)appsrc);
 	want = 1;
+//	cout << "need data" << endl;
 }
 
 
 
 int _run_gstreamer(gpointer data)
 {
-	GstElement *pipeline, *appsrc, *conv, *videosink, *fpssink;
-	GMainContext *context;
-
-	for (int i = 0; i < 385 * 288; i++) { b_black[i] = 0x61a8; b_white[i] = 0x88b8; }
+	GstElement *pipeline, *appsrc, *conv, *videosink, *fpssink, *queue;
 
 	cout << "Initialize gstreamer..." << endl;
 	gst_init(NULL, NULL);
@@ -81,7 +217,8 @@ int _run_gstreamer(gpointer data)
 	pipeline = gst_pipeline_new("pipeline");
 	appsrc = gst_element_factory_make("appsrc", "source");
 	conv = gst_element_factory_make("videoconvert", "conv");
-	videosink = gst_element_factory_make("xvimagesink", "videosink");
+	queue = gst_element_factory_make("queue", "queue");
+	videosink = gst_element_factory_make("d3dvideosink", "videosink");
 	fpssink = gst_element_factory_make("fpsdisplaysink", "fpssink");
 
 	// configure fpsdisoplaysink
@@ -92,13 +229,13 @@ int _run_gstreamer(gpointer data)
 	/* setup */
 	g_object_set(G_OBJECT(appsrc), "caps",
 		gst_caps_new_simple("video/x-raw",
-			"format", G_TYPE_STRING, "RGB16",
-			"width", G_TYPE_INT, 384,
-			"height", G_TYPE_INT, 288,
+			"format", G_TYPE_STRING, "RGB",	// djs - use rgb not rgb16
+			"width", G_TYPE_INT, f_WG,
+			"height", G_TYPE_INT, f_HG,
 			"framerate", GST_TYPE_FRACTION, 0, 1,
 			NULL), NULL);
-	gst_bin_add_many(GST_BIN(pipeline), appsrc, conv, fpssink, NULL);
-	gst_element_link_many(appsrc, conv, fpssink, NULL);
+	gst_bin_add_many(GST_BIN(pipeline), appsrc, conv, queue, fpssink, NULL);
+	gst_element_link_many(appsrc, conv, queue, fpssink, NULL);
 
 	//  gst_bin_add_many (GST_BIN (pipeline), appsrc, conv, videosink, NULL);
 	//  gst_element_link_many (appsrc, conv, videosink, NULL);
@@ -124,12 +261,18 @@ int _run_gstreamer(gpointer data)
 	gst_element_set_state(pipeline, GST_STATE_NULL);
 	gst_object_unref(GST_OBJECT(pipeline));
 
+	delete[] f_prgb;
+	delete[] f_pline;
 	return 0;
 }
 
 
 int fix_start_gstreamer()
 {
+	// allocate rgb array to hold image
+	f_prgb = new uint8_t[vsgGetScreenWidthPixels() * vsgGetScreenHeightPixels() * 3];
+	f_pline = new uint8_t[vsgGetScreenWidthPixels()];
+
 	// launch thread
 	GThread *_loop_thread = NULL;
 	if ((_loop_thread = g_thread_new("fixstim-gstreamer", (GThreadFunc)_run_gstreamer, NULL)) == NULL)
@@ -137,10 +280,6 @@ int fix_start_gstreamer()
 		return -1;
 	}
 	return 0;
-	//if ((_loop_thread = g_thread_create((GThreadFunc)_run_gstreamer, NULL, FALSE, NULL)) == NULL)
-	//{
-	//	return -1;
-	//}
 }
 
 void fix_stop_gstreamer()
