@@ -567,7 +567,7 @@ public:
 
 	virtual bool set_current_parameter(MultiParameterFXMultiGStimSet* pstimset)
 	{
-		pstimset->setStimDuration((int)(*m_iter));
+		pstimset->setStimDuration(*m_iter);
 		return true;
 	}
 

@@ -75,6 +75,12 @@ remote.exe 127.0.0.1 7000 fixstim \
 							-s 0,0,5,5,100,.2,1,45,b,s,e \
 							-O 0,45,90,135,180 -T .25,.5,1,2,4
 
+Orientation + TF + variable stim duration(in seconds)
+remote.exe 127.0.0.1 7000 fixstim \
+							-a -v -d 500 -f 0,0,.5,green \
+							-s 0,0,5,5,100,.2,1,45,b,s,e \
+							-O 0,45,90,135,180 -T .25,.5,1,2,4 -t 1.0,2.0,3.0,4.0
+
 Orientation + TF + 2 distractors
 remote.exe 127.0.0.1 7000 fixstim \
 							-a -v -d 500 -f 0,0,.5,green \

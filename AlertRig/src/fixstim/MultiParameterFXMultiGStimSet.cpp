@@ -225,17 +225,18 @@ void MultiParameterFXMultiGStimSet::setCyclingDelay(int ndelay)
 	return;
 }
 
-void MultiParameterFXMultiGStimSet::setStimDuration(int nframes)
+void MultiParameterFXMultiGStimSet::setStimDuration(double seconds)
 {
-	if (nframes < 0)
+	if (seconds < 0)
 	{
 		m_bUseCycling = false;
 		m_iStimDuration = 0;
 	}
 	else
 	{
+		// Convert stim duration to frames. Note frame time returned is in us.
 		m_bUseCycling = true;
-		m_iStimDuration = nframes;
+		m_iStimDuration = seconds * 1000000.0 / vsgGetSystemAttribute(vsgFRAMETIME);
 	}
 	return;
 }

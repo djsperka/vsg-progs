@@ -21,7 +21,7 @@ public:
 	MultiParameterFXMultiGStimSet(ARGratingSpec& grating, ARContrastFixationPointSpec& fixpt, ARXhairSpec& xhair) : FXMultiGStimSet(fixpt, xhair) { add_grating(grating); };
 	virtual ~MultiParameterFXMultiGStimSet() {};
 	void setCyclingDelay(int ndelay);
-	void setStimDuration(int nframes);
+	void setStimDuration(double seconds);
 
 	virtual int num_pages() { return 3; };
 	virtual int num_overlay_pages() { return 0; };
