@@ -14,7 +14,7 @@ void vsgModes()
 	if (drawmode & vsgCENTREXY) s += "CENTERXY ";
 	if (units & vsgPIXELUNIT) s += "PIXELS ";
 	if (units & vsgDEGREEUNIT) s += "DEGREES ";
-	cout << s << endl;
+	cout << s << " " << vsgGetScreenWidthPixels() << "x" << vsgGetScreenHeightPixels() << endl;
 }
 
 
@@ -62,7 +62,7 @@ int main(int argc, char **argv)
 	// draw origin in upper left corner of screen
 
 	vsgSetDrawOrigin(0, 0);
-	vsgSetDrawMode(0);
+	//vsgSetDrawMode(0);
 	drawOrigin = "(0,0) ";
 	for (int jj = 0; jj < 1024; jj++)
 		pix[jj] = jj%256;
@@ -118,8 +118,6 @@ int main(int argc, char **argv)
 			cout << "Enter x: ";
 			cin >> x;
 
-
-
 			status = vsgReadPixelLine(x, i, pix, 1024);
 			cout << "status " << status << endl;
 			for (int j = 0; j < 1024; j++)
@@ -156,6 +154,32 @@ int main(int argc, char **argv)
 			vsgSetDrawOrigin(0, 0);
 			vsgSetSpatialUnits(units);
 			drawOrigin = "(0,0) ";
+		}
+		else if (s == "r")
+		{
+			cout << "assume origin at center, degrees, "
+				"centerxy has no effect here, specify upper left corner of screen." << endl;
+			// half-width of screen, as a positive number
+			double halfwidthDeg, halfheightDeg, pixelLineDeg;
+			vsgUnitToUnit(vsgPIXELUNIT, W / 2, vsgDEGREEUNIT, &halfwidthDeg);
+			vsgUnitToUnit(vsgPIXELUNIT, H / 2, vsgDEGREEUNIT, &halfheightDeg);
+
+			cout << "Enter pixel line: ";
+			cin >> i;
+			vsgUnitToUnit(vsgPIXELUNIT, i, vsgDEGREEUNIT, &pixelLineDeg);
+			int status = vsgReadPixelLine(-halfwidthDeg, -halfheightDeg+pixelLineDeg, pix, 1024);
+			cout << "status " << status << endl;
+			for (int j = 0; j < 1024; j++)
+			{
+				cout << (unsigned int)pix[j];
+				if (j % 256)
+					cout << ",";
+				else 
+					cout << endl;
+			}
+			cout << endl;
+
+
 		}
 
 		cout << "Hit key [cpq]: ";

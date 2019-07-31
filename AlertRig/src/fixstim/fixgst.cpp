@@ -46,16 +46,22 @@ static void prepare_buffer(GstAppSrc* appsrc)
 	int istart, istep;
 	int W = vsgGetScreenWidthPixels();
 	int H = vsgGetScreenHeightPixels();
+	int ind;
 
 	if (!want) return;
 	want = 0;
-	vsgModes();
+	//vsgModes();
+
 
 #if 1
 	vsgPaletteRead(&f_lut);
+	//for (int i = 0; i < 10; i++)
+	//{
+	//	cout << (unsigned int)(256 * f_lut[i].a) << "/" << (unsigned int)(256 * f_lut[i].b) << "/" << (unsigned int)(256 * f_lut[i].c) << endl;
+	//}
+
 
 	auto start_time = std::chrono::high_resolution_clock::now();
-	int ind;
 
 	// set up stepping/stride
 	if (counter == 0)
@@ -69,20 +75,40 @@ static void prepare_buffer(GstAppSrc* appsrc)
 		istep = 5;
 	}
 
+	double halfwidthDeg;
+	double halfheightDeg;
+	double pixelLineDeg;
+	vsgUnitToUnit(vsgPIXELUNIT, W / 2, vsgDEGREEUNIT, &halfwidthDeg);
+	vsgUnitToUnit(vsgPIXELUNIT, H / 2, vsgDEGREEUNIT, &halfheightDeg);
+
+
+
 	for (irow = istart; irow < H; irow+=istep)
 	{
 		int units = vsgGetSystemAttribute(vsgSPATIALUNITS);
 		int mode = vsgGetDrawMode();
-		vsgSetDrawMode(0);
-		vsgSetSpatialUnits(vsgPIXELUNIT);
-		vsgReadPixelLine(-W/2, -H/2 + irow, f_pline, W);
+		int diff = 0;
+		//vsgSetDrawMode(0);
+		//vsgSetSpatialUnits(vsgPIXELUNIT);
+
+		// assume origin at center, degrees,
+		// centerxy has no effect here, specify upper left corner of screen.
+		// half-width of screen, as a positive number
+
+		//vsgSetDrawPage(vsgVIDEOPAGE, vsgGetZoneDisplayPage(vsgVIDEOPAGE), vsgNOCLEAR);
+
+		vsgUnitToUnit(vsgPIXELUNIT, irow, vsgDEGREEUNIT, &pixelLineDeg);
+		vsgReadPixelLine(-halfwidthDeg, -halfheightDeg + pixelLineDeg, f_pline, W);
+
+		//if (irow == 0)
+		//	cout << "row 0: " << (unsigned int)f_pline[0] << "," << (unsigned int)f_pline[1] << endl;
 
 		//vsgReadPixelLine(0, irow*dx, f_pline, dy);
 		//vsgReadPixelLine(-dx, -dy, f_pline, W);
 		//int status = vsgReadPixelLine(0, -dy, f_pline, W);
 		//if (status) cout << "vsgReadPixel err " << status << endl;
-		vsgSetDrawMode(mode);
-		vsgSetSpatialUnits(units);
+		//vsgSetDrawMode(mode);
+		//vsgSetSpatialUnits(units);
 		//vsgSetSpatialUnits(vsgDEGREEUNIT);
 		for (icol = 0; icol < W; icol++)
 		{
@@ -90,10 +116,43 @@ static void prepare_buffer(GstAppSrc* appsrc)
 			f_prgb[ind]   = (uint8_t)(256*f_lut[f_pline[icol]].a);
 			f_prgb[ind+1] = (uint8_t)(256*f_lut[f_pline[icol]].b);
 			f_prgb[ind+2] = (uint8_t)(256*f_lut[f_pline[icol]].c);
+			//if (f_pline[icol] != 253) diff++;
 		}
+
+		//if (diff > 0) cout << irow << "/" << diff << " ";
 	}
+	//cout << endl;
 	counter++;
 	auto end_time = std::chrono::high_resolution_clock::now();
+
+#if 0
+	if (counter % 30 == 0)
+	{
+		for (int ic = 505; ic < 515; ic++)
+		{
+			irow = 384;
+			ind = (irow * 383 + ic) * 3;
+			cout << "row 384 mid: " << (unsigned int)f_prgb[ic] << "," << (unsigned int)f_prgb[ind + 1] << "," << (unsigned int)f_prgb[ind + 2] << "  " << endl;
+		}
+		cout << endl;
+	}
+
+	// check draw page and current display
+	VSGPAGEDESCRIPTOR descr;
+	descr._StructSize = sizeof(VSGPAGEDESCRIPTOR);
+	vsgGetCurrentDrawPage(&descr);
+	int iDisp = vsgGetZoneDisplayPage(vsgVIDEOPAGE);
+	bool bTemp = false;
+	if (descr.Page != iDisp)
+	{
+		if (!bTemp) cout << "diff page " << descr.Page << " " << iDisp << endl;
+		bTemp = true;
+}
+
+
+
+#endif
+
 	//cout << "ms " << (end_time - start_time) / std::chrono::milliseconds(1) << endl;
 #else
 	auto start_time = std::chrono::high_resolution_clock::now();
@@ -127,7 +186,9 @@ static void prepare_buffer(GstAppSrc* appsrc)
 
 	ret = gst_app_src_push_buffer(appsrc, buffer);
 
-	if (ret != GST_FLOW_OK) {
+	if (ret != GST_FLOW_OK) 
+	{
+		cout << "gst_app_src_push_buffer err" << endl;
 		/* something wrong, stop pushing */
 		// g_main_loop_quit (loop);
 	}
@@ -221,11 +282,6 @@ int _run_gstreamer(gpointer data)
 	videosink = gst_element_factory_make("d3dvideosink", "videosink");
 	fpssink = gst_element_factory_make("fpsdisplaysink", "fpssink");
 
-	// configure fpsdisoplaysink
-	g_object_set(G_OBJECT(fpssink),
-		"text-overlay", TRUE,
-		"video-sink", videosink, NULL);
-
 	/* setup */
 	g_object_set(G_OBJECT(appsrc), "caps",
 		gst_caps_new_simple("video/x-raw",
@@ -234,9 +290,20 @@ int _run_gstreamer(gpointer data)
 			"height", G_TYPE_INT, f_HG,
 			"framerate", GST_TYPE_FRACTION, 0, 1,
 			NULL), NULL);
+
+#if 0
+	// configure fpsdisoplaysink
+	g_object_set(G_OBJECT(fpssink),
+		"text-overlay", TRUE,
+		"video-sink", videosink, NULL);
+	// add and link
 	gst_bin_add_many(GST_BIN(pipeline), appsrc, conv, queue, fpssink, NULL);
 	gst_element_link_many(appsrc, conv, queue, fpssink, NULL);
-
+#else
+	// add and link
+	gst_bin_add_many(GST_BIN(pipeline), appsrc, conv, queue, videosink, NULL);
+	gst_element_link_many(appsrc, conv, queue, videosink, NULL);
+#endif
 	//  gst_bin_add_many (GST_BIN (pipeline), appsrc, conv, videosink, NULL);
 	//  gst_element_link_many (appsrc, conv, videosink, NULL);
 
