@@ -21,6 +21,7 @@ public:
 	MultiParameterFXMultiGStimSet(ARGratingSpec& grating, ARContrastFixationPointSpec& fixpt, ARXhairSpec& xhair) : FXMultiGStimSet(fixpt, xhair) { add_grating(grating); };
 	virtual ~MultiParameterFXMultiGStimSet() {};
 	void setCyclingDelay(int ndelay);
+	void setStimDuration(int nframes);
 
 	virtual int num_pages() { return 3; };
 	virtual int num_overlay_pages() { return 0; };
@@ -33,6 +34,7 @@ private:
 	int m_fixpt_page;
 	bool m_bUseCycling;
 	int m_iCyclingDelay;
+	int m_iStimDuration;	// if > 0, the number of frames stim lasts until blank. If <=0, no blank. 
 
 	void setup_cycling();
 

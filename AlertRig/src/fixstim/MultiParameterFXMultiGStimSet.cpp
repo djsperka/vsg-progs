@@ -15,7 +15,8 @@ int MultiParameterFXMultiGStimSet::init(ARvsg& vsg, std::vector<int> pages)
 	m_current_page = 0;
 	m_fixpt_page = pages[2];
 	m_bUseCycling = false;
-	m_iCyclingDelay = -1;
+	m_iCyclingDelay = 0;
+	m_iStimDuration = 0;
 
 	if (has_xhair())
 	{
@@ -214,7 +215,7 @@ void MultiParameterFXMultiGStimSet::setCyclingDelay(int ndelay)
 	if (ndelay < 0)
 	{
 		m_bUseCycling = false;
-		m_iCyclingDelay = -1;
+		m_iCyclingDelay = 0;
 	}
 	else
 	{
@@ -224,25 +225,59 @@ void MultiParameterFXMultiGStimSet::setCyclingDelay(int ndelay)
 	return;
 }
 
+void MultiParameterFXMultiGStimSet::setStimDuration(int nframes)
+{
+	if (nframes < 0)
+	{
+		m_bUseCycling = false;
+		m_iStimDuration = 0;
+	}
+	else
+	{
+		m_bUseCycling = true;
+		m_iStimDuration = nframes;
+	}
+	return;
+}
+
 
 void MultiParameterFXMultiGStimSet::setup_cycling()
 {
-	VSGCYCLEPAGEENTRY cycle[2];
+	VSGCYCLEPAGEENTRY cycle[12];	// warning! No check on usage. You have been warned. 
 	int status = 0;
+	int count = 0;
 
 	memset(cycle, 0, sizeof(cycle));
 
-	cerr << "setup_cycling: delay=" << m_iCyclingDelay << endl;
+	cerr << "setup_cycling: delay=" << m_iCyclingDelay << " duration=" << m_iStimDuration << endl;
 
-	cycle[0].Frames = 1 + (m_iCyclingDelay>0 ? m_iCyclingDelay : 0);
-	cycle[0].Page = m_fixpt_page;
-	cycle[0].Stop = 0;
+	if (m_iCyclingDelay > 0)
+	{
+		cycle[count].Frames = 1 + (m_iCyclingDelay > 0 ? m_iCyclingDelay : 0);
+		cycle[count].Page = m_fixpt_page;
+		cycle[count].Stop = 0;
+		count++;
+	}
 
-	cycle[1].Frames = 0;
-	cycle[1].Page = m_page[m_current_page] + vsgTRIGGERPAGE;
-	cycle[1].Stop = 1;
+	cycle[count].Page = m_page[m_current_page] + vsgTRIGGERPAGE;
+	if (m_iStimDuration <= 0)
+	{
+		cycle[count].Frames = 0;
+		cycle[count].Stop = 1;
+	}
+	else
+	{
+		cycle[count].Frames = m_iStimDuration;
+		cycle[count].Stop = 0;
+		count++;
 
-	status = vsgPageCyclingSetup(2, &cycle[0]);
+		cycle[count].Frames = 0;
+		cycle[count].Page = 0 + vsgTRIGGERPAGE;
+		cycle[count].Stop = 1;
+		count++;
+	}
+
+	status = vsgPageCyclingSetup(count, &cycle[0]);
 }
 
 

@@ -545,4 +545,36 @@ private:
 	vector<double>::const_iterator m_iter;
 };
 
+class StimDurationList : public FXGStimParameterList
+{
+public:
+	StimDurationList(vector<double> durations) : FXGStimParameterList(), m_vec(durations) { m_iter = m_vec.begin(); };
+	StimDurationList(const StimDurationList& list) : FXGStimParameterList(), m_vec(list.m_vec)
+	{
+		m_iter = m_vec.begin();
+	}
+	virtual ~StimDurationList() {};
+	virtual StimDurationList *clone() const
+	{
+		return new StimDurationList(*this);
+	}
+	virtual bool advance(MultiParameterFXMultiGStimSet* pstimset)
+	{
+		m_iter++;
+		if (m_iter == m_vec.end()) m_iter = m_vec.begin();
+		return set_current_parameter(pstimset);
+	}
+
+	virtual bool set_current_parameter(MultiParameterFXMultiGStimSet* pstimset)
+	{
+		pstimset->setStimDuration((int)(*m_iter));
+		return true;
+	}
+
+private:
+	vector<double> m_vec;
+	vector<double>::const_iterator m_iter;
+};
+
+
 #endif
