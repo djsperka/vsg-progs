@@ -172,10 +172,31 @@ int main(int argc, char **argv)
 			for (int j = 0; j < 1024; j++)
 			{
 				cout << (unsigned int)pix[j];
-				if (j % 256)
+				if (j % 256 != 255)
 					cout << ",";
-				else 
-					cout << endl;
+				else
+					cout << endl << "-------" << endl;
+			}
+			cout << endl;
+
+
+		}
+		else if (s == "s")
+		{
+			cout << "assume origin at center, pixel units, "
+				"centerxy has no effect here, specify left edge of line." << endl;
+			// half-width of screen, as a positive number
+			cout << "Enter pixel line: ";
+			cin >> i;
+			int status = vsgReadPixelLine(-W/2, -H/2 + i, pix, 1024);
+			cout << "status " << status << endl;
+			for (int j = 0; j < 1024; j++)
+			{
+				cout << (unsigned int)pix[j];
+				if (j % 256 != 255)
+					cout << ",";
+				else
+					cout << endl << "-------" << endl;
 			}
 			cout << endl;
 

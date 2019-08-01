@@ -54,12 +54,37 @@ static void prepare_buffer(GstAppSrc* appsrc)
 
 
 #if 1
-	vsgPaletteRead(&f_lut);
-	//for (int i = 0; i < 10; i++)
-	//{
-	//	cout << (unsigned int)(256 * f_lut[i].a) << "/" << (unsigned int)(256 * f_lut[i].b) << "/" << (unsigned int)(256 * f_lut[i].c) << endl;
-	//}
 
+	VSGPAGEDESCRIPTOR descr;
+	descr._StructSize = sizeof(VSGPAGEDESCRIPTOR);
+	vsgGetCurrentDrawPage(&descr);
+	int iDisp = vsgGetZoneDisplayPage(vsgVIDEOPAGE);
+	bool bTemp = false;
+	//if (descr.Page != iDisp)
+	//{
+	//	string s;
+	//	cout << "counter " << counter << " draw(zone)/disp " << descr.Page << "(" << descr.PageZone << ")/" << iDisp << endl;
+	//}
+	//cout << "counter " << counter << " draw(zone)/disp " << descr.Page << "(" << descr.PageZone << ")/" << iDisp << " LUTstate:" << vsgGetSystemAttribute(vsgLUTCYCLINGSTATE) << endl;
+
+#if 0
+	// Constants used by SetDrawPage, SetDisplayPage
+#define vsgVIDEOPAGE   256   //  Start page of VIDEO memory   
+#define vsgSCRATCHPAGE 512   //  Scratchpad pages in DRAM memory    
+#define vsgOVERLAYPAGE 768   //  Start page of OVERLAY memory 
+#define vsgHOSTPAGE    4096  //  host memory based pages 
+#endif
+
+	vsgPaletteRead(&f_lut);
+	if (counter % 50 == 0)
+	{
+		for (int i = 0; i < 10; i++)
+		{
+			cout << i << ": " << (unsigned int)(256 * f_lut[i].a) << "/" << (unsigned int)(256 * f_lut[i].b) << "/" << (unsigned int)(256 * f_lut[i].c) << endl;
+		}
+		cout << "40: " << (unsigned int)(256 * f_lut[40].a) << "/" << (unsigned int)(256 * f_lut[40].b) << "/" << (unsigned int)(256 * f_lut[40].c) << endl;
+		cout << "41: " << (unsigned int)(256 * f_lut[41].a) << "/" << (unsigned int)(256 * f_lut[41].b) << "/" << (unsigned int)(256 * f_lut[41].c) << endl;
+	}
 
 	auto start_time = std::chrono::high_resolution_clock::now();
 
@@ -88,6 +113,7 @@ static void prepare_buffer(GstAppSrc* appsrc)
 		int units = vsgGetSystemAttribute(vsgSPATIALUNITS);
 		int mode = vsgGetDrawMode();
 		int diff = 0;
+
 		//vsgSetDrawMode(0);
 		//vsgSetSpatialUnits(vsgPIXELUNIT);
 
@@ -97,8 +123,22 @@ static void prepare_buffer(GstAppSrc* appsrc)
 
 		//vsgSetDrawPage(vsgVIDEOPAGE, vsgGetZoneDisplayPage(vsgVIDEOPAGE), vsgNOCLEAR);
 
+
+#ifdef NOSWITCHUNITS
+
 		vsgUnitToUnit(vsgPIXELUNIT, irow, vsgDEGREEUNIT, &pixelLineDeg);
 		vsgReadPixelLine(-halfwidthDeg, -halfheightDeg + pixelLineDeg, f_pline, W);
+
+#else
+
+		int dBefore = vsgGetViewDistMM();
+
+		vsgSetSpatialUnits(vsgPIXELUNIT);
+		int status = vsgReadPixelLine(-W / 2, -H / 2 + irow, f_pline, W);
+		vsgSetSpatialUnits(vsgDEGREEUNIT);
+		int dAfter = vsgGetViewDistMM();
+		if (dBefore != dAfter) cout << "VIEW DIST " << dBefore << "/" << dAfter << endl;
+#endif
 
 		//if (irow == 0)
 		//	cout << "row 0: " << (unsigned int)f_pline[0] << "," << (unsigned int)f_pline[1] << endl;
@@ -116,10 +156,10 @@ static void prepare_buffer(GstAppSrc* appsrc)
 			f_prgb[ind]   = (uint8_t)(256*f_lut[f_pline[icol]].a);
 			f_prgb[ind+1] = (uint8_t)(256*f_lut[f_pline[icol]].b);
 			f_prgb[ind+2] = (uint8_t)(256*f_lut[f_pline[icol]].c);
-			//if (f_pline[icol] != 253) diff++;
+			if (f_pline[icol] != 253) diff++;
 		}
 
-		//if (diff > 0) cout << irow << "/" << diff << " ";
+		//if (diff > 0) cout << irow << "/" << diff << " " << endl;
 	}
 	//cout << endl;
 	counter++;
