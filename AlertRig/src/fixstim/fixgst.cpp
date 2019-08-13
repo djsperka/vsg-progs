@@ -54,7 +54,6 @@ static void prepare_buffer(GstAppSrc* appsrc)
 
 
 #if 1
-
 	VSGPAGEDESCRIPTOR descr;
 	descr._StructSize = sizeof(VSGPAGEDESCRIPTOR);
 	vsgGetCurrentDrawPage(&descr);
@@ -113,17 +112,6 @@ static void prepare_buffer(GstAppSrc* appsrc)
 		int units = vsgGetSystemAttribute(vsgSPATIALUNITS);
 		int mode = vsgGetDrawMode();
 		int diff = 0;
-
-		//vsgSetDrawMode(0);
-		//vsgSetSpatialUnits(vsgPIXELUNIT);
-
-		// assume origin at center, degrees,
-		// centerxy has no effect here, specify upper left corner of screen.
-		// half-width of screen, as a positive number
-
-		//vsgSetDrawPage(vsgVIDEOPAGE, vsgGetZoneDisplayPage(vsgVIDEOPAGE), vsgNOCLEAR);
-
-
 #ifdef NOSWITCHUNITS
 
 		vsgUnitToUnit(vsgPIXELUNIT, irow, vsgDEGREEUNIT, &pixelLineDeg);
@@ -139,6 +127,8 @@ static void prepare_buffer(GstAppSrc* appsrc)
 		int dAfter = vsgGetViewDistMM();
 		if (dBefore != dAfter) cout << "VIEW DIST " << dBefore << "/" << dAfter << endl;
 #endif
+		vsgUnitToUnit(vsgPIXELUNIT, irow, vsgDEGREEUNIT, &pixelLineDeg);
+		vsgReadPixelLine(-halfwidthDeg, -halfheightDeg + pixelLineDeg, f_pline, W);
 
 		//if (irow == 0)
 		//	cout << "row 0: " << (unsigned int)f_pline[0] << "," << (unsigned int)f_pline[1] << endl;

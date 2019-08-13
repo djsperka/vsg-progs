@@ -172,6 +172,7 @@ int main(int argc, char **argv)
 			for (int j = 0; j < 1024; j++)
 			{
 				cout << (unsigned int)pix[j];
+
 				if (j % 256 != 255)
 					cout << ",";
 				else
