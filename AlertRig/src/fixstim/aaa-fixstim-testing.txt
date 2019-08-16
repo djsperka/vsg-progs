@@ -126,3 +126,33 @@ Matlab> evert('input.jpg', 'Color', 230, 'Output', 'input.bmp')
 ** Not every image looks great when doing this conversion! 
 
 
+Border ownership
+Args to BorderStimSet: 
+-c x,y,size0,size1,color0,color1,n,m,...
+where...
+x,y are receptive field center. Center edge of square will lay on this point
+size0,size1 are the sizes (in degrees) of two different squares = size across square
+color0,color1 are two colors, one will be foreground color, one will be background for stim
+n,m,... integers where the bits have the following meaning:
+
+bit 0-2: orientation
+	0 = 0 degrees
+	1 = 45 degrees
+	2 = 90 degrees
+	3 = 135 degrees
+	4 = 180 degrees
+	5 = 225 degrees
+	6 = 270 degrees
+	7 = 315 degrees
+    * Note that bit 2 specifies the "side" specified in Shude's doc. 
+
+bit 3: local color. If not set, square will be color0, background color1. If set, switch them around.
+bit 4: size. If set, square will be size1. If unset, size0. 
+
+
+
+remote.exe 127.0.0.1 7000 fixstim \
+							-a -b gray -d 500 \
+							-c 0,0,4,8,white,black,0,4,1,5
+
+

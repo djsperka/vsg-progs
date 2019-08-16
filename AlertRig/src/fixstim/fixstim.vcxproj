@@ -183,6 +183,7 @@
     <ClCompile Include="AttentionStimSet.cpp" />
     <ClCompile Include="BarUStim.cpp" />
     <ClCompile Include="BeatUStim.cpp" />
+    <ClCompile Include="BorderStimSet.cpp" />
     <ClCompile Include="CalibrationUStim.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Use</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Use</PrecompiledHeader>
@@ -268,6 +269,7 @@
     <ClInclude Include="AttentionStimSet.h" />
     <ClInclude Include="BarUStim.h" />
     <ClInclude Include="BeatUStim.h" />
+    <ClInclude Include="BorderStimSet.h" />
     <ClInclude Include="CalibrationUStim.h" />
     <ClInclude Include="CMouseUStim.h" />
     <ClInclude Include="EQStimSet.h" />

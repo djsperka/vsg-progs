@@ -123,6 +123,7 @@ void make_argv(std::ifstream& ifs, int& argc, char **argv);
 void free_argv(int& argc, char **argv);
 const char* get_msequence();
 
+
 /*
  * prargs
  * 

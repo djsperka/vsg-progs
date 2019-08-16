@@ -718,7 +718,6 @@ int parse_triplet(std::string s, double& i_d1, double& i_d2, double& i_d3)
 	return status;
 }
 
-
 int parse_int_list(std::string s, std::vector<int>& list)
 {
 	int status=0;

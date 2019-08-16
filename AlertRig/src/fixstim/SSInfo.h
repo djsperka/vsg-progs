@@ -84,7 +84,7 @@ public:
 	double getT2() const { return m_t2; };
 	double getT3() const { return m_t3; };
 	int getCBase() const { return m_cbase; };
-	unsigned int getSize() const { return m_vecT1.size(); };
+	size_t getSize() const { return m_vecT1.size(); };
 	bool getUseAnswerPoints() const { return m_bUseAnswerPoints; };
 	void getAnswerPointParameters(int& iCUpContrast, int& iCSameContrast, double& tAnswerPoint)
 	{
@@ -408,7 +408,7 @@ public:
 
 
 		// Verify that the per-trial lines all have the same number of elements
-		unsigned int n = ssinfo.m_vecT1.size();
+		size_t n = ssinfo.m_vecT1.size();
 		if (ssinfo.m_vecCUp.size() != n)
 		{
 			cerr << "Error in input: There are " << n << " values for t1, but " << ssinfo.m_vecCUp.size() << " values for CUp." << endl;

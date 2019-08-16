@@ -5,13 +5,14 @@
 #include "FXImageStimSet.h"
 #include "SequencedAttentionStimSet.h"
 #include "MelStimSet.h"
+#include "BorderStimSet.h"
 #include <iostream>
 #include <boost/algorithm/string.hpp>
 using namespace std;
 using namespace boost::algorithm;
 using namespace boost::filesystem;
 
-const string FixUStim::m_allowedArgs("ab:d:e:f:g:h:i:j:k:l:m:n:o:q:p:r:t:s:vy:zA:B:C:D:E:G:H:I:J:KL:M:NO:P:Q:R:S:T:U:V:W:X:Y:Z:");
+const string FixUStim::m_allowedArgs("ab:c:d:e:f:g:h:i:j:k:l:m:n:o:q:p:r:t:s:vy:zA:B:C:D:E:G:H:I:J:KL:M:NO:P:Q:R:S:T:U:V:W:X:Y:Z:");
 
 FixUStim::FixUStim(bool bStandAlone)
 	: UStim()
@@ -505,6 +506,13 @@ int FixUStim::process_arg(int c, std::string& arg)
 		}
 		break;
 	}
+	case 'c':
+	{
+		// border ownership
+		// args -c sz0,sz1,c0,c1,n0,n1,n2,...
+		m_pStimSet = parseBorderStimSet(arg);
+		break;
+	}
 	case 'O':
 	case 'T':
 	case 'S':
@@ -553,7 +561,7 @@ int FixUStim::process_arg(int c, std::string& arg)
 			else
 			{
 				MultiParameterFXMultiGStimSet* pmulti = static_cast<MultiParameterFXMultiGStimSet*>(m_pStimSet);
-				int stimIndex;
+				size_t stimIndex;
 				if (last_was_fixpt) stimIndex = -1;
 				else if (last_was_grating) stimIndex = pmulti->count() - 1;
 				else stimIndex = pmulti->distractor_count() - 1;
