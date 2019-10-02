@@ -7,6 +7,8 @@ class FXImageStimSet :
 	public FXStimSet
 {
 private:
+	double m_x, m_y;// where to draw images (fixpt can/will have its own location)
+	int m_lowwater, m_highwater;	// for loading/caching images 
 	std::vector<std::string> m_images;	// filenames, verified to exist
 	std::vector<std::string>::const_iterator m_iter;	// points to current image. Advance prior to new trial (except for first)
 	int m_pageBlank;
@@ -19,8 +21,8 @@ private:
 public:
 	virtual ~FXImageStimSet();
 	//FXImageStimSet(ARContrastFixationPointSpec& fixpt);	// all images added at constructor time. sorry.
-	FXImageStimSet(ARContrastFixationPointSpec& fixpt, const std::vector<std::string>& vecImages);
-	FXImageStimSet(const std::vector<std::string>& vecImages);
+	FXImageStimSet(ARContrastFixationPointSpec& fixpt, const std::vector<std::string>& vecImages, double x=0, double y=0, int low_water=0, int high_water=0);
+	FXImageStimSet(const std::vector<std::string>& vecImages, double x=0, double y=0, int low_water=0, int high_water=0);
 
 	//void addImages(const std::vector<std::string>& vecImages);
 

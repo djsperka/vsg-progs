@@ -343,21 +343,38 @@ int FixUStim::process_arg(int c, std::string& arg)
 	case 'i':
 	{
 		cerr << "Got image arg " << arg;
-		path p(arg);
+
+		// parse image arg
+		// -i filename								load on demand, display each at 0,0
+		// -i filename,x,y							load on demand, display each at x,y
+		// -i filename,x,y,low_water,high_water		cache images, when num falls below low_water, load until high_water reached (or we run out of images)
+
+		int low = 0, hi = 0;
+		double x = 0, y = 0;
+		string filename;
+
+		if (!parseImageArg(arg, filename, x, y, low, hi))
+		{
+			cerr << "Error parsing image argument: " << arg << endl;
+			m_errflg++;
+			break;
+		}
+
+		path p(filename);
 		if (!exists(p))
 		{
-			cerr << "Error: image list file does not exist: " << arg << endl;
+			cerr << "Error: image list file does not exist: " << filename << endl;
 			m_errflg++;
 		}
 		else
 		{
-			cerr << "Found image list file " << arg << endl;
+			cerr << "Found image list file " << filename << endl;
 
 			// open file, read line-by-line and parse
 			string line;
 			int linenumber = 0;
 			int imagecount = 0;
-			std::ifstream myfile(arg.c_str());
+			std::ifstream myfile(filename.c_str());
 			vector<string> images;
 			if (myfile.is_open())
 			{
@@ -380,16 +397,16 @@ int FixUStim::process_arg(int c, std::string& arg)
 
 				if (have_fixpt)
 				{
-					m_pStimSet = new FXImageStimSet(m_fixpt, images);
+					m_pStimSet = new FXImageStimSet(m_fixpt, images, x, y, low, hi);
 				}
 				else
 				{
-					m_pStimSet = new FXImageStimSet(images);
+					m_pStimSet = new FXImageStimSet(images, x, y, low, hi);
 				}
 			}
 			else
 			{
-				cerr << "Cannot open image list file " << arg << endl;
+				cerr << "Cannot open image list file " << filename << endl;
 				m_errflg++;
 			}
 		}
@@ -1504,4 +1521,51 @@ StimSet* FixUStim::create_stimset(bool bHaveFixpt, ARContrastFixationPointSpec& 
 		pstimset = new T(g, params);
 	}
 	return pstimset;
+}
+
+
+bool FixUStim::parseImageArg(const std::string& arg, std::string& filename, double& x, double& y, int& low_water, int& hi_water)
+{
+	std::vector<std::string> vec;
+	tokenize(arg, vec, ",");
+	cerr << "vec has " << vec.size() << endl;
+	if (vec.size() == 1)
+	{
+		filename = vec[0];
+	}
+	else if (vec.size() == 3 ||  vec.size() == 5)
+	{
+		filename = vec[0];
+
+		// get x,y
+		if (parse_double(vec[1], x))
+		{
+			cerr << "Error parsing image X location: " << vec[1] << endl;
+			return false;
+		}
+		if (parse_double(vec[2], y))
+		{
+			cerr << "Error parsing image Y location: " << vec[2] << endl;
+			return false;
+		}
+		if (vec.size() == 5)
+		{
+			if (parse_integer(vec[3], low_water))
+			{
+				cerr << "Error parsing low water mark: " << vec[3] << endl;
+				return false;
+			}
+			if (parse_integer(vec[4], hi_water))
+			{
+				cerr << "Error parsing high water mark: " << vec[4] << endl;
+				return false;
+			}
+		}
+	}
+	else
+	{
+		cerr << "bad arg for images: must have 1,3, or 5 args" << endl;
+		return false;
+	}
+	return true;
 }

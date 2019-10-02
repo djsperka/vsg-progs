@@ -12,15 +12,23 @@ FXImageStimSet::~FXImageStimSet()
 {
 }
 
-FXImageStimSet::FXImageStimSet(ARContrastFixationPointSpec& fixpt, const std::vector<std::string>& vecImages)
+FXImageStimSet::FXImageStimSet(ARContrastFixationPointSpec& fixpt, const std::vector<std::string>& vecImages, double x, double y, int low, int high)
 	: FXStimSet(fixpt)
+	, m_x(x)
+	, m_y(y)
+	, m_lowwater(low)
+	, m_highwater(high)
 	, m_images(vecImages)
 {
 	m_iter = m_images.begin();
 }
 
-FXImageStimSet::FXImageStimSet(const std::vector<std::string>& vecImages)
+FXImageStimSet::FXImageStimSet(const std::vector<std::string>& vecImages, double x, double y, int low, int high)
 	: FXStimSet()
+	, m_x(x)
+	, m_y(y)
+	, m_lowwater(low)
+	, m_highwater(high)
 	, m_images(vecImages)
 {
 	m_iter = m_images.begin();
@@ -138,7 +146,7 @@ int FXImageStimSet::drawCurrent()
 		else
 			vsgPaletteWrite((VSGLUTBUFFER*)palImage, 0, 230);
 
-		diStatus = vsgDrawImage(vsgBMPPICTURE, 0, 0, filename);
+		diStatus = vsgDrawImage(vsgBMPPICTURE, m_x, m_y, filename);
 	}
 	else
 	{
