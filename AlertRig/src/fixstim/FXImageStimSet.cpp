@@ -19,8 +19,8 @@ FXImageStimSet::FXImageStimSet(ARContrastFixationPointSpec& fixpt, const std::ve
 	, m_lowwater(low)
 	, m_highwater(high)
 	, m_images(vecImages)
+	, m_current(0)
 {
-	m_iter = m_images.begin();
 }
 
 FXImageStimSet::FXImageStimSet(const std::vector<std::string>& vecImages, double x, double y, int low, int high)
@@ -30,8 +30,8 @@ FXImageStimSet::FXImageStimSet(const std::vector<std::string>& vecImages, double
 	, m_lowwater(low)
 	, m_highwater(high)
 	, m_images(vecImages)
+	, m_current(0)
 {
-	m_iter = m_images.begin();
 }
 
 std::string FXImageStimSet::toString() const
@@ -64,6 +64,47 @@ int FXImageStimSet::init(ARvsg& vsg, std::vector<int> pages)
 		fixpt().setContrast(100);
 	}
 
+	if (m_highwater > 0)
+	{
+		cerr << "Loading images from list file..." << endl;
+		double w, h;
+		int currentUnits;
+
+		// load palette
+		vsgSetCommand(vsgPALETTERAMP);
+
+		// get resolution of images. Assume first image same as all of them. 
+		currentUnits = vsgGetSystemAttribute(vsgSPATIALUNITS);
+		vsgSetSpatialUnits(vsgPIXELUNIT);
+
+		char filename[1024];
+		strncpy_s(filename, 1024, m_images[0].c_str(), sizeof(filename));
+
+		status = vsgImageGetSize(0, filename, &w, &h);
+		vsgSetSpatialUnits(currentUnits);
+		cerr << "Got resolution " << w << " x " << h << endl;
+
+		// now load images into host pages, store handles in m_pageHandles
+		for (auto f : m_images)
+		{
+			int i = vsgPAGECreate(vsgHOSTPAGE, (int)w, (int)h, vsg8BITPALETTEMODE);
+			if (i < 0)
+			{
+				cerr << "ERROR loading images: vsgPAGECreate failed." << endl;
+				break;
+			}
+			else
+			{
+				m_pageHandles.push_back(i);
+				strncpy_s(filename, 1024, f.c_str(), sizeof(filename));
+				vsgSetDrawPage(vsgHOSTPAGE, i, vsgNOCLEAR);
+				i=vsgDrawImage(0, 0, 0, filename);
+				//cerr << "Loaded file " << f << " status " << i << endl;
+			}
+		}
+	}
+
+
 	status = drawCurrent();
 
 	return status;
@@ -89,9 +130,9 @@ int FXImageStimSet::handle_trigger(std::string& s)
 	}
 	else if (s == "a")
 	{
-		m_iter++;
-		if (m_iter == m_images.end())
-			m_iter = m_images.begin();
+		m_current++;
+		if (m_current == m_images.size())
+			m_current = 0;
 		drawCurrent();
 		status = 0;
 	}
@@ -121,12 +162,12 @@ int FXImageStimSet::drawCurrent()
 
 	// fixpt + stim page
 	vsgSetDrawPage(vsgVIDEOPAGE, m_pageFixptStim, vsgBACKGROUND);
-	if (m_iter != m_images.end())
+	if (m_highwater == 0)
 	{
 		char filename[1024];
 		int ipal;
 		int mode = vsgGetSystemAttribute(vsgVIDEOMODE);
-		strncpy_s(filename, 1024, m_iter->c_str(), sizeof(filename));
+		strncpy_s(filename, 1024, m_images[m_current].c_str(), sizeof(filename));
 
 		// load palette
 		for (int i = 0; i<256; i++) palImage[i].a = palImage[i].b = palImage[i].c = 0;
@@ -150,7 +191,9 @@ int FXImageStimSet::drawCurrent()
 	}
 	else
 	{
-		cerr << "NO IMAGE TO DRAW!" << endl;
+		vsgSetSpatialUnits(vsgPIXELUNIT);
+		vsgDrawMoveRect(vsgHOSTPAGE, m_pageHandles[m_current], 0, 0, 256, 256, m_x, m_y, 256, 256);
+		vsgSetSpatialUnits(vsgDEGREEUNIT);
 	}
 
 	if (has_fixpt())

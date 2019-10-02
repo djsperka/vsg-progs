@@ -380,12 +380,12 @@ int FixUStim::process_arg(int c, std::string& arg)
 			{
 				while (getline(myfile, line))
 				{
-					cerr << "Found filename " << line << endl;
+					//cerr << "Found filename " << line << endl;
 					// verify file exists
 					path image(line);
 					if (exists(image))
 					{
-						cerr << "image file exists: " << image << endl;
+						//cerr << "image file exists: " << image << endl;
 						images.push_back(line);
 					}
 					else
@@ -394,6 +394,7 @@ int FixUStim::process_arg(int c, std::string& arg)
 					}
 				}
 				myfile.close();
+				cerr << "Loaded " << images.size() << " image files." << endl;
 
 				if (have_fixpt)
 				{

@@ -10,6 +10,8 @@ private:
 	double m_x, m_y;// where to draw images (fixpt can/will have its own location)
 	int m_lowwater, m_highwater;	// for loading/caching images 
 	std::vector<std::string> m_images;	// filenames, verified to exist
+	std::vector<int> m_pageHandles;
+	size_t m_current;
 	std::vector<std::string>::const_iterator m_iter;	// points to current image. Advance prior to new trial (except for first)
 	int m_pageBlank;
 	int m_pageFixpt;
