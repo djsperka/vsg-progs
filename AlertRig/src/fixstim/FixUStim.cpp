@@ -352,9 +352,10 @@ int FixUStim::process_arg(int c, std::string& arg)
 		int low = 0, hi = 0;
 		double x = 0, y = 0;
 		double duration = 0;
+		int nlevels = 0;
 		string filename;
 
-		if (!parseImageArg(arg, filename, x, y, duration, low, hi))
+		if (!parseImageArg(arg, filename, x, y, duration, nlevels, low, hi))
 		{
 			cerr << "Error parsing image argument: " << arg << endl;
 			m_errflg++;
@@ -399,11 +400,11 @@ int FixUStim::process_arg(int c, std::string& arg)
 
 				if (have_fixpt)
 				{
-					m_pStimSet = new FXImageStimSet(m_fixpt, images, x, y, duration, low, hi);
+					m_pStimSet = new FXImageStimSet(m_fixpt, images, x, y, duration, nlevels, low, hi);
 				}
 				else
 				{
-					m_pStimSet = new FXImageStimSet(images, x, y, duration, low, hi);
+					m_pStimSet = new FXImageStimSet(images, x, y, duration, nlevels, low, hi);
 				}
 			}
 			else
@@ -1526,7 +1527,7 @@ StimSet* FixUStim::create_stimset(bool bHaveFixpt, ARContrastFixationPointSpec& 
 }
 
 
-bool FixUStim::parseImageArg(const std::string& arg, std::string& filename, double& x, double& y, double& duration, int& low_water, int& hi_water)
+bool FixUStim::parseImageArg(const std::string& arg, std::string& filename, double& x, double& y, double& duration, int& nlevels, int& low_water, int& hi_water)
 {
 	std::vector<std::string> vec;
 	tokenize(arg, vec, ",");
@@ -1540,8 +1541,15 @@ bool FixUStim::parseImageArg(const std::string& arg, std::string& filename, doub
 	// "filename,x,y,seconds,low,hi"	with low,high water marks for caching stim. Not implemented, but if 
 	//									hi>0 we load ALL images (no test for available memory!)
 
+	// initialize 
+	nlevels = 230;
+	x = y = 0;
+	duration = 0;
+	low_water = hi_water = 0;
+
+	// check for correct number of tokens
 	if (vec.size() == 1 || vec.size() == 3 || vec.size() == 4 ||
-		vec.size() == 6)
+		vec.size() == 5 || vec.size() == 7)
 	{
 		filename = vec[0];
 		if (vec.size() > 1)
@@ -1569,22 +1577,31 @@ bool FixUStim::parseImageArg(const std::string& arg, std::string& filename, doub
 		}
 		if (vec.size() > 4)
 		{
-			// get lo, hi
-			if (parse_integer(vec[4], low_water))
+			// get nlevels
+			if (parse_integer(vec[4], nlevels))
 			{
-				cerr << "Error parsing low water mark: " << vec[4] << endl;
+				cerr << "Error parsing numlevels: " << vec[4] << endl;
 				return false;
 			}
-			if (parse_integer(vec[5], hi_water))
+		}
+		if (vec.size() > 5)
+		{
+			// get lo, hi
+			if (parse_integer(vec[5], low_water))
 			{
-				cerr << "Error parsing high water mark: " << vec[5] << endl;
+				cerr << "Error parsing low water mark: " << vec[5] << endl;
+				return false;
+			}
+			if (parse_integer(vec[6], hi_water))
+			{
+				cerr << "Error parsing high water mark: " << vec[6] << endl;
 				return false;
 			}
 		}
 	}
 	else
 	{
-		cerr << "bad arg for images: must have 1,3, 4, or 6 args: -i filename[,x,y[,duration[,lo,hi]]]" << endl;
+		cerr << "bad arg for images: must have 1,3, 4, 5, or 6 args: -i filename[,x,y[,duration[,nlevels[,lo,hi]]]]" << endl;
 		return false;
 	}
 	return true;

@@ -12,10 +12,11 @@ FXImageStimSet::~FXImageStimSet()
 {
 }
 
-FXImageStimSet::FXImageStimSet(ARContrastFixationPointSpec& fixpt, const std::vector<std::string>& vecImages, double x, double y, double durationInSec, int low, int high)
+FXImageStimSet::FXImageStimSet(ARContrastFixationPointSpec& fixpt, const std::vector<std::string>& vecImages, double x, double y, double durationInSec, int nlevels, int low, int high)
 	: FXStimSet(fixpt)
 	, m_x(x)
 	, m_y(y)
+	, m_nlevels(nlevels)
 	, m_lowwater(low)
 	, m_highwater(high)
 	, m_bUseCycling(false)
@@ -32,10 +33,11 @@ FXImageStimSet::FXImageStimSet(ARContrastFixationPointSpec& fixpt, const std::ve
 	}
 }
 
-FXImageStimSet::FXImageStimSet(const std::vector<std::string>& vecImages, double x, double y, double durationInSec, int low, int high)
+FXImageStimSet::FXImageStimSet(const std::vector<std::string>& vecImages, double x, double y, double durationInSec, int nlevels, int low, int high)
 	: FXStimSet()
 	, m_x(x)
 	, m_y(y)
+	, m_nlevels(nlevels)
 	, m_lowwater(low)
 	, m_highwater(high)
 	, m_bUseCycling(false)
@@ -73,8 +75,8 @@ int FXImageStimSet::init(ARvsg& vsg, std::vector<int> pages)
 	m_pageFixpt = pages[1];
 	m_pageFixptStim = pages[2];
 
-	// get levels for image. Assuming 230 levels have been used in 'evert'.
-	vsg.request_range(235, m_levelImage);
+	// get levels for image. Default is 230 for historical reasons. 
+	vsg.request_range(m_nlevels, m_levelImage);
 
 	if (has_fixpt())
 	{
@@ -88,9 +90,6 @@ int FXImageStimSet::init(ARvsg& vsg, std::vector<int> pages)
 		double w, h;
 		int currentUnits;
 
-		// load palette
-		vsgSetCommand(vsgPALETTERAMP);
-
 		// get resolution of images. Assume first image same as all of them. 
 		// Need the resolution and position in pixels for the call to vsgDrawMoveRect (and for creating host pages)
 		currentUnits = vsgGetSystemAttribute(vsgSPATIALUNITS);
@@ -102,6 +101,9 @@ int FXImageStimSet::init(ARvsg& vsg, std::vector<int> pages)
 		cerr << "Got resolution (status " << status << ") " << w << " x " << h << " from " << filename << endl;
 		m_imageWPixels = (int)w;
 		m_imageHPixels = (int)h;
+
+		// load palette from the first image
+		loadPaletteFromImage(filename, m_nlevels);
 
 		// convert x,y
 		vsgUnit2Unit(vsgDEGREEUNIT, m_x, vsgPIXELUNIT, &m_imageXPixels);
@@ -204,23 +206,9 @@ int FXImageStimSet::drawCurrent()
 		strncpy_s(filename, 1024, m_images[m_current].c_str(), sizeof(filename));
 
 		// load palette
-		for (int i = 0; i<256; i++) palImage[i].a = palImage[i].b = palImage[i].c = 0;
-		ipal = vsgImageGetPalette(0, filename, &palImage);
-		if (ipal)
-		{
-			switch (ipal)
-			{
-			case vsgerrorERRORREADINGFILE: cerr << "get palette vsgerrorERRORREADINGFILE" << endl; break;
-			case vsgerrorUNSUPPORTEDIMAGETYPE: cerr << "get palette vsgerrorUNSUPPORTEDIMAGETYPE" << endl; break;
-			case vsgerrorUNSUPPORTEDBITMAPFORMAT: cerr << "get palette vsgerrorUNSUPPORTEDBITMAPFORMAT" << endl; break;
-			case vsgerrorOUTOFPCMEMORY: cerr << "get palette vsgerrorOUTOFPCMEMORY" << endl; break;
-			case vsgerrorIMAGEHASNOPALETTE: cerr << "get palette vsgerrorIMAGEHASNOPALETTE" << endl; break;
-			default: cerr << "get palette error: " << ipal << " filename " << filename << " len " << strlen(filename) << endl; break;
-			}
-		}
-		else
-			vsgPaletteWrite((VSGLUTBUFFER*)palImage, 0, 230);
+		loadPaletteFromImage(filename, m_nlevels);
 
+		// draw
 		diStatus = vsgDrawImage(vsgBMPPICTURE, m_x, -m_y, filename);
 	}
 	else
@@ -239,6 +227,32 @@ int FXImageStimSet::drawCurrent()
 	return status;
 }
 
+bool FXImageStimSet::loadPaletteFromImage(char *filename, int nlevels)
+{
+	VSGLUTBUFFER palImage;	// loaded from image
+	int ipal;
+
+	// load palette
+	for (int i = 0; i < 256; i++) palImage[i].a = palImage[i].b = palImage[i].c = 0;
+	ipal = vsgImageGetPalette(0, filename, &palImage);
+	if (ipal)
+	{
+		switch (ipal)
+		{
+		case vsgerrorERRORREADINGFILE: cerr << "get palette vsgerrorERRORREADINGFILE" << endl; break;
+		case vsgerrorUNSUPPORTEDIMAGETYPE: cerr << "get palette vsgerrorUNSUPPORTEDIMAGETYPE" << endl; break;
+		case vsgerrorUNSUPPORTEDBITMAPFORMAT: cerr << "get palette vsgerrorUNSUPPORTEDBITMAPFORMAT" << endl; break;
+		case vsgerrorOUTOFPCMEMORY: cerr << "get palette vsgerrorOUTOFPCMEMORY" << endl; break;
+		case vsgerrorIMAGEHASNOPALETTE: cerr << "get palette vsgerrorIMAGEHASNOPALETTE" << endl; break;
+		default: cerr << "get palette error: " << ipal << " filename " << filename << " len " << strlen(filename) << endl; break;
+		}
+		return false;
+	}
+	else
+		vsgPaletteWrite((VSGLUTBUFFER*)palImage, 0, nlevels);
+
+	return true;
+}
 void FXImageStimSet::setupCycling()
 {
 	VSGCYCLEPAGEENTRY cycle[12];	// warning! No check on usage. You have been warned. 
