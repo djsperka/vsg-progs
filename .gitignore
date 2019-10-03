@@ -19,3 +19,5 @@ build/
 /AlertRig/src/ImgOver/Release
 /AlertRig/src/example1/Release
 /AlertRig/src/example1/x64/Release
+.project
+.cproject
