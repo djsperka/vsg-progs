@@ -221,12 +221,12 @@ int FXImageStimSet::drawCurrent()
 		else
 			vsgPaletteWrite((VSGLUTBUFFER*)palImage, 0, 230);
 
-		diStatus = vsgDrawImage(vsgBMPPICTURE, m_x, m_y, filename);
+		diStatus = vsgDrawImage(vsgBMPPICTURE, m_x, -m_y, filename);
 	}
 	else
 	{
 		vsgSetSpatialUnits(vsgPIXELUNIT);
-		vsgDrawMoveRect(vsgHOSTPAGE, m_pageHandles[m_current], 0, 0, m_imageWPixels, m_imageHPixels, m_imageXPixels, m_imageYPixels, m_imageWPixels, m_imageHPixels);
+		vsgDrawMoveRect(vsgHOSTPAGE, m_pageHandles[m_current], 0, 0, m_imageWPixels, m_imageHPixels, m_imageXPixels, -m_imageYPixels, m_imageWPixels, m_imageHPixels);
 		vsgSetSpatialUnits(vsgDEGREEUNIT);
 	}
 
