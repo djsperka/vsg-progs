@@ -351,9 +351,10 @@ int FixUStim::process_arg(int c, std::string& arg)
 
 		int low = 0, hi = 0;
 		double x = 0, y = 0;
+		double duration = 0;
 		string filename;
 
-		if (!parseImageArg(arg, filename, x, y, low, hi))
+		if (!parseImageArg(arg, filename, x, y, duration, low, hi))
 		{
 			cerr << "Error parsing image argument: " << arg << endl;
 			m_errflg++;
@@ -398,11 +399,11 @@ int FixUStim::process_arg(int c, std::string& arg)
 
 				if (have_fixpt)
 				{
-					m_pStimSet = new FXImageStimSet(m_fixpt, images, x, y, low, hi);
+					m_pStimSet = new FXImageStimSet(m_fixpt, images, x, y, duration, low, hi);
 				}
 				else
 				{
-					m_pStimSet = new FXImageStimSet(images, x, y, low, hi);
+					m_pStimSet = new FXImageStimSet(images, x, y, duration, low, hi);
 				}
 			}
 			else
@@ -1525,47 +1526,65 @@ StimSet* FixUStim::create_stimset(bool bHaveFixpt, ARContrastFixationPointSpec& 
 }
 
 
-bool FixUStim::parseImageArg(const std::string& arg, std::string& filename, double& x, double& y, int& low_water, int& hi_water)
+bool FixUStim::parseImageArg(const std::string& arg, std::string& filename, double& x, double& y, double& duration, int& low_water, int& hi_water)
 {
 	std::vector<std::string> vec;
 	tokenize(arg, vec, ",");
 	cerr << "vec has " << vec.size() << endl;
-	if (vec.size() == 1)
-	{
-		filename = vec[0];
-	}
-	else if (vec.size() == 3 ||  vec.size() == 5)
-	{
-		filename = vec[0];
 
-		// get x,y
-		if (parse_double(vec[1], x))
+	// can have args like this:
+	// "filename"		just list file (screen pos 0,0)
+	// "filename,x,y"   with position on screen
+	// "filename,x,y,seconds"	with stim duration in sec. If seconds>0, this triggers usage of cycling, 
+	//							which means stim duration is precisely controlled. 
+	// "filename,x,y,seconds,low,hi"	with low,high water marks for caching stim. Not implemented, but if 
+	//									hi>0 we load ALL images (no test for available memory!)
+
+	if (vec.size() == 1 || vec.size() == 3 || vec.size() == 4 ||
+		vec.size() == 6)
+	{
+		filename = vec[0];
+		if (vec.size() > 1)
 		{
-			cerr << "Error parsing image X location: " << vec[1] << endl;
-			return false;
-		}
-		if (parse_double(vec[2], y))
-		{
-			cerr << "Error parsing image Y location: " << vec[2] << endl;
-			return false;
-		}
-		if (vec.size() == 5)
-		{
-			if (parse_integer(vec[3], low_water))
+			// get x,y
+			if (parse_double(vec[1], x))
 			{
-				cerr << "Error parsing low water mark: " << vec[3] << endl;
+				cerr << "Error parsing image X location: " << vec[1] << endl;
 				return false;
 			}
-			if (parse_integer(vec[4], hi_water))
+			if (parse_double(vec[2], y))
 			{
-				cerr << "Error parsing high water mark: " << vec[4] << endl;
+				cerr << "Error parsing image Y location: " << vec[2] << endl;
+				return false;
+			}
+		}
+		if (vec.size() > 3)
+		{
+			// get duration
+			if (parse_double(vec[3], duration))
+			{
+				cerr << "Error parsing stim duration: " << vec[3] << endl;
+				return false;
+			}
+		}
+		if (vec.size() > 4)
+		{
+			// get lo, hi
+			if (parse_integer(vec[4], low_water))
+			{
+				cerr << "Error parsing low water mark: " << vec[4] << endl;
+				return false;
+			}
+			if (parse_integer(vec[5], hi_water))
+			{
+				cerr << "Error parsing high water mark: " << vec[5] << endl;
 				return false;
 			}
 		}
 	}
 	else
 	{
-		cerr << "bad arg for images: must have 1,3, or 5 args" << endl;
+		cerr << "bad arg for images: must have 1,3, 4, or 6 args: -i filename[,x,y[,duration[,lo,hi]]]" << endl;
 		return false;
 	}
 	return true;

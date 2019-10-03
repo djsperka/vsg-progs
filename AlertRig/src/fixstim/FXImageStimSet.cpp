@@ -12,26 +12,44 @@ FXImageStimSet::~FXImageStimSet()
 {
 }
 
-FXImageStimSet::FXImageStimSet(ARContrastFixationPointSpec& fixpt, const std::vector<std::string>& vecImages, double x, double y, int low, int high)
+FXImageStimSet::FXImageStimSet(ARContrastFixationPointSpec& fixpt, const std::vector<std::string>& vecImages, double x, double y, double durationInSec, int low, int high)
 	: FXStimSet(fixpt)
 	, m_x(x)
 	, m_y(y)
 	, m_lowwater(low)
 	, m_highwater(high)
+	, m_bUseCycling(false)
 	, m_images(vecImages)
 	, m_current(0)
 {
+	if (durationInSec <= 0)
+		m_stimDurationFrames = 0;
+	else
+	{
+		int f = vsgGetSystemAttribute(vsgFRAMETIME);
+		m_stimDurationFrames = durationInSec / f * 1000000.0f;
+		m_bUseCycling = true;
+	}
 }
 
-FXImageStimSet::FXImageStimSet(const std::vector<std::string>& vecImages, double x, double y, int low, int high)
+FXImageStimSet::FXImageStimSet(const std::vector<std::string>& vecImages, double x, double y, double durationInSec, int low, int high)
 	: FXStimSet()
 	, m_x(x)
 	, m_y(y)
 	, m_lowwater(low)
 	, m_highwater(high)
+	, m_bUseCycling(false)
 	, m_images(vecImages)
 	, m_current(0)
 {
+	if (durationInSec <= 0)
+		m_stimDurationFrames = 0;
+	else
+	{
+		int f = vsgGetSystemAttribute(vsgFRAMETIME);
+		m_stimDurationFrames = durationInSec / f * 1000000.0f;
+		m_bUseCycling = true;
+	}
 }
 
 std::string FXImageStimSet::toString() const
@@ -66,7 +84,7 @@ int FXImageStimSet::init(ARvsg& vsg, std::vector<int> pages)
 
 	if (m_highwater > 0)
 	{
-		cerr << "Loading images from list file..." << endl;
+		cerr << "Preloading " << m_images.size() << " images..." << endl;
 		double w, h;
 		int currentUnits;
 
@@ -74,15 +92,20 @@ int FXImageStimSet::init(ARvsg& vsg, std::vector<int> pages)
 		vsgSetCommand(vsgPALETTERAMP);
 
 		// get resolution of images. Assume first image same as all of them. 
+		// Need the resolution and position in pixels for the call to vsgDrawMoveRect (and for creating host pages)
 		currentUnits = vsgGetSystemAttribute(vsgSPATIALUNITS);
 		vsgSetSpatialUnits(vsgPIXELUNIT);
-
 		char filename[1024];
 		strncpy_s(filename, 1024, m_images[0].c_str(), sizeof(filename));
-
 		status = vsgImageGetSize(0, filename, &w, &h);
 		vsgSetSpatialUnits(currentUnits);
-		cerr << "Got resolution " << w << " x " << h << endl;
+		cerr << "Got resolution (status " << status << ") " << w << " x " << h << " from " << filename << endl;
+		m_imageWPixels = (int)w;
+		m_imageHPixels = (int)h;
+
+		// convert x,y
+		vsgUnit2Unit(vsgDEGREEUNIT, m_x, vsgPIXELUNIT, &m_imageXPixels);
+		vsgUnit2Unit(vsgDEGREEUNIT, m_y, vsgPIXELUNIT, &m_imageYPixels);
 
 		// now load images into host pages, store handles in m_pageHandles
 		for (auto f : m_images)
@@ -99,11 +122,16 @@ int FXImageStimSet::init(ARvsg& vsg, std::vector<int> pages)
 				strncpy_s(filename, 1024, f.c_str(), sizeof(filename));
 				vsgSetDrawPage(vsgHOSTPAGE, i, vsgNOCLEAR);
 				i=vsgDrawImage(0, 0, 0, filename);
-				//cerr << "Loaded file " << f << " status " << i << endl;
+				cerr << "Loaded file " << f << " status " << i << endl;
 			}
 		}
 	}
 
+	if (m_bUseCycling)
+	{
+		cerr << "Set up cycling - stim duration is " << m_stimDurationFrames << " frames." << endl;
+		setupCycling();
+	}
 
 	status = drawCurrent();
 
@@ -126,6 +154,10 @@ int FXImageStimSet::handle_trigger(std::string& s)
 	else if (s == "S")
 	{
 		vsgSetDrawPage(vsgVIDEOPAGE, m_pageFixptStim, vsgNOCLEAR);
+		if (m_bUseCycling)
+		{
+			vsgSetSynchronisedCommand(vsgSYNC_PRESENT, vsgCYCLEPAGEENABLE, 0);
+		}
 		status = 1;
 	}
 	else if (s == "a")
@@ -139,6 +171,8 @@ int FXImageStimSet::handle_trigger(std::string& s)
 	else if (s == "X")
 	{
 		vsgSetDrawPage(vsgVIDEOPAGE, m_pageBlank, vsgNOCLEAR);
+		if (m_bUseCycling)
+			vsgSetCommand(vsgCYCLEPAGEDISABLE);
 		status = 1;
 	}
 	return status;
@@ -192,7 +226,7 @@ int FXImageStimSet::drawCurrent()
 	else
 	{
 		vsgSetSpatialUnits(vsgPIXELUNIT);
-		vsgDrawMoveRect(vsgHOSTPAGE, m_pageHandles[m_current], 0, 0, 256, 256, m_x, m_y, 256, 256);
+		vsgDrawMoveRect(vsgHOSTPAGE, m_pageHandles[m_current], 0, 0, m_imageWPixels, m_imageHPixels, m_imageXPixels, m_imageYPixels, m_imageWPixels, m_imageHPixels);
 		vsgSetSpatialUnits(vsgDEGREEUNIT);
 	}
 
@@ -204,3 +238,24 @@ int FXImageStimSet::drawCurrent()
 	vsgSetDrawPage(vsgVIDEOPAGE, m_pageBlank, vsgBACKGROUND);
 	return status;
 }
+
+void FXImageStimSet::setupCycling()
+{
+	VSGCYCLEPAGEENTRY cycle[12];	// warning! No check on usage. You have been warned. 
+	int status = 0;
+	int count = 0;
+
+	memset(cycle, 0, sizeof(cycle));
+
+	cycle[count].Frames = m_stimDurationFrames;
+	cycle[count].Page = m_pageFixptStim + vsgTRIGGERPAGE;
+	cycle[count].Stop = 0;
+	count++;
+	cycle[count].Frames = 0;
+	cycle[count].Page = m_pageBlank + vsgTRIGGERPAGE;
+	cycle[count].Stop = 1;
+	count++;
+
+	status = vsgPageCyclingSetup(count, &cycle[0]);
+}
+
