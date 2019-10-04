@@ -35,7 +35,7 @@ CMouseUStim::CMouseUStim()
 , m_alert(false)
 , m_allowq(false)
 , m_pulse(0x40)
-, m_sleepMS(100)
+, m_sleepMS(0)
 , m_bFixationOn(false)
 , m_bUseRegDump(false)
 , m_bMouseControl(true)
@@ -356,7 +356,8 @@ void CMouseUStim::doMouseKBLoop()
 	// loop forever until 'q' is hit on keyboard or a quit signal is received on digition IO lines
 	while(!bQuit)
 	{
-		Sleep(m_sleepMS);
+		if (m_sleepMS > 0)
+			Sleep(m_sleepMS);
 
 		// get cursor position if mouse is on.
 		// Convert to degrees outside the if(bMouseOn) because arrow keys may have moved position.
