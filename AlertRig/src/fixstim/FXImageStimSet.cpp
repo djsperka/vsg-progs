@@ -28,7 +28,7 @@ FXImageStimSet::FXImageStimSet(ARContrastFixationPointSpec& fixpt, const std::ve
 	else
 	{
 		int f = vsgGetSystemAttribute(vsgFRAMETIME);
-		m_stimDurationFrames = durationInSec / f * 1000000.0f;
+		m_stimDurationFrames = (int)(durationInSec / f * 1000000.0);
 		m_bUseCycling = true;
 	}
 }
@@ -49,7 +49,7 @@ FXImageStimSet::FXImageStimSet(const std::vector<std::string>& vecImages, double
 	else
 	{
 		int f = vsgGetSystemAttribute(vsgFRAMETIME);
-		m_stimDurationFrames = durationInSec / f * 1000000.0f;
+		m_stimDurationFrames = (int)(durationInSec / f * 1000000.0);
 		m_bUseCycling = true;
 	}
 }
@@ -112,19 +112,30 @@ int FXImageStimSet::init(ARvsg& vsg, std::vector<int> pages)
 		// now load images into host pages, store handles in m_pageHandles
 		for (auto f : m_images)
 		{
-			int i = vsgPAGECreate(vsgHOSTPAGE, (int)w, (int)h, vsg8BITPALETTEMODE);
-			if (i < 0)
+
+			// check if this filename has already been loaded
+			if (m_pageHandleMap.count(f) == 0)
 			{
-				cerr << "ERROR loading images: vsgPAGECreate failed." << endl;
-				break;
+				int i = vsgPAGECreate(vsgHOSTPAGE, (int)w, (int)h, vsg8BITPALETTEMODE);
+				if (i < 0)
+				{
+					cerr << "ERROR loading images: vsgPAGECreate failed." << endl;
+					break;
+				}
+				else
+				{
+					int st;
+					//m_pageHandles.push_back(i);
+					m_pageHandleMap[f] = i;
+					strncpy_s(filename, 1024, f.c_str(), sizeof(filename));
+					vsgSetDrawPage(vsgHOSTPAGE, i, vsgNOCLEAR);
+					st = vsgDrawImage(0, 0, 0, filename);
+					cerr << "Loaded file " << f << " handle " << i << " status " << st << endl;
+				}
 			}
 			else
 			{
-				m_pageHandles.push_back(i);
-				strncpy_s(filename, 1024, f.c_str(), sizeof(filename));
-				vsgSetDrawPage(vsgHOSTPAGE, i, vsgNOCLEAR);
-				i=vsgDrawImage(0, 0, 0, filename);
-				cerr << "Loaded file " << f << " status " << i << endl;
+				cerr << "File " << f << " already loaded, handle " << m_pageHandleMap[f] << endl;
 			}
 		}
 	}
@@ -139,11 +150,6 @@ int FXImageStimSet::init(ARvsg& vsg, std::vector<int> pages)
 
 	return status;
 }
-
-void FXImageStimSet::cleanup(std::vector<int> pages)
-{
-}
-
 
 int FXImageStimSet::handle_trigger(std::string& s)
 {
@@ -187,7 +193,6 @@ int FXImageStimSet::drawCurrent()
 	static int ihack = 0;
 	int status = 0;
 	int diStatus;
-	VSGLUTBUFFER palImage;	// loaded from image
 
 	// fixpt page
 	vsgSetDrawPage(vsgVIDEOPAGE, m_pageFixpt, vsgBACKGROUND);
@@ -201,7 +206,6 @@ int FXImageStimSet::drawCurrent()
 	if (m_highwater == 0)
 	{
 		char filename[1024];
-		int ipal;
 		int mode = vsgGetSystemAttribute(vsgVIDEOMODE);
 		strncpy_s(filename, 1024, m_images[m_current].c_str(), sizeof(filename));
 
@@ -213,9 +217,15 @@ int FXImageStimSet::drawCurrent()
 	}
 	else
 	{
-		vsgSetSpatialUnits(vsgPIXELUNIT);
-		vsgDrawMoveRect(vsgHOSTPAGE, m_pageHandles[m_current], 0, 0, m_imageWPixels, m_imageHPixels, m_imageXPixels, -m_imageYPixels, m_imageWPixels, m_imageHPixels);
-		vsgSetSpatialUnits(vsgDEGREEUNIT);
+		//vsgSetSpatialUnits(vsgPIXELUNIT);
+		//vsgDrawMoveRect(vsgHOSTPAGE, m_pageHandles[m_current], 0, 0, m_imageWPixels, m_imageHPixels, m_imageXPixels, -m_imageYPixels, m_imageWPixels, m_imageHPixels);
+		//vsgSetSpatialUnits(vsgDEGREEUNIT);
+		if (m_pageHandleMap.count(m_images[m_current]) > 0)
+		{
+			vsgSetSpatialUnits(vsgPIXELUNIT);
+			vsgDrawMoveRect(vsgHOSTPAGE, m_pageHandleMap[m_images[m_current]], 0, 0, m_imageWPixels, m_imageHPixels, m_imageXPixels, -m_imageYPixels, m_imageWPixels, m_imageHPixels);
+			vsgSetSpatialUnits(vsgDEGREEUNIT);
+		}
 	}
 
 	if (has_fixpt())
@@ -273,3 +283,12 @@ void FXImageStimSet::setupCycling()
 	status = vsgPageCyclingSetup(count, &cycle[0]);
 }
 
+void FXImageStimSet::cleanup(std::vector<int> pages)
+{
+	// free memory associated with page handles, if needed
+	for (auto p : m_pageHandleMap)
+	{
+		vsgPAGEDelete(p.second);
+	}
+	m_pageHandleMap.clear();
+}

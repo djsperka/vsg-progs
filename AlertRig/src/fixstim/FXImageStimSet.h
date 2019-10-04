@@ -2,6 +2,7 @@
 #include "StimSet.h"
 #include <string>
 #include <vector>
+#include <map>
 
 class FXImageStimSet :
 	public FXStimSet
@@ -15,7 +16,8 @@ private:
 	double m_imageXPixels, m_imageYPixels;
 	int m_imageWPixels, m_imageHPixels;
 	std::vector<std::string> m_images;	// filenames, verified to exist
-	std::vector<int> m_pageHandles;
+	//std::vector<int> m_pageHandles;
+	std::map<std::string, int> m_pageHandleMap;
 	size_t m_current;
 	std::vector<std::string>::const_iterator m_iter;	// points to current image. Advance prior to new trial (except for first)
 	int m_pageBlank;
