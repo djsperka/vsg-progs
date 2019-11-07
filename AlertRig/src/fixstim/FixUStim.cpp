@@ -6,13 +6,15 @@
 #include "SequencedAttentionStimSet.h"
 #include "MelStimSet.h"
 #include "BorderStimSet.h"
+#include "PlaidStimSet.h"
 #include <iostream>
 #include <boost/algorithm/string.hpp>
+#include <boost/regex.hpp>
 using namespace std;
 using namespace boost::algorithm;
 using namespace boost::filesystem;
 
-const string FixUStim::m_allowedArgs("ab:c:d:e:f:g:h:i:j:k:l:m:n:o:q:p:r:t:s:vy:zA:B:C:D:E:G:H:I:J:KL:M:NO:P:Q:R:S:T:U:V:W:X:Y:Z:");
+const string FixUStim::m_allowedArgs("ab:c:d:e:f:g:h:i:j:k:l:m:n:o:q:p:r:t:s:vx:y:zA:B:C:D:E:G:H:I:J:KL:M:NO:P:Q:R:S:T:U:V:W:X:Y:Z:");
 
 FixUStim::FixUStim(bool bStandAlone)
 	: UStim()
@@ -42,19 +44,9 @@ FixUStim::~FixUStim()
 
 bool FixUStim::parse(int argc, char **argv)
 {
-	bool b = false;
 	int status;
 	status = prargs(argc, argv, (process_args_func)NULL, m_allowedArgs.c_str(), 'F', this);
-	if (!status)
-	{
-		b = true;
-		if (m_dumpStimSetsOnly)
-		{
-			cout << *m_pStimSet << endl;
-			b = false;
-		}
-	}
-	return b;
+	return !status;
 }
 
 void FixUStim::run_stim(alert::ARvsg& vsg)
@@ -150,7 +142,7 @@ void FixUStim::run_stim(alert::ARvsg& vsg)
 		}
 
 		TriggerFunc	tf = std::for_each(triggers().begin(), triggers().end(),
-			(m_binaryTriggers ? TriggerFunc(input_trigger, last_output_trigger, false) : TriggerFunc(s, last_output_trigger)));
+			(m_binaryTriggers ? TriggerFunc(input_trigger, last_output_trigger, m_verbose) : TriggerFunc(s, last_output_trigger, m_verbose)));
 
 		// Now analyze input trigger
 
@@ -1109,6 +1101,7 @@ int FixUStim::process_arg(int c, std::string& arg)
 		}
 		break;
 	}
+#if 0
 	case 'I':			// master stim
 	case 'U':			// slave stim
 	{
@@ -1155,6 +1148,7 @@ int FixUStim::process_arg(int c, std::string& arg)
 		m_pStimSet = (StimSet*)pss;
 		break;
 	}
+#endif
 	case 'Q':
 	case 'q':
 	case 'r':
@@ -1341,7 +1335,7 @@ int FixUStim::process_arg(int c, std::string& arg)
 		//
 		// -W /path/to/file[,ip:port]
 		// 
-
+		
 		vector<string> argStrings;
 		const char *pIPPort = (char *)NULL;	// non-NULL when ip:port arg given
 
@@ -1437,6 +1431,38 @@ int FixUStim::process_arg(int c, std::string& arg)
 		}
 		break;
 	}
+	case 'x':
+	{
+		// arg 
+		// -x <contrast>,<tf>,<ori>
+		// where 
+		// <contrast> is a single value between 0-100
+		// <tf> is a single value >= 0
+		// <ori> is a single value 0<ori<360 OR [ori0,ori1,ori2,...]
+
+		std::vector<int> vecContrast;
+		std::vector<double> vecSF;	// not used
+		std::vector<double> vecTF;
+		std::vector<double> vecOri;
+		double plX, plY, plX0, plY0;
+		if (!parsePlaidArg(arg, plX, plY, plX0, plY0, vecContrast, vecTF, vecOri))
+		{
+			cerr << "ERROR - cannot parse plaid arg. Expect x,y,w,h,<contrast>,<tf>,<ori>" << endl;
+			m_errflg++;
+		}
+
+		// plaid - must have 2 gratings (-g)
+		if (m_vecGratings.size() != 2)
+		{
+			cerr << "ERROR - must have two(2) grating specs (-s) prior to plaid arg." << endl;
+			m_errflg++;
+		}
+		else
+		{
+			m_pStimSet = new PlaidStimSet(m_vecGratings[0], m_vecGratings[1], vecContrast, vecSF, vecTF, vecOri);
+		}
+		break;
+	}
 	case 0:
 	{
 		if (!m_pStimSet)
@@ -1456,6 +1482,60 @@ int FixUStim::process_arg(int c, std::string& arg)
 
 
 	return m_errflg;
+}
+
+
+bool FixUStim::parsePlaidArg(const std::string& arg, double& plX, double &plY, double& plW, double& plH, std::vector<int>& vecContrast, std::vector<double>& vecTF, std::vector<double>& vecOri)
+{
+	std::string intrx("[-+]?[0-9]+");
+	std::string fltrx("[-+]?[0-9]*\\.?[0-9]+");
+	std::string int_single_or_list = "(" + intrx + ")|([\\[](" + intrx + "(," + intrx + ")*)[\\]])";
+	std::string flt_single_or_list = "(" + fltrx + ")|([\\[](" + fltrx + "(," + fltrx + ")*)[\\]])";
+	std::string plaidrx = "(" + fltrx + "),(" + fltrx + "),(" + fltrx + "),(" + fltrx + "),(" + int_single_or_list + "),(" + flt_single_or_list + "),(" + flt_single_or_list + ")";
+	boost::regex e(plaidrx);
+	boost::smatch what;
+	bool b = boost::regex_match(arg, what, e);
+	if (b)
+	{
+		parse_double(what[1], plX);
+		parse_double(what[2], plY);
+		parse_double(what[3], plW);
+		parse_double(what[4], plH);
+
+		// contrast
+		if (what[6].matched)
+			parse_int_list(what[6], vecContrast);
+		else if (what[7].matched)
+			parse_int_list(what[8], vecContrast);
+		else
+		{
+			cerr << "ERROR - no contrast list matched!!!" << endl;
+			return false;
+		}
+
+		// tf
+		if (what[11].matched)
+			parse_number_list(what[11], vecTF);
+		else if (what[12].matched)
+			parse_number_list(what[13], vecTF);
+		else
+		{
+			cerr << "ERROR - no tf list matched!!!" << endl;
+			return false;
+		}
+
+		// ori
+		if (what[16].matched)
+			parse_number_list(what[16], vecOri);
+		else if (what[17].matched)
+			parse_number_list(what[18], vecOri);
+		else
+		{
+			cerr << "ERROR - no contrast list matched!!!" << endl;
+			return false;
+		}
+	}
+	return b;
 }
 
 

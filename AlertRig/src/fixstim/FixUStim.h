@@ -77,6 +77,7 @@ private:
 	MultiParameterFXMultiGStimSet* create_multiparameter_stimset(bool bHaveFixpt, ARContrastFixationPointSpec& fixpt, bool bHaveXhair, ARXhairSpec& xhair, ARGratingSpec& grating);
 	void init_triggers(TSpecificFunctor<FixUStim>* pfunctor);
 	bool parseImageArg(const std::string& arg, std::string& filename, double& x, double& y, double& duration, int& nlevels, int& low_water, int& hi_water);
+	bool parsePlaidArg(const std::string& arg, double& plX, double &plY, double& plX0, double& plY0, std::vector<int>& vecContrast, std::vector<double>& vecTF, std::vector<double>& vecOri);
 
 };
 

@@ -10,6 +10,8 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <cmath>
+#define _USE_MATH_DEFINES
+#include <math.h>
 
 using namespace std;
 using namespace alert;
@@ -1718,4 +1720,128 @@ int ARApertureGratingSpec::draw()
 	vsgDrawGrating(0, 0, dWidth, dHeight, this->orientation, this->sf);
 
 	return 0;
+}
+
+
+int ARPlaidSpec::draw()
+{
+	return drawDriftingPlaid(0, 0);
+}
+
+
+int ARPlaidSpec::drawDriftingPlaid(double xpos, double ypos)
+{
+	double pixelsPerDegree;
+	int W, H;
+	unsigned char *buffer;
+	long units;
+	int xmin, xmax, ymin, ymax;
+
+	// select the object - must have called init()!
+	select();
+
+	// color vector is b-w
+	VSGTRIVAL from, to;
+	from.a = from.b = from.c = 0;
+	to.a = to.b = to.c = 1.0;
+	vsgObjSetColourVector(&from, &to, vsgBIPOLAR);
+	    
+	// set contrast for plaid
+	// drift velocity is implicit in the definition of the plaid pattern (in the drift, that is)
+	// do not set it at the object level (set it to zero just to make sure)
+	vsgObjSetContrast(m_contrast);
+	vsgObjSetTemporalFrequency(0);
+
+	// Now generate the plaid pattern. 
+	// TODO It will have to be larger than the screen size due to drifting, though we can simulate the drift
+	vsgUnit2Unit(vsgDEGREEUNIT, 1.0, vsgPIXELUNIT, &pixelsPerDegree);
+	W = vsgGetScreenWidthPixels();
+	H = vsgGetScreenHeightPixels();
+	if (xpos > 0)
+	{
+		xmin = 0; xmax = W + xpos;
+	}
+	else
+	{
+		xmin = xpos; xmax = W;
+	}
+	if (ypos > 0)
+	{
+		ymin = 0; ymax = H + ypos;
+	}
+	else
+	{
+		ymin = ypos; ymax = H;
+	}
+
+	buffer = new unsigned char[xmax - xmin];
+
+
+	units = vsgGetSystemAttribute(vsgSPATIALUNITS);
+	vsgSetSpatialUnits(vsgPIXELUNIT);
+
+	unsigned int pmin = 9999;
+	unsigned int pmax = 0;
+	double dmin = 9999999;
+	double dmax = -999999;
+	double qmin = 9999999;
+	double qmax = -999999;
+	double C1 = (double)g1().contrast / 100.0;
+	double C2 = (double)g2().contrast / 100.0;
+
+	vsgSetDrawOrigin(0, 0);
+	cerr << "draw xposEnd, yposEnd " << xpos << " " << ypos << endl;
+	cerr << "draw xmin, xmax " << xmin << ", " << xmax << " ymin, ymax " << ymin << ", " << ymax << endl;
+	cerr << "drawPixelLine Y range: " << ymax << " " << ymax - ymin << endl;
+
+	for (int jj = ymin; jj < ymax; jj++)
+	{
+		int j = jj - ymin;
+		for (int ii = xmin; ii < xmax; ii++)
+		{
+			int i = ii - xmin;
+			double d = getFirstLevel() + (getNumLevels() * (0.5 + 0.25 * 
+				(C1 * cos(getGrPhase(i, j, pixelsPerDegree, g1())) + C2 * cos(getGrPhase(i, j, pixelsPerDegree, g2())))));
+			buffer[i] = (unsigned char)d;
+		}
+		vsgDrawPixelLineFast(0, ymax - jj, buffer, xmax-xmin);
+	}
+	vsgSetSpatialUnits(units);
+	delete buffer;
+
+	return 0;
+}
+
+int ARPlaidSpec::drawOverlay()
+{
+	return 0;
+}
+
+double ARPlaidSpec::getGrPhase(double x, double y, double p, const ARPlaidSubGr& gr)
+{
+	double phase = 2 * M_PI * gr.sf / p * ((x - m_x) * gr.calpha() + (y - m_y) * gr.salpha());
+	return phase;
+}
+
+void ARPlaidSpec::setContrast(int contrast)
+{
+	select();
+	m_contrast = contrast;
+	vsgObjSetContrast(contrast);
+};
+
+ARPlaidSubGr::ARPlaidSubGr(double X, double Y, double W, double H, int C, double SF, double TF, double ori)
+	: x(X), y(Y), w(W), h(H)
+	, contrast(C)
+	, sf(SF)
+	, tf(TF)
+	, oriDeg(ori)
+{
+	setRotDeg(0);
+}
+
+void ARPlaidSubGr::setRotDeg(double rotDeg)
+{
+	m_calpha = cos(M_PI * (rotDeg + oriDeg) / 180.0);
+	m_salpha = sin(M_PI * (rotDeg + oriDeg) / 180.0);
 }

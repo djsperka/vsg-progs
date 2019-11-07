@@ -98,6 +98,7 @@ public:
 	const ARGratingSpec& grating() const { return m_grating; };
 };
 
+
 class FXMultiGStimSet : public FXStimSet
 {
 private:
@@ -197,10 +198,6 @@ public:
 	};
 
 };
-
-
-
-
 
 
 
