@@ -6,8 +6,10 @@
 #include <tchar.h>
 
 /* windows.h must be included AFTER winsock2 */
-#include <winsock2.h>
+
+#define _WINSOCKAPI_
 #include <windows.h>
+#include <winsock2.h>
 #include <ws2tcpip.h>
 
 

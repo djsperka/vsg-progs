@@ -1,6 +1,7 @@
 #include "snet.h"
 #include "AClient.h"
 #include "NetworkUtilities.h"
+#include "stdlib.h"
 
 AClient::AClient(char *server_addr, char *server_port)
 {

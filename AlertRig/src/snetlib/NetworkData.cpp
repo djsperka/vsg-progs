@@ -1,4 +1,5 @@
 #include "NetworkData.h"
+#include "stdlib.h"
 
 APacketP createPacket(unsigned int type, unsigned int length)
 {

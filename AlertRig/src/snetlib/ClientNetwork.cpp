@@ -1,6 +1,7 @@
 #include "snet.h"
 #include "ClientNetwork.h"
-
+#include "NetworkServices.h"
+#include "stdlib.h"
 
 ClientNetwork::ClientNetwork(char *server_addr, char *server_port)
 {
