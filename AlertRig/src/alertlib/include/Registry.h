@@ -18,6 +18,7 @@
 #endif
 #endif
 
+#define _WINSOCKAPI_
 #include <windows.h>
 #include <math.h>
 #include <TCHAR.h>
