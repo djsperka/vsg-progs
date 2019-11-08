@@ -20,9 +20,9 @@
 
 #include "Alertlib.h"
 #include "AlertUtil.h"
+#include "ARvsg.h"
 #include "StimSet.h"
 #include "StimSetCRG.h"
-#include "FGGXStimSet.h"
 #include "EQStimSet.h"
 #include "AttentionStimSet.h"
 #include "SSInfo.h"

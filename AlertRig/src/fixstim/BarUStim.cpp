@@ -1,5 +1,5 @@
 #include "BarUStim.h"
-
+#include "ARvsg.h"
 #define BLANK_PAGE 0
 #define FIXPT_PAGE 1
 #define BAR_PAGE 2

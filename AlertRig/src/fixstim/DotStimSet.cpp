@@ -1,5 +1,6 @@
 #define _USE_MATH_DEFINES
 #include <cmath>
+#define _WINSOCKAPI_
 #include <windows.h>
 #include <process.h>
 #include <iostream>
@@ -7,6 +8,7 @@
 #include "StimSet.h"
 
 #include "AlertUtil.h"
+#include "ARvsg.h"
 using namespace std;
 
 

@@ -5,6 +5,7 @@
 
 #include <string>
 #include "alertlib.h"
+#include "Trigger.h"
 
 class UStim
 {

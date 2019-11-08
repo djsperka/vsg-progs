@@ -2,6 +2,7 @@
 
 #include "CMouseUStim.h"
 #include "RegHelper.h"
+#include "ARvsg.h"
 #include <iostream>
 #include <fstream>
 #include <conio.h>

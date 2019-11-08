@@ -2,6 +2,7 @@
 #define _STIMSET_H_
 
 #include "alertlib.h"
+#define _WINSOCKAPI_
 #include <windows.h>	// mutex
 #include <vector>
 #include <string>

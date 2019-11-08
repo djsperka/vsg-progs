@@ -1,6 +1,7 @@
 /* $Id: StarUStim.cpp,v 1.1 2016-04-01 22:26:34 devel Exp $*/
 
 #include "StarUStim.h"
+#include "ARvsg.h"
 
 const string StarUStim::m_allowedArgs("avf:t:g:b:d:ho:p:B:");
 

@@ -1,6 +1,7 @@
 /* $Id: FixUStim.cpp,v 1.11 2016-05-05 18:25:15 devel Exp $*/
 
 #include "FixUStim.h"
+#include "ARvsg.h"
 #include "FXGStimParameterList.h"
 #include "FXImageStimSet.h"
 #include "SequencedAttentionStimSet.h"
@@ -1440,7 +1441,7 @@ int FixUStim::process_arg(int c, std::string& arg)
 		// <tf> is a single value >= 0
 		// <ori> is a single value 0<ori<360 OR [ori0,ori1,ori2,...]
 
-		std::vector<int> vecContrast;
+		std::vector<double> vecContrast;
 		std::vector<double> vecSF;	// not used
 		std::vector<double> vecTF;
 		std::vector<double> vecOri;
@@ -1485,13 +1486,13 @@ int FixUStim::process_arg(int c, std::string& arg)
 }
 
 
-bool FixUStim::parsePlaidArg(const std::string& arg, double& plX, double &plY, double& plW, double& plH, std::vector<int>& vecContrast, std::vector<double>& vecTF, std::vector<double>& vecOri)
+bool FixUStim::parsePlaidArg(const std::string& arg, double& plX, double &plY, double& plW, double& plH, std::vector<double>& vecContrast, std::vector<double>& vecTF, std::vector<double>& vecOri)
 {
 	std::string intrx("[-+]?[0-9]+");
 	std::string fltrx("[-+]?[0-9]*\\.?[0-9]+");
 	std::string int_single_or_list = "(" + intrx + ")|([\\[](" + intrx + "(," + intrx + ")*)[\\]])";
 	std::string flt_single_or_list = "(" + fltrx + ")|([\\[](" + fltrx + "(," + fltrx + ")*)[\\]])";
-	std::string plaidrx = "(" + fltrx + "),(" + fltrx + "),(" + fltrx + "),(" + fltrx + "),(" + int_single_or_list + "),(" + flt_single_or_list + "),(" + flt_single_or_list + ")";
+	std::string plaidrx = "(" + fltrx + "),(" + fltrx + "),(" + fltrx + "),(" + fltrx + "),(" + flt_single_or_list + "),(" + flt_single_or_list + "),(" + flt_single_or_list + ")";
 	boost::regex e(plaidrx);
 	boost::smatch what;
 	bool b = boost::regex_match(arg, what, e);
@@ -1504,9 +1505,9 @@ bool FixUStim::parsePlaidArg(const std::string& arg, double& plX, double &plY, d
 
 		// contrast
 		if (what[6].matched)
-			parse_int_list(what[6], vecContrast);
+			parse_number_list(what[6], vecContrast);
 		else if (what[7].matched)
-			parse_int_list(what[8], vecContrast);
+			parse_number_list(what[8], vecContrast);
 		else
 		{
 			cerr << "ERROR - no contrast list matched!!!" << endl;

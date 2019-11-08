@@ -1,4 +1,5 @@
 #include "BeatUStim.h"
+#include "ARvsg.h"
 
 const string BeatUStim::m_allowedArgs("avb:i:g:p:P:");
 

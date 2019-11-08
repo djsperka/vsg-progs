@@ -1,4 +1,5 @@
 #include "FXImageStimSet.h"
+#include "ARvsg.h"
 #include <sstream>
 
 

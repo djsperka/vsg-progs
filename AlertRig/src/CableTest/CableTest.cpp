@@ -4,6 +4,7 @@
 #include <conio.h>
 #include "vsgv8.h"
 #include "Alertlib.h"
+#define _WINSOCKAPI_
 #include "windows.h"
 
 #ifdef _DEBUG

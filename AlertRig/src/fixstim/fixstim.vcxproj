@@ -193,11 +193,26 @@
     <ClCompile Include="CMouseUStim.cpp" />
     <ClCompile Include="DotStimSet.cpp" />
     <ClCompile Include="EQStimSet.cpp" />
-    <ClCompile Include="FGGXCoreStimSet.cpp" />
-    <ClCompile Include="FGGXDanishStimSet.cpp" />
-    <ClCompile Include="FGGXDonutStimSet.cpp" />
-    <ClCompile Include="FGGXNullStimSet.cpp" />
-    <ClCompile Include="FGGXStimSet.cpp" />
+    <ClCompile Include="FGGXCoreStimSet.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="FGGXDanishStimSet.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="FGGXDonutStimSet.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="FGGXNullStimSet.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="FGGXStimSet.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="fixstim.cpp" />
     <ClCompile Include="FixUStim.cpp" />
     <ClCompile Include="FXImageStimSet.cpp" />

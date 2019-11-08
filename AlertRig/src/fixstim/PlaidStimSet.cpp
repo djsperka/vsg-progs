@@ -3,7 +3,7 @@
 #include <math.h>
 #include <iostream>
 
-PlaidStimSet::PlaidStimSet(const ARGratingSpec& g1, const ARGratingSpec& g2, const std::vector<int> vecContrast, const std::vector<double> vecSF, const std::vector<double> vecTF, const std::vector<double>& oris)
+PlaidStimSet::PlaidStimSet(const ARGratingSpec& g1, const ARGratingSpec& g2, const std::vector<double> vecContrast, const std::vector<double> vecSF, const std::vector<double> vecTF, const std::vector<double>& oris)
 	: StimSet()
 	, m_plaid()
 	, m_vecContrast(vecContrast)
@@ -17,7 +17,7 @@ PlaidStimSet::PlaidStimSet(const ARGratingSpec& g1, const ARGratingSpec& g2, con
 	m_plaid.setG2(gr2);
 }
 
-PlaidStimSet::PlaidStimSet(const ARGratingSpec& g1, const ARGratingSpec& g2, int contrast, double sf, double tf, double ori)
+PlaidStimSet::PlaidStimSet(const ARGratingSpec& g1, const ARGratingSpec& g2, double contrast, double sf, double tf, double ori)
 	: StimSet()
 	, m_plaid()
 {
@@ -45,20 +45,16 @@ int PlaidStimSet::init(ARvsg& vsg, std::vector<int> pages)
 	vsgSetSpatialUnits(vsgPIXELUNIT);
 
 	// arbitrarily taking many levels. 
-	cerr << "draw plaid" << endl;
 	m_plaid.init(240);
 	m_current = 0;
+
+	// set plaid properties. Setting contrast to zero at this point (will be restored when displayed)
 	m_plaid.setContrast(0);
 	m_plaid.setOriDegrees(m_vecOriDegrees[m_current % m_vecOriDegrees.size()]);
+	m_plaid.setTF(m_vecTF[m_current % m_vecTF.size()]);
 
-	double ppd;
-	double xpos, ypos;
-	vsgUnit2Unit(vsgDEGREEUNIT, 1, vsgPIXELUNIT, &ppd);
-	getDriftPos(1 / m_vecTF[m_current % m_vecTF.size()], ppd, m_vecTF[m_current % m_vecTF.size()], m_plaid.g1(), m_plaid.g2(), xpos, ypos);
-	cerr << "drift max " << xpos << "," << ypos << endl;
+	m_plaid.draw();
 
-	m_plaid.drawDriftingPlaid(xpos, ypos);
-	setupCycling(ppd, m_vecTF[m_current % m_vecTF.size()], m_plaid.g1(), m_plaid.g2(), xpos, ypos);
 	vsgPresent();
 
 	return 0;
@@ -93,19 +89,10 @@ int PlaidStimSet::handle_trigger(std::string& s)
 
 		m_current++;
 
-		cerr << m_vecContrast.size() << " " << m_vecSF.size() << " " << m_vecTF.size() << " " << m_vecOriDegrees.size() << " " << endl;
-		m_plaid.setOriDegrees(m_vecOriDegrees[m_current % m_vecOriDegrees.size()]);
-
 		m_plaid.setContrast(0);
-
-		double ppd;
-		double xpos, ypos;
-		vsgUnit2Unit(vsgDEGREEUNIT, 1, vsgPIXELUNIT, &ppd);
-		getDriftPos(1/m_vecTF[m_current % m_vecTF.size()], ppd, m_vecTF[m_current % m_vecTF.size()], m_plaid.g1(), m_plaid.g2(), xpos, ypos);
-		cerr << "drift max " << xpos << "," << ypos << endl;
-
-		m_plaid.drawDriftingPlaid(xpos, ypos);
-		setupCycling(ppd, m_vecTF[m_current % m_vecTF.size()], m_plaid.g1(), m_plaid.g2(), xpos, ypos);
+		m_plaid.setTF(m_vecTF[m_current % m_vecTF.size()]);
+		m_plaid.setOriDegrees(m_vecOriDegrees[m_current % m_vecOriDegrees.size()]);
+		m_plaid.draw();
 
 		status = 0;
 	}

@@ -19,6 +19,7 @@
 
 #include "vsgv8.h"
 #include "math.h"
+#define _WINSOCKAPI_
 #include "windows.h"
 #include "winuser.h"
 #include <stdio.h>

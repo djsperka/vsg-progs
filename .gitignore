@@ -21,3 +21,5 @@ build/
 /AlertRig/src/example1/x64/Release
 .project
 .cproject
+/AlertRig/src/simpler/Release
+/AlertRig/src/simpler/x64/Release

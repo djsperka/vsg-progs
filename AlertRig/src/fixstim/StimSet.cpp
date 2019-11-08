@@ -5,6 +5,7 @@
 #include "StimSet.h"
 #include "AlertLib.h"
 #include "AlertUtil.h"
+#include "ARvsg.h"
 
 using namespace std;
 

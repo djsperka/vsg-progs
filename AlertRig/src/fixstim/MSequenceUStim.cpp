@@ -1,4 +1,5 @@
 #include "MSequenceUStim.h"
+#include "ARvsg.h"
 
 #include <iostream>
 using namespace std;

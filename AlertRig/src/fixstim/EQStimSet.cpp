@@ -1,3 +1,5 @@
+#define _WINSOCKAPI_
+#include "ARvsg.h"
 #include "ClientNetwork.h"
 #include "EQStimSet.h"
 #include <iostream>

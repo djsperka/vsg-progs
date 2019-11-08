@@ -1,6 +1,7 @@
 #include "stdafx.h"
 #include "CalibrationUStim.h"
 #include "ASLSerial.h"
+#include "ARvsg.h"
 
 const string CalibrationUStim::m_allowedArgs("b:c:d:f:i:p:vC:");
 static int f_errflg = 0;

@@ -1,6 +1,7 @@
 #include "MelStimSet.h"
 #include "AttentionStimSet.h"
 #include "AlertUtil.h"
+#include "ARvsg.h"
 #include "fetcher.h"
 #include <boost/algorithm/string.hpp>
 #include <boost/filesystem.hpp>
