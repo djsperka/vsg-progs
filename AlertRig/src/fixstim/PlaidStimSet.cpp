@@ -1,11 +1,16 @@
 #include "PlaidStimSet.h"
+#include "ARvsg.h"
 #define _USE_MATH_DEFINES
 #include <math.h>
 #include <iostream>
 
-PlaidStimSet::PlaidStimSet(const ARGratingSpec& g1, const ARGratingSpec& g2, const std::vector<double> vecContrast, const std::vector<double> vecSF, const std::vector<double> vecTF, const std::vector<double>& oris)
+PlaidStimSet::PlaidStimSet(double x, double y, double w, double h, const ARGratingSpec& g1, const ARGratingSpec& g2, const std::vector<double> vecContrast, const std::vector<double> vecSF, const std::vector<double> vecTF, const std::vector<double>& oris)
 	: StimSet()
-	, m_plaid()
+	, m_plaid(x, y, w, h)
+	, m_x(x)
+	, m_y(y)
+	, m_w(w)
+	, m_h(h)
 	, m_vecContrast(vecContrast)
 	, m_vecSF(vecSF)
 	, m_vecTF(vecTF)
@@ -17,9 +22,13 @@ PlaidStimSet::PlaidStimSet(const ARGratingSpec& g1, const ARGratingSpec& g2, con
 	m_plaid.setG2(gr2);
 }
 
-PlaidStimSet::PlaidStimSet(const ARGratingSpec& g1, const ARGratingSpec& g2, double contrast, double sf, double tf, double ori)
+PlaidStimSet::PlaidStimSet(double x, double y, double w, double h, const ARGratingSpec& g1, const ARGratingSpec& g2, double contrast, double sf, double tf, double ori)
 	: StimSet()
-	, m_plaid()
+	, m_plaid(x, y, w, h)
+	, m_x(x)
+	, m_y(y)
+	, m_w(w)
+	, m_h(h)
 {
 	alert::ARPlaidSubGr gr1(g1.x, g1.y, g1.w, g1.h, g1.contrast, g1.sf, g1.tf, g1.orientation);
 	alert::ARPlaidSubGr gr2(g2.x, g2.y, g2.w, g2.h, g2.contrast, g2.sf, g2.tf, g2.orientation);
@@ -52,6 +61,13 @@ int PlaidStimSet::init(ARvsg& vsg, std::vector<int> pages)
 	m_plaid.setContrast(0);
 	m_plaid.setOriDegrees(m_vecOriDegrees[m_current % m_vecOriDegrees.size()]);
 	m_plaid.setTF(m_vecTF[m_current % m_vecTF.size()]);
+
+	// init overlay if  needed
+	if (m_w > 0 && m_h > 0)
+	{
+		ARvsg::instance().init_overlay();
+		vsgSetCommand(vsgOVERLAYDRIFT + vsgVIDEODRIFT);
+	}
 
 	m_plaid.draw();
 
@@ -103,24 +119,32 @@ int PlaidStimSet::handle_trigger(std::string& s)
 	}
 	else if (s == "A")
 	{
-		int c;
-		string stmp;
-		cerr << "Enter contrast: ";
-		cin >> stmp;
+		int l = vsgGetSystemAttribute(vsgLUTCYCLINGSTATE);
+		cerr << "l=" << l << endl;
+		VSGLUTBUFFER lb;
+		int i = vsgLUTBUFFERRead(l, &lb);
+		cerr << "lb read status " << i << endl;
+		for (i = 0; i < 256; i++)
+			cerr << "lb[" << i << "].a=" << lb[i].a << endl;
+		status = 0;
+		//int c;
+		//string stmp;
+		//cerr << "Enter contrast: ";
+		//cin >> stmp;
 
-		// if s is a number, treat it as a contrast.
-		istringstream iss(stmp);
-		iss >> c;
-		if (iss)
-		{
-			m_plaid.setContrast(c);
-			status = 1;
-		}
-		else
-		{
-			cerr << "Error reading input." << endl;
-			status = 0;
-		}
+		//// if s is a number, treat it as a contrast.
+		//istringstream iss(stmp);
+		//iss >> c;
+		//if (iss)
+		//{
+		//	m_plaid.setContrast(c);
+		//	status = 1;
+		//}
+		//else
+		//{
+		//	cerr << "Error reading input." << endl;
+		//	status = 0;
+		//}
 	}
 	return status;
 }
@@ -130,6 +154,7 @@ std::string PlaidStimSet::toString() const
 	return std::string("PlaidStimSet");
 }
 
+#if 0
 void PlaidStimSet::getDriftPos(double t, double ppd, double tf, const alert::ARPlaidSubGr& gr1, const alert::ARPlaidSubGr& gr2, double& xpos, double& ypos)
 {
 	// The values returned assume a coord system where x, y are pos right, up. 
@@ -137,8 +162,8 @@ void PlaidStimSet::getDriftPos(double t, double ppd, double tf, const alert::ARP
 	// for that call is y pos down! The args for Xpos, Ypos specify the movement of the viewing window relative
 	// to the unmoved case. A value of Xpos > 0 moves viewing window to the right, and it appears that the stim moves left. 
 	// A value of Ypos > 0 moves viewing window down, and the stim appears to move UP. 
-	xpos = t * tf * ppd / (gr1.sf * gr2.sf) * (gr1.sf * gr1.salpha() - gr2.sf * gr2.salpha()) / (gr1.salpha() * gr2.calpha() - gr1.calpha() * gr2.salpha());
-	ypos = t * tf * ppd / (gr1.sf * gr2.sf) * (gr2.sf * gr2.calpha() - gr1.sf * gr1.calpha()) / (gr1.salpha() * gr2.calpha() - gr1.calpha() * gr2.salpha());
+	xpos = t * tf * ppd / (gr1.sf() * gr2.sf()) * (gr1.sf() * gr1.salpha() - gr2.sf() * gr2.salpha()) / (gr1.salpha() * gr2.calpha() - gr1.calpha() * gr2.salpha());
+	ypos = t * tf * ppd / (gr1.sf() * gr2.sf()) * (gr2.sf() * gr2.calpha() - gr1.sf() * gr1.calpha()) / (gr1.salpha() * gr2.calpha() - gr1.calpha() * gr2.salpha());
 }
 
 void PlaidStimSet::setupCycling(double ppd, double tf, const alert::ARPlaidSubGr& gr1, const alert::ARPlaidSubGr& gr2, double endXDrift, double endYDrift)
@@ -192,3 +217,4 @@ void PlaidStimSet::setupCycling(double ppd, double tf, const alert::ARPlaidSubGr
 }
 
 
+#endif

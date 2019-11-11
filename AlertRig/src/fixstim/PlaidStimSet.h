@@ -4,6 +4,7 @@
 
 class PlaidStimSet : public StimSet
 {
+	double m_x, m_y, m_w, m_h;	// all in degrees.
 	std::vector<double> m_vecContrast;
 	std::vector<double> m_vecSF;
 	std::vector<double> m_vecTF;
@@ -17,8 +18,8 @@ class PlaidStimSet : public StimSet
 	void getDriftPos(double t, double ppd, double tf, const alert::ARPlaidSubGr& gr1, const alert::ARPlaidSubGr& gr2, double& xpos, double& ypos);
 
 public:
-	PlaidStimSet(const ARGratingSpec& g0, const ARGratingSpec& g1, const std::vector<double> vecContrast, const std::vector<double> vecSF, const std::vector<double> vecTF, const std::vector<double>& oris);
-	PlaidStimSet(const ARGratingSpec& g0, const ARGratingSpec& g1, double contrast, double sf, double tf, double ori);
+	PlaidStimSet(double x, double y, double w, double h, const ARGratingSpec& g0, const ARGratingSpec& g1, const std::vector<double> vecContrast, const std::vector<double> vecSF, const std::vector<double> vecTF, const std::vector<double>& oris);
+	PlaidStimSet(double x, double y, double w, double h, const ARGratingSpec& g0, const ARGratingSpec& g1, double contrast, double sf, double tf, double ori);
 
 	virtual ~PlaidStimSet() {};
 

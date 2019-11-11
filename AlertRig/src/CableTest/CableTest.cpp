@@ -6,7 +6,7 @@
 #include "Alertlib.h"
 #define _WINSOCKAPI_
 #include "windows.h"
-
+#include "ARvsg.h"
 #ifdef _DEBUG
 #pragma comment(lib, "dalert.lib")
 #else

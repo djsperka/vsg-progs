@@ -1445,8 +1445,8 @@ int FixUStim::process_arg(int c, std::string& arg)
 		std::vector<double> vecSF;	// not used
 		std::vector<double> vecTF;
 		std::vector<double> vecOri;
-		double plX, plY, plX0, plY0;
-		if (!parsePlaidArg(arg, plX, plY, plX0, plY0, vecContrast, vecTF, vecOri))
+		double plX, plY, plW, plH;
+		if (!parsePlaidArg(arg, plX, plY, plW, plH, vecContrast, vecTF, vecOri))
 		{
 			cerr << "ERROR - cannot parse plaid arg. Expect x,y,w,h,<contrast>,<tf>,<ori>" << endl;
 			m_errflg++;
@@ -1460,7 +1460,7 @@ int FixUStim::process_arg(int c, std::string& arg)
 		}
 		else
 		{
-			m_pStimSet = new PlaidStimSet(m_vecGratings[0], m_vecGratings[1], vecContrast, vecSF, vecTF, vecOri);
+			m_pStimSet = new PlaidStimSet(plX, plY, plW, plH, m_vecGratings[0], m_vecGratings[1], vecContrast, vecSF, vecTF, vecOri);
 		}
 		break;
 	}

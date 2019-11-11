@@ -13,9 +13,90 @@ namespace alert
 	int ARPlaidSpec::draw()
 	{
 		int status = 0;
+		int W, H;
+		double ppd;
+		double ll[2], ur[2];
+		double xOrgVSG, yOrgVSG;
+		double xWinVSG, yWinVSG;	// upper left corner of initial window, vsg coords
+		double bbTopLeftXVSG;
+		bool bOverlay = false;
+
+		vsgUnit2Unit(vsgDEGREEUNIT, 1.0, vsgPIXELUNIT, &ppd);
+		W = vsgGetScreenWidthPixels();
+		H = vsgGetScreenHeightPixels();
+
+		// select the object - must have called init()!
+		select();
+
+		// color vector is b-w
+		VSGTRIVAL from, to;
+		from.a = from.b = from.c = 0;
+		to.a = to.b = to.c = 1.0;
+		vsgObjSetColourVector(&from, &to, vsgBIPOLAR);
+
+		// OVERLAY PAGE?
+		if (m_w > 1 && m_h > 1)
+		{
+//			vsgSetCommand(vsgOVERLAYMASKMODE + vsgOVERLAYDRIFT + vsgVIDEODRIFT);
+			bOverlay = true;
+		}
+		else
+		{
+//			vsgSetCommand(vsgVIDEODRIFT);
+		}
+
+
+		// set contrast for plaid
+		// drift velocity is implicit in the definition of the plaid pattern (in the drift, that is)
+		// do not set it at the object level (set it to zero just to make sure)
+		vsgObjSetContrast(m_contrast);
+		vsgObjSetTemporalFrequency(0);
+		vsgObjTableRampWave(vsgSWTABLE);
+		vsgObjSetSpatialPhase(180);
+		//vsgObjTableSinWave(vsgSWTABLE);
+
+		// what is current draw page? will need it for cycling struct.
+		VSGPAGEDESCRIPTOR descr;
+		descr._StructSize = sizeof(VSGPAGEDESCRIPTOR);
+		vsgGetCurrentDrawPage(&descr);
+
 		if (m_tf == 0)
 		{
 			cerr << "tf=0, no drift" << endl;
+			getBB(ll, ur, W, H, 0, 0);
+			cerr << "Got BB " << ll[0] << ", " << ll[1] << "  " << ur[0] << ", " << ur[1] << endl;
+			bbTopLeftXVSG = (vsgGetSystemAttribute(vsgPAGEWIDTH) - (ur[0] - ll[0])) / 2;	// top left Y is zero, this is VSG coords
+			xOrgVSG = bbTopLeftXVSG + W / 2;
+			yOrgVSG = H / 2;
+			xWinVSG = bbTopLeftXVSG;
+			yWinVSG = 0;
+			cerr << "origin, in VSG coord " << xOrgVSG << ", " << yOrgVSG << endl;
+			cerr << "iniwin, in VSG coord " << xWinVSG << ", " << yWinVSG << endl;
+
+			drawPlaidArea(ll, ur, ppd, xOrgVSG, yOrgVSG, g1(), g2());
+
+			// if an aperture is needed, prepare overlay page.
+			if (bOverlay) drawOverlayPage(xOrgVSG, yOrgVSG);
+
+			VSGCYCLEPAGEENTRY cycle[1];	// warning! No check on usage. You have been warned. 
+			cycle[0].Page = descr.Page;
+			cycle[0].Xpos = xWinVSG;
+			cycle[0].Ypos = yWinVSG;
+			if (bOverlay)
+			{
+				cycle[0].ovPage = 1;
+				cycle[0].ovXpos = 0;
+			}
+			else
+			{
+				cycle[0].ovPage = 0;
+				cycle[0].ovXpos = cycle[0].ovYpos = 0;
+			}
+			cycle[0].Frames = 1;
+			cycle[0].Stop = 0;
+
+			vsgPageCyclingSetup(1, &cycle[0]);
+
 		}
 		else
 		{
@@ -30,36 +111,27 @@ namespace alert
 				double xpos0, ypos0;
 				double xpos1, ypos1;
 				double xdtot, ydtot;	// total drift vector - CAUTION this is in plaid coords (Y coord opposite vsg)
-				double ppd;
-				int W, H;
-				double ll[2], ur[2];
-				vsgUnit2Unit(vsgDEGREEUNIT, 1.0, vsgPIXELUNIT, &ppd);
+				//cerr << "ppd " << ppd << endl;
+				//cerr << "D " << vsgGetViewDistMM() << endl;
 				getDriftPos(0, ppd, this->tf(), this->g1(), this->g2(), xpos0, ypos0);
-				cerr << "init drift position: " << xpos0 << ", " << ypos0 << endl;
+				//cerr << "init drift position: " << xpos0 << ", " << ypos0 << endl;
 				getDriftPos((nFramesPerCycle - 1) * frameUS / 1.0e6, ppd, this->tf(), this->g1(), this->g2(), xpos1, ypos1);
-				cerr << "last drift position: " << xpos1 << ", " << ypos1 << endl;
+				//cerr << "last drift position: " << xpos1 << ", " << ypos1 << endl;
 				xdtot = xpos0 - xpos1;
 				ydtot = ypos0 - ypos1;
-				cerr << "tot drift (plaid coords) " << xdtot << ", " << ydtot << endl;
+				//cerr << "tot drift (plaid coords) " << xdtot << ", " << ydtot << endl;
 
 				// determine bbox. 
 				// bbox determined with plaid coords (y up).
-				W = vsgGetScreenWidthPixels();
-				H = vsgGetScreenHeightPixels();
 				getBB(ll, ur, W, H, xpos0 - xpos1, ypos0 - ypos1);
+				bbTopLeftXVSG = (vsgGetSystemAttribute(vsgPAGEWIDTH) - (ur[0] - ll[0])) / 2;	// top left Y is zero, this is VSG coords
 				cerr << "Got BB " << ll[0] << ", " << ll[1] << "  " << ur[0] << ", " << ur[1] << endl;
-				
-				// Now determine where to place the bb on the video page
-				int PW = vsgGetSystemAttribute(vsgPAGEWIDTH);
-				double bbTopLeftXVSG = (PW - (ur[0] - ll[0])) / 2;	// top left Y is zero, this is VSG coords
 
 				// where should base offset be? In other words, in the VSG coords (0,0, top left of video mem, y pos down)
 				// what is the coord of origin of plaid image. 
 				// This initial image should be such that this is the origin used for position of plaid (if using aperture). 
 				// If no aperture, center of screen is used as origin.
 				double ydtotVSG = -ydtot;
-				double xOrgVSG, yOrgVSG;
-				double xWinVSG, yWinVSG;	// upper left corner of initial window, vsg coords
 				if (ydtotVSG > 0)
 				{
 					if (xdtot > 0)
@@ -100,6 +172,7 @@ namespace alert
 				}
 
 				cerr << "origin, in VSG coord " << xOrgVSG << ", " << yOrgVSG << endl;
+				cerr << "iniwin, in VSG coord " << xWinVSG << ", " << yWinVSG << endl;
 
 				// Now begin drawing the bbox area into video memory. 
 				// The bbox coords are in plaid coords. 
@@ -107,58 +180,7 @@ namespace alert
 				// cycling and for drawing the plaid), 
 				// xVSG = xPLAID + xorgVSG;
 				// yVSG = -yPLAID + yorgVSG;
-
-				unsigned int bbWidth = ur[0] - ll[0];
-				unsigned int bbHeight = ur[1] - ll[1];
-				int xMin = (int)ll[0];
-				int yMin = (int)ll[1];
-				double C1 = g1().contrast / 100.0;
-				double C2 = g2().contrast / 100.0;
-				unsigned char *buffer = new unsigned char[bbWidth];
-
-				vsgSetDrawOrigin(0, 0);
-				for (int uy = 0; uy < bbHeight; uy++)
-				{
-					for (int ux = 0; ux < bbWidth; ux++)
-					{
-						double d = getFirstLevel() + (getNumLevels() * (0.5 + 0.25 *
-							(C1 * cos(getGrPhase(xMin+ux, yMin+uy, ppd, g1())) + C2 * cos(getGrPhase(xMin + ux, yMin + uy, ppd, g2())))));
-						buffer[ux] = (unsigned char)d;
-					}
-					vsgDrawPixelLineFast(xOrgVSG + xMin, yOrgVSG - (yMin+uy), buffer, bbWidth);
-				}
-
-
-				delete buffer;
-
-				// what is current draw page? will need it for cycling struct.
-				VSGPAGEDESCRIPTOR descr;
-				descr._StructSize = sizeof(VSGPAGEDESCRIPTOR);
-				vsgGetCurrentDrawPage(&descr);
-
-				// if an aperture is needed, prepare overlay page.
-				bool bOverlay = false;
-				if (m_w > 1 && m_h > 1)
-				{
-					bOverlay = true;
-					vsgSetDrawPage(vsgOVERLAYPAGE, 0, 0);
-				}
-
-				VSGCYCLEPAGEENTRY cycle[32768];	// warning! No check on usage. You have been warned. 
-				for (int i = 0; i < (nFramesPerCycle - 1); i++)
-				{
-					double xpos, ypos;
-					getDriftPos(i * frameUS / 1.0e6, ppd, this->tf(), this->g1(), this->g2(), xpos, ypos);
-					cycle[i].Page = descr.Page;
-					cycle[i].Xpos = xWinVSG - xpos;
-					cycle[i].Ypos = yWinVSG + ypos;
-					cycle[i].ovPage = 0;
-					cycle[i].ovXpos = cycle[i].ovYpos = 0;
-					cycle[i].Frames = 1;
-					cycle[i].Stop = 0;
-				}
-
-				vsgPageCyclingSetup(nFramesPerCycle-1, &cycle[0]);
+				drawPlaidArea(ll, ur, ppd, xOrgVSG, yOrgVSG, g1(), g2());
 
 			}
 			else
@@ -166,8 +188,80 @@ namespace alert
 				cerr << "not enough pages in cycling array" << endl;
 				status = 1;
 			}
+
+
+			// if an aperture is needed, prepare overlay page.
+			if (bOverlay) drawOverlayPage(xOrgVSG, yOrgVSG);
+
+
+			VSGCYCLEPAGEENTRY cycle[32768];	// warning! No check on usage. You have been warned. 
+			for (int i = 0; i < (nFramesPerCycle - 1); i++)
+			{
+				double xpos, ypos;
+				getDriftPos(i * frameUS / 1.0e6, ppd, this->tf(), this->g1(), this->g2(), xpos, ypos);
+				cycle[i].Page = descr.Page;
+				cycle[i].Xpos = xWinVSG - xpos;
+				cycle[i].Ypos = yWinVSG + ypos;
+				if (bOverlay)
+				{
+					cycle[i].ovPage = 1;
+					cycle[i].ovXpos = 0;
+				}
+				else
+				{
+					cycle[i].ovPage = 0;
+					cycle[i].ovXpos = cycle[i].ovYpos = 0;
+				}
+				cycle[i].Frames = 1;
+				cycle[i].Stop = 0;
+			}
+
+			cerr << "First frame Xpos, Ypos " << cycle[0].Xpos << ", " << cycle[0].Ypos << endl;
+			vsgPageCyclingSetup(nFramesPerCycle-1, &cycle[0]);
+
 		}
 		return status;
+	}
+
+	void ARPlaidSpec::drawOverlayPage(double xOrgVSG, double yOrgVSG)
+	{
+		vsgSetDrawPage(vsgOVERLAYPAGE, 0, 0);
+		vsgSetDrawPage(vsgOVERLAYPAGE, 1, vsgBACKGROUND);
+		vsgSetPen1(0);
+
+		// Note - the center pos of the plaid is in eye-coords. Must convert to pixels and change coords before drawing.
+		double xpix, ypix, wpix, hpix;
+		vsgUnit2Unit(vsgDEGREEUNIT, m_x, vsgPIXELUNIT, &xpix);
+		vsgUnit2Unit(vsgDEGREEUNIT, m_y, vsgPIXELUNIT, &ypix);
+		vsgUnit2Unit(vsgDEGREEUNIT, m_w, vsgPIXELUNIT, &wpix);
+		vsgUnit2Unit(vsgDEGREEUNIT, m_h, vsgPIXELUNIT, &hpix);
+		xpix = xOrgVSG - xpix;
+		ypix = yOrgVSG + ypix;
+		vsgDrawOval(xpix, ypix, wpix, hpix);
+		cerr << "draw overlay oval at " << xpix << ", " << ypix << " size " << wpix << "x" << hpix << endl;
+	}
+
+	void ARPlaidSpec::drawPlaidArea(double *ll, double *ur, double ppd, double xOrgVSG, double yOrgVSG, const alert::ARPlaidSubGr& gr1, const alert::ARPlaidSubGr& gr2)
+	{
+		unsigned int bbWidth = ur[0] - ll[0];
+		unsigned int bbHeight = ur[1] - ll[1];
+		int xMin = (int)ll[0];
+		int yMin = (int)ll[1];
+		double C1 = g1().contrast() / 100.0;
+		double C2 = g2().contrast() / 100.0;
+		unsigned char *buffer = new unsigned char[bbWidth];
+		vsgSetDrawOrigin(0, 0);
+		for (int uy = 0; uy < bbHeight; uy++)
+		{
+			for (int ux = 0; ux < bbWidth; ux++)
+			{
+				double d = getFirstLevel() + (getNumLevels() * (0.5 + 0.25 *
+					(C1 * cos(getGrPhase(xMin + ux, yMin + uy, ppd, g1())) + C2 * cos(getGrPhase(xMin + ux, yMin + uy, ppd, g2())))));
+				buffer[ux] = (unsigned char)d;
+			}
+			vsgDrawPixelLineFast(xOrgVSG + xMin, yOrgVSG - (yMin + uy), buffer, bbWidth);
+		}
+		delete buffer;
 	}
 
 	void ARPlaidSpec::getBB(double *ll, double *ur, int W, int H, double xdr, double ydr)
@@ -198,8 +292,8 @@ namespace alert
 		// for that call is y pos down! The args for Xpos, Ypos specify the movement of the viewing window relative
 		// to the unmoved case. A value of Xpos > 0 moves viewing window to the right, and it appears that the stim moves left. 
 		// A value of Ypos > 0 moves viewing window down, and the stim appears to move UP. 
-		xpos = t * tf * ppd / (gr1.sf * gr2.sf) * (gr1.sf * gr1.salpha() - gr2.sf * gr2.salpha()) / (gr1.salpha() * gr2.calpha() - gr1.calpha() * gr2.salpha());
-		ypos = t * tf * ppd / (gr1.sf * gr2.sf) * (gr2.sf * gr2.calpha() - gr1.sf * gr1.calpha()) / (gr1.salpha() * gr2.calpha() - gr1.calpha() * gr2.salpha());
+		xpos = t * tf * ppd / (gr1.sf() * gr2.sf()) * (gr1.sf() * gr1.salpha() - gr2.sf() * gr2.salpha()) / (gr1.salpha() * gr2.calpha() - gr1.calpha() * gr2.salpha());
+		ypos = t * tf * ppd / (gr1.sf() * gr2.sf()) * (gr2.sf() * gr2.calpha() - gr1.sf() * gr1.calpha()) / (gr1.salpha() * gr2.calpha() - gr1.calpha() * gr2.salpha());
 	}
 
 #if 0
@@ -297,31 +391,37 @@ namespace alert
 
 	double ARPlaidSpec::getGrPhase(double x, double y, double p, const ARPlaidSubGr& gr)
 	{
-		double phase = 2 * M_PI * gr.sf / p * ((x - m_x) * gr.calpha() + (y - m_y) * gr.salpha());
+		double phase = 2 * M_PI * gr.sf() / p * ((x - m_x) * gr.calpha() + (y - m_y) * gr.salpha());
 		return phase;
 	}
 
-	void ARPlaidSpec::setContrast(int contrast)
+	void ARPlaidSpec::setContrast(double contrast)
 	{
 		select();
 		m_contrast = contrast;
 		vsgObjSetContrast(contrast);
 	};
 
-	ARPlaidSubGr::ARPlaidSubGr(double X, double Y, double W, double H, int C, double SF, double TF, double ori)
-		: x(X), y(Y), w(W), h(H)
-		, contrast(C)
-		, sf(SF)
-		, tf(TF)
-		, oriDeg(ori)
+	ARPlaidSubGr::ARPlaidSubGr(double X, double Y, double W, double H, double C, double SF, double TF, double ori)
+		: m_x(X), m_y(Y), m_w(W), m_h(H)
+		, m_contrast(C)
+		, m_sf(SF)
+		, m_tf(TF)
+		, m_oriDeg(ori)
 	{
 		setRotDeg(0);
 	}
 
 	void ARPlaidSubGr::setRotDeg(double rotDeg)
 	{
-		m_calpha = cos(M_PI * (rotDeg + oriDeg) / 180.0);
-		m_salpha = sin(M_PI * (rotDeg + oriDeg) / 180.0);
+		m_calpha = cos(M_PI * (rotDeg + m_oriDeg) / 180.0);
+		m_salpha = sin(M_PI * (rotDeg + m_oriDeg) / 180.0);
+	}
+
+	std::ostream& operator<<(std::ostream& out, const ARPlaidSubGr& g)
+	{
+		out << "C=" << g.contrast() << ", sf=" << g.sf() << ", cos(alpha)=" << g.calpha() << ", sin(alpha)=" << g.salpha() << endl;
+		return out;
 	}
 
 };
