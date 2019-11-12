@@ -76,14 +76,14 @@ namespace alert
 			drawPlaidArea(ll, ur, ppd, xOrgVSG, yOrgVSG, g1(), g2());
 
 			// if an aperture is needed, prepare overlay page.
-			if (bOverlay) drawOverlayPage(xOrgVSG, yOrgVSG);
-
+			if (bOverlay) drawOverlayPage();
 			VSGCYCLEPAGEENTRY cycle[1];	// warning! No check on usage. You have been warned. 
 			cycle[0].Page = descr.Page;
 			cycle[0].Xpos = xWinVSG;
 			cycle[0].Ypos = yWinVSG;
 			if (bOverlay)
 			{
+				cycle[0].Page += vsgDUALPAGE;
 				cycle[0].ovPage = 1;
 				cycle[0].ovXpos = 0;
 			}
@@ -191,7 +191,7 @@ namespace alert
 
 
 			// if an aperture is needed, prepare overlay page.
-			if (bOverlay) drawOverlayPage(xOrgVSG, yOrgVSG);
+			if (bOverlay) drawOverlayPage();
 
 
 			VSGCYCLEPAGEENTRY cycle[32768];	// warning! No check on usage. You have been warned. 
@@ -204,8 +204,9 @@ namespace alert
 				cycle[i].Ypos = yWinVSG + ypos;
 				if (bOverlay)
 				{
+					cycle[i].Page += vsgDUALPAGE;
 					cycle[i].ovPage = 1;
-					cycle[i].ovXpos = 0;
+					cycle[i].ovXpos = cycle[i].ovYpos = 0;
 				}
 				else
 				{
@@ -223,11 +224,11 @@ namespace alert
 		return status;
 	}
 
-	void ARPlaidSpec::drawOverlayPage(double xOrgVSG, double yOrgVSG)
+	void ARPlaidSpec::drawOverlayPage()
 	{
-		vsgSetDrawPage(vsgOVERLAYPAGE, 0, 0);
-		vsgSetDrawPage(vsgOVERLAYPAGE, 1, vsgBACKGROUND);
-		vsgSetPen1(0);
+		// assume vsg.init_overlay was called. 
+		vsgSetDrawPage(vsgOVERLAYPAGE, 0, 0);	
+		vsgSetDrawPage(vsgOVERLAYPAGE, 1, 1);	// level 1 should be background on overlay pages. 
 
 		// Note - the center pos of the plaid is in eye-coords. Must convert to pixels and change coords before drawing.
 		double xpix, ypix, wpix, hpix;
@@ -235,10 +236,17 @@ namespace alert
 		vsgUnit2Unit(vsgDEGREEUNIT, m_y, vsgPIXELUNIT, &ypix);
 		vsgUnit2Unit(vsgDEGREEUNIT, m_w, vsgPIXELUNIT, &wpix);
 		vsgUnit2Unit(vsgDEGREEUNIT, m_h, vsgPIXELUNIT, &hpix);
-		xpix = xOrgVSG - xpix;
-		ypix = yOrgVSG + ypix;
-		vsgDrawOval(xpix, ypix, wpix, hpix);
+		xpix = xpix;
+		ypix = -ypix;
+		vsgSetDrawMode(vsgCENTREXY);
+		//int units = vsgGetSystemAttribute(vsgSPATIALUNITS);
+		//vsgSetSpatialUnits(vsgDEGREEUNIT);
+		vsgSetPen1(0);		// shouild be clear on overlay page
+		vsgDrawOval(xpix + vsgGetScreenWidthPixels()/2, ypix+vsgGetScreenHeightPixels()/2, wpix, hpix);
+		//vsgDrawOval(m_x, -m_y, m_w, m_h);
+		//vsgSetSpatialUnits(units);
 		cerr << "draw overlay oval at " << xpix << ", " << ypix << " size " << wpix << "x" << hpix << endl;
+		//cerr << "draw overlay (deg)at " << m_x << ", " << m_y << " size " << m_w << "x" << m_h << endl;
 	}
 
 	void ARPlaidSpec::drawPlaidArea(double *ll, double *ur, double ppd, double xOrgVSG, double yOrgVSG, const alert::ARPlaidSubGr& gr1, const alert::ARPlaidSubGr& gr2)
@@ -261,6 +269,7 @@ namespace alert
 			}
 			vsgDrawPixelLineFast(xOrgVSG + xMin, yOrgVSG - (yMin + uy), buffer, bbWidth);
 		}
+
 		delete buffer;
 	}
 

@@ -74,7 +74,7 @@ namespace alert {
 
 		int draw();
 		int drawOverlay();
-		void drawOverlayPage(double xorgVSG, double yorgVSG);
+		void drawOverlayPage();
 	};
 
 }; 

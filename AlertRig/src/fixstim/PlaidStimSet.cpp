@@ -49,8 +49,7 @@ int PlaidStimSet::init(ARvsg& vsg, std::vector<int> pages)
 
 	// set pan scroll mode - will need wider pages for drifting the plaid
 	vsgSetVideoMode(vsgPANSCROLLMODE);
-	vsgSetCommand(vsgVIDEODRIFT);
-	vsgSetDrawPage(vsgVIDEOPAGE, m_pages[m_pageIndex], vsgBACKGROUND);
+	vsgSetCommand(vsgVIDEODRIFT + vsgOVERLAYDRIFT);			// allows us to move the offset of video memory
 	vsgSetSpatialUnits(vsgPIXELUNIT);
 
 	// arbitrarily taking many levels. 
@@ -66,9 +65,10 @@ int PlaidStimSet::init(ARvsg& vsg, std::vector<int> pages)
 	if (m_w > 0 && m_h > 0)
 	{
 		ARvsg::instance().init_overlay();
-		vsgSetCommand(vsgOVERLAYDRIFT + vsgVIDEODRIFT);
+		//vsgSetCommand(vsgOVERLAYDRIFT + vsgVIDEODRIFT);
 	}
 
+	vsgSetDrawPage(vsgVIDEOPAGE, m_pages[m_pageIndex], vsgBACKGROUND);
 	m_plaid.draw();
 
 	vsgPresent();
@@ -115,6 +115,7 @@ int PlaidStimSet::handle_trigger(std::string& s)
 	else if (s == "X")
 	{
 		m_plaid.setContrast(0);
+		vsgSetCommand(vsgCYCLEPAGEDISABLE);
 		status = 1;
 	}
 	else if (s == "A")
