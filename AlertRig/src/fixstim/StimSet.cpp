@@ -1594,7 +1594,7 @@ int FlashStimSet::init(ARvsg& vsg, std::vector<int> pages)
 	for (index = 0; index < m_seq.length(); index++)
 	{
 		int iPage = (int)(m_seq[index] - '0') + 1;
-		//cerr << "Term " << index << " on page " << pages[iPage] << endl;
+		cerr << "Term " << index << " on page " << pages[iPage] << endl;
 		cycle[index].Frames = m_fpt;
 		cycle[index].Page = pages[iPage] + vsgTRIGGERPAGE;
 		cycle[index].Stop = 0;
@@ -1608,22 +1608,22 @@ int FlashStimSet::init(ARvsg& vsg, std::vector<int> pages)
 		unsigned int len = m_seq.length();
 		for (index = 0; index < m_seq.length(); index++)
 		{
+			int iPage = (int)(m_seq[index] - '0') + 1;
 			cycle[len + index].Frames = m_fpt;
-			cycle[len + index].Page = (m_seq[index] == '0' ? pages[2] : pages[1]) + vsgTRIGGERPAGE;
+			cycle[len + index].Page = pages[iPage] + vsgTRIGGERPAGE;
 			cycle[len + index].Stop = 0;
 		}
 		index = len*2;
 	}
-	cycle[index].Frames = m_fpt;
-	cycle[index].Page = pages[0] + vsgTRIGGERPAGE;
-	cycle[index].Stop = 0;
-
-	cycle[index+1].Page = pages[0] + vsgTRIGGERPAGE;
-	cycle[index+1].Stop = 1;
+	cycle[index].Frames = 1;
+	cycle[index].Page = m_pageBlank + vsgTRIGGERPAGE;
+	cycle[index].Stop = 1;
 
 
-	vsgPageCyclingSetup(index + 2, &cycle[0]);
+	vsgPageCyclingSetup(index + 1, &cycle[0]);
 	cerr << "Page cycling ready, " << index << " terms" << endl;
+	for (int i = 0; i < index + 1; i++)
+		cerr << i << ": page " << cycle[i].Page- vsgTRIGGERPAGE << endl;
 
 	return status;
 }
