@@ -24,7 +24,7 @@ int aslserial_connect(string configfile, long comPort=2)
 								IID_IASLSerialOutPort3, (void**)&gpISerialOutPort);
 	if (FAILED(hr))
 	{
-		cerr << "Error creating COM Server ASLSerialOutLib2" << endl;
+		cerr << "Error creating COM Server ASLSerialOutLib3 (" << hr << ")" << endl;
 		if (hr == S_OK) cerr << "S_OK" << endl;
 		else if (hr == REGDB_E_CLASSNOTREG) 
 		{
@@ -238,6 +238,20 @@ int aslserial_get(int *pdotnumber, int *pxdat, float *pxoffset, float *pyoffset)
 	}
 	else
 	{
+		CComVariant value;
+		SafeArrayGetElement(items, f_dotIndex, &value);
+		if (f_pedantic) vval("dot", value);
+		*pdotnumber = value.iVal;
+		VariantClear(&value); // prevent memory leak
+		*pxdat = 0;
+		*pxoffset = 0;
+		*pyoffset = 0;
+		SafeArrayDestroy(items);
+
+		//status = 0;
+
+
+
 		status = 1;
 	}
 	return status;
