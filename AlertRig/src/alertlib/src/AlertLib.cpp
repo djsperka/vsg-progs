@@ -731,7 +731,9 @@ void ARvsg::clear(int ipage)
 	// modify this to set the display page to the just-cleared page. Not sure why the vsgPresent() was here before. 
 	// djs 10-17-2017 drive all outputs to zero on clear
 	vsgSetZoneDisplayPage(vsgVIDEOPAGE, ipage+vsgTRIGGERPAGE);
-	vsgSetTriggerOptions(vsgTRIGOPT_PRESENT, 0, vsgTRIG_OUTPUTMARKER, 0.5, 0, 0, 0x1FE);
+
+	vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, 0, 0);
+
 	vsgPresent();
 }
 

@@ -146,15 +146,9 @@ int main(int argc, char *argv[])
 				lastDiginState=diginState;
 				if (!f_dio)
 				{
-					cout << "DINx bits, being written via vsg trigger output: " << std::hex << diginState << endl;
-					if (IS_VISAGE)
-					{
-						vsgSetTriggerOptions(vsgTRIGOPT_PRESENT, 0, vsgTRIG_OUTPUTMARKER, 0.5, 0, diginState, 0x1FE);
-					}
-					else
-					{
-						vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, diginState, 0);
-					}
+					cout << "Input bits read: " << std::hex << diginState << endl;
+
+					vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, diginState, 0);
 					vsgPresent();
 				}
 				else

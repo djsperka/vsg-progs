@@ -2112,7 +2112,7 @@ int CounterphaseStimSet::init(ARvsg& vsg, std::vector<int> pages)
 	vsgObjSetTemporalPhase(0);
 
 	// Set trigger options to trigger on temporal phase
-	vsgSetTriggerOptions(vsgTRIGOPT_OAS, -1, vsgTRIG_TEMPFREQX2, 0.5, 0, 0, 0);
+	vsgObjSetTriggers(vsgTRIG_TEMPFREQX2, 0, 0);
 
 
 	if (has_fixpt())

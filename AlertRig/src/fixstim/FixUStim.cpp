@@ -79,10 +79,8 @@ void FixUStim::run_stim(alert::ARvsg& vsg)
 		vsg.setBackgroundColor(m_background);
 	}
 
-	// clear all dig outputs, and send pulse to start sampling on the 1401s (if needed)
-	vsgSetTriggerOptions(vsgTRIGOPT_PRESENT, 0, vsgTRIG_OUTPUTMARKER, 0.5, 0, 0, 0x1FE);
-	//vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, 0, 0);
-	//vsgIOWriteDigitalOut(0, 0xff);
+	// clear all dig outputs
+	vsgIOWriteDigitalOut(0, 0xffff);
 	vsgPresent();
 
 	// initialize triggers
@@ -157,15 +155,11 @@ void FixUStim::run_stim(alert::ARvsg& vsg)
 		if (tf.quit()) break;
 		else if (tf.present())
 		{
+			//cout << "Got present(): old " << hex << last_output_trigger << " new " << hex << tf.output_trigger() << endl;
 			last_output_trigger = tf.output_trigger();
-			if (IS_VISAGE)
-			{
-				vsgSetTriggerOptions(vsgTRIGOPT_PRESENT, 0, vsgTRIG_OUTPUTMARKER, 0.5, 0, tf.output_trigger() << 1, 0x1FE);
-			}
-			else
-			{
-				vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, tf.output_trigger(), 0);
-			}
+			// djs - these two calls are the same
+			//vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, tf.output_trigger(), 0);
+			vsgIOWriteDigitalOut(tf.output_trigger()<<1, 0xffff);
 
 			// Check whether we do an ordinary present(), or if we are doing dualstim rig hijinks we'll want to 
 			// do a presendOnTrigger. In the presentOnTrigger case, we do a further check on whether any of the

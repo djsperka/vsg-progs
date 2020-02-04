@@ -114,7 +114,7 @@ void MSequenceUStim::run_stim(alert::ARvsg& vsg)
 			else if (tf.present())
 			{
 				last_output_trigger = tf.output_trigger();
-				vsgSetTriggerOptions(vsgTRIGOPT_PRESENT, 0, vsgTRIG_OUTPUTMARKER, 0.5, 0, tf.output_trigger() << 1, 0x1FE);
+				vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, tf.output_trigger(), 0);
 				vsgPresent();
 			}
 			Sleep(10);

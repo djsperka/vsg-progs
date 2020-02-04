@@ -114,6 +114,10 @@ void CalibrationUStim::run_stim(alert::ARvsg& vsg)
 				cerr << "Waiting for calibration messages from eye tracker. Start Custom Calibration..." << endl;
 				bwaiting = true;
 			}
+			else
+			{
+				cerr << "waiting idot " << idot << endl;
+			}
 		}
 		else 
 		{
@@ -121,7 +125,7 @@ void CalibrationUStim::run_stim(alert::ARvsg& vsg)
 			{
 				cerr << "Exiting calibration loop (calibration finished or dialog closed)" << endl;
 				m_fixpts[lastidot-1].setContrast(0);
-				vsgSetTriggerOptions(vsgTRIGOPT_PRESENT, 0, vsgTRIG_OUTPUTMARKER, 0.5, 0, 0x0, 0x1FE);
+				vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, 0, 0);
 				vsgPresent();
 				bquit = true;
 			}
@@ -137,7 +141,7 @@ void CalibrationUStim::run_stim(alert::ARvsg& vsg)
 					if (idot > 0) m_fixpts[idot-1].setContrast(100);
 
 					// set trigger and present
-					vsgSetTriggerOptions(vsgTRIGOPT_PRESENT, 0, vsgTRIG_OUTPUTMARKER, 0.5, 0, 0x2, 0x1FE);
+					vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, 2, 0);
 					vsgPresent();
 
 					// save dot number
