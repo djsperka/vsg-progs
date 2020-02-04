@@ -41,11 +41,7 @@ int aslserial_connect(string configfile, long comPort=2)
 	}
 	else
 	{
-		// Connect
-#if 0
-		CString filename;
-		const char* SECTION = "System Settings";
-#endif
+		// Values for connection
 		char* strStreaming = "0";
 		CString strUpdateRate = "240";
 		CString strBaudRate = "57600";
@@ -54,28 +50,8 @@ int aslserial_connect(string configfile, long comPort=2)
 		long baudRate, updateRate, itemCount;
 		VARIANT_BOOL streamingMode;
 		LPSAFEARRAY itemNames;
-#if 0
-		// Create temporary configuration file that defines standard message format
-		GetCurrentDirectory(175, path);
-		strcat_s(path, 200, "\\ETSerialPortViewer.cfg");
-		filename = path;
-		bstrFile = filename;
-		cout << "Temp cfg file " << filename << endl;
-		WritePrivateProfileString (SECTION, "using_6000_serial_out_format", "1", filename);
-		WritePrivateProfileString (SECTION, "serial_out_streaming", strStreaming, filename);
-		WritePrivateProfileString (SECTION, "eye_camera_update_rate", strUpdateRate, filename);
-		WritePrivateProfileString (SECTION, "serial_out_baud_rate", strBaudRate, filename);
-
-		// Standard message.. no
-		// 7205 below indicates that XDAT is in the configuration.
-		WritePrivateProfileString (SECTION, "serial_out_std_sel_1", "7205", filename);
-		WritePrivateProfileString (SECTION, "serial_out_std_sel_2", "0", filename);
-		WritePrivateProfileString (SECTION, "serial_out_ehi_sel_1", "14680097", filename);
-		WritePrivateProfileString (SECTION, "serial_out_ehi_sel_2", "0", filename);
-#endif
 
 		// Connect to serial out port
-
 		bstrFile = configfile.c_str();
 		HRESULT hr = gpISerialOutPort->Connect(bstrFile, comPort, eyeheadIntegration,
 					&baudRate, &updateRate, &streamingMode, &itemCount, &itemNames);
@@ -150,7 +126,7 @@ int aslserial_connect(string configfile, long comPort=2)
 			CComBSTR bsError;
 			gpISerialOutPort->GetLastError(&bsError);
 			CString strError = bsError;
-			cerr << "ERROR connecting to ASL serial port: " << strError << endl;
+			cerr << "ERROR connecting to ASL serial port: " << bsError << endl;
 			status = -1;
 		}
 
