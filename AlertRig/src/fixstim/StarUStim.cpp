@@ -195,7 +195,9 @@ void StarUStim::run_stim(alert::ARvsg& vsg)
 		else if (tf.present())
 		{	
 			last_output_trigger = tf.output_trigger();
-			vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, tf.output_trigger(), 0);
+			cout << "out trig " << hex << tf.output_trigger() << endl;
+			//vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, tf.output_trigger(), 0);
+			vsgIOWriteDigitalOut(tf.output_trigger() << 1, 0xffff);
 			vsgPresent();
 		}
 		Sleep(10);
