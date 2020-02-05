@@ -385,7 +385,7 @@ void CMouseUStim::doMouseKBLoop()
 				// VSG takes the lowest order output bit for itself, and when we output bit 0x1 it is sent
 				// on DOUT1 (not DOUT0).
 				last_output_trigger = tf.output_trigger();
-				vsgIOWriteDigitalOut(tf.output_trigger(), 0xff);
+				vsgIOWriteDigitalOut(tf.output_trigger()<<1, 0xff);
 			}
 		}
 
