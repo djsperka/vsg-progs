@@ -155,12 +155,13 @@ void FixUStim::run_stim(alert::ARvsg& vsg)
 		if (tf.quit()) break;
 		else if (tf.present())
 		{
-			//cout << "Got present(): old " << hex << last_output_trigger << " new " << hex << tf.output_trigger() << endl;
+			cout << "Got present(): old " << hex << last_output_trigger << " new " << hex << tf.output_trigger() << endl;
 			last_output_trigger = tf.output_trigger();
-			// djs - these two calls are the same
+			// djs - these two calls are NOT the same any more. 
+			// as of this writing (2/5/2020) there is a bug in vsgObjSetTriggers, use vsgIO
 			//vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, tf.output_trigger(), 0);
-			vsgIOWriteDigitalOut(tf.output_trigger()<<1, 0xffff);
-
+			vsgIOWriteDigitalOut(tf.output_trigger()<<1, 0xfffe);
+			//vsgSetTriggerOptions(vsgTRIGOPT_PRESENT, 0, vsgTRIG_OUTPUTMARKER, 0.5, 0, tf.output_trigger(), 0x1fe);
 			// Check whether we do an ordinary present(), or if we are doing dualstim rig hijinks we'll want to 
 			// do a presendOnTrigger. In the presentOnTrigger case, we do a further check on whether any of the
 			// triggers matched (you can have multiple triggers matched in a single check) is on the list of 
