@@ -113,12 +113,12 @@ int main(int argc, char *argv[])
 	lastDiginState=diginState;
 	DisplayState(diginState);
 
-	// Create an object unless using vsgIO
-	if (!f_dio)
-	{
+	//// Create an object unless using vsgIO
+	//if (!f_dio)
+	//{
 		vsgObjCreate();
 		vsgObjSetPixelLevels(1, 2);
-	}
+	//}
 
 	if (f_binaryTriggers)
 	{
@@ -155,6 +155,7 @@ int main(int argc, char *argv[])
 				{
 					cout << "DINx bits, being written via vsgIOWriteDigitalOut: " << std::hex << diginState << endl;
 					vsgIOWriteDigitalOut(diginState, 0xff);
+					vsgPresent();
 				}
 			}
 		}
