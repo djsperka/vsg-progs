@@ -98,9 +98,11 @@ void CalibrationUStim::run_stim(alert::ARvsg& vsg)
 	int iserial;
 	int lastidot = -1;
 	int last_output_trigger = 0;
+	int counter = 0;
 
 	while (!bquit)
 	{
+		counter++;
 		iserial = aslserial_getDotNumber(&idot);
 		if (iserial < 0)
 		{
@@ -114,7 +116,7 @@ void CalibrationUStim::run_stim(alert::ARvsg& vsg)
 				cerr << "Waiting for calibration messages from eye tracker. Start Custom Calibration..." << endl;
 				bwaiting = true;
 			}
-			else
+			else if (counter % 100 == 0)
 			{
 				cerr << "waiting idot " << idot << endl;
 			}

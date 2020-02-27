@@ -10,14 +10,19 @@ long f_xdatIndex[1] = {-1};
 long f_horzIndex[1] = {-1};
 long f_vertIndex[1] = {-1};
 bool f_pedantic = false;
+int f_counter = 0;
 
 
 void vval(char *name, CComVariant& value);
+void dump(const LPSAFEARRAY& items, long count);
 
 
 int aslserial_connect(string configfile, long comPort=2)
 {
 	int status = 0;
+
+	if (gpISerialOutPort != NULL)
+		return 0;
 
 	// Create COM object
 	HRESULT hr = CoCreateInstance(CLSID_ASLSerialOutPort3, NULL, CLSCTX_INPROC_SERVER,
@@ -93,14 +98,13 @@ int aslserial_connect(string configfile, long comPort=2)
 					f_vertIndex[0] = i;
 					cerr << "Found vert_gaze_coord at item index " << i << endl;
 				}
+				else
+				{
+					cerr << "Found item in serial output: " << bstrName << endl;
+				}
+				SysFreeString(bstrName);
 			}
-#if 0
-			if (f_xdatIndex[0] < 0)
-			{
-				cerr << "ERROR: Serial output does not contain XDAT. Check serial configuration!" << endl;
-				status = -1;
-			}
-#endif
+
 			if (f_dotIndex[0] < 0)
 			{
 				cerr << "ERROR: Serial output does not contain pupil_diam. Check serial configuration!" << endl;
@@ -128,6 +132,7 @@ int aslserial_connect(string configfile, long comPort=2)
 			CString strError = bsError;
 			cerr << "ERROR connecting to ASL serial port: " << bsError << endl;
 			status = -1;
+			SysFreeString(bsError);
 		}
 
 		// Clean up
@@ -155,10 +160,10 @@ int aslserial_disconnect()
 		cerr << "Disconnected from ASL controller serial port." << endl;
 
 		// Release COM interface
-		if (gpISerialOutPort)
-			gpISerialOutPort->Release();
+		//if (gpISerialOutPort)
+		//	gpISerialOutPort->Release();
 
-		gpISerialOutPort = NULL;
+		//gpISerialOutPort = NULL;
 	}
 	else
 	{
@@ -188,7 +193,7 @@ int aslserial_get(int *pdotnumber, int *pxdat, float *pxoffset, float *pyoffset)
 	LPSAFEARRAY items;
 	long count;
 	VARIANT_BOOL bAvailable;
-
+	f_counter++;
 	HRESULT hr = gpISerialOutPort->GetScaledData(&items, &count, &bAvailable);
 
 	if (FAILED(hr))
@@ -203,6 +208,7 @@ int aslserial_get(int *pdotnumber, int *pxdat, float *pxoffset, float *pyoffset)
 		CComVariant value;
 		SafeArrayGetElement(items, f_dotIndex, &value);
 		if (f_pedantic) vval("dot", value);
+		if (f_counter % 100 == 0) dump(items, count);
 		*pdotnumber = value.iVal;
 		VariantClear(&value); // prevent memory leak
 		*pxdat = 0;
@@ -217,6 +223,11 @@ int aslserial_get(int *pdotnumber, int *pxdat, float *pxoffset, float *pyoffset)
 		CComVariant value;
 		SafeArrayGetElement(items, f_dotIndex, &value);
 		if (f_pedantic) vval("dot", value);
+		if (f_counter % 100 == 0) 
+		{
+			cerr << f_counter << " err " << endl;
+			dump(items, count);
+		}
 		*pdotnumber = value.iVal;
 		VariantClear(&value); // prevent memory leak
 		*pxdat = 0;
@@ -233,6 +244,17 @@ int aslserial_get(int *pdotnumber, int *pxdat, float *pxoffset, float *pyoffset)
 	return status;
 }
 
+void dump(const LPSAFEARRAY& items, long count)
+{
+	char tmp[64];
+	CComVariant value;
+	for (long i = 0; i < count; i++)
+	{
+		sprintf(tmp, "item %d", (int)i);
+		SafeArrayGetElement(items, &i, &value);
+		vval(tmp, value);
+	}
+}
 
 void vval(char *name, CComVariant& value)
 {
