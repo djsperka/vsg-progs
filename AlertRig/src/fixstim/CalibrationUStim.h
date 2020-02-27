@@ -10,11 +10,12 @@
 
 using namespace alert;
 using namespace std;
+class IASLSerialOutPort3;
 
 class CalibrationUStim: public UStim, public prargs_handler
 {
 public:
-	CalibrationUStim();
+	CalibrationUStim(IASLSerialOutPort3* gpISerialOutPort);
 	virtual ~CalibrationUStim() {};
 
 	bool parse(int argc, char **argv);
@@ -25,6 +26,7 @@ public:
 	int callback(int &output, const FunctorCallbackTrigger* ptrig);
 
 private:
+	IASLSerialOutPort3* m_gpISerialOutPort;
 	bool m_verbose;
 	int m_pulse;
 	ARContrastFixationPointSpec m_fixpt;

@@ -6,8 +6,9 @@ const string CalibrationUStim::m_allowedArgs("b:c:d:f:i:p:vC:");
 static int f_errflg = 0;
 
 
-CalibrationUStim::CalibrationUStim()
+CalibrationUStim::CalibrationUStim(IASLSerialOutPort3* gpISerialOutPort)
 : UStim()
+, m_gpISerialOutPort(gpISerialOutPort)
 , m_verbose(false)
 , m_pulse(0x4)
 , m_screenDistanceMM(-1)
@@ -38,21 +39,11 @@ void CalibrationUStim::run_stim(alert::ARvsg& vsg)
 		}
 	}
 
-	// COM initialzation
-	CoInitialize(NULL);
-
-	// initialize MFC and print and error on failure
-	if (!AfxWinInit(::GetModuleHandle(NULL), NULL, ::GetCommandLine(), 0))
-	{
-		// TODO: change error code to suit your needs
-		cerr << _T("Fatal Error: MFC initialization failed") << endl;
-		return;
-	}
 
 	// connect to asl box via serial port
 	cerr << "Open ASL serial port at COM" << m_lComPort << endl;
 	cerr << "Using config file " << m_szConfigFile << endl;
-	if (aslserial_connect(m_szConfigFile, m_lComPort))
+	if (aslserial_connect(m_gpISerialOutPort, m_szConfigFile, m_lComPort))
 	{
 		cerr << "Failed to connect to ASL serial port." << endl;
 		return;
@@ -94,7 +85,7 @@ void CalibrationUStim::run_stim(alert::ARvsg& vsg)
 	bool bquit = false;
 	bool bstarted = false;
 	bool bwaiting = false;
-	int idot;
+	int idot=0;
 	int iserial;
 	int lastidot = -1;
 	int last_output_trigger = 0;
@@ -103,7 +94,7 @@ void CalibrationUStim::run_stim(alert::ARvsg& vsg)
 	while (!bquit)
 	{
 		counter++;
-		iserial = aslserial_getDotNumber(&idot);
+		iserial = aslserial_getDotNumber(m_gpISerialOutPort, &idot);
 		if (iserial < 0)
 		{
 			cerr << "Error in asiserial_getDotNumber!" << endl;
@@ -111,19 +102,18 @@ void CalibrationUStim::run_stim(alert::ARvsg& vsg)
 		}
 		else if (iserial>0)
 		{
-			if (!bwaiting)
-			{
-				cerr << "Waiting for calibration messages from eye tracker. Start Custom Calibration..." << endl;
-				bwaiting = true;
-			}
-			else if (counter % 100 == 0)
-			{
-				cerr << "waiting idot " << idot << endl;
-			}
+			// no data available.
+			if (counter % 100 == 0)
+				cerr << "Start \"Custom Calibration\"" << endl;
 		}
 		else 
 		{
-			if (bstarted && idot == 0)
+			if (!bstarted && idot == 0)
+			{
+				if (counter % 100 == 0)
+					cerr << "Start \"Custom Calibration\"" << endl;
+			}
+			else if (bstarted && idot == 0)
 			{
 				cerr << "Exiting calibration loop (calibration finished or dialog closed)" << endl;
 				m_fixpts[lastidot-1].setContrast(0);
@@ -153,7 +143,7 @@ void CalibrationUStim::run_stim(alert::ARvsg& vsg)
 		}
 		Sleep(100);
 	}
-	aslserial_disconnect();
+	aslserial_disconnect(m_gpISerialOutPort);
 
 	return;
 }

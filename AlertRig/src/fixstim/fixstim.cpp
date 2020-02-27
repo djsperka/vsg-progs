@@ -10,6 +10,12 @@
 #include <boost/shared_ptr.hpp>
 #include <boost/filesystem.hpp>
 
+/* for ASL (calibration) dll */
+#include "stdafx.h"
+#include "ASLSerial.h"
+
+
+
 /* Have to include snet.h before vsgv8.h */
 #include "snet.h"
 #include "vsgv8.h"
@@ -80,8 +86,14 @@ int errflg = 0;
 // passing a command file.
 const char *f_allowedServerArgs = "vu:b:d:";
 
+// calibration
+IASLSerialOutPort3* f_gpISerialOutPort = NULL;
+
+
+
 // function prototypes
 
+int init_calibration();
 void serverLoop(void * arg);
 int run_fixstim();
 int prargs_callback(int c, string& arg);
@@ -104,6 +116,46 @@ BOOL CtrlHandler( DWORD fdwCtrlType )
 	default:
 		return FALSE;
   }
+}
+
+int init_calibration()
+{
+	int status = 0;
+
+	// COM initialzation
+	CoInitialize(NULL);
+
+	// initialize MFC and print and error on failure
+	if (!AfxWinInit(::GetModuleHandle(NULL), NULL, ::GetCommandLine(), 0))
+	{
+		// TODO: change error code to suit your needs
+		cerr << _T("Fatal Error: MFC initialization failed") << endl;
+		status = -1;
+	}
+	else
+	{
+		// Create COM object
+		HRESULT hr = CoCreateInstance(CLSID_ASLSerialOutPort3, NULL, CLSCTX_INPROC_SERVER,
+			IID_IASLSerialOutPort3, (void**)&f_gpISerialOutPort);
+		if (FAILED(hr))
+		{
+			cerr << "Error creating COM Server ASLSerialOutLib3 (" << hr << ")" << endl;
+			if (hr == S_OK) cerr << "S_OK" << endl;
+			else if (hr == REGDB_E_CLASSNOTREG)
+			{
+				CComBSTR bsError;
+				f_gpISerialOutPort->GetLastError(&bsError);
+				CString strError = bsError;
+				cerr << "REGDB_E_CLASSNOTREG" << endl;
+				cerr << bsError << endl;
+			}
+			else if (hr == CLASS_E_NOAGGREGATION) cerr << "CLASS_E_NOAGGREGATION" << endl;
+			else if (hr == E_NOINTERFACE) cerr << "E_NOINTERFACE" << endl;
+			else cerr << "unknown error " << hr << endl;
+			status = 1;
+		}
+	}
+	return status;
 }
 
 
@@ -130,6 +182,14 @@ int main (int argc, char *argv[])
 			cerr << "VSG init failed!!!" << endl;
 			return 1;
 		}
+
+		cerr << "Initialize ASL..." << endl;
+		if (init_calibration())
+		{
+			cerr << "ASL init failed!!!" << endl;
+			return 1;
+		}
+
 
 		f_udpServer = new UDPServer(f_sDaemonHostIP.c_str(), f_iDaemonPort);
 		if (!f_udpServer->isReady())
@@ -213,7 +273,7 @@ void serverLoop(void * arg)
 				}
 				else if (sargs.find("calibration") == 0)
 				{
-					CalibrationUStim calustim;
+					CalibrationUStim calustim(f_gpISerialOutPort);
 					if (calustim.parses(sargs))
 					{
 						cerr << "serverLoop(): starting calibration stimulus..." << endl;
