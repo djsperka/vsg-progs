@@ -109,15 +109,18 @@ int SequencedAttentionStimSet::init(ARvsg& vsg, std::vector<int> pages)
 	// The first group of cues is initialized (gets assigned a VSG object number, color levels) in the normal way. 
 	// Subsequent groups of cues (and all the cue points) are initialized to use the same object number and levels. 
 
-	cerr << "Initialize " << m_vecCues.size() << " cues." << endl;
-	for (unsigned int i = 0; i<m_vecGratings.size(); i++)
+	if (m_vecCues.size() > 0)
 	{
-		m_vecCues[i].init(vsg, 2);
-	}
-	for (unsigned int i = m_vecGratings.size(); i < m_vecCues.size(); i++)
-	{
-		cerr << "init cue " << i << " using cue " << (i % m_vecGratings.size()) << endl;
-		m_vecCues[i].init(m_vecCues[i % m_vecGratings.size()]);
+		cerr << "Initialize " << m_vecCues.size() << " cues." << endl;
+		for (unsigned int i = 0; i < m_vecGratings.size(); i++)
+		{
+			m_vecCues[i].init(vsg, 2);
+		}
+		for (unsigned int i = m_vecGratings.size(); i < m_vecCues.size(); i++)
+		{
+			cerr << "init cue " << i << " using cue " << (i % m_vecGratings.size()) << endl;
+			m_vecCues[i].init(m_vecCues[i % m_vecGratings.size()]);
+		}
 	}
 
 	// Initialize all cue points, even if they are not used. 
