@@ -800,22 +800,24 @@ void CueSequenceHelper::draw_cues(int iOffBits)
 	// (iOffBits & 0xff00) >> 8
 	int iCueBase = (iOffBits & 0xff00) >> 8;
 
-	//cout << "iCueBase: " << ios::showbase << ios::internal << ios::hex << iCueBase << ios::dec << endl;
+	cout << "CueSequenceHelper::draw_cues - iCueBase " << iCueBase << endl;
 
-	//cout << "There are " << m_vecCues.size() << " cues." << endl;
+	cout << "There are " << m_circles.size() << " cues." << endl;
 	for (unsigned int i=0; i<m_ngratings; i++)
 	{
-		//cout << "cue " << i << " (iOffBits & (1 << i)) " << (iOffBits & (1 << i)) << endl;
+		cout << "cue " << i << " (iOffBits & (1 << i)) " << (iOffBits & (1 << i)) << endl;
 		// Check if this stim has an off bit set.
 		if (iOffBits & (1 << i))
 		{
-			//cout << "Nothing to do." << endl;
+			cout << "Nothing to do." << endl;
 			// do nothing
 		}
 		else
 		{
 			if (m_circles.size() > iCueBase*m_ngratings + i)
 			{
+				cout << "Drawing cue." << endl;
+				m_circles[iCueBase*m_ngratings + i].setContrast(this->contrast());
 				m_circles[iCueBase*m_ngratings + i].draw();
 			}
 		}
