@@ -464,19 +464,37 @@ namespace alert
 		int drawOverlay();
 	};
 
-
 	// Circle, single pixel wide, visibility controlled by contrast. 
 
-	class ARContrastCircleSpec: public ARContrastFixationPointSpec
+	class ARContrastCircleSpec : public ARContrastFixationPointSpec
 	{
 	public:
-		ARContrastCircleSpec(): ARContrastFixationPointSpec(), linewidth(1) {};
+		ARContrastCircleSpec() : ARContrastFixationPointSpec(), linewidth(1) {};
 		ARContrastCircleSpec(const ARContrastCircleSpec& c);
 		~ARContrastCircleSpec() {};
 		ARContrastCircleSpec& operator=(const ARContrastCircleSpec& c);
 		int draw();
 		int drawOverlay();
 		int linewidth;
+	};
+
+
+	// Circle, single pixel wide, visibility controlled by contrast. 
+
+	class ARContrastCueCircleSpec: public ARContrastCircleSpec
+	{
+	public:
+		ARContrastCueCircleSpec(): ARContrastCircleSpec(), dCentral(0), bCentralIsDot(true), bCircleEnabled(true) {};
+		ARContrastCueCircleSpec(const ARContrastCueCircleSpec& c);
+		~ARContrastCueCircleSpec() {};
+		ARContrastCueCircleSpec& operator=(const ARContrastCueCircleSpec& c);
+		int draw();
+		int drawOverlay();
+		int drawCircle();
+		int drawPoint();
+		double dCentral;	// if > 0, this is diam of fixpt at center, same color
+		bool bCentralIsDot;	// if dCentral, then this says if center pt is dot or square
+		bool bCircleEnabled;	// if false, do not draw cue circle, still may draw dot if d>0
 	};
 
 	// Circle, single pixel wide, visibility controlled by drawing it or not. No need to call init()
