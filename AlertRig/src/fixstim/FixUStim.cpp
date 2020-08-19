@@ -240,7 +240,7 @@ int FixUStim::process_arg(int c, std::string& arg)
 	static bool last_was_distractor = false;
 	static bool bUseCueCircles = false;
 	static bool bUseCuePoints = false;
-	//	static int errflg = 0;
+	static bool bCuePointIsDot = false;
 
 	cerr << "process_arg " << (char)c << " " << arg << endl;
 		// This is a loooooong stanza. Be patient.
@@ -1150,12 +1150,26 @@ int FixUStim::process_arg(int c, std::string& arg)
 		m_pStimSet = (StimSet*)pss;
 		break;
 	}
-	case 'Q':
-	case 'q':
 	case 'r':
 	{
-		bUseCueCircles = (c == 'Q' || c == 'q');
-		bUseCuePoints = (c == 'q' || c == 'r');
+		bCuePointIsDot = false;
+		break;
+	}
+	case 'Q':
+	case 'q':
+	{
+		if (c == 'Q')
+		{
+			bUseCueCircles = true;
+			bUseCuePoints = true;
+			bCuePointIsDot = true;
+		}
+		else if (c == 'q')
+		{
+			bUseCueCircles = false;
+			bUseCuePoints = true;
+			bCuePointIsDot = true;
+		}
 		if (parse_attcues(arg, m_vecGratings.size(), m_vecAttentionCues))
 		{
 			cerr << "Error in input." << endl;
@@ -1208,7 +1222,7 @@ int FixUStim::process_arg(int c, std::string& arg)
 		else
 		{
 			cerr << "Parse OK, got " << trialSpecs.size() << " trials" << endl;
-			m_pStimSet = new SequencedAttentionStimSet(m_fixpt, m_vecGratings, m_vecAttentionCues, bUseCueCircles, bUseCuePoints, trialSpecs);
+			m_pStimSet = new SequencedAttentionStimSet(m_fixpt, m_vecGratings, m_vecAttentionCues, bUseCueCircles, bUseCuePoints, bCuePointIsDot, trialSpecs);
 		}
 		break;
 	}

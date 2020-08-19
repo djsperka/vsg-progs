@@ -74,17 +74,16 @@ public:
 class CueSequenceHelper : public SequenceHelper
 {
 	int m_ngratings;
-	std::vector<alert::ARContrastCircleSpec> m_circles;
-	std::vector<alert::ARContrastRectangleSpec> m_rects;
+	std::vector<alert::ARContrastCueCircleSpec> m_circles;
 	void setContrastPriv() {};
 
 public:
-	CueSequenceHelper(int index, int defaultContrast, int ngratings, const std::vector<alert::ARContrastCircleSpec>& circles, const std::vector<alert::ARContrastRectangleSpec>& rects)
-		: SequenceHelper(index, defaultContrast), m_ngratings(ngratings), m_circles(circles), m_rects(rects) {};
+	CueSequenceHelper(int index, int defaultContrast, int ngratings, const std::vector<alert::ARContrastCueCircleSpec>& circles)
+		: SequenceHelper(index, defaultContrast), m_ngratings(ngratings), m_circles(circles) {};
 	virtual ~CueSequenceHelper() {};
 	void draw(double initial_phase);	// no-op
-	void draw_cues(int offbits);
-	void draw_cue_points(int offbits);
+	void draw_cues(int offbits, bool bCircles);
+	//void draw_cue_points(int offbits);
 };
 
 class GratingSequenceHelper: public SequenceHelper
@@ -138,7 +137,7 @@ int parse_sequenced_params(const std::string& arg, unsigned int ngratings, std::
 class SequencedAttentionStimSet : public StimSet
 {
 public:
-	SequencedAttentionStimSet(ARContrastFixationPointSpec& fixpt, vector<alert::ARGratingSpec>& vecGratings, vector<AttentionCue>& vecCuePairs, bool bCueCircles, bool bCuePoints, vector<AttentionSequenceTrialSpec>& trialSpecs);
+	SequencedAttentionStimSet(ARContrastFixationPointSpec& fixpt, vector<alert::ARGratingSpec>& vecGratings, vector<AttentionCue>& vecCuePairs, bool bCueCircles, bool bCuePoints, bool bCueIsDot, vector<AttentionSequenceTrialSpec>& trialSpecs);
 	~SequencedAttentionStimSet() {};
 
 	int num_pages() { return 24; };
@@ -159,11 +158,12 @@ private:
 	alert::ARContrastFixationPointSpec m_fixpt;
 	bool m_bUseCueCircles;
 	bool m_bUseCuePoints;
+	bool m_bCuePointIsDot;
 	int m_pageBlank;
 	int m_pageFixpt;
 	vector<alert::ARGratingSpec> m_vecGratings;
-	vector<alert::ARContrastCircleSpec> m_vecCues;
-	vector<alert::ARContrastRectangleSpec> m_vecCueRects;
+	vector<alert::ARContrastCueCircleSpec> m_vecCueCircles;
+	//vector<alert::ARContrastRectangleSpec> m_vecCueRects;
 	unsigned int m_current;
 	std::vector<int> m_pages;
 	vector<GratingSequenceHelper *> m_gratingHelpers;

@@ -10,6 +10,7 @@ typedef struct attention_cue
 	double rdiff;
 	int linewidth;
 	COLOR_TYPE color;
+	double fixpt_d;
 } AttentionCue;
 
 int parse_attcues(const std::string& s, int nstim, std::vector<AttentionCue>& vecCues);

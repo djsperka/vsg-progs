@@ -27,17 +27,18 @@ unsigned int m_current;
 #endif
 
 
-SequencedAttentionStimSet::SequencedAttentionStimSet(ARContrastFixationPointSpec& fixpt, vector<alert::ARGratingSpec>& vecGratings, vector<AttentionCue>& vecCuePairs, bool bCueCircles, bool bCuePoints, vector<AttentionSequenceTrialSpec>& trialSpecs)
+SequencedAttentionStimSet::SequencedAttentionStimSet(ARContrastFixationPointSpec& fixpt, vector<alert::ARGratingSpec>& vecGratings, vector<AttentionCue>& vecCuePairs, bool bCueCircles, bool bCuePoints, bool bCueIsDot, vector<AttentionSequenceTrialSpec>& trialSpecs)
 : m_trialSpecs(trialSpecs)
 , m_fixpt(fixpt)
 , m_bUseCueCircles(bCueCircles)
 , m_bUseCuePoints(bCuePoints)
+, m_bCuePointIsDot(bCueIsDot)
 , m_vecGratings(vecGratings)
 , m_current(0)
 {
 	for (unsigned int i = 0; i<vecCuePairs.size(); i++)
 	{
-		ARContrastCircleSpec circle;
+		ARContrastCueCircleSpec circle;
 		int indGrating = i % m_vecGratings.size();
 
 		// set up cue circle
@@ -46,16 +47,14 @@ SequencedAttentionStimSet::SequencedAttentionStimSet(ARContrastFixationPointSpec
 		circle.d = m_vecGratings[indGrating].w + vecCuePairs[i].rdiff * 2;
 		circle.linewidth = vecCuePairs[i].linewidth;
 		circle.color = vecCuePairs[i].color;
-		m_vecCues.push_back(circle);
-
-		// NOTE: in AttentionStimSet this was originally done with points, not rects. 
-		ARContrastRectangleSpec r(vsgSOLIDPEN, vecCuePairs[i].linewidth);
-		r.color = vecCuePairs[i].color;
-		r.x = m_vecGratings[indGrating].x;
-		r.y = m_vecGratings[indGrating].y;
-		r.w = r.h = 2 * fixpt.d;
-		r.orientation = 0;
-		m_vecCueRects.push_back(r);
+		if (m_bUseCueCircles)
+			circle.bCircleEnabled = true;
+		if (m_bUseCuePoints)
+		{
+			circle.dCentral = fixpt.d;
+			circle.bCentralIsDot = m_bCuePointIsDot;
+		}
+		m_vecCueCircles.push_back(circle);
 	}
 };
 
@@ -109,36 +108,24 @@ int SequencedAttentionStimSet::init(ARvsg& vsg, std::vector<int> pages)
 	// The first group of cues is initialized (gets assigned a VSG object number, color levels) in the normal way. 
 	// Subsequent groups of cues (and all the cue points) are initialized to use the same object number and levels. 
 
-	if (m_vecCues.size() > 0)
+	if (m_vecCueCircles.size() > 0)
 	{
-		cerr << "Initialize " << m_vecCues.size() << " cues." << endl;
+		cerr << "Initialize " << m_vecCueCircles.size() << " cues." << endl;
 		for (unsigned int i = 0; i < m_vecGratings.size(); i++)
 		{
-			m_vecCues[i].init(vsg, 2);
+			m_vecCueCircles[i].init(vsg, 2);
 		}
-		for (unsigned int i = m_vecGratings.size(); i < m_vecCues.size(); i++)
+		for (unsigned int i = m_vecGratings.size(); i < m_vecCueCircles.size(); i++)
 		{
 			cerr << "init cue " << i << " using cue " << (i % m_vecGratings.size()) << endl;
-			m_vecCues[i].init(m_vecCues[i % m_vecGratings.size()]);
+			m_vecCueCircles[i].init(m_vecCueCircles[i % m_vecGratings.size()]);
 		}
 	}
 
-	// Initialize all cue points, even if they are not used. 
-	cerr << "Initialize " << m_vecCueRects.size() << " cue rects." << endl;
-	for (unsigned int i = 0; i<m_vecCueRects.size(); i++)
-	{
-		m_vecCueRects[i].init(m_vecCues[i]);
-	}
-
-	//cerr << "Initialize " << m_vecGratings.size() << " gratings." << endl;
-	//for (unsigned int i = 0; i<m_vecGratings.size(); i++)
-	//{
-	//	m_vecGratings[i].init(vsg, nlevels);
-	//}
 
 	// create helpers. 
 	m_pFixptHelper = new FixptSequenceHelper(FixptIndex, 100, m_fixpt);
-	m_pCueHelper = new CueSequenceHelper(CueIndex, 0, m_vecGratings.size(), m_vecCues, m_vecCueRects);
+	m_pCueHelper = new CueSequenceHelper(CueIndex, 0, m_vecGratings.size(), m_vecCueCircles);
 	for (unsigned int i = 0; i<m_vecGratings.size(); i++)
 	{
 		m_gratingHelpers.push_back(new GratingSequenceHelper(i, m_vecGratings[i].contrast, m_vecGratings[i]));
@@ -348,7 +335,7 @@ int SequencedAttentionStimSet::drawPageUsingPageVec(const PageVec& pv, int page,
 	bCuePoints = m_bUseCuePoints && (itCues != pv.end() && itCues->second != 0);
 	bFixpt = (itFixpt != pv.end());
 
-	if (bCuePoints) m_pCueHelper->draw_cue_points(offbits);
+	if (bCuePoints) m_pCueHelper->draw_cues(offbits, false);
 	for (auto& icp : pv)
 	{
 		// Ignore offbits for gratings! 
@@ -357,7 +344,7 @@ int SequencedAttentionStimSet::drawPageUsingPageVec(const PageVec& pv, int page,
 			m_gratingHelpers[icp.first]->draw(initial_phase.at(icp.first));
 		}
 	}
-	if (bCues) m_pCueHelper->draw_cues(offbits);
+	if (bCues) m_pCueHelper->draw_cues(offbits, true);
 	if (bFixpt) m_pFixptHelper->draw(0);	// arg is ignored for fixpt.
 
 	//GratingPool::instance().printPoolStatus();
@@ -791,7 +778,7 @@ void CueSequenceHelper::draw(double initial_phase)
 	cerr << "WARNING - CueSequenceHelper::draw is NO-OP. Use draw_cues, draw_cue_points instead" << endl;
 }
 
-void CueSequenceHelper::draw_cues(int iOffBits)
+void CueSequenceHelper::draw_cues(int iOffBits, bool bCircles)
 {
 	if (contrast() == 0) return;
 
@@ -818,7 +805,14 @@ void CueSequenceHelper::draw_cues(int iOffBits)
 			{
 				cout << "Drawing cue." << endl;
 				m_circles[iCueBase*m_ngratings + i].setContrast(this->contrast());
-				m_circles[iCueBase*m_ngratings + i].draw();
+				if (bCircles)
+				{
+					m_circles[iCueBase*m_ngratings + i].drawCircle();
+				}
+				else
+				{
+					m_circles[iCueBase*m_ngratings + i].drawPoint();
+				}
 			}
 		}
 	}
@@ -826,34 +820,34 @@ void CueSequenceHelper::draw_cues(int iOffBits)
 	return;
 }
 
-void CueSequenceHelper::draw_cue_points(int iOffBits)
-{
-	if (contrast() == 0) return;
-
-	// One for each grating, but the set of cues used are taken from 
-	// (iOffBits & 0xff00) >> 8
-	int iCueBase = (iOffBits & 0xff00) >> 8;
-
-	for (unsigned int i = 0; i<m_ngratings; i++)
-	{
-		//cout << "cue " << i << " (iOffBits & (1 << i)) " << (iOffBits & (1 << i)) << endl;
-		// Check if this stim has an off bit set.
-		if (iOffBits & (1 << i))
-		{
-			//cout << "Nothing to do." << endl;
-			// do nothing
-		}
-		else
-		{
-			if (m_rects.size() > iCueBase*m_ngratings + i)
-			{
-				m_rects[iCueBase*m_ngratings + i].draw();
-			}
-		}
-	}
-
-	return;
-}
+//void CueSequenceHelper::draw_cue_points(int iOffBits)
+//{
+//	if (contrast() == 0) return;
+//
+//	// One for each grating, but the set of cues used are taken from 
+//	// (iOffBits & 0xff00) >> 8
+//	int iCueBase = (iOffBits & 0xff00) >> 8;
+//
+//	for (unsigned int i = 0; i<m_ngratings; i++)
+//	{
+//		//cout << "cue " << i << " (iOffBits & (1 << i)) " << (iOffBits & (1 << i)) << endl;
+//		// Check if this stim has an off bit set.
+//		if (iOffBits & (1 << i))
+//		{
+//			//cout << "Nothing to do." << endl;
+//			// do nothing
+//		}
+//		else
+//		{
+//			if (m_rects.size() > iCueBase*m_ngratings + i)
+//			{
+//				m_rects[iCueBase*m_ngratings + i].draw();
+//			}
+//		}
+//	}
+//
+//	return;
+//}
 
 void SequencedAttentionStimSet::updateHelper(const ICPair& p)
 {
