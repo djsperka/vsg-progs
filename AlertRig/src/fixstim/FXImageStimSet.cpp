@@ -1,5 +1,137 @@
 #include "FXImageStimSet.h"
 #include <sstream>
+#include <boost/filesystem.hpp>
+#include <boost/algorithm/string.hpp>
+
+
+
+bool parseImageInputFile(std::vector<FXImageInfo>& vecInfo, const std::string& filename, double xDefault = 0, double yDefault = 0, double durationDefault = 0, double delayDefault = 0)
+{
+	bool bReturn = false;
+
+	boost::filesystem::path p(filename);
+	if (!exists(p))
+	{
+		cerr << "Error: image list file does not exist: " << filename << endl;
+		return false;
+	}
+	else
+	{
+		bReturn = true;
+		cerr << "Found image list file " << filename << endl;
+
+		// open file, read line-by-line and parse
+		string line;
+		int linenumber = 0;		// count lines from 0
+		int imagecount = 0;
+		std::ifstream myfile(filename.c_str());
+		if (myfile.is_open())
+		{
+			while (getline(myfile, line))
+			{
+				linenumber++;
+				cerr << "read line " << linenumber << endl;
+
+				// line may look like these things
+				// 1) c:\path\file.bmp                    filename only. Position will be 0,0 duration=delay=0
+				// 2) c:\path\file.bmp,x,y                filename, position (in current units), duration=delay=0
+				// 3) c:\path\file.bmp,x,y,durSec,dlySec  all 5 params. 
+				// 4) <blank>                             skip this line
+				// 5) # anything                          comment, ignored
+
+				// skip comment line
+				if (line[0] == '#')
+					continue;
+
+				// skip empty lines
+				boost::algorithm::trim(line);
+				if (line.size() == 0)
+					continue;
+
+				// tokenize
+				vector<string> tokens;
+				tokenize(line, tokens, ",");
+				if (tokens.size() == 0)
+					continue;
+
+				// verify file exists
+				boost::filesystem::path image(tokens[0]);
+				if (!exists(image))
+				{
+					cerr << "image file not found,line " << linenumber << " : " << image << endl;
+					bReturn = false;
+					break;
+				}
+
+
+				double x, y, dur, del;
+				switch (tokens.size())
+				{
+				case 1:
+					vecInfo.push_back(std::make_tuple(tokens[0], xDefault, yDefault, durationDefault, delayDefault));
+					break;
+				case 3:
+					if (parse_double(tokens[1], x) || parse_double(tokens[2], y))
+					{
+						cerr << "Error at line " << linenumber << ": cannot parse x,y" << endl;
+						bReturn = false;
+					}
+					else
+					{
+						vecInfo.push_back(std::make_tuple(tokens[0], x, y, durationDefault, delayDefault));
+					}
+					break;
+				case 5:
+					if (parse_double(tokens[1], x) || parse_double(tokens[2], y) || parse_double(tokens[3], del) || parse_double(tokens[4], dur))
+					{
+						cerr << "Error at line " << linenumber << ": cannot parse x,y,del,dur" << endl;
+						bReturn = false;
+					}
+					else
+					{
+						vecInfo.push_back(std::make_tuple(tokens[0], x, y, del, dur));
+					}
+					break;
+				default:
+					cerr << "Error - too many tokens (" << tokens.size() << ") at line " << linenumber << endl;
+					bReturn = false;
+					break;
+				}
+
+				// if  there was a bad line, exit loop.
+				if (!bReturn)
+					break;
+			}
+			myfile.close();
+			if (bReturn)
+				cerr << "Loaded " << vecInfo.size() << " image files." << endl;
+		}
+	}
+	return bReturn;
+}
+
+
+FXImageStimSet *createImageStimSet(const std::string& filename, double x, double y, double duration, double delay, int nlevels)
+{
+	FXImageStimSet *pStimSet = nullptr;
+	std::vector<FXImageInfo> vecInfo;
+	if (parseImageInputFile(vecInfo, filename, x, y, duration, delay))
+	{
+		pStimSet = new FXImageStimSet(vecInfo, nlevels);
+	}
+	return pStimSet;
+}
+
+FXImageStimSet *createImageStimSet(ARContrastFixationPointSpec& fixpt, const std::string& filename, double x, double y, double duration, double delay, int nlevels)
+{
+	FXImageStimSet *pStimSet = nullptr;
+	std::vector<FXImageInfo> vecInfo;
+	if (parseImageInputFile(vecInfo, filename, x, y, duration, delay))
+	{
+		pStimSet = new FXImageStimSet(fixpt, vecInfo, nlevels);
+	}
+	return pStimSet;
+}
 
 
 FXImageStimSet::FXImageStimSet()
@@ -12,47 +144,61 @@ FXImageStimSet::~FXImageStimSet()
 {
 }
 
-FXImageStimSet::FXImageStimSet(ARContrastFixationPointSpec& fixpt, const std::vector<std::string>& vecImages, double x, double y, double durationInSec, int nlevels, int low, int high)
+//FXImageStimSet::FXImageStimSet(ARContrastFixationPointSpec& fixpt, const std::vector<std::string>& vecImages, double x, double y, double durationInSec, int nlevels)
+//	: FXStimSet(fixpt)
+//	, m_x(x)
+//	, m_y(y)
+//	, m_nlevels(nlevels)
+//	, m_bUseCycling(false)
+//	, m_images(vecImages)
+//	, m_current(0)
+//{
+//	if (durationInSec <= 0)
+//		m_stimDurationFrames = 0;
+//	else
+//	{
+//		int f = vsgGetSystemAttribute(vsgFRAMETIME);
+//		m_stimDurationFrames = (int)(durationInSec / f * 1000000.0);
+//		m_bUseCycling = true;
+//	}
+//}
+//
+//FXImageStimSet::FXImageStimSet(const std::vector<std::string>& vecImages, double x, double y, double durationInSec, int nlevels)
+//	: FXStimSet()
+//	, m_x(x)
+//	, m_y(y)
+//	, m_nlevels(nlevels)
+//	, m_bUseCycling(false)
+//	, m_images(vecImages)
+//	, m_current(0)
+//{
+//	if (durationInSec <= 0)
+//		m_stimDurationFrames = 0;
+//	else
+//	{
+//		int f = vsgGetSystemAttribute(vsgFRAMETIME);
+//		m_stimDurationFrames = (int)(durationInSec / f * 1000000.0);
+//		m_bUseCycling = true;
+//	}
+//}
+
+FXImageStimSet::FXImageStimSet(ARContrastFixationPointSpec& fixpt, const std::vector<FXImageInfo>& vecInfo, int nlevels)
 	: FXStimSet(fixpt)
-	, m_x(x)
-	, m_y(y)
 	, m_nlevels(nlevels)
-	, m_lowwater(low)
-	, m_highwater(high)
-	, m_bUseCycling(false)
-	, m_images(vecImages)
+	, m_imagesInfo(vecInfo)
 	, m_current(0)
 {
-	if (durationInSec <= 0)
-		m_stimDurationFrames = 0;
-	else
-	{
-		int f = vsgGetSystemAttribute(vsgFRAMETIME);
-		m_stimDurationFrames = (int)(durationInSec / f * 1000000.0);
-		m_bUseCycling = true;
-	}
+
 }
 
-FXImageStimSet::FXImageStimSet(const std::vector<std::string>& vecImages, double x, double y, double durationInSec, int nlevels, int low, int high)
-	: FXStimSet()
-	, m_x(x)
-	, m_y(y)
-	, m_nlevels(nlevels)
-	, m_lowwater(low)
-	, m_highwater(high)
-	, m_bUseCycling(false)
-	, m_images(vecImages)
-	, m_current(0)
+FXImageStimSet::FXImageStimSet(const std::vector<FXImageInfo>& vecInfo, int nlevels)
+: m_nlevels(nlevels)
+, m_imagesInfo(vecInfo)
+, m_current(0)
 {
-	if (durationInSec <= 0)
-		m_stimDurationFrames = 0;
-	else
-	{
-		int f = vsgGetSystemAttribute(vsgFRAMETIME);
-		m_stimDurationFrames = (int)(durationInSec / f * 1000000.0);
-		m_bUseCycling = true;
-	}
+
 }
+
 
 std::string FXImageStimSet::toString() const
 {
@@ -62,9 +208,16 @@ std::string FXImageStimSet::toString() const
 		oss << " Fixpt: " << fixpt() << endl;
 	else
 		oss << " Fixpt: NONE" << endl;
-	oss << " Images: " << m_images.size() << endl;
-	for (std::vector<std::string>::const_iterator it = m_images.begin(); it != m_images.end(); it++)
-		oss << "   " << *it << endl;
+	oss << " Images: " << m_imagesInfo.size() << endl;
+	for (auto infoTup : m_imagesInfo)
+	{
+		oss << "   " <<
+			std::get<0>(infoTup) << "," <<
+			std::get<1>(infoTup) << "," <<
+			std::get<2>(infoTup) << "," <<
+			std::get<3>(infoTup) << "," <<
+			std::get<4>(infoTup) << std::endl;
+	}
 	return oss.str();
 }
 
@@ -84,68 +237,13 @@ int FXImageStimSet::init(ARvsg& vsg, std::vector<int> pages)
 		fixpt().setContrast(100);
 	}
 
-	if (m_highwater > 0)
-	{
-		cerr << "Preloading " << m_images.size() << " images..." << endl;
-		double w, h;
-		int currentUnits;
+	//if (m_bUseCycling)
+	//{
+	//	cerr << "Set up cycling - stim duration is " << m_stimDurationFrames << " frames." << endl;
+	//	setupCycling();
+	//}
 
-		// get resolution of images. Assume first image same as all of them. 
-		// Need the resolution and position in pixels for the call to vsgDrawMoveRect (and for creating host pages)
-		currentUnits = vsgGetSystemAttribute(vsgSPATIALUNITS);
-		vsgSetSpatialUnits(vsgPIXELUNIT);
-		char filename[1024];
-		strncpy_s(filename, 1024, m_images[0].c_str(), sizeof(filename));
-		status = vsgImageGetSize(0, filename, &w, &h);
-		vsgSetSpatialUnits(currentUnits);
-		cerr << "Got resolution (status " << status << ") " << w << " x " << h << " from " << filename << endl;
-		m_imageWPixels = (int)w;
-		m_imageHPixels = (int)h;
-
-		// load palette from the first image
-		loadPaletteFromImage(filename, m_nlevels);
-
-		// convert x,y
-		vsgUnit2Unit(vsgDEGREEUNIT, m_x, vsgPIXELUNIT, &m_imageXPixels);
-		vsgUnit2Unit(vsgDEGREEUNIT, m_y, vsgPIXELUNIT, &m_imageYPixels);
-
-		// now load images into host pages, store handles in m_pageHandles
-		for (auto f : m_images)
-		{
-
-			// check if this filename has already been loaded
-			if (m_pageHandleMap.count(f) == 0)
-			{
-				int i = vsgPAGECreate(vsgHOSTPAGE, (int)w, (int)h, vsg8BITPALETTEMODE);
-				if (i < 0)
-				{
-					cerr << "ERROR loading images: vsgPAGECreate failed." << endl;
-					break;
-				}
-				else
-				{
-					int st;
-					//m_pageHandles.push_back(i);
-					m_pageHandleMap[f] = i;
-					strncpy_s(filename, 1024, f.c_str(), sizeof(filename));
-					vsgSetDrawPage(vsgHOSTPAGE, i, vsgNOCLEAR);
-					st = vsgDrawImage(0, 0, 0, filename);
-					cerr << "Loaded file " << f << " handle " << i << " status " << st << endl;
-				}
-			}
-			else
-			{
-				cerr << "File " << f << " already loaded, handle " << m_pageHandleMap[f] << endl;
-			}
-		}
-	}
-
-	if (m_bUseCycling)
-	{
-		cerr << "Set up cycling - stim duration is " << m_stimDurationFrames << " frames." << endl;
-		setupCycling();
-	}
-
+	// drawCurrent will decide if cycling will be used, and will set m_bUseCycling
 	status = drawCurrent();
 
 	return status;
@@ -171,7 +269,7 @@ int FXImageStimSet::handle_trigger(std::string& s)
 	else if (s == "a")
 	{
 		m_current++;
-		if (m_current == m_images.size())
+		if (m_current == m_imagesInfo.size())
 			m_current = 0;
 		drawCurrent();
 		status = 0;
@@ -203,30 +301,17 @@ int FXImageStimSet::drawCurrent()
 
 	// fixpt + stim page
 	vsgSetDrawPage(vsgVIDEOPAGE, m_pageFixptStim, vsgBACKGROUND);
-	if (m_highwater == 0)
-	{
-		char filename[1024];
-		int mode = vsgGetSystemAttribute(vsgVIDEOMODE);
-		strncpy_s(filename, 1024, m_images[m_current].c_str(), sizeof(filename));
 
-		// load palette
-		loadPaletteFromImage(filename, m_nlevels);
+	char filename[1024];
+	int mode = vsgGetSystemAttribute(vsgVIDEOMODE);
+	string sfilename = std::get<0>(m_imagesInfo[m_current]);
+	strncpy_s(filename, 1024, sfilename.c_str(), sizeof(filename));
 
-		// draw
-		diStatus = vsgDrawImage(vsgBMPPICTURE, m_x, -m_y, filename);
-	}
-	else
-	{
-		//vsgSetSpatialUnits(vsgPIXELUNIT);
-		//vsgDrawMoveRect(vsgHOSTPAGE, m_pageHandles[m_current], 0, 0, m_imageWPixels, m_imageHPixels, m_imageXPixels, -m_imageYPixels, m_imageWPixels, m_imageHPixels);
-		//vsgSetSpatialUnits(vsgDEGREEUNIT);
-		if (m_pageHandleMap.count(m_images[m_current]) > 0)
-		{
-			vsgSetSpatialUnits(vsgPIXELUNIT);
-			vsgDrawMoveRect(vsgHOSTPAGE, m_pageHandleMap[m_images[m_current]], 0, 0, m_imageWPixels, m_imageHPixels, m_imageXPixels, -m_imageYPixels, m_imageWPixels, m_imageHPixels);
-			vsgSetSpatialUnits(vsgDEGREEUNIT);
-		}
-	}
+	// load palette
+	loadPaletteFromImage(filename, m_nlevels);
+
+	// draw
+	diStatus = vsgDrawImage(vsgBMPPICTURE, std::get<1>(m_imagesInfo[m_current]), -1 * std::get<2>(m_imagesInfo[m_current]), filename);
 
 	if (has_fixpt())
 	{
@@ -234,6 +319,20 @@ int FXImageStimSet::drawCurrent()
 	}
 
 	vsgSetDrawPage(vsgVIDEOPAGE, m_pageBlank, vsgBACKGROUND);
+
+	// cycling?
+	setupCycling(m_imagesInfo[m_current]);
+	m_bUseCycling = true;
+
+	//if (std::get<3>(m_imagesInfo[m_current]) <= 0)
+	//{
+	//	m_bUseCycling = false;
+	//}
+	//else
+	//{
+	//	setupCycling(m_imagesInfo[m_current]);
+	//}
+
 	return status;
 }
 
@@ -263,7 +362,9 @@ bool FXImageStimSet::loadPaletteFromImage(char *filename, int nlevels)
 
 	return true;
 }
-void FXImageStimSet::setupCycling()
+
+
+void FXImageStimSet::setupCycling(const FXImageInfo& info)
 {
 	VSGCYCLEPAGEENTRY cycle[12];	// warning! No check on usage. You have been warned. 
 	int status = 0;
@@ -271,24 +372,65 @@ void FXImageStimSet::setupCycling()
 
 	memset(cycle, 0, sizeof(cycle));
 
-	cycle[count].Frames = m_stimDurationFrames;
-	cycle[count].Page = m_pageFixptStim + vsgTRIGGERPAGE;
-	cycle[count].Stop = 0;
-	count++;
-	cycle[count].Frames = 0;
-	cycle[count].Page = m_pageBlank + vsgTRIGGERPAGE;
-	cycle[count].Stop = 1;
-	count++;
+	int framesStim = (int)( std::get<3>(info) / vsgGetSystemAttribute(vsgFRAMETIME) * 1000000.0 );
+	int framesDelay = (int)(std::get<4>(info) / vsgGetSystemAttribute(vsgFRAMETIME) * 1000000.0);
+	cerr << "FXImageStimSet::setupCycling: frames delay, stim = " << framesDelay << " " << framesStim << endl;
 
+	if (framesDelay > 0)
+	{
+		cycle[count].Frames = framesDelay;
+		cycle[count].Page = m_pageFixpt + vsgTRIGGERPAGE;
+		cycle[count].Stop = 0;
+		count++;
+	}
+	if (framesStim > 0)
+	{
+		cycle[count].Frames = framesStim;
+		cycle[count].Page = m_pageFixptStim + vsgTRIGGERPAGE;
+		cycle[count].Stop = 0;
+		count++;
+		cycle[count].Frames = 0;
+		cycle[count].Page = m_pageBlank + vsgTRIGGERPAGE;
+		cycle[count].Stop = 1;
+		count++;
+	}
+	else
+	{
+		cycle[count].Frames = 1;
+		cycle[count].Page = m_pageFixptStim + vsgTRIGGERPAGE;
+		cycle[count].Stop = 1;
+		count++;
+	}
 	status = vsgPageCyclingSetup(count, &cycle[0]);
 }
 
+
+
+//void FXImageStimSet::setupCycling()
+//{
+//	VSGCYCLEPAGEENTRY cycle[12];	// warning! No check on usage. You have been warned. 
+//	int status = 0;
+//	int count = 0;
+//
+//	memset(cycle, 0, sizeof(cycle));
+//
+//	int f = vsgGetSystemAttribute(vsgFRAMETIME);
+//	m_stimDurationFrames = (int)(durationInSec / f * 1000000.0);
+//
+//
+//
+//	cycle[count].Frames = m_stimDurationFrames;
+//	cycle[count].Page = m_pageFixptStim + vsgTRIGGERPAGE;
+//	cycle[count].Stop = 0;
+//	count++;
+//	cycle[count].Frames = 0;
+//	cycle[count].Page = m_pageBlank + vsgTRIGGERPAGE;
+//	cycle[count].Stop = 1;
+//	count++;
+//
+//	status = vsgPageCyclingSetup(count, &cycle[0]);
+//}
+
 void FXImageStimSet::cleanup(std::vector<int> pages)
 {
-	// free memory associated with page handles, if needed
-	for (auto p : m_pageHandleMap)
-	{
-		vsgPAGEDelete(p.second);
-	}
-	m_pageHandleMap.clear();
 }

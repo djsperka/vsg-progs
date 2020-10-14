@@ -337,77 +337,40 @@ int FixUStim::process_arg(int c, std::string& arg)
 		break;
 	case 'i':
 	{
-		cerr << "Got image arg " << arg;
+		cerr << "Got image arg " << arg << endl;
 
 		// parse image arg
 		// -i filename								load on demand, display each at 0,0
 		// -i filename,x,y							load on demand, display each at x,y
 		// -i filename,x,y,low_water,high_water		cache images, when num falls below low_water, load until high_water reached (or we run out of images)
 
-		int low = 0, hi = 0;
 		double x = 0, y = 0;
 		double duration = 0;
+		double delay = 0;
 		int nlevels = 0;
 		string filename;
 
-		if (!parseImageArg(arg, filename, x, y, duration, nlevels, low, hi))
+		if (!parseImageArg(arg, filename, x, y, duration, delay, nlevels))
 		{
 			cerr << "Error parsing image argument: " << arg << endl;
 			m_errflg++;
 			break;
 		}
 
-		path p(filename);
-		if (!exists(p))
+		if (have_fixpt)
 		{
-			cerr << "Error: image list file does not exist: " << filename << endl;
-			m_errflg++;
+			m_pStimSet = createImageStimSet(m_fixpt, filename, x, y, duration, delay, nlevels);
 		}
 		else
 		{
-			cerr << "Found image list file " << filename << endl;
-
-			// open file, read line-by-line and parse
-			string line;
-			int linenumber = 0;
-			int imagecount = 0;
-			std::ifstream myfile(filename.c_str());
-			vector<string> images;
-			if (myfile.is_open())
-			{
-				while (getline(myfile, line))
-				{
-					//cerr << "Found filename " << line << endl;
-					// verify file exists
-					path image(line);
-					if (exists(image))
-					{
-						//cerr << "image file exists: " << image << endl;
-						images.push_back(line);
-					}
-					else
-					{
-						cerr << "image file DOES NOT EXIST: " << image << endl;
-					}
-				}
-				myfile.close();
-				cerr << "Loaded " << images.size() << " image files." << endl;
-
-				if (have_fixpt)
-				{
-					m_pStimSet = new FXImageStimSet(m_fixpt, images, x, y, duration, nlevels, low, hi);
-				}
-				else
-				{
-					m_pStimSet = new FXImageStimSet(images, x, y, duration, nlevels, low, hi);
-				}
-			}
-			else
-			{
-				cerr << "Cannot open image list file " << filename << endl;
-				m_errflg++;
-			}
+			m_pStimSet = createImageStimSet(filename, x, y, duration, delay, nlevels);
 		}
+		if (!m_pStimSet)
+		{
+			cerr << "Error - bad input file for image stim set." << endl;
+			m_errflg++;
+		}
+
 		break;
 	}
 	case 's':
@@ -1536,11 +1499,11 @@ StimSet* FixUStim::create_stimset(bool bHaveFixpt, ARContrastFixationPointSpec& 
 }
 
 
-bool FixUStim::parseImageArg(const std::string& arg, std::string& filename, double& x, double& y, double& duration, int& nlevels, int& low_water, int& hi_water)
+bool FixUStim::parseImageArg(const std::string& arg, std::string& filename, double& x, double& y, double& duration, double& delay, int& nlevels)
 {
 	std::vector<std::string> vec;
 	tokenize(arg, vec, ",");
-	cerr << "vec has " << vec.size() << endl;
+	cerr << "parseImageArg: arg has " << vec.size() << " tokens." << endl;
 
 	// can have args like this:
 	// "filename"		just list file (screen pos 0,0)
@@ -1554,11 +1517,11 @@ bool FixUStim::parseImageArg(const std::string& arg, std::string& filename, doub
 	nlevels = 230;
 	x = y = 0;
 	duration = 0;
-	low_water = hi_water = 0;
+	delay = 0;
 
 	// check for correct number of tokens
 	if (vec.size() == 1 || vec.size() == 3 || vec.size() == 4 ||
-		vec.size() == 5 || vec.size() == 7)
+		vec.size() == 5 || vec.size() == 6)
 	{
 		filename = vec[0];
 		if (vec.size() > 1)
@@ -1586,8 +1549,8 @@ bool FixUStim::parseImageArg(const std::string& arg, std::string& filename, doub
 		}
 		if (vec.size() > 4)
 		{
-			// get nlevels
-			if (parse_integer(vec[4], nlevels))
+			// get delay
+			if (parse_double(vec[4], delay))
 			{
 				cerr << "Error parsing numlevels: " << vec[4] << endl;
 				return false;
@@ -1595,22 +1558,17 @@ bool FixUStim::parseImageArg(const std::string& arg, std::string& filename, doub
 		}
 		if (vec.size() > 5)
 		{
-			// get lo, hi
-			if (parse_integer(vec[5], low_water))
+			// get nlevels
+			if (parse_integer(vec[5], nlevels))
 			{
-				cerr << "Error parsing low water mark: " << vec[5] << endl;
-				return false;
-			}
-			if (parse_integer(vec[6], hi_water))
-			{
-				cerr << "Error parsing high water mark: " << vec[6] << endl;
+				cerr << "Error parsing numlevels: " << vec[5] << endl;
 				return false;
 			}
 		}
 	}
 	else
 	{
-		cerr << "bad arg for images: must have 1,3, 4, 5, or 6 args: -i filename[,x,y[,duration[,nlevels[,lo,hi]]]]" << endl;
+		cerr << "bad arg for images: must have 1,3, 4, 5, or 6 args: -i filename[,x,y[,duration[,delay[,nlevels]]]]" << endl;
 		return false;
 	}
 	return true;
