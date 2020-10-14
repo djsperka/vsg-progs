@@ -523,6 +523,8 @@ int parse_color(std::string s, COLOR_TYPE& c)
 	{
 		int n;
 		int r, g, b;
+		double dr, dg, db;
+
 		// try and parse a custom color vector
 		status=1;
 		n = sscanf_s(s.c_str(), "(%d/%d/%d)", &r, &g, &b);
@@ -536,7 +538,19 @@ int parse_color(std::string s, COLOR_TYPE& c)
 		}
 		else
 		{
-			c.setType(unknown_color);
+			n = sscanf_s(s.c_str(), "[%lf/%lf/%lf]", &dr, &dg, &db);
+			if (n == 3)
+			{
+				if (dr >= 0 && dr <= 1.0 && dg >= 0 && dg <= 1.0 && db >= 0 && db <= 1.0)
+				{
+					status = 0;
+					c.setCustom(dr, dg, db);
+				}
+			}
+			else
+			{
+				c.setType(unknown_color);
+			}
 		}
 	}
 	return status;
