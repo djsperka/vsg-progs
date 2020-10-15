@@ -492,7 +492,7 @@ int parse_colorvector(std::string s, COLOR_VECTOR_TYPE& v)
 		n = sscanf_s(s.c_str(), "(%d/%d/%d)-(%d/%d/%d)", &fr, &fg, &fb, &tr, &tg, &tb);
 		if (n==6)
 		{
-			if (fr>=0 && fr<256 && fg>=0 && fg<256 && fb>=0 && fb<256 && 
+			if (fr>=0 && fr<256 && fg>=0 && fg<256 && fb>=0 && fb<256 &&
 				tr>=0 && tr<256 && tg>=0 && tg<256 && tb>=0 && tb<256)
 			{
 				status = 0;
@@ -503,6 +503,26 @@ int parse_colorvector(std::string s, COLOR_VECTOR_TYPE& v)
 				v.to.a = (double)tr/255.0;
 				v.to.b = (double)tg/255.0;
 				v.to.c = (double)tb/255.0;
+			}
+		}
+		else
+		{
+			double lfr, lfg, lfb, ltr, ltb, ltg;
+			n = sscanf_s(s.c_str(), "[%lf/%lf/%lf]-[%lf/%lf/%lf]", &lfr, &lfg, &lfb, &ltr, &ltg, &ltb);
+			if (n == 6)
+			{
+				if (lfr >= 0 && lfr <= 1.0 && lfg >= 0 && lfg <= 1.0 && lfb >= 0 && lfb <= 1.0 &&
+					ltr >= 0 && ltr <= 1.0 && ltg >= 0 && ltg <= 1.0 && ltb >= 0 && ltb <= 1.0)
+				{
+					status = 0;
+					v.type = custom_color_vector;
+					v.from.a = lfr;
+					v.from.b = lfg;
+					v.from.c = lfb;
+					v.to.a = ltr;
+					v.to.b = ltg;
+					v.to.c = ltb;
+				}
 			}
 		}
 	}
