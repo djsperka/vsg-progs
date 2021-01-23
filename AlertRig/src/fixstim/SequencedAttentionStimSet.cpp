@@ -739,7 +739,9 @@ void GratingSequenceHelper::setContrastPriv()
 				g->orientation = m_gratingDefault.orientation;
 				g->phase = m_gratingDefault.phase;
 				g->cv = m_gratingDefault.cv;
-				g->pattern = m_gratingDefault.pattern;
+				g->swt = m_gratingDefault.swt;
+				g->twt = m_gratingDefault.twt;
+				g->ttf = m_gratingDefault.ttf;
 				g->aperture = m_gratingDefault.aperture;
 				g->bDrawInitDone = false;
 

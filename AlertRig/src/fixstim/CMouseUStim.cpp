@@ -1036,9 +1036,11 @@ int CMouseUStim::process_arg(int c, std::string& arg)
 					m_grating.tf = 4;
 					m_grating.orientation = 45;
 					m_grating.contrast = 100;
-					m_grating.pattern = sinewave;
+					m_grating.swt = sinewave;
+					m_grating.twt = sinewave;
 					m_grating.aperture = ellipse;
 					m_grating.cv.type = b_w;
+					m_grating.ttf = 0;
 				}
 				break;
 			}
