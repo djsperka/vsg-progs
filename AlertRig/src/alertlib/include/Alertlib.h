@@ -44,7 +44,8 @@
 // These typedefs are used in all the specs. 
 typedef enum colorvectorenum { unknown_color_vector=0, b_w, l_cone, m_cone, s_cone, custom_color_vector } COLOR_VECTOR_ENUM;
 typedef enum colortype { unknown_color=0, black=1, white=2, red=3, green=4, blue=5, gray=6, custom=7 } COLOR_ENUM;
-typedef enum patterntype { unknown_pattern=0, sinewave, squarewave } PATTERN_TYPE;
+//typedef enum patterntype { unknown_pattern=0, sinewave, squarewave } PATTERN_TYPE;
+typedef enum waveform_type { unknown_spatial_waveform=0, sinewave, squarewave } WAVEFORM_TYPE;
 typedef enum aperturetype { unknown_aperture=0, ellipse, rectangle } APERTURE_TYPE;
 typedef int PIXEL_LEVEL;
 
@@ -95,7 +96,7 @@ int parse_color(std::string s, COLOR_TYPE& c);
 // SEE COLOR_TYPE::trival() int get_color(COLOR_TYPE c, VSGTRIVAL& trival);
 int get_colorvector(COLOR_VECTOR_TYPE& cv, VSGTRIVAL& from, VSGTRIVAL& to);
 int parse_colorvector(std::string s, COLOR_VECTOR_TYPE& v);
-int parse_pattern(std::string s, PATTERN_TYPE& p);
+int parse_waveform_types(std::string s, WAVEFORM_TYPE& swt, WAVEFORM_TYPE& twt);
 int parse_aperture(std::string s, APERTURE_TYPE& a);
 int parse_distance(std::string s, int& dist);
 int parse_integer(std::string s, int& i);
@@ -170,7 +171,7 @@ int tokenize_response_file(char *filename, std::vector<std::string> &tokens);
 std::ostream& operator<<(std::ostream& out, const COLOR_TYPE& c);
 std::ostream& operator<<(std::ostream& out, const COLOR_VECTOR_TYPE& v);
 std::ostream& operator<<(std::ostream& out, const APERTURE_TYPE& a);
-std::ostream& operator<<(std::ostream& out, const PATTERN_TYPE& p);
+std::ostream& operator<<(std::ostream& out, const WAVEFORM_TYPE& p);
 
 
 
@@ -551,7 +552,8 @@ namespace alert
 		double orientation;
 		int contrast;
 		double phase;	// initial phase
-		PATTERN_TYPE pattern;
+		WAVEFORM_TYPE swt;
+		WAVEFORM_TYPE twt;
 		APERTURE_TYPE aperture;
 		COLOR_VECTOR_TYPE cv;
 		bool bDrawInitDone;

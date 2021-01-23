@@ -84,7 +84,7 @@ int arutil_draw_grating_fullscreen(ARGratingSpec& gr, int videoPage)
 		vsgObjSetPixelLevels(gr.getFirstLevel(), gr.getNumLevels());
 
 		// Set spatial waveform
-		if (gr.pattern == sinewave)
+		if (gr.swt == sinewave)
 		{
 			vsgObjTableSinWave(vsgSWTABLE);
 		}
@@ -143,7 +143,7 @@ int arutil_draw_grating(ARGratingSpec& gr, int videoPage)
 		vsgObjSetPixelLevels(gr.getFirstLevel(), gr.getNumLevels());
 
 		// Set spatial waveform
-		if (gr.pattern == sinewave)
+		if (gr.swt == sinewave)
 		{
 			vsgObjTableSinWave(vsgSWTABLE);
 		}
@@ -213,7 +213,7 @@ int arutil_draw_grating_noaperture(ARGratingSpec& gr, int videoPage)
 		vsgObjSetPixelLevels(gr.getFirstLevel(), gr.getNumLevels());
 
 		// Set spatial waveform
-		if (gr.pattern == sinewave)
+		if (gr.swt == sinewave)
 		{
 			vsgObjTableSinWave(vsgSWTABLE);
 		}

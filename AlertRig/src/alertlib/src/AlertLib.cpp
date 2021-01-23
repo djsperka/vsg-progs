@@ -132,7 +132,7 @@ std::ostream& operator<<(std::ostream& out, const ARRectangleSpec& arrect)
 
 std::ostream& operator<<(std::ostream& out, const ARGratingSpec& args)
 {
-	out << args.x << "," << args.y << "," << args.w << "," << args.h << "," << args.wd << "," << args.hd << "," << args.contrast << "," << args.sf << "," << args.tf << "," << args.orientation << "," << args.phase << "," << args.cv << "," << args.pattern << "," << args.aperture;
+	out << args.x << "," << args.y << "," << args.w << "," << args.h << "," << args.wd << "," << args.hd << "," << args.contrast << "," << args.sf << "," << args.tf << "," << args.orientation << "," << args.phase << "," << args.cv << "," << args.swt << args.twt << "," << args.aperture;
 	//out << "x,y=(" << args.x << "," << args.y << ") w,h,wd,hd=(" << args.w << "," << args.h << "," << args.wd << "," << args.hd << ") c=" << args.contrast << " sf=" << args.sf << " tf=" << args.tf << " ori=" << args.orientation << " ph=" << args.phase << " cv=" << args.cv << " p=" << args.pattern << " ap=" << args.aperture;
 	return out;
 }
@@ -1562,7 +1562,7 @@ ARGratingSpec::ARGratingSpec(const ARGratingSpec& g) : ARSpec(g)
 	orientation = g.orientation;
 	phase = g.phase;
 	cv = g.cv;
-	pattern = g.pattern;
+	swt = g.swt;
 	aperture = g.aperture;
 	bDrawInitDone = false;
 }
@@ -1584,7 +1584,8 @@ ARGratingSpec& ARGratingSpec::operator=(const ARGratingSpec& g)
 		orientation = g.orientation;
 		phase = g.phase;
 		cv = g.cv;
-		pattern = g.pattern;
+		swt = g.swt;
+		twt = g.twt;
 		aperture = g.aperture;
 	}
 	return *this;
@@ -1660,7 +1661,7 @@ int ARGratingSpec::draw(long mode, int apertureLevel)
 		vsgObjSetPixelLevels(getFirstLevel(), getNumLevels());
 
 		// Set spatial waveform
-		if (this->pattern == sinewave)
+		if (this->swt == sinewave)
 		{
 			vsgObjTableSinWave(vsgSWTABLE);
 		}
@@ -1800,7 +1801,7 @@ int ARApertureGratingSpec::draw()
 	vsgObjSetPixelLevels(getFirstLevel(), getNumLevels());
 
 	// Set spatial waveform
-	if (this->pattern == sinewave)
+	if (this->swt == sinewave)
 	{
 		vsgObjTableSinWave(vsgSWTABLE);
 	}

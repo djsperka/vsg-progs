@@ -279,7 +279,8 @@ int parse_grating(const std::string& s, alert::ARGratingSpec& ag)
 
 		// set defaults for the remaining items, then read if present
 		ag.cv.type = b_w;
-		ag.pattern = sinewave;
+		ag.swt = sinewave;
+		ag.twt = sinewave;
 		ag.aperture = ellipse;
 
 		if (tokens.size() > numbers.size())
@@ -292,7 +293,7 @@ int parse_grating(const std::string& s, alert::ARGratingSpec& ag)
 		}
 		if (tokens.size() > numbers.size()+1)
 		{
-			if (parse_pattern(tokens[numbers.size()+1], ag.pattern))
+			if (parse_waveform_types(tokens[numbers.size()+1], ag.swt, ag.twt))
 			{
 				cerr << "bad pattern: " << tokens[numbers.size()+1] << endl;
 				status=1;
@@ -459,7 +460,7 @@ std::ostream& operator<<(std::ostream& out, const APERTURE_TYPE& a)
 	return out;
 }
 
-std::ostream& operator<<(std::ostream& out, const PATTERN_TYPE& p)
+std::ostream& operator<<(std::ostream& out, const WAVEFORM_TYPE& p)
 {
 	switch(p)
 	{
@@ -1011,19 +1012,30 @@ int get_colorvector(COLOR_VECTOR_TYPE& cv, VSGTRIVAL& from, VSGTRIVAL& to)
 	return status;
 }
 
-
-int parse_pattern(std::string s, PATTERN_TYPE& p)
+int parse_waveform_types(std::string s, WAVEFORM_TYPE& swt, WAVEFORM_TYPE& twt)
 {
-	int status=0;
-	if (s == "q" || s == "Q") p = squarewave;
-	else if (s=="s" || s=="S") p = sinewave;
+	int status = 0;
+	if (s.length() == 0 || s.length() > 2)
+	{
+		return 1;
+	}
 	else
 	{
-		status = 1;
-		p = unknown_pattern;
+		if (s[0] == 'q' || s[0] == 'Q') swt = squarewave;
+		else if (s[0] == 's' || s[0] == 'S') swt = sinewave;
+		if (s.length() == 1)
+		{
+			twt = sinewave;
+		}
+		else
+		{
+			if (s[1] == 'q' || s[1] == 'Q') twt = squarewave;
+			else if (s[1] == 's' || s[1] == 'S') twt = sinewave;
+		}
 	}
 	return status;
 }
+
 
 int parse_aperture(std::string s, APERTURE_TYPE& a)
 {
