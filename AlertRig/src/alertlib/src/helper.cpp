@@ -282,6 +282,7 @@ int parse_grating(const std::string& s, alert::ARGratingSpec& ag)
 		ag.swt = sinewave;
 		ag.twt = sinewave;
 		ag.aperture = ellipse;
+		ag.ttf = 0;
 
 		if (tokens.size() > numbers.size())
 		{
@@ -305,6 +306,14 @@ int parse_grating(const std::string& s, alert::ARGratingSpec& ag)
 			{
 				cerr << "bad aperture: " << tokens[numbers.size()+2] << endl;
 				status=1;
+			}
+		}
+		if (tokens.size() > numbers.size() + 3)
+		{
+			if (parse_double(tokens[numbers.size() + 3], ag.ttf))
+			{
+				cerr << "bad ttf: " << tokens[numbers.size() + 3] << endl;
+				status = 1;
 			}
 		}
 	}

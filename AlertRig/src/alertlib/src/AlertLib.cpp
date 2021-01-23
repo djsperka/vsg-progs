@@ -132,7 +132,7 @@ std::ostream& operator<<(std::ostream& out, const ARRectangleSpec& arrect)
 
 std::ostream& operator<<(std::ostream& out, const ARGratingSpec& args)
 {
-	out << args.x << "," << args.y << "," << args.w << "," << args.h << "," << args.wd << "," << args.hd << "," << args.contrast << "," << args.sf << "," << args.tf << "," << args.orientation << "," << args.phase << "," << args.cv << "," << args.swt << args.twt << "," << args.aperture;
+	out << args.x << "," << args.y << "," << args.w << "," << args.h << "," << args.wd << "," << args.hd << "," << args.contrast << "," << args.sf << "," << args.tf << "," << args.orientation << "," << args.phase << "," << args.cv << "," << args.swt << args.twt << "," << args.aperture << "," << args.ttf;
 	//out << "x,y=(" << args.x << "," << args.y << ") w,h,wd,hd=(" << args.w << "," << args.h << "," << args.wd << "," << args.hd << ") c=" << args.contrast << " sf=" << args.sf << " tf=" << args.tf << " ori=" << args.orientation << " ph=" << args.phase << " cv=" << args.cv << " p=" << args.pattern << " ap=" << args.aperture;
 	return out;
 }
@@ -1563,6 +1563,8 @@ ARGratingSpec::ARGratingSpec(const ARGratingSpec& g) : ARSpec(g)
 	phase = g.phase;
 	cv = g.cv;
 	swt = g.swt;
+	twt = g.twt;
+	ttf = g.ttf;
 	aperture = g.aperture;
 	bDrawInitDone = false;
 }
@@ -1586,6 +1588,7 @@ ARGratingSpec& ARGratingSpec::operator=(const ARGratingSpec& g)
 		cv = g.cv;
 		swt = g.swt;
 		twt = g.twt;
+		ttf = g.ttf;
 		aperture = g.aperture;
 	}
 	return *this;
@@ -1678,12 +1681,27 @@ int ARGratingSpec::draw(long mode, int apertureLevel)
 		}
 		vsgObjSetColourVector(&from, &to, vsgBIPOLAR);
 
+		// set temporal waveform
+		if (this->twt == sinewave)
+		{
+			vsgObjTableSinWave(vsgTWTABLE);
+		}
+		else
+		{
+			// Set up standard 50:50 square wave
+			vsgObjTableSquareWave(vsgTWTABLE, (DWORD)(0), (DWORD)(vsgObjGetTableSize(vsgTWTABLE)*0.5));
+		}
+		vsgObjSetTemporalPhase(0);
+
+
+
 		bDrawInitDone = true;
 	}
 
 	vsgObjSetContrast(contrast);
 	vsgObjSetSpatialPhase(phase);
 	vsgObjSetDriftVelocity(tf);
+	vsgObjSetTemporalFrequency(ttf);
 
 	// Now draw
 	if (this->aperture == ellipse)

@@ -535,7 +535,7 @@ namespace alert
 	class ARGratingSpec: public ARSpec
 	{
 	public:
-		ARGratingSpec() : bDrawInitDone(false), phase(0), wd(0), hd(0) {};
+		ARGratingSpec() : bDrawInitDone(false), phase(0), wd(0), hd(0), ttf(0), swt(sinewave), twt(sinewave) {};
 
 		// Copy constructor only copies grating parameters, not vsg object properties. 
 		// A grating initialize with this constructor must still be initialized, and it will 
@@ -548,12 +548,14 @@ namespace alert
 
 		double x,y,w,h;
 		double wd, hd;	
-		double sf, tf;
+		double sf;		// spatial frequency
+		double tf;		// drift velocity (modifies spatial waveform). Calling it tf (temporal freq) is a misnomer.
 		double orientation;
 		int contrast;
 		double phase;	// initial phase
 		WAVEFORM_TYPE swt;
 		WAVEFORM_TYPE twt;
+		double ttf;		// temporal frequency - for the temporal waveform. 
 		APERTURE_TYPE aperture;
 		COLOR_VECTOR_TYPE cv;
 		bool bDrawInitDone;
