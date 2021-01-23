@@ -447,6 +447,42 @@ private:
 };
 
 
+class StimTTFList : public FXGStimParameterList
+{
+public:
+	StimTTFList(vector<double> ttfs, unsigned int index, bool bDistractor) : FXGStimParameterList(index, bDistractor), m_vec(ttfs) { m_iter = m_vec.begin(); };
+	StimTTFList(const StimTTFList& list) : FXGStimParameterList(list.index(), list.isDistractor()), m_vec(list.m_vec)
+	{
+		m_iter = m_vec.begin();
+	}
+	virtual ~StimTTFList() {};
+	virtual StimTTFList *clone() const
+	{
+		return new StimTTFList(*this);
+	}
+	virtual bool advance(MultiParameterFXMultiGStimSet* pstimset)
+	{
+		m_iter++;
+		if (m_iter == m_vec.end()) m_iter = m_vec.begin();
+		return set_current_parameter(pstimset);
+	}
+
+	virtual bool set_current_parameter(MultiParameterFXMultiGStimSet* pstimset)
+	{
+		if (!isDistractor())
+			pstimset->grating(index()).ttf = *m_iter;
+		else
+			pstimset->distractor(index()).ttf = *m_iter;
+		return true;
+	}
+
+private:
+	vector<double> m_vec;
+	vector<double>::const_iterator m_iter;
+};
+
+
+
 
 
 class GratingXYList: public StimXYList

@@ -12,7 +12,7 @@ using namespace std;
 using namespace boost::algorithm;
 using namespace boost::filesystem;
 
-const string FixUStim::m_allowedArgs("ab:c:d:e:f:g:h:i:j:k:l:m:n:o:q:p:r:t:s:vy:zA:B:C:D:E:G:H:I:J:KL:M:NO:P:Q:R:S:T:U:V:W:X:Y:Z:");
+const string FixUStim::m_allowedArgs("ab:c:d:e:f:g:h:i:j:k:l:m:n:o:q:p:r:t:s:vy:zA:B:C:D:E:G:H:I:J:KL:M:NO:P:Q:R:S:T:V:W:X:Y:Z:");
 
 FixUStim::FixUStim(bool bStandAlone)
 	: UStim()
@@ -503,6 +503,7 @@ int FixUStim::process_arg(int c, std::string& arg)
 	case 'E':
 	case 't':
 	case 'P':
+	case 'I':
 	{
 		vector<double> tuning_parameters;
 		int nsteps;
@@ -585,6 +586,9 @@ int FixUStim::process_arg(int c, std::string& arg)
 				case 'P':
 					plist = new StimPhaseList(tuning_parameters, stimIndex, last_was_distractor);
 					break;
+				case 'I':
+					plist = new StimTTFList(tuning_parameters, stimIndex, last_was_distractor);
+					break;
 				default:
 					cerr << "Unhandled varying stim parameter type (" << (char)c << ")" << endl;
 					m_errflg++;
@@ -595,82 +599,6 @@ int FixUStim::process_arg(int c, std::string& arg)
 		}
 		break;
 	}
-	//case 'P':
-	//{
-	//	vector<double> tuning_parameters;
-	//	int nsteps;
-	//	double tf;
-	//	vector<string> tokens;
-	//	istringstream iss;
-	//	bool bSquareWave = false;
-
-	//	// format expected: -P tf,s|q,phase0,phase1,...
-	//	// s = sin wave, q=square wave
-	//	tokenize(arg, tokens, ",");
-
-	//	iss.clear();
-	//	iss.str(tokens[0]);
-	//	iss >> tf;
-	//	if (!iss)
-	//	{
-	//		cerr << "bad tuning value: first token (TF) should be a double. " << tokens[0] << endl;
-	//		m_errflg++;
-	//	}
-	//	else
-	//	{
-	//		if (tokens[1] == string("q") || tokens[1] == string("Q") || tokens[1] == string("s") || tokens[1] == string("S"))
-	//		{
-	//			bSquareWave = false;
-	//			if (tokens[1] == string("q") || tokens[1] == string("Q"))
-	//				bSquareWave = true;
-	//			tokens.erase(tokens.begin());
-	//			tokens.erase(tokens.begin());
-
-	//			if (parse_tuning_list(tokens, tuning_parameters, nsteps)) m_errflg++;
-	//			else
-	//			{
-	//				if (!have_stim)
-	//				{
-	//					cerr << "Error - must pass template grating stimulus with \"-s\" before passing tuning parameters." << endl;
-	//					m_errflg++;
-	//				}
-	//				else
-	//				{
-	//					if (!m_pStimSet)
-	//					{
-	//						if (have_fixpt)
-	//						{
-	//							if (have_xhair)
-	//							{
-	//								m_pStimSet = new CounterphaseStimSet(m_fixpt, m_xhair, m_grating, tuning_parameters, tf, bSquareWave);
-	//							}
-	//							else
-	//							{
-	//								m_pStimSet = new CounterphaseStimSet(m_fixpt, m_grating, tuning_parameters, tf, bSquareWave);
-	//							}
-	//						}
-	//						else
-	//						{
-	//							m_pStimSet = new CounterphaseStimSet(m_grating, tuning_parameters, tf, bSquareWave);
-	//						}
-	//						m_bUsingMultiParameterStimSet = false;
-	//					}
-	//					else
-	//					{
-	//						cerr << "Error - Cannot mix counterphase stim with other stim types!" << endl;
-	//						m_errflg++;
-	//					}
-	//				}
-	//			}
-	//		}
-	//		else
-	//		{
-	//			cerr << "bad tuning value: second token should be s or q." << endl;
-	//			m_errflg++;
-	//		}
-	//	}
-	//	break;
-	//}
 	case 'R':
 	case 'B':
 	{
@@ -1069,52 +997,6 @@ int FixUStim::process_arg(int c, std::string& arg)
 			}
 
 		}
-		break;
-	}
-	case 'I':			// master stim
-	case 'U':			// slave stim
-	{
-		FGGXStimSet* pss = (FGGXStimSet*)NULL;
-		boost::shared_ptr<SSInfo> pssinfo(new SSInfo());
-		if (!SSInfo::load(arg, *pssinfo))
-		{
-			cerr << "Error parsing stim set info file " << arg << endl;
-			m_errflg++;
-		}
-
-		// Make sure to assign the "core" and "donut" correctly! 
-		if (pssinfo->getIsDanish())
-		{
-			cerr << "Danish stim" << endl;
-			if (pssinfo->getCoreIsMaster())
-			{
-				cerr << "Core is master" << endl;
-				if (c == 'I') pss = new FGGXDanishStimSet(pssinfo);
-				else        pss = new FGGXNullStimSet(pssinfo, m_dSlaveXOffset, m_dSlaveYOffset);
-			}
-			else
-			{
-				cerr << "Core is slave" << endl;
-				if (c == 'U') pss = new FGGXDanishStimSet(pssinfo, m_dSlaveXOffset, m_dSlaveYOffset);
-				else        pss = new FGGXNullStimSet(pssinfo);
-			}
-		}
-		else
-		{
-			if (pssinfo->getCoreIsMaster())
-			{
-				if (c == 'I') pss = new FGGXCoreStimSet(pssinfo);
-				else        pss = new FGGXDonutStimSet(pssinfo, m_dSlaveXOffset, m_dSlaveYOffset);
-			}
-			else
-			{
-				if (c == 'U') pss = new FGGXCoreStimSet(pssinfo, m_dSlaveXOffset, m_dSlaveYOffset);
-				else        pss = new FGGXDonutStimSet(pssinfo);
-			}
-		}
-		if (have_fixpt) pss->set_fixpt(m_fixpt);
-		if (have_xhair) pss->set_xhair(m_xhair);
-		m_pStimSet = (StimSet*)pss;
 		break;
 	}
 	case 'r':
