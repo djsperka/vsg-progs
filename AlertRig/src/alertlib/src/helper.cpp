@@ -199,7 +199,7 @@ int parse_grating(const std::string& s, alert::ARGratingSpec& ag)
 	// Short form: the last three args (color_vector, pattern, aperture) can be omitted. 
 
 	tokenize(s, tokens, ",");
-	if (tokens.size() < 8 || tokens.size() > 14)
+	if (tokens.size() < 8 || tokens.size() > 15)
 	{
 		cerr << "Bad grating spec format." << endl;
 		status=1;	// bad format
