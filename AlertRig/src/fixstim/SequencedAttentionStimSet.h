@@ -11,6 +11,10 @@
 const unsigned int FixptIndex = 100;
 const unsigned int CueIndex = 101;
 const unsigned int EndIndex = 999;	// sets all stim to given contrast, makes this the stop frame.
+const unsigned int FirstImageIndex = 1000;
+// image indices will start at EndIndex + 1.
+
+typedef std::tuple<std::string, double, double> ImageInfo;
 
 
 // index, contrast pair
@@ -128,7 +132,7 @@ typedef struct
 
 
 
-int parse_sequenced_params(const std::string& arg, unsigned int ngratings, std::vector<AttentionSequenceTrialSpec>& trialSpecs);
+int parse_sequenced_params(const std::string& arg, unsigned int ngratings, std::vector<AttentionSequenceTrialSpec>& trialSpecs, std::vector<ImageInfo>& vecImageInfo);
 
 
 #define SECONDS_TO_FRAMES(t) (int)((t) * 1000000.0 /vsgGetSystemAttribute(vsgFRAMETIME))
@@ -137,7 +141,7 @@ int parse_sequenced_params(const std::string& arg, unsigned int ngratings, std::
 class SequencedAttentionStimSet : public StimSet
 {
 public:
-	SequencedAttentionStimSet(ARContrastFixationPointSpec& fixpt, vector<alert::ARGratingSpec>& vecGratings, vector<AttentionCue>& vecCuePairs, bool bCueCircles, bool bCuePoints, bool bCueIsDot, vector<AttentionSequenceTrialSpec>& trialSpecs);
+	SequencedAttentionStimSet(ARContrastFixationPointSpec& fixpt, vector<alert::ARGratingSpec>& vecGratings, vector<ImageInfo>& vecImageInfo, vector<AttentionCue>& vecCuePairs, bool bCueCircles, bool bCuePoints, bool bCueIsDot, vector<AttentionSequenceTrialSpec>& trialSpecs);
 	~SequencedAttentionStimSet() {};
 
 	int num_pages() { return 24; };
@@ -164,6 +168,7 @@ private:
 	vector<alert::ARGratingSpec> m_vecGratings;
 	vector<alert::ARContrastCueCircleSpec> m_vecCueCircles;
 	//vector<alert::ARContrastRectangleSpec> m_vecCueRects;
+	vector<ImageInfo>& m_vecImageInfo;
 	unsigned int m_current;
 	std::vector<int> m_pages;
 	vector<GratingSequenceHelper *> m_gratingHelpers;

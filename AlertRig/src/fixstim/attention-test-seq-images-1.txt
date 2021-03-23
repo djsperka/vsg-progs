@@ -1,0 +1,13 @@
+# Big red fixation point, gray background, etc
+ 
+-f 0,0,1.0,red  -b gray -d 813 -a
+
+# cue circles ONLY (-Q). One for each of the stim
+ 
+#-Q .5,2,(255/0/255),.5,2,(0/255/0),.5,2,(255/255/0),.5,2,(0/255/255)
+
+# specify input file containing trial sequences
+#
+
+-n e:\work\vsg-progs\AlertRig\src\fixstim\attention-test-seq-images-1-trials.txt
+

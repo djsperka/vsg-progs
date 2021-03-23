@@ -1,0 +1,22 @@
+Images
+e:\work\img\grapes.bmp,-6,7
+e:\work\img\lettuce.bmp,-3,7
+e:\work\img\pepper.bmp,3,7
+e:\work\img\radish.bmp,6,7
+*
+Trial 1
+(255/0/0),0,0
+I0,1.0,100
+I1,2.0,100
+I0,3.0,0
+I1,4.0,0
+*,5.0,0
+
+Trial 2
+(255/0/0),0,0
+I2,1.0,100
+I3,2.0,100
+I2,3.0,0
+I3,4.0,0
+*,5.0,0
+

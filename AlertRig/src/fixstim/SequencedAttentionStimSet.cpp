@@ -5,6 +5,7 @@
 #include <vector>
 #include <iostream>
 #include <boost/algorithm/string.hpp>
+#include <boost/filesystem.hpp>
 #include <exception>
 #include <algorithm>
 using namespace std;
@@ -27,13 +28,14 @@ unsigned int m_current;
 #endif
 
 
-SequencedAttentionStimSet::SequencedAttentionStimSet(ARContrastFixationPointSpec& fixpt, vector<alert::ARGratingSpec>& vecGratings, vector<AttentionCue>& vecCuePairs, bool bCueCircles, bool bCuePoints, bool bCueIsDot, vector<AttentionSequenceTrialSpec>& trialSpecs)
+SequencedAttentionStimSet::SequencedAttentionStimSet(ARContrastFixationPointSpec& fixpt, vector<alert::ARGratingSpec>& vecGratings, vector<ImageInfo>& vecImageInfo, vector<AttentionCue>& vecCuePairs, bool bCueCircles, bool bCuePoints, bool bCueIsDot, vector<AttentionSequenceTrialSpec>& trialSpecs)
 : m_trialSpecs(trialSpecs)
 , m_fixpt(fixpt)
 , m_bUseCueCircles(bCueCircles)
 , m_bUseCuePoints(bCuePoints)
 , m_bCuePointIsDot(bCueIsDot)
 , m_vecGratings(vecGratings)
+, m_vecImageInfo(vecImageInfo)
 , m_current(0)
 {
 	for (unsigned int i = 0; i<vecCuePairs.size(); i++)
@@ -423,7 +425,7 @@ int SequencedAttentionStimSet::handle_trigger(std::string& s)
 
 
 
-int parse_sequenced_params(const std::string& filename, unsigned int ngratings, std::vector<AttentionSequenceTrialSpec>& trialSpecs)
+int parse_sequenced_params(const std::string& filename, unsigned int ngratings, std::vector<AttentionSequenceTrialSpec>& trialSpecs, std::vector<ImageInfo>& vecImageInfo)
 {
 	int status = 0;
 	std::ifstream myfile(filename.c_str());
@@ -438,6 +440,11 @@ int parse_sequenced_params(const std::string& filename, unsigned int ngratings, 
 		vector<string> tokens;
 		AttentionSequenceTrialSpec spec;
 
+
+		/*
+		   iTrialStep
+		   0 - 
+		*/
 		while (!status && getline(myfile, line))
 		{
 			linenumber++;
@@ -447,17 +454,10 @@ int parse_sequenced_params(const std::string& filename, unsigned int ngratings, 
 				switch(iTrialStep) {
 				case 0:
 
-					// The only thing we look for here is the word "trial"
-					// is there a trial pending - error
-					if (iTrialStep)
+					// The only thing we look for here is the word "trial" or "image". 
+					boost::algorithm::to_lower(line);
+					if (line.rfind("trial") == 0)
 					{
-						cerr << "Error - trial does not end, line " << linenumber << endl;
-						status = 1;
-						break;
-					}
-					else
-					{
-						//cerr << "Start of trial found" << endl;
 						iTrialStep = 1;
 
 						// initialize trial spec
@@ -466,7 +466,57 @@ int parse_sequenced_params(const std::string& filename, unsigned int ngratings, 
 						spec.offbits = 0;
 						spec.icpm.clear();
 					}
+					else if (line.rfind("images") == 0)
+					{
+						// change to image reading state
+						iTrialStep = 10;
+						break;
+					}
 					break;
+
+				case 10:
+
+					// expecting three tokens: file,x,y
+					tokens.clear();
+					tokenize(line, tokens, ",");
+					if (tokens[0].at(0) == '*')
+					{
+						// done with images
+						iTrialStep = 0;
+						break;
+					}
+					else if (tokens.size() == 3)
+					{
+						// verify file exists
+						boost::filesystem::path image(tokens[0]);
+						if (!exists(image))
+						{
+							cerr << "image file not found,line " << linenumber << " : " << image << endl;
+							status = 1;
+							break;
+						}
+						else
+						{
+							double x = 0, y = 0;
+							if (parse_double(tokens[1], x) || parse_double(tokens[2], y))
+							{
+								cerr << "Error at line " << linenumber << ": cannot parse x,y : " << line << endl;
+								status = 1;
+								break;
+							}
+							else
+							{
+								vecImageInfo.push_back(std::make_tuple(tokens[0], x, y));
+							}
+							break;
+						}
+					}
+					else
+					{
+						cerr << "Error reading images - expecting \"*\" or  filename,x,y, line " << linenumber << ": " << line << endl;
+						status = 1;
+						break;
+					}
 
 				case 1:
 					tokens.clear();
@@ -547,6 +597,19 @@ int parse_sequenced_params(const std::string& filename, unsigned int ngratings, 
 						if (tokens[0].at(0) == 'F') index = FixptIndex;
 						else if (tokens[0].at(0) == 'Q') index = CueIndex;
 						else if (tokens[0].at(0) == '*') index = EndIndex;
+						else if (tokens[0].at(0) == 'I')
+						{
+							if (parse_uint(tokens[0].substr(1), index))
+							{
+								cerr << "Error reading image index (expect \"I#\") line " << linenumber << ": " << tokens[0] << endl;
+								status = 1;
+								break;
+							}
+							else
+							{
+								index += FirstImageIndex;
+							}
+						}
 						else
 						{
 							if (parse_uint(tokens[0], index))
