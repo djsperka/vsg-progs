@@ -1063,16 +1063,19 @@ int FixUStim::process_arg(int c, std::string& arg)
 	case 'n':
 	{
 		vector<AttentionSequenceTrialSpec> trialSpecs;
-		vector<ImageInfo> vecImageInfo;
+		ImageFilesPositions ifp;
 		cerr << "Parsing sequenced trials..." << endl;
-		if (parse_sequenced_params(arg, m_vecGratings.size(), trialSpecs, vecImageInfo))
+		if (parse_sequenced_params(arg, m_vecGratings.size(), trialSpecs, ifp))
 		{
 			cerr << "Error in sequenced param input" << endl;
 		}
 		else
 		{
 			cerr << "Parse OK, got " << trialSpecs.size() << " trials" << endl;
-			m_pStimSet = new SequencedAttentionStimSet(m_fixpt, m_vecGratings, vecImageInfo, m_vecAttentionCues, bUseCueCircles, bUseCuePoints, bCuePointIsDot, trialSpecs);
+			if (m_vecGratings.empty())
+				m_pStimSet = new SequencedImagesAttentionStimSet(m_fixpt, ifp, m_vecAttentionCues, bUseCueCircles, bUseCuePoints, bCuePointIsDot, trialSpecs);
+			else
+				m_pStimSet = new SequencedAttentionStimSet(m_fixpt, m_vecGratings, m_vecAttentionCues, bUseCueCircles, bUseCuePoints, bCuePointIsDot, trialSpecs);
 		}
 		break;
 	}
