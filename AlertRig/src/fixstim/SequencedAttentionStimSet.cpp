@@ -10,32 +10,13 @@
 #include <algorithm>
 using namespace std;
 
-
-
-
-
-
-#if 0
-vector<AttentionSequenceTrialSpec>& m_trialSpecs;
-alert::ARContrastFixationPointSpec m_fixpt;
-bool m_bUseCueCircles;
-bool m_bUseCuePoints;
-vector<alert::ARGratingSpec> m_vecGratings;
-vector<alert::ARContrastCircleSpec> m_vecCues;
-vector<alert::ARContrastFixationPointSpec> m_vecCuePoints;
-vector<alert::ARContrastRectangleSpec> m_vecCueRects;
-unsigned int m_current;
-#endif
-
-
-SequencedAttentionStimSet::SequencedAttentionStimSet(ARContrastFixationPointSpec& fixpt, vector<alert::ARGratingSpec>& vecGratings, vector<ImageInfo>& vecImageInfo, vector<AttentionCue>& vecCuePairs, bool bCueCircles, bool bCuePoints, bool bCueIsDot, vector<AttentionSequenceTrialSpec>& trialSpecs)
+SequencedAttentionStimSet::SequencedAttentionStimSet(ARContrastFixationPointSpec& fixpt, vector<alert::ARGratingSpec>& vecGratings, vector<AttentionCue>& vecCuePairs, bool bCueCircles, bool bCuePoints, bool bCueIsDot, vector<AttentionSequenceTrialSpec>& trialSpecs)
 : m_trialSpecs(trialSpecs)
 , m_fixpt(fixpt)
 , m_bUseCueCircles(bCueCircles)
 , m_bUseCuePoints(bCuePoints)
 , m_bCuePointIsDot(bCueIsDot)
 , m_vecGratings(vecGratings)
-, m_vecImageInfo(vecImageInfo)
 , m_current(0)
 {
 	for (unsigned int i = 0; i<vecCuePairs.size(); i++)
@@ -425,11 +406,11 @@ int SequencedAttentionStimSet::handle_trigger(std::string& s)
 
 
 
-int parse_sequenced_params(const std::string& filename, unsigned int ngratings, std::vector<AttentionSequenceTrialSpec>& trialSpecs, std::vector<ImageInfo>& vecImageInfo)
+int parse_sequenced_params(const std::string& filename, unsigned int ngratings, std::vector<AttentionSequenceTrialSpec>& trialSpecs, ImageFilesPositions& ifp)
 {
 	int status = 0;
+	unsigned int nimages = 0;
 	std::ifstream myfile(filename.c_str());
-	std::vector<string> images;
 	if (myfile.is_open())
 	{
 
@@ -468,6 +449,41 @@ int parse_sequenced_params(const std::string& filename, unsigned int ngratings, 
 					}
 					else if (line.rfind("images") == 0)
 					{
+						if (ngratings > 0)
+						{
+							cerr << "Cannot have images in spec file and gratings on command line." << endl;
+							status = 1;
+							break;
+						}
+						// parse remainder of line
+						// there should be an ODD number of tokens: the word "images" followed by x,y pairs. 
+						tokens.clear();
+						tokenize(line, tokens, ",");
+						if (((tokens.size() - 1) % 2) == 1)
+						{
+							cerr << "Expecting x,y pairs following \"images\" at line " << linenumber << endl;
+							status = 1;
+							break;
+						}
+						else
+						{
+							for (int i = 1; i < tokens.size(); i += 2)
+							{
+								double ximg, yimg;
+								if (parse_double(tokens[i], ximg) || parse_double(tokens[i + 1], yimg))
+								{
+									cerr << "Error parsing x,y pair on line " << linenumber << ": " << tokens[i] << ", " << tokens[i + 1] << endl;
+									status = 1;
+									break;
+								}
+								else
+								{
+									std::get<1>(ifp).push_back(make_tuple(ximg, yimg));
+									cerr << "image x,y " << ximg << ", " << yimg << endl;
+								}
+							}
+						}
+
 						// change to image reading state
 						iTrialStep = 10;
 						break;
@@ -476,47 +492,28 @@ int parse_sequenced_params(const std::string& filename, unsigned int ngratings, 
 
 				case 10:
 
-					// expecting three tokens: file,x,y
-					tokens.clear();
-					tokenize(line, tokens, ",");
-					if (tokens[0].at(0) == '*')
+					// expecting just a filename
+					if (line[0] == '*')
 					{
 						// done with images
 						iTrialStep = 0;
-						break;
+						nimages = std::get<0>(ifp).size();
 					}
-					else if (tokens.size() == 3)
+					else
 					{
 						// verify file exists
-						boost::filesystem::path image(tokens[0]);
+						boost::filesystem::path image(line);
 						if (!exists(image))
 						{
 							cerr << "image file not found,line " << linenumber << " : " << image << endl;
 							status = 1;
-							break;
 						}
 						else
 						{
-							double x = 0, y = 0;
-							if (parse_double(tokens[1], x) || parse_double(tokens[2], y))
-							{
-								cerr << "Error at line " << linenumber << ": cannot parse x,y : " << line << endl;
-								status = 1;
-								break;
-							}
-							else
-							{
-								vecImageInfo.push_back(std::make_tuple(tokens[0], x, y));
-							}
-							break;
+							std::get<0>(ifp).push_back(line);
 						}
 					}
-					else
-					{
-						cerr << "Error reading images - expecting \"*\" or  filename,x,y, line " << linenumber << ": " << line << endl;
-						status = 1;
-						break;
-					}
+					break;
 
 				case 1:
 					tokens.clear();
@@ -535,48 +532,50 @@ int parse_sequenced_params(const std::string& filename, unsigned int ngratings, 
 							status = 1;
 							break;
 						}
-						if (tokens.size() == 3)
+
+						// When using gratings, expect either a single initial phase value, or one for each of the gratings. 
+						// When using images, ignore the rest of the line.
+						if (ngratings > 0)
 						{
-							double phase;
-							if (parse_double(tokens[2], phase))
+							if (tokens.size() == 3)
 							{
-								cerr << "Error reading initial phase at line " << linenumber << ": " << tokens[2] << endl;
-								status = 1;
-								break;
-							}
-							else
-							{
-								for (int i = 0; i < ngratings; i++)
-									spec.initialPhase.push_back(phase);
-							}
-						}
-						else if (tokens.size() == (2 + ngratings))
-						{
-							double phase;
-							for (int i = 2; i < 2 + ngratings; i++)
-							{
-								if (parse_double(tokens[i], phase))
+								double phase;
+								if (parse_double(tokens[2], phase))
 								{
-									cerr << "Error reading initial phase at line " << linenumber << ": " << tokens[i] << endl;
+									cerr << "Error reading initial phase at line " << linenumber << ": " << tokens[2] << endl;
 									status = 1;
 									break;
 								}
 								else
 								{
-									spec.initialPhase.push_back(phase);
+									for (int i = 0; i < ngratings; i++)
+										spec.initialPhase.push_back(phase);
 								}
 							}
+							else if (tokens.size() == (2 + ngratings))
+							{
+								double phase;
+								for (int i = 2; i < 2 + ngratings; i++)
+								{
+									if (parse_double(tokens[i], phase))
+									{
+										cerr << "Error reading initial phase at line " << linenumber << ": " << tokens[i] << endl;
+										status = 1;
+										break;
+									}
+									else
+									{
+										spec.initialPhase.push_back(phase);
+									}
+								}
+							}
+							else
+							{
+								cerr << "Error reading initial phases at line " << linenumber << ": expecting a single phase, or one for each grating (" << ngratings << ")" << endl;
+								status = 1;
+								break;
+							}
 						}
-						else
-						{
-							cerr << "Error reading initial phases at line " << linenumber << ": expecting a single phase, or one for each grating (" << ngratings << ")" << endl;
-							status = 1;
-							break;
-						}
-
-						//cerr << "Success! " << spec.color << ", " << spec.offbits << " : init phases [";
-						//for_each(spec.initialPhase.begin(), spec.initialPhase.end(), [=](double& ph) {cerr << " " << ph; });
-						//cerr << " ]" << endl;
 						iTrialStep = 2;
 					}
 					else
@@ -597,31 +596,29 @@ int parse_sequenced_params(const std::string& filename, unsigned int ngratings, 
 						if (tokens[0].at(0) == 'F') index = FixptIndex;
 						else if (tokens[0].at(0) == 'Q') index = CueIndex;
 						else if (tokens[0].at(0) == '*') index = EndIndex;
-						else if (tokens[0].at(0) == 'I')
-						{
-							if (parse_uint(tokens[0].substr(1), index))
-							{
-								cerr << "Error reading image index (expect \"I#\") line " << linenumber << ": " << tokens[0] << endl;
-								status = 1;
-								break;
-							}
-							else
-							{
-								index += FirstImageIndex;
-							}
-						}
 						else
 						{
 							if (parse_uint(tokens[0], index))
 							{
-								cerr << "Error reading stim index (expect \"F\", \"Q\", or 0<int<#gratings) line " << linenumber << ": " << tokens[0] << endl;
+								cerr << "Error reading stim index (expect \"F\", \"Q\", or 0<int<(#gratings or #images)) line " << linenumber << ": " << tokens[0] << endl;
 								status = 1;
 								break;
 							}
-							else if (index < 0 || index >= ngratings)
+							else if (ngratings > 0)
 							{
-								cerr << "Bad grating index (" << index << ") at line " << linenumber << " - expecting index in [0," << ngratings << ")";
-								status = 1;
+								if (index < 0 || index >= ngratings)
+								{
+									cerr << "Bad grating index (" << index << ") at line " << linenumber << " - expecting index in [0," << ngratings << ")";
+									status = 1;
+								}
+							}
+							else
+							{
+								if (index < 0 || index >= nimages)
+								{
+									cerr << "Bad image index (" << index << ") at line " << linenumber << " - expecting index in [0," << nimages << ")";
+									status = 1;
+								}
 							}
 						}
 
@@ -885,34 +882,6 @@ void CueSequenceHelper::draw_cues(int iOffBits, bool bCircles)
 	return;
 }
 
-//void CueSequenceHelper::draw_cue_points(int iOffBits)
-//{
-//	if (contrast() == 0) return;
-//
-//	// One for each grating, but the set of cues used are taken from 
-//	// (iOffBits & 0xff00) >> 8
-//	int iCueBase = (iOffBits & 0xff00) >> 8;
-//
-//	for (unsigned int i = 0; i<m_ngratings; i++)
-//	{
-//		//cout << "cue " << i << " (iOffBits & (1 << i)) " << (iOffBits & (1 << i)) << endl;
-//		// Check if this stim has an off bit set.
-//		if (iOffBits & (1 << i))
-//		{
-//			//cout << "Nothing to do." << endl;
-//			// do nothing
-//		}
-//		else
-//		{
-//			if (m_rects.size() > iCueBase*m_ngratings + i)
-//			{
-//				m_rects[iCueBase*m_ngratings + i].draw();
-//			}
-//		}
-//	}
-//
-//	return;
-//}
 
 void SequencedAttentionStimSet::updateHelper(const ICPair& p)
 {

@@ -14,8 +14,10 @@ const unsigned int EndIndex = 999;	// sets all stim to given contrast, makes thi
 const unsigned int FirstImageIndex = 1000;
 // image indices will start at EndIndex + 1.
 
-typedef std::tuple<std::string, double, double> ImageInfo;
+typedef std::tuple<double, double> ImageXY;
+typedef std::tuple<std::vector<std::string>, std::vector<ImageXY> > ImageFilesPositions;
 
+typedef std::tuple<std::string, double, double> ImageInfo;
 
 // index, contrast pair
 typedef std::pair< unsigned int, int > ICPair;
@@ -107,6 +109,22 @@ public:
 	void reset();
 };
 
+class ImageSequenceHelper : public SequenceHelper
+{
+	std::map<int, ARGratingSpec* > m_gratingMap;
+	ARGratingSpec m_gratingDefault;
+	int m_defaultContrast;
+	void setContrastPriv();
+public:
+	ImageSequenceHelper(int index, int defaultContrast, const ARGratingSpec& grating);
+	~ImageSequenceHelper();
+
+	// draw a grating at current contrast
+	void draw(double initial_phase);
+
+	// return any used gratings to pool
+	void reset();
+};
 
 
 // vector of index,contrast pairs, represents a page. The index is either FixptIndex or CueIndex, or an integer 0,1,... which represents an
@@ -132,7 +150,7 @@ typedef struct
 
 
 
-int parse_sequenced_params(const std::string& arg, unsigned int ngratings, std::vector<AttentionSequenceTrialSpec>& trialSpecs, std::vector<ImageInfo>& vecImageInfo);
+int parse_sequenced_params(const std::string& arg, unsigned int ngratings, std::vector<AttentionSequenceTrialSpec>& trialSpecs, ImageFilesPositions& filespos);
 
 
 #define SECONDS_TO_FRAMES(t) (int)((t) * 1000000.0 /vsgGetSystemAttribute(vsgFRAMETIME))
@@ -141,7 +159,7 @@ int parse_sequenced_params(const std::string& arg, unsigned int ngratings, std::
 class SequencedAttentionStimSet : public StimSet
 {
 public:
-	SequencedAttentionStimSet(ARContrastFixationPointSpec& fixpt, vector<alert::ARGratingSpec>& vecGratings, vector<ImageInfo>& vecImageInfo, vector<AttentionCue>& vecCuePairs, bool bCueCircles, bool bCuePoints, bool bCueIsDot, vector<AttentionSequenceTrialSpec>& trialSpecs);
+	SequencedAttentionStimSet(ARContrastFixationPointSpec& fixpt, vector<alert::ARGratingSpec>& vecGratings, vector<AttentionCue>& vecCuePairs, bool bCueCircles, bool bCuePoints, bool bCueIsDot, vector<AttentionSequenceTrialSpec>& trialSpecs);
 	~SequencedAttentionStimSet() {};
 
 	int num_pages() { return 24; };
@@ -158,6 +176,7 @@ private:
 	int drawPageUsingPageVec(const PageVec& pv, int page, int offbits, const vector<double>& initial_phase);
 	int drawPageUsingPageVec(const PageVec& pv, int page, int offbits, double initial_phase);
 	PageVec makePageVec();	// current values in fixpt, cue, gratings. 
+
 	vector<AttentionSequenceTrialSpec> m_trialSpecs;
 	alert::ARContrastFixationPointSpec m_fixpt;
 	bool m_bUseCueCircles;
@@ -168,7 +187,6 @@ private:
 	vector<alert::ARGratingSpec> m_vecGratings;
 	vector<alert::ARContrastCueCircleSpec> m_vecCueCircles;
 	//vector<alert::ARContrastRectangleSpec> m_vecCueRects;
-	vector<ImageInfo>& m_vecImageInfo;
 	unsigned int m_current;
 	std::vector<int> m_pages;
 	vector<GratingSequenceHelper *> m_gratingHelpers;
