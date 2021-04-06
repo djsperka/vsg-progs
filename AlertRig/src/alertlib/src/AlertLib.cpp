@@ -1223,7 +1223,15 @@ ARFixationPointSpec& ARFixationPointSpec::operator=(const ARFixationPointSpec& f
 
 int ARFixationPointSpec::draw()
 {
-	vsgSetPen1(getFirstLevel());
+	// check video mode
+	if (vsgGetSystemAttribute(vsgVIDEOMODE) == vsg8BITPALETTEMODE)
+	{
+		vsgSetPen1(getFirstLevel());
+	}
+	else
+	{
+		vsgSetPen1(255 * this->color.trival().a + 256 * 255 * this->color.trival().b + 256 * 256 * 255 * this->color.trival().c);
+	}
 	vsgSetDrawMode(vsgCENTREXY + vsgSOLIDFILL);
 	vsgDrawOval(x, -1*y, d, d);
 	return 0;
