@@ -1,22 +1,28 @@
-Images
-e:\work\img\grapes.bmp,-6,7
-e:\work\img\lettuce.bmp,-3,7
-e:\work\img\pepper.bmp,3,7
-e:\work\img\radish.bmp,6,7
+# Images followed by x,y for each image. 
+# the x,y pair is the position of image, images presented at those x,y every trial.
+# similar to using gratings, where cue is always located where the grating is. Grating
+# properties (other than position) can change between trials. 
+Images,-6,7,-3,7,3,7,6,7
+e:\work\img\grapes.bmp
+e:\work\img\lettuce.bmp
+e:\work\img\pepper.bmp
+e:\work\img\radish.bmp
 *
+
+# 
 Trial 1
 (255/0/0),0,0
-I0,1.0,100
-I1,2.0,100
-I0,3.0,0
-I1,4.0,0
+0,1.0,2
+1,2.0,3
+0,3.0,-1
+1,4.0,-1
 *,5.0,0
 
 Trial 2
-(255/0/0),0,0
-I2,1.0,100
-I3,2.0,100
-I2,3.0,0
-I3,4.0,0
+(0/255/0),0,0
+2,1.0,0
+3,2.0,1
+2,3.0,-1
+3,4.0,-1
 *,5.0,0
 
