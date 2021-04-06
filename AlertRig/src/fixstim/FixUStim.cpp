@@ -4,6 +4,7 @@
 #include "FXGStimParameterList.h"
 #include "FXImageStimSet.h"
 #include "SequencedAttentionStimSet.h"
+#include "SequencedImagesAttentionStimSet.h"
 #include "MelStimSet.h"
 #include "BorderStimSet.h"
 #include <iostream>
