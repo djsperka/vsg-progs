@@ -206,6 +206,7 @@
     <ClCompile Include="MultiParameterFXMultiGStimSet.cpp" />
     <ClCompile Include="QCycleUtil.cpp" />
     <ClCompile Include="SequencedAttentionStimSet.cpp" />
+    <ClCompile Include="SequencedImagesAttentionStimSet.cpp" />
     <ClCompile Include="StarUStim.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
@@ -283,6 +284,7 @@
     <ClInclude Include="MultiParameterFXMultiGStimSet.h" />
     <ClInclude Include="QCycleUtil.h" />
     <ClInclude Include="SequencedAttentionStimSet.h" />
+    <ClInclude Include="SequencedImagesAttentionStimSet.h" />
     <ClInclude Include="SSInfo.h" />
     <ClInclude Include="StarUStim.h" />
     <ClInclude Include="stdafx.h" />
