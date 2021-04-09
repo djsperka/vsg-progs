@@ -478,7 +478,7 @@ int parse_sequenced_params(const std::string& filename, unsigned int ngratings, 
 								}
 								else
 								{
-									std::get<1>(ifp).push_back(make_tuple(ximg, yimg));
+									std::get<1>(ifp).push_back(make_pair(ximg, yimg));
 									cerr << "image x,y " << ximg << ", " << yimg << endl;
 								}
 							}
@@ -510,6 +510,7 @@ int parse_sequenced_params(const std::string& filename, unsigned int ngratings, 
 						}
 						else
 						{
+							cerr << "image file found: " << line << endl;
 							std::get<0>(ifp).push_back(line);
 						}
 					}

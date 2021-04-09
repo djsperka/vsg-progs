@@ -14,10 +14,8 @@ const unsigned int EndIndex = 999;	// sets all stim to given contrast, makes thi
 const unsigned int FirstImageIndex = 1000;
 // image indices will start at EndIndex + 1.
 
-typedef std::tuple<double, double> ImageXY;
+typedef std::pair<double, double> ImageXY;
 typedef std::tuple<std::vector<std::string>, std::vector<ImageXY> > ImageFilesPositions;
-
-typedef std::tuple<std::string, double, double> ImageInfo;
 
 // index, contrast pair
 typedef std::pair< unsigned int, int > ICPair;
@@ -108,24 +106,6 @@ public:
 	// return any used gratings to pool
 	void reset();
 };
-
-class ImageSequenceHelper : public SequenceHelper
-{
-	std::map<int, ARGratingSpec* > m_gratingMap;
-	ARGratingSpec m_gratingDefault;
-	int m_defaultContrast;
-	void setContrastPriv();
-public:
-	ImageSequenceHelper(int index, int defaultContrast, const ARGratingSpec& grating);
-	~ImageSequenceHelper();
-
-	// draw a grating at current contrast
-	void draw(double initial_phase);
-
-	// return any used gratings to pool
-	void reset();
-};
-
 
 // vector of index,contrast pairs, represents a page. The index is either FixptIndex or CueIndex, or an integer 0,1,... which represents an
 // index into m_vecOSH.
