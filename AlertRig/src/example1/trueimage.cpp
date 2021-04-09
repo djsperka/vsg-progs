@@ -53,7 +53,7 @@ int main(int argc, char *argv[])
 	// draw image
 	vsgDrawImage(vsgBMPPICTURE + vsgPALETTELOAD, 0, 0, f_imagefile);
 
-	// now draw a red dot
+	// now draw a  dot
 	vsgSetPen1(255*256);
 	vsgDrawOval(0, 0, 2, 2);
 
