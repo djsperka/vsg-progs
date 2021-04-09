@@ -1498,8 +1498,95 @@ int ARCircleSpec::drawOverlay()
 }
 
 
+ARCueCircleSpec::ARCueCircleSpec(const ARCueCircleSpec& c) : ARCircleSpec(c), dCentral(c.dCentral), bCentralIsDot(c.bCentralIsDot), bCircleEnabled(c.bCircleEnabled)
+{
+}
+
+ARCueCircleSpec& ARCueCircleSpec::operator=(const ARCueCircleSpec& c)
+{
+	if (this != &c)
+	{
+		ARCircleSpec::operator=(c);
+		this->dCentral = c.dCentral;
+		this->bCentralIsDot = c.bCentralIsDot;
+		this->bCircleEnabled = c.bCircleEnabled;
+	}
+	return *this;
+}
 
 
+int ARCueCircleSpec::drawCircle()
+{
+	int status = 0;
+	// check video mode
+	if (vsgGetSystemAttribute(vsgVIDEOMODE) == vsg8BITPALETTEMODE)
+	{
+		vsgSetPen1(getFirstLevel());
+	}
+	else
+	{
+		vsgSetPen1(255 * this->color.trival().a + 256 * 255 * this->color.trival().b + 256 * 256 * 255 * this->color.trival().c);
+	}
+	vsgSetPenSize(this->linewidth, this->linewidth);
+	vsgSetDrawMode(vsgCENTREXY + vsgSOLIDPEN);
+
+	if (bCircleEnabled)
+	{
+		cerr << "ARContrastCueCircleSpec::drawCircle() - drawOval d=" << d << endl;
+		vsgDrawOval(x, -1 * y, d, d);
+	}
+	return status;
+}
+
+int ARCueCircleSpec::drawPoint()
+{
+	int status = 0;
+	if (!status)
+	{
+		// check video mode
+		if (vsgGetSystemAttribute(vsgVIDEOMODE) == vsg8BITPALETTEMODE)
+		{
+			vsgSetPen1(getFirstLevel());
+		}
+		else
+		{
+			vsgSetPen1(255 * this->color.trival().a + 256 * 255 * this->color.trival().b + 256 * 256 * 255 * this->color.trival().c);
+		}
+		vsgSetPenSize(this->linewidth, this->linewidth);
+		// draw central dot if diam is set
+		if (dCentral > 0)
+		{
+			if (bCentralIsDot)
+			{
+				cerr << "ARContrastCueCircleSpec::drawPoint() - drawOval dCentral=" << dCentral << endl;
+				vsgSetDrawMode(vsgCENTREXY + vsgSOLIDFILL);
+				vsgDrawOval(x, -1 * y, dCentral, dCentral);
+			}
+			else
+			{
+				cerr << "ARContrastCueCircleSpec::drawPoint() - drawBar dCentral=" << dCentral << endl;
+				vsgSetDrawMode(vsgCENTREXY + vsgSOLIDFILL);
+				vsgDrawBar(x, -y, dCentral, dCentral, 0);
+			}
+		}
+	}
+	return status;
+}
+
+// not intended to be used this way but should work
+int ARCueCircleSpec::draw()
+{
+	return drawCircle() + drawPoint();
+}
+
+
+// this function doesn't make sense. Should actually draw on the overlay, not draw clear. 
+int ARCueCircleSpec::drawOverlay()
+{
+	vsgSetPen1(0);
+	vsgDrawOval(x, -1 * y, d, d);
+	return 0;
+}
 
 
 ARContrastLineSpec::ARContrastLineSpec(const ARContrastLineSpec& line) : ARSpec(line)

@@ -513,6 +513,23 @@ namespace alert
 		int linewidth;
 	};
 
+	// Circle, single pixel wide
+	class ARCueCircleSpec : public ARCircleSpec
+	{
+	public:
+		ARCueCircleSpec() : ARCircleSpec(), dCentral(0), bCentralIsDot(true), bCircleEnabled(true) {};
+		ARCueCircleSpec(const ARCueCircleSpec& c);
+		~ARCueCircleSpec() {};
+		ARCueCircleSpec& operator=(const ARCueCircleSpec& c);
+		int draw();
+		int drawOverlay();
+		int drawCircle();
+		int drawPoint();
+		double dCentral;	// if > 0, this is diam of fixpt at center, same color
+		bool bCentralIsDot;	// if dCentral, then this says if center pt is dot or square
+		bool bCircleEnabled;	// if false, do not draw cue circle, still may draw dot if d>0
+	};
+
 
 	// Circle, single pixel wide, visibility controlled by contrast. 
 
