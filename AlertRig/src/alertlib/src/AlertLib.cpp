@@ -1558,13 +1558,13 @@ int ARCueCircleSpec::drawPoint()
 		{
 			if (bCentralIsDot)
 			{
-				cerr << "ARContrastCueCircleSpec::drawPoint() - drawOval dCentral=" << dCentral << endl;
+				//cerr << "ARContrastCueCircleSpec::drawPoint() - drawOval dCentral=" << dCentral << endl;
 				vsgSetDrawMode(vsgCENTREXY + vsgSOLIDFILL);
 				vsgDrawOval(x, -1 * y, dCentral, dCentral);
 			}
 			else
 			{
-				cerr << "ARContrastCueCircleSpec::drawPoint() - drawBar dCentral=" << dCentral << endl;
+				//cerr << "ARContrastCueCircleSpec::drawPoint() - drawBar dCentral=" << dCentral << endl;
 				vsgSetDrawMode(vsgCENTREXY + vsgSOLIDFILL);
 				vsgDrawBar(x, -y, dCentral, dCentral, 0);
 			}
