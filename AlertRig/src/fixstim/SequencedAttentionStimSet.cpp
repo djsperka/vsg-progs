@@ -668,6 +668,8 @@ int parse_sequenced_params(const std::string& filename, unsigned int ngratings, 
 		}
 		myfile.close();
 		cerr << "Read " << linenumber << " lines from " << filename << " and found " << trialSpecs.size() << " trials" << endl;
+		cerr << "Found " << std::get<0>(ifp).size() << " image files." << endl;
+		cerr << "Found " << get<0>(ifp).size() << " stim x,y pairs." << endl;
 	}
 	else
 	{
