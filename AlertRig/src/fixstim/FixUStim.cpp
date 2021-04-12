@@ -1072,7 +1072,7 @@ int FixUStim::process_arg(int c, std::string& arg)
 		}
 		else
 		{
-			cerr << "Parse OK, got " << trialSpecs.size() << " trials" << endl;
+			//cerr << "Parse OK, got " << trialSpecs.size() << " trials" << endl;
 			if (m_vecGratings.empty())
 				m_pStimSet = new SequencedImagesAttentionStimSet(m_fixpt, ifp, m_vecAttentionCues, trialSpecs);
 			else
