@@ -2,7 +2,9 @@
 
 using namespace std;
 
-int parse_attcues(const string& s, int nstim, vector<AttentionCue>& vecCues)
+// djs - number of stim is ignored because its hard with images. Beware!
+
+int parse_attcues(const string& s, int, vector<AttentionCue>& vecCues)
 {
 	COLOR_TYPE color;
 	double rdiff;
@@ -12,31 +14,28 @@ int parse_attcues(const string& s, int nstim, vector<AttentionCue>& vecCues)
 	istringstream iss;
 	AttentionCue acue;
 	tokenize(s, tokens, ",");
-	if (tokens.size() % (nstim * 3) == 0)
+	if (tokens.size() % 3 != 0)
 	{
-		for (i = 0; i<tokens.size() / 3; i++)
-		{
-
-			// expect rdiff,linewidth,color
-			// rdiff is difference between radius of circle and corresponding grating
-			// linewidth is width of circle outline, in pixels (must be integer)
-
-			if (parse_double(tokens[i * 3], rdiff) || parse_integer(tokens[i * 3 + 1], linewidth) || parse_color(tokens[i * 3 + 2], color))
-			{
-				cerr << "Error reading attention cues (" << s << ")" << endl;
-				return 1;
-			}
-			acue.rdiff = rdiff;
-			acue.linewidth = linewidth;
-			acue.color = color;
-			vecCues.push_back(acue);
-
-		}
+		cerr << "Warning! Expect attention cue parameters to come in groups of 3. Found " << tokens.size() << " parameters." << endl;
 	}
-	else
+
+	for (i = 0; i<tokens.size() / 3; i++)
 	{
-		cerr << "Error reading attention cues (" << s << ") Expecting a multiple of " << nstim * 3 << " args, 3 for each stim." << endl;
-		return 1;
+
+		// expect rdiff,linewidth,color
+		// rdiff is difference between radius of circle and corresponding grating
+		// linewidth is width of circle outline, in pixels (must be integer)
+
+		if (parse_double(tokens[i * 3], rdiff) || parse_integer(tokens[i * 3 + 1], linewidth) || parse_color(tokens[i * 3 + 2], color))
+		{
+			cerr << "Error reading attention cues (" << s << ")" << endl;
+			return 1;
+		}
+		acue.rdiff = rdiff;
+		acue.linewidth = linewidth;
+		acue.color = color;
+		vecCues.push_back(acue);
+
 	}
 	return 0;
 }
