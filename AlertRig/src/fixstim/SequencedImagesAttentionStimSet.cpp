@@ -11,13 +11,16 @@ SequencedImagesAttentionStimSet::SequencedImagesAttentionStimSet(ARContrastFixat
 	, m_trialSpecs(trialSpecs)
 	, m_current(0)
 {
-	cout << "SequencedImagesAttentionStimSet: have " << m_trialSpecs.size() << " trials." << endl;
+	int nStimPositions = std::get<1>(m_ifp).size();
+	cout << "SequencedImagesAttentionStimSet: " << m_trialSpecs.size() << " trials." << endl;
+	cout << "SequencedImagesAttentionStimSet: " << nStimPositions << " stim positions." << endl;
+	cout << "SequencedImagesAttentionStimSet: " << vecCuePairs.size() << " cue specifications." << endl;
+	cout << "SequencedImagesAttentionStimSet: " << get<0>(m_ifp).size() << " image files." << endl;
 
-	int nImages = std::get<1>(m_ifp).size();
 	for (unsigned int i = 0; i < vecCuePairs.size(); i++)
 	{
 		ARCueCircleSpec circle;
-		int indImage = i % nImages;
+		int indImage = i % nStimPositions;
 
 		// set up cue circle
 		circle.x = std::get<1>(m_ifp)[indImage].first;
@@ -33,8 +36,8 @@ SequencedImagesAttentionStimSet::SequencedImagesAttentionStimSet(ARContrastFixat
 
 	// create helpers
 	m_pFixptHelper = new ImFixptSequenceHelper(FixptIndex, 100, m_fixpt);
-	m_pCueHelper = new ImCueSequenceHelper(CueIndex, 0, nImages, m_vecCueCircles);
-	for (unsigned int i = 0; i < nImages; i++)
+	m_pCueHelper = new ImCueSequenceHelper(CueIndex, 0, nStimPositions, m_vecCueCircles);
+	for (unsigned int i = 0; i < nStimPositions; i++)
 	{
 		m_imageHelpers.push_back(new ImageSequenceHelper(i, std::get<1>(m_ifp)[i].first, std::get<1>(m_ifp)[i].second, std::get<0>(m_ifp)));
 	}
@@ -99,7 +102,6 @@ int SequencedImagesAttentionStimSet::init(ARvsg& vsg, std::vector<int> pages)
 {
 	int status = 0;
 	m_pages = pages;
-	cout << "have " << m_pages.size() << " pages";
 
 	// Set the VSG to True colour mode
 	// should this also set vsgNOGAMMACORRECT?
@@ -119,20 +121,19 @@ void SequencedImagesAttentionStimSet::drawCurrent()
 	VSGCYCLEPAGEENTRY cycle[16];	// should  be plenty
 	int ncycle = 0;
 
-	cerr << endl << endl << "Begin drawCurrent() - draw vsg pages and set up animation for trial" << endl;
-
 	// Set color of fixpt...
-	cout << "drawCurrent: draw " << m_current << " of " << m_trialSpecs.size() << endl;
+	cout << "drawCurrent(): current trial index " << m_current << " total configured trials " << m_trialSpecs.size() << endl;
 	m_fixpt.color = m_trialSpecs[m_current].color;
 
 	// blank page =================
 	m_pageBlank = m_pages[0];
 	vsgSetDrawPage(vsgVIDEOPAGE, m_pageBlank, truecolorGray);
-	cerr << "Configure page " << m_pageBlank << " background only" << endl;
+	cerr << "drawCurrent(): Configure page " << m_pageBlank << " background only" << endl;
 
 	// fixpt
 	m_pageFixpt = m_pages[1];
 	vsgSetDrawPage(vsgVIDEOPAGE, m_pageFixpt, truecolorGray);
+	cerr << "drawCurrent(): Configure page " << m_pageFixpt << " fixpt only" << endl;
 	m_fixpt.draw();
 
 
@@ -147,18 +148,14 @@ void SequencedImagesAttentionStimSet::drawCurrent()
 	
 	for (auto frame_icpair : m_trialSpecs[m_current].icpm)
 	{
-		cerr << "Got frame/icpair " << frame_icpair.first << "/" << frame_icpair.second.first << "," << frame_icpair.second.second << endl;
+		cerr << "drawCurrent(): Got frame/icpair " << frame_icpair.first << "/" << frame_icpair.second.first << "," << frame_icpair.second.second << endl;
 		if (frame_icpair.first == f)
 		{
 			//cerr << "same frame number, update helpers..." << endl;
 			// Warn if index is EndIndex...
 			if (frame_icpair.second.first == EndIndex)
 			{
-				cerr << "Warning! The end index \"*\" should not be accompanied by any other contrast changes (they are ignored)" << endl;
-			}
-			else
-			{
-				updateHelper(frame_icpair.second);
+				cerr << "drawCurrent(): Warning! The end index \"*\" should not be accompanied by any other contrast changes (they are ignored)" << endl;
 			}
 		}
 		else
@@ -169,8 +166,6 @@ void SequencedImagesAttentionStimSet::drawCurrent()
 			// Look in pageVecs to see if we've already created an identical page. 
 			// If we have we get back a VSG page number. 
 			// If we haven't then we must draw a new page and push the page number and page vec onto vector.
-			cerr << "new frame number, finish current page..." << endl;
-
 
 			// In SequencedAttentionStimSet where we use gratings, things are more complicated
 			// because of the need to reuse grating objects.
@@ -179,11 +174,10 @@ void SequencedImagesAttentionStimSet::drawCurrent()
 
 			if (nPagesConfigured == m_pages.size())
 			{
-				cerr << "Cannot draw another page - too many transitions!" << endl;
+				cerr << "drawCurrent(): Cannot draw another page - too many transitions!" << endl;
 				throw std::runtime_error("Cannot draw another page - too many transitions!");
 			}
 			pageNumber = m_pages[nPagesConfigured++];
-			cerr << "Configure page " << pageNumber << endl;
 			drawPage(pageNumber, m_trialSpecs[m_current].offbits);
 
 			// Now update cycling array using the page we just found or created
@@ -193,35 +187,38 @@ void SequencedImagesAttentionStimSet::drawCurrent()
 			cycle[ncycle].ovPage = cycle[ncycle].ovXpos = cycle[ncycle].ovYpos = cycle[ncycle].Xpos = cycle[ncycle].Ypos = 0;
 			ncycle++;
 
-			// Now that page is drawn, update helper with the ICPair 
-			updateHelper(frame_icpair.second);
 		}
 
-		//// Now if the index of the pair is the end index, finish out the cycle and get out of here.
-		//if (frame_icpair.second.first == EndIndex)
-		//{
-		//	cycle[ncycle].Frames = 1;
-		//	cycle[ncycle].Page = m_pageBlank + vsgTRIGGERPAGE;
-		//	cycle[ncycle].Stop = 1;
-		//	cycle[ncycle].ovPage = cycle[ncycle].ovXpos = cycle[ncycle].ovYpos = cycle[ncycle].Xpos = cycle[ncycle].Ypos = 0;
-		//	ncycle++;
-		//	break;
-		//}
+		// Now if the index of the pair is the end index, finish out the cycle and break out of here.
+		// If it isn't, update the appropriate helper and continue. 
+		if (frame_icpair.second.first != EndIndex)
+		{
+			updateHelper(frame_icpair.second);
+		}
+		else
+		{
+			cycle[ncycle].Frames = 1;
+			cycle[ncycle].Page = m_pageBlank + vsgTRIGGERPAGE;
+			cycle[ncycle].Stop = 1;
+			cycle[ncycle].ovPage = cycle[ncycle].ovXpos = cycle[ncycle].ovYpos = cycle[ncycle].Xpos = cycle[ncycle].Ypos = 0;
+			ncycle++;
+			break;
+		}
 
 		f = frame_icpair.first;
 	}
 
-	//// Set up page cycling
-	//vsgPageCyclingSetup(ncycle, &cycle[0]);
+	// Set up page cycling
+	vsgPageCyclingSetup(ncycle, &cycle[0]);
 
-	//cerr << "Cycling: Using " << ncycle << " pages" << endl;
-	//for (int i = 0; i < ncycle; i++)
-	//{
-	//	cerr << i << ": page=" << (cycle[i].Page & vsgTRIGGERPAGE ? cycle[i].Page - vsgTRIGGERPAGE : cycle[i].Page) << " Frames=" << cycle[i].Frames << endl;
-	//}
-	//cerr << "Done drawing pages for this trial." << endl << endl << endl;
-	//vsgSetDrawPage(vsgVIDEOPAGE, m_pageBlank, vsgNOCLEAR);
-	//vsgPresent();
+	cerr << "drawCurrent(): Cycling will use " << ncycle << " pages" << endl;
+	for (int i = 0; i < ncycle; i++)
+	{
+		cerr << i << ": page=" << (cycle[i].Page & vsgTRIGGERPAGE ? cycle[i].Page - vsgTRIGGERPAGE : cycle[i].Page) << " Frames=" << cycle[i].Frames << endl;
+	}
+	cerr << "drawCurrent(): Done drawing pages for this trial." << endl << endl << endl;
+	vsgSetDrawPage(vsgVIDEOPAGE, m_pageBlank, vsgNOCLEAR);
+	vsgPresent();
 
 
 
@@ -235,7 +232,7 @@ void SequencedImagesAttentionStimSet::drawCurrent()
 
 void SequencedImagesAttentionStimSet::updateHelper(const ICPair& p)
 {
-	cout << "updateHelper() " << p.first << " contrast " << p.second << endl;
+	//cout << "updateHelper(): index " << p.first << " contrast " << p.second << endl;
 	switch (p.first)
 	{
 	case FixptIndex:
@@ -245,7 +242,6 @@ void SequencedImagesAttentionStimSet::updateHelper(const ICPair& p)
 		m_pCueHelper->setContrast(p.second);
 		break;
 	default:
-		cout << "files size " << std::get<1>(m_ifp).size() << endl;
 		if (p.first >= 0 && p.first < std::get<1>(m_ifp).size())
 			m_imageHelpers[p.first]->setContrast(p.second);
 		else
@@ -256,8 +252,18 @@ void SequencedImagesAttentionStimSet::updateHelper(const ICPair& p)
 
 void SequencedImagesAttentionStimSet::drawPage(int pageNumber, int offbits)
 {
-	cout << "drawPage() " << pageNumber << " offbits " << std::hex << offbits << endl;
-	cout << "drawPage() done" << endl;
+	cout << "drawPage(): page number " << pageNumber << " offbits " << std::hex << offbits << std::dec << endl;
+	vsgSetDrawPage(vsgVIDEOPAGE, pageNumber, truecolorGray);
+
+	// rely on the helpers to not draw when they're not supposed to be drawn
+	if (m_vecCueCircles.size()>0) m_pCueHelper->draw_cues(offbits, false);
+	for (auto& imageHelper : m_imageHelpers)
+	{
+		imageHelper->draw();
+	}
+	m_pFixptHelper->draw(0);	// arg is ignored for fixpt.
+
+	//cout << "drawPage(): done" << endl;
 }
 
 
@@ -274,6 +280,7 @@ void ImCueSequenceHelper::draw(double initial_phase)
 
 void ImCueSequenceHelper::draw_cues(int iOffBits, bool bCircles)
 {
+	//cout << "CueSequenceHelper::draw_cues() - contrast " << contrast() << " iCueBase " << ((iOffBits & 0xff00) >> 8) << endl;
 	if (contrast() == 0) return;
 
 	// Draw cue circles.
@@ -281,23 +288,20 @@ void ImCueSequenceHelper::draw_cues(int iOffBits, bool bCircles)
 	// (iOffBits & 0xff00) >> 8
 	int iCueBase = (iOffBits & 0xff00) >> 8;
 
-	cout << "CueSequenceHelper::draw_cues - iCueBase " << iCueBase << endl;
-
-	cout << "There are " << m_circles.size() << " cues." << endl;
 	for (unsigned int i = 0; i < m_ngratings; i++)
 	{
-		cout << "cue " << i << " (iOffBits & (1 << i)) " << (iOffBits & (1 << i)) << endl;
+		//cout << "cue " << i << " (iOffBits & (1 << i)) " << (iOffBits & (1 << i)) << endl;
 		// Check if this stim has an off bit set.
 		if (iOffBits & (1 << i))
 		{
-			cout << "Nothing to do." << endl;
+			//cout << "Nothing to do." << endl;
 			// do nothing
 		}
 		else
 		{
 			if (m_circles.size() > iCueBase*m_ngratings + i)
 			{
-				cout << "Drawing cue." << endl;
+				//cout << "Drawing cue index " << (iCueBase * m_ngratings + i) << endl;
 				m_circles[iCueBase*m_ngratings + i].setContrast(this->contrast());
 				if (bCircles)
 				{
@@ -321,6 +325,6 @@ void ImageSequenceHelper::draw(double ignore)
 	// draw image
 	char f[256];
 	strcpy(f, m_imageFiles[contrast()].c_str());
-	vsgDrawImage(vsgBMPPICTURE + vsgPALETTELOAD, m_x, m_y, f);
+	vsgDrawImage(vsgBMPPICTURE + vsgPALETTELOAD, m_x, -m_y, f);
 
 }
