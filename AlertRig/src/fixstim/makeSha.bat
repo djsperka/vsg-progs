@@ -1,0 +1,1 @@
+for /f "tokens=*" %%a in ('git describe') do echo #define GIT_VERSION %%a > %1

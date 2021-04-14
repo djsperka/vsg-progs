@@ -9,6 +9,10 @@
 #undef __GNU_LIBRARY__
 #include <boost/shared_ptr.hpp>
 #include <boost/filesystem.hpp>
+/* git commit number */
+#include "sha.h"
+#define XSTR(x) STR(x)
+#define STR(x) #x
 
 /* for ASL (calibration) dll */
 #include "stdafx.h"
@@ -171,6 +175,7 @@ int main (int argc, char *argv[])
 	// 2. send fixstim commands to remote server (-c)
 	// 3. run as standalone fixstim instance (legacy behavior)
 
+	cerr << "fixstim " << string(XSTR(GIT_VERSION)) << endl;
 	status = prargs(argc, argv, prargs_server_callback, f_allowedServerArgs, 'F');
 	if (!status)
 	{
