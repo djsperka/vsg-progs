@@ -1,0 +1,1 @@
+e:\work\usrig\bin64\remote.exe 127.0.0.1 7000 fixstim -F e:\work\vsg-progs\AlertRig\src\fixstim\attention-test-seq-images-2.txt
