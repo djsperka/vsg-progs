@@ -1,0 +1,126 @@
+# Images followed by x,y for each image. 
+# the x,y pair is the position of image, images presented at those x,y every trial.
+# Images are numbered from 0-(n-1), where there are n images total. 
+# Use the image number in place of contrast. Setting contrast to -1 turns off the image.
+# If we use gratings, then contrast set to 0 turns off the grating, here we have no analog
+# to contrast, so a negative value is taken as "off". 
+# Stim positions are ordered 0,1,2 - x,y order in "Images"
+# In the example below, image file 0 is "radish.bmp", file 1 is "grapes.bmp", etc. 
+
+Images,-5,5,5,5,0,-5
+e:\work\img\radish.bmp
+e:\work\img\grapes.bmp
+e:\work\img\pepper.bmp
+e:\work\img\zuccini.bmp
+e:\work\img\lettuce.bmp
+e:\work\img\potato.bmp
+*
+
+
+# A trial is specified with a stanza that begins with a "trial" line 
+# (the word "trial", ignoring case, at the beginning of a line) , and ends with a 
+# "*" line. 
+# 
+# A "trial" here is really the animation that plays on the "S" trigger. Assume that 
+# at onset, the fixation point is still present, but cues and stimuli are not present.
+#
+# The next line is 
+#    fixpt_color,offbits,initial_phase
+# where we ignore initial_phase. 
+# 
+# The rest of the trial is laid out by specifying each graphic element, a time, and 
+# a contrast. The object will have its contrast changed to that value at that time. 
+# 
+# For the fixpt, stim index "F", set contrast to 0 to turn off. It is on at t=0. 
+# For the cues, stim index "Q", set contrast to 100(0) to turn on (off). The value of "offbits" 
+# for this trial, and the cues argument on command line (-q only works with images) determine
+# which cues are drawn for this trial.
+#
+# For images, use the index value corresponding to one of the stim position (x,y) pairs 
+# on the "Images" line above. In this example, using stim index 0 refers to the image that will 
+# be drawn at screen position (-5,5). Using stim index 2 is the image to be drawn at (0,-5). 
+#
+# For images, the "contrast" should be the file index number from the image files listed under "Images". 
+# The first file is index 0. Once an image is drawn, turn it off by setting the contrast to a negative value. 
+#
+# 
+# Example trials. First three trials cycles through the stim position combinations 01, 12, 20, using first group of cues.
+# The second three trials does same combinations 01, 12, 20, using different images and the second group of cues.
+# Only 0,1 here, offbit (0x4 + group 0) = 4
+#
+# In all trials, cues come on at 0.5 sec. At 1.0 sec, the cues and fixpt are turned off. 
+# At 1.3 sec, two images are turned on, and they are turned off at 2.5sec. The animation ends at 3.0 sec. 
+# The "end" here is when the animation stops. The last transition of the animation is always back to a 
+# blank screen. In this example, the screen is actually blank at 2.5sec, because at that point everything
+# is turned off. 
+#
+Trial 1
+(255/0/0),4,0
+Q,0.5,100
+Q,1.0,0
+F,1.0,0
+0,1.3,0
+1,1.3,1
+0,2.5,-1
+1,2.5,-1
+*,3.0,0
+
+# offbit (0x1 + group 0) = 1
+Trial 2
+(0/255/0),1,0
+Q,0.5,100
+Q,1.0,0
+F,1.0,0
+1,1.3,1
+2,1.3,2
+1,2.5,-1
+2,2.5,-1
+*,3.0,0
+
+# offbit (0x2 + group 0) = 2
+Trial 3
+(0/0/255),2,0
+Q,0.5,100
+Q,1.0,0
+F,1.0,0
+2,1.3,2
+0,1.3,0
+2,2.5,-1
+0,2.5,-1
+*,3.0,0
+
+# offbit (0x4 + group 1) = (256 * 1) + 4
+Trial 4
+(255/0/0),260,0
+Q,0.5,100
+Q,1.0,0
+F,1.0,0
+0,1.3,3
+1,1.3,4
+0,2.5,-1
+1,2.5,-1
+*,3.0,0
+
+# offbit (0x1 + group 1) = (256 * 1) + 1
+Trial 5
+(0/255/0),257,0
+Q,0.5,100
+Q,1.0,0
+F,1.0,0
+1,1.3,4
+2,1.3,5
+1,2.5,-1
+2,2.5,-1
+*,3.0,0
+
+# offbit (0x2 + group 1) = (256 * 1) + 2
+Trial 6
+(0/0/255),258,0
+Q,0.5,100
+Q,1.0,0
+F,1.0,0
+2,1.3,5
+0,1.3,3
+2,2.5,-1
+0,2.5,-1
+*,3.0,0

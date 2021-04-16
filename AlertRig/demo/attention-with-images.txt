@@ -1,0 +1,12 @@
+# Big red fixation point, gray background, etc
+ 
+-f 0,0,1.0,red  -b gray -d 813 -a
+
+# cue dots ONLY (-q). Two sets of three
+ 
+-q .5,2,(255/0/0),.5,2,(0/255/0),.5,2,(0/0/255),.4,2,(160/80/80),.4,2,(80/160/80),.4,2,(80/80/160)
+
+# specify input file containing trial sequences
+#
+
+-n attention-with-images-trials.txt
