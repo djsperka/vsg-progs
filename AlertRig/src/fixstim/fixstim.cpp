@@ -162,7 +162,6 @@ int init_calibration()
 	return status;
 }
 
-
 int main (int argc, char *argv[])
 {
 	int status;

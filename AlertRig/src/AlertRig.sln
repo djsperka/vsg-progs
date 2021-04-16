@@ -75,6 +75,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "jsclient", "jsclient\jsclie
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ImgOver", "ImgOver\ImgOver.vcxproj", "{EBAD8213-A106-4DF5-8EFC-00F4C4C79CC8}"
 EndProject
+Project("{54435603-DBB4-11D2-8724-00A0C9A8B90C}") = "alertrig-setup", "alertrig-setup\alertrig-setup.vdproj", "{0A5FE994-9042-4534-92D8-309CB1A6A7AB}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -755,6 +757,18 @@ Global
 		{EBAD8213-A106-4DF5-8EFC-00F4C4C79CC8}.Unicode Release|x64.Build.0 = Release|x64
 		{EBAD8213-A106-4DF5-8EFC-00F4C4C79CC8}.Unicode Release|x86.ActiveCfg = Release|Win32
 		{EBAD8213-A106-4DF5-8EFC-00F4C4C79CC8}.Unicode Release|x86.Build.0 = Release|Win32
+		{0A5FE994-9042-4534-92D8-309CB1A6A7AB}.Debug|Win32.ActiveCfg = Debug
+		{0A5FE994-9042-4534-92D8-309CB1A6A7AB}.Debug|x64.ActiveCfg = Debug
+		{0A5FE994-9042-4534-92D8-309CB1A6A7AB}.Debug|x86.ActiveCfg = Debug
+		{0A5FE994-9042-4534-92D8-309CB1A6A7AB}.Release|Win32.ActiveCfg = Release
+		{0A5FE994-9042-4534-92D8-309CB1A6A7AB}.Release|x64.ActiveCfg = Release
+		{0A5FE994-9042-4534-92D8-309CB1A6A7AB}.Release|x86.ActiveCfg = Release
+		{0A5FE994-9042-4534-92D8-309CB1A6A7AB}.Unicode Debug|Win32.ActiveCfg = Debug
+		{0A5FE994-9042-4534-92D8-309CB1A6A7AB}.Unicode Debug|x64.ActiveCfg = Debug
+		{0A5FE994-9042-4534-92D8-309CB1A6A7AB}.Unicode Debug|x86.ActiveCfg = Debug
+		{0A5FE994-9042-4534-92D8-309CB1A6A7AB}.Unicode Release|Win32.ActiveCfg = Release
+		{0A5FE994-9042-4534-92D8-309CB1A6A7AB}.Unicode Release|x64.ActiveCfg = Release
+		{0A5FE994-9042-4534-92D8-309CB1A6A7AB}.Unicode Release|x86.ActiveCfg = Release
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
