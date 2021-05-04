@@ -212,12 +212,14 @@ int main (int argc, char *argv[])
 	}
 	else 
 	{
-		// process as a standalone fixstim run
-		FixUStim fixstim(true);
-		if (fixstim.parse(argc, argv))
-		{
-			fixstim.run_stim(ARvsg::instance());
-		}
+		//// process as a standalone fixstim run
+		//FixUStim fixstim(true);
+		//if (fixstim.parse(argc, argv))
+		//{
+		//	fixstim.run_stim(ARvsg::instance());
+		//}
+		cerr << "ERROR - standalone not supported. Must run server." << endl;
+		return 1;
 	}
 	return 0;
 }
