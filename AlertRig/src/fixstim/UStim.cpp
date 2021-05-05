@@ -5,6 +5,7 @@
 using namespace std;
 using namespace alert;
 
+
 bool UStim::parses(const std::string& args)
 {
 	int argc;
@@ -17,9 +18,9 @@ bool UStim::parses(const std::string& args)
 }
 
 
-int UStim::initialize(alert::ARvsg& vsg, int iScreenDistanceMM, const COLOR_TYPE& background)
+int UStim::initialize(alert::ARvsg& vsg, int iScreenDistanceMM, const COLOR_TYPE& background, const std::string& gammaFile)
 {
-	int status = vsg.init(iScreenDistanceMM, background, false);
+	int status = vsg.init(iScreenDistanceMM, background, false, false, gammaFile);
 	if (status != 0)
 	{
 		cerr << "VSG init failed!!" << endl;
@@ -33,3 +34,4 @@ int UStim::initialize(alert::ARvsg& vsg, int iScreenDistanceMM, const COLOR_TYPE
 	}
 	return status;
 }
+

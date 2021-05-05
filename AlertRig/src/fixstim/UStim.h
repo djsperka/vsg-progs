@@ -25,11 +25,12 @@ public:
 	void stop_stim() { m_quit = true; };
 	bool quit_enabled() const { return m_quit; };
 
-	static int initialize(alert::ARvsg& vsg, int iScreenDistanceMM, const COLOR_TYPE& background);
 
+	static int initialize(alert::ARvsg& vsg, int iScreenDistanceMM, const COLOR_TYPE& background, const std::string& gammaFile = std::string());
 private:
 	bool m_quit;
 	alert::TriggerVector m_triggers;
+
 protected:
 	alert::TriggerVector& triggers() { return m_triggers; };
 };

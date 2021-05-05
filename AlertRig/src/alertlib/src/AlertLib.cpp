@@ -259,6 +259,87 @@ ARvsg& ARvsg::instance()
 	return vsg; 
 };
 
+int ARvsg::loadGammaData(const std::string& filename)
+{
+	std::ifstream ifs(filename, ios::binary);
+	double c[3];
+	for (int i = 0; i < 5; i++)
+	{
+		ifs.read((char *)c, 3 * sizeof(double));
+		m_colors[i].setCustom(c[0], c[1], c[2]);
+		cout << "color " << i << " : " << m_colors[i] << endl;
+	}
+
+	long status = 0;
+	long length = vsgGetSystemAttribute(vsgCOLOURRESOLUTION);
+	double *r = new double[length];
+	short *rs = new short[length];
+	double *g = new double[length];
+	short *gs = new short[length];
+	double *b = new double[length];
+	short *bs = new short[length];
+	short *amin, *amax;
+
+	cout << "Gamma table length " << length << endl;
+	if (ifs.is_open())
+		cout << "File is open" << endl;
+	else
+		cout << "File is not open" << endl;
+
+	ifs.read((char *)r, length * sizeof(double));
+	if (ifs)
+	{
+		scaleGammaValues(r, rs, length);
+		amin = std::min_element(rs, rs + length);
+		amax = std::max_element(rs, rs + length);
+		cout << "Read " << length << " elements of RED gamma table. Min/max " << *amin << "/" << *amax << endl;
+	}
+	ifs.read((char *)g, length * sizeof(double));
+	if (ifs)
+	{
+		scaleGammaValues(g, gs, length);
+		amin = std::min_element(gs, gs + length);
+		amax = std::max_element(gs, gs + length);
+		cout << "Read " << length << " elements of GREEN gamma table. Min/max " << *amin << "/" << *amax << endl;
+	}
+	ifs.read((char *)b, length * sizeof(double));
+	if (ifs)
+	{
+		scaleGammaValues(b, bs, length);
+		amin = std::min_element(bs, bs + length);
+		amax = std::max_element(bs, bs + length);
+		cout << "Read " << length << " elements of BLUE gamma table, " << ifs.gcount() << " bytes. Min/max " << *amin << "/" << *amax << endl;
+	}
+
+	//status = vsgGAMMALoadProfile(length, r, g, b);
+	//cerr << "load profile status " << status << endl;
+	delete[] r;
+	delete[] g;
+	delete[] b;
+	delete[] rs;
+	delete[] gs;
+	delete[] bs;
+	return 0;
+}
+
+const COLOR_TYPE& ARvsg::get_color(unsigned int i)
+{
+	if (i > 4) return m_colors[0];
+	else return m_colors[i];
+}
+
+void ARvsg::scaleGammaValues(double *v, short *s, unsigned int length)
+{
+	for (unsigned int i = 0; i < length; i++)
+	{
+		int ival = static_cast<unsigned short>(v[i] * 65536);
+		if (ival == 65536) ival = 65535;
+		s[i] = static_cast<short>(ival - 32767);
+	}
+}
+
+
+
 ARvsg& ARvsg::instance(bool is_master, bool is_slave)
 {
 	if (is_master && !is_slave) return ARvsg::master();
@@ -470,7 +551,7 @@ void ARvsg::reinit()
 
 }
 
-int ARvsg::init(int screenDistanceMM, COLOR_TYPE i_bg,  bool bUseLockFile, bool bSlaveSynch)
+int ARvsg::init(int screenDistanceMM, COLOR_TYPE i_bg,  bool bUseLockFile, bool bSlaveSynch, const std::string& gammaFile)
 {
 	int status=0;
 	if (!m_initialized)
@@ -569,48 +650,10 @@ int ARvsg::init(int screenDistanceMM, COLOR_TYPE i_bg,  bool bUseLockFile, bool 
 
 		reinit();
 
-		////if (screenDistanceMM <= 0) 
-		////{
-		////	// djs 3-22-11
-		////	// spatial units are set to pixel units with the init() call. 
-		////	//vsgSetSpatialUnits(vsgPIXELUNIT);
-		////	m_heightPixels = vsgGetScreenHeightPixels();
-		////	m_widthPixels = vsgGetScreenWidthPixels();
-		////	m_background_color = i_bg;
-		////	request_single(m_background_level);
-		////	arutil_color_to_palette(m_background_color, m_background_level);
-		////	cout << "ARvsg::init(): Screen distance = " << screenDistanceMM << ", will use PIXEL units." << endl;
-		////	cout << "ARvsg::init(): Background level " << m_background_level << " color set to " << m_background_color << endl;
-		////}
-		////else
-		////{
-		////	vsgSetViewDistMM(screenDistanceMM);
-		////	vsgSetSpatialUnits(vsgDEGREEUNIT);
-		////	m_heightPixels = vsgGetScreenHeightPixels();
-		////	m_widthPixels = vsgGetScreenWidthPixels();
-		////	vsgUnitToUnit(vsgPIXELUNIT, m_heightPixels, vsgDEGREEUNIT, &m_heightDegrees);
-		////	vsgUnitToUnit(vsgPIXELUNIT, m_widthPixels, vsgDEGREEUNIT, &m_widthDegrees);
-
-		////	m_background_color = i_bg;
-		////	background = m_background_color.trival();
-		////	// this level gets used later, but we request it now to insure we get level 0
-		////	//request_single(m_background_level);
-		////	m_background_level = 250;	// djs HACK HACK HACK
-
-		////	// Create single dummy object and assign it a level
-		////	m_handle = vsgObjCreate();
-		////	vsgObjSetPixelLevels(m_background_level, 1);
-		////	
-		////	// Set up triggers and present. A single pulse on DOUT0.
-		////	vsgObjSetTriggers(vsgTRIG_ONPRESENT, 0, 0);
-		////	vsgPresent();
-
-		////	vsgSetBackgroundColour(&background);
-		////	cout << "ARvsg::init(): Screen distance = " << screenDistanceMM << ", will use DEGREE units." << endl;
-		////	cout << "ARvsg::init(): Background level " << m_background_level << " color set to " << m_background_color << endl;
-		////	vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgBACKGROUND);
-		////	vsgPresent();
-		////}
+		if (gammaFile.size() > 0)
+		{
+			status = loadGammaData(gammaFile);
+		}
 	}
 	return status;
 }

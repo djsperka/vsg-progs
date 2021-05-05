@@ -198,10 +198,16 @@ namespace alert
 	{
 	public:
 		~ARvsg();
-		int init(int screenDistanceMM, COLOR_TYPE i_bg, bool bUseLockFile=true, bool bSlaveSynch = false);
+		int init(int screenDistanceMM, COLOR_TYPE i_bg, bool bUseLockFile=true, bool bSlaveSynch = false, const std::string& gammaFile = std::string());
 		void reinit();	// re-do init except for re-init of vsg. 
 
+		// set view distance
 		int setViewDistMM(int screenDistanceMM);
+
+		// get gamma color - this will only give meaningful results if you have also 
+		// loaded a gamma data file.
+		const COLOR_TYPE& get_color(unsigned int i);
+
 
 		// This function initializes all pages to background color. That color is set as 
 		// level 0 - this func does not use vsgBACKGROUND. This func should be used if 
@@ -275,10 +281,14 @@ namespace alert
 			, m_widthDegrees(0)
 			, m_device_handle(-999)
 			, m_next_available_level(0)
+			, m_colors{COLOR_TYPE(gray), COLOR_TYPE(black), COLOR_TYPE(white), COLOR_TYPE(black), COLOR_TYPE(white)}
+
 		{};
 
 		ARvsg(ARvsg const&);	// prohibited
 		ARvsg& operator=(ARvsg const&) {};
+		int loadGammaData(const std::string& filename);
+		void scaleGammaValues(double *v, short *s, unsigned int length);
 		bool m_initialized;
 		bool m_is_master;
 		bool m_is_slave;
@@ -293,6 +303,7 @@ namespace alert
 		static bool c_bHaveLock;
 		long m_device_handle;
 		int m_next_available_level;
+		COLOR_TYPE m_colors[5];
 	};
 
 	// Base class that encapsulates VSG objects. All spec classes should inherit from this. 

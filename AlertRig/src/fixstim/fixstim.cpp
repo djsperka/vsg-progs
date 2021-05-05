@@ -74,21 +74,20 @@ int f_iDistanceToScreenMM = -1;
 TriggerVector triggers;
 int f_pulse = 0x40;
 bool f_bDaemon = false;
-//bool f_bClient = false;
-//string f_sClientArgs;
-//bool f_bClientSendQuit = false;
 int f_iDaemonPort = 0;
 string f_sDaemonHostIP = "127.0.0.1";
+bool f_bHaveGammaFile = false;
+string f_sGammaFile = string();
 bool f_quit = false;
 double f_dSlaveXOffset = 0.0;
 double f_dSlaveYOffset = 0.0;
 UDPServer *f_udpServer;
-path f_pathCues;			// root path for cue files (see EQStimSet, 'W' arg)
 int errflg = 0;
+
 
 // These are the args allowed and which are handled by prargs. Do not use 'F' - it is reserved for 
 // passing a command file.
-const char *f_allowedServerArgs = "vu:b:d:";
+const char *f_allowedServerArgs = "vu:b:d:M:";
 
 // calibration
 IASLSerialOutPort3* f_gpISerialOutPort = NULL;
@@ -107,6 +106,7 @@ void usage();
 void init_triggers();
 void init_globals();
 int callback(int &output, const CallbackTrigger* ptrig);
+bool loadGammaData(const std::string& filename);
 
 BOOL CtrlHandler( DWORD fdwCtrlType ) 
 { 
@@ -181,7 +181,7 @@ int main (int argc, char *argv[])
 		// init vsg. 
 		cerr << "Running fixstim as daemon at address " << f_sDaemonHostIP << " port " << f_iDaemonPort << endl;
 		cerr << "Initialize VSG..." << endl;
-		if (UStim::initialize(ARvsg::instance(), f_iDistanceToScreenMM, f_background))
+		if (UStim::initialize(ARvsg::instance(), f_iDistanceToScreenMM, f_background, f_sGammaFile))
 		{
 			cerr << "VSG init failed!!!" << endl;
 			return 1;
@@ -438,6 +438,12 @@ int prargs_server_callback(int c, string& arg)
 			}
 			break;
 		}
+	case 'M':
+	{
+		f_bHaveGammaFile = true;
+		f_sGammaFile = arg;
+		break;
+	}
 	case 'b': 
 		if (parse_color(arg, f_background)) errflg++; 
 		break;
