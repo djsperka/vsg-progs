@@ -272,53 +272,53 @@ int ARvsg::loadGammaData(const std::string& filename)
 
 	long status = 0;
 	long length = vsgGetSystemAttribute(vsgCOLOURRESOLUTION);
-	double *r = new double[length];
 	short *rs = new short[length];
-	double *g = new double[length];
 	short *gs = new short[length];
-	double *b = new double[length];
 	short *bs = new short[length];
 	short *amin, *amax;
 
 	cout << "Gamma table length " << length << endl;
-	if (ifs.is_open())
-		cout << "File is open" << endl;
+	if (!ifs.is_open())
+	{
+		cout << "Cannot open gamma file " << filename << endl;
+		return 1;
+	}
+
+	ifs.read((char *)rs, length * sizeof(short));
+	if (!ifs)
+	{
+		cerr << "Error reading red inv gamma table from " << filename << endl;
+		ifs.close();
+		return 1;
+	}
+	ifs.read((char *)gs, length * sizeof(short));
+	if (!ifs)
+	{
+		cerr << "Error reading green inv gamma table from " << filename << endl;
+		ifs.close();
+		return 1;
+	}
+	ifs.read((char *)bs, length * sizeof(short));
+	if (!ifs)
+	{
+		cerr << "Error reading blue inv gamma table from " << filename << endl;
+		ifs.close();
+		return 1;
+	}
+	status = vsgGAMMALoadProfile(length, rs, gs, bs);
+	if (!status)
+	{
+		cout << "Inverse gamma table loaded from " << filename << endl;
+	}
 	else
-		cout << "File is not open" << endl;
-
-	ifs.read((char *)r, length * sizeof(double));
-	if (ifs)
 	{
-		scaleGammaValues(r, rs, length);
-		amin = std::min_element(rs, rs + length);
-		amax = std::max_element(rs, rs + length);
-		cout << "Read " << length << " elements of RED gamma table. Min/max " << *amin << "/" << *amax << endl;
+		cout << "Error (" << status << " from vsgGAMMALoadProfile while loading inv gamma table to visage" << endl;
+		return 1;
 	}
-	ifs.read((char *)g, length * sizeof(double));
-	if (ifs)
-	{
-		scaleGammaValues(g, gs, length);
-		amin = std::min_element(gs, gs + length);
-		amax = std::max_element(gs, gs + length);
-		cout << "Read " << length << " elements of GREEN gamma table. Min/max " << *amin << "/" << *amax << endl;
-	}
-	ifs.read((char *)b, length * sizeof(double));
-	if (ifs)
-	{
-		scaleGammaValues(b, bs, length);
-		amin = std::min_element(bs, bs + length);
-		amax = std::max_element(bs, bs + length);
-		cout << "Read " << length << " elements of BLUE gamma table, " << ifs.gcount() << " bytes. Min/max " << *amin << "/" << *amax << endl;
-	}
-
-	//status = vsgGAMMALoadProfile(length, r, g, b);
-	//cerr << "load profile status " << status << endl;
-	delete[] r;
-	delete[] g;
-	delete[] b;
 	delete[] rs;
 	delete[] gs;
 	delete[] bs;
+	ifs.close();
 	return 0;
 }
 
