@@ -13,7 +13,7 @@ using namespace std;
 using namespace boost::algorithm;
 using namespace boost::filesystem;
 
-const string FixUStim::m_allowedArgs("ab:c:d:e:f:g:h:i:j:k:l:m:n:o:q:p:r:t:s:vy:zA:B:C:D:E:G:H:I:J:KL:M:NO:P:Q:R:S:T:V:W:X:Y:Z:");
+const string FixUStim::m_allowedArgs("ab:c:d:e:f:g:h:i:j:k:l:m:n:o:q:p:r:t:s:vy:zA:B:C:D:E:G:H:I:J:KL:M:NO:P:R:S:T:V:W:X:Y:Z:");
 
 FixUStim::FixUStim(bool bStandAlone)
 	: UStim()
@@ -1005,21 +1005,11 @@ int FixUStim::process_arg(int c, std::string& arg)
 		bCuePointIsDot = false;
 		break;
 	}
-	case 'Q':
 	case 'q':
 	{
-		if (c == 'Q')
-		{
-			bUseCueCircles = true;
-			bUseCuePoints = true;
-			bCuePointIsDot = true;
-		}
-		else if (c == 'q')
-		{
-			bUseCueCircles = false;
-			bUseCuePoints = true;
-			bCuePointIsDot = true;
-		}
+		bUseCueCircles = false;
+		bUseCuePoints = true;
+		bCuePointIsDot = true;
 		if (parse_attcues(arg, m_vecGratings.size(), m_vecAttentionCues))
 		{
 			cerr << "Error in input." << endl;
