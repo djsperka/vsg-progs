@@ -1001,15 +1001,14 @@ int FixUStim::process_arg(int c, std::string& arg)
 		break;
 	}
 	case 'r':
-	{
-		bCuePointIsDot = false;
-		break;
-	}
 	case 'q':
 	{
 		bUseCueCircles = false;
 		bUseCuePoints = true;
-		bCuePointIsDot = true;
+		if (c == 'r')
+			bCuePointIsDot = false;
+		else if (c == 'q')
+			bCuePointIsDot = true;
 		if (parse_attcues(arg, m_vecGratings.size(), m_vecAttentionCues))
 		{
 			cerr << "Error in input." << endl;
