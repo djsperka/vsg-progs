@@ -13,7 +13,7 @@ using namespace std;
 using namespace boost::algorithm;
 using namespace boost::filesystem;
 
-const string FixUStim::m_allowedArgs("ab:c:d:e:f:g:h:i:j:k:l:m:n:o:q:p:r:t:s:vy:zA:B:C:D:E:G:H:I:J:KL:M:NO:P:R:S:T:V:W:X:Y:Z:");
+const string FixUStim::m_allowedArgs("ab:c:d:e:f:g:h:i:j:k:l:m:n:o:q:p:r:t:s:vy:zA:B:C:D:E:G:H:I:J:KL:M:NO:P:Q:R:S:T:U:V:W:X:Y:Z:");
 
 FixUStim::FixUStim(bool bStandAlone)
 	: UStim()
@@ -505,6 +505,7 @@ int FixUStim::process_arg(int c, std::string& arg)
 	case 't':
 	case 'P':
 	case 'I':
+	case 'U':
 	{
 		vector<double> tuning_parameters;
 		int nsteps;
@@ -589,6 +590,9 @@ int FixUStim::process_arg(int c, std::string& arg)
 					break;
 				case 'I':
 					plist = new StimTTFList(tuning_parameters, stimIndex, last_was_distractor);
+					break;
+				case 'U':
+					plist = new FixptDiamList(tuning_parameters);
 					break;
 				default:
 					cerr << "Unhandled varying stim parameter type (" << (char)c << ")" << endl;

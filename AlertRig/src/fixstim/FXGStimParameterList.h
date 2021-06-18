@@ -550,6 +550,40 @@ public:
 
 
 
+class FixptDiamList : public FXGStimParameterList
+{
+public:
+	FixptDiamList(vector<double> diams) : FXGStimParameterList(-1), m_vec(diams)
+	{
+	};
+
+	FixptDiamList(const FixptDiamList& list) : FixptDiamList(list.getXY(), -1, false)
+	{
+		m_iter = m_vec.begin();
+	}
+	virtual ~FixptXYList() {};
+	virtual FixptXYList *clone() const
+	{
+		return new FixptXYList(*this);
+	}
+
+	virtual bool set_current_parameter(MultiParameterFXMultiGStimSet* pstimset)
+	{
+		if (pstimset->has_fixpt())
+		{
+			pstimset->fixpt().x = m_iter->first;
+			pstimset->fixpt().y = m_iter->second;
+		}
+		return true;
+	}
+private:
+	vector<double> m_vec;
+	vector<double>::const_iterator m_iter;
+
+};
+
+
+
 class StimDelayList: public FXGStimParameterList
 {
 public:
