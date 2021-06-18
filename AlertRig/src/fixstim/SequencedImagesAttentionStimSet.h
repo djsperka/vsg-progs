@@ -64,6 +64,9 @@ class SequencedImagesAttentionStimSet : public StimSet
 	ImageFilesPositions m_ifp;
 	vector<AttentionCue> m_vecCuePairs;
 	vector<AttentionSequenceTrialSpec> m_trialSpecs;
+	bool m_bUseCueCircles;
+	bool m_bUseCuePoints;
+	bool m_bCuePointIsDot;
 	int m_pageBlank;
 	int m_pageFixpt;
 	unsigned int m_current;
@@ -80,7 +83,7 @@ class SequencedImagesAttentionStimSet : public StimSet
 
 
 public:
-	SequencedImagesAttentionStimSet(ARContrastFixationPointSpec& fixpt, const ImageFilesPositions& ifp, vector<AttentionCue>& vecCuePairs, vector<AttentionSequenceTrialSpec>& trialSpecs);
+	SequencedImagesAttentionStimSet(ARContrastFixationPointSpec& fixpt, const ImageFilesPositions& ifp, vector<AttentionCue>& vecCuePairs, bool bUseCueCircles, bool bUseCuePoints, bool bCuePointIsDot, vector<AttentionSequenceTrialSpec>& trialSpecs);
 	int num_pages() { return 24; };
 	int num_overlay_pages() { return 0; };
 	virtual int init(ARvsg& vsg, std::vector<int> pages);

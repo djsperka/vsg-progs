@@ -4,11 +4,14 @@ const DWORD truecolorGray = 127 * (1 + 256 + 256 * 256);
 
 
 
-SequencedImagesAttentionStimSet::SequencedImagesAttentionStimSet(ARContrastFixationPointSpec& fixpt, const ImageFilesPositions& ifp, vector<AttentionCue>& vecCuePairs, vector<AttentionSequenceTrialSpec>& trialSpecs)
+SequencedImagesAttentionStimSet::SequencedImagesAttentionStimSet(ARContrastFixationPointSpec& fixpt, const ImageFilesPositions& ifp, vector<AttentionCue>& vecCuePairs, bool bUseCueCircles, bool bUseCuePoints, bool bCuePointIsDot, vector<AttentionSequenceTrialSpec>& trialSpecs)
 	: m_fixpt(fixpt)
 	, m_ifp(ifp)
 	, m_vecCuePairs(vecCuePairs)
 	, m_trialSpecs(trialSpecs)
+	, m_bUseCueCircles(bUseCueCircles)
+	, m_bUseCuePoints(bUseCuePoints)
+	, m_bCuePointIsDot(bCuePointIsDot)
 	, m_current(0)
 {
 	int nStimPositions = std::get<1>(m_ifp).size();
@@ -28,11 +31,61 @@ SequencedImagesAttentionStimSet::SequencedImagesAttentionStimSet(ARContrastFixat
 		circle.d = 5;		// arbitrary! Need to get a reasonable diameter from image files????
 		circle.linewidth = vecCuePairs[i].linewidth;
 		circle.color = vecCuePairs[i].color;
-		circle.bCircleEnabled = false;
 		circle.dCentral = fixpt.d;
-		circle.bCentralIsDot = true;
+		if (m_bUseCueCircles)
+			circle.bCircleEnabled = true;
+		if (m_bUseCuePoints)
+		{
+			if (m_bUseCueCircles)
+			{
+				circle.dCentral = fixpt.d;
+			}
+			else
+			{
+				circle.dCentral = vecCuePairs[i].rdiff;
+			}
+			circle.bCentralIsDot = m_bCuePointIsDot;
+		}
 		m_vecCueCircles.push_back(circle);
 	}
+
+
+#if 0
+
+
+	for (unsigned int i = 0; i < vecCuePairs.size(); i++)
+	{
+		ARContrastCueCircleSpec circle;
+		int indGrating = i % m_vecGratings.size();
+
+		// set up cue circle
+		circle.x = m_vecGratings[indGrating].x;
+		circle.y = m_vecGratings[indGrating].y;
+		circle.d = m_vecGratings[indGrating].w + vecCuePairs[i].rdiff * 2;
+		circle.linewidth = vecCuePairs[i].linewidth;
+		circle.color = vecCuePairs[i].color;
+		if (m_bUseCueCircles)
+			circle.bCircleEnabled = true;
+		if (m_bUseCuePoints)
+		{
+			if (m_bUseCueCircles)
+			{
+				circle.dCentral = fixpt.d;
+			}
+			else
+			{
+				circle.dCentral = vecCuePairs[i].rdiff;
+			}
+			circle.bCentralIsDot = m_bCuePointIsDot;
+		}
+		m_vecCueCircles.push_back(circle);
+	}
+
+#endif
+
+
+
+
 
 	// create helpers
 	m_pFixptHelper = new ImFixptSequenceHelper(FixptIndex, 100, m_fixpt);
