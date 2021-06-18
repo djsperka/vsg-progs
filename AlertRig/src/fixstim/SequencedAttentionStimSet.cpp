@@ -34,7 +34,14 @@ SequencedAttentionStimSet::SequencedAttentionStimSet(ARContrastFixationPointSpec
 			circle.bCircleEnabled = true;
 		if (m_bUseCuePoints)
 		{
-			circle.dCentral = fixpt.d;
+			if (m_bUseCueCircles)
+			{
+				circle.dCentral = fixpt.d;
+			}
+			else
+			{
+				circle.dCentral = vecCuePairs[i].rdiff;
+			}
 			circle.bCentralIsDot = m_bCuePointIsDot;
 		}
 		m_vecCueCircles.push_back(circle);
