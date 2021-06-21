@@ -508,13 +508,15 @@ int FixUStim::process_arg(int c, std::string& arg)
 	case 'U':
 	{
 		vector<double> tuning_parameters;
+		vector<COLOR_TYPE> color_parameters;
 		int nsteps;
 
 		// the first time one of these stim parameter lists is found we must create
 		// the stim set. On first creating it we have to account for any gratings and/or
 		// distractors that have been specified up to this point.
 
-		if (parse_tuning_list(arg, tuning_parameters, nsteps)) m_errflg++;
+		if ((c != 'U' && parse_tuning_list(arg, tuning_parameters, nsteps)) || 
+			(c == 'U' && parse_color_list(arg, color_parameters))) m_errflg++;
 		else
 		{
 			// If no stim configured, create stim set with fixpt and/or xhair.
@@ -592,7 +594,7 @@ int FixUStim::process_arg(int c, std::string& arg)
 					plist = new StimTTFList(tuning_parameters, stimIndex, last_was_distractor);
 					break;
 				case 'U':
-					plist = new FixptDiamList(tuning_parameters);
+					plist = new FixptColorList(color_parameters);
 					break;
 				default:
 					cerr << "Unhandled varying stim parameter type (" << (char)c << ")" << endl;

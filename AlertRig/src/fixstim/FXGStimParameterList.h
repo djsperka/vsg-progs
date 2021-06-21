@@ -550,19 +550,19 @@ public:
 
 
 
-class FixptDiamList : public FXGStimParameterList
+class FixptColorList : public FXGStimParameterList
 {
 public:
-	FixptDiamList(vector<double> diams) : FXGStimParameterList(-1), m_vec(diams) { m_iter = m_vec.begin(); };
-	FixptDiamList(const FixptDiamList& list) : FXGStimParameterList(list.index()), m_vec(list.m_vec)
+	FixptColorList(vector<COLOR_TYPE> colors) : FXGStimParameterList(-1), m_vec(colors) { m_iter = m_vec.begin(); };
+	FixptColorList(const FixptColorList& list) : FXGStimParameterList(list.index()), m_vec(list.m_vec)
 	{
 		m_iter = m_vec.begin();
 	}
 
-	virtual ~FixptDiamList() {};
-	virtual FixptDiamList *clone() const
+	virtual ~FixptColorList() {};
+	virtual FixptColorList *clone() const
 	{
-		return new FixptDiamList(*this);
+		return new FixptColorList(*this);
 	}
 	virtual bool advance(MultiParameterFXMultiGStimSet* pstimset)
 	{
@@ -575,14 +575,14 @@ public:
 	{
 		if (pstimset->has_fixpt())
 		{
-			pstimset->fixpt().d = *m_iter;
+			pstimset->fixpt().color = *m_iter;
 		}
 		return true;
 	}
 
 private:
-	vector<double> m_vec;
-	vector<double>::const_iterator m_iter;
+	vector<COLOR_TYPE> m_vec;
+	vector<COLOR_TYPE>::const_iterator m_iter;
 };
 
 
