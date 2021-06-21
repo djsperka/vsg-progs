@@ -439,6 +439,17 @@ std::ostream& operator<<(std::ostream& out, const COLOR_TYPE& c)
 	return out;
 }
 
+std::istream& operator>>(std::istream& in, COLOR_TYPE& c)
+{
+	string s;
+	in >> s;
+	if (parse_color(s, c))
+	{
+		in.setstate(std::ios::failbit);
+	}
+	return in;
+}
+
 
 std::ostream& operator<<(std::ostream& out, const COLOR_VECTOR_TYPE& cv)
 {
@@ -458,6 +469,19 @@ std::ostream& operator<<(std::ostream& out, const COLOR_VECTOR_TYPE& cv)
 	return out;
 }
 
+std::istream& operator>>(std::istream& in, COLOR_VECTOR_TYPE& cv)
+{
+	string s;
+	in >> s;
+	if (parse_colorvector(s, cv))
+	{
+		in.setstate(std::ios::failbit);
+	}
+	return in;
+}
+
+
+
 std::ostream& operator<<(std::ostream& out, const APERTURE_TYPE& a)
 {
 	switch(a)
@@ -467,6 +491,17 @@ std::ostream& operator<<(std::ostream& out, const APERTURE_TYPE& a)
 	default:		out << "unknown";	break;
 	}
 	return out;
+}
+
+std::istream& operator>>(std::istream& in, APERTURE_TYPE& a)
+{
+	string s;
+	in >> s;
+	if (parse_aperture(s, a))
+	{
+		in.setstate(std::ios::failbit);
+	}
+	return in;
 }
 
 std::ostream& operator<<(std::ostream& out, const WAVEFORM_TYPE& p)
@@ -848,6 +883,37 @@ int parse_tuning_list(vector<string>& tokens, vector<double>& tuning_list, int& 
 	return status;
 }
 
+int parse_color_list(std::string s, vector<COLOR_TYPE>& color_list)
+{
+	int status = 0;
+	vector<string> tokens;
+	tokenize(s, tokens, ",");
+	return parse_color_list(tokens, color_list);
+}
+
+int parse_color_list(vector<string>& tokens, vector<COLOR_TYPE>& color_list)
+{
+	int status = 0;
+	unsigned int i;
+	istringstream iss;
+	COLOR_TYPE color;
+	for (i = 0; i < tokens.size(); i++)
+	{
+		iss.clear();
+		iss.str(tokens[i]);
+		iss >> color;
+		if (!iss)
+		{
+			cerr << "bad color value: " << tokens[i] << endl;
+			status = 1;
+		}
+		else
+		{
+			color_list.push_back(color);
+		}
+	}
+	return status;
+}
 
 // Just like parse_tuning_list, but doesn't return error when it hits a bad value. 
 // Used for parsing grating spec, where there may be a variable number of numbers

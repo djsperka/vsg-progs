@@ -110,6 +110,47 @@ bool operator==(const COLOR_TYPE& lhs, const COLOR_TYPE& rhs)
 		lhs.trival().c == rhs.trival().c);
 }
 
+std::istream& operator>>(std::istream& in, ARFixationPointSpec& fixpt)
+{
+	string s;
+	in >> s;
+	stringstream ss(s);
+	ss >> fixpt.x;
+	if (ss)
+	{
+		ss.ignore(1);
+		ss >> fixpt.y;
+	}
+	if (ss)
+	{
+		ss.ignore(1);
+		ss >> fixpt.d;
+	}
+	if (ss)
+	{
+		ss.ignore(1);
+		ss >> fixpt.color;
+	}
+	if (!ss) in.setstate(std::ios::failbit);
+	return in;
+}
+
+
+std::istream& operator>>(std::istream& in, alert::ARGratingSpec& grating)
+{
+	string s;
+	in >> s;
+	if (parse_grating(s, grating))
+	{
+		in.setstate(std::ios::failbit);
+	}
+	return in;
+}
+
+
+
+
+
 
 ARFixationPointSpec::ARFixationPointSpec()
 : x(0)

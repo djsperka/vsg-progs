@@ -111,6 +111,8 @@ int parse_sequence_pair(std::string s, int& i_i1, int& i_i2);
 int parse_tuning_triplet(std::string s, double& i_dMin, double& i_dMax, int& i_iSteps);
 int parse_tuning_list(std::string s, std::vector<double>& tuning_list, int& i_iSteps);
 int parse_tuning_list(std::vector<std::string>& tokens, std::vector<double>& tuning_list, int& i_iSteps);
+int parse_color_list(std::string s, std::vector<COLOR_TYPE>& color_list);
+int parse_color_list(std::vector<std::string>& tokens, std::vector<COLOR_TYPE>& tuning_list);
 int parse_number_list(std::string s, std::vector<double>& number_list);
 int parse_number_list(std::vector<std::string>& tokens, std::vector<double>& number_list);
 int parse_xy(std::string s, double& x, double& y);
@@ -169,8 +171,11 @@ int tokenize_response_file(char *filename, std::vector<std::string> &tokens);
 
 // convenient operators
 std::ostream& operator<<(std::ostream& out, const COLOR_TYPE& c);
+std::istream& operator>>(std::istream& in, COLOR_TYPE& c);
 std::ostream& operator<<(std::ostream& out, const COLOR_VECTOR_TYPE& v);
+std::istream& operator>>(std::istream& in, COLOR_VECTOR_TYPE& v);
 std::ostream& operator<<(std::ostream& out, const APERTURE_TYPE& a);
+std::istream& operator>>(std::istream& in, APERTURE_TYPE& a);
 std::ostream& operator<<(std::ostream& out, const WAVEFORM_TYPE& p);
 
 
