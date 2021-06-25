@@ -256,6 +256,7 @@ copy include\*.h $(SolutionDir)..\include</Command>
   <ItemGroup>
     <ClCompile Include="src\AlertLib.cpp" />
     <ClCompile Include="src\AlertUtil.cpp" />
+    <ClCompile Include="src\cargs.c" />
     <ClCompile Include="src\coneiso.cpp" />
     <ClCompile Include="src\getopt.c" />
     <ClCompile Include="src\helper.cpp" />
@@ -268,6 +269,7 @@ copy include\*.h $(SolutionDir)..\include</Command>
     <ClInclude Include="coneiso.h" />
     <ClInclude Include="include\Alertlib.h" />
     <ClInclude Include="include\AlertUtil.h" />
+    <ClInclude Include="include\cargs.h" />
     <ClInclude Include="include\fetcher.h" />
     <ClInclude Include="include\getopt.h" />
     <ClInclude Include="include\RegEntry.h" />
