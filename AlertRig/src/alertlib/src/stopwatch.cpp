@@ -1,5 +1,5 @@
 #include "stopwatch.h"
-
+#include <iostream>
 using namespace alert;
 using namespace std;
 
@@ -103,7 +103,7 @@ std::ostream& alert::operator<<(std::ostream& out, const Stopwatch& w)
 	unsigned int i;
 	for (i=0; i<w.count(); i++)
 	{
-		out << i << ") " << w.lap(i) << " (" << w.time(i) << ") " << w.label(i) << endl;
+		out << i << ") " << w.lap(i) << " (" << w.time(i) << ") " << w.label(i) << std::endl;
 	}
 	return out;
 }
