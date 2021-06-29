@@ -21,7 +21,7 @@
   <PropertyGroup Label="Globals">
     <ProjectGuid>{E7D13D4D-A7AD-46B3-A513-BC9B6297E6D3}</ProjectGuid>
     <RootNamespace>alertlib</RootNamespace>
-    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0.19041.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -256,7 +256,6 @@ copy include\*.h $(SolutionDir)..\include</Command>
   <ItemGroup>
     <ClCompile Include="src\AlertLib.cpp" />
     <ClCompile Include="src\AlertUtil.cpp" />
-    <ClCompile Include="src\cargs.c" />
     <ClCompile Include="src\coneiso.cpp" />
     <ClCompile Include="src\getopt.c" />
     <ClCompile Include="src\helper.cpp" />
@@ -269,7 +268,6 @@ copy include\*.h $(SolutionDir)..\include</Command>
     <ClInclude Include="coneiso.h" />
     <ClInclude Include="include\Alertlib.h" />
     <ClInclude Include="include\AlertUtil.h" />
-    <ClInclude Include="include\cargs.h" />
     <ClInclude Include="include\fetcher.h" />
     <ClInclude Include="include\getopt.h" />
     <ClInclude Include="include\RegEntry.h" />

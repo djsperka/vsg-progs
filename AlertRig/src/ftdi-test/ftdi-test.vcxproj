@@ -22,7 +22,7 @@
     <ProjectGuid>{663108AF-FD3D-47FC-97CF-FF93C1DCFDA4}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>ftditest</RootNamespace>
-    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0.19041.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
