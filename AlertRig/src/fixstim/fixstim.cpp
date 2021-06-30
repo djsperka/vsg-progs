@@ -56,7 +56,6 @@ using namespace boost::filesystem;
 
 // globals
 bool f_binaryTriggers = true;
-bool f_verbose = false;
 bool f_dumpStimSetsOnly = false;
 bool f_bPresentOnTrigger = false;
 string f_sTriggeredTriggers;
@@ -87,7 +86,7 @@ int errflg = 0;
 
 // These are the args allowed and which are handled by prargs. Do not use 'F' - it is reserved for 
 // passing a command file.
-const char *f_allowedServerArgs = "vu:b:d:M:";
+const char *f_allowedServerArgs = "u:b:d:M:";
 
 // calibration
 IASLSerialOutPort3* f_gpISerialOutPort = NULL;
@@ -100,7 +99,6 @@ int init_calibration();
 void serverLoop(void * arg);
 int run_fixstim();
 int prargs_callback(int c, string& arg);
-int prargs_client_callback(int c, string& arg);
 int prargs_server_callback(int c, string& arg);
 void usage();
 void init_triggers();
@@ -411,9 +409,6 @@ int prargs_server_callback(int c, string& arg)
 	static bool have_d = false;
 	switch(c)
 	{
-	case 'v':
-		f_verbose = true;
-		break;
 	case 'u':
 		{
 			int pos = arg.find(":", 0);
