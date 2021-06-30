@@ -25,7 +25,7 @@
 #include <stdio.h>
 #include <vector>
 #include <assert.h>
-
+#include <string>
 
 /* ====================================
  * Begin Preprocessor Definitions
