@@ -7,9 +7,54 @@
 #include "alertlib.h"
 #include "AlertUtil.h"
 
+// for interacting with argp 
+struct cmouse_arguments
+{
+	int screenDistanceMM;
+	bool bHaveDistance;
+	COLOR_TYPE bkgdColor;
+	bool useBinaryTriggers;
+	bool verbose;
+	ARGratingSpec grating;
+	bool bHaveGrating;
+	ARContrastFixationPointSpec fixpt;
+	bool bHaveFixpt;
+	bool isAlert;
+	bool allowQuit;
+	int pulse;
+	int sleepMS;
+	bool useRegDump;	// use a file to save stimulus parameters
+	std::string sRegDumpFile;
+	int portClient;		// if mouse control is false, this is the port number to listen for a client	
+	bool bMouseControl;
+	bool bPromptForDistance;
+	cmouse_arguments()
+		: screenDistanceMM(0)
+		, bHaveDistance(false)
+		, bkgdColor(gray)
+		, useBinaryTriggers(false)
+		, verbose(false)
+		, grating()
+		, bHaveGrating(false)
+		, fixpt()
+		, bHaveFixpt(false)
+		, isAlert(false)
+		, allowQuit(false)
+		, pulse(0x40)
+		, sleepMS(0)
+		, useRegDump(false)
+		, sRegDumpFile("")
+		, portClient(0)
+		, bMouseControl(true)
+		, bPromptForDistance(false)
+	{};
+
+};
+
+
 // Implementation of UStim interface for the cmouse app.
 
-class CMouseUStim: public UStim, public prargs_handler
+class CMouseUStim: public UStim
 {
 public:
 	CMouseUStim();
@@ -17,28 +62,29 @@ public:
 
 	bool parse(int argc, char **argv);
 	void run_stim(alert::ARvsg& vsg);
-	int process_arg(int option, std::string& arg);
+	//int process_arg(int option, std::string& arg);
 
 	// This acts as the callback function for the triggers
 	int callback(int &output, const FunctorCallbackTrigger* ptrig);
 
 private:
-	int m_screenDistanceMM;
-	COLOR_TYPE m_background;
-	bool m_binaryTriggers;
-	bool m_verbose;
-	ARGratingSpec m_grating;
-	ARContrastFixationPointSpec m_fixpt;
-	bool m_bHaveFixpt;
-	bool m_alert;
-	bool m_allowq;
-	int m_pulse;
-	int m_sleepMS;
+	struct cmouse_arguments m_arguments;
+	//int m_screenDistanceMM;
+	//COLOR_TYPE m_background;
+	//bool m_binaryTriggers;
+	//bool m_verbose;
+	//ARGratingSpec m_grating;
+	//ARContrastFixationPointSpec m_fixpt;
+	//bool m_bHaveFixpt;
+	//bool m_alert;
+	//bool m_allowq;
+	//int m_pulse;
+	//int m_sleepMS;
+	//bool m_bUseRegDump;	// use a file to save stimulus parameters
+	//std::string m_sRegDumpFile;
+	//bool m_bMouseControl;	// if true (default), use mouse/keyboard to control aperture and grating parameters
+	//int m_portClient;		// if mouse control is false, this is the port number to listen for a client	
 	bool m_bFixationOn;
-	bool m_bUseRegDump;	// use a file to save stimulus parameters
-	std::string m_sRegDumpFile;
-	bool m_bMouseControl;	// if true (default), use mouse/keyboard to control aperture and grating parameters
-	int m_portClient;		// if mouse control is false, this is the port number to listen for a client	
 	double m_vsgWidthPixels;
 	double m_vsgHeightPixels;
 	double m_vsgWidthDegrees;
