@@ -9,11 +9,38 @@
 #include "BorderStimSet.h"
 #include <iostream>
 #include <boost/algorithm/string.hpp>
+#include "argp.h"
+
 using namespace std;
 using namespace boost::algorithm;
 using namespace boost::filesystem;
 
-const string FixUStim::m_allowedArgs("ab:c:d:e:f:g:h:i:j:k:l:m:n:o:q:p:r:t:s:vy:zA:B:C:D:E:G:H:I:J:KL:M:NO:P:Q:R:S:T:U:V:W:X:Y:Z:");
+const string FixUStim::m_allowedArgs("ab:c:d:e:f:g:h:i:j:k:l:m:n:o:q:p:r:t:s:vy:A:B:C:D:E:G:H:I:J:KL:M:NO:P:Q:R:S:T:U:V:W:X:Y:Z:");
+
+// for argp
+error_t parse_fixstim_opt(int key, char* carg, struct argp_state* state);
+static struct argp_option options[] = {
+	{"ascii", 'a', 0, 0, "Use ascii triggers (user-entered)"},
+	{"verbose",  'v', 0, 0, "Produce verbose output" },
+	{"background", 'b', "COLOR", 0, "background color"},
+	{"distance-to-screen", 'd', "DIST_MM", 0, "screen distance in MM"},
+	{"fixpt", 'f', "FIXPT_SPEC", 0, "fixation point"},
+	{"grating", 'g', "GRATING", 0, "grating spec" },
+	{"xhair", 'h', "XHAIR_SPEC", 0, "xhair spec"},
+	{"images", 'i', "IMAGE_SPEC", 0, "image file list"},
+	{"ready-pulse", 'p', "BITPATTERN", 0, "Ready pulse issued when startup is complete"},
+	{"ready-pulse-delay", 'l', "DELAY_MS", 0, "Delay ready pulse for this many ms"},
+	{ 0 }
+};
+static struct argp f_argp = { options, parse_fixstim_opt, 0, "fixstim -- all-purpose stimulus engine" };
+
+// my parsers
+bool parseImageArg(const std::string& arg, std::string& filename, double& x, double& y, double& duration, double& delay, int& nlevels);
+
+
+
+
+
 
 FixUStim::FixUStim(bool bStandAlone)
 	: UStim()
@@ -43,19 +70,7 @@ FixUStim::~FixUStim()
 
 bool FixUStim::parse(int argc, char **argv)
 {
-	bool b = false;
-	int status;
-	status = prargs(argc, argv, (process_args_func)NULL, m_allowedArgs.c_str(), 'F', this);
-	if (!status)
-	{
-		b = true;
-		if (m_dumpStimSetsOnly)
-		{
-			cout << *m_pStimSet << endl;
-			b = false;
-		}
-	}
-	return b;
+	return !argp_parse(&f_argp, argc, argv, 0, 0, &m_arguments);
 }
 
 void FixUStim::run_stim(alert::ARvsg& vsg)
@@ -224,7 +239,197 @@ int FixUStim::callback(int &output, const FunctorCallbackTrigger* ptrig)
 }
 
 
+error_t parse_fixstim_opt(int key, char* carg, struct argp_state* state)
+{
+	error_t ret = 0;
+	struct fixstim_arguments* arguments = (struct fixstim_arguments*)state->input;
+	std::string sarg;
+	if (carg) sarg = carg;
+	switch (key)
+	{
+	case 'a':
+		arguments->bBinaryTriggers = false;
+		break;
+	case 'v':
+		arguments->bVerbose = true;
+		break;
+	case 'b':
+		if (parse_color(sarg, arguments->bkgdColor))
+			ret = EINVAL;
+		break;
+	case 'd':
+		if (parse_distance(sarg, arguments->iDistanceToScreenMM))
+			ret = EINVAL;
+		else
+			arguments->bHaveDistance = true;
+		break;
+	case 'l':
+		if (parse_integer(sarg, arguments->iReadyPulseDelay))
+			ret = EINVAL;
+		break;
+	case 'p':
+		if (parse_integer(sarg, arguments->iPulseBits))
+			ret = EINVAL;
+		break;
+	case 'V':
+	{
+		// This arg should have a number representing the bit to be used as the trigger
+		// (e.g. 128 corresponds to vsgDIG??? - its placed directly on the digout).
+		// Additionally it can have the specific triggers that should be triggered. 
+		// Only triggers that will require a present() matter here (so "q" will never 
+		// be triggered, e.g.). If omitted, then all triggers that require a present()
+		// will be triggered. 
+		// -V 128    trigger all using bit7
+		// -V 128,FS trigger only F,S triggers using bit7. X will not require trigger.
+		//
+		// This arg must be coordinated with the PLS file in use by the spike2 script! 
+		size_t pos = sarg.find_first_of(",");
+		if (pos)
+		{
+			arguments->sTriggeredTriggers = sarg.substr(pos);
+			if (parse_ulong(sarg.substr(0, pos), arguments->ulTriggerArmed))
+				ret = EINVAL;
+			else arguments->bPresentOnTrigger = true;
+		}
+		else
+		{
+			arguments->sTriggeredTriggers = "";
+			if (parse_ulong(sarg, arguments->ulTriggerArmed))
+				ret = EINVAL;
+			else arguments->bPresentOnTrigger = true;
+		}
+		break;
+	}
+	case 'f':
+		if (parse_fixation_point(sarg, arguments->fixpt))
+			ret = EINVAL;
+		else
+		{
+			arguments->bHaveFixpt = true;
+			arguments->bLastWasFixpt = true;
+			arguments->bLastWasGrating = arguments->bLastWasDistractor = false;
+			arguments->vecFixpts.push_back(arguments->fixpt);					// this vector might be ignored by some (most) stim sets.
+		}
+		break;
+	case 'g':
+		if (parse_grating(sarg, arguments->grating)) 
+			ret = EINVAL;
+		else
+		{
+			if (!arguments->bHaveFixpt)
+			{
+				arguments->pStimSet = new GratingStimSet(arguments->grating);
+			}
+			else if (arguments->bHaveFixpt && !arguments->bHaveXhair)
+			{
+				arguments->pStimSet = new FixptGratingStimSet(arguments->fixpt, arguments->grating);
+			}
+			else
+			{
+				arguments->pStimSet = new FixptGratingStimSet(arguments->fixpt, arguments->xhair, arguments->grating);
+			}
+		}
+		break;
+	case 'h':
+		if (parse_xhair(sarg, arguments->xhair))
+			ret = EINVAL;
+		else
+			arguments->bHaveXhair = true;
+		break;
+	case 'i':
+	{
+		// parse image arg
+		// -i filename								load on demand, display each at 0,0
+		// -i filename,x,y							load on demand, display each at x,y
 
+		double x = 0, y = 0;
+		double duration = 0;
+		double delay = 0;
+		int nlevels = 0;
+		string filename;
+
+		if (!parseImageArg(sarg, filename, x, y, duration, delay, nlevels))
+		{
+			cerr << "Error parsing image argument: " << sarg << endl;
+			ret = EINVAL;
+			break;
+		}
+
+		if (arguments->bHaveFixpt)
+		{
+			arguments->pStimSet = createImageStimSet(arguments->fixpt, filename, x, y, duration, delay, nlevels);
+		}
+		else
+		{
+			arguments->pStimSet = createImageStimSet(filename, x, y, duration, delay, nlevels);
+		}
+		if (!arguments->pStimSet)
+		{
+			cerr << "Error - bad input file for image stim set." << endl;
+			ret = EINVAL;
+		}
+
+		break;
+	}
+	case 's':
+		if (arguments->vecGratings.size() == 8)
+		{
+			cerr << "Maximum number of gratings(8) reached." << endl;
+			ret = EINVAL;
+		}
+		else if (parse_grating(sarg, arguments->grating))
+		{
+			cerr << "Error in grating input: " << sarg << endl;
+			ret = EINVAL;
+		}
+		else
+		{
+			arguments->bHaveStim = true;
+			arguments->bLastWasGrating = true;
+			arguments->bLastWasFixpt = arguments->bLastWasDistractor = false;
+			arguments->vecGratings.push_back(arguments->grating);
+
+			if (arguments->bUsingMultiParameterStimSet)
+			{
+				MultiParameterFXMultiGStimSet* pmulti = static_cast<MultiParameterFXMultiGStimSet*>(arguments->pStimSet);
+				pmulti->add_grating(arguments->grating);
+			}
+		}
+		break;
+	case 'k':
+		if (arguments->vecDistractors.size() == 8)
+		{
+			cerr << "Maximum number of distractors(8) reached." << endl;
+			ret = EINVAL;
+		}
+		else if (parse_grating(sarg, arguments->grating))
+		{
+			cerr << "Error in grating input: " << sarg << endl;
+			ret = EINVAL;
+		}
+		else
+		{
+			arguments->bLastWasDistractor = true;
+			arguments->bLastWasGrating = arguments->bLastWasFixpt = false;
+			arguments->vecDistractors.push_back(arguments->grating);
+
+			if (arguments->bUsingMultiParameterStimSet)
+			{
+				MultiParameterFXMultiGStimSet* pmulti = static_cast<MultiParameterFXMultiGStimSet*>(arguments->pStimSet);
+				pmulti->add_distractor(arguments->grating);
+			}
+		}
+		break;
+
+	default:
+		ret = ARGP_ERR_UNKNOWN;
+		break;
+	}
+	return ret;
+}
+
+
+#if 0
 int FixUStim::process_arg(int c, std::string& arg)
 {
 	static bool have_fixpt = false;
@@ -249,9 +454,6 @@ int FixUStim::process_arg(int c, std::string& arg)
 	{
 	case 'a':
 		m_binaryTriggers = false;
-		break;
-	case 'z':
-		m_dumpStimSetsOnly = true;
 		break;
 	case 'v':
 		m_verbose = true;
@@ -1315,6 +1517,7 @@ int FixUStim::process_arg(int c, std::string& arg)
 
 	return m_errflg;
 }
+#endif
 
 
 MultiParameterFXMultiGStimSet* FixUStim::create_multiparameter_stimset(bool bHaveFixpt, ARContrastFixationPointSpec& fixpt, bool bHaveXhair, ARXhairSpec& xhair)
@@ -1385,7 +1588,7 @@ StimSet* FixUStim::create_stimset(bool bHaveFixpt, ARContrastFixationPointSpec& 
 }
 
 
-bool FixUStim::parseImageArg(const std::string& arg, std::string& filename, double& x, double& y, double& duration, double& delay, int& nlevels)
+bool parseImageArg(const std::string& arg, std::string& filename, double& x, double& y, double& duration, double& delay, int& nlevels)
 {
 	std::vector<std::string> vec;
 	tokenize(arg, vec, ",");

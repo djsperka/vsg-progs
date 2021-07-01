@@ -1067,15 +1067,6 @@ error_t parse_opt(int key, char* carg, struct argp_state* state)
 
 bool CMouseUStim::parse(int argc, char** argv)
 {
-	//bool b = false;
-	//int status;
-	//status = prargs(argc, argv, (process_args_func)NULL, m_allowedArgs.c_str(), 'F', this);
-	//if (!status)
-	//{
-	//	b = true;
-	//}
-	//return b;
-	cout << "parsing " << argc << endl;
 	return !argp_parse(&f_argp, argc, argv, 0, 0, &m_arguments);
 }
 
