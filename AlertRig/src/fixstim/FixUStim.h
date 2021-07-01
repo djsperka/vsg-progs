@@ -15,6 +15,100 @@
 #include <vector>
 #include <boost/filesystem.hpp>
 
+
+// for interacting with argp 
+struct fixstim_arguments
+{
+	bool bBinaryTriggers;
+	bool bVerbose;
+	COLOR_TYPE bkgdColor;
+	int iDistanceToScreenMM;
+	bool bHaveDistance;
+	int iReadyPulseDelay;
+	int iPulseBits;
+	bool bPresentOnTrigger;
+	string sTriggeredTriggers;
+	unsigned long ulTriggerArmed;
+	ARContrastFixationPointSpec fixpt;
+	bool bHaveFixpt;
+	bool bHaveStim;
+	ARGratingSpec grating;
+	bool bHaveGrating;
+	ARXhairSpec xhair;
+	bool bHaveXhair;
+
+	// These 'last_was' vars tell us how to assign a stim set when we receive one.
+	bool bLastWasFixpt;
+	bool bLastWasGrating;
+	bool bLastWasDistractor;
+	bool bUseCueCircles;
+	bool bUseCuePoints;
+	bool bCuePointIsDot;
+
+	// store all the parsed specs
+	std::vector<alert::ARContrastFixationPointSpec> vecFixpts;
+	std::vector<alert::ARGratingSpec> vecGratings;
+	std::vector<alert::ARGratingSpec> vecDistractors;
+	std::vector<AttentionCue> vecAttentionCues;
+	FlashyParamVectorVector vecFlashies;
+
+	StimSet* pStimSet;
+	bool bUsingMultiParameterStimSet;
+
+
+
+	bool isAlert;
+	bool allowQuit;
+	int pulse;
+	int sleepMS;
+	bool useRegDump;	// use a file to save stimulus parameters
+	std::string sRegDumpFile;
+	int portClient;		// if mouse control is false, this is the port number to listen for a client	
+	bool bMouseControl;
+	bool bPromptForDistance;
+	fixstim_arguments()
+		: bBinaryTriggers(true)
+		, bVerbose(false)
+		, bkgdColor(gray)
+		, iDistanceToScreenMM(0)
+		, bHaveDistance(false)
+		, iReadyPulseDelay(0)
+		, iPulseBits(0x40)
+		, bPresentOnTrigger(false)
+		, sTriggeredTriggers("")
+		, ulTriggerArmed(0)
+		, fixpt()
+		, bHaveFixpt(false)
+		, grating()
+		, bHaveGrating(false)
+		, xhair()
+		, bHaveXhair(false)
+		, bHaveStim(false)
+		, bLastWasFixpt(false)
+		, bLastWasGrating(false)
+		, bLastWasDistractor(false)
+		, bUseCueCircles(false)
+		, bUseCuePoints(false)
+		, bCuePointIsDot(false)
+		, vecFixpts()
+		, pStimSet(nullptr)
+		, bUsingMultiParameterStimSet(false)
+
+		, isAlert(false)
+		, allowQuit(false)
+		, pulse(0x40)
+		, sleepMS(0)
+		, useRegDump(false)
+		, sRegDumpFile("")
+		, portClient(0)
+		, bMouseControl(true)
+		, bPromptForDistance(false)
+	{};
+
+};
+
+
+
 // Implementation of UStim interface for the fixstim app. This embodies the 
 // original fixstim behavior.
 
@@ -32,6 +126,7 @@ public:
 	int callback(int &output, const FunctorCallbackTrigger* ptrig);
 
 private:
+	struct fixstim_arguments m_arguments;
 	bool m_bStandAlone;
 	bool m_binaryTriggers;
 	bool m_verbose;
