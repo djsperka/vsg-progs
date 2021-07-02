@@ -1,9 +1,11 @@
 #include "ClientNetwork.h"
 #include "EQStimSet.h"
 #include <iostream>
+#include <boost/filesystem.hpp>
 #include <boost/algorithm/string.hpp>
 using namespace std;
 using namespace boost;
+using namespace boost::filesystem;
 
 VSGLUTBUFFER f_palImage;	// loaded from image
 VSGLUTBUFFER f_palHW;	// loaded from hardware
@@ -31,6 +33,90 @@ void dumpPal()
 }
 
 
+
+int parse_eqparams_file(const std::string& filename, int ngratings, vector<struct EQParams>& vecParams)
+{
+	int status = 0;
+	path pathCues;
+
+	path p(filename);
+	if (!exists(p))
+	{
+		cerr << "Error: Cue file does not exist: " << filename << endl;
+		status = 1;
+	}
+	else
+	{
+		vector<struct EQParams> vecEQParams;
+		pathCues = p.parent_path();
+
+		// open file, read line-by-line and parse
+		string line;
+		int linenumber = 0;
+		int cuecount = 0;
+		std::ifstream myfile(filename.c_str());
+		if (myfile.is_open())
+		{
+			while (getline(myfile, line) && !status)
+			{
+				struct EQParams e;
+				trim(line);
+				linenumber++;
+				if (line.length() == 0 || line[0] == '#')
+				{
+					// skip empty lines and those that start with '#'
+				}
+				else if (parse_eqparams(line, ngratings, e))
+				{
+					cerr << "parse failed on line " << linenumber << ": " << line << endl;
+					status = 1;	// this will stop processing, eventually.
+				}
+				else
+				{
+					if (boost::iequals(e.cueFile, std::string("none")))
+					{
+						e.cueFile.clear();
+					}
+					else if (exists(path(e.cueFile)))
+					{
+						cuecount++;
+						cerr << " Found cue file at absolute path " << path(e.cueFile) << endl;
+					}
+					else
+					{
+						cerr << " Absolute path " << path(e.cueFile) << " not found." << endl;
+						if (exists(pathCues / e.cueFile))
+						{
+							cerr << " Found cue file at path relative to config file " << (pathCues / e.cueFile) << endl;
+							e.cueFile = (pathCues / e.cueFile).make_preferred().string();
+						}
+						else
+						{
+							cerr << " Relative path " << (pathCues / e.cueFile) << " not found." << endl;
+							status = 1;
+						}
+					}
+					// check values of tCC, tC2, tC3, tE
+					if (e.tC2 > 0 || e.tC3 > 0)
+					{
+						if (e.tCC >= e.tC2 || e.tC2 >= e.tC3 || e.tC3 >= e.tE)
+						{
+							cerr << "Invalid sequence - require tCC < tC2 < tC3 < tE when tC2/tC3 values are present." << endl;
+							cerr << "Line number " << linenumber << ": tCC/tC2/tC3/tE: " << e.tCC << "/" << e.tC2 << "/" << e.tC3 << "/" << e.tE << endl;
+							status = 1;
+						}
+					}
+					vecEQParams.push_back(e);
+				}
+			}
+			myfile.close();
+			cerr << "Read " << linenumber << " lines from config file, found " << cuecount << " cues." << endl;
+		}
+	}
+
+
+	return status;
+}
 
 
 // parse string 

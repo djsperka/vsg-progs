@@ -25,6 +25,7 @@ struct EQParams
 	bool hasC2C3() const { return tC2 > 0 && tC3 > tC2; };
 };
 
+int parse_eqparams_file(const std::string& filename, int ngratings, vector<struct EQParams>& vecParams);
 int parse_eqparams(const string& s, int nstim, struct EQParams& params);
 
 class EQStimSet: public FXMultiGStimSet
