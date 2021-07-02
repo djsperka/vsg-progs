@@ -13,7 +13,10 @@
 #include "AttentionStimSet.h"
 #include "MultiParameterFXMultiGStimSet.h"
 #include <vector>
-#include <boost/filesystem.hpp>
+
+template <class T> StimSet* create_stimset(bool bHaveFixpt, ARContrastFixationPointSpec& fixpt, bool bHaveXhair, ARXhairSpec& xhair, ARGratingSpec& grating, vector<double> params);
+MultiParameterFXMultiGStimSet* create_multiparameter_stimset(bool bHaveFixpt, ARContrastFixationPointSpec& fixpt, bool bHaveXhair, ARXhairSpec& xhair);
+MultiParameterFXMultiGStimSet* create_multiparameter_stimset(bool bHaveFixpt, ARContrastFixationPointSpec& fixpt, bool bHaveXhair, ARXhairSpec& xhair, ARGratingSpec& grating);
 
 
 // for interacting with argp 
@@ -54,18 +57,9 @@ struct fixstim_arguments
 
 	StimSet* pStimSet;
 	bool bUsingMultiParameterStimSet;
+	bool bHaveSequence;
+	string sequence;
 
-
-
-	bool isAlert;
-	bool allowQuit;
-	int pulse;
-	int sleepMS;
-	bool useRegDump;	// use a file to save stimulus parameters
-	std::string sRegDumpFile;
-	int portClient;		// if mouse control is false, this is the port number to listen for a client	
-	bool bMouseControl;
-	bool bPromptForDistance;
 	fixstim_arguments()
 		: bBinaryTriggers(true)
 		, bVerbose(false)
@@ -93,16 +87,8 @@ struct fixstim_arguments
 		, vecFixpts()
 		, pStimSet(nullptr)
 		, bUsingMultiParameterStimSet(false)
-
-		, isAlert(false)
-		, allowQuit(false)
-		, pulse(0x40)
-		, sleepMS(0)
-		, useRegDump(false)
-		, sRegDumpFile("")
-		, portClient(0)
-		, bMouseControl(true)
-		, bPromptForDistance(false)
+		, bHaveSequence(false)
+		, sequence("")
 	{};
 
 };
@@ -112,10 +98,10 @@ struct fixstim_arguments
 // Implementation of UStim interface for the fixstim app. This embodies the 
 // original fixstim behavior.
 
-class FixUStim: public UStim, public prargs_handler
+class FixUStim: public UStim
 {
 public:
-	FixUStim(bool bStandAlone = false);
+	FixUStim();
 	virtual ~FixUStim();
 
 	bool parse(int argc, char **argv);
@@ -127,49 +113,11 @@ public:
 
 private:
 	struct fixstim_arguments m_arguments;
-	bool m_bStandAlone;
-	bool m_binaryTriggers;
-	bool m_verbose;
-	bool m_dumpStimSetsOnly;
-	bool m_bPresentOnTrigger;
-	std::string m_sTriggeredTriggers;
-	DWORD m_ulTriggerArmed;
-	bool m_bUseLock;
-	COLOR_TYPE m_background;
-	alert::ARContrastFixationPointSpec m_fixpt;
-	std::vector<alert::ARContrastFixationPointSpec> m_vecFixpts;
-	alert::ARGratingSpec m_grating;
-	alert::ARXhairSpec m_xhair;
-	std::vector<alert::ARGratingSpec> m_vecGratings;
-	std::vector<alert::ARGratingSpec> m_vecDistractors;
-	std::vector<AttentionCue> m_vecAttentionCues;
-	FlashyParamVectorVector m_vecFlashies;
-	StimSet *m_pStimSet;
-	bool m_bUsingMultiParameterStimSet;
-	int m_iDistanceToScreenMM;
-	int m_iReadyPulseDelay;
-	alert::TriggerVector m_triggers;
-	int m_pulse;
-	bool m_bDaemon;
-	bool m_bClient;
-	std::string m_sClientArgs;
-	bool m_bClientSendQuit;
-	int m_iDaemonPort;
-	string m_sDaemonHostIP;
-	bool m_quit;
-	double m_dSlaveXOffset;
-	double m_dSlaveYOffset;
-	boost::filesystem::path m_pathCues;			// root path for cue files (see EQStimSet, 'W' arg)
-	int m_errflg;
 
 // These are the args allowed and which are handled by prargs. Do not use 'F' - it is reserved for 
 // passing a command file.
 	static const string m_allowedArgs;
 
-
-	template <class T> StimSet* create_stimset(bool bHaveFixpt, ARContrastFixationPointSpec& fixpt, bool bHaveXhair, ARXhairSpec& xhair, ARGratingSpec& grating, vector<double> params);
-	MultiParameterFXMultiGStimSet* create_multiparameter_stimset(bool bHaveFixpt, ARContrastFixationPointSpec& fixpt, bool bHaveXhair, ARXhairSpec& xhair);
-	MultiParameterFXMultiGStimSet* create_multiparameter_stimset(bool bHaveFixpt, ARContrastFixationPointSpec& fixpt, bool bHaveXhair, ARXhairSpec& xhair, ARGratingSpec& grating);
 	void init_triggers(TSpecificFunctor<FixUStim>* pfunctor);
 	bool parseImageArg(const std::string& arg, std::string& filename, double& x, double& y, double& duration, double& delay, int& nlevels);
 };
