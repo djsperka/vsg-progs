@@ -30,6 +30,7 @@ static struct argp_option options[] = {
 	{"images", 'i', "IMAGE_SPEC", 0, "image file list"},
 	{"stimulus", 's', "STIMULUS_SPEC", 0, "stimulus spec"},
 	{"distractor", 'k', "STIMULUS_SPEC", 0, "distractor spec, for those stimsets that use them"},
+	{"thats-enough", 'K', 0, 0, "create stimulus using current fixpt, grating, distractors"},
 	{"ready-pulse", 'p', "BITPATTERN", 0, "Ready pulse issued when startup is complete"},
 	{"ready-pulse-delay", 'l', "DELAY_MS", 0, "Delay ready pulse for this many ms"},
 	{"border-ownership", 'c', "BORDER_SPEC", 0, "Border ownership stimulus"},
@@ -55,7 +56,9 @@ static struct argp_option options[] = {
 	{"drifting-bar", 'G', "color,width,height,deg_per_sec,ori1,ori2,...", 0, "drifting bar with trigger pulses when box appears on (disappears from) screen"},
 	{"dots", 'D', "color,x,y,diam,speed,density,dotsize,angle1,angle2,...", 0, "drifting dots"},
 	{"flashies", 'j', "nk,x,y,w,h,t_on,t_off[,nk,x,y,w,h,t_on,t_off...]", 0, "flashies - briefly flash distractors during attention trial"},
-	{"original-attention", 'J', "ATTENTION_PARAMS", 0, "original attention stim set (ask for details)"}, 
+	{"cues", 'q', "CUES_PARAMS", 0, "For Attention-style stimuli, use cue dots at stimulus locations."},
+	{"cues", 'r', "CUES_PARAMS", 0, "For Attention-style stimuli, use cue rects at stimulus locations."},
+	{"original-attention", 'J', "ATTENTION_PARAMS", 0, "original attention stim set (ask for details)"},
 	{"interleaved-attention", 'm', "INTERLEAVED_PARAMS", 0, "precursor to sequenced attention (-n)"},
 	{"sequenced-attention", 'n', "SEQUENCED_PARAMS", 0, "sequenced attention stim set; allows precise timing of cues, onset/offset/contrast-change of gratings"},
 	{"mel", 'o', "MEL_PARAMS", 0, "mel stim set, lost to time"},
@@ -87,7 +90,8 @@ FixUStim::~FixUStim()
 
 bool FixUStim::parse(int argc, char **argv)
 {
-	return !argp_parse(&f_argp, argc, argv, 0, 0, &m_arguments);
+	error_t ret = argp_parse(&f_argp, argc, argv, ARGP_NO_EXIT, 0, &m_arguments);
+	return (!ret);
 }
 
 void FixUStim::run_stim(alert::ARvsg& vsg)
@@ -991,6 +995,27 @@ error_t parse_fixstim_opt(int key, char* carg, struct argp_state* state)
 				arguments->pStimSet = new DotStimSet(dotx, doty, color, dotdiam, dotspeed, dotdensity, (int)dotsize, tuning_parameters);
 			}
 
+		}
+		break;
+	}
+	case 'r':
+	case 'q':
+	{
+		arguments->bUseCueCircles = false;
+		arguments->bUseCuePoints = true;
+		if (key == 'r')
+			arguments->bCuePointIsDot = false;
+		else if (key == 'q')
+			arguments->bCuePointIsDot = true;
+		if (parse_attcues(sarg, arguments->vecGratings.size(), arguments->vecAttentionCues))
+		{
+			cerr << "Error in attention cues input (-r or -q)." << endl;
+			ret = EINVAL;
+		}
+		else
+		{
+			cerr << "Read " << arguments->vecAttentionCues.size() << " attention cues." << endl;
+			//dump_attcues(m_vecAttentionCues);
 		}
 		break;
 	}
