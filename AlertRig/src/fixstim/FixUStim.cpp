@@ -59,6 +59,7 @@ static struct argp_option options[] = {
 	{"interleaved-attention", 'm', "INTERLEAVED_PARAMS", 0, "precursor to sequenced attention (-n)"},
 	{"sequenced-attention", 'n', "SEQUENCED_PARAMS", 0, "sequenced attention stim set; allows precise timing of cues, onset/offset/contrast-change of gratings"},
 	{"mel", 'o', "MEL_PARAMS", 0, "mel stim set, lost to time"},
+	{"stacey-evan", 'W', "filename[,ip:port]", 0, "Stacey-Evan stimulus"},
 	{ 0 }
 };
 static struct argp f_argp = { options, parse_fixstim_opt, 0, "fixstim -- all-purpose stimulus engine" };
