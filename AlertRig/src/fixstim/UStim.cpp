@@ -27,6 +27,13 @@ int UStim::initialize(alert::ARvsg& vsg, int iScreenDistanceMM, const COLOR_TYPE
 	}
 	else
 	{
+		// dump some useful diagnostics
+		cerr << "vsgDEVICESERIALNUMBER: " << std::hex << vsgGetSystemAttribute(vsgDEVICESERIALNUMBER) << std::dec << endl;
+		cerr << "vsgFRAMERATE(Hz): " << vsgGetSystemAttribute(vsgFRAMERATE) << endl;
+		cerr << "vsgFRAMETIME(us): " << vsgGetSystemAttribute(vsgFRAMETIME) << endl;
+		cerr << "vsgSCREENWIDTH: " << vsgGetSystemAttribute(vsgSCREENWIDTH) << endl;
+		cerr << "vsgSCREENHEIGHT: " << vsgGetSystemAttribute(vsgSCREENHEIGHT) << endl;
+
 		// Initialize page 0 and leave display there. The stim set may safely assume that the current 
 		// page is a blank background page and it may return to it (no drawing there!). 
 		vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgBACKGROUND);
