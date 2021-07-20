@@ -1,3 +1,4 @@
 [submodule "AlertRig/argp-standalone"]
 	path = AlertRig/argp-standalone
 	url = https://github.com/tom42/argp-standalone.git
+	ignore = dirty
