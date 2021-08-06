@@ -41,6 +41,14 @@ int MultiParameterFXMultiGStimSet::init(ARvsg& vsg, std::vector<int> pages)
 		fixpt().init(vsg, 2);
 	}
 
+	if (has_dot())
+	{
+		for (unsigned int i = 0; i < dot_count(); i++)
+		{
+			dot(i).init(vsg, 1);
+		}
+	}
+
 	// Set initial params in grating(s)
 	set_initial_parameters();
 	if (m_bUseCycling)
@@ -69,6 +77,7 @@ int MultiParameterFXMultiGStimSet::init(ARvsg& vsg, std::vector<int> pages)
 	}
 
 	// page 2 - xhair, fixpt and stim. 
+	// update - include any dot() on this page
 	vsgSetDrawPage(vsgVIDEOPAGE, m_page[m_current_page], vsgBACKGROUND);
 	if (has_xhair())
 	{
@@ -94,6 +103,13 @@ int MultiParameterFXMultiGStimSet::init(ARvsg& vsg, std::vector<int> pages)
 	{
 		fixpt().setContrast(0);
 		fixpt().draw();
+	}
+	if (has_dot())
+	{
+		for (unsigned int i = 0; i < dot_count(); i++)
+		{
+			dot(i).draw();
+		}
 	}
 	vsgPresent();
 
