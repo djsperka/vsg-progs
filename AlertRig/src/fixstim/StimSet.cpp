@@ -431,6 +431,13 @@ void FXMultiGStimSet::add_distractor(const ARGratingSpec& grating, double xoffse
 	return;
 }
 
+void FXMultiGStimSet::add_dot(const ARFixationPointSpec& dot)
+{
+	m_dots.push_back(new ARFixationPointSpec(dot));
+	return;
+}
+
+
 void FXMultiGStimSet::setSavedContrast(int contrast, int index, bool bDistractor)
 {
 	if (!bDistractor)

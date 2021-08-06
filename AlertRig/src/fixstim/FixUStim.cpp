@@ -54,7 +54,7 @@ static struct argp_option options[] = {
 	{"flash", 'L', "fpt,first,nterms[[color0,color1[,color2...]]]", 0, "full-field flash, by sequence. Sequence 0=color0, 1=color1, ..."},
 	{"contrast-reverse-file", 'Y', "fpt,FILENAME[,n0,n1,...]", 0, "contrast reversing grating, sequences in file, one per line, all same length"},
 	{"drifting-bar", 'G', "color,width,height,deg_per_sec,ori1,ori2,...", 0, "drifting bar with trigger pulses when box appears on (disappears from) screen"},
-	{"dots", 'D', "color,x,y,diam,speed,density,dotsize,angle1,angle2,...", 0, "drifting dots"},
+	{"drifting-dots", 777, "color,x,y,diam,speed,density,dotsize,angle1,angle2,...", 0, "drifting dots"},
 	{"flashies", 'j', "nk,x,y,w,h,t_on,t_off[,nk,x,y,w,h,t_on,t_off...]", 0, "flashies - briefly flash distractors during attention trial"},
 	{"cues", 'q', "CUES_PARAMS", 0, "For Attention-style stimuli, use cue dots at stimulus locations."},
 	{"cues", 'r', "CUES_PARAMS", 0, "For Attention-style stimuli, use cue rects at stimulus locations."},
@@ -63,6 +63,7 @@ static struct argp_option options[] = {
 	{"sequenced-attention", 'n', "SEQUENCED_PARAMS", 0, "sequenced attention stim set; allows precise timing of cues, onset/offset/contrast-change of gratings"},
 	{"mel", 'o', "MEL_PARAMS", 0, "mel stim set, lost to time"},
 	{"stacey-evan", 'W', "filename[,ip:port]", 0, "Stacey-Evan stimulus"},
+	{"dot", 'D', "FIXPT_SPEC[/FIXPT_SPEC[...]]", 0, "dot(s) to (dis)appear with stim trigger"},
 	{ 0 }
 };
 static struct argp f_argp = { options, parse_fixstim_opt, 0, "fixstim -- all-purpose stimulus engine" };
@@ -440,6 +441,8 @@ error_t parse_fixstim_opt(int key, char* carg, struct argp_state* state)
 		}
 		for (unsigned int i = 0; i < arguments->vecGratings.size(); i++) pss->add_grating(arguments->vecGratings[i]);
 		for (unsigned int i = 0; i < arguments->vecDistractors.size(); i++) pss->add_distractor(arguments->vecDistractors[i]);
+		for (unsigned int i = 0; i < arguments->vecDots.size(); i++) pss->add_dot(arguments->vecDots.at(i));
+
 		arguments->pStimSet = pss;
 		break;
 	}
@@ -504,17 +507,29 @@ error_t parse_fixstim_opt(int key, char* carg, struct argp_state* state)
 	case 'P':
 	case 'I':
 	case 'U':
+	case 'D':
 	{
 		vector<double> tuning_parameters;
 		vector<COLOR_TYPE> color_parameters;
+		vector<alert::ARFixationPointSpec> dot_parameters;
 		int nsteps;
 
 		// the first time one of these stim parameter lists is found we must create
 		// the stim set. On first creating it we have to account for any gratings and/or
 		// distractors that have been specified up to this point.
 
-		if ((key != 'U' && parse_tuning_list(sarg, tuning_parameters, nsteps)) ||
-			(key == 'U' && parse_color_list(sarg, color_parameters))) 
+		if (key == 'D' && parse_fixation_point_list(sarg, dot_parameters))
+			ret = EINVAL;
+			//}
+			//else
+			//{
+			//	// Will get stimindex value with 'D' is evaluated below. 
+			//	arguments->bLastWasDistractor = false;
+			//	arguments->bLastWasFixpt = false;
+			//	arguments->bLastWasGrating = false;
+			//}
+		else if ((key != 'U' && parse_tuning_list(sarg, tuning_parameters, nsteps)) ||
+				 (key == 'U' && parse_color_list(sarg, color_parameters)))
 			ret = EINVAL;
 		else
 		{
@@ -545,7 +560,12 @@ error_t parse_fixstim_opt(int key, char* carg, struct argp_state* state)
 			{
 				MultiParameterFXMultiGStimSet* pmulti = static_cast<MultiParameterFXMultiGStimSet*>(arguments->pStimSet);
 				size_t stimIndex;
-				if (arguments->bLastWasFixpt) stimIndex = -1;
+				if (key == 'D')
+				{
+					pmulti->add_dot(dot_parameters.at(0));
+					stimIndex = pmulti->dot_count() - 1;
+				}
+				else if (arguments->bLastWasFixpt) stimIndex = -1;
 				else if (arguments->bLastWasGrating) stimIndex = pmulti->count() - 1;
 				else stimIndex = pmulti->distractor_count() - 1;
 
@@ -594,6 +614,9 @@ error_t parse_fixstim_opt(int key, char* carg, struct argp_state* state)
 					break;
 				case 'U':
 					plist = new FixptColorList(color_parameters);
+					break;
+				case 'D':
+					plist = new DotList(dot_parameters, stimIndex);
 					break;
 				default:
 					cerr << "Unhandled varying stim parameter type (" << (char)key << ")" << endl;
@@ -947,7 +970,7 @@ error_t parse_fixstim_opt(int key, char* carg, struct argp_state* state)
 		}
 		break;
 	}
-	case 'D':
+	case 777:
 	{
 		// Dots arg: -D color,x,y,diam,speed,density,dotsize,angle1,angle2,...
 		vector<double> tuning_parameters;

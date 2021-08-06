@@ -308,6 +308,13 @@ string MultiParameterFXMultiGStimSet::toString() const
 	}
 	else
 		cerr << " Distractor: NONE" << endl;
+	if (has_dot())
+	{
+		for (unsigned int i = 0; i < dot_count(); i++)
+			cerr << " Dot " << i << ": " << dot(i) << endl;
+	}
+	else
+		cerr << " Dot: NONE" << endl;
 	return s;
 }
 

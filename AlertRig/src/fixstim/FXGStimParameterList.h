@@ -586,6 +586,44 @@ private:
 };
 
 
+class DotList : public FXGStimParameterList
+{
+public:
+	DotList(vector<alert::ARFixationPointSpec>& dots, int index) : FXGStimParameterList(index), m_vec(dots) { m_iter = m_vec.begin(); };
+	DotList(const DotList& list) : FXGStimParameterList(list.index()), m_vec(list.m_vec)
+	{
+		m_iter = m_vec.begin();
+	}
+
+	virtual ~DotList() {};
+	virtual DotList* clone() const
+	{
+		return new DotList(*this);
+	}
+	virtual bool advance(MultiParameterFXMultiGStimSet* pstimset)
+	{
+		m_iter++;
+		if (m_iter == m_vec.end()) m_iter = m_vec.begin();
+		return set_current_parameter(pstimset);
+	}
+
+	virtual bool set_current_parameter(MultiParameterFXMultiGStimSet* pstimset)
+	{
+		if (index() > -1 && index() < pstimset->size())
+		{
+			pstimset->dot(index()).x = m_iter->x;
+			pstimset->dot(index()).y = m_iter->y;
+			pstimset->dot(index()).d = m_iter->d;
+			pstimset->dot(index()).color = m_iter->color;
+		}
+		return true;
+	}
+
+private:
+	vector<alert::ARFixationPointSpec> m_vec;
+	vector<alert::ARFixationPointSpec>::const_iterator m_iter;
+};
+
 
 
 class StimDelayList: public FXGStimParameterList

@@ -54,6 +54,7 @@ struct fixstim_arguments
 	std::vector<alert::ARGratingSpec> vecDistractors;
 	std::vector<AttentionCue> vecAttentionCues;
 	FlashyParamVectorVector vecFlashies;
+	std::vector<alert::ARFixationPointSpec> vecDots;
 
 	StimSet* pStimSet;
 	bool bUsingMultiParameterStimSet;
