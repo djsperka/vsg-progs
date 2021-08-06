@@ -518,19 +518,12 @@ error_t parse_fixstim_opt(int key, char* carg, struct argp_state* state)
 		// the stim set. On first creating it we have to account for any gratings and/or
 		// distractors that have been specified up to this point.
 
-		if (key == 'D' && parse_fixation_point_list(sarg, dot_parameters))
+		if ((key == 'D' && parse_fixation_point_list(sarg, dot_parameters)) ||
+			(key == 'U' && parse_color_list(sarg, color_parameters)) ||
+			((key != 'D' && key != 'U') && parse_tuning_list(sarg, tuning_parameters, nsteps)))
+		{
 			ret = EINVAL;
-			//}
-			//else
-			//{
-			//	// Will get stimindex value with 'D' is evaluated below. 
-			//	arguments->bLastWasDistractor = false;
-			//	arguments->bLastWasFixpt = false;
-			//	arguments->bLastWasGrating = false;
-			//}
-		else if ((key != 'U' && parse_tuning_list(sarg, tuning_parameters, nsteps)) ||
-				 (key == 'U' && parse_color_list(sarg, color_parameters)))
-			ret = EINVAL;
+		}
 		else
 		{
 			// If no stim configured, create stim set with fixpt and/or xhair.
