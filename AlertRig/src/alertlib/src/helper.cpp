@@ -80,6 +80,43 @@ int parse_fixation_point(const std::string& s, alert::ARFixationPointSpec& afp)
 
 
 
+int parse_fixation_point_list(vector<string>& tokens, vector<ARFixationPointSpec>& fixation_point_list)
+{
+	int status = 0;
+	unsigned int i;
+	istringstream iss;
+	ARFixationPointSpec fixpt;
+	for (i = 0; i < tokens.size(); i++)
+	{
+		iss.clear();
+		iss.str(tokens[i]);
+		cerr << "parsing token " << tokens[i] << endl;
+		iss >> fixpt;
+		if (!iss)
+		{
+			cerr << "bad fixpt value: " << tokens[i] << endl;
+			status = 1;
+		}
+		else
+		{
+			fixation_point_list.push_back(fixpt);
+		}
+	}
+	return status;
+}
+
+
+
+
+int parse_fixation_point_list(std::string s, vector<ARFixationPointSpec>& fixation_point_list)
+{
+	int status = 0;
+	vector<string> tokens;
+	tokenize(s, tokens, ";");
+	return parse_fixation_point_list(tokens, fixation_point_list);
+}
+
+
 int parse_rectangle(const std::string& s, alert::ARRectangleSpec& ar)
 {
 	int status = 0;

@@ -1449,6 +1449,7 @@ namespace alert
 
 // Operators for these
 std::ostream& operator<<(std::ostream& out, const alert::ARFixationPointSpec& arfps);
+std::istream& operator>>(std::istream& in, alert::ARFixationPointSpec& arfps);
 std::ostream& operator<<(std::ostream& out, const alert::ARRectangleSpec& arrect);
 std::ostream& operator<<(std::ostream& out, const alert::ARGratingSpec& args);
 std::ostream& operator<<(std::ostream& out, const alert::ARXhairSpec& arx);
@@ -1456,6 +1457,8 @@ std::ostream& operator<<(std::ostream& out, const alert::Trigger& t);
 
 // instead of input operators, methods
 int parse_fixation_point(const std::string& s, alert::ARFixationPointSpec& afp);
+int parse_fixation_point_list(std::string s, std::vector<alert::ARFixationPointSpec>& fixpt_list);
+int parse_fixation_point_list(std::vector<std::string>& tokens, std::vector<alert::ARFixationPointSpec>& fixpt_list);
 int parse_rectangle(const std::string& s, alert::ARRectangleSpec& arrect);
 int parse_grating(const std::string& s, alert::ARGratingSpec& ag);
 int parse_xhair(const std::string& s, alert::ARXhairSpec& axh);
