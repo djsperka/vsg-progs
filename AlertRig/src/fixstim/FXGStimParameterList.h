@@ -2,6 +2,7 @@
 #define _STIMPARAMETERLIST_H_
 
 #include "alertlib.h"
+#include "AlertUtil.h"
 #include "MultiParameterFXMultiGStimSet.h"
 #include <vector>
 #include <cassert>
@@ -589,7 +590,7 @@ private:
 class DotList : public FXGStimParameterList
 {
 public:
-	DotList(vector<alert::ARFixationPointSpec>& dots, int index) : FXGStimParameterList(index), m_vec(dots) { m_iter = m_vec.begin(); };
+	DotList(vector<alert::ARContrastFixationPointSpec>& dots, int index) : FXGStimParameterList(index), m_vec(dots) { m_iter = m_vec.begin(); };
 	DotList(const DotList& list) : FXGStimParameterList(list.index()), m_vec(list.m_vec)
 	{
 		m_iter = m_vec.begin();
@@ -609,19 +610,20 @@ public:
 
 	virtual bool set_current_parameter(MultiParameterFXMultiGStimSet* pstimset)
 	{
-		if (index() > -1 && index() < pstimset->size())
+		if (index() < pstimset->dot_count())
 		{
 			pstimset->dot(index()).x = m_iter->x;
 			pstimset->dot(index()).y = m_iter->y;
 			pstimset->dot(index()).d = m_iter->d;
 			pstimset->dot(index()).color = m_iter->color;
+			cerr << "Updated dot(" << index() << ") to " << pstimset->dot(index()) << endl;
 		}
 		return true;
 	}
 
 private:
-	vector<alert::ARFixationPointSpec> m_vec;
-	vector<alert::ARFixationPointSpec>::const_iterator m_iter;
+	vector<alert::ARContrastFixationPointSpec> m_vec;
+	vector<alert::ARContrastFixationPointSpec>::const_iterator m_iter;
 };
 
 

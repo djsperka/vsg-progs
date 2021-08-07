@@ -23,7 +23,7 @@ public:
 	void setCyclingDelay(int ndelay);
 	void setStimDuration(double seconds);
 
-	virtual int num_pages() { return 3; };
+	virtual int num_pages() { return 4; };
 	virtual int num_overlay_pages() { return 0; };
 	virtual int init(ARvsg& vsg, std::vector<int> pages);
 	virtual int handle_trigger(std::string& s);
@@ -31,6 +31,7 @@ public:
 private:
 	int m_page[2];
 	int m_current_page;
+	int m_blank_page;
 	int m_fixpt_page;
 	bool m_bUseCycling;
 	int m_iCyclingDelay;

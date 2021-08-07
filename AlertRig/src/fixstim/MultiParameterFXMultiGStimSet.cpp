@@ -10,13 +10,18 @@ int MultiParameterFXMultiGStimSet::init(ARvsg& vsg, std::vector<int> pages)
 	int status = 0;
 	int levels = 0;
 	const int max_levels = 40;
-	m_page[0] = pages[0];
-	m_page[1] = pages[1];
+	m_blank_page = pages[0];
+	m_fixpt_page = pages[1];
+	m_page[0] = pages[2];
+	m_page[1] = pages[3];
 	m_current_page = 0;
-	m_fixpt_page = pages[2];
 	m_bUseCycling = false;
 	m_iCyclingDelay = 0;
 	m_iStimDuration = 0;
+
+	cerr << "blank page " << m_blank_page << endl;
+	cerr << "fixpt page " << m_fixpt_page << endl;
+	cerr << "stim pages " << m_page[0] << ", " << m_page[1] << endl;
 
 	if (has_xhair())
 	{
@@ -28,12 +33,10 @@ int MultiParameterFXMultiGStimSet::init(ARvsg& vsg, std::vector<int> pages)
 		for (unsigned int i = 0; i < count(); i++)
 		{
 			grating(i).init(vsg, levels);
-			grating(i).setContrast(0);
 		}
 		for (unsigned int i = 0; i < distractor_count(); i++)
 		{
 			distractor(i).init(vsg, levels);
-			distractor(i).setContrast(0);
 		}
 	}
 	if (has_fixpt())
@@ -45,7 +48,7 @@ int MultiParameterFXMultiGStimSet::init(ARvsg& vsg, std::vector<int> pages)
 	{
 		for (unsigned int i = 0; i < dot_count(); i++)
 		{
-			dot(i).init(vsg, 1);
+			dot(i).init(vsg, 2);
 		}
 	}
 
@@ -57,6 +60,10 @@ int MultiParameterFXMultiGStimSet::init(ARvsg& vsg, std::vector<int> pages)
 	}
 
 	// When cycling is used, we'll need this page with fixpt, xhair (if present), distractors(if present) 
+	cerr << "init: draw blank page" << endl;
+	vsgSetDrawPage(vsgVIDEOPAGE, m_blank_page, vsgBACKGROUND);
+
+	cerr << "init: draw fixpt page" << endl;
 	vsgSetDrawPage(vsgVIDEOPAGE, m_fixpt_page, vsgBACKGROUND);
 	if (has_xhair())
 	{
@@ -66,18 +73,18 @@ int MultiParameterFXMultiGStimSet::init(ARvsg& vsg, std::vector<int> pages)
 	{
 		for (unsigned int i = 0; i < distractor_count(); i++)
 		{
-			distractor(i).setContrast(0);
+			distractor(i).setContrast(distractor_contrast(i));
 			distractor(i).draw();
 		}
 	}
 	if (has_fixpt())
 	{
-		fixpt().setContrast(0);
 		fixpt().draw();
 	}
 
 	// page 2 - xhair, fixpt and stim. 
 	// update - include any dot() on this page
+	cerr << "init: draw page " << m_page[m_current_page] << endl;
 	vsgSetDrawPage(vsgVIDEOPAGE, m_page[m_current_page], vsgBACKGROUND);
 	if (has_xhair())
 	{
@@ -87,7 +94,7 @@ int MultiParameterFXMultiGStimSet::init(ARvsg& vsg, std::vector<int> pages)
 	{
 		for (unsigned int i = 0; i < distractor_count(); i++)
 		{
-			distractor(i).setContrast(0);
+			//distractor(i).setContrast(0);
 			distractor(i).draw();
 		}
 	}
@@ -95,13 +102,13 @@ int MultiParameterFXMultiGStimSet::init(ARvsg& vsg, std::vector<int> pages)
 	{
 		for (unsigned int i = 0; i < count(); i++)
 		{
-			grating(i).setContrast(0);
+			//grating(i).setContrast(0);
 			grating(i).draw();
 		}
 	}
 	if (has_fixpt())
 	{
-		fixpt().setContrast(0);
+		//fixpt().setContrast(100);
 		fixpt().draw();
 	}
 	if (has_dot())
@@ -111,6 +118,8 @@ int MultiParameterFXMultiGStimSet::init(ARvsg& vsg, std::vector<int> pages)
 			dot(i).draw();
 		}
 	}
+	vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgNOCLEAR);
+
 	vsgPresent();
 
 	return status;
@@ -129,6 +138,9 @@ int MultiParameterFXMultiGStimSet::handle_trigger(std::string& s)
 			distractor(i).setContrast(distractor_contrast(i));
 			status = 1;
 		}
+		vsgSetDrawPage(vsgVIDEOPAGE, m_fixpt_page, vsgNOCLEAR);
+
+		// fixpt should always be at 100 contrast. Cannot support "f" when "S" is on if dots are present. 
 		if (has_fixpt())
 		{
 			fixpt().setContrast(100);
@@ -145,16 +157,22 @@ int MultiParameterFXMultiGStimSet::handle_trigger(std::string& s)
 		}
 		if (m_bUseCycling)
 		{
+			cerr << "vsgSetSynchronizedCommand..." << endl;
 			vsgSetSynchronisedCommand(vsgSYNC_PRESENT, vsgCYCLEPAGEENABLE, 0);
+		}
+		else
+		{
+			vsgSetDrawPage(vsgVIDEOPAGE, m_page[m_current_page], vsgNOCLEAR);
 		}
 		status = 1;
 	}
 	else if (s == "s")
 	{
-		for (unsigned int i = 0; i < count(); i++)
-		{
-			grating(i).setContrast(0);
-		}
+		vsgSetDrawPage(vsgVIDEOPAGE, m_fixpt_page, vsgNOCLEAR);
+		//for (unsigned int i = 0; i < count(); i++)
+		//{
+		//	grating(i).setContrast(0);
+		//}
 		status = 1;
 	}
 	else if (s == "a")
@@ -162,6 +180,7 @@ int MultiParameterFXMultiGStimSet::handle_trigger(std::string& s)
 		// Note that after this trigger is completed, the current draw page
 		// is the NEXT stimulus page to be shown. 
 
+		cerr << "draw page " << 1 - m_current_page << endl;
 		vsgSetDrawPage(vsgVIDEOPAGE, m_page[1 - m_current_page], vsgBACKGROUND);
 		m_current_page = 1 - m_current_page;
 
@@ -181,7 +200,7 @@ int MultiParameterFXMultiGStimSet::handle_trigger(std::string& s)
 		{
 			for (unsigned int i = 0; i < distractor_count(); i++)
 			{
-				distractor(i).setContrast(0);
+				//distractor(i).setContrast(0);
 				distractor(i).draw();
 			}
 		}
@@ -189,7 +208,7 @@ int MultiParameterFXMultiGStimSet::handle_trigger(std::string& s)
 		{
 			for (unsigned int i = 0; i < count(); i++)
 			{
-				grating(i).setContrast(0);
+				//grating(i).setContrast(0);
 				grating(i).draw();
 			}
 		}
@@ -198,30 +217,51 @@ int MultiParameterFXMultiGStimSet::handle_trigger(std::string& s)
 		{
 			fixpt().draw();
 		}
+		if (has_dot())
+		{
+			for (unsigned int i = 0; i < dot_count(); i++)
+			{
+				dot(i).draw();
+			}
+		}
 
 
 		status = 0;
 	}
 	else if (s == "X")
 	{
-		if (has_fixpt()) fixpt().setContrast(0);
-		if (has_distractor())
-		{
-			for (unsigned int i = 0; i < distractor_count(); i++)
-			{
-				distractor(i).setContrast(0);
-			}
-		}
-		if (has_grating())
-		{
-			for (unsigned int i = 0; i < count(); i++)
-			{
-				grating(i).setContrast(0);
-			}
-		}
+		//if (has_fixpt()) fixpt().setContrast(0);
+		//if (has_distractor())
+		//{
+		//	for (unsigned int i = 0; i < distractor_count(); i++)
+		//	{
+		//		distractor(i).setContrast(0);
+		//	}
+		//}
+		//if (has_grating())
+		//{
+		//	for (unsigned int i = 0; i < count(); i++)
+		//	{
+		//		grating(i).setContrast(0);
+		//	}
+		//}
 		if (m_bUseCycling)
 			vsgSetCommand(vsgCYCLEPAGEDISABLE);
+		vsgSetDrawPage(vsgVIDEOPAGE, m_blank_page, vsgNOCLEAR);
 		status = 1;
+	}
+	else if (s == "A")
+	{
+		int itmp=-1;
+		cout << "Enter page: ";
+		cin >> itmp;
+		if (itmp > -1 && itmp < 10)
+		{
+			vsgSetDrawPage(vsgVIDEOPAGE, itmp, vsgNOCLEAR);
+			status = 1;
+		}
+
+
 	}
 	return status;
 }
@@ -281,6 +321,7 @@ void MultiParameterFXMultiGStimSet::setup_cycling()
 	{
 		cycle[count].Frames = 0;
 		cycle[count].Stop = 1;
+		count++;
 	}
 	else
 	{
@@ -289,10 +330,13 @@ void MultiParameterFXMultiGStimSet::setup_cycling()
 		count++;
 
 		cycle[count].Frames = 0;
-		cycle[count].Page = 0 + vsgTRIGGERPAGE;
+		cycle[count].Page = m_blank_page +  + vsgTRIGGERPAGE;
 		cycle[count].Stop = 1;
 		count++;
 	}
+
+	for (unsigned int i = 0; i < count; i++)
+		cerr << "cycle " << i << ": " << cycle[i].Frames << ":" << cycle[i].Page << ":" << cycle[i].Stop << endl;
 
 	status = vsgPageCyclingSetup(count, &cycle[0]);
 }

@@ -511,7 +511,7 @@ error_t parse_fixstim_opt(int key, char* carg, struct argp_state* state)
 	{
 		vector<double> tuning_parameters;
 		vector<COLOR_TYPE> color_parameters;
-		vector<alert::ARFixationPointSpec> dot_parameters;
+		vector<alert::ARContrastFixationPointSpec> dot_parameters;
 		int nsteps;
 
 		// the first time one of these stim parameter lists is found we must create
