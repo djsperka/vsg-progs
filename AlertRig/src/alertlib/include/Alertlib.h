@@ -473,6 +473,7 @@ namespace alert
 	{
 	public:
 		ARContrastFixationPointSpec(): ARFixationPointSpec() {};
+		ARContrastFixationPointSpec(const ARFixationPointSpec& fixpt) : ARFixationPointSpec(fixpt) {};
 		ARContrastFixationPointSpec(const ARContrastFixationPointSpec& fixpt) : ARFixationPointSpec(fixpt) {};
 		~ARContrastFixationPointSpec() {};
 		ARContrastFixationPointSpec& operator=(const ARContrastFixationPointSpec& fixpt);
@@ -1457,8 +1458,8 @@ std::ostream& operator<<(std::ostream& out, const alert::Trigger& t);
 
 // instead of input operators, methods
 int parse_fixation_point(const std::string& s, alert::ARFixationPointSpec& afp);
-int parse_fixation_point_list(std::string s, std::vector<alert::ARFixationPointSpec>& fixpt_list);
-int parse_fixation_point_list(std::vector<std::string>& tokens, std::vector<alert::ARFixationPointSpec>& fixpt_list);
+int parse_fixation_point_list(std::string s, std::vector<alert::ARContrastFixationPointSpec>& fixpt_list);
+int parse_fixation_point_list(std::vector<std::string>& tokens, std::vector<alert::ARContrastFixationPointSpec>& fixpt_list);
 int parse_rectangle(const std::string& s, alert::ARRectangleSpec& arrect);
 int parse_grating(const std::string& s, alert::ARGratingSpec& ag);
 int parse_xhair(const std::string& s, alert::ARXhairSpec& axh);

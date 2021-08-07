@@ -80,12 +80,12 @@ int parse_fixation_point(const std::string& s, alert::ARFixationPointSpec& afp)
 
 
 
-int parse_fixation_point_list(vector<string>& tokens, vector<ARFixationPointSpec>& fixation_point_list)
+int parse_fixation_point_list(vector<string>& tokens, vector<ARContrastFixationPointSpec>& fixation_point_list)
 {
 	int status = 0;
 	unsigned int i;
 	istringstream iss;
-	ARFixationPointSpec fixpt;
+	ARContrastFixationPointSpec fixpt;
 	for (i = 0; i < tokens.size(); i++)
 	{
 		iss.clear();
@@ -108,7 +108,7 @@ int parse_fixation_point_list(vector<string>& tokens, vector<ARFixationPointSpec
 
 
 
-int parse_fixation_point_list(std::string s, vector<ARFixationPointSpec>& fixation_point_list)
+int parse_fixation_point_list(std::string s, vector<ARContrastFixationPointSpec>& fixation_point_list)
 {
 	int status = 0;
 	vector<string> tokens;
