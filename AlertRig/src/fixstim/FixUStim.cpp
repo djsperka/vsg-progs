@@ -173,7 +173,7 @@ void FixUStim::run_stim(alert::ARvsg& vsg)
 		if (tf.quit()) break;
 		else if (tf.present())
 		{
-			cout << "Got present(): old " << hex << last_output_trigger << " new " << hex << tf.output_trigger() << endl;
+			//cout << "Got present(): old " << hex << last_output_trigger << " new " << hex << tf.output_trigger() << endl;
 			last_output_trigger = tf.output_trigger();
 			vsgIOWriteDigitalOut(tf.output_trigger()<<1, 0xfffe);
 

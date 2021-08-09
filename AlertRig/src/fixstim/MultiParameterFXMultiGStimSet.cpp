@@ -12,16 +12,18 @@ int MultiParameterFXMultiGStimSet::init(ARvsg& vsg, std::vector<int> pages)
 	const int max_levels = 40;
 	m_blank_page = pages[0];
 	m_fixpt_page = pages[1];
-	m_page[0] = pages[2];
-	m_page[1] = pages[3];
+	m_fixpt_dot_page = pages[2];
+	m_page[0] = pages[3];
+	m_page[1] = pages[4];
 	m_current_page = 0;
 	m_bUseCycling = false;
 	m_iCyclingDelay = 0;
 	m_iStimDuration = 0;
 
-	cerr << "blank page " << m_blank_page << endl;
-	cerr << "fixpt page " << m_fixpt_page << endl;
-	cerr << "stim pages " << m_page[0] << ", " << m_page[1] << endl;
+	//cerr << "blank page " << m_blank_page << endl;
+	//cerr << "fixpt page " << m_fixpt_page << endl;
+	//cerr << "fixpt+dot page " << m_fixpt_dot_page << endl;
+	//cerr << "stim pages " << m_page[0] << ", " << m_page[1] << endl;
 
 	if (has_xhair())
 	{
@@ -60,10 +62,8 @@ int MultiParameterFXMultiGStimSet::init(ARvsg& vsg, std::vector<int> pages)
 	}
 
 	// When cycling is used, we'll need this page with fixpt, xhair (if present), distractors(if present) 
-	cerr << "init: draw blank page" << endl;
 	vsgSetDrawPage(vsgVIDEOPAGE, m_blank_page, vsgBACKGROUND);
 
-	cerr << "init: draw fixpt page" << endl;
 	vsgSetDrawPage(vsgVIDEOPAGE, m_fixpt_page, vsgBACKGROUND);
 	if (has_xhair())
 	{
@@ -82,9 +82,33 @@ int MultiParameterFXMultiGStimSet::init(ARvsg& vsg, std::vector<int> pages)
 		fixpt().draw();
 	}
 
-	// page 2 - xhair, fixpt and stim. 
-	// update - include any dot() on this page
-	cerr << "init: draw page " << m_page[m_current_page] << endl;
+	vsgSetDrawPage(vsgVIDEOPAGE, m_fixpt_dot_page, vsgBACKGROUND);
+	if (has_xhair())
+	{
+		xhair().draw();
+	}
+	if (has_distractor())
+	{
+		for (unsigned int i = 0; i < distractor_count(); i++)
+		{
+			distractor(i).setContrast(distractor_contrast(i));
+			distractor(i).draw();
+		}
+	}
+	if (has_fixpt())
+	{
+		fixpt().draw();
+	}
+	if (has_dot())
+	{
+		for (unsigned int i = 0; i < dot_count(); i++)
+		{
+			dot(i).draw();
+		}
+	}
+
+
+	// xhair, fixpt, dots and stim. 
 	vsgSetDrawPage(vsgVIDEOPAGE, m_page[m_current_page], vsgBACKGROUND);
 	if (has_xhair())
 	{
@@ -94,7 +118,6 @@ int MultiParameterFXMultiGStimSet::init(ARvsg& vsg, std::vector<int> pages)
 	{
 		for (unsigned int i = 0; i < distractor_count(); i++)
 		{
-			//distractor(i).setContrast(0);
 			distractor(i).draw();
 		}
 	}
@@ -102,13 +125,11 @@ int MultiParameterFXMultiGStimSet::init(ARvsg& vsg, std::vector<int> pages)
 	{
 		for (unsigned int i = 0; i < count(); i++)
 		{
-			//grating(i).setContrast(0);
 			grating(i).draw();
 		}
 	}
 	if (has_fixpt())
 	{
-		//fixpt().setContrast(100);
 		fixpt().draw();
 	}
 	if (has_dot())
@@ -132,7 +153,6 @@ int MultiParameterFXMultiGStimSet::handle_trigger(std::string& s)
 	{
 		for (unsigned int i = 0; i < distractor_count(); i++)
 		{
-			cerr << "F distractor " << i << " set contrast " << distractor_contrast(i) << endl;
 			distractor(i).select();
 			vsgObjResetDriftPhase();
 			distractor(i).setContrast(distractor_contrast(i));
@@ -157,7 +177,6 @@ int MultiParameterFXMultiGStimSet::handle_trigger(std::string& s)
 		}
 		if (m_bUseCycling)
 		{
-			cerr << "vsgSetSynchronizedCommand..." << endl;
 			vsgSetSynchronisedCommand(vsgSYNC_PRESENT, vsgCYCLEPAGEENABLE, 0);
 		}
 		else
@@ -180,13 +199,39 @@ int MultiParameterFXMultiGStimSet::handle_trigger(std::string& s)
 		// Note that after this trigger is completed, the current draw page
 		// is the NEXT stimulus page to be shown. 
 
-		cerr << "draw page " << 1 - m_current_page << endl;
-		vsgSetDrawPage(vsgVIDEOPAGE, m_page[1 - m_current_page], vsgBACKGROUND);
-		m_current_page = 1 - m_current_page;
 
 		// unset cycling delay, if any. One of the parameter lists called in advance() must enable it. 
 		setCyclingDelay(-1);
 		advance();
+
+		vsgSetDrawPage(vsgVIDEOPAGE, m_fixpt_dot_page, vsgBACKGROUND);
+		if (has_xhair())
+		{
+			xhair().draw();
+		}
+		if (has_distractor())
+		{
+			for (unsigned int i = 0; i < distractor_count(); i++)
+			{
+				distractor(i).setContrast(distractor_contrast(i));
+				distractor(i).draw();
+			}
+		}
+		if (has_fixpt())
+		{
+			fixpt().draw();
+		}
+		if (has_dot())
+		{
+			for (unsigned int i = 0; i < dot_count(); i++)
+			{
+				dot(i).draw();
+			}
+		}
+
+		vsgSetDrawPage(vsgVIDEOPAGE, m_page[1 - m_current_page], vsgBACKGROUND);
+		m_current_page = 1 - m_current_page;
+
 		if (m_bUseCycling)
 		{
 			setup_cycling();
@@ -230,21 +275,6 @@ int MultiParameterFXMultiGStimSet::handle_trigger(std::string& s)
 	}
 	else if (s == "X")
 	{
-		//if (has_fixpt()) fixpt().setContrast(0);
-		//if (has_distractor())
-		//{
-		//	for (unsigned int i = 0; i < distractor_count(); i++)
-		//	{
-		//		distractor(i).setContrast(0);
-		//	}
-		//}
-		//if (has_grating())
-		//{
-		//	for (unsigned int i = 0; i < count(); i++)
-		//	{
-		//		grating(i).setContrast(0);
-		//	}
-		//}
 		if (m_bUseCycling)
 			vsgSetCommand(vsgCYCLEPAGEDISABLE);
 		vsgSetDrawPage(vsgVIDEOPAGE, m_blank_page, vsgNOCLEAR);
@@ -311,7 +341,7 @@ void MultiParameterFXMultiGStimSet::setup_cycling()
 	if (m_iCyclingDelay > 0)
 	{
 		cycle[count].Frames = 1 + (m_iCyclingDelay > 0 ? m_iCyclingDelay : 0);
-		cycle[count].Page = m_fixpt_page;
+		cycle[count].Page = m_fixpt_dot_page;
 		cycle[count].Stop = 0;
 		count++;
 	}
@@ -335,8 +365,8 @@ void MultiParameterFXMultiGStimSet::setup_cycling()
 		count++;
 	}
 
-	for (unsigned int i = 0; i < count; i++)
-		cerr << "cycle " << i << ": " << cycle[i].Frames << ":" << cycle[i].Page << ":" << cycle[i].Stop << endl;
+	//for (unsigned int i = 0; i < count; i++)
+	//	cerr << "cycle " << i << ": " << cycle[i].Frames << ":" << cycle[i].Page << ":" << cycle[i].Stop << endl;
 
 	status = vsgPageCyclingSetup(count, &cycle[0]);
 }
