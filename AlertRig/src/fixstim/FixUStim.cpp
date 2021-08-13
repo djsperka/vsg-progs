@@ -10,7 +10,7 @@
 #include "BorderStimSet.h"
 #include <iostream>
 #include <boost/algorithm/string.hpp>
-#include "argp.h"
+#include "alert-argp.h"
 
 using namespace std;
 using namespace boost::algorithm;
@@ -91,7 +91,7 @@ FixUStim::~FixUStim()
 
 bool FixUStim::parse(int argc, char **argv)
 {
-	error_t ret = argp_parse(&f_argp, argc, argv, ARGP_NO_EXIT, 0, &m_arguments);
+	error_t ret = alert_argp_parse(&f_argp, argc, argv, ARGP_NO_EXIT, 0, &m_arguments, 'F');
 	return (!ret);
 }
 

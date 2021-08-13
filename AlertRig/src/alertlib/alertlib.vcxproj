@@ -254,6 +254,7 @@ copy include\*.h $(SolutionDir)..\include</Command>
     </Bscmake>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="src\alert-argp.cpp" />
     <ClCompile Include="src\AlertLib.cpp" />
     <ClCompile Include="src\AlertUtil.cpp" />
     <ClCompile Include="src\coneiso.cpp" />
@@ -266,6 +267,7 @@ copy include\*.h $(SolutionDir)..\include</Command>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="coneiso.h" />
+    <ClInclude Include="include\alert-argp.h" />
     <ClInclude Include="include\Alertlib.h" />
     <ClInclude Include="include\AlertUtil.h" />
     <ClInclude Include="include\fetcher.h" />
