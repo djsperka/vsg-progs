@@ -5,6 +5,8 @@
 
 //#include "VSGEX2.H"
 #include "VSGV8.H"
+#include "ARtypes.h"
+#include "ARvsg.h"
 #define __GNU_LIBRARY__
 #include "getopt.h"
 #undef __GNU_LIBRARY__
@@ -19,111 +21,7 @@
 #include <sys/stat.h>
 
 
-// This macro returns true for a Visage, false for a 2/5 card. 
-#define IS_VISAGE (vsgGetSystemAttribute(vsgDEVICECLASS)==7)
 
-// Set this bit in the out_val of a trigger to indicate it should be toggled.
-// The given out_val (without the toggle bit) will be the first value triggered.
-// After that the value will toggle.
-#define AR_TRIGGER_TOGGLE 0x8000
-
-// output values from trigger or callbacks to ask for a master/slave present
-// Apps must look at TriggerFunc::deferred() value to discern these requests.
-#define PLEASE_PRESENT_MASTER 0x100
-#define PLEASE_PRESENT_SLAVE  0x200
-#define PLEASE_PRESENT_MASTER_ON_TRIGGER 0x400
-#define PLEASE_PRESENT_SLAVE_ON_TRIGGER  0x800
-
-#define GET_MASTER_TRIGGER_BITS(a) ((24>>a)&0xff)
-#define GET_SLAVE_TRIGGER_BITS(a) ((16>>a)&0xff)
-
-#define SET_MASTER_TRIGGER_BITS(a) (24<<(a&0xff))
-#define SET_SLAVE_TRIGGER_BITS(a)  (16<<(a&0xff))
-
-
-// These typedefs are used in all the specs. 
-typedef enum colorvectorenum { unknown_color_vector=0, b_w, l_cone, m_cone, s_cone, custom_color_vector } COLOR_VECTOR_ENUM;
-typedef enum colortype { unknown_color=0, black=1, white=2, red=3, green=4, blue=5, gray=6, custom=7 } COLOR_ENUM;
-//typedef enum patterntype { unknown_pattern=0, sinewave, squarewave } PATTERN_TYPE;
-typedef enum waveform_type { unknown_spatial_waveform=0, sinewave, squarewave } WAVEFORM_TYPE;
-typedef enum aperturetype { unknown_aperture=0, ellipse, rectangle } APERTURE_TYPE;
-typedef int PIXEL_LEVEL;
-
-typedef struct color_vector_struct
-{
-	COLOR_VECTOR_ENUM type;
-	VSGTRIVAL from;
-	VSGTRIVAL to;
-} COLOR_VECTOR_TYPE;
-
-/*
-typedef struct color_struct
-{
-	COLOR_ENUM type;
-	VSGTRIVAL color;
-} COLOR_TYPE;
-*/
-
-class COLOR_TYPE
-{
-	COLOR_ENUM m_type;
-	VSGTRIVAL m_color;
-
-public:
-	COLOR_TYPE();
-	COLOR_TYPE(COLOR_ENUM t);
-	COLOR_TYPE(const COLOR_TYPE& ct);
-	virtual ~COLOR_TYPE() {};
-	COLOR_TYPE& operator=(const COLOR_TYPE& ct);
-	COLOR_TYPE& operator=(const COLOR_ENUM &t);
-	COLOR_ENUM type() const { return m_type; };
-	VSGTRIVAL trival() const { return m_color; };
-	void setType(COLOR_ENUM t);
-	void setCustom(double a, double b, double c);
-	void setCustom(double abc);
-};
-
-bool operator==(const COLOR_TYPE& lhs, const COLOR_TYPE& rhs);
-
-
-typedef struct xywh_struct 
-{
-	double x, y, w, h;
-} XYWH;
-
-// useful helper functions
-int parse_color(std::string s, COLOR_TYPE& c);
-// SEE COLOR_TYPE::trival() int get_color(COLOR_TYPE c, VSGTRIVAL& trival);
-int get_colorvector(COLOR_VECTOR_TYPE& cv, VSGTRIVAL& from, VSGTRIVAL& to);
-int parse_colorvector(std::string s, COLOR_VECTOR_TYPE& v);
-int parse_waveform_types(std::string s, WAVEFORM_TYPE& swt, WAVEFORM_TYPE& twt);
-int parse_aperture(std::string s, APERTURE_TYPE& a);
-int parse_distance(std::string s, int& dist);
-int parse_integer(std::string s, int& i);
-int parse_ulong(std::string s, unsigned long& l);
-int parse_uint(std::string s, unsigned int& l);
-int parse_double(std::string s, double& d);
-int parse_int_list(std::string s, std::vector<int>& list);
-int parse_int_list(std::vector<std::string>& tokens, std::vector<int>& list);
-int parse_contrast_triplet(std::string s, int& i_iContrastDown, int& i_iContrastBase, int& i_iContrastUp);
-int parse_int_pair(std::string s, int& i_i1, int& i_i2);
-int parse_sequence_pair(std::string s, int& i_i1, int& i_i2);
-int parse_tuning_triplet(std::string s, double& i_dMin, double& i_dMax, int& i_iSteps);
-int parse_tuning_list(std::string s, std::vector<double>& tuning_list, int& i_iSteps);
-int parse_tuning_list(std::vector<std::string>& tokens, std::vector<double>& tuning_list, int& i_iSteps);
-int parse_color_list(std::string s, std::vector<COLOR_TYPE>& color_list);
-int parse_color_list(std::vector<std::string>& tokens, std::vector<COLOR_TYPE>& tuning_list);
-int parse_number_list(std::string s, std::vector<double>& number_list);
-int parse_number_list(std::vector<std::string>& tokens, std::vector<double>& number_list);
-int parse_xy(std::string s, double& x, double& y);
-int parse_triplet(std::string s, double& d1, double& d2, double &d3);
-int parse_sequence(std::string s, std::string& seq);
-int parse_string(std::string s, std::string& scleaned);
-void tokenize(const std::string& str, std::vector<std::string>& tokens, const std::string& delimiters);
-void make_argv(const std::string& str, int &argc, char **argv);
-void make_argv(std::vector<std::string>tokens, int& argc, char** argv);
-void make_argv(std::ifstream& ifs, int& argc, char **argv);
-void free_argv(int& argc, char **argv);
 const char* get_msequence();
 
 
@@ -169,14 +67,6 @@ int tokenize_response_file(char *filename, std::vector<std::string> &tokens);
 
 
 
-// convenient operators
-std::ostream& operator<<(std::ostream& out, const COLOR_TYPE& c);
-std::istream& operator>>(std::istream& in, COLOR_TYPE& c);
-std::ostream& operator<<(std::ostream& out, const COLOR_VECTOR_TYPE& v);
-std::istream& operator>>(std::istream& in, COLOR_VECTOR_TYPE& v);
-std::ostream& operator<<(std::ostream& out, const APERTURE_TYPE& a);
-std::istream& operator>>(std::istream& in, APERTURE_TYPE& a);
-std::ostream& operator<<(std::ostream& out, const WAVEFORM_TYPE& p);
 
 
 
@@ -191,125 +81,8 @@ int init_vsg(int screenDistanceMM, COLOR_TYPE i_background, bool use_overlay);
 /* Convenience */
 void clear_vsg();
 
-typedef void (*voidfunc)(int, void *);
-
 namespace alert
 {
-
-	// Singleton class representing the VSG. 
-	// Modified 4-27-2010 djs
-	// Changed to a "double singleton" class to accomodate the dual vsg setup. 
-	class ARvsg
-	{
-	public:
-		~ARvsg();
-		int init(int screenDistanceMM, COLOR_TYPE i_bg, bool bUseLockFile=true, bool bSlaveSynch = false, const std::string& gammaFile = std::string());
-		void reinit();	// re-do init except for re-init of vsg. 
-
-		// set view distance
-		int setViewDistMM(int screenDistanceMM);
-
-		// get gamma color - this will only give meaningful results if you have also 
-		// loaded a gamma data file.
-		const COLOR_TYPE& get_color(unsigned int i);
-
-
-		// This function initializes all pages to background color. That color is set as 
-		// level 0 - this func does not use vsgBACKGROUND. This func should be used if 
-		// you draw gratings with draw(true). Why? Well, initially your pages are initialized
-		// to a low level - 0 or 1. Then draw(true) draws an ellipse using level 250. Next, 
-		// the grating is drawn using vsgTRANSONHIGHER, meaning that only the portion of the 
-		// grating that overlays the ellipse will actually be drawn. 
-		int init_video();
-
-		int init_overlay();
-
-		int init_video_pages(voidfunc func_before_objects, voidfunc func_after_objects, void *data);
-
-		/* lock/unlock */
-		bool acquire_lock();
-		void release_lock();
-
-		/* Clear any page and display it. */
-		void clear(int i);
-
-		/* Clear page 0 and display it. */
-		void clear();
-
-		/* Send ready pulse -- used for VSG/Spike2 expts. */
-		void ready_pulse(int wait_msecs = 2000, unsigned int which_bit = vsgDIG6);
-
-		/* 
-		 * instance() will return a singleton instance of this class. Use this when you are using a single 
-		 * vsg. When using dual vsg setup, use master() and slave() to get instances for each separately. 
-		 */
-		static ARvsg& instance();
-		static ARvsg& master();
-		static ARvsg& slave();
-		static ARvsg& ARvsg::instance(bool is_master, bool is_slave);
-
-		bool is_master();
-		bool is_slave();
-
-		/*
-		 * Select specifies the vsg to which commands are directed. 
-		 */
-		void select();
-
-		void setBackgroundColor(const COLOR_TYPE& c);
-		COLOR_TYPE background_color();
-		PIXEL_LEVEL background_level();
-		long getScreenHeightPixels();
-		long getScreenWidthPixels();
-		double getScreenHeightDegrees();
-		double getScreenWidthDegrees();
-
-//		LevelManager& getLevelManager();
-		// Use these functions to get available levels
-		int request_single(PIXEL_LEVEL& level);
-		int request_range(int num, PIXEL_LEVEL& first);
-		int remaining();
-		void reset_available_levels() { m_next_available_level = 0; };
-		VSGOBJHANDLE dummyObjectHandle() { return m_handle; };
-	private:
-		ARvsg(bool bMaster=false, bool bSlave=false)
-			: m_initialized(false)
-			, m_is_master(bMaster)
-			, m_is_slave(bSlave)
-			, m_handle(0)
-			, m_background_level(-1)
-			, m_background_color(gray)
-			, m_screenDistanceMM(0)
-			, m_heightPixels(0)
-			, m_widthPixels(0)
-			, m_heightDegrees(0)
-			, m_widthDegrees(0)
-			, m_device_handle(-999)
-			, m_next_available_level(0)
-			, m_colors{COLOR_TYPE(gray), COLOR_TYPE(black), COLOR_TYPE(white), COLOR_TYPE(black), COLOR_TYPE(white)}
-
-		{};
-
-		ARvsg(ARvsg const&);	// prohibited
-		ARvsg& operator=(ARvsg const&) {};
-		int loadGammaData(const std::string& filename);
-		void scaleGammaValues(double *v, short *s, unsigned int length);
-		bool m_initialized;
-		bool m_is_master;
-		bool m_is_slave;
-		VSGOBJHANDLE m_handle;
-		PIXEL_LEVEL m_background_level;
-		COLOR_TYPE m_background_color;
-		int m_screenDistanceMM;
-		long m_heightPixels;
-		long m_widthPixels;
-		double m_heightDegrees;
-		double m_widthDegrees;
-		static bool c_bHaveLock;
-		long m_device_handle;
-		int m_next_available_level;
-		COLOR_TYPE m_colors[5];
-	};
 
 	// Base class that encapsulates VSG objects. All spec classes should inherit from this. 
 	// djs 3-23-10 Add init special case. If using numlevels = vsgFIXATION, that particular level is 
@@ -1013,6 +786,7 @@ namespace alert
 		int m_page;
 	};
 
+#if 0
 	class MasterPageTrigger: public PageTrigger
 	{
 	public:
@@ -1058,7 +832,7 @@ namespace alert
 			return oss.str();
 		}
 	};
-
+#endif
 
 	class TogglePageTrigger: public Trigger
 	{
@@ -1086,6 +860,7 @@ namespace alert
 		int m_pageB;
 	};
 
+#if 0
 	class MasterTogglePageTrigger: public TogglePageTrigger
 	{
 	public:
@@ -1125,6 +900,7 @@ namespace alert
 			return oss.str();
 		}
 	};
+#endif
 
 	class OverlayPageTrigger: public Trigger
 	{
