@@ -428,7 +428,6 @@ int prargs_server_callback(int c, string& arg)
 				else
 				{
 					f_bDaemon = true;
-					cerr << "prargs_server_callback(): Will act as server with host ip " << f_sDaemonHostIP << " port " << f_iDaemonPort << endl;
 				}
 			}
 			break;

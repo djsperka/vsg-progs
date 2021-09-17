@@ -91,28 +91,6 @@ void ARvsg::scaleGammaValues(double* v, short* s, unsigned int length)
 	}
 }
 
-
-#if 0
-ARvsg& ARvsg::instance(bool is_master, bool is_slave)
-{
-	if (is_master && !is_slave) return ARvsg::master();
-	if (!is_master && is_slave) return ARvsg::slave();
-	return ARvsg::instance();
-}
-
-ARvsg& ARvsg::master()
-{
-	static ARvsg master(true, false);
-	return master;
-};
-
-ARvsg& ARvsg::slave()
-{
-	static ARvsg slave(false, true);
-	return slave;
-};
-#endif
-
 int ARvsg::setViewDistMM(int screenDistanceMM)
 {
 	vsgSetViewDistMM(screenDistanceMM);
@@ -152,85 +130,8 @@ double ARvsg::getScreenWidthDegrees()
 ARvsg::~ARvsg()
 {
 	clear();
-#if 0
-	if (c_bHaveLock)
-	{
-		release_lock();
-	}
-#endif
 };
 
-
-#if 0
-// static member variable. The lock need only be obtained once, even if using master/slave. 
-bool ARvsg::c_bHaveLock = false;
-
-
-bool ARvsg::acquire_lock()
-{
-	string name;
-	int fd;
-	int status;
-
-	// If the lock was already obtained, return.
-	if (c_bHaveLock) return true;
-
-
-
-	// Get lock file name
-	if (!GetRegLockFile(name))
-	{
-		cerr << "acquire_lock(): Cannot get lock file name from registry!" << endl;
-		return false;
-	}
-
-	status = _sopen_s(&fd, name.c_str(), O_WRONLY | O_CREAT | O_EXCL, _SH_DENYRW, _S_IREAD | _S_IWRITE);
-
-	if (fd < 0)
-	{
-		cerr << "acquire_lock(): Cannot get lock." << endl;
-		return false;
-	}
-	else
-	{
-		cerr << "acquire_lock(): got vsg lock." << endl;
-		c_bHaveLock = true;
-		_close(fd);
-	}
-	return true;
-}
-
-
-void ARvsg::release_lock()
-{
-	string name;
-
-	// If the lock was already released, return.
-	if (!c_bHaveLock) return;
-
-	// Get lock file name
-	if (!GetRegLockFile(name))
-	{
-		cerr << "release_lock(): Cannot get lock file name from registry!" << endl;
-		return;
-	}
-	remove(name.c_str());
-	c_bHaveLock = false;
-	return;
-}
-#endif
-
-#if 0
-bool ARvsg::is_master()
-{
-	return m_is_master;
-}
-
-bool ARvsg::is_slave()
-{
-	return m_is_slave;
-}
-#endif
 
 void ARvsg::select()
 {
@@ -316,20 +217,6 @@ int ARvsg::init(int screenDistanceMM, COLOR_TYPE i_bg, bool bUseLockFile, bool b
 	int status = 0;
 	if (!m_initialized)
 	{
-#if 0
-		if (bUseLockFile)
-		{
-			if (!acquire_lock())
-			{
-				cerr << "ARvsg::init(): cannot acquire VSG lock!" << endl;
-				return 1;
-			}
-		}
-		else
-		{
-			cout << "ARvsg::init(): ignoring lock file!" << endl;
-		}
-#endif
 
 		// Initialize VSG card.  In this case use the VSG configuration
 		// indicated in HKCU\Software\Spike2\VSGConfig IF IT EXISTS. If it does not exist, then init with the current
@@ -437,16 +324,8 @@ int ARvsg::init_video_pages(voidfunc func_before_objects, voidfunc func_after_ob
 		vsgLUTBUFFERWrite(0, &buffer);
 		vsgLUTBUFFERtoPalette(0);
 
-
-
-
-
-		//		vsgPaletteWrite((VSGLUTBUFFER*)&background, m_background_level, 1);
-		//		vsgPaletteWrite((VSGLUTBUFFER*)&background, 250, 1);
-		//		for (i = 0; i<252; i++) vsgPaletteWrite((VSGLUTBUFFER*)&background, i, 1);
-
-				// Now clear all pages to background level, then call the before_objects callback, 
-				// if it exists. 
+		// Now clear all pages to background level, then call the before_objects callback, 
+		// if it exists. 
 		for (i = 0; i < vsgGetSystemAttribute(vsgNUMVIDEOPAGES); i++)
 		{
 			vsgSetDrawPage(vsgVIDEOPAGE, i, m_background_level);

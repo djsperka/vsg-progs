@@ -9,6 +9,9 @@ namespace alert
 	// Singleton class representing the VSG. 
 	// Modified 4-27-2010 djs
 	// Changed to a "double singleton" class to accomodate the dual vsg setup. 
+	// Modified 9-17-2021 djs
+	// Revert to single singleton.
+
 	class ARvsg
 	{
 	public:
@@ -54,12 +57,6 @@ namespace alert
 		 * vsg. When using dual vsg setup, use master() and slave() to get instances for each separately.
 		 */
 		static ARvsg& instance();
-		//static ARvsg& master();
-		//static ARvsg& slave();
-		//static ARvsg& ARvsg::instance(bool is_master, bool is_slave);
-
-		//bool is_master();
-		//bool is_slave();
 
 		/*
 		 * Select specifies the vsg to which commands are directed.
@@ -82,10 +79,8 @@ namespace alert
 		void reset_available_levels() { m_next_available_level = 0; };
 		VSGOBJHANDLE dummyObjectHandle() { return m_handle; };
 	private:
-		ARvsg(bool bMaster = false, bool bSlave = false)
+		ARvsg()
 			: m_initialized(false)
-			, m_is_master(bMaster)
-			, m_is_slave(bSlave)
 			, m_handle(0)
 			, m_background_level(-1)
 			, m_background_color(gray)
@@ -105,8 +100,6 @@ namespace alert
 		int loadGammaData(const std::string& filename);
 		void scaleGammaValues(double* v, short* s, unsigned int length);
 		bool m_initialized;
-		bool m_is_master;
-		bool m_is_slave;
 		VSGOBJHANDLE m_handle;
 		PIXEL_LEVEL m_background_level;
 		COLOR_TYPE m_background_color;
