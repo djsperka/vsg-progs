@@ -27,6 +27,9 @@
 /* for multithreading */
 #include <process.h>
 
+/* for getenv */
+#include <cstdlib>
+
 
 #include "Alertlib.h"
 #include "AlertUtil.h"
@@ -176,10 +179,26 @@ int main (int argc, char *argv[])
 	status = prargs(argc, argv, prargs_server_callback, f_allowedServerArgs, 'F');
 	if (!status)
 	{
-		// init vsg. 
+		std::string sGammaFile;
+		char* p = NULL;
+		// before we initialize the vsg, check if we should load a gamma file. 
+		// If value is passed on command line (f_sGammaFile), then use that. 
+		// If no value on command line, then check env variable VSG_GAMMA_FILE. If set, its value is taken as the name of the gamma file to be used. 
+		// Default is to have no gamma file. 
+		
+		if (f_sGammaFile.size() > 0)
+			sGammaFile = f_sGammaFile;
+		else if (NULL != (p = getenv("VSG_GAMMA_FILE")))
+			sGammaFile = string(p);
+
 		cerr << "Running fixstim as daemon at address " << f_sDaemonHostIP << " port " << f_iDaemonPort << endl;
+		if (sGammaFile.size() > 0)
+			cerr << "Using gamma file: " << sGammaFile << endl;
+		else
+			cerr << "Using default VSG gamma file for the current monitor configuration." << endl;
+
 		cerr << "Initialize VSG..." << endl;
-		if (UStim::initialize(ARvsg::instance(), f_iDistanceToScreenMM, f_background, f_sGammaFile))
+		if (UStim::initialize(ARvsg::instance(), f_iDistanceToScreenMM, f_background, sGammaFile))
 		{
 			cerr << "VSG init failed!!!" << endl;
 			return 1;
