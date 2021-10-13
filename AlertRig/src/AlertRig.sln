@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 15
-VisualStudioVersion = 15.0.28307.960
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.31410.357
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ASLCalibration", "ASLCalibration\ASLCalibration.vcxproj", "{7F926F8E-1911-4AFD-834F-E0C0F1137C2E}"
 EndProject
@@ -72,6 +72,14 @@ EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ImgOver", "ImgOver\ImgOver.vcxproj", "{EBAD8213-A106-4DF5-8EFC-00F4C4C79CC8}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "argp-standalone", "..\argp-standalone\src\argp-standalone.vcxproj", "{ADD072E1-B213-3B4E-928F-FCA2B484E2DB}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{6F548B94-42F7-461F-B706-2BCB3D12A875}"
+	ProjectSection(SolutionItems) = preProject
+		ipc\src\AsyncTCPServerWrapper.h = ipc\src\AsyncTCPServerWrapper.h
+		ipc\src\BlockingTCPClientSend.h = ipc\src\BlockingTCPClientSend.h
+		ipc\src\tcpserver.cpp = ipc\src\tcpserver.cpp
+		ipc\src\UDPServerWrapper.h = ipc\src\UDPServerWrapper.h
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

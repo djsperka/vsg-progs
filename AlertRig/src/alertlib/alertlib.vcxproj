@@ -130,7 +130,8 @@ copy include\*.h $(SolutionDir)..\include</Command>
       <OutputFile>.\Release/alertlib.bsc</OutputFile>
     </Bscmake>
     <PreBuildEvent>
-      <Command>copy include\*.h $(SolutionDir)\..\include</Command>
+      <Command>copy include\*.h $(SolutionDir)..\include
+copy ..\ipc\src\*.h $(SolutionDir)..\include</Command>
     </PreBuildEvent>
     <PreBuildEvent>
       <Message>Copying alertlib headers...</Message>
@@ -209,7 +210,8 @@ copy include\*.h $(SolutionDir)..\include</Command>
       <OutputFile>.\Debug/alertlib.bsc</OutputFile>
     </Bscmake>
     <PreBuildEvent>
-      <Command>copy include\*.h $(SolutionDir)\..\include</Command>
+      <Command>copy include\*.h $(SolutionDir)..\include
+copy ..\ipc\src\*.h $(SolutionDir)..\include</Command>
     </PreBuildEvent>
     <PreBuildEvent>
       <Message>Copying alertlib headers...</Message>
