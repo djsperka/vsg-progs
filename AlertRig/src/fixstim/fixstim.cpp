@@ -7,8 +7,7 @@
 #define __GNU_LIBRARY__
 #include "getopt.h"
 #undef __GNU_LIBRARY__
-#include <boost/shared_ptr.hpp>
-#include <boost/filesystem.hpp>
+
 /* git commit number */
 #include "sha.h"
 #define XSTR(x) STR(x)
@@ -17,8 +16,6 @@
 /* for ASL (calibration) dll */
 #include "stdafx.h"
 #include "ASLSerial.h"
-
-
 
 /* Have to include snet.h before vsgv8.h */
 #include "snet.h"
@@ -50,12 +47,9 @@
 #include "BeatUStim.h"
 #include "BarUStim.h"
 #include "MSequenceUStim.h"
+#include "TcpUStim.h"
 
-using namespace std;
 using namespace alert;
-using namespace boost;
-using namespace boost::filesystem;
-
 
 // globals
 bool f_binaryTriggers = true;
@@ -369,9 +363,24 @@ void serverLoop(void * arg)
 						cerr << "serverLoop(): MSequenceUStim could not parse args." << endl;
 					}
 				}
+				else if (sargs.find("tcp") == 0)
+				{
+					TcpUStim tcp;
+					if (tcp.parses(sargs))
+					{
+						cerr << "serverLoop(): starting tcp stimulus..." << endl;
+						tcp.run_stim(ARvsg::instance());
+						ARvsg::instance().clear();
+						cout << "serverLoop(): msequence stimulus done." << endl;
+					}
+					else
+					{
+						cerr << "serverLoop(): TcpUStim could not parse args." << endl;
+					}
+				}
 				else
 				{
-					cout << "serverLoop(): No handler for this command." << endl;
+					cout << "serverLoop():zzz No handler for this command." << endl;
 				}
 
 				ARvsg::instance().reinit();

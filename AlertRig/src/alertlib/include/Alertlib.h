@@ -4,6 +4,8 @@
 #pragma warning(disable:4786)
 
 //#include "VSGEX2.H"
+// this macro will stop winsock from being included automatically.
+#define WIN32_LEAN_AND_MEAN
 #include "VSGV8.H"
 #include "ARtypes.h"
 #include "ARvsg.h"
