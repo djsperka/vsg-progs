@@ -4,6 +4,7 @@
 #include <sstream>
 #include <fstream>
 #include <boost/algorithm/string.hpp>
+#include <boost/regex.hpp>
 using namespace boost::algorithm;
 using namespace std;
 
@@ -272,32 +273,31 @@ int parse_color(std::string s, COLOR_TYPE& c)
 		int n;
 		int r, g, b;
 		double dr, dg, db;
-
-		// try and parse a custom color vector
+		boost::regex exprParen{ "\\s*[(](\\d+)[/](\\d+)[/](\\d+)[)]" };
+		// floating point ((\d+\.?\d*)|(\.\d+))
+		boost::regex exprBrack{ "\\s*[\\[]((\\d+\\.?\\d*)|(\\.\\d+))[/]((\\d+\\.?\\d*)|(\\.\\d+))[/]((\\d+\\.?\\d*)|(\\.\\d+))[\\]]\\s*" };
+		boost::smatch what;
 		status = 1;
-		n = sscanf_s(s.c_str(), "(%d/%d/%d)", &r, &g, &b);
-		if (n == 3)
+		if (boost::regex_search(s, what, exprParen))
 		{
-			if (r >= 0 && r < 256 && g >= 0 && g < 256 && b >= 0 && b < 256)
+			std::stringstream ss;
+			ss << what[1] << " " << what[2] << " " << what[3];
+			ss >> r >> g >> b;
+			if (r > -1 && r<256 && g>-1 && g<256 && b>-1 && b < 256)
 			{
-				status = 0;
 				c.setCustom((double)r / 255.0, (double)g / 255.0, (double)b / 255.0);
+				status = 0;
 			}
 		}
-		else
+		else if (boost::regex_search(s, what, exprBrack))
 		{
-			n = sscanf_s(s.c_str(), "[%lf/%lf/%lf]", &dr, &dg, &db);
-			if (n == 3)
+			std::stringstream ss;
+			ss << what[1] << " " << what[4] << " " << what[7];
+			ss >> dr >> dg >> db;
+			if (dr>=0 && dr<=1.0 && dg>=0 && dg<=1.0 && db>=0 && db<=1.0)
 			{
-				if (dr >= 0 && dr <= 1.0 && dg >= 0 && dg <= 1.0 && db >= 0 && db <= 1.0)
-				{
-					status = 0;
-					c.setCustom(dr, dg, db);
-				}
-			}
-			else
-			{
-				c.setType(unknown_color);
+				c.setCustom(dr, dg, db);
+				status = 0;
 			}
 		}
 	}
