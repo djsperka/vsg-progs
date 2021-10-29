@@ -4,6 +4,11 @@
 #include <string>
 #include <vector>
 #include <algorithm>
+
+/* need to use this form of bind.hpp and the namespace to avoid compilation errors. */
+#include <boost/bind/bind.hpp>
+using namespace boost::placeholders;
+
 #define __GNU_LIBRARY__
 #include "getopt.h"
 #undef __GNU_LIBRARY__
@@ -18,7 +23,7 @@
 #include "ASLSerial.h"
 
 /* Have to include snet.h before vsgv8.h */
-#include "snet.h"
+//#include "snet.h"
 #include "vsgv8.h"
 
 /* for multithreading */
@@ -27,7 +32,10 @@
 /* for getenv */
 #include <cstdlib>
 
+/* smart ptrs*/
+#include <memory>
 
+/* my stguff */
 #include "Alertlib.h"
 #include "AlertUtil.h"
 #include "StimSet.h"
@@ -36,8 +44,9 @@
 #include "EQStimSet.h"
 #include "AttentionStimSet.h"
 #include "SSInfo.h"
-#include "UDPServer.h"
-#include "UDPClient.h"
+//#include "UDPServer.h"
+//#include "UDPClient.h"
+#include "AsyncTCPServerWrapper.h"
 #include "FXGStimParameterList.h"
 #include "MultiParameterFXGStimSet.h"
 #include "FixUStim.h"
@@ -77,7 +86,8 @@ string f_sGammaFile = string();
 bool f_quit = false;
 double f_dSlaveXOffset = 0.0;
 double f_dSlaveYOffset = 0.0;
-UDPServer *f_udpServer;
+//UDPServer *f_udpServer;
+std::unique_ptr<AsyncTCPServerWrapper> f_pTCPServerWrapper;
 int errflg = 0;
 
 
@@ -93,7 +103,8 @@ IASLSerialOutPort3* f_gpISerialOutPort = NULL;
 // function prototypes
 
 int init_calibration();
-void serverLoop(void * arg);
+//void serverLoop(void * arg);
+bool fixstim_server_callback(const std::string& sargs, std::ostream& out);
 int run_fixstim();
 int prargs_callback(int c, string& arg);
 int prargs_server_callback(int c, string& arg);
@@ -179,13 +190,13 @@ int main (int argc, char *argv[])
 		// If value is passed on command line (f_sGammaFile), then use that. 
 		// If no value on command line, then check env variable VSG_GAMMA_FILE. If set, its value is taken as the name of the gamma file to be used. 
 		// Default is to have no gamma file. 
-		
+
 		if (f_sGammaFile.size() > 0)
 			sGammaFile = f_sGammaFile;
 		else if (NULL != (p = getenv("VSG_GAMMA_FILE")))
 			sGammaFile = string(p);
 
-		cerr << "Running fixstim as daemon at address " << f_sDaemonHostIP << " port " << f_iDaemonPort << endl;
+		cerr << "Running fixstim server at address " << f_sDaemonHostIP << " port " << f_iDaemonPort << endl;
 		if (sGammaFile.size() > 0)
 			cerr << "Using gamma file: " << sGammaFile << endl;
 		else
@@ -205,193 +216,167 @@ int main (int argc, char *argv[])
 			return 1;
 		}
 
+		f_pTCPServerWrapper = std::unique_ptr<AsyncTCPServerWrapper>(new AsyncTCPServerWrapper(boost::bind(fixstim_server_callback, _1, _2), 7000, 26));	// 26 = ^Z
 
-		f_udpServer = new UDPServer(f_sDaemonHostIP.c_str(), f_iDaemonPort);
-		if (!f_udpServer->isReady())
-		{
-			cerr << "Cannot start server." << endl;
-		}
-		else
-		{
-			HANDLE hThread;
-			cerr << "Start listening thread, waiting for connections." << endl;
-			// create thread with arbitrary argument for the run function
-			hThread = (HANDLE)_beginthread( serverLoop, 0, (void*)12);
-			WaitForSingleObject(hThread, INFINITE);
-			printf("Listening thread finished.\n");
-		}
-	}
-	else 
-	{
-		//// process as a standalone fixstim run
-		//FixUStim fixstim(true);
-		//if (fixstim.parse(argc, argv))
-		//{
-		//	fixstim.run_stim(ARvsg::instance());
-		//}
-		cerr << "ERROR - standalone not supported. Must run server." << endl;
-		return 1;
+		// this is a blocking call, until someone calls f_pTCPServerWrapper->quit(). That should be done inside of the callback function when 'quit' is sent. 
+		f_pTCPServerWrapper->start();
 	}
 	return 0;
 }
 
-void serverLoop(void * arg) 
-{ 
-	const unsigned int bufLength = 8192;
-	string s;
-	char buffer[bufLength];
-	try
+// the TCP server calls this when a full command message (one that ends with ^Z) is received.
+bool fixstim_server_callback(const std::string & sargs, std::ostream & out)
+{
+	std::cout << "fixstim_server_callback: " << sargs << std::endl;
+
+	if (sargs.find("quit") == 0)
 	{
-		while(!f_quit) 
-		{
-			string sargs;
-			int status;
-			status = f_udpServer->checkMessage(buffer, bufLength);
-			if (status > 0)
-			{
-				sargs.clear();
-				sargs.assign(buffer, status);
-				cout << "serverLoop(): got msg (length " << status << "): " << sargs << endl;
-
-				if (sargs.find("quit") == 0)
-				{
-					cout << "serverLoop(): Quitting..." << endl;
-					f_quit = true;
-				}
-				else if (sargs.find("cmouse") == 0)
-				{
-					CMouseUStim cmouseustim;
-					if (cmouseustim.parses(sargs))
-					{
-						cerr << "serverLoop(): starting cmouse stimulus..." << endl;
-						cmouseustim.run_stim(ARvsg::instance());
-						ARvsg::instance().clear();
-						cout << "serverLoop(): cmouse stimulus done." << endl;
-					}
-					else
-					{
-						cerr << "serverLoop(): CMouseUStim could not parse args." << endl;
-					}
-				}
-				else if (sargs.find("fixstim") == 0)
-				{
-					FixUStim fixstim;
-					if (fixstim.parses(sargs))
-					{
-						cerr << "serverLoop(): starting fixstim stimulus..." << endl;
-						fixstim.run_stim(ARvsg::instance());
-						ARvsg::instance().clear();
-						cout << "serverLoop(): fixstim stimulus done." << endl;
-					}
-					else
-					{
-						cerr << "serverLoop(): FixUStim could not parse args." << endl;
-					}
-				}
-				else if (sargs.find("calibration") == 0)
-				{
-					CalibrationUStim calustim(f_gpISerialOutPort);
-					if (calustim.parses(sargs))
-					{
-						cerr << "serverLoop(): starting calibration stimulus..." << endl;
-						calustim.run_stim(ARvsg::instance());
-						ARvsg::instance().clear();
-						cout << "serverLoop(): calibration stimulus done." << endl;
-					}
-					else
-					{
-						cerr << "serverLoop(): CalibrationUStim could not parse args." << endl;
-					}
-				}
-				else if (sargs.find("starstim") == 0)
-				{
-					StarUStim starustim;
-					if (starustim.parses(sargs))
-					{
-						cerr << "serverLoop(): starting starstim stimulus..." << endl;
-						starustim.run_stim(ARvsg::instance());
-						ARvsg::instance().clear();
-						cout << "serverLoop(): starstim stimulus done." << endl;
-					}
-					else
-					{
-						cerr << "serverLoop(): StarUStim could not parse args." << endl;
-					}
-				}
-				else if (sargs.find("barstim") == 0)
-				{
-					BarUStim barustim;
-					if (barustim.parses(sargs))
-					{
-						cerr << "serverLoop(): starting barstim stimulus..." << endl;
-						barustim.run_stim(ARvsg::instance());
-						ARvsg::instance().clear();
-						cout << "serverLoop(): barstim stimulus done." << endl;
-					}
-					else
-					{
-						cerr << "serverLoop(): BarUStim could not parse args." << endl;
-					}
-				}
-				else if (sargs.find("beat") == 0)
-				{
-					BeatUStim beatstim;
-					if (beatstim.parses(sargs))
-					{
-						cerr << "serverLoop(): starting beat stimulus..." << endl;
-						beatstim.run_stim(ARvsg::instance());
-						ARvsg::instance().clear();
-						cout << "serverLoop(): beat stimulus done." << endl;
-					}
-					else
-					{
-						cerr << "serverLoop(): BeatUStim could not parse args." << endl;
-					}
-				}
-				else if (sargs.find("msequence") == 0)
-				{
-					MSequenceUStim msq;
-					if (msq.parses(sargs))
-					{
-						cerr << "serverLoop(): starting msequence stimulus..." << endl;
-						msq.run_stim(ARvsg::instance());
-						ARvsg::instance().clear();
-						cout << "serverLoop(): msequence stimulus done." << endl;
-					}
-					else
-					{
-						cerr << "serverLoop(): MSequenceUStim could not parse args." << endl;
-					}
-				}
-				else if (sargs.find("tcp") == 0)
-				{
-					TcpUStim tcp;
-					if (tcp.parses(sargs))
-					{
-						cerr << "serverLoop(): starting tcp stimulus..." << endl;
-						tcp.run_stim(ARvsg::instance());
-						ARvsg::instance().clear();
-						cout << "serverLoop(): msequence stimulus done." << endl;
-					}
-					else
-					{
-						cerr << "serverLoop(): TcpUStim could not parse args." << endl;
-					}
-				}
-				else
-				{
-					cout << "serverLoop():zzz No handler for this command." << endl;
-				}
-
-				ARvsg::instance().reinit();
-
-				cout << "serverLoop(): waiting for message..." << endl;
-			}
-			Sleep(500);
-		}
-	} catch (std::exception& e) {
-		cout << e.what() << endl;
+		out << "OK;";
+		f_pTCPServerWrapper->stop();
 	}
+	else if (sargs.find("cmouse") == 0)
+	{
+		CMouseUStim cmouseustim;
+		if (cmouseustim.parses(sargs))
+		{
+			out << "OK;";
+			cerr << "fixstim_server_callback(): starting cmouse stimulus..." << endl;
+			cmouseustim.run_stim(ARvsg::instance());
+			ARvsg::instance().clear();
+			cout << "fixstim_server_callback(): cmouse stimulus done." << endl;
+		}
+		else
+		{
+			out << "ERR - CMouseUStim could not parse args;";
+			cerr << "fixstim_server_callback(): CMouseUStim could not parse args." << endl;
+		}
+	}
+	else if (sargs.find("fixstim") == 0)
+	{
+		FixUStim fixstim;
+		if (fixstim.parses(sargs))
+		{
+			out << "OK;";
+			cerr << "fixstim_server_callback(): starting fixstim stimulus..." << endl;
+			fixstim.run_stim(ARvsg::instance());
+			ARvsg::instance().clear();
+			cout << "fixstim_server_callback(): fixstim stimulus done." << endl;
+		}
+		else
+		{
+			out << "ERR - FixUStim could not parse args;";
+			cerr << "fixstim_server_callback(): FixUStim could not parse args." << endl;
+		}
+	}
+	else if (sargs.find("calibration") == 0)
+	{
+		CalibrationUStim calustim(f_gpISerialOutPort);
+		if (calustim.parses(sargs))
+		{
+			out << "OK;";
+			cerr << "fixstim_server_callback(): starting calibration stimulus..." << endl;
+			calustim.run_stim(ARvsg::instance());
+			ARvsg::instance().clear();
+			cout << "fixstim_server_callback(): calibration stimulus done." << endl;
+		}
+		else
+		{
+			out << "ERR - CalibrationUStim could not parse args;";
+			cerr << "fixstim_server_callback(): CalibrationUStim could not parse args." << endl;
+		}
+	}
+	else if (sargs.find("starstim") == 0)
+	{
+		StarUStim starustim;
+		if (starustim.parses(sargs))
+		{
+			out << "OK;";
+			cerr << "fixstim_server_callback(): starting starstim stimulus..." << endl;
+			starustim.run_stim(ARvsg::instance());
+			ARvsg::instance().clear();
+			cout << "fixstim_server_callback(): starstim stimulus done." << endl;
+		}
+		else
+		{
+			out << "ERR - StarUStim could not parse args;";
+			cerr << "fixstim_server_callback(): StarUStim could not parse args." << endl;
+		}
+	}
+	else if (sargs.find("barstim") == 0)
+	{
+		BarUStim barustim;
+		if (barustim.parses(sargs))
+		{
+			out << "OK;";
+			cerr << "fixstim_server_callback(): starting barstim stimulus..." << endl;
+			barustim.run_stim(ARvsg::instance());
+			ARvsg::instance().clear();
+			cout << "fixstim_server_callback(): barstim stimulus done." << endl;
+		}
+		else
+		{
+			out << "ERR - BarUStim could not parse args;";
+			cerr << "fixstim_server_callback(): BarUStim could not parse args." << endl;
+		}
+	}
+	else if (sargs.find("beat") == 0)
+	{
+		BeatUStim beatstim;
+		if (beatstim.parses(sargs))
+		{
+			out << "OK;";
+			cerr << "fixstim_server_callback(): starting beat stimulus..." << endl;
+			beatstim.run_stim(ARvsg::instance());
+			ARvsg::instance().clear();
+			cout << "fixstim_server_callback(): beat stimulus done." << endl;
+		}
+		else
+		{
+			out << "ERR - BeatUStim could not parse args;";
+			cerr << "fixstim_server_callback(): BeatUStim could not parse args." << endl;
+		}
+	}
+	else if (sargs.find("msequence") == 0)
+	{
+		MSequenceUStim msq;
+		if (msq.parses(sargs))
+		{
+			out << "OK;";
+			cerr << "fixstim_server_callback(): starting msequence stimulus..." << endl;
+			msq.run_stim(ARvsg::instance());
+			ARvsg::instance().clear();
+			cout << "fixstim_server_callback(): msequence stimulus done." << endl;
+		}
+		else
+		{
+			out << "ERR - MSequenceUStim could not parse args;";
+			cerr << "fixstim_server_callback(): MSequenceUStim could not parse args." << endl;
+		}
+	}
+	else if (sargs.find("tcp") == 0)
+	{
+		TcpUStim tcp;
+		if (tcp.parses(sargs))
+		{
+			out << "OK;";
+			cerr << "fixstim_server_callback(): starting tcp stimulus..." << endl;
+			tcp.run_stim(ARvsg::instance());
+			ARvsg::instance().clear();
+			cout << "fixstim_server_callback(): msequence stimulus done." << endl;
+		}
+		else
+		{
+			out << "ERR - TcpUStim could not parse args;";
+			cerr << "fixstim_server_callback(): TcpUStim could not parse args." << endl;
+		}
+	}
+	else
+	{
+		cout << "fixstim_server_callback(): No handler for this command." << endl;
+	}
+
+	ARvsg::instance().reinit();
+	return true;
 }
 
 void init_globals()

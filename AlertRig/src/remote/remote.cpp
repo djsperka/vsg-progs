@@ -3,19 +3,21 @@
 #include <fstream>
 #include <string>
 #include <sstream>
-#include "snet.h"
-#include "UDPServer.h"
-#include "UDPClient.h"
+#include "BlockingTCPClientSend.h"
+
+//#include "snet.h"
+//#include "UDPServer.h"
+//#include "UDPClient.h"
 
 using namespace std;
 
 // libs
 
-#ifdef _DEBUG
-#pragma comment(lib, "dsnet.lib")
-#else
-#pragma comment(lib, "snet.lib")
-#endif
+//#ifdef _DEBUG
+//#pragma comment(lib, "dsnet.lib")
+//#else
+//#pragma comment(lib, "snet.lib")
+//#endif
 
 
 
@@ -42,10 +44,11 @@ int main(int argc, char **argv)
 
 		cout << "Got remainder: " << ss.str() << endl;
 
-		UDPClient *client = new UDPClient(server, iport);
-		status = client->sendMessage(ss.str().c_str(), ss.str().length());
-		cout << "status " << status << endl;
-		delete client;
+		BlockingTCPClientSendString(std::string(argv[1]), std::string(argv[2]), ss.str());
+		//UDPClient *client = new UDPClient(server, iport);
+		//status = client->sendMessage(ss.str().c_str(), ss.str().length());
+		//cout << "status " << status << endl;
+		//delete client;
 	}
 	else
 	{
