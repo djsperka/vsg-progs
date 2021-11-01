@@ -232,6 +232,7 @@ bool fixstim_server_callback(const std::string & sargs, std::ostream & out)
 	if (sargs.find("quit") == 0)
 	{
 		out << "OK;";
+		cerr << "fixstim_server_callback(): got quit msg..." << endl;
 		f_pTCPServerWrapper->stop();
 	}
 	else if (sargs.find("cmouse") == 0)
