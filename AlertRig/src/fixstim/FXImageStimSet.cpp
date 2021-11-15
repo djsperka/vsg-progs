@@ -192,7 +192,8 @@ FXImageStimSet::FXImageStimSet(ARContrastFixationPointSpec& fixpt, const std::ve
 }
 
 FXImageStimSet::FXImageStimSet(const std::vector<FXImageInfo>& vecInfo, int nlevels)
-: m_nlevels(nlevels)
+: FXStimSet()
+, m_nlevels(nlevels)
 , m_imagesInfo(vecInfo)
 , m_current(0)
 {
