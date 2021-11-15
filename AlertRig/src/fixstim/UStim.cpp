@@ -33,6 +33,7 @@ int UStim::initialize(alert::ARvsg& vsg, int iScreenDistanceMM, const COLOR_TYPE
 		cerr << "vsgFRAMETIME(us): " << vsgGetSystemAttribute(vsgFRAMETIME) << endl;
 		cerr << "vsgSCREENWIDTH: " << vsgGetSystemAttribute(vsgSCREENWIDTH) << endl;
 		cerr << "vsgSCREENHEIGHT: " << vsgGetSystemAttribute(vsgSCREENHEIGHT) << endl;
+		cerr << "vsgNUMVIDEOPAGES: " << vsgGetSystemAttribute(vsgNUMVIDEOPAGES) << endl;
 
 		// Initialize page 0 and leave display there. The stim set may safely assume that the current 
 		// page is a blank background page and it may return to it (no drawing there!). 
