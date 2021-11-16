@@ -122,7 +122,7 @@ FXImageStimSet *createImageStimSet(const std::string& filename, double x, double
 	return pStimSet;
 }
 
-FXImageStimSet *createImageStimSet(ARContrastFixationPointSpec& fixpt, const std::string& filename, double x, double y, double duration, double delay, int nlevels)
+FXImageStimSet *createImageStimSet(alert::ARContrastFixationPointSpec& fixpt, const std::string& filename, double x, double y, double duration, double delay, int nlevels)
 {
 	FXImageStimSet *pStimSet = nullptr;
 	std::vector<FXImageInfo> vecInfo;
@@ -144,60 +144,36 @@ FXImageStimSet::~FXImageStimSet()
 {
 }
 
-//FXImageStimSet::FXImageStimSet(ARContrastFixationPointSpec& fixpt, const std::vector<std::string>& vecImages, double x, double y, double durationInSec, int nlevels)
-//	: FXStimSet(fixpt)
-//	, m_x(x)
-//	, m_y(y)
-//	, m_nlevels(nlevels)
-//	, m_bUseCycling(false)
-//	, m_images(vecImages)
-//	, m_current(0)
-//{
-//	if (durationInSec <= 0)
-//		m_stimDurationFrames = 0;
-//	else
-//	{
-//		int f = vsgGetSystemAttribute(vsgFRAMETIME);
-//		m_stimDurationFrames = (int)(durationInSec / f * 1000000.0);
-//		m_bUseCycling = true;
-//	}
-//}
-//
-//FXImageStimSet::FXImageStimSet(const std::vector<std::string>& vecImages, double x, double y, double durationInSec, int nlevels)
-//	: FXStimSet()
-//	, m_x(x)
-//	, m_y(y)
-//	, m_nlevels(nlevels)
-//	, m_bUseCycling(false)
-//	, m_images(vecImages)
-//	, m_current(0)
-//{
-//	if (durationInSec <= 0)
-//		m_stimDurationFrames = 0;
-//	else
-//	{
-//		int f = vsgGetSystemAttribute(vsgFRAMETIME);
-//		m_stimDurationFrames = (int)(durationInSec / f * 1000000.0);
-//		m_bUseCycling = true;
-//	}
-//}
 
-FXImageStimSet::FXImageStimSet(ARContrastFixationPointSpec& fixpt, const std::vector<FXImageInfo>& vecInfo, int nlevels)
-	: FXStimSet(fixpt)
-	, m_nlevels(nlevels)
-	, m_imagesInfo(vecInfo)
-	, m_current(0)
-{
-
-}
-
-FXImageStimSet::FXImageStimSet(const std::vector<FXImageInfo>& vecInfo, int nlevels)
-: FXStimSet()
+FXImageStimSet::FXImageStimSet(alert::ARContrastFixationPointSpec& fixpt, const std::vector<FXImageInfo>& vecInfo, int nlevels)
+: FXStimSet(fixpt)
 , m_nlevels(nlevels)
+, m_bUseCycling(true)
+, m_bUseGroups(false)
 , m_imagesInfo(vecInfo)
 , m_current(0)
 {
+}
 
+FXImageStimSet::FXImageStimSet(std::vector<FXImageInfo>& vecInfo, int nlevels)
+: FXStimSet()
+, m_nlevels(nlevels)
+, m_bUseCycling(true)
+, m_bUseGroups(false)
+, m_imagesInfo(vecInfo)
+, m_current(0)
+{
+}
+
+FXImageStimSet::FXImageStimSet(alert::ARContrastFixationPointSpec& fixpt, const std::vector<FXImageInfo>& vecInfo, const std::vector<FXGroupInfo>& vecGroups, int nlevels)
+: FXStimSet(fixpt)
+, m_nlevels(nlevels)
+, m_bUseCycling(true)
+, m_bUseGroups(true)
+, m_imagesInfo(vecInfo)
+, m_groupsInfo(vecGroups)
+, m_current(0)
+{
 }
 
 
@@ -238,13 +214,6 @@ int FXImageStimSet::init(ARvsg& vsg, std::vector<int> pages)
 		fixpt().setContrast(100);
 	}
 
-	//if (m_bUseCycling)
-	//{
-	//	cerr << "Set up cycling - stim duration is " << m_stimDurationFrames << " frames." << endl;
-	//	setupCycling();
-	//}
-
-	// drawCurrent will decide if cycling will be used, and will set m_bUseCycling
 	status = drawCurrent();
 
 	return status;
