@@ -5,8 +5,9 @@
 #include <map>
 #include <tuple>
 
+// this tuple represents a single stimulus image and its associated timing and x/y. There is a vector of these. 
 typedef std::tuple<std::string, double, double, double, double> FXImageInfo;
-typedef std::tuple<double, double, std::vector<size_t>> FXGroupInfo;
+typedef std::vector<std::vector<int>> FXGroupsVec;
 
 // filename is txt file, comma separated: 
 // c:\img\file.bmp,5,3,1,.5
@@ -26,7 +27,7 @@ private:
 	bool m_bUseCycling;				// if precise stim time and bkgd time given for stim drawn by drawCurrent()
 	bool m_bUseGroups;				// If using stim groups
 	std::vector<FXImageInfo> m_imagesInfo;
-	std::vector<FXGroupInfo> m_groupsInfo;
+	FXGroupsVec m_groupsVec;
 	size_t m_current;
 	std::vector<std::string>::const_iterator m_iter;	// points to current image. Advance prior to new trial (except for first)
 	int m_pageBlank;
@@ -41,13 +42,8 @@ private:
 
 public:
 	virtual ~FXImageStimSet();
-//	FXImageStimSet(ARContrastFixationPointSpec& fixpt, const std::vector<std::string>& vecImages, double x=0, double y=0, double stimDurationSec=0, int nlevels=230);
-//	FXImageStimSet(const std::vector<std::string>& vecImages, double x=0, double y=0, double stimDurationSec=0, int nlevels=230);
-	FXImageStimSet(alert::ARContrastFixationPointSpec& fixpt, const std::vector<FXImageInfo>& vecInfo, int nlevels = 230);
-	FXImageStimSet(alert::ARContrastFixationPointSpec& fixpt, const std::vector<FXImageInfo>& vecInfo, const std::vector<FXGroupInfo>& vecGroup, int nlevels = 230);
-	FXImageStimSet(std::vector<FXImageInfo>& vecInfo, int nlevels = 230);
-
-	//void addImages(const std::vector<std::string>& vecImages);
+	FXImageStimSet(alert::ARContrastFixationPointSpec& fixpt, const std::vector<FXImageInfo>& vecInfo, const FXGroupsVec& groupsVec, int nlevels = 230);
+	FXImageStimSet(const std::vector<FXImageInfo>& vecInfo, const FXGroupsVec& groupsVec, int nlevels = 230);
 
 	int num_pages()
 	{

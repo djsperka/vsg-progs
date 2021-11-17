@@ -1,36 +1,42 @@
 #include "FXImageStimSet.h"
+#include <iostream>
 #include <sstream>
 #include <boost/filesystem.hpp>
 #include <boost/algorithm/string.hpp>
 
 
 
-bool parseImageInputFile(std::vector<FXImageInfo>& vecInfo, const std::string& filename, double xDefault = 0, double yDefault = 0, double durationDefault = 0, double delayDefault = 0)
+bool parseImageInputFile(std::vector<FXImageInfo>& vecInfo, FXGroupsVec& groupsVec, const std::string& filename, double xDefault = 0, double yDefault = 0, double durationDefault = 0, double delayDefault = 0)
 {
 	bool bReturn = false;
 
 	boost::filesystem::path p(filename);
 	if (!exists(p))
 	{
-		cerr << "Error: image list file does not exist: " << filename << endl;
+		std::cerr << "Error: image list file does not exist: " << filename << endl;
 		return false;
 	}
 	else
 	{
 		bReturn = true;
-		cerr << "Found image list file " << filename << endl;
+		std::cerr << "Found image list file " << filename << endl;
 
 		// open file, read line-by-line and parse
 		string line;
 		int linenumber = 0;		// count lines from 0
 		int imagecount = 0;
+		int groupcount = 0;
+		bool doingImages = true;
+		bool haveGroups = false;				// only set to true if Groups line found
+		double dFixptSec = 0, dImageSec = 0;	// these are only valid if haveGroups == true
+
 		std::ifstream myfile(filename.c_str());
 		if (myfile.is_open())
 		{
 			while (getline(myfile, line))
 			{
 				linenumber++;
-				cerr << "read line " << linenumber << endl;
+				std::cerr << "read line " << linenumber << endl;
 
 				// line may look like these things
 				// 1) c:\path\file.bmp                    filename only. Position will be 0,0 duration=delay=0
@@ -38,6 +44,8 @@ bool parseImageInputFile(std::vector<FXImageInfo>& vecInfo, const std::string& f
 				// 3) c:\path\file.bmp,x,y,durSec,dlySec  all 5 params. 
 				// 4) <blank>                             skip this line
 				// 5) # anything                          comment, ignored
+				// 6) Groups i,f                          start of image groups, i=image sec, f=fixpt sec
+				// 7) i0,i1,i2[...]                       list of image indices and order for a single group, only valid after Groups line
 
 				// skip comment line
 				if (line[0] == '#')
@@ -48,63 +56,113 @@ bool parseImageInputFile(std::vector<FXImageInfo>& vecInfo, const std::string& f
 				if (line.size() == 0)
 					continue;
 
-				// tokenize
-				vector<string> tokens;
-				tokenize(line, tokens, ",");
-				if (tokens.size() == 0)
-					continue;
-
-				// verify file exists
-				boost::filesystem::path image(tokens[0]);
-				if (!exists(image))
+				if (doingImages)
 				{
-					cerr << "image file not found,line " << linenumber << " : " << image << endl;
-					bReturn = false;
-					break;
+					// If "Groups" found on line, break out and read groups.
+					if (line.find("Groups") == 0)
+					{
+						doingImages = false;
+						haveGroups = true;
+
+						//// tokenize. Need to get timing info from this line
+						//vector<string> tokens;
+						//tokenize(line, tokens, " ");
+						//if (tokens.size() != 2)
+						//{
+						//	std::cerr << "Error - Groups line should have timing pair image_sec,fixpt_sec" << endl;
+						//	bReturn = false;
+						//}
+						//else
+						//{
+						//	if (parse_xy(tokens[1], dImageSec, dFixptSec))
+						//	{
+						//		std::cerr << "Error - cannot parse Groups - expecting imagesec,fixptsec" << endl;
+						//		bReturn = false;
+						//	}
+						//	else
+						//	{
+						//		groupsInfoStruct.fixptFrames = dFixptSec * 1.0e6 / vsgGetSystemAttribute(vsgFRAMETIME);
+						//		groupsInfoStruct.imageFrames = dImageSec * 1.0e6 / vsgGetSystemAttribute(vsgFRAMETIME);
+						//		std::cerr << "Got Groups imagesec/frames " << dImageSec << "/" << groupsInfoStruct.fixptFrames << " fixpt/frames " << dFixptSec << "/" << groupsInfoStruct.imageFrames << endl;
+						//	}
+						//}
+					}
+					else
+					{
+						// tokenize
+						vector<string> tokens;
+						tokenize(line, tokens, ",");
+						if (tokens.size() == 0)
+							continue;
+
+						// verify file exists
+						boost::filesystem::path image(tokens[0]);
+						if (!exists(image))
+						{
+							std::cerr << "image file not found,line " << linenumber << " : " << image << endl;
+							bReturn = false;
+							break;
+						}
+
+
+						double x, y, dur, del;
+						switch (tokens.size())
+						{
+						case 1:
+							vecInfo.push_back(std::make_tuple(tokens[0], xDefault, yDefault, durationDefault, delayDefault));
+							break;
+						case 3:
+							if (parse_double(tokens[1], x) || parse_double(tokens[2], y))
+							{
+								std::cerr << "Error at line " << linenumber << ": cannot parse x,y" << endl;
+								bReturn = false;
+							}
+							else
+							{
+								vecInfo.push_back(std::make_tuple(tokens[0], x, y, durationDefault, delayDefault));
+							}
+							break;
+						case 5:
+							if (parse_double(tokens[1], x) || parse_double(tokens[2], y) || parse_double(tokens[3], del) || parse_double(tokens[4], dur))
+							{
+								std::cerr << "Error at line " << linenumber << ": cannot parse x,y,del,dur" << endl;
+								bReturn = false;
+							}
+							else
+							{
+								vecInfo.push_back(std::make_tuple(tokens[0], x, y, del, dur));
+							}
+							break;
+						default:
+							std::cerr << "Error - too many tokens (" << tokens.size() << ") at line " << linenumber << endl;
+							bReturn = false;
+							break;
+						}
+					}
 				}
-
-
-				double x, y, dur, del;
-				switch (tokens.size())
+				else
 				{
-				case 1:
-					vecInfo.push_back(std::make_tuple(tokens[0], xDefault, yDefault, durationDefault, delayDefault));
-					break;
-				case 3:
-					if (parse_double(tokens[1], x) || parse_double(tokens[2], y))
+					// If in this state, all lines should be groups of indexes, comma separated. 
+					std::vector<int> imageGroup;
+					if (parse_int_list(line, imageGroup))
 					{
-						cerr << "Error at line " << linenumber << ": cannot parse x,y" << endl;
+						std::cerr << "Error - cannot parse line - expecting e.g. 1,2,3" << endl;
 						bReturn = false;
 					}
 					else
 					{
-						vecInfo.push_back(std::make_tuple(tokens[0], x, y, durationDefault, delayDefault));
+						groupsVec.push_back(imageGroup);
 					}
-					break;
-				case 5:
-					if (parse_double(tokens[1], x) || parse_double(tokens[2], y) || parse_double(tokens[3], del) || parse_double(tokens[4], dur))
-					{
-						cerr << "Error at line " << linenumber << ": cannot parse x,y,del,dur" << endl;
-						bReturn = false;
-					}
-					else
-					{
-						vecInfo.push_back(std::make_tuple(tokens[0], x, y, del, dur));
-					}
-					break;
-				default:
-					cerr << "Error - too many tokens (" << tokens.size() << ") at line " << linenumber << endl;
-					bReturn = false;
-					break;
 				}
 
 				// if  there was a bad line, exit loop.
 				if (!bReturn)
 					break;
 			}
+
 			myfile.close();
 			if (bReturn)
-				cerr << "Loaded " << vecInfo.size() << " image files." << endl;
+				std::cerr << "Loaded " << vecInfo.size() << " image files." << endl;
 		}
 	}
 	return bReturn;
@@ -115,9 +173,10 @@ FXImageStimSet *createImageStimSet(const std::string& filename, double x, double
 {
 	FXImageStimSet *pStimSet = nullptr;
 	std::vector<FXImageInfo> vecInfo;
-	if (parseImageInputFile(vecInfo, filename, x, y, duration, delay))
+	FXGroupsVec groupsVec;
+	if (parseImageInputFile(vecInfo, groupsVec, filename, x, y, duration, delay))
 	{
-		pStimSet = new FXImageStimSet(vecInfo, nlevels);
+		pStimSet = new FXImageStimSet(vecInfo, groupsVec, nlevels);
 	}
 	return pStimSet;
 }
@@ -126,9 +185,10 @@ FXImageStimSet *createImageStimSet(alert::ARContrastFixationPointSpec& fixpt, co
 {
 	FXImageStimSet *pStimSet = nullptr;
 	std::vector<FXImageInfo> vecInfo;
-	if (parseImageInputFile(vecInfo, filename, x, y, duration, delay))
+	FXGroupsVec groupsVec;
+	if (parseImageInputFile(vecInfo, groupsVec, filename, x, y, duration, delay))
 	{
-		pStimSet = new FXImageStimSet(fixpt, vecInfo, nlevels);
+		pStimSet = new FXImageStimSet(fixpt, vecInfo, groupsVec, nlevels);
 	}
 	return pStimSet;
 }
@@ -145,35 +205,32 @@ FXImageStimSet::~FXImageStimSet()
 }
 
 
-FXImageStimSet::FXImageStimSet(alert::ARContrastFixationPointSpec& fixpt, const std::vector<FXImageInfo>& vecInfo, int nlevels)
+FXImageStimSet::FXImageStimSet(alert::ARContrastFixationPointSpec& fixpt, const std::vector<FXImageInfo>& vecInfo, const FXGroupsVec& groupsVec, int nlevels)
 : FXStimSet(fixpt)
 , m_nlevels(nlevels)
-, m_bUseCycling(true)
-, m_bUseGroups(false)
 , m_imagesInfo(vecInfo)
+, m_groupsVec(groupsVec)
 , m_current(0)
 {
+	// always using cycling
+	m_bUseCycling = true;
+
+	// groups depends on whether there are any
+	m_bUseGroups = m_groupsVec.size() > 0;
 }
 
-FXImageStimSet::FXImageStimSet(std::vector<FXImageInfo>& vecInfo, int nlevels)
+FXImageStimSet::FXImageStimSet(const std::vector<FXImageInfo>& vecInfo, const FXGroupsVec& vecGroups, int nlevels)
 : FXStimSet()
 , m_nlevels(nlevels)
-, m_bUseCycling(true)
-, m_bUseGroups(false)
 , m_imagesInfo(vecInfo)
+, m_groupsVec(vecGroups)
 , m_current(0)
 {
-}
+	// always using cycling
+	m_bUseCycling = true;
 
-FXImageStimSet::FXImageStimSet(alert::ARContrastFixationPointSpec& fixpt, const std::vector<FXImageInfo>& vecInfo, const std::vector<FXGroupInfo>& vecGroups, int nlevels)
-: FXStimSet(fixpt)
-, m_nlevels(nlevels)
-, m_bUseCycling(true)
-, m_bUseGroups(true)
-, m_imagesInfo(vecInfo)
-, m_groupsInfo(vecGroups)
-, m_current(0)
-{
+	// groups depends on whether there are any
+	m_bUseGroups = m_groupsVec.size() > 0;
 }
 
 
@@ -194,6 +251,15 @@ std::string FXImageStimSet::toString() const
 			std::get<2>(infoTup) << "," <<
 			std::get<3>(infoTup) << "," <<
 			std::get<4>(infoTup) << std::endl;
+	}
+	oss << " Groups(" << m_groupsVec.size() << ")" << std::endl;
+	for (auto vec : m_groupsVec)
+	{
+		for (auto i : vec)
+		{
+			oss << i << " ";
+		}
+		oss << std::endl;
 	}
 	return oss.str();
 }
@@ -318,12 +384,12 @@ bool FXImageStimSet::loadPaletteFromImage(char *filename, int nlevels)
 	{
 		switch (ipal)
 		{
-		case vsgerrorERRORREADINGFILE: cerr << "get palette vsgerrorERRORREADINGFILE" << endl; break;
-		case vsgerrorUNSUPPORTEDIMAGETYPE: cerr << "get palette vsgerrorUNSUPPORTEDIMAGETYPE" << endl; break;
-		case vsgerrorUNSUPPORTEDBITMAPFORMAT: cerr << "get palette vsgerrorUNSUPPORTEDBITMAPFORMAT" << endl; break;
-		case vsgerrorOUTOFPCMEMORY: cerr << "get palette vsgerrorOUTOFPCMEMORY" << endl; break;
-		case vsgerrorIMAGEHASNOPALETTE: cerr << "get palette vsgerrorIMAGEHASNOPALETTE" << endl; break;
-		default: cerr << "get palette error: " << ipal << " filename " << filename << " len " << strlen(filename) << endl; break;
+		case vsgerrorERRORREADINGFILE: std::cerr << "get palette vsgerrorERRORREADINGFILE" << endl; break;
+		case vsgerrorUNSUPPORTEDIMAGETYPE: std::cerr << "get palette vsgerrorUNSUPPORTEDIMAGETYPE" << endl; break;
+		case vsgerrorUNSUPPORTEDBITMAPFORMAT: std::cerr << "get palette vsgerrorUNSUPPORTEDBITMAPFORMAT" << endl; break;
+		case vsgerrorOUTOFPCMEMORY: std::cerr << "get palette vsgerrorOUTOFPCMEMORY" << endl; break;
+		case vsgerrorIMAGEHASNOPALETTE: std::cerr << "get palette vsgerrorIMAGEHASNOPALETTE" << endl; break;
+		default: std::cerr << "get palette error: " << ipal << " filename " << filename << " len " << strlen(filename) << endl; break;
 		}
 		return false;
 	}
@@ -344,7 +410,7 @@ void FXImageStimSet::setupCycling(const FXImageInfo& info)
 
 	int framesStim = (int)( std::get<3>(info) / vsgGetSystemAttribute(vsgFRAMETIME) * 1000000.0 );
 	int framesDelay = (int)(std::get<4>(info) / vsgGetSystemAttribute(vsgFRAMETIME) * 1000000.0);
-	cerr << "FXImageStimSet::setupCycling: frames delay, stim = " << framesDelay << " " << framesStim << endl;
+	std::cerr << "FXImageStimSet::setupCycling: frames delay, stim = " << framesDelay << " " << framesStim << endl;
 
 	if (framesDelay > 0)
 	{
