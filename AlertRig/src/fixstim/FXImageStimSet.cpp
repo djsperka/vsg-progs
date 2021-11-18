@@ -192,9 +192,6 @@ FXImageStimSet::FXImageStimSet(alert::ARContrastFixationPointSpec& fixpt, const 
 , m_groupsVec(groupsVec)
 , m_current(0)
 {
-	// always using cycling
-	m_bUseCycling = true;
-
 	// groups depends on whether there are any
 	m_bUseGroups = m_groupsVec.size() > 0;
 }
@@ -206,9 +203,6 @@ FXImageStimSet::FXImageStimSet(const std::vector<FXImageInfo>& vecInfo, const FX
 , m_groupsVec(vecGroups)
 , m_current(0)
 {
-	// always using cycling
-	m_bUseCycling = true;
-
 	// groups depends on whether there are any
 	m_bUseGroups = m_groupsVec.size() > 0;
 }
@@ -290,7 +284,12 @@ int FXImageStimSet::handle_trigger(std::string& s)
 	else if (s == "S")
 	{
 		vsgSetDrawPage(vsgVIDEOPAGE, m_pageFixptStim, vsgNOCLEAR);
-		if (m_bUseCycling)
+		if (m_bUseGroups)
+		{
+			// I THINK THIS MIGHT NOT WORK, NOT MENTIONED IN DOCS
+			vsgSetSynchronisedCommand(vsgSYNC_PRESENT, vsgCYCLEPAGEENABLE + vsgCYCLELUTENABLE, 0);
+		}
+		else
 		{
 			vsgSetSynchronisedCommand(vsgSYNC_PRESENT, vsgCYCLEPAGEENABLE, 0);
 		}
@@ -299,16 +298,30 @@ int FXImageStimSet::handle_trigger(std::string& s)
 	else if (s == "a")
 	{
 		m_current++;
-		if (m_current == m_imagesInfo.size())
-			m_current = 0;
+		if (m_bUseGroups)
+		{
+			if (m_current == m_groupsVec.size())
+				m_current = 0;
+		}
+		else
+		{
+			if (m_current == m_imagesInfo.size())
+				m_current = 0;
+		}
 		drawCurrent();
 		status = 0;
 	}
 	else if (s == "X")
 	{
 		vsgSetDrawPage(vsgVIDEOPAGE, m_pageBlank, vsgNOCLEAR);
-		if (m_bUseCycling)
+		if (m_bUseGroups)
+		{
+			vsgSetCommand(vsgCYCLEPAGEDISABLE + vsgCYCLELUTDISABLE);
+		}
+		else
+		{
 			vsgSetCommand(vsgCYCLEPAGEDISABLE);
+		}
 		status = 1;
 	}
 	return status;
@@ -356,7 +369,6 @@ int FXImageStimSet::drawCurrent()
 
 		// Now setup page cycling
 		setupCycling(m_imagesInfo[m_current]);
-		m_bUseCycling = true;
 	}
 	else
 	{
@@ -385,15 +397,6 @@ int FXImageStimSet::drawCurrent()
 		}
 
 	}
-	//if (std::get<3>(m_imagesInfo[m_current]) <= 0)
-	//{
-	//	m_bUseCycling = false;
-	//}
-	//else
-	//{
-	//	setupCycling(m_imagesInfo[m_current]);
-	//}
-
 	return status;
 }
 

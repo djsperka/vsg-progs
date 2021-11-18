@@ -24,7 +24,6 @@ class FXImageStimSet :
 {
 private:
 	int m_nlevels;					// number of levels to reserve for image color table
-	bool m_bUseCycling;				// if precise stim time and bkgd time given for stim drawn by drawCurrent()
 	bool m_bUseGroups;				// If using stim groups
 	std::vector<FXImageInfo> m_imagesInfo;
 	FXGroupsVec m_groupsVec;
