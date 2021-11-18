@@ -33,7 +33,9 @@ private:
 	int m_pageBlank;
 	int m_pageFixpt;
 	int m_pageFixptStim;
+	std::vector<int> m_pageImages;
 	PIXEL_LEVEL m_levelImage;
+	VSGLUTBUFFER m_lutBufferBase;
 
 	FXImageStimSet();		// no default constructor
 	int drawCurrent();		// draw current stimulus page. After this, switching to m_pageFixptStim will display next stim image
@@ -47,7 +49,7 @@ public:
 
 	int num_pages()
 	{
-		return 3;
+		return 12;
 	}
 
 	int num_overlay_pages()

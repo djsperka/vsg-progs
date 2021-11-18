@@ -63,33 +63,10 @@ bool parseImageInputFile(std::vector<FXImageInfo>& vecInfo, FXGroupsVec& groupsV
 					{
 						doingImages = false;
 						haveGroups = true;
-
-						//// tokenize. Need to get timing info from this line
-						//vector<string> tokens;
-						//tokenize(line, tokens, " ");
-						//if (tokens.size() != 2)
-						//{
-						//	std::cerr << "Error - Groups line should have timing pair image_sec,fixpt_sec" << endl;
-						//	bReturn = false;
-						//}
-						//else
-						//{
-						//	if (parse_xy(tokens[1], dImageSec, dFixptSec))
-						//	{
-						//		std::cerr << "Error - cannot parse Groups - expecting imagesec,fixptsec" << endl;
-						//		bReturn = false;
-						//	}
-						//	else
-						//	{
-						//		groupsInfoStruct.fixptFrames = dFixptSec * 1.0e6 / vsgGetSystemAttribute(vsgFRAMETIME);
-						//		groupsInfoStruct.imageFrames = dImageSec * 1.0e6 / vsgGetSystemAttribute(vsgFRAMETIME);
-						//		std::cerr << "Got Groups imagesec/frames " << dImageSec << "/" << groupsInfoStruct.fixptFrames << " fixpt/frames " << dFixptSec << "/" << groupsInfoStruct.imageFrames << endl;
-						//	}
-						//}
 					}
 					else
 					{
-						// tokenize
+						// tokenize/parse this line. It should be one of the filename variants.
 						vector<string> tokens;
 						tokenize(line, tokens, ",");
 						if (tokens.size() == 0)
@@ -140,13 +117,16 @@ bool parseImageInputFile(std::vector<FXImageInfo>& vecInfo, FXGroupsVec& groupsV
 						}
 					}
 				}
-				else
+				else // This is the case doingImages == false
 				{
-					// If in this state, all lines should be groups of indexes, comma separated. 
+					// Expecting a group list, which is a comma-separated list of integers. 
+					// Each integer is the image index, referring to the list already loaded.
+					// 0,1,2
+					// 2,3,4
 					std::vector<int> imageGroup;
 					if (parse_int_list(line, imageGroup))
 					{
-						std::cerr << "Error - cannot parse line - expecting e.g. 1,2,3" << endl;
+						std::cerr << "Error - cannot parse Group line - expecting e.g. 1,2,3" << endl;
 						bReturn = false;
 					}
 					else
@@ -271,7 +251,12 @@ int FXImageStimSet::init(ARvsg& vsg, std::vector<int> pages)
 	m_pageFixpt = pages[1];
 	m_pageFixptStim = pages[2];
 
-	// get levels for image. Default is 230 for historical reasons. 
+	std::vector<int>::const_iterator first = pages.begin() + 2;
+	std::vector<int>::const_iterator last = pages.end();
+	m_pageImages = std::vector<int>(first, last);
+
+	// Reserve levels for image. Default is 230 for historical reasons, can be set on command line. 
+	// Assumption is that image files are indexed, and they only use levels 0-229. The rest are reserved for VSG OAS. 
 	vsg.request_range(m_nlevels, m_levelImage);
 
 	if (has_fixpt())
@@ -280,6 +265,15 @@ int FXImageStimSet::init(ARvsg& vsg, std::vector<int> pages)
 		fixpt().setContrast(100);
 	}
 
+	// Now get a copy of the palette. We'll combine the OAS levels from here with the palette loaded from the image
+	// to produce the LUT used in the animation.
+	vsgPaletteRead(&m_lutBufferBase);	// the levels above m_??? are copied from here to the image file LUTs
+
+	std::cerr << "fixpt levels " << fixpt().getFirstLevel() << ":" << fixpt().getNumLevels() << std::endl;
+	std::cerr << "bkgd color " << m_lutBufferBase[vsgBACKGROUND].a << " " << m_lutBufferBase[vsgBACKGROUND].b << " " << m_lutBufferBase[vsgBACKGROUND].c << std::endl;
+	std::cerr << "vsgBACKGROUND" << vsgBACKGROUND << std::endl;
+
+	vsgSetDrawPage(vsgVIDEOPAGE, m_pageBlank, vsgBACKGROUND);
 	status = drawCurrent();
 
 	return status;
@@ -321,7 +315,7 @@ int FXImageStimSet::handle_trigger(std::string& s)
 }
 
 
-// Leaves current draw page as the blank page.
+// Leaves current draw page (m_current is the index to use, depends on whether we use groups or not) as the blank page.
 int FXImageStimSet::drawCurrent()
 {
 	static int ihack = 0;
@@ -335,31 +329,62 @@ int FXImageStimSet::drawCurrent()
 		fixpt().draw();
 	}
 
-	// fixpt + stim page
-	vsgSetDrawPage(vsgVIDEOPAGE, m_pageFixptStim, vsgBACKGROUND);
-
-	char filename[1024];
-	int mode = vsgGetSystemAttribute(vsgVIDEOMODE);
-	string sfilename = std::get<0>(m_imagesInfo[m_current]);
-	strncpy_s(filename, 1024, sfilename.c_str(), sizeof(filename));
-
-	// load palette
-	loadPaletteFromImage(filename, m_nlevels);
-
-	// draw
-	diStatus = vsgDrawImage(vsgBMPPICTURE, std::get<1>(m_imagesInfo[m_current]), -1 * std::get<2>(m_imagesInfo[m_current]), filename);
-
-	if (has_fixpt())
+	// What we do next depends on whether groups are used or not.
+	if (!m_bUseGroups)
 	{
-		fixpt().draw();
+
+		// fixpt + stim page
+		vsgSetDrawPage(vsgVIDEOPAGE, m_pageFixptStim, vsgBACKGROUND);
+
+		char filename[1024];
+		int mode = vsgGetSystemAttribute(vsgVIDEOMODE);
+		string sfilename = std::get<0>(m_imagesInfo[m_current]);
+		strncpy_s(filename, 1024, sfilename.c_str(), sizeof(filename));
+
+		// load palette
+		loadPaletteFromImage(filename, m_nlevels);
+
+		// draw
+		diStatus = vsgDrawImage(vsgBMPPICTURE, std::get<1>(m_imagesInfo[m_current]), -1 * std::get<2>(m_imagesInfo[m_current]), filename);
+
+		if (has_fixpt())
+		{
+			fixpt().draw();
+		}
+
+		vsgSetDrawPage(vsgVIDEOPAGE, m_pageBlank, vsgBACKGROUND);
+
+		// Now setup page cycling
+		setupCycling(m_imagesInfo[m_current]);
+		m_bUseCycling = true;
 	}
+	else
+	{
+		// set up a page for each image in the group, with image and fixpt.
+		for (unsigned int i = 0; i < m_groupsVec[m_current].size(); i++)
+		{
+			vsgSetDrawPage(vsgVIDEOPAGE, m_pageImages[i], vsgBACKGROUND);
 
-	vsgSetDrawPage(vsgVIDEOPAGE, m_pageBlank, vsgBACKGROUND);
+			char filename[1024];
+			int imageIndex = m_groupsVec[m_current][i];
+			int mode = vsgGetSystemAttribute(vsgVIDEOMODE);
+			string sfilename = std::get<0>(m_imagesInfo[imageIndex]);
+			strncpy_s(filename, 1024, sfilename.c_str(), sizeof(filename));
 
-	// cycling?
-	setupCycling(m_imagesInfo[m_current]);
-	m_bUseCycling = true;
+			// load palette and put it into the LUT buffer, at index 'i'
+//			loadPaletteToLUTBuffer(filename, )
+			loadPaletteFromImage(filename, m_nlevels);
 
+			// draw
+			diStatus = vsgDrawImage(vsgBMPPICTURE, std::get<1>(m_imagesInfo[m_current]), -1 * std::get<2>(m_imagesInfo[m_current]), filename);
+
+			if (has_fixpt())
+			{
+				fixpt().draw();
+			}
+		}
+
+	}
 	//if (std::get<3>(m_imagesInfo[m_current]) <= 0)
 	//{
 	//	m_bUseCycling = false;
