@@ -521,7 +521,7 @@ void FXImageStimSet::setupCyclingForCurrentGroup()
 		if (framesStim > 0)
 		{
 			cycle[count].Frames = framesStim;
-			cycle[count].Page = m_pageImages[i]; // +vsgTRIGGERPAGE; TEMP - do not trigger on transitions to stim pages. Testing triggers from LUT cycling.
+			cycle[count].Page = m_pageImages[i]+vsgTRIGGERPAGE;
 			cycle[count].Stop = 0;
 			count++;
 		}
@@ -545,7 +545,7 @@ void FXImageStimSet::setupCyclingForCurrentGroup()
 	// 	   fixpt page) after 'framesStim', remain on the fixpt page for 'framesDelay', and then transition to the next image page.
 	// 	   This works because of the way we split the levels between the images and the vsg stuff (fixpt and bkgd colors)
 
-	status = vsgLUTBUFFERCyclingSetup(m_groupsVec[m_current].size(), framesStim + framesDelay, 0, m_groupsVec[m_current].size() - 1, 1, 0, 2);
+	status = vsgLUTBUFFERCyclingSetup(m_groupsVec[m_current].size(), framesStim + framesDelay, 0, m_groupsVec[m_current].size() - 1, 1, 0, -1);
 	std::cerr << "vsgLUTBUFFERCyclingSetup status " << status << " delay "  << framesStim + framesDelay << " " << m_groupsVec[m_current].size() - 1 << endl;
 
 }
