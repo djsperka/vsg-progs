@@ -39,7 +39,8 @@ private:
 	FXImageStimSet();		// no default constructor
 	int drawCurrent();		// draw current stimulus page. After this, switching to m_pageFixptStim will display next stim image
 	void setupCycling(const FXImageInfo& info);
-	bool loadPaletteFromImage(char *filename, int nlevels);
+	void setupCyclingForCurrentGroup();
+	bool loadPaletteFromImage(VSGLUTBUFFER& lut, char *filename);
 
 public:
 	virtual ~FXImageStimSet();

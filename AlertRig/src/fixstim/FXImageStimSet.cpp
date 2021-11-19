@@ -287,7 +287,10 @@ int FXImageStimSet::handle_trigger(std::string& s)
 		if (m_bUseGroups)
 		{
 			// I THINK THIS MIGHT NOT WORK, NOT MENTIONED IN DOCS
-			vsgSetSynchronisedCommand(vsgSYNC_PRESENT, vsgCYCLEPAGEENABLE + vsgCYCLELUTENABLE, 0);
+			//vsgSetSynchronisedCommand(vsgSYNC_PRESENT, vsgCYCLEPAGEENABLE + vsgCYCLELUTENABLE, 0);
+
+			// this should work, uncertain timing
+			vsgSetCommand(vsgCYCLELUTENABLE + vsgCYCLEPAGEENABLE);
 		}
 		else
 		{
@@ -334,6 +337,7 @@ int FXImageStimSet::drawCurrent()
 	static int ihack = 0;
 	int status = 0;
 	int diStatus;
+	char filename[1024];
 
 	// fixpt page
 	vsgSetDrawPage(vsgVIDEOPAGE, m_pageFixpt, vsgBACKGROUND);
@@ -349,13 +353,15 @@ int FXImageStimSet::drawCurrent()
 		// fixpt + stim page
 		vsgSetDrawPage(vsgVIDEOPAGE, m_pageFixptStim, vsgBACKGROUND);
 
-		char filename[1024];
-		int mode = vsgGetSystemAttribute(vsgVIDEOMODE);
-		string sfilename = std::get<0>(m_imagesInfo[m_current]);
-		strncpy_s(filename, 1024, sfilename.c_str(), sizeof(filename));
+		//string sfilename = std::get<0>(m_imagesInfo[m_current]);
+		strncpy_s(filename, 1024, std::get<0>(m_imagesInfo[m_current]).c_str(), sizeof(filename));
 
-		// load palette
-		loadPaletteFromImage(filename, m_nlevels);
+		// load palette, then copy the image levels to the hardware palette. 
+		VSGLUTBUFFER lut;
+		if (loadPaletteFromImage(lut, filename))
+			vsgPaletteWrite((VSGLUTBUFFER*)lut, 0, m_nlevels);
+		else
+			return -1;
 
 		// draw
 		diStatus = vsgDrawImage(vsgBMPPICTURE, std::get<1>(m_imagesInfo[m_current]), -1 * std::get<2>(m_imagesInfo[m_current]), filename);
@@ -372,37 +378,47 @@ int FXImageStimSet::drawCurrent()
 	}
 	else
 	{
-		// set up a page for each image in the group, with image and fixpt.
-		for (unsigned int i = 0; i < m_groupsVec[m_current].size(); i++)
+		// set up a page for each image in the group, with image and fixpt. Pages to be displayed (setupCycling) 
+		// are m_pageImages[i], i=0,..., one for each member of group
+		for (unsigned int iGroupMember = 0; iGroupMember < m_groupsVec[m_current].size(); iGroupMember++)
 		{
-			vsgSetDrawPage(vsgVIDEOPAGE, m_pageImages[i], vsgBACKGROUND);
+			vsgSetDrawPage(vsgVIDEOPAGE, m_pageImages[iGroupMember], vsgBACKGROUND);
 
 			char filename[1024];
-			int imageIndex = m_groupsVec[m_current][i];
-			int mode = vsgGetSystemAttribute(vsgVIDEOMODE);
-			string sfilename = std::get<0>(m_imagesInfo[imageIndex]);
-			strncpy_s(filename, 1024, sfilename.c_str(), sizeof(filename));
+			int imageIndex = m_groupsVec[m_current][iGroupMember];
+			strncpy_s(filename, 1024, std::get<0>(m_imagesInfo[imageIndex]).c_str(), sizeof(filename));
 
-			// load palette and put it into the LUT buffer, at index 'i'
-//			loadPaletteToLUTBuffer(filename, )
-			loadPaletteFromImage(filename, m_nlevels);
+			// draw image. Palette will be loaded (below) to LUT buffer array for animation
+			std::cerr << "Draw image " << filename << " on video page " << m_pageImages[iGroupMember] << std::endl;
+			diStatus = vsgDrawImage(vsgBMPPICTURE, std::get<1>(m_imagesInfo[imageIndex]), -1 * std::get<2>(m_imagesInfo[imageIndex]), filename);
 
-			// draw
-			diStatus = vsgDrawImage(vsgBMPPICTURE, std::get<1>(m_imagesInfo[m_current]), -1 * std::get<2>(m_imagesInfo[m_current]), filename);
+			// load palette from image,load into lut buffer array
+			VSGLUTBUFFER lut;
+			if (loadPaletteFromImage(lut, filename))
+			{
+				// copy levels from base lut
+				for (int ilevel = m_nlevels; ilevel < 255; ilevel++)
+				{
+					lut[ilevel] = m_lutBufferBase[ilevel];
+				}
+				vsgLUTBUFFERWrite(iGroupMember, &lut);
+			}
+			else
+				return -1;
+
 
 			if (has_fixpt())
 			{
 				fixpt().draw();
 			}
 		}
-
+		setupCyclingForCurrentGroup();
 	}
 	return status;
 }
 
-bool FXImageStimSet::loadPaletteFromImage(char *filename, int nlevels)
+bool FXImageStimSet::loadPaletteFromImage(VSGLUTBUFFER& palImage, char *filename)
 {
-	VSGLUTBUFFER palImage;	// loaded from image
 	int ipal;
 
 	// load palette
@@ -421,8 +437,8 @@ bool FXImageStimSet::loadPaletteFromImage(char *filename, int nlevels)
 		}
 		return false;
 	}
-	else
-		vsgPaletteWrite((VSGLUTBUFFER*)palImage, 0, nlevels);
+//	else
+//		vsgPaletteWrite((VSGLUTBUFFER*)palImage, 0, nlevels);
 
 	return true;
 }
@@ -466,6 +482,72 @@ void FXImageStimSet::setupCycling(const FXImageInfo& info)
 		count++;
 	}
 	status = vsgPageCyclingSetup(count, &cycle[0]);
+}
+
+
+
+void FXImageStimSet::setupCyclingForCurrentGroup()
+{
+	VSGCYCLEPAGEENTRY cycle[12];	// warning! No check on usage. You have been warned. 
+	int status = 0;
+	int count = 0;
+	FXImageInfo first = m_imagesInfo[m_groupsVec[m_current][0]];
+
+	memset(cycle, 0, sizeof(cycle));
+
+	// decide on the delay and duration. 
+	// We will take the values from the first image in the group, but check that all images have 
+	// the same values. If the input file has no values for delay and duration, then the values from 
+	// command line arg are used (which is probably the way to run when using groups). 
+
+	int framesStim = (int)(std::get<3>(first) / vsgGetSystemAttribute(vsgFRAMETIME) * 1000000.0);
+	int framesDelay = (int)(std::get<4>(first) / vsgGetSystemAttribute(vsgFRAMETIME) * 1000000.0);
+
+	// check that all have same value
+	for (auto ind : m_groupsVec[m_current])
+	{
+		FXImageInfo info = m_imagesInfo[m_groupsVec[m_current][ind]];
+		int S = (int)(std::get<3>(info) / vsgGetSystemAttribute(vsgFRAMETIME) * 1000000.0);
+		int D = (int)(std::get<4>(info) / vsgGetSystemAttribute(vsgFRAMETIME) * 1000000.0);
+		if (S != framesStim || D != framesDelay)
+		{
+			cerr << "WARNING! All images do not have same delay,duration. Input file should not have these values set for individual files" << endl;
+		}
+	}
+	std::cerr << "FXImageStimSet::setupCycling: frames delay, stim = " << framesDelay << " " << framesStim << endl;
+
+	for (int i=0; i<m_groupsVec[m_current].size(); i++)
+	{
+		if (framesStim > 0)
+		{
+			cycle[count].Frames = framesStim;
+			cycle[count].Page = m_pageImages[i]; // +vsgTRIGGERPAGE; TEMP - do not trigger on transitions to stim pages. Testing triggers from LUT cycling.
+			cycle[count].Stop = 0;
+			count++;
+		}
+		if (framesDelay > 0 && i < m_groupsVec[m_current].size()-1)		// don't draw fixpt period after last image
+		{
+			cycle[count].Frames = framesDelay;
+			cycle[count].Page = m_pageFixpt + vsgTRIGGERPAGE;
+			cycle[count].Stop = 0;
+			count++;
+		}
+	}
+	cycle[count].Frames = 0;
+	cycle[count].Page = m_pageBlank + vsgTRIGGERPAGE;
+	cycle[count].Stop = 1;
+	count++;
+	status = vsgPageCyclingSetup(count, &cycle[0]);
+
+	//	Setup LUT buffer cycling
+	// 	   The # of the LUTs stored is the same as the elements place in the group.
+	// 	   Cycling through them in order. LUTs will change every 'framesStim+framesDelay', but the page will change (always to the 
+	// 	   fixpt page) after 'framesStim', remain on the fixpt page for 'framesDelay', and then transition to the next image page.
+	// 	   This works because of the way we split the levels between the images and the vsg stuff (fixpt and bkgd colors)
+
+	status = vsgLUTBUFFERCyclingSetup(m_groupsVec[m_current].size(), framesStim + framesDelay, 0, m_groupsVec[m_current].size() - 1, 1, 0, 2);
+	std::cerr << "vsgLUTBUFFERCyclingSetup status " << status << " delay "  << framesStim + framesDelay << " " << m_groupsVec[m_current].size() - 1 << endl;
+
 }
 
 
