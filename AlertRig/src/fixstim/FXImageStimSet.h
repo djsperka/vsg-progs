@@ -35,6 +35,7 @@ private:
 	std::vector<int> m_pageImages;
 	PIXEL_LEVEL m_levelImage;
 	VSGLUTBUFFER m_lutBufferBase;
+	COLOR_TYPE m_backgroundColorSaved;
 
 	FXImageStimSet();		// no default constructor
 	int drawCurrent();		// draw current stimulus page. After this, switching to m_pageFixptStim will display next stim image

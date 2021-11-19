@@ -4,6 +4,8 @@
 #include <boost/filesystem.hpp>
 #include <boost/algorithm/string.hpp>
 
+const DWORD f_truecolorGray = 127 * (1 + 256 + 256 * 256);
+
 
 
 bool parseImageInputFile(std::vector<FXImageInfo>& vecInfo, FXGroupsVec& groupsVec, const std::string& filename, double xDefault = 0, double yDefault = 0, double durationDefault = 0, double delayDefault = 0)
@@ -238,6 +240,14 @@ std::string FXImageStimSet::toString() const
 	return oss.str();
 }
 
+void FXImageStimSet::cleanup(std::vector<int> pages)
+{
+	cerr << "In cleanup" << endl;
+	vsgSetBackgroundColour(&m_backgroundColorSaved.trival());
+	vsgSetVideoMode(vsg8BITPALETTEMODE);
+}
+
+
 int FXImageStimSet::init(ARvsg& vsg, std::vector<int> pages)
 {
 	int status = 0;
@@ -249,6 +259,10 @@ int FXImageStimSet::init(ARvsg& vsg, std::vector<int> pages)
 	std::vector<int>::const_iterator last = pages.end();
 	m_pageImages = std::vector<int>(first, last);
 
+	// save background color for cleanup
+	m_backgroundColorSaved = vsg.background_color();
+
+#if 0
 	// Reserve levels for image. Default is 230 for historical reasons, can be set on command line. 
 	// Assumption is that image files are indexed, and they only use levels 0-229. The rest are reserved for VSG OAS. 
 	vsg.request_range(m_nlevels, m_levelImage);
@@ -268,6 +282,16 @@ int FXImageStimSet::init(ARvsg& vsg, std::vector<int> pages)
 	std::cerr << "vsgBACKGROUND" << vsgBACKGROUND << std::endl;
 
 	vsgSetDrawPage(vsgVIDEOPAGE, m_pageBlank, vsgBACKGROUND);
+#endif
+
+	// Set the VSG to True colour mode
+	// should this also set vsgNOGAMMACORRECT?
+	vsgSetVideoMode(vsgTRUECOLOURMODE);
+
+	//Disable all of the draw modes.
+	vsgSetDrawMode(vsgCENTREXY);
+
+
 	status = drawCurrent();
 
 	return status;
@@ -340,10 +364,10 @@ int FXImageStimSet::drawCurrent()
 	char filename[1024];
 
 	// fixpt page
-	vsgSetDrawPage(vsgVIDEOPAGE, m_pageFixpt, vsgBACKGROUND);
+	vsgSetDrawPage(vsgVIDEOPAGE, m_pageFixpt, f_truecolorGray);
 	if (has_fixpt())
 	{
-		fixpt().draw();
+		fixpt().ARFixationPointSpec::draw();
 	}
 
 	// What we do next depends on whether groups are used or not.
@@ -351,27 +375,29 @@ int FXImageStimSet::drawCurrent()
 	{
 
 		// fixpt + stim page
-		vsgSetDrawPage(vsgVIDEOPAGE, m_pageFixptStim, vsgBACKGROUND);
+		vsgSetDrawPage(vsgVIDEOPAGE, m_pageFixptStim, f_truecolorGray);
 
 		//string sfilename = std::get<0>(m_imagesInfo[m_current]);
 		strncpy_s(filename, 1024, std::get<0>(m_imagesInfo[m_current]).c_str(), sizeof(filename));
 
+#if 0
 		// load palette, then copy the image levels to the hardware palette. 
 		VSGLUTBUFFER lut;
 		if (loadPaletteFromImage(lut, filename))
 			vsgPaletteWrite((VSGLUTBUFFER*)lut, 0, m_nlevels);
 		else
 			return -1;
+#endif
 
 		// draw
-		diStatus = vsgDrawImage(vsgBMPPICTURE, std::get<1>(m_imagesInfo[m_current]), -1 * std::get<2>(m_imagesInfo[m_current]), filename);
+		diStatus = vsgDrawImage(vsgBMPPICTURE + vsgPALETTELOAD, std::get<1>(m_imagesInfo[m_current]), -1 * std::get<2>(m_imagesInfo[m_current]), filename);
 
 		if (has_fixpt())
 		{
-			fixpt().draw();
+			fixpt().ARFixationPointSpec::draw();
 		}
 
-		vsgSetDrawPage(vsgVIDEOPAGE, m_pageBlank, vsgBACKGROUND);
+		vsgSetDrawPage(vsgVIDEOPAGE, m_pageBlank, f_truecolorGray);
 
 		// Now setup page cycling
 		setupCycling(m_imagesInfo[m_current]);
@@ -382,7 +408,7 @@ int FXImageStimSet::drawCurrent()
 		// are m_pageImages[i], i=0,..., one for each member of group
 		for (unsigned int iGroupMember = 0; iGroupMember < m_groupsVec[m_current].size(); iGroupMember++)
 		{
-			vsgSetDrawPage(vsgVIDEOPAGE, m_pageImages[iGroupMember], vsgBACKGROUND);
+			vsgSetDrawPage(vsgVIDEOPAGE, m_pageImages[iGroupMember], f_truecolorGray);
 
 			char filename[1024];
 			int imageIndex = m_groupsVec[m_current][iGroupMember];
@@ -576,7 +602,3 @@ void FXImageStimSet::setupCyclingForCurrentGroup()
 //
 //	status = vsgPageCyclingSetup(count, &cycle[0]);
 //}
-
-void FXImageStimSet::cleanup(std::vector<int> pages)
-{
-}
