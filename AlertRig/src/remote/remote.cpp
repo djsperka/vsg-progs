@@ -5,21 +5,7 @@
 #include <sstream>
 #include "BlockingTCPClientSend.h"
 
-//#include "snet.h"
-//#include "UDPServer.h"
-//#include "UDPClient.h"
-
 using namespace std;
-
-// libs
-
-//#ifdef _DEBUG
-//#pragma comment(lib, "dsnet.lib")
-//#else
-//#pragma comment(lib, "snet.lib")
-//#endif
-
-
 
 int main(int argc, char **argv)
 {

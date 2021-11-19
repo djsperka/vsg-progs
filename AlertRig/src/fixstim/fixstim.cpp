@@ -22,8 +22,6 @@ using namespace boost::placeholders;
 #include "stdafx.h"
 #include "ASLSerial.h"
 
-/* Have to include snet.h before vsgv8.h */
-//#include "snet.h"
 #include "vsgv8.h"
 
 /* for multithreading */
