@@ -320,10 +320,6 @@
       <Project>{e7d13d4d-a7ad-46b3-a513-bc9b6297e6d3}</Project>
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
     </ProjectReference>
-    <ProjectReference Include="..\snetlib\snetlib.vcxproj">
-      <Project>{0400791a-8508-4d77-b298-5438b5caa3a1}</Project>
-      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
-    </ProjectReference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
