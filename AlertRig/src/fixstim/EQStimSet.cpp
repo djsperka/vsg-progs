@@ -1,4 +1,3 @@
-#include "ClientNetwork.h"
 #include "EQStimSet.h"
 #include <iostream>
 #include <boost/filesystem.hpp>
@@ -286,6 +285,7 @@ int parse_eqparams(const string& s, int nstim, struct EQParams& params)
 	return 0;
 }
 
+#if 0
 void sendEEGSignal(int ival, ClientNetwork& client)
 {
 	char msg[48];
@@ -294,6 +294,7 @@ void sendEEGSignal(int ival, ClientNetwork& client)
 	client.sendMessage(msg, len);
 	return;
 }
+#endif
 
 EQStimSet::EQStimSet(ARContrastFixationPointSpec& fixpt, std::vector<alert::ARGratingSpec>& vecGratings, vector<EQParams>& params, const char *pIPPort)
 : FXMultiGStimSet(fixpt)
@@ -311,6 +312,7 @@ EQStimSet::EQStimSet(ARContrastFixationPointSpec& fixpt, std::vector<alert::ARGr
 		it++;
 	}
 
+#if 0
 	if (pIPPort)
 	{
 		vector<string> strs;
@@ -324,12 +326,16 @@ EQStimSet::EQStimSet(ARContrastFixationPointSpec& fixpt, std::vector<alert::ARGr
 			m_pEEGClient = new ClientNetwork(ip, port);
 		}
 	}
+#endif
+
 };
 
 EQStimSet::~EQStimSet()
 {
+#if 0
 	if (m_pEEGClient)
 		delete m_pEEGClient;
+#endif
 }
 
 int EQStimSet::init(ARvsg& vsg, std::vector<int> pages)
@@ -811,8 +817,10 @@ int EQStimSet::handle_trigger(std::string& s)
 	int status = 0;
 	if (s == "F")
 	{
+#if 0
 		if (m_pEEGClient)
 			sendEEGSignal(1, *m_pEEGClient);
+#endif
 		vsgSetDrawPage(vsgVIDEOPAGE, m_pageFixpt, vsgNOCLEAR);
 		status = 1;
 	}
@@ -824,8 +832,10 @@ int EQStimSet::handle_trigger(std::string& s)
 			vsgObjSetSpatialPhase(grating(i).phase);
 			vsgObjResetDriftPhase();
 		}
+#if 0
 		if (m_pEEGClient)
 			sendEEGSignal(2, *m_pEEGClient);
+#endif
 		vsgSetSynchronisedCommand(vsgSYNC_PRESENT, vsgCYCLEPAGEENABLE, 0);
 		status = 1;
 	}
@@ -844,8 +854,10 @@ int EQStimSet::handle_trigger(std::string& s)
 //		palDiff();
 		vsgSetCommand(vsgCYCLEPAGEDISABLE);
 		vsgSetDrawPage(vsgVIDEOPAGE, m_pageBlank, vsgNOCLEAR);
+#if 0
 		if (m_pEEGClient)
 			sendEEGSignal(3, *m_pEEGClient);
+#endif
 		status = 1;
 	}
 	else if (s.at(0) > '0' && s.at(0) < '8')
