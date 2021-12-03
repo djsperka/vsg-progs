@@ -1,0 +1,19 @@
+Windows Registry Editor Version 5.00
+
+;;; This registry file must be loaded to a machine before the ASL ActiveX component will work with a 64 bit version of fixstim. 
+;;; to register, load it with the 32-bit version of regedit.
+;;;
+;;; c:\windows\sysWow64\regedit.exe  C:\Path\To\asl-registry-hack.reg
+
+;;; Add AppID key
+[HKEY_CLASSES_ROOT\AppID\{9A777A5F-2C6E-44C3-BE85-259891AC8210}]
+"DllSurrogate"=""
+
+;;; add AppID to ASLSErialOutPort2 class
+[HKEY_CLASSES_ROOT\CLSID\{9A777A5F-2C6E-44C3-BE85-259891AC8210}]
+"AppID"="{9A777A5F-2C6E-44C3-BE85-259891AC8210}"
+
+;;; add AppID to ASLSErialOutPort3 class
+[HKEY_CLASSES_ROOT\CLSID\{E8697DF4-FEF7-4CD0-8AAD-F0FB0A1A332D}]
+"AppID"="{9A777A5F-2C6E-44C3-BE85-259891AC8210}"
+
