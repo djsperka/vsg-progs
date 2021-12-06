@@ -6,25 +6,15 @@
     <VSGInclude Condition="'$(Platform)'=='Win32'">$(VSG_INCLUDE_PATH)</VSGInclude>
     <BoostInclude Condition="'$(Platform)'=='x64'">$(BOOST_INCLUDE_PATH_64)</BoostInclude>
     <BoostInclude Condition="'$(Platform)'=='Win32'">$(BOOST_INCLUDE_PATH)</BoostInclude>
-    <QTInclude Condition="'$(Platform)'=='x64'">$(QT_INCLUDE_PATH_64)</QTInclude>
-    <QTInclude Condition="'$(Platform)'=='Win32'">$(QT_INCLUDE_PATH)</QTInclude>
-    <ASLInclude Condition="'$(Platform)'=='x64'">$(ASL_INCLUDE_PATH_64)</ASLInclude>
+	<ASLInclude Condition="'$(Platform)'=='x64'">$(ASL_INCLUDE_PATH_64)</ASLInclude>
     <ASLInclude Condition="'$(Platform)'=='Win32'">$(ASL_INCLUDE_PATH)</ASLInclude>
     <AlertInclude>$(SolutionDir)include</AlertInclude>
-    <FTDIInclude Condition="'$(Platform)'=='x64'">$(FTDI_INCLUDE_PATH_64)</FTDIInclude>
-    <FTDIInclude Condition="'$(Platform)'=='Win32'">$(FTDI_INCLUDE_PATH)</FTDIInclude>
     <VSGLib Condition="'$(Platform)'=='x64'">$(VSG_LIB_PATH_64)</VSGLib>
     <VSGLib Condition="'$(Platform)'=='Win32'">$(VSG_LIB_PATH)</VSGLib>
     <BoostLib Condition="'$(Platform)'=='x64'">$(BOOST_LIB_PATH_64)</BoostLib>
     <BoostLib Condition="'$(Platform)'=='Win32'">$(BOOST_LIB_PATH)</BoostLib>
-    <QTLib Condition="'$(Platform)'=='x64'">$(QT_LIB_PATH_64)</QTLib>
-    <QTLib Condition="'$(Platform)'=='Win32'">$(QT_LIB_PATH)</QTLib>
-    <ASLLib Condition="'$(Platform)'=='x64'">$(ASL_LIB_PATH_64)</ASLLib>
-    <ASLLib Condition="'$(Platform)'=='Win32'">$(ASL_LIB_PATH)</ASLLib>
     <AlertLib Condition="'$(Platform)'=='x64'">$(SolutionDir)..\lib64</AlertLib>
     <AlertLib Condition="'$(Platform)'=='Win32'">$(SolutionDir)..\lib</AlertLib>
-    <FTDILib Condition="'$(Platform)'=='x64'">$(FTDI_LIB_PATH_64)</FTDILib>
-    <FTDILib Condition="'$(Platform)'=='Win32'">$(FTDI_LIB_PATH)</FTDILib>
 	<AlertBinPath Condition="'$(Platform)'=='x64'">$(ALERT_DEPLOYMENT_ROOT)\bin64</AlertBinPath>
 	<AlertBinPath Condition="'$(Platform)'=='Win32'">$(ALERT_DEPLOYMENT_ROOT)\bin</AlertBinPath>
 	<Deployables>$(OutDir)fixstim.exe,$(OutDir)remote.exe,$(OutDir)CableTest.exe</Deployables>
@@ -43,10 +33,10 @@
   </PropertyGroup>
   <ItemDefinitionGroup>
     <ClCompile>
-      <AdditionalIncludeDirectories>$(SolutionDir)\..\include;$(BoostInclude);$(VSGInclude);$(ASLInclude);$(QtInclude);$(FTDIInclude)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)\..\include;$(BoostInclude);$(VSGInclude);$(ASLInclude)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
-      <AdditionalLibraryDirectories>$(AlertLib);$(BoostLib);$(VSGLib);$(ASLLib);$(QtLib);$(FTDILib);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(AlertLib);$(BoostLib);$(VSGLib);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies Condition="'$(Configuration)'=='Release'">alert.lib;VSGV8.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalDependencies Condition="'$(Configuration)'=='Debug'">dalert.lib;VSGV8.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
