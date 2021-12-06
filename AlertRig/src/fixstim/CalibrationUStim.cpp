@@ -6,9 +6,9 @@ const string CalibrationUStim::m_allowedArgs("b:c:d:f:i:p:vC:");
 static int f_errflg = 0;
 
 
-CalibrationUStim::CalibrationUStim(IASLSerialOutPort3* gpISerialOutPort)
+CalibrationUStim::CalibrationUStim()
 : UStim()
-, m_gpISerialOutPort(gpISerialOutPort)
+, m_gpISerialOutPort(nullptr)
 , m_verbose(false)
 , m_pulse(0x4)
 , m_screenDistanceMM(-1)
@@ -16,10 +16,56 @@ CalibrationUStim::CalibrationUStim(IASLSerialOutPort3* gpISerialOutPort)
 , m_dCalibrationOffset(5)
 {};
 
+int CalibrationUStim::init_calibration()
+{
+	int status = 0;
+
+	// COM initialzation
+	CoInitialize(NULL);
+
+	// initialize MFC and print and error on failure
+	if (!AfxWinInit(::GetModuleHandle(NULL), NULL, ::GetCommandLine(), 0))
+	{
+		// TODO: change error code to suit your needs
+		cerr << _T("Fatal Error: MFC initialization failed") << endl;
+		status = -1;
+	}
+	else
+	{
+		// Create COM object
+		// The call to CoCreateInstance uses CLSCTX_LOCAL_SERVER, which means the server dll is being 
+		// loaded elsewhere (not by this program). The ASL dll is 32-bit, so some registry magic is done
+		// so it is loaded by dllhost.exe and is accessible by a 64 bit program. 
+
+		HRESULT hr = CoCreateInstance(CLSID_ASLSerialOutPort3, NULL, CLSCTX_LOCAL_SERVER,
+			IID_IASLSerialOutPort3, (void**)&m_gpISerialOutPort);
+		if (FAILED(hr))
+		{
+			cerr << "Error creating COM Server ASLSerialOutLib3 (" << hr << ")" << endl;
+			if (hr == S_OK) cerr << "S_OK" << endl;
+			else if (hr == REGDB_E_CLASSNOTREG)
+			{
+				CComBSTR bsError;
+				m_gpISerialOutPort->GetLastError(&bsError);
+				CString strError = bsError;
+				cerr << "REGDB_E_CLASSNOTREG" << endl;
+				cerr << bsError << endl;
+			}
+			else if (hr == CLASS_E_NOAGGREGATION) cerr << "CLASS_E_NOAGGREGATION" << endl;
+			else if (hr == E_NOINTERFACE) cerr << "E_NOINTERFACE" << endl;
+			else cerr << "unknown error " << hr << endl;
+			status = 1;
+		}
+	}
+	return status;
+}
+
 
 void CalibrationUStim::run_stim(alert::ARvsg& vsg)
 {
-	cout << "CalibrationUStim: running." << endl;
+	cout << "CalibrationUStim: init ASL COM thing..." << endl;
+
+	init_calibration();
 
 	// set screen distance
 	vsg.setViewDistMM(m_screenDistanceMM);
@@ -51,7 +97,7 @@ void CalibrationUStim::run_stim(alert::ARvsg& vsg)
 
 	// Initialize VSG card or cards
 
-	if (init_calibration())
+	if (init_vsg_for_calibration())
 	{
 		cerr << "VSG initialization failed." << endl;
 		return;
@@ -145,6 +191,9 @@ void CalibrationUStim::run_stim(alert::ARvsg& vsg)
 	}
 	aslserial_disconnect(m_gpISerialOutPort);
 
+	// turn off the com stuff
+	CoUninitialize();
+
 	return;
 }
 
@@ -156,7 +205,7 @@ int CalibrationUStim::callback(int &output, const FunctorCallbackTrigger* ptrig)
 }
 
 
-int CalibrationUStim::init_calibration()
+int CalibrationUStim::init_vsg_for_calibration()
 {
 	int status=0;
 	vsgSetDrawPage(vsgVIDEOPAGE, 1, vsgBACKGROUND);

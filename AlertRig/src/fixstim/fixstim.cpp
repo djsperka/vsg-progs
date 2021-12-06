@@ -126,6 +126,8 @@ BOOL CtrlHandler( DWORD fdwCtrlType )
   }
 }
 
+
+#if 0
 int init_calibration()
 {
 	int status = 0;
@@ -143,7 +145,7 @@ int init_calibration()
 	else
 	{
 		// Create COM object
-		HRESULT hr = CoCreateInstance(CLSID_ASLSerialOutPort3, NULL, CLSCTX_INPROC_SERVER,
+		HRESULT hr = CoCreateInstance(CLSID_ASLSerialOutPort3, NULL, CLSCTX_LOCAL_SERVER,
 			IID_IASLSerialOutPort3, (void**)&f_gpISerialOutPort);
 		if (FAILED(hr))
 		{
@@ -165,6 +167,7 @@ int init_calibration()
 	}
 	return status;
 }
+#endif
 
 int main (int argc, char *argv[])
 {
@@ -207,12 +210,14 @@ int main (int argc, char *argv[])
 			return 1;
 		}
 
+#if 0
 		cerr << "Initialize ASL..." << endl;
 		if (init_calibration())
 		{
 			cerr << "ASL init failed!!!" << endl;
 			return 1;
 		}
+#endif
 
 		f_pTCPServerWrapper = std::unique_ptr<AsyncTCPServerWrapper>(new AsyncTCPServerWrapper(boost::bind(fixstim_server_callback, _1, _2), 7000, 26));	// 26 = ^Z
 
@@ -269,7 +274,7 @@ bool fixstim_server_callback(const std::string & sargs, std::ostream & out)
 	}
 	else if (sargs.find("calibration") == 0)
 	{
-		CalibrationUStim calustim(f_gpISerialOutPort);
+		CalibrationUStim calustim;
 		if (calustim.parses(sargs))
 		{
 			out << "OK;";

@@ -15,7 +15,7 @@ class IASLSerialOutPort3;
 class CalibrationUStim: public UStim, public prargs_handler
 {
 public:
-	CalibrationUStim(IASLSerialOutPort3* gpISerialOutPort);
+	CalibrationUStim();
 	virtual ~CalibrationUStim() {};
 
 	bool parse(int argc, char **argv);
@@ -41,6 +41,7 @@ private:
 
 
 	int init_calibration();
+	int init_vsg_for_calibration();
 	void init_triggers(TSpecificFunctor<CalibrationUStim>* pfunctor);
 };
 
