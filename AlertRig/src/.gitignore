@@ -4,3 +4,4 @@ SendMessage/Release
 ASLCalibration/x64
 ASLCalibration/Debug
 aaDeploy/*.zip
+*/x64
