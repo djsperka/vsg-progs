@@ -13,17 +13,12 @@
     <VSGLib Condition="'$(Platform)'=='Win32'">$(VSG_LIB_PATH)</VSGLib>
     <BoostLib Condition="'$(Platform)'=='x64'">$(BOOST_LIB_PATH_64)</BoostLib>
     <BoostLib Condition="'$(Platform)'=='Win32'">$(BOOST_LIB_PATH)</BoostLib>
-    <AlertLib Condition="'$(Platform)'=='x64'">$(SolutionDir)..\lib64</AlertLib>
-    <AlertLib Condition="'$(Platform)'=='Win32'">$(SolutionDir)..\lib</AlertLib>
-	<AlertBinPath Condition="'$(Platform)'=='x64'">$(ALERT_DEPLOYMENT_ROOT)\bin64</AlertBinPath>
-	<AlertBinPath Condition="'$(Platform)'=='Win32'">$(ALERT_DEPLOYMENT_ROOT)\bin</AlertBinPath>
+    <AlertLib>$(SolutionDir)..\lib\$(Platform\$(Configuration)</AlertLib>
+    <AlertBin>$(SolutionDir)..\bin\$(Platform\$(Configuration)</AlertBin>
 	<Deployables>$(OutDir)fixstim.exe,$(OutDir)remote.exe,$(OutDir)CableTest.exe</Deployables>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Platform)'=='Win32'">
-    <OutDir>$(SolutionDir)\..\bin\</OutDir>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Platform)'=='x64'">
-    <OutDir>$(SolutionPath)\..\..\bin64\</OutDir>
+  <PropertyGroup>
+    <OutDir>$(AlertBin)</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)'=='Debug'">
     <TargetName>d$(ProjectName)</TargetName>
@@ -37,8 +32,8 @@
     </ClCompile>
     <Link>
       <AdditionalLibraryDirectories>$(AlertLib);$(BoostLib);$(VSGLib);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies Condition="'$(Configuration)'=='Release'">alert.lib;VSGV8.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalDependencies Condition="'$(Configuration)'=='Debug'">dalert.lib;VSGV8.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies Condition="'$(Configuration)'=='Release'">alert.lib;argp-standalone.lib;VSGV8.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies Condition="'$(Configuration)'=='Debug'">dalert.lib;argp-standalone.lib;VSGV8.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup />
