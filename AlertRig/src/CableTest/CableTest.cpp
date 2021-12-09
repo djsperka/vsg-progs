@@ -6,14 +6,6 @@
 #include "Alertlib.h"
 #include "windows.h"
 
-#ifdef _DEBUG
-#pragma comment(lib, "dalert.lib")
-#else
-#pragma comment(lib, "alert.lib")
-#endif
-
-#pragma comment(lib,"vsgv8.lib")
-
 bool f_binaryTriggers = true;
 bool f_dio = false;
 bool f_bUseLock = true;

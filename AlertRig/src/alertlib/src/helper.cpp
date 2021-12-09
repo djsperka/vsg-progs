@@ -5,14 +5,6 @@
 #include <sstream>
 #include <fstream>
 #include <boost/algorithm/string.hpp>
-#ifdef _DEBUG
-#pragma comment(lib, "dalert.lib")
-#else
-#pragma comment(lib, "alert.lib")
-#endif
-
-#pragma comment(lib, "vsgv8.lib")
-
 
 using namespace std;
 using namespace alert;
