@@ -13,8 +13,8 @@
     <VSGLib Condition="'$(Platform)'=='Win32'">$(VSG_LIB_PATH)</VSGLib>
     <BoostLib Condition="'$(Platform)'=='x64'">$(BOOST_LIB_PATH_64)</BoostLib>
     <BoostLib Condition="'$(Platform)'=='Win32'">$(BOOST_LIB_PATH)</BoostLib>
-    <AlertLib>$(SolutionDir)..\lib\$(Platform\$(Configuration)</AlertLib>
-    <AlertBin>$(SolutionDir)..\bin\$(Platform\$(Configuration)</AlertBin>
+    <AlertLib>$(SolutionDir)..\lib\$(Platform)\$(Configuration)</AlertLib>
+    <AlertBin>$(SolutionDir)..\bin\$(Platform)\$(Configuration)</AlertBin>
 	<Deployables>$(OutDir)fixstim.exe,$(OutDir)remote.exe,$(OutDir)CableTest.exe</Deployables>
   </PropertyGroup>
   <PropertyGroup>
