@@ -39,6 +39,7 @@ private:
 	int m_iStimDuration;	// if > 0, the number of frames stim lasts until blank. If <=0, no blank. 
 
 	void setup_cycling();
+	void draw_current();
 
 protected:
 	void advance();
