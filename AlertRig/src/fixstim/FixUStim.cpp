@@ -64,6 +64,7 @@ static struct argp_option options[] = {
 	{"mel", 'o', "MEL_PARAMS", 0, "mel stim set, lost to time"},
 	{"stacey-evan", 'W', "filename[,ip:port]", 0, "Stacey-Evan stimulus"},
 	{"dot", 'D', "FIXPT_SPEC[/FIXPT_SPEC[...]]", 0, "dot(s) to (dis)appear with stim trigger"},
+	{"pursuit", 778, "PURSUIT_SPEC", 0, "smooth pursuit"},
 	{ 0 }
 };
 static struct argp f_argp = { options, parse_fixstim_opt, 0, "fixstim -- all-purpose stimulus engine" };
@@ -1012,6 +1013,10 @@ error_t parse_fixstim_opt(int key, char* carg, struct argp_state* state)
 			}
 
 		}
+		break;
+	}
+	case 778:		// smooth pursuit
+	{
 		break;
 	}
 	case 'r':
