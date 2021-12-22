@@ -13,17 +13,10 @@ int MultiParameterFXMultiGStimSet::init(ARvsg& vsg, std::vector<int> pages)
 	m_blank_page = pages[0];
 	m_fixpt_page = pages[1];
 	m_fixpt_dot_page = pages[2];
-	m_page[0] = pages[3];
-	m_page[1] = pages[4];
-	m_current_page = 0;
+	m_stim_page = pages[3];
 	m_bUseCycling = false;
 	m_iCyclingDelay = 0;
 	m_iStimDuration = 0;
-
-	//cerr << "blank page " << m_blank_page << endl;
-	//cerr << "fixpt page " << m_fixpt_page << endl;
-	//cerr << "fixpt+dot page " << m_fixpt_dot_page << endl;
-	//cerr << "stim pages " << m_page[0] << ", " << m_page[1] << endl;
 
 	if (has_xhair())
 	{
@@ -103,7 +96,7 @@ int MultiParameterFXMultiGStimSet::handle_trigger(std::string& s)
 		}
 		else
 		{
-			vsgSetDrawPage(vsgVIDEOPAGE, m_page[m_current_page], vsgNOCLEAR);
+			vsgSetDrawPage(vsgVIDEOPAGE, m_stim_page, vsgNOCLEAR);
 		}
 		status = 1;
 	}
@@ -151,6 +144,12 @@ int MultiParameterFXMultiGStimSet::handle_trigger(std::string& s)
 	return status;
 }
 
+
+// draw pages for this stimulus/trial. 
+// Page indices used are:
+// m_blank_page = background only
+// m_fixpt_page = fixpt only, distractors and xhair if present.
+// m_fixpt_dot_page = fixpt and distractors, xhair, and dots (if present)
 void MultiParameterFXMultiGStimSet::draw_current()
 {
 	// When cycling is used, we'll need this page with fixpt, xhair (if present), distractors(if present) 
@@ -201,7 +200,7 @@ void MultiParameterFXMultiGStimSet::draw_current()
 
 
 	// xhair, fixpt, dots and stim. 
-	vsgSetDrawPage(vsgVIDEOPAGE, m_page[m_current_page], vsgBACKGROUND);
+	vsgSetDrawPage(vsgVIDEOPAGE, m_stim_page, vsgBACKGROUND);
 	if (has_xhair())
 	{
 		xhair().draw();
@@ -267,6 +266,10 @@ void MultiParameterFXMultiGStimSet::setStimDuration(double seconds)
 }
 
 
+// As originally written, page cycling is only used when there is a cycling delay, 
+// or when there is a stim duration. If neither of those was set, then there's no need for cycling, as
+// the "S" trigger transitions to the fixpt+stim page, without need for precise timing or delay. 
+
 void MultiParameterFXMultiGStimSet::setup_cycling()
 {
 	VSGCYCLEPAGEENTRY cycle[12];	// warning! No check on usage. You have been warned. 
@@ -285,7 +288,7 @@ void MultiParameterFXMultiGStimSet::setup_cycling()
 		count++;
 	}
 
-	cycle[count].Page = m_page[m_current_page] + vsgTRIGGERPAGE;
+	cycle[count].Page = m_stim_page + vsgTRIGGERPAGE;
 	if (m_iStimDuration <= 0)
 	{
 		cycle[count].Frames = 0;
@@ -303,9 +306,6 @@ void MultiParameterFXMultiGStimSet::setup_cycling()
 		cycle[count].Stop = 1;
 		count++;
 	}
-
-	//for (unsigned int i = 0; i < count; i++)
-	//	cerr << "cycle " << i << ": " << cycle[i].Frames << ":" << cycle[i].Page << ":" << cycle[i].Stop << endl;
 
 	status = vsgPageCyclingSetup(count, &cycle[0]);
 }

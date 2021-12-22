@@ -29,11 +29,10 @@ public:
 	virtual int handle_trigger(std::string& s);
 	virtual std::string toString() const;
 private:
-	int m_page[2];
-	int m_current_page;
 	int m_blank_page;
 	int m_fixpt_page;
 	int m_fixpt_dot_page;
+	int m_stim_page;
 	bool m_bUseCycling;
 	int m_iCyclingDelay;
 	int m_iStimDuration;	// if > 0, the number of frames stim lasts until blank. If <=0, no blank. 
