@@ -1,9 +1,16 @@
 #include "MultiParameterFXMultiGStimSet.h"
 #include "FXGStimParameterList.h"
+#define _USE_MATH_DEFINES
+#include <math.h>
 
 using namespace boost;
 using namespace alert;
 using namespace std;
+
+#define CYCLING_TYPE_NONE 0
+#define CYCLING_TYPE_REGULAR 1
+#define CYCLING_TYPE_PURSUIT 2
+
 
 int MultiParameterFXMultiGStimSet::init(ARvsg& vsg, std::vector<int> pages)
 {
@@ -14,7 +21,8 @@ int MultiParameterFXMultiGStimSet::init(ARvsg& vsg, std::vector<int> pages)
 	m_fixpt_page = pages[1];
 	m_fixpt_dot_page = pages[2];
 	m_stim_page = pages[3];
-	m_bUseCycling = false;
+	m_iCyclingType = CYCLING_TYPE_NONE;
+	//m_bUseCycling = false;
 	m_iCyclingDelay = 0;
 	m_iStimDuration = 0;
 
@@ -49,8 +57,11 @@ int MultiParameterFXMultiGStimSet::init(ARvsg& vsg, std::vector<int> pages)
 
 	// Set initial params in grating(s)
 	set_initial_parameters();
-	if (m_bUseCycling)
+	if (m_iCyclingType != CYCLING_TYPE_NONE)
 	{
+		if (m_iCyclingType == CYCLING_TYPE_PURSUIT)
+			vsgSetCommand(vsgVIDEODRIFT);
+
 		setup_cycling();
 	}
 
@@ -90,7 +101,7 @@ int MultiParameterFXMultiGStimSet::handle_trigger(std::string& s)
 			vsgObjResetDriftPhase();
 			grating(i).setContrast(contrast(i));
 		}
-		if (m_bUseCycling)
+		if (CYCLING_TYPE_NONE == m_iCyclingType)
 		{
 			vsgSetSynchronisedCommand(vsgSYNC_PRESENT, vsgCYCLEPAGEENABLE, 0);
 		}
@@ -115,15 +126,21 @@ int MultiParameterFXMultiGStimSet::handle_trigger(std::string& s)
 		// is the NEXT stimulus page to be shown. 
 
 
-		// unset cycling delay, if any. One of the parameter lists called in advance() must enable it. 
+		// unset parameters that trigger cycling, if any. One of the parameter lists called in advance() must enable it. 
 		setCyclingDelay(-1);
+		setStimDuration(-1);
+
 		advance();
 		draw_current();
+		if (CYCLING_TYPE_NONE != m_iCyclingType)
+		{
+			setup_cycling();
+		}
 		status = 0;
 	}
 	else if (s == "X")
 	{
-		if (m_bUseCycling)
+		if (CYCLING_TYPE_NONE != m_iCyclingType)
 			vsgSetCommand(vsgCYCLEPAGEDISABLE);
 		vsgSetDrawPage(vsgVIDEOPAGE, m_blank_page, vsgNOCLEAR);
 		status = 1;
@@ -238,12 +255,12 @@ void MultiParameterFXMultiGStimSet::setCyclingDelay(int ndelay)
 {
 	if (ndelay < 0)
 	{
-		m_bUseCycling = false;
+		m_iCyclingType = CYCLING_TYPE_NONE;
 		m_iCyclingDelay = 0;
 	}
 	else
 	{
-		m_bUseCycling = true;
+		m_iCyclingType = CYCLING_TYPE_REGULAR;
 		m_iCyclingDelay = ndelay;
 	}
 	return;
@@ -253,18 +270,40 @@ void MultiParameterFXMultiGStimSet::setStimDuration(double seconds)
 {
 	if (seconds < 0)
 	{
-		m_bUseCycling = false;
+		m_iCyclingType = CYCLING_TYPE_NONE;
 		m_iStimDuration = 0;
 	}
 	else
 	{
 		// Convert stim duration to frames. Note frame time returned is in us.
-		m_bUseCycling = true;
+		m_iCyclingType = CYCLING_TYPE_REGULAR;
 		m_iStimDuration = seconds * 1000000.0 / vsgGetSystemAttribute(vsgFRAMETIME);
 	}
 	return;
 }
 
+void MultiParameterFXMultiGStimSet::setPursuitParameters(double durSeconds, double dirDegrees, double degPerSecond)
+{
+	if (durSeconds < 0)
+	{
+		m_iCyclingType = CYCLING_TYPE_NONE;
+		m_iStimDuration = 0;
+	}
+	else
+	{
+		// Convert stim duration to frames. Note frame time returned is in us.
+		m_iCyclingType = CYCLING_TYPE_PURSUIT;
+		m_iStimDuration = durSeconds * 1000000.0 / vsgGetSystemAttribute(vsgFRAMETIME);
+
+		// Convert to x- and y- displacement per frame.
+		double pixels;
+		double dx, dy;
+		vsgUnit2Unit(vsgDEGREEUNIT, durSeconds * degPerSecond, vsgPIXELUNIT, &pixels);
+		m_dxPursuit = -1 * pixels * cos(M_PI * dirDegrees / 180.0);
+		m_dyPursuit = -1 * pixels * sin(M_PI * dirDegrees / 180.0);
+	}
+	return;
+}
 
 // As originally written, page cycling is only used when there is a cycling delay, 
 // or when there is a stim duration. If neither of those was set, then there's no need for cycling, as
@@ -272,41 +311,72 @@ void MultiParameterFXMultiGStimSet::setStimDuration(double seconds)
 
 void MultiParameterFXMultiGStimSet::setup_cycling()
 {
-	VSGCYCLEPAGEENTRY cycle[12];	// warning! No check on usage. You have been warned. 
+	VSGCYCLEPAGEENTRY cycle[1024];	// warning! No check on usage. You have been warned. 
 	int status = 0;
 	int count = 0;
 
+	if (CYCLING_TYPE_NONE == m_iCyclingType)
+		return;
+
 	memset(cycle, 0, sizeof(cycle));
 
-	cerr << "setup_cycling: delay=" << m_iCyclingDelay << " duration=" << m_iStimDuration << endl;
 
-	if (m_iCyclingDelay > 0)
+	if (CYCLING_TYPE_REGULAR == m_iCyclingType)
 	{
-		cycle[count].Frames = 1 + (m_iCyclingDelay > 0 ? m_iCyclingDelay : 0);
-		cycle[count].Page = m_fixpt_dot_page;
-		cycle[count].Stop = 0;
-		count++;
+		cerr << "setup_cycling: delay=" << m_iCyclingDelay << " duration=" << m_iStimDuration << endl;
+
+		if (m_iCyclingDelay > 0)
+		{
+			cycle[count].Frames = 1 + (m_iCyclingDelay > 0 ? m_iCyclingDelay : 0);
+			cycle[count].Page = m_fixpt_dot_page;
+			cycle[count].Stop = 0;
+			count++;
+		}
+
+		cycle[count].Page = m_stim_page + vsgTRIGGERPAGE;
+		if (m_iStimDuration <= 0)
+		{
+			cycle[count].Frames = 0;
+			cycle[count].Stop = 1;
+			count++;
+		}
+		else
+		{
+			cycle[count].Frames = m_iStimDuration;
+			cycle[count].Stop = 0;
+			count++;
+
+			cycle[count].Frames = 0;
+			cycle[count].Page = m_blank_page + +vsgTRIGGERPAGE;
+			cycle[count].Stop = 1;
+			count++;
+		}
 	}
-
-	cycle[count].Page = m_stim_page + vsgTRIGGERPAGE;
-	if (m_iStimDuration <= 0)
+	else if (CYCLING_TYPE_PURSUIT == m_iCyclingType)
 	{
-		cycle[count].Frames = 0;
+		cerr << "PURSUIT " << m_iCyclingDelay << " " << m_iStimDuration << " " << m_dxPursuit << " " << m_dyPursuit << endl;
+		// If there is a delay -- i.e. delay before starting "stim" (pursuit)
+		if (m_iCyclingDelay > 0)
+		{
+			cycle[count].Frames = 1 + (m_iCyclingDelay > 0 ? m_iCyclingDelay : 0);
+			cycle[count].Page = m_fixpt_dot_page;
+			cycle[count].Stop = 0;
+			count++;
+		}
+		for (int i = 0; i < m_iStimDuration; i++)
+		{
+			cycle[count].Frames = 1;
+			cycle[count].Page = m_stim_page;
+			cycle[count].Xpos = i * m_dxPursuit;
+			cycle[count].Ypos = i * m_dyPursuit;
+			cycle[count].Stop = 0;
+			count++;
+		}
+		cycle[count].Frames = 1;
+		cycle[count].Page = m_blank_page;
 		cycle[count].Stop = 1;
 		count++;
 	}
-	else
-	{
-		cycle[count].Frames = m_iStimDuration;
-		cycle[count].Stop = 0;
-		count++;
-
-		cycle[count].Frames = 0;
-		cycle[count].Page = m_blank_page +  + vsgTRIGGERPAGE;
-		cycle[count].Stop = 1;
-		count++;
-	}
-
 	status = vsgPageCyclingSetup(count, &cycle[0]);
 }
 

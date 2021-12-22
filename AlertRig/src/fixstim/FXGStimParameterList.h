@@ -6,6 +6,7 @@
 #include "MultiParameterFXMultiGStimSet.h"
 #include <vector>
 #include <cassert>
+#include <tuple>
 
 using namespace alert;
 using namespace std;
@@ -690,5 +691,46 @@ private:
 	vector<double>::const_iterator m_iter;
 };
 
+typedef std::tuple<double, double, double> PursuitParams;
+
+class PursuitList : public FXGStimParameterList
+{
+public:
+	PursuitList(vector < double > pp) : FXGStimParameterList() { create_pursuit_list(pp);  m_iter = m_vec.begin(); };
+	PursuitList(const PursuitList& list) : FXGStimParameterList(), m_vec(list.m_vec)
+	{
+		m_iter = m_vec.begin();
+	}
+	virtual ~PursuitList() {};
+	virtual PursuitList* clone() const
+	{
+		return new PursuitList(*this);
+	}
+	virtual bool advance(MultiParameterFXMultiGStimSet* pstimset)
+	{
+		m_iter++;
+		if (m_iter == m_vec.end()) m_iter = m_vec.begin();
+		return set_current_parameter(pstimset);
+	}
+
+	virtual bool set_current_parameter(MultiParameterFXMultiGStimSet* pstimset)
+	{
+		pstimset->setPursuitParameters(std::get<0>(*m_iter), std::get<1>(*m_iter), std::get<2>(*m_iter));
+		return true;
+	}
+
+private:
+	vector<PursuitParams> m_vec;
+	vector<PursuitParams>::const_iterator m_iter;
+
+	void create_pursuit_list(vector<double> pp)
+	{
+		int n = pp.size() / 3;
+		for (int i = 0; i < n; i++)
+		{
+			m_vec.push_back(std::make_tuple(pp[i * 3], pp[i * 3 + 1], pp[i * 3 + 2]));
+		}
+	}
+};
 
 #endif

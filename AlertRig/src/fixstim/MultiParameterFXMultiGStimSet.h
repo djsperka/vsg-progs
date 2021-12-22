@@ -22,6 +22,7 @@ public:
 	virtual ~MultiParameterFXMultiGStimSet() {};
 	void setCyclingDelay(int ndelay);
 	void setStimDuration(double seconds);
+	void setPursuitParameters(double durSeconds, double dirDegrees, double degPerSecond);
 
 	virtual int num_pages() { return 5; };
 	virtual int num_overlay_pages() { return 0; };
@@ -33,9 +34,12 @@ private:
 	int m_fixpt_page;
 	int m_fixpt_dot_page;
 	int m_stim_page;
-	bool m_bUseCycling;
+	//bool m_bUseCycling;
+	int m_iCyclingType;
 	int m_iCyclingDelay;
 	int m_iStimDuration;	// if > 0, the number of frames stim lasts until blank. If <=0, no blank. 
+	double m_dxPursuit;
+	double m_dyPursuit;
 
 	void setup_cycling();
 	void draw_current();

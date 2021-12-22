@@ -509,6 +509,7 @@ error_t parse_fixstim_opt(int key, char* carg, struct argp_state* state)
 	case 'I':
 	case 'U':
 	case 'D':
+	case 778:
 	{
 		vector<double> tuning_parameters;
 		vector<COLOR_TYPE> color_parameters;
@@ -611,6 +612,9 @@ error_t parse_fixstim_opt(int key, char* carg, struct argp_state* state)
 					break;
 				case 'D':
 					plist = new DotList(dot_parameters, stimIndex);
+					break;
+				case 778:
+					plist = new PursuitList(tuning_parameters);
 					break;
 				default:
 					cerr << "Unhandled varying stim parameter type (" << (char)key << ")" << endl;
@@ -1013,10 +1017,6 @@ error_t parse_fixstim_opt(int key, char* carg, struct argp_state* state)
 			}
 
 		}
-		break;
-	}
-	case 778:		// smooth pursuit
-	{
 		break;
 	}
 	case 'r':
