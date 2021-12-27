@@ -60,8 +60,9 @@ int MultiParameterFXMultiGStimSet::init(ARvsg& vsg, std::vector<int> pages)
 	if (m_iCyclingType != CYCLING_TYPE_NONE)
 	{
 		if (m_iCyclingType == CYCLING_TYPE_PURSUIT)
+		{
 			vsgSetCommand(vsgVIDEODRIFT);
-
+		}
 		setup_cycling();
 	}
 
@@ -101,7 +102,7 @@ int MultiParameterFXMultiGStimSet::handle_trigger(std::string& s)
 			vsgObjResetDriftPhase();
 			grating(i).setContrast(contrast(i));
 		}
-		if (CYCLING_TYPE_NONE == m_iCyclingType)
+		if (CYCLING_TYPE_NONE != m_iCyclingType)
 		{
 			vsgSetSynchronisedCommand(vsgSYNC_PRESENT, vsgCYCLEPAGEENABLE, 0);
 		}
@@ -299,8 +300,8 @@ void MultiParameterFXMultiGStimSet::setPursuitParameters(double durSeconds, doub
 		double pixels;
 		double dx, dy;
 		vsgUnit2Unit(vsgDEGREEUNIT, durSeconds * degPerSecond, vsgPIXELUNIT, &pixels);
-		m_dxPursuit = -1 * pixels * cos(M_PI * dirDegrees / 180.0);
-		m_dyPursuit = -1 * pixels * sin(M_PI * dirDegrees / 180.0);
+		m_dxPursuit = -1 * pixels * cos(M_PI * dirDegrees / 180.0) / m_iStimDuration;
+		m_dyPursuit = -1 * pixels * sin(M_PI * dirDegrees / 180.0) / m_iStimDuration;
 	}
 	return;
 }
@@ -323,8 +324,6 @@ void MultiParameterFXMultiGStimSet::setup_cycling()
 
 	if (CYCLING_TYPE_REGULAR == m_iCyclingType)
 	{
-		cerr << "setup_cycling: delay=" << m_iCyclingDelay << " duration=" << m_iStimDuration << endl;
-
 		if (m_iCyclingDelay > 0)
 		{
 			cycle[count].Frames = 1 + (m_iCyclingDelay > 0 ? m_iCyclingDelay : 0);
@@ -354,7 +353,7 @@ void MultiParameterFXMultiGStimSet::setup_cycling()
 	}
 	else if (CYCLING_TYPE_PURSUIT == m_iCyclingType)
 	{
-		cerr << "PURSUIT " << m_iCyclingDelay << " " << m_iStimDuration << " " << m_dxPursuit << " " << m_dyPursuit << endl;
+		//cerr << "PURSUIT " << m_iCyclingDelay << " " << m_iStimDuration << " " << m_dxPursuit << " " << m_dyPursuit << endl;
 		// If there is a delay -- i.e. delay before starting "stim" (pursuit)
 		if (m_iCyclingDelay > 0)
 		{
@@ -377,6 +376,13 @@ void MultiParameterFXMultiGStimSet::setup_cycling()
 		cycle[count].Stop = 1;
 		count++;
 	}
+
+	//for (int i = 0; i < count; i++)
+	//{
+	//	cerr << "cycle[" << i << "] P f s: " << cycle[i].Page << " " << cycle[i].Frames << " " << cycle[i].Stop << " x, y = " << cycle[i].Xpos << " " << cycle[i].Ypos << endl;
+	//}
+
+
 	status = vsgPageCyclingSetup(count, &cycle[0]);
 }
 

@@ -620,7 +620,6 @@ error_t parse_fixstim_opt(int key, char* carg, struct argp_state* state)
 					cerr << "Unhandled varying stim parameter type (" << (char)key << ")" << endl;
 					ret = EINVAL;
 				}
-				cerr << "push back par list index " << plist->index() << " isDistractor " << plist->isDistractor() << endl;
 				if (plist) pmulti->push_back(plist);
 			}
 		}

@@ -729,6 +729,7 @@ private:
 		for (int i = 0; i < n; i++)
 		{
 			m_vec.push_back(std::make_tuple(pp[i * 3], pp[i * 3 + 1], pp[i * 3 + 2]));
+//			cout << "tuple " << i  << " " << std::get<0>(m_vec[i]) << " " << std::get<1>(m_vec[i]) << " " << std::get<2>(m_vec[i]) << std::endl;
 		}
 	}
 };
