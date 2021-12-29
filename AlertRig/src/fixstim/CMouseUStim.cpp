@@ -102,7 +102,7 @@ int CMouseUStim::init_pages()
 
 
 
-int CMouseUStim::callback(int &output, const FunctorCallbackTrigger* ptrig)
+int CMouseUStim::callback(int &output, const FunctorCallbackTrigger* ptrig, const std::string&)
 {
 	int ival=0;
 	string key = ptrig->getKey();

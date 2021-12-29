@@ -184,7 +184,7 @@ void MSequenceUStim::init_triggers(TSpecificFunctor<MSequenceUStim>* pfunctor)
 	return;
 }
 
-int MSequenceUStim::callback(int &output, const FunctorCallbackTrigger* ptrig)
+int MSequenceUStim::callback(int &output, const FunctorCallbackTrigger* ptrig, const std::string&)
 {
 	int ival = 1;
 	string key = ptrig->getKey();

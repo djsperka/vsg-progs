@@ -197,7 +197,7 @@ void CalibrationUStim::run_stim(alert::ARvsg& vsg)
 	return;
 }
 
-int CalibrationUStim::callback(int &output, const FunctorCallbackTrigger* ptrig)
+int CalibrationUStim::callback(int &output, const FunctorCallbackTrigger* ptrig, const std::string&)
 {
 	return 0;	// no callbacks!. Still need to implement this to satisfy 
 				// prargs_handler interface. That's not really required, either

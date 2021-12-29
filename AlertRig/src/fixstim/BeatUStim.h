@@ -20,7 +20,7 @@ public:
 	int process_arg(int option, std::string& arg);
 
 	// This acts as the callback function for the triggers
-	int callback(int &output, const FunctorCallbackTrigger* ptrig);
+	int callback(int &output, const FunctorCallbackTrigger* ptrig, const std::string&);
 
 private:
 	bool m_binaryTriggers;

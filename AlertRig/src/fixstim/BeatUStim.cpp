@@ -151,7 +151,7 @@ void BeatUStim::init_triggers(TSpecificFunctor<BeatUStim>* pfunctor)
 	return;
 }
 
-int BeatUStim::callback(int &output, const FunctorCallbackTrigger* ptrig)
+int BeatUStim::callback(int &output, const FunctorCallbackTrigger* ptrig, const std::string&)
 {
 	int ival = 1;
 	string key = ptrig->getKey();

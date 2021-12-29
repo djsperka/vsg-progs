@@ -21,7 +21,7 @@
 #include <fstream>
 #include <algorithm>
 #include <sys/stat.h>
-
+#include <boost/algorithm/string.hpp>
 
 
 const char* get_msequence();
@@ -464,13 +464,29 @@ namespace alert
 
 		virtual bool checkAscii(std::string input)
 		{
+			m_args.clear();
 			return input == m_key;
 		};
 
+		virtual bool checkString(const std::string& input)
+		{
+			bool b = false;
+			m_args.clear();
+			if (input.find(getKey()) == 0)
+			{
+				b = true;
+				if (input.size() > 1)
+				{
+					m_args = boost::trim_left_copy(input.substr(1));
+				}
+			}
+			return b;
+		}
 		virtual bool checkBinary(int input)
 		{
 			bool bValue = false;
 			int current = input&m_in_mask;
+			m_args.clear();
 
 			if (!m_btoggleIn)
 			{
@@ -560,12 +576,14 @@ namespace alert
 
 
 		std::string getKey() const { return m_key; };
+		const std::string& getArgs() const { return m_args; };
 		int inVal() const { return m_in_val; };
 		int inMask() const { return m_in_mask; };
 		int outMask() const { return m_out_mask; };
 		int outVal() const { return m_out_val; };
 	protected:
 		std::string m_key;
+		std::string m_args;
 		int m_in_mask;
 		int m_in_val;
 		int m_in_last;	// last value of this trigger's input&m_in_mask (initial = 0) 
@@ -704,12 +722,11 @@ namespace alert
 
 	class FunctorCallbackTrigger;	// forward declaration needed
 
-	// Abstract callback base class
+	// Abstract callback base class. 
 	class TFunctor 
 	{
 	public:
-		//virtual int operator()(int &output, const FunctorCallbackTrigger* ptrig)=0;
-		virtual int callback(int &output, const FunctorCallbackTrigger* ptrig)=0;
+		virtual int callback(int &output, const FunctorCallbackTrigger* ptrig, const std::string& args)=0;
 	};
 
 
@@ -718,23 +735,19 @@ namespace alert
    template <class TClass> class TSpecificFunctor : public TFunctor
    {
    private:
-      int (TClass::*fpt)(int &output, const FunctorCallbackTrigger* ptrig);   // pointer to member function
+      int (TClass::*fpt)(int &output, const FunctorCallbackTrigger* ptrig, const std::string& args);   // pointer to member function
       TClass* pt2Object;                  // pointer to object
 
    public:
 
       // constructor - takes pointer to an object and pointer to a member and stores
       // them in two private variables
-      TSpecificFunctor(TClass* _pt2Object, int(TClass::*_fpt)(int &output, const FunctorCallbackTrigger* ptrig))
+      TSpecificFunctor(TClass* _pt2Object, int(TClass::*_fpt)(int &output, const FunctorCallbackTrigger* ptrig, const std::string& args))
          { pt2Object = _pt2Object;  fpt=_fpt; };
 
-      // override operator "()"
-//      virtual int operator()(int &output, const FunctorCallbackTrigger* ptrig)
- //      { return (*pt2Object.*fpt)(output, ptrig);};              // execute member function
-
       // override function "Call"
-      virtual int callback(int &output, const FunctorCallbackTrigger* ptrig)
-        { return (*pt2Object.*fpt)(output, ptrig);};             // execute member function
+      virtual int callback(int &output, const FunctorCallbackTrigger* ptrig, const std::string& args)
+        { return (*pt2Object.*fpt)(output, ptrig, args);};             // execute member function
    };
 
 
@@ -747,7 +760,7 @@ namespace alert
 		virtual int execute(int& output)
 		{
 			setMarker(output);
-			return m_pfunc->callback(output, this);
+			return m_pfunc->callback(output, this, getArgs());
 		};
 	
 		virtual std::string toString() const

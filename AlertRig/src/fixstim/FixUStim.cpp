@@ -232,7 +232,7 @@ void FixUStim::init_triggers(TSpecificFunctor<FixUStim>* pfunctor)
 	return;
 }
 
-int FixUStim::callback(int &output, const FunctorCallbackTrigger* ptrig)
+int FixUStim::callback(int &output, const FunctorCallbackTrigger* ptrig, const std::string&)
 {
 	return  m_arguments.pStimSet->handle_trigger(ptrig->getKey());
 }

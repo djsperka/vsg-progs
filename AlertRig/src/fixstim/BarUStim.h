@@ -6,6 +6,7 @@
 #include "AlertUtil.h"
 #include <vector>
 #include <algorithm>
+#include <string>
 #include <boost/tuple/tuple.hpp>
 
 // Implementation of UStim interface for the starstim app.
@@ -21,7 +22,7 @@ public:
 	int process_arg(int option, std::string& arg);
 
 	// This acts as the callback function for the triggers
-	int callback(int &output, const FunctorCallbackTrigger* ptrig);
+	int callback(int &output, const FunctorCallbackTrigger* ptrig, const std::string&);
 
 	enum class TargetType { fixpt, rectangle, grating };
 

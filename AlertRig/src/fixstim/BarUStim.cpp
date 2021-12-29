@@ -368,7 +368,7 @@ void BarUStim::init_pages()
 
 
 
-int BarUStim::callback(int &output, const FunctorCallbackTrigger* ptrig)
+int BarUStim::callback(int &output, const FunctorCallbackTrigger* ptrig, const std::string&)
 {
 	int ival=1;
 	string key = ptrig->getKey();

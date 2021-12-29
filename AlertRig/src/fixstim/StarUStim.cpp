@@ -310,7 +310,7 @@ void StarUStim::init_pages()
 
 
 
-int StarUStim::callback(int &output, const FunctorCallbackTrigger* ptrig)
+int StarUStim::callback(int &output, const FunctorCallbackTrigger* ptrig, const std::string&)
 {
 	int ival=1;
 	string key = ptrig->getKey();
