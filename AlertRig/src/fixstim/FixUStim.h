@@ -12,6 +12,7 @@
 #include "FGGXStimSet.h"
 #include "AttentionStimSet.h"
 #include "MultiParameterFXMultiGStimSet.h"
+#include "BufferedAsyncSerial.h"
 #include <vector>
 
 template <class T> StimSet* create_stimset(bool bHaveFixpt, ARContrastFixationPointSpec& fixpt, bool bHaveXhair, ARXhairSpec& xhair, ARGratingSpec& grating, vector<double> params);
@@ -61,6 +62,9 @@ struct fixstim_arguments
 	bool bHaveSequence;
 	string sequence;
 
+	string serial_port;
+	bool bUsingSerial;
+
 	fixstim_arguments()
 		: bBinaryTriggers(true)
 		, bVerbose(false)
@@ -90,6 +94,8 @@ struct fixstim_arguments
 		, bUsingMultiParameterStimSet(false)
 		, bHaveSequence(false)
 		, sequence("")
+		, serial_port("")
+		, bUsingSerial(false)
 	{};
 
 };
@@ -114,6 +120,7 @@ public:
 
 private:
 	struct fixstim_arguments m_arguments;
+	BufferedAsyncSerial m_serial_port;
 
 // These are the args allowed and which are handled by prargs. Do not use 'F' - it is reserved for 
 // passing a command file.

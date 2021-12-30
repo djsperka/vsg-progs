@@ -8,8 +8,11 @@
 #include "MelStimSet.h"
 #include "EQStimSet.h"
 #include "BorderStimSet.h"
+#include <conio.h>
 #include <iostream>
 #include <boost/algorithm/string.hpp>
+#include <boost/exception/exception.hpp>
+#include <boost/exception/get_error_info.hpp>
 #include "alert-argp.h"
 
 using namespace std;
@@ -65,6 +68,7 @@ static struct argp_option options[] = {
 	{"stacey-evan", 'W', "filename[,ip:port]", 0, "Stacey-Evan stimulus"},
 	{"dot", 'D', "FIXPT_SPEC[/FIXPT_SPEC[...]]", 0, "dot(s) to (dis)appear with stim trigger"},
 	{"pursuit", 778, "PURSUIT_SPEC", 0, "smooth pursuit"},
+	{"serial", 779, "PORT", 0, "serial port to listen on for triggers"},
 	{ 0 }
 };
 static struct argp f_argp = { options, parse_fixstim_opt, 0, "fixstim -- all-purpose stimulus engine" };
@@ -116,6 +120,21 @@ void FixUStim::run_stim(alert::ARvsg& vsg)
 		std::cout << "FixUStim::run_stim(): Trigger " << i << " " << *(triggers().at(i)) << std::endl;
 	}
 
+	// If using serial, now is the time to open the serial port
+	if (m_arguments.bUsingSerial)
+	{
+		cout << "Using serial port \"" << m_arguments.serial_port << "\"" << endl;
+		try 
+		{
+			m_serial_port.open(m_arguments.serial_port, 115200);
+		}
+		catch (const std::runtime_error& e)
+		{
+			cout << "Error opening serial port: " << e.what() << endl;
+			return;
+		}
+	}
+
 	// Tell the stim set to initialize its pages. Note that the current display
 	// page is page 0, and the stim set is given different pages (starting at 1 and depending on 
 	// how many pages it requires)
@@ -152,19 +171,40 @@ void FixUStim::run_stim(alert::ARvsg& vsg)
 	long input_trigger = 0;
 	string s;
 
+	if (!m_arguments.bBinaryTriggers)
+	{
+		// Get a new "trigger" from user
+		cout << "Enter trigger/key: ";
+	}
+
 	while (!quit_enabled())
 	{
 		// If user-triggered, get a trigger entry. 
+		s.clear();
 		if (!m_arguments.bBinaryTriggers)
 		{
-			// Get a new "trigger" from user
-			cout << "Enter trigger/key: ";
-			cin >> s;
+			if (_kbhit())
+			{
+				// Get a new "trigger" from user. Will block here, so if user keys something, this will block until CR entered.
+				cin >> s;
+				cout << "Enter trigger/key: ";
+			}
 		}
 		else
 		{
 			input_trigger = vsgIOReadDigitalIn();
 		}
+
+		// if serial port, then fetch now. Note getting ascii keys will block this!
+		if (m_arguments.bUsingSerial)
+		{
+			string s = m_serial_port.readStringUntil(";");
+			if (s.size()>0)
+			{
+				cout << "Got serial string: " << s << endl;
+			}
+		}
+
 
 		TriggerFunc	tf = std::for_each(triggers().begin(), triggers().end(),
 			(m_arguments.bBinaryTriggers ? TriggerFunc(input_trigger, last_output_trigger, false) : TriggerFunc(s, last_output_trigger)));
@@ -269,6 +309,10 @@ error_t parse_fixstim_opt(int key, char* carg, struct argp_state* state)
 	case 'p':
 		if (parse_integer(sarg, arguments->iPulseBits))
 			ret = EINVAL;
+		break;
+	case 779:
+		arguments->bUsingSerial = true;
+		arguments->serial_port = sarg;
 		break;
 	case 'V':
 	{
