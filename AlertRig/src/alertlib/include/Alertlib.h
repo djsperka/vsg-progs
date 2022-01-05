@@ -464,35 +464,50 @@ namespace alert
 
 		virtual bool checkAscii(std::string input)
 		{
-			m_args.clear();
-			return input == m_key;
+			return checkString(input);
 		};
 
 		virtual bool checkString(const std::string& input)
 		{
 			bool b = false;
+			size_t ind;
 			m_args.clear();
-			if (input.find(getKey()) == 0)
+			if (input.size() == 1)
 			{
-				b = true;
-				if (input.size() > 1)
+				ind = input.find_first_of(getKey());
+				if (ind != std::string::npos)
 				{
-					m_args = boost::trim_left_copy(input.substr(1));
+					b = true;
+					m_matchedKey = input[ind];
+				}
+			}
+			else
+			{
+				// split into everything before first blank, and everything after (trimmed). 
+				std::string token = input.substr(0, input.find(' '));
+				ind = token.find_first_of(getKey());
+				if (ind != std::string::npos)
+				{
+					b = true;
+					m_matchedKey = input[ind];
+					m_args = boost::trim_left_copy(input.substr(input.find(' ')));
 				}
 			}
 			return b;
 		}
+
 		virtual bool checkBinary(int input)
 		{
 			bool bValue = false;
 			int current = input&m_in_mask;
 			m_args.clear();
-
+			m_matchedKey.clear();
 			if (!m_btoggleIn)
 			{
 				if (current != m_in_last && current == m_in_val)
 				{
 					bValue = true;
+					m_matchedKey = getKey();
 				}
 				m_in_last = current;
 			}
@@ -505,6 +520,7 @@ namespace alert
 				if (((~current)&m_in_mask) == m_in_last)
 				{
 					bValue = true;
+					m_matchedKey = getKey();
 					m_in_last = current;	// Note that the last value is saved only if a toggled trigger
 				}
 //				std::cout << "Trigger(" << m_key << ")" <<  std::hex << " input " << input << " m_in_mask=" << m_in_mask << " m_in_val=" << m_in_val << " current=" << current << " last=" << m_in_last << " bval=" << bValue << std::endl;
@@ -577,6 +593,7 @@ namespace alert
 
 		std::string getKey() const { return m_key; };
 		const std::string& getArgs() const { return m_args; };
+		const std::string& getMatchedKey() const { return m_matchedKey; };
 		int inVal() const { return m_in_val; };
 		int inMask() const { return m_in_mask; };
 		int outMask() const { return m_out_mask; };
@@ -584,6 +601,7 @@ namespace alert
 	protected:
 		std::string m_key;
 		std::string m_args;
+		std::string m_matchedKey;
 		int m_in_mask;
 		int m_in_val;
 		int m_in_last;	// last value of this trigger's input&m_in_mask (initial = 0) 
@@ -1137,13 +1155,29 @@ namespace alert
 	public:
 		TriggerFunc(std::string key, int otrigger, bool verbose=false) : m_binary(false), m_skey(key), m_present(false), m_otrigger(otrigger), m_page(-1), m_quit(false), m_ideferred(0), m_verbose(verbose) {};
 		TriggerFunc(int itrigger, int otrigger, bool verbose=false) : m_binary(true), m_itrigger(itrigger), m_present(false), m_otrigger(otrigger), m_page(-1), m_quit(false), m_ideferred(0), m_verbose(verbose) {};
-
+		TriggerFunc() : m_binary(false), m_skey(""), m_present(false), m_otrigger(0), m_page(-1), m_quit(false), m_ideferred(0), m_verbose(false) {};
+		TriggerFunc(const TriggerFunc& tf) : m_quit(tf.m_quit), m_binary(tf.m_binary), m_itrigger(tf.m_itrigger), m_skey(tf.m_skey), m_present(tf.m_present), m_otrigger(tf.m_otrigger), m_page(tf.m_page) {};
 		int page() { return m_page; };
 		bool present() { return m_present; };
 		int output_trigger() { return m_otrigger; };
 		bool quit() { return m_quit; };
 		int deferred() { return m_ideferred; };
 		const std::string& triggers_matched() { return m_triggers_matched; };
+
+		TriggerFunc& operator=(const TriggerFunc& tf)
+		{
+			if (&tf != this)
+			{
+				m_quit = tf.m_quit;
+				m_binary = tf.m_binary;
+				m_itrigger = tf.m_itrigger;
+				m_skey = tf.m_skey;
+				m_present = tf.m_present;
+				m_otrigger = tf.m_otrigger;
+				m_page = tf.m_page;
+			}
+			return *this;
+		}
 
 		virtual void operator()(Trigger* pitem);
 		/*
