@@ -170,6 +170,8 @@ void FixUStim::run_stim(alert::ARvsg& vsg)
 	int last_output_trigger = 0;
 	long input_trigger = 0;
 	string s;
+	bool bHaveAsciiTrigger;
+	bool bHaveBinaryTrigger;
 
 	if (!m_arguments.bBinaryTriggers)
 	{
@@ -179,8 +181,11 @@ void FixUStim::run_stim(alert::ARvsg& vsg)
 
 	while (!quit_enabled())
 	{
-		// If user-triggered, get a trigger entry. 
+		// Triggers can come as binary (uses vsg digital I/O to read), or as ascii (for testing). 
+		// Now that serial connection is allowed, each of the original types (binary or ascii) can have 
 		s.clear();
+		bHaveAsciiTrigger = false;
+		bHaveBinaryTrigger = false;
 		if (!m_arguments.bBinaryTriggers)
 		{
 			if (_kbhit())
@@ -188,26 +193,44 @@ void FixUStim::run_stim(alert::ARvsg& vsg)
 				// Get a new "trigger" from user. Will block here, so if user keys something, this will block until CR entered.
 				cin >> s;
 				cout << "Enter trigger/key: ";
+				bHaveAsciiTrigger = true;
+			}
+			else if (m_arguments.bUsingSerial)
+			{
+				string s = m_serial_port.readStringUntil(";");
+				if (s.size() > 0)
+				{
+					cout << "Got serial string: " << s << endl;
+					bHaveAsciiTrigger = true;
+				}
 			}
 		}
 		else
 		{
-			input_trigger = vsgIOReadDigitalIn();
-		}
-
-		// if serial port, then fetch now. Note getting ascii keys will block this!
-		if (m_arguments.bUsingSerial)
-		{
-			string s = m_serial_port.readStringUntil(";");
-			if (s.size()>0)
+			if (m_arguments.bUsingSerial)
 			{
-				cout << "Got serial string: " << s << endl;
+				string s = m_serial_port.readStringUntil(";");
+				if (s.size() > 0)
+				{
+					cout << "Got serial string: " << s << endl;
+					bHaveAsciiTrigger = true;
+				}
+			}
+			// If there was an actual serial trigger read, it trumps the digital trigger. If no serial read, 
+			// then we still get the digital i/o. 
+			if (!bHaveAsciiTrigger)
+			{
+				input_trigger = vsgIOReadDigitalIn();
+				bHaveBinaryTrigger = true;
 			}
 		}
 
+		//TriggerFunc	tf = std::for_each(triggers().begin(), triggers().end(),
+		//	(m_arguments.bBinaryTriggers ? TriggerFunc(input_trigger, last_output_trigger, false) : TriggerFunc(s, last_output_trigger)));
 
-		TriggerFunc	tf = std::for_each(triggers().begin(), triggers().end(),
-			(m_arguments.bBinaryTriggers ? TriggerFunc(input_trigger, last_output_trigger, false) : TriggerFunc(s, last_output_trigger)));
+		TriggerFunc tf;
+		if (bHaveAsciiTrigger) tf = TriggerFunc(s, last_output_trigger);
+		else if (bHaveBinaryTrigger) tf = TriggerFunc(input_trigger, last_output_trigger, false);
 
 		// Now analyze input trigger
 
@@ -259,7 +282,7 @@ void FixUStim::init_triggers(TSpecificFunctor<FixUStim>* pfunctor)
 	triggers().addTrigger(new FunctorCallbackTrigger("S", 0x4, 0x4, 0x4, 0x4, pfunctor));
 	triggers().addTrigger(new FunctorCallbackTrigger("s", 0x4, 0x0, 0x4, 0x0, pfunctor));
 	triggers().addTrigger(new FunctorCallbackTrigger("X", 0x6, 0x0, 0x6, 0x0, pfunctor));
-	triggers().addTrigger(new FunctorCallbackTrigger("a", 0x8, 0x8 | AR_TRIGGER_TOGGLE, 0x8, 0x8 | AR_TRIGGER_TOGGLE, pfunctor));
+	triggers().addTrigger(new FunctorCallbackTrigger("ag", 0x8, 0x8 | AR_TRIGGER_TOGGLE, 0x8, 0x8 | AR_TRIGGER_TOGGLE, pfunctor));
 	triggers().addTrigger(new FunctorCallbackTrigger("u", 0x20, 0x20 | AR_TRIGGER_TOGGLE, 0x10, 0x10 | AR_TRIGGER_TOGGLE, pfunctor));
 	triggers().addTrigger(new FunctorCallbackTrigger("v", 0x40, 0x40 | AR_TRIGGER_TOGGLE, 0x20, 0x20 | AR_TRIGGER_TOGGLE, pfunctor));
 
