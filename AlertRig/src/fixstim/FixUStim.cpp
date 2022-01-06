@@ -169,6 +169,7 @@ void FixUStim::run_stim(alert::ARvsg& vsg)
 	// All right, start monitoring triggers........
 	int last_output_trigger = 0;
 	long input_trigger = 0;
+	long saved_input_trigger = 0;
 	string s;
 	bool bHaveAsciiTrigger;
 	bool bHaveBinaryTrigger;
@@ -223,6 +224,12 @@ void FixUStim::run_stim(alert::ARvsg& vsg)
 				input_trigger = vsgIOReadDigitalIn();
 				bHaveBinaryTrigger = true;
 			}
+		}
+
+		if (bHaveBinaryTrigger && input_trigger != saved_input_trigger)
+		{
+			cout << "TRIG " << std::hex << input_trigger << endl;
+			saved_input_trigger = input_trigger;
 		}
 
 		//TriggerFunc	tf = std::for_each(triggers().begin(), triggers().end(),
