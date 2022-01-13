@@ -1184,7 +1184,7 @@ void AttentionStimSet::draw_flashy(const FlashyParams& params)
 }
 
 
-int AttentionStimSet::handle_trigger(std::string& s)
+int AttentionStimSet::handle_trigger(const std::string& s)
 {
 	int status = 0;
 

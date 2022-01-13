@@ -283,7 +283,7 @@ int FXImageStimSet::init(ARvsg& vsg, std::vector<int> pages)
 	return status;
 }
 
-int FXImageStimSet::handle_trigger(std::string& s)
+int FXImageStimSet::handle_trigger(const std::string& s)
 {
 	int status = 0;
 	if (s == "F")

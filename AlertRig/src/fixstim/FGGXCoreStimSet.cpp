@@ -329,7 +329,7 @@ void FGGXCoreStimSet::draw_pages(bool bDrawAllPages)
 
 
 
-int FGGXCoreStimSet::handle_trigger(std::string& s)
+int FGGXCoreStimSet::handle_trigger(const std::string& s)
 {
 	int status = 0;
 	if (s == "F")

@@ -481,7 +481,7 @@ int GratingStimSet::init(ARvsg& vsg, std::vector<int> pages)
 	return status;
 }
 
-int GratingStimSet::handle_trigger(std::string &s)
+int GratingStimSet::handle_trigger(const const std::string &s)
 {
 	int status = 0;
 	if (s == "S")
@@ -531,7 +531,7 @@ int FixptGratingStimSet::init(ARvsg& vsg, std::vector<int> pages)
 	return status;
 }
 
-int FixptGratingStimSet::handle_trigger(std::string &s)
+int FixptGratingStimSet::handle_trigger(const std::string &s)
 {
 	int status = 0;
 	if (s == "F")
@@ -626,7 +626,7 @@ int FixptMultiGratingStimSet::init(ARvsg& vsg, std::vector<int> pages)
 	return status;
 }
 
-int FixptMultiGratingStimSet::handle_trigger(std::string &s)
+int FixptMultiGratingStimSet::handle_trigger(const std::string &s)
 {
 	int status = 0;
 	if (s == "F")
@@ -733,7 +733,7 @@ int ContrastStimSet::init(ARvsg& vsg, std::vector<int> pages)
 	return status;
 }	
 
-int ContrastStimSet::handle_trigger(std::string& s)
+int ContrastStimSet::handle_trigger(const std::string& s)
 {
 	int status = 0;
 	if (s == "F")
@@ -803,7 +803,7 @@ int TFStimSet::init(ARvsg& vsg, std::vector<int> pages)
 	return status;
 }
 
-int TFStimSet::handle_trigger(std::string& s)
+int TFStimSet::handle_trigger(const std::string& s)
 {
 	int status = 0;
 	if (s == "F")
@@ -880,7 +880,7 @@ int SFStimSet::init(ARvsg& vsg, std::vector<int> pages)
 	return status;
 }
 
-int SFStimSet::handle_trigger(std::string& s)
+int SFStimSet::handle_trigger(const std::string& s)
 {
 	int status = 0;
 	if (s == "F")
@@ -969,7 +969,7 @@ int OrientationStimSet::init(ARvsg& vsg, std::vector<int> pages)
 	return status;
 }
 
-int OrientationStimSet::handle_trigger(std::string& s)
+int OrientationStimSet::handle_trigger(const std::string& s)
 {
 	int status = 0;
 	if (s == "F")
@@ -1057,7 +1057,7 @@ int AreaStimSet::init(ARvsg& vsg, std::vector<int> pages)
 	return status;
 }
 
-int AreaStimSet::handle_trigger(std::string& s)
+int AreaStimSet::handle_trigger(const std::string& s)
 {
 	int status = 0;
 	if (s == "F")
@@ -1147,7 +1147,7 @@ int AnnulusStimSet::init(ARvsg& vsg, std::vector<int> pages)
 	return status;
 }
 
-int AnnulusStimSet::handle_trigger(std::string& s)
+int AnnulusStimSet::handle_trigger(const std::string& s)
 {
 	int status = 0;
 	if (s == "F")
@@ -1243,7 +1243,7 @@ int InnerDiameterStimSet::init(ARvsg& vsg, std::vector<int> pages)
 	return status;
 }
 
-int InnerDiameterStimSet::handle_trigger(std::string& s)
+int InnerDiameterStimSet::handle_trigger(const std::string& s)
 {
 	int status = 0;
 	if (s == "F")
@@ -1331,7 +1331,7 @@ int PositionStimSet::init(ARvsg& vsg, std::vector<int> pages)
 	return status;
 }
 
-int PositionStimSet::handle_trigger(std::string& s)
+int PositionStimSet::handle_trigger(const std::string& s)
 {
 	int status = 0;
 	if (s == "F")
@@ -1427,7 +1427,7 @@ int DanishStimSet::init(ARvsg& vsg, std::vector<int> pages)
 	return status;
 }
 
-int DanishStimSet::handle_trigger(std::string& s)
+int DanishStimSet::handle_trigger(const std::string& s)
 {
 	int status = 0;
 	if (s == "F")
@@ -1634,7 +1634,7 @@ int FlashStimSet::init(ARvsg& vsg, std::vector<int> pages)
 	return status;
 }
 
-int FlashStimSet::handle_trigger(std::string& s)
+int FlashStimSet::handle_trigger(const std::string& s)
 {
 	int status = 0;
 	if (s == "F")
@@ -1785,7 +1785,7 @@ int CRGStimSet::init(ARvsg& vsg, std::vector<int> pages)
 	return status;
 }
 
-int CRGStimSet::handle_trigger(std::string& s)
+int CRGStimSet::handle_trigger(const std::string& s)
 {
 	static int page = m_page0;
 	int status = 0;
@@ -1872,7 +1872,7 @@ int CBarStimSet::init(ARvsg& vsg, std::vector<int> pages)
 	return 0;
 }
 
-int CBarStimSet::handle_trigger(std::string& s)
+int CBarStimSet::handle_trigger(const std::string& s)
 {
 	int status = 0;
 	if (s == "F")
@@ -2132,7 +2132,7 @@ int CounterphaseStimSet::init(ARvsg& vsg, std::vector<int> pages)
 	return status;
 }
 
-int CounterphaseStimSet::handle_trigger(std::string& s)
+int CounterphaseStimSet::handle_trigger(const std::string& s)
 {
 	int status = 0;
 	if (s == "F")

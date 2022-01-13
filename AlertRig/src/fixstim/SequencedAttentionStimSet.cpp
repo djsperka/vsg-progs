@@ -367,7 +367,7 @@ void SequencedAttentionStimSet::draw_fixpt()
 }
 
 
-int SequencedAttentionStimSet::handle_trigger(std::string& s)
+int SequencedAttentionStimSet::handle_trigger(const std::string& s)
 {
 	int status = 0;
 

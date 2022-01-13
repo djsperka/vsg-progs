@@ -57,7 +57,7 @@ public:
 	FGGXCoreStimSet(ARContrastFixationPointSpec& fixpt, boost::shared_ptr<SSInfo> pssinfo, double xOffset=0.0, double yOffset=0.0): FGGXStimSet(fixpt, pssinfo, false, xOffset, yOffset) {};
 	FGGXCoreStimSet(boost::shared_ptr<SSInfo> pssinfo, double xOffset=0.0, double yOffset=0.0): FGGXStimSet(pssinfo, false, xOffset, yOffset) {};
 	~FGGXCoreStimSet() {};
-	virtual int handle_trigger(std::string& s);
+	virtual int handle_trigger(const std::string& s);
 	virtual int init(ARvsg& vsg, std::vector<int> pages);
 	virtual std::string toString() const;
 	virtual int num_pages() {return 6;};
@@ -77,7 +77,7 @@ public:
 	FGGXDonutStimSet(ARContrastFixationPointSpec& fixpt, boost::shared_ptr<SSInfo> pssinfo, double xOffset=0.0, double yOffset=0.0): FGGXStimSet(fixpt, pssinfo, true, xOffset, yOffset) {};
 	FGGXDonutStimSet(boost::shared_ptr<SSInfo> pssinfo, double xOffset=0.0, double yOffset=0.0): FGGXStimSet(pssinfo, true, xOffset, yOffset) {};
 	~FGGXDonutStimSet() {};
-	virtual int handle_trigger(std::string& s);
+	virtual int handle_trigger(const std::string& s);
 	virtual int init(ARvsg& vsg, std::vector<int> pages);
 	virtual std::string toString() const;
 	virtual int num_pages() {return 6;};
@@ -95,7 +95,7 @@ public:
 	FGGXDanishStimSet(ARContrastFixationPointSpec& fixpt, boost::shared_ptr<SSInfo> pssinfo, double xOffset=0.0, double yOffset=0.0): FGGXStimSet(fixpt, pssinfo, false, xOffset, yOffset) { initialize(xOffset, yOffset); };
 	FGGXDanishStimSet(boost::shared_ptr<SSInfo> pssinfo, double xOffset=0.0, double yOffset=0.0): FGGXStimSet(pssinfo, false, xOffset, yOffset) { initialize(xOffset, yOffset); };
 	~FGGXDanishStimSet() {};
-	virtual int handle_trigger(std::string& s);
+	virtual int handle_trigger(const std::string& s);
 	virtual int init(ARvsg& vsg, std::vector<int> pages);
 	virtual std::string toString() const;
 	virtual int num_pages() {return 6;};
@@ -112,7 +112,7 @@ public:
 	FGGXNullStimSet(ARContrastFixationPointSpec& fixpt, boost::shared_ptr<SSInfo> pssinfo, double xOffset=0.0, double yOffset=0.0): FGGXStimSet(fixpt, pssinfo, false, xOffset, yOffset) {};
 	FGGXNullStimSet(boost::shared_ptr<SSInfo> pssinfo, double xOffset=0.0, double yOffset=0.0): FGGXStimSet(pssinfo, false, xOffset, yOffset) {};
 	~FGGXNullStimSet() {};
-	virtual int handle_trigger(std::string& s);
+	virtual int handle_trigger(const std::string& s);
 	virtual int init(ARvsg& vsg, std::vector<int> pages);
 	virtual std::string toString() const;
 	virtual int num_pages() {return 6;};

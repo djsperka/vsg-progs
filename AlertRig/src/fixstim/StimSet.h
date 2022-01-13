@@ -36,7 +36,7 @@ public:
 
 	// handle the trigger indicated by the string s. Do not call vsgPresent! return value of 
 	// 1 means vsgPresent() will be called. 
-	virtual int handle_trigger(std::string& s) = 0;
+	virtual int handle_trigger(const std::string& s) = 0;
 
 	virtual std::string toString() const;
 
@@ -247,7 +247,7 @@ public:
 	virtual int num_overlay_pages() {return 0;};
 	virtual int init(std::vector<int> pages) {return 0;};
 	virtual int init(ARvsg& vsg, std::vector<int> pages) {return 0;};
-	virtual int handle_trigger(std::string& s) {return 0;};		// will not trigger?!?
+	virtual int handle_trigger(const std::string& s) {return 0;};		// will not trigger?!?
 	virtual std::string toString() const;
 };
 
@@ -261,7 +261,7 @@ public:
 	virtual int num_overlay_pages() { return 0;};
 	//virtual int init(std::vector<int> pages);
 	virtual int init(ARvsg& vsg, std::vector<int> pages);
-	virtual int handle_trigger(std::string& s);
+	virtual int handle_trigger(const std::string& s);
 	virtual std::string toString() const;
 private:
 	int m_page;
@@ -281,7 +281,7 @@ public:
 	virtual int num_pages() { return 1; };
 	virtual int num_overlay_pages() { return 0; };
 	virtual int init(ARvsg& vsg, std::vector<int> pages);
-	virtual int handle_trigger(std::string& s);
+	virtual int handle_trigger(const std::string& s);
 	virtual std::string toString() const;
 private:
 	int m_page;
@@ -297,7 +297,7 @@ public:
 	virtual int num_pages() { return 1; };
 	virtual int num_overlay_pages() { return 0; };
 	virtual int init(ARvsg& vsg, std::vector<int> pages);
-	virtual int handle_trigger(std::string& s);
+	virtual int handle_trigger(const std::string& s);
 	virtual std::string toString() const;
 private:
 	int m_page;
@@ -313,7 +313,7 @@ public:
 	virtual int num_pages() {return 1;};
 	virtual int num_overlay_pages() {return 0;};
 	virtual int init(ARvsg& vsg, std::vector<int> pages);
-	virtual int handle_trigger(std::string& s);
+	virtual int handle_trigger(const std::string& s);
 	virtual std::string toString() const;
 private:
 	int m_page;
@@ -330,7 +330,7 @@ public:
 	virtual int num_pages() {return 1;};
 	virtual int num_overlay_pages() {return 0;};
 	virtual int init(ARvsg& vsg, std::vector<int> pages);
-	virtual int handle_trigger(std::string& s);
+	virtual int handle_trigger(const std::string& s);
 	virtual std::string toString() const;
 private:
 	int m_page;
@@ -348,7 +348,7 @@ public:
 	virtual int num_pages() {return 2;};
 	virtual int num_overlay_pages() {return 0;};
 	virtual int init(ARvsg& vsg, std::vector<int> pages);
-	virtual int handle_trigger(std::string& s);
+	virtual int handle_trigger(const std::string& s);
 	virtual std::string toString() const;
 private:
 	int m_pages[2];
@@ -366,7 +366,7 @@ public:
 	virtual int num_pages() {return 2;};
 	virtual int num_overlay_pages() {return 0;};
 	virtual int init(ARvsg& vsg, std::vector<int> pages);
-	virtual int handle_trigger(std::string& s);
+	virtual int handle_trigger(const std::string& s);
 	virtual std::string toString() const;
 private:
 	int m_pages[2];
@@ -384,7 +384,7 @@ public:
 	virtual int num_pages() {return 2;};
 	virtual int num_overlay_pages() {return 0;};
 	virtual int init(ARvsg& vsg, std::vector<int> pages);
-	virtual int handle_trigger(std::string& s);
+	virtual int handle_trigger(const std::string& s);
 	virtual std::string toString() const;
 private:
 	int m_pages[2];
@@ -402,7 +402,7 @@ public:
 	virtual int num_pages() {return 2;};
 	virtual int num_overlay_pages() {return 0;};
 	virtual int init(ARvsg& vsg, std::vector<int> pages);
-	virtual int handle_trigger(std::string& s);
+	virtual int handle_trigger(const std::string& s);
 	virtual std::string toString() const;
 private:
 	int m_pages[2];
@@ -420,7 +420,7 @@ public:
 	virtual int num_pages() {return 2;};
 	virtual int num_overlay_pages() {return 0;};
 	virtual int init(ARvsg& vsg, std::vector<int> pages);
-	virtual int handle_trigger(std::string& s);
+	virtual int handle_trigger(const std::string& s);
 	virtual std::string toString() const;
 private:
 	int m_pages[2];
@@ -439,7 +439,7 @@ public:
 	virtual int num_pages() {return 2;};
 	virtual int num_overlay_pages() {return 0;};
 	virtual int init(ARvsg& vsg, std::vector<int> pages);
-	virtual int handle_trigger(std::string& s);
+	virtual int handle_trigger(const std::string& s);
 	virtual std::string toString() const;
 private:
 	int m_pages[2];
@@ -458,7 +458,7 @@ public:
 	virtual int num_pages() {return 2;};
 	virtual int num_overlay_pages() {return 0;};
 	virtual int init(ARvsg& vsg, std::vector<int> pages);
-	virtual int handle_trigger(std::string& s);
+	virtual int handle_trigger(const std::string& s);
 	virtual std::string toString() const;
 private:
 	int m_pages[2];
@@ -480,7 +480,7 @@ public:
 	virtual int num_pages() {return 2;};
 	virtual int num_overlay_pages() {return 0;};
 	virtual int init(ARvsg& vsg, std::vector<int> pages);
-	virtual int handle_trigger(std::string& s);
+	virtual int handle_trigger(const std::string& s);
 	virtual std::string toString() const;
 private:
 	int m_page0;
@@ -507,7 +507,7 @@ public:
 	virtual int num_pages() {return (int)(1+m_colors.size());};
 	virtual int num_overlay_pages() {return 0;};
 	virtual int init(ARvsg& vsg, std::vector<int> pages);
-	virtual int handle_trigger(std::string& s);
+	virtual int handle_trigger(const std::string& s);
 	virtual std::string toString() const;
 private:
 	vector<COLOR_TYPE> m_colors;
@@ -527,7 +527,7 @@ public:
 	virtual int num_pages() {return 2;};
 	virtual int num_overlay_pages() {return 0;};
 	virtual int init(ARvsg& vsg, std::vector<int> pages);
-	virtual int handle_trigger(std::string& s);
+	virtual int handle_trigger(const std::string& s);
 	virtual std::string toString() const;
 	void prepareCycling(double ori);
 	double getDistance(long *c0, long *c1, long *c2, double *p, double *q, double *u, double *v);
@@ -560,7 +560,7 @@ public:
 	virtual int num_pages() {return 3;};
 	virtual int num_overlay_pages() {return 0;};
 	virtual int init(ARvsg& vsg, std::vector<int> pages);
-	virtual int handle_trigger(std::string& s);
+	virtual int handle_trigger(const std::string& s);
 	virtual std::string toString() const;
 	static void threadfunc(void *);
 private:
@@ -627,7 +627,7 @@ public:
 	virtual int num_pages() {return 2;};
 	virtual int num_overlay_pages() {return 0;};
 	virtual int init(ARvsg& vsg, std::vector<int> pages);
-	virtual int handle_trigger(std::string& s);
+	virtual int handle_trigger(const std::string& s);
 	virtual std::string toString() const;
 private:
 	int m_pages[2];

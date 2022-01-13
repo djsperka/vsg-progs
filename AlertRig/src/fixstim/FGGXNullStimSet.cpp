@@ -217,7 +217,7 @@ void FGGXNullStimSet::draw_pages(bool bDrawAllPages)
 
 
 
-int FGGXNullStimSet::handle_trigger(std::string& s)
+int FGGXNullStimSet::handle_trigger(const std::string& s)
 {
 	int status = 0;
 	if (s == "F")

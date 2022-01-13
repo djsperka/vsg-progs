@@ -33,7 +33,7 @@ void FGGXDonutStimSet::per_trial_predraw_updates()
 }
 
 
-int FGGXDonutStimSet::handle_trigger(std::string& s)
+int FGGXDonutStimSet::handle_trigger(const std::string& s)
 {
 	int status = 0;
 	if (s == "F")

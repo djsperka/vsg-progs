@@ -373,7 +373,7 @@ void FGGXDanishStimSet::draw_pages(bool bDrawAllPages)
 
 
 
-int FGGXDanishStimSet::handle_trigger(std::string& s)
+int FGGXDanishStimSet::handle_trigger(const std::string& s)
 {
 	int status = 0;
 	if (s == "F")

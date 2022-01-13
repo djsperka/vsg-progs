@@ -76,7 +76,7 @@ public:
 
 	//virtual int init(ARvsg& vsg);
 	virtual int init(ARvsg& vsg, std::vector<int> pages);
-	virtual int handle_trigger(std::string& s);
+	virtual int handle_trigger(const std::string& s);
 	virtual std::string toString() const { return std::string("StimSetCRG - toString() N.I."); };
 };
 

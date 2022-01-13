@@ -117,7 +117,7 @@ int BorderStimSet::init(std::vector<int> pages)
 
 // handle the trigger indicated by the string s. Do not call vsgPresent! return value of 
 // 1 means vsgPresent() will be called. 
-int BorderStimSet::handle_trigger(std::string& s)
+int BorderStimSet::handle_trigger(const std::string& s)
 {
 	int status = 0;
 	if (s == "F")

@@ -90,7 +90,7 @@ int StimSetCRG::init(ARvsg& vsg, std::vector<int> pages)
 	return status;
 }
 
-int StimSetCRG::handle_trigger(std::string& s)
+int StimSetCRG::handle_trigger(const std::string& s)
 {
 	int status = 0;
 	if (s == "F")
