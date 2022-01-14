@@ -163,7 +163,9 @@ void FixUStim::run_stim(alert::ARvsg& vsg)
 	vsg.ready_pulse(100, m_arguments.iPulseBits);
 
 	// reset all triggers if using binary triggers
-	if (m_arguments.bBinaryTriggers) triggers().reset(vsgIOReadDigitalIn());
+	long digin = vsgIOReadDigitalIn();
+	cout << "Reset input triggers with current value of " << std::hex << digin << endl;
+	if (m_arguments.bBinaryTriggers) triggers().reset(digin);
 
 
 	// All right, start monitoring triggers........
@@ -226,18 +228,31 @@ void FixUStim::run_stim(alert::ARvsg& vsg)
 			}
 		}
 
-		if (bHaveBinaryTrigger && input_trigger != saved_input_trigger)
-		{
-			cout << "TRIG " << std::hex << input_trigger << endl;
-			saved_input_trigger = input_trigger;
-		}
-
 		//TriggerFunc	tf = std::for_each(triggers().begin(), triggers().end(),
 		//	(m_arguments.bBinaryTriggers ? TriggerFunc(input_trigger, last_output_trigger, false) : TriggerFunc(s, last_output_trigger)));
 
 		TriggerFunc tf;
-		if (bHaveAsciiTrigger) tf = TriggerFunc(s, last_output_trigger);
-		else if (bHaveBinaryTrigger) tf = TriggerFunc(input_trigger, last_output_trigger, false);
+		if (bHaveAsciiTrigger)
+		{
+			tf = TriggerFunc(s, last_output_trigger);
+			std::for_each(triggers().begin(), triggers().end(), tf);
+		}
+		else if (bHaveBinaryTrigger)
+		{
+			if (input_trigger != saved_input_trigger)
+			{
+				cout << "TRIG " << std::hex << input_trigger << endl;
+				saved_input_trigger = input_trigger;
+				tf = TriggerFunc(input_trigger, last_output_trigger, false);
+
+				//std::for_each(triggers().begin(), triggers().end(), tf);
+				for (auto ptrig : triggers())
+				{
+					//std::cout << (tf.fired() ? "FIRED " : "NOT FIRED ") << ptrig->getKey() << std::endl;
+					tf(ptrig);
+				}
+			}
+		}
 
 		// Now analyze input trigger
 
@@ -287,9 +302,10 @@ void FixUStim::init_triggers(TSpecificFunctor<FixUStim>* pfunctor)
 	triggers().clear();
 	triggers().addTrigger(new FunctorCallbackTrigger("F", 0x2, 0x2, 0x2, 0x2, pfunctor));
 	triggers().addTrigger(new FunctorCallbackTrigger("S", 0x4, 0x4, 0x4, 0x4, pfunctor));
-	triggers().addTrigger(new FunctorCallbackTrigger("s", 0x4, 0x0, 0x4, 0x0, pfunctor));
 	triggers().addTrigger(new FunctorCallbackTrigger("X", 0x6, 0x0, 0x6, 0x0, pfunctor));
-	triggers().addTrigger(new FunctorCallbackTrigger("ag", 0x8, 0x8 | AR_TRIGGER_TOGGLE, 0x8, 0x8 | AR_TRIGGER_TOGGLE, pfunctor));
+	triggers().addTrigger(new FunctorCallbackTrigger("s", 0x4, 0x0, 0x4, 0x0, pfunctor));	// this must come after X so it will not fire with an X.
+	triggers().addTrigger(new FunctorCallbackTrigger("a", 0x8, 0x8 | AR_TRIGGER_TOGGLE, 0x8, 0x8 | AR_TRIGGER_TOGGLE, pfunctor));
+	triggers().addTrigger(new FunctorCallbackTrigger("g", 0x0, 0x0, 0x0, 0x0, pfunctor));
 	triggers().addTrigger(new FunctorCallbackTrigger("u", 0x20, 0x20 | AR_TRIGGER_TOGGLE, 0x10, 0x10 | AR_TRIGGER_TOGGLE, pfunctor));
 	triggers().addTrigger(new FunctorCallbackTrigger("v", 0x40, 0x40 | AR_TRIGGER_TOGGLE, 0x20, 0x20 | AR_TRIGGER_TOGGLE, pfunctor));
 
@@ -304,7 +320,7 @@ void FixUStim::init_triggers(TSpecificFunctor<FixUStim>* pfunctor)
 
 int FixUStim::callback(int &output, const FunctorCallbackTrigger* ptrig, const std::string&)
 {
-	return  m_arguments.pStimSet->handle_trigger(ptrig->getKey());
+	return  m_arguments.pStimSet->handle_trigger(ptrig->getMatchedKey());
 }
 
 
