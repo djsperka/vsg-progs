@@ -73,9 +73,10 @@ int MultiParameterFXMultiGStimSet::init(ARvsg& vsg, std::vector<int> pages)
 	return status;
 }
 
-int MultiParameterFXMultiGStimSet::handle_trigger(std::string& s)
+int MultiParameterFXMultiGStimSet::handle_trigger(const std::string& s)
 {
 	int status = 0;
+	cout << "handle_trigger " << s << endl;
 	if (s == "F")
 	{
 		for (unsigned int i = 0; i < distractor_count(); i++)
@@ -127,6 +128,20 @@ int MultiParameterFXMultiGStimSet::handle_trigger(std::string& s)
 		// is the NEXT stimulus page to be shown. 
 
 
+		// unset parameters that trigger cycling, if any. One of the parameter lists called in advance() must enable it. 
+		setCyclingDelay(-1);
+		setStimDuration(-1);
+
+		advance();
+		draw_current();
+		if (CYCLING_TYPE_NONE != m_iCyclingType)
+		{
+			setup_cycling();
+		}
+		status = 0;
+	}
+	else if (s == "g")
+	{
 		// unset parameters that trigger cycling, if any. One of the parameter lists called in advance() must enable it. 
 		setCyclingDelay(-1);
 		setStimDuration(-1);
