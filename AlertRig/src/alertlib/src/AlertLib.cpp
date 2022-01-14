@@ -98,12 +98,17 @@ std::ostream& operator<<(std::ostream& out, const Trigger& t)
 void TriggerFunc::operator()(Trigger* pitem)
 {
 	bool bTest=false;
+
+	// This trigger func fires only on the first trigger! 
+	// Each trigger is checked, however, so that each can keep track of the current input. 
+
 	if (m_binary) bTest = pitem->checkBinary(m_itrigger);
 	else bTest = pitem->checkAscii(m_skey);
 
-	if (bTest)
+	if (bTest && !fired())
 	{
 		int i;
+		m_fired = true;
 		m_triggers_matched.append(pitem->getKey());
 		i = pitem->execute(m_otrigger);
 		if (m_verbose) cout << "Trigger " << pitem->getKey() << " execute: " << std::hex << i << endl;

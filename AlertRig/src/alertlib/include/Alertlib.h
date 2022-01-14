@@ -445,15 +445,11 @@ namespace alert
 //				std::cout << "Trigger(" << m_key << ")" << " TOGGLE(input) " << m_key << " in_val " << i_in_val << std::endl;
 				m_btoggleIn = true;
 				m_in_val = i_in_val & ~(AR_TRIGGER_TOGGLE);
-//				m_in_last = ~m_in_val & m_in_mask;
-//				m_in_last = 0;
 			}
 			else
 			{
 				m_btoggleIn = false;
 				m_in_val = i_in_val;
-//				m_in_last = m_in_val;
-//				m_in_last = 0;
 			}
 
 			reset();	// this gives the m_in_val a value.
@@ -493,6 +489,11 @@ namespace alert
 					m_args = boost::trim_left_copy(input.substr(input.find(' ')));
 				}
 			}
+			if (b)
+				std::cout << "input " << input << " key " << getKey() << " matched " << m_matchedKey << std::endl;
+			else
+				std::cout << "input " << input << " key " << getKey() << " not matched " << std::endl;
+
 			return b;
 		}
 
@@ -502,8 +503,11 @@ namespace alert
 			int current = input&m_in_mask;
 			m_args.clear();
 			m_matchedKey.clear();
+			// djs - create trigger with 
+			if (m_in_mask == 0) return false;
 			if (!m_btoggleIn)
 			{
+				//std::cout << getKey() << " " << std::hex << m_in_mask << " " << m_in_val << " " << m_in_last << " " << current << std::endl;
 				if (current != m_in_last && current == m_in_val)
 				{
 					bValue = true;
@@ -1149,16 +1153,20 @@ namespace alert
 	};
 
 
+	// Functor class used to evaluate triggers. 
+	// This functor is written such that it will stop evaluating triggers once one fires -- it is intended to be used with a vector of triggers, 
+	// which are sent through std::for_each to this functor. Triggers should be ordered so the right one fires first when their bits overlap!
 
 	class TriggerFunc
 	{
 	public:
-		TriggerFunc(std::string key, int otrigger, bool verbose=false) : m_binary(false), m_skey(key), m_present(false), m_otrigger(otrigger), m_page(-1), m_quit(false), m_ideferred(0), m_verbose(verbose) {};
-		TriggerFunc(int itrigger, int otrigger, bool verbose=false) : m_binary(true), m_itrigger(itrigger), m_present(false), m_otrigger(otrigger), m_page(-1), m_quit(false), m_ideferred(0), m_verbose(verbose) {};
-		TriggerFunc() : m_binary(false), m_skey(""), m_present(false), m_otrigger(0), m_page(-1), m_quit(false), m_ideferred(0), m_verbose(false) {};
-		TriggerFunc(const TriggerFunc& tf) : m_quit(tf.m_quit), m_binary(tf.m_binary), m_itrigger(tf.m_itrigger), m_skey(tf.m_skey), m_present(tf.m_present), m_otrigger(tf.m_otrigger), m_page(tf.m_page) {};
+		TriggerFunc(std::string key, int otrigger, bool verbose=false) : m_quit(false), m_fired(false), m_binary(false), m_skey(key), m_present(false), m_otrigger(otrigger), m_page(-1), m_ideferred(0), m_verbose(verbose) {};
+		TriggerFunc(int itrigger, int otrigger, bool verbose=false) : m_quit(false), m_fired(false), m_binary(true), m_itrigger(itrigger), m_present(false), m_otrigger(otrigger), m_page(-1), m_ideferred(0), m_verbose(verbose) {};
+		TriggerFunc() : m_quit(false), m_fired(false), m_binary(false), m_skey(""), m_present(false), m_otrigger(0), m_page(-1),  m_ideferred(0), m_verbose(false) {};
+		TriggerFunc(const TriggerFunc& tf) : m_quit(tf.m_quit), m_fired(tf.m_fired), m_binary(tf.m_binary), m_itrigger(tf.m_itrigger), m_skey(tf.m_skey), m_present(tf.m_present), m_otrigger(tf.m_otrigger), m_page(tf.m_page) {};
 		int page() { return m_page; };
 		bool present() { return m_present; };
+		bool fired() { return m_fired; }
 		int output_trigger() { return m_otrigger; };
 		bool quit() { return m_quit; };
 		int deferred() { return m_ideferred; };
@@ -1169,6 +1177,7 @@ namespace alert
 			if (&tf != this)
 			{
 				m_quit = tf.m_quit;
+				m_fired = tf.m_fired;
 				m_binary = tf.m_binary;
 				m_itrigger = tf.m_itrigger;
 				m_skey = tf.m_skey;
@@ -1180,29 +1189,10 @@ namespace alert
 		}
 
 		virtual void operator()(Trigger* pitem);
-		/*
-		{
-			bool bTest=false;
-			if (m_binary) bTest = pitem->checkBinary(m_itrigger);
-			else bTest = pitem->checkAscii(m_skey);
 
-			if (bTest)
-			{
-				int i;
-				if (m_verbose) cout << "Trigger " << pitem->getKey() << " execute..." << endl;
-				i = pitem->execute(m_otrigger);
-				m_ideferred = i;
-				if (i > 0) m_present = true;
-				else if (i < 0) 
-				{
-					m_present = true;
-					m_quit = true;
-				}
-			}
-		};
-		*/
 	protected:
 		bool m_quit;
+		bool m_fired;	// becomes true when a trigger is fired, will no fire again!!!
 		bool m_binary;	// if true, do a binary trigger test. Otherwise do ascii
 		int m_itrigger;	// input trigger value to test against
 		std::string m_skey;
