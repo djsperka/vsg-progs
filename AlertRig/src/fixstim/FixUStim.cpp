@@ -162,12 +162,6 @@ void FixUStim::run_stim(alert::ARvsg& vsg)
 		Sleep(m_arguments.iReadyPulseDelay);
 	vsg.ready_pulse(100, m_arguments.iPulseBits);
 
-	// reset all triggers if using binary triggers
-	long digin = vsgIOReadDigitalIn();
-	cout << "Reset input triggers with current value of " << std::hex << digin << endl;
-	if (m_arguments.bBinaryTriggers) triggers().reset(digin);
-
-
 	// All right, start monitoring triggers........
 	int last_output_trigger = 0;
 	long input_trigger = 0;
@@ -175,10 +169,21 @@ void FixUStim::run_stim(alert::ARvsg& vsg)
 	string s;
 	bool bHaveAsciiTrigger;
 	bool bHaveBinaryTrigger;
+	int trigger_count = 0;
 
+	// reset all triggers if using binary triggers
+	long digin = vsgIOReadDigitalIn();
+	cout << "Reset input triggers with current value of " << std::hex << digin << endl;
+	if (m_arguments.bBinaryTriggers)
+	{
+		triggers().reset(digin);
+		saved_input_trigger = digin;
+	}
+
+
+	// prompt for input if ascii inputs
 	if (!m_arguments.bBinaryTriggers)
 	{
-		// Get a new "trigger" from user
 		cout << "Enter trigger/key: ";
 	}
 
@@ -241,7 +246,8 @@ void FixUStim::run_stim(alert::ARvsg& vsg)
 		{
 			if (input_trigger != saved_input_trigger)
 			{
-				cout << "TRIG " << std::hex << input_trigger << endl;
+				cout << "TRIG " << trigger_count << " " << std::hex << input_trigger << endl;
+				trigger_count++; // for diagnostic only
 				saved_input_trigger = input_trigger;
 				tf = TriggerFunc(input_trigger, last_output_trigger, false);
 
@@ -254,15 +260,21 @@ void FixUStim::run_stim(alert::ARvsg& vsg)
 			}
 		}
 
-		// Now analyze input trigger
-
+		// if quit requested, get out now
 		if (tf.quit()) break;
-		else if (tf.present())
+
+		// write digout if current output is different than last write. 
+		if (tf.output_trigger() != last_output_trigger && tf.count() > 0)
+		{
+			vsgIOWriteDigitalOut(tf.output_trigger() << 1, 0xfffe);
+			last_output_trigger = tf.output_trigger();
+			std::cout << "vsg digout " << std::hex << (tf.output_trigger() << 1) << std::endl;
+		}
+
+		// if vsgPresent() is called for....
+		if (tf.present())
 		{
 			//cout << "Got present(): old " << hex << last_output_trigger << " new " << hex << tf.output_trigger() << endl;
-			last_output_trigger = tf.output_trigger();
-			vsgIOWriteDigitalOut(tf.output_trigger()<<1, 0xfffe);
-
 			// Check whether we do an ordinary present(), or if we are doing dualstim rig hijinks we'll want to 
 			// do a presendOnTrigger. In the presentOnTrigger case, we do a further check on whether any of the
 			// triggers matched (you can have multiple triggers matched in a single check) is on the list of 
@@ -287,8 +299,11 @@ void FixUStim::run_stim(alert::ARvsg& vsg)
 				}
 			}
 		}
+
+		// short sleep
 		Sleep(10);
 	}
+
 	if (m_arguments.pStimSet)
 		m_arguments.pStimSet->cleanup(pages);
 	vsg.clear();

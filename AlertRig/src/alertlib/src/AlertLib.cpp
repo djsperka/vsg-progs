@@ -98,6 +98,7 @@ std::ostream& operator<<(std::ostream& out, const Trigger& t)
 void TriggerFunc::operator()(Trigger* pitem)
 {
 	bool bTest=false;
+	m_count++;
 
 	// This trigger func fires only on the first trigger! 
 	// Each trigger is checked, however, so that each can keep track of the current input. 
@@ -654,7 +655,7 @@ int ARFixationPointSpec::draw()
 	}
 	else
 	{
-		vsgSetPen1(255 * this->color.trival().a + 256 * 255 * this->color.trival().b + 256 * 256 * 255 * this->color.trival().c);
+		vsgSetPen1((DWORD)(255 * this->color.trival().a + 256 * 255 * this->color.trival().b + 256 * 256 * 255 * this->color.trival().c));
 	}
 	vsgSetDrawMode(vsgCENTREXY + vsgSOLIDFILL);
 	vsgDrawOval(x, -1*y, d, d);
@@ -949,7 +950,7 @@ int ARCueCircleSpec::drawCircle()
 	}
 	else
 	{
-		vsgSetPen1(255 * this->color.trival().a + 256 * 255 * this->color.trival().b + 256 * 256 * 255 * this->color.trival().c);
+		vsgSetPen1((DWORD)(255 * this->color.trival().a + 256 * 255 * this->color.trival().b + 256 * 256 * 255 * this->color.trival().c));
 	}
 	vsgSetPenSize(this->linewidth, this->linewidth);
 	vsgSetDrawMode(vsgCENTREXY + vsgSOLIDPEN);
@@ -974,7 +975,7 @@ int ARCueCircleSpec::drawPoint()
 		}
 		else
 		{
-			vsgSetPen1(255 * this->color.trival().a + 256 * 255 * this->color.trival().b + 256 * 256 * 255 * this->color.trival().c);
+			vsgSetPen1((DWORD)(255 * this->color.trival().a + 256 * 255 * this->color.trival().b + 256 * 256 * 255 * this->color.trival().c));
 		}
 		vsgSetPenSize(this->linewidth, this->linewidth);
 		// draw central dot if diam is set

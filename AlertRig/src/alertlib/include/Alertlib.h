@@ -1160,16 +1160,17 @@ namespace alert
 	class TriggerFunc
 	{
 	public:
-		TriggerFunc(std::string key, int otrigger, bool verbose=false) : m_quit(false), m_fired(false), m_binary(false), m_skey(key), m_present(false), m_otrigger(otrigger), m_page(-1), m_ideferred(0), m_verbose(verbose) {};
-		TriggerFunc(int itrigger, int otrigger, bool verbose=false) : m_quit(false), m_fired(false), m_binary(true), m_itrigger(itrigger), m_present(false), m_otrigger(otrigger), m_page(-1), m_ideferred(0), m_verbose(verbose) {};
-		TriggerFunc() : m_quit(false), m_fired(false), m_binary(false), m_skey(""), m_present(false), m_otrigger(0), m_page(-1),  m_ideferred(0), m_verbose(false) {};
-		TriggerFunc(const TriggerFunc& tf) : m_quit(tf.m_quit), m_fired(tf.m_fired), m_binary(tf.m_binary), m_itrigger(tf.m_itrigger), m_skey(tf.m_skey), m_present(tf.m_present), m_otrigger(tf.m_otrigger), m_page(tf.m_page) {};
+		TriggerFunc(std::string key, int otrigger, bool verbose=false) : m_quit(false), m_fired(false), m_binary(false), m_skey(key), m_count(0), m_present(false), m_otrigger(otrigger), m_page(-1), m_ideferred(0), m_verbose(verbose) {};
+		TriggerFunc(int itrigger, int otrigger, bool verbose=false) : m_quit(false), m_fired(false), m_binary(true), m_skey(""), m_count(0), m_itrigger(itrigger), m_present(false), m_otrigger(otrigger), m_page(-1), m_ideferred(0), m_verbose(verbose) {};
+		TriggerFunc() : m_quit(false), m_fired(false), m_binary(false), m_count(0), m_skey(""), m_present(false), m_otrigger(0), m_page(-1),  m_ideferred(0), m_verbose(false) {};
+		TriggerFunc(const TriggerFunc& tf) : m_quit(tf.m_quit), m_fired(tf.m_fired), m_binary(tf.m_binary), m_itrigger(tf.m_itrigger), m_count(tf.m_count), m_skey(tf.m_skey), m_present(tf.m_present), m_otrigger(tf.m_otrigger), m_page(tf.m_page) {};
 		int page() { return m_page; };
 		bool present() { return m_present; };
 		bool fired() { return m_fired; }
 		int output_trigger() { return m_otrigger; };
 		bool quit() { return m_quit; };
 		int deferred() { return m_ideferred; };
+		int count() { return m_count; }
 		const std::string& triggers_matched() { return m_triggers_matched; };
 
 		TriggerFunc& operator=(const TriggerFunc& tf)
@@ -1196,6 +1197,7 @@ namespace alert
 		bool m_binary;	// if true, do a binary trigger test. Otherwise do ascii
 		int m_itrigger;	// input trigger value to test against
 		std::string m_skey;
+		int m_count;	// number of triggers processed. 
 		bool m_present;	// if true, at least one trigger requires vsgPresent()
 		int m_otrigger;	// if m_present is true, this is the output trigger value
 		int m_page;
