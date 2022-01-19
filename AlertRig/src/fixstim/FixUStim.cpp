@@ -172,10 +172,10 @@ void FixUStim::run_stim(alert::ARvsg& vsg)
 	int trigger_count = 0;
 
 	// reset all triggers if using binary triggers
-	long digin = vsgIOReadDigitalIn();
-	cout << "Reset input triggers with current value of " << std::hex << digin << endl;
 	if (m_arguments.bBinaryTriggers)
 	{
+		long digin = vsgIOReadDigitalIn();
+		cout << "Reset input triggers with current value of " << std::hex << digin << endl;
 		triggers().reset(digin);
 		saved_input_trigger = digin;
 	}
@@ -240,13 +240,17 @@ void FixUStim::run_stim(alert::ARvsg& vsg)
 		if (bHaveAsciiTrigger)
 		{
 			tf = TriggerFunc(s, last_output_trigger);
-			std::for_each(triggers().begin(), triggers().end(), tf);
+			//std::for_each(triggers().begin(), triggers().end(), tf);
+			for (auto ptrig : triggers())
+			{
+				tf(ptrig);
+			}
 		}
 		else if (bHaveBinaryTrigger)
 		{
 			if (input_trigger != saved_input_trigger)
 			{
-				cout << "TRIG " << trigger_count << " " << std::hex << input_trigger << endl;
+				//POLKADOTcout << "TRIG " << trigger_count << " " << std::hex << input_trigger << endl;
 				trigger_count++; // for diagnostic only
 				saved_input_trigger = input_trigger;
 				tf = TriggerFunc(input_trigger, last_output_trigger, false);
@@ -254,7 +258,6 @@ void FixUStim::run_stim(alert::ARvsg& vsg)
 				//std::for_each(triggers().begin(), triggers().end(), tf);
 				for (auto ptrig : triggers())
 				{
-					//std::cout << (tf.fired() ? "FIRED " : "NOT FIRED ") << ptrig->getKey() << std::endl;
 					tf(ptrig);
 				}
 			}
@@ -268,7 +271,7 @@ void FixUStim::run_stim(alert::ARvsg& vsg)
 		{
 			vsgIOWriteDigitalOut(tf.output_trigger() << 1, 0xfffe);
 			last_output_trigger = tf.output_trigger();
-			std::cout << "vsg digout " << std::hex << (tf.output_trigger() << 1) << std::endl;
+			//POLKADOTstd::cout << "vsg digout " << std::hex << (tf.output_trigger() << 1) << std::endl;
 		}
 
 		// if vsgPresent() is called for....
