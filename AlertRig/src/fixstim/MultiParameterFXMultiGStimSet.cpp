@@ -76,7 +76,6 @@ int MultiParameterFXMultiGStimSet::init(ARvsg& vsg, std::vector<int> pages)
 int MultiParameterFXMultiGStimSet::handle_trigger(const std::string& s)
 {
 	int status = 0;
-	cout << "handle_trigger " << s << endl;
 	if (s == "F")
 	{
 		for (unsigned int i = 0; i < distractor_count(); i++)
@@ -131,7 +130,7 @@ int MultiParameterFXMultiGStimSet::handle_trigger(const std::string& s)
 		// unset parameters that trigger cycling, if any. One of the parameter lists called in advance() must enable it. 
 		setCyclingDelay(-1);
 		setStimDuration(-1);
-
+		setPursuitParameters(-1, 0, 0);
 		advance();
 		draw_current();
 		if (CYCLING_TYPE_NONE != m_iCyclingType)
@@ -145,7 +144,7 @@ int MultiParameterFXMultiGStimSet::handle_trigger(const std::string& s)
 		// unset parameters that trigger cycling, if any. One of the parameter lists called in advance() must enable it. 
 		setCyclingDelay(-1);
 		setStimDuration(-1);
-
+		std::cerr << "WARNING = g command with arg not implemented!" << std::endl;
 		advance();
 		draw_current();
 		if (CYCLING_TYPE_NONE != m_iCyclingType)
@@ -185,6 +184,11 @@ int MultiParameterFXMultiGStimSet::handle_trigger(const std::string& s)
 // m_fixpt_dot_page = fixpt and distractors, xhair, and dots (if present)
 void MultiParameterFXMultiGStimSet::draw_current()
 {
+	// When Pursuit is used (or anything that drifts the video screen), make sure to move the 
+	// screen back to its home before drawing. If cycling was active and page left mid-drift, 
+	// this would be needed to fix. Should have no effect otherwise.
+	vsgMoveScreen(0, 0);
+
 	// When cycling is used, we'll need this page with fixpt, xhair (if present), distractors(if present) 
 	vsgSetDrawPage(vsgVIDEOPAGE, m_blank_page, vsgBACKGROUND);
 
