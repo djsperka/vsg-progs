@@ -181,6 +181,10 @@
       <Message>
       </Message>
     </CustomBuildStep>
+    <PreBuildEvent>
+      <Command>
+      </Command>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <None Include="aaDeploy.bat" />
