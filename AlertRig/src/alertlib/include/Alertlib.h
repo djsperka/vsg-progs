@@ -489,10 +489,10 @@ namespace alert
 					m_args = boost::trim_left_copy(input.substr(input.find(' ')));
 				}
 			}
-			if (b)
-				std::cout << "input " << input << " key " << getKey() << " matched " << m_matchedKey << std::endl;
-			else
-				std::cout << "input " << input << " key " << getKey() << " not matched " << std::endl;
+			//if (b)
+			//	std::cout << "input " << input << " key " << getKey() << " matched " << m_matchedKey << std::endl;
+			//else
+			//	std::cout << "input " << input << " key " << getKey() << " not matched " << std::endl;
 
 			return b;
 		}
@@ -1182,6 +1182,7 @@ namespace alert
 				m_binary = tf.m_binary;
 				m_itrigger = tf.m_itrigger;
 				m_skey = tf.m_skey;
+				m_count = tf.m_count;
 				m_present = tf.m_present;
 				m_otrigger = tf.m_otrigger;
 				m_page = tf.m_page;
