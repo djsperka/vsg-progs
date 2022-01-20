@@ -377,21 +377,21 @@ void MultiParameterFXMultiGStimSet::setup_cycling()
 		if (m_iCyclingDelay > 0)
 		{
 			cycle[count].Frames = 1 + (m_iCyclingDelay > 0 ? m_iCyclingDelay : 0);
-			cycle[count].Page = m_fixpt_dot_page;
+			cycle[count].Page = m_fixpt_dot_page + vsgTRIGGERPAGE;
 			cycle[count].Stop = 0;
 			count++;
 		}
 		for (int i = 0; i < m_iStimDuration; i++)
 		{
 			cycle[count].Frames = 1;
-			cycle[count].Page = m_stim_page;
+			cycle[count].Page = m_stim_page + (i == 0 ? vsgTRIGGERPAGE : 0);	// trigger only onset of pursuit.
 			cycle[count].Xpos = i * m_dxPursuit;
 			cycle[count].Ypos = i * m_dyPursuit;
 			cycle[count].Stop = 0;
 			count++;
 		}
 		cycle[count].Frames = 1;
-		cycle[count].Page = m_blank_page;
+		cycle[count].Page = m_blank_page + vsgTRIGGERPAGE;
 		cycle[count].Stop = 1;
 		count++;
 	}
