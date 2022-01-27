@@ -315,11 +315,15 @@ void MultiParameterFXMultiGStimSet::setPursuitParameters(double durSeconds, doub
 		m_iCyclingType = CYCLING_TYPE_PURSUIT;
 		m_iStimDuration = durSeconds * 1000000.0 / vsgGetSystemAttribute(vsgFRAMETIME);
 
-		// Convert to x- and y- displacement per frame.
+		// Convert to x- and y- displacement, in pixels, of the fixation point, per frame.
+		// When page cycling is set up to simulate this effect, the page origin is what is moved, hence there is a 
+		// multiplication by -1 that takes place when this value is used. 
+		// Note that m_dyPursuit value has "-1*" here: in pixel coords the vsg is positive-down, so 
+		// an UPWARDS displacement on the screen is a NEGATIVE displacement in vsg pixel coords.
+
 		double pixels;
-		double dx, dy;
 		vsgUnit2Unit(vsgDEGREEUNIT, durSeconds * degPerSecond, vsgPIXELUNIT, &pixels);
-		m_dxPursuit = -1 * pixels * cos(M_PI * dirDegrees / 180.0) / m_iStimDuration;
+		m_dxPursuit = pixels * cos(M_PI * dirDegrees / 180.0) / m_iStimDuration;
 		m_dyPursuit = -1 * pixels * sin(M_PI * dirDegrees / 180.0) / m_iStimDuration;
 	}
 	return;
@@ -385,8 +389,8 @@ void MultiParameterFXMultiGStimSet::setup_cycling()
 		{
 			cycle[count].Frames = 1;
 			cycle[count].Page = m_stim_page + (i == 0 ? vsgTRIGGERPAGE : 0);	// trigger only onset of pursuit.
-			cycle[count].Xpos = i * m_dxPursuit;
-			cycle[count].Ypos = i * m_dyPursuit;
+			cycle[count].Xpos = -1 * (i + 1) * m_dxPursuit;
+			cycle[count].Ypos = -1 * (i + 1) * m_dyPursuit;
 			cycle[count].Stop = 0;
 			count++;
 		}
@@ -395,12 +399,6 @@ void MultiParameterFXMultiGStimSet::setup_cycling()
 		cycle[count].Stop = 1;
 		count++;
 	}
-
-	//for (int i = 0; i < count; i++)
-	//{
-	//	cerr << "cycle[" << i << "] P f s: " << cycle[i].Page << " " << cycle[i].Frames << " " << cycle[i].Stop << " x, y = " << cycle[i].Xpos << " " << cycle[i].Ypos << endl;
-	//}
-
 
 	status = vsgPageCyclingSetup(count, &cycle[0]);
 }
