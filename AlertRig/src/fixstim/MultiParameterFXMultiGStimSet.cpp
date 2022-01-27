@@ -331,7 +331,7 @@ void MultiParameterFXMultiGStimSet::setPursuitParameters(double durSeconds, doub
 
 void MultiParameterFXMultiGStimSet::setup_cycling()
 {
-	VSGCYCLEPAGEENTRY cycle[1024];	// warning! No check on usage. You have been warned. 
+	VSGCYCLEPAGEENTRY cycle[32768];	// warning! No check on usage. You have been warned. 
 	int status = 0;
 	int count = 0;
 
