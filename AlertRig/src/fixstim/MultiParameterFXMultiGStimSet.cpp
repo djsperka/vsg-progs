@@ -73,7 +73,7 @@ int MultiParameterFXMultiGStimSet::init(ARvsg& vsg, std::vector<int> pages)
 	return status;
 }
 
-int MultiParameterFXMultiGStimSet::handle_trigger(const std::string& s)
+int MultiParameterFXMultiGStimSet::handle_trigger(const std::string& s, const std::string& args)
 {
 	int status = 0;
 	if (s == "F")
@@ -144,8 +144,18 @@ int MultiParameterFXMultiGStimSet::handle_trigger(const std::string& s)
 		// unset parameters that trigger cycling, if any. One of the parameter lists called in advance() must enable it. 
 		setCyclingDelay(-1);
 		setStimDuration(-1);
-		std::cerr << "WARNING = g command with arg not implemented!" << std::endl;
-		advance();
+		int new_index = -1;
+		std::stringstream ss(args);
+		ss >> new_index;
+		if (!ss)
+		{
+			std::cerr << "Input error - expecting int, got \"" << args << "\"" << std::endl;
+			std::cerr << "TODO - undefined results here - incorrect stimulus displayed!!!!!!" << std::endl;
+		}
+		else
+		{
+			set_current(new_index);
+		}
 		draw_current();
 		if (CYCLING_TYPE_NONE != m_iCyclingType)
 		{
@@ -176,6 +186,12 @@ int MultiParameterFXMultiGStimSet::handle_trigger(const std::string& s)
 	return status;
 }
 
+
+void MultiParameterFXMultiGStimSet::set_current(size_t index)
+{
+	// TODO
+	std::cerr << "set_current NOT IMPL" << std::endl;
+}
 
 // draw pages for this stimulus/trial. 
 // Page indices used are:

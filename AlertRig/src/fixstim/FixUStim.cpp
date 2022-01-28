@@ -338,6 +338,8 @@ void FixUStim::init_triggers(TSpecificFunctor<FixUStim>* pfunctor)
 
 int FixUStim::callback(int &output, const FunctorCallbackTrigger* ptrig, const std::string&)
 {
+	// TODO - must change this call to include args. That will trigger big changes in StimSet-derived classes:(
+
 	return  m_arguments.pStimSet->handle_trigger(ptrig->getMatchedKey());
 }
 

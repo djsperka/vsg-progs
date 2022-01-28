@@ -102,7 +102,7 @@ std::string SequencedImagesAttentionStimSet::toString() const
 }
 
 
-int SequencedImagesAttentionStimSet::handle_trigger(const std::string& s)
+int SequencedImagesAttentionStimSet::handle_trigger(const std::string& s, const std::string&)
 {
 	int status = 0;
 

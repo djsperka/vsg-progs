@@ -495,7 +495,7 @@ void MelStimSet::applyTransform(ARContrastRectangleSpec& result, const ARContras
 
 // handle the trigger indicated by the string s. Do not call vsgPresent! return value of 
 // 1 means vsgPresent() will be called. 
-int MelStimSet::handle_trigger(const std::string& s)
+int MelStimSet::handle_trigger(const std::string& s, const std::string&)
 {
 	int status = 0;
 

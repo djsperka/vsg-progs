@@ -138,7 +138,7 @@ public:
 
 	// handle the trigger indicated by the string s. Do not call vsgPresent! return value of 
 	// 1 means vsgPresent() will be called. 
-	virtual int handle_trigger(const std::string& s);
+	virtual int handle_trigger(const std::string& s, const std::string&);
 
 	virtual std::string toString() const;
 

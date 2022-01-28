@@ -36,7 +36,7 @@ public:
 	virtual int num_pages() {return 9;};
 	virtual int num_overlay_pages() {return 0;};
 	virtual int init(ARvsg& vsg, std::vector<int> pages);
-	virtual int handle_trigger(const std::string& s);
+	virtual int handle_trigger(const std::string& s, const std::string&);
 	virtual std::string toString() const;
 private:
 	int drawCurrent();

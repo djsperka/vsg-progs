@@ -812,7 +812,7 @@ int EQStimSet::drawCurrent()
 	return status;
 }
 
-int EQStimSet::handle_trigger(const std::string& s)
+int EQStimSet::handle_trigger(const std::string& s, const std::string&)
 {
 	int status = 0;
 	if (s == "F")

@@ -79,6 +79,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <TargetExt>.deploy</TargetExt>
     <OutDir>$(SolutionDir)..\</OutDir>
+    <TargetName>$(ProjectName).zip</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <OutDir>$(SolutionDir)..\</OutDir>
