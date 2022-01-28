@@ -313,6 +313,35 @@ int FXImageStimSet::handle_trigger(const std::string& s, const std::string& args
 		drawCurrent();
 		status = 0;
 	}
+	else if (s == "g")
+	{
+		std::cerr << "Parsing g args: " << args << std::endl;
+		// parse index to goto
+		size_t new_index;
+		std::stringstream ss(args);
+		ss >> new_index;
+		if (!ss)
+		{
+			std::cerr << "Input error - expecting number>=0, got \"" << args << "\"" << std::endl;
+			std::cerr << "TODO - undefined results here - incorrect stimulus displayed!!!!!!" << std::endl;
+		}
+		else
+		{
+			if (m_bUseGroups)
+			{
+				m_current = new_index % m_groupsVec.size();
+				std::cerr << "Got index " << new_index << " m_groupsVec.size()=" << m_groupsVec.size() << " m_current= " << m_current << std::endl;
+			}
+			else
+			{
+				m_current = new_index % m_imagesInfo.size();
+				std::cerr << "Got index " << new_index << " m_imagesInfo.size()=" << m_imagesInfo.size() << " m_current= " << m_current << std::endl;
+			}
+			drawCurrent();
+			status = 0;
+		}
+
+	}
 	else if (s == "X")
 	{
 		vsgSetDrawPage(vsgVIDEOPAGE, m_pageBlank, vsgNOCLEAR);

@@ -18,7 +18,7 @@ using namespace std;
 
 class FXGStimParameterList
 {
-	unsigned  int m_gratingIndex;
+	unsigned int m_gratingIndex;
 	bool m_bDistractor;
 public:
 	FXGStimParameterList(unsigned int index=0, bool bDistractor=false): m_gratingIndex(index), m_bDistractor(bDistractor) {};

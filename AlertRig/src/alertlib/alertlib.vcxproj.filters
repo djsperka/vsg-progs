@@ -53,6 +53,9 @@
     <ClCompile Include="src\BufferedAsyncSerial.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\alert-triggers.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\Alertlib.h">
@@ -95,6 +98,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="include\BufferedAsyncSerial.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\alert-triggers.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

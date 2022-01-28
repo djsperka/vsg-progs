@@ -14,6 +14,7 @@
 #include <boost/exception/exception.hpp>
 #include <boost/exception/get_error_info.hpp>
 #include "alert-argp.h"
+#include "alert-triggers.h"
 
 using namespace std;
 using namespace boost::algorithm;
@@ -243,6 +244,7 @@ void FixUStim::run_stim(alert::ARvsg& vsg)
 			//std::for_each(triggers().begin(), triggers().end(), tf);
 			for (auto ptrig : triggers())
 			{
+				std::cerr << "TriggerFunc on " << *ptrig << std::endl;
 				tf(ptrig);
 			}
 		}
@@ -340,7 +342,7 @@ int FixUStim::callback(int &output, const FunctorCallbackTrigger* ptrig, const s
 {
 	// TODO - must change this call to include args. That will trigger big changes in StimSet-derived classes:(
 
-	return  m_arguments.pStimSet->handle_trigger(ptrig->getMatchedKey());
+	return  m_arguments.pStimSet->handle_trigger(ptrig->getMatchedKey(), ptrig->getArgs());
 }
 
 

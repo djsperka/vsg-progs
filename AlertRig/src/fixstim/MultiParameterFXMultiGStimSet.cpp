@@ -141,6 +141,7 @@ int MultiParameterFXMultiGStimSet::handle_trigger(const std::string& s, const st
 	}
 	else if (s == "g")
 	{
+#if 0
 		// unset parameters that trigger cycling, if any. One of the parameter lists called in advance() must enable it. 
 		setCyclingDelay(-1);
 		setStimDuration(-1);
@@ -161,6 +162,9 @@ int MultiParameterFXMultiGStimSet::handle_trigger(const std::string& s, const st
 		{
 			setup_cycling();
 		}
+#else
+		std::cerr << "goto not implemented for this stim set" << std::endl;
+#endif
 		status = 0;
 	}
 	else if (s == "X")

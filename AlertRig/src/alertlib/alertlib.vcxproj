@@ -257,6 +257,7 @@ copy include\*.h $(SolutionDir)..\include</Command>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="src\alert-argp.cpp" />
+    <ClCompile Include="src\alert-triggers.cpp" />
     <ClCompile Include="src\AlertLib.cpp" />
     <ClCompile Include="src\AlertUtil.cpp" />
     <ClCompile Include="src\ARtypes.cpp" />
@@ -274,6 +275,7 @@ copy include\*.h $(SolutionDir)..\include</Command>
   <ItemGroup>
     <ClInclude Include="coneiso.h" />
     <ClInclude Include="include\alert-argp.h" />
+    <ClInclude Include="include\alert-triggers.h" />
     <ClInclude Include="include\Alertlib.h" />
     <ClInclude Include="include\AlertUtil.h" />
     <ClInclude Include="include\ARtypes.h" />
