@@ -167,7 +167,6 @@ void FixUStim::run_stim(alert::ARvsg& vsg)
 	int last_output_trigger = 0;
 	long input_trigger = 0;
 	long saved_input_trigger = 0;
-	string s;
 	bool bHaveAsciiTrigger;
 	bool bHaveBinaryTrigger;
 	int trigger_count = 0;
@@ -188,6 +187,7 @@ void FixUStim::run_stim(alert::ARvsg& vsg)
 		cout << "Enter trigger/key: ";
 	}
 
+	string s;
 	while (!quit_enabled())
 	{
 		// Triggers can come as binary (uses vsg digital I/O to read), or as ascii (for testing). 
@@ -206,11 +206,12 @@ void FixUStim::run_stim(alert::ARvsg& vsg)
 			}
 			else if (m_arguments.bUsingSerial)
 			{
-				string s = m_serial_port.readStringUntil(";");
+				s = m_serial_port.readStringUntil(";");
 				if (s.size() > 0)
 				{
-					cout << "Got serial string: " << s << endl;
+					//cout << "Got serial string: " << s << endl;
 					bHaveAsciiTrigger = true;
+					m_serial_port.writeString(s);
 				}
 			}
 		}
@@ -218,11 +219,12 @@ void FixUStim::run_stim(alert::ARvsg& vsg)
 		{
 			if (m_arguments.bUsingSerial)
 			{
-				string s = m_serial_port.readStringUntil(";");
+				s = m_serial_port.readStringUntil(";");
 				if (s.size() > 0)
 				{
-					cout << "Got serial string: " << s << endl;
+					//cout << "Got serial string: " << s << endl;
 					bHaveAsciiTrigger = true;
+					m_serial_port.writeString(s);
 				}
 			}
 			// If there was an actual serial trigger read, it trumps the digital trigger. If no serial read, 
@@ -244,7 +246,6 @@ void FixUStim::run_stim(alert::ARvsg& vsg)
 			//std::for_each(triggers().begin(), triggers().end(), tf);
 			for (auto ptrig : triggers())
 			{
-				std::cerr << "TriggerFunc on " << *ptrig << std::endl;
 				tf(ptrig);
 			}
 		}
