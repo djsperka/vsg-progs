@@ -285,6 +285,7 @@ int FXImageStimSet::init(ARvsg& vsg, std::vector<int> pages)
 
 int FXImageStimSet::handle_trigger(const std::string& s, const std::string& args)
 {
+	std::cerr << "handle_trigger: " << s << std::endl;
 	int status = 0;
 	if (s == "F")
 	{

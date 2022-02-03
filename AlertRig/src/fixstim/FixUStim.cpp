@@ -15,6 +15,7 @@
 #include <boost/exception/get_error_info.hpp>
 #include "alert-argp.h"
 #include "alert-triggers.h"
+#include "ARtypes.h"
 
 using namespace std;
 using namespace boost::algorithm;
@@ -325,7 +326,12 @@ void FixUStim::init_triggers(TSpecificFunctor<FixUStim>* pfunctor)
 	triggers().addTrigger(new FunctorCallbackTrigger("S", 0x4, 0x4, 0x4, 0x4, pfunctor));
 	triggers().addTrigger(new FunctorCallbackTrigger("X", 0x6, 0x0, 0x6, 0x0, pfunctor));
 	triggers().addTrigger(new FunctorCallbackTrigger("s", 0x4, 0x0, 0x4, 0x0, pfunctor));	// this must come after X so it will not fire with an X.
-	triggers().addTrigger(new FunctorCallbackTrigger("ag", 0x8, 0x8 | AR_TRIGGER_TOGGLE, 0x8, 0x8 | AR_TRIGGER_TOGGLE, pfunctor));
+
+	std::vector< std::pair<std::string, int> > vec;
+	vec.push_back(make_pair("a", 0x8));
+	vec.push_back(make_pair("g", AR_TRIGGER_ASCII_ONLY));
+	triggers().addTrigger(new MISOFunctorCallbackTrigger(vec, 0x8 | AR_TRIGGER_TOGGLE, 0x8, 0x8 | AR_TRIGGER_TOGGLE, pfunctor));
+	//	triggers().addTrigger(new FunctorCallbackTrigger("ag", 0x8, 0x8 | AR_TRIGGER_TOGGLE, 0x8, 0x8 | AR_TRIGGER_TOGGLE, pfunctor));
 //	triggers().addTrigger(new FunctorCallbackTrigger("g", 0x0, 0x0, 0x0, 0x0, pfunctor));
 	triggers().addTrigger(new FunctorCallbackTrigger("u", 0x20, 0x20 | AR_TRIGGER_TOGGLE, 0x10, 0x10 | AR_TRIGGER_TOGGLE, pfunctor));
 	triggers().addTrigger(new FunctorCallbackTrigger("v", 0x40, 0x40 | AR_TRIGGER_TOGGLE, 0x20, 0x20 | AR_TRIGGER_TOGGLE, pfunctor));
