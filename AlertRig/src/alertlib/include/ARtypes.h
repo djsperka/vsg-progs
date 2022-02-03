@@ -11,6 +11,11 @@
 // After that the value will toggle.
 #define AR_TRIGGER_TOGGLE 0x8000
 
+// set this bit in the in_val of a trigger to indicate it is NOT to be tested as a binary
+// trigger. This would be for an ascii-only trigger (which has no corresponding binary trigger)
+// added to MISOC trigger (multi-input-single-output-callback)
+#define AR_TRIGGER_ASCII_ONLY 0x4000
+
 // output values from trigger or callbacks to ask for a master/slave present
 // Apps must look at TriggerFunc::deferred() value to discern these requests.
 #define PLEASE_PRESENT_MASTER 0x100
