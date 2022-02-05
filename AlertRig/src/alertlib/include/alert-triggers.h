@@ -3,6 +3,7 @@
 #include "ARtypes.h"
 #include <boost/algorithm/string.hpp>
 #include <boost/ptr_container/ptr_vector.hpp>
+#include <vector>
 
 // The trigger class (and its derivatives) perform a specific action upon receipt of a
 // "trigger". Triggers can be ascii characters or bits (in a 32 bit integer).  
@@ -10,7 +11,7 @@
 namespace alert
 {
 
-	class Trigger
+	class Trigger : public boost::noncopyable
 	{
 	public:
 		Trigger(std::string i_key, int i_in_mask, int i_in_val, int i_out_mask, int i_out_val);
@@ -58,6 +59,80 @@ namespace alert
 	};
 
 	std::ostream& operator<<(std::ostream& out, const alert::Trigger& t);
+
+
+
+	// Functor class used to evaluate triggers. 
+// This functor is written such that it will stop evaluating triggers once one fires -- it is intended to be used with a vector of triggers, 
+// which are sent through std::for_each to this functor. Triggers should be ordered so the right one fires first when their bits overlap!
+
+	class TriggerFunc
+	{
+	public:
+		TriggerFunc(std::string i_str, int otrigger, bool verbose = false);
+		TriggerFunc(int i_binary, int otrigger, bool verbose = false);
+		TriggerFunc();
+		TriggerFunc(const TriggerFunc& tf);
+		int page() { return m_page; };
+		bool present() { return m_present; };
+		bool fired() { return m_fired; }
+		int output_trigger() { return m_otrigger; };
+		bool quit() { return m_quit; };
+		const std::string& triggers_matched() { return m_triggers_matched; };
+
+		TriggerFunc& operator=(const TriggerFunc& tf);
+
+		virtual void operator()(Trigger* pitem);
+
+	protected:
+		bool m_quit;
+		bool m_fired;	// becomes true when a trigger is fired, will no fire again!!!
+		bool m_binary;	// if true, do a binary trigger test. Otherwise do ascii
+		int m_ibinary;	// input trigger value to test against
+		std::string m_istring;
+		bool m_present;	// if true, at least one trigger requires vsgPresent()
+		int m_otrigger;	// if m_present is true, this is the output trigger value
+		int m_page;
+		bool m_verbose;
+		std::string m_triggers_matched;
+	};
+
+	class ResetTriggerFunc
+	{
+	public:
+		ResetTriggerFunc(int val) : m_val(val) {};
+		~ResetTriggerFunc() {};
+		void operator()(Trigger* pitem)
+		{
+			pitem->reset(m_val);
+		}
+		int m_val;
+	};
+
+	class TriggerVector : public std::vector<Trigger*>
+	{
+	public:
+		TriggerVector() {};
+		virtual ~TriggerVector()
+		{
+			for (unsigned int i = 0; i < size(); i++)
+			{
+				delete (*this)[i];
+			}
+		};
+		void addTrigger(Trigger* t)
+		{
+			push_back(t);
+		};
+
+		void reset(int input)
+		{
+			std::for_each(this->begin(), this->end(), alert::ResetTriggerFunc(input));
+		}
+	};
+
+
+
 
 
 	// callback function type for CallbackTrigger
@@ -136,33 +211,18 @@ namespace alert
 		FunctorCallbackTrigger(std::string i_key, int i_in_mask, int i_in_val, int i_out_mask, int i_out_val, TFunctor* pfunc);
 		~FunctorCallbackTrigger();
 		virtual int execute(int& output);
-		virtual std::string toString() const;
+//		virtual std::string toString() const;
 	protected:
 		TFunctor* m_pfunc;
 	};
 
-#if 0
-	class MISOFunctorCallbackTrigger : public FunctorCallbackTrigger, public std::vector< std::pair< std::string, int > >
+	class MISOFunctorCallbackTrigger : public FunctorCallbackTrigger
 	{
 	private:
-		int m_input_matched;	// index of input key/value matched in a call to checkAscii/checkBinary
-
-	public:
-		MISOFunctorCallbackTrigger(std::vector<std::pair<std::string, int> >& v, int i_in_mask, int i_out_mask, int i_out_val, TFunctor* pfunc);
-		~MISOFunctorCallbackTrigger();
-		virtual bool checkBinary(int input);
-		std::string getKey() const;
-		virtual std::string toString() const;
-	};
-#else
-
-
-	class MISOFunctorCallbackTrigger : public Trigger
-	{
-	private:
-		boost::ptr_vector<alert::Trigger> m_trigs;
+		TFunctor* m_pfunc;
+		//boost::ptr_vector<alert::Trigger> m_trigs;
+		TriggerVector m_trigs;
 		alert::Trigger* m_pMatchedTrigger;
-
 	public:
 		MISOFunctorCallbackTrigger(std::vector<std::pair<std::string, int> >& v, int i_in_mask, int i_out_mask, int i_out_val, TFunctor* pfunc);
 		~MISOFunctorCallbackTrigger();
@@ -173,10 +233,6 @@ namespace alert
 		virtual void reset(int input);
 
 	};
-
-#endif
-
-
 
 	class PageTrigger : public Trigger
 	{
@@ -227,111 +283,7 @@ namespace alert
 	};
 
 
-	class ResetTriggerFunc
-	{
-	public:
-		ResetTriggerFunc(int val) : m_val(val) {};
-		~ResetTriggerFunc() {};
-		void operator()(Trigger* pitem)
-		{
-			pitem->reset(m_val);
-		}
-		int m_val;
-	};
 
-
-	// Functor class used to evaluate triggers. 
-	// This functor is written such that it will stop evaluating triggers once one fires -- it is intended to be used with a vector of triggers, 
-	// which are sent through std::for_each to this functor. Triggers should be ordered so the right one fires first when their bits overlap!
-
-	class TriggerFunc
-	{
-	public:
-		TriggerFunc(std::string key, int otrigger, bool verbose = false) : m_quit(false), m_fired(false), m_binary(false), m_skey(key), m_count(0), m_present(false), m_otrigger(otrigger), m_page(-1), m_ideferred(0), m_verbose(verbose) {};
-		TriggerFunc(int itrigger, int otrigger, bool verbose = false) : m_quit(false), m_fired(false), m_binary(true), m_skey(""), m_count(0), m_itrigger(itrigger), m_present(false), m_otrigger(otrigger), m_page(-1), m_ideferred(0), m_verbose(verbose) {};
-		TriggerFunc() : m_quit(false), m_fired(false), m_binary(false), m_count(0), m_skey(""), m_present(false), m_otrigger(0), m_page(-1), m_ideferred(0), m_verbose(false) {};
-		TriggerFunc(const TriggerFunc& tf) : m_quit(tf.m_quit), m_fired(tf.m_fired), m_binary(tf.m_binary), m_itrigger(tf.m_itrigger), m_count(tf.m_count), m_skey(tf.m_skey), m_present(tf.m_present), m_otrigger(tf.m_otrigger), m_page(tf.m_page) {};
-		int page() { return m_page; };
-		bool present() { return m_present; };
-		bool fired() { return m_fired; }
-		int output_trigger() { return m_otrigger; };
-		bool quit() { return m_quit; };
-		int deferred() { return m_ideferred; };
-		int count() { return m_count; }
-		const std::string& triggers_matched() { return m_triggers_matched; };
-
-		TriggerFunc& operator=(const TriggerFunc& tf);
-
-		virtual void operator()(Trigger* pitem);
-
-	protected:
-		bool m_quit;
-		bool m_fired;	// becomes true when a trigger is fired, will no fire again!!!
-		bool m_binary;	// if true, do a binary trigger test. Otherwise do ascii
-		int m_itrigger;	// input trigger value to test against
-		std::string m_skey;
-		int m_count;	// number of triggers processed. 
-		bool m_present;	// if true, at least one trigger requires vsgPresent()
-		int m_otrigger;	// if m_present is true, this is the output trigger value
-		int m_page;
-		int m_ideferred;	// flag set to indicate deferred processing of some sort is needed.
-		bool m_verbose;
-		std::string m_triggers_matched;
-	};
-
-
-	class MasterSlaveTriggerFunc : public TriggerFunc
-	{
-	public:
-		MasterSlaveTriggerFunc(std::string key, int otrigger) : TriggerFunc(key, otrigger) {};
-		MasterSlaveTriggerFunc(int itrigger, int otrigger) : TriggerFunc(itrigger, otrigger) {};
-
-		// This func differs from regular TriggerFunc's method in the handling of m_ideferred - because I'm scared
-		// of breaking apps that use negative values in return values, or those where multiple triggers fire. 
-		virtual void operator()(Trigger* pitem)
-		{
-			bool bTest = false;
-			if (m_binary) bTest = pitem->checkBinary(m_itrigger);
-			else bTest = pitem->checkAscii(m_skey);
-
-			if (bTest)
-			{
-				int i;
-				i = pitem->execute(m_otrigger);
-				m_ideferred |= i;
-				if (i > 0) m_present = true;
-				else if (i < 0)
-				{
-					m_present = true;
-					m_quit = true;
-				}
-			}
-		};
-	};
-
-
-
-	class TriggerVector : public std::vector<Trigger*>
-	{
-	public:
-		TriggerVector() {};
-		virtual ~TriggerVector()
-		{
-			for (unsigned int i = 0; i < size(); i++)
-			{
-				delete (*this)[i];
-			}
-		};
-		void addTrigger(Trigger* t)
-		{
-			push_back(t);
-		};
-
-		void reset(int input)
-		{
-			std::for_each(this->begin(), this->end(), ResetTriggerFunc(input));
-		}
-	};
 };	// namespace
 
 

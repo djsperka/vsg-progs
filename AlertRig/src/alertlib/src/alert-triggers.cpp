@@ -5,37 +5,43 @@
 using namespace alert;
 
 Trigger::Trigger(std::string i_key, int i_in_mask, int i_in_val, int i_out_mask, int i_out_val)
+	: m_key(i_key)
+	, m_args()
+	, m_matchedKey()
+	, m_in_mask(i_in_mask)
+	, m_in_val(i_in_val)
+	, m_in_last(0)
+	, m_out_mask(i_out_mask)
+	, m_out_val(i_out_val)
+	, m_last_out_val(i_out_val)
+	, m_btoggleOut(false)
+	, m_btoggleIn(false)
 {
-	m_key = i_key;
-	m_in_mask = i_in_mask;
-	m_out_mask = i_out_mask;
-
 	// Check if the output value should be toggled
 	if (i_out_val & AR_TRIGGER_TOGGLE)
 	{
-		//				std::cout << "TOGGLE(output) " << m_key << " out_val " << i_out_val << std::endl;
 		m_btoggleOut = true;
-		m_out_val = i_out_val & ~(AR_TRIGGER_TOGGLE);
+		m_out_val = i_out_val & ~(AR_TRIGGER_TOGGLE);		// the AR_TRIGGER_TOGGLE bit is not toggled
 		m_last_out_val = ~m_out_val & m_out_mask;
 	}
 	else
 	{
 		m_btoggleOut = false;
 		m_out_val = i_out_val;
-		m_last_out_val = m_out_val;
+		m_last_out_val = m_out_val & m_out_mask;
 	}
 
-	// Check if the input value will be toggled. 
+	// Check if the input value will be ascii only, or toggled
 	if (i_in_val & AR_TRIGGER_ASCII_ONLY)
 	{
 		m_btoggleIn = false;
 		m_in_val = 0;
+		m_in_mask = 0;
 	}
 	else
 	{
 		if (i_in_val & AR_TRIGGER_TOGGLE)
 		{
-			//				std::cout << "Trigger(" << m_key << ")" << " TOGGLE(input) " << m_key << " in_val " << i_in_val << std::endl;
 			m_btoggleIn = true;
 			m_in_val = i_in_val & ~(AR_TRIGGER_TOGGLE);
 		}
@@ -45,7 +51,7 @@ Trigger::Trigger(std::string i_key, int i_in_mask, int i_in_val, int i_out_mask,
 			m_in_val = i_in_val;
 		}
 	}
-	reset();	// this gives the m_in_val a value.
+	reset();
 
 };
 
@@ -84,8 +90,8 @@ bool Trigger::checkString(const std::string& input)
 			m_args = boost::trim_left_copy(input.substr(input.find(' ')));
 		}
 	}
-	if (b)
-		std::cout << "input " << input << " key " << getKey() << " matched " << m_matchedKey << std::endl;
+	//if (b)
+	//	std::cout << "input " << input << " key " << getKey() << " matched " << m_matchedKey << std::endl;
 	//else
 	//	std::cout << "input " << input << " key " << getKey() << " not matched " << std::endl;
 
@@ -109,6 +115,7 @@ bool Trigger::checkBinary(int input)
 			m_matchedKey = getKey();
 		}
 		m_in_last = current;
+		//std::cerr << "checkBinary(" << getKey() << "/"  << std::hex << input << ") m_in_mask " << m_in_mask << " current " << current << " matched " << bValue << std::endl;
 	}
 	else
 	{
@@ -116,15 +123,17 @@ bool Trigger::checkBinary(int input)
 		// one bit, then all must be inverted. Note that the FIRST trigger expected is the value
 		// given as i_in_val (without the AR_TRIGGER_TOGGLE bit). Subsequent triggers are expected
 		// to be toggled. 
+		//std::cerr << "checkBinary(" << getKey() << "/" << std::hex << input << "): current " << std::hex << current << " last " << m_in_last << " ((~current) & m_in_mask) " << ((~current) & m_in_mask);
 		if (((~current) & m_in_mask) == m_in_last)
 		{
 			bValue = true;
 			m_matchedKey = getKey();
-			m_in_last = current;	// Note that the last value is saved only if a toggled trigger
+			m_in_last = current;	// Only save last value when toggled. 
 		}
-		//				std::cout << "Trigger(" << m_key << ")" <<  std::hex << " input " << input << " m_in_mask=" << m_in_mask << " m_in_val=" << m_in_val << " current=" << current << " last=" << m_in_last << " bval=" << bValue << std::endl;
+		//std::cerr << " matched " << bValue << std::endl;
+		//if (bValue)	std::cerr << "checkBinary(" << getKey() << "/" << std::hex << input << "): current " << std::hex << current << " last " << m_in_last << std::endl;
+
 	}
-	//			if (bValue) std::cerr << "Trigger(" << m_key << ")" << std::hex << " input " << input << " m_in_mask=" << m_in_mask << " m_in_val=" << m_in_val << " current=" << current << " bval=" << bValue << std::endl;
 	return bValue;
 };
 
@@ -152,7 +161,7 @@ void Trigger::setMarker(int& output)
 std::string Trigger::toString() const
 {
 	std::ostringstream oss;
-	oss << "Trigger " << m_key << " in m/v/t: 0x" << std::hex << m_in_mask << "/0x" << m_in_val << "/" << m_btoggleIn << " out m/v/t: 0x" << m_out_mask << "/0x" << m_out_val << "/" << m_btoggleOut;
+	oss << "Trigger " << m_key << " in m/v/t: 0x" << std::hex << m_in_mask << "/0x" << m_in_val << "/" << m_btoggleIn << " out m/v/t: 0x" << m_out_mask << "/0x" << m_out_val << "/" << m_btoggleOut << " last i/o " << m_in_last << "/" << m_last_out_val;
 	return oss.str();
 }
 
@@ -172,6 +181,7 @@ int Trigger::execute(int& output) { return 0; };
 
 void Trigger::reset(int input)
 {
+	//std::cerr << "Trigger(" << getKey() << ") reset(" << std::hex << input << ")" << std::endl;
 	if (!m_btoggleIn)
 	{
 		// why is this "~ here? m_in_last = (~input) & m_in_mask;
@@ -209,85 +219,15 @@ std::string CallbackTrigger::toString() const
 }
 
 //==================================================
-#if 0
-MISOFunctorCallbackTrigger::MISOFunctorCallbackTrigger(std::vector<std::pair<std::string, int> >& v, int i_in_mask, int i_out_mask, int i_out_val, TFunctor* pfunc) :
-	std::vector< std::pair < std::string, int> >(v), FunctorCallbackTrigger("", i_in_mask, 0, i_out_mask, i_out_val, pfunc), m_input_matched(-1)
-{
-	// form key using each char from the consituent triggers.
-	for (auto p : *this)
-		m_key.append(p.first);
-	std::cerr << "MISOC using key " << m_key << std::endl;
-};
-
-MISOFunctorCallbackTrigger::~MISOFunctorCallbackTrigger() {};
-
-bool MISOFunctorCallbackTrigger::checkBinary(int input)
-{
-	unsigned int i;
-	bool bValue = false;
-	int current = input & m_in_mask;
-
-	m_input_matched = -1;
-	m_matchedKey.clear();
-	if (!m_btoggleIn)
-	{
-		if (current != m_in_last)
-		{
-			for (i = 0; i < this->size(); i++)
-			{
-				if ((*this)[i].second & AR_TRIGGER_ASCII_ONLY)
-					continue;
-				if (current == (*this)[i].second)
-				{
-					m_input_matched = i;
-					m_matchedKey = (*this)[i].first;
-					break;
-				}
-			}
-		}
-		m_in_last = current;
-		bValue = (m_input_matched >= 0);
-	}
-	else
-	{
-		// Toggling inputs is a bit ill-defined for this type of trigger. 
-		// I'll just not try and define it now and call it an error. Always false. 
-		std::cerr << "Cannot use toggled input trigger for MISOFunctorCallbackTrigger" << std::endl;
-		bValue = false;
-	}
-
-	return bValue;
-};
-
-std::string MISOFunctorCallbackTrigger::getKey() const
-{
-	//			std::cout << "getKey(): m_input_matched = " << m_input_matched << std::endl;
-	if (m_input_matched < 0 || m_input_matched >(int)this->size()) return "ERROR";
-	else return (*this)[m_input_matched].first;
-};
-
-std::string MISOFunctorCallbackTrigger::toString() const
-{
-	unsigned int i;
-	std::ostringstream oss;
-	oss << "MISOFunctorCallback " << std::endl;
-	for (i = 0; i < this->size(); i++)
-	{
-		oss << "         " << (*this)[i].first << " in m/v/t: 0x" << std::hex << m_in_mask << "/0x" << (*this)[i].second << "/" << m_btoggleIn << " out m/v/t: 0x" << m_out_mask << "/0x" << m_out_val << "/" << m_btoggleOut;
-		if (i < (this->size() - 1)) oss << std::endl;
-	}
-	return oss.str();
-}
-
-#else
 
 MISOFunctorCallbackTrigger::MISOFunctorCallbackTrigger(std::vector<std::pair<std::string, int> >& v, int i_in_mask, int i_out_mask, int i_out_val, TFunctor* pfunc)
-	: Trigger("", i_in_mask, 0, i_out_mask, i_out_val)
+	: FunctorCallbackTrigger("", i_in_mask, 0, i_out_mask, i_out_val, pfunc)
+	, m_pfunc(pfunc)
 	, m_pMatchedTrigger(nullptr)
 {
 	for (auto p : v)
 	{
-		m_trigs.push_back(new Trigger(p.first, i_in_mask, p.second, i_out_mask, i_out_val));
+		m_trigs.addTrigger(new Trigger(p.first, i_in_mask, p.second, i_out_mask, i_out_val));
 		m_key.append(p.first);	// key becomes a list of all the keys in the vector
 	}
 }
@@ -300,12 +240,14 @@ bool MISOFunctorCallbackTrigger::checkString(const std::string& input)
 	// Check each in sequence. If a trigger is fired, do not check any others. 
 	for (auto t : m_trigs)
 	{
-		if (t.checkString(input))
+		if (t->checkString(input))
 		{
 			// save first trig that fires
 			if (!b)
 			{
-				m_pMatchedTrigger = &t;
+				m_matchedKey = t->getKey();
+				m_args = t->getArgs();
+				m_pMatchedTrigger = t;
 				b = true;
 			}
 		}
@@ -317,23 +259,25 @@ bool MISOFunctorCallbackTrigger::checkBinary(int input)
 {
 	bool b = false;
 	m_pMatchedTrigger = nullptr;
+	m_args.clear();
+	m_matchedKey.clear();
+
 	// check each trigger in sequence. 
-	std::cerr << " MISOFunctorCallbackTrigger::checkBinary" << std::endl;
+	//std::cerr << " MISOFunctorCallbackTrigger::checkBinary " << std::hex << input << std::endl;
 	for (auto t : m_trigs)
 	{
-		std::cerr << t << std::endl;
-		if (t.checkBinary(input))
+		//std::cerr << t << std::endl;
+		if (t->checkBinary(input))
 		{
-			std::cerr << "true" << std::endl;
+			//std::cerr << "true" << std::endl;
 			// save first trig that fires
 			if (!b)
 			{
-				m_pMatchedTrigger = &t;
+				m_matchedKey = t->getKey();
+				m_pMatchedTrigger = t;
 				b = true;
 			}
 		}
-		else
-			std::cerr << "true" << std::endl;
 	}
 	return b;
 }
@@ -342,14 +286,17 @@ std::string MISOFunctorCallbackTrigger::toString() const
 {
 	std::ostringstream oss;
 	for (auto t : m_trigs)
-		oss << t.toString() << std::endl;
+		oss << t->toString() << std::endl;
 	return oss.str();
 }
 
 int MISOFunctorCallbackTrigger::execute(int& output)
 {
 	if (m_pMatchedTrigger)
-		return m_pMatchedTrigger->execute(output);
+	{
+		setMarker(output);
+		return m_pfunc->callback(output, this, getArgs());
+	}
 	else
 		return 0;
 }
@@ -357,12 +304,8 @@ int MISOFunctorCallbackTrigger::execute(int& output)
 void MISOFunctorCallbackTrigger::reset(int input)
 {
 	for (auto t : m_trigs)
-		t.reset(input);
+		t->reset(input);
 }
-
-
-#endif
-//=====================================
 
 FunctorCallbackTrigger::FunctorCallbackTrigger(std::string i_key, int i_in_mask, int i_in_val, int i_out_mask, int i_out_val, TFunctor* pfunc) :
 	Trigger(i_key, i_in_mask, i_in_val, i_out_mask, i_out_val), m_pfunc(pfunc) {};
@@ -373,12 +316,14 @@ int FunctorCallbackTrigger::execute(int& output)
 	return m_pfunc->callback(output, this, getArgs());
 };
 
+#if 0
 std::string FunctorCallbackTrigger::toString() const
 {
 	std::ostringstream oss;
 	oss << "Callback " << m_key << " in m/v/t: 0x" << std::hex << m_in_mask << "/0x" << m_in_val << "/" << m_btoggleIn << " out m/v/t: 0x" << m_out_mask << "/0x" << m_out_val << "/" << m_btoggleOut;
 	return oss.str();
 }
+#endif
 
 //================================
 
@@ -513,6 +458,59 @@ std::string QuitTrigger::toString() const
 
 //==========================
 
+TriggerFunc::TriggerFunc(std::string key, int otrigger, bool verbose)
+	: m_quit(false)
+	, m_fired(false)
+	, m_binary(false)
+	, m_ibinary(0)
+	, m_istring(key)
+	, m_present(false)
+	, m_otrigger(otrigger)
+	, m_page(-1)
+	, m_verbose(verbose) 
+	, m_triggers_matched()
+{};
+
+TriggerFunc::TriggerFunc(int itrigger, int otrigger, bool verbose)
+	: m_quit(false)
+	, m_fired(false)
+	, m_binary(true)
+	, m_ibinary(itrigger)
+	, m_istring()
+	, m_present(false)
+	, m_otrigger(otrigger)
+	, m_page(-1)
+	, m_verbose(verbose)
+	, m_triggers_matched()
+{};
+
+TriggerFunc::TriggerFunc()
+	: m_quit(false)
+	, m_fired(false)
+	, m_binary(false)
+	, m_ibinary(0)
+	, m_istring()
+	, m_present(false)
+	, m_otrigger(0)
+	, m_page(-1)
+	, m_verbose(m_verbose)
+	, m_triggers_matched()
+{};
+
+
+TriggerFunc::TriggerFunc(const TriggerFunc& tf)
+	: m_quit(tf.m_quit)
+	, m_fired(tf.m_fired)
+	, m_binary(tf.m_binary)
+	, m_ibinary(tf.m_ibinary)
+	, m_istring(tf.m_istring)
+	, m_present(tf.m_present)
+	, m_otrigger(tf.m_otrigger)
+	, m_page(tf.m_page) 
+	, m_verbose(tf.m_verbose)
+	, m_triggers_matched(tf.m_triggers_matched)
+{};
+
 TriggerFunc& TriggerFunc::operator=(const TriggerFunc& tf)
 {
 	if (&tf != this)
@@ -520,12 +518,13 @@ TriggerFunc& TriggerFunc::operator=(const TriggerFunc& tf)
 		m_quit = tf.m_quit;
 		m_fired = tf.m_fired;
 		m_binary = tf.m_binary;
-		m_itrigger = tf.m_itrigger;
-		m_skey = tf.m_skey;
-		m_count = tf.m_count;
+		m_ibinary = tf.m_ibinary;
+		m_istring = tf.m_istring;
 		m_present = tf.m_present;
 		m_otrigger = tf.m_otrigger;
 		m_page = tf.m_page;
+		m_verbose = tf.m_verbose;
+		m_triggers_matched = tf.m_triggers_matched;
 	}
 	return *this;
 }
@@ -533,13 +532,16 @@ TriggerFunc& TriggerFunc::operator=(const TriggerFunc& tf)
 void TriggerFunc::operator()(Trigger* pitem)
 {
 	bool bTest = false;
-	m_count++;
 
 	// This trigger func fires only on the first trigger! 
 	// Each trigger is checked, however, so that each can keep track of the current input. 
 
-	if (m_binary) bTest = pitem->checkBinary(m_itrigger);
-	else bTest = pitem->checkString(m_skey);
+	if (m_binary) bTest = pitem->checkBinary(m_ibinary);
+	else bTest = pitem->checkString(m_istring);
+
+	if (m_verbose) 
+		if (m_binary) std::cerr << "tf(" << std::hex << m_ibinary << std::dec << "): " << *pitem << " " << bTest << std::endl;
+		else std::cerr << "tf(" << m_istring << "): " << *pitem << " " << bTest << std::endl;
 
 	if (bTest && !fired())
 	{
@@ -547,8 +549,7 @@ void TriggerFunc::operator()(Trigger* pitem)
 		m_fired = true;
 		m_triggers_matched.append(pitem->getKey());
 		i = pitem->execute(m_otrigger);
-		if (m_verbose) std::cout << "Trigger " << pitem->getKey() << " execute: " << std::hex << i << std::endl;
-		m_ideferred = i;
+		if (m_verbose) std::cout << "TriggerFunc::operator() matched trigger " << m_triggers_matched << " execute returned " << i << std::endl;
 		if (i > 0) m_present = true;
 		else if (i < 0)
 		{

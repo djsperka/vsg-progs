@@ -285,7 +285,7 @@ int FXImageStimSet::init(ARvsg& vsg, std::vector<int> pages)
 
 int FXImageStimSet::handle_trigger(const std::string& s, const std::string& args)
 {
-	std::cerr << "handle_trigger: " << s << std::endl;
+	//std::cerr << "FXImageStimSet::handle_trigger: " << s << std::endl;
 	int status = 0;
 	if (s == "F")
 	{
@@ -316,7 +316,7 @@ int FXImageStimSet::handle_trigger(const std::string& s, const std::string& args
 	}
 	else if (s == "g")
 	{
-		std::cerr << "Parsing g args: " << args << std::endl;
+		std::cerr << "Received \"g\" args: " << args << std::endl;
 		// parse index to goto
 		size_t new_index;
 		std::stringstream ss(args);

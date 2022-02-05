@@ -186,7 +186,7 @@ void FixUStim::run_stim(alert::ARvsg& vsg)
 	if (!m_arguments.bBinaryTriggers)
 	{
 		cout << "Enter trigger/key: ";
-	}
+	}\
 
 	string s;
 	while (!quit_enabled())
@@ -233,80 +233,87 @@ void FixUStim::run_stim(alert::ARvsg& vsg)
 			if (!bHaveAsciiTrigger)
 			{
 				input_trigger = vsgIOReadDigitalIn();
-				bHaveBinaryTrigger = true;
+				if (input_trigger != saved_input_trigger)
+				{
+					saved_input_trigger = input_trigger;
+					bHaveBinaryTrigger = true;
+					//std::cerr << "Read binary input trig: " << std::hex << input_trigger << std::endl;
+				}
 			}
 		}
 
 		//TriggerFunc	tf = std::for_each(triggers().begin(), triggers().end(),
 		//	(m_arguments.bBinaryTriggers ? TriggerFunc(input_trigger, last_output_trigger, false) : TriggerFunc(s, last_output_trigger)));
 
-		TriggerFunc tf;
-		if (bHaveAsciiTrigger)
+		// only exexute the trigger checks if there was a trigger of some sort
+		if (bHaveAsciiTrigger || bHaveBinaryTrigger)
 		{
-			tf = TriggerFunc(s, last_output_trigger);
-			//std::for_each(triggers().begin(), triggers().end(), tf);
-			for (auto ptrig : triggers())
+			TriggerFunc tf;
+			if (bHaveAsciiTrigger)
 			{
-				tf(ptrig);
-			}
-		}
-		else if (bHaveBinaryTrigger)
-		{
-			if (input_trigger != saved_input_trigger)
-			{
-				//POLKADOTcout << "TRIG " << trigger_count << " " << std::hex << input_trigger << endl;
-				trigger_count++; // for diagnostic only
-				saved_input_trigger = input_trigger;
-				tf = TriggerFunc(input_trigger, last_output_trigger, false);
-
-				//std::for_each(triggers().begin(), triggers().end(), tf);
+				//std::cerr << "check string trigs" << std::endl;
+				tf = TriggerFunc(s, last_output_trigger);
 				for (auto ptrig : triggers())
 				{
 					tf(ptrig);
 				}
 			}
-		}
-
-		// if quit requested, get out now
-		if (tf.quit()) break;
-
-		// write digout if current output is different than last write. 
-		if (tf.output_trigger() != last_output_trigger && tf.count() > 0)
-		{
-			vsgIOWriteDigitalOut(tf.output_trigger() << 1, 0xfffe);
-			last_output_trigger = tf.output_trigger();
-			//POLKADOTstd::cout << "vsg digout " << std::hex << (tf.output_trigger() << 1) << std::endl;
-		}
-
-		// if vsgPresent() is called for....
-		if (tf.present())
-		{
-			//cout << "Got present(): old " << hex << last_output_trigger << " new " << hex << tf.output_trigger() << endl;
-			// Check whether we do an ordinary present(), or if we are doing dualstim rig hijinks we'll want to 
-			// do a presendOnTrigger. In the presentOnTrigger case, we do a further check on whether any of the
-			// triggers matched (you can have multiple triggers matched in a single check) is on the list of 
-			// those to be triggered on (see commandline arg -V). 
-			if (!m_arguments.bPresentOnTrigger)
+			else if (bHaveBinaryTrigger)
 			{
-				vsgPresent();
-			}
-			else
-			{
-				if (m_arguments.sTriggeredTriggers.empty() || m_arguments.sTriggeredTriggers.find_first_of(tf.triggers_matched()) < string::npos)
+				//std::cerr << std::endl << std::endl << "check binary trigs" << std::endl;
+				//for (unsigned int i = 0; i < triggers().size(); i++)
+				//{
+				//	std::cout << "Trigger " << i << " " << *(triggers().at(i)) << std::endl;
+				//}
+				//std::cerr << std::endl << std::endl;
+
+				tf = TriggerFunc(input_trigger, last_output_trigger);
+
+				for (auto ptrig : triggers())
 				{
-					cerr << "FixUStim::run_stim(): Present armed (" << std::hex << m_arguments.ulTriggerArmed << "), wait for trigger..." << endl;
-					vsgIOWriteDigitalOut(m_arguments.ulTriggerArmed, m_arguments.ulTriggerArmed);
-					vsgFrameSync();	// this blocks until the next refresh, when the IO output is written. 
-					vsgPresentOnTrigger(vsgTRIG_ONRISINGEDGE + vsgDIG7);
-					cerr << "FixUStim::run_stim(): got trigger..." << endl;
+					tf(ptrig);
 				}
-				else
+			}
+
+			// if quit requested, get out now
+			if (tf.quit()) break;
+
+			// write digout if current output is different than last write. 
+			if (tf.output_trigger() != last_output_trigger)
+			{
+				vsgIOWriteDigitalOut(tf.output_trigger() << 1, 0xfffe);
+				last_output_trigger = tf.output_trigger();
+			}
+
+			// if vsgPresent() is called for....
+			if (tf.present())
+			{
+				//cout << "Got present(): old " << hex << last_output_trigger << " new " << hex << tf.output_trigger() << endl;
+				// Check whether we do an ordinary present(), or if we are doing dualstim rig hijinks we'll want to 
+				// do a presendOnTrigger. In the presentOnTrigger case, we do a further check on whether any of the
+				// triggers matched (you can have multiple triggers matched in a single check) is on the list of 
+				// those to be triggered on (see commandline arg -V). 
+				if (!m_arguments.bPresentOnTrigger)
 				{
 					vsgPresent();
 				}
+				else
+				{
+					if (m_arguments.sTriggeredTriggers.empty() || m_arguments.sTriggeredTriggers.find_first_of(tf.triggers_matched()) < string::npos)
+					{
+						cerr << "FixUStim::run_stim(): Present armed (" << std::hex << m_arguments.ulTriggerArmed << "), wait for trigger..." << endl;
+						vsgIOWriteDigitalOut(m_arguments.ulTriggerArmed, m_arguments.ulTriggerArmed);
+						vsgFrameSync();	// this blocks until the next refresh, when the IO output is written. 
+						vsgPresentOnTrigger(vsgTRIG_ONRISINGEDGE + vsgDIG7);
+						cerr << "FixUStim::run_stim(): got trigger..." << endl;
+					}
+					else
+					{
+						vsgPresent();
+					}
+				}
 			}
 		}
-
 		// short sleep
 		Sleep(10);
 	}
@@ -328,9 +335,9 @@ void FixUStim::init_triggers(TSpecificFunctor<FixUStim>* pfunctor)
 	triggers().addTrigger(new FunctorCallbackTrigger("s", 0x4, 0x0, 0x4, 0x0, pfunctor));	// this must come after X so it will not fire with an X.
 
 	std::vector< std::pair<std::string, int> > vec;
-	vec.push_back(make_pair("a", 0x8));
+	vec.push_back(make_pair("a", 0x8 | AR_TRIGGER_TOGGLE));
 	vec.push_back(make_pair("g", AR_TRIGGER_ASCII_ONLY));
-	triggers().addTrigger(new MISOFunctorCallbackTrigger(vec, 0x8 | AR_TRIGGER_TOGGLE, 0x8, 0x8 | AR_TRIGGER_TOGGLE, pfunctor));
+	triggers().addTrigger(new MISOFunctorCallbackTrigger(vec, 0x8, 0x8, 0x8 | AR_TRIGGER_TOGGLE, pfunctor));
 	//	triggers().addTrigger(new FunctorCallbackTrigger("ag", 0x8, 0x8 | AR_TRIGGER_TOGGLE, 0x8, 0x8 | AR_TRIGGER_TOGGLE, pfunctor));
 //	triggers().addTrigger(new FunctorCallbackTrigger("g", 0x0, 0x0, 0x0, 0x0, pfunctor));
 	triggers().addTrigger(new FunctorCallbackTrigger("u", 0x20, 0x20 | AR_TRIGGER_TOGGLE, 0x10, 0x10 | AR_TRIGGER_TOGGLE, pfunctor));
