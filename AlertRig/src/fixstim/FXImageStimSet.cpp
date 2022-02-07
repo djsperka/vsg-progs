@@ -21,7 +21,8 @@ bool parseImageInputFile(std::vector<FXImageInfo>& vecInfo, FXGroupsVec& groupsV
 	else
 	{
 		bReturn = true;
-		std::cerr << "Found image list file " << filename << endl;
+		boost::filesystem::path folder = p.parent_path();		// if file has relative pathnames to images, they are relative to dir file lives in
+		std::cerr << "Found image list file " << p << " at path " << folder << std::endl;
 
 		// open file, read line-by-line and parse
 		string line;
@@ -38,7 +39,6 @@ bool parseImageInputFile(std::vector<FXImageInfo>& vecInfo, FXGroupsVec& groupsV
 			while (getline(myfile, line))
 			{
 				linenumber++;
-				std::cerr << "read line " << linenumber << endl;
 
 				// line may look like these things
 				// 1) c:\path\file.bmp                    filename only. Position will be 0,0 duration=delay=0
@@ -69,6 +69,7 @@ bool parseImageInputFile(std::vector<FXImageInfo>& vecInfo, FXGroupsVec& groupsV
 					else
 					{
 						// tokenize/parse this line. It should be one of the filename variants.
+						string sUseThisFilename;
 						vector<string> tokens;
 						tokenize(line, tokens, ",");
 						if (tokens.size() == 0)
@@ -76,6 +77,13 @@ bool parseImageInputFile(std::vector<FXImageInfo>& vecInfo, FXGroupsVec& groupsV
 
 						// verify file exists
 						boost::filesystem::path image(tokens[0]);
+						if (image.is_relative())
+						{
+							std::cerr << "relative path" << std::endl;
+							image = folder / image;
+							std::cerr << "Try this: " << image << std::endl;
+						}
+
 						if (!exists(image))
 						{
 							std::cerr << "image file not found,line " << linenumber << " : " << image << endl;
@@ -88,7 +96,7 @@ bool parseImageInputFile(std::vector<FXImageInfo>& vecInfo, FXGroupsVec& groupsV
 						switch (tokens.size())
 						{
 						case 1:
-							vecInfo.push_back(std::make_tuple(tokens[0], xDefault, yDefault, durationDefault, delayDefault));
+							vecInfo.push_back(std::make_tuple(image.string() , xDefault, yDefault, durationDefault, delayDefault));
 							break;
 						case 3:
 							if (parse_double(tokens[1], x) || parse_double(tokens[2], y))
@@ -98,7 +106,7 @@ bool parseImageInputFile(std::vector<FXImageInfo>& vecInfo, FXGroupsVec& groupsV
 							}
 							else
 							{
-								vecInfo.push_back(std::make_tuple(tokens[0], x, y, durationDefault, delayDefault));
+								vecInfo.push_back(std::make_tuple(image.string() , x, y, durationDefault, delayDefault));
 							}
 							break;
 						case 5:
@@ -109,7 +117,7 @@ bool parseImageInputFile(std::vector<FXImageInfo>& vecInfo, FXGroupsVec& groupsV
 							}
 							else
 							{
-								vecInfo.push_back(std::make_tuple(tokens[0], x, y, del, dur));
+								vecInfo.push_back(std::make_tuple(image.string() , x, y, del, dur));
 							}
 							break;
 						default:
