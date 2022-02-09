@@ -396,7 +396,7 @@ void CMouseUStim::doMouseKBLoop()
 		if (m_arguments.isAlert && !bUseManualTriggers)
 		{
 			int din = vsgIOReadDigitalIn();
-			TriggerFunc	tf = std::for_each(triggers().begin(), triggers().end(), TriggerFunc(din, last_output_trigger, true));
+			TriggerFunc	tf = std::for_each(triggers().begin(), triggers().end(), TriggerFunc(din, last_output_trigger));
 
 			if (tf.quit()) bQuit = true;
 			else if (tf.present())
