@@ -351,6 +351,19 @@ int FXImageStimSet::handle_trigger(const std::string& s, const std::string& args
 		}
 
 	}
+	else if (s == "s")
+	{
+		vsgSetDrawPage(vsgVIDEOPAGE, m_pageFixpt, vsgNOCLEAR);
+		if (m_bUseGroups)
+		{
+			vsgSetCommand(vsgCYCLEPAGEDISABLE + vsgCYCLELUTDISABLE);
+		}
+		else
+		{
+			vsgSetCommand(vsgCYCLEPAGEDISABLE);
+		}
+		status = 1;
+	}
 	else if (s == "X")
 	{
 		vsgSetDrawPage(vsgVIDEOPAGE, m_pageBlank, vsgNOCLEAR);
@@ -482,7 +495,7 @@ void FXImageStimSet::setupCycling(const FXImageInfo& info)
 		cycle[count].Stop = 0;
 		count++;
 		cycle[count].Frames = 0;
-		cycle[count].Page = m_pageBlank + vsgTRIGGERPAGE;
+		cycle[count].Page = m_pageFixpt + vsgTRIGGERPAGE;
 		cycle[count].Stop = 1;
 		count++;
 	}
@@ -527,7 +540,7 @@ void FXImageStimSet::setupCyclingForCurrentGroup()
 		}
 	}
 	cycle[count].Frames = 0;
-	cycle[count].Page = m_pageBlank + vsgTRIGGERPAGE;
+	cycle[count].Page = m_pageFixpt + vsgTRIGGERPAGE;
 	cycle[count].Stop = 1;
 	count++;
 	status = vsgPageCyclingSetup(count, &cycle[0]);
