@@ -94,28 +94,38 @@ void MSequenceUStim::run_stim(alert::ARvsg& vsg)
 		while (!quit_enabled())
 		{
 			// If user-triggered, get a trigger entry. 
+			TriggerFunc tf;
 			if (!m_binaryTriggers)
 			{
 				// Get a new "trigger" from user
 				cout << "Enter trigger/key: ";
 				cin >> s;
+				tf = TriggerFunc(s, last_output_trigger);
 			}
 			else
 			{
 				input_trigger = vsgIOReadDigitalIn();
+				tf = TriggerFunc(input_trigger, last_output_trigger);
 			}
 
-			TriggerFunc	tf = std::for_each(triggers().begin(), triggers().end(),
-				(m_binaryTriggers ? TriggerFunc(input_trigger, last_output_trigger, false) : TriggerFunc(s, last_output_trigger)));
+			//TriggerFunc	tf = std::for_each(triggers().begin(), triggers().end(),
+			//	(m_binaryTriggers ? TriggerFunc(input_trigger, last_output_trigger, false) : TriggerFunc(s, last_output_trigger)));
 
-			// Now analyze input trigger
+			for (auto ptrig : triggers())
+			{
+				tf(ptrig);
+			}
 
 			if (tf.quit()) break;
 			else if (tf.present())
 			{
 				last_output_trigger = tf.output_trigger();
-				vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, tf.output_trigger(), 0);
+				cout << "Write out trig: " << hex << tf.output_trigger() << endl;
+				//vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, tf.output_trigger(), 0);
+				//vsgSetTriggerOptions(vsgTRIG_ONPRESENT, 0, vsgTRIG_OUTPUTMARKER, 0.5, 0, tf.output_trigger() << 1, 0x1FE);
+				vsgIOWriteDigitalOut(tf.output_trigger() << 1, 0xfffe);
 				vsgPresent();
+				cout << "done" << endl;
 			}
 			Sleep(10);
 		}
@@ -170,16 +180,13 @@ const char *MSequenceUStim::get_configured_seq()
 void MSequenceUStim::init_triggers(TSpecificFunctor<MSequenceUStim>* pfunctor)
 {
 	triggers().clear();
-	triggers().addTrigger(new FunctorCallbackTrigger("F", 0x2, 0x2, 0x2, 0x2, pfunctor));
-	triggers().addTrigger(new FunctorCallbackTrigger("f", 0x2, 0x0, 0x2, 0x0, pfunctor));
+	//triggers().addTrigger(new FunctorCallbackTrigger("F", 0x2, 0x2, 0x2, 0x2, pfunctor));
+	//triggers().addTrigger(new FunctorCallbackTrigger("f", 0x2, 0x0, 0x2, 0x0, pfunctor));
 	triggers().addTrigger(new FunctorCallbackTrigger("S", 0x4, 0x4, 0x4, 0x4, pfunctor));
-	triggers().addTrigger(new FunctorCallbackTrigger("s", 0x4, 0x0, 0x4, 0x0, pfunctor));
-	triggers().addTrigger(new FunctorCallbackTrigger("a", 0x8, 0x8 | AR_TRIGGER_TOGGLE, 0x8, 0x8 | AR_TRIGGER_TOGGLE, pfunctor));
+	//triggers().addTrigger(new FunctorCallbackTrigger("s", 0x4, 0x0, 0x4, 0x0, pfunctor));
+	//triggers().addTrigger(new FunctorCallbackTrigger("a", 0x8, 0x8 | AR_TRIGGER_TOGGLE, 0x8, 0x8 | AR_TRIGGER_TOGGLE, pfunctor));
 	triggers().addTrigger(new FunctorCallbackTrigger("X", 0x6, 0x0, 0x6, 0x0, pfunctor));
 	triggers().addTrigger(new QuitTrigger("q", 0x10, 0x10, 0xff, 0x0, 0));
-
-	// Put quit trigger before cycling trigger
-	triggers().addTrigger(m_ptrigCycling = new PageCyclingTrigger("C", m_nRepeats));
 
 	return;
 }
@@ -193,15 +200,13 @@ int MSequenceUStim::callback(int &output, const FunctorCallbackTrigger* ptrig, c
 	{
 		vsgSetCommand(vsgVIDEODRIFT + vsgOVERLAYDRIFT);			// allows us to move the offset of video memory
 		vsgSetCommand(vsgCYCLEPAGEENABLE);
-		m_ptrigCycling->started();
+		//vsgFrameSync();
 	}
 	else if (key == "X")
 	{
 		vsgSetCommand(vsgCYCLEPAGEDISABLE);
-		m_ptrigCycling->stopped();
 		vsgSetZoneDisplayPage(vsgOVERLAYPAGE, NO_APERTURE_PAGE);
 	}
-
 	return ival;
 }
 

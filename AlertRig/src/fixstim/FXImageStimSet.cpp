@@ -79,9 +79,7 @@ bool parseImageInputFile(std::vector<FXImageInfo>& vecInfo, FXGroupsVec& groupsV
 						boost::filesystem::path image(tokens[0]);
 						if (image.is_relative())
 						{
-							std::cerr << "relative path" << std::endl;
 							image = folder / image;
-							std::cerr << "Try this: " << image << std::endl;
 						}
 
 						if (!exists(image))
@@ -227,24 +225,24 @@ std::string FXImageStimSet::toString() const
 	else
 		oss << " Fixpt: NONE" << endl;
 	oss << " Images: " << m_imagesInfo.size() << endl;
-	for (auto infoTup : m_imagesInfo)
-	{
-		oss << "   " <<
-			std::get<0>(infoTup) << "," <<
-			std::get<1>(infoTup) << "," <<
-			std::get<2>(infoTup) << "," <<
-			std::get<3>(infoTup) << "," <<
-			std::get<4>(infoTup) << std::endl;
-	}
+	//for (auto infoTup : m_imagesInfo)
+	//{
+	//	oss << "   " <<
+	//		std::get<0>(infoTup) << "," <<
+	//		std::get<1>(infoTup) << "," <<
+	//		std::get<2>(infoTup) << "," <<
+	//		std::get<3>(infoTup) << "," <<
+	//		std::get<4>(infoTup) << std::endl;
+	//}
 	oss << " Groups(" << m_groupsVec.size() << ")" << std::endl;
-	for (auto vec : m_groupsVec)
-	{
-		for (auto i : vec)
-		{
-			oss << i << " ";
-		}
-		oss << std::endl;
-	}
+	//for (auto vec : m_groupsVec)
+	//{
+	//	for (auto i : vec)
+	//	{
+	//		oss << i << " ";
+	//	}
+	//	oss << std::endl;
+	//}
 	return oss.str();
 }
 
@@ -362,6 +360,9 @@ int FXImageStimSet::handle_trigger(const std::string& s, const std::string& args
 		{
 			vsgSetCommand(vsgCYCLEPAGEDISABLE);
 		}
+		// djs Wait a frame for this to happen. This is intended to address a bug where some of VSG output trigs are missing - theory being that 
+		// an s/X was issued at the same frame where a trigger from the page cycling system is coming....maybe that causes the trig to get lost. 
+		vsgFrameSync();
 		status = 1;
 	}
 	else if (s == "X")
@@ -375,6 +376,9 @@ int FXImageStimSet::handle_trigger(const std::string& s, const std::string& args
 		{
 			vsgSetCommand(vsgCYCLEPAGEDISABLE);
 		}
+		// djs Wait a frame for this to happen. This is intended to address a bug where some of VSG output trigs are missing - theory being that 
+		// an s/X was issued at the same frame where a trigger from the page cycling system is coming....maybe that causes the trig to get lost. 
+		vsgFrameSync();
 		status = 1;
 	}
 	return status;
@@ -432,7 +436,6 @@ int FXImageStimSet::drawCurrent()
 			strncpy_s(filename, 1024, std::get<0>(m_imagesInfo[imageIndex]).c_str(), sizeof(filename));
 
 			// draw image. Palette will be loaded (below) to LUT buffer array for animation
-			std::cerr << "Draw image " << filename << " on video page " << m_pageImages[iGroupMember] << std::endl;
 			diStatus = vsgDrawImage(vsgBMPPICTURE + vsgPALETTELOAD, std::get<1>(m_imagesInfo[imageIndex]), -1 * std::get<2>(m_imagesInfo[imageIndex]), filename);
 
 			if (has_fixpt())
