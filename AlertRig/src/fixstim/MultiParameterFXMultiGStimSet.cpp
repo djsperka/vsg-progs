@@ -87,6 +87,9 @@ int MultiParameterFXMultiGStimSet::handle_trigger(const std::string& s, const st
 		}
 		vsgSetDrawPage(vsgVIDEOPAGE, m_fixpt_page, vsgNOCLEAR);
 
+		// move screen back to origin (if pursuit and trial was ended mid-pursuit)
+		vsgMoveScreen(0, 0);
+
 		// fixpt should always be at 100 contrast. Cannot support "f" when "S" is on if dots are present. 
 		if (has_fixpt())
 		{
@@ -115,10 +118,6 @@ int MultiParameterFXMultiGStimSet::handle_trigger(const std::string& s, const st
 	else if (s == "s")
 	{
 		vsgSetDrawPage(vsgVIDEOPAGE, m_fixpt_page, vsgNOCLEAR);
-		//for (unsigned int i = 0; i < count(); i++)
-		//{
-		//	grating(i).setContrast(0);
-		//}
 		status = 1;
 	}
 	else if (s == "a")
