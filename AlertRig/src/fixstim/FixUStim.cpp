@@ -71,6 +71,7 @@ static struct argp_option options[] = {
 	{"dot", 'D', "FIXPT_SPEC[/FIXPT_SPEC[...]]", 0, "dot(s) to (dis)appear with stim trigger"},
 	{"pursuit", 778, "PURSUIT_SPEC", 0, "smooth pursuit"},
 	{"serial", 779, "PORT", 0, "serial port to listen on for triggers"},
+	{"no-gamma", 776, 0, 0, "Disable gamma correction for this stim. Will be re-enabled when this stim is complete."},
 	{ 0 }
 };
 static struct argp f_argp = { options, parse_fixstim_opt, 0, "fixstim -- all-purpose stimulus engine" };
@@ -105,6 +106,12 @@ bool FixUStim::parse(int argc, char **argv)
 void FixUStim::run_stim(alert::ARvsg& vsg)
 {
 	cout << "FixUStim::run_stim(): started" << endl;
+
+	if (m_arguments.bDisableGammaCorrection)
+	{
+		cout << "WARNING: DISABLING GAMMA CORRECTION." << endl;
+		vsgSetVideoMode(vsgNOGAMMACORRECT);
+	}
 
 	VSGTRIVAL c = m_arguments.bkgdColor.trival();
 	vsg.setViewDistMM(m_arguments.iDistanceToScreenMM);
@@ -322,6 +329,12 @@ void FixUStim::run_stim(alert::ARvsg& vsg)
 		m_arguments.pStimSet->cleanup(pages);
 	vsg.clear();
 
+	if (m_arguments.bDisableGammaCorrection)
+	{
+		cout << "WARNING: RE-ENABLING GAMMA CORRECTION." << endl;
+		vsgSetVideoMode(vsgGAMMACORRECT);
+	}
+
 	return;
 }
 
@@ -391,6 +404,9 @@ error_t parse_fixstim_opt(int key, char* carg, struct argp_state* state)
 	case 'p':
 		if (parse_integer(sarg, arguments->iPulseBits))
 			ret = EINVAL;
+		break;
+	case 776:
+		arguments->bDisableGammaCorrection = true;
 		break;
 	case 779:
 		arguments->bUsingSerial = true;

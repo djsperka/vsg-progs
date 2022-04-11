@@ -40,6 +40,7 @@ struct fixstim_arguments
 	bool bHaveGrating;
 	ARXhairSpec xhair;
 	bool bHaveXhair;
+	bool bDisableGammaCorrection;
 
 	// These 'last_was' vars tell us how to assign a stim set when we receive one.
 	bool bLastWasFixpt;
@@ -82,6 +83,7 @@ struct fixstim_arguments
 		, bHaveGrating(false)
 		, xhair()
 		, bHaveXhair(false)
+		, bDisableGammaCorrection(false)
 		, bHaveStim(false)
 		, bLastWasFixpt(false)
 		, bLastWasGrating(false)
