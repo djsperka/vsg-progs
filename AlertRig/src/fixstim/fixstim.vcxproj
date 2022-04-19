@@ -225,6 +225,7 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Use</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="CMouseUStim.cpp" />
+    <ClCompile Include="CycleTestStimSet.cpp" />
     <ClCompile Include="DotStimSet.cpp" />
     <ClCompile Include="EQStimSet.cpp" />
     <ClCompile Include="FGGXCoreStimSet.cpp" />
@@ -309,6 +310,7 @@
     <ClInclude Include="BorderStimSet.h" />
     <ClInclude Include="CalibrationUStim.h" />
     <ClInclude Include="CMouseUStim.h" />
+    <ClInclude Include="CycleTestStimSet.h" />
     <ClInclude Include="EQStimSet.h" />
     <ClInclude Include="FGGXStimSet.h" />
     <ClInclude Include="FixptGratingStimSet.h" />

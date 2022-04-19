@@ -79,6 +79,7 @@ namespace alert
 		int output_trigger() { return m_otrigger; };
 		bool quit() { return m_quit; };
 		const std::string& triggers_matched() { return m_triggers_matched; };
+		bool pending_cycling_disable() { return m_pending_cycling_disable; }	// for page cycling
 
 		TriggerFunc& operator=(const TriggerFunc& tf);
 
@@ -95,6 +96,7 @@ namespace alert
 		int m_page;
 		bool m_verbose;
 		std::string m_triggers_matched;
+		bool m_pending_cycling_disable;
 	};
 
 	class ResetTriggerFunc

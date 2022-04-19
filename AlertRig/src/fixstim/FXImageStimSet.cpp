@@ -360,10 +360,7 @@ int FXImageStimSet::handle_trigger(const std::string& s, const std::string& args
 		{
 			vsgSetCommand(vsgCYCLEPAGEDISABLE);
 		}
-		// djs Wait a frame for this to happen. This is intended to address a bug where some of VSG output trigs are missing - theory being that 
-		// an s/X was issued at the same frame where a trigger from the page cycling system is coming....maybe that causes the trig to get lost. 
-		vsgFrameSync();
-		status = 1;
+		status = 2;	// FixUStim::run_stim will wait before updating digout bits
 	}
 	else if (s == "X")
 	{
@@ -376,10 +373,7 @@ int FXImageStimSet::handle_trigger(const std::string& s, const std::string& args
 		{
 			vsgSetCommand(vsgCYCLEPAGEDISABLE);
 		}
-		// djs Wait a frame for this to happen. This is intended to address a bug where some of VSG output trigs are missing - theory being that 
-		// an s/X was issued at the same frame where a trigger from the page cycling system is coming....maybe that causes the trig to get lost. 
-		vsgFrameSync();
-		status = 1;
+		status = 2;	// FixUStim::run_stim will wait before updating digout bits
 	}
 	return status;
 }

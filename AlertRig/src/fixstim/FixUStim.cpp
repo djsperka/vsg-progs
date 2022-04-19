@@ -8,6 +8,7 @@
 #include "MelStimSet.h"
 #include "EQStimSet.h"
 #include "BorderStimSet.h"
+#include "CycleTestStimSet.h"
 #include <conio.h>
 #include <iostream>
 #include <boost/algorithm/string.hpp>
@@ -72,6 +73,7 @@ static struct argp_option options[] = {
 	{"pursuit", 778, "PURSUIT_SPEC", 0, "smooth pursuit"},
 	{"serial", 779, "PORT", 0, "serial port to listen on for triggers"},
 	{"no-gamma", 776, 0, 0, "Disable gamma correction for this stim. Will be re-enabled when this stim is complete."},
+	{"cycle-test", 774, 0, 0, "Cycling test, trigger every frame"},
 	{ 0 }
 };
 static struct argp f_argp = { options, parse_fixstim_opt, 0, "fixstim -- all-purpose stimulus engine" };
@@ -193,7 +195,7 @@ void FixUStim::run_stim(alert::ARvsg& vsg)
 	if (!m_arguments.bBinaryTriggers)
 	{
 		cout << "Enter trigger/key: ";
-	}\
+	}
 
 	string s;
 	while (!quit_enabled())
@@ -288,6 +290,24 @@ void FixUStim::run_stim(alert::ARvsg& vsg)
 			// write digout if current output is different than last write. 
 			if (tf.output_trigger() != last_output_trigger)
 			{
+				// If the execute() function of the trigger that fired tells us that a page cycling operation
+				// is finishing - we will wait here for a little bit until the vsg tells us that the cycling is 
+				// done (via vsgLUTCYCLINGSTATE). We make sure that there is at least one  vsgFrameSync() call. 
+				// This will HOPEFULLY) prevent trigger pulses delivered by the page cycling facility from 
+				// interfering with those from our own triggers.
+				// There is nothing here to actually disable the cycling -- that should have been done in the 
+				// handler. 
+				if (tf.pending_cycling_disable())
+				{
+					int n = 0;
+					while (n < 10 && vsgGetSystemAttribute(vsgLUTCYCLINGSTATE) > -1)
+					{
+						vsgFrameSync();
+						n++;
+					}
+					//cerr << "pending_cycling_disable off at n=" << n << endl;
+					vsgFrameSync();
+				}
 				vsgIOWriteDigitalOut(tf.output_trigger() << 1, 0xfffe);
 				last_output_trigger = tf.output_trigger();
 			}
@@ -411,6 +431,9 @@ error_t parse_fixstim_opt(int key, char* carg, struct argp_state* state)
 	case 779:
 		arguments->bUsingSerial = true;
 		arguments->serial_port = sarg;
+		break;
+	case 774:
+		arguments->pStimSet = new CycleTestStimSet();
 		break;
 	case 'V':
 	{

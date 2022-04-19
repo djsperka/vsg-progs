@@ -467,8 +467,9 @@ TriggerFunc::TriggerFunc(std::string key, int otrigger, bool verbose)
 	, m_present(false)
 	, m_otrigger(otrigger)
 	, m_page(-1)
-	, m_verbose(verbose) 
+	, m_verbose(verbose)
 	, m_triggers_matched()
+	, m_pending_cycling_disable(false)
 {};
 
 TriggerFunc::TriggerFunc(int itrigger, int otrigger, bool verbose)
@@ -482,6 +483,7 @@ TriggerFunc::TriggerFunc(int itrigger, int otrigger, bool verbose)
 	, m_page(-1)
 	, m_verbose(verbose)
 	, m_triggers_matched()
+	, m_pending_cycling_disable(false)
 {};
 
 TriggerFunc::TriggerFunc()
@@ -495,6 +497,7 @@ TriggerFunc::TriggerFunc()
 	, m_page(-1)
 	, m_verbose(m_verbose)
 	, m_triggers_matched()
+	, m_pending_cycling_disable(false)
 {};
 
 
@@ -509,6 +512,7 @@ TriggerFunc::TriggerFunc(const TriggerFunc& tf)
 	, m_page(tf.m_page) 
 	, m_verbose(tf.m_verbose)
 	, m_triggers_matched(tf.m_triggers_matched)
+	, m_pending_cycling_disable(tf.m_pending_cycling_disable)
 {};
 
 TriggerFunc& TriggerFunc::operator=(const TriggerFunc& tf)
@@ -550,7 +554,11 @@ void TriggerFunc::operator()(Trigger* pitem)
 		m_triggers_matched.append(pitem->getKey());
 		i = pitem->execute(m_otrigger);
 		if (m_verbose) std::cout << "TriggerFunc::operator() matched trigger " << m_triggers_matched << " execute returned " << i << std::endl;
-		if (i > 0) m_present = true;
+		if (i > 0)
+		{
+			m_present = true;
+			if (i == 2) m_pending_cycling_disable = true;	// HACK
+		}
 		else if (i < 0)
 		{
 			m_present = true;
