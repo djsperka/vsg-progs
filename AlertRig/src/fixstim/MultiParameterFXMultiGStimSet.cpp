@@ -117,8 +117,13 @@ int MultiParameterFXMultiGStimSet::handle_trigger(const std::string& s, const st
 	}
 	else if (s == "s")
 	{
-		vsgSetDrawPage(vsgVIDEOPAGE, m_fixpt_page, vsgNOCLEAR);
 		status = 1;
+		if (CYCLING_TYPE_NONE != m_iCyclingType)
+		{
+			vsgSetCommand(vsgCYCLEPAGEDISABLE);
+			status = 2;
+		}
+		vsgSetDrawPage(vsgVIDEOPAGE, m_fixpt_page, vsgNOCLEAR);
 	}
 	else if (s == "a")
 	{
@@ -168,10 +173,13 @@ int MultiParameterFXMultiGStimSet::handle_trigger(const std::string& s, const st
 	}
 	else if (s == "X")
 	{
-		if (CYCLING_TYPE_NONE != m_iCyclingType)
-			vsgSetCommand(vsgCYCLEPAGEDISABLE);
-		vsgSetDrawPage(vsgVIDEOPAGE, m_blank_page, vsgNOCLEAR);
 		status = 1;
+		if (CYCLING_TYPE_NONE != m_iCyclingType)
+		{
+			vsgSetCommand(vsgCYCLEPAGEDISABLE);
+			status = 2;
+		}
+		vsgSetDrawPage(vsgVIDEOPAGE, m_blank_page, vsgNOCLEAR);
 	}
 	else if (s == "A")
 	{
