@@ -305,7 +305,8 @@ void FixUStim::run_stim(alert::ARvsg& vsg)
 						vsgFrameSync();
 						n++;
 					}
-					//cerr << "pending_cycling_disable off at n=" << n << endl;
+					if (n==10)
+						cerr << "ERROR - pending_cycling_disable n=10" << endl;
 					vsgFrameSync();
 				}
 				vsgIOWriteDigitalOut(tf.output_trigger() << 1, 0xfffe);
