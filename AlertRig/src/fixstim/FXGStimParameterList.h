@@ -412,6 +412,7 @@ protected:
 	vector< pair<double, double> >::const_iterator m_iter;
 };
 
+
 // Parameter value list for grating initial phase
 
 class StimPhaseList: public FXGStimParameterList
@@ -520,6 +521,38 @@ public:
 	}
 };
 
+class GratingWHList : public StimXYList
+{
+public:
+	GratingWHList(vector<double> xys, unsigned int index, bool bDistractor) : StimXYList(xys, index, bDistractor)
+	{
+	};
+
+	GratingWHList(const GratingXYList& list) : StimXYList(list.getXY(), list.index(), list.isDistractor())
+	{
+	}
+
+	virtual ~GratingWHList() {};
+	virtual GratingWHList* clone() const
+	{
+		return new GratingWHList(*this);
+	}
+
+	virtual bool set_current_parameter(MultiParameterFXMultiGStimSet* pstimset)
+	{
+		if (!isDistractor())
+		{
+			pstimset->grating(index()).w = m_iter->first;
+			pstimset->grating(index()).h = m_iter->second;
+		}
+		else
+		{
+			pstimset->distractor(index()).w = m_iter->first;
+			pstimset->distractor(index()).h = m_iter->second;
+		}
+		return true;
+	}
+};
 
 
 class FixptXYList: public StimXYList

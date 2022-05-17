@@ -74,6 +74,7 @@ static struct argp_option options[] = {
 	{"serial", 779, "PORT", 0, "serial port to listen on for triggers"},
 	{"no-gamma", 776, 0, 0, "Disable gamma correction for this stim. Will be re-enabled when this stim is complete."},
 	{"cycle-test", 774, 0, 0, "Cycling test, trigger every frame"},
+	{"wh", 773, "w0,h0[[,w1,h1],...]", 0, "Width,height tuning curve"},
 	{ 0 }
 };
 static struct argp f_argp = { options, parse_fixstim_opt, 0, "fixstim -- all-purpose stimulus engine" };
@@ -676,6 +677,7 @@ error_t parse_fixstim_opt(int key, char* carg, struct argp_state* state)
 	case 'U':
 	case 'D':
 	case 778:
+	case 773:
 	{
 		vector<double> tuning_parameters;
 		vector<COLOR_TYPE> color_parameters;
@@ -781,6 +783,9 @@ error_t parse_fixstim_opt(int key, char* carg, struct argp_state* state)
 					break;
 				case 778:
 					plist = new PursuitList(tuning_parameters);
+					break;
+				case 773:
+					plist = new GratingWHList(tuning_parameters, stimIndex, arguments->bLastWasDistractor);
 					break;
 				default:
 					cerr << "Unhandled varying stim parameter type (" << (char)key << ")" << endl;
