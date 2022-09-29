@@ -51,14 +51,7 @@ public:
 		return 0;
 	};
 
-	// initialize the pages indicated by the elements of the vector. Subclasses may 
-	// call vsgPresent() if needed. The first version has a default implementation 
-	// that uses the regular vsg card. The second version should be used for master/slave
-	// cases. 
-	virtual int init(std::vector<int> pages);
-	virtual int init(ARvsg& vsg, std::vector<int> pages) {
-		return -1;
-	};
+	virtual int init(ARvsg& vsg, std::vector<int> pages, int);
 
 	// clean up any messes created in init() - esp settings in VSG
 	virtual void cleanup(std::vector<int> pages) {};

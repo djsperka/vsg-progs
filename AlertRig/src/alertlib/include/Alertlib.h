@@ -344,7 +344,7 @@ namespace alert
 	class ARGratingSpec: public ARSpec
 	{
 	public:
-		ARGratingSpec() : bDrawInitDone(false), phase(0), wd(0), hd(0), ttf(0), swt(sinewave), twt(sinewave) {};
+		ARGratingSpec() : bDrawInitDone(false), bIsMulti(false), phase(0), wd(0), hd(0), ttf(0), swt(sinewave), twt(sinewave) {};
 
 		// Copy constructor only copies grating parameters, not vsg object properties. 
 		// A grating initialize with this constructor must still be initialized, and it will 
@@ -368,6 +368,12 @@ namespace alert
 		APERTURE_TYPE aperture;
 		COLOR_VECTOR_TYPE cv;
 		bool bDrawInitDone;
+
+		// by default this is NOT multi. Call setMulti to start it off. 
+		bool bIsMulti;
+		std::vector< std::tuple<double, double, double> > m_multi;
+		void setMulti(const std::vector< std::tuple<double, double, double> >& vec) { bIsMulti = true; m_multi = vec; };
+		void setMulti() { bIsMulti = false; m_multi.clear(); };
 
 		// reset spatial phase to the initial phase
 		virtual int resetSpatialPhase() { return setSpatialPhase(phase); };
@@ -409,10 +415,6 @@ namespace alert
 		virtual ~ARApertureGratingSpec() {};
 		virtual int draw();
 	};
-
-
-
-
 
 };	// end namespace alert;
 

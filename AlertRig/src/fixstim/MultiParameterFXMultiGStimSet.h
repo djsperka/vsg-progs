@@ -26,7 +26,7 @@ public:
 
 	virtual int num_pages() { return 5; };
 	virtual int num_overlay_pages() { return 0; };
-	virtual int init(ARvsg& vsg, std::vector<int> pages);
+	virtual int init(ARvsg& vsg, std::vector<int> pages, int num_stim_pages);
 	virtual int handle_trigger(const std::string& s, const std::string& args);
 	virtual std::string toString() const;
 private:
@@ -34,7 +34,8 @@ private:
 	int m_fixpt_page;
 	int m_fixpt_dot_page;
 	int m_stim_page;
-	//bool m_bUseCycling;
+	int m_alt_page;
+	int m_num_stim_pages;
 	int m_iCyclingType;
 	int m_iCyclingDelay;
 	int m_iStimDuration;	// if > 0, the number of frames stim lasts until blank. If <=0, no blank. 

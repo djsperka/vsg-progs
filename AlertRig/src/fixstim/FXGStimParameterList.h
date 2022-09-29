@@ -25,7 +25,6 @@ public:
 	virtual ~FXGStimParameterList() {};
 	virtual bool advance(MultiParameterFXMultiGStimSet* pstimset) = 0;
 	virtual bool set_current_parameter(MultiParameterFXMultiGStimSet* pstimset) = 0;
-	virtual FXGStimParameterList* clone() const = 0;
 	unsigned int index() const { return m_gratingIndex; };
 	bool isDistractor() const { return m_bDistractor; };
 };
@@ -42,10 +41,6 @@ public:
 	}
 
 	virtual ~StimContrastList() {};
-	virtual StimContrastList *clone() const
-	{
-		return new StimContrastList(*this);
-	}
 	virtual bool advance(MultiParameterFXMultiGStimSet* pstimset)
 	{
 		m_iter++;
@@ -82,10 +77,6 @@ public:
 		m_iter = m_vec.begin();
 	}
 	virtual ~StimOrientationList() {};
-	virtual StimOrientationList *clone() const
-	{
-		return new StimOrientationList(*this);
-	}
 	virtual bool advance(MultiParameterFXMultiGStimSet* pstimset)
 	{
 		m_iter++;
@@ -118,10 +109,6 @@ public:
 		m_iter = m_vec.begin();
 	}
 	virtual ~StimAreaList() {};
-	virtual StimAreaList *clone() const
-	{
-		return new StimAreaList(*this);
-	}
 	virtual bool advance(MultiParameterFXMultiGStimSet* pstimset)
 	{
 		m_iter++;
@@ -155,10 +142,6 @@ public:
 		m_iter = m_vec.begin();
 	}
 	virtual ~StimSFList() {};
-	virtual StimSFList *clone() const
-	{
-		return new StimSFList(*this);
-	}
 	virtual bool advance(MultiParameterFXMultiGStimSet* pstimset)
 	{
 		m_iter++;
@@ -192,10 +175,6 @@ public:
 		m_iter = m_vec.begin();
 	}
 	virtual ~StimTFList() {};
-	virtual StimTFList *clone() const
-	{
-		return new StimTFList(*this);
-	}
 	virtual bool advance(MultiParameterFXMultiGStimSet* pstimset)
 	{
 		m_iter++;
@@ -240,11 +219,6 @@ public:
 		m_iter = m_vec.begin();
 	}
 	virtual ~StimHoleList() {};
-	virtual StimHoleList *clone() const
-	{
-		return new StimHoleList(*this);
-	}
-
 	virtual bool advance(MultiParameterFXMultiGStimSet* pstimset)
 	{
 		m_iter++;
@@ -297,10 +271,6 @@ public:
 		m_iter = m_vec.begin();
 	}
 	virtual ~StimXList() {};
-	virtual StimXList *clone() const
-	{
-		return new StimXList(*this);
-	}
 	virtual bool advance(MultiParameterFXMultiGStimSet* pstimset)
 	{
 		m_iter++;
@@ -334,10 +304,6 @@ public:
 		m_iter = m_vec.begin();
 	}
 	virtual ~StimYList() {};
-	virtual StimYList *clone() const
-	{
-		return new StimYList(*this);
-	}
 	virtual bool advance(MultiParameterFXMultiGStimSet* pstimset)
 	{
 		m_iter++;
@@ -380,7 +346,6 @@ public:
 	}
 
 	virtual ~StimXYList() {};
-	virtual StimXYList *clone() const = 0;
 
 	virtual bool advance(MultiParameterFXMultiGStimSet* pstimset)
 	{
@@ -424,10 +389,6 @@ public:
 		m_iter = m_vec.begin();
 	}
 	virtual ~StimPhaseList() {};
-	virtual StimPhaseList *clone() const
-	{
-		return new StimPhaseList(*this);
-	}
 	virtual bool advance(MultiParameterFXMultiGStimSet* pstimset)
 	{
 		m_iter++;
@@ -459,10 +420,6 @@ public:
 		m_iter = m_vec.begin();
 	}
 	virtual ~StimTTFList() {};
-	virtual StimTTFList *clone() const
-	{
-		return new StimTTFList(*this);
-	}
 	virtual bool advance(MultiParameterFXMultiGStimSet* pstimset)
 	{
 		m_iter++;
@@ -500,11 +457,6 @@ public:
 	}
 
 	virtual ~GratingXYList() {};
-	virtual GratingXYList *clone() const
-	{
-		return new GratingXYList(*this);
-	}
-
 	virtual bool set_current_parameter(MultiParameterFXMultiGStimSet* pstimset)
 	{
 		if (!isDistractor())
@@ -533,11 +485,6 @@ public:
 	}
 
 	virtual ~GratingWHList() {};
-	virtual GratingWHList* clone() const
-	{
-		return new GratingWHList(*this);
-	}
-
 	virtual bool set_current_parameter(MultiParameterFXMultiGStimSet* pstimset)
 	{
 		if (!isDistractor())
@@ -567,11 +514,6 @@ public:
 		m_iter = m_vec.begin();
 	}
 	virtual ~FixptXYList() {};
-	virtual FixptXYList *clone() const
-	{
-		return new FixptXYList(*this);
-	}
-
 	virtual bool set_current_parameter(MultiParameterFXMultiGStimSet* pstimset)
 	{
 		if (pstimset->has_fixpt())
@@ -595,10 +537,6 @@ public:
 	}
 
 	virtual ~FixptColorList() {};
-	virtual FixptColorList *clone() const
-	{
-		return new FixptColorList(*this);
-	}
 	virtual bool advance(MultiParameterFXMultiGStimSet* pstimset)
 	{
 		m_iter++;
@@ -631,10 +569,6 @@ public:
 	}
 
 	virtual ~DotList() {};
-	virtual DotList* clone() const
-	{
-		return new DotList(*this);
-	}
 	virtual bool advance(MultiParameterFXMultiGStimSet* pstimset)
 	{
 		m_iter++;
@@ -671,10 +605,6 @@ public:
 		m_iter = m_vec.begin();
 	}
 	virtual ~StimDelayList() {};
-	virtual StimDelayList *clone() const
-	{
-		return new StimDelayList(*this);
-	}
 	virtual bool advance(MultiParameterFXMultiGStimSet* pstimset)
 	{
 		m_iter++;
@@ -702,10 +632,6 @@ public:
 		m_iter = m_vec.begin();
 	}
 	virtual ~StimDurationList() {};
-	virtual StimDurationList *clone() const
-	{
-		return new StimDurationList(*this);
-	}
 	virtual bool advance(MultiParameterFXMultiGStimSet* pstimset)
 	{
 		m_iter++;
@@ -735,10 +661,6 @@ public:
 		m_iter = m_vec.begin();
 	}
 	virtual ~PursuitList() {};
-	virtual PursuitList* clone() const
-	{
-		return new PursuitList(*this);
-	}
 	virtual bool advance(MultiParameterFXMultiGStimSet* pstimset)
 	{
 		m_iter++;
@@ -758,7 +680,7 @@ private:
 
 	void create_pursuit_list(vector<double> pp)
 	{
-		int n = pp.size() / 3;
+		int n = (int)pp.size() / 3;
 		for (int i = 0; i < n; i++)
 		{
 			m_vec.push_back(std::make_tuple(pp[i * 3], pp[i * 3 + 1], pp[i * 3 + 2]));
@@ -766,5 +688,41 @@ private:
 		}
 	}
 };
+
+class MultiGratingOriList : public FXGStimParameterList
+{
+public:
+	MultiGratingOriList(const vector<vector<std::tuple<double, double, double> > >& groups, unsigned int index, bool bDistractor) : FXGStimParameterList(index, bDistractor), m_vec(groups) 
+	{ 
+		m_iter = m_vec.begin(); 
+		cerr << "Initialized, vec has " << m_vec.size() << endl;
+	};
+	MultiGratingOriList(const MultiGratingOriList& list) : FXGStimParameterList(list.index(), list.isDistractor()), m_vec(list.m_vec)
+	{
+		m_iter = m_vec.begin();
+	}
+	virtual ~MultiGratingOriList() {};
+	virtual bool advance(MultiParameterFXMultiGStimSet* pstimset)
+	{
+		m_iter++;
+		if (m_iter == m_vec.end()) m_iter = m_vec.begin();
+		return set_current_parameter(pstimset);
+	}
+
+	virtual bool set_current_parameter(MultiParameterFXMultiGStimSet* pstimset)
+	{
+		if (!isDistractor())
+			pstimset->grating(index()).setMulti(*m_iter);
+		else
+			pstimset->distractor(index()).setMulti(*m_iter);
+		return true;
+	}
+
+private:
+	vector<vector<std::tuple<double, double, double> > > m_vec;
+	vector<vector<std::tuple<double, double, double> > >::const_iterator m_iter;
+};
+
+
 
 #endif

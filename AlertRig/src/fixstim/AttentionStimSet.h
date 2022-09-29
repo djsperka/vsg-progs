@@ -66,7 +66,7 @@ public:
 	bool setFlashies(const vector<alert::ARGratingSpec>& vecGratings, const FlashyParamVectorVector& vecFlashies);
 	virtual int num_pages();
 	virtual int num_overlay_pages() {return 0;};
-	virtual int init(ARvsg& vsg, std::vector<int> pages);
+	virtual int init(ARvsg& vsg, std::vector<int> pages, int);
 	virtual int handle_trigger(const std::string& s, const std::string&);
 	virtual std::string toString() const;
 private:

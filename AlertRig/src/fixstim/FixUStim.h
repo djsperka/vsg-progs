@@ -51,6 +51,9 @@ struct fixstim_arguments
 	bool bUseCuePoints;
 	bool bCuePointIsDot;
 
+	// tentative introduction to multiple page stimuli
+	int nStimPages;
+
 	// store all the parsed specs
 	std::vector<alert::ARContrastFixationPointSpec> vecFixpts;
 	std::vector<alert::ARGratingSpec> vecGratings;
@@ -129,7 +132,7 @@ private:
 // passing a command file.
 	static const string m_allowedArgs;
 
-	void init_triggers(TSpecificFunctor<FixUStim>* pfunctor);
+	void init_triggers(TSpecificFunctor<FixUStim>* pfunctor, int npages=1);
 	bool parseImageArg(const std::string& arg, std::string& filename, double& x, double& y, double& duration, double& delay, int& nlevels);
 };
 

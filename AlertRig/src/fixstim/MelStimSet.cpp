@@ -90,7 +90,7 @@ void MelStimSet::cleanup(std::vector<int> pages)
 
 
 
-int MelStimSet::init(std::vector<int> pages)
+int MelStimSet::init(ARvsg& vsg, std::vector<int> pages, int)
 {
 	m_pagesAvailable = pages;
 
@@ -359,7 +359,7 @@ int MelStimSet::drawCurrent()
 		for (auto bmp : melpair.second.vecBmps)
 		{
 			char f[256];
-			strcpy(f, bmp.filename.c_str());
+			strcpy_s(f, 256, bmp.filename.c_str());
 
 			//cerr << "bmp file " << bmp.filename << endl;
 
@@ -803,7 +803,7 @@ int parse_mel_params(const std::string& filename, vector<MelTrialSpec>& trialSpe
 							}
 							else
 							{
-								if (bFrames) frames = t;
+								if (bFrames) frames = (unsigned int)t;
 								else frames = SECONDS_TO_FRAMES(t);
 
 								// The "time" line ends the last "time" block. Push that frvPair onto the

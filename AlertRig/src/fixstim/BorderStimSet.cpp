@@ -89,7 +89,7 @@ std::string BorderStimSet::toString() const
 }
 
 
-int BorderStimSet::init(std::vector<int> pages)
+int BorderStimSet::init(ARvsg& vsg, std::vector<int> pages, int)
 {
 	// first page is for background only
 	m_pageBackground = pages[0];

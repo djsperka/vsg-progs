@@ -151,7 +151,7 @@ void SequencedImagesAttentionStimSet::cleanup(std::vector<int> pages)
 	vsgSetVideoMode(vsg8BITPALETTEMODE);
 }
 
-int SequencedImagesAttentionStimSet::init(ARvsg& vsg, std::vector<int> pages)
+int SequencedImagesAttentionStimSet::init(ARvsg& vsg, std::vector<int> pages, int)
 {
 	int status = 0;
 	m_pages = pages;

@@ -31,7 +31,7 @@ int main(int argc, char *argv[])
 	vsgSetDisplayPage(0);
 
 	// now draw a  dot
-	vsgSetPen1(255 * 256);
+	vsgSetPen1(250);
 	vsgDrawOval(0, 0, 2, 2);
 
 	cout << "Color resolution " << vsgGetSystemAttribute(vsgCOLOURRESOLUTION) << endl;

@@ -62,7 +62,7 @@ PageVec SequencedAttentionStimSet::makePageVec()
 	return pv;
 }
 
-int SequencedAttentionStimSet::init(ARvsg& vsg, std::vector<int> pages)
+int SequencedAttentionStimSet::init(ARvsg& vsg, std::vector<int> pages, int)
 {
 	int status = 0;
 	size_t nlevels;

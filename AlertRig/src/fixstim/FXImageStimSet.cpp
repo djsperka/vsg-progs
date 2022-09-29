@@ -254,7 +254,7 @@ void FXImageStimSet::cleanup(std::vector<int> pages)
 }
 
 
-int FXImageStimSet::init(ARvsg& vsg, std::vector<int> pages)
+int FXImageStimSet::init(ARvsg& vsg, std::vector<int> pages, int)
 {
 	int status = 0;
 	m_pageBlank = pages[0];

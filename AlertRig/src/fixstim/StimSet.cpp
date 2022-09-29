@@ -454,9 +454,9 @@ void FXMultiGStimSet::setSavedContrast(int contrast, int index, bool bDistractor
 
 
 
-int StimSet::init(std::vector<int> pages)
+int StimSet::init(std::vector<int> pages, int num_stim_pages)
 {
-	return init(ARvsg::instance(), pages);
+	return init(ARvsg::instance(), pages, num_stim_pages);
 }
 
 void StimSet::cleanup(std::vector<int> pages)
@@ -469,7 +469,7 @@ void StimSet::cleanup(std::vector<int> pages)
 
 
 
-int GratingStimSet::init(ARvsg& vsg, std::vector<int> pages)
+int GratingStimSet::init(ARvsg& vsg, std::vector<int> pages, int)
 {
 	int status = 0;
 	m_page = pages[0];
@@ -505,7 +505,7 @@ int GratingStimSet::handle_trigger(const const std::string &s, const std::string
 }
 
 
-int FixptGratingStimSet::init(ARvsg& vsg, std::vector<int> pages)
+int FixptGratingStimSet::init(ARvsg& vsg, std::vector<int> pages, int)
 {
 	int status = 0;
 	m_page = pages[0];
@@ -576,7 +576,7 @@ int FixptGratingStimSet::handle_trigger(const std::string &s, const std::string&
 	return status;
 }
 
-int FixptMultiGratingStimSet::init(ARvsg& vsg, std::vector<int> pages)
+int FixptMultiGratingStimSet::init(ARvsg& vsg, std::vector<int> pages, int)
 {
 	int status = 0;
 	int levels = 0;
@@ -708,7 +708,7 @@ int FixptMultiGratingStimSet::handle_trigger(const std::string &s, const std::st
 
 
 
-int ContrastStimSet::init(ARvsg& vsg, std::vector<int> pages)
+int ContrastStimSet::init(ARvsg& vsg, std::vector<int> pages, int)
 {
 	int status = 0;
 	m_page = pages[0];
@@ -778,7 +778,7 @@ int ContrastStimSet::handle_trigger(const std::string& s, const std::string&)
 
 
 
-int TFStimSet::init(ARvsg& vsg, std::vector<int> pages)
+int TFStimSet::init(ARvsg& vsg, std::vector<int> pages, int)
 {
 	int status = 0;
 	m_page = pages[0];
@@ -851,7 +851,7 @@ int TFStimSet::handle_trigger(const std::string& s, const std::string&)
 
 
 
-int SFStimSet::init(ARvsg& vsg, std::vector<int> pages)
+int SFStimSet::init(ARvsg& vsg, std::vector<int> pages, int)
 {
 	int status = 0;
 	m_pages[0] = pages[0];
@@ -941,7 +941,7 @@ int SFStimSet::handle_trigger(const std::string& s, const std::string&)
 	return status;
 }
 
-int OrientationStimSet::init(ARvsg& vsg, std::vector<int> pages)
+int OrientationStimSet::init(ARvsg& vsg, std::vector<int> pages, int)
 {
 	int status = 0;
 	m_pages[0] = pages[0];
@@ -1029,7 +1029,7 @@ int OrientationStimSet::handle_trigger(const std::string& s, const std::string&)
 }
 
 
-int AreaStimSet::init(ARvsg& vsg, std::vector<int> pages)
+int AreaStimSet::init(ARvsg& vsg, std::vector<int> pages, int)
 {
 	int status = 0;
 	m_pages[0] = pages[0];
@@ -1118,7 +1118,7 @@ int AreaStimSet::handle_trigger(const std::string& s, const std::string&)
 }
 
 
-int AnnulusStimSet::init(ARvsg& vsg, std::vector<int> pages)
+int AnnulusStimSet::init(ARvsg& vsg, std::vector<int> pages, int)
 {
 	int status = 0;
 	m_pages[0] = pages[0];
@@ -1220,7 +1220,7 @@ int AnnulusStimSet::handle_trigger(const std::string& s, const std::string&)
 
 
 
-int InnerDiameterStimSet::init(ARvsg& vsg, std::vector<int> pages)
+int InnerDiameterStimSet::init(ARvsg& vsg, std::vector<int> pages, int)
 {
 	int status = 0;
 	m_pages[0] = pages[0];
@@ -1302,7 +1302,7 @@ int InnerDiameterStimSet::handle_trigger(const std::string& s, const std::string
 
 
 
-int PositionStimSet::init(ARvsg& vsg, std::vector<int> pages)
+int PositionStimSet::init(ARvsg& vsg, std::vector<int> pages, int)
 {
 	int status = 0;
 	m_pages[0] = pages[0];
@@ -1393,7 +1393,7 @@ int PositionStimSet::handle_trigger(const std::string& s, const std::string&)
 }
 
 
-int DanishStimSet::init(ARvsg& vsg, std::vector<int> pages)
+int DanishStimSet::init(ARvsg& vsg, std::vector<int> pages, int)
 {
 	int status = 0;
 	m_pages[0] = pages[0];
@@ -1558,7 +1558,7 @@ FlashStimSet::FlashStimSet(int frames_per_term, const std::string& sequence, boo
 }
 
 
-int FlashStimSet::init(ARvsg& vsg, std::vector<int> pages)
+int FlashStimSet::init(ARvsg& vsg, std::vector<int> pages, int)
 {
 	VSGCYCLEPAGEENTRY cycle[32768];
 	int status = 0;
@@ -1714,7 +1714,7 @@ CRGStimSet::CRGStimSet(alert::ARGratingSpec& g, int frames_per_term, const std::
 	//m_contrast = m_grating1.contrast;
 }
 
-int CRGStimSet::init(ARvsg& vsg, std::vector<int> pages)
+int CRGStimSet::init(ARvsg& vsg, std::vector<int> pages, int)
 {
 	VSGCYCLEPAGEENTRY cycle[32768];
 	int status = 0;
@@ -1827,7 +1827,7 @@ int CRGStimSet::handle_trigger(const std::string& s, const std::string&)
 }
 
 
-int CBarStimSet::init(ARvsg& vsg, std::vector<int> pages)
+int CBarStimSet::init(ARvsg& vsg, std::vector<int> pages, int)
 {
 	int status = 0;
 	m_pageBackground = pages[0];
@@ -2091,7 +2091,7 @@ double CBarStimSet::getIntersectDistance(long *ca, long *cb, double *p, double *
 }
 
 
-int CounterphaseStimSet::init(ARvsg& vsg, std::vector<int> pages)
+int CounterphaseStimSet::init(ARvsg& vsg, std::vector<int> pages, int)
 {
 	int status = 0;
 	m_pages[0] = pages[0];

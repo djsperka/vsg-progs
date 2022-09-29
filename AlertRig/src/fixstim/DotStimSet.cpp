@@ -60,7 +60,7 @@ string DotStimSet::toString() const
 }
 
 
-int DotStimSet::init(ARvsg& vsg, std::vector<int> pages)
+int DotStimSet::init(ARvsg& vsg, std::vector<int> pages, int)
 {
 	int status = 0;
 	double pixPerDegree;

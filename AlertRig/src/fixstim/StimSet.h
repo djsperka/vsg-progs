@@ -28,8 +28,8 @@ public:
 	// call vsgPresent() if needed. The first version has a default implementation 
 	// that uses the regular vsg card. The second version should be used for master/slave
 	// cases. 
-	virtual int init(std::vector<int> pages);
-	virtual int init(ARvsg& vsg, std::vector<int> pages) = 0;
+	virtual int init(std::vector<int> pages, int num_stim_pages=1);
+	virtual int init(ARvsg& vsg, std::vector<int> pages, int num_stim_pages=1) = 0;
 
 	// clean up any messes created in init() - esp settings in VSG
 	virtual void cleanup(std::vector<int> pages);
@@ -245,8 +245,8 @@ public:
 	virtual ~NullStimSet() {};
 	virtual int num_pages() {return 0;};
 	virtual int num_overlay_pages() {return 0;};
-	virtual int init(std::vector<int> pages) {return 0;};
-	virtual int init(ARvsg& vsg, std::vector<int> pages) {return 0;};
+	virtual int init(std::vector<int> pages, int) {return 0;};
+	virtual int init(ARvsg& vsg, std::vector<int> pages, int) {return 0;};
 	virtual int handle_trigger(const std::string& s, const std::string&) {return 0;};		// will not trigger?!?
 	virtual std::string toString() const;
 };
@@ -259,8 +259,7 @@ public:
 	virtual ~GratingStimSet() {};
 	virtual int num_pages() { return 1;};
 	virtual int num_overlay_pages() { return 0;};
-	//virtual int init(std::vector<int> pages);
-	virtual int init(ARvsg& vsg, std::vector<int> pages);
+	virtual int init(ARvsg& vsg, std::vector<int> pages, int);
 	virtual int handle_trigger(const std::string& s, const std::string&);
 	virtual std::string toString() const;
 private:
@@ -280,7 +279,7 @@ public:
 	virtual ~FixptGratingStimSet() {};
 	virtual int num_pages() { return 1; };
 	virtual int num_overlay_pages() { return 0; };
-	virtual int init(ARvsg& vsg, std::vector<int> pages);
+	virtual int init(ARvsg& vsg, std::vector<int> pages, int);
 	virtual int handle_trigger(const std::string& s, const std::string&);
 	virtual std::string toString() const;
 private:
@@ -296,7 +295,7 @@ public:
 	virtual ~FixptMultiGratingStimSet() {};
 	virtual int num_pages() { return 1; };
 	virtual int num_overlay_pages() { return 0; };
-	virtual int init(ARvsg& vsg, std::vector<int> pages);
+	virtual int init(ARvsg& vsg, std::vector<int> pages, int);
 	virtual int handle_trigger(const std::string& s, const std::string&);
 	virtual std::string toString() const;
 private:
@@ -312,7 +311,7 @@ public:
 	ContrastStimSet(alert::ARGratingSpec& g, std::vector<double> parameters) : FXGStimSet(g), m_contrasts(parameters) {};
 	virtual int num_pages() {return 1;};
 	virtual int num_overlay_pages() {return 0;};
-	virtual int init(ARvsg& vsg, std::vector<int> pages);
+	virtual int init(ARvsg& vsg, std::vector<int> pages, int);
 	virtual int handle_trigger(const std::string& s, const std::string&);
 	virtual std::string toString() const;
 private:
@@ -329,7 +328,7 @@ public:
 	TFStimSet(ARGratingSpec& g, std::vector<double> parameters) : FXGStimSet(g), m_temporal_frequencies(parameters) {};
 	virtual int num_pages() {return 1;};
 	virtual int num_overlay_pages() {return 0;};
-	virtual int init(ARvsg& vsg, std::vector<int> pages);
+	virtual int init(ARvsg& vsg, std::vector<int> pages, int);
 	virtual int handle_trigger(const std::string& s, const std::string&);
 	virtual std::string toString() const;
 private:
@@ -347,7 +346,7 @@ public:
 	SFStimSet(ARGratingSpec& g, std::vector<double> parameters) : FXGStimSet(g), m_spatial_frequencies(parameters), m_current_page(-1) {};
 	virtual int num_pages() {return 2;};
 	virtual int num_overlay_pages() {return 0;};
-	virtual int init(ARvsg& vsg, std::vector<int> pages);
+	virtual int init(ARvsg& vsg, std::vector<int> pages, int);
 	virtual int handle_trigger(const std::string& s, const std::string&);
 	virtual std::string toString() const;
 private:
@@ -365,7 +364,7 @@ public:
 	OrientationStimSet(ARGratingSpec& g, std::vector<double> parameters) : FXGStimSet(g), m_orientations(parameters), m_current_page(-1) {};
 	virtual int num_pages() {return 2;};
 	virtual int num_overlay_pages() {return 0;};
-	virtual int init(ARvsg& vsg, std::vector<int> pages);
+	virtual int init(ARvsg& vsg, std::vector<int> pages, int);
 	virtual int handle_trigger(const std::string& s, const std::string&);
 	virtual std::string toString() const;
 private:
@@ -383,7 +382,7 @@ public:
 	AreaStimSet(ARGratingSpec& g, std::vector<double> parameters) : FXGStimSet(g), m_diameters(parameters), m_current_page(-1) {};
 	virtual int num_pages() {return 2;};
 	virtual int num_overlay_pages() {return 0;};
-	virtual int init(ARvsg& vsg, std::vector<int> pages);
+	virtual int init(ARvsg& vsg, std::vector<int> pages, int);
 	virtual int handle_trigger(const std::string& s, const std::string&);
 	virtual std::string toString() const;
 private:
@@ -401,7 +400,7 @@ public:
 	InnerDiameterStimSet(ARGratingSpec& g, std::vector<double> parameters) : FXGStimSet(g), m_diameters(parameters), m_current_page(-1) {};
 	virtual int num_pages() {return 2;};
 	virtual int num_overlay_pages() {return 0;};
-	virtual int init(ARvsg& vsg, std::vector<int> pages);
+	virtual int init(ARvsg& vsg, std::vector<int> pages, int);
 	virtual int handle_trigger(const std::string& s, const std::string&);
 	virtual std::string toString() const;
 private:
@@ -419,7 +418,7 @@ public:
 	AnnulusStimSet(ARGratingSpec& g, std::vector<double> parameters) : FXGStimSet(g), m_diameters(parameters), m_current_page(-1) {};
 	virtual int num_pages() {return 2;};
 	virtual int num_overlay_pages() {return 0;};
-	virtual int init(ARvsg& vsg, std::vector<int> pages);
+	virtual int init(ARvsg& vsg, std::vector<int> pages, int);
 	virtual int handle_trigger(const std::string& s, const std::string&);
 	virtual std::string toString() const;
 private:
@@ -438,7 +437,7 @@ public:
 	PositionStimSet(ARGratingSpec& g, std::vector<double> positions) : FXGStimSet(g), m_positions(positions), m_current_page(-1) {};
 	virtual int num_pages() {return 2;};
 	virtual int num_overlay_pages() {return 0;};
-	virtual int init(ARvsg& vsg, std::vector<int> pages);
+	virtual int init(ARvsg& vsg, std::vector<int> pages, int);
 	virtual int handle_trigger(const std::string& s, const std::string&);
 	virtual std::string toString() const;
 private:
@@ -457,7 +456,7 @@ public:
 	CounterphaseStimSet(ARGratingSpec& g, std::vector<double> parameters, double tf, bool bStepTW) : FXGStimSet(g), m_phases(parameters), m_tf(tf), m_bStepTW(bStepTW), m_current_page(-1) {};
 	virtual int num_pages() {return 2;};
 	virtual int num_overlay_pages() {return 0;};
-	virtual int init(ARvsg& vsg, std::vector<int> pages);
+	virtual int init(ARvsg& vsg, std::vector<int> pages, int);
 	virtual int handle_trigger(const std::string& s, const std::string&);
 	virtual std::string toString() const;
 private:
@@ -479,7 +478,7 @@ public:
 	CRGStimSet(alert::ARGratingSpec& g, int frames_per_term, const std::string& sequence, bool balanced = false);
 	virtual int num_pages() {return 2;};
 	virtual int num_overlay_pages() {return 0;};
-	virtual int init(ARvsg& vsg, std::vector<int> pages);
+	virtual int init(ARvsg& vsg, std::vector<int> pages, int);
 	virtual int handle_trigger(const std::string& s, const std::string&);
 	virtual std::string toString() const;
 private:
@@ -506,7 +505,7 @@ public:
 	FlashStimSet(int frames_per_term, const std::string& sequence, bool balanced = false);
 	virtual int num_pages() {return (int)(1+m_colors.size());};
 	virtual int num_overlay_pages() {return 0;};
-	virtual int init(ARvsg& vsg, std::vector<int> pages);
+	virtual int init(ARvsg& vsg, std::vector<int> pages, int);
 	virtual int handle_trigger(const std::string& s, const std::string&);
 	virtual std::string toString() const;
 private:
@@ -526,7 +525,7 @@ public:
 	CBarStimSet(COLOR_TYPE& c, double w, double h, double dps, std::vector<double> parameters) : StimSet(), m_barWidth(w), m_barHeight(h), m_degreesPerSecond(dps), m_orientations(parameters), m_barOffsetXPixels(1024), m_barOffsetYPixels(512), m_barMaxWidthKludge(1.2) {	m_iterator = m_orientations.begin(); m_rect.color = c; };
 	virtual int num_pages() {return 2;};
 	virtual int num_overlay_pages() {return 0;};
-	virtual int init(ARvsg& vsg, std::vector<int> pages);
+	virtual int init(ARvsg& vsg, std::vector<int> pages, int);
 	virtual int handle_trigger(const std::string& s, const std::string&);
 	virtual std::string toString() const;
 	void prepareCycling(double ori);
@@ -559,7 +558,7 @@ public:
 	~DotStimSet();
 	virtual int num_pages() {return 3;};
 	virtual int num_overlay_pages() {return 0;};
-	virtual int init(ARvsg& vsg, std::vector<int> pages);
+	virtual int init(ARvsg& vsg, std::vector<int> pages, int);
 	virtual int handle_trigger(const std::string& s, const std::string&);
 	virtual std::string toString() const;
 	static void threadfunc(void *);
@@ -626,7 +625,7 @@ public:
 	DanishStimSet(alert::ARGratingSpec& g, alert::ARGratingSpec& hole, std::vector<double> parameters) : FXMultiGStimSet(), m_ods(parameters), m_current_page(-1) {add_grating(g); add_grating(hole); };
 	virtual int num_pages() {return 2;};
 	virtual int num_overlay_pages() {return 0;};
-	virtual int init(ARvsg& vsg, std::vector<int> pages);
+	virtual int init(ARvsg& vsg, std::vector<int> pages, int);
 	virtual int handle_trigger(const std::string& s, const std::string&);
 	virtual std::string toString() const;
 private:

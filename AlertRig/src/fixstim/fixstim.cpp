@@ -186,7 +186,7 @@ int main (int argc, char *argv[])
 	if (!status)
 	{
 		std::string sGammaFile;
-		char* p = NULL;
+		char *p = NULL;
 		// before we initialize the vsg, check if we should load a gamma file. 
 		// If value is passed on command line (f_sGammaFile), then use that. 
 		// If no value on command line, then check env variable VSG_GAMMA_FILE. If set, its value is taken as the name of the gamma file to be used. 
@@ -194,8 +194,16 @@ int main (int argc, char *argv[])
 
 		if (f_sGammaFile.size() > 0)
 			sGammaFile = f_sGammaFile;
-		else if (NULL != (p = getenv("VSG_GAMMA_FILE")))
-			sGammaFile = string(p);
+		else
+		{
+			// get VSG_GAMMA_FILE from env
+			size_t len;
+			if (!_dupenv_s(&p, &len, "VSG_GAMMA_FILE"))
+			{
+				sGammaFile = string(p);
+				free(p);
+			}
+		}
 
 		cerr << "Running fixstim server at address " << f_sDaemonHostIP << " port " << f_iDaemonPort << endl;
 		if (sGammaFile.size() > 0)
@@ -428,7 +436,7 @@ int prargs_server_callback(int c, string& arg)
 	{
 	case 'u':
 		{
-			int pos = arg.find(":", 0);
+			size_t pos = arg.find(":", 0);
 			if (pos == string::npos)
 			{
 				cerr << "prargs_server_callback(): Bad server arg(" << arg << ") expecting aaa.bbb.ccc.ddd:port" << endl;

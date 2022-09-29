@@ -75,6 +75,8 @@ static struct argp_option options[] = {
 	{"no-gamma", 776, 0, 0, "Disable gamma correction for this stim. Will be re-enabled when this stim is complete."},
 	{"cycle-test", 774, 0, 0, "Cycling test, trigger every frame"},
 	{"wh", 773, "w0,h0[[,w1,h1],...]", 0, "Width,height tuning curve"},
+	{"multi-ori", 772, "x0,y0,ori0[,x1,y1,ori1[...]]", 0, "Multi-grating pos with ori"},
+	{"num-stim-pages", 771, "1(default)|2|3", 1, "Number of stimulus pages prepared for each trial."},
 	{ 0 }
 };
 static struct argp f_argp = { options, parse_fixstim_opt, 0, "fixstim -- all-purpose stimulus engine" };
@@ -82,7 +84,7 @@ static struct argp f_argp = { options, parse_fixstim_opt, 0, "fixstim -- all-pur
 
 // my parsers
 bool parseImageArg(const std::string& arg, std::string& filename, double& x, double& y, double& duration, double& delay, int& nlevels);
-
+int parse_multigrating(const std::string& sarg, vector<vector<std::tuple<double, double, double> > >& params);
 
 
 
@@ -126,7 +128,7 @@ void FixUStim::run_stim(alert::ARvsg& vsg)
 
 	// initialize triggers
 	TSpecificFunctor<FixUStim> functor(this, &FixUStim::callback);
-	init_triggers(&functor);
+	init_triggers(&functor, m_arguments.nStimPages);
 	for (unsigned int i = 0; i < triggers().size(); i++)
 	{
 		std::cout << "FixUStim::run_stim(): Trigger " << i << " " << *(triggers().at(i)) << std::endl;
@@ -155,7 +157,7 @@ void FixUStim::run_stim(alert::ARvsg& vsg)
 
 	vector<int> pages;
 	for (int i = 0; i < m_arguments.pStimSet->num_pages(); i++) pages.push_back(i + 1);
-	if (m_arguments.pStimSet->init(pages))
+	if (m_arguments.pStimSet->init(pages, m_arguments.nStimPages))
 	{
 		cerr << "FixUStim::run_stim(): StimSet initialization failed." << endl;
 	}
@@ -361,7 +363,7 @@ void FixUStim::run_stim(alert::ARvsg& vsg)
 }
 
 
-void FixUStim::init_triggers(TSpecificFunctor<FixUStim>* pfunctor)
+void FixUStim::init_triggers(TSpecificFunctor<FixUStim>* pfunctor, int npages)
 {
 	triggers().clear();
 	triggers().addTrigger(new FunctorCallbackTrigger("F", 0x2, 0x2, 0x2, 0x2, pfunctor));
@@ -373,10 +375,25 @@ void FixUStim::init_triggers(TSpecificFunctor<FixUStim>* pfunctor)
 	vec.push_back(make_pair("a", 0x8 | AR_TRIGGER_TOGGLE));
 	vec.push_back(make_pair("g", AR_TRIGGER_ASCII_ONLY));
 	triggers().addTrigger(new MISOFunctorCallbackTrigger(vec, 0x8, 0x8, 0x8 | AR_TRIGGER_TOGGLE, pfunctor));
-	//	triggers().addTrigger(new FunctorCallbackTrigger("ag", 0x8, 0x8 | AR_TRIGGER_TOGGLE, 0x8, 0x8 | AR_TRIGGER_TOGGLE, pfunctor));
-//	triggers().addTrigger(new FunctorCallbackTrigger("g", 0x0, 0x0, 0x0, 0x0, pfunctor));
-	triggers().addTrigger(new FunctorCallbackTrigger("u", 0x20, 0x20 | AR_TRIGGER_TOGGLE, 0x10, 0x10 | AR_TRIGGER_TOGGLE, pfunctor));
-	triggers().addTrigger(new FunctorCallbackTrigger("v", 0x40, 0x40 | AR_TRIGGER_TOGGLE, 0x20, 0x20 | AR_TRIGGER_TOGGLE, pfunctor));
+
+	// 1 page is the way things have always been. 
+	// 2 pages presumes that a second trigger line is available and wired and ready
+	// 3 pages presumes a third. StimSets must be able to react to these triggers if they are to be used. 
+
+	if (npages == 1)
+	{
+		triggers().addTrigger(new FunctorCallbackTrigger("u", 0x20, 0x20 | AR_TRIGGER_TOGGLE, 0x10, 0x10 | AR_TRIGGER_TOGGLE, pfunctor));
+		triggers().addTrigger(new FunctorCallbackTrigger("v", 0x40, 0x40 | AR_TRIGGER_TOGGLE, 0x20, 0x20 | AR_TRIGGER_TOGGLE, pfunctor));
+	}
+	else if (npages == 2)
+	{
+		triggers().addTrigger(new FunctorCallbackTrigger("U", 0x20, 0x20, 0x10, 0x10, pfunctor));
+	}
+	else if (npages == 3)
+	{
+		triggers().addTrigger(new FunctorCallbackTrigger("U", 0x20, 0x20, 0x10, 0x10, pfunctor));
+		triggers().addTrigger(new FunctorCallbackTrigger("V", 0x40, 0x40, 0x20, 0x20, pfunctor));
+	}
 
 	// For UStim-specific testing. The UStim should handle this trigger and do whatever. Ascii only trigger.
 	triggers().addTrigger(new FunctorCallbackTrigger("A", 0, 0, 0, 0, pfunctor));
@@ -425,6 +442,10 @@ error_t parse_fixstim_opt(int key, char* carg, struct argp_state* state)
 		break;
 	case 'p':
 		if (parse_integer(sarg, arguments->iPulseBits))
+			ret = EINVAL;
+		break;
+	case 771:
+		if (parse_integer(sarg, arguments->nStimPages) || arguments->nStimPages < 1 || arguments->nStimPages > 3)
 			ret = EINVAL;
 		break;
 	case 776:
@@ -678,10 +699,12 @@ error_t parse_fixstim_opt(int key, char* carg, struct argp_state* state)
 	case 'D':
 	case 778:
 	case 773:
+	case 772:
 	{
 		vector<double> tuning_parameters;
 		vector<COLOR_TYPE> color_parameters;
 		vector<alert::ARContrastFixationPointSpec> dot_parameters;
+		vector<vector<std::tuple<double, double, double> > >multigrating_parameter_groups;
 		int nsteps;
 
 		// the first time one of these stim parameter lists is found we must create
@@ -690,6 +713,7 @@ error_t parse_fixstim_opt(int key, char* carg, struct argp_state* state)
 
 		if ((key == 'D' && parse_fixation_point_list(sarg, dot_parameters)) ||
 			(key == 'U' && parse_color_list(sarg, color_parameters)) ||
+			(key == 772 && parse_multigrating(sarg, multigrating_parameter_groups)) ||
 			((key != 'D' && key != 'U') && parse_tuning_list(sarg, tuning_parameters, nsteps)))
 		{
 			ret = EINVAL;
@@ -737,28 +761,28 @@ error_t parse_fixstim_opt(int key, char* carg, struct argp_state* state)
 				switch (key)
 				{
 				case 'C':
-					plist = new StimContrastList(tuning_parameters, stimIndex, arguments->bLastWasDistractor);
+					plist = new StimContrastList(tuning_parameters, (unsigned int)stimIndex, arguments->bLastWasDistractor);
 					break;
 				case 'O':
-					plist = new StimOrientationList(tuning_parameters, stimIndex, arguments->bLastWasDistractor);
+					plist = new StimOrientationList(tuning_parameters, (unsigned int)stimIndex, arguments->bLastWasDistractor);
 					break;
 				case 'A':
-					plist = new StimAreaList(tuning_parameters, stimIndex, arguments->bLastWasDistractor);
+					plist = new StimAreaList(tuning_parameters, (unsigned int)stimIndex, arguments->bLastWasDistractor);
 					break;
 				case 'S':
-					plist = new StimSFList(tuning_parameters, stimIndex, arguments->bLastWasDistractor);
+					plist = new StimSFList(tuning_parameters, (unsigned int)stimIndex, arguments->bLastWasDistractor);
 					break;
 				case 'T':
-					plist = new StimTFList(tuning_parameters, stimIndex, arguments->bLastWasDistractor);
+					plist = new StimTFList(tuning_parameters, (unsigned int)stimIndex, arguments->bLastWasDistractor);
 					break;
 				case 'Z':
-					plist = new GratingXYList(tuning_parameters, stimIndex, arguments->bLastWasDistractor);
+					plist = new GratingXYList(tuning_parameters, (unsigned int)stimIndex, arguments->bLastWasDistractor);
 					break;
 				case 'X':
-					plist = new StimXList(tuning_parameters, stimIndex, arguments->bLastWasDistractor);
+					plist = new StimXList(tuning_parameters, (unsigned int)stimIndex, arguments->bLastWasDistractor);
 					break;
 				case 'M':
-					plist = new StimHoleList(tuning_parameters, stimIndex, arguments->bLastWasDistractor);
+					plist = new StimHoleList(tuning_parameters, (unsigned int)stimIndex, arguments->bLastWasDistractor);
 					break;
 				case 'y':
 					plist = new FixptXYList(tuning_parameters);
@@ -770,22 +794,26 @@ error_t parse_fixstim_opt(int key, char* carg, struct argp_state* state)
 					plist = new StimDurationList(tuning_parameters);
 					break;
 				case 'P':
-					plist = new StimPhaseList(tuning_parameters, stimIndex, arguments->bLastWasDistractor);
+					plist = new StimPhaseList(tuning_parameters, (unsigned int)stimIndex, arguments->bLastWasDistractor);
 					break;
 				case 'I':
-					plist = new StimTTFList(tuning_parameters, stimIndex, arguments->bLastWasDistractor);
+					plist = new StimTTFList(tuning_parameters, (unsigned int)stimIndex, arguments->bLastWasDistractor);
 					break;
 				case 'U':
 					plist = new FixptColorList(color_parameters);
 					break;
 				case 'D':
-					plist = new DotList(dot_parameters, stimIndex);
+					plist = new DotList(dot_parameters, (unsigned int)stimIndex);
 					break;
 				case 778:
 					plist = new PursuitList(tuning_parameters);
 					break;
 				case 773:
-					plist = new GratingWHList(tuning_parameters, stimIndex, arguments->bLastWasDistractor);
+					plist = new GratingWHList(tuning_parameters, (unsigned int)stimIndex, arguments->bLastWasDistractor);
+					break;
+				case 772:
+					cerr << "multigrating_parameter_groups has " << multigrating_parameter_groups.size() << endl;
+					plist = new MultiGratingOriList(multigrating_parameter_groups, (unsigned int)stimIndex, arguments->bLastWasDistractor);
 					break;
 				default:
 					cerr << "Unhandled varying stim parameter type (" << (char)key << ")" << endl;
@@ -829,12 +857,12 @@ error_t parse_fixstim_opt(int key, char* carg, struct argp_state* state)
 			if (!arguments->bHaveSequence)
 			{
 				sequence = get_msequence();
-				nterms = strlen(sequence);
+				nterms = (int)strlen(sequence);
 			}
 			else
 			{
 				sequence = arguments->sequence.c_str();
-				nterms = arguments->sequence.length();
+				nterms = (int)arguments->sequence.length();
 			}
 
 			// Check that sequence args work with this sequence file
@@ -888,12 +916,12 @@ error_t parse_fixstim_opt(int key, char* carg, struct argp_state* state)
 		if (!arguments->bHaveSequence)
 		{
 			sequence = get_msequence();
-			nterms = strlen(sequence);
+			nterms = (int)strlen(sequence);
 		}
 		else
 		{
 			sequence = arguments->sequence.c_str();
-			nterms = strlen(sequence);
+			nterms = (int)strlen(sequence);
 		}
 
 		tokenize(sarg, tokens, ",");
@@ -941,19 +969,19 @@ error_t parse_fixstim_opt(int key, char* carg, struct argp_state* state)
 				if (!arguments->bHaveSequence)
 				{
 					sequence = get_msequence();
-					nterms = strlen(sequence);
+					nterms = (int)strlen(sequence);
 				}
 				else
 				{
 					sequence = arguments->sequence.c_str();
-					nterms = arguments->sequence.length();
+					nterms = (int)arguments->sequence.length();
 				}
 
 				// decide where the color parameters start
 				if (parse_integer(tokens[1], first) || parse_integer(tokens[2], length))
 				{
 					first = 0;
-					nterms = length = strlen(sequence);
+					nterms = length = (int)strlen(sequence);
 					first_color_index = 1;
 				}
 				else
@@ -1198,7 +1226,7 @@ error_t parse_fixstim_opt(int key, char* carg, struct argp_state* state)
 			arguments->bCuePointIsDot = false;
 		else if (key == 'q')
 			arguments->bCuePointIsDot = true;
-		if (parse_attcues(sarg, arguments->vecGratings.size(), arguments->vecAttentionCues))
+		if (parse_attcues(sarg, (int)arguments->vecGratings.size(), arguments->vecAttentionCues))
 		{
 			cerr << "Error in attention cues input (-r or -q)." << endl;
 			ret = EINVAL;
@@ -1227,7 +1255,7 @@ error_t parse_fixstim_opt(int key, char* carg, struct argp_state* state)
 	case 'm':
 	{
 		vector<InterleavedParams> vecInput;
-		if (parse_interleaved_params(sarg, arguments->vecGratings.size(), vecInput))
+		if (parse_interleaved_params(sarg, (int)arguments->vecGratings.size(), vecInput))
 		{
 			cerr << "Error in input for interleaved params." << endl;
 		}
@@ -1242,7 +1270,7 @@ error_t parse_fixstim_opt(int key, char* carg, struct argp_state* state)
 	{
 		vector<AttentionSequenceTrialSpec> trialSpecs;
 		ImageFilesPositions ifp;
-		if (parse_sequenced_params(sarg, arguments->vecGratings.size(), trialSpecs, ifp))
+		if (parse_sequenced_params(sarg, (int)arguments->vecGratings.size(), trialSpecs, ifp))
 		{
 			cerr << "Error in sequenced param input" << endl;
 		}
@@ -1288,7 +1316,7 @@ error_t parse_fixstim_opt(int key, char* carg, struct argp_state* state)
 		// 
 		double tMax;
 		vector<AttParams> vecInput;
-		if (parse_attparams(sarg, arguments->vecGratings.size(), vecInput, tMax))
+		if (parse_attparams(sarg, (int)arguments->vecGratings.size(), vecInput, tMax))
 		{
 			cerr << "Error in input." << endl;
 			ret= EINVAL;
@@ -1391,7 +1419,7 @@ error_t parse_fixstim_opt(int key, char* carg, struct argp_state* state)
 			pIPPort = argStrings[1].c_str();
 		}
 
-		if (!parse_eqparams_file(argStrings[0], arguments->vecGratings.size(), vecEQParams))
+		if (!parse_eqparams_file(argStrings[0], (int)arguments->vecGratings.size(), vecEQParams))
 		{
 			cerr << "Error reading input parameter file: " << argStrings[0] << endl;
 			ret = EINVAL;
@@ -1546,4 +1574,34 @@ bool parseImageArg(const std::string& arg, std::string& filename, double& x, dou
 		return false;
 	}
 	return true;
+}
+
+int parse_multigrating(const std::string& sarg,vector<vector<std::tuple<double, double, double> > >& params)
+{
+	int status = 0;
+	vector<string> tokens;
+	vector<double> xyori;
+	vector < std::tuple<double, double, double> > group;
+	int nsteps;
+
+	// groups are separated by '%'
+	boost::split(tokens, sarg, boost::is_any_of("/"));
+	for (string s : tokens)
+	{
+		xyori.clear();
+		status = parse_tuning_list(s, xyori, nsteps);
+		group.clear();
+		if (!status)
+		{
+			for (int i = 0; i < xyori.size() - 2; i += 3)
+				group.push_back(make_tuple(xyori[i], xyori[i + 1], xyori[i + 2]));
+			cerr << "Parsed multigrating group with " << group.size() << endl;
+			params.push_back(group);
+		}
+		else
+		{
+			cerr << "Error parsing multigrating group" << endl;
+		}
+	}
+	return status;
 }

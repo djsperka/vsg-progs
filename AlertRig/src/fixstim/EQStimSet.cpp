@@ -338,7 +338,7 @@ EQStimSet::~EQStimSet()
 #endif
 }
 
-int EQStimSet::init(ARvsg& vsg, std::vector<int> pages)
+int EQStimSet::init(ARvsg& vsg, std::vector<int> pages, int)
 {
 	int status = 0;
 	size_t nlevels = 40; // default up to 6 gratings

@@ -1043,115 +1043,125 @@ int ARGratingSpec::draw(long mode, int apertureLevel)
 		else ipen = 0;
 	}
 
-	if (mode == vsgTRANSONHIGHER || mode == vsgTRANSONLOWER)
+
+	// If this is NOT a multigrating, fake it by adding a single dummy element to m_mutli
+	if (!bIsMulti)
 	{
-		// djs TRANSONLOWER seems to leave artifacts on the screen when we turn the contrast off. !!!
-		// if ellipse, draw an ellipse on level 0 for TRANSONLOWER
-		// djs. Specifically setting the level seems to lead to artifacts. I found that leaving the levels
-		// unassigned solves this. I suspect this may lead to trouble someday.....
-		if (this->aperture == ellipse)
-		{
-			vsgSetPen1(ipen);
-			vsgSetDrawMode(vsgCENTREXY + vsgSOLIDFILL);
-			vsgDrawOval(x, -1*y, w, h);
-		}
+		m_multi.push_back(make_tuple(this->x, this->y, this->orientation));
 	}
 
-	if (!bDrawInitDone)
+
+	// draw each element of m_multi
+	for (std::tuple<double, double, double> tup : m_multi)
 	{
-		// Set object defauilts. setDefaults() sets contrast to 100% 
-		// -- this may not be what we want, so reset contrast to the 
-		// stim's current value
-		//vsgObjSetDefaults();
-		//vsgObjSetContrast(contrast);
+		this->x = std::get<0>(tup);
+		this->y = std::get<1>(tup);
+		this->orientation = std::get<2>(tup);
 
-		// assign pixel levels for object
-		vsgObjSetPixelLevels(getFirstLevel(), getNumLevels());
-
-		// Set spatial waveform
-		if (this->swt == sinewave)
+		if (mode == vsgTRANSONHIGHER || mode == vsgTRANSONLOWER)
 		{
-			vsgObjTableSinWave(vsgSWTABLE);
-		}
-		else
-		{	
-			// Set up standard 50:50 square wave
-			vsgObjTableSquareWave(vsgSWTABLE, (DWORD)(vsgObjGetTableSize(vsgSWTABLE)*0.25), (DWORD)(vsgObjGetTableSize(vsgSWTABLE)*0.75));
-		}
-
-		// set color vector
-		if (get_colorvector(this->cv, from, to))
-		{
-			cerr << "Cannot get color vector for type " << this->cv << endl;
-		}
-		vsgObjSetColourVector(&from, &to, vsgBIPOLAR);
-
-		// set temporal waveform
-		if (this->twt == sinewave)
-		{
-			vsgObjTableSinWave(vsgTWTABLE);
-		}
-		else
-		{
-			// Set up standard 50:50 square wave
-			vsgObjTableSquareWave(vsgTWTABLE, (DWORD)(0), (DWORD)(vsgObjGetTableSize(vsgTWTABLE)*0.5));
-		}
-		vsgObjSetTemporalPhase(0);
-
-
-
-		bDrawInitDone = true;
-	}
-
-	vsgObjSetContrast(contrast);
-	vsgObjSetSpatialPhase(phase);
-	vsgObjSetDriftVelocity(tf);
-	vsgObjSetTemporalFrequency(ttf);
-
-	// Now draw
-	if (this->aperture == ellipse)
-	{
-		if (mode == vsgTRANSONLOWER || mode == vsgTRANSONHIGHER)
-		{
-			vsgSetDrawMode(vsgCENTREXY + mode);
-		}
-		else
-		{
-			vsgSetDrawMode(vsgCENTREXY);
-		}
-		vsgSetPen1(getFirstLevel());
-		vsgSetPen2(getFirstLevel() + getNumLevels() -1);
-		vsgDrawGrating(this->x, -1*this->y, this->w, this->h, this->orientation, this->sf);
-	}
-	else
-	{
-		vsgSetDrawMode(vsgCENTREXY);
-		vsgSetPen1(getFirstLevel());
-		vsgSetPen2(getFirstLevel() + getNumLevels() - 1);
-		vsgDrawGrating(this->x, -1*this->y, this->w, this->h, this->orientation, this->sf);
-	}
-
-	// Draw hole if this is a donut. Having both hd, wd > 0 makes this a donut.
-	// Check for dumb situation w,h == 0.
-	if (w > 0  && h > 0)
-	{
-		vsgSetPen1(vsgBACKGROUND);
-
-		// Now draw the hole, but only if the diam is >0
-		if (wd > 0 && hd > 0)
-		{
+			// djs TRANSONLOWER seems to leave artifacts on the screen when we turn the contrast off. !!!
+			// if ellipse, draw an ellipse on level 0 for TRANSONLOWER
+			// djs. Specifically setting the level seems to lead to artifacts. I found that leaving the levels
+			// unassigned solves this. I suspect this may lead to trouble someday.....
 			if (this->aperture == ellipse)
 			{
-				vsgSetDrawMode(vsgCENTREXY);
-				vsgDrawOval(x, -1*y, wd, hd);
+				vsgSetPen1(ipen);
+				vsgSetDrawMode(vsgCENTREXY + vsgSOLIDFILL);
+				vsgDrawOval(x, -1 * y, w, h);
+			}
+		}
+
+		if (!bDrawInitDone)
+		{
+			// assign pixel levels for object
+			vsgObjSetPixelLevels(getFirstLevel(), getNumLevels());
+
+			// Set spatial waveform
+			if (this->swt == sinewave)
+			{
+				vsgObjTableSinWave(vsgSWTABLE);
+			}
+			else
+			{
+				// Set up standard 50:50 square wave
+				vsgObjTableSquareWave(vsgSWTABLE, (DWORD)(vsgObjGetTableSize(vsgSWTABLE) * 0.25), (DWORD)(vsgObjGetTableSize(vsgSWTABLE) * 0.75));
+			}
+
+			// set color vector
+			if (get_colorvector(this->cv, from, to))
+			{
+				cerr << "Cannot get color vector for type " << this->cv << endl;
+			}
+			vsgObjSetColourVector(&from, &to, vsgBIPOLAR);
+
+			// set temporal waveform
+			if (this->twt == sinewave)
+			{
+				vsgObjTableSinWave(vsgTWTABLE);
+			}
+			else
+			{
+				// Set up standard 50:50 square wave
+				vsgObjTableSquareWave(vsgTWTABLE, (DWORD)(0), (DWORD)(vsgObjGetTableSize(vsgTWTABLE) * 0.5));
+			}
+			vsgObjSetTemporalPhase(0);
+			bDrawInitDone = true;
+		}
+
+		vsgObjSetContrast(contrast);
+		vsgObjSetSpatialPhase(phase);
+		vsgObjSetDriftVelocity(tf);
+		vsgObjSetTemporalFrequency(ttf);
+
+		// Now draw
+		if (this->aperture == ellipse)
+		{
+			if (mode == vsgTRANSONLOWER || mode == vsgTRANSONHIGHER)
+			{
+				vsgSetDrawMode(vsgCENTREXY + mode);
 			}
 			else
 			{
 				vsgSetDrawMode(vsgCENTREXY);
-				vsgDrawRect(this->x, -1*this->y, this->wd, this->hd);
+			}
+			vsgSetPen1(getFirstLevel());
+			vsgSetPen2(getFirstLevel() + getNumLevels() - 1);
+			vsgDrawGrating(this->x, -1 * this->y, this->w, this->h, this->orientation, this->sf);
+		}
+		else
+		{
+			vsgSetDrawMode(vsgCENTREXY);
+			vsgSetPen1(getFirstLevel());
+			vsgSetPen2(getFirstLevel() + getNumLevels() - 1);
+			vsgDrawGrating(this->x, -1 * this->y, this->w, this->h, this->orientation, this->sf);
+		}
+
+		// Draw hole if this is a donut. Having both hd, wd > 0 makes this a donut.
+		// Check for dumb situation w,h == 0.
+		if (w > 0 && h > 0)
+		{
+			vsgSetPen1(vsgBACKGROUND);
+
+			// Now draw the hole, but only if the diam is >0
+			if (wd > 0 && hd > 0)
+			{
+				if (this->aperture == ellipse)
+				{
+					vsgSetDrawMode(vsgCENTREXY);
+					vsgDrawOval(x, -1 * y, wd, hd);
+				}
+				else
+				{
+					vsgSetDrawMode(vsgCENTREXY);
+					vsgDrawRect(this->x, -1 * this->y, this->wd, this->hd);
+				}
 			}
 		}
 	}
+
+	if (!bIsMulti)
+		m_multi.clear();
 
 	return 0;
 }
@@ -1256,3 +1266,22 @@ int ARApertureGratingSpec::draw()
 
 	return 0;
 }
+
+
+//int ARMultiGratingSpec::draw(long mode, int apertureLevel)
+//{
+//	int i;
+//	cerr << "ARMultiGratingSpec::draw( " << mode << ", " << apertureLevel << ")" << endl;
+//	for (i = 0; i < size(); i++)
+//	{
+//		std::tuple< double, double, double> t;
+//		t = this->at(i);
+//		this->x = std::get<0>(t);
+//		this->y = std::get<1>(t);
+//		this->orientation = std::get<2>(t);
+//		ARGratingSpec::draw(mode, apertureLevel);
+//	}
+//	return 0;
+//}
+
+

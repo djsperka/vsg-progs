@@ -12,7 +12,7 @@ using namespace std;
 #define CYCLING_TYPE_PURSUIT 2
 
 
-int MultiParameterFXMultiGStimSet::init(ARvsg& vsg, std::vector<int> pages)
+int MultiParameterFXMultiGStimSet::init(ARvsg& vsg, std::vector<int> pages, int num_stim_pages)
 {
 	int status = 0;
 	int levels = 0;
@@ -26,6 +26,9 @@ int MultiParameterFXMultiGStimSet::init(ARvsg& vsg, std::vector<int> pages)
 	//m_bUseCycling = false;
 	m_iCyclingDelay = 0;
 	m_iStimDuration = 0;
+	m_num_stim_pages = num_stim_pages;
+
+	cerr << "init: num_stim_pages " << m_num_stim_pages << " page=" << m_alt_page << endl;
 
 	if (has_xhair())
 	{
@@ -33,7 +36,7 @@ int MultiParameterFXMultiGStimSet::init(ARvsg& vsg, std::vector<int> pages)
 	}
 	if (has_grating() || has_distractor())
 	{
-		levels = min(240/(count() + distractor_count()), max_levels);
+		levels = min(240/(int)(count() + distractor_count()), max_levels);
 		for (unsigned int i = 0; i < count(); i++)
 		{
 			grating(i).init(vsg, levels);
@@ -116,7 +119,7 @@ int MultiParameterFXMultiGStimSet::handle_trigger(const std::string& s, const st
 		}
 		status = 1;
 	}
-	else if (s == "s")
+	else if (s == "s" || s == "u")
 	{
 		status = 1;
 		if (CYCLING_TYPE_NONE != m_iCyclingType)
@@ -125,6 +128,24 @@ int MultiParameterFXMultiGStimSet::handle_trigger(const std::string& s, const st
 			status = 2;
 		}
 		vsgSetDrawPage(vsgVIDEOPAGE, m_fixpt_page, vsgNOCLEAR);
+	}
+	else if (s == "U")
+	{
+		for (unsigned int i = 0; i < count(); i++)
+		{
+			grating(i).select();
+			vsgObjResetDriftPhase();
+			grating(i).setContrast(contrast(i));
+		}
+		if (CYCLING_TYPE_NONE != m_iCyclingType)
+		{
+			vsgSetSynchronisedCommand(vsgSYNC_PRESENT, vsgCYCLEPAGEENABLE, 0);
+		}
+		else
+		{
+			vsgSetDrawPage(vsgVIDEOPAGE, m_alt_page, vsgNOCLEAR);
+		}
+		status = 1;
 	}
 	else if (s == "a")
 	{
@@ -263,38 +284,49 @@ void MultiParameterFXMultiGStimSet::draw_current()
 		}
 	}
 
+	//  access v1 and v2 by reference
+	auto draw_current_stim_on_page = [this](int pagenumber)
+	{
+		// xhair, fixpt, dots and stim. 
+		vsgSetDrawPage(vsgVIDEOPAGE, pagenumber, vsgBACKGROUND);
+		if (has_xhair())
+		{
+			xhair().draw();
+		}
+		if (has_distractor())
+		{
+			for (unsigned int i = 0; i < distractor_count(); i++)
+			{
+				distractor(i).draw();
+			}
+		}
+		if (has_grating())
+		{
+			for (unsigned int i = 0; i < count(); i++)
+			{
+				grating(i).draw();
+			}
+		}
+		if (has_fixpt())
+		{
+			fixpt().draw();
+		}
+		if (has_dot())
+		{
+			for (unsigned int i = 0; i < dot_count(); i++)
+			{
+				dot(i).draw();
+			}
+		}
+	};
 
-	// xhair, fixpt, dots and stim. 
-	vsgSetDrawPage(vsgVIDEOPAGE, m_stim_page, vsgBACKGROUND);
-	if (has_xhair())
+	draw_current_stim_on_page(m_stim_page);
+	if (m_num_stim_pages > 1)
 	{
-		xhair().draw();
+		advance();
+		draw_current_stim_on_page(m_alt_page);
 	}
-	if (has_distractor())
-	{
-		for (unsigned int i = 0; i < distractor_count(); i++)
-		{
-			distractor(i).draw();
-		}
-	}
-	if (has_grating())
-	{
-		for (unsigned int i = 0; i < count(); i++)
-		{
-			grating(i).draw();
-		}
-	}
-	if (has_fixpt())
-	{
-		fixpt().draw();
-	}
-	if (has_dot())
-	{
-		for (unsigned int i = 0; i < dot_count(); i++)
-		{
-			dot(i).draw();
-		}
-	}
+
 	//vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgNOCLEAR);
 
 }
@@ -325,7 +357,7 @@ void MultiParameterFXMultiGStimSet::setStimDuration(double seconds)
 	{
 		// Convert stim duration to frames. Note frame time returned is in us.
 		m_iCyclingType = CYCLING_TYPE_REGULAR;
-		m_iStimDuration = seconds * 1000000.0 / vsgGetSystemAttribute(vsgFRAMETIME);
+		m_iStimDuration = (int)floor(seconds * 1000000.0 / vsgGetSystemAttribute(vsgFRAMETIME));
 	}
 	return;
 }
@@ -341,7 +373,7 @@ void MultiParameterFXMultiGStimSet::setPursuitParameters(double durSeconds, doub
 	{
 		// Convert stim duration to frames. Note frame time returned is in us.
 		m_iCyclingType = CYCLING_TYPE_PURSUIT;
-		m_iStimDuration = durSeconds * 1000000.0 / vsgGetSystemAttribute(vsgFRAMETIME);
+		m_iStimDuration = (int)floor(durSeconds * 1000000.0 / vsgGetSystemAttribute(vsgFRAMETIME));
 
 		// Convert to x- and y- displacement, in pixels, of the fixation point, per frame.
 		// When page cycling is set up to simulate this effect, the page origin is what is moved, hence there is a 
@@ -417,8 +449,8 @@ void MultiParameterFXMultiGStimSet::setup_cycling()
 		{
 			cycle[count].Frames = 1;
 			cycle[count].Page = m_stim_page + (i == 0 ? vsgTRIGGERPAGE : 0);	// trigger only onset of pursuit.
-			cycle[count].Xpos = -1 * (i + 1) * m_dxPursuit;
-			cycle[count].Ypos = -1 * (i + 1) * m_dyPursuit;
+			cycle[count].Xpos = (short)(-1 * (i + 1) * m_dxPursuit);
+			cycle[count].Ypos = (short)(-1 * (i + 1) * m_dyPursuit);
 			cycle[count].Stop = 0;
 			count++;
 		}

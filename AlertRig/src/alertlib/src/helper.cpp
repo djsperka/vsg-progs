@@ -363,7 +363,36 @@ int parse_grating(const std::string& s, alert::ARGratingSpec& ag)
 }
 
 
-
+//int parse_multigrating(const std::string& s, alert::ARMultiGratingSpec& amg)
+//{
+//	int status = 1;
+//
+//	// Check if there is a '%' splitting the grating spec and the coord pairs. 
+//	vector<string> tokens;
+//	boost::split(tokens, s, boost::is_any_of("%"));
+//	if (tokens.size() > 0)
+//	{
+//		status = parse_grating(tokens[0], amg);
+//		if (!status)
+//		{
+//			if (tokens.size() > 1)
+//			{
+//				// parse x,y pairs
+//				int iUnused;
+//				vector<double> xy;
+//				status = parse_tuning_list(tokens[1], xy, iUnused);
+//				if (!status)
+//				{
+//					for (int i = 0; i < xy.size() - 2; i += 3)
+//					{
+//						amg.push_back(make_tuple(xy[i], xy[i + 1], xy[i + 2]));
+//					}
+//				}
+//			}
+//		}
+//	}
+//	return status;
+//}
 
 int parse_xhair(const std::string& s, alert::ARXhairSpec& axh)
 {
