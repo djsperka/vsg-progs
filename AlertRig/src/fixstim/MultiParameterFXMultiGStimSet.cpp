@@ -21,6 +21,7 @@ int MultiParameterFXMultiGStimSet::init(ARvsg& vsg, std::vector<int> pages)
 	m_fixpt_page = pages[1];
 	m_fixpt_dot_page = pages[2];
 	m_stim_page = pages[3];
+	m_alt_page = pages[4];
 	m_iCyclingType = CYCLING_TYPE_NONE;
 	//m_bUseCycling = false;
 	m_iCyclingDelay = 0;
