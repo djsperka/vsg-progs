@@ -367,8 +367,8 @@ void FixUStim::init_triggers(TSpecificFunctor<FixUStim>* pfunctor, int npages)
 {
 	triggers().clear();
 	triggers().addTrigger(new FunctorCallbackTrigger("F", 0x2, 0x2, 0x2, 0x2, pfunctor));
-	triggers().addTrigger(new FunctorCallbackTrigger("S", 0x4, 0x4, 0x4, 0x4, pfunctor));
-	triggers().addTrigger(new FunctorCallbackTrigger("X", 0x6, 0x0, 0x6, 0x0, pfunctor));
+	triggers().addTrigger(new FunctorCallbackTrigger("S", 0x4, 0x4, 0x14, 0x4, pfunctor));
+	triggers().addTrigger(new FunctorCallbackTrigger("X", 0x6, 0x0, 0x16, 0x0, pfunctor));
 	triggers().addTrigger(new FunctorCallbackTrigger("s", 0x4, 0x0, 0x4, 0x0, pfunctor));	// this must come after X so it will not fire with an X.
 
 	std::vector< std::pair<std::string, int> > vec;
@@ -387,7 +387,7 @@ void FixUStim::init_triggers(TSpecificFunctor<FixUStim>* pfunctor, int npages)
 	}
 	else if (npages == 2)
 	{
-		triggers().addTrigger(new FunctorCallbackTrigger("U", 0x20, 0x20, 0x10, 0x10, pfunctor));
+		triggers().addTrigger(new FunctorCallbackTrigger("U", 0x20, 0x20, 0x14, 0x10, pfunctor));
 	}
 	else if (npages == 3)
 	{
