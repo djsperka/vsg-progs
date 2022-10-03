@@ -249,7 +249,7 @@ void FixUStim::run_stim(alert::ARvsg& vsg)
 				{
 					saved_input_trigger = input_trigger;
 					bHaveBinaryTrigger = true;
-					//std::cerr << "Read binary input trig: " << std::hex << input_trigger << std::endl;
+					std::cerr << "Changed binary input trig: " << std::hex << input_trigger << std::endl;
 				}
 			}
 		}
@@ -368,13 +368,7 @@ void FixUStim::init_triggers(TSpecificFunctor<FixUStim>* pfunctor, int npages)
 	triggers().clear();
 	triggers().addTrigger(new FunctorCallbackTrigger("F", 0x2, 0x2, 0x2, 0x2, pfunctor));
 	triggers().addTrigger(new FunctorCallbackTrigger("S", 0x4, 0x4, 0x14, 0x4, pfunctor));
-	triggers().addTrigger(new FunctorCallbackTrigger("X", 0x6, 0x0, 0x16, 0x0, pfunctor));
-	triggers().addTrigger(new FunctorCallbackTrigger("s", 0x4, 0x0, 0x4, 0x0, pfunctor));	// this must come after X so it will not fire with an X.
-
-	std::vector< std::pair<std::string, int> > vec;
-	vec.push_back(make_pair("a", 0x8 | AR_TRIGGER_TOGGLE));
-	vec.push_back(make_pair("g", AR_TRIGGER_ASCII_ONLY));
-	triggers().addTrigger(new MISOFunctorCallbackTrigger(vec, 0x8, 0x8, 0x8 | AR_TRIGGER_TOGGLE, pfunctor));
+	triggers().addTrigger(new FunctorCallbackTrigger("X", 0x26, 0x0, 0x16, 0x0, pfunctor));
 
 	// 1 page is the way things have always been. 
 	// 2 pages presumes that a second trigger line is available and wired and ready
@@ -394,6 +388,15 @@ void FixUStim::init_triggers(TSpecificFunctor<FixUStim>* pfunctor, int npages)
 		triggers().addTrigger(new FunctorCallbackTrigger("U", 0x20, 0x20, 0x10, 0x10, pfunctor));
 		triggers().addTrigger(new FunctorCallbackTrigger("V", 0x40, 0x40, 0x20, 0x20, pfunctor));
 	}
+
+
+	triggers().addTrigger(new FunctorCallbackTrigger("s", 0x4, 0x0, 0x4, 0x0, pfunctor));	// this must come after X so it will not fire with an X.
+
+	std::vector< std::pair<std::string, int> > vec;
+	vec.push_back(make_pair("a", 0x8 | AR_TRIGGER_TOGGLE));
+	vec.push_back(make_pair("g", AR_TRIGGER_ASCII_ONLY));
+	triggers().addTrigger(new MISOFunctorCallbackTrigger(vec, 0x8, 0x8, 0x8 | AR_TRIGGER_TOGGLE, pfunctor));
+
 
 	// For UStim-specific testing. The UStim should handle this trigger and do whatever. Ascii only trigger.
 	triggers().addTrigger(new FunctorCallbackTrigger("A", 0, 0, 0, 0, pfunctor));
