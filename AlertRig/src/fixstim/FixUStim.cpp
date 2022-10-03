@@ -249,7 +249,7 @@ void FixUStim::run_stim(alert::ARvsg& vsg)
 				{
 					saved_input_trigger = input_trigger;
 					bHaveBinaryTrigger = true;
-					std::cerr << "Changed binary input trig: " << std::hex << input_trigger << std::endl;
+					//std::cerr << "Changed binary input trig: " << std::hex << input_trigger << std::endl;
 				}
 			}
 		}
