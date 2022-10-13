@@ -95,6 +95,7 @@ struct fixstim_arguments
 		, bUseCueCircles(false)
 		, bUseCuePoints(false)
 		, bCuePointIsDot(false)
+		, nStimPages(1)
 		, vecFixpts()
 		, pStimSet(nullptr)
 		, bUsingMultiParameterStimSet(false)
