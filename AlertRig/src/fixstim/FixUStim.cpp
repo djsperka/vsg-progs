@@ -183,6 +183,8 @@ void FixUStim::run_stim(alert::ARvsg& vsg)
 	bool bHaveAsciiTrigger;
 	bool bHaveBinaryTrigger;
 	int trigger_count = 0;
+	DWORD outputTriggerMarker=0;
+	DWORD outputTriggerType=0;
 
 	// reset all triggers if using binary triggers
 	if (m_arguments.bBinaryTriggers)
@@ -208,6 +210,8 @@ void FixUStim::run_stim(alert::ARvsg& vsg)
 		s.clear();
 		bHaveAsciiTrigger = false;
 		bHaveBinaryTrigger = false;
+		outputTriggerMarker = 0;
+		outputTriggerType = 0;
 		if (!m_arguments.bBinaryTriggers)
 		{
 			if (_kbhit())
@@ -312,20 +316,29 @@ void FixUStim::run_stim(alert::ARvsg& vsg)
 						cerr << "ERROR - pending_cycling_disable n=10" << endl;
 					vsgFrameSync();
 				}
-				vsgIOWriteDigitalOut(tf.output_trigger() << 1, 0xfffe);
+				outputTriggerMarker = tf.output_trigger();
+				outputTriggerType |= vsgTRIG_OUTPUTMARKER;
+				cout << "output_trigger(): old " << hex << last_output_trigger << " new " << hex << tf.output_trigger() << endl;
 				last_output_trigger = tf.output_trigger();
 			}
 
-			// if vsgPresent() is called for....
+			// output triggers handled here. Either a vsgPresent(I) or else call vsgIODWriteDigitalOut
 			if (tf.present())
 			{
-				//cout << "Got present(): old " << hex << last_output_trigger << " new " << hex << tf.output_trigger() << endl;
 				// Check whether we do an ordinary present(), or if we are doing dualstim rig hijinks we'll want to 
 				// do a presendOnTrigger. In the presentOnTrigger case, we do a further check on whether any of the
 				// triggers matched (you can have multiple triggers matched in a single check) is on the list of 
 				// those to be triggered on (see commandline arg -V). 
+				//if (tf.present_with_trigger())
+				//outputTriggerType |= vsgTRIG_ONPRESENT;
+				//vsgObjSetTriggers(outputTriggerType, outputTriggerMarker, 0);
+				vsgObjSelect(vsg.dummyObjectHandle());
+				vsgSetTriggerOptions(vsgTRIGOPT_PRESENT, 0, vsgTRIG_OUTPUTMARKER, 0.5, 0, tf.output_trigger(), 0x1fe);
+				cout << " marker " << hex << tf.output_trigger() << endl;
+
 				if (!m_arguments.bPresentOnTrigger)
 				{
+					cout << "present" << endl;
 					vsgPresent();
 				}
 				else
@@ -344,6 +357,12 @@ void FixUStim::run_stim(alert::ARvsg& vsg)
 					}
 				}
 			}
+			else
+			{
+				cout << "no present" << endl;
+				vsgIOWriteDigitalOut(tf.output_trigger() << 1, 0xfffe);
+			}
+
 		}
 		// short sleep
 		Sleep(10);
@@ -378,6 +397,7 @@ void FixUStim::init_triggers(TSpecificFunctor<FixUStim>* pfunctor, int npages)
 	{
 		triggers().addTrigger(new FunctorCallbackTrigger("u", 0x20, 0x20 | AR_TRIGGER_TOGGLE, 0x10, 0x10 | AR_TRIGGER_TOGGLE, pfunctor));
 		triggers().addTrigger(new FunctorCallbackTrigger("v", 0x40, 0x40 | AR_TRIGGER_TOGGLE, 0x20, 0x20 | AR_TRIGGER_TOGGLE, pfunctor));
+		triggers().addTrigger(new FunctorCallbackTrigger("D", 0, AR_TRIGGER_ASCII_ONLY, 0, 0, pfunctor));
 	}
 	else if (npages == 2)
 	{

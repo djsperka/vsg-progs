@@ -41,9 +41,14 @@ private:
 	int m_iStimDuration;	// if > 0, the number of frames stim lasts until blank. If <=0, no blank. 
 	double m_dxPursuit;
 	double m_dyPursuit;
+	vector<COLOR_TYPE> m_dotColorsSaved;	// save dot colors on init, restore all in draw_current(). Adding dots to stimset after init will be bad.
+	size_type m_pageflipindex;
+	int m_pageflippages[2];
 
 	void setup_cycling();
 	void draw_current();
+	void draw_stuff_on_page(int pagenumber, bool bFixpt, bool bDistractor, bool bGrating, bool bDots);
+
 
 protected:
 	void advance();
