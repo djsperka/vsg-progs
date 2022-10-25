@@ -27,6 +27,9 @@ int MultiParameterFXMultiGStimSet::init(ARvsg& vsg, std::vector<int> pages, int 
 	m_iCyclingDelay = 0;
 	m_iStimDuration = 0;
 	m_num_stim_pages = num_stim_pages;
+	m_pageflipindex = 1;
+	m_pageflippages[0] = m_stim_page;
+	m_pageflippages[1] = m_alt_page;
 
 	cerr << "init: num_stim_pages " << m_num_stim_pages << " page=" << m_alt_page << endl;
 
@@ -51,11 +54,14 @@ int MultiParameterFXMultiGStimSet::init(ARvsg& vsg, std::vector<int> pages, int 
 		fixpt().init(vsg, 2);
 	}
 
+	// saved dot colors is a thing for Gregg's Grid. 
+	m_dotColorsSaved.clear();
 	if (has_dot())
 	{
 		for (unsigned int i = 0; i < dot_count(); i++)
 		{
 			dot(i).init(vsg, 2);
+			m_dotColorsSaved.push_back(dot(i).color);
 		}
 	}
 
@@ -165,33 +171,49 @@ int MultiParameterFXMultiGStimSet::handle_trigger(const std::string& s, const st
 		}
 		status = 0;
 	}
-	else if (s == "g")
+	else if (s == "D")
 	{
-#if 0
-		// unset parameters that trigger cycling, if any. One of the parameter lists called in advance() must enable it. 
-		setCyclingDelay(-1);
-		setStimDuration(-1);
-		int new_index = -1;
-		std::stringstream ss(args);
-		ss >> new_index;
-		if (!ss)
-		{
-			std::cerr << "Input error - expecting int, got \"" << args << "\"" << std::endl;
-			std::cerr << "TODO - undefined results here - incorrect stimulus displayed!!!!!!" << std::endl;
-		}
-		else
-		{
-			set_current(new_index);
-		}
-		draw_current();
-		if (CYCLING_TYPE_NONE != m_iCyclingType)
-		{
-			setup_cycling();
-		}
-#else
-		std::cerr << "goto not implemented for this stim set" << std::endl;
-#endif
 		status = 0;
+		if (has_dot())
+		{
+			// expecting N,color
+			stringstream ss(args);
+			int index = -1;
+			COLOR_TYPE color;
+			ss >> index;
+			if (ss)
+			{
+				ss.ignore(1);
+				ss >> color;
+			}
+			else
+			{
+				cerr << "Error parsing D arg: expecting N,COLOR, got " << args << endl;
+			}
+
+			if (ss)
+			{
+				if (index > -1 && index < dot_count())
+				{
+					dot(index).color = color;
+					m_pageflipindex = 1 - m_pageflipindex;
+					draw_stuff_on_page(m_pageflippages[m_pageflipindex], true, true, true, true);
+					status = 3;
+					// this change makes the flip happen, and will pulse the FRAME channel. Return value 0!
+					//vsgSetZoneDisplayPage(vsgVIDEOPAGE, m_pageflippages[m_pageflipindex] + vsgTRIGGERPAGE);
+					//std::cerr << "ind " << m_pageflipindex << " page " << m_pageflippages[m_pageflipindex] << std::endl;
+					//status = 0;
+				}
+				else
+				{
+					cerr << "Error - dot index (" << index << ") out of range, must be less than " << dot_count() << endl;
+				}
+			}
+			else
+			{
+				cerr << "Error parsing D arg: expecting N,COLOR, got " << args << endl;
+			}
+		}
 	}
 	else if (s == "X")
 	{
@@ -238,7 +260,28 @@ void MultiParameterFXMultiGStimSet::draw_current()
 	// this would be needed to fix. Should have no effect otherwise.
 	vsgMoveScreen(0, 0);
 
+	// restore dot colors
+	
+	if (has_dot())
+	{
+		for (unsigned int i = 0; i < dot_count(); i++)
+		{
+			dot(i).color = m_dotColorsSaved[i];
+		}
+	}
+
 	// When cycling is used, we'll need this page with fixpt, xhair (if present), distractors(if present) 
+	draw_stuff_on_page(m_blank_page, false, false, false, false);
+	draw_stuff_on_page(m_fixpt_page, true, true, false, false);
+	draw_stuff_on_page(m_fixpt_dot_page, true, true, false, true);
+	draw_stuff_on_page(m_stim_page, true, true, true, true);
+	if (m_num_stim_pages > 1)
+	{
+		advance();
+		draw_stuff_on_page(m_alt_page, true, true, true, true);
+	}
+
+#if 0
 	vsgSetDrawPage(vsgVIDEOPAGE, m_blank_page, vsgBACKGROUND);
 
 	vsgSetDrawPage(vsgVIDEOPAGE, m_fixpt_page, vsgBACKGROUND);
@@ -326,9 +369,44 @@ void MultiParameterFXMultiGStimSet::draw_current()
 		advance();
 		draw_current_stim_on_page(m_alt_page);
 	}
+#endif
 
-	//vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgNOCLEAR);
+}
 
+
+void MultiParameterFXMultiGStimSet::draw_stuff_on_page(int pagenumber, bool bFixpt, bool bDistractor, bool bGrating, bool bDots)
+{
+	// xhair, fixpt, dots and stim. 
+	vsgSetDrawPage(vsgVIDEOPAGE, pagenumber, vsgBACKGROUND);
+	if (bFixpt && has_xhair())
+	{
+		xhair().draw();
+	}
+	if (bDistractor && has_distractor())
+	{
+		for (unsigned int i = 0; i < distractor_count(); i++)
+		{
+			distractor(i).draw();
+		}
+	}
+	if (bGrating && has_grating())
+	{
+		for (unsigned int i = 0; i < count(); i++)
+		{
+			grating(i).draw();
+		}
+	}
+	if (bFixpt && has_fixpt())
+	{
+		fixpt().draw();
+	}
+	if (bDots && has_dot())
+	{
+		for (unsigned int i = 0; i < dot_count(); i++)
+		{
+			dot(i).draw();
+		}
+	}
 }
 
 void MultiParameterFXMultiGStimSet::setCyclingDelay(int ndelay)

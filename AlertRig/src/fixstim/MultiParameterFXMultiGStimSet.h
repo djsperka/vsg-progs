@@ -41,10 +41,14 @@ private:
 	int m_iStimDuration;	// if > 0, the number of frames stim lasts until blank. If <=0, no blank. 
 	double m_dxPursuit;
 	double m_dyPursuit;
+	// These added for page flipping machinations as in the D (serial) command.
+	size_t m_pageflipindex;
+	int m_pageflippages[2];
+	std::vector<COLOR_TYPE> m_dotColorsSaved;
 
 	void setup_cycling();
 	void draw_current();
-
+	void draw_stuff_on_page(int pagenumber, bool bFixpt, bool bDistractor, bool bGrating, bool bDots);
 protected:
 	void advance();
 	void set_current(size_t index);
