@@ -326,6 +326,10 @@ void FixUStim::run_stim(alert::ARvsg& vsg)
 				// those to be triggered on (see commandline arg -V). 
 				if (!m_arguments.bPresentOnTrigger)
 				{
+					if (tf.present_with_trigger())
+					{
+						vsgObjSetTriggers(vsgTRIG_ONPRESENT, 0, 0);	// will this persist?
+					}
 					vsgPresent();
 				}
 				else
@@ -378,6 +382,7 @@ void FixUStim::init_triggers(TSpecificFunctor<FixUStim>* pfunctor, int npages)
 	{
 		triggers().addTrigger(new FunctorCallbackTrigger("u", 0x20, 0x20 | AR_TRIGGER_TOGGLE, 0x10, 0x10 | AR_TRIGGER_TOGGLE, pfunctor));
 		triggers().addTrigger(new FunctorCallbackTrigger("v", 0x40, 0x40 | AR_TRIGGER_TOGGLE, 0x20, 0x20 | AR_TRIGGER_TOGGLE, pfunctor));
+		triggers().addTrigger(new FunctorCallbackTrigger("D", 0, AR_TRIGGER_ASCII_ONLY, 0, 0, pfunctor));
 	}
 	else if (npages == 2)
 	{

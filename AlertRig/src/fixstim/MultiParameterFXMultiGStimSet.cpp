@@ -27,7 +27,7 @@ int MultiParameterFXMultiGStimSet::init(ARvsg& vsg, std::vector<int> pages, int 
 	m_iCyclingDelay = 0;
 	m_iStimDuration = 0;
 	m_num_stim_pages = num_stim_pages;
-	m_pageflipindex = 1;
+	m_pageflipindex = 0;
 	m_pageflippages[0] = m_stim_page;
 	m_pageflippages[1] = m_alt_page;
 
@@ -280,7 +280,7 @@ void MultiParameterFXMultiGStimSet::draw_current()
 		advance();
 		draw_stuff_on_page(m_alt_page, true, true, true, true);
 	}
-
+	m_pageflipindex = 0;	// in case this is used, reset so flipping works right the first time
 #if 0
 	vsgSetDrawPage(vsgVIDEOPAGE, m_blank_page, vsgBACKGROUND);
 

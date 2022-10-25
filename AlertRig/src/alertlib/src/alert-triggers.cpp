@@ -470,6 +470,7 @@ TriggerFunc::TriggerFunc(std::string key, int otrigger, bool verbose)
 	, m_verbose(verbose)
 	, m_triggers_matched()
 	, m_pending_cycling_disable(false)
+	, m_present_with_trigger(false)
 {};
 
 TriggerFunc::TriggerFunc(int itrigger, int otrigger, bool verbose)
@@ -484,6 +485,7 @@ TriggerFunc::TriggerFunc(int itrigger, int otrigger, bool verbose)
 	, m_verbose(verbose)
 	, m_triggers_matched()
 	, m_pending_cycling_disable(false)
+	, m_present_with_trigger(false)
 {};
 
 TriggerFunc::TriggerFunc()
@@ -498,6 +500,7 @@ TriggerFunc::TriggerFunc()
 	, m_verbose(m_verbose)
 	, m_triggers_matched()
 	, m_pending_cycling_disable(false)
+	, m_present_with_trigger(false)
 {};
 
 
@@ -513,6 +516,7 @@ TriggerFunc::TriggerFunc(const TriggerFunc& tf)
 	, m_verbose(tf.m_verbose)
 	, m_triggers_matched(tf.m_triggers_matched)
 	, m_pending_cycling_disable(tf.m_pending_cycling_disable)
+	, m_present_with_trigger(tf.m_present_with_trigger)
 {};
 
 TriggerFunc& TriggerFunc::operator=(const TriggerFunc& tf)
@@ -558,6 +562,7 @@ void TriggerFunc::operator()(Trigger* pitem)
 		{
 			m_present = true;
 			if (i == 2) m_pending_cycling_disable = true;	// HACK
+			if (i == 3) m_present_with_trigger = true;		// HACK
 		}
 		else if (i < 0)
 		{
