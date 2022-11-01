@@ -1591,8 +1591,8 @@ int parse_dot_list(const std::string& sarg, vector<vector<alert::ARFixationPoint
 	vector<string> tokens;
 	vector<alert::ARFixationPointSpec> fixpts;
 
-	// groups are separated by '/' - these are trials, swapped out on "a" trigger. 
-	boost::split(tokens, sarg, boost::is_any_of("/"));
+	// groups are separated by '!' - these are trials, swapped out on "a" trigger. 
+	boost::split(tokens, sarg, boost::is_any_of("!"));
 	for (string s : tokens)
 	{
 		fixpts.clear();
@@ -1618,8 +1618,8 @@ int parse_multigrating(const std::string& sarg,vector<vector<std::tuple<double, 
 	vector < std::tuple<double, double, double> > group;
 	int nsteps;
 
-	// groups are separated by '%'
-	boost::split(tokens, sarg, boost::is_any_of("/"));
+	// groups are separated by '!'
+	boost::split(tokens, sarg, boost::is_any_of("!"));
 	for (string s : tokens)
 	{
 		xyori.clear();
