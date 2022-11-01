@@ -96,10 +96,10 @@ namespace alert
 		ARObject();
 		ARObject(const ARObject& obj);
 		virtual ~ARObject();
-		void init(PIXEL_LEVEL first, int numlevels);
-		void init(ARvsg& vsg, PIXEL_LEVEL first, int numlevels);
-		void init(int numlevels);
-		void init(ARvsg& vsg, int numlevels);
+		void init(PIXEL_LEVEL first, int numlevels, bool bcreate=true);
+		void init(ARvsg& vsg, PIXEL_LEVEL first, int numlevels, bool bcreate = true);
+		void init(int numlevels, bool bcreate = true);
+		void init(ARvsg& vsg, int numlevels, bool bcreate = true);
 		// copy VSGObject stuff only - handle, levels, etc. 
 		// Use this when one obj is already init'd, but you want
 		// to draw another. 
@@ -255,6 +255,27 @@ namespace alert
 		ARContrastFixationPointSpec& operator=(const ARFixationPointSpec& fixpt);
 		int draw();
 		int drawOverlay();
+	};
+
+	// dots. Do not use contrast, but can have multi-dot. Each dot costs one level. 
+	class ARDotSpec : public ARFixationPointSpec
+	{
+		bool bIsMulti;
+		std::vector<ARFixationPointSpec> m_multi;
+
+	public:
+		ARDotSpec() : ARFixationPointSpec(), bIsMulti(false) {};
+		ARDotSpec(const ARDotSpec& dot) : ARFixationPointSpec(dot), bIsMulti(dot.bIsMulti), m_multi(dot.m_multi) {};
+		ARDotSpec(const ARFixationPointSpec& fixpt) : ARFixationPointSpec(fixpt), bIsMulti(false) {};
+		~ARDotSpec() {};
+		ARDotSpec& operator=(const ARFixationPointSpec& fixpt);
+		int draw();
+		int drawOverlay();
+
+		void setMulti(const std::vector<ARFixationPointSpec>& vec) { bIsMulti = true; m_multi = vec; };
+		void setMulti() { bIsMulti = false; m_multi.clear(); };
+		std::vector<ARFixationPointSpec>& getMulti() { return m_multi; };
+		bool isMulti() { return bIsMulti; };
 	};
 
 	// Circle, single pixel wide, visibility controlled by contrast. 
@@ -428,8 +449,8 @@ std::ostream& operator<<(std::ostream& out, const alert::ARXhairSpec& arx);
 
 // instead of input operators, methods
 int parse_fixation_point(const std::string& s, alert::ARFixationPointSpec& afp);
-int parse_fixation_point_list(std::string s, std::vector<alert::ARContrastFixationPointSpec>& fixpt_list);
-int parse_fixation_point_list(std::vector<std::string>& tokens, std::vector<alert::ARContrastFixationPointSpec>& fixpt_list);
+int parse_fixation_point_list(std::string s, std::vector<alert::ARFixationPointSpec>& fixpt_list);
+int parse_fixation_point_list(std::vector<std::string>& tokens, std::vector<alert::ARFixationPointSpec>& fixpt_list);
 int parse_rectangle(const std::string& s, alert::ARRectangleSpec& arrect);
 int parse_grating(const std::string& s, alert::ARGratingSpec& ag);
 int parse_xhair(const std::string& s, alert::ARXhairSpec& axh);

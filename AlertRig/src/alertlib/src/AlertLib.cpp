@@ -138,25 +138,25 @@ int ARObject::select()
 };
 
 
-void ARObject::init(int numlevels)
+void ARObject::init(int numlevels, bool bcreate)
 {
 	PIXEL_LEVEL level;
 	if (numlevels == vsgFIXATION)
 	{
 		level = vsgFIXATION;
-		init(level, 1);
+		init(level, 1, bcreate);
 	}
 	else if (numlevels>1)
 	{
 		if (getVSG().request_range(numlevels, level))
 			cerr << "Error in init: request_range failed to return " << numlevels << " levels." << endl;
 		else
-			init(level, numlevels);
+			init(level, numlevels, bcreate);
 	}
 	else if (numlevels==1)
 	{
 		getVSG().request_single(level);
-		init(level, numlevels);
+		init(level, numlevels, bcreate);
 	}
 	else
 	{
@@ -164,38 +164,35 @@ void ARObject::init(int numlevels)
 	}
 }
 
-void ARObject::init(ARvsg& vsg, PIXEL_LEVEL first, int numlevels)
+void ARObject::init(ARvsg& vsg, PIXEL_LEVEL first, int numlevels, bool bcreate)
 {
-#if 0
-	m_use_master = vsg.is_master();
-	m_use_slave = vsg.is_slave();
-#endif
 	m_use_master = m_use_slave = false;
-	init(first, numlevels);
+	init(first, numlevels, bcreate);
 }
 
-void ARObject::init(ARvsg& vsg, int numlevels)
+void ARObject::init(ARvsg& vsg, int numlevels, bool bcreate)
 {
-#if 0
-	m_use_master = vsg.is_master();
-	m_use_slave = vsg.is_slave();
-#endif
 	m_use_master = m_use_slave = false;
-	init(numlevels);
+	init(numlevels, bcreate);
 }
 
 
-void ARObject::init(PIXEL_LEVEL first, int numlevels)
+void ARObject::init(PIXEL_LEVEL first, int numlevels, bool bcreate)
 {
-	m_handle = vsgObjCreate();
 	m_first = first;
 	m_numlevels = numlevels;
-	vsgObjSetDefaults();
-	vsgObjSetContrast(100);
-	vsgObjSetPixelLevels(first, numlevels);
-	m_initialized = true;
+	if (bcreate)
+	{
+		m_handle = vsgObjCreate();
+		vsgObjSetDefaults();
+		vsgObjSetContrast(100);
+		vsgObjSetPixelLevels(first, numlevels);
+		m_initialized = true;
+		cout << "init obj(" << (int)m_handle << ") on level " << first << ", with " << numlevels << " levels" << endl;
+	}
+	else
+		cout << "init obj(***) on level " << first << ", with " << numlevels << " levels" << endl;
 
-	cout << "init obj(" << (int)m_handle << ") on level " << first << ", with " << numlevels << " levels" << endl;
 }
 
 void ARObject::init(const ARObject& obj)
@@ -558,6 +555,67 @@ int ARFixationPointSpec::drawOverlay()
 	vsgDrawOval(x, -1*y, d, d);
 	return status;
 }
+
+
+ARDotSpec& ARDotSpec::operator=(const ARFixationPointSpec& fixpt)
+{
+	if (this != &fixpt)
+	{
+		ARObject::operator=(fixpt);
+		x = fixpt.x;
+		y = fixpt.y;
+		d = fixpt.d;
+		color = fixpt.color;
+		bIsMulti = false;
+	}
+	return *this;
+
+}
+
+int ARDotSpec::draw()
+{
+	if (!bIsMulti)
+		return ARFixationPointSpec::draw();
+	else
+	{
+		PIXEL_LEVEL first = this->getFirstLevel();
+		PIXEL_LEVEL num = this->getNumLevels();
+
+		for (int i = 0; i<m_multi.size(); i++)
+		{
+			// The dot should be init'd with enough levels for all dots. This is just in case it isn't.
+			PIXEL_LEVEL n = first + (i % num);
+
+			// Draw. Use level 'n' only when palette mode
+			if (vsgGetSystemAttribute(vsgVIDEOMODE) == vsg8BITPALETTEMODE)
+			{
+				// assign color to level 'n'
+				//cerr << "multidot " << i << " color " << m_multi[i].color << " level " << n << endl;
+				arutil_color_to_palette(m_multi[i].color, n);
+				vsgSetPen1(n);
+			}
+			else
+			{
+				vsgSetPen1((DWORD)(255 * m_multi[i].color.trival().a + 256 * 255 * m_multi[i].color.trival().b + 256 * 256 * 255 * m_multi[i].color.trival().c));
+			}
+			vsgSetDrawMode(vsgCENTREXY + vsgSOLIDFILL);
+			vsgDrawOval(m_multi[i].x, -1 * m_multi[i].y, m_multi[i].d, m_multi[i].d);
+		}
+		return 0;
+	}
+
+}
+
+int ARDotSpec::drawOverlay()
+{
+	cerr << "ARDotSpec::drawOverlay(): not implemented!" << endl;
+	return -1;
+}
+
+
+
+
+
 
 ARContrastFixationPointSpec& ARContrastFixationPointSpec::operator=(const ARContrastFixationPointSpec& fixpt)
 {

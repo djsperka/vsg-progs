@@ -24,7 +24,8 @@ int arutil_color_to_palette(COLOR_TYPE ct, PIXEL_LEVEL level)
 {
 	int status=0;
 	VSGTRIVAL c = ct.trival();
-	vsgPaletteSet(level, level, &c);
+	if (vsgPaletteSet(level, level, &c) < 0)
+		cerr << "ERROR vsgPaletteSet" << endl;
 	return status;
 }
 
