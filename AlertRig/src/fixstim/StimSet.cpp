@@ -431,10 +431,17 @@ void FXMultiGStimSet::add_distractor(const ARGratingSpec& grating, double xoffse
 	return;
 }
 
-void FXMultiGStimSet::add_dot(const ARContrastFixationPointSpec& dot)
+void FXMultiGStimSet::add_dot(const ARDotSpec& dot)
 {
-	m_dots.push_back(new ARContrastFixationPointSpec(dot));
+	m_dots.push_back(new ARDotSpec(dot));
 	return;
+}
+
+void FXMultiGStimSet::add_dot(const vector<alert::ARFixationPointSpec>& dots)
+{
+	ARDotSpec* pspec = new ARDotSpec();
+	pspec->setMulti(dots);
+	m_dots.push_back(pspec);
 }
 
 

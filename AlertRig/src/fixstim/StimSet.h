@@ -105,7 +105,7 @@ private:
 	ptr_vector<ARGratingSpec> m_distractors;
 	vector<int> m_contrasts;
 	vector<int> m_distractor_contrasts;
-	ptr_vector<ARContrastFixationPointSpec> m_dots;
+	ptr_vector<ARDotSpec> m_dots;
 
 public:
 	FXMultiGStimSet(): FXStimSet() {};
@@ -116,10 +116,10 @@ public:
 
 	ptr_vector<ARGratingSpec>& gratings() { return m_gratings; };
 	ptr_vector<ARGratingSpec>& distractors() { return m_distractors; };
-	ptr_vector<ARContrastFixationPointSpec>& dots() { return m_dots; };
+	ptr_vector<ARDotSpec>& dots() { return m_dots; };
 	const ptr_vector<ARGratingSpec>& gratings() const { return m_gratings; };
 	const ptr_vector<ARGratingSpec>& distractors() const { return m_distractors; };
-	const ptr_vector<ARContrastFixationPointSpec>& dots() const { return m_dots; };
+	const ptr_vector<ARDotSpec>& dots() const { return m_dots; };
 
 	virtual void add_grating(const ARGratingSpec& grating, double xoffset=0.0, double yoffset=0.0);
 	virtual bool has_grating() const { return count()>0; };
@@ -199,28 +199,29 @@ public:
 		return m_distractors[i];
 	};
 
-	virtual void add_dot(const ARContrastFixationPointSpec& dot);
+	virtual void add_dot(const ARDotSpec& dot);
+	virtual void add_dot(const vector<alert::ARFixationPointSpec>& dots);
 	virtual bool has_dot() const { return dot_count() > 0; };
 
-	ARContrastFixationPointSpec& dot()
+	ARDotSpec& dot()
 	{
 		BOOST_ASSERT(m_dots.size() > 0);
 		return m_dots[0];
 	};
 
-	const ARContrastFixationPointSpec& dot() const
+	const ARDotSpec& dot() const
 	{
 		BOOST_ASSERT(m_dots.size() > 0);
 		return m_dots[0];
 	};
 
-	ARContrastFixationPointSpec& dot(int i)
+	ARDotSpec& dot(int i)
 	{
 		BOOST_ASSERT(m_dots.size() > (unsigned int)i);
 		return m_dots[i];
 	};
 
-	const ARContrastFixationPointSpec& dot(int i) const
+	const ARDotSpec& dot(int i) const
 	{
 		BOOST_ASSERT(m_dots.size() > (unsigned int)i);
 		return m_dots[i];

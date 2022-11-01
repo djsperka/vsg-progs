@@ -85,6 +85,7 @@ static struct argp f_argp = { options, parse_fixstim_opt, 0, "fixstim -- all-pur
 // my parsers
 bool parseImageArg(const std::string& arg, std::string& filename, double& x, double& y, double& duration, double& delay, int& nlevels);
 int parse_multigrating(const std::string& sarg, vector<vector<std::tuple<double, double, double> > >& params);
+int parse_dot_list(const std::string& sarg, vector<vector<alert::ARFixationPointSpec> >& dot_list);
 
 
 
@@ -711,7 +712,7 @@ error_t parse_fixstim_opt(int key, char* carg, struct argp_state* state)
 	{
 		vector<double> tuning_parameters;
 		vector<COLOR_TYPE> color_parameters;
-		vector<alert::ARContrastFixationPointSpec> dot_parameters;
+		vector<vector<alert::ARFixationPointSpec> > dot_parameters;
 		vector<vector<std::tuple<double, double, double> > >multigrating_parameter_groups;
 		int nsteps;
 
@@ -719,7 +720,7 @@ error_t parse_fixstim_opt(int key, char* carg, struct argp_state* state)
 		// the stim set. On first creating it we have to account for any gratings and/or
 		// distractors that have been specified up to this point.
 
-		if ((key == 'D' && parse_fixation_point_list(sarg, dot_parameters)) ||
+		if ((key == 'D' && parse_dot_list(sarg, dot_parameters)) ||
 			(key == 'U' && parse_color_list(sarg, color_parameters)) ||
 			(key == 772 && parse_multigrating(sarg, multigrating_parameter_groups)) ||
 			((key != 'D' && key != 'U') && parse_tuning_list(sarg, tuning_parameters, nsteps)))
@@ -757,7 +758,7 @@ error_t parse_fixstim_opt(int key, char* carg, struct argp_state* state)
 				size_t stimIndex;
 				if (key == 'D')
 				{
-					pmulti->add_dot(dot_parameters.at(0));
+					pmulti->add_dot(dot_parameters[0]);
 					stimIndex = pmulti->dot_count() - 1;
 				}
 				else if (arguments->bLastWasFixpt) stimIndex = -1;
@@ -1582,6 +1583,31 @@ bool parseImageArg(const std::string& arg, std::string& filename, double& x, dou
 		return false;
 	}
 	return true;
+}
+
+int parse_dot_list(const std::string& sarg, vector<vector<alert::ARFixationPointSpec> >& dot_list)
+{
+	int status = 0;
+	vector<string> tokens;
+	vector<alert::ARFixationPointSpec> fixpts;
+
+	// groups are separated by '/' - these are trials, swapped out on "a" trigger. 
+	boost::split(tokens, sarg, boost::is_any_of("/"));
+	for (string s : tokens)
+	{
+		fixpts.clear();
+		status = parse_fixation_point_list(s, fixpts);
+		if (!status)
+		{
+			cerr << "Got a dot trial with " << fixpts.size() << endl;
+			dot_list.push_back(fixpts);
+		}
+		else
+		{
+			cerr << "Error parsing multidot group" << endl;
+		}
+	}
+	return status;
 }
 
 int parse_multigrating(const std::string& sarg,vector<vector<std::tuple<double, double, double> > >& params)

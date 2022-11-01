@@ -55,13 +55,19 @@ int MultiParameterFXMultiGStimSet::init(ARvsg& vsg, std::vector<int> pages, int 
 	}
 
 	// saved dot colors is a thing for Gregg's Grid. 
-	m_dotColorsSaved.clear();
+	//m_dotColorsSaved.clear();
 	if (has_dot())
 	{
 		for (unsigned int i = 0; i < dot_count(); i++)
 		{
-			dot(i).init(vsg, 2);
-			m_dotColorsSaved.push_back(dot(i).color);
+			// How many levels will this dot need? 
+			// Maybe not the best method, but assume that the number needed 
+			// for the first trial is the number needed for all trials. 
+			if (dot(i).isMulti())
+				dot(i).init(vsg, dot(i).getMulti().size(), false);
+			else
+				dot(i).init(vsg, 1, false);
+//			m_dotColorsSaved.push_back(dot(i).color);
 		}
 	}
 
@@ -193,9 +199,9 @@ int MultiParameterFXMultiGStimSet::handle_trigger(const std::string& s, const st
 
 			if (ss)
 			{
-				if (index > -1 && index < dot_count())
+				if (index > -1 && index < dot().getMulti().size())
 				{
-					dot(index).color = color;
+					dot(0).getMulti().at(index).color = color;
 					m_pageflipindex = 1 - m_pageflipindex;
 					draw_stuff_on_page(m_pageflippages[m_pageflipindex], true, true, true, true);
 					status = 3;
@@ -260,15 +266,15 @@ void MultiParameterFXMultiGStimSet::draw_current()
 	// this would be needed to fix. Should have no effect otherwise.
 	vsgMoveScreen(0, 0);
 
-	// restore dot colors
-	
-	if (has_dot())
-	{
-		for (unsigned int i = 0; i < dot_count(); i++)
-		{
-			dot(i).color = m_dotColorsSaved[i];
-		}
-	}
+	//// restore dot colors
+	//
+	//if (has_dot())
+	//{
+	//	for (unsigned int i = 0; i < dot_count(); i++)
+	//	{
+	//		dot(i).color = m_dotColorsSaved[i];
+	//	}
+	//}
 
 	// When cycling is used, we'll need this page with fixpt, xhair (if present), distractors(if present) 
 	draw_stuff_on_page(m_blank_page, false, false, false, false);
