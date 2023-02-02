@@ -123,6 +123,7 @@ public:
 		else
 			pstimset->distractor(index()).w = pstimset->distractor(index()).h = *m_iter;
 
+		// no distractors in test
 		return true;
 	}
 
@@ -581,7 +582,6 @@ public:
 		if (index() < pstimset->dot_count())
 		{
 			pstimset->dot(index()).setMulti(*m_iter);
-			cerr << "Updated dot(" << index() << ") to " << pstimset->dot(index()) << endl;
 		}
 		return true;
 	}
