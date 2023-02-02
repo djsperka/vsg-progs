@@ -1029,6 +1029,8 @@ ARGratingSpec::ARGratingSpec(const ARGratingSpec& g) : ARSpec(g)
 	twt = g.twt;
 	ttf = g.ttf;
 	aperture = g.aperture;
+	bIsMulti = g.bIsMulti;
+	m_multi = g.m_multi;
 	bDrawInitDone = false;
 }
 
@@ -1053,6 +1055,8 @@ ARGratingSpec& ARGratingSpec::operator=(const ARGratingSpec& g)
 		twt = g.twt;
 		ttf = g.ttf;
 		aperture = g.aperture;
+		bIsMulti = g.bIsMulti;
+		m_multi = g.m_multi;
 	}
 	return *this;
 }
