@@ -563,7 +563,7 @@ string MultiParameterFXMultiGStimSet::toString() const
 	if (has_grating())
 	{
 		for (unsigned int i=0; i<count(); i++)
-			cerr << " Grating " << i << ": " << grating(i) << endl;
+			cerr << " Grating " << i << "multi? " << std::boolalpha << grating(i).bIsMulti << "(" << grating(i).m_multi.size() <<") : " << grating(i) << endl;
 	}
 	else
 		cerr << " Grating: NONE" << endl;
