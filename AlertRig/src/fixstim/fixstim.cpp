@@ -38,7 +38,7 @@ using namespace boost::placeholders;
 #include "AlertUtil.h"
 #include "StimSet.h"
 #include "StimSetCRG.h"
-#include "FGGXStimSet.h"
+//#include "FGGXStimSet.h"
 #include "EQStimSet.h"
 #include "AttentionStimSet.h"
 #include "SSInfo.h"

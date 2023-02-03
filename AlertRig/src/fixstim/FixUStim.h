@@ -9,7 +9,7 @@
 #include "StimSet.h"
 #include "EQStimSet.h"
 #include "StimSetCRG.h"
-#include "FGGXStimSet.h"
+//#include "FGGXStimSet.h"
 #include "AttentionStimSet.h"
 #include "MultiParameterFXMultiGStimSet.h"
 #include "BufferedAsyncSerial.h"
