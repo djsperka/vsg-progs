@@ -228,11 +228,6 @@
     <ClCompile Include="CycleTestStimSet.cpp" />
     <ClCompile Include="DotStimSet.cpp" />
     <ClCompile Include="EQStimSet.cpp" />
-    <ClCompile Include="FGGXCoreStimSet.cpp" />
-    <ClCompile Include="FGGXDanishStimSet.cpp" />
-    <ClCompile Include="FGGXDonutStimSet.cpp" />
-    <ClCompile Include="FGGXNullStimSet.cpp" />
-    <ClCompile Include="FGGXStimSet.cpp" />
     <ClCompile Include="fixstim.cpp" />
     <ClCompile Include="FixUStim.cpp" />
     <ClCompile Include="FXImageStimSet.cpp" />
@@ -312,7 +307,6 @@
     <ClInclude Include="CMouseUStim.h" />
     <ClInclude Include="CycleTestStimSet.h" />
     <ClInclude Include="EQStimSet.h" />
-    <ClInclude Include="FGGXStimSet.h" />
     <ClInclude Include="FixptGratingStimSet.h" />
     <ClInclude Include="FixUStim.h" />
     <ClInclude Include="FXGStimParameterList.h" />
