@@ -101,11 +101,11 @@ int SequencedAttentionStimSet::init(ARvsg& vsg, std::vector<int> pages, int)
 	if (m_vecCueCircles.size() > 0)
 	{
 		cerr << "Initialize " << m_vecCueCircles.size() << " cues." << endl;
-		for (unsigned int i = 0; i < m_vecGratings.size(); i++)
+		for (size_t i = 0; i < m_vecGratings.size(); i++)
 		{
 			m_vecCueCircles[i].init(vsg, 2);
 		}
-		for (unsigned int i = m_vecGratings.size(); i < m_vecCueCircles.size(); i++)
+		for (size_t i = m_vecGratings.size(); i < m_vecCueCircles.size(); i++)
 		{
 			cerr << "init cue " << i << " using cue " << (i % m_vecGratings.size()) << endl;
 			m_vecCueCircles[i].init(m_vecCueCircles[i % m_vecGratings.size()]);
@@ -115,7 +115,7 @@ int SequencedAttentionStimSet::init(ARvsg& vsg, std::vector<int> pages, int)
 
 	// create helpers. 
 	m_pFixptHelper = new FixptSequenceHelper(FixptIndex, 100, m_fixpt);
-	m_pCueHelper = new CueSequenceHelper(CueIndex, 0, m_vecGratings.size(), m_vecCueCircles);
+	m_pCueHelper = new CueSequenceHelper(CueIndex, 0, (int)m_vecGratings.size(), m_vecCueCircles);
 	for (unsigned int i = 0; i<m_vecGratings.size(); i++)
 	{
 		m_gratingHelpers.push_back(new GratingSequenceHelper(i, m_vecGratings[i].contrast, m_vecGratings[i]));
@@ -694,7 +694,7 @@ GratingPool& GratingPool::instance()
 	return pool;
 }
 
-void GratingPool::populate(int n, int nlevels)
+void GratingPool::populate(size_t n, size_t nlevels)
 {
 	ARGratingSpec *g;
 	cerr << "Populate grating pool with " << n << " gratings, each using " << nlevels << " levels" << endl;

@@ -341,7 +341,7 @@ EQStimSet::~EQStimSet()
 int EQStimSet::init(ARvsg& vsg, std::vector<int> pages, int)
 {
 	int status = 0;
-	size_t nlevels = 40; // default up to 6 gratings
+	int nlevels = 40; // default up to 6 gratings
 
 	m_pageBlank = pages[0];
 	m_pageFixpt = pages[1];
@@ -360,7 +360,7 @@ int EQStimSet::init(ARvsg& vsg, std::vector<int> pages, int)
 	fixpt().init(vsg, 2);
 	fixpt().setContrast(100);
 
-	if (count() > 6) nlevels = 200/count();
+	if (count() > 6) nlevels = 200/(int)count();
 	cerr << "Number of levels per grating " << nlevels << endl;
 	for (unsigned int i=0; i<count(); i++)
 	{

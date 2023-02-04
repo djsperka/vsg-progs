@@ -542,7 +542,7 @@ AttentionStimSet::AttentionStimSet(ARContrastFixationPointSpec& fixpt, vector<al
 int AttentionStimSet::init(ARvsg& vsg, std::vector<int> pages, int)
 {
 	int status = 0;
-	size_t nlevels;
+	int nlevels;
 	m_pageBlank = pages[0];
 	m_pageFixpt = pages[1];
 	m_pageStim = pages[2];
@@ -571,7 +571,7 @@ int AttentionStimSet::init(ARvsg& vsg, std::vector<int> pages, int)
 	// objects. Thus, if there are 3 stim, and 18 sets of cues (54 in all), then we will only need 6 levels for 
 	// the cue objects.
 
-	nlevels = (245-((m_bUseCueCircles || m_bUseCuePoints) ? m_vecGratings.size()*2 : 0))/(m_vecGratings.size() * 2 + m_vecDistractors.size());
+	nlevels = (int)((245-((m_bUseCueCircles || m_bUseCuePoints) ? m_vecGratings.size()*2 : 0))/(m_vecGratings.size() * 2 + m_vecDistractors.size()));
 	cerr << "Number of levels per grating " << nlevels << endl;
 
 
@@ -593,7 +593,7 @@ int AttentionStimSet::init(ARvsg& vsg, std::vector<int> pages, int)
 	{
 		m_vecCues[i].init(vsg, 2);
 	}
-	for (unsigned int i = m_vecGratings.size(); i < m_vecCues.size(); i++)
+	for (size_t i = m_vecGratings.size(); i < m_vecCues.size(); i++)
 	{
 		cerr << "init cue " << i << " using cue " << (i % m_vecGratings.size()) << endl;
 		m_vecCues[i].init(m_vecCues[i % m_vecGratings.size()]);
@@ -1050,7 +1050,7 @@ int AttentionStimSet::drawCurrentInterleaved()
 	vsgPageCyclingSetup(nCycle, &cycle[0]);
 
 	cerr << "Cycling: Using " << nCycle << " pages" << endl;
-	for (int i = 0; i<nCycle; i++)
+	for (unsigned int i = 0; i<nCycle; i++)
 	{
 		cerr << i << ": page=" << (cycle[i].Page & vsgTRIGGERPAGE ? cycle[i].Page - vsgTRIGGERPAGE : cycle[i].Page) << " Frames=" << cycle[i].Frames << endl;
 	}

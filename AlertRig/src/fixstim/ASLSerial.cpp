@@ -195,7 +195,7 @@ void dump(const LPSAFEARRAY& items, long count)
 	CComVariant value;
 	for (long i = 0; i < count; i++)
 	{
-		sprintf(tmp, "item %d", (int)i);
+		sprintf_s(tmp, 64, "item %d", (int)i);
 		SafeArrayGetElement(items, &i, &value);
 		vval(tmp, value);
 	}

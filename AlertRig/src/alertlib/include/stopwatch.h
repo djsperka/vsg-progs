@@ -21,7 +21,7 @@ namespace alert
 		virtual ~Stopwatch() {};
 		unsigned int split(std::string& s);
 		unsigned int split(char *str);
-		unsigned int count() const { return times_.size(); };
+		unsigned int count() const { return (unsigned int)times_.size(); };
 		unsigned int mark();
 		unsigned int time(unsigned int i) const;
 		std::string label(unsigned int i) const;

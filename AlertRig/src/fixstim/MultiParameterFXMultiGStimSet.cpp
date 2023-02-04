@@ -64,7 +64,7 @@ int MultiParameterFXMultiGStimSet::init(ARvsg& vsg, std::vector<int> pages, int 
 			// Maybe not the best method, but assume that the number needed 
 			// for the first trial is the number needed for all trials. 
 			if (dot(i).isMulti())
-				dot(i).init(vsg, dot(i).getMulti().size(), false);
+				dot(i).init(vsg, (int)dot(i).getMulti().size(), false);
 			else
 				dot(i).init(vsg, 1, false);
 //			m_dotColorsSaved.push_back(dot(i).color);

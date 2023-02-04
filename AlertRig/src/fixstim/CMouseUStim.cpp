@@ -1207,7 +1207,7 @@ void CMouseUStim::joystickPositionToVSGDrawDegrees(double joyX, double joyY, dou
 {
 	double vsgPixelsX = joyX / 100.0 * m_vsgWidthPixels / 2;
 	double vsgPixelsY = joyY / 100.0 * m_vsgHeightPixels / 2;
-	vsgPixelsToVSGDrawDegrees(vsgPixelsX, vsgPixelsY, pvsgDegX, pvsgDegY);
+	vsgPixelsToVSGDrawDegrees((int)vsgPixelsX, (int)vsgPixelsY, pvsgDegX, pvsgDegY);
 }
 
 void CMouseUStim::mousePixelsToVSGPixels(int pixMouseX, int pixMouseY, double* pvsgPixelsX, double* pvsgPixelsY)

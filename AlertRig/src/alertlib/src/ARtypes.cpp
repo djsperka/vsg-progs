@@ -270,7 +270,6 @@ int parse_color(std::string s, COLOR_TYPE& c)
 	else if (s == "blue" || s == "BLUE" || s == "b" || s == "B") c.setType(blue);
 	else
 	{
-		int n;
 		int r, g, b;
 		double dr, dg, db;
 		boost::regex exprParen{ "\\s*[(](\\d+)[/](\\d+)[/](\\d+)[)]" };
@@ -562,7 +561,7 @@ int parse_tuning_list(vector<string>& tokens, vector<double>& tuning_list, int& 
 		}
 	}
 	// Number of steps is the size of the list MINUS 1!
-	i_iSteps = tuning_list.size() - 1;
+	i_iSteps = (int)tuning_list.size() - 1;
 	return status;
 }
 

@@ -88,7 +88,7 @@ CRegEntry& CRegEntry::operator=(LPCTSTR lpszValue) {
 
 	REGENTRY_ALLOWCONV(true)
 	if (REGENTRY_NOTLOADING && REGENTRY_KEYVALID( KEY_SET_VALUE ))
-		RegSetValueEx(__cregOwner->hKey, lpszName, NULL, REG_SZ, (LPBYTE)lpszValue, nValueLen);
+		RegSetValueEx(__cregOwner->hKey, lpszName, NULL, REG_SZ, (LPBYTE)lpszValue, (DWORD)nValueLen);
 	REGENTRY_TRYCLOSE;
 
 	__bStored = true;
@@ -237,7 +237,7 @@ void CRegEntry::SetBinary(LPBYTE lpbValue, size_t nLen) {
 	iType = REG_BINARY;	
 
 	if (REGENTRY_NOTLOADING && REGENTRY_KEYVALID ( KEY_SET_VALUE ) )
-		RegSetValueEx(__cregOwner->hKey, lpszName, NULL, REG_BINARY, lpbValue, nLen);
+		RegSetValueEx(__cregOwner->hKey, lpszName, NULL, REG_BINARY, lpbValue, (DWORD)nLen);
 	REGENTRY_TRYCLOSE;
 	
 	__bStored = true;
@@ -332,7 +332,7 @@ void CRegEntry::SetMulti(LPCTSTR lpszValue, size_t nLen, bool bInternal) {
 	SkipNoInternal:
 
 	if (REGENTRY_NOTLOADING && REGENTRY_KEYVALID ( KEY_SET_VALUE ) )
-		RegSetValueEx(__cregOwner->hKey, lpszName, NULL, REG_MULTI_SZ, (LPBYTE)lpszValue, nLen*sizeof(TCHAR));
+		RegSetValueEx(__cregOwner->hKey, lpszName, NULL, REG_MULTI_SZ, (LPBYTE)lpszValue, (DWORD)(nLen*sizeof(TCHAR)));
 	REGENTRY_TRYCLOSE;
 
 	__bStored = true;
@@ -562,7 +562,7 @@ CRegEntry& CRegistry::operator []( LPCTSTR lpszVName) {
 	size_t nValueNameLen = _tcslen(lpszVName) + 1;
 	assert(nValueNameLen <= _MAX_REG_VALUE);
 
-	for (int i = _reEntries.size()-1; i >=0; i--) {
+	for (size_t i = _reEntries.size()-1; i >=0; i--) {
 		if (!_tcsicmp(lpszVName, _reEntries[i]->lpszName))
 			return *_reEntries[i];
 	}

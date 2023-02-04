@@ -10,7 +10,7 @@
 
 using namespace alert;
 using namespace std;
-class IASLSerialOutPort3;
+struct IASLSerialOutPort3;
 
 class CalibrationUStim: public UStim, public prargs_handler
 {

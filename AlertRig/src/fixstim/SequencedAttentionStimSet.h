@@ -34,7 +34,7 @@ class GratingPool
 public:
 	static GratingPool& instance();	// singleton
 	~GratingPool() {};
-	void populate(int n, int nlevels);	// dangerous, call just once
+	void populate(size_t n, size_t nlevels);	// dangerous, call just once
 
 	ARGratingSpec *getGrating();
 	void returnGrating(ARGratingSpec *);
