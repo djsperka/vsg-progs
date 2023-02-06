@@ -8,7 +8,7 @@ class ImFixptSequenceHelper : public SequenceHelper
 	ARFixationPointSpec& m_fixpt;
 	void setContrastPriv() {};
 public:
-	ImFixptSequenceHelper(int index, int defaultContrast, ARFixationPointSpec& fixpt) : SequenceHelper(index, defaultContrast), m_fixpt(fixpt) {};
+	ImFixptSequenceHelper(size_t index, int defaultContrast, ARFixationPointSpec& fixpt) : SequenceHelper(index, defaultContrast), m_fixpt(fixpt) {};
 	virtual ~ImFixptSequenceHelper() {};
 	void draw(double initial_phase) { draw(); };
 	void draw();
@@ -20,12 +20,12 @@ public:
 // TODO - must create ARCueCircleSpec
 class ImCueSequenceHelper : public SequenceHelper
 {
-	int m_ngratings;
+	size_t m_ngratings;
 	std::vector<alert::ARCueCircleSpec> m_circles;
 	void setContrastPriv() {};
 
 public:
-	ImCueSequenceHelper(int index, int defaultContrast, int ngratings, const std::vector<alert::ARCueCircleSpec>& circles)
+	ImCueSequenceHelper(size_t index, int defaultContrast, size_t ngratings, const std::vector<alert::ARCueCircleSpec>& circles)
 		: SequenceHelper(index, defaultContrast), m_ngratings(ngratings), m_circles(circles) {};
 	virtual ~ImCueSequenceHelper() {};
 	void draw(double initial_phase);	// no-op
@@ -43,7 +43,7 @@ class ImageSequenceHelper : public SequenceHelper
 	const vector<string>& m_imageFiles;
 	void setContrastPriv() {};		// use contrast() to get image index. 
 public:
-	ImageSequenceHelper(int index, double x, double y, const vector<string>& vecImageFiles)
+	ImageSequenceHelper(size_t index, double x, double y, const vector<string>& vecImageFiles)
 		: SequenceHelper(index, -1)
 		, m_x(x)
 		, m_y(y)

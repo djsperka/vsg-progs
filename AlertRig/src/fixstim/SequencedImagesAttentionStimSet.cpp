@@ -14,7 +14,7 @@ SequencedImagesAttentionStimSet::SequencedImagesAttentionStimSet(ARContrastFixat
 	, m_bCuePointIsDot(bCuePointIsDot)
 	, m_current(0)
 {
-	int nStimPositions = std::get<1>(m_ifp).size();
+	size_t nStimPositions = std::get<1>(m_ifp).size();
 	cout << "SequencedImagesAttentionStimSet: " << m_trialSpecs.size() << " trials." << endl;
 	cout << "SequencedImagesAttentionStimSet: " << nStimPositions << " stim positions." << endl;
 	cout << "SequencedImagesAttentionStimSet: " << vecCuePairs.size() << " cue specifications." << endl;
@@ -90,7 +90,7 @@ SequencedImagesAttentionStimSet::SequencedImagesAttentionStimSet(ARContrastFixat
 	// create helpers
 	m_pFixptHelper = new ImFixptSequenceHelper(FixptIndex, 100, m_fixpt);
 	m_pCueHelper = new ImCueSequenceHelper(CueIndex, 0, nStimPositions, m_vecCueCircles);
-	for (unsigned int i = 0; i < nStimPositions; i++)
+	for (size_t i = 0; i < nStimPositions; i++)
 	{
 		m_imageHelpers.push_back(new ImageSequenceHelper(i, std::get<1>(m_ifp)[i].first, std::get<1>(m_ifp)[i].second, std::get<0>(m_ifp)));
 	}
@@ -191,7 +191,7 @@ void SequencedImagesAttentionStimSet::drawCurrent()
 
 
 
-	int f = 0;
+	size_t f = 0;
 	int nPagesConfigured = 2;
 
 	// collect index/contrast pairs for a single page. When a new frame number is encountered, draw it, then clear
@@ -234,7 +234,7 @@ void SequencedImagesAttentionStimSet::drawCurrent()
 			drawPage(pageNumber, m_trialSpecs[m_current].offbits);
 
 			// Now update cycling array using the page we just found or created
-			cycle[ncycle].Frames = frame_icpair.first - f;
+			cycle[ncycle].Frames = (WORD)(frame_icpair.first - f);
 			cycle[ncycle].Page = pageNumber + vsgTRIGGERPAGE;
 			cycle[ncycle].Stop = 0;
 			cycle[ncycle].ovPage = cycle[ncycle].ovXpos = cycle[ncycle].ovYpos = cycle[ncycle].Xpos = cycle[ncycle].Ypos = 0;
@@ -377,7 +377,7 @@ void ImageSequenceHelper::draw(double ignore)
 	if (contrast() < 0 || contrast() >= m_imageFiles.size()) return;
 	// draw image
 	char f[256];
-	strcpy(f, m_imageFiles[contrast()].c_str());
+	strcpy_s(f, 256, m_imageFiles[contrast()].c_str());
 	vsgDrawImage(vsgBMPPICTURE + vsgPALETTELOAD, m_x, -m_y, f);
 
 }

@@ -10,6 +10,7 @@
 #include <algorithm>
 using namespace std;
 
+
 SequencedAttentionStimSet::SequencedAttentionStimSet(ARContrastFixationPointSpec& fixpt, vector<alert::ARGratingSpec>& vecGratings, vector<AttentionCue>& vecCuePairs, bool bCueCircles, bool bCuePoints, bool bCueIsDot, vector<AttentionSequenceTrialSpec>& trialSpecs)
 : m_trialSpecs(trialSpecs)
 , m_fixpt(fixpt)
@@ -210,7 +211,7 @@ int SequencedAttentionStimSet::drawCurrent()
 	// When the index is a grating, updateHelper calls setContrast on the helper itself. For a 
 	// GratingHelper, 
 
-	int f = 0;
+	size_t f = 0;
 	for (auto frame_icpair : m_trialSpecs[m_current].icpm)
 	{
 		//cerr << "Got frame/icpair " << frame_icpair.first << "/" << frame_icpair.second.first << "," << frame_icpair.second.second << endl;
@@ -260,7 +261,7 @@ int SequencedAttentionStimSet::drawCurrent()
 			}
 
 			// Now update cycling array using the page we just found or created
-			cycle[ncycle].Frames = frame_icpair.first - f;
+			cycle[ncycle].Frames = (WORD)(frame_icpair.first - f);
 			cycle[ncycle].Page = pageNumber + vsgTRIGGERPAGE;
 			cycle[ncycle].Stop = 0;
 			cycle[ncycle].ovPage = cycle[ncycle].ovXpos = cycle[ncycle].ovYpos = cycle[ncycle].Xpos = cycle[ncycle].Ypos = 0;
@@ -413,10 +414,10 @@ int SequencedAttentionStimSet::handle_trigger(const std::string& s, const std::s
 
 
 
-int parse_sequenced_params(const std::string& filename, unsigned int ngratings, std::vector<AttentionSequenceTrialSpec>& trialSpecs, ImageFilesPositions& ifp)
+int parse_sequenced_params(const std::string& filename, size_t ngratings, std::vector<AttentionSequenceTrialSpec>& trialSpecs, ImageFilesPositions& ifp)
 {
 	int status = 0;
-	unsigned int nimages = 0;
+	size_t nimages = 0;
 	std::ifstream myfile(filename.c_str());
 	if (myfile.is_open())
 	{
@@ -703,7 +704,7 @@ void GratingPool::populate(size_t n, size_t nlevels)
 	for (int i = 0; i < n; i++)
 	{
 		g = new ARGratingSpec();
-		g->init(nlevels);
+		g->init((int)nlevels);
 		not_in_use.push_back(g);
 	}
 	cerr << "Grating pool status:" << endl;
@@ -754,7 +755,7 @@ void GratingPool::printPoolStatus()
 
 
 
-GratingSequenceHelper::GratingSequenceHelper(int index, int defaultContrast, const ARGratingSpec& grating)
+GratingSequenceHelper::GratingSequenceHelper(size_t index, int defaultContrast, const ARGratingSpec& grating)
 	: SequenceHelper(index, defaultContrast)
 	, m_defaultContrast(defaultContrast)
 {

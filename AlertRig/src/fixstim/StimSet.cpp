@@ -488,7 +488,7 @@ int GratingStimSet::init(ARvsg& vsg, std::vector<int> pages, int)
 	return status;
 }
 
-int GratingStimSet::handle_trigger(const const std::string &s, const std::string&)
+int GratingStimSet::handle_trigger(const std::string &s, const std::string&)
 {
 	int status = 0;
 	if (s == "S")
@@ -594,7 +594,7 @@ int FixptMultiGratingStimSet::init(ARvsg& vsg, std::vector<int> pages, int)
 	// figure out how to divvy levels
 	if (count() + distractor_count() > 0)
 	{
-		levels = min(max_levels, 240/(count() + distractor_count()));
+		levels = min(max_levels, 240/(int)(count() + distractor_count()));
 	}
 
 	if (has_xhair())
@@ -1569,7 +1569,7 @@ int FlashStimSet::init(ARvsg& vsg, std::vector<int> pages, int)
 {
 	VSGCYCLEPAGEENTRY cycle[32768];
 	int status = 0;
-	unsigned int index;
+	size_t index;
 	int pageBlank = vsgGetZoneDisplayPage(vsgVIDEOPAGE);
 	PIXEL_LEVEL level;
 
@@ -1618,7 +1618,7 @@ int FlashStimSet::init(ARvsg& vsg, std::vector<int> pages, int)
 	// second color, respectively. 
 	if (m_balanced && pages.size()==3)
 	{
-		unsigned int len = m_seq.length();
+		size_t len = m_seq.length();
 		for (index = 0; index < m_seq.length(); index++)
 		{
 			cycle[len + index].Frames = m_fpt;
@@ -1635,7 +1635,7 @@ int FlashStimSet::init(ARvsg& vsg, std::vector<int> pages, int)
 	cycle[index+1].Stop = 1;
 
 
-	vsgPageCyclingSetup(index + 2, &cycle[0]);
+	vsgPageCyclingSetup((DWORD)(index + 2), &cycle[0]);
 	cerr << "Page cycling ready, " << index << " terms" << endl;
 
 	return status;
@@ -1725,7 +1725,7 @@ int CRGStimSet::init(ARvsg& vsg, std::vector<int> pages, int)
 {
 	VSGCYCLEPAGEENTRY cycle[32768];
 	int status = 0;
-	unsigned int index;
+	size_t index;
 	int pageBlank = vsgGetZoneDisplayPage(vsgVIDEOPAGE);
 
 	m_page0 = pages[0];
@@ -1769,7 +1769,7 @@ int CRGStimSet::init(ARvsg& vsg, std::vector<int> pages, int)
 
 	if (m_balanced)
 	{
-		unsigned int len = m_seq.length();
+		size_t len = m_seq.length();
 		for (index = 0; index < m_seq.length(); index++)
 		{
 			cycle[len + index].Frames = m_fpt;
@@ -1786,7 +1786,7 @@ int CRGStimSet::init(ARvsg& vsg, std::vector<int> pages, int)
 	cycle[index+1].Stop = 1;
 
 
-	vsgPageCyclingSetup(index + 2, &cycle[0]);
+	vsgPageCyclingSetup((DWORD)(index + 2), &cycle[0]);
 	//cerr << "Page cycling ready, " << index << " terms" << endl;
 
 	return status;

@@ -838,11 +838,17 @@ void CRegistry::DeleteKey() {
 
 	OSVERSIONINFO osvi;
 	osvi.dwOSVersionInfoSize = sizeof(OSVERSIONINFO);
-	
+
+#if 0
+# DJS GetVersionEx is deprecated, and who cares about windows NT?
 	if (GetVersionEx(&osvi) && osvi.dwPlatformId == VER_PLATFORM_WIN32_NT)
 		DeleteKey(_hRootKey, _lpszSubKey);
 	else 
 		RegDeleteKey(_hRootKey, _lpszSubKey);
+#else
+	RegDeleteKey(_hRootKey, _lpszSubKey);
+#endif
+
 
 	Close();
 }

@@ -18,10 +18,10 @@ typedef std::pair<double, double> ImageXY;
 typedef std::tuple<std::vector<std::string>, std::vector<ImageXY> > ImageFilesPositions;
 
 // index, contrast pair
-typedef std::pair< unsigned int, int > ICPair;
+typedef std::pair< size_t, int > ICPair;
 
 // map of index, contrast pairs, with key = frames
-typedef std::multimap<unsigned int, ICPair> ICPairMap;
+typedef std::multimap<size_t, ICPair> ICPairMap;
 
 
 // Resource pool for gratings
@@ -52,11 +52,11 @@ public:
 
 class SequenceHelper
 {
-	int m_index;
+	size_t m_index;
 	int m_contrast;
 	virtual void setContrastPriv() = 0;
 public: 
-	SequenceHelper(int index, int contrast): m_index(index), m_contrast(contrast) {};
+	SequenceHelper(size_t index, int contrast): m_index(index), m_contrast(contrast) {};
 	virtual ~SequenceHelper() {};
 	int contrast() const { return m_contrast; };
 	virtual void setContrast(int contrast) { m_contrast = contrast;  setContrastPriv(); };
@@ -69,7 +69,7 @@ class FixptSequenceHelper: public SequenceHelper
 	ARContrastFixationPointSpec& m_fixpt;
 	void setContrastPriv() {};
 public:
-	FixptSequenceHelper(int index, int defaultContrast, ARContrastFixationPointSpec& fixpt): SequenceHelper(index, defaultContrast), m_fixpt(fixpt) {};
+	FixptSequenceHelper(size_t index, int defaultContrast, ARContrastFixationPointSpec& fixpt): SequenceHelper(index, defaultContrast), m_fixpt(fixpt) {};
 	virtual ~FixptSequenceHelper() {};
 	void draw(double initial_phase) { draw(); };
 	void draw();
@@ -77,17 +77,16 @@ public:
 
 class CueSequenceHelper : public SequenceHelper
 {
-	int m_ngratings;
+	size_t m_ngratings;
 	std::vector<alert::ARContrastCueCircleSpec> m_circles;
 	void setContrastPriv() {};
 
 public:
-	CueSequenceHelper(int index, int defaultContrast, int ngratings, const std::vector<alert::ARContrastCueCircleSpec>& circles)
+	CueSequenceHelper(size_t index, int defaultContrast, size_t ngratings, const std::vector<alert::ARContrastCueCircleSpec>& circles)
 		: SequenceHelper(index, defaultContrast), m_ngratings(ngratings), m_circles(circles) {};
 	virtual ~CueSequenceHelper() {};
 	void draw(double initial_phase);	// no-op
 	void draw_cues(int offbits, bool bCircles);
-	//void draw_cue_points(int offbits);
 };
 
 class GratingSequenceHelper: public SequenceHelper
@@ -97,7 +96,7 @@ class GratingSequenceHelper: public SequenceHelper
 	int m_defaultContrast;
 	void setContrastPriv();
 public:
-	GratingSequenceHelper(int index, int defaultContrast, const ARGratingSpec& grating);
+	GratingSequenceHelper(size_t index, int defaultContrast, const ARGratingSpec& grating);
 	~GratingSequenceHelper();
 
 	// draw a grating at current contrast
@@ -129,8 +128,7 @@ typedef struct
 } AttentionSequenceTrialSpec;
 
 
-
-int parse_sequenced_params(const std::string& arg, unsigned int ngratings, std::vector<AttentionSequenceTrialSpec>& trialSpecs, ImageFilesPositions& filespos);
+int parse_sequenced_params(const std::string& filename, size_t ngratings, std::vector<AttentionSequenceTrialSpec>& trialSpecs, ImageFilesPositions& ifp);
 
 
 #define SECONDS_TO_FRAMES(t) (int)((t) * 1000000.0 /vsgGetSystemAttribute(vsgFRAMETIME))
