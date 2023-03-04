@@ -235,6 +235,40 @@ int parse_colorvector(std::string s, COLOR_VECTOR_TYPE& v)
 	return status;
 }
 
+int parse_colorvector_list(std::string s, std::vector<COLOR_VECTOR_TYPE>& colorvector_list)
+{
+	int status = 0;
+	vector<string> tokens;
+	tokenize(s, tokens, ",");
+	return parse_colorvector_list(tokens, colorvector_list);
+}
+
+int parse_colorvector_list(std::vector<string>& tokens, std::vector<COLOR_VECTOR_TYPE>& colorvector_list)
+{
+	int status = 0;
+	unsigned int i;
+	istringstream iss;
+	COLOR_VECTOR_TYPE colorvector;
+	for (i = 0; i < tokens.size(); i++)
+	{
+		iss.clear();
+		iss.str(tokens[i]);
+		iss >> colorvector;
+		if (!iss)
+		{
+			cerr << "bad colorvector value: " << tokens[i] << endl;
+			status = 1;
+		}
+		else
+		{
+			colorvector_list.push_back(colorvector);
+		}
+	}
+	return status;
+}
+
+
+
 COLOR_TYPE& COLOR_TYPE::operator=(const COLOR_TYPE& ct)
 {
 	if (this == &ct) return *this;

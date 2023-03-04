@@ -96,6 +96,8 @@ int parse_color(std::string s, COLOR_TYPE& c);
 // SEE COLOR_TYPE::trival() int get_color(COLOR_TYPE c, VSGTRIVAL& trival);
 int get_colorvector(COLOR_VECTOR_TYPE& cv, VSGTRIVAL& from, VSGTRIVAL& to);
 int parse_colorvector(std::string s, COLOR_VECTOR_TYPE& v);
+int parse_colorvector_list(std::string s, std::vector<COLOR_VECTOR_TYPE>& colorvector_list);
+int parse_colorvector_list(std::vector<std::string>& tokens, std::vector<COLOR_VECTOR_TYPE>& colorvector_list);
 int parse_waveform_types(std::string s, WAVEFORM_TYPE& swt, WAVEFORM_TYPE& twt);
 int parse_aperture(std::string s, APERTURE_TYPE& a);
 int parse_distance(std::string s, int& dist);
