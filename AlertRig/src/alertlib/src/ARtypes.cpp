@@ -179,12 +179,7 @@ std::ostream& operator<<(std::ostream& out, const WAVEFORM_TYPE& p)
 int parse_colorvector(std::string s, COLOR_VECTOR_TYPE& v)
 {
 	int status = 0;
-	if (s == "black" || s == "BLACK" ||
-		s == "b" || s == "B" ||
-		s == "white" || s == "WHITE" ||
-		s == "w" || s == "W" ||
-		s == "gray" || s == "GRAY" ||
-		s == "g" || s == "G") v.type = b_w;
+	if (s == "b" || s == "B" || s == "bw") v.type = b_w;
 	else if (s == "l" || s == "L") v.type = l_cone;
 	else if (s == "m" || s == "M") v.type = m_cone;
 	else if (s == "s" || s == "S") v.type = s_cone;
