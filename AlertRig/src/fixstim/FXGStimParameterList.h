@@ -503,6 +503,46 @@ public:
 };
 
 
+class ColorVectorList : public FXGStimParameterList
+{
+public:
+	ColorVectorList(vector<COLOR_VECTOR_TYPE> colorvectors, unsigned int index, bool bDistractor) : FXGStimParameterList(index, bDistractor), m_vec(colorvectors) { m_iter = m_vec.begin(); };
+	ColorVectorList(const ColorVectorList& list) : FXGStimParameterList(list.index(), list.isDistractor()), m_vec(list.m_vec)
+	{
+		m_iter = m_vec.begin();
+	}
+	virtual ~ColorVectorList() {};
+	virtual bool advance(MultiParameterFXMultiGStimSet* pstimset)
+	{
+		m_iter++;
+		if (m_iter == m_vec.end()) m_iter = m_vec.begin();
+		return set_current_parameter(pstimset);
+	}
+
+	virtual bool set_current_parameter(MultiParameterFXMultiGStimSet* pstimset)
+	{
+		if (!isDistractor())
+		{
+			cerr << "Set grating cv to: " << *m_iter << endl;
+			pstimset->grating(index()).cv = *m_iter;
+		}
+		else
+		{
+			cerr << "Set distractor cv to: " << *m_iter << endl;
+			pstimset->distractor(index()).cv = *m_iter;
+		}
+		return true;
+	}
+
+private:
+	vector<COLOR_VECTOR_TYPE> m_vec;
+	vector<COLOR_VECTOR_TYPE>::const_iterator m_iter;
+};
+
+
+
+
+
 class FixptXYList: public StimXYList
 {
 public:

@@ -77,6 +77,7 @@ static struct argp_option options[] = {
 	{"wh", 773, "w0,h0[[,w1,h1],...]", 0, "Width,height tuning curve"},
 	{"multi-ori", 772, "x0,y0,ori0[,x1,y1,ori1[...]]", 0, "Multi-grating pos with ori"},
 	{"num-stim-pages", 771, "1(default)|2|3", 1, "Number of stimulus pages prepared for each trial."},
+	{"colorvector", 770, "cv1,cv2,...", 0, "grating/distractor colorvector list"},
 	{ 0 }
 };
 static struct argp f_argp = { options, parse_fixstim_opt, 0, "fixstim -- all-purpose stimulus engine" };
@@ -709,9 +710,11 @@ error_t parse_fixstim_opt(int key, char* carg, struct argp_state* state)
 	case 778:
 	case 773:
 	case 772:
+	case 770:
 	{
 		vector<double> tuning_parameters;
 		vector<COLOR_TYPE> color_parameters;
+		vector<COLOR_VECTOR_TYPE> colorvector_parameters;
 		vector<vector<alert::ARFixationPointSpec> > dot_parameters;
 		vector<vector<std::tuple<double, double, double> > >multigrating_parameter_groups;
 		int nsteps;
@@ -722,8 +725,9 @@ error_t parse_fixstim_opt(int key, char* carg, struct argp_state* state)
 
 		if ((key == 'D' && parse_dot_list(sarg, dot_parameters)) ||
 			(key == 'U' && parse_color_list(sarg, color_parameters)) ||
+			(key == 770 && parse_colorvector_list(sarg, colorvector_parameters)) ||
 			(key == 772 && parse_multigrating(sarg, multigrating_parameter_groups)) ||
-			((key != 'D' && key != 'U') && parse_tuning_list(sarg, tuning_parameters, nsteps)))
+			((key != 'D' && key != 'U' && key != 770) && parse_tuning_list(sarg, tuning_parameters, nsteps)))
 		{
 			ret = EINVAL;
 		}
@@ -813,6 +817,9 @@ error_t parse_fixstim_opt(int key, char* carg, struct argp_state* state)
 					break;
 				case 'D':
 					plist = new DotList(dot_parameters, (unsigned int)stimIndex);
+					break;
+				case 770:
+					plist = new ColorVectorList(colorvector_parameters, (unsigned int)stimIndex, arguments->bLastWasDistractor);
 					break;
 				case 778:
 					plist = new PursuitList(tuning_parameters);
