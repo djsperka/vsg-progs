@@ -1051,7 +1051,7 @@ error_t parse_opt(int key, char* carg, struct argp_state* state)
 				arguments->grating.swt = sinewave;
 				arguments->grating.twt = sinewave;
 				arguments->grating.aperture = ellipse;
-				arguments->grating.cv.type = b_w;
+				arguments->grating.cv.setType(b_w);
 				arguments->grating.ttf = 0;
 			}
 			break;

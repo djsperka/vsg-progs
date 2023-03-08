@@ -814,7 +814,6 @@ void GratingSequenceHelper::setContrastPriv()
 				g->twt = m_gratingDefault.twt;
 				g->ttf = m_gratingDefault.ttf;
 				g->aperture = m_gratingDefault.aperture;
-				g->bDrawInitDone = false;
 
 				m_gratingMap.insert(make_pair(contrast(), g));
 			}
