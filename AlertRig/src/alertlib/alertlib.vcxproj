@@ -264,7 +264,6 @@ copy include\*.h $(SolutionDir)..\include</Command>
     <ClCompile Include="src\ARvsg.cpp" />
     <ClCompile Include="src\AsyncSerial.cpp" />
     <ClCompile Include="src\BufferedAsyncSerial.cpp" />
-    <ClCompile Include="src\coneiso.cpp" />
     <ClCompile Include="src\getopt.c" />
     <ClCompile Include="src\helper.cpp" />
     <ClCompile Include="src\mseq.cpp" />
@@ -273,7 +272,6 @@ copy include\*.h $(SolutionDir)..\include</Command>
     <ClCompile Include="src\stopwatch.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="coneiso.h" />
     <ClInclude Include="include\alert-argp.h" />
     <ClInclude Include="include\alert-triggers.h" />
     <ClInclude Include="include\Alertlib.h" />
