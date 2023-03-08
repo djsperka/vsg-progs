@@ -320,7 +320,7 @@ int parse_grating(const std::string& s, alert::ARGratingSpec& ag)
 		}
 
 		// set defaults for the remaining items, then read if present
-		ag.cv.type = b_w;
+		ag.cv.setType(b_w);
 		ag.swt = sinewave;
 		ag.twt = sinewave;
 		ag.aperture = ellipse;

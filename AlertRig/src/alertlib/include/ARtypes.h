@@ -31,19 +31,38 @@
 
 
 // These typedefs are used in all the specs. 
-typedef enum colorvectorenum { unknown_color_vector = 0, b_w, l_cone, m_cone, s_cone, custom_color_vector } COLOR_VECTOR_ENUM;
-typedef enum colortype { unknown_color = 0, black = 1, white = 2, red = 3, green = 4, blue = 5, gray = 6, custom = 7 } COLOR_ENUM;
+typedef enum { unknown_color_vector, b_w, l_cone, m_cone, s_cone, custom_color_vector } COLOR_VECTOR_ENUM;
+typedef enum { unknown_color = 0, black = 1, white = 2, red = 3, green = 4, blue = 5, gray = 6, custom = 7 } COLOR_ENUM;
 //typedef enum patterntype { unknown_pattern=0, sinewave, squarewave } PATTERN_TYPE;
 typedef enum waveform_type { unknown_spatial_waveform = 0, sinewave, squarewave } WAVEFORM_TYPE;
 typedef enum aperturetype { unknown_aperture = 0, ellipse, rectangle } APERTURE_TYPE;
 typedef int PIXEL_LEVEL;
 
-typedef struct color_vector_struct
+//typedef struct color_vector_struct
+//{
+//	COLOR_VECTOR_ENUM type;
+//	VSGTRIVAL from;
+//	VSGTRIVAL to;
+//} COLOR_VECTOR_TYPE;
+
+class COLOR_VECTOR_TYPE
 {
-	COLOR_VECTOR_ENUM type;
-	VSGTRIVAL from;
-	VSGTRIVAL to;
-} COLOR_VECTOR_TYPE;
+	COLOR_VECTOR_ENUM m_type;
+	VSGTRIVAL m_from;
+	VSGTRIVAL m_to;
+
+public:
+	COLOR_VECTOR_TYPE();
+	COLOR_VECTOR_TYPE(COLOR_VECTOR_ENUM type);
+	COLOR_VECTOR_TYPE(const COLOR_VECTOR_TYPE& cv);
+	COLOR_VECTOR_TYPE& operator=(const COLOR_VECTOR_TYPE& cv);
+	COLOR_VECTOR_TYPE& operator=(const COLOR_VECTOR_ENUM& t);
+	COLOR_VECTOR_ENUM type() const { return m_type; };
+	VSGTRIVAL from() const { return m_from; };
+	VSGTRIVAL to() const { return m_to; };
+	void setType(COLOR_VECTOR_ENUM t);
+	void setCustom(const VSGTRIVAL& from, const VSGTRIVAL& to);
+};
 
 /*
 typedef struct color_struct

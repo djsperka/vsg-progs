@@ -102,10 +102,8 @@ int arutil_draw_grating_fullscreen(ARGratingSpec& gr, int videoPage)
 		vsgObjSetContrast(gr.contrast);
 
 		// set color vector
-		if (get_colorvector(gr.cv, from, to))
-		{
-			cerr << "Cannot get color vector for type " << gr.cv << endl;
-		}
+		from = gr.cv.from();
+		to = gr.cv.to();
 		vsgObjSetColourVector(&from, &to, vsgBIPOLAR);
 
 		double dWidth = vsgGetScreenWidthPixels();
@@ -161,10 +159,8 @@ int arutil_draw_grating(ARGratingSpec& gr, int videoPage)
 		vsgObjSetContrast(gr.contrast);
 
 		// set color vector
-		if (get_colorvector(gr.cv, from, to))
-		{
-			cerr << "Cannot get color vector for type " << gr.cv << endl;
-		}
+		from = gr.cv.from();
+		to = gr.cv.to();
 		vsgObjSetColourVector(&from, &to, vsgBIPOLAR);
 
 		// Now draw
@@ -231,10 +227,8 @@ int arutil_draw_grating_noaperture(ARGratingSpec& gr, int videoPage)
 		vsgObjSetContrast(gr.contrast);
 
 		// set color vector
-		if (get_colorvector(gr.cv, from, to))
-		{
-			cerr << "Cannot get color vector for type " << gr.cv << endl;
-		}
+		from = gr.cv.from();
+		to = gr.cv.to();
 		vsgObjSetColourVector(&from, &to, vsgBIPOLAR);
 
 		if (gr.aperture == ellipse)

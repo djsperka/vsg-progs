@@ -1,4 +1,5 @@
 #include "ARtypes.h"
+#include "ARvsg.h"
 #include "coneiso.h"
 #include <string>
 #include <sstream>
@@ -59,6 +60,92 @@ void COLOR_TYPE::setType(COLOR_ENUM t)
 	}
 }
 
+COLOR_VECTOR_TYPE::COLOR_VECTOR_TYPE()
+{
+	m_type = b_w;
+	m_from.a = m_from.b = m_from.c = 0;
+	m_to.a = m_to.b = m_to.c = 1;
+}
+
+COLOR_VECTOR_TYPE::COLOR_VECTOR_TYPE(COLOR_VECTOR_ENUM type)
+{
+	setType(type);
+}
+
+COLOR_VECTOR_TYPE::COLOR_VECTOR_TYPE(const COLOR_VECTOR_TYPE& cv)
+{
+	m_type = cv.type();
+	m_from = cv.from();
+	m_to = cv.to();
+}
+
+COLOR_VECTOR_TYPE& COLOR_VECTOR_TYPE::operator=(const COLOR_VECTOR_TYPE& cv)
+{
+	if (this == &cv) return *this;
+	m_type = cv.type();
+	m_from = cv.from();
+	m_to = cv.to();
+	return *this;
+};
+
+COLOR_VECTOR_TYPE& COLOR_VECTOR_TYPE::operator=(const COLOR_VECTOR_ENUM& type)
+{
+	setType(type);
+	return *this;
+}
+
+bool operator==(const COLOR_VECTOR_TYPE& lhs, const COLOR_VECTOR_TYPE& rhs)
+{
+	return (lhs.type() == rhs.type() &&
+		lhs.from().a == rhs.from().a &&
+		lhs.from().b == rhs.from().b &&
+		lhs.from().c == rhs.from().c &&
+		lhs.to().a == rhs.to().a && 
+		lhs.to().b == rhs.to().b &&
+		lhs.to().c == rhs.to().c);
+}
+
+void COLOR_VECTOR_TYPE::setType(COLOR_VECTOR_ENUM type)
+{
+	if (type == b_w)
+	{
+		m_type = b_w;
+		m_from.a = m_from.b = m_from.c = 0;
+		m_to.a = m_to.b = m_to.c = 1;
+	}
+	else if (type == l_cone)
+	{
+		m_type = l_cone;
+		alert::ARvsg::instance().get_calibration_color(alert::CalibrationColors::l_minus, m_from);
+		alert::ARvsg::instance().get_calibration_color(alert::CalibrationColors::l_plus, m_to);
+	}
+	else if (type == m_cone)
+	{
+		m_type = m_cone;
+		alert::ARvsg::instance().get_calibration_color(alert::CalibrationColors::m_minus, m_from);
+		alert::ARvsg::instance().get_calibration_color(alert::CalibrationColors::m_plus, m_to);
+	}
+	else if (type == s_cone)
+	{
+		m_type = s_cone;
+		alert::ARvsg::instance().get_calibration_color(alert::CalibrationColors::s_minus, m_from);
+		alert::ARvsg::instance().get_calibration_color(alert::CalibrationColors::s_plus, m_to);
+	}
+	else
+	{
+		// SHOULD NOT DO THIS
+		throw std::runtime_error("Cannot get color vector for custom/unknown type.");
+	}
+
+}
+
+void COLOR_VECTOR_TYPE::setCustom(const VSGTRIVAL& from, const VSGTRIVAL& to)
+{
+	m_type = custom_color_vector;
+	m_from = from;
+	m_to = to;
+}
+
 
 void COLOR_TYPE::setCustom(double a, double b, double c)
 {
@@ -114,16 +201,16 @@ std::istream& operator>>(std::istream& in, COLOR_TYPE& c)
 
 std::ostream& operator<<(std::ostream& out, const COLOR_VECTOR_TYPE& cv)
 {
-	switch (cv.type)
+	switch (cv.type())
 	{
 	case b_w:	out << "b";	break;
 	case l_cone:out << "l";		break;
 	case m_cone:out << "m";		break;
 	case s_cone:out << "s";		break;
 	case custom_color_vector:
-		out << "(" << (int)(cv.from.a * 255) << "/" << (int)(cv.from.b * 255) << "/"
-			<< (int)(cv.from.c * 255) << ")-(" << (int)(cv.to.a * 255) << "/"
-			<< (int)(cv.to.b * 255) << "/" << (int)(cv.to.c * 255) << ")";
+		out << "(" << (int)(cv.from().a * 255) << "/" << (int)(cv.from().b * 255) << "/"
+			<< (int)(cv.from().c * 255) << ")-(" << (int)(cv.to().a * 255) << "/"
+			<< (int)(cv.to().b * 255) << "/" << (int)(cv.to().c * 255) << ")";
 		break;
 	default:	out << "unknown";		break;
 	}
@@ -179,17 +266,17 @@ std::ostream& operator<<(std::ostream& out, const WAVEFORM_TYPE& p)
 int parse_colorvector(std::string s, COLOR_VECTOR_TYPE& v)
 {
 	int status = 0;
-	if (s == "b" || s == "B" || s == "bw") v.type = b_w;
-	else if (s == "l" || s == "L") v.type = l_cone;
-	else if (s == "m" || s == "M") v.type = m_cone;
-	else if (s == "s" || s == "S") v.type = s_cone;
+	if (s == "b" || s == "B" || s == "bw") v.setType(b_w);
+	else if (s == "l" || s == "L") v.setType(l_cone);
+	else if (s == "m" || s == "M") v.setType(m_cone);
+	else if (s == "s" || s == "S") v.setType(s_cone);
 	else
 	{
 		int n;
 		int fr, fg, fb, tr, tb, tg;
+		VSGTRIVAL from, to;
 		// try and parse a custom color vector
 		status = 1;
-		v.type = unknown_color_vector;
 		n = sscanf_s(s.c_str(), "(%d/%d/%d)-(%d/%d/%d)", &fr, &fg, &fb, &tr, &tg, &tb);
 		if (n == 6)
 		{
@@ -197,13 +284,13 @@ int parse_colorvector(std::string s, COLOR_VECTOR_TYPE& v)
 				tr >= 0 && tr < 256 && tg >= 0 && tg < 256 && tb >= 0 && tb < 256)
 			{
 				status = 0;
-				v.type = custom_color_vector;
-				v.from.a = (double)fr / 255.0;
-				v.from.b = (double)fg / 255.0;
-				v.from.c = (double)fb / 255.0;
-				v.to.a = (double)tr / 255.0;
-				v.to.b = (double)tg / 255.0;
-				v.to.c = (double)tb / 255.0;
+				from.a = (double)fr / 255.0;
+				from.b = (double)fg / 255.0;
+				from.c = (double)fb / 255.0;
+				to.a = (double)tr / 255.0;
+				to.b = (double)tg / 255.0;
+				to.c = (double)tb / 255.0;
+				v.setCustom(from, to);
 			}
 		}
 		else
@@ -216,13 +303,13 @@ int parse_colorvector(std::string s, COLOR_VECTOR_TYPE& v)
 					ltr >= 0 && ltr <= 1.0 && ltg >= 0 && ltg <= 1.0 && ltb >= 0 && ltb <= 1.0)
 				{
 					status = 0;
-					v.type = custom_color_vector;
-					v.from.a = lfr;
-					v.from.b = lfg;
-					v.from.c = lfb;
-					v.to.a = ltr;
-					v.to.b = ltg;
-					v.to.c = ltb;
+					from.a = lfr;
+					from.b = lfg;
+					from.c = lfb;
+					to.a = ltr;
+					to.b = ltg;
+					to.c = ltb;
+					v.setCustom(from, to);
 				}
 			}
 		}
@@ -768,35 +855,35 @@ int get_color(COLOR_TYPE c, VSGTRIVAL& trival)
 #endif
 
 
-int get_colorvector(COLOR_VECTOR_TYPE& cv, VSGTRIVAL& from, VSGTRIVAL& to)
-{
-	int status = 0;
-	switch (cv.type)
-	{
-	case b_w:
-		from.a = from.b = from.c = 0;
-		to.a = to.b = to.c = 1;
-		break;
-	case l_cone:
-		if (!coneiso_l(from, to)) status = 1;
-		break;
-	case m_cone:
-		if (!coneiso_m(from, to)) status = 1;
-		break;
-	case s_cone:
-		if (!coneiso_s(from, to)) status = 1;
-		break;
-	case custom_color_vector:
-		from = cv.from;
-		to = cv.to;
-		break;
-	default:
-		status = 1;
-		break;
-	}
-
-	return status;
-}
+//int get_colorvector(COLOR_VECTOR_TYPE& cv, VSGTRIVAL& from, VSGTRIVAL& to)
+//{
+//	int status = 0;
+//	switch (cv.type)
+//	{
+//	case b_w:
+//		from.a = from.b = from.c = 0;
+//		to.a = to.b = to.c = 1;
+//		break;
+//	case l_cone:
+//		if (!coneiso_l(from, to)) status = 1;
+//		break;
+//	case m_cone:
+//		if (!coneiso_m(from, to)) status = 1;
+//		break;
+//	case s_cone:
+//		if (!coneiso_s(from, to)) status = 1;
+//		break;
+//	case custom_color_vector:
+//		from = cv.from;
+//		to = cv.to;
+//		break;
+//	default:
+//		status = 1;
+//		break;
+//	}
+//
+//	return status;
+//}
 
 int parse_waveform_types(std::string s, WAVEFORM_TYPE& swt, WAVEFORM_TYPE& twt)
 {
