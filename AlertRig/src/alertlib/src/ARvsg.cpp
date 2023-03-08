@@ -18,10 +18,30 @@ int ARvsg::loadGammaData(const std::string& filename)
 {
 	std::ifstream ifs(filename, ios::binary);
 	double c[3];
-	for (int i = 0; i < 5; i++)
+	char tst[4];
+	int maxVectors = 5;
+
+	// check the first four bytes. If it starts with 'zz', then the last two bytes 
+	// are a version. If no 'zz', then there are just 5 vectors and no color vectors. 
+	ifs.read(tst, 4);
+	if (tst[0] == 'z' && tst[1] == 'z')
+	{
+		maxVectors = 11;
+		cout << "This gamma file contains DKL and cone iso cvs." << endl;
+	}
+	else
+	{
+		ifs.seekg(0);
+		maxVectors = 5;
+		cout << endl << "WARNING: This gamma file contains DKL but NOT cone iso cvs. Cone iso color vectors will be INCORRECT." << endl << endl;
+	}
+
+	for (int i = 0; i < maxVectors; i++)
 	{
 		ifs.read((char*)c, 3 * sizeof(double));
-		m_colors[i].setCustom(c[0], c[1], c[2]);
+		m_colors[i].a = c[0];
+		m_colors[i].b = c[1];
+		m_colors[i].c = c[2];
 	}
 
 	long status = 0;
@@ -75,11 +95,12 @@ int ARvsg::loadGammaData(const std::string& filename)
 	return 0;
 }
 
-const COLOR_TYPE& ARvsg::get_color(unsigned int i)
+void alert::ARvsg::get_calibration_color(CalibrationColors c, VSGTRIVAL& trival)
 {
-	if (i > 4) return m_colors[0];
-	else return m_colors[i];
+	cerr << "WARN: TODO get_calibration_color" << endl;
+	trival = m_colors[c];
 }
+
 
 void ARvsg::scaleGammaValues(double* v, short* s, unsigned int length)
 {
