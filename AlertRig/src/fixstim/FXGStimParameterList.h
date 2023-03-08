@@ -523,12 +523,10 @@ public:
 	{
 		if (!isDistractor())
 		{
-			cerr << "Set grating cv to: " << *m_iter << endl;
 			pstimset->grating(index()).cv = *m_iter;
 		}
 		else
 		{
-			cerr << "Set distractor cv to: " << *m_iter << endl;
 			pstimset->distractor(index()).cv = *m_iter;
 		}
 		return true;
