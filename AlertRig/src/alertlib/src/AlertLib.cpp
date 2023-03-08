@@ -1031,7 +1031,6 @@ ARGratingSpec::ARGratingSpec(const ARGratingSpec& g) : ARSpec(g)
 	aperture = g.aperture;
 	bIsMulti = g.bIsMulti;
 	m_multi = g.m_multi;
-	bDrawInitDone = false;
 }
 
 ARGratingSpec& ARGratingSpec::operator=(const ARGratingSpec& g)
@@ -1119,7 +1118,6 @@ int ARGratingSpec::draw(long mode, int apertureLevel)
 		this->x = std::get<0>(tup);
 		this->y = std::get<1>(tup);
 		this->orientation = std::get<2>(tup);
-
 		if (mode == vsgTRANSONHIGHER || mode == vsgTRANSONLOWER)
 		{
 			// djs TRANSONLOWER seems to leave artifacts on the screen when we turn the contrast off. !!!
@@ -1134,42 +1132,36 @@ int ARGratingSpec::draw(long mode, int apertureLevel)
 			}
 		}
 
-		if (!bDrawInitDone)
+		// Set spatial waveform
+		if (this->swt == sinewave)
 		{
-			// assign pixel levels for object
-			vsgObjSetPixelLevels(getFirstLevel(), getNumLevels());
-
-			// Set spatial waveform
-			if (this->swt == sinewave)
-			{
-				vsgObjTableSinWave(vsgSWTABLE);
-			}
-			else
-			{
-				// Set up standard 50:50 square wave
-				vsgObjTableSquareWave(vsgSWTABLE, (DWORD)(vsgObjGetTableSize(vsgSWTABLE) * 0.25), (DWORD)(vsgObjGetTableSize(vsgSWTABLE) * 0.75));
-			}
-
-			// set color vector
-			if (get_colorvector(this->cv, from, to))
-			{
-				cerr << "Cannot get color vector for type " << this->cv << endl;
-			}
-			vsgObjSetColourVector(&from, &to, vsgBIPOLAR);
-
-			// set temporal waveform
-			if (this->twt == sinewave)
-			{
-				vsgObjTableSinWave(vsgTWTABLE);
-			}
-			else
-			{
-				// Set up standard 50:50 square wave
-				vsgObjTableSquareWave(vsgTWTABLE, (DWORD)(0), (DWORD)(vsgObjGetTableSize(vsgTWTABLE) * 0.5));
-			}
-			vsgObjSetTemporalPhase(0);
-			bDrawInitDone = true;
+			vsgObjTableSinWave(vsgSWTABLE);
 		}
+		else
+		{
+			// Set up standard 50:50 square wave
+			vsgObjTableSquareWave(vsgSWTABLE, (DWORD)(vsgObjGetTableSize(vsgSWTABLE) * 0.25), (DWORD)(vsgObjGetTableSize(vsgSWTABLE) * 0.75));
+		}
+
+		// get color vector
+		from = this->cv.from();
+		to = this->cv.to();
+		//cerr << "ARGratingSpec::draw(mode = " << mode << ", level=" << apertureLevel << ")" << endl;
+		//cerr << "Drawing grating with cv " << this->cv << " : [" << this->cv.from().a << ", " << this->cv.from().b << ", " << this->cv.from().c << "] - [" << this->cv.to().a << ", " << this->cv.to().b << ", " <<
+		//	this->cv.to().c << "]" << endl;
+		vsgObjSetColourVector(&from, &to, vsgBIPOLAR);
+
+		// set temporal waveform
+		if (this->twt == sinewave)
+		{
+			vsgObjTableSinWave(vsgTWTABLE);
+		}
+		else
+		{
+			// Set up standard 50:50 square wave
+			vsgObjTableSquareWave(vsgTWTABLE, (DWORD)(0), (DWORD)(vsgObjGetTableSize(vsgTWTABLE) * 0.5));
+		}
+		vsgObjSetTemporalPhase(0);
 
 		vsgObjSetContrast(contrast);
 		vsgObjSetSpatialPhase(phase);
@@ -1310,10 +1302,8 @@ int ARApertureGratingSpec::draw()
 	vsgObjSetDriftVelocity(tf);
 
 	// set color vector
-	if (get_colorvector(this->cv, from, to))
-	{
-		cerr << "Cannot get color vector for type " << this->cv << endl;
-	}
+	from = this->cv.from();
+	to = this->cv.to();
 	vsgObjSetColourVector(&from, &to, vsgBIPOLAR);
 
 	// 

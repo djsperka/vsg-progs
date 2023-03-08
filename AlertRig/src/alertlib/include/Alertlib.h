@@ -365,7 +365,7 @@ namespace alert
 	class ARGratingSpec: public ARSpec
 	{
 	public:
-		ARGratingSpec() : bDrawInitDone(false), bIsMulti(false), phase(0), wd(0), hd(0), ttf(0), swt(sinewave), twt(sinewave) {};
+		ARGratingSpec() : bIsMulti(false), phase(0), wd(0), hd(0), ttf(0), swt(sinewave), twt(sinewave) {};
 
 		// Copy constructor only copies grating parameters, not vsg object properties. 
 		// A grating initialize with this constructor must still be initialized, and it will 
@@ -388,7 +388,6 @@ namespace alert
 		double ttf;		// temporal frequency - for the temporal waveform. 
 		APERTURE_TYPE aperture;
 		COLOR_VECTOR_TYPE cv;
-		bool bDrawInitDone;
 
 		// by default this is NOT multi. Call setMulti to start it off. 
 		bool bIsMulti;
