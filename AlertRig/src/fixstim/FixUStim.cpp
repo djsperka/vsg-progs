@@ -11,6 +11,7 @@
 #include "CycleTestStimSet.h"
 #include <conio.h>
 #include <iostream>
+#include <algorithm>
 #include <boost/algorithm/string.hpp>
 #include <boost/exception/exception.hpp>
 #include <boost/exception/get_error_info.hpp>
@@ -78,6 +79,7 @@ static struct argp_option options[] = {
 	{"multi-ori", 772, "x0,y0,ori0[,x1,y1,ori1[...]]", 0, "Multi-grating pos with ori"},
 	{"num-stim-pages", 771, "1(default)|2|3", 1, "Number of stimulus pages prepared for each trial."},
 	{"colorvector", 770, "cv1,cv2,...", 0, "grating/distractor colorvector list"},
+	{"draw-group", 769, "0|1|2", 0, "the next object specified should be in this drawing group. Group 1(2) drawn on first(second) stim page."},
 	{ 0 }
 };
 static struct argp f_argp = { options, parse_fixstim_opt, 0, "fixstim -- all-purpose stimulus engine" };
@@ -159,7 +161,9 @@ void FixUStim::run_stim(alert::ARvsg& vsg)
 
 	vector<int> pages;
 	for (int i = 0; i < m_arguments.pStimSet->num_pages(); i++) pages.push_back(i + 1);
-	if (m_arguments.pStimSet->init(pages, m_arguments.nStimPages))
+	int iHack = 1;
+	if (m_arguments.bUseDrawGroups) iHack = -1;
+	if (m_arguments.pStimSet->init(pages, iHack * m_arguments.nStimPages))
 	{
 		cerr << "FixUStim::run_stim(): StimSet initialization failed." << endl;
 	}
@@ -376,21 +380,22 @@ void FixUStim::init_triggers(TSpecificFunctor<FixUStim>* pfunctor, int npages)
 	triggers().addTrigger(new FunctorCallbackTrigger("S", 0x4, 0x4, 0x14, 0x4, pfunctor));
 	triggers().addTrigger(new FunctorCallbackTrigger("X", 0x26, 0x0, 0x16, 0x0, pfunctor));
 
+	// MODIFIED - npages can be negative. Negative values mean we are using "draw groups". 
 	// 1 page is the way things have always been. 
 	// 2 pages presumes that a second trigger line is available and wired and ready
 	// 3 pages presumes a third. StimSets must be able to react to these triggers if they are to be used. 
 
-	if (npages == 1)
+	if (abs(npages) == 1)
 	{
 		triggers().addTrigger(new FunctorCallbackTrigger("u", 0x20, 0x20 | AR_TRIGGER_TOGGLE, 0x10, 0x10 | AR_TRIGGER_TOGGLE, pfunctor));
 		triggers().addTrigger(new FunctorCallbackTrigger("v", 0x40, 0x40 | AR_TRIGGER_TOGGLE, 0x20, 0x20 | AR_TRIGGER_TOGGLE, pfunctor));
 		triggers().addTrigger(new FunctorCallbackTrigger("D", 0, AR_TRIGGER_ASCII_ONLY, 0, 0, pfunctor));
 	}
-	else if (npages == 2)
+	else if (abs(npages) == 2)
 	{
 		triggers().addTrigger(new FunctorCallbackTrigger("U", 0x20, 0x20, 0x14, 0x10, pfunctor));
 	}
-	else if (npages == 3)
+	else if (abs(npages) == 3)
 	{
 		triggers().addTrigger(new FunctorCallbackTrigger("U", 0x20, 0x20, 0x10, 0x10, pfunctor));
 		triggers().addTrigger(new FunctorCallbackTrigger("V", 0x40, 0x40, 0x20, 0x20, pfunctor));
@@ -467,6 +472,16 @@ error_t parse_fixstim_opt(int key, char* carg, struct argp_state* state)
 		break;
 	case 774:
 		arguments->pStimSet = new CycleTestStimSet();
+		break;
+	case 769:
+		if (parse_integer(sarg, arguments->iPendingDrawGroup))
+			ret = EINVAL;
+		else
+		{
+			arguments->bPendingDrawGroup = true;
+			arguments->bUseDrawGroups = true;
+			arguments->nStimPages = max(arguments->iPendingDrawGroup, arguments->nStimPages);
+		}
 		break;
 	case 'V':
 	{
@@ -584,6 +599,8 @@ error_t parse_fixstim_opt(int key, char* carg, struct argp_state* state)
 			arguments->bHaveStim = true;
 			arguments->bLastWasGrating = true;
 			arguments->bLastWasFixpt = arguments->bLastWasDistractor = false;
+			if (arguments->bPendingDrawGroup)
+				arguments->grating.setDrawGroups(arguments->iPendingDrawGroup);
 			arguments->vecGratings.push_back(arguments->grating);
 
 			if (arguments->bUsingMultiParameterStimSet)

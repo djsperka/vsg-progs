@@ -28,7 +28,7 @@ public:
 	// call vsgPresent() if needed. The first version has a default implementation 
 	// that uses the regular vsg card. The second version should be used for master/slave
 	// cases. 
-	virtual int init(std::vector<int> pages, int num_stim_pages=1);
+	virtual int init(std::vector<int> pages, int num_stim_pages = 1);
 	virtual int init(ARvsg& vsg, std::vector<int> pages, int num_stim_pages=1) = 0;
 
 	// clean up any messes created in init() - esp settings in VSG

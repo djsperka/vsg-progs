@@ -26,12 +26,13 @@ int MultiParameterFXMultiGStimSet::init(ARvsg& vsg, std::vector<int> pages, int 
 	//m_bUseCycling = false;
 	m_iCyclingDelay = 0;
 	m_iStimDuration = 0;
-	m_num_stim_pages = num_stim_pages;
+	m_num_stim_pages = abs(num_stim_pages);
+	m_bUseDrawGroups = (num_stim_pages<0);
 	m_pageflipindex = 0;
 	m_pageflippages[0] = m_stim_page;
 	m_pageflippages[1] = m_alt_page;
 
-	cerr << "init: num_stim_pages " << m_num_stim_pages << " page=" << m_alt_page << endl;
+	cerr << "init: num_stim_pages " << m_num_stim_pages << " drawGroups? " << m_bUseDrawGroups << endl;
 
 	if (has_xhair())
 	{
@@ -118,9 +119,10 @@ int MultiParameterFXMultiGStimSet::handle_trigger(const std::string& s, const st
 		for (unsigned int i = 0; i < count(); i++)
 		{
 			grating(i).select();
-			vsgObjResetDriftPhase();
+			if (m_bResetPhaseOnTrigger) vsgObjResetDriftPhase();
 			grating(i).setContrast(contrast(i));
 		}
+		m_bResetPhaseOnTrigger = false;
 		if (CYCLING_TYPE_NONE != m_iCyclingType)
 		{
 			vsgSetSynchronisedCommand(vsgSYNC_PRESENT, vsgCYCLEPAGEENABLE, 0);
@@ -146,7 +148,7 @@ int MultiParameterFXMultiGStimSet::handle_trigger(const std::string& s, const st
 		for (unsigned int i = 0; i < count(); i++)
 		{
 			grating(i).select();
-			vsgObjResetDriftPhase();
+			//vsgObjResetDriftPhase();
 			grating(i).setContrast(contrast(i));
 		}
 		if (CYCLING_TYPE_NONE != m_iCyclingType)
@@ -266,32 +268,30 @@ void MultiParameterFXMultiGStimSet::draw_current()
 	// this would be needed to fix. Should have no effect otherwise.
 	vsgMoveScreen(0, 0);
 
-	//// restore dot colors
-	//
-	//if (has_dot())
-	//{
-	//	for (unsigned int i = 0; i < dot_count(); i++)
-	//	{
-	//		dot(i).color = m_dotColorsSaved[i];
-	//	}
-	//}
-
 	// When cycling is used, we'll need this page with fixpt, xhair (if present), distractors(if present) 
+	m_bResetPhaseOnTrigger = true;
 	draw_stuff_on_page(m_blank_page, false, false, false, false);
 	draw_stuff_on_page(m_fixpt_page, true, true, false, false);
 	draw_stuff_on_page(m_fixpt_dot_page, true, true, false, true);
-	draw_stuff_on_page(m_stim_page, true, true, true, true);
+	draw_stuff_on_page(m_stim_page, true, true, true, true, 1);
 	if (m_num_stim_pages > 1)
 	{
-		advance();
-		draw_stuff_on_page(m_alt_page, true, true, true, true);
+		if (!m_bUseDrawGroups)
+		{
+			advance();
+			draw_stuff_on_page(m_alt_page, true, true, true, true);
+		}
+		else 
+		{
+			draw_stuff_on_page(m_alt_page, true, true, true, true, 2);
+		}
 	}
 	m_pageflipindex = 0;	// in case this is used, reset so flipping works right the first time
 
 }
 
 
-void MultiParameterFXMultiGStimSet::draw_stuff_on_page(int pagenumber, bool bFixpt, bool bDistractor, bool bGrating, bool bDots)
+void MultiParameterFXMultiGStimSet::draw_stuff_on_page(int pagenumber, bool bFixpt, bool bDistractor, bool bGrating, bool bDots, int iDrawGroup)
 {
 	// xhair, fixpt, dots and stim. 
 	vsgSetDrawPage(vsgVIDEOPAGE, pagenumber, vsgBACKGROUND);
@@ -303,14 +303,18 @@ void MultiParameterFXMultiGStimSet::draw_stuff_on_page(int pagenumber, bool bFix
 	{
 		for (unsigned int i = 0; i < distractor_count(); i++)
 		{
-			distractor(i).draw();
+			if (distractor(i).inDrawGroup(iDrawGroup))
+				distractor(i).draw();
 		}
 	}
 	if (bGrating && has_grating())
 	{
 		for (unsigned int i = 0; i < count(); i++)
 		{
-			grating(i).draw();
+			if (grating(i).inDrawGroup(iDrawGroup))
+				grating(i).draw();
+			else
+				cout << "Grating " << i << " not in draw group " << iDrawGroup << endl;
 		}
 	}
 	if (bFixpt && has_fixpt())

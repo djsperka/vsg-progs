@@ -36,6 +36,8 @@ private:
 	int m_stim_page;
 	int m_alt_page;
 	int m_num_stim_pages;
+	bool m_bUseDrawGroups;
+	bool m_bResetPhaseOnTrigger;
 	int m_iCyclingType;
 	int m_iCyclingDelay;
 	int m_iStimDuration;	// if > 0, the number of frames stim lasts until blank. If <=0, no blank. 
@@ -48,7 +50,7 @@ private:
 
 	void setup_cycling();
 	void draw_current();
-	void draw_stuff_on_page(int pagenumber, bool bFixpt, bool bDistractor, bool bGrating, bool bDots);
+	void draw_stuff_on_page(int pagenumber, bool bFixpt, bool bDistractor, bool bGrating, bool bDots, int iDrawGroup = -1);
 protected:
 	void advance();
 	void set_current(size_t index);

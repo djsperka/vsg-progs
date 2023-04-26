@@ -54,6 +54,11 @@ struct fixstim_arguments
 	// tentative introduction to multiple page stimuli
 	int nStimPages;
 
+	// --draw-group
+	bool bPendingDrawGroup;
+	int iPendingDrawGroup;
+	bool bUseDrawGroups;
+
 	// store all the parsed specs
 	std::vector<alert::ARContrastFixationPointSpec> vecFixpts;
 	std::vector<alert::ARGratingSpec> vecGratings;
@@ -96,6 +101,9 @@ struct fixstim_arguments
 		, bUseCuePoints(false)
 		, bCuePointIsDot(false)
 		, nStimPages(1)
+		, bPendingDrawGroup(false)
+		, iPendingDrawGroup(-1)
+		, bUseDrawGroups(false)
 		, vecFixpts()
 		, pStimSet(nullptr)
 		, bUsingMultiParameterStimSet(false)
