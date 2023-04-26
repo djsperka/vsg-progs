@@ -91,7 +91,7 @@ std::ostream& operator<<(std::ostream& out, const alert::ARXhairSpec& arx)
 
 
 
-ARObject::ARObject() : m_handle(0), m_use_master(false), m_use_slave(false) 
+ARObject::ARObject() : m_handle(0), m_iDrawGroups(-1), m_use_master(false), m_use_slave(false) 
 {
 };
 
@@ -100,6 +100,7 @@ ARObject::ARObject(const ARObject& obj)
 	m_handle = obj.m_handle;
 	m_first = obj.m_first;
 	m_numlevels = obj.m_numlevels;
+	m_iDrawGroups = obj.m_iDrawGroups;
 	m_use_master = obj.m_use_master;
 	m_use_slave = obj.m_use_slave;
 }
@@ -113,6 +114,7 @@ ARObject& ARObject::operator=(const ARObject& obj)
 		m_handle = obj.m_handle;
 		m_first = obj.m_first;
 		m_numlevels = obj.m_numlevels;
+		m_iDrawGroups = obj.m_iDrawGroups;
 		m_use_master = obj.m_use_master;
 		m_use_slave = obj.m_use_slave;
 	}
