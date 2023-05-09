@@ -114,6 +114,14 @@ int MultiParameterFXMultiGStimSet::handle_trigger(const std::string& s, const st
 			status = 1;
 		}
 	}
+	else if (s == "f")
+	{
+		if (has_fixpt())
+		{
+			fixpt().setContrast(0);
+			status = 1;
+		}
+	}
 	else if (s == "S")
 	{
 		for (unsigned int i = 0; i < count(); i++)
