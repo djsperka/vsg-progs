@@ -112,7 +112,7 @@ namespace alert
 		PIXEL_LEVEL getFirstLevel() const;
 		int getNumLevels() const;
 		void setDrawGroups(int iDrawGroups) { m_iDrawGroups = iDrawGroups; };
-		bool inDrawGroup(int iGroup) { return (bool)(iGroup < 1 || (m_iDrawGroups & (1 << (iGroup - 1)))); };
+		bool inDrawGroup(int iGroup) { return (bool)(m_iDrawGroups < 1 || (m_iDrawGroups & (1 << (iGroup - 1)))); };
 		bool getUseMaster() const { return m_use_master; };
 		bool getUseSlave() const { return m_use_slave; };
 		ARObject& operator=(const ARObject& obj);
