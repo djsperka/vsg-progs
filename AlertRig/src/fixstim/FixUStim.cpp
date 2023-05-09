@@ -377,9 +377,9 @@ void FixUStim::init_triggers(TSpecificFunctor<FixUStim>* pfunctor, int npages)
 {
 	triggers().clear();
 	triggers().addTrigger(new FunctorCallbackTrigger("F", 0x2, 0x2, 0x2, 0x2, pfunctor));
-	triggers().addTrigger(new FunctorCallbackTrigger("f", 0x2, 0x0, 0x2, 0x0, pfunctor));
 	triggers().addTrigger(new FunctorCallbackTrigger("S", 0x4, 0x4, 0x14, 0x4, pfunctor));
 	triggers().addTrigger(new FunctorCallbackTrigger("X", 0x26, 0x0, 0x16, 0x0, pfunctor));
+	triggers().addTrigger(new FunctorCallbackTrigger("f", 0x2, 0x0, 0x2, 0x0, pfunctor));
 
 	// MODIFIED - npages can be negative. Negative values mean we are using "draw groups". 
 	// 1 page is the way things have always been. 
