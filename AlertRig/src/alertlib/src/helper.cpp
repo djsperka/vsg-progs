@@ -205,6 +205,11 @@ int parse_grating(const std::string& s, alert::ARGratingSpec& ag)
 	double d;
 	istringstream iss;
 
+	// update 5-9-2023 djs
+	// make sure non-parsed things in the grating spec are initialized
+	ag.setDrawGroups(-1);
+	ag.setMulti();
+
 	// updated 1/18/2012 djs
 	// Now allow for gratings and/or donuts.  
 
