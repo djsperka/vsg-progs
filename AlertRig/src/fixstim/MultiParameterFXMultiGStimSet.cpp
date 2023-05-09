@@ -313,8 +313,6 @@ void MultiParameterFXMultiGStimSet::draw_stuff_on_page(int pagenumber, bool bFix
 		{
 			if (grating(i).inDrawGroup(iDrawGroup))
 				grating(i).draw();
-			else
-				cout << "Grating " << i << " not in draw group " << iDrawGroup << endl;
 		}
 	}
 	if (bFixpt && has_fixpt())
@@ -478,7 +476,7 @@ string MultiParameterFXMultiGStimSet::toString() const
 	if (has_grating())
 	{
 		for (unsigned int i=0; i<count(); i++)
-			cerr << " Grating " << i << "multi? " << std::boolalpha << grating(i).bIsMulti << "(" << grating(i).m_multi.size() <<") : " << grating(i) << endl;
+			cerr << " Grating " << i << "multi? " << std::boolalpha << grating(i).bIsMulti << "(" << grating(i).m_multi.size() <<") drawgroup 1/2/3: " << grating(i).inDrawGroup(1) << "/" << grating(i).inDrawGroup(2) << "/" << grating(i).inDrawGroup(3) << " : " << grating(i) << endl;
 	}
 	else
 		cerr << " Grating: NONE" << endl;
