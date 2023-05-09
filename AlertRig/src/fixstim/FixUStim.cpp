@@ -599,8 +599,13 @@ error_t parse_fixstim_opt(int key, char* carg, struct argp_state* state)
 			arguments->bHaveStim = true;
 			arguments->bLastWasGrating = true;
 			arguments->bLastWasFixpt = arguments->bLastWasDistractor = false;
+
 			if (arguments->bPendingDrawGroup)
+			{
 				arguments->grating.setDrawGroups(arguments->iPendingDrawGroup);
+				arguments->bPendingDrawGroup = false;
+				arguments->iPendingDrawGroup = 0;
+			}
 			arguments->vecGratings.push_back(arguments->grating);
 
 			if (arguments->bUsingMultiParameterStimSet)
@@ -640,26 +645,30 @@ error_t parse_fixstim_opt(int key, char* carg, struct argp_state* state)
 		* This arg forces a stim set be constructed using the fixpt, gratings, distractors currently specified. 
 		*/
 
-		MultiParameterFXMultiGStimSet* pss = NULL;
+		if (!arguments->bUsingMultiParameterStimSet)
+		{
+			MultiParameterFXMultiGStimSet* pss = NULL;
 
-		// Stim set with gratings&distractors
-		if (!arguments->bHaveFixpt && !arguments->bHaveXhair)
-		{
-			pss = new MultiParameterFXMultiGStimSet();
-		}
-		else if (!arguments->bHaveXhair)
-		{
-			pss = new MultiParameterFXMultiGStimSet(arguments->fixpt);
-		}
-		else
-		{
-			pss = new MultiParameterFXMultiGStimSet(arguments->fixpt, arguments->xhair);
-		}
-		for (unsigned int i = 0; i < arguments->vecGratings.size(); i++) pss->add_grating(arguments->vecGratings[i]);
-		for (unsigned int i = 0; i < arguments->vecDistractors.size(); i++) pss->add_distractor(arguments->vecDistractors[i]);
-		for (unsigned int i = 0; i < arguments->vecDots.size(); i++) pss->add_dot(arguments->vecDots.at(i));
+			// Stim set with gratings&distractors
+			if (!arguments->bHaveFixpt && !arguments->bHaveXhair)
+			{
+				pss = new MultiParameterFXMultiGStimSet();
+			}
+			else if (!arguments->bHaveXhair)
+			{
+				pss = new MultiParameterFXMultiGStimSet(arguments->fixpt);
+			}
+			else
+			{
+				pss = new MultiParameterFXMultiGStimSet(arguments->fixpt, arguments->xhair);
+			}
+			for (unsigned int i = 0; i < arguments->vecGratings.size(); i++) pss->add_grating(arguments->vecGratings[i]);
+			for (unsigned int i = 0; i < arguments->vecDistractors.size(); i++) pss->add_distractor(arguments->vecDistractors[i]);
+			for (unsigned int i = 0; i < arguments->vecDots.size(); i++) pss->add_dot(arguments->vecDots.at(i));
 
-		arguments->pStimSet = pss;
+			arguments->pStimSet = pss;
+			arguments->bUsingMultiParameterStimSet = true;
+		}
 		break;
 	}
 	case 'H':
