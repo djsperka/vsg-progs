@@ -30,6 +30,40 @@ int arutil_color_to_palette(COLOR_TYPE ct, PIXEL_LEVEL level)
 }
 
 
+int arutil_ramp_to_palette(COLOR_TYPE from, COLOR_TYPE to, PIXEL_LEVEL from_level, PIXEL_LEVEL to_level)
+{
+	int status = 0;
+	int i;
+	VSGTRIVAL f, t, step;
+	VSGLUTBUFFER buffer;
+	f = from.trival();
+	t = to.trival();
+	step.a = (t.a - f.a) / (to_level - from_level);
+	step.b = (t.b - f.b) / (to_level - from_level);
+	step.c = (t.c - f.c) / (to_level - from_level);
+
+	// end of ramp is the "to" color
+	buffer[to_level - from_level] = t;
+	// now fill in the rest of the ramp
+	//cerr << "ramp levels " << from_level << ":" << to_level << endl;
+	for (i = 0; i < (to_level - from_level); i++)
+	{
+		buffer[i].a = f.a + i * step.a;
+		buffer[i].b = f.b + i * step.b;
+		buffer[i].c = f.c + i * step.c;
+		//cerr << i << "\t" << buffer[i].a << "\t" << buffer[i].b << "\t" << buffer[i].c << endl;
+	}
+
+	// now set palette
+	if (vsgPaletteWrite(&buffer, from_level, to_level-from_level+1) < 0)
+	{
+		cerr << "ERROR vsgPaletteSet" << endl;
+		status = -1;
+	}
+	return status;
+}
+
+
 
 int	arutil_draw_overlay(ARFixationPointSpec& fp, PIXEL_LEVEL level, int overlayPage)
 {

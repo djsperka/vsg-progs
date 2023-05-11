@@ -10,6 +10,7 @@ using namespace std;
 int arutil_color_to_overlay_palette(ARFixationPointSpec& fp, PIXEL_LEVEL level);
 int arutil_color_to_overlay_palette(COLOR_TYPE c, PIXEL_LEVEL level);
 int arutil_color_to_palette(COLOR_TYPE c, PIXEL_LEVEL level);
+int arutil_ramp_to_palette(COLOR_TYPE from, COLOR_TYPE to, PIXEL_LEVEL from_level, PIXEL_LEVEL to_level);
 int	arutil_draw_overlay(ARFixationPointSpec& fp, PIXEL_LEVEL level, int overlayPage);
 int	arutil_draw_video(ARFixationPointSpec& fp, PIXEL_LEVEL level, int videoPage);
 int arutil_draw_grating_fullscreen(ARGratingSpec& gr, int videoPage);
