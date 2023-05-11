@@ -198,6 +198,35 @@ namespace alert
 		int drawPie(int nc, PIXEL_LEVEL first, PIXEL_LEVEL second, double x, double y, double r);
 	};
 
+	// Conte stim
+	class ARConteSpec : public ARSpec
+	{
+	private:
+		PIXEL_LEVEL m_cue_level;
+		PIXEL_LEVEL m_ramp_low;		// black
+		PIXEL_LEVEL m_ramp_mid;		// s/b gray
+		PIXEL_LEVEL m_ramp_high;	// white
+	public:
+		ARConteSpec() {};
+		virtual ~ARConteSpec() {};
+		double x, y, w, h;
+		double orientation;
+		double sf;		// spatial frequency
+		double dev;		// gaussian e**(r**2/dev**2)
+		double phase;	// initial phase
+		bool bHorizontal;
+		double distractor_factor;
+		DWORD cue_line_width;
+		COLOR_TYPE cue_color;
+
+		// call this instead of init()
+		void do_init(int nlevels);
+
+		virtual int draw();
+		virtual int drawOverlay() { return 0; };	// no-op do not use
+	};
+
+
 	// random grid Spec
 	class ARRandomGridSpec: public ARSpec
 	{
@@ -448,6 +477,7 @@ std::istream& operator>>(std::istream& in, alert::ARFixationPointSpec& arfps);
 std::ostream& operator<<(std::ostream& out, const alert::ARRectangleSpec& arrect);
 std::ostream& operator<<(std::ostream& out, const alert::ARGratingSpec& args);
 std::ostream& operator<<(std::ostream& out, const alert::ARXhairSpec& arx);
+std::ostream& operator<<(std::ostream& out, const alert::ARConteSpec& arconte);
 
 // instead of input operators, methods
 int parse_fixation_point(const std::string& s, alert::ARFixationPointSpec& afp);
@@ -456,5 +486,5 @@ int parse_fixation_point_list(std::vector<std::string>& tokens, std::vector<aler
 int parse_rectangle(const std::string& s, alert::ARRectangleSpec& arrect);
 int parse_grating(const std::string& s, alert::ARGratingSpec& ag);
 int parse_xhair(const std::string& s, alert::ARXhairSpec& axh);
-
+int parse_conte(const std::string& s, alert::ARConteSpec & conte);
 #endif

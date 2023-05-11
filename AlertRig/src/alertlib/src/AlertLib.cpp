@@ -89,7 +89,13 @@ std::ostream& operator<<(std::ostream& out, const alert::ARXhairSpec& arx)
 	return out;
 }
 
-
+std::ostream& operator<<(std::ostream& out, const alert::ARConteSpec& conte)
+{
+	string s = "H";
+	if (!conte.bHorizontal) s = "V";
+	out << conte.x << "," << conte.y << "," << conte.w << "," << conte.h << "," << conte.orientation << "," << conte.sf << "," << conte.dev << "," << conte.phase << "," << s << "," << conte.distractor_factor << "," << conte.cue_line_width << "," << conte.cue_color;
+	return out;
+}
 
 ARObject::ARObject() : m_handle(0), m_iDrawGroups(-1), m_use_master(false), m_use_slave(false) 
 {
@@ -1322,20 +1328,83 @@ int ARApertureGratingSpec::draw()
 }
 
 
-//int ARMultiGratingSpec::draw(long mode, int apertureLevel)
-//{
-//	int i;
-//	cerr << "ARMultiGratingSpec::draw( " << mode << ", " << apertureLevel << ")" << endl;
-//	for (i = 0; i < size(); i++)
-//	{
-//		std::tuple< double, double, double> t;
-//		t = this->at(i);
-//		this->x = std::get<0>(t);
-//		this->y = std::get<1>(t);
-//		this->orientation = std::get<2>(t);
-//		ARGratingSpec::draw(mode, apertureLevel);
-//	}
-//	return 0;
-//}
+// call this instead of init()
+void ARConteSpec::do_init(int nlevels)
+{
+	// reserve the levels, but do not create a vsg object. 
+	// do not call vsgObj*** on this thing. 
+	init(nlevels, false);
+
+	// of the nlevels, use the first one for the cue color, remainder for black-white ramp
+	m_cue_level = this->getFirstLevel();
+	m_ramp_low = this->getFirstLevel() + 1;
+	m_ramp_high = this->getFirstLevel() + this->getNumLevels() - 1;
+	m_ramp_mid = (m_ramp_high + m_ramp_low) / 2;
+	arutil_color_to_palette(this->cue_color, m_cue_level);
+	arutil_ramp_to_palette(COLOR_TYPE(black), COLOR_TYPE(white), m_ramp_low, m_ramp_high);
+}
+
+int ARConteSpec::draw()
+{
+	double xx[2], yy[2], rect[4];
+	DWORD old_mode = vsgGetDrawMode();
+	VSGTRIVAL trival_from = COLOR_TYPE(black).trival();
+	VSGTRIVAL trival_to = COLOR_TYPE(white).trival();
+
+	// gabor
+	cerr << "gabor on levels " << m_ramp_low << "-" << m_ramp_high << endl;
+	vsgSetDrawMode(vsgCENTREXY);
+	vsgSetPen1(m_ramp_low);
+	vsgSetPen2(m_ramp_high);
+	//vsgObjSetColourVector(&trival_from, &trival_to, vsgBIPOLAR);
+	vsgDrawGabor(this->x, this->y, this->w, this->h, this->orientation, this->sf, this->dev, this->phase);
+
+	// set coords for drawing gaussian and border cues
+	if (this->bHorizontal)
+	{
+		xx[0] = this->x - this->w;
+		xx[1] = this->x + this->w;
+		yy[0] = yy[1] = this->y;
+		rect[0] = this->x - 1.5 * this->w;
+		rect[1] = this->x + 1.5 * this->w;
+		rect[2] = this->y - 0.5 * this->h;
+		rect[3] = this->y + 0.5 * this->h;
+	}
+	else
+	{
+		yy[0] = this->y - this->h;
+		yy[1] = this->y + this->h;
+		xx[0] = xx[1] = this->x;
+		rect[0] = this->x - 0.5 * this->w;
+		rect[1] = this->x + 0.5 * this->w;
+		rect[2] = this->y - 1.5 * this->h;
+		rect[3] = this->y + 1.5 * this->h;
+	}
+
+	// now draw the gaussian(s)
+	cerr << "gaussian on levels " << m_ramp_high << "-" << m_ramp_mid << endl;
+	vsgSetPen1(this->m_ramp_high);
+	vsgSetPen2(this->m_ramp_mid);
+	vsgDrawGaussian(xx[0], yy[0], this->w, this->h, this->dev);
+	vsgDrawGaussian(xx[1], yy[1], this->w, this->h, this->dev);
+
+	// draw border cue
+	vsgSetDrawMode(vsgSOLIDPEN);
+	vsgSetPenSize(this->cue_line_width, this->cue_line_width);
+	vsgSetPen1(this->m_cue_level);
+	vsgDrawLine(rect[0], rect[2], rect[1], rect[2]);	// top
+	vsgDrawLine(rect[1], rect[2], rect[1], rect[3]);	// right
+	vsgDrawLine(rect[1], rect[3], rect[0], rect[3]);	// bottom
+	vsgDrawLine(rect[0], rect[3], rect[0], rect[2]);	// left
 
 
+	// restore draw mode
+	vsgSetDrawMode(old_mode);
+
+	return 0;
+
+
+
+
+
+}

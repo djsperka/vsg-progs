@@ -26,6 +26,7 @@ int callback(int &output, const alert::CallbackTrigger* ptrig);
 using namespace std;
 using namespace alert;
 
+ARConteSpec f_aConte, f_bConte;
 ARContrastFixationPointSpec m_afp;
 COLOR_TYPE m_background;
 vector<ARGratingSpec*> m_gratings;
@@ -38,27 +39,28 @@ const int f_iPage0 = 0;
 const int f_iPage1 = 1;
 const int f_iPageBlank = 2;
 
-struct CGabor {
-	double x, y, w, h;
-	double ori, sf, dev, ph;
-	bool bHorizontal;
-	double distractor_factor;	
-	DWORD cue_line_width;
-	COLOR_TYPE cue_color;
-};
-CGabor f_gabor_A;
-CGabor f_gabor_B;
+//struct CGabor {
+//	double x, y, w, h;
+//	double ori, sf, dev, ph;
+//	bool bHorizontal;
+//	double distractor_factor;	
+//	DWORD cue_line_width;
+//	COLOR_TYPE cue_color;
+//};
+//CGabor f_gabor_A;
+//CGabor f_gabor_B;
 
-int parse_gabor(const std::string& s, CGabor& gabor);
+//int parse_gabor(const std::string& s, CGabor& gabor);
 //void usage();
 int init_pages();
+//void copyConteSpec(ARConteSpec& conte, const CGabor& gabor);
 
 
-std::ostream& operator<<(std::ostream& out, CGabor& gabor)
-{
-	out <<  gabor.x << "," << gabor.y << "," << gabor.w << "," << gabor.h << "," << gabor.ori << "," << gabor.sf << "," << gabor.dev << "," << gabor.ph;
-	return out;
-}
+//std::ostream& operator<<(std::ostream& out, CGabor& gabor)
+//{
+//	out <<  gabor.x << "," << gabor.y << "," << gabor.w << "," << gabor.h << "," << gabor.ori << "," << gabor.sf << "," << gabor.dev << "," << gabor.ph;
+//	return out;
+//}
 
 
 int main (int argc, char *argv[])
@@ -73,8 +75,8 @@ int main (int argc, char *argv[])
 	{
 		cout << "Screen distance " << m_screenDistanceMM << endl;
 		cout << "Background color " << m_background << endl;
-		cout << "Gabor specs A: " << f_gabor_A << endl;
-		cout << "Gabor specs B: " << f_gabor_B << endl;
+		cout << "Gabor specs A: " << f_aConte << endl;
+		cout << "Gabor specs B: " << f_bConte << endl;
 	}
 
 	// INit vsg
@@ -165,11 +167,11 @@ int args(int argc, char **argv)
 			break;
 		case 'A':
 			s.assign(optarg);
-			if (parse_gabor(s, f_gabor_A)) errflg++;
+			if (parse_conte(s, f_aConte)) errflg++;
 			break;
 		case 'B':
 			s.assign(optarg);
-			if (parse_gabor(s, f_gabor_B)) errflg++;
+			if (parse_conte(s, f_bConte)) errflg++;
 			break;
 		case 'h':
 			errflg++;
@@ -205,173 +207,189 @@ int args(int argc, char **argv)
 //	cerr << "usage: gratings -d screen_distance_MM -b g|b|w -s x,y,w,h,contrast%,sf,tf,orientation,color_vector,s|q,r|e -s x,y,w,h,contrast%,sf,tf,orientation,color_vector,s|q,r|e" << endl;
 //}
 
-int parse_gabor(const std::string& s, CGabor& gabor)
-{
-	int status = -1;
-	vector<string> tokens;
-	tokenize(s, tokens, ",");
+//int parse_gabor(const std::string& s, CGabor& gabor)
+//{
+//	int status = -1;
+//	vector<string> tokens;
+//	tokenize(s, tokens, ",");
+//
+//	if (tokens.size() != 12)
+//	{
+//		cerr << "expect 12 tokens: " << tokens.size() << ":" << s << endl;
+//		return status;
+//	}
+//	else
+//	{
+//		istringstream iss;
+//		iss.str(tokens[0]);
+//		iss >> gabor.x;
+//		if (!iss)
+//		{
+//			cerr << "bad x: " << tokens[0] << endl;
+//			return(1);
+//		}
+//		iss.str(tokens[1]);
+//		iss.clear();
+//		iss >> gabor.y;
+//		if (!iss)
+//		{
+//			cerr << "bad y: " << tokens[1] << endl;
+//			return(1);
+//		}
+//		iss.str(tokens[2]);
+//		iss.clear();
+//		iss >> gabor.w;
+//		if (!iss)
+//		{
+//			cerr << "bad width: " << tokens[2] << endl;
+//			return(1);
+//		}
+//		iss.str(tokens[3]);
+//		iss.clear();
+//		iss >> gabor.h;
+//		if (!iss)
+//		{
+//			cerr << "bad height: " << tokens[3] << endl;
+//			return(1);
+//		}
+//		iss.str(tokens[4]);
+//		iss.clear();
+//		iss >> gabor.ori;
+//		if (!iss)
+//		{
+//			cerr << "bad ori: " << tokens[4] << endl;
+//			return(1);
+//		}
+//		iss.str(tokens[5]);
+//		iss.clear();
+//		iss >> gabor.sf;
+//		if (!iss)
+//		{
+//			cerr << "bad sf: " << tokens[5] << endl;
+//			return(1);
+//		}
+//		iss.str(tokens[6]);
+//		iss.clear();
+//		iss >> gabor.dev;
+//		if (!iss)
+//		{
+//			cerr << "bad dev: " << tokens[6] << endl;
+//			return(1);
+//		}
+//		iss.str(tokens[7]);
+//		iss.clear();
+//		iss >> gabor.ph;
+//		if (!iss)
+//		{
+//			cerr << "bad ph: " << tokens[7] << endl;
+//			return(1);
+//		}
+//		if (tokens[8] == "h" || tokens[8] == "H")
+//			gabor.bHorizontal = true;
+//		else
+//			gabor.bHorizontal = false;
+//		iss.str(tokens[9]);
+//		iss.clear();
+//		iss >> gabor.distractor_factor;
+//		if (!iss)
+//		{
+//			cerr << "bad distractor_factor: " << tokens[9] << endl;
+//			return(1);
+//		}
+//		iss.str(tokens[10]);
+//		iss.clear();
+//		iss >> gabor.cue_line_width;
+//		if (!iss)
+//		{
+//			cerr << "bad cue line width: " << tokens[10] << endl;
+//			return(1);
+//		}
+//		iss.str(tokens[11]);
+//		iss.clear();
+//		iss >> gabor.cue_color;
+//		if (!iss)
+//		{
+//			cerr << "bad cue color: " << tokens[11] << endl;
+//			return(1);
+//		}
+//
+//		status = 0;
+//	}
+//	return status;
+//}
+//
 
-	if (tokens.size() != 12)
-	{
-		cerr << "expect 12 tokens: " << tokens.size() << ":" << s << endl;
-		return status;
-	}
-	else
-	{
-		istringstream iss;
-		iss.str(tokens[0]);
-		iss >> gabor.x;
-		if (!iss)
-		{
-			cerr << "bad x: " << tokens[0] << endl;
-			return(1);
-		}
-		iss.str(tokens[1]);
-		iss.clear();
-		iss >> gabor.y;
-		if (!iss)
-		{
-			cerr << "bad y: " << tokens[1] << endl;
-			return(1);
-		}
-		iss.str(tokens[2]);
-		iss.clear();
-		iss >> gabor.w;
-		if (!iss)
-		{
-			cerr << "bad width: " << tokens[2] << endl;
-			return(1);
-		}
-		iss.str(tokens[3]);
-		iss.clear();
-		iss >> gabor.h;
-		if (!iss)
-		{
-			cerr << "bad height: " << tokens[3] << endl;
-			return(1);
-		}
-		iss.str(tokens[4]);
-		iss.clear();
-		iss >> gabor.ori;
-		if (!iss)
-		{
-			cerr << "bad ori: " << tokens[4] << endl;
-			return(1);
-		}
-		iss.str(tokens[5]);
-		iss.clear();
-		iss >> gabor.sf;
-		if (!iss)
-		{
-			cerr << "bad sf: " << tokens[5] << endl;
-			return(1);
-		}
-		iss.str(tokens[6]);
-		iss.clear();
-		iss >> gabor.dev;
-		if (!iss)
-		{
-			cerr << "bad dev: " << tokens[6] << endl;
-			return(1);
-		}
-		iss.str(tokens[7]);
-		iss.clear();
-		iss >> gabor.ph;
-		if (!iss)
-		{
-			cerr << "bad ph: " << tokens[7] << endl;
-			return(1);
-		}
-		if (tokens[8] == "h" || tokens[8] == "H")
-			gabor.bHorizontal = true;
-		else
-			gabor.bHorizontal = false;
-		iss.str(tokens[9]);
-		iss.clear();
-		iss >> gabor.distractor_factor;
-		if (!iss)
-		{
-			cerr << "bad distractor_factor: " << tokens[9] << endl;
-			return(1);
-		}
-		iss.str(tokens[10]);
-		iss.clear();
-		iss >> gabor.cue_line_width;
-		if (!iss)
-		{
-			cerr << "bad cue line width: " << tokens[10] << endl;
-			return(1);
-		}
-		iss.str(tokens[11]);
-		iss.clear();
-		iss >> gabor.cue_color;
-		if (!iss)
-		{
-			cerr << "bad cue color: " << tokens[11] << endl;
-			return(1);
-		}
-
-		status = 0;
-	}
-	return status;
-}
-
-
-int drawConteStim(CGabor& gabor)
-{
-	double xx[2], yy[2];
-	double rect[4];
-	double distractor_sf = 0.01;
-	double distractor_dev;
-	VSGTRIVAL b, w;
-	b.a = b.b = b.c = 0;
-	w.a = w.b = w.c = 1;
-
-	vsgSetDrawMode(vsgCENTREXY);
-	vsgSetPen1(0);
-	vsgSetPen2(250);
-	vsgObjSetColourVector(&b, &w, vsgBIPOLAR);
-	vsgDrawGabor(gabor.x, gabor.y, gabor.w, gabor.h, gabor.ori, gabor.sf, gabor.dev, gabor.ph);
-
-	if (gabor.bHorizontal)
-	{
-		xx[0] = gabor.x - gabor.w;
-		xx[1] = gabor.x + gabor.w;
-		yy[0] = yy[1] = gabor.y;
-		rect[0] = gabor.x - 1.5 * gabor.w;
-		rect[1] = gabor.x + 1.5 * gabor.w;
-		rect[2] = gabor.y - 0.5 * gabor.h;
-		rect[3] = gabor.y + 0.5 * gabor.h;
-	}
-	else
-	{
-		yy[0] = gabor.y - gabor.h;
-		yy[1] = gabor.y + gabor.h;
-		xx[0] = xx[1] = gabor.x;
-		rect[0] = gabor.x - 0.5 * gabor.w;
-		rect[1] = gabor.x + 0.5 * gabor.w;
-		rect[2] = gabor.y - 1.5 * gabor.h;
-		rect[3] = gabor.y + 1.5 * gabor.h;
-	}
-
-	vsgSetPen1(250);
-	vsgSetPen2(125);
-	vsgDrawGaussian(xx[0], yy[0], gabor.w, gabor.h, gabor.dev);
-	vsgDrawGaussian(xx[1], yy[1], gabor.w, gabor.h, gabor.dev);
-
-	// draw border cue
-	vsgSetDrawMode(vsgSOLIDPEN);
-	vsgSetPenSize(gabor.cue_line_width, gabor.cue_line_width);
-	arutil_color_to_palette(gabor.cue_color, 251);
-	vsgSetPen1(251);
-	vsgDrawLine(rect[0], rect[2], rect[1], rect[2]);	// top
-	vsgDrawLine(rect[1], rect[2], rect[1], rect[3]);	// right
-	vsgDrawLine(rect[1], rect[3], rect[0], rect[3]);	// bottom
-	vsgDrawLine(rect[0], rect[3], rect[0], rect[2]);	// left
-
-
-	return 0;
-}
+//int drawConteStim(CGabor& gabor)
+//{
+//	double xx[2], yy[2];
+//	double rect[4];
+//	double distractor_sf = 0.01;
+//	VSGTRIVAL b, w;
+//	b.a = b.b = b.c = 0;
+//	w.a = w.b = w.c = 1;
+//
+//	vsgSetDrawMode(vsgCENTREXY);
+//	vsgSetPen1(0);
+//	vsgSetPen2(250);
+//	vsgObjSetColourVector(&b, &w, vsgBIPOLAR);
+//	vsgDrawGabor(gabor.x, gabor.y, gabor.w, gabor.h, gabor.ori, gabor.sf, gabor.dev, gabor.ph);
+//
+//	if (gabor.bHorizontal)
+//	{
+//		xx[0] = gabor.x - gabor.w;
+//		xx[1] = gabor.x + gabor.w;
+//		yy[0] = yy[1] = gabor.y;
+//		rect[0] = gabor.x - 1.5 * gabor.w;
+//		rect[1] = gabor.x + 1.5 * gabor.w;
+//		rect[2] = gabor.y - 0.5 * gabor.h;
+//		rect[3] = gabor.y + 0.5 * gabor.h;
+//	}
+//	else
+//	{
+//		yy[0] = gabor.y - gabor.h;
+//		yy[1] = gabor.y + gabor.h;
+//		xx[0] = xx[1] = gabor.x;
+//		rect[0] = gabor.x - 0.5 * gabor.w;
+//		rect[1] = gabor.x + 0.5 * gabor.w;
+//		rect[2] = gabor.y - 1.5 * gabor.h;
+//		rect[3] = gabor.y + 1.5 * gabor.h;
+//	}
+//
+//	vsgSetPen1(250);
+//	vsgSetPen2(125);
+//	vsgDrawGaussian(xx[0], yy[0], gabor.w, gabor.h, gabor.dev);
+//	vsgDrawGaussian(xx[1], yy[1], gabor.w, gabor.h, gabor.dev);
+//
+//	// draw border cue
+//	vsgSetDrawMode(vsgSOLIDPEN);
+//	vsgSetPenSize(gabor.cue_line_width, gabor.cue_line_width);
+//	arutil_color_to_palette(gabor.cue_color, 251);
+//	vsgSetPen1(251);
+//	vsgDrawLine(rect[0], rect[2], rect[1], rect[2]);	// top
+//	vsgDrawLine(rect[1], rect[2], rect[1], rect[3]);	// right
+//	vsgDrawLine(rect[1], rect[3], rect[0], rect[3]);	// bottom
+//	vsgDrawLine(rect[0], rect[3], rect[0], rect[2]);	// left
+//
+//
+//	return 0;
+//}
+//
+//void copyConteSpec(ARConteSpec& conte, const CGabor& gabor)
+//{
+//	conte.x = gabor.x;
+//	conte.y = gabor.y;
+//	conte.w = gabor.w;
+//	conte.h = gabor.h;
+//	conte.orientation = gabor.ori;
+//	conte.sf = gabor.sf;
+//	conte.dev = gabor.dev;
+//	conte.phase = gabor.ph;
+//	conte.bHorizontal = gabor.bHorizontal;
+//	conte.distractor_factor = gabor.distractor_factor;
+//	conte.cue_line_width = gabor.cue_line_width;
+//	conte.cue_color = gabor.cue_color;
+//}
+//
 
 int init_pages()
 {
@@ -379,12 +397,32 @@ int init_pages()
 	int islice=50;
 	CallbackTrigger *pcall = NULL;
 
+
+//	copyConteSpec(f_aConte, f_gabor_A);
+//	copyConteSpec(f_bConte, f_gabor_B);
+
+	f_aConte.do_init(50);
+	f_bConte.do_init(50);
+	//vsgPresent();
+
+	cout << "init_pages(): " << f_aConte << endl;
+	cout << "init_pages(): " << f_bConte << endl;
+
+	VSGLUTBUFFER buffer;
+	vsgPaletteRead(&buffer);
+	for (int i = 0; i < 100; i++)
+	{
+		cerr << i << ":" << buffer[i].a << "," << buffer[i].b << "," << buffer[i].c << endl;
+	}
+
 	vsgSetDrawPage(vsgVIDEOPAGE, f_iPage0, vsgBACKGROUND);
 
-	drawConteStim(f_gabor_A);
-	drawConteStim(f_gabor_B);
-
+	f_aConte.draw();
+	f_bConte.draw();
+	//drawConteStim(f_gabor_A);
+	//drawConteStim(f_gabor_B);
 	vsgSetDrawPage(vsgVIDEOPAGE, f_iPageBlank, vsgBACKGROUND);
+
 
 	// trigger to turn stim on
 	triggers.addTrigger(new CallbackTrigger("M", 0x2, 0x2, 0x2, 0x2, callback));
