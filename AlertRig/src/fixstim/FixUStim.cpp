@@ -72,6 +72,7 @@ static struct argp_option options[] = {
 	{"stacey-evan", 'W', "filename[,ip:port]", 0, "Stacey-Evan stimulus"},
 	{"dot", 'D', "FIXPT_SPEC[/FIXPT_SPEC[...]]", 0, "dot(s) to (dis)appear with stim trigger"},
 	{"pursuit", 778, "PURSUIT_SPEC", 0, "smooth pursuit"},
+	{"sweep", 768, "PURSUIT_SPEC", 0, "sweep - fixpt stationary, stim moves"},
 	{"serial", 779, "PORT", 0, "serial port to listen on for triggers"},
 	{"no-gamma", 776, 0, 0, "Disable gamma correction for this stim. Will be re-enabled when this stim is complete."},
 	{"cycle-test", 774, 0, 0, "Cycling test, trigger every frame"},
@@ -735,6 +736,7 @@ error_t parse_fixstim_opt(int key, char* carg, struct argp_state* state)
 	case 'U':
 	case 'D':
 	case 778:
+	case 768:
 	case 773:
 	case 772:
 	case 770:
@@ -847,6 +849,14 @@ error_t parse_fixstim_opt(int key, char* carg, struct argp_state* state)
 					break;
 				case 770:
 					plist = new ColorVectorList(colorvector_parameters, (unsigned int)stimIndex, arguments->bLastWasDistractor);
+					break;
+				case 768:
+					plist = new PursuitList(tuning_parameters);
+					if (arguments->bUsingMultiParameterStimSet)
+					{
+						MultiParameterFXMultiGStimSet* pmulti = static_cast<MultiParameterFXMultiGStimSet*>(arguments->pStimSet);
+						pmulti->setSweepNotPursuit(true);
+					}
 					break;
 				case 778:
 					plist = new PursuitList(tuning_parameters);

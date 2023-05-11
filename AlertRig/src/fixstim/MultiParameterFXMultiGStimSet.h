@@ -23,7 +23,7 @@ public:
 	void setCyclingDelay(int ndelay);
 	void setStimDuration(double seconds);
 	void setPursuitParameters(double durSeconds, double dirDegrees, double degPerSecond);
-
+	void setSweepNotPursuit(bool bSweep = true) { m_bSweepNotPursuit = bSweep; };
 	virtual int num_pages() { return 5; };
 	virtual int num_overlay_pages() { return 0; };
 	virtual int init(ARvsg& vsg, std::vector<int> pages, int num_stim_pages);
@@ -38,6 +38,7 @@ private:
 	int m_num_stim_pages;
 	bool m_bUseDrawGroups;
 	bool m_bResetPhaseOnTrigger;
+	bool m_bSweepNotPursuit;
 	int m_iCyclingType;
 	int m_iCyclingDelay;
 	int m_iStimDuration;	// if > 0, the number of frames stim lasts until blank. If <=0, no blank. 
