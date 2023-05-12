@@ -856,6 +856,12 @@ error_t parse_fixstim_opt(int key, char* carg, struct argp_state* state)
 					{
 						MultiParameterFXMultiGStimSet* pmulti = static_cast<MultiParameterFXMultiGStimSet*>(arguments->pStimSet);
 						pmulti->setSweepNotPursuit(true);
+						cerr << "Sweep not pursuit is set." << endl;
+					}
+					else
+					{
+						arguments->bSweepNotPursuit = true;
+						cerr << "Sweep but no stim set yet!!!" << endl;
 					}
 					break;
 				case 778:

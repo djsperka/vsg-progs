@@ -42,7 +42,7 @@ struct fixstim_arguments
 	bool bHaveXhair;
 	bool bDisableGammaCorrection;
 	bool bDigoutTests;
-
+	bool bSweepNotPursuit;
 	// These 'last_was' vars tell us how to assign a stim set when we receive one.
 	bool bLastWasFixpt;
 	bool bLastWasGrating;
@@ -93,6 +93,7 @@ struct fixstim_arguments
 		, xhair()
 		, bHaveXhair(false)
 		, bDisableGammaCorrection(false)
+		, bSweepNotPursuit(false)
 		, bHaveStim(false)
 		, bLastWasFixpt(false)
 		, bLastWasGrating(false)
