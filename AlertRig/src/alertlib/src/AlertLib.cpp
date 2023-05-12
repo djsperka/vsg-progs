@@ -666,9 +666,10 @@ int ARContrastFixationPointSpec::draw()
 
 int ARContrastFixationPointSpec::drawOverlay()
 {
-	vsgSetPen1(0);
-	vsgDrawOval(x, -1*y, d, d);
-	return 0;
+	return ARFixationPointSpec::drawOverlay();
+	//vsgSetPen1(0);
+	//vsgDrawOval(x, -1*y, d, d);
+	//return 0;
 }
 
 ARContrastCircleSpec::ARContrastCircleSpec(const ARContrastCircleSpec& c) : ARContrastFixationPointSpec(c), linewidth(c.linewidth)
