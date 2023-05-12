@@ -29,6 +29,8 @@ public:
 	virtual int init(ARvsg& vsg, std::vector<int> pages, int num_stim_pages);
 	virtual int handle_trigger(const std::string& s, const std::string& args);
 	virtual std::string toString() const;
+	void cleanup(std::vector<int> pages);
+
 private:
 	int m_blank_page;
 	int m_fixpt_page;

@@ -32,7 +32,13 @@ int MultiParameterFXMultiGStimSet::init(ARvsg& vsg, std::vector<int> pages, int 
 	m_pageflippages[0] = m_stim_page;
 	m_pageflippages[1] = m_alt_page;
 
-	cerr << "init: num_stim_pages " << m_num_stim_pages << " drawGroups? " << m_bUseDrawGroups << endl;
+	cerr << "init: num_stim_pages " << m_num_stim_pages << " drawGroups? " << m_bUseDrawGroups << " Sweep not pursuit? " << m_bSweepNotPursuit <<  endl;
+
+	if (m_bSweepNotPursuit)
+	{
+		// enable overlay. Fixpt will be drawn on this page.
+		vsgSetCommand(vsgOVERLAYMASKMODE);
+	}
 
 	if (has_xhair())
 	{
@@ -52,7 +58,7 @@ int MultiParameterFXMultiGStimSet::init(ARvsg& vsg, std::vector<int> pages, int 
 	}
 	if (has_fixpt())
 	{
-		fixpt().init(vsg, 2);
+		fixpt().init(vsg, 2, !m_bSweepNotPursuit);
 	}
 
 	// saved dot colors is a thing for Gregg's Grid. 
@@ -84,10 +90,17 @@ int MultiParameterFXMultiGStimSet::init(ARvsg& vsg, std::vector<int> pages, int 
 	}
 
 	draw_current();
+	vsgSetDrawPage(vsgOVERLAYPAGE, 0, vsgNOCLEAR);
 	vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgNOCLEAR);
 	vsgPresent();
 
 	return status;
+}
+
+void MultiParameterFXMultiGStimSet::cleanup(std::vector<int> pages)
+{
+	if (m_bSweepNotPursuit)
+		vsgSetCommand(vsgOVERLAYDISABLE);
 }
 
 int MultiParameterFXMultiGStimSet::handle_trigger(const std::string& s, const std::string& args)
@@ -103,6 +116,9 @@ int MultiParameterFXMultiGStimSet::handle_trigger(const std::string& s, const st
 			status = 1;
 		}
 		vsgSetDrawPage(vsgVIDEOPAGE, m_fixpt_page, vsgNOCLEAR);
+		// TODO don't want to do this
+		if (m_bSweepNotPursuit)
+			vsgSetZoneDisplayPage(vsgOVERLAYPAGE, 1);
 
 		// move screen back to origin (if pursuit and trial was ended mid-pursuit)
 		vsgMoveScreen(0, 0);
@@ -110,7 +126,7 @@ int MultiParameterFXMultiGStimSet::handle_trigger(const std::string& s, const st
 		// fixpt should always be at 100 contrast. Cannot support "f" when "S" is on if dots are present. 
 		if (has_fixpt())
 		{
-			fixpt().setContrast(100);
+			if (!m_bSweepNotPursuit) fixpt().setContrast(100);
 			status = 1;
 		}
 	}
@@ -240,6 +256,7 @@ int MultiParameterFXMultiGStimSet::handle_trigger(const std::string& s, const st
 			status = 2;
 		}
 		vsgSetDrawPage(vsgVIDEOPAGE, m_blank_page, vsgNOCLEAR);
+		vsgSetZoneDisplayPage(vsgOVERLAYPAGE, 0);	// TODO don't want to do this
 	}
 	else if (s == "A")
 	{
@@ -278,24 +295,35 @@ void MultiParameterFXMultiGStimSet::draw_current()
 
 	// When cycling is used, we'll need this page with fixpt, xhair (if present), distractors(if present) 
 	m_bResetPhaseOnTrigger = true;
+	bool bFixptOnVideoPage = (m_bSweepNotPursuit ? false : true);
 	draw_stuff_on_page(m_blank_page, false, false, false, false);
-	draw_stuff_on_page(m_fixpt_page, true, true, false, false);
-	draw_stuff_on_page(m_fixpt_dot_page, true, true, false, true);
-	draw_stuff_on_page(m_stim_page, true, true, true, true, 1);
+	draw_stuff_on_page(m_fixpt_page, bFixptOnVideoPage, true, false, false);
+	draw_stuff_on_page(m_fixpt_dot_page, bFixptOnVideoPage, true, false, true);
+	draw_stuff_on_page(m_stim_page, bFixptOnVideoPage, true, true, true, 1);
 	if (m_num_stim_pages > 1)
 	{
 		if (!m_bUseDrawGroups)
 		{
 			advance();
-			draw_stuff_on_page(m_alt_page, true, true, true, true);
+			draw_stuff_on_page(m_alt_page, bFixptOnVideoPage, true, true, true);
 		}
 		else 
 		{
-			draw_stuff_on_page(m_alt_page, true, true, true, true, 2);
+			draw_stuff_on_page(m_alt_page, bFixptOnVideoPage, true, true, true, 2);
 		}
 	}
 	m_pageflipindex = 0;	// in case this is used, reset so flipping works right the first time
 
+
+	// When using sweep not pursuit, prepare the overlay pages.
+	// overlay page 0 - clear (transparent)
+	// overlay page 1 - fixation point
+	vsgSetDrawPage(vsgOVERLAYPAGE, 1, 0);
+	if (has_fixpt())
+	{
+		fixpt().drawOverlay();
+	}
+	vsgSetDrawPage(vsgOVERLAYPAGE, 0, 0);
 }
 
 
@@ -446,14 +474,15 @@ void MultiParameterFXMultiGStimSet::setup_cycling()
 		if (m_iCyclingDelay > 0)
 		{
 			cycle[count].Frames = 1 + (m_iCyclingDelay > 0 ? m_iCyclingDelay : 0);
-			cycle[count].Page = m_fixpt_dot_page + vsgTRIGGERPAGE;
+			cycle[count].Page = m_fixpt_dot_page + vsgTRIGGERPAGE + (m_bSweepNotPursuit ? vsgDUALPAGE : 0);
+			cycle[count].ovPage = 1;
 			cycle[count].Stop = 0;
 			count++;
 		}
 		for (int i = 0; i < m_iStimDuration; i++)
 		{
 			cycle[count].Frames = 1;
-			cycle[count].Page = m_stim_page + (i == 0 ? vsgTRIGGERPAGE : 0);	// trigger only onset of pursuit.
+			cycle[count].Page = m_stim_page + (i == 0 ? vsgTRIGGERPAGE : 0) + (m_bSweepNotPursuit ? vsgDUALPAGE : 0);	// trigger only onset of pursuit.
 			cycle[count].Xpos = (short)(-1 * (i + 1) * m_dxPursuit);
 			cycle[count].Ypos = (short)(-1 * (i + 1) * m_dyPursuit);
 			cycle[count].Stop = 0;
