@@ -51,6 +51,15 @@ private:
 	int m_pageflippages[2];
 	std::vector<COLOR_TYPE> m_dotColorsSaved;
 
+	static const int m_max_cycle_count = 32768;
+	VSGCYCLEPAGEENTRY m_cycle_params[m_max_cycle_count];	// warning! No check on usage. You have been warned. 
+	int m_fixpt_cycle_start;
+	int m_fixpt_cycle_count;
+	int m_stim_cycle_start;
+	int m_stim_cycle_count;
+	int m_clear_cycle_start;
+	int m_clear_cycle_count;
+
 	void setup_cycling();
 	void draw_current();
 	void draw_stuff_on_page(int pagenumber, bool bFixpt, bool bDistractor, bool bGrating, bool bDots, int iDrawGroup = -1);

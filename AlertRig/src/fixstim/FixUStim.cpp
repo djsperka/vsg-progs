@@ -414,6 +414,8 @@ void FixUStim::init_triggers(TSpecificFunctor<FixUStim>* pfunctor, int npages)
 
 	// For UStim-specific testing. The UStim should handle this trigger and do whatever. Ascii only trigger.
 	triggers().addTrigger(new FunctorCallbackTrigger("A", 0, 0, 0, 0, pfunctor));
+	triggers().addTrigger(new FunctorCallbackTrigger("B", 0, 0, 0, 0, pfunctor));
+	triggers().addTrigger(new FunctorCallbackTrigger("Z", 0, 0, 0, 0, pfunctor));
 
 	// quit trigger
 	triggers().addTrigger(new QuitTrigger("q", 0x10, 0x10, 0xff, 0x0, 0));

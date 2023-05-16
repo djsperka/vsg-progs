@@ -84,16 +84,15 @@ int MultiParameterFXMultiGStimSet::init(ARvsg& vsg, std::vector<int> pages, int 
 	{
 		if (m_iCyclingType == CYCLING_TYPE_PURSUIT)
 		{
-			vsgSetCommand(vsgVIDEODRIFT);
+			vsgSetCommand(vsgVIDEODRIFT + vsgOVERLAYDRIFT);
 		}
 		setup_cycling();
 	}
 
 	draw_current();
 	vsgSetDrawPage(vsgOVERLAYPAGE, 0, vsgNOCLEAR);
+	vsgSetDisplayPage(0);
 	vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgNOCLEAR);
-	vsgPresent();
-
 	return status;
 }
 
@@ -108,6 +107,12 @@ int MultiParameterFXMultiGStimSet::handle_trigger(const std::string& s, const st
 	int status = 0;
 	if (s == "F")
 	{
+		// In all cases, do these things. 
+
+		// move screen back to origin (if pursuit and trial was ended mid-pursuit)
+		vsgMoveScreen(0, 0);
+
+		// turn on distractors if any
 		for (unsigned int i = 0; i < distractor_count(); i++)
 		{
 			distractor(i).select();
@@ -115,20 +120,32 @@ int MultiParameterFXMultiGStimSet::handle_trigger(const std::string& s, const st
 			distractor(i).setContrast(distractor_contrast(i));
 			status = 1;
 		}
-		vsgSetDrawPage(vsgVIDEOPAGE, m_fixpt_page, vsgNOCLEAR);
-		// TODO don't want to do this
-		if (m_bSweepNotPursuit)
-			vsgSetZoneDisplayPage(vsgOVERLAYPAGE, 1);
 
-		// move screen back to origin (if pursuit and trial was ended mid-pursuit)
-		vsgMoveScreen(0, 0);
+		// when doing a sweepNotPursuit, the fixpt is on the overlay page and things
+		// must be done differently
 
-		// fixpt should always be at 100 contrast. Cannot support "f" when "S" is on if dots are present. 
-		if (has_fixpt())
+		if (!m_bSweepNotPursuit)
 		{
-			if (!m_bSweepNotPursuit) fixpt().setContrast(100);
+			// fixpt should always be at 100 contrast. Cannot support "f" when "S" is on if dots are present. 
+			if (has_fixpt())
+			{
+				if (!m_bSweepNotPursuit) fixpt().setContrast(100);
+				status = 1;
+			}
+
+			vsgSetDrawPage(vsgVIDEOPAGE, m_fixpt_page, vsgNOCLEAR);
+		}
+		else
+		{
+			//vsgSetZoneDisplayPage(vsgOVERLAYPAGE, 1);
+			//status = 1;// GET RID OF THIS
+			cerr << "F - setup cycling start " << m_fixpt_cycle_start << " count " << m_fixpt_cycle_count << endl;
+			vsgSetCommand(vsgOVERLAYMASKMODE);
+			vsgPageCyclingSetup(m_fixpt_cycle_count, m_cycle_params + m_fixpt_cycle_start);
+			vsgSetSynchronisedCommand(vsgSYNC_PRESENT, vsgCYCLEPAGEENABLE, 0);
 			status = 1;
 		}
+		
 	}
 	else if (s == "f")
 	{
@@ -149,6 +166,8 @@ int MultiParameterFXMultiGStimSet::handle_trigger(const std::string& s, const st
 		m_bResetPhaseOnTrigger = false;
 		if (CYCLING_TYPE_NONE != m_iCyclingType)
 		{
+			cerr << "S - setup cycling start " << m_stim_cycle_start << " count " << m_stim_cycle_count << endl;
+			vsgPageCyclingSetup(m_stim_cycle_count, m_cycle_params + m_stim_cycle_start);
 			vsgSetSynchronisedCommand(vsgSYNC_PRESENT, vsgCYCLEPAGEENABLE, 0);
 		}
 		else
@@ -253,10 +272,16 @@ int MultiParameterFXMultiGStimSet::handle_trigger(const std::string& s, const st
 		if (CYCLING_TYPE_NONE != m_iCyclingType)
 		{
 			vsgSetCommand(vsgCYCLEPAGEDISABLE);
+			cerr << "X - setup cycling start " << m_clear_cycle_start << " count " << m_clear_cycle_count << endl;
+			vsgPageCyclingSetup(m_clear_cycle_count, m_cycle_params + m_clear_cycle_start);
+			vsgSetSynchronisedCommand(vsgSYNC_PRESENT, vsgCYCLEPAGEENABLE, 0);
 			status = 2;
 		}
-		vsgSetDrawPage(vsgVIDEOPAGE, m_blank_page, vsgNOCLEAR);
-		vsgSetZoneDisplayPage(vsgOVERLAYPAGE, 0);	// TODO don't want to do this
+		else
+		{
+			vsgSetDrawPage(vsgVIDEOPAGE, m_blank_page, vsgNOCLEAR);
+		}
+		//vsgSetZoneDisplayPage(vsgOVERLAYPAGE, 0);	// TODO don't want to do this
 	}
 	else if (s == "A")
 	{
@@ -268,9 +293,26 @@ int MultiParameterFXMultiGStimSet::handle_trigger(const std::string& s, const st
 			vsgSetDrawPage(vsgVIDEOPAGE, itmp, vsgNOCLEAR);
 			status = 1;
 		}
-
-
 	}
+	else if (s == "B")
+	{
+		int itmp = -1;
+		cout << "Enter ov page: ";
+		cin >> itmp;
+		if (itmp > -1 && itmp < 2)
+		{
+			vsgSetDrawPage(vsgOVERLAYPAGE, itmp, vsgNOCLEAR);
+			status = 1;
+		}
+	}
+	else if (s == "Z")
+	{
+		DWORD vtmp, otmp;
+		vtmp = vsgGetZoneDisplayPage(vsgVIDEOPAGE);
+		otmp = vsgGetZoneDisplayPage(vsgOVERLAYPAGE);
+		cerr << "Video page " << vtmp << " overlay page " << otmp << endl;
+	}
+
 	return status;
 }
 
@@ -324,6 +366,7 @@ void MultiParameterFXMultiGStimSet::draw_current()
 		fixpt().drawOverlay();
 	}
 	vsgSetDrawPage(vsgOVERLAYPAGE, 0, 0);
+	vsgSetDisplayPage(0);	// displays overlay page 0, which should be empty.
 }
 
 
@@ -426,6 +469,122 @@ void MultiParameterFXMultiGStimSet::setPursuitParameters(double durSeconds, doub
 // or when there is a stim duration. If neither of those was set, then there's no need for cycling, as
 // the "S" trigger transitions to the fixpt+stim page, without need for precise timing or delay. 
 
+
+void MultiParameterFXMultiGStimSet::setup_cycling()
+{
+	int status = 0;
+	int count = 0;
+
+	if (CYCLING_TYPE_NONE == m_iCyclingType)
+		return;
+
+	//memset(m_cycle_params, 0, sizeof(m_cycle_params));
+	m_fixpt_cycle_start = m_fixpt_cycle_count = 0;
+	m_stim_cycle_start = m_stim_cycle_count = 0;
+	m_clear_cycle_start = m_clear_cycle_count = 0;
+
+
+	if (CYCLING_TYPE_REGULAR == m_iCyclingType)
+	{
+		m_stim_cycle_start = 0;
+		VSGCYCLEPAGEENTRY* cycle = m_cycle_params + m_stim_cycle_start;
+		count = 0;
+
+		if (m_iCyclingDelay > 0)
+		{
+			cycle[count].Frames = 1 + (m_iCyclingDelay > 0 ? m_iCyclingDelay : 0);
+			cycle[count].Page = m_fixpt_dot_page;
+			cycle[count].Stop = 0;
+			count++;
+		}
+
+		cycle[count].Page = m_stim_page + vsgTRIGGERPAGE;
+		if (m_iStimDuration <= 0)
+		{
+			cycle[count].Frames = 0;
+			cycle[count].Stop = 1;
+			count++;
+		}
+		else
+		{
+			cycle[count].Frames = m_iStimDuration;
+			cycle[count].Stop = 0;
+			count++;
+
+			cycle[count].Frames = 0;
+			cycle[count].Page = m_blank_page + +vsgTRIGGERPAGE;
+			cycle[count].Stop = 1;
+			count++;
+		}
+
+		m_stim_cycle_count = count;
+	}
+	else if (CYCLING_TYPE_PURSUIT == m_iCyclingType)
+	{
+		m_stim_cycle_start = 0;
+		VSGCYCLEPAGEENTRY* cycle = m_cycle_params + m_stim_cycle_start;
+		count = 0;
+
+		// If there is a delay -- i.e. delay before starting "stim" (pursuit)
+		if (m_iCyclingDelay > 0)
+		{
+			cycle[count].Frames = 1 + (m_iCyclingDelay > 0 ? m_iCyclingDelay : 0);
+			cycle[count].Page = m_fixpt_dot_page + vsgTRIGGERPAGE + (m_bSweepNotPursuit ? vsgDUALPAGE : 0);
+			cycle[count].ovPage = 1;
+			cycle[count].Stop = 0;
+			count++;
+		}
+		for (int i = 0; i < m_iStimDuration; i++)
+		{
+			cycle[count].Frames = 1;
+			cycle[count].Page = m_stim_page + (i == 0 ? vsgTRIGGERPAGE : 0) + (m_bSweepNotPursuit ? vsgDUALPAGE : 0);	// trigger only onset of pursuit.
+			cycle[count].ovPage = 1;
+			cycle[count].Xpos = (short)(-1 * (i + 1) * m_dxPursuit);
+			cycle[count].Ypos = (short)(-1 * (i + 1) * m_dyPursuit);
+			cycle[count].Stop = 0;
+			count++;
+		}
+		cycle[count].Frames = 1;
+		cycle[count].Page = m_blank_page + vsgTRIGGERPAGE + vsgDUALPAGE;
+		cycle[count].ovPage = 0;
+		cycle[count].Stop = 1;
+		count++;
+
+		m_stim_cycle_count = count;
+
+		// if sweep-not-pursuit, then must create trivial page cycle to get simultaneous page change
+		if (m_bSweepNotPursuit)
+		{
+			m_fixpt_cycle_start = m_stim_cycle_count;
+			cycle = m_cycle_params + m_fixpt_cycle_start;
+			cycle[0].Frames = 1;
+			cycle[0].Page = m_fixpt_page + vsgDUALPAGE;
+			cycle[0].ovPage = 1;
+			cycle[0].Stop = 1;
+			m_fixpt_cycle_count = 1;
+
+			m_clear_cycle_start = m_fixpt_cycle_start + m_fixpt_cycle_count;
+			cycle = m_cycle_params + m_clear_cycle_start;
+			cycle[0].Frames = 1;
+			cycle[0].Page = m_blank_page + vsgDUALPAGE;
+			cycle[0].ovPage = 0;
+			cycle[0].ovXpos = cycle[0].ovYpos = 0;
+			cycle[0].Stop = 1;
+			m_clear_cycle_count = 1;
+
+			cerr << "counts " << m_fixpt_cycle_start << ":" << m_fixpt_cycle_count << " " << m_stim_cycle_start << ":" << m_stim_cycle_count << " " << m_clear_cycle_start << ":" << m_clear_cycle_count << endl;
+		}
+	}
+
+	if (m_fixpt_cycle_count + m_stim_cycle_count + m_clear_cycle_count > m_max_cycle_count)
+	{
+		cerr << "ERROR: cycling array too long. Undefined behavior to follow...." << endl;
+	}
+	//status = vsgPageCyclingSetup(count, &cycle[0]);
+}
+
+
+#if 0
 void MultiParameterFXMultiGStimSet::setup_cycling()
 {
 	VSGCYCLEPAGEENTRY cycle[32768];	// warning! No check on usage. You have been warned. 
@@ -496,7 +655,7 @@ void MultiParameterFXMultiGStimSet::setup_cycling()
 
 	status = vsgPageCyclingSetup(count, &cycle[0]);
 }
-
+#endif
 
 string MultiParameterFXMultiGStimSet::toString() const
 {
