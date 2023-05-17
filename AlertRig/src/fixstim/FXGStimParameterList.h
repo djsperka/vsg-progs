@@ -330,7 +330,7 @@ private:
 class StimXYList: public FXGStimParameterList
 {
 public:
-	StimXYList(vector<double> xys, unsigned int index, bool bDistractor) : FXGStimParameterList(index)
+	StimXYList(vector<double> xys, unsigned int index, bool bDistractor) : FXGStimParameterList(index, bDistractor)
 	{
 		init_xys(xys);
 		m_iter = m_vec.begin(); 
@@ -730,7 +730,6 @@ public:
 	MultiGratingOriList(const vector<vector<std::tuple<double, double, double> > >& groups, unsigned int index, bool bDistractor) : FXGStimParameterList(index, bDistractor), m_vec(groups) 
 	{ 
 		m_iter = m_vec.begin(); 
-		cerr << "Initialized, vec has " << m_vec.size() << endl;
 	};
 	MultiGratingOriList(const MultiGratingOriList& list) : FXGStimParameterList(list.index(), list.isDistractor()), m_vec(list.m_vec)
 	{
