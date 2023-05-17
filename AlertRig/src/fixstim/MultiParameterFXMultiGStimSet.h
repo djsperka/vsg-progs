@@ -12,13 +12,13 @@ class FXGStimParameterList;
 class MultiParameterFXMultiGStimSet : public FXMultiGStimSet, public ptr_vector<FXGStimParameterList>
 {
 public:
-	MultiParameterFXMultiGStimSet() : FXMultiGStimSet() {};
-	MultiParameterFXMultiGStimSet(ARGratingSpec& grating) : FXMultiGStimSet() { add_grating(grating);  };
-	MultiParameterFXMultiGStimSet(ARGratingSpec& grating, ARContrastFixationPointSpec& fixpt) : FXMultiGStimSet(fixpt) { add_grating(grating); };
-	MultiParameterFXMultiGStimSet(ARContrastFixationPointSpec& fixpt) : FXMultiGStimSet(fixpt) {};
-	MultiParameterFXMultiGStimSet(ARContrastFixationPointSpec& fixpt, ARXhairSpec& xhair) : FXMultiGStimSet(fixpt, xhair) {};
-	MultiParameterFXMultiGStimSet(ARGratingSpec& grating, ARXhairSpec& xhair) : FXMultiGStimSet(xhair) { add_grating(grating); };
-	MultiParameterFXMultiGStimSet(ARGratingSpec& grating, ARContrastFixationPointSpec& fixpt, ARXhairSpec& xhair) : FXMultiGStimSet(fixpt, xhair) { add_grating(grating); };
+	MultiParameterFXMultiGStimSet();
+	MultiParameterFXMultiGStimSet(ARGratingSpec& grating);
+	MultiParameterFXMultiGStimSet(ARGratingSpec& grating, ARContrastFixationPointSpec& fixpt);
+	MultiParameterFXMultiGStimSet(ARContrastFixationPointSpec& fixpt);
+	MultiParameterFXMultiGStimSet(ARContrastFixationPointSpec& fixpt, ARXhairSpec& xhair);
+	MultiParameterFXMultiGStimSet(ARGratingSpec& grating, ARXhairSpec& xhair);
+	MultiParameterFXMultiGStimSet(ARGratingSpec& grating, ARContrastFixationPointSpec& fixpt, ARXhairSpec& xhair);
 	virtual ~MultiParameterFXMultiGStimSet() {};
 	void setCyclingDelay(int ndelay);
 	void setStimDuration(double seconds);
