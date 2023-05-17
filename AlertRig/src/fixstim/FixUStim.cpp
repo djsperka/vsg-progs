@@ -858,7 +858,6 @@ error_t parse_fixstim_opt(int key, char* carg, struct argp_state* state)
 					{
 						MultiParameterFXMultiGStimSet* pmulti = static_cast<MultiParameterFXMultiGStimSet*>(arguments->pStimSet);
 						pmulti->setSweepNotPursuit(true);
-						cerr << "Sweep not pursuit is set." << endl;
 					}
 					else
 					{
@@ -873,7 +872,6 @@ error_t parse_fixstim_opt(int key, char* carg, struct argp_state* state)
 					plist = new GratingWHList(tuning_parameters, (unsigned int)stimIndex, arguments->bLastWasDistractor);
 					break;
 				case 772:
-					cerr << "multigrating_parameter_groups has " << multigrating_parameter_groups.size() << endl;
 					plist = new MultiGratingOriList(multigrating_parameter_groups, (unsigned int)stimIndex, arguments->bLastWasDistractor);
 					break;
 				default:
@@ -1651,7 +1649,6 @@ int parse_dot_list(const std::string& sarg, vector<vector<alert::ARFixationPoint
 		status = parse_fixation_point_list(s, fixpts);
 		if (!status)
 		{
-			cerr << "Got a dot trial with " << fixpts.size() << endl;
 			dot_list.push_back(fixpts);
 		}
 		else
@@ -1681,7 +1678,6 @@ int parse_multigrating(const std::string& sarg,vector<vector<std::tuple<double, 
 		{
 			for (int i = 0; i < xyori.size() - 2; i += 3)
 				group.push_back(make_tuple(xyori[i], xyori[i + 1], xyori[i + 2]));
-			cerr << "Parsed multigrating group with " << group.size() << endl;
 			params.push_back(group);
 		}
 		else
