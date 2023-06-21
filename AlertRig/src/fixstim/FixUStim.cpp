@@ -63,8 +63,8 @@ static struct argp_option options[] = {
 	{"drifting-bar", 'G', "color,width,height,deg_per_sec,ori1,ori2,...", 0, "drifting bar with trigger pulses when box appears on (disappears from) screen"},
 	{"drifting-dots", 777, "color,x,y,diam,speed,density,dotsize,angle1,angle2,...", 0, "drifting dots"},
 	{"flashies", 'j', "nk,x,y,w,h,t_on,t_off[,nk,x,y,w,h,t_on,t_off...]", 0, "flashies - briefly flash distractors during attention trial"},
-	{"cues", 'q', "CUES_PARAMS", 0, "For Attention-style stimuli, use cue dots at stimulus locations."},
-	{"cues", 'r', "CUES_PARAMS", 0, "For Attention-style stimuli, use cue rects at stimulus locations."},
+	{"cue-dots", 'q', "CUES_PARAMS", 0, "For Attention-style stimuli, use cue dots at stimulus locations."},
+	{"cue-rects", 'r', "CUES_PARAMS", 0, "For Attention-style stimuli, use cue rects at stimulus locations."},
 	{"original-attention", 'J', "ATTENTION_PARAMS", 0, "original attention stim set (ask for details)"},
 	{"interleaved-attention", 'm', "INTERLEAVED_PARAMS", 0, "precursor to sequenced attention (-n)"},
 	{"sequenced-attention", 'n', "SEQUENCED_PARAMS", 0, "sequenced attention stim set; allows precise timing of cues, onset/offset/contrast-change of gratings"},
@@ -690,6 +690,7 @@ error_t parse_fixstim_opt(int key, char* carg, struct argp_state* state)
 			for (unsigned int i = 0; i < arguments->vecGratings.size(); i++) pss->add_grating(arguments->vecGratings[i]);
 			for (unsigned int i = 0; i < arguments->vecDistractors.size(); i++) pss->add_distractor(arguments->vecDistractors[i]);
 			for (unsigned int i = 0; i < arguments->vecDots.size(); i++) pss->add_dot(arguments->vecDots.at(i));
+			for (unsigned int i = 0; i < arguments->vecRectangles.size(); i++) pss->add_rectangle(arguments->vecRectangles.at(i));
 
 			arguments->pStimSet = pss;
 			arguments->bUsingMultiParameterStimSet = true;
@@ -800,6 +801,10 @@ error_t parse_fixstim_opt(int key, char* carg, struct argp_state* state)
 				for (unsigned int i = 0; i < arguments->vecDistractors.size(); i++)
 				{
 					pmulti->add_distractor(arguments->vecDistractors.at(i));
+				}
+				for (unsigned int i = 0; i < arguments->vecRectangles.size(); i++)
+				{
+					pmulti->add_rectangle(arguments->vecRectangles.at(i));
 				}
 			}
 

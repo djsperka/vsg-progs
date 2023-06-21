@@ -122,6 +122,13 @@ int MultiParameterFXMultiGStimSet::init(ARvsg& vsg, std::vector<int> pages, int 
 			distractor(i).init(vsg, levels);
 		}
 	}
+	if (has_rectangle())
+	{
+		for (unsigned int i = 0; i < rectangle_count(); i++)
+		{
+			rectangle(i).init(vsg, 2);
+		}
+	}
 	if (has_fixpt())
 	{
 		fixpt().init(vsg, 2, !m_bSweepNotPursuit);
@@ -307,7 +314,7 @@ int MultiParameterFXMultiGStimSet::handle_trigger(const std::string& s, const st
 				{
 					dot(0).getMulti().at(index).color = color;
 					m_pageflipindex = 1 - m_pageflipindex;
-					draw_stuff_on_page(m_pageflippages[m_pageflipindex], true, true, true, true);
+					draw_stuff_on_page(m_pageflippages[m_pageflipindex], true, true, true, true, true);
 					status = 3;
 				}
 				else
@@ -391,20 +398,20 @@ void MultiParameterFXMultiGStimSet::draw_current()
 	// When cycling is used, we'll need this page with fixpt, xhair (if present), distractors(if present) 
 	m_bResetPhaseOnTrigger = true;
 	bool bFixptOnVideoPage = (m_bSweepNotPursuit ? false : true);
-	draw_stuff_on_page(m_blank_page, false, false, false, false);
-	draw_stuff_on_page(m_fixpt_page, bFixptOnVideoPage, true, false, false);
-	draw_stuff_on_page(m_fixpt_dot_page, bFixptOnVideoPage, true, false, true);
-	draw_stuff_on_page(m_stim_page, bFixptOnVideoPage, true, true, true, 1);
+	draw_stuff_on_page(m_blank_page, false, false, false, false, false);
+	draw_stuff_on_page(m_fixpt_page, bFixptOnVideoPage, true, false, false, false);
+	draw_stuff_on_page(m_fixpt_dot_page, bFixptOnVideoPage, true, false, true, false);
+	draw_stuff_on_page(m_stim_page, bFixptOnVideoPage, true, true, true, true, 1);
 	if (m_num_stim_pages > 1)
 	{
 		if (!m_bUseDrawGroups)
 		{
 			advance();
-			draw_stuff_on_page(m_alt_page, bFixptOnVideoPage, true, true, true);
+			draw_stuff_on_page(m_alt_page, bFixptOnVideoPage, true, true, true, true);
 		}
 		else 
 		{
-			draw_stuff_on_page(m_alt_page, bFixptOnVideoPage, true, true, true, 2);
+			draw_stuff_on_page(m_alt_page, bFixptOnVideoPage, true, true, true, true, 2);
 		}
 	}
 	m_pageflipindex = 0;	// in case this is used, reset so flipping works right the first time
@@ -423,7 +430,7 @@ void MultiParameterFXMultiGStimSet::draw_current()
 }
 
 
-void MultiParameterFXMultiGStimSet::draw_stuff_on_page(int pagenumber, bool bFixpt, bool bDistractor, bool bGrating, bool bDots, int iDrawGroup)
+void MultiParameterFXMultiGStimSet::draw_stuff_on_page(int pagenumber, bool bFixpt, bool bDistractor, bool bGrating, bool bDots, bool bRectangle, int iDrawGroup)
 {
 	// xhair, fixpt, dots and stim. 
 	vsgSetDrawPage(vsgVIDEOPAGE, pagenumber, vsgBACKGROUND);
@@ -445,6 +452,14 @@ void MultiParameterFXMultiGStimSet::draw_stuff_on_page(int pagenumber, bool bFix
 		{
 			if (grating(i).inDrawGroup(iDrawGroup))
 				grating(i).draw();
+		}
+	}
+	if (bRectangle && has_rectangle())
+	{
+		for (unsigned int i = 0; i < rectangle_count(); i++)
+		{
+			if (rectangle(i).inDrawGroup(iDrawGroup))
+				rectangle(i).draw();
 		}
 	}
 	if (bFixpt && has_fixpt())
@@ -668,6 +683,13 @@ string MultiParameterFXMultiGStimSet::toString() const
 	}
 	else
 		cerr << " Dot: NONE" << endl;
+	if (has_rectangle())
+	{
+		for (unsigned int i = 0; i < rectangle_count(); i++)
+			cerr << " Rect " << i << ": " << rectangle(i) << endl;
+	}
+	else
+		cerr << " Rect: NONE" << endl;
 	return s;
 }
 

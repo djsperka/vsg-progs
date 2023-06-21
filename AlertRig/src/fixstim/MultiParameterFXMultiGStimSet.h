@@ -62,7 +62,7 @@ private:
 
 	void setup_cycling();
 	void draw_current();
-	void draw_stuff_on_page(int pagenumber, bool bFixpt, bool bDistractor, bool bGrating, bool bDots, int iDrawGroup = -1);
+	void draw_stuff_on_page(int pagenumber, bool bFixpt, bool bDistractor, bool bGrating, bool bDots, bool bRectangles, int iDrawGroup = -1);
 protected:
 	void advance();
 	void set_current(size_t index);
