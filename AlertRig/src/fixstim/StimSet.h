@@ -106,6 +106,7 @@ private:
 	vector<int> m_contrasts;
 	vector<int> m_distractor_contrasts;
 	ptr_vector<ARDotSpec> m_dots;
+	ptr_vector<ARRectangleSpec> m_rectangles;
 
 public:
 	FXMultiGStimSet(): FXStimSet() {};
@@ -117,9 +118,11 @@ public:
 	ptr_vector<ARGratingSpec>& gratings() { return m_gratings; };
 	ptr_vector<ARGratingSpec>& distractors() { return m_distractors; };
 	ptr_vector<ARDotSpec>& dots() { return m_dots; };
+	ptr_vector<ARRectangleSpec>& rectangles() { return m_rectangles; };
 	const ptr_vector<ARGratingSpec>& gratings() const { return m_gratings; };
 	const ptr_vector<ARGratingSpec>& distractors() const { return m_distractors; };
 	const ptr_vector<ARDotSpec>& dots() const { return m_dots; };
+	const ptr_vector<ARRectangleSpec>& rectangles() const { return m_rectangles; };
 
 	virtual void add_grating(const ARGratingSpec& grating, double xoffset=0.0, double yoffset=0.0);
 	virtual bool has_grating() const { return count()>0; };
@@ -231,6 +234,40 @@ public:
 	{
 		return m_dots.size();
 	};
+
+	virtual void add_rectangle(const ARRectangleSpec& rect);
+	virtual bool has_rectangle() const { return rectangle_count() > 0; };
+
+	ARRectangleSpec& rectangle()
+	{
+		BOOST_ASSERT(m_rectangles.size() > 0);
+		return m_rectangles[0];
+	};
+
+	const ARRectangleSpec& rectangle() const
+	{
+		BOOST_ASSERT(m_rectangles.size() > 0);
+		return m_rectangles[0];
+	};
+
+	ARRectangleSpec& rectangle(int i)
+	{
+		BOOST_ASSERT(m_rectangles.size() > (unsigned int)i);
+		return m_rectangles[i];
+	};
+
+	const ARRectangleSpec& rectangle(int i) const
+	{
+		BOOST_ASSERT(m_rectangles.size() > (unsigned int)i);
+		return m_rectangles[i];
+	};
+
+	size_t rectangle_count() const
+	{
+		return m_rectangles.size();
+	};
+
+
 };
 
 
