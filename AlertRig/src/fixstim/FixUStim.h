@@ -39,6 +39,7 @@ struct fixstim_arguments
 	ARGratingSpec grating;
 	bool bHaveGrating;
 	ARXhairSpec xhair;
+	ARRectangleSpec rectangle;
 	bool bHaveXhair;
 	bool bDisableGammaCorrection;
 	bool bDigoutTests;
@@ -47,6 +48,7 @@ struct fixstim_arguments
 	bool bLastWasFixpt;
 	bool bLastWasGrating;
 	bool bLastWasDistractor;
+	bool bLastWasRectangle;
 	bool bUseCueCircles;
 	bool bUseCuePoints;
 	bool bCuePointIsDot;
@@ -66,6 +68,7 @@ struct fixstim_arguments
 	std::vector<AttentionCue> vecAttentionCues;
 	FlashyParamVectorVector vecFlashies;
 	std::vector<alert::ARContrastFixationPointSpec> vecDots;
+	std::vector<alert::ARRectangleSpec> vecRectangles;
 
 	StimSet* pStimSet;
 	bool bUsingMultiParameterStimSet;
@@ -91,6 +94,7 @@ struct fixstim_arguments
 		, grating()
 		, bHaveGrating(false)
 		, xhair()
+		, rectangle()
 		, bHaveXhair(false)
 		, bDisableGammaCorrection(false)
 		, bSweepNotPursuit(false)
@@ -98,6 +102,7 @@ struct fixstim_arguments
 		, bLastWasFixpt(false)
 		, bLastWasGrating(false)
 		, bLastWasDistractor(false)
+		, bLastWasRectangle(false)
 		, bUseCueCircles(false)
 		, bUseCuePoints(false)
 		, bCuePointIsDot(false)

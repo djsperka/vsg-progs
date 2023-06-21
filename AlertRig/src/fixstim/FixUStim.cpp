@@ -81,6 +81,7 @@ static struct argp_option options[] = {
 	{"num-stim-pages", 771, "1(default)|2|3", 1, "Number of stimulus pages prepared for each trial."},
 	{"colorvector", 770, "cv1,cv2,...", 0, "grating/distractor colorvector list"},
 	{"draw-group", 769, "0|1|2", 0, "the next object specified should be in this drawing group. Group 1(2) drawn on first(second) stim page."},
+	{"rect", 767, "RECTANGLE_SPEC", 0, "Add rectangle to list of stimuli."},
 	{ 0 }
 };
 static struct argp f_argp = { options, parse_fixstim_opt, 0, "fixstim -- all-purpose stimulus engine" };
@@ -523,7 +524,7 @@ error_t parse_fixstim_opt(int key, char* carg, struct argp_state* state)
 		{
 			arguments->bHaveFixpt = true;
 			arguments->bLastWasFixpt = true;
-			arguments->bLastWasGrating = arguments->bLastWasDistractor = false;
+			arguments->bLastWasGrating = arguments->bLastWasDistractor = arguments->bLastWasRectangle = false;
 			arguments->vecFixpts.push_back(arguments->fixpt);					// this vector might be ignored by some (most) stim sets.
 		}
 		break;
@@ -602,7 +603,7 @@ error_t parse_fixstim_opt(int key, char* carg, struct argp_state* state)
 		{
 			arguments->bHaveStim = true;
 			arguments->bLastWasGrating = true;
-			arguments->bLastWasFixpt = arguments->bLastWasDistractor = false;
+			arguments->bLastWasFixpt = arguments->bLastWasDistractor = arguments->bLastWasRectangle = false;
 
 			if (arguments->bPendingDrawGroup)
 			{
@@ -633,7 +634,7 @@ error_t parse_fixstim_opt(int key, char* carg, struct argp_state* state)
 		else
 		{
 			arguments->bLastWasDistractor = true;
-			arguments->bLastWasGrating = arguments->bLastWasFixpt = false;
+			arguments->bLastWasGrating = arguments->bLastWasFixpt = arguments->bLastWasRectangle = false;
 			arguments->vecDistractors.push_back(arguments->grating);
 
 			if (arguments->bUsingMultiParameterStimSet)
@@ -643,6 +644,26 @@ error_t parse_fixstim_opt(int key, char* carg, struct argp_state* state)
 			}
 		}
 		break;
+	case 767:
+		// rectangle
+		if (parse_rectangle(sarg, arguments->rectangle))
+		{
+			cerr << "Error in rectangle input: " << sarg << endl;
+			ret = EINVAL;
+		}
+		else
+		{
+			arguments->bLastWasRectangle = true;
+			arguments->bLastWasGrating = arguments->bLastWasFixpt = arguments->bLastWasDistractor = false;
+			arguments->vecRectangles.push_back(arguments->rectangle);
+
+			if (arguments->bUsingMultiParameterStimSet)
+			{
+				MultiParameterFXMultiGStimSet* pmulti = static_cast<MultiParameterFXMultiGStimSet*>(arguments->pStimSet);
+				pmulti->add_rectangle(arguments->rectangle);
+			}
+
+		}
 	case 'K':
 	{
 		/* 
@@ -798,7 +819,9 @@ error_t parse_fixstim_opt(int key, char* carg, struct argp_state* state)
 				}
 				else if (arguments->bLastWasFixpt) stimIndex = -1;
 				else if (arguments->bLastWasGrating) stimIndex = pmulti->count() - 1;
-				else stimIndex = pmulti->distractor_count() - 1;
+				else if (arguments->bLastWasDistractor) stimIndex = pmulti->distractor_count() - 1;
+				else if (arguments->bLastWasRectangle) stimIndex = pmulti->rectangle_count() - 1;
+				else stimIndex = -1;
 
 				// Create a stim parameter set
 				FXGStimParameterList* plist = NULL;
