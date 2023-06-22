@@ -444,12 +444,18 @@ void FXMultiGStimSet::add_dot(const vector<alert::ARFixationPointSpec>& dots)
 	m_dots.push_back(pspec);
 }
 
-void FXMultiGStimSet::add_rectangle(const ARContrastRectangleSpec& rect)
+void FXMultiGStimSet::add_rectangle(const ARRectangleSpec& rect)
 {
-	m_rectangles.push_back(new ARContrastRectangleSpec(rect));
+	m_rectangles.push_back(new ARRectangleSpec(rect));
 	return;
 }
 
+void FXMultiGStimSet::add_rectangle(const vector<alert::ARRectangleSpec>& rects)
+{
+	ARRectangleSpec* pspec = new ARRectangleSpec();
+	pspec->setMulti(rects);
+	m_rectangles.push_back(pspec);
+}
 
 
 
