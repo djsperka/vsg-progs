@@ -629,6 +629,36 @@ private:
 	vector<vector<alert::ARFixationPointSpec> >::const_iterator m_iter;
 };
 
+class RectangleList : public FXGStimParameterList
+{
+public:
+	RectangleList(vector<vector<alert::ARRectangleSpec> >& rects, int index) : FXGStimParameterList(index), m_vec(rects) { m_iter = m_vec.begin(); };
+	RectangleList(const RectangleList& list) : FXGStimParameterList(list.index()), m_vec(list.m_vec)
+	{
+		m_iter = m_vec.begin();
+	}
+
+	virtual ~RectangleList() {};
+	virtual bool advance(MultiParameterFXMultiGStimSet* pstimset)
+	{
+		m_iter++;
+		if (m_iter == m_vec.end()) m_iter = m_vec.begin();
+		return set_current_parameter(pstimset);
+	}
+
+	virtual bool set_current_parameter(MultiParameterFXMultiGStimSet* pstimset)
+	{
+		if (index() < pstimset->rectangle_count())
+		{
+			pstimset->rectangle(index()).setMulti(*m_iter);
+		}
+		return true;
+	}
+
+private:
+	vector<vector<alert::ARRectangleSpec> >m_vec;
+	vector<vector<alert::ARRectangleSpec> >::const_iterator m_iter;
+};
 
 
 class StimDelayList: public FXGStimParameterList
