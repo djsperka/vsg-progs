@@ -91,7 +91,7 @@ static struct argp f_argp = { options, parse_fixstim_opt, 0, "fixstim -- all-pur
 bool parseImageArg(const std::string& arg, std::string& filename, double& x, double& y, double& duration, double& delay, int& nlevels);
 int parse_multigrating(const std::string& sarg, vector<vector<std::tuple<double, double, double> > >& params);
 int parse_dot_list(const std::string& sarg, vector<vector<alert::ARFixationPointSpec> >& dot_list);
-int parse_dot_list(const std::string& sarg, vector<vector<alert::ARRectangleSpec> >& rect_list);
+int parse_rectangle_arg(const std::string& sarg, vector<vector<alert::ARRectangleSpec> >& rect_list);
 
 
 
@@ -671,7 +671,7 @@ error_t parse_fixstim_opt(int key, char* carg, struct argp_state* state)
 			for (unsigned int i = 0; i < arguments->vecGratings.size(); i++) pss->add_grating(arguments->vecGratings[i]);
 			for (unsigned int i = 0; i < arguments->vecDistractors.size(); i++) pss->add_distractor(arguments->vecDistractors[i]);
 			for (unsigned int i = 0; i < arguments->vecDots.size(); i++) pss->add_dot(arguments->vecDots.at(i));
-			for (unsigned int i = 0; i < arguments->vecRectangles.size(); i++) pss->add_rectangle(arguments->vecRectangles.at(i));
+			//for (unsigned int i = 0; i < arguments->vecRectangles.size(); i++) pss->add_rectangle(arguments->vecRectangles.at(i));
 
 			arguments->pStimSet = pss;
 			arguments->bUsingMultiParameterStimSet = true;
@@ -745,11 +745,13 @@ error_t parse_fixstim_opt(int key, char* carg, struct argp_state* state)
 	case 773:
 	case 772:
 	case 770:
+	case 767:
 	{
 		vector<double> tuning_parameters;
 		vector<COLOR_TYPE> color_parameters;
 		vector<COLOR_VECTOR_TYPE> colorvector_parameters;
 		vector<vector<alert::ARFixationPointSpec> > dot_parameters;
+		vector<vector<alert::ARRectangleSpec> > rect_parameters;
 		vector<vector<std::tuple<double, double, double> > >multigrating_parameter_groups;
 		int nsteps;
 
@@ -758,10 +760,11 @@ error_t parse_fixstim_opt(int key, char* carg, struct argp_state* state)
 		// distractors that have been specified up to this point.
 
 		if ((key == 'D' && parse_dot_list(sarg, dot_parameters)) ||
+			(key == 767 && parse_rectangle_arg(sarg, rect_parameters)) ||
 			(key == 'U' && parse_color_list(sarg, color_parameters)) ||
 			(key == 770 && parse_colorvector_list(sarg, colorvector_parameters)) ||
 			(key == 772 && parse_multigrating(sarg, multigrating_parameter_groups)) ||
-			((key != 'D' && key != 'U' && key != 770) && parse_tuning_list(sarg, tuning_parameters, nsteps)))
+			((key != 'D' && key != 767 && key != 'U' && key != 770) && parse_tuning_list(sarg, tuning_parameters, nsteps)))
 		{
 			ret = EINVAL;
 		}
@@ -783,10 +786,6 @@ error_t parse_fixstim_opt(int key, char* carg, struct argp_state* state)
 				{
 					pmulti->add_distractor(arguments->vecDistractors.at(i));
 				}
-				for (unsigned int i = 0; i < arguments->vecRectangles.size(); i++)
-				{
-					pmulti->add_rectangle(arguments->vecRectangles.at(i));
-				}
 			}
 
 			if (!arguments->bUsingMultiParameterStimSet)
@@ -802,6 +801,11 @@ error_t parse_fixstim_opt(int key, char* carg, struct argp_state* state)
 				{
 					pmulti->add_dot(dot_parameters[0]);
 					stimIndex = pmulti->dot_count() - 1;
+				}
+				else if (key == 767)
+				{
+					pmulti->add_rectangle(rect_parameters[0]);
+					stimIndex = pmulti->rectangle_count() - 1;
 				}
 				else if (arguments->bLastWasFixpt) stimIndex = -1;
 				else if (arguments->bLastWasGrating) stimIndex = pmulti->count() - 1;
@@ -856,6 +860,9 @@ error_t parse_fixstim_opt(int key, char* carg, struct argp_state* state)
 					break;
 				case 'D':
 					plist = new DotList(dot_parameters, (unsigned int)stimIndex);
+					break;
+				case 767:
+					plist = new RectangleList(rect_parameters, (unsigned int)stimIndex);
 					break;
 				case 770:
 					plist = new ColorVectorList(colorvector_parameters, (unsigned int)stimIndex, arguments->bLastWasDistractor);
@@ -1666,6 +1673,31 @@ int parse_dot_list(const std::string& sarg, vector<vector<alert::ARFixationPoint
 	}
 	return status;
 }
+
+int parse_rectangle_arg(const std::string& sarg, vector<vector<alert::ARRectangleSpec> >& rect_list)
+{
+	int status = 0;
+	vector<string> tokens;
+	vector<alert::ARRectangleSpec> rects;
+
+	// groups are separated by '!' - these are trials, swapped out on "a" trigger. 
+	boost::split(tokens, sarg, boost::is_any_of("!"));
+	for (string s : tokens)
+	{
+		rects.clear();
+		status = parse_rectangle_list(s, rects);
+		if (!status)
+		{
+			rect_list.push_back(rects);
+		}
+		else
+		{
+			cerr << "Error parsing rectangle list: " << s << endl;
+		}
+	}
+	return status;
+}
+
 
 int parse_multigrating(const std::string& sarg,vector<vector<std::tuple<double, double, double> > >& params)
 {

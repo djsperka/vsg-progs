@@ -39,7 +39,7 @@ struct fixstim_arguments
 	ARGratingSpec grating;
 	bool bHaveGrating;
 	ARXhairSpec xhair;
-	ARContrastRectangleSpec rectangle;
+	ARRectangleSpec rectangle;
 	bool bHaveXhair;
 	bool bDisableGammaCorrection;
 	bool bDigoutTests;
@@ -67,7 +67,7 @@ struct fixstim_arguments
 	std::vector<AttentionCue> vecAttentionCues;
 	FlashyParamVectorVector vecFlashies;
 	std::vector<alert::ARContrastFixationPointSpec> vecDots;
-	std::vector<alert::ARContrastRectangleSpec> vecRectangles;
+	//std::vector<alert::ARContrastRectangleSpec> vecRectangles;
 
 	StimSet* pStimSet;
 	bool bUsingMultiParameterStimSet;

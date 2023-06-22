@@ -155,6 +155,21 @@ int MultiParameterFXMultiGStimSet::init(ARvsg& vsg, std::vector<int> pages, int 
 		}
 	}
 
+	if (has_rectangle())
+	{
+		for (unsigned int i = 0; i < rectangle_count(); i++)
+		{
+			// How many levels will this dot need? 
+			// Maybe not the best method, but assume that the number needed 
+			// for the first trial is the number needed for all trials. 
+			if (rectangle(i).isMulti())
+				rectangle(i).init(vsg, (int)rectangle(i).getMulti().size(), false);
+			else
+				rectangle(i).init(vsg, 1, false);
+		}
+	}
+
+
 	// Set initial params in grating(s)
 	set_initial_parameters();
 	if (m_iCyclingType != CYCLING_TYPE_NONE)
@@ -459,7 +474,6 @@ void MultiParameterFXMultiGStimSet::draw_stuff_on_page(int pagenumber, bool bFix
 		}
 	}
 
-#if 0
 	if (bRectangle && has_rectangle())
 	{
 		for (unsigned int i = 0; i < rectangle_count(); i++)
@@ -468,7 +482,6 @@ void MultiParameterFXMultiGStimSet::draw_stuff_on_page(int pagenumber, bool bFix
 				rectangle(i).draw();
 		}
 	}
-#endif
 
 	if (bFixpt && has_fixpt())
 	{
