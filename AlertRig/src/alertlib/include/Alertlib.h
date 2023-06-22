@@ -149,6 +149,9 @@ namespace alert
 	// Rectangle Spec
 	class ARRectangleSpec: public ARSpec
 	{
+		bool bIsMulti;
+		std::vector<ARRectangleSpec> m_multi;
+
 	public:
 		ARRectangleSpec(DWORD mode=0, DWORD line_width=1): ARSpec(), x(0), y(0), orientation(0), drawmode(mode), linewidth(line_width) {};
 		ARRectangleSpec(const ARRectangleSpec& spec) : ARSpec(spec), x(spec.x), y(spec.y), w(spec.w), h(spec.h), orientation(spec.orientation), color(spec.color), drawmode(spec.drawmode), linewidth(spec.linewidth) {};
@@ -161,6 +164,13 @@ namespace alert
 		DWORD linewidth;
 		virtual int draw();
 		virtual int drawOverlay();
+
+		void setMulti(const std::vector<ARRectangleSpec>& vec) { bIsMulti = true; m_multi = vec; };
+		void setMulti() { bIsMulti = false; m_multi.clear(); };
+		std::vector<ARRectangleSpec>& getMulti() { return m_multi; };
+		const std::vector<ARRectangleSpec>& getMulti() const { return m_multi; };
+		bool isMulti() { return bIsMulti; };
+		bool isMulti() const { return bIsMulti; };
 	};
 
 	class ARContrastRectangleSpec: public ARRectangleSpec
@@ -488,6 +498,8 @@ int parse_fixation_point(const std::string& s, alert::ARFixationPointSpec& afp);
 int parse_fixation_point_list(std::string s, std::vector<alert::ARFixationPointSpec>& fixpt_list);
 int parse_fixation_point_list(std::vector<std::string>& tokens, std::vector<alert::ARFixationPointSpec>& fixpt_list);
 int parse_rectangle(const std::string& s, alert::ARRectangleSpec& arrect);
+int parse_rectangle_list(std::string s, std::vector<alert::ARRectangleSpec>& rectangle_list);
+int parse_rectangle_list(std::vector<std::string>& tokens, std::vector<alert::ARRectangleSpec>& rectangle_list);
 int parse_grating(const std::string& s, alert::ARGratingSpec& ag);
 int parse_xhair(const std::string& s, alert::ARXhairSpec& axh);
 int parse_conte(const std::string& s, alert::ARConteSpec & conte);

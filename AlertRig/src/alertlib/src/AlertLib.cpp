@@ -82,7 +82,12 @@ std::ostream& operator<<(std::ostream& out, const ARFixationPointSpec& arfps)
 
 std::ostream& operator<<(std::ostream& out, const ARRectangleSpec& arrect)
 {
-	out << arrect.x << "," << arrect.y << "," << arrect.w << "," << arrect.h << "," << arrect.color;
+	if (!arrect.isMulti())
+		out << arrect.x << "," << arrect.y << "," << arrect.w << "," << arrect.h << "," << arrect.color;
+	else
+		for (auto r : arrect.getMulti())
+			out << r.x << "," << r.y << "," << r.w << "," << r.h << "," << r.color << ";";
+
 	return out;
 }
 
@@ -447,17 +452,50 @@ int ARChessboardSpec::drawOverlay()
 
 int ARRectangleSpec::draw()
 {
-	if (drawmode)
+	if (!bIsMulti)
 	{
-		vsgSetDrawMode(drawmode);
-		if (drawmode & vsgSOLIDPEN)
+		if (drawmode)
 		{
-			vsgSetPenSize(linewidth, linewidth);
+			vsgSetDrawMode(drawmode);
+			if (drawmode & vsgSOLIDPEN)
+			{
+				vsgSetPenSize(linewidth, linewidth);
+			}
 		}
+		else
+			vsgSetDrawMode(vsgCENTREXY + vsgSOLIDFILL);
+		vsgDrawBar(x, -y, w, h, orientation);
 	}
 	else
-		vsgSetDrawMode(vsgCENTREXY + vsgSOLIDFILL);
-	vsgDrawBar(x, -y, w, h, orientation);
+	{
+		PIXEL_LEVEL first = this->getFirstLevel();
+		PIXEL_LEVEL num = this->getNumLevels();
+
+		for (int i = 0; i < m_multi.size(); i++)
+		{
+			// The dot should be init'd with enough levels for all dots. This is just in case it isn't.
+			PIXEL_LEVEL n = first + (i % num);
+
+			// Draw. Use level 'n' only when palette mode
+			if (vsgGetSystemAttribute(vsgVIDEOMODE) == vsg8BITPALETTEMODE)
+			{
+				// assign color to level 'n'
+				//cerr << "multidot " << i << " color " << m_multi[i].color << " level " << n << endl;
+				arutil_color_to_palette(m_multi[i].color, n);
+				vsgSetPen1(n);
+			}
+			else
+			{
+				vsgSetPen1((DWORD)(255 * m_multi[i].color.trival().a + 256 * 255 * m_multi[i].color.trival().b + 256 * 256 * 255 * m_multi[i].color.trival().c));
+			}
+			vsgSetDrawMode(vsgCENTREXY + vsgSOLIDFILL);
+			vsgDrawBar(m_multi[i].x, -1 * m_multi[i].y, m_multi[i].w, m_multi[i].h, m_multi[i].orientation);
+		}
+		return 0;
+	}
+
+
+
 	return 0;
 }
 
@@ -627,7 +665,6 @@ int ARDotSpec::draw()
 		}
 		return 0;
 	}
-
 }
 
 int ARDotSpec::drawOverlay()
