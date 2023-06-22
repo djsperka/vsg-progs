@@ -477,6 +477,8 @@ namespace alert
 std::ostream& operator<<(std::ostream& out, const alert::ARFixationPointSpec& arfps);
 std::istream& operator>>(std::istream& in, alert::ARFixationPointSpec& arfps);
 std::ostream& operator<<(std::ostream& out, const alert::ARRectangleSpec& arrect);
+std::istream& operator>>(std::istream& in, alert::ARRectangleSpec& arrect);
+std::ostream& operator<<(std::ostream& out, const alert::ARContrastRectangleSpec& arrect);
 std::ostream& operator<<(std::ostream& out, const alert::ARGratingSpec& args);
 std::ostream& operator<<(std::ostream& out, const alert::ARXhairSpec& arx);
 std::ostream& operator<<(std::ostream& out, const alert::ARConteSpec& arconte);

@@ -48,7 +48,6 @@ struct fixstim_arguments
 	bool bLastWasFixpt;
 	bool bLastWasGrating;
 	bool bLastWasDistractor;
-	bool bLastWasRectangle;
 	bool bUseCueCircles;
 	bool bUseCuePoints;
 	bool bCuePointIsDot;
@@ -102,7 +101,6 @@ struct fixstim_arguments
 		, bLastWasFixpt(false)
 		, bLastWasGrating(false)
 		, bLastWasDistractor(false)
-		, bLastWasRectangle(false)
 		, bUseCueCircles(false)
 		, bUseCuePoints(false)
 		, bCuePointIsDot(false)

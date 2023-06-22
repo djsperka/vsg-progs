@@ -194,8 +194,6 @@ int parse_rectangle(const std::string& s, alert::ARRectangleSpec& ar)
 	return status;
 }
 
-
-
 int parse_grating(const std::string& s, alert::ARGratingSpec& ag)
 {
 	int status=0;

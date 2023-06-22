@@ -122,6 +122,8 @@ int MultiParameterFXMultiGStimSet::init(ARvsg& vsg, std::vector<int> pages, int 
 			distractor(i).init(vsg, levels);
 		}
 	}
+
+#if 0
 	if (has_rectangle())
 	{
 		for (unsigned int i = 0; i < rectangle_count(); i++)
@@ -129,6 +131,8 @@ int MultiParameterFXMultiGStimSet::init(ARvsg& vsg, std::vector<int> pages, int 
 			rectangle(i).init(vsg, 2);
 		}
 	}
+#endif
+
 	if (has_fixpt())
 	{
 		fixpt().init(vsg, 2, !m_bSweepNotPursuit);
@@ -454,6 +458,8 @@ void MultiParameterFXMultiGStimSet::draw_stuff_on_page(int pagenumber, bool bFix
 				grating(i).draw();
 		}
 	}
+
+#if 0
 	if (bRectangle && has_rectangle())
 	{
 		for (unsigned int i = 0; i < rectangle_count(); i++)
@@ -462,6 +468,8 @@ void MultiParameterFXMultiGStimSet::draw_stuff_on_page(int pagenumber, bool bFix
 				rectangle(i).draw();
 		}
 	}
+#endif
+
 	if (bFixpt && has_fixpt())
 	{
 		fixpt().draw();

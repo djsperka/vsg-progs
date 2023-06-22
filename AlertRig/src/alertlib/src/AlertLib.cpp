@@ -52,6 +52,16 @@ std::istream& operator>>(std::istream& in, alert::ARGratingSpec& grating)
 	return in;
 }
 
+std::istream& operator>>(std::istream& in, alert::ARRectangleSpec& arrect)
+{
+	string s;
+	in >> s;
+	if (parse_rectangle(s, arrect))
+	{
+		in.setstate(std::ios::failbit);
+	}
+	return in;
+}
 
 
 //static COLOR_TYPE default_red(red);
@@ -71,6 +81,12 @@ std::ostream& operator<<(std::ostream& out, const ARFixationPointSpec& arfps)
 }
 
 std::ostream& operator<<(std::ostream& out, const ARRectangleSpec& arrect)
+{
+	out << arrect.x << "," << arrect.y << "," << arrect.w << "," << arrect.h << "," << arrect.color;
+	return out;
+}
+
+std::ostream& operator<<(std::ostream& out, const ARContrastRectangleSpec& arrect)
 {
 	out << arrect.x << "," << arrect.y << "," << arrect.w << "," << arrect.h << "," << arrect.color;
 	return out;
