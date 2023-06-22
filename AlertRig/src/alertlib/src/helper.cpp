@@ -194,6 +194,44 @@ int parse_rectangle(const std::string& s, alert::ARRectangleSpec& ar)
 	return status;
 }
 
+int parse_rectangle_list(std::string s, std::vector<alert::ARRectangleSpec>& rectangle_list)
+{
+	int status = 0;
+	vector<string> tokens;
+	tokenize(s, tokens, ";");
+	return parse_rectangle_list(tokens, rectangle_list);
+}
+
+int parse_rectangle_list(std::vector<std::string>& tokens, std::vector<alert::ARRectangleSpec>& rectangle_list)
+{
+	int status = 0;
+	unsigned int i;
+	istringstream iss;
+	ARRectangleSpec rect;
+	for (i = 0; i < tokens.size(); i++)
+	{
+		iss.clear();
+		iss.str(tokens[i]);
+		cerr << "parsing token " << tokens[i] << endl;
+		iss >> rect;
+		if (!iss)
+		{
+			cerr << "bad rect value: " << tokens[i] << endl;
+			status = 1;
+		}
+		else
+		{
+			rectangle_list.push_back(rect);
+		}
+	}
+	return status;
+}
+
+
+
+
+
+
 int parse_grating(const std::string& s, alert::ARGratingSpec& ag)
 {
 	int status=0;
