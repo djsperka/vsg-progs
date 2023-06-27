@@ -1,13 +1,20 @@
 #include <iostream>
-#include "VSGV8.h"
-using namespace std;
+#include "Alertlib.h"
+#include "Alertutil.h"
 
-//char *f_imagefile = "c:\\Users\\djsperka\\Downloads\\bitmap.bmp";
-//char *f_imagefile = "e:\\work\\img\\pepper.bmp";
-char *f_imagefile = NULL;
+#ifdef _DEBUG
+#pragma comment(lib, "dalert.lib")
+#else
+#pragma comment(lib, "alert.lib")
+#endif
+
+
+using namespace std;
 
 int main(int argc, char *argv[])
 {
+	alert::ARGratingSpec grating;
+
 	cout << "init vsg..." << endl;
 	if (vsgInit("") < 0)
 	{
@@ -22,6 +29,7 @@ int main(int argc, char *argv[])
 	from.a = from.b = from.c = 0;
 	to.a = to.b = to.c = 1;
 	back.a = back.b = back.c = 0.5;
+	vsgSetBackgroundColour(&back);
 
 	vsgSetViewDistMM(500);
 	double WDEG, HDEG;
@@ -30,38 +38,39 @@ int main(int argc, char *argv[])
 	cerr << "Screen width in degrees: " << WDEG << endl;
 	vsgSetSpatialUnits(vsgDEGREEUNIT);
 
-	// clear page
-	vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgBACKGROUND);
-
 	// create host page
 	long handle = vsgPAGECreate(vsgHOSTPAGE, 1024, 768, vsg8BITPALETTEMODE);
-	vsgSetDrawPage(vsgHOSTPAGE, handle, vsgBACKGROUND);
 
-	// draw shape at level 1
-	vsgSetPen1(1);
+	// Reserve a low level
+	PIXEL_LEVEL myLowLevel = ARvsg::instance().request_single();
+
+	// grating
+	string sGrating = "0,0,15,15,100,.1,.25,45,b,s,e";
+	if (parse_grating(sGrating, grating))
+		cerr << "Cannot parse grating " << sGrating << endl;
+	grating.init(40);
+
+	// Reserve a HIGH level and clear host page to that level
+	PIXEL_LEVEL myHighLevel = ARvsg::instance().request_single();
+	vsgSetDrawPage(vsgHOSTPAGE, handle, myHighLevel);
+
+	// draw shape on host page at low level
+	vsgSetPen1(myLowLevel);
 	vsgDrawBar(0, 0, 12, 4, 30);
 
-	vsgObjCreate();
-	vsgObjSetDefaults();
-	vsgObjSetContrast(100);
-	vsgSetBackgroundColour(&back);
-	vsgObjSetPixelLevels(2, 100);
-	vsgObjTableSinWave(vsgSWTABLE);
-	vsgObjSetColourVector(&from, &to, vsgBIPOLAR);
-	vsgObjSetDriftVelocity(.25);
-
-	////Select the range of maximum pixel-levels to draw the grating with.
-	vsgSetPen1(2);
-	vsgSetPen2(101);
-
-	//Draw the grating centered in the middle of the screen.
-	vsgSetDrawMode(vsgCENTREXY + vsgTRANSONLOWER);
+	//Draw the grating
+	//vsgSetDrawMode(vsgCENTREXY + vsgTRANSONLOWER);
+	grating.draw()
 	vsgDrawGrating(0, 0, WDEG, HDEG, 45, 2.0);
 
 	// copy to page 0
-	vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgNOCLEAR);
-	vsgSetDrawMode(vsgCENTREXY);
-	vsgDrawMoveRect(vsgHOSTPAGE, handle, 0, 0, 15, 8, 0, 0, 15, 8);
+	vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgBACKGROUND);
+
+
+	vsgSetDrawPage(vsgVIDEOPAGE, 0, 0);
+	vsgSetDrawMode(vsgCENTREXY + vsgTRANSONSOURCE);
+	vsgSetPen2(244);
+	vsgDrawMoveRect(vsgHOSTPAGE, handle, 0, 0, 15, 10, 0, 0, 15, 10);
 
 	//Display the object.
 	vsgPresent();
