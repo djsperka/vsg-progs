@@ -33,9 +33,8 @@
 // These typedefs are used in all the specs. 
 typedef enum { unknown_color_vector, b_w, l_cone, m_cone, s_cone, custom_color_vector } COLOR_VECTOR_ENUM;
 typedef enum { unknown_color = 0, black = 1, white = 2, red = 3, green = 4, blue = 5, gray = 6, custom = 7 } COLOR_ENUM;
-//typedef enum patterntype { unknown_pattern=0, sinewave, squarewave } PATTERN_TYPE;
 typedef enum waveform_type { unknown_spatial_waveform = 0, sinewave, squarewave } WAVEFORM_TYPE;
-typedef enum aperturetype { unknown_aperture = 0, ellipse, rectangle } APERTURE_TYPE;
+typedef enum aperturetype { unknown_aperture = 0, ellipse, rectangle, oriented_rectangle } APERTURE_TYPE;
 typedef int PIXEL_LEVEL;
 
 //typedef struct color_vector_struct

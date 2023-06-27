@@ -914,8 +914,8 @@ int parse_aperture(std::string s, APERTURE_TYPE& a)
 {
 	int status = 0;
 	if (s == "r" || s == "R") a = rectangle;
-	else if (s == "e" || s == "E" ||
-		s == "c" || s == "C") a = ellipse;
+	else if (s == "e" || s == "E") a = ellipse;
+	else if (s == "o" || s == "O") a = oriented_rectangle;
 	else
 	{
 		a = unknown_aperture;
