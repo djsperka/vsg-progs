@@ -80,6 +80,7 @@ public:
 	COLOR_TYPE();
 	COLOR_TYPE(COLOR_ENUM t);
 	COLOR_TYPE(const COLOR_TYPE& ct);
+	COLOR_TYPE(double a, double b, double c);
 	virtual ~COLOR_TYPE() {};
 	COLOR_TYPE& operator=(const COLOR_TYPE& ct);
 	COLOR_TYPE& operator=(const COLOR_ENUM& t);

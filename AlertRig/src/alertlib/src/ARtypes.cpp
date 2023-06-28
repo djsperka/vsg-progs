@@ -60,6 +60,14 @@ void COLOR_TYPE::setType(COLOR_ENUM t)
 	}
 }
 
+COLOR_TYPE::COLOR_TYPE(double a, double b, double c)
+{
+	m_type = custom;
+	m_color.a = a;
+	m_color.b = b;
+	m_color.c = c;
+};
+
 COLOR_VECTOR_TYPE::COLOR_VECTOR_TYPE()
 {
 	m_type = b_w;
