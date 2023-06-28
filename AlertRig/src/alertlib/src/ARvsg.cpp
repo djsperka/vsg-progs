@@ -272,6 +272,10 @@ int ARvsg::init(int screenDistanceMM, COLOR_TYPE i_bg, bool bUseLockFile, bool b
 		m_background_color = i_bg;
 		m_screenDistanceMM = screenDistanceMM;
 
+
+		// allocate a HOST page for later (potential) use
+		m_hostpage_handle = vsgPAGECreate(vsgHOSTPAGE, vsgGetScreenWidthPixels(), vsgGetScreenHeightPixels(), vsg8BITPALETTEMODE);
+
 		reinit();
 
 		if (gammaFile.size() > 0)

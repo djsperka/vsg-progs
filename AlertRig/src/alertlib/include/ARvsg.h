@@ -80,6 +80,7 @@ namespace alert
 		int remaining();
 		void reset_available_levels() { m_next_available_level = 0; };
 		VSGOBJHANDLE dummyObjectHandle() { return m_handle; };
+		long hostpage_handle() const { return m_hostpage_handle; };
 	private:
 		ARvsg()
 			: m_initialized(false)
@@ -93,6 +94,7 @@ namespace alert
 			, m_widthDegrees(0)
 			, m_device_handle(-999)
 			, m_next_available_level(0)
+			, m_hostpage_handle(-1)
 //			, m_colors{ COLOR_TYPE(gray), COLOR_TYPE(black), COLOR_TYPE(white), COLOR_TYPE(black), COLOR_TYPE(white) }
 
 		{};
@@ -112,6 +114,7 @@ namespace alert
 		double m_widthDegrees;
 		long m_device_handle;
 		int m_next_available_level;
+		long m_hostpage_handle;
 		VSGTRIVAL m_colors[11];
 	};
 };
