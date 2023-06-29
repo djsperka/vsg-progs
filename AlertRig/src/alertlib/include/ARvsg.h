@@ -28,23 +28,6 @@ namespace alert
 		// loaded a gamma data file.
 		void get_calibration_color(CalibrationColors c, VSGTRIVAL& trival);
 
-
-		// This function initializes all pages to background color. That color is set as 
-		// level 0 - this func does not use vsgBACKGROUND. This func should be used if 
-		// you draw gratings with draw(true). Why? Well, initially your pages are initialized
-		// to a low level - 0 or 1. Then draw(true) draws an ellipse using level 250. Next, 
-		// the grating is drawn using vsgTRANSONHIGHER, meaning that only the portion of the 
-		// grating that overlays the ellipse will actually be drawn. 
-		int init_video();
-
-		int init_overlay();
-
-		int init_video_pages(voidfunc func_before_objects, voidfunc func_after_objects, void* data);
-
-		/* lock/unlock */
-		bool acquire_lock();
-		void release_lock();
-
 		/* Clear any page and display it. */
 		void clear(int i);
 
@@ -59,11 +42,6 @@ namespace alert
 		 * vsg. When using dual vsg setup, use master() and slave() to get instances for each separately.
 		 */
 		static ARvsg& instance();
-
-		/*
-		 * Select specifies the vsg to which commands are directed.
-		 */
-		void select();
 
 		void setBackgroundColor(const COLOR_TYPE& c);
 		COLOR_TYPE background_color();
@@ -92,7 +70,6 @@ namespace alert
 			, m_widthPixels(0)
 			, m_heightDegrees(0)
 			, m_widthDegrees(0)
-			, m_device_handle(-999)
 			, m_next_available_level(0)
 			, m_hostpage_handle(-1)
 //			, m_colors{ COLOR_TYPE(gray), COLOR_TYPE(black), COLOR_TYPE(white), COLOR_TYPE(black), COLOR_TYPE(white) }

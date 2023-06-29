@@ -153,12 +153,6 @@ ARvsg::~ARvsg()
 	clear();
 };
 
-
-void ARvsg::select()
-{
-	vsgInitSelectDevice(m_device_handle);
-}
-
 void ARvsg::setBackgroundColor(const COLOR_TYPE& c)
 {
 	m_background_color = c;
@@ -263,15 +257,8 @@ int ARvsg::init(int screenDistanceMM, COLOR_TYPE i_bg, bool bUseLockFile, bool b
 		Sleep(500);
 		m_initialized = true;
 
-		/*
-		 * If screen distance is negative, then set spatial units to PIXEL units.
-		 */
-
-		vsgInitSelectDevice(m_device_handle);
-
 		m_background_color = i_bg;
 		m_screenDistanceMM = screenDistanceMM;
-
 
 		// allocate a HOST page for later (potential) use
 		m_hostpage_handle = vsgPAGECreate(vsgHOSTPAGE, vsgGetScreenWidthPixels(), vsgGetScreenHeightPixels(), vsg8BITPALETTEMODE);
@@ -285,106 +272,6 @@ int ARvsg::init(int screenDistanceMM, COLOR_TYPE i_bg, bool bUseLockFile, bool b
 	}
 	return status;
 }
-
-
-
-int ARvsg::init_overlay()
-{
-	int status = 0;
-	VSGTRIVAL background;
-
-	if (!m_initialized)
-	{
-		cerr << "init_overlay: Must call init first!" << endl;
-		status = 1;
-	}
-	else
-	{
-		vsgSetCommand(vsgOVERLAYMASKMODE);
-		background = m_background_color.trival();
-
-		// Get the number of overlay pages, then clear them all. 
-		int npages = vsgGetSystemAttribute(vsgNUMOVERLAYPAGES);
-		cout << "There are " << npages << " overlay pages." << endl;
-		vsgPaletteWriteOverlayCols((VSGLUTBUFFER*)&background, 1, 1);
-		for (int i = npages - 1; i >= 0; i--)
-		{
-			vsgSetDrawPage(vsgOVERLAYPAGE, i, 1);
-		}
-	}
-	return status;
-}
-
-
-
-int ARvsg::init_video()
-{
-	return init_video_pages(NULL, NULL, NULL);
-}
-
-
-
-
-int ARvsg::init_video_pages(voidfunc func_before_objects, voidfunc func_after_objects, void* data)
-{
-	int i;
-	int status = 0;
-	VSGTRIVAL background;
-	PIXEL_LEVEL dummy_level;
-
-	if (!m_initialized)
-	{
-		cerr << "Must call ARvsg::init first!" << endl;
-		return 1;
-	}
-	else
-	{
-		// set background color, er colour, in palette
-		// We'll set the vsgBACKGROUND color later, after the vsgObject is created. 
-		// The background level was obtained in the init() call.
-		background = m_background_color.trival();
-
-		VSGLUTBUFFER buffer;
-		for (i = 0; i < 256; i++) buffer[i] = background;
-		vsgLUTBUFFERWrite(0, &buffer);
-		vsgLUTBUFFERtoPalette(0);
-
-		// Now clear all pages to background level, then call the before_objects callback, 
-		// if it exists. 
-		for (i = 0; i < vsgGetSystemAttribute(vsgNUMVIDEOPAGES); i++)
-		{
-			vsgSetDrawPage(vsgVIDEOPAGE, i, m_background_level);
-			if (func_before_objects)
-			{
-				func_before_objects(i, data);
-			}
-		}
-
-
-		// Create a single vsg object and set vsgBACKGROUND color
-		m_handle = vsgObjCreate();
-		request_single(dummy_level);
-		vsgObjSetPixelLevels(dummy_level, 1);
-		cerr << " Dummy object " << (int)m_handle << " level " << (int)dummy_level << endl;
-		vsgSetBackgroundColour(&background);
-
-
-		// Now call after_objects callback if not null
-		if (func_after_objects)
-		{
-			for (i = 0; i < vsgGetSystemAttribute(vsgNUMVIDEOPAGES); i++)
-			{
-				vsgSetDrawPage(vsgVIDEOPAGE, i, vsgNOCLEAR);
-				func_after_objects(i, data);
-			}
-		}
-
-		// Finally, set page 0 as the current page and present. 
-		vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgNOCLEAR);
-		vsgPresent();
-	}
-	return status;
-};
 
 void ARvsg::clear(int ipage)
 {
