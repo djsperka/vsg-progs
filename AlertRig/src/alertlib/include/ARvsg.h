@@ -70,7 +70,7 @@ namespace alert
 			, m_widthPixels(0)
 			, m_heightDegrees(0)
 			, m_widthDegrees(0)
-			, m_next_available_level(0)
+			, m_next_available_level(m_cLowLevel+1)
 			, m_hostpage_handle(-1)
 //			, m_colors{ COLOR_TYPE(gray), COLOR_TYPE(black), COLOR_TYPE(white), COLOR_TYPE(black), COLOR_TYPE(white) }
 
@@ -93,5 +93,9 @@ namespace alert
 		int m_next_available_level;
 		long m_hostpage_handle;
 		VSGTRIVAL m_colors[11];
+
+		static const PIXEL_LEVEL m_cDummyLevel = 0;
+		static const PIXEL_LEVEL m_cLowLevel = 1;
+		static const PIXEL_LEVEL m_cHighLevel = 251;
 	};
 };
