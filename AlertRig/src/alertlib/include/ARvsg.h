@@ -56,9 +56,12 @@ namespace alert
 		int request_single(PIXEL_LEVEL& level);
 		int request_range(int num, PIXEL_LEVEL& first);
 		int remaining();
-		void reset_available_levels() { m_next_available_level = 0; };
+		void reset_available_levels() { m_next_available_level = m_cLowLevel+1; };
 		VSGOBJHANDLE dummyObjectHandle() { return m_handle; };
 		long hostpage_handle() const { return m_hostpage_handle; };
+		PIXEL_LEVEL lowlevel() const { return m_cLowLevel; };
+		PIXEL_LEVEL highlevel() const { return m_cHighLevel; };
+
 	private:
 		ARvsg()
 			: m_initialized(false)
