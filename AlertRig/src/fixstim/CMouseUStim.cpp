@@ -86,11 +86,7 @@ int CMouseUStim::init_pages()
 	vsgPresent();
 
 	// initialize overlay pages
-	if (ARvsg::instance().init_overlay())
-	{
-		cerr << "VSG overlay initialization failed!" << endl;
-		return 1;
-	}
+	init_overlay_pages();
 	if (m_arguments.bHaveFixpt)
 		arutil_color_to_overlay_palette(m_arguments.fixpt, 3);
 	arutil_draw_aperture(m_arguments.grating, 0);
@@ -100,6 +96,13 @@ int CMouseUStim::init_pages()
 	return 0;
 }
 
+void CMouseUStim::init_overlay_pages()
+{
+	vsgSetCommand(vsgOVERLAYMASKMODE);
+	arutil_color_to_overlay_palette(ARvsg::instance().background_color(), 1);
+	vsgSetDrawPage(vsgOVERLAYPAGE, 0, 1);
+	vsgSetDrawPage(vsgOVERLAYPAGE, 1, 1);
+}
 
 
 int CMouseUStim::callback(int &output, const FunctorCallbackTrigger* ptrig, const std::string&)

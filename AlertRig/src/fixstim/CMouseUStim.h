@@ -110,6 +110,7 @@ private:
 	void init_triggers(TSpecificFunctor<CMouseUStim>* pfunctor);
 	void overlay(bool bFixationOn, double fixX, double fixY, double fixD, double apertureX, double apertureY, double apertureDiameter);
 	int init_pages();
+	void init_overlay_pages();
 	void doMouseKBLoop();
 	void doJSClientLoop();
 	void updateSF(double sf);
