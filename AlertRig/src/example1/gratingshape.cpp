@@ -39,6 +39,25 @@ public:
 
 int main(int argc, char* argv[])
 {
+	string s;
+	double x, y, w, h, ori;
+	bool bScr;
+	if (argc == 7)
+	{
+		x = atof(argv[1]);
+		y = atof(argv[2]);
+		w = atof(argv[3]);
+		h = atof(argv[4]);
+		ori = atof(argv[5]);
+		bScr = (argv[6][0] == 't' || argv[6][0] == 'T');
+	}
+	else
+	{
+		cout << "x y w h ang scr?: ";
+		cin >> x >> y >> w >> h >> ori >> boolalpha >> bScr;
+
+	}
+
 	cout << "init vsg..." << endl;
 	if (vsgInit("") < 0)
 	{
@@ -46,21 +65,7 @@ int main(int argc, char* argv[])
 		exit(0);
 	}
 
-	string s;
-	cout << "x y w h ang scr?: ";
-	double x, y, w, h, ori;
-	bool bScr;
-	cin >> x >> y >> w >> h >> ori >> boolalpha >> bScr;
-
-	cout << "scr " << boolalpha << bScr << endl;
 	doOnScratch(x, y, w, h, ori, bScr);
-	//	}
-	//	cout << "H/S: ";
-	//	cin >> s;
-	//}
-
-	//doOnScratch(x, y, w, h, ori, bScr);
-
 }
 
 // return bbox in rect[4] in order: llx, lly, urx, ury
@@ -132,13 +137,6 @@ void doOnScratch(double x, double y, double w, double h, double ori, bool bScrat
 	cerr << "Screen width in degrees: " << WDEG << endl;
 	vsgSetSpatialUnits(vsgDEGREEUNIT);
 
-	//// this should be input
-	//double x = 0;
-	//double y = 0;
-	//double w = 4;
-	//double h = 3;
-	//double ori = 45;
-
 	// get bbox
 	double bbox[4];
 	getBBox(x, y, w, h, ori, bbox);
@@ -148,12 +146,16 @@ void doOnScratch(double x, double y, double w, double h, double ori, bool bScrat
 
 	cout << "bbox w " << bboxW << " h " << bboxH << endl;
 
+	// Need a level guaranteed to be lower than everything else, 
+	// and another (not background) guaranteed higher.
 	DWORD lvLow = 1;
-	DWORD lvDart1 = 201;
-	DWORD lvDart2 = 202;
 	DWORD lvHigh = 200;
+
+	DWORD lvDart1 = 2; // 201;
+	DWORD lvDart2 = 3; // 202;
 	DWORD grLow = 11;
 	DWORD grNLevels = 50;
+	DWORD lvAbove = 150;
 	long handle;
 
 	COLOR_TYPE dart1(1, 0, 0);
@@ -161,11 +163,19 @@ void doOnScratch(double x, double y, double w, double h, double ori, bool bScrat
 	arutil_color_to_palette(dart1, lvDart1);
 	arutil_color_to_palette(dart2, lvDart2);
 
-	// prepare drawing page
+	// prepare drawing page with a dartboard red/green
+	// There are two things drawn on the page, both above and 
+	// below the grating levels
 	vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgBACKGROUND);
 	vsgSetPen1(lvDart1);
 	vsgSetPen2(lvDart2);
 	vsgDrawDartboard(0, 0, 30, 30, 5, 3, 0, 0);
+
+	// add a circle above the grating levels to see what happens
+	COLOR_TYPE blueish(.5, .5, 1);
+	arutil_color_to_palette(blueish, lvAbove);
+	vsgSetPen1(lvAbove);
+	vsgDrawOval(1, 1, 10, 2);
 
 	if (bScratch)
 	{
@@ -181,19 +191,20 @@ void doOnScratch(double x, double y, double w, double h, double ori, bool bScrat
 		vsgSetDrawPage(vsgHOSTPAGE, handle, vsgNOCLEAR);
 	}
 
-	// draw bbox rect on low level
-	vsgSetPen1(lvLow);
+	// draw bbox rect.
+	// This means that the extra/background that is left over, 
+	// outside the edges of the grating shape we draw, will all be on 
+	// this (HIGH) level.
+	vsgSetPen1(lvHigh); //vsgSetPen1(lvLow);
 	vsgDrawRect(x, y, bboxW, bboxH);
 
-	// draw oriented rectangle on high level
-	vsgSetPen1(lvHigh);
+	// draw oriented rectangle. This is on a lower level than the grating levels, 
+	// so using MAXMODE (TRANSONLOWER) ensures that the grating shape is drawn wherever
+	// the rect is drawn, but the background remains at the higher level.
+	vsgSetPen1(lvLow); //vsgSetPen1(lvHigh);
 	vsgDrawBar(x, y, w, h, ori);
 
-	// draw grating, on levels LOWER THAN THE "HIGH LEVEL", using vsgTRANSONHIGHER -- 
-	// meaning pixels not drawn when destination pixel is HIGHER. Since we made the background
-	// a level HIGHER than those used for the grating, and the stencil-shape drawn uses a level 
-	// LOWER than those used for the grating. Thus, the grating is drawn over the stencil shape,
-	// but the background behind it is left alone. 
+	// draw grating
 
 	vsgObjCreate();
 	vsgObjSetDefaults();
@@ -208,8 +219,11 @@ void doOnScratch(double x, double y, double w, double h, double ori, bool bScrat
 	vsgSetPen1(grLow);
 	vsgSetPen2(grLow + grNLevels - 1);
 
-	//Draw the grating
-	vsgSetDrawMode(vsgCENTREXY + vsgTRANSONHIGHER);
+	// Draw the grating
+	// As noted above, this is drawn with TRANSONLOWER -- MAX mode, i.e. max of source and dest is drawn. 
+	// The grating is drawn wherever the oriented rect shape was drawn, but the higher level background 
+	// remains elsewhere. 
+	vsgSetDrawMode(vsgCENTREXY + vsgTRANSONLOWER); //vsgSetDrawMode(vsgCENTREXY + vsgTRANSONHIGHER);
 	vsgDrawGrating(x, y, bboxW, bboxH, 90, .5);
 
 	// now copy to draw page
@@ -221,8 +235,18 @@ void doOnScratch(double x, double y, double w, double h, double ori, bool bScrat
 	// below those used for the grating -- they'll be overwritten.  
 
 	vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgNOCLEAR);
-	vsgSetDrawMode(vsgCENTREXY + vsgTRANSONSOURCE + vsgTRANSONHIGHER);
-	vsgSetPen2(lvLow);
+
+	// draw another oriented box on this page at low level. This and TRANSONSOURCE ensure that vsgBACKGROUND gets overwritten.
+	vsgSetDrawMode(vsgCENTREXY);
+	vsgSetPen1(lvLow); //vsgSetPen1(lvHigh);
+	vsgDrawBar(x, y, w, h, ori);
+
+	// Now move the rect back to the original draw page. 
+	// TRANSONLOWER (MAX mode) ensures that the grating shape will overwrite the rect that was just drawn on the low level. 
+	// We need TRANSONSOURCE, however, to keep the extra "background" surrounding the shape from overwriting the stuff on the draw page.
+	// The TRANSONSOURCE makes that level transparent - meaning the destination level wins out.
+	vsgSetDrawMode(vsgCENTREXY + vsgTRANSONSOURCE + vsgTRANSONLOWER); //vsgSetDrawMode(vsgCENTREXY + vsgTRANSONSOURCE + vsgTRANSONHIGHER);
+	vsgSetPen2(lvHigh); //vsgSetPen2(lvLow);
 
 
 	if (bScratch)
