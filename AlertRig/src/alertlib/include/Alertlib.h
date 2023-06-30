@@ -421,7 +421,7 @@ namespace alert
 		ARGratingSpec& operator=(const ARGratingSpec& g);
 
 		double x,y,w,h;
-		double wd, hd;	
+		double wd, hd;	// donut inner width/height. If both are <=0, then not a donut. If aperture=ori_rectangle then wd is used as the orientation angle of the rect.
 		double sf;		// spatial frequency
 		double tf;		// drift velocity (modifies spatial waveform). Calling it tf (temporal freq) is a misnomer.
 		double orientation;
