@@ -244,6 +244,7 @@ std::ostream& operator<<(std::ostream& out, const APERTURE_TYPE& a)
 	{
 	case rectangle:	out << "r";	break;
 	case ellipse:	out << "e";	break;
+	case oriented_rectangle: out << "o"; break;
 	default:		out << "unknown";	break;
 	}
 	return out;

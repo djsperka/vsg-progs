@@ -101,6 +101,32 @@ typedef struct xywh_struct
 
 typedef void (*voidfunc)(int, void*);
 
+
+// utility class to rotate points through an angle
+class MyRot
+{
+	double m_oriDeg;
+	double m_c, m_s;
+	const double _pi = 3.14159265358979323846;
+
+public:
+	MyRot(double degrees) : m_oriDeg(degrees)
+	{
+		double rad = m_oriDeg * _pi / 180;
+		m_c = cos(rad);
+		m_s = sin(rad);
+	}
+
+	void rotatePoint(const double& x, const double& y, double& xprime, double& yprime)
+	{
+		xprime = x * m_c - y * m_s;
+		yprime = x * m_s + y * m_c;
+	}
+};
+
+
+
+
 // convenient operators
 std::ostream& operator<<(std::ostream& out, const COLOR_TYPE& c);
 std::istream& operator>>(std::istream& in, COLOR_TYPE& c);
