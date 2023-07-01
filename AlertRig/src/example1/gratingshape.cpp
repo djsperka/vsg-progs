@@ -10,32 +10,10 @@
 #endif
 
 
-const double f_pi = 3.14159265358979323846;
-
 using namespace std;
 
 //void doOnHost();
 void doOnScratch(double x, double y, double w, double h, double ori, bool bScratch);
-
-
-class MyRot
-{
-	double m_oriDeg;
-	double m_c, m_s;
-public:
-	MyRot(double degrees) : m_oriDeg(degrees)
-	{
-		double rad = m_oriDeg * f_pi / 180;
-		m_c = cos(rad);
-		m_s = sin(rad);
-	}
-
-	void rotatePoint(const double& x, const double& y, double& xprime, double& yprime)
-	{
-		xprime = x * m_c - y * m_s;
-		yprime = x * m_s + y * m_c;
-	}
-};
 
 int main(int argc, char* argv[])
 {

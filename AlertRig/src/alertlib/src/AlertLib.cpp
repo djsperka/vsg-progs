@@ -14,7 +14,6 @@
 using namespace std;
 using namespace alert;
 
-
 std::istream& operator>>(std::istream& in, ARFixationPointSpec& fixpt)
 {
 	string s;
@@ -1122,11 +1121,116 @@ ARGratingSpec& ARGratingSpec::operator=(const ARGratingSpec& g)
 	return *this;
 }
 
+void ARGratingSpec::getBBoxWH(double x, double y, double w, double h, double ori, double& bboxWidth, double& bboxHeight)
+{
+	MyRot mr(ori);
+	double llx = 99999999;
+	double lly = 99999999;
+	double urx = -99999999;
+	double ury = -99999999;
+	double xp, yp;
+	// rotate upper right corner of box, measured relative to center pt. 
+	mr.rotatePoint(w / 2, h / 2, xp, yp);
+	if (xp > urx) urx = xp;
+	if (yp > ury) ury = yp;
+	if (xp < llx) llx = xp;
+	if (yp < lly) lly = yp;
+
+	// rotate lower right corner of box, measured relative to center pt. 
+	mr.rotatePoint(w / 2, -h / 2, xp, yp);
+	if (xp > urx) urx = xp;
+	if (yp > ury) ury = yp;
+	if (xp < llx) llx = xp;
+	if (yp < lly) lly = yp;
+
+	// rotate lower left corner of box, measured relative to center pt. 
+	mr.rotatePoint(-w / 2, -h / 2, xp, yp);
+	if (xp > urx) urx = xp;
+	if (yp > ury) ury = yp;
+	if (xp < llx) llx = xp;
+	if (yp < lly) lly = yp;
+
+	// rotate upper left corner of box, measured relative to center pt. 
+	mr.rotatePoint(-w / 2, h / 2, xp, yp);
+	if (xp > urx) urx = xp;
+	if (yp > ury) ury = yp;
+	if (xp < llx) llx = xp;
+	if (yp < lly) lly = yp;
+
+	// difference between LL and UR give width and height
+	bboxWidth = urx - llx;
+	bboxHeight = ury - lly;
+
+	return;
+}
+
+int ARGratingSpec::drawOrientedRectangle()
+{
+	int status = 0;
+
+	cout << "ARGratingSpec::drawOrientedRectangle()" << endl;
+	// get bbox
+	double bboxW, bboxH;
+	getBBoxWH(this->x, this->y, this->w, this->h, this->orientation, bboxW, bboxH);
+	cout << "bbox w " << bboxW << " h " << bboxH << endl;
+	cout << "low " << getVSG().lowlevel() << " high " << getVSG().highlevel() << " gr " << this->getFirstLevel() << " N " << this->getNumLevels() << endl;
+	cout << "cv " << this->cv << endl;
+	cout << "from " << this->cv.from().a << " " << this->cv.from().b << " " << this->cv.from().c << endl;
+	cout << "to " << this->cv.to().a << " " << this->cv.to().b << " " << this->cv.to().c << endl;
+
+	// Get current draw page - we'll use it later.
+	VSGPAGEDESCRIPTOR descr;
+	descr._StructSize = sizeof(VSGPAGEDESCRIPTOR);
+	vsgGetCurrentDrawPage(&descr);
+
+	// Now set the dummy host page as drawing page
+	vsgSetDrawPage(vsgHOSTPAGE, getVSG().hostpage_handle(), vsgNOCLEAR);
+
+	// draw bbox rect on the HOST page. Set a HIGH level, which should be higher than 
+	// anything that will or was drawn (except vsgBACKGROUND).
+	vsgSetPen1(getVSG().highlevel());
+	vsgDrawRect(this->x, -this->y, bboxW, bboxH);
+
+	// draw oriented rectangle. This is on a lower level than the grating levels, 
+	// so using MAXMODE (TRANSONLOWER) ensures that the grating shape is drawn wherever
+	// the rect is drawn, but the background remains at the higher level.
+	vsgSetPen1(getVSG().lowlevel());
+	vsgDrawBar(this->x, this->y, this->w, this->h, this->wd);
+
+	// Set spatial, temporal waveforms, tf, etc stuff.
+	setGratingObjProperties();
+
+	// draw grating on HOST page
+	vsgSetPen1(getFirstLevel());
+	vsgSetPen2(getFirstLevel() + getNumLevels() - 1);
+	vsgSetDrawMode(vsgCENTREXY + vsgTRANSONLOWER); //vsgSetDrawMode(vsgCENTREXY + vsgTRANSONHIGHER);
+	vsgDrawGrating(this->x, -this->y, bboxW, bboxH, this->orientation, this->sf);
+
+	// restore the original draw page -- this is where we want our specially-shaped grating
+	vsgSetDrawPage(descr.PageZone, descr.Page, vsgNOCLEAR);
+
+	vsgSetDrawMode(vsgCENTREXY);
+	vsgSetPen1(getVSG().lowlevel());
+	vsgDrawBar(this->x, -this->y, this->w, this->h, this->wd);
+
+	// Now move the rect back to the original draw page. 
+	// TRANSONLOWER (MAX mode) ensures that the grating shape will overwrite the rect that was just drawn on the low level. 
+	// We need TRANSONSOURCE, however, to keep the extra "background" surrounding the shape from overwriting the stuff on the draw page.
+	// The TRANSONSOURCE makes that level transparent - meaning the destination level wins out.
+	vsgSetDrawMode(vsgCENTREXY + vsgTRANSONSOURCE + vsgTRANSONLOWER);
+	vsgSetPen2(getVSG().highlevel()); //vsgSetPen2(lvLow);
+	vsgDrawMoveRect(vsgHOSTPAGE, getVSG().hostpage_handle(), this->x, -this->y, bboxW, bboxH, this->x, -this->y, bboxW, bboxH);
+
+	return status;
+}
 
 
 int ARGratingSpec::draw()
 {
-	return draw(false);
+	if (this->aperture == oriented_rectangle)
+		return drawOrientedRectangle();
+	else
+		return draw(false);
 }
 
 int ARGratingSpec::drawOnce()
@@ -1151,7 +1255,6 @@ int ARGratingSpec::draw(long mode, int apertureLevel)
 {
 	int status=0;
 	int ipen;
-	VSGTRIVAL from, to;
 
 	select();
 
@@ -1194,41 +1297,8 @@ int ARGratingSpec::draw(long mode, int apertureLevel)
 			}
 		}
 
-		// Set spatial waveform
-		if (this->swt == sinewave)
-		{
-			vsgObjTableSinWave(vsgSWTABLE);
-		}
-		else
-		{
-			// Set up standard 50:50 square wave
-			vsgObjTableSquareWave(vsgSWTABLE, (DWORD)(vsgObjGetTableSize(vsgSWTABLE) * 0.25), (DWORD)(vsgObjGetTableSize(vsgSWTABLE) * 0.75));
-		}
-
-		// get color vector
-		from = this->cv.from();
-		to = this->cv.to();
-		//cerr << "ARGratingSpec::draw(mode = " << mode << ", level=" << apertureLevel << ")" << endl;
-		//cerr << "Drawing grating with cv " << this->cv << " : [" << this->cv.from().a << ", " << this->cv.from().b << ", " << this->cv.from().c << "] - [" << this->cv.to().a << ", " << this->cv.to().b << ", " <<
-		//	this->cv.to().c << "]" << endl;
-		vsgObjSetColourVector(&from, &to, vsgBIPOLAR);
-
-		// set temporal waveform
-		if (this->twt == sinewave)
-		{
-			vsgObjTableSinWave(vsgTWTABLE);
-		}
-		else
-		{
-			// Set up standard 50:50 square wave
-			vsgObjTableSquareWave(vsgTWTABLE, (DWORD)(0), (DWORD)(vsgObjGetTableSize(vsgTWTABLE) * 0.5));
-		}
-		vsgObjSetTemporalPhase(0);
-
-		vsgObjSetContrast(contrast);
-		vsgObjSetSpatialPhase(phase);
-		vsgObjSetDriftVelocity(tf);
-		vsgObjSetTemporalFrequency(ttf);
+		// Set spatial, temporal waveforms, tf, etc stuff.
+		setGratingObjProperties();
 
 		// Now draw
 		if (this->aperture == ellipse)
@@ -1280,6 +1350,43 @@ int ARGratingSpec::draw(long mode, int apertureLevel)
 		m_multi.clear();
 
 	return 0;
+}
+
+void ARGratingSpec::setGratingObjProperties()
+{
+	// Set spatial waveform
+	if (this->swt == sinewave)
+	{
+		vsgObjTableSinWave(vsgSWTABLE);
+	}
+	else
+	{
+		// Set up standard 50:50 square wave
+		vsgObjTableSquareWave(vsgSWTABLE, (DWORD)(vsgObjGetTableSize(vsgSWTABLE) * 0.25), (DWORD)(vsgObjGetTableSize(vsgSWTABLE) * 0.75));
+	}
+
+	// get color vector
+	VSGTRIVAL from = this->cv.from();
+	VSGTRIVAL to = this->cv.to();
+	vsgObjSetColourVector(&from, &to, vsgBIPOLAR);
+
+	// set temporal waveform
+	if (this->twt == sinewave)
+	{
+		vsgObjTableSinWave(vsgTWTABLE);
+	}
+	else
+	{
+		// Set up standard 50:50 square wave
+		vsgObjTableSquareWave(vsgTWTABLE, (DWORD)(0), (DWORD)(vsgObjGetTableSize(vsgTWTABLE) * 0.5));
+	}
+	vsgObjSetTemporalPhase(0);
+
+	vsgObjSetContrast(contrast);
+	vsgObjSetSpatialPhase(phase);
+	vsgObjSetDriftVelocity(tf);
+	vsgObjSetTemporalFrequency(ttf);
+
 }
 
 int ARGratingSpec::drawBackground()

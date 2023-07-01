@@ -408,6 +408,11 @@ namespace alert
 	// Grating spec
 	class ARGratingSpec: public ARSpec
 	{
+	private:
+		int drawOrientedRectangle();
+		void getBBoxWH(double x, double y, double w, double h, double ori, double& bboxWidth, double& bboxHeight);
+		void setGratingObjProperties();
+
 	public:
 		ARGratingSpec() : bIsMulti(false), phase(0), wd(0), hd(0), ttf(0), swt(sinewave), twt(sinewave) {};
 
