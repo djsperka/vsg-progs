@@ -294,39 +294,6 @@ private:
 	vector<double>::const_iterator m_iter;
 };
 
-// Parameter value list for y position
-
-class StimYList: public FXGStimParameterList
-{
-public:
-	StimYList(vector<double> ys, unsigned int index, bool bDistractor) : FXGStimParameterList(index, bDistractor), m_vec(ys) { m_iter = m_vec.begin(); };
-	StimYList(const StimYList& list) : FXGStimParameterList(list.index(), list.isDistractor()), m_vec(list.m_vec)
-	{
-		m_iter = m_vec.begin();
-	}
-	virtual ~StimYList() {};
-	virtual bool advance(MultiParameterFXMultiGStimSet* pstimset)
-	{
-		m_iter++;
-		if (m_iter == m_vec.end()) m_iter = m_vec.begin();
-		return set_current_parameter(pstimset);
-	}
-
-	virtual bool set_current_parameter(MultiParameterFXMultiGStimSet* pstimset)
-	{
-		if (!isDistractor())
-			pstimset->grating(index()).y = *m_iter;
-		else
-			pstimset->distractor(index()).y = *m_iter;
-		return true;
-	}
-
-private:
-	vector<double> m_vec;
-	vector<double>::const_iterator m_iter;
-};
-
-
 class StimXYList: public FXGStimParameterList
 {
 public:
