@@ -66,7 +66,6 @@ namespace alert
 		ARvsg()
 			: m_initialized(false)
 			, m_handle(0)
-			, m_background_level(-1)
 			, m_background_color(gray)
 			, m_screenDistanceMM(0)
 			, m_heightPixels(0)
@@ -85,7 +84,6 @@ namespace alert
 		void scaleGammaValues(double* v, short* s, unsigned int length);
 		bool m_initialized;
 		VSGOBJHANDLE m_handle;
-		PIXEL_LEVEL m_background_level;
 		COLOR_TYPE m_background_color;
 		int m_screenDistanceMM;
 		long m_heightPixels;
