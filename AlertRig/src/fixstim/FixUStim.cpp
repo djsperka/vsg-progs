@@ -82,6 +82,7 @@ static struct argp_option options[] = {
 	{"colorvector", 770, "cv1,cv2,...", 0, "grating/distractor colorvector list"},
 	{"draw-group", 769, "0|1|2", 0, "the next object specified should be in this drawing group. Group 1(2) drawn on first(second) stim page."},
 	{"rect", 767, "RECTANGLE_SPEC[;RECTANGLE_SPEC[...]]", 0, "List of rect for a single trial. Separate trials with !."},
+	{"grating-bars", 766, "x1,y1,w1,h1,ori1[,x2,w2,w2,h2,ori2[...]]", 0, "List of grating bar params, 5 for each trial. Comma-separated."},
 	{ 0 }
 };
 static struct argp f_argp = { options, parse_fixstim_opt, 0, "fixstim -- all-purpose stimulus engine" };
@@ -746,6 +747,7 @@ error_t parse_fixstim_opt(int key, char* carg, struct argp_state* state)
 	case 772:
 	case 770:
 	case 767:
+	case 766:
 	{
 		vector<double> tuning_parameters;
 		vector<COLOR_TYPE> color_parameters;
@@ -888,6 +890,9 @@ error_t parse_fixstim_opt(int key, char* carg, struct argp_state* state)
 					break;
 				case 772:
 					plist = new MultiGratingOriList(multigrating_parameter_groups, (unsigned int)stimIndex, arguments->bLastWasDistractor);
+					break;
+				case 766:
+					plist = new GratingBarList(tuning_parameters, (unsigned int)stimIndex, arguments->bLastWasDistractor);
 					break;
 				default:
 					cerr << "Unhandled varying stim parameter type (" << (char)key << ")" << endl;
