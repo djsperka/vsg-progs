@@ -173,13 +173,13 @@ void doOnScratch(double x, double y, double w, double h, double ori, bool bScrat
 	// This means that the extra/background that is left over, 
 	// outside the edges of the grating shape we draw, will all be on 
 	// this (HIGH) level.
-	vsgSetPen1(lvHigh); //vsgSetPen1(lvLow);
+	vsgSetPen1(lvHigh);
 	vsgDrawRect(x, y, bboxW, bboxH);
 
 	// draw oriented rectangle. This is on a lower level than the grating levels, 
 	// so using MAXMODE (TRANSONLOWER) ensures that the grating shape is drawn wherever
 	// the rect is drawn, but the background remains at the higher level.
-	vsgSetPen1(lvLow); //vsgSetPen1(lvHigh);
+	vsgSetPen1(lvLow);
 	vsgDrawBar(x, y, w, h, ori);
 
 	// draw grating
@@ -201,7 +201,7 @@ void doOnScratch(double x, double y, double w, double h, double ori, bool bScrat
 	// As noted above, this is drawn with TRANSONLOWER -- MAX mode, i.e. max of source and dest is drawn. 
 	// The grating is drawn wherever the oriented rect shape was drawn, but the higher level background 
 	// remains elsewhere. 
-	vsgSetDrawMode(vsgCENTREXY + vsgTRANSONLOWER); //vsgSetDrawMode(vsgCENTREXY + vsgTRANSONHIGHER);
+	vsgSetDrawMode(vsgCENTREXY + vsgTRANSONLOWER);
 	vsgDrawGrating(x, y, bboxW, bboxH, 90, .5);
 
 	// now copy to draw page
