@@ -754,6 +754,69 @@ private:
 	vector<vector<std::tuple<double, double, double> > >::const_iterator m_iter;
 };
 
+typedef struct {
+	double x, y, w, h, ori;
+} GratingBarParams;
+
+class GratingBarList : public FXGStimParameterList
+{
+public:
+	GratingBarList(vector < double > pp, unsigned int index, bool bDistractor) : FXGStimParameterList(index, bDistractor) { create_gratingbar_list(pp);  m_iter = m_vec.begin(); };
+	GratingBarList(const GratingBarList& list) : FXGStimParameterList(list.index(), list.isDistractor()), m_vec(list.m_vec)
+	{
+		m_iter = m_vec.begin();
+	}
+	virtual ~GratingBarList() {};
+	virtual bool advance(MultiParameterFXMultiGStimSet* pstimset)
+	{
+		m_iter++;
+		if (m_iter == m_vec.end()) m_iter = m_vec.begin();
+		return set_current_parameter(pstimset);
+	}
+
+	virtual bool set_current_parameter(MultiParameterFXMultiGStimSet* pstimset)
+	{
+		if (!isDistractor())
+		{
+			pstimset->grating(index()).x = m_iter->x;
+			pstimset->grating(index()).y = m_iter->y;
+			pstimset->grating(index()).w = m_iter->w;
+			pstimset->grating(index()).h = m_iter->h;
+			pstimset->grating(index()).wd = m_iter->ori;
+		}
+		else
+		{
+			pstimset->distractor(index()).x = m_iter->x;
+			pstimset->distractor(index()).y = m_iter->y;
+			pstimset->distractor(index()).w = m_iter->w;
+			pstimset->distractor(index()).h = m_iter->h;
+			pstimset->distractor(index()).wd = m_iter->ori;
+		}
+		return true;
+	}
+
+private:
+	vector<GratingBarParams> m_vec;
+	vector<GratingBarParams>::const_iterator m_iter;
+
+	void create_gratingbar_list(vector<double> pp)
+	{
+		int n = (int)pp.size() / 5;
+		for (int i = 0; i < n; i++)
+		{
+			GratingBarParams params;
+			params.x = pp[i * 5];
+			params.y = pp[i * 5 + 1];
+			params.w = pp[i * 5 + 2];
+			params.h = pp[i * 5 + 3];
+			params.ori = pp[i * 5 + 4];
+			m_vec.push_back(params);
+		}
+	}
+};
+
+
+
 
 
 #endif
