@@ -1168,15 +1168,9 @@ int ARGratingSpec::drawOrientedRectangle()
 {
 	int status = 0;
 
-	cout << "ARGratingSpec::drawOrientedRectangle()" << endl;
 	// get bbox
 	double bboxW, bboxH;
-	getBBoxWH(this->x, this->y, this->w, this->h, this->orientation, bboxW, bboxH);
-	cout << "bbox w " << bboxW << " h " << bboxH << endl;
-	cout << "low " << getVSG().lowlevel() << " high " << getVSG().highlevel() << " gr " << this->getFirstLevel() << " N " << this->getNumLevels() << endl;
-	cout << "cv " << this->cv << endl;
-	cout << "from " << this->cv.from().a << " " << this->cv.from().b << " " << this->cv.from().c << endl;
-	cout << "to " << this->cv.to().a << " " << this->cv.to().b << " " << this->cv.to().c << endl;
+	getBBoxWH(this->x, this->y, this->w, this->h, this->wd, bboxW, bboxH);
 
 	// Get current draw page - we'll use it later.
 	VSGPAGEDESCRIPTOR descr;
@@ -1195,9 +1189,10 @@ int ARGratingSpec::drawOrientedRectangle()
 	// so using MAXMODE (TRANSONLOWER) ensures that the grating shape is drawn wherever
 	// the rect is drawn, but the background remains at the higher level.
 	vsgSetPen1(getVSG().lowlevel());
-	vsgDrawBar(this->x, this->y, this->w, this->h, this->wd);
+	vsgDrawBar(this->x, -this->y, this->w, this->h, this->wd);
 
 	// Set spatial, temporal waveforms, tf, etc stuff.
+	this->select();
 	setGratingObjProperties();
 
 	// draw grating on HOST page
