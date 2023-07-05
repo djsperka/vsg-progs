@@ -123,11 +123,6 @@ COLOR_TYPE ARvsg::background_color()
 	return m_background_color;
 };
 
-PIXEL_LEVEL ARvsg::background_level()
-{
-	return m_background_level;
-};
-
 long ARvsg::getScreenHeightPixels()
 {
 	return m_heightPixels;
@@ -156,9 +151,7 @@ ARvsg::~ARvsg()
 void ARvsg::setBackgroundColor(const COLOR_TYPE& c)
 {
 	m_background_color = c;
-	if (m_background_level < 0)
-		request_single(m_background_level);
-	arutil_color_to_palette(m_background_color, m_background_level);
+	arutil_color_to_palette(m_background_color, m_cDummyLevel);
 	vsgSetBackgroundColour(&c.trival());
 }
 
@@ -173,7 +166,10 @@ void ARvsg::reinit()
 
 	vsgSetCommand(vsgOVERLAYDISABLE);
 	vsgSetDrawMode(vsgSOLIDFILL + vsgCENTREXY);
+	vsgSetSpatialUnits(vsgPIXELUNIT);
 	vsgSetDrawOrigin(vsgGetScreenWidthPixels() / 2, vsgGetScreenHeightPixels() / 2);
+
+	VSGTRIVAL background;
 
 	vsgSetViewDistMM(m_screenDistanceMM);
 	vsgSetSpatialUnits(vsgDEGREEUNIT);
@@ -182,16 +178,20 @@ void ARvsg::reinit()
 	vsgUnitToUnit(vsgPIXELUNIT, m_heightPixels, vsgDEGREEUNIT, &m_heightDegrees);
 	vsgUnitToUnit(vsgPIXELUNIT, m_widthPixels, vsgDEGREEUNIT, &m_widthDegrees);
 
+	background = m_background_color.trival();
+
 	// Create single dummy object and assign it a level
 	m_handle = vsgObjCreate();
 	vsgObjSetPixelLevels(m_cDummyLevel, 1);
+	cout << "ARvsg::reinit(): Got dummy obj(" << m_handle << ")" << endl;
 
 	// Set up triggers and present. A single pulse on DOUT0.
 	vsgObjSetTriggers(vsgTRIG_ONPRESENT, 0, 0);
 	vsgPresent();
 
-	vsgSetBackgroundColour(&ARvsg::instance().background_color().trival());
+	vsgSetBackgroundColour(&background_color().trival());
 	cout << "ARvsg::reinit(): Screen distance = " << m_screenDistanceMM << endl;
+	cout << "ARvsg::reinit(): Screen resolution (" << m_widthPixels << "x" << m_heightPixels << ") pixels (" << m_widthDegrees << "x" << m_heightDegrees << ") degrees" << endl;
 	cout << "ARvsg::reinit(): Dummy level " << m_cDummyLevel << " object handle " << m_handle << endl;
 	cout << "ARvsg::reinit(): Low/high level " << m_cLowLevel << "/" << m_cHighLevel << endl;
 	cout << "ARvsg::reinit(): Background color: " << background_color() << endl;
