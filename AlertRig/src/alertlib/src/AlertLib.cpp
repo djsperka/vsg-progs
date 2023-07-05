@@ -1216,6 +1216,9 @@ int ARGratingSpec::drawOrientedRectangle()
 	vsgSetPen2(getVSG().highlevel()); //vsgSetPen2(lvLow);
 	vsgDrawMoveRect(vsgHOSTPAGE, getVSG().hostpage_handle(), this->x, -this->y, bboxW, bboxH, this->x, -this->y, bboxW, bboxH);
 
+	// restore a normal draw mode
+	vsgSetDrawMode(vsgCENTREXY + vsgSOLIDFILL);
+
 	return status;
 }
 
