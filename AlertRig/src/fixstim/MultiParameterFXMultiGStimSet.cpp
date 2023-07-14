@@ -13,6 +13,8 @@ using namespace std;
 
 std::string f_pursuit_types[3] = { "None", "Regular", "Pursuit" };
 
+void getPanningBBox(double W, double H, double distance, double ori, double(&ullr)[4]);
+
 
 MultiParameterFXMultiGStimSet::MultiParameterFXMultiGStimSet() 
 	: FXMultiGStimSet() 
@@ -98,6 +100,7 @@ int MultiParameterFXMultiGStimSet::init(ARvsg& vsg, std::vector<int> pages, int 
 	m_pageflippages[0] = m_stim_page;
 	m_pageflippages[1] = m_alt_page;
 
+
 	cerr << "init: num_stim_pages " << m_num_stim_pages << " drawGroups? " << m_bUseDrawGroups << " Sweep not pursuit? " << m_bSweepNotPursuit <<  endl;
 
 	if (m_bSweepNotPursuit)
@@ -122,16 +125,6 @@ int MultiParameterFXMultiGStimSet::init(ARvsg& vsg, std::vector<int> pages, int 
 			distractor(i).init(vsg, levels);
 		}
 	}
-
-#if 0
-	if (has_rectangle())
-	{
-		for (unsigned int i = 0; i < rectangle_count(); i++)
-		{
-			rectangle(i).init(vsg, 2);
-		}
-	}
-#endif
 
 	if (has_fixpt())
 	{
@@ -200,9 +193,6 @@ int MultiParameterFXMultiGStimSet::handle_trigger(const std::string& s, const st
 	if (s == "F")
 	{
 		// In all cases, do these things. 
-
-		// move screen back to origin (if pursuit and trial was ended mid-pursuit)
-		vsgMoveScreen(0, 0);
 
 		// turn on distractors if any
 		for (unsigned int i = 0; i < distractor_count(); i++)
@@ -527,6 +517,51 @@ void MultiParameterFXMultiGStimSet::setStimDuration(double seconds)
 	return;
 }
 
+// Get bounding box for panning a window (W,H), in 'direction' for a 'distance' 
+// (same units as W, H). Use positive-Y-down. Initial window assumed to be at (0,0).
+
+void getPanningBBox(double W, double H, double distance, double ori, double (&ullr)[4])
+{
+	// use screen-origin in upper left, positive down. 
+	// Get result upper-left corner, which is _minimum_, and 
+	// lower-right corner, which is _maximum
+	double ulx = 0;
+	double uly = 0;
+	double lrx = W;
+	double lry = H;
+	double xp, yp;
+	double xy[4][2] = { {0,0},
+						{W,0},
+						{W,H},
+						{0,H} };
+
+	// get delta x, delta y
+	MyRot mr(ori);
+	mr.rotatePoint(distance, 0, xp, yp);
+
+	// go around the rectangle, start at upper-right corner, go clockwise. 
+	// at each point, add xp,yp, and check against the extremes
+
+	for (int i = 0; i < 4; i++)
+	{
+		double xx = xy[i][0] + xp;
+		double yy = xy[i][1] + yp;
+		if (xx < ulx) ulx = xx;
+		if (yy < uly) uly = yy;
+		if (xx > lrx) lrx = xx;
+		if (yy > lry) lry = yy;
+	}
+
+	// TODO: fix so we don't need this step
+	ullr[0] = ulx;
+	ullr[1] = uly;
+	ullr[2] = lrx;
+	ullr[3] = lry;
+
+	return;
+}
+
+
 void MultiParameterFXMultiGStimSet::setPursuitParameters(double durSeconds, double dirDegrees, double degPerSecond)
 {
 	if (durSeconds < 0)
@@ -550,6 +585,15 @@ void MultiParameterFXMultiGStimSet::setPursuitParameters(double durSeconds, doub
 		vsgUnit2Unit(vsgDEGREEUNIT, durSeconds * degPerSecond, vsgPIXELUNIT, &pixels);
 		m_dxPursuit = pixels * cos(M_PI * dirDegrees / 180.0) / m_iStimDuration;
 		m_dyPursuit = -1 * pixels * sin(M_PI * dirDegrees / 180.0) / m_iStimDuration;
+
+		// try out our new function!
+		double ullr[4];
+		double dorgx, dorgy;
+		getPanningBBox(vsgGetScreenWidthPixels(), vsgGetScreenHeightPixels(), pixels, dirDegrees, ullr);
+		dorgx = vsgGetScreenWidthPixels() / 2 - ullr[0];
+		dorgy = vsgGetScreenHeightPixels() / 2 - ullr[1];
+		cout << "panning bbox " << ullr[0] << ", " << ullr[1] << " - " << ullr[2] << ", " << ullr[3] << endl;
+		cout << "draw origin at " << dorgx << ", " << dorgy << endl;
 	}
 	return;
 }
