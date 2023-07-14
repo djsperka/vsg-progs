@@ -51,8 +51,7 @@ namespace alert
 		double getScreenHeightDegrees();
 		double getScreenWidthDegrees();
 
-		//		LevelManager& getLevelManager();
-				// Use these functions to get available levels
+		// Use these functions to get available levels
 		int request_single(PIXEL_LEVEL& level);
 		int request_range(int num, PIXEL_LEVEL& first);
 		int remaining();
@@ -74,7 +73,6 @@ namespace alert
 			, m_widthDegrees(0)
 			, m_next_available_level(m_cLowLevel+1)
 			, m_hostpage_handle(-1)
-//			, m_colors{ COLOR_TYPE(gray), COLOR_TYPE(black), COLOR_TYPE(white), COLOR_TYPE(black), COLOR_TYPE(white) }
 
 		{};
 
