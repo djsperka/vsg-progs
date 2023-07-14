@@ -1511,7 +1511,7 @@ int ARConteSpec::draw()
 	VSGTRIVAL trival_to = COLOR_TYPE(white).trival();
 
 	// gabor
-	cerr << "gabor on levels " << m_ramp_low << "-" << m_ramp_high << endl;
+	//cerr << "gabor on levels " << m_ramp_low << "-" << m_ramp_high << endl;
 	vsgSetDrawMode(vsgCENTREXY);
 	vsgSetPen1(m_ramp_low);
 	vsgSetPen2(m_ramp_high);
@@ -1541,7 +1541,7 @@ int ARConteSpec::draw()
 	}
 
 	// now draw the gaussian(s)
-	cerr << "gaussian on levels " << m_ramp_high << "-" << m_ramp_mid << endl;
+	//cerr << "gaussian on levels " << m_ramp_high << "-" << m_ramp_mid << endl;
 	vsgSetPen1(this->m_ramp_high);
 	vsgSetPen2(this->m_ramp_mid);
 	vsgDrawGaussian(xx[0], yy[0], this->w, this->h, this->dev);
