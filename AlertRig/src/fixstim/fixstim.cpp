@@ -52,6 +52,7 @@ using namespace boost::placeholders;
 #include "BarUStim.h"
 #include "MSequenceUStim.h"
 #include "TcpUStim.h"
+#include "ConteUStim.h"
 
 using namespace alert;
 
@@ -292,6 +293,23 @@ bool fixstim_server_callback(const std::string & sargs, std::ostream & out)
 		{
 			out << "ERR - CalibrationUStim could not parse args;";
 			cerr << "fixstim_server_callback(): CalibrationUStim could not parse args." << endl;
+		}
+	}
+	else if (sargs.find("conte") == 0)
+	{
+		ConteUStim conte;
+		if (conte.parses(sargs))
+		{
+			out << "OK;";
+			cerr << "fixstim_server_callback(): starting conte stimulus..." << endl;
+			conte.run_stim(ARvsg::instance());
+			ARvsg::instance().clear();
+			cout << "fixstim_server_callback(): conte stimulus done." << endl;
+		}
+		else
+		{
+			out << "ERR - ConteUStim could not parse args;";
+			cerr << "fixstim_server_callback(): ConteUStim could not parse args." << endl;
 		}
 	}
 	else if (sargs.find("starstim") == 0)

@@ -3,10 +3,36 @@
 #include "alert-argp.h"
 #include "alert-triggers.h"
 #include "ARtypes.h"
+#include <memory>
 #include <boost/filesystem.hpp>
 #include <boost/algorithm/string.hpp>
 
 
+
+DWORD ConteUStim::cOvPageBkgd = 0;
+DWORD ConteUStim::cOvPageAperture = 1;
+DWORD ConteUStim::cOvPageClear = 2;
+DWORD ConteUStim::cPageCue = 1;
+DWORD ConteUStim::cPageProbe = 2;
+DWORD ConteUStim::cPageTest = 3;
+
+
+// use this trial for testing
+struct conte_trial_spec f_trial 
+{
+	0, 0, 5, 5, .5, COLOR_TYPE(red), COLOR_TYPE(green),
+	{ -5, 5, 3, 3, 45, 1, 0, .6, 2, COLOR_TYPE(red) },
+	{ -5, 5, 3, 3, 45, 1, 0, .6, 2, COLOR_TYPE(green) },
+	{ -5, 5, 3, 3, 90, 1, 0, .6, 2, COLOR_TYPE(red) },
+	{ -5, 5, 3, 3, 45, 1, 0, .6, 2, COLOR_TYPE(green) },
+	4, 15
+};
+
+
+
+
+// parse xy file
+bool parse_dot_supply_file(const std::string& filename, ConteCueDotSupply& dotsupply);
 
 // for argp
 error_t parse_conte_opt(int key, char* carg, struct argp_state* state);
@@ -18,7 +44,7 @@ static struct argp_option options[] = {
 	{"ready-pulse", 'p', "BITPATTERN", 0, "Ready pulse issued when startup is complete"},
 	{"ready-pulse-delay", 'l', "DELAY_MS", 0, "Delay ready pulse for this many ms"},
 	{"dot-supply", 701, "filename", 0, "File with x,y positions in [-0.5,0.5]"},
-	{"conte", 702, "CONTE_SPEC", 0, "Conte stim specification"},
+	{"trials", 702, "filename", 0, "Conte trials stim specification"},
 	{ 0 }
 };
 static struct argp f_argp = { options, parse_conte_opt, 0, "fixstim -- all-purpose stimulus engine" };
@@ -64,39 +90,50 @@ error_t parse_conte_opt(int key, char* carg, struct argp_state* state)
 		}
 		else
 		{
-			if (parse_dot_supply_file(sarg))
+			if (!parse_dot_supply_file(sarg, arguments->dot_supply))
 			{
 				cerr << "Error parsing dot supply file" << endl;
 				ret = EINVAL;
+			}
+			else
+			{
+				cerr << "Blocksize: " << arguments->dot_supply.blocksize() << " nblocks " << arguments->dot_supply.nblocks() << endl;
 			}
 		}
 		break;
 	case 702:
 		// parse conte stim spec
+		if (!boost::filesystem::exists(sarg))
+		{
+			cerr << "Cannot find trials spec file" << endl;
+			ret = EINVAL;
+		}
+		else
+		{
+			//if (parse_trials_file(sarg, arguments->trials_spec))
+			//{
+			//	cerr << "Error parsing dot supply file" << endl;
+			//	ret = EINVAL;
+			//}
+			//else
+			//{
+			//	cerr << "Blocksize: " << arguments->dot_supply.blocksize() << " nblocks " << arguments->dot_supply.nblocks() << endl;
+			//}
+		}
 		break;
 	case ARGP_KEY_END:
 		// check that everything needed has been received
+		break;
 	default:
 		return ARGP_ERR_UNKNOWN;
 	}
 	return ret;
 }
 
-
-
-
-
-
 ConteUStim::ConteUStim()
 : UStim()
-, m_binaryTriggers(true)
-, m_verbose(false)
-, m_iDistanceToScreenMM(-1)
-, m_pulse(0x2)
 , m_errflg(0)
-, m_currentPage(1)
 {
-	m_background.setType(gray);
 };
 
 ConteUStim::~ConteUStim()
@@ -109,137 +146,30 @@ bool ConteUStim::parse(int argc, char** argv)
 	return (!ret);
 }
 
-int ConteUStim::process_arg(int c, std::string& arg)
-{
-	switch (c) 
-	{
-	case 'a':
-		m_binaryTriggers = false;
-		break;
-	case 'p':
-		if (parse_integer(arg, m_pulse))
-		{
-			cerr << "Error in pulse line spec (" << arg << ")" << endl;
-			m_errflg++;
-		}
-		break;
-	case 'v':
-		m_verbose = true;
-		break;
-	case 'f': 
-		if (parse_fixation_point(arg, m_fixpt)) m_errflg++;
-		else have_f = true;
-		break;
-	case 'B':
-		pgrating = new ARGratingSpec();
-		if (!parse_grating(arg, *pgrating))
-		{
-			m_pBackgroundGrating = pgrating;
-		}
-		else
-		{
-			m_errflg++;
-			cerr << "Error in background grating spec (" << arg << ")" << endl;
-			delete pgrating;
-		}
-		break;
-	case 'g':
-		pgrating = new ARGratingSpec();
-		if (!parse_grating(arg, *pgrating))
-		{
-			m_gratings.push_back(pgrating);
-			// m_targets.push_back(make_pair(false, (unsigned int)(m_gratings.size() - 1)));
-			m_targets.push_back(boost::make_tuple(false, (unsigned int)(m_gratings.size() - 1), pgrating->contrast));
-		}
-		else
-		{
-			m_errflg++;
-			cerr << "Error in grating spec (" << arg << ")" << endl;
-			delete pgrating;
-		}
-		break;
-	case 't': 
-		pspec = new ARContrastFixationPointSpec();
-		if (!parse_fixation_point(arg, *pspec))
-		{
-			m_dots.push_back(pspec);
-			//m_targets.push_back(make_pair(true, (unsigned int)(m_dots.size() - 1)));
-			m_targets.push_back(boost::make_tuple(true, (unsigned int)(m_dots.size() - 1), 100));
-		}
-		else 
-		{
-			m_errflg++;
-			cerr << "Error in target spec (" << arg << ")" << endl;
-			delete(pspec);
-		}
-		break;
-	case 'b': 
-		if (parse_color(arg, m_background)) m_errflg++; 
-		break;
-	case 'd':
-		if (parse_distance(arg, m_iDistanceToScreenMM)) m_errflg++;
-		else have_d=true;
-		break;
-	case 'o':
-		if (parse_int_list(arg, m_vecTargetOrder))
-		{
-			cerr << "Error in target order list. Expecting comma-separated list of integers." << endl;
-			m_errflg++;
-		}
-		break;
-	case 0:
-		if (!have_f) 
-		{
-			cerr << "Fixation point not specified!" << endl; 
-			m_errflg++;
-		}
-		if (!have_d)
-		{
-			cerr << "Screen distance not specified!" << endl; 
-			m_errflg++;
-		}
-
-		// Make sure there were some targets
-		if (m_targets.size()==0)
-		{
-			cerr << "No targets specified!" << endl;
-			m_errflg++;
-		}
-
-		// If no random order specified, populate the target order vector with 1,2,...,n
-		if (!m_errflg && m_vecTargetOrder.size()==0)
-		{
-			for (unsigned int i=0; i < m_targets.size(); i++) m_vecTargetOrder.push_back(i);
-		}
-
-		break;
-	default:
-		m_errflg++;
-		break;
-	}
-	return m_errflg;
-}
-
-
 
 void ConteUStim::run_stim(alert::ARvsg& vsg)
 {
-	cout << "StarUStim::run_stim(): started" << endl;
+	cout << "ConteUStim::run_stim(): started" << endl;
 
 	// clear all dig outputs
 	vsgIOWriteDigitalOut(0, 0xff);
 	vsgPresent();
 
-	// initialize triggers
-	TSpecificFunctor<StarUStim> functor(this, &StarUStim::callback);
-	init_triggers(&functor);
-	init_pages();
+	// initialize graphics
+	init();
 
-	// switch display back to first client page
-	vsg.ready_pulse(100, m_pulse);
+	// draw first trial
+	draw_current();
+
+	// initialize triggers
+	TSpecificFunctor<ConteUStim> functor(this, &ConteUStim::callback);
+	init_triggers(&functor);
+
+	// ready pulse
+	vsg.ready_pulse(100, m_arguments.iPulseBits);
 
 	// reset all triggers if using binary triggers
-	if (m_binaryTriggers) triggers().reset(vsgIOReadDigitalIn());
+	if (m_arguments.bBinaryTriggers) triggers().reset(vsgIOReadDigitalIn());
 
 	// All right, start monitoring triggers........
 	int last_output_trigger=0;
@@ -249,7 +179,7 @@ void ConteUStim::run_stim(alert::ARvsg& vsg)
 	while (!quit_enabled())
 	{
 		// If user-triggered, get a trigger entry. 
-		if (!m_binaryTriggers)
+		if (!m_arguments.bBinaryTriggers)
 		{
 			// Get a new "trigger" from user
 			cout << "Enter trigger/key: ";
@@ -261,7 +191,7 @@ void ConteUStim::run_stim(alert::ARvsg& vsg)
 		}
 
 		TriggerFunc	tf = std::for_each(triggers().begin(), triggers().end(), 
-			(m_binaryTriggers ? TriggerFunc(input_trigger, last_output_trigger, false) : TriggerFunc(s, last_output_trigger)));
+			(m_arguments.bBinaryTriggers ? TriggerFunc(input_trigger, last_output_trigger, false) : TriggerFunc(s, last_output_trigger)));
 
 		// Now analyze input trigger
 	 	
@@ -277,13 +207,35 @@ void ConteUStim::run_stim(alert::ARvsg& vsg)
 		Sleep(10);
 	}
 
+	cleanup();
+
 	vsg.clear();
 
 	return ;
 }
 
 
-void ConteUStim::init_triggers(TSpecificFunctor<StarUStim>* pfunctor)
+void ConteUStim::init()
+{
+	// enable overlay
+	vsgSetCommand(vsgOVERLAYMASKMODE);
+	m_levelOverlayBackground = 1;
+	ARvsg::instance().request_single(m_levelColorA);
+	ARvsg::instance().request_single(m_levelColorB);
+	arutil_color_to_overlay_palette(m_arguments.bkgdColor, m_levelOverlayBackground);
+
+	// overlay background page and clear page.
+	vsgSetDrawPage(vsgOVERLAYPAGE, cOvPageBkgd, m_levelOverlayBackground); 
+	vsgSetDrawPage(vsgOVERLAYPAGE, cOvPageClear, 0);
+}
+
+void ConteUStim::cleanup()
+{
+	vsgMoveScreen(0, 0);
+	vsgSetCommand(vsgOVERLAYDISABLE);
+}
+
+void ConteUStim::init_triggers(TSpecificFunctor<ConteUStim>* pfunctor)
 {
 	triggers().clear();
 	triggers().addTrigger(new FunctorCallbackTrigger("F", 0x2, 0x2, 0x2, 0x2, pfunctor));
@@ -297,156 +249,77 @@ void ConteUStim::init_triggers(TSpecificFunctor<StarUStim>* pfunctor)
 	return;
 }
 
-void ConteUStim::update_page()
+void ConteUStim::draw_dot_patches()
 {
-	vsgSetDrawPage(vsgVIDEOPAGE, 1-m_currentPage, vsgBACKGROUND);
-	m_currentPage = 1 - m_currentPage;
-
-	// draw background grating if needed
-	if (m_pBackgroundGrating)
-	{
-		m_pBackgroundGrating->draw();
-	}
-
-	// fixpt is drawn at current contrast. 
-	// for "fixpt stays on" as target location changes, make sure the fixpt contrast remains at 100
-	// when this is called. 
-
-	m_fixpt.draw();
-
-	bool isFixpt = boost::get<0>(m_targets[*m_iterator]);
-	unsigned int index = boost::get<1>(m_targets[*m_iterator]);
-	int contrast = boost::get<2>(m_targets[*m_iterator]);
-
-	if (isFixpt)
-	{
-		m_dots[index]->setContrast(0);
-		m_dots[index]->draw();
-	}
-	else
-	{
-		m_gratings[index]->setContrast(0);
-		m_gratings[index]->draw();
-	}
+	cerr << "Draw dot patches" << endl;
+	return;
 }
 
 
-
-void ConteUStim::init_pages()
+void ConteUStim::draw_conte_stim(const struct conte_stim_spec& stim)
 {
-	m_iterator = m_vecTargetOrder.begin();
-
-	m_fixpt.init(2);
-	m_fixpt.setContrast(0);
-
-	// background grating?
-	if (m_pBackgroundGrating)
-	{
-		// adjust settings a bit
-		m_pBackgroundGrating->aperture = rectangle;
-		m_pBackgroundGrating->x = m_fixpt.x;
-		m_pBackgroundGrating->y = m_fixpt.y;
-
-		// get width and height correct using x,y and screen size
-		// make sure its large enough that the entire screen is covered
-		double d;
-		vsgUnit2Unit(vsgPIXELUNIT, vsgGetScreenWidthPixels(), vsgDEGREEUNIT, &d);
-		m_pBackgroundGrating->w = m_pBackgroundGrating->h = d;
-		m_pBackgroundGrating->wd = m_pBackgroundGrating->hd = 0;
-
-		m_pBackgroundGrating->init(30);
-
-	}
-	if (m_dots.size() > 0)
-	{
-		cerr << "init first target" << endl;
-		m_dots[0]->init(2);
-		for (unsigned int i = 1; i<m_dots.size(); i++)
-		{
-			cerr << "init target " << i << endl;
-			m_dots[i]->init(*m_dots[0]);
-		}
-	}
-	if (m_gratings.size() > 0)
-	{
-		cerr << "init first grating" << endl;
-		m_gratings[0]->init(30);
-		for (unsigned int i = 1; i < m_gratings.size(); i++)
-		{
-			cerr << "init grating " << i << endl;
-			m_gratings[i]->init(*m_gratings[0]);
-		}
-	}
-	cerr << "udpate page" << endl;
-	update_page();
-	vsgPresent();
+	cerr << "Draw conte stim" << endl;
+	return;
 }
 
+void ConteUStim::draw_current()
+{
+	// overlay 1 has aperture for patch
+	vsgSetDrawPage(vsgOVERLAYPAGE, cOvPageAperture, m_levelOverlayBackground);
+	vsgSetPen1(0);	// clear on overlay page
+	vsgDrawRect(f_trial.cue_x, f_trial.cue_y, f_trial.cue_w, f_trial.cue_h);
 
+	// draw dot patch(es)
+	vsgSetDrawPage(vsgVIDEOPAGE, cPageCue, vsgBACKGROUND);
+	draw_dot_patches();	// should pass trial spec, but use global for now
+
+	// draw stim pages
+	vsgSetDrawPage(vsgVIDEOPAGE, cPageProbe, vsgBACKGROUND);
+	draw_conte_stim(f_trial.s0);
+	draw_conte_stim(f_trial.s1);
+	vsgSetDrawPage(vsgVIDEOPAGE, cPageProbe, vsgBACKGROUND);
+	draw_conte_stim(f_trial.t0);
+	draw_conte_stim(f_trial.t1);
+
+	// setup cycling
+}
 
 int ConteUStim::callback(int &output, const FunctorCallbackTrigger* ptrig, const std::string&)
 {
 	int ival=1;
 	string key = ptrig->getKey();
 
-	bool isFixpt = boost::get<0>(m_targets[*m_iterator]);
-	unsigned int index = boost::get<1>(m_targets[*m_iterator]);
-	int contrast = boost::get<2>(m_targets[*m_iterator]);
 
 	if (key == "a")
 	{
-		m_iterator++;
-		if (m_iterator == m_vecTargetOrder.end()) m_iterator = m_vecTargetOrder.begin();
-		update_page();
+		cerr << "ConteUStim::callback(\"a\")" << endl;
 	}
 	else if (key == "s")
 	{
-		if (isFixpt)
-		{
-			m_dots[index]->setContrast(0);
-		}
-		else
-		{
-			m_gratings[index]->setContrast(0);
-		}
+		cerr << "ConteUStim::callback(\"s\")" << endl;
 	}
 	else if (key == "S")
 	{
-		if (isFixpt)
-		{
-			m_dots[index]->setContrast(contrast);
-		}
-		else
-		{
-			m_gratings[index]->setContrast(contrast);
-		}
+		cerr << "ConteUStim::callback(\"S\")" << endl;
 	}
 	else if (key == "F")
 	{
-		m_fixpt.setContrast(100);
+		cerr << "ConteUStim::callback(\"F\")" << endl;
 	}
 	else if (key == "f")
 	{
-		m_fixpt.setContrast(0);
+		cerr << "ConteUStim::callback(\"f\")" << endl;
 	}
 	else if (key == "X")
 	{
-		m_fixpt.setContrast(0);
-		if (isFixpt)
-		{
-			m_dots[index]->setContrast(0);
-		}
-		else
-		{
-			m_gratings[index]->setContrast(0);
-		}
+		cerr << "ConteUStim::callback(\"X\")" << endl;
 	}
 
 	return ival;
 }
 
 
-bool parse_dot_supply_file(const std::string& filename)
+bool parse_dot_supply_file(const std::string& filename, ConteCueDotSupply& dotsupply)
 {
 	bool bReturn = false;
 
@@ -462,51 +335,40 @@ bool parse_dot_supply_file(const std::string& filename)
 		boost::filesystem::path folder = p.parent_path();		// if file has relative pathnames to images, they are relative to dir file lives in
 		std::cerr << "Found dot supply file " << p << " at path " << folder << std::endl;
 
-		// open file, read line-by-line and parse
-		string line;
-		int linenumber = 0;		// count lines from 0
-		int imagecount = 0;
-		int groupcount = 0;
-		bool doingImages = true;
-		bool haveGroups = false;				// only set to true if Groups line found
-		double dFixptSec = 0, dImageSec = 0;	// these are only valid if haveGroups == true
+		ifstream ifs("splat.dat", ios::in | ios::binary);
 
-		std::ifstream myfile(filename.c_str());
-		if (myfile.is_open())
+		unsigned int N;
+		unsigned int count = 0;
+		//double d[200];
+
+		if (!ifs.read((char*)&N, sizeof(int)))
 		{
-			while (getline(myfile, line))
+			cerr << "Error reading first int" << endl;
+			bReturn = false;
+		}
+		else
+		{
+			cout << "Expecting blocks of " << N << endl;
+			dotsupply.set_blocksize(N);
+
+			//while (ifs.read((char*)d, N * 2 * sizeof(double)))
+			//	count++;
+
+			//cout << "Found " << count << " blocks" << endl;
+
+			// assuming double size is same as written in data file
+			double* buffer = new double[N * 2];
+			while (ifs.read((char*)buffer, sizeof(double) * N * 2))
 			{
-				linenumber++;
-
-				// line may look like these things
-				// 1) c:\path\file.bmp                    filename only. Position will be 0,0 duration=delay=0
-				// 2) c:\path\file.bmp,x,y                filename, position (in current units), duration=delay=0
-				// 3) c:\path\file.bmp,x,y,durSec,dlySec  all 5 params. 
-				// 4) <blank>                             skip this line
-				// 5) # anything                          comment, ignored
-				// 6) Groups i,f                          start of image groups, i=image sec, f=fixpt sec
-				// 7) i0,i1,i2[...]                       list of image indices and order for a single group, only valid after Groups line
-
-				// skip comment line
-				if (line[0] == '#')
-					continue;
-
-				// skip empty lines
-				boost::algorithm::trim(line);
-				if (line.size() == 0)
-					continue;
-
-				if (doingImages)
-				{
-					// If "Groups" found on line, break out and read groups.
-					if (line.find("Groups") == 0)
-					{
-						doingImages = false;
-						haveGroups = true;
-					}
-					else
-					{
-						// tokenize/parse this line. It should be one of the filename variants.
-						string sUseThisFilename;
-						vector<string> tokens;
-						tokenize(line, tokens, ",");
+				for (int i = 0; i < N * 2; ++i) {
+					dotsupply.xy().push_back(buffer[i]);
+				}
+				count++;
+			}
+			delete buffer;
+		}
+		ifs.close();
+		cout << "Found " << count << " blocks" << endl;
+	}
+	return bReturn;
+}
