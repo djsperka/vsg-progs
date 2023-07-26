@@ -28,8 +28,11 @@ int UStim::initialize(alert::ARvsg& vsg, int iScreenDistanceMM, const COLOR_TYPE
 	else
 	{
 		double xdeg, ydeg;
+		double zxdeg, zydeg;
 		vsgUnit2Unit(vsgPIXELUNIT, vsgGetSystemAttribute(vsgSCREENWIDTH), vsgDEGREEUNIT, &xdeg);
 		vsgUnit2Unit(vsgPIXELUNIT, vsgGetSystemAttribute(vsgSCREENHEIGHT), vsgDEGREEUNIT, &ydeg);
+		vsgUnit2Unit(vsgPIXELUNIT, vsgGetSystemAttribute(vsgVIDEOZONEWIDTH), vsgDEGREEUNIT, &zxdeg);
+		vsgUnit2Unit(vsgPIXELUNIT, vsgGetSystemAttribute(vsgVIDEOZONEHEIGHT), vsgDEGREEUNIT, &zydeg);
 
 		// dump some useful diagnostics
 		cerr << "vsgDEVICESERIALNUMBER: " << std::hex << vsgGetSystemAttribute(vsgDEVICESERIALNUMBER) << std::dec << endl;
@@ -40,8 +43,8 @@ int UStim::initialize(alert::ARvsg& vsg, int iScreenDistanceMM, const COLOR_TYPE
 		cerr << "vsgNUMVIDEOPAGES: " << vsgGetSystemAttribute(vsgNUMVIDEOPAGES) << endl;
 		cerr << "vsgNUMOVERLAYPAGES: " << vsgGetSystemAttribute(vsgNUMOVERLAYPAGES) << endl;
 		cerr << "vsgOVERLAYPALETTESIZE: " << vsgGetSystemAttribute(vsgOVERLAYPALETTESIZE) << endl;
-		cerr << "vsgVIDEOZONEWIDTH: " << vsgGetSystemAttribute(vsgVIDEOZONEWIDTH) << endl;
-		cerr << "vsgVIDEOZONEHEIGHT: " << vsgGetSystemAttribute(vsgVIDEOZONEHEIGHT) << endl;
+		cerr << "vsgVIDEOZONEWIDTH: " << vsgGetSystemAttribute(vsgVIDEOZONEWIDTH) << " (" << zxdeg << " deg., screen dist " << iScreenDistanceMM << "mm)" << endl;
+		cerr << "vsgVIDEOZONEHEIGHT: " << vsgGetSystemAttribute(vsgVIDEOZONEHEIGHT) << " (" << zydeg << " deg., screen dist " << iScreenDistanceMM << "mm)" << endl;
 
 		// Initialize page 0 and leave display there. The stim set may safely assume that the current 
 		// page is a blank background page and it may return to it (no drawing there!). 
