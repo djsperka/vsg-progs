@@ -9,23 +9,36 @@
 #include <boost/tuple/tuple.hpp>
 
 
+struct PatchNNXY
+{
+	unsigned int n0, n1;
+	vector<double> xy;
+	double x(unsigned int i) const { return xy[i * 2]; };
+	double y(unsigned int i) const { return xy[i * 2 + 1]; };
+	PatchNNXY(unsigned int n0, unsigned int n1, double* p)
+	{
+		this->n0 = n0;
+		this->n1 = n1;
+		for (unsigned int n = 0; n < 2 * (n0 + n1); n++)
+			xy.push_back(p[n]);
+	}
+};
+
 class ConteCueDotSupply
 {
-	unsigned int m_blocksize;	// number of dots per patch
-	std::vector<double> m_xy;
+	std::vector<PatchNNXY> m_patches;
 public:
-	ConteCueDotSupply() : m_blocksize(0) {};
+	ConteCueDotSupply() {};
 	virtual ~ConteCueDotSupply() {};
 
-	// only when loading
-	void set_blocksize(unsigned int n) { m_blocksize = n; };
-	std::vector<double>& xy() { return m_xy; };
+	// use while loading
+	void add_patch(unsigned int n0, unsigned int n1, double* p) { m_patches.push_back(PatchNNXY(n0, n1, p)); };
 
 	// safe for use during trials
 	const double& x(unsigned int block, unsigned int index) const;
 	const double& y(unsigned int block, unsigned int index) const;
-	unsigned int blocksize() const { return m_blocksize; };
-	unsigned int nblocks() const { if (m_blocksize) return (unsigned int)m_xy.size() / m_blocksize; else return 0; }
+	size_t npatches() const { return m_patches.size(); };
+	const PatchNNXY& patch(unsigned int i) const { return m_patches[i]; };
 };
 
 // for interacting with argp 
@@ -95,6 +108,7 @@ private:
 	PIXEL_LEVEL m_levelOverlayBackground;
 	PIXEL_LEVEL m_levelColorA;
 	PIXEL_LEVEL m_levelColorB;
+	PIXEL_LEVEL m_levelTest;
 	static DWORD cOvPageBkgd;
 	static DWORD cOvPageAperture;
 	static DWORD cOvPageClear;
@@ -102,8 +116,8 @@ private:
 	static DWORD cPageProbe;
 	static DWORD cPageTest;
 
-// These are the args allowed and which are handled by prargs. Do not use 'F' - it is reserved for 
-// passing a command file.
+	// These are the args allowed and which are handled by prargs. Do not use 'F' - it is reserved for 
+	// passing a command file.
 	static const string m_allowedArgs;
 
 	// draw current trial into video memory
@@ -119,10 +133,13 @@ private:
 	void init_triggers(TSpecificFunctor<ConteUStim>* pfunctor);
 
 	// draw dot patches on single page
-	void draw_dot_patches();
+	int draw_dot_patches();
 
 	// draw a single 3-panel stim thingy
 	void draw_conte_stim(const struct conte_stim_spec& stim);
+
+	// setup page cycling for current trial
+	void setup_cycling(int nperrow);
 };
 
 #endif
