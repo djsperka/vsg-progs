@@ -29,15 +29,15 @@ int StimSetCRG::init(ARvsg& vsg, std::vector<int> pages, int)
 	m_page_0 = pages[3];
 	if (has_xhair())
 	{
-		xhair().init(vsg, 16);
+		xhair().init(16);
 	}
 	if (has_fixpt())
 	{
-		fixpt().init(vsg, 2);
+		fixpt().init(2);
 	}
 
-	grating(1).init(vsg, f_nlevels);
-	grating(0).init(vsg, f_nlevels);
+	grating(1).init(f_nlevels);
+	grating(0).init(f_nlevels);
 	grating(1).setContrast(0);
 	grating(0).setContrast(0);
 

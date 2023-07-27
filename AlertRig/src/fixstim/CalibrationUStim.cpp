@@ -217,7 +217,7 @@ int CalibrationUStim::init_vsg_for_calibration()
 		m_fixpts[i].d = m_fixpt.d;
 		m_fixpts[i].x = (((int)i % 3) - 1) * m_dCalibrationOffset;
 		m_fixpts[i].y = (((int)i / 3) - 1) * m_dCalibrationOffset;
-		m_fixpts[i].init(ARvsg::instance(), 2);
+		m_fixpts[i].init(2);
 		m_fixpts[i].setContrast(0);
 		m_fixpts[i].draw();
 	}

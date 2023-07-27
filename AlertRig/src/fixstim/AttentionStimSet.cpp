@@ -558,7 +558,7 @@ int AttentionStimSet::init(ARvsg& vsg, std::vector<int> pages, int)
 	}
 
 	// divvy up levels. There are only about 250 levels available but fixpt takes 2...
-	m_fixpt.init(vsg, 2);
+	m_fixpt.init(2);
 	m_fixpt.setContrast(100);
 
 
@@ -591,7 +591,7 @@ int AttentionStimSet::init(ARvsg& vsg, std::vector<int> pages, int)
 	cerr << "Initialize " << m_vecCues.size() << " cues." << endl;
 	for (unsigned int i = 0; i<m_vecGratings.size(); i++)
 	{
-		m_vecCues[i].init(vsg, 2);
+		m_vecCues[i].init(2);
 	}
 	for (size_t i = m_vecGratings.size(); i < m_vecCues.size(); i++)
 	{
@@ -617,13 +617,13 @@ int AttentionStimSet::init(ARvsg& vsg, std::vector<int> pages, int)
 	cerr << "Initialize " << m_vecGratings.size() << " gratings." << endl;
 	for (unsigned int i=0; i<m_vecGratings.size(); i++)
 	{
-		m_vecGratings[i].init(vsg, nlevels);
-		m_vecGratingsCC[i].init(vsg, nlevels);
+		m_vecGratings[i].init(nlevels);
+		m_vecGratingsCC[i].init(nlevels);
 	}
 	cerr << "Initialize " << m_vecDistractors.size() << " distractors." << endl;
 	for (unsigned int i=0; i<m_vecDistractors.size(); i++)
 	{
-		m_vecDistractors[i].init(vsg, nlevels);
+		m_vecDistractors[i].init(nlevels);
 	}
 
 	status = drawCurrent();

@@ -357,14 +357,14 @@ int EQStimSet::init(ARvsg& vsg, std::vector<int> pages, int)
 	// test - snag 40 levels for loaded images.......
 	vsg.request_range(40, m_levelImage);
 
-	fixpt().init(vsg, 2);
+	fixpt().init(2);
 	fixpt().setContrast(100);
 
 	if (count() > 6) nlevels = 200/(int)count();
 	cerr << "Number of levels per grating " << nlevels << endl;
 	for (unsigned int i=0; i<count(); i++)
 	{
-		grating(i).init(vsg, nlevels);
+		grating(i).init(nlevels);
 	}
 
 	status = drawCurrent();

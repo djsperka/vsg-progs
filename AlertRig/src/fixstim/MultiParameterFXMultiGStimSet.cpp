@@ -111,24 +111,24 @@ int MultiParameterFXMultiGStimSet::init(ARvsg& vsg, std::vector<int> pages, int 
 
 	if (has_xhair())
 	{
-		xhair().init(vsg, 16);
+		xhair().init(16);
 	}
 	if (has_grating() || has_distractor())
 	{
 		levels = min(240/(int)(count() + distractor_count()), max_levels);
 		for (unsigned int i = 0; i < count(); i++)
 		{
-			grating(i).init(vsg, levels);
+			grating(i).init(levels);
 		}
 		for (unsigned int i = 0; i < distractor_count(); i++)
 		{
-			distractor(i).init(vsg, levels);
+			distractor(i).init(levels);
 		}
 	}
 
 	if (has_fixpt())
 	{
-		fixpt().init(vsg, 2, !m_bSweepNotPursuit);
+		fixpt().init(2, !m_bSweepNotPursuit);
 	}
 
 	// saved dot colors is a thing for Gregg's Grid. 
@@ -141,9 +141,9 @@ int MultiParameterFXMultiGStimSet::init(ARvsg& vsg, std::vector<int> pages, int 
 			// Maybe not the best method, but assume that the number needed 
 			// for the first trial is the number needed for all trials. 
 			if (dot(i).isMulti())
-				dot(i).init(vsg, (int)dot(i).getMulti().size(), false);
+				dot(i).init((int)dot(i).getMulti().size(), false);
 			else
-				dot(i).init(vsg, 1, false);
+				dot(i).init(1, false);
 //			m_dotColorsSaved.push_back(dot(i).color);
 		}
 	}
@@ -156,9 +156,9 @@ int MultiParameterFXMultiGStimSet::init(ARvsg& vsg, std::vector<int> pages, int 
 			// Maybe not the best method, but assume that the number needed 
 			// for the first trial is the number needed for all trials. 
 			if (rectangle(i).isMulti())
-				rectangle(i).init(vsg, (int)rectangle(i).getMulti().size(), false);
+				rectangle(i).init((int)rectangle(i).getMulti().size(), false);
 			else
-				rectangle(i).init(vsg, 1, false);
+				rectangle(i).init(1, false);
 		}
 	}
 

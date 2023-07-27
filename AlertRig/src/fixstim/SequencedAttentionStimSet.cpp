@@ -70,7 +70,7 @@ int SequencedAttentionStimSet::init(ARvsg& vsg, std::vector<int> pages, int)
 
 	m_pages = pages;
 
-	m_fixpt.init(vsg, 2);
+	m_fixpt.init(2);
 	m_fixpt.setContrast(100);
 
 	// Change level mult factor from 2 to 4 for cues to accomodate cue points. If no cue points this
@@ -104,7 +104,7 @@ int SequencedAttentionStimSet::init(ARvsg& vsg, std::vector<int> pages, int)
 		cerr << "Initialize " << m_vecCueCircles.size() << " cues." << endl;
 		for (size_t i = 0; i < m_vecGratings.size(); i++)
 		{
-			m_vecCueCircles[i].init(vsg, 2);
+			m_vecCueCircles[i].init(2);
 		}
 		for (size_t i = m_vecGratings.size(); i < m_vecCueCircles.size(); i++)
 		{

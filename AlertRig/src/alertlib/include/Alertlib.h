@@ -96,10 +96,7 @@ namespace alert
 		ARObject();
 		ARObject(const ARObject& obj);
 		virtual ~ARObject();
-		void init(PIXEL_LEVEL first, int numlevels, bool bcreate=true);
-		void init(ARvsg& vsg, PIXEL_LEVEL first, int numlevels, bool bcreate = true);
-		void init(int numlevels, bool bcreate = true);
-		void init(ARvsg& vsg, int numlevels, bool bcreate = true);
+		virtual void init(int numlevels, bool bcreate = true);
 		// copy VSGObject stuff only - handle, levels, etc. 
 		// Use this when one obj is already init'd, but you want
 		// to draw another. 
@@ -118,6 +115,7 @@ namespace alert
 		ARObject& operator=(const ARObject& obj);
 	protected:
 		ARvsg& getVSG();
+		void init(PIXEL_LEVEL first, int numlevels, bool bcreate = true);
 	private:
 		bool m_initialized;
 		VSGOBJHANDLE m_handle;

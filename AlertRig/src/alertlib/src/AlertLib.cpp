@@ -192,17 +192,17 @@ void ARObject::init(int numlevels, bool bcreate)
 	}
 }
 
-void ARObject::init(ARvsg& vsg, PIXEL_LEVEL first, int numlevels, bool bcreate)
-{
-	m_use_master = m_use_slave = false;
-	init(first, numlevels, bcreate);
-}
-
-void ARObject::init(ARvsg& vsg, int numlevels, bool bcreate)
-{
-	m_use_master = m_use_slave = false;
-	init(numlevels, bcreate);
-}
+//void ARObject::init(ARvsg& vsg, PIXEL_LEVEL first, int numlevels, bool bcreate)
+//{
+//	m_use_master = m_use_slave = false;
+//	init(first, numlevels, bcreate);
+//}
+//
+//void ARObject::init(ARvsg& vsg, int numlevels, bool bcreate)
+//{
+//	m_use_master = m_use_slave = false;
+//	init(numlevels, bcreate);
+//}
 
 
 void ARObject::init(PIXEL_LEVEL first, int numlevels, bool bcreate)
