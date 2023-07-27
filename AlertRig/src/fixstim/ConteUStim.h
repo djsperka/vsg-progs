@@ -8,37 +8,29 @@
 #include <algorithm>
 #include <boost/tuple/tuple.hpp>
 
-
-struct PatchNNXY
+class ContePatch
 {
-	unsigned int n0, n1;
-	vector<double> xy;
-	double x(unsigned int i) const { return xy[i * 2]; };
-	double y(unsigned int i) const { return xy[i * 2 + 1]; };
-	PatchNNXY(unsigned int n0, unsigned int n1, double* p)
-	{
-		this->n0 = n0;
-		this->n1 = n1;
-		for (unsigned int n = 0; n < 2 * (n0 + n1); n++)
-			xy.push_back(p[n]);
-	}
+	unsigned int m_n0, m_n1;
+	vector<double> m_x;
+	vector<double> m_y;
+public:
+	ContePatch(unsigned int n0, unsigned int n1, double* p);
+	virtual ~ContePatch() {};
+	void draw(PIXEL_LEVEL level0, PIXEL_LEVEL level1, double diameter) const;
 };
 
 class ConteCueDotSupply
 {
-	std::vector<PatchNNXY> m_patches;
+	std::vector<ContePatch> m_patches;
 public:
 	ConteCueDotSupply() {};
 	virtual ~ConteCueDotSupply() {};
 
 	// use while loading
-	void add_patch(unsigned int n0, unsigned int n1, double* p) { m_patches.push_back(PatchNNXY(n0, n1, p)); };
+	void add_patch(unsigned int n0, unsigned int n1, double* p) { m_patches.push_back(ContePatch(n0, n1, p)); };
 
-	// safe for use during trials
-	const double& x(unsigned int block, unsigned int index) const;
-	const double& y(unsigned int block, unsigned int index) const;
 	size_t npatches() const { return m_patches.size(); };
-	const PatchNNXY& patch(unsigned int i) const { return m_patches[i]; };
+	const ContePatch& patch(unsigned int i) const { return m_patches[i]; };
 };
 
 // for interacting with argp 
@@ -67,23 +59,46 @@ struct conte_arguments
 
 
 // one of the 3-panel stim + distractor patches
-struct conte_stim_spec
+struct conte_stim_params
 {
 	double x, y, w, h, ori, sf, phase, dev;
 	unsigned int lwt;
-	COLOR_TYPE color;
+	unsigned int icolor;	// refers to cue_color_0 or cue_color_1, so should be 0|1
 };
 
 // a single trial specified here
 struct conte_trial_spec
 {
-	double cue_x, cue_y, cue_w, cue_h;
-	double cue_prob_a;
-	COLOR_TYPE cue_color_a, cue_color_b;
-	struct conte_stim_spec s0, s1, t0, t1;	// sample and target stim
+	double cue_x, cue_y, cue_w, cue_h, cue_d;	// d is dot diam, w,h are patch width, height
+	COLOR_TYPE cue_color_0, cue_color_1;
+	struct conte_stim_params s0, s1, t0, t1;	// sample and target stim
 	unsigned int cue_fpt;		// frames per term
 	unsigned int cue_nterms;	// will be specified as duration, not terms, probably
 };
+
+class ConteXYHelper
+{
+	long m_WpixScr, m_HpixScr;	// screen width, height
+	long m_WpixZone, m_HpixZone;	// zone w, h
+	unsigned int m_nPatchPerRow;
+	unsigned int m_nPatchRows;
+	double m_wdeg, m_hdeg, m_ddeg, m_xdeg, m_ydeg;		// patch w,h; dot diam; patch screen position; all in degrees, origin in center, Ypos up
+public:
+	ConteXYHelper(double wdeg, double hdeg, double ddeg, double xdeg, double ydeg);
+	virtual ~ConteXYHelper() {};
+
+	// get drawing origin for patch 'i', values returned in degrees, use with setDrawOrigin
+	void getDrawOrigin(unsigned int i, double& x_origin_deg, double& y_origin_deg) const;
+
+	// get xy position for page, as used in cycling setup. Returned values in PIXELS, assign to .Xpos, .Ypos
+	void getPageXYpos(unsigned int i, short& Xpos_pix, short& Ypos_pix) const;
+};
+
+
+
+
+
+
 
 // Implementation of UStim interface for the starstim app.
 class ConteUStim: public UStim
@@ -109,12 +124,11 @@ private:
 	PIXEL_LEVEL m_levelColorA;
 	PIXEL_LEVEL m_levelColorB;
 	PIXEL_LEVEL m_levelTest;
-	static DWORD cOvPageBkgd;
-	static DWORD cOvPageAperture;
-	static DWORD cOvPageClear;
-	static DWORD cPageCue;
-	static DWORD cPageProbe;
-	static DWORD cPageTest;
+	static WORD cOvPageBkgd;
+	static WORD cOvPageAperture;
+	static WORD cPageCue;
+	static WORD cPageProbe;
+	static WORD cPageTest;
 
 	// These are the args allowed and which are handled by prargs. Do not use 'F' - it is reserved for 
 	// passing a command file.
@@ -133,13 +147,14 @@ private:
 	void init_triggers(TSpecificFunctor<ConteUStim>* pfunctor);
 
 	// draw dot patches on single page
-	int draw_dot_patches();
+	void draw_dot_patches(const ConteXYHelper& xyhelper);
 
 	// draw a single 3-panel stim thingy
 	void draw_conte_stim(const struct conte_stim_spec& stim);
 
 	// setup page cycling for current trial
-	void setup_cycling(int nperrow);
+	void setup_cycling(const ConteXYHelper& xyhelper);
 };
+
 
 #endif

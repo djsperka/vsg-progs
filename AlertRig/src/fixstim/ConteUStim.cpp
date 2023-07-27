@@ -6,25 +6,27 @@
 #include <memory>
 #include <boost/filesystem.hpp>
 #include <boost/algorithm/string.hpp>
+#include <boost/range/algorithm/random_shuffle.hpp>
+
+
+WORD ConteUStim::cOvPageBkgd = 0;
+WORD ConteUStim::cOvPageAperture = 1;
+WORD ConteUStim::cPageProbe = 1;
+WORD ConteUStim::cPageTest = 2;
+WORD ConteUStim::cPageCue = 3;
 
 
 
-DWORD ConteUStim::cOvPageBkgd = 0;
-DWORD ConteUStim::cOvPageAperture = 1;
-DWORD ConteUStim::cOvPageClear = 2;
-DWORD ConteUStim::cPageProbe = 1;
-DWORD ConteUStim::cPageTest = 2;
-DWORD ConteUStim::cPageCue = 3;
 
 
 // use this trial for testing
 struct conte_trial_spec f_trial 
 {
-	0, 0, 5, 5, .5, COLOR_TYPE(red), COLOR_TYPE(green),
-	{ -5, 5, 3, 3, 45, 1, 0, .6, 2, COLOR_TYPE(red) },
-	{ -5, 5, 3, 3, 45, 1, 0, .6, 2, COLOR_TYPE(green) },
-	{ -5, 5, 3, 3, 90, 1, 0, .6, 2, COLOR_TYPE(red) },
-	{ -5, 5, 3, 3, 45, 1, 0, .6, 2, COLOR_TYPE(green) },
+	0, 0, 5, 5, .1, COLOR_TYPE(red), COLOR_TYPE(green),
+	{ -5, 5, 3, 3, 45, 1, 0, .6, 2, 0 },
+	{ -5, 5, 3, 3, 45, 1, 0, .6, 2, 1 },
+	{ -5, 5, 3, 3, 90, 1, 0, .6, 2, 0 },
+	{ -5, 5, 3, 3, 45, 1, 0, .6, 2, 1 },
 	4, 15
 };
 
@@ -223,7 +225,7 @@ void ConteUStim::init()
 	ARvsg::instance().setBackgroundColor(m_arguments.bkgdColor);
 
 	// enable overlay
-	vsgSetCommand(vsgOVERLAYMASKMODE + vsgVIDEODRIFT);
+	vsgSetCommand(vsgOVERLAYMASKMODE + vsgVIDEODRIFT + vsgOVERLAYDRIFT);
 	m_levelOverlayBackground = 1;
 	ARvsg::instance().request_single(m_levelColorA);
 	arutil_color_to_palette(f_trial.cue_color_a, m_levelColorA);
@@ -233,11 +235,9 @@ void ConteUStim::init()
 	arutil_color_to_palette(COLOR_TYPE(0, 1, 1), m_levelTest);
 	arutil_color_to_overlay_palette(m_arguments.bkgdColor, m_levelOverlayBackground);
 
-	// overlay background page and clear page.
-	//temp vsgSetDrawPage(vsgOVERLAYPAGE, cOvPageBkgd, m_levelOverlayBackground);
-	vsgSetDrawPage(vsgOVERLAYPAGE, cOvPageBkgd, 0);
-	//vsgSetDrawPage(vsgOVERLAYPAGE, cOvPageClear, 0);
-
+	// overlay background page and aperture page. Will need to draw the actual aperture on that page! 
+	vsgSetDrawPage(vsgOVERLAYPAGE, cOvPageBkgd, m_levelOverlayBackground);
+	vsgSetDrawPage(vsgOVERLAYPAGE, cOvPageAperture, m_levelOverlayBackground);
 }
 
 void ConteUStim::cleanup()
@@ -261,64 +261,30 @@ void ConteUStim::init_triggers(TSpecificFunctor<ConteUStim>* pfunctor)
 	return;
 }
 
-int ConteUStim::draw_dot_patches()
+void ConteUStim::draw_dot_patches(const ConteXYHelper& xyhelper)
 {
-	cerr << "Draw dot patches" << endl;
-	cerr << "Patch x, y, w, h: " << f_trial.cue_x << ", " << f_trial.cue_y << ", " << f_trial.cue_w << ", " << f_trial.cue_h << endl;
 	vsgSetDrawPage(vsgVIDEOPAGE, cPageCue, vsgBACKGROUND);
-
-	double dot_diam = 0.25; 
-
-	// Figure out how many patches can be drawn on a page..........
-	long Wpix = vsgGetSystemAttribute(vsgVIDEOZONEWIDTH);
-	long Hpix = vsgGetSystemAttribute(vsgVIDEOZONEHEIGHT);
-	double Wdeg, Hdeg;
-	vsgUnit2Unit(vsgPIXELUNIT, Wpix, vsgDEGREEUNIT, &Wdeg);
-	vsgUnit2Unit(vsgPIXELUNIT, Hpix, vsgDEGREEUNIT, &Hdeg);
-	double Wpatch, Hpatch;
-	Wpatch = dot_diam + f_trial.cue_w;
-	unsigned int Npatchperrow = trunc(Wdeg / Wpatch);
-	unsigned int Nrows = ceil((double)f_trial.cue_nterms / (double)Npatchperrow);
-	cerr << "Patch requires " << Wpatch << " deg, can fit " << Npatchperrow << " in one row, will need " << Nrows << " rows." << endl;
-	//for (unsigned int i = 0; i < f_trial.cue_nterms; i++)
-
 	for (unsigned int i = 0; i < f_trial.cue_nterms; i++)
 	{
-		PatchNNXY patch = m_arguments.dot_supply.patch(i);
+		const ContePatch& patch = m_arguments.dot_supply.patch(i);
+
 		double term_x, term_y;
-		term_x = (i%Npatchperrow + 0.5) * (f_trial.cue_w + dot_diam);
-		term_y = (i/Npatchperrow + 0.5) * (f_trial.cue_h + dot_diam);
+		xyhelper.getDrawOrigin(i, term_x, term_y);
 		vsgSetDrawOrigin(term_x, term_y);
 
-		vsgSetPen1(m_levelTest);
-		vsgSetDrawMode(vsgCENTREXY + vsgPIXELPEN);
-		vsgDrawRect(0, 0, f_trial.cue_w, f_trial.cue_h);
-		cerr << i << ": " << term_x << " " << term_y << endl;
-		//if (i == 0)
-		//{
-		//	for (unsigned int j = 0; j < 3; j++)
-		//		cerr << "pt " << patch.x(j) << ", " << patch.y(j) << " : " << f_trial.cue_w * patch.x(j) << ", " << f_trial.cue_h * patch.y(j) << endl;
-		//}
+		patch.draw(m_levelColorA, m_levelColorB, f_trial.cue_d);
 
-		// dot coords are for patches with unit diameter. 
-		// TODO - randomize drawing order
-		vsgSetDrawMode(vsgCENTREXY + vsgSOLIDFILL);
-		vsgSetPen1(m_levelColorA);
-		for (unsigned int idot = 0; idot < patch.n0; idot++)
-		{
-			vsgDrawOval(f_trial.cue_w * patch.x(idot), f_trial.cue_h * patch.y(idot), 0.25, 0.25);
-			//if (i == 0) cerr << "patch 0: " << f_trial.cue_w * patch.x(idot) << ", " << f_trial.cue_h * patch.y(idot) << endl;
-		}
-		vsgSetPen1(m_levelColorB);
-		for (unsigned int idot = patch.n0; idot < patch.n0+patch.n1; idot++)
-		{
-			vsgDrawOval(f_trial.cue_w * patch.x(idot), f_trial.cue_h * patch.y(idot), 0.25, 0.25);
-		}
+		// for testing - draw a rect around the patch
+		//vsgSetPen1(m_levelTest);
+		//vsgSetDrawMode(vsgCENTREXY + vsgPIXELPEN);
+		//vsgDrawRect(0, 0, f_trial.cue_w, f_trial.cue_h);
 	}
+
+	// restore draw origin to center of screen
 	vsgSetSpatialUnits(vsgPIXELUNIT);
 	vsgSetDrawOrigin(vsgGetScreenWidthPixels() / 2, vsgGetScreenHeightPixels() / 2);
 	vsgSetSpatialUnits(vsgDEGREEUNIT);
-	return Npatchperrow;
+	return;
 }
 
 
@@ -334,10 +300,14 @@ void ConteUStim::draw_current()
 	vsgSetDrawPage(vsgOVERLAYPAGE, cOvPageAperture, m_levelOverlayBackground);
 	vsgSetPen1(0);	// clear on overlay page
 	vsgDrawRect(f_trial.cue_x, f_trial.cue_y, f_trial.cue_w, f_trial.cue_h);
+	//vsgSetDrawPage(vsgOVERLAYPAGE, cOvPageAperture, 0);
+
+	ConteXYHelper xyhelper(f_trial.cue_w, f_trial.cue_h, f_trial.cue_d, f_trial.cue_x, f_trial.cue_y);
+
 
 	// draw dot patch(es)
 	vsgSetDrawPage(vsgVIDEOPAGE, cPageCue, vsgBACKGROUND);
-	int nperrow = draw_dot_patches();	// should pass trial spec, but use global for now
+	draw_dot_patches(xyhelper);	// should pass trial spec, but use global for now
 
 	// draw stim pages
 	vsgSetDrawPage(vsgVIDEOPAGE, cPageProbe, 0);
@@ -348,19 +318,15 @@ void ConteUStim::draw_current()
 	draw_conte_stim(f_trial.t1);
 
 	// setup cycling
-	setup_cycling(nperrow);
+	setup_cycling(xyhelper);
 }
 
-void ConteUStim::setup_cycling(int nperrow)
+void ConteUStim::setup_cycling(const ConteXYHelper& xyhelper)
 {
 	int status = 0;
 	int count = 0;
-	//static const int m_max_cycle_count = 32768;
 	VSGCYCLEPAGEENTRY cycle_params[100];	// warning! No check on usage. You have been warned. 
-
-	double dot_diam = 0.25;
-	double term_x, term_y;
-	double term_x_pixels, term_y_pixels;
+	short Xpos, Ypos;
 
 	for (unsigned int i = 0; i < f_trial.cue_nterms; i++)
 	{
@@ -369,13 +335,9 @@ void ConteUStim::setup_cycling(int nperrow)
 		cycle_params[i].Page = cPageCue + vsgDUALPAGE;
 		cycle_params[i].ovPage = cOvPageAperture;
 		cycle_params[i].ovXpos = cycle_params[i].ovYpos = 0;
-
-		term_x = 0.5 * dot_diam + (i % nperrow) * (f_trial.cue_w + dot_diam);
-		term_y = 0.5 * dot_diam + (i / nperrow) * (f_trial.cue_h + dot_diam);
-		vsgUnit2Unit(vsgDEGREEUNIT, term_x, vsgPIXELUNIT, &term_x_pixels);
-		vsgUnit2Unit(vsgDEGREEUNIT, term_y, vsgPIXELUNIT, &term_y_pixels);
-		cycle_params[i].Xpos = term_x_pixels;
-		cycle_params[i].Ypos = term_y_pixels;
+		xyhelper.getPageXYpos(i, Xpos, Ypos);
+		cycle_params[i].Xpos = Xpos;
+		cycle_params[i].Ypos = Ypos;
 	}
 	cycle_params[f_trial.cue_nterms].Frames = 1;
 	cycle_params[f_trial.cue_nterms].Stop = 1;
@@ -459,17 +421,96 @@ bool parse_dot_supply_file(const std::string& filename, ConteCueDotSupply& dotsu
 		while (ifs.read((char *)N, 2*sizeof(int)) && ifs.read((char *)d, 2*(N[0] + N[1])*sizeof(double)))
 		{
 			dotsupply.add_patch(N[0], N[1], d);
-			//cerr << "patch " << dotsupply.npatches() << " with " << N[0] << " " << N[1] << endl;
-			//if (dotsupply.npatches() == 1)
-			//{
-			//	cerr << "First patch: " << endl;
-			//	for (unsigned int ii = 0; ii < 5; ii++)
-			//		cerr << d[ii * 2] << ", " << d[ii * 2 + 1] << endl;
-			//	cerr << endl;
-			//}
 		}
 		ifs.close();
 	}
 	return bReturn;
+}
+
+ConteXYHelper::ConteXYHelper(double w, double h, double d, double x, double y)
+	: m_wdeg(w)
+	, m_hdeg(h)
+	, m_ddeg(d)
+	, m_xdeg(x)
+	, m_ydeg(y)
+{
+	m_WpixScr = vsgGetScreenWidthPixels();
+	m_HpixScr = vsgGetScreenHeightPixels();
+	m_WpixZone = vsgGetSystemAttribute(vsgVIDEOZONEWIDTH);
+	m_HpixZone = vsgGetSystemAttribute(vsgVIDEOZONEHEIGHT);
+
+	// Figure out how many patches can be drawn on a page..........
+	double WdegZone, HdegZone;
+	vsgUnit2Unit(vsgPIXELUNIT, m_WpixZone, vsgDEGREEUNIT, &WdegZone);
+	vsgUnit2Unit(vsgPIXELUNIT, m_HpixZone, vsgDEGREEUNIT, &HdegZone);
+	m_nPatchPerRow = trunc(WdegZone / (m_ddeg + m_wdeg));
+	m_nPatchRows = ceil((double)f_trial.cue_nterms / (double)m_nPatchPerRow);
+}
+
+void ConteXYHelper::getDrawOrigin(unsigned int i, double& x_origin, double& y_origin) const
+{
+	x_origin = (i % m_nPatchPerRow + 0.5) * (m_wdeg + m_ddeg);
+	y_origin = (i / m_nPatchPerRow + 0.5) * (m_wdeg + m_ddeg);
+	return;
+}
+
+	// get xy position for page, as used in cycling setup. Returned values in PIXELS, assign to .Xpos, .Ypos
+void ConteXYHelper::getPageXYpos(unsigned int i, short& Xpos, short& Ypos) const
+{
+	double x_origin_degrees, y_origin_degrees;
+	double x_origin_pixels, y_origin_pixels;
+
+	// draw origin relative to upper left corner of page, with +y = down. 
+	// convert to pixels
+	getDrawOrigin(i, x_origin_degrees, y_origin_degrees);
+	vsgUnit2Unit(vsgDEGREEUNIT, x_origin_degrees, vsgPIXELUNIT, &x_origin_pixels);
+	vsgUnit2Unit(vsgDEGREEUNIT, y_origin_degrees, vsgPIXELUNIT, &y_origin_pixels);
+
+	Xpos = (short)(x_origin_pixels - m_WpixScr / 2);
+	Ypos = (short)(y_origin_pixels - m_HpixScr / 2);
+	return;
+};
+
+//class ContePatch
+//{
+//	unsigned int m_n0, m_n1;
+//	vector<double> m_x;
+//	vector<double> m_y;
+//	double m_diam;
+//public:
+ContePatch::ContePatch(unsigned int n0, unsigned int n1, double* p)
+	: m_n0(n0)
+	, m_n1(n1)
+{
+	for (unsigned int i = 0; i < (n0 + n1); i++)
+	{
+		m_x.push_back(p[2 * i]);
+		m_y.push_back(p[2 * i + 1]);
+	}
+}
+
+void ContePatch::draw(PIXEL_LEVEL level0, PIXEL_LEVEL level1, double diam) const
+{
+	unsigned int i;
+	vector < PIXEL_LEVEL> levels;
+	vector <unsigned int> ind;
+	for (i = 0; i < m_n0; i++)
+		levels.push_back(level0);
+	for (i = 0; i < m_n1; i++)
+		levels.push_back(level1);
+	// randomize the order
+	for (i = 0; i < (m_n0 + m_n1); i++)
+		ind.push_back(i);
+	boost::range::random_shuffle(ind);
+
+	// draw
+	long mode_saved = vsgGetDrawMode();
+	vsgSetDrawMode(vsgCENTREXY | vsgSOLIDFILL);
+	for (i = 0; i < (m_n0 + m_n1); i++)
+	{
+		vsgSetPen1(levels[ind[i]]);
+		vsgDrawOval(m_x[ind[i]], m_y[ind[i]], diam, diam);
+	}
+	vsgSetDrawMode(mode_saved);
 }
 
