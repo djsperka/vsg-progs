@@ -9,10 +9,12 @@
 #include <boost/range/algorithm/random_shuffle.hpp>
 
 
-WORD ConteUStim::cOvPageBkgd = 0;
+WORD ConteUStim::cOvPageClear = 0;
 WORD ConteUStim::cOvPageAperture = 1;
-WORD ConteUStim::cPageProbe = 1;
-WORD ConteUStim::cPageTest = 2;
+
+WORD ConteUStim::cPageBackground = 0;
+WORD ConteUStim::cPageSample = 1;
+WORD ConteUStim::cPageTarget = 2;
 WORD ConteUStim::cPageCue = 3;
 
 
@@ -27,8 +29,18 @@ struct conte_trial_spec f_trial
 	{ -5, 5, 3, 3, 45, 1, 0, .6, 2, 1 },
 	{ -5, 5, 3, 3, 90, 1, 0, .6, 2, 0 },
 	{ -5, 5, 3, 3, 45, 1, 0, .6, 2, 1 },
-	4, 15
+	4, 250, 500, 250, 250, 250, 1000
 };
+
+
+unsigned int cue_fpt;		// frames per term for cue
+unsigned int cue_ms;
+unsigned int cue_to_sample_delay_ms;
+unsigned int sample_display_ms;
+unsigned int sample_to_target_delay_ms;
+unsigned int target_display_ms;
+unsigned int saccade_response_time_ms;
+
 
 
 
@@ -47,6 +59,7 @@ static struct argp_option options[] = {
 	{"ready-pulse-delay", 'l', "DELAY_MS", 0, "Delay ready pulse for this many ms"},
 	{"dot-supply", 701, "filename", 0, "File with x,y positions in [-0.5,0.5]"},
 	{"trials", 702, "filename", 0, "Conte trials stim specification"},
+	{"color", 'c', "COLOR", 0, "cue color; specify in order of usage (0, then 1)"},
 	{ 0 }
 };
 static struct argp f_argp = { options, parse_conte_opt, 0, "fixstim -- all-purpose stimulus engine" };
@@ -56,6 +69,7 @@ error_t parse_conte_opt(int key, char* carg, struct argp_state* state)
 {
 	error_t ret = 0;
 	struct conte_arguments* arguments = (struct conte_arguments*)state->input;
+	COLOR_TYPE color;
 	std::string sarg;
 	if (carg) sarg = carg;
 	switch (key)
@@ -76,6 +90,11 @@ error_t parse_conte_opt(int key, char* carg, struct argp_state* state)
 		else
 			arguments->bHaveDistance = true;
 		break;
+	case 'c':
+		if (parse_color(sarg, color))
+			ret = EINVAL;
+		else
+			arguments->colors.push_back(color);
 	case 'l':
 		if (parse_integer(sarg, arguments->iReadyPulseDelay))
 			ret = EINVAL;
@@ -216,7 +235,6 @@ void ConteUStim::run_stim(alert::ARvsg& vsg)
 	return ;
 }
 
-
 void ConteUStim::init()
 {
 	// background color and screen dist
@@ -226,18 +244,31 @@ void ConteUStim::init()
 
 	// enable overlay
 	vsgSetCommand(vsgOVERLAYMASKMODE + vsgVIDEODRIFT + vsgOVERLAYDRIFT);
+
+	// background color needed on overlay palette
 	m_levelOverlayBackground = 1;
-	ARvsg::instance().request_single(m_levelColorA);
-	arutil_color_to_palette(f_trial.cue_color_a, m_levelColorA);
-	ARvsg::instance().request_single(m_levelColorB);
-	arutil_color_to_palette(f_trial.cue_color_b, m_levelColorB);
-	ARvsg::instance().request_single(m_levelTest);
-	arutil_color_to_palette(COLOR_TYPE(0, 1, 1), m_levelTest);
 	arutil_color_to_overlay_palette(m_arguments.bkgdColor, m_levelOverlayBackground);
 
-	// overlay background page and aperture page. Will need to draw the actual aperture on that page! 
-	vsgSetDrawPage(vsgOVERLAYPAGE, cOvPageBkgd, m_levelOverlayBackground);
-	vsgSetDrawPage(vsgOVERLAYPAGE, cOvPageAperture, m_levelOverlayBackground);
+	// make a color for testing stuff
+	ARvsg::instance().request_single(m_levelTest);
+	arutil_color_to_palette(COLOR_TYPE(0, 1, 1), m_levelTest);
+
+	// these are the colors specified on command line
+	for (auto c : m_arguments.colors)
+	{
+		PIXEL_LEVEL l;
+		ARvsg::instance().request_single(l);
+		arutil_color_to_palette(c, l);
+		m_levelCueColors.push_back(l);
+	}
+
+	// overlay clear page. Overlay aperture page initialized per-stim (see draw_current)
+	vsgSetDrawPage(vsgOVERLAYPAGE, cOvPageClear, 0);
+
+	m_probe0.init(40, false);
+	m_probe1.init(40, false);
+	m_target0.init(40, false);
+	m_target1.init(40, false);
 }
 
 void ConteUStim::cleanup()
@@ -261,10 +292,10 @@ void ConteUStim::init_triggers(TSpecificFunctor<ConteUStim>* pfunctor)
 	return;
 }
 
-void ConteUStim::draw_dot_patches(const ConteXYHelper& xyhelper)
+void ConteUStim::draw_dot_patches(const ConteXYHelper& xyhelper, unsigned int npatches)
 {
 	vsgSetDrawPage(vsgVIDEOPAGE, cPageCue, vsgBACKGROUND);
-	for (unsigned int i = 0; i < f_trial.cue_nterms; i++)
+	for (unsigned int i = 0; i < npatches; i++)
 	{
 		const ContePatch& patch = m_arguments.dot_supply.patch(i);
 
@@ -272,7 +303,7 @@ void ConteUStim::draw_dot_patches(const ConteXYHelper& xyhelper)
 		xyhelper.getDrawOrigin(i, term_x, term_y);
 		vsgSetDrawOrigin(term_x, term_y);
 
-		patch.draw(m_levelColorA, m_levelColorB, f_trial.cue_d);
+		patch.draw(m_levelCueColors[0], m_levelCueColors[1], f_trial.cue_d);
 
 		// for testing - draw a rect around the patch
 		//vsgSetPen1(m_levelTest);
@@ -288,9 +319,34 @@ void ConteUStim::draw_dot_patches(const ConteXYHelper& xyhelper)
 }
 
 
-void ConteUStim::draw_conte_stim(const struct conte_stim_spec& stim)
+/*
+	double x, y, w, h;
+		double orientation;
+		double sf;		// spatial frequency
+		double dev;		// gaussian e**(r**2/dev**2)
+		double phase;	// initial phase
+		bool bHorizontal;
+		double distractor_factor;
+		DWORD cue_line_width;
+		COLOR_TYPE cue_color;
+
+
+*/
+
+void ConteUStim::draw_conte_stim(ARConteSpec& cspec, const struct conte_stim_params& stim)
 {
-	cerr << "Draw conte stim" << endl;
+	cspec.x = stim.x;
+	cspec.y = stim.y;
+	cspec.w = stim.w;
+	cspec.h = stim.h;
+	cspec.orientation = stim.ori;
+	cspec.sf = stim.sf;
+	cspec.dev = stim.dev;
+	cspec.phase = stim.phase;
+	cspec.bHorizontal = (bool)stim.isHorizontal;
+	cspec.cue_line_width = stim.lwt;
+	cspec.cue_level = m_levelCueColors[stim.icolor];	// TODO - no check on size here!
+	cspec.draw();
 	return;
 }
 
@@ -300,52 +356,103 @@ void ConteUStim::draw_current()
 	vsgSetDrawPage(vsgOVERLAYPAGE, cOvPageAperture, m_levelOverlayBackground);
 	vsgSetPen1(0);	// clear on overlay page
 	vsgDrawRect(f_trial.cue_x, f_trial.cue_y, f_trial.cue_w, f_trial.cue_h);
-	//vsgSetDrawPage(vsgOVERLAYPAGE, cOvPageAperture, 0);
 
-	ConteXYHelper xyhelper(f_trial.cue_w, f_trial.cue_h, f_trial.cue_d, f_trial.cue_x, f_trial.cue_y);
-
+	// how many dot patches are needed?
+	unsigned int npatches = (unsigned int)(1000.0 * f_trial.cue_ms / vsgGetSystemAttribute(vsgFRAMETIME) / f_trial.cue_fpt);
 
 	// draw dot patch(es)
 	vsgSetDrawPage(vsgVIDEOPAGE, cPageCue, vsgBACKGROUND);
-	draw_dot_patches(xyhelper);	// should pass trial spec, but use global for now
+	ConteXYHelper xyhelper(f_trial.cue_w, f_trial.cue_h, f_trial.cue_d, f_trial.cue_x, f_trial.cue_y, npatches);
+	draw_dot_patches(xyhelper, npatches);	// should pass trial spec, but use global for now
 
 	// draw stim pages
-	vsgSetDrawPage(vsgVIDEOPAGE, cPageProbe, 0);
-	draw_conte_stim(f_trial.s0);
-	draw_conte_stim(f_trial.s1);
-	vsgSetDrawPage(vsgVIDEOPAGE, cPageTest, 0);
-	draw_conte_stim(f_trial.t0);
-	draw_conte_stim(f_trial.t1);
+	vsgSetDrawPage(vsgVIDEOPAGE, cPageSample, vsgBACKGROUND);
+	draw_conte_stim(m_probe0, f_trial.s0);
+	draw_conte_stim(m_probe1, f_trial.s1);
+	vsgSetDrawPage(vsgVIDEOPAGE, cPageTarget, vsgBACKGROUND);
+	draw_conte_stim(m_target0, f_trial.t0);
+	draw_conte_stim(m_target1, f_trial.t1);
 
 	// setup cycling
-	setup_cycling(xyhelper);
+	setup_cycling(xyhelper, npatches);
 }
 
-void ConteUStim::setup_cycling(const ConteXYHelper& xyhelper)
+void ConteUStim::setup_cycling(const ConteXYHelper& xyhelper, unsigned int nterms_in_cue)
 {
-	int status = 0;
-	int count = 0;
+	unsigned int count = 0;
 	VSGCYCLEPAGEENTRY cycle_params[100];	// warning! No check on usage. You have been warned. 
 	short Xpos, Ypos;
 
-	for (unsigned int i = 0; i < f_trial.cue_nterms; i++)
+	long frametime = vsgGetSystemAttribute(vsgFRAMETIME);	// in microseconds
+	auto nframes = [frametime](const unsigned int ms)
 	{
-		cycle_params[i].Frames = f_trial.cue_fpt;
-		cycle_params[i].Stop = 0;
-		cycle_params[i].Page = cPageCue + vsgDUALPAGE;
-		cycle_params[i].ovPage = cOvPageAperture;
-		cycle_params[i].ovXpos = cycle_params[i].ovYpos = 0;
-		xyhelper.getPageXYpos(i, Xpos, Ypos);
-		cycle_params[i].Xpos = Xpos;
-		cycle_params[i].Ypos = Ypos;
-	}
-	cycle_params[f_trial.cue_nterms].Frames = 1;
-	cycle_params[f_trial.cue_nterms].Stop = 1;
-	cycle_params[f_trial.cue_nterms].Page = cPageCue + vsgDUALPAGE;
-	cycle_params[f_trial.cue_nterms].ovPage = 0;
-	cycle_params[f_trial.cue_nterms].ovXpos = cycle_params[f_trial.cue_nterms].ovYpos = 0;
+		return (unsigned int)(1000.0 * ms / frametime);
+	};
 
-	vsgPageCyclingSetup(f_trial.cue_nterms+1, &cycle_params[0]);
+
+	unsigned int cue_nterms = nframes(f_trial.cue_ms);
+	cerr << "Cue nterms " << cue_nterms << endl;
+
+	// cue presentation
+	for (unsigned int i = 0; i < cue_nterms; i++)
+	{
+		cycle_params[count].Frames = f_trial.cue_fpt;
+		cycle_params[count].Stop = 0;
+		cycle_params[count].Page = cPageCue + vsgDUALPAGE;
+		cycle_params[count].ovPage = cOvPageAperture;
+		cycle_params[count].ovXpos = cycle_params[count].ovYpos = 0;
+		xyhelper.getPageXYpos(count, Xpos, Ypos);
+		cycle_params[count].Xpos = Xpos;
+		cycle_params[count].Ypos = Ypos;
+		count++;
+	}
+
+	// cue-to-sample delay
+	cycle_params[count].Stop = 0;
+	cycle_params[count].Page = cPageBackground + vsgDUALPAGE;
+	cycle_params[count].Xpos = cycle_params[count].Ypos = 0;
+	cycle_params[count].ovPage = cOvPageClear;
+	cycle_params[count].ovXpos = cycle_params[count].ovYpos = 0;
+	cycle_params[count].Frames = nframes(f_trial.cue_to_sample_delay_ms);
+	count++;
+
+	// sample presentation
+	cycle_params[count].Stop = 0;
+	cycle_params[count].Page = cPageSample + vsgDUALPAGE;
+	cycle_params[count].Xpos = cycle_params[count].Ypos = 0;
+	cycle_params[count].ovPage = cOvPageClear;
+	cycle_params[count].ovXpos = cycle_params[count].ovYpos = 0;
+	cycle_params[count].Frames = nframes(f_trial.sample_display_ms);
+	count++;
+
+	// sample to target delay
+	cycle_params[count].Stop = 0;
+	cycle_params[count].Page = cPageBackground + vsgDUALPAGE;
+	cycle_params[count].Xpos = cycle_params[count].Ypos = 0;
+	cycle_params[count].ovPage = cOvPageClear;
+	cycle_params[count].ovXpos = cycle_params[count].ovYpos = 0;
+	cycle_params[count].Frames = nframes(f_trial.sample_to_target_delay_ms);
+	count++;
+
+	// target presentation
+	cycle_params[count].Stop = 0;
+	cycle_params[count].Page = cPageSample + vsgDUALPAGE;
+	cycle_params[count].Xpos = cycle_params[count].Ypos = 0;
+	cycle_params[count].ovPage = cOvPageClear;
+	cycle_params[count].ovXpos = cycle_params[count].ovYpos = 0;
+	cycle_params[count].Frames = nframes(f_trial.target_display_ms);
+	count++;
+
+	// all done - clear
+	cycle_params[count].Stop = 1;
+	cycle_params[count].Page = cPageBackground + vsgDUALPAGE;
+	cycle_params[count].Xpos = cycle_params[count].Ypos = 0;
+	cycle_params[count].ovPage = cOvPageClear;
+	cycle_params[count].ovXpos = cycle_params[count].ovYpos = 0;
+	cycle_params[count].Frames = 1;
+	count++;
+
+	vsgPageCyclingSetup(count, &cycle_params[0]);
 
 }
 
@@ -427,7 +534,7 @@ bool parse_dot_supply_file(const std::string& filename, ConteCueDotSupply& dotsu
 	return bReturn;
 }
 
-ConteXYHelper::ConteXYHelper(double w, double h, double d, double x, double y)
+ConteXYHelper::ConteXYHelper(double w, double h, double d, double x, double y, unsigned int npatches)
 	: m_wdeg(w)
 	, m_hdeg(h)
 	, m_ddeg(d)
@@ -444,7 +551,7 @@ ConteXYHelper::ConteXYHelper(double w, double h, double d, double x, double y)
 	vsgUnit2Unit(vsgPIXELUNIT, m_WpixZone, vsgDEGREEUNIT, &WdegZone);
 	vsgUnit2Unit(vsgPIXELUNIT, m_HpixZone, vsgDEGREEUNIT, &HdegZone);
 	m_nPatchPerRow = trunc(WdegZone / (m_ddeg + m_wdeg));
-	m_nPatchRows = ceil((double)f_trial.cue_nterms / (double)m_nPatchPerRow);
+	m_nPatchRows = ceil((double)npatches / (double)m_nPatchPerRow);
 }
 
 void ConteXYHelper::getDrawOrigin(unsigned int i, double& x_origin, double& y_origin) const

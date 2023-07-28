@@ -45,7 +45,7 @@ struct conte_arguments
 	int iPulseBits;
 	string dot_supply_filename;
 	ConteCueDotSupply dot_supply;
-
+	vector<COLOR_TYPE> colors;
 	conte_arguments()
 		: bBinaryTriggers(true)
 		, bVerbose(false)
@@ -62,6 +62,7 @@ struct conte_arguments
 struct conte_stim_params
 {
 	double x, y, w, h, ori, sf, phase, dev;
+	unsigned int isHorizontal;
 	unsigned int lwt;
 	unsigned int icolor;	// refers to cue_color_0 or cue_color_1, so should be 0|1
 };
@@ -72,8 +73,13 @@ struct conte_trial_spec
 	double cue_x, cue_y, cue_w, cue_h, cue_d;	// d is dot diam, w,h are patch width, height
 	COLOR_TYPE cue_color_0, cue_color_1;
 	struct conte_stim_params s0, s1, t0, t1;	// sample and target stim
-	unsigned int cue_fpt;		// frames per term
-	unsigned int cue_nterms;	// will be specified as duration, not terms, probably
+	unsigned int cue_fpt;		// frames per term for cue
+	unsigned int cue_ms;
+	unsigned int cue_to_sample_delay_ms;
+	unsigned int sample_display_ms;
+	unsigned int sample_to_target_delay_ms;
+	unsigned int target_display_ms;
+	unsigned int saccade_response_time_ms;
 };
 
 class ConteXYHelper
@@ -84,7 +90,7 @@ class ConteXYHelper
 	unsigned int m_nPatchRows;
 	double m_wdeg, m_hdeg, m_ddeg, m_xdeg, m_ydeg;		// patch w,h; dot diam; patch screen position; all in degrees, origin in center, Ypos up
 public:
-	ConteXYHelper(double wdeg, double hdeg, double ddeg, double xdeg, double ydeg);
+	ConteXYHelper(double wdeg, double hdeg, double ddeg, double xdeg, double ydeg, unsigned int npatches);
 	virtual ~ConteXYHelper() {};
 
 	// get drawing origin for patch 'i', values returned in degrees, use with setDrawOrigin
@@ -121,14 +127,18 @@ private:
 	int m_errflg;
 
 	PIXEL_LEVEL m_levelOverlayBackground;
-	PIXEL_LEVEL m_levelColorA;
-	PIXEL_LEVEL m_levelColorB;
+	//PIXEL_LEVEL m_levelColor0;
+	//PIXEL_LEVEL m_levelColor1;
+	vector<PIXEL_LEVEL> m_levelCueColors;
 	PIXEL_LEVEL m_levelTest;
-	static WORD cOvPageBkgd;
+	static WORD cOvPageClear;
 	static WORD cOvPageAperture;
+	static WORD cPageBackground;
 	static WORD cPageCue;
-	static WORD cPageProbe;
-	static WORD cPageTest;
+	static WORD cPageSample;
+	static WORD cPageTarget;
+
+	ARConteSpec m_probe0, m_probe1, m_target0, m_target1;
 
 	// These are the args allowed and which are handled by prargs. Do not use 'F' - it is reserved for 
 	// passing a command file.
@@ -147,13 +157,13 @@ private:
 	void init_triggers(TSpecificFunctor<ConteUStim>* pfunctor);
 
 	// draw dot patches on single page
-	void draw_dot_patches(const ConteXYHelper& xyhelper);
+	void draw_dot_patches(const ConteXYHelper& xyhelper, unsigned int npatches);
 
 	// draw a single 3-panel stim thingy
-	void draw_conte_stim(const struct conte_stim_spec& stim);
+	void draw_conte_stim(ARConteSpec& cspec, const struct conte_stim_params& stim);
 
 	// setup page cycling for current trial
-	void setup_cycling(const ConteXYHelper& xyhelper);
+	void setup_cycling(const ConteXYHelper& xyhelper, unsigned int nterms_in_cue);
 };
 
 
