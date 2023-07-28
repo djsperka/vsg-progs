@@ -113,7 +113,7 @@ std::ostream& operator<<(std::ostream& out, const alert::ARConteSpec& conte)
 {
 	string s = "H";
 	if (!conte.bHorizontal) s = "V";
-	out << conte.x << "," << conte.y << "," << conte.w << "," << conte.h << "," << conte.orientation << "," << conte.sf << "," << conte.dev << "," << conte.phase << "," << s << "," << conte.distractor_factor << "," << conte.cue_line_width << "," << conte.cue_color;
+	out << conte.x << "," << conte.y << "," << conte.w << "," << conte.h << "," << conte.orientation << "," << conte.sf << "," << conte.dev << "," << conte.phase << "," << s << "," << conte.cue_line_width << "," << conte.cue_level;
 	return out;
 }
 
@@ -1488,18 +1488,16 @@ int ARApertureGratingSpec::draw()
 
 
 // call this instead of init()
-void ARConteSpec::do_init(int nlevels)
+void ARConteSpec::init(int nlevels, bool bCreate)
 {
 	// reserve the levels, but do not create a vsg object. 
 	// do not call vsgObj*** on this thing. 
 	init(nlevels, false);
 
-	// of the nlevels, use the first one for the cue color, remainder for black-white ramp
-	m_cue_level = this->getFirstLevel();
+	// black-white ramp. Cue color should be set elsewhere (spec just holds level)
 	m_ramp_low = this->getFirstLevel() + 1;
 	m_ramp_high = this->getFirstLevel() + this->getNumLevels() - 1;
 	m_ramp_mid = (m_ramp_high + m_ramp_low) / 2;
-	arutil_color_to_palette(this->cue_color, m_cue_level);
 	arutil_ramp_to_palette(COLOR_TYPE(black), COLOR_TYPE(white), m_ramp_low, m_ramp_high);
 }
 

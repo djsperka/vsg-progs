@@ -532,116 +532,108 @@ int parse_xhair(const std::string& s, alert::ARXhairSpec& axh)
 
 
 
-int parse_conte(const std::string& s, ARConteSpec& conte)
-{
-	int status = -1;
-	vector<string> tokens;
-	tokenize(s, tokens, ",");
-
-	if (tokens.size() != 12)
-	{
-		cerr << "expect 12 tokens: " << tokens.size() << ":" << s << endl;
-		return status;
-	}
-	else
-	{
-		istringstream iss;
-		iss.str(tokens[0]);
-		iss >> conte.x;
-		if (!iss)
-		{
-			cerr << "bad x: " << tokens[0] << endl;
-			return(1);
-		}
-		iss.str(tokens[1]);
-		iss.clear();
-		iss >> conte.y;
-		if (!iss)
-		{
-			cerr << "bad y: " << tokens[1] << endl;
-			return(1);
-		}
-		iss.str(tokens[2]);
-		iss.clear();
-		iss >> conte.w;
-		if (!iss)
-		{
-			cerr << "bad width: " << tokens[2] << endl;
-			return(1);
-		}
-		iss.str(tokens[3]);
-		iss.clear();
-		iss >> conte.h;
-		if (!iss)
-		{
-			cerr << "bad height: " << tokens[3] << endl;
-			return(1);
-		}
-		iss.str(tokens[4]);
-		iss.clear();
-		iss >> conte.orientation;
-		if (!iss)
-		{
-			cerr << "bad ori: " << tokens[4] << endl;
-			return(1);
-		}
-		iss.str(tokens[5]);
-		iss.clear();
-		iss >> conte.sf;
-		if (!iss)
-		{
-			cerr << "bad sf: " << tokens[5] << endl;
-			return(1);
-		}
-		iss.str(tokens[6]);
-		iss.clear();
-		iss >> conte.dev;
-		if (!iss)
-		{
-			cerr << "bad dev: " << tokens[6] << endl;
-			return(1);
-		}
-		iss.str(tokens[7]);
-		iss.clear();
-		iss >> conte.phase;
-		if (!iss)
-		{
-			cerr << "bad ph: " << tokens[7] << endl;
-			return(1);
-		}
-		if (tokens[8] == "h" || tokens[8] == "H")
-			conte.bHorizontal = true;
-		else
-			conte.bHorizontal = false;
-		iss.str(tokens[9]);
-		iss.clear();
-		iss >> conte.distractor_factor;
-		if (!iss)
-		{
-			cerr << "bad distractor_factor: " << tokens[9] << endl;
-			return(1);
-		}
-		iss.str(tokens[10]);
-		iss.clear();
-		iss >> conte.cue_line_width;
-		if (!iss)
-		{
-			cerr << "bad cue line width: " << tokens[10] << endl;
-			return(1);
-		}
-		iss.str(tokens[11]);
-		iss.clear();
-		iss >> conte.cue_color;
-		if (!iss)
-		{
-			cerr << "bad cue color: " << tokens[11] << endl;
-			return(1);
-		}
-
-		status = 0;
-	}
-	return status;
-}
+//int parse_conte(const std::string& s, ARConteSpec& conte)
+//{
+//	int status = -1;
+//	vector<string> tokens;
+//	tokenize(s, tokens, ",");
+//
+//	if (tokens.size() != 12)
+//	{
+//		cerr << "expect 12 tokens: " << tokens.size() << ":" << s << endl;
+//		return status;
+//	}
+//	else
+//	{
+//		istringstream iss;
+//		iss.str(tokens[0]);
+//		iss >> conte.x;
+//		if (!iss)
+//		{
+//			cerr << "bad x: " << tokens[0] << endl;
+//			return(1);
+//		}
+//		iss.str(tokens[1]);
+//		iss.clear();
+//		iss >> conte.y;
+//		if (!iss)
+//		{
+//			cerr << "bad y: " << tokens[1] << endl;
+//			return(1);
+//		}
+//		iss.str(tokens[2]);
+//		iss.clear();
+//		iss >> conte.w;
+//		if (!iss)
+//		{
+//			cerr << "bad width: " << tokens[2] << endl;
+//			return(1);
+//		}
+//		iss.str(tokens[3]);
+//		iss.clear();
+//		iss >> conte.h;
+//		if (!iss)
+//		{
+//			cerr << "bad height: " << tokens[3] << endl;
+//			return(1);
+//		}
+//		iss.str(tokens[4]);
+//		iss.clear();
+//		iss >> conte.orientation;
+//		if (!iss)
+//		{
+//			cerr << "bad ori: " << tokens[4] << endl;
+//			return(1);
+//		}
+//		iss.str(tokens[5]);
+//		iss.clear();
+//		iss >> conte.sf;
+//		if (!iss)
+//		{
+//			cerr << "bad sf: " << tokens[5] << endl;
+//			return(1);
+//		}
+//		iss.str(tokens[6]);
+//		iss.clear();
+//		iss >> conte.dev;
+//		if (!iss)
+//		{
+//			cerr << "bad dev: " << tokens[6] << endl;
+//			return(1);
+//		}
+//		iss.str(tokens[7]);
+//		iss.clear();
+//		iss >> conte.phase;
+//		if (!iss)
+//		{
+//			cerr << "bad ph: " << tokens[7] << endl;
+//			return(1);
+//		}
+//		if (tokens[8] == "h" || tokens[8] == "H")
+//			conte.bHorizontal = true;
+//		else
+//			conte.bHorizontal = false;
+//		iss.str(tokens[9]);
+//		iss.clear();
+//		iss >> conte.cue_line_width;
+//		if (!iss)
+//		{
+//			cerr << "bad cue line width: " << tokens[9] << endl;
+//			return(1);
+//		}
+//		iss.str(tokens[10]);
+//		iss.clear();
+//		iss >> conte.cue_color;
+//		if (!iss)
+//		{
+//			cerr << "bad cue color: " << tokens[10] << endl;
+//			return(1);
+//		}
+//
+//		status = 0;
+//	}
+//	return status;
+//}
 
 
 

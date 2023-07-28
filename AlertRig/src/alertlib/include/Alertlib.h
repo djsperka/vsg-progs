@@ -225,12 +225,11 @@ namespace alert
 		double dev;		// gaussian e**(r**2/dev**2)
 		double phase;	// initial phase
 		bool bHorizontal;
-		double distractor_factor;
 		DWORD cue_line_width;
-		COLOR_TYPE cue_color;
+		PIXEL_LEVEL cue_level;
 
 		// call this instead of init()
-		void do_init(int nlevels);
+		virtual void init(int nlevels, bool bCreate=true);
 
 		virtual int draw();
 		virtual int drawOverlay() { return 0; };	// no-op do not use
@@ -505,5 +504,5 @@ int parse_rectangle_list(std::string s, std::vector<alert::ARRectangleSpec>& rec
 int parse_rectangle_list(std::vector<std::string>& tokens, std::vector<alert::ARRectangleSpec>& rectangle_list);
 int parse_grating(const std::string& s, alert::ARGratingSpec& ag);
 int parse_xhair(const std::string& s, alert::ARXhairSpec& axh);
-int parse_conte(const std::string& s, alert::ARConteSpec & conte);
+//int parse_conte(const std::string& s, alert::ARConteSpec & conte);
 #endif
