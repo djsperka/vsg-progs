@@ -212,7 +212,6 @@ namespace alert
 	class ARConteSpec : public ARSpec
 	{
 	private:
-		PIXEL_LEVEL m_cue_level;
 		PIXEL_LEVEL m_ramp_low;		// black
 		PIXEL_LEVEL m_ramp_mid;		// s/b gray
 		PIXEL_LEVEL m_ramp_high;	// white

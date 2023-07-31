@@ -1492,7 +1492,7 @@ void ARConteSpec::init(int nlevels, bool bCreate)
 {
 	// reserve the levels, but do not create a vsg object. 
 	// do not call vsgObj*** on this thing. 
-	init(nlevels, false);
+	ARObject::init(nlevels, false);
 
 	// black-white ramp. Cue color should be set elsewhere (spec just holds level)
 	m_ramp_low = this->getFirstLevel() + 1;
@@ -1509,7 +1509,6 @@ int ARConteSpec::draw()
 	VSGTRIVAL trival_to = COLOR_TYPE(white).trival();
 
 	// gabor
-	//cerr << "gabor on levels " << m_ramp_low << "-" << m_ramp_high << endl;
 	vsgSetDrawMode(vsgCENTREXY);
 	vsgSetPen1(m_ramp_low);
 	vsgSetPen2(m_ramp_high);
@@ -1539,7 +1538,6 @@ int ARConteSpec::draw()
 	}
 
 	// now draw the gaussian(s)
-	//cerr << "gaussian on levels " << m_ramp_high << "-" << m_ramp_mid << endl;
 	vsgSetPen1(this->m_ramp_high);
 	vsgSetPen2(this->m_ramp_mid);
 	vsgDrawGaussian(xx[0], yy[0], this->w, this->h, this->dev);
@@ -1548,20 +1546,14 @@ int ARConteSpec::draw()
 	// draw border cue
 	vsgSetDrawMode(vsgSOLIDPEN);
 	vsgSetPenSize(this->cue_line_width, this->cue_line_width);
-	vsgSetPen1(this->m_cue_level);
+	vsgSetPen1(this->cue_level);
 	vsgDrawLine(rect[0], rect[2], rect[1], rect[2]);	// top
 	vsgDrawLine(rect[1], rect[2], rect[1], rect[3]);	// right
 	vsgDrawLine(rect[1], rect[3], rect[0], rect[3]);	// bottom
 	vsgDrawLine(rect[0], rect[3], rect[0], rect[2]);	// left
 
-
 	// restore draw mode
 	vsgSetDrawMode(old_mode);
 
 	return 0;
-
-
-
-
-
 }
