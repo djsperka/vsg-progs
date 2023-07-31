@@ -25,11 +25,11 @@ WORD ConteUStim::cPageCue = 3;
 struct conte_trial_spec f_trial 
 {
 	0, 0, 5, 5, .1, COLOR_TYPE(red), COLOR_TYPE(green),
-	{ -5, 5, 3, 3, 45, 1, 0, .6, 2, 0 },
-	{ -5, 5, 3, 3, 45, 1, 0, .6, 2, 1 },
-	{ -5, 5, 3, 3, 90, 1, 0, .6, 2, 0 },
-	{ -5, 5, 3, 3, 45, 1, 0, .6, 2, 1 },
-	4, 250, 500, 250, 250, 250, 1000
+	{ -5, 5, 3, 3, 45, 1, 0, .6, 0, 2, 0 },
+	{ 5, 5, 3, 3, 45, 1, 0, .6, 0, 2, 1 },
+	{ -5, 5, 3, 3, 90, 1, 0, .6, 0, 2, 0 },
+	{ 5, 5, 3, 3, 45, 1, 0, .6, 0, 2, 1 },
+	4, 500, 1000, 1000, 1000, 1000, 1000
 };
 
 
@@ -95,6 +95,7 @@ error_t parse_conte_opt(int key, char* carg, struct argp_state* state)
 			ret = EINVAL;
 		else
 			arguments->colors.push_back(color);
+		break;
 	case 'l':
 		if (parse_integer(sarg, arguments->iReadyPulseDelay))
 			ret = EINVAL;
