@@ -33,6 +33,43 @@ public:
 	const ContePatch& patch(unsigned int i) const { return m_patches[i]; };
 };
 
+// one of the 3-panel stim + distractor patches
+struct conte_stim_params
+{
+	double x, y, w, h, ori, sf, phase, dev;
+	unsigned int isHorizontal;
+	unsigned int lwt;
+	unsigned int icolor;	// refers to cue_color_0 or cue_color_1, so should be 0|1
+};
+typedef struct conte_stim_params conte_stim_params_t;
+
+// a single trial specified here
+struct conte_trial
+{
+	double cue_x;	// cue patch center position x
+	double cue_y;	// cue patch center position y
+	double cue_w;	// cue patch width
+	double cue_h;	// cue patch height
+	double cue_d;	// cue dot diameter
+	unsigned int cue_fpt;		// frames per term for cue
+	unsigned int cue_nterms;	// number of terms for cue
+	unsigned int cue_to_sample_delay_ms;
+	unsigned int sample_display_ms;
+	unsigned int sample_to_target_delay_ms;
+	unsigned int target_display_ms;
+	unsigned int saccade_response_time_ms;
+	COLOR_TYPE cue_color_0; // conte_stim_params.icolor == 0
+	COLOR_TYPE cue_color_1; // conte_stim_params.icolor == 1
+	struct conte_stim_params s0, s1, t0, t1;	// sample and target stim
+};
+typedef struct conte_trial conte_trial_t;
+
+typedef vector<conte_trial_t> conte_trial_list_t;
+
+istream& operator>>(istream& ins, conte_trial_list_t& file);
+istream& operator>>(istream& ins, conte_trial_t& trial);
+istream& operator>>(istream& ins, conte_stim_params_t& stim);
+
 // for interacting with argp 
 struct conte_arguments
 {
@@ -45,6 +82,7 @@ struct conte_arguments
 	int iPulseBits;
 	string dot_supply_filename;
 	ConteCueDotSupply dot_supply;
+	conte_trial_list_t trials;
 	vector<COLOR_TYPE> colors;
 	conte_arguments()
 		: bBinaryTriggers(true)
@@ -55,31 +93,6 @@ struct conte_arguments
 		, iReadyPulseDelay(0)
 		, iPulseBits(0x2)
 	{};
-};
-
-
-// one of the 3-panel stim + distractor patches
-struct conte_stim_params
-{
-	double x, y, w, h, ori, sf, phase, dev;
-	unsigned int isHorizontal;
-	unsigned int lwt;
-	unsigned int icolor;	// refers to cue_color_0 or cue_color_1, so should be 0|1
-};
-
-// a single trial specified here
-struct conte_trial_spec
-{
-	double cue_x, cue_y, cue_w, cue_h, cue_d;	// d is dot diam, w,h are patch width, height
-	COLOR_TYPE cue_color_0, cue_color_1;
-	struct conte_stim_params s0, s1, t0, t1;	// sample and target stim
-	unsigned int cue_fpt;		// frames per term for cue
-	unsigned int cue_ms;
-	unsigned int cue_to_sample_delay_ms;
-	unsigned int sample_display_ms;
-	unsigned int sample_to_target_delay_ms;
-	unsigned int target_display_ms;
-	unsigned int saccade_response_time_ms;
 };
 
 class ConteXYHelper
@@ -122,15 +135,18 @@ public:
 
 private:
 	struct conte_arguments m_arguments;
-
+	unsigned int m_itrial;
 	bool m_quit;
 	int m_errflg;
 
 	PIXEL_LEVEL m_levelOverlayBackground;
-	//PIXEL_LEVEL m_levelColor0;
-	//PIXEL_LEVEL m_levelColor1;
 	vector<PIXEL_LEVEL> m_levelCueColors;
 	PIXEL_LEVEL m_levelTest;
+	static const unsigned int m_max_cycle_count = 12;
+	unsigned int m_cycle_params_count;
+	VSGCYCLEPAGEENTRY m_cycle_params[m_max_cycle_count];	// warning! No check on usage. You have been warned. 
+	VSGCYCLEPAGEENTRY m_cycle_clear_params[1];				// warning! No check on usage. You have been warned. 
+
 	static WORD cOvPageClear;
 	static WORD cOvPageAperture;
 	static WORD cPageBackground;
@@ -164,6 +180,10 @@ private:
 
 	// setup page cycling for current trial
 	void setup_cycling(const ConteXYHelper& xyhelper, unsigned int nterms_in_cue);
+
+	// setup page cycling to make an orderly trial ending
+	void ConteUStim::setup_cycling_clear();
+
 };
 
 
