@@ -1513,28 +1513,28 @@ int ARConteSpec::draw()
 	vsgSetPen1(m_ramp_low);
 	vsgSetPen2(m_ramp_high);
 	//vsgObjSetColourVector(&trival_from, &trival_to, vsgBIPOLAR);
-	vsgDrawGabor(this->x, this->y, this->w, this->h, this->orientation, this->sf, this->dev, this->phase);
+	vsgDrawGabor(this->x, -1 * this->y, this->w, this->h, this->orientation, this->sf, this->dev, this->phase);
 
 	// set coords for drawing gaussian and border cues
 	if (this->bHorizontal)
 	{
 		xx[0] = this->x - this->w;
 		xx[1] = this->x + this->w;
-		yy[0] = yy[1] = this->y;
+		yy[0] = yy[1] = -1 * this->y;
 		rect[0] = this->x - 1.5 * this->w;
 		rect[1] = this->x + 1.5 * this->w;
-		rect[2] = this->y - 0.5 * this->h;
-		rect[3] = this->y + 0.5 * this->h;
+		rect[2] = -1 * this->y - 0.5 * this->h;
+		rect[3] = -1 * this->y + 0.5 * this->h;
 	}
 	else
 	{
-		yy[0] = this->y - this->h;
-		yy[1] = this->y + this->h;
+		yy[0] = -1 * this->y - this->h;
+		yy[1] = -1 * this->y + this->h;
 		xx[0] = xx[1] = this->x;
 		rect[0] = this->x - 0.5 * this->w;
 		rect[1] = this->x + 0.5 * this->w;
-		rect[2] = this->y - 1.5 * this->h;
-		rect[3] = this->y + 1.5 * this->h;
+		rect[2] = -1 * this->y - 1.5 * this->h;
+		rect[3] = -1 * this->y + 1.5 * this->h;
 	}
 
 	// now draw the gaussian(s)
