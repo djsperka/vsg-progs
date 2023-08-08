@@ -101,16 +101,23 @@ class ConteXYHelper
 	long m_WpixZone, m_HpixZone;	// zone w, h
 	unsigned int m_nPatchPerRow;
 	unsigned int m_nPatchRows;
+	unsigned int m_nRowsPerPage;
+	unsigned int m_nPatchPages;
 	double m_wdeg, m_hdeg, m_ddeg, m_xdeg, m_ydeg;		// patch w,h; dot diam; patch screen position; all in degrees, origin in center, Ypos up
 public:
 	ConteXYHelper(double wdeg, double hdeg, double ddeg, double xdeg, double ydeg, unsigned int npatches);
 	virtual ~ConteXYHelper() {};
 
 	// get drawing origin for patch 'i', values returned in degrees, use with setDrawOrigin
-	void getDrawOrigin(unsigned int i, double& x_origin_deg, double& y_origin_deg) const;
+	//void getDrawOrigin(unsigned int i, double& x_origin_deg, double& y_origin_deg) const;
+	void getPageIndDrawOrigin(unsigned int i, DWORD& page_ind, double& x_origin_deg, double& y_origin_deg) const;
 
 	// get xy position for page, as used in cycling setup. Returned values in PIXELS, assign to .Xpos, .Ypos
-	void getPageXYpos(unsigned int i, short& Xpos_pix, short& Ypos_pix) const;
+	//void getPageXYpos(unsigned int i, short& Xpos_pix, short& Ypos_pix) const;
+	void getPageIndXYpos(unsigned int i, DWORD& page_ind, short& Xpos_pix, short& Ypos_pix) const;
+
+	// how many pages will this take? 
+	unsigned int getNumPages() const { return m_nPatchPages; };
 };
 
 
@@ -142,10 +149,10 @@ private:
 	PIXEL_LEVEL m_levelOverlayBackground;
 	vector<PIXEL_LEVEL> m_levelCueColors;
 	PIXEL_LEVEL m_levelTest;
-	static const unsigned int m_max_cycle_count = 12;
+	static const unsigned int m_max_cycle_count = 256;
 	unsigned int m_cycle_params_count;
 	VSGCYCLEPAGEENTRY m_cycle_params[m_max_cycle_count];	// warning! No check on usage. You have been warned. 
-	VSGCYCLEPAGEENTRY m_cycle_clear_params[1];				// warning! No check on usage. You have been warned. 
+	VSGCYCLEPAGEENTRY m_cycle_clear_params[2];				// warning! No check on usage. You have been warned. 
 
 	static WORD cOvPageClear;
 	static WORD cOvPageAperture;

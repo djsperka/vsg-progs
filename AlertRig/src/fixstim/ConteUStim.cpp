@@ -110,7 +110,7 @@ void ConteUStim::run_stim(alert::ARvsg& vsg)
 		else if (tf.present())
 		{	
 			last_output_trigger = tf.output_trigger();
-			cout << "out trig " << hex << tf.output_trigger() << endl;
+			//cout << "out trig " << hex << tf.output_trigger() << endl;
 			//vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, tf.output_trigger(), 0);
 			vsgIOWriteDigitalOut(tf.output_trigger() << 1, 0xffff);
 			vsgPresent();
@@ -182,6 +182,7 @@ void ConteUStim::init_triggers(TSpecificFunctor<ConteUStim>* pfunctor)
 	triggers().addTrigger(new FunctorCallbackTrigger("s", 0x4, 0x0, 0x4, 0x0, pfunctor));
 	triggers().addTrigger(new FunctorCallbackTrigger("a", 0x8, 0x8|AR_TRIGGER_TOGGLE, 0x8, 0x8|AR_TRIGGER_TOGGLE, pfunctor));
 	triggers().addTrigger(new FunctorCallbackTrigger("X", 0x6, 0x0, 0x6, 0x0, pfunctor));
+	triggers().addTrigger(new FunctorCallbackTrigger("Y", 0x0, 0x0, 0x0, 0x0, pfunctor));
 	triggers().addTrigger(new FunctorCallbackTrigger("Z", 0x0, 0x0, 0x0, 0x0, pfunctor));
 	triggers().addTrigger(new QuitTrigger("q", 0x10, 0x10, 0xff, 0x0, 0));
 
@@ -191,13 +192,20 @@ void ConteUStim::init_triggers(TSpecificFunctor<ConteUStim>* pfunctor)
 void ConteUStim::draw_dot_patches(const ConteXYHelper& xyhelper, unsigned int npatches)
 {
 	const conte_trial_t& trial = m_arguments.trials.at(m_itrial);
-	vsgSetDrawPage(vsgVIDEOPAGE, cPageCue, vsgBACKGROUND);
+	
+	// clear all pages needed
+	for (WORD p=0; p<xyhelper.getNumPages(); p++)
+		vsgSetDrawPage(vsgVIDEOPAGE, cPageCue + p, vsgBACKGROUND);
+
+	// now draw each patch
 	for (unsigned int i = 0; i < npatches; i++)
 	{
+		DWORD page_ind;
 		const ContePatch& patch = m_arguments.dot_supply.patch(i);
 
 		double term_x, term_y;
-		xyhelper.getDrawOrigin(i, term_x, term_y);
+		xyhelper.getPageIndDrawOrigin(i, page_ind, term_x, term_y);
+		vsgSetDrawPage(vsgVIDEOPAGE, cPageCue + page_ind, vsgNOCLEAR);
 		vsgSetDrawOrigin(term_x, term_y);
 
 		patch.draw(m_levelCueColors[0], m_levelCueColors[1], trial.cue_d);
@@ -255,14 +263,19 @@ void ConteUStim::draw_current()
 	draw_conte_stim(m_target0, trial.t0);
 	draw_conte_stim(m_target1, trial.t1);
 
+	// leave draw pages at reasonable place for next present()
+	vsgSetDrawPage(vsgVIDEOPAGE, cPageBackground, vsgNOCLEAR);
+	vsgSetDrawPage(vsgOVERLAYPAGE, cOvPageClear, vsgNOCLEAR);
+
 	// setup cycling
 	setup_cycling(xyhelper, trial.cue_nterms);
 }
 
 void ConteUStim::setup_cycling_clear()
 {
-	m_cycle_clear_params[0].Frames = 1;
+	m_cycle_clear_params[0].Frames = 2;
 	m_cycle_clear_params[0].Page = cPageBackground + vsgDUALPAGE;
+	m_cycle_clear_params[0].Xpos = m_cycle_clear_params[0].Ypos = 0;
 	m_cycle_clear_params[0].ovPage = cOvPageClear;
 	m_cycle_clear_params[0].ovXpos = m_cycle_clear_params[0].ovYpos = 0;
 	m_cycle_clear_params[0].Stop = 1;
@@ -274,6 +287,7 @@ void ConteUStim::setup_cycling(const ConteXYHelper& xyhelper, unsigned int nterm
 {
 	const conte_trial_t& trial = m_arguments.trials.at(m_itrial);
 	short Xpos, Ypos;
+	DWORD page_ind;
 
 	long frametime = vsgGetSystemAttribute(vsgFRAMETIME);	// in microseconds
 	auto nframes = [frametime](const unsigned int ms)
@@ -286,12 +300,14 @@ void ConteUStim::setup_cycling(const ConteXYHelper& xyhelper, unsigned int nterm
 	m_cycle_params_count = 0;
 	for (unsigned int i = 0; i < trial.cue_nterms; i++)
 	{
+		//xyhelper.getPageXYpos(m_cycle_params_count, Xpos, Ypos);
+		xyhelper.getPageIndXYpos(m_cycle_params_count, page_ind, Xpos, Ypos);
+
 		m_cycle_params[m_cycle_params_count].Frames = trial.cue_fpt;
 		m_cycle_params[m_cycle_params_count].Stop = 0;
-		m_cycle_params[m_cycle_params_count].Page = cPageCue + vsgDUALPAGE;
+		m_cycle_params[m_cycle_params_count].Page = cPageCue + page_ind + vsgDUALPAGE;
 		m_cycle_params[m_cycle_params_count].ovPage = cOvPageAperture;
 		m_cycle_params[m_cycle_params_count].ovXpos = m_cycle_params[m_cycle_params_count].ovYpos = 0;
-		xyhelper.getPageXYpos(m_cycle_params_count, Xpos, Ypos);
 		m_cycle_params[m_cycle_params_count].Xpos = Xpos;
 		m_cycle_params[m_cycle_params_count].Ypos = Ypos;
 		m_cycle_params_count++;
@@ -326,7 +342,7 @@ void ConteUStim::setup_cycling(const ConteXYHelper& xyhelper, unsigned int nterm
 
 	// target presentation
 	m_cycle_params[m_cycle_params_count].Stop = 0;
-	m_cycle_params[m_cycle_params_count].Page = cPageSample + vsgDUALPAGE;
+	m_cycle_params[m_cycle_params_count].Page = cPageTarget + vsgDUALPAGE;
 	m_cycle_params[m_cycle_params_count].Xpos = m_cycle_params[m_cycle_params_count].Ypos = 0;
 	m_cycle_params[m_cycle_params_count].ovPage = cOvPageClear;
 	m_cycle_params[m_cycle_params_count].ovXpos = m_cycle_params[m_cycle_params_count].ovYpos = 0;
@@ -353,6 +369,8 @@ int ConteUStim::callback(int &output, const FunctorCallbackTrigger* ptrig, const
 	{
 		m_itrial++;
 		if (m_itrial >= m_arguments.trials.size()) m_itrial = 0;
+		draw_current();
+		ival = 0;	// no present()
 	}
 	else if (key == "s")
 	{
@@ -360,6 +378,8 @@ int ConteUStim::callback(int &output, const FunctorCallbackTrigger* ptrig, const
 	}
 	else if (key == "S")
 	{
+		//for (unsigned int i = 0; i < m_cycle_params_count; i++)
+		//	cerr << i << ": " << m_cycle_params[i].Page-(m_cycle_params[i].Page & vsgDUALPAGE) << "/" << m_cycle_params[i].ovPage << " n=" << m_cycle_params[i].Frames << " s=" << m_cycle_params[i].Stop << endl;
 		vsgPageCyclingSetup(m_cycle_params_count, &m_cycle_params[0]);
 		vsgSetSynchronisedCommand(vsgSYNC_PRESENT, vsgCYCLEPAGEENABLE, 0);
 	}
@@ -373,9 +393,11 @@ int ConteUStim::callback(int &output, const FunctorCallbackTrigger* ptrig, const
 	}
 	else if (key == "X")
 	{
+		long st;
 		vsgSetCommand(vsgCYCLEPAGEDISABLE);
-		vsgMoveScreen(0, 0);
-		vsgPageCyclingSetup(1, &m_cycle_clear_params[0]);	
+		//vsgMoveScreen(0, 0);
+		st = vsgPageCyclingSetup(1, &m_cycle_clear_params[0]);	
+		cerr << "cycle page status " << st << endl;
 		vsgSetSynchronisedCommand(vsgSYNC_PRESENT, vsgCYCLEPAGEENABLE, 0);
 	}
 	else if (key == "Z")
@@ -389,6 +411,13 @@ int ConteUStim::callback(int &output, const FunctorCallbackTrigger* ptrig, const
 		//vsgSetDrawPage(vsgOVERLAYPAGE, j, vsgNOCLEAR);
 		vsgSetZoneDisplayPage(vsgVIDEOPAGE, i);
 		vsgSetZoneDisplayPage(vsgOVERLAYPAGE, j);
+		ival = 0;
+	}
+	else if (key == "Y")
+	{
+		cout << "current video page " << vsgGetZoneDisplayPage(vsgVIDEOPAGE) << endl;
+		cout << "current overlay page " << vsgGetZoneDisplayPage(vsgOVERLAYPAGE) << endl;
+		cout << "page cycling state " << vsgGetSystemAttribute(vsgPAGECYCLINGSTATE) << endl;
 		ival = 0;
 	}
 
@@ -414,17 +443,35 @@ ConteXYHelper::ConteXYHelper(double w, double h, double d, double x, double y, u
 	vsgUnit2Unit(vsgPIXELUNIT, m_WpixZone, vsgDEGREEUNIT, &WdegZone);
 	vsgUnit2Unit(vsgPIXELUNIT, m_HpixZone, vsgDEGREEUNIT, &HdegZone);
 	m_nPatchPerRow = trunc(WdegZone / (m_ddeg + m_wdeg));
+	m_nRowsPerPage = trunc(HdegZone / (m_ddeg + m_wdeg));
 	m_nPatchRows = ceil((double)npatches / (double)m_nPatchPerRow);
+	m_nPatchPages = ceil((double)npatches / (double)(m_nRowsPerPage * m_nPatchPerRow));
+	cerr << "ConteXYHelper: nPatchPerRow " << m_nPatchPerRow << " rows per page " << m_nRowsPerPage << endl;
+	cerr << "num patches for cue: " << npatches << " pages needed: " << m_nPatchPages << endl;
 }
 
+#if 0
 void ConteXYHelper::getDrawOrigin(unsigned int i, double& x_origin, double& y_origin) const
 {
 	x_origin = (i % m_nPatchPerRow + 0.5) * (m_wdeg + m_ddeg);
 	y_origin = (i / m_nPatchPerRow + 0.5) * (m_wdeg + m_ddeg);
 	return;
 }
+#endif
 
-	// get xy position for page, as used in cycling setup. Returned values in PIXELS, assign to .Xpos, .Ypos
+void ConteXYHelper::getPageIndDrawOrigin(unsigned int i, DWORD& page_ind, double& x_origin_deg, double& y_origin_deg) const
+{
+	page_ind = (DWORD)(i / (m_nRowsPerPage * m_nPatchPerRow));
+	unsigned int ipage = i % (m_nRowsPerPage * m_nPatchPerRow);
+	x_origin_deg = (ipage % m_nPatchPerRow + 0.5) * (m_wdeg + m_ddeg);
+	y_origin_deg = (ipage / m_nPatchPerRow + 0.5) * (m_wdeg + m_ddeg);
+	return;
+}
+
+
+
+#if 0
+// get xy position for page, as used in cycling setup. Returned values in PIXELS, assign to .Xpos, .Ypos
 void ConteXYHelper::getPageXYpos(unsigned int i, short& Xpos, short& Ypos) const
 {
 	double x_origin_degrees, y_origin_degrees;
@@ -440,6 +487,34 @@ void ConteXYHelper::getPageXYpos(unsigned int i, short& Xpos, short& Ypos) const
 	Ypos = (short)(y_origin_pixels - m_HpixScr / 2);
 	return;
 };
+#endif
+
+void ConteXYHelper::getPageIndXYpos(unsigned int i, DWORD& page_ind, short& Xpos_pix, short& Ypos_pix) const
+{
+	page_ind = (DWORD)(i / (m_nRowsPerPage * m_nPatchPerRow));
+	unsigned int ipage = i % (m_nRowsPerPage * m_nPatchPerRow);
+
+	double x_origin_degrees, y_origin_degrees;
+	double x_origin_pixels, y_origin_pixels;
+
+	// draw origin relative to upper left corner of page, with +y = down. 
+	// convert to pixels
+	DWORD dummy;
+	getPageIndDrawOrigin(i, dummy, x_origin_degrees, y_origin_degrees);
+	//getDrawOrigin(i, x_origin_degrees, y_origin_degrees);
+	vsgUnit2Unit(vsgDEGREEUNIT, x_origin_degrees, vsgPIXELUNIT, &x_origin_pixels);
+	vsgUnit2Unit(vsgDEGREEUNIT, y_origin_degrees, vsgPIXELUNIT, &y_origin_pixels);
+
+	Xpos_pix = (short)(x_origin_pixels - m_WpixScr / 2);
+	Ypos_pix = (short)(y_origin_pixels - m_HpixScr / 2);
+	return;
+};
+
+
+
+
+
+
 
 //class ContePatch
 //{
