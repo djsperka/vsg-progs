@@ -16,7 +16,7 @@ class ContePatch
 public:
 	ContePatch(unsigned int n0, unsigned int n1, double* p);
 	virtual ~ContePatch() {};
-	void draw(PIXEL_LEVEL level0, PIXEL_LEVEL level1, double diameter) const;
+	void draw(PIXEL_LEVEL level0, PIXEL_LEVEL level1, double patch_width, double patch_height, double dot_diameter) const;
 };
 
 class ConteCueDotSupply

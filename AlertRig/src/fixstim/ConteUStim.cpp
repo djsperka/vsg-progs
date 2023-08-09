@@ -208,7 +208,7 @@ void ConteUStim::draw_dot_patches(const ConteXYHelper& xyhelper, unsigned int np
 		vsgSetDrawPage(vsgVIDEOPAGE, cPageCue + page_ind, vsgNOCLEAR);
 		vsgSetDrawOrigin(term_x, term_y);
 
-		patch.draw(m_levelCueColors[0], m_levelCueColors[1], trial.cue_d);
+		patch.draw(m_levelCueColors[0], m_levelCueColors[1], trial.cue_w, trial.cue_h, trial.cue_d);
 
 		// for testing - draw a rect around the patch
 		//vsgSetPen1(m_levelTest);
@@ -534,7 +534,7 @@ ContePatch::ContePatch(unsigned int n0, unsigned int n1, double* p)
 	}
 }
 
-void ContePatch::draw(PIXEL_LEVEL level0, PIXEL_LEVEL level1, double diam) const
+void ContePatch::draw(PIXEL_LEVEL level0, PIXEL_LEVEL level1, double patch_width, double patch_height, double dot_diam) const
 {
 	unsigned int i;
 	vector < PIXEL_LEVEL> levels;
@@ -554,7 +554,7 @@ void ContePatch::draw(PIXEL_LEVEL level0, PIXEL_LEVEL level1, double diam) const
 	for (i = 0; i < (m_n0 + m_n1); i++)
 	{
 		vsgSetPen1(levels[ind[i]]);
-		vsgDrawOval(m_x[ind[i]], m_y[ind[i]], diam, diam);
+		vsgDrawOval(m_x[ind[i]] * patch_width, m_y[ind[i]] * patch_height, dot_diam, dot_diam);
 	}
 	vsgSetDrawMode(mode_saved);
 }
