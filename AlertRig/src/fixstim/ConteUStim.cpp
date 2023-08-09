@@ -14,16 +14,6 @@ WORD ConteUStim::cPageSample = 1;
 WORD ConteUStim::cPageTarget = 2;
 WORD ConteUStim::cPageCue = 3;
 
-//conte_trial_t f_trial
-//{
-//	0, 0, 5, 5, .1, 4, 500, 1000, 1000, 1000, 1000, 1000,
-//	COLOR_TYPE(red), COLOR_TYPE(green),
-//	{ -5, 5, 3, 3, 45, 1, 0, .6, 0, 2, 0 },
-//	{ 5, 5, 3, 3, 45, 1, 0, .6, 0, 2, 1 },
-//	{ -5, 5, 3, 3, 90, 1, 0, .6, 0, 2, 0 },
-//	{ 5, 5, 3, 3, 45, 1, 0, .6, 0, 2, 1 }
-//};
-
 // for argp
 static struct argp_option options[] = {
 	{"ascii", 'a', 0, 0, "Use ascii triggers (user-entered)"},
@@ -424,8 +414,6 @@ int ConteUStim::callback(int &output, const FunctorCallbackTrigger* ptrig, const
 	return ival;
 }
 
-
-
 ConteXYHelper::ConteXYHelper(double w, double h, double d, double x, double y, unsigned int npatches)
 	: m_wdeg(w)
 	, m_hdeg(h)
@@ -450,15 +438,6 @@ ConteXYHelper::ConteXYHelper(double w, double h, double d, double x, double y, u
 	cerr << "num patches for cue: " << npatches << " pages needed: " << m_nPatchPages << endl;
 }
 
-#if 0
-void ConteXYHelper::getDrawOrigin(unsigned int i, double& x_origin, double& y_origin) const
-{
-	x_origin = (i % m_nPatchPerRow + 0.5) * (m_wdeg + m_ddeg);
-	y_origin = (i / m_nPatchPerRow + 0.5) * (m_wdeg + m_ddeg);
-	return;
-}
-#endif
-
 void ConteXYHelper::getPageIndDrawOrigin(unsigned int i, DWORD& page_ind, double& x_origin_deg, double& y_origin_deg) const
 {
 	page_ind = (DWORD)(i / (m_nRowsPerPage * m_nPatchPerRow));
@@ -467,27 +446,6 @@ void ConteXYHelper::getPageIndDrawOrigin(unsigned int i, DWORD& page_ind, double
 	y_origin_deg = (ipage / m_nPatchPerRow + 0.5) * (m_wdeg + m_ddeg);
 	return;
 }
-
-
-
-#if 0
-// get xy position for page, as used in cycling setup. Returned values in PIXELS, assign to .Xpos, .Ypos
-void ConteXYHelper::getPageXYpos(unsigned int i, short& Xpos, short& Ypos) const
-{
-	double x_origin_degrees, y_origin_degrees;
-	double x_origin_pixels, y_origin_pixels;
-
-	// draw origin relative to upper left corner of page, with +y = down. 
-	// convert to pixels
-	getDrawOrigin(i, x_origin_degrees, y_origin_degrees);
-	vsgUnit2Unit(vsgDEGREEUNIT, x_origin_degrees, vsgPIXELUNIT, &x_origin_pixels);
-	vsgUnit2Unit(vsgDEGREEUNIT, y_origin_degrees, vsgPIXELUNIT, &y_origin_pixels);
-
-	Xpos = (short)(x_origin_pixels - m_WpixScr / 2);
-	Ypos = (short)(y_origin_pixels - m_HpixScr / 2);
-	return;
-};
-#endif
 
 void ConteXYHelper::getPageIndXYpos(unsigned int i, DWORD& page_ind, short& Xpos_pix, short& Ypos_pix) const
 {
@@ -510,19 +468,6 @@ void ConteXYHelper::getPageIndXYpos(unsigned int i, DWORD& page_ind, short& Xpos
 	return;
 };
 
-
-
-
-
-
-
-//class ContePatch
-//{
-//	unsigned int m_n0, m_n1;
-//	vector<double> m_x;
-//	vector<double> m_y;
-//	double m_diam;
-//public:
 ContePatch::ContePatch(unsigned int n0, unsigned int n1, double* p)
 	: m_n0(n0)
 	, m_n1(n1)

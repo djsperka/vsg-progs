@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <boost/tuple/tuple.hpp>
 
+// A Patch is a set of dots, two colors. A series of these patches is used to make up the Cue in the Conte stimulus. 
 class ContePatch
 {
 	unsigned int m_n0, m_n1;
@@ -19,18 +20,22 @@ public:
 	void draw(PIXEL_LEVEL level0, PIXEL_LEVEL level1, double patch_width, double patch_height, double dot_diameter) const;
 };
 
-class ConteCueDotSupply
+// 
+class ConteCueDotSupply: public std::vector<ContePatch>
 {
-	std::vector<ContePatch> m_patches;
 public:
 	ConteCueDotSupply() {};
 	virtual ~ConteCueDotSupply() {};
 
-	// use while loading
-	void add_patch(unsigned int n0, unsigned int n1, double* p) { m_patches.push_back(ContePatch(n0, n1, p)); };
+	// Add a patch. Each patch has two colors of dots, with n0, n1 of each. The array p[] should contain (n0+n1)*2 values 
+	// in [-0.5, 0.5]. They are assigned as x0, y0, x1, y1, ....
+	void add_patch(unsigned int n0, unsigned int n1, double* p) { this->push_back(ContePatch(n0, n1, p)); };
 
-	size_t npatches() const { return m_patches.size(); };
-	const ContePatch& patch(unsigned int i) const { return m_patches[i]; };
+	// how many patches do we have?
+	size_t npatches() const { return this->size(); };
+
+	// get a patch at an index
+	const ContePatch& patch(unsigned int i) const { return this->at(i); };
 };
 
 // one of the 3-panel stim + distractor patches
