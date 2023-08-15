@@ -432,7 +432,8 @@ void MultiParameterFXMultiGStimSet::draw_current()
 	vsgSetDrawPage(vsgOVERLAYPAGE, 1, 0);
 	if (has_fixpt())
 	{
-		fixpt().drawOverlay();
+		// Note, arbitrarily taking level 2 on overlay. 
+		fixpt().drawOverlay(2);
 	}
 	vsgSetDrawPage(vsgOVERLAYPAGE, 0, 0);
 	vsgSetDisplayPage(0);	// displays overlay page 0, which should be empty.
