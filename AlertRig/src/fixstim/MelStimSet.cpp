@@ -90,7 +90,7 @@ void MelStimSet::cleanup(std::vector<int> pages)
 
 
 
-int MelStimSet::init(ARvsg& vsg, std::vector<int> pages, int)
+int MelStimSet::init(std::vector<int> pages, int)
 {
 	m_pagesAvailable = pages;
 

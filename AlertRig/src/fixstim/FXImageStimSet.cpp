@@ -254,7 +254,7 @@ void FXImageStimSet::cleanup(std::vector<int> pages)
 }
 
 
-int FXImageStimSet::init(ARvsg& vsg, std::vector<int> pages, int)
+int FXImageStimSet::init(std::vector<int> pages, int)
 {
 	int status = 0;
 	m_pageBlank = pages[0];
@@ -266,7 +266,7 @@ int FXImageStimSet::init(ARvsg& vsg, std::vector<int> pages, int)
 	m_pageImages = std::vector<int>(first, last);
 
 	// save background color for cleanup
-	m_backgroundColorSaved = vsg.background_color();
+	m_backgroundColorSaved = ARvsg::instance().background_color();
 
 	// Set the VSG to True colour mode
 	// should this also set vsgNOGAMMACORRECT?

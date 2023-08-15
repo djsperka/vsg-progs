@@ -74,8 +74,7 @@ public:
 	virtual int num_pages() { return 4; };
 	virtual int num_overlay_pages() { return 0; };
 
-	//virtual int init(ARvsg& vsg);
-	virtual int init(ARvsg& vsg, std::vector<int> pages, int);
+	virtual int init(std::vector<int> pages, int);
 	virtual int handle_trigger(const std::string& s, const std::string&);
 	virtual std::string toString() const { return std::string("StimSetCRG - toString() N.I."); };
 };

@@ -28,8 +28,7 @@ public:
 	// call vsgPresent() if needed. The first version has a default implementation 
 	// that uses the regular vsg card. The second version should be used for master/slave
 	// cases. 
-	virtual int init(std::vector<int> pages, int num_stim_pages = 1);
-	virtual int init(ARvsg& vsg, std::vector<int> pages, int num_stim_pages=1) = 0;
+	virtual int init(std::vector<int> pages, int num_stim_pages = 1) = 0;
 
 	// clean up any messes created in init() - esp settings in VSG
 	virtual void cleanup(std::vector<int> pages);
@@ -271,26 +270,6 @@ public:
 
 };
 
-
-
-
-
-
-
-class NullStimSet: public StimSet
-{
-public:
-	NullStimSet(): StimSet() {};
-	virtual ~NullStimSet() {};
-	virtual int num_pages() {return 0;};
-	virtual int num_overlay_pages() {return 0;};
-	virtual int init(std::vector<int> pages, int) {return 0;};
-	virtual int init(ARvsg& vsg, std::vector<int> pages, int) {return 0;};
-	virtual int handle_trigger(const std::string& s, const std::string&) {return 0;};		// will not trigger?!?
-	virtual std::string toString() const;
-};
-
-
 class GratingStimSet: public FXGStimSet
 {
 public:
@@ -298,7 +277,7 @@ public:
 	virtual ~GratingStimSet() {};
 	virtual int num_pages() { return 1;};
 	virtual int num_overlay_pages() { return 0;};
-	virtual int init(ARvsg& vsg, std::vector<int> pages, int);
+	virtual int init(std::vector<int> pages, int);
 	virtual int handle_trigger(const std::string& s, const std::string&);
 	virtual std::string toString() const;
 private:
@@ -318,7 +297,7 @@ public:
 	virtual ~FixptGratingStimSet() {};
 	virtual int num_pages() { return 1; };
 	virtual int num_overlay_pages() { return 0; };
-	virtual int init(ARvsg& vsg, std::vector<int> pages, int);
+	virtual int init(std::vector<int> pages, int);
 	virtual int handle_trigger(const std::string& s, const std::string&);
 	virtual std::string toString() const;
 private:
@@ -334,179 +313,13 @@ public:
 	virtual ~FixptMultiGratingStimSet() {};
 	virtual int num_pages() { return 1; };
 	virtual int num_overlay_pages() { return 0; };
-	virtual int init(ARvsg& vsg, std::vector<int> pages, int);
+	virtual int init(std::vector<int> pages, int);
 	virtual int handle_trigger(const std::string& s, const std::string&);
 	virtual std::string toString() const;
 private:
 	int m_page;
 	bool m_bDistractors;
 };
-
-class ContrastStimSet: public FXGStimSet
-{
-public:
-	ContrastStimSet(ARContrastFixationPointSpec& f, ARXhairSpec& h, ARGratingSpec& g, std::vector<double> parameters) : FXGStimSet(g, f, h), m_contrasts(parameters) {};
-	ContrastStimSet(alert::ARContrastFixationPointSpec& f, alert::ARGratingSpec& g, std::vector<double> parameters) : FXGStimSet(g, f), m_contrasts(parameters) {};
-	ContrastStimSet(alert::ARGratingSpec& g, std::vector<double> parameters) : FXGStimSet(g), m_contrasts(parameters) {};
-	virtual int num_pages() {return 1;};
-	virtual int num_overlay_pages() {return 0;};
-	virtual int init(ARvsg& vsg, std::vector<int> pages, int);
-	virtual int handle_trigger(const std::string& s, const std::string&);
-	virtual std::string toString() const;
-private:
-	int m_page;
-	std::vector<double> m_contrasts;
-	std::vector<double>::const_iterator m_iterator;
-};
-
-class TFStimSet: public FXGStimSet
-{
-public:
-	TFStimSet(ARContrastFixationPointSpec& f, ARXhairSpec& h, ARGratingSpec& g, std::vector<double> parameters) : FXGStimSet(g, f, h), m_temporal_frequencies(parameters) {};
-	TFStimSet(ARContrastFixationPointSpec& f, ARGratingSpec& g, std::vector<double> parameters) : FXGStimSet(g, f), m_temporal_frequencies(parameters) {};
-	TFStimSet(ARGratingSpec& g, std::vector<double> parameters) : FXGStimSet(g), m_temporal_frequencies(parameters) {};
-	virtual int num_pages() {return 1;};
-	virtual int num_overlay_pages() {return 0;};
-	virtual int init(ARvsg& vsg, std::vector<int> pages, int);
-	virtual int handle_trigger(const std::string& s, const std::string&);
-	virtual std::string toString() const;
-private:
-	int m_page;
-	std::vector<double> m_temporal_frequencies;
-	std::vector<double>::const_iterator m_iterator;
-};
-
-
-class SFStimSet: public FXGStimSet
-{
-public:
-	SFStimSet(ARContrastFixationPointSpec& f, ARXhairSpec& h, ARGratingSpec& g, std::vector<double> parameters) : FXGStimSet(g, f, h), m_spatial_frequencies(parameters), m_current_page(-1) {};
-	SFStimSet(ARContrastFixationPointSpec& f, ARGratingSpec& g, std::vector<double> parameters) : FXGStimSet(g, f), m_spatial_frequencies(parameters), m_current_page(-1) {};
-	SFStimSet(ARGratingSpec& g, std::vector<double> parameters) : FXGStimSet(g), m_spatial_frequencies(parameters), m_current_page(-1) {};
-	virtual int num_pages() {return 2;};
-	virtual int num_overlay_pages() {return 0;};
-	virtual int init(ARvsg& vsg, std::vector<int> pages, int);
-	virtual int handle_trigger(const std::string& s, const std::string&);
-	virtual std::string toString() const;
-private:
-	int m_pages[2];
-	int m_current_page;		// page flipping. This is the page currently displayed when handle_trigger is called. 
-	std::vector<double> m_spatial_frequencies;
-	std::vector<double>::const_iterator m_iterator;
-};
-
-class OrientationStimSet: public FXGStimSet
-{
-public:
-	OrientationStimSet(ARContrastFixationPointSpec& f, ARXhairSpec& h, ARGratingSpec& g, std::vector<double> parameters) : FXGStimSet(g, f, h), m_orientations(parameters), m_current_page(-1) {};
-	OrientationStimSet(ARContrastFixationPointSpec& f, ARGratingSpec& g, std::vector<double> parameters) : FXGStimSet(g, f), m_orientations(parameters), m_current_page(-1) {};
-	OrientationStimSet(ARGratingSpec& g, std::vector<double> parameters) : FXGStimSet(g), m_orientations(parameters), m_current_page(-1) {};
-	virtual int num_pages() {return 2;};
-	virtual int num_overlay_pages() {return 0;};
-	virtual int init(ARvsg& vsg, std::vector<int> pages, int);
-	virtual int handle_trigger(const std::string& s, const std::string&);
-	virtual std::string toString() const;
-private:
-	int m_pages[2];
-	int m_current_page;		// page flipping. This is the page currently displayed when handle_trigger is called. 
-	std::vector<double> m_orientations;
-	std::vector<double>::const_iterator m_iterator;
-};
-
-class AreaStimSet: public FXGStimSet
-{
-public:
-	AreaStimSet(ARContrastFixationPointSpec& f, ARXhairSpec& h, ARGratingSpec& g, std::vector<double> parameters) : FXGStimSet(g, f, h), m_diameters(parameters), m_current_page(-1) {};
-	AreaStimSet(ARContrastFixationPointSpec& f, ARGratingSpec& g, std::vector<double> parameters) : FXGStimSet(g, f), m_diameters(parameters), m_current_page(-1) {};
-	AreaStimSet(ARGratingSpec& g, std::vector<double> parameters) : FXGStimSet(g), m_diameters(parameters), m_current_page(-1) {};
-	virtual int num_pages() {return 2;};
-	virtual int num_overlay_pages() {return 0;};
-	virtual int init(ARvsg& vsg, std::vector<int> pages, int);
-	virtual int handle_trigger(const std::string& s, const std::string&);
-	virtual std::string toString() const;
-private:
-	int m_pages[2];
-	int m_current_page;		// page flipping. This is the page currently displayed when handle_trigger is called. 
-	std::vector<double> m_diameters;
-	std::vector<double>::const_iterator m_iterator;
-};
-
-class InnerDiameterStimSet: public FXGStimSet
-{
-public:
-	InnerDiameterStimSet(ARContrastFixationPointSpec& f, ARXhairSpec& h, ARGratingSpec& g, std::vector<double> parameters) : FXGStimSet(g, f, h), m_diameters(parameters), m_current_page(-1) {};
-	InnerDiameterStimSet(ARContrastFixationPointSpec& f, ARGratingSpec& g, std::vector<double> parameters) : FXGStimSet(g, f), m_diameters(parameters), m_current_page(-1) {};
-	InnerDiameterStimSet(ARGratingSpec& g, std::vector<double> parameters) : FXGStimSet(g), m_diameters(parameters), m_current_page(-1) {};
-	virtual int num_pages() {return 2;};
-	virtual int num_overlay_pages() {return 0;};
-	virtual int init(ARvsg& vsg, std::vector<int> pages, int);
-	virtual int handle_trigger(const std::string& s, const std::string&);
-	virtual std::string toString() const;
-private:
-	int m_pages[2];
-	int m_current_page;		// page flipping. This is the page currently displayed when handle_trigger is called. 
-	std::vector<double> m_diameters;
-	std::vector<double>::const_iterator m_iterator;
-};
-
-class AnnulusStimSet: public FXGStimSet
-{
-public:
-	AnnulusStimSet(ARContrastFixationPointSpec& f, ARXhairSpec& h, ARGratingSpec& g, std::vector<double> parameters) : FXGStimSet(g, f, h), m_diameters(parameters), m_current_page(-1) {};
-	AnnulusStimSet(ARContrastFixationPointSpec& f, ARGratingSpec& g, std::vector<double> parameters) : FXGStimSet(g, f), m_diameters(parameters), m_current_page(-1) {};
-	AnnulusStimSet(ARGratingSpec& g, std::vector<double> parameters) : FXGStimSet(g), m_diameters(parameters), m_current_page(-1) {};
-	virtual int num_pages() {return 2;};
-	virtual int num_overlay_pages() {return 0;};
-	virtual int init(ARvsg& vsg, std::vector<int> pages, int);
-	virtual int handle_trigger(const std::string& s, const std::string&);
-	virtual std::string toString() const;
-private:
-	int m_pages[2];
-	int m_current_page;		// page flipping. This is the page currently displayed when handle_trigger is called. 
-	std::vector<double> m_diameters;
-	std::vector<double>::const_iterator m_iterator;
-};
-
-
-class PositionStimSet: public FXGStimSet
-{
-public:
-	PositionStimSet(ARContrastFixationPointSpec& f, ARXhairSpec& h, ARGratingSpec& g, std::vector<double> positions) : FXGStimSet(g, f, h), m_positions(positions), m_current_page(-1) {};
-	PositionStimSet(ARContrastFixationPointSpec& f, ARGratingSpec& g, std::vector<double> positions) : FXGStimSet(g, f), m_positions(positions), m_current_page(-1) {};
-	PositionStimSet(ARGratingSpec& g, std::vector<double> positions) : FXGStimSet(g), m_positions(positions), m_current_page(-1) {};
-	virtual int num_pages() {return 2;};
-	virtual int num_overlay_pages() {return 0;};
-	virtual int init(ARvsg& vsg, std::vector<int> pages, int);
-	virtual int handle_trigger(const std::string& s, const std::string&);
-	virtual std::string toString() const;
-private:
-	int m_pages[2];
-	int m_current_page;		// page flipping. This is the page currently displayed when handle_trigger is called. 
-	std::vector<double> m_positions;
-	std::vector<double>::const_iterator m_iterator;
-};
-
-
-class CounterphaseStimSet: public FXGStimSet
-{
-public:
-	CounterphaseStimSet(ARContrastFixationPointSpec& f, ARXhairSpec& h, ARGratingSpec& g, std::vector<double> parameters, double tf, bool bStepTW) : FXGStimSet(g, f), m_phases(parameters), m_tf(tf), m_bStepTW(bStepTW), m_current_page(-1) {};
-	CounterphaseStimSet(ARContrastFixationPointSpec& f, ARGratingSpec& g, std::vector<double> parameters, double tf, bool bStepTW) : FXGStimSet(g, f), m_phases(parameters), m_tf(tf), m_bStepTW(bStepTW), m_current_page(-1) {};
-	CounterphaseStimSet(ARGratingSpec& g, std::vector<double> parameters, double tf, bool bStepTW) : FXGStimSet(g), m_phases(parameters), m_tf(tf), m_bStepTW(bStepTW), m_current_page(-1) {};
-	virtual int num_pages() {return 2;};
-	virtual int num_overlay_pages() {return 0;};
-	virtual int init(ARvsg& vsg, std::vector<int> pages, int);
-	virtual int handle_trigger(const std::string& s, const std::string&);
-	virtual std::string toString() const;
-private:
-	int m_pages[2];
-	int m_current_page;		// page flipping. This is the page currently displayed when handle_trigger is called. 
-	std::vector<double> m_phases;
-	double m_tf;
-	bool m_bStepTW;			// Step temporal waveform function. default is sinusoid.
-	std::vector<double>::const_iterator m_iterator;
-};
-
 
 class CRGStimSet: public StimSet
 {
@@ -517,7 +330,7 @@ public:
 	CRGStimSet(alert::ARGratingSpec& g, int frames_per_term, const std::string& sequence, bool balanced = false);
 	virtual int num_pages() {return 2;};
 	virtual int num_overlay_pages() {return 0;};
-	virtual int init(ARvsg& vsg, std::vector<int> pages, int);
+	virtual int init(std::vector<int> pages, int);
 	virtual int handle_trigger(const std::string& s, const std::string&);
 	virtual std::string toString() const;
 private:
@@ -544,7 +357,7 @@ public:
 	FlashStimSet(int frames_per_term, const std::string& sequence, bool balanced = false);
 	virtual int num_pages() {return (int)(1+m_colors.size());};
 	virtual int num_overlay_pages() {return 0;};
-	virtual int init(ARvsg& vsg, std::vector<int> pages, int);
+	virtual int init(std::vector<int> pages, int);
 	virtual int handle_trigger(const std::string& s, const std::string&);
 	virtual std::string toString() const;
 private:
@@ -564,7 +377,7 @@ public:
 	CBarStimSet(COLOR_TYPE& c, double w, double h, double dps, std::vector<double> parameters) : StimSet(), m_barWidth(w), m_barHeight(h), m_degreesPerSecond(dps), m_orientations(parameters), m_barOffsetXPixels(1024), m_barOffsetYPixels(512), m_barMaxWidthKludge(1.2) {	m_iterator = m_orientations.begin(); m_rect.color = c; };
 	virtual int num_pages() {return 2;};
 	virtual int num_overlay_pages() {return 0;};
-	virtual int init(ARvsg& vsg, std::vector<int> pages, int);
+	virtual int init(std::vector<int> pages, int);
 	virtual int handle_trigger(const std::string& s, const std::string&);
 	virtual std::string toString() const;
 	void prepareCycling(double ori);
@@ -597,7 +410,7 @@ public:
 	~DotStimSet();
 	virtual int num_pages() {return 3;};
 	virtual int num_overlay_pages() {return 0;};
-	virtual int init(ARvsg& vsg, std::vector<int> pages, int);
+	virtual int init(std::vector<int> pages, int);
 	virtual int handle_trigger(const std::string& s, const std::string&);
 	virtual std::string toString() const;
 	static void threadfunc(void *);
@@ -664,13 +477,33 @@ public:
 	DanishStimSet(alert::ARGratingSpec& g, alert::ARGratingSpec& hole, std::vector<double> parameters) : FXMultiGStimSet(), m_ods(parameters), m_current_page(-1) {add_grating(g); add_grating(hole); };
 	virtual int num_pages() {return 2;};
 	virtual int num_overlay_pages() {return 0;};
-	virtual int init(ARvsg& vsg, std::vector<int> pages, int);
+	virtual int init(std::vector<int> pages, int);
 	virtual int handle_trigger(const std::string& s, const std::string&);
 	virtual std::string toString() const;
 private:
 	int m_pages[2];
 	int m_current_page;		// page flipping. This is the page currently displayed when handle_trigger is called. 
 	std::vector<double> m_ods;	// outer diameters
+	std::vector<double>::const_iterator m_iterator;
+};
+
+class CounterphaseStimSet : public FXGStimSet
+{
+public:
+	CounterphaseStimSet(ARContrastFixationPointSpec& f, ARXhairSpec& h, ARGratingSpec& g, std::vector<double> parameters, double tf, bool bStepTW) : FXGStimSet(g, f), m_phases(parameters), m_tf(tf), m_bStepTW(bStepTW), m_current_page(-1) {};
+	CounterphaseStimSet(ARContrastFixationPointSpec& f, ARGratingSpec& g, std::vector<double> parameters, double tf, bool bStepTW) : FXGStimSet(g, f), m_phases(parameters), m_tf(tf), m_bStepTW(bStepTW), m_current_page(-1) {};
+	CounterphaseStimSet(ARGratingSpec& g, std::vector<double> parameters, double tf, bool bStepTW) : FXGStimSet(g), m_phases(parameters), m_tf(tf), m_bStepTW(bStepTW), m_current_page(-1) {};
+	virtual int num_pages() { return 2; };
+	virtual int num_overlay_pages() { return 0; };
+	virtual int init(std::vector<int> pages, int);
+	virtual int handle_trigger(const std::string& s, const std::string&);
+	virtual std::string toString() const;
+private:
+	int m_pages[2];
+	int m_current_page;		// page flipping. This is the page currently displayed when handle_trigger is called. 
+	std::vector<double> m_phases;
+	double m_tf;
+	bool m_bStepTW;			// Step temporal waveform function. default is sinusoid.
 	std::vector<double>::const_iterator m_iterator;
 };
 

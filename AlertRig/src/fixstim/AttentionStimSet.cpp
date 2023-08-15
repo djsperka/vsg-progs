@@ -539,7 +539,7 @@ AttentionStimSet::AttentionStimSet(ARContrastFixationPointSpec& fixpt, vector<al
 
 
 
-int AttentionStimSet::init(ARvsg& vsg, std::vector<int> pages, int)
+int AttentionStimSet::init(std::vector<int> pages, int)
 {
 	int status = 0;
 	int nlevels;

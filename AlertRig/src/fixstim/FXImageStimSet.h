@@ -58,7 +58,7 @@ public:
 		return 0;
 	}
 
-	int init(ARvsg& vsg, std::vector<int> pages, int);
+	int init(std::vector<int> pages, int);
 	int handle_trigger(const std::string& s, const std::string& args);
 	std::string toString() const;
 	void cleanup(std::vector<int> pages);

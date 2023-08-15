@@ -26,7 +26,7 @@ public:
 	void setSweepNotPursuit(bool bSweep = true) { m_bSweepNotPursuit = bSweep; };
 	virtual int num_pages() { return 5; };
 	virtual int num_overlay_pages() { return 0; };
-	virtual int init(ARvsg& vsg, std::vector<int> pages, int num_stim_pages);
+	virtual int init(std::vector<int> pages, int num_stim_pages);
 	virtual int handle_trigger(const std::string& s, const std::string& args);
 	virtual std::string toString() const;
 	void cleanup(std::vector<int> pages);

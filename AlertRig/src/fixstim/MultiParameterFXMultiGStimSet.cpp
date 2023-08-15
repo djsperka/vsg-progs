@@ -80,7 +80,7 @@ MultiParameterFXMultiGStimSet::MultiParameterFXMultiGStimSet(ARGratingSpec& grat
 	add_grating(grating); 
 };
 
-int MultiParameterFXMultiGStimSet::init(ARvsg& vsg, std::vector<int> pages, int num_stim_pages)
+int MultiParameterFXMultiGStimSet::init(std::vector<int> pages, int num_stim_pages)
 {
 	int status = 0;
 	int levels = 0;

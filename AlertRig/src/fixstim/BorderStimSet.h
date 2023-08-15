@@ -51,7 +51,7 @@ public:
 		return 0;
 	};
 
-	virtual int init(ARvsg& vsg, std::vector<int> pages, int);
+	virtual int init(std::vector<int> pages, int);
 
 	// clean up any messes created in init() - esp settings in VSG
 	virtual void cleanup(std::vector<int> pages) {};

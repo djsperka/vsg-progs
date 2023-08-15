@@ -60,7 +60,7 @@ string DotStimSet::toString() const
 }
 
 
-int DotStimSet::init(ARvsg& vsg, std::vector<int> pages, int)
+int DotStimSet::init(std::vector<int> pages, int)
 {
 	int status = 0;
 	double pixPerDegree;
@@ -107,7 +107,7 @@ int DotStimSet::init(ARvsg& vsg, std::vector<int> pages, int)
 
 	// Get a pixel level for dots
 	// TODO need to assign color here!
-	vsg.request_single(m_dotLevel);
+	ARvsg::instance().request_single(m_dotLevel);
 	arutil_color_to_palette(m_color, m_dotLevel);
 
 	// Start thread. The thread will block on the event above - which indicates "start dot updates". 

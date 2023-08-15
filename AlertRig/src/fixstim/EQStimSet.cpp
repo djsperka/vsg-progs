@@ -338,7 +338,7 @@ EQStimSet::~EQStimSet()
 #endif
 }
 
-int EQStimSet::init(ARvsg& vsg, std::vector<int> pages, int)
+int EQStimSet::init(std::vector<int> pages, int)
 {
 	int status = 0;
 	int nlevels = 40; // default up to 6 gratings
@@ -355,7 +355,7 @@ int EQStimSet::init(ARvsg& vsg, std::vector<int> pages, int)
 
 	// divvy up levels. There are only about 250 levels available but fixpt takes 2...
 	// test - snag 40 levels for loaded images.......
-	vsg.request_range(40, m_levelImage);
+	ARvsg::instance().request_range(40, m_levelImage);
 
 	fixpt().init(2);
 	fixpt().setContrast(100);

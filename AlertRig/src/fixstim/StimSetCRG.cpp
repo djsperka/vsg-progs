@@ -18,7 +18,7 @@ void StimSetCRG::initialize(ARGratingSpec& g)
 	add_grating(g);
 }
 
-int StimSetCRG::init(ARvsg& vsg, std::vector<int> pages, int)
+int StimSetCRG::init(std::vector<int> pages, int)
 {
 	
 	int status = 0;

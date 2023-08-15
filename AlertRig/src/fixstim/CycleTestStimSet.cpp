@@ -1,6 +1,6 @@
 #include "CycleTestStimSet.h"
 
-int CycleTestStimSet::init(ARvsg& vsg, std::vector<int> pages, int)
+int CycleTestStimSet::init(std::vector<int> pages, int)
 {
 	VSGCYCLEPAGEENTRY cycle[3];	// warning! No check on usage. You have been warned. 
 	int status = 0;

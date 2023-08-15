@@ -43,111 +43,6 @@ std::string StimSet::toString() const
 	return oss.str();
 }
 
-std::string DanishStimSet::toString() const
-{
-	unsigned int i;
-	std::ostringstream oss;
-	oss << "Danish StimSet" << endl;
-	if (has_fixpt())
-	{
-		oss << "  fixation point: " << fixpt() << endl;
-	}
-	else
-	{
-		oss << "  fixation point: NONE" << endl;
-	}
-	if (count() > 1)
-	{
-		oss << "  grating hole  : " << grating(1) << endl;
-	}
-	else
-	{
-		oss << "  grating hole  : NONE" << endl;
-	}
-	oss <<     "  grating donut : " << grating() << endl;
-	oss << "  donut outer diameters: ";
-	for (i=0; i<m_ods.size(); i++)
-	{
-		if (i>0) oss << ", ";
-		oss << m_ods[i];
-	}
-	oss << endl;
-	return oss.str();
-}
-
-std::string TFStimSet::toString() const
-{
-	unsigned int i;
-	std::ostringstream oss;
-	oss << "TF StimSet" << endl;
-	if (has_fixpt())
-	{
-		oss << "  fixation point: " << fixpt() << endl;
-	}
-	else
-	{
-		oss << "  fixation point: NONE" << endl;
-	}
-	if (has_xhair()) 
-		oss << "  xhair: " << xhair() << endl;
-	else
-		oss << "  xhair: NONE" << endl;
-	oss <<     "  grating base  : " << grating() << endl;
-	oss << "  temporal frequencies: ";
-	for (i=0; i<m_temporal_frequencies.size(); i++)
-	{
-		if (i>0) oss << ", ";
-		oss << m_temporal_frequencies[i];
-	}
-	oss << endl;
-	return oss.str();
-}
-
-std::string AnnulusStimSet::toString() const
-{
-	unsigned int i;
-	std::ostringstream oss;
-	oss << "Annulus StimSet" << endl;
-	if (has_fixpt())
-	{
-		oss << "  fixation point: " << fixpt() << endl;
-	}
-	else
-	{
-		oss << "  fixation point: NONE" << endl;
-	}
-	if (has_xhair()) 
-		oss << "  xhair: " << xhair() << endl;
-	else
-		oss << "  xhair: NONE" << endl;
-	oss <<     "  grating base  : " << grating() << endl;
-	oss << "  diameters: ";
-	for (i=0; i<m_diameters.size(); i++)
-	{
-		if (i>0) oss << ", ";
-		oss << m_diameters[i];
-	}
-	oss << endl;
-	return oss.str();
-}
-
-
-std::string NullStimSet::toString() const
-{
-	std::ostringstream oss;
-	oss << "NULL StimSet" << endl;
-	oss << "  xxxxxxxxxxxxxx" << endl;
-	oss << "  xxxxxxxxxxxxxx" << endl;
-	return oss.str();
-}
-
-std::string GratingStimSet::toString() const
-{
-	std::ostringstream oss;
-	oss << "Grating StimSet" << endl;
-	oss <<     "  grating base  : " << grating() << endl;
-	return oss.str();
-}
 
 std::string FixptGratingStimSet::toString() const
 {
@@ -188,166 +83,6 @@ std::string FixptMultiGratingStimSet::toString() const
 }
 
 
-std::string ContrastStimSet::toString() const
-{
-	unsigned int i;
-	std::ostringstream oss;
-	oss << "Contrast StimSet" << endl;
-	if (has_fixpt())
-	{
-		oss << "  fixation point: " << fixpt() << endl;
-	}
-	else
-	{
-		oss << "  fixation point: NONE" << endl;
-	}
-	if (has_xhair()) 
-		oss << "  xhair: " << xhair() << endl;
-	else
-		oss << "  xhair: NONE" << endl;
-	oss <<     "  grating base  : " << grating() << endl;
-	oss << "  contrasts: ";
-	for (i=0; i<m_contrasts.size(); i++)
-	{
-		if (i>0) oss << ", ";
-		oss << m_contrasts[i];
-	}
-	oss << endl;
-	return oss.str();
-}
-
-std::string SFStimSet::toString() const
-{
-	unsigned int i;
-	std::ostringstream oss;
-	oss << "SF StimSet" << endl;
-	if (has_fixpt())
-	{
-		oss << "  fixation point: " << fixpt() << endl;
-	}
-	else
-	{
-		oss << "  fixation point: NONE" << endl;
-	}
-	if (has_xhair()) 
-		oss << "  xhair: " << xhair() << endl;
-	else
-		oss << "  xhair: NONE" << endl;
-	oss <<     "  grating base  : " << grating() << endl;
-	oss << "  spatial frequencies: ";
-	for (i=0; i<m_spatial_frequencies.size(); i++)
-	{
-		if (i>0) oss << ", ";
-		oss << m_spatial_frequencies[i];
-	}
-	oss << endl;
-	return oss.str();
-}
-
-std::string OrientationStimSet::toString() const
-{
-	unsigned int i;
-	std::ostringstream oss;
-	oss << "Orientation StimSet" << endl;
-	if (has_fixpt())
-	{
-		oss << "  fixation point: " << fixpt() << endl;
-	}
-	else
-	{
-		oss << "  fixation point: NONE" << endl;
-	}
-	if (has_xhair()) 
-		oss << "  xhair: " << xhair() << endl;
-	else
-		oss << "  xhair: NONE" << endl;
-	oss <<     "  grating base  : " << grating() << endl;
-	oss << "  orientations: ";
-	for (i=0; i<m_orientations.size(); i++)
-	{
-		if (i>0) oss << ", ";
-		oss << m_orientations[i];
-	}
-	oss << endl;
-	return oss.str();
-}
-
-std::string AreaStimSet::toString() const
-{
-	unsigned int i;
-	std::ostringstream oss;
-	oss << "Area StimSet" << endl;
-	if (has_fixpt())
-	{
-		oss << "  fixation point: " << fixpt() << endl;
-	}
-	else
-	{
-		oss << "  fixation point: NONE" << endl;
-	}
-	if (has_xhair()) 
-		oss << "  xhair: " << xhair() << endl;
-	else
-		oss << "  xhair: NONE" << endl;
-	oss <<     "  grating base  : " << grating() << endl;
-	oss << "  diameters: ";
-	for (i=0; i<m_diameters.size(); i++)
-	{
-		if (i>0) oss << ", ";
-		oss << m_diameters[i];
-	}
-	oss << endl;
-	return oss.str();
-}
-
-std::string InnerDiameterStimSet::toString() const
-{
-	unsigned int i;
-	std::ostringstream oss;
-	oss << "InnerDiameter StimSet" << endl;
-	if (has_fixpt())
-	{
-		oss << "  fixation point: " << fixpt() << endl;
-	}
-	else
-	{
-		oss << "  fixation point: NONE" << endl;
-	}
-	oss <<     "  grating base  : " << grating() << endl;
-	oss << "  inner diameters: ";
-	for (i=0; i<m_diameters.size(); i++)
-	{
-		if (i>0) oss << ", ";
-		oss << m_diameters[i];
-	}
-	oss << endl;
-	return oss.str();
-}
-
-
-std::string CounterphaseStimSet::toString() const
-{
-	unsigned int i;
-	std::ostringstream oss;
-	oss << "Counterphase StimSet" << endl;
-	if (has_fixpt())
-	{
-		oss << "  fixation point: " << fixpt() << endl;
-	}
-	else
-	{
-		oss << "  fixation point: NONE" << endl;
-	}
-	oss <<     "  grating base  : " << grating() << endl;
-	oss << "  phases: ";
-	for (i=0; i<m_phases.size(); i++)
-	{
-		if (i>0) oss << ", ";
-		oss << m_phases[i];
-	}
-	oss << endl;
-	return oss.str();
-}
 
 std::string CRGStimSet::toString() const
 {
@@ -385,28 +120,6 @@ std::string FlashStimSet::toString() const
 		oss << *it << endl;
 	}
 	oss << "  Number of terms: " << m_seq.length() << " Balanced? " << (m_balanced ? "Y" : "N") << "Frames per term: " << m_fpt << endl;
-	return oss.str();
-}
-
-
-std::string PositionStimSet::toString() const
-{
-	std::ostringstream oss;
-	oss << "Position StimSet" << endl;
-	if (has_fixpt())
-	{
-		oss << "  fixation point: " << fixpt() << endl;
-	}
-	else
-	{
-		oss << "  fixation point: NONE" << endl;
-	}
-	if (has_xhair()) 
-		oss << "  xhair: " << xhair() << endl;
-	else
-		oss << "  xhair: NONE" << endl;
-	oss <<     "  grating       : " << grating() << endl;
-	oss << "  Number of positions: " << m_positions.size()/2 << endl;
 	return oss.str();
 }
 
@@ -475,10 +188,10 @@ void FXMultiGStimSet::setSavedContrast(int contrast, int index, bool bDistractor
 
 
 
-int StimSet::init(std::vector<int> pages, int num_stim_pages)
-{
-	return init(pages, num_stim_pages);
-}
+//int StimSet::init(std::vector<int> pages, int num_stim_pages)
+//{
+//	return init(pages, num_stim_pages);
+//}
 
 void StimSet::cleanup(std::vector<int> pages)
 {
@@ -490,7 +203,7 @@ void StimSet::cleanup(std::vector<int> pages)
 
 
 
-int GratingStimSet::init(ARvsg& vsg, std::vector<int> pages, int)
+int GratingStimSet::init(std::vector<int> pages, int)
 {
 	int status = 0;
 	m_page = pages[0];
@@ -525,8 +238,15 @@ int GratingStimSet::handle_trigger(const std::string &s, const std::string&)
 	return status;
 }
 
+std::string GratingStimSet::toString() const
+{
+	std::ostringstream oss;
+	oss << "Grating StimSet" << endl;
+	oss << "  grating base  : " << grating() << endl;
+	return oss.str();
+}
 
-int FixptGratingStimSet::init(ARvsg& vsg, std::vector<int> pages, int)
+int FixptGratingStimSet::init(std::vector<int> pages, int)
 {
 	int status = 0;
 	m_page = pages[0];
@@ -597,7 +317,7 @@ int FixptGratingStimSet::handle_trigger(const std::string &s, const std::string&
 	return status;
 }
 
-int FixptMultiGratingStimSet::init(ARvsg& vsg, std::vector<int> pages, int)
+int FixptMultiGratingStimSet::init(std::vector<int> pages, int)
 {
 	int status = 0;
 	int levels = 0;
@@ -728,693 +448,7 @@ int FixptMultiGratingStimSet::handle_trigger(const std::string &s, const std::st
 
 
 
-
-int ContrastStimSet::init(ARvsg& vsg, std::vector<int> pages, int)
-{
-	int status = 0;
-	m_page = pages[0];
-	m_iterator = m_contrasts.begin();
-	vsgSetDrawPage(vsgVIDEOPAGE, m_page, vsgBACKGROUND);
-	if (has_xhair())
-	{
-		xhair().init(16);
-		xhair().draw();
-	}
-	grating().init(40);
-	grating().setContrast(0);
-	grating().draw();
-	if (has_fixpt())
-	{
-		fixpt().init(2);
-		fixpt().setContrast(0);
-		fixpt().draw();
-	}
-
-	vsgPresent();
-	return status;
-}	
-
-int ContrastStimSet::handle_trigger(const std::string& s, const std::string&)
-{
-	int status = 0;
-	if (s == "F")
-	{
-		if (has_fixpt())
-		{
-			fixpt().setContrast(100);
-			status = 1;
-		}
-	}
-	else if (s == "S")
-	{
-		grating().select();
-		vsgObjResetDriftPhase();
-		grating().setContrast((int)*m_iterator);
-		status = 1;
-	}
-	else if (s == "s")
-	{
-		grating().setContrast(0);
-		status = 1;
-	}
-	else if (s == "a")
-	{
-		m_iterator++;
-		if (m_iterator == m_contrasts.end())
-		{
-			cerr << "at end of contrasts, back to beginning." << endl;
-			m_iterator = m_contrasts.begin();
-		}
-		cerr << "Contrast " << *m_iterator << endl;
-		status = 1;
-	}
-	else if (s == "X")
-	{
-		if (has_fixpt()) fixpt().setContrast(0);
-		grating().setContrast(0);
-		status = 1;
-	}
-	return status;
-}
-
-
-
-int TFStimSet::init(ARvsg& vsg, std::vector<int> pages, int)
-{
-	int status = 0;
-	m_page = pages[0];
-	m_iterator = m_temporal_frequencies.begin();
-	vsgSetDrawPage(vsgVIDEOPAGE, m_page, vsgBACKGROUND);
-	if (has_xhair())
-	{
-		xhair().init(16);
-		xhair().draw();
-	}
-	grating().init(40);
-	grating().setContrast(0);
-	grating().setTemporalFrequency(*m_iterator);
-	grating().draw();
-	if (has_fixpt())
-	{
-		fixpt().init(2);
-		fixpt().setContrast(0);
-		fixpt().draw();
-	}
-	vsgPresent();
-	return status;
-}
-
-int TFStimSet::handle_trigger(const std::string& s, const std::string&)
-{
-	int status = 0;
-	if (s == "F")
-	{
-		if (has_fixpt())
-		{
-			fixpt().setContrast(100);
-			status = 1;
-		}
-	}
-	else if (s == "S")
-	{
-		grating().select();
-		vsgObjResetDriftPhase();
-		grating().setContrast(contrast());
-		grating().setTemporalFrequency(*m_iterator);
-		status = 1;
-	}
-	else if (s == "s")
-	{
-		grating().setContrast(0);
-		status = 1;
-	}
-	else if (s == "a")
-	{
-		m_iterator++;
-		if (m_iterator == m_temporal_frequencies.end())
-		{
-			cerr << "at end of temporal frequencies, back to beginning." << endl;
-			m_iterator = m_temporal_frequencies.begin();
-		}
-		cerr << "TF " << *m_iterator << endl;
-		status = 1;
-	}
-	else if (s == "X")
-	{
-		if (has_fixpt()) fixpt().setContrast(0);
-		grating().setContrast(0);
-		status = 1;
-	}
-	return status;
-}
-
-
-
-
-
-int SFStimSet::init(ARvsg& vsg, std::vector<int> pages, int)
-{
-	int status = 0;
-	m_pages[0] = pages[0];
-	m_pages[1] = pages[1];
-	cout << "Pages " << m_pages[0] << ", " << m_pages[1] << endl;
-	m_iterator = m_spatial_frequencies.begin();
-	vsgSetDrawPage(vsgVIDEOPAGE, m_pages[1], vsgBACKGROUND);
-	vsgSetDrawPage(vsgVIDEOPAGE, m_pages[0], vsgBACKGROUND);
-	m_current_page = 0;
-	if (has_xhair())
-	{
-		xhair().init(16);
-		xhair().draw();
-	}
-	grating().init(40);
-	grating().setContrast(0);
-	grating().sf = *m_iterator;
-	grating().draw();
-	if (has_fixpt())
-	{
-		fixpt().init(2);
-		fixpt().setContrast(0);
-		fixpt().draw();
-	}
-	vsgPresent();
-	return status;
-}
-
-int SFStimSet::handle_trigger(const std::string& s, const std::string&)
-{
-	int status = 0;
-	if (s == "F")
-	{
-		if (has_fixpt())
-		{
-			fixpt().setContrast(100);
-			status = 1;
-		}
-	}
-	else if (s == "S")
-	{
-		grating().select();
-		vsgObjResetDriftPhase();
-		grating().setContrast(contrast());
-		status = 1;
-	}
-	else if (s == "s")
-	{
-		grating().setContrast(0);
-		status = 1;
-	}
-	else if (s == "a")
-	{
-		// increment iterator, reset to beginning if at end
-		m_iterator++;
-		if (m_iterator == m_spatial_frequencies.end())
-		{
-			cerr << "at end of spatial frequencies, back to beginning." << endl;
-			m_iterator = m_spatial_frequencies.begin();
-		}
-		cerr << "SF " << *m_iterator << endl;
-
-		// Change current page and clear it. Note that this is not the page currently in view.
-		// Set the sf and draw the grating, then draw the fixpt. 
-		m_current_page = 1 - m_current_page;
-		vsgSetDrawPage(vsgVIDEOPAGE, m_pages[m_current_page], vsgBACKGROUND);
-
-		if (has_xhair())
-		{
-			xhair().draw();
-		}
-		grating().sf = *m_iterator;
-		grating().draw();
-		if (has_fixpt())
-		{
-			//m_fixpt.setContrast(0);
-			fixpt().draw();
-		}
-		status = 1;
-	}
-	else if (s == "X")
-	{
-		if (has_fixpt()) fixpt().setContrast(0);
-		grating().setContrast(0);
-		status = 1;
-	}
-	return status;
-}
-
-int OrientationStimSet::init(ARvsg& vsg, std::vector<int> pages, int)
-{
-	int status = 0;
-	m_pages[0] = pages[0];
-	m_pages[1] = pages[1];
-	m_iterator = m_orientations.begin();
-	vsgSetDrawPage(vsgVIDEOPAGE, m_pages[1], vsgBACKGROUND);
-	vsgSetDrawPage(vsgVIDEOPAGE, m_pages[0], vsgBACKGROUND);
-	m_current_page = 0;
-	if (has_xhair())
-	{
-		xhair().init(16);
-		xhair().draw();
-	}
-	grating().init(40);
-	grating().setContrast(0);
-	grating().orientation = *m_iterator;
-	grating().draw();
-	if (has_fixpt())
-	{
-		fixpt().init(2);
-		fixpt().setContrast(0);
-		fixpt().draw();
-	}
-	vsgPresent();
-	return status;
-}
-
-int OrientationStimSet::handle_trigger(const std::string& s, const std::string&)
-{
-	int status = 0;
-	if (s == "F")
-	{
-		if (has_fixpt())
-		{
-			fixpt().setContrast(100);
-			status = 1;
-		}
-	}
-	else if (s == "S")
-	{
-		grating().select();
-		vsgObjResetDriftPhase();
-		grating().setContrast(contrast());
-		status = 1;
-	}
-	else if (s == "s")
-	{
-		grating().setContrast(0);
-		status = 1;
-	}
-	else if (s == "a")
-	{
-		// increment iterator, reset to beginning if at end
-		m_iterator++;
-		if (m_iterator == m_orientations.end())
-		{
-			cerr << "at end of orientations, back to beginning." << endl;
-			m_iterator = m_orientations.begin();
-		}
-		cerr << "Orientation " << *m_iterator << endl;
-
-		// Change current page and clear it. Note that this is not the page currently in view.
-		// Set the sf and draw the grating, then draw the fixpt. 
-		m_current_page = 1 - m_current_page;
-		vsgSetDrawPage(vsgVIDEOPAGE, m_pages[m_current_page], vsgBACKGROUND);
-		grating().orientation = *m_iterator;
-		if (has_xhair())
-		{
-			xhair().draw();
-		}
-		grating().draw();
-		if (has_fixpt())
-		{
-			fixpt().draw();
-		}
-		status = 1;
-	}
-	else if (s == "X")
-	{
-		if (has_fixpt()) fixpt().setContrast(0);
-		grating().setContrast(0);
-		status = 1;
-	}
-	return status;
-}
-
-
-int AreaStimSet::init(ARvsg& vsg, std::vector<int> pages, int)
-{
-	int status = 0;
-	m_pages[0] = pages[0];
-	m_pages[1] = pages[1];
-	m_iterator = m_diameters.begin();
-	vsgSetDrawPage(vsgVIDEOPAGE, m_pages[1], vsgBACKGROUND);
-	vsgSetDrawPage(vsgVIDEOPAGE, m_pages[0], vsgBACKGROUND);
-	m_current_page = 0;
-	if (has_xhair())
-	{
-		xhair().init(16);
-		xhair().draw();
-	}
-	grating().init(40);
-	grating().setContrast(0);
-	grating().w = grating().h = *m_iterator;
-	grating().draw();
-	if (has_fixpt())
-	{
-		fixpt().init(2);
-		fixpt().setContrast(0);
-		fixpt().draw();
-	}
-	vsgPresent();
-	return status;
-}
-
-int AreaStimSet::handle_trigger(const std::string& s, const std::string&)
-{
-	int status = 0;
-	if (s == "F")
-	{
-		if (has_fixpt())
-		{
-			fixpt().setContrast(100);
-			status = 1;
-		}
-	}
-	else if (s == "S")
-	{
-		grating().select();
-		vsgObjResetDriftPhase();
-		grating().setContrast(contrast());
-		status = 1;
-	}
-	else if (s == "s")
-	{
-		grating().setContrast(0);
-		status = 1;
-	}
-	else if (s == "a")
-	{
-		// increment iterator, reset to beginning if at end
-		m_iterator++;
-		if (m_iterator == m_diameters.end())
-		{
-			cerr << "at end of orientations, back to beginning." << endl;
-			m_iterator = m_diameters.begin();
-		}
-		cerr << "Diameter " << *m_iterator << endl;
-
-		// Change current page and clear it. Note that this is not the page currently in view.
-		// Set the sf and draw the grating, then draw the fixpt. 
-		m_current_page = 1 - m_current_page;
-		vsgSetDrawPage(vsgVIDEOPAGE, m_pages[m_current_page], vsgBACKGROUND);
-		if (has_xhair())
-		{
-			xhair().draw();
-		}
-		grating().w = grating().h = *m_iterator;
-		grating().draw();
-		if (has_fixpt())
-		{
-			fixpt().draw();
-		}
-		vsgSetZoneDisplayPage(vsgVIDEOPAGE, m_pages[m_current_page]);
-		status = 1;
-	}
-	else if (s == "X")
-	{
-		fixpt().setContrast(0);
-		grating().setContrast(0);
-		status = 1;
-	}
-	return status;
-}
-
-
-int AnnulusStimSet::init(ARvsg& vsg, std::vector<int> pages, int)
-{
-	int status = 0;
-	m_pages[0] = pages[0];
-	m_pages[1] = pages[1];
-	m_iterator = m_diameters.begin();
-	vsgSetDrawPage(vsgVIDEOPAGE, m_pages[1], vsgBACKGROUND);
-	vsgSetDrawPage(vsgVIDEOPAGE, m_pages[0], vsgBACKGROUND);
-	m_current_page = 0;
-	if (has_xhair())
-	{
-		xhair().init(16);
-		xhair().draw();
-	}
-	grating().init(40);
-	grating().setContrast(0);
-	grating().w = grating().h = *m_iterator++;
-	grating().wd = grating().hd = *m_iterator;
-	grating().draw();
-	if (has_fixpt())
-	{
-		fixpt().init(2);
-		fixpt().setContrast(0);
-		fixpt().draw();
-	}
-	vsgPresent();
-	return status;
-}
-
-int AnnulusStimSet::handle_trigger(const std::string& s, const std::string&)
-{
-	int status = 0;
-	if (s == "F")
-	{
-		if (has_fixpt())
-		{
-			fixpt().setContrast(100);
-			status = 1;
-		}
-	}
-	else if (s == "S")
-	{
-		grating().select();
-		vsgObjResetDriftPhase();
-		grating().setContrast(contrast());
-		status = 1;
-	}
-	else if (s == "s")
-	{
-		grating().setContrast(0);
-		status = 1;
-	}
-	else if (s == "a")
-	{
-		double od, id;
-
-		// increment iterator, reset to beginning if at end
-		m_iterator++;
-		if (m_iterator == m_diameters.end())
-		{
-			cerr << "at end of orientations, back to beginning." << endl;
-			m_iterator = m_diameters.begin();
-		}
-		od = *m_iterator++;
-		if (m_iterator == m_diameters.end())
-		{
-			cerr << "at end of orientations, back to beginning." << endl;
-			cerr << "ERROR in input args - should have even number of diameters!" << endl;
-			m_iterator = m_diameters.begin();
-		}
-		id = *m_iterator;
-		cerr << "Outer,Inner " << od << ", " << id << endl;
-
-		// Change current page and clear it. Note that this is not the page currently in view.
-		// Set the sf and draw the grating, then draw the fixpt. 
-		m_current_page = 1 - m_current_page;
-		vsgSetDrawPage(vsgVIDEOPAGE, m_pages[m_current_page], vsgBACKGROUND);
-		if (has_xhair())
-		{
-			xhair().draw();
-		}
-		grating().w = grating().h = od;
-		grating().wd = grating().hd = id;
-		grating().draw();
-		if (has_fixpt())
-		{
-			fixpt().draw();
-		}
-		vsgSetZoneDisplayPage(vsgVIDEOPAGE, m_pages[m_current_page]);
-		status = 1;
-	}
-	else if (s == "X")
-	{
-		fixpt().setContrast(0);
-		grating().setContrast(0);
-		status = 1;
-	}
-	return status;
-}
-
-
-
-int InnerDiameterStimSet::init(ARvsg& vsg, std::vector<int> pages, int)
-{
-	int status = 0;
-	m_pages[0] = pages[0];
-	m_pages[1] = pages[1];
-	m_iterator = m_diameters.begin();
-	vsgSetDrawPage(vsgVIDEOPAGE, m_pages[1], vsgBACKGROUND);
-	vsgSetDrawPage(vsgVIDEOPAGE, m_pages[0], vsgBACKGROUND);
-	m_current_page = 0;
-	grating().init(40);
-	grating().setContrast(0);
-	grating().wd = grating().hd = *m_iterator;
-	grating().draw();
-	if (has_fixpt())
-	{
-		fixpt().init(2);
-		fixpt().setContrast(0);
-		fixpt().draw();
-	}
-	vsgPresent();
-	return status;
-}
-
-int InnerDiameterStimSet::handle_trigger(const std::string& s, const std::string&)
-{
-	int status = 0;
-	if (s == "F")
-	{
-		if (has_fixpt())
-		{
-			fixpt().setContrast(100);
-			status = 1;
-		}
-	}
-	else if (s == "S")
-	{
-		grating().select();
-		vsgObjResetDriftPhase();
-		grating().setContrast(contrast());
-		status = 1;
-	}
-	else if (s == "s")
-	{
-		grating().setContrast(0);
-		status = 1;
-	}
-	else if (s == "a")
-	{
-		// increment iterator, reset to beginning if at end
-		m_iterator++;
-		if (m_iterator == m_diameters.end())
-		{
-			cerr << "at end of orientations, back to beginning." << endl;
-			m_iterator = m_diameters.begin();
-		}
-		cerr << "Inner diameter " << *m_iterator << endl;
-
-		// Change current page and clear it. Note that this is not the page currently in view.
-		// Set the sf and draw the grating, then draw the fixpt. 
-		m_current_page = 1 - m_current_page;
-		vsgSetDrawPage(vsgVIDEOPAGE, m_pages[m_current_page], vsgBACKGROUND);
-		grating().wd = grating().hd = *m_iterator;
-		grating().draw();
-		if (has_fixpt())
-		{
-			fixpt().draw();
-		}
-		vsgSetZoneDisplayPage(vsgVIDEOPAGE, m_pages[m_current_page]);
-		status = 0;
-	}
-	else if (s == "X")
-	{
-		if (has_fixpt()) fixpt().setContrast(0);
-		grating().setContrast(0);
-		status = 1;
-	}
-	return status;
-}
-
-
-
-
-int PositionStimSet::init(ARvsg& vsg, std::vector<int> pages, int)
-{
-	int status = 0;
-	m_pages[0] = pages[0];
-	m_pages[1] = pages[1];
-	m_iterator = m_positions.begin();
-	vsgSetDrawPage(vsgVIDEOPAGE, m_pages[1], vsgBACKGROUND);
-	vsgSetDrawPage(vsgVIDEOPAGE, m_pages[0], vsgBACKGROUND);
-	m_current_page = 0;
-	if (has_xhair())
-	{
-		xhair().init(16);
-		xhair().draw();
-	}
-	grating().init(40);
-	grating().setContrast(0);
-	grating().x = *m_iterator++;
-	grating().y = *m_iterator;
-	grating().draw();
-	if (has_fixpt())
-	{
-		fixpt().init(2);
-		fixpt().setContrast(0);
-		fixpt().draw();
-	}
-	vsgPresent();
-	return status;
-}
-
-int PositionStimSet::handle_trigger(const std::string& s, const std::string&)
-{
-	int status = 0;
-	if (s == "F")
-	{
-		if (has_fixpt())
-		{
-			fixpt().setContrast(100);
-			status = 1;
-		}
-	}
-	else if (s == "S")
-	{
-		grating().select();
-		vsgObjResetDriftPhase();
-		grating().setContrast(contrast());
-		status = 1;
-	}
-	else if (s == "s")
-	{
-		grating().setContrast(0);
-		status = 1;
-	}
-	else if (s == "a")
-	{
-		// increment iterator, reset to beginning if at end
-		m_iterator++;
-		if (m_iterator == m_positions.end())
-		{
-			cerr << "at end of positions, back to beginning." << endl;
-			m_iterator = m_positions.begin();
-		}
-
-		// Change current page and clear it. Note that this is not the page currently in view.
-		// Set the sf and draw the grating, then draw the fixpt. 
-		m_current_page = 1 - m_current_page;
-		vsgSetDrawPage(vsgVIDEOPAGE, m_pages[m_current_page], vsgBACKGROUND);
-		if (has_xhair())
-		{
-			xhair().draw();
-		}
-		grating().x = *m_iterator++;
-		grating().y = *m_iterator;
-		cerr << "Position " << grating().x << ", " << grating().y << endl;
-		grating().draw();
-		if (has_fixpt())
-		{
-			fixpt().draw();
-		}
-		vsgSetZoneDisplayPage(vsgVIDEOPAGE, m_pages[m_current_page]);
-		status = 0;
-	}
-	else if (s == "X")
-	{
-		if (has_fixpt()) fixpt().setContrast(0);
-		grating().setContrast(0);
-		status = 1;
-	}
-	return status;
-}
-
-
-int DanishStimSet::init(ARvsg& vsg, std::vector<int> pages, int)
+int DanishStimSet::init(std::vector<int> pages, int)
 {
 	int status = 0;
 	m_pages[0] = pages[0];
@@ -1537,6 +571,38 @@ int DanishStimSet::handle_trigger(const std::string& s, const std::string&)
 	return status;
 }
 
+std::string DanishStimSet::toString() const
+{
+	unsigned int i;
+	std::ostringstream oss;
+	oss << "Danish StimSet" << endl;
+	if (has_fixpt())
+	{
+		oss << "  fixation point: " << fixpt() << endl;
+	}
+	else
+	{
+		oss << "  fixation point: NONE" << endl;
+	}
+	if (count() > 1)
+	{
+		oss << "  grating hole  : " << grating(1) << endl;
+	}
+	else
+	{
+		oss << "  grating hole  : NONE" << endl;
+	}
+	oss << "  grating donut : " << grating() << endl;
+	oss << "  donut outer diameters: ";
+	for (i = 0; i < m_ods.size(); i++)
+	{
+		if (i > 0) oss << ", ";
+		oss << m_ods[i];
+	}
+	oss << endl;
+	return oss.str();
+}
+
 
 FlashStimSet::FlashStimSet(alert::ARContrastFixationPointSpec& f, std::vector< COLOR_TYPE >& colors, int frames_per_term, const std::string& sequence, bool balanced)
 : m_colors(colors)
@@ -1579,7 +645,7 @@ FlashStimSet::FlashStimSet(int frames_per_term, const std::string& sequence, boo
 }
 
 
-int FlashStimSet::init(ARvsg& vsg, std::vector<int> pages, int)
+int FlashStimSet::init(std::vector<int> pages, int)
 {
 	VSGCYCLEPAGEENTRY cycle[32768];
 	int status = 0;
@@ -1599,7 +665,7 @@ int FlashStimSet::init(ARvsg& vsg, std::vector<int> pages, int)
 
 	for (unsigned int i = 1; i<pages.size(); i++)
 	{
-		vsg.request_single(level);
+		ARvsg::instance().request_single(level);
 		arutil_color_to_palette(m_colors[i-1], level);
 		cerr << "Page " << pages[i] << " color " << m_colors[i-1] << " level " << level << endl;
 		vsgSetDrawPage(vsgVIDEOPAGE, pages[i], level);
@@ -1609,7 +675,7 @@ int FlashStimSet::init(ARvsg& vsg, std::vector<int> pages, int)
 		}
 	}
 	m_pageBlank = pages[0];
-	cerr << "Page " << pages[0] << " color " << vsg.background_color() << " level " << vsgBACKGROUND << endl;
+	cerr << "Page " << pages[0] << " color " << ARvsg::instance().background_color() << " level " << vsgBACKGROUND << endl;
 	vsgSetDrawPage(vsgVIDEOPAGE, pages[0], vsgBACKGROUND);
 	if (m_bHaveFixpt)
 	{
@@ -1718,7 +784,7 @@ CRGStimSet::CRGStimSet(alert::ARGratingSpec& g, int frames_per_term, const std::
 	//m_contrast = m_grating1.contrast;
 }
 
-int CRGStimSet::init(ARvsg& vsg, std::vector<int> pages, int)
+int CRGStimSet::init(std::vector<int> pages, int)
 {
 	VSGCYCLEPAGEENTRY cycle[32768];
 	int status = 0;
@@ -1831,7 +897,7 @@ int CRGStimSet::handle_trigger(const std::string& s, const std::string&)
 }
 
 
-int CBarStimSet::init(ARvsg& vsg, std::vector<int> pages, int)
+int CBarStimSet::init(std::vector<int> pages, int)
 {
 	int status = 0;
 	m_pageBackground = pages[0];
@@ -2095,7 +1161,7 @@ double CBarStimSet::getIntersectDistance(long *ca, long *cb, double *p, double *
 }
 
 
-int CounterphaseStimSet::init(ARvsg& vsg, std::vector<int> pages, int)
+int CounterphaseStimSet::init(std::vector<int> pages, int)
 {
 	int status = 0;
 	m_pages[0] = pages[0];
