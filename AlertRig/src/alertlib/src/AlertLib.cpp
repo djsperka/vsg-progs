@@ -66,16 +66,13 @@ std::istream& operator>>(std::istream& in, alert::ARRectangleSpec& arrect)
 //static COLOR_TYPE default_red(red);
 
 
-ARFixationPointSpec::ARFixationPointSpec()
-: x(0)
-, y(0)
-, d(1)
-, color(COLOR_TYPE(red)) 
-{};
-
 std::ostream& operator<<(std::ostream& out, const ARFixationPointSpec& arfps)
 {
-	out << arfps.x << "," << arfps.y << "," << arfps.d << "," << arfps.color;
+	if (arfps.isDot)
+		out << arfps.x << "," << arfps.y << "," << arfps.d << "," << arfps.color;
+	else
+		out << "+" << arfps.x << "," << arfps.y << "," << arfps.d << "," << arfps.color << "," << arfps.penSizePixels << "," << arfps.crossOriDeg;
+
 	return out;
 }
 
@@ -191,19 +188,6 @@ void ARObject::init(int numlevels, bool bcreate)
 		cerr << "Error - number of levels must be >0!" << endl;
 	}
 }
-
-//void ARObject::init(ARvsg& vsg, PIXEL_LEVEL first, int numlevels, bool bcreate)
-//{
-//	m_use_master = m_use_slave = false;
-//	init(first, numlevels, bcreate);
-//}
-//
-//void ARObject::init(ARvsg& vsg, int numlevels, bool bcreate)
-//{
-//	m_use_master = m_use_slave = false;
-//	init(numlevels, bcreate);
-//}
-
 
 void ARObject::init(PIXEL_LEVEL first, int numlevels, bool bcreate)
 {
@@ -340,7 +324,7 @@ int ARXhairSpec::drawPie(int n, PIXEL_LEVEL first, PIXEL_LEVEL second, double x,
 	return 0;
 }
 
-int ARXhairSpec::drawOverlay()
+int ARXhairSpec::drawOverlay(PIXEL_LEVEL)
 {
 	cerr << "ARXhairSpec::drawOverlay() not implemented!" << endl;
 	return -1;
@@ -403,7 +387,7 @@ int ARRandomGridSpec::draw()
 }
 
 
-int ARRandomGridSpec::drawOverlay()
+int ARRandomGridSpec::drawOverlay(PIXEL_LEVEL)
 {
 	cerr << "ARRandomGridSpec::drawOverlay() not implemented!" << endl;
 	return -1;
@@ -443,7 +427,7 @@ int ARChessboardSpec::draw()
 	return 0;
 }
 
-int ARChessboardSpec::drawOverlay()
+int ARChessboardSpec::drawOverlay(PIXEL_LEVEL)
 {
 	cerr << "ARChessboardSpec::drawOverlay() not implemented!" << endl;
 	return -1;
@@ -498,7 +482,7 @@ int ARRectangleSpec::draw()
 	return 0;
 }
 
-int ARRectangleSpec::drawOverlay()
+int ARRectangleSpec::drawOverlay(PIXEL_LEVEL)
 {
 	cerr << "ARRectangleSpec::drawOverlay() not implemented!" << endl;
 	return -1;
@@ -523,11 +507,10 @@ int ARContrastRectangleSpec::draw()
 	return status;
 }
 
-int ARContrastRectangleSpec::drawOverlay()
+int ARContrastRectangleSpec::drawOverlay(PIXEL_LEVEL overlayLevel)
 {
-	vsgSetPen1(0);
-	vsgDrawBar(x, -1*y, w, h, orientation);
-	return 0;
+	cerr << "ARContrastRectangleSpec::drawOverlay() not implemented!" << endl;
+	return -1;
 }
 
 int ARMultiContrastRectangleSpec::draw()
@@ -553,26 +536,44 @@ int ARMultiContrastRectangleSpec::draw()
 	return status;
 }
 
-int ARMultiContrastRectangleSpec::drawOverlay()
+int ARMultiContrastRectangleSpec::drawOverlay(PIXEL_LEVEL)
 {
-	// not implemented!
-	return 0;
+	cerr << "ARMultiContrastRectangleSpec::drawOverlay() not implemented!" << endl;
+	return -1;
 }
 
-ARFixationPointSpec::ARFixationPointSpec(const ARFixationPointSpec& fixpt) : ARSpec(fixpt)
+ARFixationPointSpec::ARFixationPointSpec()
+	: x(0)
+	, y(0)
+	, d(1)
+	, color(COLOR_TYPE(red))
+	, isDot(true)
+	, penSizePixels(1)
+	, crossOriDeg(0)
+{};
+
+ARFixationPointSpec::ARFixationPointSpec(const ARFixationPointSpec& fixpt) 
+	: ARSpec(fixpt)
+	, x(fixpt.x)
+	, y(fixpt.y)
+	, color(fixpt.color)
+	, d(fixpt.d)
+	, isDot(fixpt.isDot)
+	, penSizePixels(fixpt.penSizePixels)
+	, crossOriDeg(fixpt.crossOriDeg)
 {
-	x = fixpt.x;
-	y = fixpt.y;
-	color = fixpt.color;
-	d = fixpt.d;
 }
 
-ARFixationPointSpec::ARFixationPointSpec(const ARContrastFixationPointSpec& fixpt) : ARSpec(fixpt)
+ARFixationPointSpec::ARFixationPointSpec(const ARContrastFixationPointSpec& fixpt) 
+	: ARSpec(fixpt)
+	, x(fixpt.x)
+	, y(fixpt.y)
+	, color(fixpt.color)
+	, d(fixpt.d)
+	, isDot(fixpt.isDot)
+	, penSizePixels(fixpt.penSizePixels)
+	, crossOriDeg(fixpt.crossOriDeg)
 {
-	x = fixpt.x;
-	y = fixpt.y;
-	color = fixpt.color;
-	d = fixpt.d;
 }
 
 ARFixationPointSpec& ARFixationPointSpec::operator=(const ARFixationPointSpec& fixpt)
@@ -584,8 +585,25 @@ ARFixationPointSpec& ARFixationPointSpec::operator=(const ARFixationPointSpec& f
 		y = fixpt.y;
 		d = fixpt.d;
 		color = fixpt.color;
+		isDot = fixpt.isDot;
+		penSizePixels = fixpt.penSizePixels;
+		crossOriDeg = fixpt.crossOriDeg;
 	}
 	return *this;
+}
+
+void getCrossEndpoints(double x, double y, double oriDeg, double l, double (&xc)[4], double (&yc)[4])
+{
+	double c = cos(oriDeg * 3.14159 / 180);
+	double s = cos(oriDeg * 3.14159 / 180);
+	xc[0] = x + l / 2 * c;
+	yc[0] = y + l / 2 * s;
+	xc[1] = x + -l / 2 * c;
+	yc[1] = y + -l / 2 * s;
+	xc[2] = x + -l / 2 * s;
+	yc[2] = y + l / 2 * c;
+	xc[3] = x + l / 2 * s;
+	yc[3] = y + -l / 2 * c;
 }
 
 
@@ -600,20 +618,46 @@ int ARFixationPointSpec::draw()
 	{
 		vsgSetPen1((DWORD)(255 * this->color.trival().a + 256 * 255 * this->color.trival().b + 256 * 256 * 255 * this->color.trival().c));
 	}
-	vsgSetDrawMode(vsgCENTREXY + vsgSOLIDFILL);
-	vsgDrawOval(x, -1*y, d, d);
+
+	if (isDot)
+	{
+		vsgSetDrawMode(vsgCENTREXY + vsgSOLIDFILL);
+		vsgDrawOval(x, -1 * y, d, d);
+	}
+	else
+	{
+		double xc[4], yc[4];
+		vsgSetDrawMode(vsgCENTREXY + vsgSOLIDPEN);
+		vsgSetPenSize(penSizePixels, penSizePixels);
+		getCrossEndpoints(this->x, this->y, this->crossOriDeg, this->d, xc, yc);
+		vsgDrawLine(xc[0], yc[0], xc[1], yc[1]);
+		vsgDrawLine(xc[2], yc[2], xc[3], yc[3]);
+	}
 	return 0;
 }
 
 
 // oh-oh! The fixpt will hijack overlay palette color level 2!
-int ARFixationPointSpec::drawOverlay()
+int ARFixationPointSpec::drawOverlay(PIXEL_LEVEL ovLevel)
 {
 	int status=0;
 	VSGTRIVAL c = this->color.trival();
-	vsgPaletteWriteOverlayCols((VSGLUTBUFFER *)&c, 2, 1);
-	vsgSetPen1(2);	// overlay page transparent
-	vsgDrawOval(x, -1*y, d, d);
+	vsgPaletteWriteOverlayCols((VSGLUTBUFFER *)&c, ovLevel, 1);
+	vsgSetPen1(ovLevel);	// overlay page transparent
+	if (isDot)
+	{
+		vsgSetDrawMode(vsgCENTREXY + vsgSOLIDFILL);
+		vsgDrawOval(x, -1 * y, d, d);
+	}
+	else
+	{
+		double xc[4], yc[4];
+		vsgSetDrawMode(vsgCENTREXY + vsgSOLIDPEN);
+		vsgSetPenSize(penSizePixels, penSizePixels);
+		getCrossEndpoints(this->x, this->y, this->crossOriDeg, this->d, xc, yc);
+		vsgDrawLine(xc[0], yc[0], xc[1], yc[1]);
+		vsgDrawLine(xc[2], yc[2], xc[3], yc[3]);
+	}
 	return status;
 }
 
@@ -666,7 +710,7 @@ int ARDotSpec::draw()
 	}
 }
 
-int ARDotSpec::drawOverlay()
+int ARDotSpec::drawOverlay(PIXEL_LEVEL)
 {
 	cerr << "ARDotSpec::drawOverlay(): not implemented!" << endl;
 	return -1;
@@ -716,9 +760,9 @@ int ARContrastFixationPointSpec::draw()
 	return status;
 }
 
-int ARContrastFixationPointSpec::drawOverlay()
+int ARContrastFixationPointSpec::drawOverlay(PIXEL_LEVEL ovLevel)
 {
-	return ARFixationPointSpec::drawOverlay();
+	return ARFixationPointSpec::drawOverlay(ovLevel);
 	//vsgSetPen1(0);
 	//vsgDrawOval(x, -1*y, d, d);
 	//return 0;
@@ -760,12 +804,10 @@ int ARContrastCircleSpec::draw()
 	return status;
 }
 
-// this function doesn't make sense. Should actually draw on the overlay, not draw clear. 
-int ARContrastCircleSpec::drawOverlay()
+int ARContrastCircleSpec::drawOverlay(PIXEL_LEVEL)
 {
-	vsgSetPen1(0);
-	vsgDrawOval(x, -1*y, d, d);
-	return 0;
+	cerr << "ARContrastCircleSpec::drawOverlay(): not implemented!" << endl;
+	return -1;
 }
 
 
@@ -869,18 +911,11 @@ int ARContrastCueCircleSpec::draw()
 
 
 // this function doesn't make sense. Should actually draw on the overlay, not draw clear. 
-int ARContrastCueCircleSpec::drawOverlay()
+int ARContrastCueCircleSpec::drawOverlay(PIXEL_LEVEL)
 {
-	vsgSetPen1(0);
-	vsgDrawOval(x, -1 * y, d, d);
-	return 0;
+	cerr << "ARContrastCueCircleSpec::drawOverlay(): not implemented!" << endl;
+	return -1;
 }
-
-
-
-
-
-
 
 ARCircleSpec::ARCircleSpec(const ARCircleSpec& c) : ARFixationPointSpec(c), linewidth(c.linewidth)
 {
@@ -918,12 +953,10 @@ int ARCircleSpec::draw()
 	return status;
 }
 
-// this function doesn't make sense. Should actually draw on the overlay, not draw clear. 
-int ARCircleSpec::drawOverlay()
+int ARCircleSpec::drawOverlay(PIXEL_LEVEL)
 {
-	vsgSetPen1(0);
-	vsgDrawOval(x, -1 * y, d, d);
-	return 0;
+	cerr << "ARCircleSpec::drawOverlay(): not implemented!" << endl;
+	return -1;
 }
 
 
@@ -1009,12 +1042,10 @@ int ARCueCircleSpec::draw()
 }
 
 
-// this function doesn't make sense. Should actually draw on the overlay, not draw clear. 
-int ARCueCircleSpec::drawOverlay()
+int ARCueCircleSpec::drawOverlay(PIXEL_LEVEL)
 {
-	vsgSetPen1(0);
-	vsgDrawOval(x, -1 * y, d, d);
-	return 0;
+	cerr << "ARCueCircleSpec::drawOverlay(): not implemented!" << endl;
+	return -1;
 }
 
 
@@ -1064,11 +1095,10 @@ int ARContrastLineSpec::draw()
 }
 
 // this function doesn't make sense. Should actually draw on the overlay, not draw clear. 
-int ARContrastLineSpec::drawOverlay()
+int ARContrastLineSpec::drawOverlay(PIXEL_LEVEL)
 {
-	vsgSetPen1(0);
-	vsgDrawLine(x0, y0, x1, y1);
-	return 0;
+	cerr << "ARContrastLineSpec::drawOverlay(): not implemented!" << endl;
+	return -1;
 }
 
 
@@ -1403,7 +1433,7 @@ int ARGratingSpec::drawBackground()
 	return 0;
 }
 
-int ARGratingSpec::drawOverlay()
+int ARGratingSpec::drawOverlay(PIXEL_LEVEL)
 {
 	vsgSetPen1(0);
 	vsgSetDrawMode(vsgCENTREXY);

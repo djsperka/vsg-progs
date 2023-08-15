@@ -66,23 +66,6 @@ int prargs(int argc, char **argv, process_args_func pfunc, const char *options, 
 int tokenize_response_file(char *filename, std::vector<std::string> &tokens);
 
 
-
-
-
-
-
-
-/* Initialize vsg card. Leaves card with palette ramp, page 0 cleared to background color (use vsgBACKGROUND). 
- * Clears video page 0 and displays it. Suitable for initialization on startup of a stimulus app, 
- * or for cleanup on exit (or use clear_vsg()). If use_overlay is true, sets OVERLAYMASKMODE, initializes
- * the overlay palette to use bg color on level 1 (level 0 in overlay palette is reserved for "transparent".
- */
-int init_vsg(int screenDistanceMM, COLOR_TYPE i_background, bool use_overlay);
-
-
-/* Convenience */
-void clear_vsg();
-
 namespace alert
 {
 
@@ -141,7 +124,7 @@ namespace alert
 		/* Draw object on current page. Assume the page is an overlay page, draw an aperture for the 
 		 * object on level 0. 
 		 */
-		virtual int drawOverlay() = 0;
+		virtual int drawOverlay(PIXEL_LEVEL overlayLevel) = 0;
 	};
 
 	// Rectangle Spec
@@ -161,7 +144,7 @@ namespace alert
 		DWORD drawmode;
 		DWORD linewidth;
 		virtual int draw();
-		virtual int drawOverlay();
+		virtual int drawOverlay(PIXEL_LEVEL ovLevel);
 
 		void setMulti(const std::vector<ARRectangleSpec>& vec) { bIsMulti = true; m_multi = vec; };
 		void setMulti() { bIsMulti = false; m_multi.clear(); };
@@ -178,7 +161,7 @@ namespace alert
 		ARContrastRectangleSpec(const ARRectangleSpec& spec) : ARRectangleSpec(spec) {};
 		~ARContrastRectangleSpec() {};
 		int draw();
-		int drawOverlay();
+		int drawOverlay(PIXEL_LEVEL ovLevel);
 	};
 
 	// Rectangle Spec
@@ -189,7 +172,7 @@ namespace alert
 		ARMultiContrastRectangleSpec() {};
 		~ARMultiContrastRectangleSpec() {};
 		virtual int draw();
-		virtual int drawOverlay();
+		virtual int drawOverlay(PIXEL_LEVEL ovLevel);
 	};
 
 	// Xhair Spec
@@ -203,7 +186,7 @@ namespace alert
 		int nc;				// number of divisions
 		double r1, r2;		// inner and outer radii for tick lines
 		virtual int draw();
-		virtual int drawOverlay();
+		virtual int drawOverlay(PIXEL_LEVEL ovLevel);
 	private:
 		int drawPie(int nc, PIXEL_LEVEL first, PIXEL_LEVEL second, double x, double y, double r);
 	};
@@ -231,7 +214,7 @@ namespace alert
 		virtual void init(int nlevels, bool bCreate=true);
 
 		virtual int draw();
-		virtual int drawOverlay() { return 0; };	// no-op do not use
+		virtual int drawOverlay(PIXEL_LEVEL overlayLevel) { return 0; };	// no-op do not use
 	};
 
 
@@ -246,7 +229,7 @@ namespace alert
 		int nr, nc;		// number of rows, columns
 		double tf;
 		virtual int draw();
-		virtual int drawOverlay();
+		virtual int drawOverlay(PIXEL_LEVEL overlayLevel);
 	};
 
 	// alternating chessboard spec
@@ -260,7 +243,7 @@ namespace alert
 		int nr, nc;		// number of rows, columns
 		double tf;
 		virtual int draw();
-		virtual int drawOverlay();
+		virtual int drawOverlay(PIXEL_LEVEL overlayLevel);
 	};
 
 
@@ -278,8 +261,11 @@ namespace alert
 		double x, y;
 		double d;
 		COLOR_TYPE color;
+		bool isDot;	// if not, its a cross
+		DWORD penSizePixels;	// if cross, vsgSOLIDPEN used, this is arg to vsgSetPenSize(pixW, pixH)
+		double crossOriDeg;		// orientation of the cross. 0 is standard horizontal/vertical, 45 would be rotated CCW relative to that.
 		virtual int draw();
-		virtual int drawOverlay();
+		virtual int drawOverlay(PIXEL_LEVEL overlayLevel);
 	};
 
 	// Fixation point for cases where its visibility is controlled by contrast setting 
@@ -294,7 +280,7 @@ namespace alert
 		ARContrastFixationPointSpec& operator=(const ARContrastFixationPointSpec& fixpt);
 		ARContrastFixationPointSpec& operator=(const ARFixationPointSpec& fixpt);
 		int draw();
-		int drawOverlay();
+		int drawOverlay(PIXEL_LEVEL overlayLevel);
 	};
 
 	// dots. Do not use contrast, but can have multi-dot. Each dot costs one level. 
@@ -310,7 +296,7 @@ namespace alert
 		~ARDotSpec() {};
 		ARDotSpec& operator=(const ARFixationPointSpec& fixpt);
 		int draw();
-		int drawOverlay();
+		int drawOverlay(PIXEL_LEVEL overlayLevel);
 
 		void setMulti(const std::vector<ARFixationPointSpec>& vec) { bIsMulti = true; m_multi = vec; };
 		void setMulti() { bIsMulti = false; m_multi.clear(); };
@@ -328,7 +314,7 @@ namespace alert
 		~ARContrastCircleSpec() {};
 		ARContrastCircleSpec& operator=(const ARContrastCircleSpec& c);
 		int draw();
-		int drawOverlay();
+		int drawOverlay(PIXEL_LEVEL overlayLevel);
 		int linewidth;
 	};
 
@@ -343,7 +329,7 @@ namespace alert
 		~ARContrastCueCircleSpec() {};
 		ARContrastCueCircleSpec& operator=(const ARContrastCueCircleSpec& c);
 		int draw();
-		int drawOverlay();
+		int drawOverlay(PIXEL_LEVEL overlayLevel);
 		int drawCircle();
 		int drawPoint();
 		double dCentral;	// if > 0, this is diam of fixpt at center, same color
@@ -362,7 +348,7 @@ namespace alert
 		~ARCircleSpec() {};
 		ARCircleSpec& operator=(const ARCircleSpec& c);
 		int draw();
-		int drawOverlay();
+		int drawOverlay(PIXEL_LEVEL overlayLevel);
 		int linewidth;
 	};
 
@@ -375,7 +361,7 @@ namespace alert
 		~ARCueCircleSpec() {};
 		ARCueCircleSpec& operator=(const ARCueCircleSpec& c);
 		int draw();
-		int drawOverlay();
+		int drawOverlay(PIXEL_LEVEL overlayLevel);
 		int drawCircle();
 		int drawPoint();
 		double dCentral;	// if > 0, this is diam of fixpt at center, same color
@@ -396,7 +382,7 @@ namespace alert
 		~ARContrastLineSpec() {};
 		ARContrastLineSpec& operator=(const ARContrastLineSpec& line);
 		int draw();
-		int drawOverlay();
+		int drawOverlay(PIXEL_LEVEL overlayLevel);
 	};
 
 
@@ -460,7 +446,7 @@ namespace alert
 
 		// This draws an aperture on level 0. You must set the current draw page to an OVERLAYPAGE prior to 
 		// calling this function!
-		virtual int drawOverlay();
+		virtual int drawOverlay(PIXEL_LEVEL overlayLevel);
 
 		virtual int drawOnce();
 		virtual int drawBackground();
