@@ -658,7 +658,7 @@ ARFixationPointSpec& ARFixationPointSpec::operator=(const ARFixationPointSpec& f
 void getCrossEndpoints(double x, double y, double oriDeg, double l, double (&xc)[4], double (&yc)[4])
 {
 	double c = cos(oriDeg * 3.14159 / 180);
-	double s = cos(oriDeg * 3.14159 / 180);
+	double s = sin(oriDeg * 3.14159 / 180);
 	xc[0] = x + l / 2 * c;
 	yc[0] = y + l / 2 * s;
 	xc[1] = x + -l / 2 * c;
@@ -1648,5 +1648,26 @@ int ARConteSpec::draw()
 	// restore draw mode
 	vsgSetDrawMode(old_mode);
 
+	return 0;
+}
+
+int ARConteSpec::drawOverlay(PIXEL_LEVEL ovLevel)
+{
+	double rectW, rectH;
+	vsgSetDrawMode(vsgCENTREXY + vsgSOLIDFILL);
+
+	// set coords for drawing gaussian and border cues
+	if (this->bHorizontal)
+	{
+		rectW = 3 * this->w;
+		rectH = this->h;
+	}
+	else
+	{
+		rectW = this->w;
+		rectH = 3 * this->h;
+	}
+	vsgSetPen1(ovLevel);
+	vsgDrawRect(this->x, this->y, rectW, rectH);
 	return 0;
 }

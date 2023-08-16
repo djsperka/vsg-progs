@@ -214,7 +214,7 @@ namespace alert
 		virtual void init(int nlevels, bool bCreate=true);
 
 		virtual int draw();
-		virtual int drawOverlay(PIXEL_LEVEL overlayLevel) { return 0; };	// no-op do not use
+		virtual int drawOverlay(PIXEL_LEVEL overlayLevel);
 	};
 
 
