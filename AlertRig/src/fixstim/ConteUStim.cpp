@@ -22,6 +22,7 @@ static struct argp_option options[] = {
 	{"distance-to-screen", 'd', "DIST_MM", 0, "screen distance in MM"},
 	{"ready-pulse", 'p', "BITPATTERN", 0, "Ready pulse issued when startup is complete"},
 	{"ready-pulse-delay", 'l', "DELAY_MS", 0, "Delay ready pulse for this many ms"},
+	{"fixpt", 'f', "FIXPT_SPEC", 0, "fixation point"},
 	{"dot-supply", 701, "filename", 0, "File with x,y positions in [-0.5,0.5]"},
 	{"trials", 702, "filename", 0, "Conte trials stim specification"},
 	{"color", 'c', "COLOR", 0, "cue color; specify in order of usage (0, then 1)"},
@@ -29,6 +30,7 @@ static struct argp_option options[] = {
 };
 
 static struct argp f_argp = { options, parse_conte_opt, 0, "fixstim -- all-purpose stimulus engine" };
+
 
 ConteUStim::ConteUStim()
 : UStim()
@@ -133,6 +135,11 @@ void ConteUStim::init()
 	ARvsg::instance().request_single(m_levelTest);
 	arutil_color_to_palette(COLOR_TYPE(0, 1, 1), m_levelTest);
 
+	// maybe get a level or two for fixpt
+	if (m_arguments.bHaveFixpt)
+		m_arguments.fixpt.init(2, false);	// don't create obj -will be drawn on overlay
+
+
 	// these are the colors specified on command line
 	for (auto c : m_arguments.colors)
 	{
@@ -235,10 +242,12 @@ void ConteUStim::draw_current()
 {
 	const conte_trial_t& trial = m_arguments.trials.at(m_itrial);
 
-	// overlay 1 has aperture for patch
+	// overlay 1 has aperture for patch and fixation point (if present)
 	vsgSetDrawPage(vsgOVERLAYPAGE, cOvPageAperture, m_levelOverlayBackground);
 	vsgSetPen1(0);	// clear on overlay page
 	vsgDrawRect(trial.cue_x, trial.cue_y, trial.cue_w, trial.cue_h);
+	if (m_arguments.bHaveFixpt)
+		m_arguments.fixpt.drawOverlay(2);
 
 	// draw dot patch(es)
 	vsgSetDrawPage(vsgVIDEOPAGE, cPageCue, vsgBACKGROUND);

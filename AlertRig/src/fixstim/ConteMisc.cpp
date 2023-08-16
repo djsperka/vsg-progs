@@ -236,6 +236,14 @@ error_t parse_conte_opt(int key, char* carg, struct argp_state* state)
 		if (parse_integer(sarg, arguments->iPulseBits))
 			ret = EINVAL;
 		break;
+	case 'f':
+		if (parse_fixation_point(sarg, arguments->fixpt))
+			ret = EINVAL;
+		else
+		{
+			arguments->bHaveFixpt = true;
+		}
+		break;
 	case 701:
 		if (!boost::filesystem::exists(sarg))
 		{

@@ -73,7 +73,7 @@ typedef vector<conte_trial_t> conte_trial_list_t;
 
 istream& operator>>(istream& ins, conte_trial_list_t& file);
 istream& operator>>(istream& ins, conte_trial_t& trial);
-istream& operator>>(istream& ins, conte_stim_params_t& stim);
+//istream& operator>>(istream& ins, conte_stim_params_t& stim);
 
 // for interacting with argp 
 struct conte_arguments
@@ -85,6 +85,8 @@ struct conte_arguments
 	bool bHaveDistance;
 	int iReadyPulseDelay;
 	int iPulseBits;
+	ARContrastFixationPointSpec fixpt;
+	bool bHaveFixpt;
 	string dot_supply_filename;
 	ConteCueDotSupply dot_supply;
 	conte_trial_list_t trials;
@@ -97,6 +99,7 @@ struct conte_arguments
 		, bHaveDistance(false)
 		, iReadyPulseDelay(0)
 		, iPulseBits(0x2)
+		, bHaveFixpt(false)
 	{};
 };
 
@@ -124,12 +127,6 @@ public:
 	// how many pages will this take? 
 	unsigned int getNumPages() const { return m_nPatchPages; };
 };
-
-
-
-
-
-
 
 // Implementation of UStim interface for the starstim app.
 class ConteUStim: public UStim
