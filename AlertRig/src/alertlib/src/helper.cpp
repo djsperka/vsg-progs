@@ -30,7 +30,7 @@ int parse_fixation_point(const std::string& s, alert::ARFixationPointSpec& afp)
 	{
 		if (tokens[0] == "+")
 		{
-			afp.isDot = true;
+			afp.isDot = false;
 			istringstream iss;
 			iss.str(tokens[1]);
 			iss >> afp.x;
@@ -85,7 +85,7 @@ int parse_fixation_point(const std::string& s, alert::ARFixationPointSpec& afp)
 		}
 		else
 		{
-			afp.isDot = false;
+			afp.isDot = true;
 			istringstream iss;
 			iss.str(tokens[0]);
 			iss >> afp.x;
