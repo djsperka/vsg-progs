@@ -59,10 +59,12 @@
     <Import Project="$(VCTargetsPath)Microsoft.CPP.UpgradeFromVC60.props" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="PropertySheets">
+    <Import Project="..\shared-properties\alert.props" />
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
     <Import Project="$(VCTargetsPath)Microsoft.CPP.UpgradeFromVC60.props" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="PropertySheets">
+    <Import Project="..\shared-properties\alert.props" />
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
     <Import Project="$(VCTargetsPath)Microsoft.CPP.UpgradeFromVC60.props" />
   </ImportGroup>
@@ -81,13 +83,13 @@
     <LinkIncremental>true</LinkIncremental>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <OutDir>$(Platform)\$(Configuration)\</OutDir>
-    <IntDir>$(Platform)\$(Configuration)\</IntDir>
+    <OutDir>$(SolutionDir)..\bin\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>build\$(Platform)\$(Configuration)\</IntDir>
     <LinkIncremental>false</LinkIncremental>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <OutDir>$(Platform)\$(Configuration)\</OutDir>
-    <IntDir>$(Platform)\$(Configuration)\</IntDir>
+    <OutDir>$(SolutionDir)..\bin\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>build\$(Platform)\$(Configuration)\</IntDir>
     <LinkIncremental>true</LinkIncremental>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -195,7 +197,7 @@
       <Culture>0x0409</Culture>
     </ResourceCompile>
     <Link>
-      <OutputFile>../../bin/Example2.exe</OutputFile>
+      <OutputFile>$(OutDir)$(ProjectName).exe</OutputFile>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <AdditionalLibraryDirectories>C:\Program Files\Cambridge Research Systems\VSGV8\Windows\Win32\MSVC\LIB;../../alertlib/lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <ProgramDatabaseFile>.\Release/Example2.pdb</ProgramDatabaseFile>
@@ -235,7 +237,7 @@
       <Culture>0x0409</Culture>
     </ResourceCompile>
     <Link>
-      <OutputFile>../../bin/dExample2.exe</OutputFile>
+      <OutputFile>$(OutDir)d$(ProjectName).exe</OutputFile>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <AdditionalLibraryDirectories>C:\Program Files\Cambridge Research Systems\VSGV8\Windows\Win32\MSVC\LIB;../../alertlib/lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -263,6 +265,7 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClCompile>
+    <ClCompile Include="readtest.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\alertlib\alertlib.vcxproj">
