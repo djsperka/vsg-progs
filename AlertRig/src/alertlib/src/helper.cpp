@@ -18,55 +18,113 @@ int parse_fixation_point(const std::string& s, alert::ARFixationPointSpec& afp)
 
 	// Expected format for fixation point is 
 	// x,y,diameter,color
-	// If color is omitted, it is assumed to be RED (configurable as a default?)
-	// x,y,diameter are required, parsed as floating point. 
+	// update 
+	// for cross, format is 
+	// +,x,y,diameter,color[,pixel_pen_size=1[,crossOriDegrees=0]]
 
-	if (tokens.size() < 3 || tokens.size() > 4)
+	if (tokens.size() < 3 || tokens.size() > 7 || (tokens[0]=="+" && tokens.size() < 5))
 	{
 		status=1;	// bad format
 	}
 	else
 	{
-		istringstream iss;
-		iss.str(tokens[0]);
-		iss >> afp.x;
-		if (!iss) 
+		if (tokens[0] == "+")
 		{
-			cerr << "bad x: " << tokens[0] << endl;
-			status=1;
-		}
-		iss.str(tokens[1]); 
-		iss.clear();
-		iss >> afp.y;
-		if (!iss) 
-		{
-			cerr << "bad y: " << tokens[1] << endl;
-			status=1;
-		}
-		iss.str(tokens[2]);
-		iss.clear();
-		iss >> afp.d;
-		if (!iss) 
-		{
-			cerr << "bad diameter: " << tokens[2] << endl;
-			status=1;
-		}
-
-		if (tokens.size() == 4)
-		{
-			if (parse_color(tokens[3], afp.color))
+			afp.isDot = true;
+			istringstream iss;
+			iss.str(tokens[1]);
+			iss >> afp.x;
+			if (!iss)
 			{
-				cerr << "bad color: " << tokens[3] << endl;
-				status=1;
+				cerr << "bad x: " << tokens[1] << endl;
+				status = 1;
+			}
+			iss.str(tokens[2]);
+			iss.clear();
+			iss >> afp.y;
+			if (!iss)
+			{
+				cerr << "bad y: " << tokens[2] << endl;
+				status = 1;
+			}
+			iss.str(tokens[3]);
+			iss.clear();
+			iss >> afp.d;
+			if (!iss)
+			{
+				cerr << "bad diameter: " << tokens[3] << endl;
+				status = 1;
+			}
+			if (parse_color(tokens[4], afp.color))
+			{
+				cerr << "bad color: " << tokens[4] << endl;
+				status = 1;
+			}
+			if (tokens.size() > 5)
+			{
+				iss.str(tokens[5]);
+				iss.clear();
+				iss >> afp.penSizePixels;
+				if (!iss)
+				{
+					cerr << "bad pen size pixels: " << tokens[5] << endl;
+					status = 1;
+				}
+			}
+			if (tokens.size() > 6)
+			{
+				iss.str(tokens[6]);
+				iss.clear();
+				iss >> afp.crossOriDeg;
+				if (!iss)
+				{
+					cerr << "bad cross orientation(deg): " << tokens[6] << endl;
+					status = 1;
+				}
 			}
 		}
 		else
 		{
-			afp.color.setType(red);
+			afp.isDot = false;
+			istringstream iss;
+			iss.str(tokens[0]);
+			iss >> afp.x;
+			if (!iss)
+			{
+				cerr << "bad x: " << tokens[0] << endl;
+				status = 1;
+			}
+			iss.str(tokens[1]);
+			iss.clear();
+			iss >> afp.y;
+			if (!iss)
+			{
+				cerr << "bad y: " << tokens[1] << endl;
+				status = 1;
+			}
+			iss.str(tokens[2]);
+			iss.clear();
+			iss >> afp.d;
+			if (!iss)
+			{
+				cerr << "bad diameter: " << tokens[2] << endl;
+				status = 1;
+			}
+
+			if (tokens.size() == 4)
+			{
+				if (parse_color(tokens[3], afp.color))
+				{
+					cerr << "bad color: " << tokens[3] << endl;
+					status = 1;
+				}
+			}
+			else
+			{
+				afp.color.setType(red);
+			}
 		}
 	}
-
-
 	return status;
 }
 

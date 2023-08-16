@@ -18,24 +18,87 @@ std::istream& operator>>(std::istream& in, ARFixationPointSpec& fixpt)
 {
 	string s;
 	in >> s;
+	if (parse_fixation_point(s, fixpt))
+	{
+		in.setstate(std::ios::failbit);
+	}
+
+#if 0
 	stringstream ss(s);
-	ss >> fixpt.x;
-	if (ss)
+	bool bCross = false;
+
+	if (s.size() > 0 && s[0] == '+')
 	{
-		ss.ignore(1);
-		ss >> fixpt.y;
+		bool bNoMoreChars = false;	// set when we run out of stuff, in case string is shortened
+		fixpt.isDot = true;
+		ss.ignore(2);
+		ss >> fixpt.x;
+		if (ss)
+		{
+			ss.ignore(1);
+			ss >> fixpt.y;
+		}
+		if (ss)
+		{
+			ss.ignore(1);
+			ss >> fixpt.d;
+		}
+		if (ss)
+		{
+			ss.ignore(1);
+			ss >> fixpt.color;
+		}
+		if (ss)
+		{
+			// anything left? 
+			std::streampos pos = ss.tellg();
+			ss.seekg(0, std::ios::end);
+			std::streamsize len = ss.tellg() - pos;
+			ss.seekg(pos);
+			if (len > 0)
+			{
+				ss.ignore(1);
+				ss >> fixpt.penSizePixels;
+			}
+			else
+				bNoMoreChars = true;
+		}
+		if (ss && !bNoMoreChars)
+		{
+			// anything left? 
+			std::streampos pos = ss.tellg();
+			ss.seekg(0, std::ios::end);
+			std::streamsize len = ss.tellg() - pos;
+			ss.seekg(pos);
+			if (len > 0)
+			{
+				ss.ignore(1);
+				ss >> fixpt.crossOriDeg;
+			}
+		}
+		if (!ss) in.setstate(std::ios::failbit);
 	}
-	if (ss)
+	else
 	{
-		ss.ignore(1);
-		ss >> fixpt.d;
+		ss >> fixpt.x;
+		if (ss)
+		{
+			ss.ignore(1);
+			ss >> fixpt.y;
+		}
+		if (ss)
+		{
+			ss.ignore(1);
+			ss >> fixpt.d;
+		}
+		if (ss)
+		{
+			ss.ignore(1);
+			ss >> fixpt.color;
+		}
+		if (!ss) in.setstate(std::ios::failbit);
 	}
-	if (ss)
-	{
-		ss.ignore(1);
-		ss >> fixpt.color;
-	}
-	if (!ss) in.setstate(std::ios::failbit);
+#endif
 	return in;
 }
 
@@ -68,10 +131,10 @@ std::istream& operator>>(std::istream& in, alert::ARRectangleSpec& arrect)
 
 std::ostream& operator<<(std::ostream& out, const ARFixationPointSpec& arfps)
 {
-	if (arfps.isDot)
+	if (!arfps.isDot)
 		out << arfps.x << "," << arfps.y << "," << arfps.d << "," << arfps.color;
 	else
-		out << "+" << arfps.x << "," << arfps.y << "," << arfps.d << "," << arfps.color << "," << arfps.penSizePixels << "," << arfps.crossOriDeg;
+		out << "+," << arfps.x << "," << arfps.y << "," << arfps.d << "," << arfps.color << "," << arfps.penSizePixels << "," << arfps.crossOriDeg;
 
 	return out;
 }
