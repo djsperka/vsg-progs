@@ -184,8 +184,8 @@ private:
 	// draw dot patches on single page
 	void draw_dot_patches(const ConteXYHelper& xyhelper, unsigned int npatches);
 
-	// draw a single 3-panel stim thingy
-	void draw_conte_stim(ARConteSpec& cspec, const struct conte_stim_params& stim);
+	// copy stim parameters prior to drawing
+	void copy_params_to_spec(const struct conte_stim_params& params, ARConteSpec& spec);
 
 	// setup page cycling for current trial
 	void setup_cycling(const ConteXYHelper& xyhelper, unsigned int nterms_in_cue);

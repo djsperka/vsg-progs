@@ -152,9 +152,6 @@ void ConteUStim::init()
 	// background page
 	vsgSetDrawPage(vsgVIDEOPAGE, cPageBackground, vsgBACKGROUND);
 
-	// overlay clear page. Overlay aperture page initialized per-stim (see draw_current)
-	vsgSetDrawPage(vsgOVERLAYPAGE, cOvPageClear, 0);
-
 	m_probe0.init(40, false);
 	m_probe1.init(40, false);
 	m_target0.init(40, false);
@@ -220,7 +217,7 @@ void ConteUStim::draw_dot_patches(const ConteXYHelper& xyhelper, unsigned int np
 	return;
 }
 
-
+#if 0
 void ConteUStim::draw_conte_stim(ARConteSpec& cspec, const struct conte_stim_params& stim)
 {
 	cspec.x = stim.x;
@@ -237,13 +234,39 @@ void ConteUStim::draw_conte_stim(ARConteSpec& cspec, const struct conte_stim_par
 	cspec.draw();
 	return;
 }
+#endif
+
+void ConteUStim::copy_params_to_spec(const struct conte_stim_params& params, ARConteSpec& spec)
+{
+	spec.x = params.x;
+	spec.y = params.y;
+	spec.w = params.w;
+	spec.h = params.h;
+	spec.orientation = params.ori;
+	spec.sf = params.sf;
+	spec.dev = params.dev;
+	spec.phase = params.phase;
+	spec.bHorizontal = (bool)params.isHorizontal;
+	spec.cue_line_width = params.lwt;
+	spec.cue_level = m_levelCueColors[params.icolor];	// TODO - no check on size here!
+	return;
+}
+
+
+
 
 void ConteUStim::draw_current()
 {
 	const conte_trial_t& trial = m_arguments.trials.at(m_itrial);
 
+	// overlay 0 is all clear, except for fixpt (if present)
+	vsgSetDrawPage(vsgOVERLAYPAGE, cOvPageClear, 0);
+	if (m_arguments.bHaveFixpt)
+		m_arguments.fixpt.drawOverlay(2);
+
 	// overlay 1 has aperture for patch and fixation point (if present)
 	vsgSetDrawPage(vsgOVERLAYPAGE, cOvPageAperture, m_levelOverlayBackground);
+	vsgSetDrawMode(vsgCENTREXY + vsgSOLIDFILL);
 	vsgSetPen1(0);	// clear on overlay page
 	vsgDrawRect(trial.cue_x, trial.cue_y, trial.cue_w, trial.cue_h);
 	if (m_arguments.bHaveFixpt)
@@ -256,11 +279,15 @@ void ConteUStim::draw_current()
 
 	// draw stim pages
 	vsgSetDrawPage(vsgVIDEOPAGE, cPageSample, vsgBACKGROUND);
-	draw_conte_stim(m_probe0, trial.s0);
-	draw_conte_stim(m_probe1, trial.s1);
+	copy_params_to_spec(trial.s0, m_probe0);
+	m_probe0.draw();
+	copy_params_to_spec(trial.s1, m_probe1);
+	m_probe1.draw();
 	vsgSetDrawPage(vsgVIDEOPAGE, cPageTarget, vsgBACKGROUND);
-	draw_conte_stim(m_target0, trial.t0);
-	draw_conte_stim(m_target1, trial.t1);
+	copy_params_to_spec(trial.t0, m_target0);
+	m_target0.draw();
+	copy_params_to_spec(trial.t1, m_target1);
+	m_target1.draw();
 
 	// leave draw pages at reasonable place for next present()
 	vsgSetDrawPage(vsgVIDEOPAGE, cPageBackground, vsgNOCLEAR);
