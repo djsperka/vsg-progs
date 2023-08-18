@@ -117,11 +117,9 @@ public:
 	virtual ~ConteXYHelper() {};
 
 	// get drawing origin for patch 'i', values returned in degrees, use with setDrawOrigin
-	//void getDrawOrigin(unsigned int i, double& x_origin_deg, double& y_origin_deg) const;
 	void getPageIndDrawOrigin(unsigned int i, DWORD& page_ind, double& x_origin_deg, double& y_origin_deg) const;
 
 	// get xy position for page, as used in cycling setup. Returned values in PIXELS, assign to .Xpos, .Ypos
-	//void getPageXYpos(unsigned int i, short& Xpos_pix, short& Ypos_pix) const;
 	void getPageIndXYpos(unsigned int i, DWORD& page_ind, short& Xpos_pix, short& Ypos_pix) const;
 
 	// how many pages will this take? 
@@ -155,15 +153,17 @@ private:
 	unsigned int m_cycle_params_count;
 	VSGCYCLEPAGEENTRY m_cycle_params[m_max_cycle_count];	// warning! No check on usage. You have been warned. 
 	VSGCYCLEPAGEENTRY m_cycle_clear_params[2];				// warning! No check on usage. You have been warned. 
+	VSGCYCLEPAGEENTRY m_cycle_fixpt_params[2];				// warning! No check on usage. You have been warned. 
 
 	static WORD cOvPageClear;
 	static WORD cOvPageAperture;
 	static WORD cPageBackground;
+	static WORD cPageFixpt;
 	static WORD cPageCue;
 	static WORD cPageSample;
 	static WORD cPageTarget;
 
-	ARConteSpec m_probe0, m_probe1, m_target0, m_target1;
+	ARConteSpec m_sample0, m_sample1, m_target0, m_target1;
 
 	// These are the args allowed and which are handled by prargs. Do not use 'F' - it is reserved for 
 	// passing a command file.
@@ -190,8 +190,8 @@ private:
 	// setup page cycling for current trial
 	void setup_cycling(const ConteXYHelper& xyhelper, unsigned int nterms_in_cue);
 
-	// setup page cycling to make an orderly trial ending
-	void ConteUStim::setup_cycling_clear();
+	// setup page cycling to make an orderly trial ending and fixpt
+	void ConteUStim::setup_cycling_clear_fixpt();
 
 };
 
