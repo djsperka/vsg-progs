@@ -173,7 +173,7 @@ std::ostream& operator<<(std::ostream& out, const alert::ARConteSpec& conte)
 {
 	string s = "H";
 	if (!conte.bHorizontal) s = "V";
-	out << conte.x << "," << conte.y << "," << conte.w << "," << conte.h << "," << conte.orientation << "," << conte.sf << "," << conte.dev << "," << conte.phase << "," << s << "," << conte.cue_line_width << "," << conte.cue_level;
+	out << conte.x << "," << conte.y << "," << conte.w << "," << conte.h << "," << conte.orientation << "," << conte.sf << "," << conte.divisor << "," << conte.phase << "," << s << "," << conte.cue_line_width << "," << conte.cue_level;
 	return out;
 }
 
@@ -1602,11 +1602,11 @@ int ARConteSpec::draw()
 	VSGTRIVAL trival_to = COLOR_TYPE(white).trival();
 
 	// gabor
+	double gabor_dev = 0.5 * (this->w + this->h) / this->divisor;
 	vsgSetDrawMode(vsgCENTREXY);
 	vsgSetPen1(m_ramp_low);
 	vsgSetPen2(m_ramp_high);
-	//vsgObjSetColourVector(&trival_from, &trival_to, vsgBIPOLAR);
-	vsgDrawGabor(this->x, -1 * this->y, this->w, this->h, this->orientation, this->sf, this->dev, this->phase);
+	vsgDrawGabor(this->x, -1 * this->y, this->w, this->h, this->orientation, this->sf, gabor_dev, this->phase);
 
 	// set coords for drawing gaussian and border cues
 	if (this->bHorizontal)
@@ -1633,8 +1633,8 @@ int ARConteSpec::draw()
 	// now draw the gaussian(s)
 	vsgSetPen1(this->m_ramp_high);
 	vsgSetPen2(this->m_ramp_mid);
-	vsgDrawGaussian(xx[0], yy[0], this->w, this->h, this->dev);
-	vsgDrawGaussian(xx[1], yy[1], this->w, this->h, this->dev);
+	vsgDrawGaussian(xx[0], yy[0], this->w, this->h, gabor_dev);
+	vsgDrawGaussian(xx[1], yy[1], this->w, this->h, gabor_dev);
 
 	// draw border cue
 	vsgSetDrawMode(vsgSOLIDPEN);

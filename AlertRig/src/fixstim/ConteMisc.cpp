@@ -133,7 +133,7 @@ bool parse_conte_stim_params(const std::vector<string>& tokens, unsigned int fir
 
 	fs.str(tokens[first + 7]);
 	fs.clear();
-	fs >> stim.dev;
+	fs >> stim.divisor;
 
 	fs.str(tokens[first + 8]);
 	fs.clear();
@@ -284,7 +284,23 @@ error_t parse_conte_opt(int key, char* carg, struct argp_state* state)
 		}
 		break;
 	case ARGP_KEY_END:
-		// check that everything needed has been received
+		{
+			// check that everything needed has been received
+			unsigned int num_patches = arguments->dot_supply.size();
+			unsigned int num_patches_needed = 0;
+			for (auto tr : arguments->trials)
+				num_patches_needed += tr.cue_nterms;
+			cerr << "Trials require " << num_patches_needed << " patches, dot supply has " << num_patches << endl;
+			if (num_patches_needed > num_patches)
+			{
+				ret = EINVAL;
+				cerr << "NOT ENOUGH PATCHES!" << endl;
+			}
+			else if (num_patches_needed < num_patches)
+			{
+				cerr << endl << "WARNING: There are more patches than are needed!" << endl << endl;
+			}
+		}
 		break;
 	default:
 		return ARGP_ERR_UNKNOWN;

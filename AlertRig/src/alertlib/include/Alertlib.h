@@ -204,7 +204,7 @@ namespace alert
 		double x, y, w, h;
 		double orientation;
 		double sf;		// spatial frequency
-		double dev;		// gaussian e**(r**2/dev**2)
+		double divisor;	// gaussian e**(r**2/dev**2), dev = (w+h/2)/divisor
 		double phase;	// initial phase
 		bool bHorizontal;
 		DWORD cue_line_width;

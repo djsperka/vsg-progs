@@ -41,7 +41,7 @@ public:
 // one of the 3-panel stim + distractor patches
 struct conte_stim_params
 {
-	double x, y, w, h, ori, sf, phase, dev;
+	double x, y, w, h, ori, sf, phase, divisor;
 	unsigned int isHorizontal;
 	unsigned int lwt;
 	unsigned int icolor;	// refers to cue_color_0 or cue_color_1, so should be 0|1

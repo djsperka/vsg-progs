@@ -227,7 +227,7 @@ void ConteUStim::copy_params_to_spec(const struct conte_stim_params& params, ARC
 	spec.h = params.h;
 	spec.orientation = params.ori;
 	spec.sf = params.sf;
-	spec.dev = params.dev;
+	spec.divisor = params.divisor;
 	spec.phase = params.phase;
 	spec.bHorizontal = (bool)params.isHorizontal;
 	spec.cue_line_width = params.lwt;
