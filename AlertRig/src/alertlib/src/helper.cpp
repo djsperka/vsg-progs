@@ -286,6 +286,66 @@ int parse_rectangle_list(std::vector<std::string>& tokens, std::vector<alert::AR
 }
 
 
+int parse_image(const std::string& s, alert::ARImageSpec& img)
+{
+	int status = 0;
+	vector<string> tokens;
+	istringstream iss;
+	tokenize(s, tokens, ",");
+	if (tokens.size() != 1 && tokens.size() != 3 &&  tokens.size() != 5)
+	{
+		cerr << "Bad image spec format. Expecting filename[,x,y[,durSec,dlySec]]" << endl;
+		return 1;
+	}
+	else
+	{
+		size_t len = tokens[0].copy(img.filename, tokens[0].size());
+		img.filename[len] = '\0';
+
+		if (tokens.size() > 1)
+		{
+			iss.clear();
+			iss.str(tokens[1]);
+			iss >> img.x;
+			if (!iss)
+			{
+				cerr << "bad x value: " << tokens[1] << endl;
+				return 1;
+			}
+
+			iss.clear();
+			iss.str(tokens[2]);
+			iss >> img.y;
+			if (!iss)
+			{
+				cerr << "bad y value: " << tokens[2] << endl;
+				return 1;
+			}
+		}
+
+		if (tokens.size() > 3)
+		{
+			iss.clear();
+			iss.str(tokens[3]);
+			iss >> img.durSeconds;
+			if (!iss)
+			{
+				cerr << "bad durSeconds value: " << tokens[3] << endl;
+				return 1;
+			}
+
+			iss.clear();
+			iss.str(tokens[4]);
+			iss >> img.dlySeconds;
+			if (!iss)
+			{
+				cerr << "bad dlySeconds value: " << tokens[4] << endl;
+				return 1;
+			}
+		}
+	}
+	return status;
+}
 
 
 
@@ -587,115 +647,6 @@ int parse_xhair(const std::string& s, alert::ARXhairSpec& axh)
 
 	return status;
 }
-
-
-
-//int parse_conte(const std::string& s, ARConteSpec& conte)
-//{
-//	int status = -1;
-//	vector<string> tokens;
-//	tokenize(s, tokens, ",");
-//
-//	if (tokens.size() != 12)
-//	{
-//		cerr << "expect 12 tokens: " << tokens.size() << ":" << s << endl;
-//		return status;
-//	}
-//	else
-//	{
-//		istringstream iss;
-//		iss.str(tokens[0]);
-//		iss >> conte.x;
-//		if (!iss)
-//		{
-//			cerr << "bad x: " << tokens[0] << endl;
-//			return(1);
-//		}
-//		iss.str(tokens[1]);
-//		iss.clear();
-//		iss >> conte.y;
-//		if (!iss)
-//		{
-//			cerr << "bad y: " << tokens[1] << endl;
-//			return(1);
-//		}
-//		iss.str(tokens[2]);
-//		iss.clear();
-//		iss >> conte.w;
-//		if (!iss)
-//		{
-//			cerr << "bad width: " << tokens[2] << endl;
-//			return(1);
-//		}
-//		iss.str(tokens[3]);
-//		iss.clear();
-//		iss >> conte.h;
-//		if (!iss)
-//		{
-//			cerr << "bad height: " << tokens[3] << endl;
-//			return(1);
-//		}
-//		iss.str(tokens[4]);
-//		iss.clear();
-//		iss >> conte.orientation;
-//		if (!iss)
-//		{
-//			cerr << "bad ori: " << tokens[4] << endl;
-//			return(1);
-//		}
-//		iss.str(tokens[5]);
-//		iss.clear();
-//		iss >> conte.sf;
-//		if (!iss)
-//		{
-//			cerr << "bad sf: " << tokens[5] << endl;
-//			return(1);
-//		}
-//		iss.str(tokens[6]);
-//		iss.clear();
-//		iss >> conte.dev;
-//		if (!iss)
-//		{
-//			cerr << "bad dev: " << tokens[6] << endl;
-//			return(1);
-//		}
-//		iss.str(tokens[7]);
-//		iss.clear();
-//		iss >> conte.phase;
-//		if (!iss)
-//		{
-//			cerr << "bad ph: " << tokens[7] << endl;
-//			return(1);
-//		}
-//		if (tokens[8] == "h" || tokens[8] == "H")
-//			conte.bHorizontal = true;
-//		else
-//			conte.bHorizontal = false;
-//		iss.str(tokens[9]);
-//		iss.clear();
-//		iss >> conte.cue_line_width;
-//		if (!iss)
-//		{
-//			cerr << "bad cue line width: " << tokens[9] << endl;
-//			return(1);
-//		}
-//		iss.str(tokens[10]);
-//		iss.clear();
-//		iss >> conte.cue_color;
-//		if (!iss)
-//		{
-//			cerr << "bad cue color: " << tokens[10] << endl;
-//			return(1);
-//		}
-//
-//		status = 0;
-//	}
-//	return status;
-//}
-
-
-
-
 
 
 /*
