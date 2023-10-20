@@ -83,6 +83,8 @@ static struct argp_option options[] = {
 	{"draw-group", 769, "0|1|2", 0, "the next object specified should be in this drawing group. Group 1(2) drawn on first(second) stim page."},
 	{"rect", 767, "RECTANGLE_SPEC[;RECTANGLE_SPEC[...]]", 0, "List of rect for a single trial. Separate trials with !."},
 	{"grating-bars", 766, "x1,y1,w1,h1,ori1[,x2,w2,w2,h2,ori2[...]]", 0, "List of grating bar params, 5 for each trial. Comma-separated."},
+	{"bmp-image-list", 765, "filename,x,y,dur,dly,nlevels", 0, "BMP images, compressed color index"},
+	{"bmp-image-order", 764, ",,,0,,1,,,,,2....", 0, "order to display images from bmp-image-list file, 0-based index. * stops all grating etc display."},
 	{ 0 }
 };
 static struct argp f_argp = { options, parse_fixstim_opt, 0, "fixstim -- all-purpose stimulus engine" };
