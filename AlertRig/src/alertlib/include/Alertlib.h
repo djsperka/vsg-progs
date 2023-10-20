@@ -127,6 +127,37 @@ namespace alert
 		virtual int drawOverlay(PIXEL_LEVEL overlayLevel) = 0;
 	};
 
+
+	class ARImageSpec : public ARSpec
+	{
+	public:
+		char filename[256];
+		double x, y;
+		double durSeconds, dlySeconds;
+
+		ARImageSpec()
+			: ARSpec()
+			, x(0)
+			, y(0)
+			, durSeconds(0)
+			, dlySeconds(0)
+		{
+			filename[0] = 0;
+		};
+		ARImageSpec(const ARImageSpec& s)
+			: ARSpec(s)
+			, x(s.x)
+			, y(s.y)
+			, durSeconds(s.durSeconds)
+			, dlySeconds(s.dlySeconds)
+		{
+			strcpy_s(filename, strlen(s.filename), s.filename);
+		};
+		virtual ~ARImageSpec() {};
+		virtual int draw();
+		virtual int drawOverlay(PIXEL_LEVEL overlayLevel);
+	};
+
 	// Rectangle Spec
 	class ARRectangleSpec: public ARSpec
 	{
@@ -479,6 +510,9 @@ std::ostream& operator<<(std::ostream& out, const alert::ARContrastRectangleSpec
 std::ostream& operator<<(std::ostream& out, const alert::ARGratingSpec& args);
 std::ostream& operator<<(std::ostream& out, const alert::ARXhairSpec& arx);
 std::ostream& operator<<(std::ostream& out, const alert::ARConteSpec& arconte);
+std::ostream& operator<<(std::ostream& out, const alert::ARImageSpec& arimage);
+std::istream& operator>>(std::istream& in, alert::ARImageSpec& arimage);
+
 
 // instead of input operators, methods
 int parse_fixation_point(const std::string& s, alert::ARFixationPointSpec& afp);
@@ -489,5 +523,6 @@ int parse_rectangle_list(std::string s, std::vector<alert::ARRectangleSpec>& rec
 int parse_rectangle_list(std::vector<std::string>& tokens, std::vector<alert::ARRectangleSpec>& rectangle_list);
 int parse_grating(const std::string& s, alert::ARGratingSpec& ag);
 int parse_xhair(const std::string& s, alert::ARXhairSpec& axh);
+int parse_image(const std::string& s, alert::ARImageSpec& img);
 //int parse_conte(const std::string& s, alert::ARConteSpec & conte);
 #endif

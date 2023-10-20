@@ -177,6 +177,13 @@ std::ostream& operator<<(std::ostream& out, const alert::ARConteSpec& conte)
 	return out;
 }
 
+std::ostream& operator<<(std::ostream& out, const alert::ARImageSpec& img)
+{
+	out << "FILE=" << img.filename << "," << img.x << "," << img.y << "," << img.durSeconds << "," << img.dlySeconds;
+	return out;
+}
+
+
 ARObject::ARObject() : m_handle(0), m_iDrawGroups(-1), m_use_master(false), m_use_slave(false) 
 {
 };
@@ -1669,5 +1676,39 @@ int ARConteSpec::drawOverlay(PIXEL_LEVEL ovLevel)
 	}
 	vsgSetPen1(ovLevel);
 	vsgDrawRect(this->x, this->y, rectW, rectH);
+	return 0;
+}
+
+
+int ARImageSpec::drawOverlay(PIXEL_LEVEL ovLevel)
+{
+	return -1;
+}
+
+int ARImageSpec::draw()
+{
+	// fetch and write palette
+	// TODO: load palette when loading file
+	// TODO: palette write should respect first/nlevels? 
+	VSGLUTBUFFER lut;
+	long pstatus;
+	pstatus = vsgImageGetPalette(0, this->filename, &lut);
+	if (pstatus)
+	{
+		switch (pstatus)
+		{
+		case vsgerrorERRORREADINGFILE: cerr << "get palette vsgerrorERRORREADINGFILE" << endl; break;
+		case vsgerrorUNSUPPORTEDIMAGETYPE: cerr << "get palette vsgerrorUNSUPPORTEDIMAGETYPE" << endl; break;
+		case vsgerrorUNSUPPORTEDBITMAPFORMAT: cerr << "get palette vsgerrorUNSUPPORTEDBITMAPFORMAT" << endl; break;
+		case vsgerrorOUTOFPCMEMORY: cerr << "get palette vsgerrorOUTOFPCMEMORY" << endl; break;
+		case vsgerrorIMAGEHASNOPALETTE: cerr << "get palette vsgerrorIMAGEHASNOPALETTE" << endl; break;
+		default: cerr << "get palette error: " << pstatus << " filename " << this->filename << " len " << strlen(this->filename) << endl; break;
+		}
+	}
+	vsgPaletteWrite((VSGLUTBUFFER*)lut, 0, 64);
+
+	// draw image
+	if (strlen(this->filename)) vsgDrawImage(vsgBMPPICTURE, this->x, this->y, this->filename);
+
 	return 0;
 }
