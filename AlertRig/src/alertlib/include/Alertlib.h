@@ -128,10 +128,11 @@ namespace alert
 	};
 
 
+#define FILENAME_MAX_LENGTH 256
 	class ARImageSpec : public ARSpec
 	{
 	public:
-		char filename[256];
+		char filename[FILENAME_MAX_LENGTH];
 		double x, y;
 		double durSeconds, dlySeconds;
 
@@ -151,7 +152,8 @@ namespace alert
 			, durSeconds(s.durSeconds)
 			, dlySeconds(s.dlySeconds)
 		{
-			strcpy_s(filename, strlen(s.filename), s.filename);
+			for (size_t i = 0; i < FILENAME_MAX_LENGTH; i++)
+				filename[i] = s.filename[i];
 		};
 		virtual ~ARImageSpec() {};
 		virtual int draw();
@@ -524,5 +526,6 @@ int parse_rectangle_list(std::vector<std::string>& tokens, std::vector<alert::AR
 int parse_grating(const std::string& s, alert::ARGratingSpec& ag);
 int parse_xhair(const std::string& s, alert::ARXhairSpec& axh);
 int parse_image(const std::string& s, alert::ARImageSpec& img);
+int parse_bmp_image_list(const std::string& s, std::vector<alert::ARImageSpec>& vec);
 //int parse_conte(const std::string& s, alert::ARConteSpec & conte);
 #endif
