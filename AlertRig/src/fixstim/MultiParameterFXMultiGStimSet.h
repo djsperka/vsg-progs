@@ -31,6 +31,16 @@ public:
 	virtual std::string toString() const;
 	void cleanup(std::vector<int> pages);
 
+	void setBmpImageSpec(std::vector<alert::ARImageSpec>& vec, unsigned int nlevels)
+	{
+		m_vecBmpImageSpec = vec;
+		m_bHaveBmpImageSpec = true;
+		m_uiNBmpImageLevels = nlevels;
+	}
+	bool hasImageOverride() const { return m_bHaveBmpImageSpec && m_iBmpImageOverride > -1 && m_iBmpImageOverride < m_vecBmpImageSpec.size(); }
+	ARImageSpec& getImageOverride() { return m_vecBmpImageSpec[m_iBmpImageOverride]; }
+	void setBmpImageOverride(int i) { m_iBmpImageOverride = i; cerr << "image override set to " << i << endl; }
+
 private:
 	int m_blank_page;
 	int m_fixpt_page;
@@ -50,6 +60,10 @@ private:
 	size_t m_pageflipindex;
 	int m_pageflippages[2];
 	std::vector<COLOR_TYPE> m_dotColorsSaved;
+	std::vector<alert::ARImageSpec> m_vecBmpImageSpec;
+	unsigned int m_uiNBmpImageLevels;
+	bool m_bHaveBmpImageSpec;
+	int m_iBmpImageOverride;	// if > 0 and m_bHaveBmpImageSpec==true, then img is drawn instead of stimuli. 
 
 	static const int m_max_cycle_count = 32768;
 	VSGCYCLEPAGEENTRY m_cycle_params[m_max_cycle_count];	// warning! No check on usage. You have been warned. 

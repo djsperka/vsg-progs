@@ -22,6 +22,7 @@ MultiParameterFXMultiGStimSet::MultiParameterFXMultiGStimSet()
 	, m_bUseDrawGroups(false)
 	, m_bSweepNotPursuit(false)
 	, m_iCyclingType(CYCLING_TYPE_NONE)
+	, m_bHaveBmpImageSpec(false)
 {};
 
 MultiParameterFXMultiGStimSet::MultiParameterFXMultiGStimSet(ARGratingSpec& grating) 
@@ -30,7 +31,8 @@ MultiParameterFXMultiGStimSet::MultiParameterFXMultiGStimSet(ARGratingSpec& grat
 	, m_bUseDrawGroups(false)
 	, m_bSweepNotPursuit(false)
 	, m_iCyclingType(CYCLING_TYPE_NONE)
-{ 
+	, m_bHaveBmpImageSpec(false)
+{
 	add_grating(grating); 
 };
 
@@ -40,6 +42,7 @@ MultiParameterFXMultiGStimSet::MultiParameterFXMultiGStimSet(ARGratingSpec& grat
 	, m_bUseDrawGroups(false)
 	, m_bSweepNotPursuit(false)
 	, m_iCyclingType(CYCLING_TYPE_NONE)
+	, m_bHaveBmpImageSpec(false)
 {
 	add_grating(grating); 
 };
@@ -50,6 +53,7 @@ MultiParameterFXMultiGStimSet::MultiParameterFXMultiGStimSet(ARContrastFixationP
 	, m_bUseDrawGroups(false)
 	, m_bSweepNotPursuit(false)
 	, m_iCyclingType(CYCLING_TYPE_NONE)
+	, m_bHaveBmpImageSpec(false)
 {};
 
 MultiParameterFXMultiGStimSet::MultiParameterFXMultiGStimSet(ARContrastFixationPointSpec& fixpt, ARXhairSpec& xhair)
@@ -58,6 +62,7 @@ MultiParameterFXMultiGStimSet::MultiParameterFXMultiGStimSet(ARContrastFixationP
 	, m_bUseDrawGroups(false)
 	, m_bSweepNotPursuit(false)
 	, m_iCyclingType(CYCLING_TYPE_NONE)
+	, m_bHaveBmpImageSpec(false)
 {};
 
 MultiParameterFXMultiGStimSet::MultiParameterFXMultiGStimSet(ARGratingSpec& grating, ARXhairSpec& xhair)
@@ -66,6 +71,7 @@ MultiParameterFXMultiGStimSet::MultiParameterFXMultiGStimSet(ARGratingSpec& grat
 	, m_bUseDrawGroups(false)
 	, m_bSweepNotPursuit(false)
 	, m_iCyclingType(CYCLING_TYPE_NONE)
+	, m_bHaveBmpImageSpec(false)
 {
 	add_grating(grating); 
 };
@@ -76,6 +82,7 @@ MultiParameterFXMultiGStimSet::MultiParameterFXMultiGStimSet(ARGratingSpec& grat
 	, m_bUseDrawGroups(false)
 	, m_bSweepNotPursuit(false)
 	, m_iCyclingType(CYCLING_TYPE_NONE)
+	, m_bHaveBmpImageSpec(false)
 {
 	add_grating(grating); 
 };
@@ -84,7 +91,7 @@ int MultiParameterFXMultiGStimSet::init(std::vector<int> pages, int num_stim_pag
 {
 	int status = 0;
 	int levels = 0;
-	const int max_levels = 40;
+	const int max_levels = 128;
 	m_blank_page = pages[0];
 	m_fixpt_page = pages[1];
 	m_fixpt_dot_page = pages[2];
@@ -107,6 +114,17 @@ int MultiParameterFXMultiGStimSet::init(std::vector<int> pages, int num_stim_pag
 	{
 		// enable overlay. Fixpt will be drawn on this page.
 		vsgSetCommand(vsgOVERLAYMASKMODE);
+	}
+
+
+	// If there is a bmp image set, allocate the lowest levels for it. 
+	// If not, then begin allocations at level 1 (allowing for m_cLowLevel)
+
+	if (m_bHaveBmpImageSpec && m_vecBmpImageSpec.size() > 0)
+	{
+		m_vecBmpImageSpec[0].init(m_uiNBmpImageLevels, false);
+		for (size_t i = 1; i < m_vecBmpImageSpec.size(); i++)
+			m_vecBmpImageSpec[i].init(m_vecBmpImageSpec[0]);
 	}
 
 	if (has_xhair())
@@ -183,8 +201,12 @@ int MultiParameterFXMultiGStimSet::init(std::vector<int> pages, int num_stim_pag
 
 void MultiParameterFXMultiGStimSet::cleanup(std::vector<int> pages)
 {
+	cout << "MultiParameterFXMultiGStimSet::cleanup()" << endl;
 	if (m_bSweepNotPursuit)
+	{
+		cout << "vsgOVERLAYDISABLE" << endl;
 		vsgSetCommand(vsgOVERLAYDISABLE);
+	}
 }
 
 int MultiParameterFXMultiGStimSet::handle_trigger(const std::string& s, const std::string& args)
@@ -448,29 +470,41 @@ void MultiParameterFXMultiGStimSet::draw_stuff_on_page(int pagenumber, bool bFix
 	{
 		xhair().draw();
 	}
-	if (bDistractor && has_distractor())
-	{
-		for (unsigned int i = 0; i < distractor_count(); i++)
-		{
-			if (distractor(i).inDrawGroup(iDrawGroup))
-				distractor(i).draw();
-		}
-	}
-	if (bGrating && has_grating())
-	{
-		for (unsigned int i = 0; i < count(); i++)
-		{
-			if (grating(i).inDrawGroup(iDrawGroup))
-				grating(i).draw();
-		}
-	}
 
-	if (bRectangle && has_rectangle())
+	if (!hasImageOverride())
 	{
-		for (unsigned int i = 0; i < rectangle_count(); i++)
+		if (bDistractor && has_distractor())
 		{
-			if (rectangle(i).inDrawGroup(iDrawGroup))
-				rectangle(i).draw();
+			for (unsigned int i = 0; i < distractor_count(); i++)
+			{
+				if (distractor(i).inDrawGroup(iDrawGroup))
+					distractor(i).draw();
+			}
+		}
+		if (bGrating && has_grating())
+		{
+			for (unsigned int i = 0; i < count(); i++)
+			{
+				if (grating(i).inDrawGroup(iDrawGroup))
+					grating(i).draw();
+			}
+		}
+
+		if (bRectangle && has_rectangle())
+		{
+			for (unsigned int i = 0; i < rectangle_count(); i++)
+			{
+				if (rectangle(i).inDrawGroup(iDrawGroup))
+					rectangle(i).draw();
+			}
+		}
+	}
+	else
+	{
+		if (bGrating && has_grating())
+		{
+			cerr << "Draw img: " << getImageOverride() << endl;
+			getImageOverride().draw();
 		}
 	}
 
@@ -478,11 +512,15 @@ void MultiParameterFXMultiGStimSet::draw_stuff_on_page(int pagenumber, bool bFix
 	{
 		fixpt().draw();
 	}
-	if (bDots && has_dot())
+
+	if (!hasImageOverride())
 	{
-		for (unsigned int i = 0; i < dot_count(); i++)
+		if (bDots && has_dot())
 		{
-			dot(i).draw();
+			for (unsigned int i = 0; i < dot_count(); i++)
+			{
+				dot(i).draw();
+			}
 		}
 	}
 }
