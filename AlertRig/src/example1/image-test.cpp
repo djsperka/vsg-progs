@@ -44,7 +44,7 @@ const int f_iPageBlank = 2;
 int f_pages[2] = { 0, 1 };
 unsigned int f_ipage = 0;
 ARImageSpec f_image;
-int f_nlevels = 32;
+unsigned int f_nlevels = 32;
 int init_pages();
 
 int main (int argc, char *argv[])
@@ -238,7 +238,7 @@ int args(int argc, char** argv)
 			break;
 		case 'B':
 			s.assign(optarg);
-			if (parse_bmp_image_list(s, f_vecImageSpec))
+			if (parse_bmp_image_list(s, f_vecImageSpec, f_nlevels))
 			{
 				errflg++;
 				cerr << "Cannot parse bmp image list arg: " << s << endl;
@@ -254,10 +254,6 @@ int args(int argc, char** argv)
 			break;
 		case 'a':
 			m_binaryTriggers = false;
-			break;
-		case 'n':
-			if (parse_integer(s, f_nlevels))
-				errflg++;
 			break;
 		case 'v':
 			m_verbose = true;
