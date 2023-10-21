@@ -730,7 +730,7 @@ error_t parse_fixstim_opt(int key, char* carg, struct argp_state* state)
 	}
 	case 765:
 	{
-		if (parse_bmp_image_list(sarg, arguments->vecImageSpec, arguments->uiNBmpLevels))
+		if (parse_bmp_image_list(sarg, arguments->vecBmpImageSpec, arguments->uiNBmpLevels))
 			ret = EINVAL;
 		else
 			arguments->bHaveBmpImageList = true;
@@ -758,6 +758,7 @@ error_t parse_fixstim_opt(int key, char* carg, struct argp_state* state)
 	case 770:
 	case 767:
 	case 766:
+	case 764:
 	{
 		vector<double> tuning_parameters;
 		vector<COLOR_TYPE> color_parameters;
@@ -765,6 +766,8 @@ error_t parse_fixstim_opt(int key, char* carg, struct argp_state* state)
 		vector<vector<alert::ARFixationPointSpec> > dot_parameters;
 		vector<vector<alert::ARRectangleSpec> > rect_parameters;
 		vector<vector<std::tuple<double, double, double> > >multigrating_parameter_groups;
+		vector<int> bmp_image_indices;
+
 		int nsteps;
 
 		// the first time one of these stim parameter lists is found we must create
@@ -776,7 +779,8 @@ error_t parse_fixstim_opt(int key, char* carg, struct argp_state* state)
 			(key == 'U' && parse_color_list(sarg, color_parameters)) ||
 			(key == 770 && parse_colorvector_list(sarg, colorvector_parameters)) ||
 			(key == 772 && parse_multigrating(sarg, multigrating_parameter_groups)) ||
-			((key != 'D' && key != 767 && key != 'U' && key != 770) && parse_tuning_list(sarg, tuning_parameters, nsteps)))
+			(key == 764 && parse_int_list(sarg, bmp_image_indices)) ||
+			((key != 'D' && key != 767 && key != 'U' && key != 770 && key != 764) && parse_tuning_list(sarg, tuning_parameters, nsteps)))
 		{
 			ret = EINVAL;
 		}
@@ -904,6 +908,20 @@ error_t parse_fixstim_opt(int key, char* carg, struct argp_state* state)
 				case 766:
 					plist = new GratingBarList(tuning_parameters, (unsigned int)stimIndex, arguments->bLastWasDistractor);
 					break;
+				case 764:
+				{
+					if (arguments->bHaveBmpImageList)
+					{
+						plist = new BmpImageOrderList(bmp_image_indices, 0, false);
+						pmulti->setBmpImageSpec(arguments->vecBmpImageSpec, arguments->uiNBmpLevels);
+					}
+					else
+					{
+						cerr << "Need --bmp_image-list arg before --bmp-image-order" << endl;
+						ret = EINVAL;
+					}
+					break;
+				}
 				default:
 					cerr << "Unhandled varying stim parameter type (" << (char)key << ")" << endl;
 					ret = EINVAL;

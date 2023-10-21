@@ -69,9 +69,11 @@ struct fixstim_arguments
 	std::vector<alert::ARContrastFixationPointSpec> vecDots;
 	//std::vector<alert::ARContrastRectangleSpec> vecRectangles;
 
-	std::vector<alert::ARImageSpec> vecImageSpec;
+	vector<ARImageSpec> vecBmpImageSpec;
 	bool bHaveBmpImageList;
 	unsigned int uiNBmpLevels;
+	FXGStimParameterList* plistBmpOrder;	// so ugly
+	bool bHaveBmpImageOrder;
 
 	StimSet* pStimSet;
 	bool bUsingMultiParameterStimSet;
@@ -112,6 +114,10 @@ struct fixstim_arguments
 		, bPendingDrawGroup(false)
 		, iPendingDrawGroup(-1)
 		, bUseDrawGroups(false)
+		, bHaveBmpImageList(false)
+		, uiNBmpLevels(32)
+		, plistBmpOrder(nullptr)
+		, bHaveBmpImageOrder(false)
 		, vecFixpts()
 		, pStimSet(nullptr)
 		, bUsingMultiParameterStimSet(false)
