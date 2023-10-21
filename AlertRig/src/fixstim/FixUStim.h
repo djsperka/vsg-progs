@@ -69,6 +69,10 @@ struct fixstim_arguments
 	std::vector<alert::ARContrastFixationPointSpec> vecDots;
 	//std::vector<alert::ARContrastRectangleSpec> vecRectangles;
 
+	std::vector<alert::ARImageSpec> vecImageSpec;
+	bool bHaveBmpImageList;
+	unsigned int uiNBmpLevels;
+
 	StimSet* pStimSet;
 	bool bUsingMultiParameterStimSet;
 	bool bHaveSequence;

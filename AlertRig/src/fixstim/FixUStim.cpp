@@ -728,6 +728,14 @@ error_t parse_fixstim_opt(int key, char* carg, struct argp_state* state)
 			ret = EINVAL;
 		break;
 	}
+	case 765:
+	{
+		if (parse_bmp_image_list(sarg, arguments->vecImageSpec, arguments->uiNBmpLevels))
+			ret = EINVAL;
+		else
+			arguments->bHaveBmpImageList = true;
+		break;
+	}
 	case 'O':
 	case 'T':
 	case 'S':
