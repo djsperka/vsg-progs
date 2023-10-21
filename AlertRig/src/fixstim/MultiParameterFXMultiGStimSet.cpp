@@ -504,6 +504,11 @@ void MultiParameterFXMultiGStimSet::draw_stuff_on_page(int pagenumber, bool bFix
 		if (bGrating && has_grating())
 		{
 			cerr << "Draw img: " << getImageOverride() << endl;
+			if (has_grating())
+			{
+				getImageOverride().x = grating(0).x;
+				getImageOverride().y = grating(0).y;
+			}
 			getImageOverride().draw();
 		}
 	}
