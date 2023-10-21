@@ -5,6 +5,7 @@
 #include <sstream>
 #include <fstream>
 #include <boost/algorithm/string.hpp>
+#include <boost/filesystem.hpp>
 
 using namespace std;
 using namespace alert;
@@ -647,6 +648,111 @@ int parse_xhair(const std::string& s, alert::ARXhairSpec& axh)
 
 	return status;
 }
+
+
+int parse_bmp_image_list(const string& s, vector<ARImageSpec>& vec)
+{
+	// tokenize
+	// filename,x,y,dur,dly
+	// 1, 3, or 5 args, just like ARImageSpec, parse it like one. 
+	ARImageSpec argSpec;
+	if (parse_image(s, argSpec))
+	{
+		cerr << "Canot parse image list arg: " << s << endl;
+		return 1;
+	}
+	else
+	{
+		cerr << "image arg read as: " << argSpec << endl;
+	}
+
+	// filename is read as a text file, not an image. 
+	// The params from this spec will be applied to each spec in 
+	// the set after the list is parsed.
+
+	int status = 0;
+	boost::filesystem::path p(argSpec.filename);
+	if (!exists(p))
+	{
+		std::cerr << "Error: image list file does not exist: " << argSpec.filename << endl;
+		status = 1;
+	}
+	else
+	{
+		boost::filesystem::path folder = p.parent_path();		// if file has relative pathnames to images, they are relative to dir file lives in
+		std::cerr << "Found image list file " << p << " at path " << folder << std::endl;
+
+		string line;
+		int linenumber = 0;
+		std::ifstream myfile(p.c_str());
+		if (myfile.is_open())
+		{
+			ARImageSpec imgFromFile;
+			while (getline(myfile, line) && !status)
+			{
+				boost::trim(line);
+				linenumber++;
+				cerr << "Got line " << linenumber << ": " << line << endl;
+				if (line.length() == 0 || line[0] == '#')
+				{
+					// skip empty lines and those that start with '#'
+				}
+				else if (parse_image(line, imgFromFile))
+				{
+					cerr << "parse failed on line " << linenumber << ": " << line << endl;
+					status = 1;	// this will stop processing, eventually.
+				}
+				else
+				{
+					// fix filename with prefix if relative
+					boost::filesystem::path pathBmpFile(imgFromFile.filename);
+					cerr << "filename found: " << pathBmpFile.string() << endl;
+					if (pathBmpFile.is_relative())
+					{
+						pathBmpFile = folder / pathBmpFile;
+					}
+
+					if (!exists(pathBmpFile))
+					{
+						std::cerr << "bmp image file not found,line " << linenumber << " : " << pathBmpFile << endl;
+						status = 1;
+					}
+					else
+					{
+						// The bmp file exists! 
+						// Update the filename
+
+						cerr << "bmp exists! " << imgFromFile.filename << endl;
+						string stmp = pathBmpFile.string();
+						strcpy(imgFromFile.filename, stmp.c_str());
+
+						// Also update x,y
+						imgFromFile.x = argSpec.x;
+						imgFromFile.y = argSpec.y;
+
+						// add to vec
+						cerr << " add to vec" << endl;
+
+						vec.push_back(imgFromFile);
+						cerr << "done" << endl;
+					}
+				}
+			}
+			myfile.close();
+		}
+		else
+		{
+			cerr << "Cannot open file: " << p.c_str() << endl;
+			status = 1;
+		}
+	}
+	return status;
+}
+
+
+
+
+
 
 
 /*
