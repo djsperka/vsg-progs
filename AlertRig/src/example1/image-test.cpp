@@ -2,6 +2,8 @@
 #include <string>
 #include <vector>
 #include <algorithm>
+#include <boost/filesystem.hpp>
+#include <boost/algorithm/string.hpp>
 #define __GNU_LIBRARY__
 #include "getopt.h"
 #undef __GNU_LIBRARY__
@@ -26,6 +28,8 @@ int callback(int &output, const alert::CallbackTrigger* ptrig);
 using namespace std;
 using namespace alert;
 
+vector<ARImageSpec> f_vecImageSpec;
+unsigned int f_icurrent = 0;
 ARContrastFixationPointSpec m_afp;
 COLOR_TYPE m_background;
 vector<ARGratingSpec*> m_gratings;
@@ -37,8 +41,10 @@ bool m_bCalibration = false;
 const int f_iPage0 = 0;
 const int f_iPage1 = 1;
 const int f_iPageBlank = 2;
+int f_pages[2] = { 0, 1 };
+unsigned int f_ipage = 0;
 ARImageSpec f_image;
-
+int f_nlevels = 32;
 int init_pages();
 
 int main (int argc, char *argv[])
@@ -113,18 +119,116 @@ int main (int argc, char *argv[])
 	return 0;
 }
 
+//int parse_bmp_image_list(const string& s, vector<ARImageSpec>& vec)
+//{
+//	// tokenize
+//	// filename,x,y,dur,dly
+//	// 1, 3, or 5 args, just like ARImageSpec, parse it like one. 
+//	ARImageSpec argSpec;
+//	if (parse_image(s, argSpec))
+//	{
+//		cerr << "Canot parse image list arg: " << s << endl;
+//		return 1;
+//	}
+//	else
+//	{
+//		cerr << "image arg read as: " << argSpec << endl;
+//	}
+//
+//	// filename is read as a text file, not an image. 
+//	// The params from this spec will be applied to each spec in 
+//	// the set after the list is parsed.
+//
+//	int status = 0;
+//	boost::filesystem::path p(argSpec.filename);
+//	if (!exists(p))
+//	{
+//		std::cerr << "Error: image list file does not exist: " << argSpec.filename << endl;
+//		status = 1;
+//	}
+//	else
+//	{
+//		boost::filesystem::path folder = p.parent_path();		// if file has relative pathnames to images, they are relative to dir file lives in
+//		std::cerr << "Found image list file " << p << " at path " << folder << std::endl;
+//
+//		string line;
+//		int linenumber = 0;
+//		std::ifstream myfile(p.c_str());
+//		if (myfile.is_open())
+//		{
+//			ARImageSpec imgFromFile;
+//			while (getline(myfile, line) && !status)
+//			{
+//				boost::trim(line);
+//				linenumber++;
+//				cerr << "Got line " << linenumber << ": " << line << endl;
+//				if (line.length() == 0 || line[0] == '#')
+//				{
+//					// skip empty lines and those that start with '#'
+//				}
+//				else if (parse_image(line, imgFromFile))
+//				{
+//					cerr << "parse failed on line " << linenumber << ": " << line << endl;
+//					status = 1;	// this will stop processing, eventually.
+//				}
+//				else
+//				{
+//					// fix filename with prefix if relative
+//					boost::filesystem::path pathBmpFile(imgFromFile.filename);
+//					cerr << "filename found: " << pathBmpFile.string() << endl;
+//					if (pathBmpFile.is_relative())
+//					{
+//						pathBmpFile = folder / pathBmpFile;
+//					}
+//
+//					if (!exists(pathBmpFile))
+//					{
+//						std::cerr << "bmp image file not found,line " << linenumber << " : " << pathBmpFile << endl;
+//						status = 1;
+//					}
+//					else
+//					{
+//						// The bmp file exists! 
+//						// Update the filename
+//
+//						cerr << "bmp exists! " << imgFromFile.filename << endl;
+//						string stmp = pathBmpFile.string();
+//						strcpy(imgFromFile.filename, stmp.c_str());
+//
+//						// Also update x,y
+//						imgFromFile.x = argSpec.x;
+//						imgFromFile.y = argSpec.y;
+//
+//						// add to vec
+//						cerr << " add to vec" << endl;
+//
+//						vec.push_back(imgFromFile);
+//						cerr << "done" << endl;
+//					}
+//				}
+//			}
+//			myfile.close();
+//		}
+//		else
+//		{
+//			cerr << "Cannot open file: " << p.c_str() << endl;
+//			status = 1;
+//		}
+//	}
+//	return status;
+//}
 
 
-int args(int argc, char **argv)
-{	
-	bool have_d=false;
+int args(int argc, char** argv)
+{
+	bool have_d = false;
 	string s;
 	int c;
-	ARGratingSpec *pspec=NULL;
-	extern char *optarg;
+	ARGratingSpec* pspec = NULL;
+	extern char* optarg;
 	extern int optind;
 	int errflg = 0;
-	while ((c = getopt(argc, argv, "A:B:s:b:hd:va")) != -1)
+	while ((c = getopt(argc, argv, "A:B:s:b:hd:van:")) != -1)
 	{
 		switch (c) 
 		{
@@ -132,8 +236,28 @@ int args(int argc, char **argv)
 			s.assign(optarg);
 			if (parse_image(s, f_image)) errflg++;
 			break;
+		case 'B':
+			s.assign(optarg);
+			if (parse_bmp_image_list(s, f_vecImageSpec))
+			{
+				errflg++;
+				cerr << "Cannot parse bmp image list arg: " << s << endl;
+			}
+			else
+			{
+				cerr << "images from input:" << endl;
+				for (auto img : f_vecImageSpec)
+				{
+					cerr << img << endl;
+				}
+			}
+			break;
 		case 'a':
 			m_binaryTriggers = false;
+			break;
+		case 'n':
+			if (parse_integer(s, f_nlevels))
+				errflg++;
 			break;
 		case 'v':
 			m_verbose = true;
@@ -177,12 +301,13 @@ int init_pages()
 	int islice=50;
 	CallbackTrigger *pcall = NULL;
 
-	f_image.init(64, false);
+	f_image.init(f_nlevels, false);
+	for (size_t i = 0; i < f_vecImageSpec.size(); i++)
+		f_vecImageSpec[i].init(f_image);
 
-	vsgSetDrawPage(vsgVIDEOPAGE, f_iPage0, vsgBACKGROUND);
-	f_image.draw();
-	vsgSetDrawPage(vsgVIDEOPAGE, f_iPageBlank, vsgBACKGROUND);
-
+	vsgSetDrawPage(vsgVIDEOPAGE, f_pages[1], vsgBACKGROUND);
+	vsgSetDrawPage(vsgVIDEOPAGE, f_pages[0], vsgBACKGROUND);
+	f_ipage = 0;
 
 	// trigger to turn stim on
 	triggers.addTrigger(new CallbackTrigger("M", 0x2, 0x2, 0x2, 0x2, callback));
@@ -223,7 +348,12 @@ int callback(int &output, const CallbackTrigger* ptrig)
 
 	if (key == "M")
 	{
-		vsgSetDrawPage(vsgVIDEOPAGE, f_iPage0, vsgNOCLEAR);
+		f_icurrent++;
+		if (f_icurrent >= f_vecImageSpec.size())
+			f_icurrent = 0;
+		f_ipage = 1 - f_ipage;
+		vsgSetDrawPage(vsgVIDEOPAGE, f_ipage, vsgBACKGROUND);
+		f_vecImageSpec[f_icurrent].draw();
 //		vsgObjSelect(f_gabor.handle);
 //		vsgObjSetContrast(100);
 	}
