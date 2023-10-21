@@ -74,6 +74,7 @@ struct fixstim_arguments
 	unsigned int uiNBmpLevels;
 	FXGStimParameterList* plistBmpOrder;	// so ugly
 	bool bHaveBmpImageOrder;
+	bool bHaveGratingXYList;
 
 	StimSet* pStimSet;
 	bool bUsingMultiParameterStimSet;
@@ -118,6 +119,7 @@ struct fixstim_arguments
 		, uiNBmpLevels(32)
 		, plistBmpOrder(nullptr)
 		, bHaveBmpImageOrder(false)
+		, bHaveGratingXYList(false)
 		, vecFixpts()
 		, pStimSet(nullptr)
 		, bUsingMultiParameterStimSet(false)

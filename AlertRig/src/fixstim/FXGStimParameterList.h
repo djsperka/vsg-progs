@@ -33,9 +33,10 @@ public:
 class BmpImageOrderList : public FXGStimParameterList
 {
 public:
-	BmpImageOrderList(vector<int> vecImageIndex, unsigned int index, bool bDistractor)
+	BmpImageOrderList(vector<int> vecImageIndex, unsigned int index, bool bDistractor, bool bDoXY)
 		: FXGStimParameterList(index, bDistractor)
 		, m_vec(vecImageIndex) 
+		, m_bUpdateXY(bDoXY)
 	{ 
 		m_iter = m_vec.begin(); 
 	};
@@ -59,6 +60,22 @@ public:
 		//else
 		//	pstimset->grating(index()).setContrast((int)*m_iter);
 		pstimset->setBmpImageOverride(*m_iter);
+
+		// match the x,y to the first grating. 
+		if (pstimset->hasImageOverride() && m_bUpdateXY)
+		{
+			if (this->isDistractor())
+			{
+				pstimset->getImageOverride().x = pstimset->distractor(index()).x;
+				pstimset->getImageOverride().y = pstimset->distractor(index()).y;
+			}
+			else
+			{
+				pstimset->getImageOverride().x = pstimset->grating(index()).x;
+				pstimset->getImageOverride().y = pstimset->grating(index()).y;
+			}
+		}
+
 		return true;
 	}
 
@@ -67,6 +84,7 @@ public:
 private:
 	vector<int> m_vec;
 	vector<int>::const_iterator m_iter;
+	bool m_bUpdateXY;
 };
 
 // Parameter value list for contrast

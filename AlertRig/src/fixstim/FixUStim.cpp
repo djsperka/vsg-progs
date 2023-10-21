@@ -608,7 +608,7 @@ error_t parse_fixstim_opt(int key, char* carg, struct argp_state* state)
 			arguments->bHaveStim = true;
 			arguments->bLastWasGrating = true;
 			arguments->bLastWasFixpt = arguments->bLastWasDistractor = false;
-
+			arguments->bHaveGratingXYList = false;
 			if (arguments->bPendingDrawGroup)
 			{
 				arguments->grating.setDrawGroups(arguments->iPendingDrawGroup);
@@ -849,6 +849,7 @@ error_t parse_fixstim_opt(int key, char* carg, struct argp_state* state)
 					break;
 				case 'Z':
 					plist = new GratingXYList(tuning_parameters, (unsigned int)stimIndex, arguments->bLastWasDistractor);
+					arguments->bHaveGratingXYList = true;
 					break;
 				case 'X':
 					plist = new StimXList(tuning_parameters, (unsigned int)stimIndex, arguments->bLastWasDistractor);
@@ -912,7 +913,7 @@ error_t parse_fixstim_opt(int key, char* carg, struct argp_state* state)
 				{
 					if (arguments->bHaveBmpImageList)
 					{
-						plist = new BmpImageOrderList(bmp_image_indices, 0, false);
+						plist = new BmpImageOrderList(bmp_image_indices, (unsigned int)stimIndex, arguments->bLastWasDistractor, arguments->bHaveGratingXYList);
 						pmulti->setBmpImageSpec(arguments->vecBmpImageSpec, arguments->uiNBmpLevels);
 					}
 					else
