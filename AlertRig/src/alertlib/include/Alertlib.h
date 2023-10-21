@@ -526,6 +526,6 @@ int parse_rectangle_list(std::vector<std::string>& tokens, std::vector<alert::AR
 int parse_grating(const std::string& s, alert::ARGratingSpec& ag);
 int parse_xhair(const std::string& s, alert::ARXhairSpec& axh);
 int parse_image(const std::string& s, alert::ARImageSpec& img);
-int parse_bmp_image_list(const std::string& s, std::vector<alert::ARImageSpec>& vec);
+int parse_bmp_image_list(const std::string& s, std::vector<alert::ARImageSpec>& vec, unsigned int& nlevels);
 //int parse_conte(const std::string& s, alert::ARConteSpec & conte);
 #endif

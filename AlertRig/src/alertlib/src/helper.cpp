@@ -650,15 +650,45 @@ int parse_xhair(const std::string& s, alert::ARXhairSpec& axh)
 }
 
 
-int parse_bmp_image_list(const string& s, vector<ARImageSpec>& vec)
+int parse_bmp_image_list(const string& s, vector<ARImageSpec>& vec, unsigned int& nlevels)
 {
-	// tokenize
+	// tokenize and pick off the nlevels (last arg)
+	std::string stringStripped;
+	std::vector<std::string> tokens;
+	tokenize(s, tokens, ",");
+	if (tokens.size() == 2 || tokens.size() == 4 || tokens.size() == 6)
+	{
+		if (parse_uint(tokens[tokens.size() - 1], nlevels))
+		{
+			std::cerr << "Cannot parse nlevels token: " << tokens[tokens.size() - 1] << std::endl;
+			return 1;
+		}
+		else
+		{
+			stringstream ss;
+			tokens.pop_back();
+			ss << tokens[0];
+			for (size_t i = 1; i < tokens.size(); i++)
+			{
+				ss << "," << tokens[i];
+			}
+			stringStripped = ss.str();
+			std::cerr << "Got nlevels " << nlevels << " parse this: " << stringStripped << endl;
+		}
+
+	}
+	else
+	{
+		std::cerr << "number of levels should be last arg, need 2, 4, or 6.";
+		return 1;
+	}
+
 	// filename,x,y,dur,dly
 	// 1, 3, or 5 args, just like ARImageSpec, parse it like one. 
 	ARImageSpec argSpec;
-	if (parse_image(s, argSpec))
+	if (parse_image(stringStripped, argSpec))
 	{
-		cerr << "Canot parse image list arg: " << s << endl;
+		cerr << "Canot parse image list arg: " << stringStripped << endl;
 		return 1;
 	}
 	else
