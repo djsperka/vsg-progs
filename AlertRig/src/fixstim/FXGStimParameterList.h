@@ -29,6 +29,46 @@ public:
 	bool isDistractor() const { return m_bDistractor; };
 };
 
+
+class BmpImageOrderList : public FXGStimParameterList
+{
+public:
+	BmpImageOrderList(vector<int> vecImageIndex, unsigned int index, bool bDistractor)
+		: FXGStimParameterList(index, bDistractor)
+		, m_vec(vecImageIndex) 
+	{ 
+		m_iter = m_vec.begin(); 
+	};
+
+	virtual ~BmpImageOrderList() {};
+	virtual bool advance(MultiParameterFXMultiGStimSet* pstimset)
+	{
+		m_iter++;
+		if (m_iter == m_vec.end()) m_iter = m_vec.begin();
+		return set_current_parameter(pstimset);
+	}
+
+	virtual bool set_current_parameter(MultiParameterFXMultiGStimSet* pstimset)
+	{
+		//// Tell the stim set to save this contrast as its "good" contrast.
+		//pstimset->setSavedContrast((int)*m_iter, index(), isDistractor());
+
+		//// and set the contrast.
+		//if (isDistractor())
+		//	pstimset->distractor(index()).setContrast((int)*m_iter);
+		//else
+		//	pstimset->grating(index()).setContrast((int)*m_iter);
+		pstimset->setBmpImageOverride(*m_iter);
+		return true;
+	}
+
+
+
+private:
+	vector<int> m_vec;
+	vector<int>::const_iterator m_iter;
+};
+
 // Parameter value list for contrast
 
 class StimContrastList: public FXGStimParameterList
