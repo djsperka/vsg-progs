@@ -1708,7 +1708,7 @@ int ARImageSpec::draw()
 	vsgPaletteWrite((VSGLUTBUFFER*)lut, 0, 64);
 
 	// draw image
-	if (strlen(this->filename)) vsgDrawImage(vsgBMPPICTURE, this->x, this->y, this->filename);
+	if (strlen(this->filename)) vsgDrawImage(vsgBMPPICTURE, this->x, -this->y, this->filename);
 
 	return 0;
 }
