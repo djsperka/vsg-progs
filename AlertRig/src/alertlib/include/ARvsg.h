@@ -55,7 +55,7 @@ namespace alert
 		int request_single(PIXEL_LEVEL& level);
 		int request_range(int num, PIXEL_LEVEL& first);
 		int remaining();
-		void reset_available_levels() { m_next_available_level = m_cLowLevel+1; };
+		void reset_available_levels() { m_next_available_level = 0; };
 		VSGOBJHANDLE dummyObjectHandle() { return m_handle; };
 		long hostpage_handle() const { return m_hostpage_handle; };
 		PIXEL_LEVEL lowlevel() const { return m_cLowLevel; };
@@ -71,7 +71,7 @@ namespace alert
 			, m_widthPixels(0)
 			, m_heightDegrees(0)
 			, m_widthDegrees(0)
-			, m_next_available_level(m_cLowLevel+1)
+			, m_next_available_level(0)
 			, m_hostpage_handle(-1)
 
 		{};
@@ -93,8 +93,8 @@ namespace alert
 		long m_hostpage_handle;
 		VSGTRIVAL m_colors[11];
 
-		static const PIXEL_LEVEL m_cDummyLevel = 0;
-		static const PIXEL_LEVEL m_cLowLevel = 1;
+		//static const PIXEL_LEVEL m_cDummyLevel = 0;
+		static const PIXEL_LEVEL m_cLowLevel = 0;
 		static const PIXEL_LEVEL m_cHighLevel = 251;
 	};
 };

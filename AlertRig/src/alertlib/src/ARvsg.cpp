@@ -151,7 +151,8 @@ ARvsg::~ARvsg()
 void ARvsg::setBackgroundColor(const COLOR_TYPE& c)
 {
 	m_background_color = c;
-	arutil_color_to_palette(m_background_color, m_cDummyLevel);
+	// DJS THIS MIGHT BE BAD 
+	//arutil_color_to_palette(m_background_color, m_cDummyLevel);
 	vsgSetBackgroundColour(&c.trival());
 }
 
@@ -180,10 +181,15 @@ void ARvsg::reinit()
 
 	background = m_background_color.trival();
 
+#if 0
 	// Create single dummy object and assign it a level
 	m_handle = vsgObjCreate();
 	vsgObjSetPixelLevels(m_cDummyLevel, 1);
 	cout << "ARvsg::reinit(): Got dummy obj(" << m_handle << ")" << endl;
+#else
+	cout << "ARvsg::reinit(): No dummy object allocated." << endl;
+	m_handle = 999;
+#endif
 
 	// Set up triggers and present. A single pulse on DOUT0.
 	vsgObjSetTriggers(vsgTRIG_ONPRESENT, 0, 0);
@@ -192,7 +198,7 @@ void ARvsg::reinit()
 	vsgSetBackgroundColour(&background_color().trival());
 	cout << "ARvsg::reinit(): Screen distance = " << m_screenDistanceMM << endl;
 	cout << "ARvsg::reinit(): Screen resolution (" << m_widthPixels << "x" << m_heightPixels << ") pixels (" << m_widthDegrees << "x" << m_heightDegrees << ") degrees" << endl;
-	cout << "ARvsg::reinit(): Dummy level " << m_cDummyLevel << " object handle " << m_handle << endl;
+	//cout << "ARvsg::reinit(): Dummy level " << m_cDummyLevel << " object handle " << m_handle << endl;
 	cout << "ARvsg::reinit(): Low/high level " << m_cLowLevel << "/" << m_cHighLevel << endl;
 	cout << "ARvsg::reinit(): Background color: " << background_color() << endl;
 	vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgBACKGROUND);
