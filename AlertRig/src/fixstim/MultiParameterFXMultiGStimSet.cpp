@@ -91,7 +91,7 @@ int MultiParameterFXMultiGStimSet::init(std::vector<int> pages, int num_stim_pag
 {
 	int status = 0;
 	int levels = 0;
-	const int max_levels = 128;
+	const int max_levels = 40;
 	m_blank_page = pages[0];
 	m_fixpt_page = pages[1];
 	m_fixpt_dot_page = pages[2];
@@ -133,7 +133,8 @@ int MultiParameterFXMultiGStimSet::init(std::vector<int> pages, int num_stim_pag
 	}
 	if (has_grating() || has_distractor())
 	{
-		levels = min(240/(int)(count() + distractor_count()), max_levels);
+		int nlevelsForGratings = ARvsg::instance().remaining() - 2;
+		levels = min(nlevelsForGratings/(int)(count() + distractor_count()), max_levels);
 		for (unsigned int i = 0; i < count(); i++)
 		{
 			grating(i).init(levels);
