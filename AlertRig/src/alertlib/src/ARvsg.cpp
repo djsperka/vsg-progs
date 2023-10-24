@@ -164,6 +164,7 @@ void ARvsg::reinit()
 
 	// reclaim levels for our level manager
 	ARvsg::instance().reset_available_levels();
+	cerr << "ARvsg::reinit(): available levels remaining: " << remaining() << endl;
 
 	vsgSetCommand(vsgOVERLAYDISABLE);
 	vsgSetDrawMode(vsgSOLIDFILL + vsgCENTREXY);
@@ -182,9 +183,9 @@ void ARvsg::reinit()
 	background = m_background_color.trival();
 
 #if 0
-	// Create single dummy object and assign it a level
+	// Create single dummy object, do not assign it a level
 	m_handle = vsgObjCreate();
-	vsgObjSetPixelLevels(m_cDummyLevel, 1);
+	//vsgObjSetPixelLevels(m_cDummyLevel, 1);
 	cout << "ARvsg::reinit(): Got dummy obj(" << m_handle << ")" << endl;
 #else
 	cout << "ARvsg::reinit(): No dummy object allocated." << endl;
