@@ -419,8 +419,15 @@ void MultiParameterFXMultiGStimSet::set_current(size_t index)
 // m_blank_page = background only
 // m_fixpt_page = fixpt only, distractors and xhair if present.
 // m_fixpt_dot_page = fixpt and distractors, xhair, and dots (if present)
+// will leave draw page same when done, though that page might be altered
 void MultiParameterFXMultiGStimSet::draw_current()
 {
+	// get current display page - we make sure to set the draw page to that when leaving
+	
+	long dpVideo, dpOverlay;
+	dpVideo = vsgGetZoneDisplayPage(vsgVIDEOPAGE);
+	dpOverlay = vsgGetZoneDisplayPage(vsgOVERLAYPAGE);
+
 	// When Pursuit is used (or anything that drifts the video screen), make sure to move the 
 	// screen back to its home before drawing. If cycling was active and page left mid-drift, 
 	// this would be needed to fix. Should have no effect otherwise.
@@ -451,14 +458,21 @@ void MultiParameterFXMultiGStimSet::draw_current()
 	// When using sweep not pursuit, prepare the overlay pages.
 	// overlay page 0 - clear (transparent)
 	// overlay page 1 - fixation point
-	vsgSetDrawPage(vsgOVERLAYPAGE, 1, 0);
-	if (has_fixpt())
+	if (m_bSweepNotPursuit)
 	{
-		// Note, arbitrarily taking level 2 on overlay. 
-		fixpt().drawOverlay(2);
+		vsgSetDrawPage(vsgOVERLAYPAGE, 1, 0);
+		if (has_fixpt())
+		{
+			// Note, arbitrarily taking level 2 on overlay. 
+			fixpt().drawOverlay(2);
+		}
+		vsgSetDrawPage(vsgOVERLAYPAGE, 0, 0);
+		// not what we want? BevsgSetDisplayPage(0);	// displays overlay page 0, which should be empty.
 	}
-	vsgSetDrawPage(vsgOVERLAYPAGE, 0, 0);
-	vsgSetDisplayPage(0);	// displays overlay page 0, which should be empty.
+	// restore original draw page
+	vsgSetDrawPage(vsgVIDEOPAGE, dpVideo, vsgNOCLEAR);
+
+	cerr << "Draw page restored to page " << dpVideo << " fixpt_page=" << m_fixpt_page << endl;
 }
 
 
