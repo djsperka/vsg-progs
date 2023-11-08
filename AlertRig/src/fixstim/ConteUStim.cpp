@@ -364,6 +364,15 @@ void ConteUStim::setup_cycling(const ConteXYHelper& xyhelper, unsigned int nterm
 	m_cycle_params[m_cycle_params_count].Frames = nframes(trial.target_display_ms);
 	m_cycle_params_count++;
 
+	// response time
+	m_cycle_params[m_cycle_params_count].Stop = 0;
+	m_cycle_params[m_cycle_params_count].Page = cPageFixpt + vsgDUALPAGE + vsgTRIGGERPAGE;
+	m_cycle_params[m_cycle_params_count].Xpos = m_cycle_params[m_cycle_params_count].Ypos = 0;
+	m_cycle_params[m_cycle_params_count].ovPage = cOvPageClear;
+	m_cycle_params[m_cycle_params_count].ovXpos = m_cycle_params[m_cycle_params_count].ovYpos = 0;
+	m_cycle_params[m_cycle_params_count].Frames = nframes(trial.saccade_response_time_ms);
+	m_cycle_params_count++;
+
 	// all done - clear
 	m_cycle_params[m_cycle_params_count].Stop = 1;
 	m_cycle_params[m_cycle_params_count].Page = cPageBackground + vsgDUALPAGE + vsgTRIGGERPAGE;
