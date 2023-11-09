@@ -229,7 +229,7 @@ void ConteUStim::copy_params_to_spec(const struct conte_stim_params& params, ARC
 	spec.sf = params.sf;
 	spec.divisor = params.divisor;
 	spec.phase = params.phase;
-	spec.bHorizontal = (bool)params.isHorizontal;
+	spec.iHorizontal = params.iHorizontal;
 	spec.cue_line_width = params.lwt;
 	spec.cue_level = m_levelCueColors[params.icolor];	// TODO - no check on size here!
 	return;

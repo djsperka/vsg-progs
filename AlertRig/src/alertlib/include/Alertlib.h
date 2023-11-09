@@ -239,7 +239,7 @@ namespace alert
 		double sf;		// spatial frequency
 		double divisor;	// gaussian e**(r**2/dev**2), dev = (w+h/2)/divisor
 		double phase;	// initial phase
-		bool bHorizontal;
+		int iHorizontal;	// 1: horizontal; 0: vertical; -1: no flankers
 		DWORD cue_line_width;
 		PIXEL_LEVEL cue_level;
 

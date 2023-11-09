@@ -42,7 +42,7 @@ public:
 struct conte_stim_params
 {
 	double x, y, w, h, ori, sf, phase, divisor;
-	unsigned int isHorizontal;
+	int iHorizontal;
 	unsigned int lwt;
 	unsigned int icolor;	// refers to cue_color_0 or cue_color_1, so should be 0|1
 };

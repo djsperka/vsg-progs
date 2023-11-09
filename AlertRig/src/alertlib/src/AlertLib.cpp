@@ -171,8 +171,13 @@ std::ostream& operator<<(std::ostream& out, const alert::ARXhairSpec& arx)
 
 std::ostream& operator<<(std::ostream& out, const alert::ARConteSpec& conte)
 {
-	string s = "H";
-	if (!conte.bHorizontal) s = "V";
+	string s;
+	switch (conte.iHorizontal)
+	{
+	case 0:		s = "V"; break;
+	case 1:		s = "H"; break;
+	default:	s = "N"; break;
+	}
 	out << conte.x << "," << conte.y << "," << conte.w << "," << conte.h << "," << conte.orientation << "," << conte.sf << "," << conte.divisor << "," << conte.phase << "," << s << "," << conte.cue_line_width << "," << conte.cue_level;
 	return out;
 }
@@ -1603,7 +1608,8 @@ void ARConteSpec::init(int nlevels, bool bCreate)
 
 int ARConteSpec::draw()
 {
-	double xx[2], yy[2], rect[4];
+	double xx[2], yy[2];	// coordinates (centers) for the two gaussian flankers (xx[0], yy[0]) and (xx[1], yy[1])
+	double rect[4];			// coordinates (corners) for the border cue rectangle
 	DWORD old_mode = vsgGetDrawMode();
 	VSGTRIVAL trival_from = COLOR_TYPE(black).trival();
 	VSGTRIVAL trival_to = COLOR_TYPE(white).trival();
@@ -1616,7 +1622,7 @@ int ARConteSpec::draw()
 	vsgDrawGabor(this->x, -1 * this->y, this->w, this->h, this->orientation, this->sf, gabor_dev, this->phase);
 
 	// set coords for drawing gaussian and border cues
-	if (this->bHorizontal)
+	if (this->iHorizontal > 0)
 	{
 		xx[0] = this->x - this->w;
 		xx[1] = this->x + this->w;
@@ -1626,7 +1632,7 @@ int ARConteSpec::draw()
 		rect[2] = -1 * this->y - 0.5 * this->h;
 		rect[3] = -1 * this->y + 0.5 * this->h;
 	}
-	else
+	else if (this->iHorizontal == 0)
 	{
 		yy[0] = -1 * this->y - this->h;
 		yy[1] = -1 * this->y + this->h;
@@ -1636,14 +1642,28 @@ int ARConteSpec::draw()
 		rect[2] = -1 * this->y - 1.5 * this->h;
 		rect[3] = -1 * this->y + 1.5 * this->h;
 	}
+	else
+	{
+		yy[0] = -1 * this->y - this->h;
+		yy[1] = -1 * this->y + this->h;
+		xx[0] = xx[1] = this->x;
+		rect[0] = this->x - 0.5 * this->w;
+		rect[1] = this->x + 0.5 * this->w;
+		rect[2] = -1 * this->y - 0.5 * this->h;
+		rect[3] = -1 * this->y + 0.5 * this->h;
+	}
 
-	// now draw the gaussian(s)
-	vsgSetPen1(this->m_ramp_high);
-	vsgSetPen2(this->m_ramp_mid);
-	vsgDrawGaussian(xx[0], yy[0], this->w, this->h, gabor_dev);
-	vsgDrawGaussian(xx[1], yy[1], this->w, this->h, gabor_dev);
 
-	// draw border cue
+	// now draw the gaussian flankers, but only if is_horizontal is not negative (which means do not draw)
+	if (this->iHorizontal > -1)
+	{
+		vsgSetPen1(this->m_ramp_high);
+		vsgSetPen2(this->m_ramp_mid);
+		vsgDrawGaussian(xx[0], yy[0], this->w, this->h, gabor_dev);
+		vsgDrawGaussian(xx[1], yy[1], this->w, this->h, gabor_dev);
+	}
+
+	// draw border cue, even when flankers are not drawn (borders should be set correctly)
 	vsgSetDrawMode(vsgSOLIDPEN);
 	vsgSetPenSize(this->cue_line_width, this->cue_line_width);
 	vsgSetPen1(this->cue_level);
@@ -1664,15 +1684,20 @@ int ARConteSpec::drawOverlay(PIXEL_LEVEL ovLevel)
 	vsgSetDrawMode(vsgCENTREXY + vsgSOLIDFILL);
 
 	// set coords for drawing gaussian and border cues
-	if (this->bHorizontal)
+	if (this->iHorizontal == 1)
 	{
 		rectW = 3 * this->w;
 		rectH = this->h;
 	}
-	else
+	else if (this->iHorizontal == 0)
 	{
 		rectW = this->w;
 		rectH = 3 * this->h;
+	}
+	else
+	{
+		rectW = this->w;
+		rectH = this->h;
 	}
 	vsgSetPen1(ovLevel);
 	vsgDrawRect(this->x, this->y, rectW, rectH);
