@@ -1622,7 +1622,7 @@ int ARConteSpec::draw()
 	vsgDrawGabor(this->x, -1 * this->y, this->w, this->h, this->orientation, this->sf, gabor_dev, this->phase);
 
 	// set coords for drawing gaussian and border cues
-	if (this->iHorizontal > 0)
+	if (this->iHorizontal ==1 || this->iHorizontal == -1)
 	{
 		xx[0] = this->x - this->w;
 		xx[1] = this->x + this->w;
@@ -1632,7 +1632,7 @@ int ARConteSpec::draw()
 		rect[2] = -1 * this->y - 0.5 * this->h;
 		rect[3] = -1 * this->y + 0.5 * this->h;
 	}
-	else if (this->iHorizontal == 0)
+	else if (this->iHorizontal == 0 || this->iHorizontal == -2)
 	{
 		yy[0] = -1 * this->y - this->h;
 		yy[1] = -1 * this->y + this->h;
