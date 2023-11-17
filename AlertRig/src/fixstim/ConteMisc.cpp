@@ -137,7 +137,7 @@ bool parse_conte_stim_params(const std::vector<string>& tokens, unsigned int fir
 
 	fs.str(tokens[first + 8]);
 	fs.clear();
-	fs >> stim.isHorizontal;
+	fs >> stim.iHorizontal;
 
 	fs.str(tokens[first + 9]);
 	fs.clear();
