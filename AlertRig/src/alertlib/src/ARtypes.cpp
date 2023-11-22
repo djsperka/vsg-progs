@@ -1,6 +1,5 @@
 #include "ARtypes.h"
 #include "ARvsg.h"
-#include "coneiso.h"
 #include <string>
 #include <sstream>
 #include <fstream>
