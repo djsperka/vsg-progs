@@ -709,13 +709,9 @@ int FlashStimSet::init(std::vector<int> pages, int)
 	}
 	cycle[index].Frames = m_fpt;
 	cycle[index].Page = pages[0] + vsgTRIGGERPAGE;
-	cycle[index].Stop = 0;
+	cycle[index].Stop = 1;
 
-	cycle[index+1].Page = pages[0] + vsgTRIGGERPAGE;
-	cycle[index+1].Stop = 1;
-
-
-	vsgPageCyclingSetup((DWORD)(index + 2), &cycle[0]);
+	vsgPageCyclingSetup((DWORD)(index + 1), &cycle[0]);
 	cerr << "Page cycling ready, " << index << " terms" << endl;
 
 	return status;
