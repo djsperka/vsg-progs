@@ -100,12 +100,15 @@ void ConteUStim::run_stim(alert::ARvsg& vsg)
 		// Now analyze input trigger
 	 	
 		if (tf.quit()) break;
-		else if (tf.present())
-		{	
+
+		if (tf.output_trigger() != last_output_trigger)
+		{
+			vsgIOWriteDigitalOut(tf.output_trigger() << 1, 0xfffe);
 			last_output_trigger = tf.output_trigger();
-			//cout << "out trig " << hex << tf.output_trigger() << endl;
-			//vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, tf.output_trigger(), 0);
-			vsgIOWriteDigitalOut(tf.output_trigger() << 1, 0xffff);
+		}
+		
+		if (tf.present())
+		{	
 			vsgPresent();
 		}
 		Sleep(10);
