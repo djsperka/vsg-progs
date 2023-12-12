@@ -23,8 +23,9 @@ public:
 // 
 class ConteCueDotSupply: public std::vector<ContePatch>
 {
+	std::vector<ContePatch>::const_iterator m_it;
 public:
-	ConteCueDotSupply() {};
+	ConteCueDotSupply() { m_it = this->begin();  };
 	virtual ~ConteCueDotSupply() {};
 
 	// Add a patch. Each patch has two colors of dots, with n0, n1 of each. The array p[] should contain (n0+n1)*2 values 
@@ -34,8 +35,11 @@ public:
 	// how many patches do we have?
 	size_t npatches() const { return this->size(); };
 
-	// get a patch at an index
-	const ContePatch& patch(unsigned int i) const { return this->at(i); };
+	// get next patch
+	const ContePatch& next_patch() 
+	{
+		return *m_it++; 
+	};
 };
 
 // one of the 3-panel stim + distractor patches

@@ -203,7 +203,7 @@ void ConteUStim::draw_dot_patches(const ConteXYHelper& xyhelper, unsigned int np
 	for (unsigned int i = 0; i < npatches; i++)
 	{
 		DWORD page_ind;
-		const ContePatch& patch = m_arguments.dot_supply.patch(i);
+		const ContePatch& patch = m_arguments.dot_supply.next_patch();
 
 		double term_x, term_y;
 		xyhelper.getPageIndDrawOrigin(i, page_ind, term_x, term_y);
