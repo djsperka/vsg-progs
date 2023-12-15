@@ -5,6 +5,7 @@
 #include "alertlib.h"
 #include "AlertUtil.h"
 #include <vector>
+#include <queue>
 #include <algorithm>
 #include <boost/tuple/tuple.hpp>
 
@@ -23,9 +24,9 @@ public:
 // 
 class ConteCueDotSupply: public std::vector<ContePatch>
 {
-	std::vector<ContePatch>::const_iterator m_it;
+	size_t m_index;
 public:
-	ConteCueDotSupply() { m_it = this->begin();  };
+	ConteCueDotSupply() { m_index = 0;  };
 	virtual ~ConteCueDotSupply() {};
 
 	// Add a patch. Each patch has two colors of dots, with n0, n1 of each. The array p[] should contain (n0+n1)*2 values 
@@ -38,7 +39,12 @@ public:
 	// get next patch
 	const ContePatch& next_patch() 
 	{
-		return *m_it++; 
+		if (m_index >= this->size())
+		{
+			cerr << "ERROR - out of dot patches! Starting over at the beginning" << endl;
+			m_index = 0;
+		}
+		return this->at(m_index++); 
 	};
 };
 
@@ -186,13 +192,13 @@ private:
 	void init_triggers(TSpecificFunctor<ConteUStim>* pfunctor);
 
 	// draw dot patches on single page
-	void draw_dot_patches(const ConteXYHelper& xyhelper, unsigned int npatches);
+	void draw_dot_patches(const ConteXYHelper& xyhelper, const conte_trial_t& trial);
 
 	// copy stim parameters prior to drawing
 	void copy_params_to_spec(const struct conte_stim_params& params, ARConteSpec& spec);
 
 	// setup page cycling for current trial
-	void setup_cycling(const ConteXYHelper& xyhelper, unsigned int nterms_in_cue);
+	void setup_cycling(const ConteXYHelper& xyhelper, const conte_trial_t& trial);
 
 	// setup page cycling to make an orderly trial ending and fixpt
 	void ConteUStim::setup_cycling_clear_fixpt();

@@ -191,16 +191,14 @@ void ConteUStim::init_triggers(TSpecificFunctor<ConteUStim>* pfunctor)
 	return;
 }
 
-void ConteUStim::draw_dot_patches(const ConteXYHelper& xyhelper, unsigned int npatches)
+void ConteUStim::draw_dot_patches(const ConteXYHelper& xyhelper, const conte_trial_t& trial)
 {
-	const conte_trial_t& trial = m_arguments.trials.at(m_itrial);
-	
 	// clear all pages needed
 	for (WORD p=0; p<xyhelper.getNumPages(); p++)
 		vsgSetDrawPage(vsgVIDEOPAGE, cPageCue + p, vsgBACKGROUND);
 
 	// now draw each patch
-	for (unsigned int i = 0; i < npatches; i++)
+	for (unsigned int i = 0; i < trial.cue_nterms; i++)
 	{
 		DWORD page_ind;
 		const ContePatch& patch = m_arguments.dot_supply.next_patch();
@@ -259,7 +257,7 @@ void ConteUStim::draw_current()
 	// draw dot patch(es)
 	vsgSetDrawPage(vsgVIDEOPAGE, cPageCue, vsgBACKGROUND);
 	ConteXYHelper xyhelper(trial.cue_w, trial.cue_h, trial.cue_d, trial.cue_x, trial.cue_y, trial.cue_nterms);
-	draw_dot_patches(xyhelper, trial.cue_nterms);
+	draw_dot_patches(xyhelper, trial);
 
 	// draw stim pages
 	vsgSetDrawPage(vsgVIDEOPAGE, cPageSample, vsgBACKGROUND);
@@ -282,7 +280,7 @@ void ConteUStim::draw_current()
 	vsgSetDrawPage(vsgOVERLAYPAGE, cOvPageClear, vsgNOCLEAR);
 
 	// setup cycling
-	setup_cycling(xyhelper, trial.cue_nterms);
+	setup_cycling(xyhelper, trial);
 }
 
 void ConteUStim::setup_cycling_clear_fixpt()
@@ -303,9 +301,8 @@ void ConteUStim::setup_cycling_clear_fixpt()
 
 }
 
-void ConteUStim::setup_cycling(const ConteXYHelper& xyhelper, unsigned int nterms_in_cue)
+void ConteUStim::setup_cycling(const ConteXYHelper& xyhelper, const conte_trial_t& trial)
 {
-	const conte_trial_t& trial = m_arguments.trials.at(m_itrial);
 	short Xpos, Ypos;
 	DWORD page_ind;
 	bool bContinue = true;	// used to stop presentation when one of the time periods <= 0
