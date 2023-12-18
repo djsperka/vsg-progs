@@ -211,15 +211,18 @@ int CalibrationUStim::init_vsg_for_calibration()
 	vsgSetDrawPage(vsgVIDEOPAGE, 1, vsgBACKGROUND);
 	vsgSetZoneDisplayPage(vsgVIDEOPAGE, 1);
 	vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgBACKGROUND);
+	cerr << m_fixpt << endl;
 	for (unsigned int i=0; i<9; i++)
 	{
-		m_fixpts[i].color = m_fixpt.color;
-		m_fixpts[i].d = m_fixpt.d;
+		// each fixpt is a duplicate of the fixpt from command line. We change the x,y for each, however. 
+
+		m_fixpts[i] = m_fixpt;
 		m_fixpts[i].x = (((int)i % 3) - 1) * m_dCalibrationOffset;
 		m_fixpts[i].y = (((int)i / 3) - 1) * m_dCalibrationOffset;
 		m_fixpts[i].init(2);
 		m_fixpts[i].setContrast(0);
 		m_fixpts[i].draw();
+		cerr << i << " " << m_fixpts[i] << endl;
 	}
 	vsgPresent();
 	vsgSetZoneDisplayPage(vsgVIDEOPAGE, 0);
