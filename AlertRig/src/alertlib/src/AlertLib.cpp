@@ -131,7 +131,7 @@ std::istream& operator>>(std::istream& in, alert::ARRectangleSpec& arrect)
 
 std::ostream& operator<<(std::ostream& out, const ARFixationPointSpec& arfps)
 {
-	if (!arfps.isDot)
+	if (arfps.isDot)
 		out << arfps.x << "," << arfps.y << "," << arfps.d << "," << arfps.color;
 	else
 		out << "+," << arfps.x << "," << arfps.y << "," << arfps.d << "," << arfps.color << "," << arfps.penSizePixels << "," << arfps.crossOriDeg;
