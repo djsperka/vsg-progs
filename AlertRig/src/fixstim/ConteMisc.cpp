@@ -5,9 +5,6 @@
 
 using namespace std;
 
-bool parse_conte_stim_params(const std::vector<string>& tokens, unsigned int first, conte_stim_params_t& stim);
-
-
 istream& operator>>(istream& ins, conte_trial_list_t& trials)
 {
 	trials.clear();
@@ -83,14 +80,6 @@ istream& operator>>(istream& ins, conte_trial_t& trial)
 	fs.clear();
 	fs >> trial.saccade_response_time_ms;
 
-	fs.str(tokens[12]);
-	fs.clear();
-	fs >> trial.cue_color_0;
-
-	fs.str(tokens[13]);
-	fs.clear();
-	fs >> trial.cue_color_1;
-
 	parse_conte_stim_params(tokens, 14, trial.s0);
 	parse_conte_stim_params(tokens, 25, trial.s1);
 	parse_conte_stim_params(tokens, 36, trial.t0);
@@ -98,6 +87,40 @@ istream& operator>>(istream& ins, conte_trial_t& trial)
 
 	return ins;
 }
+
+//std::ostream& operator<<(std::ostream& out, const COLOR_TYPE& c)
+//{
+//	switch (c.type())
+//	{
+//	case black: out << "black"; break;
+//	case white: out << "white"; break;
+//	case red:	out << "red";	break;
+//	case green:	out << "green";	break;
+//	case blue:	out << "blue";	break;
+//	case gray:	out << "gray";	break;
+//	case custom:
+//		break;
+//	default:	out << "unknown"; break;
+//	}
+//
+//	out << "(" << (int)(c.trival().a * 255) << "/" << (int)(c.trival().b * 255) << "/"
+//		<< (int)(c.trival().c * 255) << ")";
+//	return out;
+//}
+
+std::istream& operator>>(std::istream& in, conte_stim_params_t& stim)
+{
+	std::string s;
+	std::vector<std::string> tokens;
+	in >> s;
+	tokenize(s, tokens, ",");
+	if (!parse_conte_stim_params(tokens, 0, stim))
+	{
+		in.setstate(std::ios::failbit);
+	}
+	return in;
+}
+
 
 bool parse_conte_stim_params(const std::vector<string>& tokens, unsigned int first, conte_stim_params_t& stim)
 {
@@ -146,6 +169,18 @@ bool parse_conte_stim_params(const std::vector<string>& tokens, unsigned int fir
 	fs.str(tokens[first + 10]);
 	fs.clear();
 	fs >> stim.icolor;
+
+	fs.str(tokens[first + 11]);
+	fs.clear();
+	fs >> stim.iGaborContrast;
+
+	fs.str(tokens[first + 12]);
+	fs.clear();
+	fs >> stim.iFlankerContrast;
+
+	fs.str(tokens[first + 13]);
+	fs.clear();
+	fs >> stim.iBorderContrast;
 
 	return true;
 }
