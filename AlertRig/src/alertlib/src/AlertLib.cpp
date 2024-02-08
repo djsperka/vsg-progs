@@ -522,6 +522,7 @@ int ARRectangleSpec::draw()
 		}
 		else
 			vsgSetDrawMode(vsgCENTREXY + vsgSOLIDFILL);
+		vsgSetPen1(this->getFirstLevel());
 		vsgDrawBar(x, -y, w, h, orientation);
 	}
 	else
