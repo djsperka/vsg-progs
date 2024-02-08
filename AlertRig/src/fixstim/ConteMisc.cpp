@@ -5,16 +5,7 @@
 
 using namespace std;
 
-istream& operator>>(istream& ins, conte_trial_list_t& trials)
-{
-	trials.clear();
-	conte_trial_t t;
-	while (ins >> t)
-	{
-		trials.push_back(t);
-	}
-	return ins;
-}
+
 
 istream& operator>>(istream& ins, conte_trial_t& trial)
 {
@@ -30,7 +21,7 @@ istream& operator>>(istream& ins, conte_trial_t& trial)
 	if (ins.eof())
 		return ins;
 
-	tokenize(line, tokens, ",");	
+	tokenize(line, tokens, ",");
 
 	fs.str(tokens[0]);
 	fs.clear();
@@ -88,25 +79,19 @@ istream& operator>>(istream& ins, conte_trial_t& trial)
 	return ins;
 }
 
-//std::ostream& operator<<(std::ostream& out, const COLOR_TYPE& c)
-//{
-//	switch (c.type())
-//	{
-//	case black: out << "black"; break;
-//	case white: out << "white"; break;
-//	case red:	out << "red";	break;
-//	case green:	out << "green";	break;
-//	case blue:	out << "blue";	break;
-//	case gray:	out << "gray";	break;
-//	case custom:
-//		break;
-//	default:	out << "unknown"; break;
-//	}
-//
-//	out << "(" << (int)(c.trival().a * 255) << "/" << (int)(c.trival().b * 255) << "/"
-//		<< (int)(c.trival().c * 255) << ")";
-//	return out;
-//}
+
+istream& operator>>(istream& ins, conte_trial_list_t& trials)
+{
+	trials.clear();
+	conte_trial_t t;
+	while (ins >> t)
+	{
+		trials.push_back(t);
+	}
+	return ins;
+}
+
+
 
 std::istream& operator>>(std::istream& in, conte_stim_params_t& stim)
 {
@@ -180,7 +165,7 @@ bool parse_conte_stim_params(const std::vector<string>& tokens, unsigned int fir
 
 	fs.str(tokens[first + 13]);
 	fs.clear();
-	fs >> stim.iBorderContrast;
+	fs >> stim.iCueContrast;
 
 	return true;
 }
