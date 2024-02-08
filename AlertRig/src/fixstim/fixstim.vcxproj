@@ -308,6 +308,7 @@
     <ClInclude Include="CalibrationUStim.h" />
     <ClInclude Include="CMouseUStim.h" />
     <ClInclude Include="ConteMisc.h" />
+    <ClInclude Include="ConteTypes.h" />
     <ClInclude Include="ConteUStim.h" />
     <ClInclude Include="CycleTestStimSet.h" />
     <ClInclude Include="EQStimSet.h" />
