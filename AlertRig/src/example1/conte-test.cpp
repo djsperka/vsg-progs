@@ -2,6 +2,7 @@
 #include <string>
 #include <vector>
 #include <algorithm>
+#include <sstream>
 #define __GNU_LIBRARY__
 #include "getopt.h"
 #undef __GNU_LIBRARY__
@@ -11,6 +12,7 @@
 #include "AlertUtil.h"
 #include "alert-triggers.h"
 #include "UStim.h"
+#include "ConteMisc.h"
 
 #ifdef _DEBUG
 #pragma comment(lib, "dalert.lib")
@@ -37,6 +39,7 @@ bool m_bCalibration = false;
 const int f_iPage0 = 0;
 const int f_iPage1 = 1;
 const int f_iPageBlank = 2;
+vector<PIXEL_LEVEL> f_levelCueColors;
 
 int init_pages();
 
@@ -177,7 +180,7 @@ int main (int argc, char *argv[])
 			f_conte.w = f_conte.h = 5;
 			f_conte.iHorizontal= 0;	
 			f_conte.sf = 0.5;
-			f_conte.cue_line_width = 2;
+			f_conte.cueLineWidth = 2;
 			f_conte.divisor = 5;
 			f_conte.phase = 0;
 
@@ -191,6 +194,46 @@ int main (int argc, char *argv[])
 			std::cout << "Hit key to exit." << endl;
 			std::cin >> stmp;
 
+		}
+		else if (s == "C")
+		{
+			conte_stim_params_t params;
+			std::string stmp;
+			std::string sdefault("-5,5,3,3,45,1,0,5,0,2,0,100,100,100");
+			std::cout << "Enter conte spec [" << sdefault << "]" << endl;
+			std::cin >> stmp;
+			if (stmp.size() < 3)
+				stmp = sdefault;
+			stringstream ss(stmp);
+			ss >> params;
+			if (ss)
+			{
+
+				//void ConteUStim::copy_params_to_spec(const struct conte_stim_params& params, ARConteSpec& spec)
+				//{
+					f_conte.x = params.x;
+					f_conte.y = params.y;
+					f_conte.w = params.w;
+					f_conte.h = params.h;
+					f_conte.orientation = params.ori;
+					f_conte.sf = params.sf;
+					f_conte.divisor = params.divisor;
+					f_conte.phase = params.phase;
+					f_conte.iHorizontal = params.iHorizontal;
+					f_conte.cueLineWidth = params.lwt;
+					f_conte.cueColor = (params.icolor ? COLOR_TYPE(red) : COLOR_TYPE(green));
+					f_conte.cueContrast = params.iCueContrast;
+					f_conte.gaborContrast = params.iGaborContrast;
+					f_conte.flankerContrast = params.iFlankerContrast;
+				//	return;
+				//}
+
+
+
+
+				std::cout << "Read params: " << f_conte << std::endl;
+			}
+			else std::cout << "error reading params" << std::endl;
 		}
 		vsgSetDrawPage(vsgVIDEOPAGE, f_iPage0, vsgNOCLEAR);
 		vsgPresent();
