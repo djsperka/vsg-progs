@@ -5,7 +5,6 @@
 #include "ARtypes.h"
 #include <memory>
 #include <boost/algorithm/string.hpp>
-#include <boost/range/algorithm/random_shuffle.hpp>
 
 WORD ConteUStim::cOvPageClear = 0;
 WORD ConteUStim::cOvPageAperture = 1;
@@ -232,8 +231,8 @@ void ConteUStim::copy_params_to_spec(const struct conte_stim_params& params, ARC
 	spec.divisor = params.divisor;
 	spec.phase = params.phase;
 	spec.iHorizontal = params.iHorizontal;
-	spec.cue_line_width = params.lwt;
-	spec.cue_level = m_levelCueColors[params.icolor];	// TODO - no check on size here!
+	spec.cueLineWidth = params.lwt;
+	spec.cueColor = m_arguments.colors[params.icolor];
 	return;
 }
 
@@ -498,95 +497,5 @@ int ConteUStim::callback(int &output, const FunctorCallbackTrigger* ptrig, const
 	}
 
 	return ival;
-}
-
-ConteXYHelper::ConteXYHelper(double w, double h, double d, double x, double y, unsigned int npatches)
-	: m_wdeg(w)
-	, m_hdeg(h)
-	, m_ddeg(d)
-	, m_xdeg(x)
-	, m_ydeg(y)
-{
-	m_WpixScr = vsgGetScreenWidthPixels();
-	m_HpixScr = vsgGetScreenHeightPixels();
-	m_WpixZone = vsgGetSystemAttribute(vsgVIDEOZONEWIDTH);
-	m_HpixZone = vsgGetSystemAttribute(vsgVIDEOZONEHEIGHT);
-
-	// Figure out how many patches can be drawn on a page..........
-	double WdegZone, HdegZone;
-	vsgUnit2Unit(vsgPIXELUNIT, m_WpixZone, vsgDEGREEUNIT, &WdegZone);
-	vsgUnit2Unit(vsgPIXELUNIT, m_HpixZone, vsgDEGREEUNIT, &HdegZone);
-	m_nPatchPerRow = trunc(WdegZone / (m_ddeg + m_wdeg));
-	m_nRowsPerPage = trunc(HdegZone / (m_ddeg + m_wdeg));
-	m_nPatchRows = ceil((double)npatches / (double)m_nPatchPerRow);
-	m_nPatchPages = ceil((double)npatches / (double)(m_nRowsPerPage * m_nPatchPerRow));
-	cerr << "ConteXYHelper: nPatchPerRow " << m_nPatchPerRow << " rows per page " << m_nRowsPerPage << endl;
-	cerr << "num patches for cue: " << npatches << " pages needed: " << m_nPatchPages << endl;
-}
-
-void ConteXYHelper::getPageIndDrawOrigin(unsigned int i, DWORD& page_ind, double& x_origin_deg, double& y_origin_deg) const
-{
-	page_ind = (DWORD)(i / (m_nRowsPerPage * m_nPatchPerRow));
-	unsigned int ipage = i % (m_nRowsPerPage * m_nPatchPerRow);
-	x_origin_deg = (ipage % m_nPatchPerRow + 0.5) * (m_wdeg + m_ddeg);
-	y_origin_deg = (ipage / m_nPatchPerRow + 0.5) * (m_wdeg + m_ddeg);
-	return;
-}
-
-void ConteXYHelper::getPageIndXYpos(unsigned int i, DWORD& page_ind, short& Xpos_pix, short& Ypos_pix) const
-{
-	page_ind = (DWORD)(i / (m_nRowsPerPage * m_nPatchPerRow));
-	unsigned int ipage = i % (m_nRowsPerPage * m_nPatchPerRow);
-
-	double x_origin_degrees, y_origin_degrees;
-	double x_origin_pixels, y_origin_pixels;
-
-	// draw origin relative to upper left corner of page, with +y = down. 
-	// convert to pixels
-	DWORD dummy;
-	getPageIndDrawOrigin(i, dummy, x_origin_degrees, y_origin_degrees);
-	//getDrawOrigin(i, x_origin_degrees, y_origin_degrees);
-	vsgUnit2Unit(vsgDEGREEUNIT, x_origin_degrees, vsgPIXELUNIT, &x_origin_pixels);
-	vsgUnit2Unit(vsgDEGREEUNIT, y_origin_degrees, vsgPIXELUNIT, &y_origin_pixels);
-
-	Xpos_pix = (short)(x_origin_pixels - m_WpixScr / 2);
-	Ypos_pix = (short)(y_origin_pixels - m_HpixScr / 2);
-	return;
-};
-
-ContePatch::ContePatch(unsigned int n0, unsigned int n1, double* p)
-	: m_n0(n0)
-	, m_n1(n1)
-{
-	for (unsigned int i = 0; i < (n0 + n1); i++)
-	{
-		m_x.push_back(p[2 * i]);
-		m_y.push_back(p[2 * i + 1]);
-	}
-}
-
-void ContePatch::draw(PIXEL_LEVEL level0, PIXEL_LEVEL level1, double patch_width, double patch_height, double dot_diam) const
-{
-	unsigned int i;
-	vector < PIXEL_LEVEL> levels;
-	vector <unsigned int> ind;
-	for (i = 0; i < m_n0; i++)
-		levels.push_back(level0);
-	for (i = 0; i < m_n1; i++)
-		levels.push_back(level1);
-	// randomize the order
-	for (i = 0; i < (m_n0 + m_n1); i++)
-		ind.push_back(i);
-	boost::range::random_shuffle(ind);
-
-	// draw
-	long mode_saved = vsgGetDrawMode();
-	vsgSetDrawMode(vsgCENTREXY | vsgSOLIDFILL);
-	for (i = 0; i < (m_n0 + m_n1); i++)
-	{
-		vsgSetPen1(levels[ind[i]]);
-		vsgDrawOval(m_x[ind[i]] * patch_width, m_y[ind[i]] * patch_height, dot_diam, dot_diam);
-	}
-	vsgSetDrawMode(mode_saved);
 }
 
