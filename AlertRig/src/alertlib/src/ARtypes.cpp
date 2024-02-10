@@ -381,6 +381,29 @@ bool operator==(const COLOR_TYPE& lhs, const COLOR_TYPE& rhs)
 		lhs.trival().c == rhs.trival().c);
 }
 
+COLOR_TYPE operator+(COLOR_TYPE const& lhs, COLOR_TYPE const& rhs)
+{
+	VSGTRIVAL l, r;
+	l = lhs.trival();
+	r = rhs.trival();
+	return COLOR_TYPE(l.a + r.a, l.b + r.b, l.c + r.c);
+}
+
+COLOR_TYPE operator-(COLOR_TYPE const& lhs, COLOR_TYPE const& rhs)
+{
+	VSGTRIVAL l, r;
+	l = lhs.trival();
+	r = rhs.trival();
+	return COLOR_TYPE(l.a - r.a, l.b - r.b, l.c - r.c);
+}
+
+COLOR_TYPE operator*(COLOR_TYPE const& lhs, double multiplier)
+{
+	VSGTRIVAL l;
+	l = lhs.trival();
+	return COLOR_TYPE(l.a * multiplier, l.b * multiplier, l.c * multiplier);
+}
+
 
 
 int parse_color(std::string s, COLOR_TYPE& c)

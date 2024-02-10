@@ -92,7 +92,9 @@ public:
 };
 
 bool operator==(const COLOR_TYPE& lhs, const COLOR_TYPE& rhs);
-
+COLOR_TYPE operator+(COLOR_TYPE const& lhs, COLOR_TYPE const& rhs);
+COLOR_TYPE operator-(COLOR_TYPE const& lhs, COLOR_TYPE const& rhs);
+COLOR_TYPE operator*(COLOR_TYPE const& lhs, double multiplier);
 
 typedef struct xywh_struct
 {
