@@ -228,11 +228,11 @@ namespace alert
 	class ARConteSpec : public ARSpec
 	{
 	private:
-		PIXEL_LEVEL m_ramp_low;		// black
-		PIXEL_LEVEL m_ramp_mid;		// s/b gray
-		PIXEL_LEVEL m_ramp_high;	// white
+		PIXEL_LEVEL m_level_low_gabor, m_level_high_gabor;
+		PIXEL_LEVEL m_level_low_flanker, m_level_high_flanker;
+		PIXEL_LEVEL m_level_cue;
 	public:
-		ARConteSpec() {};
+		ARConteSpec() : gaborContrast(100), flankerContrast(100), cueContrast(100) {};
 		virtual ~ARConteSpec() {};
 		double x, y, w, h;
 		double orientation;
@@ -240,8 +240,13 @@ namespace alert
 		double divisor;	// gaussian e**(r**2/dev**2), dev = (w+h/2)/divisor
 		double phase;	// initial phase
 		int iHorizontal;	// 1: horizontal; 0: vertical; -1: no flankers
-		DWORD cue_line_width;
-		PIXEL_LEVEL cue_level;
+		DWORD cueLineWidth;
+		COLOR_TYPE cueColor;
+		//PIXEL_LEVEL cue_level;
+		int gaborContrast;
+		int flankerContrast;
+		int cueContrast;
+
 
 		// call this instead of init()
 		virtual void init(int nlevels, bool bCreate=true);

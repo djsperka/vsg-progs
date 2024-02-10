@@ -178,7 +178,7 @@ std::ostream& operator<<(std::ostream& out, const alert::ARConteSpec& conte)
 	case 1:		s = "H"; break;
 	default:	s = "N"; break;
 	}
-	out << conte.x << "," << conte.y << "," << conte.w << "," << conte.h << "," << conte.orientation << "," << conte.sf << "," << conte.divisor << "," << conte.phase << "," << s << "," << conte.cue_line_width << "," << conte.cue_level;
+	out << conte.x << "," << conte.y << "," << conte.w << "," << conte.h << "," << conte.orientation << "," << conte.sf << "," << conte.divisor << "," << conte.phase << "," << s << "," << conte.cueLineWidth << "," << conte.gaborContrast << "," << conte.flankerContrast << "," << conte.cueContrast << conte.cueColor;
 	return out;
 }
 
@@ -1600,11 +1600,19 @@ void ARConteSpec::init(int nlevels, bool bCreate)
 	// do not call vsgObj*** on this thing. 
 	ARObject::init(nlevels, false);
 
-	// black-white ramp. Cue color should be set elsewhere (spec just holds level)
-	m_ramp_low = this->getFirstLevel() + 1;
-	m_ramp_high = this->getFirstLevel() + this->getNumLevels() - 1;
-	m_ramp_mid = (m_ramp_high + m_ramp_low) / 2;
-	arutil_ramp_to_palette(COLOR_TYPE(black), COLOR_TYPE(white), m_ramp_low, m_ramp_high);
+	m_level_cue = this->getFirstLevel();
+	PIXEL_LEVEL d = (nlevels - 1) / 3;
+	m_level_low_gabor = m_level_cue + 1;
+	m_level_high_gabor = m_level_low_gabor + 2 * d;
+	m_level_low_flanker = m_level_high_gabor + 1;
+	m_level_high_flanker = this->getFirstLevel() + nlevels - 1;
+	cerr << "conte levels " << m_level_cue << " " << m_level_low_gabor << " " << m_level_high_gabor << " " << m_level_low_flanker << " " << m_level_high_flanker << endl;
+
+	//// black-white ramp. Cue color should be set elsewhere (spec just holds level)
+	//m_ramp_low = this->getFirstLevel() + 1;
+	//m_ramp_high = this->getFirstLevel() + this->getNumLevels() - 1;
+	//m_ramp_mid = (m_ramp_high + m_ramp_low) / 2;
+	//arutil_ramp_to_palette(COLOR_TYPE(black), COLOR_TYPE(white), m_ramp_low, m_ramp_high);
 }
 
 int ARConteSpec::draw()
@@ -1615,12 +1623,28 @@ int ARConteSpec::draw()
 	VSGTRIVAL trival_from = COLOR_TYPE(black).trival();
 	VSGTRIVAL trival_to = COLOR_TYPE(white).trival();
 
-	// gabor
+	// Set up colors for gabor
+	COLOR_TYPE diff = (COLOR_TYPE(white) - COLOR_TYPE(gray)) * (gaborContrast / 100.0);
+	COLOR_TYPE color0 = COLOR_TYPE(gray) - diff;
+	COLOR_TYPE color1 = COLOR_TYPE(gray) + diff;
+	arutil_ramp_to_palette(color0, color1, m_level_low_gabor, m_level_high_gabor);
+
+	// color for flankers
+	COLOR_TYPE flankerHigh = COLOR_TYPE(gray) + (COLOR_TYPE(white) - COLOR_TYPE(gray)) * (flankerContrast / 100.0);
+	arutil_ramp_to_palette(COLOR_TYPE(gray), flankerHigh, m_level_low_flanker, m_level_high_flanker);
+
+
+
+	// draw gabor
 	double gabor_dev = 0.5 * (this->w + this->h) / this->divisor;
 	vsgSetDrawMode(vsgCENTREXY);
-	vsgSetPen1(m_ramp_low);
-	vsgSetPen2(m_ramp_high);
+	vsgSetPen1(m_level_low_gabor);
+	vsgSetPen2(m_level_high_gabor);
 	vsgDrawGabor(this->x, -1 * this->y, this->w, this->h, this->orientation, this->sf, gabor_dev, this->phase);
+
+	// color for the cue rectangle
+	COLOR_TYPE c = COLOR_TYPE(gray) + (this->cueColor - COLOR_TYPE(gray)) * (this->cueContrast / 100.0);
+	arutil_color_to_palette(c, m_level_cue);
 
 	// set coords for drawing gaussian and border cues
 	if (this->iHorizontal ==1 || this->iHorizontal == -1)
@@ -1658,16 +1682,16 @@ int ARConteSpec::draw()
 	// now draw the gaussian flankers, but only if is_horizontal is not negative (which means do not draw)
 	if (this->iHorizontal > -1)
 	{
-		vsgSetPen1(this->m_ramp_high);
-		vsgSetPen2(this->m_ramp_mid);
+		vsgSetPen1(this->m_level_high_flanker);
+		vsgSetPen2(this->m_level_low_flanker);
 		vsgDrawGaussian(xx[0], yy[0], this->w, this->h, gabor_dev);
 		vsgDrawGaussian(xx[1], yy[1], this->w, this->h, gabor_dev);
 	}
 
 	// draw border cue, even when flankers are not drawn (borders should be set correctly)
 	vsgSetDrawMode(vsgSOLIDPEN);
-	vsgSetPenSize(this->cue_line_width, this->cue_line_width);
-	vsgSetPen1(this->cue_level);
+	vsgSetPenSize(this->cueLineWidth, this->cueLineWidth);
+	vsgSetPen1(this->m_level_cue);
 	vsgDrawLine(rect[0], rect[2], rect[1], rect[2]);	// top
 	vsgDrawLine(rect[1], rect[2], rect[1], rect[3]);	// right
 	vsgDrawLine(rect[1], rect[3], rect[0], rect[3]);	// bottom
