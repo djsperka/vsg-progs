@@ -67,13 +67,11 @@ struct conte_trial
 	double cue_d;	// cue dot diameter
 	unsigned int cue_fpt;		// frames per term for cue
 	unsigned int cue_nterms;	// number of terms for cue
-	unsigned int cue_to_sample_delay_ms;
-	unsigned int sample_display_ms;
-	unsigned int sample_to_target_delay_ms;
-	unsigned int target_display_ms;
-	unsigned int saccade_response_time_ms;
-	COLOR_TYPE cue_color_0; // conte_stim_params.icolor == 0
-	COLOR_TYPE cue_color_1; // conte_stim_params.icolor == 1
+	int cue_to_sample_delay_ms;
+	int sample_display_ms;
+	int sample_to_target_delay_ms;
+	int target_display_ms;
+	int saccade_response_time_ms;
 	struct conte_stim_params s0, s1, t0, t1;	// sample and target stim
 };
 typedef struct conte_trial conte_trial_t;

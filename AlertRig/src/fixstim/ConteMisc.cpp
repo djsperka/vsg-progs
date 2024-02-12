@@ -72,10 +72,10 @@ istream& operator>>(istream& ins, conte_trial_t& trial)
 	fs.clear();
 	fs >> trial.saccade_response_time_ms;
 
-	parse_conte_stim_params(tokens, 14, trial.s0);
-	parse_conte_stim_params(tokens, 25, trial.s1);
-	parse_conte_stim_params(tokens, 36, trial.t0);
-	parse_conte_stim_params(tokens, 47, trial.t1);
+	parse_conte_stim_params(tokens, 12, trial.s0);
+	parse_conte_stim_params(tokens, 26, trial.s1);
+	parse_conte_stim_params(tokens, 40, trial.t0);
+	parse_conte_stim_params(tokens, 54, trial.t1);
 
 	return ins;
 }
