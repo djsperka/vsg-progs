@@ -158,10 +158,10 @@ void ConteUStim::init()
 	// background page
 	vsgSetDrawPage(vsgVIDEOPAGE, cPageBackground, vsgBACKGROUND);
 
-	m_sample0.init(40, false);
-	m_sample1.init(40, false);
-	m_target0.init(40, false);
-	m_target1.init(40, false);
+	m_sample0.init(60, false);
+	m_sample1.init(60, false);
+	m_target0.init(60, false);
+	m_target1.init(60, false);
 
 	// only need to do this once
 	setup_cycling_clear_fixpt();
@@ -220,7 +220,7 @@ void ConteUStim::draw_dot_patches(const ConteXYHelper& xyhelper, const conte_tri
 	return;
 }
 
-void ConteUStim::copy_params_to_spec(const struct conte_stim_params& params, ARConteSpec& spec)
+void ConteUStim::copy_stim_params_to_spec(const struct conte_stim_params& params, ARConteSpec& spec)
 {
 	spec.x = params.x;
 	spec.y = params.y;
@@ -260,16 +260,16 @@ void ConteUStim::draw_current()
 
 	// draw stim pages
 	vsgSetDrawPage(vsgVIDEOPAGE, cPageSample, vsgBACKGROUND);
-	copy_params_to_spec(trial.s0, m_sample0);
+	copy_stim_params_to_spec(trial.s0, m_sample0);
 	m_sample0.draw();
-	copy_params_to_spec(trial.s1, m_sample1);
+	copy_stim_params_to_spec(trial.s1, m_sample1);
 	m_sample1.draw();
 	if (m_arguments.bHaveFixpt)
 		m_arguments.fixpt.draw();
 	vsgSetDrawPage(vsgVIDEOPAGE, cPageTarget, vsgBACKGROUND);
-	copy_params_to_spec(trial.t0, m_target0);
+	copy_stim_params_to_spec(trial.t0, m_target0);
 	m_target0.draw();
-	copy_params_to_spec(trial.t1, m_target1);
+	copy_stim_params_to_spec(trial.t1, m_target1);
 	m_target1.draw();
 	if (m_arguments.bHaveFixpt)
 		m_arguments.fixpt.draw();
@@ -331,11 +331,11 @@ void ConteUStim::setup_cycling(const ConteXYHelper& xyhelper, const conte_trial_
 
 	if (bContinue)
 	{
-		if (trial.cue_to_sample_delay_ms <= 0)
+		if (trial.cue_to_sample_delay_ms < 0)
 		{
 			bContinue = false;
 		}
-		else
+		else if (trial.cue_to_sample_delay_ms > 0)
 		{
 			// cue-to-sample delay
 			m_cycle_params[m_cycle_params_count].Stop = 0;
@@ -350,11 +350,11 @@ void ConteUStim::setup_cycling(const ConteXYHelper& xyhelper, const conte_trial_
 
 	if (bContinue)
 	{
-		if (trial.sample_display_ms <= 0)
+		if (trial.sample_display_ms < 0)
 		{
 			bContinue = false;
 		}
-		else
+		else if (trial.sample_display_ms > 0)
 		{
 			// sample presentation
 			m_cycle_params[m_cycle_params_count].Stop = 0;
@@ -369,11 +369,11 @@ void ConteUStim::setup_cycling(const ConteXYHelper& xyhelper, const conte_trial_
 
 	if (bContinue)
 	{
-		if (trial.sample_to_target_delay_ms <= 0)
+		if (trial.sample_to_target_delay_ms < 0)
 		{
 			bContinue = false;
 		}
-		else
+		else if (trial.sample_to_target_delay_ms > 0)
 		{
 			// sample to target delay
 			m_cycle_params[m_cycle_params_count].Stop = 0;
@@ -388,11 +388,11 @@ void ConteUStim::setup_cycling(const ConteXYHelper& xyhelper, const conte_trial_
 
 	if (bContinue)
 	{
-		if (trial.target_display_ms <= 0)
+		if (trial.target_display_ms < 0)
 		{
 			bContinue = false;
 		}
-		else
+		else if (trial.target_display_ms > 0)
 		{
 			// target presentation
 			m_cycle_params[m_cycle_params_count].Stop = 0;
@@ -407,11 +407,11 @@ void ConteUStim::setup_cycling(const ConteXYHelper& xyhelper, const conte_trial_
 
 	if (bContinue)
 	{
-		if (trial.saccade_response_time_ms <= 0)
+		if (trial.saccade_response_time_ms < 0)
 		{
 			bContinue = false;
 		}
-		else
+		else if (trial.saccade_response_time_ms > 0)
 		{
 			// response time
 			m_cycle_params[m_cycle_params_count].Stop = 0;
