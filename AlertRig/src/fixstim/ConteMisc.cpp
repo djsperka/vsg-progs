@@ -158,15 +158,15 @@ bool parse_conte_stim_params(const std::vector<string>& tokens, unsigned int fir
 
 	fs.str(tokens[first + 11]);
 	fs.clear();
-	fs >> stim.iGaborContrast;
+	fs >> stim.dGaborContrast;
 
 	fs.str(tokens[first + 12]);
 	fs.clear();
-	fs >> stim.iFlankerContrast;
+	fs >> stim.dFlankerContrast;
 
 	fs.str(tokens[first + 13]);
 	fs.clear();
-	fs >> stim.iCueContrast;
+	fs >> stim.dCueContrast;
 
 	return true;
 }

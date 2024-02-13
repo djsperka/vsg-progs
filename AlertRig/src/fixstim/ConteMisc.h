@@ -51,9 +51,9 @@ struct conte_stim_params
 	int iHorizontal;
 	unsigned int lwt;
 	unsigned int icolor;	// refers to cue_color_0 or cue_color_1, so should be 0|1
-	int iGaborContrast;
-	int iFlankerContrast;
-	int iCueContrast;
+	double dGaborContrast;
+	double dFlankerContrast;
+	double dCueContrast;
 };
 typedef struct conte_stim_params conte_stim_params_t;
 

@@ -233,9 +233,9 @@ void ConteUStim::copy_stim_params_to_spec(const struct conte_stim_params& params
 	spec.iHorizontal = params.iHorizontal;
 	spec.cueLineWidth = params.lwt;
 	spec.cueColor = m_arguments.colors[params.icolor];
-	spec.gaborContrast = params.iGaborContrast;
-	spec.flankerContrast = params.iFlankerContrast;
-	spec.cueContrast = params.iCueContrast;
+	spec.gaborContrast = params.dGaborContrast;
+	spec.flankerContrast = params.dFlankerContrast;
+	spec.cueContrast = params.dCueContrast;
 	return;
 }
 

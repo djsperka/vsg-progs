@@ -243,9 +243,9 @@ namespace alert
 		DWORD cueLineWidth;
 		COLOR_TYPE cueColor;
 		//PIXEL_LEVEL cue_level;
-		int gaborContrast;
-		int flankerContrast;
-		int cueContrast;
+		double gaborContrast;
+		double flankerContrast;
+		double cueContrast;
 
 
 		// call this instead of init()
