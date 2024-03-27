@@ -115,10 +115,10 @@ void ConteUStim::run_stim(alert::ARvsg& vsg)
 			vsgPresent();
 		}
 
-		if (tf.fired())
-		{
-			cout << "trig " << tf.triggers_matched() << " fired; VIDEO/OV pages " << vsgGetZoneDisplayPage(vsgVIDEOPAGE) << "/" << vsgGetZoneDisplayPage(vsgOVERLAYPAGE) << endl;
-		}
+		//if (tf.fired())
+		//{
+		//	cout << "trig " << tf.triggers_matched() << " fired; VIDEO/OV pages " << vsgGetZoneDisplayPage(vsgVIDEOPAGE) << "/" << vsgGetZoneDisplayPage(vsgOVERLAYPAGE) << endl;
+		//}
 
 		Sleep(10);
 	}
@@ -155,7 +155,7 @@ void ConteUStim::init()
 	ARvsg::instance().request_single(m_levelTest);	// waste a level - testing this DJS. 
 	ARvsg::instance().request_single(m_levelTest);
 	cerr << "m_level test " << m_levelTest << endl;
-	arutil_color_to_palette(COLOR_TYPE(0, 1, 1), m_levelTest);
+	arutil_color_to_palette(COLOR_TYPE(1, 1, 0), m_levelTest);
 
 	// these are the colors specified on command line
 	for (auto c : m_arguments.colors)
@@ -214,12 +214,16 @@ void ConteUStim::draw_dot_patches(const ConteXYHelper& xyhelper, const conte_tri
 		xyhelper.getPageIndDrawOrigin(i, page_ind, term_x, term_y);
 		vsgSetDrawPage(vsgVIDEOPAGE, cPageCue + page_ind, vsgNOCLEAR);
 		vsgSetDrawOrigin(term_x, term_y);
-		cout << "patch " << i << " " << term_x << ", " << term_y << endl;
+		//cout << "patch " << i << " " << term_x << ", " << term_y << endl;
 
 		patch.draw(m_levelCueColors[0], m_levelCueColors[1], trial.cue_w, trial.cue_h, trial.cue_d);
 		if (m_arguments.bShowAperture)
 		{
-
+			long mode_saved = vsgGetDrawMode();
+			vsgSetDrawMode(vsgCENTREXY | vsgPIXELPEN);
+			vsgSetPen1(m_levelTest);
+			vsgDrawRect(0, 0, trial.cue_w, trial.cue_h);
+			vsgSetDrawMode(mode_saved);
 		}
 	}
 
@@ -266,7 +270,9 @@ void ConteUStim::draw_current()
 	vsgSetDrawPage(vsgOVERLAYPAGE, cOvPageAperture, m_levelOverlayBackground);
 	vsgSetDrawMode(vsgCENTREXY + vsgSOLIDFILL);
 	vsgSetPen1(0);
-	cout << "Draw aperture at " << trial.cue_x << ", " << -trial.cue_y << endl;
+
+	// Make sure to make y coord behave like pos-down
+	//cout << "Draw aperture at " << trial.cue_x << ", " << trial.cue_y << endl;
 	vsgDrawRect(trial.cue_x, -trial.cue_y, trial.cue_w, trial.cue_h);
 	if (m_arguments.bShowAperture)
 	{

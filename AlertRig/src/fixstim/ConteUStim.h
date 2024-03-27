@@ -39,6 +39,7 @@ private:
 	PIXEL_LEVEL m_levelOverlayCueRect0;
 	PIXEL_LEVEL m_levelOverlayCueRect1;
 	PIXEL_LEVEL m_levelOverlayAperture;
+	PIXEL_LEVEL m_levelPatchOutline;
 
 	vector<PIXEL_LEVEL> m_levelCueColors;
 	PIXEL_LEVEL m_levelTest;
