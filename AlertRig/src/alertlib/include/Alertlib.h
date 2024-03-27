@@ -231,6 +231,9 @@ namespace alert
 		PIXEL_LEVEL m_level_low_gabor, m_level_high_gabor;
 		PIXEL_LEVEL m_level_low_flanker, m_level_high_flanker;
 		PIXEL_LEVEL m_level_cue;
+
+		// pass references to arrays.
+		void getDrawingCoordinates(double(&x)[2], double(&y)[2], double(&rect)[4]);
 	public:
 		ARConteSpec() : gaborContrast(100), flankerContrast(100), cueContrast(100) {};
 		virtual ~ARConteSpec() {};

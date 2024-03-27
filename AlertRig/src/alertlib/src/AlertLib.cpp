@@ -558,10 +558,33 @@ int ARRectangleSpec::draw()
 	return 0;
 }
 
-int ARRectangleSpec::drawOverlay(PIXEL_LEVEL)
+int ARRectangleSpec::drawOverlay(PIXEL_LEVEL ovLevel)
 {
-	cerr << "ARRectangleSpec::drawOverlay() not implemented!" << endl;
-	return -1;
+	int status = 0;
+	arutil_color_to_overlay_palette(this->color, ovLevel);
+	vsgSetPen1(ovLevel);	// overlay page transparent
+	if (!bIsMulti)
+	{
+		DWORD oldmode = vsgGetDrawMode();
+		if (drawmode)
+		{
+			vsgSetDrawMode(drawmode);
+			if (drawmode & vsgSOLIDPEN)
+			{
+				vsgSetPenSize(linewidth, linewidth);
+			}
+		}
+		else
+			vsgSetDrawMode(vsgCENTREXY + vsgSOLIDFILL);
+		vsgDrawBar(x, -y, w, h, orientation);
+		vsgSetDrawMode(oldmode);
+	}
+	else
+	{
+		cerr << "ARRectangleSpec::drawOverlay() not implemented!" << endl;
+		status = -1;
+	}
+	return status;
 }
 
 int ARContrastRectangleSpec::draw()
@@ -705,20 +728,17 @@ int ARFixationPointSpec::draw()
 		double xc[4], yc[4];
 		vsgSetDrawMode(vsgCENTREXY + vsgSOLIDPEN);
 		vsgSetPenSize(penSizePixels, penSizePixels);
-		getCrossEndpoints(this->x, this->y, this->crossOriDeg, this->d, xc, yc);
+		getCrossEndpoints(this->x, -this->y, this->crossOriDeg, this->d, xc, yc);
 		vsgDrawLine(xc[0], yc[0], xc[1], yc[1]);
 		vsgDrawLine(xc[2], yc[2], xc[3], yc[3]);
 	}
 	return 0;
 }
 
-
-// oh-oh! The fixpt will hijack overlay palette color level 2!
 int ARFixationPointSpec::drawOverlay(PIXEL_LEVEL ovLevel)
 {
 	int status=0;
-	VSGTRIVAL c = this->color.trival();
-	vsgPaletteWriteOverlayCols((VSGLUTBUFFER *)&c, ovLevel, 1);
+	arutil_color_to_overlay_palette(this->color, ovLevel);
 	vsgSetPen1(ovLevel);	// overlay page transparent
 	if (isDot)
 	{
@@ -1615,6 +1635,41 @@ void ARConteSpec::init(int nlevels, bool bCreate)
 	//arutil_ramp_to_palette(COLOR_TYPE(black), COLOR_TYPE(white), m_ramp_low, m_ramp_high);
 }
 
+
+void ARConteSpec::getDrawingCoordinates(double(&x)[2], double(&y)[2], double(&rect)[4])
+{
+	if (this->iHorizontal == 1 || this->iHorizontal == -1)
+	{
+		x[0] = this->x - this->w;
+		x[1] = this->x + this->w;
+		y[0] = y[1] = -1 * this->y;
+		rect[0] = this->x - 1.5 * this->w;
+		rect[1] = this->x + 1.5 * this->w;
+		rect[2] = -1 * this->y - 0.5 * this->h;
+		rect[3] = -1 * this->y + 0.5 * this->h;
+	}
+	else if (this->iHorizontal == 0 || this->iHorizontal == -2)
+	{
+		y[0] = -1 * this->y - this->h;
+		y[1] = -1 * this->y + this->h;
+		x[0] = x[1] = this->x;
+		rect[0] = this->x - 0.5 * this->w;
+		rect[1] = this->x + 0.5 * this->w;
+		rect[2] = -1 * this->y - 1.5 * this->h;
+		rect[3] = -1 * this->y + 1.5 * this->h;
+	}
+	else
+	{
+		y[0] = -1 * this->y - this->h;
+		y[1] = -1 * this->y + this->h;
+		x[0] = x[1] = this->x;
+		rect[0] = this->x - 0.5 * this->w;
+		rect[1] = this->x + 0.5 * this->w;
+		rect[2] = -1 * this->y - 0.5 * this->h;
+		rect[3] = -1 * this->y + 0.5 * this->h;
+	}
+}
+
 int ARConteSpec::draw()
 {
 	double xx[2], yy[2];	// coordinates (centers) for the two gaussian flankers (xx[0], yy[0]) and (xx[1], yy[1])
@@ -1646,38 +1701,8 @@ int ARConteSpec::draw()
 	COLOR_TYPE c = COLOR_TYPE(gray) + (this->cueColor - COLOR_TYPE(gray)) * (this->cueContrast / 100.0);
 	arutil_color_to_palette(c, m_level_cue);
 
-	// set coords for drawing gaussian and border cues
-	if (this->iHorizontal ==1 || this->iHorizontal == -1)
-	{
-		xx[0] = this->x - this->w;
-		xx[1] = this->x + this->w;
-		yy[0] = yy[1] = -1 * this->y;
-		rect[0] = this->x - 1.5 * this->w;
-		rect[1] = this->x + 1.5 * this->w;
-		rect[2] = -1 * this->y - 0.5 * this->h;
-		rect[3] = -1 * this->y + 0.5 * this->h;
-	}
-	else if (this->iHorizontal == 0 || this->iHorizontal == -2)
-	{
-		yy[0] = -1 * this->y - this->h;
-		yy[1] = -1 * this->y + this->h;
-		xx[0] = xx[1] = this->x;
-		rect[0] = this->x - 0.5 * this->w;
-		rect[1] = this->x + 0.5 * this->w;
-		rect[2] = -1 * this->y - 1.5 * this->h;
-		rect[3] = -1 * this->y + 1.5 * this->h;
-	}
-	else
-	{
-		yy[0] = -1 * this->y - this->h;
-		yy[1] = -1 * this->y + this->h;
-		xx[0] = xx[1] = this->x;
-		rect[0] = this->x - 0.5 * this->w;
-		rect[1] = this->x + 0.5 * this->w;
-		rect[2] = -1 * this->y - 0.5 * this->h;
-		rect[3] = -1 * this->y + 0.5 * this->h;
-	}
-
+	// get coords for drawing gaussian and border cues
+	getDrawingCoordinates(xx, yy, rect);
 
 	// now draw the gaussian flankers, but only if is_horizontal is not negative (which means do not draw)
 	if (this->iHorizontal > -1)
@@ -1705,27 +1730,25 @@ int ARConteSpec::draw()
 
 int ARConteSpec::drawOverlay(PIXEL_LEVEL ovLevel)
 {
-	double rectW, rectH;
-	vsgSetDrawMode(vsgCENTREXY + vsgSOLIDFILL);
+	double x[2], y[2], rect[4];
+	DWORD old_mode = vsgGetDrawMode();
 
-	// set coords for drawing gaussian and border cues
-	if (this->iHorizontal == 1)
-	{
-		rectW = 3 * this->w;
-		rectH = this->h;
-	}
-	else if (this->iHorizontal == 0)
-	{
-		rectW = this->w;
-		rectH = 3 * this->h;
-	}
-	else
-	{
-		rectW = this->w;
-		rectH = this->h;
-	}
+	// We're only going to draw the cue rectangles! Get the color into the overlay palette first
+	COLOR_TYPE c = COLOR_TYPE(gray) + (this->cueColor - COLOR_TYPE(gray)) * (this->cueContrast / 100.0);
+	arutil_color_to_overlay_palette(c, ovLevel);
+
+	vsgSetDrawMode(vsgSOLIDPEN);
+	vsgSetPenSize(this->cueLineWidth, this->cueLineWidth);
 	vsgSetPen1(ovLevel);
-	vsgDrawRect(this->x, this->y, rectW, rectH);
+	getDrawingCoordinates(x, y, rect);
+	vsgDrawLine(rect[0], rect[2], rect[1], rect[2]);	// top
+	vsgDrawLine(rect[1], rect[2], rect[1], rect[3]);	// right
+	vsgDrawLine(rect[1], rect[3], rect[0], rect[3]);	// bottom
+	vsgDrawLine(rect[0], rect[3], rect[0], rect[2]);	// left
+
+	// restore draw mode
+	vsgSetDrawMode(old_mode);
+
 	return 0;
 }
 
