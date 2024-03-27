@@ -10,7 +10,7 @@ using namespace std;
 
 ostream& operator<<(ostream& out, const conte_trial_t& trial)
 {
-	out << "cue: " << trial.cue_x << "," << trial.cue_y << "," << trial.cue_w << "," << trial.cue_h << ","
+	out << "cue: (" << trial.cue_x << "," << trial.cue_y << "," << trial.cue_w << "," << trial.cue_h << ","
 		<< trial.cue_d << "," << trial.cue_fpt << "," << trial.cue_nterms
 		<< ") timing: " << trial.cue_to_sample_delay_ms << "," << trial.sample_display_ms << ","
 		<< trial.sample_to_target_delay_ms << "," << trial.target_display_ms << "," << trial.saccade_response_time_ms;
@@ -398,19 +398,26 @@ void ConteXYHelper::getPageIndXYpos(unsigned int i, DWORD& page_ind, short& Xpos
 	page_ind = (DWORD)(i / (m_nRowsPerPage * m_nPatchPerRow));
 	unsigned int ipage = i % (m_nRowsPerPage * m_nPatchPerRow);
 
-	double x_origin_degrees, y_origin_degrees;
-	double x_origin_pixels, y_origin_pixels;
+	// These are coordinates on the video page, where upper left corner is (0,0) and y is positive down.
+	double x_patch_center_degrees, y_patch_center_degrees;
+	double x_patch_center_pixels, y_patch_center_pixels;
 
 	// draw origin relative to upper left corner of page, with +y = down. 
 	// convert to pixels
 	DWORD dummy;
-	getPageIndDrawOrigin(i, dummy, x_origin_degrees, y_origin_degrees);
+	getPageIndDrawOrigin(i, dummy, x_patch_center_degrees, y_patch_center_degrees);
 	//getDrawOrigin(i, x_origin_degrees, y_origin_degrees);
-	vsgUnit2Unit(vsgDEGREEUNIT, x_origin_degrees, vsgPIXELUNIT, &x_origin_pixels);
-	vsgUnit2Unit(vsgDEGREEUNIT, y_origin_degrees, vsgPIXELUNIT, &y_origin_pixels);
+	vsgUnit2Unit(vsgDEGREEUNIT, x_patch_center_degrees, vsgPIXELUNIT, &x_patch_center_pixels);
+	vsgUnit2Unit(vsgDEGREEUNIT, y_patch_center_degrees, vsgPIXELUNIT, &y_patch_center_pixels);
 
-	Xpos_pix = (short)(x_origin_pixels - m_WpixScr / 2);
-	Ypos_pix = (short)(y_origin_pixels - m_HpixScr / 2);
+	// Xpos_pix and Ypos_pix are the positions, in pixels, of the start of the SCREEN - i.e. where the screen drawing starts. 
+	// The values of x/y_patch_center_pixels are in y-pos-down coordinates, but the x,y position of the 
+	// patch itself (m_xdeg and m_ydeg) are in y-pos-up. Be careful in this transform! 
+	double x_scr_pixels, y_scr_pixels;
+	vsgUnit2Unit(vsgDEGREEUNIT, m_xdeg, vsgPIXELUNIT, &x_scr_pixels);
+	vsgUnit2Unit(vsgDEGREEUNIT, m_ydeg, vsgPIXELUNIT, &y_scr_pixels);
+	Xpos_pix = (short)(x_patch_center_pixels - x_scr_pixels - m_WpixScr / 2);
+	Ypos_pix = (short)(y_patch_center_pixels + y_scr_pixels - m_HpixScr / 2);
 	return;
 };
 
