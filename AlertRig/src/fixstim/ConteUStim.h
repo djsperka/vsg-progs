@@ -35,6 +35,11 @@ private:
 	int m_errflg;
 
 	PIXEL_LEVEL m_levelOverlayBackground;
+	PIXEL_LEVEL m_levelOverlayFixpt;
+	PIXEL_LEVEL m_levelOverlayCueRect0;
+	PIXEL_LEVEL m_levelOverlayCueRect1;
+	PIXEL_LEVEL m_levelOverlayAperture;
+
 	vector<PIXEL_LEVEL> m_levelCueColors;
 	PIXEL_LEVEL m_levelTest;
 	static const unsigned int m_max_cycle_count = 256;
@@ -51,6 +56,8 @@ private:
 	static WORD cPageSample;
 	static WORD cPageTarget;
 
+	string sState;
+
 	ARConteSpec m_sample0, m_sample1, m_target0, m_target1;
 
 	// These are the args allowed and which are handled by prargs. Do not use 'F' - it is reserved for 
@@ -59,6 +66,9 @@ private:
 
 	// draw current trial into video memory
 	void draw_current();
+
+	// restore drawing pages to IDLE state
+	void pagesToIdleState();
 
 	// initialize pages at start of this stim
 	void init();

@@ -26,6 +26,9 @@ static struct argp_option options[] = {
 	{"dot-supply", 701, "filename", 0, "File with x,y positions in [-0.5,0.5]"},
 	{"trials", 702, "filename", 0, "Conte trials stim specification"},
 	{"color", 'c', "COLOR", 0, "cue color; specify in order of usage (0, then 1)"},
+	{"show-cue-rects", 703, 0, 0, "Show cue rects starting with cue period."},
+	{"generate-dots", 704, "NPts/Patch", 0, "If no dot supply file provided, will generate a set of dots with this many dots per patch. Trials are 0,25,50,75,100% of first color, from trial to trial."}, 
+	{"show-aperture", 705, 0, 0, "Show cue aperture outline - for testing only."},
 	{ 0 }
 };
 
@@ -60,7 +63,7 @@ void ConteUStim::run_stim(alert::ARvsg& vsg)
 	// initialize graphics
 	init();
 
-	// draw first trial
+	// draw first trial's cues, sample&target stim. 
 	m_itrial = 0;
 	draw_current();
 
@@ -75,6 +78,7 @@ void ConteUStim::run_stim(alert::ARvsg& vsg)
 	if (m_arguments.bBinaryTriggers) triggers().reset(vsgIOReadDigitalIn());
 
 	// All right, start monitoring triggers........
+	sState = "IDLE";	// DO NOT TOUCH OUTSIDE OF callback()!!!
 	int last_output_trigger=0;
 	long input_trigger = 0;
 	string s;
@@ -110,6 +114,12 @@ void ConteUStim::run_stim(alert::ARvsg& vsg)
 		{	
 			vsgPresent();
 		}
+
+		if (tf.fired())
+		{
+			cout << "trig " << tf.triggers_matched() << " fired; VIDEO/OV pages " << vsgGetZoneDisplayPage(vsgVIDEOPAGE) << "/" << vsgGetZoneDisplayPage(vsgOVERLAYPAGE) << endl;
+		}
+
 		Sleep(10);
 	}
 
@@ -134,13 +144,18 @@ void ConteUStim::init()
 	m_levelOverlayBackground = 1;
 	arutil_color_to_overlay_palette(m_arguments.bkgdColor, m_levelOverlayBackground);
 
-	// make a color for testing stuff
-	ARvsg::instance().request_single(m_levelTest);
-	arutil_color_to_palette(COLOR_TYPE(0, 1, 1), m_levelTest);
+	// overlay level for fixation point and cue rectangles, if used. The draw commands will assign 
+	// the color to the palette. 
+	m_levelOverlayFixpt = 2;
+	m_levelOverlayCueRect0 = 3;
+	m_levelOverlayCueRect1 = 4;
+	m_levelOverlayAperture = 5;
 
-	// Fixpt will be drawn on video, not overlay, so create obj.
-	if (m_arguments.bHaveFixpt)
-		m_arguments.fixpt.init(2);
+	// make a color for testing stuff
+	ARvsg::instance().request_single(m_levelTest);	// waste a level - testing this DJS. 
+	ARvsg::instance().request_single(m_levelTest);
+	cerr << "m_level test " << m_levelTest << endl;
+	arutil_color_to_palette(COLOR_TYPE(0, 1, 1), m_levelTest);
 
 	// these are the colors specified on command line
 	for (auto c : m_arguments.colors)
@@ -150,12 +165,8 @@ void ConteUStim::init()
 		arutil_color_to_palette(c, l);
 		m_levelCueColors.push_back(l);
 	}
-
-	// overlay clear page - all transparent
-	vsgSetDrawPage(vsgOVERLAYPAGE, cOvPageClear, 0);
-
-
 	// background page
+	vsgSetDrawPage(vsgVIDEOPAGE, cPageFixpt, vsgBACKGROUND);
 	vsgSetDrawPage(vsgVIDEOPAGE, cPageBackground, vsgBACKGROUND);
 
 	m_sample0.init(60, false);
@@ -164,7 +175,7 @@ void ConteUStim::init()
 	m_target1.init(60, false);
 
 	// only need to do this once
-	setup_cycling_clear_fixpt();
+	//setup_cycling_clear_fixpt();
 }
 
 void ConteUStim::cleanup()
@@ -179,9 +190,6 @@ void ConteUStim::init_triggers(TSpecificFunctor<ConteUStim>* pfunctor)
 	triggers().addTrigger(new FunctorCallbackTrigger("F", 0x2, 0x2, 0x2, 0x2, pfunctor));
 	triggers().addTrigger(new FunctorCallbackTrigger("S", 0x4, 0x4, 0x4, 0x4, pfunctor));
 	triggers().addTrigger(new FunctorCallbackTrigger("X", 0x6, 0x0, 0x6, 0x0, pfunctor));
-	// If implemented, these triggers should follow "X", or else they will be executed instead of "X". 
-	// NOT IMPLEMENTED! triggers().addTrigger(new FunctorCallbackTrigger("f", 0x2, 0x0, 0x2, 0x0, pfunctor));
-	// NOT IMPLEMENTED! triggers().addTrigger(new FunctorCallbackTrigger("s", 0x4, 0x0, 0x4, 0x0, pfunctor));
 	triggers().addTrigger(new FunctorCallbackTrigger("a", 0x8, 0x8|AR_TRIGGER_TOGGLE, 0x8, 0x8|AR_TRIGGER_TOGGLE, pfunctor));
 	triggers().addTrigger(new FunctorCallbackTrigger("Y", 0x0, 0x0, 0x0, 0x0, pfunctor));
 	triggers().addTrigger(new FunctorCallbackTrigger("Z", 0x0, 0x0, 0x0, 0x0, pfunctor));
@@ -206,11 +214,13 @@ void ConteUStim::draw_dot_patches(const ConteXYHelper& xyhelper, const conte_tri
 		xyhelper.getPageIndDrawOrigin(i, page_ind, term_x, term_y);
 		vsgSetDrawPage(vsgVIDEOPAGE, cPageCue + page_ind, vsgNOCLEAR);
 		vsgSetDrawOrigin(term_x, term_y);
+		cout << "patch " << i << " " << term_x << ", " << term_y << endl;
 
 		patch.draw(m_levelCueColors[0], m_levelCueColors[1], trial.cue_w, trial.cue_h, trial.cue_d);
+		if (m_arguments.bShowAperture)
+		{
 
-		if (m_arguments.bHaveFixpt)
-			m_arguments.fixpt.draw();
+		}
 	}
 
 	// restore draw origin to center of screen
@@ -242,19 +252,42 @@ void ConteUStim::copy_stim_params_to_spec(const struct conte_stim_params& params
 void ConteUStim::draw_current()
 {
 	const conte_trial_t& trial = m_arguments.trials.at(m_itrial);
+	cout << "draw_current " << m_itrial << ": " << trial << endl;
 
-	// overlay 0 is initialized in init()
+	// Update vsg objs for stimuli
+	copy_stim_params_to_spec(trial.s0, m_sample0);
+	copy_stim_params_to_spec(trial.s1, m_sample1);
+	copy_stim_params_to_spec(trial.t0, m_target0);
+	copy_stim_params_to_spec(trial.t1, m_target1);
 
-	// overlay 1 has aperture for patch and background
+	// On initialization, overlay 0 is ALL transparent, and 
+	// overlay 1 has aperture for patch, background elsewhere
+	vsgSetCommand(vsgOVERLAYMASKMODE);
 	vsgSetDrawPage(vsgOVERLAYPAGE, cOvPageAperture, m_levelOverlayBackground);
 	vsgSetDrawMode(vsgCENTREXY + vsgSOLIDFILL);
-	vsgSetPen1(0);	// clear on overlay page
-	vsgDrawRect(trial.cue_x, trial.cue_y, trial.cue_w, trial.cue_h);
+	vsgSetPen1(0);
+	cout << "Draw aperture at " << trial.cue_x << ", " << -trial.cue_y << endl;
+	vsgDrawRect(trial.cue_x, -trial.cue_y, trial.cue_w, trial.cue_h);
+	if (m_arguments.bShowAperture)
+	{
+		ARRectangleSpec r;
+		r.x = trial.cue_x;
+		r.y = trial.cue_y;
+		r.w = trial.cue_w;
+		r.h = trial.cue_h;
+		r.color = COLOR_TYPE(.75, .15, .9);
+		r.drawmode = vsgSOLIDPEN + vsgCENTREXY;
+		r.linewidth = 2.0;
+		r.drawOverlay(m_levelOverlayAperture);
+	}
 
-	// fixation point page
-	vsgSetDrawPage(vsgVIDEOPAGE, cPageFixpt, vsgBACKGROUND);
-	if (m_arguments.bHaveFixpt)
-		m_arguments.fixpt.draw();
+	// Draw cue rectangles
+	if (m_arguments.bShowCueRects)
+	{
+		m_sample0.drawOverlay(m_levelOverlayCueRect0);
+		m_sample1.drawOverlay(m_levelOverlayCueRect1);
+	}
+	vsgSetDrawPage(vsgOVERLAYPAGE, cOvPageClear, 0);
 
 	// draw dot patch(es)
 	vsgSetDrawPage(vsgVIDEOPAGE, cPageCue, vsgBACKGROUND);
@@ -263,45 +296,16 @@ void ConteUStim::draw_current()
 
 	// draw stim pages
 	vsgSetDrawPage(vsgVIDEOPAGE, cPageSample, vsgBACKGROUND);
-	copy_stim_params_to_spec(trial.s0, m_sample0);
 	m_sample0.draw();
-	copy_stim_params_to_spec(trial.s1, m_sample1);
 	m_sample1.draw();
-	if (m_arguments.bHaveFixpt)
-		m_arguments.fixpt.draw();
 	vsgSetDrawPage(vsgVIDEOPAGE, cPageTarget, vsgBACKGROUND);
-	copy_stim_params_to_spec(trial.t0, m_target0);
 	m_target0.draw();
-	copy_stim_params_to_spec(trial.t1, m_target1);
 	m_target1.draw();
-	if (m_arguments.bHaveFixpt)
-		m_arguments.fixpt.draw();
-
-	// leave draw pages at reasonable place for next present()
-	vsgSetDrawPage(vsgVIDEOPAGE, cPageBackground, vsgNOCLEAR);
-	vsgSetDrawPage(vsgOVERLAYPAGE, cOvPageClear, vsgNOCLEAR);
 
 	// setup cycling
 	setup_cycling(xyhelper, trial);
 }
 
-void ConteUStim::setup_cycling_clear_fixpt()
-{
-	m_cycle_clear_params[0].Frames = 2;
-	m_cycle_clear_params[0].Page = cPageBackground + vsgDUALPAGE;
-	m_cycle_clear_params[0].Xpos = m_cycle_clear_params[0].Ypos = 0;
-	m_cycle_clear_params[0].ovPage = cOvPageClear;
-	m_cycle_clear_params[0].ovXpos = m_cycle_clear_params[0].ovYpos = 0;
-	m_cycle_clear_params[0].Stop = 1;
-
-	m_cycle_fixpt_params[0].Frames = 2;
-	m_cycle_fixpt_params[0].Page = cPageFixpt + vsgDUALPAGE + vsgTRIGGERPAGE;
-	m_cycle_fixpt_params[0].Xpos = m_cycle_fixpt_params[0].Ypos = 0;
-	m_cycle_fixpt_params[0].ovPage = cOvPageClear;
-	m_cycle_fixpt_params[0].ovXpos = m_cycle_fixpt_params[0].ovYpos = 0;
-	m_cycle_fixpt_params[0].Stop = 1;
-
-}
 
 void ConteUStim::setup_cycling(const ConteXYHelper& xyhelper, const conte_trial_t& trial)
 {
@@ -344,7 +348,7 @@ void ConteUStim::setup_cycling(const ConteXYHelper& xyhelper, const conte_trial_
 			m_cycle_params[m_cycle_params_count].Stop = 0;
 			m_cycle_params[m_cycle_params_count].Page = cPageFixpt + vsgDUALPAGE + vsgTRIGGERPAGE;
 			m_cycle_params[m_cycle_params_count].Xpos = m_cycle_params[m_cycle_params_count].Ypos = 0;
-			m_cycle_params[m_cycle_params_count].ovPage = cOvPageClear;
+			m_cycle_params[m_cycle_params_count].ovPage = cOvPageAperture; //cOvPageClear;
 			m_cycle_params[m_cycle_params_count].ovXpos = m_cycle_params[m_cycle_params_count].ovYpos = 0;
 			m_cycle_params[m_cycle_params_count].Frames = nframes(trial.cue_to_sample_delay_ms);
 			m_cycle_params_count++;
@@ -382,7 +386,7 @@ void ConteUStim::setup_cycling(const ConteXYHelper& xyhelper, const conte_trial_
 			m_cycle_params[m_cycle_params_count].Stop = 0;
 			m_cycle_params[m_cycle_params_count].Page = cPageFixpt + vsgDUALPAGE + vsgTRIGGERPAGE;
 			m_cycle_params[m_cycle_params_count].Xpos = m_cycle_params[m_cycle_params_count].Ypos = 0;
-			m_cycle_params[m_cycle_params_count].ovPage = cOvPageClear;
+			m_cycle_params[m_cycle_params_count].ovPage = cOvPageClear; // cOvPageClear;
 			m_cycle_params[m_cycle_params_count].ovXpos = m_cycle_params[m_cycle_params_count].ovYpos = 0;
 			m_cycle_params[m_cycle_params_count].Frames = nframes(trial.sample_to_target_delay_ms);
 			m_cycle_params_count++;
@@ -420,7 +424,7 @@ void ConteUStim::setup_cycling(const ConteXYHelper& xyhelper, const conte_trial_
 			m_cycle_params[m_cycle_params_count].Stop = 0;
 			m_cycle_params[m_cycle_params_count].Page = cPageFixpt + vsgDUALPAGE + vsgTRIGGERPAGE;
 			m_cycle_params[m_cycle_params_count].Xpos = m_cycle_params[m_cycle_params_count].Ypos = 0;
-			m_cycle_params[m_cycle_params_count].ovPage = cOvPageClear;
+			m_cycle_params[m_cycle_params_count].ovPage = cOvPageClear; // cOvPageClear;
 			m_cycle_params[m_cycle_params_count].ovXpos = m_cycle_params[m_cycle_params_count].ovYpos = 0;
 			m_cycle_params[m_cycle_params_count].Frames = nframes(trial.saccade_response_time_ms);
 			m_cycle_params_count++;
@@ -438,6 +442,32 @@ void ConteUStim::setup_cycling(const ConteXYHelper& xyhelper, const conte_trial_
 
 }
 
+
+void print_draw_pages()
+{
+	VSGPAGEDESCRIPTOR pageDescr;
+	pageDescr._StructSize = sizeof(VSGPAGEDESCRIPTOR);
+
+}
+
+void ConteUStim::pagesToIdleState()
+{
+	const conte_trial_t& trial = m_arguments.trials.at(m_itrial);
+	vsgSetDrawPage(vsgOVERLAYPAGE, cOvPageClear, 0);
+	vsgSetDrawPage(vsgOVERLAYPAGE, cOvPageAperture, m_levelOverlayBackground);
+	vsgSetDrawMode(vsgCENTREXY + vsgSOLIDFILL);
+	vsgSetPen1(0);	// clear on overlay page
+	cout << "Draw aperture at " << trial.cue_x << ", " << -trial.cue_y << endl;
+	vsgDrawRect(trial.cue_x, -trial.cue_y, trial.cue_w, trial.cue_h);
+	if (m_arguments.bShowCueRects)
+	{
+		m_sample0.drawOverlay(m_levelOverlayCueRect0);
+		m_sample1.drawOverlay(m_levelOverlayCueRect1);
+	}
+}
+
+// State transitions happen with the callbacks, but each callback letter has its own logic, because 
+// not all states can have all letter/transitions.
 int ConteUStim::callback(int &output, const FunctorCallbackTrigger* ptrig, const std::string&)
 {
 	int ival=1;
@@ -456,17 +486,36 @@ int ConteUStim::callback(int &output, const FunctorCallbackTrigger* ptrig, const
 	}
 	else if (key == "S")
 	{
-		//for (unsigned int i = 0; i < m_cycle_params_count; i++)
-		//	cerr << i << ": " << m_cycle_params[i].Page-(m_cycle_params[i].Page & vsgDUALPAGE) << "/" << m_cycle_params[i].ovPage << " n=" << m_cycle_params[i].Frames << " s=" << m_cycle_params[i].Stop << endl;
-		vsgPageCyclingSetup(m_cycle_params_count, &m_cycle_params[0]);
-		vsgSetSynchronisedCommand(vsgSYNC_PRESENT, vsgCYCLEPAGEENABLE, 0);
+		if (sState == "IDLE" || sState == "FIXPT")
+		{
+			//vsgSetCommand(vsgOVERLAYMASKMODE + vsgOVERLAYDRIFT + vsgVIDEODRIFT);
+			vsgPageCyclingSetup(m_cycle_params_count, &m_cycle_params[0]);
+			vsgSetSynchronisedCommand(vsgSYNC_PRESENT, vsgCYCLEPAGEENABLE, 0);
+			sState = "STIM";
+		}
+		else
+		{
+			cerr << "ERROR: State \"" << sState << "\" does not allow S trigger" << endl;
+		}
 	}
 	else if (key == "F")
 	{
-		vsgSetCommand(vsgCYCLEPAGEDISABLE);
-		//vsgMoveScreen(0, 0);
-		vsgPageCyclingSetup(1, &m_cycle_fixpt_params[0]);
-		vsgSetSynchronisedCommand(vsgSYNC_PRESENT, vsgCYCLEPAGEENABLE, 0);
+		if (sState == "IDLE")
+		{
+			vsgSetDrawPage(vsgOVERLAYPAGE, cOvPageClear, vsgNOCLEAR);
+			if (m_arguments.bHaveFixpt)
+				m_arguments.fixpt.drawOverlay(m_levelOverlayFixpt);
+			vsgSetDrawPage(vsgOVERLAYPAGE, cOvPageAperture, vsgNOCLEAR);
+			if (m_arguments.bHaveFixpt)
+				m_arguments.fixpt.drawOverlay(m_levelOverlayFixpt);
+			vsgSetZoneDisplayPage(vsgOVERLAYPAGE, cOvPageClear);
+			sState = "FIXPT";
+			ival = 0;
+		}
+		else
+		{
+			cerr << "ERROR: State \"" << sState << "\" does not allow F trigger" << endl;
+		}
 	}
 	else if (key == "f")
 	{
@@ -474,9 +523,21 @@ int ConteUStim::callback(int &output, const FunctorCallbackTrigger* ptrig, const
 	}
 	else if (key == "X")
 	{
-		vsgSetCommand(vsgCYCLEPAGEDISABLE);
-		vsgPageCyclingSetup(1, &m_cycle_clear_params[0]);	
-		vsgSetSynchronisedCommand(vsgSYNC_PRESENT, vsgCYCLEPAGEENABLE, 0);
+		if (sState == "FIXPT")
+		{
+			pagesToIdleState();
+			vsgSetZoneDisplayPage(vsgVIDEOPAGE, cPageBackground);
+			sState = "IDLE";
+		}
+		else if (sState == "STIM")
+		{
+			vsgSetCommand(vsgCYCLEPAGEDISABLE);
+			pagesToIdleState();
+			vsgSetZoneDisplayPage(vsgVIDEOPAGE, cPageBackground);
+			vsgSetZoneDisplayPage(vsgOVERLAYPAGE, cOvPageClear);
+			sState = "IDLE";
+		}
+		ival = 0;
 	}
 	else if (key == "Z")
 	{
@@ -485,8 +546,6 @@ int ConteUStim::callback(int &output, const FunctorCallbackTrigger* ptrig, const
 		cout << "Enter vid ov pages e.g. 1 1: ";
 		cin >> i >> j;
 		cout << "got " << i << " " << j << endl;
-		//vsgSetDrawPage(vsgVIDEOPAGE, i, vsgNOCLEAR);
-		//vsgSetDrawPage(vsgOVERLAYPAGE, j, vsgNOCLEAR);
 		vsgSetZoneDisplayPage(vsgVIDEOPAGE, i);
 		vsgSetZoneDisplayPage(vsgOVERLAYPAGE, j);
 		ival = 0;

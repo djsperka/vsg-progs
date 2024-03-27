@@ -3,9 +3,19 @@
 #include <boost/range/algorithm/random_shuffle.hpp>
 #include <fstream>
 #include <string>
+#include <random>
 
 using namespace std;
 
+
+ostream& operator<<(ostream& out, const conte_trial_t& trial)
+{
+	out << "cue: " << trial.cue_x << "," << trial.cue_y << "," << trial.cue_w << "," << trial.cue_h << ","
+		<< trial.cue_d << "," << trial.cue_fpt << "," << trial.cue_nterms
+		<< ") timing: " << trial.cue_to_sample_delay_ms << "," << trial.sample_display_ms << ","
+		<< trial.sample_to_target_delay_ms << "," << trial.target_display_ms << "," << trial.saccade_response_time_ms;
+	return out;
+}
 
 
 istream& operator>>(istream& ins, conte_trial_t& trial)
@@ -88,6 +98,7 @@ istream& operator>>(istream& ins, conte_trial_list_t& trials)
 	while (ins >> t)
 	{
 		trials.push_back(t);
+		std::cerr << t << std::endl;
 	}
 	return ins;
 }
@@ -304,6 +315,19 @@ error_t parse_conte_opt(int key, char* carg, struct argp_state* state)
 			}
 		}
 		break;
+	case 703:
+		arguments->bShowCueRects = true;
+		break;
+	case 704:
+		arguments->bGenerateDots = true;
+		if (parse_integer(sarg, arguments->iGenerateDotsNPts))
+		{
+			cerr << "Expecting integer arg - should be number of dots per generated patch.";
+			ret = EINVAL;
+		}
+	case 705:
+		arguments->bShowAperture = true;
+		break;
 	case ARGP_KEY_END:
 		{
 			// check that everything needed has been received
@@ -312,6 +336,11 @@ error_t parse_conte_opt(int key, char* carg, struct argp_state* state)
 			for (auto tr : arguments->trials)
 				num_patches_needed += tr.cue_nterms;
 			cerr << "Trials require " << num_patches_needed << " patches, dot supply has " << num_patches << endl;
+			if (num_patches == 0 && arguments->bGenerateDots)
+			{
+				ConteCueDotSupply::generate_dot_supply(arguments->dot_supply, num_patches_needed, arguments->iGenerateDotsNPts);
+				num_patches = arguments->dot_supply.size();
+			}
 			if (num_patches_needed > num_patches)
 			{
 				ret = EINVAL;
@@ -396,6 +425,15 @@ ContePatch::ContePatch(unsigned int n0, unsigned int n1, double* p)
 	}
 }
 
+ContePatch::ContePatch(unsigned int n0, unsigned int n1, const std::vector<double>& x, const std::vector<double>& y)
+	: m_n0(n0)
+	, m_n1(n1)
+	, m_x(x)
+	, m_y(y)
+{	
+}
+
+
 void ContePatch::draw(PIXEL_LEVEL level0, PIXEL_LEVEL level1, double patch_width, double patch_height, double dot_diam) const
 {
 	unsigned int i;
@@ -421,3 +459,40 @@ void ContePatch::draw(PIXEL_LEVEL level0, PIXEL_LEVEL level1, double patch_width
 	vsgSetDrawMode(mode_saved);
 }
 
+//void ContePatch::drawOutlineRect(double patch_width, double patch_height, const COLOR_TYPE& color = COLOR_TYPE(1, 1, 0))
+//{
+//	alert::ARRectangleSpec r;
+//	r.x = 0;
+//	r.y = 0;
+//	r.w = patch_width;
+//	r.h = patch_height;
+//	r.color = color;
+//	r.drawmode = vsgSOLIDPEN + vsgCENTREXY;
+//	r.linewidth = 2.0;
+//	r.draw();
+//}
+//
+
+void ConteCueDotSupply::generate_dot_supply(ConteCueDotSupply& supply, int nPatches, int nptsPerPatch)
+{
+	std::vector<double> x, y;
+	int n0, n1;
+	double f0[5] = { 0, .25, .5, .75, 1 };
+	std::random_device rd;  // Will be used to obtain a seed for the random number engine
+	std::mt19937 gen(rd()); // Standard mersenne_twister_engine seeded with rd()
+	std::uniform_real_distribution<> dis(-0.5, 0.5);
+	for (int i = 0; i < nPatches; i++)
+	{
+		x.clear();
+		y.clear();
+		for (int j = 0; j < nptsPerPatch; j++)
+		{
+			x.push_back(dis(gen));
+			y.push_back(dis(gen));
+		}
+		n0 = nptsPerPatch * f0[i % 5];
+		n1 = nptsPerPatch - n0;
+		supply.add_patch(n0, n1, x, y);
+	}
+	return;
+}

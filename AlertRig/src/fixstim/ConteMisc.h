@@ -2,6 +2,7 @@
 #include "Alertlib.h"
 #include <vector>
 #include <istream>
+#include <ostream>
 #include <string>
 #include "alert-argp.h"
 
@@ -13,8 +14,10 @@ class ContePatch
 	std::vector<double> m_y;
 public:
 	ContePatch(unsigned int n0, unsigned int n1, double* p);
+	ContePatch(unsigned int n0, unsigned int n1, const std::vector<double>& x, const std::vector<double>& y);
 	virtual ~ContePatch() {};
 	void draw(PIXEL_LEVEL level0, PIXEL_LEVEL level1, double patch_width, double patch_height, double dot_diameter) const;
+	void make_outline_rect(alert::ARRectangleSpec& r, const COLOR_TYPE& color = COLOR_TYPE(1,1,0));
 };
 
 // 
@@ -28,6 +31,7 @@ public:
 	// Add a patch. Each patch has two colors of dots, with n0, n1 of each. The array p[] should contain (n0+n1)*2 values 
 	// in [-0.5, 0.5]. They are assigned as x0, y0, x1, y1, ....
 	void add_patch(unsigned int n0, unsigned int n1, double* p) { this->push_back(ContePatch(n0, n1, p)); };
+	void add_patch(unsigned int n0, unsigned int n1, const std::vector<double>& x, const std::vector<double>& y) { this->push_back(ContePatch(n0, n1, x, y)); };
 
 	// how many patches do we have?
 	size_t npatches() const { return this->size(); };
@@ -42,6 +46,7 @@ public:
 		}
 		return this->at(m_index++);
 	};
+	static void generate_dot_supply(ConteCueDotSupply& supply, int nPatches, int nptsPerPatch);
 };
 
 // one of the 3-panel stim + distractor patches
@@ -82,6 +87,8 @@ std::istream& operator>>(std::istream& ins, conte_trial_list_t& file);
 std::istream& operator>>(std::istream& ins, conte_trial_t& trial);
 std::istream& operator>>(std::istream& in, conte_stim_params_t& stim);
 
+std::ostream& operator<<(std::ostream& ins, const conte_trial_t& trial);
+
 class ConteXYHelper
 {
 	long m_WpixScr, m_HpixScr;	// screen width, height
@@ -116,6 +123,10 @@ struct conte_arguments
 	bool bHaveDistance;
 	int iReadyPulseDelay;
 	int iPulseBits;
+	bool bShowCueRects;
+	bool bGenerateDots;
+	int iGenerateDotsNPts;
+	bool bShowAperture;
 	alert::ARContrastFixationPointSpec fixpt;
 	bool bHaveFixpt;
 	std::string dot_supply_filename;
@@ -130,6 +141,10 @@ struct conte_arguments
 		, bHaveDistance(false)
 		, iReadyPulseDelay(0)
 		, iPulseBits(0x2)
+		, bShowCueRects(false)
+		, bGenerateDots(false)
+		, iGenerateDotsNPts(0)
+		, bShowAperture(false)
 		, bHaveFixpt(false)
 	{};
 };
