@@ -226,6 +226,49 @@ bool parse_dot_supply_file(const std::string& filename, ConteCueDotSupply& dotsu
 	return bReturn;
 }
 
+int parse_border(const std::string& sarg, COLOR_TYPE& borderColor, int& iBorderOuterWidth, int& iBorderLineWidth)
+{
+	int status = 0;
+	stringstream ss;
+	vector<string> tokens;
+
+	tokenize(sarg, tokens, ",");
+
+	if (tokens.size() != 3)
+	{
+		cerr << "Expecting 3 arguments!" << endl;
+		status = 1;
+	}
+	else
+	{
+		ss.str(tokens[0]);
+		ss.clear();
+		ss >> borderColor;
+		if (!ss)
+		{
+			cerr << "bad color: " << tokens[1] << endl;
+			status = 1;
+		}
+		ss.str(tokens[1]);
+		ss.clear();
+		ss >> iBorderOuterWidth;
+		if (!ss)
+		{
+			cerr << "bad border outer width" << endl;
+			status = 1;
+		}
+		ss.str(tokens[2]);
+		ss.clear();
+		ss >> iBorderLineWidth;
+		if (!ss)
+		{
+			cerr << "bad border inner width" << endl;
+			status = 1;
+		}
+
+	}
+	return status;
+}
 
 
 
@@ -327,6 +370,18 @@ error_t parse_conte_opt(int key, char* carg, struct argp_state* state)
 		}
 	case 705:
 		arguments->bShowAperture = true;
+		break;
+	case 706:
+		if (parse_border(sarg, arguments->borderColor, arguments->iBorderOuterWidth, arguments->iBorderLineWidth))
+		{
+			cerr << "Expecting COLOR,int,int argument for border.";
+			ret = EINVAL;
+		}
+		else
+		{
+			arguments->bShowBorder = true;
+			cout << "Border " << arguments->borderColor << " widths: " << arguments->iBorderOuterWidth << "/" << arguments->iBorderLineWidth << endl;
+		}
 		break;
 	case ARGP_KEY_END:
 		{

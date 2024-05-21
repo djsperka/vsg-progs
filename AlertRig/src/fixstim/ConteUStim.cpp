@@ -29,6 +29,7 @@ static struct argp_option options[] = {
 	{"show-cue-rects", 703, 0, 0, "Show cue rects starting with cue period."},
 	{"generate-dots", 704, "NPts/Patch", 0, "If no dot supply file provided, will generate a set of dots with this many dots per patch. Trials are 0,25,50,75,100% of first color, from trial to trial."}, 
 	{"show-aperture", 705, 0, 0, "Show cue aperture outline - for testing only."},
+	{"border", 706, "COLOR,outer_pixels,line_pixels", 0, "Display a border on all screens for F,S."},
 	{ 0 }
 };
 

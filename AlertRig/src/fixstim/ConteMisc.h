@@ -129,6 +129,10 @@ struct conte_arguments
 	bool bShowAperture;
 	alert::ARContrastFixationPointSpec fixpt;
 	bool bHaveFixpt;
+	bool bShowBorder;
+	COLOR_TYPE borderColor;
+	int iBorderOuterWidth;
+	int iBorderLineWidth;
 	std::string dot_supply_filename;
 	ConteCueDotSupply dot_supply;
 	conte_trial_list_t trials;
@@ -146,6 +150,7 @@ struct conte_arguments
 		, iGenerateDotsNPts(0)
 		, bShowAperture(false)
 		, bHaveFixpt(false)
+		, bShowBorder(false)
 	{};
 };
 
@@ -165,3 +170,6 @@ bool parse_dot_supply_file(const std::string& filename, ConteCueDotSupply& dotsu
 
 // input stuff
 bool parse_conte_stim_params(const std::vector<std::string>& tokens, unsigned int first, conte_stim_params_t& stim);
+
+// parse border argument
+int parse_border(const std::string& sarg, COLOR_TYPE& borderColor, int& iBorderOuterWidth, int& iBorderLineWidth);
