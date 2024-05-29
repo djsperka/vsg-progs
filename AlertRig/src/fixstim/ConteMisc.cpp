@@ -226,7 +226,7 @@ bool parse_dot_supply_file(const std::string& filename, ConteCueDotSupply& dotsu
 	return bReturn;
 }
 
-int parse_border(const std::string& sarg, COLOR_TYPE& borderColor, int& iBorderOuterWidth, int& iBorderLineWidth)
+int parse_border(const std::string& sarg, COLOR_TYPE& borderColor, int& iBorderLineWidth)
 {
 	int status = 0;
 	stringstream ss;
@@ -234,9 +234,9 @@ int parse_border(const std::string& sarg, COLOR_TYPE& borderColor, int& iBorderO
 
 	tokenize(sarg, tokens, ",");
 
-	if (tokens.size() != 3)
+	if (tokens.size() != 2)
 	{
-		cerr << "Expecting 3 arguments!" << endl;
+		cerr << "Expecting 2 arguments!" << endl;
 		status = 1;
 	}
 	else
@@ -251,21 +251,12 @@ int parse_border(const std::string& sarg, COLOR_TYPE& borderColor, int& iBorderO
 		}
 		ss.str(tokens[1]);
 		ss.clear();
-		ss >> iBorderOuterWidth;
+		ss >> iBorderLineWidth;
 		if (!ss)
 		{
 			cerr << "bad border outer width" << endl;
 			status = 1;
 		}
-		ss.str(tokens[2]);
-		ss.clear();
-		ss >> iBorderLineWidth;
-		if (!ss)
-		{
-			cerr << "bad border inner width" << endl;
-			status = 1;
-		}
-
 	}
 	return status;
 }
@@ -373,7 +364,7 @@ error_t parse_conte_opt(int key, char* carg, struct argp_state* state)
 		arguments->bShowAperture = true;
 		break;
 	case 706:
-		if (parse_border(sarg, arguments->borderColor, arguments->iBorderOuterWidth, arguments->iBorderLineWidth))
+		if (parse_border(sarg, arguments->borderColor, arguments->iBorderLineWidth))
 		{
 			cerr << "Expecting COLOR,int,int argument for border.";
 			ret = EINVAL;
@@ -381,7 +372,7 @@ error_t parse_conte_opt(int key, char* carg, struct argp_state* state)
 		else
 		{
 			arguments->bShowBorder = true;
-			cout << "Border " << arguments->borderColor << " widths: " << arguments->iBorderOuterWidth << "/" << arguments->iBorderLineWidth << endl;
+			cout << "Border " << arguments->borderColor << " linewidth " << arguments->iBorderLineWidth << endl;
 		}
 		break;
 	case ARGP_KEY_END:

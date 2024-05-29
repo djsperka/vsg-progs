@@ -29,7 +29,7 @@ static struct argp_option options[] = {
 	{"show-cue-rects", 703, 0, 0, "Show cue rects starting with cue period."},
 	{"generate-dots", 704, "NPts/Patch", 0, "If no dot supply file provided, will generate a set of dots with this many dots per patch. Trials are 0,25,50,75,100% of first color, from trial to trial."}, 
 	{"show-aperture", 705, 0, 0, "Show cue aperture outline - for testing only."},
-	{"border", 706, "COLOR,outer_pixels,line_pixels", 0, "Display a border on all screens for F,S."},
+	{"border", 706, "COLOR,width_pixels", 0, "Display a border on all screens for F,S."},
 	{ 0 }
 };
 
@@ -184,9 +184,9 @@ void ConteUStim::init()
 		m_rectBorder.drawmode = vsgSOLIDPEN + vsgCENTREXY;
 		m_rectBorder.color = m_arguments.borderColor;
 		m_rectBorder.linewidth = m_arguments.iBorderLineWidth;
-		m_rectBorder.x = m_arguments.iBorderOuterWidth / 2;
+		m_rectBorder.x = 0;
 		m_rectBorder.y = 0;
-		m_rectBorder.w = vsgGetScreenWidthPixels() - m_arguments.iBorderOuterWidth;
+		m_rectBorder.w = vsgGetScreenWidthPixels();
 		m_rectBorder.h = vsgGetScreenHeightPixels();
 	}
 
