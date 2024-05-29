@@ -205,6 +205,7 @@ void ConteUStim::init_triggers(TSpecificFunctor<ConteUStim>* pfunctor)
 	triggers().clear();
 	triggers().addTrigger(new FunctorCallbackTrigger("F", 0x2, 0x2, 0x2, 0x2, pfunctor));
 	triggers().addTrigger(new FunctorCallbackTrigger("S", 0x4, 0x4, 0x4, 0x4, pfunctor));
+	triggers().addTrigger(new FunctorCallbackTrigger("U", 0x20, 0x20, 0x10, 0x10, pfunctor));
 	triggers().addTrigger(new FunctorCallbackTrigger("X", 0x6, 0x0, 0x6, 0x0, pfunctor));
 	triggers().addTrigger(new FunctorCallbackTrigger("a", 0x8, 0x8|AR_TRIGGER_TOGGLE, 0x8, 0x8|AR_TRIGGER_TOGGLE, pfunctor));
 	triggers().addTrigger(new FunctorCallbackTrigger("Y", 0x0, 0x0, 0x0, 0x0, pfunctor));
@@ -549,6 +550,19 @@ int ConteUStim::callback(int &output, const FunctorCallbackTrigger* ptrig, const
 	{
 		cerr << "ConteUStim::callback(\"s\") not implemented." << endl;
 	}
+	else if (key == "U")
+	{
+		if (sState == "IDLE")
+		{
+			drawBorderOnPages();
+		}
+		else
+		{
+			cerr << "ConteUStim::callback - U can only come when screen is blank" << endl;
+		}
+
+		ival = 0;
+	}
 	else if (key == "S")
 	{
 		if (sState == "IDLE" || sState == "FIXPT")
@@ -620,7 +634,7 @@ int ConteUStim::callback(int &output, const FunctorCallbackTrigger* ptrig, const
 		cout << "current video page " << vsgGetZoneDisplayPage(vsgVIDEOPAGE) << endl;
 		cout << "current overlay page " << vsgGetZoneDisplayPage(vsgOVERLAYPAGE) << endl;
 		cout << "page cycling state " << vsgGetSystemAttribute(vsgPAGECYCLINGSTATE) << endl;
-		drawBorderOnPages();
+		//drawBorderOnPages();
 		ival = 0;
 	}
 
