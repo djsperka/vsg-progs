@@ -151,6 +151,7 @@ void ConteUStim::init()
 	m_levelOverlayCueRect0 = 3;
 	m_levelOverlayCueRect1 = 4;
 	m_levelOverlayAperture = 5;
+	m_levelOverlayBorder = 6;
 
 	// make a color for testing stuff
 	ARvsg::instance().request_single(m_levelTest);	// waste a level - testing this DJS. 
@@ -174,6 +175,20 @@ void ConteUStim::init()
 	m_sample1.init(60, false);
 	m_target0.init(60, false);
 	m_target1.init(60, false);
+
+	if (m_arguments.bShowBorder)
+	{
+		m_rectBorder.init(1, false);
+		//ARvsg::instance().request_single(m_levelBorderLine);
+		arutil_color_to_palette(m_arguments.borderColor, m_rectBorder.getFirstLevel());
+		m_rectBorder.drawmode = vsgSOLIDPEN + vsgCENTREXY;
+		m_rectBorder.color = m_arguments.borderColor;
+		m_rectBorder.linewidth = m_arguments.iBorderLineWidth;
+		m_rectBorder.x = m_arguments.iBorderOuterWidth / 2;
+		m_rectBorder.y = 0;
+		m_rectBorder.w = vsgGetScreenWidthPixels() - m_arguments.iBorderOuterWidth;
+		m_rectBorder.h = vsgGetScreenHeightPixels();
+	}
 
 	// only need to do this once
 	//setup_cycling_clear_fixpt();
@@ -257,6 +272,7 @@ void ConteUStim::copy_stim_params_to_spec(const struct conte_stim_params& params
 void ConteUStim::draw_current()
 {
 	const conte_trial_t& trial = m_arguments.trials.at(m_itrial);
+
 	cout << "draw_current " << m_itrial << ": " << trial << endl;
 
 	// Update vsg objs for stimuli
@@ -265,15 +281,13 @@ void ConteUStim::draw_current()
 	copy_stim_params_to_spec(trial.t0, m_target0);
 	copy_stim_params_to_spec(trial.t1, m_target1);
 
-	// On initialization, overlay 0 is ALL transparent, and 
-	// overlay 1 has aperture for patch, background elsewhere
+	// On initialization, overlay page 'cOvPageAperture' 
+	// overlay 1 is all background, but has an aperture (level 0 in overlay palette)
+	// for the cue patch. If border is to be shown, also draw it on this overlay page. 
 	vsgSetCommand(vsgOVERLAYMASKMODE);
 	vsgSetDrawPage(vsgOVERLAYPAGE, cOvPageAperture, m_levelOverlayBackground);
 	vsgSetDrawMode(vsgCENTREXY + vsgSOLIDFILL);
 	vsgSetPen1(0);
-
-	// Make sure to make y coord behave like pos-down
-	//cout << "Draw aperture at " << trial.cue_x << ", " << trial.cue_y << endl;
 	vsgDrawRect(trial.cue_x, -trial.cue_y, trial.cue_w, trial.cue_h);
 	if (m_arguments.bShowAperture)
 	{
@@ -294,7 +308,25 @@ void ConteUStim::draw_current()
 		m_sample0.drawOverlay(m_levelOverlayCueRect0);
 		m_sample1.drawOverlay(m_levelOverlayCueRect1);
 	}
+
+	// Draw border rectangle
+	//if (m_arguments.bShowBorder)
+	//{
+	//	vsgSetSpatialUnits(vsgPIXELUNIT);
+	//	cout << "Draw border rect " << m_rectBorder << endl;
+	//	m_rectBorder.drawOverlay(m_levelOverlayBorder);
+	//	vsgSetSpatialUnits(vsgDEGREEUNIT);
+	//}
+
+	// Just clear the clear page and draw border. It will eventually get a fixpt. 
 	vsgSetDrawPage(vsgOVERLAYPAGE, cOvPageClear, 0);
+	//if (m_arguments.bShowBorder)
+	//{
+	//	vsgSetSpatialUnits(vsgPIXELUNIT);
+	//	cout << "Draw border rect " << m_rectBorder << endl;
+	//	m_rectBorder.drawOverlay(m_levelOverlayBorder);
+	//	vsgSetSpatialUnits(vsgDEGREEUNIT);
+	//}
 
 	// draw dot patch(es)
 	vsgSetDrawPage(vsgVIDEOPAGE, cPageCue, vsgBACKGROUND);
@@ -305,9 +337,21 @@ void ConteUStim::draw_current()
 	vsgSetDrawPage(vsgVIDEOPAGE, cPageSample, vsgBACKGROUND);
 	m_sample0.draw();
 	m_sample1.draw();
+	//if (m_arguments.bShowBorder)
+	//{
+	//	vsgSetSpatialUnits(vsgPIXELUNIT);
+	//	m_rectBorder.draw();
+	//	vsgSetSpatialUnits(vsgDEGREEUNIT);
+	//}
 	vsgSetDrawPage(vsgVIDEOPAGE, cPageTarget, vsgBACKGROUND);
 	m_target0.draw();
 	m_target1.draw();
+	//if (m_arguments.bShowBorder)
+	//{
+	//	vsgSetSpatialUnits(vsgPIXELUNIT);
+	//	m_rectBorder.draw();
+	//	vsgSetSpatialUnits(vsgDEGREEUNIT);
+	//}
 
 	// setup cycling
 	setup_cycling(xyhelper, trial);
@@ -457,6 +501,20 @@ void print_draw_pages()
 
 }
 
+void ConteUStim::drawBorderOnPages()
+{
+	if (m_arguments.bShowBorder)
+	{
+		vsgSetSpatialUnits(vsgPIXELUNIT);
+		vsgSetDrawPage(vsgOVERLAYPAGE, cOvPageClear, vsgNOCLEAR);
+		m_rectBorder.drawOverlay(m_levelOverlayBorder);
+		vsgSetDrawPage(vsgOVERLAYPAGE, cOvPageAperture, vsgNOCLEAR);
+		m_rectBorder.drawOverlay(m_levelOverlayBorder);
+		vsgSetSpatialUnits(vsgDEGREEUNIT);
+	}
+}
+
+
 void ConteUStim::pagesToIdleState()
 {
 	const conte_trial_t& trial = m_arguments.trials.at(m_itrial);
@@ -562,6 +620,7 @@ int ConteUStim::callback(int &output, const FunctorCallbackTrigger* ptrig, const
 		cout << "current video page " << vsgGetZoneDisplayPage(vsgVIDEOPAGE) << endl;
 		cout << "current overlay page " << vsgGetZoneDisplayPage(vsgOVERLAYPAGE) << endl;
 		cout << "page cycling state " << vsgGetSystemAttribute(vsgPAGECYCLINGSTATE) << endl;
+		drawBorderOnPages();
 		ival = 0;
 	}
 

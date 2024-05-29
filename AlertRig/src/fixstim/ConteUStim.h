@@ -39,7 +39,9 @@ private:
 	PIXEL_LEVEL m_levelOverlayCueRect0;
 	PIXEL_LEVEL m_levelOverlayCueRect1;
 	PIXEL_LEVEL m_levelOverlayAperture;
+	PIXEL_LEVEL m_levelOverlayBorder;
 	PIXEL_LEVEL m_levelPatchOutline;
+	PIXEL_LEVEL m_levelBorderLine;
 
 	vector<PIXEL_LEVEL> m_levelCueColors;
 	PIXEL_LEVEL m_levelTest;
@@ -60,6 +62,7 @@ private:
 	string sState;
 
 	ARConteSpec m_sample0, m_sample1, m_target0, m_target1;
+	ARRectangleSpec m_rectBorder;
 
 	// These are the args allowed and which are handled by prargs. Do not use 'F' - it is reserved for 
 	// passing a command file.
@@ -70,6 +73,9 @@ private:
 
 	// restore drawing pages to IDLE state
 	void pagesToIdleState();
+
+	// draw border on both overlay pages
+	void drawBorderOnPages();
 
 	// initialize pages at start of this stim
 	void init();

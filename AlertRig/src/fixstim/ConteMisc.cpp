@@ -368,6 +368,7 @@ error_t parse_conte_opt(int key, char* carg, struct argp_state* state)
 			cerr << "Expecting integer arg - should be number of dots per generated patch.";
 			ret = EINVAL;
 		}
+		break;
 	case 705:
 		arguments->bShowAperture = true;
 		break;
