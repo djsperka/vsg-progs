@@ -35,6 +35,8 @@ int UStim::initialize(alert::ARvsg& vsg, int iScreenDistanceMM, const COLOR_TYPE
 		vsgUnit2Unit(vsgPIXELUNIT, vsgGetSystemAttribute(vsgVIDEOZONEHEIGHT), vsgDEGREEUNIT, &zydeg);
 
 		// dump some useful diagnostics
+		cerr << "vsgSOFTINSTALLVERSION: " << std::dec << vsgGetSystemAttribute(vsgSOFTINSTALLVERSION) << endl;
+		cerr << "vsgSOFTWAREVERSION: " << std::dec << vsgGetSystemAttribute(vsgSOFTWAREVERSION) << endl;
 		cerr << "vsgDEVICESERIALNUMBER: " << std::hex << vsgGetSystemAttribute(vsgDEVICESERIALNUMBER) << std::dec << endl;
 		cerr << "vsgFRAMERATE(Hz): " << vsgGetSystemAttribute(vsgFRAMERATE) << endl;
 		cerr << "vsgFRAMETIME(us): " << vsgGetSystemAttribute(vsgFRAMETIME) << endl;
