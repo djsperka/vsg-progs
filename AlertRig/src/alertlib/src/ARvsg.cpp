@@ -97,7 +97,7 @@ int ARvsg::loadGammaData(const std::string& filename)
 
 void alert::ARvsg::get_calibration_color(CalibrationColors c, VSGTRIVAL& trival)
 {
-	cerr << "WARN: TODO get_calibration_color" << endl;
+	//cerr << "WARN: TODO get_calibration_color" << endl;
 	trival = m_colors[c];
 }
 
