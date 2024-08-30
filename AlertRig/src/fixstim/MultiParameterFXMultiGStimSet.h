@@ -39,7 +39,7 @@ public:
 	}
 	bool hasImageOverride() const { return m_bHaveBmpImageSpec && m_iBmpImageOverride > -1 && m_iBmpImageOverride < m_vecBmpImageSpec.size(); }
 	ARImageSpec& getImageOverride() { return m_vecBmpImageSpec[m_iBmpImageOverride]; }
-	void setBmpImageOverride(int i) { m_iBmpImageOverride = i; cerr << "image override set to " << i << endl; }
+	void setBmpImageOverride(int i) { m_iBmpImageOverride = i; }
 
 private:
 	int m_blank_page;

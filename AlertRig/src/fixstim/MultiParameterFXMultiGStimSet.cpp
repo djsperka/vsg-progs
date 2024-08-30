@@ -472,8 +472,6 @@ void MultiParameterFXMultiGStimSet::draw_current()
 	}
 	// restore original draw page
 	vsgSetDrawPage(vsgVIDEOPAGE, dpVideo, vsgNOCLEAR);
-
-	cerr << "Draw page restored to page " << dpVideo << " fixpt_page=" << m_fixpt_page << endl;
 }
 
 
@@ -518,7 +516,6 @@ void MultiParameterFXMultiGStimSet::draw_stuff_on_page(int pagenumber, bool bFix
 	{
 		if (bGrating && has_grating())
 		{
-			cerr << "Draw img: " << getImageOverride() << endl;
 			getImageOverride().draw();
 		}
 	}
