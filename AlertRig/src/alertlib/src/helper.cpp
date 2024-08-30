@@ -672,7 +672,7 @@ int parse_bmp_image_list(const string& s, vector<ARImageSpec>& vec, unsigned int
 				ss << "," << tokens[i];
 			}
 			stringStripped = ss.str();
-			std::cerr << "Got nlevels " << nlevels << " parse this: " << stringStripped << endl;
+			std::cerr << "Image nlevels " << nlevels << endl;
 		}
 
 	}
@@ -689,10 +689,6 @@ int parse_bmp_image_list(const string& s, vector<ARImageSpec>& vec, unsigned int
 	{
 		cerr << "Canot parse image list arg: " << stringStripped << endl;
 		return 1;
-	}
-	else
-	{
-		cerr << "image arg read as: " << argSpec << endl;
 	}
 
 	// filename is read as a text file, not an image. 
@@ -721,7 +717,7 @@ int parse_bmp_image_list(const string& s, vector<ARImageSpec>& vec, unsigned int
 			{
 				boost::trim(line);
 				linenumber++;
-				cerr << "Got line " << linenumber << ": " << line << endl;
+				//cerr << "Got line " << linenumber << ": " << line << endl;
 				if (line.length() == 0 || line[0] == '#')
 				{
 					// skip empty lines and those that start with '#'
@@ -735,7 +731,7 @@ int parse_bmp_image_list(const string& s, vector<ARImageSpec>& vec, unsigned int
 				{
 					// fix filename with prefix if relative
 					boost::filesystem::path pathBmpFile(imgFromFile.filename);
-					cerr << "filename found: " << pathBmpFile.string() << endl;
+					//cerr << "filename found: " << pathBmpFile.string() << endl;
 					if (pathBmpFile.is_relative())
 					{
 						pathBmpFile = folder / pathBmpFile;
@@ -751,7 +747,7 @@ int parse_bmp_image_list(const string& s, vector<ARImageSpec>& vec, unsigned int
 						// The bmp file exists! 
 						// Update the filename
 
-						cerr << "bmp exists! " << imgFromFile.filename << endl;
+						//cerr << "bmp exists! " << imgFromFile.filename << endl;
 						string stmp = pathBmpFile.string();
 						strcpy(imgFromFile.filename, stmp.c_str());
 
@@ -760,14 +756,15 @@ int parse_bmp_image_list(const string& s, vector<ARImageSpec>& vec, unsigned int
 						imgFromFile.y = argSpec.y;
 
 						// add to vec
-						cerr << " add to vec" << endl;
+						//cerr << " add to vec" << endl;
 
 						vec.push_back(imgFromFile);
-						cerr << "done" << endl;
+						//cerr << "done" << endl;
 					}
 				}
 			}
 			myfile.close();
+			cerr << "Loaded " << vec.size() << " images." << endl;
 		}
 		else
 		{
