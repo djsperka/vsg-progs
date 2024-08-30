@@ -302,46 +302,68 @@ void FixUStim::run_stim(alert::ARvsg& vsg)
 			// if quit requested, get out now
 			if (tf.quit()) break;
 
-			// write digout if current output is different than last write. 
-			if (tf.output_trigger() != last_output_trigger)
+			// If the execute() function of the trigger that fired tells us that a page cycling operation
+			// is finishing - we will wait here for a little bit until the vsg tells us that the cycling is 
+			// done (via vsgLUTCYCLINGSTATE). We make sure that there is at least one  vsgFrameSync() call. 
+			// This will HOPEFULLY) prevent trigger pulses delivered by the page cycling facility from 
+			// interfering with those from our own triggers.
+			// There is nothing here to actually disable the cycling -- that should have been done in the 
+			// handler. 
+			if (tf.pending_cycling_disable())
 			{
-				// If the execute() function of the trigger that fired tells us that a page cycling operation
-				// is finishing - we will wait here for a little bit until the vsg tells us that the cycling is 
-				// done (via vsgLUTCYCLINGSTATE). We make sure that there is at least one  vsgFrameSync() call. 
-				// This will HOPEFULLY) prevent trigger pulses delivered by the page cycling facility from 
-				// interfering with those from our own triggers.
-				// There is nothing here to actually disable the cycling -- that should have been done in the 
-				// handler. 
-				if (tf.pending_cycling_disable())
+				int n = 0;
+				while (n < 10 && vsgGetSystemAttribute(vsgLUTCYCLINGSTATE) > -1)
 				{
-					int n = 0;
-					while (n < 10 && vsgGetSystemAttribute(vsgLUTCYCLINGSTATE) > -1)
-					{
-						vsgFrameSync();
-						n++;
-					}
-					if (n==10)
-						cerr << "ERROR - pending_cycling_disable n=10" << endl;
 					vsgFrameSync();
+					n++;
 				}
-				vsgIOWriteDigitalOut(tf.output_trigger() << 1, 0xfffe);
-				last_output_trigger = tf.output_trigger();
+				if (n == 10)
+					cerr << "ERROR - pending_cycling_disable n=10" << endl;
+				vsgFrameSync();	// there were cases where an extra sync was needed.
 			}
 
-			// if vsgPresent() is called for....
+			// Now we check if the callbacks returned a request to call vsgPresent().
+			// 
+			// The return value from the trigger callback was intended to tell us things 
+			// important to know when calling vsgPresent(). A zero means do not call (tf.present()==false), 
+			// and >0 means "call vsgPresent, something is happening". A 1 indicates nothing special, just
+			// call vsgPresent(). In cases where a callback issues a call to stop page cycling: 
+			// 
+			// vsgSetCommand(vsgCYCLEPAGEDISABLE); 
+			// 
+			// the callback should return 2. That causes tf.pending_cycling_disable() == true, and 
+			// the code forces a wait until the cycling really stops. This workaround is to stop a bug
+			// where the page cycling _stopping_ can step on (and eliminate) the trigger bits written
+			// via vsgIOWriteDigitalOut. The workaround is to loop until the system tells us that
+			// cycling has stopped (vsgGetSystemAttribute(vsgLUTCYCLINGSTATE) < 0), and then wait another
+			// frame before moving on.
+			// 
+			// There was a third case where the return value was 3. It is only used in the with the 
+			// "Dot" stimulus, but it just seems to ask for the FRAME trigger (probably because the 
+			// other stimuli didn't have it either at this point! duh). That is taken care of because
+			// the value is >0... no special action needed with current workaround/fix below.
+			// 
+			// The calls using combined triggers do not seem to work!!!
+			//vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, tf.output_trigger(), 0x1FE);
+			//long ltrig = (long)(tf.output_trigger()) << 1;
+			//vsgSetTriggerOptions(vsgTRIGOPT_PRESENT, 0, vsgTRIG_OUTPUTMARKER, 0.5, 0, ltrig, 0x1FE);
+			//vsgPresent();
+			//long rword = vsgIOReadDigitalOut();
+			//cout << endl << " output_trigger shifted " << hex << ltrig << "read " << rword << endl;
+
+
 			if (tf.present())
 			{
-				//cout << "Got present(): old " << hex << last_output_trigger << " new " << hex << tf.output_trigger() << endl;
 				// Check whether we do an ordinary present(), or if we are doing dualstim rig hijinks we'll want to 
 				// do a presendOnTrigger. In the presentOnTrigger case, we do a further check on whether any of the
 				// triggers matched (you can have multiple triggers matched in a single check) is on the list of 
 				// those to be triggered on (see commandline arg -V). 
+				// Note that we don't do any trigger options combining tf.output_trigger() and the outgoing 
+				// FRAME pulse that goes out with vsgPresent(). See above -- workaround is why tf.output_trigger() is
+				// written below. 
 				if (!m_arguments.bPresentOnTrigger)
 				{
-					if (tf.present_with_trigger())
-					{
-						vsgObjSetTriggers(vsgTRIG_ONPRESENT, 0, 0);	// will this persist?
-					}
+					vsgObjSetTriggers(vsgTRIG_ONPRESENT, 0, 0);
 					vsgPresent();
 				}
 				else
@@ -351,17 +373,31 @@ void FixUStim::run_stim(alert::ARvsg& vsg)
 						cerr << "FixUStim::run_stim(): Present armed (" << std::hex << m_arguments.ulTriggerArmed << "), wait for trigger..." << endl;
 						vsgIOWriteDigitalOut(m_arguments.ulTriggerArmed, m_arguments.ulTriggerArmed);
 						vsgFrameSync();	// this blocks until the next refresh, when the IO output is written. 
+						cerr << "FixUStim::run_stim(): call vsgPresentOnTrigger vsgDIG7" << endl;
 						vsgPresentOnTrigger(vsgTRIG_ONRISINGEDGE + vsgDIG7);
-						cerr << "FixUStim::run_stim(): got trigger..." << endl;
 					}
 					else
 					{
+						vsgObjSetTriggers(vsgTRIG_ONPRESENT, 0, 0);
 						vsgPresent();
 					}
 				}
 			}
+
+			// finally, check if output triggers need to be written. 
+			// This represents a shift in how the output triggers should be 
+			// interpreted. The "S" output, for example, will come _after_
+			// the FRAME that was relevant. Since we cannot get these 
+			// to be simultaneous, this is more accurate, in that it ensures
+			// that the relevant FRAME has already occurred.
+			if (tf.output_trigger() != last_output_trigger)
+			{
+				vsgIOWriteDigitalOut(tf.output_trigger() << 1, 0xfffe);
+				last_output_trigger = tf.output_trigger();
+			}
 		}
-		// short sleep
+
+		// short sleep before checking inputs (kb and digital i/o) again
 		Sleep(10);
 	}
 
