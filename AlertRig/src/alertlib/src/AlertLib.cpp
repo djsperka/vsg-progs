@@ -750,7 +750,7 @@ int ARFixationPointSpec::drawOverlay(PIXEL_LEVEL ovLevel)
 		double xc[4], yc[4];
 		vsgSetDrawMode(vsgCENTREXY + vsgSOLIDPEN);
 		vsgSetPenSize(penSizePixels, penSizePixels);
-		getCrossEndpoints(this->x, this->y, this->crossOriDeg, this->d, xc, yc);
+		getCrossEndpoints(this->x, -this->y, this->crossOriDeg, this->d, xc, yc);
 		vsgDrawLine(xc[0], yc[0], xc[1], yc[1]);
 		vsgDrawLine(xc[2], yc[2], xc[3], yc[3]);
 	}
