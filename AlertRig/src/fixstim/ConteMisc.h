@@ -127,11 +127,12 @@ struct conte_arguments
 	bool bGenerateDots;
 	int iGenerateDotsNPts;
 	bool bShowAperture;
-	alert::ARContrastFixationPointSpec fixpt;
+	alert::ARFixationPointSpec fixpt;
 	bool bHaveFixpt;
 	bool bShowBorder;
 	COLOR_TYPE borderColor;
 	int iBorderLineWidth;
+	bool bFixptCutoff;
 	std::string dot_supply_filename;
 	ConteCueDotSupply dot_supply;
 	conte_trial_list_t trials;
@@ -150,6 +151,7 @@ struct conte_arguments
 		, bShowAperture(false)
 		, bHaveFixpt(false)
 		, bShowBorder(false)
+		, bFixptCutoff(false)
 	{};
 };
 

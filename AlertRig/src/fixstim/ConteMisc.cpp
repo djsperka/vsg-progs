@@ -375,6 +375,9 @@ error_t parse_conte_opt(int key, char* carg, struct argp_state* state)
 			cout << "Border " << arguments->borderColor << " linewidth " << arguments->iBorderLineWidth << endl;
 		}
 		break;
+	case 707:
+		arguments->bFixptCutoff = true;
+		break;
 	case ARGP_KEY_END:
 		{
 			// check that everything needed has been received

@@ -30,6 +30,7 @@ static struct argp_option options[] = {
 	{"generate-dots", 704, "NPts/Patch", 0, "If no dot supply file provided, will generate a set of dots with this many dots per patch. Trials are 0,25,50,75,100% of first color, from trial to trial."}, 
 	{"show-aperture", 705, 0, 0, "Show cue aperture outline - for testing only."},
 	{"border", 706, "COLOR,width_pixels", 0, "Display a border on all screens for F,S."},
+	{"fixpt-cutoff", 707, 0, 0, "Remove fixpt from screen when sample shown (remains off afterwards, too)"},
 	{ 0 }
 };
 
@@ -167,9 +168,16 @@ void ConteUStim::init()
 		arutil_color_to_palette(c, l);
 		m_levelCueColors.push_back(l);
 	}
-	// background page
+	// fixpt page has a fixpt if fixpt-cutoff was set.
 	vsgSetDrawPage(vsgVIDEOPAGE, cPageFixpt, vsgBACKGROUND);
 	vsgSetDrawPage(vsgVIDEOPAGE, cPageBackground, vsgBACKGROUND);
+
+	if (m_arguments.bFixptCutoff && m_arguments.bHaveFixpt)
+	{
+		m_arguments.fixpt.init(1, false);
+		arutil_color_to_palette(m_arguments.fixpt.color, m_arguments.fixpt.getFirstLevel());
+		cerr << "Color " << m_arguments.fixpt.color << " to level " << m_arguments.fixpt.getFirstLevel() << endl;
+	}
 
 	m_sample0.init(60, false);
 	m_sample1.init(60, false);
@@ -310,24 +318,8 @@ void ConteUStim::draw_current()
 		m_sample1.drawOverlay(m_levelOverlayCueRect1);
 	}
 
-	// Draw border rectangle
-	//if (m_arguments.bShowBorder)
-	//{
-	//	vsgSetSpatialUnits(vsgPIXELUNIT);
-	//	cout << "Draw border rect " << m_rectBorder << endl;
-	//	m_rectBorder.drawOverlay(m_levelOverlayBorder);
-	//	vsgSetSpatialUnits(vsgDEGREEUNIT);
-	//}
-
 	// Just clear the clear page and draw border. It will eventually get a fixpt. 
 	vsgSetDrawPage(vsgOVERLAYPAGE, cOvPageClear, 0);
-	//if (m_arguments.bShowBorder)
-	//{
-	//	vsgSetSpatialUnits(vsgPIXELUNIT);
-	//	cout << "Draw border rect " << m_rectBorder << endl;
-	//	m_rectBorder.drawOverlay(m_levelOverlayBorder);
-	//	vsgSetSpatialUnits(vsgDEGREEUNIT);
-	//}
 
 	// draw dot patch(es)
 	vsgSetDrawPage(vsgVIDEOPAGE, cPageCue, vsgBACKGROUND);
@@ -338,21 +330,9 @@ void ConteUStim::draw_current()
 	vsgSetDrawPage(vsgVIDEOPAGE, cPageSample, vsgBACKGROUND);
 	m_sample0.draw();
 	m_sample1.draw();
-	//if (m_arguments.bShowBorder)
-	//{
-	//	vsgSetSpatialUnits(vsgPIXELUNIT);
-	//	m_rectBorder.draw();
-	//	vsgSetSpatialUnits(vsgDEGREEUNIT);
-	//}
 	vsgSetDrawPage(vsgVIDEOPAGE, cPageTarget, vsgBACKGROUND);
 	m_target0.draw();
 	m_target1.draw();
-	//if (m_arguments.bShowBorder)
-	//{
-	//	vsgSetSpatialUnits(vsgPIXELUNIT);
-	//	m_rectBorder.draw();
-	//	vsgSetSpatialUnits(vsgDEGREEUNIT);
-	//}
 
 	// setup cycling
 	setup_cycling(xyhelper, trial);
@@ -436,7 +416,7 @@ void ConteUStim::setup_cycling(const ConteXYHelper& xyhelper, const conte_trial_
 		{
 			// sample to target delay
 			m_cycle_params[m_cycle_params_count].Stop = 0;
-			m_cycle_params[m_cycle_params_count].Page = cPageFixpt + vsgDUALPAGE + vsgTRIGGERPAGE;
+			m_cycle_params[m_cycle_params_count].Page = cPageBackground + vsgDUALPAGE + vsgTRIGGERPAGE;
 			m_cycle_params[m_cycle_params_count].Xpos = m_cycle_params[m_cycle_params_count].Ypos = 0;
 			m_cycle_params[m_cycle_params_count].ovPage = cOvPageClear; // cOvPageClear;
 			m_cycle_params[m_cycle_params_count].ovXpos = m_cycle_params[m_cycle_params_count].ovYpos = 0;
@@ -474,7 +454,7 @@ void ConteUStim::setup_cycling(const ConteXYHelper& xyhelper, const conte_trial_
 		{
 			// response time
 			m_cycle_params[m_cycle_params_count].Stop = 0;
-			m_cycle_params[m_cycle_params_count].Page = cPageFixpt + vsgDUALPAGE + vsgTRIGGERPAGE;
+			m_cycle_params[m_cycle_params_count].Page = cPageBackground + vsgDUALPAGE + vsgTRIGGERPAGE;
 			m_cycle_params[m_cycle_params_count].Xpos = m_cycle_params[m_cycle_params_count].Ypos = 0;
 			m_cycle_params[m_cycle_params_count].ovPage = cOvPageClear; // cOvPageClear;
 			m_cycle_params[m_cycle_params_count].ovXpos = m_cycle_params[m_cycle_params_count].ovYpos = 0;
@@ -581,13 +561,28 @@ int ConteUStim::callback(int &output, const FunctorCallbackTrigger* ptrig, const
 	{
 		if (sState == "IDLE")
 		{
-			vsgSetDrawPage(vsgOVERLAYPAGE, cOvPageClear, vsgNOCLEAR);
-			if (m_arguments.bHaveFixpt)
-				m_arguments.fixpt.drawOverlay(m_levelOverlayFixpt);
-			vsgSetDrawPage(vsgOVERLAYPAGE, cOvPageAperture, vsgNOCLEAR);
-			if (m_arguments.bHaveFixpt)
-				m_arguments.fixpt.drawOverlay(m_levelOverlayFixpt);
-			vsgSetZoneDisplayPage(vsgOVERLAYPAGE, cOvPageClear);
+			if (!m_arguments.bFixptCutoff)
+			{
+				vsgSetDrawPage(vsgOVERLAYPAGE, cOvPageClear, vsgNOCLEAR);
+				if (m_arguments.bHaveFixpt)
+					m_arguments.fixpt.drawOverlay(m_levelOverlayFixpt);
+				vsgSetDrawPage(vsgOVERLAYPAGE, cOvPageAperture, vsgNOCLEAR);
+				if (m_arguments.bHaveFixpt)
+					m_arguments.fixpt.drawOverlay(m_levelOverlayFixpt);
+				vsgSetZoneDisplayPage(vsgOVERLAYPAGE, cOvPageClear);
+			}
+			else
+			{
+				vsgSetDrawPage(vsgVIDEOPAGE, cPageFixpt, vsgBACKGROUND);
+				if (m_arguments.bHaveFixpt)
+					m_arguments.fixpt.draw();
+				vsgSetDrawPage(vsgOVERLAYPAGE, cOvPageAperture, vsgNOCLEAR);
+				if (m_arguments.bHaveFixpt)
+					m_arguments.fixpt.drawOverlay(m_levelOverlayFixpt);
+				vsgSetZoneDisplayPage(vsgOVERLAYPAGE, cOvPageClear);
+				vsgSetZoneDisplayPage(vsgVIDEOPAGE, cPageFixpt);
+			}
+
 			sState = "FIXPT";
 			ival = 0;
 		}
