@@ -200,7 +200,6 @@ void StarUStim::run_stim(alert::ARvsg& vsg)
 		if (tf.output_trigger() != last_output_trigger)
 		{	
 			last_output_trigger = tf.output_trigger();
-			cout << "out trig " << hex << tf.output_trigger() << endl;
 			vsgIOWriteDigitalOut(tf.output_trigger() << 1, 0xffff);
 			vsgPresent();
 		}
@@ -289,27 +288,35 @@ void StarUStim::init_pages()
 	}
 	if (m_dots.size() > 0)
 	{
-		cerr << "init first target" << endl;
+		cerr << "init first dot target" << endl;
 		m_dots[0]->init(2);
-		for (unsigned int i = 1; i<m_dots.size(); i++)
+		if (m_dots.size() > 1)
 		{
-			cerr << "init target " << i << endl;
-			m_dots[i]->init(*m_dots[0]);
+			cerr << "fake-init " << m_dots.size() - 1 << " additional dot targets" << endl;
+			for (unsigned int i = 1; i < m_dots.size(); i++)
+			{
+				cerr << "fake init dot target " << i << endl;
+				m_dots[i]->init(*m_dots[0]);
+			}
 		}
 	}
 	if (m_gratings.size() > 0)
 	{
-		cerr << "init first grating" << endl;
+		cerr << "init first grating target" << endl;
 		m_gratings[0]->init(30);
-		for (unsigned int i = 1; i < m_gratings.size(); i++)
+		if (m_gratings.size() > 1)
 		{
-			cerr << "init grating " << i << endl;
-			m_gratings[i]->init(*m_gratings[0]);
+			cerr << "fake-init " << m_gratings.size() - 1 << " additional grating targets" << endl;
+			for (unsigned int i = 1; i < m_gratings.size(); i++)
+			{
+				cerr << "fake-init grating target " << i << endl;
+				m_gratings[i]->init(*m_gratings[0]);
+			}
 		}
 	}
-	cerr << "udpate page" << endl;
 	update_page();
 	vsgPresent();
+	cerr << "init done." << endl;
 }
 
 
