@@ -189,14 +189,18 @@ void StarUStim::run_stim(alert::ARvsg& vsg)
 		TriggerFunc	tf = std::for_each(triggers().begin(), triggers().end(), 
 			(m_binaryTriggers ? TriggerFunc(input_trigger, last_output_trigger, false) : TriggerFunc(s, last_output_trigger)));
 
-		// Now analyze input trigger
-	 	
+		// Now analyze input triggers. 	 	
+		// 11/13/2024 djs. Change the logic here so that the vsgPresent() happens (initiating any FRAME signals) _before_ the 
+		// call to write digital I/O bits. This ensures that the FRAME signal marks the stim change, and the I/O bits
+		// that follow explain what happened. 
 		if (tf.quit()) break;
 		else if (tf.present())
+			vsgPresent();
+
+		if (tf.output_trigger() != last_output_trigger)
 		{	
 			last_output_trigger = tf.output_trigger();
 			cout << "out trig " << hex << tf.output_trigger() << endl;
-			//vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, tf.output_trigger(), 0);
 			vsgIOWriteDigitalOut(tf.output_trigger() << 1, 0xffff);
 			vsgPresent();
 		}
