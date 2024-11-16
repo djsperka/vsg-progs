@@ -725,12 +725,23 @@ int ARFixationPointSpec::draw()
 	}
 	else
 	{
+#if 1
 		double xc[4], yc[4];
 		vsgSetDrawMode(vsgCENTREXY + vsgSOLIDPEN);
 		vsgSetPenSize(penSizePixels, penSizePixels);
 		getCrossEndpoints(this->x, -this->y, this->crossOriDeg, this->d, xc, yc);
 		vsgDrawLine(xc[0], yc[0], xc[1], yc[1]);
 		vsgDrawLine(xc[2], yc[2], xc[3], yc[3]);
+#else
+		// draw cross as two rectangles ('bars' to the vsg). Determine height of box in degrees
+		double h = 0;
+		vsgUnit2Unit(vsgPIXELUNIT, this->penSizePixels, vsgDEGREEUNIT, &h);
+		vsgSetDrawMode(vsgCENTREXY);
+		vsgDrawBar(this->x, this->y, this->d, h, this->crossOriDeg);
+		vsgDrawBar(this->x, this->y, this->d, h, this->crossOriDeg+90);
+		cerr << "h " << h << endl;
+#endif
+
 	}
 	return 0;
 }
@@ -1689,38 +1700,43 @@ int ARConteSpec::draw()
 	arutil_ramp_to_palette(COLOR_TYPE(gray), flankerHigh, m_level_low_flanker, m_level_high_flanker);
 
 
-
-	// draw gabor
-	double gabor_dev = 0.5 * (this->w + this->h) / this->divisor;
-	vsgSetDrawMode(vsgCENTREXY);
-	vsgSetPen1(m_level_low_gabor);
-	vsgSetPen2(m_level_high_gabor);
-	vsgDrawGabor(this->x, -1 * this->y, this->w, this->h, this->orientation, this->sf, gabor_dev, this->phase);
-
-	// color for the cue rectangle
-	COLOR_TYPE c = COLOR_TYPE(gray) + (this->cueColor - COLOR_TYPE(gray)) * (this->cueContrast / 100.0);
-	arutil_color_to_palette(c, m_level_cue);
-
-	// get coords for drawing gaussian and border cues
-	getDrawingCoordinates(xx, yy, rect);
-
-	// now draw the gaussian flankers, but only if is_horizontal is not negative (which means do not draw)
-	if (this->iHorizontal > -1)
+	// if the cue line width is large (>=99) it means that we don't draw the gaussian and flankers, 
+	// because instead of a box around the cue, the cue will be a filled rectangle. In that case, the
+	// cue 'border', drawn on the overlay, will obscure the grating/flanker so no need to draw. 
+	if (this->cueLineWidth < 99)
 	{
-		vsgSetPen1(this->m_level_high_flanker);
-		vsgSetPen2(this->m_level_low_flanker);
-		vsgDrawGaussian(xx[0], yy[0], this->w, this->h, gabor_dev);
-		vsgDrawGaussian(xx[1], yy[1], this->w, this->h, gabor_dev);
-	}
+		// draw gabor
+		double gabor_dev = 0.5 * (this->w + this->h) / this->divisor;
+		vsgSetDrawMode(vsgCENTREXY);
+		vsgSetPen1(m_level_low_gabor);
+		vsgSetPen2(m_level_high_gabor);
+		vsgDrawGabor(this->x, -1 * this->y, this->w, this->h, this->orientation, this->sf, gabor_dev, this->phase);
 
-	// draw border cue, even when flankers are not drawn (borders should be set correctly)
-	vsgSetDrawMode(vsgSOLIDPEN);
-	vsgSetPenSize(this->cueLineWidth, this->cueLineWidth);
-	vsgSetPen1(this->m_level_cue);
-	vsgDrawLine(rect[0], rect[2], rect[1], rect[2]);	// top
-	vsgDrawLine(rect[1], rect[2], rect[1], rect[3]);	// right
-	vsgDrawLine(rect[1], rect[3], rect[0], rect[3]);	// bottom
-	vsgDrawLine(rect[0], rect[3], rect[0], rect[2]);	// left
+		// color for the cue rectangle
+		COLOR_TYPE c = COLOR_TYPE(gray) + (this->cueColor - COLOR_TYPE(gray)) * (this->cueContrast / 100.0);
+		arutil_color_to_palette(c, m_level_cue);
+
+		// get coords for drawing gaussian and border cues
+		getDrawingCoordinates(xx, yy, rect);
+
+		// now draw the gaussian flankers, but only if is_horizontal is not negative (which means do not draw)
+		if (this->iHorizontal > -1)
+		{
+			vsgSetPen1(this->m_level_high_flanker);
+			vsgSetPen2(this->m_level_low_flanker);
+			vsgDrawGaussian(xx[0], yy[0], this->w, this->h, gabor_dev);
+			vsgDrawGaussian(xx[1], yy[1], this->w, this->h, gabor_dev);
+		}
+
+		// draw border cue, even when flankers are not drawn (borders should be set correctly)
+		vsgSetDrawMode(vsgSOLIDPEN);
+		vsgSetPenSize(this->cueLineWidth, this->cueLineWidth);
+		vsgSetPen1(this->m_level_cue);
+		vsgDrawLine(rect[0], rect[2], rect[1], rect[2]);	// top
+		vsgDrawLine(rect[1], rect[2], rect[1], rect[3]);	// right
+		vsgDrawLine(rect[1], rect[3], rect[0], rect[3]);	// bottom
+		vsgDrawLine(rect[0], rect[3], rect[0], rect[2]);	// left
+	}
 
 	// restore draw mode
 	vsgSetDrawMode(old_mode);
@@ -1737,14 +1753,26 @@ int ARConteSpec::drawOverlay(PIXEL_LEVEL ovLevel)
 	COLOR_TYPE c = COLOR_TYPE(gray) + (this->cueColor - COLOR_TYPE(gray)) * (this->cueContrast / 100.0);
 	arutil_color_to_overlay_palette(c, ovLevel);
 
-	vsgSetDrawMode(vsgSOLIDPEN);
-	vsgSetPenSize(this->cueLineWidth, this->cueLineWidth);
-	vsgSetPen1(ovLevel);
-	getDrawingCoordinates(x, y, rect);
-	vsgDrawLine(rect[0], rect[2], rect[1], rect[2]);	// top
-	vsgDrawLine(rect[1], rect[2], rect[1], rect[3]);	// right
-	vsgDrawLine(rect[1], rect[3], rect[0], rect[3]);	// bottom
-	vsgDrawLine(rect[0], rect[3], rect[0], rect[2]);	// left
+	// If the line width is a large number (>=99), then draw as a solid rectangle.
+
+	cerr << "cueLineWidth " << this->cueLineWidth << endl;
+	if (this->cueLineWidth < 99)
+	{
+		vsgSetDrawMode(vsgSOLIDPEN);
+		vsgSetPenSize(this->cueLineWidth, this->cueLineWidth);
+		vsgSetPen1(ovLevel);
+		getDrawingCoordinates(x, y, rect);
+		vsgDrawLine(rect[0], rect[2], rect[1], rect[2]);	// top
+		vsgDrawLine(rect[1], rect[2], rect[1], rect[3]);	// right
+		vsgDrawLine(rect[1], rect[3], rect[0], rect[3]);	// bottom
+		vsgDrawLine(rect[0], rect[3], rect[0], rect[2]);	// left
+	}
+	else
+	{
+		vsgSetDrawMode(vsgCENTREXY);
+		vsgSetPen1(ovLevel);
+		vsgDrawRect(this->x, -this->y, 3*this->w, this->h);
+	}
 
 	// restore draw mode
 	vsgSetDrawMode(old_mode);
