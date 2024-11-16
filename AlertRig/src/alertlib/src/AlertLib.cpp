@@ -725,7 +725,7 @@ int ARFixationPointSpec::draw()
 	}
 	else
 	{
-#if 1
+#if 0
 		double xc[4], yc[4];
 		vsgSetDrawMode(vsgCENTREXY + vsgSOLIDPEN);
 		vsgSetPenSize(penSizePixels, penSizePixels);
@@ -734,12 +734,11 @@ int ARFixationPointSpec::draw()
 		vsgDrawLine(xc[2], yc[2], xc[3], yc[3]);
 #else
 		// draw cross as two rectangles ('bars' to the vsg). Determine height of box in degrees
-		double h = 0;
-		vsgUnit2Unit(vsgPIXELUNIT, this->penSizePixels, vsgDEGREEUNIT, &h);
+		double h = this->penSizePixels;
+		//vsgUnit2Unit(vsgPIXELUNIT, this->penSizePixels, vsgDEGREEUNIT, &h);
 		vsgSetDrawMode(vsgCENTREXY);
 		vsgDrawBar(this->x, this->y, this->d, h, this->crossOriDeg);
 		vsgDrawBar(this->x, this->y, this->d, h, this->crossOriDeg+90);
-		cerr << "h " << h << endl;
 #endif
 
 	}
@@ -758,12 +757,21 @@ int ARFixationPointSpec::drawOverlay(PIXEL_LEVEL ovLevel)
 	}
 	else
 	{
+#if 0
 		double xc[4], yc[4];
 		vsgSetDrawMode(vsgCENTREXY + vsgSOLIDPEN);
 		vsgSetPenSize(penSizePixels, penSizePixels);
 		getCrossEndpoints(this->x, -this->y, this->crossOriDeg, this->d, xc, yc);
 		vsgDrawLine(xc[0], yc[0], xc[1], yc[1]);
 		vsgDrawLine(xc[2], yc[2], xc[3], yc[3]);
+#else
+		// draw cross as two rectangles ('bars' to the vsg). Determine height of box in degrees
+		double h = this->penSizePixels;
+		vsgSetDrawMode(vsgCENTREXY);
+		vsgDrawBar(this->x, this->y, this->d, h, this->crossOriDeg);
+		vsgDrawBar(this->x, this->y, this->d, h, this->crossOriDeg + 90);
+#endif
+
 	}
 	return status;
 }
