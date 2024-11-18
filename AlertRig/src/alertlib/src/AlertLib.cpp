@@ -725,7 +725,12 @@ int ARFixationPointSpec::draw()
 	}
 	else
 	{
-#if 0
+		// Leaving this as originally written. Uses vsg's "pixel pen" when drawing lines. 
+		// VSG draws line as a rectangle, with one edge from the coordinate locations you supply.
+		// The rest of the "width" of the line lay to one side or the other - it is not centered. 
+		// This can be noticable when the line width is big enough and/or there are other 
+		// objects drawn relative to the "center" of the cross. 
+#if 1
 		double xc[4], yc[4];
 		vsgSetDrawMode(vsgCENTREXY + vsgSOLIDPEN);
 		vsgSetPenSize(penSizePixels, penSizePixels);
@@ -757,7 +762,9 @@ int ARFixationPointSpec::drawOverlay(PIXEL_LEVEL ovLevel)
 	}
 	else
 	{
-#if 0
+		// see comment in draw() above. Do NOT change the #if below 
+		// without also changing draw()!!!
+#if 1
 		double xc[4], yc[4];
 		vsgSetDrawMode(vsgCENTREXY + vsgSOLIDPEN);
 		vsgSetPenSize(penSizePixels, penSizePixels);
