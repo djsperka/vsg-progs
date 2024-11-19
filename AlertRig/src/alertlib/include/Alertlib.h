@@ -234,6 +234,8 @@ namespace alert
 
 		// pass references to arrays.
 		void getDrawingCoordinates(double(&x)[2], double(&y)[2], double(&rect)[4]);
+		// args for drawRect() - used when drawing filled rect instead of stim.
+		void getDrawRectArgs(double& w, double& h);
 	public:
 		ARConteSpec() : gaborContrast(100), flankerContrast(100), cueContrast(100) {};
 		virtual ~ARConteSpec() {};
