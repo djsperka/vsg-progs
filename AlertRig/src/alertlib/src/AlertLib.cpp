@@ -1696,6 +1696,31 @@ void ARConteSpec::getDrawingCoordinates(double(&x)[2], double(&y)[2], double(&re
 	}
 }
 
+// When drawing filled rect because cue lwt>=99, this returns the width/height
+// for the rect
+void ARConteSpec::getDrawRectArgs(double &w, double &h)
+{
+	if (this->iHorizontal == 1 || this->iHorizontal == -1)
+	{
+		w = 3 * this->w;
+		h = this->h;
+	}
+	else if (this->iHorizontal == 0 || this->iHorizontal == -2)
+	{
+		h = 3 * this->w;
+		w = this->h;
+	}
+	else
+	{
+		cerr << "ARConteSpec::getDrawRectArgs - iHorizontal = " << this->iHorizontal << ": not handled." << endl;
+	}
+}
+
+
+
+
+
+
 int ARConteSpec::draw()
 {
 	double xx[2], yy[2];	// coordinates (centers) for the two gaussian flankers (xx[0], yy[0]) and (xx[1], yy[1])
@@ -1756,10 +1781,11 @@ int ARConteSpec::draw()
 	}
 	else
 	{
-		cerr << "Drawing cue only" << endl;
 		vsgSetDrawMode(vsgCENTREXY);
 		vsgSetPen1(this->m_level_cue);
-		vsgDrawRect(this->x, -this->y, 3 * this->w, this->h);
+		double hh=0, ww=0;
+		getDrawRectArgs(ww, hh);
+		vsgDrawRect(this->x, -this->y, ww, hh);
 	}
 
 	// restore draw mode
@@ -1779,7 +1805,6 @@ int ARConteSpec::drawOverlay(PIXEL_LEVEL ovLevel)
 
 	// If the line width is a large number (>=99), then draw as a solid rectangle.
 
-	cerr << "cueLineWidth " << this->cueLineWidth << endl;
 	if (this->cueLineWidth < 99)
 	{
 		vsgSetDrawMode(vsgSOLIDPEN);
@@ -1795,7 +1820,9 @@ int ARConteSpec::drawOverlay(PIXEL_LEVEL ovLevel)
 	{
 		vsgSetDrawMode(vsgCENTREXY);
 		vsgSetPen1(ovLevel);
-		vsgDrawRect(this->x, -this->y, 3*this->w, this->h);
+		double hh = 0, ww = 0;
+		getDrawRectArgs(ww, hh);
+		vsgDrawRect(this->x, -this->y, ww, hh);
 	}
 
 	// restore draw mode
