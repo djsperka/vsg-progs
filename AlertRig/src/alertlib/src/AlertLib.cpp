@@ -1718,6 +1718,9 @@ int ARConteSpec::draw()
 	// if the cue line width is large (>=99) it means that we don't draw the gaussian and flankers, 
 	// because instead of a box around the cue, the cue will be a filled rectangle. In that case, the
 	// cue 'border', drawn on the overlay, will obscure the grating/flanker so no need to draw. 
+		// color for the cue rectangle
+	COLOR_TYPE c = COLOR_TYPE(gray) + (this->cueColor - COLOR_TYPE(gray)) * (this->cueContrast / 100.0);
+	arutil_color_to_palette(c, m_level_cue);
 	if (this->cueLineWidth < 99)
 	{
 		// draw gabor
@@ -1726,10 +1729,6 @@ int ARConteSpec::draw()
 		vsgSetPen1(m_level_low_gabor);
 		vsgSetPen2(m_level_high_gabor);
 		vsgDrawGabor(this->x, -1 * this->y, this->w, this->h, this->orientation, this->sf, gabor_dev, this->phase);
-
-		// color for the cue rectangle
-		COLOR_TYPE c = COLOR_TYPE(gray) + (this->cueColor - COLOR_TYPE(gray)) * (this->cueContrast / 100.0);
-		arutil_color_to_palette(c, m_level_cue);
 
 		// get coords for drawing gaussian and border cues
 		getDrawingCoordinates(xx, yy, rect);
@@ -1744,13 +1743,23 @@ int ARConteSpec::draw()
 		}
 
 		// draw border cue, even when flankers are not drawn (borders should be set correctly)
-		vsgSetDrawMode(vsgSOLIDPEN);
-		vsgSetPenSize(this->cueLineWidth, this->cueLineWidth);
+		if (this->cueLineWidth > 0)
+		{
+			vsgSetDrawMode(vsgSOLIDPEN);
+			vsgSetPenSize(this->cueLineWidth, this->cueLineWidth);
+			vsgSetPen1(this->m_level_cue);
+			vsgDrawLine(rect[0], rect[2], rect[1], rect[2]);	// top
+			vsgDrawLine(rect[1], rect[2], rect[1], rect[3]);	// right
+			vsgDrawLine(rect[1], rect[3], rect[0], rect[3]);	// bottom
+			vsgDrawLine(rect[0], rect[3], rect[0], rect[2]);	// left
+		}
+	}
+	else
+	{
+		cerr << "Drawing cue only" << endl;
+		vsgSetDrawMode(vsgCENTREXY);
 		vsgSetPen1(this->m_level_cue);
-		vsgDrawLine(rect[0], rect[2], rect[1], rect[2]);	// top
-		vsgDrawLine(rect[1], rect[2], rect[1], rect[3]);	// right
-		vsgDrawLine(rect[1], rect[3], rect[0], rect[3]);	// bottom
-		vsgDrawLine(rect[0], rect[3], rect[0], rect[2]);	// left
+		vsgDrawRect(this->x, -this->y, 3 * this->w, this->h);
 	}
 
 	// restore draw mode
