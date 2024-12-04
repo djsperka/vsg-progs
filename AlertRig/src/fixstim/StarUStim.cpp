@@ -195,13 +195,15 @@ void StarUStim::run_stim(alert::ARvsg& vsg)
 		// that follow explain what happened. 
 		if (tf.quit()) break;
 		else if (tf.present())
+		{
+			vsgObjSetTriggers(vsgTRIG_ONPRESENT, 0, 0);
 			vsgPresent();
+		}
 
 		if (tf.output_trigger() != last_output_trigger)
 		{	
 			last_output_trigger = tf.output_trigger();
 			vsgIOWriteDigitalOut(tf.output_trigger() << 1, 0xffff);
-			vsgPresent();
 		}
 		Sleep(10);
 	}
