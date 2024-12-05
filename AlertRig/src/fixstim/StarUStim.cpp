@@ -152,8 +152,12 @@ void StarUStim::run_stim(alert::ARvsg& vsg)
 {
 	cout << "StarUStim::run_stim(): started" << endl;
 
+	// screen distance and bkgd color
+	vsg.setViewDistMM(m_iDistanceToScreenMM);
+	vsg.setBackgroundColor(m_background);
+
 	// clear all dig outputs
-	vsgIOWriteDigitalOut(0, 0xff);
+	vsgIOWriteDigitalOut(0, 0xffff);
 	vsgPresent();
 
 	// initialize triggers
@@ -194,16 +198,21 @@ void StarUStim::run_stim(alert::ARvsg& vsg)
 		// call to write digital I/O bits. This ensures that the FRAME signal marks the stim change, and the I/O bits
 		// that follow explain what happened. 
 		if (tf.quit()) break;
-		else if (tf.present())
+		
+		// see if vsgPresent() should be called....
+		if (tf.present())
 		{
-			vsgObjSetTriggers(vsgTRIG_ONPRESENT, 0, 0);
+			cerr << "Got tf.present()" << endl;
+			//vsgObjSetTriggers(vsgTRIG_ONPRESENT, 0, 0);
 			vsgPresent();
 		}
 
+		// now see if any output bits need be written
 		if (tf.output_trigger() != last_output_trigger)
 		{	
+			cerr << "trig " << hex << tf.output_trigger() << " old " << hex << last_output_trigger << endl;
 			last_output_trigger = tf.output_trigger();
-			vsgIOWriteDigitalOut(tf.output_trigger() << 1, 0xffff);
+			vsgIOWriteDigitalOut(tf.output_trigger() << 1, 0xfffe);
 		}
 		Sleep(10);
 	}

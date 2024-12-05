@@ -128,7 +128,8 @@ void FixUStim::run_stim(alert::ARvsg& vsg)
 		vsgSetVideoMode(vsgNOGAMMACORRECT);
 	}
 
-	VSGTRIVAL c = m_arguments.bkgdColor.trival();
+	// screen distance and bkgd color
+	//VSGTRIVAL c = m_arguments.bkgdColor.trival();
 	vsg.setViewDistMM(m_arguments.iDistanceToScreenMM);
 	vsg.setBackgroundColor(m_arguments.bkgdColor);
 

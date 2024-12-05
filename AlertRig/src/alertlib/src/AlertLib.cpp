@@ -229,6 +229,7 @@ void ARObject::destroy()
 
 int ARObject::select()
 {
+	cerr << "select " << m_handle << endl;
 	if (m_handle > 0) 
 	{
 		vsgObjSelect(m_handle);
