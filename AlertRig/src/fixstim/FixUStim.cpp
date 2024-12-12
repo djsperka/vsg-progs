@@ -393,6 +393,7 @@ void FixUStim::run_stim(alert::ARvsg& vsg)
 			// that the relevant FRAME has already occurred.
 			if (tf.output_trigger() != last_output_trigger)
 			{
+				vsgFrameSync();
 				vsgIOWriteDigitalOut(tf.output_trigger() << 1, 0xfffe);
 				last_output_trigger = tf.output_trigger();
 			}

@@ -197,21 +197,22 @@ void StarUStim::run_stim(alert::ARvsg& vsg)
 		// 11/13/2024 djs. Change the logic here so that the vsgPresent() happens (initiating any FRAME signals) _before_ the 
 		// call to write digital I/O bits. This ensures that the FRAME signal marks the stim change, and the I/O bits
 		// that follow explain what happened. 
+		// 12/12/2024 djs. Further change here to put a vsgFrameSync() before the call to vsgIOWrite... Without this, the write
+		// seemed to squash _both_ the IO bits and the preceding FRAME. 
 		if (tf.quit()) break;
 		
 		// see if vsgPresent() should be called....
 		if (tf.present())
 		{
-			cerr << "Got tf.present()" << endl;
-			//vsgObjSetTriggers(vsgTRIG_ONPRESENT, 0, 0);
+			vsgObjSetTriggers(vsgTRIG_ONPRESENT, 0, 0);
 			vsgPresent();
 		}
 
 		// now see if any output bits need be written
 		if (tf.output_trigger() != last_output_trigger)
 		{	
-			cerr << "trig " << hex << tf.output_trigger() << " old " << hex << last_output_trigger << endl;
 			last_output_trigger = tf.output_trigger();
+			vsgFrameSync();
 			vsgIOWriteDigitalOut(tf.output_trigger() << 1, 0xfffe);
 		}
 		Sleep(10);
