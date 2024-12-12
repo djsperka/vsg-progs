@@ -53,6 +53,7 @@ using namespace boost::placeholders;
 #include "MSequenceUStim.h"
 #include "TcpUStim.h"
 #include "ConteUStim.h"
+#include "TestUStim.h"
 
 using namespace alert;
 
@@ -395,6 +396,23 @@ bool fixstim_server_callback(const std::string & sargs, std::ostream & out)
 		{
 			out << "ERR - TcpUStim could not parse args;";
 			cerr << "fixstim_server_callback(): TcpUStim could not parse args." << endl;
+		}
+	}
+	else if (sargs.find("test") == 0)
+	{
+		TestUStim teststim;
+		if (teststim.parses(sargs))
+		{
+			out << "OK;";
+			cerr << "fixstim_server_callback(): starting teststim stimulus..." << endl;
+			teststim.run_stim(ARvsg::instance());
+			ARvsg::instance().clear();
+			cout << "fixstim_server_callback(): teststim stimulus done." << endl;
+		}
+		else
+		{
+			out << "ERR - TestUStim could not parse args;";
+			cerr << "fixstim_server_callback(): TestUStim could not parse args." << endl;
 		}
 	}
 	else

@@ -249,6 +249,7 @@
     <ClCompile Include="StimSet.cpp" />
     <ClCompile Include="StimSetCRG.cpp" />
     <ClCompile Include="TcpUStim.cpp" />
+    <ClCompile Include="TestUStim.cpp" />
     <ClCompile Include="UStim.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -328,6 +329,7 @@
     <ClInclude Include="StimSet2.h" />
     <ClInclude Include="StimSetCRG.h" />
     <ClInclude Include="TcpUStim.h" />
+    <ClInclude Include="TestUStim.h" />
     <ClInclude Include="UStim.h" />
   </ItemGroup>
   <ItemGroup>
