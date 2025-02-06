@@ -267,9 +267,6 @@ void FixUStim::run_stim(alert::ARvsg& vsg)
 			}
 		}
 
-		//TriggerFunc	tf = std::for_each(triggers().begin(), triggers().end(),
-		//	(m_arguments.bBinaryTriggers ? TriggerFunc(input_trigger, last_output_trigger, false) : TriggerFunc(s, last_output_trigger)));
-
 		// only exexute the trigger checks if there was a trigger of some sort
 		if (bHaveAsciiTrigger || bHaveBinaryTrigger)
 		{
@@ -318,7 +315,7 @@ void FixUStim::run_stim(alert::ARvsg& vsg)
 					vsgFrameSync();
 					n++;
 				}
-				cerr << "cycling disabled in " << n << endl;
+				//cerr << "cycling disabled in " << n << endl;
 				if (n == 10)
 					cerr << "ERROR - pending_cycling_disable n=10" << endl;
 				vsgFrameSync();	// there were cases where an extra sync was needed.

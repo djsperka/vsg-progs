@@ -122,6 +122,7 @@ int MultiParameterFXMultiGStimSet::init(std::vector<int> pages, int num_stim_pag
 	{
 		// enable overlay for use when cycling, initialize both overlay pages to clear color 0.
 		vsgSetCommand(vsgOVERLAYMASKMODE);
+		vsgSetCommand(vsgVIDEODRIFT + vsgOVERLAYDRIFT);	// neeed this??? 
 		vsgSetDrawPage(vsgOVERLAYPAGE, 1, 0);
 		vsgSetDrawPage(vsgOVERLAYPAGE, 0, 0);
 	}
@@ -161,8 +162,6 @@ int MultiParameterFXMultiGStimSet::init(std::vector<int> pages, int num_stim_pag
 		fixpt().init(2);
 	}
 
-	// saved dot colors is a thing for Gregg's Grid. 
-	//m_dotColorsSaved.clear();
 	if (has_dot())
 	{
 		for (unsigned int i = 0; i < dot_count(); i++)
@@ -174,7 +173,6 @@ int MultiParameterFXMultiGStimSet::init(std::vector<int> pages, int num_stim_pag
 				dot(i).init((int)dot(i).getMulti().size(), false);
 			else
 				dot(i).init(1, false);
-//			m_dotColorsSaved.push_back(dot(i).color);
 		}
 	}
 
@@ -195,15 +193,6 @@ int MultiParameterFXMultiGStimSet::init(std::vector<int> pages, int num_stim_pag
 
 	// Set initial params in grating(s)
 	set_initial_parameters();
-	//if (m_iCyclingType != CYCLING_TYPE_NONE)
-	//{
-	//	if (m_iCyclingType == CYCLING_TYPE_PURSUIT)
-	//	{
-	//		vsgSetCommand(vsgVIDEODRIFT + vsgOVERLAYDRIFT);
-	//	}
-	//	setup_cycling();
-	//}
-
 	draw_current();	// setup_cycling is called from draw_current if its needed
 	vsgSetDrawPage(vsgOVERLAYPAGE, 0, vsgNOCLEAR);
 	vsgSetDisplayPage(0);
@@ -275,8 +264,7 @@ int MultiParameterFXMultiGStimSet::handle_trigger(const std::string& s, const st
 		}
 		else
 		{
-			print_cycle("F: sweep cycling TRUE", m_fixpt_cycle_count, m_cycle_params + m_fixpt_cycle_start);
-			//vsgSetCommand(vsgOVERLAYMASKMODE);
+			//print_cycle("F: sweep cycling TRUE", m_fixpt_cycle_count, m_cycle_params + m_fixpt_cycle_start);
 			vsgPageCyclingSetup(m_fixpt_cycle_count, m_cycle_params + m_fixpt_cycle_start);
 			vsgSetSynchronisedCommand(vsgSYNC_PRESENT, vsgCYCLEPAGEENABLE, 0);
 			status = 1;
@@ -305,13 +293,13 @@ int MultiParameterFXMultiGStimSet::handle_trigger(const std::string& s, const st
 		m_bResetPhaseOnTrigger = false;
 		if (CYCLING_TYPE_NONE != m_iCyclingType)
 		{
-			print_cycle("S: CYCLING_TYPE_NONE != m_iCyclingType", m_stim_cycle_count, m_cycle_params + m_stim_cycle_start);
+			//print_cycle("S: CYCLING_TYPE_NONE != m_iCyclingType", m_stim_cycle_count, m_cycle_params + m_stim_cycle_start);
 			vsgPageCyclingSetup(m_stim_cycle_count, m_cycle_params + m_stim_cycle_start);
 			vsgSetSynchronisedCommand(vsgSYNC_PRESENT, vsgCYCLEPAGEENABLE, 0);
 		}
 		else
 		{
-			cerr << "S: : No cycling this trial" << endl;
+			//cerr << "S: : No cycling this trial" << endl;
 			vsgSetDrawPage(vsgVIDEOPAGE, m_stim_page, vsgNOCLEAR);
 		}
 		status = 1;
@@ -321,7 +309,7 @@ int MultiParameterFXMultiGStimSet::handle_trigger(const std::string& s, const st
 		status = 1;
 		if (CYCLING_TYPE_NONE != m_iCyclingType)
 		{
-			cerr << "s: disable cycling" << endl;
+			//cerr << "s: disable cycling" << endl;
 			vsgSetCommand(vsgCYCLEPAGEDISABLE);
 			status = 2;
 		}
@@ -347,17 +335,12 @@ int MultiParameterFXMultiGStimSet::handle_trigger(const std::string& s, const st
 	else if (s == "a")
 	{
 		// unset parameters that trigger cycling, if any. One of the parameter lists called in advance() must enable it. 
-		cerr << "a: START" << endl;
+		//cerr << "a: START" << endl;
 		setCyclingDelay(-1);
 		setStimDuration(-1);
 		setPursuitParameters(-1, 0, 0);
 		advance();
 		draw_current();
-		//if (CYCLING_TYPE_NONE != m_iCyclingType)
-		//{
-		//	setup_cycling();
-		//}
-		// return 0 so vsgPresent() will not be called. 
 		status = 0;
 	}
 	else if (s == "D")
