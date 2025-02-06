@@ -318,6 +318,7 @@ void FixUStim::run_stim(alert::ARvsg& vsg)
 					vsgFrameSync();
 					n++;
 				}
+				cerr << "cycling disabled in " << n << endl;
 				if (n == 10)
 					cerr << "ERROR - pending_cycling_disable n=10" << endl;
 				vsgFrameSync();	// there were cases where an extra sync was needed.
@@ -923,20 +924,40 @@ error_t parse_fixstim_opt(int key, char* carg, struct argp_state* state)
 					plist = new ColorVectorList(colorvector_parameters, (unsigned int)stimIndex, arguments->bLastWasDistractor);
 					break;
 				case 768:
+					// --sweep
 					plist = new PursuitList(tuning_parameters);
 					if (arguments->bUsingMultiParameterStimSet)
 					{
 						MultiParameterFXMultiGStimSet* pmulti = static_cast<MultiParameterFXMultiGStimSet*>(arguments->pStimSet);
-						pmulti->setSweepNotPursuit(true);
+						if (!pmulti->setUseCycling(true, true))
+						{
+							cerr << "Sweep but no stim set yet!!!" << endl;
+							ret = EINVAL;
+						}
 					}
 					else
 					{
-						arguments->bSweepNotPursuit = true;
-						cerr << "Sweep but no stim set yet!!!" << endl;
+						cerr << "Cannot use sweep with this stim type!" << endl;
+						ret = EINVAL;
 					}
 					break;
 				case 778:
+					// --pursuit
 					plist = new PursuitList(tuning_parameters);
+					if (arguments->bUsingMultiParameterStimSet)
+					{
+						MultiParameterFXMultiGStimSet* pmulti = static_cast<MultiParameterFXMultiGStimSet*>(arguments->pStimSet);
+						if (!pmulti->setUseCycling(true, false))
+						{
+							cerr << "Pursuit but no stim set yet!!!" << endl;
+							ret = EINVAL;
+						}
+					}
+					else
+					{
+						cerr << "Cannot use pursuit with this stim type!" << endl;
+						ret = EINVAL;
+					}
 					break;
 				case 773:
 					plist = new GratingWHList(tuning_parameters, (unsigned int)stimIndex, arguments->bLastWasDistractor);

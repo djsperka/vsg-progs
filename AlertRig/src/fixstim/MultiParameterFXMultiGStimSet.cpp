@@ -2,6 +2,8 @@
 #include "FXGStimParameterList.h"
 #define _USE_MATH_DEFINES
 #include <math.h>
+#include <iostream>
+#include <iomanip>
 
 using namespace boost;
 using namespace alert;
@@ -20,7 +22,8 @@ MultiParameterFXMultiGStimSet::MultiParameterFXMultiGStimSet()
 	: FXMultiGStimSet() 
 	, m_num_stim_pages(1)
 	, m_bUseDrawGroups(false)
-	, m_bSweepNotPursuit(false)
+	, m_bUseCycling(false)
+	, m_bUseSweepCycling(false)
 	, m_iCyclingType(CYCLING_TYPE_NONE)
 	, m_bHaveBmpImageSpec(false)
 {};
@@ -29,7 +32,8 @@ MultiParameterFXMultiGStimSet::MultiParameterFXMultiGStimSet(ARGratingSpec& grat
 	: FXMultiGStimSet() 
 	, m_num_stim_pages(1)
 	, m_bUseDrawGroups(false)
-	, m_bSweepNotPursuit(false)
+	, m_bUseCycling(false)
+	, m_bUseSweepCycling(false)
 	, m_iCyclingType(CYCLING_TYPE_NONE)
 	, m_bHaveBmpImageSpec(false)
 {
@@ -40,7 +44,8 @@ MultiParameterFXMultiGStimSet::MultiParameterFXMultiGStimSet(ARGratingSpec& grat
 	: FXMultiGStimSet(fixpt) 
 	, m_num_stim_pages(1)
 	, m_bUseDrawGroups(false)
-	, m_bSweepNotPursuit(false)
+	, m_bUseCycling(false)
+	, m_bUseSweepCycling(false)
 	, m_iCyclingType(CYCLING_TYPE_NONE)
 	, m_bHaveBmpImageSpec(false)
 {
@@ -51,7 +56,8 @@ MultiParameterFXMultiGStimSet::MultiParameterFXMultiGStimSet(ARContrastFixationP
 	: FXMultiGStimSet(fixpt) 
 	, m_num_stim_pages(1)
 	, m_bUseDrawGroups(false)
-	, m_bSweepNotPursuit(false)
+	, m_bUseCycling(false)
+	, m_bUseSweepCycling(false)
 	, m_iCyclingType(CYCLING_TYPE_NONE)
 	, m_bHaveBmpImageSpec(false)
 {};
@@ -60,7 +66,8 @@ MultiParameterFXMultiGStimSet::MultiParameterFXMultiGStimSet(ARContrastFixationP
 	: FXMultiGStimSet(fixpt, xhair) 
 	, m_num_stim_pages(1)
 	, m_bUseDrawGroups(false)
-	, m_bSweepNotPursuit(false)
+	, m_bUseCycling(false)
+	, m_bUseSweepCycling(false)
 	, m_iCyclingType(CYCLING_TYPE_NONE)
 	, m_bHaveBmpImageSpec(false)
 {};
@@ -69,7 +76,8 @@ MultiParameterFXMultiGStimSet::MultiParameterFXMultiGStimSet(ARGratingSpec& grat
 	: FXMultiGStimSet(xhair) 
 	, m_num_stim_pages(1)
 	, m_bUseDrawGroups(false)
-	, m_bSweepNotPursuit(false)
+	, m_bUseCycling(false)
+	, m_bUseSweepCycling(false)
 	, m_iCyclingType(CYCLING_TYPE_NONE)
 	, m_bHaveBmpImageSpec(false)
 {
@@ -80,7 +88,8 @@ MultiParameterFXMultiGStimSet::MultiParameterFXMultiGStimSet(ARGratingSpec& grat
 	: FXMultiGStimSet(fixpt, xhair) 
 	, m_num_stim_pages(1)
 	, m_bUseDrawGroups(false)
-	, m_bSweepNotPursuit(false)
+	, m_bUseCycling(false)
+	, m_bUseSweepCycling(false)
 	, m_iCyclingType(CYCLING_TYPE_NONE)
 	, m_bHaveBmpImageSpec(false)
 {
@@ -98,7 +107,6 @@ int MultiParameterFXMultiGStimSet::init(std::vector<int> pages, int num_stim_pag
 	m_stim_page = pages[3];
 	m_alt_page = pages[4];
 	m_iCyclingType = CYCLING_TYPE_NONE;
-	//m_bUseCycling = false;
 	m_iCyclingDelay = 0;
 	m_iStimDuration = 0;
 	m_num_stim_pages = abs(num_stim_pages);
@@ -108,12 +116,14 @@ int MultiParameterFXMultiGStimSet::init(std::vector<int> pages, int num_stim_pag
 	m_pageflippages[1] = m_alt_page;
 
 
-	cerr << "init: num_stim_pages " << m_num_stim_pages << " drawGroups? " << m_bUseDrawGroups << " Sweep not pursuit? " << m_bSweepNotPursuit <<  endl;
+	cerr << "init: num_stim_pages " << m_num_stim_pages << " drawGroups? " << m_bUseDrawGroups << " Cycling? " << m_bUseCycling << " Sweep cycling? " << m_bUseSweepCycling << endl;
 
-	if (m_bSweepNotPursuit)
+	if (m_bUseCycling && m_bUseSweepCycling)
 	{
-		// enable overlay. Fixpt will be drawn on this page.
+		// enable overlay for use when cycling, initialize both overlay pages to clear color 0.
 		vsgSetCommand(vsgOVERLAYMASKMODE);
+		vsgSetDrawPage(vsgOVERLAYPAGE, 1, 0);
+		vsgSetDrawPage(vsgOVERLAYPAGE, 0, 0);
 	}
 
 
@@ -147,7 +157,8 @@ int MultiParameterFXMultiGStimSet::init(std::vector<int> pages, int num_stim_pag
 
 	if (has_fixpt())
 	{
-		fixpt().init(2, !m_bSweepNotPursuit);
+		//fixpt().init(2, !m_bSweepNotPursuit);
+		fixpt().init(2);
 	}
 
 	// saved dot colors is a thing for Gregg's Grid. 
@@ -184,16 +195,16 @@ int MultiParameterFXMultiGStimSet::init(std::vector<int> pages, int num_stim_pag
 
 	// Set initial params in grating(s)
 	set_initial_parameters();
-	if (m_iCyclingType != CYCLING_TYPE_NONE)
-	{
-		if (m_iCyclingType == CYCLING_TYPE_PURSUIT)
-		{
-			vsgSetCommand(vsgVIDEODRIFT + vsgOVERLAYDRIFT);
-		}
-		setup_cycling();
-	}
+	//if (m_iCyclingType != CYCLING_TYPE_NONE)
+	//{
+	//	if (m_iCyclingType == CYCLING_TYPE_PURSUIT)
+	//	{
+	//		vsgSetCommand(vsgVIDEODRIFT + vsgOVERLAYDRIFT);
+	//	}
+	//	setup_cycling();
+	//}
 
-	draw_current();
+	draw_current();	// setup_cycling is called from draw_current if its needed
 	vsgSetDrawPage(vsgOVERLAYPAGE, 0, vsgNOCLEAR);
 	vsgSetDisplayPage(0);
 	vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgNOCLEAR);
@@ -203,16 +214,35 @@ int MultiParameterFXMultiGStimSet::init(std::vector<int> pages, int num_stim_pag
 void MultiParameterFXMultiGStimSet::cleanup(std::vector<int> pages)
 {
 	cout << "MultiParameterFXMultiGStimSet::cleanup()" << endl;
-	if (m_bSweepNotPursuit)
+	if (m_bUseCycling)
 	{
 		cout << "vsgOVERLAYDISABLE" << endl;
 		vsgSetCommand(vsgOVERLAYDISABLE);
 	}
 }
 
+void print_cycle(const std::string& smsg, DWORD n, VSGCYCLEPAGEENTRY *pages)
+{
+	cerr << smsg << endl;
+	for (DWORD i = 0; i < n; i++)
+	{
+		VSGCYCLEPAGEENTRY* singlePage = pages + i;
+		string sTrig, sDual;
+		sTrig = (singlePage->Page & vsgTRIGGERPAGE) ? "TRIG" : "----";
+		sDual = (singlePage->Page & vsgDUALPAGE) ? "DUAL" : "----";
+		DWORD pageNumber = singlePage->Page & !(vsgTRIGGERPAGE | vsgDUALPAGE);
+		cerr << setw(2) << pageNumber << "(" << setw(1) << singlePage->Frames << "/" << setw(1) << singlePage->Stop << ") " << setw(4) << singlePage->Xpos << " " << setw(4) << singlePage->Ypos << " " << sTrig << sDual << ": " << setw(2) << singlePage->ovPage << " " << setw(4) << singlePage->ovXpos << " " << setw(4) << singlePage->ovYpos << endl;
+	}
+	cerr << "=====================" << endl;
+
+}
+
+
 int MultiParameterFXMultiGStimSet::handle_trigger(const std::string& s, const std::string& args)
 {
 	int status = 0;
+	bool bCyclingThisTrial = (CYCLING_TYPE_NONE != m_iCyclingType);
+	bool bSweepCyclingThisTrial = (CYCLING_TYPE_PURSUIT == m_iCyclingType && m_bUseSweepCycling);
 	if (s == "F")
 	{
 		// In all cases, do these things. 
@@ -230,12 +260,14 @@ int MultiParameterFXMultiGStimSet::handle_trigger(const std::string& s, const st
 		// must be done differently. In order to get the two pages (overlay and video) to change
 		// simultaneously at onset, set up page cycling to do a single-page flip. 
 
-		if (!m_bSweepNotPursuit)
+		if (!bSweepCyclingThisTrial)
 		{
+			cerr << "F: no sweep cycling this trial" << endl;
+
 			// fixpt should always be at 100 contrast. Cannot support "f" when "S" is on if dots are present. 
 			if (has_fixpt())
 			{
-				if (!m_bSweepNotPursuit) fixpt().setContrast(100);
+				fixpt().setContrast(100);
 				status = 1;
 			}
 
@@ -243,7 +275,8 @@ int MultiParameterFXMultiGStimSet::handle_trigger(const std::string& s, const st
 		}
 		else
 		{
-			vsgSetCommand(vsgOVERLAYMASKMODE);
+			print_cycle("F: sweep cycling TRUE", m_fixpt_cycle_count, m_cycle_params + m_fixpt_cycle_start);
+			//vsgSetCommand(vsgOVERLAYMASKMODE);
 			vsgPageCyclingSetup(m_fixpt_cycle_count, m_cycle_params + m_fixpt_cycle_start);
 			vsgSetSynchronisedCommand(vsgSYNC_PRESENT, vsgCYCLEPAGEENABLE, 0);
 			status = 1;
@@ -252,6 +285,9 @@ int MultiParameterFXMultiGStimSet::handle_trigger(const std::string& s, const st
 	}
 	else if (s == "f")
 	{
+		// this will not work when using sweep cycling?
+		if (bSweepCyclingThisTrial)
+			cerr << "WARNING! Cannot use small \"f\" trigger on sweep trials." << endl;
 		if (has_fixpt())
 		{
 			fixpt().setContrast(0);
@@ -269,11 +305,13 @@ int MultiParameterFXMultiGStimSet::handle_trigger(const std::string& s, const st
 		m_bResetPhaseOnTrigger = false;
 		if (CYCLING_TYPE_NONE != m_iCyclingType)
 		{
+			print_cycle("S: CYCLING_TYPE_NONE != m_iCyclingType", m_stim_cycle_count, m_cycle_params + m_stim_cycle_start);
 			vsgPageCyclingSetup(m_stim_cycle_count, m_cycle_params + m_stim_cycle_start);
 			vsgSetSynchronisedCommand(vsgSYNC_PRESENT, vsgCYCLEPAGEENABLE, 0);
 		}
 		else
 		{
+			cerr << "S: : No cycling this trial" << endl;
 			vsgSetDrawPage(vsgVIDEOPAGE, m_stim_page, vsgNOCLEAR);
 		}
 		status = 1;
@@ -283,6 +321,7 @@ int MultiParameterFXMultiGStimSet::handle_trigger(const std::string& s, const st
 		status = 1;
 		if (CYCLING_TYPE_NONE != m_iCyclingType)
 		{
+			cerr << "s: disable cycling" << endl;
 			vsgSetCommand(vsgCYCLEPAGEDISABLE);
 			status = 2;
 		}
@@ -308,15 +347,16 @@ int MultiParameterFXMultiGStimSet::handle_trigger(const std::string& s, const st
 	else if (s == "a")
 	{
 		// unset parameters that trigger cycling, if any. One of the parameter lists called in advance() must enable it. 
+		cerr << "a: START" << endl;
 		setCyclingDelay(-1);
 		setStimDuration(-1);
 		setPursuitParameters(-1, 0, 0);
 		advance();
 		draw_current();
-		if (CYCLING_TYPE_NONE != m_iCyclingType)
-		{
-			setup_cycling();
-		}
+		//if (CYCLING_TYPE_NONE != m_iCyclingType)
+		//{
+		//	setup_cycling();
+		//}
 		// return 0 so vsgPresent() will not be called. 
 		status = 0;
 	}
@@ -363,17 +403,21 @@ int MultiParameterFXMultiGStimSet::handle_trigger(const std::string& s, const st
 	else if (s == "X")
 	{
 		status = 1;
-		if (m_bSweepNotPursuit)
+		if (bSweepCyclingThisTrial)
 		{
 			vsgSetCommand(vsgCYCLEPAGEDISABLE);
 			vsgPageCyclingSetup(m_clear_cycle_count, m_cycle_params + m_clear_cycle_start);
 			vsgSetSynchronisedCommand(vsgSYNC_PRESENT, vsgCYCLEPAGEENABLE, 0);
 			status = 2;
 		}
-		else
+		else if (bCyclingThisTrial)
 		{
+			vsgSetCommand(vsgCYCLEPAGEDISABLE);
 			vsgSetDrawPage(vsgVIDEOPAGE, m_blank_page, vsgNOCLEAR);
+			status = 2;
 		}
+		else
+			vsgSetDrawPage(vsgVIDEOPAGE, m_blank_page, vsgNOCLEAR);
 	}
 	else if (s == "A")
 	{
@@ -423,6 +467,8 @@ void MultiParameterFXMultiGStimSet::set_current(size_t index)
 // will leave draw page same when done, though that page might be altered
 void MultiParameterFXMultiGStimSet::draw_current()
 {
+	bool bSweepCyclingThisTrial = (CYCLING_TYPE_PURSUIT == m_iCyclingType && m_bUseSweepCycling);
+
 	// get current display page - we make sure to set the draw page to that when leaving
 	
 	long dpVideo, dpOverlay;
@@ -434,32 +480,36 @@ void MultiParameterFXMultiGStimSet::draw_current()
 	// this would be needed to fix. Should have no effect otherwise.
 	vsgMoveScreen(0, 0);
 
-	// When cycling is used, we'll need this page with fixpt, xhair (if present), distractors(if present) 
+	// Draw pages. When doing sweep cycling (only on those trials), we will put the fixpt on an overlay page.
 	m_bResetPhaseOnTrigger = true;
-	bool bFixptOnVideoPage = (m_bSweepNotPursuit ? false : true);
 	draw_stuff_on_page(m_blank_page, false, false, false, false, false);
-	draw_stuff_on_page(m_fixpt_page, bFixptOnVideoPage, true, false, false, false);
-	draw_stuff_on_page(m_fixpt_dot_page, bFixptOnVideoPage, true, false, true, false);
-	draw_stuff_on_page(m_stim_page, bFixptOnVideoPage, true, true, true, true, 1);
+	draw_stuff_on_page(m_fixpt_page, !bSweepCyclingThisTrial, true, false, false, false);
+	draw_stuff_on_page(m_fixpt_dot_page, !bSweepCyclingThisTrial, true, false, true, false);
+	draw_stuff_on_page(m_stim_page, !bSweepCyclingThisTrial, true, true, true, true, 1);
 	if (m_num_stim_pages > 1)
 	{
 		if (!m_bUseDrawGroups)
 		{
 			advance();
-			draw_stuff_on_page(m_alt_page, bFixptOnVideoPage, true, true, true, true);
+			draw_stuff_on_page(m_alt_page, !bSweepCyclingThisTrial, true, true, true, true);
 		}
 		else 
 		{
-			draw_stuff_on_page(m_alt_page, bFixptOnVideoPage, true, true, true, true, 2);
+			draw_stuff_on_page(m_alt_page, !bSweepCyclingThisTrial, true, true, true, true, 2);
 		}
 	}
 	m_pageflipindex = 0;	// in case this is used, reset so flipping works right the first time
 
+	if (m_iCyclingType != CYCLING_TYPE_NONE)
+		setup_cycling();
 
-	// When using sweep not pursuit, prepare the overlay pages.
+
+	// We will use the overlay pages ONLY when we are doing a sweep trial. By doing this we can
+	// keep the fixation point stationary while the stimulus moves. 
+	// When doing pursuit, we will not need overlay, but we still need cycling. 
 	// overlay page 0 - clear (transparent)
 	// overlay page 1 - fixation point
-	if (m_bSweepNotPursuit)
+	if (bSweepCyclingThisTrial)
 	{
 		vsgSetDrawPage(vsgOVERLAYPAGE, 1, 0);
 		if (has_fixpt())
@@ -643,11 +693,44 @@ void MultiParameterFXMultiGStimSet::setPursuitParameters(double durSeconds, doub
 		getPanningBBox(vsgGetScreenWidthPixels(), vsgGetScreenHeightPixels(), pixels, dirDegrees, ullr);
 		dorgx = vsgGetScreenWidthPixels() / 2 - ullr[0];
 		dorgy = vsgGetScreenHeightPixels() / 2 - ullr[1];
-		cout << "panning bbox " << ullr[0] << ", " << ullr[1] << " - " << ullr[2] << ", " << ullr[3] << endl;
-		cout << "draw origin at " << dorgx << ", " << dorgy << endl;
+		//cout << "panning bbox " << ullr[0] << ", " << ullr[1] << " - " << ullr[2] << ", " << ullr[3] << endl;
+		//cout << "draw origin at " << dorgx << ", " << dorgy << endl;
 	}
 	return;
 }
+
+bool MultiParameterFXMultiGStimSet::setUseCycling(bool bUseCycling, bool bSweepCycling)
+{
+	bool bvalue = false;
+	if (!bUseCycling)
+	{
+		m_bUseCycling = false;
+		m_bUseSweepCycling = false;	// input ignored here
+		bvalue = true;
+	}
+	else
+	{
+		if (m_bUseCycling)
+		{
+			// error, already called once
+			cerr << "ERROR: Can call setUseCycling(true) only once!" << endl;
+		}
+		else
+		{
+			cerr << "setUseCycling(" << boolalpha << bUseCycling << "," << boolalpha << bSweepCycling << ")" << endl;
+			m_bUseCycling = bUseCycling;
+			m_bUseSweepCycling = bSweepCycling;
+			bvalue = true;
+		}
+	}
+	return bvalue;
+}
+
+
+
+
+
+
 
 // As originally written, page cycling is only used when there is a cycling delay, 
 // or when there is a stim duration. If neither of those was set, then there's no need for cycling, as
@@ -658,6 +741,7 @@ void MultiParameterFXMultiGStimSet::setup_cycling()
 {
 	int status = 0;
 	int count = 0;
+	bool bSweepCyclingThisTrial = (CYCLING_TYPE_PURSUIT == m_iCyclingType && m_bUseSweepCycling);
 
 	if (CYCLING_TYPE_NONE == m_iCyclingType)
 		return;
@@ -678,11 +762,15 @@ void MultiParameterFXMultiGStimSet::setup_cycling()
 		{
 			cycle[count].Frames = 1 + (m_iCyclingDelay > 0 ? m_iCyclingDelay : 0);
 			cycle[count].Page = m_fixpt_dot_page;
+			cycle[count].Xpos = 0;
+			cycle[count].Ypos = 0;
 			cycle[count].Stop = 0;
 			count++;
 		}
 
 		cycle[count].Page = m_stim_page + vsgTRIGGERPAGE;
+		cycle[count].Xpos = 0;
+		cycle[count].Ypos = 0;
 		if (m_iStimDuration <= 0)
 		{
 			cycle[count].Frames = 0;
@@ -697,6 +785,8 @@ void MultiParameterFXMultiGStimSet::setup_cycling()
 
 			cycle[count].Frames = 0;
 			cycle[count].Page = m_blank_page + +vsgTRIGGERPAGE;
+			cycle[count].Xpos = 0;
+			cycle[count].Ypos = 0;
 			cycle[count].Stop = 1;
 			count++;
 		}
@@ -713,31 +803,41 @@ void MultiParameterFXMultiGStimSet::setup_cycling()
 		if (m_iCyclingDelay > 0)
 		{
 			cycle[count].Frames = 1 + (m_iCyclingDelay > 0 ? m_iCyclingDelay : 0);
-			cycle[count].Page = m_fixpt_dot_page + vsgTRIGGERPAGE + (m_bSweepNotPursuit ? vsgDUALPAGE : 0);
+			cycle[count].Page = m_fixpt_dot_page + vsgTRIGGERPAGE + (bSweepCyclingThisTrial ? vsgDUALPAGE : 0);
 			cycle[count].ovPage = 1;
 			cycle[count].Stop = 0;
+			cycle[count].Xpos = 0;
+			cycle[count].Ypos = 0;
+			cycle[count].ovXpos = 0;
+			cycle[count].ovYpos = 0;
 			count++;
 		}
 		for (int i = 0; i < m_iStimDuration; i++)
 		{
 			cycle[count].Frames = 1;
-			cycle[count].Page = m_stim_page + (i == 0 ? vsgTRIGGERPAGE : 0) + (m_bSweepNotPursuit ? vsgDUALPAGE : 0);	// trigger only onset of pursuit.
+			cycle[count].Page = m_stim_page + (i == 0 ? vsgTRIGGERPAGE : 0) + (bSweepCyclingThisTrial ? vsgDUALPAGE : 0);	// trigger only onset of pursuit.
 			cycle[count].ovPage = 1;
 			cycle[count].Xpos = (short)(-1 * (i + 1) * m_dxPursuit);
 			cycle[count].Ypos = (short)(-1 * (i + 1) * m_dyPursuit);
+			cycle[count].ovXpos = 0;
+			cycle[count].ovYpos = 0;
 			cycle[count].Stop = 0;
 			count++;
 		}
 		cycle[count].Frames = 1;
 		cycle[count].Page = m_blank_page + vsgTRIGGERPAGE + vsgDUALPAGE;
 		cycle[count].ovPage = 0;
+		cycle[count].Xpos = 0;
+		cycle[count].Ypos = 0;
+		cycle[count].ovXpos = 0;
+		cycle[count].ovYpos = 0;
 		cycle[count].Stop = 1;
 		count++;
 
 		m_stim_cycle_count = count;
 
 		// if sweep-not-pursuit, then must create trivial page cycle to get simultaneous page change
-		if (m_bSweepNotPursuit)
+		if (bSweepCyclingThisTrial)
 		{
 			m_fixpt_cycle_start = m_stim_cycle_count;
 			cycle = m_cycle_params + m_fixpt_cycle_start;
@@ -745,6 +845,10 @@ void MultiParameterFXMultiGStimSet::setup_cycling()
 			cycle[0].Page = m_fixpt_page + vsgDUALPAGE;
 			cycle[0].ovPage = 1;
 			cycle[0].Stop = 1;
+			cycle[0].Xpos = 0;
+			cycle[0].Ypos = 0;
+			cycle[0].ovXpos = 0;
+			cycle[0].ovYpos = 0;
 			m_fixpt_cycle_count = 1;
 
 			m_clear_cycle_start = m_fixpt_cycle_start + m_fixpt_cycle_count;
@@ -753,6 +857,7 @@ void MultiParameterFXMultiGStimSet::setup_cycling()
 			cycle[0].Page = m_blank_page + vsgDUALPAGE;
 			cycle[0].ovPage = 0;
 			cycle[0].ovXpos = cycle[0].ovYpos = 0;
+			cycle[0].Xpos = cycle[0].Ypos = 0;
 			cycle[0].Stop = 1;
 			m_clear_cycle_count = 1;
 		}
@@ -769,7 +874,7 @@ string MultiParameterFXMultiGStimSet::toString() const
 {
 	string s;
 	cerr << "MultiParameterFXMultiGStimSet: " << endl;
-	cerr << "cycle type " << m_iCyclingType << " sweep? " << std::boolalpha << m_bSweepNotPursuit << endl;
+	cerr << "cycling? " << std::boolalpha << m_bUseCycling << " sweep? " << std::boolalpha << m_bUseSweepCycling << endl;
 	if (has_fixpt())
 		cerr << " Fixpt: " << fixpt() << endl;
 	else
