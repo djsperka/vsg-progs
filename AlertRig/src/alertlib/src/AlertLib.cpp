@@ -1661,6 +1661,13 @@ void ARConteSpec::init(int nlevels, bool bCreate)
 }
 
 
+// get coords for drawing the gaussians: (x[0], y[0]) and (x[1],y[1])
+// also coords of border in rect (in VSG positive-down coord system)
+// No need to modify the y-coord (*-1) for actual drawing
+// rect[0]: left-hand x coord
+// rect[1]: right-hand
+// rect[2]: top
+// rect[3]: bottom
 void ARConteSpec::getDrawingCoordinates(double(&x)[2], double(&y)[2], double(&rect)[4])
 {
 	if (this->iHorizontal == 1 || this->iHorizontal == -1)
@@ -1767,15 +1774,42 @@ int ARConteSpec::draw()
 		}
 
 		// draw border cue, even when flankers are not drawn (borders should be set correctly)
+		// TEST - if cue line width > 5 (arbitrary), draw rectangles which tend towards the center
 		if (this->cueLineWidth > 0)
 		{
-			vsgSetDrawMode(vsgSOLIDPEN);
-			vsgSetPenSize(this->cueLineWidth, this->cueLineWidth);
-			vsgSetPen1(this->m_level_cue);
-			vsgDrawLine(rect[0], rect[2], rect[1], rect[2]);	// top
-			vsgDrawLine(rect[1], rect[2], rect[1], rect[3]);	// right
-			vsgDrawLine(rect[1], rect[3], rect[0], rect[3]);	// bottom
-			vsgDrawLine(rect[0], rect[3], rect[0], rect[2]);	// left
+			if (this->cueLineWidth > 5)
+			{
+				// convert pixels to degrees
+				double wdeg;
+				vsgUnit2Unit(vsgPIXELUNIT, this->cueLineWidth, vsgDEGREEUNIT, &wdeg);
+
+				// set draw mode
+				vsgSetDrawMode(vsgSOLIDFILL);	// do not use CENTREXY here
+
+				// color
+				vsgSetPen1(this->m_level_cue);
+
+				// draw 4 rectangles as the "border". in drawRect, x,y pos is top-left
+				// of the rect!
+				// Note depending on order of rect elements!
+				cout << "rect " << rect[0] << "," << rect[1] << "," << rect[2] << "," << rect[3] << endl;
+				double rectWidthDeg = rect[1] - rect[0];
+				double rectHeightDeg = rect[3] - rect[2];
+				vsgDrawRect(rect[0], rect[2], wdeg, rectHeightDeg);			// left-hand side
+				vsgDrawRect(rect[1] - wdeg, rect[2], wdeg, rectHeightDeg);	// right-hand side
+				vsgDrawRect(rect[0], rect[2], rectWidthDeg, wdeg);			// top
+				vsgDrawRect(rect[0], rect[3] - wdeg, rectWidthDeg, wdeg);	// bottom
+			}
+			else
+			{
+				vsgSetDrawMode(vsgSOLIDPEN);
+				vsgSetPenSize(this->cueLineWidth, this->cueLineWidth);
+				vsgSetPen1(this->m_level_cue);
+				vsgDrawLine(rect[0], rect[2], rect[1], rect[2]);	// top
+				vsgDrawLine(rect[1], rect[2], rect[1], rect[3]);	// right
+				vsgDrawLine(rect[1], rect[3], rect[0], rect[3]);	// bottom
+				vsgDrawLine(rect[0], rect[3], rect[0], rect[2]);	// left
+			}
 		}
 	}
 	else
