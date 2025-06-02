@@ -1792,7 +1792,6 @@ int ARConteSpec::draw()
 				// draw 4 rectangles as the "border". in drawRect, x,y pos is top-left
 				// of the rect!
 				// Note depending on order of rect elements!
-				cout << "rect " << rect[0] << "," << rect[1] << "," << rect[2] << "," << rect[3] << endl;
 				double rectWidthDeg = rect[1] - rect[0];
 				double rectHeightDeg = rect[3] - rect[2];
 				vsgDrawRect(rect[0], rect[2], wdeg, rectHeightDeg);			// left-hand side
