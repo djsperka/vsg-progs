@@ -3,7 +3,8 @@
 #include <iostream>
 #include <boost/bind/bind.hpp>
 #include <boost/regex.hpp>
-
+#include <boost/algorithm/string.hpp>
+//using namespace boost;
 using namespace boost::placeholders;
 
 bool TcpUStim::parse(int argc, char** argv)
@@ -21,11 +22,21 @@ void TcpUStim::run_stim(alert::ARvsg& vsg)
 	std::cout << "TcpUStim::run_stim(): started" << std::endl;
 	m_pWrapper = std::unique_ptr<AsyncTCPServerWrapper>(new AsyncTCPServerWrapper(boost::bind(&TcpUStim::callback, this, _1, _2), 7001, ';'));
 
+	// screen distance and bkgd color
+	//VSGTRIVAL c = m_arguments.bkgdColor.trival();
+	vsg.setViewDistMM(800);
+	vsg.setBackgroundColor(gray);
+
+
 	// clear page 0
 	vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgBACKGROUND);
+	m_ipage = 0;
 
 	// allocate a color 
 	vsg.request_single(m_level);
+
+	// init fixpt 
+	m_fixpt.init(2);
 
 	// blocking, but with async callbacks
 	m_pWrapper->start();
@@ -38,9 +49,14 @@ bool TcpUStim::callback(const std::string& s, std::ostream& out)
 {
 	std::cout << "callback: " << s << std::endl;
 	// background expect b (127/127/127) or b [0.1/0.2/0.3]
-	boost::regex expr{ "b\\s(.*)" };
+	boost::regex b_expr{ "b\\s(.*)" };
+	boost::regex f_expr{ "f\\s(.*)" };
 	boost::smatch what;
-	if (boost::regex_search(s, what, expr))
+
+	// page flipping
+	m_ipage = 1 - m_ipage;
+
+	if (boost::regex_search(s, what, b_expr))
 	{
 		std::cout << "parse background color : " << what[1] << std::endl;
 		COLOR_TYPE c;
@@ -55,7 +71,30 @@ bool TcpUStim::callback(const std::string& s, std::ostream& out)
 			arutil_color_to_palette(c, m_level);
 
 			// clear page
-			vsgSetDrawPage(vsgVIDEOPAGE, 0, m_level);
+			vsgSetDrawPage(vsgVIDEOPAGE, m_ipage, m_level);
+			vsgObjSetTriggers(vsgTRIG_ONPRESENT, 0, 0);
+			vsgPresent();
+
+			out << "OK;";
+		}
+	}
+	else if (boost::regex_search(s, what, f_expr))
+	{
+		std::cout << "parse fixpt : " << what[1] << std::endl;
+		if (parse_fixation_point(what[1], m_fixpt))
+		{
+			std::cerr << "Cannot parse fixation point: " << s << std::endl;
+			out << "ERR,cannot parse fixpt;";
+		}
+		else
+		{
+			// clear page
+			vsgSetDrawPage(vsgVIDEOPAGE, m_ipage, m_level);
+
+			// draw fixpt
+			m_fixpt.draw();
+			vsgObjSetTriggers(vsgTRIG_ONPRESENT, 0, 0);
+			vsgPresent();
 
 			out << "OK;";
 		}

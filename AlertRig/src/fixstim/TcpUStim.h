@@ -29,6 +29,9 @@ private:
 	struct tcpustim_arguments m_arguments;
 	std::unique_ptr<AsyncTCPServerWrapper> m_pWrapper;
 	PIXEL_LEVEL m_level;	
+	PIXEL_LEVEL m_level_fixpt;
+	int m_ipage;
+	alert::ARContrastFixationPointSpec m_fixpt;
 	//void init_triggers(TSpecificFunctor<TcpUStim>* pfunctor);
 	//bool parseImageArg(const std::string& arg, std::string& filename, double& x, double& y, double& duration, double& delay, int& nlevels);
 };
