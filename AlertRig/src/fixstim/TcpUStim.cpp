@@ -58,7 +58,7 @@ bool TcpUStim::callback(const std::string& s, std::ostream& out)
 
 	if (boost::regex_search(s, what, b_expr))
 	{
-		std::cout << "parse background color : " << what[1] << std::endl;
+		std::cout << "matched background color cmd." << std::endl;
 		COLOR_TYPE c;
 		if (parse_color(what[1], c))
 		{
@@ -67,6 +67,8 @@ bool TcpUStim::callback(const std::string& s, std::ostream& out)
 		}
 		else
 		{
+			std::cout << "color " << c << " to level " << m_level << std::endl;
+
 			// set color in color table
 			arutil_color_to_palette(c, m_level);
 
@@ -80,7 +82,7 @@ bool TcpUStim::callback(const std::string& s, std::ostream& out)
 	}
 	else if (boost::regex_search(s, what, f_expr))
 	{
-		std::cout << "parse fixpt : " << what[1] << std::endl;
+		std::cout << "matched fixpt command." << std::endl;
 		if (parse_fixation_point(what[1], m_fixpt))
 		{
 			std::cerr << "Cannot parse fixation point: " << s << std::endl;
@@ -88,6 +90,8 @@ bool TcpUStim::callback(const std::string& s, std::ostream& out)
 		}
 		else
 		{
+			std::cout << "Draw fixpt " << m_fixpt << " on page " << m_ipage << std::endl;
+
 			// clear page
 			vsgSetDrawPage(vsgVIDEOPAGE, m_ipage, m_level);
 
