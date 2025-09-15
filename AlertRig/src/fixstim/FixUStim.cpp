@@ -9,6 +9,7 @@
 #include "EQStimSet.h"
 #include "BorderStimSet.h"
 #include "CycleTestStimSet.h"
+#include "DPICalStimSet.h"
 #include <conio.h>
 #include <iostream>
 #include <algorithm>
@@ -85,6 +86,7 @@ static struct argp_option options[] = {
 	{"grating-bars", 766, "x1,y1,w1,h1,ori1[,x2,w2,w2,h2,ori2[...]]", 0, "List of grating bar params, 5 for each trial. Comma-separated."},
 	{"bmp-image-list", 765, "filename,x,y,dur,dly,nlevels", 0, "BMP images, compressed color index"},
 	{"bmp-image-order", 764, ",,,0,,1,,,,,2....", 0, "order to display images from bmp-image-list file, 0-based index. * stops all grating etc display."},
+	{"dpi-cal", 780, 0, 0, "Fixpt-only stim, uses D x,y,r,color trigger via serial."},
 	{ 0 }
 };
 static struct argp f_argp = { options, parse_fixstim_opt, 0, "fixstim -- all-purpose stimulus engine" };
@@ -273,7 +275,7 @@ void FixUStim::run_stim(alert::ARvsg& vsg)
 			TriggerFunc tf;
 			if (bHaveAsciiTrigger)
 			{
-				//std::cerr << "check string trigs" << std::endl;
+				std::cerr << "run_stim() have an input ascii trigger: " << s << std::endl;
 				tf = TriggerFunc(s, last_output_trigger);
 				for (auto ptrig : triggers())
 				{
@@ -466,8 +468,6 @@ void FixUStim::init_triggers(TSpecificFunctor<FixUStim>* pfunctor, int npages)
 
 int FixUStim::callback(int &output, const FunctorCallbackTrigger* ptrig, const std::string&)
 {
-	// TODO - must change this call to include args. That will trigger big changes in StimSet-derived classes:(
-
 	return  m_arguments.pStimSet->handle_trigger(ptrig->getMatchedKey(), ptrig->getArgs());
 }
 
@@ -517,6 +517,12 @@ error_t parse_fixstim_opt(int key, char* carg, struct argp_state* state)
 		break;
 	case 774:
 		arguments->pStimSet = new CycleTestStimSet();
+		break;
+	case 780:
+		if (!arguments->bHaveFixpt)
+			ret = EINVAL;
+		else
+			arguments->pStimSet = new DPICalStimSet(arguments->fixpt);
 		break;
 	case 769:
 		if (parse_integer(sarg, arguments->iPendingDrawGroup))
