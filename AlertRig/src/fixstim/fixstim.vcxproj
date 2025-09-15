@@ -229,6 +229,7 @@
     <ClCompile Include="ConteUStim.cpp" />
     <ClCompile Include="CycleTestStimSet.cpp" />
     <ClCompile Include="DotStimSet.cpp" />
+    <ClCompile Include="DPICalStimSet.cpp" />
     <ClCompile Include="EQStimSet.cpp" />
     <ClCompile Include="fixstim.cpp" />
     <ClCompile Include="FixUStim.cpp" />
