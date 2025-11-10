@@ -153,7 +153,9 @@ void FixUStim::run_stim(alert::ARvsg& vsg)
 		cout << "Using serial port \"" << m_arguments.serial_port << "\"" << endl;
 		try 
 		{
+			cout << "Open now... " << endl;
 			m_serial_port.open(m_arguments.serial_port, 115200);
+			cout << "Open done." << endl;
 		}
 		catch (const std::runtime_error& e)
 		{
