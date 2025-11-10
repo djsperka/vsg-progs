@@ -1,0 +1,1 @@
+aaDeploy.bat C:\work\vsg-progs\AlertRig x64\Release C:\work\vsg-progs\AlertRig
