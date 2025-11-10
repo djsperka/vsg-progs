@@ -37,32 +37,33 @@ void DPICalStimSet::cleanup(std::vector<int> pages)
 int DPICalStimSet::handle_trigger(const std::string& s, const std::string& args)
 {
 	int status = 0;
+	cout << "DPICalStimSet: handle_trigger " << s << " args " << args << endl;
 	if (s == "F")
 	{
-		drawCurrent();
-		//cout << "handle(F): page " << m_pages[m_ipage] << " fixpt " << fixpt() << endl;
-		//fixpt().setContrast(100);
-		//vsgSetDrawPage(vsgVIDEOPAGE, m_pages[m_ipage], vsgNOCLEAR);
-		status = 1;
-	}
-	else if (s == "D")
-	{
-		stringstream ss(args);
-		alert::ARContrastFixationPointSpec f;
-		ss >> f;
-		if (ss)
+		if (args.size() == 0)
 		{
-			cout << "Got D arg " << f << endl;
-			fixpt().x = f.x;
-			fixpt().y = f.y;
-			fixpt().d = f.d;
-			fixpt().color = f.color;
 			drawCurrent();
 			status = 1;
 		}
 		else
 		{
-			cerr << "Error parsing D arg: " << args << endl;
+			stringstream ss(args);
+			alert::ARContrastFixationPointSpec f;
+			ss >> f;
+			if (ss)
+			{
+				cout << "Got F arg " << f << endl;
+				fixpt().x = f.x;
+				fixpt().y = f.y;
+				fixpt().d = f.d;
+				fixpt().color = f.color;
+				drawCurrent();
+				status = 1;
+			}
+			else
+			{
+				cerr << "Error parsing F arg: " << args << endl;
+			}
 		}
 	}
 	else if (s == "X")
