@@ -79,11 +79,13 @@ bool Trigger::checkString(const std::string& input)
 	else
 	{
 		// split into everything before first blank, and everything after (trimmed). 
+		// key must match what is before blank
 		std::string token = input.substr(0, input.find(' '));
 		ind = token.find_first_of(getKey());
 
-		//std::cerr << "token " << token << " getKey() " << getKey() << " ind " << ind << std::endl;
-		if (ind != std::string::npos)
+		//std::cerr << "token:" << token << ":getKey():" << getKey() << ":ind:" << ind << std::endl;
+		//if (ind != std::string::npos)
+		if (token == getKey())
 		{
 			b = true;
 			m_matchedKey = input[ind];
