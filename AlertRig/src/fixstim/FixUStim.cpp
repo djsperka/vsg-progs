@@ -87,6 +87,7 @@ static struct argp_option options[] = {
 	{"bmp-image-list", 765, "filename,x,y,dur,dly,nlevels", 0, "BMP images, compressed color index"},
 	{"bmp-image-order", 764, ",,,0,,1,,,,,2....", 0, "order to display images from bmp-image-list file, 0-based index. * stops all grating etc display."},
 	{"dpi-cal", 780, 0, 0, "Fixpt-only stim, uses D x,y,r,color trigger via serial."},
+	{"multi-sac", 781, "filename", 0, "Multiple-saccade stimulus."},
 	{ 0 }
 };
 static struct argp f_argp = { options, parse_fixstim_opt, 0, "fixstim -- all-purpose stimulus engine" };
@@ -525,6 +526,13 @@ error_t parse_fixstim_opt(int key, char* carg, struct argp_state* state)
 			ret = EINVAL;
 		else
 			arguments->pStimSet = new DPICalStimSet(arguments->fixpt);
+		break;
+	case 781:
+		if (!arguments->bHaveFixpt)
+			ret = EINVAL;
+		else
+			if (!(arguments->pStimSet = parseMultiSacStimSet(arguments->fixpt)))
+				ret = EINVAL;
 		break;
 	case 769:
 		if (parse_integer(sarg, arguments->iPendingDrawGroup))
