@@ -2,17 +2,23 @@
 #include "Alertlib.h"
 #include "StimSet.h"
 
-class MultiSacStimSet : public StimSet
+// A frame to be drawn can contain 0 or more gratings
+typedef std::vector<ARGratingSpec> FrameVector;
+typedef std::vector<FrameVector> SingleTrialVector;
+typedef std::vector<SingleTrialVector> AllTrialsVector;
+
+class MultiSacStimSet : public FXMultiGStimSet
 {
 private:
 	ARContrastFixationPointSpec m_fixpt;
+	AllTrialsVector m_atv;
+	int m_current;
 
 	int drawCurrent();
 
 public:
 
-	MultiSacStimSet(double x, double y, double size0, double size1, COLOR_TYPE c0, COLOR_TYPE c1, vector<int>& stim);
-	MultiSacStimSet(const ARContrastFixationPointSpec& fixpt);
+	MultiSacStimSet(ARContrastFixationPointSpec& fixpt) : FXMultiGStimSet(fixpt) {};
 
 	virtual ~MultiSacStimSet() {};
 
@@ -38,3 +44,6 @@ public:
 	virtual std::string toString() const;
 
 };
+
+MultiSacStimSet* parseMultiSacStimSet(const std::string& filename, alert::ARContrastFixationPointSpec& fixpt);
+

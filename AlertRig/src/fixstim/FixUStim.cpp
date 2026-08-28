@@ -10,6 +10,7 @@
 #include "BorderStimSet.h"
 #include "CycleTestStimSet.h"
 #include "DPICalStimSet.h"
+#include "MultiSacStimSet.h"
 #include <conio.h>
 #include <iostream>
 #include <algorithm>
@@ -531,7 +532,7 @@ error_t parse_fixstim_opt(int key, char* carg, struct argp_state* state)
 		if (!arguments->bHaveFixpt)
 			ret = EINVAL;
 		else
-			if (!(arguments->pStimSet = parseMultiSacStimSet(arguments->fixpt)))
+			if (!(arguments->pStimSet = parseMultiSacStimSet(sarg, arguments->fixpt)))
 				ret = EINVAL;
 		break;
 	case 769:
