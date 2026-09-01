@@ -17,10 +17,10 @@ std::ostream& operator<<(std::ostream& ins, const msac_trial_list_t& trials)
 }
 
 
-std::ostream& operator<<(std::ostream& ins, const msac_frame_t& frame)
+std::ostream& operator<<(std::ostream& ins, const msac_page_t& page)
 {
-	ins << "\tFrame: ";
-	for (auto grating : frame.gratings)
+	ins << "\tpage: ";
+	for (auto grating : page.gratings)
 		ins << grating << " ";
 	ins << "End";
 	return ins;
@@ -29,9 +29,9 @@ std::ostream& operator<<(std::ostream& ins, const msac_frame_t& frame)
 std::ostream& operator<<(std::ostream& ins, const msac_trial_t& trial)
 {
 	ins << "Trial:" << endl;
-	for (auto frame : trial.frames)
+	for (auto page : trial.pages)
 	{
-		ins << frame << endl;
+		ins << page << endl;
 	}
 	ins << "Trial done" << endl;
 	return ins;
@@ -40,7 +40,7 @@ std::ostream& operator<<(std::ostream& ins, const msac_trial_t& trial)
 
 
 // Expecting ":" delimited list of gratings, or "BKGD". Terminated by "END"
-std::istream& operator>>(std::istream& in, msac_frame_t& frame)
+std::istream& operator>>(std::istream& in, msac_page_t& page)
 {
 	string tmp;
 	//std::stringstream buffer;
@@ -64,7 +64,7 @@ std::istream& operator>>(std::istream& in, msac_frame_t& frame)
 					throw "Error parsing grating";
 				else
 				{
-					frame.gratings.push_back(grating);
+					page.gratings.push_back(grating);
 				}
 			}
 		}
@@ -92,17 +92,17 @@ std::istream& operator>>(istream& ins, msac_trial_t& trial)
 	// tokenize/split at the pipe symbol
 	tokenize(line, tokens, "|");
 
-	// Each string between pipes is a frame
-	for (auto s_frame : tokens)
+	// Each string between pipes is a page
+	for (auto s_page : tokens)
 	{
-		trim(s_frame);
-		if (iequals(s_frame, "END"))
+		trim(s_page);
+		if (iequals(s_page, "END"))
 			break;
-		msac_frame_t frame;
-		fs.str(s_frame);
+		msac_page_t page;
+		fs.str(s_page);
 		fs.clear();
-		fs >> frame;
-		trial.frames.push_back(frame);
+		fs >> page;
+		trial.pages.push_back(page);
 	}
 	return ins;
 }
@@ -115,7 +115,7 @@ istream& operator>>(istream& ins, msac_trial_list_t& trials)
 	while (ins >> t)
 	{
 		trials.push_back(t);
-		t.frames.clear();
+		t.pages.clear();
 	}
 	return ins;
 }
@@ -175,8 +175,8 @@ int MultiSacStimSet::num_pages()
 {
 	int m = 0;
 	for (auto trial : m_trials)
-		if (trial.frames.size() > m)
-			m = trial.frames.size();
+		if (trial.pages.size() > m)
+			m = trial.pages.size();
 	return m;
 };
 
@@ -186,34 +186,51 @@ int MultiSacStimSet::num_pages()
 int MultiSacStimSet::init(std::vector<int> pages, int)
 {
 	int nGratings = 0;
+	int nLevels = 0;
+
+	// save the pages to use
+	m_pages = pages;
+
 	for (auto trial : m_trials)
 	{
 		int n = 0;
-		for (auto frame : trial.frames)
-			n += frame.gratings.size();
+		for (auto page : trial.pages)
+			n += page.gratings.size();
 		nGratings = max(nGratings, n);
+		std::cerr << n << nGratings << endl;
 	}
-ZZZZZZZZZZZZZZ
-	//// first page is for background only
-	//m_pageBackground = pages[0];
-	//m_pageStimulus = pages[1];
-	//m_pageStimulusFixpt = pages[2];
 
-	//// allocate a spot for the two colors we need.....
-	//ARvsg::instance().request_single(m_levelColor0);
-	//arutil_color_to_palette(m_color0, m_levelColor0);
-	//ARvsg::instance().request_single(m_levelColor1);
-	//arutil_color_to_palette(m_color1, m_levelColor1);
+	// figure out how many levels per grating. Max of 12 is arbitrary.
+	nLevels = 40;
+	if (nGratings <= 6)
+		nLevels = 40;
+	else if (nGratings > 6 && nGratings < 9)
+		nLevels = 30;
+	else if (nGratings < 13)
+		nLevels = 20;
+	else
+	{
+		cerr << "Too many gratings! Max 12.";
+		return 1;
+	}
 
-	//// init the rect levels, but don't bother setting x,y, color, size until drawCurrent()
-	//m_rect.init(2);
+	// now populate the gratings we need and init them
+	ARGratingSpec g;
+	for (int i = 0; i < nGratings; i++)
+	{
+		add_grating(g);
+		this->grating(i).init(nLevels);
+	}
+
+	// init the fixpt
+	this->fixpt().init(2);
 
 	//// background page will not change
 	//vsgSetDrawPage(vsgVIDEOPAGE, m_pageBackground, vsgBACKGROUND);
 
-	//m_uiCurrentTrial = 0;
-	//drawCurrent();
-
+	m_uiCurrentTrial = 0;
+	drawCurrent();
+	vsgPresent();
 	//vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgNOCLEAR);
 	return 0;
 }
@@ -221,34 +238,101 @@ ZZZZZZZZZZZZZZ
 int MultiSacStimSet::handle_trigger(const std::string& s, const std::string&)
 {
 	int status = 0;
-	//if (s == "F")
-	//{
-	//	cerr << "Fixpt not supported" << endl;
-	//}
-	//else if (s == "S")
-	//{
-	//	vsgSetDrawPage(vsgVIDEOPAGE, m_pageStimulus, vsgNOCLEAR);
-	//	status = 1;
-	//}
-	//else if (s == "a")
-	//{
-	//	m_uiCurrentTrial++;
-	//	if (m_uiCurrentTrial >= m_vecStim.size()) m_uiCurrentTrial = 0;
-	//	drawCurrent();
-	//	vsgSetDrawPage(vsgVIDEOPAGE, m_pageBackground, vsgNOCLEAR);
-	//	status = 1;
-	//}
-	//else if (s == "X")
-	//{
-	//	vsgSetDrawPage(vsgVIDEOPAGE, m_pageBackground, vsgNOCLEAR);
-	//	status = 1;
-	//}
+	if (s == "F")
+	{
+		this->fixpt().setContrast(100);
+		status = 1;
+	}
+	else if (s == "f")
+	{
+		this->fixpt().setContrast(0);
+		status = 1;
+	}
+	else if (s == "S")
+	{
+		// set contrast to 100 for all gratings
+		for (int i = 0; i < m_nGratingsCurrentTrial; i++)
+			this->grating(i).setContrast(100);
+		status = 1;
+	}
+	else if (s == "s")
+	{
+		// set contrast to 0 for all gratings
+		for (int i = 0; i < m_nGratingsCurrentTrial; i++)
+			this->grating(i).setContrast(0);
+		status = 1;
+	}
+	else if (s == "v")
+	{
+		// move to next page
+		m_uiCurrentPageIndex++;
+		cerr << "current page index " << m_uiCurrentPageIndex <<  " max " << m_trials[m_uiCurrentTrial].pages.size() << endl;
+		if (m_uiCurrentPageIndex < m_trials[m_uiCurrentTrial].pages.size())
+			vsgSetDrawPage(vsgVIDEOPAGE, m_pages[m_uiCurrentPageIndex], vsgNOCLEAR);
+		else
+			cerr << "ERROR - cannot advance this far. Not enough pages in this trial." << endl;
+		status = 1;
+	}
+	else if (s == "a")
+	{
+		m_uiCurrentTrial++;
+		if (m_uiCurrentTrial >= m_trials.size())
+		{
+			m_uiCurrentTrial = 0;
+			cerr << "WARNING - out of trials - starting over with first trial" << endl;
+		}
+		drawCurrent();
+		m_uiCurrentPageIndex = 0;
+		status = 1;		// will draw initial page for trial - which should be blank (all contrast=0) after drawCurrent() is called.
+	}
+	else if (s == "X")
+	{
+		vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgNOCLEAR);
+		status = 1;
+	}
 	return status;
 }
 
 
+// draw the current trial onto vsg pages. 
+// current trial is m_trials[m_uiCurrentTrial]
+// trial contains one or more pages (a vector of pages).
+// each page has zero or more gratings. 
+// For each page, draw any gratings first, then the fixpt. 
+// We're going to turn gratings on and off all at once (even if they're not on current page)
+// If that changes, we will need to keep track of which gratings are drawn on which page. 
+//
+// All objects are drawn with contrast=0
+// Current draw page is left at the first page for this trial
 int MultiSacStimSet::drawCurrent()
 {
+	int nPages = m_trials[m_uiCurrentTrial].pages.size();
+	int iPage = 0;
+	m_nGratingsCurrentTrial = 0;
+	for (auto page : m_trials[m_uiCurrentTrial].pages)
+	{
+		// clear vsg page
+		vsgSetDrawPage(vsgVIDEOPAGE, m_pages[iPage], vsgBACKGROUND);
+		cerr << "Drawing on page " << m_pages[iPage] << endl;
+
+		// draw each grating specified for this page 
+		for (auto g : page.gratings)
+		{
+			this->grating(m_nGratingsCurrentTrial).assignGratingProperties(g);
+			this->grating(m_nGratingsCurrentTrial).draw();
+			this->grating(m_nGratingsCurrentTrial).setContrast(0);
+			cerr << "Draw grating(" << m_nGratingsCurrentTrial << ") - WARNING: NEED TO SAVE CONTRAST FOR GRATINGS" << endl;
+			m_nGratingsCurrentTrial++;
+		}
+
+		// draw fixpt
+		this->fixpt().draw();
+		this->fixpt().setContrast(0);
+
+		// increment page
+		iPage++;
+	}
+	vsgSetDrawPage(vsgVIDEOPAGE, m_pages[0], vsgNOCLEAR);
 	return 0;
 }
 
