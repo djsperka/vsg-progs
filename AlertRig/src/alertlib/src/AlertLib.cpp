@@ -1250,27 +1250,36 @@ ARGratingSpec& ARGratingSpec::operator=(const ARGratingSpec& g)
 	if (this != &g)
 	{
 		ARObject::operator=(g);
-		x = g.x;
-		y = g.y;
-		w = g.w;
-		h = g.h;
-		wd = g.wd;
-		hd = g.hd;
-		contrast = g.contrast;
-		sf = g.sf;
-		tf = g.tf;
-		orientation = g.orientation;
-		phase = g.phase;
-		cv = g.cv;
-		swt = g.swt;
-		twt = g.twt;
-		ttf = g.ttf;
-		aperture = g.aperture;
-		bIsMulti = g.bIsMulti;
-		m_multi = g.m_multi;
+		this->assignGratingProperties(g);
 	}
 	return *this;
 }
+
+void ARGratingSpec::assignGratingProperties(const ARGratingSpec& g)
+{
+	if (this == &g)
+		return;
+
+	x = g.x;
+	y = g.y;
+	w = g.w;
+	h = g.h;
+	wd = g.wd;
+	hd = g.hd;
+	contrast = g.contrast;
+	sf = g.sf;
+	tf = g.tf;
+	orientation = g.orientation;
+	phase = g.phase;
+	cv = g.cv;
+	swt = g.swt;
+	twt = g.twt;
+	ttf = g.ttf;
+	aperture = g.aperture;
+	bIsMulti = g.bIsMulti;
+	m_multi = g.m_multi;
+}
+
 
 void ARGratingSpec::getBBoxWH(double x, double y, double w, double h, double ori, double& bboxWidth, double& bboxHeight)
 {

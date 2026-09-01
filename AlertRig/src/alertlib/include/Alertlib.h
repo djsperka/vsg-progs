@@ -450,6 +450,10 @@ namespace alert
 
 		ARGratingSpec& operator=(const ARGratingSpec& g);
 
+		// assign just the properties below - those specific to gratings. 
+		// operator= does this, AND it also assigns the VSG object properties (handle, levels, etc). 
+		void assignGratingProperties(const ARGratingSpec& g);
+
 		double x,y,w,h;
 		double wd, hd;	// donut inner width/height. If both are <=0, then not a donut. If aperture=ori_rectangle then wd is used as the orientation angle of the rect.
 		double sf;		// spatial frequency
