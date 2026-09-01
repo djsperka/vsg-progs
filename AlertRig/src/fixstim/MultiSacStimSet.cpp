@@ -1,140 +1,169 @@
 #include "MultiSacStimSet.h"
 #include "AlertUtil.h"
-#include <iostream>
 #include <sstream>
 #include <boost/filesystem.hpp>
 #include <boost/algorithm/string.hpp>
 
-MultiSacStimSet* parseMultiSacStimSet(const std::string& filename, alert::ARContrastFixationPointSpec& fixpt)
+using namespace std;
+std::ostream& operator<<(std::ostream& ins, const msac_trial_list_t& trials)
+{
+	ins << "Trial list:" << endl;
+	for (auto trial : trials)
+	{
+		ins << trial << endl;
+	}
+	ins << "Trial list done" << endl;
+	return ins;
+}
+
+
+std::ostream& operator<<(std::ostream& ins, const msac_frame_t& frame)
+{
+	ins << "\tFrame: ";
+	for (auto grating : frame.gratings)
+		ins << grating << " ";
+	ins << "End";
+	return ins;
+}
+
+std::ostream& operator<<(std::ostream& ins, const msac_trial_t& trial)
+{
+	ins << "Trial:" << endl;
+	for (auto frame : trial.frames)
+	{
+		ins << frame << endl;
+	}
+	ins << "Trial done" << endl;
+	return ins;
+}
+
+
+
+// Expecting ":" delimited list of gratings, or "BKGD". Terminated by "END"
+std::istream& operator>>(std::istream& in, msac_frame_t& frame)
+{
+	string tmp;
+	//std::stringstream buffer;
+	//buffer << in.rdbuf();
+	//tmp = buffer.str();
+	while (std::getline(in, tmp, ':'))
+	{
+		// BKGD
+		if (boost::algorithm::iequals(tmp, "BKGD"))
+			break;
+		else if (boost::algorithm::iequals(tmp, "END"))
+			break;
+		else
+		{
+			std::vector<std::string> result;
+			boost::algorithm::split(result, boost::algorithm::trim_copy(tmp), boost::is_any_of(" "));
+			if (result.size() == 2 && boost::algorithm::iequals(result[0], "G"))
+			{
+				alert::ARGratingSpec grating;
+				if (parse_grating(result[1], grating))
+					throw "Error parsing grating";
+				else
+				{
+					frame.gratings.push_back(grating);
+				}
+			}
+		}
+	}
+	return in;
+}
+
+
+// A line in the input file corresponds to a single trial
+std::istream& operator>>(istream& ins, msac_trial_t& trial)
+{
+	string line;
+	stringstream fs;
+	vector<string> tokens;
+
+
+	// get a line nonzero length
+	getline(ins, line);
+	while (!ins.eof() && line.size() == 0)
+		getline(ins, line);
+
+	if (ins.eof())
+		return ins;
+
+	// tokenize/split at the pipe symbol
+	tokenize(line, tokens, "|");
+
+	// Each string between pipes is a frame
+	for (auto s_frame : tokens)
+	{
+		trim(s_frame);
+		if (iequals(s_frame, "END"))
+			break;
+		msac_frame_t frame;
+		fs.str(s_frame);
+		fs.clear();
+		fs >> frame;
+		trial.frames.push_back(frame);
+	}
+	return ins;
+}
+
+
+istream& operator>>(istream& ins, msac_trial_list_t& trials)
+{
+	trials.clear();
+	msac_trial_t t;
+	while (ins >> t)
+	{
+		trials.push_back(t);
+		t.frames.clear();
+	}
+	return ins;
+}
+
+bool parse_msac_trials_file(const string& filename, msac_trial_list_t& trials)
+{
+	bool b = false;
+	std::ifstream ifs(filename);
+
+	std::cerr << "Open file " << filename << std::endl;
+	if (ifs.is_open())
+	{
+		std::cerr << "Read trials" << std::endl;
+		try
+		{
+			ifs >> trials;
+			b = true;
+		}
+		catch (string s)
+		{
+			std::cerr << "Error: " << s << endl;
+		}
+		ifs.close();
+	}
+	return b;
+}
+
+
+MultiSacStimSet* createMultiSacStimSet(const std::string& filename, alert::ARContrastFixationPointSpec& fixpt)
 {
 	MultiSacStimSet* pStimSet = nullptr;
-	AllTrialsVector atv;
+	msac_trial_list_t trials;
+	ifstream ifs(filename);
 
-	boost::filesystem::path p(filename);
-	if (!exists(p))
+	std::cerr << "Open file " << filename << std::endl;
+	if (ifs.is_open())
 	{
-		std::cerr << "Error: multisac trials file does not exist: " << filename << endl;
-		return nullptr;
+		std::cerr << "Read trials" << std::endl;
+		ifs >> trials;
+		ifs.close();
+		pStimSet = new MultiSacStimSet(fixpt, trials);
 	}
 	else
 	{
-		// open file, read line-by-line and parse
-		string line;
-		int linenumber = 0;		// count lines from 0
-
-		std::ifstream myfile(filename.c_str());
-		if (myfile.is_open())
-		{
-			while (getline(myfile, line))
-			{
-				linenumber++;
-
-				// skip comment line
-				if (line[0] == '#')
-					continue;
-
-				// skip empty lines
-				boost::algorithm::trim(line);
-				if (line.size() == 0)
-					continue;
-
-				// tokenize into pipe-separated chunks.
-				// Each token is the content of a FRAME. 
-				// Each FRAME can be BKGD, or a colon: separated sequence of gratings with a G prefix e.g. "G 1,2,.... : G 2,3,.... : G 4,5,...."
-				// The FRAMES make up a trial. 
-
-				SingleTrialVector trialvec;
-				std::vector<std::string> frame_tokens;
-				tokenize(line, frame_tokens, "|");
-				std::cerr << "Got " << frame_tokens.size() << " frame tokens on line " << linenumber << std::endl;
-				for (auto frame_token : frame_tokens)
-				{
-					// Each token represents a single screen FRAME that will be displayed. 
-					// The simplest frame is blank - the text should be BKGD.
-					// The last token on the line should be END
-					// Each FRAME in a trial is represented by a GratingVector
-					FrameVector gvec;
-					boost::algorithm::trim(frame_token);
-					std::cerr << "token " << frame_token << std::endl;
-
-					if (boost::algorithm::iequals(frame_token, "BKGD"))
-					{
-						trialvec.push_back(gvec);	// pushing an empty vector means nothing gets drawn == BKGD
-					}
-					else if (boost::algorithm::iequals(frame_token, "END"))
-					{
-						// don't push anything else into the trial vector - this trial is finished with END
-						break;
-					}
-					else
-					{
-						// tokenize on ":"
-						std::vector<std::string> stim_tokens;
-						tokenize(frame_token, stim_tokens, ":");
-						std::cerr << "Got " << stim_tokens.size() << " stim tokens" << std::endl;
-						for (auto stim_token : stim_tokens)
-						{
-							std::cerr << "Stim token " << stim_token << std::endl;
-							std::string stmp;
-							boost::algorithm::trim(stim_token);
-							vector<string> strs;
-							boost::split(strs, stim_token, boost::is_any_of(" "));
-							if (strs.size() == 2 && boost::iequals(strs[0], "G"))
-							{
-								alert::ARGratingSpec grating;
-								if (!parse_grating(strs[1], grating))
-									gvec.push_back(grating);
-								else
-								{
-									std::cerr << "Cannot read grating spec at line " << linenumber << ": " << stim_token << std::endl;
-									return nullptr;
-								}
-							}
-							else
-							{
-								std::cerr << "Cannot frame token at line " << linenumber << ": " << stim_token << std::endl;
-								return nullptr;
-							}
-						}
-						trialvec.push_back(gvec);
-					}
-					atv.push_back(trialvec);
-				}
-			}
-			myfile.close();
-		}
+		std::cerr << "Cannot open msac trials file " << filename << endl;
 	}
 	return pStimSet;
 }
-	//double x, y;
-	//double s0, s1;
-	//COLOR_TYPE c0, c1;
-	//if (parse_double(tokens[0], x) || parse_double(tokens[1], y))
-	//{
-	//	cerr << "parseBorderStimSet: bad x,y value(s) in args 0,1: " << tokens[0] << "," << tokens[1] << endl;
-	//	return nullptr;
-	//}
-
-	//if (parse_double(tokens[2], s0) || s0 < .01 || parse_double(tokens[3], s1) || s1 < 0.01)
-	//{
-	//	cerr << "parseBorderStimSet: bad size value(s) in args 2,3: " << tokens[2] << "," << tokens[3] << endl;
-	//	return nullptr;
-	//}
-
-	//if (parse_color(tokens[4], c0) || parse_color(tokens[5], c1))
-	//{
-	//	cerr << "parseBorderStimSet: bad color value(s) in args 4,5: " << tokens[4] << "," << tokens[5] << endl;
-	//	return nullptr;
-	//}
-
-	//// parse remaining values as stim specs......
-	//std::vector<std::string> specs(tokens.cbegin() + 6, tokens.cend());
-	//std::vector<int> stim;
-	//if (parse_int_list(specs, stim))
-	//{
-	//	cerr << "parseBorderStimSet: bad spec list: " << s << endl;
-	//	return nullptr;
-
 
 std::string MultiSacStimSet::toString() const
 {
@@ -142,9 +171,29 @@ std::string MultiSacStimSet::toString() const
 	return s;
 }
 
+int MultiSacStimSet::num_pages() 
+{
+	int m = 0;
+	for (auto trial : m_trials)
+		if (trial.frames.size() > m)
+			m = trial.frames.size();
+	return m;
+};
+
+// Figure out how many gratings are needed (max number used in a trial)
+// initialize that many gratings in gratings()
 
 int MultiSacStimSet::init(std::vector<int> pages, int)
 {
+	int nGratings = 0;
+	for (auto trial : m_trials)
+	{
+		int n = 0;
+		for (auto frame : trial.frames)
+			n += frame.gratings.size();
+		nGratings = max(nGratings, n);
+	}
+ZZZZZZZZZZZZZZ
 	//// first page is for background only
 	//m_pageBackground = pages[0];
 	//m_pageStimulus = pages[1];

@@ -532,7 +532,7 @@ error_t parse_fixstim_opt(int key, char* carg, struct argp_state* state)
 		if (!arguments->bHaveFixpt)
 			ret = EINVAL;
 		else
-			if (!(arguments->pStimSet = parseMultiSacStimSet(sarg, arguments->fixpt)))
+			if (!(arguments->pStimSet = createMultiSacStimSet(sarg, arguments->fixpt)))
 				ret = EINVAL;
 		break;
 	case 769:

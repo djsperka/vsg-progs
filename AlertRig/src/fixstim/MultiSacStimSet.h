@@ -1,31 +1,57 @@
 #pragma once
 #include "Alertlib.h"
 #include "StimSet.h"
+#include <vector>
+#include <istream>
+#include <ostream>
+#include <string>
 
-// A frame to be drawn can contain 0 or more gratings
-typedef std::vector<ARGratingSpec> FrameVector;
-typedef std::vector<FrameVector> SingleTrialVector;
-typedef std::vector<SingleTrialVector> AllTrialsVector;
+
+// Specification of a single frame (a trial consists of a series of frames)
+struct msac_frame
+{
+	std::vector<alert::ARGratingSpec> gratings;
+};
+typedef struct msac_frame msac_frame_t;
+
+// a single trial specified here
+struct msac_trial
+{
+	std::vector<msac_frame_t> frames;
+};
+typedef struct msac_trial msac_trial_t;
+
+typedef std::vector<msac_trial_t> msac_trial_list_t;
+
+std::istream& operator>>(std::istream& ins, msac_trial_list_t& trials);
+std::istream& operator>>(std::istream& ins, msac_trial_t& trial);
+std::istream& operator>>(std::istream& in, msac_frame_t& stim);
+
+std::ostream& operator<<(std::ostream& ins, const msac_frame_t& frame);
+std::ostream& operator<<(std::ostream& ins, const msac_trial_t& trial);
+
+// parse trials file
+bool parse_msac_trials_file(const std::string& filename, msac_trial_list_t& trials);
+
+
 
 class MultiSacStimSet : public FXMultiGStimSet
 {
 private:
 	ARContrastFixationPointSpec m_fixpt;
-	AllTrialsVector m_atv;
+	msac_trial_list_t m_trials;
 	int m_current;
 
 	int drawCurrent();
 
 public:
 
-	MultiSacStimSet(ARContrastFixationPointSpec& fixpt) : FXMultiGStimSet(fixpt) {};
+	MultiSacStimSet(ARContrastFixationPointSpec& fixpt, msac_trial_list_t& trials) : FXMultiGStimSet(fixpt), m_trials(trials) {};
 
 	virtual ~MultiSacStimSet() {};
 
 	// subclasses should return the number of pages they will need.
-	virtual int num_pages() {
-		return 5;
-	};
+	virtual int num_pages();
 
 	// subclasses should return the number of pages they will need.
 	virtual int num_overlay_pages() {
@@ -45,5 +71,5 @@ public:
 
 };
 
-MultiSacStimSet* parseMultiSacStimSet(const std::string& filename, alert::ARContrastFixationPointSpec& fixpt);
-
+// parse the trials file, create stim set. REturn NULL on failure.
+MultiSacStimSet* createMultiSacStimSet(const std::string& filename, const ARContrastFixationPointSpec& fixpt);
