@@ -434,6 +434,7 @@ namespace alert
 	class ARGratingSpec: public ARSpec
 	{
 	private:
+		int _saved_contrast;	// set to current contrast when hide() is called. This value is restored when unhide() is called.
 		int drawOrientedRectangle();
 		void getBBoxWH(double x, double y, double w, double h, double ori, double& bboxWidth, double& bboxHeight);
 		void setGratingObjProperties();
@@ -500,6 +501,9 @@ namespace alert
 		virtual void setContrast(int contrast);
 		virtual void setTemporalFrequency(double tf);
 		virtual void resetDriftPhase();
+
+		virtual void hide() { _saved_contrast = contrast; setContrast(0); };
+		virtual void unhide() { setContrast(_saved_contrast); };
 	};
 
 
