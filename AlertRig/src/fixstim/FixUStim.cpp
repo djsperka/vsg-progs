@@ -436,8 +436,8 @@ void FixUStim::init_triggers(TSpecificFunctor<FixUStim>* pfunctor, int npages)
 
 	if (abs(npages) == 1)
 	{
-		triggers().addTrigger(new FunctorCallbackTrigger("u", 0x20, 0x20 | AR_TRIGGER_TOGGLE, 0x10, 0x10 | AR_TRIGGER_TOGGLE, pfunctor));
-		triggers().addTrigger(new FunctorCallbackTrigger("v", 0x40, 0x40 | AR_TRIGGER_TOGGLE, 0x20, 0x20 | AR_TRIGGER_TOGGLE, pfunctor));
+		triggers().addTrigger(new FunctorCallbackTrigger("v", 0x20, 0x20 | AR_TRIGGER_TOGGLE, 0x10, 0x10 | AR_TRIGGER_TOGGLE, pfunctor));
+		triggers().addTrigger(new FunctorCallbackTrigger("u", 0x40, 0x40 | AR_TRIGGER_TOGGLE, 0x20, 0x20 | AR_TRIGGER_TOGGLE, pfunctor));
 		triggers().addTrigger(new FunctorCallbackTrigger("D", 0, AR_TRIGGER_ASCII_ONLY, 0, 0, pfunctor));
 	}
 	else if (abs(npages) == 2)

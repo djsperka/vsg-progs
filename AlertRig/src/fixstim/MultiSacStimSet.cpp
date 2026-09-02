@@ -259,7 +259,7 @@ int MultiSacStimSet::handle_trigger(const std::string& s, const std::string&)
 			this->grating(i).hide();
 		status = 1;
 	}
-	else if (s == "v")
+	else if (s == "u")
 	{
 		// move to next page
 		m_uiCurrentPageIndex++;
