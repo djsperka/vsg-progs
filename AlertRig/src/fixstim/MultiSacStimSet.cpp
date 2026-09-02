@@ -120,28 +120,27 @@ istream& operator>>(istream& ins, msac_trial_list_t& trials)
 	return ins;
 }
 
-bool parse_msac_trials_file(const string& filename, msac_trial_list_t& trials)
-{
-	bool b = false;
-	std::ifstream ifs(filename);
-
-	std::cerr << "Open file " << filename << std::endl;
-	if (ifs.is_open())
-	{
-		std::cerr << "Read trials" << std::endl;
-		try
-		{
-			ifs >> trials;
-			b = true;
-		}
-		catch (string s)
-		{
-			std::cerr << "Error: " << s << endl;
-		}
-		ifs.close();
-	}
-	return b;
-}
+//bool parse_msac_trials_file(const string& filename, msac_trial_list_t& trials)
+//{
+//	bool b = false;
+//	std::ifstream ifs(filename);
+//
+//	std::cerr << "Open file " << filename << std::endl;
+//	if (ifs.is_open())
+//	{
+//		try
+//		{
+//			ifs >> trials;
+//			b = true;
+//		}
+//		catch (string s)
+//		{
+//			std::cerr << "Error: " << s << endl;
+//		}
+//		ifs.close();
+//	}
+//	return b;
+//}
 
 
 MultiSacStimSet* createMultiSacStimSet(const std::string& filename, alert::ARContrastFixationPointSpec& fixpt)
@@ -153,7 +152,6 @@ MultiSacStimSet* createMultiSacStimSet(const std::string& filename, alert::ARCon
 	std::cerr << "Open file " << filename << std::endl;
 	if (ifs.is_open())
 	{
-		std::cerr << "Read trials" << std::endl;
 		ifs >> trials;
 		ifs.close();
 		pStimSet = new MultiSacStimSet(fixpt, trials);
@@ -197,7 +195,6 @@ int MultiSacStimSet::init(std::vector<int> pages, int)
 		for (auto page : trial.pages)
 			n += page.gratings.size();
 		nGratings = max(nGratings, n);
-		std::cerr << n << nGratings << endl;
 	}
 
 	// figure out how many levels per grating. Max of 12 is arbitrary.
@@ -250,23 +247,22 @@ int MultiSacStimSet::handle_trigger(const std::string& s, const std::string&)
 	}
 	else if (s == "S")
 	{
-		// set contrast to 100 for all gratings
+		// restore original contrast for gratings
 		for (int i = 0; i < m_nGratingsCurrentTrial; i++)
-			this->grating(i).setContrast(100);
+			this->grating(i).unhide();
 		status = 1;
 	}
 	else if (s == "s")
 	{
 		// set contrast to 0 for all gratings
 		for (int i = 0; i < m_nGratingsCurrentTrial; i++)
-			this->grating(i).setContrast(0);
+			this->grating(i).hide();
 		status = 1;
 	}
 	else if (s == "v")
 	{
 		// move to next page
 		m_uiCurrentPageIndex++;
-		cerr << "current page index " << m_uiCurrentPageIndex <<  " max " << m_trials[m_uiCurrentTrial].pages.size() << endl;
 		if (m_uiCurrentPageIndex < m_trials[m_uiCurrentTrial].pages.size())
 			vsgSetDrawPage(vsgVIDEOPAGE, m_pages[m_uiCurrentPageIndex], vsgNOCLEAR);
 		else
@@ -313,15 +309,13 @@ int MultiSacStimSet::drawCurrent()
 	{
 		// clear vsg page
 		vsgSetDrawPage(vsgVIDEOPAGE, m_pages[iPage], vsgBACKGROUND);
-		cerr << "Drawing on page " << m_pages[iPage] << endl;
 
 		// draw each grating specified for this page 
 		for (auto g : page.gratings)
 		{
 			this->grating(m_nGratingsCurrentTrial).assignGratingProperties(g);
 			this->grating(m_nGratingsCurrentTrial).draw();
-			this->grating(m_nGratingsCurrentTrial).setContrast(0);
-			cerr << "Draw grating(" << m_nGratingsCurrentTrial << ") - WARNING: NEED TO SAVE CONTRAST FOR GRATINGS" << endl;
+			this->grating(m_nGratingsCurrentTrial).hide();
 			m_nGratingsCurrentTrial++;
 		}
 
