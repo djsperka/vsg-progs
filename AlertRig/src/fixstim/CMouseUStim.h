@@ -28,6 +28,7 @@ struct cmouse_arguments
 	int portClient;		// if mouse control is false, this is the port number to listen for a client	
 	bool bMouseControl;
 	bool bPromptForDistance;
+	bool bUseImages;
 	cmouse_arguments()
 		: screenDistanceMM(0)
 		, bHaveDistance(false)
@@ -47,6 +48,7 @@ struct cmouse_arguments
 		, portClient(0)
 		, bMouseControl(true)
 		, bPromptForDistance(false)
+		, bUseImages(false)
 	{};
 
 };

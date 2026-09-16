@@ -40,6 +40,7 @@ static struct argp_option options[] = {
 	{"sleep-time", 'S', "SLEEP_MS", 0, "Time to sleep (ms) each loop awaiting key input"},
 	{"registry-dump-file", 'r', "FILENAME", 0, "Filename to dump grating spec to (for remote systems only - unused presently"},
 	{"json-client-port", 'j', "PORT_NUMBER", -0, "Port number to listen for json remote clinet (IGNORED)"},
+	{"use-images", 301, 0, 0, "image list"},
 	{ 0 }
 };
 static struct argp f_argp = { options, parse_opt, 0, "cmouse -- mouse control of grating stimulus" };
@@ -1009,6 +1010,9 @@ error_t parse_opt(int key, char* carg, struct argp_state* state)
 		case 'r':
 			arguments->sRegDumpFile = sarg;
 			arguments->useRegDump = true;
+			break;
+		case 301:
+			cout << "image list" << endl;
 			break;
 		case 0:
 		{
