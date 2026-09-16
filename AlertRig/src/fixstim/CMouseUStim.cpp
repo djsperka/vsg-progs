@@ -7,19 +7,6 @@
 #include <conio.h>
 #include "argp.h"
 
-
-// for json client - i.e. using cool mouse in dual-screen vsg. Ugh. 
-// when using, need these "Additional dependencies" under "Linker input"
-// Qt5Network.lib;Qt5Core.lib
-#ifdef DO_JSON_CLIENT
-#include <boost/property_tree/ptree.hpp>
-#include <boost/property_tree/json_parser.hpp>
-using namespace boost;
-#include <exception>
-#include <QtNetwork/QTcpServer>
-#include <QtNetwork/QTcpSocket>
-#endif
-
 using namespace std;
 
 const string CMouseUStim::m_allowedArgs("ab:d:f:g:p:qvADS:r:j:");
@@ -39,7 +26,6 @@ static struct argp_option options[] = {
 	{"prompt-for-distance", 'D', 0, 0, "Prompt user for screen distance in MM"},
 	{"sleep-time", 'S', "SLEEP_MS", 0, "Time to sleep (ms) each loop awaiting key input"},
 	{"registry-dump-file", 'r', "FILENAME", 0, "Filename to dump grating spec to (for remote systems only - unused presently"},
-	{"json-client-port", 'j', "PORT_NUMBER", -0, "Port number to listen for json remote clinet (IGNORED)"},
 	{"use-images", 301, 0, 0, "image list"},
 	{ 0 }
 };
@@ -49,21 +35,10 @@ static struct argp f_argp = { options, parse_opt, 0, "cmouse -- mouse control of
 CMouseUStim::CMouseUStim()
 : UStim()
 , m_arguments()
-//, m_screenDistanceMM(-1)
-//, m_background(gray)
-//, m_binaryTriggers(true)
-//, m_verbose(false)
-//, m_bHaveFixpt(false)
-//, m_alert(false)
-//, m_allowq(false)
-//, m_pulse(0x40)
-//, m_sleepMS(0)
-//, m_bFixationOn(false)
-//, m_bUseRegDump(false)
-//, m_bMouseControl(true)
-//, m_portClient(0)
 , m_gratingPage(1)
 , m_overlayPage(1)
+, m_bFixationDisabled(false)
+, m_bStimulusDisabled(false)
 {
 };
 
@@ -71,8 +46,15 @@ CMouseUStim::CMouseUStim()
 void CMouseUStim::flip_draw_grating()
 {
 	m_gratingPage = 1 - m_gratingPage;
-	cout << "flip_draw_grating, page " << m_gratingPage << ": " << m_arguments.grating << endl;
-	arutil_draw_grating_fullscreen(m_arguments.grating, m_gratingPage);
+	cout << "flip_draw_grating, disabled? " << m_bStimulusDisabled << " page " << m_gratingPage << ": " << m_arguments.grating << endl;
+	if (m_bStimulusDisabled)
+	{
+		vsgSetDrawPage(vsgVIDEOPAGE, m_gratingPage, vsgBACKGROUND);
+	}
+	else
+	{
+		arutil_draw_grating_fullscreen(m_arguments.grating, m_gratingPage);
+	}
 }
 
 
@@ -82,9 +64,22 @@ int CMouseUStim::init_pages()
 	int islice=50;
 
 	//vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgNOCLEAR);
+
 	m_arguments.grating.init(islice);
 	flip_draw_grating();
 	vsgPresent();
+
+	//if (!m_arguments.bUseImages)
+	//{
+	//	m_arguments.grating.init(islice);
+	//	flip_draw_grating();
+	//	vsgPresent();
+	//}
+	//else
+	//{
+	//	// images - 
+	//	m_imageSpec.init(128, false);
+	//}
 
 	// initialize overlay pages
 	init_overlay_pages();
@@ -127,10 +122,6 @@ void CMouseUStim::run_stim(alert::ARvsg& vsg)
 {
 	cout << "CMouseUStim: running." << endl;
 
-	// set screen distance
-	//vsg.setViewDistMM(m_screenDistanceMM);
-	//vsg.setBackgroundColor(m_background);
-
 	// clear all dig outputs
 	vsgIOWriteDigitalOut(0, 0xff);
 	vsgPresent();
@@ -159,16 +150,9 @@ void CMouseUStim::run_stim(alert::ARvsg& vsg)
 	cout << "Issuing ready pulse " << m_arguments.pulse << endl;
 	vsg.ready_pulse(100, m_arguments.pulse);
 
+	// There used to be code here to run with a client on another machine. The client would send JSON here with mouse position info. 
 
-
-	if (m_arguments.bMouseControl)
-	{
-		doMouseKBLoop();
-	}
-	else
-	{
-		doJSClientLoop();
-	}
+	doMouseKBLoop();
 
 	// Have to turn off OVERLAYMASKMODE before leaving! The call to ARvsg::init_overlay enables
 	// mask mode, this will turn it off.
@@ -176,191 +160,6 @@ void CMouseUStim::run_stim(alert::ARvsg& vsg)
 
 	return;
 }
-
-
-#ifdef DO_JSON_CLIENT
-
-void CMouseUStim::doJSClientLoop()
-{
-	bool bQuit = false;
-	std::stringstream ss;
-	int iPage = 1;
-	long last_output_trigger = 0;
-	double degVSGX, degVSGY;
-
-	// Create a server socket to accept new connections
-	//sf::TcpListener listener;
-	QTcpServer qtServer;
-	qtServer.listen(QHostAddress::Any, m_portClient);
-
-	// Listen to the given port for incoming connections
-	//if (listener.listen(m_portClient) != sf::Socket::Done)
-	//	return;
-	std::cout << "Server is listening to port " << m_portClient << ", waiting for connections... " << std::endl;
-
-	// Wait for a connection
-	//sf::TcpSocket socket;
-	//if (listener.accept(socket) != sf::Socket::Done)
-	//	return;
-
-	if (!qtServer.waitForNewConnection(30000))
-	{
-		cerr << "Timeout waiting for client connection." << endl;
-		return;
-	}
-
-	QTcpSocket *pSocket = qtServer.nextPendingConnection();
-	std::cout << "Client connected: " << pSocket->peerAddress().toString().toStdString() << ":" << pSocket->peerPort() << std::endl;
-
-	// Listen for stuff, sleep a little
-	int counter = 0;
-	while (!bQuit)
-	{
-		char buffer[1024];
-		qint64 received = 0;
-
-		// read vsg io for fixation pt signal
-		if (m_alert)
-		{
-			TriggerFunc	tf = std::for_each(triggers().begin(), triggers().end(), TriggerFunc(vsgIOReadDigitalIn(), last_output_trigger));
-
-			if (tf.quit()) bQuit = true;
-			else if (tf.present())
-			{
-				// The use of vsgIODigitalWriteOut here means that the output triggers appear as-is at the 
-				// spike2 end. When we use vsgObjSetTriggers the bits are shifted left by one because the 
-				// VSG takes the lowest order output bit for itself, and when we output bit 0x1 it is sent
-				// on DOUT1 (not DOUT0).
-				last_output_trigger = tf.output_trigger();
-				vsgIOWriteDigitalOut(tf.output_trigger(), 0xff);
-			}
-		}
-
-		// flip overlay page, then draw aperture (and fixpt if needed).
-		flip_draw_overlay(true, m_fixpt.x, m_fixpt.y, m_fixpt.d, m_grating.x, -m_grating.y, m_grating.w);
-
-		// check if there's any msgs waiting...
-		if (!pSocket->isValid())
-		{
-			std::cout << "Socket disconnected. Quitting." << endl;
-			bQuit = true;
-		}
-		else if (pSocket->waitForReadyRead())
-		{
-			received = pSocket->read(buffer, sizeof(buffer));
-			if (m_verbose) std::cout << "Got " << received << " bytes: " << string(buffer, received) << std::endl;
-
-			try
-			{
-				ss.str(string(buffer, received));
-				boost::property_tree::ptree pt;
-			    boost::property_tree::read_json(ss, pt);
-				string sCmd = pt.get<string>("cmd");
-				if (sCmd == "q")
-					bQuit = true;
-				else if (sCmd == "a")
-				{
-					double diam = pt.get<double>("value");
-					m_grating.w = m_grating.h = diam;
-					if (m_verbose) cout << "Aperture " << diam << endl;
-				}
-				else if (sCmd == "sf")
-				{
-					double sf = pt.get<double>("value");
-					if (m_verbose) cout << "SF " << sf << endl;
-					updateSF(sf);
-				}
-				else if (sCmd == "tf")
-				{
-					double tf = pt.get<double>("value");
-					if (m_verbose) cout << "TF " << tf << endl;
-					updateTF(tf);
-				}
-				else if (sCmd == "ori")
-				{
-					double ori = pt.get<double>("value");
-					if (m_verbose) cout << "ORI " << ori << endl;
-					updateOrientation(ori);
-				}
-				else if (sCmd == "contrast")
-				{
-					int contrast = pt.get<int>("value");
-					if (m_verbose) cout << "CONTRAST " << contrast << endl;
-					updateContrast(contrast);
-				}
-				else if (sCmd == "xy")
-				{
-					double x = pt.get<double>("x");
-					double y = pt.get<double>("y");
-					joystickPositionToVSGDrawDegrees(x, y, &degVSGX, &degVSGY);
-					if (m_verbose) cout << "xy " << x << "," << y << endl;
-				}
-				else if (sCmd == "mouse")
-				{
-					// The input to this command is assumed to be pixel coordinates for the mouse. 
-					// The first conversion below first maps or scales that pixel x,y to the equivalent 
-					// pixel position on the VSG screen. The second conversion changes it into visual 
-					// degrees. We flip the sign of the Ycoordinate in the grating spec (so it reflects the
-					// positive-up convention we use). 
-					double pixVSGMouseX, pixVSGMouseY;
-					double degVSGX, degVSGY;
-					int x = pt.get<int>("x");
-					int y = pt.get<int>("y");
-					if (x > (int)m_monWidthPixels) x = (int)m_monWidthPixels;
-					mousePixelsToVSGPixels(x, y, &pixVSGMouseX, &pixVSGMouseY);
-					vsgPixelsToVSGDrawDegrees((int)pixVSGMouseX, (int)pixVSGMouseY, &degVSGX, &degVSGY);
-					m_grating.x = degVSGX;
-					m_grating.y = -degVSGY;
-					if (m_verbose) cout << "mouse " << x << "," << y << " = " << degVSGX << "," << degVSGY << endl;
-				}
-				else if (sCmd == "grating")
-				{
-					cout << "Got grating: " << pt.get<string>("value") << endl;
-					if (parse_grating(pt.get<string>("value"), m_grating))
-					{
-						cerr << "Cannot parse grating arg: " << pt.get<string>("value") << endl;
-					}
-					else
-					{
-						updateGrating();
-					}
-				}
-				else
-				{
-					cout << "unknown command:" << sCmd << ":" << endl;
-				}
-
-			}
-			catch (const boost::property_tree::json_parser::json_parser_error& e)
-			{
-				std::cout << "parse exception: " << e.what() << endl;
-			}
-			catch (const boost::property_tree::ptree_error& e)
-			{
-				std::cout << "exception: " << e.what() << endl;
-			}
-
-			ss.str("");
-			ss << m_grating;
-			pSocket->write(ss.str().c_str(), ss.str().size());
-
-		}
-		else
-		{
-			Sleep(m_sleepMS);
-		}
-	}
-
-}
-#else
-
-void CMouseUStim::doJSClientLoop()
-{
-}
-
-#endif
-
-
 
 void CMouseUStim::doMouseKBLoop()
 {
@@ -415,7 +214,7 @@ void CMouseUStim::doMouseKBLoop()
 		}
 
 		// flip overlay page, then draw aperture (and fixpt if needed).
-		flip_draw_overlay(m_arguments.bHaveFixpt && m_bFixationOn, m_arguments.fixpt.x, m_arguments.fixpt.y, m_arguments.fixpt.d, degVSGMouseX, degVSGMouseY, m_arguments.grating.w);
+		flip_draw_overlay(m_arguments.bHaveFixpt && m_bFixationOn && !m_bFixationDisabled, m_arguments.fixpt.x, m_arguments.fixpt.y, m_arguments.fixpt.d, degVSGMouseX, degVSGMouseY, m_arguments.grating.w);
 
 		while (_kbhit() && !bQuit)
 		{
@@ -579,6 +378,20 @@ void CMouseUStim::doMouseKBLoop()
 						cerr << "Bad format - must be a number." << endl;
 						cin.clear(); cin.ignore(INT_MAX, '\n');
 					}
+					break;
+				}
+			case 'z': 
+				{
+					m_bStimulusDisabled = !m_bStimulusDisabled;
+					cerr << "Stim disabled? " << m_bStimulusDisabled << endl;
+					flip_draw_grating();
+					vsgPresent();
+					break;
+				}
+			case 'x':
+				{
+					m_bFixationDisabled = !m_bFixationDisabled;
+					cerr << "fixpt disabled? " << m_bFixationDisabled << endl;
 					break;
 				}
 			case 'p':
@@ -757,28 +570,10 @@ void CMouseUStim::doMouseKBLoop()
 					oss << m_arguments.grating;
 					m_arguments.grating.x = xtemp;
 					m_arguments.grating.y = ytemp;
-					cout << "reg string=" <<  oss.str() << endl;
-					if (!m_arguments.useRegDump)
-					{
-						// Save to registry
-						SaveRegStimulus(oss.str());
-					}
-					else
-					{
-						// Dump grating string to reg dump file. This is designed for use when running on a remote system. 
-						// I assume that in that case there is a drive mapped from one of those systems to another, and 
-						// that this server can create a file and write to it on that mapped drive.
-						std::ofstream out(m_arguments.sRegDumpFile.c_str(), ios_base::out, ios_base::trunc);
-						if (!out)
-						{
-							cerr << "Cannot write to registry save file \"" << m_arguments.sRegDumpFile << "\", grating parameters NOT saved!" << endl;
-						}
-						else 
-						{
-							out << oss.str();
-							out.close();
-						}
-					}
+
+					// Save to registry
+					cout << "Saving stimulus string to registry: " << oss.str() << endl;
+					SaveRegStimulus(oss.str());
 					break;
 				}
 			case 'h':
@@ -801,6 +596,10 @@ void CMouseUStim::doMouseKBLoop()
 					cout << "<m> toggle mouse movement on/off" << endl;
 					cout << "<8>,<6>,<2>,<4> move aperture with arrows (when mouse movenment off)" << endl;
 					cout << "<S> step size in pixels" << endl << endl;
+					cout << "Visibility controls:" << endl;
+					cout << "---------------------------" << endl;
+					cout << "<z> toggle stimulus on/off" << endl;
+					cout << "<x> toggle fixpt on/off" << endl << endl;
 					cout << "Status information:" << endl;
 					cout << "---------------" << endl;
 					cout << "<p> position information" << endl;
@@ -816,73 +615,6 @@ void CMouseUStim::doMouseKBLoop()
 	}
 
 }
-
-void CMouseUStim::updateSF(double sf)
-{
-	if (sf>0.005 && sf<100)
-	{
-		m_arguments.grating.sf = sf;
-		flip_draw_grating();
-		vsgPresent();
-	}
-	else
-	{
-		cout << "Error in input: spatial freq must be a number between 0.005 and 100." << endl;
-	}
-}
-
-
-void CMouseUStim::updateContrast(int c)
-{
-	if (c>=0 && c<=100)
-	{
-		m_arguments.grating.setContrast(c);
-		flip_draw_grating();
-		vsgPresent();
-	}
-	else
-	{
-		cout << "Error in input: Contrast must be between 0 and 100." << endl;
-	}
-}
-
-void CMouseUStim::updateTF(double tf)
-{
-	if (tf>=0 && tf<50)
-	{
-		m_arguments.grating.setTemporalFrequency(tf);
-		flip_draw_grating();
-		vsgPresent();
-	}
-	else 
-	{
-		cout << "Error in input: Temporal freq must be between 0 and 50." << endl;
-	}
-}
-
-void CMouseUStim::updateOrientation(double ori)
-{
-	if (ori >=0 && ori <=360)
-	{
-		m_arguments.grating.orientation = ori;
-		flip_draw_grating();
-		vsgPresent();
-	}
-	else
-	{
-		cout << "Error in input: Orientation must be a number between 0 and 360" << endl;
-	}
-}
-
-
-void CMouseUStim::updateGrating()
-{
-	flip_draw_grating();
-	vsgPresent();
-	flip_draw_overlay(true, m_arguments.fixpt.x, m_arguments.fixpt.y, m_arguments.fixpt.d, m_arguments.grating.x, m_arguments.grating.y, m_arguments.grating.w);
-}
-
-
 
 void CMouseUStim::overlay(bool bFixationOn, double fixX, double fixY, double fixD, double apertureX, double apertureY, double apertureDiameter)
 {
@@ -972,17 +704,6 @@ error_t parse_opt(int key, char* carg, struct argp_state* state)
 				ret = EINVAL;
 			}
 			break;
-		case 'j':
-			if (parse_integer(sarg, arguments->portClient) || arguments->portClient < 1024)
-			{
-				cerr << "Error in client port number (-j): must be int > 1024." << endl;
-				ret = EINVAL;
-			}
-			else
-			{
-				arguments->bMouseControl = false;
-			}
-			break;
 		case 'v':
 			arguments->verbose = true;
 			break;
@@ -1013,6 +734,7 @@ error_t parse_opt(int key, char* carg, struct argp_state* state)
 			break;
 		case 301:
 			cout << "image list" << endl;
+			arguments->bUseImages = true;
 			break;
 		case 0:
 		{
@@ -1076,139 +798,6 @@ bool CMouseUStim::parse(int argc, char** argv)
 {
 	return !argp_parse(&f_argp, argc, argv, 0, 0, &m_arguments);
 }
-
-
-#if 0
-int CMouseUStim::process_arg(int c, std::string& arg)
-{
-	static bool have_d=false;
-	static bool have_D = false;
-	static bool have_grating = false;
-	static int errflg = 0;
-	
-	switch (c) 
-	{
-		case 'S':
-			if (parse_integer(arg, m_sleepMS))
-			{
-				cerr << "Error in sleepMS arg, must be integer: " << arg << endl;
-				errflg++;
-			}
-			break;
-		case 'A':
-			m_alert = true;
-			break;
-		case 'q':
-			m_allowq = true;
-			break;
-		case 'a':
-			m_binaryTriggers = false;
-			break;
-		case 'b':
-			if (parse_color(arg, m_background)) errflg++; 
-			break;
-		case 'p':
-			if (parse_integer(arg, m_pulse))
-			{
-				cerr << "Error in pulse arg: must be integer (0-7)." << endl;
-				errflg++;
-			}
-			break;
-		case 'j':
-			if (parse_integer(arg, m_portClient) || m_portClient < 1024)
-			{
-				cerr << "Error in client port number (-j): must be int > 1024." << endl;
-				errflg++;
-			}
-			else
-			{
-				cerr << "Got client port " << m_portClient << endl;
-				m_bMouseControl = false;
-			}
-			break;
-		case 'v':
-			m_verbose = true;
-			break;
-		case 'D':
-			have_D = true;
-			break;
-		case 'd':
-			if (parse_distance(arg, m_screenDistanceMM)) errflg++;
-			else have_d=true;
-			break;
-		case 'f':
-			if (parse_fixation_point(arg, m_fixpt)) errflg++;
-			else m_bHaveFixpt = true;
-			break;
-		case 'g':
-			if (parse_grating(arg, m_grating))
-			{
-				errflg++;
-			}
-			else have_grating = true;
-			break;
-		case 'r':
-			m_sRegDumpFile = arg;
-			m_bUseRegDump = true;
-			break;
-		case 0:
-			{
-				if (have_D)
-				{
-					cout << "Enter screen distance in MM: ";
-					cin >> m_screenDistanceMM;
-					if (!cin)
-					{
-						cerr << "Bad data entered. Try again." << endl;
-						errflg++;
-					}
-				}
-				else if (!have_d)
-				{
-					cerr << "No screen distance supplied - checking registry..." << endl;
-					if (GetRegScreenDistance(m_screenDistanceMM))
-					{
-						cerr << "Got registry value for screen distance = " << m_screenDistanceMM << endl;
-					}
-					else
-					{
-						cerr << "Screen distance not supplied (-d) and registry value not found." << endl;
-						errflg++;
-					}
-				}
-
-				if (m_alert && !m_bHaveFixpt)
-				{
-					cerr << "No fixpt specs supplied (-f)." << endl;
-				}
-
-				if (!have_grating)
-				{
-					cerr << "No grating specs supplied (-g): starting with default values." << endl;
-					m_grating.x = m_grating.y = 0;
-					m_grating.w = m_grating.h = 5;
-					m_grating.sf = 3;
-					m_grating.tf = 4;
-					m_grating.orientation = 45;
-					m_grating.contrast = 100;
-					m_grating.swt = sinewave;
-					m_grating.twt = sinewave;
-					m_grating.aperture = ellipse;
-					m_grating.cv.type = b_w;
-					m_grating.ttf = 0;
-				}
-				break;
-			}
-		default:
-			{
-				cerr << "Unknown option - " << (char)c << endl;
-				errflg++;
-				break;
-			}
-	}
-	return errflg;
-}
-#endif
 
 void CMouseUStim::joystickPositionToVSGDrawDegrees(double joyX, double joyY, double *pvsgDegX, double *pvsgDegY)
 {

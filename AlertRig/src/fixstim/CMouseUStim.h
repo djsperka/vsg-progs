@@ -71,22 +71,9 @@ public:
 
 private:
 	struct cmouse_arguments m_arguments;
-	//int m_screenDistanceMM;
-	//COLOR_TYPE m_background;
-	//bool m_binaryTriggers;
-	//bool m_verbose;
-	//ARGratingSpec m_grating;
-	//ARContrastFixationPointSpec m_fixpt;
-	//bool m_bHaveFixpt;
-	//bool m_alert;
-	//bool m_allowq;
-	//int m_pulse;
-	//int m_sleepMS;
-	//bool m_bUseRegDump;	// use a file to save stimulus parameters
-	//std::string m_sRegDumpFile;
-	//bool m_bMouseControl;	// if true (default), use mouse/keyboard to control aperture and grating parameters
-	//int m_portClient;		// if mouse control is false, this is the port number to listen for a client	
 	bool m_bFixationOn;
+	bool m_bFixationDisabled;
+	bool m_bStimulusDisabled;
 	double m_vsgWidthPixels;
 	double m_vsgHeightPixels;
 	double m_vsgWidthDegrees;
