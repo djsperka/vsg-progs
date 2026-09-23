@@ -2,9 +2,11 @@
 #include "getopt.h"
 #undef __GNU_LIBRARY__
 #include <conio.h>
+#include <string>
 #include "vsgv8.h"
 #include "Alertlib.h"
 #include "windows.h"
+
 
 bool f_binaryTriggers = true;
 bool f_dio = false;
@@ -62,9 +64,9 @@ int args(int argc, char **argv)
 }
 
 
-void DisplayState(long DigState)
+void DisplayState(long DigState, const string& msg)
 {
-	cout << "VSG digital IO Input bits:" << endl;
+	cout << msg << endl;
 	cout << "vsgDIG0: "<<(DigState&vsgDIG0)/vsgDIG0<<endl;
 	cout << "vsgDIG1: "<<(DigState&vsgDIG1)/vsgDIG1<<endl;
 	cout << "vsgDIG2: "<<(DigState&vsgDIG2)/vsgDIG2<<endl;
@@ -74,14 +76,7 @@ void DisplayState(long DigState)
 	cout << "vsgDIG6: "<<(DigState&vsgDIG6)/vsgDIG6<<endl;
 	cout << "vsgDIG7: "<<(DigState&vsgDIG7)/vsgDIG7<<endl;
 	cout << "vsgDIG8: "<<(DigState&vsgDIG8)/vsgDIG8<<endl;
-	if (f_binaryTriggers)
-	{
-		cout << "waiting for binary trigger...." << endl;
-	}
-	else
-	{
-		cout << "Enter key: q-quit, 0 clear, 1-8 set bit" << endl;
-	}
+	cout << "fixstim sees this input as: " << hex << DigState << endl;
 }
 
 
@@ -103,7 +98,7 @@ int main(int argc, char *argv[])
 
 	diginState=vsgIOReadDigitalIn() & 0xff;
 	lastDiginState=diginState;
-	DisplayState(diginState);
+	DisplayState(diginState, string("initial vsg input:"));
 
 	//// Create an object unless using vsgIO
 	//if (!f_dio)
@@ -134,21 +129,24 @@ int main(int argc, char *argv[])
 
 			if (diginState!=lastDiginState)
 			{
-				DisplayState(diginState);
-				lastDiginState=diginState;
+				cout << "vsg input: " << hex << diginState << endl;
+				//DisplayState(diginState, string("New VSG input"));
+				lastDiginState = diginState;
 				if (!f_dio)
 				{
-					cout << "Input bits read: " << std::hex << diginState << endl;
+					//cout << "Output via 'vsgTRIG_ONPRESENT+vsgTRIG_OUTPUTMARKER': " << std::hex << diginState << endl;
 
 					vsgObjSetTriggers(vsgTRIG_ONPRESENT + vsgTRIG_OUTPUTMARKER, diginState, 0);
 					vsgPresent();
 				}
 				else
 				{
-					cout << "DINx bits, being written via vsgIOWriteDigitalOut: " << std::hex << diginState << endl;
+					//cout << "DINx bits, being written via vsgIOWriteDigitalOut: " << std::hex << diginState << endl;
 					vsgIOWriteDigitalOut(diginState, 0xff);
 					vsgPresent();
 				}
+				cout << "waiting for binary trigger...." << endl;
+				lastDiginState = diginState;
 			}
 		}
 	}
