@@ -129,7 +129,7 @@ bool Trigger::checkBinary(int input)
 			m_matchedKey = getKey();
 		}
 		m_in_last = current;
-		std::cerr << "checkBinary (" << getKey() << "/"  << std::hex << input << ") current " << current << " m_in_last " << m_in_last << " m_in_mask " << m_in_mask <<  " matched " << bValue << std::endl;
+		//std::cerr << "checkBinary (" << getKey() << "/"  << std::hex << input << ") current " << current << " m_in_last " << m_in_last << " m_in_mask " << m_in_mask <<  " matched " << bValue << std::endl;
 	}
 	else
 	{
@@ -147,7 +147,7 @@ bool Trigger::checkBinary(int input)
 		}
 		//std::cerr << " matched " << bValue << std::endl;
 		//if (bValue)	std::cerr << "checkBinary(" << getKey() << "/" << std::hex << input << "): current " << std::hex << current << " last " << m_in_last << std::endl;
-		std::cerr << "checkBinaryT(" << getKey() << "/" << std::hex << input << ") ~current " << ~current << " m_in_last " << temp_m_in_last << " m_in_mask " << m_in_mask << " matched " << bValue << std::endl;
+		//std::cerr << "checkBinaryT(" << getKey() << "/" << std::hex << input << ") ~current " << ~current << " m_in_last " << temp_m_in_last << " m_in_mask " << m_in_mask << " matched " << bValue << std::endl;
 
 	}
 	return bValue;
