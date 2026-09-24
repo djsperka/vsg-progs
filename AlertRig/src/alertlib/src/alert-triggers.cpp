@@ -108,6 +108,18 @@ bool Trigger::checkBinary(int input)
 	m_matchedKey.clear();
 	// djs - create trigger with 
 	if (m_in_mask == 0) return false;
+
+	/*
+	* The 'current' value is the input read on the vsg digital inputs & the input mask for this trigger. 
+	* The input mask selects ONLY the bits that this trigger covers - all other bits in the input are ignored.
+	* 
+	* For non-toggle triggers: 
+	* First check if the current input is the same as the last input. If it is, then there is no change, and so this trigger is not triggered.
+	* If there is a change, however, check whether the current value is the same as the in_val for this trigger. If it is, then we are triggered!
+	* 
+	* For toggle triggers:
+	* Take the logical inverse (~) of the current input. If it is the same as the last trigger value, then we are triggered.
+	*/
 	if (!m_btoggleIn)
 	{
 		//std::cout << getKey() << " " << std::hex << m_in_mask << " " << m_in_val << " " << m_in_last << " " << current << std::endl;
@@ -117,15 +129,16 @@ bool Trigger::checkBinary(int input)
 			m_matchedKey = getKey();
 		}
 		m_in_last = current;
-		//std::cerr << "checkBinary(" << getKey() << "/"  << std::hex << input << ") m_in_mask " << m_in_mask << " current " << current << " matched " << bValue << std::endl;
+		std::cerr << "checkBinary (" << getKey() << "/"  << std::hex << input << ") current " << current << " m_in_last " << m_in_last << " m_in_mask " << m_in_mask <<  " matched " << bValue << std::endl;
 	}
 	else
 	{
-		// We expect the trigger to be the last trigger toggled. If a trigger covers more than 
+		// We expect the trigger to be the inverse of the last trigger for this particular trigger value. If a trigger covers more than 
 		// one bit, then all must be inverted. Note that the FIRST trigger expected is the value
 		// given as i_in_val (without the AR_TRIGGER_TOGGLE bit). Subsequent triggers are expected
 		// to be toggled. 
 		//std::cerr << "checkBinary(" << getKey() << "/" << std::hex << input << "): current " << std::hex << current << " last " << m_in_last << " ((~current) & m_in_mask) " << ((~current) & m_in_mask);
+		int temp_m_in_last = m_in_last;
 		if (((~current) & m_in_mask) == m_in_last)
 		{
 			bValue = true;
@@ -134,6 +147,7 @@ bool Trigger::checkBinary(int input)
 		}
 		//std::cerr << " matched " << bValue << std::endl;
 		//if (bValue)	std::cerr << "checkBinary(" << getKey() << "/" << std::hex << input << "): current " << std::hex << current << " last " << m_in_last << std::endl;
+		std::cerr << "checkBinaryT(" << getKey() << "/" << std::hex << input << ") ~current " << ~current << " m_in_last " << temp_m_in_last << " m_in_mask " << m_in_mask << " matched " << bValue << std::endl;
 
 	}
 	return bValue;
