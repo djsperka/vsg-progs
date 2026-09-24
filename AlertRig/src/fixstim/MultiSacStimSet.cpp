@@ -226,6 +226,7 @@ int MultiSacStimSet::init(std::vector<int> pages, int)
 	//vsgSetDrawPage(vsgVIDEOPAGE, m_pageBackground, vsgBACKGROUND);
 
 	m_uiCurrentTrial = 0;
+	m_uiCurrentPageIndex = 0;
 	drawCurrent();
 	vsgPresent();
 	//vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgNOCLEAR);
@@ -264,7 +265,10 @@ int MultiSacStimSet::handle_trigger(const std::string& s, const std::string&)
 		// move to next page
 		m_uiCurrentPageIndex++;
 		if (m_uiCurrentPageIndex < m_trials[m_uiCurrentTrial].pages.size())
+		{
+			cerr << "next page " << m_uiCurrentPageIndex << endl;
 			vsgSetDrawPage(vsgVIDEOPAGE, m_pages[m_uiCurrentPageIndex], vsgNOCLEAR);
+		}
 		else
 			cerr << "ERROR - cannot advance this far. Not enough pages in this trial." << endl;
 		status = 1;
@@ -327,6 +331,7 @@ int MultiSacStimSet::drawCurrent()
 		iPage++;
 	}
 	vsgSetDrawPage(vsgVIDEOPAGE, m_pages[0], vsgNOCLEAR);
+	cerr << "Trial " << m_uiCurrentTrial << " npages " << nPages << endl;
 	return 0;
 }
 
