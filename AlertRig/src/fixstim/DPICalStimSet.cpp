@@ -11,7 +11,9 @@ int DPICalStimSet::init(std::vector<int> pages, int num_stim_pages)
 	fixpt().init(2);
 	fixpt().setContrast(100);
 
-	//drawCurrent();
+	// make sure all is blank
+	vsgSetDrawPage(vsgVIDEOPAGE, m_pages[0], vsgBACKGROUND);
+	vsgSetDrawPage(vsgVIDEOPAGE, m_pages[1], vsgBACKGROUND);
 
 	// restore blank page
 	vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgNOCLEAR);
