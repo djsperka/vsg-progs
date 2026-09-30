@@ -207,7 +207,7 @@ void FixUStim::run_stim(alert::ARvsg& vsg)
 	if (m_arguments.bBinaryTriggers)
 	{
 		long digin = vsgIOReadDigitalIn();
-		cout << "Reset input triggers with current value of " << std::hex << digin << endl;
+		cout << "Reset input triggers with current value of " << std::hex << std::showbase << (digin&0xff) << endl;
 		triggers().reset(digin);
 		saved_input_trigger = digin;
 	}
@@ -268,7 +268,7 @@ void FixUStim::run_stim(alert::ARvsg& vsg)
 				{
 					saved_input_trigger = input_trigger;
 					bHaveBinaryTrigger = true;
-					//std::cerr << "Changed binary input trig: " << std::hex << input_trigger << std::endl;
+					std::cerr << "Changed binary input trig: " << std::hex << std::showbase << (input_trigger&0xff) << std::endl;
 				}
 			}
 		}
