@@ -266,7 +266,7 @@ int MultiSacStimSet::handle_trigger(const std::string& s, const std::string&)
 		m_uiCurrentPageIndex++;
 		if (m_uiCurrentPageIndex < m_trials[m_uiCurrentTrial].pages.size())
 		{
-			cerr << "next page " << m_uiCurrentPageIndex << endl;
+			//cerr << "next page " << m_uiCurrentPageIndex << endl;
 			vsgSetDrawPage(vsgVIDEOPAGE, m_pages[m_uiCurrentPageIndex], vsgNOCLEAR);
 		}
 		else
@@ -287,7 +287,14 @@ int MultiSacStimSet::handle_trigger(const std::string& s, const std::string&)
 	}
 	else if (s == "X")
 	{
-		vsgSetDrawPage(vsgVIDEOPAGE, 0, vsgNOCLEAR);
+		// on this trigger, go back to first stim page, and turn off the fixpt and all stimuli.
+		// We had been moving to page 0 -- but if an immediate F trigger comes, then we are on the wrong
+		// page! The "a" moves to the correct page and re-draws. This will allow trials to be ended and re-started. 
+		vsgSetDrawPage(vsgVIDEOPAGE, m_pages[0], vsgNOCLEAR);
+		m_uiCurrentPageIndex = 0;
+		this->fixpt().setContrast(0);
+		for (int i = 0; i < m_nGratingsCurrentTrial; i++)
+			this->grating(i).hide();
 		status = 1;
 	}
 	return status;
@@ -331,7 +338,7 @@ int MultiSacStimSet::drawCurrent()
 		iPage++;
 	}
 	vsgSetDrawPage(vsgVIDEOPAGE, m_pages[0], vsgNOCLEAR);
-	cerr << "Trial " << m_uiCurrentTrial << " npages " << nPages << endl;
+	//cerr << "Trial " << m_uiCurrentTrial << " npages " << nPages << " at page " << m_pages[0] << endl;
 	return 0;
 }
 
