@@ -435,12 +435,13 @@ namespace alert
 	{
 	private:
 		int _saved_contrast;	// set to current contrast when hide() is called. This value is restored when unhide() is called.
+		bool _is_hidden;		// set when grating is hidden. 
 		int drawOrientedRectangle();
 		void getBBoxWH(double x, double y, double w, double h, double ori, double& bboxWidth, double& bboxHeight);
 		void setGratingObjProperties();
 
 	public:
-		ARGratingSpec() : bIsMulti(false), phase(0), wd(0), hd(0), ttf(0), swt(sinewave), twt(sinewave) {};
+		ARGratingSpec() : bIsMulti(false), phase(0), wd(0), hd(0), ttf(0), swt(sinewave), twt(sinewave), _is_hidden(false) {};
 
 		// Copy constructor only copies grating parameters, not vsg object properties. 
 		// A grating initialize with this constructor must still be initialized, and it will 
@@ -502,8 +503,8 @@ namespace alert
 		virtual void setTemporalFrequency(double tf);
 		virtual void resetDriftPhase();
 
-		virtual void hide() { _saved_contrast = contrast; setContrast(0); };
-		virtual void unhide() { setContrast(_saved_contrast); };
+		virtual void hide() { if (!_is_hidden) { _saved_contrast = contrast; setContrast(0); _is_hidden = true; } };
+		virtual void unhide() { if (_is_hidden) { setContrast(_saved_contrast); _is_hidden = false;  } };
 	};
 
 

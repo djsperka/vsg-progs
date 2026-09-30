@@ -1278,6 +1278,10 @@ void ARGratingSpec::assignGratingProperties(const ARGratingSpec& g)
 	aperture = g.aperture;
 	bIsMulti = g.bIsMulti;
 	m_multi = g.m_multi;
+
+	// these are not properties like the others, but we do this to put grating into a known state. 
+	_saved_contrast = 0;
+	_is_hidden = false;
 }
 
 
