@@ -13,6 +13,7 @@ struct msac_page
 	std::vector<alert::ARGratingSpec> gratings;
 	bool has_fixpt;
 	alert::ARContrastFixationPointSpec fixpt;
+	msac_page() : has_fixpt(false) {};
 };
 typedef struct msac_page msac_page_t;
 
