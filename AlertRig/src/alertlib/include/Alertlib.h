@@ -309,6 +309,7 @@ namespace alert
 		double crossOriDeg;		// orientation of the cross. 0 is standard horizontal/vertical, 45 would be rotated CCW relative to that.
 		virtual int draw();
 		virtual int drawOverlay(PIXEL_LEVEL overlayLevel);
+		void assignFixationPointProperties(const ARFixationPointSpec& f);	// assign all properties, but not vsgObject properties (handle, levels)
 	};
 
 	// Fixation point for cases where its visibility is controlled by contrast setting 
@@ -324,6 +325,7 @@ namespace alert
 		ARContrastFixationPointSpec& operator=(const ARFixationPointSpec& fixpt);
 		int draw();
 		int drawOverlay(PIXEL_LEVEL overlayLevel);
+		void assignFixationPointProperties(const ARFixationPointSpec& f);	// assign all properties, but not vsgObject properties (handle, levels)
 	};
 
 	// dots. Do not use contrast, but can have multi-dot. Each dot costs one level. 
