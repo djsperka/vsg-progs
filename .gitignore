@@ -19,3 +19,4 @@ build/
 .cproject
 AlertRig/src/*/Release
 AlertRig/src/*/Debug
+*.zip
