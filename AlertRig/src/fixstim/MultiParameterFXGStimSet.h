@@ -24,7 +24,7 @@ public:
 	virtual ~MultiParameterFXGStimSet() {};
 	void setCyclingDelay(int ndelay);
 
-	virtual int num_pages() {return 3;};
+	virtual size_t num_pages() {return 3;};
 	virtual int num_overlay_pages() {return 0;};
 	virtual int init(ARvsg& vsg, std::vector<int> pages);
 	virtual int handle_trigger(std::string& s);

@@ -25,7 +25,7 @@ public:
 	void setPursuitParameters(double durSeconds, double dirDegrees, double degPerSecond);
 	bool setUseCycling(bool bUseCycling, bool bSweepCycling = true);	// This can be called once, but throws error if called a second time.
 	//ZZZZZZ void setSweepNotPursuit(bool bSweep = true) { m_bSweepNotPursuit = bSweep; };
-	virtual int num_pages() { return 5; };
+	virtual size_t num_pages() { return 5; };
 	virtual int num_overlay_pages() { return 0; };
 	virtual int init(std::vector<int> pages, int num_stim_pages);
 	virtual int handle_trigger(const std::string& s, const std::string& args);

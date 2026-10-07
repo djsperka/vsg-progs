@@ -71,7 +71,7 @@ public:
 	void set_initial_parameters();
 	int setup_cycling(int firstpage, int stim1page, int stim0page, int lastpage);
 
-	virtual int num_pages() { return 4; };
+	virtual size_t num_pages() { return 4; };
 	virtual int num_overlay_pages() { return 0; };
 
 	virtual int init(std::vector<int> pages, int);

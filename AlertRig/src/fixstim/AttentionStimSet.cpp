@@ -631,7 +631,7 @@ int AttentionStimSet::init(std::vector<int> pages, int)
 	return status;
 }
 
-int AttentionStimSet::num_pages() 
+size_t AttentionStimSet::num_pages() 
 { 
 	if (m_vecInterleaved.empty())
 		return (int)(4 + m_vecDistractors.size());

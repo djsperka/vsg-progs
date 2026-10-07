@@ -33,7 +33,7 @@ class EQStimSet: public FXMultiGStimSet
 public:
 	EQStimSet(ARContrastFixationPointSpec& fixpt, vector<alert::ARGratingSpec>& vecGratings, std::vector<EQParams>& params, const char *pIPPort);
 	virtual ~EQStimSet();
-	virtual int num_pages() {return 9;};
+	virtual size_t num_pages() {return 9;};
 	virtual int num_overlay_pages() {return 0;};
 	virtual int init(std::vector<int> pages, int);
 	virtual int handle_trigger(const std::string& s, const std::string&);

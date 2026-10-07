@@ -11,7 +11,7 @@ private:
 public:
 	DPICalStimSet() : FXStimSet() {};
 	DPICalStimSet(alert::ARContrastFixationPointSpec& fixpt) : FXStimSet(fixpt) {};
-	int num_pages() { return 2; };
+	size_t num_pages() { return 2; };
 	int num_overlay_pages() { return 0; };
 	int init(std::vector<int> pages, int num_stim_pages);
 	void cleanup(std::vector<int> pages);

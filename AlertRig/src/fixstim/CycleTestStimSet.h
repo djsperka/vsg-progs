@@ -5,7 +5,7 @@ class CycleTestStimSet : public FXGStimSet
 {
 public:
 	CycleTestStimSet() {};
-	virtual int num_pages() { return 4; };
+	virtual size_t num_pages() { return 4; };
 	virtual int num_overlay_pages() { return 0; };
 	virtual int init(std::vector<int> pages, int);
 	virtual int handle_trigger(const std::string& s, const std::string&);

@@ -169,9 +169,9 @@ std::string MultiSacStimSet::toString() const
 	return s;
 }
 
-int MultiSacStimSet::num_pages() 
+size_t MultiSacStimSet::num_pages()
 {
-	int m = 0;
+	size_t m = 0;
 	for (auto trial : m_trials)
 		if (trial.pages.size() > m)
 			m = trial.pages.size();
@@ -183,7 +183,7 @@ int MultiSacStimSet::num_pages()
 
 int MultiSacStimSet::init(std::vector<int> pages, int)
 {
-	int nGratings = 0;
+	size_t nGratings = 0;
 	int nLevels = 0;
 
 	// save the pages to use
@@ -191,7 +191,7 @@ int MultiSacStimSet::init(std::vector<int> pages, int)
 
 	for (auto trial : m_trials)
 	{
-		int n = 0;
+		size_t n = 0;
 		for (auto page : trial.pages)
 			n += page.gratings.size();
 		nGratings = max(nGratings, n);
@@ -249,14 +249,14 @@ int MultiSacStimSet::handle_trigger(const std::string& s, const std::string&)
 	else if (s == "S")
 	{
 		// restore original contrast for gratings
-		for (int i = 0; i < m_nGratingsCurrentTrial; i++)
+		for (size_t i = 0; i < m_nGratingsCurrentTrial; i++)
 			this->grating(i).unhide();
 		status = 1;
 	}
 	else if (s == "s")
 	{
 		// set contrast to 0 for all gratings
-		for (int i = 0; i < m_nGratingsCurrentTrial; i++)
+		for (size_t i = 0; i < m_nGratingsCurrentTrial; i++)
 			this->grating(i).hide();
 		status = 1;
 	}
@@ -293,7 +293,7 @@ int MultiSacStimSet::handle_trigger(const std::string& s, const std::string&)
 		vsgSetDrawPage(vsgVIDEOPAGE, m_pages[0], vsgNOCLEAR);
 		m_uiCurrentPageIndex = 0;
 		this->fixpt().setContrast(0);
-		for (int i = 0; i < m_nGratingsCurrentTrial; i++)
+		for (size_t i = 0; i < m_nGratingsCurrentTrial; i++)
 			this->grating(i).hide();
 		status = 1;
 	}
@@ -313,7 +313,7 @@ int MultiSacStimSet::handle_trigger(const std::string& s, const std::string&)
 // Current draw page is left at the first page for this trial
 int MultiSacStimSet::drawCurrent()
 {
-	int nPages = m_trials[m_uiCurrentTrial].pages.size();
+	size_t nPages = m_trials[m_uiCurrentTrial].pages.size();
 	int iPage = 0;
 	m_nGratingsCurrentTrial = 0;
 	for (auto page : m_trials[m_uiCurrentTrial].pages)

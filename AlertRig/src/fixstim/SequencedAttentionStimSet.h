@@ -140,7 +140,7 @@ public:
 	SequencedAttentionStimSet(ARContrastFixationPointSpec& fixpt, vector<alert::ARGratingSpec>& vecGratings, vector<AttentionCue>& vecCuePairs, bool bCueCircles, bool bCuePoints, bool bCueIsDot, vector<AttentionSequenceTrialSpec>& trialSpecs);
 	~SequencedAttentionStimSet() {};
 
-	int num_pages() { return 24; };
+	size_t num_pages() { return 24; };
 	int num_overlay_pages() { return 0; };
 	virtual int init(std::vector<int> pages, int);
 	virtual int handle_trigger(const std::string& s, const std::string&);

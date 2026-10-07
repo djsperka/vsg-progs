@@ -115,7 +115,7 @@ public:
 	virtual ~MelStimSet() {};
 
 	// subclasses should return the number of pages they will need.
-	virtual int num_pages() {
+	virtual size_t num_pages() {
 		return 32;
 	};
 

@@ -48,7 +48,7 @@ public:
 	FXImageStimSet(alert::ARContrastFixationPointSpec& fixpt, const std::vector<FXImageInfo>& vecInfo, const FXGroupsVec& groupsVec, int nlevels = 230);
 	FXImageStimSet(const std::vector<FXImageInfo>& vecInfo, const FXGroupsVec& groupsVec, int nlevels = 230);
 
-	int num_pages()
+	size_t num_pages()
 	{
 		return 12;
 	}

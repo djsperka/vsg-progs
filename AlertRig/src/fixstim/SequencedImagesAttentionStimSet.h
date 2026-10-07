@@ -84,7 +84,7 @@ class SequencedImagesAttentionStimSet : public StimSet
 
 public:
 	SequencedImagesAttentionStimSet(ARContrastFixationPointSpec& fixpt, const ImageFilesPositions& ifp, vector<AttentionCue>& vecCuePairs, bool bUseCueCircles, bool bUseCuePoints, bool bCuePointIsDot, vector<AttentionSequenceTrialSpec>& trialSpecs);
-	int num_pages() { return 24; };
+	size_t num_pages() { return 24; };
 	int num_overlay_pages() { return 0; };
 	virtual int init(std::vector<int> pages, int);
 	virtual int handle_trigger(const std::string& s, const std::string&);

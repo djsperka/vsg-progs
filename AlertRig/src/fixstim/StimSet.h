@@ -19,7 +19,7 @@ public:
 	virtual ~StimSet() {};
 
 	// subclasses should return the number of pages they will need.
-	virtual int num_pages() = 0;
+	virtual size_t num_pages() = 0;
 
 	// subclasses should return the number of pages they will need.
 	virtual int num_overlay_pages() = 0;
@@ -138,27 +138,27 @@ public:
 		return m_gratings[0]; 
 	};
 
-	ARGratingSpec& grating(int i)
+	ARGratingSpec& grating(size_t i)
 	{
-		BOOST_ASSERT(m_gratings.size() > (unsigned int)i);
+		BOOST_ASSERT(m_gratings.size() > i);
 		return m_gratings[i];
 	};
 
-	const ARGratingSpec& grating(int i) const
+	const ARGratingSpec& grating(size_t i) const
 	{
-		BOOST_ASSERT(m_gratings.size() > (unsigned int)i);
+		BOOST_ASSERT(m_gratings.size() > i);
 		return m_gratings[i];
 	};
 
-	int contrast(int i) const
+	int contrast(size_t i) const
 	{
-		BOOST_ASSERT(m_contrasts.size() > (unsigned int)i);
+		BOOST_ASSERT(m_contrasts.size() > i);
 		return m_contrasts[i];
 	}
 
-	int distractor_contrast(int i) const
+	int distractor_contrast(size_t i) const
 	{
-		BOOST_ASSERT(m_distractor_contrasts.size() > (unsigned int)i);
+		BOOST_ASSERT(m_distractor_contrasts.size() > i);
 		return m_distractor_contrasts[i];
 	}
 
@@ -275,7 +275,7 @@ class GratingStimSet: public FXGStimSet
 public:
 	GratingStimSet(alert::ARGratingSpec& g) : FXGStimSet(g), m_page(-1) {};
 	virtual ~GratingStimSet() {};
-	virtual int num_pages() { return 1;};
+	virtual size_t num_pages() { return 1;};
 	virtual int num_overlay_pages() { return 0;};
 	virtual int init(std::vector<int> pages, int);
 	virtual int handle_trigger(const std::string& s, const std::string&);
@@ -295,7 +295,7 @@ public:
 	FixptGratingStimSet(ARContrastFixationPointSpec& f) : FXGStimSet(f) {};
 	FixptGratingStimSet() : FXGStimSet() {};
 	virtual ~FixptGratingStimSet() {};
-	virtual int num_pages() { return 1; };
+	virtual size_t num_pages() { return 1; };
 	virtual int num_overlay_pages() { return 0; };
 	virtual int init(std::vector<int> pages, int);
 	virtual int handle_trigger(const std::string& s, const std::string&);
@@ -311,7 +311,7 @@ public:
 	FixptMultiGratingStimSet(ARContrastFixationPointSpec& f) : FXMultiGStimSet(f), m_page(-1) {};
 	FixptMultiGratingStimSet() : FXMultiGStimSet() {};
 	virtual ~FixptMultiGratingStimSet() {};
-	virtual int num_pages() { return 1; };
+	virtual size_t num_pages() { return 1; };
 	virtual int num_overlay_pages() { return 0; };
 	virtual int init(std::vector<int> pages, int);
 	virtual int handle_trigger(const std::string& s, const std::string&);
@@ -328,7 +328,7 @@ public:
 	CRGStimSet(alert::ARGratingSpec& g, int frames_per_term, const std::string& sequence, std::vector<double> contrasts, bool balanced = false);
 	CRGStimSet(alert::ARContrastFixationPointSpec& f, alert::ARGratingSpec& g, int frames_per_term, const std::string& sequence, bool balanced = false);
 	CRGStimSet(alert::ARGratingSpec& g, int frames_per_term, const std::string& sequence, bool balanced = false);
-	virtual int num_pages() {return 2;};
+	virtual size_t num_pages() {return 2;};
 	virtual int num_overlay_pages() {return 0;};
 	virtual int init(std::vector<int> pages, int);
 	virtual int handle_trigger(const std::string& s, const std::string&);
@@ -355,7 +355,7 @@ public:
 	FlashStimSet(std::vector< COLOR_TYPE >& colors, int frames_per_term, const std::string& sequence, bool balanced = false);
 	FlashStimSet(alert::ARContrastFixationPointSpec& f, int frames_per_term, const std::string& sequence, bool balanced = false);
 	FlashStimSet(int frames_per_term, const std::string& sequence, bool balanced = false);
-	virtual int num_pages() {return (int)(1+m_colors.size());};
+	virtual size_t num_pages() {return (int)(1+m_colors.size());};
 	virtual int num_overlay_pages() {return 0;};
 	virtual int init(std::vector<int> pages, int);
 	virtual int handle_trigger(const std::string& s, const std::string&);
@@ -375,7 +375,7 @@ class CBarStimSet: public StimSet
 {
 public:
 	CBarStimSet(COLOR_TYPE& c, double w, double h, double dps, std::vector<double> parameters) : StimSet(), m_barWidth(w), m_barHeight(h), m_degreesPerSecond(dps), m_orientations(parameters), m_barOffsetXPixels(1024), m_barOffsetYPixels(512), m_barMaxWidthKludge(1.2) {	m_iterator = m_orientations.begin(); m_rect.color = c; };
-	virtual int num_pages() {return 2;};
+	virtual size_t num_pages() {return 2;};
 	virtual int num_overlay_pages() {return 0;};
 	virtual int init(std::vector<int> pages, int);
 	virtual int handle_trigger(const std::string& s, const std::string&);
@@ -408,7 +408,7 @@ public:
 	DotStimSet(alert::ARContrastFixationPointSpec& f, double x, double y, COLOR_TYPE color, double diameter, double speed, double density, int dotsize, vector<double>& angles);
 	DotStimSet(double x, double y, COLOR_TYPE color, double speed, double diameter, double density, int dotsize, vector<double>& angles);
 	~DotStimSet();
-	virtual int num_pages() {return 3;};
+	virtual size_t num_pages() {return 3;};
 	virtual int num_overlay_pages() {return 0;};
 	virtual int init(std::vector<int> pages, int);
 	virtual int handle_trigger(const std::string& s, const std::string&);
@@ -475,7 +475,7 @@ public:
 	DanishStimSet(alert::ARGratingSpec& g, std::vector<double> parameters) : FXMultiGStimSet(), m_ods(parameters), m_current_page(-1) { add_grating(g); };
 	DanishStimSet(alert::ARContrastFixationPointSpec& f, alert::ARGratingSpec& g, alert::ARGratingSpec& hole, std::vector<double> parameters) : FXMultiGStimSet(f), m_ods(parameters), m_current_page(-1) { add_grating(g); add_grating(hole); };
 	DanishStimSet(alert::ARGratingSpec& g, alert::ARGratingSpec& hole, std::vector<double> parameters) : FXMultiGStimSet(), m_ods(parameters), m_current_page(-1) {add_grating(g); add_grating(hole); };
-	virtual int num_pages() {return 2;};
+	virtual size_t num_pages() {return 2;};
 	virtual int num_overlay_pages() {return 0;};
 	virtual int init(std::vector<int> pages, int);
 	virtual int handle_trigger(const std::string& s, const std::string&);
@@ -493,7 +493,7 @@ public:
 	CounterphaseStimSet(ARContrastFixationPointSpec& f, ARXhairSpec& h, ARGratingSpec& g, std::vector<double> parameters, double tf, bool bStepTW) : FXGStimSet(g, f), m_phases(parameters), m_tf(tf), m_bStepTW(bStepTW), m_current_page(-1) {};
 	CounterphaseStimSet(ARContrastFixationPointSpec& f, ARGratingSpec& g, std::vector<double> parameters, double tf, bool bStepTW) : FXGStimSet(g, f), m_phases(parameters), m_tf(tf), m_bStepTW(bStepTW), m_current_page(-1) {};
 	CounterphaseStimSet(ARGratingSpec& g, std::vector<double> parameters, double tf, bool bStepTW) : FXGStimSet(g), m_phases(parameters), m_tf(tf), m_bStepTW(bStepTW), m_current_page(-1) {};
-	virtual int num_pages() { return 2; };
+	virtual size_t num_pages() { return 2; };
 	virtual int num_overlay_pages() { return 0; };
 	virtual int init(std::vector<int> pages, int);
 	virtual int handle_trigger(const std::string& s, const std::string&);

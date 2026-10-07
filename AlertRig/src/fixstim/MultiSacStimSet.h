@@ -11,6 +11,8 @@
 struct msac_page
 {
 	std::vector<alert::ARGratingSpec> gratings;
+	bool has_fixpt;
+	alert::ARContrastFixationPointSpec fixpt;
 };
 typedef struct msac_page msac_page_t;
 
@@ -38,7 +40,7 @@ bool parse_msac_trials_file(const std::string& filename, msac_trial_list_t& tria
 class MultiSacStimSet : public FXMultiGStimSet
 {
 private:
-	ARContrastFixationPointSpec m_fixpt;
+	//ARContrastFixationPointSpec m_fixpt;
 	msac_trial_list_t m_trials;
 	unsigned int m_uiCurrentTrial;
 	unsigned int m_nGratingsCurrentTrial;
@@ -54,7 +56,7 @@ public:
 	virtual ~MultiSacStimSet() {};
 
 	// subclasses should return the number of pages they will need.
-	virtual int num_pages();
+	virtual size_t num_pages();
 
 	// subclasses should return the number of pages they will need.
 	virtual int num_overlay_pages() {
