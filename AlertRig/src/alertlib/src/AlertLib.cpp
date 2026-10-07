@@ -782,6 +782,16 @@ int ARFixationPointSpec::drawOverlay(PIXEL_LEVEL ovLevel)
 	return status;
 }
 
+void ARFixationPointSpec::assignFixationPointProperties(const ARFixationPointSpec& f)
+{
+	this->x = f.x;
+	this->y = f.y;
+	this->d = f.d;
+	this->color = f.color;
+	this->isDot = f.isDot;
+	this->penSizePixels = f.penSizePixels;
+	this->crossOriDeg = f.crossOriDeg;
+}
 
 ARDotSpec& ARDotSpec::operator=(const ARFixationPointSpec& fixpt)
 {
@@ -887,6 +897,17 @@ int ARContrastFixationPointSpec::drawOverlay(PIXEL_LEVEL ovLevel)
 	//vsgSetPen1(0);
 	//vsgDrawOval(x, -1*y, d, d);
 	//return 0;
+}
+
+void ARContrastFixationPointSpec::assignFixationPointProperties(const ARFixationPointSpec& f)
+{
+	this->x = f.x;
+	this->y = f.y;
+	this->d = f.d;
+	this->color = f.color;
+	this->isDot = f.isDot;
+	this->penSizePixels = f.penSizePixels;
+	this->crossOriDeg = f.crossOriDeg;
 }
 
 ARContrastCircleSpec::ARContrastCircleSpec(const ARContrastCircleSpec& c) : ARContrastFixationPointSpec(c), linewidth(c.linewidth)
