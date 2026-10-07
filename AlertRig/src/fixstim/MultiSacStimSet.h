@@ -45,10 +45,16 @@ private:
 	msac_trial_list_t m_trials;
 	unsigned int m_uiCurrentTrial;
 	unsigned int m_nGratingsCurrentTrial;
+	unsigned int m_nFixptsCurrentTrial;		// count of fixpts, including the main fixpt, for current trial
 	unsigned int m_uiCurrentPageIndex;		// When advancing through pages, this keeps track of which page is displayed, e.g. vsgSetDrawPage(vsgVIDEOPAGE, m_pages[m_uiCurrentPageIndex], vsgNOCLEAR)
 	std::vector<int> m_pages;
 
+	// Each page can have a different fixpt than the previous page. This vector will hold all fixpts needed for all trials. That is, 
+	// we will count fixpts for each trial, keeping the maximum used. This vector will hold that many fixpts. Please do not use this->fixpt(), and 
+	// instead use m_vecFixpts[] whenever a fixpt is to be drawn/setContrast/etc.
+	std::vector<alert::ARContrastFixationPointSpec> m_vecFixpts;
 	int drawCurrent();
+	void setContrastAllFixpts(int contrast);
 
 public:
 

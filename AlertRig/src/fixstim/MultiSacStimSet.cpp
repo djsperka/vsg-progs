@@ -57,14 +57,24 @@ std::istream& operator>>(std::istream& in, msac_page_t& page)
 		{
 			std::vector<std::string> result;
 			boost::algorithm::split(result, boost::algorithm::trim_copy(tmp), boost::is_any_of(" "));
-			if (result.size() == 2 && boost::algorithm::iequals(result[0], "G"))
+			if (result.size() == 2)
 			{
-				alert::ARGratingSpec grating;
-				if (parse_grating(result[1], grating))
-					throw "Error parsing grating";
-				else
+				if (boost::algorithm::iequals(result[0], "G"))
 				{
-					page.gratings.push_back(grating);
+					alert::ARGratingSpec grating;
+					if (parse_grating(result[1], grating))
+						throw "Error parsing grating";
+					else
+					{
+						page.gratings.push_back(grating);
+					}
+				}
+				else if (boost::algorithm::iequals(result[0], "F"))
+				{
+					if (parse_fixation_point(result[1], page.fixpt))
+						throw "Error parsing fixation point";
+					else
+						page.has_fixpt = true;
 				}
 			}
 		}
@@ -180,21 +190,40 @@ size_t MultiSacStimSet::num_pages()
 
 // Figure out how many gratings are needed (max number used in a trial)
 // initialize that many gratings in gratings()
+// update: Figure out how many extra fixpts are needed. These are specified in the config file, 
+// and there can be one per page. The original/main fixpt is not included in this count.
 
 int MultiSacStimSet::init(std::vector<int> pages, int)
 {
 	size_t nGratings = 0;
+	size_t nFixpts = 0;
 	int nLevels = 0;
 
 	// save the pages to use
 	m_pages = pages;
 
+	// figure out the MAX number of gratings used for any trial.
+	// Do same for fixpts. The main fixpt is automatically counted on each trial, 
+	// but be sure to count the fixpt on the first page just once (because the first 
+	// page could have a different fixpt specified).
 	for (auto trial : m_trials)
 	{
-		size_t n = 0;
+		size_t nG = 0;
+		size_t nF = 0;
+		bool bFirstPage = true;
 		for (auto page : trial.pages)
-			n += page.gratings.size();
-		nGratings = max(nGratings, n);
+		{
+			nG += page.gratings.size();
+			if (bFirstPage)
+			{
+				nF++;
+				bFirstPage = false;
+			}
+			else if (page.has_fixpt)
+				nF++;
+		}
+		nGratings = max(nGratings, nG);
+		nFixpts = max(nFixpts, nF);
 	}
 
 	// figure out how many levels per grating. Max of 12 is arbitrary.
@@ -219,8 +248,13 @@ int MultiSacStimSet::init(std::vector<int> pages, int)
 		this->grating(i).init(nLevels);
 	}
 
-	// init the fixpt
-	this->fixpt().init(2);
+	// init the fixpts. Remember, we are not going to use this->fixpt() for drawing! 
+	for (int i = 0; i < nFixpts; i++)
+	{
+		ARContrastFixationPointSpec f;
+		f.init(2);
+		m_vecFixpts.push_back(f);
+	}
 
 	//// background page will not change
 	//vsgSetDrawPage(vsgVIDEOPAGE, m_pageBackground, vsgBACKGROUND);
@@ -238,12 +272,12 @@ int MultiSacStimSet::handle_trigger(const std::string& s, const std::string&)
 	int status = 0;
 	if (s == "F")
 	{
-		this->fixpt().setContrast(100);
+		this->setContrastAllFixpts(100);
 		status = 1;
 	}
 	else if (s == "f")
 	{
-		this->fixpt().setContrast(0);
+		this->setContrastAllFixpts(0);
 		status = 1;
 	}
 	else if (s == "S")
@@ -292,12 +326,20 @@ int MultiSacStimSet::handle_trigger(const std::string& s, const std::string&)
 		// page! The "a" moves to the correct page and re-draws. This will allow trials to be ended and re-started. 
 		vsgSetDrawPage(vsgVIDEOPAGE, m_pages[0], vsgNOCLEAR);
 		m_uiCurrentPageIndex = 0;
-		this->fixpt().setContrast(0);
+		this->setContrastAllFixpts(0);
 		for (size_t i = 0; i < m_nGratingsCurrentTrial; i++)
 			this->grating(i).hide();
 		status = 1;
 	}
 	return status;
+}
+
+void MultiSacStimSet::setContrastAllFixpts(int contrast)
+{
+	for (size_t i = 0; i < m_nFixptsCurrentTrial; i++)
+	{
+		m_vecFixpts[i].setContrast(contrast);
+	}
 }
 
 
@@ -316,6 +358,8 @@ int MultiSacStimSet::drawCurrent()
 	size_t nPages = m_trials[m_uiCurrentTrial].pages.size();
 	int iPage = 0;
 	m_nGratingsCurrentTrial = 0;
+	m_nFixptsCurrentTrial = 0;
+	size_t iFixptIndex = -1;			// keep track of the last fixpt drawn - for pages where no fixpt is specified, use this one.
 	for (auto page : m_trials[m_uiCurrentTrial].pages)
 	{
 		// clear vsg page
@@ -330,15 +374,38 @@ int MultiSacStimSet::drawCurrent()
 			m_nGratingsCurrentTrial++;
 		}
 
-		// draw fixpt
-		this->fixpt().draw();
-		this->fixpt().setContrast(0);
+		// m_nFixptsCurrentTrial is 0 when we are looking at the first page.
+		if (m_nFixptsCurrentTrial == 0)
+		{
+			if (!page.has_fixpt)
+			{
+				m_vecFixpts[m_nFixptsCurrentTrial].assignFixationPointProperties(this->fixpt());
+			}
+			else
+			{
+				m_vecFixpts[m_nFixptsCurrentTrial].assignFixationPointProperties(page.fixpt);
+			}
+			m_nFixptsCurrentTrial = 1;
+		}
+		else
+		{
+			if (page.has_fixpt)
+			{
+				// fixpt change
+				m_vecFixpts[m_nFixptsCurrentTrial].assignFixationPointProperties(page.fixpt);
+				m_nFixptsCurrentTrial++;
+			}
+		}
+
+		// draw latest fixpt. Contrast will be set to 0 after all pages drawn.
+		m_vecFixpts[m_nFixptsCurrentTrial-1].draw();
 
 		// increment page
 		iPage++;
 	}
+	this->setContrastAllFixpts(0);
 	vsgSetDrawPage(vsgVIDEOPAGE, m_pages[0], vsgNOCLEAR);
-	//cerr << "Trial " << m_uiCurrentTrial << " npages " << nPages << " at page " << m_pages[0] << endl;
+	cerr << "Trial " << m_uiCurrentTrial << " npages " << nPages << " at page " << m_pages[0] << endl;
 	return 0;
 }
 
