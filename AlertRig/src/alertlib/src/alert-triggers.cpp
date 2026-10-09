@@ -129,7 +129,7 @@ bool Trigger::checkBinary(int input)
 			m_matchedKey = getKey();
 		}
 		m_in_last = current;
-		//std::cerr << "checkBinary (" << getKey() << "/"  << std::hex << input << ") current " << current << " m_in_last " << m_in_last << " m_in_mask " << m_in_mask <<  " matched " << bValue << std::endl;
+		//std::cerr << "checkBinary(" << getKey() << "/"  << std::hex << input << ") current " << current << " m_in_last " << m_in_last << " m_in_mask " << m_in_mask <<  " matched " << bValue << std::endl;
 	}
 	else
 	{
@@ -137,7 +137,7 @@ bool Trigger::checkBinary(int input)
 		// one bit, then all must be inverted. Note that the FIRST trigger expected is the value
 		// given as i_in_val (without the AR_TRIGGER_TOGGLE bit). Subsequent triggers are expected
 		// to be toggled. 
-		//std::cerr << "checkBinary(" << getKey() << "/" << std::hex << input << "): current " << std::hex << current << " last " << m_in_last << " ((~current) & m_in_mask) " << ((~current) & m_in_mask);
+		//std::cerr << "checkBinaTT(" << getKey() << "/" << std::hex << input << "): current " << std::hex << current << " last " << m_in_last << " ((~current) & m_in_mask) " << ((~current) & m_in_mask);
 		int temp_m_in_last = m_in_last;
 		if (((~current) & m_in_mask) == m_in_last)
 		{
