@@ -434,6 +434,12 @@ void FixUStim::init_triggers(TSpecificFunctor<FixUStim>* pfunctor, int npages)
 	// 2 pages presumes that a second trigger line is available and wired and ready
 	// 3 pages presumes a third. StimSets must be able to react to these triggers if they are to be used. 
 
+
+	// 10-9-26
+	// The "u" trigger output (0x20) goes to port 6 on the 1401. One of the two rigs (Stacey) has that port wired for 
+	// a different purpose, and so the out triggers are not seen. On Alyssa rig, the out triggers are seen. 
+	// This caused a bug in the MultiSacStimSet, which was originally using the U trigger. 
+	// The fix is to change MultiSac to use the v trigger, and receive the output (0x10) on PORT7 (both rigs are wired like this). 
 	if (abs(npages) == 1)
 	{
 		triggers().addTrigger(new FunctorCallbackTrigger("v", 0x20, 0x20 | AR_TRIGGER_TOGGLE, 0x10, 0x10 | AR_TRIGGER_TOGGLE, pfunctor));

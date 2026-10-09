@@ -106,7 +106,6 @@ int run_fixstim();
 int prargs_callback(int c, string& arg);
 int prargs_server_callback(int c, string& arg);
 void usage();
-void init_triggers();
 void init_globals();
 int callback(int &output, const CallbackTrigger* ptrig);
 bool loadGammaData(const std::string& filename);
@@ -429,32 +428,6 @@ void init_globals()
 	cout << "serverLoop(): clearing all vsg objects except dummy object (" << ARvsg::instance().dummyObjectHandle() << ")" << endl;
 	ARvsg::instance().reset_available_levels();
 	for (int i=1; i<vsgGetSystemAttribute(vsgNUMOBJECTS); i++) { if (i != ARvsg::instance().dummyObjectHandle()) vsgObjDestroy(i); }
-}
-
-void init_triggers()
-{
-	triggers.addTrigger(new CallbackTrigger("F", 0x2, 0x2, 0x2, 0x2, callback));
-	triggers.addTrigger(new CallbackTrigger("S", 0x4, 0x4, 0x4, 0x4, callback));
-	triggers.addTrigger(new CallbackTrigger("s", 0x4, 0x0, 0x4, 0x0, callback));
-	triggers.addTrigger(new CallbackTrigger("X", 0x6, 0x0, 0x6, 0x0, callback));
-	triggers.addTrigger(new CallbackTrigger("a", 0x8, 0x8|AR_TRIGGER_TOGGLE, 0x8, 0x8|AR_TRIGGER_TOGGLE, callback));
-	triggers.addTrigger(new CallbackTrigger("u", 0x20, 0x20|AR_TRIGGER_TOGGLE, 0x10, 0x10|AR_TRIGGER_TOGGLE, callback));
-	triggers.addTrigger(new CallbackTrigger("v", 0x40, 0x40|AR_TRIGGER_TOGGLE, 0x20, 0x20|AR_TRIGGER_TOGGLE, callback));
-
-	// hack
-	triggers.addTrigger(new CallbackTrigger("1", 0, 0, 0, 0, callback));
-	triggers.addTrigger(new CallbackTrigger("2", 0, 0, 0, 0, callback));
-	triggers.addTrigger(new CallbackTrigger("3", 0, 0, 0, 0, callback));
-	triggers.addTrigger(new CallbackTrigger("4", 0, 0, 0, 0, callback));
-	triggers.addTrigger(new CallbackTrigger("5", 0, 0, 0, 0, callback));
-	triggers.addTrigger(new CallbackTrigger("6", 0, 0, 0, 0, callback));
-	triggers.addTrigger(new CallbackTrigger("7", 0, 0, 0, 0, callback));
-
-
-	// quit trigger
-	triggers.addTrigger(new QuitTrigger("q", 0x10, 0x10, 0xff, 0x0, 0));
-
-	return;
 }
 
 int callback(int &output, const CallbackTrigger* ptrig)
